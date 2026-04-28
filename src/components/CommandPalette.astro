@@ -1,0 +1,344 @@
+---
+const items = [
+  { title: 'BlackBaud', desc: 'CRM · donor records', href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/', tags: 'crm donors blackbaud raisers edge', external: true, group: 'Tools' },
+  { title: 'GoHighLevel', desc: 'Marketing automation platform', href: 'https://my.favor.international', tags: 'ghl marketing automation', external: true, group: 'Tools' },
+  { title: 'RDD Reports', desc: 'KPI + Revenue dashboards', href: '/rdd', tags: 'rdd reports kpi revenue dashboard leadership', external: false, group: 'Tools' },
+  { title: 'Media Folder', desc: 'Photos & videos from the field', href: 'https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU', tags: 'photos videos media drive field', external: true, group: 'Tools' },
+  { title: 'Marketing Materials', desc: 'Live materials catalog', href: 'https://docs.google.com/spreadsheets/d/1voiT9f4oixPz0cRAJrQTyik-PqCwP3hGGhC-br1PjOU/edit?usp=sharing', tags: 'marketing materials sheet catalog', external: true, group: 'Tools' },
+  { title: 'Marketing Request', desc: 'New project to the team', href: 'https://form.asana.com/?k=ZLVP4wa-hVh36WUjOH4FyQ&d=1200803238481574', tags: 'marketing project asana request brief', external: true, group: 'Tools' },
+  { title: 'Time Off', desc: 'Submit PTO via Paycom', href: 'https://phx.us-west.paycomonline.net/v4/ee/web.php/accruals/time-off', tags: 'pto vacation time off accruals paycom', external: true, group: 'Tools' },
+  { title: 'Time Sheet', desc: 'Punch in & out — Paycom', href: 'https://www.paycomonline.net/v4/ee/web.php/app/login', tags: 'paycom timesheet punch clock in out', external: true, group: 'Tools' },
+  { title: 'Paycom Expenses', desc: 'Expense management & cards', href: 'https://www.paycomonline.net/v4/ee/web.php/app/login', tags: 'paycom expenses cards reimbursement', external: true, group: 'Tools' },
+  { title: 'Marketing Expense', desc: 'Submit marketing expense — not Paycom', href: 'https://auth.favorintl.org/documents/doc-form/67e446463ff018ff4f51c3a8?locale=en-US', tags: 'marketing expense doc form favor auth', external: true, group: 'Tools' },
+
+  { title: 'KPI Reporting Dashboard', desc: 'Performance metrics — Sheets', href: 'https://docs.google.com/spreadsheets/d/1-ZhLZsU9fQiTEMoJ3PTVonG-IF01l44g9KBcIByLX04/edit?gid=1895182164#gid=1895182164', tags: 'kpi rdd reporting dashboard metrics sheet', external: true, group: 'Reports' },
+  { title: 'Revenue Dashboard', desc: 'Goals & RDDs', href: 'https://favorintl.org/goals/rdds', tags: 'revenue rdd goals dashboard', external: true, group: 'Reports' },
+
+  { title: 'favorintl.org', desc: 'Public website', href: 'https://www.favorintl.org', tags: 'website public org', external: true, group: 'External' },
+  { title: 'Our Story', desc: 'About Favor International', href: 'https://www.favorintl.org/about/our-story', tags: 'about story history', external: true, group: 'External' },
+  { title: 'Founder · Carole Ward', desc: 'Carole Ward profile', href: 'https://www.favorintl.org/about/our-story/founder', tags: 'carole ward founder', external: true, group: 'External' },
+  { title: 'Hold the Ropes (Donate)', desc: 'Partner financially', href: 'https://www.favorintl.org/donate', tags: 'donate give hold the ropes partner', external: true, group: 'External' },
+  { title: 'The Book', desc: '"Send Me Where No One Wants to Go"', href: 'https://www.favorintl.org/books', tags: 'book carole ward send me where no one', external: true, group: 'External' },
+  { title: 'YouTube', desc: 'Channel · field updates', href: 'https://www.youtube.com/channel/UCIv8yRH1mO5s_JLzqG5O6Ug', tags: 'youtube videos channel', external: true, group: 'External' },
+  { title: 'Facebook', desc: '@FavorIntlOrg', href: 'https://www.facebook.com/FavorIntlOrg', tags: 'facebook social fb', external: true, group: 'External' },
+  { title: 'Instagram', desc: '@favorintlorg', href: 'https://www.instagram.com/favorintlorg/', tags: 'instagram ig social', external: true, group: 'External' },
+  { title: 'LinkedIn', desc: 'Favor International', href: 'https://www.linkedin.com/company/favor-international/', tags: 'linkedin social', external: true, group: 'External' },
+];
+---
+<div class="cmdk" id="cmdk" hidden role="dialog" aria-modal="true" aria-label="Hub search">
+  <div class="cmdk__overlay" data-cmdk-close></div>
+  <div class="cmdk__panel">
+    <div class="cmdk__head">
+      <svg class="cmdk__search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input
+        type="text"
+        id="cmdk-input"
+        placeholder="Jump to anything…"
+        autocomplete="off"
+        autocapitalize="off"
+        autocorrect="off"
+        spellcheck="false"
+        aria-label="Search"
+      />
+      <kbd class="cmdk__esc" data-cmdk-close>esc</kbd>
+    </div>
+    <ul class="cmdk__list" id="cmdk-list" role="listbox"></ul>
+    <div class="cmdk__empty" id="cmdk-empty" hidden>
+      No matches. Try another search.
+    </div>
+    <div class="cmdk__foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd>&nbsp;navigate</span>
+      <span><kbd>↵</kbd>&nbsp;open</span>
+      <span><kbd>esc</kbd>&nbsp;close</span>
+    </div>
+  </div>
+</div>
+
+<script is:inline define:vars={{ items }}>
+  const cmdk = document.getElementById('cmdk');
+  const input = document.getElementById('cmdk-input');
+  const list = document.getElementById('cmdk-list');
+  const empty = document.getElementById('cmdk-empty');
+  let selected = 0;
+  let current = items;
+
+  const norm = (s) => (s || '').toLowerCase();
+
+  function score(item, q) {
+    if (!q) return 1;
+    const t = norm(item.title);
+    const d = norm(item.desc);
+    const tags = norm(item.tags);
+    if (t.startsWith(q)) return 4;
+    if (t.includes(q)) return 3;
+    if (tags.includes(q)) return 2;
+    if (d.includes(q)) return 1;
+    return 0;
+  }
+
+  function filter(q) {
+    const lq = norm(q.trim());
+    if (!lq) return items;
+    return items
+      .map((i) => ({ i, s: score(i, lq) }))
+      .filter((x) => x.s > 0)
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.i);
+  }
+
+  function render(arr) {
+    current = arr;
+    if (!arr.length) {
+      list.innerHTML = '';
+      empty.hidden = false;
+      return;
+    }
+    empty.hidden = true;
+    let html = '';
+    let lastGroup = null;
+    arr.forEach((item, idx) => {
+      if (item.group !== lastGroup) {
+        html += `<li class="cmdk__group" aria-hidden="true">${item.group}</li>`;
+        lastGroup = item.group;
+      }
+      html += `<li role="option" data-idx="${idx}" data-href="${item.href}" data-ext="${!!item.external}">
+        <span class="cmdk__row-title">${item.title}</span>
+        <span class="cmdk__row-desc">${item.desc}</span>
+        <span class="cmdk__row-arrow" aria-hidden="true">↵</span>
+      </li>`;
+    });
+    list.innerHTML = html;
+    selected = 0;
+    highlight();
+  }
+
+  function highlight() {
+    const rows = list.querySelectorAll('li[role="option"]');
+    rows.forEach((li) => li.classList.remove('is-sel'));
+    const target = rows[selected];
+    if (target) {
+      target.classList.add('is-sel');
+      target.scrollIntoView({ block: 'nearest' });
+    }
+  }
+
+  function open() {
+    cmdk.hidden = false;
+    input.value = '';
+    render(items);
+    requestAnimationFrame(() => input.focus());
+    document.body.style.overflow = 'hidden';
+  }
+  function close() {
+    cmdk.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  function navigateTo(item) {
+    if (!item) return;
+    if (item.external) window.open(item.href, '_blank', 'noopener');
+    else window.location.href = item.href;
+    close();
+  }
+
+  // Hotkey: Cmd-K, Ctrl-K, or "/"
+  document.addEventListener('keydown', (e) => {
+    const k = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+    const slash = e.key === '/' && !cmdk.hidden === false && !['INPUT','TEXTAREA'].includes(document.activeElement.tagName);
+    if (k) { e.preventDefault(); cmdk.hidden ? open() : close(); return; }
+    if (slash) { e.preventDefault(); open(); return; }
+    if (cmdk.hidden) return;
+
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selected = Math.min(selected + 1, current.length - 1);
+      highlight();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selected = Math.max(selected - 1, 0);
+      highlight();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      navigateTo(current[selected]);
+    }
+  });
+
+  input.addEventListener('input', () => render(filter(input.value)));
+
+  list.addEventListener('click', (e) => {
+    const li = e.target.closest('li[role="option"]');
+    if (!li) return;
+    selected = +li.dataset.idx;
+    navigateTo(current[selected]);
+  });
+
+  document.querySelectorAll('[data-cmdk-close]').forEach((el) => {
+    el.addEventListener('click', (e) => { e.preventDefault(); close(); });
+  });
+
+  // Public trigger from header button
+  document.querySelectorAll('[data-cmdk-open]').forEach((el) => {
+    el.addEventListener('click', (e) => { e.preventDefault(); open(); });
+  });
+</script>
+
+<style is:global>
+  .cmdk {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: start center;
+    padding: 12vh 16px 16px;
+  }
+  .cmdk__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(13, 15, 12, 0.45);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: cmdkFade 200ms ease;
+  }
+  .cmdk__panel {
+    position: relative;
+    width: min(620px, 100%);
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: 18px;
+    box-shadow: 0 30px 80px -20px rgba(13, 15, 12, 0.4), 0 0 0 1px rgba(13, 15, 12, 0.04);
+    overflow: hidden;
+    animation: cmdkRise 240ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes cmdkFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes cmdkRise {
+    from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .cmdk__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 16px 14px;
+    border-bottom: 1px solid var(--rule);
+  }
+  .cmdk__search-icon { color: var(--ink-soft); flex-shrink: 0; }
+  .cmdk__head input {
+    flex: 1;
+    font-family: var(--body);
+    font-size: 16px;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--ink);
+    padding: 4px 0;
+  }
+  .cmdk__head input::placeholder { color: var(--ink-soft); opacity: 0.6; }
+  .cmdk__esc {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: var(--paper-warm);
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+    cursor: pointer;
+  }
+  .cmdk__list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 8px 6px;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  .cmdk__list::-webkit-scrollbar { width: 6px; }
+  .cmdk__list::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 3px; }
+
+  .cmdk__group {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 12px 12px 6px;
+  }
+  .cmdk__group:first-child { padding-top: 6px; }
+
+  .cmdk__list li[role="option"] {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 120ms ease;
+  }
+  .cmdk__list li[role="option"] .cmdk__row-title {
+    font-family: var(--display);
+    font-size: 17px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    color: var(--ink);
+    line-height: 1.1;
+  }
+  .cmdk__list li[role="option"] .cmdk__row-desc {
+    font-size: 12px;
+    color: var(--ink-soft);
+    grid-column: 1;
+    line-height: 1.3;
+  }
+  .cmdk__list li[role="option"] .cmdk__row-arrow {
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--ink-soft);
+    opacity: 0;
+    transition: opacity 120ms ease, color 120ms ease;
+    grid-row: span 2;
+    align-self: center;
+  }
+  .cmdk__list li[role="option"]:hover,
+  .cmdk__list li[role="option"].is-sel {
+    background: var(--paper-warm);
+  }
+  .cmdk__list li[role="option"].is-sel .cmdk__row-title { color: var(--green-deep); }
+  .cmdk__list li[role="option"].is-sel .cmdk__row-arrow {
+    opacity: 1;
+    color: var(--green);
+  }
+
+  .cmdk__empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 14px;
+    font-style: italic;
+    font-family: var(--display);
+  }
+
+  .cmdk__foot {
+    border-top: 1px solid var(--rule);
+    padding: 10px 16px;
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .cmdk__foot kbd {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: var(--paper-warm);
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--rule);
+    margin: 0 1px;
+  }
+</style>

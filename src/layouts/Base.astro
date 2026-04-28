@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
   title?: string;
@@ -31,5 +32,6 @@ const {
   </head>
   <body>
     <slot />
+    <CommandPalette />
   </body>
 </html>
