@@ -1,0 +1,30 @@
+---
+const items = [
+  { src: '/images/field-men-joyful.jpg', cls: 'g1', cap: 'Joy in the village — Northern Uganda' },
+  { src: '/images/field-schoolgirls.jpg', cls: 'g2', cap: 'Favor Primary School' },
+  { src: '/images/field-girls-pink.jpg', cls: 'g3', cap: 'Discipleship in motion' },
+  { src: '/images/field-men-shirts.jpg', cls: 'g4', cap: 'Portable Bible School graduates' },
+  { src: '/images/bible-school.jpg', cls: 'g5', cap: 'Training under the trees' },
+  { src: '/images/field-woman-smile.jpg', cls: 'g6', cap: 'Hope visible' },
+];
+---
+<section class="section">
+  <div class="container">
+    <header class="section-head">
+      <h2>From the <em>field</em></h2>
+      <p class="meta">
+        <a href="https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU" target="_blank" rel="noopener" style="text-decoration:underline;text-underline-offset:4px">
+          Open full media folder ↗
+        </a>
+      </p>
+    </header>
+    <div class="gallery">
+      {items.map(({ src, cls, cap }) => (
+        <a href="https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU" target="_blank" rel="noopener" class={cls}>
+          <img src={src} alt={cap} />
+          <span class="caption">{cap}</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>

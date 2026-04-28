@@ -1,0 +1,32 @@
+---
+---
+<header class="site-header">
+  <div class="container site-header__inner">
+    <a href="/" class="brand" aria-label="Favor International">
+      <img src="/images/favor-icon.png" alt="" class="brand__icon" />
+      <span class="brand__text">
+        <span class="brand__name">Favor International</span>
+        <span class="brand__tag">Hub · Mission Control</span>
+      </span>
+    </a>
+
+    <nav class="site-nav" aria-label="Primary">
+      <span class="clock" id="clock" aria-hidden="true"></span>
+      <a href="https://www.favorintl.org" target="_blank" rel="noopener" class="hide-sm">Website</a>
+      <a href="https://www.favorintl.org/about/our-story" target="_blank" rel="noopener" class="hide-sm">Our Story</a>
+      <a href="https://www.favorintl.org/donate" target="_blank" rel="noopener" class="donate">Hold the Ropes</a>
+    </nav>
+  </div>
+</header>
+
+<script is:inline>
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    weekday: 'short', hour: 'numeric', minute: '2-digit', timeZoneName: 'short'
+  });
+  const tick = () => {
+    const el = document.getElementById('clock');
+    if (el) el.textContent = fmt.format(new Date());
+  };
+  tick();
+  setInterval(tick, 30_000);
+</script>

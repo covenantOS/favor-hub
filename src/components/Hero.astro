@@ -1,0 +1,73 @@
+---
+const now = new Date();
+const hour = now.getHours();
+let greeting = 'Good evening';
+if (hour < 12) greeting = 'Good morning';
+else if (hour < 18) greeting = 'Good afternoon';
+
+const dayOfYear = Math.floor((Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) - Date.UTC(now.getFullYear(), 0, 0)) / 86400000);
+---
+<section class="hero">
+  <div class="container">
+    <div class="hero__grid">
+      <div>
+        <p class="hero__greeting">
+          <span class="dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#19a838;animation:pulse 2.4s infinite"></span>
+          {greeting} — Day {dayOfYear} of {now.getFullYear()}
+        </p>
+        <h1 class="display">
+          <span class="word">Transformed</span> <span class="word">hearts</span><br/>
+          <span class="word">transform</span> <span class="word accent">nations.</span>
+        </h1>
+        <p class="hero__lede">
+          One hub for everything you need — donor records, partner reports,
+          marketing requests, payroll, and the field. Built for the team.
+        </p>
+      </div>
+
+      <aside class="ticker" aria-label="Live impact">
+        <p class="ticker__label">Kingdom Impact · Year to Date</p>
+        <div class="ticker__row">
+          <div class="ticker__stat">
+            <div class="ticker__num" data-count="195773">0</div>
+            <div class="ticker__caption">Souls Saved</div>
+          </div>
+          <div class="ticker__stat">
+            <div class="ticker__num" data-count="119182">0</div>
+            <div class="ticker__caption">Discipled</div>
+          </div>
+        </div>
+        <p class="ticker__verse">
+          "How beautiful are the feet of those who bring good news!"
+          <cite>— Romans 10:15</cite>
+        </p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<script is:inline>
+  // Animated count-up for ticker numbers
+  const formatN = (n) => Math.round(n).toLocaleString('en-US');
+  const animate = (el) => {
+    const target = +el.dataset.count;
+    const start = performance.now();
+    const dur = 1800;
+    const step = (t) => {
+      const p = Math.min(1, (t - start) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = formatN(target * eased);
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (e.isIntersecting) {
+        animate(e.target);
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.4 });
+  document.querySelectorAll('[data-count]').forEach((el) => io.observe(el));
+</script>

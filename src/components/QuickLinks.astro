@@ -1,0 +1,49 @@
+---
+import Icon from './Icon.astro';
+
+const links = [
+  {
+    icon: 'youtube',
+    title: 'YouTube',
+    sub: 'Field updates & sermons',
+    href: 'https://www.youtube.com/channel/UCIv8yRH1mO5s_JLzqG5O6Ug',
+  },
+  {
+    icon: 'heart',
+    title: 'Hold the Ropes',
+    sub: 'Partner financially',
+    href: 'https://www.favorintl.org/donate',
+  },
+  {
+    icon: 'book',
+    title: 'The Book',
+    sub: '"Send Me Where No One Wants to Go"',
+    href: 'https://www.favorintl.org/books',
+  },
+  {
+    icon: 'globe',
+    title: 'favorintl.org',
+    sub: 'Our mission online',
+    href: 'https://www.favorintl.org',
+  },
+];
+---
+<section class="section">
+  <div class="container">
+    <header class="section-head">
+      <h2><em>Beyond</em> the hub</h2>
+      <p class="meta">External resources</p>
+    </header>
+    <div class="rail">
+      {links.map((l) => (
+        <a href={l.href} target="_blank" rel="noopener">
+          <span class="rail__icon"><Icon name={l.icon} size={28} /></span>
+          <div>
+            <div class="rail__title">{l.title}</div>
+            <div class="rail__sub">{l.sub}</div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>

@@ -1,0 +1,52 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  num: string;
+  title: string;
+  desc: string;
+  href: string;
+  cta: string;
+  featured?: boolean;
+  locked?: boolean;
+  icon: string;
+}
+
+const { num, title, desc, href, cta, featured = false, locked = false, icon } = Astro.props;
+const isExternal = href.startsWith('http');
+const cls = ['tile'];
+if (featured) cls.push('tile--featured');
+---
+<a
+  href={href}
+  class={cls.join(' ')}
+  target={isExternal ? '_blank' : undefined}
+  rel={isExternal ? 'noopener noreferrer' : undefined}
+  data-tile
+>
+  <div class="tile__head">
+    <span class="tile__num">{num}</span>
+    <span class="tile__icon"><Icon name={icon} /></span>
+  </div>
+
+  <div class="tile__body">
+    <h3>{title}</h3>
+    <p class="tile__desc">{desc}</p>
+  </div>
+
+  <div class="tile__foot">
+    <span class="tile__cta">
+      {cta}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="5" y1="12" x2="19" y2="12"/>
+        <polyline points="12 5 19 12 12 19"/>
+      </svg>
+    </span>
+    {locked && (
+      <span class="tile__lock" title="Password required">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Protected
+      </span>
+    )}
+  </div>
+</a>

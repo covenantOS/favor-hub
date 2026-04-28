@@ -1,0 +1,137 @@
+---
+import Base from '../layouts/Base.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+---
+<Base title="RDD Reports — Favor International" description="Internal reporting access — staff only.">
+  <Header />
+  <main>
+    <!-- Password gate (initially shown) -->
+    <section class="gate" id="gate">
+      <div class="gate__card">
+        <div class="gate__icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h1>RDD Reports</h1>
+        <p>Internal reporting — staff only.<br/>Enter the password to continue.</p>
+        <form id="gate-form" autocomplete="off">
+          <label class="sr-only" for="pw">Password</label>
+          <input id="pw" type="password" placeholder="Password" autocomplete="off" autocapitalize="off" autocorrect="off" />
+          <button type="submit">Unlock</button>
+          <div id="gate-err" class="gate__error" aria-live="polite"></div>
+        </form>
+        <a href="/" class="gate__back">← Back to hub</a>
+      </div>
+    </section>
+
+    <!-- Reports panel (initially hidden) -->
+    <section class="section" id="reports" hidden>
+      <div class="container">
+        <header class="section-head">
+          <h2>RDD <em>reports</em></h2>
+          <p class="meta">Restricted · session only</p>
+        </header>
+
+        <div class="tiles" style="grid-template-columns:repeat(2,1fr);gap:18px">
+          <a class="tile tile--featured" target="_blank" rel="noopener"
+             href="https://docs.google.com/spreadsheets/d/1-ZhLZsU9fQiTEMoJ3PTVonG-IF01l44g9KBcIByLX04/edit?gid=1895182164#gid=1895182164">
+            <div class="tile__head">
+              <span class="tile__num">A</span>
+              <span class="tile__icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </span>
+            </div>
+            <div class="tile__body">
+              <h3>KPI Reporting Dashboard</h3>
+              <p class="tile__desc">Live KPI sheet — performance metrics across departments.</p>
+            </div>
+            <div class="tile__foot">
+              <span class="tile__cta">Open in Sheets
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </span>
+            </div>
+          </a>
+
+          <a class="tile tile--featured" target="_blank" rel="noopener" href="https://favorintl.org/goals/rdds">
+            <div class="tile__head">
+              <span class="tile__num">B</span>
+              <span class="tile__icon">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              </span>
+            </div>
+            <div class="tile__body">
+              <h3>Revenue Dashboard</h3>
+              <p class="tile__desc">Goals & RDDs at favorintl.org/goals/rdds.</p>
+            </div>
+            <div class="tile__foot">
+              <span class="tile__cta">Open dashboard
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </span>
+            </div>
+          </a>
+        </div>
+
+        <p style="margin-top:32px;font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft)">
+          <a href="/" style="text-decoration:underline;text-underline-offset:4px">← Back to hub</a>
+          &nbsp;·&nbsp;
+          <button id="lock" style="font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;text-decoration:underline;text-underline-offset:4px">Lock again</button>
+        </p>
+      </div>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<script is:inline>
+  // Lightweight, friction-free gate. NOT cryptographic — RDD URLs are still
+  // protected by Google's own auth on the destinations.
+  const KEY = 'favor.hub.rdd.unlocked';
+  // Hashed (SHA-256) form of the password to avoid putting the literal in source.
+  const HASH = 'a1df6dffb5e4869e2f750c4121219699b9f6d748d16b7118494d1f7dcf1585e5'; // 'stephanie'
+
+  async function sha256(s) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function show() {
+    document.getElementById('gate').hidden = true;
+    document.getElementById('reports').hidden = false;
+  }
+  function hide() {
+    document.getElementById('reports').hidden = true;
+    document.getElementById('gate').hidden = false;
+    document.getElementById('pw').value = '';
+    document.getElementById('pw').focus();
+  }
+
+  if (sessionStorage.getItem(KEY) === '1') show();
+
+  document.getElementById('gate-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pw = document.getElementById('pw').value.trim().toLowerCase();
+    const err = document.getElementById('gate-err');
+    err.textContent = '';
+    if (!pw) return;
+    const h = await sha256(pw);
+    if (h === HASH) {
+      sessionStorage.setItem(KEY, '1');
+      show();
+    } else {
+      err.textContent = 'That doesn\'t look right. Try again.';
+      const card = document.querySelector('.gate__card');
+      card.animate(
+        [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }],
+        { duration: 320 }
+      );
+    }
+  });
+
+  document.getElementById('lock').addEventListener('click', () => {
+    sessionStorage.removeItem(KEY);
+    hide();
+  });
+</script>
