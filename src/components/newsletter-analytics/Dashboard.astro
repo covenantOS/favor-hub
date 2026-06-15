@@ -1,0 +1,667 @@
+---
+/**
+ * Newsletter Analytics — interactive dashboard.
+ *
+ * Architecture note (per hard isolation rule 0.2): FavorHub ships zero JS
+ * framework runtime. Every interactive surface in this repo (command palette,
+ * /rdd gate, header clock) is a vanilla `<script>` island. To match that and
+ * avoid adding React + an astro.config integration that would touch the whole
+ * app, the charts here are hand-rolled SVG/DOM driven by one vanilla controller
+ * below, hydrated via `define:vars`. All required interactivity — series
+ * toggles, quarter switcher, compare mode, sortable table, animated tooltips —
+ * is delivered without a framework.
+ *
+ * Everything is data-driven from the `campaign` prop, so a new quarter appears
+ * across the switcher, KPIs, charts, funnel, links, and compare view with no
+ * code changes.
+ */
+import type { Campaign } from '../../data/newsletter-analytics/types';
+import './dashboard.css';
+
+interface Props {
+  campaign: Campaign;
+}
+const { campaign } = Astro.props;
+const { quarters } = campaign;
+---
+
+<div class="na container" id="na-app-root">
+  <!-- Intro band -->
+  <section class="na-intro">
+    <p class="na-intro__eyebrow">
+      <span class="dot"></span>
+      {campaign.brand} · Confidential · Internal
+    </p>
+    <h1>{campaign.campaign} <em>Analytics</em></h1>
+    <p class="na-intro__lede">
+      Quarter-over-quarter performance for the church newsletter sends. Switch quarters, toggle
+      metrics, and compare side by side. Headline click counts come from the Engagement Summary;
+      the link section uses GoHighLevel's separate link-interaction counts.
+    </p>
+  </section>
+
+  <!-- Controls: quarter switcher + compare -->
+  <div class="na-controls">
+    <div class="na-switch" id="na-switch" role="tablist" aria-label="Quarter">
+      {
+        quarters.map((q) => (
+          <button class="na-switch__btn" type="button" data-id={q.id} role="tab">
+            {q.label}
+          </button>
+        ))
+      }
+      <button class="na-switch__btn is-compare" type="button" data-mode="compare" role="tab">
+        Compare
+      </button>
+    </div>
+    <p class="na-controls__meta" id="na-controls-meta"></p>
+  </div>
+
+  <!-- KPI strip -->
+  <div class="na-kpis" id="na-kpis"></div>
+  <p class="na-note" id="na-conv-note">
+    Conversion is not tracked for this campaign (no tracking was configured), so it is shown as
+    “Not tracked,” never as zero conversions.
+  </p>
+
+  <!-- Engagement -->
+  <section class="na-section">
+    <div class="na-section__head">
+      <h2 class="na-section__title">Engagement</h2>
+      <p class="na-section__meta">Outcomes as a share of the send. Click a metric to toggle it.</p>
+    </div>
+    <div class="na-card">
+      <div class="na-legend" id="na-eng-legend"></div>
+      <div class="na-chart" id="na-eng-chart"></div>
+    </div>
+  </section>
+
+  <!-- Funnel -->
+  <section class="na-section">
+    <div class="na-section__head">
+      <h2 class="na-section__title">The <em>funnel</em></h2>
+      <p class="na-section__meta">Audience to sent to delivered to opened to clicked.</p>
+    </div>
+    <div class="na-card">
+      <div id="na-funnel"></div>
+    </div>
+  </section>
+
+  <!-- Link performance -->
+  <section class="na-section">
+    <div class="na-section__head">
+      <h2 class="na-section__title">Link <em>performance</em></h2>
+      <p class="na-section__meta">
+        Clicks by link. These are link-interaction counts, separate from the headline click KPI.
+      </p>
+    </div>
+    <div class="na-card">
+      <div id="na-links"></div>
+    </div>
+  </section>
+
+  <!-- Resend analysis (hidden when the shown quarter has no resend) -->
+  <section class="na-section" id="na-resend-sec">
+    <div class="na-section__head">
+      <h2 class="na-section__title">Resend <em>analysis</em></h2>
+      <p class="na-section__meta">Initial send versus the follow-up to non-openers.</p>
+    </div>
+    <div class="na-card">
+      <div id="na-resend-body"></div>
+    </div>
+  </section>
+
+  <!-- Quarter-over-quarter comparison (compare mode only) -->
+  <section class="na-section" id="na-cmp-sec">
+    <div class="na-section__head">
+      <h2 class="na-section__title">Quarter <em>over</em> quarter</h2>
+      <p class="na-section__meta">Deltas computed from the data file. Latest versus prior.</p>
+    </div>
+    <div class="na-card na-compare-table">
+      <div class="na-table-wrap"><div id="na-cmp-table"></div></div>
+      <p class="na-cmp-note" id="na-cmp-narrative"></p>
+    </div>
+  </section>
+
+  <!-- Confidential footer band (local — does not touch the shared site footer) -->
+  <p class="na-note" style="text-align:center;margin-top:40px;border-top:1px solid var(--rule);padding-top:20px">
+    <strong style="color:var(--ink)">Confidential. Internal use only.</strong>
+    {campaign.brand} · 501(c)(3) · 3433 Lithia Pinecrest Rd #356, Valrico, FL 33596.
+  </p>
+
+  <!-- Single shared tooltip -->
+  <div class="na-tooltip" id="na-tooltip" role="status" aria-hidden="true"></div>
+</div>
+
+<script is:inline define:vars={{ campaign }}>
+  /* eslint-disable */
+  (function () {
+    'use strict';
+
+    const root = document.getElementById('na-app-root');
+    if (!root) return;
+
+    const QUARTERS = campaign.quarters;
+    if (!QUARTERS.length) return;
+
+    /* ---- Resolve brand tokens from the cascade (single source of truth) ---- */
+    const cs = getComputedStyle(document.documentElement);
+    const token = (n, fallback) => {
+      const v = cs.getPropertyValue(n).trim();
+      return v || fallback;
+    };
+    const C = {
+      green: token('--green', '#19a838'),
+      greenDeep: token('--green-deep', '#0c7a26'),
+      ochre: token('--ochre', '#d8a022'),
+      terra: token('--terracotta', '#c0532b'),
+      mauve: token('--mauve', '#a06b76'),
+      sky: token('--sky', '#6ea7c2'),
+      sage: '#6f7468',
+      ink: token('--ink', '#0d0f0c'),
+      muted: '#6f7468',
+    };
+
+    /* ---- Engagement series: green=primary, ochre=accent, terracotta sparingly ---- */
+    const ENG = [
+      { key: 'delivered', label: 'Delivered', color: C.green, pct: (e) => e.delivered_pct, count: (e) => e.delivered },
+      { key: 'opened', label: 'Opened', color: C.ochre, pct: (e) => e.opened_pct, count: (e) => e.opened },
+      { key: 'clicked', label: 'Clicked', color: C.terra, pct: (e) => e.clicked_pct, count: (e) => e.clicked },
+      { key: 'unsubscribed', label: 'Unsubscribed', color: C.mauve, pct: (e) => e.unsubscribed_pct, count: (e) => e.unsubscribed },
+      { key: 'skipped', label: 'Skipped', color: C.sky, pct: (e) => e.skipped_pct, count: (e) => (e.skipped != null ? e.skipped : null) },
+    ];
+
+    /* ---- KPI strip descriptors. `cmp` drives delta + sparkline. ---- */
+    const KPIS = [
+      { key: 'delivered', label: 'Delivered', better: 'up', kind: 'pct',
+        hero: (q) => pct(q.engagement.delivered_pct),
+        sub: (q) => fmt(q.engagement.delivered) + ' of ' + fmt(q.engagement.sent_attempted) + ' sent',
+        cmp: (q) => q.engagement.delivered_pct, unit: 'pt' },
+      { key: 'open', label: 'Open rate', better: 'up', kind: 'pct',
+        hero: (q) => pct(q.engagement.opened_pct),
+        sub: (q) => fmt(q.engagement.opened) + ' opened',
+        cmp: (q) => q.engagement.opened_pct, unit: 'pt' },
+      { key: 'click', label: 'Click rate', better: 'up', kind: 'pct',
+        hero: (q) => pct(q.engagement.clicked_pct),
+        sub: (q) => fmt(q.engagement.clicked) + ' clicked',
+        cmp: (q) => q.engagement.clicked_pct, unit: 'pt' },
+      { key: 'unsub', label: 'Unsubscribes', better: 'down', kind: 'count',
+        hero: (q) => fmt(q.engagement.unsubscribed),
+        sub: (q) => pct(q.engagement.unsubscribed_pct) + ' of delivered',
+        cmp: (q) => q.engagement.unsubscribed, unit: '' },
+    ];
+
+    /* ---- Comparison rows ---- */
+    const CMP_ROWS = [
+      { label: 'Delivered', cell: (q) => fmt(q.engagement.delivered) + ' (' + pct(q.engagement.delivered_pct) + ')', cmp: (q) => q.engagement.delivered_pct, unit: 'pt', better: 'up' },
+      { label: 'Open rate', cell: (q) => pct(q.engagement.opened_pct), cmp: (q) => q.engagement.opened_pct, unit: 'pt', better: 'up' },
+      { label: 'Click rate', cell: (q) => pct(q.engagement.clicked_pct), cmp: (q) => q.engagement.clicked_pct, unit: 'pt', better: 'up' },
+      { label: 'Clicks per unique open', cell: (q) => pct(q.click_performance.clicks_per_unique_open_pct), cmp: (q) => q.click_performance.clicks_per_unique_open_pct, unit: 'pt', better: 'up' },
+      { label: 'Unsubscribed', cell: (q) => fmt(q.engagement.unsubscribed) + ' (' + pct(q.engagement.unsubscribed_pct) + ')', cmp: (q) => q.engagement.unsubscribed, unit: '', better: 'down' },
+      { label: 'Hard bounce', cell: (q) => fmt(q.engagement.hard_bounced) + ' (' + pct(q.engagement.hard_bounced_pct) + ')', cmp: (q) => q.engagement.hard_bounced, unit: '', better: 'down' },
+      { label: 'Skipped', cell: (q) => pct(q.engagement.skipped_pct), cmp: (q) => q.engagement.skipped_pct, unit: 'pt', better: 'down' },
+      { label: 'Spam', cell: (q) => pct(q.engagement.spam_pct), cmp: (q) => q.engagement.spam_pct, unit: 'pt', better: 'down' },
+      { label: 'Links in email', cell: (q) => String(q.click_performance.links_in_email), cmp: (q) => q.click_performance.links_in_email, unit: '', better: 'neutral' },
+      { label: 'Top link', cell: (q) => topLinkLabel(q), better: 'cat' },
+    ];
+
+    /* ---- State ---- */
+    let mode = 'single';
+    let activeId = QUARTERS[QUARTERS.length - 1].id; // default: latest quarter
+    const hidden = new Set();
+    const linkSort = {}; // { [id]: {col, dir} }
+
+    /* ---- Helpers ---- */
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const fmt = (n) => Number(n).toLocaleString('en-US');
+    const round2 = (v) => Math.round(v * 100) / 100;
+    const pct = (v) => round2(v) + '%';
+    const byId = (id) => QUARTERS.find((q) => q.id === id) || QUARTERS[QUARTERS.length - 1];
+    const shownQuarters = () => (mode === 'compare' ? QUARTERS.slice() : [byId(activeId)]);
+    const topLink = (q) => (q.click_performance.links || []).reduce((a, b) => (b.total_clicks > (a ? a.total_clicks : -1) ? b : a), null);
+    const topLinkLabel = (q) => {
+      const t = topLink(q);
+      return t ? t.label + ' (' + t.source.toLowerCase() + '), ' + fmt(t.total_clicks) + ' clicks' : 'n/a';
+    };
+
+    const ARROW_UP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 14 12 8 18 14"/></svg>';
+    const ARROW_DOWN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 10 12 16 18 10"/></svg>';
+    const ARROW_FLAT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="18" y2="12"/></svg>';
+
+    // Returns {cls, html} for a delta badge. `better` = which direction is good.
+    function deltaBadge(prev, cur, unit, better) {
+      const d = cur - prev;
+      const flatEps = unit === 'pt' ? 0.5 : 0.5; // tiny moves read as flat
+      let cls = 'is-flat';
+      let arrow = ARROW_FLAT;
+      if (Math.abs(d) >= flatEps && better !== 'neutral' && better !== 'cat') {
+        const good = better === 'up' ? d > 0 : d < 0;
+        cls = good ? 'is-good' : 'is-watch';
+        arrow = d > 0 ? ARROW_UP : ARROW_DOWN;
+      } else if (Math.abs(d) >= flatEps) {
+        arrow = d > 0 ? ARROW_UP : ARROW_DOWN; // neutral metric: show direction, neutral color
+      }
+      const mag = unit === 'pt' ? round2(Math.abs(d)) + ' pt' : fmt(Math.abs(d));
+      const sign = d > 0 ? '+' : d < 0 ? '' : '±';
+      return { cls, html: arrow + sign + (d < 0 ? '-' : '') + mag };
+    }
+
+    /* ================= Tooltip ================= */
+    const tip = document.getElementById('na-tooltip');
+    function showTip(el, x, y) {
+      const title = el.dataset.tipTitle;
+      if (!title) return;
+      let html = '<div class="na-tooltip__title">' + esc(title) + '</div>';
+      if (el.dataset.tipQ) html += '<div class="na-tooltip__q">' + esc(el.dataset.tipQ) + '</div>';
+      if (el.dataset.tipC != null && el.dataset.tipC !== '') html += '<div class="na-tooltip__row"><span>Count</span><b>' + esc(el.dataset.tipC) + '</b></div>';
+      if (el.dataset.tipP != null && el.dataset.tipP !== '') html += '<div class="na-tooltip__row"><span>' + esc(el.dataset.tipPlabel || 'Share') + '</span><b>' + esc(el.dataset.tipP) + '</b></div>';
+      if (el.dataset.tipExtra) html += '<div class="na-tooltip__row"><span>' + esc(el.dataset.tipExtraLabel || '') + '</span><b>' + esc(el.dataset.tipExtra) + '</b></div>';
+      tip.innerHTML = html;
+      tip.classList.add('is-on');
+      tip.setAttribute('aria-hidden', 'false');
+      const r = tip.getBoundingClientRect();
+      let nx = x + 16;
+      let ny = y + 16;
+      if (nx + r.width > window.innerWidth - 8) nx = x - r.width - 16;
+      if (ny + r.height > window.innerHeight - 8) ny = y - r.height - 16;
+      tip.style.left = Math.max(8, nx) + 'px';
+      tip.style.top = Math.max(8, ny) + 'px';
+    }
+    function hideTip() {
+      tip.classList.remove('is-on');
+      tip.setAttribute('aria-hidden', 'true');
+    }
+    document.addEventListener('mousemove', (e) => {
+      const el = e.target.closest && e.target.closest('[data-tip-title]');
+      if (el && root.contains(el)) showTip(el, e.clientX, e.clientY);
+      else hideTip();
+    });
+    document.addEventListener('scroll', hideTip, true);
+
+    /* ================= KPI strip ================= */
+    function sparkline(values, good) {
+      const w = 64, h = 28, p = 4;
+      if (values.length < 2) return '';
+      const min = Math.min.apply(null, values);
+      const max = Math.max.apply(null, values);
+      const span = max - min || 1;
+      const step = (w - p * 2) / (values.length - 1);
+      const pts = values.map((v, i) => {
+        const x = p + i * step;
+        const y = h - p - ((v - min) / span) * (h - p * 2);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      });
+      const last = pts[pts.length - 1].split(',');
+      const stroke = good === 'good' ? C.green : good === 'watch' ? C.terra : C.sage;
+      return (
+        '<svg class="na-kpi__spark" viewBox="0 0 ' + w + ' ' + h + '" aria-hidden="true">' +
+        '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + stroke + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+        '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="2.6" fill="' + stroke + '"/></svg>'
+      );
+    }
+
+    function renderKpis() {
+      const qs = shownQuarters();
+      const compare = mode === 'compare' && QUARTERS.length >= 2;
+      const cur = qs[qs.length - 1];
+      const prev = compare ? QUARTERS[QUARTERS.indexOf(cur) - 1] || QUARTERS[0] : null;
+      const single = byId(activeId);
+      const target = compare ? cur : single;
+
+      let html = '';
+      KPIS.forEach((k) => {
+        const allVals = QUARTERS.map((q) => k.cmp(q));
+        let foot = '';
+        let goodState = 'flat';
+        if (compare && prev) {
+          const b = deltaBadge(k.cmp(prev), k.cmp(cur), k.unit, k.better);
+          goodState = b.cls === 'is-good' ? 'good' : b.cls === 'is-watch' ? 'watch' : 'flat';
+          foot =
+            '<div class="na-kpi__foot"><span class="na-delta ' + b.cls + '">' + b.html + '</span>' +
+            sparkline(allVals, goodState) + '</div>' +
+            '<div class="na-kpi__sub">' + esc(prev.label) + ': ' + esc(k.hero(prev)) + '</div>';
+        } else {
+          foot = '<div class="na-kpi__foot"><span class="na-kpi__sub" style="margin:0">' + esc(k.sub(target)) + '</span>' + sparkline(allVals, 'muted') + '</div>';
+        }
+        html +=
+          '<div class="na-kpi">' +
+          '<div class="na-kpi__label">' + esc(k.label) + '</div>' +
+          '<div class="na-kpi__value">' + esc(k.hero(target)) + '</div>' +
+          (compare ? '' : '') +
+          foot +
+          '</div>';
+      });
+      document.getElementById('na-kpis').innerHTML = html;
+    }
+
+    /* ================= Engagement chart ================= */
+    function renderEngLegend() {
+      const el = document.getElementById('na-eng-legend');
+      el.innerHTML = ENG.map((m) =>
+        '<button type="button" class="na-legend__item' + (hidden.has(m.key) ? ' is-off' : '') + '" data-metric="' + m.key + '" aria-pressed="' + (!hidden.has(m.key)) + '">' +
+        '<span class="na-legend__swatch" style="background:' + m.color + '"></span>' +
+        '<span class="na-legend__label">' + esc(m.label) + '</span></button>'
+      ).join('');
+    }
+
+    function renderEngChart() {
+      const host = document.getElementById('na-eng-chart');
+      const qs = shownQuarters();
+      const metrics = ENG.filter((m) => !hidden.has(m.key));
+      const W = 820, H = 380;
+      const plotL = 46, plotR = W - 16, plotT = 18, plotB = H - 44;
+      const plotW = plotR - plotL, plotH = plotB - plotT;
+
+      if (!metrics.length) {
+        host.innerHTML = '<p class="na-note" style="text-align:center;padding:40px 0">All series are hidden. Click a metric above to bring it back.</p>';
+        return;
+      }
+
+      let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Engagement by outcome">';
+      // gridlines + y labels
+      [0, 25, 50, 75, 100].forEach((g) => {
+        const y = plotB - (g / 100) * plotH;
+        svg += '<line class="na-gridline" x1="' + plotL + '" y1="' + y + '" x2="' + plotR + '" y2="' + y + '"/>';
+        svg += '<text class="na-axis-label" x="' + (plotL - 8) + '" y="' + (y + 3) + '" text-anchor="end">' + g + '%</text>';
+      });
+
+      const nG = qs.length;
+      const bandW = plotW / nG;
+      const innerPad = bandW * 0.14;
+      const innerW = bandW - innerPad * 2;
+      const nM = metrics.length;
+      const gap = Math.min(10, innerW * 0.05);
+      const barW = (innerW - gap * (nM - 1)) / nM;
+
+      qs.forEach((q, gi) => {
+        const bandX = plotL + gi * bandW;
+        metrics.forEach((m, mi) => {
+          const v = Math.max(0, Math.min(100, m.pct(q.engagement)));
+          const hgt = (v / 100) * plotH;
+          const x = bandX + innerPad + mi * (barW + gap);
+          const y = plotB - hgt;
+          const cnt = m.count(q.engagement);
+          svg +=
+            '<rect class="na-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + Math.max(1, barW).toFixed(1) + '" height="' + Math.max(0.5, hgt).toFixed(1) + '" rx="3" fill="' + m.color + '" ' +
+            'data-tip-title="' + esc(m.label) + '" data-tip-q="' + esc(q.label) + '" ' +
+            (cnt != null ? 'data-tip-c="' + esc(fmt(cnt)) + '" ' : '') +
+            'data-tip-p="' + esc(pct(v)) + '"/>';
+          svg += '<text class="na-bar-value" x="' + (x + barW / 2).toFixed(1) + '" y="' + (y - 5).toFixed(1) + '" text-anchor="middle">' + round2(v) + '</text>';
+        });
+        svg += '<text class="na-group-label" x="' + (bandX + bandW / 2).toFixed(1) + '" y="' + (plotB + 24) + '" text-anchor="middle">' + esc(q.label) + '</text>';
+      });
+
+      svg += '</svg>';
+      host.innerHTML = svg;
+      animateIn(host);
+    }
+
+    /* ================= Funnel ================= */
+    function renderFunnel() {
+      const host = document.getElementById('na-funnel');
+      const qs = shownQuarters();
+      const compare = qs.length > 1;
+      const stageDefs = [
+        { name: 'Audience', val: (q) => q.audience_total, color: C.sage },
+        { name: 'Sent', val: (q) => q.engagement.sent_attempted, color: C.greenDeep },
+        { name: 'Delivered', val: (q) => q.engagement.delivered, color: C.green },
+        { name: 'Opened', val: (q) => q.engagement.opened, color: C.ochre },
+        { name: 'Clicked', val: (q) => q.engagement.clicked, color: C.terra },
+      ];
+
+      let html = '<div class="na-funnel' + (compare ? ' is-compare' : '') + '">';
+      qs.forEach((q) => {
+        const aud = q.audience_total || 1;
+        html += '<div class="na-funnel__col">';
+        if (compare) html += '<div class="na-funnel__col-label">' + esc(q.label) + '</div>';
+        stageDefs.forEach((s, i) => {
+          const v = s.val(q);
+          const widthPct = Math.max(22, (v / aud) * 100); // floor so labels stay legible
+          const ofAud = round2((v / aud) * 100);
+          const prev = i > 0 ? stageDefs[i - 1].val(q) : null;
+          const drop = prev != null ? prev - v : null;
+          const dropPct = prev ? round2((1 - v / prev) * 100) : null;
+          html +=
+            '<div class="na-funnel__stage">' +
+            '<div class="na-funnel__bar-track"><div class="na-funnel__bar" style="width:' + widthPct.toFixed(1) + '%;background:' + s.color + '" ' +
+            'data-tip-title="' + esc(s.name) + '" data-tip-q="' + esc(q.label) + '" data-tip-c="' + esc(fmt(v)) + '" data-tip-p="' + esc(ofAud + '%') + '" data-tip-plabel="Of audience">' +
+            '<span class="na-funnel__bar-name">' + esc(s.name) + '</span><span class="na-funnel__bar-num">' + fmt(v) + '</span></div></div>' +
+            '<div class="na-funnel__meta"><span>' + ofAud + '% of audience</span>' +
+            (drop != null ? '<span class="na-funnel__drop">▼ ' + fmt(drop) + ' (' + dropPct + '%)</span>' : '<span>&nbsp;</span>') +
+            '</div></div>';
+        });
+        html += '</div>';
+      });
+      html += '</div>';
+      host.innerHTML = html;
+      animateIn(host.querySelector('.na-funnel'));
+    }
+
+    /* ================= Link performance ================= */
+    function sortLinks(links, sort) {
+      const arr = links.slice();
+      const { col, dir } = sort;
+      arr.sort((a, b) => {
+        let av = a[col], bv = b[col];
+        if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av); }
+        return dir === 'asc' ? av - bv : bv - av;
+      });
+      return arr;
+    }
+
+    function caret(active, dir) {
+      if (!active) return '<span class="na-sort-caret">↕</span>';
+      return '<span class="na-sort-caret">' + (dir === 'asc' ? '↑' : '↓') + '</span>';
+    }
+
+    function renderLinkBlock(q) {
+      const cp = q.click_performance;
+      if (!linkSort[q.id]) linkSort[q.id] = { col: 'total_clicks', dir: 'desc' };
+      const sort = linkSort[q.id];
+      const links = sortLinks(cp.links || [], sort);
+      const maxTotal = Math.max.apply(null, [1].concat(links.map((l) => l.total_clicks)));
+
+      let bars = '<div class="na-linkbars" data-q="' + esc(q.id) + '">';
+      links.forEach((l) => {
+        const tw = (l.total_clicks / maxTotal) * 100;
+        const uw = (l.unique_clicks / maxTotal) * 100;
+        bars +=
+          '<div class="na-linkbar">' +
+          '<div class="na-linkbar__head"><span class="na-linkbar__label">' + esc(l.label) +
+          '<span class="na-linkbar__src">' + esc(l.source) + '</span></span>' +
+          '<span class="na-linkbar__num">' + fmt(l.total_clicks) + ' total · ' + fmt(l.unique_clicks) + ' unique</span></div>' +
+          (l.total_clicks === 0
+            ? '<div class="na-linkbar__zero">No clicks recorded</div>'
+            : '<div class="na-linkbar__track" data-tip-title="' + esc(l.label) + '" data-tip-q="' + esc(q.label) + '" data-tip-c="' + esc(fmt(l.total_clicks)) + '" data-tip-p="' + esc(fmt(l.unique_clicks)) + '" data-tip-plabel="Unique clicks">' +
+              '<div class="na-linkbar__fill" style="width:' + tw.toFixed(1) + '%"></div>' +
+              '<div class="na-linkbar__unique" style="width:' + uw.toFixed(1) + '%"></div></div>') +
+          '</div>';
+      });
+      bars += '</div>';
+
+      const th = (label, col, align) => {
+        const active = sort.col === col;
+        return '<th data-sort="' + col + '" data-q="' + esc(q.id) + '" class="' + (active ? 'is-sorted' : '') + '"' + (align ? ' style="text-align:' + align + '"' : '') + '>' + esc(label) + caret(active, sort.dir) + '</th>';
+      };
+      let table =
+        '<div class="na-table-wrap"><table class="na-table">' +
+        '<thead><tr>' + th('Link', 'label') + th('Source', 'source') + th('Total', 'total_clicks') + th('Unique', 'unique_clicks') + '</tr></thead><tbody>';
+      links.forEach((l) => {
+        table +=
+          '<tr><td>' + esc(l.label) + '</td>' +
+          '<td><span class="na-src-pill">' + esc(l.source) + '</span></td>' +
+          '<td>' + fmt(l.total_clicks) + '</td>' +
+          '<td>' + fmt(l.unique_clicks) + '</td></tr>';
+      });
+      table += '</tbody></table></div>';
+
+      const stat =
+        '<div class="na-funnel__meta" style="margin:0 0 14px;flex-wrap:wrap;gap:14px">' +
+        '<span>' + cp.links_in_email + ' links in email</span>' +
+        '<span>' + fmt(cp.total_clicks) + ' total clicks</span>' +
+        '<span>' + fmt(cp.unique_clicks) + ' unique</span>' +
+        '<span>' + cp.clicks_per_unique_open_pct + '% per unique open</span></div>';
+
+      const note = cp.note ? '<p class="na-note">' + esc(cp.note) + '</p>' : '';
+      return (
+        '<div class="na-links__group">' +
+        (mode === 'compare' ? '<div class="na-links__col-label">' + esc(q.label) + '</div>' : '') +
+        stat + bars + table + note + '</div>'
+      );
+    }
+
+    function renderLinks() {
+      const host = document.getElementById('na-links');
+      const qs = shownQuarters();
+      host.innerHTML = '<div class="na-links' + (qs.length > 1 ? ' is-compare' : '') + '">' + qs.map(renderLinkBlock).join('') + '</div>';
+      host.querySelectorAll('.na-linkbars').forEach(animateIn);
+    }
+
+    /* ================= Resend ================= */
+    function renderResend() {
+      const sec = document.getElementById('na-resend-sec');
+      const qs = shownQuarters().filter((q) => q.resend);
+      if (!qs.length) { sec.hidden = true; return; }
+      sec.hidden = false;
+      const body = document.getElementById('na-resend-body');
+      body.innerHTML = qs.map((q) => {
+        const e = q.engagement;
+        const r = q.resend;
+        const stat = (label, val, sub) =>
+          '<div class="na-resend__stat"><span class="na-resend__stat-label">' + esc(label) + '</span>' +
+          '<span class="na-resend__stat-val">' + esc(val) + (sub ? '<span class="pct">' + esc(sub) + '</span>' : '') + '</span></div>';
+        return (
+          (qs.length > 1 || mode === 'compare' ? '<div class="na-links__col-label">' + esc(q.label) + '</div>' : '') +
+          '<div class="na-resend__grid">' +
+          '<div class="na-resend__col"><h4>Initial send</h4>' +
+          stat('Delivered', fmt(e.delivered), pct(e.delivered_pct)) +
+          stat('Opened', fmt(e.opened), pct(e.opened_pct)) +
+          stat('Clicked', fmt(e.clicked), pct(e.clicked_pct)) +
+          '</div>' +
+          '<div class="na-resend__col is-resend"><h4>Resend · ' + esc(r.target) + '</h4>' +
+          stat('Sent', fmt(r.sent), pct(r.delivered_pct) + ' delivered') +
+          stat('Opened', fmt(r.opened), pct(r.opened_pct)) +
+          stat('Clicked', fmt(r.clicked), pct(r.clicked_pct)) +
+          '</div></div>' +
+          '<div class="na-takeaway"><span>▼</span><div><b>Low resend value.</b> ' + esc(r.takeaway) + '</div></div>'
+        );
+      }).join('<div style="height:24px"></div>');
+    }
+
+    /* ================= Comparison ================= */
+    function renderComparison() {
+      const sec = document.getElementById('na-cmp-sec');
+      if (mode !== 'compare' || QUARTERS.length < 2) { sec.hidden = true; return; }
+      sec.hidden = false;
+
+      const cur = QUARTERS[QUARTERS.length - 1];
+      const prev = QUARTERS[QUARTERS.length - 2];
+
+      let head = '<thead><tr><th>Metric</th>';
+      QUARTERS.forEach((q) => { head += '<th>' + esc(q.label) + '</th>'; });
+      head += '<th>Δ ' + esc(prev.label) + ' → ' + esc(cur.label) + '</th></tr></thead>';
+
+      let bodyRows = '';
+      CMP_ROWS.forEach((row) => {
+        let cells = '<td class="metric">' + esc(row.label) + '</td>';
+        QUARTERS.forEach((q) => { cells += '<td>' + esc(row.cell(q)) + '</td>'; });
+        if (row.better === 'cat' || !row.cmp) {
+          cells += '<td><span class="na-delta is-flat">n/a</span></td>';
+        } else {
+          const b = deltaBadge(row.cmp(prev), row.cmp(cur), row.unit, row.better);
+          cells += '<td><span class="na-delta ' + b.cls + '">' + b.html + '</span></td>';
+        }
+        bodyRows += '<tr>' + cells + '</tr>';
+      });
+
+      document.getElementById('na-cmp-table').innerHTML = '<table class="na-table">' + head + '<tbody>' + bodyRows + '</tbody></table>';
+
+      // Headline narrative (the Q1 -> Q2 read from the build sheet).
+      document.getElementById('na-cmp-narrative').innerHTML =
+        'Open rate held steady near 53 percent across both quarters, which is strong for a partner list. ' +
+        'The real gain is depth of engagement. Click rate rose three points and clicks per unique open went from 4 percent to 29 percent. ' +
+        'Fewer links and an all-text layout in Q2 beat the five-link mixed layout in Q1. Donate Now was the most clicked link in Q2. ' +
+        'The one item to watch is list hygiene: hard bounces and skips both rose, driven mostly by prior unsubscribes and a few invalid addresses.';
+    }
+
+    /* ================= Animation trigger ================= */
+    function animateIn(el) {
+      if (!el) return;
+      el.classList.remove('is-in');
+      // double rAF so the browser registers the start state before transitioning
+      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('is-in')));
+    }
+
+    /* ================= Controls ================= */
+    function renderControls() {
+      const buttons = document.querySelectorAll('#na-switch .na-switch__btn');
+      buttons.forEach((b) => {
+        const isActive = b.dataset.mode === 'compare' ? mode === 'compare' : mode === 'single' && b.dataset.id === activeId;
+        b.classList.toggle('is-active', isActive);
+        b.setAttribute('aria-selected', String(isActive));
+      });
+      const meta = document.getElementById('na-controls-meta');
+      if (mode === 'compare') {
+        meta.textContent = 'Comparing ' + QUARTERS.length + ' quarters';
+      } else {
+        const q = byId(activeId);
+        meta.textContent = 'Sent ' + q.sent_date;
+      }
+    }
+
+    /* ================= Master render ================= */
+    function render() {
+      renderControls();
+      renderKpis();
+      renderEngLegend();
+      renderEngChart();
+      renderFunnel();
+      renderLinks();
+      renderResend();
+      renderComparison();
+    }
+
+    /* ================= Event wiring (delegated, bound once) ============= */
+    document.getElementById('na-switch').addEventListener('click', (e) => {
+      const btn = e.target.closest('.na-switch__btn');
+      if (!btn) return;
+      if (btn.dataset.mode === 'compare') { mode = 'compare'; }
+      else { mode = 'single'; activeId = btn.dataset.id; }
+      render();
+    });
+
+    document.getElementById('na-eng-legend').addEventListener('click', (e) => {
+      const item = e.target.closest('.na-legend__item');
+      if (!item) return;
+      const key = item.dataset.metric;
+      if (hidden.has(key)) hidden.delete(key);
+      else hidden.add(key);
+      renderEngLegend();
+      renderEngChart();
+    });
+
+    document.getElementById('na-links').addEventListener('click', (e) => {
+      const th = e.target.closest('th[data-sort]');
+      if (!th) return;
+      const id = th.dataset.q;
+      const col = th.dataset.sort;
+      const s = linkSort[id] || { col: 'total_clicks', dir: 'desc' };
+      if (s.col === col) s.dir = s.dir === 'asc' ? 'desc' : 'asc';
+      else { s.col = col; s.dir = col === 'label' || col === 'source' ? 'asc' : 'desc'; }
+      linkSort[id] = s;
+      renderLinks();
+    });
+
+    /* ================= Boot (after gate reveal) ================= */
+    let booted = false;
+    function boot() {
+      if (booted) return;
+      booted = true;
+      render();
+    }
+    document.addEventListener('na:show', boot);
+    // Fallback: if the app is already visible when this runs, boot now.
+    const appWrap = document.getElementById('na-app');
+    if (!appWrap || !appWrap.hidden) boot();
+  })();
+</script>
