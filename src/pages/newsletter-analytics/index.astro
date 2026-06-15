@@ -7,104 +7,14 @@ import { campaign } from '../../data/newsletter-analytics/campaign';
 ---
 <Base
   title="Newsletter Analytics — Favor International"
-  description="Internal newsletter campaign analytics — marketing & engagement team only."
+  description="Newsletter campaign analytics for the marketing & engagement team."
 >
   <Header />
   <main>
-    <!--
-      GATE: reuses FavorHub's existing private-page pattern from /rdd — a
-      friction-level SHA-256 + sessionStorage check (vanilla, no backend),
-      with its own storage key so it does not collide with the RDD gate. It
-      uses the same shared staff password the team already knows.
-
-      TODO(gate): This is convenience-level protection for internal data, not
-      real auth. For stronger protection, put /newsletter-analytics behind a
-      Cloudflare Access policy (email/SSO), or rotate to a dedicated passcode
-      by replacing HASH below (see README for how to generate the hash).
-    -->
-    <section class="gate" id="na-gate">
-      <div class="gate__card">
-        <div class="gate__icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="3" y="11" width="18" height="11" rx="2"/>
-            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-          </svg>
-        </div>
-        <h1>Newsletter Analytics</h1>
-        <p>Internal data for the marketing and engagement team. Enter password to continue.</p>
-        <form id="na-gate-form" autocomplete="off">
-          <label class="sr-only" for="na-pw">Password</label>
-          <input id="na-pw" type="password" placeholder="Password" autocomplete="off" autocapitalize="off" autocorrect="off" />
-          <button type="submit">Unlock</button>
-          <div id="na-gate-err" class="gate__error" aria-live="polite"></div>
-        </form>
-        <a href="/" class="gate__back">← Back to hub</a>
-      </div>
-    </section>
-
-    <!-- Dashboard (revealed after unlock) -->
-    <section id="na-app" hidden>
-      <Dashboard campaign={campaign} />
-      <p style="text-align:center;margin:8px 0 56px;font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft)">
-        <a href="/" style="text-decoration:underline;text-underline-offset:4px">← Back to hub</a>
-        &nbsp;·&nbsp;
-        <button id="na-lock" style="font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;text-decoration:underline;text-underline-offset:4px">Lock again</button>
-      </p>
-    </section>
+    <Dashboard campaign={campaign} />
+    <p style="text-align:center;margin:8px 0 56px;font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft)">
+      <a href="/" style="text-decoration:underline;text-underline-offset:4px">← Back to hub</a>
+    </p>
   </main>
   <Footer />
 </Base>
-
-<script is:inline>
-  // Friction-level gate (mirrors /rdd). NOT cryptographic protection — it keeps
-  // internal numbers off the open web at convenience level.
-  const NA_KEY = 'favor.hub.na.unlocked';
-  // SHA-256 of the shared staff password (same as /rdd). Rotate via README.
-  const NA_HASH = 'a1df6dffb5e4869e2f750c4121219699b9f6d748d16b7118494d1f7dcf1585e5';
-
-  async function naSha256(s) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-    return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  function naShow() {
-    document.getElementById('na-gate').hidden = true;
-    document.getElementById('na-app').hidden = false;
-    // Tell the dashboard controller to render + animate now that it is visible.
-    document.dispatchEvent(new CustomEvent('na:show'));
-  }
-  function naHide() {
-    document.getElementById('na-app').hidden = true;
-    document.getElementById('na-gate').hidden = false;
-    const pw = document.getElementById('na-pw');
-    pw.value = '';
-    pw.focus();
-  }
-
-  if (sessionStorage.getItem(NA_KEY) === '1') naShow();
-
-  document.getElementById('na-gate-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const pw = document.getElementById('na-pw').value.trim().toLowerCase();
-    const err = document.getElementById('na-gate-err');
-    err.textContent = '';
-    if (!pw) return;
-    const h = await naSha256(pw);
-    if (h === NA_HASH) {
-      sessionStorage.setItem(NA_KEY, '1');
-      naShow();
-    } else {
-      err.textContent = "That doesn't look right. Try again.";
-      const card = document.querySelector('#na-gate .gate__card');
-      card.animate(
-        [{ transform: 'translateX(0)' }, { transform: 'translateX(-8px)' }, { transform: 'translateX(8px)' }, { transform: 'translateX(0)' }],
-        { duration: 320 }
-      );
-    }
-  });
-
-  document.getElementById('na-lock').addEventListener('click', () => {
-    sessionStorage.removeItem(NA_KEY);
-    naHide();
-  });
-</script>
