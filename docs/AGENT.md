@@ -1,6 +1,6 @@
 # Request board (agents)
 
-favor-dash owns the software-request board at `/requests`.
+favor-hub owns the software-request board at `/requests`.
 
 Will approves cards. Agents only work **approved** cards. Do not invent work off Slack, WhatsApp, or email when the board has an approved item.
 
@@ -31,7 +31,7 @@ Authorization: Bearer $AGENT_API_KEY
 |---|---|---|---|
 | website | Favor-International/favor-astro | main | `C:\Users\Willb\Claude\favor-astro` |
 | portal | Favor-International/favor-portal | feature/blackbaud-giving-history | `C:\Users\Willb\Claude\favor-portal` |
-| dashboard | covenantOS/favor-dash | main | `C:\Users\Willb\Claude\favor-dash` |
+| dashboard | covenantOS/favor-hub | main | `C:\Users\Willb\Claude\favor-hub` |
 | app | Favor-International/favor-marketing | main | `C:\Users\Willb\Claude\favor-marketing` |
 
 Portal production is **not** `main`. Do not deploy portal `main`.

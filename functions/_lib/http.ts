@@ -14,7 +14,7 @@ export type Status = (typeof STATUSES)[number];
 export const REPOS: Record<Surface, { repo: string; branch: string; path: string }> = {
   website: { repo: 'Favor-International/favor-astro', branch: 'main', path: 'C:\\Users\\Willb\\Claude\\favor-astro' },
   portal: { repo: 'Favor-International/favor-portal', branch: 'feature/blackbaud-giving-history', path: 'C:\\Users\\Willb\\Claude\\favor-portal' },
-  dashboard: { repo: 'covenantOS/favor-dash', branch: 'main', path: 'C:\\Users\\Willb\\Claude\\favor-dash' },
+  dashboard: { repo: 'covenantOS/favor-hub', branch: 'main', path: 'C:\\Users\\Willb\\Claude\\favor-hub' },
   app: { repo: 'Favor-International/favor-marketing', branch: 'main', path: 'C:\\Users\\Willb\\Claude\\favor-marketing' },
 };
 

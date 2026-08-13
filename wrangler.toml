@@ -1,6 +1,5 @@
-# Favor Dash (dash.favorintl.org)
-# GitHub: covenantOS/favor-dash. Local: C:\Users\Willb\Claude\favor-dash
-# Cloudflare Pages project name stays favor-hub so existing domains keep working.
+# Favor Hub (dash.favorintl.org)
+# GitHub: covenantOS/favor-hub. Local: C:\Users\Willb\Claude\favor-hub
 # Static Astro + Pages Functions. D1/R2 live on the Marketing account
 # (same account as this Pages project). Do not bind Daniel's Tech-account
 # RE NXT database; D1 bindings are same-account only.

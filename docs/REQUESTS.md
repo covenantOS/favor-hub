@@ -1,6 +1,6 @@
-# Favor Dash
+# Favor Hub
 
-Team dashboard for Favor International. Live at dash.favorintl.org. GitHub: covenantOS/favor-dash. Local: `C:\Users\Willb\Claude\favor-dash`.
+Team dashboard for Favor International. Live at dash.favorintl.org. GitHub: covenantOS/favor-hub. Local: `C:\Users\Willb\Claude\favor-hub`.
 
 ## Stack
 
