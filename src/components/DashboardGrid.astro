@@ -4,6 +4,15 @@ import Tile from './Tile.astro';
 const tiles = [
   {
     num: '01',
+    title: 'Website & app requests',
+    desc: 'Submit a change. See what is approved, in motion, and done.',
+    href: '/requests',
+    cta: 'Open board',
+    featured: true,
+    icon: 'board',
+  },
+  {
+    num: '02',
     title: 'BlackBaud',
     desc: 'CRM, donor records, partner management.',
     href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/',
@@ -12,7 +21,7 @@ const tiles = [
     icon: 'database',
   },
   {
-    num: '02',
+    num: '03',
     title: 'GoHighLevel',
     desc: 'Marketing automation & comms platform.',
     href: 'https://my.favor.international',
@@ -20,7 +29,7 @@ const tiles = [
     icon: 'zap',
   },
   {
-    num: '03',
+    num: '04',
     title: 'RDD Reports',
     desc: 'Restricted reporting — staff only.',
     href: '/rdd',
@@ -29,7 +38,7 @@ const tiles = [
     icon: 'lock',
   },
   {
-    num: '04',
+    num: '05',
     title: 'Media Folder',
     desc: 'Photos & videos from the field.',
     href: 'https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU',
@@ -37,7 +46,7 @@ const tiles = [
     icon: 'image',
   },
   {
-    num: '05',
+    num: '06',
     title: 'Marketing Materials',
     desc: 'Browse the live materials catalog.',
     href: 'https://docs.google.com/spreadsheets/d/1voiT9f4oixPz0cRAJrQTyik-PqCwP3hGGhC-br1PjOU/edit?usp=sharing',
@@ -45,7 +54,7 @@ const tiles = [
     icon: 'sheet',
   },
   {
-    num: '06',
+    num: '07',
     title: 'Marketing Request',
     desc: 'Submit a new project to the team.',
     href: 'https://form.asana.com/?k=ZLVP4wa-hVh36WUjOH4FyQ&d=1200803238481574',
@@ -53,7 +62,7 @@ const tiles = [
     icon: 'send',
   },
   {
-    num: '07',
+    num: '08',
     title: 'Time Off',
     desc: 'Submit paid or unpaid time-off requests.',
     href: 'https://phx.us-west.paycomonline.net/v4/ee/web.php/accruals/time-off',
@@ -61,7 +70,7 @@ const tiles = [
     icon: 'calendar',
   },
   {
-    num: '08',
+    num: '09',
     title: 'Time Sheet',
     desc: 'Punch in & out — Paycom.',
     href: 'https://www.paycomonline.net/v4/ee/web.php/app/login',
@@ -69,7 +78,7 @@ const tiles = [
     icon: 'clock',
   },
   {
-    num: '09',
+    num: '10',
     title: 'Paycom Expenses',
     desc: 'Paycom expense management & cards.',
     href: 'https://www.paycomonline.net/v4/ee/web.php/app/login',
@@ -77,7 +86,7 @@ const tiles = [
     icon: 'card',
   },
   {
-    num: '10',
+    num: '11',
     title: 'Expense Request',
     desc: 'Submit an expense request — not Paycom or credit cards.',
     href: 'https://auth.favorintl.org/documents/doc-form/67e446463ff018ff4f51c3a8?locale=en-US',
@@ -90,7 +99,7 @@ const tiles = [
   <div class="container">
     <header class="section-head">
       <h2><em>Tools</em> &amp; access</h2>
-      <p class="meta">10 destinations · 1 hub</p>
+      <p class="meta">11 destinations · 1 hub</p>
     </header>
     <div class="tiles">
       {tiles.map((t) => <Tile {...t} />)}

@@ -2,19 +2,22 @@
 
 > Transformed hearts transform nations.
 
-A modern, animated, editorial mission-control dashboard for the Favor International team — fast access to BlackBaud, Paycom, Asana, GoHighLevel, the media folder, and field resources.
+A modern, animated, editorial mission-control dashboard for the Favor International team. Fast access to BlackBaud, Paycom, Asana, GoHighLevel, the media folder, the request board, and field resources.
 
-Built with [Astro](https://astro.build), zero JS framework runtime, deployed on Cloudflare Pages.
+Built with [Astro](https://astro.build) on Cloudflare Pages. The request board uses Pages Functions, D1, and R2.
+
+See `docs/REQUESTS.md` and `docs/AGENT.md`.
 
 ## What's inside
 
-- **Hero ticker** — animated KPI counts (souls saved, discipled)
-- **10 tool tiles** — every external destination the team uses, one click away
-- **Founder spotlight** — Carole Ward + the book
-- **Field gallery** — photos from Northern Uganda & South Sudan
-- **RDD Reports** — password-protected (`/rdd`) gateway to the KPI dashboard and Revenue dashboard
-- **Quick links rail** — YouTube, donate, book, website
-- **Footer** — accountability badges, address, social
+- **Hero ticker.** Animated KPI counts (souls saved, discipled).
+- **11 tool tiles.** Every external destination the team uses, plus the website and app request board.
+- **Request board** (`/requests`). Submit a website, portal, hub, or app change. Will approves. The team can see status.
+- **Founder spotlight.** Carole Ward and the book.
+- **Field gallery.** Photos from Northern Uganda and South Sudan.
+- **RDD Reports.** Password-protected (`/rdd`) gateway to the KPI dashboard and Revenue dashboard.
+- **Quick links rail.** YouTube, donate, book, website.
+- **Footer.** Accountability badges, address, social.
 
 ## Local development
 
@@ -32,7 +35,7 @@ npm run preview      # preview the prod build
 3. Build output: `dist`
 4. Node version: 20+
 
-That's it — pushes to `main` deploy automatically.
+That's it. Pushes to `main` deploy automatically.
 
 ## Editing tile destinations
 
@@ -46,7 +49,7 @@ The gate at `/rdd` checks a SHA-256 hash. Password is stored only as a hash in `
 node -e "console.log(require('crypto').createHash('sha256').update('NEW_PASSWORD').digest('hex'))"
 ```
 
-Replace the `HASH` constant with the output. Note: the gate is convenience-level protection — the destinations themselves remain protected by Google's auth.
+Replace the `HASH` constant with the output. The gate is convenience-level protection. The destinations themselves remain protected by Google's auth.
 
 ## Brand
 

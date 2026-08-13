@@ -820,6 +820,7 @@ section.section:first-of-type { padding-top: 0; }
 .tile:nth-child(8) { animation-delay: 520ms; }
 .tile:nth-child(9) { animation-delay: 580ms; }
 .tile:nth-child(10) { animation-delay: 640ms; }
+.tile:nth-child(11) { animation-delay: 700ms; }
 
 /* ====================================================================
    FOUNDER SECTION

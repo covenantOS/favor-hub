@@ -1,0 +1,17 @@
+# Favor Hub (dash.favorintl.org)
+# Static Astro + Pages Functions. D1/R2 live on the Marketing account
+# (same account as this Pages project). Do not bind Daniel's Tech-account
+# RE NXT database; D1 bindings are same-account only.
+
+name = "favor-hub"
+compatibility_date = "2026-07-01"
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "favor-requests"
+database_id = "56466fae-d166-4010-9f7f-b8f2d8b50c8b"
+
+[[r2_buckets]]
+binding = "UPLOADS"
+bucket_name = "favor-requests"
