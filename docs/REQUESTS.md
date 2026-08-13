@@ -17,7 +17,7 @@ Functions and D1 do not run in `astro dev`. Use `npx wrangler pages dev dist` af
 
 ## Request board
 
-`/requests` is the software-change board. Submit is open to the team. Review (approve / decline / move) uses the hub admin password. Agents pull approved work from `/api/agent/queue`. See `docs/AGENT.md`.
+`/requests/new` is Make a request. `/requests` is the board. Submit is open. Review (sign in, drag cards, approve) uses the hub admin password.
 
 This board is not Asana and not for marketing projects. Marketing Request still goes to the existing Asana form.
 

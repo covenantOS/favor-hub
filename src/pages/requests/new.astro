@@ -1,0 +1,106 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/requests.css';
+---
+<Base
+  title="Make a request - Favor Hub"
+  description="Tell Will what should change on the website, partner portal, this hub, or a Favor app."
+>
+  <Header />
+  <main class="make-page">
+    <div class="container make-stage">
+      <aside class="make-copy">
+        <p class="make-kicker">Website &amp; apps</p>
+        <h1>Make a <em>request</em></h1>
+        <p>
+          One change, one card. Will reads the board and approves what gets built.
+          Everyone can see what is waiting, moving, and done.
+        </p>
+        <a class="make-board-link" href="/requests">See the board</a>
+        <p class="make-aside">Marketing projects still go through the Marketing Request tile. This is for the site, portal, hub, and apps.</p>
+      </aside>
+
+      <div class="make-col">
+      <form class="make-sheet" id="req-form" autocomplete="on">
+        <label class="req-field">
+          <span>Your name</span>
+          <input name="name" required maxlength="80" placeholder="Terry" />
+        </label>
+
+        <fieldset class="make-where">
+          <legend>Where should this land</legend>
+          <label>
+            <input type="radio" name="surface" value="website" checked />
+            <span>Website</span>
+            <small>favorintl.org</small>
+          </label>
+          <label>
+            <input type="radio" name="surface" value="portal" />
+            <span>Portal</span>
+            <small>my.favorintl.org</small>
+          </label>
+          <label>
+            <input type="radio" name="surface" value="dashboard" />
+            <span>This hub</span>
+            <small>dash.favorintl.org</small>
+          </label>
+          <label>
+            <input type="radio" name="surface" value="app" />
+            <span>App</span>
+            <small>other Favor software</small>
+          </label>
+        </fieldset>
+
+        <label class="req-field">
+          <span>The request</span>
+          <textarea name="body" required maxlength="8000" placeholder="What should change, and why."></textarea>
+        </label>
+
+        <details class="make-more">
+          <summary>Email, page URL, short title</summary>
+          <label class="req-field">
+            <span>Email (optional)</span>
+            <input name="email" type="email" maxlength="120" placeholder="you@favorintl.org" />
+          </label>
+          <label class="req-field">
+            <span>Page URL (optional)</span>
+            <input name="page_url" maxlength="400" placeholder="https://favorintl.org/give/" />
+          </label>
+          <label class="req-field">
+            <span>Short title (optional)</span>
+            <input name="title" maxlength="160" placeholder="Leave blank and we will use your first line" />
+          </label>
+        </details>
+
+        <input class="req-hp" name="company" tabindex="-1" autocomplete="off" />
+
+        <div class="req-drop" id="req-drop" tabindex="0" role="button" aria-label="Add pictures">
+          <strong>Pictures help.</strong>
+          Drop, paste, or click. Jpg, png, webp, gif. Up to 6.
+          <input id="req-files" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden />
+        </div>
+        <div class="req-previews" id="req-previews"></div>
+
+        <div class="make-sheet__foot">
+          <button class="req-submit" type="submit" id="req-submit">Send to the board</button>
+        </div>
+        <div class="req-msg" id="req-msg" aria-live="polite"></div>
+      </form>
+
+      <div class="make-done" id="req-done" hidden>
+        <p class="make-kicker">On the board</p>
+        <h2>Will will review it.</h2>
+        <p>It landed in Inbox. You can send another, or watch it move on the board.</p>
+        <div class="make-done__actions">
+          <a class="req-submit" href="/requests">See the board</a>
+          <button type="button" class="req-ghost" id="req-again">Send another</button>
+        </div>
+      </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+  <script is:inline src="/js/requests-compose.js"></script>
+</Base>

@@ -10,23 +10,20 @@
   const boardEl = document.getElementById('req-board');
   const tabsEl = document.getElementById('req-tabs');
   const countEl = document.getElementById('req-count');
-  const form = document.getElementById('req-form');
-  const msg = document.getElementById('req-msg');
-  const submitBtn = document.getElementById('req-submit');
-  const drop = document.getElementById('req-drop');
-  const fileInput = document.getElementById('req-files');
-  const previews = document.getElementById('req-previews');
   const drawer = document.getElementById('req-drawer');
   const panel = document.getElementById('req-drawer-panel');
   const unlockBtn = document.getElementById('req-unlock');
   const lockBtn = document.getElementById('req-lock');
   const login = document.getElementById('req-login');
+  const loginMsg = document.getElementById('req-login-msg');
+  const hint = document.getElementById('req-hint');
+  if (!boardEl) return;
 
   let admin = false;
   let items = [];
-  let files = [];
   let activeTab = 'inbox';
   let openId = null;
+  let drag = null;
 
   const esc = (s) =>
     String(s || '')
@@ -44,6 +41,15 @@
     return data;
   }
 
+  function setAdminUi() {
+    unlockBtn.hidden = admin;
+    lockBtn.hidden = !admin;
+    login.hidden = admin || login.hidden;
+    if (admin) login.hidden = true;
+    hint.hidden = !admin;
+    boardEl.classList.toggle('is-reviewing', admin);
+  }
+
   function renderTabs() {
     tabsEl.innerHTML = COLS.map(
       (c) =>
@@ -51,35 +57,38 @@
     ).join('');
   }
 
-  function cardHtml(item) {
+  function cardHtml(item, index) {
     const thumbs = (item.attachments || [])
       .slice(0, 3)
       .map((a) => `<img src="${esc(a.url)}" alt="" />`)
       .join('');
-    return `<button type="button" class="req-card" data-id="${esc(item.id)}">
+    const dragAttr = admin ? ' data-draggable="true"' : '';
+    return `<article class="req-card" data-id="${esc(item.id)}" style="--i:${index}"${dragAttr}>
       <div class="req-card__kicker"><span>${esc(SURFACE[item.surface] || item.surface)}</span><span>${esc(item.submitter_name)}</span></div>
       <h3>${esc(item.title)}</h3>
       <p>${esc(clip(item.body, 180))}</p>
       ${thumbs ? `<div class="req-thumbs">${thumbs}</div>` : ''}
-    </button>`;
+    </article>`;
   }
 
   function renderBoard() {
     const declined = admin ? items.filter((i) => i.status === 'declined') : [];
     boardEl.innerHTML = COLS.map((c) => {
       const list = items.filter((i) => i.status === c.id);
-      const body = list.length ? list.map(cardHtml).join('') : `<p class="req-empty">Nothing here yet.</p>`;
+      const body = list.length
+        ? list.map((item, i) => cardHtml(item, i)).join('')
+        : `<p class="req-empty">${admin ? 'Drop a card here.' : 'Nothing here yet.'}</p>`;
       return `<section class="req-col ${c.id === activeTab ? 'is-on' : ''}" data-col="${c.id}">
         <div class="req-col__head"><h2>${c.label}</h2><span>${list.length}</span></div>
-        ${body}
+        <div class="req-col__stack">${body}</div>
       </section>`;
     }).join('');
     if (declined.length) {
       boardEl.insertAdjacentHTML(
         'beforeend',
-        `<section class="req-col" data-col="declined" style="grid-column:1/-1">
+        `<section class="req-col req-col--wide" data-col="declined">
           <div class="req-col__head"><h2>Declined</h2><span>${declined.length}</span></div>
-          ${declined.map(cardHtml).join('')}
+          <div class="req-col__stack">${declined.map((item, i) => cardHtml(item, i)).join('')}</div>
         </section>`
       );
     }
@@ -151,95 +160,103 @@
     panel.innerHTML = '';
   }
 
+  async function moveCard(id, status) {
+    const item = items.find((i) => i.id === id);
+    if (!item || item.status === status) return;
+    const data = await api(`/api/requests/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    const idx = items.findIndex((i) => i.id === id);
+    if (idx >= 0) items[idx] = data.request;
+    renderBoard();
+    if (openId === id) paintDrawer(data.request);
+  }
+
+  function clearDrag() {
+    if (drag?.ghost) drag.ghost.remove();
+    if (drag?.card) drag.card.classList.remove('req-card--origin');
+    boardEl.classList.remove('is-dragging');
+    boardEl.querySelectorAll('.req-col.is-drop').forEach((c) => c.classList.remove('is-drop'));
+    drag = null;
+  }
+
   async function load() {
     const data = await api('/api/requests');
     admin = Boolean(data.admin);
     items = data.requests || [];
-    unlockBtn.hidden = admin;
-    lockBtn.hidden = !admin;
-    login.hidden = true;
+    setAdminUi();
     renderBoard();
   }
 
-  function addFiles(list) {
-    for (const file of list) {
-      if (!file.type.startsWith('image/')) continue;
-      if (files.length >= 6) break;
-      files.push(file);
-    }
-    previews.innerHTML = '';
-    files.forEach((file) => {
-      const img = document.createElement('img');
-      img.src = URL.createObjectURL(file);
-      img.alt = file.name;
-      previews.appendChild(img);
-    });
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    msg.textContent = '';
-    msg.className = 'req-msg';
-    submitBtn.disabled = true;
-    try {
-      const fd = new FormData(form);
-      files.forEach((f) => fd.append('files', f));
-      const data = await api('/api/requests', { method: 'POST', body: fd });
-      if (data.request) items.unshift(data.request);
-      form.reset();
-      files = [];
-      previews.innerHTML = '';
-      form.querySelector('input[name="surface"][value="website"]').checked = true;
-      msg.textContent = 'On the board. Will will review it.';
-      msg.classList.add('is-ok');
-      renderBoard();
-    } catch (err) {
-      msg.textContent = err.message;
-    } finally {
-      submitBtn.disabled = false;
-    }
+  boardEl.addEventListener('pointerdown', (e) => {
+    if (!admin || e.button !== 0) return;
+    const card = e.target.closest('.req-card');
+    if (!card) return;
+    drag = {
+      id: card.dataset.id,
+      x: e.clientX,
+      y: e.clientY,
+      card,
+      moved: false,
+      ghost: null,
+      pointerId: e.pointerId,
+    };
   });
 
-  drop.addEventListener('click', () => fileInput.click());
-  drop.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      fileInput.click();
+  window.addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x;
+    const dy = e.clientY - drag.y;
+    if (!drag.moved && dx * dx + dy * dy < 64) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      const ghost = drag.card.cloneNode(true);
+      ghost.classList.add('req-card--ghost');
+      ghost.style.width = `${drag.card.getBoundingClientRect().width}px`;
+      document.body.appendChild(ghost);
+      drag.ghost = ghost;
+      drag.card.classList.add('req-card--origin');
+      boardEl.classList.add('is-dragging');
     }
-  });
-  fileInput.addEventListener('change', () => addFiles(fileInput.files));
-  ;['dragenter', 'dragover'].forEach((ev) =>
-    drop.addEventListener(ev, (e) => {
-      e.preventDefault();
-      drop.classList.add('is-hot');
-    })
-  );
-  ;['dragleave', 'drop'].forEach((ev) =>
-    drop.addEventListener(ev, (e) => {
-      e.preventDefault();
-      drop.classList.remove('is-hot');
-    })
-  );
-  drop.addEventListener('drop', (e) => addFiles(e.dataTransfer.files));
-  document.addEventListener('paste', (e) => {
-    if (!e.clipboardData) return;
-    const pasted = [...e.clipboardData.items]
-      .filter((i) => i.type.startsWith('image/'))
-      .map((i) => i.getAsFile())
-      .filter(Boolean);
-    if (pasted.length) addFiles(pasted);
+    drag.ghost.style.transform = `translate(${e.clientX - 28}px, ${e.clientY - 18}px) rotate(-2deg)`;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const col = under && under.closest('[data-col]');
+    boardEl.querySelectorAll('.req-col').forEach((c) => c.classList.toggle('is-drop', c === col));
   });
 
-  boardEl.addEventListener('click', (e) => {
-    const card = e.target.closest('[data-id]');
-    if (card) openDrawer(card.dataset.id);
+  window.addEventListener('pointerup', async (e) => {
+    if (!drag) return;
+    const { id, moved } = drag;
+    const under = document.elementFromPoint(e.clientX, e.clientY);
+    const col = under && under.closest('[data-col]');
+    const status = col && col.dataset.col;
+    clearDrag();
+    if (!moved) {
+      openDrawer(id);
+      return;
+    }
+    if (status) {
+      try {
+        await moveCard(id, status);
+      } catch (err) {
+        if (loginMsg) loginMsg.textContent = err.message;
+      }
+    }
   });
+
+  window.addEventListener('pointercancel', () => {
+    if (drag) clearDrag();
+  });
+
   tabsEl.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
     activeTab = btn.dataset.tab;
     renderBoard();
   });
+
   drawer.addEventListener('click', async (e) => {
     if (e.target.closest('[data-close]')) {
       closeDrawer();
@@ -248,34 +265,30 @@
     const btn = e.target.closest('[data-status]');
     if (!btn || !openId) return;
     try {
-      const data = await api(`/api/requests/${openId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: btn.dataset.status }),
-      });
-      const idx = items.findIndex((i) => i.id === openId);
-      if (idx >= 0) items[idx] = data.request;
-      renderBoard();
-      openDrawer(openId);
+      await moveCard(openId, btn.dataset.status);
     } catch (err) {
-      msg.textContent = err.message;
+      if (loginMsg) loginMsg.textContent = err.message;
     }
   });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && !drawer.hidden) closeDrawer();
   });
 
   unlockBtn.addEventListener('click', () => {
     login.hidden = !login.hidden;
-    document.getElementById('req-password').focus();
+    if (!login.hidden) document.getElementById('req-password').focus();
   });
+
   lockBtn.addEventListener('click', async () => {
     await api('/api/admin/logout', { method: 'POST', body: '{}' });
     admin = false;
     await load();
   });
+
   login.addEventListener('submit', async (e) => {
     e.preventDefault();
+    loginMsg.textContent = '';
     try {
       await api('/api/admin/login', {
         method: 'POST',
@@ -285,12 +298,12 @@
       document.getElementById('req-password').value = '';
       await load();
     } catch (err) {
-      msg.textContent = err.message;
+      loginMsg.textContent = err.message;
     }
   });
 
   load().catch((err) => {
     countEl.textContent = 'Board unavailable';
-    msg.textContent = err.message;
+    if (loginMsg) loginMsg.textContent = err.message;
   });
 })();

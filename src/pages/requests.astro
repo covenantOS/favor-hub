@@ -5,79 +5,36 @@ import Footer from '../components/Footer.astro';
 import '../styles/requests.css';
 ---
 <Base
-  title="Website & app requests - Favor Hub"
-  description="Submit a change to the website, partner portal, this hub, or a Favor app. See what Will has approved, what is in motion, and what is finished."
+  title="Request board - Favor Hub"
+  description="What the team has asked to change, what Will has approved, and what is finished."
 >
   <Header />
-  <main class="req-page">
+  <main class="board-page">
     <div class="container">
-      <header class="req-intro">
+      <header class="board-intro">
         <div>
-          <h1>Website &amp; app <em>requests</em></h1>
-          <p>
-            One place for changes to favorintl.org, the partner portal, this hub, and Favor apps.
-            Type the request, drop a picture if it helps, and send it. Will approves what gets built.
-            Everyone can see the board.
-          </p>
+          <p class="make-kicker">Website &amp; apps</p>
+          <h1>The <em>board</em></h1>
+          <p>Inbox waits for Will. Approved is what agents may build. In motion is claimed. Done is shipped.</p>
         </div>
-        <div class="req-intro__meta">
+        <div class="board-intro__actions">
+          <a class="req-submit" href="/requests/new">Make a request</a>
           <span class="req-chip" id="req-count">Loading</span>
-          <button type="button" class="req-admin-btn" id="req-unlock">Review</button>
+          <button type="button" class="req-admin-btn" id="req-unlock">Sign in to review</button>
           <button type="button" class="req-ghost" id="req-lock" hidden>Lock</button>
         </div>
       </header>
 
-      <form class="req-composer" id="req-form" autocomplete="on">
-        <div class="req-composer__row">
-          <label class="req-field">
-            <span>Your name</span>
-            <input name="name" required maxlength="80" placeholder="Terry" />
-          </label>
-          <label class="req-field">
-            <span>Email (optional)</span>
-            <input name="email" type="email" maxlength="120" placeholder="you@favorintl.org" />
-          </label>
-          <label class="req-field">
-            <span>Page URL (optional)</span>
-            <input name="page_url" maxlength="400" placeholder="https://favorintl.org/give/" />
-          </label>
+      <form class="board-login" id="req-login" hidden>
+        <p>Review password. Drag cards between columns once you are in.</p>
+        <div class="board-login__row">
+          <input type="password" id="req-password" placeholder="Password" autocomplete="current-password" />
+          <button type="submit" class="req-admin-btn">Unlock</button>
         </div>
-
-        <fieldset class="req-surfaces">
-          <legend>Where</legend>
-          <label><input type="radio" name="surface" value="website" checked /> Website</label>
-          <label><input type="radio" name="surface" value="portal" /> Portal</label>
-          <label><input type="radio" name="surface" value="dashboard" /> This hub</label>
-          <label><input type="radio" name="surface" value="app" /> App</label>
-        </fieldset>
-
-        <label class="req-field">
-          <span>The request</span>
-          <textarea name="body" required maxlength="8000" placeholder="What should change, and why. One request per card."></textarea>
-        </label>
-        <label class="req-field">
-          <span>Short title (optional)</span>
-          <input name="title" maxlength="160" placeholder="Leave blank and we will use your first line" />
-        </label>
-        <input class="req-hp" name="company" tabindex="-1" autocomplete="off" />
-
-        <div class="req-drop" id="req-drop" tabindex="0" role="button" aria-label="Add pictures">
-          Drop pictures here, paste a screenshot, or click to choose. Optional. Jpg, png, webp, gif. Up to 6.
-          <input id="req-files" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden />
-        </div>
-        <div class="req-previews" id="req-previews"></div>
-
-        <div class="req-composer__foot">
-          <p>Not for reports or data pulls. Marketing projects still go through the Marketing Request tile.</p>
-          <button class="req-submit" type="submit" id="req-submit">Send to the board</button>
-        </div>
-        <div class="req-msg" id="req-msg" aria-live="polite"></div>
+        <p class="req-msg" id="req-login-msg" aria-live="polite"></p>
       </form>
 
-      <form class="req-login" id="req-login" hidden>
-        <input type="password" id="req-password" placeholder="Review password" autocomplete="current-password" />
-        <button type="submit" class="req-admin-btn">Unlock</button>
-      </form>
+      <p class="board-hint" id="req-hint" hidden>Drag a card onto Approve, In motion, or Done. Click a card for the full note.</p>
 
       <div class="req-tabs" id="req-tabs" role="tablist"></div>
       <div class="req-board" id="req-board"></div>
