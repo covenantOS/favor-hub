@@ -1,6 +1,15 @@
 import { requireAgent } from '../../_lib/auth';
-import { attachmentsFor, listRequests, publicShape } from '../../_lib/db';
+import { attachmentsFor, eventsFor, listRequests, publicShape } from '../../_lib/db';
 import { handleError, json, type Env } from '../../_lib/http';
+
+const ORIGIN = 'https://dash.favorintl.org';
+
+function withAbsoluteUrls<T extends { attachments: Array<{ url: string }> }>(item: T): T {
+  return {
+    ...item,
+    attachments: item.attachments.map((a) => ({ ...a, url: a.url.startsWith('http') ? a.url : `${ORIGIN}${a.url}` })),
+  };
+}
 
 function toMarkdown(items: ReturnType<typeof publicShape>[]): string {
   const lines = [
@@ -27,7 +36,16 @@ function toMarkdown(items: ReturnType<typeof publicShape>[]): string {
     lines.push('');
     if (item.attachments.length) {
       lines.push('Pictures:');
-      for (const a of item.attachments) lines.push(`- ${a.filename}`);
+      for (const a of item.attachments) lines.push(`- ${a.filename}: ${a.url}`);
+      lines.push('');
+    }
+    const notes = (item.events || []).filter((e) => e.kind === 'note' || e.kind === 'status');
+    if (notes.length) {
+      lines.push('Notes:');
+      for (const e of notes) {
+        const extra = e.payload ? ` ${JSON.stringify(e.payload)}` : '';
+        lines.push(`- ${e.created_at.slice(0, 10)} · ${e.kind} · ${e.actor}${extra}`);
+      }
       lines.push('');
     }
   }
@@ -41,7 +59,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const rows = await listRequests(env, false);
     const queue = rows.filter((r) => r.status === 'approved' || r.status === 'in_progress');
     const atts = await attachmentsFor(env, queue.map((r) => r.id));
-    const items = queue.map((r) => publicShape(r, atts.get(r.id) || [], [], true));
+    const items = [];
+    for (const r of queue) {
+      const events = await eventsFor(env, r.id);
+      items.push(withAbsoluteUrls(publicShape(r, atts.get(r.id) || [], events, true)));
+    }
     const url = new URL(request.url);
     if (url.searchParams.get('format') === 'md' || request.headers.get('Accept')?.includes('text/markdown')) {
       return new Response(toMarkdown(items), {

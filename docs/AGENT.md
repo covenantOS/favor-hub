@@ -11,7 +11,7 @@ GET https://dash.favorintl.org/api/agent/queue
 Authorization: Bearer $AGENT_API_KEY
 ```
 
-Markdown: add `?format=md`.
+Markdown: add `?format=md`. Each card includes the request body, notes, repo, and full picture URLs on dash.favorintl.org.
 
 Key lives at `C:\Users\Willb\.claude\secrets\favor-hub-agent-key.txt`.
 
