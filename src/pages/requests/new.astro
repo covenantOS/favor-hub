@@ -6,7 +6,7 @@ import '../../styles/requests.css';
 ---
 <Base
   title="Make a request - Favor Hub"
-  description="Tell Will what should change on the website, partner portal, this hub, or a Favor app."
+  description="Ask Will to fix a page, add a job posting, or put up new copy."
 >
   <Header />
   <main class="make-page">
@@ -15,92 +15,179 @@ import '../../styles/requests.css';
         <p class="make-kicker">Website &amp; apps</p>
         <h1>Make a <em>request</em></h1>
         <p>
-          One change, one card. Will reads the board and approves what gets built.
-          Everyone can see what is waiting, moving, and done.
+          A one-line summary is enough. One word counts. Paste extra copy or files if you have them. Skip everything else.
         </p>
+        <ol class="make-toc" id="make-toc" aria-label="Survey steps">
+          <li data-step="1" class="is-on">You and where</li>
+          <li data-step="2">What you need</li>
+          <li data-step="3">Who and when</li>
+          <li data-step="4">Files and send</li>
+        </ol>
         <a class="make-board-link" href="/requests">See the board</a>
-        <p class="make-aside">Marketing projects still go through the Marketing Request tile. This is for the site, portal, hub, and apps.</p>
+        <p class="make-aside">Marketing projects still go through the Marketing Request tile.</p>
       </aside>
 
       <div class="make-col">
-      <form class="make-sheet" id="req-form" autocomplete="on">
-        <label class="req-field">
-          <span>Your name</span>
-          <input name="name" required maxlength="80" placeholder="Terry" />
-        </label>
+        <form class="make-sheet" id="req-form" autocomplete="on" novalidate>
+          <div class="make-progress" id="make-progress" aria-hidden="true">
+            <span data-bar="1" class="is-on"></span>
+            <span data-bar="2"></span>
+            <span data-bar="3"></span>
+            <span data-bar="4"></span>
+          </div>
+          <p class="make-step-label" id="make-step-label">Step 1 of 4</p>
 
-        <fieldset class="make-where">
-          <legend>Where should this land</legend>
-          <label>
-            <input type="radio" name="surface" value="website" checked />
-            <span>Website</span>
-            <small>favorintl.org</small>
-          </label>
-          <label>
-            <input type="radio" name="surface" value="portal" />
-            <span>Portal</span>
-            <small>my.favorintl.org</small>
-          </label>
-          <label>
-            <input type="radio" name="surface" value="dashboard" />
-            <span>This hub</span>
-            <small>dash.favorintl.org</small>
-          </label>
-          <label>
-            <input type="radio" name="surface" value="app" />
-            <span>App</span>
-            <small>other Favor software</small>
-          </label>
-        </fieldset>
+          <section class="make-step is-on" data-step="1">
+            <h2>You and where</h2>
+            <label class="req-field">
+              <span>Your name</span>
+              <input name="name" required maxlength="80" placeholder="Terry" />
+            </label>
+            <label class="req-field">
+              <span>Your email</span>
+              <input name="email" type="email" required maxlength="120" placeholder="you@favorintl.org" />
+              <small>Required. We email you here when the work is done.</small>
+            </label>
+            <fieldset class="make-where make-kind">
+              <legend>What kind</legend>
+              <label>
+                <input type="radio" name="kind" value="change" checked />
+                <span>Change something</span>
+                <small>Fix copy, layout, a bug</small>
+              </label>
+              <label>
+                <input type="radio" name="kind" value="add" />
+                <span>Add something new</span>
+                <small>Job posting, page, section</small>
+              </label>
+              <label>
+                <input type="radio" name="kind" value="other" />
+                <span>Other</span>
+                <small>If the first two do not fit</small>
+              </label>
+            </fieldset>
+            <fieldset class="make-where">
+              <legend>Which surface</legend>
+              <label>
+                <input type="radio" name="surface" value="website" checked />
+                <span>Website</span>
+                <small>favorintl.org</small>
+              </label>
+              <label>
+                <input type="radio" name="surface" value="portal" />
+                <span>Portal</span>
+                <small>my.favorintl.org</small>
+              </label>
+              <label>
+                <input type="radio" name="surface" value="dashboard" />
+                <span>This hub</span>
+                <small>dash.favorintl.org</small>
+              </label>
+              <label>
+                <input type="radio" name="surface" value="app" />
+                <span>App</span>
+                <small>other Favor software</small>
+              </label>
+            </fieldset>
+            <label class="req-field">
+              <span id="loc-label">Where should this live (optional)</span>
+              <input name="page_url" maxlength="400" id="loc-input" placeholder="Careers page, or skip" />
+            </label>
+          </section>
 
-        <label class="req-field">
-          <span>The request</span>
-          <textarea name="body" required maxlength="8000" placeholder="What should change, and why."></textarea>
-        </label>
+          <section class="make-step" data-step="2" hidden>
+            <h2 id="need-heading">What you need</h2>
+            <label class="req-field">
+              <span>One-line summary</span>
+              <input name="title" required maxlength="160" placeholder="Jobs" />
+            </label>
+            <div id="change-fields">
+              <label class="req-field">
+                <span>What it does now (optional)</span>
+                <textarea name="now" maxlength="4000" placeholder="Skip if nothing is live yet, or if the summary is enough."></textarea>
+              </label>
+              <label class="req-field">
+                <span>What should happen instead (optional)</span>
+                <textarea name="should" maxlength="4000" placeholder="Skip if the summary is enough."></textarea>
+              </label>
+            </div>
+            <div id="add-fields" hidden>
+              <label class="req-field">
+                <span>Paste the thing to add (optional)</span>
+                <textarea name="details" class="make-long" maxlength="12000" placeholder="Job description or copy, if you have it. Skip if the summary is enough."></textarea>
+              </label>
+            </div>
+          </section>
 
-        <details class="make-more">
-          <summary>Email, page URL, short title</summary>
-          <label class="req-field">
-            <span>Email (optional)</span>
-            <input name="email" type="email" maxlength="120" placeholder="you@favorintl.org" />
-          </label>
-          <label class="req-field">
-            <span>Page URL (optional)</span>
-            <input name="page_url" maxlength="400" placeholder="https://favorintl.org/give/" />
-          </label>
-          <label class="req-field">
-            <span>Short title (optional)</span>
-            <input name="title" maxlength="160" placeholder="Leave blank and we will use your first line" />
-          </label>
-        </details>
+          <section class="make-step" data-step="3" hidden>
+            <h2>Who and when (optional)</h2>
+            <label class="req-field">
+              <span>Who asked for this (optional)</span>
+              <input name="who_asked" maxlength="160" placeholder="Carole, Terry, Stephanie, me" />
+            </label>
+            <fieldset class="make-pills">
+              <legend>Who sees this</legend>
+              <label><input type="radio" name="audience" value="Public on favorintl.org" checked /> Public</label>
+              <label><input type="radio" name="audience" value="Partners on the portal" /> Partners</label>
+              <label><input type="radio" name="audience" value="Staff on the hub" /> Staff</label>
+              <label><input type="radio" name="audience" value="Not sure who sees it" /> Not sure</label>
+            </fieldset>
+            <fieldset class="make-pills">
+              <legend>When is it needed</legend>
+              <label><input type="radio" name="needed" value="As soon as possible" /> ASAP</label>
+              <label><input type="radio" name="needed" value="This week" checked /> This week</label>
+              <label><input type="radio" name="needed" value="Whenever we get to it" /> Whenever</label>
+              <label><input type="radio" name="needed" value="By a date" /> By a date</label>
+            </fieldset>
+            <label class="req-field" id="needed-date-wrap" hidden>
+              <span>Needed by</span>
+              <input name="needed_date" type="date" />
+            </label>
+            <label class="req-field">
+              <span>Anything we should know about timing (optional)</span>
+              <textarea name="if_ignored" maxlength="1200" placeholder="A hire date, a meeting, a campaign going live."></textarea>
+            </label>
+          </section>
 
-        <input class="req-hp" name="company" tabindex="-1" autocomplete="off" />
+          <section class="make-step" data-step="4" hidden>
+            <h2>Files and send</h2>
+            <p class="make-help">Optional. A screenshot, a PDF or Word job description, or more copy below.</p>
+            <div class="req-drop" id="req-drop" tabindex="0" role="button" aria-label="Add files">
+              <strong>Drop, paste, or click.</strong>
+              Pictures, PDF, Word, or text. Up to 6. Under 4 MB each.
+              <input id="req-files" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf,.doc,.docx,.txt,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" multiple hidden />
+            </div>
+            <div class="req-previews" id="req-previews"></div>
+            <label class="req-field">
+              <span>Anything else (optional)</span>
+              <textarea name="extra" maxlength="4000" placeholder="A Drive link, a person to check with, more copy."></textarea>
+            </label>
+            <div class="make-review" id="make-review"></div>
+          </section>
 
-        <div class="req-drop" id="req-drop" tabindex="0" role="button" aria-label="Add pictures">
-          <strong>Pictures help.</strong>
-          Drop, paste, or click. Jpg, png, webp, gif. Up to 6.
-          <input id="req-files" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple hidden />
+          <input class="req-hp" name="company" tabindex="-1" autocomplete="off" />
+          <input type="hidden" name="body" id="req-body" />
+
+          <div class="make-sheet__foot">
+            <p class="req-msg" id="req-msg" aria-live="polite"></p>
+            <button type="button" class="req-ghost" id="req-back" hidden>Back</button>
+            <button type="button" class="req-submit" id="req-next">Continue</button>
+            <button class="req-submit" type="submit" id="req-submit" hidden>Send to the board</button>
+          </div>
+        </form>
+
+        <div class="make-done" id="req-done" hidden>
+          <p class="make-kicker">On the board</p>
+          <h2>Will will review it.</h2>
+          <p>It landed in Inbox. You can send another, or watch it on the board.</p>
+          <div class="make-done__actions">
+            <a class="req-submit" href="/requests">See the board</a>
+            <button type="button" class="req-ghost" id="req-again">Send another</button>
+          </div>
         </div>
-        <div class="req-previews" id="req-previews"></div>
-
-        <div class="make-sheet__foot">
-          <button class="req-submit" type="submit" id="req-submit">Send to the board</button>
-        </div>
-        <div class="req-msg" id="req-msg" aria-live="polite"></div>
-      </form>
-
-      <div class="make-done" id="req-done" hidden>
-        <p class="make-kicker">On the board</p>
-        <h2>Will will review it.</h2>
-        <p>It landed in Inbox. You can send another, or watch it move on the board.</p>
-        <div class="make-done__actions">
-          <a class="req-submit" href="/requests">See the board</a>
-          <button type="button" class="req-ghost" id="req-again">Send another</button>
-        </div>
-      </div>
       </div>
     </div>
   </main>
   <Footer />
-  <script is:inline src="/js/requests-compose.js"></script>
+  <script is:inline src="/js/requests-compose.js?v=5"></script>
 </Base>

@@ -17,7 +17,7 @@ Functions and D1 do not run in `astro dev`. Use `npx wrangler pages dev dist` af
 
 ## Request board
 
-`/requests/new` is Make a request. `/requests` is the board. Submit is open. Review (sign in, drag cards, approve) uses the hub admin password.
+`/requests/new` is Make a request. `/requests` is the board. Submit is open. A one-line summary is enough (one word counts). Review (sign in, drag cards, approve) uses the hub admin password. New cards email will@favorintl.org. Marking a card done emails the requester and Will, with a check and the live page URL when one is on the card.
 
 This board is not Asana and not for marketing projects. Marketing Request still goes to the existing Asana form.
 

@@ -3,6 +3,9 @@ export interface Env {
   UPLOADS: R2Bucket;
   ADMIN_PASSWORD?: string;
   AGENT_API_KEY?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM?: string;
+  NOTIFY_EMAIL?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;

@@ -1,6 +1,7 @@
 import { isAdmin, requireAdmin } from '../../../_lib/auth';
 import { attachmentsFor, eventsFor, getRequest, publicShape, setStatus } from '../../../_lib/db';
 import { HttpError, asStatus, asTrimmed, handleError, json, nowIso, type Env } from '../../../_lib/http';
+import { notifyRequestDone } from '../../../_lib/notify';
 
 export const onRequestGet: PagesFunction<Env, 'id'> = async ({ request, env, params }) => {
   try {
@@ -16,7 +17,7 @@ export const onRequestGet: PagesFunction<Env, 'id'> = async ({ request, env, par
   }
 };
 
-export const onRequestPatch: PagesFunction<Env, 'id'> = async ({ request, env, params }) => {
+export const onRequestPatch: PagesFunction<Env, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
     await requireAdmin(env, request);
     const id = String(params.id || '');
@@ -29,7 +30,15 @@ export const onRequestPatch: PagesFunction<Env, 'id'> = async ({ request, env, p
     if (body.status) {
       const status = asStatus(body.status);
       const reason = asTrimmed(body.declined_reason, 'declined_reason', 400, false);
+      const prev = await getRequest(env, id);
       const row = await setStatus(env, id, status, 'Will', { declined_reason: reason || undefined });
+      if (status === 'done' && prev && prev.status !== 'done') {
+        waitUntil(
+          notifyRequestDone(env, row, { pageUrl: row.page_url }).catch((err) =>
+            console.error('[requests] done notify', err)
+          )
+        );
+      }
       const [atts, events] = await Promise.all([attachmentsFor(env, [id]), eventsFor(env, id)]);
       return json({ ok: true, request: publicShape(row, atts.get(id) || [], events, true) });
     }

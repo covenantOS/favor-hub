@@ -20,10 +20,10 @@ Key lives at `C:\Users\Willb\.claude\secrets\favor-hub-agent-key.txt`.
 ```
 PATCH https://dash.favorintl.org/api/agent/{id}
 Authorization: Bearer $AGENT_API_KEY
-{ "action": "claim" | "complete" | "note", "note": "optional" }
+{ "action": "claim" | "complete" | "note", "note": "optional", "page_url": "optional live URL" }
 ```
 
-`claim` moves approved -> in_progress. `complete` moves to done. Always leave a note of what shipped (commit hash, URL).
+`claim` moves approved -> in_progress. `complete` moves to done and emails the requester plus Will, with a check and the live page URL. Always leave a note of what shipped (commit hash, URL). `page_url` is stored on the card when you pass it, or the first http(s) URL in `note` is used.
 
 ## Repos
 

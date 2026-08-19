@@ -201,6 +201,12 @@ export async function setStatus(
   return next;
 }
 
+export async function setPageUrl(env: Env, id: string, pageUrl: string): Promise<void> {
+  await env.DB.prepare('UPDATE requests SET page_url = ?, updated_at = ? WHERE id = ?')
+    .bind(pageUrl, nowIso(), id)
+    .run();
+}
+
 export async function saveAttachment(
   env: Env,
   requestId: string,
@@ -228,14 +234,30 @@ export async function saveAttachment(
 }
 
 function extFrom(filename: string, contentType: string): string {
-  const fromName = filename.match(/\.(jpe?g|png|webp|gif)$/i);
-  if (fromName) return fromName[0].toLowerCase().replace('jpeg', 'jpg');
+  const fromName = filename.match(/\.(jpe?g|png|webp|gif|pdf|docx?|txt)$/i);
+  if (fromName) {
+    const ext = fromName[0].toLowerCase();
+    return ext === '.jpeg' ? '.jpg' : ext;
+  }
   if (contentType.includes('png')) return '.png';
   if (contentType.includes('webp')) return '.webp';
   if (contentType.includes('gif')) return '.gif';
-  return '.jpg';
+  if (contentType.includes('pdf')) return '.pdf';
+  if (contentType.includes('wordprocessingml')) return '.docx';
+  if (contentType.includes('msword')) return '.doc';
+  if (contentType.includes('text/plain')) return '.txt';
+  return '.bin';
 }
 
-export const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+export const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+];
 export const MAX_FILE_BYTES = 4 * 1024 * 1024;
 export const MAX_FILES = 6;
