@@ -5,7 +5,7 @@ const tiles = [
   {
     num: '01',
     title: 'Website & app requests',
-    desc: 'Tell us what to change. Will reviews the board.',
+    desc: 'Fixes, new pages, job posts. Will reviews the board.',
     href: '/requests/new',
     cta: 'Make a request',
     featured: true,
@@ -13,8 +13,8 @@ const tiles = [
   },
   {
     num: '02',
-    title: 'BlackBaud',
-    desc: 'CRM, donor records, partner management.',
+    title: 'Blackbaud',
+    desc: 'Donor records.',
     href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/',
     cta: 'Sign in',
     featured: true,
@@ -23,7 +23,7 @@ const tiles = [
   {
     num: '03',
     title: 'GoHighLevel',
-    desc: 'Marketing automation & comms platform.',
+    desc: 'Email and marketing.',
     href: 'https://my.favor.international',
     cta: 'Open',
     icon: 'zap',
@@ -31,7 +31,7 @@ const tiles = [
   {
     num: '04',
     title: 'RDD Reports',
-    desc: 'Restricted reporting — staff only.',
+    desc: 'Staff only. Password on the next screen.',
     href: '/rdd',
     cta: 'Unlock',
     locked: true,
@@ -40,7 +40,7 @@ const tiles = [
   {
     num: '05',
     title: 'Media Folder',
-    desc: 'Photos & videos from the field.',
+    desc: 'Photos and videos from the field.',
     href: 'https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU',
     cta: 'Browse',
     icon: 'image',
@@ -48,7 +48,7 @@ const tiles = [
   {
     num: '06',
     title: 'Marketing Materials',
-    desc: 'Browse the live materials catalog.',
+    desc: 'Spreadsheet of current pieces.',
     href: 'https://docs.google.com/spreadsheets/d/1voiT9f4oixPz0cRAJrQTyik-PqCwP3hGGhC-br1PjOU/edit?usp=sharing',
     cta: 'View',
     icon: 'sheet',
@@ -56,7 +56,7 @@ const tiles = [
   {
     num: '07',
     title: 'Marketing Request',
-    desc: 'Submit a new project to the team.',
+    desc: 'Asana form for a new project.',
     href: 'https://form.asana.com/?k=ZLVP4wa-hVh36WUjOH4FyQ&d=1200803238481574',
     cta: 'Submit',
     icon: 'send',
@@ -64,7 +64,7 @@ const tiles = [
   {
     num: '08',
     title: 'Time Off',
-    desc: 'Submit paid or unpaid time-off requests.',
+    desc: 'Paycom PTO.',
     href: 'https://phx.us-west.paycomonline.net/v4/ee/web.php/accruals/time-off',
     cta: 'Request',
     icon: 'calendar',
@@ -72,7 +72,7 @@ const tiles = [
   {
     num: '09',
     title: 'Time Sheet',
-    desc: 'Punch in & out — Paycom.',
+    desc: 'Paycom punch in and out.',
     href: 'https://www.paycomonline.net/v4/ee/web.php/app/login',
     cta: 'Punch',
     icon: 'clock',
@@ -80,7 +80,7 @@ const tiles = [
   {
     num: '10',
     title: 'Paycom Expenses',
-    desc: 'Paycom expense management & cards.',
+    desc: 'Cards and expense reports in Paycom.',
     href: 'https://www.paycomonline.net/v4/ee/web.php/app/login',
     cta: 'Manage',
     icon: 'card',
@@ -88,8 +88,8 @@ const tiles = [
   {
     num: '11',
     title: 'Expense Request',
-    desc: 'Submit an expense request — not Paycom or credit cards.',
-    href: 'https://auth.favorintl.org/documents/doc-form/67e446463ff018ff4f51c3a8?locale=en-US',
+    desc: 'Travel and purchases, signed online. Not Paycom.',
+    href: '/expenses/new',
     cta: 'Submit',
     icon: 'receipt',
   },
@@ -98,8 +98,7 @@ const tiles = [
 <section class="section" id="dashboard">
   <div class="container">
     <header class="section-head">
-      <h2><em>Tools</em> &amp; access</h2>
-      <p class="meta">11 destinations · 1 hub</p>
+      <h2>Tools</h2>
     </header>
     <div class="tiles">
       {tiles.map((t) => <Tile {...t} />)}

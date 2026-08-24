@@ -21,6 +21,10 @@ Functions and D1 do not run in `astro dev`. Use `npx wrangler pages dev dist` af
 
 This board is not Asana and not for marketing projects. Marketing Request still goes to the existing Asana form.
 
+## Expense requests
+
+`/expenses/new` replaces the GHL Pre-Travel and Expense Request doc form. Submit stores the request in D1 (`db/expenses.sql` tables), resolves the approver from `expense_settings` plus any dated `expense_approver_overrides`, and emails a private review link via Resend. The approver signs at `/expenses/review/?token=…`; approve builds a signed PDF with pdf-lib, stores it in R2, and emails the requester, the approver, and the distribution list with the PDF attached; decline emails the requester the note. `/expenses` (hub admin password) lists everything, links the PDFs, and edits the approver default, out-of-office substitutes, and the distribution list.
+
 ## Deploy
 
 Pushes to `main` should deploy once GitHub is connected. Until then:

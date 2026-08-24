@@ -1,0 +1,70 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/requests.css';
+import '../../styles/expenses.css';
+---
+<Base
+  title="Expense log - Favor Hub"
+  description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too."
+>
+  <Header />
+  <main class="exp-page">
+    <div class="container">
+      <div class="exp-head">
+        <div>
+          <p class="make-kicker">Expenses</p>
+          <h1>The expense <em>log</em></h1>
+        </div>
+        <a class="req-submit" href="/expenses/new">Submit a request</a>
+      </div>
+      <p class="exp-lede">Every request, its status, and the signed PDF. The approver schedule and the on-approval distribution list are managed here.</p>
+
+      <div id="exp-locked">
+        <form class="board-login" id="exp-login">
+          <p>This page uses the hub review password.</p>
+          <div class="board-login__row">
+            <input type="password" id="exp-password" placeholder="Password" autocomplete="current-password" />
+            <button type="submit" class="req-admin-btn">Unlock</button>
+          </div>
+          <p class="req-msg" id="exp-login-msg" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <div id="exp-admin" class="exp-admin-grid" hidden>
+        <div class="make-sheet">
+          <span class="exp-legend">Approver &amp; distribution</span>
+          <div class="exp-settings-row">
+            <label class="req-field"><span>Default approver name</span><input id="exp-set-name" maxlength="80" /></label>
+            <label class="req-field"><span>Default approver email</span><input id="exp-set-email" maxlength="120" /></label>
+            <button type="button" class="req-admin-btn" id="exp-set-save">Save</button>
+          </div>
+          <label class="req-field" style="margin-top:12px">
+            <span>On approval, also email (comma separated)</span>
+            <input id="exp-set-dist" maxlength="600" />
+            <small>The requester and the approver always get the approval email. This list rides along.</small>
+          </label>
+
+          <span class="exp-legend">Out-of-office substitutes</span>
+          <div class="exp-ovr-row">
+            <label class="req-field"><span>From</span><input id="exp-ovr-start" type="date" /></label>
+            <label class="req-field"><span>Through</span><input id="exp-ovr-end" type="date" /></label>
+            <label class="req-field"><span>Name</span><input id="exp-ovr-name" maxlength="80" /></label>
+            <label class="req-field"><span>Email</span><input id="exp-ovr-email" maxlength="120" /></label>
+            <button type="button" class="req-admin-btn" id="exp-ovr-add">Add</button>
+          </div>
+          <ul class="exp-ovr-list" id="exp-ovr-list"></ul>
+          <p class="req-msg" id="exp-set-msg" aria-live="polite"></p>
+        </div>
+
+        <div class="make-sheet">
+          <span class="exp-legend">Requests</span>
+          <div id="exp-log"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+  <script is:inline src="/js/expenses-admin.js?v=1"></script>
+</Base>

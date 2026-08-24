@@ -1,6 +1,7 @@
 export interface Env {
   DB: D1Database;
   UPLOADS: R2Bucket;
+  ASSETS: AssetsFetcher;
   ADMIN_PASSWORD?: string;
   AGENT_API_KEY?: string;
   RESEND_API_KEY?: string;

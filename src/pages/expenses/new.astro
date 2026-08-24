@@ -1,0 +1,80 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/requests.css';
+import '../../styles/expenses.css';
+---
+<Base
+  title="Expense Request - Favor Hub"
+  description="Submit a pre-travel and expense request for approval and signature."
+>
+  <Header />
+  <main class="exp-page">
+    <div class="container">
+      <div class="exp-head">
+        <div>
+          <p class="make-kicker">Expenses</p>
+          <h1>Pre-Travel &amp; <em>Expense</em> Request</h1>
+        </div>
+        <img src="/images/favor-primary.png" alt="Favor International" />
+      </div>
+      <p class="exp-lede">
+        Submit travel and purchase requests for approval. Your approver signs electronically and everyone
+        who needs the record gets the signed copy automatically. Paycom card expenses still go through Paycom.
+      </p>
+
+      <form class="make-sheet" id="exp-form" novalidate>
+        <span class="exp-legend">Who you are</span>
+        <div class="exp-grid2">
+          <label class="req-field"><span>Name</span><input id="exp-name" required maxlength="80" /></label>
+          <label class="req-field"><span>Favor email</span><input id="exp-email" type="email" required maxlength="120" placeholder="you@favorintl.org" /></label>
+        </div>
+
+        <span class="exp-legend">Travel (if any)</span>
+        <div class="exp-grid2">
+          <label class="req-field"><span>Dates of travel</span><input id="exp-dates" maxlength="120" placeholder="Oct 6 &ndash; Oct 9" /></label>
+          <label class="req-field"><span>City and state of travel</span><input id="exp-city" maxlength="120" placeholder="Dallas, TX" /></label>
+        </div>
+
+        <span class="exp-legend">Expenses</span>
+        <div class="exp-items-head"><span>Description</span><span>Item</span><span>Est. amount</span><span></span></div>
+        <div id="exp-rows"></div>
+        <button class="exp-add" id="exp-add" type="button">+ Add another expense</button>
+        <div class="exp-total"><span class="lbl">Total estimated</span><span class="val" id="exp-total-val">$0.00</span></div>
+
+        <span class="exp-legend">Reason</span>
+        <label class="req-field">
+          <span>If expenses are associated with travel, state the reason for the trip</span>
+          <textarea id="exp-reason" required maxlength="4000"></textarea>
+        </label>
+
+        <span class="exp-legend">Affirmation</span>
+        <label class="exp-affirm"><input type="checkbox" id="exp-affirm" /> I affirm that all of the above items are accurate to the best of my knowledge.</label>
+
+        <span class="exp-legend">Your signature</span>
+        <div id="exp-sig"></div>
+
+        <input class="req-hp" id="exp-hp" tabindex="-1" autocomplete="off" />
+        <div class="exp-foot">
+          <button class="req-submit exp-green" type="submit" id="exp-submit">Submit for approval</button>
+          <p class="exp-note">Goes to the assigned approver for review and signature. You get a copy of the decision by email.</p>
+        </div>
+        <p class="req-msg" id="exp-msg" aria-live="polite"></p>
+      </form>
+
+      <div class="make-done" id="exp-done" hidden>
+        <p class="make-kicker">Sent for approval</p>
+        <h2><span id="exp-done-doc"></span> is on its way.</h2>
+        <p><span id="exp-done-approver"></span> got an email with your request and will review and sign it. You get an email the moment it is decided.</p>
+        <div class="make-done__actions">
+          <a class="req-submit" href="/">Back to the dash</a>
+          <button type="button" class="req-ghost" id="exp-again">Submit another</button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+  <script is:inline src="/js/expense-sign.js?v=1"></script>
+  <script is:inline src="/js/expenses-new.js?v=1"></script>
+</Base>

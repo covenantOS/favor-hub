@@ -28,6 +28,10 @@ interface R2Bucket {
   get(key: string): Promise<R2Object | null>;
 }
 
+interface AssetsFetcher {
+  fetch(input: Request | string): Promise<Response>;
+}
+
 interface EventContext<Env = unknown, P extends string = string, Data = Record<string, unknown>> {
   request: Request;
   env: Env;

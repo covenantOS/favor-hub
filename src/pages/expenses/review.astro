@@ -1,0 +1,33 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/requests.css';
+import '../../styles/expenses.css';
+---
+<Base
+  title="Review expense request - Favor Hub"
+  description="Review, sign, and decide an expense request."
+>
+  <Header />
+  <main class="exp-page">
+    <div class="container">
+      <div class="exp-head">
+        <div>
+          <p class="make-kicker">Expenses</p>
+          <h1>Review &amp; <em>sign</em></h1>
+        </div>
+        <img src="/images/favor-primary.png" alt="Favor International" />
+      </div>
+      <p class="exp-lede">
+        Approve sends the signed record to the requester and the finance list. Decline sends your note back to the requester.
+      </p>
+      <div id="exp-review-stage">
+        <div class="make-sheet"><p class="exp-empty">Loading the request&hellip;</p></div>
+      </div>
+    </div>
+  </main>
+  <Footer />
+  <script is:inline src="/js/expense-sign.js?v=1"></script>
+  <script is:inline src="/js/expenses-review.js?v=1"></script>
+</Base>
