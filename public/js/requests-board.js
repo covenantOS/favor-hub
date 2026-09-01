@@ -60,7 +60,7 @@
   function cardHtml(item, index) {
     const thumbs = (item.attachments || [])
       .slice(0, 3)
-      .map((a) => `<img src="${esc(a.url)}" alt="" />`)
+      .map((a) => attThumb(a))
       .join('');
     const dragAttr = admin ? ' data-draggable="true"' : '';
     return `<article class="req-card" data-id="${esc(item.id)}" style="--i:${index}"${dragAttr}>
@@ -113,10 +113,32 @@
       .join('')}</div>`;
   }
 
+  function isImage(a) {
+    return String(a.content_type || '').startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(a.filename || '');
+  }
+
+  function attThumb(a) {
+    if (isImage(a)) return `<img src="${esc(a.url)}" alt="" />`;
+    return `<span class="req-file">${esc(a.filename)}</span>`;
+  }
+
+  function attLink(a) {
+    if (isImage(a)) {
+      return `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.filename)}" /></a>`;
+    }
+    return `<a class="req-file" href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.filename)}</a>`;
+  }
+
+  function locHtml(url) {
+    if (!url) return '';
+    if (/^https?:\/\//i.test(url) || url.startsWith('/')) {
+      return `<p><a href="${esc(url)}" target="_blank" rel="noopener">${esc(url)}</a></p>`;
+    }
+    return `<p>${esc(url)}</p>`;
+  }
+
   function paintDrawer(item) {
-    const atts = (item.attachments || [])
-      .map((a) => `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(a.url)}" alt="${esc(a.filename)}" /></a>`)
-      .join('');
+    const atts = (item.attachments || []).map((a) => attLink(a)).join('');
     const events = (item.events || [])
       .map((e) => `<li>${esc(e.created_at.slice(0, 10))} · ${esc(e.kind)} · ${esc(e.actor)}</li>`)
       .join('');
@@ -128,7 +150,7 @@
         <span class="req-chip">${esc(item.submitter_name)}</span>
       </div>
       <h2>${esc(item.title)}</h2>
-      ${item.page_url ? `<p><a href="${esc(item.page_url)}" target="_blank" rel="noopener">${esc(item.page_url)}</a></p>` : ''}
+      ${item.page_url ? locHtml(item.page_url) : ''}
       <div class="req-drawer__body">${esc(item.body)}</div>
       ${atts ? `<div class="req-gallery">${atts}</div>` : ''}
       ${nextActions(item)}

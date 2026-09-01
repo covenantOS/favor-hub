@@ -53,19 +53,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       await addExpenseEvent(env, row.id, 'approved', decided.approver_name, { ip });
       const items = await itemsFor(env, row.id);
       const settings = await getSettings(env);
-      let emailed = false;
+      let result: { sent: boolean; to: string[]; subject: string; html: string } = { sent: false, to: [], subject: '', html: '' };
       try {
         const pdf = await buildExpensePdf(env, decided, items, new URL(request.url).origin);
         await env.UPLOADS.put(pdfKey, pdf.buffer as ArrayBuffer, { httpMetadata: { contentType: 'application/pdf' } });
-        emailed = await emailApproved(env, decided, items, settings.distribution, pdf);
+        result = await emailApproved(env, decided, items, settings.distribution, pdf);
       } catch (err) {
         console.error('[expenses] pdf/email on approve', err);
       }
-      await addExpenseEvent(env, row.id, 'distributed', 'system', {
-        emailed,
-        recipients: [decided.requester_email, decided.approver_email, ...settings.distribution],
-      });
-      return json({ ok: true, status: 'approved', emailed });
+      await addExpenseEvent(env, row.id, 'distributed', 'system', result);
+      return json({ ok: true, status: 'approved', emailed: result.sent });
     }
 
     if (action === 'decline') {
@@ -73,13 +70,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const decided = await markDecided(env, row.id, { status: 'declined', decline_note: note, approver_ip: ip });
       await addExpenseEvent(env, row.id, 'declined', decided.approver_name, { note, ip });
       const items = await itemsFor(env, row.id);
-      let emailed = false;
+      let result: { sent: boolean; to: string[]; subject: string; html: string } = { sent: false, to: [], subject: '', html: '' };
       try {
-        emailed = await emailDeclined(env, decided, items);
+        result = await emailDeclined(env, decided, items);
       } catch (err) {
         console.error('[expenses] decline email', err);
       }
-      return json({ ok: true, status: 'declined', emailed });
+      await addExpenseEvent(env, row.id, 'decline_notified', 'system', result);
+      return json({ ok: true, status: 'declined', emailed: result.sent });
     }
 
     throw new HttpError(400, 'bad_action', 'Action must be approve or decline.');

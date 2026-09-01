@@ -17,15 +17,18 @@ import '../../styles/expenses.css';
           <p class="make-kicker">Expenses</p>
           <h1>The expense <em>log</em></h1>
         </div>
-        <a class="req-submit" href="/expenses/new">Submit a request</a>
+        <div style="display:flex;gap:10px;align-items:center">
+          <a class="req-submit" href="/expenses/new">Submit a request</a>
+          <button type="button" class="req-ghost" id="exp-lock" hidden>Lock</button>
+        </div>
       </div>
       <p class="exp-lede">Every request, its status, and the signed PDF. The approver schedule and the on-approval distribution list are managed here.</p>
 
       <div id="exp-locked">
         <form class="board-login" id="exp-login">
-          <p>This page uses the hub review password.</p>
+          <p>Enter the admin code to open the expense log.</p>
           <div class="board-login__row">
-            <input type="password" id="exp-password" placeholder="Password" autocomplete="current-password" />
+            <input type="password" id="exp-password" placeholder="Code" autocomplete="current-password" />
             <button type="submit" class="req-admin-btn">Unlock</button>
           </div>
           <p class="req-msg" id="exp-login-msg" aria-live="polite"></p>
@@ -46,6 +49,15 @@ import '../../styles/expenses.css';
             <small>The requester and the approver always get the approval email. This list rides along.</small>
           </label>
 
+          <span class="exp-legend">Mileage policy</span>
+          <div class="exp-settings-row">
+            <label class="req-field"><span>Rate (cents per mile)</span><input id="exp-set-mi-rate" type="number" min="1" max="500" /></label>
+            <label class="req-field"><span>Deduction (miles per trip)</span><input id="exp-set-mi-ded" type="number" min="0" max="500" /></label>
+            <button type="button" class="req-admin-btn" id="exp-set-mi-save">Save</button>
+          </div>
+          <small>Used by the mileage calculator on the request form. Update this when the IRS rate changes or the policy figure is confirmed.</small>
+          <p class="req-msg" id="exp-set-mi-msg" aria-live="polite"></p>
+
           <span class="exp-legend">Out-of-office substitutes</span>
           <div class="exp-ovr-row">
             <label class="req-field"><span>From</span><input id="exp-ovr-start" type="date" /></label>
@@ -56,6 +68,15 @@ import '../../styles/expenses.css';
           </div>
           <ul class="exp-ovr-list" id="exp-ovr-list"></ul>
           <p class="req-msg" id="exp-set-msg" aria-live="polite"></p>
+
+          <span class="exp-legend">Login code</span>
+          <div class="exp-settings-row">
+            <label class="req-field"><span>New code</span><input id="exp-code-new" type="password" maxlength="64" autocomplete="new-password" /></label>
+            <label class="req-field"><span>Repeat new code</span><input id="exp-code-confirm" type="password" maxlength="64" autocomplete="new-password" /></label>
+            <button type="button" class="req-admin-btn" id="exp-code-save">Update code</button>
+          </div>
+          <small>The code unlocks this log. The starting code is 1234. Change it here any time, and use the new code on the next sign-in.</small>
+          <p class="req-msg" id="exp-code-msg" aria-live="polite"></p>
         </div>
 
         <div class="make-sheet">
@@ -66,5 +87,5 @@ import '../../styles/expenses.css';
     </div>
   </main>
   <Footer />
-  <script is:inline src="/js/expenses-admin.js?v=1"></script>
+  <script is:inline src="/js/expenses-admin.js?v=2"></script>
 </Base>

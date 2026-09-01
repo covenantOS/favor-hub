@@ -42,6 +42,20 @@ export interface ExpenseSettings {
   distribution: string[];
 }
 
+export interface MileageSettings {
+  rate_cents: number;
+  deduction_miles: number;
+}
+
+export interface ExpenseEventRow {
+  id: string;
+  request_id: string;
+  kind: string;
+  actor: string;
+  payload: string | null;
+  created_at: string;
+}
+
 export interface ApproverOverrideRow {
   id: string;
   start_date: string;
@@ -115,6 +129,26 @@ export async function saveSettings(env: Env, next: ExpenseSettings): Promise<voi
     .run();
 }
 
+const FALLBACK_MILEAGE: MileageSettings = { rate_cents: 76, deduction_miles: 40 };
+
+export async function getMileageSettings(env: Env): Promise<MileageSettings> {
+  const row = await env.DB.prepare(
+    'SELECT rate_cents, deduction_miles FROM expense_mileage_settings WHERE id = 1'
+  ).first<MileageSettings>();
+  return row || FALLBACK_MILEAGE;
+}
+
+export async function saveMileageSettings(env: Env, next: MileageSettings): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO expense_mileage_settings (id, rate_cents, deduction_miles, updated_at)
+     VALUES (1, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET rate_cents = excluded.rate_cents,
+       deduction_miles = excluded.deduction_miles, updated_at = excluded.updated_at`
+  )
+    .bind(next.rate_cents, next.deduction_miles, nowIso())
+    .run();
+}
+
 export async function listOverrides(env: Env): Promise<ApproverOverrideRow[]> {
   const { results } = await env.DB.prepare(
     'SELECT id, start_date, end_date, name, email, created_at FROM expense_approver_overrides ORDER BY start_date ASC'
@@ -165,6 +199,15 @@ export async function addExpenseEvent(env: Env, requestId: string, kind: string,
   )
     .bind(newId('exe'), requestId, kind, actor, payload ? JSON.stringify(payload) : null, nowIso())
     .run();
+}
+
+export async function listEventsFor(env: Env, requestId: string): Promise<ExpenseEventRow[]> {
+  const { results } = await env.DB.prepare(
+    'SELECT id, request_id, kind, actor, payload, created_at FROM expense_events WHERE request_id = ? ORDER BY created_at ASC'
+  )
+    .bind(requestId)
+    .all<ExpenseEventRow>();
+  return results;
 }
 
 export async function insertExpense(
@@ -277,6 +320,7 @@ export function expenseShape(row: ExpenseRow, items: ExpenseItemRow[], opts: { s
     submitted_at: row.submitted_at,
     decided_at: row.decided_at,
     requester_signature: opts.signatures ? row.requester_signature : undefined,
+    approver_signature: opts.signatures ? row.approver_signature : undefined,
     pdf: opts.admin && row.pdf_r2_key ? `/api/expenses/${row.id}/pdf` : undefined,
     items: items.map((it) => ({ description: it.description, item: it.item, amount_cents: it.amount_cents })),
   };

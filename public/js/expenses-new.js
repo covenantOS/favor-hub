@@ -50,6 +50,52 @@
     if (last) last.querySelector("input").focus();
   });
 
+  var mileage = { rate_cents: 76, deduction_miles: 40 };
+  fetch("/api/expenses/mileage-rate")
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+      if (data && data.ok) { mileage = data; updateMileageNote(); }
+    })
+    .catch(function () {});
+
+  function mileageCalc() {
+    var miles = parseAmount($("exp-mi-miles").value);
+    var net = Math.max(0, miles - mileage.deduction_miles);
+    var amount = net * (mileage.rate_cents / 100);
+    return { miles: miles, net: net, amount: amount };
+  }
+  function updateMileageNote() {
+    var c = mileageCalc();
+    $("exp-mi-note").textContent =
+      "Per policy, the first " + mileage.deduction_miles + " mi of a trip do not count. " +
+      c.miles + " mi driven − " + mileage.deduction_miles + " mi = " + c.net + " reimbursable mi × " +
+      money(mileage.rate_cents / 100) + "/mi = " + money(c.amount) + ".";
+  }
+  $("exp-mi-miles").addEventListener("input", updateMileageNote);
+  $("exp-mi-toggle").addEventListener("click", function () {
+    $("exp-mi-calc").hidden = !$("exp-mi-calc").hidden;
+    if (!$("exp-mi-calc").hidden) updateMileageNote();
+  });
+  $("exp-mi-cancel").addEventListener("click", function () {
+    $("exp-mi-calc").hidden = true;
+  });
+  $("exp-mi-add").addEventListener("click", function () {
+    var c = mileageCalc();
+    if (c.miles <= 0) {
+      $("exp-mi-note").textContent = "Enter the miles driven first.";
+      return;
+    }
+    items.push({
+      description: "Mileage: " + c.miles + " mi driven − " + mileage.deduction_miles + " mi policy deduction = " +
+        c.net + " mi @ " + money(mileage.rate_cents / 100) + "/mi",
+      item: "Mileage",
+      amount: c.amount.toFixed(2),
+    });
+    renderItems();
+    $("exp-mi-miles").value = "";
+    $("exp-mi-calc").hidden = true;
+  });
+
   var sig = window.FavorSig($("exp-sig"), "");
   var msg = $("exp-msg");
   var submitBtn = $("exp-submit");

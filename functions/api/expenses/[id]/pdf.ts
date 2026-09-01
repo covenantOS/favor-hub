@@ -1,10 +1,10 @@
-import { requireAdmin } from '../../../_lib/auth';
+import { requireExpenseAdmin } from '../../../_lib/expenses/auth';
 import { getExpense } from '../../../_lib/expenses/db';
 import { errorJson, handleError, type Env } from '../../../_lib/http';
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
   try {
-    await requireAdmin(env, request);
+    await requireExpenseAdmin(env, request);
     const id = String(params.id || '');
     const row = await getExpense(env, id);
     if (!row || !row.pdf_r2_key) return errorJson('not_found', 'No PDF for that request.', 404);

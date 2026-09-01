@@ -23,7 +23,7 @@ This board is not Asana and not for marketing projects. Marketing Request still 
 
 ## Expense requests
 
-`/expenses/new` replaces the GHL Pre-Travel and Expense Request doc form. Submit stores the request in D1 (`db/expenses.sql` tables), resolves the approver from `expense_settings` plus any dated `expense_approver_overrides`, and emails a private review link via Resend. The approver signs at `/expenses/review/?token=…`; approve builds a signed PDF with pdf-lib, stores it in R2, and emails the requester, the approver, and the distribution list with the PDF attached; decline emails the requester the note. `/expenses` (hub admin password) lists everything, links the PDFs, and edits the approver default, out-of-office substitutes, and the distribution list.
+`/expenses/new` replaces the GHL Pre-Travel and Expense Request doc form. Submit stores the request in D1 (`db/expenses.sql` tables), resolves the approver from `expense_settings` plus any dated `expense_approver_overrides`, and emails a private review link via Resend. The approver signs at `/expenses/review/?token=…`; approve builds a signed PDF with pdf-lib, stores it in R2, and emails the requester, the approver, and the distribution list with the PDF attached; decline emails the requester the note. `/expenses` (admin code) lists everything, links the PDFs, and edits the approver default, out-of-office substitutes, and the distribution list. The admin code starts at 1234 and Stephanie changes it in the log's Login code section (`expense_admin_settings` holds the SHA-256 hash). The footer Admin login link on every hub page points to `/expenses`.
 
 ## Deploy
 

@@ -1,5 +1,5 @@
-import { requireAdmin } from '../../_lib/auth';
-import { addOverride, getSettings, listOverrides, removeOverride, saveSettings } from '../../_lib/expenses/db';
+import { requireExpenseAdmin } from '../../_lib/expenses/auth';
+import { addOverride, getMileageSettings, getSettings, listOverrides, removeOverride, saveMileageSettings, saveSettings } from '../../_lib/expenses/db';
 import { HttpError, asTrimmed, handleError, json, type Env } from '../../_lib/http';
 import { isEmail } from '../../_lib/notify';
 
@@ -7,8 +7,13 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireAdmin(env, request);
-    return json({ ok: true, settings: await getSettings(env), overrides: await listOverrides(env) });
+    await requireExpenseAdmin(env, request);
+    return json({
+      ok: true,
+      settings: await getSettings(env),
+      mileage: await getMileageSettings(env),
+      overrides: await listOverrides(env),
+    });
   } catch (err) {
     return handleError(err);
   }
@@ -16,7 +21,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireAdmin(env, request);
+    await requireExpenseAdmin(env, request);
     const data = (await request.json()) as Record<string, unknown>;
     const approver_name = asTrimmed(data.approver_name, 'approver_name', 80);
     const approver_email = asTrimmed(data.approver_email, 'approver_email', 120);
@@ -28,7 +33,18 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
       if (!isEmail(e)) throw new HttpError(400, 'bad_email', `Distribution email "${e}" is not valid.`);
     }
     await saveSettings(env, { approver_name, approver_email, distribution });
-    return json({ ok: true, settings: await getSettings(env) });
+
+    const rate_cents = Math.round(Number(data.mileage_rate_cents));
+    if (!Number.isFinite(rate_cents) || rate_cents <= 0 || rate_cents > 500) {
+      throw new HttpError(400, 'bad_mileage_rate', 'Mileage rate must be in cents, between 1 and 500.');
+    }
+    const deduction_miles = Math.round(Number(data.mileage_deduction_miles));
+    if (!Number.isFinite(deduction_miles) || deduction_miles < 0 || deduction_miles > 500) {
+      throw new HttpError(400, 'bad_mileage_deduction', 'Mileage deduction must be between 0 and 500 miles.');
+    }
+    await saveMileageSettings(env, { rate_cents, deduction_miles });
+
+    return json({ ok: true, settings: await getSettings(env), mileage: await getMileageSettings(env) });
   } catch (err) {
     return handleError(err);
   }
@@ -36,7 +52,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireAdmin(env, request);
+    await requireExpenseAdmin(env, request);
     const data = (await request.json()) as Record<string, unknown>;
     const start_date = asTrimmed(data.start_date, 'start_date', 10);
     const end_date = asTrimmed(data.end_date, 'end_date', 10);
@@ -54,7 +70,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireAdmin(env, request);
+    await requireExpenseAdmin(env, request);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!id.startsWith('ovr_')) throw new HttpError(400, 'bad_id', 'Unknown override.');
     await removeOverride(env, id);

@@ -1,4 +1,5 @@
-import { hitRateLimit, isAdmin } from '../../_lib/auth';
+import { hitRateLimit } from '../../_lib/auth';
+import { isExpenseAdmin } from '../../_lib/expenses/auth';
 import {
   addExpenseEvent,
   expenseShape,
@@ -6,6 +7,7 @@ import {
   insertExpense,
   isSignatureDataUrl,
   itemsFor,
+  listEventsFor,
   listExpenses,
   newToken,
   resolveApprover,
@@ -79,7 +81,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     const saved = await itemsFor(env, row.id);
     waitUntil(
       emailApprover(env, row, saved, reviewUrl)
-        .then((sent) => addExpenseEvent(env, row.id, 'approver_notified', 'system', { sent }))
+        .then((result) => addExpenseEvent(env, row.id, 'approver_notified', 'system', result))
         .catch((err) => console.error('[expenses] approver email', err))
     );
     return json({ ok: true, doc_number: row.doc_number, approver_name: approver.name }, 201);
@@ -90,12 +92,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    if (!(await isAdmin(env, request))) return errorJson('unauthorized', 'Unlock first.', 401);
+    if (!(await isExpenseAdmin(env, request))) return errorJson('unauthorized', 'Unlock the expense log first.', 401);
     const rows = await listExpenses(env);
     const settings = await getSettings(env);
     const shaped = [];
     for (const row of rows) {
-      shaped.push(expenseShape(row, await itemsFor(env, row.id), { admin: true }));
+      const shape = expenseShape(row, await itemsFor(env, row.id), { admin: true, signatures: true });
+      shaped.push({ ...shape, events: await listEventsFor(env, row.id) });
     }
     return json({ ok: true, requests: shaped, settings });
   } catch (err) {

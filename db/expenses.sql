@@ -69,6 +69,19 @@ CREATE TABLE IF NOT EXISTS expense_settings (
   updated_at TEXT NOT NULL
 );
 
+-- Single row: mileage reimbursement rate and the flat per-trip policy deduction
+-- (the first N miles of any trip are not reimbursable, per Michael Hinton/HR).
+-- Read by the public request form's mileage calculator, editable from the expense log settings.
+CREATE TABLE IF NOT EXISTS expense_mileage_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  rate_cents INTEGER NOT NULL,
+  deduction_miles INTEGER NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO expense_mileage_settings (id, rate_cents, deduction_miles, updated_at)
+VALUES (1, 76, 40, datetime('now'));
+
 -- Date-ranged substitutes (inclusive, America/New_York dates as YYYY-MM-DD).
 CREATE TABLE IF NOT EXISTS expense_approver_overrides (
   id TEXT PRIMARY KEY,
@@ -81,3 +94,20 @@ CREATE TABLE IF NOT EXISTS expense_approver_overrides (
 
 INSERT OR IGNORE INTO expense_settings (id, approver_name, approver_email, distribution, updated_at)
 VALUES (1, 'Stephanie Maier', 'stephanie@favorintl.org', 'morgan@favorintl.org,hr@favorintl.org,crystal@favorintl.org', datetime('now'));
+
+-- Sessions for the expense log page. Separate from the general hub review
+-- password so board reviewers cannot also see expense data.
+CREATE TABLE IF NOT EXISTS expense_admin_sessions (
+  token TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
+-- Single row: SHA-256 hash of the expense log admin code. When the row is
+-- missing the code falls back to the default (1234) until it is changed
+-- from the expense log settings.
+CREATE TABLE IF NOT EXISTS expense_admin_settings (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  code_hash TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

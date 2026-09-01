@@ -87,7 +87,16 @@ function shell(kicker: string, inner: string): string {
   </body></html>`;
 }
 
-export async function emailApprover(env: Env, row: ExpenseRow, items: ExpenseItemRow[], reviewUrl: string): Promise<boolean> {
+export interface SentEmail {
+  sent: boolean;
+  to: string[];
+  subject: string;
+  html: string;
+}
+
+export async function emailApprover(env: Env, row: ExpenseRow, items: ExpenseItemRow[], reviewUrl: string): Promise<SentEmail> {
+  const to = [row.approver_email];
+  const subject = `Expense request ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
     'Favor Hub · Expense request',
     `<h1 style="font-size:22px;color:#0d0f0c;margin:0 0 6px">${esc(row.requester_name)} needs your approval</h1>
@@ -97,11 +106,8 @@ export async function emailApprover(env: Env, row: ExpenseRow, items: ExpenseIte
      <p style="margin:0 0 18px"><a href="${reviewUrl}" style="display:inline-block;background:#0c7a26;color:#fffdf9;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:8px;font-size:14px">Review &amp; sign</a></p>
      <p style="font-size:11.5px;color:#8f8a7c;margin:0">This link is private to you and stops working once the request is decided. You are receiving this because you are the assigned expense approver.</p>`
   );
-  return sendResend(env, {
-    to: [row.approver_email],
-    subject: `Expense request ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`,
-    html,
-  });
+  const sent = await sendResend(env, { to, subject, html });
+  return { sent, to, subject, html };
 }
 
 export async function emailApproved(
@@ -110,7 +116,9 @@ export async function emailApproved(
   items: ExpenseItemRow[],
   distribution: string[],
   pdf: Uint8Array
-): Promise<boolean> {
+): Promise<SentEmail> {
+  const to = dedupe([row.requester_email, row.approver_email, ...distribution]);
+  const subject = `Approved: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
     'Favor Hub · Expense request approved',
     `<h1 style="font-size:22px;color:#0d0f0c;margin:0 0 6px">${esc(row.doc_number)} · ${esc(row.requester_name)}</h1>
@@ -122,15 +130,19 @@ export async function emailApproved(
      <div style="background:#f4efe4;border-radius:8px;padding:12px 14px;font-size:13.5px;color:#2a2722;margin:14px 0 0">${esc(row.reason)}</div>
      <p style="font-size:12px;color:#8f8a7c;margin:14px 0 0">The signed document is attached as a PDF.</p>`
   );
-  return sendResend(env, {
-    to: dedupe([row.requester_email, row.approver_email, ...distribution]),
-    subject: `Approved: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`,
+  const sent = await sendResend(env, {
+    to,
+    subject,
     html,
     attachments: [{ filename: `FAVOR-${row.doc_number}-signed.pdf`, content: toBase64(pdf) }],
   });
+  return { sent, to, subject, html };
 }
 
-export async function emailDeclined(env: Env, row: ExpenseRow, items: ExpenseItemRow[]): Promise<boolean> {
+export async function emailDeclined(env: Env, row: ExpenseRow, items: ExpenseItemRow[]): Promise<SentEmail> {
+  const to = [row.requester_email];
+  const cc = row.approver_email.toLowerCase() === row.requester_email.toLowerCase() ? undefined : [row.approver_email];
+  const subject = `Declined: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
     'Favor Hub · Expense request declined',
     `<h1 style="font-size:22px;color:#0d0f0c;margin:0 0 6px">${esc(row.doc_number)} · ${esc(row.requester_name)}</h1>
@@ -141,10 +153,6 @@ export async function emailDeclined(env: Env, row: ExpenseRow, items: ExpenseIte
      ${itemsTable(row, items)}
      <p style="font-size:13px;color:#5a5648;margin:14px 0 0">Fix what the note asks for and submit again from the dash.</p>`
   );
-  return sendResend(env, {
-    to: [row.requester_email],
-    cc: row.approver_email.toLowerCase() === row.requester_email.toLowerCase() ? undefined : [row.approver_email],
-    subject: `Declined: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`,
-    html,
-  });
+  const sent = await sendResend(env, { to, cc, subject, html });
+  return { sent, to: cc ? [...to, ...cc] : to, subject, html };
 }

@@ -40,7 +40,19 @@ import '../../styles/expenses.css';
         <span class="exp-legend">Expenses</span>
         <div class="exp-items-head"><span>Description</span><span>Item</span><span>Est. amount</span><span></span></div>
         <div id="exp-rows"></div>
-        <button class="exp-add" id="exp-add" type="button">+ Add another expense</button>
+        <div class="exp-add-row">
+          <button class="exp-add" id="exp-add" type="button">+ Add another expense</button>
+          <button class="exp-add" id="exp-mi-toggle" type="button">+ Calculate mileage</button>
+        </div>
+        <div class="exp-mi-calc" id="exp-mi-calc" hidden>
+          <span class="exp-legend">Mileage calculator</span>
+          <label class="req-field"><span>Miles driven (total for the trip)</span><input id="exp-mi-miles" inputmode="decimal" placeholder="0" /></label>
+          <p class="exp-mi-note" id="exp-mi-note">Loading the current mileage policy&hellip;</p>
+          <div class="exp-mi-foot">
+            <button type="button" class="req-admin-btn" id="exp-mi-add">Add to expenses</button>
+            <button type="button" class="req-ghost" id="exp-mi-cancel">Cancel</button>
+          </div>
+        </div>
         <div class="exp-total"><span class="lbl">Total estimated</span><span class="val" id="exp-total-val">$0.00</span></div>
 
         <span class="exp-legend">Reason</span>
