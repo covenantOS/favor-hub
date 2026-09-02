@@ -7,7 +7,7 @@ import '../../styles/expenses.css';
 ---
 <Base
   title="Expense Request - Favor Hub"
-  description="Submit a pre-travel and expense request for approval and signature."
+  description="Submit an expense request for approval and signature."
 >
   <Header />
   <main class="exp-page">
@@ -15,12 +15,12 @@ import '../../styles/expenses.css';
       <div class="exp-head">
         <div>
           <p class="make-kicker">Expenses</p>
-          <h1>Pre-Travel &amp; <em>Expense</em> Request</h1>
+          <h1>Expense <em>Request</em></h1>
         </div>
         <img src="/images/favor-primary.png" alt="Favor International" />
       </div>
       <p class="exp-lede">
-        Submit travel and purchase requests for approval. Your approver signs electronically and everyone
+        Submit expense requests for approval. Your approver signs electronically and everyone
         who needs the record gets the signed copy automatically. Paycom card expenses still go through Paycom.
       </p>
 
@@ -31,10 +31,10 @@ import '../../styles/expenses.css';
           <label class="req-field"><span>Favor email</span><input id="exp-email" type="email" required maxlength="120" placeholder="you@favorintl.org" /></label>
         </div>
 
-        <span class="exp-legend">Travel (if any)</span>
+        <span class="exp-legend">Travel details (if any)</span>
         <div class="exp-grid2">
-          <label class="req-field"><span>Dates of travel</span><input id="exp-dates" maxlength="120" placeholder="Oct 6 &ndash; Oct 9" /></label>
-          <label class="req-field"><span>City and state of travel</span><input id="exp-city" maxlength="120" placeholder="Dallas, TX" /></label>
+          <label class="req-field"><span>Dates</span><input id="exp-dates" maxlength="120" placeholder="Oct 6 &ndash; Oct 9" /></label>
+          <label class="req-field"><span>City and state</span><input id="exp-city" maxlength="120" placeholder="Dallas, TX" /></label>
         </div>
 
         <span class="exp-legend">Expenses</span>
@@ -57,8 +57,8 @@ import '../../styles/expenses.css';
 
         <span class="exp-legend">Reason</span>
         <label class="req-field">
-          <span>If expenses are associated with travel, state the reason for the trip</span>
-          <textarea id="exp-reason" required maxlength="4000"></textarea>
+          <span>Why is this needed?</span>
+          <textarea id="exp-reason" required maxlength="4000" placeholder="For a trip, state its purpose. For a purchase, state what it supports and why it is needed."></textarea>
         </label>
 
         <span class="exp-legend">Affirmation</span>

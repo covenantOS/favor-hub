@@ -84,7 +84,7 @@ export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseI
   page.drawLine({ start: { x: MARGIN, y }, end: { x: PAGE_W - MARGIN, y }, thickness: 1.5, color: INK });
   y -= 26;
 
-  text('Pre-Travel & Expense Request', MARGIN, 18, bold);
+  text('Expense Request', MARGIN, 18, bold);
   y -= 26;
 
   const metaRow = (label: string, value: string) => {
@@ -98,7 +98,7 @@ export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseI
   };
   metaRow('Name', row.requester_name);
   metaRow('Email', row.requester_email);
-  metaRow('Dates of travel', row.travel_dates || '—');
+  metaRow('Dates', row.travel_dates || '—');
   metaRow('City / state', row.travel_city || '—');
   y -= 10;
 
@@ -135,7 +135,7 @@ export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseI
 
   // Reason.
   ensure(30);
-  text('Reason for trip', MARGIN, 8.5, helv, SOFT);
+  text('Reason', MARGIN, 8.5, helv, SOFT);
   y -= 13;
   for (const line of wrap(row.reason, helv, 10, width)) {
     ensure(14);

@@ -73,7 +73,7 @@
     return (
       '<div class="exp-detail">' +
       '<div class="exp-rows">' +
-      "<b>Dates of travel</b><span>" + (esc(r.travel_dates) || "&mdash;") + "</span>" +
+      "<b>Dates</b><span>" + (esc(r.travel_dates) || "&mdash;") + "</span>" +
       "<b>City / state</b><span>" + (esc(r.travel_city) || "&mdash;") + "</span>" +
       "<b>Reason</b><span>" + esc(r.reason) + "</span>" +
       "</div>" +

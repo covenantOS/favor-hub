@@ -37,13 +37,13 @@
       '<span class="exp-legend">Request ' + esc(r.doc_number) + "</span>" +
       '<div class="exp-rows">' +
       "<b>Requested by</b><span>" + esc(r.requester_name) + " &lt;" + esc(r.requester_email) + "&gt;</span>" +
-      "<b>Dates of travel</b><span>" + (esc(r.travel_dates) || "&mdash;") + "</span>" +
+      "<b>Dates</b><span>" + (esc(r.travel_dates) || "&mdash;") + "</span>" +
       "<b>City / state</b><span>" + (esc(r.travel_city) || "&mdash;") + "</span>" +
       "<b>Submitted</b><span>" + fmt(r.submitted_at) + "</span>" +
       "</div>" +
       '<table class="exp-table"><tr><th>Description</th><th>Item</th><th class="r">Est. amount</th></tr>' + rows +
       '<tr class="tot"><td colspan="2">Total estimated</td><td class="r">' + money(r.total_cents) + "</td></tr></table>" +
-      '<div class="exp-rows" style="margin-top:14px"><b>Reason for trip</b><span>' + esc(r.reason) + "</span></div>" +
+      '<div class="exp-rows" style="margin-top:14px"><b>Reason</b><span>' + esc(r.reason) + "</span></div>" +
       '<div class="exp-sigstamp">' +
       (r.requester_signature ? '<img src="' + r.requester_signature + '" alt="Requester signature" />' : "") +
       '<div class="meta">Signed by ' + esc(r.requester_name) + "<br/>" + fmt(r.submitted_at) + " &middot; affirmation checked</div></div>" +
