@@ -7,6 +7,7 @@ export interface Env {
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
   EXPENSE_ADMIN_PASSWORD?: string;
+  EXPENSE_MASTER_PASSWORD?: string;
   NOTIFY_EMAIL?: string;
 }
 

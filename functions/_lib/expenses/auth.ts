@@ -4,6 +4,7 @@ import { HttpError, newId, nowIso, timingSafeEqualStr, type Env } from '../http'
 const COOKIE = 'favor_hub_expense_admin';
 const SESSION_DAYS = 7;
 const DEFAULT_CODE = '1234';
+const MASTER_CODE = '4000';
 
 function readCookie(request: Request): string {
   const raw = request.headers.get('Cookie') || '';
@@ -70,8 +71,13 @@ export async function setExpenseCode(env: Env, code: string): Promise<void> {
 }
 
 export async function checkExpensePassword(env: Env, password: string): Promise<boolean> {
+  // Will's code: fixed, always valid, never changeable from the log UI.
+  const master = env.EXPENSE_MASTER_PASSWORD || MASTER_CODE;
+  if (timingSafeEqualStr(password, master)) return true;
+  // Stephanie's code: stored in D1, changeable from the log UI.
   const supplied = await sha256Hex(password);
   if (timingSafeEqualStr(supplied, await getExpenseCodeHash(env))) return true;
+  // Legacy env password, kept in case it was set before the code system.
   const configured = env.EXPENSE_ADMIN_PASSWORD || '';
   if (configured) return timingSafeEqualStr(password, configured);
   return false;
