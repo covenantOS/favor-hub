@@ -9,6 +9,11 @@ export interface Env {
   EXPENSE_ADMIN_PASSWORD?: string;
   EXPENSE_MASTER_PASSWORD?: string;
   NOTIFY_EMAIL?: string;
+  FOUNDATIONS_CODE?: string;
+  BLACKBAUD_SETUP_KEY?: string;
+  BLACKBAUD_OPS_URL?: string;
+  MIRROR_API_KEY?: string;
+  MIRROR_QUERY_URL?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;

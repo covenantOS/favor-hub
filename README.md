@@ -13,6 +13,7 @@ See `docs/REQUESTS.md` and `docs/AGENT.md`.
 - **Hero ticker.** Animated KPI counts (souls saved, discipled).
 - **11 tool tiles.** Every external destination the team uses, plus the website and app request board.
 - **Request board** (`/requests`). Submit a website, portal, hub, or app change. Will approves. The team can see status.
+- **Foundation prospects** (`/foundations`). Look a foundation up before calling, log the contact, and it posts to Blackbaud. Code-protected.
 - **Founder spotlight.** Carole Ward and the book.
 - **Field gallery.** Photos from Northern Uganda and South Sudan.
 - **RDD Reports.** Password-protected (`/rdd`) gateway to the KPI dashboard and Revenue dashboard.

@@ -8,3 +8,4 @@ preview-*.png
 .env.*
 !.env.example
 .wrangler/
+.dev.vars

@@ -1,0 +1,103 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/requests.css';
+import '../../styles/expenses.css';
+import '../../styles/foundations.css';
+---
+<Base
+  title="Foundation prospects - Favor Hub"
+  description="Every foundation the team has contacted, what was said, and what Blackbaud already holds."
+>
+  <Header />
+  <main class="fnd-page">
+    <div class="container">
+      <header class="board-intro">
+        <div>
+          <p class="make-kicker">Foundations</p>
+          <h1>Foundation <em>prospects</em></h1>
+          <p>Look a foundation up before you call. Log the contact once and it posts to Blackbaud. A foundation gets its own record when it earns one.</p>
+        </div>
+        <div class="board-intro__actions" id="fnd-actions" hidden>
+          <label class="fnd-who">
+            <span>Entered by</span>
+            <input id="fnd-who" list="fnd-staff" placeholder="Your name" autocomplete="off" maxlength="60" />
+            <datalist id="fnd-staff">
+              <option value="Rachel Cox"></option>
+              <option value="Ava"></option>
+              <option value="Caden"></option>
+              <option value="Grace Morris"></option>
+              <option value="Joe Krol"></option>
+              <option value="Crystal Hall"></option>
+              <option value="Gregory Phipps"></option>
+              <option value="Jordan Abbott"></option>
+              <option value="Stephanie Brady"></option>
+              <option value="Brian Carr"></option>
+              <option value="Rick Brown"></option>
+              <option value="Celeste Paul"></option>
+              <option value="Will Hamilton"></option>
+            </datalist>
+          </label>
+          <button type="button" class="req-submit" id="fnd-add">Add a foundation</button>
+          <button type="button" class="req-ghost" id="fnd-lock">Lock</button>
+        </div>
+      </header>
+
+      <form class="board-login" id="fnd-login" hidden>
+        <p>Enter the code to open the foundation list.</p>
+        <div class="board-login__row">
+          <input type="password" id="fnd-code" placeholder="Code" inputmode="numeric" autocomplete="off" />
+          <button type="submit" class="req-admin-btn">Unlock</button>
+        </div>
+        <p class="req-msg" id="fnd-login-msg" aria-live="polite"></p>
+      </form>
+
+      <div id="fnd-app" hidden>
+        <section class="fnd-check" aria-label="Check a foundation">
+          <label class="fnd-check__box" for="fnd-q">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="fnd-q" type="search" placeholder="Check a foundation before you call" autocomplete="off" spellcheck="false" />
+            <button type="button" class="fnd-check__clear" id="fnd-q-clear" hidden>Clear</button>
+          </label>
+          <p class="fnd-check__hint">One search covers this list and every organization in Blackbaud.</p>
+          <div class="fnd-results" id="fnd-results" hidden></div>
+        </section>
+
+        <div id="fnd-body">
+          <section class="ticker fnd-band" aria-label="Totals">
+            <div class="ticker__label">The list today</div>
+            <div class="fnd-band__row" id="fnd-stats"></div>
+          </section>
+
+          <div class="fnd-tabs" id="fnd-tabs" role="tablist"></div>
+
+          <section class="make-sheet fnd-sheet" id="fnd-view-list">
+            <div class="fnd-filters" id="fnd-filters"></div>
+            <div class="fnd-table-wrap">
+              <table class="exp-admin-table fnd-table">
+                <thead>
+                  <tr><th>Foundation</th><th class="r">Contacts</th><th>Last contact</th><th>Fundraiser</th><th>Status</th></tr>
+                </thead>
+                <tbody id="fnd-rows"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section id="fnd-view-cleanup" hidden></section>
+          <section id="fnd-view-activity" hidden></section>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="req-drawer fnd-drawer" id="fnd-drawer" hidden>
+    <div class="req-drawer__scrim" data-close></div>
+    <aside class="req-drawer__panel" id="fnd-panel" aria-live="polite"></aside>
+  </div>
+
+  <div class="fnd-toast" id="fnd-toast" role="status" aria-live="polite"></div>
+
+  <Footer />
+  <script is:inline src="/js/foundations.js?v=1"></script>
+</Base>

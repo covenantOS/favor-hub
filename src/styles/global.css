@@ -695,7 +695,7 @@ section.section:first-of-type { padding-top: 0; }
   .tile { grid-column: span 6; }
   .tile.tile--featured { grid-column: span 12; }
   .tile.tile--small { grid-column: span 6; }
-  .tile.tile--wide { grid-column: span 12; }
+  .tile.tile--wide { grid-column: span 6; }
 }
 
 @media (max-width: 640px) {

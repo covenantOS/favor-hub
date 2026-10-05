@@ -8,14 +8,16 @@ interface Props {
   href: string;
   cta: string;
   featured?: boolean;
+  wide?: boolean;
   locked?: boolean;
   icon: string;
 }
 
-const { num, title, desc, href, cta, featured = false, locked = false, icon } = Astro.props;
+const { num, title, desc, href, cta, featured = false, wide = false, locked = false, icon } = Astro.props;
 const isExternal = href.startsWith('http');
 const cls = ['tile'];
 if (featured) cls.push('tile--featured');
+if (wide) cls.push('tile--wide');
 ---
 <a
   href={href}
