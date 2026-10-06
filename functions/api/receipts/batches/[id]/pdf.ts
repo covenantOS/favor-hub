@@ -1,11 +1,11 @@
 import { requireReceiptsUser } from '../../../../_lib/receipts/auth';
 import { cleanCopy } from '../../../../_lib/receipts/letter';
 import { buildPdf } from '../../../../_lib/receipts/pdf';
-import { fonts, getBatch, paper, signature } from '../../../../_lib/receipts/store';
-import { HttpError, handleError, type Env } from '../../../../_lib/http';
+import { fonts, getBatch, paper, signature, syncPrintFile } from '../../../../_lib/receipts/store';
+import { HttpError, handleError, nowIso, type Env } from '../../../../_lib/http';
 
 /** The print file as made. ?proof=1 draws the same pages on a picture of the receipt paper, for checking on screen. */
-export const onRequestGet: PagesFunction<Env, 'id'> = async ({ request, env, params }) => {
+export const onRequestGet: PagesFunction<Env, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
     await requireReceiptsUser(env, request);
     const batch = await getBatch(env, String(params.id));
@@ -28,6 +28,11 @@ export const onRequestGet: PagesFunction<Env, 'id'> = async ({ request, env, par
     }
     const obj = await env.UPLOADS.get(batch.pdf_key);
     if (!obj) throw new HttpError(404, 'gone', 'The print file is missing from storage.');
+    // The first time the print file itself is fetched, the page starts asking for it to be marked.
+    if (batch.kind === 'new' && !batch.downloaded_at && (batch.status === 'printing' || batch.status === 'marking')) {
+      await env.DB.prepare('UPDATE rcp_batches SET downloaded_at = ? WHERE id = ? AND downloaded_at IS NULL').bind(nowIso(), batch.id).run();
+      waitUntil(syncPrintFile(env, batch.id));
+    }
     const download = url.searchParams.get('download') === '1';
     return new Response(obj.body, {
       headers: {

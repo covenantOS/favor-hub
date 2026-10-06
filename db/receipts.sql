@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS rcp_batches (
   created_by TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   marked_by TEXT NOT NULL DEFAULT '',
-  marked_at TEXT
+  marked_at TEXT,
+  downloaded_at TEXT                            -- first time the print file itself was opened or downloaded
 );
 
 CREATE INDEX IF NOT EXISTS idx_rcp_batches_created ON rcp_batches(created_at);

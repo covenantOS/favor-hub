@@ -63,11 +63,12 @@ import '../../styles/receipts.css';
           <div class="fnd-table-wrap">
             <table class="exp-admin-table rcp-table">
               <thead>
-                <tr><th class="rcp-tick"><input type="checkbox" id="rcp-all" checked aria-label="Print every letter" /></th><th>Partner</th><th>Gift date</th><th class="r">Amount</th><th>Letter</th></tr>
+                <tr><th class="rcp-tick"><input type="checkbox" id="rcp-all" checked aria-label="Print every letter" title="Check or uncheck every letter, on every page" /></th><th>Partner</th><th>Gift date</th><th class="r">Amount</th><th>Letter</th></tr>
               </thead>
               <tbody id="rcp-rows"></tbody>
             </table>
           </div>
+          <div class="rcp-pager" id="rcp-pager" hidden></div>
         </section>
 
         <section class="make-sheet fnd-sheet" id="rcp-view-held" hidden></section>
@@ -80,5 +81,5 @@ import '../../styles/receipts.css';
   <div class="fnd-toast" id="rcp-toast" role="status" aria-live="polite"></div>
 
   <Footer />
-  <script is:inline src="/js/receipts.js?v=3"></script>
+  <script is:inline src="/js/receipts.js?v=4"></script>
 </Base>

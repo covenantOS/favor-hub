@@ -24,6 +24,7 @@ async function call<T>(env: Env, path: string, body: unknown, timeoutMs: number)
     return data as T;
   } catch (err) {
     if (err instanceof HttpError) throw err;
+    console.error(`receipts worker call ${path} failed`, err);
     throw new HttpError(504, 'timeout', 'Blackbaud took too long to answer. Try again in a minute.');
   } finally {
     clearTimeout(timer);
@@ -33,6 +34,29 @@ async function call<T>(env: Env, path: string, body: unknown, timeoutMs: number)
 export async function queryWaiting(env: Env, days: number): Promise<string> {
   const out = await call<{ ok: boolean; csv: string }>(env, '/receipts/query', { mode: 'waiting', days }, 90000);
   return out.csv;
+}
+
+/** What the sync worker keeps about a print file, for the morning email. */
+export interface PrintFileState {
+  id: string;
+  letterDate: string;
+  letters: number;
+  gifts: number;
+  marked: number;
+  madeBy: string;
+  madeAt: string;
+  downloadedAt: string;
+  status: string;
+}
+
+/** Tells the sync worker which print file is open, or that none is. */
+export async function reportPrintFile(env: Env, file: PrintFileState | null): Promise<void> {
+  try {
+    await call<{ ok: boolean }>(env, '/receipts/file', { file }, 8000);
+  } catch {
+    // The report says the same thing whenever it is sent, so a dropped connection gets one more try.
+    await call<{ ok: boolean }>(env, '/receipts/file', { file }, 8000);
+  }
 }
 
 export async function queryThankedOn(env: Env, date: string): Promise<string> {

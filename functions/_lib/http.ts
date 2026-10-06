@@ -17,6 +17,8 @@ export interface Env {
   RECEIPTS_CODE?: string;
   RECEIPTS_KEY?: string;
   RECEIPTS_WORKER_URL?: string;
+  /** "off" on a test copy, so it never tells the sync worker about its own print files. */
+  RECEIPTS_REPORT?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;

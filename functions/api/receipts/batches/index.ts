@@ -8,6 +8,7 @@ import {
   logEvent,
   makeBatch,
   openPrintFile,
+  syncPrintFile,
   takePrintLock,
   todayEastern,
   type BatchRow,
@@ -16,12 +17,14 @@ import { HttpError, handleError, json, type Env } from '../../../_lib/http';
 
 const ISO = /^\d{4}-\d{2}-\d{2}$/;
 
-export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     await requireReceiptsUser(env, request);
+    // Each load of the page tells the sync worker which file is open, so its record corrects itself.
+    waitUntil(syncPrintFile(env));
     const rows = await env.DB.prepare(
       `SELECT id, kind, letter_date, appeal_code, count, gifts, amount, regular, major, recurring, first_gift, last_gift, source_date, pdf_key,
-        '' AS letters, '' AS copy, marked, mark_failed, status, created_by, created_at, marked_by, marked_at
+        '' AS letters, '' AS copy, marked, mark_failed, status, created_by, created_at, marked_by, marked_at, downloaded_at
        FROM rcp_batches WHERE status <> 'cancelled' ORDER BY created_at DESC LIMIT 60`
     ).all<BatchRow>();
     return json({ ok: true, batches: rows.results.map(batchSummary) });
@@ -35,7 +38,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
  *   { ids: [...], added: [...], letterDate }  gifts waiting now, read fresh from Blackbaud
  *   { reprintOf: "2026-08-25", letterDate }    gifts marked thanked that day, printed again
  */
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     await requireReceiptsUser(env, request);
     const actor = requireActor(request);
@@ -68,6 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const { letters, skipped } = await lettersFor(env, picked, added, days);
       const batch = await makeBatch(env, { letters, letterDate, kind: 'new', actor });
       await logEvent(env, actor, 'print_file', batch.id, `${batch.count} letters for ${batch.gifts} gifts; ${skipped.length} skipped`);
+      waitUntil(syncPrintFile(env, batch.id));
       return json({ ok: true, batch: batchSummary(batch), skipped });
     } finally {
       await dropPrintLock(env);

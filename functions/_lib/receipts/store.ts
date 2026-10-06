@@ -16,7 +16,7 @@ import {
   type Letter,
   type Verdict,
 } from './rules';
-import { queryThankedOn, queryWaiting } from './worker';
+import { queryThankedOn, queryWaiting, reportPrintFile, type PrintFileState } from './worker';
 
 export const DEFAULT_DAYS = 90;
 
@@ -216,6 +216,8 @@ export interface BatchRow {
   created_at: string;
   marked_by: string;
   marked_at: string | null;
+  /** First time the print file itself (not the proof) was opened or downloaded. */
+  downloaded_at: string | null;
 }
 
 export function batchSummary(b: BatchRow): Record<string, unknown> {
@@ -240,7 +242,40 @@ export function batchSummary(b: BatchRow): Record<string, unknown> {
     createdAt: b.created_at,
     markedBy: b.marked_by,
     markedAt: b.marked_at,
+    downloadedAt: b.downloaded_at || null,
   };
+}
+
+/**
+ * Sends the sync worker the state of one print file, or of whichever file is open (null when none).
+ * The worker keeps it so Will's morning email can name a file that was printed and never marked
+ * thanked. Best effort: every load of the page sends it again.
+ */
+export async function syncPrintFile(env: Env, batchId?: string): Promise<void> {
+  if (env.RECEIPTS_REPORT === 'off') return;
+  try {
+    const columns = 'id, letter_date, count, gifts, marked, created_by, created_at, downloaded_at, status';
+    const row = batchId
+      ? await env.DB.prepare(`SELECT ${columns} FROM rcp_batches WHERE id = ? AND kind = 'new'`).bind(batchId).first<BatchRow>()
+      : await env.DB.prepare(`SELECT ${columns} FROM rcp_batches WHERE kind = 'new' AND status IN ('printing', 'marking') ORDER BY created_at LIMIT 1`).first<BatchRow>();
+    if (batchId && !row) return;
+    const file: PrintFileState | null = row
+      ? {
+          id: row.id,
+          letterDate: row.letter_date,
+          letters: row.count,
+          gifts: row.gifts || row.count,
+          marked: row.marked,
+          madeBy: row.created_by,
+          madeAt: row.created_at,
+          downloadedAt: row.downloaded_at || '',
+          status: row.status,
+        }
+      : null;
+    await reportPrintFile(env, file);
+  } catch (err) {
+    console.error('print file report to the sync worker failed', err);
+  }
 }
 
 export async function getBatch(env: Env, id: string): Promise<BatchRow> {
@@ -348,6 +383,7 @@ export async function makeBatch(
     created_at: at,
     marked_by: '',
     marked_at: null,
+    downloaded_at: null,
   };
   const stmts = [
     env.DB.prepare(

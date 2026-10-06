@@ -12,6 +12,8 @@
   const makeEl = $('rcp-make');
 
   const KINDS = { regular: 'Regular', major: '$200 and up', recurring: 'Monthly' };
+  const PAGE = 50; // letters on a page of the list
+  const HELD_SHOW = 10; // rows a long held-back group shows before "Show all"
   const HELD = {
     no_address: ['No mailing address', 'Add the address in Blackbaud and the gift comes back to the letters.'],
     preference: ['Asked for less mail', 'The record is marked Do Not Mail Solicitation, Do Not Solicit, All Email or Event Invitations Only. The reply slip asks for a gift, so add a letter only if you know this partner wants a paper receipt.'],
@@ -36,6 +38,8 @@
     days: Number(localStorage.getItem('rcp_days')) || 90,
     busy: false,
     wording: null,
+    page: 1,
+    heldOpen: new Set(),
   };
 
   const esc = (s) =>
@@ -62,6 +66,8 @@
     const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
+  /** The Eastern calendar day of a timestamp, as YYYY-MM-DD. */
+  const etDay = (iso) => (iso ? new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) : '');
   const codeFor = (iso) => {
     const [y, m] = iso.split('-').map(Number);
     return `Y${String(y).slice(2)}${'123456789ABC'[m - 1]}-TY`;
@@ -288,8 +294,8 @@
     $('rcp-make-go').addEventListener('click', makeFile);
   }
 
-  function step(n, title, body, done) {
-    return `<li class="rcp-step${done ? ' is-done' : ''}"><span class="rcp-step__n">${done ? '&#10003;' : n}</span><div><h3>${title}</h3>${body}</div></li>`;
+  function step(n, title, body, done, next) {
+    return `<li class="rcp-step${done ? ' is-done' : ''}${next ? ' is-next' : ''}"><span class="rcp-step__n">${done ? '&#10003;' : n}</span><div><h3>${title}</h3>${body}</div></li>`;
   }
 
   function renderBatchSteps(b) {
@@ -297,6 +303,9 @@
     const marking = b.status === 'marking';
     const total = b.gifts || b.count;
     const pct = total ? Math.round((b.marked / total) * 100) : 0;
+    const printed = Boolean(b.downloadedAt);
+    const madeDay = etDay(b.createdAt);
+    const waited = Boolean(madeDay) && madeDay < today();
     makeEl.innerHTML = `
       <div class="rcp-make__row">
         <div>
@@ -306,13 +315,26 @@
         </div>
         <div class="rcp-code rcp-code--big"><span>Write on the reply envelopes</span><b>${esc(b.appealCode)}</b></div>
       </div>
+      ${
+        waited
+          ? `<p class="rcp-nudge" role="status"><b>Not marked thanked yet.</b> This print file was made ${esc(day(madeDay))}. If the letters were printed, mark them thanked now. If they were never printed, throw the file away.</p>`
+          : ''
+      }
       <ol class="rcp-steps">
-        ${step(1, 'Check the proof', `<p>Every page drawn on a picture of the receipt paper. Look at the first few and the last few.</p><a class="req-ghost rcp-btn" href="${base}?proof=1" target="_blank" rel="noopener">Open the proof</a>`, false)}
-        ${step(2, 'Print', `<p>Receipt paper in the tray. In the print window pick <b>Legal</b> paper, <b>Actual size</b> (100%), and printing on <b>one side</b>.</p><a class="req-submit rcp-btn" href="${base}?download=1">Download the print file</a> <a class="fnd-textbtn" href="${base}" target="_blank" rel="noopener">or open it in a tab</a>`, false)}
+        ${step(1, 'Check the proof', `<p>Every page drawn on a picture of the receipt paper. Look at the first few and the last few.</p><a class="req-ghost rcp-btn" href="${base}?proof=1" target="_blank" rel="noopener">Open the proof</a>`, false, false)}
+        ${step(
+          2,
+          'Print',
+          `<p>Receipt paper in the tray. In the print window pick <b>Legal</b> paper, <b>Actual size</b> (100%), and printing on <b>one side</b>.</p>
+           <a class="req-submit rcp-btn" id="rcp-dl" href="${base}?download=1">Download the print file</a> <a class="fnd-textbtn" id="rcp-open" href="${base}" target="_blank" rel="noopener">or open it in a tab</a>
+           ${printed ? `<p class="rcp-fine rcp-step__when">Downloaded ${esc(stamp(b.downloadedAt))}.</p>` : ''}`,
+          printed,
+          false
+        )}
         ${step(
           3,
           'Mark as thanked in Blackbaud',
-          `<p>Press this once the letters are printed. Every gift in them is marked thanked, dated ${esc(day(b.letterDate))}, so it leaves this list.</p>
+          `<p>${printed || waited ? '<b>Printed? Press this now.</b>' : 'Press this once the letters are printed.'} Every gift in them is marked thanked, dated ${esc(day(b.letterDate))}, so it leaves this list. No new print file can be made until this one is marked.</p>
            ${
              marking || b.marked
                ? `<div class="rcp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><p class="rcp-fine" id="rcp-mark-msg">${b.marked} of ${plural(total, 'gift')} marked${b.markFailed ? `, ${b.markFailed} Blackbaud turned down` : ''}.</p>`
@@ -320,12 +342,23 @@
            }
            <button type="button" class="req-submit exp-green rcp-btn" id="rcp-mark" ${state.busy ? 'disabled' : ''}>${b.marked ? 'Finish marking' : `Mark ${plural(total, 'gift')} as thanked`}</button>
            ${b.marked ? '' : `<button type="button" class="fnd-textbtn is-danger" id="rcp-cancel">Throw this print file away</button>`}`,
-          false
+          false,
+          printed || waited || marking
         )}
       </ol>`;
     $('rcp-mark').addEventListener('click', () => markBatch(b.id));
     const cancel = $('rcp-cancel');
     if (cancel) cancel.addEventListener('click', () => cancelBatch(b));
+    // The server notes the first download. Show it here at once, so the marking step lights up.
+    for (const id of ['rcp-dl', 'rcp-open']) {
+      $(id).addEventListener('click', () => {
+        if (b.downloadedAt) return;
+        setTimeout(() => {
+          b.downloadedAt = new Date().toISOString();
+          if (openBatch() === b && !state.busy) renderBatchSteps(b);
+        }, 900);
+      });
+    }
   }
 
   function renderTabs() {
@@ -364,6 +397,7 @@
     $('rcp-filters').querySelectorAll('button').forEach((b) =>
       b.addEventListener('click', () => {
         state.filter = b.dataset.f;
+        state.page = 1;
         renderLetters();
       })
     );
@@ -372,11 +406,29 @@
       (g) => (state.filter === 'all' || g.segment === state.filter) && (!q || g.gifts.some((l) => `${l.addressee} ${l.place} ${l.lookup} ${l.constituentLookup}`.toLowerCase().includes(q)))
     );
     const shared = sharedAddresses();
+    const pages = Math.max(1, Math.ceil(rows.length / PAGE));
+    state.page = Math.min(Math.max(state.page, 1), pages);
+    const shown = rows.slice((state.page - 1) * PAGE, state.page * PAGE);
+    const pager = $('rcp-pager');
+    pager.hidden = pages < 2;
+    pager.innerHTML =
+      pages < 2
+        ? ''
+        : `<button type="button" class="req-ghost" data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''}>Previous</button>
+           <span>Letters ${((state.page - 1) * PAGE + 1).toLocaleString('en-US')} to ${Math.min(state.page * PAGE, rows.length).toLocaleString('en-US')} of ${rows.length.toLocaleString('en-US')}</span>
+           <button type="button" class="req-ghost" data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''}>Next</button>`;
+    pager.querySelectorAll('button').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        state.page = Number(btn.dataset.page) || 1;
+        renderLetters();
+        $('rcp-tabs').scrollIntoView({ block: 'start' });
+      })
+    );
     const tbody = $('rcp-rows');
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="5" class="fnd-empty">${all.length ? 'No letters match.' : 'Nothing is waiting for a letter.'}</td></tr>`;
     } else {
-      tbody.innerHTML = rows
+      tbody.innerHTML = shown
         .map((g) => {
           const l = g.first;
           const ids = g.gifts.map((x) => x.id);
@@ -431,6 +483,7 @@
 
   $('rcp-find').addEventListener('input', (e) => {
     state.find = e.target.value.trim();
+    state.page = 1;
     renderLetters();
   });
 
@@ -449,9 +502,11 @@
       order
         .map((k) => {
           const [title, note] = HELD[k];
-          const list = groups[k];
+          const every = groups[k];
+          const folds = every.length > HELD_SHOW + 2;
+          const list = folds && !state.heldOpen.has(k) ? every.slice(0, HELD_SHOW) : every;
           return `<div class="rcp-held">
-            <h3>${esc(title)} <span>${list.length}</span></h3>
+            <h3>${esc(title)} <span>${every.length}</span></h3>
             ${note ? `<p class="rcp-fine">${esc(note)}</p>` : ''}
             <table class="exp-admin-table rcp-table">
               <tbody>${list
@@ -471,9 +526,18 @@
                 )
                 .join('')}</tbody>
             </table>
+            ${folds ? `<button type="button" class="fnd-textbtn rcp-more" data-more="${k}">${state.heldOpen.has(k) ? 'Show fewer' : `Show all ${every.length}`}</button>` : ''}
           </div>`;
         })
         .join('');
+    el.querySelectorAll('[data-more]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const k = b.dataset.more;
+        if (state.heldOpen.has(k)) state.heldOpen.delete(k);
+        else state.heldOpen.add(k);
+        renderHeld();
+      })
+    );
     el.querySelectorAll('[data-add]').forEach((b) =>
       b.addEventListener('click', () => {
         const id = b.dataset.add;
@@ -558,6 +622,14 @@
 
   async function markBatch(id) {
     if (needWho() || state.busy) return;
+    const file = state.batches.find((x) => x.id === id);
+    if (file && !file.marked) {
+      const gifts = plural(file.gifts || file.count, 'gift');
+      const ask = file.downloadedAt
+        ? `Were all ${plural(file.count, 'letter')} printed? This marks ${gifts} as thanked in Blackbaud.`
+        : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the letters were printed some other way.`;
+      if (!confirm(ask)) return;
+    }
     state.busy = true;
     const btn = $('rcp-mark');
     if (btn) btn.disabled = true;

@@ -80,6 +80,20 @@
   color: var(--cream);
 }
 .rcp-step.is-done .rcp-step__n { background: var(--green-deep); }
+.rcp-step.is-next { border-color: var(--green-deep); box-shadow: 0 0 0 3px var(--green-glow); background: #fff; }
+.rcp-step.is-next .rcp-step__n { background: var(--green-deep); }
+.rcp-step__when { margin: 0; }
+.rcp-nudge {
+  margin: 18px 0 0;
+  padding: 12px 16px;
+  border: 1px solid #ecd9a8;
+  border-left: 4px solid var(--ochre);
+  border-radius: 12px;
+  background: #fbf2dc;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
 .rcp-btn { display: inline-block; text-decoration: none; margin: 0 8px 8px 0; }
 .rcp-step .fnd-textbtn { margin-top: 4px; display: inline-block; }
 .rcp-bar { height: 8px; border-radius: 999px; background: var(--paper-warm); overflow: hidden; margin: 4px 0 6px; }
@@ -110,6 +124,12 @@
 .rcp-pill-regular { background: var(--paper-warm); border: 1px solid var(--rule); }
 .rcp-pill-major { background: #fbf2dc; border: 1px solid #ecd9a8; color: #8a6410; }
 .rcp-pill-recurring { background: #eaf1f5; border: 1px solid #cfdde6; color: #3d6a82; }
+
+.rcp-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; font: 500 12px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink-soft); }
+.rcp-pager[hidden] { display: none; }
+.rcp-pager button[disabled] { opacity: 0.4; cursor: not-allowed; }
+#rcp-tabs { scroll-margin-top: 96px; }
+.rcp-more { margin-top: 10px; display: inline-block; }
 
 .rcp-held + .rcp-held { margin-top: 26px; }
 .rcp-held h3 { font-family: var(--display); font-weight: 400; font-size: 24px; letter-spacing: -0.015em; }

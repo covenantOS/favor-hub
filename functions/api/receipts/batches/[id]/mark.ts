@@ -1,5 +1,5 @@
 import { requireActor, requireReceiptsUser } from '../../../../_lib/receipts/auth';
-import { batchSummary, getBatch, logEvent } from '../../../../_lib/receipts/store';
+import { batchSummary, getBatch, logEvent, syncPrintFile } from '../../../../_lib/receipts/store';
 import { acknowledge } from '../../../../_lib/receipts/worker';
 import { HttpError, handleError, json, nowIso, type Env } from '../../../../_lib/http';
 
@@ -10,7 +10,7 @@ const CHUNK = 40;
  * The page calls this until nothing is left, so a closed tab or a limit picks up where it stopped.
  * { retry: true } sends the ones that failed again.
  */
-export const onRequestPost: PagesFunction<Env, 'id'> = async ({ request, env, params }) => {
+export const onRequestPost: PagesFunction<Env, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
     await requireReceiptsUser(env, request);
     const actor = requireActor(request);
@@ -53,6 +53,7 @@ export const onRequestPost: PagesFunction<Env, 'id'> = async ({ request, env, pa
       .bind(marked, failed, done ? 'done' : 'marking', actor, done ? nowIso() : null, batch.id)
       .run();
     if (done && ids.length > 0) await logEvent(env, actor, 'marked', batch.id, `${marked} gifts marked thanked, dated ${batch.letter_date}`);
+    waitUntil(syncPrintFile(env, batch.id));
     return json({ ok: true, batch: batchSummary(await getBatch(env, batch.id)), marked, failed, waiting, stopped });
   } catch (err) {
     return handleError(err);
