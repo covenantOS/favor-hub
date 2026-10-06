@@ -14,12 +14,13 @@
   const KINDS = { regular: 'Regular', major: '$200 and up', recurring: 'Monthly' };
   const HELD = {
     no_address: ['No mailing address', 'Add the address in Blackbaud and the gift comes back to the letters.'],
+    preference: ['Asked for less mail', 'The record is marked Do Not Mail Solicitation, Do Not Solicit, All Email or Event Invitations Only. The reply slip asks for a gift, so add a letter only if you know this partner wants a paper receipt.'],
     pass_through: ['Passed along for a partner', 'A fund or brokerage sent it for someone else. Add a letter only if you mean to thank the organization.'],
-    organization: ['Foundation or business', 'Churches and ministries get letters. Other organizations do not.'],
+    organization: ['Foundation, business or fund', 'Churches and ministries get letters. Other organizations do not, and neither does a person whose gift came through a foundation, business or donor-advised fund.'],
     inactive: ['Record marked inactive', ''],
     deceased: ['Marked deceased', ''],
     abroad: ['Outside the U.S.', 'Letters go to U.S. addresses only.'],
-    no_mail: ['Marked Do Not Mail', 'The record asks for no mail.'],
+    no_mail: ['No mail', 'The record is marked Do Not Mail, Do Not Contact or Do Not Mail Thank You, or its address is marked not to send mail.'],
     small: ['Under $10', 'Gifts under $10 never got a letter.'],
     gift_type: ['Other gift types', ''],
   };
@@ -175,10 +176,46 @@
     return picked.concat(extra);
   }
 
+  // The print file makes one letter per partner, listing each of the partner's gifts.
+  const partnerKey = (l) => l.constituentLookup || `${l.addressee}|${l.addressKey}`;
+
+  function segmentOfGifts(gifts) {
+    const once = gifts.filter((x) => x.type !== 'Recurring Gift Payment');
+    if (!once.length) return 'recurring';
+    return Math.max(...once.map((x) => x.amount)) >= 200 ? 'major' : 'regular';
+  }
+
+  /** Gifts grouped into letters. A gift already in a print file stays with that file's letter. */
+  function letters(list) {
+    const by = new Map();
+    for (const l of list) {
+      const k = `${partnerKey(l)}|${l.batch ? l.batch.id : ''}`;
+      if (by.has(k)) by.get(k).push(l);
+      else by.set(k, [l]);
+    }
+    return [...by.values()].map((gifts) => ({ gifts, first: gifts[0], segment: segmentOfGifts(gifts), batch: gifts[0].batch || null }));
+  }
+
   function counts(list) {
-    const c = { regular: 0, major: 0, recurring: 0 };
-    for (const l of list) c[l.segment] = (c[l.segment] || 0) + 1;
+    const c = { regular: 0, major: 0, recurring: 0, letters: 0, gifts: list.length };
+    for (const g of letters(list)) {
+      c[g.segment] += 1;
+      c.letters += 1;
+    }
     return c;
+  }
+
+  /** Street addresses with letters for two or more different records. Often one household with two records. */
+  function sharedAddresses() {
+    const v = state.view;
+    const going = v.letters.filter((l) => !l.batch).concat(v.held.filter((h) => !h.batch && state.added.has(h.id)));
+    const at = new Map();
+    for (const l of going) {
+      if (!l.addressKey) continue;
+      if (!at.has(l.addressKey)) at.set(l.addressKey, new Map());
+      at.get(l.addressKey).set(partnerKey(l), l.addressee);
+    }
+    return new Map([...at].filter(([, records]) => records.size > 1));
   }
 
   /* ------------------------------------------------------------ render */
@@ -198,7 +235,7 @@
     const v = state.view;
     const list = printable();
     const c = counts(list);
-    const dates = v.letters.map((l) => l.date).sort();
+    const dates = list.map((l) => l.date).sort();
     $('rcp-band-label').innerHTML = `Waiting for a receipt <select id="rcp-days" class="rcp-days" aria-label="How far back">
       ${[30, 60, 90, 180].map((d) => `<option value="${d}"${d === state.days ? ' selected' : ''}>gifts from the last ${d} days</option>`).join('')}
     </select>`;
@@ -209,7 +246,7 @@
     });
     const stat = (n, cap) => `<div class="ticker__stat"><div class="ticker__num">${Number(n).toLocaleString('en-US')}</div><div class="ticker__caption">${cap}</div></div>`;
     $('rcp-stats').innerHTML =
-      stat(list.length, `${openBatch() ? 'Not in the print file yet' : 'Letters to print'}${dates.length ? `<br>gifts ${esc(shortDay(dates[0]))} to ${esc(day(dates[dates.length - 1]))}` : ''}`) +
+      stat(c.letters, `${openBatch() ? 'Not in the print file yet' : 'Letters to print'}${dates.length ? `<br>${plural(c.gifts, 'gift')}, ${esc(shortDay(dates[0]))} to ${esc(day(dates[dates.length - 1]))}` : ''}`) +
       stat(c.regular, 'Regular') +
       stat(c.major, '$200 and up') +
       stat(c.recurring, 'Monthly partners');
@@ -224,11 +261,18 @@
     const list = printable();
     const c = counts(list);
     const date = state.letterDate || today();
+    const shared = sharedAddresses().size;
     makeEl.innerHTML = `
       <div class="rcp-make__row">
         <div>
           <h2>Make the print file</h2>
-          <p class="fnd-note">${list.length ? `${plural(list.length, 'letter')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly. One page per gift, in alphabetical order, so two letters to one household come out together.` : 'Nothing is waiting for a letter.'}</p>
+          <p class="fnd-note">${
+            list.length
+              ? `${plural(c.letters, 'letter')} for ${plural(c.gifts, 'gift')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly. A partner with two or more gifts gets one letter that lists each gift.${
+                  shared ? ` ${shared === 1 ? 'One address has letters' : `${shared} addresses have letters`} for two different records, marked "Same address" below. If it is one household, uncheck one.` : ''
+                }`
+              : 'Nothing is waiting for a letter.'
+          }</p>
         </div>
         <div class="rcp-make__form">
           <label class="req-field rcp-date"><span>Date on the letters</span><input type="date" id="rcp-date" value="${esc(date)}" /></label>
@@ -251,13 +295,14 @@
   function renderBatchSteps(b) {
     const base = `/api/receipts/batches/${encodeURIComponent(b.id)}/pdf`;
     const marking = b.status === 'marking';
-    const pct = b.count ? Math.round((b.marked / b.count) * 100) : 0;
+    const total = b.gifts || b.count;
+    const pct = total ? Math.round((b.marked / total) * 100) : 0;
     makeEl.innerHTML = `
       <div class="rcp-make__row">
         <div>
           <p class="make-kicker">Print file ready</p>
           <h2>${plural(b.count, 'letter')} dated ${esc(day(b.letterDate))}</h2>
-          <p class="fnd-note">${b.regular} regular, ${b.major} of $200 and up, ${b.recurring} monthly. Gifts from ${esc(day(b.firstGift))} to ${esc(day(b.lastGift))}, ${esc(money(b.amount))} in all. Made by ${esc(b.createdBy || 'someone')} on ${esc(stamp(b.createdAt))}.</p>
+          <p class="fnd-note">${b.regular} regular, ${b.major} of $200 and up, ${b.recurring} monthly. ${plural(total, 'gift')} from ${esc(day(b.firstGift))} to ${esc(day(b.lastGift))}, ${esc(money(b.amount))} in all. Made by ${esc(b.createdBy || 'someone')} on ${esc(stamp(b.createdAt))}.</p>
         </div>
         <div class="rcp-code rcp-code--big"><span>Write on the reply envelopes</span><b>${esc(b.appealCode)}</b></div>
       </div>
@@ -267,13 +312,13 @@
         ${step(
           3,
           'Mark as thanked in Blackbaud',
-          `<p>Press this once the letters are printed. Each gift is marked thanked, dated ${esc(day(b.letterDate))}, so it leaves this list.</p>
+          `<p>Press this once the letters are printed. Every gift in them is marked thanked, dated ${esc(day(b.letterDate))}, so it leaves this list.</p>
            ${
              marking || b.marked
-               ? `<div class="rcp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><p class="rcp-fine" id="rcp-mark-msg">${b.marked} of ${b.count} marked${b.markFailed ? `, ${b.markFailed} Blackbaud turned down` : ''}.</p>`
+               ? `<div class="rcp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><p class="rcp-fine" id="rcp-mark-msg">${b.marked} of ${plural(total, 'gift')} marked${b.markFailed ? `, ${b.markFailed} Blackbaud turned down` : ''}.</p>`
                : ''
            }
-           <button type="button" class="req-submit exp-green rcp-btn" id="rcp-mark" ${state.busy ? 'disabled' : ''}>${b.marked ? 'Finish marking' : `Mark ${plural(b.count, 'gift')} as thanked`}</button>
+           <button type="button" class="req-submit exp-green rcp-btn" id="rcp-mark" ${state.busy ? 'disabled' : ''}>${b.marked ? 'Finish marking' : `Mark ${plural(total, 'gift')} as thanked`}</button>
            ${b.marked ? '' : `<button type="button" class="fnd-textbtn is-danger" id="rcp-cancel">Throw this print file away</button>`}`,
           false
         )}
@@ -286,7 +331,7 @@
   function renderTabs() {
     const v = state.view;
     const tabs = [
-      ['letters', 'Letters', v.letters.length],
+      ['letters', 'Letters', letters(v.letters).length],
       ['held', 'Held back', v.held.length],
       ['past', 'Past printings', state.batches.length],
       ['wording', 'Letter wording', null],
@@ -310,8 +355,8 @@
 
   function renderLetters() {
     const v = state.view;
-    const all = v.letters;
-    const c = counts(all);
+    const all = letters(v.letters);
+    const c = counts(v.letters);
     const pills = [['all', 'All', all.length], ['regular', 'Regular', c.regular], ['major', '$200 and up', c.major], ['recurring', 'Monthly', c.recurring]];
     $('rcp-filters').innerHTML = pills
       .map(([k, label, n]) => `<button type="button" data-f="${k}" class="${state.filter === k ? 'on' : ''}">${label}<small>${n}</small></button>`)
@@ -323,41 +368,60 @@
       })
     );
     const q = state.find.toLowerCase();
-    const rows = all.filter((l) => (state.filter === 'all' || l.segment === state.filter) && (!q || `${l.addressee} ${l.place} ${l.lookup}`.toLowerCase().includes(q)));
+    const rows = all.filter(
+      (g) => (state.filter === 'all' || g.segment === state.filter) && (!q || g.gifts.some((l) => `${l.addressee} ${l.place} ${l.lookup} ${l.constituentLookup}`.toLowerCase().includes(q)))
+    );
+    const shared = sharedAddresses();
     const tbody = $('rcp-rows');
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="5" class="fnd-empty">${all.length ? 'No letters match.' : 'Nothing is waiting for a letter.'}</td></tr>`;
     } else {
       tbody.innerHTML = rows
-        .map((l) => {
-          const off = Boolean(l.batch);
-          const on = !off && !state.left.has(l.id);
+        .map((g) => {
+          const l = g.first;
+          const ids = g.gifts.map((x) => x.id);
+          const off = Boolean(g.batch);
+          const on = !off && !ids.some((id) => state.left.has(id));
+          const funds = [...new Set(g.gifts.map((x) => x.fund).filter((f) => f && f !== 'Where Needed Most'))];
+          const notes = [];
+          if (g.gifts.length > 1) notes.push(['', `One letter for ${g.gifts.length} gifts, ${money(g.gifts.reduce((t, x) => t + x.amount, 0))} in all`]);
+          const same = !off && l.addressKey && shared.get(l.addressKey);
+          if (same) {
+            const others = [...same].filter(([k]) => k !== partnerKey(l)).map(([, name]) => name);
+            if (others.length) notes.push([' is-warn', `Same address as ${others.join(' and ')}`]);
+          }
           return `<tr class="${on ? '' : 'is-off'}">
-            <td class="rcp-tick"><input type="checkbox" data-id="${esc(l.id)}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} aria-label="Print a letter for ${esc(l.addressee)}" /></td>
-            <td><span class="fnd-name">${esc(l.addressee)}</span><span class="fnd-sub">${esc(l.place)}${l.fund && l.fund !== 'Where Needed Most' ? ` &middot; ${esc(l.fund)}` : ''}</span></td>
-            <td class="mono">${esc(day(l.date))}</td>
-            <td class="r">${esc(money(l.amount))}</td>
-            <td>${off ? `<span class="exp-pill pending">In the ${esc(shortDay(l.batch.letterDate))} print file</span>` : `<span class="exp-pill rcp-pill-${l.segment}">${KINDS[l.segment]}</span>`}</td>
+            <td class="rcp-tick"><input type="checkbox" data-ids="${esc(ids.join(','))}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} aria-label="Print a letter for ${esc(l.addressee)}" /></td>
+            <td><span class="fnd-name">${esc(l.addressee)}</span><span class="fnd-sub">${esc(l.place)}${funds.length ? ` &middot; ${esc(funds.join(', '))}` : ''}</span>${notes
+              .map(([cls, text]) => `<span class="rcp-note${cls}">${esc(text)}</span>`)
+              .join('')}</td>
+            <td class="mono">${g.gifts.map((x) => esc(day(x.date))).join('<br>')}</td>
+            <td class="r">${g.gifts.map((x) => esc(money(x.amount))).join('<br>')}</td>
+            <td>${off ? `<span class="exp-pill pending">In the ${esc(shortDay(g.batch.letterDate))} print file</span>` : `<span class="exp-pill rcp-pill-${g.segment}">${KINDS[g.segment]}</span>`}</td>
           </tr>`;
         })
         .join('');
     }
     tbody.querySelectorAll('input[type=checkbox]').forEach((box) =>
       box.addEventListener('change', () => {
-        if (box.checked) state.left.delete(box.dataset.id);
-        else state.left.add(box.dataset.id);
+        for (const id of box.dataset.ids.split(',')) {
+          if (box.checked) state.left.delete(id);
+          else state.left.add(id);
+        }
         box.closest('tr').classList.toggle('is-off', !box.checked);
         renderStats();
         if (!openBatch()) renderMake();
       })
     );
     const allBox = $('rcp-all');
-    allBox.checked = rows.every((l) => l.batch || !state.left.has(l.id));
+    allBox.checked = rows.every((g) => g.batch || !g.gifts.some((x) => state.left.has(x.id)));
     allBox.onchange = () => {
-      for (const l of rows) {
-        if (l.batch) continue;
-        if (allBox.checked) state.left.delete(l.id);
-        else state.left.add(l.id);
+      for (const g of rows) {
+        if (g.batch) continue;
+        for (const x of g.gifts) {
+          if (allBox.checked) state.left.delete(x.id);
+          else state.left.add(x.id);
+        }
       }
       renderLetters();
       renderStats();
@@ -416,6 +480,7 @@
         if (state.added.has(id)) state.added.delete(id);
         else state.added.add(id);
         renderHeld();
+        renderLetters();
         renderStats();
         if (!openBatch()) renderMake();
       })
@@ -425,7 +490,7 @@
   function statusPill(b) {
     if (b.kind === 'reprint') return `<span class="exp-pill pending">Printed again</span>`;
     if (b.status === 'done') return `<span class="exp-pill approved">Marked thanked</span>`;
-    if (b.status === 'marking') return `<span class="exp-pill fnd-pill-work">${b.marked} of ${b.count} marked</span>`;
+    if (b.status === 'marking') return `<span class="exp-pill fnd-pill-work">${b.marked} of ${b.gifts || b.count} gifts marked</span>`;
     return `<span class="exp-pill fnd-pill-two">Not marked yet</span>`;
   }
 
@@ -442,7 +507,7 @@
               const base = `/api/receipts/batches/${encodeURIComponent(b.id)}/pdf`;
               return `<tr>
                 <td><span class="fnd-name">${esc(day(b.letterDate))}</span><span class="fnd-sub">${b.kind === 'reprint' ? `Gifts marked ${esc(day(b.sourceDate))}` : esc(b.appealCode)}</span></td>
-                <td class="r">${b.count}</td>
+                <td class="r">${b.count}${b.gifts && b.gifts !== b.count ? `<span class="fnd-sub">${plural(b.gifts, 'gift')}</span>` : ''}</td>
                 <td class="mono">${esc(shortDay(b.firstGift))} to ${esc(shortDay(b.lastGift))}</td>
                 <td>${esc(b.createdBy)}<span class="fnd-sub">${esc(stamp(b.createdAt))}</span></td>
                 <td>${statusPill(b)}</td>
@@ -529,7 +594,7 @@
 
   async function cancelBatch(b) {
     if (needWho()) return;
-    if (!confirm(`Throw away the print file of ${b.count} letters? Nothing in Blackbaud changes, and the gifts go back on the list.`)) return;
+    if (!confirm(`Throw away the print file of ${plural(b.count, 'letter')}? Do this only if the letters were not mailed. Nothing in Blackbaud changes, and the gifts go back on the list.`)) return;
     try {
       await api(`/api/receipts/batches/${encodeURIComponent(b.id)}`, { method: 'DELETE' });
       toast('Print file thrown away.');

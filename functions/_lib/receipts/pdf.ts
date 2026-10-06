@@ -1,6 +1,7 @@
 // Prints the changing part of a thank-you receipt onto the pre-printed legal
 // sheet: the receipt lines and mailing address in the top panel, the letter
-// in the middle, the reply slip at the bottom. One page per gift.
+// in the middle, the reply slip at the bottom. One page per letter, and a
+// partner's gifts share one letter.
 //
 // Every position below was measured from the last archived InDesign batch
 // (2025-10-03), so a sheet printed here lands where the old ones did. The
@@ -22,6 +23,11 @@ const LEADING = 14;
 
 // Top panel: the receipt the partner tears off and keeps.
 const RECEIPT = { x: 42.2, first: 70.5, step: 15, maxWidth: 390 };
+// Four lines in the band the usual three use (66 to 102), for a letter whose gifts need two rows.
+const RECEIPT_TIGHT = { first: 66, step: 12, size: 10.5 };
+const GIFTS_LABEL = 'Gifts: ';
+// The pre-printed "No goods or services" note starts at x 412, level with the first receipt line.
+const GIFTS_WIDTH = 355;
 // The mailing address. It shows through the envelope window.
 const ADDRESS = { x: 48, first: 151, step: 14.4, maxWidth: 300 };
 // The letter.
@@ -128,6 +134,19 @@ function safe(text: string, has: Set<number>): string {
   return out;
 }
 
+/** "Gifts: 9/6/2026 $150.00, 9/25/2026 $50.00," then the rest, split where the receipt runs out of width. */
+function giftRows(items: string[], font: PDFFont, size: number, maxWidth: number): string[] {
+  const room = (row: number) => maxWidth - (row === 0 ? 0 : font.widthOfTextAtSize(GIFTS_LABEL, size));
+  const rows: string[][] = [[]];
+  for (const item of items) {
+    const row = rows[rows.length - 1];
+    const text = `${rows.length === 1 ? GIFTS_LABEL : ''}${[...row, item].join(', ')},`;
+    if (row.length && font.widthOfTextAtSize(text, size) > room(rows.length - 1)) rows.push([item]);
+    else row.push(item);
+  }
+  return rows.map((row, i) => `${i === 0 ? GIFTS_LABEL : ''}${row.join(', ')}${i < rows.length - 1 ? ',' : ''}`);
+}
+
 function fitSize(font: PDFFont, text: string, size: number, maxWidth: number, floor = 8.5): number {
   let s = size;
   while (s > floor && font.widthOfTextAtSize(text, s) > maxWidth) s -= 0.5;
@@ -163,9 +182,9 @@ export async function buildPdf(input: PdfInput): Promise<Uint8Array> {
     const page = doc.addPage([PAGE.width, PAGE.height]);
     if (paper) page.drawImage(paper, { x: 0, y: 0, width: PAGE.width, height: PAGE.height });
     const at = (y: number): number => PAGE.height - y;
-    const sansLine = (text: string, x: number, y: number, maxWidth: number): void => {
+    const sansLine = (text: string, x: number, y: number, maxWidth: number, size = SANS): void => {
       const t = safe(text, has.sans);
-      page.drawText(t, { x, y: at(y), size: fitSize(sans, t, SANS, maxWidth), font: sans, color: INK });
+      page.drawText(t, { x, y: at(y), size: fitSize(sans, t, size, maxWidth), font: sans, color: INK });
     };
     const monoLine = (runs: Run[], x: number, y: number): void => {
       // Neighbouring words of one weight go down as one string.
@@ -182,10 +201,28 @@ export async function buildPdf(input: PdfInput): Promise<Uint8Array> {
       }
     };
 
-    // Receipt lines.
-    const receipt = [`Date of Gift: ${shortDate(letter.giftDate)}`, `Total Gift Amount: ${money(letter.amount)}`];
-    if (letter.fund) receipt.push(`Designation: ${letter.fund}`);
-    receipt.forEach((line, i) => sansLine(line, RECEIPT.x, RECEIPT.first + i * RECEIPT.step, RECEIPT.maxWidth));
+    // Receipt lines. A letter that covers several gifts lists each one's date and amount.
+    const gifts = letter.gifts && letter.gifts.length ? letter.gifts : [{ date: letter.giftDate, amount: letter.amount }];
+    const several = gifts.length > 1;
+    const tail = [`Total Gift Amount: ${money(letter.amount)}`, ...(letter.fund ? [`Designation: ${letter.fund}`] : [])];
+    const items = gifts.map((x) => `${shortDate(x.date)} ${money(x.amount)}`);
+    const rows = several ? giftRows(items, sans, RECEIPT_TIGHT.size, GIFTS_WIDTH) : [];
+    if (!several) {
+      [`Date of Gift: ${shortDate(letter.giftDate)}`, ...tail].forEach((line, i) => sansLine(line, RECEIPT.x, RECEIPT.first + i * RECEIPT.step, RECEIPT.maxWidth));
+    } else if (sans.widthOfTextAtSize(`${GIFTS_LABEL}${items.join(', ')}`, SANS) <= GIFTS_WIDTH) {
+      [`${GIFTS_LABEL}${items.join(', ')}`, ...tail].forEach((line, i) => sansLine(line, RECEIPT.x, RECEIPT.first + i * RECEIPT.step, RECEIPT.maxWidth));
+    } else if (rows.length <= 2) {
+      // Gifts a size smaller, in one or two rows, inside the same band, so nothing reaches the envelope window.
+      const indent = sans.widthOfTextAtSize(GIFTS_LABEL, RECEIPT_TIGHT.size);
+      const lines = [
+        ...rows.map((text, i) => ({ text, x: i === 0 ? RECEIPT.x : RECEIPT.x + indent, width: GIFTS_WIDTH - (i === 0 ? 0 : indent) })),
+        ...tail.map((text) => ({ text, x: RECEIPT.x, width: RECEIPT.maxWidth })),
+      ];
+      lines.forEach((l, i) => sansLine(l.text, l.x, RECEIPT_TIGHT.first + i * RECEIPT_TIGHT.step, l.width, RECEIPT_TIGHT.size));
+    } else {
+      const span = `${GIFTS_LABEL}${gifts.length} gifts from ${shortDate(gifts[0].date)} to ${shortDate(gifts[gifts.length - 1].date)}`;
+      [span, ...tail].forEach((line, i) => sansLine(line, RECEIPT.x, RECEIPT.first + i * RECEIPT.step, RECEIPT.maxWidth));
+    }
 
     // Mailing address, then the same block on the reply slip.
     const address = [letter.addressee, ...letter.addressLines, letter.cityLine];
@@ -200,7 +237,9 @@ export async function buildPdf(input: PdfInput): Promise<Uint8Array> {
     monoLine([{ text: `Dear ${greeting},`, bold: false }], BODY.left, BODY.greeting);
     let y = BODY.first;
     for (const paragraph of input.copy.paragraphs) {
-      const lines = wrap(words(paragraph.replace('{amount}', money(letter.amount))), BODY.columns - 5, BODY.columns);
+      // "your generous gift of $200.00" reads "your generous gifts totaling $200.00" when the letter covers several.
+      const said = several ? paragraph.replace(/\bgift of \{amount\}/i, 'gifts totaling {amount}') : paragraph;
+      const lines = wrap(words(said.replace('{amount}', money(letter.amount))), BODY.columns - 5, BODY.columns);
       lines.forEach((line, i) => {
         monoLine(line, BODY.left + (i === 0 ? BODY.indent : 0), y);
         y += LEADING;

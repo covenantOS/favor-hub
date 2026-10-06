@@ -2,10 +2,13 @@ import { requireActor, requireReceiptsUser } from '../../../_lib/receipts/auth';
 import {
   batchSummary,
   DEFAULT_DAYS,
+  dropPrintLock,
   lettersFor,
   lettersThankedOn,
   logEvent,
   makeBatch,
+  openPrintFile,
+  takePrintLock,
   todayEastern,
   type BatchRow,
 } from '../../../_lib/receipts/store';
@@ -17,7 +20,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     await requireReceiptsUser(env, request);
     const rows = await env.DB.prepare(
-      `SELECT id, kind, letter_date, appeal_code, count, amount, regular, major, recurring, first_gift, last_gift, source_date, pdf_key,
+      `SELECT id, kind, letter_date, appeal_code, count, gifts, amount, regular, major, recurring, first_gift, last_gift, source_date, pdf_key,
         '' AS letters, '' AS copy, marked, mark_failed, status, created_by, created_at, marked_by, marked_at
        FROM rcp_batches WHERE status <> 'cancelled' ORDER BY created_at DESC LIMIT 60`
     ).all<BatchRow>();
@@ -53,10 +56,22 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const added = ids(body.added);
     if (picked.length + added.length === 0) throw new HttpError(400, 'empty', 'Pick at least one gift.');
     const days = Math.min(Math.max(Number(body.days) || DEFAULT_DAYS, 7), 365);
-    const { letters, skipped } = await lettersFor(env, picked, added, days);
-    const batch = await makeBatch(env, { letters, letterDate, kind: 'new', actor });
-    await logEvent(env, actor, 'print_file', batch.id, `${letters.length} letters; ${skipped.length} skipped`);
-    return json({ ok: true, batch: batchSummary(batch), skipped });
+    // One print file at a time, so a gift can never sit in two files and be mailed twice.
+    if (!(await takePrintLock(env, actor))) {
+      throw new HttpError(409, 'busy', 'Someone else is making a print file right now. Wait a minute, then load the page again.');
+    }
+    try {
+      const open = await openPrintFile(env);
+      if (open) {
+        throw new HttpError(409, 'open_file', 'A print file is already open. Print it and mark it thanked, or throw it away, before you make another.');
+      }
+      const { letters, skipped } = await lettersFor(env, picked, added, days);
+      const batch = await makeBatch(env, { letters, letterDate, kind: 'new', actor });
+      await logEvent(env, actor, 'print_file', batch.id, `${batch.count} letters for ${batch.gifts} gifts; ${skipped.length} skipped`);
+      return json({ ok: true, batch: batchSummary(batch), skipped });
+    } finally {
+      await dropPrintLock(env);
+    }
   } catch (err) {
     return handleError(err);
   }

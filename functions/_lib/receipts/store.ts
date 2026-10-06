@@ -7,6 +7,7 @@ import { buildPdf, measure, type Fonts } from './pdf';
 import {
   appealCode,
   byHousehold,
+  combineLetters,
   giftsFromRows,
   letterFor,
   segmentOf,
@@ -31,6 +32,8 @@ export interface Item {
   place: string;
   fund: string;
   constituentLookup: string;
+  /** Street and ZIP, so the page can point out two records at one address. */
+  addressKey: string;
   reason: string;
   key: string;
   canAdd: boolean;
@@ -64,6 +67,7 @@ function itemOf(g: Gift, v: Verdict): Item {
     place: [g.city, g.state || g.country].filter(Boolean).join(', '),
     fund: g.funds.join(', '),
     constituentLookup: g.constituentLookup,
+    addressKey: g.addressLines.length ? `${g.addressLines.join(' ').toLowerCase().replace(/[^a-z0-9]/g, '')}|${g.zip.slice(0, 5)}` : '',
     reason: v.reason,
     key: v.key,
     canAdd: v.canAdd,
@@ -131,6 +135,32 @@ export async function logEvent(env: Env, actor: string, kind: string, batchId: s
   await env.DB.prepare('INSERT INTO rcp_log (at, actor, kind, batch_id, detail) VALUES (?, ?, ?, ?, ?)').bind(nowIso(), actor, kind, batchId, detail.slice(0, 2000)).run();
 }
 
+/* ---------------------------------------------------- one file at a time */
+
+const PRINT_LOCK = 'lock:print_file';
+
+/** Held while a print file is made, so two people pressing at once cannot put one gift in two files. */
+export async function takePrintLock(env: Env, actor: string): Promise<boolean> {
+  const stale = new Date(Date.now() - 3 * 60_000).toISOString();
+  await env.DB.prepare('DELETE FROM rcp_settings WHERE key = ? AND updated_at < ?').bind(PRINT_LOCK, stale).run();
+  const out = await env.DB.prepare('INSERT INTO rcp_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO NOTHING')
+    .bind(PRINT_LOCK, '', actor, nowIso())
+    .run();
+  return (out.meta?.changes ?? 0) > 0;
+}
+
+export async function dropPrintLock(env: Env): Promise<void> {
+  await env.DB.prepare('DELETE FROM rcp_settings WHERE key = ?').bind(PRINT_LOCK).run();
+}
+
+/** The print file not yet marked thanked, if there is one. Only one may be open. */
+export async function openPrintFile(env: Env): Promise<{ id: string; letter_date: string } | null> {
+  return env.DB.prepare("SELECT id, letter_date FROM rcp_batches WHERE kind = 'new' AND status IN ('printing', 'marking') ORDER BY created_at LIMIT 1").first<{
+    id: string;
+    letter_date: string;
+  }>();
+}
+
 /* ------------------------------------------------------------- assets */
 
 async function asset(env: Env, path: string): Promise<Uint8Array> {
@@ -165,7 +195,10 @@ export interface BatchRow {
   kind: string;
   letter_date: string;
   appeal_code: string;
+  /** Letters, one per partner. */
   count: number;
+  /** Gifts the letters cover, each marked thanked on its own. */
+  gifts: number;
   amount: number;
   regular: number;
   major: number;
@@ -192,6 +225,7 @@ export function batchSummary(b: BatchRow): Record<string, unknown> {
     letterDate: b.letter_date,
     appealCode: b.appeal_code,
     count: b.count,
+    gifts: b.gifts || b.count,
     amount: b.amount,
     regular: b.regular,
     major: b.major,
@@ -269,7 +303,8 @@ export async function makeBatch(
   opts: { letters: Letter[]; letterDate: string; kind: 'new' | 'reprint'; sourceDate?: string; actor: string }
 ): Promise<BatchRow> {
   if (opts.letters.length === 0) throw new HttpError(400, 'empty', 'There are no letters to print.');
-  const letters = [...opts.letters].sort(byHousehold);
+  const letters = combineLetters(opts.letters).sort(byHousehold);
+  const giftIds = letters.flatMap((l) => (l.gifts && l.gifts.length ? l.gifts.map((x) => x.id) : [l.giftId]));
   const copy = await getCopy(env);
   if (!measure(copy).fits) throw new HttpError(400, 'too_long', 'The letter wording is too long for the page. Shorten it under Letter wording.');
   const code = appealCode(opts.letterDate);
@@ -287,7 +322,7 @@ export async function makeBatch(
   const pdfKey = `receipts/${id}.pdf`;
   await env.UPLOADS.put(pdfKey, pdf, { httpMetadata: { contentType: 'application/pdf' } });
   const at = nowIso();
-  const dates = letters.map((l) => l.giftDate).sort();
+  const dates = letters.flatMap((l) => (l.gifts && l.gifts.length ? l.gifts.map((x) => x.date) : [l.giftDate])).sort();
   const count = (s: string) => letters.filter((l) => l.segment === s).length;
   const row: BatchRow = {
     id,
@@ -295,6 +330,7 @@ export async function makeBatch(
     letter_date: opts.letterDate,
     appeal_code: code,
     count: letters.length,
+    gifts: giftIds.length,
     amount: Math.round(letters.reduce((s, l) => s + l.amount, 0) * 100) / 100,
     regular: count('regular'),
     major: count('major'),
@@ -315,17 +351,17 @@ export async function makeBatch(
   };
   const stmts = [
     env.DB.prepare(
-      `INSERT INTO rcp_batches (id, kind, letter_date, appeal_code, count, amount, regular, major, recurring, first_gift, last_gift, source_date,
+      `INSERT INTO rcp_batches (id, kind, letter_date, appeal_code, count, gifts, amount, regular, major, recurring, first_gift, last_gift, source_date,
         pdf_key, letters, copy, marked, mark_failed, status, created_by, created_at, marked_by, marked_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, '', NULL)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, '', NULL)`
     ).bind(
-      row.id, row.kind, row.letter_date, row.appeal_code, row.count, row.amount, row.regular, row.major, row.recurring,
+      row.id, row.kind, row.letter_date, row.appeal_code, row.count, row.gifts, row.amount, row.regular, row.major, row.recurring,
       row.first_gift, row.last_gift, row.source_date, row.pdf_key, row.letters, row.copy, row.status, row.created_by, row.created_at
     ),
   ];
   if (opts.kind === 'new') {
-    for (const l of letters) {
-      stmts.push(env.DB.prepare("INSERT INTO rcp_batch_gifts (batch_id, gift_id, state, detail, updated_at) VALUES (?, ?, 'waiting', '', ?)").bind(id, l.giftId, at));
+    for (const giftId of giftIds) {
+      stmts.push(env.DB.prepare("INSERT INTO rcp_batch_gifts (batch_id, gift_id, state, detail, updated_at) VALUES (?, ?, 'waiting', '', ?)").bind(id, giftId, at));
     }
   }
   for (let i = 0; i < stmts.length; i += 90) await env.DB.batch(stmts.slice(i, i + 90));

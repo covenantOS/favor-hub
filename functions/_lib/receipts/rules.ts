@@ -51,7 +51,7 @@ export interface Verdict {
   letter: boolean;
   /** Short label for the list. Empty when the gift gets a letter. */
   reason: string;
-  key: '' | 'small' | 'no_mail' | 'deceased' | 'no_address' | 'abroad' | 'pass_through' | 'organization' | 'inactive' | 'gift_type';
+  key: '' | 'small' | 'no_mail' | 'preference' | 'deceased' | 'no_address' | 'abroad' | 'pass_through' | 'organization' | 'inactive' | 'gift_type';
   /** Staff may send it anyway. */
   canAdd: boolean;
 }
@@ -144,10 +144,27 @@ export function giftsFromRows(rows: Record<string, string>[]): Gift[] {
 
 const LETTER_TYPES = ['One-Time Gift', 'Recurring Gift Payment'];
 const ORGANIZATIONS_THAT_GET_ONE = ['Church', 'Ministry'];
+/** Gift constituencies that mean the money came through an organization, even on a person's record. */
+const PASSED_THROUGH: Record<string, string> = {
+  Foundation: 'a foundation',
+  Business: 'a business',
+  'DAF Provider': 'a donor-advised fund',
+  'Donor Advised Fund': 'a donor-advised fund',
+};
+
+// Raiser's Edge's own solicit codes (GET /constituent/v1/communicationpreferences, 26 of them on 2026-10-06).
+/** No thank-you letter, ever. */
+const NO_LETTER_CODES = ['do not mail', 'do not contact', 'do not mail thank you'];
+/** The pre-printed reply slip asks for a gift, so these wait for a person to decide. */
+const ASK_FIRST_CODES = ['do not mail solicitation', 'do not solicit', 'all email', 'event invitations only'];
+
+/** U.S. mail: the states, plus the territories the Postal Service delivers to at domestic rates. */
+const DOMESTIC = ['united states', 'united states of america', 'usa', 'us', 'puerto rico', 'guam', 'u.s. virgin islands', 'virgin islands',
+  'united states virgin islands', 'american samoa', 'northern mariana islands'];
 
 export function isUnitedStates(g: Gift): boolean {
   const c = g.country.toLowerCase();
-  if (c === 'united states' || c === 'usa' || c === 'us' || c === 'united states of america') return true;
+  if (DOMESTIC.includes(c)) return true;
   // A record with no country but a state and a five-digit ZIP is a US address.
   return c === '' && /^[A-Z]{2}$/.test(g.state) && /^\d{5}/.test(g.zip);
 }
@@ -157,9 +174,9 @@ export function verdict(g: Gift): Verdict {
     return { letter: false, key: 'gift_type', reason: `Gift type is ${g.type || 'blank'}`, canAdd: true };
   }
   if (g.amount < MIN_AMOUNT) return { letter: false, key: 'small', reason: 'Under $10', canAdd: false };
-  if (g.solicitCodes.some((c) => /^do not mail$/i.test(c)) || !g.sendMail) {
-    return { letter: false, key: 'no_mail', reason: 'Marked Do Not Mail', canAdd: false };
-  }
+  const noLetter = g.solicitCodes.find((c) => NO_LETTER_CODES.includes(c.toLowerCase()));
+  if (noLetter) return { letter: false, key: 'no_mail', reason: `Marked ${noLetter}`, canAdd: false };
+  if (!g.sendMail) return { letter: false, key: 'no_mail', reason: 'Address marked no mail', canAdd: false };
   if (g.deceased) return { letter: false, key: 'deceased', reason: 'Marked deceased', canAdd: false };
   if (g.addressLines.length === 0 || !g.city || !g.zip) {
     return { letter: false, key: 'no_address', reason: 'No mailing address on the record', canAdd: false };
@@ -174,7 +191,11 @@ export function verdict(g: Gift): Verdict {
     if (!ORGANIZATIONS_THAT_GET_ONE.includes(g.constituency)) {
       return { letter: false, key: 'organization', reason: `Organization (${g.constituency || 'no code'})`, canAdd: true };
     }
+  } else if (PASSED_THROUGH[g.constituency]) {
+    return { letter: false, key: 'organization', reason: `Gift came through ${PASSED_THROUGH[g.constituency]}`, canAdd: true };
   }
+  const ask = g.solicitCodes.find((c) => ASK_FIRST_CODES.includes(c.toLowerCase()));
+  if (ask) return { letter: false, key: 'preference', reason: `Marked ${ask}`, canAdd: true };
   if (g.inactive) return { letter: false, key: 'inactive', reason: 'Record marked inactive', canAdd: true };
   return { letter: true, key: '', reason: '', canAdd: false };
 }
@@ -208,7 +229,17 @@ export function money(amount: number): string {
   return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+export interface LetterGift {
+  id: string;
+  lookup: string;
+  date: string;
+  amount: number;
+  type: string;
+  fund: string;
+}
+
 export interface Letter {
+  /** The first gift's system id; every gift the letter covers is in `gifts`. */
   giftId: string;
   giftLookup: string;
   constituentLookup: string;
@@ -218,16 +249,20 @@ export interface Letter {
   greetingFirst: string;
   addressLines: string[];
   cityLine: string;
+  /** The latest gift's date. */
   giftDate: string;
+  /** All the gifts in the letter, added up. */
   amount: number;
   fund: string;
   giftType: string;
   segment: Segment;
+  gifts: LetterGift[];
 }
 
 /** What the letter prints. The addressee is the one Raiser's Edge holds, so a couple gets both names. */
 export function letterFor(g: Gift): Letter {
   const addressee = g.addressee || g.name;
+  const fund = g.funds.join(', ');
   return {
     giftId: g.id,
     giftLookup: g.lookup,
@@ -240,10 +275,53 @@ export function letterFor(g: Gift): Letter {
     cityLine: `${g.city}, ${g.state} ${g.zip}`.trim(),
     giftDate: g.date,
     amount: g.amount,
-    fund: g.funds.join(', '),
+    fund,
     giftType: g.type,
     segment: segmentOf(g),
+    gifts: [{ id: g.id, lookup: g.lookup, date: g.date, amount: g.amount, type: g.type, fund }],
   };
+}
+
+/** The reply slip for several gifts: monthly when every gift is a monthly payment, else by the largest one-time gift. */
+export function segmentOfGifts(gifts: Pick<LetterGift, 'type' | 'amount'>[]): Segment {
+  const once = gifts.filter((x) => x.type !== 'Recurring Gift Payment');
+  if (once.length === 0) return 'recurring';
+  return Math.max(...once.map((x) => x.amount)) >= MAJOR_AMOUNT ? 'major' : 'regular';
+}
+
+/**
+ * One letter per partner. A partner with several gifts in one print file gets a single letter that
+ * lists each gift's date and the total, so nobody gets two envelopes the same day.
+ */
+export function combineLetters(letters: Letter[]): Letter[] {
+  const groups = new Map<string, Letter[]>();
+  for (const l of letters) {
+    const key = l.constituentLookup || `${l.addressee}|${l.addressLines.join(' ')}|${l.cityLine}`;
+    const list = groups.get(key);
+    if (list) list.push(l);
+    else groups.set(key, [l]);
+  }
+  const out: Letter[] = [];
+  for (const list of groups.values()) {
+    if (list.length === 1) {
+      out.push(list[0]);
+      continue;
+    }
+    const gifts = list.flatMap((l) => l.gifts).sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id));
+    const funds = [...new Set(gifts.flatMap((x) => x.fund.split(', ')).filter(Boolean))];
+    out.push({
+      ...list[0],
+      giftId: gifts[0].id,
+      giftLookup: gifts[0].lookup,
+      giftDate: gifts[gifts.length - 1].date,
+      amount: Math.round(gifts.reduce((t, x) => t + x.amount, 0) * 100) / 100,
+      fund: funds.join(', '),
+      giftType: gifts.every((x) => x.type === gifts[0].type) ? gifts[0].type : 'Several',
+      segment: segmentOfGifts(gifts),
+      gifts,
+    });
+  }
+  return out;
 }
 
 /** Alphabetical by record, so two receipts for one household come off the printer together. */

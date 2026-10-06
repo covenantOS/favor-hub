@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS rcp_batches (
   kind TEXT NOT NULL DEFAULT 'new',             -- new | reprint
   letter_date TEXT NOT NULL,                    -- YYYY-MM-DD printed on the letters
   appeal_code TEXT NOT NULL,                    -- reply code on the slip, e.g. Y26A-TY
-  count INTEGER NOT NULL,
+  count INTEGER NOT NULL,                       -- letters, one per partner
+  gifts INTEGER NOT NULL DEFAULT 0,             -- gifts the letters cover
   amount REAL NOT NULL DEFAULT 0,
   regular INTEGER NOT NULL DEFAULT 0,
   major INTEGER NOT NULL DEFAULT 0,

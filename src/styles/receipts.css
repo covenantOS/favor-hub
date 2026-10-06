@@ -105,6 +105,8 @@
 .rcp-tick { width: 34px; }
 .rcp-tick input { width: 17px; height: 17px; accent-color: var(--green-deep); }
 .rcp-table tr.is-off td:not(.rcp-tick) { opacity: 0.42; }
+.rcp-note { display: block; margin-top: 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: #3d6a82; }
+.rcp-note.is-warn { color: var(--ochre); }
 .rcp-pill-regular { background: var(--paper-warm); border: 1px solid var(--rule); }
 .rcp-pill-major { background: #fbf2dc; border: 1px solid #ecd9a8; color: #8a6410; }
 .rcp-pill-recurring { background: #eaf1f5; border: 1px solid #cfdde6; color: #3d6a82; }
