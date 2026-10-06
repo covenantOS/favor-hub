@@ -5,10 +5,11 @@ import { parseCsv } from './csv';
 import { cleanCopy, DEFAULT_COPY, type LetterCopy } from './letter';
 import { buildPdf, measure, type Fonts } from './pdf';
 import {
+  addressKeyOf,
   appealCode,
-  byHousehold,
   combineLetters,
   giftsFromRows,
+  inPrintOrder,
   letterFor,
   segmentOf,
   verdict,
@@ -67,7 +68,7 @@ function itemOf(g: Gift, v: Verdict): Item {
     place: [g.city, g.state || g.country].filter(Boolean).join(', '),
     fund: g.funds.join(', '),
     constituentLookup: g.constituentLookup,
-    addressKey: g.addressLines.length ? `${g.addressLines.join(' ').toLowerCase().replace(/[^a-z0-9]/g, '')}|${g.zip.slice(0, 5)}` : '',
+    addressKey: addressKeyOf(g.addressLines, g.zip),
     reason: v.reason,
     key: v.key,
     canAdd: v.canAdd,
@@ -338,7 +339,7 @@ export async function makeBatch(
   opts: { letters: Letter[]; letterDate: string; kind: 'new' | 'reprint'; sourceDate?: string; actor: string }
 ): Promise<BatchRow> {
   if (opts.letters.length === 0) throw new HttpError(400, 'empty', 'There are no letters to print.');
-  const letters = combineLetters(opts.letters).sort(byHousehold);
+  const letters = inPrintOrder(combineLetters(opts.letters));
   const giftIds = letters.flatMap((l) => (l.gifts && l.gifts.length ? l.gifts.map((x) => x.id) : [l.giftId]));
   const copy = await getCopy(env);
   if (!measure(copy).fits) throw new HttpError(400, 'too_long', 'The letter wording is too long for the page. Shorten it under Letter wording.');

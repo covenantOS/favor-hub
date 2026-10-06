@@ -275,7 +275,7 @@
           <p class="fnd-note">${
             list.length
               ? `${plural(c.letters, 'letter')} for ${plural(c.gifts, 'gift')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly. A partner with two or more gifts gets one letter that lists each gift.${
-                  shared ? ` ${shared === 1 ? 'One address has letters' : `${shared} addresses have letters`} for two different records, marked "Same address" below. If it is one household, uncheck one.` : ''
+                  shared ? ` ${shared === 1 ? 'One address has letters' : `${shared} addresses have letters`} for two different records, marked "Same address" below. Each record gets its own letter, and the two print back to back so they can share an envelope.` : ''
                 }`
               : 'Nothing is waiting for a letter.'
           }</p>

@@ -249,6 +249,8 @@ export interface Letter {
   greetingFirst: string;
   addressLines: string[];
   cityLine: string;
+  /** Street and ZIP, so letters for one address can be kept together in the print file. */
+  addressKey?: string;
   /** The latest gift's date. */
   giftDate: string;
   /** All the gifts in the letter, added up. */
@@ -273,6 +275,7 @@ export function letterFor(g: Gift): Letter {
     greetingFirst: g.organization ? addressee : g.salutation || addressee,
     addressLines: g.addressLines,
     cityLine: `${g.city}, ${g.state} ${g.zip}`.trim(),
+    addressKey: addressKeyOf(g.addressLines, g.zip),
     giftDate: g.date,
     amount: g.amount,
     fund,
@@ -325,6 +328,30 @@ export function combineLetters(letters: Letter[]): Letter[] {
 }
 
 /** Alphabetical by record, so two receipts for one household come off the printer together. */
+/** Street and five-digit ZIP with the punctuation taken out: "123 Main St." and "123 main st" are one address. */
+export function addressKeyOf(lines: string[], zip: string): string {
+  return lines.length ? `${lines.join(' ').toLowerCase().replace(/[^a-z0-9]/g, '')}|${zip.slice(0, 5)}` : '';
+}
+
+/**
+ * The order the print file uses: alphabetical, with every letter for one street address kept
+ * together under the first name among them. Two records in one household (a husband and wife
+ * Blackbaud holds apart, or one person entered twice) come off the printer back to back and can
+ * share an envelope.
+ */
+export function inPrintOrder(letters: Letter[]): Letter[] {
+  const sorted = [...letters].sort(byHousehold);
+  const key = (l: Letter, i: number) => l.addressKey || `#${i}`;
+  const first = new Map<string, number>();
+  sorted.forEach((l, i) => {
+    if (!first.has(key(l, i))) first.set(key(l, i), i);
+  });
+  return sorted
+    .map((l, i) => ({ l, i, at: first.get(key(l, i)) as number }))
+    .sort((a, b) => a.at - b.at || a.i - b.i)
+    .map((x) => x.l);
+}
+
 export function byHousehold(a: Letter, b: Letter): number {
   return a.sortName.localeCompare(b.sortName, 'en', { sensitivity: 'base' }) || a.giftDate.localeCompare(b.giftDate) || a.giftId.localeCompare(b.giftId);
 }
