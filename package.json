@@ -11,6 +11,7 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "astro": "^6.1.10",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.5"

@@ -1,0 +1,84 @@
+---
+import Base from '../../layouts/Base.astro';
+import Header from '../../components/Header.astro';
+import Footer from '../../components/Footer.astro';
+import '../../styles/requests.css';
+import '../../styles/expenses.css';
+import '../../styles/foundations.css';
+import '../../styles/receipts.css';
+---
+<Base
+  title="Thank-you receipts - Favor Hub"
+  description="Every gift Blackbaud has not thanked yet, ready to print on the receipt paper."
+>
+  <Header />
+  <main class="fnd-page rcp-page">
+    <div class="container">
+      <header class="board-intro">
+        <div>
+          <p class="make-kicker">Marketing</p>
+          <h1>Thank-you <em>receipts</em></h1>
+          <p>Every gift Blackbaud has not thanked yet, ready to print on the receipt paper. Make the print file, print it, then mark the gifts thanked.</p>
+        </div>
+        <div class="board-intro__actions" id="rcp-actions" hidden>
+          <label class="fnd-who">
+            <span>Your name</span>
+            <input id="rcp-who" list="rcp-staff" placeholder="Your name" autocomplete="off" maxlength="60" />
+            <datalist id="rcp-staff">
+              <option value="Morgan"></option>
+              <option value="Megan"></option>
+              <option value="Emma Stewart"></option>
+              <option value="Jennifer Morris"></option>
+              <option value="Will Hamilton"></option>
+            </datalist>
+          </label>
+          <button type="button" class="req-ghost" id="rcp-lock">Lock</button>
+        </div>
+      </header>
+
+      <form class="board-login" id="rcp-login" hidden>
+        <p>Enter the code to open thank-you receipts.</p>
+        <div class="board-login__row">
+          <input type="password" id="rcp-code" placeholder="Code" inputmode="numeric" autocomplete="off" />
+          <button type="submit" class="req-admin-btn">Unlock</button>
+        </div>
+        <p class="req-msg" id="rcp-login-msg" aria-live="polite"></p>
+      </form>
+
+      <div id="rcp-app" hidden>
+        <section class="ticker fnd-band rcp-band" aria-label="Waiting">
+          <div class="ticker__label" id="rcp-band-label">Waiting for a receipt</div>
+          <div class="fnd-band__row" id="rcp-stats"></div>
+        </section>
+
+        <section class="make-sheet rcp-make" id="rcp-make" aria-live="polite"></section>
+
+        <div class="fnd-tabs" id="rcp-tabs" role="tablist"></div>
+
+        <section class="make-sheet fnd-sheet" id="rcp-view-letters">
+          <div class="rcp-tools">
+            <div class="fnd-filters" id="rcp-filters"></div>
+            <input type="search" id="rcp-find" class="rcp-find" placeholder="Find a partner" autocomplete="off" />
+          </div>
+          <div class="fnd-table-wrap">
+            <table class="exp-admin-table rcp-table">
+              <thead>
+                <tr><th class="rcp-tick"><input type="checkbox" id="rcp-all" checked aria-label="Print every letter" /></th><th>Partner</th><th>Gift date</th><th class="r">Amount</th><th>Letter</th></tr>
+              </thead>
+              <tbody id="rcp-rows"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="make-sheet fnd-sheet" id="rcp-view-held" hidden></section>
+        <section class="make-sheet fnd-sheet" id="rcp-view-past" hidden></section>
+        <section class="make-sheet fnd-sheet" id="rcp-view-wording" hidden></section>
+      </div>
+    </div>
+  </main>
+
+  <div class="fnd-toast" id="rcp-toast" role="status" aria-live="polite"></div>
+
+  <Footer />
+  <script is:inline src="/js/receipts.js?v=1"></script>
+</Base>

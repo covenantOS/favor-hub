@@ -14,6 +14,9 @@ export interface Env {
   BLACKBAUD_OPS_URL?: string;
   MIRROR_API_KEY?: string;
   MIRROR_QUERY_URL?: string;
+  RECEIPTS_CODE?: string;
+  RECEIPTS_KEY?: string;
+  RECEIPTS_WORKER_URL?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;
