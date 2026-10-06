@@ -2,7 +2,7 @@ import { HttpError, newId, nowIso, timingSafeEqualStr, type Env } from '../http'
 
 const COOKIE = 'favor_hub_receipts';
 const SESSION_DAYS = 14;
-const DEFAULT_CODE = '4000';
+const DEFAULT_CODE = 'thankyou';
 
 function readCookie(request: Request): string {
   const raw = request.headers.get('Cookie') || '';
@@ -13,8 +13,13 @@ function readCookie(request: Request): string {
   return '';
 }
 
+/** A phone capitalises the first letter and may add a space; "Thank you" opens the page as well as "thankyou". */
+function plain(code: string): string {
+  return code.toLowerCase().replace(/[\s-]+/g, '');
+}
+
 export function checkReceiptsCode(env: Env, code: string): boolean {
-  return timingSafeEqualStr(code, env.RECEIPTS_CODE || DEFAULT_CODE);
+  return timingSafeEqualStr(plain(code), plain(env.RECEIPTS_CODE || DEFAULT_CODE));
 }
 
 export async function createReceiptsSession(env: Env): Promise<string> {
