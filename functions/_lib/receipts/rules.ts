@@ -148,8 +148,8 @@ const ORGANIZATIONS_THAT_GET_ONE = ['Church', 'Ministry'];
 const PASSED_THROUGH: Record<string, string> = {
   Foundation: 'a foundation',
   Business: 'a business',
-  'DAF Provider': 'a donor-advised fund',
-  'Donor Advised Fund': 'a donor-advised fund',
+  'DAF Provider': 'a DAF',
+  'Donor Advised Fund': 'a DAF',
 };
 
 // Raiser's Edge's own solicit codes (GET /constituent/v1/communicationpreferences, 26 of them on 2026-10-06).

@@ -16,7 +16,7 @@
     no_address: ['No mailing address', 'Add the address in Blackbaud and the gift comes back to the letters.'],
     preference: ['Asked for less mail', 'The record is marked Do Not Mail Solicitation, Do Not Solicit, All Email or Event Invitations Only. The reply slip asks for a gift, so add a letter only if you know this partner wants a paper receipt.'],
     pass_through: ['Passed along for a partner', 'A fund or brokerage sent it for someone else. Add a letter only if you mean to thank the organization.'],
-    organization: ['Foundation, business or fund', 'Churches and ministries get letters. Other organizations do not, and neither does a person whose gift came through a foundation, business or donor-advised fund.'],
+    organization: ['Foundation, business or fund', 'Churches and ministries get letters. Other organizations do not, and neither does a person whose gift came through a foundation, business or DAF.'],
     inactive: ['Record marked inactive', ''],
     deceased: ['Marked deceased', ''],
     abroad: ['Outside the U.S.', 'Letters go to U.S. addresses only.'],
