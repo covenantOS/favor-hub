@@ -113,7 +113,11 @@
 .rcp-held h3 { font-family: var(--display); font-weight: 400; font-size: 24px; letter-spacing: -0.015em; }
 .rcp-held h3 span { font: 500 12px/1 var(--mono); color: var(--ink-soft); margin-left: 8px; vertical-align: middle; }
 .rcp-held .rcp-fine { margin: 2px 0 8px; }
-.rcp-held__act { text-align: right; white-space: nowrap; }
+.rcp-held table { table-layout: fixed; }
+.rcp-held td:nth-child(1) { width: 46%; }
+.rcp-held td:nth-child(2) { width: 18%; }
+.rcp-held td:nth-child(3) { width: 14%; }
+.rcp-held__act { width: 22%; text-align: right; white-space: nowrap; }
 .rcp-past__act { white-space: nowrap; text-align: right; }
 .rcp-past__act .fnd-textbtn + .fnd-textbtn { margin-left: 10px; }
 

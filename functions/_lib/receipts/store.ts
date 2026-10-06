@@ -215,6 +215,55 @@ export async function getBatch(env: Env, id: string): Promise<BatchRow> {
   return row;
 }
 
+const APPEAL_ROUTES = ['https://favorintl.org/api/blackbaud/appeals', 'https://favor-astro.pages.dev/api/blackbaud/appeals'];
+const THANK_YOU_LETTER_CATEGORY = 2115;
+
+/**
+ * The reply code printed on the slip has to exist in Raiser's Edge before a returned gift can be
+ * coded to it. The first print file of a month creates that month's code through the website's
+ * appeal route, the way the code was made by hand before. A failure here never stops a print file.
+ */
+async function ensureAppealCode(env: Env, code: string, letterDate: string, actor: string): Promise<void> {
+  const key = `code:${code}`;
+  const known = await env.DB.prepare('SELECT value FROM rcp_settings WHERE key = ?').bind(key).first<{ value: string }>();
+  if (known || !env.BLACKBAUD_SETUP_KEY) return;
+  const [y, m] = letterDate.split('-').map(Number);
+  const month = new Date(Date.UTC(y, m - 1, 1)).toLocaleString('en-US', { month: 'long', timeZone: 'UTC' });
+  const headers = { 'X-Setup-Key': env.BLACKBAUD_SETUP_KEY, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 favor-hub-receipts' };
+  for (const url of APPEAL_ROUTES) {
+    try {
+      const found = await fetch(`${url}?q=${encodeURIComponent(code)}`, { headers, signal: AbortSignal.timeout(30000) });
+      const list = (await found.json().catch(() => null)) as { ok?: boolean; matches?: { lookup_id?: string }[] } | null;
+      if (!found.ok || !list || list.ok !== true) continue;
+      let note = 'already in Raiser’s Edge';
+      if (!(list.matches || []).some((a) => (a.lookup_id || '').toUpperCase() === code)) {
+        const made = await fetch(url, {
+          method: 'POST',
+          headers,
+          signal: AbortSignal.timeout(30000),
+          body: JSON.stringify({
+            appeal_id: code,
+            description: `Direct Mail, thank you letter donation, ${month} ${y}`,
+            start_date: `${y}-${String(m).padStart(2, '0')}-01`,
+            appeal_category_id: THANK_YOU_LETTER_CATEGORY,
+          }),
+        });
+        const out = (await made.json().catch(() => null)) as { ok?: boolean; id?: string; error?: string } | null;
+        if (!made.ok || !out || !(out.ok || out.error === 'duplicate')) {
+          await logEvent(env, actor, 'code_failed', '', `${code}: ${made.status} ${JSON.stringify(out).slice(0, 200)}`);
+          return;
+        }
+        note = out.ok ? `created as appeal ${out.id}` : 'already in Raiser’s Edge';
+        await logEvent(env, actor, 'code', '', `${code} ${note}`);
+      }
+      await env.DB.prepare('INSERT OR REPLACE INTO rcp_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?)').bind(key, note, actor, nowIso()).run();
+      return;
+    } catch {
+      // try the other address
+    }
+  }
+}
+
 export async function makeBatch(
   env: Env,
   opts: { letters: Letter[]; letterDate: string; kind: 'new' | 'reprint'; sourceDate?: string; actor: string }
@@ -224,6 +273,7 @@ export async function makeBatch(
   const copy = await getCopy(env);
   if (!measure(copy).fits) throw new HttpError(400, 'too_long', 'The letter wording is too long for the page. Shorten it under Letter wording.');
   const code = appealCode(opts.letterDate);
+  await ensureAppealCode(env, code, opts.letterDate, opts.actor).catch(() => {});
   const pdf = await buildPdf({
     letters,
     letterDate: opts.letterDate,
