@@ -96,6 +96,16 @@
 }
 .rcp-btn { display: inline-block; text-decoration: none; margin: 0 8px 8px 0; }
 .rcp-step .fnd-textbtn { margin-top: 4px; display: inline-block; }
+.rcp-ask { margin: 12px 0 4px; padding: 14px 16px; border: 1px solid var(--rule); border-radius: 12px; background: #fff; }
+.rcp-ask.is-danger { border-color: #ecd2c4; background: #fdf6f2; }
+.rcp-step .rcp-ask p { color: var(--ink); margin-bottom: 10px; }
+.rcp-ask__who { margin-bottom: 12px; }
+.rcp-ask__who input { width: 100%; }
+.rcp-step .rcp-ask .rcp-ask__msg { color: var(--terracotta); font-size: 13px; font-weight: 600; margin: -4px 0 10px; }
+.rcp-ask__msg:empty { display: none; }
+.rcp-ask__row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.req-submit.rcp-danger { background: var(--terracotta); border-color: var(--terracotta); }
+.req-submit.rcp-danger:hover:not(:disabled) { background: #a8441f; border-color: #a8441f; }
 .rcp-bar { height: 8px; border-radius: 999px; background: var(--paper-warm); overflow: hidden; margin: 4px 0 6px; }
 .rcp-bar span { display: block; height: 100%; background: var(--green); transition: width 300ms ease; }
 
@@ -174,7 +184,7 @@
   .rcp-table, .rcp-table tbody, .rcp-table tr { display: block; width: 100%; }
   .rcp-table tr { border-top: 1px solid var(--rule); padding: 10px 2px; position: relative; }
   .rcp-table td { display: inline-block; border: 0; padding: 2px 6px 2px 0; }
-  .rcp-table td.rcp-tick { position: absolute; right: 0; top: 12px; }
+  .rcp-table td.rcp-tick { position: absolute; right: 0; top: 12px; z-index: 1; } /* above the faded cells of an unchecked row */
   .rcp-table td:nth-child(2) { display: block; padding-right: 40px; }
   .rcp-find { min-width: 0; width: 100%; }
   .rcp-make__row { align-items: stretch; }

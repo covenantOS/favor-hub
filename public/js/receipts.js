@@ -136,6 +136,66 @@
     return true;
   }
 
+  /**
+   * Ask before marking or throwing a file away. The browser's own box is used when it shows one. The
+   * question opens under the button instead when "Your name" is empty (the name box sits at the top of
+   * the page, out of sight of step 3), and when the browser refuses the box: some phone and in-app
+   * browsers answer Cancel at once without showing anything.
+   */
+  async function askFirst(button, question, yes, no, danger) {
+    if ((whoEl.value || '').trim()) {
+      if (!question) return true;
+      const asked = performance.now();
+      if (confirm(question)) return true;
+      if (performance.now() - asked > 80) return false; // a person pressed Cancel
+    }
+    return askHere(button, question, yes, no, danger);
+  }
+
+  let closeAsk = null;
+  function askHere(button, question, yes, no, danger) {
+    if (closeAsk) closeAsk(false);
+    const named = Boolean((whoEl.value || '').trim());
+    const box = document.createElement('div');
+    box.className = `rcp-ask${danger ? ' is-danger' : ''}`;
+    box.setAttribute('role', 'group');
+    box.innerHTML = `
+      ${question ? `<p>${esc(question)}</p>` : ''}
+      ${named ? '' : `<label class="fnd-who rcp-ask__who"><span>Your name</span><input list="rcp-staff" placeholder="Your name" autocomplete="off" maxlength="60" /></label>`}
+      <p class="rcp-ask__msg" role="alert"></p>
+      <div class="rcp-ask__row">
+        <button type="button" class="req-submit${danger ? ' rcp-danger' : ''}" data-yes>${esc(yes)}</button>
+        <button type="button" class="fnd-textbtn is-quiet" data-no>${esc(no)}</button>
+      </div>`;
+    button.insertAdjacentElement('afterend', box);
+    const name = box.querySelector('input');
+    return new Promise((resolve) => {
+      closeAsk = (ok) => {
+        closeAsk = null;
+        box.remove();
+        resolve(ok);
+      };
+      box.querySelector('[data-no]').addEventListener('click', () => closeAsk(false));
+      box.querySelector('[data-yes]').addEventListener('click', () => {
+        if (name) {
+          const who = name.value.trim();
+          if (!who) {
+            box.querySelector('.rcp-ask__msg').textContent = 'Type your name first.';
+            name.focus();
+            return;
+          }
+          whoEl.value = who;
+          localStorage.setItem('rcp_actor', who);
+          whoEl.parentElement.classList.remove('is-bad');
+        }
+        closeAsk(true);
+      });
+      if (name) name.addEventListener('keydown', (e) => e.key === 'Enter' && box.querySelector('[data-yes]').click());
+      box.scrollIntoView({ block: 'nearest' });
+      (name || box.querySelector('[data-yes]')).focus({ preventScroll: true });
+    });
+  }
+
   /* -------------------------------------------------------------- load */
 
   async function load() {
@@ -621,15 +681,17 @@
   }
 
   async function markBatch(id) {
-    if (needWho() || state.busy) return;
+    if (state.busy) return;
     const file = state.batches.find((x) => x.id === id);
+    let ask = '';
     if (file && !file.marked) {
       const gifts = plural(file.gifts || file.count, 'gift');
-      const ask = file.downloadedAt
+      ask = file.downloadedAt
         ? `Were all ${plural(file.count, 'letter')} printed? This marks ${gifts} as thanked in Blackbaud.`
         : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the letters were printed some other way.`;
-      if (!confirm(ask)) return;
     }
+    const yes = file && file.marked ? 'Finish marking' : 'Yes, mark them thanked';
+    if (!(await askFirst($('rcp-mark'), ask, yes, 'Cancel', false))) return;
     state.busy = true;
     const btn = $('rcp-mark');
     if (btn) btn.disabled = true;
@@ -665,13 +727,16 @@
   }
 
   async function cancelBatch(b) {
-    if (needWho()) return;
-    if (!confirm(`Throw away the print file of ${plural(b.count, 'letter')}? Do this only if the letters were not mailed. Nothing in Blackbaud changes, and the gifts go back on the list.`)) return;
+    const button = $('rcp-cancel');
+    const ask = `Throw away the print file of ${plural(b.count, 'letter')}? Do this only if the letters were not mailed. Nothing in Blackbaud changes, and the gifts go back on the list.`;
+    if (!(await askFirst(button, ask, 'Throw it away', 'Keep it', true))) return;
+    button.disabled = true;
     try {
       await api(`/api/receipts/batches/${encodeURIComponent(b.id)}`, { method: 'DELETE' });
       toast('Print file thrown away.');
       await load();
     } catch (err) {
+      button.disabled = false;
       toast(err.message);
     }
   }
