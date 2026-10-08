@@ -1,9 +1,11 @@
 import { hitRateLimit } from '../../_lib/auth';
 import { checkReceiptsCode, createReceiptsSession, receiptsSessionCookie } from '../../_lib/receipts/auth';
+import { signinEnforced } from '../../_lib/session';
 import { asTrimmed, clientIp, errorJson, handleError, json, type Env } from '../../_lib/http';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
+    if (signinEnforced(env)) return errorJson('signin', 'Codes no longer open thank-you receipts. Sign in with your Favor Google account.', 410);
     if (await hitRateLimit(env, `rcp-login:${clientIp(request)}`, 12, 600)) {
       return errorJson('slow_down', 'Too many tries. Wait ten minutes and try again.', 429);
     }

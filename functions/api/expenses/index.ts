@@ -1,5 +1,5 @@
 import { hitRateLimit } from '../../_lib/auth';
-import { isExpenseAdmin } from '../../_lib/expenses/auth';
+import { requireExpenseAdmin } from '../../_lib/expenses/auth';
 import {
   addExpenseEvent,
   expenseShape,
@@ -92,7 +92,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    if (!(await isExpenseAdmin(env, request))) return errorJson('unauthorized', 'Unlock the expense log first.', 401);
+    await requireExpenseAdmin(env, request);
     const rows = await listExpenses(env);
     const settings = await getSettings(env);
     const shaped = [];

@@ -1,4 +1,4 @@
-/* Expense log + approver settings. Locked behind its own password, separate from the request board. */
+/* Expense log + approver settings. Opens for the approvers by Google sign-in (or the log's code while sign-in is off). */
 (function () {
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -17,7 +17,12 @@
   function jsonFetch(url, opts) {
     return fetch(url, opts).then(function (res) {
       return res.json().then(function (data) {
-        if (!res.ok || data.ok === false) throw new Error(data.message || "Request failed");
+        if (!res.ok || data.ok === false) {
+          var err = new Error(data.message || "Request failed");
+          err.status = res.status;
+          err.code = data.error;
+          throw err;
+        }
         return data;
       });
     });
@@ -177,11 +182,15 @@
       $("exp-set-email").value = out[1].settings.approver_email;
       $("exp-set-dist").value = out[1].settings.distribution.join(", ");
       $("exp-set-mi-rate").value = out[1].mileage.rate_cents;
-      $("exp-set-mi-ded").value = out[1].mileage.deduction_miles_per_day;
+      $("exp-set-mi-ded").value = out[1].mileage.deduction_miles;
+      $("exp-set-viewers").value = (out[1].settings.viewers || []).join(", ");
       renderOverrides(out[1].overrides);
       $("exp-locked").hidden = true;
+      $("exp-denied").hidden = true;
       $("exp-admin").hidden = false;
-      $("exp-lock").hidden = false;
+      // Signed in with Google: no code to manage and nothing to lock (sign out is in the header).
+      $("exp-lock").hidden = viaGoogle;
+      $("exp-code-section").hidden = viaGoogle || signinOn;
     });
   }
 
@@ -197,6 +206,7 @@
         distribution: $("exp-set-dist").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
         mileage_rate_cents: parseInt($("exp-set-mi-rate").value, 10),
         mileage_deduction_miles: parseInt($("exp-set-mi-ded").value, 10),
+        viewers: $("exp-set-viewers").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean),
       }),
     })
       .then(function () { msg.textContent = "Saved."; })
@@ -217,6 +227,7 @@
   });
 
   $("exp-set-save").addEventListener("click", function () { saveSettings("exp-set-msg"); });
+  $("exp-viewers-save").addEventListener("click", function () { saveSettings("exp-viewers-msg"); });
   $("exp-set-mi-save").addEventListener("click", function () { saveSettings("exp-set-mi-msg"); });
 
   $("exp-code-save").addEventListener("click", function () {
@@ -261,6 +272,29 @@
     });
   });
 
-  // Already unlocked this browser? Try loading straight away.
-  loadAll().catch(function () {});
+  var viaGoogle = false;
+  var signinOn = false;
+
+  // Signed in with Google, the log opens for the approvers and the people they add. Before sign-in
+  // is switched on, a browser that is not signed in still gets the code box.
+  fetch("/api/auth/me", { credentials: "same-origin" })
+    .then(function (r) { return r.json(); })
+    .catch(function () { return {}; })
+    .then(function (me) {
+      viaGoogle = Boolean(me && me.signedIn && me.user && me.user.via === "google");
+      signinOn = Boolean(me && me.enforce);
+      return loadAll();
+    })
+    .catch(function (err) {
+      if (err.code === "signin") {
+        window.location.href = "/login/?next=" + encodeURIComponent(window.location.pathname);
+        return;
+      }
+      if (err.code === "not_on_list") {
+        $("exp-denied-msg").textContent = err.message;
+        $("exp-denied").hidden = false;
+        return;
+      }
+      $("exp-locked").hidden = false;
+    });
 })();

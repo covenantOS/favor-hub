@@ -37,13 +37,21 @@
   async function api(path, opts = {}) {
     const res = await fetch(path, { credentials: 'same-origin', ...opts });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && data.error === 'signin') {
+      location.href = '/login/?next=' + encodeURIComponent(location.pathname + location.search);
+    }
     if (!res.ok) throw new Error(data.message || 'Request failed');
     return data;
   }
 
+  // Who is signed in. Will signed in with Google reviews without the password; once sign-in is on,
+  // the password box goes away for everyone else.
+  let me = null;
+
   function setAdminUi() {
-    unlockBtn.hidden = admin;
-    lockBtn.hidden = !admin;
+    const viaGoogle = Boolean(me && me.user && me.user.via === 'google');
+    unlockBtn.hidden = admin || Boolean(me && me.enforce);
+    lockBtn.hidden = !admin || viaGoogle;
     login.hidden = admin || login.hidden;
     if (admin) login.hidden = true;
     hint.hidden = !admin;
@@ -205,6 +213,7 @@
   }
 
   async function load() {
+    if (!me) me = await api('/api/auth/me').catch(() => ({}));
     const data = await api('/api/requests');
     admin = Boolean(data.admin);
     items = data.requests || [];

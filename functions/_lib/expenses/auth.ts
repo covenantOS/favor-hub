@@ -1,10 +1,10 @@
-import { sha256Hex } from './db';
+import { getSettings, sha256Hex, splitEmails, todayEt } from './db';
 import { HttpError, newId, nowIso, timingSafeEqualStr, type Env } from '../http';
+import { hubUserOf, signinEnforced } from '../session';
 
 const COOKIE = 'favor_hub_expense_admin';
 const SESSION_DAYS = 7;
 const DEFAULT_CODE = '1234';
-const MASTER_CODE = '4000';
 
 function readCookie(request: Request): string {
   const raw = request.headers.get('Cookie') || '';
@@ -33,7 +33,31 @@ export function clearExpenseSessionCookie(): string {
   return `${COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
+/**
+ * Who may open the expense log when signed in with Google: the hub admins, the approvers in the
+ * settings, a substitute whose dates cover today, and the people listed under "Who else can open
+ * this log".
+ */
+export async function expenseLogEmails(env: Env): Promise<Set<string>> {
+  const settings = await getSettings(env);
+  const today = todayEt();
+  const { results } = await env.DB.prepare(
+    'SELECT email FROM expense_approver_overrides WHERE start_date <= ? AND end_date >= ?'
+  )
+    .bind(today, today)
+    .all<{ email: string }>();
+  const all = [...splitEmails(settings.approver_email), ...settings.viewers, ...results.map((r) => r.email)];
+  return new Set(all.map((e) => e.trim().toLowerCase()).filter(Boolean));
+}
+
 export async function isExpenseAdmin(env: Env, request: Request): Promise<boolean> {
+  const user = hubUserOf(request);
+  if (user) {
+    if (user.role === 'admin') return true;
+    if ((await expenseLogEmails(env)).has(user.email.toLowerCase())) return true;
+  }
+  // The codes only count while Google sign-in is switched off.
+  if (signinEnforced(env)) return false;
   const token = readCookie(request);
   if (!token) return false;
   const row = await env.DB.prepare(
@@ -45,9 +69,11 @@ export async function isExpenseAdmin(env: Env, request: Request): Promise<boolea
 }
 
 export async function requireExpenseAdmin(env: Env, request: Request): Promise<void> {
-  if (!(await isExpenseAdmin(env, request))) {
-    throw new HttpError(401, 'unauthorized', 'Unlock the expense log to do that.');
+  if (await isExpenseAdmin(env, request)) return;
+  if (hubUserOf(request) && signinEnforced(env)) {
+    throw new HttpError(403, 'not_on_list', 'The expense log is open to the approvers and the people they add. Ask Michael Hinton or Rachel Cox to add you.');
   }
+  throw new HttpError(401, 'unauthorized', 'Unlock the expense log to do that.');
 }
 
 export async function getExpenseCodeHash(env: Env): Promise<string> {
@@ -71,10 +97,11 @@ export async function setExpenseCode(env: Env, code: string): Promise<void> {
 }
 
 export async function checkExpensePassword(env: Env, password: string): Promise<boolean> {
-  // Will's code: fixed, always valid, never changeable from the log UI.
-  const master = env.EXPENSE_MASTER_PASSWORD || MASTER_CODE;
-  if (timingSafeEqualStr(password, master)) return true;
-  // Stephanie's code: stored in D1, changeable from the log UI.
+  // Will's code, only when EXPENSE_MASTER_PASSWORD is set. The old built-in 4000 is also the
+  // foundations staff code, so it no longer opens this log (2026-10-08).
+  const master = env.EXPENSE_MASTER_PASSWORD || '';
+  if (master && timingSafeEqualStr(password, master)) return true;
+  // The log's own code: stored in D1, changeable from the log UI.
   const supplied = await sha256Hex(password);
   if (timingSafeEqualStr(supplied, await getExpenseCodeHash(env))) return true;
   // Legacy env password, kept in case it was set before the code system.

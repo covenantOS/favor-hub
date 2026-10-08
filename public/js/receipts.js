@@ -88,6 +88,10 @@
     if (who) headers['X-Rcp-Actor'] = encodeURIComponent(who);
     const res = await fetch(path, { credentials: 'same-origin', ...opts, headers });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && data.error === 'signin') {
+      location.href = '/login/?next=' + encodeURIComponent(location.pathname + location.search);
+      throw new Error('Sign in again.');
+    }
     if (res.status === 401 && data.error === 'unauthorized') {
       showLocked();
       throw new Error('Enter the code again.');
@@ -127,6 +131,15 @@
     localStorage.setItem('rcp_actor', whoEl.value.trim());
     whoEl.parentElement.classList.remove('is-bad');
   });
+
+  /** Signed in with Google: the name comes from the account, so "Your name" and Lock go away. */
+  function useSignedInName(name) {
+    whoEl.value = name;
+    localStorage.setItem('rcp_actor', name);
+    const label = whoEl.closest('label');
+    if (label) label.hidden = true;
+    $('rcp-lock').hidden = true;
+  }
 
   function needWho() {
     if ((whoEl.value || '').trim()) return false;
@@ -864,6 +877,7 @@
   (async () => {
     try {
       const me = await api('/api/receipts/me');
+      if (me.name) useSignedInName(me.name);
       if (me.unlocked) await load();
       else showLocked();
     } catch {

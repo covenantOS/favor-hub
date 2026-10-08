@@ -40,6 +40,8 @@ export interface ExpenseSettings {
   approver_name: string;
   approver_email: string;
   distribution: string[];
+  /** Besides Will and the approvers, who may open the expense log (signed in with Google). */
+  viewers: string[];
 }
 
 export interface MileageSettings {
@@ -69,7 +71,7 @@ const COLS = `id, doc_number, status, requester_name, requester_email, travel_da
   approver_name, approver_email, requester_signature, approver_signature, review_token_hash, decline_note,
   requester_ip, approver_ip, pdf_r2_key, submitted_at, decided_at, created_at, updated_at`;
 
-const FALLBACK_APPROVER = { name: 'Stephanie Maier', email: 'stephanie@favorintl.org' };
+const FALLBACK_APPROVER = { name: 'Michael Hinton and Rachel Cox', email: 'michael@favorintl.org, rachel@favorintl.org' };
 
 /** The approver email field holds one address or several, comma separated. */
 export function splitEmails(list: string): string[] {
@@ -106,16 +108,26 @@ export function newToken(): string {
 }
 
 export async function getSettings(env: Env): Promise<ExpenseSettings> {
-  const row = await env.DB.prepare(
-    'SELECT approver_name, approver_email, distribution FROM expense_settings WHERE id = 1'
-  ).first<{ approver_name: string; approver_email: string; distribution: string }>();
+  type Row = { approver_name: string; approver_email: string; distribution: string; viewers?: string };
+  let row: Row | null;
+  try {
+    row = await env.DB.prepare(
+      'SELECT approver_name, approver_email, distribution, viewers FROM expense_settings WHERE id = 1'
+    ).first<Row>();
+  } catch {
+    // The viewers column arrives with db/signin.sql; read the older shape until then.
+    row = await env.DB.prepare(
+      'SELECT approver_name, approver_email, distribution FROM expense_settings WHERE id = 1'
+    ).first<Row>();
+  }
   if (!row) {
-    return { ...splitApprover(FALLBACK_APPROVER), distribution: [] };
+    return { ...splitApprover(FALLBACK_APPROVER), distribution: [], viewers: [] };
   }
   return {
     approver_name: row.approver_name,
     approver_email: row.approver_email,
     distribution: row.distribution.split(',').map((s) => s.trim()).filter(Boolean),
+    viewers: splitEmails(row.viewers || ''),
   };
 }
 
@@ -125,12 +137,12 @@ function splitApprover(a: { name: string; email: string }) {
 
 export async function saveSettings(env: Env, next: ExpenseSettings): Promise<void> {
   await env.DB.prepare(
-    `INSERT INTO expense_settings (id, approver_name, approver_email, distribution, updated_at)
-     VALUES (1, ?, ?, ?, ?)
+    `INSERT INTO expense_settings (id, approver_name, approver_email, distribution, viewers, updated_at)
+     VALUES (1, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET approver_name = excluded.approver_name, approver_email = excluded.approver_email,
-       distribution = excluded.distribution, updated_at = excluded.updated_at`
+       distribution = excluded.distribution, viewers = excluded.viewers, updated_at = excluded.updated_at`
   )
-    .bind(next.approver_name, next.approver_email, next.distribution.join(','), nowIso())
+    .bind(next.approver_name, next.approver_email, next.distribution.join(','), next.viewers.join(','), nowIso())
     .run();
 }
 

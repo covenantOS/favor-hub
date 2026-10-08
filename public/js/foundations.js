@@ -55,6 +55,10 @@
     if (who) headers['X-Fnd-Actor'] = encodeURIComponent(who);
     const res = await fetch(path, { credentials: 'same-origin', ...opts, headers });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 401 && data.error === 'signin') {
+      location.href = '/login/?next=' + encodeURIComponent(location.pathname + location.search);
+      throw new Error('Sign in again.');
+    }
     if (res.status === 401 && path !== '/api/foundations/login' && data.error === 'unauthorized') {
       showLocked();
       throw new Error('Enter the code again.');
@@ -114,6 +118,15 @@
     localStorage.setItem('fnd_actor', whoEl.value.trim());
     whoEl.parentElement.classList.remove('is-bad');
   });
+
+  /** Signed in with Google: the name comes from the account, so "Entered by" and Lock go away. */
+  function useSignedInName(name) {
+    whoEl.value = name;
+    localStorage.setItem('fnd_actor', name);
+    const label = whoEl.closest('label');
+    if (label) label.hidden = true;
+    $('fnd-lock').hidden = true;
+  }
 
   function needWho() {
     if ((whoEl.value || '').trim()) return false;
@@ -911,6 +924,9 @@
 
   fetch('/api/foundations/me', { credentials: 'same-origin' })
     .then((r) => r.json())
-    .then((d) => (d.unlocked ? load() : showLocked()))
+    .then((d) => {
+      if (d.name) useSignedInName(d.name);
+      return d.unlocked ? load() : showLocked();
+    })
     .catch(() => showLocked());
 })();

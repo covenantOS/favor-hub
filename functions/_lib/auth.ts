@@ -1,4 +1,5 @@
 import { HttpError, errorJson, newId, nowIso, timingSafeEqualStr, type Env } from './http';
+import { hubUserOf } from './session';
 
 const COOKIE = 'favor_hub_admin';
 const SESSION_DAYS = 7;
@@ -29,6 +30,9 @@ export function readCookie(request: Request, name = COOKIE): string {
 }
 
 export async function isAdmin(env: Env, request: Request): Promise<boolean> {
+  // Behind the middleware: Will signed in with Google, the admin password session, or the agent key.
+  const user = hubUserOf(request);
+  if (user) return user.role === 'admin';
   const token = readCookie(request);
   if (!token) return false;
   const row = await env.DB.prepare(

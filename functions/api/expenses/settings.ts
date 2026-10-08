@@ -33,7 +33,14 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     for (const e of distribution) {
       if (!isEmail(e)) throw new HttpError(400, 'bad_email', `Distribution email "${e}" is not valid.`);
     }
-    await saveSettings(env, { approver_name, approver_email, distribution });
+    // Who else can open the log. Left as it is when the page does not send it.
+    const viewers = Array.isArray(data.viewers)
+      ? data.viewers.map((e) => String(e).trim().toLowerCase()).filter(Boolean)
+      : (await getSettings(env)).viewers;
+    for (const e of viewers) {
+      if (!isEmail(e)) throw new HttpError(400, 'bad_email', `"${e}" is not a valid email.`);
+    }
+    await saveSettings(env, { approver_name, approver_email, distribution, viewers });
 
     const rate_cents = Math.round(Number(data.mileage_rate_cents));
     if (!Number.isFinite(rate_cents) || rate_cents <= 0 || rate_cents > 500) {

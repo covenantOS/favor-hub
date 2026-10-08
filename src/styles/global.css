@@ -321,7 +321,79 @@ main {
   color: var(--ink-soft);
 }
 
+/* Signed-in person: photo or initials, first name, and a menu with Sign out. */
+.hub-user {
+  position: relative;
+  margin-left: 4px;
+}
+
+.hub-user__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--bone);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hub-user__btn:hover { border-color: var(--ink); }
+
+.hub-user__face {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: var(--green-deep);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hub-user__face img { width: 100%; height: 100%; object-fit: cover; }
+
+.hub-user__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 240px;
+  padding: 8px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--shadow-2);
+  z-index: 60;
+}
+
+.hub-user__who {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.hub-user__who span { color: var(--ink-soft); opacity: 0.75; font-size: 12px; }
+
+.hub-user__out {
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hub-user__out:hover { background: var(--paper-warm); }
+
 @media (max-width: 880px) {
+  .hub-user__name { display: none; }
+  .hub-user__btn { padding: 3px; }
   .site-nav .hide-sm { display: none; }
   .clock { display: none; }
   .cmdk-trigger__label, .cmdk-trigger kbd { display: none; }

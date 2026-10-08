@@ -19,6 +19,16 @@ export interface Env {
   RECEIPTS_WORKER_URL?: string;
   /** "off" on a test copy, so it never tells the sync worker about its own print files. */
   RECEIPTS_REPORT?: string;
+  /** Google sign-in. "off" leaves every page open and the old codes working; anything else requires it. */
+  HUB_SIGNIN?: string;
+  /** The OAuth client the sign-in button uses (the KPI dashboard's client when unset). */
+  GOOGLE_CLIENT_ID?: string;
+  /** Workspace domain allowed to sign in (favorintl.org when unset). */
+  HUB_GOOGLE_DOMAIN?: string;
+  /** Comma separated emails with admin rights (will@favorintl.org when unset). */
+  HUB_ADMINS?: string;
+  /** Local tests only: a stand-in for Google's signing keys. Never set on the live site. */
+  GOOGLE_JWKS_URL?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;

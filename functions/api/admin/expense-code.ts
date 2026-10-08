@@ -1,8 +1,10 @@
 import { requireExpenseAdmin, setExpenseCode } from '../../_lib/expenses/auth';
 import { HttpError, asTrimmed, errorJson, handleError, json, type Env } from '../../_lib/http';
+import { signinEnforced } from '../../_lib/session';
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
+    if (signinEnforced(env)) return errorJson('signin', 'The expense log opens with Google sign-in now, so there is no code to change.', 410);
     await requireExpenseAdmin(env, request);
     const body = (await request.json()) as { code?: unknown; confirm?: unknown };
     const code = asTrimmed(body.code, 'code', 64);

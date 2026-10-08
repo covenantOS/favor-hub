@@ -1,0 +1,189 @@
+/* Sign-in page. Favor's own type and colors (Montserrat, the brand green), cool neutrals. */
+
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-600.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-800.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+
+:root {
+  --si-green: #2b4d24;
+  --si-green-deep: #1f3a1a;
+  --si-green-bright: #2ea84a;
+  --si-gold: #e1a730;
+  --si-ink: #15181a;
+  --si-ink-2: #4b5157;
+  --si-ink-3: #6f767d;
+  --si-line: #e3e6ea;
+  --si-bg: #f4f5f7;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html, body { height: 100%; }
+
+body.si {
+  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: var(--si-ink);
+  background: var(--si-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.si-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(420px, 0.95fr);
+}
+
+/* ------------------------------------------------------------- photo */
+
+.si-photo {
+  position: relative;
+  overflow: hidden;
+  background: var(--si-green-deep);
+}
+
+.si-photo > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 62% 50%;
+}
+
+.si-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(31, 58, 26, 0.15) 0%, rgba(31, 58, 26, 0) 35%, rgba(31, 58, 26, 0.88) 100%),
+    linear-gradient(90deg, rgba(31, 58, 26, 0.25), rgba(31, 58, 26, 0));
+}
+
+.si-photo__words {
+  position: absolute;
+  z-index: 1;
+  left: clamp(28px, 4vw, 56px);
+  right: clamp(28px, 4vw, 56px);
+  bottom: clamp(28px, 5vh, 56px);
+  color: #fff;
+}
+
+.si-photo__logo {
+  width: 168px;
+  height: auto;
+  margin-bottom: 18px;
+  display: block;
+}
+
+.si-photo__words p {
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 700;
+  line-height: 1.2;
+  max-width: 17em;
+  letter-spacing: -0.01em;
+}
+
+/* ------------------------------------------------------------- panel */
+
+.si-panel {
+  display: grid;
+  place-items: center;
+  padding: 48px clamp(24px, 5vw, 72px);
+  background: #fff;
+}
+
+.si-card {
+  width: 100%;
+  max-width: 380px;
+}
+
+.si-logo {
+  height: 44px;
+  width: auto;
+  display: block;
+  margin-bottom: 36px;
+}
+
+.si-kicker {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--si-green);
+  margin-bottom: 10px;
+}
+
+.si-card h1 {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+
+.si-lede {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--si-ink-2);
+  margin-bottom: 28px;
+}
+
+.si-google {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+}
+
+.si-wait {
+  font-size: 13px;
+  color: var(--si-ink-3);
+}
+
+.si-msg {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  background: #fbeee9;
+  border: 1px solid #ecc9bb;
+  color: #7f351b;
+}
+
+.si-msg[data-kind='info'] {
+  background: #eef5ec;
+  border-color: #cfe0c8;
+  color: var(--si-green);
+}
+
+.si-help {
+  margin-top: 36px;
+  padding-top: 20px;
+  border-top: 1px solid var(--si-line);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--si-ink-3);
+}
+
+.si-help a {
+  color: var(--si-green);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------- phone */
+
+@media (max-width: 860px) {
+  .si-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: 220px 1fr;
+  }
+  .si-photo__words p { display: none; }
+  .si-photo__logo { width: 132px; margin-bottom: 0; }
+  .si-panel { place-items: start center; padding-top: 36px; }
+  .si-logo { display: none; }
+  .si-card h1 { font-size: 30px; }
+}

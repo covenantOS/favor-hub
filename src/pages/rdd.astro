@@ -110,6 +110,17 @@ import Footer from '../components/Footer.astro';
 
   if (sessionStorage.getItem(KEY) === '1') show();
 
+  // Signed in to the hub with Google: the reports open without the page password.
+  fetch('/api/auth/me', { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((me) => {
+      if (me && me.signedIn) {
+        show();
+        document.getElementById('lock').hidden = true;
+      }
+    })
+    .catch(() => {});
+
   document.getElementById('gate-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pw = document.getElementById('pw').value.trim().toLowerCase();

@@ -1,0 +1,51 @@
+---
+// Sign-in page for the whole hub. Standalone: no header or footer, so it loads before anyone is
+// signed in. Google's own button does the sign-in; /js/login.js posts the result to /api/auth/google.
+import '../styles/signin.css';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/png" href="/images/favor-icon.png" />
+    <link rel="apple-touch-icon" href="/images/favor-icon.png" />
+    <link rel="preload" href="/fonts/montserrat-400.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/montserrat-700.woff2" as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#1f3a1a" />
+    <title>Sign in - Favor Hub</title>
+  </head>
+  <body class="si">
+    <main class="si-shell">
+      <section class="si-photo" aria-hidden="true">
+        <img src="/images/signin-field.jpg" alt="" />
+        <div class="si-photo__words">
+          <img class="si-photo__logo" src="/images/favor-logo-white.png" alt="" />
+          <p>Transformed hearts transform nations.</p>
+        </div>
+      </section>
+
+      <section class="si-panel">
+        <div class="si-card">
+          <img class="si-logo" src="/images/favor-logo-color.png" alt="Favor International" />
+          <p class="si-kicker">Staff hub</p>
+          <h1>Sign in</h1>
+          <p class="si-lede">Use your Favor Google account, the one that ends in @favorintl.org.</p>
+
+          <div class="si-google" id="si-google" aria-live="polite">
+            <span class="si-wait">Loading Google sign-in...</span>
+          </div>
+
+          <p class="si-msg" id="si-msg" role="alert" hidden></p>
+
+          <p class="si-help">
+            Requests, expenses, thank-you receipts, foundation prospects and reports all open from here.
+            Can't get in? Email <a href="mailto:will@favorintl.org">will@favorintl.org</a>.
+          </p>
+        </div>
+      </section>
+    </main>
+    <script is:inline src="/js/login.js?v=1"></script>
+  </body>
+</html>

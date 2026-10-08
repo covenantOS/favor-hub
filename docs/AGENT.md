@@ -13,6 +13,8 @@ Authorization: Bearer $AGENT_API_KEY
 
 Markdown: add `?format=md`. Each card includes the request body, notes, repo, and full picture URLs on dash.favorintl.org.
 
+The hub sits behind Google sign-in. Picture URLs and every other `/api/` route answer an agent that sends the same `Authorization: Bearer $AGENT_API_KEY` header; without it they return 401.
+
 Key lives at `C:\Users\Willb\.claude\secrets\favor-hub-agent-key.txt`.
 
 ## Claim, note, complete

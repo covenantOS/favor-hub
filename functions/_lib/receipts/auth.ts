@@ -1,4 +1,5 @@
 import { HttpError, newId, nowIso, timingSafeEqualStr, type Env } from '../http';
+import { hubUserOf, signinEnforced } from '../session';
 
 const COOKIE = 'favor_hub_receipts';
 const SESSION_DAYS = 14;
@@ -38,6 +39,9 @@ export function clearReceiptsSessionCookie(): string {
 }
 
 export async function isReceiptsUser(env: Env, request: Request): Promise<boolean> {
+  // Anyone signed in to the hub. The shared code only counts while Google sign-in is switched off.
+  if (hubUserOf(request)) return true;
+  if (signinEnforced(env)) return false;
   const token = readCookie(request);
   if (!token) return false;
   const row = await env.DB.prepare('SELECT token FROM rcp_sessions WHERE token = ? AND expires_at > ? LIMIT 1')

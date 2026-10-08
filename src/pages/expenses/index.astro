@@ -24,7 +24,11 @@ import '../../styles/expenses.css';
       </div>
       <p class="exp-lede">Every request, its status, and the signed PDF. The approver schedule and the on-approval distribution list are managed here.</p>
 
-      <div id="exp-locked">
+      <div class="board-login" id="exp-denied" hidden>
+        <p id="exp-denied-msg">The expense log is open to the approvers and the people they add.</p>
+      </div>
+
+      <div id="exp-locked" hidden>
         <form class="board-login" id="exp-login">
           <p>Enter the admin code to open the expense log.</p>
           <div class="board-login__row">
@@ -69,14 +73,24 @@ import '../../styles/expenses.css';
           <ul class="exp-ovr-list" id="exp-ovr-list"></ul>
           <p class="req-msg" id="exp-set-msg" aria-live="polite"></p>
 
+          <span class="exp-legend">Who else can open this log</span>
+          <div class="exp-settings-row exp-settings-row--one">
+            <label class="req-field"><span>Favor emails, comma separated</span><input id="exp-set-viewers" maxlength="1000" placeholder="name@favorintl.org" /></label>
+            <button type="button" class="req-admin-btn" id="exp-viewers-save">Save</button>
+          </div>
+          <small>People sign in with their Favor Google account. The approvers above and any substitute covering today can always open it.</small>
+          <p class="req-msg" id="exp-viewers-msg" aria-live="polite"></p>
+
+          <div id="exp-code-section">
           <span class="exp-legend">Login code</span>
           <div class="exp-settings-row">
             <label class="req-field"><span>New code</span><input id="exp-code-new" type="password" maxlength="64" autocomplete="new-password" /></label>
             <label class="req-field"><span>Repeat new code</span><input id="exp-code-confirm" type="password" maxlength="64" autocomplete="new-password" /></label>
             <button type="button" class="req-admin-btn" id="exp-code-save">Update code</button>
           </div>
-          <small>The code unlocks this log. The starting code is 1234. Change it here any time, and use the new code on the next sign-in.</small>
+          <small>The code unlocks this log until Google sign-in is switched on. Change it here any time, and use the new code on the next sign-in.</small>
           <p class="req-msg" id="exp-code-msg" aria-live="polite"></p>
+          </div>
         </div>
 
         <div class="make-sheet">
@@ -87,5 +101,5 @@ import '../../styles/expenses.css';
     </div>
   </main>
   <Footer />
-  <script is:inline src="/js/expenses-admin.js?v=2"></script>
+  <script is:inline src="/js/expenses-admin.js?v=3"></script>
 </Base>
