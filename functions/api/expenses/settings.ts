@@ -1,5 +1,5 @@
 import { requireExpenseAdmin } from '../../_lib/expenses/auth';
-import { addOverride, getMileageSettings, getSettings, listOverrides, removeOverride, saveMileageSettings, saveSettings } from '../../_lib/expenses/db';
+import { addOverride, getMileageSettings, getSettings, listOverrides, removeOverride, saveMileageSettings, saveSettings, splitEmails } from '../../_lib/expenses/db';
 import { HttpError, asTrimmed, handleError, json, type Env } from '../../_lib/http';
 import { isEmail } from '../../_lib/notify';
 
@@ -24,8 +24,9 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
     await requireExpenseAdmin(env, request);
     const data = (await request.json()) as Record<string, unknown>;
     const approver_name = asTrimmed(data.approver_name, 'approver_name', 80);
-    const approver_email = asTrimmed(data.approver_email, 'approver_email', 120);
-    if (!isEmail(approver_email)) throw new HttpError(400, 'bad_email', 'Approver email is not valid.');
+    const approver_email = asTrimmed(data.approver_email, 'approver_email', 200);
+    const approverList = splitEmails(approver_email);
+    if (!approverList.length || !approverList.every(isEmail)) throw new HttpError(400, 'bad_email', 'Approver email is not valid.');
     const distribution = (Array.isArray(data.distribution) ? data.distribution : [])
       .map((e) => String(e).trim())
       .filter(Boolean);

@@ -71,6 +71,11 @@ const COLS = `id, doc_number, status, requester_name, requester_email, travel_da
 
 const FALLBACK_APPROVER = { name: 'Stephanie Maier', email: 'stephanie@favorintl.org' };
 
+/** The approver email field holds one address or several, comma separated. */
+export function splitEmails(list: string): string[] {
+  return list.split(',').map((e) => e.trim()).filter(Boolean);
+}
+
 export function money(cents: number): string {
   return '$' + (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

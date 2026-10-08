@@ -1,5 +1,5 @@
 import type { Env } from '../http';
-import { fmtEt, money, type ExpenseItemRow, type ExpenseRow } from './db';
+import { fmtEt, money, splitEmails, type ExpenseItemRow, type ExpenseRow } from './db';
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] || ch));
@@ -95,7 +95,7 @@ export interface SentEmail {
 }
 
 export async function emailApprover(env: Env, row: ExpenseRow, items: ExpenseItemRow[], reviewUrl: string): Promise<SentEmail> {
-  const to = [row.approver_email];
+  const to = splitEmails(row.approver_email);
   const subject = `Expense request ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
     'Favor Hub · Expense request',
@@ -117,7 +117,7 @@ export async function emailApproved(
   distribution: string[],
   pdf: Uint8Array
 ): Promise<SentEmail> {
-  const to = dedupe([row.requester_email, row.approver_email, ...distribution]);
+  const to = dedupe([row.requester_email, ...splitEmails(row.approver_email), ...distribution]);
   const subject = `Approved: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
     'Favor Hub · Expense request approved',
@@ -141,7 +141,7 @@ export async function emailApproved(
 
 export async function emailDeclined(env: Env, row: ExpenseRow, items: ExpenseItemRow[]): Promise<SentEmail> {
   const to = [row.requester_email];
-  const cc = row.approver_email.toLowerCase() === row.requester_email.toLowerCase() ? undefined : [row.approver_email];
+  const cc = splitEmails(row.approver_email).some((e) => e.toLowerCase() === row.requester_email.toLowerCase()) ? undefined : splitEmails(row.approver_email);
   const subject = `Declined: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
     'Favor Hub · Expense request declined',
