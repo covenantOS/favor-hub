@@ -1,20 +1,10 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
+import App from '../../layouts/App.astro';
 import Dashboard from '../../components/newsletter-analytics/Dashboard.astro';
 import { campaign } from '../../data/newsletter-analytics/campaign';
 ---
-<Base
-  title="Newsletter Analytics"
-  description="Newsletter campaign analytics for the marketing & engagement team."
->
-  <Header />
-  <main>
+<App title="Newsletter analytics" crumb="Reports" nav="newsletter" description="Newsletter campaign analytics for the marketing & engagement team.">
+  <div>
     <Dashboard campaign={campaign} />
-    <p style="text-align:center;margin:8px 0 56px;font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft)">
-      <a href="/" style="text-decoration:underline;text-underline-offset:4px">← Back to hub</a>
-    </p>
-  </main>
-  <Footer />
-</Base>
+  </div>
+</App>

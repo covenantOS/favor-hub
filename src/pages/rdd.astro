@@ -1,11 +1,8 @@
 ---
-import Base from '../layouts/Base.astro';
-import Header from '../components/Header.astro';
-import Footer from '../components/Footer.astro';
+import App from '../layouts/App.astro';
 ---
-<Base title="RDD Reports" description="Staff reporting. Password on this page.">
-  <Header />
-  <main>
+<App title="RDD reports" crumb="Reports" nav="rdd" description="Staff reporting. Password on this page.">
+  <div>
     <!-- Password gate (initially shown) -->
     <section class="gate" id="gate">
       <div class="gate__card">
@@ -75,15 +72,13 @@ import Footer from '../components/Footer.astro';
         </div>
 
         <p style="margin-top:32px;font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-soft)">
-          <a href="/" style="text-decoration:underline;text-underline-offset:4px">← Back to hub</a>
-          &nbsp;·&nbsp;
+          
           <button id="lock" style="font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;text-decoration:underline;text-underline-offset:4px">Lock again</button>
         </p>
       </div>
     </section>
-  </main>
-  <Footer />
-</Base>
+  </div>
+</App>
 
 <script is:inline>
   // Lightweight, friction-free gate. NOT cryptographic — RDD URLs are still

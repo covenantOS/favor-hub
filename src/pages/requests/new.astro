@@ -1,21 +1,30 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
+import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 ---
-<Base
-  title="Make a request - Favor Hub"
-  description="Ask Will to fix a page, add a job posting, or put up new copy."
->
-  <Header />
-  <main class="make-page">
+<App title="Make a request" crumb="Work" nav="new" description="One place to ask for anything: the hub sends it to Will's board or to the Marketing team.">
+  <section class="h-route" id="route">
+    <div class="h-card h-route__ask">
+      <h2>What do you need?</h2>
+      <p>Say it in a sentence or two. The hub sends it to the right place: Will's request board for the website, the portal, the hub and Blackbaud, or the Marketing team for design, print, social and video.</p>
+      <label class="sr-only" for="route-text">What do you need?</label>
+      <textarea id="route-text" maxlength="4000" placeholder="For example: Add Sarah's bio to the team page. Or: A flyer for the October banquet. Or: A list of our Texas partners from Blackbaud."></textarea>
+      <div class="h-route__row">
+        <button type="button" class="h-btn h-btn--primary" id="route-go">Continue</button>
+        <span class="h-route__eg" id="route-wait" hidden>Reading it&hellip;</span>
+      </div>
+      <p class="h-route__msg" id="route-msg" hidden></p>
+    </div>
+    <div class="h-card h-route__result" id="route-result" hidden></div>
+  </section>
+
+  <div class="make-page" id="route-board" hidden>
     <div class="container make-stage">
       <aside class="make-copy">
-        <p class="make-kicker">Website &amp; apps</p>
-        <h1>Make a <em>request</em></h1>
+        <p class="make-kicker">Will's request board</p>
+        <h1>A few details</h1>
         <p>
-          A one-line summary is enough. One word counts. Paste extra copy or files if you have them. Skip everything else.
+          Your words are already in. Pick where it lives, add files if you have them, and skip anything else.
         </p>
         <ol class="make-toc" id="make-toc" aria-label="Survey steps">
           <li data-step="1" class="is-on">You and where</li>
@@ -24,7 +33,7 @@ import '../../styles/requests.css';
           <li data-step="4">Files and send</li>
         </ol>
         <a class="make-board-link" href="/requests">See the board</a>
-        <p class="make-aside">Marketing projects still go through the Marketing Request tile.</p>
+        <button type="button" class="make-aside h-route-restart" id="route-restart">Start over</button>
       </aside>
 
       <div class="make-col">
@@ -187,7 +196,7 @@ import '../../styles/requests.css';
         </div>
       </div>
     </div>
-  </main>
-  <Footer />
+  </div>
   <script is:inline src="/js/requests-compose.js?v=5"></script>
-</Base>
+  <script is:inline src="/js/request-router.js?v=1"></script>
+</App>

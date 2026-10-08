@@ -1,17 +1,11 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
+import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/foundations.css';
 ---
-<Base
-  title="Foundation prospects - Favor Hub"
-  description="Every foundation the team has contacted, what was said, and what Blackbaud already holds."
->
-  <Header />
-  <main class="fnd-page">
+<App title="Foundation prospects" crumb="Work" nav="foundations" description="Every foundation the team has contacted, what was said, and what Blackbaud already holds.">
+  <div class="fnd-page">
     <div class="container">
       <header class="board-intro">
         <div>
@@ -89,7 +83,7 @@ import '../../styles/foundations.css';
         </div>
       </div>
     </div>
-  </main>
+  </div>
 
   <div class="req-drawer fnd-drawer" id="fnd-drawer" hidden>
     <div class="req-drawer__scrim" data-close></div>
@@ -97,7 +91,5 @@ import '../../styles/foundations.css';
   </div>
 
   <div class="fnd-toast" id="fnd-toast" role="status" aria-live="polite"></div>
-
-  <Footer />
   <script is:inline src="/js/foundations.js?v=3"></script>
-</Base>
+</App>

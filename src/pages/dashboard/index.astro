@@ -1,0 +1,16 @@
+---
+// The KPI dashboard inside the hub, exactly as kpi.favorintl.org shows it. The hub hands the person
+// over with /api/kpi/enter, so there is no second sign-in. Leadership only until Will sets each
+// person's access.
+import App from '../../layouts/App.astro';
+---
+<App title="KPI dashboard" crumb="Dashboard" nav="kpi" wide description="The KPI dashboard inside the hub.">
+  <a slot="actions" class="h-btn h-btn--ghost h-btn--sm" href="https://kpi.favorintl.org/" target="_blank" rel="noopener">Open in its own tab</a>
+  <iframe class="h-frame" id="kpi-frame" title="KPI dashboard" src="about:blank"></iframe>
+  <script is:inline>
+    (() => {
+      const asked = new URLSearchParams(location.search).get('page') || '/';
+      document.getElementById('kpi-frame').src = '/api/kpi/enter?next=' + encodeURIComponent(asked);
+    })();
+  </script>
+</App>

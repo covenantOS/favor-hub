@@ -1,16 +1,10 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
+import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 ---
-<Base
-  title="Expense log - Favor Hub"
-  description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too."
->
-  <Header />
-  <main class="exp-page">
+<App title="Expense log" crumb="Work" nav="expenses" description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too.">
+  <div class="exp-page">
     <div class="container">
       <div class="exp-head">
         <div>
@@ -99,7 +93,6 @@ import '../../styles/expenses.css';
         </div>
       </div>
     </div>
-  </main>
-  <Footer />
+  </div>
   <script is:inline src="/js/expenses-admin.js?v=4"></script>
-</Base>
+</App>

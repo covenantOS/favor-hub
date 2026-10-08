@@ -1,21 +1,62 @@
 ---
-import Base from '../layouts/Base.astro';
-import Header from '../components/Header.astro';
-import Hero from '../components/Hero.astro';
-import DashboardGrid from '../components/DashboardGrid.astro';
-import FounderSection from '../components/FounderSection.astro';
-import FieldGallery from '../components/FieldGallery.astro';
-import QuickLinks from '../components/QuickLinks.astro';
-import Footer from '../components/Footer.astro';
+import App from '../layouts/App.astro';
+
+const tools = [
+  ['Blackbaud', 'Partner records', '#1f6fb2', 'BB', 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/'],
+  ['GoHighLevel', 'Email and texting', '#6b46c1', 'GH', 'https://my.favor.international'],
+  ['Paycom', 'Time off, time sheet, card expenses', '#0b7a75', 'PC', 'https://www.paycomonline.net/v4/ee/web.php/app/login'],
+  ['Media folder', 'Field photos and video', '#2b4d24', 'MF', 'https://drive.google.com/drive/folders/1vJQn3vvoxKWKjW4ZmYDDfPZ0Li_w8-ZU'],
+  ['Marketing materials', 'The live catalog', '#c98f1b', 'MM', 'https://docs.google.com/spreadsheets/d/1voiT9f4oixPz0cRAJrQTyik-PqCwP3hGGhC-br1PjOU/edit?usp=sharing'],
+];
+const ext = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/></svg>';
 ---
-<Base>
-  <Header />
-  <main>
-    <Hero />
-    <DashboardGrid />
-    <FounderSection />
-    <FieldGallery />
-    <QuickLinks />
-  </main>
-  <Footer />
-</Base>
+<App title="Today" nav="home" description="What is waiting on you across the Favor hub.">
+  <section class="h-hello">
+    <h1 id="t-hello">Welcome</h1>
+    <p id="t-date"></p>
+  </section>
+
+  <div class="h-section"><h2>Waiting on you</h2><p>Only what needs you today</p></div>
+  <div class="h-grid h-g4" id="t-cards"><div class="h-card h-empty">Loading&hellip;</div></div>
+
+  <div id="t-year-wrap" hidden>
+    <div class="h-section"><h2>Where the year stands</h2><p id="t-fresh">The KPI dashboard's own numbers</p></div>
+    <div class="h-grid h-g21">
+      <div class="h-card h-year" id="t-year"></div>
+      <div class="h-card h-mission" data-mission>
+        <img src="/images/signin-field.jpg" alt="" />
+        <div class="k">Since Favor began</div>
+        <div class="n">615,780</div>
+        <p>people have come to Christ. Transformed hearts transform nations.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="h-grid h-g21" style="margin-top:16px">
+    <div class="h-card">
+      <div class="h-card__head"><div class="h-card__title">Recent activity</div><div class="h-card__meta">Last two weeks</div></div>
+      <div class="h-card__body"><ul class="h-feed" id="t-feed"></ul></div>
+    </div>
+    <div class="h-grid" style="align-content:start">
+      <div class="h-card" id="t-mine-card" hidden>
+        <div class="h-card__head"><div class="h-card__title">Your requests</div><div class="h-card__meta"><a class="h-link" href="/requests/">The board</a></div></div>
+        <div class="h-card__body"><ul class="h-mine" id="t-mine"></ul></div>
+      </div>
+      <div class="h-card">
+        <div class="h-card__head"><div class="h-card__title">Tools</div></div>
+        <div class="h-card__body">
+          <div class="h-tools">
+            {tools.map(([t, s, c, m, href]) => (
+              <a class="h-tool" href={href} target="_blank" rel="noopener noreferrer">
+                <span class="h-tool__mark" style={`background:${c}`}>{m}</span>
+                <span>{t}<small>{s}</small></span>
+                <Fragment set:html={ext} />
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script is:inline src="/js/today.js?v=1" defer></script>
+</App>

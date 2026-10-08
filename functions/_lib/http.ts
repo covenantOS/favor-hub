@@ -29,6 +29,14 @@ export interface Env {
   HUB_ADMINS?: string;
   /** Local tests only: a stand-in for Google's signing keys. Never set on the live site. */
   GOOGLE_JWKS_URL?: string;
+  /** Workers AI, used to sort "Make a request" between Will's board, Marketing and expenses. */
+  AI?: { run(model: string, input: unknown): Promise<unknown> };
+  /** The KPI dashboard Worker (kpi-dashboard), bound so the hub can read its numbers and hand people over. */
+  KPI?: AssetsFetcher;
+  /** The KPI dashboard's session key, so the hub can sign a KPI session for someone allowed to see it. */
+  KPI_JWT_SECRET?: string;
+  /** Where the KPI dashboard lives (https://kpi.favorintl.org when unset). */
+  KPI_URL?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;

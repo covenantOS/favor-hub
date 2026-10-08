@@ -22,3 +22,12 @@ bucket_name = "favor-requests"
 [vars]
 HUB_SIGNIN = "on"
 GOOGLE_CLIENT_ID = "538890082341-5ka1icfropum9nl9csq8adaiusbuesea.apps.googleusercontent.com"
+
+# Workers AI sorts "Make a request" between Will's board, the Marketing team and expense requests.
+[ai]
+binding = "AI"
+
+# The KPI dashboard Worker: the hub reads its numbers and hands people over to it (/api/kpi/enter).
+[[services]]
+binding = "KPI"
+service = "kpi-dashboard"

@@ -19,7 +19,7 @@ const DEFAULT_DOMAIN = 'favorintl.org';
 const DEFAULT_ADMINS = 'will@favorintl.org';
 const GOOGLE_JWKS = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
-const HUB_HEADERS = ['X-Hub-Email', 'X-Hub-Name', 'X-Hub-Role', 'X-Hub-Via', 'X-Hub-Picture'];
+const HUB_HEADERS = ['X-Hub-Email', 'X-Hub-Name', 'X-Hub-Role', 'X-Hub-Via', 'X-Hub-Picture', 'X-Hub-Kpi'];
 
 export type HubRole = 'staff' | 'admin';
 export type HubVia = 'google' | 'password' | 'agent';
@@ -30,6 +30,8 @@ export interface HubUser {
   picture: string;
   role: HubRole;
   via: HubVia;
+  /** Sees the KPI dashboard and the year's numbers in the hub (hub_users.kpi, or an admin). */
+  kpi: boolean;
 }
 
 export interface GoogleClaims {
@@ -224,9 +226,9 @@ export async function recordSignIn(env: Env, claims: GoogleClaims, email: string
   )
     .bind(email, name, picture, now, now, now, now)
     .run();
-  const row = await env.DB.prepare('SELECT email, name, picture, role, blocked FROM hub_users WHERE email = ?')
+  const row = await env.DB.prepare('SELECT email, name, picture, role, blocked, kpi FROM hub_users WHERE email = ?')
     .bind(email)
-    .first<{ email: string; name: string; picture: string; role: string; blocked: number }>();
+    .first<{ email: string; name: string; picture: string; role: string; blocked: number; kpi: number }>();
   if (!row || row.blocked) {
     throw new HttpError(403, 'blocked', 'This account no longer has access to the Favor hub.');
   }
@@ -235,13 +237,8 @@ export async function recordSignIn(env: Env, claims: GoogleClaims, email: string
   )
     .bind(now, now, email)
     .run();
-  return {
-    email: row.email,
-    name: row.name || email,
-    picture: row.picture,
-    role: row.role === 'admin' || isAdminEmail(env, row.email) ? 'admin' : 'staff',
-    via: 'google',
-  };
+  const admin = row.role === 'admin' || isAdminEmail(env, row.email);
+  return { email: row.email, name: row.name || email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: admin || row.kpi === 1 };
 }
 
 export async function logAuth(env: Env, request: Request, email: string, event: string, detail = ''): Promise<void> {
@@ -264,30 +261,25 @@ export async function resolveUser(env: Env, request: Request): Promise<HubUser |
   const auth = request.headers.get('Authorization') || '';
   const supplied = (auth.startsWith('Bearer ') ? auth.slice(7).trim() : '') || request.headers.get('X-Agent-Key') || '';
   if (supplied && env.AGENT_API_KEY && timingSafeEqualStr(supplied, env.AGENT_API_KEY)) {
-    return { email: 'agent', name: 'Agent', picture: '', role: 'admin', via: 'agent' };
+    return { email: 'agent', name: 'Agent', picture: '', role: 'admin', via: 'agent', kpi: true };
   }
 
   const token = readCookie(request, SESSION_COOKIE);
   if (token) {
     const hash = await sha256Hex(token);
     const row = await env.DB.prepare(
-      `SELECT s.last_seen, u.email, u.name, u.picture, u.role, u.blocked
+      `SELECT s.last_seen, u.email, u.name, u.picture, u.role, u.blocked, u.kpi
          FROM hub_sessions s JOIN hub_users u ON u.email = s.email
         WHERE s.token_hash = ? AND s.expires_at > ? LIMIT 1`
     )
       .bind(hash, nowIso())
-      .first<{ last_seen: string; email: string; name: string; picture: string; role: string; blocked: number }>();
+      .first<{ last_seen: string; email: string; name: string; picture: string; role: string; blocked: number; kpi: number }>();
     if (row && !row.blocked) {
       if (Date.now() - Date.parse(row.last_seen) > TOUCH_MS) {
         await env.DB.prepare('UPDATE hub_sessions SET last_seen = ? WHERE token_hash = ?').bind(nowIso(), hash).run().catch(() => undefined);
       }
-      return {
-        email: row.email,
-        name: row.name || row.email,
-        picture: row.picture,
-        role: row.role === 'admin' || isAdminEmail(env, row.email) ? 'admin' : 'staff',
-        via: 'google',
-      };
+      const admin = row.role === 'admin' || isAdminEmail(env, row.email);
+      return { email: row.email, name: row.name || row.email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: admin || row.kpi === 1 };
     }
   }
 
@@ -296,7 +288,7 @@ export async function resolveUser(env: Env, request: Request): Promise<HubUser |
     const row = await env.DB.prepare('SELECT token FROM sessions WHERE token = ? AND expires_at > ? LIMIT 1')
       .bind(adminToken, nowIso())
       .first<{ token: string }>();
-    if (row) return { email: 'will@favorintl.org', name: 'Will Hamilton', picture: '', role: 'admin', via: 'password' };
+    if (row) return { email: 'will@favorintl.org', name: 'Will Hamilton', picture: '', role: 'admin', via: 'password', kpi: true };
   }
   return null;
 }
@@ -310,6 +302,7 @@ export function withUserHeaders(request: Request, user: HubUser | null): Request
     headers.set('X-Hub-Name', encodeURIComponent(user.name));
     headers.set('X-Hub-Role', user.role);
     headers.set('X-Hub-Via', user.via);
+    if (user.kpi) headers.set('X-Hub-Kpi', '1');
     if (user.picture) headers.set('X-Hub-Picture', encodeURIComponent(user.picture));
     if (user.via === 'google') {
       // Receipts and foundations record who did each thing. A signed-in person is who they are.
@@ -340,5 +333,6 @@ export function hubUserOf(request: Request): HubUser | null {
     picture: decoded(request.headers.get('X-Hub-Picture')),
     role: request.headers.get('X-Hub-Role') === 'admin' ? 'admin' : 'staff',
     via: via === 'agent' || via === 'password' ? via : 'google',
+    kpi: request.headers.get('X-Hub-Kpi') === '1',
   };
 }

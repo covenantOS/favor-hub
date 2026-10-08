@@ -1,18 +1,12 @@
 ---
-import Base from '../../layouts/Base.astro';
-import Header from '../../components/Header.astro';
-import Footer from '../../components/Footer.astro';
+import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/foundations.css';
 import '../../styles/receipts.css';
 ---
-<Base
-  title="Thank-you receipts - Favor Hub"
-  description="Every gift Blackbaud has not thanked yet, ready to print on the receipt paper."
->
-  <Header />
-  <main class="fnd-page rcp-page">
+<App title="Thank-you receipts" crumb="Work" nav="receipts" description="Every gift Blackbaud has not thanked yet, ready to print on the receipt paper.">
+  <div class="fnd-page rcp-page">
     <div class="container">
       <header class="board-intro">
         <div>
@@ -76,10 +70,8 @@ import '../../styles/receipts.css';
         <section class="make-sheet fnd-sheet" id="rcp-view-wording" hidden></section>
       </div>
     </div>
-  </main>
+  </div>
 
   <div class="fnd-toast" id="rcp-toast" role="status" aria-live="polite"></div>
-
-  <Footer />
   <script is:inline src="/js/receipts.js?v=8"></script>
-</Base>
+</App>
