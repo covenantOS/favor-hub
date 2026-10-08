@@ -468,7 +468,7 @@
     const sug = (bb && bb.suggestions) || [];
     box.className = 'fnd-bb';
     box.innerHTML = `<span class="fnd-bb__kicker">Not in Blackbaud</span>
-      Each contact posts to Blackbaud as an RDD Action on the ${esc(catchAll.name)} record (#${esc(catchAll.lookup)}), so the fundraiser's activity still counts.
+      Each contact posts to Blackbaud as an action on the ${esc(catchAll.name)} record (#${esc(catchAll.lookup)}), so the fundraiser's activity still counts.
       ${
         sug.length
           ? `<small>Blackbaud has ${sug.length === 1 ? 'a record' : 'records'} with a similar name. Tie one only when it is the same foundation.</small>
@@ -499,17 +499,20 @@
     const m = state.meta;
     const target = f.bb_lookup_id ? `${f.bb_name || f.name} (#${f.bb_lookup_id})` : `${m.catch_all.name} (#${m.catch_all.lookup})`;
     const lastRdd = localStorage.getItem('fnd_last_rdd') || '';
+    const whose = [...new Set(m.people.map((p) => p.team))]
+      .map((t) => `<optgroup label="${esc(t)}">${m.people.filter((p) => p.team === t).map((p) => `<option${p.name === lastRdd ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}</optgroup>`)
+      .join('');
     return `<form class="fnd-form" id="fnd-log">
       <h3>Log a contact</h3>
       <div class="exp-grid2">
-        <label class="req-field"><span>Whose contact</span><select name="rdd" required><option value="">Choose</option>${m.rdds.map((r) => `<option${r === lastRdd ? ' selected' : ''}>${esc(r)}</option>`).join('')}</select></label>
+        <label class="req-field"><span>Whose contact</span><select name="rdd" required><option value="">Choose</option>${whose}</select></label>
         <label class="req-field"><span>Date</span><input type="date" name="date" value="${today()}" max="${today()}" required /></label>
       </div>
       <fieldset class="make-pills"><legend>How</legend>${m.hows.map((h, i) => `<label><input type="radio" name="how" value="${esc(h)}"${i === 0 ? ' checked' : ''} />${esc(h)}</label>`).join('')}</fieldset>
       <label class="req-field"><span>Outcome</span><select name="outcome"><option value="">Choose</option>${m.outcomes.map((o) => `<option>${esc(o)}</option>`).join('')}</select></label>
       <label class="req-field"><span>What happened</span><textarea name="note" maxlength="4000" placeholder="Who you reached and what they said" required></textarea></label>
       <fieldset class="make-pills"><legend>Mark what applies</legend>${m.tags.map((t) => `<label><input type="checkbox" name="tags" value="${esc(t)}" />${esc(t)}</label>`).join('')}</fieldset>
-      <p class="fnd-posts">${m.settings.posting === 'on' ? `Saves here and posts to Blackbaud as an RDD Action on <b>${esc(target)}</b>.` : 'Saves here. Posting to Blackbaud is switched off, so it waits.'}</p>
+      <p class="fnd-posts">${m.settings.posting === 'on' ? `Saves here and posts to Blackbaud as an action on <b>${esc(target)}</b>.` : 'Saves here. Posting to Blackbaud is switched off, so it waits.'}</p>
       <div class="fnd-form__foot"><button type="submit" class="req-submit">Save and post</button><button type="button" class="req-ghost" data-act="cancel">Cancel</button><p class="req-msg" aria-live="polite"></p></div>
     </form>`;
   }
@@ -781,11 +784,11 @@
         <p class="fnd-note">${
           state.cleanup.offline
             ? 'Blackbaud could not be reached for this list. Try again in a minute.'
-            : `${plural(T.length, 'foundation record')} created in Blackbaud since March hold${T.length === 1 ? 's' : ''} nothing but RDD contacts: no gift, no grant request, no opportunity. ${T.filter((t) => t.contacts <= 2).length} of them have one or two contacts.`
+            : `${plural(T.length, 'foundation record')} created in Blackbaud since March hold${T.length === 1 ? 's' : ''} nothing but contacts from RDDs and grant writers: no gift, no grant request, no opportunity. ${T.filter((t) => t.contacts <= 2).length} of them have one or two contacts.`
         }</p>
         ${
           T.length
-            ? `<table class="exp-admin-table fnd-clean"><thead><tr><th>Record</th><th>Made</th><th class="r">RDD contacts</th><th>Last contact</th></tr></thead><tbody>${T.map(
+            ? `<table class="exp-admin-table fnd-clean"><thead><tr><th>Record</th><th>Made</th><th class="r">Contacts</th><th>Last contact</th></tr></thead><tbody>${T.map(
                 (t) => `<tr><td><span class="fnd-name">${esc(t.name)}</span><span class="fnd-sub">#${esc(t.lookup_id)}</span></td><td class="mono">${day(t.made)}</td><td class="r mono">${t.contacts}</td><td class="mono">${day(t.last)}</td></tr>`
               ).join('')}</tbody></table>`
             : ''

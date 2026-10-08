@@ -1,5 +1,5 @@
 import { actorOf, requireFoundationsUser } from '../../_lib/foundations/auth';
-import { CATCH_ALL, HOWS, OUTCOMES, RDDS, TAGS, retryWaiting } from '../../_lib/foundations/blackbaud';
+import { CATCH_ALL, HOWS, OUTCOMES, PEOPLE, TAGS, retryWaiting } from '../../_lib/foundations/blackbaud';
 import { getSetting, listFoundations, logEvent, nameKey } from '../../_lib/foundations/db';
 import { HttpError, asTrimmed, handleError, json, newId, nowIso, type Env } from '../../_lib/http';
 
@@ -12,7 +12,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       ok: true,
       foundations: await listFoundations(env),
       settings: { posting: await getSetting(env, 'posting', 'on'), moves: await getSetting(env, 'moves', 'off') },
-      rdds: RDDS.map((r) => r.name),
+      people: PEOPLE.map((p) => ({ name: p.name, team: p.team })),
       hows: Object.keys(HOWS),
       tags: Object.keys(TAGS),
       outcomes: OUTCOMES,

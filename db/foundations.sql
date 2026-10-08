@@ -1,7 +1,8 @@
 -- Foundation prospects. Replaces logging cold foundation outreach on the
 -- "Unsolicited Foundations" record in Blackbaud. A prospect lives here until
 -- it earns a Blackbaud record; every contact still posts to Blackbaud as an
--- RDD Action so the fundraiser's activity is counted there.
+-- action (RDD Action for an RDD, Grants Action for a grant writer) so the
+-- fundraiser's activity is counted there.
 
 CREATE TABLE IF NOT EXISTS fnd_foundations (
   id TEXT PRIMARY KEY,
@@ -35,7 +36,7 @@ CREATE TABLE IF NOT EXISTS fnd_contacts (
   contact_date TEXT NOT NULL,                   -- YYYY-MM-DD
   how TEXT NOT NULL,                            -- Call | Voicemail | Text | Email | Meeting | Mailing | Other
   category TEXT NOT NULL,                       -- Blackbaud action category
-  rdd_name TEXT NOT NULL DEFAULT '',
+  rdd_name TEXT NOT NULL DEFAULT '',            -- whose contact it is, an RDD or a grant writer
   rdd_id TEXT NOT NULL DEFAULT '',              -- Blackbaud system id of the fundraiser
   summary TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',

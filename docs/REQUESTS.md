@@ -30,7 +30,8 @@ This board is not Asana and not for marketing projects. Marketing Request still 
 `/foundations/` replaces logging cold foundation outreach on the "Unsolicited Foundations" record in Blackbaud. Staff unlock it with the shared code (4000, or `FOUNDATIONS_CODE` when set) and put their name in "Entered by", which travels with every change.
 
 - One search covers the prospect list (D1 `fnd_foundations`) and every organization in Blackbaud. Blackbaud reads come from the RE NXT mirror through the sync worker's read-only `/d1/query` (`MIRROR_API_KEY`).
-- Logging a contact saves it in `fnd_contacts` and posts it to Blackbaud in the same request as an RDD Action, through favorintl.org's `/api/blackbaud/ops` route (`BLACKBAUD_SETUP_KEY`). It goes on the foundation's own record when the prospect is tied to one, and on Unsolicited Foundations (constituent ID 21046) when it is not.
+- Logging a contact saves it in `fnd_contacts` and posts it to Blackbaud in the same request, through favorintl.org's `/api/blackbaud/ops` route (`BLACKBAUD_SETUP_KEY`). It goes on the foundation's own record when the prospect is tied to one, and on Unsolicited Foundations (constituent ID 21046) when it is not.
+- "Whose contact" lists the RDDs and the grant writers (`PEOPLE` in `functions/_lib/foundations/blackbaud.ts`). An RDD's contact posts as an RDD Action and a grant writer's as a Grants Action. The `rdd_name` and `rdd_id` columns hold either.
 - A contact that cannot post (Blackbaud at its daily limit, the route down) stays "waiting" and is retried each time the list opens. Tags wait until the ops route gains a rule for action custom fields.
 - A contact logged here can be removed here, which deletes its action in Blackbaud. Contacts brought in from Blackbaud are never deleted from this page.
 - Dead ends stay on the list with a reason and send nothing to Blackbaud.

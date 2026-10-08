@@ -11,12 +11,23 @@ import { getContact, getFoundation, getSetting, logEvent, setSetting, words, typ
 /** The record Blackbaud counts a contact on when the foundation has none of its own. */
 export const CATCH_ALL = { lookup: '21046', system: '34684', name: 'Unsolicited Foundations' };
 
-export const RDDS: { name: string; id: string }[] = [
-  { name: 'Stephanie Brady', id: '10496' },
-  { name: 'Brian Carr', id: '31646' },
-  { name: 'Rick Brown', id: '31681' },
-  { name: 'Celeste Paul', id: '28123' },
+/**
+ * Whose contact it can be, with each person's Blackbaud fundraiser id and the
+ * action type their contacts post as. The grant writers post Grants Action,
+ * the type for their own conversations with funders.
+ */
+export const PEOPLE: { name: string; id: string; team: string; type: string }[] = [
+  { name: 'Stephanie Brady', id: '10496', team: 'RDDs', type: 'RDD Action' },
+  { name: 'Brian Carr', id: '31646', team: 'RDDs', type: 'RDD Action' },
+  { name: 'Rick Brown', id: '31681', team: 'RDDs', type: 'RDD Action' },
+  { name: 'Celeste Paul', id: '28123', team: 'RDDs', type: 'RDD Action' },
+  { name: 'Joe Krol', id: '30812', team: 'Grant writers', type: 'Grants Action' },
+  { name: 'Crystal Hall', id: '32295', team: 'Grant writers', type: 'Grants Action' },
+  { name: 'Gregory Phipps', id: '33656', team: 'Grant writers', type: 'Grants Action' },
 ];
+
+/** The action types that count as a contact, written for SQL. The RESERVED (Grant ...) types are grant actions and are counted on their own. */
+const CONTACT_TYPES = "'RDD Action', 'Grants Action'";
 
 export const HOWS: Record<string, { category: string; outbound: boolean; tag?: string }> = {
   Call: { category: 'Phone call', outbound: true },
@@ -288,14 +299,14 @@ export async function orgByLookup(env: Env, lookupId: string): Promise<BbOrg | n
   return shaped[0] || null;
 }
 
-/** Foundation records that hold nothing but RDD contacts: made at a first call, never took a gift or a grant request. */
+/** Foundation records that hold nothing but contacts from RDDs and grant writers: made at a first call, never took a gift or a grant request. */
 export async function thinRecords(env: Env): Promise<{ lookup_id: string; name: string; made: string; contacts: number; last: string }[]> {
   const rows = await mirror(
     env,
     `SELECT k.constituent_lookup_id AS l, k.organization_name AS n, k.date_added AS da,
-       (SELECT COUNT(*) FROM actions a WHERE a.constituent_record_id = k.id AND a.action_type = 'RDD Action') AS rdd,
-       (SELECT COUNT(*) FROM actions a WHERE a.constituent_record_id = k.id AND a.action_type NOT IN ('RDD Action', 'RESERVED (Review New Constituent Record)')) AS other,
-       (SELECT MAX(a.action_date_due) FROM actions a WHERE a.constituent_record_id = k.id AND a.action_type = 'RDD Action') AS last,
+       (SELECT COUNT(*) FROM actions a WHERE a.constituent_record_id = k.id AND a.action_type IN (${CONTACT_TYPES})) AS contacts,
+       (SELECT COUNT(*) FROM actions a WHERE a.constituent_record_id = k.id AND a.action_type NOT IN (${CONTACT_TYPES}, 'RESERVED (Review New Constituent Record)')) AS other,
+       (SELECT MAX(a.action_date_due) FROM actions a WHERE a.constituent_record_id = k.id AND a.action_type IN (${CONTACT_TYPES})) AS last,
        (SELECT COUNT(*) FROM gifts g WHERE g.constituent_record_id = k.id AND g.gift_amount > 0) AS g,
        (SELECT COUNT(*) FROM opportunities o WHERE o.constituent_record_id = k.id) AS op
      FROM constituents k
@@ -304,24 +315,33 @@ export async function thinRecords(env: Env): Promise<{ lookup_id: string; name: 
      ORDER BY k.date_added`
   );
   return rows
-    .filter((r: any) => Number(r.rdd) > 0 && !Number(r.other) && !Number(r.g) && !Number(r.op))
+    .filter((r: any) => Number(r.contacts) > 0 && !Number(r.other) && !Number(r.g) && !Number(r.op))
     .map((r: any) => ({
       lookup_id: String(r.l),
       name: String(r.n || '').trim(),
       made: String(r.da || '').slice(0, 10),
-      contacts: Number(r.rdd),
+      contacts: Number(r.contacts),
       last: String(r.last || '').slice(0, 10),
     }));
 }
 
 /* ------------------------------------------------------------------ writes */
 
+/**
+ * The action type a contact posts as, from the person whose id is on it. The
+ * contact keeps that id in rdd_id, a grant writer's included. An id not on
+ * the list, as on an older or imported contact, posts as RDD Action.
+ */
+function actionType(fundraiserId: string): string {
+  return PEOPLE.find((p) => p.id === fundraiserId)?.type || 'RDD Action';
+}
+
 export function actionBody(constituentSystemId: string, c: Pick<Contact, 'contact_date' | 'how' | 'category' | 'rdd_id' | 'summary' | 'note'>): Record<string, unknown> {
   const date = `${c.contact_date}T00:00:00`;
   const body: Record<string, unknown> = {
     constituent_id: constituentSystemId,
     category: c.category,
-    type: 'RDD Action',
+    type: actionType(c.rdd_id),
     date,
     summary: c.summary.slice(0, 255),
     description: c.note,
@@ -415,7 +435,7 @@ export async function postTags(env: Env, contactId: string, actor: string): Prom
   await setContact(env, c.id, { bb_tags_state: 'posted' });
 }
 
-/** Send one contact to Blackbaud as an RDD Action. Safe to call again: a posted contact is never posted twice. */
+/** Send one contact to Blackbaud as an action of its person's type. Safe to call again: a posted contact is never posted twice. */
 export async function postContact(env: Env, contactId: string, actor: string): Promise<Contact | null> {
   const c = await getContact(env, contactId);
   if (!c) return null;
