@@ -20,5 +20,5 @@ bucket_name = "favor-requests"
 # Google sign-in for the whole hub (functions/_middleware.ts). "off" leaves pages open and the old
 # per-app codes working; "on" sends everyone through /login with their @favorintl.org account.
 [vars]
-HUB_SIGNIN = "off"
+HUB_SIGNIN = "on"
 GOOGLE_CLIENT_ID = "538890082341-5ka1icfropum9nl9csq8adaiusbuesea.apps.googleusercontent.com"
