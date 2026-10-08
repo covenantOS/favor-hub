@@ -36,6 +36,7 @@
     declined: "Declined",
     decline_notified: "Requester emailed",
     distributed: "Approval emailed out",
+    approver_reassigned: "Approver changed",
   };
 
   function detailHtml(r) {
@@ -135,7 +136,8 @@
         '<td><span class="exp-pill ' + esc(r.status) + '">' + esc(r.status) + "</span>" +
         (r.decline_note ? '<br/><span style="opacity:.6">' + esc(r.decline_note) + "</span>" : "") + "</td>" +
         '<td class="r">' + money(r.total_cents) + "</td>" +
-        "<td>" + (r.pdf ? '<a href="' + esc(r.pdf) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>' : "") + "</td>";
+        "<td>" + (r.pdf ? '<a href="' + esc(r.pdf) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>' : "") +
+        (r.can_review ? '<a class="exp-review-link" href="/expenses/review/?id=' + encodeURIComponent(r.id) + '" onclick="event.stopPropagation()">Review and sign</a>' : "") + "</td>";
       var detailRow = document.createElement("tr");
       detailRow.className = "exp-admin-detail";
       detailRow.hidden = true;

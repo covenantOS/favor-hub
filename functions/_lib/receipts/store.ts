@@ -154,6 +154,24 @@ export async function dropPrintLock(env: Env): Promise<void> {
   await env.DB.prepare('DELETE FROM rcp_settings WHERE key = ?').bind(PRINT_LOCK).run();
 }
 
+/**
+ * Held while one window marks a file, so a second window (or the page picking up a stopped run)
+ * waits instead of sending the same gifts to Blackbaud twice. Older than two minutes counts as dropped.
+ */
+export async function takeMarkLock(env: Env, batchId: string, actor: string): Promise<boolean> {
+  const key = `lock:mark:${batchId}`;
+  const stale = new Date(Date.now() - 2 * 60_000).toISOString();
+  await env.DB.prepare('DELETE FROM rcp_settings WHERE key = ? AND updated_at < ?').bind(key, stale).run();
+  const out = await env.DB.prepare('INSERT INTO rcp_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(key) DO NOTHING')
+    .bind(key, '', actor, nowIso())
+    .run();
+  return (out.meta?.changes ?? 0) > 0;
+}
+
+export async function dropMarkLock(env: Env, batchId: string): Promise<void> {
+  await env.DB.prepare('DELETE FROM rcp_settings WHERE key = ?').bind(`lock:mark:${batchId}`).run();
+}
+
 /** The print file not yet marked thanked, if there is one. Only one may be open. */
 export async function openPrintFile(env: Env): Promise<{ id: string; letter_date: string } | null> {
   return env.DB.prepare("SELECT id, letter_date FROM rcp_batches WHERE kind = 'new' AND status IN ('printing', 'marking') ORDER BY created_at LIMIT 1").first<{

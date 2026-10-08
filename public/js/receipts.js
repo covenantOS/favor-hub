@@ -37,10 +37,20 @@
     tab: 'letters',
     days: Number(localStorage.getItem('rcp_days')) || 90,
     busy: false,
+    marking: false,
+    resumed: false,
     wording: null,
     page: 1,
     heldOpen: new Set(),
   };
+
+  // Marking runs from this page. Leaving mid-run used to stop it partway (Morgan's file on
+  // 2026-10-08 stopped at 80 of 188), so the browser asks first.
+  window.addEventListener('beforeunload', (e) => {
+    if (!state.marking) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 
   const esc = (s) =>
     String(s == null ? '' : s)
@@ -96,7 +106,12 @@
       showLocked();
       throw new Error('Enter the code again.');
     }
-    if (!res.ok || data.ok === false) throw new Error(data.message || 'Something went wrong. Try again.');
+    if (!res.ok || data.ok === false) {
+      const err = new Error(data.message || 'Something went wrong. Try again.');
+      err.status = res.status;
+      err.code = data.error;
+      throw err;
+    }
     return data;
   }
 
@@ -230,6 +245,17 @@
     state.left = new Set([...state.left].filter((id) => view.letters.some((l) => l.id === id)));
     state.added = new Set([...state.added].filter((id) => view.held.some((h) => h.id === id && h.canAdd)));
     render();
+    // A run that stopped partway (a closed tab, a lost connection) was already confirmed by the
+    // person who pressed Mark, so the page finishes it. Once per page load.
+    const open = openBatch();
+    if (open && open.status === 'marking' && !state.busy && !state.resumed) {
+      const left = (open.gifts || open.count) - (open.marked || 0) - (open.markFailed || 0);
+      if (left > 0) {
+        state.resumed = true;
+        toast(`Finishing the marking that stopped at ${open.marked} of ${plural(open.gifts || open.count, 'gift')}.`);
+        markBatch(open.id, { resume: true });
+      }
+    }
   }
 
   function renderLoading() {
@@ -693,25 +719,42 @@
     }
   }
 
-  async function markBatch(id) {
+  /** One marking call, tried again after a pause when Blackbaud or the connection drops it. */
+  async function markOnce(id, retry) {
+    const waits = [2000, 5000, 10000];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await api(`/api/receipts/batches/${encodeURIComponent(id)}/mark`, { method: 'POST', body: JSON.stringify({ retry }) });
+      } catch (err) {
+        const passing = !err.status || err.status >= 500;
+        if (!passing || attempt >= waits.length) throw err;
+        await new Promise((r) => setTimeout(r, waits[attempt]));
+      }
+    }
+  }
+
+  async function markBatch(id, opts = {}) {
     if (state.busy) return;
     const file = state.batches.find((x) => x.id === id);
-    let ask = '';
-    if (file && !file.marked) {
-      const gifts = plural(file.gifts || file.count, 'gift');
-      ask = file.downloadedAt
-        ? `Were all ${plural(file.count, 'letter')} printed? This marks ${gifts} as thanked in Blackbaud.`
-        : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the letters were printed some other way.`;
+    if (!opts.resume) {
+      let ask = '';
+      if (file && !file.marked) {
+        const gifts = plural(file.gifts || file.count, 'gift');
+        ask = file.downloadedAt
+          ? `Were all ${plural(file.count, 'letter')} printed? This marks ${gifts} as thanked in Blackbaud.`
+          : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the letters were printed some other way.`;
+      }
+      const yes = file && file.marked ? 'Finish marking' : 'Yes, mark them thanked';
+      if (!(await askFirst($('rcp-mark'), ask, yes, 'Cancel', false))) return;
     }
-    const yes = file && file.marked ? 'Finish marking' : 'Yes, mark them thanked';
-    if (!(await askFirst($('rcp-mark'), ask, yes, 'Cancel', false))) return;
     state.busy = true;
+    state.marking = true;
     const btn = $('rcp-mark');
     if (btn) btn.disabled = true;
     let retry = false;
     try {
       for (let guard = 0; guard < 200; guard++) {
-        const out = await api(`/api/receipts/batches/${encodeURIComponent(id)}/mark`, { method: 'POST', body: JSON.stringify({ retry }) });
+        const out = await markOnce(id, retry);
         retry = false;
         const i = state.batches.findIndex((b) => b.id === id);
         if (i >= 0) state.batches[i] = out.batch;
@@ -736,6 +779,7 @@
       toast(err.message);
     }
     state.busy = false;
+    state.marking = false;
     await load();
   }
 

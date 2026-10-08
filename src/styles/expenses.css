@@ -129,6 +129,8 @@
 .exp-pill.pending { background: var(--paper-warm); border: 1px solid var(--rule); }
 .exp-pill.approved { background: #eef7ee; border: 1px solid #cfe8cf; color: var(--green-deep); }
 .exp-pill.declined { background: #faeee8; border: 1px solid #ecd2c4; color: var(--terracotta); }
+.exp-review-link { display: inline-block; white-space: nowrap; padding: 5px 10px; border-radius: 8px; background: var(--green); color: #fff !important; font-size: 12px; font-weight: 600; text-decoration: none !important; }
+.exp-review-link:hover { background: var(--green-deep); }
 .exp-settings-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
 .exp-settings-row .req-field { margin-bottom: 0; }
 .exp-settings-row--one { grid-template-columns: 1fr auto; }

@@ -1,16 +1,20 @@
+import { approverEmails } from '../../_lib/expenses/auth';
 import {
   addExpenseEvent,
   expenseShape,
+  getExpense,
   getExpenseByTokenHash,
   getSettings,
   isSignatureDataUrl,
   itemsFor,
   markDecided,
   sha256Hex,
+  type ExpenseRow,
 } from '../../_lib/expenses/db';
 import { emailApproved, emailDeclined } from '../../_lib/expenses/email';
 import { buildExpensePdf } from '../../_lib/expenses/pdf';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, type Env } from '../../_lib/http';
+import { hubUserOf } from '../../_lib/session';
 
 async function lookup(env: Env, token: string) {
   if (!/^[0-9a-f]{48}$/.test(token)) throw new HttpError(404, 'bad_token', 'This link is not valid.');
@@ -19,12 +23,30 @@ async function lookup(env: Env, token: string) {
   return row;
 }
 
+/**
+ * The request, found either by the private link emailed to the approver (token) or, for an approver
+ * signed in with Google, by its id from the expense log. signer is set on the second path, so the
+ * decision names the person who signed.
+ */
+async function find(env: Env, request: Request, token: string, id: string): Promise<{ row: ExpenseRow; signer: string }> {
+  if (token) return { row: await lookup(env, token), signer: '' };
+  if (!/^exp_[0-9a-f]{24}$/.test(id)) throw new HttpError(404, 'not_found', 'That request is not in the log.');
+  const user = hubUserOf(request);
+  if (!user || user.via !== 'google') throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
+  const row = await getExpense(env, id);
+  if (!row) throw new HttpError(404, 'not_found', 'That request is not in the log.');
+  if (!(await approverEmails(env, row.approver_email)).has(user.email.toLowerCase())) {
+    throw new HttpError(403, 'not_approver', 'Only the approvers can sign expense requests. Ask Michael Hinton or Rachel Cox.');
+  }
+  return { row, signer: user.name };
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    const token = new URL(request.url).searchParams.get('token') || '';
-    const row = await lookup(env, token);
+    const params = new URL(request.url).searchParams;
+    const { row, signer } = await find(env, request, params.get('token') || '', params.get('id') || '');
     const items = await itemsFor(env, row.id);
-    return json({ ok: true, request: expenseShape(row, items, { signatures: true }) });
+    return json({ ok: true, request: expenseShape(row, items, { signatures: true }), signer });
   } catch (err) {
     return handleError(err);
   }
@@ -33,13 +55,20 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const data = (await request.json()) as Record<string, unknown>;
-    const token = asTrimmed(data.token, 'token', 64);
+    const token = asTrimmed(data.token, 'token', 64, false);
+    const id = asTrimmed(data.id, 'id', 40, false);
     const action = asTrimmed(data.action, 'action', 20);
-    const row = await lookup(env, token);
+    if (action !== 'approve' && action !== 'decline') throw new HttpError(400, 'bad_action', 'Action must be approve or decline.');
+    const { row, signer } = await find(env, request, token, id);
     if (row.status !== 'pending') {
       return errorJson('already_decided', `This request was already ${row.status}.`, 409);
     }
     const ip = clientIp(request);
+    // Signed from the log: the record and the emails name the person who signed. Everyone named
+    // on the request as an approver is still copied.
+    if (signer) {
+      await env.DB.prepare('UPDATE expense_requests SET approver_name = ? WHERE id = ? AND status = ?').bind(signer, row.id, 'pending').run();
+    }
 
     if (action === 'approve') {
       if (!isSignatureDataUrl(data.signature)) throw new HttpError(400, 'missing_signature', 'Sign before approving.');
@@ -50,7 +79,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         approver_ip: ip,
         pdf_r2_key: pdfKey,
       });
-      await addExpenseEvent(env, row.id, 'approved', decided.approver_name, { ip });
+      await addExpenseEvent(env, row.id, 'approved', decided.approver_name, { ip, from: signer ? 'log' : 'email link' });
       const items = await itemsFor(env, row.id);
       const settings = await getSettings(env);
       let result: { sent: boolean; to: string[]; subject: string; html: string } = { sent: false, to: [], subject: '', html: '' };
@@ -68,7 +97,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'decline') {
       const note = asTrimmed(data.note, 'note', 2000, false);
       const decided = await markDecided(env, row.id, { status: 'declined', decline_note: note, approver_ip: ip });
-      await addExpenseEvent(env, row.id, 'declined', decided.approver_name, { note, ip });
+      await addExpenseEvent(env, row.id, 'declined', decided.approver_name, { note, ip, from: signer ? 'log' : 'email link' });
       const items = await itemsFor(env, row.id);
       let result: { sent: boolean; to: string[]; subject: string; html: string } = { sent: false, to: [], subject: '', html: '' };
       try {

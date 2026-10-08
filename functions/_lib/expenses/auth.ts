@@ -50,6 +50,22 @@ export async function expenseLogEmails(env: Env): Promise<Set<string>> {
   return new Set(all.map((e) => e.trim().toLowerCase()).filter(Boolean));
 }
 
+/**
+ * Who may sign a request from the log: the approvers named on the request, the approvers in the
+ * settings now, and a substitute whose dates cover today. Viewers and Will do not sign.
+ */
+export async function approverEmails(env: Env, rowApprovers = ''): Promise<Set<string>> {
+  const settings = await getSettings(env);
+  const today = todayEt();
+  const { results } = await env.DB.prepare(
+    'SELECT email FROM expense_approver_overrides WHERE start_date <= ? AND end_date >= ?'
+  )
+    .bind(today, today)
+    .all<{ email: string }>();
+  const all = [...splitEmails(rowApprovers), ...splitEmails(settings.approver_email), ...results.map((r) => r.email)];
+  return new Set(all.map((e) => e.trim().toLowerCase()).filter(Boolean));
+}
+
 export async function isExpenseAdmin(env: Env, request: Request): Promise<boolean> {
   const user = hubUserOf(request);
   if (user) {

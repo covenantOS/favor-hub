@@ -1,5 +1,6 @@
 import { hitRateLimit } from '../../_lib/auth';
-import { requireExpenseAdmin } from '../../_lib/expenses/auth';
+import { approverEmails, requireExpenseAdmin } from '../../_lib/expenses/auth';
+import { hubUserOf } from '../../_lib/session';
 import {
   addExpenseEvent,
   expenseShape,
@@ -12,6 +13,7 @@ import {
   newToken,
   resolveApprover,
   sha256Hex,
+  splitEmails,
 } from '../../_lib/expenses/db';
 import { emailApprover } from '../../_lib/expenses/email';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, type Env } from '../../_lib/http';
@@ -95,10 +97,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     await requireExpenseAdmin(env, request);
     const rows = await listExpenses(env);
     const settings = await getSettings(env);
+    // An approver signed in with Google signs waiting requests from the log.
+    const user = hubUserOf(request);
+    const me = user && user.via === 'google' ? user.email.toLowerCase() : '';
+    const approvers = me ? await approverEmails(env) : new Set<string>();
     const shaped = [];
     for (const row of rows) {
       const shape = expenseShape(row, await itemsFor(env, row.id), { admin: true, signatures: true });
-      shaped.push({ ...shape, events: await listEventsFor(env, row.id) });
+      const mine = Boolean(me) && (approvers.has(me) || splitEmails(row.approver_email).some((e) => e.toLowerCase() === me));
+      shaped.push({ ...shape, can_review: row.status === 'pending' && mine, events: await listEventsFor(env, row.id) });
     }
     return json({ ok: true, requests: shaped, settings });
   } catch (err) {
