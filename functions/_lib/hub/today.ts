@@ -191,7 +191,7 @@ export async function mineFor(env: Env, user: HubUser): Promise<Mine[]> {
       .bind(email, since)
       .all<{ doc_number: string; status: string; total_cents: number; submitted_at: string; decided_at: string | null }>(),
   ]);
-  const status = { inbox: 'Waiting for Will', approved: 'Approved', in_progress: 'Being built', done: 'Done', declined: 'Declined' } as Record<string, string>;
+  const status = { inbox: 'Waiting for review', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' } as Record<string, string>;
   const money = (c: number) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return [
     ...reqs.results.map((r) => ({ kind: 'request' as const, title: r.title, status: status[r.status] || r.status, at: r.completed_at || r.created_at, href: '/requests/' })),
