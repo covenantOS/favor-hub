@@ -23,7 +23,7 @@ When nothing is waiting, the card says so.
 
 ## Your day
 
-- **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. Press one to open the partner in Raiser's Edge. If your hub account is not linked to a fundraiser record in Blackbaud, the card says so.
+- **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. Completed actions never show. The overdue number and the "more in Blackbaud" line count every open action, not only the ones listed. Press one to open the partner in Raiser's Edge. If your hub account is not linked to a fundraiser record in Blackbaud, the card says so.
 - **Meetings, files and mail**: today's calendar, Drive files changed recently that you own or that were shared with you, and unread mail from the last three days (sender and subject only), from your Google account.
 
 ## Where the year stands

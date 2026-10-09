@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 9, 2026
 
+- **Your day shows only open actions.** Review tasks that were already completed in Blackbaud no longer show as waiting, and the overdue count is the real number.
 - **A guided tour.** Help and what's new now starts a tour set up for your work. A green dot on it means something new is waiting to be shown.
 - **Help docs.** Real articles on every tool with a search box that reads every word, including what is said in the videos.
 - **Training videos.** Videos on the hub, Favor Brain and Blackbaud, with captions, in one library.
