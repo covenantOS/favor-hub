@@ -1,0 +1,66 @@
+---
+// One help article: the topic list on the left, the article with its videos, and "Was this helpful?"
+import { getCollection, render } from 'astro:content';
+import App from '../../layouts/App.astro';
+import HelpSide from '../../components/HelpSide.astro';
+import { TOPICS, mins } from '../../data/help-topics';
+import videos from '../../data/videos.json';
+
+export async function getStaticPaths() {
+  const docs = await getCollection('help');
+  return docs.map((doc) => ({ params: { slug: doc.id }, props: { doc } }));
+}
+
+const { doc } = Astro.props;
+const { Content, headings } = await render(doc);
+const all = await getCollection('help');
+const topic = TOPICS.find((t) => t.id === doc.data.topic);
+const vids = doc.data.videos.map((s) => videos.find((v) => v.slug === s)).filter(Boolean) as typeof videos;
+const related = doc.data.related.map((r) => all.find((d) => d.id === r)).filter(Boolean) as typeof all;
+const toc = headings.filter((h) => h.depth === 2);
+---
+<App title={doc.data.title} crumb="Help docs" nav="docs" description={doc.data.summary}>
+  <div class="hd-wrap" data-for={doc.data.for.join(' ')}>
+    <HelpSide current={doc.id} />
+    <article class="hd-article">
+      <div class="hd-kicker"><a href="/help/">Help</a><span aria-hidden="true">/</span>{topic?.label}</div>
+      <h1>{doc.data.title}</h1>
+      <p class="hd-lede">{doc.data.summary}</p>
+      {doc.data.tool && (
+        <a class="h-btn h-btn--ghost h-btn--sm hd-tool" href={doc.data.tool}>{doc.data.toolLabel || 'Open it'}
+          <svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+      )}
+      {vids.map((v) => (
+        <figure class="hd-video">
+          <video controls preload="none" playsinline poster={`/api/videos/${v.slug}.jpg`} data-video={v.slug}>
+            <source src={`/api/videos/${v.slug}.mp4`} type="video/mp4" />
+            <track kind="captions" src={`/api/videos/${v.slug}.vtt`} srclang="en" label="English" default />
+          </video>
+          <figcaption><b>{v.title}</b><span>{mins(v.seconds)}</span><a href={`/help/videos/${v.slug}/`}>Captions and transcript</a></figcaption>
+        </figure>
+      ))}
+      <div class="hd-body">
+        <Content />
+      </div>
+      {related.length > 0 && (
+        <aside class="hd-related">
+          <b>Related</b>
+          <div>{related.map((r) => <a href={`/help/${r.id}/`}>{r.data.title}<span>{r.data.summary}</span></a>)}</div>
+        </aside>
+      )}
+      <div class="hd-rate" data-rate={doc.id}>
+        <span>Was this helpful?</span>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-rate-v="helpful">Yes</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-rate-v="not-helpful">Not really</button>
+      </div>
+      <p class="hd-updated">Updated {new Date(doc.data.updated + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</p>
+    </article>
+    {toc.length > 1 && (
+      <nav class="hd-toc" aria-label="On this page">
+        <b>On this page</b>
+        {toc.map((h) => <a href={`#${h.slug}`}>{h.text}</a>)}
+      </nav>
+    )}
+  </div>
+  <script is:inline src="/js/help.js?v=1" defer></script>
+</App>

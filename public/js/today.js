@@ -13,6 +13,8 @@
     requests: '<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>',
     expenses: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
     receipts: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    feedback: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
+    brain: '<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/>',
     arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
   };
   const icon = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n] || ''}</svg>`;
@@ -32,7 +34,7 @@
       .map(
         (c) => `<div class="h-card h-todo${c.warn ? ' h-todo--warn' : ''}">
           <div class="h-todo__app"><span class="h-todo__icon">${icon(c.id)}</span>${esc(c.label)}</div>
-          <div class="h-todo__n">${Number(c.n).toLocaleString('en-US')}${c.amount != null ? ` <small>${money2(c.amount)}</small>` : ''}</div>
+          <div class="h-todo__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? ` <small data-countup>${money2(c.amount)}</small>` : ''}</div>
           <div class="h-todo__what">${esc(c.what)}</div>
           ${c.note ? `<div class="h-todo__note${c.warn ? ' h-todo__note--warn' : ''}">${esc(c.note)}</div>` : ''}
           <a class="h-btn ${c.warn ? 'h-btn--warn' : 'h-btn--ghost'} h-btn--sm" href="${esc(c.href)}">${esc(c.cta)} ${icon('arrow')}</a>
@@ -84,7 +86,7 @@
     }
   };
   $('t-welcome-x').addEventListener('click', hideWelcome);
-  $('t-welcome').querySelector('a').addEventListener('click', hideWelcome);
+  $('t-welcome').querySelector('[data-tour-start]').addEventListener('click', hideWelcome);
 
   function year(s) {
     const pct = s.goal ? (s.raised / s.goal) * 100 : 0;
@@ -103,7 +105,7 @@
     $('t-year').innerHTML = `
       <div>
         <div class="h-label">Raised so far this year</div>
-        <div class="h-big" style="margin-top:6px">${money0(s.raised)}</div>
+        <div class="h-big" style="margin-top:6px" data-countup>${money0(s.raised)}</div>
         <div class="h-bar h-bar--leaf"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
         <div class="h-sub">${pct.toFixed(1)}% of the ${money0(s.goal)} goal</div>
         <div style="margin-top:10px">${delta}</div>

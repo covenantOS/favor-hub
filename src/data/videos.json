@@ -1,0 +1,154 @@
+[
+ {
+  "slug": "meet-the-hub",
+  "title": "Meet the new Favor hub",
+  "added": "2026-10-08",
+  "topic": "hub",
+  "roles": [
+   "all"
+  ],
+  "summary": "A one-minute look at the hub: one sign-in, Today, the menu, Make a request, the KPI dashboard and search.",
+  "seconds": 58,
+  "transcript": "The Favor hub has a new look, and it's ready for you today. You sign in once, with your Favor Google account. No more separate passwords for each page. You land on Today. It shows what's waiting on you, how the year is going, and what's been happening. Every tool is in one menu on the left. Need something from someone? Click Make a request. Say it in a sentence, and the hub sends it to the right place. The KPI dashboard lives inside the hub now. Everyone sees the year's top numbers, and each team sees its own. Press Control and K to find any tool in a second. And Help shows you around whenever you need it. Open dash.favorintl.org and take a look."
+ },
+ {
+  "slug": "hub-walk-through",
+  "title": "The new Favor hub, a walk-through",
+  "added": "2026-10-08",
+  "topic": "hub",
+  "roles": [
+   "all"
+  ],
+  "summary": "Every tool in the hub, step by step: Today, requests, expenses, receipts, foundation prospects and the KPI dashboard.",
+  "seconds": 198,
+  "transcript": "This is a quick walk through the new Favor hub. Every name you'll see here is made up. Go to dash.favorintl.org. Click Sign in with Google, and pick your Favor account. That one sign-in opens every tool, so the old page passwords are gone. You land on Today. It's your home page. The first time, a welcome card points you to Help. Waiting on you shows anything that needs you, with a button straight to the work. When nothing does, it says so. Below that is where the year stands, right from the KPI dashboard. Recent activity shows what's happened across the hub in the last two weeks. And Start something takes you into the tools you use most. Every tool lives in the menu on the left. Blackbaud, Paycom and the other outside tools are at the bottom, and they open in a new tab. To jump anywhere, press Control and K. Type a few letters, and press Enter. When you need something from someone, click Make a request. Type what you need, the way you'd say it to a coworker. Then click Continue. The hub suggests where it should go. Website, app and Blackbaud work goes on the request board. Design, print, social and video go to the Marketing team. And purchases go on an expense request. If the suggestion's wrong, click one of the other choices. For the board, answer a few short questions and send it. You'll get an email when it's done. The request board shows where every request stands. Inbox is new. Approved is next in line. In motion is being worked on. And Done is finished. Click any card to read the whole request. Use Expense request before a purchase or a trip. Your name and email are already filled in. Add a line for each expense, say why it's needed, check the box, and sign. Then click Submit for approval, and you'll get the signed copy by email. Card expenses you've already made still go through Paycom. Thank-you receipts lists every gift that's waiting on a thank-you letter. You make the print file, print it, and mark the gifts thanked. It has its own video that goes step by step. Before you call a foundation, look it up in Foundation prospects. One search covers this list and every organization in Blackbaud. So you'll know if someone's already talking to them. The KPI dashboard sits right inside the hub now. Everyone sees the Executive page, and your team's own tab shows right under it. The top corner shows when the numbers last updated. Help and what's new, at the bottom of the menu, covers all of this in writing. And if something ever looks wrong, make a request and say what you saw. That's the new hub."
+ },
+ {
+  "slug": "meet-the-brain",
+  "title": "Meet the Favor brain",
+  "added": "2026-10-09",
+  "topic": "brain",
+  "roles": [
+   "all"
+  ],
+  "summary": "Ask Favor from your own AI: what it answers, how lists come back, and how it keeps partner data safe.",
+  "seconds": 64,
+  "transcript": "Meet the Favor brain. It connects your own AI, Claude or ChatGPT, to Favor's partner data, the KPI dashboard, and Favor's manuals. So you can ask in plain words. How many active partners do we have in North Carolina? It answers in seconds, and tells you exactly how it read your question. Ask for a list, and it comes back as a download, ready for a spreadsheet. Every number follows Favor's definitions, the same ones the KPI dashboard uses. Ask how to do something, and it finds the steps in Favor's manuals. It only reads. You see what your role allows. And every question is logged. You connect it once, from the Favor brain page in the hub. Open Favor brain at dash.favorintl.org, and connect it today."
+ },
+ {
+  "slug": "connect-the-brain",
+  "title": "The Favor brain: connect it and ask",
+  "added": "2026-10-09",
+  "topic": "brain",
+  "roles": [
+   "all"
+  ],
+  "summary": "Connect Claude or ChatGPT, ask good questions, read how it understood you, download lists and ask for more access.",
+  "seconds": 140,
+  "transcript": "Here's how to connect the Favor brain, and how to get good answers from it. In the hub, open Favor brain from the menu. This page has the address, the steps, and what you're able to ask about. Press Copy, next to the address. In Claude, open Settings, then Connectors. Press Add custom connector. Name it Favor, paste the address, and press Add. Then press Connect. A Favor page asks you to confirm. Press Continue with Google, and choose your Favor account. Claude is now connected. In a new chat, open the tools menu, and make sure Favor is on. Using ChatGPT instead? Open Settings, and then go to Apps and connectors. Under Advanced, turn on Developer mode. Press Create, name it Favor, paste the address, and choose OAuth. Then sign in with Google, the same way. Now ask the way you'd ask a coworker. How much have we raised each month this year? Every answer ends with how the brain read your question. If it read you wrong, say what you meant, and ask again. Ask for a list, and you get a short preview, and a download link. The link works for one day. Open it, and the spreadsheet saves to your computer. It can also read your own calendar, unread email, and Drive files. Only yours, and only to answer you. Back in the hub, the Favor brain page shows what you're able to ask about. If your work needs more, press Ask for it, and say why. The hub admin decides, and the brain picks it up on your next question. It never changes anything in Blackbaud, and it never sends email or posts. Ask it how, and it points you to the steps in the manual. And please don't paste Blackbaud exports into an AI. Ask the brain instead. Open Favor brain at dash.favorintl.org, and connect it today."
+ },
+ {
+  "slug": "first-week-in-blackbaud",
+  "title": "Your first week in Blackbaud",
+  "added": "2026-10-06",
+  "topic": "blackbaud",
+  "roles": [
+   "all"
+  ],
+  "summary": "Getting around Raiser's Edge NXT: the menu, searching before you add anyone, and reading a partner's record from codes to giving history.",
+  "seconds": 156,
+  "transcript": "Welcome to Blackbaud. Every partner, every gift, and every conversation with them lives in here. By the end of this video, you'll be able to open any partner and read the page. This menu on the left is how you get around. Constituents is where you find people. Blackbaud calls every person and every organization a constituent. Gifts is where gifts get entered and looked up. Portfolio shows you your own partners, if you have some. And Analysis is where queries live, the lists you pull for your team. Most of the time, you'll start with the search bar at the top. Type a name, then pick the right person from the list. Search before you add anyone new, because a duplicate record is hard to clean up. This is a record. Everything we know about this partner is on this one page. At the top, you'll see the name and the constituent codes. Partner means they've given. Prospect means they haven't yet. The summary shows their ID number. Use that number when you ask someone about a record. Contact information sits right next to it. Address, phone, and email. Scroll down, and Actions is the conversation history. Every call, email, and meeting gets logged there. Below that, Assigned Fundraisers tells you whose partner this is. It might be an R&D, partner care, or church engagement. The system assigns new partners every morning, so you don't set it yourself. Giving History lists every gift. The fund is where the partner wanted it to go. The appeal is what moved them to give. Here are three rules for your first week. Search first, so you never create a duplicate. Look all you want, but don't change codes, assignments, or gifts unless your job says to. And checks from the mail go in as a batch, and a second person approves it. If a record looks wrong, tell Michael Hinton. Don't fix it yourself. That's the whole layout. Today, open a partner you know and find the code, the fundraiser, the last action, and the last gift. Do that with five partners, and the page will start to feel familiar."
+ },
+ {
+  "slug": "queries-in-raisers-edge",
+  "title": "Queries in Raiser's Edge NXT",
+  "added": "2026-09-30",
+  "topic": "blackbaud",
+  "roles": [
+   "rdd",
+   "pc",
+   "ce",
+   "grants",
+   "marketing"
+  ],
+  "summary": "Building queries in Raiser's Edge NXT, from one filter to more complex ones, and when to use a dynamic or a static query.",
+  "seconds": 588,
+  "transcript": "This training shows you how to build queries in Raiser's Edge NXT. We'll start with a single filter, work up to more complex queries, and finish with the difference between dynamic and static queries. Every name, gift, and count you'll see is made up, so feel free to pause and follow along. A query is a saved question, like which partners live in Florida or which gifts came in last month. Run it and you get a list of records back. Because it's saved, you or a coworker can run it again anytime without starting over. Every query has four parts. The query type is what you're making a list of, like constituents, gifts, or actions. The criteria are the filters that decide which records make the list. The output is the columns you see, and the sort is the order they come back in. Every query also has a format, dynamic or static. That controls when the list updates, and we'll cover it in Chapter 7. Let's build a query that finds every constituent with a preferred address in Florida. In Raiser's Edge NXT, click Analysis in the menu on the left, then click Query. This page lists the saved queries you have access to. Click New Query, set the query type to constituent, leave the format on dynamic, and click OK. The query editor opens on the criteria tab. The available fields panel on the left lists every field you can filter on, grouped by category. Click the search icon, type state, and pick state under preferred address. In the Edit Field Criteria window, choose equals, pick Florida, and click OK. The criteria panel now shows preferred state equals Florida. That one line is already a complete query. Next, pick the columns you want to see. On the Output tab, add name, preferred city, preferred state, last gift date, and last gift amount. On the Sort tab, add last name so the list comes back in alphabetical order. Now click the Results tab to run it. You get 2,318 records, one for each constituent with a Florida preferred address. Before you save, go to the Options tab, give the query a name that says what it returns, pick your category, and add a short description of why you built it. Click Save and Close, and your query shows up in the list, ready to run again any time. Most questions you'll ask need more than one condition. Back on the Criteria tab, click Constituency Code, set it to equal partner, and click OK. Notice the new line starts with and. The count drops from 2,318 to 1,046 because a record now has to match both lines to stay on the list. Add one more line, last gift date greater than or equal to January 1, 2026. Now you're down to 604, the Florida partners who have given this year. That's how and works. Every line joined with and has to be true, so each one you add keeps the list the same or makes it smaller. Or works the opposite way. A record makes the list if any one of the lines is true, so each or keeps the list the same or makes it bigger. When you want several values from the same field, use the one of operator, edit the state line, change equals to one of, and add Georgia. Now you've got partners in Florida or Georgia who gave this year, 688 of them. Mixing or with and takes more care. Say you're planning an event in Tampa and you want Florida partners who gave this year, plus every church in Florida. If you add Constituency Code equals church at the bottom and use its menu to switch it to OR, the query changes meaning. It now pulls Florida partners who gave this year or any church anywhere. The count jumps to 1,358 because churches in every state now qualify. To fix it, open the menu on the partner line and add an opening parenthesis. Then open the menu on the church line and add a closing one. Now the query means Florida records that are either partners who gave this year or churches. The list drops to 671 and every one of them is in Florida. Any time you mix and with OR, put parentheses around the lines that go together. Then read the criteria back to yourself as a sentence before you trust the count. The query type also changes what you're counting. In a constituent query, each row is one person or organization. Ruth Adame gave three gifts this year and she shows up once. In a gift query, each row is one gift, so Ruth's three gifts come back as three rows. So pick the type that matches what you're counting. If you're mailing each partner once, use a constituent query. If you're totaling or reviewing gifts, use a gift query. If someone shows up twice in a constituent query, one of your output fields has more than one value for that person, like every phone number on their record. Swap it for a field with one value per person, like preferred city or last gift amount, and everyone shows up once. Finding partners who haven't given this year is trickier than it looks. You might add the line gift date, not between January 1 and September 30, 2026. The problem is that Razor's edge checks each gift separately. Ruth gave in March, but she also gave last November. That November gift falls outside the range, so Ruth ends up on your list of people who haven't given, even though she has. A merge query fixes this. Save one query of Florida partners and a second query of everyone who's given this year. Then on the query page, click New Merge Query. Pick the Florida partners query as query 1, choose sub, pick the gifts query as query 2, and click OK. Sub keeps everyone in query 1 who isn't in query 2, so Ruth stays off the list. The other operators work the same way, and keeps records that are in both queries, or keeps records that are in either one, and XOR keeps records that are in only one of them. Merge queries are always static, so save yours again whenever you want fresh results. The next chapter explains why. Every query is either dynamic or static, and that setting controls when the list gets updated. A dynamic query saves your criteria. It runs fresh every time you open it, export it, or use it somewhere else in Razor's Edge, so it always shows the data as it is right now. A stat"
+ },
+ {
+  "slug": "entering-an-rdd-action",
+  "title": "Entering an RDD action in Blackbaud",
+  "added": "2026-10-06",
+  "topic": "rdd",
+  "roles": [
+   "rdd"
+  ],
+  "summary": "Entering a call, text, email or meeting as an RDD Action, with the custom fields the weekly report is built from. Due every Wednesday morning.",
+  "seconds": 104,
+  "transcript": "This is how you enter an RDD action in Blackbaud. Every call, text, email, and meeting an RDD has with a partner goes in as an action. Start on the partner's record. Search their name, then open it. Scroll down to actions and click add action. First, pick the category that matches how the RDD reached them. This one was a phone call, so click phone call. A text message goes under email. Next comes the type, and you want RDD Action. That's the one that counts because only RDD actions show up in the weekly report. Use the date the call happened, then write a short summary, then put the details in the notes. Write enough that someone else could pick up where the RDD left off. The call already happened, so set the status to completed. Now assign it to the RDD who made the call. Type their last name and pick them from the list. Next are the custom fields. The reports are built from these, so don't skip them. Open the custom fields tab and click add custom field. If the RDD asked for money, choose amount of ask and then type the amount. If the RDD thanked the partner, chose thanked. Add one field for everything that happened on the call. The others like texted, number of referrals, and scheduling work the same way. That's everything, so click save. The action is on the partner's record now. Get your actions in by every Wednesday morning because the report gets pulled at midday."
+ },
+ {
+  "slug": "taking-a-gift-by-phone",
+  "title": "Taking a gift by phone",
+  "added": "2026-10-06",
+  "topic": "partner-care",
+  "roles": [
+   "pc",
+   "admin-desk"
+  ],
+  "summary": "Entering a card gift taken over the phone with Add gift on the partner's record.",
+  "seconds": 55,
+  "transcript": "When a partner calls to give by card, take it in Blackbaud. You don't need an email. Open the partner's record and scroll down to Giving History. Click Add Gift. Type the amount. Set the payment method to credit card. Then click the card button. The payment window already has their name and address. Type the card number, the expiration, and the security code. Then click Finish and Pay. Don't close the gift yet. Pick the fund. Add the appeal if you know it. Then click Save. The gift is on their record and you never needed an email."
+ },
+ {
+  "slug": "thank-you-receipts",
+  "title": "Printing thank-you receipts",
+  "added": "2026-10-06",
+  "topic": "hub",
+  "roles": [
+   "marketing",
+   "pc",
+   "admin-desk"
+  ],
+  "summary": "Making the print file on the hub's Thank-you receipts page, printing, and marking the batch done.",
+  "seconds": 96,
+  "transcript": "This is how we do thank-you receipts now. It's all on one page on the hub, so you won't need Database View or InDesign anymore. From the hub, click Thank-you Receipts. Type the code, then click Unlock. The page reads Blackbaud and lists every gift that still needs a thank-you. Each row is one letter. If a partner gave more than once, those gifts go on the same letter. If a letter shouldn't go out yet, uncheck it. It'll still be here next time. The Held back tab has everything that won't get a letter. Each one shows the reason, like a missing address, or a record marked Do Not Mail. When the list looks right, check the date on the letters. Then click Make the print file. Open the proof first. It shows every letter on a picture of the receipt paper, so you can see that it all lines up. Next, download the print file and print it. Use Legal paper, at Actual size, on one side. Once the letters are printed, come back and click Mark as thanked. It'll ask if they all printed. Click OK. That updates Blackbaud, and those gifts come off the list. We print every Tuesday and Friday. If something looks off, ask Will."
+ },
+ {
+  "slug": "foundation-prospects",
+  "title": "Foundation prospects",
+  "added": "2026-10-05",
+  "topic": "hub",
+  "roles": [
+   "rdd",
+   "grants"
+  ],
+  "summary": "Checking a foundation before you call and logging the contact on the hub's Foundation prospects page.",
+  "seconds": 62,
+  "transcript": "Foundation prospects is on the hub. It's one list for every foundation we call. Open it from the hub, and enter the code. Before you call a foundation, search for it. One search checks our list, and every organization in Blackbaud. If someone already has the relationship, you'll see it right here. Open a foundation, and every contact is in one place. To log a contact, pick whose it was, how it went, and what happened. Then save it. It posts to Blackbaud as an RDD action. You don't type it twice. If a foundation's a dead end, mark it. It stays on the list, so nobody calls it cold again. Foundation prospects. It's on the hub."
+ },
+ {
+  "slug": "recording-a-grant-award",
+  "title": "Recording a grant award in Raiser's Edge NXT",
+  "added": "2026-10-02",
+  "topic": "grants",
+  "roles": [
+   "grants"
+  ],
+  "summary": "Entering a grant award as an opportunity on the foundation's record, with the three things the dashboard needs to count it.",
+  "seconds": 182,
+  "transcript": "Here's how to record a grant award in Raiser's Edge. It takes about a minute. The foundation and the numbers in this video are made up. The dashboard tracks our grants goal by what's been awarded. It gets those awards from Raiser's Edge, from a record called an opportunity. If an award is entered as an opportunity, the dashboard counts it. If it's only in a spreadsheet, the dashboard can't see it. Nothing changes with payments. They're still entered as gifts, and the dashboard matches each one to its award. Say the Harborlight Foundation just awarded us $50,000. First, open the foundation's record. Type the name in the search bar, and click the foundation. Scroll down to Opportunities, open it, and click Add opportunity. For Purpose, pick Grant Request. Give it a name that says who it's from and what it's for. For Status, pick Awarded - Active. That means they've said yes, and the money's still coming. Now go down to Funding. In Expected amount, type the amount of the award. Leave Funded amount blank. That one's for money that has already come in. If the award letter is older than today, put its date in Expected date. Then click Save. The award now shows on the foundation's record, under Opportunities. The dashboard needs three things to count an award. Purpose is Grant Request. Status starts with Awarded. And Expected amount has the award in it. If one of those is missing, the award won't show up. When the last payment comes in, go back to the foundation's record. Open the menu on the opportunity, and click Change status. Pick Awarded - Closed, and click Save. You don't have to touch the amount when payments come in. The dashboard adds up the gifts for you. And if a foundation gives us a second award, add a second opportunity. One opportunity per award. The dashboard picks up changes from Raiser's Edge twice a day, at 5 in the morning and 5 in the evening. After the next update, open the Grants tab. Awarded goes up by the new award. The date under Awards shows the last day one was entered. Received and Still to come update as gifts come in. So, one opportunity per award, with those three things filled in. If an award doesn't show up after the next update, check those three first."
+ },
+ {
+  "slug": "logging-a-grants-action",
+  "title": "Logging a grants action in Blackbaud",
+  "added": "2026-10-08",
+  "topic": "grants",
+  "roles": [
+   "grants"
+  ],
+  "summary": "Logging your own conversation with a funder as a Grants Action so the follow-up is tracked.",
+  "seconds": 102,
+  "transcript": "This is how you log a conversation with a funder in Blackbaud. Every email, call, letter, and meeting you have with a foundation goes in as a Grants Action. The grants assistant still enters your proposals, letters of inquiry, and reports. This is for the conversations themselves. Start on the foundation's record. Search its name, then open it. Scroll down to Actions, and click Add action. First, pick the category that matches how you talked. This one was an email, so click Email. A call goes under Phone call, and a letter goes under Mail. For the type, pick Grants Action. It's the last one on the list. Use it every time, so all your conversations show up together. Use the date you talked. In the summary, say who you talked with, and put what was said and what comes next in the notes. Write it so whoever talks to them next knows where things stand. It already happened, so set the status to Completed. If they reached out to you first, set the direction to Inbound. Now assign it to yourself. Type your last name, and pick yourself from the list. That's everything, so click Save. The conversation is on the foundation's record now. Log each conversation within a day or two, while it's fresh."
+ }
+]

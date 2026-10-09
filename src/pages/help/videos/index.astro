@@ -1,0 +1,36 @@
+---
+// The training video library: every video, filtered by topic, each with captions.
+import App from '../../../layouts/App.astro';
+import HelpSide from '../../../components/HelpSide.astro';
+import { VIDEO_TOPICS, ROLE_LABELS, mins } from '../../../data/help-topics';
+import videos from '../../../data/videos.json';
+
+const used = Object.entries(VIDEO_TOPICS).filter(([k]) => videos.some((v) => v.topic === k));
+const total = Math.round(videos.reduce((n, v) => n + v.seconds, 0) / 60);
+---
+<App title="Training videos" crumb="Learn" nav="videos" description="Training videos for the hub, Ask Favor and Blackbaud.">
+  <div class="hd-wrap hd-wrap--wide">
+    <HelpSide current="videos" />
+    <div class="hd-lib">
+      <div class="hd-kicker"><a href="/help/">Help</a><span aria-hidden="true">/</span>Videos</div>
+      <h1>Training videos</h1>
+      <p class="hd-lede">{videos.length} videos, about {total} minutes in all. Each has captions; press CC in the player. The names and numbers in them are made up.</p>
+      <div class="hd-chips" role="tablist" aria-label="Filter by topic">
+        <button type="button" role="tab" class="is-on" aria-selected="true" data-topic="">All</button>
+        {used.map(([k, label]) => <button type="button" role="tab" aria-selected="false" data-topic={k}>{label}</button>)}
+      </div>
+      <div class="hd-vids hd-vids--lib">
+        {videos.map((v) => (
+          <a class="h-card hd-vid" href={`/help/videos/${v.slug}/`} data-topic={v.topic} data-roles={v.roles.join(' ')}>
+            <span class="hd-vid__poster"><img src={`/api/videos/${v.slug}.jpg`} alt="" loading="lazy" /><em>{mins(v.seconds)}</em><i aria-hidden="true"></i></span>
+            <span class="hd-vid__topic">{VIDEO_TOPICS[v.topic] || v.topic}</span>
+            <b>{v.title}</b>
+            <span>{v.summary}</span>
+            <small>For {v.roles.map((r) => ROLE_LABELS[r] || r).join(', ')}</small>
+          </a>
+        ))}
+      </div>
+    </div>
+  </div>
+  <script is:inline src="/js/help.js?v=1" defer></script>
+</App>

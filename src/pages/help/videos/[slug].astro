@@ -1,0 +1,61 @@
+---
+// One training video: the player with captions, the transcript, and where to read more.
+import { getCollection } from 'astro:content';
+import App from '../../../layouts/App.astro';
+import HelpSide from '../../../components/HelpSide.astro';
+import { VIDEO_TOPICS, ROLE_LABELS, mins } from '../../../data/help-topics';
+import videos from '../../../data/videos.json';
+
+export function getStaticPaths() {
+  return videos.map((v) => ({ params: { slug: v.slug }, props: { v } }));
+}
+const { v } = Astro.props;
+const docs = await getCollection('help');
+const articles = docs.filter((d) => d.data.videos.includes(v.slug));
+const more = videos.filter((x) => x.slug !== v.slug && x.topic === v.topic).slice(0, 3);
+const added = new Date(v.added + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+---
+<App title={v.title} crumb="Training videos" nav="videos" description={v.summary}>
+  <div class="hd-wrap">
+    <HelpSide current="videos" />
+    <article class="hd-article hd-watch">
+      <div class="hd-kicker"><a href="/help/">Help</a><span aria-hidden="true">/</span><a href="/help/videos/">Videos</a><span aria-hidden="true">/</span>{VIDEO_TOPICS[v.topic] || v.topic}</div>
+      <h1>{v.title}</h1>
+      <p class="hd-lede">{v.summary}</p>
+      <p class="hd-vmeta"><span>{mins(v.seconds)}</span><span>Added {added}</span><span>For {v.roles.map((r) => ROLE_LABELS[r] || r).join(', ')}</span></p>
+      <figure class="hd-video hd-video--big">
+        <video controls preload="metadata" playsinline poster={`/api/videos/${v.slug}.jpg`} data-video={v.slug}>
+          <source src={`/api/videos/${v.slug}.mp4`} type="video/mp4" />
+          <track kind="captions" src={`/api/videos/${v.slug}.vtt`} srclang="en" label="English" default />
+        </video>
+      </figure>
+      {articles.length > 0 && (
+        <p class="hd-readmore">Step by step in writing: {articles.map((a, i) => <>{i > 0 && ', '}<a href={`/help/${a.id}/`}>{a.data.title}</a></>)}</p>
+      )}
+      <details class="hd-transcript">
+        <summary>Transcript</summary>
+        <p>{v.transcript}</p>
+      </details>
+      <div class="hd-rate" data-rate={`video:${v.slug}`}>
+        <span>Was this video helpful?</span>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-rate-v="helpful">Yes</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-rate-v="not-helpful">Not really</button>
+      </div>
+      {more.length > 0 && (
+        <>
+          <div class="h-section"><h2>More like this</h2></div>
+          <div class="hd-vids">
+            {more.map((x) => (
+              <a class="h-card hd-vid" href={`/help/videos/${x.slug}/`}>
+                <span class="hd-vid__poster"><img src={`/api/videos/${x.slug}.jpg`} alt="" loading="lazy" /><em>{mins(x.seconds)}</em><i aria-hidden="true"></i></span>
+                <b>{x.title}</b>
+                <span>{x.summary}</span>
+              </a>
+            ))}
+          </div>
+        </>
+      )}
+    </article>
+  </div>
+  <script is:inline src="/js/help.js?v=1" defer></script>
+</App>

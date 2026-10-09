@@ -1,0 +1,35 @@
+---
+// The help docs' topic list, beside every article and the video library.
+import { getCollection } from 'astro:content';
+import { TOPICS } from '../data/help-topics';
+
+interface Props {
+  current?: string;
+}
+const { current = '' } = Astro.props;
+const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
+---
+<nav class="hd-side" aria-label="Help topics">
+  <a class={`hd-side__home${current === 'home' ? ' is-on' : ''}`} href="/help/">Help home</a>
+  {TOPICS.map((t) => (
+    <div class="hd-side__group">
+      <div class="hd-side__label">{t.label}</div>
+      {docs
+        .filter((d) => d.data.topic === t.id)
+        .map((d) => (
+          <a
+            href={`/help/${d.id}/`}
+            class={d.id === current ? 'is-on' : undefined}
+            aria-current={d.id === current ? 'page' : undefined}
+            data-for={d.data.for.join(' ')}
+          >
+            {d.data.title}
+          </a>
+        ))}
+    </div>
+  ))}
+  <div class="hd-side__group">
+    <div class="hd-side__label">Videos</div>
+    <a href="/help/videos/" class={current === 'videos' ? 'is-on' : undefined}>Training videos</a>
+  </div>
+</nav>

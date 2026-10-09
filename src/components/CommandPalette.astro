@@ -1,6 +1,19 @@
 ---
+import { getCollection } from 'astro:content';
+import videos from '../data/videos.json';
+
+// Help articles and videos only show once someone types, so the opening list stays short.
+const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
+const helpItems = [
+  ...docs.map((d) => ({ title: d.data.title, desc: d.data.summary, href: `/help/${d.id}/`, tags: `help how ${d.data.topic} ${(d.body || '').match(/^##+ .+$/gm)?.join(' ') || ''}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
+  ...videos.map((v) => ({ title: `Video: ${v.title}`, desc: v.summary, href: `/help/videos/${v.slug}/`, tags: `video training ${v.topic} ${v.summary}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
+];
 const items = [
-  { title: "Help and what's new", desc: 'How to use the hub', href: '/help/', tags: 'help guide how tutorial video new welcome tour', external: false, group: 'Tools' },
+  { title: 'Help docs', desc: 'How every tool works, with search', href: '/help/', tags: 'help guide how docs documentation article manual faq', external: false, group: 'Tools' },
+  { title: "Take the tour", desc: "A guided tour of the hub, set up for your work, and what's new", href: '/?tour=1', tags: 'tour help new welcome show me around walkthrough guide whats new', external: false, group: 'Tools' },
+  { title: 'Training videos', desc: 'The hub, Ask Favor and Blackbaud on video, with captions', href: '/help/videos/', tags: 'video videos training tutorial learn blackbaud raisers edge', external: false, group: 'Tools' },
+  { title: 'Feedback', desc: "Your notes and Will's answers", href: '/feedback/', tags: 'feedback note bug wrong idea suggestion problem report', external: false, group: 'Tools' },
+  { title: 'Favor brain (Ask Favor, beta)', desc: 'Connect Claude or ChatGPT and ask about Favor', href: '/brain/', tags: 'brain ask favor ai claude chatgpt mcp connector question query beta', external: false, group: 'Tools' },
   { title: 'Make a request', desc: "Anything you need: goes to the request board or the Marketing team", href: '/requests/new', tags: 'website portal dashboard app request submit comment recommendation marketing design flyer social video newsletter asana project', external: false, group: 'Tools' },
   { title: 'Request board', desc: 'Inbox, approved, in motion, done', href: '/requests', tags: 'website portal dashboard app request kanban board review approve', external: false, group: 'Tools' },
   { title: 'Blackbaud', desc: 'Partner records', href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/', tags: 'crm donors blackbaud raisers edge', external: true, group: 'Tools' },
@@ -27,6 +40,7 @@ const items = [
   { title: 'Facebook', desc: '@FavorIntlOrg', href: 'https://www.facebook.com/FavorIntlOrg', tags: 'facebook social fb', external: true, group: 'External' },
   { title: 'Instagram', desc: '@favorintlorg', href: 'https://www.instagram.com/favorintlorg/', tags: 'instagram ig social', external: true, group: 'External' },
   { title: 'LinkedIn', desc: 'Favor International', href: 'https://www.linkedin.com/company/favor-international/', tags: 'linkedin social', external: true, group: 'External' },
+  ...helpItems,
 ];
 ---
 <div class="cmdk" id="cmdk" hidden role="dialog" aria-modal="true" aria-label="Hub search">
@@ -84,7 +98,7 @@ const items = [
 
   function filter(q) {
     const lq = norm(q.trim());
-    if (!lq) return items;
+    if (!lq) return items.filter((i) => !i.searchOnly);
     return items
       .map((i) => ({ i, s: score(i, lq) }))
       .filter((x) => x.s > 0)
@@ -131,7 +145,7 @@ const items = [
   function open() {
     cmdk.hidden = false;
     input.value = '';
-    render(items);
+    render(filter(''));
     requestAnimationFrame(() => input.focus());
     document.body.style.overflow = 'hidden';
   }

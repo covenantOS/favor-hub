@@ -125,15 +125,46 @@
 
     $('b-calls').textContent = d.calls ? `${d.calls.toLocaleString('en-US')} so far` : '';
     const rec = (d.recent || []).filter((r) => !HIDE.test(r.tool));
+    // What this person already said about an answer, by its reference.
+    const told = {};
+    (d.feedback || []).forEach((f) => {
+      if (f.ref && !told[f.ref]) told[f.ref] = f;
+    });
+    const SAID = { right: 'You said it was right', wrong: 'You said it was wrong', missing: 'You said something was missing', confusing: 'You said it was confusing', idea: 'You sent an idea' };
+    const rateOf = (r) => {
+      if (!r.ref || !/^(ok|clarify)/.test(String(r.outcome || ''))) return '';
+      const f = told[r.ref];
+      if (f) return `<span class="b-told">${esc(SAID[f.rating] || 'You sent a note')}${f.reply ? ' · answered' : f.status === 'fixed' ? ' · fixed' : ''}</span>`;
+      return `<span class="b-rate"><button type="button" class="b-rate__btn" data-right="${esc(r.ref)}" aria-label="This answer was right">Right</button><button type="button" class="b-rate__btn" data-feedback="hub-brain" data-rating="wrong" data-ref="${esc(r.ref)}" data-question="${esc(r.question || '')}" aria-label="This answer was not right">Not right</button></span>`;
+    };
     $('b-recent').innerHTML = rec.length
       ? rec
           .slice(0, 10)
           .map((r) => {
             const [label, cls] = OUTCOME(r.outcome);
-            return `<li><div><b>${esc(said(r))}</b><span>${esc(when(r.at))}</span></div><span class="h-status h-status--${cls}">${label}</span></li>`;
+            return `<li><div><b>${esc(said(r))}</b><span>${esc(when(r.at))}${r.ref ? ` · ref ${esc(r.ref)}` : ''}</span></div><div class="b-recent__end"><span class="h-status h-status--${cls}">${label}</span>${rateOf(r)}</div></li>`;
           })
           .join('')
       : '<li class="b-empty">Nothing yet. Connect Claude or ChatGPT and ask your first question.</li>';
+    document.querySelectorAll('[data-right]').forEach((b) =>
+      b.addEventListener('click', async () => {
+        const box = b.parentElement;
+        box.innerHTML = '<span class="b-told">Sending...</span>';
+        try {
+          const res = await fetch('/api/feedback', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source: 'hub-brain', rating: 'right', ref: b.dataset.right, page: '/brain/' }),
+          });
+          if (!res.ok) throw new Error();
+          box.innerHTML = '<span class="b-told">Thanks. You said it was right</span>';
+          document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'droplet' }));
+        } catch {
+          box.innerHTML = '<span class="b-told">Did not send. Reload and try again.</span>';
+        }
+      })
+    );
     if (d.admin) loadAdmin();
   }
 
@@ -235,5 +266,9 @@
         $('b-recent').innerHTML = '';
       });
   }
+  // A note sent from the Not right form refreshes the list so the answer shows what was said.
+  document.addEventListener('favor:feedback-sent', (e) => {
+    if (e.detail && e.detail.ref) load();
+  });
   load();
 })();

@@ -8,7 +8,8 @@ import App from '../../layouts/App.astro';
   <div class="b-page">
     <section class="b-hero">
       <div>
-        <h1>Favor brain</h1>
+        <h1>Favor brain <em class="h-beta h-beta--lg">Beta</em></h1>
+        <p class="b-kicker">Ask Favor, from your own AI</p>
         <p class="h-lede">Connect Claude or ChatGPT once, then ask about partners, giving, team numbers, grants and Favor's manuals in plain words. The brain answers from Blackbaud and the KPI dashboard with Favor's definitions, hands long lists back as a download, and only reads. It never changes Blackbaud.</p>
       </div>
       <div class="b-addr h-card">
@@ -73,6 +74,12 @@ import App from '../../layouts/App.astro';
       </section>
     </div>
 
+    <section class="h-card b-beta">
+      <span class="b-beta__mark" aria-hidden="true"><svg class="h-i" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/></svg></span>
+      <div><b>Ask Favor is in beta. Tell us how it does.</b><span>Each answer ends with a short reference. Under Your recent questions, press <b>Right</b> or <b>Not right</b>, or tell your AI "that number is wrong because..." and it passes your note along. Will reads every note and answers on your Feedback page.</span></div>
+      <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-feedback="hub-brain" data-title="Feedback on Ask Favor">Send feedback</button>
+    </section>
+
     <section class="h-card b-rules">
       <div class="h-card__body">
         <div><b>Only reads.</b><span>It can't change Blackbaud, send email or post anything. It tells you where to do that.</span></div>
@@ -118,5 +125,5 @@ import App from '../../layouts/App.astro';
       </section>
     </div>
   </div>
-  <script src="/js/brain.js?v=3" defer></script>
+  <script is:inline src="/js/brain.js?v=4" defer></script>
 </App>

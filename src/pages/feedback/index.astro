@@ -1,0 +1,27 @@
+---
+// Feedback: everyone sees the notes they sent and Will's answers. Will sees every note from the hub,
+// Ask Favor, the help docs and the tour, marks each one, and writes the answer the sender reads.
+import App from '../../layouts/App.astro';
+---
+<App title="Feedback" crumb="Learn" nav="feedback" description="Notes about the hub and Ask Favor, and the answers.">
+  <div class="fbp">
+    <section class="fbp-head">
+      <div>
+        <h1>Feedback</h1>
+        <p class="h-lede" id="fb-lede">Notes you've sent about the hub, Ask Favor and the help docs, with Will's answers. Every note is read.</p>
+      </div>
+      <button type="button" class="h-btn h-btn--primary" data-feedback="hub">Send feedback</button>
+    </section>
+
+    <div class="fbp-tabs" id="fb-tabs" role="tablist" aria-label="Which notes" hidden>
+      <button type="button" role="tab" data-status="new" aria-selected="true" class="is-on">New <span data-n="new"></span></button>
+      <button type="button" role="tab" data-status="seen" aria-selected="false">Seen <span data-n="seen"></span></button>
+      <button type="button" role="tab" data-status="fixed" aria-selected="false">Fixed <span data-n="fixed"></span></button>
+      <button type="button" role="tab" data-status="not-now" aria-selected="false">Not now <span data-n="not-now"></span></button>
+      <button type="button" role="tab" data-status="" aria-selected="false">All</button>
+    </div>
+
+    <ul class="fbp-list" id="fb-list" aria-busy="true" aria-live="polite"><li class="h-card h-skel" style="min-height:120px"></li></ul>
+  </div>
+  <script is:inline src="/js/feedback-page.js?v=1" defer></script>
+</App>

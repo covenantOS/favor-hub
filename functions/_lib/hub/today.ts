@@ -64,21 +64,33 @@ export interface Counts {
   expensesWaiting: number;
   receiptsLeft: number;
   brainRequests: number;
+  /** Will: notes not yet looked at. Everyone else: answers to their notes they have not read. */
+  feedback: number;
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access): Promise<Counts> {
-  const [inbox, exp, file, brain] = await Promise.all([
+  const [inbox, exp, file, brain, notes] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
     access.admin ? brainPending(env) : null,
+    feedbackWaiting(env, user, access),
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
     expensesWaiting: Number(exp?.n) || 0,
     receiptsLeft: file && fileIsMine(file, user, access) ? Math.max(0, file.gifts - file.marked) : 0,
     brainRequests: Number(brain?.n) || 0,
+    feedback: Number(notes?.n) || 0,
   };
+}
+
+/** Feedback notes for Will to read, or answers from him this person has not opened yet. */
+async function feedbackWaiting(env: Env, user: HubUser, access: Access) {
+  const q = access.admin
+    ? env.DB.prepare("SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_feedback WHERE status = 'new'")
+    : env.DB.prepare('SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_feedback WHERE email = ? AND reply IS NOT NULL AND reply_seen_at IS NULL').bind(user.email.toLowerCase());
+  return q.first<{ n: number; oldest: string | null }>().catch(() => null);
 }
 
 /** Favor brain access requests waiting for a decision (the brain writes them to this database). */
@@ -161,6 +173,36 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         cta: 'Decide',
       });
     }
+  }
+  const notes = await feedbackWaiting(env, user, access);
+  const nn = Number(notes?.n) || 0;
+  if (nn && access.admin) {
+    const first = await env.DB.prepare("SELECT name, email, source, comment FROM brain_feedback WHERE status = 'new' ORDER BY id LIMIT 1")
+      .first<{ name: string; email: string; source: string; comment: string | null }>()
+      .catch(() => null);
+    const from = first ? first.name || first.email : '';
+    const said = first?.comment ? `: "${first.comment.length > 70 ? first.comment.slice(0, 68) + '...' : first.comment}"` : '';
+    cards.push({
+      id: 'feedback',
+      label: 'Feedback',
+      n: nn,
+      what: nn === 1 ? 'note from staff to read' : 'notes from staff to read',
+      note: first ? `Oldest from ${from}${said}` : '',
+      warn: false,
+      href: '/feedback/',
+      cta: 'Read them',
+    });
+  } else if (nn) {
+    cards.push({
+      id: 'feedback',
+      label: 'Feedback',
+      n: nn,
+      what: nn === 1 ? 'answer to your feedback' : 'answers to your feedback',
+      note: 'Will answered a note you sent',
+      warn: false,
+      href: '/feedback/',
+      cta: 'Read the answer',
+    });
   }
   if (access.approver) {
     const exp = await env.DB.prepare(
