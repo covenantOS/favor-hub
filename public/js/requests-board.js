@@ -36,8 +36,9 @@
 
   // The card shows the ask in the requester's words. The form adds Kind, Where and Location lines
   // after it, and many asks repeat the title first; the drawer still shows all of it.
+  const FORM_LINES = /\s*\b(?:Kind|Where|Location):/;
   function preview(item) {
-    let text = String(item.body || '').split(/\s*(?:Kind|Where|Location):/)[0].trim();
+    let text = String(item.body || '').split(FORM_LINES)[0].trim();
     const title = String(item.title || '').trim();
     if (title && text.toLowerCase().startsWith(title.toLowerCase())) text = text.slice(title.length).replace(/^[\s.:,-]+/, '');
     return clip(text, 140);
