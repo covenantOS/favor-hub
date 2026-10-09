@@ -15,6 +15,7 @@ const toc = [
   ['receipts', 'Thank-you receipts'],
   ['foundations', 'Foundation prospects'],
   ['kpi', 'KPI dashboard'],
+  ['brain', 'Favor brain'],
   ['stuck', 'If something looks wrong'],
 ].filter(([id]) => id !== 'videos' || VIDEOS.length);
 ---
@@ -121,6 +122,18 @@ const toc = [
         <h2>KPI dashboard</h2>
         <p>The year's numbers from Raiser's Edge, updated twice a day. Everyone sees the Executive page with the top-level numbers. Each team also sees its own tab: RDDs, Partner Care, Church Engagement, Grants, or Marketing, which has the newsletter results. If your job needs a tab you can't see, make a request.</p>
         <a class="h-btn h-btn--ghost h-btn--sm h-help__go" href="/dashboard/">Open the KPI dashboard</a>
+      </section>
+
+      <section id="brain" class="h-card">
+        <h2>Favor brain</h2>
+        <p>Connect Claude or ChatGPT to Favor once, then ask in plain words: "How many active partners do we have in Texas?" or "How do I enter a check gift in a batch?" The brain answers from Blackbaud, the KPI dashboard and Favor's manuals, using Favor's definitions. Long lists come back as a download link that works for 24 hours. It only reads; it never changes Blackbaud.</p>
+        <ol>
+          <li>Open <b>Favor brain</b> in the menu and copy the address.</li>
+          <li>In Claude: <b>Settings</b>, <b>Connectors</b>, <b>Add custom connector</b>. In ChatGPT: <b>Settings</b>, <b>Apps and connectors</b>, <b>Create</b> (turn on Developer mode first).</li>
+          <li>Sign in with your Favor Google account when it asks.</li>
+        </ol>
+        <p>The Favor brain page shows what you can ask about and your recent questions. If your work needs more, press <b>Ask for it</b> there and Will decides.</p>
+        <a class="h-btn h-btn--ghost h-btn--sm h-help__go" href="/brain/">Open Favor brain</a>
       </section>
 
       <section id="stuck" class="h-card">

@@ -28,7 +28,8 @@
   const said = (r) => {
     if (r.tool === 'ask') return r.question || 'A question';
     const what = TOOL[r.tool] || r.tool.replace(/_/g, ' ');
-    const detail = String(r.question || '').replace(/(limit|region|partner type|gift kind): [^;]+;? ?/g, '').replace(/; $/, '');
+    const detail = String(r.question || '').replace(/(limit|region|partner type|gift kind|compare last year|contacts): [^;]+;? ?/g, '').replace(/(query|question|team|id): /g, '').replace(/_/g, ' ').replace(/;\s*$/, '')
+      .replace(/^(pc|rdd|ce|grants|marketing|executive)\b/, (t) => ({ pc: 'Partner Care', rdd: 'RDDs', ce: 'Church Engagement', grants: 'Grants', marketing: 'Marketing', executive: 'Executive' })[t]);
     return detail ? `${what}: ${detail}` : what;
   };
   const OUTCOME = (o) => {
