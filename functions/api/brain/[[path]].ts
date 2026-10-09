@@ -4,7 +4,7 @@ import { errorJson, handleError, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 
 const BRAIN_URL = 'https://mcp.favorintl.org';
-const ROUTES = new Set(['GET me', 'POST request', 'POST ask', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
+const ROUTES = new Set(['GET me', 'POST request', 'POST ask', 'GET admin/names', 'POST admin/name-search', 'POST admin/alias', 'POST admin/alias-delete', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
 
 export const onRequest: PagesFunction<Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }> = async ({ request, env, params }) => {
   try {

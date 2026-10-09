@@ -17,6 +17,7 @@ const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true
         <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-atab="requests">Requests <span id="a-pending-n"></span></button>
         <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="people">People <span id="a-people-n"></span></button>
         <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="activity">Activity</button>
+        <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="names">Names <span id="a-missed-n"></span></button>
       </div>
     </header>
 
@@ -68,9 +69,37 @@ const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true
       <div class="h-card__body b-scroll"><table class="b-table" id="a-recent"></table><button type="button" class="h-more" id="a-more" hidden>Show more</button></div>
     </section>
 
+    <div class="b-apanel b-grid2" data-apanel="names" hidden>
+      <section class="h-card">
+        <div class="h-card__head"><span class="h-card__title">Names that missed</span><span class="h-card__meta">Last three weeks</span></div>
+        <div class="h-card__body"><ul class="b-list" id="a-missed"><li class="h-skel" style="height:80px"></li></ul></div>
+      </section>
+      <div class="ba-col">
+        <section class="h-card">
+          <div class="h-card__head"><span class="h-card__title">Teach a name</span></div>
+          <div class="h-card__body">
+            <form class="b-ask b-ask--open" id="a-alias">
+              <label class="h-label" for="a-term">The words people use</label>
+              <input id="a-term" maxlength="80" placeholder="For example: PBS Chad" required />
+              <label class="h-label" for="a-pick-q">What they mean</label>
+              <input id="a-pick-q" maxlength="80" placeholder="Search funds, campaigns and appeals" autocomplete="off" />
+              <ul class="ba-picks" id="a-picks"></ul>
+              <p class="b-msg" id="a-picked"></p>
+              <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary" id="a-alias-save" disabled>Save</button></div>
+              <p class="b-msg" id="a-alias-msg" role="status"></p>
+            </form>
+          </div>
+        </section>
+        <section class="h-card">
+          <div class="h-card__head"><span class="h-card__title">Names it knows</span></div>
+          <div class="h-card__body"><ul class="b-list" id="a-aliases"></ul></div>
+        </section>
+      </div>
+    </div>
+
     <section class="h-card ba-denied" id="a-denied" hidden>
       <p>This page is for the Brain's admin. <a href="/brain/">Back to Favor Brain</a></p>
     </section>
   </div>
-  <script is:inline src="/js/brain-admin.js?v=1" defer></script>
+  <script is:inline src="/js/brain-admin.js?v=2" defer></script>
 </App>

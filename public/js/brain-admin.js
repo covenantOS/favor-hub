@@ -157,6 +157,103 @@
       '</tbody>';
   }
 
+  // ---- Names: what missed, and teaching it the words people use ------------------------------
+  let picked = null;
+  const KIND = { fund: 'Fund', campaign: 'Campaign', appeal: 'Appeal' };
+  async function loadNames() {
+    let d;
+    try {
+      d = await api('admin/names');
+    } catch (err) {
+      $('a-missed').innerHTML = `<li class="b-empty">${esc(err.message)}</li>`;
+      return;
+    }
+    $('a-missed-n').textContent = d.missed.length ? String(d.missed.length) : '';
+    $('a-missed').innerHTML = d.missed.length
+      ? d.missed
+          .map(
+            (m) => `<li class="ba-miss"><div><b>${esc(m.question || m.tool)}</b><span>${esc(m.who)} · ${esc(when(m.at))}</span><q>${esc(m.reading || '')}</q>${
+              m.suggestion ? `<span>They found it next as <b>${esc(m.suggestion.name)}</b></span>` : ''
+            }</div>${
+              m.term
+                ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-teach="${esc(m.term)}"${m.suggestion ? ` data-sk="${esc(m.suggestion.kind)}" data-sid="${esc(m.suggestion.id)}" data-sname="${esc(m.suggestion.name)}"` : ''}>${m.suggestion ? 'Teach this' : 'Teach it'}</button>`
+                : ''
+            }</li>`
+          )
+          .join('')
+      : '<li class="b-empty">Nothing missed in the last three weeks.</li>';
+    $('a-aliases').innerHTML = d.aliases.length
+      ? d.aliases
+          .map((a) => `<li><div><b>${esc(a.term)}</b><span>${esc(KIND[a.kind] || a.kind)}: ${esc(a.entity_name || a.entity_id)} · ${esc(when(a.added_at))}</span></div><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-unalias="${a.id}">Remove</button></li>`)
+          .join('')
+      : '<li class="b-empty">None yet. Names usually resolve on their own; teach one when a name missed.</li>';
+  }
+  const pick = (p) => {
+    picked = p;
+    $('a-picked').textContent = p ? `Means: ${KIND[p.kind] || p.kind} ${p.name}` : '';
+    $('a-alias-save').disabled = !p;
+  };
+  let searchT = 0;
+  $('a-pick-q').addEventListener('input', () => {
+    clearTimeout(searchT);
+    const t = $('a-pick-q').value.trim();
+    if (t.length < 2) return ($('a-picks').innerHTML = '');
+    searchT = setTimeout(async () => {
+      try {
+        const d = await api('admin/name-search', { t });
+        $('a-picks').innerHTML = d.hits
+          .map((h) => `<li><button type="button" data-pick='${esc(JSON.stringify({ kind: h.kind, id: h.id, name: h.name }))}'>${esc(h.name)}<em>${esc(KIND[h.kind] || h.kind)}${h.code ? ' · ' + esc(h.code) : ''}${h.inactive ? ' · inactive' : ''}</em></button></li>`)
+          .join('');
+      } catch {}
+    }, 220);
+  });
+  document.addEventListener('click', async (e) => {
+    const pb = e.target.closest('[data-pick]');
+    if (pb) {
+      document.querySelectorAll('[data-pick]').forEach((x) => x.classList.toggle('is-on', x === pb));
+      return pick(JSON.parse(pb.dataset.pick));
+    }
+    const tb = e.target.closest('[data-teach]');
+    if (tb) {
+      $('a-term').value = tb.dataset.teach;
+      if (tb.dataset.sid) pick({ kind: tb.dataset.sk, id: tb.dataset.sid, name: tb.dataset.sname });
+      else {
+        $('a-pick-q').value = tb.dataset.teach;
+        $('a-pick-q').dispatchEvent(new Event('input'));
+      }
+      $('a-alias').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    const ub = e.target.closest('[data-unalias]');
+    if (ub) {
+      ub.disabled = true;
+      try {
+        await api('admin/alias-delete', { id: Number(ub.dataset.unalias) });
+        loadNames();
+      } catch (err) {
+        alert(err.message);
+        ub.disabled = false;
+      }
+    }
+  });
+  $('a-alias').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!picked) return;
+    $('a-alias-msg').textContent = 'Saving...';
+    try {
+      await api('admin/alias', { term: $('a-term').value.trim(), kind: picked.kind, id: picked.id, name: picked.name });
+      $('a-alias-msg').textContent = 'Saved. It works in questions within two minutes, on the hub and from Claude or ChatGPT.';
+      $('a-term').value = '';
+      $('a-pick-q').value = '';
+      $('a-picks').innerHTML = '';
+      pick(null);
+      document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'success' }));
+      loadNames();
+    } catch (err) {
+      $('a-alias-msg').textContent = err.message;
+    }
+  });
+
   $('a-grant').addEventListener('submit', async (e) => {
     e.preventDefault();
     $('a-grant-msg').textContent = 'Saving...';
@@ -169,4 +266,5 @@
     }
   });
   load();
+  loadNames();
 })();

@@ -540,6 +540,12 @@ body.h-body {
 .ba-stat span { font-size: 12.5px; color: var(--h-ink-3); }
 .ba-denied { padding: 28px; text-align: center; color: var(--h-ink-2); }
 .ba-col { display: grid; gap: 18px; align-content: start; min-width: 0; }
+.ba-picks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
+.ba-picks button { width: 100%; text-align: left; border: 1px solid var(--h-line); background: var(--h-ivory); border-radius: 12px; padding: 8px 12px; font: 500 13px var(--h-font); color: var(--h-ink); cursor: pointer; }
+.ba-picks button:hover, .ba-picks button.is-on { border-color: var(--h-brand); background: #fff; }
+.ba-picks em { font-style: normal; color: var(--h-ink-3); font-size: 12px; margin-left: 6px; }
+.ba-miss q { display: block; font-size: 12.5px; color: var(--h-ink-2); font-style: normal; overflow-wrap: anywhere; }
+.ba-miss .h-btn { flex: none; }
 
 @media (max-width: 1100px) {
   .b-cols, .b-grid2 { grid-template-columns: 1fr; }
