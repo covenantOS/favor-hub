@@ -141,3 +141,93 @@
       $('t-cards').innerHTML = `<div class="h-card h-empty" style="grid-column:1 / -1">${esc(err.message)}</div>`;
     });
 })();
+
+/* Your day: Blackbaud actions assigned to you, and (once connected) today's meetings, files and mail. */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const grid = $('d-grid');
+  if (!grid) return;
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
+  const time = (iso) => et(iso, { hour: 'numeric', minute: '2-digit' });
+  const ago = (iso) => {
+    const h = (Date.now() - new Date(iso)) / 36e5;
+    return h < 1 ? 'just now' : h < 24 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago';
+  };
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const card = (title, meta, body) =>
+    `<div class="h-card h-day__card"><div class="h-card__head"><div class="h-card__title">${title}</div><div class="h-card__meta">${meta}</div></div><div class="h-card__body">${body}</div></div>`;
+  const empty = (t) => `<p class="h-sub">${esc(t)}</p>`;
+
+  const note = new URLSearchParams(location.search).get('google');
+  const notes = { connected: 'Google is connected. Your meetings, files and mail now show here.', declined: 'Google was not connected.', 'wrong-account': 'Pick your Favor account when Google asks.', failed: 'Google did not connect. Try again.', expired: 'That took too long. Try again.', 'no-token': 'Google did not hand back access. Try again.' };
+  if (note && notes[note]) {
+    $('d-sub').textContent = notes[note];
+    history.replaceState(null, '', '/');
+  }
+
+  fetch('/api/hub/day', { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((d) => {
+      grid.removeAttribute('aria-busy');
+      const bb = d.blackbaud || {};
+      const g = d.google || {};
+      const partners = g.partners || {};
+      const partnerTag = (email) => (partners[email] ? ` <span class="h-chip h-chip--Foundations" title="In Blackbaud">${esc(partners[email].name)}</span>` : '');
+
+      let actions;
+      if (!bb.linked) actions = card('Blackbaud actions', '', empty('Your account is not linked to a fundraiser record in Blackbaud.'));
+      else if (!bb.actions.length) actions = card('Blackbaud actions', 'Next 7 days', empty('No open actions due this week.'));
+      else
+        actions = card(
+          'Blackbaud actions',
+          bb.overdue ? `<span class="h-status h-status--declined">${bb.overdue} overdue</span>` : 'Next 7 days',
+          `<ul class="h-mine">${bb.actions
+            .map(
+              (a) => `<li><a href="https://host.nxt.blackbaud.com/constituent/records/${esc(a.cid)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener" title="${esc(a.summary || a.type)}">${esc(a.partner || 'Partner')} · ${esc(a.summary || a.type || a.category)}</a><span class="h-status ${a.due < today ? 'h-status--declined' : 'h-status--wait'}">${esc(et(a.due + 'T12:00:00Z', { month: 'short', day: 'numeric' }))}</span></li>`
+            )
+            .join('')}</ul>${bb.total > bb.actions.length ? `<p class="h-sub" style="margin-top:8px">${bb.total - bb.actions.length} more in Blackbaud</p>` : ''}`
+        );
+
+      if (!g.connected) {
+        grid.innerHTML =
+          actions +
+          `<div class="h-card h-day__connect" style="grid-column:span 2"><div class="h-card__body"><b>See your meetings, files and mail here</b>
+            <p class="h-sub" style="margin:6px 0 12px">Connect your Favor Google account once. The hub reads today's calendar, the names of files shared with you, and who emailed you. It never opens an email or a file, and you can disconnect any time.</p>
+            <a class="h-btn h-btn--primary h-btn--sm" href="/api/google/connect">Connect my Google</a></div></div>`;
+        return;
+      }
+      const events = g.events
+        ? g.events.length
+          ? `<ul class="h-mine">${g.events
+              .map((e) => {
+                const who = e.people.map(partnerTag).join('');
+                return `<li><a href="${esc(e.meet || e.link)}" target="_blank" rel="noopener">${e.allDay ? 'All day' : esc(time(e.start))} · ${esc(e.title)}</a>${who}</li>`;
+              })
+              .join('')}</ul>`
+          : empty('Nothing on your calendar today.')
+        : empty('Your calendar could not be read just now.');
+      const mail = g.mail
+        ? g.mail.length
+          ? `<ul class="h-mine">${g.mail.slice(0, 6).map((m) => `<li><a href="${esc(m.link)}" target="_blank" rel="noopener" title="${esc(m.subject)}">${esc(m.from)} · ${esc(m.subject)}</a>${partnerTag(m.fromEmail)}</li>`).join('')}</ul>`
+          : empty('No unread mail from the last three days.')
+        : empty('Your inbox could not be read just now.');
+      const files = g.files
+        ? g.files.length
+          ? `<ul class="h-mine">${g.files.map((f) => `<li><a href="${esc(f.link)}" target="_blank" rel="noopener">${esc(f.name)}</a><span class="h-sub">${esc(f.by)} ${ago(f.modified)}</span></li>`).join('')}</ul>`
+          : empty('Nothing new shared with you this week.')
+        : empty('Drive could not be read just now.');
+      grid.innerHTML =
+        actions +
+        card('Today’s meetings', '<a class="h-link" href="https://calendar.google.com" target="_blank" rel="noopener">Calendar</a>', events) +
+        card('Unread mail', '<a class="h-link" href="https://mail.google.com" target="_blank" rel="noopener">Gmail</a>', mail) +
+        card('Shared with you', 'This week', files) +
+        `<p class="h-sub h-day__foot" style="grid-column:1 / -1">Google connected. <button type="button" class="h-more" id="d-disconnect">Disconnect</button></p>`;
+      $('d-disconnect').addEventListener('click', () =>
+        fetch('/api/google/disconnect', { method: 'POST', credentials: 'same-origin' }).then(() => location.reload())
+      );
+    })
+    .catch(() => {
+      grid.innerHTML = '<div class="h-card h-empty" style="grid-column:1 / -1">Your day could not load. Refresh to try again.</div>';
+    });
+})();

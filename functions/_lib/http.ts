@@ -23,6 +23,9 @@ export interface Env {
   HUB_SIGNIN?: string;
   /** The OAuth client the sign-in button uses (the KPI dashboard's client when unset). */
   GOOGLE_CLIENT_ID?: string;
+  /** Connect my Google: the OAuth client secret and the AES key for stored refresh tokens. */
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_TOKEN_KEY?: string;
   /** Workspace domain allowed to sign in (favorintl.org when unset). */
   HUB_GOOGLE_DOMAIN?: string;
   /** Comma separated emails with admin rights (will@favorintl.org when unset). */
