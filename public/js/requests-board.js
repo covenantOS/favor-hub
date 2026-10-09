@@ -34,6 +34,15 @@
 
   const clip = (s, n) => (s.length > n ? s.slice(0, n - 1) + '...' : s);
 
+  // The card shows the ask in the requester's words. The form adds Kind, Where and Location lines
+  // after it, and many asks repeat the title first; the drawer still shows all of it.
+  function preview(item) {
+    let text = String(item.body || '').split(/\s*(?:Kind|Where|Location):/)[0].trim();
+    const title = String(item.title || '').trim();
+    if (title && text.toLowerCase().startsWith(title.toLowerCase())) text = text.slice(title.length).replace(/^[\s.:,-]+/, '');
+    return clip(text, 140);
+  }
+
   async function api(path, opts = {}) {
     const res = await fetch(path, { credentials: 'same-origin', ...opts });
     const data = await res.json().catch(() => ({}));
@@ -71,16 +80,17 @@
       .map((a) => attThumb(a))
       .join('');
     const dragAttr = admin ? ' data-draggable="true"' : '';
-    return `<article class="req-card" data-id="${esc(item.id)}" style="--i:${index}"${dragAttr}>
+    return `<article class="req-card" data-id="${esc(item.id)}" style="--i:${Math.min(index, 8)}"${dragAttr}>
       <div class="req-card__kicker"><span>${esc(SURFACE[item.surface] || item.surface)}</span><span>${esc(item.submitter_name)}</span></div>
       <h3>${esc(item.title)}</h3>
-      <p>${esc(clip(item.body, 180))}</p>
+      ${preview(item) ? `<p>${esc(preview(item))}</p>` : ''}
       ${thumbs ? `<div class="req-thumbs">${thumbs}</div>` : ''}
     </article>`;
   }
 
   function renderBoard() {
     const declined = admin ? items.filter((i) => i.status === 'declined') : [];
+    const declinedOpen = Boolean(boardEl.querySelector('details[data-col="declined"][open]'));
     boardEl.innerHTML = COLS.map((c) => {
       const list = items.filter((i) => i.status === c.id);
       const body = list.length
@@ -94,10 +104,10 @@
     if (declined.length) {
       boardEl.insertAdjacentHTML(
         'beforeend',
-        `<section class="req-col req-col--wide" data-col="declined">
-          <div class="req-col__head"><h2>Declined</h2><span>${declined.length}</span></div>
+        `<details class="req-col req-col--wide" data-col="declined"${declinedOpen ? ' open' : ''}>
+          <summary class="req-col__head"><h2>Declined</h2><span>${declined.length}</span></summary>
           <div class="req-col__stack">${declined.map((item, i) => cardHtml(item, i)).join('')}</div>
-        </section>`
+        </details>`
       );
     }
     renderTabs();

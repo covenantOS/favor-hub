@@ -30,7 +30,7 @@ export interface HubUser {
   picture: string;
   role: HubRole;
   via: HubVia;
-  /** Sees the KPI dashboard and the year's numbers in the hub (hub_users.kpi, or an admin). */
+  /** Opens the KPI dashboard in the hub. Every staff account does; the dashboard itself limits each team's tab. */
   kpi: boolean;
 }
 
@@ -238,7 +238,7 @@ export async function recordSignIn(env: Env, claims: GoogleClaims, email: string
     .bind(now, now, email)
     .run();
   const admin = row.role === 'admin' || isAdminEmail(env, row.email);
-  return { email: row.email, name: row.name || email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: admin || row.kpi === 1 };
+  return { email: row.email, name: row.name || email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: true };
 }
 
 export async function logAuth(env: Env, request: Request, email: string, event: string, detail = ''): Promise<void> {
@@ -279,7 +279,7 @@ export async function resolveUser(env: Env, request: Request): Promise<HubUser |
         await env.DB.prepare('UPDATE hub_sessions SET last_seen = ? WHERE token_hash = ?').bind(nowIso(), hash).run().catch(() => undefined);
       }
       const admin = row.role === 'admin' || isAdminEmail(env, row.email);
-      return { email: row.email, name: row.name || row.email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: admin || row.kpi === 1 };
+      return { email: row.email, name: row.name || row.email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: true };
     }
   }
 

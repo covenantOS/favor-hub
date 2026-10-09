@@ -73,7 +73,13 @@ type Goals = { goals?: { annualGoal?: number } };
  * The year against goal and each team against its goal, as the KPI dashboard shows them.
  * Kept for fifteen minutes; the dashboard's numbers change once or twice a day.
  */
-export async function kpiSummary(env: Env, who: { email: string; name: string }): Promise<KpiSummary> {
+// Today's year card shows only team totals against goals, which every staff member may see (Will,
+// 2026-10-08). The KPI dashboard limits each team's tab by person, so the hub reads those totals under
+// a leadership account and caches one copy for everyone.
+const SUMMARY_READER = { email: 'will@favorintl.org', name: 'Staff hub' };
+
+export async function kpiSummary(env: Env): Promise<KpiSummary> {
+  const who = SUMMARY_READER;
   const cache = (caches as unknown as { default: Cache }).default;
   const hit = await cache.match(SUMMARY_CACHE).catch(() => undefined);
   if (hit) return (await hit.json()) as KpiSummary;

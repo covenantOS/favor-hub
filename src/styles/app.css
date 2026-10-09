@@ -157,6 +157,7 @@ body.h-body::before { display: none; }
 
 .h-page { padding: 26px 28px 64px; max-width: 1320px; width: 100%; }
 .h-page--wide { max-width: none; padding: 0; }
+.h-page--full { max-width: none; }
 
 /* ------------------------------------------------------------ parts */
 
@@ -310,6 +311,98 @@ body.h-body::before { display: none; }
 .h-page .req-col__head h2 { font-size: 15px; }
 .h-page .make-step h2 { font-size: 22px; }
 .h-page .board-intro__actions a.req-submit[href='/requests/new'] { display: none; }
+/* the request board: compact cards, long words wrap, Declined folds away */
+.h-page .board-intro { margin-bottom: 10px; }
+.h-page .board-hint { margin: 0 0 12px; font-size: 13px; font-weight: 600; color: var(--h-ink-2); }
+.h-page .req-col { min-height: 0; padding: 10px; }
+.h-page .req-col__head { margin-bottom: 8px; padding: 2px 4px 8px; }
+.h-page .req-col__stack { min-height: 0; }
+.h-page .req-card { padding: 11px 12px; margin-bottom: 8px; min-width: 0; animation: none; }
+.h-page .req-card__kicker { margin-bottom: 5px; }
+.h-page .req-card__kicker span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-page .req-card h3 { font-size: 14px; overflow-wrap: anywhere; margin-bottom: 4px; }
+.h-page .req-card p { font-size: 12.5px; line-height: 1.45; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+.h-page .req-empty { padding: 8px 4px; font-size: 13px; color: var(--h-ink-3); }
+.h-page details.req-col { margin-top: 2px; }
+.h-page details.req-col > summary { list-style: none; cursor: pointer; margin: 0; border-bottom: 0; }
+.h-page details.req-col > summary::-webkit-details-marker { display: none; }
+.h-page details.req-col > summary h2::before { content: '\25B8'; display: inline-block; margin-right: 8px; color: var(--h-ink-3); transition: transform 0.15s; }
+.h-page details.req-col[open] > summary { margin-bottom: 10px; border-bottom: 1px solid var(--h-line); }
+.h-page details.req-col[open] > summary h2::before { transform: rotate(90deg); }
+.h-page .req-col--wide .req-col__stack { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.h-page .req-col--wide .req-card { margin: 0; }
+/* On a desktop each column scrolls inside itself, so the board fits one screen however long Done gets. */
+@media (min-width: 981px) {
+  .h-page .req-col:not(.req-col--wide) { display: flex; flex-direction: column; height: calc(100vh - 214px); min-height: 360px; }
+  .h-page .req-col:not(.req-col--wide) .req-col__stack { flex: 1; min-height: 0; overflow-y: auto; margin-right: -4px; padding-right: 4px; scrollbar-width: thin; }
+}
+
+/* the expense log: the request table first and full width, settings folded underneath */
+.h-page .exp-page .container { max-width: none; }
+.h-page .exp-lede { margin: 0 0 14px; }
+.h-page .exp-admin-grid { gap: 14px; }
+.h-page .exp-settings > summary { cursor: pointer; font-weight: 800; font-size: 15px; list-style: none; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.h-page .exp-settings > summary::-webkit-details-marker { display: none; }
+.h-page .exp-settings > summary::before { content: '\25B8'; color: var(--h-ink-3); transition: transform 0.15s; }
+.h-page .exp-settings[open] > summary { margin-bottom: 14px; }
+.h-page .exp-settings[open] > summary::before { transform: rotate(90deg); }
+.h-page .exp-settings > summary small { font-weight: 500; font-size: 13px; color: var(--h-ink-3); }
+@media (min-width: 861px) { .h-page #exp-log { max-height: calc(100vh - 250px); min-height: 320px; overflow: auto; margin: 0 -8px; padding: 0 8px; } }
+.h-page .exp-admin-table th { position: sticky; top: 0; background: #fff; z-index: 1; padding-top: 4px; }
+.h-page .exp-admin-table td { padding: 8px; }
+.h-page .exp-admin-table td { white-space: nowrap; }
+.h-page .exp-admin-table td:nth-child(4) { white-space: normal; min-width: 140px; }
+.h-page .exp-admin-table td:nth-child(5) { white-space: normal; max-width: 300px; }
+.h-page .exp-admin-table tr.exp-admin-detail td { white-space: normal; }
+.h-page .exp-head { float: right; margin: 0 0 8px 16px; }
+@media (max-width: 860px) { .h-page #exp-log { overflow-x: auto; } }
+
+/* Foundation prospects: shorter rows, the list scrolls under its own header */
+.h-page .fnd-check__box input::placeholder { font-style: normal; font-weight: 500; }
+.h-page .fnd-band { padding-top: 16px; padding-bottom: 16px; }
+.h-page .fnd-band .ticker__num { font-size: clamp(26px, 2.6vw, 34px); }
+.h-page .fnd-table td { padding: 8px; font-size: 14px; }
+@media (min-width: 861px) { .h-page .fnd-name { display: inline; } .h-page .fnd-sub { display: inline; margin: 0 0 0 10px; font-size: 12.5px; } }
+@media (min-width: 861px) { .h-page .fnd-table-wrap { max-height: calc(100vh - 150px); overflow: auto; } }
+.h-page .fnd-table thead th { position: sticky; top: 0; background: #fff; z-index: 1; padding-top: 6px; }
+
+@media (max-width: 720px) {
+  .h-page .fnd-table td { padding: 0; }
+  .h-page .fnd-table tr.exp-admin-row { padding: 10px 2px; }
+  .h-page .fnd-name { overflow-wrap: anywhere; }
+  .h-page .fnd-sub { margin: 0; }
+  .h-page .fnd-table td:nth-child(5) { margin-top: 6px; }
+}
+
+/* the expense log on a phone: one card per request */
+@media (max-width: 860px) {
+  .h-page .exp-head { float: none; margin: 0 0 12px; justify-content: flex-start; }
+  .h-page .exp-head > div:first-child { display: none; }
+  .h-page .exp-admin-table, .h-page .exp-admin-table tbody, .h-page .exp-admin-table td { display: block; width: 100%; }
+  .h-page .exp-admin-table tr:has(th) { display: none; }
+  .h-page .exp-admin-table tr.exp-admin-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; border-top: 1px solid var(--h-line); padding: 10px 0; }
+  .h-page .exp-admin-table tr.exp-admin-row td { border: 0; padding: 0; white-space: normal; width: auto; min-width: 0; }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(1) { font-weight: 700; }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(2) { font-size: 12.5px; color: var(--h-ink-3); }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(3) br, .h-page .exp-admin-table tr.exp-admin-row td:nth-child(3) span { display: none; }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(4) { font-size: 12.5px; color: var(--h-ink-3); }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(4)::before { content: 'Approver: '; }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(5) { margin-top: 6px; }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(6) { grid-column: 2; grid-row: 1; text-align: right; }
+  .h-page .exp-admin-table tr.exp-admin-row td:nth-child(7) { grid-column: 2; grid-row: 2 / span 3; text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .h-page .exp-admin-table tr.exp-admin-detail td { padding: 0 0 14px; }
+}
+
+/* newsletter analytics in the app's type */
+.h-page .na-intro { padding-top: 0; }
+.h-page .na-intro .na-intro__eyebrow { display: none; }
+.h-page .na-intro h1 { font-size: clamp(22px, 2.4vw, 28px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.2; }
+.h-page .na-intro h1 em, .h-page .na-section__title em { font-style: normal; font-weight: inherit; color: inherit; }
+.h-page .na-intro .na-intro__lede { font-style: normal; font-weight: 500; font-size: 14px; color: var(--h-ink-2); margin-top: 8px; }
+.h-page .na-linkbar__head { flex-wrap: wrap; row-gap: 2px; }
+.h-page .na-linkbar__label { min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 860px) { .h-page .na-card { min-width: 0; max-width: 100%; overflow-x: auto; } .h-page .na-card table { min-width: 100%; } .h-page .na-links { grid-template-columns: minmax(0, 1fr); } }
+
 .h-route-restart { background: none; border: 0; padding: 0; margin-left: 14px; font: 600 13px 'Montserrat', sans-serif; color: var(--h-ink-3); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
 /* the search box the older pages share */
@@ -332,7 +425,8 @@ body.h-body::before { display: none; }
   .h-page { padding: 18px 16px 72px; }
   .h-page--wide { padding: 0; }
   .h-g4, .h-g3, .h-g2, .h-g21 { grid-template-columns: 1fr; }
-  .h-team { grid-template-columns: 1fr 44px; }
+  .h-team { grid-template-columns: 1fr 44px; row-gap: 6px; align-items: start; }
+  .h-feed li:nth-child(n+7) { display: none; }
   .h-team .h-bar { grid-column: 1 / -1; grid-row: 2; }
   .h-feed li { grid-template-columns: 1fr; gap: 4px; }
   .h-btn--primary .h-lbl { display: none; }

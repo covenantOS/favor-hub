@@ -1,7 +1,7 @@
 ---
 // The KPI dashboard inside the hub, exactly as kpi.favorintl.org shows it. The hub hands the person
-// over with /api/kpi/enter, so there is no second sign-in. Leadership only until Will sets each
-// person's access.
+// over with /api/kpi/enter, so there is no second sign-in. Every staff member opens it; the dashboard
+// shows each person the Executive page and only their own team's tab (kpi-dashboard backend/access.js).
 import App from '../../layouts/App.astro';
 ---
 <App title="KPI dashboard" crumb="Dashboard" nav="kpi" wide description="The KPI dashboard inside the hub.">

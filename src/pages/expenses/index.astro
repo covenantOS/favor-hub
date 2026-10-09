@@ -3,7 +3,7 @@ import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 ---
-<App title="Expense log" crumb="Work" nav="expenses" description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too.">
+<App full title="Expense log" crumb="Work" nav="expenses" description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too.">
   <div class="exp-page">
     <div class="container">
       <div class="exp-head">
@@ -16,7 +16,7 @@ import '../../styles/expenses.css';
           <button type="button" class="req-ghost" id="exp-lock" hidden>Lock</button>
         </div>
       </div>
-      <p class="exp-lede">Every request, its status, and the signed PDF. The approver schedule and the on-approval distribution list are managed here.</p>
+      <p class="exp-lede">Every request, its status and the signed PDF. Click a row for the detail. Approvers and the email list are under Log settings at the bottom.</p>
 
       <div class="board-login" id="exp-denied" hidden>
         <p id="exp-denied-msg">The expense log is open to the approvers and the people they add.</p>
@@ -35,6 +35,11 @@ import '../../styles/expenses.css';
 
       <div id="exp-admin" class="exp-admin-grid" hidden>
         <div class="make-sheet">
+          <span class="exp-legend">Requests</span>
+          <div id="exp-log"></div>
+        </div>
+        <details class="make-sheet exp-settings">
+          <summary>Log settings <small>Approvers, the approval email list, mileage, substitutes and who can open this log</small></summary>
           <span class="exp-legend">Approver &amp; distribution</span>
           <div class="exp-settings-row">
             <label class="req-field"><span>Default approver name</span><input id="exp-set-name" maxlength="80" /></label>
@@ -85,12 +90,8 @@ import '../../styles/expenses.css';
           <small>The code unlocks this log until Google sign-in is switched on. Change it here any time, and use the new code on the next sign-in.</small>
           <p class="req-msg" id="exp-code-msg" aria-live="polite"></p>
           </div>
-        </div>
+        </details>
 
-        <div class="make-sheet">
-          <span class="exp-legend">Requests</span>
-          <div id="exp-log"></div>
-        </div>
       </div>
     </div>
   </div>

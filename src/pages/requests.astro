@@ -2,7 +2,7 @@
 import App from '../layouts/App.astro';
 import '../styles/requests.css';
 ---
-<App title="Request board" crumb="Work" nav="board" description="What the team has asked to change, what Will has approved, and what is finished.">
+<App full title="Request board" crumb="Work" nav="board" description="What the team has asked to change, what Will has approved, and what is finished.">
   <div class="board-page">
     <div class="container">
       <header class="board-intro">
@@ -39,5 +39,5 @@ import '../styles/requests.css';
     <div class="req-drawer__scrim" data-close></div>
     <aside class="req-drawer__panel" id="req-drawer-panel"></aside>
   </div>
-  <script is:inline src="/js/requests-board.js?v=3"></script>
+  <script is:inline src="/js/requests-board.js?v=4"></script>
 </App>
