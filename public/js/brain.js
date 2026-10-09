@@ -191,7 +191,7 @@
       'beforeend',
       thread.map((e, i) => (e.kind === 'q' ? `<div class="b-msg-q">${esc(e.q)}</div>` : e.kind === 'nudge' ? NUDGE : answerHtml(e, i === lastA))).join('')
     );
-    $('b-input').placeholder = thread.length ? 'Ask a follow-up, or a new question' : 'Ask a question in plain words';
+    $('b-input').placeholder = thread.length ? 'Ask another question' : 'Ask a question in plain words';
     box.scrollTop = top;
   }
   // The question a follow-up builds on: the last answer that went through.
@@ -204,16 +204,22 @@
     return '';
   };
 
-  async function ask(q) {
+  // fromBox is true when the words came out of the box: the box empties the moment they are sent and the
+  // cursor stays in it. A question from a button (an example, a follow-up) leaves a half-typed draft alone.
+  async function ask(q, fromBox) {
     q = String(q || '').trim();
     if (q.length < 2 || $('b-send').disabled) return;
     const box = $('b-thread');
+    const input = $('b-input');
     const prev = previous();
+    if (fromBox) {
+      input.value = '';
+      grow();
+      input.focus({ preventScroll: true });
+    }
     thread.push({ kind: 'q', q });
     save();
     render();
-    $('b-input').value = '';
-    grow();
     $('b-send').disabled = true;
     busy = true;
     box.insertAdjacentHTML('beforeend', '<div class="b-think" role="status"><i></i><i></i><i></i>Reading your question</div>');
@@ -224,10 +230,12 @@
       entry = { kind: 'a', q, text: d.text, reading: d.reading, outcome: d.outcome, ref: d.ref, intent: d.intent, asked: d.asked_as, how: d.follow_up };
       thread.push(entry);
       if (d.nudge) thread.push({ kind: 'nudge' });
-      if (d.outcome === 'clarify') $('b-input').value = q;
+      // The words come back only when the send failed, and only if nothing new has been typed since.
+      if (d.outcome === 'error') retype(q, fromBox);
       cue('droplet');
     } catch (err) {
       thread.push({ kind: 'a', q, text: err.message, outcome: 'error', ref: err.ref });
+      retype(q, fromBox);
     }
     save();
     render();
@@ -244,17 +252,27 @@
     t.style.height = 'auto';
     t.style.height = Math.min(t.scrollHeight, 168) + 'px';
   };
+  // A question that did not go through goes back into the box so it is not lost.
+  const retype = (q, fromBox) => {
+    const t = $('b-input');
+    if (!fromBox || t.value) return;
+    t.value = q;
+    grow();
+  };
   $('b-input').addEventListener('input', grow);
+  // Enter sends, Shift+Enter adds a line.
   $('b-input').addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
-      ask($('b-input').value);
+      ask($('b-input').value, true);
     }
   });
   $('b-compose').addEventListener('submit', (e) => {
     e.preventDefault();
-    ask($('b-input').value);
+    ask($('b-input').value, true);
   });
+  // Pressing Ask does not take the cursor out of the box, so the keyboard stays up on a phone.
+  $('b-send').addEventListener('mousedown', (e) => e.preventDefault());
   $('b-clear').addEventListener('click', () => {
     thread = [];
     save();
