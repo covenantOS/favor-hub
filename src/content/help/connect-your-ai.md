@@ -16,12 +16,11 @@ Open **Favor Brain** in the menu and press **Copy** beside the address. The addr
 
 ## Claude (any plan, free included)
 
-1. Open **claude.ai** or the Claude app, then **Customize** and **Connectors**.
-2. Press **+ Add**, then **Add custom connector**.
-3. Name it **Favor**, paste the address and press **Continue**.
-4. Claude shows the sign-in settings it detected. Leave them as they are and press **Continue**, then **Add**.
-5. Press **Connect** beside Favor and sign in with your Favor Google account.
-6. In a chat, press **+** at the lower left, then **Connectors**, and turn **Favor** on.
+1. Open **claude.ai** or the Claude app, sign in, then press **Customize** and **Connectors**.
+2. If you use Claude through the Favor organization, **Favor** is already in your list under **Yours**. Press **Connect** beside it and go to step 4.
+3. If you use your own Claude account, press **+ Add**, then **Add custom connector**. Name it **Favor**, paste the address and press **Continue**.
+4. A Favor page opens. Press **Continue with Google** and sign in with your **@favorintl.org** account. Claude shows "Connected to Favor."
+5. Start a chat and ask a question. The first time, Claude asks to use Favor: press **Allow once**, or **Always allow** so it stops asking.
 
 Claude's free plan allows one custom connector, which is all you need.
 
