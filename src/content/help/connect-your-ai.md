@@ -20,7 +20,8 @@ Open **Favor Brain** in the menu and press **Copy** beside the address. The addr
 2. If you use Claude through the Favor organization, **Favor** is already in your list under **Yours**. Press **Connect** beside it and go to step 4.
 3. If you use your own Claude account, press **+ Add**, then **Add custom connector**. Name it **Favor**, paste the address and press **Continue**.
 4. A Favor page opens. Press **Continue with Google** and sign in with your **@favorintl.org** account. Claude shows "Connected to Favor."
-5. Start a chat and ask a question. The first time, Claude asks to use Favor: press **Allow once**, or **Always allow** so it stops asking.
+5. Press **Favor** in your connector list. Under **Tool permissions**, change **Read-only tools** from **Needs approval** to **Always allow**. We recommend this because Favor Brain has its own protections, and otherwise Claude asks permission on every question.
+6. Start a chat and ask a question.
 
 Claude's free plan allows one custom connector, which is all you need.
 
