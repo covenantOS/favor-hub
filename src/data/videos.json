@@ -38,6 +38,19 @@
   "cut": "2026-10-09c"
  },
  {
+  "slug": "connect-the-brain",
+  "title": "Connect Claude to Favor Brain",
+  "added": "2026-10-09",
+  "topic": "brain",
+  "roles": [
+   "all"
+  ],
+  "summary": "One-time setup in Claude: Connect or add Favor, sign in with your Favor Google account, set read-only tools to Always allow, and ask your first question.",
+  "seconds": 63,
+  "transcript": "This is how you connect Claude to Favor Brain. You do it one time, and it takes about a minute. Open claude.ai, sign in, then press Customize, and Connectors. If you use Claude through Favor, Favor is already in your list. Press Connect beside it. On your own Claude account, press Add, then Add custom connector. Name it Favor, paste the address from the Favor Brain page, and press Continue. A Favor page opens. Press Continue with Google, and sign in with your Favor account. Claude shows Favor as connected. Next, open Favor, and change read only tools from Needs approval to Always allow. Favor Brain has its own protections, so we recommend it. Now ask a question, the way you would ask a coworker. Claude answers from Favor, with the same numbers you see on the Favor Brain page.",
+  "cut": "2026-10-09a"
+ },
+ {
   "slug": "first-week-in-blackbaud",
   "title": "Your first week in Blackbaud",
   "added": "2026-10-06",
