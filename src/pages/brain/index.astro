@@ -1,0 +1,122 @@
+---
+// The Favor brain: how to connect Claude or ChatGPT, what this person may see, their recent questions,
+// and (for Will) access requests, people and the call log. Data comes from the brain itself
+// (mcp.favorintl.org/hub through /api/brain), so the access rules live in one place.
+import App from '../../layouts/App.astro';
+---
+<App title="Favor brain" crumb="Favor Hub" nav="brain" description="Ask Claude or ChatGPT about Favor's partners, giving and manuals.">
+  <div class="b-page">
+    <section class="b-hero">
+      <div>
+        <h1>Favor brain</h1>
+        <p class="h-lede">Connect Claude or ChatGPT once, then ask about partners, giving, team numbers, grants and Favor's manuals in plain words. The brain answers from Blackbaud and the KPI dashboard with Favor's definitions, hands long lists back as a download, and only reads. It never changes Blackbaud.</p>
+      </div>
+      <div class="b-addr h-card">
+        <span class="h-label">The address to paste</span>
+        <div class="b-addr__row"><code id="b-url">https://mcp.favorintl.org/mcp</code><button type="button" class="h-btn h-btn--primary h-btn--sm" id="b-copy">Copy</button></div>
+        <span class="b-muted">Sign in with your @favorintl.org Google account when it asks.</span>
+      </div>
+    </section>
+
+    <div class="b-grid">
+      <section class="h-card b-connect">
+        <div class="h-card__head"><span class="h-card__title">Connect your AI</span></div>
+        <div class="h-card__body">
+          <div class="b-tabs" role="tablist">
+            <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-tab="claude">Claude</button>
+            <button type="button" role="tab" class="b-tab" aria-selected="false" data-tab="chatgpt">ChatGPT</button>
+          </div>
+          <ol class="b-steps" data-panel="claude">
+            <li>Open <b>claude.ai</b> (or the Claude app) and go to <b>Settings</b>, then <b>Connectors</b>.</li>
+            <li>Press <b>Add custom connector</b>. Name it <b>Favor</b> and paste the address.</li>
+            <li>Press <b>Connect</b>. Choose <b>Continue with Google</b> and pick your Favor account.</li>
+            <li>In a new chat, open the tools menu and turn <b>Favor</b> on. Ask away.</li>
+          </ol>
+          <ol class="b-steps" data-panel="chatgpt" hidden>
+            <li>Open <b>chatgpt.com</b>, then <b>Settings</b>, then <b>Apps and connectors</b>.</li>
+            <li>Under <b>Advanced</b>, turn on <b>Developer mode</b>.</li>
+            <li>Press <b>Create</b>. Name it <b>Favor</b>, paste the address and choose <b>OAuth</b>.</li>
+            <li>Sign in with your Favor Google account. In a chat, pick <b>Favor</b> from the plus menu.</li>
+          </ol>
+          <p class="b-muted">One connection per app. If it ever asks again, sign in again the same way.</p>
+        </div>
+      </section>
+
+      <section class="h-card b-access">
+        <div class="h-card__head"><span class="h-card__title">What you can ask about</span><span class="h-card__meta" id="b-role"></span></div>
+        <div class="h-card__body">
+          <ul class="b-pkgs" id="b-pkgs" aria-busy="true"><li class="h-skel" style="height:120px"></li></ul>
+          <form class="b-ask" id="b-ask" hidden>
+            <label class="h-label" for="b-ask-pkg">Ask Will for</label>
+            <select id="b-ask-pkg" name="package"></select>
+            <label class="h-label" for="b-ask-why">Why your work needs it</label>
+            <input id="b-ask-why" name="reason" maxlength="300" placeholder="For example: I call lapsed partners in my region" required />
+            <label class="h-label" for="b-ask-days">For how long</label>
+            <select id="b-ask-days" name="days"><option value="7">A week</option><option value="30" selected>A month</option><option value="90">Three months</option><option value="365">A year</option></select>
+            <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Send the request</button><button type="button" class="h-btn h-btn--ghost" id="b-ask-cancel">Cancel</button></div>
+            <p class="b-msg" id="b-ask-msg" role="status"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="h-card b-try">
+        <div class="h-card__head"><span class="h-card__title">Good first questions</span></div>
+        <div class="h-card__body">
+          <ul class="b-egs" id="b-egs"></ul>
+          <p class="b-muted">Each answer ends with a line saying how the brain read your question, so you can correct it. Lists come as a download link that works for 24 hours.</p>
+        </div>
+      </section>
+
+      <section class="h-card b-recent">
+        <div class="h-card__head"><span class="h-card__title">Your recent questions</span><span class="h-card__meta" id="b-calls"></span></div>
+        <div class="h-card__body"><ul class="b-list" id="b-recent"><li class="h-skel" style="height:80px"></li></ul></div>
+      </section>
+    </div>
+
+    <section class="h-card b-rules">
+      <div class="h-card__body">
+        <div><b>Only reads.</b><span>It can't change Blackbaud, send email or post anything. It tells you where to do that.</span></div>
+        <div><b>Favor's definitions.</b><span>Active, LYBUNT, lapsed and major partners match the KPI dashboard exactly.</span></div>
+        <div><b>Your role decides.</b><span>You see what your job needs. Every question is logged.</span></div>
+        <div><b>Keep lists inside Favor.</b><span>Don't paste Blackbaud exports into an AI. Ask the brain instead.</span></div>
+      </div>
+    </section>
+
+    <div id="admin" hidden>
+      <h2 class="b-h2">Brain admin</h2>
+      <div class="b-grid">
+        <section class="h-card">
+          <div class="h-card__head"><span class="h-card__title">Access requests</span><span class="h-card__meta" id="a-pending-n"></span></div>
+          <div class="h-card__body"><ul class="b-list" id="a-pending"></ul></div>
+        </section>
+        <section class="h-card">
+          <div class="h-card__head"><span class="h-card__title">Give or remove access</span></div>
+          <div class="h-card__body">
+            <form class="b-ask" id="a-grant">
+              <label class="h-label" for="a-email">Staff email</label>
+              <input id="a-email" name="email" list="a-people" placeholder="name@favorintl.org" required />
+              <datalist id="a-people"></datalist>
+              <label class="h-label" for="a-pkg">Package</label>
+              <select id="a-pkg" name="package"></select>
+              <label class="h-label" for="a-effect">Change</label>
+              <select id="a-effect" name="effect"><option value="allow">Give it</option><option value="deny">Take it away</option></select>
+              <label class="h-label" for="a-days">Until</label>
+              <select id="a-days" name="days"><option value="30">A month from today</option><option value="90">Three months</option><option value="365">A year</option><option value="0">No end date</option></select>
+              <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Save</button></div>
+              <p class="b-msg" id="a-grant-msg" role="status"></p>
+            </form>
+          </div>
+        </section>
+      </div>
+      <section class="h-card b-wide">
+        <div class="h-card__head"><span class="h-card__title">People</span><span class="h-card__meta">Defaults follow each person's team; changes show in gold</span></div>
+        <div class="h-card__body b-scroll"><table class="b-table" id="a-people-t"></table></div>
+      </section>
+      <section class="h-card b-wide">
+        <div class="h-card__head"><span class="h-card__title">Recent questions, everyone</span></div>
+        <div class="h-card__body b-scroll"><table class="b-table" id="a-recent"></table></div>
+      </section>
+    </div>
+  </div>
+  <script src="/js/brain.js?v=1" defer></script>
+</App>

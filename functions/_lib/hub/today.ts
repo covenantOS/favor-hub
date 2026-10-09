@@ -63,19 +63,29 @@ export interface Counts {
   inbox: number;
   expensesWaiting: number;
   receiptsLeft: number;
+  brainRequests: number;
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access): Promise<Counts> {
-  const [inbox, exp, file] = await Promise.all([
+  const [inbox, exp, file, brain] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
+    access.admin ? brainPending(env) : null,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
     expensesWaiting: Number(exp?.n) || 0,
     receiptsLeft: file && fileIsMine(file, user, access) ? Math.max(0, file.gifts - file.marked) : 0,
+    brainRequests: Number(brain?.n) || 0,
   };
+}
+
+/** Favor brain access requests waiting for a decision (the brain writes them to this database). */
+async function brainPending(env: Env) {
+  return env.DB.prepare("SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_requests WHERE status = 'pending'")
+    .first<{ n: number; oldest: string | null }>()
+    .catch(() => null);
 }
 
 export interface Card {
@@ -130,6 +140,25 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         warn: false,
         href: '/requests/',
         cta: 'Review the board',
+      });
+    }
+  }
+  if (access.admin) {
+    const brain = await brainPending(env);
+    const n = Number(brain?.n) || 0;
+    if (n) {
+      const first = await env.DB.prepare("SELECT name, email, package FROM brain_requests WHERE status = 'pending' ORDER BY id LIMIT 1")
+        .first<{ name: string; email: string; package: string }>()
+        .catch(() => null);
+      cards.push({
+        id: 'brain',
+        label: 'Favor brain',
+        n,
+        what: n === 1 ? 'access request to decide' : 'access requests to decide',
+        note: first ? `Oldest: ${first.name || first.email}, ${first.package}` : '',
+        warn: false,
+        href: '/brain/#admin',
+        cta: 'Decide',
       });
     }
   }
