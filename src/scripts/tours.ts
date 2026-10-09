@@ -211,7 +211,7 @@ export const STEPS: Step[] = [
     via: 'brain-admin',
     at: '.b-atabs',
     title: 'Who may ask about what',
-    body: 'Access requests wait here for your decision, People shows what each person can see with your changes in gold, and Activity lists every question.',
+    body: 'Access requests wait here for your decision, People shows what each person can see with your changes in gold, Activity lists every question, and Names shows questions whose fund or campaign name missed, where you can teach it the words people use.',
     for: (w) => w.admin,
     added: '2026-10-09',
     side: 'bottom',
