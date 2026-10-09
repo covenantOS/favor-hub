@@ -31,21 +31,9 @@
   "roles": [
    "all"
   ],
-  "summary": "Ask Favor from your own AI: what it answers, how lists come back, and how it keeps partner data safe.",
-  "seconds": 64,
-  "transcript": "Meet the Favor Brain. It connects your own AI, Claude or ChatGPT, to Favor's partner data, the KPI dashboard, and Favor's manuals. So you can ask in plain words. How many active partners do we have in North Carolina? It answers in seconds, and tells you exactly how it read your question. Ask for a list, and it comes back as a download, ready for a spreadsheet. Every number follows Favor's definitions, the same ones the KPI dashboard uses. Ask how to do something, and it finds the steps in Favor's manuals. It only reads. You see what your role allows. And every question is logged. You connect it once, from the Favor Brain page in the hub. Open Favor Brain at dash.favorintl.org, and connect it today."
- },
- {
-  "slug": "connect-the-brain",
-  "title": "The Favor Brain: connect it and ask",
-  "added": "2026-10-09",
-  "topic": "brain",
-  "roles": [
-   "all"
-  ],
-  "summary": "Connect Claude or ChatGPT, ask good questions, read how it understood you, download lists and ask for more access.",
-  "seconds": 140,
-  "transcript": "Here's how to connect the Favor Brain, and how to get good answers from it. In the hub, open Favor Brain from the menu. This page has the address, the steps, and what you're able to ask about. Press Copy, next to the address. In Claude, open Settings, then Connectors. Press Add custom connector. Name it Favor, paste the address, and press Add. Then press Connect. A Favor page asks you to confirm. Press Continue with Google, and choose your Favor account. Claude is now connected. In a new chat, open the tools menu, and make sure Favor is on. Using ChatGPT instead? Open Settings, and then go to Apps and connectors. Under Advanced, turn on Developer mode. Press Create, name it Favor, paste the address, and choose OAuth. Then sign in with Google, the same way. Now ask the way you'd ask a coworker. How much have we raised each month this year? Every answer ends with how the Brain read your question. If it read you wrong, say what you meant, and ask again. Ask for a list, and you get a short preview, and a download link. The link works for one day. Open it, and the spreadsheet saves to your computer. It can also read your own calendar, unread email, and Drive files. Only yours, and only to answer you. Back in the hub, the Favor Brain page shows what you're able to ask about. If your work needs more, press Ask for it, and say why. The hub admin decides, and the Brain picks it up on your next question. It never changes anything in Blackbaud, and it never sends email or posts. Ask it how, and it points you to the steps in the manual. And please don't paste Blackbaud exports into an AI. Ask the Brain instead. Open Favor Brain at dash.favorintl.org, and connect it today."
+  "summary": "The one-minute launch: ask Claude about partners, giving, team numbers and the manuals, with real answers from the Favor Brain.",
+  "seconds": 55,
+  "transcript": "Meet the Favor Brain. Ask about partners, giving, team numbers and Favor's manuals, the way you'd ask a coworker. Answers come back in seconds, counted the way our KPI dashboard counts. Need a list? You get a spreadsheet, ready to go. Connect Claude once, from the Favor Brain page in the hub. It's in beta, so try it today and tell us how it does."
  },
  {
   "slug": "first-week-in-blackbaud",

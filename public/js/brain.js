@@ -72,7 +72,7 @@
   );
 
   const EXAMPLES = {
-    base: ['How is Favor doing this year against goal?', 'What counts as a LYBUNT partner?', 'How do I enter a check gift in a batch?', 'What meetings do I have today?'],
+    base: ['How is Favor doing this year against goal?', 'What counts as a LYBUNT partner?', 'How do I approve a gift batch?', 'What meetings do I have today?'],
     partners: ['How many active partners do we have in North Carolina?', 'List lapsed major partners in Texas with their largest gift', 'How much did we raise in September, by appeal category?', 'Show gifts of $5,000 or more this year'],
     rdd: ['Who are my LYBUNT partners?', "What's my portfolio total this year?"],
     pc: ['Which partners gave their first gift this month?', 'Which partners are ready to move to an RDD?'],

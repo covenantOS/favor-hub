@@ -24,7 +24,7 @@ Each answer ends with a line saying how Ask Favor read your question, for exampl
 
 - "How is Favor doing this year against goal?"
 - "What counts as a LYBUNT partner?"
-- "How do I enter a check gift in a batch?"
+- "How do I approve a gift batch?"
 - "What meetings do I have today?"
 - "How much did we raise in September, by appeal category?" (leadership and fundraising teams)
 - "Show gifts of $5,000 or more this year." (leadership and fundraising teams)

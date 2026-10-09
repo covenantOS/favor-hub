@@ -20,7 +20,7 @@ Ask Favor is new. Most answers are right, and some will be off. Every answer end
 
 - **Favor-wide numbers** from the Executive tab, for everyone.
 - **Your team's numbers**, the way your dashboard tab shows them.
-- **Definitions and the manuals**: "What counts as a LYBUNT partner?", "How do I enter a check gift in a batch?"
+- **Definitions and the manuals**: "What counts as a LYBUNT partner?", "How do I approve a gift batch?"
 - **Your own day**: today's meetings, unread mail and recent files, from your Google account.
 - **Partner records and giving, lists and totals**, for leadership and the fundraising teams.
 

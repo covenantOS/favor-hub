@@ -30,4 +30,4 @@ Every video below has captions, and the words spoken in it are searchable from t
 
 ## Can't find it?
 
-Ask Favor answers how-to questions from the staff manuals: "How do I enter a check gift in a batch?" If a job has no video yet and should, send feedback and say which one.
+Ask Favor answers how-to questions from the staff manuals: "How do I approve a gift batch?" If a job has no video yet and should, send feedback and say which one.
