@@ -5,11 +5,11 @@ topic: ask
 order: 5
 related: [ask-favor, lists-and-downloads]
 tool: /brain/
-toolLabel: Open Favor brain
+toolLabel: Open Favor Brain
 updated: 2026-10-09
 ---
 
-Ask Favor starts everyone with what their job needs and nothing more. Your access shows under **What you can ask about** on the Favor brain page.
+Ask Favor starts everyone with what their job needs and nothing more. Your access shows under **What you can ask about** on the Favor Brain page.
 
 ## The packages
 
@@ -25,7 +25,7 @@ Nothing in any package can change Blackbaud, send email or post anything. Ask Fa
 
 ## Asking for more
 
-1. On the Favor brain page, press **Ask for it** beside the package.
+1. On the Favor Brain page, press **Ask for it** beside the package.
 2. Say why your work needs it, in one line, and for how long: a week, a month, three months or a year.
 3. Press **Send the request**. It shows as **Waiting for Will** until he decides.
 

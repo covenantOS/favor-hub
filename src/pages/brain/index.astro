@@ -1,17 +1,17 @@
 ---
-// The Favor brain: how to connect Claude or ChatGPT, what this person may see, their recent questions,
-// and (for Will) access requests, people and the call log in three tabs. Data comes from the brain
+// The Favor Brain: how to connect Claude or ChatGPT, what this person may see, their recent questions,
+// and (for Will) access requests, people and the call log in three tabs. Data comes from the Brain
 // itself (mcp.favorintl.org/hub through /api/brain), so the access rules live in one place.
 import App from '../../layouts/App.astro';
 
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 ---
-<App title="Favor brain" crumb="Ask Favor" nav="brain" description="Ask Claude or ChatGPT about Favor's partners, giving and manuals.">
+<App title="Favor Brain" crumb="Ask Favor" nav="brain" description="Ask Claude or ChatGPT about Favor's partners, giving and manuals.">
   <div class="b-page">
     <section class="h-card b-hero">
       <div class="b-hero__text">
         <span class="h-label">Ask Favor, from your own AI</span>
-        <h1>Favor brain <em class="h-beta h-beta--lg">Beta</em></h1>
+        <h1>Favor Brain <em class="h-beta h-beta--lg">Beta</em></h1>
         <p class="h-lede">Connect Claude or ChatGPT once. Then ask about partners, giving, team numbers and Favor's manuals in plain words, and get answers counted the way the KPI dashboard counts them.</p>
         <div class="b-hero__acts">
           <a class="h-btn h-btn--ghost" href="/help/videos/connect-the-brain/"><Fragment set:html={I('<path d="m10 8 6 4-6 4z"/><circle cx="12" cy="12" r="9"/>')} />Watch how (2 min)</a>
@@ -41,17 +41,18 @@ const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true
           </div>
           <div class="h-card__body">
             <ol class="b-steps" data-panel="claude">
-              <li>Open <b>claude.ai</b> (or the Claude app), then <b>Settings</b> and <b>Connectors</b>.</li>
-              <li>Press <b>Add custom connector</b>. Name it <b>Favor</b> and paste the address.</li>
-              <li>Press <b>Connect</b>, choose <b>Continue with Google</b> and pick your Favor account.</li>
-              <li>In a new chat, open the tools menu and turn <b>Favor</b> on.</li>
+              <li>Open <b>claude.ai</b> or the Claude app, then <b>Customize</b> and <b>Connectors</b>.</li>
+              <li>Press <b>+ Add</b>, then <b>Add custom connector</b>. Name it <b>Favor</b>, paste the address and press <b>Continue</b> twice.</li>
+              <li>Press <b>Add</b>, then <b>Connect</b>, and sign in with your Favor Google account.</li>
+              <li>In a chat, press <b>+</b> at the lower left, then <b>Connectors</b>, and turn <b>Favor</b> on.</li>
             </ol>
             <ol class="b-steps" data-panel="chatgpt" hidden>
-              <li>Open <b>chatgpt.com</b>, then <b>Settings</b> and <b>Apps and connectors</b>.</li>
-              <li>Under <b>Advanced</b>, turn on <b>Developer mode</b>.</li>
-              <li>Press <b>Create</b>. Name it <b>Favor</b>, paste the address and choose <b>OAuth</b>.</li>
-              <li>Sign in with your Favor Google account. In a chat, pick <b>Favor</b> from the plus menu.</li>
+              <li>This needs ChatGPT Business, Enterprise or Edu, or a Pro plan. On the free and Plus plans, use Claude.</li>
+              <li>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</li>
+              <li>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</li>
+              <li>In a chat, pick <b>Favor</b> from the tools menu.</li>
             </ol>
+            <p class="b-muted b-plan">Claude's free plan works: it allows one custom connector.</p>
           </div>
         </section>
 

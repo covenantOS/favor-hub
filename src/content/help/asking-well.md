@@ -35,4 +35,4 @@ If a question could mean two things, Ask Favor asks which one you meant instead 
 
 ## When the answer is off
 
-Press **Not right** beside the question on the Favor brain page and say what you expected, or tell your AI. Your note goes to Will with the exact question and how it was read, so the fix is quick.
+Press **Not right** beside the question on the Favor Brain page and say what you expected, or tell your AI. Your note goes to Will with the exact question and how it was read, so the fix is quick.

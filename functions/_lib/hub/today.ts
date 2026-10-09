@@ -93,7 +93,7 @@ async function feedbackWaiting(env: Env, user: HubUser, access: Access) {
   return q.first<{ n: number; oldest: string | null }>().catch(() => null);
 }
 
-/** Favor brain access requests waiting for a decision (the brain writes them to this database). */
+/** Favor Brain access requests waiting for a decision (the Brain writes them to this database). */
 async function brainPending(env: Env) {
   return env.DB.prepare("SELECT COUNT(*) AS n, MIN(at) AS oldest FROM brain_requests WHERE status = 'pending'")
     .first<{ n: number; oldest: string | null }>()
@@ -164,7 +164,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         .catch(() => null);
       cards.push({
         id: 'brain',
-        label: 'Favor brain',
+        label: 'Favor Brain',
         n,
         what: n === 1 ? 'access request to decide' : 'access requests to decide',
         note: first ? `Oldest: ${first.name || first.email}, ${first.package}` : '',

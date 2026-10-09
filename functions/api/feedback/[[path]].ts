@@ -1,4 +1,4 @@
-// Feedback on the hub, Ask Favor (the brain) and the help docs. Everyone can send a note and see their
+// Feedback on the hub, Ask Favor (the Brain) and the help docs. Everyone can send a note and see their
 // own notes and replies; the hub admin sees every note and marks each one seen, fixed or not now, with
 // a reply the sender reads. Ask Favor's give_feedback tool writes to the same table (brain_feedback).
 //

@@ -22,7 +22,7 @@ Read [How the numbers are counted](/help/kpi-definitions/) first: households, so
 
 ## Ask Favor gave a wrong answer
 
-Press **Not right** beside the question on the Favor brain page and say what you expected. The note carries the exact question and how it was read.
+Press **Not right** beside the question on the Favor Brain page and say what you expected. The note carries the exact question and how it was read.
 
 ## You need something built or changed
 

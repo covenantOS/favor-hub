@@ -6,7 +6,7 @@ order: 1
 videos: [meet-the-brain]
 related: [connect-your-ai, asking-well, access, feedback]
 tool: /brain/
-toolLabel: Open Favor brain
+toolLabel: Open Favor Brain
 updated: 2026-10-09
 ---
 
@@ -14,7 +14,7 @@ Ask Favor connects your own AI, Claude or ChatGPT, to Favor. You ask in plain wo
 
 ## It is in beta
 
-Ask Favor is new. Most answers are right, and some will be off. Every answer ends with how it read your question and a short reference. When an answer is wrong, confusing or missing something, say so: press **Not right** beside it on the Favor brain page, or tell your AI "that number is wrong because..." and it passes your note along. Will reads every note.
+Ask Favor is new. Most answers are right, and some will be off. Every answer ends with how it read your question and a short reference. When an answer is wrong, confusing or missing something, say so: press **Not right** beside it on the Favor Brain page, or tell your AI "that number is wrong because..." and it passes your note along. Will reads every note.
 
 ## What it can answer
 

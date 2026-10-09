@@ -1,6 +1,6 @@
 // The Feedback button on every page. It opens a short form (what kind of note, a few words), sends it
 // with the page the person was on, and says where the answer will show. Other parts of the hub open
-// the same form with a starting point: the Favor brain page passes an answer reference so the note is
+// the same form with a starting point: the Favor Brain page passes an answer reference so the note is
 // tied to the exact question.
 import { cue } from './feel';
 

@@ -36,5 +36,5 @@ Press the **three lines** at the top left to open the menu. Everything works the
 | Print thank-you letters | Thank-you receipts |
 | Check a foundation before you call | Foundation prospects |
 | See how the year is going | KPI dashboard |
-| Ask a question about partners, giving or the manuals | Favor brain (Ask Favor) |
+| Ask a question about partners, giving or the manuals | Favor Brain (Ask Favor) |
 | Learn how something works | Help docs and Training videos |

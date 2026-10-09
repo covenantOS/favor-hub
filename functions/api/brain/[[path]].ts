@@ -1,5 +1,5 @@
-// The Favor brain page's calls, passed to the brain (mcp.favorintl.org/hub/...) with the hub's key and
-// the signed-in person's email. The brain keeps the access rules; the hub only says who is asking.
+// The Favor Brain page's calls, passed to the Brain (mcp.favorintl.org/hub/...) with the hub's key and
+// the signed-in person's email. The Brain keeps the access rules; the hub only says who is asking.
 import { errorJson, handleError, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 
@@ -12,7 +12,7 @@ export const onRequest: PagesFunction<Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const path = ([] as string[]).concat((params.path as string[] | string) || []).join('/');
     if (!ROUTES.has(`${request.method} ${path}`)) return errorJson('not_found', 'No such brain route.', 404);
-    if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The brain is not connected to the hub yet.', 503);
+    if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to the hub yet.', 503);
     const res = await fetch(`${(env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '')}/hub/${path}`, {
       method: request.method,
       headers: {

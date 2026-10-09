@@ -1,5 +1,5 @@
-/* Favor brain page: connect steps, the person's access and recent questions, and Will's admin panel.
-   Everything comes from /api/brain (the brain's own rules). */
+/* Favor Brain page: connect steps, the person's access and recent questions, and Will's admin panel.
+   Everything comes from /api/brain (the Brain's own rules). */
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -14,7 +14,7 @@
       body: body ? JSON.stringify(body) : undefined,
     });
     const d = await res.json().catch(() => ({}));
-    if (!res.ok || d.ok === false) throw new Error(d.message || d.error || 'The brain did not answer (' + res.status + ').');
+    if (!res.ok || d.ok === false) throw new Error(d.message || d.error || 'The Brain did not answer (' + res.status + ').');
     return d;
   };
   // How each kind of call reads in a list: the question itself, or what the tool did.

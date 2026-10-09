@@ -20,7 +20,7 @@ The note goes with the page you were on, so you don't have to explain where you 
 
 ## Other ways to send one
 
-- **Ask Favor answers**: press **Right** or **Not right** beside a question on the Favor brain page, or tell your AI what was off.
+- **Ask Favor answers**: press **Right** or **Not right** beside a question on the Favor Brain page, or tell your AI what was off.
 - **Help articles**: answer **Was this helpful?** at the bottom of any article.
 - **The tour**: say whether it helped when it ends.
 
