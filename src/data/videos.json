@@ -1,15 +1,15 @@
 [
  {
   "slug": "meet-the-hub",
-  "title": "Meet the new Favor hub",
-  "added": "2026-10-08",
+  "title": "Meet the new Favor Hub",
+  "added": "2026-10-09",
   "topic": "hub",
   "roles": [
    "all"
   ],
-  "summary": "A one-minute look at the hub: one sign-in, Today, the menu, Make a request, the KPI dashboard and search.",
-  "seconds": 58,
-  "transcript": "The Favor hub has a new look, and it's ready for you today. You sign in once, with your Favor Google account. No more separate passwords for each page. You land on Today. It shows what's waiting on you, how the year is going, and what's been happening. Every tool is in one menu on the left. Need something from someone? Click Make a request. Say it in a sentence, and the hub sends it to the right place. The KPI dashboard lives inside the hub now. Everyone sees the year's top numbers, and each team sees its own. Press Control and K to find any tool in a second. And Help shows you around whenever you need it. Open dash.favorintl.org and take a look."
+  "summary": "The one-minute launch: one Google sign-in, Today, Make a request, every tool in one menu, and the tour that shows you around.",
+  "seconds": 55,
+  "transcript": "Meet the new Favor Hub. One Google sign-in opens every tool you use at Favor. Today shows what's waiting on you, and where the year stands. Make a request in your own words, and the hub sends it to the right place. Expenses, thank-you receipts, foundation prospects and the KPI dashboard all sit in one menu. New here? Press Help and what's new, and it shows you around. Sign in today at dash.favorintl.org."
  },
  {
   "slug": "hub-walk-through",

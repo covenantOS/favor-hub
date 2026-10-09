@@ -475,3 +475,7 @@ body.h-body {
 .h-skip { top: -120px; }
 .b-q { border-radius: 16px; }
 .b-pkgs__mark, .b-pkgs li.is-on .b-pkgs__mark { color: #fbfaf6; }
+
+/* Nothing waiting: one quiet card in the row, not a banner across it. */
+.h-board .h-allclear { grid-column: auto; flex-direction: column; justify-content: center; text-align: center; gap: 14px; color: var(--h-ink-3); font: 500 15px var(--h-font); }
+.h-board .h-allclear .h-start__icon { width: 48px; height: 48px; }
