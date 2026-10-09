@@ -4,14 +4,14 @@ export const TOPICS: Array<{ id: string; label: string; blurb: string }> = [
   { id: 'work', label: 'Requests and expenses', blurb: 'Asking for work, the request board, expense requests' },
   { id: 'partners', label: 'Receipts and foundations', blurb: 'Thank-you receipts and foundation prospects' },
   { id: 'numbers', label: 'The KPI dashboard', blurb: 'Reading the dashboard and how each number is counted' },
-  { id: 'ask', label: 'Ask Favor (beta)', blurb: 'Connecting Claude or ChatGPT and asking well' },
+  { id: 'ask', label: 'Favor Brain (beta)', blurb: 'Asking questions, connecting Claude or ChatGPT, and asking well' },
   { id: 'blackbaud', label: 'Blackbaud', blurb: 'Raiser\'s Edge NXT training on video' },
   { id: 'help', label: 'Help and feedback', blurb: 'The tour, feedback, and what to do when something looks wrong' },
 ];
 
 export const VIDEO_TOPICS: Record<string, string> = {
   hub: 'The hub',
-  brain: 'Ask Favor',
+  brain: 'Favor Brain',
   blackbaud: 'Blackbaud',
   grants: 'Grants',
   rdd: 'RDDs',

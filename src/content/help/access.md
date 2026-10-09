@@ -1,6 +1,6 @@
 ---
 title: Who sees what, and asking for more
-summary: Your role decides what Ask Favor can show you. How to see your access and ask for more.
+summary: Your role decides what you can ask about. How to see your access and ask for more.
 topic: ask
 order: 5
 related: [ask-favor, lists-and-downloads]
@@ -9,7 +9,7 @@ toolLabel: Open Favor Brain
 updated: 2026-10-09
 ---
 
-Ask Favor starts everyone with what their job needs and nothing more. Your access shows under **What you can ask about** on the Favor Brain page.
+Favor Brain starts everyone with what their job needs and nothing more. Your access shows under **What you can ask about** on the Favor Brain page.
 
 ## The packages
 
@@ -21,7 +21,6 @@ Ask Favor starts everyone with what their job needs and nothing more. Your acces
 | iWave capacity | iWave capacity ratings on records and lists | Leadership, RDDs |
 | Contact details in lists | Phones, emails and addresses in lists beyond your own assigned partners | The hub admin |
 
-Nothing in any package can change Blackbaud, send email or post anything. Ask Favor only reads.
 
 ## Asking for more
 
@@ -31,6 +30,6 @@ Nothing in any package can change Blackbaud, send email or post anything. Ask Fa
 
 You can also ask your AI: "I need partner contact details for my region's mailing." It sends the same request.
 
-## Every question is logged
+## Who sees your questions
 
-Each question, who asked it and what came back is kept, so mistakes can be traced and fixed.
+Will can see each question, who asked it and what came back, so he can trace and fix a wrong answer.

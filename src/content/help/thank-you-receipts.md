@@ -32,5 +32,5 @@ Only one print file can be open at a time. If you made the file, it shows on you
 
 ## If something goes wrong
 
-- **Made the file by mistake**: press **Throw it away** before marking. Nothing in Blackbaud changes.
+- **Made the file by mistake**: press **Throw this print file away** before marking. Nothing in Blackbaud changes.
 - **Marking stopped partway**: open the page again. It finishes the marking where it stopped.

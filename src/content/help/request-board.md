@@ -12,7 +12,7 @@ updated: 2026-10-09
 ## The columns
 
 - **Inbox**: new and waiting for review.
-- **Approved**: accepted and waiting its turn.
+- **Approved**: next in line.
 - **In motion**: being worked on.
 - **Done**: finished. The person who asked gets an email when a card lands here.
 

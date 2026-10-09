@@ -33,7 +33,7 @@ function render() {
   dlg.innerHTML = `
     <form method="dialog" class="fb-form" novalidate>
       <div class="fb-head">
-        <h2 id="fb-title">${esc(ctx.title || (brain ? 'How did Ask Favor do?' : 'Send feedback'))}</h2>
+        <h2 id="fb-title">${esc(ctx.title || (brain ? 'How was this answer?' : 'Send feedback'))}</h2>
         <button type="button" class="tr-x" data-fb-close aria-label="Close">&#x2715;</button>
       </div>
       ${ctx.question ? `<p class="fb-q"><span>Your question</span>${esc(ctx.question)}</p>` : ''}

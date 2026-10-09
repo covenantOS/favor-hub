@@ -20,7 +20,7 @@ The note goes with the page you were on, so you don't have to explain where you 
 
 ## Other ways to send one
 
-- **Ask Favor answers**: press **Right** or **Not right** beside a question on the Favor Brain page, or tell your AI what was off.
+- **Favor Brain answers**: press **Right** or **Not right** under the answer on the Favor Brain page, or beside it under **Your recent questions**, or tell your AI what was off.
 - **Help articles**: answer **Was this helpful?** at the bottom of any article.
 - **The tour**: say whether it helped when it ends.
 
@@ -30,4 +30,4 @@ Every note is read. When Will answers, the answer shows on your **Feedback** pag
 
 ## For the hub admin
 
-The Feedback page lists every note, newest first, with who sent it, where from, and for Ask Favor notes, the exact question and how it was read. Mark each one **Mark read**, **Fixed** or **Not now**, and write an answer when it needs one. New notes count beside Feedback in the menu and show on Today.
+The Feedback page lists every note, newest first, with who sent it, where from, and for Favor Brain notes, the exact question and how it was read. Mark each one **Mark read**, **Fixed** or **Not now**, and write an answer when it needs one. New notes count beside Feedback in the menu and show on Today.

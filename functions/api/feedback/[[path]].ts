@@ -1,6 +1,6 @@
-// Feedback on the hub, Ask Favor (the Brain) and the help docs. Everyone can send a note and see their
+// Feedback on the hub, Favor Brain and the help docs. Everyone can send a note and see their
 // own notes and replies; the hub admin sees every note and marks each one seen, fixed or not now, with
-// a reply the sender reads. Ask Favor's give_feedback tool writes to the same table (brain_feedback).
+// a reply the sender reads. The give_feedback tool writes to the same table (brain_feedback).
 //
 //   POST /api/feedback              { source, rating, comment, ref?, page?, question? }
 //   GET  /api/feedback/mine         the signed-in person's notes
@@ -29,7 +29,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       const ref = String(b.ref || '').trim().toLowerCase().slice(0, 12) || null;
       let question = String(b.question || '').trim().slice(0, 600) || null;
       let reading: string | null = null;
-      // An Ask Favor answer reference ties the note to the exact question and how it was read.
+      // A Favor Brain answer reference ties the note to the exact question and how it was read.
       if (ref) {
         const row = await env.DB.prepare('SELECT args, reading FROM mcp_audit WHERE ref = ? AND email = ? ORDER BY id DESC LIMIT 1')
           .bind(ref, user.email)

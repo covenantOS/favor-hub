@@ -169,7 +169,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         what: n === 1 ? 'access request to decide' : 'access requests to decide',
         note: first ? `Oldest: ${first.name || first.email}, ${first.package}` : '',
         warn: false,
-        href: '/brain/#admin',
+        href: '/brain/admin/',
         cta: 'Decide',
       });
     }

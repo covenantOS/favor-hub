@@ -1,0 +1,76 @@
+---
+// Brain admin: access requests, who sees what, and every question asked. Open to the Brain's admin
+// only; the Brain itself checks the email on every admin call, so the page only hides itself.
+import App from '../../../layouts/App.astro';
+
+const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+---
+<App title="Brain admin" crumb="Favor Brain" nav="brain-admin" description="Decide access requests, see who can ask about what, and read every question asked.">
+  <div class="b-page">
+    <header class="ba-head">
+      <div>
+        <a class="ba-back" href="/brain/"><Fragment set:html={I('<path d="M19 12H5"/><path d="m11 6-6 6 6 6"/>')} />Favor Brain</a>
+        <h1>Brain admin</h1>
+        <p class="h-lede">Decide access requests, change who can ask about what, and read every question asked.</p>
+      </div>
+      <div class="b-tabs b-atabs" role="tablist" aria-label="Brain admin">
+        <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-atab="requests">Requests <span id="a-pending-n"></span></button>
+        <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="people">People <span id="a-people-n"></span></button>
+        <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="activity">Activity</button>
+      </div>
+    </header>
+
+    <div class="ba-stats" id="a-stats" aria-busy="true">
+      <div class="ba-stat"><b id="s-pending">&nbsp;</b><span>Requests waiting</span></div>
+      <div class="ba-stat"><b id="s-calls">&nbsp;</b><span>Calls in the last 30 days</span></div>
+      <div class="ba-stat"><b id="s-people">&nbsp;</b><span>People asking, last 30 days</span></div>
+      <div class="ba-stat"><b id="s-miss">&nbsp;</b><span>Of the last 60 calls, did not finish</span></div>
+    </div>
+
+    <div class="b-apanel b-grid2" data-apanel="requests">
+      <div class="ba-col">
+        <section class="h-card">
+          <div class="h-card__head"><span class="h-card__title">Waiting for you</span></div>
+          <div class="h-card__body"><ul class="b-list" id="a-pending"><li class="h-skel" style="height:80px"></li></ul></div>
+        </section>
+        <section class="h-card">
+          <div class="h-card__head"><span class="h-card__title">Decided lately</span></div>
+          <div class="h-card__body"><ul class="b-list" id="a-decided"></ul></div>
+        </section>
+      </div>
+      <section class="h-card">
+        <div class="h-card__head"><span class="h-card__title">Give or remove access</span></div>
+        <div class="h-card__body">
+          <form class="b-ask b-ask--open" id="a-grant">
+            <label class="h-label" for="a-email">Staff email</label>
+            <input id="a-email" name="email" list="a-people" placeholder="name@favorintl.org" required />
+            <datalist id="a-people"></datalist>
+            <div class="b-ask__two">
+              <div><label class="h-label" for="a-pkg">Package</label><select id="a-pkg" name="package"></select></div>
+              <div><label class="h-label" for="a-effect">Change</label><select id="a-effect" name="effect"><option value="allow">Give it</option><option value="deny">Take it away</option></select></div>
+            </div>
+            <label class="h-label" for="a-days">Until</label>
+            <select id="a-days" name="days"><option value="30">A month from today</option><option value="90">Three months</option><option value="365">A year</option><option value="0">No end date</option></select>
+            <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Save</button></div>
+            <p class="b-msg" id="a-grant-msg" role="status"></p>
+          </form>
+        </div>
+      </section>
+    </div>
+
+    <section class="h-card b-apanel" data-apanel="people" hidden>
+      <div class="h-card__head"><span class="h-card__title">Who sees what</span><input class="b-find" id="a-find" type="search" placeholder="Find a person" aria-label="Find a person" /></div>
+      <div class="h-card__body b-scroll"><table class="b-table" id="a-people-t"></table></div>
+    </section>
+
+    <section class="h-card b-apanel" data-apanel="activity" hidden>
+      <div class="h-card__head"><span class="h-card__title">Every question, newest first</span></div>
+      <div class="h-card__body b-scroll"><table class="b-table" id="a-recent"></table><button type="button" class="h-more" id="a-more" hidden>Show more</button></div>
+    </section>
+
+    <section class="h-card ba-denied" id="a-denied" hidden>
+      <p>This page is for the Brain's admin. <a href="/brain/">Back to Favor Brain</a></p>
+    </section>
+  </div>
+  <script is:inline src="/js/brain-admin.js?v=1" defer></script>
+</App>

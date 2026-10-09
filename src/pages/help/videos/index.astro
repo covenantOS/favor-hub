@@ -8,7 +8,7 @@ import videos from '../../../data/videos.json';
 const used = Object.entries(VIDEO_TOPICS).filter(([k]) => videos.some((v) => v.topic === k));
 const total = Math.round(videos.reduce((n, v) => n + v.seconds, 0) / 60);
 ---
-<App title="Training videos" crumb="Learn" nav="videos" description="Training videos for the hub, Ask Favor and Blackbaud.">
+<App title="Training videos" crumb="Learn" nav="videos" description="Training videos for the hub, Favor Brain and Blackbaud.">
   <div class="hd-wrap hd-wrap--wide">
     <HelpSide current="videos" />
     <div class="hd-lib">

@@ -1,147 +1,96 @@
 ---
-// The Favor Brain: how to connect Claude or ChatGPT, what this person may see, their recent questions,
-// and (for Will) access requests, people and the call log in three tabs. Data comes from the Brain
-// itself (mcp.favorintl.org/hub through /api/brain), so the access rules live in one place.
+// The Favor Brain: ask it a question right here, connect Claude or ChatGPT, see what this person may
+// ask about and their recent questions. Answers come from the Brain itself (mcp.favorintl.org/hub
+// through /api/brain), so the access rules live in one place. Admin lives at /brain/admin/.
 import App from '../../layouts/App.astro';
 
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 ---
-<App title="Favor Brain" crumb="Ask Favor" nav="brain" description="Ask Claude or ChatGPT about Favor's partners, giving and manuals.">
+<App title="Favor Brain" crumb="Favor Brain" nav="brain" description="Ask about partners, giving, team numbers, grants and the manuals, here or from Claude or ChatGPT.">
   <div class="b-page">
-    <section class="h-card b-hero">
-      <div class="b-hero__text">
-        <span class="h-label">Ask Favor, from your own AI</span>
+    <header class="b-head">
+      <div class="b-head__text">
+        <span class="h-label">Ask about Favor in plain words</span>
         <h1>Favor Brain <em class="h-beta h-beta--lg">Beta</em></h1>
-        <p class="h-lede">Connect Claude or ChatGPT once. Then ask about partners, giving, team numbers and Favor's manuals in plain words, and get answers counted the way the KPI dashboard counts them.</p>
-        <div class="b-hero__acts">
-          <a class="h-btn h-btn--ghost" href="/help/videos/meet-the-brain/"><Fragment set:html={I('<path d="m10 8 6 4-6 4z"/><circle cx="12" cy="12" r="9"/>')} />Watch the one-minute intro</a>
-          <a class="h-btn h-btn--ghost" href="/help/connect-your-ai/"><Fragment set:html={I('<path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/>')} />Connect, step by step</a>
+        <p class="h-lede">Ask about partners, giving, every team's numbers, grants, actions and the manuals. Try it here. For the full conversation, connect Claude or ChatGPT below.</p>
+      </div>
+      <div class="b-head__acts">
+        <a class="h-btn h-btn--ghost" href="/help/videos/meet-the-brain/"><Fragment set:html={I('<path d="m10 8 6 4-6 4z"/><circle cx="12" cy="12" r="9"/>')} />Watch the one-minute intro</a>
+        <a class="h-btn h-btn--ghost b-adminlink" id="b-adminlink" href="/brain/admin/" hidden><Fragment set:html={I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')} />Brain admin<span class="b-adminlink__n" id="b-adminlink-n" hidden></span></a>
+      </div>
+    </header>
+
+    <section class="h-card b-chat" id="b-chat" aria-label="Ask a question">
+      <div class="h-card__head">
+        <span class="h-card__title">Ask a question</span>
+        <button type="button" class="b-clear" id="b-clear" hidden>Start over</button>
+      </div>
+      <div class="b-thread" id="b-thread" aria-live="polite">
+        <div class="b-start" id="b-start">
+          <p>Ask the way you would ask a colleague. Lists come back as a download.</p>
+          <ul class="b-egs" id="b-egs"></ul>
         </div>
       </div>
-      <div class="b-addr">
-        <span class="h-label">The address to paste</span>
-        <div class="b-addr__row"><code id="b-url">https://mcp.favorintl.org/mcp</code><button type="button" class="h-btn h-btn--primary h-btn--sm" id="b-copy">Copy</button></div>
-        <span class="b-muted">Sign in with your @favorintl.org Google account when it asks.</span>
-        <div class="b-betanote">
-          <em class="h-beta">Beta</em>
-          <span>Answers can be off. Press <b>Not right</b> under Your recent questions, or tell your AI, and it reaches Will.</span>
-          <button type="button" class="b-betanote__btn" data-feedback="hub-brain" data-title="Feedback on Ask Favor">Send feedback</button>
-        </div>
-      </div>
+      <form class="b-compose" id="b-compose">
+        <label class="sr-only" for="b-input">Your question</label>
+        <textarea id="b-input" rows="1" maxlength="600" placeholder="Ask a question in plain words" autocomplete="off"></textarea>
+        <button type="submit" class="h-btn h-btn--primary b-send" id="b-send"><Fragment set:html={I('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>')} />Ask</button>
+      </form>
+      <p class="b-chatfoot"><em class="h-beta">Beta</em> Answers can be off. Press <b>Not right</b> under an answer and your note reaches Will.</p>
     </section>
 
     <div class="b-cols">
-      <div class="b-col">
-        <section class="h-card b-connect">
-          <div class="h-card__head"><span class="h-card__title">Connect in four steps</span>
-            <div class="b-tabs" role="tablist">
-              <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-tab="claude">Claude</button>
-              <button type="button" role="tab" class="b-tab" aria-selected="false" data-tab="chatgpt">ChatGPT</button>
-            </div>
+      <section class="h-card b-connect" id="connect">
+        <div class="h-card__head"><span class="h-card__title">Use it from Claude or ChatGPT</span>
+          <div class="b-tabs" role="tablist">
+            <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-tab="claude">Claude</button>
+            <button type="button" role="tab" class="b-tab" aria-selected="false" data-tab="chatgpt">ChatGPT</button>
           </div>
-          <div class="h-card__body">
-            <ol class="b-steps" data-panel="claude">
-              <li>Open <b>claude.ai</b> or the Claude app, then <b>Customize</b> and <b>Connectors</b>.</li>
-              <li>Press <b>+ Add</b>, then <b>Add custom connector</b>. Name it <b>Favor</b>, paste the address and press <b>Continue</b> twice.</li>
-              <li>Press <b>Add</b>, then <b>Connect</b>, and sign in with your Favor Google account.</li>
-              <li>In a chat, press <b>+</b> at the lower left, then <b>Connectors</b>, and turn <b>Favor</b> on.</li>
-            </ol>
-            <ol class="b-steps" data-panel="chatgpt" hidden>
-              <li>This needs ChatGPT Business, Enterprise or Edu, or a Pro plan. On the free and Plus plans, use Claude.</li>
-              <li>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</li>
-              <li>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</li>
-              <li>In a chat, pick <b>Favor</b> from the tools menu.</li>
-            </ol>
-            <p class="b-muted b-plan">Claude's free plan works: it allows one custom connector.</p>
-          </div>
-        </section>
-
-        <section class="h-card b-try">
-          <div class="h-card__head"><span class="h-card__title">Good first questions</span><span class="h-card__meta">Press one to copy it</span></div>
-          <div class="h-card__body"><ul class="b-egs" id="b-egs"></ul></div>
-        </section>
-      </div>
-
-      <div class="b-col">
-        <section class="h-card b-access">
-          <div class="h-card__head"><span class="h-card__title">What you can ask about</span><span class="h-card__meta" id="b-role"></span></div>
-          <div class="h-card__body">
-            <ul class="b-pkgs" id="b-pkgs" aria-busy="true"><li class="h-skel" style="height:120px"></li></ul>
-            <form class="b-ask" id="b-ask" hidden>
-              <label class="h-label" for="b-ask-pkg">Ask Will for</label>
-              <select id="b-ask-pkg" name="package"></select>
-              <label class="h-label" for="b-ask-why">Why your work needs it</label>
-              <input id="b-ask-why" name="reason" maxlength="300" placeholder="For example: I call lapsed partners in my region" required />
-              <label class="h-label" for="b-ask-days">For how long</label>
-              <select id="b-ask-days" name="days"><option value="7">A week</option><option value="30" selected>A month</option><option value="90">Three months</option><option value="365">A year</option></select>
-              <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Send the request</button><button type="button" class="h-btn h-btn--ghost" id="b-ask-cancel">Cancel</button></div>
-              <p class="b-msg" id="b-ask-msg" role="status"></p>
-            </form>
-          </div>
-        </section>
-
-        <section class="h-card b-recent">
-          <div class="h-card__head"><span class="h-card__title">Your recent questions</span><span class="h-card__meta" id="b-calls"></span></div>
-          <div class="h-card__body">
-            <ul class="b-list" id="b-recent"><li class="h-skel" style="height:80px"></li></ul>
-            <button type="button" class="h-more" id="b-more" hidden>Show more</button>
-          </div>
-        </section>
-      </div>
-    </div>
-
-    <section class="b-rules">
-      <div><span class="b-rules__i"><Fragment set:html={I('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')} /></span><b>It reads, it never changes</b><span>Blackbaud stays as it is. It tells you where to make a change.</span></div>
-      <div><span class="b-rules__i"><Fragment set:html={I('<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>')} /></span><b>Favor's definitions</b><span>Active, LYBUNT, lapsed and major partners match the dashboard.</span></div>
-      <div><span class="b-rules__i"><Fragment set:html={I('<rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>')} /></span><b>Your role decides</b><span>You see what your work needs, nothing more.</span></div>
-      <div><span class="b-rules__i"><Fragment set:html={I('<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>')} /></span><b>Keep lists inside Favor</b><span>Ask here instead of pasting Blackbaud exports into an AI.</span></div>
-    </section>
-
-    <div id="admin" hidden>
-      <div class="b-admin-head">
-        <h2 class="b-h2">Brain admin</h2>
-        <div class="b-tabs b-atabs" role="tablist" aria-label="Brain admin">
-          <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-atab="requests">Requests <span id="a-pending-n"></span></button>
-          <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="people">People <span id="a-people-n"></span></button>
-          <button type="button" role="tab" class="b-tab" aria-selected="false" data-atab="activity">Activity</button>
         </div>
-      </div>
-
-      <div class="b-apanel b-grid2" data-apanel="requests">
-        <section class="h-card">
-          <div class="h-card__head"><span class="h-card__title">Waiting for you</span></div>
-          <div class="h-card__body"><ul class="b-list" id="a-pending"></ul></div>
-        </section>
-        <section class="h-card">
-          <div class="h-card__head"><span class="h-card__title">Give or remove access</span></div>
-          <div class="h-card__body">
-            <form class="b-ask b-ask--open" id="a-grant">
-              <label class="h-label" for="a-email">Staff email</label>
-              <input id="a-email" name="email" list="a-people" placeholder="name@favorintl.org" required />
-              <datalist id="a-people"></datalist>
-              <div class="b-ask__two">
-                <div><label class="h-label" for="a-pkg">Package</label><select id="a-pkg" name="package"></select></div>
-                <div><label class="h-label" for="a-effect">Change</label><select id="a-effect" name="effect"><option value="allow">Give it</option><option value="deny">Take it away</option></select></div>
-              </div>
-              <label class="h-label" for="a-days">Until</label>
-              <select id="a-days" name="days"><option value="30">A month from today</option><option value="90">Three months</option><option value="365">A year</option><option value="0">No end date</option></select>
-              <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Save</button></div>
-              <p class="b-msg" id="a-grant-msg" role="status"></p>
-            </form>
-          </div>
-        </section>
-      </div>
-
-      <section class="h-card b-apanel" data-apanel="people" hidden>
-        <div class="h-card__head"><span class="h-card__title">Who sees what</span><input class="b-find" id="a-find" type="search" placeholder="Find a person" aria-label="Find a person" /></div>
-        <div class="h-card__body b-scroll"><table class="b-table" id="a-people-t"></table></div>
+        <div class="h-card__body">
+          <p class="b-why">Your own AI can follow up on an answer, compare two lists and keep working with what it found. Connect it once.</p>
+          <div class="b-addr__row"><code id="b-url">https://mcp.favorintl.org/mcp</code><button type="button" class="h-btn h-btn--primary h-btn--sm" id="b-copy">Copy</button></div>
+          <ol class="b-steps" data-panel="claude">
+            <li>Open <b>claude.ai</b> or the Claude app, then <b>Customize</b> and <b>Connectors</b>.</li>
+            <li>Press <b>+ Add</b>, then <b>Add custom connector</b>. Name it <b>Favor</b>, paste the address and press <b>Continue</b> twice.</li>
+            <li>Press <b>Add</b>, then <b>Connect</b>, and sign in with your Favor Google account.</li>
+            <li>In a chat, press <b>+</b> at the lower left, then <b>Connectors</b>, and turn <b>Favor</b> on.</li>
+          </ol>
+          <ol class="b-steps" data-panel="chatgpt" hidden>
+            <li>This needs ChatGPT Business, Enterprise or Edu, or a Pro plan. On the free and Plus plans, use Claude.</li>
+            <li>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</li>
+            <li>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</li>
+            <li>In a chat, pick <b>Favor</b> from the tools menu.</li>
+          </ol>
+          <p class="b-muted b-plan">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/">Step by step, with pictures</a></p>
+        </div>
       </section>
 
-      <section class="h-card b-apanel" data-apanel="activity" hidden>
-        <div class="h-card__head"><span class="h-card__title">Every question, newest first</span></div>
-        <div class="h-card__body b-scroll"><table class="b-table" id="a-recent"></table><button type="button" class="h-more" id="a-more" hidden>Show more</button></div>
+      <section class="h-card b-access">
+        <div class="h-card__head"><span class="h-card__title">What you can ask about</span><span class="h-card__meta" id="b-role"></span></div>
+        <div class="h-card__body">
+          <ul class="b-pkgs" id="b-pkgs" aria-busy="true"><li class="h-skel" style="height:120px"></li></ul>
+          <form class="b-ask" id="b-ask" hidden>
+            <label class="h-label" for="b-ask-pkg">Ask Will for</label>
+            <select id="b-ask-pkg" name="package"></select>
+            <label class="h-label" for="b-ask-why">Why your work needs it</label>
+            <input id="b-ask-why" name="reason" maxlength="300" placeholder="For example: I call lapsed partners in my region" required />
+            <label class="h-label" for="b-ask-days">For how long</label>
+            <select id="b-ask-days" name="days"><option value="7">A week</option><option value="30" selected>A month</option><option value="90">Three months</option><option value="365">A year</option></select>
+            <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Send the request</button><button type="button" class="h-btn h-btn--ghost" id="b-ask-cancel">Cancel</button></div>
+            <p class="b-msg" id="b-ask-msg" role="status"></p>
+          </form>
+        </div>
       </section>
     </div>
+
+    <section class="h-card b-recent">
+      <div class="h-card__head"><span class="h-card__title">Your recent questions</span><span class="h-card__meta" id="b-calls"></span></div>
+      <div class="h-card__body">
+        <ul class="b-list b-list--two" id="b-recent"><li class="h-skel" style="height:80px"></li></ul>
+        <button type="button" class="h-more" id="b-more" hidden>Show more</button>
+      </div>
+    </section>
   </div>
-  <script is:inline src="/js/brain.js?v=6" defer></script>
+  <script is:inline src="/js/brain.js?v=7" defer></script>
 </App>

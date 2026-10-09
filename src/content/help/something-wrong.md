@@ -20,7 +20,7 @@ Sign in with your Favor Google account. You land back where you were.
 
 Read [How the numbers are counted](/help/kpi-definitions/) first: households, soft credits and the 12-month windows explain most surprises. Remember the dashboard rebuilds at 5 a.m. and 5 p.m. Eastern, so a gift entered today may not show yet. If it still looks wrong, send feedback with the number, where you saw it, and what you expected.
 
-## Ask Favor gave a wrong answer
+## Favor Brain gave a wrong answer
 
 Press **Not right** beside the question on the Favor Brain page and say what you expected. The note carries the exact question and how it was read.
 

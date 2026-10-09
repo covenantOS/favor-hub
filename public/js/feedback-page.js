@@ -5,7 +5,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
   const when = (iso) => (iso ? et(iso, { month: 'short', day: 'numeric' }) + ', ' + et(iso, { hour: 'numeric', minute: '2-digit' }) : '');
-  const SOURCE = { hub: 'The hub', brain: 'Ask Favor', 'hub-brain': 'Ask Favor', help: 'Help docs', tour: 'The tour', video: 'A video' };
+  const SOURCE = { hub: 'The hub', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
   const RATING = {
     problem: ["Something's wrong", 'bad'], wrong: ['Answer was wrong', 'bad'], 'not-helpful': ['Not helpful', 'bad'],
     confusing: ['Confusing', 'warn'], missing: ['Something missing', 'warn'],
@@ -26,7 +26,7 @@
   function mine(items) {
     list.removeAttribute('aria-busy');
     if (!items.length) {
-      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in the hub or Ask Favor is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
+      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in the hub or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
       return;
     }
     list.innerHTML = items
@@ -47,7 +47,7 @@
     document.querySelectorAll('[data-n]').forEach((s) => (s.textContent = counts[s.dataset.n] ? String(counts[s.dataset.n]) : ''));
     const items = d.items || [];
     if (!items.length) {
-      list.innerHTML = `<li class="h-card fbp-empty"><b>${status === 'new' ? 'Nothing new.' : 'No notes here.'}</b><span>Notes from the Feedback button, Ask Favor answers, the help docs and the tour land here.</span></li>`;
+      list.innerHTML = `<li class="h-card fbp-empty"><b>${status === 'new' ? 'Nothing new.' : 'No notes here.'}</b><span>Notes from the Feedback button, Favor Brain answers, the help docs and the tour land here.</span></li>`;
       return;
     }
     list.innerHTML = items
@@ -56,7 +56,7 @@
           <div class="fbp-who"><span class="fbp-av" aria-hidden="true">${esc(initials(f.name || f.email))}</span><div><b>${esc(f.name || f.email)}</b><span>${esc(f.email)}</span></div>
             <div class="fbp-meta">${chip(f.rating)}<span class="fbp-src">${esc(SOURCE[f.source] || f.source)}</span><time>${esc(when(f.at))}</time>${pill(f.status)}</div></div>
           ${f.question ? `<p class="fbp-q"><span>Question${f.ref ? ` · ref ${esc(f.ref)}` : ''}</span>${esc(f.question)}</p>` : ''}
-          ${f.reading ? `<p class="fbp-q fbp-q--read"><span>How Ask Favor read it</span>${esc(f.reading)}</p>` : ''}
+          ${f.reading ? `<p class="fbp-q fbp-q--read"><span>How it read the question</span>${esc(f.reading)}</p>` : ''}
           ${f.comment ? `<p class="fbp-text">${esc(f.comment)}</p>` : '<p class="fbp-text fbp-text--none">No words, only the rating.</p>'}
           ${f.page ? `<p class="fbp-page">From <a href="${esc(f.page.split(' ')[0])}">${esc(f.page)}</a></p>` : ''}
           <form class="fbp-act" data-act="${f.id}">
@@ -132,7 +132,7 @@
     admin = !!(d && d.access && d.access.admin);
     if (admin) {
       $('fb-tabs').hidden = false;
-      $('fb-lede').textContent = 'Every note from the hub, Ask Favor, the help docs and the tour. Mark each one, and write an answer when it needs one; the sender reads it on their Feedback page.';
+      $('fb-lede').textContent = 'Every note from the hub, Favor Brain, the help docs and the tour. Mark each one, and write an answer when it needs one; the sender reads it on their Feedback page.';
     }
     load();
   };

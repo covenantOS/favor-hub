@@ -18,7 +18,7 @@ Use an expense request **before** a purchase or a trip. Card expenses you alread
 3. **What it costs**: add a line for each expense with an estimated amount. Press **+ Add another expense** for more lines.
 4. Driving? Press **+ Calculate mileage**, enter the miles, and press **Add to expenses**. The hub uses Favor's current mileage rate.
 5. **Why it is needed**: say what the expense is for.
-6. **Sign and send**: tick the box to affirm the amounts are accurate, sign by typing your name or drawing it, and press **Submit for approval**.
+6. **Sign and send**: tick the box to affirm the items are accurate, sign by typing your name or drawing it, and press **Submit for approval**.
 
 You see a document number (it starts with EXP) and who will approve it. The approver gets an email with a link, signs online, and you get the signed copy by email. If it is declined, the email says why.
 

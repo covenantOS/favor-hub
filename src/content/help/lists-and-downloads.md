@@ -1,13 +1,13 @@
 ---
 title: Lists and downloads
-summary: Long answers come back as a spreadsheet link that works for 24 hours and only opens for you.
+summary: Long answers come back as a spreadsheet download that works for 24 hours.
 topic: ask
 order: 4
 related: [asking-well, access]
 updated: 2026-10-09
 ---
 
-When an answer has more rows than fit in a chat, Ask Favor shows the first few and gives you a **download link** to the whole list as a spreadsheet (CSV). The link works for **24 hours** and only opens when you are signed in as yourself.
+When an answer has more rows than fit on screen, it shows the first few and gives you the whole list as a spreadsheet (CSV). On the Favor Brain page, press **Download the list**. In Claude or ChatGPT, open the download link in the answer. The link works for **24 hours**, and anyone who has it can open it in that time, so keep it to yourself.
 
 ## Asking for a list
 
