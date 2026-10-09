@@ -15,7 +15,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 - **Help docs.** Real articles on every tool with a search box that reads every word, including what is said in the videos.
 - **Training videos.** Videos on the hub, Favor Brain and Blackbaud, with captions, in one library.
 - **Feedback.** A Feedback button on every page. Your note goes to Will with the page you were on, and his answer shows on your Feedback page.
-- **Favor Brain is in beta.** Ask about partners, giving, team numbers, grants and the manuals right on the Favor Brain page, or connect Claude or ChatGPT. Mark each answer Right or Not right.
+- **Favor Brain is in beta.** Ask about partners, giving, team numbers, grants and the manuals right on the Favor Brain page, see and download what is behind each answer, and follow up in a few words. Or connect Claude or ChatGPT. Mark each answer Right or Not right.
 - **Sounds and motion.** Soft sounds on main buttons and finished actions, numbers that count up on Today. The speaker beside your name turns sounds off.
 
 ## October 8, 2026

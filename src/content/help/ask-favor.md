@@ -14,8 +14,8 @@ Favor Brain answers questions about Favor in plain words. Ask "How many active p
 
 ## Two places to ask
 
-- **On the Favor Brain page.** Type your question under **Ask a question** and press **Ask**, or press one of the example questions. The answer shows on the page. A list comes with a **Download the list** button.
-- **From your own Claude or ChatGPT.** Connect it once with the four steps on the same page. Your AI can follow up on an answer, compare two lists and keep working with what it found, so we recommend it for everyday questions. The page reminds you every third question you ask there.
+- **On the Favor Brain page.** Type your question under **Ask a question** and press **Ask**, or press one of the example questions. A count shows the partners behind it, a total links to the gifts behind it, and team numbers come with their months; each has a download button for a spreadsheet. Follow up in a few words, such as "show me them", "what about Texas?" or "only major partners", and the page reads it with your last question and shows how.
+- **From your own Claude or ChatGPT.** Connect it once with the four steps on the same page. Your AI can compare two lists, combine answers and follow up on anything you ask, so we recommend it for everyday questions. The page reminds you every third question you ask there.
 
 ## It is in beta
 

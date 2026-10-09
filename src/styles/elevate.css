@@ -444,6 +444,11 @@ body.h-body {
 .b-dl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
 .b-dl .h-i { width: 16px; height: 16px; }
 .b-dl span { font-size: 12.5px; color: var(--h-ink-3); }
+.b-asked { margin: -4px 0 12px; font-size: 12.5px; color: var(--h-ink-3); }
+.b-asked b { color: var(--h-ink-2); font-weight: 600; }
+.b-next { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.b-next > span { font: 600 11px var(--h-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--h-ink-3); margin-right: 2px; }
+.b-q--sm { padding: 6px 12px; font-size: 13px; background: var(--h-ivory); }
 .b-read { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--h-line-2); font-size: 12.5px; color: var(--h-ink-3); }
 .b-read b { color: var(--h-ink-2); font-weight: 600; }
 .b-afoot { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; margin-top: 12px; font-size: 12px; color: var(--h-ink-3); }

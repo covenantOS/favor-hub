@@ -20,6 +20,10 @@ updated: 2026-10-09
 
 Each answer ends with a line saying how it read your question, for example *"How I read it: lapsed (last gift on or before 2024-10-09); in OH; households counted the dashboard's way."* If that line is wrong, the answer is wrong. On the Favor Brain page, ask again with the word that was missing, for example "active" instead of "lapsed". In Claude or ChatGPT, say it in plain words: "I meant active, not lapsed."
 
+## Follow up
+
+On the Favor Brain page, a short follow-up builds on your last question: "show me them" or "export that" lists the partners or gifts behind a count or a total; "what about Texas?" or "last year instead" swaps the place or the period; "only major partners" or "by month" narrows it. The answer shows the full question it used. A follow-up of six words or more that reads like a new question starts fresh.
+
 ## Good first questions
 
 - "How is Favor doing this year against goal?"

@@ -109,15 +109,26 @@
     // A lone number or amount at the very start reads big.
     return out.join('').replace(/^<p><strong>(-?\$?[\d,]+(?:\.\d+)?%?)<\/strong>(\s*)/, '<p><span class="b-big">$1</span>$2');
   }
-  const CSV = /https:\/\/mcp\.favorintl\.org\/csv\/[a-z0-9]+\/[^\s)]+?\.csv/;
-  const reEsc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // Every download link in an answer becomes a button; the sentence that carried it goes.
+  const DL_RE = /\s*(?:((?:The \d[\d,]* largest|All \d[\d,]*) gifts) behind it\. )?Download( the full list| the gifts| the numbers)?: (https:\/\/mcp\.favorintl\.org\/csv\/[a-z0-9]+\/[^\s)]+?\.csv)(?: \(works for 24 hours\))?\.?/g;
   function shape(d) {
     let text = String(d.text || '');
-    const csv = (text.match(CSV) || [])[0] || '';
-    if (csv) text = text.replace(new RegExp('\\s*Download(?: the full list)?: ' + reEsc(csv) + '(?: \\(works for 24 hours\\))?\\.?'), '');
+    const files = [];
+    text = text.replace(DL_RE, (_, gifts, what, url) => {
+      const label = gifts ? `Download ${gifts.replace(/^The /, 'the ').replace(/^All /, 'all ')}` : what === ' the gifts' ? 'Download the gifts' : what === ' the numbers' ? 'Download the numbers' : what === ' the full list' ? 'Download the list' : d.intent === 'list_gifts' ? 'Download the gifts' : 'Download the table';
+      files.push({ url, label });
+      return '';
+    });
     text = text.replace(/\n*_How I read it: [\s\S]*?_\s*$/, '').trim();
-    return { text, csv };
+    return { text, files };
   }
+  // Next steps under the latest answer; each one is a follow-up on it.
+  const NEXT = {
+    count_partners: ['Only major partners', 'Only churches', 'Compared with last year'],
+    list_partners: ['Only major partners', 'Sorted by largest gift', 'Only churches'],
+    giving_total: ['Show me the gifts', 'By month', 'Compared with last year'],
+    list_gifts: ['Only gifts of $1,000 or more', 'Only recurring gifts'],
+  };
 
   // ---- The thread ---------------------------------------------------------------------------
   const KEY = 'favor.brain.thread';
@@ -135,8 +146,8 @@
   const ICON_DL = '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>';
   const ICON_LINK = '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>';
 
-  function answerHtml(e) {
-    const { text, csv } = shape(e);
+  function answerHtml(e, latest) {
+    const { text, files } = shape(e);
     const denied = e.outcome === 'denied' || e.outcome === 'error';
     const need = (String(e.reading || '').match(/needs the (\w+) package/) || [])[1];
     const canAsk = need && me && (me.packages || []).some((p) => p.key === need && !p.has && p.requestable);
@@ -145,9 +156,17 @@
       : e.ref && !denied
         ? `<span class="b-rate"><button type="button" class="b-rate__btn" data-right="${esc(e.ref)}">Right</button><button type="button" class="b-rate__btn" data-feedback="hub-brain" data-rating="wrong" data-ref="${esc(e.ref)}" data-question="${esc(e.q || '')}">Not right</button></span>`
         : '';
+    // A next step already in the question ("only major partners" twice) is left off.
+    const said = String(e.asked || e.q || '').toLowerCase();
+    const next = (latest && !denied && e.outcome === 'ok' ? NEXT[e.intent] || [] : []).filter((n) => {
+      const key = n.toLowerCase().replace(/^only /, '').replace(/s$/, '').split(' ')[0];
+      return !(n.startsWith('Only') && said.includes(key)) && !(n.startsWith('Compared') && /compar/.test(said)) && !(n === 'By month' && /by month|monthly/.test(said));
+    });
     return `<div class="b-msg-a${denied ? ' is-denied' : ''}" data-ref="${esc(e.ref || '')}">
+      ${e.how && e.how !== 'new' && e.asked ? `<div class="b-asked">Read with your last question: <b>${esc(e.asked)}</b></div>` : ''}
       ${md(text)}
-      ${csv ? `<div class="b-dl"><a class="h-btn h-btn--primary h-btn--sm" href="${esc(csv)}" download>${svg(ICON_DL)}Download the list</a><span>A CSV file. The link works for 24 hours.</span></div>` : ''}
+      ${files.length ? `<div class="b-dl">${files.map((f, i) => `<a class="h-btn ${i ? 'h-btn--ghost' : 'h-btn--primary'} h-btn--sm" href="${esc(f.url)}" download>${svg(ICON_DL)}${esc(f.label)}</a>`).join('')}<span>A CSV file that opens in Sheets or Excel. The link works for 24 hours.</span></div>` : ''}
+      ${next.length ? `<div class="b-next"><span>Follow up</span>${next.map((n) => `<button type="button" class="b-q b-q--sm" data-q="${esc(n)}" data-follow="1">${esc(n)}</button>`).join('')}</div>` : ''}
       ${canAsk ? `<div class="b-dl"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-askfor="${esc(need)}">Ask Will for access</button></div>` : ''}
       ${e.reading && !denied && e.outcome !== 'clarify' ? `<div class="b-read">How I read it: <b>${esc(e.reading)}</b></div>` : ''}
       ${e.ref || rated ? `<div class="b-afoot">${e.ref ? `<span>Answer ref ${esc(e.ref)}</span>` : ''}${rated}</div>` : ''}
@@ -156,7 +175,7 @@
   const NUDGE = `<div class="b-nudge" role="note">
       <span class="b-nudge__i">${svg(ICON_LINK)}</span>
       <b>We recommend your own Claude or ChatGPT app for this</b>
-      <span>It can follow up on an answer, compare two lists and keep working with what it found. You can keep asking here too. Connecting takes four steps.</span>
+      <span>It can compare two lists, combine answers and follow up on anything you ask. You can keep asking here too. Connecting takes four steps.</span>
       <div class="b-nudge__go"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-goconnect>Show me how to connect</button><a class="h-btn h-btn--ghost h-btn--sm" href="/help/connect-your-ai/">Step by step, with pictures</a></div>
     </div>`;
 
@@ -167,17 +186,29 @@
     busy = false;
     $('b-start').hidden = thread.length > 0;
     $('b-clear').hidden = !thread.length;
+    const lastA = thread.map((e) => e.kind).lastIndexOf('a');
     box.insertAdjacentHTML(
       'beforeend',
-      thread.map((e) => (e.kind === 'q' ? `<div class="b-msg-q">${esc(e.q)}</div>` : e.kind === 'nudge' ? NUDGE : answerHtml(e))).join('')
+      thread.map((e, i) => (e.kind === 'q' ? `<div class="b-msg-q">${esc(e.q)}</div>` : e.kind === 'nudge' ? NUDGE : answerHtml(e, i === lastA))).join('')
     );
+    $('b-input').placeholder = thread.length ? 'Ask a follow-up, or a new question' : 'Ask a question in plain words';
     box.scrollTop = top;
   }
+  // The question a follow-up builds on: the last answer that went through.
+  const previous = () => {
+    for (let i = thread.length - 1; i >= 0; i--) {
+      const e = thread[i];
+      if (e.kind !== 'a') continue;
+      return e.outcome === 'ok' ? e.asked || e.q : '';
+    }
+    return '';
+  };
 
   async function ask(q) {
     q = String(q || '').trim();
-    if (q.length < 3 || $('b-send').disabled) return;
+    if (q.length < 2 || $('b-send').disabled) return;
     const box = $('b-thread');
+    const prev = previous();
     thread.push({ kind: 'q', q });
     save();
     render();
@@ -189,8 +220,8 @@
     box.scrollTop = box.scrollHeight;
     let entry;
     try {
-      const d = await api('ask', { question: q });
-      entry = { kind: 'a', q, text: d.text, reading: d.reading, outcome: d.outcome, ref: d.ref };
+      const d = await api('ask', prev ? { question: q, previous: prev } : { question: q });
+      entry = { kind: 'a', q, text: d.text, reading: d.reading, outcome: d.outcome, ref: d.ref, intent: d.intent, asked: d.asked_as, how: d.follow_up };
       thread.push(entry);
       if (d.nudge) thread.push({ kind: 'nudge' });
       if (d.outcome === 'clarify') $('b-input').value = q;
