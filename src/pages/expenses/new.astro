@@ -19,6 +19,9 @@ import '../../styles/expenses.css';
       </p>
 
       <form class="make-sheet" id="exp-form" novalidate>
+        <div class="exp-progress" id="exp-progress" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        <p class="exp-stepname" id="exp-stepname"></p>
+        <div class="exp-step" data-step="1" data-title="You and the trip">
         <span class="exp-legend">Who you are</span>
         <div class="exp-grid2">
           <label class="req-field"><span>Name</span><input id="exp-name" required maxlength="80" /></label>
@@ -31,6 +34,9 @@ import '../../styles/expenses.css';
           <label class="req-field"><span>City and state</span><input id="exp-city" maxlength="120" placeholder="Dallas, TX" /></label>
         </div>
 
+        </div>
+
+        <div class="exp-step" data-step="2" data-title="What it costs">
         <span class="exp-legend">Expenses</span>
         <div class="exp-items-head"><span>Description</span><span>Item</span><span>Est. amount</span><span></span></div>
         <div id="exp-rows"></div>
@@ -49,17 +55,25 @@ import '../../styles/expenses.css';
         </div>
         <div class="exp-total"><span class="lbl">Total estimated</span><span class="val" id="exp-total-val">$0.00</span></div>
 
+        </div>
+
+        <div class="exp-step" data-step="3" data-title="Why it is needed">
         <span class="exp-legend">Reason</span>
         <label class="req-field">
           <span>Why is this needed?</span>
           <textarea id="exp-reason" required maxlength="4000" placeholder="For a trip, state its purpose. For a purchase, state what it supports and why it is needed."></textarea>
         </label>
 
+        </div>
+
+        <div class="exp-step" data-step="4" data-title="Sign and send">
         <span class="exp-legend">Affirmation</span>
         <label class="exp-affirm"><input type="checkbox" id="exp-affirm" /> I affirm that all of the above items are accurate to the best of my knowledge.</label>
 
         <span class="exp-legend">Your signature</span>
         <div id="exp-sig"></div>
+
+        </div>
 
         <input class="req-hp" id="exp-hp" tabindex="-1" autocomplete="off" />
         <div class="exp-foot">
@@ -67,7 +81,9 @@ import '../../styles/expenses.css';
           <p class="exp-note">Goes to the assigned approver for review and signature. You get a copy of the decision by email.</p>
         </div>
         <p class="req-msg" id="exp-msg" aria-live="polite"></p>
+        <div class="exp-nav" id="exp-nav"><button type="button" class="h-btn h-btn--ghost" id="exp-back">Back</button><button type="button" class="h-btn h-btn--primary" id="exp-next">Next</button></div>
       </form>
+      <script is:inline src="/js/expense-steps.js?v=1" defer></script>
 
       <div class="make-done" id="exp-done" hidden>
         <p class="make-kicker">Sent for approval</p>

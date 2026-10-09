@@ -25,7 +25,7 @@
     $('t-cards').removeAttribute('aria-busy');
     if (!list.length) {
       $('t-cards').innerHTML =
-        '<div class="h-card h-allclear"><span class="h-start__icon"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Nothing is waiting on you right now.</div>';
+        '<div class="h-card h-allclear h-day__card"><span class="h-start__icon"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Nothing is waiting on you right now.</div>';
       return;
     }
     $('t-cards').innerHTML = list

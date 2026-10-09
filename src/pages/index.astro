@@ -11,22 +11,23 @@ const starts = [
 const chev = I('<path d="m9 6 6 6-6 6"/>');
 ---
 <App title="Today" nav="home" description="What is waiting on you across the Favor hub.">
-  <section class="h-hello">
-    <h1 id="t-hello">Welcome</h1>
-    <p id="t-date"></p>
-  </section>
-
-  <div class="h-card h-welcome" id="t-welcome" hidden>
+  <div class="h-head">
+    <section class="h-hello">
+      <h1 id="t-hello">Welcome</h1>
+      <p id="t-date"></p>
+    </section>
+    <div class="h-card h-welcome" id="t-welcome" hidden>
     <span class="h-welcome__mark"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m5.6 18.4 2.1-2.1"/><path d="m16.3 7.7 2.1-2.1"/></svg></span>
     <div><b>Welcome to the new hub</b><p>Every tool is in the menu on the left, and this page shows what is waiting on you. Two minutes in Help shows you around.</p></div>
     <div class="h-welcome__acts"><a class="h-btn h-btn--primary h-btn--sm" href="/help/">Show me around</a><button type="button" class="h-x" id="t-welcome-x" aria-label="Hide this">&#x2715;</button></div>
   </div>
+  </div>
 
-  <div class="h-section"><h2>Your day</h2><p id="d-sub">Blackbaud, your calendar, Drive and inbox</p></div>
-  <div class="h-grid h-g3 h-day" id="d-grid" aria-busy="true"><div class="h-card h-skel"></div><div class="h-card h-skel"></div><div class="h-card h-skel"></div></div>
-
-  <div class="h-section"><h2>Waiting on you</h2><p>Only what needs you today</p></div>
-  <div class="h-grid h-g4" id="t-cards" aria-busy="true"><div class="h-card h-skel"></div><div class="h-card h-skel"></div></div>
+  <div class="h-section"><h2>Your day</h2><p id="d-sub">What needs you, from the hub, Blackbaud, your calendar, Drive and inbox</p></div>
+  <div class="h-board">
+    <div id="t-cards" aria-busy="true"><div class="h-card h-skel"></div></div>
+    <div id="d-grid" aria-busy="true"><div class="h-card h-skel"></div><div class="h-card h-skel"></div><div class="h-card h-skel"></div></div>
+  </div>
 
   <div id="t-year-wrap" hidden>
     <div class="h-section"><h2>Where the year stands</h2><p id="t-fresh">The KPI dashboard's own numbers</p></div>
@@ -41,7 +42,7 @@ const chev = I('<path d="m9 6 6 6-6 6"/>');
     </div>
   </div>
 
-  <div class="h-grid h-g21" style="margin-top:16px">
+  <div class="h-grid h-g21 h-lower" style="margin-top:16px">
     <div class="h-card">
       <div class="h-card__head"><div class="h-card__title">Recent activity</div><div class="h-card__meta">Last two weeks</div></div>
       <div class="h-card__body"><ul class="h-feed" id="t-feed"></ul><button type="button" class="h-more" id="t-feed-more" hidden>Show more</button></div>
@@ -67,5 +68,5 @@ const chev = I('<path d="m9 6 6 6-6 6"/>');
       </div>
     </div>
   </div>
-  <script is:inline src="/js/today.js?v=4" defer></script>
+  <script is:inline src="/js/today.js?v=5" defer></script>
 </App>
