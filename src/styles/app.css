@@ -619,3 +619,7 @@ body.h-body::before { display: none; }
 .h-kpi-fresh { font-size: 12px; font-weight: 700; color: var(--h-ink-3); white-space: nowrap; }
 .h-kpi-fresh.is-stale { color: var(--h-red); }
 @media (max-width: 860px) { .h-kpi-fresh { display: none; } }
+
+/* dragging a request card never selects text */
+.h-body .req-board.is-reviewing .req-card, .h-body .req-board.is-reviewing .req-card * { -webkit-user-select: none; user-select: none; }
+body.is-dragging-card, body.is-dragging-card * { -webkit-user-select: none !important; user-select: none !important; cursor: grabbing !important; }

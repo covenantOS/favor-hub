@@ -225,6 +225,7 @@
     if (drag?.ghost) drag.ghost.remove();
     if (drag?.card) drag.card.classList.remove('req-card--origin');
     boardEl.classList.remove('is-dragging');
+    document.body.classList.remove('is-dragging-card');
     boardEl.querySelectorAll('.req-col.is-drop').forEach((c) => c.classList.remove('is-drop'));
     drag = null;
   }
@@ -253,6 +254,11 @@
     };
   });
 
+  // Holding a card to drag it must not start selecting the text under the pointer.
+  boardEl.addEventListener('mousedown', (e) => {
+    if (admin && e.button === 0 && e.target.closest('.req-card')) e.preventDefault();
+  });
+
   window.addEventListener('pointermove', (e) => {
     if (!drag) return;
     const dx = e.clientX - drag.x;
@@ -267,6 +273,9 @@
       drag.ghost = ghost;
       drag.card.classList.add('req-card--origin');
       boardEl.classList.add('is-dragging');
+      document.body.classList.add('is-dragging-card');
+      const sel = window.getSelection && window.getSelection();
+      if (sel) sel.removeAllRanges();
     }
     drag.ghost.style.transform = `translate(${e.clientX - 28}px, ${e.clientY - 18}px) rotate(-2deg)`;
     const under = document.elementFromPoint(e.clientX, e.clientY);
