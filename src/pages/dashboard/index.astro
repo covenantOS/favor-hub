@@ -5,12 +5,19 @@
 import App from '../../layouts/App.astro';
 ---
 <App title="KPI dashboard" crumb="Dashboard" nav="kpi" wide description="The KPI dashboard inside the hub.">
-  <a slot="actions" class="h-btn h-btn--ghost h-btn--sm" href="https://kpi.favorintl.org/" target="_blank" rel="noopener">Open in its own tab</a>
-  <iframe class="h-frame" id="kpi-frame" title="KPI dashboard" src="about:blank"></iframe>
+  <a slot="actions" class="h-btn h-btn--ghost h-btn--sm h-hide-sm" href="https://kpi.favorintl.org/" target="_blank" rel="noopener">Open in its own tab</a>
+  <div class="h-frame-wrap">
+    <div class="h-frame-wait" id="kpi-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Opening the KPI dashboard</div>
+    <iframe class="h-frame" id="kpi-frame" title="KPI dashboard" src="about:blank"></iframe>
+  </div>
   <script is:inline>
     (() => {
+      const frame = document.getElementById('kpi-frame');
       const asked = new URLSearchParams(location.search).get('page') || '/';
-      document.getElementById('kpi-frame').src = '/api/kpi/enter?next=' + encodeURIComponent(asked);
+      frame.addEventListener('load', () => {
+        if (frame.src !== 'about:blank') document.getElementById('kpi-wait').hidden = true;
+      });
+      frame.src = '/api/kpi/enter?next=' + encodeURIComponent(asked);
     })();
   </script>
 </App>

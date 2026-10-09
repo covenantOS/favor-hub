@@ -8,12 +8,23 @@
   const app = $('h-app');
   const menu = $('h-menu');
   if (menu && app) {
+    const setNav = (open) => {
+      app.classList.toggle('is-nav', open);
+      menu.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.setAttribute('aria-label', open ? 'Close the menu' : 'Open the menu');
+    };
     menu.addEventListener('click', (e) => {
       e.stopPropagation();
-      app.classList.toggle('is-nav');
+      setNav(!app.classList.contains('is-nav'));
     });
     document.addEventListener('click', (e) => {
-      if (app.classList.contains('is-nav') && !e.target.closest('.h-side')) app.classList.remove('is-nav');
+      if (app.classList.contains('is-nav') && !e.target.closest('.h-side')) setNav(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && app.classList.contains('is-nav')) {
+        setNav(false);
+        menu.focus();
+      }
     });
   }
 

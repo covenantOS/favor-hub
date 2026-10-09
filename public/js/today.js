@@ -22,8 +22,10 @@
   $('t-date').textContent = et(new Date().toISOString(), { weekday: 'long', month: 'long', day: 'numeric' }) + '.';
 
   function cards(list) {
+    $('t-cards').removeAttribute('aria-busy');
     if (!list.length) {
-      $('t-cards').innerHTML = '<div class="h-card h-empty" style="grid-column:1 / -1">Nothing is waiting on you right now.</div>';
+      $('t-cards').innerHTML =
+        '<div class="h-card h-allclear"><span class="h-start__icon"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Nothing is waiting on you right now.</div>';
       return;
     }
     $('t-cards').innerHTML = list
@@ -48,11 +50,41 @@
     $('t-mine-card').hidden = false;
   }
 
+  // Eight lines at first; the rest one press away, so the page stays short.
+  const FEED_FIRST = 8;
   function feed(list) {
+    const row = (a) => `<li><span><span class="h-chip h-chip--${esc(a.app)}">${esc(a.app)}</span></span><span>${esc(a.text)}</span><time>${esc(when(a.at))}</time></li>`;
     $('t-feed').innerHTML = list.length
-      ? list.map((a) => `<li><span><span class="h-chip h-chip--${esc(a.app)}">${esc(a.app)}</span></span><span>${esc(a.text)}</span><time>${esc(when(a.at))}</time></li>`).join('')
+      ? list.slice(0, FEED_FIRST).map(row).join('')
       : '<li><span></span><span class="h-sub">Nothing in the last two weeks.</span><span></span></li>';
+    const more = $('t-feed-more');
+    if (list.length > FEED_FIRST) {
+      more.textContent = `Show ${list.length - FEED_FIRST} more`;
+      more.hidden = false;
+      more.onclick = () => {
+        $('t-feed').innerHTML = list.map(row).join('');
+        more.hidden = true;
+      };
+    }
   }
+
+  // The welcome card shows until the person hides it or opens Help.
+  const WELCOME = 'favor.hub.welcome.v1';
+  try {
+    if (!localStorage.getItem(WELCOME)) $('t-welcome').hidden = false;
+  } catch {
+    // Private windows can refuse storage; the card stays hidden there.
+  }
+  const hideWelcome = () => {
+    $('t-welcome').hidden = true;
+    try {
+      localStorage.setItem(WELCOME, String(Date.now()));
+    } catch {
+      // nothing to do
+    }
+  };
+  $('t-welcome-x').addEventListener('click', hideWelcome);
+  $('t-welcome').querySelector('a').addEventListener('click', hideWelcome);
 
   function year(s) {
     const pct = s.goal ? (s.raised / s.goal) * 100 : 0;

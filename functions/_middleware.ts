@@ -26,6 +26,14 @@ const OPEN_PATHS = new Set([
   '/api/admin/logout',
 ]);
 
+// Pages that were retired on 2026-10-08. Their numbers live in the KPI dashboard's own tabs now.
+const RETIRED: Record<string, string> = {
+  '/rdd': '/dashboard/?page=%2Frdds',
+  '/rdd/': '/dashboard/?page=%2Frdds',
+  '/newsletter-analytics': '/dashboard/?page=%2Fmarketing',
+  '/newsletter-analytics/': '/dashboard/?page=%2Fmarketing',
+};
+
 function isHtml(res: Response): boolean {
   return (res.headers.get('Content-Type') || '').includes('text/html');
 }
@@ -43,6 +51,8 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     const method = request.method.toUpperCase();
     return Response.redirect(url.toString(), method === 'GET' || method === 'HEAD' ? 301 : 308);
   }
+
+  if (RETIRED[path]) return Response.redirect(new URL(RETIRED[path], url).toString(), 301);
 
   if (STATIC_FILES.has(path) || STATIC_PREFIXES.some((p) => path.startsWith(p))) return ctx.next();
 

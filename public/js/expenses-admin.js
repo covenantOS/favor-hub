@@ -117,10 +117,57 @@
     });
   }
 
+  // Status chips and a search box over the log, so an approver finds one request without scrolling.
+  var allRows = [];
+  var filter = { status: "all", q: "" };
+  var STATUSES = [["all", "All"], ["pending", "Waiting"], ["approved", "Approved"], ["declined", "Declined"]];
+
+  function paintFilter() {
+    var bar = $("exp-filter");
+    if (!bar) return;
+    var count = function (st) { return allRows.filter(function (r) { return st === "all" || r.status === st; }).length; };
+    bar.querySelector(".exp-filter__chips").innerHTML = STATUSES.map(function (s) {
+      return '<button type="button" data-st="' + s[0] + '" class="' + (filter.status === s[0] ? "is-on" : "") + '" aria-pressed="' + (filter.status === s[0]) + '">' +
+        s[1] + " <span>" + count(s[0]) + "</span></button>";
+    }).join("");
+    bar.hidden = !allRows.length;
+  }
+
+  function applyFilter() {
+    var q = filter.q.toLowerCase();
+    var rows = allRows.filter(function (r) {
+      if (filter.status !== "all" && r.status !== filter.status) return false;
+      if (!q) return true;
+      return [r.doc_number, r.requester_name, r.requester_email, r.approver_name].join(" ").toLowerCase().indexOf(q) !== -1;
+    });
+    paintFilter();
+    drawTable(rows);
+  }
+
+  (function wireFilter() {
+    var bar = $("exp-filter");
+    if (!bar) return;
+    bar.addEventListener("click", function (e) {
+      var b = e.target.closest("[data-st]");
+      if (!b) return;
+      filter.status = b.dataset.st;
+      applyFilter();
+    });
+    bar.querySelector("input").addEventListener("input", function (e) {
+      filter.q = e.target.value.trim();
+      applyFilter();
+    });
+  })();
+
   function renderTable(rows) {
+    allRows = rows || [];
+    applyFilter();
+  }
+
+  function drawTable(rows) {
     var el = $("exp-log");
     if (!rows.length) {
-      el.innerHTML = '<p class="exp-empty">No expense requests yet.</p>';
+      el.innerHTML = '<p class="exp-empty">' + (allRows.length ? "No requests match." : "No expense requests yet.") + "</p>";
       return;
     }
     var table = document.createElement("table");
@@ -133,7 +180,7 @@
         "<td>" + esc(r.doc_number) + "</td><td>" + fmt(r.submitted_at) + "</td>" +
         "<td>" + esc(r.requester_name) + '<br/><span style="opacity:.6">' + esc(r.requester_email) + "</span></td>" +
         "<td>" + esc(r.approver_name) + "</td>" +
-        '<td><span class="exp-pill ' + esc(r.status) + '">' + esc(r.status) + "</span>" +
+        '<td><span class="exp-pill ' + esc(r.status) + '">' + esc(({ pending: "Waiting", approved: "Approved", declined: "Declined" })[r.status] || r.status) + "</span>" +
         (r.decline_note ? '<br/><span style="opacity:.6">' + esc(r.decline_note) + "</span>" : "") + "</td>" +
         '<td class="r">' + money(r.total_cents) + "</td>" +
         "<td>" + (r.pdf ? '<a href="' + esc(r.pdf) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>' : "") +

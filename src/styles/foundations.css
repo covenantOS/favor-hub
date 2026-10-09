@@ -393,7 +393,7 @@
   .fnd-who { flex: 1 1 160px; }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1180px) {
   .fnd-table thead { display: none; }
   .fnd-table, .fnd-table tbody, .fnd-table tr, .fnd-table td { display: block; width: 100%; }
   .fnd-table tr.exp-admin-row { border-top: 1px solid var(--rule); padding: 12px 2px; position: relative; }
@@ -403,6 +403,8 @@
   .fnd-table td:nth-child(2)::after { content: ' contacts · '; }
   .fnd-table td:nth-child(3)::after { content: ' · '; }
   .fnd-table td:nth-child(5) { margin-top: 8px; }
+}
+@media (max-width: 720px) {
   .fnd-filters select { margin-left: 0; }
   .fnd-check__box { padding-left: 16px; gap: 10px; }
   .fnd-clean thead { display: none; }

@@ -33,6 +33,7 @@ const ICONS: Record<string, string> = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   out: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
   menu: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5h.01"/>',
 };
 const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
@@ -51,13 +52,6 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     ],
   },
   { label: 'Dashboard', need: 'kpi', items: [{ id: 'kpi', label: 'KPI dashboard', href: '/dashboard/', icon: 'chart' }] },
-  {
-    label: 'Reports',
-    items: [
-      { id: 'newsletter', label: 'Newsletter analytics', href: '/newsletter-analytics/', icon: 'news' },
-      { id: 'rdd', label: 'RDD reports', href: '/rdd', icon: 'file' },
-    ],
-  },
   {
     label: 'Tools',
     items: [
@@ -85,6 +79,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <meta name="description" content={description} />
   </head>
   <body class="h-body" data-nav={nav}>
+    <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="Hub">
         <a class="h-brand" href="/" aria-label="Favor Hub home"><img src="/images/favor-logo-white.png" alt="Favor International" /><span>Hub</span></a>
@@ -113,6 +108,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             </div>
           ))}
         </nav>
+        <a class={`h-nav__item h-nav__help${nav === 'help' ? ' is-on' : ''}`} href="/help/" aria-current={nav === 'help' ? 'page' : undefined}><Fragment set:html={icon('help')} />Help and what's new</a>
         <div class="h-side__foot" id="h-foot" hidden>
           <span class="h-avatar" id="h-avatar"></span>
           <div class="h-who"><b id="h-name"></b><span id="h-email"></span></div>
@@ -122,24 +118,25 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
 
       <div class="h-main">
         <header class="h-top">
-          <button type="button" class="h-top__menu" id="h-menu" aria-label="Menu"><Fragment set:html={icon('menu')} /></button>
+          <button type="button" class="h-top__menu" id="h-menu" aria-label="Open the menu" aria-controls="h-side" aria-expanded="false"><Fragment set:html={icon('menu')} /></button>
           <div>
             <div class="h-top__crumb">{crumb}</div>
             <div class="h-top__title">{title}</div>
           </div>
           <div class="h-top__right">
+            <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
             <slot name="actions" />
             {nav !== 'new' && (
               <a class="h-btn h-btn--primary" href="/requests/new"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>
             )}
           </div>
         </header>
-        <main class={wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
+        <main id="h-content" tabindex="-1" class={wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
         </main>
       </div>
     </div>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=1" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=2" defer></script>
   </body>
 </html>

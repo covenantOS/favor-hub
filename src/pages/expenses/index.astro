@@ -12,7 +12,7 @@ import '../../styles/expenses.css';
           <h1>The expense <em>log</em></h1>
         </div>
         <div style="display:flex;gap:10px;align-items:center">
-          <a class="req-submit" href="/expenses/new">Submit a request</a>
+          <a class="h-btn h-btn--primary" href="/expenses/new">New expense request</a>
           <button type="button" class="req-ghost" id="exp-lock" hidden>Lock</button>
         </div>
       </div>
@@ -35,7 +35,10 @@ import '../../styles/expenses.css';
 
       <div id="exp-admin" class="exp-admin-grid" hidden>
         <div class="make-sheet">
-          <span class="exp-legend">Requests</span>
+          <div class="exp-filter" id="exp-filter" hidden>
+            <div class="exp-filter__chips" role="group" aria-label="Show"></div>
+            <input type="search" placeholder="Find a name or EXP number" aria-label="Find a request" />
+          </div>
           <div id="exp-log"></div>
         </div>
         <details class="make-sheet exp-settings">
@@ -95,5 +98,5 @@ import '../../styles/expenses.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/expenses-admin.js?v=4"></script>
+  <script is:inline src="/js/expenses-admin.js?v=6"></script>
 </App>

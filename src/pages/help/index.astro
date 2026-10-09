@@ -1,0 +1,137 @@
+---
+// Help and what's new: a short guide to every tool in the hub, written for staff. Videos show here
+// once they are approved (VIDEOS below).
+import App from '../../layouts/App.astro';
+
+const VIDEOS: Array<{ title: string; src: string; poster?: string }> = [];
+
+const toc = [
+  ['new', "What's new"],
+  ['videos', 'Videos'],
+  ['start', 'Getting around'],
+  ['request', 'Make a request'],
+  ['board', 'Request board'],
+  ['expense', 'Expense request'],
+  ['receipts', 'Thank-you receipts'],
+  ['foundations', 'Foundation prospects'],
+  ['kpi', 'KPI dashboard'],
+  ['stuck', 'If something looks wrong'],
+].filter(([id]) => id !== 'videos' || VIDEOS.length);
+---
+<App title="Help and what's new" crumb="Favor Hub" nav="help" description="How to use the Favor hub.">
+  <div class="h-help">
+    <div>
+      <section id="new" class="h-card">
+        <h2>What's new</h2>
+        <p>The hub has a new look and one sign-in. Here is what changed.</p>
+        <div class="h-help__new">
+          <div><b>Sign in once with Google</b><span>Use your @favorintl.org account. The old passwords for receipts, foundations and the expense log are gone.</span></div>
+          <div><b>Everything in one menu</b><span>Every tool sits in the menu on the left, grouped by Work, Dashboard and Tools.</span></div>
+          <div><b>A Today page for you</b><span>It opens with what is waiting on you, how the year is going, and your own requests.</span></div>
+          <div><b>One Make a request button</b><span>Say what you need in your own words. The hub suggests where it goes: the request board, the Marketing team or an expense request.</span></div>
+          <div><b>The KPI dashboard inside the hub</b><span>Everyone sees the year's top numbers. Each team sees its own tab.</span></div>
+          <div><b>Search from anywhere</b><span>Press Ctrl and K together (Command and K on a Mac) and type the name of any tool.</span></div>
+        </div>
+      </section>
+
+      {VIDEOS.length > 0 && (
+        <section id="videos" class="h-card">
+          <h2>Videos</h2>
+          {VIDEOS.map((v) => (
+            <div>
+              <h3>{v.title}</h3>
+              <video controls preload="metadata" src={v.src} poster={v.poster}></video>
+            </div>
+          ))}
+        </section>
+      )}
+
+      <section id="start" class="h-card">
+        <h2>Getting around</h2>
+        <ol>
+          <li>Go to <b>dash.favorintl.org</b> and press <b>Sign in with Google</b>. Pick your Favor account.</li>
+          <li><b>Today</b> is your home page. The cards at the top are things waiting on you. Press a card's button to go straight to the work.</li>
+          <li>The <b>menu on the left</b> has every tool. A number beside a tool shows how much is waiting there.</li>
+          <li><b>Search</b> sits at the top of the menu. Press Ctrl and K together from any page, type a few letters, and press Enter.</li>
+          <li>On a phone, press the <b>three lines</b> at the top left to open the menu.</li>
+          <li>Your name is at the bottom of the menu. The arrow beside it signs you out.</li>
+        </ol>
+      </section>
+
+      <section id="request" class="h-card">
+        <h2>Make a request</h2>
+        <p>Use this for anything you need from someone else: a change to the website, a list from Blackbaud, a flyer, a social post, or a purchase.</p>
+        <ol>
+          <li>Press <b>Make a request</b> at the top right of any page.</li>
+          <li>Type what you need in a sentence or two, the way you'd say it to a coworker. Press <b>Continue</b>.</li>
+          <li>The hub suggests where it goes. If that's wrong, press one of the other choices under it.</li>
+          <li><b>Request board:</b> answer a few short questions, add files if you have them, and send. You get an email when the work is done.</li>
+          <li><b>Marketing team:</b> the Marketing request form opens in a new tab with your words copied. Paste them in and finish the form there.</li>
+          <li><b>Expense request:</b> the expense form opens with your words already in the reason box.</li>
+        </ol>
+        <a class="h-btn h-btn--ghost h-btn--sm h-help__go" href="/requests/new">Open Make a request</a>
+      </section>
+
+      <section id="board" class="h-card">
+        <h2>Request board</h2>
+        <p>The board shows every website, app and Blackbaud request and where it stands.</p>
+        <ul>
+          <li><b>Inbox</b> is new and waiting for review. <b>Approved</b> is accepted and waiting its turn. <b>In motion</b> is being worked on. <b>Done</b> is finished.</li>
+          <li>Press any card to read the whole request, its files and its history.</li>
+          <li>Your own requests and their status also show on Today and beside Make a request.</li>
+        </ul>
+      </section>
+
+      <section id="expense" class="h-card">
+        <h2>Expense request</h2>
+        <p>Use this before a purchase or a trip. Card expenses you already made still go through Paycom.</p>
+        <ol>
+          <li>Open <b>Expense request</b> in the menu. Your name and email are filled in.</li>
+          <li>Add the trip dates and city if it's travel.</li>
+          <li>Add a line for each expense with an estimated amount. <b>Calculate mileage</b> works out a drive for you.</li>
+          <li>Say why it's needed, tick the box, and sign by typing your name or drawing.</li>
+          <li>Press <b>Submit for approval</b>. The approver signs online, and you get the signed copy by email.</li>
+        </ol>
+        <p>Approvers see every request in the <b>Expense log</b> and can sign from there.</p>
+      </section>
+
+      <section id="receipts" class="h-card">
+        <h2>Thank-you receipts</h2>
+        <p>Every gift Blackbaud has not thanked yet, ready to print on the receipt paper.</p>
+        <ol>
+          <li>Open <b>Thank-you receipts</b>. The totals at the top show how many letters are waiting.</li>
+          <li>Check the date for the letters and press <b>Make the print file</b>.</li>
+          <li>Print the file on the receipt paper.</li>
+          <li>Come back and press <b>Mark as thanked</b>, so the same gifts don't print again.</li>
+        </ol>
+        <p><b>Held back</b> lists gifts that need a person to look first. <b>Past printings</b> keeps every file you made.</p>
+      </section>
+
+      <section id="foundations" class="h-card">
+        <h2>Foundation prospects</h2>
+        <ol>
+          <li>Before you call a foundation, type its name in the search box. One search covers this list and every organization in Blackbaud.</li>
+          <li>If someone already talked to them, you see who and when.</li>
+          <li>After your call, open the foundation and press <b>Log a contact</b>. It posts to Blackbaud for you.</li>
+          <li>New foundation? Press <b>Add a foundation</b>.</li>
+        </ol>
+      </section>
+
+      <section id="kpi" class="h-card">
+        <h2>KPI dashboard</h2>
+        <p>The year's numbers from Raiser's Edge, updated twice a day. Everyone sees the Executive page with the top-level numbers. Each team also sees its own tab: RDDs, Partner Care, Church Engagement, Grants, or Marketing, which has the newsletter results. If your job needs a tab you can't see, make a request.</p>
+        <a class="h-btn h-btn--ghost h-btn--sm h-help__go" href="/dashboard/">Open the KPI dashboard</a>
+      </section>
+
+      <section id="stuck" class="h-card">
+        <h2>If something looks wrong</h2>
+        <p>Press <b>Make a request</b> and say what you saw and on which page. A screenshot helps. If the hub asks you to sign in again, sign in with your Favor Google account and you'll land back where you were.</p>
+      </section>
+    </div>
+
+    <nav class="h-card h-help__toc" aria-label="On this page">
+      <b>On this page</b>
+      {toc.map(([id, label]) => <a href={`#${id}`}>{label}</a>)}
+    </nav>
+  </div>
+</App>

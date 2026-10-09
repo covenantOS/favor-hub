@@ -3,19 +3,43 @@ import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 ---
 <App title="Make a request" crumb="Work" nav="new" description="One place to ask for anything: the hub sends it to Will's board or to the Marketing team.">
-  <section class="h-route" id="route">
-    <div class="h-card h-route__ask">
-      <h2>What do you need?</h2>
-      <p>Say it in a sentence or two. The hub sends it to the right place: Will's request board for the website, the portal, the hub and Blackbaud, or the Marketing team for design, print, social and video.</p>
-      <label class="sr-only" for="route-text">What do you need?</label>
-      <textarea id="route-text" maxlength="4000" placeholder="For example: Add Sarah's bio to the team page. Or: A flyer for the October banquet. Or: A list of our Texas partners from Blackbaud."></textarea>
-      <div class="h-route__row">
-        <button type="button" class="h-btn h-btn--primary" id="route-go">Continue</button>
-        <span class="h-route__eg" id="route-wait" hidden>Reading it&hellip;</span>
+  <section class="h-route-wrap" id="route">
+    <div class="h-route">
+      <div class="h-card h-route__ask">
+        <h2>What do you need?</h2>
+        <p>Say it in a sentence or two, the way you'd say it to a coworker. The hub suggests where it goes, and you can change that.</p>
+        <label class="sr-only" for="route-text">What do you need?</label>
+        <textarea id="route-text" maxlength="4000" placeholder="Type your request here"></textarea>
+        <div class="h-route__egs" aria-label="Examples">
+          <span>Try:</span>
+          <button type="button" data-eg="Add Sarah's bio to the team page on the website">A bio on the website</button>
+          <button type="button" data-eg="A flyer for the October banquet">A flyer for an event</button>
+          <button type="button" data-eg="A list of our Texas partners from Blackbaud">A list from Blackbaud</button>
+          <button type="button" data-eg="Mileage and a hotel for my trip to Dallas next week">A trip to pay for</button>
+        </div>
+        <div class="h-route__row">
+          <button type="button" class="h-btn h-btn--primary" id="route-go">Continue</button>
+          <span class="h-route__eg" id="route-wait" hidden><span class="h-spin" aria-hidden="true"></span> Reading it&hellip;</span>
+          <span class="h-route__eg h-route__keys">Ctrl + Enter also works</span>
+        </div>
+        <p class="h-route__msg" id="route-msg" hidden></p>
       </div>
-      <p class="h-route__msg" id="route-msg" hidden></p>
+      <div class="h-card h-route__result" id="route-result" hidden></div>
     </div>
-    <div class="h-card h-route__result" id="route-result" hidden></div>
+    <aside class="h-route__side">
+      <div class="h-card">
+        <div class="h-card__head"><div class="h-card__title">Where requests go</div></div>
+        <div class="h-card__body h-where">
+          <div><span class="h-where__dot" style="background:var(--h-brand)"></span><b>Request board</b><small>Website, portal, the hub, dashboards and Blackbaud</small></div>
+          <div><span class="h-where__dot" style="background:#6b46c1"></span><b>Marketing team</b><small>Design, print, social, video and newsletters</small></div>
+          <div><span class="h-where__dot" style="background:var(--h-gold)"></span><b>Expense request</b><small>Purchases, travel and reimbursements</small></div>
+        </div>
+      </div>
+      <div class="h-card" id="mine-card" hidden>
+        <div class="h-card__head"><div class="h-card__title">Your recent requests</div><div class="h-card__meta"><a class="h-link" href="/requests/">The board</a></div></div>
+        <div class="h-card__body"><ul class="h-mine" id="mine-list"></ul></div>
+      </div>
+    </aside>
   </section>
 
   <div class="make-page" id="route-board" hidden>
@@ -76,7 +100,7 @@ import '../../styles/requests.css';
               </label>
             </fieldset>
             <fieldset class="make-where">
-              <legend>Which surface</legend>
+              <legend>Where is it?</legend>
               <label>
                 <input type="radio" name="surface" value="website" checked />
                 <span>Website</span>
@@ -197,6 +221,6 @@ import '../../styles/requests.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/requests-compose.js?v=5"></script>
-  <script is:inline src="/js/request-router.js?v=1"></script>
+  <script is:inline src="/js/requests-compose.js?v=6"></script>
+  <script is:inline src="/js/request-router.js?v=3"></script>
 </App>

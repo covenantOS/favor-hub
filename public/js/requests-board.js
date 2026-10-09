@@ -5,6 +5,7 @@
     { id: 'in_progress', label: 'In motion' },
     { id: 'done', label: 'Done' },
   ];
+  const STATUS = { inbox: 'Inbox', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' };
   const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'Hub', app: 'App' };
 
   const boardEl = document.getElementById('req-board');
@@ -18,6 +19,8 @@
   const loginMsg = document.getElementById('req-login-msg');
   const hint = document.getElementById('req-hint');
   if (!boardEl) return;
+  // The drawer sits on the body so it covers the menu and the top bar.
+  document.body.appendChild(drawer);
 
   let admin = false;
   let items = [];
@@ -162,10 +165,10 @@
       .map((e) => `<li>${esc(e.created_at.slice(0, 10))} · ${esc(e.kind)} · ${esc(e.actor)}</li>`)
       .join('');
     panel.innerHTML = `
-      <button type="button" class="req-ghost" data-close>Close</button>
+      <button type="button" class="h-x req-drawer__x" data-close aria-label="Close">&#x2715;</button>
       <div class="req-drawer__meta">
         <span class="req-chip">${esc(SURFACE[item.surface] || item.surface)}</span>
-        <span class="req-chip">${esc(item.status.replace('_', ' '))}</span>
+        <span class="req-chip req-chip--${esc(item.status)}">${esc(STATUS[item.status] || item.status)}</span>
         <span class="req-chip">${esc(item.submitter_name)}</span>
       </div>
       <h2>${esc(item.title)}</h2>
@@ -173,9 +176,12 @@
       <div class="req-drawer__body">${esc(item.body)}</div>
       ${atts ? `<div class="req-gallery">${atts}</div>` : ''}
       ${nextActions(item)}
-      ${item.repo ? `<p class="req-empty">Repo: ${esc(item.repo)} · ${esc(item.branch)}</p>` : ''}
+      ${admin && item.repo ? `<p class="req-empty">Repo: ${esc(item.repo)} · ${esc(item.branch)}</p>` : ''}
       ${events ? `<ul class="req-timeline">${events}</ul>` : ''}
     `;
+    // Keyboard users land on Close when the drawer opens.
+    const close = panel.querySelector('[data-close]');
+    if (close && !panel.contains(document.activeElement)) close.focus();
   }
 
   function openDrawer(id) {

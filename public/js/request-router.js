@@ -30,7 +30,7 @@
     },
     expense: {
       title: 'This looks like an expense or a purchase',
-      body: 'Purchases, travel and reimbursements go on an expense request, so Michael Hinton and Rachel Cox can approve and sign it.',
+      body: 'Purchases, travel and reimbursements go on an expense request, so the approvers can sign it and everyone who needs a copy gets one.',
       button: 'Start an expense request',
     },
   };
@@ -134,6 +134,7 @@
       if (!res.ok || !data.ok) throw new Error(data.message || 'Something went wrong. Try again.');
       state = { id: data.id, words, suggested: data.route };
       show(data.route);
+      go.hidden = true;
     } catch (err) {
       say(err.message);
     } finally {
@@ -143,6 +144,12 @@
   }
 
   go.addEventListener('click', ask);
+  text.addEventListener('input', () => {
+    if (go.hidden) {
+      go.hidden = false;
+      result.hidden = true;
+    }
+  });
   text.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) ask();
   });
@@ -152,6 +159,7 @@
     route.hidden = false;
     result.hidden = true;
     text.value = '';
+    go.hidden = false;
     state = { id: '', words: '', suggested: '' };
     text.focus();
   }
@@ -159,6 +167,31 @@
   if (restartBtn) restartBtn.addEventListener('click', restart);
   const again = $('req-again');
   if (again) again.addEventListener('click', () => setTimeout(restart, 0));
+
+  // Example asks fill the box, so a first-time user sees how much to write.
+  document.querySelectorAll('[data-eg]').forEach((b) =>
+    b.addEventListener('click', () => {
+      text.value = b.dataset.eg;
+      text.focus();
+    })
+  );
+
+  // The person's own recent requests, beside the box.
+  fetch('/api/hub/today', { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((d) => {
+      const list = (d && d.mine) || [];
+      const card = $('mine-card');
+      if (!list.length || !card) return;
+      const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const cls = (st) => (/Done|Approved/.test(st) ? 'h-status--done' : /Declined/.test(st) ? 'h-status--declined' : 'h-status--wait');
+      $('mine-list').innerHTML = list
+        .slice(0, 6)
+        .map((m) => `<li><a href="${esc(m.href)}" title="${esc(m.title)}">${esc(m.title)}</a><span class="h-status ${cls(m.status)}">${esc(m.status)}</span></li>`)
+        .join('');
+      card.hidden = false;
+    })
+    .catch(() => {});
 
   // A link can carry the words: /requests/new?text=...
   const preset = new URLSearchParams(location.search).get('text');

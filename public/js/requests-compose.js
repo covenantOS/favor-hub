@@ -30,7 +30,7 @@
 
   const LOC = {
     change: {
-      website: { label: 'Page or URL (optional)', placeholder: 'Give page, or skip if you do not know' },
+      website: { label: 'Page or URL (optional)', placeholder: 'The page or link, if you know it' },
       portal: { label: 'Portal page (optional)', placeholder: 'Giving, or skip' },
       dashboard: { label: 'Hub screen (optional)', placeholder: 'Tools grid, or skip' },
       app: { label: 'Which screen (optional)', placeholder: 'Name the screen, or skip' },

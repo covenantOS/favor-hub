@@ -9,7 +9,7 @@ import '../styles/requests.css';
         <div>
           <p class="make-kicker">Website &amp; apps</p>
           <h1>The <em>board</em></h1>
-          <p>Inbox waits for Will. Approved is what agents may build. In motion is claimed. Done is shipped.</p>
+          <p>Inbox is new and waiting for review. Approved is next in line. In motion is being worked on. Done is finished.</p>
         </div>
         <div class="board-intro__actions">
           <a class="req-submit" href="/requests/new">Make a request</a>
@@ -28,7 +28,7 @@ import '../styles/requests.css';
         <p class="req-msg" id="req-login-msg" aria-live="polite"></p>
       </form>
 
-      <p class="board-hint" id="req-hint" hidden>Drag a card onto Approve, In motion, or Done. Click a card for the full note.</p>
+      <p class="board-hint" id="req-hint" hidden>Drag a card to another column to move it. Click a card to read it.</p>
 
       <div class="req-tabs" id="req-tabs" role="tablist"></div>
       <div class="req-board" id="req-board"></div>
@@ -39,5 +39,5 @@ import '../styles/requests.css';
     <div class="req-drawer__scrim" data-close></div>
     <aside class="req-drawer__panel" id="req-drawer-panel"></aside>
   </div>
-  <script is:inline src="/js/requests-board.js?v=5"></script>
+  <script is:inline src="/js/requests-board.js?v=7"></script>
 </App>
