@@ -14,26 +14,28 @@
  {
   "slug": "hub-walk-through",
   "title": "The new Favor hub, a walk-through",
-  "added": "2026-10-08",
+  "added": "2026-10-09",
   "topic": "hub",
   "roles": [
    "all"
   ],
-  "summary": "Every tool in the hub, step by step: Today, requests, expenses, receipts, foundation prospects and the KPI dashboard.",
-  "seconds": 198,
-  "transcript": "This is a quick walk through the new Favor hub. Every name you'll see here is made up. Go to dash.favorintl.org. Click Sign in with Google, and pick your Favor account. That one sign-in opens every tool, so the old page passwords are gone. You land on Today. It's your home page. The first time, a welcome card points you to Help. Waiting on you shows anything that needs you, with a button straight to the work. When nothing does, it says so. Below that is where the year stands, right from the KPI dashboard. Recent activity shows what's happened across the hub in the last two weeks. And Start something takes you into the tools you use most. Every tool lives in the menu on the left. Blackbaud, Paycom and the other outside tools are at the bottom, and they open in a new tab. To jump anywhere, press Control and K. Type a few letters, and press Enter. When you need something from someone, click Make a request. Type what you need, the way you'd say it to a coworker. Then click Continue. The hub suggests where it should go. Website, app and Blackbaud work goes on the request board. Design, print, social and video go to the Marketing team. And purchases go on an expense request. If the suggestion's wrong, click one of the other choices. For the board, answer a few short questions and send it. You'll get an email when it's done. The request board shows where every request stands. Inbox is new. Approved is next in line. In motion is being worked on. And Done is finished. Click any card to read the whole request. Use Expense request before a purchase or a trip. Your name and email are already filled in. Add a line for each expense, say why it's needed, check the box, and sign. Then click Submit for approval, and you'll get the signed copy by email. Card expenses you've already made still go through Paycom. Thank-you receipts lists every gift that's waiting on a thank-you letter. You make the print file, print it, and mark the gifts thanked. It has its own video that goes step by step. Before you call a foundation, look it up in Foundation prospects. One search covers this list and every organization in Blackbaud. So you'll know if someone's already talking to them. The KPI dashboard sits right inside the hub now. Everyone sees the Executive page, and your team's own tab shows right under it. The top corner shows when the numbers last updated. Help and what's new, at the bottom of the menu, covers all of this in writing. And if something ever looks wrong, make a request and say what you saw. That's the new hub."
+  "summary": "Every tool in the hub, step by step: Today, requests, expenses, receipts, foundation prospects, the KPI dashboard, the tour, the help docs and Feedback.",
+  "seconds": 200,
+  "transcript": "This is a quick walk through the new Favor hub. Every name you'll see here is made up. Go to dash.favorintl.org. Click Sign in with Google, and pick your Favor account. That one sign-in opens every tool, so the old page passwords are gone. You land on Today. It's your home page. The first time, a welcome card offers you a short tour. Your day shows anything that needs you, with a button straight to the work. When nothing does, it says so. Below that is where the year stands, right from the KPI dashboard. Recent activity shows what's happened across the hub in the last two weeks. And Start something takes you into the tools you use most. Every tool lives in the menu on the left. Blackbaud, Paycom and the other outside tools are at the bottom, and they open in a new tab. To jump anywhere, press Control and K. Type a few letters, and press Enter. When you need something from someone, click Make a request. Type what you need, the way you'd say it to a coworker. Then click Continue. The hub suggests where it should go. Website, app and Blackbaud work goes on the request board. Design, print, social and video go to the Marketing team. And purchases go on an expense request. If the suggestion's wrong, click one of the other choices. For the board, answer a few short questions and send it. You'll get an email when it's done. The request board shows where every request stands. Inbox is new. Approved is next in line. In motion is being worked on. And Done is finished. Click any card to read the whole request. Use Expense request before a purchase or a trip. Your name and email are already filled in. Add a line for each expense, say why it's needed, check the box, and sign. Then click Submit for approval, and you'll get the signed copy by email. Card expenses you've already made still go through Paycom. Thank-you receipts lists every gift that's waiting on a thank-you letter. You make the print file, print it, and mark the gifts thanked. It has its own video that goes step by step. Before you call a foundation, look it up in Foundation prospects. One search covers this list and every organization in Blackbaud. So you'll know if someone's already talking to them. The KPI dashboard sits right inside the hub now. Everyone sees the Executive page, and your team's own tab shows right under it. The top corner shows when the numbers last updated. Help and what's new, at the bottom of the menu, gives you a short tour, and the help docs answer the rest. And if something ever looks wrong, press Feedback at the top, and say what you saw. That's the new hub.",
+  "cut": "2026-10-09b"
  },
  {
   "slug": "meet-the-brain",
-  "title": "Meet the Favor Brain",
+  "title": "Meet Favor Brain",
   "added": "2026-10-09",
   "topic": "brain",
   "roles": [
    "all"
   ],
-  "summary": "The one-minute launch: ask Claude about partners, giving, team numbers and the manuals, with real answers from the Favor Brain.",
-  "seconds": 55,
-  "transcript": "Meet the Favor Brain. Ask about partners, giving, team numbers and Favor's manuals, the way you'd ask a coworker. Answers come back in seconds, counted the way our KPI dashboard counts. Need a list? You get a spreadsheet, ready to go. Connect Claude once, from the Favor Brain page in the hub. It's in beta, so try it today and tell us how it does."
+  "summary": "The one-minute launch: ask about partners, giving, every team's numbers, grants, actions and the manuals right on the Favor Brain page, with real answers.",
+  "seconds": 51,
+  "transcript": "Meet Favor Brain. Ask anything about Favor, in plain words, right in the hub. How many partners in North Carolina? How are we doing against goal? Who lapsed in Texas? Answers in seconds. It covers all of Favor: partners and giving, every team's numbers, grants, Blackbaud actions, the manuals, even your own calendar and Drive. And it keeps learning. Favor's documents are next, then our media. The report you used to wait on now takes one question, and the list comes back as a spreadsheet. Try it on the Favor Brain page today, then connect Claude or ChatGPT to keep the conversation going. It's in beta, so tell us how it does.",
+  "cut": "2026-10-09c"
  },
  {
   "slug": "first-week-in-blackbaud",

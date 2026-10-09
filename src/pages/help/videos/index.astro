@@ -22,7 +22,7 @@ const total = Math.round(videos.reduce((n, v) => n + v.seconds, 0) / 60);
       <div class="hd-vids hd-vids--lib">
         {videos.map((v) => (
           <a class="h-card hd-vid" href={`/help/videos/${v.slug}/`} data-topic={v.topic} data-roles={v.roles.join(' ')}>
-            <span class="hd-vid__poster"><img src={`/api/videos/${v.slug}.jpg`} alt="" loading="lazy" /><em>{mins(v.seconds)}</em><i aria-hidden="true"></i></span>
+            <span class="hd-vid__poster"><img src={`/api/videos/${v.slug}.jpg${v.cut ? `?v=${v.cut}` : ''}`} alt="" loading="lazy" /><em>{mins(v.seconds)}</em><i aria-hidden="true"></i></span>
             <span class="hd-vid__topic">{VIDEO_TOPICS[v.topic] || v.topic}</span>
             <b>{v.title}</b>
             <span>{v.summary}</span>
