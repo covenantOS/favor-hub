@@ -2,7 +2,7 @@
 import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 ---
-<App title="Make a request" crumb="Work" nav="new" description="One place to ask for anything: the hub sends it to Will's board or to the Marketing team.">
+<App title="Make a request" crumb="Work" nav="new" description="One place to ask for anything: the hub sends it to the request board or to the Marketing team.">
   <section class="h-route-wrap" id="route">
     <div class="h-route">
       <div class="h-card h-route__ask">
@@ -45,7 +45,7 @@ import '../../styles/requests.css';
   <div class="make-page" id="route-board" hidden>
     <div class="container make-stage">
       <aside class="make-copy">
-        <p class="make-kicker">Will's request board</p>
+        <p class="make-kicker">The request board</p>
         <h1>A few details</h1>
         <p>
           Your words are already in. Pick where it lives, add files if you have them, and skip anything else.
@@ -222,5 +222,5 @@ import '../../styles/requests.css';
     </div>
   </div>
   <script is:inline src="/js/requests-compose.js?v=6"></script>
-  <script is:inline src="/js/request-router.js?v=3"></script>
+  <script is:inline src="/js/request-router.js?v=4"></script>
 </App>

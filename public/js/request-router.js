@@ -1,4 +1,4 @@
-/* Make a request: one box for every ask. The hub suggests where it goes (Will's board, the Marketing
+/* Make a request: one box for every ask. The hub suggests where it goes (the request board, the Marketing
    team's Asana form, or an expense request) and the person confirms or picks another. */
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -19,8 +19,8 @@
 
   const COPY = {
     board: {
-      title: "This goes to Will's request board",
-      body: 'Website, portal, hub, dashboard and Blackbaud work goes to Will. A few quick details and it lands in his Inbox, and you get an email when it is done.',
+      title: 'This goes to the request board',
+      body: 'Website, portal, hub, dashboard and Blackbaud work goes on the request board. A few quick details and it lands in the Inbox, and you get an email when it is done.',
       button: 'Continue',
     },
     marketing: {
@@ -34,7 +34,7 @@
       button: 'Start an expense request',
     },
   };
-  const OTHER = { board: "It's for Will", marketing: "It's for the Marketing team", expense: "It's an expense" };
+  const OTHER = { board: "It's for the request board", marketing: "It's for the Marketing team", expense: "It's an expense" };
 
   function say(text) {
     msg.textContent = text || '';

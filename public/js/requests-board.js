@@ -84,7 +84,7 @@
       .map((a) => attThumb(a))
       .join('');
     const dragAttr = admin ? ' data-draggable="true"' : '';
-    return `<article class="req-card" data-id="${esc(item.id)}" style="--i:${Math.min(index, 8)}"${dragAttr}>
+    return `<article class="req-card" tabindex="0" role="button" data-id="${esc(item.id)}" style="--i:${Math.min(index, 8)}"${dragAttr}>
       <div class="req-card__kicker"><span>${esc(SURFACE[item.surface] || item.surface)}</span><span>${esc(item.submitter_name)}</span></div>
       <h3>${esc(item.title)}</h3>
       ${preview(item) ? `<p>${esc(preview(item))}</p>` : ''}
@@ -296,6 +296,20 @@
 
   window.addEventListener('pointercancel', () => {
     if (drag) clearDrag();
+  });
+
+  // Everyone can open a card to read it; for Will the drag handler above opens it instead.
+  boardEl.addEventListener('click', (e) => {
+    if (admin) return;
+    const card = e.target.closest('.req-card');
+    if (card) openDrawer(card.dataset.id);
+  });
+  boardEl.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.req-card');
+    if (!card) return;
+    e.preventDefault();
+    openDrawer(card.dataset.id);
   });
 
   tabsEl.addEventListener('click', (e) => {
