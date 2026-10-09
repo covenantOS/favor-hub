@@ -14,6 +14,7 @@ import {
   resolveApprover,
   sha256Hex,
   splitEmails,
+  eitherApprover,
 } from '../../_lib/expenses/db';
 import { emailApprover } from '../../_lib/expenses/email';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, type Env } from '../../_lib/http';
@@ -86,7 +87,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
         .then((result) => addExpenseEvent(env, row.id, 'approver_notified', 'system', result))
         .catch((err) => console.error('[expenses] approver email', err))
     );
-    return json({ ok: true, doc_number: row.doc_number, approver_name: approver.name }, 201);
+    return json({ ok: true, doc_number: row.doc_number, approver_name: eitherApprover(approver.name) }, 201);
   } catch (err) {
     return handleError(err);
   }

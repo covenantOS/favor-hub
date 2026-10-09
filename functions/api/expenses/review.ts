@@ -1,6 +1,7 @@
 import { approverEmails } from '../../_lib/expenses/auth';
 import {
   addExpenseEvent,
+  approverNames,
   expenseShape,
   getExpense,
   getExpenseByTokenHash,
@@ -64,10 +65,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return errorJson('already_decided', `This request was already ${row.status}.`, 409);
     }
     const ip = clientIp(request);
-    // Signed from the log: the record and the emails name the person who signed. Everyone named
-    // on the request as an approver is still copied.
-    if (signer) {
-      await env.DB.prepare('UPDATE expense_requests SET approver_name = ? WHERE id = ? AND status = ?').bind(signer, row.id, 'pending').run();
+    // The record and the emails name the one person who signed: the signed-in approver from the log,
+    // or, from the emailed link, whoever the page says is signing when several people may approve.
+    // Everyone named as an approver is still copied.
+    let who = signer;
+    if (!who) {
+      const names = approverNames(row.approver_name);
+      if (names.length > 1) {
+        const picked = asTrimmed(data.signer, 'signer', 120, false);
+        who = names.find((n) => n.toLowerCase() === picked.toLowerCase()) || '';
+        if (!who) throw new HttpError(400, 'pick_signer', `Choose who is signing: ${names.join(' or ')}.`);
+      }
+    }
+    if (who) {
+      await env.DB.prepare('UPDATE expense_requests SET approver_name = ? WHERE id = ? AND status = ?').bind(who, row.id, 'pending').run();
     }
 
     if (action === 'approve') {

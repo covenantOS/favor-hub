@@ -55,11 +55,31 @@
     );
   }
 
+  // From the emailed link, when several people may approve, the page asks which of them is signing,
+  // so the record and the emails name that one person.
+  var names = [];
+  var who = "";
+  function pickHtml() {
+    if (signer || names.length < 2) return "";
+    return (
+      '<fieldset class="make-pills exp-who"><legend>Who is signing? One signature is enough.</legend>' +
+      names
+        .map(function (n) {
+          return '<label><input type="radio" name="exp-who" value="' + esc(n) + '" />' + esc(n) + "</label>";
+        })
+        .join("") +
+      "</fieldset>"
+    );
+  }
+
   function renderPending() {
+    names = req.approvers || [];
+    who = signer || (names.length === 1 ? names[0] : "");
     stage.innerHTML =
       detailHtml(req) +
       '<div class="make-sheet">' +
-      '<span class="exp-legend">Approver signature &middot; ' + esc(signer || req.approver_name) + "</span>" +
+      pickHtml() +
+      '<span class="exp-legend" id="exp-sig-legend">Approver signature' + (who ? " &middot; " + esc(who) : "") + "</span>" +
       '<div id="exp-sig"></div>' +
       '<div class="exp-foot">' +
       '<button type="button" class="req-submit exp-green" id="exp-approve">Approve &amp; sign</button>' +
@@ -71,7 +91,15 @@
       "</div>" +
       '<p class="req-msg" id="exp-rv-msg" aria-live="polite"></p>' +
       "</div>";
-    sig = window.FavorSig($("exp-sig"), signer || req.approver_name);
+    sig = window.FavorSig($("exp-sig"), who);
+    document.querySelectorAll('input[name="exp-who"]').forEach(function (r) {
+      r.addEventListener("change", function () {
+        who = r.value;
+        $("exp-sig-legend").innerHTML = "Approver signature &middot; " + esc(who);
+        $("exp-sig").innerHTML = "";
+        sig = window.FavorSig($("exp-sig"), who);
+      });
+    });
     $("exp-approve").addEventListener("click", function () { decide("approve"); });
     $("exp-decline").addEventListener("click", function () {
       $("exp-decline-note").classList.toggle("on");
@@ -82,6 +110,10 @@
   function decide(action) {
     var msg = $("exp-rv-msg");
     msg.textContent = "";
+    if (!who && names.length > 1) {
+      msg.textContent = "Choose who is signing first.";
+      return;
+    }
     if (action === "approve" && !sig.has()) {
       msg.textContent = "Sign first, then approve.";
       return;
@@ -95,6 +127,7 @@
         token: token || undefined,
         id: id || undefined,
         action: action,
+        signer: who || undefined,
         signature: action === "approve" ? sig.value() : undefined,
         note: action === "decline" ? $("exp-note").value.trim() : undefined,
       }),

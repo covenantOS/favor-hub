@@ -319,6 +319,21 @@ export async function markDecided(
   return row;
 }
 
+/** The people named as approver: "Michael Hinton and Rachel Cox" or "A, B or C" become a list. */
+export function approverNames(name: string): string[] {
+  return String(name || '')
+    .split(/\s*(?:,|&|\/|\band\b|\bor\b)\s*/i)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/** Any one approver can sign, so several names read "A or B" (or "A, B or C"). */
+export function eitherApprover(name: string): string {
+  const n = approverNames(name);
+  if (n.length <= 1) return n[0] || String(name || '');
+  return `${n.slice(0, -1).join(', ')} or ${n[n.length - 1]}`;
+}
+
 /** Shape sent to the review page and admin list. Token hash and IPs stay server-side. */
 export function expenseShape(row: ExpenseRow, items: ExpenseItemRow[], opts: { signatures?: boolean; admin?: boolean } = {}) {
   return {
@@ -331,7 +346,9 @@ export function expenseShape(row: ExpenseRow, items: ExpenseItemRow[], opts: { s
     travel_city: row.travel_city,
     reason: row.reason,
     total_cents: row.total_cents,
-    approver_name: row.approver_name,
+    // Waiting: whoever may sign. Decided: the one person who signed.
+    approver_name: row.status === 'pending' ? eitherApprover(row.approver_name) : row.approver_name,
+    approvers: row.status === 'pending' ? approverNames(row.approver_name) : [row.approver_name],
     approver_email: row.approver_email,
     decline_note: row.decline_note,
     submitted_at: row.submitted_at,

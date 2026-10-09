@@ -177,11 +177,11 @@ export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseI
   // Audit trail.
   const audit = [
     `${fmtEt(row.submitted_at)} · Submitted by ${row.requester_name} (${row.requester_email})${row.requester_ip ? ` · IP ${row.requester_ip}` : ''}`,
-    `${fmtEt(row.submitted_at)} · Approver resolved to ${row.approver_name} (${row.approver_email}) · notification sent`,
+    `${fmtEt(row.submitted_at)} · Sent for approval to ${row.approver_email.split(',').map((e) => e.trim()).join(' or ')} · notification sent`,
   ];
   if (row.decided_at) {
     audit.push(
-      `${fmtEt(row.decided_at)} · ${row.status === 'approved' ? 'Approved and signed' : 'Declined'} by ${row.approver_name} (${row.approver_email})${row.approver_ip ? ` · IP ${row.approver_ip}` : ''}`
+      `${fmtEt(row.decided_at)} · ${row.status === 'approved' ? 'Approved and signed' : 'Declined'} by ${row.approver_name}${row.approver_ip ? ` · IP ${row.approver_ip}` : ''}`
     );
   }
   const auditLines = audit.flatMap((line) => wrap(line, mono, 7, width - 24));

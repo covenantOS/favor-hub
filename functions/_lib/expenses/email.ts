@@ -1,5 +1,5 @@
 import type { Env } from '../http';
-import { fmtEt, money, splitEmails, type ExpenseItemRow, type ExpenseRow } from './db';
+import { approverNames, eitherApprover, fmtEt, money, splitEmails, type ExpenseItemRow, type ExpenseRow } from './db';
 
 function esc(s: string): string {
   return s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] || ch));
@@ -104,7 +104,8 @@ export async function emailApprover(env: Env, row: ExpenseRow, items: ExpenseIte
      ${itemsTable(row, items)}
      <div style="background:#f4efe4;border-radius:8px;padding:12px 14px;font-size:13.5px;color:#2a2722;margin:14px 0 18px">${esc(row.reason)}</div>
      <p style="margin:0 0 18px"><a href="${reviewUrl}" style="display:inline-block;background:#0c7a26;color:#fffdf9;text-decoration:none;font-weight:700;padding:13px 22px;border-radius:8px;font-size:14px">Review &amp; sign</a></p>
-     <p style="font-size:11.5px;color:#8f8a7c;margin:0">This link is private to you and stops working once the request is decided. You are receiving this because you are the assigned expense approver.</p>`
+     ${approverNames(row.approver_name).length > 1 ? `<p style="font-size:13px;color:#5a5648;margin:0 0 14px">${esc(eitherApprover(row.approver_name))} can sign. One signature is enough.</p>` : ''}
+     <p style="font-size:11.5px;color:#8f8a7c;margin:0">This link is private to you and stops working once the request is decided. You are receiving this because you are an expense approver.</p>`
   );
   const sent = await sendResend(env, { to, subject, html });
   return { sent, to, subject, html };
