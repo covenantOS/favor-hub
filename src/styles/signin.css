@@ -1,9 +1,8 @@
-/* Sign-in page. Favor's own type and colors (Montserrat, the brand green), cool neutrals. */
+/* Sign-in page. Since 2026-10-09 in the hub's elevated look (see the end of this file). */
 
-@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-400.woff2') format('woff2'); font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-600.woff2') format('woff2'); font-weight: 600; font-display: swap; }
-@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-700.woff2') format('woff2'); font-weight: 700; font-display: swap; }
-@font-face { font-family: 'Montserrat'; src: url('/fonts/montserrat-800.woff2') format('woff2'); font-weight: 800; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('/fonts/inter-var.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Playfair Display'; src: url('/fonts/playfair-500.woff2') format('woff2'); font-weight: 400 500; font-display: swap; }
+@font-face { font-family: 'Playfair Display'; src: url('/fonts/playfair-400-italic.woff2') format('woff2'); font-weight: 400; font-style: italic; font-display: swap; }
 
 :root {
   --si-green: #2b4d24;
@@ -23,7 +22,7 @@
 html, body { height: 100%; }
 
 body.si {
-  font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   color: var(--si-ink);
   background: var(--si-bg);
   -webkit-font-smoothing: antialiased;
@@ -187,3 +186,48 @@ body.si {
   .si-logo { display: none; }
   .si-card h1 { font-size: 30px; }
 }
+
+
+/* ------------------------------------------------------------- elevated (2026-10-09)
+   The marketing site's language: a sunlit field behind a frosted ivory card, Playfair Display for
+   the greeting and the line on the photo, Inter for the rest, sage and harvest gold. */
+:root {
+  --si-green: #5a7250;
+  --si-green-deep: #3f5233;
+  --si-green-bright: #6f8a62;
+  --si-gold: #c9a24b;
+  --si-ink: #2a2722;
+  --si-ink-2: #57524a;
+  --si-ink-3: #8a857c;
+  --si-line: #e8e4dc;
+  --si-bg: #faf8f4;
+}
+body.si { font-family: 'Inter', system-ui, sans-serif; background: #eef0e6; }
+.si-photo::after {
+  background:
+    linear-gradient(180deg, rgba(38, 48, 30, 0.1) 0%, rgba(38, 48, 30, 0) 35%, rgba(31, 42, 25, 0.86) 100%),
+    linear-gradient(90deg, rgba(31, 42, 25, 0.2), rgba(31, 42, 25, 0));
+}
+.si-photo__words p { font: italic 400 clamp(26px, 2.6vw, 38px)/1.2 'Playfair Display', Georgia, serif; letter-spacing: -0.005em; }
+.si-panel {
+  background-color: #eef0e6;
+  background-image:
+    radial-gradient(120% 80% at 12% -10%, rgba(201, 162, 75, 0.26), transparent 55%),
+    radial-gradient(120% 90% at 92% 0%, rgba(90, 114, 80, 0.28), transparent 55%),
+    radial-gradient(140% 120% at 50% 120%, rgba(63, 82, 51, 0.32), transparent 60%),
+    linear-gradient(170deg, #f4efe0 0%, #e7ece3 45%, #d9e0cf 100%);
+}
+.si-card {
+  max-width: 420px; padding: 40px 38px 34px; border-radius: 26px;
+  background: color-mix(in srgb, #fffdf9 90%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15); backdrop-filter: blur(24px) saturate(1.15);
+  border: 1px solid rgba(232, 228, 220, 0.9);
+  box-shadow: 0 1px 2px rgba(42, 39, 34, 0.04), 0 30px 80px -30px rgba(42, 39, 34, 0.4);
+}
+.si-logo { height: 40px; margin-bottom: 30px; }
+.si-kicker { font-weight: 500; letter-spacing: 0.18em; color: var(--si-ink-3); }
+.si-card h1 { font: 500 44px/1.05 'Playfair Display', Georgia, serif; letter-spacing: -0.015em; color: var(--si-ink); }
+.si-lede { color: var(--si-ink-2); }
+.si-help { color: var(--si-ink-3); }
+.si-help a { color: var(--si-green-deep); }
+@media (max-width: 860px) { .si-card { padding: 30px 24px 26px; } .si-card h1 { font-size: 36px; } }

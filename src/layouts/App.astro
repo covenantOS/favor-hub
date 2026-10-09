@@ -5,6 +5,7 @@
 import '../styles/global.css';
 import '../styles/app.css';
 import '../styles/feel.css';
+import '../styles/elevate.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -92,9 +93,9 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <meta name="robots" content="noindex" />
     <link rel="icon" type="image/png" href="/images/favor-icon.png" />
     <link rel="apple-touch-icon" href="/images/favor-icon.png" />
-    <link rel="preload" href="/fonts/montserrat-600.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/montserrat-800.woff2" as="font" type="font/woff2" crossorigin />
-    <meta name="theme-color" content="#1b3317" />
+    <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
+    <meta name="theme-color" content="#f4efe0" />
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
   </head>
@@ -102,7 +103,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="Hub">
-        <a class="h-brand" href="/" aria-label="Favor Hub home"><img src="/images/favor-logo-white.png" alt="Favor International" /><span>Hub</span></a>
+        <a class="h-brand" href="/" aria-label="Favor Hub home"><img src="/images/favor-logo-color.png" alt="Favor International" /><span>Hub</span></a>
         <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} />Search<kbd>Ctrl K</kbd></button>
         <nav>
           {GROUPS.map((g) => (

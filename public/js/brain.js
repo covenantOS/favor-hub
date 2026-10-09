@@ -48,6 +48,7 @@
     try {
       await navigator.clipboard.writeText($('b-url').textContent.trim());
       $('b-copy').textContent = 'Copied';
+      document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'droplet' }));
     } catch {
       const r = document.createRange();
       r.selectNodeContents($('b-url'));
@@ -85,7 +86,7 @@
     $('b-pkgs').removeAttribute('aria-busy');
     $('b-pkgs').innerHTML = pk
       .map(
-        (p) => `<li class="${p.has ? 'is-on' : ''}">
+        (p) => `<li class="${p.has ? 'is-on' : ''}" title="${esc(p.covers)}">
           <span class="b-pkgs__mark" aria-hidden="true">${p.has ? '&#10003;' : ''}</span>
           <div><b>${esc(p.label)}</b><span>${esc(p.covers)}</span>${p.until ? `<em>Until ${esc(day(p.until))}</em>` : ''}</div>
           ${!p.has && p.requestable ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ask="${esc(p.key)}">Ask for it</button>` : ''}
@@ -114,13 +115,17 @@
     if (role.includes('partner care')) egs = [...EXAMPLES.pc, ...egs];
     if (role.includes('church')) egs = [...EXAMPLES.ce, ...egs];
     if (role.includes('grants')) egs = [...EXAMPLES.grants, ...egs];
-    $('b-egs').innerHTML = egs.slice(0, 7).map((q) => `<li><span>"${esc(q)}"</span><button type="button" class="b-copy-q" data-q="${esc(q)}" aria-label="Copy this question">Copy</button></li>`).join('');
-    document.querySelectorAll('.b-copy-q').forEach((b) =>
+    $('b-egs').innerHTML = egs
+      .slice(0, 8)
+      .map((q) => `<li><button type="button" class="b-q" data-q="${esc(q)}" title="Copy this question">${esc(q)}<span class="b-q__done">Copied</span></button></li>`)
+      .join('');
+    document.querySelectorAll('.b-q').forEach((b) =>
       b.addEventListener('click', async () => {
         try {
           await navigator.clipboard.writeText(b.dataset.q);
-          b.textContent = 'Copied';
-          setTimeout(() => (b.textContent = 'Copy'), 1500);
+          b.classList.add('is-copied');
+          document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'droplet' }));
+          setTimeout(() => b.classList.remove('is-copied'), 1400);
         } catch {}
       })
     );
@@ -139,9 +144,17 @@
       if (f) return `<span class="b-told">${esc(SAID[f.rating] || 'You sent a note')}${f.reply ? ' · answered' : f.status === 'fixed' ? ' · fixed' : ''}</span>`;
       return `<span class="b-rate"><button type="button" class="b-rate__btn" data-right="${esc(r.ref)}" aria-label="This answer was right">Right</button><button type="button" class="b-rate__btn" data-feedback="hub-brain" data-rating="wrong" data-ref="${esc(r.ref)}" data-question="${esc(r.question || '')}" aria-label="This answer was not right">Not right</button></span>`;
     };
+    const FIRST = 5;
+    const shown = $('b-recent').dataset.all ? 15 : FIRST;
+    $('b-more').hidden = rec.length <= FIRST || !!$('b-recent').dataset.all;
+    $('b-more').textContent = `Show ${Math.min(15, rec.length) - FIRST} more`;
+    $('b-more').onclick = () => {
+      $('b-recent').dataset.all = '1';
+      renderMe(d);
+    };
     $('b-recent').innerHTML = rec.length
       ? rec
-          .slice(0, 10)
+          .slice(0, shown)
           .map((r) => {
             const [label, cls] = OUTCOME(r.outcome);
             return `<li><div><b>${esc(said(r))}</b><span>${esc(when(r.at))}${r.ref && r.tool === 'ask' ? ` · ref ${esc(r.ref)}` : ''}</span></div><div class="b-recent__end"><span class="h-status h-status--${cls}">${label}</span>${rateOf(r)}</div></li>`;
@@ -167,7 +180,10 @@
         }
       })
     );
-    if (d.admin) loadAdmin();
+    if (d.admin && !$('admin').dataset.loaded) {
+      $('admin').dataset.loaded = '1';
+      loadAdmin();
+    }
   }
 
   $('b-ask-cancel').addEventListener('click', () => ($('b-ask').hidden = true));
@@ -190,6 +206,21 @@
 
   // ---- Admin -------------------------------------------------------------------------------
   let labels = {};
+  document.querySelectorAll('[data-atab]').forEach((t) =>
+    t.addEventListener('click', () => {
+      document.querySelectorAll('[data-atab]').forEach((x) => {
+        const on = x === t;
+        x.classList.toggle('is-on', on);
+        x.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-apanel]').forEach((p) => (p.hidden = p.dataset.apanel !== t.dataset.atab));
+    })
+  );
+  $('a-find').addEventListener('input', () => {
+    const q = $('a-find').value.trim().toLowerCase();
+    document.querySelectorAll('#a-people-t tbody tr').forEach((tr) => (tr.hidden = !!q && !tr.textContent.toLowerCase().includes(q)));
+  });
+  let activityShown = 20;
   async function loadAdmin() {
     $('admin').hidden = false;
     let d;
@@ -202,7 +233,8 @@
     labels = d.packages || {};
     $('a-pkg').innerHTML = Object.entries(labels).map(([k, v]) => `<option value="${esc(k)}">${esc(v)}</option>`).join('');
     $('a-people').innerHTML = (d.people || []).map((p) => `<option value="${esc(p.email)}">`).join('');
-    $('a-pending-n').textContent = d.pending.length ? `${d.pending.length} waiting` : '';
+    $('a-pending-n').textContent = d.pending.length ? String(d.pending.length) : '';
+    $('a-people-n').textContent = (d.people || []).length ? String(d.people.length) : '';
     $('a-pending').innerHTML = d.pending.length
       ? d.pending
           .map(
@@ -234,17 +266,27 @@
         )
         .join('') +
       '</tbody>';
+    const activity = (d.recent || []).filter((r) => !/^admin_/.test(r.tool));
+    $('a-more').hidden = activity.length <= activityShown;
+    $('a-more').textContent = `Show ${Math.min(20, activity.length - activityShown)} more`;
+    $('a-more').onclick = () => {
+      activityShown += 20;
+      loadAdmin();
+    };
     $('a-recent').innerHTML =
       '<thead><tr><th>When</th><th>Who</th><th>Question</th><th>Result</th><th>Rows</th></tr></thead><tbody>' +
-      (d.recent || [])
-        .filter((r) => !/^admin_/.test(r.tool))
+      activity
+        .slice(0, activityShown)
         .map((r) => {
           const [label, cls] = OUTCOME(r.outcome);
           return `<tr><td>${esc(when(r.at))}</td><td>${esc(r.email.split('@')[0])}</td><td><b>${esc(said(r))}</b>${r.reading ? `<span>${esc(r.reading)}</span>` : ''}</td><td><span class="h-status h-status--${cls}">${label}</span></td><td>${r.rows || ''}</td></tr>`;
         })
         .join('') +
       '</tbody>';
-    if (location.hash === '#admin') $('admin').scrollIntoView({ block: 'start' });
+    if (location.hash === '#admin' && !$('admin').dataset.scrolled) {
+      $('admin').dataset.scrolled = '1';
+      $('admin').scrollIntoView({ block: 'start' });
+    }
   }
 
   $('a-grant').addEventListener('submit', async (e) => {
