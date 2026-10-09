@@ -160,7 +160,7 @@
   const empty = (t) => `<p class="h-sub">${esc(t)}</p>`;
 
   const note = new URLSearchParams(location.search).get('google');
-  const notes = { connected: 'Google is connected. Your meetings, files and mail now show here.', declined: 'Google was not connected.', 'wrong-account': 'Pick your Favor account when Google asks.', failed: 'Google did not connect. Try again.', expired: 'That took too long. Try again.', 'no-token': 'Google did not hand back access. Try again.' };
+  const notes = { connected: 'Your meetings, files and mail now show here.', declined: 'Google was not connected.', 'wrong-account': 'Pick your Favor account when Google asks.', failed: 'Google did not connect. Try again.', expired: 'That took too long. Try again.', 'no-token': 'Google did not hand back access. Try again.' };
   if (note && notes[note]) {
     $('d-sub').textContent = notes[note];
     history.replaceState(null, '', '/');
@@ -222,10 +222,7 @@
         card('Today’s meetings', '<a class="h-link" href="https://calendar.google.com" target="_blank" rel="noopener">Calendar</a>', events) +
         card('Unread mail', '<a class="h-link" href="https://mail.google.com" target="_blank" rel="noopener">Gmail</a>', mail) +
         card('Shared with you', 'This week', files) +
-        `<p class="h-sub h-day__foot" style="grid-column:1 / -1">Google connected. <button type="button" class="h-more" id="d-disconnect">Disconnect</button></p>`;
-      $('d-disconnect').addEventListener('click', () =>
-        fetch('/api/google/disconnect', { method: 'POST', credentials: 'same-origin' }).then(() => location.reload())
-      );
+        '';
     })
     .catch(() => {
       grid.innerHTML = '<div class="h-card h-empty" style="grid-column:1 / -1">Your day could not load. Refresh to try again.</div>';

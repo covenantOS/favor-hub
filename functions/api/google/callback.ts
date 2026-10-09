@@ -6,13 +6,23 @@ import { hubUserOf } from '../../_lib/session';
 // encrypted against the signed-in person's email. Back to Today either way, with a note.
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const url = new URL(request.url);
-  const back = (note: string) =>
-    new Response(null, { status: 302, headers: { Location: '/?google=' + note, 'Set-Cookie': 'hub_gstate=; Path=/api/google; Max-Age=0', 'Cache-Control': 'no-store' } });
+  const state = url.searchParams.get('state') || '';
+  const nextPath = decodeURIComponent(state.split('|')[1] || '%2F');
+  const safeNext = /^\/(?![\/])/.test(nextPath) ? nextPath : '/';
+  const back = (note: string) => {
+    const h = new Headers({ 'Cache-Control': 'no-store' });
+    h.append('Set-Cookie', 'hub_gstate=; Path=/api/google; Max-Age=0');
+    if (note === 'connected') {
+      h.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
+      h.set('Location', safeNext + (safeNext.includes('?') ? '&' : '?') + 'google=connected');
+    } else h.set('Location', '/connect/?google=' + note);
+    return new Response(null, { status: 302, headers: h });
+  };
   const user = hubUserOf(request);
   if (!user || user.via !== 'google') return back('signin');
   if (url.searchParams.get('error')) return back('declined');
   const cookie = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)hub_gstate=([^;]+)/)?.[1];
-  if (!cookie || cookie !== url.searchParams.get('state')) return back('expired');
+  if (!cookie || decodeURIComponent(cookie) !== state) return back('expired');
   try {
     const t = await exchangeCode(env, request, url.searchParams.get('code') || '');
     // The account Google returned must be the one signed in to the hub.

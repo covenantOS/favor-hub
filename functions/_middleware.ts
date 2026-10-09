@@ -65,6 +65,22 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   const forwarded = withUserHeaders(request, user);
   const open = OPEN_PATHS.has(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));
 
+  // Google is part of signing in: a person with no connected Google account goes to Google's consent
+  // screen before any page opens (calendar, Drive file names, mail headers; read-only). A cookie set
+  // when they connect saves the lookup on later pages. Scripts and the admin password are exempt.
+  if (enforce && user && user.via === 'google' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
+    const marked = /(?:^|;\s*)hub_gc=1/.test(request.headers.get('Cookie') || '');
+    if (!marked) {
+      const row = await env.DB.prepare('SELECT 1 AS ok FROM hub_google WHERE email = ?').bind(user.email).first().catch(() => ({ ok: 1 }));
+      if (!row) return Response.redirect(new URL('/api/google/connect?next=' + encodeURIComponent(path + url.search), url).toString(), 302);
+      const res = await ctx.next(forwarded);
+      const out = new Response(res.body, res);
+      if (isHtml(res)) out.headers.set('Cache-Control', 'private, no-cache');
+      out.headers.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
+      return out;
+    }
+  }
+
   if (user || open || !enforce) {
     const res = await ctx.next(forwarded);
     if (!enforce || open || !isHtml(res)) return res;

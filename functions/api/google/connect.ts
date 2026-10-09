@@ -7,7 +7,9 @@ import { hubUserOf } from '../../_lib/session';
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = hubUserOf(request);
   if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=%2F', request.url).toString(), 302);
-  const state = crypto.randomUUID();
+  const asked = new URL(request.url).searchParams.get('next') || '/';
+  const next = /^\/(?![\/])/.test(asked) ? asked : '/';
+  const state = crypto.randomUUID() + '|' + encodeURIComponent(next);
   const q = new URLSearchParams({
     client_id: clientId(env),
     redirect_uri: redirectUri(request),
@@ -24,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     status: 302,
     headers: {
       Location: 'https://accounts.google.com/o/oauth2/v2/auth?' + q.toString(),
-      'Set-Cookie': `hub_gstate=${state}; Path=/api/google; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
+      'Set-Cookie': `hub_gstate=${encodeURIComponent(state)}; Path=/api/google; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
       'Cache-Control': 'no-store',
     },
   });

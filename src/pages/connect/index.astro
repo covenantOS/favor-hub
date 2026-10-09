@@ -1,0 +1,37 @@
+---
+// Shown when Google was not connected during sign-in. Connecting is part of using the hub.
+import '../../styles/signin.css';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/png" href="/images/favor-icon.png" />
+    <title>Connect Google - Favor Hub</title>
+  </head>
+  <body class="si">
+    <main class="si-shell">
+      <section class="si-photo" aria-hidden="true">
+        <img src="/images/signin-field.jpg" alt="" />
+        <div class="si-photo__words"><img class="si-photo__logo" src="/images/favor-logo-white.png" alt="" /><p>Transformed hearts transform nations.</p></div>
+      </section>
+      <section class="si-panel">
+        <div class="si-card">
+          <img class="si-logo" src="/images/favor-logo-color.png" alt="Favor International" />
+          <h1>One more step</h1>
+          <p class="si-lede" id="c-msg">The hub needs your Favor Google calendar, Drive and inbox to show what is on your day.</p>
+          <p class="si-lede">It reads event times and titles, file names, and who emailed you. It never opens an email or a file.</p>
+          <a class="si-btn" href="/api/google/connect" style="display:inline-block;margin-top:14px;padding:12px 20px;border-radius:10px;background:#2b4d24;color:#fff;font-weight:700;text-decoration:none">Connect my Google</a>
+          <p class="si-fine" style="margin-top:18px">Questions? Email <a href="mailto:tech@favorintl.org">tech@favorintl.org</a>.</p>
+        </div>
+      </section>
+    </main>
+    <script is:inline>
+      const n = new URLSearchParams(location.search).get('google');
+      const m = { declined: 'Google was not connected. Press Connect my Google and choose Allow.', 'wrong-account': 'Pick your Favor account when Google asks.', expired: 'That took too long. Try again.', failed: 'Google did not connect. Try again.', 'no-token': 'Google did not hand back access. Try again.' };
+      if (m[n]) document.getElementById('c-msg').textContent = m[n];
+    </script>
+  </body>
+</html>
