@@ -53,6 +53,10 @@
       document.querySelectorAll('[data-need]').forEach((el) => {
         if (access[el.dataset.need]) el.hidden = false;
       });
+      const kpiTeams = d.kpiTeams || [];
+      document.querySelectorAll('[data-kpi-team]').forEach((el) => {
+        el.hidden = !access.kpi || !kpiTeams.includes(el.dataset.kpiTeam);
+      });
       const counts = d.counts || {};
       document.querySelectorAll('[data-count]').forEach((el) => {
         const n = Number(counts[el.dataset.count]) || 0;

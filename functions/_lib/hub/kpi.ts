@@ -32,7 +32,7 @@ export function kpiBase(env: Env): string {
   return (env.KPI_URL || KPI_URL).replace(/\/$/, '');
 }
 
-async function kpiGet<T>(env: Env, path: string, who: { email: string; name: string }): Promise<T> {
+export async function kpiGet<T>(env: Env, path: string, who: { email: string; name: string }): Promise<T> {
   const token = await kpiToken(env, { email: who.email, name: who.name }, 300);
   const req = () => new Request(kpiBase(env) + path, { headers: { Cookie: `session=${token}`, 'User-Agent': 'favor-hub' } });
   let res: Response | null = null;

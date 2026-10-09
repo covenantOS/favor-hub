@@ -37,7 +37,7 @@ const ICONS: Record<string, string> = {
 };
 const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 
-type Item = { id?: string; label: string; href: string; icon: string; count?: string; need?: string; ext?: boolean };
+type Item = { id?: string; label: string; href: string; icon: string; count?: string; need?: string; ext?: boolean; sub?: boolean; team?: string };
 const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
   { label: null, items: [{ id: 'home', label: 'Today', href: '/', icon: 'home' }] },
   {
@@ -51,7 +51,19 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       { id: 'foundations', label: 'Foundation prospects', href: '/foundations/', icon: 'landmark' },
     ],
   },
-  { label: 'Dashboard', need: 'kpi', items: [{ id: 'kpi', label: 'KPI dashboard', href: '/dashboard/', icon: 'chart' }] },
+  {
+    label: 'KPI dashboard',
+    need: 'kpi',
+    items: [
+      { id: 'kpi', label: 'Executive', href: '/dashboard/', icon: 'chart' },
+      { id: 'kpi-rdds', label: 'RDD team', href: '/dashboard/?page=%2Frdds', icon: 'chart', sub: true, team: 'rdd' },
+      { id: 'kpi-pc', label: 'Partner Care', href: '/dashboard/?page=%2Fpc', icon: 'chart', sub: true, team: 'pc' },
+      { id: 'kpi-ce', label: 'Church Engagement', href: '/dashboard/?page=%2Fce', icon: 'chart', sub: true, team: 'ce' },
+      { id: 'kpi-grants', label: 'Grants', href: '/dashboard/?page=%2Fgrants', icon: 'chart', sub: true, team: 'grants' },
+      { id: 'kpi-marketing', label: 'Marketing', href: '/dashboard/?page=%2Fmarketing', icon: 'chart', sub: true, team: 'marketing' },
+      { id: 'kpi-definitions', label: 'Definitions', href: '/dashboard/?page=%2Fdefinitions', icon: 'chart', sub: true },
+    ],
+  },
   {
     label: 'Tools',
     items: [
@@ -93,13 +105,15 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
                   <a class="h-nav__item" href={it.href} target="_blank" rel="noopener noreferrer">{it.label}<Fragment set:html={icon('ext', 'h-i h-nav__ext')} /></a>
                 ) : (
                   <a
-                    class={`h-nav__item${it.id === nav ? ' is-on' : ''}`}
+                    class={`h-nav__item${it.sub ? ' h-nav__sub' : ''}${it.id === nav ? ' is-on' : ''}`}
                     href={it.href}
                     data-need={it.need || undefined}
-                    hidden={it.need ? true : undefined}
+                    data-kpi-team={it.team || undefined}
+                    data-kpi-page={it.href.startsWith('/dashboard/') ? decodeURIComponent((it.href.split('page=')[1] || '%2F')) : undefined}
+                    hidden={it.need || it.team ? true : undefined}
                     aria-current={it.id === nav ? 'page' : undefined}
                   >
-                    <Fragment set:html={icon(it.icon)} />
+                    {!it.sub && <Fragment set:html={icon(it.icon)} />}
                     {it.label}
                     {it.count && <span class="h-nav__count" data-count={it.count} hidden></span>}
                   </a>
@@ -137,6 +151,6 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       </div>
     </div>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=2" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=3" defer></script>
   </body>
 </html>

@@ -610,3 +610,12 @@ body.h-body::before { display: none; }
   .h-g21 { grid-template-columns: 1fr; }
   .h-mission { min-height: 200px; max-height: 260px; }
 }
+
+/* the KPI dashboard's tabs in the sidebar, and the dashboard page itself */
+.h-nav__sub { padding-left: 39px; font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.66); }
+.h-nav__sub.is-on::before { left: -14px; }
+.h-frame--kpi { background: #f3f4f6; }
+.h-page--wide .h-frame-wait { background: #f3f4f6; }
+.h-kpi-fresh { font-size: 12px; font-weight: 700; color: var(--h-ink-3); white-space: nowrap; }
+.h-kpi-fresh.is-stale { color: var(--h-red); }
+@media (max-width: 860px) { .h-kpi-fresh { display: none; } }

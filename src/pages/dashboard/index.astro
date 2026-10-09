@@ -1,23 +1,80 @@
 ---
-// The KPI dashboard inside the hub, exactly as kpi.favorintl.org shows it. The hub hands the person
-// over with /api/kpi/enter, so there is no second sign-in. Every staff member opens it; the dashboard
-// shows each person the Executive page and only their own team's tab (kpi-dashboard backend/access.js).
+// The KPI dashboard inside the hub. The hub hands the person over with /api/kpi/enter (no second
+// sign-in) and opens the dashboard in hub mode (?embed=1): no header or footer of its own, the hub's
+// background and type, and the hub's sidebar choosing the tab. The dashboard's charts and layouts
+// are its own and stay as they are. Each person sees the Executive page and their own team's tab
+// (kpi-dashboard backend/access.js).
 import App from '../../layouts/App.astro';
 ---
-<App title="KPI dashboard" crumb="Dashboard" nav="kpi" wide description="The KPI dashboard inside the hub.">
-  <a slot="actions" class="h-btn h-btn--ghost h-btn--sm h-hide-sm" href="https://kpi.favorintl.org/" target="_blank" rel="noopener">Open in its own tab</a>
+<App title="KPI dashboard" crumb="KPI dashboard" nav="kpi" wide description="The KPI dashboard inside the hub.">
+  <span slot="actions" class="h-kpi-fresh" id="kpi-fresh" hidden></span>
   <div class="h-frame-wrap">
     <div class="h-frame-wait" id="kpi-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Opening the KPI dashboard</div>
-    <iframe class="h-frame" id="kpi-frame" title="KPI dashboard" src="about:blank"></iframe>
+    <iframe class="h-frame h-frame--kpi" id="kpi-frame" title="KPI dashboard" src="about:blank"></iframe>
   </div>
   <script is:inline>
     (() => {
+      const KPI = 'https://kpi.favorintl.org';
       const frame = document.getElementById('kpi-frame');
-      const asked = new URLSearchParams(location.search).get('page') || '/';
+      const title = document.querySelector('.h-top__title');
+      const fresh = document.getElementById('kpi-fresh');
+      const withEmbed = (page) => page + (page.includes('?') ? '&' : '?') + 'embed=1';
+      let entered = false;
+
+      const mark = (page) => {
+        document.querySelectorAll('[data-kpi-page]').forEach((a) => {
+          const on = a.dataset.kpiPage === page || (page.startsWith('/rdds/') && a.dataset.kpiPage === '/rdds');
+          a.classList.toggle('is-on', on);
+          if (on) a.setAttribute('aria-current', 'page');
+          else a.removeAttribute('aria-current');
+        });
+      };
+
+      const open = (page) => {
+        mark(page);
+        if (!entered) {
+          // First load: the hub signs the person in to the dashboard, then opens the page.
+          frame.src = '/api/kpi/enter?next=' + encodeURIComponent(withEmbed(page));
+          entered = true;
+        } else {
+          frame.src = KPI + withEmbed(page);
+        }
+      };
+
       frame.addEventListener('load', () => {
         if (frame.src !== 'about:blank') document.getElementById('kpi-wait').hidden = true;
       });
-      frame.src = '/api/kpi/enter?next=' + encodeURIComponent(asked);
+
+      // The dashboard says which page is showing; the title, the sidebar and the address follow.
+      window.addEventListener('message', (e) => {
+        if (e.origin !== KPI || !e.data || e.data.source !== 'kpi-dashboard') return;
+        if (e.data.type === 'page') {
+          if (title) title.textContent = e.data.title || 'KPI dashboard';
+          document.title = (e.data.title || 'KPI dashboard') + ' - KPI dashboard - Favor Hub';
+          mark(e.data.path);
+          const want = e.data.path === '/' ? '/dashboard/' : '/dashboard/?page=' + encodeURIComponent(e.data.path);
+          if (location.pathname + location.search !== want) history.replaceState(null, '', want);
+        }
+        if (e.data.type === 'freshness' && e.data.lastUpdated) {
+          const at = new Date(e.data.lastUpdated).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          fresh.textContent = (e.data.stale ? 'Not updated since ' : 'Updated ') + at;
+          fresh.classList.toggle('is-stale', Boolean(e.data.stale));
+          fresh.hidden = false;
+        }
+      });
+
+      // Sidebar tabs switch the page in place, without reloading the hub.
+      document.addEventListener('click', (e) => {
+        const a = e.target.closest('a[data-kpi-page]');
+        if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+        e.preventDefault();
+        history.pushState(null, '', a.getAttribute('href'));
+        open(a.dataset.kpiPage);
+        document.getElementById('h-app').classList.remove('is-nav');
+      });
+      window.addEventListener('popstate', () => open(new URLSearchParams(location.search).get('page') || '/'));
+
+      open(new URLSearchParams(location.search).get('page') || '/');
     })();
   </script>
 </App>
