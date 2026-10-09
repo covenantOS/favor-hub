@@ -22,9 +22,10 @@
     ask: '', find_partner: 'Found a partner', partner_profile: 'Opened a partner', partner_list: 'Partner list', count_partners: 'Counted partners',
     giving_summary: 'Giving totals', gift_list: 'Gift list', team_numbers: 'Team numbers', actions: 'Actions', grant_opportunities: 'Grant opportunities',
     lookup: 'Looked up', search_knowledge: 'Searched the manuals', read_document: 'Read a manual section', my_day: 'My day', search_my_drive: 'Searched Drive',
-    definitions: 'Definitions', request_access: 'Asked for access', whoami: 'Checked access',
+    definitions: 'Definitions', request_access: 'Asked for access', whoami: 'Checked access', give_feedback: 'Sent feedback',
   };
-  const HIDE = /^(whoami|admin_)/;
+  // Housekeeping calls stay out of the person's list of questions.
+  const HIDE = /^(whoami|admin_|give_feedback$)/;
   const said = (r) => {
     if (r.tool === 'ask') return r.question || 'A question';
     const what = TOOL[r.tool] || r.tool.replace(/_/g, ' ');
@@ -38,6 +39,7 @@
     if (k === 'clarify') return ['Asked back', 'wait'];
     if (k === 'denied') return ['Not in your access', 'declined'];
     if (k === 'refused') return ['Only reads', 'wait'];
+    if (k === 'feedback') return ['Feedback sent', 'done'];
     return ['Did not finish', 'declined'];
   };
 
@@ -142,7 +144,7 @@
           .slice(0, 10)
           .map((r) => {
             const [label, cls] = OUTCOME(r.outcome);
-            return `<li><div><b>${esc(said(r))}</b><span>${esc(when(r.at))}${r.ref ? ` · ref ${esc(r.ref)}` : ''}</span></div><div class="b-recent__end"><span class="h-status h-status--${cls}">${label}</span>${rateOf(r)}</div></li>`;
+            return `<li><div><b>${esc(said(r))}</b><span>${esc(when(r.at))}${r.ref && r.tool === 'ask' ? ` · ref ${esc(r.ref)}` : ''}</span></div><div class="b-recent__end"><span class="h-status h-status--${cls}">${label}</span>${rateOf(r)}</div></li>`;
           })
           .join('')
       : '<li class="b-empty">Nothing yet. Connect Claude or ChatGPT and ask your first question.</li>';
