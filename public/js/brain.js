@@ -17,6 +17,20 @@
     if (!res.ok || d.ok === false) throw new Error(d.message || d.error || 'The brain did not answer (' + res.status + ').');
     return d;
   };
+  // How each kind of call reads in a list: the question itself, or what the tool did.
+  const TOOL = {
+    ask: '', find_partner: 'Found a partner', partner_profile: 'Opened a partner', partner_list: 'Partner list', count_partners: 'Counted partners',
+    giving_summary: 'Giving totals', gift_list: 'Gift list', team_numbers: 'Team numbers', actions: 'Actions', grant_opportunities: 'Grant opportunities',
+    lookup: 'Looked up', search_knowledge: 'Searched the manuals', read_document: 'Read a manual section', my_day: 'My day', search_my_drive: 'Searched Drive',
+    definitions: 'Definitions', request_access: 'Asked for access', whoami: 'Checked access',
+  };
+  const HIDE = /^(whoami|admin_)/;
+  const said = (r) => {
+    if (r.tool === 'ask') return r.question || 'A question';
+    const what = TOOL[r.tool] || r.tool.replace(/_/g, ' ');
+    const detail = String(r.question || '').replace(/(limit|region|partner type|gift kind): [^;]+;? ?/g, '').replace(/; $/, '');
+    return detail ? `${what}: ${detail}` : what;
+  };
   const OUTCOME = (o) => {
     const k = String(o || '').split(':')[0];
     if (k === 'ok' || k === 'requested' || k === 'approved') return ['Answered', 'done'];
@@ -109,13 +123,13 @@
     );
 
     $('b-calls').textContent = d.calls ? `${d.calls.toLocaleString('en-US')} so far` : '';
-    const rec = d.recent || [];
+    const rec = (d.recent || []).filter((r) => !HIDE.test(r.tool));
     $('b-recent').innerHTML = rec.length
       ? rec
           .slice(0, 10)
           .map((r) => {
             const [label, cls] = OUTCOME(r.outcome);
-            return `<li><div><b>${esc(r.question || r.tool.replace(/_/g, ' '))}</b><span>${esc(when(r.at))}${r.tool !== 'ask' ? ' · ' + esc(r.tool.replace(/_/g, ' ')) : ''}</span></div><span class="h-status h-status--${cls}">${label}</span></li>`;
+            return `<li><div><b>${esc(said(r))}</b><span>${esc(when(r.at))}</span></div><span class="h-status h-status--${cls}">${label}</span></li>`;
           })
           .join('')
       : '<li class="b-empty">Nothing yet. Connect Claude or ChatGPT and ask your first question.</li>';
@@ -189,9 +203,10 @@
     $('a-recent').innerHTML =
       '<thead><tr><th>When</th><th>Who</th><th>Question</th><th>Result</th><th>Rows</th></tr></thead><tbody>' +
       (d.recent || [])
+        .filter((r) => !/^admin_/.test(r.tool))
         .map((r) => {
           const [label, cls] = OUTCOME(r.outcome);
-          return `<tr><td>${esc(when(r.at))}</td><td>${esc(r.email.split('@')[0])}</td><td><b>${esc(r.question || r.tool.replace(/_/g, ' '))}</b>${r.reading ? `<span>${esc(r.reading)}</span>` : ''}</td><td><span class="h-status h-status--${cls}">${label}</span></td><td>${r.rows || ''}</td></tr>`;
+          return `<tr><td>${esc(when(r.at))}</td><td>${esc(r.email.split('@')[0])}</td><td><b>${esc(said(r))}</b>${r.reading ? `<span>${esc(r.reading)}</span>` : ''}</td><td><span class="h-status h-status--${cls}">${label}</span></td><td>${r.rows || ''}</td></tr>`;
         })
         .join('') +
       '</tbody>';

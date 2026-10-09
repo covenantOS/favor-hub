@@ -774,3 +774,6 @@ body.is-dragging-card, body.is-dragging-card * { -webkit-user-select: none !impo
   .b-addr__row { flex-direction: column; align-items: stretch; }
   .b-req { flex-direction: column; }
 }
+.b-page > *, #admin > *, .b-grid > * { min-width: 0; }
+.b-table td .h-chip { display: inline-block; font-size: 11px; color: var(--h-ink-2); }
+.b-table td .b-chip--changed { color: #7a5000; }
