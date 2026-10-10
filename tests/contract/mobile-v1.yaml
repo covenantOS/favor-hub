@@ -399,7 +399,7 @@ paths:
     post:
       operationId: uploadGiftPhoto
       tags: [gift-entry]
-      summary: One photo of a check or reply slip. The two readers and the partner match run before the answer.
+      summary: One photo of a check or reply slip. Clef sorts the photo first; the two readers and the partner match run before the answer for a check or slip.
       x-work-center-route: POST /api/gift-entry/deposits/:id/photos, plus client_id so a resend returns the stored answer
       parameters:
         - { name: client_id, in: query, required: true, schema: { type: string, format: uuid } }
@@ -412,16 +412,17 @@ paths:
             schema: { type: string, format: binary }
       responses:
         "200":
-          description: The row the photo went to
+          description: The row the photo went to. An envelope (status skipped) or an unreadable photo (status retake) has no row and no giftId.
           content:
             application/json:
               schema:
                 type: object
-                required: [ok, giftId, status]
+                required: [ok, giftId, status, photoKind]
                 properties:
                   ok: { type: boolean }
-                  giftId: { type: string }
-                  status: { type: string }
+                  giftId: { type: string, nullable: true }
+                  status: { type: string, enum: [reading, review, ready, sent, failed, by_hand, removed, skipped, retake] }
+                  photoKind: { type: string, enum: [check, reply_slip, envelope, other, unreadable] }
                   duplicatePhoto: { type: boolean }
                   repeat: { type: boolean }
         "400": { $ref: "#/components/responses/BadRequest" }

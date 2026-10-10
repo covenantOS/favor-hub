@@ -18,6 +18,7 @@ const fields = (o) => ({ docType: 'check', amountCents: null, wordsCents: null, 
 const reader = (name, f) => ({ reader: name, model: name, fields: f, secs: 1.2, error: null, card: false });
 
 let nextRead = [];
+let nextTriage = null;
 let batchApproved = false;
 let posted = 0;
 let postedCents = 0;
@@ -47,6 +48,8 @@ async function ready() {
   giftHooks.repo = (env) => mobileRoute.hooks.repo(env);
   giftHooks.send = () => sender();
   giftHooks.read = async () => nextRead;
+  giftHooks.triage = async () => nextTriage || { kind: 'other', p: 0.9, secs: 0.2, error: null };
+  nextTriage = null;
   giftHooks.bucket = (env) => env.GIFT_CAPTURES;
   posted = 0;
   postedCents = 0;
@@ -317,5 +320,61 @@ describe('a flagged reader field clears when someone resolves it', () => {
     assert.deepEqual(waiting.flags, []);
     assert.equal(waiting.confirmed, false);
     assert.ok(waiting.blockers.includes('Pick the partner.'));
+  });
+});
+
+describe('Clef sorts each photo before the readers run', () => {
+  it('skips an envelope, asks for a retake on an unreadable photo, and reads a check', async () => {
+    const { w, token } = await ready();
+    const dep = (await callChecked(w, 'POST', A, { token, body: { kind: 'regular', date: TODAY_ET(), tapeTotal: 50, tapeCount: 1 } })).body.deposit;
+    const up = (n) => callChecked(w, 'POST', `${A}/deposits/${dep.id}/photos?client_id=${uuid()}&kind=check_front`, { token, raw: jpeg(n), headers: { 'Content-Type': 'image/jpeg' } });
+    const rowCount = () => w.db.prepare('SELECT COUNT(*) AS n FROM ge_gift WHERE deposit_id = ?').get(dep.id).n;
+    const imageCount = () => w.db.prepare('SELECT COUNT(*) AS n FROM ge_image WHERE deposit_id = ?').get(dep.id).n;
+
+    // an envelope: skipped, no row, no image kept, no reader run
+    nextTriage = { kind: 'envelope', p: 0.93, secs: 0.3, error: null };
+    nextRead = [];
+    const env = await up(80);
+    assert.equal(env.status, 200);
+    assert.equal(env.body.status, 'skipped');
+    assert.equal(env.body.photoKind, 'envelope');
+    assert.equal(env.body.giftId, null);
+    assert.equal(rowCount(), 0);
+    assert.equal(imageCount(), 0);
+
+    // an unreadable photo: retake, nothing filed
+    nextTriage = { kind: 'unreadable', p: 0.8, secs: 0.3, error: null };
+    const blur = await up(81);
+    assert.equal(blur.body.status, 'retake');
+    assert.equal(blur.body.photoKind, 'unreadable');
+    assert.equal(blur.body.giftId, null);
+    assert.equal(rowCount(), 0);
+
+    // a check: triage says check, the readers run, and the row carries the photo kind
+    const same = fields({ amountCents: 4500, wordsCents: 4500, checkDate: addDays(TODAY_ET(), -2), payer: 'Ada Example', checkNumber: '5150', memo: null });
+    nextTriage = { kind: 'check', p: 0.97, secs: 0.3, error: null };
+    nextRead = [reader('scout', same), reader('gemma', same)];
+    const check = await up(82);
+    assert.equal(check.status, 200);
+    assert.equal(check.body.status, 'review');
+    assert.equal(check.body.photoKind, 'check');
+    assert.ok(check.body.giftId);
+    assert.equal(rowCount(), 1);
+    const row = w.db.prepare('SELECT fields_json FROM ge_gift WHERE id = ?').get(check.body.giftId);
+    assert.equal(JSON.parse(row.fields_json).photo, 'check');
+  });
+
+  it('reads an envelope or unreadable call below 0.5 as other, and a failed call reads as other', async () => {
+    const { triageWith } = await import('../functions/_lib/gifts/triage.ts');
+    const answer = (choice, p) => async () => ({ answers: { kind: { choice, probabilities: { [choice]: p } } } });
+    assert.equal((await triageWith(answer('envelope', 0.3), 'data:x')).kind, 'other');
+    assert.equal((await triageWith(answer('unreadable', 0.49), 'data:x')).kind, 'other');
+    assert.equal((await triageWith(answer('envelope', 0.5), 'data:x')).kind, 'envelope');
+    assert.equal((await triageWith(answer('reply_slip', 0.9), 'data:x')).kind, 'reply_slip');
+    assert.equal((await triageWith(answer('other_document', 0.9), 'data:x')).kind, 'other');
+    const failed = await triageWith(async () => { throw new Error('model down'); }, 'data:x');
+    assert.equal(failed.kind, 'other');
+    assert.match(failed.error, /model down/);
+    assert.equal((await triageWith(async () => ({ result: { answers: { kind: { choice: 'check', probabilities: { check: 0.8 } } } } }), 'data:x')).kind, 'check');
   });
 });

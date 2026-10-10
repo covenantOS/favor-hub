@@ -11,7 +11,7 @@ import type { CaptureDeps } from './capture';
 import type { BbSend } from './bb';
 
 /** Tests replace Blackbaud, the two readers and the photo bucket. The live routes leave this empty. */
-export const giftHooks: { repo?: (env: Env) => ActionsRepo; send?: (env: Env) => BbSend; read?: CaptureDeps['read']; bucket?: (env: Env) => R2Bucket } = {};
+export const giftHooks: { repo?: (env: Env) => ActionsRepo; send?: (env: Env) => BbSend; read?: CaptureDeps['read']; triage?: CaptureDeps['triage']; bucket?: (env: Env) => R2Bucket } = {};
 
 export interface GiftArgs {
   request: Request;
@@ -40,7 +40,7 @@ export function gift(handler: (a: GiftArgs) => Promise<Response | Record<string,
       const out = await handler({
         request, env, params: params as Record<string, string | string[]>, waitUntil, user, actor, url: new URL(request.url),
         flow: { env, send: (giftHooks.send || bbSender)(env), actor },
-        deps: { repo, q, read: giftHooks.read, bucket: giftHooks.bucket ? giftHooks.bucket(env) : undefined },
+        deps: { repo, q, read: giftHooks.read, triage: giftHooks.triage, bucket: giftHooks.bucket ? giftHooks.bucket(env) : undefined },
         repo, q,
       });
       if (out instanceof Response) return out;

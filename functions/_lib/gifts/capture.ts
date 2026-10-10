@@ -5,6 +5,7 @@ import type { Q } from '../work/partner';
 import type { ActionsRepo } from '../work/repo';
 import { candidatesFor, findDuplicate, lastGiftCoding, loadCatalog } from './match';
 import { mergeReads, readPhoto, toDataUrl, type Merged, type ReaderResult } from './read';
+import { triagePhoto, type PhotoKind, type Triage } from './triage';
 import { dedupeKeyOf, getDeposit, getGift, logEvent, parseJson, prayerIn, ruleFor, sha256Hex, updateGift, WHERE_NEEDED_MOST, type GiftRow } from './store';
 
 export const MAX_PHOTO_BYTES = 6 * 1024 * 1024;
@@ -14,10 +15,20 @@ export interface CaptureDeps {
   q: Q;
   /** Tests pass a stand-in for the two readers. */
   read?: (dataUrl: string) => Promise<ReaderResult[]>;
+  /** Tests pass a stand-in for the Clef triage call. */
+  triage?: (dataUrl: string) => Promise<Triage>;
   bucket?: R2Bucket;
 }
 
 const bucketOf = (env: Env, deps: CaptureDeps): R2Bucket => (deps.bucket || ((env as any).GIFT_CAPTURES as R2Bucket));
+
+/** What the photo became. An envelope is skipped and an unreadable photo asks for a retake: neither keeps an image or a row. */
+export interface PhotoOutcome {
+  gift: GiftRow | null;
+  duplicatePhoto: boolean;
+  photoKind: PhotoKind;
+  status: string;
+}
 
 export async function addPhoto(
   env: Env,
@@ -25,12 +36,21 @@ export async function addPhoto(
   depositId: string,
   who: { name: string; email: string },
   input: { bytes: Uint8Array; mime: string; kind?: 'check_front' | 'slip' | 'letter'; giftId?: string }
-): Promise<{ gift: GiftRow; duplicatePhoto: boolean }> {
+): Promise<PhotoOutcome> {
   const dep = await getDeposit(env, depositId);
   if (!dep || dep.status !== 'open') throw new Error('This deposit is not open for photos.');
   const mime = input.mime === 'image/png' ? 'image/png' : 'image/jpeg';
   const sha = await sha256Hex(input.bytes);
   const stamp = nowIso();
+
+  // Clef sorts the photo before any reader runs. A failed call reads as 'other', so the photo still goes on to the readers.
+  const dataUrl = toDataUrl(input.bytes, mime);
+  const tri = await (deps.triage ? deps.triage(dataUrl) : triagePhoto(env, dataUrl));
+  if (tri.kind === 'envelope' || tri.kind === 'unreadable') {
+    const skipped = tri.kind === 'envelope';
+    await logEvent(env, { deposit_id: depositId, gift_id: input.giftId || null, kind: skipped ? 'photo_skipped' : 'photo_retake', actor: who.name, detail: { p: tri.p, secs: tri.secs } });
+    return { gift: null, duplicatePhoto: false, photoKind: tri.kind, status: skipped ? 'skipped' : 'retake' };
+  }
 
   let giftId = input.giftId || '';
   if (!giftId) {
@@ -48,12 +68,12 @@ export async function addPhoto(
   await env.DB.prepare('INSERT INTO ge_image (id, gift_id, deposit_id, kind, r2_key, sha256, bytes, mime, uploaded_by, uploaded_at) VALUES (?,?,?,?,?,?,?,?,?,?)')
     .bind(imageId, giftId, depositId, input.kind || 'check_front', key, sha, input.bytes.length, mime, who.email, stamp)
     .run();
-  await logEvent(env, { deposit_id: depositId, gift_id: giftId, kind: 'photo_added', actor: who.name, detail: { bytes: input.bytes.length } });
+  await logEvent(env, { deposit_id: depositId, gift_id: giftId, kind: 'photo_added', actor: who.name, detail: { bytes: input.bytes.length, photo: tri.kind, p: tri.p, triage_error: tri.error } });
 
   try {
     // A slip or second photo for a row already read adds the appeal and memo. It never rewrites the check's own fields.
     const slipOnly = !!input.giftId && (input.kind === 'slip' || input.kind === 'letter');
-    await readAndMatch(env, deps, depositId, giftId, imageId, input.bytes, mime, sha, who.name, slipOnly);
+    await readAndMatch(env, deps, depositId, giftId, imageId, input.bytes, mime, sha, who.name, slipOnly, tri.kind);
   } catch (e: any) {
     // The photo is kept and the row waits for a person to type it. A failed read never blocks the deposit.
     await updateGift(env, giftId, { status: 'review', error: 'The photo could not be read. Type the gift in.' });
@@ -61,10 +81,10 @@ export async function addPhoto(
   }
   const gift = (await getGift(env, giftId))!;
   const dup = parseJson<{ kind?: string } | null>(gift.dup_json, null);
-  return { gift, duplicatePhoto: !!dup && dup.kind === 'photo' };
+  return { gift, duplicatePhoto: !!dup && dup.kind === 'photo', photoKind: tri.kind, status: gift.status };
 }
 
-export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: string, giftId: string, imageId: string, bytes: Uint8Array, mime: string, sha: string, actor: string, slipOnly = false): Promise<void> {
+export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: string, giftId: string, imageId: string, bytes: Uint8Array, mime: string, sha: string, actor: string, slipOnly = false, photoKind: PhotoKind = 'other'): Promise<void> {
   const dep = (await getDeposit(env, depositId))!;
   const dataUrl = toDataUrl(bytes, mime);
   const results = await (deps.read ? deps.read(dataUrl) : readPhoto(env, dataUrl));
@@ -148,7 +168,7 @@ export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: strin
     set.appeal_id = appealId;
     set.appeal_name = cat?.appeals.find((a) => a.id === appealId)?.name || null;
   }
-  set.fields_json = JSON.stringify({ flags: merged.flags, why: merged.why, readers: merged.readers, unreadable: merged.unreadable, defaults });
+  set.fields_json = JSON.stringify({ photo: photoKind, flags: merged.flags, why: merged.why, readers: merged.readers, unreadable: merged.unreadable, defaults });
   await updateGift(env, giftId, set);
 
   const g = (await getGift(env, giftId))!;
