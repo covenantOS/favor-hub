@@ -1,8 +1,8 @@
 /* Clips pop-up recorder (2026-10-10). Loaded the first time the camera button is pressed, and into the floating window.
    Every selector starts with cr- so it cannot collide with the hub's own stylesheets. Colors repeat the hub's (sage, ivory, ink). */
 :root {
-  --cr-brand: #5a7250;
-  --cr-brand-ink: #3f5233;
+  --cr-brand: #2b4d24;
+  --cr-brand-ink: #1f3a1a;
   --cr-leaf-soft: #e7ece3;
   --cr-ivory: #fffdf9;
   --cr-paper: #f6f3ec;
@@ -10,7 +10,7 @@
   --cr-line-2: #ddd7cb;
   --cr-ink: #2a2722;
   --cr-ink-2: #57524a;
-  --cr-ink-3: #8a857c;
+  --cr-ink-3: #6a6259;
   --cr-red: #b4432a;
   --cr-red-soft: #f6e7df;
   --cr-gold: #c9a24b;

@@ -303,7 +303,7 @@
 
   // ---- Chart (bar or line, any number of series, one axis) -------------------------------------------
   const CHARTS = {};
-  const SERIES = ['var(--c-a)', 'var(--c-b)', '#3b78b0', '#a8573a']; // checked with the dataviz validator: lightness, chroma, colour-blind separation, contrast
+  const SERIES = ['var(--c-a)', 'var(--c-b)', 'var(--c-c, #3b78b0)', 'var(--c-d, #a8573a)']; // checked with the dataviz validator: lightness, chroma, colour-blind separation, contrast
   function chartHTML(b) {
     const id = 'ch' + ++SEQ;
     CHARTS[id] = b;

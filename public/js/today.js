@@ -57,7 +57,7 @@
     $('t-cards').innerHTML = list
       .map(
         (c) => `<div class="h-card h-todo${c.warn ? ' h-todo--warn' : ''}">
-          <div class="h-todo__app"><span class="h-todo__icon">${icon(c.id)}</span>${esc(c.label)}</div>
+          <div class="h-todo__app"><span class="h-todo__icon h-todo__icon--${c.id}">${icon(c.id)}</span>${esc(c.label)}</div>
           <div class="h-todo__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? ` <small data-countup>${money2(c.amount)}</small>` : ''}</div>
           <div class="h-todo__what">${esc(c.what)}</div>
           ${c.note ? `<div class="h-todo__note${c.warn ? ' h-todo__note--warn' : ''}">${esc(c.note)}</div>` : ''}

@@ -1,0 +1,38 @@
+/* Hub colors (2026-10-10, Will approved "B limited", colors only). Loaded last. Changes color values and
+   nothing else: no layout, no new cards or lines. Five tool colors: sun (Today, KPI), sky (requests,
+   expenses, receipts), leaf (Work Center, foundations), dusk (Favor Brain), terracotta (Clips).
+   Every text pair below passes WCAG AA; chart marks pass 3:1 on the card. */
+:root {
+  --h-ink-3: #6a6259;
+  --h-red: #93391f;
+  --h-brand-green: #2b4d24;
+  --h-brand-green-ink: #1f3a1a;
+  --tc-sun: #a87410; --tc-sun-ink: #6e4a08;
+  --tc-sky: #2f6f9f; --tc-sky-ink: #235578;
+  --tc-leaf: #3d7a35; --tc-leaf-ink: #2a5a24;
+  --tc-dusk: #5b4f93; --tc-dusk-ink: #4a3f7d;
+  --tc-terra: #b4532f; --tc-terra-ink: #8f3d1f;
+}
+/* menu: icon and count badge take the tool's color */
+.h-nav__item[data-nav-id="home"] { --ic: var(--tc-sun); --ic-ink: var(--tc-sun-ink); }
+.h-nav__item:is([data-nav-id="new"], [data-nav-id="board"], [data-nav-id="expense"], [data-nav-id="expenses"], [data-nav-id="receipts"]) { --ic: var(--tc-sky); --ic-ink: var(--tc-sky-ink); }
+.h-nav__item:is([data-nav-id="work"], [data-nav-id="foundations"]) { --ic: var(--tc-leaf); --ic-ink: var(--tc-leaf-ink); }
+.h-nav__item:is([data-nav-id="brain"], [data-nav-id="brain-admin"]) { --ic: var(--tc-dusk); --ic-ink: var(--tc-dusk-ink); }
+.h-nav__item[data-nav-id="clips"] { --ic: var(--tc-terra); --ic-ink: var(--tc-terra-ink); }
+.h-nav__item[data-nav-id^="kpi"] { --ic: var(--tc-sun); --ic-ink: var(--tc-sun-ink); }
+.h-nav__item .h-i { color: var(--ic, var(--h-ink-3)); }
+.h-nav__item .h-nav__count { background: var(--ic-ink, var(--h-brand)); color: #fff; }
+.h-nav__item .h-nav__count--warn { background: var(--h-gold); color: #3a2a06; }
+/* primary buttons: Favor green */
+.h-btn--primary, .h-body .bc-root .h-btn--primary { background: var(--h-brand-green); color: #fff; }
+.h-btn--primary:hover, .h-body .bc-root .h-btn--primary:hover { background: var(--h-brand-green-ink); }
+/* late chip, darker for contrast */
+.wc-late, .wc-tag--warn, .h-status--declined { background: #f6e7df; color: #93391f; }
+.wc-late--soon { background: var(--h-gold-soft); color: var(--h-gold-ink); }
+.wc-late--ok { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
+.wc-late--old { background: #efe6e1; color: #7d4a37; }
+/* Favor Brain charts in the tool colors */
+.bc-root { --c-a: var(--tc-dusk); --c-b: var(--tc-sun); --c-c: var(--tc-sky); --c-d: var(--tc-leaf); }
+/* Today: the round icon in each card header takes its tool's color, as in the menu */
+.h-todo__icon--requests, .h-todo__icon--expenses, .h-todo__icon--receipts { color: var(--tc-sky); }
+.h-todo__icon--brain { color: var(--tc-dusk); }
