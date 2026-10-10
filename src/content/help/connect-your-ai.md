@@ -16,7 +16,7 @@ Open **Favor Brain** in the menu and press **Copy** beside the address. The addr
 
 ## Claude (any plan, free included)
 
-1. Open **claude.ai** or the Claude app, sign in, then press **Customize** and **Connectors**.
+1. Favor has a Claude organization. Ask the technology team for a Favor Claude seat, then open **claude.ai** or the Claude app, sign in, and press **Customize** and **Connectors**.
 2. If you use Claude through the Favor organization, **Favor** is already in your list under **Yours**. Press **Connect** beside it and go to step 4.
 3. If you use your own Claude account, press **+ Add**, then **Add custom connector**. Name it **Favor**, paste the address and press **Continue**.
 4. A Favor page opens. Press **Continue with Google** and sign in with your **@favorintl.org** account. Claude shows "Connected to Favor."

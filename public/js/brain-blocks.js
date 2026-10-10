@@ -222,7 +222,7 @@
       <div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s" data-cnt="${id}">${n > shown ? `${int(shown)} of ${rowLabel(tb, n)}` : rowLabel(tb, n)}${b.more ? '+' : ''}</div></div>
         <div class="card__acts">${ctx && ctx.expired ? '' : toolsHTML(tb, false, tb.canSheets)}</div></div>
       ${chipsHTML(tb)}
-      <div class="tbl__scroll" data-tbbody="${id}">${tableInner(tb)}</div>
+      <div class="tbl__wrap"><div class="tbl__scroll" data-tbbody="${id}" tabindex="0" role="region" aria-label="${esc(b.title)}, scroll sideways for every column">${tableInner(tb)}</div></div>
       ${ctx && ctx.expired ? `<div class="bc-expired">Expired. Lists last 24 hours.<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="ask-again" data-turn="${ctx.ti}">Ask again</button></div>` : n > tb.preview || tb.partial ? `<div class="tbl__foot"><span data-cnt2="${id}">Showing ${int(shown)} of ${int(n)}${b.more ? '+' : ''}</span><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="topen" data-tb="${id}">Show all ${ic('arrow')}</button></div>` : ''}
       ${b.note ? `<div class="tbl__foot"><span>${esc(b.note)}</span></div>` : ''}
     </div>`;
@@ -379,6 +379,20 @@
     });
   }
   B.drawCharts = drawCharts;
+  // A table wider than its card scrolls sideways. The wrapper shows a fade on each edge that has more to see.
+  function tableFades() {
+    document.querySelectorAll('.tbl__wrap').forEach((w) => {
+      const s = w.querySelector('.tbl__scroll');
+      if (!s) return;
+      w.classList.toggle('more-r', s.scrollWidth - s.clientWidth - s.scrollLeft > 4);
+      w.classList.toggle('more-l', s.scrollLeft > 4);
+    });
+  }
+  B.tableFades = tableFades;
+  document.addEventListener('scroll', (e) => { if (e.target && e.target.classList && e.target.classList.contains('tbl__scroll')) tableFades(); }, true);
+  addEventListener('resize', tableFades);
+  let fadeT = 0;
+  new MutationObserver(() => { clearTimeout(fadeT); fadeT = setTimeout(tableFades, 60); }).observe(document.body, { childList: true, subtree: true });
 
   // ---- Partner card ---------------------------------------------------------------------------------
   const initials = (n) => String(n || '?').replace(/[^A-Za-z\s.]/g, '').split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';

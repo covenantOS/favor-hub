@@ -30,6 +30,7 @@
       headers: opt.body ? { 'Content-Type': 'application/json' } : undefined,
       body: opt.body ? JSON.stringify(opt.body) : undefined,
       signal: opt.signal,
+      keepalive: !!opt.keepalive,
     });
     const d = await res.json().catch(() => ({}));
     if (!res.ok || d.ok === false) {
@@ -114,7 +115,11 @@
   }
 
   // ---- Turns ---------------------------------------------------------------------------------------------
-  const newCur = () => ({ id: null, title: 'New chat', turns: [] });
+  // A new chat gets its id here, so the server can save the question under it the moment it is sent.
+  const newId = () => 'c_' + Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(36).padStart(2, '0')).join('').slice(0, 8);
+  const newCur = () => ({ id: newId(), title: 'New chat', turns: [] });
+  const LAST = 'favor.brain.last';
+  const remember = (id) => { try { localStorage.setItem(LAST, JSON.stringify({ id, at: Date.now() })); } catch { /* not kept */ } };
   /** A turn from the Brain's reply to a question asked now. */
   function fromReply(q, d) {
     return {
@@ -125,6 +130,8 @@
   /** A turn from a stored thread (answer_json is the Brain's StoredAnswer). */
   function fromStored(t) {
     const a = t.answer || {};
+    if (a.pending) return { q: t.question, ref: null, at: t.at, blocks: null, reading: [], follow: [], lists: [], markdown: '', pending: true, extras: [], rated: null, stored: true };
+    if (a.error) return { q: t.question, ref: t.ref, at: t.at, blocks: null, error: a.error, reading: [], follow: [], lists: [], markdown: '', extras: [], rated: null, stored: true };
     return { q: t.question, ref: t.ref, at: t.at, blocks: a.blocks || [], reading: Array.isArray(a.reading) ? a.reading : [], follow: a.follow || [], lists: a.lists || [], markdown: '', intent: a.intent, outcome: a.outcome, asked_as: a.asked_as || t.question, hint: false, extras: [], rated: null, stored: true };
   }
   const fresh = (t) => !t.stored || Date.now() - new Date(t.at).getTime() < DAY;
@@ -193,11 +200,12 @@
       return;
     }
     $('bc-title').textContent = cur.title;
+    const working = !!(busy && busy.conv === cur) || cur.turns.some((t) => t.pending);
     th.innerHTML = cur.turns.map((t, ti) => {
       const latest = ti === cur.turns.length - 1;
-      const waiting = busy && busy.conv === cur && latest && !t.blocks && !t.error && !t.stopped;
+      const waiting = (t.pending || (busy && busy.conv === cur)) && latest && !t.blocks && !t.error && !t.stopped;
       return `<div class="turn" style="display:contents">${qHTML(t, ti, latest)}${waiting ? '' : `<div class="m-a"><div class="m-a__av" aria-hidden="true">${ic('spark')}</div><div class="m-a__body" data-abody="${ti}">${answerHTML(t, ti, latest)}</div></div>`}</div>`;
-    }).join('') + (busy && busy.conv === cur ? thinkHTML(busy.status) : '');
+    }).join('') + (working ? thinkHTML(busy ? busy.status : 'Looking at the records') : '');
     if (opts.noAnim) th.querySelectorAll('.m-q, .m-a, .m-a__body > *').forEach((e) => (e.style.animation = 'none'));
     B.drawCharts(th);
     B.countUp(th, opts.noAnim);
@@ -233,6 +241,34 @@
     return t.length > 44 ? t.slice(0, 42) + '...' : t.charAt(0).toUpperCase() + t.slice(1);
   };
 
+  // ---- The connect popup: once per person ------------------------------------------------------------------
+  // Shown after a first good answer, never again once it has been shown. The server remembers it per person
+  // (brain_prefs); this browser's memory covers the moment before the server answers, and the case where the
+  // table is not there.
+  const CS = 'favor.brain.connect.seen';
+  let seenConnect = (() => { try { return !!localStorage.getItem(CS); } catch { return false; } })();
+  let prefsLoaded = false;
+  async function loadPrefs() {
+    try {
+      const d = await api('prefs');
+      if (d.seen && d.seen.includes('connect_seen')) seenConnect = true;
+    } catch { /* the browser's memory stands in */ }
+    prefsLoaded = true;
+  }
+  function markConnectSeen() {
+    seenConnect = true;
+    try { localStorage.setItem(CS, '1'); } catch { /* not kept */ }
+    api('prefs', { body: { key: 'connect_seen' } }).catch(() => {});
+  }
+  function offerConnect() {
+    if (seenConnect || !prefsLoaded) return;
+    markConnectSeen();
+    setTimeout(() => {
+      if ($('bc-dlg').classList.contains('is-on')) return;
+      dlg(`<h2 id="bc-dlg-h">Ask these questions inside Claude</h2><p>Favor has a Claude organization. Ask the technology team for a Favor Claude seat, then connect it once. Your own Claude can compare two lists, combine answers and follow up on anything you ask.</p><div class="acts" style="flex-wrap:wrap;justify-content:flex-start;gap:8px"><button type="button" class="h-btn h-btn--primary" data-act="connect-go">Show me how to connect</button><button type="button" class="h-btn h-btn--ghost" data-act="dlg-x" data-keep="1">Keep using it here</button></div><p style="margin:14px 0 0;font-size:12.5px"><button type="button" class="lnk" data-act="connect-gpt" style="border:0;background:none;padding:0;color:var(--h-brand-ink);font:600 12.5px var(--h-font)">Set up ChatGPT instead</button></p>`);
+    }, 700);
+  }
+
   // ---- Asking ---------------------------------------------------------------------------------------------
   /** opt: { intent, rerun: { ref, key, value }, at: turn index to replace in place, fromBox } */
   async function ask(q, opt = {}) {
@@ -257,25 +293,23 @@
     const t2 = setTimeout(() => { mine.status = 'Putting the answer together'; const s = $('bc-think-st'); if (s && busy === mine) s.textContent = mine.status; }, 5000);
     if (!replacing) scrollToQ();
     const body = { question: q, v: 2 };
-    if (conv.id) body.conv = conv.id;
+    body.conv = conv.id;
+    remember(conv.id);
+    if (cur === conv) history.replaceState(null, '', '?c=' + encodeURIComponent(conv.id));
     const prev = replacing ? (conv.turns.slice(0, opt.at).reverse().find((x) => x.blocks && x.outcome === 'ok') || {}).asked_as : lastGoodBefore(conv, conv.turns.length - 1);
     if (prev) body.previous = prev;
     if (opt.intent) body.intent = opt.intent;
     if (opt.rerun) body.rerun = opt.rerun;
     try {
-      const d = await api('ask', { body, signal: mine.ctl.signal });
+      const d = await api('ask', { body, signal: mine.ctl.signal, keepalive: true });
       if (!d.ref) d.ref = '';
       const t = fromReply(q || turn.q, d);
       Object.assign(turn, t, { q: turn.q || q });
-      if (d.conv && !conv.id) {
-        conv.id = d.conv;
-        if (cur === conv) history.replaceState(null, '', '?c=' + encodeURIComponent(conv.id));
-      }
+      turn.hint = false;
       if (d.outcome === 'ok' && !(d.blocks || []).some((b) => b.type === 'choice')) {
         answered++;
-        if (turn.hint && (answered < 3 || sessionStorage.getItem('favor.brain.hint'))) turn.hint = false;
-        if (turn.hint) sessionStorage.setItem('favor.brain.hint', '1');
-      } else turn.hint = false;
+        offerConnect();
+      }
       cue('droplet');
     } catch (err) {
       if (err.name === 'AbortError') turn.stopped = true;
@@ -292,6 +326,9 @@
     if (cur === conv) {
       renderThread({ noAnim: replacing });
       if (!replacing) scrollToQ();
+    } else if (!cur || cur.id !== conv.id) {
+      // The person is in another chat. The answer is saved on this one; tell them it landed.
+      if (!turn.stopped) toast('Your answer is ready in "' + conv.title + '"');
     }
     loadHistory();
   }
@@ -304,6 +341,47 @@
   };
   function stop() {
     if (busy) busy.ctl.abort();
+  }
+  /** A chat opened while its last answer is still being made: read the stored chat until the answer lands. */
+  function pollPending(c) {
+    const mine = (busy = { conv: c, ctl: new AbortController(), status: 'Looking at the records', stop: false });
+    setSend();
+    const end = () => { if (busy === mine) busy = null; setSend(); };
+    (async () => {
+      for (let i = 0; i < 150; i++) {
+        await sleep(i < 3 ? 1200 : 2500);
+        if (cur !== c || busy !== mine) return;
+        if (mine.ctl.signal.aborted) {
+          const t = c.turns[c.turns.length - 1];
+          if (t && t.pending) { t.pending = false; t.stopped = true; }
+          end();
+          renderThread({ noAnim: true });
+          return;
+        }
+        try {
+          const d = await api('thread/' + encodeURIComponent(c.id));
+          if (cur !== c || busy !== mine) return;
+          const turns = (d.turns || []).map(fromStored);
+          if (turns.length >= c.turns.length) c.turns = turns;
+          if (!c.turns.some((t) => t.pending)) {
+            end();
+            renderThread({ noAnim: false });
+            scrollToQ();
+            cue('droplet');
+            loadHistory();
+            return;
+          }
+        } catch (err) {
+          if (err.status === 404) { end(); return; }
+        }
+      }
+      if (cur === c && busy === mine) {
+        const t = c.turns[c.turns.length - 1];
+        if (t && t.pending) { t.pending = false; t.error = 'This answer is taking too long. Ask again.'; }
+        end();
+        renderThread({ noAnim: true });
+      }
+    })();
   }
 
   async function rerun(ti, key, value) {
@@ -349,7 +427,7 @@
       h += `<div class="bc-grp">${esc(g)}</div>`;
       h += groups.get(g).map((c) => c.renaming
         ? `<div class="bc-conv" role="listitem"><input data-rename="${esc(c.id)}" value="${esc(c.title)}" aria-label="Rename the chat" maxlength="80" /></div>`
-        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
+        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
     }
     if (!h) h = `<div class="bc-norail">${q ? 'No chats match.' : 'Your chats show here for 30 days.'}</div>`;
     $('bc-convs').innerHTML = h;
@@ -363,6 +441,8 @@
       const renaming = convs.find((c) => c.renaming);
       convs = (d.threads || []).map((c) => ({ ...c, renaming: renaming && renaming.id === c.id }));
       renderRail();
+      clearTimeout(loadHistory.t);
+      if (convs.some((c) => c.pending)) loadHistory.t = setTimeout(loadHistory, 3500);
     } catch {
       /* the list stays as it was */
     }
@@ -389,15 +469,19 @@
     }
   }
   async function openConv(id) {
-    if (busy) { busy.ctl.abort(); busy = null; setSend(); }
+    // An answer still being made keeps going on the server; this chat just stops waiting for it.
+    busy = null;
+    setSend();
     closePop();
     try {
       const d = await api('thread/' + encodeURIComponent(id));
       cur = { id: d.thread.id, title: d.thread.title, turns: (d.turns || []).map(fromStored) };
       history.replaceState(null, '', '?c=' + encodeURIComponent(id));
+      remember(id);
       renderRail();
       renderThread({ noAnim: false });
       $('bc-scroll').scrollTop = 0;
+      if (cur.turns.some((t) => t.pending)) { pollPending(cur); renderThread({ noAnim: true }); }
       closeRailOver();
       closePanel();
     } catch (err) {
@@ -406,7 +490,7 @@
     }
   }
   function startNew() {
-    if (busy) { busy.ctl.abort(); busy = null; }
+    busy = null;
     cur = null;
     history.replaceState(null, '', location.pathname);
     renderRail();
@@ -483,14 +567,15 @@
     } else if (kind === 'access') {
       inn.innerHTML = `<div class="bc-panel__h"><div style="flex:1"><div class="t">What you can ask about</div><div class="s">${esc((me && me.role) || '')}</div></div><button type="button" class="ib" data-act="pclose" aria-label="Close the panel">${ic('close')}</button></div><div class="bc-panel__body access">${accessHTML()}</div>`;
     } else if (kind === 'connect') {
-      inn.innerHTML = `<div class="bc-panel__h"><div style="flex:1"><div class="t">Ask from Claude or ChatGPT</div><div class="s">The same answers, inside the app you already use</div></div><button type="button" class="ib" data-act="pclose" aria-label="Close the panel">${ic('close')}</button></div><div class="bc-panel__body access">${connectHTML()}</div>`;
+      inn.innerHTML = `<div class="bc-panel__h"><div style="flex:1"><div class="t">Connect Claude or ChatGPT</div><div class="s">The same answers, inside the app you already use</div></div><button type="button" class="ib" data-act="pclose" aria-label="Close the panel">${ic('close')}</button></div><div class="bc-panel__body access">${connectHTML()}</div>`;
     }
+    app.classList.toggle('panel-full', kind === 'table');
     app.classList.add('has-panel');
     const f = inn.querySelector('button, input');
     setTimeout(() => f && f.focus(), 60);
   }
   function closePanel() {
-    app.classList.remove('has-panel');
+    app.classList.remove('has-panel', 'panel-full');
     panelKind = null;
     if (app.dataset.railBack) { delete app.dataset.railBack; app.classList.remove('no-rail'); syncRailBtn(); }
   }
@@ -528,6 +613,7 @@
     return `<div class="bc-apps" role="tablist"><button type="button" role="tab" class="is-on" aria-selected="true" data-act="apptab" data-app="claude">Claude</button><button type="button" role="tab" aria-selected="false" data-act="apptab" data-app="chatgpt">ChatGPT</button></div>
       <div class="bc-addr"><code id="bc-url">https://mcp.favorintl.org/mcp</code><button type="button" class="h-btn h-btn--primary h-btn--sm" data-act="copy-url">Copy</button></div>
       <div class="steps" style="padding:12px 0 0" data-app-panel="claude"><ol>
+        <li><div>Favor has a Claude organization. Ask the technology team for a Favor Claude seat first.</div></li>
         <li><div>Open <b>claude.ai</b> or the Claude app, then <b>Customize</b> and <b>Connectors</b>.</div></li>
         <li><div>In the Favor organization, <b>Favor</b> is already listed under <b>Yours</b>: press <b>Connect</b>. On your own account, press <b>+ Add</b>, then <b>Add custom connector</b>, name it <b>Favor</b>, paste the address and press <b>Continue</b>.</div></li>
         <li><div>Press <b>Continue with Google</b> and sign in with your Favor Google account.</div></li>
@@ -759,6 +845,8 @@
         break;
       }
       case 'dlg-x': closeDlg(); break;
+      case 'connect-go': closeDlg(); openPanel('connect'); closeRailOver(); break;
+      case 'connect-gpt': closeDlg(); openPanel('connect'); closeRailOver(); setTimeout(() => { const t = document.querySelector('[data-act="apptab"][data-app="chatgpt"]'); if (t) t.click(); }, 0); break;
     }
   });
   function saveEdit(ti) {
@@ -869,7 +957,7 @@
   const soundOn = () => { try { return localStorage.getItem('favor.hub.sound') !== 'off'; } catch { return true; } };
   $('bc-menu').addEventListener('click', (e) => {
     const n = Number((window.FAVOR_HUB && window.FAVOR_HUB.counts && window.FAVOR_HUB.counts.brainRequests) || 0);
-    const items = `${me && me.admin ? `<button type="button" role="menuitem" data-v="admin">${ic('gear')}Brain admin${n ? `<span class="badge">${n}</span>` : ''}</button>` : ''}<button type="button" role="menuitem" data-v="access">${ic('shield')}What you can ask about</button><button type="button" role="menuitem" data-v="connect">${ic('link')}Ask from Claude or ChatGPT</button><button type="button" role="menuitem" data-v="intro">${ic('play')}Watch the one-minute intro</button><button type="button" role="menuitem" data-v="help">${ic('book')}Help: asking well</button><button type="button" role="menuitem" data-v="keys">${ic('list')}Keyboard shortcuts</button><hr><button type="button" role="menuitem" data-v="sound">${ic(soundOn() ? 'volume' : 'mute')}Sounds ${soundOn() ? 'on' : 'off'}</button>`;
+    const items = `${me && me.admin ? `<button type="button" role="menuitem" data-v="admin">${ic('gear')}Brain admin${n ? `<span class="badge">${n}</span>` : ''}</button>` : ''}<button type="button" role="menuitem" data-v="access">${ic('shield')}What you can ask about</button><button type="button" role="menuitem" data-v="connect">${ic('link')}Connect Claude or ChatGPT</button><button type="button" role="menuitem" data-v="intro">${ic('play')}Watch the one-minute intro</button><button type="button" role="menuitem" data-v="help">${ic('book')}Help: asking well</button><button type="button" role="menuitem" data-v="keys">${ic('list')}Keyboard shortcuts</button><hr><button type="button" role="menuitem" data-v="sound">${ic(soundOn() ? 'volume' : 'mute')}Sounds ${soundOn() ? 'on' : 'off'}</button>`;
     pop(e.currentTarget, items, (v) => {
       if (v === 'access') openPanel('access');
       else if (v === 'connect') openPanel('connect');
@@ -913,10 +1001,17 @@
   fitPlaceholder();
   app.dataset.ready = '1';
   (async () => {
-    await Promise.all([loadMe(), loadHistory()]);
+    await Promise.all([loadMe(), loadHistory(), loadPrefs()]);
     loadSheets();
     const c = new URLSearchParams(location.search).get('c');
     if (c && /^c_[a-z0-9]{4,16}$/.test(c)) openConv(c);
+    else {
+      // Back from another hub page: reopen the chat that was being answered (or answered a moment ago).
+      let last = null;
+      try { last = JSON.parse(localStorage.getItem(LAST) || 'null'); } catch { last = null; }
+      const row = last && convs.find((x) => x.id === last.id);
+      if (row && (row.pending || Date.now() - new Date(row.changed_at).getTime() < 10 * 60 * 1000) && Date.now() - last.at < 10 * 60 * 1000) openConv(row.id);
+    }
   })();
   // For the screenshot and QA scripts.
   // show() puts a made-up answer in the chat, for the render checks.
