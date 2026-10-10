@@ -58,6 +58,18 @@ Tick several gifts and press Thank by letter or Thank by email to record them to
 
 A gift counts as thanked when the partner has a completed contact after the gift with the Thanked tag or a completed call or mailing, so a thank-you made in Blackbaud itself clears the list after the next refresh at 5 AM and 5 PM. A recurring pledge shows its first payment only.
 
+## HQTY letters
+
+The Support Team and admins see an **HQTY letters** tab. It lists every gift of $5,000 and up, newest first, grouped by month. Each row shows the amount, the partner the letter goes to (the partner a gift is credited to when there is one, otherwise the giver), the fund, the mailing address and where the letter stands: To write, Printed, Signed, Mailed or Cannot send. A gift counts as written when Blackbaud already holds an HQTY Letter on its partner dated on or after the gift.
+
+Press **Print** and the page opens one PDF with a page per letter and marks the gift Printed. Press **Signed** once the letters are signed. Press **Mark mailed** when they go out and the hub records one HQTY Letter action on the partner in Blackbaud, and Undo in Recent takes it back. Tick several rows to print, sign or mail them together. The letter prints with a blank signature line and no signer name.
+
+The month button, for example **October letter**, edits the letter text once for every gift that month. Use {amount}, {fund} and {date} where the gift's details belong. Preview shows the letter for a partner before anything prints. A gift with no mailing address or no partner credited cannot print. The three-dot menu holds **Cannot send** (pass-through for another ministry, no partner credited, returned mail, sent outside the hub), **Print again** and **Put back to To write**. **Earlier gifts, no letter logged** lists gifts older than last month that have no letter in Blackbaud. Google Sheets exports the list.
+
+## Letters from Gifts to thank
+
+The Support Team and admins see **Letter** next to Prep on every row of Gifts to thank. It opens a page with the letter on the right. Pick who the letter is from (the partner's director by default), paste what the director said, and switch the Designation, Director's words and Invitation paragraphs on or off. **Print PDF and log** prints the letter and records a Mailing action with the Thanked tag, which clears the row. **Copy for email** copies the text and records an Email action instead. Tick several gifts and press **Letters, one PDF** to print them together. Directors keep Thank on their own list and do not see Letter.
+
 ## Call prep
 
 Prep on a gift row, Call prep on the partner panel, and the same button wherever a partner appears opens the brief. The left side is the call in order: Thank, Pray, Report, Ask, Thank, Pray. Thank names the gift waiting for a thank-you. Pray quotes the last note or contact that mentions prayer. Report names the fund the partner gives to most. Ask gives the last Amount of Ask on record with its date. Each line says so when the records hold nothing for it.
