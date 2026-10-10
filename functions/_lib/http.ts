@@ -26,6 +26,8 @@ export interface Env {
   /** Connect my Google: the OAuth client secret and the AES key for stored refresh tokens. */
   GOOGLE_CLIENT_SECRET?: string;
   GOOGLE_TOKEN_KEY?: string;
+  /** The Favor Google service account key (JSON), read-only Sheets scope, so Entry can read the RDD tracking sheet. A Pages secret. */
+  GOOGLE_SA_JSON?: string;
   /** Workspace domain allowed to sign in (favorintl.org when unset). */
   HUB_GOOGLE_DOMAIN?: string;
   /** Comma separated emails with admin rights (will@favorintl.org when unset). */

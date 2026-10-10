@@ -789,7 +789,7 @@ function intakeRowHTML(r) {
   else if (r.cid) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">Partner ${esc(r.cid)} · <i>${how}</i>${locked ? '' : ` · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button>`}</span>`;
   else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length === 1 ? 'One record has this name. Is it the partner?' : r.cands.length + ' records match. Pick one:'}</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
   else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>`;
-  const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
+  const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'sheet' ? 'Tracking sheet' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
   return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" role="row" tabindex="-1" data-id="${r.id}" aria-selected="${picked}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${locked ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(r.name)}" /></div>
     <div class="wc-pc">${partner}</div>
@@ -814,6 +814,17 @@ async function loadEntry(owner) {
     d.owners.forEach((o) => { if (!DATA.people[o.fid]) DATA.people[o.fid] = { n: o.name, team: 'RDD', active: 1, listed: 1 }; });
   } catch (e) { S.in.error = e.message; }
   S.in.loading = false;
+}
+// The hub reads the owner's tracking sheet tabs itself. Opening Entry does it quietly (at most every ten minutes); the button does it on demand.
+async function readSheet(fid, force, say) {
+  const o = S.in.data && S.in.data.owners.find((x) => x.fid === fid);
+  if (!o || !o.tab) { if (say) toast('This tracking sheet has no tab for ' + (o ? o.name : 'this person') + ' yet. Use Paste rows.'); return; }
+  try {
+    const res = await post('/api/work/entry/sheet', { owner: fid, force: !!force });
+    const n = (res.added || []).length;
+    if (n) { await loadEntry(fid); if (S.view === 'intake') render(); }
+    if (say) toast(n ? `Read ${plural(n, 'new row')} from the tracking sheet${res.skipped ? `. ${res.skipped} were already here` : ''}.` : res.skipped ? `Nothing new. All ${res.skipped} rows on the sheet are already here.` : 'Nothing new on the sheet.');
+  } catch (err) { if (say) toast(err.message); }
 }
 function viewIntake() {
   const d = S.in.data;
@@ -841,7 +852,7 @@ function viewIntake() {
     </section>
     <section class="h-card wc-sheet" id="wc-intake" aria-label="Contacts to enter">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${n}</span></button>`).join('')}</div>
-        <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
+        <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${me.tab ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-readsheet>${ic('paste')}Read the sheet</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
       <div class="wc-paste${S.in.paste ? ' is-on' : ''}" id="paste">
         <label for="pastebox" class="wc-pastelab">Paste rows from ${esc(me.name)}'s tracking sheet: Name, New?, Date, Phone, Email, Address, Ask, Action, Notes</label>
         <textarea id="pastebox" placeholder="Copy the rows in the sheet (Ctrl C) and paste them here (Ctrl V)."></textarea>
@@ -1145,6 +1156,7 @@ document.addEventListener('click', async (e) => {
   if (d.view) {
     S.view = d.view; S.sel.clear(); S.anchor = null; S.shown = 100;
     if (d.view === 'intake' && !S.in.data) { S.in.loading = true; render(); await loadEntry(); }
+    if (d.view === 'intake') readSheet(S.in.rdd);
     if (d.view === 'recent') await loadRecent();
     render(); return;
   }
@@ -1173,8 +1185,9 @@ document.addEventListener('click', async (e) => {
   if (d.retry) { retryBatch(d.retry); return; }
   // Entry
   if (t.hasAttribute('data-reentry')) { S.in.loading = true; render(); await loadEntry(); render(); return; }
-  if (d.rdd) { S.sel.clear(); S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); return; }
+  if (d.rdd) { S.sel.clear(); S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
   if (d.lane) { S.in.lane = d.lane; S.sel.clear(); render(); return; }
+  if (t.hasAttribute('data-readsheet')) { t.disabled = true; await readSheet(S.in.rdd, true, true); t.disabled = false; return; }
   if (t.hasAttribute('data-paste')) { S.in.paste = !S.in.paste; render(); if (S.in.paste) $('#pastebox').focus(); return; }
   if (t.hasAttribute('data-readpaste')) {
     const text = $('#pastebox').value; if (!text.trim()) { toast('Copy whole rows from the sheet first, then paste them here.'); return; }
@@ -1250,7 +1263,7 @@ async function init() {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
     const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent'].includes(v)) S.view = v;
-    if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); }
+    if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
     // A batch sent from a window that closed picks up here.
     const stuck = S.batches.find((x) => x.run_when === 'now' && (x.state === 'running' || x.state === 'queued') && !x.undone);

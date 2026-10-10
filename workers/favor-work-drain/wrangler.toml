@@ -1,0 +1,15 @@
+# The Work Center's overnight sender and hourly freshness pass (Marketing account, same as the hub).
+# It holds no data. It calls two hub routes with the agent key, which is a Worker secret (wrangler secret put AGENT_API_KEY).
+# Deploy: wrangler deploy (from this folder, with the Marketing account credentials).
+name = "favor-work-drain"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+workers_dev = false
+
+[vars]
+HUB_URL = "https://dash.favorintl.org"
+
+[triggers]
+# Every 15 minutes from 8 PM to 3:45 AM Eastern (00:00 to 07:45 UTC): send batches held for the night, and any that stopped partway.
+# Hourly at :10: read the actions Blackbaud changed so the lists stay current between the mirror's two daily syncs.
+crons = ["*/15 0-7 * * *", "10 * * * *"]

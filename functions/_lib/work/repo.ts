@@ -30,7 +30,7 @@ const OPEN_COLUMNS = `a.id AS id, a.constituent_record_id AS cid, substr(a.actio
 
 /** Every open action whose partner record is in the mirror, with the partner's display fields. */
 export function openActionsSql(limit = 3000): string {
-  return readOnly(`SELECT ${OPEN_COLUMNS}, a.action_priority_level AS priority, c.constituent_lookup_id AS lookup,
+  return readOnly(`SELECT ${OPEN_COLUMNS}, a.date_modified AS modfull, a.action_priority_level AS priority, c.constituent_lookup_id AS lookup,
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS partner,
        json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.deceased AS deceased
   FROM actions a JOIN constituents c ON c.id = a.constituent_record_id
@@ -94,6 +94,8 @@ export interface ActionsRepo {
   doneActions(since: string, owners: string[]): Promise<DoneAction[]>;
   weekCounts(owners: string[], w: { thisStart: string; thisEnd: string; lastStart: string; lastEnd: string; mondayCutoff: string }): Promise<WeekCount[]>;
   send(calls: OpsCall[]): Promise<OpsManyResult>;
+  /** The mirror's own date_modified for each action id it holds, so the freshness check can tell a current copy from a stale one. */
+  modifiedOf(ids: string[]): Promise<Map<string, string>>;
   /** Ask the sync worker to refresh these actions so the overlay drops once the mirror matches. maxCalls is the SKY cost the worker can spend. */
   refreshMirror(ids: string[], tags: boolean): Promise<{ ok: boolean; runId?: string; maxCalls: number; wait?: string }>;
 }
@@ -316,6 +318,14 @@ export function blackbaudRepo(env: Env): ActionsRepo {
     },
 
     send: (calls) => opsMany(env, calls),
+
+    async modifiedOf(ids) {
+      const out = new Map<string, string>();
+      for (const part of chunk([...new Set(ids)], 400)) {
+        for (const r of await q<{ id: string; mod: string | null }>('SELECT id AS id, date_modified AS mod FROM actions WHERE id IN (SELECT value FROM json_each(?1))', [jsonIds(part)])) out.set(String(r.id), String(r.mod || ''));
+      }
+      return out;
+    },
 
     // The sync worker's action-refresh source re-reads the actions; the overlay drops once the mirror matches.
     refreshMirror: (ids, tags) => mirrorRefresh(env, ids, tags),

@@ -23,6 +23,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 <!-- Held back until Work Center is released to the Support Team (leadership's word), then the Director of Operations announces it:
 - **Work Center.** Select many Blackbaud actions and mark them complete, reassign them or move their due dates in one pass. Every batch can be undone for 24 hours.
+- **Work Center keeps itself current.** Entry reads each director's tracking sheet, lists refresh from Blackbaud through the day, a thank-you closes the fundraiser's task and counts as their contact, and held batches send overnight without the page open.
 -->
 
 - **Your day shows only open actions.** Review tasks already completed in Blackbaud no longer show as waiting, and the overdue count covers only open actions.

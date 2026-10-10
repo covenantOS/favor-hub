@@ -45,6 +45,7 @@ function fakeD1(db) {
 
 let db;
 let calls;
+let mirrorMods = {}; // the stand-in mirror's date_modified per action id
 let refreshes = []; // what the stand-in sync worker was asked to refresh
 let script; // (call, n) => result | undefined
 let ctx;
@@ -65,6 +66,12 @@ function newCtx() {
     async refreshMirror(ids, tags) {
       refreshes.push({ ids, tags });
       return { ok: true, runId: 'r' + refreshes.length, maxCalls: ids.length * (tags ? 2 : 1) };
+    },
+    async synced() {
+      return '2026-10-09T09:00:00Z';
+    },
+    async modifiedOf(ids) {
+      return new Map(ids.filter((id) => mirrorMods[id]).map((id) => [id, mirrorMods[id]]));
     },
     async partnersByIds(ids) {
       return ids.map((cid) => ({ cid, name: 'Partner ' + cid, place: 'Tampa, FL', lookup: 'L' + cid, holders: [], deceased: false }));
@@ -87,6 +94,7 @@ beforeEach(() => {
   db.exec(SCHEMA);
   calls = [];
   refreshes = [];
+  mirrorMods = {};
   script = okScript;
   ctx = newCtx();
 });
@@ -364,5 +372,93 @@ describe('changes must come from the page', () => {
     assert.equal(route.sameSite(req('POST')), false);
     assert.equal(route.sameSite(req('POST', { 'X-Hub-Request': '1' })), true);
     assert.equal(route.sameSite(req('POST', { Authorization: 'Bearer abc' })), true);
+  });
+});
+
+describe('a second edit after the mirror has caught up', () => {
+  const MOD = '2026-10-09T22:42:55.517-04:00';
+  const listing = (value) => (c) => (c.path.includes('last_modified') ? { ok: true, status: 200, body: { count: value.length, value } } : okScript(c));
+  it('an action the sync worker has re-read carries the same date_modified on both sides and can be edited again', async () => {
+    script = listing([{ id: '1', date_modified: MOD }]);
+    const plan = await svc.planBatch(ctx, { op: 'reschedule', ids: ['1'], by: 7 }, board([row({ id: '1', mod: MOD })]));
+    assert.deepEqual(plan.items.map((i) => i.actionId), ['1']);
+    assert.equal(plan.changed, 0);
+    assert.equal(refreshes.length, 0);
+  });
+  it('an action Blackbaud changed after the mirror copy is left alone, and the sync worker is asked to read it', async () => {
+    script = listing([{ id: '1', date_modified: '2026-10-09T23:10:00.000-04:00' }, { id: '2', date_modified: MOD }]);
+    const plan = await svc.planBatch(ctx, { op: 'reschedule', ids: ['1', '2'], by: 7 }, board([row({ id: '1', mod: MOD }), row({ id: '2', mod: MOD })]));
+    assert.deepEqual(plan.items.map((i) => i.actionId), ['2']);
+    assert.equal(plan.changed, 1);
+    assert.deepEqual(refreshes, [{ ids: ['1'], tags: false }]);
+  });
+  it('a mirror copy with no date is treated as changed', () => {
+    assert.equal(svc.newerInBlackbaud(MOD, ''), true);
+    assert.equal(svc.newerInBlackbaud('', MOD), true);
+    assert.equal(svc.newerInBlackbaud(MOD, MOD), false);
+    assert.equal(svc.newerInBlackbaud('2026-10-09T22:42:56.100-04:00', MOD), false, 'within a second is the same version');
+    assert.equal(svc.newerInBlackbaud('2026-10-09T22:43:10-04:00', MOD), true);
+  });
+});
+
+describe('the hourly freshness pass', () => {
+  const noon = new Date('2026-10-10T16:00:00Z');
+  const listing = (value, count = value.length) => (c) => (c.path.includes('last_modified') ? { ok: true, status: 200, body: { count, value } } : okScript(c));
+  it('sends only the actions the mirror does not hold in their current form', async () => {
+    mirrorMods = { '6': '2026-10-10T09:00:00-04:00' };
+    script = listing([{ id: '5', date_modified: '2026-10-10T10:00:00-04:00' }, { id: '6', date_modified: '2026-10-10T09:00:00-04:00' }]);
+    const out = await svc.freshen(ctx, { now: noon });
+    assert.equal(out.ran, true);
+    assert.equal(out.queued, 1);
+    assert.deepEqual(refreshes, [{ ids: ['5'], tags: false }]);
+    assert.ok(db.prepare("SELECT value FROM act_settings WHERE key = 'fresh:since'").get());
+    assert.match(db.prepare("SELECT value FROM act_settings WHERE key = 'fresh:last'").get().value, /^ok\|/);
+  });
+  it('does not run again inside fifteen minutes', async () => {
+    script = listing([]);
+    await svc.freshen(ctx, { now: noon });
+    const again = await svc.freshen(ctx, { now: noon });
+    assert.equal(again.ran, false);
+    assert.equal(again.why, 'recent');
+  });
+  it('stays out of the two sync windows', async () => {
+    script = listing([{ id: '5', date_modified: '2026-10-10T10:00:00-04:00' }]);
+    const out = await svc.freshen(ctx, { now: new Date('2026-10-10T09:30:00Z') });
+    assert.equal(out.ran, false);
+    assert.equal(calls.length, 0);
+    assert.equal(svc.inSyncWindow(new Date('2026-10-10T21:00:00Z')), true);
+    assert.equal(svc.inSyncWindow(new Date('2026-10-10T12:00:00Z')), false);
+  });
+  it('a pass that could not queue everything keeps its starting point', async () => {
+    script = listing([{ id: '5', date_modified: '2026-10-10T10:00:00-04:00' }], 4000);
+    await svc.freshen(ctx, { now: noon });
+    assert.equal(db.prepare("SELECT value FROM act_settings WHERE key = 'fresh:since'").get(), undefined);
+  });
+  it('a list Blackbaud will not give is recorded as an error and nothing is sent', async () => {
+    script = () => ({ ok: false, status: 500, body: null });
+    const out = await svc.freshen(ctx, { now: noon });
+    assert.equal(out.why, 'no answer');
+    assert.match(db.prepare("SELECT value FROM act_settings WHERE key = 'fresh:last'").get().value, /^error\|/);
+    assert.equal(refreshes.length, 0);
+  });
+});
+
+describe('the overnight run', () => {
+  it('sends a batch held for tonight once the day has turned, and leaves its line in health', async () => {
+    const b = await svc.saveBatch(ctx, 'create', [createItem()], {});
+    db.prepare("UPDATE act_batches SET run_when = 'tonight', created_at = '2026-10-08T12:00:00.000Z' WHERE id = ?").run(b.id);
+    const out = await svc.drain(ctx);
+    assert.equal(out.ran, 1);
+    assert.equal(out.left, 0);
+    assert.match(db.prepare("SELECT value FROM act_settings WHERE key = 'drain:last'").get().value, /^ok\|.*1 sent, 0 left/);
+    assert.equal(db.prepare('SELECT state FROM act_batches WHERE id = ?').get(b.id).state, 'done');
+  });
+  it('holds a batch that does not fit the day and says so', async () => {
+    const b = await svc.saveBatch(ctx, 'create', [createItem()], {});
+    db.prepare("UPDATE act_batches SET run_when = 'tonight', calls_planned = 5000, created_at = ? WHERE id = ?").run(new Date().toISOString(), b.id);
+    const out = await svc.drain(ctx);
+    assert.equal(out.ran, 0);
+    assert.equal(out.held, 'tonight');
+    assert.ok(out.left >= 1);
   });
 });

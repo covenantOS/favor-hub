@@ -249,9 +249,9 @@ export const STEPS: Step[] = [
     via: 'work',
     at: '#wc-board',
     title: 'Finish many actions at once',
-    body: 'Pick a fundraiser, tick the actions you want or press Shift and click for a range, then press Mark complete. One date and one shared line go on all of them, and every batch can be undone from Recent for 24 hours.',
+    body: 'Pick a fundraiser, tick the actions you want or press Shift and click for a range, then press Mark complete. One date and one shared line go on all of them, and every batch can be undone from Recent for 24 hours. Large batches go out overnight by themselves, and the lists refresh through the day.',
     for: (w) => w.admin,
-    added: '2026-10-09',
+    added: '2026-10-10',
     side: 'top',
   },
   {

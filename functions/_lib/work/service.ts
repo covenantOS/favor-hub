@@ -107,8 +107,8 @@ export async function currentBoard(ctx: Ctx): Promise<Board> {
   return { rows: applyOverlay(data.rows, changes, data.synced), people: data.people, synced: data.synced, orphans: data.orphans, today };
 }
 
-export function publicRow(r: BoardRow): Omit<BoardRow, 'fullDescription'> {
-  const { fullDescription: _f, ...rest } = r;
+export function publicRow(r: BoardRow): Omit<BoardRow, 'fullDescription' | 'mod'> {
+  const { fullDescription: _f, mod: _m, ...rest } = r;
   return rest;
 }
 
@@ -261,8 +261,23 @@ function targetOf(r: BoardRow, description: string, thankedOn?: string | null): 
   return { id: r.id, cid: r.cid, due: r.due, type: r.typeRaw || null, category: r.category, description, summary: r.summary, fundraisers: r.fundraisers, thankedOn };
 }
 
-/** One page of the freshness check: the actions Blackbaud changed since the mirror's last sync, so a description edited since is never overwritten. */
-async function changedSince(ctx: Ctx, syncedIso: string): Promise<{ ids: Set<string>; complete: boolean }> {
+/**
+ * Whether Blackbaud holds a newer version of an action than the mirror does. Each side carries its own date_modified, so an action the
+ * sync worker has re-read since the change reads as current. Missing or unreadable dates count as changed, because a guess here would
+ * overwrite somebody else's edit.
+ */
+export function newerInBlackbaud(bbModified: unknown, mirrorModified: unknown): boolean {
+  const bb = Date.parse(String(bbModified || ''));
+  const mine = Date.parse(String(mirrorModified || ''));
+  if (Number.isNaN(bb) || Number.isNaN(mine)) return true;
+  return bb > mine + 1000;
+}
+
+/**
+ * One page of the freshness check: the actions Blackbaud changed since a point in time, with the time of each change.
+ * The map holds Blackbaud's date_modified for each id, which planBatch compares with the mirror's own copy of the same field.
+ */
+async function changedSince(ctx: Ctx, syncedIso: string): Promise<{ mods: Map<string, string>; complete: boolean }> {
   // Blackbaud reads last_modified as Eastern clock time (proved on the test record 2026-10-09), not UTC, so convert and step back five minutes.
   const from = new Date(Date.parse(syncedIso || '') - 5 * 60000);
   const base = Number.isNaN(from.getTime()) ? new Date(Date.now() - 13 * 3600000) : from;
@@ -270,9 +285,75 @@ async function changedSince(ctx: Ctx, syncedIso: string): Promise<{ ids: Set<str
   const r = await ctx.repo.send([{ method: 'GET', path: `/constituent/v1/actions?last_modified=${t}&limit=2000` }]);
   await addMeter(ctx.env, r.results.length, r.callsToday);
   const res = r.results[0];
-  if (!res || !res.ok || !res.body || !Array.isArray(res.body.value)) return { ids: new Set(), complete: false };
-  const ids = new Set<string>(res.body.value.map((v: any) => String(v.id)));
-  return { ids, complete: Number(res.body.count) <= res.body.value.length };
+  if (!res || !res.ok || !res.body || !Array.isArray(res.body.value)) return { mods: new Map(), complete: false };
+  const mods = new Map<string, string>(res.body.value.map((v: any) => [String(v.id), String(v.date_modified || '')]));
+  return { mods, complete: Number(res.body.count) <= res.body.value.length };
+}
+
+/** Ask the sync worker to re-read some actions (plain, no tags). Spends at most one SKY call per id, counted in the meter. Returns how many were queued. */
+async function askRefresh(ctx: Ctx, ids: string[], why: string, now = new Date()): Promise<number> {
+  if (!ids.length || inSyncWindow(now)) return 0;
+  const meter = await getMeter(ctx.env).catch(() => ({ used: 0 }));
+  const list = ids.slice(0, REFRESH_MAX);
+  if (meter.used + list.length > DAILY_CAP - 100) return 0;
+  const r = await ctx.repo.refreshMirror(list, false);
+  if (!r.ok) {
+    await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, kind: 'refresh', ok: false, detail: `${why}: ${list.length} not queued: ${r.wait || 'refused'}` });
+    return 0;
+  }
+  await addMeter(ctx.env, r.maxCalls);
+  await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, kind: 'refresh', ok: true, detail: `${why}: ${list.length} plain run ${r.runId} (up to ${r.maxCalls} SKY calls)` });
+  return list.length;
+}
+
+/** The sync worker refuses refreshes while its own morning and evening syncs run (08:45 to 10:45 and 20:45 to 21:45 UTC). */
+export function inSyncWindow(d = new Date()): boolean {
+  const m = d.getUTCHours() * 60 + d.getUTCMinutes();
+  return (m >= 8 * 60 + 45 && m < 10 * 60 + 45) || (m >= 20 * 60 + 45 && m < 21 * 60 + 45);
+}
+
+export const FRESH_GAP_MS = 15 * 60000;
+
+export interface FreshResult {
+  ran: boolean;
+  changed: number;
+  queued: number;
+  why?: string;
+}
+
+/**
+ * Keep the board current between the mirror's two daily syncs. One read asks Blackbaud which actions changed since the last pass; the ones the
+ * mirror does not hold in their current form go to the sync worker to re-read (1 SKY call each, 200 at most a pass). A task the 6 AM gift phase
+ * creates, or an edit made in Blackbaud, shows here within about 15 minutes. Runs from the hourly Worker and when a person opens the board,
+ * never more often than every 15 minutes.
+ */
+export async function freshen(ctx: Ctx, opts: { force?: boolean; now?: Date } = {}): Promise<FreshResult> {
+  const env = ctx.env;
+  const now = opts.now || new Date();
+  if (inSyncWindow(now)) return { ran: false, changed: 0, queued: 0, why: 'sync window' };
+  const last = await getSetting(env, 'fresh:at', '');
+  if (!opts.force && last && Date.now() - Date.parse(last) < FRESH_GAP_MS) return { ran: false, changed: 0, queued: 0, why: 'recent' };
+  const meter = await getMeter(env).catch(() => ({ used: 0 }));
+  if (meter.used > DAILY_CAP - 300) return { ran: false, changed: 0, queued: 0, why: 'allowance' };
+  const startedAt = new Date();
+  await setSetting(env, 'fresh:at', startedAt.toISOString());
+  const synced = await ctx.repo.synced();
+  const mark = await getSetting(env, 'fresh:since', '');
+  // Look back from the later of the mirror's sync and the last pass (changedSince steps five minutes earlier), and never past 14 hours.
+  const from = Math.max(Date.now() - 14 * 3600000, Date.parse(synced) || 0, Date.parse(mark) || 0);
+  const seen = await changedSince(ctx, new Date(from).toISOString());
+  if (!seen.complete && !seen.mods.size) {
+    await setSetting(env, 'fresh:last', `error|${nowIso()}|Blackbaud did not answer the list of changed actions`);
+    return { ran: true, changed: 0, queued: 0, why: 'no answer' };
+  }
+  const ids = [...seen.mods.keys()];
+  const mine = ids.length ? await ctx.repo.modifiedOf(ids).catch(() => null) : new Map<string, string>();
+  const stale = mine ? ids.filter((id) => newerInBlackbaud(seen.mods.get(id), mine.get(id))) : ids;
+  const queued = await askRefresh(ctx, stale, 'fresh', now);
+  // The mark moves forward only when every changed action is queued, so a pass that could not finish is repeated from the same point.
+  if (queued >= stale.length && seen.complete) await setSetting(env, 'fresh:since', startedAt.toISOString());
+  await setSetting(env, 'fresh:last', `ok|${nowIso()}|${ids.length} changed, ${stale.length} not in the mirror yet, ${queued} sent to be read`);
+  return { ran: true, changed: stale.length, queued };
 }
 
 /** Most descriptions in the mirror are whole. A description of 2,000 characters or more may be cut short, so its action is read from Blackbaud before a line is added. */
@@ -329,13 +410,18 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
   const seen = await changedSince(ctx, board.synced);
   if (!seen.complete) throw new HttpError(503, 'blackbaud_wait', 'Blackbaud did not answer the check that your list is current, so nothing was changed. Try again in a minute.');
   let reads = 1;
-  const changedRows = rows.filter((r) => seen.ids.has(r.id));
+  // An action in that list is left alone only when Blackbaud's copy is newer than the mirror's. One the hub just wrote and the sync worker has
+  // re-read carries the same date_modified on both sides, so it can be edited again at once.
+  const isChanged = (r: BoardRow) => seen.mods.has(r.id) && newerInBlackbaud(seen.mods.get(r.id), r.mod);
+  const changedRows = rows.filter(isChanged);
   if (changedRows.length) {
-    for (let i = rows.length - 1; i >= 0; i--) if (seen.ids.has(rows[i].id)) rows.splice(i, 1);
+    for (let i = rows.length - 1; i >= 0; i--) if (isChanged(rows[i])) rows.splice(i, 1);
     skipped += changedRows.length;
+    // Ask the sync worker to read them now, so a second try a few minutes later finds the mirror current.
+    await askRefresh(ctx, changedRows.map((r) => r.id), 'guard').catch(() => undefined);
   }
   let changed = changedRows.length;
-  if (!rows.length) throw new HttpError(409, 'changed_in_blackbaud', 'Those actions were changed in Blackbaud since your list was loaded. Reload the list to see them.');
+  if (!rows.length) throw new HttpError(409, 'changed_in_blackbaud', 'Blackbaud has newer changes on those actions than your list shows. The hub is reading them now. Reload the list in a few minutes and try again.');
   const params: Record<string, unknown> = {};
   const thankMode = ((await getSetting(ctx.env, 'thank_mode', 'one')) === 'two' ? 'two' : 'one') as ThankMode;
   const items: PlannedItem[] = [];
@@ -787,7 +873,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
  * The SKY calls it can spend (1 per id, 2 with tags) go into the meter. It skips when the day's room is short; the next mirror sync then clears the overlay.
  */
 async function refreshTouched(ctx: Ctx, batchId: string, touched: Map<string, boolean>): Promise<void> {
-  if (!touched.size) return;
+  if (!touched.size || inSyncWindow()) return;
   try {
     const all = [...touched.entries()].slice(0, REFRESH_MAX);
     const withTags = all.filter(([, t]) => t).map(([id]) => id);
@@ -943,11 +1029,12 @@ export function batchLabel(b: { op: string; params: string }, n: number): string
 }
 
 /** The overnight run: batches held for tonight, and any batch that stopped partway, oldest first, inside the day's lane. */
-export async function drain(ctx: Ctx): Promise<{ ran: number; left: number }> {
+export async function drain(ctx: Ctx): Promise<{ ran: number; left: number; held?: string }> {
   const started = Date.now();
   const batches = (await ctx.env.DB.prepare("SELECT id FROM act_batches WHERE state IN ('queued', 'running') ORDER BY created_at LIMIT 20").all<{ id: string }>()).results;
   let ran = 0;
   let left = 0;
+  let held: string | undefined;
   for (const b of batches) {
     if (Date.now() - started > 22000) {
       left += await runnableLeft(ctx, b.id);
@@ -956,6 +1043,7 @@ export async function drain(ctx: Ctx): Promise<{ ran: number; left: number }> {
     const r = await runBatch(ctx, b.id, { drain: true });
     ran += r.done;
     left += r.left;
+    if (r.held && r.held !== 'busy') held = r.held;
     if (r.held === 'limit') break;
   }
   // Tags that waited for the upkeep route's tag rule go out once the rule is live.
@@ -967,7 +1055,9 @@ export async function drain(ctx: Ctx): Promise<{ ran: number; left: number }> {
       ran += r.done;
     }
   }
-  return { ran, left };
+  // Every pass leaves a line, so a Worker that stopped calling shows in health (a cron that fails quietly hid a stalled job for a week once).
+  if (batches.length || ran) await setSetting(ctx.env, 'drain:last', `ok|${nowIso()}|${ran} sent, ${left} left${held ? ', held: ' + held : ''}`);
+  return { ran, left, held };
 }
 
 /** Pages open: pick up any batch that was sent from a window that closed. */
@@ -986,7 +1076,26 @@ export async function healthView(ctx: Ctx, mirrorOk: boolean, blackbaudOk: boole
     const live = await tagRuleLive(ctx).catch(() => false);
     rule = live ? '1' : '0';
   }
-  return { ok: true, mirror: { reachable: mirrorOk }, blackbaud: { reachable: blackbaudOk, rules: { tags: rule ? rule.startsWith('1') : null } }, meter: await meterView(ctx.env), release, posting };
+  // The overnight sender and the hourly freshness pass each leave a line (ok|time|what). A line older than a day while batches wait means the Worker stopped.
+  const line = async (key: string) => {
+    const v = await getSetting(ctx.env, key, '');
+    const [state, at, ...rest] = v.split('|');
+    return v ? { state, at, detail: rest.join('|') } : null;
+  };
+  const waiting = Number((await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_batches WHERE state IN ('queued', 'running')").first<{ n: number }>().catch(() => null))?.n) || 0;
+  const thank = (await getSetting(ctx.env, 'thank_mode', 'one')) === 'two' ? 'two' : 'one';
+  return {
+    ok: true,
+    mirror: { reachable: mirrorOk },
+    blackbaud: { reachable: blackbaudOk, rules: { tags: rule ? rule.startsWith('1') : null } },
+    meter: await meterView(ctx.env),
+    release,
+    posting,
+    thankMode: thank,
+    batchesWaiting: waiting,
+    drain: await line('drain:last'),
+    fresh: await line('fresh:last'),
+  };
 }
 
 export type { BoardData };

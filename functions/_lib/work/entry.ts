@@ -2,12 +2,13 @@
 // or typed. Each is matched to a partner, checked against what Blackbaud already holds, and sent as one completed contact.
 // The hub's own table (act_submissions) keeps every row, so nothing a person reviewed is lost when Blackbaud is down.
 import { HttpError, newId, nowIso, type Env } from '../http';
-import { addMeter, getSetting, listStaff, logEvent, type StaffRow } from './db';
+import { addMeter, getSetting, listStaff, logEvent, setSetting, type StaffRow } from './db';
+import { monthsBack, readOwnerTabs, SheetReadError } from './sheetsa';
 import { batchByReq, saveBatch, todayEt, validDate, type Ctx, type PlannedItem } from './service';
 import { idemKey } from '../actions/outbox';
 import type { PartnerHit } from './repo';
 import {
-  askOf, channelOf, entryBody, entryTags, findDuplicate, HOWS, householdHints, pasteRef, parseSheetText, resolvePartner, shortSummary, tagsOf, TAGS, toIso, weekOf, weekWindow, type DoneAction,
+  askOf, channelOf, entryBody, entryTags, findDuplicate, HOWS, householdHints, pasteRef, parseSheetText, resolvePartner, shortSummary, tagsOf, TAGS, toIso, weekOf, weekWindow, type DoneAction, type SheetRow,
 } from '../actions/intake';
 import { addDays } from '../actions/completion';
 import { CHUNK } from '../actions/batch';
@@ -143,11 +144,16 @@ function etCutoff(lastEnd: string): string {
 /* ------------------------------------------------------------------ paste */
 
 export async function entryPaste(ctx: Ctx, ownerFid: string, text: string) {
-  const owner = await ownerOf(ctx.env, ownerFid);
-  const today = todayEt();
   const { rows: sheet, unread } = parseSheetText(String(text || '').slice(0, 200000));
   if (!sheet.length) return { ok: true, added: [], skipped: 0, unread, message: 'No rows found. Copy whole rows from the sheet.' };
   if (sheet.length > 400) throw new HttpError(400, 'too_many', 'Paste 400 rows or fewer at a time.');
+  return entryIngest(ctx, ownerFid, sheet, unread, 'paste');
+}
+
+/** Rows read from an owner's tracking sheet tabs, whether pasted or read by the hub. Each is matched, checked against Blackbaud and saved once. */
+export async function entryIngest(ctx: Ctx, ownerFid: string, sheet: SheetRow[], unread: number, source: 'paste' | 'sheet') {
+  const owner = await ownerOf(ctx.env, ownerFid);
+  const today = todayEt();
   const prepared = sheet.map((r) => {
     const date = toIso(r.date, today) || today;
     return { r, date, ref: pasteRef(ownerFid, r, date) };
@@ -158,8 +164,10 @@ export async function entryPaste(ctx: Ctx, ownerFid: string, text: string) {
     const found = await ctx.env.DB.prepare(`SELECT sheet_ref FROM act_submissions WHERE sheet_ref IN (${part.map(() => '?').join(',')})`).bind(...part.map((p) => p.ref)).all<{ sheet_ref: string }>();
     found.results.forEach((x) => have.add(x.sheet_ref));
   }
-  const fresh = prepared.filter((p, i) => !have.has(p.ref) && prepared.findIndex((q) => q.ref === p.ref) === i);
-  const skipped = prepared.length - fresh.length;
+  // One read takes at most 400 new rows; the next read takes the rest.
+  const unseen = prepared.filter((p, i) => !have.has(p.ref) && prepared.findIndex((q) => q.ref === p.ref) === i);
+  const fresh = unseen.slice(0, 400);
+  const skipped = prepared.length - unseen.length;
   if (!fresh.length) return { ok: true, added: [], skipped, unread };
   const lk = await ctx.repo.lookups(fresh.map((f) => ({ email: f.r.email, phone: f.r.phone, name: f.r.name })), ownerFid);
   const minDate = fresh.map((f) => f.date).sort()[0];
@@ -184,11 +192,11 @@ export async function entryPaste(ctx: Ctx, ownerFid: string, text: string) {
       ctx.env.DB.prepare(
         `INSERT INTO act_submissions (id, owner_fid, source, sheet_ref, contact_date, raw, constituent_id, match_how, channel, summary, description, tags, ask_amount, state, dup_action_id, created_at, created_by)
          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(id, ownerFid, 'paste', f.ref, f.date, JSON.stringify(raw), cid, m.how === 'many' ? 'name' : m.how, ch || null, shortSummary(notes, ch).slice(0, 255), notes.slice(0, 2000), JSON.stringify(tagsOf(notes, f.r.act, ch)), askOf(f.r.ask, notes), state, dup ? dup.id : null, nowIso(), ctx.actor)
+      ).bind(id, ownerFid, source, f.ref, f.date, JSON.stringify(raw), cid, m.how === 'many' ? 'name' : m.how, ch || null, shortSummary(notes, ch).slice(0, 255), notes.slice(0, 2000), JSON.stringify(tagsOf(notes, f.r.act, ch)), askOf(f.r.ask, notes), state, dup ? dup.id : null, nowIso(), ctx.actor)
     );
   }
   for (let i = 0; i < stmts.length; i += 40) await ctx.env.DB.batch(stmts.slice(i, i + 40));
-  await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, kind: 'entry_paste', detail: `${added.length} rows for ${owner.name}, ${skipped} skipped` });
+  await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, kind: source === 'sheet' ? 'entry_sheet' : 'entry_paste', detail: `${added.length} rows for ${owner.name}, ${skipped} skipped` });
   void addMeter;
   return { ok: true, added, skipped, unread };
 }
@@ -362,3 +370,39 @@ export function household(picked: PartnerHit[], pool: PartnerHit[]) {
 
 void CHUNK;
 void getSetting;
+
+
+/* ------------------------------------------------------------------ the hub reads the tracking sheet */
+
+export const SHEET_GAP_MS = 10 * 60000;
+
+/**
+ * Read an owner's tracking sheet tabs (this month and last) and add the rows not seen before. Rows already here or in Blackbaud are skipped, so
+ * reading the same sheet again adds nothing twice. A read within the last ten minutes is skipped unless `force` is set.
+ */
+export async function entrySheet(ctx: Ctx, ownerFid: string, opts: { force?: boolean } = {}) {
+  const owner = await ownerOf(ctx.env, ownerFid);
+  if (!owner.sheet_tab) return { ok: true, added: [], skipped: 0, unread: 0, read: 0, why: 'no_tab' };
+  const key = `sheet:at:${ownerFid}`;
+  const last = await getSetting(ctx.env, key, '');
+  if (!opts.force && last && Date.now() - Date.parse(last) < SHEET_GAP_MS) return { ok: true, added: [], skipped: 0, unread: 0, read: 0, why: 'recent' };
+  const sheetId = await getSetting(ctx.env, 'sheet:tracking', '');
+  let tabs;
+  try {
+    tabs = await readOwnerTabs(ctx.env, sheetId, owner.sheet_tab, monthsBack(todayEt(), 1));
+  } catch (err) {
+    if (err instanceof SheetReadError) throw new HttpError(err.code === 'google' || err.code === 'token' ? 503 : 409, 'sheet_' + err.code, err.message);
+    throw err;
+  }
+  await setSetting(ctx.env, key, nowIso());
+  const rows: SheetRow[] = [];
+  let unread = 0;
+  for (const t of tabs) {
+    const p = parseSheetText(t.text);
+    rows.push(...p.rows);
+    unread += p.unread;
+  }
+  if (!rows.length) return { ok: true, added: [], skipped: 0, unread, read: 0, tabs: tabs.map((t) => t.tab) };
+  const out = await entryIngest(ctx, ownerFid, rows, unread, 'sheet');
+  return { ...out, read: rows.length, tabs: tabs.map((t) => t.tab) };
+}

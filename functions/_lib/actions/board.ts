@@ -61,6 +61,8 @@ const TY_WORDS = /thank|\bty\b|new .{0,12}gift|gift rec|gift received|consistent
 
 /** One open action as the open-actions query returns it. */
 export interface OpenRow extends SlimActionRow {
+  /** The action's whole date_modified as the mirror holds it, with its offset. */
+  modfull?: string | null;
   priority?: string | null;
   lookup: string | null;
   partner: string | null;
@@ -106,6 +108,8 @@ export interface BoardRow {
   description: string;
   /** The whole description as the mirror holds it (up to 2,000 characters). Stays on the server; never sent to the page. */
   fullDescription?: string;
+  /** When Blackbaud last changed this action, as the mirror holds it. Server only: the write guard compares it with Blackbaud's own. */
+  mod?: string;
   cid: string;
   lookup: string;
   partner: string;
@@ -203,6 +207,7 @@ export function shapeBoard(inp: BoardInput): BoardRow[] {
       summary: summ.slice(0, 255),
       description: String(o.description || '').replace(/\s+/g, ' ').trim().slice(0, 300),
       fullDescription: String(o.description || ''),
+      mod: String(o.modfull || ''),
       cid: String(o.cid),
       lookup: o.lookup || '',
       partner: o.partner || '(no name)',
