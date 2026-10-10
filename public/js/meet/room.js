@@ -47,7 +47,7 @@ async function boot() {
 function ended(msg, sub, opts = {}) {
   const notes = () => S.meeting && S.meeting.notesStatus && S.meeting.notesStatus !== 'none';
   const canRejoin = !opts.noRejoin && !(S.meeting && S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000);
-  const links = () => (GUEST ? '' : `<a class="h-btn ${canRejoin ? 'h-btn--ghost' : 'h-btn--primary'}" href="/meet/">Back to meetings</a>${notes() ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`);
+  const links = () => (GUEST || opts.saving ? '' : `<a class="h-btn ${canRejoin ? 'h-btn--ghost' : 'h-btn--primary'}" href="/meet/">Back to meetings</a>${notes() ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`);
   root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : !GUEST && notes() ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap" id="end-acts">${canRejoin ? '<button class="h-btn h-btn--primary" id="rejoin-btn">Rejoin</button>' : ''}<span id="end-links" style="display:contents">${links()}</span></div></div>`;
   const rj = $('#rejoin-btn'); if (rj) { rj.addEventListener('click', rejoinAfterLeave); rj.focus(); }
   // The meeting row from join time is stale by now. Read it again so the notes link shows when notes exist.
@@ -717,7 +717,7 @@ async function stopShare() {
 async function leaveRoom(msg) {
   S.left = true; clearIntervals();
   // The person who owns the recording sees the left screen at once while the last pieces upload.
-  if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.'); }
+  if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.', { noRejoin: true, saving: true }); }
   try { if (recorder) await recorder.stopIfOwner(); } catch {}
   try { await api('meetings/' + MID + '/leave', { method: 'POST', body: { pid: S.me.pid } }); } catch {}
   [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());

@@ -248,7 +248,7 @@ export class Recorder {
 export function confirmStopRecording(mode) {
   return new Promise((resolve) => {
     const wrap = document.createElement('div');
-    wrap.innerHTML = `<div class="scrim" data-x="no"></div><div class="modal rec-confirm" role="alertdialog" aria-modal="true" aria-labelledby="rc-h"><div class="modal__body"><h3 id="rc-h" class="mt-h2" style="margin:0">Stop the recording?</h3><p class="mt-sub" style="margin:0;font-size:14px">Everything recorded so far is saved. Nothing after this is ${mode === 'video' ? 'recorded' : 'recorded or written into the notes'}.</p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="h-btn h-btn--ghost" data-x="no">Keep recording</button><button class="h-btn h-btn--danger" data-x="yes">Stop recording</button></div></div></div>`;
+    wrap.innerHTML = `<div class="scrim" data-x="no"></div><div class="modal rec-confirm" role="alertdialog" aria-modal="true" aria-labelledby="rc-h"><div class="modal__body"><h3 id="rc-h" class="mt-h2" style="margin:0">Stop the recording?</h3><p class="mt-sub" style="margin:0;font-size:14px">Everything recorded so far is saved. Nothing after this is recorded or written into the notes.</p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="h-btn h-btn--ghost" data-x="no">Keep recording</button><button class="h-btn" data-x="yes">Stop recording</button></div></div></div>`;
     const done = (v) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(v); };
     const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
     wrap.addEventListener('click', (e) => { const x = e.target.closest('[data-x]'); if (x) done(x.dataset.x === 'yes'); });

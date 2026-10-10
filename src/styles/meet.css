@@ -445,3 +445,5 @@ body.meet-guest .h-app.is-room .h-page { flex: 1; min-height: 0; padding: 10px 1
   .h-app.is-room ~ .toast { bottom: 60px; }
 }
 .rm-top .rm-bar { flex-wrap: nowrap; }
+.rec-confirm .modal__body { gap: 12px; }
+.rec-confirm .h-btn[data-x="yes"] { background: #8a3b22; border-color: #8a3b22; color: #fff; }
