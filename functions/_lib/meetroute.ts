@@ -49,7 +49,8 @@ export async function route({ request, env, params }: { request: Request; env: M
     if (!sub && m === 'GET') {
       const mt = await getMeeting(env, id);
       if (!mayJoin(mt, user)) return errorJson('not_found', 'That meeting does not exist.', 404);
-      return json({ ok: true, meeting: publicMeeting(mt, user), guestsEnabled: guestsOn(env) });
+      const here = await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? ORDER BY joined_at LIMIT 12').bind(id, Date.now() - GONE_MS).all<{ name: string }>();
+      return json({ ok: true, meeting: publicMeeting(mt, user), guestsEnabled: guestsOn(env), present: (here.results || []).map((r) => r.name) });
     }
     if (sub === 'guestinfo' && m === 'GET') return json(await guestInfo(env, id, new URL(request.url).searchParams.get('k') || ''));
     if (sub === 'guestlink' && m === 'POST') return json(await guestLink(env, user, id, new URL(request.url).origin));
@@ -364,7 +365,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
   let events = (recent.results || []) as Array<{ seq: number; kind: string; from_pid: string; to_pid: string; body: string; ts: number }>;
   if (!(Number.isFinite(since) && since >= 0)) events = events.reverse();
   const people = await env.DB.prepare(
-    `SELECT pid, name, role, session_id, tracks, mic, cam, hand, sharing, can_share, lvl, speak_at, waiting, joined_at, seen FROM hub_meeting_presence
+    `SELECT pid, email, name, role, session_id, tracks, mic, cam, hand, sharing, can_share, lvl, speak_at, waiting, joined_at, seen FROM hub_meeting_presence
       WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ? ORDER BY joined_at`
   ).bind(id, now - GONE_MS).all<Presence>();
   let list = people.results || [];
@@ -381,6 +382,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
   const myRole = (list.find((p) => p.pid === me.pid) || me).role;
   const mt = await getMeeting(env, id);
   const isGuest = me.role === 'guest';
+  const dir = await directoryByEmail(env, list.map((p) => p.email));
   const lines = tx >= 0 && !isGuest ? ((await env.DB.prepare('SELECT n, t, who, text FROM hub_meeting_lines WHERE meeting_id = ? AND n > ? ORDER BY n LIMIT 60').bind(id, tx).all<{ n: number; t: number; who: string; text: string }>()).results || []) : [];
   const r = await env.DB.prepare('SELECT epoch, owner_pid, active, last_chunk, mode FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string; active: number; last_chunk: number; mode: string }>();
   return {
@@ -389,7 +391,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     role: myRole,
     people: list.filter((p) => myRole === 'host' || myRole === 'cohost' || !p.waiting).map((p) => ({
       pid: p.pid, name: p.name, role: p.role, sessionId: p.session_id, tracks: safeJson(p.tracks, []), mic: !!p.mic, cam: !!p.cam, hand: !!p.hand, sharing: !!p.sharing,
-      canShare: !!p.can_share, lvl: p.lvl, speaking: p.speak_at > now - 1500, speakAt: p.speak_at, waiting: !!p.waiting, joinedAt: p.joined_at,
+      canShare: !!p.can_share, team: (dir.get((p.email || '').toLowerCase()) || { team: '' }).team, title: (dir.get((p.email || '').toLowerCase()) || { title: '' }).title, lvl: p.lvl, speaking: p.speak_at > now - 1500, speakAt: p.speak_at, waiting: !!p.waiting, joinedAt: p.joined_at,
     })),
     lines,
     me: { waiting: !!me.waiting },
@@ -397,6 +399,17 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     meeting: { status: mt.status, locked: !!mt.locked, spot: mt.spot_pid, sharePolicy: mt.share_policy, rec: mt.rec_mode, title: mt.title },
     recording: r ? { epoch: r.epoch, owner: r.owner_pid, active: !!r.active, mode: r.mode, stale: !!r.active && now - r.last_chunk > REC_STALE_MS } : null,
   };
+}
+
+// Team and title for the people list, cached for five minutes so a once-a-second sync does not read the directory each time.
+let dirCache: { at: number; map: Map<string, { team: string; title: string }> } | null = null;
+async function directoryByEmail(env: MeetEnv, emails: string[]) {
+  if (!dirCache || Date.now() - dirCache.at > 300_000) {
+    const rows = await env.DB.prepare('SELECT email, title, team FROM meet_directory WHERE active = 1').all<{ email: string; title: string; team: string }>();
+    dirCache = { at: Date.now(), map: new Map((rows.results || []).map((r) => [r.email.toLowerCase(), { team: r.team || '', title: r.title || '' }])) };
+  }
+  void emails;
+  return dirCache.map;
 }
 
 async function setTracks(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>) {

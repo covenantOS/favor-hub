@@ -172,7 +172,7 @@ export function linkLevel(stats) {
   // congested when packets are lost, or when what arrives already fills most of a low estimate.
   const est = stats.availIn || 0;
   const bps = stats.bps || 0;
-  if (stats.loss > 0.12 || (est && est < 500e3 && bps > est * 0.85 && bps > 200e3)) return 'weak';
-  if (stats.loss > 0.04 || (est && est < 1200e3 && bps > est * 0.85 && bps > 400e3)) return 'fair';
+  if (stats.loss > 0.15 || (est && est < 400e3 && bps > est * 0.9 && bps > 250e3)) return 'weak';
+  if (stats.loss > 0.06 || (est && est < 900e3 && bps > est * 0.9 && bps > 500e3)) return 'fair';
   return 'good';
 }

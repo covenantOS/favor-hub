@@ -1,6 +1,6 @@
 // Meetings: the lobby and the room. The SFU work is in rtc.js. This file draws the room, runs the sync loop (roster, chat,
 // host commands), keeps the subscriptions the layout needs, and handles a dropped connection.
-import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, whoami, pump, MODE } from './ui.js';
+import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, whoami, pump, MODE, confirmCard, fmtDay, fmtTime } from './ui.js';
 import { Rtc, linkLevel } from './rtc.js';
 import { Recorder, confirmStopRecording } from './rec.js';
 
@@ -18,9 +18,10 @@ const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
   mic: true, cam: true, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
+  layout: 'grid', pop: '', syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
-let recorder = null;
+let recorder = null, barTimer = null, capTimer = null;
 const tiles = new Map(); // pid or 'share:pid' -> { el, video, audio }
 
 // ---------------------------------------------------------------- boot
@@ -32,6 +33,7 @@ async function boot() {
     const r = GUEST ? await api('meetings/' + MID + '/guestinfo?k=' + encodeURIComponent(GKEY)) : await api('meetings/' + MID);
     S.meeting = GUEST ? { id: MID, title: r.title, hostName: r.host, rec: r.rec, status: r.status, startsAt: r.startsAt, backupLink: '', notesStatus: 'none', locked: r.locked } : r.meeting;
     S.guestsEnabled = !!r.guestsEnabled;
+    S.present = r.present || [];
     document.title = S.meeting.title + ' - Favor Hub';
     const t = $('.h-top__title'); if (t) t.textContent = S.meeting.title;
     if (GUEST && S.meeting.status === 'ended') return ended('This meeting has ended');
@@ -42,52 +44,126 @@ async function boot() {
   }
 }
 
-function ended(msg, sub) {
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : S.meeting && S.meeting.notesStatus !== 'none' ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap">${GUEST ? '' : `<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>${S.meeting && S.meeting.notesStatus !== 'none' ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`}</div></div>`;
+function ended(msg, sub, opts = {}) {
+  const notes = () => S.meeting && S.meeting.notesStatus && S.meeting.notesStatus !== 'none';
+  const canRejoin = !opts.noRejoin && !(S.meeting && S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000);
+  const links = () => (GUEST ? '' : `<a class="h-btn ${canRejoin ? 'h-btn--ghost' : 'h-btn--primary'}" href="/meet/">Back to meetings</a>${notes() ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`);
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : !GUEST && notes() ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap" id="end-acts">${canRejoin ? '<button class="h-btn h-btn--primary" id="rejoin-btn">Rejoin</button>' : ''}<span id="end-links" style="display:contents">${links()}</span></div></div>`;
+  const rj = $('#rejoin-btn'); if (rj) { rj.addEventListener('click', rejoinAfterLeave); rj.focus(); }
+  // The meeting row from join time is stale by now. Read it again so the notes link shows when notes exist.
+  if (!GUEST && MID) api('meetings/' + MID).then((r) => {
+    if (!r.meeting) return; S.meeting = r.meeting;
+    const l = $('#end-links'); if (l) l.innerHTML = links();
+    const p = $('#meet-root .mt-sub'); if (p && !sub && notes()) p.textContent = 'The notes are in Meeting notes.';
+  }).catch(() => {});
+}
+// Back to the lobby after leaving or after the meeting ended, with the room state cleared.
+function rejoinAfterLeave() {
+  Object.assign(S, { left: false, joined: false, removed: false, conn: 'ok', gridSig: null, ctlSig: null, sideSig: null, spot: '', pin: '', page: 0, sharing: false, hand: false, show: null, recording: null, pop: '', menu: null, syncFails: 0, unread: 0, level: 'good', levelVotes: 0, levelCand: '', autoRec: false, people: [] });
+  local = { mic: null, cam: null, screen: null, screenAudio: null }; rtc = null; recorder = null; rejoining = false; syncing = false; analyser = null;
+  remote.clear(); tiles.clear();
+  S.devices = { mic: true, cam: true }; S.mic = true; S.cam = true;
+  lobby();
 }
 
 // ---------------------------------------------------------------- lobby
-let preview = null;
+let preview = null, lbTimer = null, lbCtx = null;
+const rel = (ms) => { const m = Math.round(ms / 60000); if (m < 1) return 'less than a minute'; if (m < 60) return m + (m === 1 ? ' minute' : ' minutes'); const h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hour' : ' hours') + (m % 60 ? ' ' + (m % 60) + ' min' : ''); const d = Math.round(h / 24); return d + (d === 1 ? ' day' : ' days'); };
+function whenLine(m) {
+  if (m.status === 'live') return 'This meeting is live now.';
+  if (!m.startsAt) return '';
+  const t = Date.parse(m.startsAt); if (!t) return '';
+  const at = fmtDay(m.startsAt) + ' at ' + fmtTime(m.startsAt);
+  return t > Date.now() ? 'Scheduled for ' + at + '. Starts in ' + rel(t - Date.now()) + '.' : 'Scheduled for ' + at + '. It started ' + rel(Date.now() - t) + ' ago.';
+}
+const permHelp = (e) => (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'Your browser blocked the camera and microphone. Click the lock icon at the left of the address bar, set Camera and Microphone to Allow, then reload this page.' : '');
 async function lobby() {
   const m = S.meeting;
+  if (lbTimer) { clearInterval(lbTimer); lbTimer = null; }
   const recLine = m.rec === 'video' ? 'This meeting records video and makes notes. Everyone sees a recording notice.' : m.rec === 'notes' ? 'This meeting records sound for notes. Everyone sees a notice.' : 'This meeting is not recorded.';
   const name = GUEST ? '' : (await whoami()).name || '';
-  const consent = GUEST && m.rec !== 'off' ? `<label class="mt-toggle" style="border:0;padding:0"><input type="checkbox" id="lb-consent" style="width:18px;height:18px;accent-color:var(--h-brand)" /><div><b>I agree to be recorded</b><span>${m.rec === 'video' ? 'Video and sound are recorded and written up.' : 'The sound is recorded to make notes.'} Florida law asks every person for consent.</span></div></label>` : '';
-  root.innerHTML = `<div class="h-card mt-card lobby" style="max-width:980px;margin:6px auto"><div class="prev" id="lb-prev"><video id="lb-video" muted playsinline autoplay></video><span class="face" id="lb-face">${esc(initials(name))}</span><div class="cl"><button class="cb is-on" id="lb-mic" aria-label="Microphone"><span class="k">${ic('mic')}</span></button><button class="cb is-on" id="lb-cam" aria-label="Camera"><span class="k">${ic('video')}</span></button></div></div>
-    <div style="display:grid;gap:12px"><div class="h-label">${esc(m.hostName || 'Meeting')}</div><h2 class="mt-h2" style="font-size:28px">${esc(m.title)}</h2>
+  const consent = GUEST && m.rec !== 'off' ? `<label class="lb-consent"><input type="checkbox" id="lb-consent" /><div><b>I agree to be recorded</b><span>${m.rec === 'video' ? 'Video and sound are recorded and written up.' : 'The sound is recorded to make notes.'} Florida law asks every person for consent.</span></div></label>` : '';
+  const when = whenLine(m);
+  const inRoom = !GUEST && S.present && S.present.length ? `<div class="lb-in">${S.present.slice(0, 4).map((n) => av(n)).join('')}<span>${esc(S.present.slice(0, 3).join(', '))}${S.present.length > 3 ? ' and ' + (S.present.length - 3) + ' more' : ''} ${S.present.length === 1 ? 'is' : 'are'} in the room.</span></div>` : '';
+  root.innerHTML = `<div class="h-card mt-card lobby" style="max-width:980px;margin:6px auto"><div class="prev" id="lb-prev"><video id="lb-video" muted playsinline autoplay></video><span class="face" id="lb-face">${esc(initials(name))}</span><div class="cl"><button class="cb is-on" id="lb-mic" aria-label="Microphone" aria-pressed="true"><span class="k">${ic('mic')}</span></button><button class="cb is-on" id="lb-cam" aria-label="Camera" aria-pressed="true"><span class="k">${ic('video')}</span></button></div></div>
+    <div style="display:grid;gap:12px"><div class="h-label">Ready to join?</div><h2 class="mt-h2" style="font-size:28px">${esc(m.title)}</h2>
+      <p class="lb-line"><span>${esc(m.hostName ? 'Host: ' + m.hostName : '')}</span>${when ? `<span>${esc(when)}</span>` : ''}</p>${inRoom}
       <p class="mt-sub" style="font-size:14px;margin:0" id="lb-who">${esc(recLine)}</p>
       <div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" ${GUEST ? 'placeholder="First and last name"' : ''} /></div>${consent}
+      <div class="lb-dev" id="lb-devs" hidden></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? '' : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a>'}</div>
-      <p class="mt-sub" style="margin:0" id="lb-dev">Checking your camera and microphone.</p></div></div>`;
+      <p class="mt-sub" style="margin:0" id="lb-dev">Checking your camera and microphone.</p><p class="lb-help" id="lb-help" hidden></p></div></div>`;
   $('#lb-join').addEventListener('click', enter);
   $('#lb-mic').addEventListener('click', () => { S.mic = !S.mic; lobbyButtons(); });
   $('#lb-cam').addEventListener('click', () => { S.cam = !S.cam; lobbyButtons(); lobbyVideo(); });
+  let denied = null;
   try {
     preview = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 1280, height: 720 } });
     $('#lb-dev').textContent = 'Camera and microphone ready.';
-  } catch {
+  } catch (e1) {
+    denied = e1;
     try { preview = await navigator.mediaDevices.getUserMedia({ audio: true }); S.devices.cam = false; S.cam = false; $('#lb-dev').textContent = 'No camera found or allowed. You can still join with sound.'; }
-    catch { preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; $('#lb-dev').textContent = 'No camera or microphone is available. You can join to watch and listen, and chat.'; }
+    catch (e2) { denied = e2; preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; $('#lb-dev').textContent = 'No camera or microphone is available. You can join to watch and listen, and chat.'; }
   }
-  lobbyButtons(); lobbyVideo();
+  const help = permHelp(denied); if (help) { const h = $('#lb-help'); if (h) { h.textContent = help; h.hidden = false; } }
+  lobbyButtons(); lobbyVideo(); lobbyDevices(); lobbyMeter();
+}
+async function deviceList() {
+  try { const all = await navigator.mediaDevices.enumerateDevices(); return { mics: all.filter((d) => d.kind === 'audioinput' && d.deviceId), cams: all.filter((d) => d.kind === 'videoinput' && d.deviceId), spks: all.filter((d) => d.kind === 'audiooutput' && d.deviceId) }; }
+  catch { return { mics: [], cams: [], spks: [] }; }
+}
+const optList = (list, cur, fallback) => list.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === cur ? 'selected' : ''}>${esc(d.label || fallback + ' ' + (i + 1))}</option>`).join('');
+async function lobbyDevices() {
+  const box = $('#lb-devs'); if (!box || !preview) return;
+  const { mics, cams } = await deviceList();
+  if (!mics.length && !cams.length) return;
+  const curMic = preview.getAudioTracks()[0] && preview.getAudioTracks()[0].getSettings().deviceId;
+  const curCam = preview.getVideoTracks()[0] && preview.getVideoTracks()[0].getSettings().deviceId;
+  box.innerHTML = (mics.length ? `<label>Microphone<select id="lb-micsel" aria-label="Change microphone">${optList(mics, curMic, 'Microphone')}</select></label>` : '') + (cams.length ? `<label>Camera<select id="lb-camsel" aria-label="Change camera">${optList(cams, curCam, 'Camera')}</select></label>` : '') + '<div class="lb-meter" aria-hidden="true"><i id="lb-lvl"></i></div>';
+  box.hidden = false;
+  const swap = async (kind, id) => {
+    try {
+      const ns = await navigator.mediaDevices.getUserMedia(kind === 'audio' ? { audio: { deviceId: { exact: id } } } : { video: { deviceId: { exact: id }, width: 1280, height: 720 } });
+      const old = kind === 'audio' ? preview.getAudioTracks()[0] : preview.getVideoTracks()[0];
+      if (old) { preview.removeTrack(old); old.stop(); }
+      preview.addTrack(ns.getTracks()[0]);
+      if (kind === 'audio') { S.micId = id; lbCtx = null; lobbyMeter(true); } else { S.camId = id; lobbyVideo(true); }
+    } catch { toast('That device did not open.'); }
+  };
+  $('#lb-micsel') && $('#lb-micsel').addEventListener('change', (e) => swap('audio', e.target.value));
+  $('#lb-camsel') && $('#lb-camsel').addEventListener('change', (e) => swap('video', e.target.value));
+}
+function lobbyMeter(reset) {
+  if (lbTimer && !reset) return;
+  if (lbTimer) clearInterval(lbTimer);
+  const track = preview && preview.getAudioTracks()[0]; if (!track) return;
+  let an, buf;
+  try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); lbCtx = ctx; const src = ctx.createMediaStreamSource(new MediaStream([track])); an = ctx.createAnalyser(); an.fftSize = 512; src.connect(an); buf = new Uint8Array(an.fftSize); } catch { return; }
+  lbTimer = setInterval(() => {
+    const i = $('#lb-lvl'); if (!i) { clearInterval(lbTimer); lbTimer = null; try { lbCtx && lbCtx.close(); } catch {} return; }
+    an.getByteTimeDomainData(buf); let sum = 0; for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
+    i.style.width = (S.mic ? Math.min(100, Math.round(Math.sqrt(sum / buf.length) * 400)) : 0) + '%';
+  }, 120);
 }
 function lobbyButtons() {
   const mic = $('#lb-mic'), cam = $('#lb-cam'); if (!mic) return;
-  mic.className = 'cb ' + (S.mic ? 'is-on' : 'is-off'); mic.innerHTML = `<span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>`;
-  cam.className = 'cb ' + (S.cam ? 'is-on' : 'is-off'); cam.innerHTML = `<span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>`;
+  mic.className = 'cb ' + (S.mic ? 'is-on' : 'is-off'); mic.innerHTML = `<span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>`; mic.setAttribute('aria-pressed', String(S.mic));
+  cam.className = 'cb ' + (S.cam ? 'is-on' : 'is-off'); cam.innerHTML = `<span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>`; cam.setAttribute('aria-pressed', String(S.cam));
 }
 function lobbyVideo() {
   const v = $('#lb-video'); if (!v) return;
   const has = preview && preview.getVideoTracks().length && S.cam;
   v.style.display = has ? 'block' : 'none';
-  if (has) v.srcObject = preview;
+  if (has) { v.srcObject = preview; v.play().catch(() => {}); }
 }
 
 // ---------------------------------------------------------------- joining
 async function enter() {
   const name = ($('#lb-name').value || '').trim() || (GUEST ? '' : 'Guest');
   if (GUEST) { if (name.length < 2) { toast('Type your name so the host knows who you are.'); return; } if ($('#lb-consent') && !$('#lb-consent').checked) { toast('Tick the box to accept the recording notice.'); return; } }
-  $('#lb-join').disabled = true; $('#lb-join').textContent = 'Joining';
+  if (lbTimer) { clearInterval(lbTimer); lbTimer = null; }
+  $('#lb-join').disabled = true; $('#lb-join').innerHTML = '<span class="spin"></span>Connecting to the room';
+  const slow = setTimeout(() => { const d = $('#lb-dev'); if (d) d.textContent = 'Still connecting. This can take up to 20 seconds.'; }, 6000);
   S.me.name = name;
   if (preview) { local.mic = preview.getAudioTracks()[0] || null; local.cam = preview.getVideoTracks()[0] || null; }
   if (local.mic) local.mic.enabled = S.mic;
@@ -95,7 +171,10 @@ async function enter() {
     const j = await withTimeout(joinCall(false), 20000);
     if (j.waiting) await waitAdmit();
     await withTimeout(openRtc(j, false), 20000);
+    clearTimeout(slow);
   } catch (e) {
+    clearTimeout(slow);
+    if (e.leftWait) { ended('You left the waiting room'); return; }
     if (e.status === 403 || e.status === 404 || e.status === 410 || e.status === 429 || e.status === 400) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">You cannot join this meeting</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(e.message)}</p>${GUEST ? '' : '<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>'}</div>`; return; }
     failScreen(e); return;
   }
@@ -120,9 +199,12 @@ async function joinCall(isRejoin) {
 
 // A guest stays on this screen until a host lets them in. Nothing is published or pulled before that.
 async function waitAdmit() {
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">Waiting for the host</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(S.meeting.hostName || 'The host')} will let you in to ${esc(S.meeting.title)} shortly. Keep this page open.</p></div>`;
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px" role="status"><h2 class="mt-h2"><span class="spin"></span>Waiting for the host</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(S.meeting.hostName || 'The host')} will let you in to ${esc(S.meeting.title)} shortly. Keep this page open.</p><div><button class="h-btn h-btn--ghost" id="wait-leave">Leave</button></div></div>`;
+  let cancel = false;
+  $('#wait-leave').addEventListener('click', () => { cancel = true; api('meetings/' + MID + '/leave', { method: 'POST', body: { pid: S.me.pid } }).catch(() => {}); });
   for (;;) {
     await new Promise((r) => setTimeout(r, 1500));
+    if (cancel) throw Object.assign(new Error('You left the waiting room.'), { leftWait: true });
     let r;
     try { r = await api('meetings/' + MID + '/sync', { method: 'POST', body: { pid: S.me.pid, since: S.events, me: { mic: S.mic, cam: S.cam, lvl: 0 } } }); }
     catch (e) { if (e.code === 'removed') throw Object.assign(new Error('The host did not let you in.'), { status: 403 }); continue; }
@@ -167,9 +249,11 @@ function failScreen(err) {
 // ---------------------------------------------------------------- the room
 function buildRoom() {
   document.getElementById('h-app').classList.add('is-room');
-  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage" aria-label="Meeting"><div class="rm-bar" id="rm-bar"></div><div id="rm-banner"></div><div class="rm-grid" id="rm-grid"></div><div class="rm-cap" id="rm-cap" hidden></div><div class="rm-ctl" id="rm-ctl"></div></section><aside class="rm-side" id="rm-side" aria-label="Meeting panel"></aside></div>`;
+  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage" aria-label="Meeting"><div class="rm-top"><div class="rm-bar" id="rm-bar"></div><div class="rm-tools" id="rm-tools"></div></div><div id="rm-banner"></div><div id="rm-wait"></div><div class="rm-grid" id="rm-grid"></div><div class="rm-hint" id="rm-hint" hidden></div><div class="rm-cap" id="rm-cap" hidden aria-live="off"></div><div id="rm-pop-wrap"></div><div class="rm-ctl" id="rm-ctl" role="toolbar" aria-label="Meeting controls"></div></section><aside class="rm-side" id="rm-side" aria-label="Meeting panel"></aside></div>`;
   S.panel = isPhone() ? '' : 'people';
   paintAll();
+  dragToClose($('#rm-side'));
+  window.addEventListener('resize', fitCtl);
   window.addEventListener('keydown', onKey);
   window.addEventListener('beforeunload', onUnload);
   document.addEventListener('click', onDocClick);
@@ -181,7 +265,94 @@ const hostish = () => S.me.role === 'host' || S.me.role === 'cohost';
 const others = () => S.people.filter((p) => p.pid !== S.me.pid && !p.waiting);
 const nameOf = (pid) => (pid === S.me.pid ? S.me.name : (S.people.find((p) => p.pid === pid) || {}).name || 'Someone');
 
-function paintAll() { paintBar(); paintGrid(); paintCtl(); paintSide(); }
+function paintAll() { paintBar(); paintTools(); paintGrid(); paintCtl(); paintSide(); }
+
+// Keep keyboard focus on the same control when a bar is repainted (R4).
+function keepFocus(container, fn) {
+  const ae = document.activeElement;
+  const inside = container && ae && ae !== document.body && container.contains(ae);
+  const k = inside ? { a: ae.dataset && ae.dataset.a, p: ae.dataset && ae.dataset.p, pid: ae.dataset && ae.dataset.pid, id: ae.id } : null;
+  fn();
+  if (!k) return;
+  const sel = k.a ? '[data-a="' + k.a + '"]' + (k.p ? '[data-p="' + k.p + '"]' : '') + (k.pid ? '[data-pid="' + k.pid + '"]' : '') : k.id ? '#' + k.id : '';
+  const n = sel && container.querySelector(sel); if (n && n !== document.activeElement) n.focus({ preventScroll: true });
+}
+function fitCtl() { const el = $('#rm-ctl'), st = $('#rm'); if (el && st) st.style.setProperty('--ctl-h', el.offsetHeight + 'px'); }
+const sheetMode = () => isPhone() && !matchMedia('(max-height: 500px)').matches;
+// Drag the phone sheet down to close it (R9).
+function dragToClose(side) {
+  if (!side) return;
+  let d = null;
+  side.addEventListener('touchstart', (e) => { if (!sheetMode() || !e.target.closest('.rm-grab, .rm-tabs')) return; d = { y: e.touches[0].clientY, dy: 0 }; side.classList.add('is-drag'); }, { passive: true });
+  side.addEventListener('touchmove', (e) => { if (!d) return; d.dy = Math.max(0, e.touches[0].clientY - d.y); side.style.transform = 'translateY(' + d.dy + 'px)'; }, { passive: true });
+  const end = () => { if (!d) return; const close = d.dy > 90; d = null; side.classList.remove('is-drag'); side.style.transform = ''; if (close) { S.panel = ''; paintCtl(); paintSide(); } };
+  side.addEventListener('touchend', end); side.addEventListener('touchcancel', end);
+}
+
+// The tools beside the title: reactions, layout, full screen, copy link, devices (R8, R25).
+function paintTools() {
+  const el = $('#rm-tools'); if (!el) return;
+  keepFocus(el, () => {
+    el.innerHTML = `<button class="rt${S.pop === 'react' ? ' is-on' : ''}" data-a="pop" data-p="react" aria-label="Reactions" aria-haspopup="dialog" aria-expanded="${S.pop === 'react'}">${ic('smile')}</button>
+      <button class="rt" data-a="layout" aria-label="${S.layout === 'grid' ? 'Switch to speaker view' : 'Switch to gallery view'}" title="${S.layout === 'grid' ? 'Speaker view' : 'Gallery view'}">${ic(S.layout === 'grid' ? 'speaker' : 'grid')}</button>
+      ${document.fullscreenEnabled ? `<button class="rt" data-a="fullscreen" aria-label="Full screen" title="Full screen">${ic('expand')}</button>` : ''}
+      ${GUEST ? '' : `<button class="rt" data-a="copylink" aria-label="Copy meeting link">${ic('link')}<span class="lb-t">Copy link</span></button>`}
+      <button class="rt${S.pop === 'dev' ? ' is-on' : ''}" data-a="pop" data-p="dev" aria-label="Camera, microphone and speaker" aria-haspopup="dialog" aria-expanded="${S.pop === 'dev'}">${ic('gear')}</button>`;
+  });
+}
+
+const EMOJI = ['\u{1F44D}', '\u{1F44F}', '\u2764\uFE0F', '\u{1F602}', '\u{1F62E}', '\u{1F389}'];
+async function paintPop() {
+  const el = $('#rm-pop-wrap'); if (!el) return;
+  if (!S.pop) { el.innerHTML = ''; return; }
+  if (S.pop === 'react') { el.innerHTML = `<div class="rm-pop" role="dialog" aria-label="Reactions"><div class="emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div></div>`; const b = el.querySelector('button'); b && b.focus(); return; }
+  const { mics, cams, spks } = await deviceList();
+  if (S.pop !== 'dev') return;
+  const curMic = local.mic && local.mic.getSettings().deviceId, curCam = (local.cam && local.cam.getSettings().deviceId) || S.camId;
+  el.innerHTML = `<div class="rm-pop" role="dialog" aria-label="Devices">
+    ${mics.length ? `<label>Microphone<select data-dev="mic">${optList(mics, curMic, 'Microphone')}</select></label>` : ''}
+    ${cams.length ? `<label>Camera<select data-dev="cam">${optList(cams, curCam, 'Camera')}</select></label>` : ''}
+    ${spks.length && 'setSinkId' in HTMLMediaElement.prototype ? `<label>Speaker<select data-dev="spk">${optList(spks, S.spkId, 'Speaker')}</select></label>` : ''}
+    ${!mics.length && !cams.length ? '<p class="mt-sub" style="margin:0">No devices were found. Check that the browser may use the camera and microphone.</p>' : ''}</div>`;
+  const s = el.querySelector('select'); s && s.focus();
+  el.querySelectorAll('select[data-dev]').forEach((sel) => sel.addEventListener('change', () => switchDevice(sel.dataset.dev, sel.value)));
+}
+async function switchDevice(kind, id) {
+  try {
+    if (kind === 'spk') { S.spkId = id; $$('audio[id^="a-"]').forEach((a) => a.setSinkId && a.setSinkId(id).catch(() => {})); return; }
+    if (kind === 'mic') {
+      const ns = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: id } } }); const t = ns.getAudioTracks()[0]; t.enabled = S.mic;
+      if (local.mic) local.mic.stop(); local.mic = t; S.micId = id; analyser = null; try { actx && actx.close(); } catch {} actx = null;
+      await rtc.replace('a', t); return;
+    }
+    S.camId = id;
+    if (S.cam) {
+      const ns = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id }, width: 1280, height: 720 } }); const t = ns.getVideoTracks()[0];
+      if (local.cam) local.cam.stop(); local.cam = t; await rtc.replace('v', t); paintGrid();
+    }
+  } catch { toast('That device did not open.'); }
+}
+
+function floatEmoji(e, name) {
+  const st = $('.rm-stage'); if (!st || !e) return;
+  const n = document.createElement('div'); n.className = 'rx'; n.style.left = (12 + Math.random() * 70) + '%';
+  n.innerHTML = '<i></i><span></span>'; n.firstChild.textContent = e; n.lastChild.textContent = name || '';
+  st.appendChild(n); setTimeout(() => n.remove(), 2700);
+}
+function chime() {
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)();
+    [660, 880].forEach((fq, i) => { const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + i * 0.16; o.frequency.value = fq; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.15, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.16); });
+    setTimeout(() => c.close(), 800);
+  } catch { /* no sound is fine */ }
+}
+// A person waiting to be let in: a bar with the button, a toast and a chime for the hosts (R16).
+function paintWait(waiting) {
+  const el = $('#rm-wait'); if (!el) return;
+  if (!waiting.length) { el.innerHTML = ''; return; }
+  const p = waiting[0];
+  el.innerHTML = `<div class="rm-wait" role="status"><span><b>${esc(p.name)}</b> is waiting to join${waiting.length > 1 ? ' (and ' + (waiting.length - 1) + ' more)' : ''}.</span><button class="h-btn h-btn--primary h-btn--sm" data-a="cmd" data-c="letin" data-pid="${p.pid}">Let in</button></div>`;
+}
 
 function paintBar() {
   const m = S.meeting; const r = S.recording;
@@ -200,6 +371,9 @@ function makeTile(key, p, share) {
   const el = document.createElement('div'); el.className = 'mt-tile'; el.dataset.key = key;
   el.innerHTML = `<video muted playsinline autoplay></video><span class="face"></span><span class="tag" hidden></span><button class="pin" hidden></button><span class="nm"><span class="mi"></span><span class="nt"></span></span>`;
   const t = { el, video: el.querySelector('video'), key, share, pid: p.pid, audio: null };
+  ['playing', 'loadeddata'].forEach((ev) => t.video.addEventListener(ev, () => el.classList.add('is-live')));
+  ['emptied', 'abort'].forEach((ev) => t.video.addEventListener(ev, () => el.classList.remove('is-live')));
+  if (share) { el.addEventListener('click', () => el.classList.toggle('is-zoom')); el.addEventListener('mousemove', (e) => { if (!el.classList.contains('is-zoom')) return; const r = el.getBoundingClientRect(); t.video.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%'; }); }
   el.querySelector('.pin').addEventListener('click', (e) => { e.stopPropagation(); const pid = key; hostish() ? send('cmd', { a: S.spot === pid ? 'unspot' : 'spot' }, pid) : (S.pin = S.pin === pid ? '' : pid, paintGrid(), reconcile()); });
   el.addEventListener('dblclick', () => { S.pin = S.pin === p.pid ? '' : p.pid; paintGrid(); reconcile(); });
   tiles.set(key, t);
@@ -211,12 +385,21 @@ function order() {
   const me = mePerson();
   const everyone = [me, ...others()];
   const sharer = everyone.find((p) => p.sharing && (p.me ? !!local.screen : true));
-  const big = S.pin || S.spot;
+  let big = S.pin || S.spot;
+  if (!big && S.layout === 'speaker' && everyone.length > 1) big = speakerPid(everyone);
   const rank = (p) => (p.pid === big ? -1 : p.role === 'host' ? 0 : 1);
   const sorted = everyone.slice().sort((a, b) => rank(a) - rank(b) || (b.speakAt || 0) - (a.speakAt || 0) || (a.joinedAt || 0) - (b.joinedAt || 0));
   return { sharer, big, sorted };
 }
 
+// Speaker view follows whoever spoke last, and holds a pick for three seconds so the layout does not jump.
+function speakerPid(everyone) {
+  const cand = everyone.filter((p) => !p.me).sort((a, b) => (b.speakAt || 0) - (a.speakAt || 0) || (a.role === 'host' ? -1 : 1))[0] || everyone[0];
+  const h = S.spkHold;
+  if (h && h.pid !== cand.pid && Date.now() - h.at < 3000 && everyone.some((p) => p.pid === h.pid)) return h.pid;
+  if (!h || h.pid !== cand.pid) S.spkHold = { pid: cand.pid, at: Date.now() };
+  return cand.pid;
+}
 const perPage = () => (isPhone() ? 4 : S.level === 'weak' ? 4 : 9);
 
 function layoutModel() {
@@ -228,7 +411,9 @@ function layoutModel() {
     else if (S.show) model.push({ key: 'brain', p: { pid: 'brain', name: 'Favor Brain' }, kind: 'big', brain: true });
     else model.push({ key: big, p: sorted.find((p) => p.pid === big), kind: 'big' });
     const rest = sorted.filter((p) => !(model[0].key === p.pid));
-    rest.slice(0, isPhone() ? 3 : 4).forEach((p) => model.push({ key: p.pid, p, kind: 'strip' }));
+    const cap = isPhone() ? 3 : 4;
+    if (rest.length > cap) { rest.slice(0, cap - 1).forEach((p) => model.push({ key: p.pid, p, kind: 'strip' })); model.push({ key: 'more', kind: 'more', n: rest.length - (cap - 1) }); }
+    else rest.forEach((p) => model.push({ key: p.pid, p, kind: 'strip' }));
     S.pages = 1;
     return { model, spot: true };
   }
@@ -243,14 +428,22 @@ function paintGrid() {
   const grid = $('#rm-grid'); if (!grid) return;
   const { model, spot } = layoutModel();
   const n = model.length;
-  grid.className = 'rm-grid' + (spot ? ' is-spot' : '');
-  grid.style.gridTemplateColumns = spot ? '' : `repeat(${n <= 1 ? 1 : n <= 4 ? 2 : 3}, minmax(0, 1fr))`;
-  if (spot) grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.min(4, n - 1))}, minmax(0, 1fr))`; else grid.style.gridTemplateRows = '';
+  grid.className = 'rm-grid' + (spot ? ' is-spot' : '') + (spot && n === 1 ? ' is-alone' : '') + (!spot && n === 1 ? ' is-one' : '');
+  grid.style.gridTemplateColumns = spot ? (isPhone() && n > 1 ? `repeat(${n - 1}, minmax(0, 1fr))` : '') : `repeat(${n <= 1 ? 1 : n <= 4 ? 2 : 3}, minmax(0, 1fr))`;
+  if (spot && !isPhone()) grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.min(4, n - 1))}, minmax(0, 1fr))`; else grid.style.gridTemplateRows = '';
   const keep = new Set(model.map((x) => x.key));
   for (const [k, t] of tiles) if (!keep.has(k)) t.el.remove();
   if (!model.some((x) => x.brain)) { const bt = document.getElementById('rm-brain-tile'); if (bt) bt.remove(); }
-  model.forEach(({ key, p, kind, share, brain }, i) => {
+  const mt0 = document.getElementById('rm-more-tile'); if (mt0 && !model.some((x) => x.kind === 'more')) mt0.remove();
+  model.forEach(({ key, p, kind, share, brain, n: moreN }, i) => {
     if (brain) { paintBrainTile(grid, i); return; }
+    if (kind === 'more') {
+      let el = document.getElementById('rm-more-tile');
+      if (!el) { el = document.createElement('div'); el.id = 'rm-more-tile'; el.className = 'mt-tile mt-more'; el.setAttribute('role', 'button'); el.tabIndex = 0; el.dataset.a = 'panel'; el.dataset.p = 'people'; }
+      el.innerHTML = `<span>+${moreN}<small>more in the meeting</small></span>`;
+      if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
+      return;
+    }
     let t = tiles.get(key) || makeTile(key, p, !!share);
     if (!t.el.isConnected || t.el.parentNode !== grid) grid.appendChild(t.el);
     if (grid.children[i] !== t.el) grid.insertBefore(t.el, grid.children[i] || null);
@@ -260,7 +453,8 @@ function paintGrid() {
     t.el.classList.toggle('is-talk', !!p.speaking && !share);
     t.el.style.background = share ? '' : `linear-gradient(145deg, ${hashColor(p.name)}, #1f261d 130%)`;
     const camOn = share ? true : p.me ? S.cam && !!local.cam : p.cam && haveVideo(p.pid);
-    const face = t.el.querySelector('.face'); face.textContent = initials(p.name); face.style.display = share || camOn ? 'none' : '';
+    const face = t.el.querySelector('.face'); face.textContent = initials(p.name); face.style.display = share ? 'none' : '';
+    t.el.classList.toggle('has-cam', !!camOn && !share);
     t.video.style.display = camOn ? 'block' : 'none';
     t.video.classList.toggle('is-me', !!p.me && !share);
     t.video.classList.toggle('is-contain', !!share);
@@ -311,6 +505,7 @@ function onTrack(mid, track) {
     } else {
       let el = document.getElementById('a-' + mid);
       if (!el) { el = document.createElement('audio'); el.id = 'a-' + mid; el.autoplay = true; document.body.appendChild(el); }
+      if (S.spkId && el.setSinkId) el.setSinkId(S.spkId).catch(() => {});
       el.srcObject = stream; el.play().catch(() => {});
       remote.set(key, { stream, el, mid });
     }
@@ -324,22 +519,29 @@ function haveVideo(pid) { return !!remote.get(pid + '|v') || true; }
 // ---- control bar
 function paintCtl() {
   const el = $('#rm-ctl'); if (!el) return;
-  const h = hostish(); const rec = S.recording && S.recording.active && S.recording.owner === S.me.pid;
+  const h = hostish();
   const recOn = S.recording && S.recording.active;
   const canShare = h || (S.sharePolicy === 'all' && (S.people.find((p) => p.pid === S.me.pid) || {}).canShare !== false);
   const waiting = h ? S.people.filter((p) => p.waiting).length : 0;
-  el.innerHTML = `
+  const lab = (full, short) => `<span class="lb-f">${full}</span><span class="lb-s">${short}</span>`;
+  const canDisplay = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isPhone();
+  keepFocus(el, () => {
+    el.innerHTML = `
     <button class="cb${S.mic ? '' : ' is-off'}" data-a="mic"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button>
-    <button class="cb${S.cam ? '' : ' is-off'}" data-a="cam"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button>
-    ${navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && !isPhone() ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
-    ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc"><span class="k">${ic('cc')}</span>Captions</button>` : ''}
-    ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? 'Stop rec' : 'Record'}</button>` : ''}
+    <button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button>
+    ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
+    ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc" aria-pressed="${S.cc}"><span class="k">${ic('cc')}</span>${lab('Captions', 'CC')}</button>` : ''}
+    ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? lab('Stop rec', 'Stop') : lab('Record', 'Rec')}</button>` : ''}
     <button class="cb${S.hand ? ' is-on' : ''}" data-a="hand"><span class="k">${ic('hand')}</span><span class="l-full">${S.hand ? 'Lower hand' : 'Raise hand'}</span><span class="l-short">${S.hand ? 'Lower' : 'Hand'}</span></button>
     <span class="rm-sep"></span>
-    <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
-    <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
-    ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain"><span class="k">${ic('brain')}</span>Brain</button>` : ''}
+    <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
+    <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
+    ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain" aria-pressed="${S.panel === 'brain'}"><span class="k">${ic('brain')}</span>Brain</button>` : ''}
     <button class="cb leave" data-a="leave"><span class="k">${ic('leave')}</span>Leave</button>`;
+  });
+  const hint = $('#rm-hint');
+  if (hint) { const no = canDisplay && !canShare; hint.hidden = !no; if (no) hint.textContent = 'The host limited screen sharing.'; }
+  fitCtl();
 }
 
 // ---- side panel
@@ -348,8 +550,8 @@ function paintSide() {
   const rm = $('#rm'); rm.classList.toggle('is-solo', !S.panel);
   el.style.display = S.panel ? '' : 'none';
   if (!S.panel) return;
-  const tab = (p, l, i) => `<button data-a="panel" data-p="${p}" class="${S.panel === p ? 'is-on' : ''}">${ic(i)}${l}</button>`;
-  el.innerHTML = `<div class="rm-tabs">${tab('chat', 'Chat', 'chat')}${tab('people', 'People', 'users')}${FEATURES.brain ? tab('brain', 'Brain', 'brain') : ''}<button class="x icon-b" data-a="panel-close" aria-label="Close the panel">${ic('x')}</button></div><div class="rm-body" id="rm-body"></div><div id="rm-input"></div>`;
+  const tab = (p, l, i) => `<button role="tab" aria-selected="${S.panel === p}" data-a="panel" data-p="${p}" class="${S.panel === p ? 'is-on' : ''}">${ic(i)}${l}</button>`;
+  keepFocus(el, () => { el.innerHTML = `<div class="rm-grab" aria-hidden="true"></div><div class="rm-tabs" role="tablist" aria-label="Meeting panel">${tab('chat', 'Chat', 'chat')}${tab('people', 'People', 'users')}${FEATURES.brain ? tab('brain', 'Brain', 'brain') : ''}<button class="x icon-b" data-a="panel-close" aria-label="Close the panel">${ic('x')}</button></div><div class="rm-body" id="rm-body" role="tabpanel"></div><div id="rm-input"></div>`; });
   paintSideBody(true);
 }
 
@@ -379,19 +581,20 @@ function paintSideBody(full) {
     const h = hostish();
     const all = [mePerson(), ...others()];
     const wait = h ? S.people.filter((p) => p.waiting) : [];
-    $('#rm-input').innerHTML = '';
+    const foot = h ? `<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px;border-top:1px solid var(--h-line)"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>` : '';
+    const inp = $('#rm-input'); if (inp && inp.innerHTML !== foot) inp.innerHTML = foot;
     body.innerHTML = `${wait.map((p) => `<div class="wait"><b>Waiting to join</b><div class="pp" style="padding:0">${av(p.name)}<div><b>${esc(p.name)}</b><span>Guest</span></div><div class="ctl"><button class="h-btn h-btn--primary h-btn--sm" data-a="cmd" data-c="letin" data-pid="${p.pid}">Let in</button></div></div></div>`).join('')}
       ${h ? `<div class="hostbar"><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="muteall">${ic('micOff')}Mute everyone</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="${S.locked ? 'unlock' : 'lock'}">${ic('lock')}${S.locked ? 'Unlock room' : 'Lock room'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="sharepolicy">${ic('screen')}${S.sharePolicy === 'hosts' ? 'Anyone can share' : 'Only hosts share'}</button></div>` : ''}
       <div class="h-label">In the meeting, ${all.length}</div>
-      ${all.map((p) => `<div class="pp" style="position:relative">${av(p.name)}<div><b>${esc(p.name)}${p.me ? ' (you)' : ''}</b><span>${p.role === 'host' ? 'Host' : p.role === 'cohost' ? 'Host' : p.role === 'guest' ? 'Guest' : 'Staff'}${p.hand ? ' · hand raised' : ''}${p.sharing ? ' · sharing' : ''}</span></div>
-        <div class="ctl"><span class="icon-b ${p.mic ? 'is-on' : 'is-off'}" title="${p.mic ? 'Mic on' : 'Muted'}">${ic(p.mic ? 'mic' : 'micOff')}</span>${h && !p.me ? `<button class="icon-b" data-a="pmenu" data-pid="${p.pid}" aria-label="Host controls for ${esc(p.name)}">${ic('more')}</button>` : ''}</div>
-        ${S.menu === p.pid ? `<div class="menu"><button data-a="cmd" data-c="mute" data-pid="${p.pid}">${ic('micOff')}Mute</button><button data-a="cmd" data-c="${S.spot === p.pid ? 'unspot' : 'spot'}" data-pid="${p.pid}">${ic('pin')}${S.spot === p.pid ? 'End spotlight' : 'Spotlight for everyone'}</button><button data-a="cmd" data-c="camoff" data-pid="${p.pid}">${ic('videoOff')}Turn camera off</button>${p.hand ? `<button data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">${ic('hand')}Lower hand</button>` : ''}<button data-a="cmd" data-c="allowshare" data-v="${p.canShare === false ? 'true' : 'false'}" data-pid="${p.pid}">${ic('screen')}${p.canShare === false ? 'Allow sharing' : 'Stop sharing rights'}</button>${p.role === 'cohost' ? `<button data-a="cmd" data-c="unhost" data-pid="${p.pid}">${ic('users')}Remove host rights</button>` : `<button data-a="cmd" data-c="makehost" data-pid="${p.pid}">${ic('users')}Make a host</button>`}<button class="danger" data-a="cmd" data-c="remove" data-pid="${p.pid}">${ic('remove')}Remove from meeting</button></div>` : ''}</div>`).join('')}
-      ${h ? `<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>` : ''}`;
+      ${all.map((p) => `<div class="pp" style="position:relative">${av(p.name)}<div><b>${esc(p.name)}${p.me ? ' (you)' : ''}</b><span>${p.role === 'host' || p.role === 'cohost' ? 'Host' + (p.title || p.team ? ' · ' : '') : ''}${p.role === 'guest' ? 'Guest' : esc(p.title || p.team || (p.role === 'host' || p.role === 'cohost' ? '' : 'Staff'))}${p.hand ? ' · hand raised' : ''}${p.sharing ? ' · sharing' : ''}</span></div>
+        <div class="ctl"><span class="icon-b ${p.mic ? 'is-on' : 'is-off'}" title="${p.mic ? 'Mic on' : 'Muted'}">${ic(p.mic ? 'mic' : 'micOff')}</span>${h && !p.me ? `<button class="icon-b" data-a="pmenu" data-pid="${p.pid}" aria-label="Host controls for ${esc(p.name)}" aria-haspopup="menu" aria-expanded="${S.menu === p.pid}">${ic('more')}</button>` : ''}</div>
+        ${S.menu === p.pid ? `<div class="menu" role="menu"><button role="menuitem" data-a="cmd" data-c="mute" data-pid="${p.pid}">${ic('micOff')}Mute</button><button role="menuitem" data-a="cmd" data-c="${S.spot === p.pid ? 'unspot' : 'spot'}" data-pid="${p.pid}">${ic('pin')}${S.spot === p.pid ? 'End spotlight' : 'Spotlight for everyone'}</button><button role="menuitem" data-a="cmd" data-c="camoff" data-pid="${p.pid}">${ic('videoOff')}Turn camera off</button>${p.hand ? `<button role="menuitem" data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">${ic('hand')}Lower hand</button>` : ''}<button role="menuitem" data-a="cmd" data-c="allowshare" data-v="${p.canShare === false ? 'true' : 'false'}" data-pid="${p.pid}">${ic('screen')}${p.canShare === false ? 'Allow screen sharing' : 'Block screen sharing'}</button>${p.role === 'cohost' ? `<button role="menuitem" data-a="cmd" data-c="unhost" data-pid="${p.pid}">${ic('users')}Remove host rights</button>` : `<button role="menuitem" data-a="cmd" data-c="makehost" data-pid="${p.pid}">${ic('users')}Make a host</button>`}<button role="menuitem" class="danger" data-a="cmd" data-c="remove" data-pid="${p.pid}">${ic('remove')}Remove from meeting</button></div>` : ''}</div>`).join('')}`;
   }
 }
 
 // ---------------------------------------------------------------- actions
 function onDocClick(e) {
+  if (S.pop && !e.target.closest('.rm-pop') && !e.target.closest('[data-a="pop"]')) { S.pop = ''; paintTools(); paintPop(); }
   const a = e.target.closest('[data-a]');
   if (!a) { if (S.menu && !e.target.closest('.menu')) { S.menu = null; paintSideBody(false); } return; }
   const act = a.dataset.a;
@@ -399,15 +602,24 @@ function onDocClick(e) {
     case 'mic': toggleMic(); break;
     case 'cam': toggleCam(); break;
     case 'share': toggleShare(); break;
-    case 'cc': S.cc = !S.cc; paintCtl(); break;
+    case 'cc': S.cc = !S.cc; paintCtl(); paintCap(); break;
     case 'rec': toggleRecording(); break;
     case 'hand': S.hand = !S.hand; paintCtl(); paintGrid(); syncNow(); break;
     case 'panel': S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') S.unread = 0; paintCtl(); paintSide(); break;
     case 'panel-close': S.panel = ''; paintCtl(); paintSide(); break;
-    case 'leave': leaveRoom(); break;
+    case 'leave': leaveClick(); break;
+    case 'pop': S.pop = S.pop === a.dataset.p ? '' : a.dataset.p; paintTools(); paintPop(); break;
+    case 'emoji': S.pop = ''; paintTools(); paintPop(); send('react', { e: a.dataset.e }); break;
+    case 'layout': S.layout = S.layout === 'grid' ? 'speaker' : 'grid'; paintTools(); paintGrid(); scheduleReconcile(); break;
+    case 'fullscreen': if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else (document.getElementById('h-app') || document.documentElement).requestFullscreen().catch(() => toast('Full screen is not available here.')); break;
     case 'chat-send': sendChat(); break;
-    case 'pmenu': S.menu = S.menu === a.dataset.pid ? null : a.dataset.pid; paintSideBody(false); break;
-    case 'cmd': { const c = a.dataset.c; if (c === 'remove' && !confirm('Remove ' + nameOf(a.dataset.pid) + ' from the meeting?')) break; send('cmd', { a: c, v: a.dataset.v === undefined ? undefined : a.dataset.v === 'true' }, a.dataset.pid || ''); S.menu = null; paintSideBody(false); break; }
+    case 'pmenu': S.menu = S.menu === a.dataset.pid ? null : a.dataset.pid; paintSideBody(false); if (S.menu) { const mi = $('.menu button'); mi && mi.focus(); } break;
+    case 'cmd': {
+      const c = a.dataset.c, pid = a.dataset.pid || '', v = a.dataset.v === undefined ? undefined : a.dataset.v === 'true';
+      S.menu = null; paintSideBody(false);
+      if (c === 'remove') { confirmCard({ title: 'Remove ' + nameOf(pid) + '?', body: 'They leave the meeting and cannot come back in.', ok: 'Remove', danger: true }).then((ok) => { if (ok) send('cmd', { a: c }, pid); }); break; }
+      send('cmd', { a: c, v }, pid); break;
+    }
     case 'sharepolicy': send('cmd', { a: 'sharepolicy', v: S.sharePolicy === 'hosts' ? 'all' : 'hosts' }); break;
     case 'copylink': copy(roomLink(MID)); break;
     case 'guestlink': api('meetings/' + MID + '/guestlink', { method: 'POST', body: {} }).then((r) => copy(r.url)).catch((e) => toast(e.message)); break;
@@ -416,16 +628,35 @@ function onDocClick(e) {
     case 'brain-post': postBrain(Number(a.dataset.i), false); break;
     case 'brain-show': postBrain(Number(a.dataset.i), true); break;
     case 'brain-stop': send('brain', { stop: true }); break;
-    case 'endall': if (confirm('End the meeting for everyone?')) send('cmd', { a: 'end' }); break;
+    case 'endall': confirmCard({ title: 'End the meeting for everyone?', body: 'Everyone in the room is disconnected.', ok: 'End for everyone', danger: true }).then((ok) => { if (ok) send('cmd', { a: 'end' }); }); break;
     default: break;
   }
 }
 function onKey(e) {
+  if (document.querySelector('.cf')) return;
+  if (e.key === 'Escape') {
+    if (S.pop) { const p = S.pop; S.pop = ''; paintTools(); paintPop(); const o = $('[data-a="pop"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
+    if (S.menu) { const pid = S.menu; S.menu = null; paintSideBody(false); const o = $('[data-a="pmenu"][data-pid="' + pid + '"]'); o && o.focus(); e.preventDefault(); return; }
+    if (sheetMode() && S.panel) { const p = S.panel; S.panel = ''; paintCtl(); paintSide(); const o = $('#rm-ctl [data-a="panel"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
+    return;
+  }
+  if (S.menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const items = $$('.menu button'); if (items.length) { const i = items.indexOf(document.activeElement); items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); e.preventDefault(); }
+    return;
+  }
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
   if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, brainKindOf(q)); } return; }
   if (e.target.matches && e.target.matches('input, textarea')) return;
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
+}
+async function leaveClick() {
+  if (hostish() && others().length) {
+    const r = await confirmCard({ title: 'Leave the meeting?', body: 'Other people are still in the room. You can leave and let them carry on, or end it for everyone.', ok: 'Leave meeting', cancel: 'Stay', extra: 'End for everyone' });
+    if (r === 'extra') { send('cmd', { a: 'end' }); return; }
+    if (r !== true) return;
+  }
+  leaveRoom();
 }
 function onUnload() { try { fetch((GUEST ? '/api/meet-guest/' : '/api/meet/') + 'meetings/' + MID + '/leave', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', ...(GUEST ? { 'X-Guest-Token': MODE.token } : {}) }, body: JSON.stringify({ pid: S.me.pid }) }); } catch {} }
 
@@ -448,7 +679,7 @@ async function toggleCam() {
     if (local.cam) { try { await rtc.replace('v', null); } catch {} local.cam.stop(); local.cam = null; }
   } else {
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } });
+      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, ...(S.camId ? { deviceId: { ideal: S.camId } } : {}) } });
       local.cam = s.getVideoTracks()[0]; S.cam = true;
       await rtc.replace('v', local.cam);
     } catch { toast('The camera is not available.'); S.cam = false; }
@@ -501,13 +732,14 @@ async function leaveRoom(msg) {
 }
 
 // ---------------------------------------------------------------- loops
-function clearIntervals() { [syncTimer, statTimer, reconcileTimer, levelTimer].forEach((t) => t && clearInterval(t)); }
+function clearIntervals() { [syncTimer, statTimer, reconcileTimer, levelTimer, barTimer].forEach((t) => t && clearInterval(t)); }
 function startLoops() {
-  syncTimer = setInterval(syncNow, 1000);
+  // One sync per person every two seconds (three above 15 people, four in a hidden tab) so a big room stays light on the database.
+  const tick = async () => { await syncNow(); if (!S.left) syncTimer = setTimeout(tick, document.hidden ? 4000 : S.people.length > 15 ? 3000 : 2000); };
+  syncTimer = setTimeout(tick, 0);
   statTimer = setInterval(onStats, 1500);
   levelTimer = setInterval(measureLevel, 250);
-  setInterval(paintBar, 1000);
-  syncNow();
+  barTimer = setInterval(paintBar, 1000);
 }
 
 let syncing = false;
@@ -516,11 +748,13 @@ async function syncNow() {
   syncing = true;
   try {
     const r = await api('meetings/' + MID + '/sync', { method: 'POST', body: { pid: S.me.pid, since: S.events, tx: S.tx, me: { mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, lvl: S.lvl } } });
-    S.lastSync = Date.now();
+    S.lastSync = Date.now(); S.syncFails = 0;
+    if (S.syncDrop) { S.syncDrop = false; if (S.conn === 'drop' && !S.rtcDown && !rejoining) { S.conn = 'back'; S.backAt = Date.now(); S.missedSec = (Date.now() - (S.dropAt || Date.now())) / 1000; paintBar(); } }
     applySync(r);
   } catch (e) {
     if (e.code === 'removed') { S.removed = true; leaveRoom('The host removed you from this meeting'); }
     else if (e.code === 'not_in_meeting') rejoin('server lost me');
+    else if (++S.syncFails >= 3 && S.conn === 'ok') { S.conn = 'drop'; S.syncDrop = true; S.dropAt = Date.now(); paintBar(); }
   } finally { syncing = false; }
 }
 
@@ -539,6 +773,10 @@ function applySync(r) {
   const gridSig = JSON.stringify([S.people.map((p) => [...base(p), p.speaking]), S.spot, S.pin]);
   const ctlSig = JSON.stringify([S.people.filter((p) => p.waiting).length, (S.people.find((p) => p.pid === S.me.pid) || {}).canShare, S.locked, S.sharePolicy, S.recording && [S.recording.active, S.recording.owner], S.me.role]);
   const sideSig = JSON.stringify([S.people.map(base), S.spot, S.locked, S.sharePolicy]);
+  if (hostish()) {
+    const waiting = S.people.filter((p) => p.waiting); const wsig = waiting.map((p) => p.pid).join(',');
+    if (wsig !== S.waitSig) { S.waitSig = wsig; paintWait(waiting); for (const p of waiting) if (!S.seenWait.has(p.pid)) { S.seenWait.add(p.pid); toast(p.name + ' is waiting to join.'); chime(); } }
+  } else if (S.waitSig) { S.waitSig = ''; paintWait([]); }
   if (gridSig !== S.gridSig) { S.gridSig = gridSig; paintGrid(); }
   if (ctlSig !== S.ctlSig) { S.ctlSig = ctlSig; paintCtl(); }
   if (sideSig !== S.sideSig) { S.sideSig = sideSig; if (S.panel === 'people' && !S.menu) paintSideBody(false); }
@@ -569,7 +807,7 @@ function handleEvent(e) {
     if (S.show && e.from !== S.me.pid) toast(S.show.by + ' put a Favor Brain answer on screen');
     paintGrid(); scheduleReconcile();
   } else if (e.kind === 'react') {
-    floatEmoji(e.body.e);
+    floatEmoji(e.body.e, e.body.name);
   } else if (e.kind === 'notice') {
     const b = e.body;
     if (b.a === 'rec-start') { toast(b.mode === 'video' ? 'Video recording started' : 'Recording for notes started'); }
@@ -579,7 +817,6 @@ function handleEvent(e) {
     else if (b.a === 'acting' && b.pid === S.me.pid) toast('You are now a host because no host is in the room');
   }
 }
-function floatEmoji() {}
 
 // ---------------------------------------------------------------- subscriptions
 function scheduleReconcile() { clearTimeout(reconcileTimer); reconcileTimer = setTimeout(reconcile, 250); }
@@ -632,7 +869,8 @@ async function onStats() {
   // The level changes only after three readings in a row agree, and not in the first ten seconds, when the estimate is still climbing.
   const lvl = Date.now() - S.started < 10000 ? 'good' : linkLevel(st);
   S.levelVotes = lvl === S.levelCand ? (S.levelVotes || 0) + 1 : 1; S.levelCand = lvl;
-  if (lvl !== S.level && S.levelVotes >= 3) { S.level = lvl; paintAll(); scheduleReconcile(); }
+  const worse = ['good', 'fair', 'weak'].indexOf(lvl) > ['good', 'fair', 'weak'].indexOf(S.level);
+  if (lvl !== S.level && S.levelVotes >= (worse ? 6 : 3)) { S.level = lvl; paintAll(); scheduleReconcile(); }
   // Nothing arriving for a while while others are present: the path is dead.
   const anyone = others().length > 0 && rtc.subs.size > 0;
   if (anyone && st.t && st.bps < 1000) { if (!silentSince) silentSince = Date.now(); if (Date.now() - silentSince > 9000) { silentSince = 0; rejoin('no media for 9 seconds'); } } else silentSince = 0;
@@ -640,6 +878,7 @@ async function onStats() {
   // Speaking rings from the sound the SFU delivers, for people the sync has not flagged yet.
 }
 function onRtcState(s) {
+  S.rtcDown = s === 'disconnected' || s === 'failed';
   if (s === 'disconnected' && S.conn === 'ok') { S.conn = 'drop'; S.dropAt = Date.now(); S.dropRel = Math.max(0, Math.round((Date.now() - (Date.parse(S.meeting.startedAt || '') || S.started)) / 1000)); paintBar(); }
   if (s === 'connected' && S.conn === 'drop') { S.conn = 'back'; S.backAt = Date.now(); S.missedSec = (Date.now() - S.dropAt) / 1000; paintBar(); scheduleReconcile(); }
   if (s === 'failed' && !S.left) rejoin('connection failed');
@@ -697,11 +936,11 @@ window.__meet = { S, tiles, get rtc() { return rtc; }, reconcile, rejoin };
 // ---------------------------------------------------------------- captions
 function paintCap() {
   const el = $('#rm-cap'); if (!el) return;
-  const last = S.lines[S.lines.length - 1];
+  if (!S.cc) { el.hidden = true; return; }
   const meetingStart = Date.parse(S.meeting.startedAt || '') || S.started;
-  const fresh = last && Date.now() - (meetingStart + last.t * 1000) < 45000;
-  el.hidden = !(S.cc && fresh);
-  if (!el.hidden) el.innerHTML = `${last.who ? `<b>${esc(last.who)}:</b> ` : ''}${esc(last.text)}`;
+  const fresh = S.lines.filter((l) => Date.now() - (meetingStart + l.t * 1000) < 45000).slice(-3);
+  el.hidden = false; el.classList.toggle('is-quiet', !fresh.length);
+  el.innerHTML = fresh.length ? fresh.map((l, i) => `<span class="cl${i < fresh.length - 1 ? ' old' : ''}">${l.who ? `<b>${esc(l.who)}:</b> ` : ''}${esc(l.text)}</span>`).join('') : 'Captions on, waiting for speech.';
 }
 setInterval(() => { if (S.cc) paintCap(); }, 2000);
 

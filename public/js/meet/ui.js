@@ -16,6 +16,7 @@ const I = {
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>', chev: '<path d="m9 6 6 6-6 6"/>', chevl: '<path d="m15 6-6 6 6 6"/>', back: '<path d="M15 6l-6 6 6 6"/>',
   doc: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/>', send: '<path d="M21 3 10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>', wifi: '<path d="M2 9a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>', notes: '<path d="M6 3h12v18H6z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>', play: '<path d="M8 5v14l11-7z"/>',
+  grid: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>', speaker: '<rect x="3" y="3" width="18" height="12" rx="2"/><rect x="3" y="17" width="5" height="4" rx="1"/><rect x="10" y="17" width="5" height="4" rx="1"/><rect x="17" y="17" width="4" height="4" rx="1"/>', expand: '<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>', smile: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14a4 4 0 0 0 7 0"/><path d="M9 9.5h.01"/><path d="M15 9.5h.01"/>', gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
   hand: '<path d="M8 13V6a1.5 1.5 0 0 1 3 0v5"/><path d="M11 11V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14 11V6a1.5 1.5 0 0 1 3 0v7a7 7 0 0 1-7 7 6 6 0 0 1-5-3l-2.5-4a1.5 1.5 0 0 1 2.5-1.5L8 13"/>', remove: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5.5 6.5-5.5 2 0 3.6.8 4.8 2"/><path d="M16 15l5 5"/><path d="M21 15l-5 5"/>',
   cc: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 10.5a2 2 0 1 0 0 3"/><path d="M17 10.5a2 2 0 1 0 0 3"/>', download: '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>', share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5"/><path d="m8.2 13.2 7.6 4.5"/>',
 };
@@ -74,4 +75,22 @@ export async function pump(id, onStep) {
       if (!r.ok) await new Promise((res) => setTimeout(res, 4000));
     }
   } finally { pumping = false; }
+}
+
+/** An in-page confirm card in the hub style. Resolves true or false (or 'extra' when a second action is given). Escape cancels. */
+export function confirmCard({ title, body = '', ok = 'Confirm', cancel = 'Cancel', danger = false, extra = null }) {
+  return new Promise((resolve) => {
+    const prev = document.activeElement;
+    const wrap = document.createElement('div'); wrap.className = 'cf';
+    wrap.innerHTML = `<div class="cf__card" role="alertdialog" aria-modal="true" aria-labelledby="cf-t"><h3 id="cf-t">${esc(title)}</h3>${body ? `<p>${esc(body)}</p>` : ''}<div class="cf__acts"><button type="button" class="h-btn h-btn--ghost" data-r="no">${esc(cancel)}</button>${extra ? `<button type="button" class="h-btn h-btn--ghost cf-warn" data-r="extra">${esc(extra)}</button>` : ''}<button type="button" class="h-btn ${danger ? 'h-btn--danger' : 'h-btn--primary'}" data-r="yes">${esc(ok)}</button></div></div>`;
+    const done = (v) => { document.removeEventListener('keydown', key, true); wrap.remove(); try { prev && prev.focus && prev.focus(); } catch {} resolve(v); };
+    const key = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(false); }
+      else if (e.key === 'Tab') { const bs = [...wrap.querySelectorAll('button')]; const i = bs.indexOf(document.activeElement); e.preventDefault(); bs[(i + (e.shiftKey ? bs.length - 1 : 1)) % bs.length].focus(); }
+    };
+    wrap.addEventListener('click', (e) => { const b = e.target.closest('[data-r]'); if (b) done(b.dataset.r === 'yes' ? true : b.dataset.r === 'extra' ? 'extra' : false); else if (e.target === wrap) done(false); });
+    document.addEventListener('keydown', key, true);
+    document.body.appendChild(wrap);
+    (danger ? wrap.querySelector('[data-r="no"]') : wrap.querySelector('[data-r="yes"]')).focus();
+  });
 }
