@@ -20,6 +20,10 @@ const OPEN_PREFIXES = ['/api/auth/', '/api/agent/', '/api/service/', '/api/meet-
 const OPEN_PATHS = new Set([
   '/login',
   '/login/',
+  // Google connect and its callback check the person themselves and send a signed-out one to sign-in with
+  // the page they asked for (functions/api/google/*.ts). Without this, a lost session returned raw JSON.
+  '/api/google/connect',
+  '/api/google/callback',
   '/meet/g',
   '/meet/g/',
   '/expenses/review',
