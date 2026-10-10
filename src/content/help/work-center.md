@@ -98,7 +98,7 @@ The right side has the do-not-call, do-not-email and do-not-mail flags, lifetime
 
 ## Asks
 
-Asks lists every action tagged Amount of Ask in the last 365 days, one card per ask. The four columns are Asked with no close date, Closing, Past the close date and Gave, each with its count and dollar total. The top row shows open asks, asks closing in 90 days, asks past the close date and the gifts that came since an ask. Board and List show the same asks. Find a partner narrows both. Directors see their own asks. The Support Team picks a director or sees everyone.
+Asks lists every action tagged Amount of Ask, one card per ask, listed under the partner's current director. It opens on open asks tagged in the last 12 months; Gave, Check amount, From former staff and All time are filters. Asks on partners no current director holds sit under From former staff, and nothing moves in Blackbaud. The four columns are Asked with no close date, Closing, Past the close date and Gave, each with its count and dollar total. The top row shows open asks, asks closing in 90 days, asks past the close date and the gifts that came since an ask. Board and List show the same asks. Find a partner narrows both. Directors see their own asks. The Support Team picks a director or sees everyone.
 
 A card shows the amount, the partner, the first line the director wrote on the action, when it was asked and how many days ago. The chip on the card sets the expected close date. Pick In 30 days, In 60 days, By year end or After Easter, or choose a date, and press Save. The card moves at once and the message at the bottom has Undo. Clear removes the date. The close date lives in the hub and does not write to Blackbaud.
 

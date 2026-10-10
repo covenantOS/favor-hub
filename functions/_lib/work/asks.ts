@@ -16,7 +16,7 @@
 import { HttpError, nowIso, type Env } from '../http';
 import { mirrorQ, type Q } from './partner';
 import { readOnly } from './repo';
-import { GIVEN } from './gifts';
+import { GIVEN, HOLD_TYPES } from './gifts';
 import { logEvent } from './db';
 import { todayEt, type Ctx } from './service';
 import { addDays } from '../actions/completion';
@@ -52,7 +52,10 @@ export interface AskRow {
   date: string;
   ageDays: number;
   line: string;
+  /** Who the ask is listed under: the partner's current holders who are current fundraisers, else the fundraisers who tagged it. */
   owners: string[];
+  /** No current fundraiser holds the partner: the ask was tagged by someone who has since left. Shown under From former staff. */
+  former: boolean;
   close: { date: string; by: string } | null;
   state: AskState;
   gave: { amount: number; date: string; giftId: string } | null;
@@ -87,7 +90,7 @@ export function lineOf(description: string, summary: string): string {
 }
 
 /** Put every ask in its column. An ask with a zero amount is not an ask. Asks are settled oldest first, and a gift settles one ask. */
-export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: AskClose[]; gone?: Set<string>; largest?: Record<string, number> }, today: string): AskRow[] {
+export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: AskClose[]; gone?: Set<string>; largest?: Record<string, number>; holders?: Record<string, string[]> }, today: string): AskRow[] {
   const closeOf = new Map(raw.closes.map((c) => [String(c.action_id), c]));
   // The credits each gift gives, per partner.
   const credits = new Map<string, { id: string; date: string; amount: number }[]>();
@@ -123,6 +126,7 @@ export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: As
     const a = { ...ch.a, id: sorted.find((x) => String(x.cid) === String(ch.a.cid) && num(x.amt) === num(ch.a.amt) && day(x.d) === ch.first)!.id };
     const date = ch.last;
     const amount = num(a.amt);
+    const held = (raw.holders || {})[String(a.cid)] || [];
     const hit = (credits.get(String(a.cid)) || []).find((g) => g.date >= ch.first && g.amount >= amount && !used.has(`${a.cid}|${g.id}`));
     if (hit) used.add(`${a.cid}|${hit.id}`);
     const c = closeOf.get(String(a.id));
@@ -137,7 +141,8 @@ export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: As
       date,
       ageDays: Math.max(0, daysBetween(date, today)),
       line: lineOf(a.description, a.summary),
-      owners: [...ch.owners],
+      owners: held.length ? held : [...ch.owners],
+      former: !held.length,
       close,
       state,
       gave: hit ? { amount: hit.amount, date: hit.date, giftId: hit.id } : null,
@@ -201,6 +206,11 @@ const LARGEST_SQL = readOnly(`SELECT constituent_record_id AS cid, MAX(gift_amou
 
 const FUNDRAISER_NAMES_SQL = readOnly('SELECT id AS id, fundraiser_first_name AS first, fundraiser_last_name AS last FROM fundraisers');
 
+/** Who holds each partner now: a current assignment (RDD, Prospect Steward, Church Engagement Director or Partner Care) to a fundraiser who is still active. */
+const HOLDERS_SQL = readOnly(`SELECT a.constituent_record_id AS cid, a.assignment_fundraiser_id AS fid FROM assignments a JOIN fundraisers f ON f.id = a.assignment_fundraiser_id
+ WHERE a.constituent_record_id IN (SELECT value FROM json_each(?1)) AND a.assignment_type IN (SELECT value FROM json_each(?2))
+   AND (a.assignment_to_date IS NULL OR substr(a.assignment_to_date, 1, 10) >= ?3) AND COALESCE(f.fundraiser_active, 0) = 1`);
+
 const chunkOf = <T>(list: T[], n: number): T[][] => {
   const out: T[][] = [];
   for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n));
@@ -237,7 +247,9 @@ export async function loadAsks(env: Env, q: Q, today: string, allTime = false): 
   const bigCids = [...new Set(asks.filter((a) => num(a.amt) >= REVIEW_FLOOR && num(a.amt) < REVIEW_AMOUNT).map((a) => String(a.cid)))];
   const largest: Record<string, number> = {};
   for (const part of await Promise.all(chunkOf(bigCids, 400).map((c) => q<{ cid: string; m: number }>(LARGEST_SQL, [JSON.stringify(c)])))) for (const g of part) largest[String(g.cid)] = num(g.m);
-  return shapeAsks({ asks, gifts, closes, gone, largest }, today).filter((r) => r.date >= since);
+  const holders: Record<string, string[]> = {};
+  for (const part of await Promise.all(chunkOf(cids, 400).map((c) => q<{ cid: string; fid: string }>(HOLDERS_SQL, [JSON.stringify(c), JSON.stringify(HOLD_TYPES), today])))) for (const h of part) (holders[String(h.cid)] ||= []).push(String(h.fid));
+  return shapeAsks({ asks, gifts, closes, gone, largest, holders }, today).filter((r) => r.date >= since);
 }
 
 export interface AsksOut {
@@ -254,6 +266,8 @@ export interface AsksOut {
   rows: (AskRow & { ownerNames: string[] })[];
   stats: AskStats;
   columns: AskColumns;
+  /** Asks on partners no current fundraiser holds, left out of every total above. */
+  former: Tally;
   /** Sum of every ask on the board, for the tie-out against a direct count of the Amount of Ask tags. */
   total: number;
   /** Asks at or over REVIEW_AMOUNT, left out of every total above. */
@@ -273,10 +287,10 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m'): 
   const vis = visible(ctx.scope);
   const mine = all.map((r) => ({ ...r, owners: vis ? r.owners.filter((o) => vis.has(o)) : r.owners })).filter((r) => r.owners.length);
   const count = new Map<string, number>();
-  for (const r of mine) for (const o of r.owners) count.set(o, (count.get(o) || 0) + 1);
+  for (const r of mine) if (!r.former) for (const o of r.owners) count.set(o, (count.get(o) || 0) + 1);
   const owner = ownerIn && count.has(ownerIn) ? ownerIn : ctx.scope && ctx.scope.role === 'director' && ctx.scope.fid ? ctx.scope.fid : '';
   const rows = mine.filter((r) => !owner || r.owners.includes(owner));
-  const { stats, columns } = statsOf(rows, today);
+  const { stats, columns } = statsOf(rows.filter((r) => !r.former), today);
   return {
     ok: true,
     today,
@@ -284,12 +298,13 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m'): 
     days: ASK_DAYS,
     range: rangeIn === 'all' ? 'all' : '12m',
     owner,
-    everyone: mine.length,
+    everyone: mine.filter((r) => !r.former).length,
     owners: [...count.entries()].map(([id, n]) => ({ id, name: nameOf[id] || `Fundraiser ${id}`, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)),
     rows: rows.map((r) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`) })),
     stats,
     columns,
-    total: rows.filter((r) => !r.review).reduce((t, r) => t + r.amount, 0),
+    former: { n: rows.filter((r) => r.former && !r.review && r.state !== 'gave').length, total: rows.filter((r) => r.former && !r.review && r.state !== 'gave').reduce((t, r) => t + r.amount, 0) },
+    total: rows.filter((r) => !r.review && !r.former).reduce((t, r) => t + r.amount, 0),
     review: { n: rows.filter((r) => r.review).length, total: rows.filter((r) => r.review).reduce((t, r) => t + r.amount, 0) },
   };
 }

@@ -41,8 +41,11 @@ before(() => {
     CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date DATETIME, gift_type TEXT, gift_status TEXT, constituent_record_id TEXT, soft_credits TEXT);
     CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due DATETIME, action_completed_date DATETIME, action_summary TEXT, action_description TEXT, constituent_record_id TEXT, raw_json TEXT);
     CREATE TABLE action_tags (id TEXT PRIMARY KEY, action_ask_amount REAL);
-    CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT);
-    INSERT INTO fundraisers VALUES ('501', 'Fay', 'Alpha'), ('502', 'Gus', 'Bravo');
+    CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT, fundraiser_active INTEGER);
+    CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date TEXT);
+    INSERT INTO fundraisers VALUES ('501', 'Fay', 'Alpha', 1), ('502', 'Gus', 'Bravo', 1), ('900', 'Old', 'Hand', 0);
+    INSERT INTO assignments VALUES ('s1', '1', '501', 'Regional Development Director (RDD)', NULL), ('s2', '2', '502', 'Prospect Steward', NULL), ('s3', '3', '501', 'Regional Development Director (RDD)', NULL),
+      ('s4', '3', '900', 'Regional Development Director (RDD)', NULL);
     INSERT INTO constituents (id, first_name, last_name, raw_json) VALUES
       ('1', 'Ada', 'Example', '{"name":"Ada Example","address":{"city":"Holland","state":"MI"}}'),
       ('2', 'Ben', 'Sample', '{"name":"Ben Sample","address":{"city":"Tampa","state":"FL"}}'),
@@ -141,6 +144,12 @@ describe('shapeAsks', () => {
     assert.equal(asks.needsCheck(500000, 10000), true);
     assert.equal(asks.needsCheck(99999, 0), false);
     assert.equal(asks.needsCheck(40000, 0), false);
+  });
+  it('lists an ask under the current holder of the partner and puts a partner nobody holds under former staff', () => {
+    const rows = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01', { frs: '["900"]' }), A('2', '2', 200, '2026-09-01', { frs: '["900"]' })], holders: { 1: ['501'] } }), TODAY);
+    const one = rows.find((r) => r.id === '1'); const two = rows.find((r) => r.id === '2');
+    assert.deepEqual([one.owners, one.former], [['501'], false]);
+    assert.deepEqual([two.owners, two.former], [['900'], true]);
   });
   it('totals the board', () => {
     const rows = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01'), A('2', '2', 200, '2026-09-01'), A('3', '3', 300, '2026-09-01')], closes: [{ action_id: '2', expected_close: '2026-12-01', set_by: 'x' }, { action_id: '3', expected_close: '2026-10-01', set_by: 'x' }], gifts: [{ id: 'g', giver: '1', amount: 150, gdate: '2026-09-02', soft: null }] }), TODAY);

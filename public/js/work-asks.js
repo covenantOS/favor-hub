@@ -9,8 +9,8 @@ const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const A = { data: null, loading: false, error: '', owner: '', mode: 'board', q: '', status: 'open', range: '12m', more: {}, started: false, undo: null };
-const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Check amount'], ['all', 'All']];
-const COLS_FOR = { open: ['open', 'closing', 'past'], gave: ['gave'], review: ['open', 'closing', 'past', 'gave'], all: ['open', 'closing', 'past', 'gave'] };
+const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Check amount'], ['former', 'From former staff'], ['all', 'All']];
+const COLS_FOR = { open: ['open', 'closing', 'past'], gave: ['gave'], review: ['open', 'closing', 'past', 'gave'], former: ['open', 'closing', 'past', 'gave'], all: ['open', 'closing', 'past', 'gave'] };
 const PAGE = 20;
 const COLS = [['open', 'Asked, no close date'], ['closing', 'Closing'], ['past', 'Past the close date'], ['gave', 'Gave']];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -58,7 +58,7 @@ async function start() {
 
 const rows = () => (A.data ? A.data.rows : []);
 const match = (r) => !A.q || (r.name + ' ' + r.line + ' ' + r.place).toLowerCase().includes(A.q.toLowerCase());
-const inStatus = (r) => (A.status === 'open' ? !r.review && r.state !== 'gave' : A.status === 'gave' ? !r.review && r.state === 'gave' : A.status === 'review' ? r.review : true);
+const inStatus = (r) => (A.status === 'open' ? !r.review && !r.former && r.state !== 'gave' : A.status === 'gave' ? !r.review && !r.former && r.state === 'gave' : A.status === 'review' ? r.review && !r.former : A.status === 'former' ? r.former : true);
 const shown = () => rows().filter((r) => match(r) && inStatus(r));
 const daysFrom = (iso) => Math.max(0, Math.round((Date.parse(today() + 'T12:00:00Z') - Date.parse(iso + 'T12:00:00Z')) / 86400000));
 const count = () => (A.data ? A.data.stats.open.n : '');
@@ -126,13 +126,13 @@ function view() {
   el.innerHTML = `
     <div class="h-card wc-band wa-band" style="--n:4">${tiles.map(([l, t, warn]) => `<div class="wc-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><span class="wa-tot">${short(t.total)}</span></div>`).join('')}</div>
     <section class="h-card wc-sheet" id="wa-sheet" aria-label="Asks">
-      <div class="wa-filters" role="group" aria-label="Filter">${STATUS.map(([k, l]) => `<button type="button" class="wa-fchip${A.status === k ? ' is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + d.review.n + '</span>' : ''}</button>`).join('')}
+      <div class="wa-filters" role="group" aria-label="Filter">${STATUS.map(([k, l]) => `<button type="button" class="wa-fchip${A.status === k ? ' is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + d.review.n + '</span>' : k === 'former' ? ' <span>' + d.former.n + '</span>' : ''}</button>`).join('')}
         <select class="wc-sel wa-range${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select></div>
       <div class="wa-tools"><div class="wa-seg" role="group" aria-label="View"><button type="button" class="${A.mode === 'board' ? 'is-on' : ''}" data-wa-mode="board" aria-pressed="${A.mode === 'board'}">Board</button><button type="button" class="${A.mode === 'list' ? 'is-on' : ''}" data-wa-mode="list" aria-pressed="${A.mode === 'list'}">List</button></div>
         <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(A.q)}" autocomplete="off" /></label>${picker}<span class="wa-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Google Sheets</button></div>
       ${shown().length || d.rows.length ? (A.mode === 'board' ? boardHTML() : listHTML()) : '<div class="wa-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>'}
-      <div class="wa-foot">${plural(shown().length, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks that look far above what the partner has given sit under Check amount and are left out of the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
+      <div class="wa-foot">${plural(shown().length, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks are listed under the partner's current director. Asks on partners no current director holds sit under From former staff, and asks that look far above what the partner has given sit under Check amount. Neither is in the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
     </section>`;
   registerSheet();
 }
