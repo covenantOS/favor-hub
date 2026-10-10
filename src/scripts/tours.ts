@@ -284,6 +284,10 @@ export const STEPS: Step[] = [
     title: 'Reminders and the morning email',
     body: 'The bell holds what you asked to be reminded about. Press the small bell on any open task in a partner page to set one. Done clears it, and Later moves it to this afternoon, tomorrow or next week. The Morning email chip on the Work Center sets which sections the weekday email shows, when it comes, and sends you a test.',
     for: (w) => w.admin || w.work,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'work-add-partner',
     page: '/work/',
     via: 'work',
