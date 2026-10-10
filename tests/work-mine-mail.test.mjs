@@ -82,6 +82,9 @@ describe('My partners', () => {
     assert.equal(ada.life, 13500);
     assert.equal(ada.gifts, 3);
     assert.deepEqual(ada.gift, { date: '2026-02-01', amount: 9000 });
+    const cy = p.rows.find((r) => r.cid === '3');
+    assert.deepEqual(cy.gift, { date: '2026-08-01', amount: 300, soft: true });
+    assert.equal(cy.gifts, 1);
   });
 
   it('counts only a completed call, visit or email as a contact, never a mailed letter', async () => {

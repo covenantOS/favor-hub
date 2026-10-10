@@ -64,6 +64,7 @@
 .wm-note--ok { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
 .wm-setts { display: grid; gap: 12px; padding: 16px; border-radius: 16px; background: #fff; border: 1px solid var(--h-line); }
 .wm-setts h3 { margin: 0; font: 600 11px var(--h-font); letter-spacing: .16em; text-transform: uppercase; color: var(--h-ink-3); }
+.wm-secs { display: grid; gap: 14px; }
 .wm-check { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 500 13px var(--h-font); color: var(--h-ink-2); }
 .wm-switch { appearance: none; width: 36px; height: 21px; border-radius: 999px; background: var(--h-line-2); position: relative; transition: background .15s; flex: none; cursor: pointer; margin: 0; }
 .wm-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 17px; height: 17px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }

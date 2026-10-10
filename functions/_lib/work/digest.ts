@@ -223,17 +223,17 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
 
   const first = (person.name || '').split(/\s+/)[0] || 'there';
   const weekday = WEEKDAY[etParts(now).dow];
-  const sections: { title: string; n: number; lines: Line[]; more?: string }[] = [];
+  const sections: { title: string; n: number | null; lines: Line[]; more?: string }[] = [];
   if (S.gifts && gifts.length) sections.push({ title: 'Gifts to thank', n: counts.gifts, lines: gifts, more: counts.gifts > gifts.length ? `${counts.gifts - gifts.length} more in the Work Center` : undefined });
   if (S.due && due.length) sections.push({ title: 'Due today and late', n: dueRows.length, lines: due, more: dueRows.length > due.length ? `${dueRows.length - due.length} more in the Work Center` : undefined });
   if (S.sent_back && sent.length) sections.push({ title: 'Sent back by Support', n: sentN, lines: sent });
-  if (S.quiet && quiet.length) sections.push({ title: 'Quiet the longest, by giving', n: counts.quiet, lines: quiet });
+  if (S.quiet && quiet.length) sections.push({ title: 'Quiet the longest, by giving', n: null, lines: quiet });
   if (S.reminders && reminders.length) sections.push({ title: 'Reminders', n: remDue.length, lines: reminders });
 
   const body = sections
     .map(
       (s) => `<div style="border-top:1px solid #e4dfd2;padding:16px 0 4px">
-        <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7b8470;font-weight:600;margin:0 0 6px">${esc(s.title)} &middot; ${s.n}</div>
+        <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#7b8470;font-weight:600;margin:0 0 6px">${esc(s.title)}${s.n === null ? '' : ' &middot; ' + s.n}</div>
         ${s.lines
           .map(
             (l) => `<table role="presentation" width="100%" style="border-collapse:collapse"><tr>
@@ -261,7 +261,7 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
     `Good morning, ${first}.`,
     `Here is your ${weekday}.`,
     '',
-    ...sections.flatMap((s) => [`${s.title.toUpperCase()} (${s.n})`, ...s.lines.map((l) => `- ${l.text}${l.amount ? ', ' + l.amount : ''}${l.late ? ' ' + l.late : ''}: ${l.link}`), ...(s.more ? [s.more] : []), '']),
+    ...sections.flatMap((s) => [`${s.title.toUpperCase()}${s.n === null ? '' : ' (' + s.n + ')'}`, ...s.lines.map((l) => `- ${l.text}${l.amount ? ', ' + l.amount : ''}${l.late ? ' ' + l.late : ''}: ${l.link}`), ...(s.more ? [s.more] : []), '']),
     sections.length ? '' : 'Nothing is due this morning.',
     `Open the Work Center: ${BASE}/work/`,
     `Change this email: ${BASE}/work/?morning=1`,

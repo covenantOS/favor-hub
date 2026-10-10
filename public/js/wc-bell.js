@@ -194,7 +194,7 @@ async function setReminder(id, when) {
 /* ------------------------------------------------------------------ the morning email dialog */
 const M = { v: null, saving: 0, previewT: 0 };
 const SEND = [['7:30', '7:30 AM'], ['8:00', '8:00 AM'], ['off', 'Off']];
-function fromLine(v) { return 'Favor International &lt;noreply@mail.favorintl.org&gt;'; void v; }
+const fromLine = () => '&lt;noreply@mail.favorintl.org&gt;';
 async function openMail() {
   let v;
   try { v = await api('/api/work/mail'); } catch (e) { toast(e.message); return; }
@@ -203,7 +203,7 @@ async function openMail() {
     <div class="wm-dlg__body"><div class="wm-mail">
       <div class="wm-client"><div class="wm-client__head"><div class="subj" id="wm-subj">Building your email…</div><div><b>Favor International</b> ${fromLine()}</div><div>To: ${esc(v.name)} &middot; ${esc(v.email)}</div></div>
         <iframe class="wm-frame" id="wm-frame" title="Preview of your morning email" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe></div>
-      <div class="wm-setts"><h3>What it sends</h3><div id="wm-secs"></div><h3>When</h3><div class="wm-seg" id="wm-time" role="group" aria-label="When"></div>
+      <div class="wm-setts"><h3>What it sends</h3><div id="wm-secs" class="wm-secs"></div><h3>When</h3><div class="wm-seg" id="wm-time" role="group" aria-label="When"></div>
         <label class="wm-check">Skip days with nothing due<input type="checkbox" class="wm-switch" id="wm-skip" /></label>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-test>${ic('send')}Send me a test</button><div class="wm-note" id="wm-live" hidden></div></div>
     </div></div>`, 'wm-dlg--wide');

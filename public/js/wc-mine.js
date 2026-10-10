@@ -75,7 +75,7 @@ function rowHTML(r) {
     <label class="wm-cb"><input type="checkbox" data-wm-pick="${esc(r.cid)}" ${on ? 'checked' : ''} aria-label="Select ${esc(r.name)}" /></label>
     <div class="wm-c-who"><a class="wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wm-sub">${esc(r.place || 'No city on file')}${r.lookup ? ' · ' + esc(r.lookup) : ''}</span></div>
     <div class="wm-quiet wm-c-quiet ${cls}"><b>${q === null ? 'Never' : q + (q === 1 ? ' day' : ' days')}</b><small>${r.last ? fd(r.last.date, true) + ' · ' + esc(r.last.how) : 'No contact on file'}</small></div>
-    <div class="wm-num wm-c-last">${g ? money(g.amount) : 'None'}<small>${g ? fd(g.date, true) : ''}</small></div>
+    <div class="wm-num wm-c-last">${g ? money(g.amount) : 'None'}<small>${g ? fd(g.date, true) + (g.soft ? ' · soft credit' : '') : ''}</small></div>
     <div class="wm-num wm-c-12">${money(r.l12)}<small>${esc(delta)}</small></div>
     <div class="wm-num wm-c-life">${short(r.life)}<small>${plural(r.gifts, 'gift')}</small></div>
     <div class="wm-next wm-c-next">${next}</div>

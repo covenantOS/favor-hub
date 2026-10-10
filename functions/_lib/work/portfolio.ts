@@ -18,7 +18,8 @@ export interface PortfolioRow {
   /** Days since the last contact, or null when the mirror holds none. */
   quiet: number | null;
   last: { date: string; how: string } | null;
-  gift: { date: string; amount: number } | null;
+  /** The latest gift, or the latest soft credit when that is newer (soft is then true). */
+  gift: { date: string; amount: number; soft?: boolean } | null;
   l12: number;
   p12: number;
   life: number;
@@ -131,7 +132,7 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
   }
   // Soft credits: add each credit that names a held partner, in the same windows as their own gifts.
   const idSet = new Set(ids);
-  const sc = new Map<string, { total: number; l12: number; p12: number; ytd: number; lastyr: number }>();
+  const sc = new Map<string, { total: number; l12: number; p12: number; ytd: number; lastyr: number; n: number; lastd: string; lasta: number }>();
   for (const g of soft) {
     let list: any[] = [];
     try {
@@ -145,8 +146,10 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
       const amt = num(s.amount && s.amount.value);
       if (!(amt > 0)) continue;
       const d = String(g.d);
-      const r = sc.get(cid) || { total: 0, l12: 0, p12: 0, ytd: 0, lastyr: 0 };
+      const r = sc.get(cid) || { total: 0, l12: 0, p12: 0, ytd: 0, lastyr: 0, n: 0, lastd: '', lasta: 0 };
       r.total += amt;
+      r.n += 1;
+      if (d > r.lastd) { r.lastd = d; r.lasta = amt; }
       if (d > y1) r.l12 += amt;
       else if (d > y2) r.p12 += amt;
       if (d >= yearStart) r.ytd += amt;
@@ -169,15 +172,15 @@ export async function loadPortfolio(q: Q, fid: string, today: string, planned: P
     rows.push({
       cid,
       lookup: String(n.lk || ''),
-      name: String(n.name || `Record ${cid}`),
+      name: String(n.name || '').replace(/\s+/g, ' ').trim() || `Record ${cid}`,
       place,
       quiet: cd ? Math.max(0, daysBetween(cd, today)) : null,
       last: cd ? { date: cd, how: HOW[cat] || cat } : null,
-      gift: gd ? { date: gd, amount: num(ga) } : null,
+      gift: s && s.lastd && (!gd || s.lastd > gd) ? { date: s.lastd, amount: s.lasta, soft: true } : gd ? { date: gd, amount: num(ga) } : null,
       l12: num(g && g.l12) + (s ? s.l12 : 0),
       p12: num(g && g.p12) + (s ? s.p12 : 0),
       life: num(g && g.total) + (s ? s.total : 0),
-      gifts: num(g && g.n),
+      gifts: num(g && g.n) + (s ? s.n : 0),
       ytd: num(g && g.ytd) + (s ? s.ytd : 0),
       lastYear: num(g && g.lastyr) + (s ? s.lastyr : 0),
       next: next.get(cid) || null,
