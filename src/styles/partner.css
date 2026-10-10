@@ -133,6 +133,7 @@
 .pp-dl dt { color: var(--h-ink-3); }
 .pp-dl dd { margin: 0; color: var(--h-ink); }
 .pp-dl dd small { color: var(--h-ink-3); margin-left: 6px; }
+.pp-ro .pp-dl .pp-edit { display: none; }
 .pp-dl .pp-edit { border: 0; background: none; color: var(--h-brand-ink); font: 600 12px var(--h-font); padding: 9px 0; }
 .pp-dl input, .pp-dl select { height: 32px; border-radius: 10px; border: 1px solid var(--h-line-2); padding: 0 10px; width: 100%; font: inherit; background: #fff; }
 .pp-pad { height: 28px; }

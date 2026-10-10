@@ -868,7 +868,8 @@ async function start() {
   const def = E.views.find((v) => v.default);
   if (def) { const sp = def.spec || {}; Object.assign(wc.S, { view: sp.view || 'open', sort: sp.sort || wc.S.sort, dir: sp.dir || wc.S.dir }); wc.S.f = Object.assign({}, wc.S.f, sp.f || {}); if (sp.cols) E.cols = Object.assign({}, E.cols, sp.cols); }
   // With no saved view, a fundraiser opens on their own list plus others' actions on partners they hold (what Blackbaud's Work Center shows).
-  else if (E.me.fid && wc.DATA.people[E.me.fid]) { wc.S.f.fr = E.me.fid; wc.S.f.theirs = true; }
+  // Support and Partner Care work a shared portfolio, so they open on all of it.
+  else if (E.me.fid && wc.DATA.people[E.me.fid] && !['support', 'partner_care'].includes(wc.DATA.me.role)) { wc.S.f.fr = E.me.fid; wc.S.f.theirs = true; }
   const act = new URLSearchParams(location.search).get('action');
   if (act && /^\d+$/.test(act)) setTimeout(() => panel(act), 300);
 }

@@ -232,6 +232,7 @@ function paint() {
   if (!V.host || !V.p) return;
   const sc = V.host;
   const y = sc.scrollTop;
+  sc.classList.toggle('pp-ro', V.p.canEdit === false);
   sc.innerHTML = view(V.p, { full: V.mode === 'full' });
   sc.scrollTop = y;
 }
