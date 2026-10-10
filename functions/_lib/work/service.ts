@@ -1060,6 +1060,11 @@ export async function drain(ctx: Ctx): Promise<{ ran: number; left: number; held
   return { ran, left, held };
 }
 
+/** A line for each time the Worker calls a route, even when the call finds nothing to do, so health can tell a quiet night from a stopped Worker. */
+export async function noteCall(ctx: Ctx, key: string, what: string): Promise<void> {
+  await setSetting(ctx.env, key, `ok|${nowIso()}|${what}`).catch(() => undefined);
+}
+
 /** Pages open: pick up any batch that was sent from a window that closed. */
 export async function resumeStuck(ctx: Ctx): Promise<void> {
   const old = new Date(Date.now() - 2 * 60000).toISOString();
@@ -1094,7 +1099,9 @@ export async function healthView(ctx: Ctx, mirrorOk: boolean, blackbaudOk: boole
     thankMode: thank,
     batchesWaiting: waiting,
     drain: await line('drain:last'),
+    drainCalled: await line('drain:called'),
     fresh: await line('fresh:last'),
+    freshCalled: await line('fresh:called'),
   };
 }
 
