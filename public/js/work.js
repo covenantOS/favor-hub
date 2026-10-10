@@ -194,6 +194,7 @@ function page() {
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
       </div>
     </div>
+    ${window.WCWeek ? window.WCWeek.strip() : ''}
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
       ${tabsNow().map(([k, l, n]) =>
         `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}

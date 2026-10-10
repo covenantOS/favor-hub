@@ -321,6 +321,18 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'work-my-week',
+    page: '/work/',
+    via: 'work',
+    press: '.wc-tab[data-view="week"]',
+    at: '.wwk-report',
+    title: 'My week and the weekly report',
+    body: "Directors see this week's connections, meetings, event and one-on-ones against the weekly goals, and the year's giving against the annual goal, in a strip above the tabs. Press it to open My week: what counted, and a report draft for Goals for the week or Update for the week. Tick Giving, Asks, Number of Referrals or Next, edit the text, then press Copy for WhatsApp, Copy for email or Open in my email. The Support Team opens the same tab as Weekly reports and picks a director.",
+    for: (w) => w.admin || team('rdd')(w) || team('support')(w),
+    added: '2026-10-10',
+    side: 'top',
+  },
+  {
     id: 'work-start-view',
     page: '/work/',
     via: 'work',

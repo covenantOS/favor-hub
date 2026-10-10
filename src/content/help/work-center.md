@@ -69,6 +69,15 @@ The month button, for example **October letter**, edits the letter text once for
 ## Letters from Gifts to thank
 
 The Support Team and admins see **Letter** next to Prep on every row of Gifts to thank. It opens a page with the letter on the right. Pick who the letter is from (the partner's director by default), paste what the director said, and switch the Designation, Director's words and Invitation paragraphs on or off. **Print PDF and log** prints the letter and records a Mailing action with the Thanked tag, which clears the row. **Copy for email** copies the text and records an Email action instead. Tick several gifts and press **Letters, one PDF** to print them together. Directors keep Thank on their own list and do not see Letter.
+## My week and the weekly report
+
+Regional directors see a strip above the Work Center tabs. It shows this week's connections, meetings attended or hosted, event scheduled and one-on-ones against the weekly goals of 20, 3, 1 and 3, and the year's giving credited to the director against the annual goal, with a mark for where pace puts it. Press the strip to open My week.
+
+My week lists every action that counted and what counts toward each goal. A connection is a partner or prospect with a completed call, email or meeting in the week, or a thank-you letter, counted once however many times you reached them. A meeting is an action tagged Attended Event or Hosted Event. A one-on-one is a meeting with no event tag. The event goal counts an action you scheduled this week for a Favor event. Weeks run Monday to Sunday. Last week shows the week before.
+
+The report draft has two kinds. Goals for the week lists the goals, what is on your calendar and the partners you plan to reach. Update for the week lists the goals met, what happened, and the sections you tick: Giving, Asks, Number of Referrals and Next. Edit the text in the box, then press Copy for WhatsApp, Copy for email, or Open in my email, which starts a new message with no recipient. Nothing is sent from the hub and nothing is saved to Blackbaud.
+
+The numbers come from the Blackbaud copy that refreshes at 5 AM and 5 PM, so an action you enter shows after the next refresh. The Support Team and admins open the same tab as Weekly reports and pick a director.
 
 ## Cadence
 
