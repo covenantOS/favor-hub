@@ -19,6 +19,17 @@ export function plannedCalls(steps: number, items: number): number {
   return steps + Math.ceil(items / CHUNK);
 }
 
+/**
+ * SKY calls the mirror refresh costs after a batch: the sync worker reads each changed action once, and a second time for its tags
+ * when the action is new or the batch tags it. A refresh holds at most REFRESH_MAX ids; the rest wait for the next sync.
+ */
+export const REFRESH_MAX = 200;
+export function refreshCalls(items: { steps: { op: string }[] }[]): number {
+  let n = 0;
+  for (const it of items.slice(0, REFRESH_MAX)) n += 1 + (it.steps.some((s) => s.op === 'create' || s.op === 'tag') ? 1 : 0);
+  return n;
+}
+
 export interface LaneInput {
   planned: number;
   used: number; // the larger of the route's last calls_today and the hub's own count for this UTC day

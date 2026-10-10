@@ -6,7 +6,7 @@
 // replace, upsert, delete, drop, alter or create anywhere, column aliases included; D1 takes 100 bound values, so lists of ids go
 // as one JSON parameter read with json_each(?); the copy is up to 12 hours old and keeps deleted rows.
 import type { Env } from '../http';
-import { mirror, opsMany, type OpsCall, type OpsManyResult } from '../foundations/blackbaud';
+import { mirror, mirrorRefresh, opsMany, type OpsCall, type OpsManyResult } from '../foundations/blackbaud';
 import { openActionSql } from '../hub/actions';
 import { actionFromSlim, type SlimActionRow, type SlimAssignmentRow, type SlimGiftRow } from '../actions/rows';
 import { applyOverlay, shapeBoard, TEAM_LABEL, type BoardRow, type OpenRow, type People } from '../actions/board';
@@ -94,8 +94,8 @@ export interface ActionsRepo {
   doneActions(since: string, owners: string[]): Promise<DoneAction[]>;
   weekCounts(owners: string[], w: { thisStart: string; thisEnd: string; lastStart: string; lastEnd: string; mondayCutoff: string }): Promise<WeekCount[]>;
   send(calls: OpsCall[]): Promise<OpsManyResult>;
-  /** Ask the sync worker to refresh these actions so the overlay can drop. False until the worker has that source. */
-  refreshMirror(ids: string[]): Promise<boolean>;
+  /** Ask the sync worker to refresh these actions so the overlay drops once the mirror matches. maxCalls is the SKY cost the worker can spend. */
+  refreshMirror(ids: string[], tags: boolean): Promise<{ ok: boolean; runId?: string; maxCalls: number; wait?: string }>;
 }
 
 export interface StaffPeople {
@@ -317,10 +317,8 @@ export function blackbaudRepo(env: Env): ActionsRepo {
 
     send: (calls) => opsMany(env, calls),
 
-    // The sync worker has no action-refresh source yet. When it does, this posts to it and the overlay drops within minutes.
-    async refreshMirror() {
-      return false;
-    },
+    // The sync worker's action-refresh source re-reads the actions; the overlay drops once the mirror matches.
+    refreshMirror: (ids, tags) => mirrorRefresh(env, ids, tags),
   };
 
   async function holdersFor(ids: string[]): Promise<Map<string, string[]>> {

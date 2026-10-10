@@ -219,6 +219,32 @@ export async function opsMany(env: Env, calls: OpsCall[]): Promise<OpsManyResult
   }
 }
 
+/**
+ * Ask the sync worker to re-read actions from Blackbaud so the mirror matches what was just written. The worker queues the
+ * action-refresh source (at most 200 ids, 1 SKY call per id, 2 with tags) and refuses in its scheduled sync windows.
+ */
+export async function mirrorRefresh(env: Env, ids: string[], tags: boolean): Promise<{ ok: boolean; runId?: string; maxCalls: number; wait?: string }> {
+  if (!env.MIRROR_API_KEY || !ids.length) return { ok: false, maxCalls: 0, wait: 'no key or no ids' };
+  const base = (env.MIRROR_QUERY_URL || MIRROR_URL).replace(/\/d1\/query$/, '');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 10000);
+  try {
+    const res = await fetch(`${base}/action-refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.MIRROR_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, tags }),
+      signal: ctl.signal,
+    });
+    const data = (await res.json().catch(() => null)) as any;
+    if (res.status === 202 && data && data.runId) return { ok: true, runId: String(data.runId), maxCalls: Number(data.maxSkyCalls) || 0 };
+    return { ok: false, maxCalls: 0, wait: String((data && (data.wait || data.error)) || `status ${res.status}`).slice(0, 200) };
+  } catch {
+    return { ok: false, maxCalls: 0, wait: 'the sync worker did not answer' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function sayWhy(body: any): string {
   if (!body) return 'Blackbaud turned it down.';
   if (typeof body === 'string') return body.slice(0, 240);

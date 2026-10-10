@@ -13,7 +13,7 @@ import {
   addDays, addFundraiser, clean, closeThankedStep, completeStep, holderFundraisers, IN_PLACE_TYPES, reassignStep, replaceFundraiser, rescheduleStep,
   thankSteps, THANK_HOWS, undoStep, type CompleteOpts, type Step, type Target, type ThankMode,
 } from '../actions/completion';
-import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, resetLabel, undoUntil, utcDay } from '../actions/batch';
+import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, refreshCalls, REFRESH_MAX, resetLabel, undoUntil, utcDay } from '../actions/batch';
 import { advance, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
 import { etParts } from '../actions/intake';
 import type { OpsCall } from '../foundations/blackbaud';
@@ -468,7 +468,8 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
   if (!items.length) return { id: '', op, n: 0, calls: 0, run_when: 'now' as const, undo_until: '', left: 0, duplicates: keyed.length };
   const steps = items.reduce((n, i) => n + i.steps.length, 0);
   const reads = extra.reads || 0;
-  const planned = plannedCalls(steps, items.length) + reads;
+  // Planned calls: the changes, one read-back per 15, and the sync worker's refresh of each changed action (1 call, 2 with tags).
+  const planned = plannedCalls(steps, items.length) + reads + refreshCalls(items);
   const meter = await getMeter(ctx.env).catch(() => ({ used: 0 }));
   // Batches saved but not yet sent will spend their calls too, so a second batch saved a moment later sees the first one's share.
   const queued = await ctx.env.DB.prepare("SELECT COALESCE(SUM(MAX(calls_planned - calls_used, 0)), 0) AS n FROM act_batches WHERE state IN ('queued', 'running')").first<{ n: number }>().catch(() => ({ n: 0 }));
@@ -606,6 +607,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
   // Blackbaud reads last_modified as Eastern clock time, so the read-back window starts ten minutes ago on that clock.
   const t0 = etClock(new Date(started - 10 * 60000));
   let held: RunResult['held'];
+  const touched = new Map<string, boolean>(); // action id -> whether to read its tags too
   try {
     await env.DB.prepare("UPDATE act_batches SET state = 'running' WHERE id = ? AND state = 'queued'").bind(batchId).run();
     for (let round = 0; round < 3 && Date.now() - started < 18000; round++) {
@@ -745,7 +747,11 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       await logEvent(env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'call', ok: sentRows.length === send.length, detail: `${ran} of ${send.length} calls ran, ${sentRows.length} sent` });
       if (sentRows.length) {
         await verify(ctx, batchId, sentRows, t0);
-        await ctx.repo.refreshMirror(sentRows.map((r) => r.action_id).filter(Boolean) as string[]);
+        for (const r of sentRows) {
+          const id = r.op === 'create' ? r.bb_id : r.action_id;
+          if (!id) continue;
+          touched.set(id, (touched.get(id) || false) || r.op === 'create' || r.op === 'tag');
+        }
       }
       // Nothing ran, or Blackbaud said not now: stop here so the page does not hammer a shared key. The next press, or the overnight run, picks it up.
       if (ran === 0) {
@@ -759,6 +765,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       if (ran < send.length) break; // the route stopped: let the next call (or the drain) pick it up
     }
   } finally {
+    await refreshTouched(ctx, batchId, touched);
     await dropLock(env, batchId);
     forgetBoard();
   }
@@ -769,6 +776,40 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
     if (batch.op === 'undo' && batch.undo_of) await settleUndone(env, batch.undo_of);
   }
   return finish(held);
+}
+
+/**
+ * After a batch, ask the sync worker to re-read the actions it changed so the pending overlay clears once the mirror matches.
+ * Ids with tags and ids without go as two requests (the worker takes one tags setting per request), 200 ids at most in all.
+ * The SKY calls it can spend (1 per id, 2 with tags) go into the meter. It skips when the day's room is short; the next mirror sync then clears the overlay.
+ */
+async function refreshTouched(ctx: Ctx, batchId: string, touched: Map<string, boolean>): Promise<void> {
+  if (!touched.size) return;
+  try {
+    const all = [...touched.entries()].slice(0, REFRESH_MAX);
+    const withTags = all.filter(([, t]) => t).map(([id]) => id);
+    const plain = all.filter(([, t]) => !t).map(([id]) => id);
+    const cost = withTags.length * 2 + plain.length;
+    const meter = await getMeter(ctx.env);
+    if (meter.used + cost > DAILY_CAP - 100) {
+      await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'refresh', ok: false, detail: `skipped, ${cost} calls would pass the day's room` });
+      return;
+    }
+    let spent = 0;
+    const notes: string[] = [];
+    for (const [ids, tags] of [[withTags, true], [plain, false]] as [string[], boolean][]) {
+      if (!ids.length) continue;
+      const r = await ctx.repo.refreshMirror(ids, tags);
+      if (r.ok) {
+        spent += r.maxCalls;
+        notes.push(`${ids.length} ${tags ? 'with tags' : 'plain'} run ${r.runId}`);
+      } else notes.push(`${ids.length} not queued: ${r.wait || 'refused'}`);
+    }
+    if (spent) await addMeter(ctx.env, spent);
+    await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'refresh', ok: spent > 0, detail: `${notes.join('; ')} (up to ${spent} SKY calls)` });
+  } catch {
+    // A refresh that cannot be asked for leaves the overlay to the next mirror sync.
+  }
 }
 
 async function runnableLeft(ctx: Ctx, batchId: string): Promise<number> {

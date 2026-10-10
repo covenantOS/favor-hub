@@ -45,6 +45,7 @@ function fakeD1(db) {
 
 let db;
 let calls;
+let refreshes = []; // what the stand-in sync worker was asked to refresh
 let script; // (call, n) => result | undefined
 let ctx;
 
@@ -61,8 +62,9 @@ function newCtx() {
       const wait = results.length === 0 ? script.wait || 'Blackbaud did not answer. It will try again.' : undefined;
       return { results, wait, callsToday: 10 };
     },
-    async refreshMirror() {
-      return false;
+    async refreshMirror(ids, tags) {
+      refreshes.push({ ids, tags });
+      return { ok: true, runId: 'r' + refreshes.length, maxCalls: ids.length * (tags ? 2 : 1) };
     },
     async partnersByIds(ids) {
       return ids.map((cid) => ({ cid, name: 'Partner ' + cid, place: 'Tampa, FL', lookup: 'L' + cid, holders: [], deceased: false }));
@@ -84,6 +86,7 @@ beforeEach(() => {
   db = new DatabaseSync(':memory:');
   db.exec(SCHEMA);
   calls = [];
+  refreshes = [];
   script = okScript;
   ctx = newCtx();
 });
@@ -243,6 +246,21 @@ describe('sending', () => {
     const items = Array.from({ length: n }, (_, i) => ({ actionId: String(i + 1), cid: '100', label: 'Partner | TY', steps: [{ op: 'patch', actionId: String(i + 1), body: { completed: true }, before: { completed: false } }] }));
     return svc.saveBatch(ctx, 'complete', items, {});
   };
+  it('asks the sync worker to refresh the changed actions after a batch, and meters the SKY calls', async () => {
+    const b = await patchBatch(3);
+    assert.equal(b.calls, 3 + 1 + 3); // 3 changes, 1 read-back, 3 refresh reads
+    await svc.runBatch(ctx, b.id);
+    assert.deepEqual(refreshes, [{ ids: ['1', '2', '3'], tags: false }]);
+    const ev = db.prepare("SELECT detail FROM act_events WHERE kind = 'refresh'").get();
+    assert.match(ev.detail, /up to 3 SKY calls/);
+  });
+  it('refreshes a tagged action with its tags and counts two calls for it', async () => {
+    const items = [{ actionId: '7', cid: '100', label: 'P | TY', steps: [{ op: 'patch', actionId: '7', body: { completed: true }, before: { completed: false } }, { op: 'tag', actionId: '7', body: { category: 'Thanked', date: '2026-10-09T00:00:00' } }] }];
+    const b = await svc.saveBatch(ctx, 'complete', items, {});
+    assert.equal(b.calls, 2 + 1 + 2);
+    await svc.runBatch(ctx, b.id);
+    assert.deepEqual(refreshes, [{ ids: ['7'], tags: true }]);
+  });
   it('stops after one round when the route sends nothing back', async () => {
     script = () => 'stop';
     const b = await patchBatch(3);
