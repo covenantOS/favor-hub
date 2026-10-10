@@ -263,3 +263,59 @@ describe('the contract', () => {
     assert.deepEqual(missing, []);
   });
 });
+
+describe('a flagged reader field clears when someone resolves it', () => {
+  it('Looks right clears the flag and records the email; editing the flagged field clears it too', async () => {
+    const { w, token } = await ready();
+    const today = TODAY_ET();
+    const dep = (await callChecked(w, 'POST', A, { token, body: { kind: 'regular', date: today, tapeTotal: 295.5, tapeCount: 3 } })).body.deposit;
+    const checkDate = addDays(today, -3);
+    const same = fields({ amountCents: 12000, wordsCents: 12000, checkDate, payer: 'Ada Example', checkNumber: '4410' });
+    nextRead = [reader('scout', same), reader('gemma', same)];
+    await callChecked(w, 'POST', `${A}/deposits/${dep.id}/photos?client_id=${uuid()}&kind=check_front`, { token, raw: jpeg(1), headers: { 'Content-Type': 'image/jpeg' } });
+    const disagree = (checkNumber) => [
+      reader('scout', fields({ amountCents: 15050, wordsCents: 15050, checkDate, payer: 'B. Sample', checkNumber })),
+      reader('gemma', fields({ amountCents: 15000, wordsCents: 15050, checkDate, payer: 'B. Sample', checkNumber })),
+    ];
+    const photo = async (checkNumber, n) => {
+      nextRead = disagree(checkNumber);
+      return (await callChecked(w, 'POST', `${A}/deposits/${dep.id}/photos?client_id=${uuid()}&kind=check_front`, { token, raw: jpeg(n), headers: { 'Content-Type': 'image/jpeg' } })).body.giftId;
+    };
+    const deposit = async () => (await callChecked(w, 'GET', `${A}/deposits/${dep.id}`, { token })).body;
+    const rowOf = async (id) => (await deposit()).rows.find((r) => r.id === id);
+    const patch = (id, body) => callChecked(w, 'PATCH', `${A}/gifts/${id}`, { token, body });
+    const pick = { partner_id: '9002', partner_name: 'Ben Sample', appeal_id: '2192', appeal_name: 'October Letter' };
+
+    // Choosing the partner and the appeal leaves the flag in place, and the send stays off.
+    const row2 = await photo('9021', 20);
+    assert.deepEqual((await rowOf(row2)).flags, ['amount']);
+    await patch(row2, { set: pick });
+    assert.deepEqual((await rowOf(row2)).flags, ['amount']);
+    assert.equal((await rowOf(row2)).confirmed, false);
+    assert.equal((await deposit()).canSend.ok, false);
+
+    // Looks right clears the flag and records the email of the person who confirmed.
+    assert.equal((await patch(row2, { action: 'confirm' })).status, 200);
+    const confirmed = await rowOf(row2);
+    assert.deepEqual(confirmed.flags, []);
+    assert.equal(confirmed.confirmed, true);
+    assert.equal(confirmed.confirmedBy, 'will@favorintl.org');
+
+    // Editing the flagged amount clears the flag and confirms the row, because nothing else is missing.
+    const row3 = await photo('9022', 30);
+    await patch(row3, { set: pick });
+    assert.equal((await patch(row3, { set: { amount_cents: 15000 } })).status, 200);
+    const edited = await rowOf(row3);
+    assert.deepEqual(edited.flags, []);
+    assert.equal(edited.confirmed, true);
+    assert.equal(edited.confirmedBy, 'will@favorintl.org');
+
+    // With no partner chosen, the same edit clears the flag and the row still waits for a look.
+    const row4 = await photo('9023', 40);
+    await patch(row4, { set: { amount_cents: 15000 } });
+    const waiting = await rowOf(row4);
+    assert.deepEqual(waiting.flags, []);
+    assert.equal(waiting.confirmed, false);
+    assert.ok(waiting.blockers.includes('Pick the partner.'));
+  });
+});
