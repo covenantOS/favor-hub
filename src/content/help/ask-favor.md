@@ -7,7 +7,7 @@ videos: [meet-the-brain]
 related: [connect-your-ai, asking-well, access, feedback]
 tool: /brain/
 toolLabel: Open Favor Brain
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 Favor Brain answers questions about Favor in plain words. Ask "How many active partners do we have in North Carolina?" and the answer comes from Blackbaud, the KPI dashboard and Favor's manuals, counted with Favor's own definitions.
@@ -28,9 +28,10 @@ Favor Brain is new. Most answers are right, and some will be off. Every answer s
 - **Your team's numbers**, the way your dashboard tab shows them.
 - **Definitions and the manuals**: "What counts as a LYBUNT partner?", "How do I approve a gift batch?"
 - **Your own day**: today's meetings, unread mail, recent files and your Blackbaud actions.
+- **Files in Favor's shared Drive**: "Find the 2026 budget spreadsheet", "What was that number in the grants comparison?" or "Do we have photos from the Uganda trip?" Each match is a card with the file's owner and date, an Open in Drive button, and the line or sheet cell that matched. A card shows Indexed and a date, the day Favor Brain last read that file. You see only files your own Google account can open.
 - **Partner records and giving, lists and totals, and grant opportunities**, for leadership and the fundraising teams.
 
-It keeps learning. Favor's shared documents come next, and media after that.
+It keeps learning. Photos and recordings match by name, folder and date today, and by what is in them as they are read.
 
 ## Keep partner data inside Favor
 

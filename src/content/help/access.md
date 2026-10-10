@@ -6,7 +6,7 @@ order: 5
 related: [ask-favor, lists-and-downloads]
 tool: /brain/
 toolLabel: Open Favor Brain
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 Favor Brain starts everyone with what their job needs and nothing more. Your access shows under **What you can ask about** on the Favor Brain page.
@@ -15,7 +15,7 @@ Favor Brain starts everyone with what their job needs and nothing more. Your acc
 
 | Package | What it opens | Who has it to start |
 | --- | --- | --- |
-| Basics | Favor's definitions and manuals, Favor-wide totals from the Executive tab, your own team's dashboard numbers, your own calendar, mail and Drive | Everyone |
+| Basics | Favor's definitions and manuals, Favor-wide totals from the Executive tab, your own team's dashboard numbers, files in Favor's shared Drive that your Google account can open, your own calendar, mail and Drive | Everyone |
 | Partner records and giving | Look up any partner, read their giving, build partner and gift lists, totals and breakdowns, actions and grant opportunities | Leadership, RDDs, Partner Care, Church Engagement, Grants |
 | Every team's dashboard numbers | Every team tab, not only your own | Leadership |
 | iWave capacity | iWave capacity ratings on records and lists | Leadership, RDDs |

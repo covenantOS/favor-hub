@@ -190,6 +190,15 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'brain-files',
+    page: '/brain/',
+    at: '#bc-compose',
+    title: 'Find a file, or a number in it',
+    body: 'Ask for a document, sheet, slide deck, PDF, photo or recording, or for a number inside one. Each match is a card with its owner, its date and Open in Drive, and you see only files your own Google account can open.',
+    added: '2026-10-10',
+    side: 'top',
+  },
+  {
     id: 'brain-read',
     page: '/brain/',
     at: '.bc-starters',
