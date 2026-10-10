@@ -56,6 +56,8 @@ export async function patchThread(env: Env, email: string, id: string, p: { titl
   if (typeof p.title === 'string' && p.title.trim()) {
     sets.push('title = ?');
     args.push(p.title.trim().slice(0, 80));
+    // A title the person typed is theirs: the Brain never writes over it.
+    sets.push("title_by = 'hand'");
   }
   if (typeof p.pinned === 'boolean') {
     sets.push('pinned = ?');
@@ -141,4 +143,19 @@ export async function dropScratch(env: Env, scratch: string): Promise<void> {
   } catch {
     // nothing to remove
   }
+}
+
+/** The chat's last three questions, oldest first, with its title, who set it, and its first question. */
+export async function titleInputs(env: Env, email: string, conv: string) {
+  const th = await env.DB.prepare('SELECT title, title_by FROM brain_threads WHERE id = ? AND email = ?').bind(conv, email).first<{ title: string; title_by: string | null }>();
+  if (!th) return null;
+  const last = ((await env.DB.prepare('SELECT question FROM brain_turns WHERE thread_id = ? ORDER BY n DESC LIMIT 3').bind(conv).all<{ question: string }>()).results || []).reverse();
+  const first = await env.DB.prepare('SELECT question FROM brain_turns WHERE thread_id = ? ORDER BY n LIMIT 1').bind(conv).first<{ question: string }>();
+  return { title: th.title, title_by: th.title_by, questions: last.map((r) => r.question), first: first?.question || '' };
+}
+
+/** Writes a model title, and only over a title the person did not type. */
+export async function setAutoTitle(env: Env, email: string, conv: string, title: string): Promise<boolean> {
+  const r = await env.DB.prepare("UPDATE brain_threads SET title = ?, title_by = 'auto' WHERE id = ? AND email = ? AND (title_by IS NULL OR title_by = 'auto')").bind(title.slice(0, 80), conv, email).run();
+  return (r.meta?.changes ?? 0) > 0;
 }

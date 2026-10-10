@@ -30,6 +30,14 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
       </aside>
 
       <section class="bc-pane" aria-label="Chat">
+        <div class="bc-connect" id="bc-connect" hidden>
+          <div class="bc-connect__t"><b>Use Favor Brain inside Claude.</b> <span>Favor has a Claude organization. Ask the technology team for a seat, then connect it once.</span></div>
+          <div class="bc-connect__a">
+            <button type="button" class="h-btn h-btn--primary h-btn--sm" data-act="connect">Connect</button>
+            <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="connect-later">Not now</button>
+            <button type="button" class="bc-connect__gpt" data-act="connect-gpt">ChatGPT instead</button>
+          </div>
+        </div>
         <div class="bc-bar">
           <button type="button" class="ib ib--bare" id="bc-railbtn" aria-label="Show your chats" aria-expanded="true" data-tip="Your chats"><Fragment set:html={I('rail')} /></button>
           <button type="button" class="ib ib--bare" id="bc-new2" aria-label="New chat" data-tip="New chat"><Fragment set:html={I('edit')} /></button>

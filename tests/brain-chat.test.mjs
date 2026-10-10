@@ -16,7 +16,7 @@ let thread;
 let d1;
 let env;
 
-const sql = readFileSync(new URL('../db/chat.sql', import.meta.url), 'utf8');
+const sql = readFileSync(new URL('../db/chat.sql', import.meta.url), 'utf8') + readFileSync(new URL('../db/chat-titles.sql', import.meta.url), 'utf8');
 const ago = (days) => new Date(Date.now() - days * 864e5).toISOString();
 const addThread = (id, email, title, at, pinned = 0) => d1.db.prepare('INSERT INTO brain_threads (id, email, title, pinned, made_at, changed_at) VALUES (?,?,?,?,?,?)').run(id, email, title, pinned, at, at);
 const addTurn = (id, n, q, answer = { blocks: [{ type: 'text', md: 'ok' }] }) => d1.db.prepare('INSERT INTO brain_turns (thread_id, n, question, answer_json, at, ref) VALUES (?,?,?,?,?,?)').run(id, n, q, JSON.stringify(answer), new Date().toISOString(), 'r' + n);

@@ -7,9 +7,10 @@
 import { errorJson, handleError, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { dropScratch, finishTurn, newConvId, recentHistory, startTurn, validConv } from '../../_lib/hub/chat';
+import { retitle } from '../../_lib/hub/chat-title';
 
 const BRAIN_URL = 'https://mcp.favorintl.org';
-const ROUTES = new Set(['GET me', 'POST request', 'POST ask', 'POST confirm', 'POST list/read', 'GET admin/iwave', 'POST admin/iwave/decide', 'GET admin/names', 'POST admin/name-search', 'POST admin/alias', 'POST admin/alias-delete', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
+const ROUTES = new Set(['GET me', 'GET connector','POST request', 'POST ask', 'POST confirm', 'POST list/read', 'GET admin/iwave', 'POST admin/iwave/decide', 'GET admin/names', 'POST admin/name-search', 'POST admin/alias', 'POST admin/alias-delete', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
 type BrainEnv = Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string };
 
 const headersFor = (env: BrainEnv, user: { email: string; name?: string }) => ({
@@ -74,6 +75,7 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
     } catch {
       // the answer still goes to the page below
     }
+    if (ok) await retitle(env, email, conv, turn.n);
     await dropScratch(env, scratch);
     if (ok) d = { ...d, conv, turn: turn.n };
     else d = { ...d, conv };

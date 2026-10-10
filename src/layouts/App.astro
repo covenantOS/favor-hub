@@ -89,7 +89,24 @@ const footAreas = AREAS.filter((a) => a.foot);
             <div class="h-acctmenu" id="h-acctmenu" role="menu" hidden>
               <a role="menuitem" href="/clips/" data-astro-prefetch="hover"><Fragment set:html={icon('clips')} />My clips</a>
               <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
+              <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
             </div>
+            <script is:inline>
+              // The Connect item shows only to a person who has not authorized the Favor Brain connector (brain.js has the same switch).
+              (function () {
+                var LIVE = false;
+                var item = document.querySelector('[data-connect-item]');
+                var btn = document.getElementById('h-acct');
+                if (!item || !btn) return;
+                btn.addEventListener('click', function () {
+                  if (!(LIVE || /[?&]prompts=1\b/.test(location.search))) return;
+                  fetch('/api/brain/connector', { credentials: 'same-origin' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) { item.hidden = !(d && d.ok && d.connected === false); })
+                    .catch(function () { item.hidden = true; });
+                });
+              })();
+            </script>
             <button type="button" class="h-out h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} /></button>
             <button type="button" class="h-out" id="h-out" title="Sign out" aria-label="Sign out"><Fragment set:html={icon('out')} /></button>
           </div>

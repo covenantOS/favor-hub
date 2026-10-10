@@ -155,6 +155,7 @@
     for (const x of t.extras || []) h += B.render(x, { ti, bi: -1, canSheets: canSheets() });
     h += B.reading(t.reading, ti);
     if (latest && t.follow && t.follow.length && !t.error) h += `<div class="blk-follow" aria-label="Follow-up questions">${t.follow.map((q) => `<button type="button" class="fu" data-act="ask" data-q="${esc(q)}">${ic('arrow')}${esc(q)}</button>`).join('')}</div>`;
+    if (t.connectCard && connected === false && promptsOn()) h += `<div class="bc-cardline">${ic('link')}<span>Ask this in Claude next time.</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="connect">Connect</button><button type="button" class="ib ib--sm ib--bare x" data-act="card-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
     if (t.hint) h += `<div class="hintline">${ic('spark')}<span>You can ask the same questions from another app you already use.</span><button type="button" class="lnk" data-act="connect">Show me how</button><button type="button" class="ib ib--sm ib--bare x" data-act="hint-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
     const r = t.rated;
     // An answer with figures in it says when the Blackbaud copy it read was last synced.
@@ -244,32 +245,53 @@
     return t.length > 44 ? t.slice(0, 42) + '...' : t.charAt(0).toUpperCase() + t.slice(1);
   };
 
-  // ---- The connect popup: once per person ------------------------------------------------------------------
-  // Shown after a first good answer, never again once it has been shown. The server remembers it per person
-  // (brain_prefs); this browser's memory covers the moment before the server answers, and the case where the
-  // table is not there.
-  const CS = 'favor.brain.connect.seen';
-  let seenConnect = (() => { try { return !!localStorage.getItem(CS); } catch { return false; } })();
-  let prefsLoaded = false;
-  async function loadPrefs() {
+  // ---- Connect prompts: a banner until connected, a card on every tenth answer, and the account menu ----------
+  // Only people who have not authorized the Favor Brain connector see them. The Brain says whether they have
+  // (the connector route); while that is unknown, nothing shows. "Not now" hides the banner for 24 hours.
+  // PROMPTS_LIVE stays false until Will has seen the screens; ?prompts=1 previews them.
+  const PROMPTS_LIVE = false;
+  // The preview flag is read once: asking a question rewrites the URL to ?c=, which would drop it.
+  const PREVIEW = /[?&]prompts=1\b/.test(location.search);
+  const promptsOn = () => PROMPTS_LIVE || PREVIEW;
+  const LATER = 'favor.brain.connect.later';
+  const ANSWERS = 'favor.brain.answers';
+  const DAY_MS = 24 * 3600 * 1000;
+  let connected = null; // true, false, or null while the Brain has not said
+  async function loadConnector() {
     try {
-      const d = await api('prefs');
-      if (d.seen && d.seen.includes('connect_seen')) seenConnect = true;
-    } catch { /* the browser's memory stands in */ }
-    prefsLoaded = true;
+      const d = await api('connector');
+      connected = !!d.connected;
+    } catch {
+      connected = null;
+    }
+    renderBanner();
   }
-  function markConnectSeen() {
-    seenConnect = true;
-    try { localStorage.setItem(CS, '1'); } catch { /* not kept */ }
-    api('prefs', { body: { key: 'connect_seen' } }).catch(() => {});
+  function notNowAgain() {
+    try {
+      const t = Number(localStorage.getItem(LATER) || 0);
+      return !!t && Date.now() - t < DAY_MS;
+    } catch {
+      return false;
+    }
   }
-  function offerConnect() {
-    if (seenConnect || !prefsLoaded) return;
-    markConnectSeen();
-    setTimeout(() => {
-      if ($('bc-dlg').classList.contains('is-on')) return;
-      dlg(`<h2 id="bc-dlg-h">Ask these questions inside Claude</h2><p>Favor has a Claude organization. Ask the technology team for a Favor Claude seat, then connect it once. Your own Claude can compare two lists, combine answers and follow up on anything you ask.</p><div class="acts" style="flex-wrap:wrap;justify-content:flex-start;gap:8px"><button type="button" class="h-btn h-btn--primary" data-act="connect-go">Show me how to connect</button><button type="button" class="h-btn h-btn--ghost" data-act="dlg-x" data-keep="1">Keep using it here</button></div><p style="margin:14px 0 0;font-size:12.5px"><button type="button" class="lnk" data-act="connect-gpt" style="border:0;background:none;padding:0;color:var(--h-brand-ink);font:600 12.5px var(--h-font)">Set up ChatGPT instead</button></p>`);
-    }, 700);
+  function renderBanner() {
+    const b = $('bc-connect');
+    if (!b) return;
+    b.hidden = !(promptsOn() && connected === false && !notNowAgain());
+  }
+  function connectNotNow() {
+    try { localStorage.setItem(LATER, String(Date.now())); } catch { /* not kept */ }
+    renderBanner();
+  }
+  /** Counts a good answer in this browser; true on every tenth one. */
+  function tenthAnswer() {
+    try {
+      const n = Number(localStorage.getItem(ANSWERS) || 0) + 1;
+      localStorage.setItem(ANSWERS, String(n));
+      return n % 10 === 0;
+    } catch {
+      return false;
+    }
   }
 
   // ---- Asking ---------------------------------------------------------------------------------------------
@@ -311,7 +333,7 @@
       turn.hint = false;
       if (d.outcome === 'ok' && !(d.blocks || []).some((b) => b.type === 'choice')) {
         answered++;
-        offerConnect();
+        if (tenthAnswer()) turn.connectCard = true;
       }
       cue('droplet');
     } catch (err) {
@@ -443,6 +465,9 @@
       const d = await api('history');
       const renaming = convs.find((c) => c.renaming);
       convs = (d.threads || []).map((c) => ({ ...c, renaming: renaming && renaming.id === c.id }));
+      // The Brain may have titled the open chat after its answer; the header follows the list.
+      const open = cur && convs.find((c) => c.id === cur.id);
+      if (open && open.title !== cur.title && !cur.renaming) { cur.title = open.title; $('bc-title').textContent = open.title; }
       renderRail();
       clearTimeout(loadHistory.t);
       if (convs.some((c) => c.pending)) loadHistory.t = setTimeout(loadHistory, 3500);
@@ -847,6 +872,8 @@
       case 'edit-save': saveEdit(ti); break;
       case 'hint-x': cur.turns[ti].hint = false; rerenderTurn(ti, { noAnim: true }); break;
       case 'connect': openPanel('connect'); closeRailOver(); break;
+      case 'connect-later': connectNotNow(); break;
+      case 'card-x': { if (cur && cur.turns[ti]) cur.turns[ti].connectCard = false; renderThread({ noAnim: true }); break; }
       case 'conv': openConv(el.dataset.id); break;
       case 'convmore': {
         const c = convs.find((x) => x.id === el.dataset.id);
@@ -1010,8 +1037,9 @@
   fitPlaceholder();
   app.dataset.ready = '1';
   (async () => {
-    await Promise.all([loadMe(), loadHistory(), loadPrefs()]);
+    await Promise.all([loadMe(), loadHistory(), loadConnector()]);
     loadSheets();
+    if (new URLSearchParams(location.search).get('connect') === '1') openPanel('connect');
     const c = new URLSearchParams(location.search).get('c');
     if (c && /^c_[a-z0-9]{4,16}$/.test(c)) openConv(c);
     else {
