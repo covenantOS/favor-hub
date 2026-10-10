@@ -228,6 +228,7 @@ describe('the morning email', () => {
     row({ id: 't3', ty: true, partner: 'Thanked Already', gift: { id: 'g3', amount: 900, date: '2026-10-09', fund: 'F' }, later: { id: 'l', date: '2026-10-10', by: ['501'], summary: 'thanked', category: 'Phone call', strength: 'thanked' } }),
     row({ id: 'd1', summary: 'Call Naomi back', partner: 'Naomi Patterson', due: '2026-10-12' }),
     row({ id: 'd2', summary: 'Kajo report', partner: 'Ellison', due: '2026-10-09' }),
+    row({ id: 'd4', summary: 'Ancient task', partner: 'Old Partner', due: '2025-01-01' }),
     row({ id: 'd3', summary: 'Someone elses task', partner: 'Elsewhere', fundraisers: ['999'], holders: ['999'], due: '2026-10-01' }),
   ], people: {}, synced: '', orphans: 0, today: TODAY };
   const pf = new Map([['501', [
@@ -241,12 +242,15 @@ describe('the morning email', () => {
     const env = mkEnv();
     const b = await digest.buildFor(env, people[0], data, digest.DEFAULT_PREFS, now);
     assert.equal(b.empty, false);
-    assert.equal(b.subject, '2 gifts to thank, 1 due today, 1 late');
+    assert.equal(b.subject, '2 gifts to thank, 1 due today, 1 task late');
     assert.deepEqual(b.counts, { gifts: 2, due: 1, late: 1, sent_back: 0, quiet: 4, reminders: 0 });
     assert.ok(b.html.indexOf('Big Foundation') < b.html.indexOf('Small Giver'), 'largest gift first');
     assert.match(b.html, /\$10,000[\s\S]*?3 days/);
     assert.ok(!b.html.includes('Thanked Already'), 'a thanked gift is not owed');
     assert.ok(!b.html.includes('Someone elses task'), 'only the person\'s own actions');
+    assert.ok(!b.html.includes('Ancient task'), 'a task more than 30 days late is not in the list');
+    assert.match(b.html, /1 older task on the Stale tab/);
+    assert.ok(b.html.indexOf('Call Naomi back') < b.html.indexOf('Kajo report'), 'due today before late');
     assert.ok(b.html.indexOf('Thomas Whitaker') < b.html.indexOf('Never Called'), 'quiet partners by giving');
     assert.ok(b.html.includes('Tiny Quiet') && !b.html.includes('Fourth Quiet'), 'top 3 only');
     assert.match(b.html, /Good morning, Rae\./);
@@ -260,7 +264,7 @@ describe('the morning email', () => {
     const env = mkEnv();
     const prefs = { ...digest.DEFAULT_PREFS, sections: { gifts: false, due: true, sent_back: true, quiet: false, reminders: true } };
     const b = await digest.buildFor(env, people[0], data, prefs, now);
-    assert.equal(b.subject, '1 due today, 1 late');
+    assert.equal(b.subject, '1 due today, 1 task late');
     assert.ok(!b.html.includes('Big Foundation') && !b.html.includes('Thomas Whitaker'));
   });
 

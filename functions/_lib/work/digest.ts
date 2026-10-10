@@ -171,7 +171,11 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   });
 
   // Due today and late: the person's own actions, thank-you tasks left to the list above.
-  const dueRows = board.rows.filter((r) => !r.ty && own(r) && r.due <= today && !r.deceased).sort((a, b) => (a.due < b.due ? -1 : 1));
+  // Due today, then the ones that went late in the last 30 days, newest first. Older ones sit in Stale and are only counted.
+  const oldest = new Date(Date.parse(`${today}T12:00:00Z`) - 30 * 86400000).toISOString().slice(0, 10);
+  const mineDue = board.rows.filter((r) => !r.ty && own(r) && r.due <= today && !r.deceased);
+  const dueRows = mineDue.filter((r) => r.due >= oldest).sort((a, b) => (a.due === today ? 0 : 1) - (b.due === today ? 0 : 1) || (a.due < b.due ? 1 : -1));
+  const olderN = mineDue.length - dueRows.length;
   const dueToday = dueRows.filter((r) => r.due === today).length;
   const lateN = dueRows.length - dueToday;
   const due: Line[] = dueRows.slice(0, 5).map((r) => {
@@ -216,7 +220,7 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   const bits: string[] = [];
   if (shown.gifts) bits.push(`${plural(counts.gifts, 'gift')} to thank`);
   if (S.due && dueToday) bits.push(`${dueToday} due today`);
-  if (S.due && lateN) bits.push(`${lateN} late`);
+  if (S.due && lateN) bits.push(`${plural(lateN, 'task')} late`);
   if (shown.sent_back) bits.push(`${sentN} sent back`);
   if (shown.reminders) bits.push(plural(remDue.length, 'reminder'));
   const subject = bits.length ? bits.join(', ') : shown.quiet ? `${plural(counts.quiet, 'quiet partner')} to call` : 'Nothing due this morning';
@@ -225,7 +229,7 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   const weekday = WEEKDAY[etParts(now).dow];
   const sections: { title: string; n: number | null; lines: Line[]; more?: string }[] = [];
   if (S.gifts && gifts.length) sections.push({ title: 'Gifts to thank', n: counts.gifts, lines: gifts, more: counts.gifts > gifts.length ? `${counts.gifts - gifts.length} more in the Work Center` : undefined });
-  if (S.due && due.length) sections.push({ title: 'Due today and late', n: dueRows.length, lines: due, more: dueRows.length > due.length ? `${dueRows.length - due.length} more in the Work Center` : undefined });
+  if (S.due && due.length) sections.push({ title: 'Due today and late', n: dueRows.length, lines: due, more: [dueRows.length > due.length ? `${dueRows.length - due.length} more in the Work Center` : '', olderN ? `${plural(olderN, 'older task')} on the Stale tab` : ''].filter(Boolean).join('. ') || undefined });
   if (S.sent_back && sent.length) sections.push({ title: 'Sent back by Support', n: sentN, lines: sent });
   if (S.quiet && quiet.length) sections.push({ title: 'Quiet the longest, by giving', n: null, lines: quiet });
   if (S.reminders && reminders.length) sections.push({ title: 'Reminders', n: remDue.length, lines: reminders });
