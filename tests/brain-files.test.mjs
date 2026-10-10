@@ -59,15 +59,15 @@ describe('Drive file cards', () => {
   it('shows a quote with its page, or the number with its sheet and cell', () => {
     const quote = render({ title: 't', files: [file({ passages: [{ text: 'Volunteers arrive at 7:30.', loc: 'page 4' }] })] });
     assert.match(quote, /<blockquote class="fq">Volunteers arrive at 7:30\.<em>page 4<\/em><\/blockquote>/);
-    const number = render({ title: 't', files: [file({ kind: 'sheet', kind_label: 'Sheet', passages: [{ text: '', sheet: 'Totals', cell: { ref: 'C22', header: '2025 awarded', value: '$641,000' } }] })] });
-    assert.match(number, /<div class="fnum"><b>\$641,000<\/b><span>2025 awarded<\/span><em>Sheet Totals, cell C22<\/em><\/div>/);
+    const number = render({ title: 't', files: [file({ kind: 'sheet', kind_label: 'Sheet', passages: [{ text: '', sheet: 'Totals', cell: { ref: 'C22', header: 'Annual budget', value: '$125,000' } }] })] });
+    assert.match(number, /<div class="fnum"><b>\$125,000<\/b><span>Annual budget<\/span><em>Sheet Totals, cell C22<\/em><\/div>/);
   });
 
   it('shows a sheet cell with words as a quote, and leaves out a column the sheet never named', () => {
     const cell = (value, header = 'col A') => render({ title: 't', files: [file({ kind: 'sheet', kind_label: 'Sheet', passages: [{ text: '', sheet: 'Summary', cell: { ref: 'A6', header, value } }] })] });
     assert.match(cell('Submissions (proposals and letters)'), /<blockquote class="fq">Submissions \(proposals and letters\)<em>Sheet Summary, cell A6<\/em><\/blockquote>/);
     assert.match(cell('Submissions', 'Program'), /<em>Program &middot; Sheet Summary, cell A6<\/em>/);
-    assert.match(cell('$641,000'), /<div class="fnum"><b>\$641,000<\/b><em>Sheet Summary, cell A6<\/em><\/div>/);
+    assert.match(cell('$125,000'), /<div class="fnum"><b>\$125,000<\/b><em>Sheet Summary, cell A6<\/em><\/div>/);
     for (const v of ['12', '41%', '$1.2M', '(1,200)', '3.5 K']) assert.match(cell(v), /class="fnum"/, v);
     for (const v of ['12 pastors', 'Q4', 'n/a']) assert.doesNotMatch(cell(v), /class="fnum"/, v);
   });
