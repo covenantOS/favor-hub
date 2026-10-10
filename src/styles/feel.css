@@ -70,11 +70,11 @@ button.h-nav__help { width: 100%; background: none; border: 0; font-family: inhe
 .h-learn { display: flex; flex-wrap: wrap; gap: 1px; padding: 0 0 8px 4px; }
 .h-learn a {
   position: relative; display: inline-flex; align-items: center; gap: 5px; padding: 5px 6px; border-radius: 7px;
-  font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.62); text-decoration: none; white-space: nowrap;
+  font-size: 12px; font-weight: 600; color: var(--h-ink-3); text-decoration: none; white-space: nowrap;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
-.h-learn a:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
-.h-learn a.is-on { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.h-learn a:hover { background: color-mix(in srgb, var(--h-leaf-soft) 70%, transparent); color: var(--h-ink); }
+.h-learn a.is-on { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
 .h-learn .h-nav__count { margin-left: 2px; padding: 0 6px; font-size: 10.5px; }
 .h-dot { display: none; margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: var(--h-leaf); animation: h-ping 2.4s ease-out infinite; }
 .h-nav__help.has-new .h-dot { display: block; }
