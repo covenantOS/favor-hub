@@ -44,7 +44,7 @@ function parse<T = any>(v: unknown, fallback: T): T {
 }
 
 export interface RawHqtyGift { id: string; giver: string; amount: number; gdate: string; gtype: string; pm: string; splits: string | null; soft: string | null }
-export interface RawParty { id: string; kind: string; first: string; last: string; preferred: string; org: string; title: string; sfirst: string; slast: string; name: string; city: string; st: string; inactive: number; deceased: number }
+export interface RawParty { id: string; kind: string; first: string; last: string; preferred: string; org: string; title: string; sfirst: string; slast: string; name: string; city: string; st: string; inactive: number; deceased: number; spouse_alive?: number }
 export interface RawAddr { cid: string; lines: string; city: string; state: string; zip: string; country: string; dnm: number; prim: number }
 export interface RawAction { cid: string; id: string; d: string }
 export interface RawHub { gift_id: string; cid: string; state: string; why: string | null; printed_at: string | null; signed_at: string | null; mailed_at: string | null; batch_id: string | null; bstate: string | null; bb_id: string | null; byname: string | null }
@@ -114,8 +114,11 @@ export function textForMonth(texts: Record<string, string>, ym: string): string 
 
 export interface Shaped {
   rows: HqtyRow[];
-  stats: { write: number; printed: number; signed: number; mailedMonth: number; earlier: number; total: number };
+  stats: { write: number; printed: number; signed: number; mailedMonth: number; earlier: number; total: number; leftOff: number };
 }
+
+/** A household whose every known record is deceased or inactive. Outreach lists, this desk (letters still to write) and the Reports gift list leave it out. */
+export const householdOut = (p: RawParty | undefined): boolean => !!p && (num(p.deceased) === 1 || num(p.inactive) === 1) && num(p.spouse_alive) !== 1;
 
 /** Months the desk counts as current: this one and the one before it. */
 export function recentFrom(today: string): string {
@@ -142,7 +145,7 @@ export function shapeHqty(raw: RawHqty, o: { today: string }): Shaped {
   const monthStart = o.today.slice(0, 7) + '-01';
   const recent = recentFrom(o.today);
   const rows: HqtyRow[] = [];
-  const stats = { write: 0, printed: 0, signed: 0, mailedMonth: 0, earlier: 0, total: 0 };
+  const stats = { write: 0, printed: 0, signed: 0, mailedMonth: 0, earlier: 0, total: 0, leftOff: 0 };
 
   for (const g of raw.gifts) {
     const cr = creditedOf(g);
@@ -181,6 +184,11 @@ export function shapeHqty(raw: RawHqty, o: { today: string }): Shaped {
       state = hubState;
       source = 'hub';
       stateDate = day(hubState === 'signed' ? h!.signed_at : h!.printed_at);
+    }
+    // A letter still to write for a household with nobody living or active is not written. Letters already moving stay on the desk.
+    if (state === 'write' && householdOut(party)) {
+      stats.leftOff++;
+      continue;
     }
     const ym = date.slice(0, 7);
     const row: HqtyRow = {
@@ -230,7 +238,8 @@ const GIFTS_BY_ID_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS 
 const PARTIES_SQL = readOnly(`SELECT c.id AS id, c.constituent_type AS kind, c.first_name AS first, c.last_name AS last, c.preferred_name AS preferred, c.organization_name AS org, c.title AS title,
        c.spouse_first_name AS sfirst, c.spouse_last_name AS slast,
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name,
-       json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.inactive AS inactive, c.deceased AS deceased
+       json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.inactive AS inactive, c.deceased AS deceased,
+       EXISTS (SELECT 1 FROM constituents s WHERE (s.id = c.spouse_id OR s.spouse_id = c.id) AND COALESCE(s.inactive, 0) = 0 AND COALESCE(s.deceased, 0) = 0) AS spouse_alive
   FROM constituents c WHERE c.id IN (SELECT value FROM json_each(?1))`);
 
 const ADDR_SQL = readOnly(`SELECT constituent_record_id AS cid, address_lines AS lines, address_city AS city, address_state AS state, address_postal_code AS zip, address_country AS country,

@@ -33,7 +33,10 @@ SELECT b.gift_id AS gift_id, b.gdate AS gdate, b.amount AS amount, b.fund AS fun
        (SELECT e.email_address FROM emails e WHERE e.constituent_record_id = COALESCE(b.soft_id, b.giver_id) AND COALESCE(e.is_inactive, 0) = 0 AND COALESCE(e.email_address, '') <> ''
          ORDER BY COALESCE(e.do_not_email, 0) ASC, e.is_primary DESC LIMIT 1) AS email,
        (SELECT COALESCE(e.do_not_email, 0) FROM emails e WHERE e.constituent_record_id = COALESCE(b.soft_id, b.giver_id) AND COALESCE(e.is_inactive, 0) = 0 AND COALESCE(e.email_address, '') <> ''
-         ORDER BY COALESCE(e.do_not_email, 0) ASC, e.is_primary DESC LIMIT 1) AS dne
+         ORDER BY COALESCE(e.do_not_email, 0) ASC, e.is_primary DESC LIMIT 1) AS dne,
+       CASE WHEN (COALESCE(pk.inactive, 0) = 1 OR COALESCE(pk.deceased, 0) = 1)
+             AND NOT EXISTS (SELECT 1 FROM constituents s WHERE (s.id = pk.spouse_id OR s.spouse_id = pk.id) AND COALESCE(s.inactive, 0) = 0 AND COALESCE(s.deceased, 0) = 0)
+            THEN 1 ELSE 0 END AS hh_out
   FROM base b
   LEFT JOIN constituents pk ON pk.id = COALESCE(b.soft_id, b.giver_id)
  ORDER BY b.gdate, b.amount DESC, b.gift_id`;
@@ -55,6 +58,8 @@ const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US');
 interface Extra {
   mine: { n: number; total: number };
   independent: { n: number; total: number };
+  dne: number;
+  out: number;
 }
 
 const def: ReportDef = {
@@ -97,7 +102,7 @@ const def: ReportDef = {
     { key: 'email', label: 'Email', type: 'text' },
     { key: 'send', label: 'Send', type: 'chip' },
   ],
-  note: 'The partner is the soft-credited recipient when a gift has one, and the giver when nobody is. The email is the partner record\'s primary active email. Send shows Do not email when that email is marked. Check the unsubscribe ledger and GoHighLevel before the import, because this report does not read them.',
+  note: 'The partner is the soft-credited recipient when a gift has one, and the giver when nobody is. The email is the partner record\'s primary active email. Partners marked do not email, and households whose every record is deceased or inactive, are left off the list and counted in Left off. Check the unsubscribe ledger and GoHighLevel before the import, because this report does not read them.',
 
   async load(ctx: ReportContext, f: Record<string, string>): Promise<Loaded> {
     const [from, to] = QUARTERS[f.q] || QUARTERS['2026-Q3'];
@@ -106,7 +111,7 @@ const def: ReportDef = {
 
     const all = raw.map((r) => {
       const fund = String(r.fund || '');
-      const send = !r.email ? 'No email' : Number(r.dne) === 1 ? 'Do not email' : 'Email';
+      const send = Number(r.hh_out) === 1 ? 'Deceased or inactive' : !r.email ? 'No email' : Number(r.dne) === 1 ? 'Do not email' : 'Email';
       return {
         gift_id: r.gift_id,
         gdate: r.gdate,
@@ -122,10 +127,14 @@ const def: ReportDef = {
       } as Row;
     });
 
-    const rows = all.filter((r) => !f.cat || r.constituency === f.cat);
+    // Households with nobody living or active and partners marked do not email are left off the list, and counted in the tiles.
+    const rows = all.filter((r) => (!f.cat || r.constituency === f.cat) && r.send !== 'Deceased or inactive' && r.send !== 'Do not email');
+    const leftOff = all.filter((r) => (!f.cat || r.constituency === f.cat) && (r.send === 'Deceased or inactive' || r.send === 'Do not email'));
     const extra: Extra = {
       mine: { n: all.length, total: Math.round(all.reduce((s, r) => s + Number(r.amount), 0) * 100) / 100 },
       independent: { n: Number(totalsRow.n), total: Number(totalsRow.total) },
+      dne: leftOff.filter((r) => r.send === 'Do not email').length,
+      out: leftOff.filter((r) => r.send === 'Deceased or inactive').length,
     };
     return { rows, extra };
   },
@@ -141,14 +150,16 @@ const def: ReportDef = {
     );
   },
 
-  tiles(rows): Tile[] {
+  tiles(rows, _f, extra): Tile[] {
+    const e = extra as Extra;
     const sum = rows.reduce((s, r) => s + Number(r.amount), 0);
     const count = (send: string) => rows.filter((r) => r.send === send).length;
     return [
       { label: 'Gifts', value: rows.length, kind: 'int', sub: money(sum) },
       { label: 'Foundation and DAF', value: rows.filter((r) => r.constituency === 'Foundation' || r.constituency === 'DAF Provider').length, kind: 'int' },
       { label: 'Email', value: count('Email'), kind: 'int', sub: 'Gets the packet' },
-      { label: 'Do not email or no email', value: count('Do not email') + count('No email'), kind: 'int', sub: 'Left off the import' },
+      { label: 'No email', value: count('No email'), kind: 'int', sub: 'Gets no packet' },
+      { label: 'Left off', value: e.dne + e.out, kind: 'int', sub: `${e.dne} do not email, ${e.out} deceased or inactive households` },
     ];
   },
 };

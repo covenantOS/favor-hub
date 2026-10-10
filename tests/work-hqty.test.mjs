@@ -48,7 +48,7 @@ before(() => {
   mirror = new DatabaseSync(':memory:');
   mirror.exec(`
     CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_type TEXT, first_name TEXT, last_name TEXT, preferred_name TEXT, organization_name TEXT, title TEXT,
-      spouse_first_name TEXT, spouse_last_name TEXT, inactive INTEGER DEFAULT 0, deceased INTEGER DEFAULT 0, raw_json TEXT);
+      spouse_first_name TEXT, spouse_last_name TEXT, spouse_id TEXT, inactive INTEGER DEFAULT 0, deceased INTEGER DEFAULT 0, raw_json TEXT);
     CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date DATETIME, gift_type TEXT, gift_status TEXT, gift_splits TEXT, constituent_record_id TEXT, soft_credits TEXT, gift_payment_method TEXT);
     CREATE TABLE addresses (id TEXT PRIMARY KEY, constituent_record_id TEXT, address_lines TEXT, address_city TEXT, address_state TEXT, address_postal_code TEXT, address_country TEXT,
       do_not_mail INTEGER DEFAULT 0, is_primary INTEGER DEFAULT 1, is_inactive INTEGER DEFAULT 0);
@@ -94,7 +94,7 @@ before(() => {
 describe('the list', () => {
   it('shows gifts of $5,000 and up, newest first, and leaves the rest out', async () => {
     const { shaped } = await H.loadHqty({ DB: hub }, q, { today: TODAY });
-    assert.deepEqual(shaped.rows.map((r) => r.giftId), ['100', '103', '102', '101', '91', '90', '92']);
+    assert.deepEqual(shaped.rows.map((r) => r.giftId), ['100', '103', '102', '101', '91', '90']);
   });
   it('sends a soft-credited gift to the credited partner and names the giver', async () => {
     const { shaped } = await H.loadHqty({ DB: hub }, q, { today: TODAY });
@@ -104,12 +104,13 @@ describe('the list', () => {
     assert.equal(r.through, 'Sam Giver');
     assert.equal(r.address, '2100 Fifth Ave S, Naples, FL 33606');
   });
-  it('flags a missing address, a do-not-mail address and a deceased partner', async () => {
+  it('flags a missing address and a do-not-mail address, and leaves a deceased household off the desk', async () => {
     const { shaped } = await H.loadHqty({ DB: hub }, q, { today: TODAY });
     const by = Object.fromEntries(shaped.rows.map((r) => [r.giftId, r.flags]));
     assert.deepEqual(by['103'], ['No mailing address']);
     assert.deepEqual(by['102'], ['Do not mail']);
-    assert.deepEqual(by['92'], ['Deceased']);
+    assert.equal(by['92'], undefined);
+    assert.equal(shaped.stats.leftOff, 1);
     assert.deepEqual(by['100'], []);
   });
   it('counts a gift as written when an HQTY action sits on the partner on or after the gift, and not before it', async () => {
@@ -123,7 +124,7 @@ describe('the list', () => {
   });
   it('counts the stat band: this and last month To write, older ones as earlier gifts', async () => {
     const { shaped } = await H.loadHqty({ DB: hub }, q, { today: TODAY });
-    assert.deepEqual(shaped.stats, { write: 4, printed: 0, signed: 0, mailedMonth: 0, earlier: 2, total: 7 });
+    assert.deepEqual(shaped.stats, { write: 4, printed: 0, signed: 0, mailedMonth: 0, earlier: 1, total: 6, leftOff: 1 });
   });
 });
 
