@@ -1,13 +1,13 @@
 // Finishes the multipart upload and starts the transcript, title, summary and chapters. The clip is watchable at once
 // ("processing"); the words and the name arrive a few seconds later.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, MAX_MS, adminOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
+import { J, MAX_MS, purgeClip, staffOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
 import { runProcess } from '../../../_lib/clipjob';
 import { clearTail, contiguous, foldTail } from '../../../_lib/clipTail';
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await ownClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
@@ -29,7 +29,8 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     const sent = (body.parts || []).filter((p) => Number.isInteger(p.partNumber) && typeof p.etag === 'string');
     const parts = kept.length >= sent.length ? kept : sent;
     if (!parts.length) {
-      await env.DB.prepare('DELETE FROM hub_clips WHERE id = ?').bind(clip.id).run();
+      await env.DB.batch([env.DB.prepare('DELETE FROM hub_clip_frames WHERE clip_id = ?').bind(clip.id), env.DB.prepare('DELETE FROM hub_clips WHERE id = ?').bind(clip.id)]);
+      await purgeClip(env, clip.id).catch(() => undefined);
       return errorJson('no_parts', 'Nothing was recorded.', 400);
     }
     parts.sort((a, b) => a.partNumber - b.partNumber);

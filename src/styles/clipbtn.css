@@ -14,3 +14,21 @@
 .h-top__cam.is-rec { background: var(--h-red, #b4432a); border-color: var(--h-red, #b4432a); color: #fff; }
 .h-top__cam.is-rec::after { content: ''; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: h-cam-blink 1.4s ease-in-out infinite; }
 @keyframes h-cam-blink { 50% { opacity: .25; } }
+
+/* The library button beside the camera, and the account menu in the sidebar foot. */
+.h-top__lib { text-decoration: none; }
+.h-top__lib:hover { background: #fff; color: var(--h-ink); }
+@media (max-width: 860px) { .h-top__lib { display: none; } }
+.h-side__foot { position: relative; }
+.h-acct { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 4px 8px 4px 4px; margin: -4px 0 -4px -4px; border: 0; border-radius: 999px; background: none; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.h-acct:hover, .h-acct[aria-expanded='true'] { background: var(--h-leaf-soft); }
+.h-acct:focus-visible { outline: 2px solid var(--h-brand-ink); outline-offset: 2px; }
+.h-who { display: block; min-width: 0; }
+.h-acctmenu { position: absolute; left: 8px; right: 8px; bottom: calc(100% + 6px); z-index: 40; padding: 6px; border-radius: 14px; background: var(--h-ivory, #fffdf9); border: 1px solid var(--h-line); box-shadow: 0 18px 40px -14px rgba(42, 39, 34, .35); }
+.h-acctmenu[hidden] { display: none; }
+.h-acctmenu a, .h-acctmenu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--h-ink); font: 500 13.5px var(--h-font); text-decoration: none; cursor: pointer; text-align: left; }
+.h-acctmenu a:hover, .h-acctmenu button:hover { background: var(--h-leaf-soft); }
+.h-acctmenu .h-i { width: 17px; height: 17px; color: var(--h-ink-3); }
+@media (max-width: 860px) { .h-acctmenu a, .h-acctmenu button { min-height: 44px; } }
+.h-acct { flex: 1 1 auto; }
+.h-who b, .h-who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

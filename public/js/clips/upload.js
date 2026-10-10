@@ -71,6 +71,46 @@ async function probe(file) {
   }
 }
 
+/** Pictures of the screen from an uploaded file: one early, then one every few seconds, at most 60 and about a minute of work. */
+async function sendFrames(file, id, duration, onProgress) {
+  if (!duration || duration < 1) return;
+  const url = URL.createObjectURL(file);
+  try {
+    const v = document.createElement('video');
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = 'auto';
+    v.src = url;
+    await new Promise((ok, fail) => {
+      v.onloadeddata = () => ok();
+      v.onerror = () => fail(new Error('unreadable'));
+      setTimeout(ok, 8000);
+    });
+    if (!v.videoWidth) return;
+    const step = Math.max(6, duration / 60);
+    const c = document.createElement('canvas');
+    c.width = Math.min(1024, v.videoWidth);
+    c.height = Math.round((c.width * v.videoHeight) / v.videoWidth);
+    const g = c.getContext('2d');
+    const started = Date.now();
+    for (let t = Math.min(1.5, duration / 2); t < duration && Date.now() - started < 70000; t += step) {
+      v.currentTime = t;
+      await new Promise((ok) => {
+        v.onseeked = () => ok();
+        setTimeout(ok, 3000);
+      });
+      g.drawImage(v, 0, 0, c.width, c.height);
+      const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.7));
+      if (blob) await fetch(`/api/clips/${id}/frame?t=${Math.round(t * 1000)}`, { method: 'PUT', body: blob, credentials: 'same-origin', headers: { 'content-type': 'image/jpeg' } }).catch(() => undefined);
+      onProgress(0.9 + Math.min(0.06, (t / duration) * 0.06), 'Reading the screen');
+    }
+  } catch (e) {
+    // pictures are a bonus
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 /** The file's sound as 16 kHz mono WAV slices of four minutes. Empty when the browser cannot decode it. */
 async function audioSlices(file) {
   if (file.size > MAX_DECODE_BYTES) return [];
@@ -120,6 +160,7 @@ export async function uploadVideoFile(file, onProgress) {
         break; // the transcript is a bonus
       }
     }
+    await sendFrames(file, id, meta.duration, onProgress);
     onProgress(0.97, 'Finishing');
     const durationMs = Math.round(meta.duration * 1000);
     await api(`/api/clips/${id}/complete`, { method: 'POST', json: { durationMs, titleHint: title } });

@@ -13,6 +13,8 @@ export interface Access {
   expenseLog: boolean;
   /** The Work Center page: admins until Will releases it to the Support Team (hub tables act_settings and act_staff). */
   workCenter: boolean;
+  /** Every signed-in person records clips and has a clip library of their own. */
+  clips: boolean;
 }
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
@@ -25,6 +27,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     approver,
     expenseLog: approver || (await isExpenseAdmin(env, request)),
     workCenter: !!work && work.ok,
+    clips: true,
   };
 }
 

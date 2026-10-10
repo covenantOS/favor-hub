@@ -1,0 +1,28 @@
+---
+// Clips, admin view: every person's clips and what each person's storage looks like. Admins only (the data route refuses everyone else).
+import App from '../../layouts/App.astro';
+import '../../styles/clips.css';
+---
+<App title="All clips" crumb="Clips" nav="clips" description="Every person's clips, for hub admins.">
+  <div class="cl" id="cl" data-scope="all">
+    <section class="cl-head">
+      <div>
+        <h1>All clips</h1>
+        <p class="h-lede">Every clip from every person, and the storage each person uses. Search covers titles, summaries and names. What was said and what was on screen stay private to the person who recorded it. You can open any clip and delete one to free space; only its owner can edit it.</p>
+      </div>
+      <a class="h-btn h-btn--ghost" href="/clips/">My clips</a>
+    </section>
+
+    <section id="cl-usage" aria-label="Storage by person" hidden></section>
+
+    <section class="cl-bar" aria-label="Search">
+      <label class="cl-search"><span class="cl-sr">Search all clips</span><input id="cl-q" type="search" placeholder="Search titles, summaries and names" autocomplete="off" /></label>
+    </section>
+
+    <section aria-label="Clips">
+      <div class="cl-listhead"><span id="cl-count-label"></span></div>
+      <div id="cl-rows" class="cl-grid" aria-busy="true"><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div></div>
+    </section>
+  </div>
+  <script is:inline type="module" src="/js/clips/library.js?v=2"></script>
+</App>

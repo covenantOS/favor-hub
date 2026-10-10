@@ -17,6 +17,8 @@ const AUDIO_BPS = 32000;
 const SLICE_SECONDS = 120;
 const TAIL_MS = 3000;
 const TAIL_PIECE = 3 * 1024 * 1024;
+const FRAME_WIDTH = 1024;
+const MAX_FRAMES = 90;
 
 export const BUBBLE_FRACTION = { S: 0.17, M: 0.25, L: 0.36 };
 export const BUBBLE_KEY = 'favor.clips.bubble';
@@ -96,6 +98,14 @@ export class ClipRecorder {
     this.tailOff = 0;
     this.tailAt = 0;
     this.tailQueue = Promise.resolve();
+    // Pictures of the screen, so the clip's title, summary and search know what was shown (see api/clips/[id]/frame.ts).
+    this.frameQueue = Promise.resolve();
+    this.framesSent = 0;
+    this.lastFrameAt = -99;
+    this.lastSceneAt = 0;
+    this.sceneSig = null;
+    this.sceneCtx = null;
+    this.frameCanvas = null;
     this.partNo = 0;
     this.partBytes = 8 * 1024 * 1024;
     this.idP = null;
@@ -345,6 +355,7 @@ export class ClipRecorder {
     const elapsed = this.elapsedNow();
     const level = this.state.phase === 'recording' ? this.micLevel() : 0;
     if (this.state.phase === 'recording') {
+      this.frameTick(elapsed);
       if (!this.thumbDone && elapsed >= 2) this.poster();
       if (elapsed - this.sliceStart >= (debug().sliceSeconds || SLICE_SECONDS) && this.audioRec) this.rotateSlice();
       if (elapsed >= MAX_SECONDS) {
@@ -435,6 +446,69 @@ export class ClipRecorder {
         }
       });
     }
+  }
+
+  // ---------- pictures of the screen ----------
+
+  /** Every few seconds, and when the picture changes a lot, send a small JPEG of the screen. */
+  frameTick(elapsed) {
+    if (this.settings.source === 'camera' || this.framesSent >= MAX_FRAMES || !this.mainVideo || this.mainVideo.readyState < 2) return;
+    const since = elapsed - this.lastFrameAt;
+    const interval = elapsed < 120 ? 6 : elapsed < 600 ? 12 : 25;
+    let take = since >= interval || (this.lastFrameAt < 0 && elapsed >= 1.5);
+    if (!take && since >= 3 && elapsed - this.lastSceneAt >= 1) {
+      this.lastSceneAt = elapsed;
+      take = this.sceneChanged();
+    }
+    if (!take) return;
+    this.lastFrameAt = elapsed;
+    this.sendFrame(elapsed);
+  }
+
+  /** A tiny gray copy of the screen, compared with the last one. A big average difference means a new screen. */
+  sceneChanged() {
+    const v = this.mainVideo;
+    if (!v || !v.videoWidth) return false;
+    if (!this.sceneCtx) {
+      const c = document.createElement('canvas');
+      c.width = 48;
+      c.height = 27;
+      this.sceneCtx = c.getContext('2d', { willReadFrequently: true });
+    }
+    this.sceneCtx.drawImage(v, 0, 0, 48, 27);
+    const px = this.sceneCtx.getImageData(0, 0, 48, 27).data;
+    const sig = new Uint8Array(48 * 27);
+    for (let i = 0; i < sig.length; i++) sig[i] = (px[i * 4] * 3 + px[i * 4 + 1] * 6 + px[i * 4 + 2]) / 10;
+    const prev = this.sceneSig;
+    this.sceneSig = sig;
+    if (!prev) return false;
+    let d = 0;
+    for (let i = 0; i < sig.length; i++) d += Math.abs(sig[i] - prev[i]);
+    return d / sig.length > 12;
+  }
+
+  sendFrame(elapsed) {
+    const v = this.mainVideo;
+    if (!v || !v.videoWidth) return;
+    if (!this.frameCanvas) this.frameCanvas = document.createElement('canvas');
+    const c = this.frameCanvas;
+    c.width = Math.min(FRAME_WIDTH, v.videoWidth);
+    c.height = Math.round((c.width * v.videoHeight) / v.videoWidth);
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    const t = Math.round(elapsed * 1000);
+    this.framesSent++;
+    c.toBlob((blob) => {
+      if (!blob) return;
+      this.frameQueue = this.frameQueue.then(async () => {
+        if (this.failed || this.stopFlag.cancelled) return;
+        try {
+          const id = await this.idP;
+          await fetch(`/api/clips/${id}/frame?t=${t}`, { method: 'PUT', body: blob, credentials: 'same-origin', headers: { 'content-type': 'image/jpeg' } });
+        } catch (e) {
+          // a missed picture costs a little detail, nothing more
+        }
+      });
+    }, 'image/jpeg', 0.7);
   }
 
   // ---------- audio slices ----------

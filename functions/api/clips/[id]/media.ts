@@ -1,7 +1,7 @@
 // Streams a clip with Range support so the player can seek. Signed-in hub users may watch any clip that has been
 // saved; signed-out viewers only when the clip's share switch is on. Never cached by a shared cache.
 //   ?poster=1  the poster frame     ?dl=1  the file as a download
-import { PRIVATE, ID_RE, isWatchable, mayWatch, parseRange, posterKey, videoKey, extFor, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import { PRIVATE, ID_RE, isWatchable, canWatch, parseRange, posterKey, videoKey, extFor, type Clip, type ClipsEnv } from '../../../_lib/clips';
 import { hubUserOf } from '../../../_lib/session';
 
 async function load(env: ClipsEnv, id: string): Promise<Clip | null> {
@@ -9,9 +9,9 @@ async function load(env: ClipsEnv, id: string): Promise<Clip | null> {
   return env.DB.prepare("SELECT * FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')").bind(id).first<Clip>();
 }
 
-const deny = (request: Request, clip: Clip | null): Response | null => {
+const deny = async (env: ClipsEnv, request: Request, clip: Clip | null): Promise<Response | null> => {
   // A clip that does not exist and a clip the viewer may not see look the same to a signed-out viewer.
-  if (!clip || !isWatchable(clip) || !mayWatch(request, clip)) {
+  if (!clip || !isWatchable(clip) || !(await canWatch(env, request, clip))) {
     return new Response(hubUserOf(request) ? 'Not found' : 'Sign in required', { status: hubUserOf(request) ? 404 : 401, headers: PRIVATE });
   }
   return null;
@@ -21,7 +21,7 @@ const fileName = (c: Clip) => `${(c.title || 'Clip').replace(/[^\w\- ]+/g, '').t
 
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   const clip = await load(env, String(params.id));
-  const refused = deny(request, clip);
+  const refused = await deny(env, request, clip);
   if (refused || !clip) return refused as Response;
   const q = new URL(request.url).searchParams;
   const key = q.get('poster') === '1' ? posterKey(clip.id) : videoKey(clip.id);

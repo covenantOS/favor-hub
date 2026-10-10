@@ -1,9 +1,13 @@
-// Clips: shared helpers. Recording and managing clips is for hub admins; watching is for any signed-in
-// staff member, or anyone with the link when the clip's share switch is on.
+// Clips: shared helpers. Every signed-in hub user records clips and manages their own; an admin can also see every clip
+// and delete any of them. Watching is for any signed-in staff member with the link, or anyone with the link when the clip's
+// share switch is on (not when the person who made it has been blocked from the hub).
 import { errorJson, type Env } from './http';
 import { hubUserOf, type HubUser } from './session';
 
 export const MAX_MS = 45 * 60 * 1000;
+/** Storage each person may keep in Clips. The library warns at 80% and names the oldest clips nobody watched. */
+export const CAP_BYTES = 10 * 1024 ** 3;
+export const WARN_FRACTION = 0.8;
 export const PART_BYTES = 8 * 1024 * 1024;
 export const MAX_PARTS = 400;
 export const MAX_AUDIO_BYTES = 24 * 1024 * 1024;
@@ -39,6 +43,8 @@ export interface Clip {
   size_bytes: number;
   duration_ms: number;
   has_poster: number;
+  owner_team: string;
+  seen: string;
   views: number;
   created_at: string;
   updated_at: string;
@@ -64,6 +70,8 @@ export const videoKey = (id: string) => `clips/${id}/video`;
 export const posterKey = (id: string) => `clips/${id}/poster`;
 export const tailPrefix = (id: string) => `clips/${id}/tail/`;
 export const tailKey = (id: string, off: number) => `${tailPrefix(id)}${String(off).padStart(12, '0')}`;
+export const framesPrefix = (id: string) => `clips/${id}/frames/`;
+export const frameKey = (id: string, tMs: number) => `${framesPrefix(id)}${String(tMs).padStart(9, '0')}.jpg`;
 export const audioPrefix = (id: string) => `clips/${id}/audio/`;
 export const sliceTextKey = (id: string, n: number) => `clips/${id}/audio/${n}.json`;
 
@@ -120,18 +128,29 @@ export async function ownClip(env: ClipsEnv, user: HubUser, id: string): Promise
   return env.DB.prepare('SELECT * FROM hub_clips WHERE id = ? AND owner_email = ?').bind(id, user.email).first<Clip>();
 }
 
-/** A clip any hub admin may manage once it is saved: rename, edit, share, delete. */
-export async function manageClip(env: ClipsEnv, user: HubUser, id: string): Promise<Clip | null> {
-  if (!ID_RE.test(id) || user.role !== 'admin') return null;
+/**
+ * A clip the signed-in person may manage once it is saved: rename, edit, share, write again. Only the person who made it.
+ * `allowAdmin` also lets a hub admin through (deleting, to clear space), but never editing someone else's clip.
+ */
+export async function manageClip(env: ClipsEnv, user: HubUser, id: string, opts: { allowAdmin?: boolean } = {}): Promise<Clip | null> {
+  if (!ID_RE.test(id)) return null;
   const clip = await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
   if (!clip) return null;
-  if (clip.status === 'uploading' && clip.owner_email !== user.email) return null;
+  const mine = clip.owner_email === user.email;
+  if (!mine && !(opts.allowAdmin && user.role === 'admin')) return null;
+  if (clip.status === 'uploading' && !mine) return null;
   return clip;
 }
 
-/** May this request watch this clip? Share on opens it to everyone, otherwise a signed-in hub user. */
-export function mayWatch(request: Request, clip: Pick<Clip, 'share'>): boolean {
-  return clip.share === 1 || !!hubUserOf(request);
+/**
+ * May this request watch this clip? A signed-in hub user may. Anyone else needs the share switch on, and the person who made
+ * the clip must still have access to the hub (a blocked person's links stop working for people outside the hub).
+ */
+export async function canWatch(env: ClipsEnv, request: Request, clip: Pick<Clip, 'share' | 'owner_email'>): Promise<boolean> {
+  if (hubUserOf(request)) return true;
+  if (clip.share !== 1) return false;
+  const row = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(clip.owner_email).first<{ blocked: number }>().catch(() => null);
+  return !(row && row.blocked);
 }
 
 export const isWatchable = (c: Pick<Clip, 'status'>) => c.status === 'ready' || c.status === 'processing';
@@ -197,4 +216,37 @@ export async function purgeClip(env: ClipsEnv, id: string): Promise<number> {
     cursor = page.cursor;
   }
   return gone;
+}
+
+/** What a person's clips take up, and the oldest ones nobody has watched (offered for deletion once they pass 80%). */
+export async function usageOf(env: ClipsEnv, email: string) {
+  const row = await env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS used, COUNT(*) AS clips FROM hub_clips WHERE owner_email = ? AND status != 'failed'").bind(email).first<{ used: number; clips: number }>();
+  const used = Number(row?.used || 0);
+  const pct = Math.min(100, Math.round((used / CAP_BYTES) * 100));
+  const warn = used >= CAP_BYTES * WARN_FRACTION;
+  let oldest: Array<{ id: string; title: string; created_at: string; size_bytes: number }> = [];
+  if (warn) {
+    const r = await env.DB.prepare("SELECT id, title, created_at, size_bytes FROM hub_clips WHERE owner_email = ? AND status = 'ready' AND views = 0 ORDER BY created_at ASC LIMIT 5").bind(email).all<{ id: string; title: string; created_at: string; size_bytes: number }>();
+    oldest = r.results || [];
+  }
+  return { used, cap: CAP_BYTES, pct, warn, full: used >= CAP_BYTES, clips: Number(row?.clips || 0), oldestUnwatched: oldest };
+}
+
+const TEAM_LABEL: Record<string, string> = {
+  support: 'Support',
+  rdd: 'RDD',
+  partner_care: 'Partner Care',
+  church: 'Church Engagement',
+  grants: 'Grants',
+  admin: 'Admin',
+  exec: 'Executive',
+  pc: 'Partner Care',
+  ce: 'Church Engagement',
+  marketing: 'Marketing',
+};
+
+/** The team a person belongs to, from the hub's staff table (the Work Center's roster). Empty when the hub does not know. */
+export async function teamOf(env: ClipsEnv, email: string): Promise<string> {
+  const row = await env.DB.prepare('SELECT team FROM act_staff WHERE email = ? AND active = 1').bind(email.toLowerCase()).first<{ team: string }>().catch(() => null);
+  return row ? TEAM_LABEL[row.team] || row.team : '';
 }

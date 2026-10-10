@@ -2,13 +2,13 @@
 // recorder window closes, the computer sleeps or the connection drops, complete() joins these bytes to the parts already
 // stored, so everything up to the last few seconds survives. An empty body only says "still recording" (pause, quiet stretch).
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { adminOrError, ownClip, tailKey, type ClipsEnv } from '../../../_lib/clips';
+import { staffOrError, ownClip, tailKey, type ClipsEnv } from '../../../_lib/clips';
 
 const MAX_TAIL_PIECE = 4 * 1024 * 1024;
 
 export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await ownClip(env, who.user, String(params.id));
     if (!clip || clip.status !== 'uploading' || !clip.upload_id) return errorJson('not_found', 'That upload is not open.', 404);

@@ -2,7 +2,7 @@
 // and reactions. Signed-in hub users watch any saved clip. A signed-out viewer needs the clip's "Anyone with the link"
 // switch on, and otherwise goes to sign-in and comes back here. The page itself is a shell; /js/clips/watch.js fills it from
 // /api/clips/<id>/info, which decides again what this viewer may see.
-import { ID_RE, PRIVATE, isWatchable, mayWatch, type Clip, type ClipsEnv } from '../_lib/clips';
+import { ID_RE, PRIVATE, isWatchable, canWatch, type Clip, type ClipsEnv } from '../_lib/clips';
 import { hubUserOf } from '../_lib/session';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
@@ -10,7 +10,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function page(status: number, title: string, body: string, scripts = ''): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${esc(title)} - Favor Hub</title>
 <link rel="icon" type="image/png" href="/images/favor-icon.png"><link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/js/clips/watch.css?v=1"><link rel="stylesheet" href="/js/clips/launcher.css?v=1">
+<link rel="stylesheet" href="/js/clips/watch.css?v=1"><link rel="stylesheet" href="/js/clips/launcher.css?v=3">
 </head><body>${body}${scripts}</body></html>`;
   return new Response(html, { status, headers: { ...PRIVATE, 'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer' } });
 }
@@ -21,9 +21,9 @@ const frame = (inner: string, signedIn: boolean) =>
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   const id = String(params.id);
   const user = hubUserOf(request);
-  const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT id, title, status, share FROM hub_clips WHERE id = ?').bind(id).first<Pick<Clip, 'id' | 'title' | 'status' | 'share'>>() : null;
+  const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT id, title, status, share, owner_email FROM hub_clips WHERE id = ?').bind(id).first<Pick<Clip, 'id' | 'title' | 'status' | 'share' | 'owner_email'>>() : null;
 
-  if (!clip || !isWatchable(clip) || !mayWatch(request, clip)) {
+  if (!clip || !isWatchable(clip) || !(await canWatch(env, request, clip))) {
     // A signed-out viewer cannot tell a missing clip from a private one. They sign in and come back.
     if (!user) {
       const login = new URL('/login/', request.url);

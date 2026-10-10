@@ -1,12 +1,12 @@
 // The transcript in another language (Spanish or English), kept beside the original. The original is never changed.
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, adminOrError, manageClip, type ClipsEnv } from '../../../_lib/clips';
+import { J, staffOrError, manageClip, type ClipsEnv } from '../../../_lib/clips';
 import { LANGS, translateLines } from '../../../_lib/clipai';
 import type { ClipSegment } from '../../../_lib/clipChapters';
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await manageClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);

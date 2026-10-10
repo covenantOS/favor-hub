@@ -2,6 +2,7 @@
 // Marketing account (the AI binding in wrangler.toml). Whisper turns the recording's sound into timed words. A small
 // text model names the clip and cuts it into chapters. The page never says where the words came from.
 import { J, audioPrefix, sliceTextKey, MAX_AUDIO_BYTES, type AudioSeg, type Clip, type ClipsEnv, type PartRec } from './clips';
+import { framesOf, readPending, screenChapters, screenContext, stretches, type Seen } from './clipVision';
 import { chapterLines, chapterRange, cleanChapters, fallbackChapters, parseAiJson, startAtZero, type ClipChapter, type ClipSegment, type ClipWord } from './clipChapters';
 
 export const WHISPER = '@cf/openai/whisper-large-v3-turbo';
@@ -149,15 +150,27 @@ const VOICE =
   'You work for Favor International, a Christian nonprofit. You are given the transcript of a screen or camera recording a staff member made for coworkers. ' +
   'Write plainly and specifically. Never invent facts, names, dates or numbers; if something is not in the transcript, leave it out. ' +
   'Leave out personal details of any partner or donor (names, addresses, phone numbers, emails) and any gift amount tied to a person. ' +
-  'Do not use em dashes. Do not mention artificial intelligence or that this was written from a transcript.';
+  'Do not use em dashes. Do not mention artificial intelligence or that this was written from a transcript. ' +
+  'You may also be given a list of what the screen showed (the application and page at each moment). Use it to name the tool or page and the steps the person took, for example "Favor hub, Request board". ' +
+  'Never copy a person\'s name, address, phone number, email address or dollar amount from the screen into your answer.';
 
-export async function nameIt(env: ClipsEnv, text: string): Promise<{ title: string; summary: string } | null> {
-  if (!text.trim()) return null;
+/** Who is presenting, for the prompt. The agent key stands in for no one, so it names nobody. */
+export function presenterLine(clip: Pick<Clip, 'owner_name' | 'owner_email' | 'owner_team'>): string {
+  const name = (clip.owner_name || '').trim();
+  if (!name || clip.owner_email === 'agent' || /^agent$/i.test(name)) return '';
+  const first = name.split(/\s+/)[0];
+  return `Presenter: ${name}${clip.owner_team ? `, on the ${clip.owner_team} team` : ''}. Refer to them as ${first} in the summary when it reads naturally; never call them "the speaker" or "Agent". The team is background only: never put the name or the team in the title, and never say what the recording is for unless the recording says so.`;
+}
+
+export interface NameContext { presenter?: string; screen?: string }
+
+export async function nameIt(env: ClipsEnv, text: string, ctx: NameContext = {}): Promise<{ title: string; summary: string } | null> {
+  if (!text.trim() && !ctx.screen) return null;
   try {
     const out = await chatJson<{ title?: unknown; summary?: unknown }>(
       env,
-      'Return keys: title (at most 8 words, plain, no quotes, says what the recording is about, no trailing period) and summary (2 to 3 sentences on what is shown and decided; no filler).',
-      `Transcript:\n${clipText(text)}`,
+      'Return keys: title (at most 8 words, plain, no quotes, says what the recording is about and where, no trailing period, no person names) and summary (2 to 3 sentences on what is shown and decided; name the tool or page when the screen list gives it; no filler).',
+      [ctx.presenter, `Transcript:\n${text.trim() ? clipText(text) : '(nobody spoke)'}`, ctx.screen ? `What the screen showed:\n${ctx.screen}` : ''].filter(Boolean).join('\n\n'),
       500
     );
     const title = plain(out.title, 120).replace(/^["']|["']$/g, '').replace(/\.$/, '');
@@ -177,13 +190,13 @@ export function clipText(text: string, limit = 24000): string {
 }
 
 /** Chapters from the transcript: the model names the sections; the times are the transcript's own. Never empty for a transcript with text. */
-export async function chaptersFor(env: ClipsEnv, segments: ClipSegment[], duration: number, words: ClipWord[] = []): Promise<ClipChapter[]> {
+export async function chaptersFor(env: ClipsEnv, segments: ClipSegment[], duration: number, words: ClipWord[] = [], screen = '', seen: Seen[] = []): Promise<ClipChapter[]> {
   const lines = chapterLines(segments, words);
-  if (!lines.length) return [];
+  if (!lines.length) return screenChapters(seen, duration);
   const dur = duration || lines[lines.length - 1].e;
   const [lo, hi] = chapterRange(dur);
   try {
-    const text = lines.map((l) => `[${stamp(l.s)}] ${l.t}`).join('\n').slice(0, 30000);
+    const text = lines.map((l) => `[${stamp(l.s)}] ${l.t}`).join('\n').slice(0, 30000) + (screen ? `\n\nWhat the screen showed (use it to place chapter breaks where the person moved to a new page or tool, and to name them):\n${screen}` : '');
     const out = await chatJson<unknown>(
       env,
       'Split the transcript into chapters like a video table of contents. Return {"chapters":[{"at":0,"title":"..."}]}. ' +
@@ -222,6 +235,7 @@ export function fallbackTitle(createdAt: string): string {
 }
 
 export interface Processed {
+  seen: Seen[];
   title: string;
   summary: string;
   transcript: ClipSegment[];
@@ -234,19 +248,30 @@ export interface Processed {
  * After the upload completes (and again on a retry): read every audio slice, then write the title, the summary and the
  * chapters, with no button to press. `again` reads the audio afresh and rewrites the title, summary and chapters.
  */
-export async function processClip(env: ClipsEnv, clip: Clip, again = false): Promise<Processed> {
+export async function processClip(env: ClipsEnv, clip: Clip, again = false, vision = true): Promise<Processed> {
   if (again) await forgetSlices(env, clip);
   const { segments, words, missing } = await transcribeAll(env, clip);
+  // What was on screen: read any pictures still waiting, then build the timeline the title, summary and chapters will see.
+  let screen = '';
+  let seen: Seen[] = [];
+  if (vision) {
+    await readPending(env, clip.id).catch(() => undefined);
+    const frames = await framesOf(env, clip.id).catch(() => []);
+    screen = screenContext(frames);
+    seen = stretches(frames);
+  }
+  const presenter = presenterLine(clip);
   const text = segments.map((s) => s.t).join(' ');
   const duration = clip.duration_ms / 1000;
   const hasChapters = cleanChapters(J<unknown>(clip.chapters, []), duration, 1).length > 0;
   const needName = clip.title_auto === 1 || !clip.title || !clip.summary || again;
   const [named, chapters] = await Promise.all([
-    needName && text.trim() ? twice(() => nameIt(env, text), (v) => !v || !v.summary) : Promise.resolve(null),
-    text.trim() && (again || !hasChapters) ? twice(() => chaptersFor(env, segments, duration, words), (v) => !v.length) : Promise.resolve(null),
+    needName && (text.trim() || screen) ? twice(() => nameIt(env, text, { presenter, screen }), (v) => !v || !v.summary) : Promise.resolve(null),
+    (text.trim() || seen.length) && (again || !hasChapters) ? twice(() => chaptersFor(env, segments, duration, words, screen, seen), (v) => !v.length) : Promise.resolve(null),
   ]);
   const autoTitle = clip.title_auto === 1 || !clip.title;
   return {
+    seen,
     title: autoTitle ? (named?.title || (clip.title_auto === 1 && clip.title) || fallbackTitle(clip.created_at)) : clip.title,
     summary: named?.summary && (again || !clip.summary) ? named.summary : clip.summary,
     transcript: segments,

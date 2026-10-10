@@ -1,10 +1,10 @@
 // The poster frame the browser captured while recording (a small JPEG).
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { adminOrError, ownClip, posterKey, type ClipsEnv } from '../../../_lib/clips';
+import { staffOrError, ownClip, posterKey, type ClipsEnv } from '../../../_lib/clips';
 
 export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await ownClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);

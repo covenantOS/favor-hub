@@ -1,13 +1,13 @@
 // Rename, change the summary, turn sharing on or off, save edits or chapters or corrected transcript lines, or delete a
-// clip. Any hub admin may manage a saved clip. Delete removes the video, poster, sound and every note from R2 and D1.
+// clip. The person who made a clip manages it; a hub admin may also delete any clip. Delete removes the video, poster, sound and every note from R2 and D1.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, adminOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
+import { J, staffOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
 import { cleanEdits, respread } from '../../../_lib/clipEdits';
 import { cleanChapters, type ClipSegment, type ClipWord } from '../../../_lib/clipChapters';
 
 export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await manageClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
@@ -58,9 +58,9 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
 
 export const onRequestDelete: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
-    const clip = await manageClip(env, who.user, String(params.id));
+    const clip = await manageClip(env, who.user, String(params.id), { allowAdmin: true });
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
     if (clip.status === 'uploading' && clip.upload_id) {
       await env.CLIPS.resumeMultipartUpload(videoKey(clip.id), clip.upload_id).abort().catch(() => undefined);
@@ -71,6 +71,7 @@ export const onRequestDelete: PagesFunction<ClipsEnv, 'id'> = async ({ request, 
       env.DB.prepare('DELETE FROM hub_clip_comments WHERE clip_id = ?').bind(clip.id),
       env.DB.prepare('DELETE FROM hub_clip_reactions WHERE clip_id = ?').bind(clip.id),
       env.DB.prepare('DELETE FROM hub_clip_views WHERE clip_id = ?').bind(clip.id),
+      env.DB.prepare('DELETE FROM hub_clip_frames WHERE clip_id = ?').bind(clip.id),
       env.DB.prepare('DELETE FROM hub_clips WHERE id = ?').bind(clip.id),
     ]);
     await purgeClip(env, clip.id);

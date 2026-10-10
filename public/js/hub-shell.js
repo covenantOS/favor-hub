@@ -28,6 +28,37 @@
     });
   }
 
+  // The account menu: My clips and Record a clip, under the person's own name.
+  const acct = $('h-acct');
+  const acctMenu = $('h-acctmenu');
+  if (acct && acctMenu) {
+    const setAcct = (open) => {
+      acctMenu.hidden = !open;
+      acct.setAttribute('aria-expanded', open ? 'true' : 'false');
+    };
+    acct.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setAcct(acctMenu.hidden);
+    });
+    document.addEventListener('click', (e) => {
+      if (!acctMenu.hidden && !e.target.closest('#h-acctmenu')) setAcct(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !acctMenu.hidden) {
+        setAcct(false);
+        acct.focus();
+      }
+    });
+    acctMenu.addEventListener('click', (e) => {
+      const rec = e.target.closest('[data-clip-record]');
+      setAcct(false);
+      if (rec) {
+        const cam = $('clip-cam');
+        if (cam) cam.click();
+      }
+    });
+  }
+
   const out = $('h-out');
   if (out) {
     out.addEventListener('click', async () => {

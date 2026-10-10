@@ -1,7 +1,7 @@
 // Everything the watch page needs. A signed-out viewer through the share link gets the video's words and nothing
 // else: no comments, reactions or viewers. Signed-in staff also get those; an admin also gets the manage controls.
 import { errorJson, handleError, json } from '../../../_lib/http';
-import { ID_RE, PRIVATE, clipView, isWatchable, mayWatch, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import { ID_RE, J, PRIVATE, clipView, isWatchable, canWatch, type Clip, type ClipsEnv } from '../../../_lib/clips';
 import { hubUserOf } from '../../../_lib/session';
 
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
@@ -9,7 +9,7 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
     const id = String(params.id);
     const user = hubUserOf(request);
     const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>() : null;
-    if (!clip || !isWatchable(clip) || !mayWatch(request, clip)) {
+    if (!clip || !isWatchable(clip) || !(await canWatch(env, request, clip))) {
       return user ? errorJson('not_found', 'That clip is gone.', 404) : new Response(JSON.stringify({ ok: false, error: 'signin' }), { status: 401, headers: { ...PRIVATE, 'Content-Type': 'application/json' } });
     }
     const out: Record<string, unknown> = { ok: true, clip: clipView(clip), user: user ? { email: user.email, name: user.name, admin: user.role === 'admin' } : null };
@@ -33,11 +33,14 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
       out.reactions = reactions.results || [];
       out.viewers = [...seen.values()];
       out.views = clip.views;
+      // The person who made the clip edits it. An admin may delete any clip to clear space, and nothing else.
+      const mine = clip.owner_email === user.email;
       const admin = user.role === 'admin';
-      out.can = { edit: admin, delete: admin, share: admin };
-      if (admin) {
-        out.mine = clip.owner_email === user.email;
+      out.can = { edit: mine, delete: mine || admin, share: mine };
+      out.mine = mine;
+      if (mine) {
         out.helpDraft = clip.help_draft;
+        out.seen = J<unknown[]>(clip.seen, []);
       }
     }
     return json(out, 200, { 'Cache-Control': 'private, no-store' });

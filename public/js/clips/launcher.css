@@ -218,3 +218,6 @@
 .cr-corners--bar { display: inline-flex; align-items: center; gap: 6px; width: 100%; justify-content: center; padding: 2px 0 4px; font-size: 12px; color: var(--cr-ink-3); }
 .cr-corners--bar button { width: 30px; height: 26px; border-radius: 8px; border: 1px solid var(--cr-line-2); background: #fff; color: var(--cr-ink-2); font: 600 11px var(--cr-font); cursor: pointer; text-transform: uppercase; }
 .cr-corners--bar button:hover { border-color: var(--cr-brand); color: var(--cr-brand-ink); }
+.cr-usage { padding: 9px 12px; border-radius: 12px; background: #f3ead2; color: #5e4812; margin: 10px 0 0; text-align: left; }
+.cr-usage[hidden] { display: none; }
+.cr-usage a { color: inherit; font-weight: 600; }

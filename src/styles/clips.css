@@ -46,3 +46,28 @@
   .cl-head .h-btn { align-self: flex-start; }
   .cl-grid { grid-template-columns: 1fr; }
 }
+
+/* Storage note and the admin view */
+.cl-adminlink { font: 600 13px var(--h-font); color: var(--h-brand-ink); text-decoration: none; padding: 8px 4px; }
+.cl-adminlink:hover { text-decoration: underline; }
+.cl-adminlink[hidden] { display: none; }
+.cl-use { padding: 14px 16px; border-radius: 16px; background: var(--h-surface-2); border: 1px solid var(--h-line); }
+.cl-use.is-warn { background: var(--h-gold-soft); border-color: #e4d3a3; }
+.cl-use__t { font-size: 13.5px; color: var(--h-ink-2); margin-bottom: 8px; }
+.cl-use__t b { color: var(--h-ink); }
+.cl-use__w { margin: 10px 0 0; font-size: 13px; color: #5e4812; }
+.cl-meter { display: block; height: 8px; border-radius: 999px; background: #e8e4dc; overflow: hidden; }
+.cl-meter u { display: block; height: 100%; background: var(--h-brand); border-radius: 999px; text-decoration: none; }
+.cl-meter.is-warn u { background: #b4432a; }
+.cl-old { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.cl-old li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 6px 10px; border-radius: 12px; background: #fff; font-size: 13px; }
+.cl-old a { color: var(--h-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-old span { color: var(--h-ink-3); font-size: 12px; white-space: nowrap; }
+.cl-ppl { border: 1px solid var(--h-line); border-radius: 16px; background: #fff; overflow: hidden; }
+.cl-ppl__h, .cl-ppl__r { display: grid; grid-template-columns: minmax(0, 2.2fr) 70px 90px minmax(80px, 1fr); gap: 12px; align-items: center; padding: 10px 16px; font-size: 13px; }
+.cl-ppl__h { background: var(--h-surface-2); color: var(--h-ink-3); font-weight: 600; font-size: 12px; }
+.cl-ppl__r { border-top: 1px solid var(--h-line); }
+.cl-ppl__r small { display: block; color: var(--h-ink-3); font-size: 11.5px; }
+.cl-ppl__r em { font-style: normal; color: var(--h-ink-3); font-size: 12px; }
+.cl-tag { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--h-red-soft, #f6e7df); color: #7a3320; }
+@media (max-width: 700px) { .cl-ppl__h { display: none; } .cl-ppl__r { grid-template-columns: 1fr 1fr; } .cl-old li { grid-template-columns: 1fr auto; } .cl-old li span { display: none; } }

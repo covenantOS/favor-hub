@@ -60,7 +60,9 @@ const shownLines = () => {
 };
 const translated = () => shownLines() !== S.lines;
 const LANG_NAMES = { orig: 'Original', es: 'Spanish', en: 'English' };
-const isAdmin = () => !!(S.user && S.user.admin);
+// "isAdmin" now means "may edit this clip": the person who made it. A hub admin who did not make it may only delete it.
+const isAdmin = () => !!(S.can && S.can.edit);
+const canDelete = () => !!(S.can && S.can.delete);
 const signedIn = () => !!S.user;
 const firstName = (n) => String(n || '').split(/\s+/)[0] || 'Someone';
 const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
@@ -80,6 +82,7 @@ async function load(first) {
     S.reactions = d.reactions || [];
     S.viewers = d.viewers || [];
     S.helpDraft = d.helpDraft || '';
+    S.seen = d.seen || [];
     S.lines = d.clip.transcript || [];
     S.wordsRaw = d.clip.words || [];
     S.words = wordsOf(S.lines, S.wordsRaw);
@@ -212,6 +215,7 @@ function paintActs() {
       <span class="cw-menuwrap"><button type="button" class="cw-btn cw-btn--ghost cw-btn--ic" id="cw-more" aria-haspopup="menu" aria-expanded="false" aria-label="More">${icon('more')}</button>
       <ul class="cw-menu cw-menu--r" id="cw-morem" role="menu" hidden>
         <li role="none"><a class="cw-mi" role="menuitem" href="${mediaUrl()}?dl=1" download>${icon('dl')}Download</a></li>
+        ${canDelete() ? `<li role="none"><button type="button" class="cw-mi cw-mi--danger" role="menuitem" data-m="delete">${icon('trash')}Delete</button></li>` : ''}
       </ul></span>`;
   }
 }
@@ -983,6 +987,7 @@ function tabsFor() {
   const t = [{ id: 'transcript', label: 'Transcript' }];
   if (signedIn()) t.push({ id: 'comments', label: S.comments.length ? `Comments (${S.comments.length})` : 'Comments' });
   if (signedIn()) t.push({ id: 'activity', label: 'Activity' });
+  if (isAdmin() && S.seen && S.seen.length) t.push({ id: 'screen', label: 'On screen' });
   if (isAdmin()) t.push({ id: 'article', label: 'Help article' });
   return t;
 }
@@ -1009,6 +1014,15 @@ function paintPanel() {
   if (S.tab === 'comments') return paintComments(box);
   if (S.tab === 'activity') return paintActivity(box);
   if (S.tab === 'article') return paintArticle(box);
+  if (S.tab === 'screen') return paintScreen(box);
+}
+
+/* ---- on screen: where the person was, in order (only the person who made the clip sees it) ---- */
+
+function paintScreen(box) {
+  const seen = S.seen || [];
+  box.innerHTML = `<p class="cw-empty cw-empty--pad cw-screen__note">The tools and pages this clip showed, in order. Only you see this list.</p>
+    <ol class="cw-chlist cw-screen">${seen.map((x) => `<li><button type="button" class="cw-ch" data-seek="${x.from}"><span class="cw-t">${fmtTime(edited(x.from))}</span><span class="cw-ct">${esc([x.app, x.page].filter(Boolean).join(', '))}</span></button></li>`).join('')}</ol>`;
 }
 
 /* ---- transcript ---- */
@@ -1203,7 +1217,7 @@ document.addEventListener('click', async (e) => {
 function paintComments(box) {
   const list = [...S.comments].sort((a, b) => a.at_seconds - b.at_seconds || a.created_at.localeCompare(b.created_at));
   box.innerHTML = list.length
-    ? `<ul class="cw-comments">${list.map((c) => `<li data-c="${c.id}"><span class="cw-av">${esc(initials(c.author_name))}</span><div><p class="cw-cmeta"><b>${esc(firstName(c.author_name))}</b> · ${esc(ago(c.created_at))} <button type="button" class="cw-t" data-seek="${c.at_seconds}" aria-label="Jump to ${fmtTime(edited(c.at_seconds))}">${fmtTime(edited(c.at_seconds))}</button></p><p class="cw-cbody">${esc(c.body)}</p></div>${c.author_email === S.user.email || isAdmin() ? `<button type="button" class="cw-ib2" data-cdel="${c.id}" aria-label="Delete comment">${icon('x')}</button>` : ''}</li>`).join('')}</ul>`
+    ? `<ul class="cw-comments">${list.map((c) => `<li data-c="${c.id}"><span class="cw-av">${esc(initials(c.author_name))}</span><div><p class="cw-cmeta"><b>${esc(firstName(c.author_name))}</b> · ${esc(ago(c.created_at))} <button type="button" class="cw-t" data-seek="${c.at_seconds}" aria-label="Jump to ${fmtTime(edited(c.at_seconds))}">${fmtTime(edited(c.at_seconds))}</button></p><p class="cw-cbody">${esc(c.body)}</p></div>${c.author_email === S.user.email || (S.user && S.user.admin) ? `<button type="button" class="cw-ib2" data-cdel="${c.id}" aria-label="Delete comment">${icon('x')}</button>` : ''}</li>`).join('')}</ul>`
     : '<p class="cw-empty cw-empty--pad">No comments yet. Pause where you want to say something, then write it under the video.</p>';
 }
 document.addEventListener('click', async (e) => {

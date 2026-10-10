@@ -1,24 +1,23 @@
 ---
-// Clips: the quiet library. Recording happens in the pop-up from the camera button at the top right of any page.
+// Clips: a person's own library. Recording happens in the recorder window from the camera button at the top right of any page.
 import App from '../../layouts/App.astro';
 import '../../styles/clips.css';
 ---
-<App title="Clips" crumb="Work" nav="clips" description="Your recorded clips and the clips other admins shared.">
-  <div class="cl" id="cl">
+<App title="Clips" crumb="Work" nav="clips" description="Your recorded clips.">
+  <div class="cl" id="cl" data-scope="mine">
     <section class="cl-head">
       <div>
-        <h1>Clips</h1>
-        <p class="h-lede">Every clip you and the other admins recorded. Search covers titles, summaries and what was said. To record a new one, press the camera at the top right of any page.</p>
+        <h1>My clips</h1>
+        <p class="h-lede">Every clip you recorded. Search covers titles, summaries, what you said and what was on your screen. Only you see this list. Share a clip with the link, and people who are signed in to the hub can watch it.</p>
       </div>
       <button type="button" class="h-btn h-btn--primary" id="cl-new">Record a clip</button>
     </section>
 
-    <section class="cl-bar" aria-label="Search and filter">
-      <label class="cl-search"><span class="cl-sr">Search clips</span><input id="cl-q" type="search" placeholder="Search titles and what was said" autocomplete="off" /></label>
-      <div class="cl-chips" role="group" aria-label="Whose clips">
-        <button type="button" class="cl-chip is-on" data-who="all" aria-pressed="true">Everyone</button>
-        <button type="button" class="cl-chip" data-who="mine" aria-pressed="false">Mine</button>
-      </div>
+    <section id="cl-usage" aria-label="Your storage" hidden></section>
+
+    <section class="cl-bar" aria-label="Search">
+      <label class="cl-search"><span class="cl-sr">Search your clips</span><input id="cl-q" type="search" placeholder="Search titles, what you said and what was on screen" autocomplete="off" /></label>
+      <a class="cl-adminlink" id="cl-adminlink" href="/clips/all/" data-need="admin" hidden>All clips (admin)</a>
     </section>
 
     <section aria-label="Clips">
@@ -26,5 +25,5 @@ import '../../styles/clips.css';
       <div id="cl-rows" class="cl-grid" aria-busy="true"><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div></div>
     </section>
   </div>
-  <script is:inline type="module" src="/js/clips/library.js?v=1"></script>
+  <script is:inline type="module" src="/js/clips/library.js?v=2"></script>
 </App>

@@ -4,11 +4,11 @@
 //   GET  /audio                 the list of slices
 //   GET  /audio?n=0             one slice's bytes (an admin, for the editor's waveform)
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, MAX_AUDIO_BYTES, PRIVATE, adminOrError, audioPrefix, manageClip, ownClip, type AudioSeg, type ClipsEnv } from '../../../_lib/clips';
+import { J, MAX_AUDIO_BYTES, PRIVATE, staffOrError, audioPrefix, manageClip, ownClip, type AudioSeg, type ClipsEnv } from '../../../_lib/clips';
 
 export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await ownClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
@@ -36,7 +36,7 @@ export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
 
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await manageClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);

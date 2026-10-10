@@ -4,7 +4,7 @@ import { nowIso } from './http';
 import { processClip, fallbackTitle } from './clipai';
 import type { Clip, ClipsEnv } from './clips';
 
-export async function runProcess(env: ClipsEnv, id: string, again = false, wait = false): Promise<Clip | null> {
+export async function runProcess(env: ClipsEnv, id: string, again = false, wait = false, vision = true): Promise<Clip | null> {
   const clip = await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
   if (!clip || clip.status === 'uploading' || clip.status === 'failed') return clip;
   // One run at a time per clip. The browser asks for processing right after Stop, and the server starts a backup run in case
@@ -22,9 +22,9 @@ export async function runProcess(env: ClipsEnv, id: string, again = false, wait 
     return env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
   }
   try {
-    const out = await processClip(env, clip, again);
+    const out = await processClip(env, clip, again, vision);
     await env.DB.prepare(
-      "UPDATE hub_clips SET status = 'ready', proc_at = NULL, title = ?, title_auto = ?, summary = ?, transcript = ?, words = ?, chapters = ?, error = ?, updated_at = ? WHERE id = ?"
+      "UPDATE hub_clips SET status = 'ready', proc_at = NULL, title = ?, title_auto = ?, summary = ?, transcript = ?, words = ?, chapters = ?, seen = ?, error = ?, updated_at = ? WHERE id = ?"
     ).bind(
       out.title,
       clip.title_auto === 1 || !clip.title ? 1 : 0,
@@ -32,6 +32,7 @@ export async function runProcess(env: ClipsEnv, id: string, again = false, wait 
       JSON.stringify(out.transcript),
       JSON.stringify(out.words),
       JSON.stringify(out.chapters),
+      JSON.stringify(out.seen),
       out.error,
       nowIso(),
       id

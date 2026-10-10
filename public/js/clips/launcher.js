@@ -84,7 +84,7 @@ function ensureCss() {
   cssReady = true;
   const l = document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = '/js/clips/launcher.css?v=1';
+  l.href = '/js/clips/launcher.css?v=3';
   l.id = 'cr-css';
   document.head.appendChild(l);
 }
@@ -144,6 +144,7 @@ function cardHtml(phone) {
   ${p.micOn ? '<select id="cr-micsel" class="cr-sel" aria-label="Choose a microphone" hidden></select>' : ''}
   ${!cameraOnly && screenOk ? `<label class="cr-check"><input type="checkbox" data-act="sys" ${p.systemAudio ? 'checked' : ''}/><span>Include computer sound</span></label>` : ''}
   <p class="cr-err" id="cr-err" role="alert" hidden></p>
+  <p class="cr-note cr-usage" id="cr-usage" hidden></p>
   <button type="button" class="cr-start" data-act="start" id="cr-start"><i aria-hidden="true"></i>Start recording</button>
   <p class="cr-keep">${STANDALONE ? 'Leave this window open while you record. Go anywhere in the hub, or in other apps, and it keeps recording.' : 'Keep this tab open while you record. Switch to what you want to show.'}</p>
   <div class="cr-foot">
@@ -235,12 +236,31 @@ async function startLive() {
   }
 }
 
+/** Storage note: past 80% of 10 GB the card says so, and at 100% it will not start. */
+async function showUsage() {
+  try {
+    const d = await api('/api/clips/usage');
+    S.usage = d.usage;
+  } catch (e) {
+    return;
+  }
+  const el = S.card && S.card.querySelector('#cr-usage');
+  const u = S.usage;
+  if (!el || !u || !u.warn) return;
+  const gb = (n) => (n / 1024 ** 3).toFixed(1);
+  el.hidden = false;
+  el.innerHTML = u.full
+    ? `Your clips use all ${gb(u.cap)} GB, so recording waits until you delete some. <a href="/clips/"${STANDALONE ? ' target="favor-hub-main"' : ''}>Open My clips</a>`
+    : `You are using ${gb(u.used)} of ${gb(u.cap)} GB. Your oldest clips that nobody watched are listed in <a href="/clips/"${STANDALONE ? ' target="favor-hub-main"' : ''}>My clips</a>.`;
+}
+
 function paintCard() {
   if (!S.card) return;
   const phone = isPhone();
   if (phone && S.prefs.source !== 'camera') S.prefs = { ...S.prefs, source: 'camera', camOn: true };
   S.card.innerHTML = cardHtml(phone);
   startLive();
+  showUsage();
 }
 
 function placeCard() {
@@ -397,6 +417,10 @@ function startRecording() {
   }
   const p = S.prefs;
   const settings = settingsOf(p);
+  if (S.usage && S.usage.full) {
+    setErr('Your clips use all 10 GB. Delete clips you no longer need in My clips, then record again.');
+    return;
+  }
   if (settings.source !== 'camera' && !canRecordScreen()) {
     setErr('This browser cannot record the screen. Use Chrome, Edge, Firefox or Safari on a computer.');
     return;
@@ -727,7 +751,7 @@ async function openPip(kind) {
   const win = await api2.requestWindow(size);
   const l = win.document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = new URL('/js/clips/launcher.css?v=1', location.href).toString();
+  l.href = new URL('/js/clips/launcher.css?v=3', location.href).toString();
   win.document.head.appendChild(l);
   win.document.body.className = 'cr-pipbody';
   win.document.body.style.margin = '0';

@@ -1,11 +1,11 @@
 // Read one audio slice while the recording is still going. Optional: the final pass reads whatever is left.
 import { errorJson, handleError, json } from '../../../_lib/http';
-import { J, adminOrError, ownClip, type AudioSeg, type ClipsEnv } from '../../../_lib/clips';
+import { J, staffOrError, ownClip, type AudioSeg, type ClipsEnv } from '../../../_lib/clips';
 import { transcribeSlice } from '../../../_lib/clipai';
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await ownClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);

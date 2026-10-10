@@ -1,11 +1,11 @@
 // One part of a clip's multipart upload. Every part except the last must be the same size (8 MiB from the browser).
 // The part list is kept in D1 as parts arrive, so a recording whose tab closed can still be finished.
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, MAX_PARTS, PART_BYTES, adminOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
+import { J, MAX_PARTS, PART_BYTES, staffOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
 
 export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await ownClip(env, who.user, String(params.id));
     if (!clip || clip.status !== 'uploading' || !clip.upload_id) return errorJson('not_found', 'That upload is not open.', 404);

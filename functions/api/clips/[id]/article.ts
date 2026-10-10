@@ -1,12 +1,12 @@
 // "Draft a help article from this clip": a Markdown article in the shape the hub's help docs use. Nothing is published;
 // the draft is kept on the clip so it is there when the editor comes back.
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { adminOrError, manageClip, type ClipsEnv } from '../../../_lib/clips';
+import { staffOrError, manageClip, type ClipsEnv } from '../../../_lib/clips';
 import { helpArticle } from '../../../_lib/clipai';
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await manageClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
@@ -28,7 +28,7 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
 // Save the editor's changes to the draft.
 export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
-    const who = adminOrError(request);
+    const who = staffOrError(request);
     if ('res' in who) return who.res;
     const clip = await manageClip(env, who.user, String(params.id));
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);

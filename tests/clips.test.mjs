@@ -30,19 +30,35 @@ describe('ids and watching', () => {
     assert.match(a, /^[0-9a-f]{32}$/);
     assert.notEqual(a, lib.clipId());
   });
-  it('lets a signed-in user watch and a signed-out one watch only when shared', () => {
+  const envWith = (blocked) => ({ DB: { prepare: () => ({ bind: () => ({ first: async () => (blocked === null ? null : { blocked }) }) }) } });
+  it('lets a signed-in user watch and a signed-out one watch only when shared', async () => {
     const signedIn = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org' } });
     const out = new Request('https://hub.test/');
-    assert.equal(lib.mayWatch(signedIn, { share: 0 }), true);
-    assert.equal(lib.mayWatch(out, { share: 0 }), false);
-    assert.equal(lib.mayWatch(out, { share: 1 }), true);
+    const mine = { owner_email: 'owner@favorintl.org' };
+    assert.equal(await lib.canWatch(envWith(0), signedIn, { ...mine, share: 0 }), true);
+    assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 0 }), false);
+    assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 1 }), true);
   });
-  it('only admins record', () => {
+  it('stops a shared link for outsiders when the person who made the clip is blocked from the hub', async () => {
+    const out = new Request('https://hub.test/');
+    const signedIn = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org' } });
+    assert.equal(await lib.canWatch(envWith(1), out, { owner_email: 'gone@favorintl.org', share: 1 }), false);
+    assert.equal(await lib.canWatch(envWith(1), signedIn, { owner_email: 'gone@favorintl.org', share: 1 }), true);
+  });
+  it('every signed-in person records, a signed-out one does not', () => {
     const staff = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org', 'X-Hub-Role': 'staff' } });
-    const admin = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'will@favorintl.org', 'X-Hub-Role': 'admin' } });
-    assert.equal(lib.adminOrError(staff).res.status, 403);
-    assert.equal(lib.adminOrError(new Request('https://hub.test/')).res.status, 401);
-    assert.equal(lib.adminOrError(admin).user.email, 'will@favorintl.org');
+    assert.equal(lib.staffOrError(staff).user.email, 'ada@favorintl.org');
+    assert.equal(lib.staffOrError(new Request('https://hub.test/')).res.status, 401);
+  });
+  it('a person manages only their own clips; an admin may also delete any', async () => {
+    const row = { id: 'c'.repeat(32), owner_email: 'owner@favorintl.org', status: 'ready' };
+    const env = { DB: { prepare: () => ({ bind: () => ({ first: async () => row }) }) } };
+    const user = (email, role) => ({ email, name: email, role, picture: '', via: 'google', kpi: true });
+    assert.ok(await lib.manageClip(env, user('owner@favorintl.org', 'staff'), row.id));
+    assert.equal(await lib.manageClip(env, user('ada@favorintl.org', 'staff'), row.id), null);
+    assert.equal(await lib.manageClip(env, user('will@favorintl.org', 'admin'), row.id), null);
+    assert.ok(await lib.manageClip(env, user('will@favorintl.org', 'admin'), row.id, { allowAdmin: true }));
+    assert.equal(await lib.manageClip(env, user('ada@favorintl.org', 'staff'), row.id, { allowAdmin: true }), null);
   });
 });
 
@@ -116,10 +132,18 @@ describe('watch data for each kind of viewer', () => {
     assert.equal(d.can.edit, false);
     assert.equal(d.helpDraft, undefined);
   });
-  it('gives an admin the manage rights and the help article draft', async () => {
-    const d = await (await call(0, admin)).json();
+  const owner = { 'X-Hub-Email': 'owner@favorintl.org', 'X-Hub-Name': 'Owner', 'X-Hub-Role': 'staff' };
+  it('gives the person who made the clip the manage rights and the help article draft', async () => {
+    const d = await (await call(0, owner)).json();
     assert.equal(d.can.edit, true);
+    assert.equal(d.can.delete, true);
     assert.equal(d.helpDraft, 'draft');
+  });
+  it('gives an admin who did not make the clip a delete button and nothing else', async () => {
+    const d = await (await call(0, admin)).json();
+    assert.equal(d.can.edit, false);
+    assert.equal(d.can.delete, true);
+    assert.equal(d.helpDraft, undefined);
   });
   it('shows a clip that is still being named', async () => {
     const res = await call(0, staff, 'processing');
