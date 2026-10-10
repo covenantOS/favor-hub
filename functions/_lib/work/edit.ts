@@ -11,7 +11,7 @@ import { addMeter, getMeter, getSetting, listStaff, setSetting } from './db';
 import { DAILY_CAP } from '../actions/batch';
 import type { Step } from '../actions/completion';
 import {
-  FALLBACK_CODES, checkFields, checkOpp, checkRecur, conflicts, copyBody, defaultsFor, nextDue, oppValuesOf, oppView, recurAfter, stamp, valuesOf,
+  FALLBACK_CODES, addDaysIso, checkFields, checkOpp, checkRecur, conflicts, copyBody, defaultsFor, nextDue, oppValuesOf, oppView, recurAfter, stamp, valuesOf,
   type Codes, type OppView, type Recur,
 } from '../actions/fields';
 import type { Ctx, PlannedItem } from './service';
@@ -279,6 +279,8 @@ export interface EditInput {
   note?: { id?: string; type?: string; summary?: string; text?: string; date?: string; remove?: boolean };
   attach?: { id?: string; name?: string; url?: string; remove?: boolean; file_id?: string; file_name?: string };
   cids?: string[];
+  /** New action on many partners: a due date for each partner (Plan calls spreads calls over the days). The set date covers any partner left out. */
+  dates?: Record<string, string>;
   to?: string;
   next?: Record<string, unknown> | null;
   recur?: unknown;
@@ -470,6 +472,8 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     for (const cid of cids) {
       const partner = await partnerName(ctx.env, cid);
       const create: Record<string, unknown> = { ...body, constituent_id: cid };
+      const own = input.dates && input.dates[cid];
+      if (own && /^\d{4}-\d{2}-\d{2}$/.test(own) && own >= today && own <= addDaysIso(today, 3650)) create.date = stamp(own);
       if (recur) create.__recur = recur;
       const steps: Step[] = [{ op: 'create', body: create, label: 'new' }];
       steps.push(...tagSteps(undefined, 0, input.tags, today, codes));

@@ -194,11 +194,19 @@ function page() {
       </div>
     </div>
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
-      ${[['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].filter(([k]) => k !== 'intake' || DATA.me.canEntry).map(([k, l, n]) =>
+      ${withExtraTabs([['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].filter(([k]) => k !== 'intake' || DATA.me.canEntry)).map(([k, l, n]) =>
         `<button class="wc-tab${S.view === k ? ' is-on' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
     </div>
     <div id="view"></div>`;
-  ({ open: viewOpen, intake: viewIntake, ty: viewTy, stale: viewStale, recent: viewRecent, opps: () => window.WCEdit && window.WCEdit.viewOpps() })[S.view]();
+  Object.assign({ open: viewOpen, intake: viewIntake, ty: viewTy, stale: viewStale, recent: viewRecent, opps: () => window.WCEdit && window.WCEdit.viewOpps() }, extraViews())[S.view]();
+}
+// Tabs other files add (window.WCX = [{ k, label, after, count(), show(), view() }]): My partners and any later tab. They sit after the tab named in `after`.
+function extraTabs() { return (window.WCX || []).filter((t) => !t.show || t.show(DATA.me)); }
+function extraViews() { return Object.fromEntries((window.WCX || []).map((t) => [t.k, t.view])); }
+function withExtraTabs(base) {
+  const out = base.slice();
+  for (const t of extraTabs()) { const at = out.findIndex((x) => x[0] === t.after); out.splice(at < 0 ? out.length : at + 1, 0, [t.k, t.label, t.count ? t.count() : '']); }
+  return out;
 }
 
 // ------------------------------------------------------------ the shared action table
@@ -1275,7 +1283,7 @@ async function init() {
   try {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
-    const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent', 'opps'].includes(v)) S.view = v;
+    const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent', 'opps', ...extraTabs().map((t) => t.k)].includes(v)) S.view = v;
     if (window.WCEdit) await window.WCEdit.start();
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
