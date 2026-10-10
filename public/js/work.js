@@ -14,7 +14,7 @@ const AS = QS.get('as') || '';
 // ------------------------------------------------------------ talking to the hub
 async function api(path, opts = {}) {
   const url = AS ? path + (path.includes('?') ? '&' : '?') + 'as=' + encodeURIComponent(AS) : path;
-  const headers = Object.assign({}, opts.headers || {});
+  const headers = Object.assign({ 'X-Hub-Request': '1' }, opts.headers || {});
   if (opts.body) headers['Content-Type'] = 'application/json';
   const res = await fetch(url, Object.assign({ credentials: 'same-origin' }, opts, { headers }));
   const data = await res.json().catch(() => ({}));
@@ -300,7 +300,7 @@ function viewOpen() {
     <section class="h-card wc-sheet" id="wc-board" aria-label="Open actions">
       <div class="wc-filters" id="filters">
         <div class="wc-sheettitle"><b>Filters</b><button class="wc-dlg__x" data-closefilters aria-label="Close filters">${ic('x')}</button></div>
-        <label class="wc-find">${ic('search')}<span class="sr">Find a partner or summary</span><input id="q" type="search" placeholder="Find a partner, summary or id" value="${esc(f.q)}" autocomplete="off" /></label>
+        <label class="wc-find">${ic('search')}<span class="sr-only">Find a partner or summary</span><input id="q" type="search" placeholder="Find a partner, summary or id" value="${esc(f.q)}" autocomplete="off" /></label>
         <select class="wc-sel${f.fr ? ' is-set' : ''}" data-f="fr" aria-label="Fundraiser">${frOpts}</select>
         ${f.fr && f.fr !== '_none' ? `<label class="wc-toggle" title="Blackbaud's Work Center also lists other people's open actions on the partners this fundraiser holds"><input type="checkbox" data-theirs ${f.theirs ? 'checked' : ''} />Include their partners</label>` : ''}
         <select class="wc-sel${f.type ? ' is-set' : ''}" data-f="type" aria-label="Type">${typeOpts}</select>
@@ -563,7 +563,8 @@ function dlgReassign(ids) {
   const curF = {}; ids.forEach((id) => cur(BYID[id]).f.forEach((x) => { curF[x] = (curF[x] || 0) + 1; }));
   const depart = Object.keys(curF).filter((x) => !live(x));
   const withHolder = ids.filter((id) => holderFor(BYID[id]));
-  const st = { mode: withHolder.length && depart.length ? 'holder' : 'replace', from: depart[0] || Object.keys(curF)[0] || '', to: '', add: '' };
+  const noOne = !Object.keys(curF).length; // none of these has a fundraiser yet, so there is nobody to replace
+  const st = { mode: noOne ? 'add' : withHolder.length && depart.length ? 'holder' : 'replace', from: depart[0] || Object.keys(curF)[0] || '', to: '', add: '' };
   const staff = Object.keys(DATA.people).filter(live).sort((a, b) => P(a).n.localeCompare(P(b).n));
   const opts = (sel, list, blank) => (blank ? `<option value="">${blank}</option>` : '') + list.map((k) => `<option value="${k}"${sel === k ? ' selected' : ''}>${esc(P(k).n)}${curF[k] ? ' (' + curF[k] + ')' : ''}</option>`).join('');
   const next = (a) => {
@@ -592,9 +593,10 @@ function dlgReassign(ids) {
       </div>
       <div class="wc-dlg__foot"><span class="wc-cost">Uses ${plural(costOf(p.n), 'Blackbaud call')}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go ${p.n ? '' : 'disabled'}>${ic('user')}Reassign ${p.n || ''}</button></div>`;
   };
+  const drawR = (el) => { draw(el); if (noOne) { const r = el.querySelector('input[value="replace"]'); if (r) r.closest('label').remove(); } };
   dialog('', (el) => {
-    draw(el);
-    el.addEventListener('change', (e) => { if (e.target.name === 'm') st.mode = e.target.value; if (e.target.dataset.k) { st[e.target.dataset.k] = e.target.value; st.mode = e.target.dataset.k === 'add' ? 'add' : 'replace'; } draw(el); });
+    drawR(el);
+    el.addEventListener('change', (e) => { if (e.target.name === 'm') st.mode = e.target.value; if (e.target.dataset.k) { st[e.target.dataset.k] = e.target.value; st.mode = e.target.dataset.k === 'add' ? 'add' : 'replace'; } drawR(el); });
     el.addEventListener('click', (e) => {
       if (!e.target.closest('[data-go]')) return;
       const changes = {};
@@ -650,9 +652,11 @@ function progress(done, total, text) {
   if (pi) pi.style.width = Math.max(4, Math.round(done / Math.max(1, total) * 100)) + '%';
   if (pl) pl.textContent = text || `${done} of ${total} sent to Blackbaud`;
 }
+const reqId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2));
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 async function driveBatch(bid, ids, job, opts = {}) {
   guardTab(true);
-  let done = 0, held = '', busyWaits = 0;
+  let done = 0, held = '', busyWaits = 0, idle = 0;
   const total = ids.length;
   try {
     for (let guardN = 0; guardN < 400; guardN++) {
@@ -663,9 +667,13 @@ async function driveBatch(bid, ids, job, opts = {}) {
         else if (it.state === 'failed') { S.saving[it.id] = 'failed'; if (job.failEntry) job.failEntry(it.id, it.error); }
       }
       progress(Math.min(done, total), total, opts.undo ? `Undoing… ${Math.min(done, total)} of ${total}` : undefined);
-      if (r.held === 'busy') { if (++busyWaits > 20) { held = 'busy'; break; } await new Promise((res) => setTimeout(res, 1500)); continue; }
+      if (r.held === 'busy') { if (++busyWaits > 20) { held = 'busy'; break; } await sleep(1500); continue; }
       if (r.held) { held = r.held; break; }
       if (!r.left) break;
+      // Two rounds in a row that sent nothing and failed nothing: Blackbaud is not taking calls. Stop, keep what is saved, and let the person try again later.
+      idle = r.items.some((it) => it.state === 'posted' || it.state === 'failed') ? 0 : idle + 1;
+      if (idle >= 2) { held = 'wait'; break; }
+      if (idle) await sleep(2000);
     }
   } catch (e) {
     held = 'error'; S.lastError = e.message;
@@ -679,13 +687,15 @@ async function runJob(job) {
   render();
   bar(`${job.label.replace(/^(\w+)/, (m) => VERB[m] || m)}…`);
   let saved;
+  const req = reqId(); // one per press: a second click or a retry after a lost answer gets this same batch back
   try {
-    saved = await post('/api/work/batches', Object.assign({}, job.params, job.entry ? { op: 'create', submission_ids: ids } : { ids }));
+    saved = await post('/api/work/batches', Object.assign({}, job.params, job.entry ? { op: 'create', submission_ids: ids } : { ids }, { req }));
   } catch (e) {
     ids.forEach((id) => { delete S.saving[id]; if (job.entry && inRow(id)) inRow(id).state = 'waiting'; });
     render(); toast(e.message || 'Blackbaud did not answer. Nothing was changed.'); return;
   }
   const batch = saved.batch || {};
+  if (saved.changed) job.label += ` (${saved.changed} left alone: changed in Blackbaud since your list loaded)`;
   const handled = new Set((saved.items || []).map((i) => String(i.id)));
   ids.forEach((id) => { if (!handled.has(id)) { delete S.saving[id]; if (job.entry && inRow(id)) inRow(id).state = 'waiting'; } });
   if (!batch.id) { render(); toast(job.entry ? 'Those contacts are already in Blackbaud. Nothing was added twice.' : 'Those actions were already handled. Reload the list if it looks out of date.'); refreshBoard(); return; }
@@ -698,12 +708,13 @@ async function runJob(job) {
   const res = await driveBatch(batch.id, sent, job);
   S.saving = Object.fromEntries(Object.entries(S.saving).filter(([, v]) => v === 'failed'));
   if (res.held && res.held !== 'error') {
-    sent.forEach((id) => { if (!S.saving[id] && !isDoneId(id, job)) S.queued[id] = res.held === 'off' ? 'Saved · waiting to send' : 'Goes to Blackbaud tonight'; });
+    sent.forEach((id) => { if (!S.saving[id] && !isDoneId(id, job)) S.queued[id] = res.held === 'off' || res.held === 'wait' ? 'Saved · waiting to send' : 'Goes to Blackbaud tonight'; });
   }
   await loadRecent();
   render();
   const failed = Object.values(S.saving).filter((v) => v === 'failed').length;
   if (res.held === 'error') toast(`${S.lastError || 'Blackbaud did not answer.'} What was not sent stays saved. Open Recent to try again.`, batch.id);
+  else if (res.held === 'wait') toast('Blackbaud is not taking changes right now. Yours are saved. Open Recent and press Try again in a few minutes.', batch.id);
   else if (res.held === 'off') toast('Sending to Blackbaud is switched off. Your changes are saved and go when it is switched back on.', batch.id);
   else if (res.held) toast(`${job.label}. The rest goes to Blackbaud after ${DATA.meter.resets}.`, batch.id);
   else toast(failed ? `${job.label.replace(/^(\w+) (\d+)/, (m, v, n) => v + ' ' + Math.max(0, n - failed))}. ${failed} did not go through.` : job.label + '.', batch.id);
@@ -721,7 +732,7 @@ async function undoBatch(bid) {
     await driveBatch(b.id, items.length ? items : ['x'], {}, { undo: true });
   }
   await refreshBoard(); await loadRecent(); if (S.view === 'intake') await loadEntry(); render();
-  toast('Undone. Blackbaud has them back the way they were.');
+  toast('Undone. Blackbaud has them back the way they were.' + (out.tagsStay ? ' The Thanked and Texted tags stay on those actions in Blackbaud.' : '') + (out.unresolved ? ` ${out.unresolved} contact${out.unresolved === 1 ? '' : 's'} need a look in Blackbaud. Recent lists them.` : ''));
 }
 async function retryBatch(bid) {
   let out;
@@ -773,9 +784,9 @@ function intakeRowHTML(r) {
   const picked = S.sel.has(r.id);
   let partner;
   const how = { email: 'matched by email', phone: 'matched by phone', name: 'matched by name', name_portfolio: 'name, in ' + esc(first(r.owner)) + '\'s portfolio', picked: 'picked' }[r.how] || 'matched by name';
-  if (r.cid && d) partner = `<b class="wc-pname">${esc(d.n)}</b><span class="wc-match">${esc(d.loc || 'No city on file')} · ${esc(d.lk)} · <i>${how}</i>${locked ? '' : ` · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button>`}</span>`;
+  if (r.cid && d) partner = `<b class="wc-pname">${esc(d.n)}</b><span class="wc-match">${esc(d.loc || 'No city on file')} · ${esc(d.lk)} · <i>${how}</i>${locked ? '' : `<span style="white-space:nowrap"> · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button></span>`}</span>`;
   else if (r.cid) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">Partner ${esc(r.cid)} · <i>${how}</i>${locked ? '' : ` · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button>`}</span>`;
-  else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length} records match. Pick one:</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
+  else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length === 1 ? 'One record has this name. Is it the partner?' : r.cands.length + ' records match. Pick one:'}</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
   else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>`;
   const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
   return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" role="row" tabindex="-1" data-id="${r.id}" aria-selected="${picked}">
@@ -960,7 +971,7 @@ function dlgMany() {
         closeLayer();
         bar('Entering…');
         let out;
-        try { out = await post('/api/work/entry/many', { owner: S.in.rdd, date: st.date, channel: st.ch, summary: st.sum, tags: st.tags, constituent_ids: picks }); }
+        try { out = await post('/api/work/entry/many', { owner: S.in.rdd, date: st.date, channel: st.ch, summary: st.sum, tags: st.tags, constituent_ids: picks, req: reqId() }); }
         catch (err) { hideBar(); toast(err.message); return; }
         S.in.lane = 'all';
         if (out.batch && out.batch.id && out.batch.run_when !== 'tonight') {

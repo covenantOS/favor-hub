@@ -38,4 +38,4 @@ Stale groups old tasks into lanes. Select all in a lane leaves out tasks tied to
 
 ## Who can use it
 
-Admins see Work Center now. The Support Team gets it when Will releases it, and Rachel Cox announces that.
+Admins see Work Center now. The Support Team gets it when leadership releases it, and the Director of Operations announces that.

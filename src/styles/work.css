@@ -2,6 +2,8 @@
    Ported from the clickable prototype; the frame (sidebar, top bar, buttons, cards) is the hub's own. */
 :root { --h-gold-ink: #7a5a17; }
 .wc-root { padding-bottom: 96px; }
+/* The hub's page entrance leaves a transform on this box, and a fixed child (the phone filter sheet) then measures from the box, not the screen. Fade only. */
+.h-page > .wc-root { animation-name: h-fade; }
 @media (max-width: 860px) {
   /* A backdrop filter on the frame becomes the containing block of every fixed element inside it, which pins the phone filter sheet to the page bottom. */
   html.wc-page .h-app { -webkit-backdrop-filter: none; backdrop-filter: none; }
@@ -393,7 +395,8 @@ body.has-bar .wc-toast { bottom: 100px; }
   .wc-filters.is-sheet .wc-sel, .wc-filters.is-sheet .wc-toggle { display: flex; max-width: none; width: 100%; height: 44px; }
   .wc-filters.is-sheet .wc-find, .wc-filters.is-sheet .wc-filterbtn { display: none; }
   .wc-filters.is-sheet .wc-sheettitle { display: flex; }
-  .wc-scroll { max-height: none; overflow: visible; }
+  .wc-scroll { max-height: calc(100dvh - 300px); min-height: 280px; overflow: auto; }
+  .wc-scroll--in { max-height: calc(100dvh - 300px); }
   .wc-head { display: none; }
   .wc-grid .wc-row, .wc-tg .wc-row { grid-template-columns: 40px 1fr auto; grid-template-areas: 'cb partner due' 'cb what what' 'cb who type'; row-gap: 4px; padding: 12px 12px 12px 2px; align-items: start; }
   .wc-grid .wc-cb, .wc-tg .wc-cb { grid-area: cb; min-height: 40px; align-items: start; padding-top: 2px; }
@@ -412,10 +415,11 @@ body.has-bar .wc-toast { bottom: 100px; }
   .wc-ig .wc-statewrap small { display: none; }
   .wc-bar { left: 8px; right: 8px; bottom: 10px; transform: translateY(140%); max-width: none; border-radius: 20px; flex-wrap: wrap; padding: 10px 12px; gap: 8px; }
   .wc-bar.is-on { transform: none; }
-  .wc-bar__acts { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .wc-bar__n, .wc-bar__l { white-space: nowrap; }
+  .wc-bar__acts { order: 3; width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
   .wc-bar__acts .h-btn { padding: 0 8px; }
   .wc-bar.is-busy .wc-bar__acts { display: none; }
-  .wc-bar__x { margin-left: auto; }
+  .wc-bar__x { order: 2; margin-left: auto; }
   .wc-toast { left: 50%; bottom: 16px; max-width: calc(100vw - 24px); white-space: normal; }
   body.has-bar .wc-toast { bottom: 150px; }
   .wc-intro .wc-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; }

@@ -11,7 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 9, 2026
 
-<!-- Held back until Work Center is released to the Support Team (Will's word), then Rachel Cox announces it:
+<!-- Held back until Work Center is released to the Support Team (leadership's word), then the Director of Operations announces it:
 - **Work Center.** Select many Blackbaud actions and mark them complete, reassign them or move their due dates in one pass. Every batch can be undone for 24 hours.
 -->
 
