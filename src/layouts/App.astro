@@ -9,6 +9,7 @@ import '../styles/elevate.css';
 import '../styles/phone.css';
 import '../styles/settle.css';
 import '../styles/clipbtn.css';
+import '../styles/partner.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -110,6 +111,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#f4efe0" />
     <script is:inline src="/js/sheets.js?v=1"></script>
+    <script is:inline src="/js/partner.js?v=3" defer></script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
   </head>
@@ -223,6 +225,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             <div class="h-top__title">{title}</div>
           </div>
           <div class="h-top__right">
+            <div class="pp-headsearch pv-find" id="pp-headsearch" hidden><label class="pv-find__box"><Fragment set:html={icon('search')} /><input type="search" placeholder="Find a partner" autocomplete="off" aria-label="Find a partner" /><kbd>Ctrl K</kbd></label><ul class="pv-find__list" role="listbox" hidden></ul></div>
             <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
             <slot name="actions" />
             <a class="h-top__cam h-top__lib" id="clip-lib" href="/clips/" data-need="clips" hidden aria-label="My clips" title="My clips"><Fragment set:html={icon('clips')} /></a>

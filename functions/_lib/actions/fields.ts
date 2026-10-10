@@ -16,6 +16,7 @@ export interface Codes {
   tagCategories: { name: string; type: string; codeTable?: string; values?: string[] }[];
   oppStatuses: string[];
   oppPurposes: string[];
+  partnerNoteTypes?: string[];
 }
 
 export const FALLBACK_CODES: Codes = {

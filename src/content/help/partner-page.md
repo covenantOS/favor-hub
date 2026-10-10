@@ -1,6 +1,6 @@
 ---
-title: Partner page
-summary: One screen for a partner's contact details, giving, actions, notes, who holds them and their iWave rating.
+title: Partner
+summary: Open any partner with one click, see their giving and history, and log a contact, add a task or note, or fix a phone, email or address.
 topic: work
 order: 5
 for: [admin]
@@ -10,22 +10,26 @@ toolLabel: Find a partner
 updated: 2026-10-10
 ---
 
-The partner page shows everything the hub holds on one partner in one place. It reads the copy of Blackbaud that refreshes at 5 AM and 5 PM, so a gift or action entered since then shows after the next refresh. The page never changes anything in Blackbaud.
-
 ## Open a partner
 
-Press a partner's name or Partner page on any Work Center row, or press Partner page in the side panel. You can also search from the top of any page. Type a name, an email, a phone number, a street address with its number, or the lookup id, and pick the partner from the list. On the partner page the search box at the top moves you to another partner.
+Press any partner's name in the hub: a Work Center row, a Favor Brain table, a household member. The partner opens beside your work. Hover a name for a quick look first. Find a partner at the top of every page searches by name, email, phone, street address or lookup id; press Enter to open the first match. Open full page shows the same view at full width, at its own address you can bookmark or send.
 
-## What the page shows
+## The top
 
-The band under the name shows total given, this year, the last 12 months, the largest gift, the last gift and the last contact. A contact is a completed call, email, meeting or mailing.
+The name, the household, who holds the partner, and the iWave rating sit at the top, with any do-not-call, do-not-email or do-not-mail marks. Call, Text and Email open your phone or mail app. Log a contact records a call, email, meeting or mailing for the partner's holder, with Thanked or another tag if you pick one. Task adds something to do with its due date. Note adds a note to the partner record in Blackbaud.
 
-Giving history lists the totals for each year with the number of gifts, then the most recent gifts with their funds. Soft credits to the partner show beside it. Recurring gifts show each pledge with its status and last payment. Actions lists open actions first and recent ones after. Notes come from the descriptions written on the partner's actions. Blackbaud's own Notes tab is not in the copy yet.
+The four figures below are lifetime giving, this year (with the last 12 months), the last gift and the largest gift.
 
-On the right, Contact has the address, phones and emails, with do-not-call, do-not-email and do-not-mail marks. Household shows the spouse. Assigned to shows who holds the partner now and who held them before. iWave rating shows the scores and the estimated capacity when the partner has been rated. Opportunities lists the open ones.
+## Due and open, then the timeline
 
-Open in Blackbaud takes you to the partner's record to change anything.
+Due and open lists the partner's open actions. Tick one to complete it, or press its date to move it. Press its name to open it in the Work Center with every field.
 
-## On a phone
+The timeline mixes gifts, contacts and notes, newest first. All, Gifts, Contacts and Notes narrow it.
 
-The same page runs at phone width. Contact details come first, and a phone number taps to call unless the partner is marked do not call.
+## Further down
+
+Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom; Edit beside a phone, email or the address changes it in Blackbaud, and Add puts in a new phone or email.
+
+## Saving and Undo
+
+Each change shows at once and saves to Blackbaud in the background. The message at the bottom has Undo for 24 hours. Gifts come from the copy of Blackbaud that refreshes at 5 AM and 5 PM.

@@ -31,7 +31,7 @@ const todayEt = (): string => new Date().toLocaleDateString('en-CA', { timeZone:
 
 /* ------------------------------------------------------------------ code tables */
 
-const CODES_KEY = 'codes:v2';
+const CODES_KEY = 'codes:v3';
 const CODES_DAYS = 7;
 
 /**
@@ -47,7 +47,7 @@ export async function getCodes(ctx: Ctx, opts: { force?: boolean } = {}): Promis
   if (meter.used > DAILY_CAP - 300) return c || { ...FALLBACK_CODES, at: '', source: 'fallback' };
   const paths = [
     '/constituent/v1/actiontypes', '/constituent/v1/actionstatustypes', '/constituent/v1/actionlocations', '/constituent/v1/actions/customfields/categories/details',
-    '/nxt-data-integration/v1/re/codetables/5101/tableentries?limit=100', '/opportunity/v1/opportunitystatuses', '/opportunity/v1/opportunitypurposes',
+    '/nxt-data-integration/v1/re/codetables/5101/tableentries?limit=100', '/opportunity/v1/opportunitystatuses', '/opportunity/v1/opportunitypurposes', '/constituent/v1/notetypes',
   ];
   const r = await ctx.repo.send(paths.map((path) => ({ method: 'GET', path })));
   await addMeter(ctx.env, r.results.length, r.callsToday);
@@ -83,6 +83,7 @@ export async function getCodes(ctx: Ctx, opts: { force?: boolean } = {}): Promis
     noteTypes: list(4) || FALLBACK_CODES.noteTypes,
     oppStatuses: list(5) || FALLBACK_CODES.oppStatuses,
     oppPurposes: [...new Set([...(list(6) || []), ...mirrorPurposes.map((x) => x.p)])].filter(Boolean),
+    partnerNoteTypes: list(7) || ['Note (general)'],
     at: nowIso(),
     source: 'blackbaud',
   };
@@ -645,6 +646,59 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     return { items, params, reads, skipped: 0, changed: 0 };
   }
 
+  if (input.op === 'pnote') {
+    // A note on the partner record (Blackbaud's constituent notes), from the partner drawer.
+    const cid = String(input.cid || '');
+    if (!ID.test(cid)) throw new HttpError(400, 'no_partner', 'Pick the partner first.');
+    const n = input.note || {};
+    const types: string[] = (codes as any).partnerNoteTypes || ['Note (general)'];
+    const type = types.find((t) => t.toLowerCase() === String(n.type || '').toLowerCase()) || types[0];
+    const summary = String(n.summary || '').replace(/\s+/g, ' ').trim().slice(0, 255);
+    const text = String(n.text || '').slice(0, 20000);
+    if (!summary && !text) throw new HttpError(400, 'bad_note', 'Write the note first.');
+    const [y, m, d] = today.split('-').map(Number);
+    const partner = await partnerName(ctx.env, cid);
+    items.push({ cid, label: labelFor(partner, 'Note'), steps: [{ op: 'call' as any, body: { __call: { method: 'POST', path: '/constituent/v1/notes' }, __pnote: cid, constituent_id: cid, type, summary: summary || text.slice(0, 80), text, date: { y, m, d } }, before: { __call: { method: 'DELETE', path: '/constituent/v1/notes/{id}' } }, label: 'partner note' }] });
+    return { items, params: { op: 'pnote' }, reads, skipped: 0, changed: 0 };
+  }
+
+  if (input.op === 'pfield') {
+    // A phone, email or address on the partner, changed from the partner drawer. The old values come from the mirror for Undo.
+    const cid = String(input.cid || '');
+    const f = (input as any).field || {};
+    const kind = f.kind === 'phone' || f.kind === 'email' || f.kind === 'address' ? f.kind : '';
+    if (!ID.test(cid) || !kind) throw new HttpError(400, 'bad_field', 'Pick what to change.');
+    const table = kind === 'phone' ? 'phones' : kind === 'email' ? 'emails' : 'addresses';
+    const path = kind === 'phone' ? '/constituent/v1/phones' : kind === 'email' ? '/constituent/v1/emailaddresses' : '/constituent/v1/addresses';
+    const allowed: Record<string, string[]> = {
+      phone: ['number', 'type', 'do_not_call', 'primary', 'inactive'],
+      email: ['address', 'type', 'do_not_email', 'primary', 'inactive'],
+      address: ['address_lines', 'city', 'state', 'postal_code', 'country', 'do_not_mail'],
+    };
+    const set: Record<string, unknown> = {};
+    for (const k of allowed[kind]) if (f.set && Object.prototype.hasOwnProperty.call(f.set, k)) set[k] = typeof f.set[k] === 'boolean' ? f.set[k] : String(f.set[k] ?? '').trim().slice(0, 255);
+    if (kind === 'email' && set.address !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(set.address))) throw new HttpError(400, 'bad_email', 'That email address does not look right.');
+    if (kind === 'phone' && set.number !== undefined && String(set.number).replace(/\D/g, '').length < 7) throw new HttpError(400, 'bad_phone', 'That phone number looks too short.');
+    if (!Object.keys(set).length) throw new HttpError(400, 'nothing_to_do', 'Nothing changed.');
+    const partner = await partnerName(ctx.env, cid);
+    const label = labelFor(partner, kind === 'phone' ? 'Phone' : kind === 'email' ? 'Email' : 'Address');
+    if (f.id) {
+      if (!ID.test(String(f.id))) throw new HttpError(400, 'bad_field', 'Pick what to change.');
+      const rows = await q<{ raw: string; cid: string }>(ctx.env, `SELECT raw_json AS raw, constituent_record_id AS cid FROM ${table} WHERE id = ?1 LIMIT 1`, [String(f.id)]).catch(() => []);
+      if (!rows[0] || String(rows[0].cid) !== cid) throw new HttpError(404, 'not_found', 'That is not on this partner in the hub copy of Blackbaud.');
+      const raw = parse(rows[0].raw) || {};
+      const before: Record<string, unknown> = {};
+      for (const k of Object.keys(set)) before[k] = raw[k] === undefined ? (typeof set[k] === 'boolean' ? false : null) : raw[k];
+      items.push({ cid, label, steps: [{ op: 'call' as any, body: { __call: { method: 'PATCH', path: `${path}/${f.id}` }, __pfield: cid, ...set }, before: { __call: { method: 'PATCH', path: `${path}/${f.id}` }, ...before }, label: 'partner ' + kind }] });
+    } else {
+      if (kind === 'address') throw new HttpError(400, 'not_allowed', 'A new address is added in Blackbaud.');
+      if (!set[kind === 'phone' ? 'number' : 'address']) throw new HttpError(400, 'bad_field', kind === 'phone' ? 'Type the number.' : 'Type the address.');
+      if (!set.type) set.type = kind === 'phone' ? 'Mobile' : 'Email';
+      items.push({ cid, label, steps: [{ op: 'call' as any, body: { __call: { method: 'POST', path }, __pfield: cid, constituent_id: cid, ...set }, before: { __call: { method: 'PATCH', path: `${path}/{id}` }, inactive: true }, label: 'partner ' + kind + ' add' }] });
+    }
+    return { items, params: { op: 'pfield', kind }, reads, skipped: 0, changed: 0 };
+  }
+
   throw new HttpError(400, 'bad_op', 'That is not something the Work Center does.');
 }
 
@@ -823,4 +877,28 @@ export async function oppLinked(ctx: Ctx, oppId: string) {
     [oppId]
   ).catch(() => []);
   return rows.map((a: any) => ({ id: String(a.id), date: a.d, type: a.type || '', category: a.cat || '', summary: a.summary || '', done: Number(a.done) === 1, by: parseArr(a.frs) }));
+}
+
+
+/** Notes on the partner record (not in the mirror): read live, one Blackbaud call, kept ten minutes; a note added here clears the copy. */
+export async function partnerNotes(ctx: Ctx, cid: string, fresh = false): Promise<any[]> {
+  if (!ID.test(cid)) throw new HttpError(400, 'bad_partner', 'That is not a partner record.');
+  const key = `pnotes:${cid}`;
+  if (!fresh) {
+    const c = await ctx.env.DB.prepare('SELECT value, at FROM act_cache WHERE key = ? LIMIT 1').bind(key).first<{ value: string; at: string }>().catch(() => null);
+    if (c && Date.now() - Date.parse(c.at) < EXTRA_MS) return parse(c.value) || [];
+  }
+  const r = await ctx.repo.send([{ method: 'GET', path: `/constituent/v1/constituents/${cid}/notes?limit=50` }]);
+  await addMeter(ctx.env, r.results.length, r.callsToday);
+  const x = r.results[0];
+  if (!x || !x.ok) return [];
+  const list = (Array.isArray(x.body?.value) ? x.body.value : []).map((v: any) => ({
+    id: String(v.id),
+    type: v.type || '',
+    summary: v.summary || '',
+    text: v.text || '',
+    date: v.date && v.date.y ? `${v.date.y}-${String(v.date.m || 1).padStart(2, '0')}-${String(v.date.d || 1).padStart(2, '0')}` : String(v.date_added || '').slice(0, 10),
+  }));
+  await ctx.env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at').bind(key, JSON.stringify(list), nowIso()).run().catch(() => undefined);
+  return list;
 }

@@ -125,7 +125,7 @@
     switch (c.type) {
       case 'name': {
         const q = x.lookup_id ? `Tell me about lookup ${x.lookup_id}` : `Tell me about ${v}${x.place ? ' in ' + x.place : ''}`;
-        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup">${esc(v)}</a>`;
+        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''}>${esc(v)}</a>`;
       }
       case 'money': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(money(v));
       case 'int': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(int(v));

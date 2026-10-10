@@ -62,10 +62,10 @@ export interface PartnerView {
   inactive: boolean;
   addedOn: string;
   contact: {
-    address: { lines: string; city: string; state: string; zip: string; country: string; doNotMail: boolean } | null;
+    address: { id?: string; lines: string; city: string; state: string; zip: string; country: string; doNotMail: boolean } | null;
     otherAddresses: number;
-    emails: { address: string; primary: boolean; doNotEmail: boolean }[];
-    phones: { number: string; type: string; primary: boolean; doNotCall: boolean }[];
+    emails: { id?: string; address: string; primary: boolean; doNotEmail: boolean }[];
+    phones: { id?: string; number: string; type: string; primary: boolean; doNotCall: boolean }[];
   };
   household: { id: string; name: string; lookup: string; relation: string }[];
   giving: {
@@ -169,10 +169,10 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
 
   const [emails, phones, addresses, own, byYear, largest, lastGift, ytdRow, last12Row, softRows, recurringRows, paymentRows, openRows, openN, doneRows, noteRows, contactRows,
     assigns, iwRows, bbIw, oppRows, codeRows, fundraisers, synced, spouseRows] = await Promise.all([
-    q<any>('SELECT email_address AS address, is_primary AS prim, do_not_email AS dne FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
-    q<any>('SELECT phone_number AS number, phone_type AS type, is_primary AS prim, do_not_call AS dnc FROM phones WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
+    q<any>('SELECT id AS id, email_address AS address, is_primary AS prim, do_not_email AS dne FROM emails WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
+    q<any>('SELECT id AS id, phone_number AS number, phone_type AS type, is_primary AS prim, do_not_call AS dnc FROM phones WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 8', [id]),
     q<any>(
-      `SELECT address_lines AS lines, address_city AS city, address_state AS state, address_postal_code AS zip, address_country AS country, do_not_mail AS dnm, is_primary AS prim
+      `SELECT id AS id, address_lines AS lines, address_city AS city, address_state AS state, address_postal_code AS zip, address_country AS country, do_not_mail AS dnm, is_primary AS prim
          FROM addresses WHERE constituent_record_id = ?1 AND COALESCE(is_inactive, 0) = 0 ORDER BY is_primary DESC LIMIT 6`,
       [id]
     ),
@@ -318,13 +318,13 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
   const prefAddr = addresses.find((a: any) => Number(a.prim) === 1) || addresses[0];
   const rawAddr = raw.address && (raw.address.address_lines || raw.address.city) ? raw.address : null;
   const addr = prefAddr
-    ? { lines: text(prefAddr.lines).replace(/\r?\n/g, ', '), city: text(prefAddr.city), state: text(prefAddr.state), zip: text(prefAddr.zip), country: text(prefAddr.country), doNotMail: Number(prefAddr.dnm) === 1 }
+    ? { id: text(prefAddr.id), lines: text(prefAddr.lines).replace(/\r?\n/g, ', '), city: text(prefAddr.city), state: text(prefAddr.state), zip: text(prefAddr.zip), country: text(prefAddr.country), doNotMail: Number(prefAddr.dnm) === 1 }
     : rawAddr
-      ? { lines: text(rawAddr.address_lines).replace(/\r?\n/g, ', '), city: text(rawAddr.city), state: text(rawAddr.state), zip: text(rawAddr.postal_code), country: text(rawAddr.country), doNotMail: !!rawAddr.do_not_mail }
+      ? { id: text(rawAddr.id), lines: text(rawAddr.address_lines).replace(/\r?\n/g, ', '), city: text(rawAddr.city), state: text(rawAddr.state), zip: text(rawAddr.postal_code), country: text(rawAddr.country), doNotMail: !!rawAddr.do_not_mail }
       : null;
-  const emailList = emails.map((e: any) => ({ address: text(e.address), primary: Number(e.prim) === 1, doNotEmail: Number(e.dne) === 1 }));
+  const emailList = emails.map((e: any) => ({ id: text(e.id), address: text(e.address), primary: Number(e.prim) === 1, doNotEmail: Number(e.dne) === 1 }));
   if (!emailList.length && raw.email && raw.email.address) emailList.push({ address: text(raw.email.address), primary: true, doNotEmail: !!raw.email.do_not_email });
-  const phoneList = phones.map((p: any) => ({ number: text(p.number), type: text(p.type), primary: Number(p.prim) === 1, doNotCall: Number(p.dnc) === 1 }));
+  const phoneList = phones.map((p: any) => ({ id: text(p.id), number: text(p.number), type: text(p.type), primary: Number(p.prim) === 1, doNotCall: Number(p.dnc) === 1 }));
 
   const kind: 'Individual' | 'Organization' = text(k.ctype) === 'Organization' || (!k.first && k.org) ? 'Organization' : 'Individual';
   const name = text(raw.name) || (kind === 'Organization' ? text(k.org) : `${text(k.first)} ${text(k.last)}`.trim()) || `Record ${id}`;

@@ -194,7 +194,7 @@ export async function thanksResponse(ctx: Ctx, owner: string) {
 /* ------------------------------------------------------------------ planning a batch */
 
 /** The kinds of change the edit panel, Edit selected, New action and the opportunity form make (planned in edit.ts). */
-export const EDIT_OPS = ['edit', 'bulk_edit', 'new', 'complete_next', 'duplicate', 'move', 'delete', 'note', 'attach', 'opp_new', 'opp_edit'] as const;
+export const EDIT_OPS = ['edit', 'bulk_edit', 'new', 'complete_next', 'duplicate', 'move', 'delete', 'note', 'attach', 'opp_new', 'opp_edit', 'pnote', 'pfield'] as const;
 
 export type BatchOp = 'complete' | 'thank' | 'close_thanked' | 'reassign' | 'reschedule' | 'create' | (typeof EDIT_OPS)[number];
 
@@ -986,6 +986,7 @@ async function afterSent(ctx: Ctx, batchId: string, row: OutboxRow, bbId: string
     if (id) await shadowOpp(env, id, String(p.__opp), bodyFor(p), p.__oppid ? await oppRaw(ctx, id).catch(() => null) : null);
   }
   if (row.op === 'delete' && row.action_id) await stopRecur(env, String(row.action_id));
+  if (row.op === 'call' && p.__pnote) await env.DB.prepare('DELETE FROM act_cache WHERE key = ?').bind(`pnotes:${p.__pnote}`).run().catch(() => undefined);
   // An opportunity removed (the Undo of one just added) leaves the hub's copy too.
   const gone = row.op === 'call' && p.__call && p.__call.method === 'DELETE' ? /^\/opportunity\/v1\/opportunities\/(\d+)/.exec(String(p.__call.path)) : null;
   if (gone) await env.DB.prepare('DELETE FROM act_opps WHERE id = ?').bind(gone[1]).run();
@@ -1192,6 +1193,8 @@ export function batchLabel(b: { op: string; params: string }, n: number): string
   if (b.op === 'attach') return 'Changed an attachment';
   if (b.op === 'opp_new') return `Added the opportunity ${p.name || ''}`.trim();
   if (b.op === 'opp_edit') return 'Edited an opportunity';
+  if (b.op === 'pnote') return 'Added a note on the partner';
+  if (b.op === 'pfield') return `Changed the partner's ${p.kind || 'details'}`;
   return `${b.op} ${n}`;
 }
 

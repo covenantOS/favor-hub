@@ -1,12 +1,6 @@
 ---
 import App from '../../../layouts/App.astro';
-import '../../../styles/partner.css';
 ---
 <App full title="Partner" crumb="Work" nav="work" description="One partner's contact details, giving, actions, notes and who holds them.">
-  <div class="pv-top">
-    <a class="h-btn h-btn--ghost h-btn--sm" href="/work/"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7"/></svg>Work Center</a>
-    <div class="pv-searchhost" id="pv-search"></div>
-  </div>
-  <div id="pv-root" aria-live="polite"><div class="h-skel" style="height:360px;border-radius:18px"></div></div>
-  <script is:inline src="/js/partner.js?v=1" defer></script>
+  <section class="h-card pp-full"><div id="pv-root" class="pp-scroll" aria-live="polite"></div></section>
 </App>

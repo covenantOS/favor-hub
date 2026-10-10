@@ -271,7 +271,7 @@ export const STEPS: Step[] = [
     via: 'work',
     at: '#pv-search',
     title: 'Find any partner',
-    body: 'Type a name, an email, a phone number, a street address or a lookup id. The partner page shows contact details, giving by year, the largest and last gift, recurring gifts, open actions, notes, who holds the partner and the iWave rating. Every partner name in the Work Center opens it, and so does the search at the top of every page.',
+    body: 'Type a name, an email, a phone number, a street address or a lookup id. Any partner name in the hub opens the partner beside your work: giving, what is due, one timeline of gifts, contacts and notes, and buttons to call, log a contact, add a task or a note.',
     for: (w) => w.admin,
     added: '2026-10-10',
     side: 'bottom',

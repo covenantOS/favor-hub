@@ -26,7 +26,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 - **Work Center.** Select many Blackbaud actions and mark them complete, reassign them or move their due dates in one pass. Every batch can be undone for 24 hours.
 - **Work Center keeps itself current.** Entry reads each director's tracking sheet, lists refresh from Blackbaud through the day, a thank-you closes the fundraiser's task and counts as their contact, and held batches send overnight without the page open.
 - **Change anything on an action.** Open any action to edit every field, its notes, tags and attachments, with the partner beside it. Change a date, a status or who it belongs to right in the list, edit many at once, add a contact or a task with a follow-up that repeats, copy or move an action, and track opportunities. Every change can be undone for 24 hours.
-- **Partner page.** Every partner name in the Work Center opens one screen with contact details, giving by year, the largest and last gift, recurring gifts, open actions, notes, who holds the partner, the iWave rating and the last contact. The search at the top of every page finds a partner by name, email, phone, address or lookup id.
+- **Partners open beside your work.** Press any partner name in the hub, or find one at the top of any page. Call, text or email from the top, log a contact, add a task or a note, complete what is due, fix a phone, email or address, and see gifts, contacts and notes on one timeline.
 -->
 
 - **Your day shows only open actions.** Review tasks already completed in Blackbaud no longer show as waiting, and the overdue count covers only open actions.
