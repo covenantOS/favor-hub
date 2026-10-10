@@ -22,7 +22,7 @@ export const FALLBACK_CODES: Codes = {
   types: ['RDD Action', 'PC Action', 'CED Action', 'Carole Action', 'Terry Action', 'Grants Action', 'RESERVED (Follow Up - New Gift Received)', 'RESERVED (Information Update)', 'RESERVED (HQTY Letter)'],
   statuses: ['Open', 'Completed', 'Canceled'],
   locations: ['Residence', 'Business', 'Event', 'On Campus', 'Off Campus', 'Other'],
-  noteTypes: ['Note (general)'],
+  noteTypes: ['RDD Note', 'Partner Care Note', 'Added via Web View'],
   tagCategories: [
     { name: 'Thanked', type: 'CodeTableEntry' },
     { name: 'Texted', type: 'CodeTableEntry' },

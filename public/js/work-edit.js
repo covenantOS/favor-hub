@@ -160,7 +160,7 @@ function drawPanel() {
       <div class="wc-row3">${field(done ? 'Date' : 'Due', `<input type="date" data-f="date" value="${esc(a.date)}" />`)}${field('Start', `<input type="time" data-f="start_time" value="${esc(a.start_time)}" />`)}${field('End', `<input type="time" data-f="end_time" value="${esc(a.end_time)}" />`)}</div>
       ${done ? `<div class="wc-row2">${field('Completed on', `<input type="date" data-f="completed_date" value="${esc(a.completed_date)}" max="${today()}" />`)}${field('Outcome', `<div class="wc-choices">${[['', 'None'], ['Successful', 'Good'], ['Unsuccessful', 'Not good']].map(([v, l]) => chip('data-fv="outcome" data-v', v, l, a.outcome === v)).join('')}</div>`)}</div>` : ''}
       <div class="wc-row2">${field('Priority', `<div class="wc-choices">${['Low', 'Normal', 'High'].map((p) => chip('data-fv="priority" data-v', p, p, a.priority === p)).join('')}</div>`)}
-        ${field('Direction', `<div class="wc-choices">${[['', 'None'], ['Outbound', 'Out'], ['Inbound', 'In']].map(([v, l]) => chip('data-fv="direction" data-v', v, l, a.direction === v)).join('')}</div>`)}</div>
+        ${['Phone call', 'Email', 'Mailing'].includes(a.category) ? field('Direction', `<div class="wc-choices">${[['', 'None'], ['Outbound', 'Out'], ['Inbound', 'In']].map(([v, l]) => chip('data-fv="direction" data-v', v, l, a.direction === v)).join('')}</div>`) : '<div></div>'}</div>
       <div class="wc-row2">${field('Location', `<select data-f="location">${opt('', 'None', !a.location)}${(C.locations || []).map((l) => opt(l, l, a.location === l)).join('')}</select>`)}
         ${field('Opportunity', `<select data-f="opportunity_id">${opt('', 'None', !a.opportunity_id)}${opps.map((o) => opt(o.id, o.name + (o.status ? ' · ' + o.status : ''), a.opportunity_id === o.id)).join('')}</select><button type="button" class="wc-linkbtn" data-newopp>New opportunity for this partner</button>`)}</div>
       ${field('Fundraisers', peopleChips(a.fundraisers, 'fundraisers') + (P.partner.holders && P.partner.holders.length ? `<small>Held by ${P.partner.holders.map((h) => esc(wc.P(h.fid).n) + (h.type ? ' (' + esc(h.type) + ')' : '')).join(', ')}</small>` : ''))}
@@ -267,7 +267,7 @@ async function paneNotes(pane, fresh) {
     <div class="ep-list">${list.length ? list.map((n) => `<div class="ep-note" data-noteid="${esc(n.id)}"><div><b>${esc(n.summary || n.type)}</b><span class="wc-sub">${esc(n.type)}${n.date && n.date.y ? ' · ' + wc.fd(`${n.date.y}-${String(n.date.m || 1).padStart(2, '0')}-${String(n.date.d || 1).padStart(2, '0')}`, true) : ''}${n.author ? ' · ' + esc(n.author) : ''}</span><p>${esc(n.text)}</p></div>
       <div class="ep-note__acts"><button type="button" class="wc-linkbtn" data-noteedit="${esc(n.id)}">Edit</button><button type="button" class="wc-linkbtn ep-del" data-notedel="${esc(n.id)}">Remove</button></div></div>`).join('') : '<p class="wc-note">No notes on this action yet.</p>'}</div>
     <form class="ep-add" data-noteform><b class="lab">Add a note</b>
-      <div class="wc-row2"><select name="type" aria-label="Note type">${(C.noteTypes || ['Note (general)']).map((t) => opt(t, t.replace(/^Reserved Note \((.*)\)$/, '$1'))).join('')}</select><input type="text" name="summary" maxlength="255" placeholder="Summary" /></div>
+      <div class="wc-row2"><select name="type" aria-label="Note type">${(C.noteTypes || ['RDD Note']).map((t) => opt(t, t.replace(/^Reserved Note \((.*)\)$/, '$1'))).join('')}</select><input type="text" name="summary" maxlength="255" placeholder="Summary" /></div>
       <textarea name="text" rows="3" placeholder="The note"></textarea><input type="hidden" name="id" value="" />
       <div class="ep-add__acts"><button type="submit" class="h-btn h-btn--primary h-btn--sm">Add note</button><button type="button" class="wc-linkbtn" data-notecancel hidden>Cancel the edit</button></div></form>`;
 }
@@ -790,7 +790,7 @@ document.addEventListener('click', async (e) => {
   const P = E.panel;
   if (!P || !t.closest('.ep')) return;
   if (d.eptab) { P.tab = d.eptab; drawPanel(); return; }
-  if (d.fv) { const k = d.fv; const v = d.v; markDirty(k, v); $$(`[data-fv="${k}"]`, P.box).forEach((x) => x.classList.toggle('is-on', x === t)); if (k === 'status') { P.act.completed = v === 'Completed'; if (v === 'Completed' && !P.act.completed_date) markDirty('completed_date', wc.TODAY); drawPanel(); } return; }
+  if (d.fv) { const k = d.fv; const v = d.v; markDirty(k, v); $$(`[data-fv="${k}"]`, P.box).forEach((x) => x.classList.toggle('is-on', x === t)); if (k === 'category') { drawPanel(); return; } if (k === 'status') { P.act.completed = v === 'Completed'; if (v === 'Completed' && !P.act.completed_date) markDirty('completed_date', wc.TODAY); drawPanel(); } return; }
   if (d.unperson && t.closest('[data-people="fundraisers"]')) { markDirty('fundraisers', P.act.fundraisers.filter((x) => x !== d.unperson)); drawPanel(); return; }
   if (t.hasAttribute('data-newopp')) { dlgOpp(null, { cid: P.act.cid, name: P.partner.name, link: P.id, after: () => { wc.closeLayer(); setTimeout(() => panel(P.id), 260); } }); return; }
   if (d.ep === 'save') { savePanel(); return; }

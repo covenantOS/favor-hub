@@ -17,6 +17,8 @@ import {
 import type { Ctx, PlannedItem } from './service';
 
 const ID = /^\d{1,12}$/;
+/** Attachment ids are GUIDs in Blackbaud. */
+const ATT_ID = /^[A-Za-z0-9-]{1,40}$/;
 const q = <T = Record<string, any>>(env: Env, sql: string, params: unknown[] = []) => mirror<T>(env, readOnly(sql), params);
 const parse = (s: unknown): any => {
   try {
@@ -29,7 +31,7 @@ const todayEt = (): string => new Date().toLocaleDateString('en-CA', { timeZone:
 
 /* ------------------------------------------------------------------ code tables */
 
-const CODES_KEY = 'codes:v1';
+const CODES_KEY = 'codes:v2';
 const CODES_DAYS = 7;
 
 /**
@@ -45,13 +47,16 @@ export async function getCodes(ctx: Ctx, opts: { force?: boolean } = {}): Promis
   if (meter.used > DAILY_CAP - 300) return c || { ...FALLBACK_CODES, at: '', source: 'fallback' };
   const paths = [
     '/constituent/v1/actiontypes', '/constituent/v1/actionstatustypes', '/constituent/v1/actionlocations', '/constituent/v1/actions/customfields/categories/details',
-    '/constituent/v1/notetypes', '/opportunity/v1/opportunitystatuses', '/opportunity/v1/opportunitypurposes',
+    '/nxt-data-integration/v1/re/codetables/5101/tableentries?limit=100', '/opportunity/v1/opportunitystatuses', '/opportunity/v1/opportunitypurposes',
   ];
   const r = await ctx.repo.send(paths.map((path) => ({ method: 'GET', path })));
   await addMeter(ctx.env, r.results.length, r.callsToday);
   const list = (i: number): string[] | null => {
     const x = r.results[i];
-    const v = x && x.ok && x.body && Array.isArray(x.body.value) ? x.body.value.map((v: any) => (typeof v === 'string' ? v : String(v.name ?? v))) : null;
+    // Action note types live in the Action Notepad Types code table (5101); its entries carry long_description and is_active.
+    const v = x && x.ok && x.body && Array.isArray(x.body.value)
+      ? x.body.value.filter((v: any) => typeof v === 'string' || v.is_active !== false).map((v: any) => (typeof v === 'string' ? v : String(v.long_description ?? v.name ?? v)))
+      : null;
     return v && v.length ? v : null;
   };
   const cats = r.results[3] && r.results[3].ok && Array.isArray(r.results[3].body?.value) && r.results[3].body.value.length ? r.results[3].body.value : null;
@@ -592,7 +597,7 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     const cid = got ? String(got.raw.constituent_id) : '';
     const label = labelFor(cid ? await partnerName(ctx.env, cid) : '', 'Attachment');
     if (a.remove) {
-      if (!ID.test(String(a.id))) throw new HttpError(400, 'bad_attach', 'Pick the attachment to remove.');
+      if (!ATT_ID.test(String(a.id))) throw new HttpError(400, 'bad_attach', 'Pick the attachment to remove.');
       const old = await attachmentById(ctx, id, String(a.id));
       reads++;
       const restore = old && old.type === 'Link' ? { __call: { method: 'POST', path: '/constituent/v1/actions/attachments' }, parent_id: id, name: old.name, type: 'Link', url: old.url, date: old.date } : undefined;

@@ -382,7 +382,7 @@ describe('notes, attachments, opportunities', () => {
     await runAll(out.batch.id);
     const add = sent().find((c) => c.path === '/constituent/v1/actions/notes');
     assert.equal(add.body.parent_id, '500');
-    assert.equal(add.body.type, 'Note (general)');
+    assert.equal(add.body.type, 'RDD Note');
     const undo = await svc.undoBatch(ctx, out.batch.id);
     await runAll(undo.batch.id);
     assert.ok(sent().some((c) => c.method === 'DELETE' && /\/actions\/notes\/\d+$/.test(c.path)));
