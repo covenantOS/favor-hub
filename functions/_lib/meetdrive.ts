@@ -11,7 +11,7 @@ const FILES = 'https://www.googleapis.com/drive/v3/files';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 
 interface DriveEnv extends MeetEnv {
-  /** The Drive folder "Meetings" recordings are filed under (inside the shared drive the service account can write to). */
+  /** The one destination for recordings is the id of the Meetings shared drive or of a folder inside it. Each month gets a folder under it. Set it as a Pages secret, never in wrangler.toml, because this repo is public. */
   MEET_DRIVE_FOLDER?: string;
 }
 
