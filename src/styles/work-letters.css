@@ -68,3 +68,9 @@
   .hq-previewbody { padding: 4px 16px 16px; }
   .hq-paper { padding: 20px 18px 22px; font-size: 13px; }
 }
+
+/* Signed by: the signer picker on each HQTY letter row and in the bulk bar. */
+.hq-signer { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--h-ink-3); }
+.hq-signer select { font: inherit; font-size: 12.5px; padding: 3px 6px; border-radius: 8px; border: 1px solid var(--h-line-2); background: #fff; color: var(--h-ink); max-width: 100%; }
+.hq-signer select:disabled { opacity: .6; }
+.hq-signer--bulk { margin: 0; }

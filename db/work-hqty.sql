@@ -14,3 +14,13 @@ CREATE TABLE IF NOT EXISTS act_hqty (
 );
 CREATE INDEX IF NOT EXISTS idx_act_hqty_state ON act_hqty(state);
 CREATE INDEX IF NOT EXISTS idx_act_hqty_batch ON act_hqty(batch_id);
+
+-- Who signs each HQTY letter (2026-10-10, Will's ruling: Terry, Carole, Rachel Cox, Michael Hinton or the partner's RDD). Only a picked
+-- signer is stored; with none picked the letter takes the partner's RDD, else the last signer chosen (act_settings hqty:signer:last).
+-- A letter's signer is stored again when it is marked mailed, so it keeps the signer it went out with.
+CREATE TABLE IF NOT EXISTS act_hqty_signer (
+  gift_id TEXT PRIMARY KEY,
+  signer TEXT NOT NULL,                            -- terry | carole | rachel | michael | rdd
+  by_name TEXT NOT NULL, by_email TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);

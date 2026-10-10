@@ -384,7 +384,7 @@ export const STEPS: Step[] = [
     press: '.wc-tab[data-view="hqty"]',
     at: '#hq-sheet',
     title: 'HQTY letters',
-    body: 'Every gift of $5,000 and up, newest first, with the partner it is credited to and where its letter stands. Print makes one PDF with a page per letter. Press Signed when they are signed and Mark mailed when they go out, and Blackbaud gets one HQTY Letter action for each. The month button edits the letter text once for the whole month. Cannot send takes a gift off the list with a reason.',
+    body: 'Every gift of $5,000 and up, newest first, with the partner it is credited to and where its letter stands. Print makes one PDF with a page per letter. Press Signed when they are signed and Mark mailed when they go out, and Blackbaud gets one HQTY Letter action for each. The month button edits the letter text once for the whole month. Cannot send takes a gift off the list with a reason. Signed by picks who signs each letter: Terry Goodman, Carole Ward, Rachel Cox, Michael Hinton, or the partner’s Regional Development Director. A letter with no pick takes its partner’s RDD, and otherwise the last signer you picked. Use the bar to set one signer for every selected letter still To write.',
     for: (w) => w.admin || w.work,
     added: '2026-10-10',
     side: 'top',

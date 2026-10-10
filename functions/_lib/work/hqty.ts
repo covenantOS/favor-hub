@@ -7,13 +7,13 @@
 // Mirror rules that shape the SQL: the endpoint refuses any statement whose text contains insert, update, replace, upsert, delete,
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
 import { HttpError, newId, nowIso, type Env } from '../http';
-import { readOnly, FUNDS_SQL } from './repo';
+import { readOnly, FUNDS_SQL, FUNDRAISERS_SQL } from './repo';
 import { mirrorQ, type Q } from './partner';
-import { setSetting } from './db';
+import { getSetting, setSetting } from './db';
 import { authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from './service';
 import { planEdit } from './edit';
 import { GIVEN } from './gifts';
-import { HQTY_DEFAULT, HQTY_CLOSING, cleanLetterText, hqtyLetter, monthName, money, shortDay, usableAddress, type Address, type LetterDoc, type Party } from './letters';
+import { HQTY_DEFAULT, HQTY_CLOSING, HQTY_SIGNERS, HQTY_SIGNER_KEYS, cleanLetterText, effectiveSigner, hqtyLetter, monthName, money, shortDay, signerBlock, usableAddress, type Address, type HqtySignerKey, type LetterDoc, type Party } from './letters';
 import { CATCH_ALL } from '../foundations/blackbaud';
 import { HQTY_TYPE } from '../actions/contact-types';
 import type { Scope } from './role';
@@ -57,6 +57,12 @@ export interface RawHqty {
   hub: RawHub[];
   /** month (YYYY-MM) to the letter text saved for that month */
   texts: Record<string, string>;
+  /** gift id to the signer key picked on the row */
+  picks: Record<string, string>;
+  /** partner id to the name of the Regional Development Director assigned to the partner today */
+  rdds: Record<string, string>;
+  /** the signer key chosen last, the default for a partner with no RDD */
+  last: string;
 }
 
 export interface HqtyRow {
@@ -80,6 +86,14 @@ export interface HqtyRow {
   stateDate: string;
   actionId: string;
   why: string;
+  /** The signer key that prints: the one picked, else the partner's RDD, else the last chosen. '' when nobody is picked. */
+  signer: HqtySignerKey | '';
+  signerName: string;
+  signerTitle: string;
+  /** The partner's assigned RDD, or '' when none. */
+  rdd: string;
+  /** True when someone picked the signer on this row. */
+  picked: boolean;
 }
 
 const PAY: Record<string, string> = { PersonalCheck: 'Check', CreditCard: 'Card', Cash: 'Cash', DirectDebit: 'Bank draft', PayPal: 'PayPal', Other: 'Other' };
@@ -191,6 +205,10 @@ export function shapeHqty(raw: RawHqty, o: { today: string }): Shaped {
       continue;
     }
     const ym = date.slice(0, 7);
+    const rdd = raw.rdds[cr.to] || '';
+    const picked = text(raw.picks[String(g.id)]);
+    const signer = effectiveSigner(picked, rdd, raw.last);
+    const sb = signerBlock(signer, rdd);
     const row: HqtyRow = {
       key: String(g.id),
       giftId: String(g.id),
@@ -210,6 +228,11 @@ export function shapeHqty(raw: RawHqty, o: { today: string }): Shaped {
       stateDate,
       actionId,
       why: state === 'cannot' ? text(h!.why) : '',
+      signer,
+      signerName: sb.name,
+      signerTitle: sb.title,
+      rdd,
+      picked: !!picked,
     };
     rows.push(row);
     stats.total++;
@@ -277,6 +300,24 @@ export async function monthTexts(env: Env): Promise<Record<string, string>> {
   return out;
 }
 
+const RDD_SQL = readOnly(`SELECT a.constituent_record_id AS cid, a.assignment_fundraiser_id AS fid FROM assignments a
+ WHERE a.assignment_type = 'Regional Development Director (RDD)' AND (a.assignment_to_date IS NULL OR substr(a.assignment_to_date, 1, 10) >= date('now'))
+   AND a.constituent_record_id IN (SELECT value FROM json_each(?1)) ORDER BY a.assignment_fundraiser_id`);
+
+export const LAST_SIGNER_KEY = 'hqty:signer:last';
+
+/** The signer picked on each gift, from the hub's own table. */
+export async function signerPicks(env: Env, giftIds: string[]): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  if (!env.DB) return out;
+  for (const part of chunkOf(giftIds, 80)) {
+    const r = await env.DB.prepare(`SELECT gift_id, signer FROM act_hqty_signer WHERE gift_id IN (${part.map(() => '?').join(',')})`)
+      .bind(...part).all<{ gift_id: string; signer: string }>().catch(() => ({ results: [] as { gift_id: string; signer: string }[] }));
+    for (const x of r.results) out[String(x.gift_id)] = x.signer;
+  }
+  return out;
+}
+
 /** Everything the desk needs, from the mirror in a handful of queries, laid over the hub's rows. ids reads those gifts only (any size). */
 export async function loadHqty(env: Env, q: Q, o: { today: string; since?: string; ids?: string[] }): Promise<{ raw: RawHqty; shaped: Shaped }> {
   const gifts = o.ids ? await q<RawHqtyGift>(GIFTS_BY_ID_SQL, [JSON.stringify(o.ids)]) : await q<RawHqtyGift>(GIFTS_SQL, [o.since || DESK_SINCE]);
@@ -294,15 +335,22 @@ export async function loadHqty(env: Env, q: Q, o: { today: string; since?: strin
     for (const part of chunkOf(all, 400)) out.push(...(await q<T>(sql, [JSON.stringify(part)])));
     return out;
   };
-  const [parties, addrs, actions, funds, hub, texts] = await Promise.all([
+  const [parties, addrs, actions, funds, hub, texts, picks, rddRows, fundraisers, last] = await Promise.all([
     each<RawParty>(PARTIES_SQL),
     each<RawAddr>(ADDR_SQL),
     each<RawAction>(ACTIONS_SQL),
     fundIds.size ? q<{ id: string; name: string }>(FUNDS_SQL, [JSON.stringify([...fundIds])]) : Promise.resolve([] as { id: string; name: string }[]),
     hubRows(env, gifts.map((g) => String(g.id))),
     monthTexts(env),
+    signerPicks(env, gifts.map((g) => String(g.id))),
+    each<{ cid: string; fid: string }>(RDD_SQL),
+    q<{ id: string; first: string; last: string }>(FUNDRAISERS_SQL),
+    env.DB ? getSetting(env, LAST_SIGNER_KEY, '') : Promise.resolve(''),
   ]);
-  const raw: RawHqty = { gifts, parties, addrs, actions, funds, hub, texts };
+  const names = new Map(fundraisers.map((f) => [String(f.id), [f.first, f.last].filter(Boolean).join(' ').trim()]));
+  const rdds: Record<string, string> = {};
+  for (const r of rddRows) if (!rdds[String(r.cid)] && names.get(String(r.fid))) rdds[String(r.cid)] = names.get(String(r.fid))!;
+  const raw: RawHqty = { gifts, parties, addrs, actions, funds, hub, texts, picks, rdds, last };
   return { raw, shaped: shapeHqty(raw, { today: o.today }) };
 }
 
@@ -317,7 +365,14 @@ export interface HqtyOut {
   /** The letter text for the current month and the month it came from. */
   text: { month: string; body: string; saved: boolean; defaultBody: string };
   months: Record<string, string>;
+  /** The signer choices in the order the page shows them. rdd is only offered on rows whose partner has an RDD. */
+  signers: { key: HqtySignerKey; label: string }[];
 }
+
+export const SIGNER_CHOICES: { key: HqtySignerKey; label: string }[] = [
+  ...(['terry', 'carole', 'rachel', 'michael'] as const).map((k) => ({ key: k, label: HQTY_SIGNERS[k].label })),
+  { key: 'rdd', label: "The partner's RDD" },
+];
 
 export async function hqtyResponse(ctx: Ctx, q: Q = mirrorQ(ctx.env)): Promise<HqtyOut> {
   if (!mayHqty(ctx.scope)) throw new HttpError(403, 'not_yours', 'HQTY letters is for the Support Team.');
@@ -334,6 +389,7 @@ export async function hqtyResponse(ctx: Ctx, q: Q = mirrorQ(ctx.env)): Promise<H
     whys: WHYS,
     text: { month: ym, body: textForMonth(raw.texts, ym), saved: raw.texts[ym] !== undefined, defaultBody: HQTY_DEFAULT },
     months: raw.texts,
+    signers: SIGNER_CHOICES,
   };
 }
 
@@ -358,7 +414,7 @@ export function lettersFor(raw: RawHqty, rows: HqtyRow[], today: string, overrid
   for (const a of raw.addrs) (addrs.get(String(a.cid)) || addrs.set(String(a.cid), []).get(String(a.cid))!).push(a);
   return rows.map((r) => {
     const { addr } = pickAddress(addrs.get(r.cid) || []);
-    return hqtyLetter(partyOf(parties.get(r.cid)), addr, { amount: r.amount, date: r.date, fund: r.fund }, override ?? textForMonth(raw.texts, r.month), today);
+    return hqtyLetter(partyOf(parties.get(r.cid)), addr, { amount: r.amount, date: r.date, fund: r.fund }, override ?? textForMonth(raw.texts, r.month), today, { name: r.signerName, title: r.signerTitle });
   });
 }
 
@@ -395,6 +451,52 @@ async function actorFid(ctx: Ctx): Promise<string> {
   const r = await ctx.env.DB.prepare("SELECT bb_fundraiser_id AS id FROM act_staff WHERE team = 'support' AND active = 1 AND bb_fundraiser_id IS NOT NULL ORDER BY name LIMIT 1").first<{ id: string }>().catch(() => null);
   if (!r || !r.id) throw new HttpError(400, 'no_fundraiser', 'No Support Team member with a Blackbaud fundraiser id is on the staff list, so the letter has nobody to be logged under.');
   return String(r.id);
+}
+
+async function storeSigner(ctx: Ctx, giftId: string, key: HqtySignerKey): Promise<void> {
+  await ctx.env.DB.prepare(
+    `INSERT INTO act_hqty_signer (gift_id, signer, by_name, by_email, updated_at) VALUES (?1, ?2, ?3, ?4, ?5)
+     ON CONFLICT(gift_id) DO UPDATE SET signer = excluded.signer, by_name = excluded.by_name, by_email = excluded.by_email, updated_at = excluded.updated_at`
+  ).bind(giftId, key, ctx.actor, ctx.email, nowIso()).run();
+}
+
+export interface SignerResult {
+  ok: true;
+  done: string[];
+  skipped: { giftId: string; why: string }[];
+  /** The signer each changed gift now prints with, for the page to show at once. */
+  resolved: Record<string, { signer: HqtySignerKey; signerName: string; signerTitle: string; picked: boolean }>;
+}
+
+/**
+ * Sets who signs the letter for gifts still To write (one gift or many). A printed, signed or mailed letter keeps the signer it went
+ * out with. Picking a named person also makes that person the default for the next partner with no RDD.
+ */
+export async function setSigner(ctx: Ctx, input: { ids?: unknown; signer?: unknown }, q?: Q): Promise<SignerResult> {
+  if (!mayHqty(ctx.scope)) throw new HttpError(403, 'not_yours', 'HQTY letters is for the Support Team.');
+  const key = String(input.signer || '');
+  if (!(HQTY_SIGNER_KEYS as readonly string[]).includes(key)) throw new HttpError(400, 'bad_signer', 'Pick who signs.');
+  const { rows } = await pick(ctx, input.ids, q);
+  const done: string[] = [];
+  const skipped: { giftId: string; why: string }[] = [];
+  const resolved: SignerResult['resolved'] = {};
+  for (const r of rows) {
+    if (r.state !== 'write') {
+      skipped.push({ giftId: r.giftId, why: r.state === 'mailed' ? 'That letter is mailed, so it keeps the signer it went out with.' : 'That letter is printed or signed. Put it back to To write to change the signer.' });
+      continue;
+    }
+    if (key === 'rdd' && !r.rdd) {
+      skipped.push({ giftId: r.giftId, why: 'This partner has no Regional Development Director assigned.' });
+      continue;
+    }
+    const k = key as HqtySignerKey;
+    await storeSigner(ctx, r.giftId, k);
+    const sb = signerBlock(k, r.rdd);
+    resolved[r.giftId] = { signer: k, signerName: sb.name, signerTitle: sb.title, picked: true };
+    done.push(r.giftId);
+  }
+  if (done.length && key !== 'rdd') await setSetting(ctx.env, LAST_SIGNER_KEY, key);
+  return { ok: true, done, skipped, resolved };
 }
 
 /**
@@ -469,6 +571,7 @@ export async function hqtyStep(ctx: Ctx, input: StepInput, q?: Q) {
     if (r.state === 'mailed') skipped.push({ giftId: r.giftId, why: r.source === 'blackbaud' ? 'Blackbaud already holds an HQTY Letter for this gift.' : 'That letter is already mailed.' });
     else if (r.state === 'cannot') skipped.push({ giftId: r.giftId, why: 'That gift is marked Cannot send. Put it back first.' });
     else if (r.state === 'write') skipped.push({ giftId: r.giftId, why: 'Print the letter first.' });
+    else if (!r.signerName) skipped.push({ giftId: r.giftId, why: 'Pick who signs first.' });
     else ready.push(r);
   }
   if (!ready.length) return { ok: true, done, skipped, batch: null };
@@ -481,7 +584,7 @@ export async function hqtyStep(ctx: Ctx, input: StepInput, q?: Q) {
       category: 'Mailing',
       type: HQTY_TYPE,
       date: today,
-      summary: `HQTY ${monthName(r.month)} letter`,
+      summary: `HQTY ${monthName(r.month)} letter, signed by ${r.signerName}`,
       description: `Letter for the ${money(r.amount)} gift of ${shortDay(r.date)}${r.fund ? ', ' + r.fund : ''} (gift ${r.giftId}).${r.through ? ' Given through ' + r.through + '.' : ''}`,
       fundraisers: [fid],
       completed: true,
@@ -494,7 +597,10 @@ export async function hqtyStep(ctx: Ctx, input: StepInput, q?: Q) {
   }
   const batch = await saveBatch(ctx, 'new', planned, { op: 'new', n: planned.length, summary: 'HQTY letter', hqty: ready.length }, { reqId: req + ':h', reads, keySalt: req });
   if (batch.id) {
-    for (const r of ready) await mark(r, 'mailed', { mailed_at: now, batch_id: batch.id });
+    for (const r of ready) {
+      await mark(r, 'mailed', { mailed_at: now, batch_id: batch.id });
+      if (r.signer) await storeSigner(ctx, r.giftId, r.signer);
+    }
     done.push(...ready.map((r) => r.giftId));
   }
   return { ok: true, done, skipped, batch: batch.id ? { id: batch.id, n: batch.n, run_when: batch.run_when } : null };

@@ -40,7 +40,7 @@ export interface LetterDoc {
   greeting: string;
   paragraphs: string[];
   closing: string;
-  /** Printed under the blank signature line. Empty for an HQTY letter, which carries no signer name. */
+  /** Printed under the blank signature line. Empty when the letter has no signer picked. */
   signerName: string;
   signerTitle: string;
 }
@@ -139,7 +139,35 @@ export function cleanLetterText(text: unknown): string {
   return t.replace(/\{(?!amount\}|fund\}|date\})[^}\n]{0,30}\}/g, '');
 }
 
-export function hqtyLetter(p: Party, a: Address | null, g: GiftFacts, text: string, today: string): LetterDoc {
+/** Who can sign an HQTY letter. Names and titles are the Staff Roster's (Org/Staff Roster.md). "rdd" is the partner's assigned RDD. */
+export const HQTY_SIGNERS: Record<'terry' | 'carole' | 'rachel' | 'michael', { label: string; name: string; title: string }> = {
+  terry: { label: 'Terry Goodman', name: 'Terry Goodman', title: 'Uganda/SS Director' },
+  carole: { label: 'Carole Ward', name: 'Carole Ward', title: 'Founder' },
+  rachel: { label: 'Rachel Cox', name: 'Rachel Cox', title: 'Director of Operations & Administrative' },
+  michael: { label: 'Michael Hinton', name: 'Michael Hinton', title: 'Deputy Director of Operations & Administrative' },
+};
+export const HQTY_SIGNER_KEYS = ['terry', 'carole', 'rachel', 'michael', 'rdd'] as const;
+export type HqtySignerKey = (typeof HQTY_SIGNER_KEYS)[number];
+
+/**
+ * The signer a letter gets. A signer picked on the row always wins. With none picked, the partner's assigned RDD signs when there is one,
+ * else the person last chosen. Returns '' when nobody can be picked yet.
+ */
+export function effectiveSigner(picked: string, rdd: string, last: string): HqtySignerKey | '' {
+  const known = (k: string): k is HqtySignerKey => (HQTY_SIGNER_KEYS as readonly string[]).includes(k);
+  if (known(picked) && picked !== 'rdd') return picked;
+  if (rdd) return 'rdd';
+  return known(last) && last !== 'rdd' ? last : '';
+}
+
+/** The name and title a signer key prints as. For "rdd" the name is the partner's assigned RDD. */
+export function signerBlock(key: HqtySignerKey | '', rdd: string): { name: string; title: string } {
+  if (!key) return { name: '', title: '' };
+  if (key === 'rdd') return rdd ? { name: rdd, title: 'Regional Development Director' } : { name: '', title: '' };
+  return { name: HQTY_SIGNERS[key].name, title: HQTY_SIGNERS[key].title };
+}
+
+export function hqtyLetter(p: Party, a: Address | null, g: GiftFacts, text: string, today: string, signer: { name: string; title: string } = { name: '', title: '' }): LetterDoc {
   const n = nameFor(p);
   return {
     dateLine: longDate(today),
@@ -147,9 +175,9 @@ export function hqtyLetter(p: Party, a: Address | null, g: GiftFacts, text: stri
     greeting: n.greeting,
     paragraphs: paragraphsOf(merge(text || HQTY_DEFAULT, g)),
     closing: HQTY_CLOSING,
-    // No successor is recorded for the $5,000 signature, so the page prints a blank line and no name.
-    signerName: '',
-    signerTitle: '',
+    // A letter with no signer picked prints a blank signature line.
+    signerName: signer.name,
+    signerTitle: signer.title,
   };
 }
 

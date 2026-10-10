@@ -11,6 +11,7 @@ import { memoryD1 } from './support/d1.mjs';
 
 const H = await import('../functions/_lib/work/hqty.ts');
 const { readOnly } = await import('../functions/_lib/work/repo.ts');
+const L = await import('../functions/_lib/work/letters.ts');
 
 const TODAY = '2026-10-15';
 let mirror;
@@ -54,7 +55,11 @@ before(() => {
       do_not_mail INTEGER DEFAULT 0, is_primary INTEGER DEFAULT 1, is_inactive INTEGER DEFAULT 0);
     CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due DATETIME, action_category TEXT, action_type TEXT, constituent_record_id TEXT, raw_json TEXT);
     CREATE TABLE funds (id TEXT PRIMARY KEY, fund_description TEXT);
+    CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date DATETIME);
+    CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT, fundraiser_type TEXT, fundraiser_end_date DATETIME, fundraiser_active INTEGER);
   `);
+  mirror.prepare('INSERT INTO fundraisers (id, fundraiser_first_name, fundraiser_last_name, fundraiser_type, fundraiser_active) VALUES (?,?,?,?,1)').run('77', 'Dana', 'Ruiz', 'Regional Development Director (RDD)');
+  mirror.prepare("INSERT INTO assignments (id, constituent_record_id, assignment_fundraiser_id, assignment_type, assignment_to_date) VALUES ('as1', '1', '77', 'Regional Development Director (RDD)', NULL)").run();
   mirror.prepare('INSERT INTO funds (id, fund_description) VALUES (?,?)').run('79', 'Water wells, South Sudan');
   party('1', { first: 'Daniel', last: 'Ellison', sfirst: 'Margaret', slast: 'Ellison' });
   addr('a1', '1');
@@ -88,6 +93,7 @@ before(() => {
     CREATE TABLE act_outbox (id TEXT PRIMARY KEY, batch_id TEXT, op TEXT, bb_id TEXT);
     CREATE TABLE act_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL);
     CREATE TABLE act_staff (email TEXT PRIMARY KEY, team TEXT, active INTEGER, bb_fundraiser_id TEXT, name TEXT);
+    CREATE TABLE act_hqty_signer (gift_id TEXT PRIMARY KEY, signer TEXT NOT NULL, by_name TEXT NOT NULL, by_email TEXT NOT NULL, updated_at TEXT NOT NULL);
   `);
 });
 
@@ -193,5 +199,65 @@ describe('the month text', () => {
     assert.equal(docs[0].paragraphs[0], 'Thank you for $5,000 on Oct 14 to Water wells, South Sudan. We pray for you.');
     await assert.rejects(H.saveMonthText(ctx, '2026-13', 'long enough text here.'), /Pick a month/);
     await assert.rejects(H.saveMonthText(ctx, '2026-10', 'short'), /at least a sentence/);
+  });
+});
+
+describe('who signs', () => {
+  it('picks the signer from the row, else the partner RDD, else the last chosen', () => {
+    assert.equal(L.effectiveSigner('michael', 'Dana Ruiz', ''), 'michael');
+    assert.equal(L.effectiveSigner('', 'Dana Ruiz', 'terry'), 'rdd');
+    assert.equal(L.effectiveSigner('rdd', '', 'carole'), 'carole');
+    assert.equal(L.effectiveSigner('', '', 'rachel'), 'rachel');
+    assert.equal(L.effectiveSigner('', '', ''), '');
+    assert.equal(L.effectiveSigner('rdd', '', ''), '');
+  });
+  it('prints the roster name and title, and the RDD by name', () => {
+    assert.deepEqual(L.signerBlock('terry', ''), { name: 'Terry Goodman', title: 'Uganda/SS Director' });
+    assert.deepEqual(L.signerBlock('carole', ''), { name: 'Carole Ward', title: 'Founder' });
+    assert.deepEqual(L.signerBlock('rdd', 'Dana Ruiz'), { name: 'Dana Ruiz', title: 'Regional Development Director' });
+    assert.deepEqual(L.signerBlock('', ''), { name: '', title: '' });
+  });
+  it('defaults each row to the partner RDD when there is one', async () => {
+    const { shaped } = await H.loadHqty({ DB: hub }, q, { today: TODAY });
+    const by = Object.fromEntries(shaped.rows.map((r) => [r.giftId, r]));
+    assert.equal(by['100'].signer, 'rdd');
+    assert.equal(by['100'].signerName, 'Dana Ruiz');
+    assert.equal(by['100'].picked, false);
+    assert.equal(by['102'].signer, '');
+  });
+  it('sets a signer for one gift or several, and the last named signer becomes the default', async () => {
+    const ctx = ctxFor();
+    const one = await H.setSigner(ctx, { ids: ['103'], signer: 'michael' }, q);
+    assert.deepEqual(one.done, ['103']);
+    assert.deepEqual(one.resolved['103'], { signer: 'michael', signerName: 'Michael Hinton', signerTitle: 'Deputy Director of Operations & Administrative', picked: true });
+    const { shaped } = await H.loadHqty(ctx.env, q, { today: TODAY });
+    const by = Object.fromEntries(shaped.rows.map((r) => [r.giftId, r]));
+    assert.equal(by['103'].signerName, 'Michael Hinton');
+    assert.equal(by['103'].picked, true);
+    assert.equal(by['102'].signer, 'michael');
+    assert.equal(by['102'].picked, false);
+    const bulk = await H.setSigner(ctx, { ids: ['100', '103'], signer: 'terry' }, q);
+    assert.deepEqual(bulk.done, ['100', '103']);
+    assert.equal(bulk.resolved['100'].signerName, 'Terry Goodman');
+    const again = await H.loadHqty(ctx.env, q, { today: TODAY });
+    assert.equal(again.shaped.rows.find((r) => r.giftId === '100').signerName, 'Terry Goodman');
+  });
+  it('refuses the RDD choice on a partner with no RDD, and refuses a letter already printed or mailed', async () => {
+    const ctx = ctxFor();
+    const none = await H.setSigner(ctx, { ids: ['103'], signer: 'rdd' }, q);
+    assert.match(none.skipped[0].why, /no Regional Development Director/);
+    await H.hqtyStep(ctx, { ids: ['103'], to: 'printed' }, q);
+    const printed = await H.setSigner(ctx, { ids: ['103'], signer: 'carole' }, q);
+    assert.match(printed.skipped[0].why, /printed or signed/);
+    const mailed = await H.setSigner(ctx, { ids: ['101'], signer: 'carole' }, q);
+    assert.match(mailed.skipped[0].why, /mailed/);
+    await assert.rejects(H.setSigner(ctx, { ids: ['100'], signer: 'nobody' }, q), /Pick who signs/);
+  });
+  it('prints the signer on the letter', async () => {
+    const { raw, shaped } = await H.loadHqty({ DB: hub }, q, { today: TODAY });
+    const rows = shaped.rows.filter((r) => r.giftId === '100');
+    const [doc] = H.lettersFor(raw, rows, TODAY);
+    assert.equal(doc.signerName, 'Terry Goodman');
+    assert.equal(doc.signerTitle, 'Uganda/SS Director');
   });
 });

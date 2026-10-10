@@ -57,6 +57,11 @@ function actCell(r) {
   if (r.state === 'mailed') return `<span class="hq-ref">${r.actionId ? 'Action ' + e(r.actionId) : 'In Blackbaud'}</span>`;
   return `<span class="hq-ref">${e(r.why)}</span>${menu}`;
 }
+function signerCtl(r) {
+  const opts = H.data.signers.filter((c) => c.key !== 'rdd' || r.rdd).map((c) => `<option value="${c.key}"${c.key === r.signer ? ' selected' : ''}>${e(c.key === 'rdd' ? 'RDD: ' + r.rdd : c.label)}</option>`).join('');
+  const dis = r.state !== 'write' ? ' disabled title="A letter that is printed, signed or mailed keeps the signer it went out with"' : '';
+  return `<label class="hq-signer"><span>Signed by</span><select data-hq-signer="${e(r.key)}" aria-label="Signed by, ${e(r.partner.name)}"${dis}>${r.signer ? '' : '<option value="" selected>Pick a signer</option>'}${opts}</select></label>`;
+}
 function rowHTML(r) {
   const f = F();
   const sub = r.through ? `Given through ${e(r.through)}` : r.partner.place ? e(r.partner.place) : '';
@@ -67,7 +72,7 @@ function rowHTML(r) {
     <label class="wg-cb">${canPick ? `<input type="checkbox" data-hq-pick="${e(r.key)}" ${picked ? 'checked' : ''} aria-label="Select ${e(r.partner.name)}" />` : ''}</label>
     <div class="wg-amt wg-c-amt">${f.money(r.amount)}<small>${f.fd(r.date)} · ${e(r.pay || r.type)}</small></div>
     <div class="wg-c-who"><a class="wg-name" href="/work/partner/${e(r.cid)}" data-partner-id="${e(r.cid)}">${e(r.partner.name)}</a><span class="wg-sub">${sub}</span>${flags ? `<div class="wg-badges">${flags}</div>` : ''}</div>
-    <div class="hq-addr"><b>${e(r.fund || 'No fund on file')}</b>${r.address ? `<span class="wg-sub">${e(r.address)}</span>` : '<span class="wg-sub is-bad">No mailing address</span>'}</div>
+    <div class="hq-addr"><b>${e(r.fund || 'No fund on file')}</b>${r.address ? `<span class="wg-sub">${e(r.address)}</span>` : '<span class="wg-sub is-bad">No mailing address</span>'}${signerCtl(r)}</div>
     <div class="hq-state">${stateCell(r)}</div>
     <div class="wg-acts hq-acts">${actCell(r)}</div></div>`;
 }
@@ -105,6 +110,7 @@ function bar() {
   const f = F(); const has = (...st) => picked.some((r) => st.includes(r.state));
   b.innerHTML = `<b>${picked.length} selected</b>
     ${has('write', 'printed', 'signed') ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-bulk="print">${f.ic('print')}Print one PDF</button>` : ''}
+    ${has('write') ? `<label class="hq-signer hq-signer--bulk"><span>Signed by</span><select data-hq-bulk-signer aria-label="Set the signer for the selected letters"><option value="" selected>Set for all selected</option>${H.data.signers.map((c) => `<option value="${c.key}">${e(c.label)}</option>`).join('')}</select></label>` : ''}
     ${has('printed', 'write') ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-bulk="signed">${f.ic('check')}Signed</button>` : ''}
     ${has('signed', 'printed') ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-bulk="mailed">${f.ic('mail')}Mark mailed</button>` : ''}
     <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-bulk="cannot">Cannot send</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-bulk="clear">Clear</button>`;
@@ -115,10 +121,25 @@ function sheet() {
   H.sheetOn = true;
   window.FavorSheets.register('hqty-letters', () => {
     const cols = [{ key: 'date', label: 'Gift date', type: 'date' }, { key: 'amount', label: 'Amount', type: 'money' }, { key: 'partner', label: 'Partner', type: 'text' }, { key: 'through', label: 'Given through', type: 'text' },
-      { key: 'fund', label: 'Fund', type: 'text' }, { key: 'address', label: 'Mailing address', type: 'text' }, { key: 'state', label: 'Letter', type: 'text' }, { key: 'on', label: 'On', type: 'date' }, { key: 'action', label: 'Blackbaud action', type: 'text' }, { key: 'flags', label: 'Flags', type: 'text' }];
-    const data = visible().map((r) => ({ date: r.date, amount: r.amount, partner: r.partner.name, through: r.through || '', fund: r.fund, address: r.address, state: STATE[r.state][0] + (r.why ? ': ' + r.why : ''), on: r.stateDate || null, action: r.actionId, flags: r.flags.join(', ') }));
+      { key: 'fund', label: 'Fund', type: 'text' }, { key: 'address', label: 'Mailing address', type: 'text' }, { key: 'state', label: 'Letter', type: 'text' }, { key: 'signer', label: 'Signed by', type: 'text' }, { key: 'on', label: 'On', type: 'date' }, { key: 'action', label: 'Blackbaud action', type: 'text' }, { key: 'flags', label: 'Flags', type: 'text' }];
+    const data = visible().map((r) => ({ date: r.date, amount: r.amount, partner: r.partner.name, through: r.through || '', fund: r.fund, address: r.address, state: STATE[r.state][0] + (r.why ? ': ' + r.why : ''), signer: r.signerName, on: r.stateDate || null, action: r.actionId, flags: r.flags.join(', ') }));
     return window.FavorSheets.screen('HQTY letters', [{ name: 'HQTY letters', columns: cols, rows: data }], { filters: H.filter ? 'Filter: ' + H.filter : '', classes: ['partner'] });
   });
+}
+
+/* ------------------------------------------------------------------ signer */
+/** Sets who signs for the gifts named. Only letters still To write change; the server says which did. */
+async function setSignerRows(keys, key) {
+  const rows = keys.map(rowOf).filter((r) => r && r.state === 'write');
+  if (!rows.length) { F().toast('Only letters still To write take a signer. Put a printed letter back to To write first.', null, true); draw(); return; }
+  try {
+    const out = await F().post('/api/work/hqty/signer', { ids: rows.map((r) => r.giftId), signer: key });
+    let n = 0;
+    for (const r of H.data.rows) { const v = out.resolved[r.giftId]; if (v) { r.signer = v.signer; r.signerName = v.signerName; r.signerTitle = v.signerTitle; r.picked = true; n++; } }
+    if (n) F().toast(`Signer set for ${n} ${n === 1 ? 'letter' : 'letters'}.`);
+    if (out.skipped.length) F().toast(out.skipped[0].why, null, !n);
+  } catch (err) { F().toast(err.message, null, true); }
+  draw();
 }
 
 /* ------------------------------------------------------------------ steps */
@@ -307,6 +328,8 @@ document.addEventListener('click', async (ev) => {
 });
 document.addEventListener('change', (ev) => {
   const t = ev.target;
+  if (t.matches && t.matches('[data-hq-signer]')) { setSignerRows([t.dataset.hqSigner], t.value); return; }
+  if (t.matches && t.matches('[data-hq-bulk-signer]')) { if (t.value) setSignerRows([...H.sel], t.value); return; }
   if (t.matches && t.matches('[data-hq-pick]')) { if (t.checked) H.sel.add(t.dataset.hqPick); else H.sel.delete(t.dataset.hqPick); const row = t.closest('.hq-row'); if (row) row.classList.toggle('is-picked', t.checked); bar(); }
 });
 let qT;

@@ -19,6 +19,8 @@ function mirror() {
   const db = new DatabaseSync(':memory:');
   db.exec(`
     CREATE TABLE funds (id TEXT, fund_description TEXT);
+    CREATE TABLE assignments (id TEXT, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date TEXT);
+    CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT, fundraiser_type TEXT, fundraiser_end_date TEXT, fundraiser_active INTEGER);
     CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, constituent_type TEXT, first_name TEXT, last_name TEXT, preferred_name TEXT, organization_name TEXT, title TEXT,
       spouse_first_name TEXT, spouse_last_name TEXT, spouse_id TEXT, inactive INTEGER, deceased INTEGER, raw_json TEXT);
     CREATE TABLE gifts (id TEXT, constituent_record_id TEXT, gift_amount REAL, gift_date TEXT, gift_type TEXT, gift_status TEXT,
