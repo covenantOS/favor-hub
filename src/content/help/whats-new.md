@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Work Center is open to everyone whose job touches it.** Regional directors, the Support Team, Partner Care, church engagement and grants writers each see their own portfolio and can change it. Select many Blackbaud actions and complete, reassign or reschedule them in one pass. Open any action to edit every field, its notes, tags and attachments. Add a contact or a task with a follow-up that repeats, and undo any change for 24 hours. Press any partner name, or search at the top of any page, to open the partner beside your work: giving, what is due, one timeline of gifts, contacts and notes, and buttons to call, text, email, log a contact or add a task. Entry reads each director's tracking sheet, and a thank-you closes the fundraiser's task and counts as their contact.
 - **Ask Favor Brain in your own words.** A typo, a short follow-up like "only major ones", or a question such as "are you able to rate a prospect?" now gets a real answer. A question nothing can place comes back with buttons for what it can do, and Will sees it so it gets built.
 - **Clips for everyone.** Press the camera at the top right to record your screen, a window, a tab or just the camera. A small recorder window opens, so you can go to any hub page, reload, or switch tabs and the recording keeps going. When you stop, the clip gets a title, a summary, chapters and a transcript, and the app and page you showed are noted for search. Your clips are under **Clips** in the menu, and only you see them. Each person has 10 GB. Only signed-in Favor staff can open a link unless you turn on Anyone with the link.
 - **A question is never lost.** Your question is saved the moment you send it and the answer finishes on its own, even if you switch chats, open another hub page or reload. Come back and the chat shows it working, then the answer fills in. A dot beside a chat in your list means an answer is on its way.
@@ -21,13 +22,6 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 - **Open in Google Sheets** beside every download on Favor Brain tables, Foundation prospects, Thank-you receipts, the Request board, the Expense log and Feedback. The first time, Google asks once for permission. The sheet lands in your own Drive and only you can open it.
 
 ## October 9, 2026
-
-<!-- Held back until Work Center is released to the Support Team (leadership's word), then the Director of Operations announces it:
-- **Work Center.** Select many Blackbaud actions and mark them complete, reassign them or move their due dates in one pass. Every batch can be undone for 24 hours.
-- **Work Center keeps itself current.** Entry reads each director's tracking sheet, lists refresh from Blackbaud through the day, a thank-you closes the fundraiser's task and counts as their contact, and held batches send overnight without the page open.
-- **Change anything on an action.** Open any action to edit every field, its notes, tags and attachments, with the partner beside it. Change a date, a status or who it belongs to right in the list, edit many at once, add a contact or a task with a follow-up that repeats, copy or move an action, and track opportunities. Every change can be undone for 24 hours.
-- **Partners open beside your work.** Press any partner name in the hub, or find one at the top of any page. Call, text or email from the top, log a contact, add a task or a note, complete what is due, fix a phone, email or address, and see gifts, contacts and notes on one timeline.
--->
 
 - **Your day shows only open actions.** Review tasks already completed in Blackbaud no longer show as waiting, and the overdue count covers only open actions.
 - **A guided tour.** Help and what's new now starts a tour set up for your work. A green dot on it means something new is waiting to be shown.

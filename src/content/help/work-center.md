@@ -3,7 +3,7 @@ title: Work Center
 summary: Change any Blackbaud action, one at a time or many at once, add contacts and tasks with follow-ups, and track opportunities.
 topic: work
 order: 4
-for: [admin]
+for: [admin, rdd, pc, ce, grants, leader]
 related: [today, getting-started]
 tool: /work/
 toolLabel: Open Work Center
@@ -74,6 +74,13 @@ A batch too large for today's share of Blackbaud goes out after 8:00 PM Eastern,
 
 Stale groups old tasks into lanes. Select all in a lane leaves out tasks tied to a gift of $1,000 or more, so you pick those by hand.
 
-## Who can use it
+## Who can use it, and what each role sees
 
-Admins see Work Center now. The Support Team gets it when leadership releases it, and the Director of Operations announces that.
+Work Center is open to the people whose job touches it. What you see depends on your role, and the page only offers what your role may do.
+
+- **Regional directors, church engagement and grants writers** see the actions they work and the actions on partners they hold. They can change, complete and reschedule those one at a time or many at once, add contacts and tasks, and hand an action to someone on their own team. Entry shows their own contacts.
+- **The Support Team** sees the directors they support. They enter contacts for those directors, mark thank-yous, change and delete actions in that portfolio, and move an action to another partner.
+- **Partner Care** sees the Partner Care portfolio. They can change and complete those actions and add contacts and tasks.
+- **Admins** see everything and can hand work to any team.
+
+Only admins and the Support Team delete an action or move it to another partner. Only an admin hands an action to someone on another team. Recent shows your own changes. Any partner opens for every role from the partner page, since Blackbaud already shows them to everyone. If you need more than your role shows, press Feedback and say why.

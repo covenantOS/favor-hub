@@ -3,7 +3,7 @@ title: Partner
 summary: Open any partner with one click, see their giving and history, and log a contact, add a task or note, or fix a phone, email or address.
 topic: work
 order: 5
-for: [admin]
+for: [admin, rdd, pc, ce, grants, leader]
 related: [work-center, search]
 tool: /work/partner/
 toolLabel: Find a partner

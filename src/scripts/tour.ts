@@ -76,12 +76,12 @@ function hub(): Promise<Hub> {
 
 const PRESETS: Record<string, Partial<Who>> = {
   staff: { admin: false, leader: false, teams: [], kpi: true, approver: false, expenseLog: false },
-  rdd: { admin: false, leader: false, teams: ['rdd'], kpi: true, approver: false, expenseLog: false },
-  pc: { admin: false, leader: false, teams: ['pc'], kpi: true, approver: false, expenseLog: false },
-  ce: { admin: false, leader: false, teams: ['ce'], kpi: true, approver: false, expenseLog: false },
-  grants: { admin: false, leader: false, teams: ['grants'], kpi: true, approver: false, expenseLog: false },
+  rdd: { work: true, admin: false, leader: false, teams: ['rdd'], kpi: true, approver: false, expenseLog: false },
+  pc: { work: true, admin: false, leader: false, teams: ['pc'], kpi: true, approver: false, expenseLog: false },
+  ce: { work: true, admin: false, leader: false, teams: ['ce'], kpi: true, approver: false, expenseLog: false },
+  grants: { work: true, admin: false, leader: false, teams: ['grants'], kpi: true, approver: false, expenseLog: false },
   marketing: { admin: false, leader: false, teams: ['marketing'], kpi: true, approver: false, expenseLog: false },
-  leader: { admin: false, leader: true, teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'], kpi: true, approver: true, expenseLog: true },
+  leader: { work: true, admin: false, leader: true, teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'], kpi: true, approver: true, expenseLog: true },
 };
 
 function whoFrom(d: Hub, as?: string): Who {
@@ -91,6 +91,7 @@ function whoFrom(d: Hub, as?: string): Who {
     admin: !!a.admin,
     approver: !!a.approver,
     expenseLog: !!a.expenseLog,
+    work: !!a.workCenter,
     kpi: !!a.kpi,
     teams,
     leader: teams.length >= 5,

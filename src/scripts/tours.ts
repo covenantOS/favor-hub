@@ -7,6 +7,8 @@ export type Who = {
   admin: boolean;
   approver: boolean;
   expenseLog: boolean;
+  /** Opens the Work Center for this person: an admin, or someone whose job touches it. */
+  work: boolean;
   kpi: boolean;
   teams: string[];
   leader: boolean;
@@ -250,7 +252,7 @@ export const STEPS: Step[] = [
     at: '#wc-board',
     title: 'Finish many actions at once',
     body: 'Pick a fundraiser, tick the actions you want or press Shift and click for a range, then press Mark complete. One date and one shared line go on all of them, and every batch can be undone from Recent for 24 hours. Large batches go out overnight by themselves, and the lists refresh through the day.',
-    for: (w) => w.admin,
+    for: (w) => w.admin || w.work,
     added: '2026-10-10',
     side: 'top',
   },
@@ -261,7 +263,7 @@ export const STEPS: Step[] = [
     at: '#wc-tools2',
     title: 'Change anything on an action',
     body: 'Press a partner name to open the action: every field, its notes, tags and attachments, with the partner beside it. Press a date, a status or a name in the list to change it in place. New action adds a contact or a task with a follow-up. Press ? for the keyboard shortcuts.',
-    for: (w) => w.admin,
+    for: (w) => w.admin || w.work,
     added: '2026-10-10',
     side: 'bottom',
   },
@@ -272,7 +274,7 @@ export const STEPS: Step[] = [
     at: '#pv-search',
     title: 'Find any partner',
     body: 'Type a name, an email, a phone number, a street address or a lookup id. Any partner name in the hub opens the partner beside your work: giving, what is due, one timeline of gifts, contacts and notes, and buttons to call, log a contact, add a task or a note.',
-    for: (w) => w.admin,
+    for: (w) => w.admin || w.work,
     added: '2026-10-10',
     side: 'bottom',
   },
