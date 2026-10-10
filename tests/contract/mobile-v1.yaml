@@ -1,0 +1,346 @@
+openapi: 3.0.3
+info:
+  title: Favor Hub mobile API
+  version: 1.0.0
+  description: |
+    The only API the Favor staff iPhone app calls. The app never talks to Blackbaud.
+    The hub keeps Blackbaud (or a future Favor CRM) behind these routes, so a swap changes
+    the hub and leaves the app alone.
+
+    Status 2026-10-10: favor-hub serves every operation below (build item 4, favor-hub branch mobile-routes), inert until the app ships.
+    Each operation lists the Work Center or hub code it reuses in x-work-center-route.
+    A device token works only on /api/mobile/* and /api/auth/native/*. The routes follow the Work Center gate: until leadership
+    releases the Work Center, only admins get past it and everyone else receives 403 not_released.
+    Dates are Blackbaud calendar days sent as noon UTC (2026-10-10T12:00:00Z), so every US time zone shows the same day.
+    Every error answers { ok: false, error: <code>, message: <staff-worded text> }.
+
+    Writes carry a client_id (UUID). The hub stores it with a unique index on (email, client_id)
+    and returns the stored result on a repeat, so the app's offline queue can resend safely.
+    A 409 means the change already happened and the app treats it as sent.
+servers:
+  - url: https://dash.favorintl.org
+security:
+  - deviceToken: []
+paths:
+  /api/auth/native:
+    post:
+      operationId: deviceSignIn
+      summary: Exchange a Google ID token for a device token
+      security: []
+      description: |
+        The app signs in with Google (iOS client, hosted domain favorintl.org) and posts the ID token.
+        The hub checks signature, issuer, audience (web and iOS client ids), expiry, iat,
+        email_verified and hd = favorintl.org, then applies the hub_users.blocked check.
+        It stores only the SHA-256 of the returned token and shows the token once. Lifetime 90 days.
+      x-work-center-route: |
+        None. Existing POST /api/auth/google issues a cookie session for browsers, not a bearer token.
+        Planned in ios-research-backend.md section 3: hub_devices table, audience list in verifyGoogleIdToken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id_token, device_name]
+              properties:
+                id_token: { type: string }
+                device_name: { type: string, example: "Staff iPhone" }
+      responses:
+        "200":
+          description: Device session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceSession" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403":
+          description: Account is blocked or not a favorintl.org account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/auth/native/revoke:
+    post:
+      operationId: deviceRevoke
+      summary: Sign out this phone
+      x-work-center-route: None. Planned with hub_devices.
+      responses:
+        "204": { description: Revoked }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+
+  /api/mobile/today:
+    get:
+      operationId: today
+      summary: Thank-yous and follow-ups due today or overdue for the signed-in person
+      x-work-center-route: |
+        Partly covered. GET /api/work/thanks (planned) lists thank-yous owed per owner.
+        GET /api/work/board (planned) lists open actions with due dates and type; the follow-ups are
+        its rows with due <= today. GET /api/hub/today (built) returns the per-person cards for the web Today page.
+        The mobile route trims either shape to the fields below and adds phone and email from the partner record.
+      responses:
+        "200":
+          description: Items due
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/TodayItem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/mobile/today/{id}/done:
+    post:
+      operationId: markDone
+      summary: Mark a thank-you or follow-up done
+      x-work-center-route: |
+        POST /api/work/batches with op = complete (follow-up) or thanked (thank-you), ids = [id] (planned).
+        The batch writes the Work Center outbox first, then Blackbaud, so the phone never waits on Blackbaud.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [client_id]
+              properties:
+                client_id: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Done, or a stored duplicate of an earlier send
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WriteResult" }
+        "409": { description: Already done (or no longer open). The app treats it as sent. }
+        "404": { description: Not on this person's list }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/mobile/partners:
+    get:
+      operationId: searchPartners
+      summary: Partner lookup by name, email, phone or city
+      x-work-center-route: |
+        GET /api/work/partners?q= (planned). Returns 8 rows with cid, name, place, holders. The mobile route adds
+        the card fields below so the list needs no second call. An empty q returns the person's own portfolio, first 25.
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Matches
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Partner" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/mobile/partners/{id}:
+    get:
+      operationId: partnerDetail
+      summary: One partner with contact details, last gift, year-to-date giving and last contact
+      x-work-center-route: |
+        None. GET /api/work/partners/:id is new in ios-research-backend.md section 4. Year-to-date giving and last gift
+        come from the D1 mirror (re_nxt_data), last contact from the mirrored actions.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Partner
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Partner" }
+        "404": { description: Unknown partner or outside this person's access }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/mobile/contacts:
+    post:
+      operationId: logContact
+      summary: Record a call, visit or text
+      x-work-center-route: |
+        POST /api/work/entry/many with one constituent id, channel = kind, summary = note, contact_date = occurred_at (planned).
+        The hub's duplicate guard and the read-back rule after a lost answer stay in force.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ContactLog" }
+      responses:
+        "200":
+          description: Recorded, or a stored duplicate of an earlier send
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/WriteResult" }
+        "404": { description: Unknown partner }
+        "409": { description: Already recorded }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/mobile/captures:
+    post:
+      operationId: uploadCapture
+      summary: Upload one check or reply-slip photo for gift entry
+      x-work-center-route: |
+        POST /api/gifts/capture (planned in the gift entry scope, phase P1), writing to the private
+        favor-gift-captures R2 bucket. The existing /api/requests/:id/attachments route is not usable: 4 MB limit,
+        no HEIC, and /api/uploads/ serves any key publicly. Check photos never go under /api/uploads/.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [client_id, kind, image]
+              properties:
+                client_id: { type: string, format: uuid }
+                kind: { type: string, enum: [check, reply_slip] }
+                captured_at: { type: string, format: date-time }
+                image:
+                  type: string
+                  format: binary
+                  description: JPEG, long edge about 2,000 px, 12 MB hard cap. HEIC is converted on the phone.
+      responses:
+        "200":
+          description: Stored, or a stored duplicate of an earlier send
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CaptureResult" }
+        "413": { description: Image over the cap }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+
+  /api/mobile/config:
+    get:
+      operationId: config
+      summary: Minimum app version and feature switches
+      x-work-center-route: None. New. Lets the hub retire an old build.
+      responses:
+        "200":
+          description: Config
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  min_version: { type: string, example: "0.1.0" }
+                  features:
+                    type: object
+                    additionalProperties: { type: boolean }
+
+components:
+  securitySchemes:
+    deviceToken:
+      type: http
+      scheme: bearer
+  responses:
+    Unauthorized:
+      description: Token missing, expired, revoked, or the person is blocked. The app signs out and wipes its cache.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: The account is not open for the app yet (error not_released), or is not set up for this action (not_entry_owner, no_fundraiser).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: The request is malformed (error bad_client_id, bad_kind, bad_partner, bad_date, bad_image and similar).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: More than 60 changes a minute from one person. The app waits and resends.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [ok, error, message]
+      properties:
+        ok: { type: boolean, enum: [false] }
+        error: { type: string }
+        message: { type: string }
+    WriteResult:
+      type: object
+      properties:
+        recorded: { type: boolean }
+        done: { type: boolean }
+        batch_id: { type: string, nullable: true }
+        run_when: { type: string, nullable: true, enum: [now, tonight] }
+        repeat: { type: boolean }
+    CaptureResult:
+      type: object
+      required: [stored, id, bytes, kind]
+      properties:
+        stored: { type: boolean }
+        id: { type: string, format: uuid }
+        bytes: { type: integer }
+        kind: { type: string, enum: [check, reply_slip] }
+        repeat: { type: boolean }
+    DeviceSession:
+      type: object
+      required: [token, email, expires_at]
+      properties:
+        token: { type: string }
+        email: { type: string, format: email }
+        expires_at: { type: string, format: date-time }
+    TodayItem:
+      type: object
+      required: [id, kind, partner_id, partner_name, summary, due_date, done]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [thank_you, follow_up] }
+        partner_id: { type: string }
+        partner_name: { type: string }
+        phone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        summary: { type: string }
+        due_date: { type: string, format: date-time }
+        done: { type: boolean }
+    Partner:
+      type: object
+      required: [id, name, place, year_to_date_cents]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        place: { type: string }
+        phone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        last_gift_cents: { type: integer, nullable: true }
+        last_gift_date: { type: string, format: date-time, nullable: true }
+        year_to_date_cents: { type: integer }
+        last_contact_date: { type: string, format: date-time, nullable: true }
+        last_contact_kind: { type: string, enum: [call, visit, text], nullable: true }
+    ContactLog:
+      type: object
+      required: [client_id, partner_id, kind, occurred_at]
+      properties:
+        client_id: { type: string, format: uuid }
+        partner_id: { type: string }
+        kind: { type: string, enum: [call, visit, text] }
+        note: { type: string }
+        occurred_at: { type: string, format: date-time }

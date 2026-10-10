@@ -17,5 +17,8 @@
     "cuelume": "^0.1.2",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.1"
   }
 }

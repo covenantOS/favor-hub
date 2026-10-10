@@ -8,6 +8,7 @@
 // X-Hub-* request headers it sets itself.
 import { HttpError, clientIp, nowIso, timingSafeEqualStr, type Env } from './http';
 import { readCookie } from './auth';
+import { resolveDevice } from './mobile/device';
 
 export const SESSION_COOKIE = 'favor_hub_session';
 const NONCE_COOKIE = 'favor_hub_nonce';
@@ -22,7 +23,7 @@ const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.
 const HUB_HEADERS = ['X-Hub-Email', 'X-Hub-Name', 'X-Hub-Role', 'X-Hub-Via', 'X-Hub-Picture', 'X-Hub-Kpi'];
 
 export type HubRole = 'staff' | 'admin';
-export type HubVia = 'google' | 'password' | 'agent';
+export type HubVia = 'google' | 'password' | 'agent' | 'device';
 
 export interface HubUser {
   email: string;
@@ -59,6 +60,11 @@ export function signinEnforced(env: Env): boolean {
 
 function hubDomain(env: Env): string {
   return (env.HUB_GOOGLE_DOMAIN || DEFAULT_DOMAIN).trim().toLowerCase();
+}
+
+/** Where a device token is accepted. */
+export function isDevicePath(path: string): boolean {
+  return path.startsWith('/api/mobile/') || path.startsWith('/api/auth/native/');
 }
 
 export function isAdminEmail(env: Env, email: string): boolean {
@@ -124,8 +130,17 @@ async function googleKey(env: Env, kid: string): Promise<CryptoKey> {
   return key;
 }
 
-/** Checks Google's signature, issuer, audience and expiry. Account rules are checked by the caller. */
-export async function verifyGoogleIdToken(env: Env, token: string): Promise<GoogleClaims> {
+/** Issuer, audience and time checks on claims already known to be Google's (or, in test mode, trusted). */
+export function checkGoogleClaims(claims: GoogleClaims, audiences: string[]): void {
+  const now = Math.floor(Date.now() / 1000);
+  if (!GOOGLE_ISSUERS.has(claims.iss)) throw new HttpError(401, 'bad_token', 'That sign-in did not come from Google.');
+  if (!audiences.includes(claims.aud)) throw new HttpError(401, 'bad_token', 'That sign-in was meant for a different app.');
+  if (typeof claims.exp !== 'number' || claims.exp < now - 60) throw new HttpError(401, 'expired', 'That sign-in expired. Try again.');
+  if (typeof claims.iat === 'number' && claims.iat > now + 300) throw new HttpError(401, 'bad_token', 'That sign-in is dated in the future. Check the computer clock.');
+}
+
+/** Checks Google's signature, issuer, audience and expiry. Account rules are checked by the caller. The web page passes no audience list and gets the web client only. */
+export async function verifyGoogleIdToken(env: Env, token: string, audiences?: string[]): Promise<GoogleClaims> {
   const parts = token.split('.');
   if (parts.length !== 3) throw new HttpError(401, 'bad_token', 'Google sent a sign-in this page cannot read. Try again.');
   let header: { alg?: string; kid?: string };
@@ -141,11 +156,7 @@ export async function verifyGoogleIdToken(env: Env, token: string): Promise<Goog
   const signed = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
   const valid = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64urlBytes(parts[2]), signed);
   if (!valid) throw new HttpError(401, 'bad_token', 'That sign-in was not signed by Google.');
-  const now = Math.floor(Date.now() / 1000);
-  if (!GOOGLE_ISSUERS.has(claims.iss)) throw new HttpError(401, 'bad_token', 'That sign-in did not come from Google.');
-  if (claims.aud !== googleClientId(env)) throw new HttpError(401, 'bad_token', 'That sign-in was meant for a different app.');
-  if (typeof claims.exp !== 'number' || claims.exp < now - 60) throw new HttpError(401, 'expired', 'That sign-in expired. Try again.');
-  if (typeof claims.iat === 'number' && claims.iat > now + 300) throw new HttpError(401, 'bad_token', 'That sign-in is dated in the future. Check the computer clock.');
+  checkGoogleClaims(claims, audiences && audiences.length ? audiences : [googleClientId(env)]);
   return claims;
 }
 
@@ -264,6 +275,14 @@ export async function resolveUser(env: Env, request: Request): Promise<HubUser |
     return { email: 'agent', name: 'Agent', picture: '', role: 'admin', via: 'agent', kpi: true };
   }
 
+  // A phone's device token. It works only on the iPhone routes and the device sign-out routes, never on the rest of the hub.
+  if (supplied.startsWith('fdv_') && isDevicePath(new URL(request.url).pathname)) {
+    const d = await resolveDevice(env, supplied);
+    if (!d) return null;
+    const admin = d.role === 'admin' || isAdminEmail(env, d.email);
+    return { email: d.email, name: d.name || d.email, picture: d.picture, role: admin ? 'admin' : 'staff', via: 'device', kpi: true };
+  }
+
   const token = readCookie(request, SESSION_COOKIE);
   if (token) {
     const hash = await sha256Hex(token);
@@ -332,7 +351,7 @@ export function hubUserOf(request: Request): HubUser | null {
     name: decoded(request.headers.get('X-Hub-Name')) || email,
     picture: decoded(request.headers.get('X-Hub-Picture')),
     role: request.headers.get('X-Hub-Role') === 'admin' ? 'admin' : 'staff',
-    via: via === 'agent' || via === 'password' ? via : 'google',
+    via: via === 'agent' || via === 'password' || via === 'device' ? via : 'google',
     kpi: request.headers.get('X-Hub-Kpi') === '1',
   };
 }
