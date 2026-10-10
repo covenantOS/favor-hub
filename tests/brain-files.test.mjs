@@ -63,6 +63,13 @@ describe('Drive file cards', () => {
     assert.match(number, /<div class="fnum"><b>\$125,000<\/b><span>Annual budget<\/span><em>Sheet Totals, cell C22<\/em><\/div>/);
   });
 
+  it('reads a converted passage without its markdown marks and keeps a hash or star that belongs to the text', () => {
+    const marked = render({ title: 't', files: [file({ passages: [{ text: '## Contents ### Page 1 BUDGET **Total** raised * first item * second item' }] })] });
+    assert.match(marked, /<blockquote class="fq">Contents Page 1 BUDGET Total raised &middot; first item &middot; second item<\/blockquote>|<blockquote class="fq">Contents Page 1 BUDGET Total raised · first item · second item<\/blockquote>/);
+    const kept = render({ title: 't', files: [file({ passages: [{ text: 'Item #5 in C# costs 5* more' }] })] });
+    assert.match(kept, /Item #5 in C# costs 5\* more/);
+  });
+
   it('shows a sheet cell with words as a quote, and leaves out a column the sheet never named', () => {
     const cell = (value, header = 'col A') => render({ title: 't', files: [file({ kind: 'sheet', kind_label: 'Sheet', passages: [{ text: '', sheet: 'Summary', cell: { ref: 'A6', header, value } }] })] });
     assert.match(cell('Submissions (proposals and letters)'), /<blockquote class="fq">Submissions \(proposals and letters\)<em>Sheet Summary, cell A6<\/em><\/blockquote>/);

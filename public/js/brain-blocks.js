@@ -460,8 +460,16 @@
   // A column the sheet never named comes through as "col A", which says nothing, so it is left out.
   const NUMBERISH = /^[-(]?\$?\d[\d,]*(\.\d+)?\s?(%|[KMB])?\)?$/i;
   const namedColumn = (h) => (/^col [A-Z]{1,3}$/i.test(String(h || '').trim()) ? '' : String(h || '').trim());
+  // The index keeps the markdown marks of converted files (## headings, ** bold, * bullets). A passage reads without them.
+  const tidy = (t) =>
+    String(t == null ? '' : t)
+      .replace(/\*{2,3}([^*]+)\*{2,3}/g, '$1')
+      .replace(/(^|\s)#{1,6}(?=\s)/g, '$1')
+      .replace(/(^|\s)\*(?=\s)/g, '$1·')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
   function passageHTML(p) {
-    if (!p.cell) return `<blockquote class="fq">${esc(p.text)}${p.loc ? `<em>${esc(p.loc)}</em>` : ''}</blockquote>`;
+    if (!p.cell) return `<blockquote class="fq">${esc(tidy(p.text))}${p.loc ? `<em>${esc(p.loc)}</em>` : ''}</blockquote>`;
     const v = String(p.cell.value == null ? '' : p.cell.value).trim();
     const col = namedColumn(p.cell.header);
     const where = `${p.sheet ? `Sheet ${p.sheet}, cell` : 'Cell'} ${p.cell.ref}`;
