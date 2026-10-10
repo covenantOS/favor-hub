@@ -480,6 +480,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'meeting-nudge',
+    page: '/meet/',
+    via: 'meet',
+    at: '#mt-home',
+    title: 'Two minutes before a meeting',
+    body: 'Two minutes before a meeting on your calendar, a box in the corner of any page shows its name and a Join button. Allow system notifications from the quiet line at the bottom of this page and the alert reaches your computer too. On a meeting\'s notes, Book the follow-up opens the booking with the same people already added.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'feedback',
     at: '#h-fb',
     title: 'Tell us what you think',

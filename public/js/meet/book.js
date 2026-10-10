@@ -5,6 +5,7 @@ import { $, $$, esc, ic, av, api, toast, copy, roomLink, whoami } from './ui.js'
 const root = $('#mt-book');
 const params = new URLSearchParams(location.search);
 const EDIT = params.get('edit') || '';
+const FOLLOW = params.get('follow') || '';
 const TZ = 'America/New_York';
 const HOURS = []; for (let h = 9; h < 17; h++) { HOURS.push([h, 0]); HOURS.push([h, 30]); }
 
@@ -69,6 +70,17 @@ async function load() {
     S.title = m.title; S.agenda = m.agenda; S.dur = m.durationMin; S.rec = m.rec; S.editing = m;
     for (const i of m.invitees) addPerson({ email: i.email, name: i.name, team: i.team });
     S.step = 2;
+  }
+  // Book the follow-up (from a meeting's notes): the same people, with a Follow-up title, starting on Who.
+  if (FOLLOW && !EDIT) {
+    try {
+      const m = (await api('meetings/' + FOLLOW)).meeting;
+      S.title = 'Follow-up: ' + String(m.title || 'Meeting').replace(/^Follow-up:\s*/i, '');
+      // A directory name wins; someone not in the directory keeps the name the meeting was booked with.
+      const who = (email, name) => { const p = personByEmail(email); const known = S.dir.some((x) => x.email.toLowerCase() === email); addPerson({ email, name: known ? p.name : name || email, team: p.team }); };
+      if (m.hostEmail) who(String(m.hostEmail).toLowerCase(), m.hostName);
+      for (const i of m.invitees || []) who(String(i.email).toLowerCase(), i.name);
+    } catch (e) { toast(e.message); }
   }
   if (S.step === 2 && !S.can.ok) S.fb = 'consent';
   draw(); root.removeAttribute('aria-busy');

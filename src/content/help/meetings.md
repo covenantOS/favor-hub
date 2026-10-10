@@ -30,6 +30,14 @@ Open **People** and press the dots beside a person: Mute, Spotlight for everyone
 
 A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, the hub saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. They appear under **Meeting notes** a few minutes later, and the transcript is searchable on that page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
 
+## Two minutes before
+
+Two minutes before a meeting on your calendar starts, a box opens in the corner of any hub page with the meeting's name and a **Join** button. It opens once for each meeting in each browser session. If you allow system notifications, your computer shows the same alert too. On the Meetings page, a small line at the bottom asks for that permission once. Nothing pops up on its own to ask.
+
+## Book the follow-up
+
+Open a meeting's notes and press **Book the follow-up**. The booking opens with the same people already added and the title Follow-up, so you only pick a time.
+
 ## Limits while it is tested
 
 Only hub admins see Meetings. Guests from outside Favor, booking from Google Calendar and Favor Brain inside the call arrive in later updates. If a room fails to load, tell the technology team through Feedback.
