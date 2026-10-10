@@ -17,6 +17,11 @@ database_id = "56466fae-d166-4010-9f7f-b8f2d8b50c8b"
 binding = "UPLOADS"
 bucket_name = "favor-requests"
 
+# Gift entry: check and slip photos. Private; no public domain. The hub serves a photo only to a signed-in admin.
+[[r2_buckets]]
+binding = "GIFT_CAPTURES"
+bucket_name = "favor-gift-captures"
+
 # Clips (screen recordings): a private bucket, read only through /api/clips/<id>/media.
 [[r2_buckets]]
 binding = "CLIPS"

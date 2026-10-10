@@ -266,6 +266,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'gift-entry',
+    page: '/gift-entry/',
+    via: 'gift-entry',
+    at: '#ge-root',
+    title: 'Mail day gift entry',
+    body: 'Press New mail deposit, enter the tape total and count, then photograph each check or slip. Two readers read every photo and the page highlights any field where they disagree. Match each gift to a partner, check it against the tape, and press Looks right on every row. The batch cannot go to Blackbaud until the total and the count equal the tape.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'top',
+  },
+  {
     id: 'clips',
     at: '#clip-cam',
     title: 'Record a clip from any page',

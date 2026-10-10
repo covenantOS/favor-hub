@@ -1,6 +1,8 @@
 export interface Env {
   DB: D1Database;
   UPLOADS: R2Bucket;
+  /** Gift entry's private bucket for check and slip photos (favor-gift-captures). Never public; read only through /api/gift-entry/images. */
+  GIFT_CAPTURES: R2Bucket;
   ASSETS: AssetsFetcher;
   ADMIN_PASSWORD?: string;
   AGENT_API_KEY?: string;

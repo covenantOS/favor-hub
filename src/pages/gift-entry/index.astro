@@ -1,0 +1,12 @@
+---
+import App from '../../layouts/App.astro';
+import '../../styles/gift-entry.css';
+---
+<App full title="Gift entry" crumb="Gifts" nav="gift-entry" description="Mail day: set up the deposit, photograph each check, review the gifts against the tape, and create the batch in Blackbaud.">
+  <div class="ge-root" id="ge-root" aria-live="polite">
+    <div class="h-skel" style="height:320px;border-radius:18px"></div>
+  </div>
+  <div id="ge-layer"></div>
+  <div class="ge-toast" id="ge-toast" role="status" aria-live="polite"></div>
+  <script is:inline src="/js/gift-entry.js?v=1" defer></script>
+</App>
