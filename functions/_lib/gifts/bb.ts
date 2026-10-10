@@ -52,7 +52,7 @@ export function bbSender(env: Env): BbSend {
       });
       const data = (await res.json().catch(() => null)) as any;
       if (!data) return { results: [], wait: 'Blackbaud did not answer. It will try again.', lost: true };
-      if (data.error === 'daily_cap') return { results: [], capped: true, wait: "Gift entry is at today's Blackbaud limit. It sends after the reset." };
+      if (data.error === 'daily_cap') return { results: [], capped: true, wait: "Blackbaud's daily limit is reached. It sends after the reset." };
       if (data.error === 'quota_stop') return { results: [], capped: true, wait: "Blackbaud is at today's limit. It sends after the reset." };
       if (!Array.isArray(data.results)) return { results: [], wait: 'The Blackbaud connection turned the call away. It will try again.' };
       return {

@@ -1243,7 +1243,7 @@ function paintActivity(box) {
 function paintArticle(box) {
   const have = S.helpDraft;
   box.innerHTML = `<div class="cw-art">
-    <p class="cw-sub">Writes a draft in the shape of the hub's help articles, from what was said. Nothing is published. Copy it, change it, and add it to the help docs.</p>
+    <p class="cw-sub">Writes a draft help article from what was said.</p>
     <div class="cw-editb"><button type="button" class="cw-btn" id="cw-artmake" ${S.lines.length ? '' : 'disabled'}>${icon('wand')}<span>${have ? 'Write it again' : 'Draft a help article'}</span></button></div>
     ${have ? `<textarea class="cw-edit cw-edit--art" id="cw-artin" rows="18" aria-label="Help article draft">${esc(have)}</textarea>
     <div class="cw-editb"><button type="button" class="cw-btn cw-btn--ghost" id="cw-artcopy">${icon('copy')}Copy</button><button type="button" class="cw-btn cw-btn--ghost" id="cw-artdl">${icon('dl')}Download .md</button><button type="button" class="cw-btn cw-btn--ghost" id="cw-artsave">Save changes</button></div>` : ''}

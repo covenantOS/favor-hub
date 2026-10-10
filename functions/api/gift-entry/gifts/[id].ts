@@ -14,12 +14,12 @@ export const onRequestPatch = gift(async ({ request, env, params, actor, deps })
   if (!g || g.status === 'removed') throw new HttpError(404, 'not_found', 'That row is not here.');
   const dep = await getDeposit(env, g.deposit_id);
   if (!dep || dep.status !== 'open') {
-    if (!(dep && ['needs_person'].includes(dep.status))) throw new HttpError(409, 'locked', 'This deposit was sent. Rows can no longer change here.');
+    if (!(dep && ['needs_person'].includes(dep.status))) throw new HttpError(409, 'locked', 'This deposit was sent. Rows are locked.');
   }
   const b = await jsonBody(request);
   const action = typeof b.action === 'string' ? b.action : '';
   const edit = b.set && typeof b.set === 'object' ? cleanEdit(b.set as Record<string, unknown>) : {};
-  if (dep!.status !== 'open' && Object.keys(edit).length) throw new HttpError(409, 'locked', 'This deposit was sent. Fix the gift in Blackbaud or mark it entered by hand.');
+  if (dep!.status !== 'open' && Object.keys(edit).length) throw new HttpError(409, 'locked', 'This deposit was sent. Rows are locked.');
 
   if (Object.keys(edit).length) {
     // Choosing a different partner drops a duplicate decision and the proposed candidates, and a new fund or amount re-checks the rule.
@@ -63,7 +63,7 @@ export const onRequestDelete = gift(async ({ env, params, actor }) => {
   const g = await getGift(env, id);
   if (!g) throw new HttpError(404, 'not_found', 'That row is not here.');
   const dep = await getDeposit(env, g.deposit_id);
-  if (!dep || dep.status !== 'open') throw new HttpError(409, 'locked', 'This deposit was sent. Rows can no longer be removed here.');
+  if (!dep || dep.status !== 'open') throw new HttpError(409, 'locked', 'This deposit was sent. Rows are locked.');
   await updateGift(env, id, { status: 'removed' });
   await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_removed', actor });
   return { view: await depositView(env, g.deposit_id) };

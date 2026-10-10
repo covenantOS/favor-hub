@@ -187,7 +187,7 @@ async function stepGifts(c: Ctx, d: DepositRow, row: OutboxRow, gifts: GiftRow[]
   }
   const goodGifts = todo.filter((g) => !gone.has(String(g.partner_id)));
   for (const g of todo.filter((x) => gone.has(String(x.partner_id)))) {
-    await updateGift(c.env, g.id, { status: 'failed', error: 'Blackbaud no longer has this partner as an active record. It may have been merged. Pick the partner again.' });
+    await updateGift(c.env, g.id, { status: 'failed', error: 'Blackbaud no longer has this partner as an active record. Pick the partner again.' });
   }
   if (!goodGifts.length) return { done: true, detail: { skipped: todo.length } };
 
@@ -327,7 +327,7 @@ export async function pollBatch(c: Ctx, depositId: string): Promise<Watch | null
   const stamp = iso(c);
   if (!b) {
     await c.env.DB.prepare('UPDATE ge_deposit SET last_polled_at = ? WHERE id = ?').bind(stamp, depositId).run();
-    return { status: d.status, approved: d.status === 'committed', batchNumber: d.bb_batch_number, gifts: null, amount: null, exceptions: false, polledAt: stamp, mismatch: 'Blackbaud no longer lists this batch among the newest 25.' };
+    return { status: d.status, approved: d.status === 'committed', batchNumber: d.bb_batch_number, gifts: null, amount: null, exceptions: false, polledAt: stamp, mismatch: 'Batch not found among the newest 25 in Blackbaud.' };
   }
   const gifts = (await giftsOf(c.env, depositId)).filter((g) => g.status === 'sent');
   const wantCents = gifts.reduce((s, g) => s + (g.amount_cents || 0), 0);

@@ -77,7 +77,7 @@ export async function runAttachments(c: Ctx, depositId: string, deps: AttachDeps
       if (!r.ok) { await fail(r.status >= 500 || r.status === 429 ? 'retry' : 'final', sayWhy(r.body)); continue; }
       const list: any[] = (r.body && r.body.value) || (r.body && r.body.gifts) || [];
       const hit = list.find((x) => String(x.reference || '').includes(`hub ${gift.id}`));
-      if (!hit) { await fail('retry', 'The committed gift was not found yet. The Reference carries the hub id.'); continue; }
+      if (!hit) { await fail('retry', 'The committed gift was not found yet.'); continue; }
       giftId = String(hit.id);
       await c.env.DB.prepare('UPDATE ge_gift SET bb_gift_id = ? WHERE id = ?').bind(giftId, gift.id).run();
     }

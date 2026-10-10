@@ -159,8 +159,7 @@ const syncedLabel = () => DATA.synced ? et(DATA.synced, { hour: 'numeric', minut
 function gateScreen(g) {
   const before = g.reason === 'before_release';
   root.innerHTML = `<div class="h-card wc-gate"><div class="wc-batch__icon">${ic('lock')}</div><h2>${before ? 'The Work Center opens for you soon' : 'The Work Center is for the Support Team'}</h2>
-    <p>${before ? 'Admins are testing it first. The Support Team gets it next, and this page opens for you then.' : 'It holds the Support Team’s entry and thank-you work. If your work needs it, tell Will Hamilton through Feedback.'}</p>
-    <p class="wc-note">Until then, keep working in Blackbaud's Work Center as you do today.</p></div>`;
+    <p>${before ? 'This page is not open for your account yet.' : 'It holds the Support Team’s entry and thank-you work. If your work needs it, tell Will Hamilton through Feedback.'}</p></div>`;
 }
 function skeleton() {
   root.innerHTML = `<div class="wc-intro"><p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p></div>
@@ -186,7 +185,7 @@ function page() {
     <div class="wc-intro">
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
-        ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page until it is released to the Support Team.">' + ic('lock') + 'Admins only for now</span>' : ''}
+        ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
         <span class="wc-pill" title="The hub reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i>Blackbaud copy from ${esc(syncedLabel())}</span>
         ${meterHTML()}
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
@@ -503,7 +502,7 @@ function completeCost(ids, how) {
 // morning jobs and one-off fixes. A change that would cross 2,400 waits for the reset.
 function budgetLine(calls) {
   const used = meterUsed(); const left = DATA.meter.lane - used;
-  if (calls > 15 && calls > left) return { tonight: true, html: `<div class="wc-warn">${ic('clock')}<span><b>These go to Blackbaud tonight.</b> The hub has used ${used.toLocaleString()} of today's Blackbaud calls, and the rest of today's allowance is kept for other work. The hub marks them done here now and sends them after ${esc(DATA.meter.resets)}, when the count starts again.</span></div>` };
+  if (calls > 15 && calls > left) return { tonight: true, html: `<div class="wc-warn">${ic('clock')}<span><b>These go to Blackbaud tonight.</b> They send after ${esc(DATA.meter.resets)}, when the daily count starts again.</span></div>` };
   return { tonight: false, html: '' };
 }
 function whoCounts(ids) { const m = {}; ids.forEach((id) => cur(BYID[id]).f.forEach((x) => { m[x] = (m[x] || 0) + 1; })); return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="wc-tag">${esc(P(k).n)} ${n}</span>`).join(''); }
@@ -594,7 +593,7 @@ function dlgReassign(ids) {
           <div class="inline"><select data-k="from" aria-label="Replace">${opts(st.from, Object.keys(curF))}</select><span>with</span><select data-k="to" aria-label="With">${opts(st.to, staff, 'Pick a person')}</select></div></div></label>
         <label class="${st.mode === 'add' ? 'is-on' : ''}"><input type="radio" name="m" value="add" ${st.mode === 'add' ? 'checked' : ''} /><div><b>Add a fundraiser to each</b><span>Everyone already on it stays.</span>
           <div class="inline"><select data-k="add" aria-label="Add">${opts(st.add, staff, 'Pick a person')}</select></div></div></label></div>
-        <div class="wc-plan"><b>${p.n ? plural(p.n, 'action') + ' change' : 'Nothing changes yet'}</b>${Object.keys(p.m).length ? `<div class="who">${Object.entries(p.m).map(([k, n]) => `<span class="wc-tag wc-tag--done">${esc(P(k).n)} gets ${n}</span>`).join('')}</div>` : ''}<span class="wc-note">Blackbaud lists it under the new person at once. Nobody gets an email from this.</span></div>
+        <div class="wc-plan"><b>${p.n ? plural(p.n, 'action') + ' change' : 'Nothing changes yet'}</b>${Object.keys(p.m).length ? `<div class="who">${Object.entries(p.m).map(([k, n]) => `<span class="wc-tag wc-tag--done">${esc(P(k).n)} gets ${n}</span>`).join('')}</div>` : ''}<span class="wc-note"></span></div>
         ${budgetLine(costOf(p.n)).html}
       </div>
       <div class="wc-dlg__foot"><span class="wc-cost">Uses ${plural(costOf(p.n), 'Blackbaud call')}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go ${p.n ? '' : 'disabled'}>${ic('user')}Reassign ${p.n || ''}</button></div>`;
@@ -738,7 +737,7 @@ async function undoBatch(bid) {
     await driveBatch(b.id, items.length ? items : ['x'], {}, { undo: true });
   }
   await refreshBoard(); await loadRecent(); if (S.view === 'intake') await loadEntry(); render();
-  toast('Undone. Blackbaud has them back the way they were.' + (out.tagsStay ? ' The Thanked and Texted tags stay on those actions in Blackbaud.' : '') + (out.unresolved ? ` ${out.unresolved} contact${out.unresolved === 1 ? '' : 's'} need a look in Blackbaud. Recent lists them.` : ''));
+  toast('Undone.' + (out.tagsStay ? ' The Thanked and Texted tags stay on those actions in Blackbaud.' : '') + (out.unresolved ? ` ${out.unresolved} contact${out.unresolved === 1 ? '' : 's'} need a look in Blackbaud. Recent lists them.` : ''));
 }
 async function retryBatch(bid) {
   let out;
@@ -1096,8 +1095,7 @@ function viewRecent() {
         ${b.undone ? '' : `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${b.id}">${ic('undo')}Undo</button><small>until ${esc(tomorrow)} ${et(b.undo_until, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'tomorrow'}</small>`}
         <button class="wc-clear" data-openb="${b.id}">${S.openB === b.id ? 'Hide' : 'Show'} ${b.items.length}</button></div></div>
       <ul>${b.items.map((it) => `<li><b>${esc(it.name)}</b><span>${esc(it.what)}</span><span class="wc-state wc-state--${({ posted: 'ready', failed: 'fail', tonight: 'pick', saving: 'dup', undone: 'dup', queued: 'pick' })[it.state] || 'dup'}">${({ posted: 'In Blackbaud', failed: 'Not sent', tonight: 'Tonight', saving: 'Sending', undone: 'Undone', queued: 'Waiting' })[it.state] || it.state}</span></li>`).join('')}</ul></article>`; }).join('')}</div>`
-    : `<div class="h-card wc-empty"><b>Nothing done here yet today</b>What you finish in the Work Center lands here, with Undo for 24 hours.</div>`}
-    <div class="h-card wc-explain"><span class="wc-batch__icon">${ic('clock')}</span><p><b>Why the hub remembers</b>Blackbaud has every change the moment the hub sends it. The hub's lists read a copy of Blackbaud that refreshes at 5 AM and 5 PM, so until the next refresh the hub shows your changes from this list. Nothing comes back by mistake.</p></div>`;
+    : `<div class="h-card wc-empty"><b>Nothing done here yet today</b>What you finish in the Work Center lands here, with Undo for 24 hours.</div>`}`;
 }
 
 // ------------------------------------------------------------ settings (admins)
@@ -1106,7 +1104,7 @@ async function dlgSettings() {
   try { [cfg, staff] = await Promise.all([api('/api/work/settings'), api('/api/work/staff')]); } catch (e) { toast(e.message); return; }
   const s = cfg.settings; let rows = staff.staff;
   const draw = (el) => {
-    el.innerHTML = `<div class="wc-dlg__head"><div><h2>Work Center settings</h2><p>Who can open it, and how it sends to Blackbaud. A change takes effect at once; nothing is deployed.</p></div><button class="wc-dlg__x" data-closelayer aria-label="Close">${ic('x')}</button></div>
+    el.innerHTML = `<div class="wc-dlg__head"><div><h2>Work Center settings</h2><p>Who can open it, and how it sends to Blackbaud.</p></div><button class="wc-dlg__x" data-closelayer aria-label="Close">${ic('x')}</button></div>
       <div class="wc-dlg__body">
         <div class="wc-field"><span class="lab">Who can open the Work Center</span><div class="wc-choices">${[['admins', 'Admins only'], ['support', 'Admins and the Support Team']].map(([k, l]) => `<button type="button" class="wc-choice${s.release === k ? ' is-on' : ''}" data-set="release" data-v="${k}">${l}</button>`).join('')}</div>
           <small>The Support Team here means everyone below with Work Center ticked.</small></div>

@@ -105,7 +105,7 @@ function recurHTML(r, idp) {
     <span class="ep-recur__rule">Every <input type="number" min="1" max="52" value="${v.every}" data-recurevery aria-label="How often" />
       <select data-recurunit aria-label="Unit">${[['day', 'days'], ['week', 'weeks'], ['month', 'months']].map(([k, l]) => opt(k, l, v.unit === k)).join('')}</select>
       <select data-recurend aria-label="Ends">${opt('', 'until I stop it', !v.left && !v.until)}${[2, 3, 4, 6, 12].map((n) => opt('n' + n, n + ' more times', v.left === n)).join('')}</select></span>
-    <small>When one is completed, here or in Blackbaud, the next is added on its own.</small></div>`;
+</div>`;
 }
 function readRecur(box) {
   const r = $('.ep-recur', box); if (!r || !$('[data-recuron]', r).checked) return null;

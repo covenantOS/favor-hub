@@ -26,10 +26,10 @@ export interface GiftArgs {
 export function gift(handler: (a: GiftArgs) => Promise<Response | Record<string, unknown>>): PagesFunction<Env> {
   return async ({ request, env, params, waitUntil }) => {
     try {
-      if (!sameSite(request)) throw new HttpError(403, 'cross_site', 'That change did not come from the Gift entry page. Reload the page and try again.');
+      if (!sameSite(request)) throw new HttpError(403, 'cross_site', 'That request was blocked. Try again.');
       const user = hubUserOf(request);
       if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
-      if (user.role !== 'admin') throw new HttpError(403, 'admin_only', 'Gift entry is open to admins for now.');
+      if (user.role !== 'admin') throw new HttpError(403, 'admin_only', 'Admins only.');
       const repo = blackbaudRepo(env);
       const q = mirrorQ(env);
       const actor = user.name || user.email;

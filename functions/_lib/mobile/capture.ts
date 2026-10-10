@@ -24,7 +24,7 @@ function imageKind(bytes: Uint8Array): 'jpg' | 'png' | null {
 export async function storeCapture(env: MobileEnv, email: string, request: Request) {
   if (!env.GIFT_CAPTURES) throw new HttpError(503, 'no_bucket', 'Photo upload is not switched on yet.');
   const declared = Number(request.headers.get('Content-Length') || 0);
-  if (declared > MAX_BYTES + 64 * 1024) throw new HttpError(413, 'too_big', 'That photo is over 12 MB. The app shrinks it before sending.');
+  if (declared > MAX_BYTES + 64 * 1024) throw new HttpError(413, 'too_big', 'That photo is over 12 MB.');
   let form: FormData;
   try {
     form = await request.formData();
@@ -39,14 +39,14 @@ export async function storeCapture(env: MobileEnv, email: string, request: Reque
   const file = form.get('image');
   if (!file || typeof file === 'string') throw new HttpError(400, 'no_image', 'Attach the photo as "image".');
   const blob = file as unknown as Blob;
-  if (blob.size > MAX_BYTES) throw new HttpError(413, 'too_big', 'That photo is over 12 MB. The app shrinks it before sending.');
+  if (blob.size > MAX_BYTES) throw new HttpError(413, 'too_big', 'That photo is over 12 MB.');
 
   const again = await env.DB.prepare('SELECT client_id, r2_key, bytes, kind FROM mobile_captures WHERE email = ? AND client_id = ?').bind(email, clientId).first<{ r2_key: string; bytes: number; kind: string }>();
   if (again) return { stored: true, id: clientId, bytes: again.bytes, kind: again.kind, repeat: true };
 
   const buf = new Uint8Array(await blob.arrayBuffer());
   const type = imageKind(buf);
-  if (!type) throw new HttpError(400, 'bad_image', 'Send a JPEG photo. The app converts HEIC before sending.');
+  if (!type) throw new HttpError(400, 'bad_image', 'Send a JPEG photo.');
   const key = `mobile/${new Date().toISOString().slice(0, 7)}/${clientId}.${type}`;
   await env.GIFT_CAPTURES.put(key, buf, { httpMetadata: { contentType: type === 'jpg' ? 'image/jpeg' : 'image/png' }, customMetadata: { kind } });
   try {
