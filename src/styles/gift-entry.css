@@ -154,5 +154,5 @@
 .ge-toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px); opacity: 0; z-index: 130; pointer-events: none; background: #2a2722; color: #fff; padding: 11px 18px; border-radius: 999px; font: 500 14px var(--h-font); max-width: calc(100vw - 24px); transition: .25s; }
 .ge-toast.is-on { transform: translate(-50%, 0); opacity: 1; }
 @media (max-width: 860px) {
-  .ge-drawer { inset: auto 0 0 0; top: auto; width: 100%; max-height: 92vh; border-radius: 22px 22px 0 0; }
+  .ge-drawer { inset: auto 0 0 0; top: auto; width: 100%; max-height: calc(100vh - 84px); border-radius: 22px 22px 0 0; }
 }

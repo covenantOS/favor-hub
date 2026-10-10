@@ -39,3 +39,17 @@ The page warns when the same check number from the same partner is already in an
 ## The tape
 
 The bar at the top shows the tape, what you have photographed, and the difference. The count and the total must both equal the tape. A partner nobody can find can be marked Enter by hand in Blackbaud, which keeps the row on the tape and leaves it out of the batch.
+
+## Create the batch in Blackbaud
+
+When the total and the count equal the tape and every row says Looks right, press Create batch in Blackbaud. The hub makes an unapproved batch and adds every gift to it with the check number, check date, fund, appeal and a Reference such as "[Channel: Mail check] Regular Mail 2026-10-09, check 4410, hub gg_...". The soft credit goes on a gift when you named who recommended it. Blackbaud numbers the batch itself, and the batch description names the deposit and who entered it. The 6 AM gift run still sets constituency and fundraiser credit, the same as for every gift today.
+
+The hub never approves a batch. Jennifer approves it in Blackbaud, in Gifts, then Gift batch entry, the way she does now. Blackbaud cannot tell who photographed the checks, because every batch the hub makes shows the hub's login as the creator. The batch description and the hub's log carry the real name.
+
+## Watch the status
+
+The status view shows each step. The batch reads Waiting for approval in Blackbaud until it turns approved, and the page checks every 20 seconds while it is open. If Blackbaud holds a different number of gifts or dollars than the hub sent, the page says so.
+
+If Blackbaud does not answer, the hub waits 1, 5, 15 and then 60 minutes and tries again, and it asks Blackbaud what the batch holds before it sends anything twice. A gift Blackbaud stores with an error shows the reason on its row. Fix it in Blackbaud's batch grid and press Entered by hand. Press Try again for a deposit that Blackbaud turned down whole.
+
+Gift entry has its own lane of 400 Blackbaud calls a day, shown at the top of the page. It never uses the website's share or the Work Center's. At 400 it waits for the reset at 8 PM Eastern and sends after.

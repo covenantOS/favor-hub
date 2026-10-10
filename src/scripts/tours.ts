@@ -288,6 +288,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'gift-entry-status',
+    page: '/gift-entry/',
+    via: 'gift-entry',
+    at: '#ge-root',
+    title: 'Send the deposit and watch it',
+    body: 'When the total and count equal the tape and every row says Looks right, press Create batch in Blackbaud. The hub makes an unapproved batch and adds the gifts. Jennifer approves it in Blackbaud the way she does now, and the status view turns to Approved when the hub sees it. The hub never approves a batch and never deletes one.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'top',
+  },
+  {
     id: 'clips',
     at: '#clip-cam',
     title: 'Record a clip from any page',

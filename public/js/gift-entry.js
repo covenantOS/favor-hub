@@ -121,7 +121,7 @@ function pills(r) {
   if (r.status === 'failed') out.push('<span class="ge-badge ge-badge--red">Needs a person</span>');
   if (r.status === 'sent') out.push('<span class="ge-badge">In the batch</span>');
   if (!r.partner && r.status !== 'by_hand' && !r.card) out.push(`<span class="ge-badge ge-badge--gold">${r.candidates.length > 1 ? 'Pick the partner' : 'No partner found'}</span>`);
-  if (r.flags.length) out.push(`<span class="ge-badge ge-badge--gold">Check ${esc(r.flags.map((f) => ({ amount: 'amount', number: 'check number', date: 'date', payer: 'name', memo: 'memo' }[f])).join(', '))}</span>`);
+  if (r.flags.length && !r.confirmed) out.push(`<span class="ge-badge ge-badge--gold">Check ${esc(r.flags.map((f) => ({ amount: 'amount', number: 'check number', date: 'date', payer: 'name', memo: 'memo' }[f])).join(', '))}</span>`);
   if (r.ruleLabel) out.push(`<span class="ge-badge ge-badge--plain">Photo goes to Blackbaud: ${esc(r.ruleLabel)}</span>`);
   if (r.prayer) out.push('<span class="ge-badge ge-badge--gold">Prayer request</span>');
   if (r.status === 'review' && !r.confirmed && !out.length) out.push('<span class="ge-badge ge-badge--plain">Needs a glance</span>');
@@ -131,7 +131,7 @@ function pills(r) {
 }
 
 function gridRow(r) {
-  const hl = (name, txt) => (r.flags.includes(name) ? `<span class="ge-hl" title="${esc(r.why[name] || '')}">${txt}</span>` : txt);
+  const hl = (name, txt) => (r.flags.includes(name) && !r.confirmed ? `<span class="ge-hl" title="${esc(r.why[name] || '')}">${txt}</span>` : txt);
   const look = r.blockers.length && r.status !== 'sent' ? ' is-look' : '';
   const dup = r.dup && r.dup.decision === null ? ' is-dup' : '';
   const img = r.images[0] ? `style="background-image:url(/api/gift-entry/images/${esc(r.images[0].id)})"` : '';
@@ -145,8 +145,8 @@ function gridRow(r) {
 
 function grid(v) {
   const f = S.filter;
-  const rows = v.rows.filter((r) => f === 'all' || (f === 'look' && (r.blockers.length || r.flags.length)) || (f === 'big' && (r.amountCents || 0) >= 100000));
-  const look = v.rows.filter((r) => r.blockers.length || r.flags.length).length;
+  const rows = v.rows.filter((r) => f === 'all' || (f === 'look' && r.blockers.length) || (f === 'big' && (r.amountCents || 0) >= 100000));
+  const look = v.rows.filter((r) => r.blockers.length).length;
   const big = v.rows.filter((r) => (r.amountCents || 0) >= 100000).length;
   return `<section class="h-card ge-sheet"><div class="ge-sheet__head"><div><h2>${esc(v.deposit.name)}</h2><p>Entered by ${esc(v.deposit.createdBy)}. Every row needs a glance. A gold mark means the two readers disagree or a rule says look again. Jennifer approves the batch in Blackbaud.</p></div><span class="sp"></span>
     <div class="ge-filter"><button data-f="all" class="${f === 'all' ? 'is-on' : ''}">All ${v.rows.length}</button><button data-f="look" class="${f === 'look' ? 'is-on' : ''}">Need a look ${look}</button><button data-f="big" class="${f === 'big' ? 'is-on' : ''}">$1,000 and up ${big}</button></div></div>
@@ -248,7 +248,7 @@ function drawer(id) {
   const dis = open ? '' : 'disabled';
   const cat = S.catalog;
   const layer = $('#ge-layer');
-  const cands = r.candidates.map((c) => `<button class="ge-cand${r.partner && r.partner.id === c.cid ? ' is-on' : ''}" data-pick="${esc(c.cid)}" data-n="${esc(c.name)}" data-p="${esc(c.place)}" data-l="${esc(c.lookup)}" ${dis}>${esc(c.name)}<small>${esc(c.place || '')}${c.exact ? ' - same name as the check' : ''}</small></button>`).join('');
+  const cands = r.candidates.filter((c) => !(r.partner && r.partner.id === c.cid)).map((c) => `<button class="ge-cand${r.partner && r.partner.id === c.cid ? ' is-on' : ''}" data-pick="${esc(c.cid)}" data-n="${esc(c.name)}" data-p="${esc(c.place)}" data-l="${esc(c.lookup)}" ${dis}>${esc(c.name)}<small>${esc(c.place || '')}${c.exact ? ' - same name as the check' : ''}</small></button>`).join('');
   const fundOpts = cat ? cat.funds.map((f) => `<option value="${esc(f.id)}"${r.fund && r.fund.id === f.id ? ' selected' : ''}>${esc(f.name)}</option>`).join('') : `<option value="${esc((r.fund && r.fund.id) || '')}">${esc((r.fund && r.fund.name) || 'Loading')}</option>`;
   const readers = r.readers.map((x) => `<div><b>${esc(x.reader === 'scout' ? 'Reader A' : 'Reader B')}</b><span>${x.fields ? esc([x.fields.payer, x.fields.amountCents != null ? money(x.fields.amountCents) : null, x.fields.checkNumber && 'no. ' + x.fields.checkNumber, x.fields.checkDate, x.fields.memo && 'memo: ' + x.fields.memo].filter(Boolean).join(' / ') || 'nothing read') : esc(x.error || 'no answer')}</span></div>`).join('');
   layer.innerHTML = `<div class="ge-back" data-close></div><aside class="ge-drawer" role="dialog" aria-label="One gift">
@@ -260,7 +260,7 @@ function drawer(id) {
       ${r.error ? `<div class="ge-note ge-note--red">${esc(r.error)}</div>` : ''}
       ${r.status === 'failed' ? `<div class="ge-note">Blackbaud stored this gift with the error above, or turned it down. Fix it in Blackbaud's batch grid and press Entered by hand, or send the deposit again after you correct the row.<div style="margin-top:8px"><button class="h-btn h-btn--sm" data-act="by_hand">Entered by hand in Blackbaud</button></div></div>` : ''}
       <div class="ge-field"><label>Partner</label>
-        ${r.partner ? `<div class="ge-cand is-on" style="cursor:default">${esc(r.partner.name)}<small>${esc(r.partner.place || '')}, lookup ${esc(r.partner.lookup || '')}</small></div>` : '<div class="ge-note ge-note--red">No partner matched. Pick one or search.</div>'}
+        ${r.partner ? `<div class="ge-cand is-on" style="cursor:default">${esc(r.partner.name)}<small>${r.partner.place ? esc(r.partner.place) + ', ' : ''}lookup ${esc(r.partner.lookup || '')}</small></div>` : '<div class="ge-note ge-note--red">No partner matched. Pick one or search.</div>'}
         <div class="ge-cands">${cands}</div>
         <div class="ge-search"><input id="ge-ps" placeholder="Search by name, street, phone or email" autocomplete="off" ${dis}></div><div class="ge-opts" id="ge-pr" hidden></div>
         <div class="ge-hint">The hub reads Blackbaud's copy of partner records, which can be up to 12 hours old. It checks the record live again before it posts.</div></div>
