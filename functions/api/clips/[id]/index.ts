@@ -1,7 +1,7 @@
 // Rename, change the summary, turn sharing on or off, save edits or chapters or corrected transcript lines, or delete a
 // clip. Any hub admin may manage a saved clip. Delete removes the video, poster, sound and every note from R2 and D1.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, adminOrError, manageClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
+import { J, adminOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
 import { cleanEdits, respread } from '../../../_lib/clipEdits';
 import { cleanChapters, type ClipSegment, type ClipWord } from '../../../_lib/clipChapters';
 
@@ -56,7 +56,7 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
   }
 };
 
-export const onRequestDelete: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
+export const onRequestDelete: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
     const who = adminOrError(request);
     if ('res' in who) return who.res;
@@ -65,18 +65,16 @@ export const onRequestDelete: PagesFunction<ClipsEnv, 'id'> = async ({ request, 
     if (clip.status === 'uploading' && clip.upload_id) {
       await env.CLIPS.resumeMultipartUpload(videoKey(clip.id), clip.upload_id).abort().catch(() => undefined);
     }
-    for (let cursor: string | undefined; ; ) {
-      const page = await env.CLIPS.list({ prefix: `clips/${clip.id}/`, cursor, limit: 500 });
-      if (page.objects.length) await env.CLIPS.delete(page.objects.map((o) => o.key));
-      if (!page.truncated) break;
-      cursor = page.cursor;
-    }
+    // Rows first, so a transcript or processing run still in flight finds no clip and stops writing. Then the files, twice:
+    // the second pass catches anything a run in flight wrote while the first was listing.
     await env.DB.batch([
       env.DB.prepare('DELETE FROM hub_clip_comments WHERE clip_id = ?').bind(clip.id),
       env.DB.prepare('DELETE FROM hub_clip_reactions WHERE clip_id = ?').bind(clip.id),
       env.DB.prepare('DELETE FROM hub_clip_views WHERE clip_id = ?').bind(clip.id),
       env.DB.prepare('DELETE FROM hub_clips WHERE id = ?').bind(clip.id),
     ]);
+    await purgeClip(env, clip.id);
+    waitUntil(new Promise<void>((done) => setTimeout(done, 20000)).then(() => purgeClip(env, clip.id)).then(() => undefined).catch(() => undefined));
     return json({ ok: true });
   } catch (err) {
     return handleError(err);

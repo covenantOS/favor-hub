@@ -1,5 +1,5 @@
 // Clips: the library page (/clips/). A quiet grid of clips with search over titles, summaries and what was said.
-import { api, copyText, esc, et, fmtTime, toast } from './core.js';
+import { api, ask, copyText, esc, et, fmtTime, toast } from './core.js';
 
 const $ = (id) => document.getElementById(id);
 const linkFor = (id) => `${location.origin}/c/${id}`;
@@ -144,7 +144,7 @@ function wire() {
       }
     }
     if (btn.dataset.act === 'delete') {
-      if (!confirm(`Delete "${clip.title}"? The link stops working and the video is removed for good.`)) return;
+      if (!(await ask({ title: 'Delete this clip?', body: `"${clip.title || 'Untitled clip'}" is removed for good. The link stops working, and its comments go with it.`, ok: 'Delete clip' }))) return;
       try {
         await api(`/api/clips/${clip.id}`, { method: 'DELETE' });
         rows = rows.filter((c) => c.id !== clip.id);

@@ -183,3 +183,18 @@ export function clipView(c: Clip) {
     error: c.error,
   };
 }
+
+/** Every R2 object a clip owns: the video, poster, sound slices, their cached words and tail pieces. Returns how many went. */
+export async function purgeClip(env: ClipsEnv, id: string): Promise<number> {
+  let gone = 0;
+  for (let cursor: string | undefined; ; ) {
+    const page = await env.CLIPS.list({ prefix: `clips/${id}/`, cursor, limit: 500 });
+    if (page.objects.length) {
+      await env.CLIPS.delete(page.objects.map((o) => o.key));
+      gone += page.objects.length;
+    }
+    if (!page.truncated) break;
+    cursor = page.cursor;
+  }
+  return gone;
+}

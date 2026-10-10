@@ -3,7 +3,7 @@
 // Signed-out viewers through the share link get the player, summary, chapters and transcript. Staff also get the rest.
 // Admins can rename, edit, share, download, write a help article and delete.
 import {
-  api, copyText, esc, et, ago, fmtTime, hasEdits, keepRanges, longTime, normEdits, parseClock, rangesLength, skipFrom, toEdited, toSource,
+  api, ask, copyText, esc, et, ago, fmtTime, hasEdits, keepRanges, longTime, normEdits, parseClock, rangesLength, skipFrom, toEdited, toSource,
   toast, transcriptFile, wordKept, wordsOf, fillerIndexes,
 } from './core.js';
 import { renderEdited } from './render.js';
@@ -289,7 +289,7 @@ function wireTop() {
       }
     }
     if (act === 'delete') {
-      if (!confirm('Delete this clip? The link stops working and the video is removed for good.')) return;
+      if (!(await ask({ title: 'Delete this clip?', body: 'The video, transcript and comments are removed for good, and the link stops working.', ok: 'Delete clip' }))) return;
       try {
         await api(`/api/clips/${ID}`, { method: 'DELETE' });
         location.href = '/clips/';

@@ -9,3 +9,4 @@ preview-*.png
 !.env.example
 .wrangler/
 .dev.vars
+.seed.sql

@@ -77,7 +77,9 @@ export async function transcribeSlice(env: ClipsEnv, clip: Pick<Clip, 'id'>, seg
   out.words = whisperWords({ segments: kept, words: res.words }, seg.start);
   const whole = String(res.text ?? '').trim();
   if (!out.lines.length && whole && !GHOST.test(whole)) out.lines = [{ s: seg.start, e: Math.max(sliceEnd, seg.start + 1), t: whole }];
-  await env.CLIPS.put(sliceTextKey(clip.id, seg.n), JSON.stringify(out), { httpMetadata: { contentType: 'application/json' } });
+  // A clip deleted while its words were being read must not leave a file behind.
+  const alive = await env.DB.prepare('SELECT 1 AS ok FROM hub_clips WHERE id = ?').bind(clip.id).first();
+  if (alive) await env.CLIPS.put(sliceTextKey(clip.id, seg.n), JSON.stringify(out), { httpMetadata: { contentType: 'application/json' } });
   return out;
 }
 

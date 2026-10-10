@@ -131,13 +131,61 @@ export async function copyText(text) {
   }
 }
 
+/**
+ * A question inside the page, answered with a button. Browsers stop showing the built-in confirm() once a page has raised a
+ * few dialogs ("prevent this page from creating more"), and then every confirm() answers no without a word. This one cannot be
+ * switched off. Resolves true on the main button, false on Cancel, Escape or a click outside.
+ */
+export function ask({ title, body, ok = 'Delete', cancel = 'Cancel', danger = true }) {
+  return new Promise((resolve) => {
+    if (!document.getElementById('cl-ask-css')) {
+      const st = document.createElement('style');
+      st.id = 'cl-ask-css';
+      st.textContent = `.cl-askback{position:fixed;inset:0;z-index:3100;display:grid;place-items:center;background:rgba(42,39,34,.42);padding:16px}
+.cl-ask{width:min(420px,100%);box-sizing:border-box;padding:22px;border-radius:20px;background:#fffdf9;border:1px solid #e8e4dc;box-shadow:0 28px 64px -18px rgba(42,39,34,.45);font:400 14px/1.5 Inter,ui-sans-serif,system-ui,sans-serif;color:#2a2722}
+.cl-ask h2{margin:0 0 8px;font:500 21px/1.2 'Playfair Display',Georgia,serif}
+.cl-ask p{margin:0;color:#57524a;overflow-wrap:anywhere}
+.cl-ask__btns{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+.cl-ask__btns button{height:42px;padding:0 20px;border-radius:999px;border:1px solid #ddd7cb;background:#fff;color:#2a2722;font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
+.cl-ask__btns button[data-ok]{background:#5a7250;border-color:#5a7250;color:#fff}
+.cl-ask__btns button[data-ok].is-danger{background:#b4432a;border-color:#b4432a}
+.cl-ask__btns button:focus-visible{outline:2px solid #3f5233;outline-offset:2px}`;
+      document.head.appendChild(st);
+    }
+    const prev = document.activeElement;
+    const back = document.createElement('div');
+    back.className = 'cl-askback';
+    const esc2 = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    back.innerHTML = `<div class="cl-ask" role="alertdialog" aria-modal="true" aria-labelledby="cl-ask-t"><h2 id="cl-ask-t">${esc2(title)}</h2>${body ? `<p>${esc2(body)}</p>` : ''}<div class="cl-ask__btns"><button type="button" data-cancel>${esc2(cancel)}</button><button type="button" data-ok class="${danger ? 'is-danger' : ''}">${esc2(ok)}</button></div></div>`;
+    document.body.appendChild(back);
+    const done = (v) => {
+      document.removeEventListener('keydown', onKey, true);
+      back.remove();
+      if (prev && prev.focus) prev.focus();
+      resolve(v);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        done(false);
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    back.addEventListener('click', (e) => {
+      if (e.target === back || e.target.closest('[data-cancel]')) done(false);
+      else if (e.target.closest('[data-ok]')) done(true);
+    });
+    back.querySelector('[data-cancel]').focus();
+  });
+}
+
 export function toast(msg, tone) {
   const t = document.createElement('div');
   t.className = 'cl-toast' + (tone === 'bad' ? ' is-bad' : '');
   t.setAttribute('role', 'status');
   t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(() => t.remove(), 2600);
+  setTimeout(() => t.remove(), tone === 'bad' ? 6000 : 2600);
 }
 
 /* ------------------------------------------------------------------ edit math */
