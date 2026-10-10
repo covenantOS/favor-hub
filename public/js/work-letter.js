@@ -49,7 +49,7 @@ async function fetchDocs() {
   try {
     const r = await F().post('/api/work/gifts/letter', payload());
     if (my !== L.seq) return;
-    L.docs = r.letters; L.froms = r.froms; if (!L.from) L.from = r.from; L.error = '';
+    L.docs = r.letters; L.froms = r.froms; if (!L.from && L.items.length === 1) L.from = r.from; L.error = '';
     if (L.idx >= L.docs.length) L.idx = 0;
     if (!L.drawn) { L.drawn = true; L.loading = false; drawAll(); return; }
   } catch (err) { if (my !== L.seq) return; L.error = err.message; }
@@ -60,7 +60,7 @@ function drawPaper() {
   const box = $('#wl-paper'); if (!box) return;
   const d = L.docs && L.docs[L.idx];
   box.classList.toggle('is-busy', !!L.loading);
-  box.innerHTML = L.error ? `<div class="hq-note is-bad">${e(L.error)}</div>` : d ? paper(d) : '<div class="hq-skel"></div>';
+  box.innerHTML = L.error ? `<div class="hq-note is-bad">${e(L.error)}</div>` : d ? paper(d) + (d.addressLines.length < 2 ? '<p class="hq-note">No mailing address on file for this partner. Use Copy for email, or add the address to the partner first.</p>' : '') : '<div class="hq-skel"></div>';
   const nav = $('#wl-nav');
   if (nav) nav.innerHTML = L.docs && L.docs.length > 1 ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wl-step="-1" aria-label="Previous letter"${L.idx === 0 ? ' disabled' : ''}>Back</button><span>Letter ${L.idx + 1} of ${L.docs.length}</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wl-step="1" aria-label="Next letter"${L.idx >= L.docs.length - 1 ? ' disabled' : ''}>Next</button>` : '';
 }
@@ -75,7 +75,7 @@ function drawAll() {
     <div class="hq-compose">
       <div class="hq-compose__form">
         <label class="wg-lab" for="wl-from">Letter from</label>
-        <select id="wl-from" class="wc-sel">${(L.froms || []).map((p) => `<option value="${e(p.id)}"${p.id === L.from ? ' selected' : ''}>${e(p.name)}</option>`).join('')}</select>
+        <select id="wl-from" class="wc-sel">${one ? '' : `<option value=""${L.from ? '' : ' selected'}>Each partner's director</option>`}${(L.froms || []).map((p) => `<option value="${e(p.id)}"${p.id === L.from ? ' selected' : ''}>${e(p.name)}</option>`).join('')}</select>
         <label class="wg-lab" for="wl-said">What the director said</label>
         <textarea id="wl-said" rows="5" maxlength="1200" placeholder="Paste from the transcript">${e(L.said)}</textarea>
         ${last && last.text ? `<button type="button" class="hq-link" data-wl-last>Use the last contact note (${e(f.fd(last.date))})</button>` : ''}

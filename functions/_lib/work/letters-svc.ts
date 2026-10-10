@@ -62,6 +62,7 @@ export async function lettersResponse(ctx: Ctx, input: LetterInput): Promise<{ d
     const fromId = String(input.from || (row && row.owners[0]) || '');
     const f = fromOf(fromId);
     if (!f) throw new HttpError(400, 'pick_from', 'Pick who the letter is from.');
+    if (!people.some((p: { id: string }) => p.id === f.id)) people.push(f);
     const { addr } = pickAddress(addrs.get(String(it.cid)) || []);
     const last = (await q<{ d: string; cat: string; s: string; des: string }>(LAST_SQL, [String(it.cid)]).catch(() => []))[0];
     docs.push({

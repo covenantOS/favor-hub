@@ -98,9 +98,9 @@ function view() {
 
 function bar() {
   let b = $('#hq-bulk');
-  if (!b) { b = document.createElement('div'); b.id = 'hq-bulk'; b.className = 'wg-bulk'; b.setAttribute('role', 'region'); b.setAttribute('aria-label', 'Selected gifts'); const v = $('#view'); (v || document.body).appendChild(b); }
+  if (!b) { b = document.createElement('div'); b.id = 'hq-bulk'; b.className = 'wg-bulk'; b.setAttribute('role', 'region'); b.setAttribute('aria-label', 'Selected gifts'); document.body.appendChild(b); }
   const picked = [...H.sel].map(rowOf).filter(Boolean);
-  b.classList.toggle('is-on', picked.length > 0);
+  b.classList.toggle('is-on', picked.length > 0 && W().S.view === 'hqty');
   if (!picked.length) { b.innerHTML = ''; return; }
   const f = F(); const has = (...st) => picked.some((r) => st.includes(r.state));
   b.innerHTML = `<b>${picked.length} selected</b>
@@ -316,6 +316,8 @@ document.addEventListener('input', (ev) => {
   qT = setTimeout(() => { H.q = t.value; view(); const i = $('#hq-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
 });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && menuEl) closeMenu(); });
+// The bar sits on the body, so leaving the tab takes it down.
+document.addEventListener('click', (ev) => { const t = ev.target.closest && ev.target.closest('.wc-tab'); if (t && t.dataset.view !== 'hqty') { const b = $('#hq-bulk'); if (b) b.classList.remove('is-on'); } }, true);
 document.addEventListener('favor:thanked-undone', () => { if (H.data) reload(); });
 
 window.WCHqty = { H, view, count };
