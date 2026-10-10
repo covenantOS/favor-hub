@@ -97,7 +97,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             <script is:inline>
               // The Connect item shows only to a person who has not authorized the Favor Brain connector (brain.js has the same switch).
               (function () {
-                var LIVE = false;
+                var LIVE = true;
                 var item = document.querySelector('[data-connect-item]');
                 var btn = document.getElementById('h-acct');
                 if (!item || !btn) return;

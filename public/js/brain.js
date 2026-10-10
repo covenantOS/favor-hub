@@ -248,8 +248,8 @@
   // ---- Connect prompts: a banner until connected, a card on every tenth answer, and the account menu ----------
   // Only people who have not authorized the Favor Brain connector see them. The Brain says whether they have
   // (the connector route); while that is unknown, nothing shows. "Not now" hides the banner for 24 hours.
-  // PROMPTS_LIVE stays false until Will has seen the screens; ?prompts=1 previews them.
-  const PROMPTS_LIVE = false;
+  // Connect prompts are on (Will approved them 2026-10-10).
+  const PROMPTS_LIVE = true;
   // The preview flag is read once: asking a question rewrites the URL to ?c=, which would drop it.
   const PREVIEW = /[?&]prompts=1\b/.test(location.search);
   const promptsOn = () => PROMPTS_LIVE || PREVIEW;

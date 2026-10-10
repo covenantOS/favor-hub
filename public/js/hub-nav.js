@@ -203,3 +203,19 @@
   window.__hubNav = { init, toggle: toggleWide };
   init();
 })();
+
+// Tab rows that hold more tabs than fit get a fade on the right, and the active tab scrolls into view.
+(function () {
+  function fit() {
+    document.querySelectorAll('.h-tabs__row').forEach(function (row) {
+      row.classList.toggle('is-over', row.scrollWidth > row.clientWidth + 2 && row.scrollLeft + row.clientWidth < row.scrollWidth - 2);
+      var on = row.querySelector('.h-tab.is-on');
+      if (on && (on.offsetLeft + on.offsetWidth > row.scrollLeft + row.clientWidth)) row.scrollLeft = on.offsetLeft - 12;
+    });
+  }
+  window.addEventListener('resize', fit);
+  document.addEventListener('scroll', function (e) { if (e.target && e.target.classList && e.target.classList.contains('h-tabs__row')) fit(); }, true);
+  document.addEventListener('astro:page-load', fit);
+  document.addEventListener('hub:swapped', fit);
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fit); else fit();
+})();

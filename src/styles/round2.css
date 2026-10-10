@@ -280,3 +280,7 @@ html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__
 @media (min-width: 1400px) {
   .r2t-row3:has(> :nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+/* tab rows never clip a label without a cue: tighter at mid widths, a fade where more tabs scroll */
+@media (max-width: 1600px) { .h-tab { padding: 0 9px; font-size: 12.5px; } }
+.h-tabs__row { overflow-x: auto; }
+.h-tabs__row.is-over { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
