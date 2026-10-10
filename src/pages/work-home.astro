@@ -18,7 +18,7 @@ const arrow = I('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>');
       <div class="r2t-sec"><h2>Your tools</h2><span id="wh-meta"></span></div>
       <div class="r2t-needs wh-grid">
         {tools.map((t) => (
-          <a class="r2t-tile" data-tool={t.tool} data-wh={t.id} data-count={t.count} data-need={t.need} href={t.href}>
+          <a class="r2t-tile" data-tool={t.tool} data-wh={t.id} data-wh-count={t.count} data-need={t.need} href={t.href}>
             <span class="r2t-tile__h"><span class="r2t-ico"><Fragment set:html={t.icon} /></span>{t.label}</span>
             <span class="r2t-tile__n" data-n hidden></span>
             <span class="r2t-tile__w" data-what data-idle={t.idle} data-busy={t.what}>{t.idle}</span>
@@ -40,7 +40,7 @@ const arrow = I('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>');
         document.querySelectorAll('[data-wh]').forEach((el) => {
           const need = el.getAttribute('data-need');
           if (need && access[need] === false) { el.hidden = true; return; }
-          const key = el.getAttribute('data-count');
+          const key = el.getAttribute('data-wh-count');
           const n = key ? Number(counts[key] || 0) : 0;
           const nEl = el.querySelector('[data-n]');
           const wEl = el.querySelector('[data-what]');
