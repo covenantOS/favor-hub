@@ -14,8 +14,9 @@ const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-fr
 
 // Open without sign-in: the sign-in page and its API, the approver's emailed review link (its token
 // is the key), the agent queue (it checks the agent key itself), and the admin password sign-in
-// that scripts use (it checks the password itself).
-const OPEN_PREFIXES = ['/api/auth/', '/api/agent/'];
+// that scripts use (it checks the password itself), and the service doors the Favor Brain calls with
+// the shared key (each checks the key itself).
+const OPEN_PREFIXES = ['/api/auth/', '/api/agent/', '/api/service/'];
 const OPEN_PATHS = new Set([
   '/login',
   '/login/',

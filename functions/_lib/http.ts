@@ -40,6 +40,11 @@ export interface Env {
   KPI_JWT_SECRET?: string;
   /** Where the KPI dashboard lives (https://kpi.favorintl.org when unset). */
   KPI_URL?: string;
+  /** The key the hub and the Favor Brain share (each call also names the person), and the Brain's address. */
+  BRAIN_HUB_KEY?: string;
+  BRAIN_URL?: string;
+  /** Local tests only: stand-ins for Google's token and Drive calls. Never set on the live site. */
+  GOOGLE_TOKEN_URL?: string;
 }
 
 export const SURFACES = ['website', 'portal', 'dashboard', 'app'] as const;
