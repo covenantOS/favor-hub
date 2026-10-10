@@ -224,7 +224,7 @@
 .nt-l:hover { background: #f7f4ed; } .nt-l time { font-size: 11.5px; color: var(--h-brand-ink); font-weight: 600; padding-top: 2px; }
 .nt-l b { font-weight: 600; } .nt-l mark { background: var(--h-gold-soft); color: inherit; border-radius: 3px; padding: 0 2px; }
 .nt-search { display: flex; gap: 8px; align-items: center; height: 38px; border: 1px solid var(--h-line-2); border-radius: 999px; padding: 0 14px; background: #fff; margin-bottom: 8px; }
-.nt-search input { border: 0; outline: 0; box-shadow: none; flex: 1; width: 0; background: none; min-width: 0; font: inherit; } .nt-search input:focus, .nt-search input:focus-visible { outline: 0; box-shadow: none; border: 0; } .nt-search .h-i { color: var(--h-ink-3); width: 16px; height: 16px; flex: none; }
+.nt-search input, .nt-search input:focus, .nt-search input:focus-visible { border: 0 !important; outline: 0 !important; box-shadow: none !important; border-radius: 0 !important; height: auto !important; padding: 0 !important; flex: 1; width: 0; background: none !important; min-width: 0; font: inherit; } .nt-search .h-i { color: var(--h-ink-3); width: 16px; height: 16px; flex: none; }
 .nt-search:focus-within { border-color: var(--h-brand); box-shadow: 0 0 0 3px var(--h-leaf-soft); }
 .nt-l div { overflow-wrap: anywhere; min-width: 0; }
 .nt-ts { color: var(--h-brand-ink); text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
