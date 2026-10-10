@@ -66,6 +66,8 @@ describe('Drive file cards', () => {
   it('reads a converted passage without its markdown marks and keeps a hash or star that belongs to the text', () => {
     const marked = render({ title: 't', files: [file({ passages: [{ text: '## Contents ### Page 1 BUDGET **Total** raised * first item * second item' }] })] });
     assert.match(marked, /<blockquote class="fq">Contents Page 1 BUDGET Total raised &middot; first item &middot; second item<\/blockquote>|<blockquote class="fq">Contents Page 1 BUDGET Total raised · first item · second item<\/blockquote>/);
+    const cut = render({ title: 't', files: [file({ passages: [{ text: 'A template titled **"The Program: and more...' }] })] });
+    assert.match(cut, /<blockquote class="fq">A template titled &quot;The Program: and more\.\.\.<\/blockquote>/);
     const kept = render({ title: 't', files: [file({ passages: [{ text: 'Item #5 in C# costs 5* more' }] })] });
     assert.match(kept, /Item #5 in C# costs 5\* more/);
   });

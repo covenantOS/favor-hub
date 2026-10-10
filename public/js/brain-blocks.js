@@ -464,6 +464,7 @@
   const tidy = (t) =>
     String(t == null ? '' : t)
       .replace(/\*{2,3}([^*]+)\*{2,3}/g, '$1')
+      .replace(/\*{2,}/g, '')
       .replace(/(^|\s)#{1,6}(?=\s)/g, '$1')
       .replace(/(^|\s)\*(?=\s)/g, '$1·')
       .replace(/\s{2,}/g, ' ')
