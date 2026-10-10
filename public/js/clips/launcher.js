@@ -53,8 +53,30 @@ function debugFlag(k) {
   }
 }
 
+// The recorder window (/clips/rec/): a small window of its own that holds the streams, the recorder and the controls.
+// Navigating or reloading the hub never touches it. In a hub page the same code runs as a card (phones, blocked pop-ups).
+const STANDALONE = typeof document !== 'undefined' && document.documentElement.dataset.crStandalone === '1';
+const CHANNEL = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('favor-clips') : null;
+const post = (m) => {
+  try {
+    if (CHANNEL) CHANNEL.postMessage(m);
+  } catch (e) {
+    /* nobody is listening */
+  }
+};
+
+/** Resize the recorder window to fit what it shows (a card, a bar, a saved note). */
+function fitWindow(w, h) {
+  if (!STANDALONE) return;
+  try {
+    window.resizeTo(w + (window.outerWidth - window.innerWidth), h + (window.outerHeight - window.innerHeight));
+  } catch (e) {
+    /* the browser keeps the size the person chose */
+  }
+}
+
 const docPip = () => (typeof window !== 'undefined' && window.documentPictureInPicture) || null;
-const isPhone = () => matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 1023px)').matches);
+const isPhone = () => !STANDALONE && (matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 1023px)').matches));
 
 let cssReady = false;
 function ensureCss() {
@@ -123,10 +145,10 @@ function cardHtml(phone) {
   ${!cameraOnly && screenOk ? `<label class="cr-check"><input type="checkbox" data-act="sys" ${p.systemAudio ? 'checked' : ''}/><span>Include computer sound</span></label>` : ''}
   <p class="cr-err" id="cr-err" role="alert" hidden></p>
   <button type="button" class="cr-start" data-act="start" id="cr-start"><i aria-hidden="true"></i>Start recording</button>
-  <p class="cr-keep">Keep this tab open while you record. Switch to what you want to show.</p>
+  <p class="cr-keep">${STANDALONE ? 'Leave this window open while you record. Go anywhere in the hub, or in other apps, and it keeps recording.' : 'Keep this tab open while you record. Switch to what you want to show.'}</p>
   <div class="cr-foot">
     <button type="button" class="cr-link" data-act="file">${svg('upload')}Upload a video</button>
-    <a class="cr-link" href="/clips/">${svg('list')}My clips</a>
+    <a class="cr-link" href="/clips/" ${STANDALONE ? 'target="favor-hub-main"' : ''}>${svg('list')}My clips</a>
   </div>`;
 }
 
@@ -223,7 +245,7 @@ function paintCard() {
 
 function placeCard() {
   const c = S.card;
-  if (!c) return;
+  if (!c || STANDALONE) return;
   if (isPhone()) {
     c.classList.add('is-sheet');
     c.style.cssText = '';
@@ -246,7 +268,7 @@ export function openLauncher(anchor) {
   S.anchor = anchor || S.anchor;
   S.prefs = readPrefs();
   const c = document.createElement('div');
-  c.className = 'cr-card';
+  c.className = 'cr-card' + (STANDALONE ? ' cr-card--solo' : '');
   c.setAttribute('role', 'dialog');
   c.setAttribute('aria-label', 'Record a clip');
   c.id = 'cr-card';
@@ -254,10 +276,12 @@ export function openLauncher(anchor) {
   back.className = 'cr-back';
   back.id = 'cr-back';
   back.addEventListener('pointerdown', closeLauncher);
-  document.body.append(back, c);
+  if (STANDALONE) document.body.append(c);
+  else document.body.append(back, c);
   S.card = c;
   placeCard();
   paintCard();
+  fitWindow(420, 640);
   c.addEventListener('click', onCardClick);
   c.addEventListener('change', onCardChange);
   document.addEventListener('keydown', onKey, true);
@@ -282,6 +306,7 @@ export function closeLauncher() {
 function onKey(e) {
   if (e.key === 'Escape' && S.card) {
     e.preventDefault();
+    if (STANDALONE) return window.close();
     closeLauncher();
     if (S.anchor) S.anchor.focus();
   }
@@ -317,6 +342,7 @@ function onCardClick(ev) {
   }
   switch (t.dataset.act) {
     case 'close':
+      if (STANDALONE) return window.close();
       return closeLauncher();
     case 'cam':
       S.prefs = { ...p, camOn: !p.camOn };
@@ -360,6 +386,7 @@ function settingsOf(p) {
     micId: p.micOn ? p.micId : null,
     camId: p.camId || null,
     systemAudio: p.systemAudio,
+    noUnloadPrompt: STANDALONE,
   };
 }
 
@@ -383,7 +410,7 @@ function startRecording() {
   S.busy = true;
   rec.nativeCheck = () => {
     if (!rec.wholeScreen || debugFlag('composite')) return false;
-    return !!(S.pip && S.pip.kind === 'bubble') || (!!S.bubbleEl && document.visibilityState === 'visible');
+    return !!(S.pip && S.pip.kind === 'bubble') || (!STANDALONE && !!S.bubbleEl && document.visibilityState === 'visible');
   };
   rec.subscribe(onRecState);
   // The floating camera window and the screen picker both need this click, so both start before anything is awaited.
@@ -397,7 +424,7 @@ function startRecording() {
       if (S.rec !== rec) return;
       if (S.pip && S.pip.attach && rec.camStream) S.pip.attach(rec.camStream);
       if (S.pip && S.pip.showCorners) S.pip.showCorners();
-      if (wantBubble && !(S.pip && S.pip.kind === 'bubble')) mountPageBubble(rec);
+      if (wantBubble && !(S.pip && S.pip.kind === 'bubble') && !STANDALONE) mountPageBubble(rec);
       if (settings.source === 'camera') mountPageBubble(rec, true);
       countdown(rec);
     },
@@ -455,7 +482,7 @@ function cancelCountdown(rec) {
   teardown();
 }
 
-function teardown() {
+function teardown(keepClosed) {
   S.rec = null;
   S.rs = null;
   S.busy = false;
@@ -464,6 +491,10 @@ function teardown() {
   S.barCtl = null;
   removeBubble();
   closePip();
+  if (STANDALONE && !keepClosed && !S.leaving) {
+    post({ t: 'state', phase: 'idle' });
+    openLauncher();
+  }
 }
 
 /* ------------------------------------------------------------------ controls (shared by the page bar and the floating window) */
@@ -559,6 +590,18 @@ function mountBar(rec) {
   document.body.appendChild(bar);
   S.barEl = bar;
   S.barCtl = wireControls(bar, rec);
+  if (STANDALONE) {
+    const composite = rec.settings.source === 'screen+camera' && !(S.pip && S.pip.kind === 'bubble');
+    fitWindow(composite ? 560 : 500, composite ? 150 : 96);
+    // Without a floating camera window the camera is drawn into the picture; these buttons pick its corner.
+    if (composite) {
+      bar.insertAdjacentHTML('beforeend', `<span class="cr-corners cr-corners--bar"><span>Camera in the video</span>${[['tl', 0.12, 0.2, 'top left'], ['tr', 0.88, 0.2, 'top right'], ['bl', 0.12, 0.78, 'bottom left'], ['br', 0.88, 0.78, 'bottom right']].map(([k, x, y, name]) => `<button type="button" data-corner="${k}" data-x="${x}" data-y="${y}" aria-label="Move the camera to the ${name}">${k}</button>`).join('')}</span>`);
+      bar.querySelector('.cr-corners').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-corner]');
+        if (b) rec.setBubble({ cx: Number(b.dataset.x), cy: Number(b.dataset.y) });
+      });
+    }
+  }
 }
 
 function pulseBar() {
@@ -569,8 +612,21 @@ function pulseBar() {
   b.classList.add('is-pulse');
 }
 
+let lastPost = 0;
+let lastPhase = '';
+function announce() {
+  const rs = S.rs;
+  if (!rs) return;
+  const now = Date.now();
+  if (rs.phase === lastPhase && now - lastPost < 1500) return;
+  lastPost = now;
+  lastPhase = rs.phase;
+  post({ t: 'state', phase: rs.phase, id: rs.id || '', elapsed: rs.elapsed || 0 });
+}
+
 function onRecState(rs) {
   S.rs = rs;
+  if (STANDALONE) announce();
   if (S.barCtl) S.barCtl.update(rs);
   if (S.pip && S.pip.ctl) S.pip.ctl.update(rs);
   if (rs.phase === 'error') {
@@ -682,7 +738,7 @@ async function openPip(kind) {
     if (S.pip && S.pip.win === win) {
       S.pip = null;
       // Closing the floating window by hand puts the camera back on the page. The recording is never touched.
-      if (S.rec && kind === 'bubble' && S.rec.state.phase !== 'finishing' && S.rec.state.phase !== 'done') mountPageBubble(S.rec);
+      if (S.rec && kind === 'bubble' && !STANDALONE && S.rec.state.phase !== 'finishing' && S.rec.state.phase !== 'done') mountPageBubble(S.rec);
       if (S.barCtl && S.rec) S.barCtl.update(S.rec.state);
     }
   });
@@ -764,7 +820,7 @@ async function finishRecording(rec) {
   if (rec.state.phase !== 'recording' && rec.state.phase !== 'paused') return;
   const r = await rec.stop();
   if (!r) return; // an error already told the person
-  teardown();
+  teardown(true);
   await afterSave(r.id);
 }
 
@@ -790,11 +846,24 @@ async function afterSave(id, label) {
   el.setAttribute('role', 'status');
   el.innerHTML = `<div class="cr-head"><h2>${esc(label || 'Clip saved')}</h2><button type="button" class="cr-x" data-act="dismiss" aria-label="Close">${svg('close')}</button></div>
     <div class="cr-saved__body" data-body><p class="cr-spin"><i></i>Writing the transcript and a title</p></div>
-    <div class="cr-saved__btns"><a class="cr-pill" href="/c/${id}" data-act="open">Open it now</a></div>`;
+    <div class="cr-saved__btns"><a class="cr-pill" href="/c/${id}" ${STANDALONE ? 'target="favor-hub-main"' : ''} data-act="open">Open it now</a></div>`;
   document.body.appendChild(el);
   S.savedCard = el;
+  if (STANDALONE) {
+    el.classList.add('cr-saved--solo');
+    fitWindow(420, 420);
+    post({ t: 'state', phase: 'idle' });
+    post({ t: 'saved', id });
+  }
   el.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-act=dismiss]')) closeSaved();
+    if (ev.target.closest('[data-act=dismiss]')) {
+      closeSaved();
+      if (STANDALONE) window.close();
+    }
+    if (ev.target.closest('[data-act=again]')) {
+      closeSaved();
+      openLauncher();
+    }
   });
   let clip = null;
   try {
@@ -811,7 +880,7 @@ async function afterSave(id, label) {
   body.innerHTML = `<p class="cr-saved__title">${esc(title)}</p>${sum ? `<p class="cr-saved__sum">${esc(sum.length > 170 ? sum.slice(0, 167) + '...' : sum)}</p>` : ''}
     <label class="cr-check cr-check--share"><input type="checkbox" data-act="share"/><span>Anyone with the link can watch</span></label>
     <p class="cr-note" data-note>Only signed-in Favor staff can open the link.</p>`;
-  btns.innerHTML = `<a class="cr-pill" href="/c/${id}">Open</a><button type="button" class="cr-pill is-ghost" data-act="copy">${svg('link')}Copy link</button>`;
+  btns.innerHTML = `<a class="cr-pill" href="/c/${id}" ${STANDALONE ? 'target="favor-hub-main"' : ''}>Open</a><button type="button" class="cr-pill is-ghost" data-act="copy">${svg('link')}Copy link</button>${STANDALONE ? '<button type="button" class="cr-pill is-ghost" data-act="again">Record another</button>' : ''}`;
   el.addEventListener('click', async (ev) => {
     if (ev.target.closest('[data-act=copy]')) {
       toast((await copyText(linkFor(id))) ? 'Link copied' : 'Could not copy the link', 'ok');
@@ -884,9 +953,9 @@ export async function resumeUnfinished() {
   try {
     const r = await api('/api/clips/unfinished');
     for (const c of r.clips || []) {
-      // Older than three minutes, so a recording in another window of this browser is left alone.
-      if (Date.now() - new Date(c.updatedAt).getTime() < 3 * 60000 || !c.parts) continue;
-      const done = await api(`/api/clips/${c.id}/complete`, { method: 'POST', json: { durationMs: c.durationMs } }).catch(() => null);
+      // Quiet for 90 seconds (a live recording sends something every few seconds), so a recording in another window or on another device is left alone.
+      if (Date.now() - new Date(c.updatedAt).getTime() < 90000 || !(c.parts || c.tail)) continue;
+      const done = await api(`/api/clips/${c.id}/complete`, { method: 'POST', json: { durationMs: c.durationMs, recover: true } }).catch(() => null);
       if (done) {
         toast('Finished a recording that was cut off. It is in My clips.');
         api(`/api/clips/${c.id}/process`, { method: 'POST', json: {} }).catch(() => undefined);
@@ -900,3 +969,40 @@ export async function resumeUnfinished() {
 export const isRecording = recordingNow;
 // For tests: the recorder in progress.
 export const _state = S;
+
+/* ------------------------------------------------------------------ the recorder window talks to the hub pages */
+
+if (STANDALONE && CHANNEL) {
+  // A hub page that just loaded asks whether a recording is running (its camera button shows a red dot).
+  CHANNEL.addEventListener('message', (e) => {
+    if (e.data && e.data.t === 'open') {
+      // The camera button was pressed again while this window sat on a saved note: show the card for the next clip.
+      if (!S.rec && !S.busy && !S.card) {
+        closeSaved();
+        openLauncher();
+      }
+      return;
+    }
+    if (e.data && e.data.t === 'ping') {
+      lastPhase = '';
+      announce();
+      if (!S.rs) post({ t: 'state', phase: 'idle' });
+    }
+  });
+  // Closing the window mid-recording: ask the server to finish the clip from what it already holds (whole parts and the
+  // tail). The footage up to the last few seconds is kept and the clip lands in My clips.
+  window.addEventListener('pagehide', () => {
+    post({ t: 'gone' });
+    const rec = S.rec;
+    const ph = S.rs && S.rs.phase;
+    if (!rec || !S.rs || !S.rs.id || (ph !== 'recording' && ph !== 'paused')) return;
+    S.leaving = true;
+    try {
+      const body = new Blob([JSON.stringify({ durationMs: Math.round(rec.elapsedNow() * 1000) })], { type: 'application/json' });
+      navigator.sendBeacon(`/api/clips/${S.rs.id}/complete`, body);
+    } catch (e) {
+      /* the next visit finishes it */
+    }
+    post({ t: 'closed', id: S.rs.id });
+  });
+}

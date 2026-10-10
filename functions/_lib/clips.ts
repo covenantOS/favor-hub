@@ -62,6 +62,8 @@ export function rowId(prefix: string): string {
 
 export const videoKey = (id: string) => `clips/${id}/video`;
 export const posterKey = (id: string) => `clips/${id}/poster`;
+export const tailPrefix = (id: string) => `clips/${id}/tail/`;
+export const tailKey = (id: string, off: number) => `${tailPrefix(id)}${String(off).padStart(12, '0')}`;
 export const audioPrefix = (id: string) => `clips/${id}/audio/`;
 export const sliceTextKey = (id: string, n: number) => `clips/${id}/audio/${n}.json`;
 

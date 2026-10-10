@@ -1,0 +1,28 @@
+---
+// The recorder window. The hub's camera button opens this page in a small window of its own, so a recording lives outside
+// any hub page: going to another page, reloading or switching tabs in the hub never touches it.
+---
+<!doctype html>
+<html lang="en" data-cr-standalone="1">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/png" href="/images/favor-icon.png" />
+    <title>Record a clip - Favor Hub</title>
+    <link rel="stylesheet" href="/js/clips/launcher.css?v=2" />
+    <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
+    <style is:global>
+      @font-face { font-family: 'Playfair Display'; src: url('/fonts/playfair-500.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+      html, body { margin: 0; min-height: 100%; background: #f6f3ec; }
+      @font-face { font-family: 'Inter'; src: url('/fonts/inter-var.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+    </style>
+  </head>
+  <body class="cr-solo">
+    <main id="cr-root"></main>
+    <script is:inline type="module">
+      import { openLauncher } from '/js/clips/launcher.js?v=2';
+      openLauncher(null);
+    </script>
+  </body>
+</html>

@@ -10,3 +10,7 @@
 .h-top__cam:focus-visible { outline: 2px solid var(--h-brand-ink); outline-offset: 2px; }
 .h-top__cam .h-i { width: 18px; height: 18px; }
 @media (max-width: 860px) { .h-top__cam { width: 44px; height: 44px; } }
+.h-top__cam { position: relative; }
+.h-top__cam.is-rec { background: var(--h-red, #b4432a); border-color: var(--h-red, #b4432a); color: #fff; }
+.h-top__cam.is-rec::after { content: ''; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: h-cam-blink 1.4s ease-in-out infinite; }
+@keyframes h-cam-blink { 50% { opacity: .25; } }

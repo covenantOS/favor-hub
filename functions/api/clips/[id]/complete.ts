@@ -3,6 +3,7 @@
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
 import { J, MAX_MS, adminOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
 import { runProcess } from '../../../_lib/clipjob';
+import { clearTail, contiguous, foldTail } from '../../../_lib/clipTail';
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
@@ -12,9 +13,19 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
     if (clip.status !== 'uploading') return json({ ok: true, id: clip.id, status: clip.status });
     if (!clip.upload_id) return errorJson('not_open', 'That upload is not open.', 409);
-    const body = (await request.json().catch(() => ({}))) as { parts?: Array<{ partNumber: number; etag: string }>; durationMs?: number; title?: string; titleHint?: string };
+    const body = (await request.json().catch(() => ({}))) as { parts?: Array<{ partNumber: number; etag: string }>; durationMs?: number; title?: string; titleHint?: string; recover?: boolean };
+    // A page that thinks the recorder is gone may only finish a clip that really went quiet. A live recorder reports every few seconds.
+    if (body.recover && Date.now() - Date.parse(clip.updated_at) < 25000) return json({ ok: false, live: true, message: 'That recording is still running.' }, 409, { 'Cache-Control': 'private, no-store' });
     // The part list the server kept while the recording went on is the source of truth; a list from the browser fills in for older callers.
-    const kept = J<PartRec[]>(clip.parts, []).map((p) => ({ partNumber: p.n, etag: p.etag }));
+    // Bytes the recorder sent as tail pieces and never got into a whole part are joined on here (a closed window, a lost connection).
+    const storedParts = J<PartRec[]>(clip.parts, []);
+    let whole = contiguous(storedParts);
+    try {
+      whole = await foldTail(env, clip.id, clip.upload_id, storedParts);
+    } catch (err) {
+      console.warn('[clips] tail', clip.id, err);
+    }
+    const kept = whole.map((p) => ({ partNumber: p.n, etag: p.etag }));
     const sent = (body.parts || []).filter((p) => Number.isInteger(p.partNumber) && typeof p.etag === 'string');
     const parts = kept.length >= sent.length ? kept : sent;
     if (!parts.length) {
@@ -26,6 +37,7 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     try {
       const obj = await env.CLIPS.resumeMultipartUpload(videoKey(clip.id), clip.upload_id).complete(parts);
       size = obj.size;
+      await clearTail(env, clip.id).catch(() => undefined);
     } catch (err) {
       // A retry after the object already exists is fine; anything else fails the recording.
       const head = await env.CLIPS.head(videoKey(clip.id));

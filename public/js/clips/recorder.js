@@ -15,6 +15,8 @@ export const MAX_SECONDS = 45 * 60;
 const VIDEO_BPS = 2500000;
 const AUDIO_BPS = 32000;
 const SLICE_SECONDS = 120;
+const TAIL_MS = 3000;
+const TAIL_PIECE = 3 * 1024 * 1024;
 
 export const BUBBLE_FRACTION = { S: 0.17, M: 0.25, L: 0.36 };
 export const BUBBLE_KEY = 'favor.clips.bubble';
@@ -87,6 +89,13 @@ export class ClipRecorder {
     this.mime = '';
     this.chunks = [];
     this.chunkBytes = 0;
+    // The tail: every few seconds the bytes recorded since the last tail piece go up on their own, so a closed window or a
+    // lost connection costs a few seconds, not everything since the last whole 8 MiB part.
+    this.tailBlobs = [];
+    this.tailPending = 0;
+    this.tailOff = 0;
+    this.tailAt = 0;
+    this.tailQueue = Promise.resolve();
     this.partNo = 0;
     this.partBytes = 8 * 1024 * 1024;
     this.idP = null;
@@ -105,6 +114,7 @@ export class ClipRecorder {
     this.failed = null;
     this.stopping = false;
     this.onUnload = (e) => {
+      // Only a recording that lives in a hub page reaches this. The recorder window has no prompt at all.
       e.preventDefault();
       e.returnValue = '';
     };
@@ -250,7 +260,10 @@ export class ClipRecorder {
       if (!e.data.size) return;
       this.chunks.push(e.data);
       this.chunkBytes += e.data.size;
+      this.tailBlobs.push(e.data);
+      this.tailPending += e.data.size;
       this.cutParts(false);
+      if (Date.now() - this.tailAt >= TAIL_MS) this.sendTail();
     };
     // audio-only copy for the transcript
     this.audioType = pickAudioType();
@@ -302,7 +315,8 @@ export class ClipRecorder {
       return r.id;
     });
     this.idP.catch((e) => this.fail(e instanceof Error ? e : new Error('Could not start the upload.')));
-    window.addEventListener('beforeunload', this.onUnload);
+    if (!this.settings.noUnloadPrompt) window.addEventListener('beforeunload', this.onUnload);
+    this.tailAt = Date.now();
     this.t0 = Date.now();
     this.pausedTotal = 0;
     this.rec.start(1000);
@@ -338,6 +352,8 @@ export class ClipRecorder {
         return;
       }
     }
+    // While paused the recorder produces no bytes; a small "still here" message keeps the clip from looking abandoned.
+    if (this.state.phase === 'paused' && Date.now() - this.tailAt >= 5000) this.sendTail();
     this.set({ elapsed, level });
   }
 
@@ -393,6 +409,32 @@ export class ClipRecorder {
         this.fail(e instanceof Error ? e : new Error('Upload failed'));
       }
     });
+  }
+
+  /** Sends the bytes since the last tail piece in pieces of at most 3 MiB. Failures are ignored: the parts are what counts. */
+  sendTail() {
+    this.tailAt = Date.now();
+    const elapsed = this.elapsedNow();
+    const all = this.tailPending ? new Blob(this.tailBlobs, { type: this.mime }) : null;
+    this.tailBlobs = [];
+    this.tailPending = 0;
+    const pieces = [];
+    if (all) for (let o = 0; o < all.size; o += TAIL_PIECE) pieces.push(all.slice(o, Math.min(o + TAIL_PIECE, all.size)));
+    if (!pieces.length) pieces.push(new Blob([]));
+    for (const piece of pieces) {
+      const off = this.tailOff;
+      this.tailOff += piece.size;
+      this.tailQueue = this.tailQueue.then(async () => {
+        if (this.failed || this.stopping || this.stopFlag.cancelled) return;
+        try {
+          const id = await this.idP;
+          const res = await fetch(`/api/clips/${id}/tail?off=${off}`, { method: 'PUT', body: piece, credentials: 'same-origin', headers: { 'x-elapsed': elapsed.toFixed(1), 'content-type': 'application/octet-stream' } });
+          void res;
+        } catch (e) {
+          // the next piece tries again from its own position
+        }
+      });
+    }
   }
 
   // ---------- audio slices ----------
