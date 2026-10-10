@@ -185,13 +185,13 @@ function startPoll() {
     const st = S.view.deposit.status;
     if (st === 'open' || st === 'needs_person') return;
     await run(true);
-  }, 20000);
+  }, 60000);
 }
 async function run(quiet) {
   if (S.busy) return;
   S.busy = true;
   try {
-    const v = await post('/api/gift-entry/deposits/' + encodeURIComponent(S.id) + '/run');
+    const v = await post('/api/gift-entry/deposits/' + encodeURIComponent(S.id) + '/run' + (quiet ? '' : '?force=1'));
     S.view = v;
     status();
   } catch (e) { if (!quiet) toast(e.message); } finally { S.busy = false; }
@@ -215,7 +215,7 @@ function status() {
     { t: 'Photos read and checked', s: `${v.rows.length} gifts, ${money(v.tape.cents)}, equal to the tape. Entered by ${esc(d.createdBy)}.`, k: 'done' },
     { t: d.batchNumber ? 'Batch ' + esc(d.batchNumber) + ' made in Blackbaud' : d.batchId ? 'Batch made in Blackbaud' : 'Making the batch in Blackbaud', s: batchStep && batchStep.status === 'done' ? 'Created unapproved.' : waitStep ? 'Waiting for the daily limit to reset.' : retrying ? 'Trying again at ' + esc(et(retrying.next_try_at)) + '. ' + esc(retrying.error || '') : 'One moment.', k: batchStep && batchStep.status === 'done' ? 'done' : d.status === 'needs_person' ? 'bad' : 'now' },
     { t: 'Gifts added to the batch', s: sentAll ? `${v.rows.filter((r) => r.status === 'sent').length} of ${gifts.length} gifts are in. ${failed.length ? failed.length + ' need a person.' : 'Blackbaud took every one.'}` : 'Sending.', k: sentAll && !failed.length ? 'done' : failed.length ? 'bad' : batchStep && batchStep.status === 'done' ? 'now' : '' },
-    { t: committed ? 'Approved in Blackbaud' : 'Waiting for approval in Blackbaud', s: committed ? 'Approved ' + esc(et(d.committedAt)) + '. The hub saw the batch turn approved when it checked.' : created ? 'The batch reads as unapproved. Jennifer approves it in Blackbaud, in Gifts, Gift batch entry. The hub checks every 20 seconds while this page is open' + (d.lastPolledAt ? ' (last check ' + esc(et(d.lastPolledAt)) + ')' : '') + '.' : 'Starts after the gifts are in.', k: committed ? 'done' : created ? 'now' : '' },
+    { t: committed ? 'Approved in Blackbaud' : 'Waiting for approval in Blackbaud', s: committed ? 'Approved ' + esc(et(d.committedAt)) + '. The hub saw the batch turn approved when it checked.' : created ? 'The batch reads as unapproved. Jennifer approves it in Blackbaud, in Gifts, Gift batch entry. The hub checks about once a minute while this page is open' + (d.lastPolledAt ? ' (last check ' + esc(et(d.lastPolledAt)) + ')' : '') + '.' : 'Starts after the gifts are in.', k: committed ? 'done' : created ? 'now' : '' },
     { t: 'Photos copied to the gifts', s: a.planned ? `${a.done} of ${a.planned} photos copied${a.failed ? ', ' + a.failed + ' failed' : ''}. Only designated gifts, $5,000 and up, and giving funds get a copy. Every photo stays in Favor storage.` : 'No gift in this deposit needs a copy in Blackbaud. Every photo stays in Favor storage.', k: committed && a.done === a.planned ? 'done' : committed && a.planned ? 'now' : '' },
   ];
   const wm = v.watch && v.watch.mismatch;

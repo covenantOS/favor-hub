@@ -112,3 +112,9 @@ export async function runAttachments(c: Ctx, depositId: string, deps: AttachDeps
   }
   return out;
 }
+
+/** Photos still to copy for a committed deposit (not attached, not failed for good). */
+export async function attachmentsLeft(env: import('../http').Env, depositId: string): Promise<number> {
+  const r = await env.DB.prepare('SELECT COUNT(*) AS n FROM ge_image WHERE deposit_id = ? AND copy_to_bb = 1 AND attached_at IS NULL AND attach_error IS NULL').bind(depositId).first<{ n: number }>();
+  return Number(r?.n) || 0;
+}

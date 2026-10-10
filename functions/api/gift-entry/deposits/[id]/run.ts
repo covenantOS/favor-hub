@@ -1,6 +1,5 @@
 import { gift, pid } from '../../../../_lib/gifts/route';
-import { advance, pollBatch } from '../../../../_lib/gifts/flow';
-import { runAttachments } from '../../../../_lib/gifts/attach';
+import { runDeposit } from '../../../../_lib/gifts/runner';
 import { getDeposit } from '../../../../_lib/gifts/store';
 import { depositView, laneRow } from '../../../../_lib/gifts/view';
 import { HttpError } from '../../../../_lib/http';
@@ -8,25 +7,11 @@ import { stageNeeds } from '../../../../_lib/gifts/stage';
 
 // Steps 7 to 9 from the status view: run what is due, watch the batch for Jennifer's approval, and copy photos once it is committed.
 // A person can leave and come back; every step is safe to run again.
-export const onRequestPost = gift(async ({ env, flow, params }) => {
+export const onRequestPost = gift(async ({ env, flow, params, url }) => {
   if (!stageNeeds(2)) throw new HttpError(409, 'not_open_yet', 'Creating the batch in Blackbaud opens in the next stage. Keep entering in Blackbaud for now.');
   const id = pid(params);
-  const d = await getDeposit(env, id);
-  if (!d) throw new HttpError(404, 'not_found', 'That deposit is not here.');
-  let watch = null;
-  let attach = null;
-  if (d.status === 'sending') await advance(flow, id);
-  const fresh = (await getDeposit(env, id))!;
-  if (fresh.status === 'created') watch = await pollBatch(flow, id);
-  const now = (await getDeposit(env, id))!;
-  if (now.status === 'committed' && stageNeeds(3)) {
-    attach = await runAttachments(flow, id, {
-      bytes: async (key) => {
-        const o = await env.GIFT_CAPTURES.get(key);
-        return o ? new Uint8Array(await o.arrayBuffer()) : null;
-      },
-    });
-  }
+  if (!(await getDeposit(env, id))) throw new HttpError(404, 'not_found', 'That deposit is not here.');
+  const pass = await runDeposit(env, flow, id, { force: url.searchParams.get('force') === '1' });
   const v = await depositView(env, id);
-  return { ...v, watch, attach, lane: await laneRow(env) };
+  return { ...v, watch: pass.watch, attach: pass.attach, lane: await laneRow(env) };
 });

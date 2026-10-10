@@ -100,6 +100,8 @@
 .ge-empty { padding: 40px 22px; text-align: center; color: var(--h-ink-3); }
 
 @media (max-width: 860px) {
+  .ge-dep { flex-wrap: wrap; padding: 16px 18px; }
+  .ge-dep .t { flex-basis: 100%; }
   .ge-grid thead { display: none; }
   .ge-grid, .ge-grid tbody, .ge-grid tr, .ge-grid td { display: block; width: 100%; }
   .ge-grid tr.ge-r { display: grid; grid-template-columns: 84px 1fr auto; gap: 4px 12px; padding: 14px 18px; border-bottom: 1px solid var(--h-line); }

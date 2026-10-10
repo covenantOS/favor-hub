@@ -12,4 +12,5 @@ HUB_URL = "https://dash.favorintl.org"
 [triggers]
 # Every 15 minutes from 8 PM to 3:45 AM Eastern (00:00 to 07:45 UTC): send batches held for the night, and any that stopped partway.
 # Hourly at :10: read the actions Blackbaud changed so the lists stay current between the mirror's two daily syncs.
-crons = ["*/15 0-7 * * *", "10 * * * *"]
+# Every 10 minutes from 6 AM to 2 PM Eastern (10:00 to 18:50 UTC): gift entry notices an approved batch and copies the photos.
+crons = ["*/15 0-7 * * *", "10 * * * *", "*/10 10-18 * * *"]

@@ -48,8 +48,14 @@ The hub never approves a batch. Jennifer approves it in Blackbaud, in Gifts, the
 
 ## Watch the status
 
-The status view shows each step. The batch reads Waiting for approval in Blackbaud until it turns approved, and the page checks every 20 seconds while it is open. If Blackbaud holds a different number of gifts or dollars than the hub sent, the page says so.
+The status view shows each step. The batch reads Waiting for approval in Blackbaud until it turns approved, and the page checks about once a minute while it is open. Check now asks right away. If Blackbaud holds a different number of gifts or dollars than the hub sent, the page says so.
 
 If Blackbaud does not answer, the hub waits 1, 5, 15 and then 60 minutes and tries again, and it asks Blackbaud what the batch holds before it sends anything twice. A gift Blackbaud stores with an error shows the reason on its row. Fix it in Blackbaud's batch grid and press Entered by hand. Press Try again for a deposit that Blackbaud turned down whole.
 
 Gift entry has its own lane of 400 Blackbaud calls a day, shown at the top of the page. It never uses the website's share or the Work Center's. At 400 it waits for the reset at 8 PM Eastern and sends after.
+
+## Photos copied to Blackbaud
+
+Blackbaud gives a batch gift no gift number until the batch is approved, so a photo can only attach afterward. When the hub sees the batch approved, it finds each gift by partner, date and the hub id in the Reference, then attaches the photo. Only designated funds, gifts of $5,000 or more, and giving funds get a copy. Every other photo stays in Favor storage with the deposit.
+
+The hub checks batches that wait for approval every ten minutes from 6 AM to 2 PM Eastern, with this page closed too. The status view shows how many photos copied and which ones failed.

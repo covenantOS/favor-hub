@@ -299,6 +299,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'gift-entry-photos',
+    page: '/gift-entry/',
+    via: 'gift-entry',
+    at: '#ge-root',
+    title: 'Photos copy after approval',
+    body: 'Every photo stays in a private Favor bucket. After Jennifer approves the batch in Blackbaud, the hub copies the photo to the gift for designated funds, gifts of $5,000 or more, and giving funds. The status view shows how many photos copied. The hub also checks the batch every ten minutes through the morning, so the copy happens even when this page is closed.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'top',
+  },
+  {
     id: 'clips',
     at: '#clip-cam',
     title: 'Record a clip from any page',

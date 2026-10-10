@@ -16,6 +16,7 @@ const flow = await import('../functions/_lib/gifts/flow.ts');
 const attach = await import('../functions/_lib/gifts/attach.ts');
 const capture = await import('../functions/_lib/gifts/capture.ts');
 const match = await import('../functions/_lib/gifts/match.ts');
+const runner = await import('../functions/_lib/gifts/runner.ts');
 
 const SCHEMA = readFileSync(new URL('../db/gift-entry.sql', import.meta.url), 'utf8');
 
@@ -521,5 +522,46 @@ describe('capture: photo in, review row out', () => {
 
   it('name queries split a couple into each person', () => {
     assert.deepEqual(match.nameQueries('Harold & Judith Whitcomb').slice(0, 3), ['Harold & Judith Whitcomb', 'Harold Whitcomb', 'Judith Whitcomb']);
+  });
+});
+
+describe('one pass over a deposit', () => {
+  it('polls at most once a minute, notices the commit, then copies the photo of a rule gift', async () => {
+    const d = await seedDeposit(1);
+    await env.DB.prepare("UPDATE ge_deposit SET status = 'created', bb_batch_id = '9100' WHERE id = ?").bind(d.id).run();
+    await env.DB.prepare("UPDATE ge_gift SET status = 'sent', rule = 'big' WHERE id = 'gg_1'").run();
+    await env.DB.prepare('INSERT INTO ge_image (id, gift_id, deposit_id, kind, r2_key, sha256, bytes, mime, uploaded_by, uploaded_at, copy_to_bb) VALUES (?,?,?,?,?,?,?,?,?,?,1)').bind('gi_a', 'gg_1', d.id, 'check_front', 'k/a', 'sha', 3, 'image/jpeg', 'm', 'x').run();
+    env.GIFT_CAPTURES = { async get() { return { arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer }; } };
+    let approved = false;
+    script = (calls) => {
+      const c = calls[0];
+      if (c.path.startsWith('/gift-batch/v1/giftbatches')) return { results: [ok({ giftbatches: [{ id: '9100', batch_number: 'GFT-2026-1400', number_of_gifts: 1, actual_amount: 100, approved }] })] };
+      if (c.path.startsWith('/gift/v1/gifts?')) return { results: [ok({ value: [{ id: '70001', reference: 'x hub gg_1' }] })] };
+      if (c.path === '/gift/v1/documents') return { results: [ok({ file_id: 'f1', file_upload_request: { method: 'PUT', url: 'https://files.example/b', headers: [] } })] };
+      if (c.path === '/gift/v1/gifts/attachments') return { results: [ok({ id: 'att-9' })] };
+      return { results: [{ ok: false, status: 404, body: null }] };
+    };
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response('', { status: 201 });
+    try {
+      let p = await runner.runDeposit(env, ctx(), d.id);
+      assert.equal(p.watch.approved, false);
+      const n = sent.length;
+      p = await runner.runDeposit(env, ctx(), d.id);
+      assert.equal(p.watch, null, 'the second pass inside a minute does not poll');
+      assert.equal(sent.length, n);
+      p = await runner.runDeposit(env, ctx(), d.id, { force: true });
+      assert.equal(p.watch.approved, false);
+      approved = true;
+      p = await runner.runDeposit(env, ctx(), d.id, { force: true });
+      assert.equal(p.watch.approved, true);
+      assert.equal((await store.getDeposit(env, d.id)).status, 'committed');
+      assert.equal(p.attach.attached, 1, 'the pass that sees the commit also copies the photo');
+      p = await runner.runDeposit(env, ctx(), d.id);
+      assert.equal(p.attach.attached, 0);
+      assert.equal(await attach.attachmentsLeft(env, d.id), 0);
+    } finally {
+      globalThis.fetch = realFetch;
+    }
   });
 });
