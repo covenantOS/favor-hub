@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Asks in the Work Center.** A new Asks tab lists every action tagged Amount of Ask from the last year in four columns: Asked with no close date, Closing, Past the close date and Gave. The chip on each card sets the expected close date and saves at once, with Undo. A gift of the asked amount or more after the ask moves the card to Gave. Directors see their own asks, and the Support Team picks a director.
 - **Choose where the Work Center opens.** The Opens on button in the top row sets your starting tab and what Open actions shows. Open actions has Mine, On my partners and Everyone chips with a count on each, and Start here on a chip makes it the one that opens first. Before you pick, directors open on Gifts to thank, the Support Team on HQTY letters and Partner Care on Cadence.
 - **Reports.** A new Reports page in the menu rebuilds the Blackbaud reports your team runs. Each report has filters, totals, a line that checks it against the KPI dashboard, a CSV download and Open in Google Sheets. The lookup called Where each Blackbaud query went lists what replaced each query. A report marked Coming soon is on its way. You see the reports your team uses.
 - **Undo runs once.** After you press Undo on a change in the Work Center, the button turns off until the change is back. A second press is refused with a note that it is already being undone, and an undo cannot be undone.

@@ -64,6 +64,14 @@ Prep on a gift row, Call prep on the partner panel, and the same button wherever
 
 The right side has the do-not-call, do-not-email and do-not-mail flags, lifetime giving, the last 12 months against the year before, the largest gift, monthly giving, the iWave rating, the last three contacts with what was said, and the open tasks. Call and Text appear only when the partner may be called. Log this call opens the contact form on the partner. Print gives a clean page to hold during the call.
 
+## Asks
+
+Asks lists every action tagged Amount of Ask in the last 365 days, one card per ask. The four columns are Asked with no close date, Closing, Past the close date and Gave, each with its count and dollar total. The top row shows open asks, asks closing in 90 days, asks past the close date and the gifts that came since an ask. Board and List show the same asks. Find a partner narrows both. Directors see their own asks. The Support Team picks a director or sees everyone.
+
+A card shows the amount, the partner, the first line the director wrote on the action, when it was asked and how many days ago. The chip on the card sets the expected close date. Pick In 30 days, In 60 days, By year end or After Easter, or choose a date, and press Save. The card moves at once and the message at the bottom has Undo. Clear removes the date. The close date lives in the hub and does not write to Blackbaud.
+
+A gift moves an ask to Gave when it is credited to the same partner, as the giver or as a soft credit, is dated on or after the day of the ask, and is at least the amount asked. One gift settles one ask, the oldest it covers. The card then reads Gave with the gift amount and date. Prep opens the call brief. Google Sheets exports the board with each ask's status.
+
 ## Change one action
 
 Press a partner name in the list (or press e on a row) to open the action. Every field Blackbaud keeps is there: summary, category, type, status, date and start and end time, priority, direction, location, outcome, fundraisers, the linked opportunity and the description. Notes, Tags and Attachments each have their own tab. The partner sits on the right with giving, the last contact and who holds them, so you never leave the page. Press Save, or Ctrl and Enter. If someone changed the same field in Blackbaud after you opened it, the panel shows their value and asks which one to keep.

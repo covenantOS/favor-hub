@@ -344,6 +344,18 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'work-asks',
+    page: '/work/',
+    via: 'work',
+    press: '.wc-tab[data-view="asks"]',
+    at: '#wa-sheet',
+    title: 'Asks',
+    body: 'Every action with an Amount of Ask in the last year sits in a column: Asked with no close date, Closing, Past the close date or Gave. The chip on a card sets the expected close date and saves at once, and Undo is in the message. A gift of the asked amount or more after the ask moves the card to Gave. Prep opens the call brief, and Google Sheets exports the board.',
+    for: (w) => w.admin || team('rdd')(w) || team('support')(w),
+    added: '2026-10-10',
+    side: 'top',
+  },
+  {
     id: 'call-prep',
     page: '/work/',
     via: 'work',
