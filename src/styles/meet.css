@@ -320,3 +320,12 @@
 
 .l-short { display: none; }
 @media (max-width: 860px) { .l-full { display: none; } .l-short { display: inline; } }
+
+/* booking fixes */
+.mt-step[disabled] { opacity: .5; cursor: default; }
+.fb td.c:focus-visible { outline: 2px solid var(--h-brand); outline-offset: 1px; }
+@media (max-width: 640px) {
+  .fb table { min-width: 0; border-spacing: 2px; }
+  .fb td.h { width: 40px; font-size: 10.5px; }
+  .fb th { letter-spacing: .02em; font-size: 10px; }
+}

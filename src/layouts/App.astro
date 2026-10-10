@@ -66,6 +66,15 @@ type Item = { id?: string; label: string; href: string; icon: string; count?: st
 const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
   { label: null, items: [{ id: 'home', label: 'Today', href: '/', icon: 'home' }] },
   {
+    label: 'Meetings',
+    need: 'meetings',
+    items: [
+      { id: 'meet', label: 'Meetings', href: '/meet/', icon: 'video', count: 'meetingsNow' },
+      { id: 'meet-book', label: 'Book a meeting', href: '/meet/book/', icon: 'cal' },
+      { id: 'meet-notes', label: 'Meeting notes', href: '/meet/library/', icon: 'notes' },
+    ],
+  },
+  {
     label: 'Work',
     items: [
       { id: 'new', label: 'Make a request', href: '/requests/new', icon: 'plus' },
@@ -78,15 +87,6 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       { id: 'foundations', label: 'Foundation prospects', href: '/foundations/', icon: 'landmark' },
       { id: 'brain', label: 'Favor Brain', href: '/brain/', icon: 'brain', beta: true },
       { id: 'brain-admin', label: 'Brain admin', href: '/brain/admin/', icon: 'brain', sub: true, need: 'admin', count: 'brainRequests' },
-    ],
-  },
-  {
-    label: 'Meetings',
-    need: 'meetings',
-    items: [
-      { id: 'meet', label: 'Meetings', href: '/meet/', icon: 'video', count: 'meetingsNow' },
-      { id: 'meet-book', label: 'Book a meeting', href: '/meet/book/', icon: 'cal' },
-      { id: 'meet-notes', label: 'Meeting notes', href: '/meet/library/', icon: 'notes' },
     ],
   },
   {

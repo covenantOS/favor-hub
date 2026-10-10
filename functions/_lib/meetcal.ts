@@ -116,18 +116,30 @@ export function whenLine(iso: string): string {
   return new Date(iso).toLocaleString('en-US', { timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' Eastern';
 }
 
+const LOGO = 'https://dash.favorintl.org/images/favor-icon.png';
+
+function zoneTime(iso: string, zone: string): string {
+  return new Date(iso).toLocaleString('en-US', { timeZone: zone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
+}
+
 export async function sendReminder(env: MeetEnv, to: string[], m: { title: string; startsAt: string; roomUrl: string; backup: string; rec: string; kind: 'day' | 'soon'; host: string }): Promise<void> {
   const key = env.RESEND_API_KEY;
   if (!key || !to.length) return;
   const from = env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>';
   const lead = m.kind === 'day' ? 'Tomorrow' : 'Starting in 15 minutes';
+  const day = new Date(m.startsAt).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
+  const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
   const rec = m.rec === 'video' ? 'This meeting is recorded on video and written up in the hub.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#2a2722;line-height:1.5"><p>${lead}: <b>${esc(m.title)}</b></p><p>${esc(whenLine(m.startsAt))}<br/>Host: ${esc(m.host)}</p><p><a href="${esc(m.roomUrl)}" style="background:#2b4d24;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Join the meeting</a></p>${rec ? `<p>${esc(rec)}</p>` : ''}${m.backup ? `<p>If the room does not load, use the backup: <a href="${esc(m.backup)}">${esc(m.backup)}</a></p>` : ''}</div>`;
+  const eastern = whenLine(m.startsAt);
+  const local = `Kampala ${zoneTime(m.startsAt, 'Africa/Kampala')}, Juba ${zoneTime(m.startsAt, 'Africa/Juba')}`;
+  const backup = m.backup ? `If the room does not load, use the backup: ${m.backup}` : '';
+  const text = [`${lead}: ${m.title}`, eastern, local, `Host: ${m.host}`, '', `Join the meeting: ${m.roomUrl}`, ...(rec ? ['', rec] : []), ...(backup ? ['', backup] : [])].join('\n');
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#2a2722;line-height:1.5;max-width:520px"><p style="margin:0 0 14px"><img src="${LOGO}" alt="Favor International" width="36" height="36" style="border-radius:8px;vertical-align:middle" /> <span style="font-size:13px;color:#6b665c;vertical-align:middle">Favor Meetings</span></p><p style="margin:0 0 4px">${lead}: <b>${esc(m.title)}</b></p><p style="margin:0 0 14px">${esc(eastern)}<br/><span style="color:#6b665c">${esc(local)}</span><br/>Host: ${esc(m.host)}</p><p><a href="${esc(m.roomUrl)}" style="background:#2b4d24;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Join the meeting</a></p>${rec ? `<p>${esc(rec)}</p>` : ''}${m.backup ? `<p>If the room does not load, use the backup: <a href="${esc(m.backup)}">${esc(m.backup)}</a></p>` : ''}</div>`;
   for (let i = 0; i < to.length; i += 40) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: to.slice(i, i + 40), subject: `${lead}: ${m.title}`, html }),
+      body: JSON.stringify({ from, to: to.slice(i, i + 40), subject, html, text }),
     });
     if (!r.ok) console.error('[meet] reminder failed', r.status, (await r.text()).slice(0, 200));
   }

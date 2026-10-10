@@ -33,14 +33,14 @@ export async function route({ request, env, params }: { request: Request; env: M
     if (parts[1] === 'pump' && m === 'POST') return json(await pumpNext(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'actions' && m === 'GET') return json(await myActions(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
-    if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)) });
+    if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env) });
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids))) });
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') return json(await remind(env, new URL(request.url).origin));
     if (parts.length === 1) {
       if (m === 'GET') return json(await listMeetings(env, user, new URL(request.url).searchParams.get('scope') || 'upcoming'));
-      if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
+      if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => null), new URL(request.url).origin));
     }
     const id = parts[1];
     if (!ID_RE.test(id)) return errorJson('not_found', 'That meeting does not exist.', 404);
@@ -152,16 +152,23 @@ async function withLedMeetings(env: MeetEnv, user: { email: string; role: string
   return all.slice(0, scope === 'recent' ? 60 : 100);
 }
 
-async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown>, origin = '') {
+async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown> | null, origin = '') {
+  if (!b || typeof b !== 'object' || Array.isArray(b)) throw new HttpError(400, 'bad_json', 'The request was not valid JSON.');
   const title = clean(b.title, 140) || 'Meeting';
   const id = hex(12);
+  if (b.startsAt != null && b.startsAt !== '' && (typeof b.startsAt !== 'string' || Number.isNaN(Date.parse(b.startsAt)))) throw new HttpError(400, 'bad_start', 'The start time is not a valid date.');
   const startsAt = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) ? new Date(b.startsAt).toISOString() : null;
+  if (startsAt && Date.parse(startsAt) < Date.now() - 5 * 60000) throw new HttpError(400, 'past', 'That start time has passed. Pick a later time.');
   const dur = Math.min(480, Math.max(10, Number(b.durationMin) || 60));
   const rec = ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : 'notes';
   const access = ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : startsAt ? 'invited' : 'staff';
-  const invitees = Array.isArray(b.invitees)
+  const rawInvitees = Array.isArray(b.invitees)
     ? (b.invitees as Array<Record<string, unknown>>).slice(0, 200).map((i) => ({ email: clean(i.email, 200).toLowerCase(), name: clean(i.name, 120), team: clean(i.team, 80), guest: !!i.guest })).filter((i) => i.email)
     : [];
+  const badEmail = rawInvitees.find((i) => !/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/.test(i.email));
+  if (badEmail) throw new HttpError(400, 'bad_invitee', `${badEmail.email} is not an email address.`);
+  const seenInv = new Set<string>([user.email.toLowerCase()]);
+  const invitees = rawInvitees.filter((i) => (seenInv.has(i.email) ? false : (seenInv.add(i.email), true)));
   const repeat = ['weekly', 'biweekly', 'monthly'].includes(String(b.repeat)) ? String(b.repeat) : 'none';
   const withGuests = guestsOn(env) && invitees.some((i) => i.guest);
   const gkey = withGuests ? hex(16) : '';
