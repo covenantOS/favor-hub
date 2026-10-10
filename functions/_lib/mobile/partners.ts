@@ -40,9 +40,40 @@ export async function searchCards(ctx: Ctx, fid: string, q: string): Promise<Car
   return cardsFor(read, hits.filter((h) => !h.deceased));
 }
 
-export async function partnerCard(ctx: Ctx, id: string): Promise<Card> {
+export interface OpenTask {
+  id: string;
+  summary: string;
+  type: string;
+  due_date: string | null;
+}
+
+/** The phone's partner page: the card plus what a call needs on screen (largest gift, open tasks, address, lookup id). */
+export interface PartnerDetail extends Card {
+  lookup_id: string;
+  address: string | null;
+  largest_gift_cents: number | null;
+  largest_gift_date: string | null;
+  open_task_count: number;
+  open_tasks: OpenTask[];
+  synced_at: string | null;
+}
+
+export async function partnerCard(ctx: Ctx, id: string): Promise<PartnerDetail> {
   if (!SYSTEM_ID.test(id)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
   const p = await loadPartner(mirrorQ(ctx.env), id);
   if (!p) throw new HttpError(404, 'no_partner', 'No partner has that number.');
-  return { ...p.card, last_gift_date: dayTime(p.card.last_gift_date), last_contact_date: dayTime(p.card.last_contact_date) };
+  const a = p.contact.address;
+  const address = a ? [a.lines, [a.city, a.state].filter(Boolean).join(', '), a.zip].filter(Boolean).join(' ').trim() : '';
+  return {
+    ...p.card,
+    last_gift_date: dayTime(p.card.last_gift_date),
+    last_contact_date: dayTime(p.card.last_contact_date),
+    lookup_id: p.lookup,
+    address: address || null,
+    largest_gift_cents: p.giving.largest ? Math.round(p.giving.largest.amount * 100) : null,
+    largest_gift_date: p.giving.largest ? dayTime(p.giving.largest.date) : null,
+    open_task_count: p.actions.openCount,
+    open_tasks: p.actions.open.slice(0, 10).map((t) => ({ id: t.id, summary: t.summary || t.type || 'Task', type: t.type, due_date: dayTime(t.due) })),
+    synced_at: p.synced ? p.synced.replace(/\.\d+/, '') : null,
+  };
 }

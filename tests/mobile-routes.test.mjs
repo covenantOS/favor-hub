@@ -217,11 +217,23 @@ describe('partners', () => {
       const detail = await callChecked(w, 'GET', '/api/mobile/partners/' + id, { token });
       const q = mirrorQ(w.env);
       const [fromSearch] = await cardsFor(q, [{ cid: id, name: detail.body.name, place: detail.body.place, lookup: '', holders: [], deceased: false }]);
-      assert.deepEqual(fromSearch, detail.body, 'partner ' + id);
+      const { lookup_id, address, largest_gift_cents, largest_gift_date, open_task_count, open_tasks, synced_at, ...card } = detail.body;
+      assert.deepEqual(fromSearch, card, 'partner ' + id);
       const page = await loadPartner(q, id);
       assert.equal(detail.body.last_gift_date, dayTime(page.card.last_gift_date));
       assert.equal(detail.body.year_to_date_cents, page.card.year_to_date_cents);
     }
+  });
+
+  it('detail adds the largest gift, open tasks, address and lookup id for the phone page', async () => {
+    const { w, token } = await ready();
+    const out = await callChecked(w, 'GET', '/api/mobile/partners/9001', { token });
+    const page = await loadPartner(mirrorQ(w.env), '9001');
+    assert.equal(out.body.lookup_id, page.lookup);
+    assert.equal(out.body.largest_gift_cents, page.giving.largest ? Math.round(page.giving.largest.amount * 100) : null);
+    assert.equal(out.body.open_task_count, page.actions.openCount);
+    assert.equal(out.body.open_tasks.length, Math.min(10, page.actions.open.length));
+    for (const t of out.body.open_tasks) assert.ok(t.id && typeof t.summary === 'string');
   });
 
   it('detail is 404 for an unknown or malformed id', async () => {

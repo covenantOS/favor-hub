@@ -154,7 +154,7 @@ paths:
   /api/mobile/partners/{id}:
     get:
       operationId: partnerDetail
-      summary: One partner with contact details, last gift, year-to-date giving and last contact
+      summary: One partner with contact details, last gift, largest gift, year-to-date giving, last contact and open tasks
       x-work-center-route: |
         None. GET /api/work/partners/:id is new in ios-research-backend.md section 4. Year-to-date giving and last gift
         come from the D1 mirror (re_nxt_data), last contact from the mirrored actions.
@@ -165,7 +165,7 @@ paths:
           description: Partner
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/Partner" }
+              schema: { $ref: "#/components/schemas/PartnerDetail" }
         "404": { description: Unknown partner or outside this person's access }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -678,6 +678,29 @@ components:
         year_to_date_cents: { type: integer }
         last_contact_date: { type: string, format: date-time, nullable: true }
         last_contact_kind: { type: string, enum: [call, visit, text], nullable: true }
+    OpenTask:
+      type: object
+      required: [id, summary, type]
+      properties:
+        id: { type: string }
+        summary: { type: string }
+        type: { type: string }
+        due_date: { type: string, format: date-time, nullable: true }
+    PartnerDetail:
+      allOf:
+        - { $ref: "#/components/schemas/Partner" }
+        - type: object
+          required: [lookup_id, open_task_count, open_tasks]
+          properties:
+            lookup_id: { type: string }
+            address: { type: string, nullable: true }
+            largest_gift_cents: { type: integer, nullable: true }
+            largest_gift_date: { type: string, format: date-time, nullable: true }
+            open_task_count: { type: integer }
+            open_tasks:
+              type: array
+              items: { $ref: "#/components/schemas/OpenTask" }
+            synced_at: { type: string, format: date-time, nullable: true }
     ContactLog:
       type: object
       required: [client_id, partner_id, kind, occurred_at]
