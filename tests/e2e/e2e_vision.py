@@ -58,7 +58,9 @@ with sync_playwright() as p:
     ctx = b.new_context(viewport=dict(width=1280, height=720), record_video_dir=vid_dir, record_video_size=dict(width=1280, height=720))
     auth(ctx)
     pg = ctx.new_page()
-    for path, secs in [('/', 6), ('/requests/', 9), ('/requests/new', 9), ('/help/', 8), ('/receipts/', 7)]:
+    # WALK=/,/help/ limits the pages (on the live hub, pages that hold partner or request data are left out).
+    walk = [(x, 7) for x in os.environ['WALK'].split(',')] if os.environ.get('WALK') else [('/', 6), ('/requests/', 9), ('/requests/new', 9), ('/help/', 8), ('/receipts/', 7)]
+    for path, secs in walk:
         pg.goto(BASE + path); time.sleep(secs)
     pg.close(); ctx.close(); b.close()
 raw = glob.glob(vid_dir + r'\*.webm')[0]
