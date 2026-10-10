@@ -14,7 +14,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const made = await createSheet(env, { email: user.email, name: user.name, via: 'session' }, spec);
     return json(made);
   } catch (err) {
-    if (err instanceof SheetError) return json({ ok: false, error: err.code, message: err.message, ...err.extra }, err.status);
+    if (err instanceof SheetError) return json({ ok: false, error: err.code, message: err.message, ...err.extra }, err.code === 'consent' || err.code === 'not_connected' ? 200 : err.status);
     return handleError(err);
   }
 };

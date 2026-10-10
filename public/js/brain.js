@@ -148,7 +148,7 @@
     for (const x of t.extras || []) h += B.render(x, { ti, bi: -1, canSheets: canSheets() });
     h += B.reading(t.reading, ti);
     if (latest && t.follow && t.follow.length && !t.error) h += `<div class="blk-follow" aria-label="Follow-up questions">${t.follow.map((q) => `<button type="button" class="fu" data-act="ask" data-q="${esc(q)}">${ic('arrow')}${esc(q)}</button>`).join('')}</div>`;
-    if (t.hint) h += `<div class="hintline">${ic('spark')}<span>You can ask the same questions from your own Claude or ChatGPT.</span><button type="button" class="lnk" data-act="connect">Show me how</button><button type="button" class="ib ib--sm ib--bare x" data-act="hint-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
+    if (t.hint) h += `<div class="hintline">${ic('spark')}<span>You can ask the same questions from another app you already use.</span><button type="button" class="lnk" data-act="connect">Show me how</button><button type="button" class="ib ib--sm ib--bare x" data-act="hint-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
     const r = t.rated;
     h += `<div class="m-foot"><button type="button" class="ib ib--sm ib--bare tip" data-act="acopy" data-turn="${ti}" aria-label="Copy the answer" data-tip="Copy">${ic('copy')}</button>
       <button type="button" class="ib ib--sm ib--bare tip${r === 'right' ? ' is-done' : ''}" data-act="aup" data-turn="${ti}" aria-label="Right" data-tip="Right" aria-pressed="${r === 'right'}"${t.ref ? '' : ' disabled'}>${ic('up')}</button>
@@ -801,6 +801,7 @@
   document.addEventListener('keydown', (e) => {
     const ed = e.target.closest && e.target.closest('[data-edit]');
     if (ed && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(+ed.dataset.edit); return; }
+    if (ed && e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); const ti = +ed.dataset.edit; cur.turns[ti].editing = false; renderThread({ noAnim: true }); return; }
     const rn = e.target.closest && e.target.closest('[data-rename]');
     if (rn && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); const c = convs.find((x) => x.id === rn.dataset.rename); if (c) finishRename(c, rn.value, e.key === 'Enter'); return; }
     if (e.key === 'Escape') {

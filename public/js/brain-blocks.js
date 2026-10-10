@@ -401,7 +401,7 @@
     const acts = (b.actions || [])
       .map((a) => {
         if (a.href) return `<a class="h-btn h-btn--ghost h-btn--sm" href="${esc(href(a.href))}" target="_blank" rel="noopener">${ic('ext')}${esc(a.label)}</a>`;
-        if (a.sheet) return ctx && ctx.canSheets ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="pexport" data-turn="${ctx.ti}" data-bi="${ctx.bi}">${ic('sheet')}${esc(a.label)}</button>` : '';
+        if (a.sheet) return ctx && ctx.canSheets ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="pexport" data-turn="${ctx.ti}" data-bi="${ctx.bi}">${ic('sheet')}Open in Google Sheets</button>` : '';
         return `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="ask" data-q="${esc(a.ask || a.label)}"${a.id === 'gifts' ? '' : ''}>${ic(a.id === 'refresh' ? 'redo' : 'list')}${esc(a.label)}</button>`;
       })
       .join('');
