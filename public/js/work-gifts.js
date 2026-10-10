@@ -178,5 +178,6 @@ document.addEventListener('favor:thanked-undone', async () => { await load(G.own
 
 window.WCGifts = { start, view, count, dot, hideBulk, G };
 // The tab goes in through the Work Center's own list of extra tabs, right after Open actions, for the roles that thank gifts.
-(window.WCX = window.WCX || []).push({ k: 'gifts', label: 'Gifts to thank', after: 'open', show: (me) => !!(me && me.canGifts), count: () => count(), dot: () => dot(), view: () => view() });
+// Registered once every script has loaded, so the tab lands right after Open actions, ahead of the tabs other files add after it.
+addEventListener('DOMContentLoaded', () => (window.WCX = window.WCX || []).push({ k: 'gifts', label: 'Gifts to thank', after: 'open', show: (me) => !!(me && me.canGifts), count: () => count(), dot: () => dot(), view: () => view() }));
 })();
