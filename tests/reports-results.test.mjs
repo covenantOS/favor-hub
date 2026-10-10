@@ -35,12 +35,13 @@ const kpi = (giving) => async () => ({ asOf: today, monthlyGiving: giving, month
 
 describe('registry', () => {
   it('turns the four results reports live and keeps their audiences', () => {
-    for (const id of ['foundations', 'tax', 'contact', 'appeal-results']) {
+    for (const id of ['foundations', 'appeal-results']) {
       assert.ok(reg.isReady(id), `${id} is live`);
       assert.equal(reg.entryOf(id).group, 'results');
     }
     assert.deepEqual(reg.entryOf('appeal-results').audience, ['marketing']);
     assert.deepEqual([...reg.entryOf('tax').audience].sort(), ['admin_desk', 'operations']);
+    for (const id of ['tax', 'contact']) assert.equal(reg.isReady(id), false, id + ' is held until solicit codes are in the mirror');
   });
 });
 

@@ -61,13 +61,14 @@ const DEFS: Record<string, ReportDef | null> = {
   'large-gifts': largeGifts,
   'carole-list': caroleList,
   packets,
-  mailing,
+  // Held until solicit codes and address validity are in the mirror and each list ties to its saved query (2026-10-10).
+  mailing: null,
   status,
   portfolio,
   prayer,
   foundations,
-  tax,
-  contact,
+  tax: null,
+  contact: null,
   'appeal-results': appealResults,
   'query-map': queryMap,
 };

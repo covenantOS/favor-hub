@@ -267,12 +267,12 @@ describe('portfolio export', () => {
 
 describe('the registry', () => {
   it('turns the four lists from coming soon to live, for the roles that use them', () => {
-    for (const id of ['mailing', 'status', 'portfolio', 'prayer']) assert.equal(reg.isReady(id), true, id);
+    for (const id of ['status', 'portfolio', 'prayer']) assert.equal(reg.isReady(id), true, id);
+    assert.equal(reg.isReady('mailing'), false);
     const mine = (...a) => new Set(a);
     assert.ok(reg.listFor(mine('rdd'), false).some((r) => r.id === 'status' && r.ready));
     assert.ok(reg.listFor(mine('rdd'), false).some((r) => r.id === 'portfolio' && r.ready));
     assert.ok(reg.listFor(mine('operations'), false).some((r) => r.id === 'prayer' && r.ready));
-    assert.ok(reg.listFor(mine('marketing'), false).some((r) => r.id === 'mailing' && r.ready));
     assert.equal(reg.listFor(mine('marketing'), false).some((r) => r.id === 'portfolio'), false);
   });
 });
