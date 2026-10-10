@@ -11,7 +11,7 @@ updated: 2026-10-09
 
 Press **Ctrl** and **K** together on any page (**Command** and **K** on a Mac), or press **Search** at the top of the menu. Type a few letters: "receipts", "mileage", "LYBUNT", "connect Claude". Use the arrow keys to move and Enter to open. Esc closes it.
 
-Search covers every hub tool, the outside tools (Blackbaud, GoHighLevel, Paycom, the media folder), every help topic and every training video.
+Search covers every hub tool, the outside tools (Blackbaud and Paycom), every help topic and every training video.
 
 ## Searching the help docs
 
