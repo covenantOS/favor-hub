@@ -112,3 +112,9 @@ Work Center is open to the people whose job touches it. What you see depends on 
 - **Admins** see everything and can hand work to any team.
 
 Only admins and the Support Team delete an action or move it to another partner. Only an admin hands an action to someone on another team. Recent shows your own changes. Any partner opens for every role from the partner page, since Blackbaud already shows them to everyone. If you need more than your role shows, press Feedback and say why.
+
+## Where the Work Center opens
+
+The **Opens on** button in the top row sets the tab you land on. Pick a tab, pick what Open actions shows (Mine, On my partners or Everyone) and press Save. **Use the default** puts it back. Until you pick one, directors open on Gifts to thank, the Support Team on HQTY letters and Partner Care on Cadence, and a tab that is not open for you yet falls back to Open actions.
+
+Open actions has the same three chips with a count on each. Mine lists actions you work. On my partners lists other people's open actions on partners you hold. Everyone lists all of them. **Start here** on a chip saves it as the scope that opens first.

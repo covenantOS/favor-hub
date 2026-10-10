@@ -11,6 +11,8 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Choose where the Work Center opens.** The Opens on button in the top row sets your starting tab and what Open actions shows. Open actions has Mine, On my partners and Everyone chips with a count on each, and Start here on a chip makes it the one that opens first. Before you pick, directors open on Gifts to thank, the Support Team on HQTY letters and Partner Care on Cadence.
+
 - **Undo runs once.** After you press Undo on a change in the Work Center, the button turns off until the change is back. A second press is refused with a note that it is already being undone, and an undo cannot be undone.
 - **Find files, and the numbers inside them.** Ask Favor Brain for a document, sheet, slide deck, PDF, photo or recording, or for a number in one, and each match comes back as a card with its owner, its date, an Open in Drive button, and the line or sheet cell that matched. A card shows the day the file was last indexed. You see only files your own Google account can open.
 - **My partners, reminders and a morning email in the Work Center.** My partners lists every partner a regional director holds, biggest givers first, with who has gone quiet. Pick Quiet 90 days, tick partners and press Plan calls to add one call task each across the next week, two weeks or a month. A bell at the top of the hub holds your reminders, and Remind me sits on every open task in a partner page. A weekday morning email lists the gifts to thank, what is due and late, and the partners quiet the longest. Set its sections and time from the Morning email chip, and send yourself a test. It starts with the regional directors.

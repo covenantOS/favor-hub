@@ -310,6 +310,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'work-start-view',
+    page: '/work/',
+    via: 'work',
+    at: '[data-startpill]',
+    title: 'Pick where the Work Center opens',
+    body: 'The Opens on button sets the tab you land on and what Open actions shows: Mine, On my partners or Everyone. Until you pick one, directors open on Gifts to thank, the Support Team on HQTY letters and Partner Care on Cadence. Start here on a chip on Open actions saves that scope.',
+    for: (w) => w.admin || w.work,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'gifts-to-thank',
     page: '/work/',
     via: 'work',

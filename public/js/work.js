@@ -124,6 +124,7 @@ function matches(a, f, skip) {
     if (f.fr === '_none') { if (c.f.length) return false; }
     else if (!c.f.includes(f.fr) && !(f.theirs && a.hold.includes(f.fr))) return false;
   }
+  if (f.scope === 'partners' && !(DATA.me.fid && a.hold.includes(DATA.me.fid) && !c.f.includes(DATA.me.fid))) return false;
   if (f.type && skip !== 'type' && a.type !== f.type) return false;
   if (f.cat && skip !== 'cat' && a.cat !== f.cat) return false;
   if (f.cid && a.cid !== f.cid) return false;
@@ -182,10 +183,6 @@ function page() {
   const g = S.gate || {};
   const main = root;
   hideBar();
-  const openN = ACTS.filter(isOpenNow).length;
-  const intakeWait = entryWaiting();
-  const tyN = tyGroups('').length;
-  const staleN = ACTS.filter((a) => isOpenNow(a) && LANES.some((l) => l.test(a))).length;
   main.innerHTML = `
     <div class="wc-intro">
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
@@ -193,25 +190,39 @@ function page() {
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
         <span class="wc-pill" title="The hub reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i>Blackbaud copy from ${esc(syncedLabel())}</span>
         ${meterHTML()}
+        ${window.WCStart ? window.WCStart.pill() : ''}
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
       </div>
     </div>
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
-      ${withExtraTabs([['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].filter(([k]) => k !== 'intake' || DATA.me.canEntry)).map(([k, l, n]) =>
+      ${tabsNow().map(([k, l, n]) =>
         `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
     </div>
     <div id="view"></div>`;
   if (window.WCGifts) window.WCGifts.hideBulk();
-  Object.assign({ open: viewOpen, intake: viewIntake, ty: viewTy, stale: viewStale, recent: viewRecent, opps: () => window.WCEdit && window.WCEdit.viewOpps() }, extraViews())[S.view]();
+  (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount();
 }
-// Tabs other files add (window.WCX = [{ k, label, after, count(), show(), view() }]): My partners and any later tab. They sit after the tab named in `after`.
-function extraTabs() { return (window.WCX || []).filter((t) => !t.show || t.show(DATA.me)); }
-function extraDot(k) { const t = (window.WCX || []).find((x) => x.k === k); return !!(t && t.dot && t.dot()); }
-function extraViews() { return Object.fromEntries((window.WCX || []).map((t) => [t.k, t.view])); }
-function withExtraTabs(base) {
-  const out = base.slice();
-  for (const t of extraTabs()) { const at = out.findIndex((x) => x[0] === t.after); out.splice(at < 0 ? out.length : at + 1, 0, [t.k, t.label, t.count ? t.count() : '']); }
-  return out;
+// Tabs come from the registry (public/js/work-tabs.js). The built-in ones register here; later tabs register from their own files.
+function tabsNow() { return window.WCTabs.list(DATA.me).map((t) => [t.id, t.label, t.count ? t.count() : '']); }
+function extraDot(k) { const t = window.WCTabs.get(k); return !!(t && t.dot && t.dot()); }
+[
+  ['open', 'Open actions', () => ACTS.filter(isOpenNow).length, () => viewOpen()],
+  ['intake', 'Entry', () => entryWaiting(), () => viewIntake(), (me) => !!me.canEntry],
+  ['ty', 'Thank-yous', () => tyGroups('').length, () => viewTy()],
+  ['stale', 'Stale', () => ACTS.filter((a) => isOpenNow(a) && LANES.some((l) => l.test(a))).length, () => viewStale()],
+  ['opps', 'Opportunities', () => (window.WCEdit ? window.WCEdit.oppCount() : ''), () => window.WCEdit && window.WCEdit.viewOpps()],
+  ['recent', 'Recent', () => S.batches.length, () => viewRecent()],
+].forEach(([id, label, count, mount, show]) => window.WCTabs.registerTab({ id, label, count, mount, show, core: true }));
+
+// Mine, On my partners and Everyone on Open actions. The button on the chip you are on makes it the one that opens first.
+function scopeBar(base) {
+  const fid = DATA.me.fid; if (!fid) return '';
+  const f = S.f, start = window.WCStart ? window.WCStart.startScope() : 'mine';
+  const open = base.filter(isOpenNow);
+  const n = { mine: open.filter((a) => cur(a).f.includes(fid)).length, partners: open.filter((a) => a.hold.includes(fid) && !cur(a).f.includes(fid)).length, all: open.length };
+  const on = f.scope === 'partners' ? 'partners' : f.fr === fid ? 'mine' : !f.fr ? 'all' : '';
+  return `<div class="wc-scope" role="group" aria-label="Open actions shows">${[['mine', 'Mine'], ['partners', 'On my partners'], ['all', 'Everyone']].map(([k, l]) =>
+    `<span class="wc-scope__chip${on === k ? ' is-on' : ''}"><button type="button" data-scope="${k}" aria-pressed="${on === k}">${l}<span>${n[k]}</span></button>${start !== k ? `<button type="button" class="wc-scope__start" data-scopestart="${k}">Start here</button>` : ''}</span>`).join('')}</div>`;
 }
 
 // ------------------------------------------------------------ the shared action table
@@ -307,9 +318,11 @@ function viewOpen() {
   if (f.type) chips.push(['type', 'Type: ' + f.type]);
   if (f.cat) chips.push(['cat', 'Category: ' + f.cat]);
   if (f.due) chips.push(['due', DUES.find((d) => d[0] === f.due)[1]]);
+  if (f.scope === 'partners') chips.push(['scope', 'On my partners']);
   if (f.quick) chips.push(['quick', stats.find((s) => s[0] === f.quick)[1]]);
   if (f.q) chips.push(['q', 'Search: ' + f.q]);
   $('#view').innerHTML = `
+    ${scopeBar(base)}
     <div class="h-card wc-band">${stats.map(([k, l, n]) => `<button type="button" class="wc-stat${f.quick === k && (k || !f.quick) ? ' is-on' : ''}" data-quick="${k}"><b data-countup="${n}">${n}</b><span>${l}</span></button>`).join('')}</div>
     <section class="h-card wc-sheet" id="wc-board" aria-label="Open actions">
       <div class="wc-filters" id="filters">
@@ -1193,8 +1206,9 @@ document.addEventListener('click', async (e) => {
     if (d.view === 'recent') await loadRecent();
     render(); return;
   }
+  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = 100; render(); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
-  if (d.unf) { if (d.unf === 'all') S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }; else { S.f[d.unf] = d.unf === 'theirs' ? false : ''; if (d.unf === 'fr') S.f.theirs = false; } render(); return; }
+  if (d.unf) { if (d.unf === 'all') S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' }; else { S.f[d.unf] = d.unf === 'theirs' ? false : ''; if (d.unf === 'fr') S.f.theirs = false; } render(); return; }
   if (d.sort) { if (S.sort === d.sort) S.dir = -S.dir; else { S.sort = d.sort; S.dir = d.sort === 'partner' || d.sort === 'fr' ? 1 : -1; } render(); return; }
   if (t.hasAttribute('data-more')) { S.shown += 100; render(); return; }
   if (d.open) { drawer(d.open); return; }
@@ -1305,8 +1319,9 @@ async function init() {
   try {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
-    const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent', 'opps', ...extraTabs().map((t) => t.k)].includes(v)) S.view = v;
+    const v = QS.get('view'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
     if (window.WCEdit) await window.WCEdit.start();
+    if (window.WCStart) await window.WCStart.apply();
     if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();

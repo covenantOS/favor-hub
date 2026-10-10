@@ -1,0 +1,22 @@
+/* Start view per person and the Open actions scope chips (public/js/work-start.js). Tokens only. */
+.wc-start { cursor: pointer; }
+.wc-start .h-i { width: 14px; height: 14px; }
+.wc-start b { font-weight: 600; }
+.wc-start:hover { border-color: var(--h-line-2); }
+.wc-startpanel fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.wc-startpanel legend { padding: 0; margin-bottom: 8px; font: 600 12.5px var(--h-font); color: var(--h-ink-2); }
+.wc-startpanel__opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.wc-startopt { position: relative; cursor: pointer; }
+.wc-startopt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.wc-startopt span { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--h-line); background: var(--h-ivory); font: 500 13px var(--h-font); color: var(--h-ink-2); }
+.wc-startopt input:checked + span { background: var(--h-brand); border-color: var(--h-brand); color: #fff; }
+.wc-startopt input:focus-visible + span { outline: 2px solid var(--h-brand); outline-offset: 2px; }
+.wc-scope { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.wc-scope__chip { display: inline-flex; align-items: center; gap: 2px; height: 36px; padding: 0 4px 0 0; border-radius: 999px; border: 1px solid var(--h-line); background: var(--h-ivory); }
+.wc-scope__chip > button:first-child { height: 34px; padding: 0 14px; border: 0; border-radius: 999px; background: none; font: 600 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.wc-scope__chip > button:first-child span { font-weight: 500; color: var(--h-ink-3); }
+.wc-scope__chip.is-on { background: var(--h-brand); border-color: var(--h-brand); }
+.wc-scope__chip.is-on > button:first-child, .wc-scope__chip.is-on > button:first-child span { color: #fff; }
+.wc-scope__start { height: 26px; padding: 0 10px; margin-right: 2px; border: 1px solid var(--h-line); border-radius: 999px; background: var(--h-ivory); font: 600 11.5px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.wc-scope__chip.is-on .wc-scope__start { border-color: rgba(255,255,255,.5); background: transparent; color: #fff; }
+@media (max-width: 760px) { .wc-scope { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .wc-scope__chip { flex: none; } }
