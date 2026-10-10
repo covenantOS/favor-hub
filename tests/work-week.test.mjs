@@ -62,6 +62,9 @@ before(() => {
   act({ cid: '9003', cat: 'Meeting', due: '2026-10-14', done: '2026-10-14', summary: 'Church lunch', tags: { ah: 'Attended' } }); // connection 3, meeting, no one-on-one
   act({ cid: '9004', cat: 'Mailing', due: '2026-10-14', done: '2026-10-14', summary: 'Thank you letter', tags: { thx: 1 } }); // connection 4 (thank-you letter)
   act({ cid: '9005', cat: 'Mailing', due: '2026-10-14', done: '2026-10-14', summary: 'Newsletter' }); // a mailing without Thanked: not a connection
+  act({ cid: '9004', cat: 'Phone call', due: '2026-10-14', done: '2026-10-14', summary: 'Left a voicemail' }); // voicemail: not a connection
+  act({ cid: '9005', cat: 'Phone call', due: '2026-10-14', done: '2026-10-14', summary: 'Texted about the gala', tags: { txt: 1 } }); // a text: not a connection
+  act({ cid: '9005', cat: 'Email', due: '2026-10-14', done: '2026-10-14', summary: 'Sent a note' }); // an email: not a connection
   // Not counted.
   act({ cid: '9001', cat: 'Phone call', due: '2026-10-11', done: '2026-10-11', summary: 'Sunday before the week' }); // outside the week
   act({ cid: '9001', cat: 'Phone call', due: '2026-10-19', done: '2026-10-19', summary: 'Next Monday' });
@@ -87,7 +90,7 @@ describe('the week', () => {
 
   it('counts connections, meetings, the event and one-on-ones by the rules', async () => {
     const d = await wk.loadWeek(q, '501', TODAY);
-    assert.deepEqual(d.counts, { conn: 4, mtg: 1, ev: 1, oo: 2 });
+    assert.deepEqual(d.counts, { conn: 3, mtg: 1, ev: 1, oo: 2 });
     assert.deepEqual(d.goals, { conn: 20, mtg: 3, ev: 1, oo: 3 });
     // 9001 twice counts once; the Sunday action counts by its completed date; the dropped partner, canceled, reserved, open and other-director rows do not.
     const names = d.rows.map((r) => r.name);
@@ -95,6 +98,35 @@ describe('the week', () => {
     assert.equal(d.rows.some((r) => r.date === '2026-10-11' || r.date === '2026-10-19'), false);
     assert.equal(d.rows.find((r) => r.date === '2026-10-18').refs, 2);
     assert.equal(d.rows[0].date, '2026-10-18');
+  });
+
+  it('counts only two-way calls and in-person visits or meetings toward connections', () => {
+    const row = (o) => ({ id: String(o.id), cid: o.cid || '9001', cat: 'Phone call', typ: 'RDD Action', d: '2026-10-13', done: 1, summary: 'A note', descr: '', ask: 0, refs: 0, ah: '', pres: 0, sched: 0, stew: 0, txt: 0, thx: 0, name: 'Ada Example', ...o });
+    const conn = (o) => wk.countWeek([row(o)]).counts.conn;
+    assert.equal(conn({ id: 1, summary: 'Spoke about the report' }), 1); // two-way call
+    assert.equal(conn({ id: 2, summary: 'Left a voicemail' }), 0);
+    assert.equal(conn({ id: 3, summary: 'VM, no answer' }), 0);
+    assert.equal(conn({ id: 4, summary: 'Voice mail left' }), 0);
+    assert.equal(conn({ id: 5, summary: 'Texted about the gala', txt: 1 }), 0);
+    assert.equal(conn({ id: 6, cat: 'Email', summary: 'Sent the report' }), 0);
+    assert.equal(conn({ id: 7, cat: 'Mailing', summary: 'Thank you letter', thx: 1 }), 0);
+    assert.equal(conn({ id: 8, cat: 'Mailing', summary: 'Newsletter' }), 0);
+    assert.equal(conn({ id: 9, cat: 'Meeting', summary: 'Lunch with the family' }), 1);
+    assert.equal(conn({ id: 10, cat: 'Meeting', summary: 'Church visit', ah: 'Attended' }), 1);
+    assert.equal(conn({ id: 11, cat: 'Meeting', summary: 'Voicemail follow-up meeting' }), 0);
+    assert.equal(conn({ id: 12, cat: 'Task/Other', summary: 'Call the partner' }), 0);
+    assert.equal(conn({ id: 13, summary: 'Spoke about the report', done: 0 }), 0); // not completed
+    assert.equal(conn({ id: 14, summary: 'Spoke about the report', typ: 'RESERVED (Information Update)' }), 0); // staff data work
+    assert.equal(conn({ id: 15, summary: 'Spoke about the report', typ: 'Stewardship--5 RDD' }), 1); // the director's own type
+  });
+
+  it('counts one partner once however many two-way contacts the week holds', () => {
+    const rows = [
+      { id: 21, cid: '9001', cat: 'Phone call', typ: 'RDD Action', d: '2026-10-12', done: 1, summary: 'Call' },
+      { id: 22, cid: '9001', cat: 'Meeting', typ: 'RDD Action', d: '2026-10-13', done: 1, summary: 'Visit' },
+      { id: 23, cid: '9002', cat: 'Phone call', typ: 'RDD Action', d: '2026-10-14', done: 1, summary: 'Call' },
+    ];
+    assert.equal(wk.countWeek(rows).counts.conn, 2);
   });
 
   it('reads the calendar and the week after from open actions, and the gifts on held partners', async () => {

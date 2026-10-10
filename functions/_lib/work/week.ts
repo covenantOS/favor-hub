@@ -3,8 +3,9 @@
 //
 // Rules (decided 2026-10-10 from the RDD manual's weekly expectations: connect with 20 partners or prospects, attend 3 meetings,
 // schedule 1 Favor event, hold 3 one-on-one appointments):
-//   Connections   distinct partners with a completed Phone call, Email or Meeting action of the director's in the week, or a completed
-//                 Mailing carrying the Thanked tag (a thank-you letter). RESERVED action types are staff data work and never count.
+//   Connections   distinct partners with a completed two-way phone call or an in-person visit or meeting: a Phone call action that is
+//                 not a voicemail and not a text, or a Meeting action. Letters, voicemails, emails and texts never count (Will, 2026-10-10).
+//                 RESERVED action types are staff data work and never count.
 //   Meetings      completed actions tagged Attended or Hosted.
 //   Event         an action of the director's dated in the week, open or done, in the Meeting or Task/Other categories, that is tagged
 //                 Hosted or whose summary says an event was planned, scheduled, hosted or booked. "event/f2f" (a meeting held at an
@@ -20,7 +21,9 @@ export const GOALS = { conn: 20, mtg: 3, ev: 1, oo: 3 } as const;
 /** Teams whose directors have weekly goals. */
 export const WEEK_TEAMS = new Set(['rdd']);
 
-const CONNECT = new Set(['Phone call', 'Email', 'Meeting']);
+/** Two-way contact by phone or in person. Voicemail detection reads the summary text, as the 2026-10-10 research did. */
+const CONNECT = new Set(['Phone call', 'Meeting']);
+const VOICEMAIL = /\bvm\b|voicemail|voice mail/i;
 const HOW: Record<string, string> = { 'Phone call': 'Call', Email: 'Email', Meeting: 'Visit', Mailing: 'Letter', 'Task/Other': 'Task' };
 const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 const num = (v: unknown): number => {
@@ -183,7 +186,7 @@ export function countWeek(rows: any[]): { counts: WeekData['counts']; rows: Week
     seen.add(String(r.id));
     const done = Number(r.done) === 1;
     const res = reserved(String(r.typ));
-    const isConn = done && !res && (CONNECT.has(r.cat) || (r.cat === 'Mailing' && Number(r.thx) === 1));
+    const isConn = done && !res && CONNECT.has(r.cat) && !VOICEMAIL.test(String(r.summary || '')) && !(r.cat === 'Phone call' && Number(r.txt) === 1);
     const isMtg = done && !res && (r.ah === 'Attended' || r.ah === 'Hosted');
     const isOo = done && !res && r.cat === 'Meeting' && !r.ah;
     const isEv = !res && (r.cat === 'Meeting' || r.cat === 'Task/Other') && (r.ah === 'Hosted' || EVENT_PLAN.test(String(r.summary || '')));

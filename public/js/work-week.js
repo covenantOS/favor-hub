@@ -69,7 +69,7 @@ function rowHTML(r) {
   return `<div class="wwk-row"><time>${esc(R().fd(r.date))}</time><span class="wwk-how">${rowIc(r.how)}${esc(r.how)}</span>
     <div><a class="wwk-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a>${r.said ? `<p>${esc(r.said)}</p>` : ''}${tags.length ? `<div class="wwk-tags">${tags.map((t) => `<span class="wc-tag">${esc(t)}</span>`).join('')}</div>` : ''}</div></div>`;
 }
-const GOALCARDS = [['conn', 'Connections', 'Calls, emails and meetings with a partner or prospect, and thank-you letters. Each partner counts once.'], ['mtg', 'Meetings attended or hosted', 'Actions tagged Attended Event or Hosted Event.'], ['ev', 'Event scheduled', 'An event on the calendar this week.'], ['oo', 'One-on-ones', 'Meetings with one partner.']];
+const GOALCARDS = [['conn', 'Connections', 'A two-way phone call or an in-person visit or meeting with a partner or prospect, counted once per partner; letters, voicemails, emails and texts do not count.'], ['mtg', 'Meetings attended or hosted', 'Actions tagged Attended Event or Hosted Event.'], ['ev', 'Event scheduled', 'An event on the calendar this week.'], ['oo', 'One-on-ones', 'Meetings with one partner.']];
 
 function view() {
   const el = $('#view'); if (!el) return;
