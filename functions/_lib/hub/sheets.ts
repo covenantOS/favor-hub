@@ -420,7 +420,7 @@ async function rateOk(env: Env, email: string): Promise<boolean> {
   return (r?.n ?? 0) < 10;
 }
 
-export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, c: Caller, spec: Spec, d: Deps = { fetch }): Promise<Result> {
+export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, c: Caller, spec: Spec, d: Deps = { fetch: (input, init) => fetch(input, init) }): Promise<Result> {
   const t0 = Date.now();
   const email = c.email.toLowerCase();
   if (spec.mode !== 'rows' && spec.mode !== 'brain') throw new SheetError(400, 'bad_rows', 'Unknown way to build a sheet.');
