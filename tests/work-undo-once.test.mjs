@@ -99,13 +99,22 @@ beforeEach(() => {
 });
 
 describe('Undo runs once', () => {
-  it('a second press while the first undo is still waiting saves nothing and says so', async () => {
+  it('pressing Undo twice, the second time while the first undo waits, leaves one DELETE outbox row and says so', async () => {
+    const b = await postedBatch(1);
+    const first = await svc.undoBatch(ctx, b.id);
+    assert.equal(first.batch.n, 1);
+    await assert.rejects(svc.undoBatch(ctx, b.id), refusal('already_undone', /already being undone/));
+    assert.equal(undoBatches(), 1);
+    assert.equal(deletes(), 1, 'one DELETE outbox row, not two');
+  });
+
+  it('a batch of two actions gets one DELETE row for each action, not two each', async () => {
     const b = await postedBatch(2);
     const first = await svc.undoBatch(ctx, b.id);
     assert.equal(first.batch.n, 2);
     await assert.rejects(svc.undoBatch(ctx, b.id), refusal('already_undone', /already being undone/));
     assert.equal(undoBatches(), 1);
-    assert.equal(deletes(), 2, 'one DELETE row for each action, not two');
+    assert.equal(deletes(), 2);
   });
 
   it('two presses in the same instant save one undo', async () => {
