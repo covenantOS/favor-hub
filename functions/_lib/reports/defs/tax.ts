@@ -8,12 +8,13 @@
 //   Mail   a complete United States address.
 //   Email  an email address and an incomplete address (or the Email Annual Tax Receipts solicit code).
 //   Other  neither an email address nor a complete address (or the solicit code).
-// Constituency comes from the partner's constituent codes. Solicit codes are not in the Blackbaud mirror, so the
-// Email Annual Tax Receipts code is not applied: a partner with a complete address who asked for the email receipt
-// stays on the mail list. The saved query also leaves out partners with no valid address, a status the mirror
-// does not hold. The mirror's do-not-mail flag is shown in the Mail flag column and partners carrying it stay on
-// the list, because a receipt is not a solicitation. For 2025 the saved MAIL query returned 650 partners on
-// 2026-10-10 and this list returns 723, of which 107 carry the flag.
+// Constituency comes from the partner's constituent codes. The solicit code Email Annual Tax Receipts comes from the
+// solicit_codes mirror: a partner who carries it leaves the mail list. A mail partner needs a complete United States
+// address that is not marked do not mail (the saved query leaves out partners with no valid address). The partner's
+// preferred address is read as it stands, an inactive one included.
+// Against the saved MAIL query for 2025 (650 rows, 649 partners, run 2026-10-10) this rule returns 630 partners:
+// 2 more and 21 fewer. Blackbaud keeps 19 partners whose only address is marked do not mail and drops 2 whose
+// only address is inactive, and no field the API sends tells those apart. The list is held until that is explained.
 import { compare, noTie } from '../tieout';
 import type { ReportContext, ReportDef, Row, TieOut } from '../types';
 
@@ -40,8 +41,6 @@ interface Extra {
   /** Partner counts and dollars by list, before the list filter. */
   groups: Record<string, { count: number; total: number }>;
   all: number;
-  /** Mail-list partners whose preferred address carries the do-not-mail flag. */
-  flagged: number;
 }
 
 interface Raw {
@@ -61,6 +60,7 @@ interface Raw {
   zip: string | null;
   country: string | null;
   dnm: number | null;
+  etr: number;
   email: string | null;
 }
 
@@ -92,7 +92,6 @@ const def: ReportDef = {
     { key: 'state', label: 'State' },
     { key: 'zip', label: 'ZIP' },
     { key: 'email', label: 'Email' },
-    { key: 'mail', label: 'Mail flag' },
     { key: 'why', label: 'Reason' },
   ],
   pageSize: 200,
@@ -121,11 +120,12 @@ const def: ReportDef = {
        SELECT t.cid AS cid, c.constituent_lookup_id AS lookup, c.organization_name AS org, c.first_name AS first, c.last_name AS last,
               c.spouse_first_name AS spouse_first, c.spouse_last_name AS spouse_last, t.total AS total, t.excluded AS excluded,
               a.address_lines AS line, a.address_city AS city, a.address_state AS state, a.address_postal_code AS zip, a.address_country AS country, a.do_not_mail AS dnm,
+              (SELECT COUNT(*) FROM solicit_codes s WHERE s.constituent_record_id = t.cid AND s.solicit_code = 'Email Annual Tax Receipts') AS etr,
               (SELECT e.email_address FROM emails e WHERE e.constituent_record_id = t.cid AND e.is_inactive = 0 AND COALESCE(e.email_address, '') <> ''
                ORDER BY e.is_primary DESC, e.id LIMIT 1) AS email
        FROM t
        LEFT JOIN constituents c ON c.id = t.cid
-       LEFT JOIN addresses a ON a.id = c.primary_address_id AND a.is_inactive = 0
+       LEFT JOIN addresses a ON a.id = c.primary_address_id
        ORDER BY LOWER(COALESCE(c.organization_name, c.last_name, '')), c.first_name`,
       [...EXCLUDED_CONSTITUENCIES, `${year}-01-01`, upper]
     );
@@ -137,7 +137,6 @@ const def: ReportDef = {
     );
     const groups: Extra['groups'] = { mail: { count: 0, total: 0 }, email: { count: 0, total: 0 }, other: { count: 0, total: 0 }, none: { count: 0, total: 0 } };
     const all: Row[] = [];
-    let flagged = 0;
     for (const r of raw) {
       const total = round2(Number(r.total) || 0);
       const complete = [r.line, r.city, r.state, r.zip].every((x) => (x || '').trim() !== '');
@@ -147,10 +146,10 @@ const def: ReportDef = {
       if (r.excluded) { list = 'none'; why = 'Church, foundation or DAF'; }
       else if (total < MIN_TOTAL) { list = 'none'; why = 'Under $250'; }
       else if (!us) { list = 'none'; why = 'Address outside the United States'; }
-      else if (complete) list = 'mail';
+      else if (complete && !r.etr && r.dnm) { list = 'none'; why = 'Address marked do not mail'; }
+      else if (complete && !r.etr) list = 'mail';
       else if (r.email) list = 'email';
       else list = 'other';
-      if (list === 'mail' && r.dnm) flagged += 1;
       groups[list].count += 1;
       groups[list].total = round2(groups[list].total + total);
       all.push({
@@ -164,14 +163,13 @@ const def: ReportDef = {
         state: r.state || '',
         zip: r.zip || '',
         email: r.email || '',
-        mail: r.dnm ? 'Do not mail' : '',
         why,
       });
     }
     const unmatchedTotal = round2(Number(unmatched[0]?.total) || 0);
     const everything = round2(all.reduce((s, r) => s + (r.total as number), 0) + unmatchedTotal);
     const rows = f.list === 'all' ? all : all.filter((r) => r.key === f.list);
-    const extra: Extra = { year: String(year), through, groups, all: everything, flagged };
+    const extra: Extra = { year: String(year), through, groups, all: everything };
     return { rows, extra };
   },
   tiles(rows, f, extra) {
@@ -180,7 +178,6 @@ const def: ReportDef = {
       { label: 'Mail', value: x.groups.mail.count, kind: 'int', sub: `$${Math.round(x.groups.mail.total).toLocaleString('en-US')}` },
       { label: 'Email', value: x.groups.email.count, kind: 'int', sub: `$${Math.round(x.groups.email.total).toLocaleString('en-US')}` },
       { label: 'Other', value: x.groups.other.count, kind: 'int', sub: `$${Math.round(x.groups.other.total).toLocaleString('en-US')}` },
-      { label: 'Mail, do-not-mail flag', value: x.flagged, kind: 'int' },
       { label: 'No receipt', value: x.groups.none.count, kind: 'int', sub: `$${Math.round(x.groups.none.total).toLocaleString('en-US')}` },
     ];
   },

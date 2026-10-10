@@ -35,13 +35,13 @@ const kpi = (giving) => async () => ({ asOf: today, monthlyGiving: giving, month
 
 describe('registry', () => {
   it('turns the four results reports live and keeps their audiences', () => {
-    for (const id of ['foundations', 'appeal-results']) {
+    for (const id of ['foundations', 'contact', 'appeal-results']) {
       assert.ok(reg.isReady(id), `${id} is live`);
       assert.equal(reg.entryOf(id).group, 'results');
     }
     assert.deepEqual(reg.entryOf('appeal-results').audience, ['marketing']);
     assert.deepEqual([...reg.entryOf('tax').audience].sort(), ['admin_desk', 'operations']);
-    for (const id of ['tax', 'contact']) assert.equal(reg.isReady(id), false, id + ' is held until solicit codes are in the mirror');
+    assert.equal(reg.isReady('tax'), false, 'tax is held until the mail list ties to saved query 1066');
   });
 });
 
@@ -60,20 +60,20 @@ describe('annual tax receipt lists', () => {
   it('splits partners into mail, email, other and no receipt by the saved rules', async () => {
     const all = await run({}, tax, { list: 'all', year: String(year) }, { sql, kpi: kpi([total]) });
     const by = Object.fromEntries(all.rows.map((r) => [r.lookup, r.list]));
-    assert.deepEqual(by, { 101: 'Mail', 102: 'Email', 103: 'Other', 104: 'No receipt', 105: 'No receipt', 106: 'No receipt', 107: 'Mail' });
+    assert.deepEqual(by, { 101: 'Mail', 102: 'Email', 103: 'Other', 104: 'No receipt', 105: 'No receipt', 106: 'No receipt', 107: 'No receipt' });
     assert.equal(all.rows.find((r) => r.lookup === '101').addressee, 'Ann and Bo Lee');
     assert.equal(all.rows.find((r) => r.lookup === '104').why, 'Church, foundation or DAF');
     assert.equal(all.rows.find((r) => r.lookup === '105').why, 'Under $250');
     assert.equal(all.rows.find((r) => r.lookup === '106').why, 'Address outside the United States');
-    assert.equal(all.rows.find((r) => r.lookup === '107').mail, 'Do not mail');
+    assert.equal(all.rows.find((r) => r.lookup === '107').why, 'Address marked do not mail');
   });
   it('shows one list, and every list plus no receipt equals the KPI year to date', async () => {
     const mail = await run({}, tax, { list: 'mail', year: String(year) }, { sql, kpi: kpi([total]) });
-    assert.equal(mail.rows.length, 2);
-    assert.equal(mail.totals.total, 1250);
+    assert.equal(mail.rows.length, 1);
+    assert.equal(mail.totals.total, 1000);
     assert.equal(mail.tie.status, 'match');
     assert.equal(mail.tie.mine, total);
-    assert.equal(mail.tiles[0].value, 2);
+    assert.equal(mail.tiles[0].value, 1);
   });
   it('compares a through-month cut with the KPI months up to it, and says so for another year', async () => {
     const cut = await run({}, tax, { list: 'all', year: String(year), through: `${year}-02` }, { sql, kpi: kpi([total - 10, 10, 999]) });

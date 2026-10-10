@@ -1,7 +1,8 @@
 // Contact data lists. Replaces the Blackbaud data-health queries Constituents with Active Email Addresses (1114),
 // Constituents with No Email Address (1115), Constituents with No Valid Email (1117) and Newly Added Constituents
-// (284). New Constituents for ResearchPoint (1165) has the same rule, so it is the Newly added list (its Record ID column). The Online Express email signups query (433) filters on a custom
-// field that the Blackbaud mirror does not hold, so it has no list here yet.
+// (284). New Constituents for ResearchPoint (1165) has the same rule, so it is the Newly added list (its Record ID column). Online Express email signups (433)
+// reads the Online Express Email Signup custom field, which the sync worker mirrors in custom_fields. No valid email (1117) is a record with no email at all
+// that does not carry the solicit code "Has no valid email", read from solicit_codes (also mirrored by the sync worker).
 //
 // Every list includes inactive and deceased records where the saved query does, and says so in the Status column.
 import { noTie } from '../tieout';
@@ -10,7 +11,8 @@ import type { ReportContext, ReportDef, Row } from '../types';
 const LISTS: Array<[string, string]> = [
   ['active-email', 'Active email address'],
   ['no-email', 'No email address'],
-  ['no-valid-email', 'No valid email'],
+  ['no-valid-email', 'No email, not marked "Has no valid email"'],
+  ['online-express', 'Online Express email signups'],
   ['new', 'Newly added'],
 ];
 
@@ -73,20 +75,29 @@ const def: ReportDef = {
              FROM constituents c LEFT JOIN addresses a ON a.id = c.primary_address_id
              WHERE NOT EXISTS (SELECT 1 FROM emails e WHERE e.constituent_record_id = c.id AND COALESCE(e.email_address, '') <> '')
              ORDER BY LOWER(COALESCE(c.organization_name, c.last_name, '')), c.first_name`
-          : `${SELECT}, (SELECT e.email_address FROM emails e WHERE e.constituent_record_id = c.id AND COALESCE(e.email_address, '') <> '' ORDER BY e.id LIMIT 1) AS email,
-                    NULL AS email_inactive, NULL AS do_not_email
+          : `${SELECT}, NULL AS email, NULL AS email_inactive, NULL AS do_not_email
              FROM constituents c LEFT JOIN addresses a ON a.id = c.primary_address_id
-             WHERE NOT EXISTS (SELECT 1 FROM emails e WHERE e.constituent_record_id = c.id AND e.is_inactive = 0 AND COALESCE(e.email_address, '') <> '')
-               AND EXISTS (SELECT 1 FROM emails e WHERE e.constituent_record_id = c.id AND COALESCE(e.email_address, '') <> '')
+             WHERE NOT EXISTS (SELECT 1 FROM emails e WHERE e.constituent_record_id = c.id AND COALESCE(e.email_address, '') <> '')
+               AND NOT EXISTS (SELECT 1 FROM solicit_codes s WHERE s.constituent_record_id = c.id AND s.solicit_code = 'Has no valid email')
              ORDER BY LOWER(COALESCE(c.organization_name, c.last_name, '')), c.first_name`;
       raw = await ctx.sql<Raw>(sql);
+    } else if (f.list === 'online-express') {
+      // Query 433: the Online Express Email Signup custom field, inactive and deceased records left out.
+      raw = await ctx.sql<Raw>(
+        `${SELECT}, (SELECT e.email_address FROM emails e WHERE e.constituent_record_id = c.id AND e.is_inactive = 0 AND COALESCE(e.email_address, '') <> ''
+                     ORDER BY e.is_primary DESC, e.id LIMIT 1) AS email, NULL AS email_inactive, NULL AS do_not_email
+         FROM constituents c LEFT JOIN addresses a ON a.id = c.primary_address_id
+         WHERE EXISTS (SELECT 1 FROM custom_fields f WHERE f.constituent_record_id = c.id AND f.category = 'Online Express Email Signup')
+           AND COALESCE(c.inactive, 0) = 0 AND COALESCE(c.deceased, 0) = 0
+         ORDER BY LOWER(COALESCE(c.last_name, c.organization_name, '')), c.first_name`
+      );
     } else {
       // Newly added: added this month, inactive and deceased left out, like the saved queries.
       const month = f.month || ctx.today.slice(0, 7);
       raw = await ctx.sql<Raw>(
         `${SELECT}, (SELECT e.email_address FROM emails e WHERE e.id = c.primary_email_id) AS email, NULL AS email_inactive, NULL AS do_not_email
          FROM constituents c LEFT JOIN addresses a ON a.id = c.primary_address_id
-         WHERE SUBSTR(c.date_added, 1, 7) = ? AND c.inactive = 0 AND c.deceased = 0
+         WHERE SUBSTR(c.date_added, 1, 7) = ? AND COALESCE(c.inactive, 0) = 0 AND COALESCE(c.deceased, 0) = 0
          ORDER BY c.date_added, LOWER(COALESCE(c.organization_name, c.last_name, '')), c.first_name`,
         [month]
       );

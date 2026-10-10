@@ -5,7 +5,7 @@ import type { Env } from '../http';
 
 export type Audience = 'admin_desk' | 'operations' | 'leadership' | 'support' | 'partner_care' | 'rdd' | 'grants' | 'marketing';
 export type GroupId = 'daily' | 'thanks' | 'lists' | 'results';
-export type ColType = 'text' | 'id' | 'int' | 'money' | 'date' | 'pct' | 'chip' | 'cell';
+export type ColType = 'text' | 'id' | 'int' | 'money' | 'date' | 'pct' | 'chip' | 'cell' | 'cellint';
 
 export interface ColumnDef {
   key: string;

@@ -65,7 +65,7 @@ const def: ReportDef = {
     { key: 'partners', label: 'Partners', type: 'int' },
     { key: 'raised', label: 'Raised', type: 'money', total: true },
     { key: 'avg', label: 'Average gift', type: 'money' },
-    { key: 'mailed', label: 'Mailed', type: 'cell' },
+    { key: 'mailed', label: 'Mailed', type: 'cellint' },
     { key: 'rate', label: 'Response', type: 'pct' },
   ],
   pageSize: 200,

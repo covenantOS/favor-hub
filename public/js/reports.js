@@ -103,9 +103,9 @@
   }
 
   function cell(c, v, row) {
-    if (c.type === 'cell') {
+    if (c.type === 'cell' || c.type === 'cellint') {
       var key = cur.res.editable.length ? row.__key : '';
-      return '<input class="cell" data-edit-key="' + esc(key) + '" data-edit-col="' + esc(c.key) + '" value="' + esc(v == null ? '' : Number(v).toFixed(2)) + '" inputmode="decimal" aria-label="' + esc(c.label) + '">';
+      return '<input class="cell" data-edit-key="' + esc(key) + '" data-edit-col="' + esc(c.key) + '" value="' + esc(v == null ? '' : Number(v).toFixed(c.type === 'cellint' ? 0 : 2)) + '" inputmode="' + (c.type === 'cellint' ? 'numeric' : 'decimal') + '" aria-label="' + esc(c.label) + '">';
     }
     if (v == null || v === '') return '';
     if (c.type === 'money') return money(v);
@@ -118,7 +118,7 @@
     }
     return esc(v);
   }
-  var isRight = function (c) { return c.type === 'money' || c.type === 'int' || c.type === 'pct' || c.type === 'cell'; };
+  var isRight = function (c) { return c.type === 'money' || c.type === 'int' || c.type === 'pct' || c.type === 'cell' || c.type === 'cellint'; };
 
   function tileValue(t) { return t.kind === 'money' ? money(t.value) : t.kind === 'int' ? num(t.value) : String(t.value); }
 

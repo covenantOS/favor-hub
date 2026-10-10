@@ -61,14 +61,14 @@ const DEFS: Record<string, ReportDef | null> = {
   'large-gifts': largeGifts,
   'carole-list': caroleList,
   packets,
-  // Held until solicit codes and address validity are in the mirror and each list ties to its saved query (2026-10-10).
+  // Held until each list ties to its saved query: mailing (795) and tax (1066) still differ on which addresses Blackbaud counts as valid (2026-10-10).
   mailing: null,
   status,
   portfolio,
   prayer,
   foundations,
   tax: null,
-  contact: null,
+  contact,
   'appeal-results': appealResults,
   'query-map': queryMap,
 };
