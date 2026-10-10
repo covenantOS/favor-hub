@@ -69,6 +69,7 @@ The month button, for example **October letter**, edits the letter text once for
 ## Letters from Gifts to thank
 
 The Support Team and admins see **Letter** next to Prep on every row of Gifts to thank. It opens a page with the letter on the right. Pick who the letter is from (the partner's director by default), paste what the director said, and switch the Designation, Director's words and Invitation paragraphs on or off. **Print PDF and log** prints the letter and records a Mailing action with the Thanked tag, which clears the row. **Copy for email** copies the text and records an Email action instead. Tick several gifts and press **Letters, one PDF** to print them together. Directors keep Thank on their own list and do not see Letter.
+
 ## Cadence
 
 Cadence is the Partner Care tab. It applies the contact rules from the Partner Care manual to the Blackbaud copy and lists the partners who are due. First-time partners get a call at once when they gave a number, and a card when they did not. Monthly partners under $1,000 get a call and a handwritten card every three months. Quarterly partners are thanked each time they give. Twice-a-year partners get a card and a call twice a year. Annual partners get a call, card, email and text. A partner a director holds stays off this list.
