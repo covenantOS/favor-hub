@@ -89,7 +89,11 @@ const okScript = (c) => {
   return { ok: true, status: 200, body: {} };
 };
 
+// Every test in this file runs at one fixed instant: 11 AM Eastern on 2026-10-10, outside both sync windows and inside one UTC day.
+// The sending code reads the real clock for the sync windows, the Eastern date and the UTC day, so a live clock made runs differ.
+const FIXED_NOW = new Date('2026-10-10T15:00:00Z');
 beforeEach(() => {
+  mock.timers.enable({ apis: ['Date'], now: FIXED_NOW });
   db = new DatabaseSync(':memory:');
   db.exec(SCHEMA);
   calls = [];
@@ -98,6 +102,7 @@ beforeEach(() => {
   script = okScript;
   ctx = newCtx();
 });
+afterEach(() => mock.timers.reset());
 
 const row = (o) => ({
   id: '1', cid: '100', due: '2026-10-01', typeRaw: 'RDD Action', type: 'RDD Action', category: 'Task/Other', summary: 'TY', fundraisers: ['9001'], fullDescription: '',
@@ -250,9 +255,6 @@ describe('the daily lane', () => {
 });
 
 describe('sending', () => {
-  // The sync worker refuses refreshes 08:45-10:45 and 20:45-21:45 UTC, so pin the clock outside those windows.
-  beforeEach(() => mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-10T15:00:00Z') }));
-  afterEach(() => mock.timers.reset());
   const patchBatch = async (n = 1) => {
     const items = Array.from({ length: n }, (_, i) => ({ actionId: String(i + 1), cid: '100', label: 'Partner | TY', steps: [{ op: 'patch', actionId: String(i + 1), body: { completed: true }, before: { completed: false } }] }));
     return svc.saveBatch(ctx, 'complete', items, {});
@@ -379,8 +381,6 @@ describe('changes must come from the page', () => {
 });
 
 describe('a second edit after the mirror has caught up', () => {
-  beforeEach(() => mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-10T15:00:00Z') }));
-  afterEach(() => mock.timers.reset());
   const MOD = '2026-10-09T22:42:55.517-04:00';
   const listing = (value) => (c) => (c.path.includes('last_modified') ? { ok: true, status: 200, body: { count: value.length, value } } : okScript(c));
   it('an action the sync worker has re-read carries the same date_modified on both sides and can be edited again', async () => {

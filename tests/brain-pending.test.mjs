@@ -72,7 +72,12 @@ describe('pending turns', () => {
       return answer(b, b.conv);
     };
     const waiting = proxy.onRequest({ request: call('ask', { question: 'slow one', conv: 'c_bbbb2222', v: 2 }), env, params: { path: ['ask'] }, waitUntil: (p) => jobs.push(p) });
-    await new Promise((r) => setTimeout(r, 20));
+    // Wait for the question to be saved as pending, not for a fixed time, so a slow machine cannot fail this.
+    for (let i = 0; i < 500; i++) {
+      const seen = await chat.listThreads(env, 'ada@favorintl.org');
+      if (seen.find((t) => t.id === 'c_bbbb2222')?.pending === 1) break;
+      await new Promise((r) => setTimeout(r, 5));
+    }
     const listed = await chat.listThreads(env, 'ada@favorintl.org');
     assert.equal(listed.find((t) => t.id === 'c_bbbb2222').pending, 1, 'listed as answering');
     const open = await chat.getThread(env, 'ada@favorintl.org', 'c_bbbb2222');
