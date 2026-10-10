@@ -126,7 +126,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <script is:inline src="/js/sheets.js?v=1"></script>
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=1" defer></script>
-    <script is:inline src="/js/partner.js?v=6" defer></script>
+    <script is:inline src="/js/partner.js?v=7" defer></script>
     <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-learn a' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
@@ -221,6 +221,8 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
           }
           var access = d.access || {};
           document.documentElement.classList.toggle('has-kpi', !!access.kpi);
+          document.documentElement.classList.toggle('has-wc', !!access.workCenter);
+          document.documentElement.classList.toggle('has-clips', !!access.clips);
           document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
@@ -235,6 +237,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
         try {
           var saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null');
           if (saved) window.hubApplyNav(saved);
+          if (localStorage.getItem('favor.hub.gate.v1') === '1') document.documentElement.classList.add('has-gate');
           if (!localStorage.getItem('favor.hub.welcome.v1')) document.documentElement.classList.add('show-welcome');
         } catch (e) {}
       </script>
