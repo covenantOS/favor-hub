@@ -20,8 +20,8 @@ export const HEADLINE_CATEGORIES = ['Direct Mail Appeal', 'Digital Newsletter', 
 // leadership account and the report page decides who sees the numbers.
 const READER = { email: 'will@favorintl.org', name: 'Staff hub' };
 
-const thisYear = new Date().getFullYear();
-const YEARS: Array<[string, string]> = Array.from({ length: 6 }, (_, i) => [String(thisYear - i), String(thisYear - i)]);
+// The year list is fixed text. A Worker reads the clock as 1970 until a request arrives, so nothing here may ask for the date.
+const YEARS: Array<[string, string]> = Array.from({ length: 11 }, (_, i): [string, string] => [String(2030 - i), String(2030 - i)]);
 
 const CATEGORY_OPTIONS: Array<[string, string]> = [
   ['marketing', 'All marketing categories'],
@@ -51,7 +51,7 @@ interface Extra {
 const def: ReportDef = {
   id: 'appeal-results',
   filters: [
-    { id: 'year', label: 'Gift year', type: 'select', def: String(thisYear), options: YEARS },
+    { id: 'year', label: 'Gift year', type: 'select', def: '', options: [['', 'This year'], ...YEARS] },
     { id: 'category', label: 'Appeal category', type: 'select', def: 'marketing', options: CATEGORY_OPTIONS },
     { id: 'through', label: 'Gifts through', type: 'date', def: '' },
   ],
@@ -71,9 +71,9 @@ const def: ReportDef = {
   pageSize: 200,
   editable: { keyOf: (r) => String(r.code), columns: ['mailed'] },
   note: 'Mailed is typed in per appeal. Response is gifts divided by mailed.',
-  fileTag: (f) => `${f.year}${f.category === 'marketing' ? '' : '-' + f.category.toLowerCase().replace(/\s+/g, '-')}`,
+  fileTag: (f) => `${f.year || 'this-year'}${f.category === 'marketing' ? '' : '-' + f.category.toLowerCase().replace(/\s+/g, '-')}`,
   async load(ctx: ReportContext, f) {
-    const year = Number(f.year);
+    const year = Number(f.year || ctx.today.slice(0, 4));
     const end = f.through && f.through >= `${year}-01-01` && f.through < `${year + 1}-01-01` ? f.through : '';
     // The gift date column holds a timestamp, so "through" is the day after.
     const upper = end ? new Date(Date.parse(end + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10) : `${year + 1}-01-01`;
@@ -110,7 +110,7 @@ const def: ReportDef = {
         rate: mailed ? gifts / mailed : null,
       };
     });
-    const extra: Extra = { year: f.year, category: f.category, through: end, mailedTotal };
+    const extra: Extra = { year: String(year), category: f.category, through: end, mailedTotal };
     return { rows: out, extra };
   },
   tiles(rows, _f, extra) {
@@ -131,11 +131,12 @@ const def: ReportDef = {
     const x = extra as Extra;
     // A date cut-off or a category group the dashboard does not publish has no figure to compare.
     if (x.through) return noTie('A report cut off at a date has no matching figure on the KPI dashboard.');
+    const mine = money(rows.reduce((s, r) => s + (Number(r.raised) || 0), 0));
     let answer: { byCategory?: Record<string, { giving?: number[] }> };
     try {
-      answer = await kpiGet(ctx.env, `/api/cf/marketing/report?year=${encodeURIComponent(f.year)}`, READER);
+      answer = await kpiGet(ctx.env, `/api/cf/marketing/report?year=${encodeURIComponent(x.year)}`, READER);
     } catch {
-      return compare('KPI dashboard, Marketing tab', rows.reduce((s, r) => s + (Number(r.raised) || 0), 0), null, 'money');
+      return compare('KPI dashboard, Marketing tab', mine, null, 'money');
     }
     const by = answer.byCategory || {};
     const sum = (key: string) => (by[key]?.giving || []).reduce((s, v) => s + (Number(v) || 0), 0);
@@ -143,15 +144,15 @@ const def: ReportDef = {
     let label: string;
     if (f.category === 'marketing') {
       kpi = Object.keys(by).reduce((s, k) => s + sum(k), 0);
-      label = `KPI dashboard, Marketing tab, revenue by appeal category, ${f.year}`;
+      label = `KPI dashboard, Marketing tab, revenue by appeal category, ${x.year}`;
     } else if (f.category === 'other') {
       kpi = sum('Other marketing');
-      label = `KPI dashboard, Marketing tab, Other marketing, ${f.year}`;
+      label = `KPI dashboard, Marketing tab, Other marketing, ${x.year}`;
     } else {
       kpi = sum(f.category);
-      label = `KPI dashboard, Marketing tab, ${f.category}, ${f.year}`;
+      label = `KPI dashboard, Marketing tab, ${f.category}, ${x.year}`;
     }
-    return compare(label, rows.reduce((s, r) => s + (Number(r.raised) || 0), 0), money(kpi), 'money');
+    return compare(label, mine, money(kpi), 'money');
   },
 };
 

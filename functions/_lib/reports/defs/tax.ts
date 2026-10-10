@@ -20,8 +20,8 @@ import type { ReportContext, ReportDef, Row, TieOut } from '../types';
 const MIN_TOTAL = 250;
 const EXCLUDED_CONSTITUENCIES = ['Church', 'Foundation', 'Donor Advised Fund', 'DAF Provider'];
 
-const thisYear = new Date().getFullYear();
-const YEARS: Array<[string, string]> = Array.from({ length: 5 }, (_, i) => [String(thisYear - i), String(thisYear - i)]);
+// The year list is fixed text. A Worker reads the clock as 1970 until a request arrives, so nothing here may ask for the date.
+const YEARS: Array<[string, string]> = Array.from({ length: 11 }, (_, i): [string, string] => [String(2030 - i), String(2030 - i)]);
 
 const LISTS: Array<[string, string]> = [
   ['mail', 'Mail'],
@@ -78,7 +78,7 @@ const addressee = (r: Raw): string => {
 const def: ReportDef = {
   id: 'tax',
   filters: [
-    { id: 'year', label: 'Gift year', type: 'select', def: String(thisYear - 1), options: YEARS },
+    { id: 'year', label: 'Gift year', type: 'select', def: '', options: [['', 'Last year'], ...YEARS] },
     { id: 'list', label: 'List', type: 'seg', def: 'mail', options: LISTS },
     { id: 'through', label: 'Gifts through month', type: 'month', def: '' },
   ],
@@ -97,13 +97,13 @@ const def: ReportDef = {
   ],
   pageSize: 200,
   note: 'A partner is on a list when the year\'s total is $250 or more and the constituency is not Church, Foundation, Donor Advised Fund or DAF Provider. Everyone else who gave shows as No receipt with the reason.',
-  fileTag: (f) => `${f.year}-${f.list}`,
+  fileTag: (f) => `${f.year || 'last-year'}-${f.list}`,
   async load(ctx: ReportContext, f) {
-    const year = Number(f.year);
+    const year = Number(f.year || Number(ctx.today.slice(0, 4)) - 1);
     // The month filter cuts the gifts at the end of that month, inside the year chosen.
     let through = '';
     let upper = `${year + 1}-01-01`;
-    if (f.through && f.through.slice(0, 4) === f.year) {
+    if (f.through && f.through.slice(0, 4) === String(year)) {
       const m = Number(f.through.slice(5));
       through = f.through;
       upper = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, '0')}-01`;
@@ -171,7 +171,7 @@ const def: ReportDef = {
     const unmatchedTotal = round2(Number(unmatched[0]?.total) || 0);
     const everything = round2(all.reduce((s, r) => s + (r.total as number), 0) + unmatchedTotal);
     const rows = f.list === 'all' ? all : all.filter((r) => r.key === f.list);
-    const extra: Extra = { year: f.year, through, groups, all: everything, flagged };
+    const extra: Extra = { year: String(year), through, groups, all: everything, flagged };
     return { rows, extra };
   },
   tiles(rows, f, extra) {
@@ -188,7 +188,7 @@ const def: ReportDef = {
     const x = extra as Extra;
     // The KPI dashboard holds this year's months only. Every list and the partners with no receipt add up to the
     // year's giving, which is the figure it shows.
-    if (Number(f.year) !== Number(ctx.today.slice(0, 4))) return noTie('The KPI dashboard shows this year only. Choose this year to compare.');
+    if (Number(x.year) !== Number(ctx.today.slice(0, 4))) return noTie('The KPI dashboard shows this year only. Choose this year to compare.');
     const k = await ctx.kpi();
     if (!k) return compare('KPI dashboard, giving by month', x.all, null, 'money');
     const last = x.through ? Number(x.through.slice(5)) : 12;

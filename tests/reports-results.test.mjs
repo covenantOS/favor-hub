@@ -87,6 +87,20 @@ describe('annual tax receipt lists', () => {
   });
 });
 
+describe('the year filters', () => {
+  it('never read the clock at load: the default is decided at run time (a Worker reads 1970 until a request arrives)', async () => {
+    const seen = {};
+    const grab = (name) => async (text, params) => ((seen[name] ||= params), []);
+    await run({}, tax, {}, { sql: grab('tax'), kpi: kpi([]) });
+    await run({}, appeals, {}, { sql: grab('appeals') });
+    await run({}, foundations, {}, { sql: grab('foundations') });
+    assert.ok(seen.tax.includes(`${year - 1}-01-01`), 'tax defaults to last year');
+    assert.ok(seen.appeals.includes(`${year}-01-01`), 'appeals default to this year');
+    assert.ok(seen.foundations.includes(`${year}-01-01`), 'foundations default to this year');
+    for (const d of [tax, appeals, foundations]) assert.equal(d.filters.find((f) => f.id === 'year').def, '');
+  });
+});
+
 describe('contact data lists', () => {
   it('lists partners with an email, flags inactive and deceased, and has no KPI line', async () => {
     const raw = [

@@ -12,8 +12,9 @@ import type { ReportContext, ReportDef, Row, TieOut } from '../types';
 
 const READER = { email: 'will@favorintl.org', name: 'Staff hub' };
 
-const thisYear = new Date().getFullYear();
-const YEARS: Array<[string, string]> = [...Array.from({ length: 6 }, (_, i): [string, string] => [String(thisYear - i), String(thisYear - i)]), ['all', 'All years']];
+// The year list is fixed text. A Worker reads the clock as 1970 until a request arrives, so nothing here may ask for the date.
+const YEARS: Array<[string, string]> = Array.from({ length: 11 }, (_, i): [string, string] => [String(2030 - i), String(2030 - i)]);
+const YEAR_OPTIONS: Array<[string, string]> = [['', 'This year'], ...YEARS, ['all', 'All years']];
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const AWARD_AMOUNT = 'MAX(COALESCE(funded_amount, 0), COALESCE(expected_amount, 0))';
@@ -87,7 +88,7 @@ interface Raw {
 const def: ReportDef = {
   id: 'foundations',
   filters: [
-    { id: 'year', label: 'Gift year', type: 'select', def: String(thisYear), options: YEARS },
+    { id: 'year', label: 'Gift year', type: 'select', def: '', options: YEAR_OPTIONS },
     { id: 'show', label: 'Show', type: 'seg', def: 'all', options: [['all', 'All foundations'], ['new', 'Added this year']] },
   ],
   columns: [
@@ -105,10 +106,10 @@ const def: ReportDef = {
   ],
   pageSize: 200,
   note: 'A foundation is a partner with the Foundation constituency code, or a funder with an award in the year. Awarded and Counted as received follow the Grants tab.',
-  fileTag: (f) => f.year,
+  fileTag: (f) => f.year || 'this-year',
   async load(ctx: ReportContext, f) {
     const all = f.year === 'all';
-    const year = Number(f.year);
+    const year = Number(f.year || ctx.today.slice(0, 4));
     const lo = all ? '0000-01-01' : `${year}-01-01`;
     const hi = all ? '9999-12-31' : `${year + 1}-01-01`;
     const grants = all ? new Map<string, { awarded: number; received: number }>() : await grantsByFunder(ctx, year);
@@ -152,7 +153,7 @@ const def: ReportDef = {
     // The saved lists show a foundation once it has given or been awarded; a foundation with neither stays off.
     rows = rows.filter((r) => (r.lifetime as number) > 0 || (r.awarded as number) > 0);
     const extra: Extra = {
-      year: f.year,
+      year: all ? 'all' : String(year),
       awardedTotal: round2([...grants.values()].reduce((s, g) => s + g.awarded, 0)),
       receivedTotal: round2([...grants.values()].reduce((s, g) => s + g.received, 0)),
     };
@@ -162,15 +163,15 @@ const def: ReportDef = {
     const x = extra as Extra;
     return [
       { label: 'Foundations', value: rows.length, kind: 'int' },
-      { label: f.year === 'all' ? 'Given, all years' : `Given in ${f.year}`, value: round2(rows.reduce((s, r) => s + (Number(r.total) || 0), 0)), kind: 'money' },
+      { label: x.year === 'all' ? 'Given, all years' : `Given in ${x.year}`, value: round2(rows.reduce((s, r) => s + (Number(r.total) || 0), 0)), kind: 'money' },
       { label: 'Awarded', value: x.awardedTotal, kind: 'money' },
       { label: 'Counted as received', value: x.receivedTotal, kind: 'money' },
     ];
   },
   async tie(ctx: ReportContext, _rows, f, extra): Promise<TieOut> {
     const x = extra as Extra;
-    if (f.year === 'all') return noTie('Choose a year to compare with the Grants tab.');
-    const year = Number(f.year);
+    if (x.year === 'all') return noTie('Choose a year to compare with the Grants tab.');
+    const year = Number(x.year);
     const cur = Number(ctx.today.slice(0, 4));
     if (year !== cur && year !== cur - 1) return noTie('The Grants tab shows this year and last year only.');
     // The report keeps a funder only when its row shows (a foundation with an award always shows), so the
