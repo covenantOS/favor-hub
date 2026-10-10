@@ -10,7 +10,8 @@
 //   POST meetings/:id/leave
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
 import { errorJson, handleError, json, nowIso, HttpError } from '../../_lib/http';
-import { makeNotes, pumpDrive, pumpTranscript, type NotesOut } from '../../_lib/meetdrive';
+import { chatJson, plain, stamp } from '../../_lib/clipai';
+import { makeNotes, pumpDrive, pumpTranscript, transcribeRow, type NotesOut } from '../../_lib/meetdrive';
 import { createEvent, deleteEvent, freeBusy, mayBook, patchEvent, sendReminder, TZ } from '../../_lib/meetcal';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, hex, iceServers, isHost, mayJoin, meetUser, sfuCall,
@@ -27,6 +28,7 @@ export const onRequest: PagesFunction<MeetEnv> = async ({ request, env, params }
     if (parts[0] !== 'meetings') return errorJson('not_found', 'Not found.', 404);
 
     if (parts[1] === 'pump' && m === 'POST') return json(await pumpNext(env, user));
+    if (parts[0] === 'meetings' && parts[1] === 'actions' && m === 'GET') return json(await myActions(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
     if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)) });
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
@@ -54,6 +56,8 @@ export const onRequest: PagesFunction<MeetEnv> = async ({ request, env, params }
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
     if (sub === 'pump' && m === 'POST') return json(await pump(env, user, id));
+    if (sub === 'action' && m === 'POST') return json(await markAction(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'brain' && m === 'POST') return json(await brainInMeeting(env, user, id, await request.json().catch(() => ({}))));
     return errorJson('not_found', 'Not found.', 404);
   } catch (err) {
     return handleError(err);
@@ -262,6 +266,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     await env.DB.prepare('UPDATE hub_meeting_presence SET mic = ?, cam = ?, hand = ?, sharing = ?, lvl = ?, speak_at = ?, seen = ?, left_at = 0 WHERE meeting_id = ? AND pid = ?')
       .bind(mic, cam, hand, sharing, lvl, speaking ? now : me.speak_at, now, id, me.pid).run();
   }
+  const tx = Number.isFinite(Number(b.tx)) ? Number(b.tx) : -1;
   const since = Number(b.since);
   const recent = Number.isFinite(since) && since >= 0
     ? await env.DB.prepare(`SELECT seq, kind, from_pid, to_pid, body, ts FROM hub_meeting_events WHERE meeting_id = ? AND seq > ? AND (to_pid = '' OR to_pid = ? OR from_pid = ?) ORDER BY seq LIMIT 200`).bind(id, since, me.pid, me.pid).all()
@@ -285,6 +290,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
   }
   const myRole = (list.find((p) => p.pid === me.pid) || me).role;
   const mt = await getMeeting(env, id);
+  const lines = tx >= 0 ? ((await env.DB.prepare('SELECT n, t, who, text FROM hub_meeting_lines WHERE meeting_id = ? AND n > ? ORDER BY n LIMIT 60').bind(id, tx).all<{ n: number; t: number; who: string; text: string }>()).results || []) : [];
   const r = await env.DB.prepare('SELECT epoch, owner_pid, active, last_chunk, mode FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string; active: number; last_chunk: number; mode: string }>();
   return {
     ok: true,
@@ -294,6 +300,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
       pid: p.pid, name: p.name, role: p.role, sessionId: p.session_id, tracks: safeJson(p.tracks, []), mic: !!p.mic, cam: !!p.cam, hand: !!p.hand, sharing: !!p.sharing,
       canShare: !!p.can_share, lvl: p.lvl, speaking: p.speak_at > now - 1500, speakAt: p.speak_at, waiting: !!p.waiting, joinedAt: p.joined_at,
     })),
+    lines,
     events: events.map((e) => ({ seq: e.seq, kind: e.kind, from: e.from_pid, to: e.to_pid, body: safeJson(e.body, {}), ts: e.ts })),
     meeting: { status: mt.status, locked: !!mt.locked, spot: mt.spot_pid, sharePolicy: mt.share_policy, rec: mt.rec_mode, title: mt.title },
     recording: r ? { epoch: r.epoch, owner: r.owner_pid, active: !!r.active, mode: r.mode, stale: !!r.active && now - r.last_chunk > REC_STALE_MS } : null,
@@ -332,6 +339,16 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
     if (!text && !file) throw new HttpError(400, 'empty', 'Write something first.');
     const f = file ? { name: clean(file.name, 160), url: clean(file.url, 600), type: clean(file.type, 20), by: clean(file.by, 80) } : undefined;
     await addEvent(env, id, 'chat', me.pid, to, { text, name: me.name, file: f, ai: !!body.ai });
+    return { ok: true };
+  }
+  if (kind === 'brain') {
+    // Staff put a Favor Brain answer on everyone's screen, or take it down. Only staff can post; the answer is the asker's to share.
+    if (me.role === 'guest') throw new HttpError(403, 'staff_only', 'Favor Brain is for staff.');
+    const body = (b.body || {}) as Record<string, unknown>;
+    if (body.stop) { await addEvent(env, id, 'brain', me.pid, '', { stop: true, by: me.name }); return { ok: true }; }
+    const packed = JSON.stringify({ q: clean(body.q, 200), md: clean(body.md, 6000), blocks: Array.isArray(body.blocks) ? body.blocks.slice(0, 6) : [], by: me.name });
+    if (packed.length > 60000) throw new HttpError(413, 'too_big', 'That answer is too large to put on screen.');
+    await env.DB.prepare('INSERT INTO hub_meeting_events (meeting_id, kind, from_pid, to_pid, body, ts) VALUES (?, ?, ?, ?, ?, ?)').bind(id, 'brain', me.pid, '', packed, Date.now()).run();
     return { ok: true };
   }
   if (kind === 'react') {
@@ -486,7 +503,14 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     const start = Number(request.headers.get('x-start')) || now;
     const end = Number(request.headers.get('x-end')) || now;
     await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_audio (meeting_id, epoch, n, start_ms, end_ms, bytes, ext) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, epoch, n, start, end, data.byteLength, ext).run();
-    return json({ ok: true });
+    // Read the slice now, so captions and "what did I miss" are only seconds behind. A failure leaves the slice for the end-of-meeting pass.
+    let lines = 0;
+    try {
+      lines = await transcribeRow(env, mt, { epoch, n, start_ms: start, ext, bytes: data.byteLength }, decodeURIComponent(request.headers.get('x-who') || ''));
+    } catch (err) {
+      console.warn('[meet] live read', id, err);
+    }
+    return json({ ok: true, lines });
   }
   if (sub[0] === 'chunk' && request.method === 'PUT') {
     const epoch = Number(sub[1]);
@@ -516,8 +540,9 @@ async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: 
     ok: true,
     meeting: publicMeeting(m, user),
     notes: safeJson(m.notes_json, {}),
-    transcript: safeJson(m.transcript, []),
+    transcript: m.status === 'ended' && m.transcript && m.transcript !== '[]' ? safeJson(m.transcript, []) : ((await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(id).all()).results || []),
     files: (files.results || []).map((f) => ({ id: f.file_id, name: f.file_name, url: `https://drive.google.com/file/d/${f.file_id}/view` })),
+    actions: (await env.DB.prepare('SELECT idx, text, owner_name, owner_email, due, t, done FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all()).results || [],
     people: (await env.DB.prepare('SELECT name, role FROM hub_meeting_presence WHERE meeting_id = ? ORDER BY joined_at').bind(id).all<{ name: string; role: string }>()).results || [],
   };
 }
@@ -545,6 +570,18 @@ async function pump(env: MeetEnv, user: { email: string; role: string }, id: str
       if (notes) {
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'ready', summary = ?, notes_json = ?, title = CASE WHEN title IN ('Meeting', '') OR title LIKE '% meeting' THEN ? ELSE title END WHERE id = ?`)
           .bind(notes.summary, JSON.stringify({ decisions: notes.decisions, actions: notes.actions, chapters: notes.chapters } satisfies Omit<NotesOut, 'title' | 'summary'>), notes.title || m.title, id).run();
+        // Each action item goes to its owner's Today when the talk named someone who was in the room, by first name when that is unambiguous.
+        const roster = (await env.DB.prepare('SELECT DISTINCT name, email FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string; email: string }>()).results || [];
+        const pick = (who: string) => {
+          const w = who.trim().toLowerCase();
+          if (!w) return null;
+          const full = roster.filter((p) => p.name.toLowerCase() === w);
+          if (full.length === 1) return full[0];
+          const first = roster.filter((p) => p.name.toLowerCase().split(/\s+/)[0] === w.split(/\s+/)[0]);
+          return first.length === 1 ? first[0] : null;
+        };
+        await env.DB.prepare('DELETE FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).run();
+        await env.DB.batch(notes.actions.map((a, i) => { const o = pick(a.owner); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, i, a.text, o ? o.name : a.owner, o ? o.email.toLowerCase() : '', a.due, a.t); }));
       } else {
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'none', summary = 'Nobody spoke, so there are no notes.' WHERE id = ?`).bind(id).run();
       }
@@ -645,4 +682,50 @@ async function remind(env: MeetEnv, origin: string) {
     }
   }
   return { ok: true, sent, made };
+}
+
+// ---------------------------------------------------------------- Favor Brain in the call: what the meeting itself can answer
+
+/** "What did I miss?" and "What have we agreed?" come from the live transcript. Anything else goes to the Favor Brain page route from the browser. */
+async function brainInMeeting(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>) {
+  const me = await getPresence(env, id, clean(b.pid, 12), user.email);
+  if (me.role === 'guest') throw new HttpError(403, 'staff_only', 'Favor Brain is for staff.');
+  const mt = await getMeeting(env, id);
+  const kind = b.kind === 'agreed' ? 'agreed' : 'missed';
+  const started = Date.parse(mt.started_at || mt.created_at);
+  const nowSec = Math.round((Date.now() - started) / 1000);
+  const from = kind === 'missed' ? Math.max(0, Number.isFinite(Number(b.sinceSec)) && Number(b.sinceSec) >= 0 ? Number(b.sinceSec) : nowSec - 300) : 0;
+  const rows = (await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ? ORDER BY t, n LIMIT 600').bind(id, from).all<{ t: number; who: string; text: string }>()).results || [];
+  if (!rows.length) return { ok: true, blocks: [{ type: 'text', md: kind === 'missed' ? 'Nothing has been said in that time, or the transcript has not caught up yet. It runs about 15 seconds behind.' : 'Nothing has been said yet that I can read, or the transcript has not caught up. It runs about 15 seconds behind.' }], markdown: '' };
+  const text = rows.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n').slice(-20000);
+  const system = kind === 'missed'
+    ? 'You catch a late or dropped person up on a staff meeting. Return keys: lead (one short sentence saying what the stretch was about) and points (array of at most 6 objects {t: seconds, text}, one plain sentence each, in order). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.'
+    : 'You list what a staff meeting has agreed so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each: decisions, and tasks with the person named when the talk names them). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.';
+  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, system, `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900);
+  const pts = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 10).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 300) })).filter((p) => p.text);
+  const lead = plain(out.lead, 200);
+  const md = `${lead}\n\n${pts.map((p) => `- ${stamp(p.t)}  ${p.text}`).join('\n')}`.trim();
+  return { ok: true, blocks: [{ type: 'text', md }], markdown: md };
+}
+
+// ---------------------------------------------------------------- action items
+
+async function myActions(env: MeetEnv, user: { email: string }) {
+  const rows = await env.DB.prepare(
+    `SELECT a.meeting_id, a.idx, a.text, a.due, a.t, a.done, m.title, m.started_at FROM hub_meeting_actions a JOIN hub_meetings m ON m.id = a.meeting_id
+      WHERE a.owner_email = ? AND a.done = 0 ORDER BY m.started_at DESC LIMIT 60`
+  ).bind(user.email.toLowerCase()).all();
+  return { ok: true, actions: rows.results || [] };
+}
+
+async function markAction(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {
+  const m = await getMeeting(env, id);
+  if (!mayJoin(m, user as never)) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  const idx = Number(b.idx);
+  const a = await env.DB.prepare('SELECT owner_email FROM hub_meeting_actions WHERE meeting_id = ? AND idx = ?').bind(id, idx).first<{ owner_email: string }>();
+  if (!a) throw new HttpError(404, 'not_found', 'That action item is not there.');
+  // The owner, a host of the meeting, or a hub admin ticks an item.
+  if (a.owner_email !== user.email.toLowerCase() && !isHost(m, user.email) && user.role !== 'admin') throw new HttpError(403, 'owner_only', 'Only the owner or the host can tick this one.');
+  await env.DB.prepare('UPDATE hub_meeting_actions SET done = ?, done_at = ? WHERE meeting_id = ? AND idx = ?').bind(b.done === false ? 0 : 1, b.done === false ? null : nowIso(), id, idx).run();
+  return { ok: true };
 }

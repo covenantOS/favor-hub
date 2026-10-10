@@ -194,6 +194,24 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       });
     }
   }
+  if (access.meetings) {
+    const mine = await env.DB.prepare(
+      `SELECT COUNT(*) AS n, (SELECT text FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0 ORDER BY meeting_id DESC, idx LIMIT 1) AS first FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0`
+    ).bind(user.email.toLowerCase()).first<{ n: number; first: string | null }>().catch(() => null);
+    const mn = Number(mine?.n) || 0;
+    if (mn) {
+      cards.push({
+        id: 'meetings',
+        label: 'Meetings',
+        n: mn,
+        what: mn === 1 ? 'action item from your meetings' : 'action items from your meetings',
+        note: mine?.first ? `Next: ${mine.first.length > 80 ? mine.first.slice(0, 78) + '...' : mine.first}` : '',
+        warn: false,
+        href: '/meet/library/',
+        cta: 'Open your items',
+      });
+    }
+  }
   const notes = await feedbackWaiting(env, user, access);
   const nn = Number(notes?.n) || 0;
   if (nn && access.admin) {

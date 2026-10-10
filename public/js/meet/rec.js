@@ -23,7 +23,7 @@ export class Recorder {
     this.claiming = false;
     this.warm = false;
     this.stats = { chunks: 0, bytes: 0, failed: 0 };
-    this.ar = null; this.arN = 0; this.arTimer = null;
+    this.ar = null; this.arN = 0; this.arTimer = null; this.aq = Promise.resolve(); this.tally = new Map();
   }
 
   get mode() { return (this.S.recording && this.S.recording.mode) || this.S.meeting.rec; }
@@ -52,6 +52,7 @@ export class Recorder {
     }
     await new Promise((r) => setTimeout(r, 500));
     await this.queue;
+    await this.aq;
     this.teardown();
   }
 
@@ -143,7 +144,7 @@ export class Recorder {
     this.S.recording = { ...(this.S.recording || {}), active: true, owner: this.S.me.pid, mode, epoch };
   }
 
-  // Sound pieces for the transcript: the meeting sound cut into pieces of about ninety seconds, each one a file that plays on its own.
+  // Sound pieces for the transcript: the meeting sound cut into slices of about ten seconds, each one a file that plays on its own.
   startPieces(epoch) {
     this.stopPieces();
     const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
@@ -155,24 +156,32 @@ export class Recorder {
       const stream = new MediaStream(this.dest.stream.getAudioTracks());
       const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 });
       const parts = [];
-      const t0 = Date.now(); const n = this.arN++;
+      const t0 = Date.now(); const n = this.arN++; this.tally = new Map();
       rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
       rec.onstop = () => {
         const blob = new Blob(parts, { type: mime }); const t1 = Date.now();
         if (blob.size < 1500) return;
+        const who = this.dominant();
         const put = async () => {
           for (let i = 0; i < 6; i++) {
-            try { const r = await fetch(`/api/meet/meetings/${this.MID}/rec/audio/${epoch}/${n}?pid=${this.S.me.pid}`, { method: 'PUT', headers: { 'x-start': String(t0), 'x-end': String(t1), 'x-ext': ext }, body: blob, credentials: 'same-origin' }); if (r.ok || r.status === 403) return; } catch { /* retry */ }
+            try { const r = await fetch(`/api/meet/meetings/${this.MID}/rec/audio/${epoch}/${n}?pid=${this.S.me.pid}`, { method: 'PUT', headers: { 'x-start': String(t0), 'x-end': String(t1), 'x-ext': ext, 'x-who': encodeURIComponent(who) }, body: blob, credentials: 'same-origin' }); if (r.ok || r.status === 403) return; } catch { /* retry */ }
             await new Promise((res) => setTimeout(res, 800 * (i + 1)));
           }
         };
-        this.queue = this.queue.then(put);
+        this.aq = this.aq.then(put);
       };
       rec.start(2000);
       this.ar = rec;
-      this.arTimer = setTimeout(() => { try { rec.stop(); } catch {} cycle(); }, 90000);
+      this.arTimer = setTimeout(() => { try { rec.stop(); } catch {} cycle(); }, 10000);
     };
     cycle();
+  }
+
+  // Who was speaking for most of the slice, from the speaking flags in the sync. Empty when no one stood out.
+  dominant() {
+    let total = 0; let best = ''; let bestN = 0;
+    for (const [name, n] of this.tally) { total += n; if (n > bestN) { best = name; bestN = n; } }
+    return total && bestN / total >= 0.6 ? best : '';
   }
 
   stopPieces() {
@@ -210,6 +219,8 @@ export class Recorder {
 
   // ---- standby and takeover, driven by the sync
   async onSync(rec, people) {
+    if (this.mr) for (const p of people) if (p.speaking) this.tally.set(p.name, (this.tally.get(p.name) || 0) + 1);
+    if (this.mr && this.S.lvl > 12 && this.S.mic) this.tally.set(this.S.me.name, (this.tally.get(this.S.me.name) || 0) + 1);
     if (!rec || !rec.active) { if (this.warm && !this.mr) this.teardown(); return; }
     const me = this.S.me.pid;
     if (this.mr && rec.owner !== me) { this.lostOwnership(); }

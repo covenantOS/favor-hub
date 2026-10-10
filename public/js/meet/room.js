@@ -8,13 +8,13 @@ const params = new URLSearchParams(location.search);
 const MID = params.get('m') || '';
 const root = $('#meet-root');
 const isPhone = () => matchMedia('(max-width: 860px)').matches;
-const FEATURES = { brain: false, captions: false, docs: false };
+const FEATURES = { brain: true, captions: true, docs: false };
 const OFFSET = Number(localStorage.getItem('meet.clockOffset') || 0);
 
 const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
   mic: true, cam: true, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
-  recording: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
+  recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
 let recorder = null;
@@ -90,7 +90,7 @@ async function enter() {
     if (e.status === 403 || e.status === 404) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">You cannot join this meeting</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a></div>`; return; }
     failScreen(e); return;
   }
-  S.joined = true; S.started = Date.now();
+  S.joined = true; S.started = Date.now(); S.joinedAt = Date.now();
   buildRoom();
   startLoops();
 }
@@ -186,9 +186,10 @@ const perPage = () => (isPhone() ? 4 : S.level === 'weak' ? 4 : 9);
 function layoutModel() {
   const { sharer, big, sorted } = order();
   const model = []; // { key, p, kind: 'big' | 'tile' | 'strip' }
-  const spotMode = sharer || (big && sorted.find((p) => p.pid === big));
+  const spotMode = sharer || S.show || (big && sorted.find((p) => p.pid === big));
   if (spotMode) {
     if (sharer) model.push({ key: 'share:' + sharer.pid, p: sharer, kind: 'big', share: true });
+    else if (S.show) model.push({ key: 'brain', p: { pid: 'brain', name: 'Favor Brain' }, kind: 'big', brain: true });
     else model.push({ key: big, p: sorted.find((p) => p.pid === big), kind: 'big' });
     const rest = sorted.filter((p) => !(model[0].key === p.pid));
     rest.slice(0, isPhone() ? 3 : 4).forEach((p) => model.push({ key: p.pid, p, kind: 'strip' }));
@@ -210,8 +211,10 @@ function paintGrid() {
   grid.style.gridTemplateColumns = spot ? '' : `repeat(${n <= 1 ? 1 : n <= 4 ? 2 : 3}, minmax(0, 1fr))`;
   if (spot) grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.min(4, n - 1))}, minmax(0, 1fr))`; else grid.style.gridTemplateRows = '';
   const keep = new Set(model.map((x) => x.key));
-  for (const [k, t] of tiles) if (!keep.has(k)) { t.el.remove(); if (!t.share || true) { /* video stays attached to its track */ } }
-  model.forEach(({ key, p, kind, share }, i) => {
+  for (const [k, t] of tiles) if (!keep.has(k)) t.el.remove();
+  if (!model.some((x) => x.brain)) { const bt = document.getElementById('rm-brain-tile'); if (bt) bt.remove(); }
+  model.forEach(({ key, p, kind, share, brain }, i) => {
+    if (brain) { paintBrainTile(grid, i); return; }
     let t = tiles.get(key) || makeTile(key, p, !!share);
     if (!t.el.isConnected || t.el.parentNode !== grid) grid.appendChild(t.el);
     if (grid.children[i] !== t.el) grid.insertBefore(t.el, grid.children[i] || null);
@@ -317,7 +320,7 @@ function paintSide() {
 function chatHTML(m) {
   const f = m.file;
   const you = m.from === S.me.pid;
-  return `<div class="msg">${av(m.name)}<div><b>${esc(you ? 'You' : m.name)}${m.to ? ' <i class="mt-sub">(private)</i>' : ''}</b><time>${new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</time>${m.text ? `<p>${linkify(m.text)}</p>` : ''}${f ? `<div class="file"><span class="fi ${esc(f.type || 'doc')}">${esc((f.type || 'doc').slice(0, 3).toUpperCase())}</span><div style="min-width:0"><b>${esc(f.name)}</b><span>${esc(f.by || '')}</span></div><div class="acts"><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(f.url)}" target="_blank" rel="noopener">${ic('drive')}Open in Drive</a></div></div>` : ''}</div></div>`;
+  return `<div class="msg">${m.ai ? `<span class="mt-av" style="background:var(--h-brand)">${ic('brain')}</span>` : av(m.name)}<div><b>${m.ai ? 'Favor Brain, posted by ' + esc(you ? 'you' : m.name) : esc(you ? 'You' : m.name)}${m.to ? ' <i class="mt-sub">(private)</i>' : ''}</b><time>${new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</time>${m.text ? `<p>${linkify(m.text)}</p>` : ''}${f ? `<div class="file"><span class="fi ${esc(f.type || 'doc')}">${esc((f.type || 'doc').slice(0, 3).toUpperCase())}</span><div style="min-width:0"><b>${esc(f.name)}</b><span>${esc(f.by || '')}</span></div><div class="acts"><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(f.url)}" target="_blank" rel="noopener">${ic('drive')}Open in Drive</a></div></div>` : ''}</div></div>`;
 }
 const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--h-brand-ink)">$1</a>');
 
@@ -327,6 +330,14 @@ function paintSideBody(full) {
     const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
     body.innerHTML = S.chat.length ? S.chat.map(chatHTML).join('') : `<p class="mt-sub" style="margin:0">No messages yet. Messages go to everyone in the meeting.</p>`;
     if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="chatin" placeholder="Message everyone" maxlength="2000" autocomplete="off" /><button class="icb send" data-a="chat-send" aria-label="Send">${ic('send')}</button></div>`;
+    if (full || stick) body.scrollTop = body.scrollHeight;
+  } else if (S.panel === 'brain') {
+    const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
+    body.innerHTML = `<div class="priv">${ic('lock')}Only you see these answers until you post one.</div>
+      ${S.brainQ.length ? '' : `<p style="margin:0;font-size:13.5px;color:var(--h-ink-2)">Ask about this meeting, a partner, a number or a document. Favor Brain reads the meeting as it happens and knows the hub's data.</p>`}
+      ${S.brainQ.map((q, i) => `<div class="ask">${esc(q.q)}</div>${brainAnswerHTML(q, i)}`).join('')}
+      <div class="bq">${[['missed', 'What did I miss?'], ['agreed', 'What have we agreed so far?']].map(([k, l]) => `<button data-a="ask" data-k="${k}">${l}</button>`).join('')}</div>`;
+    if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="brainin" placeholder="Ask Favor Brain" maxlength="400" autocomplete="off" /><button class="icb send" data-a="ask-typed" aria-label="Ask">${ic('send')}</button></div>`;
     if (full || stick) body.scrollTop = body.scrollHeight;
   } else if (S.panel === 'people') {
     const h = hostish();
@@ -363,12 +374,18 @@ function onDocClick(e) {
     case 'cmd': { const c = a.dataset.c; if (c === 'remove' && !confirm('Remove ' + nameOf(a.dataset.pid) + ' from the meeting?')) break; send('cmd', { a: c, v: a.dataset.v === undefined ? undefined : a.dataset.v === 'true' }, a.dataset.pid || ''); S.menu = null; paintSideBody(false); break; }
     case 'sharepolicy': send('cmd', { a: 'sharepolicy', v: S.sharePolicy === 'hosts' ? 'all' : 'hosts' }); break;
     case 'copylink': copy(roomLink(MID)); break;
+    case 'ask': askBrain(a.dataset.k === 'missed' ? 'What did I miss?' : 'What have we agreed so far?', a.dataset.k); break;
+    case 'ask-typed': { const i = $('#brainin'); if (i && i.value.trim()) { const q = i.value.trim(); i.value = ''; askBrain(q, /\b(miss|catch me up|recap)\b/i.test(q) ? 'missed' : /\b(agreed|decid|action items)\b/i.test(q) && /\b(so far|meeting|we)\b/i.test(q) ? 'agreed' : 'brain'); } break; }
+    case 'brain-post': postBrain(Number(a.dataset.i), false); break;
+    case 'brain-show': postBrain(Number(a.dataset.i), true); break;
+    case 'brain-stop': send('brain', { stop: true }); break;
     case 'endall': if (confirm('End the meeting for everyone?')) send('cmd', { a: 'end' }); break;
     default: break;
   }
 }
 function onKey(e) {
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
+  if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, /\b(miss|catch me up|recap)\b/i.test(q) ? 'missed' : /\b(agreed|decid|action items)\b/i.test(q) && /\b(so far|meeting|we)\b/i.test(q) ? 'agreed' : 'brain'); } return; }
   if (e.target.matches && e.target.matches('input, textarea')) return;
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
@@ -458,7 +475,7 @@ async function syncNow() {
   if (syncing || S.left || rejoining) return;
   syncing = true;
   try {
-    const r = await api('meetings/' + MID + '/sync', { method: 'POST', body: { pid: S.me.pid, since: S.events, me: { mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, lvl: S.lvl } } });
+    const r = await api('meetings/' + MID + '/sync', { method: 'POST', body: { pid: S.me.pid, since: S.events, tx: S.tx, me: { mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, lvl: S.lvl } } });
     S.lastSync = Date.now();
     applySync(r);
   } catch (e) {
@@ -472,6 +489,8 @@ function applySync(r) {
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
   S.recording = r.recording;
+  for (const l of r.lines || []) { S.lines.push(l); S.tx = l.n; }
+  if ((r.lines || []).length) paintCap();
   for (const e of r.events) handleEvent(e);
   if (r.events.length) S.events = r.events[r.events.length - 1].seq;
   if (r.meeting.status === 'ended') return leaveRoom('The meeting ended');
@@ -505,6 +524,10 @@ function handleEvent(e) {
     else if (b.a === 'lowerhand' && e.to === S.me.pid) { S.hand = false; paintCtl(); }
     else if (b.a === 'makehost' && e.to === S.me.pid) { toast('You are now a host'); }
     else if (b.a === 'end') { /* the sync's meeting.status ends the room */ }
+  } else if (e.kind === 'brain') {
+    S.show = e.body.stop ? null : { ...e.body, from: e.from };
+    if (S.show) toast(S.show.by + ' put a Favor Brain answer on screen'); 
+    paintGrid(); scheduleReconcile();
   } else if (e.kind === 'react') {
     floatEmoji(e.body.e);
   } else if (e.kind === 'notice') {
@@ -577,7 +600,7 @@ async function onStats() {
   // Speaking rings from the sound the SFU delivers, for people the sync has not flagged yet.
 }
 function onRtcState(s) {
-  if (s === 'disconnected' && S.conn === 'ok') { S.conn = 'drop'; S.dropAt = Date.now(); paintBar(); }
+  if (s === 'disconnected' && S.conn === 'ok') { S.conn = 'drop'; S.dropAt = Date.now(); S.dropRel = Math.max(0, Math.round((Date.now() - (Date.parse(S.meeting.startedAt || '') || S.started)) / 1000)); paintBar(); }
   if (s === 'connected' && S.conn === 'drop') { S.conn = 'back'; S.backAt = Date.now(); S.missedSec = (Date.now() - S.dropAt) / 1000; paintBar(); scheduleReconcile(); }
   if (s === 'failed' && !S.left) rejoin('connection failed');
 }
@@ -630,3 +653,75 @@ async function toggleRecording() {
 }
 
 window.__meet = { S, tiles, get rtc() { return rtc; }, reconcile, rejoin };
+
+// ---------------------------------------------------------------- captions
+function paintCap() {
+  const el = $('#rm-cap'); if (!el) return;
+  const last = S.lines[S.lines.length - 1];
+  const meetingStart = Date.parse(S.meeting.startedAt || '') || S.started;
+  const fresh = last && Date.now() - (meetingStart + last.t * 1000) < 45000;
+  el.hidden = !(S.cc && fresh);
+  if (!el.hidden) el.innerHTML = `${last.who ? `<b>${esc(last.who)}:</b> ` : ''}${esc(last.text)}`;
+}
+setInterval(() => { if (S.cc) paintCap(); }, 2000);
+
+// ---------------------------------------------------------------- Favor Brain in the call
+const stripMd = (t) => String(t || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/^#+\s*/gm, '').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 $2');
+
+function brainAnswerHTML(q, i) {
+  if (q.state === 'working') return `<div class="ans"><div class="mt-sub">Working on it.</div></div>`;
+  if (q.state === 'error') return `<div class="ans"><div>${esc(q.error)}</div></div>`;
+  const B = window.BrainBlocks;
+  let html = '';
+  if (q.blocks && q.blocks.length && B) { try { html = `<div class="bc-root bc-mini">${q.blocks.map((b, bi) => B.render(b, { ti: 900 + i, bi, canSheets: false, canRequest: () => false, expired: true })).join('')}</div>`; } catch { html = ''; } }
+  if (!html) html = `<div class="ans"><div style="white-space:pre-wrap">${esc(stripMd(q.markdown || 'No answer.'))}</div></div>`;
+  return `<div class="ans">${html}<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="h-btn h-btn--primary h-btn--sm" data-a="brain-post" data-i="${i}">${ic('chat')}Post to chat</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="brain-show" data-i="${i}">${ic('screen')}Show on screen</button></div></div>`;
+}
+
+async function askBrain(q, kind) {
+  S.panel = 'brain'; paintCtl(); paintSide();
+  const item = { q, state: 'working' };
+  S.brainQ.push(item); paintSideBody(false);
+  try {
+    if (kind === 'missed' || kind === 'agreed') {
+      const start = Date.parse(S.meeting.startedAt || '') || S.started;
+      const since = S.dropRel != null ? S.dropRel : Math.max(0, Math.round((S.joinedAt - start) / 1000) || 0);
+      const r = await api('meetings/' + MID + '/brain', { method: 'POST', body: { pid: S.me.pid, kind, sinceSec: kind === 'missed' ? (S.dropRel != null ? S.dropRel : Math.max(0, Math.round((Date.now() - start) / 1000) - 300)) : 0 } });
+      item.blocks = r.blocks; item.markdown = r.markdown || (r.blocks[0] && r.blocks[0].md) || '';
+    } else {
+      const res = await fetch('/api/brain/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ question: q }) });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || d.ok === false) throw new Error(d.message || 'Favor Brain did not answer. Ask again.');
+      item.blocks = d.blocks || []; item.markdown = d.markdown || d.text || '';
+    }
+    item.state = 'done';
+  } catch (e) { item.state = 'error'; item.error = e.message; }
+  paintSideBody(false);
+  const body = $('#rm-body'); if (body) body.scrollTop = body.scrollHeight;
+}
+
+function postBrain(i, onScreen) {
+  const q = S.brainQ[i]; if (!q) return;
+  if (S.people.some((p) => p.role === 'guest')) { if (!confirm('A guest is in the room. Post this anyway?')) return; }
+  if (onScreen) {
+    const slim = (q.blocks || []).map((b) => (b && b.type === 'table' && Array.isArray(b.rows) ? { ...b, rows: b.rows.slice(0, 12), count: Math.min(b.count || b.rows.length, 12) } : b));
+    send('brain', { q: q.q, md: q.markdown, blocks: slim });
+  } else send('chat', { text: stripMd(q.markdown || '').slice(0, 1900), ai: true });
+  toast(onScreen ? 'Showing on screen' : 'Posted to chat');
+}
+
+function paintBrainTile(grid, i) {
+  let el = document.getElementById('rm-brain-tile');
+  if (!el) { el = document.createElement('div'); el.id = 'rm-brain-tile'; el.className = 'mt-tile is-big mt-tile--brain'; }
+  const key = JSON.stringify([S.show && S.show.q, S.show && S.show.md && S.show.md.length]);
+  if (el.dataset.key !== key) {
+    el.dataset.key = key;
+    const B = window.BrainBlocks; let html = '';
+    if (S.show.blocks && S.show.blocks.length && B) { try { html = S.show.blocks.map((b, bi) => B.render(b, { ti: 950, bi, canSheets: false, canRequest: () => false, expired: true })).join(''); } catch { html = ''; } }
+    if (!html) html = `<div class="ans"><div style="white-space:pre-wrap">${esc(stripMd(S.show.md))}</div></div>`;
+    const mine = S.show.from === S.me.pid || hostish();
+    el.innerHTML = `<div class="bc-root bc-show"><div class="bc-show__h"><span>${ic('brain')}Favor Brain, shown by ${esc(S.show.by)}</span>${mine ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="brain-stop">Stop showing</button>` : ''}</div><div class="bc-show__b">${html}</div></div>`;
+    try { if (B) { B.countUp && B.countUp(el, true); B.drawCharts && B.drawCharts(el); } } catch {}
+  }
+  if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
+}

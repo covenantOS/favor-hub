@@ -137,3 +137,30 @@ CREATE TABLE IF NOT EXISTS hub_meeting_reminders (
   sent_at INTEGER NOT NULL,
   PRIMARY KEY (meeting_id, kind)
 );
+
+-- The transcript as it is made, line by line. The recorder's browser sends the meeting sound in slices of about ten seconds, the
+-- hub reads each one at once, and the room shows the lines as captions and answers "what did I miss". who is the person who was
+-- speaking for most of the slice, from the speaking flags every browser reports; it is empty when nobody stood out.
+CREATE TABLE IF NOT EXISTS hub_meeting_lines (
+  meeting_id TEXT NOT NULL,
+  n INTEGER NOT NULL,
+  t INTEGER NOT NULL,                     -- seconds from the start of the meeting
+  who TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL,
+  PRIMARY KEY (meeting_id, n)
+);
+
+-- Action items from a meeting's notes, with the person who owns each one when the talk named someone who was in the room.
+CREATE TABLE IF NOT EXISTS hub_meeting_actions (
+  meeting_id TEXT NOT NULL,
+  idx INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  owner_name TEXT NOT NULL DEFAULT '',
+  owner_email TEXT NOT NULL DEFAULT '',
+  due TEXT NOT NULL DEFAULT '',
+  t INTEGER NOT NULL DEFAULT 0,
+  done INTEGER NOT NULL DEFAULT 0,
+  done_at TEXT,
+  PRIMARY KEY (meeting_id, idx)
+);
+CREATE INDEX IF NOT EXISTS idx_hub_meeting_actions_owner ON hub_meeting_actions(owner_email, done);

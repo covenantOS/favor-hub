@@ -168,8 +168,11 @@ export class Rtc {
 export const RATE = { f: 380e3, h: 150e3, q: 55e3 };
 export const ORDER = ['f', 'h', 'q'];
 export function linkLevel(stats) {
+  // The receiver's bandwidth estimate only climbs while there is demand for it, so a low estimate alone says nothing. The link is
+  // congested when packets are lost, or when what arrives already fills most of a low estimate.
   const est = stats.availIn || 0;
-  if (stats.loss > 0.12 || (est && est < 700e3)) return 'weak';
-  if (stats.loss > 0.04 || (est && est < 1800e3)) return 'fair';
+  const bps = stats.bps || 0;
+  if (stats.loss > 0.12 || (est && est < 500e3 && bps > est * 0.85 && bps > 200e3)) return 'weak';
+  if (stats.loss > 0.04 || (est && est < 1200e3 && bps > est * 0.85 && bps > 400e3)) return 'fair';
   return 'good';
 }

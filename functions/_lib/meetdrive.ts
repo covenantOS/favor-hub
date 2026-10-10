@@ -145,14 +145,13 @@ function b64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-export interface Line { t: number; text: string }
+export interface Line { t: number; text: string; who?: string }
 
-/** One sound piece through Whisper. Returns false when nothing is left to read. */
-export async function pumpTranscript(env: MeetEnv, m: Meeting): Promise<{ done: boolean; progress: string }> {
-  const next = await env.DB.prepare(`SELECT * FROM hub_meeting_audio WHERE meeting_id = ? AND status = 'new' ORDER BY epoch, n LIMIT 1`).bind(m.id).first<{ epoch: number; n: number; start_ms: number; ext: string; bytes: number }>();
-  if (!next) return { done: true, progress: 'read' };
-  const obj = await env.CLIPS.get(`meet/${m.id}/audio/${next.epoch}-${next.n}.${next.ext}`);
-  let lines: Line[] = [];
+/** One stored sound slice through Whisper into transcript lines. Used as the slice arrives (live) and again for any slice left over. */
+export async function transcribeRow(env: MeetEnv, m: Pick<Meeting, 'id' | 'started_at' | 'created_at'>, next: { epoch: number; n: number; start_ms: number; ext: string; bytes: number }, who = ''): Promise<number> {
+  const key = `meet/${m.id}/audio/${next.epoch}-${next.n}.${next.ext}`;
+  const obj = await env.CLIPS.get(key);
+  const lines: Line[] = [];
   if (obj && next.bytes < 24 * 1024 * 1024) {
     const ai = env.AI as { run(model: string, input: unknown): Promise<unknown> } | undefined;
     if (!ai) throw new Error('no ai binding');
@@ -161,16 +160,31 @@ export async function pumpTranscript(env: MeetEnv, m: Meeting): Promise<{ done: 
     const base = (next.start_ms - t0) / 1000;
     const ghost = /^(thanks for watching|thank you for watching|thank you\.?|you\.?|bye\.?|\.+)$/i;
     const segs = (res.segments || []).filter((s) => (s.text || '').trim() && !(typeof s.no_speech_prob === 'number' && s.no_speech_prob > 0.9) && !ghost.test(String(s.text).trim()));
-    lines = segs.map((s) => ({ t: Math.max(0, Math.round(base + (Number(s.start) || 0))), text: plain(s.text, 600) }));
-    if (!lines.length && res.text && !ghost.test(res.text.trim())) lines = [{ t: Math.max(0, Math.round(base)), text: plain(res.text, 2000) }];
+    for (const s of segs) lines.push({ t: Math.max(0, Math.round(base + (Number(s.start) || 0))), text: plain(s.text, 600) });
+    if (!lines.length && res.text && !ghost.test(res.text.trim())) lines.push({ t: Math.max(0, Math.round(base)), text: plain(res.text, 2000) });
   }
-  const prev = JSON.parse(m.transcript || '[]') as Line[];
-  const all = [...prev, ...lines].sort((a, b) => a.t - b.t);
-  await env.DB.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').bind(JSON.stringify(all), m.id).run();
+  if (lines.length) {
+    const last = await env.DB.prepare('SELECT COALESCE(MAX(n), 0) AS n FROM hub_meeting_lines WHERE meeting_id = ?').bind(m.id).first<{ n: number }>();
+    let n = (last?.n || 0) + 1;
+    await env.DB.batch(lines.map((l) => env.DB.prepare('INSERT INTO hub_meeting_lines (meeting_id, n, t, who, text) VALUES (?, ?, ?, ?, ?)').bind(m.id, n++, l.t, plain(who, 80), l.text)));
+  }
   await env.DB.prepare(`UPDATE hub_meeting_audio SET status = 'done' WHERE meeting_id = ? AND epoch = ? AND n = ?`).bind(m.id, next.epoch, next.n).run();
-  await env.CLIPS.delete(`meet/${m.id}/audio/${next.epoch}-${next.n}.${next.ext}`);
-  m.transcript = JSON.stringify(all);
-  return { done: false, progress: `piece ${next.epoch}.${next.n}` };
+  await env.CLIPS.delete(key);
+  return lines.length;
+}
+
+/** Slices still waiting at the end of a meeting. When none are left the lines are joined into the meeting's transcript. */
+export async function pumpTranscript(env: MeetEnv, m: Meeting): Promise<{ done: boolean; progress: string }> {
+  const next = await env.DB.prepare(`SELECT * FROM hub_meeting_audio WHERE meeting_id = ? AND status = 'new' ORDER BY epoch, n LIMIT 1`).bind(m.id).first<{ epoch: number; n: number; start_ms: number; ext: string; bytes: number }>();
+  if (next) {
+    await transcribeRow(env, m, next);
+    return { done: false, progress: `piece ${next.epoch}.${next.n}` };
+  }
+  const all = await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(m.id).all<Line>();
+  const lines = all.results || [];
+  await env.DB.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').bind(JSON.stringify(lines), m.id).run();
+  m.transcript = JSON.stringify(lines);
+  return { done: true, progress: 'read' };
 }
 
 export interface NotesOut { title: string; summary: string; decisions: Array<{ t: number; text: string }>; actions: Array<{ text: string; owner: string; due: string; t: number }>; chapters: Array<{ t: number; title: string }> }
@@ -178,11 +192,11 @@ export interface NotesOut { title: string; summary: string; decisions: Array<{ t
 export async function makeNotes(env: MeetEnv, m: Meeting, names: string[]): Promise<NotesOut | null> {
   const lines = JSON.parse(m.transcript || '[]') as Line[];
   if (!lines.length) return null;
-  const text = lines.map((l) => `[${stamp(l.t)}] ${l.text}`).join('\n');
+  const text = lines.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n');
   const body = text.length > 28000 ? `${text.slice(0, 19000)}\n[...]\n${text.slice(-9000)}` : text;
   const out = await chatJson<{ title?: unknown; summary?: unknown; decisions?: unknown; actions?: unknown; chapters?: unknown }>(
     env as never,
-    `You write the notes of a staff meeting at a nonprofit. The transcript has no speaker names, only times in minutes and seconds. People who were invited: ${names.slice(0, 30).join(', ') || 'unknown'}.
+    `You write the notes of a staff meeting at a nonprofit. Each transcript line has a time in minutes and seconds and, when the system could tell, the name of the person who was talking for most of that stretch (the label can be wrong when people talk over each other). People who were invited: ${names.slice(0, 30).join(', ') || 'unknown'}.
 Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period); summary (3 to 5 sentences of what was covered and decided); decisions (array of up to 8 objects {t: seconds from the start, text}, only things the group agreed); actions (array of up to 12 objects {text, owner, due, t}, where owner is a person named in the talk or empty, due is a date or phrase said aloud or empty, t is seconds); chapters (array of 4 to 10 objects {t: seconds, title of at most 6 words}). Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details, address or phone number into the notes. No em dashes.`,
     `Meeting title: ${m.title}\n\nTranscript:\n${body}`,
     1800

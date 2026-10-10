@@ -286,3 +286,16 @@
 .rm-input { padding: 10px; }
 .rm-body .msg a { word-break: break-all; }
 .mt-pill .h-i { width: 12px; height: 12px; }
+
+/* Favor Brain inside the room */
+.mt-tile--brain { display: block; background: #f7f4ed; border: 0; overflow: hidden; }
+.bc-show { height: 100%; display: flex; flex-direction: column; background: #f7f4ed; }
+.bc-show__h { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--h-line); font: 600 13px var(--h-font); color: var(--h-brand-ink); }
+.bc-show__h span { display: inline-flex; gap: 8px; align-items: center; }
+.bc-show__b { flex: 1; overflow: auto; padding: 16px; }
+.bc-mini { font-size: 13px; }
+.rm-body .bc-mini .card { box-shadow: none; }
+
+.bc-mini ul, .bc-show ul { display: block; padding-left: 18px; margin: 6px 0; list-style: disc; }
+.bc-mini li, .bc-show li { display: list-item; grid-template-columns: none; gap: 0; margin: 3px 0; }
+.bc-mini a, .bc-show a { height: auto; line-height: inherit; background: none; border-radius: 0; text-align: left; }
