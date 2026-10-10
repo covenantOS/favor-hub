@@ -6,6 +6,7 @@ import { HttpError, handleError, json, type Env } from '../http';
 import { hubUserOf, type HubUser } from '../session';
 import { staffByEmail, type StaffRow } from '../work/db';
 import { workAccessFor, type WorkAccess } from '../work/gate';
+import { scopeFor } from '../work/role';
 import { blackbaudRepo, type ActionsRepo } from '../work/repo';
 import type { Ctx } from '../work/service';
 import type { MobileEnv } from './auth';
@@ -42,7 +43,10 @@ export function mobile(
       const staff = await staffByEmail(env, user.email).catch(() => null);
       const fid = staff && staff.active === 1 && staff.bb_fundraiser_id ? String(staff.bb_fundraiser_id) : '';
       const repo = (hooks.repo || blackbaudRepo)(env);
-      const ctx: Ctx = { env, repo, actor: user.name || user.email, email: user.email };
+      // The phone gets the same scope as the web page: what the person's role sees and may change.
+      const admin = user.role === 'admin';
+      const scope = (await scopeFor(env, user.email, admin).catch(() => null)) || { role: 'admin' as const, email: user.email, name: user.name || user.email, fid: null, team: '', all: false, fids: new Set<string>() };
+      const ctx: Ctx = { env, repo, actor: user.name || user.email, email: user.email, scope };
       const out = await handler({ request, env: env as MobileEnv, params: params as Record<string, string | string[]>, waitUntil, url: new URL(request.url), user, access, staff, fid, ctx });
       if (out instanceof Response) return out;
       return json(out);

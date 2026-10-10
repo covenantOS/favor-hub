@@ -33,7 +33,7 @@ const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(bo
 const patch = (path, body) => api(path, { method: 'PATCH', body: JSON.stringify(body || {}) });
 
 // ------------------------------------------------------------ helpers
-let DATA = { people: {}, today: '', synced: '', meter: { used: 0, cap: 3000, lane: 2400, resets: '8:00 PM' }, counts: {} };
+let DATA = { me: { role: 'admin', canDelete: true, canMove: true, canEntry: true, anyTeam: true }, people: {}, today: '', synced: '', meter: { used: 0, cap: 3000, lane: 2400, resets: '8:00 PM' }, counts: {} };
 let TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 const now = () => new Date();
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -50,6 +50,8 @@ const ini = (name) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUp
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const live = (fid) => { const p = DATA.people[fid]; return !!(p && p.active && p.listed); };
 // how a name reads when that person can no longer own work: left Favor, or never set up as a fundraiser
+// Only an admin hands work to another team. Everyone else picks from their own team and the directors they support; the server enforces it.
+const mayAssign = (fid) => { const m = DATA.me; return !!m.anyTeam || fid === m.fid || (m.fids || []).includes(fid) || (!!m.team && P(fid).team === m.team); };
 const gone = (fid) => { if (live(fid)) return ''; const p = DATA.people[fid]; return p && (p.listed || p.left) ? ' (left)' : ' (inactive)'; };
 const I = {
   check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>', user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
@@ -89,7 +91,7 @@ function adapt(r) {
   };
 }
 function takeBoard(d) {
-  DATA = Object.assign({}, DATA, { people: d.people, today: d.today, synced: d.synced, meter: d.meter, counts: d.counts, orphans: d.orphans });
+  DATA = Object.assign({}, DATA, { me: d.me || DATA.me, people: d.people, today: d.today, synced: d.synced, meter: d.meter, counts: d.counts, orphans: d.orphans });
   TODAY = d.today;
   ACTS = d.rows.map(adapt);
   BYID = Object.fromEntries(ACTS.map((a) => [a.id, a]));
@@ -158,8 +160,8 @@ const syncedLabel = () => DATA.synced ? et(DATA.synced, { hour: 'numeric', minut
 // ------------------------------------------------------------ page
 function gateScreen(g) {
   const before = g.reason === 'before_release';
-  root.innerHTML = `<div class="h-card wc-gate"><div class="wc-batch__icon">${ic('lock')}</div><h2>${before ? 'The Work Center opens for you soon' : 'The Work Center is for the Support Team'}</h2>
-    <p>${before ? 'This page is not open for your account yet.' : 'It holds the Support Team’s entry and thank-you work. If your work needs it, tell Will Hamilton through Feedback.'}</p></div>`;
+  root.innerHTML = `<div class="h-card wc-gate"><div class="wc-batch__icon">${ic('lock')}</div><h2>${before ? 'The Work Center opens for you soon' : 'The Work Center is for the people whose job touches it'}</h2>
+    <p>${before ? 'This page is not open for your account yet.' : 'It holds the open actions, thank-yous and partner work of the Support Team, the regional directors, Partner Care and church engagement. If your work needs it, tell Will Hamilton through Feedback.'}</p></div>`;
 }
 function skeleton() {
   root.innerHTML = `<div class="wc-intro"><p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p></div>
@@ -192,7 +194,7 @@ function page() {
       </div>
     </div>
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
-      ${[['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].map(([k, l, n]) =>
+      ${[['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].filter(([k]) => k !== 'intake' || DATA.me.canEntry).map(([k, l, n]) =>
         `<button class="wc-tab${S.view === k ? ' is-on' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
     </div>
     <div id="view"></div>`;
@@ -422,7 +424,7 @@ function bar(busy) {
     <button class="h-btn h-btn--ghost h-btn--sm" data-do="reassign">${ic('user')}Reassign</button>
     <button class="h-btn h-btn--ghost h-btn--sm" data-do="reschedule">${ic('cal')}Reschedule</button>
     <button class="h-btn h-btn--ghost h-btn--sm" data-do="bulkedit" title="Change any field on every selected action">${ic('filter')}Edit</button>
-    <button class="h-btn h-btn--ghost h-btn--sm wc-bar__del" data-do="delete" title="Delete the selected actions">${ic('x')}Delete</button></span>
+    ${DATA.me.canDelete ? `<button class="h-btn h-btn--ghost h-btn--sm wc-bar__del" data-do="delete" title="Delete the selected actions">${ic('x')}Delete</button>` : ''}</span>
     <button class="wc-bar__x" data-do="clear" aria-label="Clear the selection" title="Clear (Esc)">${ic('x')}</button>`;
 }
 function tyBar() {
@@ -570,7 +572,7 @@ function dlgReassign(ids) {
   const withHolder = ids.filter((id) => holderFor(BYID[id]));
   const noOne = !Object.keys(curF).length; // none of these has a fundraiser yet, so there is nobody to replace
   const st = { mode: noOne ? 'add' : withHolder.length && depart.length ? 'holder' : 'replace', from: depart[0] || Object.keys(curF)[0] || '', to: '', add: '' };
-  const staff = Object.keys(DATA.people).filter(live).sort((a, b) => P(a).n.localeCompare(P(b).n));
+  const staff = Object.keys(DATA.people).filter(live).filter(mayAssign).sort((a, b) => P(a).n.localeCompare(P(b).n));
   const opts = (sel, list, blank) => (blank ? `<option value="">${blank}</option>` : '') + list.map((k) => `<option value="${k}"${sel === k ? ' selected' : ''}>${esc(P(k).n)}${curF[k] ? ' (' + curF[k] + ')' : ''}</option>`).join('');
   const next = (a) => {
     let nf = null;
@@ -1106,8 +1108,8 @@ async function dlgSettings() {
   const draw = (el) => {
     el.innerHTML = `<div class="wc-dlg__head"><div><h2>Work Center settings</h2><p>Who can open it, and how it sends to Blackbaud.</p></div><button class="wc-dlg__x" data-closelayer aria-label="Close">${ic('x')}</button></div>
       <div class="wc-dlg__body">
-        <div class="wc-field"><span class="lab">Who can open the Work Center</span><div class="wc-choices">${[['admins', 'Admins only'], ['support', 'Admins and the Support Team']].map(([k, l]) => `<button type="button" class="wc-choice${s.release === k ? ' is-on' : ''}" data-set="release" data-v="${k}">${l}</button>`).join('')}</div>
-          <small>The Support Team here means everyone below with Work Center ticked.</small></div>
+        <div class="wc-field"><span class="lab">Who can open the Work Center</span><div class="wc-choices">${[['admins', 'Admins only'], ['support', 'Admins and everyone listed below']].map(([k, l]) => `<button type="button" class="wc-choice${s.release === k ? ' is-on' : ''}" data-set="release" data-v="${k}">${l}</button>`).join('')}</div>
+          <small>Everyone below with Work Center ticked opens it, and the team they are on sets what they see and may change.</small></div>
         <div class="wc-field"><span class="lab">Sending to Blackbaud</span><div class="wc-choices">${[['on', 'On'], ['off', 'Off, save only']].map(([k, l]) => `<button type="button" class="wc-choice${s.posting === k ? ' is-on' : ''}" data-set="posting" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="wc-field"><span class="lab">A thank-you is recorded as</span><div class="wc-choices">${[['one', 'One record (the task itself)'], ['two', 'The task plus its own record']].map(([k, l]) => `<button type="button" class="wc-choice${s.thank_mode === k ? ' is-on' : ''}" data-set="thank_mode" data-v="${k}">${l}</button>`).join('')}</div></div>
         <div class="wc-field"><span class="lab">The people</span>
@@ -1258,7 +1260,7 @@ setInterval(() => { const c = $('#clock'); if (!c || !S.in.data) return; const d
 window.WC = {
   api, post, S, esc, ic, I, fd, plural, money, addDays, dayn, lateClass, P, live, gone, cur, render, runJob, driveBatch, toast, refreshBoard, loadRecent,
   closeLayer, dialog, reqId, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
-  get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, get TODAY() { return TODAY; }, AS,
+  get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, mayAssign, get TODAY() { return TODAY; }, AS,
 };
 
 // ------------------------------------------------------------ start

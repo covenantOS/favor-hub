@@ -32,7 +32,7 @@ export function work(handler: (a: RouteArgs) => Promise<Response | Record<string
     try {
       if (!sameSite(request)) throw new HttpError(403, 'cross_site', 'That change did not come from the Work Center page. Reload the page and try again.');
       const wu = await requireWork(env, request, opts);
-      const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.user.email };
+      const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
       const out = await handler({ request, env, params: params as Record<string, string | string[]>, waitUntil, ctx, wu, url: new URL(request.url) });
       if (out instanceof Response) return out;
       return json(out.ok === undefined ? { ok: true, ...out } : out);

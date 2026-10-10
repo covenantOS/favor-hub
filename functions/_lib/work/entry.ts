@@ -2,6 +2,7 @@
 // or typed. Each is matched to a partner, checked against what Blackbaud already holds, and sent as one completed contact.
 // The hub's own table (act_submissions) keeps every row, so nothing a person reviewed is lost when Blackbaud is down.
 import { HttpError, newId, nowIso, type Env } from '../http';
+import { can } from './role';
 import { addMeter, getSetting, listStaff, logEvent, setSetting, type StaffRow } from './db';
 import { monthsBack, readOwnerTabs, SheetReadError } from './sheetsa';
 import { batchByReq, saveBatch, todayEt, validDate, type Ctx, type PlannedItem } from './service';
@@ -50,8 +51,17 @@ export async function entryOwners(env: Env): Promise<StaffRow[]> {
   return (await listStaff(env).catch(() => [])).filter((s) => s.entry_owner === 1 && s.active === 1 && s.bb_fundraiser_id);
 }
 
-async function ownerOf(env: Env, fid: string): Promise<StaffRow> {
-  const o = (await entryOwners(env)).find((s) => String(s.bb_fundraiser_id) === fid);
+/** Entry belongs to Support (every director they support) and to a director for their own contacts. Everyone else is turned away. */
+function mayEnter(ctx: Ctx, fid: string): boolean {
+  const s = ctx.scope;
+  if (!s || s.all) return true;
+  if (!can(s, 'entry')) return false;
+  return s.fids.has(fid);
+}
+
+async function ownerOf(ctx: Ctx, fid: string): Promise<StaffRow> {
+  if (!mayEnter(ctx, fid)) throw new HttpError(403, 'not_yours', 'Entry for that person is not yours to use. Support enters for the directors they support, and each director enters their own.');
+  const o = (await entryOwners(ctx.env)).find((s) => String(s.bb_fundraiser_id) === fid);
   if (!o) throw new HttpError(400, 'bad_owner', 'Pick whose contacts these are from the list.');
   return o;
 }
@@ -90,7 +100,7 @@ function shapeSub(r: SubRow, parts: Map<string, PartnerHit>) {
 
 export async function entryView(ctx: Ctx, ownerFid: string) {
   const env = ctx.env;
-  const owners = await entryOwners(env);
+  const owners = (await entryOwners(env)).filter((o) => mayEnter(ctx, String(o.bb_fundraiser_id)));
   const w = weekWindow();
   const since = addDays(w.lastStart, -60);
   const all = (await env.DB.prepare('SELECT * FROM act_submissions WHERE contact_date >= ? ORDER BY contact_date, created_at').bind(since).all<SubRow>()).results;
@@ -152,7 +162,7 @@ export async function entryPaste(ctx: Ctx, ownerFid: string, text: string) {
 
 /** Rows read from an owner's tracking sheet tabs, whether pasted or read by the hub. Each is matched, checked against Blackbaud and saved once. */
 export async function entryIngest(ctx: Ctx, ownerFid: string, sheet: SheetRow[], unread: number, source: 'paste' | 'sheet') {
-  const owner = await ownerOf(ctx.env, ownerFid);
+  const owner = await ownerOf(ctx, ownerFid);
   const today = todayEt();
   const prepared = sheet.map((r) => {
     const date = toIso(r.date, today) || today;
@@ -206,6 +216,7 @@ export async function entryIngest(ctx: Ctx, ownerFid: string, sheet: SheetRow[],
 export async function entryPatch(ctx: Ctx, id: string, body: Record<string, unknown>) {
   const row = await ctx.env.DB.prepare('SELECT * FROM act_submissions WHERE id = ? LIMIT 1').bind(id).first<SubRow>();
   if (!row) throw new HttpError(404, 'not_found', 'That row is not here.');
+  if (!mayEnter(ctx, row.owner_fid)) throw new HttpError(403, 'not_yours', 'That row belongs to someone whose Entry is not yours.');
   if (row.state === 'posted' || row.state === 'posting') throw new HttpError(409, 'locked', 'That contact is already in Blackbaud.');
   const sets: string[] = [];
   const vals: unknown[] = [];
@@ -272,6 +283,7 @@ export async function entryPost(ctx: Ctx, submissionIds: string[], req?: string)
     const part = ids.slice(i, i + 80);
     rows.push(...(await ctx.env.DB.prepare(`SELECT * FROM act_submissions WHERE id IN (${part.map(() => '?').join(',')})`).bind(...part).all<SubRow>()).results);
   }
+  for (const r of rows) if (!mayEnter(ctx, r.owner_fid)) throw new HttpError(403, 'not_yours', 'Some of those rows belong to someone whose Entry is not yours.');
   const staff = await entryOwners(ctx.env);
   const items: PlannedItem[] = [];
   const notReady: string[] = [];
@@ -312,7 +324,7 @@ export interface ManyInput {
 }
 
 export async function entryMany(ctx: Ctx, input: ManyInput) {
-  const owner = await ownerOf(ctx.env, String(input.owner));
+  const owner = await ownerOf(ctx, String(input.owner));
   const date = validDate(input.date, 'the date of the contact');
   if (!HOWS[input.channel]) throw new HttpError(400, 'bad_how', 'Pick how it went out.');
   const summary = String(input.summary || '').trim().slice(0, 255);
@@ -381,7 +393,7 @@ export const SHEET_GAP_MS = 10 * 60000;
  * reading the same sheet again adds nothing twice. A read within the last ten minutes is skipped unless `force` is set.
  */
 export async function entrySheet(ctx: Ctx, ownerFid: string, opts: { force?: boolean } = {}) {
-  const owner = await ownerOf(ctx.env, ownerFid);
+  const owner = await ownerOf(ctx, ownerFid);
   if (!owner.sheet_tab) return { ok: true, added: [], skipped: 0, unread: 0, read: 0, why: 'no_tab' };
   const key = `sheet:at:${ownerFid}`;
   const last = await getSetting(ctx.env, key, '');

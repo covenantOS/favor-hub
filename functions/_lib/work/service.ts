@@ -15,8 +15,9 @@ import {
 } from '../actions/completion';
 import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, refreshCalls, REFRESH_MAX, resetLabel, undoUntil, utcDay } from '../actions/batch';
 import { advance, bodyFor, fillDep, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
-import { actionRaw, forgetExtra, nextOfRecur, oppRaw, planEdit, saveRecur, shadowOpp, stopRecur, type EditInput } from './edit';
+import { actionRaw, forgetExtra, nextOfRecur, oppRaw, partnerContext, planEdit, saveRecur, shadowOpp, stopRecur, type EditInput } from './edit';
 import { etParts } from '../actions/intake';
+import { can, inScope, mayAssignTo, ROLE_LABEL, scopeRows, type Scope } from './role';
 import { mirror } from '../foundations/blackbaud';
 import type { OpsCall } from '../foundations/blackbaud';
 
@@ -25,6 +26,10 @@ export interface Ctx {
   repo: ActionsRepo;
   actor: string;
   email: string;
+  /** Who the signed-in person is to the Work Center. Undefined for jobs that run as the system (the overnight drain, the freshness pass). */
+  scope?: Scope;
+  /** A test run by the agent key as another role: every write is refused unless it is on this one partner record. */
+  testCid?: string;
 }
 
 export const todayEt = (): string => etParts(new Date()).date;
@@ -106,7 +111,7 @@ export async function currentBoard(ctx: Ctx): Promise<Board> {
   const today = todayEt();
   const staff = await staffPeople(ctx.env);
   const [data, changes] = await Promise.all([boardData(ctx.repo, today, staff), loadPending(ctx.env)]);
-  return { rows: applyOverlay(data.rows, changes, data.synced), people: data.people, synced: data.synced, orphans: data.orphans, today };
+  return { rows: scopeRows(ctx.scope, applyOverlay(data.rows, changes, data.synced)), people: data.people, synced: data.synced, orphans: data.orphans, today };
 }
 
 export function publicRow(r: BoardRow): Omit<BoardRow, 'fullDescription' | 'mod'> {
@@ -170,9 +175,28 @@ export async function boardResponse(ctx: Ctx, q: BoardQuery) {
     facets: f,
     lanes: LANES.map((l) => ({ k: l.k, n: l.n, hint: l.hint, count: b.rows.filter((a) => l.test(a, b.today, b.people)).length })),
     people: b.people,
+    me: meOf(ctx.scope),
     orphans: b.orphans,
     total: list.length,
     rows: list.slice(q.offset, q.offset + q.limit).map(publicRow),
+  };
+}
+
+/** What the page needs to show only what this person may do. The server refuses the rest either way. */
+export function meOf(s: Scope | undefined) {
+  if (!s) return { role: 'admin', label: 'Admin', fid: null, team: '', all: true, canDelete: true, canMove: true, canEntry: true, anyTeam: true, canPartnerEdit: true };
+  return {
+    role: s.role,
+    label: ROLE_LABEL[s.role],
+    fid: s.fid,
+    team: s.team,
+    all: s.all,
+    canDelete: can(s, 'delete'),
+    canMove: can(s, 'move'),
+    canEntry: can(s, 'entry'),
+    anyTeam: s.role === 'admin',
+    fids: [...s.fids],
+    canPartnerEdit: can(s, 'partner_edit'),
   };
 }
 
@@ -636,11 +660,108 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
   return { id, op, n: items.length, calls: planned, run_when: when, undo_until: undoUntil(), left: meter.used, duplicates: keyed.length - keyed.filter((k) => items.includes(k.it)).length };
 }
 
+
+/* ------------------------------------------------------------------ who may change what */
+
+const TEST_REFUSED = 'This is a test run as another role, and it may only change the one test record.';
+
+/** Fundraiser ids a change would put on actions. */
+function assignedFids(input: Record<string, any>): string[] {
+  const out: string[] = [];
+  const add = (v: unknown) => {
+    if (Array.isArray(v)) for (const x of v) out.push(String(x));
+    else if (v !== undefined && v !== null && v !== '') out.push(String(v));
+  };
+  if (input.op === 'reassign') add(input.to);
+  add(input.set && input.set.fundraisers);
+  add(input.next && input.next.fundraisers);
+  add(input.complete && input.complete.fundraisers);
+  return out.filter((x) => /^\d+$/.test(x));
+}
+
+/** Partner ids a change touches. */
+function partnersOf(input: Record<string, any>): string[] {
+  const out: string[] = [];
+  if (Array.isArray(input.cids)) out.push(...input.cids.map(String));
+  if (input.cid) out.push(String(input.cid));
+  if (input.op === 'move' && input.to) out.push(String(input.to));
+  return out.filter((x) => /^\d+$/.test(x));
+}
+
+/**
+ * The write rules by role, checked before anything is planned. Defaults: only admins and Support delete or move; only admins reassign
+ * across teams; everyone else changes only actions in their own portfolio, one at a time or in bulk. A test run by the agent key as
+ * another role may touch only its one test record.
+ */
+export async function authorizeBatch(ctx: Ctx, input: Record<string, any>): Promise<void> {
+  const s = ctx.scope;
+  if (!s) return;
+  const op = String(input.op);
+  const ids: string[] = [...new Set<string>((Array.isArray(input.ids) ? input.ids : []).map(String))];
+  const needBoard = ids.length > 0 || assignedFids(input).length > 0 || !!ctx.testCid;
+  const board = needBoard ? await currentBoardAll(ctx) : null;
+  const byId = new Map((board ? board.rows : []).map((r) => [r.id, r]));
+  if (ctx.testCid) {
+    for (const id of ids) {
+      const r = byId.get(id);
+      if (!r || r.cid !== ctx.testCid) throw new HttpError(403, 'test_only', TEST_REFUSED);
+    }
+    for (const c of partnersOf(input)) if (c !== ctx.testCid) throw new HttpError(403, 'test_only', TEST_REFUSED);
+    if (!ids.length && !partnersOf(input).length && op !== 'new') throw new HttpError(403, 'test_only', TEST_REFUSED);
+  }
+  if (s.all) return;
+  if (op === 'delete' && !can(s, 'delete')) throw new HttpError(403, 'not_yours', 'Only an admin or the Support Team can delete an action. Cancel it instead, or ask Support.');
+  if (op === 'move' && !can(s, 'move')) throw new HttpError(403, 'not_yours', 'Only an admin or the Support Team can move an action to another partner.');
+  for (const id of ids) {
+    const r = byId.get(id);
+    if (r) {
+      if (!inScope(s, r)) throw new HttpError(403, 'not_yours', 'That action is outside your portfolio. You can change actions you work and actions on partners you hold.');
+    } else if (s.role !== 'support') {
+      throw new HttpError(403, 'not_yours', 'That action is not open in your portfolio, so it cannot be changed here.');
+    }
+  }
+  if (board) {
+    const teamOf = (fid: string) => (board.people[fid] ? board.people[fid].team : '');
+    for (const fid of assignedFids(input)) {
+      if (!mayAssignTo(s, fid, teamOf)) throw new HttpError(403, 'not_yours', 'Only an admin can hand an action to someone on another team. Pick someone on your team, or ask an admin.');
+    }
+  }
+  const cids = partnersOf(input);
+  if (cids.length && ['new', 'duplicate', 'pnote', 'pfield', 'opp_new', 'opp_edit'].includes(op)) {
+    if (op === 'pfield' && !can(s, 'partner_edit')) throw new HttpError(403, 'not_yours', 'Your role does not change partner contact details.');
+    for (const c of cids) {
+      const holders = await partnerHolders(ctx, c);
+      if (holders.length && !holders.some((h) => s.fids.has(h)) && s.role !== 'support') {
+        throw new HttpError(403, 'not_yours', 'Another team holds that partner. Ask them, or ask Support.');
+      }
+    }
+  }
+}
+
+async function partnerHolders(ctx: Ctx, cid: string): Promise<string[]> {
+  const pc = await partnerContext(ctx, cid);
+  return pc.holders.map((h) => h.fid);
+}
+
+/** The board before the person's scope is applied. Only the write rules use it. */
+async function currentBoardAll(ctx: Ctx): Promise<Board> {
+  return currentBoard({ ...ctx, scope: undefined });
+}
+
+/** A batch belongs to the person who made it, unless they are an admin. */
+export async function assertOwnBatch(ctx: Ctx, batchId: string): Promise<void> {
+  const s = ctx.scope;
+  if (!s || s.all) return;
+  const b = await ctx.env.DB.prepare('SELECT actor_email FROM act_batches WHERE id = ? LIMIT 1').bind(batchId).first<{ actor_email: string }>();
+  if (!b || b.actor_email.toLowerCase() !== ctx.email.toLowerCase()) throw new HttpError(403, 'not_yours', 'That change was made by someone else.');
+}
+
 export async function createBatch(ctx: Ctx, input: BatchInput & { req?: string }) {
   if (!ctx.env.DB) throw new Error('no database');
   if (input.op === 'create') throw new HttpError(400, 'bad_op', 'Entry rows are sent from the Entry tab.');
   const again = await batchByReq(ctx.env, input.req);
   if (again) return { batch: again.batch, skipped: 0, changed: 0, items: again.items };
+  await authorizeBatch(ctx, input as unknown as Record<string, any>);
   if ((EDIT_OPS as readonly string[]).includes(input.op)) return createEditBatch(ctx, input as unknown as EditInput & { req?: string });
   const board = await currentBoard(ctx);
   const plan = await planBatch(ctx, input, board);
@@ -1140,9 +1261,13 @@ export async function retryBatch(ctx: Ctx, batchId: string) {
   return { ok: true, requeued: r.meta?.changes ?? 0 };
 }
 
-export async function recentBatches(env: Env, hours = 36) {
+export async function recentBatches(env: Env, hours = 36, email?: string) {
   const since = new Date(Date.now() - hours * 3600000).toISOString();
-  const bs = (await env.DB.prepare('SELECT * FROM act_batches WHERE created_at >= ? AND op <> \'undo\' ORDER BY created_at DESC LIMIT 60').bind(since).all<BatchRow>()).results;
+  const bs = (
+    email
+      ? await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' AND lower(actor_email) = ? ORDER BY created_at DESC LIMIT 60").bind(since, email.toLowerCase()).all<BatchRow>()
+      : await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' ORDER BY created_at DESC LIMIT 60").bind(since).all<BatchRow>()
+  ).results;
   const out = [];
   for (const b of bs) {
     const rows = (await env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid LIMIT 400').bind(b.id).all<OutboxRow>()).results;

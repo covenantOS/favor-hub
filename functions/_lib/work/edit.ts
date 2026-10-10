@@ -154,6 +154,11 @@ export async function actionDetail(ctx: Ctx, id: string) {
   const pend = await pendingFor(ctx.env, id, got.synced);
   const view = { ...got.raw, ...pend.body };
   const partner = await partnerContext(ctx, String(got.raw.constituent_id));
+  const sc = ctx.scope;
+  if (sc && !sc.all) {
+    const frs = Array.isArray(view.fundraisers) ? view.fundraisers.map(String) : [];
+    if (!frs.some((f: string) => sc.fids.has(f)) && !partner.holders.some((h) => sc.fids.has(h.fid))) throw new HttpError(403, 'not_yours', 'That action is outside your portfolio.');
+  }
   const recur = await ctx.env.DB.prepare('SELECT rule FROM act_recur WHERE action_id = ? AND active = 1 LIMIT 1').bind(id).first<{ rule: string }>().catch(() => null);
   return {
     action: {

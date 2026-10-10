@@ -8,6 +8,8 @@ export const onRequestGet = work(async ({ ctx, url }) => {
   if (linked) return { actions: await oppLinked(ctx, linked) };
   const cid = (url.searchParams.get('cid') || '').replace(/\D/g, '').slice(0, 12);
   const fr = (url.searchParams.get('fr') || '').replace(/\D/g, '').slice(0, 12);
-  const rows = await oppsFor(ctx, cid ? [cid] : null, { fr: fr || undefined, limit: 1500 });
+  let rows = await oppsFor(ctx, cid ? [cid] : null, { fr: fr || undefined, limit: 1500 });
+  const sc = ctx.scope;
+  if (sc && !sc.all && !cid) rows = rows.filter((o) => o.fundraisers.some((f) => sc.fids.has(f)));
   return { rows, names: await oppNames(ctx, rows.map((r) => r.cid)) };
 });

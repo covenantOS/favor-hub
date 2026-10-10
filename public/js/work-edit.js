@@ -21,7 +21,7 @@ function readCols() { try { return Object.assign({ type: 1, what: 1, who: 1, add
 const today = () => W().TODAY;
 const addDays = (d, n) => W().addDays(d, n);
 const nextMonday = () => { let d = addDays(today(), 1); while (new Date(d + 'T12:00:00Z').getUTCDay() !== 1) d = addDays(d, 1); return d; };
-const staffList = () => Object.keys(W().DATA.people).filter(W().live).sort((a, b) => W().P(a).n.localeCompare(W().P(b).n));
+const staffList = () => Object.keys(W().DATA.people).filter(W().live).filter(W().mayAssign).sort((a, b) => W().P(a).n.localeCompare(W().P(b).n));
 const typeFor = (fid) => E.types[fid] || E.me.type || 'RDD Action';
 const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
 
@@ -184,8 +184,8 @@ function drawFoot(state, text) {
   const st = P.state ? statusLine(P.state[0], P.state[1]) : dirty ? statusLine('dirty', 'Not saved yet') : '<span class="ep-state"></span>';
   foot.innerHTML = `<div class="ep-foot__more">
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="dup" title="Copy this action to this partner or others">Duplicate</button>
-      <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="move" title="Move it to another partner">Move</button>
-      <button type="button" class="h-btn h-btn--ghost h-btn--sm ep-del" data-ep="delete">Delete</button></div>
+      ${wc.DATA.me.canMove ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="move" title="Move it to another partner">Move</button>' : ''}
+      ${wc.DATA.me.canDelete ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm ep-del" data-ep="delete">Delete</button>' : ''}</div>
     <div class="ep-foot__main">${st}
       ${done ? '' : `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="next" title="Complete this one and schedule the next">${wc.ic('cal')}Complete and next</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="complete" title="Mark complete (c)">${wc.ic('check')}Complete</button>`}
