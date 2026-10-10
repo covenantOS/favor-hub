@@ -87,39 +87,42 @@ export class Recorder {
     if (local.screenAudio) { const k = 'screen-' + local.screenAudio.id; if (!this.srcs.has(k)) { try { const s = this.actx.createMediaStreamSource(new MediaStream([local.screenAudio])); s.connect(this.dest); this.srcs.set(k, s); } catch {} } }
   }
 
+  // The picture is built from the roster, not from the tiles on this host's page, so everyone is in the file by their own name
+  // however the gallery is paged. A person whose camera is off, or who is on another page, is drawn as initials.
   draw() {
     const { tiles } = this.getInput();
     const c = this.ctx2d;
     c.fillStyle = '#1f261d'; c.fillRect(0, 0, W, H);
-    const list = [...tiles.values()].filter((t) => t.el.isConnected);
-    const share = list.find((t) => t.share);
-    const cams = list.filter((t) => !t.share);
-    const cell = (t, x, y, w, h, fit) => {
-      const v = t.video;
-      c.fillStyle = hashColor(t.el.querySelector('.nt') ? t.el.querySelector('.nt').textContent : 'x'); c.fillRect(x, y, w, h);
-      if (v && v.videoWidth && v.style.display !== 'none') {
+    const people = (this.S.people || []).filter((p) => !p.waiting);
+    const shareOf = (p) => tiles.get('share:' + p.pid);
+    const liveVideo = (t) => (t && t.el && t.el.isConnected && t.video && t.video.videoWidth && t.video.style.display !== 'none' && t.video.readyState >= 2 ? t.video : null);
+    const sharer = people.find((p) => liveVideo(shareOf(p)));
+    const cams = people.map((p) => ({ name: p.name, video: p.cam === false ? null : liveVideo(tiles.get(p.pid)) }));
+    const cell = (name, v, x, y, w, h, fit) => {
+      c.fillStyle = hashColor(name); c.fillRect(x, y, w, h);
+      if (v) {
         const vr = v.videoWidth / v.videoHeight, cr = w / h;
         let dw = w, dh = h, dx = x, dy = y;
         if (fit === 'contain') { if (vr > cr) { dh = w / vr; dy = y + (h - dh) / 2; } else { dw = h * vr; dx = x + (w - dw) / 2; } }
         else if (vr > cr) { dw = h * vr; dx = x - (dw - w) / 2; } else { dh = w / vr; dy = y - (dh - h) / 2; }
         c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.drawImage(v, dx, dy, dw, dh); c.restore();
       } else {
-        c.fillStyle = 'rgba(255,255,255,.9)'; c.font = `500 ${Math.round(h / 5)}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.fillText(initials(t.el.querySelector('.nt') ? t.el.querySelector('.nt').textContent.replace(/ \(.*\)/, '') : ''), x + w / 2, y + h / 2);
+        c.fillStyle = 'rgba(255,255,255,.9)'; c.font = `500 ${Math.round(Math.min(h / 3, 72))}px sans-serif`; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(initials(name), x + w / 2, y + h / 2);
       }
-      const nm = t.el.querySelector('.nt') ? t.el.querySelector('.nt').textContent : '';
       c.fillStyle = 'rgba(20,24,18,.62)'; c.font = '500 14px sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
-      const tw = Math.min(w - 16, c.measureText(nm).width + 16); c.fillRect(x + 8, y + h - 30, tw, 22);
-      c.fillStyle = '#f4f2ea'; c.fillText(nm.slice(0, 40), x + 16, y + h - 19);
+      const tw = Math.min(w - 16, c.measureText(name).width + 16); c.fillRect(x + 8, y + h - 30, tw, 22);
+      c.fillStyle = '#f4f2ea'; c.fillText(name.slice(0, 40), x + 16, y + h - 19);
     };
-    if (share) {
+    if (sharer) {
       const sw = Math.floor(W * 0.78);
-      cell(share, 0, 0, sw, H, 'contain');
-      cams.slice(0, 4).forEach((t, i) => cell(t, sw + 4, i * (H / 4), W - sw - 4, H / 4 - 4, 'cover'));
+      cell(sharer.name + "'s screen", liveVideo(shareOf(sharer)), 0, 0, sw, H, 'contain');
+      const side = cams.slice(0, 4);
+      side.forEach((t, i) => cell(t.name, t.video, sw + 4, i * (H / 4), W - sw - 4, H / 4 - 4, 'cover'));
     } else {
-      const n = Math.max(1, cams.length); const cols = n <= 1 ? 1 : n <= 4 ? 2 : 3; const rows = Math.ceil(n / cols);
+      const n = Math.max(1, cams.length); const cols = n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5; const rows = Math.ceil(n / cols);
       const w = W / cols, h = H / rows;
-      cams.forEach((t, i) => cell(t, (i % cols) * w + 2, Math.floor(i / cols) * h + 2, w - 4, h - 4, 'cover'));
+      cams.forEach((t, i) => cell(t.name, t.video, (i % cols) * w + 2, Math.floor(i / cols) * h + 2, w - 4, h - 4, 'cover'));
     }
   }
 
@@ -239,4 +242,18 @@ export class Recorder {
       this.claiming = false;
     }
   }
+}
+
+/** In-page confirm for stopping the recording. Resolves true when the person stops it. */
+export function confirmStopRecording(mode) {
+  return new Promise((resolve) => {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<div class="scrim" data-x="no"></div><div class="modal rec-confirm" role="alertdialog" aria-modal="true" aria-labelledby="rc-h"><div class="modal__body"><h3 id="rc-h" class="mt-h2" style="margin:0">Stop the recording?</h3><p class="mt-sub" style="margin:0;font-size:14px">Everything recorded so far is saved. Nothing after this is ${mode === 'video' ? 'recorded' : 'recorded or written into the notes'}.</p><div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="h-btn h-btn--ghost" data-x="no">Keep recording</button><button class="h-btn h-btn--danger" data-x="yes">Stop recording</button></div></div></div>`;
+    const done = (v) => { document.removeEventListener('keydown', onKey, true); wrap.remove(); resolve(v); };
+    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); done(false); } };
+    wrap.addEventListener('click', (e) => { const x = e.target.closest('[data-x]'); if (x) done(x.dataset.x === 'yes'); });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(wrap);
+    wrap.querySelector('[data-x="no"].h-btn').focus();
+  });
 }

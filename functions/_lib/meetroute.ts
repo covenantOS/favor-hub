@@ -63,7 +63,8 @@ export async function route({ request, env, params }: { request: Request; env: M
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
-    if (sub === 'pump' && m === 'POST') return json(await pump(env, user, id));
+    if (sub === 'pump' && m === 'POST') return json(await pump(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'ask' && m === 'POST') return json(await askAboutMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'action' && m === 'POST') return json(await markAction(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'brain' && m === 'POST') return json(await brainInMeeting(env, user, id, await request.json().catch(() => ({}))));
     return errorJson('not_found', 'Not found.', 404);
@@ -84,6 +85,19 @@ async function endMeeting(env: MeetEnv, id: string) {
   await env.DB.prepare(`UPDATE hub_meetings SET status = 'ended', ended_at = ?, rec_state = ?, notes_status = ? WHERE id = ?`)
     .bind(nowIso(), recorded ? 'uploading' : 'none', recorded && m.rec_mode !== 'off' ? 'pending' : 'none', id).run();
   await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ? WHERE meeting_id = ? AND left_at = 0').bind(Date.now(), id).run();
+}
+
+/** A live meeting whose people have all stopped sending heartbeats (browsers closed without Leave) is over. The cron, pumping and the Meetings list all run it. */
+const STALE_ROOM_MS = 90_000;
+async function endStaleMeetings(env: MeetEnv) {
+  const cutoff = Date.now() - STALE_ROOM_MS;
+  const live = await env.DB.prepare(`SELECT id FROM hub_meetings WHERE status = 'live'`).all<{ id: string }>();
+  let ended = 0;
+  for (const r of live.results || []) {
+    const p = await env.DB.prepare('SELECT MAX(seen) AS s FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0').bind(r.id).first<{ s: number | null }>();
+    if (!p?.s || p.s < cutoff) { await endMeeting(env, r.id); ended++; }
+  }
+  return ended;
 }
 
 async function endIfEmpty(env: MeetEnv, id: string) {
@@ -112,13 +126,7 @@ function safeJson<T>(s: string, d: T): T {
 }
 
 async function listMeetings(env: MeetEnv, user: { email: string; role: string }, scope: string) {
-  // A meeting whose room has been empty for a while is over.
-  const cutoff = Date.now() - 2 * 60_000;
-  const live = await env.DB.prepare(`SELECT id FROM hub_meetings WHERE status = 'live'`).all<{ id: string }>();
-  for (const r of live.results || []) {
-    const p = await env.DB.prepare('SELECT MAX(seen) AS s FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0').bind(r.id).first<{ s: number | null }>();
-    if (!p?.s || p.s < cutoff) await endMeeting(env, r.id);
-  }
+  await endStaleMeetings(env);
   const me = user.email.toLowerCase();
   // An address matches only as a whole quoted address in the JSON, so ann@ never finds a meeting that invited joann@.
   const mine = `(lower(host_email) = ?1 OR access IN ('staff','guests') OR instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
@@ -622,14 +630,45 @@ async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: 
     transcript: m.status === 'ended' && m.transcript && m.transcript !== '[]' ? safeJson(m.transcript, []) : ((await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(id).all()).results || []),
     files: (files.results || []).map((f) => ({ id: f.file_id, name: f.file_name, url: `https://drive.google.com/file/d/${f.file_id}/view` })),
     actions: (await env.DB.prepare('SELECT idx, text, owner_name, owner_email, due, t, done FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all()).results || [],
-    people: (await env.DB.prepare('SELECT name, role FROM hub_meeting_presence WHERE meeting_id = ? ORDER BY joined_at').bind(id).all<{ name: string; role: string }>()).results || [],
+    people: (await env.DB.prepare('SELECT lower(email) AS email, MIN(name) AS name FROM hub_meeting_presence WHERE meeting_id = ? GROUP BY lower(email) ORDER BY MIN(joined_at)').bind(id).all<{ email: string; name: string }>()).results || [],
+    asked: await askedDuring(env, m),
   };
 }
 
+/** What people asked Favor Brain during the meeting and showed or posted, in time order. */
+async function askedDuring(env: MeetEnv, m: Meeting) {
+  const start = Date.parse(m.started_at || m.created_at) || 0;
+  const rows = (await env.DB.prepare(`SELECT body, ts FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'brain' ORDER BY seq LIMIT 60`).bind(m.id).all<{ body: string; ts: number }>()).results || [];
+  return rows
+    .map((r) => ({ b: safeJson<{ q?: string; by?: string }>(r.body, {}), ts: r.ts }))
+    .filter((r) => r.b.q)
+    .slice(0, 20)
+    .map((r) => ({ t: Math.max(0, Math.round((r.ts - start) / 1000)), by: r.b.by || '', q: String(r.b.q).slice(0, 200) }));
+}
+
+/** A question about one finished meeting, answered from its transcript. */
+async function askAboutMeeting(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {
+  const m = await getMeeting(env, id);
+  if (!mayJoin(m, user as never) && !mayReadNotes(m, user, await ledPeople(env, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  const q = clean(b.q, 300);
+  if (!q) throw new HttpError(400, 'bad_question', 'Type a question first.');
+  const rows = (await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n LIMIT 1500').bind(id).all<{ t: number; who: string; text: string }>()).results || [];
+  if (!rows.length) return { ok: true, answer: 'This meeting has no transcript to read.', points: [] };
+  const text = rows.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n').slice(-24000);
+  const out = await chatJson<{ answer?: unknown; points?: unknown }>(env as never, 'You answer a question about one staff meeting from its transcript only. Return keys: answer (one to three plain sentences; say so when the transcript does not cover it) and points (array of at most 4 objects {t: seconds, text} citing where it was said). Do not invent names, numbers or dollar amounts. No em dashes.', `Meeting: ${m.title}\nQuestion: ${q}\n\nTranscript:\n${text}`, 700);
+  const points = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 4).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 240) })).filter((p) => p.text);
+  return { ok: true, answer: plain(out.answer, 600), points };
+}
+
 /** One unit of work for a finished meeting: a part of the recording to Drive, one sound piece to Whisper, or the notes. */
-async function pump(env: MeetEnv, user: { email: string; role: string }, id: string) {
+async function pump(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown> = {}) {
   const m = await getMeeting(env, id);
   if (!mayJoin(m, user as never)) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  if (b.retry && m.status === 'ended' && m.notes_status === 'failed') {
+    await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'pending' WHERE id = ?`).bind(id).run();
+    await env.DB.prepare(`DELETE FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%pump-error%'`).bind(id).run();
+    m.notes_status = 'pending';
+  }
   if (m.status === 'live') return { ok: true, done: true, state: 'live', progress: '' };
   const denv = env as MeetEnv & { MEET_DRIVE_FOLDER?: string };
   try {
@@ -670,12 +709,18 @@ async function pump(env: MeetEnv, user: { email: string; role: string }, id: str
   } catch (err) {
     console.error('[meet] pump', id, err);
     await env.DB.prepare(`INSERT INTO hub_meeting_events (meeting_id, kind, body, ts) VALUES (?, 'notice', ?, ?)`).bind(id, JSON.stringify({ a: 'pump-error', e: String(err instanceof Error ? err.message : err).slice(0, 200) }), Date.now()).run();
+    // After a run of failures the notes stop retrying on their own and the notes page offers Try again.
+    if (m.rec_state !== 'uploading' && m.notes_status === 'pending') {
+      const n = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%pump-error%'`).bind(id).first<{ n: number }>();
+      if ((n?.n || 0) >= 8) await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'failed' WHERE id = ?`).bind(id).run();
+    }
     return { ok: false, done: false, state: 'retry', progress: 'will retry' };
   }
 }
 
 /** The next finished meeting this person can see that still needs work. */
 async function pumpNext(env: MeetEnv, user: { email: string; role: string }) {
+  await endStaleMeetings(env);
   const me = user.email.toLowerCase();
   const row = await env.DB.prepare(
     `SELECT id FROM hub_meetings WHERE status = 'ended' AND (rec_state = 'uploading' OR notes_status = 'pending')
@@ -727,6 +772,7 @@ function occurrences(first: string, repeat: string, n: number): string[] {
 /** Called every few minutes by the cron worker: reminder emails a day before and 15 minutes before, and more occurrences of repeating meetings. */
 async function remind(env: MeetEnv, origin: string) {
   const now = Date.now();
+  await endStaleMeetings(env);
   let sent = 0;
   const windows: Array<{ kind: 'day' | 'soon'; from: number; to: number }> = [
     { kind: 'day', from: now + 23.9 * 3600_000, to: now + 24.1 * 3600_000 },

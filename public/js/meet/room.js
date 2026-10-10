@@ -2,7 +2,7 @@
 // host commands), keeps the subscriptions the layout needs, and handles a dropped connection.
 import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, whoami, pump, MODE } from './ui.js';
 import { Rtc, linkLevel } from './rtc.js';
-import { Recorder } from './rec.js';
+import { Recorder, confirmStopRecording } from './rec.js';
 
 const params = new URLSearchParams(location.search);
 const MID = params.get('m') || '';
@@ -42,8 +42,8 @@ async function boot() {
   }
 }
 
-function ended(msg) {
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${S.meeting && S.meeting.notesStatus !== 'none' ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap">${GUEST ? '' : `<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>${S.meeting && S.meeting.notesStatus !== 'none' ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`}</div></div>`;
+function ended(msg, sub) {
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : S.meeting && S.meeting.notesStatus !== 'none' ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap">${GUEST ? '' : `<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>${S.meeting && S.meeting.notesStatus !== 'none' ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`}</div></div>`;
 }
 
 // ---------------------------------------------------------------- lobby
@@ -188,7 +188,7 @@ function paintBar() {
   const el = $('#rm-bar'); if (!el) return;
   const mins = Math.floor((Date.now() - S.started) / 60000);
   const secs = Math.floor(((Date.now() - S.started) / 1000) % 60);
-  const rec = r && r.active ? (r.mode === 'video' ? `<span class="rm-rec"><i></i>Recording</span>` : `<span class="rm-rec is-notes"><i></i>Notes on</span>`) : (m.rec !== 'off' ? `<span class="rm-rec is-notes"><i></i>${m.rec === 'video' ? 'Recording off' : 'Notes off'}</span>` : '');
+  const rec = r && r.active ? (r.mode === 'video' ? `<span class="rm-rec"><i></i>Recording</span>` : `<span class="rm-rec is-notes"><i></i>Notes on</span>`) : (m.rec !== 'off' ? `<span class="rm-rec is-notes"><i></i>${!r && Date.now() - S.started < 10000 ? 'Starting' : m.rec === 'video' ? 'Recording off' : 'Notes off'}</span>` : '');
   const lv = S.level === 'good' ? 'Connection good' : S.level === 'fair' ? 'Connection fair' : 'Connection weak';
   el.innerHTML = `<b>${esc(m.title)}</b>${rec}<span id="rm-clock">${mins}:${String(secs).padStart(2, '0')}</span>${S.locked ? `<span class="mt-pill mt-pill--gold" style="height:22px">${ic('lock')}Locked</span>` : ''}<span class="rm-net" style="margin-left:auto">${ic('wifi')}${lv}${rtc && rtc.stats.relay ? ' (relay)' : ''}</span>`;
   const b = $('#rm-banner');
@@ -485,6 +485,8 @@ async function stopShare() {
 
 async function leaveRoom(msg) {
   S.left = true; clearIntervals();
+  // The person who owns the recording sees the left screen at once while the last pieces upload.
+  if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.'); }
   try { if (recorder) await recorder.stopIfOwner(); } catch {}
   try { await api('meetings/' + MID + '/leave', { method: 'POST', body: { pid: S.me.pid } }); } catch {}
   [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());
@@ -686,7 +688,7 @@ function maybeStartRecording() {
 }
 async function toggleRecording() {
   if (!recorder) maybeStartRecording();
-  if (S.recording && S.recording.active) { if (confirm('Stop the recording?')) await recorder.stop(); }
+  if (S.recording && S.recording.active) { if (await confirmStopRecording(S.recording.mode)) await recorder.stop(); }
   else await recorder.start();
 }
 

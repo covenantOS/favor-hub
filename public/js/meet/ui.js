@@ -66,7 +66,7 @@ export async function pump(id, onStep) {
   if (pumping) return;
   pumping = true;
   try {
-    for (let i = 0; i < 400; i++) {
+    for (let i = 0; i < (id ? 400 : 25); i++) {
       let r;
       try { r = await api(id ? 'meetings/' + id + '/pump' : 'meetings/pump', { method: 'POST', body: {} }); } catch { break; }
       if (onStep) onStep(r.state === 'uploading' ? 'Saving the recording to Google Drive, ' + r.progress + '.' : r.state === 'transcribing' ? 'Reading the recording.' : '');
