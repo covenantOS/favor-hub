@@ -94,7 +94,7 @@ function mirror(gifts = GIFTS) {
       return out;
     }
     if (sql.includes('FROM fundraisers')) return Object.entries(RAISERS).map(([id, n]) => ({ id, first: n[0], last: n[1] }));
-    if (sql.includes('consistent_gift_tags')) return gifts.filter((g) => g.consistent).map((g) => ({ gift_id: g.id }));
+    if (sql.includes('gift_custom_fields')) return gifts.filter((g) => g.consistent).map((g) => ({ gift_id: g.id }));
     if (sql.includes("json_extract(raw_json, '$.batch_number')")) return JSON.parse(params[0]).map((id) => ({ id, b: BATCH[id] || null }));
     if (sql.includes('AS d, SUM(gift_amount) AS s, COUNT(*) AS n')) {
       const by = {};

@@ -112,7 +112,7 @@ const def: ReportDef = {
   post(_rows, _f, extra) {
     return (extra as Extra).post.text;
   },
-  note: 'Consistent Giving counts the gifts on the Consistent tag list the sync worker keeps.',
+  note: 'Consistent Giving counts the gifts whose gift custom field Consistent Gift is ConsistentGift, as the sync worker mirrors it.',
   fileTag: (f) => (f.mode === 'day' && f.day ? f.day : f.mode === 'range' && f.from ? `${f.from}-${f.to || f.from}` : 'last-business-day'),
 };
 export default def;

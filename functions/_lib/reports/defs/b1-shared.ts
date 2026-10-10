@@ -212,7 +212,7 @@ export async function loadGrid(ctx: ReportContext, from: string, to: string, lim
         WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND assignment_to_date IS NULL AND assignment_fundraiser_id NOT IN (SELECT value FROM json_each(?2))`,
       [ids, JSON.stringify(EXCLUDED_FUNDRAISERS)]
     ),
-    ctx.sql<{ gift_id: string }>(`SELECT gift_id FROM consistent_gift_tags WHERE gift_id IN (SELECT value FROM json_each(?1))`, [JSON.stringify(gifts.map((g) => g.id))]),
+    ctx.sql<{ gift_id: string }>(`SELECT DISTINCT gift_id FROM gift_custom_fields WHERE category = 'Consistent Gift' AND value = 'ConsistentGift' AND gift_id IN (SELECT value FROM json_each(?1))`, [JSON.stringify(gifts.map((g) => g.id))]),
   ]);
   const nameOf = new Map(names.map((n) => [String(n.id), n]));
   const statOf = new Map(stats.map((s) => [String(s.cid), s]));
