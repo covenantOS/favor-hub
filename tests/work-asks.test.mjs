@@ -129,10 +129,18 @@ describe('shapeAsks', () => {
     assert.deepEqual(rows.map((r) => r.id), ['2']);
   });
   it('flags an ask of $1,000,000 or more and keeps it out of the totals', () => {
-    const rows = asks.shapeAsks(base({ asks: [A('1', '1', 2000000, '2026-09-01'), A('2', '2', 500, '2026-09-01'), A('3', '3', 999999, '2026-09-01')] }), TODAY);
+    const rows = asks.shapeAsks(base({ asks: [A('1', '1', 2000000, '2026-09-01'), A('2', '2', 500, '2026-09-01'), A('3', '3', 999999, '2026-09-01')], largest: { 1: 1900000, 3: 100000 } }), TODAY);
     assert.equal(rows.find((r) => r.id === '1').review, true);
     assert.equal(rows.find((r) => r.id === '3').review, false);
     assert.deepEqual(asks.statsOf(rows, TODAY).stats.open, { n: 2, total: 500 + 999999 });
+  });
+  it('holds back an ask of $100,000 or more that is over 20 times the largest gift, or from a partner who never gave', () => {
+    assert.equal(asks.needsCheck(500000, 2500), true);
+    assert.equal(asks.needsCheck(500000, 0), true);
+    assert.equal(asks.needsCheck(500000, 25000), false);
+    assert.equal(asks.needsCheck(500000, 10000), true);
+    assert.equal(asks.needsCheck(99999, 0), false);
+    assert.equal(asks.needsCheck(40000, 0), false);
   });
   it('totals the board', () => {
     const rows = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01'), A('2', '2', 200, '2026-09-01'), A('3', '3', 300, '2026-09-01')], closes: [{ action_id: '2', expected_close: '2026-12-01', set_by: 'x' }, { action_id: '3', expected_close: '2026-10-01', set_by: 'x' }], gifts: [{ id: 'g', giver: '1', amount: 150, gdate: '2026-09-02', soft: null }] }), TODAY);

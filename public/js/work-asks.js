@@ -9,7 +9,7 @@ const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const A = { data: null, loading: false, error: '', owner: '', mode: 'board', q: '', status: 'open', range: '12m', more: {}, started: false, undo: null };
-const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Over $1M'], ['all', 'All']];
+const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Check amount'], ['all', 'All']];
 const COLS_FOR = { open: ['open', 'closing', 'past'], gave: ['gave'], review: ['open', 'closing', 'past', 'gave'], all: ['open', 'closing', 'past', 'gave'] };
 const PAGE = 20;
 const COLS = [['open', 'Asked, no close date'], ['closing', 'Closing'], ['past', 'Past the close date'], ['gave', 'Gave']];
@@ -132,7 +132,7 @@ function view() {
         <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(A.q)}" autocomplete="off" /></label>${picker}<span class="wa-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Google Sheets</button></div>
       ${shown().length || d.rows.length ? (A.mode === 'board' ? boardHTML() : listHTML()) : '<div class="wa-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>'}
-      <div class="wa-foot">${plural(shown().length, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks of $1,000,000 or more sit under Over $1M. A gift of the asked amount or more after the ask moves it to Gave.</div>
+      <div class="wa-foot">${plural(shown().length, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks that look far above what the partner has given sit under Check amount and are left out of the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
     </section>`;
   registerSheet();
 }

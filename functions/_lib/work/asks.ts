@@ -8,7 +8,8 @@
 //
 // Counting (corrected 2026-10-10 after the first total, $76.3M, looked far too high): one ask is one partner and one amount, so a follow-up
 // action that repeats the amount within 90 days joins the ask. An action Blackbaud no longer has (act_ask_gone) is left out. An ask of
-// $1,000,000 or more is held back from the default board and every total. The board opens on the last 12 months.
+// $1,000,000 or more is held back from the default board and every total, and so is an ask of $100,000 or more that is over 20 times the
+// partner's largest gift (or the partner has never given). The board opens on the last 12 months.
 //
 // Mirror rules that shape the SQL: the endpoint refuses any statement whose text contains insert, update, replace, upsert, delete,
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
@@ -25,6 +26,11 @@ import type { Scope } from './role';
 export const ASK_DAYS = 365;
 /** An ask this size or larger is left out of the default board and totals. The largest gift Favor has received is $1,999,775 and the whole year's giving is about $13M. */
 export const REVIEW_AMOUNT = 1_000_000;
+/** An ask of this size or more is also held back when it is more than REVIEW_RATIO times the partner's largest gift, or the partner has never given. */
+export const REVIEW_FLOOR = 100_000;
+export const REVIEW_RATIO = 20;
+/** Whether an ask's amount needs a second look before it counts. */
+export const needsCheck = (amount: number, largestGift: number): boolean => amount >= REVIEW_AMOUNT || (amount >= REVIEW_FLOOR && (largestGift <= 0 || amount > REVIEW_RATIO * largestGift));
 /** Tags on the same partner for the same amount, each within this many days of the one before, are one ask. */
 export const SAME_ASK_DAYS = 90;
 export const CLOSE_AHEAD_DAYS = 90;
@@ -54,7 +60,7 @@ export interface AskRow {
   tags: number;
   /** Day of the first tag. The gift match starts here; `date` is the latest tag. */
   first: string;
-  /** At or over REVIEW_AMOUNT: kept out of the default board. */
+  /** The amount needs a second look (see needsCheck): kept out of the default board and every total. */
   review: boolean;
 }
 
@@ -81,7 +87,7 @@ export function lineOf(description: string, summary: string): string {
 }
 
 /** Put every ask in its column. An ask with a zero amount is not an ask. Asks are settled oldest first, and a gift settles one ask. */
-export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: AskClose[]; gone?: Set<string> }, today: string): AskRow[] {
+export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: AskClose[]; gone?: Set<string>; largest?: Record<string, number> }, today: string): AskRow[] {
   const closeOf = new Map(raw.closes.map((c) => [String(c.action_id), c]));
   // The credits each gift gives, per partner.
   const credits = new Map<string, { id: string; date: string; amount: number }[]>();
@@ -137,7 +143,7 @@ export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: As
       gave: hit ? { amount: hit.amount, date: hit.date, giftId: hit.id } : null,
       tags: ch.n,
       first: ch.first,
-      review: amount >= REVIEW_AMOUNT,
+      review: needsCheck(amount, num((raw.largest || {})[String(a.cid)])),
     });
   }
   return out;
@@ -149,7 +155,7 @@ export interface AskColumns { open: Tally; closing: Tally; past: Tally; gave: Ta
 
 const sum = (rows: AskRow[], f: (r: AskRow) => number = (r) => r.amount): Tally => ({ n: rows.length, total: rows.reduce((t, r) => t + f(r), 0) });
 
-/** Tiles and column totals leave out the asks held for review (REVIEW_AMOUNT and over). */
+/** Tiles and column totals leave out the asks held for review (see needsCheck). */
 export function statsOf(all: AskRow[], today: string): { stats: AskStats; columns: AskColumns } {
   const rows = all.filter((r) => !r.review);
   const live = rows.filter((r) => r.state !== 'gave');
@@ -190,6 +196,9 @@ const SOFT_GIFTS_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS g
   FROM gifts g WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
    AND g.soft_credits LIKE '%constituent_id%' LIMIT 5000`);
 
+const LARGEST_SQL = readOnly(`SELECT constituent_record_id AS cid, MAX(gift_amount) AS m FROM gifts WHERE constituent_record_id IN (SELECT value FROM json_each(?1))
+   AND gift_amount > 0 AND gift_type IN ${GIVEN} AND COALESCE(gift_status, 'Active') = 'Active' GROUP BY 1`);
+
 const FUNDRAISER_NAMES_SQL = readOnly('SELECT id AS id, fundraiser_first_name AS first, fundraiser_last_name AS last FROM fundraisers');
 
 const chunkOf = <T>(list: T[], n: number): T[][] => {
@@ -224,7 +233,11 @@ export async function loadAsks(env: Env, q: Q, today: string, allTime = false): 
   const gifts: RawAskGift[] = [];
   for (const g of parts.flat().concat(soft)) if (!seen.has(String(g.id))) { seen.add(String(g.id)); gifts.push(g); }
   const [closes, gone] = await Promise.all([loadCloses(env), loadGone(env)]);
-  return shapeAsks({ asks, gifts, closes, gone }, today).filter((r) => r.date >= since);
+  // The partner's largest gift ever, for the asks big enough to need the comparison.
+  const bigCids = [...new Set(asks.filter((a) => num(a.amt) >= REVIEW_FLOOR && num(a.amt) < REVIEW_AMOUNT).map((a) => String(a.cid)))];
+  const largest: Record<string, number> = {};
+  for (const part of await Promise.all(chunkOf(bigCids, 400).map((c) => q<{ cid: string; m: number }>(LARGEST_SQL, [JSON.stringify(c)])))) for (const g of part) largest[String(g.cid)] = num(g.m);
+  return shapeAsks({ asks, gifts, closes, gone, largest }, today).filter((r) => r.date >= since);
 }
 
 export interface AsksOut {
