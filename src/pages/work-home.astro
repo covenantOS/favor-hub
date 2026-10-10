@@ -1,0 +1,62 @@
+---
+import App from '../layouts/App.astro';
+import '../styles/r2-today.css';
+
+const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const tools = [
+  { id: 'work', tool: 'leaf', label: 'Work Center', href: '/work/', count: 'workWaiting', what: 'actions waiting on you', idle: 'Finish actions, enter the week, thank gifts', need: 'workCenter', icon: I('<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/><path d="m15 17 2 2 4-4"/>') },
+  { id: 'board', tool: 'sky', label: 'Requests', href: '/requests/', count: 'inbox', what: 'requests in the inbox', idle: 'Website, Blackbaud, design, print and more', icon: I('<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>') },
+  { id: 'receipts', tool: 'sun', label: 'Thank-yous', href: '/receipts/', count: 'receiptsLeft', what: 'letters left to print', idle: 'Thank-you receipts Blackbaud has waiting', icon: I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
+  { id: 'expense', tool: 'terra', label: 'Expenses', href: '/expenses/new', count: 'expensesWaiting', what: 'expense requests to review', idle: 'Purchases, travel and reimbursements', icon: I('<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>') },
+  { id: 'foundations', tool: 'slate', label: 'Foundations', href: '/foundations/', what: '', idle: 'Check a foundation before you call, log a contact', icon: I('<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>') },
+];
+const arrow = I('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>');
+---
+<App title="Work" nav="work-home" description="Every work tool in one place, with what is waiting in each.">
+  <div class="r2t">
+    <section>
+      <div class="r2t-sec"><h2>Your tools</h2><span id="wh-meta"></span></div>
+      <div class="r2t-needs wh-grid">
+        {tools.map((t) => (
+          <a class="r2t-tile" data-tool={t.tool} data-wh={t.id} data-count={t.count} data-need={t.need} href={t.href}>
+            <span class="r2t-tile__h"><span class="r2t-ico"><Fragment set:html={t.icon} /></span>{t.label}</span>
+            <span class="r2t-tile__n" data-n hidden></span>
+            <span class="r2t-tile__w" data-what data-idle={t.idle} data-busy={t.what}>{t.idle}</span>
+            <span class="r2t-tile__f"><span class="r2t-go"><Fragment set:html={arrow} /></span></span>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+  <style>
+    .wh-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+  </style>
+  <script is:inline>
+    (() => {
+      function paint(d) {
+        if (!d) return;
+        const counts = d.counts || {};
+        const access = d.access || {};
+        document.querySelectorAll('[data-wh]').forEach((el) => {
+          const need = el.getAttribute('data-need');
+          if (need && access[need] === false) { el.hidden = true; return; }
+          const key = el.getAttribute('data-count');
+          const n = key ? Number(counts[key] || 0) : 0;
+          const nEl = el.querySelector('[data-n]');
+          const wEl = el.querySelector('[data-what]');
+          if (n > 0) {
+            nEl.textContent = n.toLocaleString('en-US');
+            nEl.hidden = false;
+            wEl.textContent = wEl.getAttribute('data-busy');
+          } else {
+            nEl.hidden = true;
+            wEl.textContent = wEl.getAttribute('data-idle');
+          }
+        });
+      }
+      try { paint(JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null')); } catch {}
+      if (window.FAVOR_HUB) paint(window.FAVOR_HUB);
+      document.addEventListener('favor-hub', (e) => paint(e.detail));
+    })();
+  </script>
+</App>

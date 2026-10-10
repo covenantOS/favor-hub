@@ -135,7 +135,7 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
 
 /** Unread inbox mail from the last three days, headers only. */
 export async function unreadMail(token: string): Promise<DayMail[]> {
-  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15&q=newer_than:3d');
+  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15');
   const ids: string[] = (list.messages || []).map((m: any) => m.id);
   const cutoff = Date.now() - 3 * 864e5;
   // One request per message, all at once (they ran one after another and took about 3 s).

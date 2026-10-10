@@ -65,6 +65,7 @@ export const AREAS: NavArea[] = [
     key: 'w',
     barRank: 2,
     pages: [
+      { id: 'work-home', label: 'Overview', href: '/work-home/', desc: 'Every work tool and what is waiting in each', keywords: 'work home overview tools', swap: true },
       { id: 'work', label: 'Work Center', href: '/work/', desc: 'Finish many Blackbaud actions together, enter the week, thank gifts', keywords: 'work center bulk select complete actions thank you entry tracking stale reassign reschedule support partner', need: 'workCenter', count: 'workWaiting', learn: 'work-center', swap: true },
       { id: 'board', label: 'Requests', href: '/requests/', desc: 'Request board: inbox, approved, in motion, done', keywords: 'request board kanban review approve website portal app marketing', count: 'inbox', also: ['new'], learn: 'request-board', swap: true },
       { id: 'expense', label: 'Expenses', href: '/expenses/new', desc: 'Expense request, signed online', keywords: 'expense request travel pre-travel approval signature purchase', learn: 'expense-request' },
@@ -100,19 +101,20 @@ export const AREAS: NavArea[] = [
   },
   {
     id: 'kpi',
-    label: 'KPI',
+    label: 'Reporting',
+    short: 'Reporting',
     icon: 'chart',
     key: 'k',
     barRank: 5,
     pages: [
       { id: 'kpi', label: 'Executive', href: '/dashboard/', desc: "The year's numbers", keywords: 'kpi dashboard revenue goals executive year', need: 'kpi', kpiPage: '/', learn: 'kpi-dashboard', swap: true },
+      { id: 'reports', label: 'Reports', href: '/reports/', desc: 'Daily revenue, lists and yearly reports, with CSV and Google Sheets', keywords: 'reports report blackbaud query queries daily revenue ytd income lybunt lapsed mailing list export csv sheets tax receipts prayer', learn: 'reports', swap: true },
       { id: 'kpi-rdds', label: 'RDD team', href: '/dashboard/?page=%2Frdds', desc: 'Regional directors', keywords: 'rdd regional directors team kpi', need: 'kpi', team: 'rdd', kpiPage: '/rdds' },
       { id: 'kpi-pc', label: 'Partner Care', href: '/dashboard/?page=%2Fpc', desc: 'Partner Care team numbers', keywords: 'partner care pc kpi', need: 'kpi', team: 'pc', kpiPage: '/pc' },
       { id: 'kpi-ce', label: 'Church Engagement', href: '/dashboard/?page=%2Fce', desc: 'Church Engagement team numbers', keywords: 'church engagement ce kpi', need: 'kpi', team: 'ce', kpiPage: '/ce' },
       { id: 'kpi-grants', label: 'Grants', href: '/dashboard/?page=%2Fgrants', desc: 'Grants team numbers', keywords: 'grants kpi foundations', need: 'kpi', team: 'grants', kpiPage: '/grants' },
       { id: 'kpi-marketing', label: 'Marketing', href: '/dashboard/?page=%2Fmarketing', desc: 'Marketing team numbers', keywords: 'marketing kpi', need: 'kpi', team: 'marketing', kpiPage: '/marketing' },
       { id: 'kpi-definitions', label: 'Definitions', href: '/dashboard/?page=%2Fdefinitions', desc: 'How each number is counted', keywords: 'definitions active lybunt lapsed major partner counted', need: 'kpi', kpiPage: '/definitions', learn: 'kpi-definitions' },
-      { id: 'reports', label: 'Reports', href: '/reports/', desc: 'Daily revenue, lists and yearly reports, with CSV and Google Sheets', keywords: 'reports report blackbaud query queries daily revenue ytd income lybunt lapsed mailing list export csv sheets tax receipts prayer', learn: 'reports', swap: true },
     ],
   },
   {
@@ -159,6 +161,8 @@ export const AREAS: NavArea[] = [
 export const REDIRECTS: Array<[string, string]> = [
   ['/today', '/'],
   ['/kpi', '/dashboard/'],
+  ['/reporting', '/dashboard/'],
+  ['/work/home', '/work-home/'],
   ['/dashboards', '/dashboard/'],
   ['/ask', '/brain/'],
   ['/meetings', '/meet/'],

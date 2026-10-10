@@ -265,3 +265,18 @@ body.h-body[data-nav='brain'] .h-top, body.h-body[data-nav='brain'] .h-app .h-to
   body.h-body #clip-lib, body.h-body #clip-cam { display: none !important; }
   body.h-body[data-nav='brain'] .h-top { padding-bottom: 0; }
 }
+
+/* 2026-10-10 evening fixes (Will's review) */
+/* rail badges sit on the icon's top right corner instead of covering it */
+.h-area__link .h-nav__count { top: 5px; right: auto; left: calc(50% + 5px); min-width: 16px; height: 16px; padding: 0 4px; font-size: 9.5px; line-height: 16px; font-weight: 700; border-radius: 999px; }
+html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__count, .h-app.is-nav .h-area__link .h-nav__count { position: static; margin-left: auto; height: 18px; line-height: 18px; font-size: 11px; }
+/* the account menu holds sounds and sign out, so the rail foot is just the avatar */
+.h-acctmenu .h-sound .h-sound__off { display: none; }
+.h-acctmenu .h-sound[aria-pressed='false'] .h-sound__on { display: none; }
+.h-acctmenu .h-sound[aria-pressed='false'] .h-sound__off { display: inline; }
+/* pages use the room a wide screen gives them */
+.h-page { max-width: 1680px; }
+.r2t { max-width: none; }
+@media (min-width: 1400px) {
+  .r2t-row3:has(> :nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
