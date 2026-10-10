@@ -384,6 +384,8 @@
     document.querySelectorAll('.tbl__wrap').forEach((w) => {
       const s = w.querySelector('.tbl__scroll');
       if (!s) return;
+      const th = s.querySelector('th');
+      if (th) w.style.setProperty('--fw', th.offsetWidth + 'px');
       w.classList.toggle('more-r', s.scrollWidth - s.clientWidth - s.scrollLeft > 4);
       w.classList.toggle('more-l', s.scrollLeft > 4);
     });
