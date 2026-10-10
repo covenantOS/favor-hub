@@ -184,7 +184,7 @@ export async function boardResponse(ctx: Ctx, q: BoardQuery) {
 
 /** What the page needs to show only what this person may do. The server refuses the rest either way. */
 export function meOf(s: Scope | undefined) {
-  if (!s) return { role: 'admin', label: 'Admin', fid: null, team: '', all: true, canDelete: true, canMove: true, canEntry: true, anyTeam: true, canPartnerEdit: true };
+  if (!s) return { role: 'admin', label: 'Admin', fid: null, team: '', all: true, canDelete: true, canMove: true, canEntry: true, canGifts: true, anyTeam: true, canPartnerEdit: true };
   return {
     role: s.role,
     label: ROLE_LABEL[s.role],
@@ -194,6 +194,7 @@ export function meOf(s: Scope | undefined) {
     canDelete: can(s, 'delete'),
     canMove: can(s, 'move'),
     canEntry: can(s, 'entry'),
+    canGifts: !s || s.role === 'admin' || s.role === 'support' || s.role === 'director',
     anyTeam: s.role === 'admin',
     fids: [...s.fids],
     canPartnerEdit: can(s, 'partner_edit'),
@@ -1332,6 +1333,7 @@ export function batchLabel(b: { op: string; params: string }, n: number): string
   const fields = Array.isArray(p.fields) && p.fields.length ? (p.fields as string[]).map((f) => FIELD_WORDS[f] || f).join(', ') : '';
   if (b.op === 'edit') return fields ? `Edited the ${fields}` : 'Edited an action';
   if (b.op === 'bulk_edit') return `Changed ${word(n, 'action')}${fields ? ': ' + fields : p.line ? ': added a line' : ''}`;
+  if (b.op === 'new' && p.thank) return p.thank === 'left' ? `Left a message for ${word(Number(p.gifts) || n, 'gift')}` : `Thanked ${word(Number(p.gifts) || n, 'gift')}${p.next ? ' with a follow-up' : ''}`;
   if (b.op === 'new') return `Added ${word(n, 'action')}${p.next ? ' with a follow-up' : ''}${p.recur ? ', repeating' : ''}`;
   if (b.op === 'complete_next') return `Completed one and scheduled the next for ${String(p.next || '').slice(5).replace('-', '/')}`;
   if (b.op === 'duplicate') return `Copied an action to ${word(n, 'partner')}`;

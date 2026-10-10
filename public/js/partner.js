@@ -114,6 +114,13 @@ function tasksOf(p) {
   for (const t of L.tasks) if (!list.some((x) => x.what === t.what && x.due === t.due)) list.push(t);
   return list.sort((a, b) => (a.due < b.due ? -1 : 1));
 }
+/** Gifts on this partner that no one has thanked yet (Gifts to thank), with the Thank button. A thank-you made here clears the card at once. */
+function oweCards(p) {
+  const L = local(p.id);
+  const list = (p.toThank || []).filter((g) => !L.thanked || !L.thanked.has(g.key));
+  if (!list.length || !window.FavorWG) return L.thankedNow ? `<div class="wg-owe is-done"><div><b>Thanked just now</b><span>By ${esc(L.thankedNow)}</span></div></div>` : '';
+  return list.slice(0, 3).map((g) => `<div class="wg-owe" data-wg-owe="${esc(g.key)}"><div><b>${money(g.amount)} to thank</b><span>${esc(fd(g.date))} · ${esc(g.fund || '')} · ${g.ageDays > 1 ? g.ageDays + ' days' : g.ageDays === 1 ? 'Yesterday' : 'Today'}${g.soft ? ' · Soft credit' : ''}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-thank="${esc(g.key)}">${ic('check')}Thank</button></div>`).join('') + (list.length > 3 ? `<p class="pp-empty" style="margin:6px 28px 0">${list.length - 3} more gifts to thank</p>` : '');
+}
 function view(p, o = {}) {
   const g = p.giving;
   const holders = holderOf(p);
@@ -155,6 +162,7 @@ function view(p, o = {}) {
       ${email ? `<a class="pp-tap" href="mailto:${esc(email.address)}">${ic('mail')}Email</a>` : ''}
       <span class="pp-acts__sep"></span>
       <button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-compose="contact">${ic('plus')}Log a contact</button>
+      ${window.FavorPrep ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-prep="${esc(p.id)}">Call prep</button>` : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="task">Task</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="note">Note</button>
     </div>`;
@@ -169,7 +177,7 @@ function view(p, o = {}) {
   const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts'], ['notes', 'Notes']].map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
-  if (o.compact) return `<div class="pp pp--compact">${head}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
+  if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
   const chart = years.length ? `<section class="pp-sec"><h3>Giving by year</h3><div class="pp-chart" style="grid-template-columns:repeat(${years.length}, minmax(0, 1fr))">${years.map((y) => `<div class="pp-bar2${y.year === TODAY.slice(0, 4) ? ' is-now' : ''}" title="${esc(y.year)}: ${money(Math.round(y.total))}${y.soft ? ' plus ' + money(Math.round(y.soft)) + ' soft credit' : ''}"><em>${short(y.total)}</em><i style="height:${Math.max(4, Math.round(y.total / max * 92))}px"></i><span>${esc(y.year)}</span></div>`).join('')}</div></section>` : '';
   const opps = `<section class="pp-sec"><h3>Opportunities <button type="button" data-pp-oppnew>New opportunity</button></h3>
       ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp"><div><b>${esc(x.name)}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
@@ -201,7 +209,7 @@ function view(p, o = {}) {
         ${row('Added', esc(fd(p.addedOn, true)))}
       </dl>
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
-  return `<div class="pp">${head}${acts}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
+  return `<div class="pp">${head}${acts}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
 }
 function oppForm(x) {
   const C = (CODES && CODES.codes) || {};
@@ -357,6 +365,12 @@ document.addEventListener('click', async (e) => {
   const b = t.closest('button');
   if (!b || !b.closest('.pp')) return;
   const d = b.dataset;
+  if (d.ppThank) {
+    const g = (V.p.toThank || []).find((x) => x.key === d.ppThank); if (!g || !window.FavorWG) return;
+    const ph = (V.p.contact.phones || []).find((x) => !x.doNotCall);
+    window.FavorWG.pop(b, { giftId: g.giftId, cid: g.cid, name: V.p.name, amount: g.amount, date: g.date, fund: g.fund, phone: ph ? ph.number : null, left: g.left, tasks: (g.taskIds || []).length });
+    return;
+  }
   if (d.ppCompose) { V.compose = d.ppCompose; V.editing = null; paint(); setTimeout(() => { const i = $('.pp-composer input[name="what"]', V.host); if (i) i.focus(); }, 30); return; }
   if (b.hasAttribute('data-pp-close-compose')) { V.compose = null; paint(); return; }
   if (d.ppKind) { $$('[data-pp-kind]', b.parentElement).forEach((x) => x.classList.toggle('is-on', x === b)); return; }
@@ -409,6 +423,20 @@ document.addEventListener('click', async (e) => {
   }
 }, true);
 allowed();
+
+// A thank-you saved from the drawer, the Gifts to thank tab or the brief clears the card here too, and an undo brings it back.
+document.addEventListener('favor:thanked', (e) => {
+  const dt = e.detail || {};
+  if (!V.p) return;
+  const L = local(V.p.id);
+  let hit = false;
+  for (const i of dt.items || []) if (String(i.cid) === V.p.id) { (L.thanked || (L.thanked = new Set())).add(`${i.giftId}:${i.cid}`); hit = true; }
+  if (hit && !dt.left) L.thankedNow = 'you';
+  if (hit) paint();
+});
+document.addEventListener('favor:thanked-undone', () => { if (!V.id) return; const L = local(V.id); L.thanked = new Set(); L.thankedNow = ''; refresh(true); });
+document.addEventListener('favor:thanked-failed', () => { if (!V.id) return; const L = local(V.id); L.thanked = new Set(); L.thankedNow = ''; refresh(true); });
+function openCompose(id, kind) { open(id); const t = setInterval(() => { if (V.id === id && V.p) { clearInterval(t); V.compose = kind; paint(); } }, 120); setTimeout(() => clearInterval(t), 6000); }
 
 document.addEventListener('submit', async (e) => {
   const f = e.target;
@@ -538,5 +566,5 @@ if (root) {
   }
 }
 
-window.FavorPartner = { open, close, mount, view, search, href, refresh };
+window.FavorPartner = { open, close, mount, view, search, href, refresh, openCompose };
 })();

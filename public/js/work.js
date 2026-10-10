@@ -195,13 +195,15 @@ function page() {
     </div>
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
       ${withExtraTabs([['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].filter(([k]) => k !== 'intake' || DATA.me.canEntry)).map(([k, l, n]) =>
-        `<button class="wc-tab${S.view === k ? ' is-on' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
+        `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
     </div>
     <div id="view"></div>`;
+  if (window.WCGifts) window.WCGifts.hideBulk();
   Object.assign({ open: viewOpen, intake: viewIntake, ty: viewTy, stale: viewStale, recent: viewRecent, opps: () => window.WCEdit && window.WCEdit.viewOpps() }, extraViews())[S.view]();
 }
 // Tabs other files add (window.WCX = [{ k, label, after, count(), show(), view() }]): My partners and any later tab. They sit after the tab named in `after`.
 function extraTabs() { return (window.WCX || []).filter((t) => !t.show || t.show(DATA.me)); }
+function extraDot(k) { const t = (window.WCX || []).find((x) => x.k === k); return !!(t && t.dot && t.dot()); }
 function extraViews() { return Object.fromEntries((window.WCX || []).map((t) => [t.k, t.view])); }
 function withExtraTabs(base) {
   const out = base.slice();
@@ -1287,6 +1289,7 @@ async function init() {
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
     const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent', 'opps', ...extraTabs().map((t) => t.k)].includes(v)) S.view = v;
     if (window.WCEdit) await window.WCEdit.start();
+    if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
     // A batch sent from a window that closed picks up here.

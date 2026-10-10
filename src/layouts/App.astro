@@ -12,6 +12,7 @@ import '../styles/clipbtn.css';
 import '../styles/partner.css';
 import '../styles/wc-bell.css';
 import '../styles/color.css';
+import '../styles/gifts.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -114,6 +115,8 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#f4efe0" />
     <script is:inline src="/js/sheets.js?v=1"></script>
+    <script is:inline src="/js/thank.js?v=1" defer></script>
+    <script is:inline src="/js/prep.js?v=1" defer></script>
     <script is:inline src="/js/partner.js?v=3" defer></script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
