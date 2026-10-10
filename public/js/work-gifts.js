@@ -38,6 +38,7 @@ const nameOf = (r) => r.partner.name;
 const ago = (r) => (r.ageDays === 0 ? 'Today' : r.ageDays === 1 ? 'Yesterday' : r.ageDays + ' days');
 const badge = (b) => `<span class="wc-tag ${/first/i.test(b) ? 'wc-tag--done' : /largest|\$1,000/i.test(b) ? 'wc-tag--gift' : /soft/i.test(b) ? 'wc-tag--maybe' : ''}">${F().esc(b)}</span>`;
 const tel = (n) => 'tel:' + String(n).replace(/[^\d+]/g, '');
+const mayLetter = () => { const me = W().DATA.me || {}; return (me.role === 'admin' || me.role === 'support') && !!window.WCLetter; };
 const asGift = (r) => ({ team: r.team, giftId: r.giftId, cid: r.cid, name: nameOf(r), amount: r.amount, date: r.date, fund: r.fund, phone: r.partner.phone, left: G.leftNow[r.key] || r.left, tasks: r.taskIds && r.taskIds.length });
 
 function rowHTML(r) {
@@ -51,7 +52,7 @@ function rowHTML(r) {
     <div class="wg-amt wg-c-amt">${f.money(r.amount)}<small class="${r.ageDays > 1 ? 'is-late' : ''}">${f.fd(r.date)} · ${ago(r)}</small></div>
     <div class="wg-c-who">${who}<a class="wg-name" href="/work/partner/${e(r.cid)}" data-partner-id="${e(r.cid)}">${e(nameOf(r))}</a><span class="wg-sub">${p.place ? e(p.place) + ' · ' : ''}${e(ctx)}${r.soft ? ` · Given through ${e(r.soft.giver)}` : ''}</span></div>
     <div class="wg-fund wg-c-fund"><b>${e(r.fund)}</b><span class="wg-sub">${e(r.pay || '')}</span><div class="wg-badges">${r.badges.map(badge).join('')}${r.taskIds && r.taskIds.length ? '<span class="wc-tag" title="An open thank-you task for this gift closes with the thank-you">Task open</span>' : ''}${left ? `<span class="wc-tag wc-tag--queued" title="${e(left.by || '')}">Left a message ${e(f.fd(left.date))}</span>` : ''}</div></div>
-    <div class="wg-acts">${call}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-prep="${e(r.cid)}" data-gift="${e(r.key)}">${f.ic('brief')}Prep</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wg-thank="${e(r.key)}">${f.ic('check')}Thank${f.ic('down', 'wg-caret')}</button></div></div>`;
+    <div class="wg-acts">${call}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-prep="${e(r.cid)}" data-gift="${e(r.key)}">${f.ic('brief')}Prep</button>${mayLetter() ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-letter="${e(r.key)}">${f.ic('letter')}Letter</button>` : ''}<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wg-thank="${e(r.key)}">${f.ic('check')}Thank${f.ic('down', 'wg-caret')}</button></div></div>`;
 }
 
 function view() {
@@ -92,7 +93,7 @@ function bulkBar() {
   b.classList.toggle('is-on', on);
   if (!on) return;
   const f = F();
-  b.innerHTML = `<b>${G.sel.size} selected</b><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-bulk="letter">${f.ic('letter')}Thank by letter</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-bulk="email">${f.ic('mail')}Thank by email</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-clear>Clear</button>`;
+  b.innerHTML = `<b>${G.sel.size} selected</b>${mayLetter() ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-bulk="letters">${f.ic('letter')}Letters, one PDF</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-bulk="letter">${f.ic('letter')}Thank by letter</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-bulk="email">${f.ic('mail')}Thank by email</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-clear>Clear</button>`;
 }
 function hideBulk() { const b = $('#wg-bulk'); if (b) b.classList.remove('is-on'); }
 
@@ -126,6 +127,7 @@ document.addEventListener('click', async (e) => {
     F().pop(b, asGift(r), { owner: G.owner || (r.owners && r.owners[0]) });
     return;
   }
+  if (d.wgLetter) { const r = rows().find((x) => x.key === d.wgLetter); if (r && window.WCLetter) { e.preventDefault(); window.WCLetter.open([asGift(r)], { from: G.owner || (r.owners && r.owners[0]) || '' }); } return; }
   if (d.wgPrep) { e.preventDefault(); if (window.FavorPrep) window.FavorPrep.open(d.wgPrep, { gift: d.gift }); return; }
 }, false);
 // The bulk bar sits on the body, outside the Work Center's root.
@@ -135,6 +137,7 @@ document.addEventListener('click', (e) => {
   const b = t.closest('#wg-bulk [data-wg-bulk]');
   if (b) {
     const gifts = [...G.sel].map((k) => rows().find((r) => r.key === k)).filter(Boolean).map(asGift);
+    if (b.dataset.wgBulk === 'letters') { if (gifts.length && window.WCLetter) window.WCLetter.open(gifts, { from: G.owner || '' }); return; }
     if (gifts.length) F().bulk(gifts, b.dataset.wgBulk, { owner: G.owner || undefined });
     return;
   }
