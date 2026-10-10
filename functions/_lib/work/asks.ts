@@ -144,7 +144,7 @@ const ASKS_SQL = readOnly(`SELECT a.id AS id, a.constituent_record_id AS cid, su
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name,
        json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.deceased AS deceased
   FROM action_tags t JOIN actions a ON a.id = t.id JOIN constituents c ON c.id = a.constituent_record_id
- WHERE COALESCE(t.action_ask_amount, 0) > 0 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) >= ?1
+ WHERE CAST(COALESCE(t.action_ask_amount, 0) AS REAL) > 0 AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) >= ?1
  ORDER BY COALESCE(a.action_completed_date, a.action_date_due) DESC LIMIT 4000`);
 
 const GIVER_GIFTS_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS giver, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS gdate, g.soft_credits AS soft
@@ -234,7 +234,7 @@ export async function asksResponse(ctx: Ctx, ownerIn: string): Promise<AsksOut> 
 /* ------------------------------------------------------------------ the close date */
 
 const ONE_ASK_SQL = readOnly(`SELECT a.id AS id, a.constituent_record_id AS cid, t.action_ask_amount AS amt, json_extract(a.raw_json, '$.fundraisers') AS frs
-  FROM action_tags t JOIN actions a ON a.id = t.id WHERE a.id = ?1 AND COALESCE(t.action_ask_amount, 0) > 0 LIMIT 1`);
+  FROM action_tags t JOIN actions a ON a.id = t.id WHERE a.id = ?1 AND CAST(COALESCE(t.action_ask_amount, 0) AS REAL) > 0 LIMIT 1`);
 
 /** Set the close date on an ask, or clear it with null. Returns the date it had before, which is what Undo sends back. */
 export async function setClose(ctx: Ctx, id: string, dateIn: unknown): Promise<{ id: string; close: string | null; previous: string | null }> {

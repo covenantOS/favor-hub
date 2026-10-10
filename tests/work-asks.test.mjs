@@ -56,6 +56,7 @@ before(() => {
   ask('15', '1', 0, '2026-09-02');
   ask('16', '9', 8000, '2026-09-03'); // partner not in the mirror (merged away)
   ask('99', '2', 7000, '2024-01-01'); // outside the window
+  ask('17', '1', '', '2026-09-04'); // a blank amount saved as text still counts as no ask
   gift('g1', '1', 5000, '2026-04-01');
   gift('g0', '1', 5000, '2026-02-01'); // before the first ask: does not count
   gift('g2', '2', 2000, '2026-09-01');
