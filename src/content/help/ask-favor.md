@@ -14,7 +14,8 @@ Favor Brain answers questions about Favor in plain words. Ask "How many active p
 
 ## Two places to ask
 
-- **On the Favor Brain page.** Type your question under **Ask a question** and press **Ask**, or press one of the example questions. A count shows the partners behind it, a total links to the gifts behind it, and team numbers come with their months; each has a download button for a spreadsheet. Follow up in a few words, such as "show me them", "what about Texas?" or "only major partners", and the page reads it with your last question and shows how.
+- **On the Favor Brain page.** The page is a full-window chat. Type your question and press Enter, or press one of the starter cards. Answers come back as cards, not only text: a partner card with giving by year, a team's year with its quarters and months, charts, tables you can sort and filter, and steps from the manuals with a link to the section. A count shows the partners behind it, and a total shows the gifts behind it. When a question could mean two things, you pick from buttons. Follow up in a few words, such as "show me them", "what about Texas?" or "only major partners", or press a follow-up button under the newest answer. Under each answer, **How I read it** shows the year, state or team it used; press one to change it and the answer redraws.
+- **Your chats.** The list on the left keeps every conversation for 30 days. Search it, rename a chat, pin one, or delete one. **Ctrl Shift O** starts a new chat, and the icon at the top right hides the hub menu so the chat gets the whole window.
 - **From your own Claude or ChatGPT.** Connect it once with the four steps on the same page. Your AI can compare two lists, combine answers and follow up on anything you ask, so we recommend it for everyday questions. The page reminds you every third question you ask there.
 
 ## It is in beta
@@ -33,4 +34,4 @@ It keeps learning. Favor's shared documents come next, and media after that.
 
 ## Keep partner data inside Favor
 
-Don't download Blackbaud exports and paste them into an AI. Ask Favor Brain instead; it hands lists back as a download. Don't share a list outside Favor without your director's okay.
+Don't download Blackbaud exports and paste them into an AI. Ask Favor Brain instead; it hands lists back as a download or a Google Sheet in your own Drive. Don't share a list outside Favor without your director's okay.

@@ -18,7 +18,7 @@ updated: 2026-10-09
 
 ## Read the line about how it understood you
 
-Each answer ends with a line saying how it read your question, for example *"How I read it: lapsed (last gift on or before 2024-10-09); in OH; households counted the dashboard's way."* If that line is wrong, the answer is wrong. On the Favor Brain page, ask again with the word that was missing, for example "active" instead of "lapsed". In Claude or ChatGPT, say it in plain words: "I meant active, not lapsed."
+Each answer ends with a line saying how it read your question, for example *"How I read it: lapsed (last gift on or before 2024-10-09); in OH; households counted the dashboard's way."* If that line is wrong, the answer is wrong. On the Favor Brain page, press the year, state or status under **How I read it** and pick the right one, or ask again with the word that was missing, for example "active" instead of "lapsed". In Claude or ChatGPT, say it in plain words: "I meant active, not lapsed."
 
 ## Follow up
 
@@ -35,7 +35,7 @@ On the Favor Brain page, a short follow-up builds on your last question: "show m
 
 ## When it asks you back
 
-If a question could mean two things, it asks which one you meant instead of guessing. On the Favor Brain page your question goes back in the box; add a few words, such as "list the partners" or "how much", and press **Ask**. In Claude or ChatGPT, answer in a few words.
+If a question could mean two things, it asks which one you meant instead of guessing. On the Favor Brain page you get buttons, one for each thing it could be; press one and the answer follows. **Something else** puts the cursor in the box so you can say it your own way. In Claude or ChatGPT, answer in a few words.
 
 ## When the answer is off
 

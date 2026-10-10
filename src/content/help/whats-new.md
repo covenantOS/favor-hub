@@ -9,6 +9,12 @@ updated: 2026-10-09
 
 Press **Help and what's new**, then **Only what's new**, and the tour shows you each new thing where it lives.
 
+## October 10, 2026
+
+- **Favor Brain is a full-window chat.** Answers come back as cards and buttons, not only text: partner cards, team numbers by quarter and month, charts, tables you can sort and filter, and steps from the manuals. When a question could mean two things you pick from buttons, and under each answer you can change the year, state or team it used and the answer redraws.
+- **Your chats are kept for 30 days.** Search them, rename, pin or delete one, and open an old chat where you left it. Ctrl Shift O starts a new one.
+- **Open in Google Sheets** beside every download on Favor Brain tables, Foundation prospects, Thank-you receipts, the Request board, the Expense log and Feedback. The first time, Google asks once for permission. The sheet lands in your own Drive and only you can open it.
+
 ## October 9, 2026
 
 <!-- Held back until Work Center is released to the Support Team (leadership's word), then the Director of Operations announces it:
