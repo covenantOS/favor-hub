@@ -156,7 +156,7 @@
         <div class="r2t-hero" data-countup>${money0(s.raised)}</div>
         <div class="r2t-bar r2t-bar--lg"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
         <div class="r2t-goal"><span>${pct.toFixed(1)}% of the ${money0(s.goal)} goal</span>${delta ? `<span class="r2t-delta">${delta}</span>` : ''}</div>
-        <a class="h-link r2t-open" href="/dashboard/">Open the KPI dashboard ${icon('arrow')}</a>
+        <a class="h-link r2t-open" href="/dashboard/">Open the KPI dashboard ${icon('arrow')}</a><span class="copy-stamp" data-copy-stamp></span>
       </div>
       <div><div class="r2t-lab">Team goals</div><div class="r2t-teams">${teams}</div></div>`;
     if (s.lastUpdated) $('t-fresh').textContent = `KPI dashboard, Raiser's Edge as of ${clock(s.lastUpdated)}`;

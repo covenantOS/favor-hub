@@ -157,12 +157,14 @@
     if (latest && t.follow && t.follow.length && !t.error) h += `<div class="blk-follow" aria-label="Follow-up questions">${t.follow.map((q) => `<button type="button" class="fu" data-act="ask" data-q="${esc(q)}">${ic('arrow')}${esc(q)}</button>`).join('')}</div>`;
     if (t.hint) h += `<div class="hintline">${ic('spark')}<span>You can ask the same questions from another app you already use.</span><button type="button" class="lnk" data-act="connect">Show me how</button><button type="button" class="ib ib--sm ib--bare x" data-act="hint-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
     const r = t.rated;
+    // An answer with figures in it says when the Blackbaud copy it read was last synced.
+    const nums = !t.error && !t.stopped && (t.blocks || []).some((b) => ['tiles', 'money', 'int', 'pct', 'score', 'chart', 'team', 'table'].includes(b.type));
     h += `<div class="m-foot"><button type="button" class="ib ib--sm ib--bare tip" data-act="acopy" data-turn="${ti}" aria-label="Copy the answer" data-tip="Copy">${ic('copy')}</button>
       <button type="button" class="ib ib--sm ib--bare tip" data-act="alink" data-turn="${ti}" aria-label="Copy link to this chat" data-tip="Copy link">${ic('link')}</button>
       <button type="button" class="ib ib--sm ib--bare tip${r === 'right' ? ' is-done' : ''}" data-act="aup" data-turn="${ti}" aria-label="Right" data-tip="Right" aria-pressed="${r === 'right'}"${t.ref ? '' : ' disabled'}>${ic('up')}</button>
       <button type="button" class="ib ib--sm ib--bare tip${r === 'wrong' ? ' is-done' : ''}" data-feedback="hub-brain" data-rating="wrong" data-ref="${esc(t.ref || '')}" data-question="${esc(t.q)}" aria-label="Not right" data-tip="Not right" aria-pressed="${r === 'wrong'}"${t.ref ? '' : ' disabled'}>${ic('down')}</button>
       <button type="button" class="ib ib--sm ib--bare tip" data-act="again" data-turn="${ti}" aria-label="Ask again" data-tip="Ask again">${ic('redo')}</button>
-      ${r === 'wrong' ? '<span class="told">Will has your note</span>' : r === 'right' ? '<span class="told">Thanks</span>' : ''}${t.ref ? `<span class="ref">Answer ref ${esc(t.ref)}</span>` : ''}</div>`;
+      ${nums ? '<span class="copy-stamp" data-copy-stamp></span>' : ''}${r === 'wrong' ? '<span class="told">Will has your note</span>' : r === 'right' ? '<span class="told">Thanks</span>' : ''}${t.ref ? `<span class="ref">Answer ref ${esc(t.ref)}</span>` : ''}</div>`;
     return h;
   }
   function qHTML(t, ti, latest) {

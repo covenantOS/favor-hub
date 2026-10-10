@@ -111,10 +111,9 @@ function paint() {
         ${list.length > shown.length ? `<div class="wm-more"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-more>Show ${Math.min(100, list.length - shown.length)} more of ${list.length - shown.length}</button></div>` : ''}
       </div>
       <div class="wm-bulk${M.sel.size ? ' is-on' : ''}" role="region" aria-label="Selected partners"><b>${M.sel.size} selected</b><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-plan>${ic('clock')}Plan calls</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-clear>Clear</button></div>
-      <div class="wm-foot"><span>${list.length.toLocaleString('en-US')} of ${st.held.toLocaleString('en-US')} partners held by ${esc(who)} as RDD, Prospect Steward or Church Engagement Director. A contact is a completed call, visit or email. A mailed letter is not one.</span><span>Blackbaud copy from ${esc(syncedAt())}</span></div>
+      <div class="wm-foot"><span>${list.length.toLocaleString('en-US')} of ${st.held.toLocaleString('en-US')} partners held by ${esc(who)} as RDD, Prospect Steward or Church Engagement Director. A contact is a completed call, visit or email. A mailed letter is not one.</span><span class="copy-stamp" data-copy-stamp data-iso="${esc(WC().DATA.synced || '')}"></span></div>
     </section>`;
 }
-function syncedAt() { const s = WC().DATA.synced; return s ? new Date(s).toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : 'a recent sync'; }
 
 async function view() {
   const mine = () => WC().S.view === 'mine';

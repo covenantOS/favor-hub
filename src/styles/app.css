@@ -750,3 +750,8 @@ body.is-dragging-card, body.is-dragging-card * { -webkit-user-select: none !impo
 .b-page > *, #admin > * { min-width: 0; }
 .b-table td .h-chip { display: inline-block; font-size: 11px; color: var(--h-ink-2); }
 .b-table td .b-chip--changed { color: #7a5000; }
+
+/* "As of" stamp on numbers from the Blackbaud copy (public/js/copy-stamp.js). Amber past 26 hours. */
+.copy-stamp { font-size: 12px; font-weight: 600; color: var(--h-ink-2); white-space: nowrap; }
+.copy-stamp.is-old { color: #7a5000; font-weight: 700; }
+.copy-stamp[hidden] { display: none; }
