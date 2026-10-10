@@ -142,6 +142,7 @@
     $('t-year-wrap').hidden = false;
   }
 
+  let kpiAsked = false;
   swr('favor.hub.today.v1', '/api/hub/today', (d) => {
       const first = String((d.user && d.user.name) || '').split(' ')[0];
       $('t-hello').textContent = first && d.user.via === 'google' ? `${part}, ${first}` : part;
@@ -154,9 +155,12 @@
         const column = $('t-mine-card').parentElement;
         if (card && column) column.insertBefore(card, column.firstChild);
       } else {
-        swr('favor.hub.kpi.v1', '/api/hub/kpi', (k) => {
-          if (k.ok && k.summary) year(k.summary);
-        });
+        if (!kpiAsked) {
+          kpiAsked = true;
+          swr('favor.hub.kpi.v1', '/api/hub/kpi', (k) => {
+            if (k.ok && k.summary) year(k.summary);
+          });
+        }
       }
     }, (err) => {
       $('t-cards').innerHTML = `<div class="h-card h-empty" style="grid-column:1 / -1">${esc(err.message)}</div>`;

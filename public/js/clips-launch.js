@@ -119,6 +119,12 @@
   function whenShown() {
     if (checked || btn.hidden) return;
     checked = true;
+    // Looked at most once every ten minutes per browser, so moving between pages does not load the recorder code each time.
+    try {
+      var last = Number(localStorage.getItem('favor.clips.unfinished.at') || 0);
+      if (Date.now() - last < 600000) return;
+      localStorage.setItem('favor.clips.unfinished.at', String(Date.now()));
+    } catch (e) { /* storage refused; check as before */ }
     setTimeout(function () { load().then(function (m) { m.resumeUnfinished(); }); }, 4000);
   }
   new MutationObserver(whenShown).observe(btn, { attributes: true, attributeFilter: ['hidden'] });

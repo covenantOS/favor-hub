@@ -51,11 +51,12 @@ async function load(id, fresh) {
   CACHE.set(id, { at: Date.now(), p: d.partner });
   return d.partner;
 }
-let GATE = null;
+let GATE = null, GATEP = null;
+/* One /api/work/gate call per page, shared with work.js through window.hubGate, with last answer kept so the header search shows from the first frame. */
 async function allowed() {
   if (GATE !== null) return GATE;
-  try { GATE = !!(await api('/api/work/gate')).open; } catch (_) { GATE = false; }
-  return GATE;
+  if (!GATEP) GATEP = (AS ? api('/api/work/gate') : window.hubGate ? window.hubGate() : api('/api/work/gate')).then((g) => { GATE = !!g.open; try { localStorage.setItem('favor.hub.gate.v1', GATE ? '1' : '0'); } catch (_) { /* fine */ } return GATE; }, () => { GATE = false; return false; });
+  return GATEP;
 }
 let CODES = null;
 async function codes() { if (CODES) return CODES; try { CODES = await api('/api/work/codes'); } catch (_) { CODES = { codes: {}, me: {}, types: {} }; } return CODES; }
@@ -555,8 +556,10 @@ function wireSearch(input, list, o = {}) {
 // The header box on every page (the layout draws it for Work Center users).
 const headBox = document.getElementById('pp-headsearch');
 if (headBox) {
+  let early = false; try { early = localStorage.getItem('favor.hub.gate.v1') === '1'; } catch (_) { /* fine */ }
+  if (early) headBox.hidden = false;
   allowed().then((ok) => {
-    if (!ok) return;
+    if (!ok) { headBox.hidden = true; return; }
     headBox.hidden = false;
     const btn = document.querySelector('.h-top__search'); if (btn) btn.hidden = true;
     wireSearch($('input', headBox), $('.pv-find__list', headBox), {});

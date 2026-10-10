@@ -4,3 +4,13 @@
 .has-kpi #t-year:empty { min-height: 280px; }
 .show-welcome #t-welcome[hidden] { display: grid !important; }
 @media (max-width: 860px) { .has-kpi #t-year:empty { min-height: 690px; } }
+
+/* Moving between hub pages keeps the menu and top bar on screen; only the page area changes. */
+@view-transition { navigation: auto; }
+@media (min-width: 861px) {
+  .h-side { view-transition-name: hub-side; }
+  .h-top { view-transition-name: hub-top; }
+}
+::view-transition-group(*) { animation-duration: 0s; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.08s; }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }

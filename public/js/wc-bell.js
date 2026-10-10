@@ -257,7 +257,8 @@ function placeChip() {
   const gear = $('[data-settings]', row);
   row.insertBefore(b, gear || null);
 }
-async function loadChip() { if (M.v) return; try { M.v = await api('/api/work/mail'); placeChip(); const c = $('[data-wm-mailchip] b'); if (c) c.textContent = chipText(); } catch (_) { /* no chip */ } }
+let chipP = null;
+async function loadChip() { if (M.v || chipP) return; chipP = 1; try { M.v = await api('/api/work/mail'); placeChip(); const c = $('[data-wm-mailchip] b'); if (c) c.textContent = chipText(); } catch (_) { /* no chip */ } }
 
 /* ------------------------------------------------------------------ rollout, in Work Center settings (admins) */
 async function placeRollout() {

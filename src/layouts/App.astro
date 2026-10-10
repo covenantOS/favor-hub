@@ -125,7 +125,8 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <script is:inline src="/js/sheets.js?v=1"></script>
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=1" defer></script>
-    <script is:inline src="/js/partner.js?v=4" defer></script>
+    <script is:inline src="/js/partner.js?v=5" defer></script>
+    <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-learn a' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
   </head>
@@ -193,6 +194,12 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       <script is:inline>
         // Paint the menu the way this person last saw it, before the first frame, so entries never pop in
         // after the sign-in check. hub-shell.js refreshes the saved copy on every page.
+        window.hubGate = function () {
+          if (!window.__hubGateP) window.__hubGateP = fetch('/api/work/gate', { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } })
+            .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.message || 'gate'); return j; }); })
+            .catch(function (e) { window.__hubGateP = null; throw e; });
+          return window.__hubGateP;
+        };
         window.hubApplyNav = function (d) {
           var $ = function (id) { return document.getElementById(id); };
           var u = d.user || {};
@@ -251,6 +258,10 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             )}
           </div>
         </header>
+        <script is:inline>
+          // The top bar comes after the menu script above, so the saved sections (reminders bell, clips buttons) are applied to it here, before its first paint.
+          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); } catch (e) {}
+        </script>
         <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
         </main>
@@ -258,8 +269,8 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     </div>
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=4" defer></script>
-    <script is:inline src="/js/clips-launch.js?v=2" defer></script>
-    <script is:inline src="/js/wc-bell.js?v=1" defer></script>
+    <script is:inline src="/js/clips-launch.js?v=3" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=2" defer></script>
     <script>
       import '../scripts/hub';
     </script>

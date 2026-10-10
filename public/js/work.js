@@ -1300,7 +1300,7 @@ async function init() {
   ['bar', 'toast', 'layer'].forEach((id) => { const el = document.getElementById(id); if (el && el.parentElement !== document.body) document.body.appendChild(el); });
   const bar0 = $('#bar'); new MutationObserver(() => document.body.classList.toggle('has-bar', bar0.classList.contains('is-on'))).observe(bar0, { attributes: true, attributeFilter: ['class'] });
   skeleton();
-  try { S.gate = await api('/api/work/gate'); } catch (e) { errorScreen(e.message); return; }
+  try { S.gate = window.hubGate && !AS ? await window.hubGate().catch(() => api('/api/work/gate')) : await api('/api/work/gate'); } catch (e) { errorScreen(e.message); return; }
   if (!S.gate.open) { gateScreen(S.gate); return; }
   try {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
