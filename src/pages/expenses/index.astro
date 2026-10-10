@@ -1,5 +1,6 @@
 ---
 import App from '../../layouts/App.astro';
+import SheetsButton from '../../components/SheetsButton.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 ---
@@ -38,6 +39,7 @@ import '../../styles/expenses.css';
           <div class="exp-filter" id="exp-filter" hidden>
             <div class="exp-filter__chips" role="group" aria-label="Show"></div>
             <input type="search" placeholder="Find a name or EXP number" aria-label="Find a request" />
+            <SheetsButton name="expenses" />
           </div>
           <div id="exp-log"></div>
         </div>

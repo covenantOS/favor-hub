@@ -1,5 +1,6 @@
 ---
 import App from '../../layouts/App.astro';
+import SheetsButton from '../../components/SheetsButton.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/foundations.css';
@@ -53,6 +54,7 @@ import '../../styles/receipts.css';
           <div class="rcp-tools">
             <div class="fnd-filters" id="rcp-filters"></div>
             <input type="search" id="rcp-find" class="rcp-find" placeholder="Find a partner" autocomplete="off" />
+            <SheetsButton name="receipts" />
           </div>
           <div class="fnd-table-wrap">
             <table class="exp-admin-table rcp-table">

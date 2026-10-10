@@ -1,5 +1,6 @@
 ---
 import App from '../layouts/App.astro';
+import SheetsButton from '../components/SheetsButton.astro';
 import '../styles/requests.css';
 ---
 <App full title="Request board" crumb="Work" nav="board" description="What the team has asked to change, what Will has approved, and what is finished.">
@@ -14,6 +15,7 @@ import '../styles/requests.css';
         <div class="board-intro__actions">
           <a class="req-submit" href="/requests/new">Make a request</a>
           <span class="req-chip" id="req-count">Loading</span>
+          <SheetsButton name="requests" />
           <button type="button" class="req-admin-btn" id="req-unlock">Sign in to review</button>
           <button type="button" class="req-ghost" id="req-lock" hidden>Lock</button>
         </div>

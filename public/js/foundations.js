@@ -224,10 +224,15 @@
     renderRows();
   });
 
-  function renderRows() {
+  function visibleRows() {
     let rows = state.list.filter((f) => state.filter === 'all' || statusOf(f)[0] === state.filter);
     if (state.sort === 'recent') rows = rows.slice().sort((a, b) => String(b.last_contact || '').localeCompare(String(a.last_contact || '')));
     else if (state.sort === 'name') rows = rows.slice().sort((a, b) => a.name.replace(/^the /i, '').localeCompare(b.name.replace(/^the /i, '')));
+    return rows;
+  }
+
+  function renderRows() {
+    const rows = visibleRows();
     $('fnd-rows').innerHTML = rows.length
       ? rows
           .map(
@@ -241,6 +246,23 @@
           )
           .join('')
       : `<tr><td colspan="5" class="fnd-empty">Nothing here yet.</td></tr>`;
+  }
+
+  // Open in Google Sheets: the rows the list shows now, in the order shown.
+  if (window.FavorSheets) {
+    window.FavorSheets.register('foundations', () => {
+      const rows = visibleRows();
+      const f = FILTERS.find((x) => x[0] === state.filter);
+      return window.FavorSheets.screen('Foundation prospects', [{
+        name: 'Foundations',
+        columns: [
+          { key: 'name', label: 'Foundation', type: 'text' }, { key: 'location', label: 'Location', type: 'text' }, { key: 'contacts', label: 'Contacts', type: 'int' },
+          { key: 'last_contact', label: 'Last contact', type: 'date' }, { key: 'rdds', label: 'Fundraiser', type: 'text' }, { key: 'status', label: 'Status', type: 'text' },
+          { key: 'waiting', label: 'Waiting', type: 'int' }, { key: 'bb', label: 'Blackbaud lookup ID', type: 'id' },
+        ],
+        rows: rows.map((r) => ({ name: r.name, location: r.location || '', contacts: Number(r.contacts) || 0, last_contact: r.last_contact ? String(r.last_contact).slice(0, 10) : null, rdds: firstNames(r.rdds) || '', status: statusOf(r)[1], waiting: Number(r.waiting) || 0, bb: r.bb_lookup_id || '' })),
+      }], { filters: f && f[0] !== 'all' ? `Showing: ${f[1]}` : '' });
+    });
   }
 
   $('fnd-rows').addEventListener('click', (e) => {

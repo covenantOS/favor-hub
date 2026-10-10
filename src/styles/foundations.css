@@ -416,3 +416,6 @@
 @media (prefers-reduced-motion: reduce) {
   .fnd-form, .fnd-tl li.is-new { animation: none; }
 }
+
+/* Open in Google Sheets, above the list */
+.fnd-sheetbar { display: flex; justify-content: flex-end; margin: 0 0 8px; }

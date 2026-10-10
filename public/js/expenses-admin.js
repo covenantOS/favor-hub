@@ -133,15 +133,46 @@
     bar.hidden = !allRows.length;
   }
 
-  function applyFilter() {
+  function filteredRows() {
     var q = filter.q.toLowerCase();
-    var rows = allRows.filter(function (r) {
+    return allRows.filter(function (r) {
       if (filter.status !== "all" && r.status !== filter.status) return false;
       if (!q) return true;
       return [r.doc_number, r.requester_name, r.requester_email, r.approver_name].join(" ").toLowerCase().indexOf(q) !== -1;
     });
+  }
+
+  function applyFilter() {
     paintFilter();
-    drawTable(rows);
+    drawTable(filteredRows());
+  }
+
+  // Open in Google Sheets: the requests the log shows now, and their lines on a second tab. Staff reimbursement
+  // data, so the sheet's About tab says so. The signed PDFs and signatures stay out.
+  if (window.FavorSheets) {
+    window.FavorSheets.register("expenses", function () {
+      var rows = filteredRows();
+      var LABEL = { pending: "Waiting", approved: "Approved", declined: "Declined" };
+      var words = [filter.status !== "all" ? "Showing: " + (LABEL[filter.status] || filter.status) : "", filter.q ? "Search: " + filter.q : ""].filter(Boolean).join(". ");
+      return window.FavorSheets.screen("Expense log", [
+        {
+          name: "Requests",
+          columns: [
+            { key: "doc", label: "Doc", type: "text" }, { key: "submitted", label: "Submitted", type: "datetime" }, { key: "requester", label: "Requester", type: "text" },
+            { key: "email", label: "Requester email", type: "text" }, { key: "approver", label: "Approver", type: "text" }, { key: "status", label: "Status", type: "text" },
+            { key: "total", label: "Total", type: "money" }, { key: "note", label: "Decline note", type: "text" },
+          ],
+          rows: rows.map(function (r) { return { doc: r.doc_number, submitted: r.submitted_at, requester: r.requester_name, email: r.requester_email, approver: r.approver_name, status: LABEL[r.status] || r.status, total: (r.total_cents || 0) / 100, note: r.decline_note || "" }; }),
+        },
+        {
+          name: "Lines",
+          columns: [
+            { key: "doc", label: "Doc", type: "text" }, { key: "description", label: "Description", type: "text" }, { key: "item", label: "Item", type: "text" }, { key: "amount", label: "Amount", type: "money" },
+          ],
+          rows: rows.flatMap(function (r) { return (r.items || []).map(function (it) { return { doc: r.doc_number, description: it.description, item: it.item || "", amount: (it.amount_cents || 0) / 100 }; }); }),
+        },
+      ], { filters: words, classes: ["staff"] });
+    });
   }
 
   (function wireFilter() {

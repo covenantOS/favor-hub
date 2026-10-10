@@ -1,5 +1,6 @@
 ---
 import App from '../../layouts/App.astro';
+import SheetsButton from '../../components/SheetsButton.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/foundations.css';
@@ -66,6 +67,7 @@ import '../../styles/foundations.css';
           <div class="fnd-tabs" id="fnd-tabs" role="tablist"></div>
 
           <section class="make-sheet fnd-sheet" id="fnd-view-list">
+            <div class="fnd-sheetbar"><SheetsButton name="foundations" /></div>
             <div class="fnd-filters" id="fnd-filters"></div>
             <div class="fnd-table-wrap">
               <table class="exp-admin-table fnd-table">

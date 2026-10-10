@@ -239,6 +239,21 @@
     renderBoard();
   }
 
+  // Open in Google Sheets: every request the board shows this person (an admin also gets the email and the reason for a decline).
+  if (window.FavorSheets) {
+    window.FavorSheets.register('requests', () => {
+      const cols = [
+        { key: 'title', label: 'Request', type: 'text' }, { key: 'status', label: 'Status', type: 'text' }, { key: 'surface', label: 'Where', type: 'text' }, { key: 'who', label: 'Asked by', type: 'text' },
+        ...(admin ? [{ key: 'email', label: 'Email', type: 'text' }] : []),
+        { key: 'created', label: 'Made', type: 'datetime' }, { key: 'updated', label: 'Changed', type: 'datetime' }, { key: 'done', label: 'Finished', type: 'datetime' },
+        ...(admin ? [{ key: 'declined', label: 'Why declined', type: 'text' }] : []),
+        { key: 'body', label: 'What was asked', type: 'text' },
+      ];
+      const rows = items.map((i) => ({ title: i.title, status: STATUS[i.status] || i.status, surface: SURFACE[i.surface] || i.surface, who: i.submitter_name, email: i.submitter_email || '', created: i.created_at, updated: i.updated_at, done: i.completed_at, declined: i.declined_reason || '', body: i.body || '' }));
+      return window.FavorSheets.screen('Request board', [{ name: 'Requests', columns: cols, rows }], { classes: admin ? ['staff'] : [] });
+    });
+  }
+
   boardEl.addEventListener('pointerdown', (e) => {
     if (!admin || e.button !== 0) return;
     const card = e.target.closest('.req-card');

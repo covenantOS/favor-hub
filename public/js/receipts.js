@@ -485,6 +485,33 @@
     for (const k of ['letters', 'held', 'past', 'wording']) $(`rcp-view-${k}`).hidden = state.tab !== k;
   }
 
+  // The letters the filter pills and the search box leave, all pages.
+  function filteredLetters() {
+    const q = state.find.toLowerCase();
+    return letters(state.view.letters).filter(
+      (g) => (state.filter === 'all' || g.segment === state.filter) && (!q || g.gifts.some((l) => `${l.addressee} ${l.place} ${l.lookup} ${l.constituentLookup}`.toLowerCase().includes(q)))
+    );
+  }
+
+  // Open in Google Sheets: one row per gift in the letters shown, every page. No street address goes in.
+  if (window.FavorSheets) {
+    window.FavorSheets.register('receipts', () => {
+      if (!state.view) throw new Error('The letters have not loaded yet.');
+      const groups = filteredLetters();
+      const rows = groups.flatMap((g) => g.gifts.map((x) => ({ partner: g.first.addressee, place: g.first.place || '', lookup: g.first.constituentLookup || '', date: x.date ? String(x.date).slice(0, 10) : null, amount: x.amount, fund: x.fund || '', kind: KINDS[g.segment] || '', in_file: g.batch ? 'Yes' : '' })));
+      const pill = { all: '', regular: 'Regular letters', major: '$200 and up', recurring: 'Monthly gifts' }[state.filter] || '';
+      const words = [pill && `Showing: ${pill}`, state.find && `Search: ${state.find}`].filter(Boolean).join('. ');
+      return window.FavorSheets.screen('Thank-you receipts waiting', [{
+        name: 'Letters waiting',
+        columns: [
+          { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'lookup', label: 'Lookup ID', type: 'id' }, { key: 'date', label: 'Gift date', type: 'date' },
+          { key: 'amount', label: 'Amount', type: 'money' }, { key: 'fund', label: 'Fund', type: 'text' }, { key: 'kind', label: 'Letter', type: 'text' }, { key: 'in_file', label: 'In a print file', type: 'flag' },
+        ],
+        rows,
+      }], { filters: words, classes: ['partner'] });
+    });
+  }
+
   function renderLetters() {
     const v = state.view;
     const all = letters(v.letters);
@@ -500,10 +527,7 @@
         renderLetters();
       })
     );
-    const q = state.find.toLowerCase();
-    const rows = all.filter(
-      (g) => (state.filter === 'all' || g.segment === state.filter) && (!q || g.gifts.some((l) => `${l.addressee} ${l.place} ${l.lookup} ${l.constituentLookup}`.toLowerCase().includes(q)))
-    );
+    const rows = filteredLetters();
     const shared = sharedAddresses();
     const pages = Math.max(1, Math.ceil(rows.length / PAGE));
     state.page = Math.min(Math.max(state.page, 1), pages);

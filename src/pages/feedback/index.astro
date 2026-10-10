@@ -2,6 +2,7 @@
 // Feedback: everyone sees the notes they sent and Will's answers. Will sees every note from the hub,
 // Favor Brain, the help docs and the tour, marks each one, and writes the answer the sender reads.
 import App from '../../layouts/App.astro';
+import SheetsButton from '../../components/SheetsButton.astro';
 ---
 <App title="Feedback" crumb="Learn" nav="feedback" description="Notes about the hub and Favor Brain, and the answers.">
   <div class="fbp">
@@ -10,7 +11,10 @@ import App from '../../layouts/App.astro';
         <h1>Feedback</h1>
         <p class="h-lede" id="fb-lede">Notes you've sent about the hub, Favor Brain and the help docs, with Will's answers. Every note is read.</p>
       </div>
-      <button type="button" class="h-btn h-btn--primary" data-feedback="hub">Send feedback</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <SheetsButton name="feedback" />
+        <button type="button" class="h-btn h-btn--primary" data-feedback="hub">Send feedback</button>
+      </div>
     </section>
 
     <div class="fbp-tabs" id="fb-tabs" role="tablist" aria-label="Which notes" hidden>

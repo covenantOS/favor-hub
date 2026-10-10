@@ -15,6 +15,7 @@
   const list = $('fb-list');
   let admin = false;
   let status = 'new';
+  let shown = [];
 
   const chip = (r) => (RATING[r] ? `<span class="fbp-chip fbp-chip--${RATING[r][1]}">${esc(RATING[r][0])}</span>` : '');
   const pill = (s) => {
@@ -24,6 +25,7 @@
   const initials = (n) => String(n || '').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
   function mine(items) {
+    shown = items;
     list.removeAttribute('aria-busy');
     if (!items.length) {
       list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in the hub or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
@@ -46,6 +48,7 @@
     const counts = d.counts || {};
     document.querySelectorAll('[data-n]').forEach((s) => (s.textContent = counts[s.dataset.n] ? String(counts[s.dataset.n]) : ''));
     const items = d.items || [];
+    shown = items;
     if (!items.length) {
       list.innerHTML = `<li class="h-card fbp-empty"><b>${status === 'new' ? 'Nothing new.' : 'No notes here.'}</b><span>Notes from the Feedback button, Favor Brain answers, the help docs and the tour land here.</span></li>`;
       return;
@@ -73,6 +76,20 @@
         </li>`
       )
       .join('');
+  }
+
+  // Open in Google Sheets: the notes on this page (a person's own, or every note for Will, in the tab chosen).
+  if (window.FavorSheets) {
+    window.FavorSheets.register('feedback', () => {
+      const base = [
+        { key: 'at', label: 'Sent', type: 'datetime' }, { key: 'source', label: 'From', type: 'text' }, { key: 'rating', label: 'Kind of note', type: 'text' },
+        { key: 'status', label: 'Status', type: 'text' }, { key: 'question', label: 'Question', type: 'text' }, { key: 'comment', label: 'Note', type: 'text' }, { key: 'reply', label: 'Answer', type: 'text' },
+      ];
+      const cols = admin ? [{ key: 'name', label: 'Name', type: 'text' }, { key: 'email', label: 'Email', type: 'text' }, ...base, { key: 'page', label: 'Page', type: 'text' }, { key: 'ref', label: 'Answer ref', type: 'text' }] : base;
+      const rows = shown.map((f) => ({ name: f.name || '', email: f.email || '', at: f.at, source: SOURCE[f.source] || f.source, rating: (RATING[f.rating] || [f.rating || ''])[0], status: (STATUS[f.status] || STATUS.new)[0], question: f.question || '', comment: f.comment || '', reply: f.reply || '', page: f.page || '', ref: f.ref || '' }));
+      const tab = admin && status ? `Tab: ${(STATUS[status] || [status])[0]}` : '';
+      return window.FavorSheets.screen('Feedback notes', [{ name: 'Notes', columns: cols, rows }], { filters: tab, classes: admin ? ['staff'] : [] });
+    });
   }
 
   async function load() {
