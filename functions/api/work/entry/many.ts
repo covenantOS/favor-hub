@@ -11,5 +11,6 @@ export const onRequestPost = work(async ({ request, ctx }) => {
     summary: String(b.summary || ''),
     tags: Array.isArray(b.tags) ? b.tags.map(String) : [],
     constituent_ids: Array.isArray(b.constituent_ids) ? b.constituent_ids.map(String) : [],
+    req: typeof b.req === 'string' ? b.req : undefined,
   }) as any;
 });

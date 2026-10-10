@@ -3,7 +3,8 @@
 // The hub's own table (act_submissions) keeps every row, so nothing a person reviewed is lost when Blackbaud is down.
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { addMeter, getSetting, listStaff, logEvent, type StaffRow } from './db';
-import { saveBatch, todayEt, validDate, type Ctx, type PlannedItem } from './service';
+import { batchByReq, saveBatch, todayEt, validDate, type Ctx, type PlannedItem } from './service';
+import { idemKey } from '../actions/outbox';
 import type { PartnerHit } from './repo';
 import {
   askOf, channelOf, entryBody, entryTags, findDuplicate, HOWS, householdHints, pasteRef, parseSheetText, resolvePartner, shortSummary, tagsOf, TAGS, toIso, weekOf, weekWindow, type DoneAction,
@@ -167,13 +168,14 @@ export async function entryPaste(ctx: Ctx, ownerFid: string, text: string) {
   const added: string[] = [];
   for (const f of fresh) {
     const m = resolvePartner({ email: f.r.email, phone: f.r.phone, name: f.r.name }, ownerFid, lk);
-    const cid = m.hits.length === 1 && m.how !== 'many' ? m.hits[0] : null;
+    // A match on name alone is a guess (two partners can share a name), so the person confirms it with a click. Email, phone and a name inside the owner's own portfolio are enough.
+    const cid = m.hits.length === 1 && m.how !== 'many' && m.how !== 'name' ? m.hits[0] : null;
     const ch = channelOf(f.r.act, f.r.notes);
     const dup = cid ? findDuplicate(cid, ownerFid, f.date, done) : null;
     const notes = f.r.notes.replace(/\s+/g, ' ').trim();
     const raw = {
       name: f.r.name, org: f.r.name.includes(' - ') ? f.r.name.split(' - ').slice(1).join(' - ') : '', isNew: f.r.isNew, act: f.r.act, notes, ticked: f.r.ticked, email: !!f.r.email, phone: !!f.r.phone,
-      cands: m.hits.length > 1 || m.how === 'many' ? m.hits : [], dup: dup ? { id: dup.id, added: (dup.added || '').slice(0, 10), cat: dup.category || '', same: dup.due.slice(0, 10) === f.date } : null,
+      cands: m.hits.length > 1 || m.how === 'many' || m.how === 'name' ? m.hits : [], dup: dup ? { id: dup.id, added: (dup.added || '').slice(0, 10), cat: dup.category || '', same: dup.due.slice(0, 10) === f.date } : null,
     };
     const id = newId('wcs');
     added.push(id);
@@ -252,7 +254,9 @@ export async function entryPatch(ctx: Ctx, id: string, body: Record<string, unkn
 
 /* ------------------------------------------------------------------ sending rows */
 
-export async function entryPost(ctx: Ctx, submissionIds: string[]) {
+export async function entryPost(ctx: Ctx, submissionIds: string[], req?: string) {
+  const again = await batchByReq(ctx.env, req);
+  if (again) return { ok: true, batch: again.batch, notReady: [] as string[], items: again.items };
   const ids = [...new Set(submissionIds.map(String))].slice(0, 500);
   if (!ids.length) throw new HttpError(400, 'nothing_to_do', 'Pick rows that are ready.');
   const rows: SubRow[] = [];
@@ -266,7 +270,7 @@ export async function entryPost(ctx: Ctx, submissionIds: string[]) {
   const parts = new Map((await ctx.repo.partnersByIds([...new Set(rows.map((r) => r.constituent_id).filter(Boolean) as string[])])).map((h) => [h.cid, h]));
   for (const r of rows) {
     const owner = staff.find((s) => String(s.bb_fundraiser_id) === r.owner_fid);
-    const ready = (r.state === 'waiting' || r.state === 'failed') && r.constituent_id && r.channel && (r.summary || '').trim() && owner && parts.has(r.constituent_id);
+    const ready = (r.state === 'waiting' || r.state === 'failed') && r.constituent_id && r.channel && (r.summary || '').trim() && owner && parts.has(r.constituent_id) && !parts.get(r.constituent_id)!.deceased;
     if (!ready) {
       notReady.push(r.id);
       continue;
@@ -281,7 +285,7 @@ export async function entryPost(ctx: Ctx, submissionIds: string[]) {
     items.push({ submissionId: r.id, cid: r.constituent_id!, label: `${p.name} | ${r.summary}`, steps });
   }
   if (!items.length) throw new HttpError(400, 'nothing_to_do', 'None of those rows are ready to enter.');
-  const batch = await saveBatch(ctx, 'create', items, { owner: items.length ? rows[0].owner_fid : '' });
+  const batch = await saveBatch(ctx, 'create', items, { owner: items.length ? rows[0].owner_fid : '' }, { reqId: req });
   if (batch.id) {
     const ph = items.map(() => '?').join(',');
     await ctx.env.DB.prepare(`UPDATE act_submissions SET state = 'posting' WHERE id IN (${ph}) AND state <> 'posted'`).bind(...items.map((i) => i.submissionId)).run();
@@ -296,6 +300,7 @@ export interface ManyInput {
   summary: string;
   tags: string[];
   constituent_ids: string[];
+  req?: string;
 }
 
 export async function entryMany(ctx: Ctx, input: ManyInput) {
@@ -310,11 +315,29 @@ export async function entryMany(ctx: Ctx, input: ManyInput) {
   const known = new Map(hits.map((h) => [h.cid, h]));
   const tags = (Array.isArray(input.tags) ? input.tags : []).map(String).filter((t) => TAGS[t]);
   const done = await ctx.repo.doneActions(addDays(date, -2), [String(input.owner)]).catch(() => []);
+  const again = await batchByReq(ctx.env, input.req);
+  if (again) return { ok: true, batch: again.batch, items: again.items, notReady: [] as string[], dups: 0, created: again.items.length, owner: owner.name };
   const created: string[] = [];
   const stmts: D1PreparedStatement[] = [];
   let dups = 0;
+  // Every partner on this contact has a reference of its own (owner, day, way, summary, partner). A second press of the button finds the rows the first made
+  // instead of making them again; rows still waiting or failed go out, rows already in Blackbaud count as already entered.
+  const sig = (await idemKey([summary])).slice(0, 12);
+  const refOf = (cid: string) => `many:${input.owner}:${date}:${input.channel}:${sig}:${cid}`;
+  const existing = new Map<string, { id: string; state: string }>();
+  for (let i = 0; i < ids.length; i += 50) {
+    const part = ids.slice(i, i + 50).map(refOf);
+    const r = await ctx.env.DB.prepare(`SELECT id, state, sheet_ref FROM act_submissions WHERE sheet_ref IN (${part.map(() => '?').join(',')})`).bind(...part).all<{ id: string; state: string; sheet_ref: string }>();
+    r.results.forEach((x) => existing.set(x.sheet_ref, x));
+  }
   for (const cid of ids) {
-    if (!known.has(cid)) continue;
+    if (!known.has(cid) || known.get(cid)!.deceased) continue;
+    const had = existing.get(refOf(cid));
+    if (had) {
+      if (had.state === 'waiting' || had.state === 'failed') created.push(had.id);
+      else dups++;
+      continue;
+    }
     if (findDuplicate(cid, String(input.owner), date, done)) {
       dups++;
       continue;
@@ -323,13 +346,13 @@ export async function entryMany(ctx: Ctx, input: ManyInput) {
     created.push(id);
     stmts.push(
       ctx.env.DB.prepare(
-        `INSERT INTO act_submissions (id, owner_fid, source, contact_date, raw, constituent_id, match_how, channel, summary, tags, state, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(id, String(input.owner), 'many', date, JSON.stringify({ name: known.get(cid)!.name, notes: 'Entered with One contact, many partners' }), cid, 'picked', input.channel, summary, JSON.stringify(tags), 'waiting', nowIso(), ctx.actor)
+        `INSERT OR IGNORE INTO act_submissions (id, owner_fid, source, sheet_ref, contact_date, raw, constituent_id, match_how, channel, summary, tags, state, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(id, String(input.owner), 'many', refOf(cid), date, JSON.stringify({ name: known.get(cid)!.name, notes: 'Entered with One contact, many partners' }), cid, 'picked', input.channel, summary, JSON.stringify(tags), 'waiting', nowIso(), ctx.actor)
     );
   }
   for (let i = 0; i < stmts.length; i += 40) await ctx.env.DB.batch(stmts.slice(i, i + 40));
   if (!created.length) return { ok: true, batch: null, dups, created: 0, owner: owner.name };
-  const posted = await entryPost(ctx, created);
+  const posted = await entryPost(ctx, created, input.req);
   return { ...posted, dups, created: created.length, owner: owner.name };
 }
 

@@ -5,7 +5,7 @@ import { CHUNK, chunk, laneFor, plannedCalls, resetLabel, undoUntil } from '../.
 import { advance, findLostCreate, idemKey, requestFor, sayWhy, verdictOf } from '../../functions/_lib/actions/outbox.ts';
 
 const T = { id: '11', cid: '100', due: '2026-10-01', type: 'RDD Action', category: 'Task/Other', description: 'Old note', summary: 'TY for $42', fundraisers: ['9001'] };
-const O = { actor: 'Grace Morris', today: '2026-10-09' };
+const O = { actor: 'Pat Smith', today: '2026-10-09' };
 
 describe('complete', () => {
   it('closes with a date and keeps the old description when there is no line', () => {
@@ -19,7 +19,7 @@ describe('complete', () => {
   });
   it('the shared line goes at the end of the description with the day and the person, and Undo keeps the old text', () => {
     const s = completeStep(T, { ...O, line: ' Sent thank you letter ' });
-    assert.equal(s.body.description, 'Old note\nSent thank you letter (Oct 9, 2026, Grace Morris)');
+    assert.equal(s.body.description, 'Old note\nSent thank you letter (Oct 9, 2026, Pat Smith)');
     assert.equal(s.before.description, 'Old note');
     assert.equal(appendLine('', 'Done', '2026-10-09', ''), 'Done (Oct 9, 2026)');
   });

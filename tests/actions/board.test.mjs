@@ -159,6 +159,10 @@ describe('the hub remembers what it did until the mirror catches up', () => {
     const quiet = applyOverlay(rows, [{ actionId: '3', op: 'reschedule', state: 'verified', at: '2026-10-09T12:00:00Z', tonight: false, body: { date: '2026-10-16T00:00:00' } }], SYNC);
     assert.equal(quiet.find((r) => r.id === '3').due, '2026-10-01');
   });
+  it('a change made minutes before a sync finished still counts, because that sync may have started before it', () => {
+    const out = applyOverlay(rows, [{ actionId: '1', op: 'complete', state: 'verified', at: '2026-10-09T16:50:00Z', tonight: false, body: {} }], SYNC);
+    assert.equal(out.find((r) => r.id === '1'), undefined);
+  });
 });
 
 describe('validation strictness', () => {

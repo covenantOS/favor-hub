@@ -57,6 +57,8 @@ export interface ExistingAction {
   type?: string | null;
   date?: string | null;
   summary?: string | null;
+  /** When the action was added, Eastern clock. */
+  added?: string | null;
 }
 
 const norm = (s: unknown) => String(s ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -68,6 +70,27 @@ export function findLostCreate(existing: ExistingAction[], want: { type: string;
     (a) => !skip.has(String(a.id)) && norm(a.type) === norm(want.type) && String(a.date ?? '').slice(0, 10) === want.date.slice(0, 10) && norm(a.summary) === norm(want.summary)
   );
   return hit ? String(hit.id) : null;
+}
+
+/**
+ * After a create whose answer was lost, which of the partner's actions could be it? A match needs the same type, date and
+ * summary, must have been added after the row was queued (`after`, Eastern clock), and must not belong to another outbox row.
+ * `unsure` is true when a look-alike has no added time, because then nothing proves it is not an older action.
+ */
+export function matchLostCreate(
+  existing: ExistingAction[],
+  want: { type: string; date: string; summary: string },
+  opts: { skipIds?: string[]; after: string }
+): { ids: string[]; unsure: boolean } {
+  const skip = new Set(opts.skipIds || []);
+  const same = existing.filter((a) => !skip.has(String(a.id)) && norm(a.type) === norm(want.type) && String(a.date ?? '').slice(0, 10) === want.date.slice(0, 10) && norm(a.summary) === norm(want.summary));
+  const ids: string[] = [];
+  let unsure = false;
+  for (const a of same) {
+    if (!a.added) unsure = true;
+    else if (String(a.added).slice(0, 16) >= opts.after.slice(0, 16)) ids.push(String(a.id));
+  }
+  return { ids, unsure };
 }
 
 /** Path and method for an outbox row. The payload holds only the body. */

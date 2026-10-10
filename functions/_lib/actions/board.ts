@@ -246,6 +246,12 @@ export interface PendingChange {
  * mirror is newer and still shows a completed task open, someone reopened it in Blackbaud: the row stays, flagged, and the hub
  * never closes it again by itself (action 35805 was reopened that way on 2026-10-09).
  */
+const SYNC_GRACE_MS = 30 * 60000;
+function graceBefore(iso: string): string {
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? iso : new Date(t - SYNC_GRACE_MS).toISOString();
+}
+
 export function applyOverlay(rows: BoardRow[], changes: PendingChange[], syncedAt: string): BoardRow[] {
   const by = new Map<string, PendingChange[]>();
   for (const c of changes) by.set(c.actionId, (by.get(c.actionId) || []).concat(c));
@@ -255,7 +261,8 @@ export function applyOverlay(rows: BoardRow[], changes: PendingChange[], syncedA
     let row = r;
     let hidden = false;
     for (const c of list) {
-      const newer = !syncedAt || c.at > syncedAt;
+      // A sync that began before the change can finish after it, so a change made within half an hour before the sync's finish still counts as newer.
+      const newer = !syncedAt || c.at > graceBefore(syncedAt);
       if (c.op === 'complete' || c.op === 'thank' || c.op === 'close_thanked') {
         if (newer) {
           if (c.state === 'queued') {

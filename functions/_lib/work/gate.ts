@@ -1,4 +1,4 @@
-// Who may use the Work Center. Admins only until Will releases it; then admins plus everyone on the staff list marked for it.
+// Who may use the Work Center. Admins only until leadership releases it; then admins plus everyone on the staff list marked for it.
 // Every route checks the gate itself, because hiding the menu item hides nothing from a person who knows the address.
 import { HttpError, type Env } from '../http';
 import { hubUserOf, type HubUser } from '../session';
@@ -49,7 +49,7 @@ export async function requireWork(env: Env, request: Request, opts: { adminOnly?
     const msg =
       access.reason === 'before_release'
         ? 'The Work Center opens for you soon. Admins are testing it first. The Support Team gets it next.'
-        : 'The Work Center is for the Support Team. If your work needs it, tell Will Hamilton through Feedback.';
+        : 'The Work Center is for the Support Team. If your work needs it, tell the technology team through Feedback.';
     throw new HttpError(403, 'admin_only', msg);
   }
   return { user, access, actor: user.name || user.email };

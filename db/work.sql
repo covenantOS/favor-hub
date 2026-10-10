@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS act_staff (            -- the people the Work Center 
   team TEXT NOT NULL,                              -- support | rdd | partner_care | church | grants | admin | exec
   bb_fundraiser_id TEXT,                           -- Blackbaud constituent id used in the fundraisers array; null when none
   work_center INTEGER NOT NULL DEFAULT 0,          -- 1 = may open the Work Center once it is released
-  entry_owner INTEGER NOT NULL DEFAULT 0,          -- 1 = has an Entry chip (RDDs, Josh Milliron, Carole Ward, Terry Goodman)
+  entry_owner INTEGER NOT NULL DEFAULT 0,          -- 1 = has an Entry chip (the RDDs and the executive owners)
   entry_type TEXT,                                 -- RDD Action | CED Action | Carole Action | Terry Action
   sheet_tab TEXT,                                  -- tracking sheet tab prefix, e.g. "Brian's"
   active INTEGER NOT NULL DEFAULT 1,
@@ -29,8 +29,10 @@ CREATE TABLE IF NOT EXISTS act_batches (
   run_when TEXT NOT NULL DEFAULT 'now',            -- now | tonight
   state TEXT NOT NULL DEFAULT 'queued',            -- queued | running | done | partial | undone
   undo_until TEXT NOT NULL,                        -- created_at + 24 hours
+  req_id TEXT,                                     -- one per button press, so a double click returns the first batch
   created_at TEXT NOT NULL, finished_at TEXT
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_act_batches_req ON act_batches(req_id) WHERE req_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_act_batches_created ON act_batches(created_at);
 
 CREATE TABLE IF NOT EXISTS act_outbox (            -- one Blackbaud change per row
@@ -43,7 +45,7 @@ CREATE TABLE IF NOT EXISTS act_outbox (            -- one Blackbaud change per r
   op TEXT NOT NULL,                                -- patch | create | tag | delete
   before TEXT,                                     -- JSON of the fields this change replaces (from the mirror or the read-back), for Undo
   payload TEXT NOT NULL,                           -- JSON body sent to Blackbaud
-  idem_key TEXT UNIQUE,                            -- creates: hash(constituent, date, type, category, summary, owner, entered_by)
+  idem_key TEXT UNIQUE,                            -- creates: hash of what makes the create the same one; cleared when the row is undone so it can be entered again
   state TEXT NOT NULL DEFAULT 'queued',            -- queued | sent | verified | failed | needs_human | undone
   attempts INTEGER NOT NULL DEFAULT 0,
   bb_id TEXT, last_error TEXT,

@@ -14,7 +14,7 @@ export type StaleClass =
   | 'overdue' // past due, up to STALE_DAYS
   | 'stale' // past due over STALE_DAYS, still counted
   | 'close_proposal' // past due over CLOSE_PROPOSAL_DAYS: weekly one-tap proposal to the owner
-  | 'review_escalate'; // an open review task past REVIEW_ESCALATE_DAYS goes to Will (S7)
+  | 'review_escalate'; // an open review task past REVIEW_ESCALATE_DAYS goes to leadership (S7)
 
 export interface StaleInfo {
   class: StaleClass;

@@ -12,7 +12,7 @@ export const onRequestPost = work(async ({ request, ctx }) => {
   if (!OPS.includes(String(b.op))) throw new HttpError(400, 'bad_op', 'That is not something the Work Center does.');
   if (b.op === 'create') {
     const ids = Array.isArray(b.submission_ids) ? b.submission_ids.map(String) : [];
-    return entryPost(ctx, ids) as any;
+    return entryPost(ctx, ids, typeof b.req === 'string' ? b.req : undefined) as any;
   }
   const ids = Array.isArray(b.ids) ? b.ids.map(String).filter((x) => /^\d{1,12}$/.test(x)) : [];
   const out = await createBatch(ctx, { ...b, ids } as BatchInput);

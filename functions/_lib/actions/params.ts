@@ -89,12 +89,12 @@ export const PARAM_DOCS: Record<keyof Params, ParamDoc> = {
   AMOUNT_WHOLE_DOLLAR_MATCH: {
     spec: 'Not in the spec. Actions 121282 ("$42") and 121284 ("$42.49") name one $42.49 gift, so a typed whole dollar has to match the cents.',
     question: 'Keep whole-dollar matching?',
-    ask: 'Will',
+    ask: 'Leadership',
   },
   SATISFIER_AMOUNT_CONFLICT: {
     spec: 'Engine audit 4, satisfier item 2: a later thank-you that names a different amount than the gift does not answer that gift (task 125295 against a $100 thank-you).',
     question: 'Keep the amount check?',
-    ask: 'Will',
+    ask: 'Leadership',
   },
   HQ_LETTER_MIN_AMOUNT: {
     spec: 'Spec 5.4.2 and Department Manuals L61: $5,000 and over.',
@@ -124,7 +124,7 @@ export const PARAM_DOCS: Record<keyof Params, ParamDoc> = {
   SATISFIER_DATE_FIELD: {
     spec: 'Spec 5.4.3 says "dated on or after the gift entered date". dateAdded reproduces the spec counts and follows followups.js:198; dueDate is the contact date Support backdates.',
     question: 'Which date proves the contact came after the gift?',
-    ask: 'Will',
+    ask: 'Leadership',
   },
   LOOSE_COUNTS_NON_TASK_CATEGORIES: {
     spec: 'Spec says "any completed contact". The 125 loose matches reproduce only when a call, email, mailing or meeting counts even if its type is not a contact type.',
@@ -135,7 +135,7 @@ export const PARAM_DOCS: Record<keyof Params, ParamDoc> = {
   CLOSE_PROPOSAL_DAYS: { spec: 'Spec 5.5 S3: over 90 days gets a weekly close proposal.', question: 'Q6.', ask: 'Leadership' },
   ESCALATE_AFTER_DAYS: { spec: 'Spec 5.5 S3: an owner who does not answer in 14 days escalates to the team lead.', question: 'Q6, and who answers for a departed RDD.', ask: 'Leadership' },
   OVER_YEAR_DAYS: { spec: 'Spec 2.5: true open and due more than a year ago (14 today).', question: 'None. A reporting cut, not a rule.', ask: 'none' },
-  REVIEW_ESCALATE_DAYS: { spec: 'Spec 5.5 S7: a review task open over 14 days goes to Will.', question: 'Q6.', ask: 'Leadership' },
+  REVIEW_ESCALATE_DAYS: { spec: 'Spec 5.5 S7: a review task open over 14 days goes to leadership.', question: 'Q6.', ask: 'Leadership' },
   NEVER_AUTOCLOSE_GIFT_AMOUNT: { spec: 'Spec 5.5 S3: tasks tied to a gift of $1,000 or more never auto-close.', question: 'Q6.', ask: 'Leadership' },
   ASSIGNMENT_TYPE_ORDER: {
     spec: 'Not in the spec. followups.js assigns every current holder. This order picks one primary owner and lists the rest as also-owners (DECISIONS.md D-OWNER-1).',

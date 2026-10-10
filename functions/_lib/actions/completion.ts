@@ -22,7 +22,7 @@ export const THANK_HOWS: Record<string, { label: string; category: string; tag?:
 /** "How did it go?" as Blackbaud stores it. */
 export const OUTCOMES = ['', 'Successful', 'Unsuccessful'] as const;
 
-/** The two ways a thank-you can be recorded (Will decides which; see act_settings.thank_mode). */
+/** The two ways a thank-you can be recorded (a decision for leadership; see act_settings.thank_mode). */
 export type ThankMode = 'one' | 'two';
 
 /** Task types that are the fundraiser's own contact record, so a thank-you completes them in place. */
@@ -60,7 +60,7 @@ export function clean(line: string | undefined, max = 200): string {
   return String(line ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
-/** Add the shared line to the end of a description, with the day and the person: "Sent thank you letter (Oct 9, Grace Morris)". */
+/** Add the shared line to the end of a description, with the day and the person: "Sent thank you letter (Oct 9, Pat Smith)". */
 export function appendLine(description: string, line: string, today: string, actor: string): string {
   const text = clean(line);
   if (!text) return description;

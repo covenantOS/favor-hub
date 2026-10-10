@@ -13,8 +13,8 @@ import {
   addDays, addFundraiser, clean, closeThankedStep, completeStep, holderFundraisers, IN_PLACE_TYPES, reassignStep, replaceFundraiser, rescheduleStep,
   thankSteps, THANK_HOWS, undoStep, type CompleteOpts, type Step, type Target, type ThankMode,
 } from '../actions/completion';
-import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, laneFor, plannedCalls, resetLabel, undoUntil, utcDay } from '../actions/batch';
-import { advance, findLostCreate, idemKey, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
+import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, resetLabel, undoUntil, utcDay } from '../actions/batch';
+import { advance, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
 import { etParts } from '../actions/intake';
 import type { OpsCall } from '../foundations/blackbaud';
 
@@ -27,10 +27,24 @@ export interface Ctx {
 
 export const todayEt = (): string => etParts(new Date()).date;
 
+/** An instant as Eastern clock time, the way Blackbaud reads last_modified ("2026-10-09T21:29:00"). */
+export function etClock(d: Date): string {
+  const e = etParts(d);
+  return `${e.date}T${String(e.hour).padStart(2, '0')}:${String(e.minute).padStart(2, '0')}:00`;
+}
+
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export function validDate(s: unknown, field = 'date'): string {
   const v = typeof s === 'string' ? s.trim() : '';
   if (!DATE.test(v) || v < '2020-01-01' || v > addDays(todayEt(), 1)) throw new HttpError(400, 'bad_date', `Pick a real day for ${field}.`);
+  return v;
+}
+
+/** A new due date: a real day from today on, up to two years out. Completion dates use validDate, which stops at tomorrow. */
+export function validDue(s: unknown, field = 'the new due date'): string {
+  const v = typeof s === 'string' ? s.trim() : '';
+  const today = todayEt();
+  if (!DATE.test(v) || v < today || v > addDays(today, 730)) throw new HttpError(400, 'bad_date', `Pick a due date from today on for ${field}.`);
   return v;
 }
 
@@ -252,8 +266,7 @@ async function changedSince(ctx: Ctx, syncedIso: string): Promise<{ ids: Set<str
   // Blackbaud reads last_modified as Eastern clock time (proved on the test record 2026-10-09), not UTC, so convert and step back five minutes.
   const from = new Date(Date.parse(syncedIso || '') - 5 * 60000);
   const base = Number.isNaN(from.getTime()) ? new Date(Date.now() - 13 * 3600000) : from;
-  const e = etParts(base);
-  const t = `${e.date}T${String(e.hour).padStart(2, '0')}:${String(e.minute).padStart(2, '0')}:00`;
+  const t = etClock(base);
   const r = await ctx.repo.send([{ method: 'GET', path: `/constituent/v1/actions?last_modified=${t}&limit=2000` }]);
   await addMeter(ctx.env, r.results.length, r.callsToday);
   const res = r.results[0];
@@ -262,13 +275,12 @@ async function changedSince(ctx: Ctx, syncedIso: string): Promise<{ ids: Set<str
   return { ids, complete: Number(res.body.count) <= res.body.value.length };
 }
 
-async function freshDescriptions(ctx: Ctx, rows: BoardRow[], synced: string): Promise<Map<string, string>> {
+/** Most descriptions in the mirror are whole. A description of 2,000 characters or more may be cut short, so its action is read from Blackbaud before a line is added. */
+export const REREAD_MAX = 45;
+
+async function freshDescriptions(ctx: Ctx, rows: BoardRow[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
-  const need = rows.filter((r) => (r.fullDescription || '').length >= 2000);
-  const fresh = await changedSince(ctx, synced);
-  const reread = new Set<string>(need.map((r) => r.id));
-  for (const r of rows) if (!fresh.complete || fresh.ids.has(r.id)) reread.add(r.id);
-  const list = rows.filter((r) => reread.has(r.id));
+  const list = rows.filter((r) => (r.fullDescription || '').length >= 2000);
   for (const r of rows) out.set(r.id, r.fullDescription || '');
   for (let i = 0; i < list.length; i += CHUNK) {
     const part = list.slice(i, i + CHUNK);
@@ -299,7 +311,7 @@ function checkHow(how: unknown): string {
 }
 
 /** Build the steps for every selected action. Pure apart from the freshness read a shared line needs. */
-export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Promise<{ items: PlannedItem[]; skipped: number; params: Record<string, unknown> }> {
+export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Promise<{ items: PlannedItem[]; skipped: number; changed: number; reads: number; params: Record<string, unknown> }> {
   const today = board.today;
   const byId = new Map(board.rows.map((r) => [r.id, r]));
   const ids = [...new Set((input.ids || []).map(String))];
@@ -312,6 +324,18 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
     else rows.push(r);
   }
   if (!rows.length) throw new HttpError(400, 'not_open', 'Those actions are not open any more. Reload the list.');
+  // One read asks Blackbaud which actions changed since the mirror's last sync. Those are left alone: the person reloads and sees what changed.
+  // If that one read fails, nothing is changed; reading every action one by one would spend the day's allowance.
+  const seen = await changedSince(ctx, board.synced);
+  if (!seen.complete) throw new HttpError(503, 'blackbaud_wait', 'Blackbaud did not answer the check that your list is current, so nothing was changed. Try again in a minute.');
+  let reads = 1;
+  const changedRows = rows.filter((r) => seen.ids.has(r.id));
+  if (changedRows.length) {
+    for (let i = rows.length - 1; i >= 0; i--) if (seen.ids.has(rows[i].id)) rows.splice(i, 1);
+    skipped += changedRows.length;
+  }
+  let changed = changedRows.length;
+  if (!rows.length) throw new HttpError(409, 'changed_in_blackbaud', 'Those actions were changed in Blackbaud since your list was loaded. Reload the list to see them.');
   const params: Record<string, unknown> = {};
   const thankMode = ((await getSetting(ctx.env, 'thank_mode', 'one')) === 'two' ? 'two' : 'one') as ThankMode;
   const items: PlannedItem[] = [];
@@ -323,7 +347,19 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
     const outcome = input.outcome === 'Successful' || input.outcome === 'Unsuccessful' ? input.outcome : '';
     const line = clean(input.line);
     Object.assign(params, { date, own, line, outcome, how });
-    const desc = line ? await freshDescriptions(ctx, rows, board.synced) : new Map<string, string>();
+    if (line) {
+      // A very long note is read whole before a line is added. More than REREAD_MAX of them in one batch wait for the next one.
+      const long = rows.filter((r) => (r.fullDescription || '').length >= 2000);
+      for (const r of long.slice(REREAD_MAX)) {
+        rows.splice(rows.indexOf(r), 1);
+        skipped++;
+        changed++;
+      }
+      reads += Math.min(long.length, REREAD_MAX);
+      if (!rows.length) throw new HttpError(409, 'changed_in_blackbaud', 'Those actions have very long notes. Pick fewer at a time.');
+    }
+    const desc = line ? await freshDescriptions(ctx, rows) : new Map<string, string>();
+    const doneGroups = new Set<string>();
     const staff = await listStaff(ctx.env).catch(() => []);
     for (const r of rows) {
       const description = line ? desc.get(r.id) || '' : r.fullDescription || '';
@@ -332,7 +368,11 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
       if (input.op === 'close_thanked') {
         if (!r.later) continue;
         steps = [closeThankedStep(targetOf(r, description, r.later.date), opts)];
+      } else if (THANK_HOWS[how] && r.ty && r.group && r.group.length > 1 && doneGroups.has([...r.group].sort().join(','))) {
+        // The other tasks about the same gift only close. One gift is one thank-you: one category, one Thanked tag, one new record.
+        steps = [completeStep(targetOf(r, description), opts)];
       } else if (THANK_HOWS[how] && r.ty) {
+        if (r.group && r.group.length > 1) doneGroups.add([...r.group].sort().join(','));
         const owner = r.fundraisers[0];
         const st = staff.find((s) => s.bb_fundraiser_id === owner);
         opts.ownerType = st?.entry_type || (IN_PLACE_TYPES.has(r.typeRaw) ? r.typeRaw : 'RDD Action');
@@ -341,8 +381,7 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
       items.push({ actionId: r.id, cid: r.cid, label: labelOf(r), steps });
     }
   } else if (input.op === 'reschedule') {
-    const due = input.by ? addDays(today, Math.min(365, Math.max(1, Math.floor(Number(input.by))))) : validDate(input.due, 'the new due date');
-    if (due < today) throw new HttpError(400, 'bad_date', 'Pick a due date from today on.');
+    const due = input.by ? addDays(today, Math.min(365, Math.max(1, Math.floor(Number(input.by))))) : validDue(input.due);
     Object.assign(params, { due });
     for (const r of rows) items.push({ actionId: r.id, cid: r.cid, label: labelOf(r), steps: [rescheduleStep(targetOf(r, ''), due)] });
   } else if (input.op === 'reassign') {
@@ -370,11 +409,34 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
     if (!items.length) throw new HttpError(400, 'nothing_to_do', 'Nothing changes with these choices.');
   } else throw new HttpError(400, 'bad_op', 'That is not something the Work Center does.');
   skipped += rows.length - items.length;
-  return { items, skipped, params };
+  return { items, skipped, changed, reads, params };
 }
 
 /** Save a batch and its outbox rows. Nothing has gone to Blackbaud yet. */
-export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], params: Record<string, unknown>, extra: { undoOf?: string; whenOverride?: 'now' | 'tonight' } = {}) {
+export interface SavedBatch {
+  id: string;
+  op: string;
+  n: number;
+  calls: number;
+  run_when: 'now' | 'tonight';
+  undo_until: string;
+  left: number;
+  duplicates: number;
+  repeat?: boolean;
+}
+
+/** A batch already saved under this button press. A second click, or a retry after a lost answer, gets the first batch back. */
+export async function batchByReq(env: Env, reqId: string | undefined): Promise<{ batch: SavedBatch; items: { id: string; state: string }[] } | null> {
+  const req = String(reqId || '').slice(0, 80);
+  if (!req) return null;
+  const b = await env.DB.prepare('SELECT * FROM act_batches WHERE req_id = ? LIMIT 1').bind(req).first<BatchRow>();
+  if (!b) return null;
+  const rows = (await env.DB.prepare("SELECT action_id, submission_id, id, state FROM act_outbox WHERE batch_id = ? AND op <> 'tag'").bind(b.id).all<OutboxRow>()).results;
+  const items = rows.map((r) => ({ id: String(r.action_id || r.submission_id || r.id), state: toItemState(r.state) }));
+  return { batch: { id: b.id, op: b.op, n: b.n, calls: b.calls_planned, run_when: b.run_when as 'now' | 'tonight', undo_until: b.undo_until, left: 0, duplicates: 0, repeat: true }, items };
+}
+
+export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], params: Record<string, unknown>, extra: { undoOf?: string; whenOverride?: 'now' | 'tonight'; reqId?: string; reads?: number } = {}): Promise<SavedBatch> {
   let items = itemsIn;
   const id = newId('wcb');
   // A create is never sent twice: its key sits under a unique index, so a double click or a repeated paste skips what is already queued or posted.
@@ -384,7 +446,10 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
       const c = it.steps.find((s) => s.op === 'create');
       if (c) {
         const b = c.body as Record<string, any>;
-        keyed.push({ it, key: await idemKey([b.constituent_id, String(b.date || '').slice(0, 10), b.type, b.category, b.summary, (b.fundraisers || []).join(','), it.submissionId || it.actionId || 'x']) });
+        // The key leaves out the row's own id, so the same contact entered twice (a double click, a second paste) is one contact. A thank-you
+        // record keeps its task id, because two tasks about two gifts on one partner on one day are two thank-yous.
+        const key = await idemKey([b.constituent_id, String(b.date || '').slice(0, 10), b.type, b.category, b.summary, (b.fundraisers || []).join(','), it.actionId || 'x']);
+        if (!keyed.some((k) => k.key === key)) keyed.push({ it, key });
       }
     }
     if (keyed.length) {
@@ -395,20 +460,25 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
         r.results.forEach((x) => have.add(x.idem_key));
       }
       const drop = new Set(keyed.filter((k) => have.has(k.key)).map((k) => k.it));
-      if (drop.size) items = items.filter((it) => !drop.has(it));
+      // A repeat inside the same request is dropped too (its key was not kept above).
+      const kept = new Set(keyed.map((k) => k.it));
+      items = items.filter((it) => !drop.has(it) && (!it.steps.some((s) => s.op === 'create') || kept.has(it)));
     }
   }
   if (!items.length) return { id: '', op, n: 0, calls: 0, run_when: 'now' as const, undo_until: '', left: 0, duplicates: keyed.length };
   const steps = items.reduce((n, i) => n + i.steps.length, 0);
-  const planned = plannedCalls(steps, items.length);
+  const reads = extra.reads || 0;
+  const planned = plannedCalls(steps, items.length) + reads;
   const meter = await getMeter(ctx.env).catch(() => ({ used: 0 }));
-  const lane = laneFor({ planned, used: meter.used, laneCap: Number(await getSetting(ctx.env, 'lane_cap', String(LANE_CAP))) || LANE_CAP });
+  // Batches saved but not yet sent will spend their calls too, so a second batch saved a moment later sees the first one's share.
+  const queued = await ctx.env.DB.prepare("SELECT COALESCE(SUM(MAX(calls_planned - calls_used, 0)), 0) AS n FROM act_batches WHERE state IN ('queued', 'running')").first<{ n: number }>().catch(() => ({ n: 0 }));
+  const lane = laneFor({ planned, used: meter.used + (Number(queued?.n) || 0), laneCap: Number(await getSetting(ctx.env, 'lane_cap', String(LANE_CAP))) || LANE_CAP });
   const when = extra.whenOverride || lane.when;
   const now = nowIso();
   const stmts: D1PreparedStatement[] = [
     ctx.env.DB.prepare(
-      `INSERT INTO act_batches (id, op, undo_of, actor, actor_email, params, n, calls_planned, calls_used, run_when, state, undo_until, created_at) VALUES (?,?,?,?,?,?,?,?,0,?,'queued',?,?)`
-    ).bind(id, op, extra.undoOf ?? null, ctx.actor, ctx.email, JSON.stringify(params), items.length, planned, when, undoUntil(), now),
+      `INSERT INTO act_batches (id, op, undo_of, actor, actor_email, params, n, calls_planned, calls_used, run_when, state, undo_until, req_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,'queued',?,?,?)`
+    ).bind(id, op, extra.undoOf ?? null, ctx.actor, ctx.email, JSON.stringify(params), items.length, planned, reads, when, undoUntil(), extra.reqId ? String(extra.reqId).slice(0, 80) : null, now),
   ];
   const skippedKeys: string[] = [];
   for (const it of items) {
@@ -428,19 +498,30 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
     }
     void skippedKeys;
   }
-  for (let i = 0; i < stmts.length; i += 40) await ctx.env.DB.batch(stmts.slice(i, i + 40));
+  try {
+    for (let i = 0; i < stmts.length; i += 40) await ctx.env.DB.batch(stmts.slice(i, i + 40));
+  } catch (err) {
+    // Never leave half a batch behind. A repeat of the same button press (same req_id) gets the first batch.
+    await ctx.env.DB.prepare('DELETE FROM act_outbox WHERE batch_id = ?').bind(id).run().catch(() => undefined);
+    await ctx.env.DB.prepare('DELETE FROM act_batches WHERE id = ?').bind(id).run().catch(() => undefined);
+    const first = await batchByReq(ctx.env, extra.reqId);
+    if (first) return first.batch;
+    throw err;
+  }
   await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: id, kind: 'batch_created', detail: `${op} ${items.length} (${planned} calls, ${when})` });
   forgetBoard();
   return { id, op, n: items.length, calls: planned, run_when: when, undo_until: undoUntil(), left: meter.used, duplicates: keyed.length - keyed.filter((k) => items.includes(k.it)).length };
 }
 
-export async function createBatch(ctx: Ctx, input: BatchInput) {
+export async function createBatch(ctx: Ctx, input: BatchInput & { req?: string }) {
   if (!ctx.env.DB) throw new Error('no database');
   if (input.op === 'create') throw new HttpError(400, 'bad_op', 'Entry rows are sent from the Entry tab.');
+  const again = await batchByReq(ctx.env, input.req);
+  if (again) return { batch: again.batch, skipped: 0, changed: 0, items: again.items };
   const board = await currentBoard(ctx);
   const plan = await planBatch(ctx, input, board);
-  const batch = await saveBatch(ctx, input.op, plan.items, plan.params);
-  return { batch, skipped: plan.skipped, items: plan.items.map((i) => ({ id: i.actionId || i.submissionId, state: 'queued' })) };
+  const batch = await saveBatch(ctx, input.op, plan.items, plan.params, { reqId: input.req, reads: plan.reads });
+  return { batch, skipped: plan.skipped, changed: plan.changed, items: plan.items.map((i) => ({ id: i.actionId || i.submissionId, state: 'queued' })) };
 }
 
 /* ------------------------------------------------------------------ sending */
@@ -484,7 +565,7 @@ export interface RunResult {
   ok: true;
   done: number;
   left: number;
-  held?: 'off' | 'limit' | 'busy' | 'tonight';
+  held?: 'off' | 'limit' | 'busy' | 'tonight' | 'wait';
   tagsWaiting: number;
   items: { id: string; state: string; error?: string }[];
   meter: Awaited<ReturnType<typeof meterView>>;
@@ -522,7 +603,9 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
   if ((await getSetting(env, 'posting', 'on')) !== 'on') return finish('off');
   if (!(await takeLock(env, batchId, ctx.actor))) return finish('busy');
   const started = Date.now();
-  const t0 = new Date(started - 10 * 60000).toISOString().slice(0, 19);
+  // Blackbaud reads last_modified as Eastern clock time, so the read-back window starts ten minutes ago on that clock.
+  const t0 = etClock(new Date(started - 10 * 60000));
+  let held: RunResult['held'];
   try {
     await env.DB.prepare("UPDATE act_batches SET state = 'running' WHERE id = ? AND state = 'queued'").bind(batchId).run();
     for (let round = 0; round < 3 && Date.now() - started < 18000; round++) {
@@ -530,12 +613,14 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       // A batch held for tonight waits for the new UTC day (the allowance starts again then) unless today's lane can take all of it.
       const newDay = utcDay() !== utcDay(new Date(batch.created_at));
       if (batch.run_when === 'tonight' && !newDay && meter.used + batch.calls_planned > LANE_CAP) return finish('tonight');
-      const cap = batch.run_when === 'tonight' ? LANE_CAP : DAILY_CAP - 100;
+      // Everything the Work Center sends keeps to its lane. Undo and a change of 15 calls or fewer may use the room the lane leaves.
+      const cap = batch.op === 'undo' ? DAILY_CAP - 100 : batch.calls_planned <= CHUNK ? SINGLES_UNTIL : LANE_CAP;
       if (meter.used + CHUNK + 1 > cap) return finish('limit');
       const cand = await env.DB.prepare("SELECT * FROM act_outbox WHERE batch_id = ? AND state = 'queued' ORDER BY queued_at, rowid LIMIT 80").bind(batchId).all<OutboxRow>();
       if (!cand.results.length) break;
       const tagsOk = cand.results.some((r) => r.op === 'tag') ? await tagRuleLive(ctx) : true;
       const send: { row: OutboxRow; call: OpsCall }[] = [];
+      let stalled = false;
       for (const row of cand.results) {
         if (send.length >= CHUNK) break;
         if (row.op === 'tag') {
@@ -566,12 +651,22 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
             items.push({ id: itemId(row), state: 'queued' });
             continue;
           }
-          const existing = (res.body && Array.isArray(res.body.value) ? res.body.value : []).map((a: any) => ({ id: a.id, type: a.type, date: a.date, summary: a.summary }));
-          const found = findLostCreate(existing, { type: String(p.type), date: String(p.date), summary: String(p.summary) });
-          if (found) {
-            await env.DB.prepare("UPDATE act_outbox SET state = 'sent', bb_id = ?, sent_at = ?, last_error = NULL WHERE id = ?").bind(found, nowIso(), row.id).run();
-            await markSubmission(ctx, row, 'posted', { bb: found });
+          const existing = (res.body && Array.isArray(res.body.value) ? res.body.value : []).map((a: any) => ({ id: a.id, type: a.type, date: a.date, summary: a.summary, added: a.date_added || a.added || null }));
+          // Only an action added after this row was queued, and not already some other row's, can be this create.
+          const taken = (await env.DB.prepare("SELECT bb_id FROM act_outbox WHERE cid = ? AND bb_id IS NOT NULL AND state <> 'undone'").bind(row.cid).all<{ bb_id: string }>()).results.map((x) => String(x.bb_id));
+          const found = matchLostCreate(existing, { type: String(p.type), date: String(p.date), summary: String(p.summary) }, { skipIds: taken, after: etClock(new Date(Date.parse(row.queued_at) - 2 * 60000)) });
+          if (found.ids.length === 1 && !found.unsure) {
+            await env.DB.prepare("UPDATE act_outbox SET state = 'sent', bb_id = ?, sent_at = ?, last_error = NULL WHERE id = ?").bind(found.ids[0], nowIso(), row.id).run();
+            await markSubmission(ctx, row, 'posted', { bb: found.ids[0] });
             items.push({ id: itemId(row), state: 'posted' });
+            continue;
+          }
+          if (found.ids.length || found.unsure) {
+            // Blackbaud may already hold this contact, and nothing proves which action is it. A person looks; nothing is sent twice.
+            const why = 'Blackbaud may already hold this contact. Open the partner there; if it is in, skip this row. If it is not, press Try again.';
+            await env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', last_error = ? WHERE id = ?").bind(why, row.id).run();
+            await markSubmission(ctx, row, 'failed', { err: why });
+            items.push({ id: itemId(row), state: 'failed', error: why });
             continue;
           }
           await env.DB.prepare('UPDATE act_outbox SET last_error = NULL WHERE id = ?').bind(row.id).run();
@@ -602,6 +697,21 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
           items.push({ id: itemId(row), state: 'queued' });
           continue;
         }
+        if (v === 'wait') {
+          // Blackbaud or the upkeep route answered "not now" (429, 5xx, a stop message). Count the try; the fifth one needs a person.
+          const n = row.attempts + 1;
+          const why = sayWhy(r);
+          if (n >= 5) {
+            await env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', attempts = ?, last_error = ? WHERE id = ?").bind(n, why, row.id).run();
+            if (row.op === 'create') await markSubmission(ctx, row, 'failed', { err: why });
+            items.push({ id: itemId(row), state: 'failed', error: why });
+          } else {
+            await env.DB.prepare("UPDATE act_outbox SET attempts = ?, last_error = ? WHERE id = ?").bind(n, why, row.id).run();
+            items.push({ id: itemId(row), state: 'queued' });
+          }
+          stalled = true;
+          continue;
+        }
         if (v === 'refused' && row.op === 'tag') {
           await env.DB.prepare("UPDATE act_outbox SET last_error = 'waiting for the tag rule' WHERE id = ?").bind(row.id).run();
           await setSetting(env, 'rule:tags', `0|${now}`);
@@ -609,7 +719,8 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
           items.push({ id: itemId(row), state: 'queued' });
           continue;
         }
-        const next = advance(row.attempts, v);
+        // A refusal means the upkeep route has no rule for this change. Retrying cannot help; a person presses Try again once the rule exists.
+        const next = v === 'refused' ? { state: 'needs_human' as const, attempts: row.attempts + 1 } : advance(row.attempts, v);
         const err = v === 'sent' ? null : sayWhy(r);
         const bbId = v === 'sent' && row.op === 'create' && r?.body?.id ? String(r.body.id) : row.bb_id;
         await env.DB.prepare('UPDATE act_outbox SET state = ?, attempts = ?, bb_id = ?, last_error = ?, sent_at = CASE WHEN ? = \'sent\' THEN ? ELSE sent_at END WHERE id = ?')
@@ -618,7 +729,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
         if (v === 'sent') {
           sentRows.push({ ...row, bb_id: bbId });
           const orig = parseObj(row.payload).__orig;
-          if (orig) await env.DB.prepare("UPDATE act_outbox SET state = 'undone' WHERE id = ?").bind(orig).run();
+          if (orig) await env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ?").bind(orig).run();
           if (row.op === 'create') await markSubmission(ctx, row, 'posted', { bb: bbId });
           if (row.op === 'delete' && row.submission_id) {
             await env.DB.prepare("UPDATE act_submissions SET state = 'waiting', bb_action_id = NULL, posted_at = NULL, posted_by = NULL WHERE id = ?").bind(row.submission_id).run();
@@ -636,7 +747,16 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
         await verify(ctx, batchId, sentRows, t0);
         await ctx.repo.refreshMirror(sentRows.map((r) => r.action_id).filter(Boolean) as string[]);
       }
-      if (ran < send.length) break; // the route stopped: wait, and let the next call (or the drain) pick it up
+      // Nothing ran, or Blackbaud said not now: stop here so the page does not hammer a shared key. The next press, or the overnight run, picks it up.
+      if (ran === 0) {
+        held = res.wait && /limit/i.test(res.wait) ? 'limit' : 'wait';
+        break;
+      }
+      if (stalled) {
+        held = 'wait';
+        break;
+      }
+      if (ran < send.length) break; // the route stopped: let the next call (or the drain) pick it up
     }
   } finally {
     await dropLock(env, batchId);
@@ -648,7 +768,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
     await env.DB.prepare('UPDATE act_batches SET state = ?, finished_at = ? WHERE id = ?').bind(Number(bad?.n) ? 'partial' : 'done', nowIso(), batchId).run();
     if (batch.op === 'undo' && batch.undo_of) await settleUndone(env, batch.undo_of);
   }
-  return finish();
+  return finish(held);
 }
 
 async function runnableLeft(ctx: Ctx, batchId: string): Promise<number> {
@@ -663,7 +783,7 @@ async function settleUndone(env: Env, origBatch: string): Promise<void> {
 }
 
 /** One read after a request: which of the changes just sent does Blackbaud now show? Best effort; a row it cannot find stays "sent". */
-async function verify(ctx: Ctx, batchId: string, rows: OutboxRow[], since: string): Promise<void> {
+export async function verify(ctx: Ctx, batchId: string, rows: OutboxRow[], since: string): Promise<void> {
   const patches = rows.filter((r) => r.op === 'patch' && r.action_id);
   if (!patches.length) return;
   const res = await ctx.repo.send([{ method: 'GET', path: `/constituent/v1/actions?last_modified=${since}&limit=2000` }]);
@@ -695,31 +815,41 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   const rows = (await ctx.env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid').bind(batchId).all<OutboxRow>()).results;
   const items: PlannedItem[] = [];
   let cancelled = 0;
+  let unresolved = 0;
+  let tagsStay = 0;
   for (const r of rows) {
     if (r.state === 'undone') continue;
     if (r.state === 'queued' || r.state === 'failed' || r.state === 'needs_human') {
-      // Never reached Blackbaud: nothing to put back.
-      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone' WHERE id = ?").bind(r.id).run();
+      // Never reached Blackbaud: nothing to put back. The key is cleared so the same contact can be entered again.
+      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ?").bind(r.id).run();
       if (r.submission_id) await markSubmission(ctx, r, 'waiting');
       cancelled++;
       continue;
     }
+    if (r.op === 'create' && !r.bb_id) {
+      // The create went out but its id never came back, so there is nothing to delete by. A person finds it in Blackbaud.
+      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', last_error = ? WHERE id = ?").bind('This contact is in Blackbaud but its number was not saved. Find it on the partner and remove it there.', r.id).run();
+      unresolved++;
+      continue;
+    }
     const step = undoStep({ op: r.op, action_id: r.action_id, bb_id: r.bb_id, before: r.before ? parseObj(r.before) : null });
     if (!step) {
-      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone' WHERE id = ?").bind(r.id).run();
+      // Tags have no undo route: they stay on the action in Blackbaud.
+      if (r.op === 'tag') tagsStay++;
+      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ?").bind(r.id).run();
       continue;
     }
     (step as any).origRow = r.id;
     items.push({ actionId: step.actionId, cid: r.cid ?? undefined, label: r.label || '', steps: [step], submissionId: r.submission_id ?? undefined });
   }
   if (!items.length) {
-    await ctx.env.DB.prepare("UPDATE act_batches SET state = 'undone', finished_at = ? WHERE id = ?").bind(nowIso(), batchId).run();
+    if (!unresolved) await ctx.env.DB.prepare("UPDATE act_batches SET state = 'undone', finished_at = ? WHERE id = ?").bind(nowIso(), batchId).run();
     forgetBoard();
-    return { batch: null, cancelled };
+    return { batch: null, cancelled, unresolved, tagsStay };
   }
   const saved = await saveBatch(ctx, 'undo', items, { undo_of: batchId }, { undoOf: batchId, whenOverride: 'now' });
   await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'undone', detail: `undo batch ${saved.id}` });
-  return { batch: saved, cancelled };
+  return { batch: saved, cancelled, unresolved, tagsStay };
 }
 
 export async function retryBatch(ctx: Ctx, batchId: string) {
