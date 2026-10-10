@@ -1,5 +1,5 @@
 import { mirror } from '../../_lib/foundations/blackbaud';
-import { shapeYourDay, yourDayActionsSql, type YourDayRow } from '../../_lib/hub/actions';
+import { yourDayBlackbaud } from '../../_lib/hub/actions';
 import { accessToken, recentFiles, todaysEvents, unreadMail } from '../../_lib/hub/google';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
@@ -15,12 +15,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const email = user.via === 'google' ? user.email.toLowerCase() : 'will@favorintl.org';
 
     const bb = (async () => {
-      const fr = await mirror<{ id: string }>(env, 'SELECT id FROM fundraisers WHERE lower(fundraiser_email) = ? LIMIT 1', [email]);
-      if (!fr.length) return { linked: false, actions: [] as any[], overdue: 0 };
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      const rows = await mirror<YourDayRow>(env, yourDayActionsSql(60), [today, fr[0].id]);
-      return { linked: true, ...shapeYourDay(rows, 12) };
-    })().catch((e) => ({ linked: false, actions: [], overdue: 0, error: String(e.message || e) }));
+      return await yourDayBlackbaud((sql, params) => mirror(env, sql, params), email, today);
+    })().catch((e) => ({ linked: false, actions: [] as any[], total: 0, overdue: 0, error: String(e.message || e) }));
 
     const google = (async () => {
       if (user.via !== 'google') return { connected: false };
