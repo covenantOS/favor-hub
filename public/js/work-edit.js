@@ -482,7 +482,7 @@ function dlgNew(pre = {}) {
     <div class="wc-row2"><div class="wc-field"><span class="lab" data-ndatelab>Date</span><input type="date" data-ndate /></div>${field('Type', `<select data-ntype>${(C.types || []).map((t) => opt(t, t.replace(/^RESERVED \((.*)\)$/, '$1'))).join('')}</select>`)}</div>
     <div class="wc-field"><label class="lab" for="nw-sum">Summary</label><input type="text" id="nw-sum" maxlength="255" placeholder="For example: Called to thank for the September gift" /></div>
     <div class="wc-field"><label class="lab" for="nw-desc">Description <span class="wc-opt">(optional)</span></label><textarea id="nw-desc" rows="3"></textarea></div>
-    ${field('Fundraiser', '<div data-nfr></div><small>The partner\'s current holder by default.</small>')}
+    ${field('Fundraiser', '<div data-nfr></div>')}
     ${field('Tags', `<div class="wc-choices">${['Thanked', 'Texted', 'Stewardship', 'Scheduling', 'Favor Presentation'].filter(tagCat).map((t) => `<button type="button" class="wc-choice" data-ntag="${esc(t)}">${esc(t)}</button>`).join('')}</div>`)}
     <label class="wc-toggle"><input type="checkbox" data-nnext />Add a follow-up</label>
     <div class="ep-split" data-nextbox hidden>${field('Follow-up due', `<div class="wc-choices">${dateChips('data-nd', st.nextDate, today())}<input type="date" data-ndin value="${st.nextDate}" min="${today()}" aria-label="Follow-up due" /></div>`)}
