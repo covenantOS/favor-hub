@@ -1,0 +1,47 @@
+---
+// One area in the sidebar: the rail shows its icon and short name, the full sidebar shows the area as a
+// collapsible group with its pages under it. The pages come from the registry in src/data/areas.ts.
+import { icon } from '../data/icons';
+import type { NavArea } from '../data/areas';
+
+interface Props { area: NavArea; nav: string; curArea: string; }
+const { area, nav, curArea } = Astro.props;
+const isCur = curArea === area.id;
+const first = area.pages[0];
+const allGated = area.pages.every((p) => p.need || p.team);
+const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav);
+---
+<div class={`h-area${isCur ? ' is-cur is-open' : ''}${area.pop ? ' h-area--pop' : ''}${area.foot ? ' h-area--foot' : ''}`} data-area={area.id} data-key={area.key} hidden={allGated ? true : undefined}>
+  <a class="h-nav__item h-area__link" href={area.pop ? '#' : first.href} data-area-link={area.id} data-default={first.href} data-astro-prefetch={area.pop ? undefined : 'hover'} aria-current={isCur ? 'true' : undefined} aria-haspopup={area.pop ? 'true' : undefined} title={area.label}>
+    <Fragment set:html={icon(area.icon)} />
+    <span class="h-area__label">{area.short || area.label}</span>
+    {area.beta && <em class="h-beta">Beta</em>}
+    <span class="h-nav__count h-area__sum" data-sum={area.id} hidden></span>
+  </a>
+  <button type="button" class="h-area__tog" aria-expanded={isCur ? 'true' : 'false'} aria-label={`Show the ${area.label} pages`}><Fragment set:html={icon('chev')} /></button>
+  <div class="h-area__pages" role="group" aria-label={`${area.label} pages`}>
+    {area.pages.map((p) => (
+      <div class="h-pg" data-need={p.need || undefined} data-kpi-team={p.team || undefined} data-pg={p.id} hidden={p.need || p.team ? true : undefined}>
+        {p.ext ? (
+          <a class="h-nav__item h-pg__a" href={p.href} target="_blank" rel="noopener noreferrer"><span>{p.label}</span><Fragment set:html={icon('ext', 'h-i h-nav__ext')} /></a>
+        ) : (
+          <Fragment>
+          <a
+            class={`h-nav__item h-pg__a${activeId(p) ? ' is-on' : ''}`}
+            href={p.href}
+            data-astro-prefetch="hover"
+            data-nav-id={p.id}
+            data-label={p.label}
+            data-kpi-page={p.kpiPage}
+            aria-current={activeId(p) ? 'page' : undefined}
+          >
+            <span>{p.label}</span>
+            {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
+          </a>
+          <button type="button" class="h-pin" data-pin={p.id} aria-pressed="false" aria-label={`Pin ${p.label}`} title="Pin to the top"><Fragment set:html={icon('star')} /></button>
+          </Fragment>
+        )}
+      </div>
+    ))}
+  </div>
+</div>

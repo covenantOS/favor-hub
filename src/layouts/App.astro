@@ -13,6 +13,7 @@ import '../styles/partner.css';
 import '../styles/wc-bell.css';
 import '../styles/color.css';
 import '../styles/gifts.css';
+import '../styles/nav.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -29,88 +30,17 @@ interface Props {
 
 const { title, crumb = 'Favor Hub', nav = '', wide = false, full = false, bare = false, description = 'Favor International staff hub.' } = Astro.props;
 
-const ICONS: Record<string, string> = {
-  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
-  plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
-  inbox: '<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>',
-  receipt: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
-  log: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',
-  mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
-  landmark: '<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>',
-  chart: '<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>',
-  news: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10"/><path d="M7 12h10"/><path d="M7 16h6"/>',
-  file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
-  ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  out: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
-  menu: '<path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/>',
-  brain: '<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/>',
-  help: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5h.01"/>',
-  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13v2"/><path d="M8 7h7"/><path d="M8 11h5"/>',
-  play: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9 5 3-5 3z"/>',
-  chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
-  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>',
-  mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m17 9 5 6"/><path d="m22 9-5 6"/>',
-  video: '<rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 5-3v9l-5-3z"/>',
-  camera: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
-  clips: '<rect x="3" y="8" width="14" height="11" rx="2"/><path d="M7 5h12a2 2 0 0 1 2 2v9"/><path d="m8.5 11.5 4 2-4 2z"/>',
-  gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8"/><path d="M12 8v12"/><path d="M12 8S9 7 9 5.5 10.5 3.5 12 8Z"/><path d="M12 8s3-1 3-2.5S13.5 3.5 12 8Z"/>',
-  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
-  cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M8 3v4"/><path d="M16 3v4"/>',
-  notes: '<path d="M6 3h12v18H6z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/>',
-  work: '<path d="M4 7h4"/><path d="M4 12h4"/><path d="M4 17h4"/><path d="m11 7 1.5 1.5L15 6"/><path d="m11 12 1.5 1.5L15 11"/><path d="M11 17h9"/><path d="M17 7h3"/><path d="M17 12h3"/>',
-};
-const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+import { icon } from '../data/icons';
+import { AREAS, SWAP_PATHS, resolveNav } from '../data/areas';
+import NavArea from '../components/NavArea.astro';
+import NavTabs from '../components/NavTabs.astro';
+import NavBar from '../components/NavBar.astro';
 
-type Item = { id?: string; label: string; href: string; icon: string; count?: string; need?: string; ext?: boolean; sub?: boolean; team?: string; beta?: boolean };
-const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
-  { label: null, items: [{ id: 'home', label: 'Today', href: '/', icon: 'home' }] },
-  {
-    label: 'Meetings',
-    need: 'meetings',
-    items: [
-      { id: 'meet', label: 'Meetings', href: '/meet/', icon: 'video', count: 'meetingsNow' },
-      { id: 'meet-book', label: 'Book a meeting', href: '/meet/book/', icon: 'cal' },
-      { id: 'meet-notes', label: 'Meeting notes', href: '/meet/library/', icon: 'notes' },
-    ],
-  },
-  {
-    label: 'Work',
-    items: [
-      { id: 'new', label: 'Make a request', href: '/requests/new', icon: 'plus' },
-      { id: 'board', label: 'Request board', href: '/requests/', icon: 'inbox', count: 'inbox' },
-      { id: 'work', label: 'Work Center', href: '/work/', icon: 'work', count: 'workWaiting', need: 'workCenter' },
-      { id: 'expense', label: 'Expense request', href: '/expenses/new', icon: 'receipt' },
-      { id: 'expenses', label: 'Expense log', href: '/expenses/', icon: 'log', count: 'expensesWaiting', need: 'expenseLog' },
-      { id: 'receipts', label: 'Thank-you receipts', href: '/receipts/', icon: 'mail', count: 'receiptsLeft' },
-      { id: 'reports', label: 'Reports', href: '/reports/', icon: 'file' },
-      { id: 'clips', label: 'Clips', href: '/clips/', icon: 'clips', need: 'clips' },
-      { id: 'foundations', label: 'Foundation prospects', href: '/foundations/', icon: 'landmark' },
-      { id: 'brain', label: 'Favor Brain', href: '/brain/', icon: 'brain', beta: true },
-      { id: 'brain-admin', label: 'Brain admin', href: '/brain/admin/', icon: 'brain', sub: true, need: 'admin', count: 'brainRequests' },
-    ],
-  },
-  {
-    label: 'KPI dashboard',
-    need: 'kpi',
-    items: [
-      { id: 'kpi', label: 'Executive', href: '/dashboard/', icon: 'chart' },
-      { id: 'kpi-rdds', label: 'RDD team', href: '/dashboard/?page=%2Frdds', icon: 'chart', sub: true, team: 'rdd' },
-      { id: 'kpi-pc', label: 'Partner Care', href: '/dashboard/?page=%2Fpc', icon: 'chart', sub: true, team: 'pc' },
-      { id: 'kpi-ce', label: 'Church Engagement', href: '/dashboard/?page=%2Fce', icon: 'chart', sub: true, team: 'ce' },
-      { id: 'kpi-grants', label: 'Grants', href: '/dashboard/?page=%2Fgrants', icon: 'chart', sub: true, team: 'grants' },
-      { id: 'kpi-marketing', label: 'Marketing', href: '/dashboard/?page=%2Fmarketing', icon: 'chart', sub: true, team: 'marketing' },
-      { id: 'kpi-definitions', label: 'Definitions', href: '/dashboard/?page=%2Fdefinitions', icon: 'chart', sub: true },
-    ],
-  },
-  {
-    label: 'Tools',
-    items: [
-      { label: 'Blackbaud', href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/', icon: 'ext', ext: true },
-      { label: 'Paycom', href: 'https://www.paycomonline.net/v4/ee/web.php/app/login', icon: 'ext', ext: true },
-    ],
-  },
-];
+const found = resolveNav(nav);
+const curArea = found ? found.area.id : '';
+const crumbText = found ? found.area.label : crumb;
+const mainAreas = AREAS.filter((a) => !a.foot);
+const footAreas = AREAS.filter((a) => a.foot);
 ---
 <!doctype html>
 <html lang="en">
@@ -127,7 +57,11 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=1" defer></script>
     <script is:inline src="/js/partner.js?v=7" defer></script>
-    <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-learn a' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
+    <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-tabs a[data-astro-prefetch]' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
+    <script is:inline>
+      // The menu opens the way this person left it (slim rail or full sidebar) before the first frame.
+      try { var np = JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1') || '{}'); var nu = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); var pr = np[(nu && nu.user && nu.user.email) || '_'] || np._ || {}; if (pr.wide && matchMedia('(min-width: 1280px)').matches) document.documentElement.classList.add('nav-wide'); } catch (e) {}
+    </script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
   </head>
@@ -135,63 +69,33 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="Hub">
-        <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="Favor Hub home"><img src="/images/favor-logo-color.png" alt="Favor International" /><span>Hub</span></a>
-        <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} />Search<kbd>Ctrl K</kbd></button>
-        <nav>
-          {GROUPS.map((g) => (
-            <div data-need={g.need || undefined} hidden={g.need ? true : undefined}>
-              {g.label && <div class="h-nav__label">{g.label}</div>}
-              {g.items.map((it) =>
-                it.ext ? (
-                  <a class="h-nav__item" href={it.href} target="_blank" rel="noopener noreferrer">{it.label}<Fragment set:html={icon('ext', 'h-i h-nav__ext')} /></a>
-                ) : (
-                  <a
-                    class={`h-nav__item${it.sub ? ' h-nav__sub' : ''}${it.id === nav ? ' is-on' : ''}`}
-                    href={it.href}
-                    data-astro-prefetch="hover"
-                    data-nav-id={it.id}
-                    data-need={it.need || undefined}
-                    data-kpi-team={it.team || undefined}
-                    data-kpi-page={it.href.startsWith('/dashboard/') ? decodeURIComponent((it.href.split('page=')[1] || '%2F')) : undefined}
-                    hidden={it.need || it.team ? true : undefined}
-                    aria-current={it.id === nav ? 'page' : undefined}
-                  >
-                    {!it.sub && <Fragment set:html={icon(it.icon)} />}
-                    {it.label}
-                    {it.beta && <em class="h-beta">Beta</em>}
-                    {it.count && <span class="h-nav__count" data-count={it.count} hidden></span>}
-                  </a>
-                )
-              )}
-            </div>
-          ))}
-        </nav>
-        <button type="button" class="h-nav__item h-nav__help" id="h-help" data-tour-start title="A guided tour of the hub, set up for your work"><Fragment set:html={icon('help')} />Help and what's new<span class="h-dot" aria-hidden="true"></span></button>
-        <div class="h-learn">
-          {[
-            { id: 'docs', label: 'Help docs', href: '/help/', icon: 'book' },
-            { id: 'videos', label: 'Videos', href: '/help/videos/', icon: 'play' },
-            { id: 'feedback', label: 'Feedback', href: '/feedback/', icon: 'chat', count: 'feedback' },
-          ].map((it) => (
-            <a href={it.href} data-astro-prefetch="hover" data-nav-id={it.id} class={it.id === nav ? 'is-on' : undefined} aria-current={it.id === nav ? 'page' : undefined}>
-              {it.label}
-              {it.count && <span class="h-nav__count" data-count={it.count} hidden></span>}
-            </a>
-          ))}
-        </div>
-        <div class="h-side__foot" id="h-foot" hidden>
-          <button type="button" class="h-acct" id="h-acct" aria-haspopup="menu" aria-expanded="false" aria-controls="h-acctmenu" title="Your account">
-            <span class="h-avatar" id="h-avatar"></span>
-            <span class="h-who"><b id="h-name"></b><span id="h-email"></span></span>
-          </button>
-          <div class="h-acctmenu" id="h-acctmenu" role="menu" hidden>
-            <a role="menuitem" href="/clips/" data-astro-prefetch="hover"><Fragment set:html={icon('clips')} />My clips</a>
-            <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
+        <button type="button" class="h-side__tog" id="h-wide" aria-pressed="false" aria-label="Expand the menu" title="Expand the menu (press the backslash key)"><Fragment set:html={icon('chev')} /></button>
+        <div class="h-side__in">
+          <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="Favor Hub home"><img class="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" /><img class="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" /><span>Hub</span></a>
+          <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} /><span class="h-search__t">Search</span><kbd>Ctrl K</kbd></button>
+          <div class="h-pins" id="h-pins" hidden><div class="h-nav__label">Pinned</div><div class="h-pins__list" id="h-pins-list"></div></div>
+          <nav class="h-areas" aria-label="Areas">
+            {mainAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
+          </nav>
+          <div class="h-areas h-areas--foot">
+            {footAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
           </div>
-          <button type="button" class="h-out h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} /></button>
-          <button type="button" class="h-out" id="h-out" title="Sign out" aria-label="Sign out"><Fragment set:html={icon('out')} /></button>
+          <button type="button" class="h-nav__item h-nav__help" id="h-help" data-tour-start title="A guided tour of the hub, set up for your work"><Fragment set:html={icon('help')} /><span class="h-help__full">Help and what's new</span><span class="h-help__rail">Tour</span><span class="h-dot" aria-hidden="true"></span></button>
+          <div class="h-side__foot" id="h-foot" hidden>
+            <button type="button" class="h-acct" id="h-acct" aria-haspopup="menu" aria-expanded="false" aria-controls="h-acctmenu" title="Your account">
+              <span class="h-avatar" id="h-avatar"></span>
+              <span class="h-who"><b id="h-name"></b><span id="h-email"></span></span>
+            </button>
+            <div class="h-acctmenu" id="h-acctmenu" role="menu" hidden>
+              <a role="menuitem" href="/clips/" data-astro-prefetch="hover"><Fragment set:html={icon('clips')} />My clips</a>
+              <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
+            </div>
+            <button type="button" class="h-out h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} /></button>
+            <button type="button" class="h-out" id="h-out" title="Sign out" aria-label="Sign out"><Fragment set:html={icon('out')} /></button>
+          </div>
         </div>
       </aside>
+      <div class="h-scrim" id="h-scrim" aria-hidden="true"></div>
       <script is:inline>
         // Paint the menu the way this person last saw it, before the first frame, so entries never pop in
         // after the sign-in check. hub-shell.js refreshes the saved copy on every page.
@@ -200,6 +104,44 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             .then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) throw new Error(j.message || 'gate'); return j; }); })
             .catch(function (e) { window.__hubGateP = null; throw e; });
           return window.__hubGateP;
+        };
+        // Areas with nothing this person may open disappear; the rail, the tab row and the phone bar follow.
+        window.hubNavLayout = function () {
+          var q = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+          var prefs = {};
+          try { var np = JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1') || '{}'); var nu = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); prefs = np[(nu && nu.user && nu.user.email) || '_'] || np._ || {}; } catch (e) {}
+          var last = prefs.last || {};
+          var sums = {};
+          q('.h-area').forEach(function (a) {
+            var id = a.dataset.area;
+            var pages = q('.h-pg:not([hidden])', a);
+            a.hidden = !pages.length;
+            a.classList.toggle('is-single', pages.length === 1);
+            var n = 0, warn = false;
+            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            sums[id] = { n: n, warn: warn };
+            var target = pages[0] ? pages[0].querySelector('a') : null;
+            var mem = last[id] && q('.h-pg:not([hidden]) a[data-nav-id="' + last[id] + '"]', a)[0];
+            var href = (mem || target) ? (mem || target).getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
+            q('[data-area-link="' + id + '"]').forEach(function (l) { if (!l.closest('.h-area--pop')) l.setAttribute('href', href); });
+          });
+          q('[data-sum]').forEach(function (el) {
+            var s = sums[el.dataset.sum];
+            if (el.dataset.sum === 'more') { s = { n: 0, warn: false }; q('#h-bar [data-bar][hidden]').forEach(function (b) { var t = sums[b.dataset.bar]; if (t) s.n += t.n; }); ['admin', 'help'].forEach(function (k) { if (sums[k]) s.n += sums[k].n; }); }
+            var n = s ? s.n : 0;
+            el.hidden = !n;
+            el.textContent = n > 99 ? '99+' : n.toLocaleString('en-US');
+            el.classList.toggle('h-nav__count--warn', !!(s && s.warn));
+          });
+          var tabs = document.getElementById('h-tabs');
+          if (tabs) tabs.hidden = q('.h-tab:not([hidden])', tabs).length < 2;
+          var bar = q('#h-bar [data-bar]');
+          var vis = bar.filter(function (b) { var a = document.querySelector('.h-area[data-area="' + b.dataset.bar + '"]'); return a && !a.hidden; });
+          vis.sort(function (x, y) { return Number(x.dataset.rank) - Number(y.dataset.rank); });
+          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 4; });
+          var cur = document.querySelector('.h-area.is-cur');
+          var more = document.getElementById('h-bar-more');
+          if (more) more.classList.toggle('is-on', !!cur && !bar.some(function (b) { return !b.hidden && b.dataset.bar === cur.dataset.area; }));
         };
         window.hubApplyNav = function (d) {
           var $ = function (id) { return document.getElementById(id); };
@@ -233,6 +175,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             el.textContent = n.toLocaleString('en-US');
             el.classList.toggle('h-nav__count--warn', el.dataset.count === 'receiptsLeft');
           });
+          if (window.hubNavLayout) window.hubNavLayout();
         };
         try {
           var saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null');
@@ -246,7 +189,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
         <header class="h-top">
           <button type="button" class="h-top__menu" id="h-menu" aria-label="Open the menu" aria-controls="h-side" aria-expanded="false"><Fragment set:html={icon('menu')} /></button>
           <div>
-            <div class="h-top__crumb">{crumb}</div>
+            <div class="h-top__crumb">{crumbText}</div>
             <div class="h-top__title">{title}</div>
           </div>
           <div class="h-top__right">
@@ -266,13 +209,19 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
           // The top bar comes after the menu script above, so the saved sections (reminders bell, clips buttons) are applied to it here, before its first paint.
           try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); var sb = document.querySelector('.h-top__search'); if (hb) hb.hidden = false; if (sb) sb.hidden = true; } } catch (e) {}
         </script>
+        {found && <NavTabs area={found.area} nav={nav} />}
         <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
         </main>
       </div>
+      <NavBar curArea={curArea} />
     </div>
+    <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=4" defer></script>
+    <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
+    <script is:inline src="/js/hub-nav.js?v=1" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=1" defer></script>
     <script is:inline src="/js/clips-launch.js?v=3" defer></script>
     <script is:inline src="/js/wc-bell.js?v=2" defer></script>
     <script>

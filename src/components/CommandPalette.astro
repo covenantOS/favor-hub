@@ -1,6 +1,7 @@
 ---
 import { getCollection } from 'astro:content';
 import videos from '../data/videos.json';
+import { paletteItems, AREAS } from '../data/areas';
 
 // Help articles and videos only show once someone types, so the opening list stays short.
 const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
@@ -8,7 +9,11 @@ const helpItems = [
   ...docs.map((d) => ({ title: d.data.title, desc: d.data.summary, href: `/help/${d.id}/`, tags: `help how ${d.data.topic} ${(d.body || '').match(/^##+ .+$/gm)?.join(' ') || ''}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
   ...videos.map((v) => ({ title: `Video: ${v.title}`, desc: v.summary, href: `/help/videos/${v.slug}/`, tags: `video training ${v.topic} ${v.summary}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
 ];
-const items = [
+const hubHrefs = new Set(AREAS.flatMap((a) => a.pages.filter((x) => !x.ext).map((x) => x.href)));
+const more = [
+  { title: 'Expand or collapse the menu', desc: 'Menu · Switch between the slim rail and the full sidebar (press the backslash key)', href: '#nav-toggle', tags: 'menu sidebar expand collapse rail wide narrow nav navigation', external: false, group: 'Menu', need: '', team: '' },
+];
+const manual = [
   { title: 'Help docs', desc: 'How every tool works, with search', href: '/help/', tags: 'help guide how docs documentation article manual faq', external: false, group: 'Tools' },
   { title: "Take the tour", desc: "A guided tour of the hub, set up for your work, and what's new", href: '/?tour=1', tags: 'tour help new welcome show me around walkthrough guide whats new', external: false, group: 'Tools' },
   { title: 'Training videos', desc: 'The hub, Favor Brain and Blackbaud on video, with captions', href: '/help/videos/', tags: 'video videos training tutorial learn blackbaud raisers edge', external: false, group: 'Tools' },
@@ -44,6 +49,7 @@ const items = [
   { title: 'LinkedIn', desc: 'Favor International', href: 'https://www.linkedin.com/company/favor-international/', tags: 'linkedin social', external: true, group: 'External' },
   ...helpItems,
 ];
+const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external || !hubHrefs.has(i.href)).map((i) => ({ need: '', team: '', ...i }))];
 ---
 <div class="cmdk" id="cmdk" hidden role="dialog" aria-modal="true" aria-label="Hub search">
   <div class="cmdk__overlay" data-cmdk-close></div>
@@ -98,10 +104,21 @@ const items = [
     return 0;
   }
 
+  // Pages this person may not open stay out of the list. The saved sidebar answer holds their access and KPI teams.
+  function allowed(i) {
+    if (!i.need && !i.team) return true;
+    let d = window.FAVOR_HUB;
+    if (!d) { try { d = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); } catch (e) { d = null; } }
+    const access = (d && d.access) || {};
+    if (i.need && !access[i.need]) return false;
+    if (i.team && !((d && d.kpiTeams) || []).includes(i.team)) return false;
+    return true;
+  }
   function filter(q) {
     const lq = norm(q.trim());
-    if (!lq) return items.filter((i) => !i.searchOnly);
-    return items
+    const pool = items.filter(allowed);
+    if (!lq) return pool.filter((i) => !i.searchOnly);
+    return pool
       .map((i) => ({ i, s: score(i, lq) }))
       .filter((x) => x.s > 0)
       .sort((a, b) => b.s - a.s)
@@ -158,6 +175,7 @@ const items = [
 
   function navigateTo(item) {
     if (!item) return;
+    if (item.href === '#nav-toggle') { close(); window.dispatchEvent(new Event('hub-nav-toggle')); return; }
     if (item.external) window.open(item.href, '_blank', 'noopener');
     else window.location.href = item.href;
     close();

@@ -345,7 +345,9 @@ async function go(i: number) {
 
   if (step.page && !samePage(step.page)) {
     // Go there the way a person would: the pointer presses the tool in the menu.
-    const link = step.via ? document.querySelector(`.h-side [data-nav-id="${step.via}"]`) : null;
+    // In the slim rail a page link is folded away; the pointer then presses its area instead.
+    let link: Element | null = step.via ? document.querySelector(`.h-side [data-nav-id="${step.via}"], .h-tabs [data-nav-id="${step.via}"]`) : null;
+    if (link && !(link as HTMLElement).getClientRects().length) link = link.closest('.h-area')?.querySelector('.h-area__link') || link;
     target = null;
     if (link && !link.closest('[hidden]')) {
       openMenuFor(`.h-side [data-nav-id="${step.via}"]`);

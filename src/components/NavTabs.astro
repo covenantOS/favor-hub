@@ -1,0 +1,31 @@
+---
+// The tab row under the header: the pages of the area this page belongs to.
+import type { NavArea } from '../data/areas';
+interface Props { area: NavArea; nav: string; }
+const { area, nav } = Astro.props;
+const pages = area.pages.filter((p) => !p.ext);
+const allGated = pages.every((p) => p.need || p.team);
+const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav);
+---
+{pages.length > 1 && (
+  <nav class="h-tabs" id="h-tabs" data-area={area.id} aria-label={`${area.label} sections`} hidden={allGated ? true : undefined}>
+    <div class="h-tabs__row">
+      {pages.map((p) => (
+        <a
+          class={`h-tab${activeId(p) ? ' is-on' : ''}`}
+          href={p.href}
+          data-astro-prefetch="hover"
+          data-nav-id={p.id}
+          data-need={p.need || undefined}
+          data-kpi-team={p.team || undefined}
+          data-kpi-page={p.kpiPage}
+          hidden={p.need || p.team ? true : undefined}
+          aria-current={activeId(p) ? 'page' : undefined}
+        >
+          {p.label}
+          {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
+        </a>
+      ))}
+    </div>
+  </nav>
+)}

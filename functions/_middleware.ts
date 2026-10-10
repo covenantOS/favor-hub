@@ -3,6 +3,7 @@
 // X-Hub-* headers (see _lib/session.ts).
 import { json, type Env } from './_lib/http';
 import { resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
+import { REDIRECTS } from '../src/data/areas';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -41,6 +42,8 @@ const RETIRED: Record<string, string> = {
   '/newsletter-analytics/': '/dashboard/?page=%2Fmarketing',
 };
 
+const NAV_MOVED = new Map(REDIRECTS);
+
 // A clip's share page and its video are reachable without sign-in at the middleware; each decides for
 // itself by the clip's share switch (functions/c/[id].ts, functions/api/clips/[id]/media.ts).
 const CLIP_OPEN = /^\/(c\/[0-9a-f]{32}\/?|api\/clips\/[0-9a-f]{32}\/(media|info|views))$/;
@@ -64,6 +67,9 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   }
 
   if (RETIRED[path]) return Response.redirect(new URL(RETIRED[path], url).toString(), 301);
+  // Short and older addresses from the navigation registry (src/data/areas.ts) land on the page they became.
+  const moved = NAV_MOVED.get(path.length > 1 ? path.replace(/\/$/, '') : path);
+  if (moved) return Response.redirect(new URL(moved + (moved.includes('?') ? '' : url.search), url).toString(), 301);
 
   if (STATIC_FILES.has(path) || STATIC_PREFIXES.some((p) => path.startsWith(p))) return ctx.next();
 

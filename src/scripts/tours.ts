@@ -81,9 +81,10 @@ export const STEPS: Step[] = [
   },
   {
     id: 'menu',
-    at: '.h-side nav',
-    title: 'Every tool lives in the menu',
-    body: 'Work tools sit at the top. A number beside a tool shows how much is waiting there for you. Your KPI dashboard tabs are below them.',
+    at: '.h-side .h-areas',
+    title: 'Six areas in the menu',
+    body: 'Today, Work, Dashboards, Reports, Ask and Meet each open on their own page, with that area\'s sections as tabs across the top. A number on an area shows how much is waiting there. Press the arrow at the top of the menu, or the backslash key, to widen it into a list of every page.',
+    added: '2026-10-10',
     side: 'right',
   },
   {
@@ -93,7 +94,7 @@ export const STEPS: Step[] = [
     type: 'receipts',
     undo: '[data-cmdk-close]',
     title: 'Search finds any tool',
-    body: 'Press Ctrl and K together on any page (Command and K on a Mac), type a few letters, and press Enter. It finds tools, help topics and videos.',
+    body: 'Press Ctrl and K together on any page (Command and K on a Mac), type a few letters, and press Enter. It finds any page, partner, help topic and video you can open.',
     side: 'bottom',
   },
   {
@@ -184,7 +185,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'kpi-team',
-    at: '.h-nav__item[data-kpi-team]:not([hidden])',
+    at: '.h-tab[data-kpi-team]:not([hidden])',
     title: 'Your team tab',
     body: 'Your team goal, revenue by quarter and your own measures. The numbers rebuild from Raiser\'s Edge at 5 a.m. and 5 p.m. Eastern.',
     for: (w) => w.kpi && !w.leader && !w.admin && w.teams.length > 0,
@@ -488,7 +489,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'docs',
-    at: '[data-nav-id="docs"]',
+    at: '.h-area[data-area="help"] .h-area__link',
     title: 'Help docs and training videos',
     body: 'Look up how anything works, from making a request to reading the KPI dashboard. The training videos are here too, with captions.',
     added: '2026-10-09',
