@@ -148,12 +148,13 @@ export async function stepCadence(ctx: Ctx, input: StepInput) {
   // A role test may press a step on its one test record even though no rule lists it: the write path is the same.
   const rule = row ? row.rule : isTest ? 'monthly' : null;
   if (!rule) throw new HttpError(409, 'not_due', 'That partner is not due for a step any more.');
-  if (row) {
+  if (row && !isTest) {
     const s = row.steps.find((x) => x.k === step);
     if (!s) throw new HttpError(400, 'bad_how', `${STEP_LABEL[step]} is not a step for this partner.`);
     if (s.off) throw new HttpError(400, 'step_off', s.off + '.');
   }
   const holders = row ? row.holders : [ctx.scope?.fid || '27611'];
+  // A role test acts as the one test record's holder, so the batch, the rules and Undo are the real ones.
   const owner = ctx.scope && ctx.scope.fid && (holders.includes(ctx.scope.fid) || isTest) ? ctx.scope.fid : holders[0];
   if (!owner) throw new HttpError(400, 'no_holder', 'No Partner Care holder is on this partner.');
   const spec = THANK_HOWS[step];

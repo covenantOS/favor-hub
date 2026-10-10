@@ -363,6 +363,12 @@ describe('pressing a step', () => {
     await assert.rejects(csvc.stepCadence(ctx, { cid: '6', step: 'card', outcome: 'left', req: 'r7' }), /call/);
     assert.equal(created().length, 0);
   });
+  it('a role test may press any step on its one test record', async () => {
+    const t = { ...ctx, testCid: '1' };
+    const out = await csvc.stepCadence(t, { cid: '1', step: 'email', req: 'rt1' });
+    await run(out.batch.id);
+    assert.equal(created()[0].body.category, 'Email');
+  });
   it('a press repeated with the same req saves one contact', async () => {
     const a = await csvc.stepCadence(ctx, { cid: '1', step: 'call', req: 'same' });
     const b = await csvc.stepCadence(ctx, { cid: '1', step: 'call', req: 'same' }).catch((e) => e);
