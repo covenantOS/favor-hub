@@ -341,7 +341,7 @@
 .wc-lanehead p { margin: 0; font-size: 13px; color: var(--h-ink-2); flex: 1 1 320px; }
 
 /* recent */
-.wc-batches { display: grid; gap: 12px; }
+.wc-batches { display: grid; gap: 12px; max-height: calc(100dvh - 230px); min-height: 240px; overflow: auto; overscroll-behavior: contain; padding-right: 4px; align-content: start; }
 .wc-batch { padding: 0; overflow: hidden; }
 .wc-batch__head { display: grid; grid-template-columns: 42px 1fr auto; gap: 14px; align-items: center; padding: 16px 18px; }
 .wc-batch__icon { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: var(--h-leaf-soft); color: var(--h-brand-ink); }
