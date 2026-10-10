@@ -109,7 +109,7 @@ function paintBadge() {
 }
 function take(d) {
   R.rows = d.rows || []; R.count = d.count || 0; R.now = d.now || 0; R.loaded = true;
-  R.by = new Map(R.rows.filter((r) => r.ref_id).map((r) => [String(r.ref_id), r]));
+  R.by = new Map(R.rows.filter((r) => r.ref_id && r.kind === 'task').map((r) => [String(r.ref_id), r]));
   paintBadge(); decorate();
   if (popEl && popFor === bellBtn()) paintBell();
 }

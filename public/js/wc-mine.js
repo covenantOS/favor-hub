@@ -159,7 +159,7 @@ async function addOneTask(cid) {
   r.next = { id: 'pending', due: d, summary: 'Call to check in', planned: true }; paint();
   const out = await sendBatch({ op: 'new', cids: [cid], set: callSet(d, M.owner, r.name) }, 'Call task added for ' + fd(d));
   if (!out || out.failed) { r.next = prev; paint(); return; }
-  if (isMine()) WC().post('/api/work/reminders', { kind: 'plan_call', cid, title: 'Call ' + r.name, note: reasonOf(r), when: { date: d, time: '09:00' }, source: 'plan_calls' }).then(() => window.WCBell && window.WCBell.refresh()).catch(() => {});
+  if (isMine()) WC().post('/api/work/reminders', { kind: 'plan_call', ref_id: out.batch || null, cid, title: 'Call ' + r.name, note: reasonOf(r), when: { date: d, time: '09:00' }, source: 'plan_calls' }).then(() => window.WCBell && window.WCBell.refresh()).catch(() => {});
 }
 const reasonOf = (r) => money(r.l12) + ' in 12 months, ' + (r.quiet === null ? 'no contact on record' : 'quiet ' + r.quiet + ' days');
 
@@ -193,15 +193,17 @@ function planDialog() {
         const ps = pick(); const days = weekdays(st.span); const map = spread(ps.map((r) => r.cid), days);
         const remind = st.remind && isMine();
         wc.closeLayer();
+        const batchOf = {};
         for (let i = 0; i < ps.length; i += 200) {
           const part = ps.slice(i, i + 200);
           const dates = Object.fromEntries(part.map((r) => [r.cid, map[r.cid]]));
           const out = await sendBatch({ op: 'new', cids: part.map((r) => r.cid), dates, set: callSet(dates[part[0].cid], M.owner, ''), }, 'Planned ' + plural(part.length, 'call'));
           if (!out || out.failed) return;
+          part.forEach((r) => { batchOf[r.cid] = out.batch || null; });
         }
         ps.forEach((r) => { r.next = { id: 'pending', due: map[r.cid], summary: 'Call to check in', planned: true }; });
         if (remind) {
-          try { await wc.post('/api/work/reminders', { items: ps.map((r) => ({ kind: 'plan_call', cid: r.cid, title: 'Call ' + r.name, note: reasonOf(r), when: { date: map[r.cid], time: '09:00' }, source: 'plan_calls' })) }); if (window.WCBell) window.WCBell.refresh(); } catch (err) { wc.toast('The calls are planned. The reminders did not save: ' + err.message); }
+          try { await wc.post('/api/work/reminders', { items: ps.map((r) => ({ kind: 'plan_call', ref_id: batchOf[r.cid], cid: r.cid, title: 'Call ' + r.name, note: reasonOf(r), when: { date: map[r.cid], time: '09:00' }, source: 'plan_calls' })) }); if (window.WCBell) window.WCBell.refresh(); } catch (err) { wc.toast('The calls are planned. The reminders did not save: ' + err.message); }
         }
         M.sel.clear(); if (wc.S.view === 'mine') paint();
       }

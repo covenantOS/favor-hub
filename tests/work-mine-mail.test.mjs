@@ -167,8 +167,23 @@ describe('reminders', () => {
     assert.equal(checkInput({ kind: 'task', title: 'Call Ada  back', ref_id: '119186', cid: '27202', due_at: '2026-10-12T13:00:00Z' }).title, 'Call Ada back');
   });
 
+  it('drops a Plan calls reminder when the batch that made the task is undone', async () => {
+    const env = { DB: memoryD1() };
+    env.DB.exec(readFileSync('db/work.sql', 'utf8'));
+    env.DB.exec(readFileSync('db/work-reminders.sql', 'utf8'));
+    env.DB.db.prepare("INSERT INTO act_batches (id, op, actor, actor_email, params, n, calls_planned, state, undo_until, created_at) VALUES ('wcb_live', 'new', 'a', 'a@favorintl.org', '{}', 1, 1, 'done', 'x', 'x'), ('wcb_gone', 'new', 'a', 'a@favorintl.org', '{}', 1, 1, 'undone', 'x', 'x')").run();
+    await addReminders(env, 'dir@favorintl.org', [
+      { kind: 'plan_call', ref_id: 'wcb_live', cid: '1', title: 'Call Ada', due_at: '2026-10-13T13:00:00Z', source: 'plan_calls' },
+      { kind: 'plan_call', ref_id: 'wcb_gone', cid: '2', title: 'Call Ben', due_at: '2026-10-13T13:00:00Z', source: 'plan_calls' },
+      { kind: 'task', ref_id: 'wcb_gone', title: 'A task reminder keeps its own life', due_at: '2026-10-13T13:00:00Z' },
+    ]);
+    const mine = await listReminders(env, 'dir@favorintl.org', new Date('2026-10-12T14:00:00Z'));
+    assert.deepEqual(mine.rows.map((r) => r.title).sort(), ['A task reminder keeps its own life', 'Call Ada']);
+  });
+
   it('adds, lists, snoozes and finishes a reminder for its owner only', async () => {
     const env = { DB: memoryD1() };
+    env.DB.exec(readFileSync('db/work.sql', 'utf8'));
     env.DB.exec(readFileSync('db/work-reminders.sql', 'utf8'));
     const now = new Date('2026-10-12T14:00:00Z'); // 10 AM Eastern
     await addReminders(env, 'Dir@favorintl.org', [
