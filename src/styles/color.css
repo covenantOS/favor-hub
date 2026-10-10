@@ -15,7 +15,7 @@
 }
 /* menu: icon and count badge take the tool's color */
 .h-nav__item[data-nav-id="home"] { --ic: var(--tc-sun); --ic-ink: var(--tc-sun-ink); }
-.h-nav__item:is([data-nav-id="new"], [data-nav-id="board"], [data-nav-id="expense"], [data-nav-id="expenses"], [data-nav-id="receipts"]) { --ic: var(--tc-sky); --ic-ink: var(--tc-sky-ink); }
+.h-nav__item:is([data-nav-id="new"], [data-nav-id="board"], [data-nav-id="expense"], [data-nav-id="expenses"], [data-nav-id="receipts"], [data-nav-id="reports"]) { --ic: var(--tc-sky); --ic-ink: var(--tc-sky-ink); }
 .h-nav__item:is([data-nav-id="work"], [data-nav-id="foundations"]) { --ic: var(--tc-leaf); --ic-ink: var(--tc-leaf-ink); }
 .h-nav__item:is([data-nav-id="brain"], [data-nav-id="brain-admin"]) { --ic: var(--tc-dusk); --ic-ink: var(--tc-dusk-ink); }
 .h-nav__item[data-nav-id="clips"] { --ic: var(--tc-terra); --ic-ink: var(--tc-terra-ink); }

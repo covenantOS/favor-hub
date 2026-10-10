@@ -148,6 +148,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'reports',
+    page: '/reports/',
+    via: 'reports',
+    at: '#rp-app',
+    title: 'Reports',
+    body: 'The reports your team ran in Blackbaud, rebuilt here. Open one, set the filters, and download it as a CSV or open it in Google Sheets. A line under the totals shows whether the report matches the KPI dashboard. A report marked Coming soon is not built yet.',
+    for: (w) => w.admin || w.leader || w.teams.length > 0,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'foundations',
     page: '/foundations/',
     via: 'foundations',

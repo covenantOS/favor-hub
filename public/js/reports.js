@@ -1,0 +1,297 @@
+/* Reports: the list, and one report page (filters, tiles, tie-out line, table, exports).
+   Every report comes from /api/reports/<id>; this file draws what the server returns and never recomputes a figure.
+   The page lives at data-base ("/reports/") and the data at data-api ("/api/reports"), so moving the area means
+   changing those two attributes on the page, not this file. A report opens at <base>?r=<id>&<filters>. */
+(function () {
+  'use strict';
+  var root = document.getElementById('rp-app');
+  if (!root) return;
+  var BASE = root.dataset.base || '/reports/';
+  var API = root.dataset.api || '/api/reports';
+
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var money = function (n) { var x = Number(n) || 0; return (x < 0 ? '-$' : '$') + Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+  var num = function (n) { return Number(n).toLocaleString('en-US'); };
+  var dshort = function (s) { if (!/^\d{4}-\d{2}-\d{2}/.test(s || '')) return s || ''; return new Date(s.slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+  var $ = function (s, el) { return (el || document).querySelector(s); };
+  var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+
+  var top = { crumb: $('.h-top__crumb'), title: $('.h-top__title') };
+  function setHeader(crumb, title) {
+    if (top.crumb) top.crumb.textContent = crumb;
+    if (top.title) top.title.textContent = title;
+    document.title = title + ' - Favor Hub';
+  }
+
+  var toastEl = $('#rp-toast');
+  var toastTimer;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('is-on'); }, 3800);
+  }
+
+  function get(url) {
+    return fetch(url, { credentials: 'same-origin' }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) { d._status = r.status; return d; });
+    }).catch(function () { return { ok: false, message: 'The hub could not be reached. Check the connection and try again.', _status: 0 }; });
+  }
+
+  /* ---------- the list ---------- */
+  var listQuery = '';
+  var listGroup = 'all';
+
+  function tag(r) {
+    if (!r.ready) return '<span class="rp-tag rp-tag--soon">Coming soon</span>';
+    return r.kpiTie ? '<span class="rp-tag rp-tag--ok">Ties to KPI</span>' : '<span class="rp-tag rp-tag--none">No KPI line</span>';
+  }
+
+  function drawList(data) {
+    setHeader('Work', 'Reports');
+    var groups = data.groups;
+    var reports = data.reports;
+    var q = listQuery.toLowerCase();
+    var chips = [['all', 'All', reports.length]].concat(groups.map(function (g) { return [g.id, g.label, reports.filter(function (r) { return r.group === g.id; }).length]; }))
+      .filter(function (c) { return c[0] === 'all' || c[2] > 0; });
+    var h = '<div class="rp-bar"><input type="search" id="rp-q" placeholder="Find a report or a Blackbaud query" value="' + esc(listQuery) + '" aria-label="Find a report"><div class="rp-chips">' +
+      chips.map(function (c) { return '<button type="button" class="rp-chip' + (listGroup === c[0] ? ' is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + '<small>' + c[2] + '</small></button>'; }).join('') + '</div></div>';
+    var any = false;
+    groups.forEach(function (g) {
+      if (listGroup !== 'all' && listGroup !== g.id) return;
+      var rows = reports.filter(function (r) { return r.group === g.id && (!q || (r.name + ' ' + r.replaces + ' ' + r.who).toLowerCase().indexOf(q) >= 0); });
+      if (!rows.length) return;
+      any = true;
+      h += '<h2 class="rp-h2">' + esc(g.label) + '</h2><div class="h-card rp-list"><div class="rp-head"><span>Report</span><span>Replaces</span><span>Used by</span><span>How often</span><span></span></div>';
+      rows.forEach(function (r) {
+        var inner = '<div><b>' + esc(r.name) + '</b></div><div class="who">' + esc(r.replaces) + '</div><div class="who">' + esc(r.who) + '</div><div class="who">' + esc(r.freq) + '</div><div>' + tag(r) + '</div>';
+        h += r.ready ? '<a class="rp-row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon">' + inner + '</div>';
+      });
+      h += '</div>';
+    });
+    if (listGroup === 'all' && (!q || 'where each blackbaud query went lookup'.indexOf(q) >= 0 || 'queries'.indexOf(q) >= 0)) {
+      any = true;
+      h += '<h2 class="rp-h2">Lookup</h2><div class="h-card rp-list"><a class="rp-row" href="' + BASE + '?r=query-map"><div><b>' + esc(data.queryMap.name) + '</b></div><div class="who">All 105 Blackbaud queries run in 2026</div><div class="who">Everyone</div><div class="who">As needed</div><div><span class="rp-tag rp-tag--none">No KPI line</span></div></a></div>';
+    }
+    if (!any) h += '<div class="h-card rp-box"><p class="rp-note">No report matches that.</p></div>';
+    if (!reports.length) h += '<div class="h-card rp-box"><p class="rp-note">No report is set up for your role yet. The lookup above lists where each Blackbaud query went. Ask the technology team through Feedback if you use one that is missing.</p></div>';
+    root.innerHTML = h;
+    var input = $('#rp-q');
+    input.addEventListener('input', function (e) {
+      listQuery = e.target.value;
+      var pos = e.target.selectionStart;
+      drawList(data);
+      var i = $('#rp-q'); i.focus(); i.setSelectionRange(pos, pos);
+    });
+    $$('[data-g]').forEach(function (b) { b.addEventListener('click', function () { listGroup = b.dataset.g; drawList(data); }); });
+  }
+
+  /* ---------- one report ---------- */
+  var cur = null; // { id, res, sort, find, page }
+  var SHEET = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true" style="width:16px;height:16px"><path d="M6 2.5h8.5L19 7v13.5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-17a1 1 0 0 1 1-1z" fill="#0f9d58" stroke="none"/><path d="M14.5 2.5V7H19" fill="#87ceac" stroke="none"/><rect x="8" y="10.5" width="8" height="7" rx=".5" fill="#fff" stroke="none"/><path d="M8 13h8M8 15.3h8M11 10.5v7" stroke="#0f9d58" stroke-width=".9" fill="none"/></svg>';
+
+  function filterQuery(id, values) {
+    var p = new URLSearchParams();
+    Object.keys(values).forEach(function (k) { if (values[k] !== '') p.set(k, values[k]); });
+    return p.toString();
+  }
+  function apiUrl(id, values, format) {
+    var p = new URLSearchParams();
+    Object.keys(values || {}).forEach(function (k) { p.set(k, values[k]); });
+    if (format) p.set('format', format);
+    var q = p.toString();
+    return API + '/' + encodeURIComponent(id) + (q ? '?' + q : '');
+  }
+
+  function cell(c, v, row) {
+    if (c.type === 'cell') {
+      var key = cur.res.editable.length ? row.__key : '';
+      return '<input class="cell" data-edit-key="' + esc(key) + '" data-edit-col="' + esc(c.key) + '" value="' + esc(v == null ? '' : Number(v).toFixed(2)) + '" inputmode="decimal" aria-label="' + esc(c.label) + '">';
+    }
+    if (v == null || v === '') return '';
+    if (c.type === 'money') return money(v);
+    if (c.type === 'int') return num(v);
+    if (c.type === 'date') return esc(dshort(String(v)));
+    if (c.type === 'pct') return (Number(v) * 100).toFixed(1) + '%';
+    if (c.type === 'chip') {
+      var cls = /^(Mailed|Active|Recurring|Thanked)$/.test(v) ? 'rp-tag--ok' : /^(Hold|LYBUNT|Waiting)$/.test(v) ? 'rp-tag--warn' : /^Lapsed$/.test(v) ? 'rp-tag--none' : '';
+      return '<span class="rp-tag ' + cls + '">' + esc(v) + '</span>';
+    }
+    return esc(v);
+  }
+  var isRight = function (c) { return c.type === 'money' || c.type === 'int' || c.type === 'pct' || c.type === 'cell'; };
+
+  function tileValue(t) { return t.kind === 'money' ? money(t.value) : t.kind === 'int' ? num(t.value) : String(t.value); }
+
+  function tieHtml(t) {
+    if (t.status === 'none' && !t.note) return '';
+    if (t.status === 'none') return '<div class="h-card rp-tie is-off"><span class="lbl">Tie-out</span><span class="eq">' + esc(t.note || '') + '</span><span class="rp-tag rp-tag--none">No KPI line</span></div>';
+    var f = function (v) { return t.kind === 'count' ? num(v) : money(v); };
+    var right = t.status === 'match' ? '<span class="rp-tag rp-tag--ok">Matches</span>'
+      : t.status === 'differs' ? '<span class="rp-tag rp-tag--warn">Differs by ' + f(t.diff) + '</span>'
+      : '<span class="rp-tag rp-tag--none">KPI figure not available</span>';
+    var eq = t.status === 'unavailable'
+      ? esc(t.note || '')
+      : 'This report <b>' + f(t.mine) + '</b> &nbsp;/&nbsp; ' + esc(t.label) + ' <b>' + f(t.kpi) + '</b>';
+    return '<div class="h-card rp-tie' + (t.status === 'differs' ? ' is-warn' : '') + '"><span class="lbl">Tie-out</span><span class="eq">' + eq + '</span>' + right + '</div>';
+  }
+
+  function visibleRows() {
+    var res = cur.res;
+    var rows = res.rows;
+    var q = (cur.find || '').toLowerCase();
+    if (q) rows = rows.filter(function (r) { return res.columns.some(function (c) { return String(r[c.key] == null ? '' : r[c.key]).toLowerCase().indexOf(q) >= 0; }); });
+    if (cur.sort) {
+      var s = cur.sort;
+      rows = rows.slice().sort(function (a, b) {
+        var x = a[s.k], y = b[s.k];
+        if (x == null) x = ''; if (y == null) y = '';
+        return s.d * ((typeof x === 'number' && typeof y === 'number') ? x - y : String(x).localeCompare(String(y)));
+      });
+    }
+    return rows;
+  }
+
+  function drawReport() {
+    var res = cur.res, rows = visibleRows();
+    var ps = res.pageSize, pages = Math.max(1, Math.ceil(rows.length / ps));
+    cur.page = Math.min(cur.page || 0, pages - 1);
+    var pageRows = rows.slice(cur.page * ps, cur.page * ps + ps);
+    var searching = !!cur.find;
+    var hasFlags = res.columns.some(function (c) { return c.total; });
+    var totals = res.totals;
+    if (searching && hasFlags) {
+      totals = {};
+      res.columns.forEach(function (c) { if (c.total) { var s = 0; rows.forEach(function (r) { s += Number(r[c.key]) || 0; }); totals[c.key] = Math.round(s * 100) / 100; } });
+    } else if (searching) totals = {};
+
+    var h = '<div class="rp-bar2"><a class="rp-back" href="' + BASE + '">All reports</a><div class="rp-acts">' +
+      (res.post != null ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-copy">Copy for WhatsApp</button>' : '') +
+      '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>Export CSV</a>' +
+      '<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="reports">' + SHEET + 'Open in Google Sheets</button></div></div>';
+
+    var shown = res.filters.filter(function (f) { return !f.showWhen || res.values[f.showWhen.id] === f.showWhen.is; });
+    if (shown.length) {
+      h += '<div class="h-card rp-filters">';
+      shown.forEach(function (f) {
+        var v = res.values[f.id];
+        if (f.type === 'seg') h += '<div class="rp-f"><span>' + esc(f.label) + '</span><div class="rp-seg" role="group" aria-label="' + esc(f.label) + '">' + f.options.map(function (o) { return '<button type="button" data-f="' + f.id + '" data-v="' + esc(o[0]) + '" class="' + (v === o[0] ? 'is-on' : '') + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
+        else if (f.type === 'select') h += '<label class="rp-f"><span>' + esc(f.label) + '</span><select data-f="' + f.id + '">' + f.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (v === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>';
+        else if (f.type === 'date') h += '<label class="rp-f"><span>' + esc(f.label) + '</span><input type="date" data-f="' + f.id + '" value="' + esc(v) + '"></label>';
+        else if (f.type === 'month') h += '<label class="rp-f"><span>' + esc(f.label) + '</span><input type="month" data-f="' + f.id + '" value="' + esc(v) + '"></label>';
+        else h += '<label class="rp-f"><span>' + esc(f.label) + '</span><input type="text" data-f="' + f.id + '" value="' + esc(v) + '" maxlength="80"></label>';
+      });
+      h += '<button type="button" class="h-btn h-btn--ghost h-btn--sm rp-reset" id="rp-reset">Reset</button></div>';
+    }
+
+    if (res.tiles.length) h += '<div class="rp-tiles">' + res.tiles.map(function (t) { return '<div class="h-card rp-tile"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; }).join('') + '</div>';
+    h += tieHtml(res.tie);
+
+    var side = res.post != null || res.note;
+    h += '<div class="rp-main' + (side ? '' : ' is-solo') + '"><div><div class="h-card rp-tcard"><div class="rp-thead"><span class="cnt">' + num(rows.length) + (rows.length === 1 ? ' row' : ' rows') + (res.more ? ' (first ' + num(res.rows.length) + ' of ' + num(res.count) + ')' : '') + '</span><input type="search" id="rp-find" placeholder="Search these rows" value="' + esc(cur.find || '') + '" aria-label="Search these rows"></div><div class="rp-scroll"><table class="rp-table"><thead><tr>' +
+      res.columns.map(function (c) { var on = cur.sort && cur.sort.k === c.key; return '<th class="' + (isRight(c) ? 'r ' : '') + (on ? 'is-sort' : '') + '" data-sort="' + c.key + '" aria-sort="' + (on ? (cur.sort.d > 0 ? 'ascending' : 'descending') : 'none') + '">' + esc(c.label) + '<span class="ar">' + (on ? (cur.sort.d > 0 ? '▲' : '▼') : '⇅') + '</span></th>'; }).join('') + '</tr></thead><tbody>';
+    pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c) { return '<td class="' + (isRight(c) ? 'r' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
+    if (!pageRows.length) h += '<tr><td colspan="' + res.columns.length + '" class="rp-empty">No rows for these filters.</td></tr>';
+    h += '</tbody>';
+    if (Object.keys(totals).length) h += '<tfoot><tr>' + res.columns.map(function (c, i) { var v = totals[c.key]; return '<td class="' + (isRight(c) ? 'r' : '') + '">' + (i === 0 ? 'Total' : v == null ? '' : c.type === 'money' || c.type === 'cell' ? money(v) : num(v)) + '</td>'; }).join('') + '</tr></tfoot>';
+    h += '</table></div>';
+    if (rows.length > ps) h += '<div class="rp-pager"><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-prev"' + (cur.page ? '' : ' disabled') + '>Previous</button><span>' + (cur.page * ps + 1) + ' to ' + Math.min(rows.length, cur.page * ps + ps) + ' of ' + num(rows.length) + '</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-next"' + (cur.page + 1 < pages ? '' : ' disabled') + '>Next</button></div>';
+    h += '</div></div>';
+    if (side) {
+      h += '<aside class="rp-side">';
+      if (res.post != null) h += '<div class="h-card rp-box"><div class="rp-k">Post text</div><div class="rp-pre" id="rp-pre">' + esc(res.post) + '</div></div>';
+      if (res.note) h += '<div class="h-card rp-box"><p class="rp-note">' + esc(res.note) + '</p></div>';
+      h += '</aside>';
+    }
+    h += '</div>';
+    root.innerHTML = h;
+    bindReport();
+  }
+
+  function reload(values) {
+    var id = cur.id;
+    var url = BASE + '?r=' + id + (Object.keys(values).length ? '&' + filterQuery(id, values) : '');
+    history.replaceState(null, '', url);
+    root.classList.add('is-busy');
+    return get(apiUrl(id, values)).then(function (d) {
+      root.classList.remove('is-busy');
+      if (!d.ok) { toast(d.message || 'The report did not load.'); return; }
+      cur.res = d.report; cur.page = 0;
+      drawReport();
+    });
+  }
+
+  function bindReport() {
+    var res = cur.res;
+    $$('[data-f]', root).forEach(function (el) {
+      el.addEventListener(el.tagName === 'BUTTON' ? 'click' : 'change', function () {
+        var v = Object.assign({}, res.values);
+        v[el.dataset.f] = el.tagName === 'BUTTON' ? el.dataset.v : el.value;
+        reload(v);
+      });
+    });
+    var reset = $('#rp-reset');
+    if (reset) reset.addEventListener('click', function () { cur.find = ''; cur.sort = null; reload({}); });
+    $$('[data-sort]', root).forEach(function (th) { th.addEventListener('click', function () { var k = th.dataset.sort; cur.sort = cur.sort && cur.sort.k === k ? { k: k, d: -cur.sort.d } : { k: k, d: 1 }; drawReport(); }); });
+    $('#rp-find').addEventListener('input', function (e) { cur.find = e.target.value; cur.page = 0; var p = e.target.selectionStart; drawReport(); var i = $('#rp-find'); i.focus(); i.setSelectionRange(p, p); });
+    var pv = $('#rp-prev'), nx = $('#rp-next');
+    if (pv) pv.addEventListener('click', function () { cur.page -= 1; drawReport(); });
+    if (nx) nx.addEventListener('click', function () { cur.page += 1; drawReport(); });
+    var cp = $('#rp-copy');
+    if (cp) cp.addEventListener('click', function () {
+      var done = function () { toast('Post text copied.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(res.post).then(done, function () { toast('Copy did not work. Select the post text and copy it.'); });
+      else toast('Copy did not work. Select the post text and copy it.');
+    });
+    $$('[data-edit-key]', root).forEach(function (i) {
+      i.addEventListener('change', function () {
+        fetch(API + '/edit', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ report: res.id, key: i.dataset.editKey, col: i.dataset.editCol, value: i.value }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { if (!d.ok) { toast(d.message || 'That did not save.'); return; } reload(cur.res.values); })
+          .catch(function () { toast('That did not save. Check the connection.'); });
+      });
+    });
+  }
+
+  if (window.FavorSheets) {
+    window.FavorSheets.register('reports', function () {
+      if (!cur) return null;
+      return get(apiUrl(cur.id, cur.res.values, 'sheet')).then(function (d) {
+        if (!d.ok) throw new Error(d.message || 'The sheet did not build.');
+        return d.spec;
+      });
+    });
+  }
+
+  /* ---------- routing ---------- */
+  function openReport(id, asked) {
+    root.innerHTML = '<p class="rp-note rp-loading">Loading</p>';
+    get(apiUrl(id, asked)).then(function (d) {
+      if (!d.ok) {
+        setHeader('Reports', 'Reports');
+        root.innerHTML = '<div class="h-card rp-box"><p class="rp-note">' + esc(d.message || 'That report did not load.') + '</p><p><a class="h-btn h-btn--ghost h-btn--sm" href="' + BASE + '">All reports</a></p></div>';
+        return;
+      }
+      cur = { id: id, res: d.report, sort: null, find: '', page: 0 };
+      setHeader('Reports', d.report.name);
+      drawReport();
+    });
+  }
+
+  function route() {
+    var p = new URLSearchParams(location.search);
+    var id = p.get('r');
+    if (id && /^[a-z0-9-]+$/.test(id)) {
+      var asked = {};
+      p.forEach(function (v, k) { if (k !== 'r' && k !== 'google') asked[k] = v; });
+      openReport(id, asked);
+      return;
+    }
+    root.innerHTML = '<p class="rp-note rp-loading">Loading</p>';
+    get(API).then(function (d) {
+      if (!d.ok) { root.innerHTML = '<div class="h-card rp-box"><p class="rp-note">' + esc(d.message || 'Reports did not load.') + '</p></div>'; return; }
+      drawList(d);
+    });
+  }
+  route();
+})();
