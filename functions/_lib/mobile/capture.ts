@@ -1,9 +1,9 @@
-// One check or reply-slip photo from the phone, stored in a private R2 bucket. Nothing serves these objects: there is no public
-// route to the bucket and no /api/uploads/ key, so a photo is readable only by code that reads the bucket directly.
+// One check or reply-slip photo from the phone, stored in gift entry's private bucket (favor-gift-captures, binding GIFT_CAPTURES) under
+// the prefix mobile/. Nothing serves these objects: there is no public route to the bucket and no /api/uploads/ key, so a photo is
+// readable only by code that reads the bucket directly. The metadata sits in mobile_captures.
 //
-// STAND-IN. Gift entry (phase P1) plans its own private bucket, favor-gift-captures, and an authenticated image route. It is not
-// created or bound yet, so this route writes to its own private bucket (favor-mobile-captures, binding MOBILE_CAPTURES) and keeps the
-// metadata in mobile_captures. When gift entry binds its bucket, point this route at it and copy these rows over (r2_key is kept).
+// A phone photo is not attached to a deposit here. Gift entry's own phone flow (a deposit, its rows, the tape) is its own set of routes,
+// and the app adopts them when that contract lands. Until then a mobile/ photo waits for gift entry to claim it by client_id.
 import { HttpError, nowIso } from '../http';
 import type { MobileEnv } from './auth';
 import { clientIdOf } from './route';
@@ -22,7 +22,7 @@ function imageKind(bytes: Uint8Array): 'jpg' | 'png' | null {
 }
 
 export async function storeCapture(env: MobileEnv, email: string, request: Request) {
-  if (!env.MOBILE_CAPTURES) throw new HttpError(503, 'no_bucket', 'Photo upload is not switched on yet.');
+  if (!env.GIFT_CAPTURES) throw new HttpError(503, 'no_bucket', 'Photo upload is not switched on yet.');
   const declared = Number(request.headers.get('Content-Length') || 0);
   if (declared > MAX_BYTES + 64 * 1024) throw new HttpError(413, 'too_big', 'That photo is over 12 MB. The app shrinks it before sending.');
   let form: FormData;
@@ -48,7 +48,7 @@ export async function storeCapture(env: MobileEnv, email: string, request: Reque
   const type = imageKind(buf);
   if (!type) throw new HttpError(400, 'bad_image', 'Send a JPEG photo. The app converts HEIC before sending.');
   const key = `mobile/${new Date().toISOString().slice(0, 7)}/${clientId}.${type}`;
-  await env.MOBILE_CAPTURES.put(key, buf, { httpMetadata: { contentType: type === 'jpg' ? 'image/jpeg' : 'image/png' }, customMetadata: { kind } });
+  await env.GIFT_CAPTURES.put(key, buf, { httpMetadata: { contentType: type === 'jpg' ? 'image/jpeg' : 'image/png' }, customMetadata: { kind } });
   try {
     await env.DB.prepare('INSERT INTO mobile_captures (email, client_id, kind, r2_key, bytes, sha256, captured_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(email, clientId, kind, key, buf.length, await digestHex(buf), capturedAt, nowIso())

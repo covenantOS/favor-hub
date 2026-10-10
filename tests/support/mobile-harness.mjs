@@ -147,7 +147,7 @@ export async function world({ board = [], people = {}, staff = [], settings = {}
     MIRROR_API_KEY: 'test-key',
     MIRROR_QUERY_URL: MIRROR_URL,
     HUB_ADMINS: 'will@favorintl.org',
-    MOBILE_CAPTURES: captures,
+    GIFT_CAPTURES: captures,
   };
 
   const k = await googleKeys();

@@ -405,9 +405,9 @@ describe('captures', () => {
     assert.equal(w.captures.objects.size, 0);
   });
 
-  it('answers 503 until a bucket is bound, and the config says so', async () => {
+  it('answers 503 until the gift captures bucket is bound, and the config says so', async () => {
     const { w, token } = await ready();
-    delete w.env.MOBILE_CAPTURES;
+    delete w.env.GIFT_CAPTURES;
     const out = await call(w, 'POST', '/api/mobile/captures', { token, form: formOf() });
     assert.equal(out.status, 503);
     const cfg = await callChecked(w, 'GET', '/api/mobile/config', { token });

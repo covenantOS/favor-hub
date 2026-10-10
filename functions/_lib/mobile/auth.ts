@@ -10,8 +10,6 @@ export interface MobileEnv extends Env {
   /** Local tests only. "on" together with a localhost address accepts an unsigned "test.<claims>" token. Never set on the live site. */
   MOBILE_AUTH_TEST?: string;
   MOBILE_MIN_VERSION?: string;
-  /** Private bucket for check photos. A stand-in until gift entry's own bucket (favor-gift-captures) is bound. */
-  MOBILE_CAPTURES?: R2Bucket;
 }
 
 /** How old an ID token may be at sign-in. The app posts it the moment Google hands it over. */
