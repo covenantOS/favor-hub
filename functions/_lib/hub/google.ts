@@ -135,12 +135,13 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
 
 /** Unread inbox mail from the last three days, headers only. */
 export async function unreadMail(token: string): Promise<DayMail[]> {
-  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15');
+  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15&q=newer_than:3d');
   const ids: string[] = (list.messages || []).map((m: any) => m.id);
   const cutoff = Date.now() - 3 * 864e5;
+  // One request per message, all at once (they ran one after another and took about 3 s).
+  const msgs = await Promise.all(ids.map((id) => g(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`).catch(() => null)));
   const out: DayMail[] = [];
-  for (const id of ids) {
-    const m = await g(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`).catch(() => null);
+  for (const m of msgs) {
     if (!m || Number(m.internalDate) < cutoff) continue;
     const h = (n: string) => (m.payload?.headers || []).find((x: any) => x.name === n)?.value || '';
     const from = h('From');

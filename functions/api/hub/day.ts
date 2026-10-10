@@ -14,12 +14,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const email = user.via === 'google' ? user.email.toLowerCase() : 'will@favorintl.org';
 
-    const bb = (async () => {
+    const t0 = Date.now();
+    const marks: string[] = [];
+    const mark = <T,>(n: string, p: Promise<T>) => p.finally(() => marks.push(`${n};dur=${Date.now() - t0}`));
+    const bb = mark('bb', (async () => {
       const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
       return await yourDayBlackbaud((sql, params) => mirror(env, sql, params), email, today);
-    })().catch((e) => ({ linked: false, actions: [] as any[], total: 0, overdue: 0, error: String(e.message || e) }));
+    })()).catch((e) => ({ linked: false, actions: [] as any[], total: 0, overdue: 0, error: String(e.message || e) }));
 
-    const google = (async () => {
+    const google = mark('google', (async () => {
       if (user.via !== 'google') return { connected: false };
       const t = await accessToken(env, email);
       if (!t) return { connected: false };
@@ -43,10 +46,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         partners = Object.fromEntries(rows.map((r: any) => [r.email, { name: r.name, id: String(r.id) }]));
       }
       return { connected: true, events, files, mail, partners };
-    })().catch((e) => ({ connected: true, error: String(e.message || e) }));
+    })()).catch((e) => ({ connected: true, error: String(e.message || e) }));
 
     const [blackbaud, g] = await Promise.all([bb, google]);
-    return json({ ok: true, blackbaud, google: g });
+    const res = json({ ok: true, blackbaud, google: g });
+    res.headers.set('Server-Timing', marks.join(', '));
+    return res;
   } catch (err) {
     return handleError(err);
   }
