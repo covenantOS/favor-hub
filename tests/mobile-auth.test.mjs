@@ -175,6 +175,19 @@ describe('device tokens', () => {
     assert.equal(JSON.stringify(list.body).includes('token_hash'), false);
   });
 
+  it('an admin can sign out one phone by its id and leave the others', async () => {
+    const w = await world();
+    const a1 = await signIn(w);
+    const a2 = await signIn(w);
+    const willToken = await signIn(w, { email: 'will@favorintl.org', name: 'Will Hamilton' });
+    const list = await call(w, 'GET', '/api/auth/native/devices?email=ada@favorintl.org', { token: willToken });
+    const first = list.body.devices[list.body.devices.length - 1];
+    const out = await call(w, 'POST', '/api/auth/native/revoke-all', { token: willToken, body: { email: 'ada@favorintl.org', device_id: first.id } });
+    assert.equal(out.body.revoked, 1);
+    assert.equal((await call(w, 'GET', '/api/mobile/config', { token: a1 })).status, 401);
+    assert.equal((await call(w, 'GET', '/api/mobile/config', { token: a2 })).status, 200);
+  });
+
   it('stop working when they expire', async () => {
     const w = await world();
     const token = await signIn(w);

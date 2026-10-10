@@ -292,6 +292,16 @@ describe('log a contact', () => {
     assert.equal(created[0].body.summary, 'Visit');
   });
 
+  it('an email is an Email action, and the whole note travels as the description', async () => {
+    const { w, token } = await ready();
+    const out = await callChecked(w, 'POST', '/api/mobile/contacts', { token, body: body({ kind: 'email', partner_id: '9002' }) });
+    assert.equal(out.status, 200);
+    const created = w.bbCalls.filter((c) => c.method === 'POST' && c.path === '/constituent/v1/actions');
+    assert.equal(created[0].body.category, 'Email');
+    assert.equal(created[0].body.summary, 'Talked about the fall project.');
+    assert.equal(created[0].body.description, 'Talked about the fall project.\nWill follow up.');
+  });
+
   it('a repeat of the same client_id returns the stored answer and makes no second action', async () => {
     const { w, token } = await ready();
     const b = body();

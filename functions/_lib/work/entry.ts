@@ -323,6 +323,7 @@ export interface ManyInput {
   date: string;
   channel: string;
   summary: string;
+  description?: string;
   tags: string[];
   constituent_ids: string[];
   req?: string;
@@ -372,8 +373,8 @@ export async function entryMany(ctx: Ctx, input: ManyInput) {
     created.push(id);
     stmts.push(
       ctx.env.DB.prepare(
-        `INSERT OR IGNORE INTO act_submissions (id, owner_fid, source, sheet_ref, contact_date, raw, constituent_id, match_how, channel, summary, tags, state, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      ).bind(id, String(input.owner), 'many', refOf(cid), date, JSON.stringify({ name: known.get(cid)!.name, notes: 'Entered with One contact, many partners' }), cid, 'picked', input.channel, summary, JSON.stringify(tags), 'waiting', nowIso(), ctx.actor)
+        `INSERT OR IGNORE INTO act_submissions (id, owner_fid, source, sheet_ref, contact_date, raw, constituent_id, match_how, channel, summary, description, tags, state, created_at, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(id, String(input.owner), 'many', refOf(cid), date, JSON.stringify({ name: known.get(cid)!.name, notes: 'Entered with One contact, many partners' }), cid, 'picked', input.channel, summary, input.description ? String(input.description).slice(0, 4000) : null, JSON.stringify(tags), 'waiting', nowIso(), ctx.actor)
     );
   }
   for (let i = 0; i < stmts.length; i += 40) await ctx.env.DB.batch(stmts.slice(i, i + 40));

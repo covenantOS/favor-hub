@@ -88,6 +88,14 @@ export async function revokeAll(env: Env, email: string, by: string): Promise<nu
   return Number(r.meta?.changes || 0);
 }
 
+/** Revoke one live phone of an email by its device id. Returns 1 when found, 0 when not. */
+export async function revokeOne(env: Env, email: string, deviceId: string, by: string): Promise<number> {
+  const r = await env.DB.prepare('UPDATE hub_devices SET revoked_at = ?, revoked_by = ? WHERE id = ? AND email = ? AND revoked_at IS NULL')
+    .bind(nowIso(), by, deviceId, email.toLowerCase())
+    .run();
+  return Number(r.meta?.changes || 0);
+}
+
 export async function listDevices(env: Env, email: string) {
   return (
     await env.DB.prepare('SELECT id, name, created_at, last_seen, expires_at, revoked_at, revoked_by FROM hub_devices WHERE email = ? ORDER BY created_at DESC LIMIT 50')

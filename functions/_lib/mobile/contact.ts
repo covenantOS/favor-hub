@@ -6,10 +6,10 @@ import { etParts } from '../actions/intake';
 import { entryMany, entryOwners } from '../work/entry';
 import { runBatch, type Ctx } from '../work/service';
 
-export type ContactKind = 'call' | 'visit' | 'text';
-export const KINDS: ContactKind[] = ['call', 'visit', 'text'];
-const CHANNEL: Record<ContactKind, string> = { call: 'call', visit: 'meet', text: 'text' };
-const DEFAULT_SUMMARY: Record<ContactKind, string> = { call: 'Phone call', visit: 'Visit', text: 'Text' };
+export type ContactKind = 'call' | 'visit' | 'text' | 'email';
+export const KINDS: ContactKind[] = ['call', 'visit', 'text', 'email'];
+const CHANNEL: Record<ContactKind, string> = { call: 'call', visit: 'meet', text: 'text', email: 'email' };
+const DEFAULT_SUMMARY: Record<ContactKind, string> = { call: 'Phone call', visit: 'Visit', text: 'Text', email: 'Email' };
 
 export interface ContactInput {
   partner_id: string;
@@ -20,7 +20,7 @@ export interface ContactInput {
 
 export function parseContact(b: Record<string, any>): ContactInput {
   const kind = String(b.kind || '') as ContactKind;
-  if (!KINDS.includes(kind)) throw new HttpError(400, 'bad_kind', 'kind must be call, visit or text.');
+  if (!KINDS.includes(kind)) throw new HttpError(400, 'bad_kind', 'kind must be call, visit, text or email.');
   const partner = String(b.partner_id || '').trim();
   if (!/^\d{1,12}$/.test(partner)) throw new HttpError(400, 'bad_partner', 'partner_id is the partner system id.');
   const when = Date.parse(String(b.occurred_at || ''));
@@ -48,6 +48,7 @@ export async function logContact(ctx: Ctx, fid: string, input: ContactInput, req
     date,
     channel: CHANNEL[input.kind],
     summary: summaryOf(input.kind, input.note),
+    description: String(input.note || '').trim() === summaryOf(input.kind, input.note) ? '' : String(input.note || '').trim().slice(0, 4000),
     tags: [],
     constituent_ids: [input.partner_id],
     req,

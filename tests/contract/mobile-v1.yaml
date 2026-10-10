@@ -677,7 +677,7 @@ components:
         last_gift_date: { type: string, format: date-time, nullable: true }
         year_to_date_cents: { type: integer }
         last_contact_date: { type: string, format: date-time, nullable: true }
-        last_contact_kind: { type: string, enum: [call, visit, text], nullable: true }
+        last_contact_kind: { type: string, enum: [call, visit, text, email], nullable: true }
     OpenTask:
       type: object
       required: [id, summary, type]
@@ -707,7 +707,7 @@ components:
       properties:
         client_id: { type: string, format: uuid }
         partner_id: { type: string }
-        kind: { type: string, enum: [call, visit, text] }
+        kind: { type: string, enum: [call, visit, text, email] }
         note: { type: string }
         occurred_at: { type: string, format: date-time }
     CatalogOption:
