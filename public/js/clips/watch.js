@@ -34,13 +34,14 @@ const IC = {
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   scissors: '<circle cx="6" cy="7" r="2.5"/><circle cx="6" cy="17" r="2.5"/><path d="M8 8.5 20 18M8 15.5 20 6"/>',
   trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  lang: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
 };
 const icon = (n, cls = '') => `<svg class="cw-i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${IC[n] || ''}</svg>`;
 
 const S = {
   info: null, clip: null, user: null, can: { edit: false }, comments: [], reactions: [], viewers: [],
   lines: [], wordsRaw: [], words: [], edits: normEdits({}), ranges: [], srcDur: 0, now: 0, playing: false,
-  speed: 1, muted: false, cc: localStorage.getItem('favor.clips.cc') === '1', tab: 'transcript', q: '', fixing: false, viewId: null, furthest: 0,
+  lang: 'orig', translations: {}, speed: 1, muted: false, cc: localStorage.getItem('favor.clips.cc') === '1', tab: 'transcript', q: '', fixing: false, viewId: null, furthest: 0,
   commentAt: 0, pinned: false, helpDraft: '',
 };
 let video = null;
@@ -52,6 +53,13 @@ const duration = () => S.srcDur || (S.clip ? S.clip.duration : 0);
 const total = () => (S.ranges.length ? rangesLength(S.ranges) : duration());
 const edited = (t) => (S.ranges.length ? toEdited(t, S.ranges) : t);
 const toSrc = (t) => (S.ranges.length ? toSource(t, S.ranges) : t);
+/** The transcript lines in the language on screen: the original, or a translation with the same times. */
+const shownLines = () => {
+  const tr = S.lang !== 'orig' ? S.translations[S.lang] : null;
+  return tr && tr.length === S.lines.length ? S.lines.map((l, i) => ({ s: l.s, e: l.e, t: tr[i] })) : S.lines;
+};
+const translated = () => shownLines() !== S.lines;
+const LANG_NAMES = { orig: 'Original', es: 'Spanish', en: 'English' };
 const isAdmin = () => !!(S.user && S.user.admin);
 const signedIn = () => !!S.user;
 const firstName = (n) => String(n || '').split(/\s+/)[0] || 'Someone';
@@ -75,6 +83,7 @@ async function load(first) {
     S.lines = d.clip.transcript || [];
     S.wordsRaw = d.clip.words || [];
     S.words = wordsOf(S.lines, S.wordsRaw);
+    S.translations = d.clip.translations || {};
     S.edits = normEdits(d.clip.edits);
     S.srcDur = d.clip.duration || 0;
     S.ranges = keepRanges(S.edits, duration());
@@ -657,14 +666,14 @@ function paintCaption() {
     return;
   }
   const t = S.now;
-  const line = S.lines.find((l) => t >= l.s - 0.05 && t <= l.e + 0.4);
+  const line = shownLines().find((l) => t >= l.s - 0.05 && t <= l.e + 0.4);
   if (!line) {
     el.hidden = true;
     return;
   }
   el.hidden = false;
-  if (el.dataset.s !== String(line.s)) {
-    el.dataset.s = String(line.s);
+  if (el.dataset.s !== S.lang + line.s) {
+    el.dataset.s = S.lang + line.s;
     el.textContent = line.t;
   }
 }
@@ -1016,13 +1025,21 @@ function paintTranscript(box) {
       <div class="cw-trbtns" role="toolbar" aria-label="Transcript tools">
         <button type="button" class="cw-btn cw-btn--ghost cw-btn--sm" data-tr="copy">${icon('copy')}Copy</button>
         <span class="cw-menuwrap"><button type="button" class="cw-btn cw-btn--ghost cw-btn--sm" data-tr="dlm" aria-haspopup="menu" aria-expanded="false">${icon('dl')}Download</button><ul class="cw-menu" role="menu" hidden id="cw-dlm"><li role="none"><button type="button" class="cw-mi" role="menuitem" data-tr="txt">Plain text (.txt)</button></li><li role="none"><button type="button" class="cw-mi" role="menuitem" data-tr="srt">Subtitles (.srt)</button></li></ul></span>
-        ${admin ? `<button type="button" class="cw-btn cw-btn--ghost cw-btn--sm${S.fixing ? ' is-on' : ''}" data-tr="fix" aria-pressed="${S.fixing}">${icon('pencil')}Fix the text</button>` : ''}
+        ${langMenu()}
+        ${admin && S.lang === 'orig' ? `<button type="button" class="cw-btn cw-btn--ghost cw-btn--sm${S.fixing ? ' is-on' : ''}" data-tr="fix" aria-pressed="${S.fixing}">${icon('pencil')}Fix the text</button>` : ''}
       </div></div>
     <div class="cw-lines" id="cw-lines">${linesHtml()}</div>${S.fixing ? `<div class="cw-fixbar"><button type="button" class="cw-btn" data-tr="fixsave">Save the text</button><button type="button" class="cw-btn cw-btn--ghost" data-tr="fixcancel">Cancel</button></div>` : ''}`;
   $('#cw-trq').addEventListener('input', (e) => {
     S.q = e.target.value;
     $('#cw-lines').innerHTML = linesHtml();
   });
+}
+
+function langMenu() {
+  const have = Object.keys(S.translations).filter((k) => S.translations[k] && S.translations[k].length === S.lines.length);
+  if (!isAdmin() && !have.length) return '';
+  const items = ['orig', 'es', 'en'].filter((k) => k === 'orig' || isAdmin() || have.includes(k));
+  return `<span class="cw-menuwrap"><button type="button" class="cw-btn cw-btn--ghost cw-btn--sm${S.lang !== 'orig' ? ' is-on' : ''}" data-tr="langm" aria-haspopup="menu" aria-expanded="false">${icon('lang')}${esc(LANG_NAMES[S.lang])}</button><ul class="cw-menu" role="menu" hidden id="cw-langm">${items.map((k) => `<li role="none"><button type="button" class="cw-mi" role="menuitemradio" aria-checked="${k === S.lang}" data-lang="${k}">${LANG_NAMES[k]}${k !== 'orig' && !have.includes(k) ? ' (write it)' : ''}</button></li>`).join('')}</ul></span>`;
 }
 
 function linesHtml() {
@@ -1032,6 +1049,13 @@ function linesHtml() {
   const byLine = new Map();
   for (const w of S.words) byLine.set(w.line, [...(byLine.get(w.line) || []), w]);
   const out = [];
+  if (translated()) {
+    shownLines().forEach((l, i) => {
+      if (needle && !l.t.toLowerCase().includes(needle)) return;
+      out.push(`<li data-line="${i}" class="cw-line"><button type="button" class="cw-t" data-seek="${l.s}" aria-label="Jump to ${fmtTime(edited(l.s))}">${fmtTime(edited(l.s))}</button><p><span data-seek="${l.s}">${esc(l.t)}</span></p></li>`);
+    });
+    return out.length ? `<ul>${out.join('')}</ul>` : '<p class="cw-empty cw-empty--pad">Nothing matches.</p>';
+  }
   S.lines.forEach((l, i) => {
     const ws = byLine.get(i) || [];
     const text = ws.length ? ws.map((w) => w.t).join(' ') : l.t;
@@ -1094,7 +1118,7 @@ document.addEventListener('click', async (e) => {
   if (!b) return;
   const kind = b.dataset.tr;
   if (kind === 'copy') {
-    const ok = await copyText(S.lines.map((l) => `${fmtTime(edited(l.s))}  ${l.t}`).join('\n'));
+    const ok = await copyText(shownLines().map((l) => `${fmtTime(edited(l.s))}  ${l.t}`).join('\n'));
     toast(ok ? 'Transcript copied' : 'Could not copy', ok ? 'ok' : 'bad');
   }
   if (kind === 'dlm') {
@@ -1105,13 +1129,19 @@ document.addEventListener('click', async (e) => {
   }
   if (kind === 'txt' || kind === 'srt') {
     $('#cw-dlm').hidden = true;
-    const text = transcriptFile(S.lines, S.ranges, kind);
+    const text = transcriptFile(shownLines(), S.ranges, kind);
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([text], { type: kind === 'txt' ? 'text/plain' : 'application/x-subrip' }));
     a.download = `${(S.clip.title || 'Transcript').replace(/[^\w\- ]+/g, '').trim() || 'Transcript'}.${kind}`;
     document.body.appendChild(a);
     a.click();
     a.remove();
+  }
+  if (kind === 'langm') {
+    const m = $('#cw-langm');
+    const open = m.hidden;
+    m.hidden = !open;
+    b.setAttribute('aria-expanded', String(open));
   }
   if (kind === 'fix') {
     S.fixing = !S.fixing;
@@ -1131,12 +1161,40 @@ document.addEventListener('click', async (e) => {
       S.lines = r.transcript;
       S.wordsRaw = r.words;
       S.words = wordsOf(S.lines, S.wordsRaw);
+      S.translations = {};
+      S.lang = 'orig';
       S.fixing = false;
       paintPanel();
       toast('Transcript saved');
     } catch (err) {
       toast(err.message, 'bad');
     }
+  }
+});
+
+document.addEventListener('click', async (e) => {
+  const l = e.target.closest('[data-lang]');
+  if (!l) return;
+  const lang = l.dataset.lang;
+  const have = S.translations[lang] && S.translations[lang].length === S.lines.length;
+  const menu = $('#cw-langm');
+  if (menu) menu.hidden = true;
+  if (lang === 'orig' || have) {
+    S.lang = lang;
+    paintPanel();
+    paintCaption();
+    return;
+  }
+  if (!isAdmin()) return;
+  try {
+    toast('Writing the ' + LANG_NAMES[lang] + ' transcript. This takes a moment.');
+    const r = await api(`/api/clips/${ID}/translate`, { method: 'POST', json: { lang } });
+    S.translations[lang] = r.lines;
+    S.lang = lang;
+    paintPanel();
+    paintCaption();
+  } catch (err) {
+    toast(err.message, 'bad');
   }
 });
 

@@ -12,6 +12,7 @@ ALTER TABLE hub_clips ADD COLUMN chapters TEXT NOT NULL DEFAULT '[]';           
 ALTER TABLE hub_clips ADD COLUMN edits TEXT NOT NULL DEFAULT '{}';               -- JSON {trimStart, trimEnd, cuts, silences, fillers, splits}
 ALTER TABLE hub_clips ADD COLUMN help_draft TEXT NOT NULL DEFAULT '';            -- the last help article drafted from the clip (markdown)
 ALTER TABLE hub_clips ADD COLUMN error TEXT;
+ALTER TABLE hub_clips ADD COLUMN translations TEXT NOT NULL DEFAULT '{}';        -- JSON {es: [line, ...], en: [...]} the transcript in another language, one string per line
 ALTER TABLE hub_clips ADD COLUMN proc_at TEXT;                                   -- when a processing run started; stops two runs from doing the same work
 ALTER TABLE hub_clips ADD COLUMN title_auto INTEGER NOT NULL DEFAULT 0;          -- 1 while the title is the one the transcript produced
 

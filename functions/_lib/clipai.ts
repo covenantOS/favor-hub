@@ -119,11 +119,11 @@ export async function transcribeAll(env: ClipsEnv, clip: Clip): Promise<{ segmen
 /* ------------------------------------------------------------------ text model */
 
 /** One JSON answer from the small model, falling back to the larger one. */
-export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900): Promise<T> {
+export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900, models: string[] = TEXT_MODELS): Promise<T> {
   const ai = env.AI as Run | undefined;
   if (!ai) throw new Error('no ai binding');
   let last: unknown = null;
-  for (const model of TEXT_MODELS) {
+  for (const model of models) {
     try {
       const res = (await ai.run(model, {
         messages: [
@@ -301,3 +301,29 @@ function yamlLine(s: string): string {
 }
 
 export type { PartRec };
+
+/* ------------------------------------------------------------------ translated transcript */
+
+export const LANGS: Record<string, string> = { es: 'Spanish', en: 'English' };
+
+/** The transcript lines in another language, one string per line, in the same order. Names, numbers and web addresses stay. */
+export async function translateLines(env: ClipsEnv, lines: ClipSegment[], lang: string): Promise<string[] | null> {
+  const name = LANGS[lang];
+  if (!name) return null;
+  const out: string[] = [];
+  for (let i = 0; i < lines.length; i += 30) {
+    const chunk = lines.slice(i, i + 30);
+    const res = await chatJson<{ lines?: unknown }>(
+      env,
+      `Translate each numbered line of a spoken transcript into natural ${name}. Keep names, product names, numbers and web addresses as they are. Return key: lines (an array of exactly ${chunk.length} strings, in the same order, without the numbers).`,
+      chunk.map((l, k) => `${k + 1}. ${l.t}`).join('\n'),
+      3000,
+      // The larger model translates better than the small one that names clips.
+      [TEXT_MODELS[1], TEXT_MODELS[0]]
+    );
+    const got = Array.isArray(res.lines) ? res.lines.map((x) => String(x ?? '').trim()) : [];
+    if (got.length !== chunk.length) return null;
+    out.push(...got.map((x, k) => plain(x, 2000) || chunk[k].t));
+  }
+  return out;
+}

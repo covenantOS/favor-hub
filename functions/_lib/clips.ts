@@ -32,6 +32,7 @@ export interface Clip {
   chapters: string;
   edits: string;
   help_draft: string;
+  translations: string;
   error: string | null;
   title_auto: number;
   proc_at: string | null;
@@ -175,6 +176,7 @@ export function clipView(c: Clip) {
     chapters: J<unknown[]>(c.chapters, []),
     transcript: J<unknown[]>(c.transcript, []),
     words: J<unknown[]>(c.words, []),
+    translations: J<Record<string, string[]>>(c.translations, {}),
     edits: J<Record<string, unknown>>(c.edits, {}),
     error: c.error,
   };

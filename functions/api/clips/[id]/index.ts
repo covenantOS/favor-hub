@@ -34,6 +34,7 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
       const next = old.map((seg, i) => ({ s: seg.s, e: seg.e, t: String(body.lines && (body.lines as unknown[])[i] != null ? (body.lines as unknown[])[i] : seg.t).replace(/\s+/g, ' ').trim().slice(0, 2000) || seg.t }));
       put('transcript', JSON.stringify(next));
       put('words', JSON.stringify(respread(old, next, J<ClipWord[]>(clip.words, []))));
+      put('translations', '{}');
     }
     if (!sets.length) return json({ ok: true });
     sets.push('updated_at = ?');
