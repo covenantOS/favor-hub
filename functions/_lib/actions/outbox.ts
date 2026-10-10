@@ -93,10 +93,37 @@ export function matchLostCreate(
   return { ids, unsure };
 }
 
-/** Path and method for an outbox row. The payload holds only the body. */
-export function requestFor(row: { op: string; action_id: string | null }, bbIdForParent?: string | null): { method: string; path: string } {
+/** Path and method for an outbox row. The payload holds only the body, except a 'call' row, which names its own method and path. */
+export function requestFor(row: { op: string; action_id: string | null; payload?: string | null }, bbIdForParent?: string | null): { method: string; path: string } {
   if (row.op === 'create') return { method: 'POST', path: '/constituent/v1/actions' };
   if (row.op === 'tag') return { method: 'POST', path: '/constituent/v1/actions/customfields' };
   if (row.op === 'delete') return { method: 'DELETE', path: `/constituent/v1/actions/${row.action_id}` };
+  if (row.op === 'call') {
+    let p: any = {};
+    try {
+      p = JSON.parse(String(row.payload || '{}'));
+    } catch {
+      p = {};
+    }
+    const c = p && p.__call ? p.__call : null;
+    if (!c || typeof c.path !== 'string' || typeof c.method !== 'string') throw new Error('a call row needs its method and path');
+    return { method: String(c.method).toUpperCase(), path: c.path };
+  }
   return { method: 'PATCH', path: `/constituent/v1/actions/${row.action_id ?? bbIdForParent}` };
+}
+
+/** The body to send for a row: the payload without the hub's own markers (keys starting with two underscores). */
+export function bodyFor(payload: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(payload)) if (!k.startsWith('__')) out[k] = v;
+  return out;
+}
+
+/** Put the id an earlier row created where this row says "__dep__" (in a value or a list) or "{dep}" (in the path). */
+export function fillDep<T>(v: T, id: string): T {
+  if (v === '__dep__') return id as unknown as T;
+  if (typeof v === 'string') return v.replace('{dep}', id) as unknown as T;
+  if (Array.isArray(v)) return v.map((x) => fillDep(x, id)) as unknown as T;
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, fillDep(x, id)])) as T;
+  return v;
 }

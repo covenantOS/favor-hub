@@ -84,3 +84,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_act_sub_sheet ON act_submissions(sheet_ref
 
 CREATE TABLE IF NOT EXISTS act_meter (day TEXT PRIMARY KEY, calls INTEGER NOT NULL DEFAULT 0, route_calls INTEGER, updated_at TEXT NOT NULL);
 -- day = UTC date (the upkeep route counts per UTC day); calls = the Work Center's own; route_calls = calls_today the route last reported
+
+-- 2026-10-10: full editing. Saved views per person, repeating follow-ups, a short copy of an action's notes, tags and attachments,
+-- and the hub's own copy of an opportunity it changed until the mirror catches up.
+CREATE TABLE IF NOT EXISTS act_views (
+  id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT NOT NULL,
+  spec TEXT NOT NULL,                              -- JSON: tab, filters, sort, columns
+  is_default INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_act_views_email ON act_views(email);
+
+CREATE TABLE IF NOT EXISTS act_recur (             -- a follow-up that repeats: completing action_id makes the next one
+  action_id TEXT PRIMARY KEY, cid TEXT NOT NULL,
+  rule TEXT NOT NULL,                              -- JSON { every, unit: day|week|month, until, left }
+  template TEXT NOT NULL,                          -- JSON of the fields each new one copies
+  active INTEGER NOT NULL DEFAULT 1, made_by TEXT, created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS act_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL, at TEXT NOT NULL);   -- notes:<id>, tags:<id>, attachments:<id>, kept ten minutes
+
+CREATE TABLE IF NOT EXISTS act_opps (id TEXT PRIMARY KEY, cid TEXT NOT NULL, raw TEXT NOT NULL, at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS idx_act_opps_cid ON act_opps(cid);

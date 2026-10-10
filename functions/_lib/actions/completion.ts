@@ -7,7 +7,7 @@
 //   DELETE removes a created action.
 
 export type OpKind = 'complete' | 'thank' | 'close_thanked' | 'reassign' | 'reschedule' | 'create' | 'undo';
-export type StepOp = 'patch' | 'create' | 'tag' | 'delete';
+export type StepOp = 'patch' | 'create' | 'tag' | 'delete' | 'call';
 
 /** How a thank-you went out, and the Blackbaud category that records it. */
 export const THANK_HOWS: Record<string, { label: string; category: string; tag?: string }> = {
@@ -159,16 +159,34 @@ export function rescheduleStep(a: Target, due: string): Step {
   return { op: 'patch', actionId: a.id, body: { date: stamp(due) }, before: { date: stamp(a.due) }, label: 'reschedule' };
 }
 
-/** The steps that put an outbox row's change back. A create comes back out with DELETE; a tag leaves with its action. */
+/**
+ * The steps that put an outbox row's change back. A create comes back out with DELETE, a tag is removed from its action, a deleted
+ * action returns as a copy (a new id; its notes and attachments stay with the old one), and any other call carries its own way back
+ * in `before` ({ __call: { method, path }, ...body }, with {id} standing for the id the call created).
+ */
 export function undoStep(row: { op: string; action_id: string | null; bb_id: string | null; before: Record<string, unknown> | null }): Step | null {
   if (row.op === 'patch' && row.action_id && row.before) {
     const back: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(row.before)) if (v !== undefined) back[k] = v;
+    for (const [k, v] of Object.entries(row.before)) if (v !== undefined && !k.startsWith('__')) back[k] = v;
     // A category change is put back by the stored category; when none was stored the task was a Task/Other.
     if (!Object.keys(back).length) return null;
     return { op: 'patch', actionId: row.action_id, body: back, label: 'undo' };
   }
   if (row.op === 'create' && row.bb_id) return { op: 'delete', actionId: row.bb_id, body: {}, label: 'undo create' };
+  if (row.op === 'tag' && row.bb_id && row.action_id) {
+    return { op: 'call', actionId: row.action_id, body: { __call: { method: 'DELETE', path: `/constituent/v1/actions/customfields/${row.bb_id}?action=${row.action_id}` } }, label: 'undo tag' };
+  }
+  if (row.op === 'delete' && row.before && row.before.__restore && typeof row.before.__restore === 'object') {
+    return { op: 'create', body: { ...(row.before.__restore as Record<string, unknown>) }, label: 'undo delete' };
+  }
+  if (row.op === 'call' && row.before && row.before.__call && typeof row.before.__call === 'object') {
+    const c = row.before.__call as { method: string; path: string };
+    if (c.path.includes('{id}') && !row.bb_id) return null;
+    const path = c.path.replace('{id}', String(row.bb_id || ''));
+    const body: Record<string, unknown> = { __call: { method: c.method, path } };
+    for (const [k, v] of Object.entries(row.before)) if (!k.startsWith('__') && v !== undefined) body[k] = v;
+    return { op: 'call', actionId: row.action_id ?? undefined, body, label: 'undo' };
+  }
   return null;
 }
 

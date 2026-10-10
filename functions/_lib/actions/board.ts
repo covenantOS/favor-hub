@@ -257,6 +257,8 @@ function graceBefore(iso: string): string {
   return Number.isNaN(t) ? iso : new Date(t - SYNC_GRACE_MS).toISOString();
 }
 
+const EDITS = new Set(['edit', 'bulk_edit', 'complete_next']);
+
 export function applyOverlay(rows: BoardRow[], changes: PendingChange[], syncedAt: string): BoardRow[] {
   const by = new Map<string, PendingChange[]>();
   for (const c of changes) by.set(c.actionId, (by.get(c.actionId) || []).concat(c));
@@ -278,6 +280,25 @@ export function applyOverlay(rows: BoardRow[], changes: PendingChange[], syncedA
         row = { ...row, due: c.body.date.slice(0, 10) };
       } else if (c.op === 'reassign' && newer && Array.isArray(c.body.fundraisers)) {
         row = { ...row, fundraisers: (c.body.fundraisers as unknown[]).map(String) };
+      } else if (c.op === 'delete' && newer) {
+        hidden = true;
+      } else if (newer && EDITS.has(c.op)) {
+        // The edit panel, Edit selected and Complete and schedule next: lay each changed field over the copy.
+        const b = c.body;
+        if (b.completed === true || b.status === 'Completed' || b.status === 'Canceled') {
+          if (c.state === 'queued') row = { ...row, pending: { op: c.op, state: 'saving', label: 'Saving' } };
+          else hidden = true;
+          continue;
+        }
+        const next: BoardRow = { ...row };
+        if (typeof b.date === 'string') next.due = b.date.slice(0, 10);
+        if (Array.isArray(b.fundraisers)) next.fundraisers = (b.fundraisers as unknown[]).map(String);
+        if (typeof b.summary === 'string') next.summary = b.summary;
+        if (typeof b.category === 'string') next.category = b.category;
+        if (typeof b.type === 'string') next.type = next.typeRaw = b.type;
+        if (typeof b.priority === 'string') next.priority = b.priority;
+        if (typeof b.description === 'string') next.description = b.description.slice(0, 400);
+        row = next;
       }
     }
     if (!hidden) out.push(row);

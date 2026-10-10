@@ -14,8 +14,10 @@ import {
   thankSteps, THANK_HOWS, undoStep, type CompleteOpts, type Step, type Target, type ThankMode,
 } from '../actions/completion';
 import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, refreshCalls, REFRESH_MAX, resetLabel, undoUntil, utcDay } from '../actions/batch';
-import { advance, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
+import { advance, bodyFor, fillDep, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
+import { actionRaw, forgetExtra, nextOfRecur, oppRaw, planEdit, saveRecur, shadowOpp, stopRecur, type EditInput } from './edit';
 import { etParts } from '../actions/intake';
+import { mirror } from '../foundations/blackbaud';
 import type { OpsCall } from '../foundations/blackbaud';
 
 export interface Ctx {
@@ -71,23 +73,23 @@ interface PendingDb {
 export async function loadPending(env: Env): Promise<PendingChange[]> {
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
   const r = await env.DB.prepare(
-    `SELECT o.action_id, o.op, o.state, o.payload, o.queued_at, o.sent_at, b.op AS bop, b.run_when
+    `SELECT o.action_id, o.op AS op, o.state, o.payload, o.queued_at, o.sent_at, b.op AS bop, b.run_when
        FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id
-      WHERE o.state IN ('queued', 'sent', 'verified') AND o.action_id IS NOT NULL AND o.op = 'patch' AND b.state <> 'undone' AND o.queued_at >= ?`
+      WHERE o.state IN ('queued', 'sent', 'verified') AND o.action_id IS NOT NULL AND o.op IN ('patch', 'delete') AND b.state <> 'undone' AND b.op <> 'undo' AND o.queued_at >= ?`
   )
     .bind(since)
     .all<PendingDb>()
     .catch(() => ({ results: [] as PendingDb[] }));
   const out: PendingChange[] = [];
   for (const p of r.results) {
-    if (!['complete', 'thank', 'close_thanked', 'reassign', 'reschedule'].includes(p.bop)) continue;
+    if (!['complete', 'thank', 'close_thanked', 'reassign', 'reschedule', ...EDIT_OPS].includes(p.bop)) continue;
     let body: Record<string, unknown> = {};
     try {
       body = JSON.parse(p.payload);
     } catch {
       body = {};
     }
-    out.push({ actionId: String(p.action_id), op: p.bop, state: p.state as PendingChange['state'], at: p.sent_at || p.queued_at, tonight: p.run_when === 'tonight', body });
+    out.push({ actionId: String(p.action_id), op: p.op === 'delete' ? 'delete' : p.bop, state: p.state as PendingChange['state'], at: p.sent_at || p.queued_at, tonight: p.run_when === 'tonight', body });
   }
   return out;
 }
@@ -191,7 +193,10 @@ export async function thanksResponse(ctx: Ctx, owner: string) {
 
 /* ------------------------------------------------------------------ planning a batch */
 
-export type BatchOp = 'complete' | 'thank' | 'close_thanked' | 'reassign' | 'reschedule' | 'create';
+/** The kinds of change the edit panel, Edit selected, New action and the opportunity form make (planned in edit.ts). */
+export const EDIT_OPS = ['edit', 'bulk_edit', 'new', 'complete_next', 'duplicate', 'move', 'delete', 'note', 'attach', 'opp_new', 'opp_edit'] as const;
+
+export type BatchOp = 'complete' | 'thank' | 'close_thanked' | 'reassign' | 'reschedule' | 'create' | (typeof EDIT_OPS)[number];
 
 export interface BatchInput {
   op: BatchOp;
@@ -353,7 +358,37 @@ export async function freshen(ctx: Ctx, opts: { force?: boolean; now?: Date } = 
   // The mark moves forward only when every changed action is queued, so a pass that could not finish is repeated from the same point.
   if (queued >= stale.length && seen.complete) await setSetting(env, 'fresh:since', startedAt.toISOString());
   await setSetting(env, 'fresh:last', `ok|${nowIso()}|${ids.length} changed, ${stale.length} not in the mirror yet, ${queued} sent to be read`);
+  await repeatsDoneElsewhere(ctx).catch(() => undefined);
   return { ran: true, changed: stale.length, queued };
+}
+
+/**
+ * A repeating follow-up completed in Blackbaud itself (not through the hub) still gets its next one: each freshness pass looks at the
+ * open repeats, and any whose action the mirror shows completed makes the next, sent at once (1 call plus the refresh).
+ */
+export async function repeatsDoneElsewhere(ctx: Ctx): Promise<number> {
+  const rows = (await ctx.env.DB.prepare('SELECT action_id, cid, rule, template FROM act_recur WHERE active = 1 LIMIT 100').all<{ action_id: string; cid: string; rule: string; template: string }>()).results;
+  if (!rows.length) return 0;
+  const done = await mirror<{ id: string; due: string }>(
+    ctx.env,
+    "SELECT id AS id, substr(action_date_due, 1, 10) AS due FROM actions WHERE id IN (SELECT value FROM json_each(?1)) AND json_extract(raw_json, '$.completed') = 1",
+    [JSON.stringify(rows.map((r) => r.action_id))]
+  ).catch(() => []);
+  let made = 0;
+  for (const d of done) {
+    const rec = rows.find((r) => r.action_id === String(d.id));
+    if (!rec) continue;
+    await stopRecur(ctx.env, rec.action_id);
+    const today = todayEt();
+    const next = nextOfRecur(rec, !d.due || d.due < today ? today : d.due);
+    if (!next) continue;
+    const saved = await saveBatch(ctx, 'new', [{ cid: rec.cid, label: 'Partner | Next in the repeat', steps: [{ op: 'create', body: { ...next.body, __recur: next.rule }, label: 'repeat' }] }], { n: 1, recur: next.rule }, { keySalt: rec.action_id });
+    if (saved.id) {
+      await runBatch(ctx, saved.id).catch(() => undefined);
+      made++;
+    }
+  }
+  return made;
 }
 
 /** Most descriptions in the mirror are whole. A description of 2,000 characters or more may be cut short, so its action is read from Blackbaud before a line is added. */
@@ -522,7 +557,7 @@ export async function batchByReq(env: Env, reqId: string | undefined): Promise<{
   return { batch: { id: b.id, op: b.op, n: b.n, calls: b.calls_planned, run_when: b.run_when as 'now' | 'tonight', undo_until: b.undo_until, left: 0, duplicates: 0, repeat: true }, items };
 }
 
-export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], params: Record<string, unknown>, extra: { undoOf?: string; whenOverride?: 'now' | 'tonight'; reqId?: string; reads?: number } = {}): Promise<SavedBatch> {
+export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], params: Record<string, unknown>, extra: { undoOf?: string; whenOverride?: 'now' | 'tonight'; reqId?: string; reads?: number; keySalt?: string } = {}): Promise<SavedBatch> {
   let items = itemsIn;
   const id = newId('wcb');
   // A create is never sent twice: its key sits under a unique index, so a double click or a repeated paste skips what is already queued or posted.
@@ -534,7 +569,7 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
         const b = c.body as Record<string, any>;
         // The key leaves out the row's own id, so the same contact entered twice (a double click, a second paste) is one contact. A thank-you
         // record keeps its task id, because two tasks about two gifts on one partner on one day are two thank-yous.
-        const key = await idemKey([b.constituent_id, String(b.date || '').slice(0, 10), b.type, b.category, b.summary, (b.fundraisers || []).join(','), it.actionId || 'x']);
+        const key = await idemKey([b.constituent_id, String(b.date || '').slice(0, 10), b.type, b.category, b.summary, (b.fundraisers || []).join(','), it.actionId || 'x', extra.keySalt || '']);
         if (!keyed.some((k) => k.key === key)) keyed.push({ it, key });
       }
     }
@@ -576,7 +611,8 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
       if (s.dep !== undefined) payload.__dep = ids[s.dep];
       if ((s as any).origRow) payload.__orig = (s as any).origRow;
       let idem: string | null = null;
-      if (s.op === 'create' && !extra.undoOf) idem = keyed.find((k) => k.it === it)?.key ?? null;
+      // Only an item's first create carries its key (a follow-up made with it is part of the same press).
+      if (s.op === 'create' && !extra.undoOf && it.steps.findIndex((x) => x.op === 'create') === k) idem = keyed.find((kk) => kk.it === it)?.key ?? null;
       stmts.push(
         ctx.env.DB.prepare(
           `INSERT INTO act_outbox (id, batch_id, action_id, cid, label, submission_id, op, before, payload, idem_key, state, attempts, queued_at) VALUES (?,?,?,?,?,?,?,?,?,?,'queued',0,?)`
@@ -605,10 +641,49 @@ export async function createBatch(ctx: Ctx, input: BatchInput & { req?: string }
   if (input.op === 'create') throw new HttpError(400, 'bad_op', 'Entry rows are sent from the Entry tab.');
   const again = await batchByReq(ctx.env, input.req);
   if (again) return { batch: again.batch, skipped: 0, changed: 0, items: again.items };
+  if ((EDIT_OPS as readonly string[]).includes(input.op)) return createEditBatch(ctx, input as unknown as EditInput & { req?: string });
   const board = await currentBoard(ctx);
   const plan = await planBatch(ctx, input, board);
   const batch = await saveBatch(ctx, input.op, plan.items, plan.params, { reqId: input.req, reads: plan.reads });
   return { batch, skipped: plan.skipped, changed: plan.changed, items: plan.items.map((i) => ({ id: i.actionId || i.submissionId, state: 'queued' })) };
+}
+
+/**
+ * The edit panel, Edit selected, New action, Complete and schedule next, Duplicate, Move, Delete, notes, attachments and
+ * opportunities. Planned in edit.ts, saved and sent here like every other batch.
+ */
+export async function createEditBatch(ctx: Ctx, input: EditInput & { req?: string }) {
+  const synced = await ctx.repo.synced().catch(() => '');
+  const plan = await planEdit(ctx, input, { today: todayEt(), synced });
+  if (plan.conflict) {
+    return { ok: false, error: 'conflict', message: 'Someone changed this action in Blackbaud after you opened it. Check their change, then save again.', conflict: plan.conflict };
+  }
+  // A repeat set or cleared on an existing action takes effect now; the next one is made when this one is completed.
+  if (input.op === 'edit' && input.ids && input.ids[0]) {
+    const id = String(input.ids[0]);
+    if (plan.params.recur === 'off') await stopRecur(ctx.env, id);
+    else if (plan.params.recur && typeof plan.params.recur === 'object') {
+      const it = plan.items[0];
+      const got = await actionRaw(ctx.env, id).catch(() => null);
+      const raw = got ? got.raw : ({} as Record<string, any>);
+      const patch = it && it.steps[0] && it.steps[0].op === 'patch' ? it.steps[0].body : {};
+      await saveRecur(ctx.env, id, String(raw.constituent_id || (it && it.cid) || ''), plan.params.recur as any, templateOf({ ...raw, ...patch }), ctx.actor);
+    }
+  }
+  const salt = ['new', 'duplicate', 'move', 'complete_next'].includes(input.op) ? input.req || String(Date.now()) : '';
+  const batch = await saveBatch(ctx, input.op, plan.items, plan.params, { reqId: input.req, reads: plan.reads, keySalt: salt });
+  return { batch, skipped: plan.skipped, changed: plan.changed, items: plan.items.map((i) => ({ id: i.actionId || i.cid || '', state: 'queued' })) };
+}
+
+/** What a repeat copies to each new action: the fields that describe the work, never the outcome or completion. */
+export function templateOf(raw: Record<string, any>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of ['category', 'type', 'summary', 'description', 'priority', 'direction', 'location', 'start_time', 'end_time', 'opportunity_id']) {
+    if (raw[k] !== undefined && raw[k] !== null && raw[k] !== '') out[k] = raw[k];
+  }
+  out.fundraisers = Array.isArray(raw.fundraisers) ? raw.fundraisers.map(String) : [];
+  if (!out.category) out.category = 'Task/Other';
+  return out;
 }
 
 /* ------------------------------------------------------------------ sending */
@@ -728,9 +803,25 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
             parent = dep.bb_id;
           }
           if (parent) tagParent.set(row.id, parent);
-          const body = { parent_id: parent, category: payload.category, value: payload.value !== undefined ? String(payload.value) : await tagValue(ctx, String(payload.category)), date: payload.date };
+          // Numbers and yes/no values go as they are (Amount of Ask, Number of Referrals); everything else as text.
+          const value = payload.value === undefined ? await tagValue(ctx, String(payload.category)) : typeof payload.value === 'number' || typeof payload.value === 'boolean' ? payload.value : String(payload.value);
+          const body: Record<string, unknown> = { parent_id: parent, category: payload.category, value, date: payload.date };
+          if (payload.comment) body.comment = payload.comment;
           send.push({ row, call: { method: 'POST', path: '/constituent/v1/actions/customfields', body } });
           continue;
+        }
+        let depId: string | null = null;
+        if (row.op !== 'tag' && parseObj(row.payload).__dep) {
+          // This change waits for an earlier one in the batch (a copy before the original is removed, a link to a new opportunity).
+          const dep = await env.DB.prepare('SELECT state, bb_id FROM act_outbox WHERE id = ?').bind(parseObj(row.payload).__dep).first<{ state: string; bb_id: string | null }>();
+          if (!dep || dep.state === 'failed' || dep.state === 'needs_human' || dep.state === 'undone') {
+            const why = 'The change this one waits for did not go through, so it was not sent.';
+            await env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', last_error = ? WHERE id = ?").bind(why, row.id).run();
+            items.push({ id: itemId(row), state: 'failed', error: why });
+            continue;
+          }
+          if (dep.state === 'queued') continue; // it goes in a later request of this batch
+          depId = dep.bb_id || '';
         }
         if (row.op === 'create' && (row.last_error || '').startsWith('check:') && row.cid) {
           // A lost answer on a create: look at the partner's actions before sending it again.
@@ -763,11 +854,14 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
           await env.DB.prepare('UPDATE act_outbox SET last_error = NULL WHERE id = ?').bind(row.id).run();
           row.last_error = null;
         }
-        const { method, path } = requestFor(row);
-        const body = parseObj(row.payload);
-        delete body.__dep;
-        delete body.__orig;
-        send.push({ row, call: { method, path, body: row.op === 'delete' ? undefined : body } });
+        const req = requestFor(row);
+        let path = req.path;
+        let body = bodyFor(parseObj(row.payload));
+        if (depId) {
+          path = fillDep(path, depId);
+          body = fillDep(body, depId);
+        }
+        send.push({ row, call: { method: req.method, path, body: req.method === 'DELETE' ? undefined : body } });
       }
       if (!send.length) break;
       for (const s of send) if (s.row.submission_id) await markSubmission(ctx, s.row, 'posting');
@@ -813,11 +907,18 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
         // A refusal means the upkeep route has no rule for this change. Retrying cannot help; a person presses Try again once the rule exists.
         const next = v === 'refused' ? { state: 'needs_human' as const, attempts: row.attempts + 1 } : advance(row.attempts, v);
         const err = v === 'sent' ? null : sayWhy(r);
-        const bbId = v === 'sent' && row.op === 'create' && r?.body?.id ? String(r.body.id) : row.bb_id;
+        const made = row.op === 'create' || row.op === 'tag' || (row.op === 'call' && parseObj(row.payload).__call?.method === 'POST');
+        const bbId = v === 'sent' && made && r?.body?.id ? String(r.body.id) : row.bb_id;
         await env.DB.prepare('UPDATE act_outbox SET state = ?, attempts = ?, bb_id = ?, last_error = ?, sent_at = CASE WHEN ? = \'sent\' THEN ? ELSE sent_at END WHERE id = ?')
           .bind(next.state, next.attempts, bbId, err, next.state, now, row.id)
           .run();
         if (v === 'sent') {
+          // A tag on an action made earlier in this batch records that action, so Undo can remove the tag from it.
+          if (row.op === 'tag' && !row.action_id && tagParent.get(row.id)) {
+            await env.DB.prepare('UPDATE act_outbox SET action_id = ? WHERE id = ?').bind(tagParent.get(row.id), row.id).run();
+            row.action_id = tagParent.get(row.id) || null;
+          }
+          await afterSent(ctx, batchId, row, bbId).catch(() => undefined);
           sentRows.push({ ...row, bb_id: bbId });
           const orig = parseObj(row.payload).__orig;
           if (orig) await env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ?").bind(orig).run();
@@ -837,9 +938,12 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       if (sentRows.length) {
         await verify(ctx, batchId, sentRows, t0);
         for (const r of sentRows) {
+          const call = r.op === 'call' ? parseObj(r.payload).__call : null;
+          // Notes, attachments and opportunities are not in the mirror, so they need no re-read.
+          if (call && !/\/actions\/(customfields|\d+)/.test(String(call.path))) continue;
           const id = r.op === 'create' ? r.bb_id : r.op === 'tag' ? tagParent.get(r.id) || r.action_id : r.action_id;
           if (!id) continue;
-          touched.set(id, (touched.get(id) || false) || r.op === 'create' || r.op === 'tag');
+          touched.set(id, (touched.get(id) || false) || r.op === 'create' || r.op === 'tag' || (!!call && String(call.path).includes('customfields')));
         }
       }
       // Nothing ran, or Blackbaud said not now: stop here so the page does not hammer a shared key. The next press, or the overnight run, picks it up.
@@ -865,6 +969,47 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
     if (batch.op === 'undo' && batch.undo_of) await settleUndone(env, batch.undo_of);
   }
   return finish(held);
+}
+
+/**
+ * What follows a change Blackbaud took: a repeat's next action when one is completed, the repeat's record when a repeating action is
+ * made, the hub's copy of an opportunity, and the end of the ten-minute copy of an action's notes, tags or attachments.
+ */
+async function afterSent(ctx: Ctx, batchId: string, row: OutboxRow, bbId: string | null): Promise<void> {
+  const env = ctx.env;
+  const p = parseObj(row.payload);
+  if (row.action_id) await forgetExtra(env, String(row.action_id));
+  if (row.op === 'create' && bbId && p.__recur) await saveRecur(env, bbId, String(p.constituent_id || row.cid || ''), p.__recur, { ...templateOf(p), __due: String(p.date || '').slice(0, 10) }, ctx.actor);
+  if (row.op === 'call' && p.__opp) {
+    const id = String(p.__oppid || bbId || '');
+    if (id) await shadowOpp(env, id, String(p.__opp), bodyFor(p), p.__oppid ? await oppRaw(ctx, id).catch(() => null) : null);
+  }
+  if (row.op === 'delete' && row.action_id) await stopRecur(env, String(row.action_id));
+  // A repeating action that was just completed: its next one goes out in this same batch.
+  if (row.op === 'patch' && row.action_id && p.completed === true) {
+    const rec = await env.DB.prepare('SELECT action_id, cid, rule, template FROM act_recur WHERE action_id = ? AND active = 1 LIMIT 1').bind(String(row.action_id)).first<{ action_id: string; cid: string; rule: string; template: string }>().catch(() => null);
+    if (!rec) return;
+    await stopRecur(env, rec.action_id);
+    const next = nextOfRecur(rec, await dueOf(ctx, String(row.action_id), p, parseObj(rec.template).__due));
+    if (!next) return;
+    const body = { ...next.body, __recur: next.rule };
+    await env.DB.prepare(
+      `INSERT INTO act_outbox (id, batch_id, action_id, cid, label, submission_id, op, before, payload, idem_key, state, attempts, queued_at) VALUES (?,?,?,?,?,?,?,?,?,?,'queued',0,?)`
+    ).bind(newId('wco'), batchId, null, rec.cid, (row.label || '').split(' | ')[0] + ' | Next in the repeat', null, 'create', null, JSON.stringify(body), null, nowIso()).run();
+    await env.DB.prepare('UPDATE act_batches SET n = n + 1, calls_planned = calls_planned + 2 WHERE id = ?').bind(batchId).run();
+  }
+}
+
+/** The due date a repeat counts from: the action's own date, never earlier than today, so a late completion does not make an overdue next one. */
+async function dueOf(ctx: Ctx, id: string, p: Record<string, any>, saved?: unknown): Promise<string> {
+  let due = String(p.date || '').slice(0, 10);
+  if (!due) {
+    const got = await actionRaw(ctx.env, id).catch(() => null);
+    due = got ? String(got.raw.date || '').slice(0, 10) : '';
+  }
+  if (!due && typeof saved === 'string') due = saved.slice(0, 10);
+  const today = todayEt();
+  return !due || due < today ? today : due;
 }
 
 /**
@@ -964,7 +1109,7 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
     }
     const step = undoStep({ op: r.op, action_id: r.action_id, bb_id: r.bb_id, before: r.before ? parseObj(r.before) : null });
     if (!step) {
-      // Tags have no undo route: they stay on the action in Blackbaud.
+      // A tag sent before its id was kept cannot be found to remove; it stays on the action in Blackbaud.
       if (r.op === 'tag') tagsStay++;
       await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ?").bind(r.id).run();
       continue;
@@ -1016,6 +1161,12 @@ export async function recentBatches(env: Env, hours = 36) {
   return out;
 }
 
+const FIELD_WORDS: Record<string, string> = {
+  summary: 'summary', category: 'category', type: 'type', status: 'status', date: 'date', start_time: 'start time', end_time: 'end time', completed: 'completed',
+  completed_date: 'completed date', priority: 'priority', direction: 'direction', location: 'location', outcome: 'outcome', fundraisers: 'fundraisers',
+  opportunity_id: 'opportunity', description: 'description',
+};
+
 export function batchLabel(b: { op: string; params: string }, n: number): string {
   const p = parseObj(b.params);
   const word = (k: number, one: string, many = one + 's') => `${k.toLocaleString('en-US')} ${k === 1 ? one : many}`;
@@ -1025,6 +1176,18 @@ export function batchLabel(b: { op: string; params: string }, n: number): string
   if (b.op === 'reassign') return `Reassigned ${word(n, 'action')}`;
   if (b.op === 'reschedule') return `Moved ${word(n, 'action')} to ${String(p.due || '').slice(5).replace('-', '/')}`;
   if (b.op === 'create') return `Entered ${word(n, 'contact')}`;
+  const fields = Array.isArray(p.fields) && p.fields.length ? (p.fields as string[]).map((f) => FIELD_WORDS[f] || f).join(', ') : '';
+  if (b.op === 'edit') return fields ? `Edited the ${fields}` : 'Edited an action';
+  if (b.op === 'bulk_edit') return `Changed ${word(n, 'action')}${fields ? ': ' + fields : p.line ? ': added a line' : ''}`;
+  if (b.op === 'new') return `Added ${word(n, 'action')}${p.next ? ' with a follow-up' : ''}${p.recur ? ', repeating' : ''}`;
+  if (b.op === 'complete_next') return `Completed one and scheduled the next for ${String(p.next || '').slice(5).replace('-', '/')}`;
+  if (b.op === 'duplicate') return `Copied an action to ${word(n, 'partner')}`;
+  if (b.op === 'move') return 'Moved an action to another partner';
+  if (b.op === 'delete') return `Deleted ${word(n, 'action')}`;
+  if (b.op === 'note') return 'Changed a note';
+  if (b.op === 'attach') return 'Changed an attachment';
+  if (b.op === 'opp_new') return `Added the opportunity ${p.name || ''}`.trim();
+  if (b.op === 'opp_edit') return 'Edited an opportunity';
   return `${b.op} ${n}`;
 }
 
