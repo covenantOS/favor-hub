@@ -272,7 +272,7 @@ describe('sending', () => {
     await svc.runBatch(ctx, b.id);
     const sorted = refreshes.map((r) => ({ n: r.ids.length, tags: r.tags })).sort((x, y) => Number(y.tags) - Number(x.tags));
     assert.deepEqual(sorted, [{ n: 1, tags: true }, { n: 1, tags: false }]);
-    const tag = calls.find((c) => c.path === '/constituent/v1/actions/customfields');
+    const tag = calls.flat().find((c) => c.path === '/constituent/v1/actions/customfields');
     assert.ok(tag && tag.body.parent_id && tag.body.parent_id !== '8', 'the tag goes on the new action, not the old task');
   });
   it('stops after one round when the route sends nothing back', async () => {
