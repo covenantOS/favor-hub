@@ -1,5 +1,6 @@
 ---
 import App from '../layouts/App.astro';
+import '../styles/r2-today.css';
 
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const starts = [
@@ -8,66 +9,60 @@ const starts = [
   ['Thank-you receipts', 'Print the letters waiting to go out', '/receipts/', I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>')],
   ['Foundation prospects', 'Check a foundation before you call', '/foundations/', I('<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>')],
 ];
-const chev = I('<path d="m9 6 6 6-6 6"/>');
 ---
 <App title="Today" nav="home" description="What is waiting on you across the Favor hub.">
-  <div class="h-head">
-    <section class="h-hello">
-      <h1 id="t-hello">Welcome</h1>
-      <p id="t-date"></p>
-    </section>
+  <div class="r2t">
+    <div class="r2t-hello">
+      <section class="h-hello">
+        <h1 id="t-hello">Welcome</h1>
+        <p id="t-date"></p>
+      </section>
+      <div class="r2t-hello__r" id="t-now"></div>
+    </div>
     <div class="h-card h-welcome" id="t-welcome" hidden>
-    <span class="h-welcome__mark"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m5.6 18.4 2.1-2.1"/><path d="m16.3 7.7 2.1-2.1"/></svg></span>
-    <div><b>Welcome to the new hub</b><p>Every tool is in the menu on the left, and this page shows what is waiting on you. A two-minute tour, set up for your work, shows you around.</p></div>
-    <div class="h-welcome__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-tour-start>Show me around</button><button type="button" class="h-x" id="t-welcome-x" aria-label="Hide this">&#x2715;</button></div>
-  </div>
-  </div>
-
-  <div class="h-section"><h2>Your day</h2><p id="d-sub">What needs you, from the hub, Blackbaud, your calendar, Drive and inbox</p></div>
-  <div class="h-board">
-    <div id="t-cards" aria-busy="true"><div class="h-card h-skel"></div></div>
-    <div id="d-grid" aria-busy="true"><div class="h-card h-skel"></div><div class="h-card h-skel"></div><div class="h-card h-skel"></div></div>
-  </div>
-  <script is:inline>
-    // Hold the height this board had last time, so the sections below do not jump when the cards arrive.
-    try {
-      var bh = localStorage.getItem('favor.hub.boardh.' + (innerWidth <= 860 ? 'p' : 'd'));
-      if (bh) document.querySelector('.h-board').style.minHeight = Number(bh) + 'px';
-    } catch (e) {}
-  </script>
-
-  <div id="t-year-wrap" hidden>
-    <div class="h-section"><h2>Where the year stands</h2><p id="t-fresh">The KPI dashboard's own numbers</p></div>
-    <div class="h-grid h-g21">
-      <div class="h-card h-year" id="t-year"></div>
-      <div class="h-card h-mission" data-mission>
-        <img src="/images/signin-field.jpg" alt="" />
-        <div class="k">Since Favor began</div>
-        <div class="n">615,780</div>
-        <p>people have come to Christ. Transformed hearts transform nations.</p>
-      </div>
+      <span class="h-welcome__mark"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="m5.6 5.6 2.1 2.1"/><path d="m16.3 16.3 2.1 2.1"/><path d="m5.6 18.4 2.1-2.1"/><path d="m16.3 7.7 2.1-2.1"/></svg></span>
+      <div><b>Welcome to the new hub</b><p>Every tool is in the menu on the left, and this page shows what is waiting on you. A two-minute tour, set up for your work, shows you around.</p></div>
+      <div class="h-welcome__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-tour-start>Show me around</button><button type="button" class="h-x" id="t-welcome-x" aria-label="Hide this">&#x2715;</button></div>
     </div>
-  </div>
 
-  <div class="h-grid h-g21 h-lower" style="margin-top:16px">
-    <div class="h-card">
-      <div class="h-card__head"><div class="h-card__title">Recent activity</div><div class="h-card__meta">Last two weeks</div></div>
-      <div class="h-card__body"><ul class="h-feed" id="t-feed"></ul><button type="button" class="h-more" id="t-feed-more" hidden>Show more</button></div>
-    </div>
-    <div class="h-grid" style="align-content:start">
-      <div class="h-card" id="t-mine-card" hidden>
-        <div class="h-card__head"><div class="h-card__title">Your requests</div><div class="h-card__meta"><a class="h-link" href="/requests/">The board</a></div></div>
-        <div class="h-card__body"><ul class="h-mine" id="t-mine"></ul></div>
+    <section>
+      <div class="r2t-sec"><h2>Needs you</h2><span id="t-needs-meta"></span></div>
+      <div class="r2t-needs" id="t-cards" aria-busy="true"><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div></div>
+      <p class="r2t-msg" id="d-sub" hidden></p>
+    </section>
+
+    <div class="r2t-row3" id="d-grid" aria-busy="true"><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div></div>
+
+    <section id="t-year-wrap" hidden>
+      <div class="r2t-sec"><h2>Where the year stands</h2><span id="t-fresh"></span></div>
+      <div class="r2t-yearrow">
+        <div class="h-card r2t-year" id="t-year"></div>
+        <div class="h-card r2t-mission" data-mission>
+          <small>Since Favor began</small>
+          <b>615,780</b>
+          <p>people have come to Christ. Transformed hearts transform nations.</p>
+        </div>
       </div>
+    </section>
+
+    <div class="r2t-lower">
       <div class="h-card">
-        <div class="h-card__head"><div class="h-card__title">Start something</div></div>
-        <div class="h-card__body">
-          <div class="h-starts">
+        <div class="r2t-ch"><h3>What changed</h3><span>Last two weeks</span></div>
+        <div class="r2t-feed" id="t-feed"></div>
+        <button type="button" class="h-more r2t-more" id="t-feed-more" hidden>Show more</button>
+      </div>
+      <div class="r2t-stack">
+        <div class="h-card" id="t-mine-card" hidden>
+          <div class="r2t-ch"><h3>Your requests</h3><a class="h-link" href="/requests/">The board</a></div>
+          <ul class="r2t-list" id="t-mine"></ul>
+        </div>
+        <div class="h-card">
+          <div class="r2t-ch"><h3>Start something</h3></div>
+          <div class="r2t-starts">
             {starts.map(([t, sub, href, ic]) => (
-              <a class="h-start" href={href}>
-                <span class="h-start__icon"><Fragment set:html={ic} /></span>
-                <span>{t}<small>{sub}</small></span>
-                <Fragment set:html={chev} />
+              <a class="r2t-start" href={href}>
+                <span class="r2t-ico"><Fragment set:html={ic} /></span>
+                <span><b>{t}</b><small>{sub}</small></span>
               </a>
             ))}
           </div>
@@ -75,5 +70,5 @@ const chev = I('<path d="m9 6 6 6-6 6"/>');
       </div>
     </div>
   </div>
-  <script is:inline src="/js/today.js?v=8" defer></script>
+  <script is:inline src="/js/today.js?v=9" defer></script>
 </App>

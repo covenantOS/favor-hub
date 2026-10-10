@@ -42,39 +42,38 @@
   var listQuery = '';
   var listGroup = 'all';
 
-  function tag(r) {
+  function flags(r) {
     if (!r.ready) return '<span class="rp-tag rp-tag--soon">Coming soon</span>';
-    return r.kpiTie ? '<span class="rp-tag rp-tag--ok">Ties to KPI</span>' : '<span class="rp-tag rp-tag--none">No KPI line</span>';
+    return (r.emailed ? '<span class="rp-tag rp-tag--info">Emailed</span>' : '') + (r.kpiTie ? '<span class="rp-tag rp-tag--ok">Ties to KPI</span>' : '');
   }
 
   function drawList(data) {
-    setHeader('Work', 'Reports');
+    setHeader('KPI', 'Reports');
     var groups = data.groups;
     var reports = data.reports;
     var q = listQuery.toLowerCase();
-    var chips = [['all', 'All', reports.length]].concat(groups.map(function (g) { return [g.id, g.label, reports.filter(function (r) { return r.group === g.id; }).length]; }))
+    var segs = [['all', 'All', reports.length]].concat(groups.map(function (g) { return [g.id, g.label, reports.filter(function (r) { return r.group === g.id; }).length]; }))
       .filter(function (c) { return c[0] === 'all' || c[2] > 0; });
-    var h = '<div class="rp-bar"><input type="search" id="rp-q" placeholder="Find a report or a Blackbaud query" value="' + esc(listQuery) + '" aria-label="Find a report"><div class="rp-chips">' +
-      chips.map(function (c) { return '<button type="button" class="rp-chip' + (listGroup === c[0] ? ' is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + '<small>' + c[2] + '</small></button>'; }).join('') + '</div></div>';
+    var h = '<div class="rp-top"><div class="rp-seg2" role="group" aria-label="Kind"><button type="button" class="is-on">Reports <small>' + reports.length + '</small></button><a class="rp-segl" href="' + BASE + '?r=query-map">' + esc(data.queryMap.name) + '</a></div>' +
+      '<label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-q" placeholder="Find a report or query" value="' + esc(listQuery) + '" aria-label="Find a report or query"></label></div>' +
+      '<div class="rp-groups"><div class="rp-seg2" role="group" aria-label="Group">' +
+      segs.map(function (c) { return '<button type="button" class="' + (listGroup === c[0] ? 'is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + ' <small>' + c[2] + '</small></button>'; }).join('') + '</div></div>';
     var any = false;
+    var t = '<div class="h-card rp-list" role="table" aria-label="Reports"><div class="rp-head" role="row"><span>Report</span><span>How often</span><span>Used by</span><span>Last run</span><span>Flags</span></div>';
     groups.forEach(function (g) {
       if (listGroup !== 'all' && listGroup !== g.id) return;
-      var rows = reports.filter(function (r) { return r.group === g.id && (!q || (r.name + ' ' + r.replaces + ' ' + r.who).toLowerCase().indexOf(q) >= 0); });
+      var rows = reports.filter(function (r) { return r.group === g.id && (!q || (r.name + ' ' + (r.replaces || '') + ' ' + r.who).toLowerCase().indexOf(q) >= 0); });
       if (!rows.length) return;
       any = true;
-      h += '<h2 class="rp-h2">' + esc(g.label) + '</h2><div class="h-card rp-list"><div class="rp-head"><span>Report</span><span>Replaces</span><span>Used by</span><span>How often</span><span></span></div>';
+      t += '<div class="rp-grp">' + esc(g.label) + ' <b>' + rows.length + '</b></div>';
       rows.forEach(function (r) {
-        var inner = '<div><b>' + esc(r.name) + '</b></div><div class="who">' + esc(r.replaces) + '</div><div class="who">' + esc(r.who) + '</div><div class="who">' + esc(r.freq) + '</div><div>' + tag(r) + '</div>';
-        h += r.ready ? '<a class="rp-row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon">' + inner + '</div>';
+        var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c">' + esc(r.freq) + '</span><span class="rp-c">' + esc(r.who) + '</span><span class="rp-c">' + esc(r.lastRun || '') + '</span><span class="rp-flags">' + flags(r) + '</span>';
+        t += r.ready ? '<a class="rp-row" role="row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon" role="row">' + inner + '</div>';
       });
-      h += '</div>';
     });
-    if (listGroup === 'all' && (!q || 'where each blackbaud query went lookup'.indexOf(q) >= 0 || 'queries'.indexOf(q) >= 0)) {
-      any = true;
-      h += '<h2 class="rp-h2">Lookup</h2><div class="h-card rp-list"><a class="rp-row" href="' + BASE + '?r=query-map"><div><b>' + esc(data.queryMap.name) + '</b></div><div class="who">All 105 Blackbaud queries run in 2026</div><div class="who">Everyone</div><div class="who">As needed</div><div><span class="rp-tag rp-tag--none">No KPI line</span></div></a></div>';
-    }
-    if (!any) h += '<div class="h-card rp-box"><p class="rp-note">No report matches that.</p></div>';
-    if (!reports.length) h += '<div class="h-card rp-box"><p class="rp-note">No report is set up for your role yet. The lookup above lists where each Blackbaud query went. Ask the technology team through Feedback if you use one that is missing.</p></div>';
+    t += '</div>';
+    h += any ? t : '<div class="h-card rp-box"><p class="rp-note">No report matches that.</p></div>';
+    if (!reports.length) h += '<div class="h-card rp-box"><p class="rp-note">No report is set up for your role yet. Ask the technology team through Feedback if you use a Blackbaud query that is missing.</p></div>';
     root.innerHTML = h;
     var input = $('#rp-q');
     input.addEventListener('input', function (e) {
@@ -123,17 +122,29 @@
 
   function tileValue(t) { return t.kind === 'money' ? money(t.value) : t.kind === 'int' ? num(t.value) : String(t.value); }
 
+  var CHECK = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
   function tieHtml(t) {
     if (t.status === 'none' && !t.note) return '';
-    if (t.status === 'none') return '<div class="h-card rp-tie is-off"><span class="lbl">Tie-out</span><span class="eq">' + esc(t.note || '') + '</span><span class="rp-tag rp-tag--none">No KPI line</span></div>';
     var f = function (v) { return t.kind === 'count' ? num(v) : money(v); };
-    var right = t.status === 'match' ? '<span class="rp-tag rp-tag--ok">Matches</span>'
-      : t.status === 'differs' ? '<span class="rp-tag rp-tag--warn">Differs by ' + f(t.diff) + '</span>'
-      : '<span class="rp-tag rp-tag--none">KPI figure not available</span>';
-    var eq = t.status === 'unavailable'
-      ? esc(t.note || '')
-      : 'This report <b>' + f(t.mine) + '</b> &nbsp;/&nbsp; ' + esc(t.label) + ' <b>' + f(t.kpi) + '</b>';
-    return '<div class="h-card rp-tie' + (t.status === 'differs' ? ' is-warn' : '') + '"><span class="lbl">Tie-out</span><span class="eq">' + eq + '</span>' + right + '</div>';
+    if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches the KPI dashboard</b><span>' + esc(t.label) + ': ' + f(t.kpi) + '</span></div></div>';
+    if (t.status === 'differs') return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from the KPI dashboard by ' + f(t.diff) + '</b><span>This report ' + f(t.mine) + ', ' + esc(t.label) + ' ' + f(t.kpi) + '</span></div></div>';
+    if (t.status === 'unavailable') return '<div class="rp-tie is-off"><div><b>KPI figure not available</b><span>' + esc(t.note || '') + '</span></div></div>';
+    return '<div class="rp-tie is-off"><div><b>No KPI line</b><span>' + esc(t.note || '') + '</span></div></div>';
+  }
+
+  // Bars by team, from the rows on screen, only when the report has a team column and a money column.
+  function teamBars(res, rows) {
+    var tc = res.columns.filter(function (c) { return /^(team|credited)/i.test(c.key) || /^credited/i.test(c.label); })[0];
+    var mc = res.columns.filter(function (c) { return c.type === 'money'; })[0];
+    if (!tc || !mc || !rows.length) return '';
+    var sums = {};
+    rows.forEach(function (r) { var k = r[tc.key]; if (k) sums[k] = (sums[k] || 0) + (Number(r[mc.key]) || 0); });
+    var keys = Object.keys(sums).sort(function (a, b) { return sums[b] - sums[a]; });
+    if (!keys.length) return '';
+    var max = sums[keys[0]] || 1;
+    return '<div class="h-card rp-box"><div class="rp-k">By ' + esc(tc.label.toLowerCase()) + '</div><div class="rp-bars">' + keys.map(function (k) {
+      return '<div class="rp-bar"><span>' + esc(k) + '</span><i><u style="width:' + Math.max(2, Math.round(sums[k] / max * 100)) + '%"></u></i><b>' + money(sums[k]) + '</b></div>';
+    }).join('') + '</div></div>';
   }
 
   function visibleRows() {
@@ -165,40 +176,41 @@
       res.columns.forEach(function (c) { if (c.total) { var s = 0; rows.forEach(function (r) { s += Number(r[c.key]) || 0; }); totals[c.key] = Math.round(s * 100) / 100; } });
     } else if (searching) totals = {};
 
-    var h = '<div class="rp-bar2"><a class="rp-back" href="' + BASE + '">All reports</a><div class="rp-acts">' +
-      (res.post != null ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-copy">Copy for WhatsApp</button>' : '') +
-      '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>Export CSV</a>' +
-      '<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="reports">' + SHEET + 'Open in Google Sheets</button></div></div>';
-
+    var h = '<div class="h-card rp-params">';
     var shown = res.filters.filter(function (f) { return !f.showWhen || res.values[f.showWhen.id] === f.showWhen.is; });
-    if (shown.length) {
-      h += '<div class="h-card rp-filters">';
-      shown.forEach(function (f) {
-        var v = res.values[f.id];
-        if (f.type === 'seg') h += '<div class="rp-f"><span>' + esc(f.label) + '</span><div class="rp-seg" role="group" aria-label="' + esc(f.label) + '">' + f.options.map(function (o) { return '<button type="button" data-f="' + f.id + '" data-v="' + esc(o[0]) + '" class="' + (v === o[0] ? 'is-on' : '') + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
-        else if (f.type === 'select') h += '<label class="rp-f"><span>' + esc(f.label) + '</span><select data-f="' + f.id + '">' + f.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (v === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>';
-        else if (f.type === 'date') h += '<label class="rp-f"><span>' + esc(f.label) + '</span><input type="date" data-f="' + f.id + '" value="' + esc(v) + '"></label>';
-        else if (f.type === 'month') h += '<label class="rp-f"><span>' + esc(f.label) + '</span><input type="month" data-f="' + f.id + '" value="' + esc(v) + '"></label>';
-        else h += '<label class="rp-f"><span>' + esc(f.label) + '</span><input type="text" data-f="' + f.id + '" value="' + esc(v) + '" maxlength="80"></label>';
-      });
-      h += '<button type="button" class="h-btn h-btn--ghost h-btn--sm rp-reset" id="rp-reset">Reset</button></div>';
+    shown.forEach(function (f) {
+      var v = res.values[f.id];
+      if (f.type === 'seg') h += '<div class="rp-f"><span>' + esc(f.label) + '</span><div class="rp-seg2" role="group" aria-label="' + esc(f.label) + '">' + f.options.map(function (o) { return '<button type="button" data-f="' + f.id + '" data-v="' + esc(o[0]) + '" class="' + (v === o[0] ? 'is-on' : '') + '">' + esc(o[1]) + '</button>'; }).join('') + '</div></div>';
+      else if (f.type === 'select') h += '<label class="rp-f rp-f--dd' + (v !== f.def ? ' is-set' : '') + '"><span>' + esc(f.label) + '</span><select data-f="' + f.id + '">' + f.options.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (v === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></label>';
+      else if (f.type === 'date') h += '<label class="rp-f rp-f--dd"><span>' + esc(f.label) + '</span><input type="date" data-f="' + f.id + '" value="' + esc(v) + '"></label>';
+      else if (f.type === 'month') h += '<label class="rp-f rp-f--dd"><span>' + esc(f.label) + '</span><input type="month" data-f="' + f.id + '" value="' + esc(v) + '"></label>';
+      else h += '<label class="rp-f rp-f--dd"><span>' + esc(f.label) + '</span><input type="text" data-f="' + f.id + '" value="' + esc(v) + '" maxlength="80"></label>';
+    });
+    h += '<div class="rp-acts">' + (shown.some(function (f) { return res.values[f.id] !== f.def; }) ? '<button type="button" class="rp-link" id="rp-reset">Reset</button>' : '') +
+      (res.post != null ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-copy">Copy for WhatsApp</button>' : '') +
+      '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>CSV</a>' +
+      '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="reports">Google Sheets</button></div></div>';
+
+    var tie = tieHtml(res.tie);
+    if (res.tiles.length || tie) {
+      h += '<div class="h-card rp-sum">';
+      res.tiles.forEach(function (t, i) { h += '<div class="rp-tile' + (i === 0 ? ' is-hero' : '') + '"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; });
+      h += tie + '</div>';
     }
 
-    if (res.tiles.length) h += '<div class="rp-tiles">' + res.tiles.map(function (t) { return '<div class="h-card rp-tile"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; }).join('') + '</div>';
-    h += tieHtml(res.tie);
-
-    var side = res.post != null || res.note;
-    h += '<div class="rp-main' + (side ? '' : ' is-solo') + '"><div><div class="h-card rp-tcard"><div class="rp-thead"><span class="cnt">' + num(rows.length) + (rows.length === 1 ? ' row' : ' rows') + (res.more ? ' (first ' + num(res.rows.length) + ' of ' + num(res.count) + ')' : '') + '</span><input type="search" id="rp-find" placeholder="Search these rows" value="' + esc(cur.find || '') + '" aria-label="Search these rows"></div><div class="rp-scroll"><table class="rp-table"><thead><tr>' +
-      res.columns.map(function (c) { var on = cur.sort && cur.sort.k === c.key; return '<th class="' + (isRight(c) ? 'r ' : '') + (on ? 'is-sort' : '') + '" data-sort="' + c.key + '" aria-sort="' + (on ? (cur.sort.d > 0 ? 'ascending' : 'descending') : 'none') + '">' + esc(c.label) + '<span class="ar">' + (on ? (cur.sort.d > 0 ? '▲' : '▼') : '⇅') + '</span></th>'; }).join('') + '</tr></thead><tbody>';
-    pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c) { return '<td class="' + (isRight(c) ? 'r' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
-    if (!pageRows.length) h += '<tr><td colspan="' + res.columns.length + '" class="rp-empty">No rows for these filters.</td></tr>';
+    var bars = teamBars(res, rows);
+    var side = res.post != null || res.note || bars;
+    h += '<div class="rp-main' + (side ? '' : ' is-solo') + '"><div><div class="h-card rp-tcard"><div class="rp-thead"><span class="cnt">Rows <small>' + num(rows.length) + '</small>' + (res.more ? ' <em>first ' + num(res.rows.length) + ' of ' + num(res.count) + '</em>' : '') + '</span><label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-find" placeholder="Search these rows" value="' + esc(cur.find || '') + '" aria-label="Search these rows"></label></div><div class="rp-scroll"><table class="rp-table"><thead><tr>' +
+      res.columns.map(function (c) { var on = cur.sort && cur.sort.k === c.key; return '<th class="' + (isRight(c) ? 'r ' : '') + (on ? 'is-sort' : '') + '" data-sort="' + c.key + '" aria-sort="' + (on ? (cur.sort.d > 0 ? 'ascending' : 'descending') : 'none') + '"><button type="button">' + esc(c.label) + '<span class="ar">' + (on ? (cur.sort.d > 0 ? '\u25B2' : '\u25BC') : '\u21C5') + '</span></button></th>'; }).join('') + '</tr></thead><tbody>';
+    pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c) { return '<td class="' + (isRight(c) ? 'r' : c.type === 'id' ? 'id' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
+    if (!pageRows.length) h += '<tr><td colspan="' + res.columns.length + '" class="rp-empty">No rows for these filters. <button type="button" class="rp-link" id="rp-clear">Clear</button></td></tr>';
     h += '</tbody>';
     if (Object.keys(totals).length) h += '<tfoot><tr>' + res.columns.map(function (c, i) { var v = totals[c.key]; return '<td class="' + (isRight(c) ? 'r' : '') + '">' + (i === 0 ? 'Total' : v == null ? '' : c.type === 'money' || c.type === 'cell' ? money(v) : num(v)) + '</td>'; }).join('') + '</tr></tfoot>';
     h += '</table></div>';
     if (rows.length > ps) h += '<div class="rp-pager"><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-prev"' + (cur.page ? '' : ' disabled') + '>Previous</button><span>' + (cur.page * ps + 1) + ' to ' + Math.min(rows.length, cur.page * ps + ps) + ' of ' + num(rows.length) + '</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-next"' + (cur.page + 1 < pages ? '' : ' disabled') + '>Next</button></div>';
     h += '</div></div>';
     if (side) {
-      h += '<aside class="rp-side">';
+      h += '<aside class="rp-side">' + bars;
       if (res.post != null) h += '<div class="h-card rp-box"><div class="rp-k">Post text</div><div class="rp-pre" id="rp-pre">' + esc(res.post) + '</div></div>';
       if (res.note) h += '<div class="h-card rp-box"><p class="rp-note">' + esc(res.note) + '</p></div>';
       h += '</aside>';
@@ -230,6 +242,8 @@
         reload(v);
       });
     });
+    var clr = $('#rp-clear');
+    if (clr) clr.addEventListener('click', function () { cur.find = ''; drawReport(); });
     var reset = $('#rp-reset');
     if (reset) reset.addEventListener('click', function () { cur.find = ''; cur.sort = null; reload({}); });
     $$('[data-sort]', root).forEach(function (th) { th.addEventListener('click', function () { var k = th.dataset.sort; cur.sort = cur.sort && cur.sort.k === k ? { k: k, d: -cur.sort.d } : { k: k, d: 1 }; drawReport(); }); });
@@ -268,7 +282,7 @@
     root.innerHTML = '<p class="rp-note rp-loading">Loading</p>';
     get(apiUrl(id, asked)).then(function (d) {
       if (!d.ok) {
-        setHeader('Reports', 'Reports');
+        setHeader('KPI', 'Reports');
         root.innerHTML = '<div class="h-card rp-box"><p class="rp-note">' + esc(d.message || 'That report did not load.') + '</p><p><a class="h-btn h-btn--ghost h-btn--sm" href="' + BASE + '">All reports</a></p></div>';
         return;
       }
