@@ -97,7 +97,7 @@ async function probeOps(env: Env): Promise<string> {
   return '';
 }
 
-async function opsUrl(env: Env): Promise<string> {
+export async function opsUrl(env: Env): Promise<string> {
   if (env.BLACKBAUD_OPS_URL) return env.BLACKBAUD_OPS_URL;
   const cached = await getSetting(env, 'ops_url');
   if (cached) {
@@ -168,7 +168,58 @@ export async function ops(env: Env, method: string, path: string, body?: unknown
   }
 }
 
-function sayWhy(body: any): string {
+export interface OpsCall {
+  method: string;
+  path: string;
+  body?: unknown;
+}
+
+export interface OpsManyResult {
+  /** One answer per call that ran, in order. A call past the end of this list did not run. */
+  results: Array<{ ok: boolean; status: number; body: any; refused?: string }>;
+  /** Nothing ran, or the answer was lost. After a lost answer a create may have succeeded. */
+  wait?: string;
+  /** True when the request left the hub and no answer came back, so any create in it may have landed. */
+  lost?: boolean;
+  callsToday?: number;
+  cap?: number;
+}
+
+/**
+ * Up to 15 calls in one request to the upkeep route, run in order. A refused, throttled or forbidden call ends the batch, so
+ * `results` can be shorter than `calls`. Every call, a read included, counts against the day's cap.
+ */
+export async function opsMany(env: Env, calls: OpsCall[]): Promise<OpsManyResult> {
+  if (!env.BLACKBAUD_SETUP_KEY) return { results: [], wait: 'The Blackbaud connection is not set up on the hub yet.' };
+  if (calls.length < 1 || calls.length > 15) throw new Error('send between 1 and 15 calls');
+  const url = await opsUrl(env);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 28000);
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'X-Setup-Key': env.BLACKBAUD_SETUP_KEY, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 favor-hub-work' },
+      body: JSON.stringify({ calls }),
+      signal: ctl.signal,
+    });
+    const data = (await res.json().catch(() => null)) as any;
+    if (!data) return { results: [], wait: 'Blackbaud did not answer. It will try again.', lost: true };
+    if (data.error === 'daily_cap' || data.error === 'quota_stop') return { results: [], wait: "Blackbaud is at today's limit. This posts after the reset." };
+    if (!Array.isArray(data.results)) return { results: [], wait: 'The Blackbaud connection turned the call away. It will try again.' };
+    const results = data.results.map((r: any) =>
+      r.status === 0 && r.body && r.body.refused
+        ? { ok: false, status: 0, body: r.body, refused: String(r.body.refused) }
+        : { ok: Boolean(r.ok), status: Number(r.status) || 0, body: r.body }
+    );
+    return { results, callsToday: Number(data.calls_today) || undefined, cap: Number(data.cap) || undefined };
+  } catch {
+    return { results: [], wait: 'Blackbaud did not answer. It will try again.', lost: true };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function sayWhy(body: any): string {
   if (!body) return 'Blackbaud turned it down.';
   if (typeof body === 'string') return body.slice(0, 240);
   if (Array.isArray(body) && body[0]) return String(body[0].message || body[0].error_name || JSON.stringify(body[0])).slice(0, 240);

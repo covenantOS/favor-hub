@@ -104,6 +104,8 @@ export interface BoardRow {
   category: string;
   summary: string;
   description: string;
+  /** The whole description as the mirror holds it (up to 2,000 characters). Stays on the server; never sent to the page. */
+  fullDescription?: string;
   cid: string;
   lookup: string;
   partner: string;
@@ -200,6 +202,7 @@ export function shapeBoard(inp: BoardInput): BoardRow[] {
       category: o.category || 'Task/Other',
       summary: summ.slice(0, 255),
       description: String(o.description || '').replace(/\s+/g, ' ').trim().slice(0, 300),
+      fullDescription: String(o.description || ''),
       cid: String(o.cid),
       lookup: o.lookup || '',
       partner: o.partner || '(no name)',
@@ -255,8 +258,9 @@ export function applyOverlay(rows: BoardRow[], changes: PendingChange[], syncedA
       const newer = !syncedAt || c.at > syncedAt;
       if (c.op === 'complete' || c.op === 'thank' || c.op === 'close_thanked') {
         if (newer) {
-          if (c.tonight && c.state === 'queued') row = { ...row, pending: { op: c.op, state: 'queued', label: 'Marked complete · goes to Blackbaud tonight' } };
-          else hidden = true;
+          if (c.state === 'queued') {
+            row = { ...row, pending: c.tonight ? { op: c.op, state: 'queued', label: 'Marked complete · goes to Blackbaud tonight' } : { op: c.op, state: 'saving', label: 'Saving' } };
+          } else hidden = true;
         } else if (c.state !== 'queued') row = { ...row, reopened: true };
       } else if (c.op === 'reschedule' && newer && typeof c.body.date === 'string') {
         row = { ...row, due: c.body.date.slice(0, 10) };

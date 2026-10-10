@@ -3,22 +3,28 @@
 import { approverEmails, isExpenseAdmin } from '../expenses/auth';
 import type { Env } from '../http';
 import type { HubUser } from '../session';
+import { workAccessFor } from '../work/gate';
+import { waitingCount } from '../work/db';
 
 export interface Access {
   admin: boolean;
   kpi: boolean;
   approver: boolean;
   expenseLog: boolean;
+  /** The Work Center page: admins until Will releases it to the Support Team (hub tables act_settings and act_staff). */
+  workCenter: boolean;
 }
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
   const email = user.email.toLowerCase();
   const approver = user.via === 'google' && (await approverEmails(env)).has(email);
+  const work = await workAccessFor(env, email, user.role === 'admin').catch(() => null);
   return {
     admin: user.role === 'admin',
     kpi: user.kpi,
     approver,
     expenseLog: approver || (await isExpenseAdmin(env, request)),
+    workCenter: !!work && work.ok,
   };
 }
 
@@ -66,15 +72,18 @@ export interface Counts {
   brainRequests: number;
   /** Will: notes not yet looked at. Everyone else: answers to their notes they have not read. */
   feedback: number;
+  /** Support: contacts waiting to be entered in Blackbaud. */
+  workWaiting: number;
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access): Promise<Counts> {
-  const [inbox, exp, file, brain, notes] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
     access.admin ? brainPending(env) : null,
     feedbackWaiting(env, user, access),
+    access.workCenter ? waitingCount(env) : 0,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -82,6 +91,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access): Promis
     receiptsLeft: file && fileIsMine(file, user, access) ? Math.max(0, file.gifts - file.marked) : 0,
     brainRequests: Number(brain?.n) || 0,
     feedback: Number(notes?.n) || 0,
+    workWaiting: Number(waiting) || 0,
   };
 }
 
