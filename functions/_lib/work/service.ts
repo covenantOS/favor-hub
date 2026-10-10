@@ -726,13 +726,14 @@ export async function authorizeBatch(ctx: Ctx, input: Record<string, any>): Prom
       if (!mayAssignTo(s, fid, teamOf)) throw new HttpError(403, 'not_yours', 'Only an admin can hand an action to someone on another team. Pick someone on your team, or ask an admin.');
     }
   }
-  const cids = partnersOf(input);
-  if (cids.length && ['new', 'duplicate', 'pnote', 'pfield', 'opp_new', 'opp_edit'].includes(op)) {
-    if (op === 'pfield' && !can(s, 'partner_edit')) throw new HttpError(403, 'not_yours', 'Your role does not change partner contact details.');
-    for (const c of cids) {
+  // Logging a contact, a task or a note on any partner is allowed: every role can already do that in Blackbaud. Changing a partner's
+  // contact details needs a role that edits partners, and a partner another team holds is that team's to change (Support may change any).
+  if (op === 'pfield') {
+    if (!can(s, 'partner_edit')) throw new HttpError(403, 'not_yours', 'Your role does not change partner contact details.');
+    for (const c of partnersOf(input)) {
       const holders = await partnerHolders(ctx, c);
       if (holders.length && !holders.some((h) => s.fids.has(h)) && s.role !== 'support') {
-        throw new HttpError(403, 'not_yours', 'Another team holds that partner. Ask them, or ask Support.');
+        throw new HttpError(403, 'not_yours', 'Another team holds that partner and changes their contact details. Ask them, or ask Support.');
       }
     }
   }
