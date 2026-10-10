@@ -8,6 +8,10 @@ import { mirrorQ, type Q } from '../work/partner';
 import { bbSender } from './bb';
 import type { Ctx } from './flow';
 import type { CaptureDeps } from './capture';
+import type { BbSend } from './bb';
+
+/** Tests replace Blackbaud, the two readers and the photo bucket. The live routes leave this empty. */
+export const giftHooks: { repo?: (env: Env) => ActionsRepo; send?: (env: Env) => BbSend; read?: CaptureDeps['read']; bucket?: (env: Env) => R2Bucket } = {};
 
 export interface GiftArgs {
   request: Request;
@@ -30,12 +34,14 @@ export function gift(handler: (a: GiftArgs) => Promise<Response | Record<string,
       const user = hubUserOf(request);
       if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
       if (user.role !== 'admin') throw new HttpError(403, 'admin_only', 'Admins only.');
-      const repo = blackbaudRepo(env);
+      const repo = (giftHooks.repo || blackbaudRepo)(env);
       const q = mirrorQ(env);
       const actor = user.name || user.email;
       const out = await handler({
         request, env, params: params as Record<string, string | string[]>, waitUntil, user, actor, url: new URL(request.url),
-        flow: { env, send: bbSender(env), actor }, deps: { repo, q }, repo, q,
+        flow: { env, send: (giftHooks.send || bbSender)(env), actor },
+        deps: { repo, q, read: giftHooks.read, bucket: giftHooks.bucket ? giftHooks.bucket(env) : undefined },
+        repo, q,
       });
       if (out instanceof Response) return out;
       return json(out.ok === undefined ? { ok: true, ...out } : out);

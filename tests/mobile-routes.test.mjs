@@ -434,6 +434,7 @@ describe('the contract', () => {
     const missing = [];
     for (const [path, ops] of Object.entries(spec.paths)) {
       for (const [method, op] of Object.entries(ops)) {
+        if (method === 'parameters' || (Array.isArray(op.tags) && op.tags.includes('gift-entry'))) continue; // covered in mobile-gift-entry.test.mjs
         const key = `${method.toUpperCase()} ${path}`;
         const statuses = seen.get(key);
         if (!statuses) {

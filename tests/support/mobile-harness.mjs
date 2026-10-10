@@ -70,7 +70,8 @@ export function mirrorDb() {
     CREATE TABLE opportunities (id TEXT PRIMARY KEY, constituent_record_id TEXT, name TEXT, purpose TEXT, status TEXT, ask_amount REAL, ask_date TEXT, expected_amount REAL, expected_date TEXT,
       funded_amount REAL, funded_date TEXT, deadline TEXT, inactive INTEGER, fundraisers TEXT, linked_gifts TEXT, date_added TEXT, date_modified TEXT, raw_json TEXT, synced_at TEXT);
     CREATE TABLE constituent_codes (id TEXT PRIMARY KEY UNIQUE, date_added DATETIME, date_modified DATETIME, constituent_record_id TEXT, code_description TEXT, raw_json TEXT, synced_at DATETIME);
-    CREATE TABLE funds (id TEXT PRIMARY KEY, fund_description TEXT);
+    CREATE TABLE funds (id TEXT PRIMARY KEY, fund_id TEXT, fund_description TEXT, fund_inactive INTEGER DEFAULT 0);
+    CREATE TABLE appeals (id TEXT PRIMARY KEY, appeal_id TEXT, appeal_description TEXT, appeal_category TEXT, appeal_inactive INTEGER DEFAULT 0);
     CREATE TABLE fundraisers (id TEXT PRIMARY KEY UNIQUE, fundraiser_first_name TEXT, fundraiser_last_name TEXT, fundraiser_type TEXT, fundraiser_end_date TEXT, fundraiser_active INTEGER);
     CREATE TABLE sync_log (table_name TEXT, sync_status TEXT, run_at TEXT);
     INSERT INTO constituents (id, constituent_lookup_id, constituent_type, first_name, last_name, inactive, deceased, date_added, raw_json) VALUES
@@ -79,7 +80,8 @@ export function mirrorDb() {
       ('9004', '7004', 'Individual', 'Cy', 'Nobody', 0, 1, '2020-01-01T10:00:00', '{"name":"Cy Nobody"}'),
       ('9005', '7005', 'Individual', 'Dee', 'Quiet', 0, 0, '2021-01-01T10:00:00', '{"name":"Dee Quiet"}');
     INSERT INTO fundraisers VALUES ('501', 'Fay', 'Alpha', 'RDD', NULL, 1);
-    INSERT INTO funds VALUES ('79', 'General Fund');
+    INSERT INTO funds VALUES ('79', 'WNM', 'Where Needed Most', 0), ('88', 'MSN', 'Missions', 0);
+    INSERT INTO appeals VALUES ('2192', 'L2610', 'October Letter', 'Mailing', 0), ('2200', 'L2611', 'November Letter', 'Mailing', 0);
     INSERT INTO emails (id, constituent_record_id, email_address, is_primary) VALUES ('e1', '9001', 'ada@example.org', 1), ('e2', '9001', 'old@example.org', 0), ('e3', '9002', 'ben@example.org', 1);
     INSERT INTO phones (id, constituent_record_id, phone_type, phone_number, is_primary) VALUES ('p1', '9001', 'Cell Phone', '(555) 010-1234', 1);
     INSERT INTO addresses (id, constituent_record_id, address_lines, address_city, address_state, address_postal_code, address_country, is_primary) VALUES
@@ -114,7 +116,12 @@ export const refreshes = [];
 
 export function fakeR2() {
   const objects = new Map();
-  return { objects, async put(key, value, opts) { objects.set(key, { value, opts }); return { key }; } };
+  return {
+    objects,
+    async put(key, value, opts) { objects.set(key, { value, opts }); return { key }; },
+    async get(key) { const o = objects.get(key); return o ? { body: new Response(o.value).body, arrayBuffer: () => new Response(o.value).arrayBuffer() } : null; },
+    async delete(key) { objects.delete(key); },
+  };
 }
 
 /**
@@ -129,6 +136,7 @@ export async function world({ board = [], people = {}, staff = [], settings = {}
   d1.exec('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL);');
   d1.exec(read('db/work.sql'));
   d1.exec(read('db/mobile.sql'));
+  d1.exec(read('db/gift-entry.sql'));
   const now = new Date().toISOString();
   const u = d1.db.prepare('INSERT OR IGNORE INTO hub_users (email, name, role, blocked, created_at, updated_at) VALUES (?,?,?,?,?,?)');
   u.run('will@favorintl.org', 'Will Hamilton', 'admin', 0, now, now);
@@ -205,6 +213,20 @@ const routeFiles = {
   'GET /api/mobile/partners/:id': '../../functions/api/mobile/partners/[id].ts',
   'POST /api/mobile/contacts': '../../functions/api/mobile/contacts.ts',
   'POST /api/mobile/captures': '../../functions/api/mobile/captures.ts',
+  'GET /api/mobile/gift-entry': '../../functions/api/mobile/gift-entry/index.ts',
+  'POST /api/mobile/gift-entry': '../../functions/api/mobile/gift-entry/index.ts',
+  'GET /api/mobile/gift-entry/catalog': '../../functions/api/mobile/gift-entry/catalog.ts',
+  'GET /api/mobile/gift-entry/partners': '../../functions/api/mobile/gift-entry/partners.ts',
+  'GET /api/mobile/gift-entry/deposits/:id': '../../functions/api/mobile/gift-entry/deposits/[id]/index.ts',
+  'DELETE /api/mobile/gift-entry/deposits/:id': '../../functions/api/mobile/gift-entry/deposits/[id]/index.ts',
+  'POST /api/mobile/gift-entry/deposits/:id/photos': '../../functions/api/mobile/gift-entry/deposits/[id]/photos.ts',
+  'POST /api/mobile/gift-entry/deposits/:id/cash': '../../functions/api/mobile/gift-entry/deposits/[id]/cash.ts',
+  'POST /api/mobile/gift-entry/deposits/:id/send': '../../functions/api/mobile/gift-entry/deposits/[id]/send.ts',
+  'POST /api/mobile/gift-entry/deposits/:id/run': '../../functions/api/mobile/gift-entry/deposits/[id]/run.ts',
+  'POST /api/mobile/gift-entry/deposits/:id/retry': '../../functions/api/mobile/gift-entry/deposits/[id]/retry.ts',
+  'PATCH /api/mobile/gift-entry/gifts/:id': '../../functions/api/mobile/gift-entry/gifts/[id].ts',
+  'DELETE /api/mobile/gift-entry/gifts/:id': '../../functions/api/mobile/gift-entry/gifts/[id].ts',
+  'GET /api/mobile/gift-entry/images/:id': '../../functions/api/mobile/gift-entry/images/[id].ts',
 };
 
 function match(method, path) {
@@ -220,7 +242,7 @@ function match(method, path) {
 }
 
 /** Send one request through the real middleware to the matching route file. Returns { res, body, pattern }. */
-export async function call(w, method, path, { token, body, form, headers = {}, host = HOST } = {}) {
+export async function call(w, method, path, { token, body, form, raw, headers = {}, host = HOST } = {}) {
   const mw = await import('../../functions/_middleware.ts');
   const u = new URL(path, host);
   const m = match(method, u.pathname);
@@ -229,17 +251,19 @@ export async function call(w, method, path, { token, body, form, headers = {}, h
   const h = new Headers(headers);
   if (token) h.set('Authorization', 'Bearer ' + token);
   let init = { method, headers: h };
-  if (form) init.body = form;
+  if (raw !== undefined) init.body = raw;
+  else if (form) init.body = form;
   else if (body !== undefined) {
     h.set('Content-Type', 'application/json');
     init.body = JSON.stringify(body);
   }
   const request = new Request(u, init);
   const pending = [];
-  const handler = method === 'GET' ? mod.onRequestGet : mod.onRequestPost;
+  const handler = mod['onRequest' + method[0] + method.slice(1).toLowerCase()];
   const next = async (req) => handler({ request: req || request, env: w.env, params: m.params, waitUntil: (p) => pending.push(p), next: async () => new Response('x') });
   const res = await mw.onRequest({ request, env: w.env, next, waitUntil: (p) => pending.push(p) });
   await Promise.all(pending);
+  if ((res.headers.get('Content-Type') || '').startsWith('image/')) return { res, status: res.status, body: new Uint8Array(await res.arrayBuffer()), pattern: m.pattern, binary: true };
   const text = await res.text();
   let parsed = null;
   try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
@@ -319,6 +343,7 @@ export function checkAgainstContract(method, pattern, status, body) {
   const resp = deref(op.responses[String(status)]);
   if (!resp) return [`${method} ${path} answered ${status}, which the contract does not list`];
   const schema = resp.content && resp.content['application/json'] && resp.content['application/json'].schema;
+  if (!schema && body instanceof Uint8Array) return [];
   if (!schema) return status === 204 && body !== null && body !== '' ? [`${method} ${path} 204 must have no body`] : [];
   return validate(schema, body).map((e) => `${method} ${path} ${status} ${e}`);
 }

@@ -1,10 +1,10 @@
-import { gift, pid } from '../../../../_lib/gifts/route';
+import { gift, pid, type GiftArgs } from '../../../../_lib/gifts/route';
 import { addPhoto, MAX_PHOTO_BYTES } from '../../../../_lib/gifts/capture';
 import { HttpError } from '../../../../_lib/http';
 
 // Step 2 and 3: one photo per request, sent as the raw image body (the page shrinks it first). The reply holds the row after both
 // readers, the partner match and the duplicate guard have run, so the page shows it at once.
-export const onRequestPost = gift(async ({ request, env, params, user, actor, deps, url }) => {
+export async function photoHandler({ request, env, params, user, actor, deps, url }: GiftArgs): Promise<Record<string, unknown>> {
   const mime = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
   if (mime !== 'image/jpeg' && mime !== 'image/png') throw new HttpError(415, 'bad_type', 'Send a JPEG or PNG photo.');
   const buf = new Uint8Array(await request.arrayBuffer());
@@ -17,4 +17,6 @@ export const onRequestPost = gift(async ({ request, env, params, user, actor, de
   } catch (e: any) {
     throw new HttpError(409, 'not_open', String(e && e.message ? e.message : e));
   }
-});
+}
+
+export const onRequestPost = gift(photoHandler);

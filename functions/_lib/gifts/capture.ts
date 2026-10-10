@@ -51,7 +51,9 @@ export async function addPhoto(
   await logEvent(env, { deposit_id: depositId, gift_id: giftId, kind: 'photo_added', actor: who.name, detail: { bytes: input.bytes.length } });
 
   try {
-    await readAndMatch(env, deps, depositId, giftId, imageId, input.bytes, mime, sha, who.name);
+    // A slip or second photo for a row already read adds the appeal and memo. It never rewrites the check's own fields.
+    const slipOnly = !!input.giftId && (input.kind === 'slip' || input.kind === 'letter');
+    await readAndMatch(env, deps, depositId, giftId, imageId, input.bytes, mime, sha, who.name, slipOnly);
   } catch (e: any) {
     // The photo is kept and the row waits for a person to type it. A failed read never blocks the deposit.
     await updateGift(env, giftId, { status: 'review', error: 'The photo could not be read. Type the gift in.' });
@@ -62,7 +64,7 @@ export async function addPhoto(
   return { gift, duplicatePhoto: !!dup && dup.kind === 'photo' };
 }
 
-export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: string, giftId: string, imageId: string, bytes: Uint8Array, mime: string, sha: string, actor: string): Promise<void> {
+export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: string, giftId: string, imageId: string, bytes: Uint8Array, mime: string, sha: string, actor: string, slipOnly = false): Promise<void> {
   const dep = (await getDeposit(env, depositId))!;
   const dataUrl = toDataUrl(bytes, mime);
   const results = await (deps.read ? deps.read(dataUrl) : readPhoto(env, dataUrl));
@@ -83,6 +85,25 @@ export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: strin
     await env.DB.prepare('DELETE FROM ge_read WHERE image_id = ?').bind(imageId).run();
     await updateGift(env, giftId, { status: 'review', fields_json: JSON.stringify({ card: true, flags: [], why: {}, readers: [] }), error: 'A card number showed in the photo. The photo was not kept.' });
     await logEvent(env, { deposit_id: depositId, gift_id: giftId, kind: 'card_number_discarded', actor });
+    return;
+  }
+
+  if (slipOnly) {
+    const g0 = (await getGift(env, giftId))!;
+    const add: Record<string, string | number | null> = {};
+    const cat0 = await loadCatalog(deps.q).catch(() => null);
+    const code = (merged.slipAppeal || '').trim().toLowerCase();
+    const hit = code && cat0 ? cat0.appeals.find((a) => a.code.toLowerCase() === code) : null;
+    const f0 = parseJson<any>(g0.fields_json, {});
+    if (hit) {
+      Object.assign(add, { appeal_id: hit.id, appeal_name: hit.name });
+      f0.defaults = { ...(f0.defaults || {}), slip: true };
+      add.fields_json = JSON.stringify(f0);
+      if (g0.appeal_id !== hit.id) Object.assign(add, { confirmed_by: null, confirmed_at: null });
+    }
+    if (!g0.memo && merged.memo) Object.assign(add, { memo: merged.memo, prayer: prayerIn(merged.memo) ? 1 : g0.prayer });
+    await updateGift(env, giftId, add);
+    await env.DB.prepare('UPDATE ge_image SET copy_to_bb = ? WHERE gift_id = ?').bind(g0.rule ? 1 : 0, giftId).run();
     return;
   }
 

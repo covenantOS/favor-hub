@@ -250,6 +250,339 @@ paths:
                     type: object
                     additionalProperties: { type: boolean }
 
+  # ---- Capture tab: the mail day (build item 4a). Admin only, like gift entry itself. Every operation is the existing
+  # /api/gift-entry handler reached with a device token. The hub creates the batch UNAPPROVED and never approves it.
+  /api/mobile/gift-entry:
+    get:
+      operationId: listDeposits
+      tags: [gift-entry]
+      summary: Recent deposits and the Blackbaud lane
+      x-work-center-route: GET /api/gift-entry (gift entry P1)
+      responses:
+        "200":
+          description: Deposits, newest first
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DepositList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createDeposit
+      tags: [gift-entry]
+      summary: Step 1, a deposit with the tape total and count
+      x-work-center-route: POST /api/gift-entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind, date, tapeTotal, tapeCount]
+              properties:
+                kind: { type: string, enum: [regular, acquisition, grant] }
+                date: { type: string, description: YYYY-MM-DD, not in the future }
+                tapeTotal: { type: number, description: Dollars }
+                tapeCount: { type: integer, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: The new deposit. sameDayExists holds the id of a deposit of the same kind and date, or null.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, deposit]
+                properties:
+                  ok: { type: boolean }
+                  deposit: { $ref: "#/components/schemas/DepositListItem" }
+                  sameDayExists: { type: string, nullable: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/catalog:
+    get:
+      operationId: giftCatalog
+      tags: [gift-entry]
+      summary: Funds and appeals to choose from
+      x-work-center-route: GET /api/gift-entry/catalog
+      responses:
+        "200":
+          description: Active funds and appeals from the mirror
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, funds, appeals]
+                properties:
+                  ok: { type: boolean }
+                  funds: { type: array, items: { $ref: "#/components/schemas/CatalogOption" } }
+                  appeals: { type: array, items: { $ref: "#/components/schemas/CatalogOption" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/partners:
+    get:
+      operationId: giftPartnerSearch
+      tags: [gift-entry]
+      summary: Search partners by hand for a row
+      x-work-center-route: GET /api/gift-entry/partners
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: Up to 8 matches
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  hits: { type: array, items: { $ref: "#/components/schemas/PartnerHit" } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/deposits/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getDeposit
+      tags: [gift-entry]
+      summary: One deposit with every row, the tape and the send steps
+      x-work-center-route: GET /api/gift-entry/deposits/:id
+      responses:
+        "200":
+          description: The deposit view
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DepositView" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      operationId: removeDeposit
+      tags: [gift-entry]
+      summary: Throw away a deposit that was never sent
+      x-work-center-route: DELETE /api/gift-entry/deposits/:id
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  removed: { type: boolean }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/deposits/{id}/photos:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: uploadGiftPhoto
+      tags: [gift-entry]
+      summary: One photo of a check or reply slip. The two readers and the partner match run before the answer.
+      x-work-center-route: POST /api/gift-entry/deposits/:id/photos, plus client_id so a resend returns the stored answer
+      parameters:
+        - { name: client_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: kind, in: query, schema: { type: string, enum: [check_front, slip, letter] } }
+        - { name: gift, in: query, description: Row id for a slip or second photo of an existing row, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: The row the photo went to
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, giftId, status]
+                properties:
+                  ok: { type: boolean }
+                  giftId: { type: string }
+                  status: { type: string }
+                  duplicatePhoto: { type: boolean }
+                  repeat: { type: boolean }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { description: Photo over 6 MB }
+        "415": { description: Not a JPEG or PNG }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/deposits/{id}/cash:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: addCashRow
+      tags: [gift-entry]
+      summary: A cash row, which has no photo
+      x-work-center-route: POST /api/gift-entry/deposits/:id/cash
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountCents]
+              properties:
+                amountCents: { type: integer }
+      responses:
+        "200":
+          description: The new row id
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  giftId: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/deposits/{id}/send:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: sendDeposit
+      tags: [gift-entry]
+      summary: Create the UNAPPROVED batch in Blackbaud. Refused until count and total match the tape and every row has a look.
+      x-work-center-route: POST /api/gift-entry/deposits/:id/send
+      responses:
+        "200":
+          description: Steps saved and run
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  progress: { $ref: "#/components/schemas/Progress" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/deposits/{id}/run:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: runDeposit
+      tags: [gift-entry]
+      summary: Run what is due, check the batch for approval, and return the deposit view
+      x-work-center-route: POST /api/gift-entry/deposits/:id/run
+      responses:
+        "200":
+          description: The deposit view with the watch result
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DepositView" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/deposits/{id}/retry:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      operationId: retryDeposit
+      tags: [gift-entry]
+      summary: Try the stopped steps again
+      x-work-center-route: POST /api/gift-entry/deposits/:id/retry
+      responses:
+        "200":
+          description: Steps run
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  progress: { $ref: "#/components/schemas/Progress" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/gifts/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    patch:
+      operationId: updateRow
+      tags: [gift-entry]
+      summary: A change to one row, or an action (confirm, unconfirm, dup_keep, dup_remove, by_hand, back_to_review)
+      x-work-center-route: PATCH /api/gift-entry/gifts/:id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [confirm, unconfirm, dup_keep, dup_remove, by_hand, back_to_review] }
+                set:
+                  type: object
+                  description: Any of partner_id, partner_lookup, partner_name, partner_place, amount_cents, gift_date, check_number, check_date, payer, memo, fund_id, fund_name, appeal_id, appeal_name, soft_partner_id, soft_partner_name, prayer, kind.
+                  additionalProperties: true
+      responses:
+        "200":
+          description: The whole deposit view after the change
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  view: { $ref: "#/components/schemas/DepositView" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    delete:
+      operationId: removeRow
+      tags: [gift-entry]
+      summary: Take a row off the deposit
+      x-work-center-route: DELETE /api/gift-entry/gifts/:id
+      responses:
+        "200":
+          description: The deposit view after the removal
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  view: { $ref: "#/components/schemas/DepositView" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
+  /api/mobile/gift-entry/images/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      operationId: getGiftImage
+      tags: [gift-entry]
+      summary: One stored photo, private and never cached
+      x-work-center-route: GET /api/gift-entry/images/:id
+      responses:
+        "200":
+          description: The image bytes
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
 components:
   securitySchemes:
     deviceToken:
@@ -273,6 +606,16 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     TooManyRequests:
       description: More than 60 changes a minute from one person. The app waits and resends.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: That deposit, row or photo is not here.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: The deposit was already sent and its rows are locked, or the send is refused (error cannot_send, locked, not_open).
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -344,3 +687,229 @@ components:
         kind: { type: string, enum: [call, visit, text] }
         note: { type: string }
         occurred_at: { type: string, format: date-time }
+    CatalogOption:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        code: { type: string }
+        name: { type: string }
+        category: { type: string }
+    PartnerHit:
+      type: object
+      required: [cid, name]
+      properties:
+        cid: { type: string }
+        lookup: { type: string }
+        name: { type: string }
+        place: { type: string }
+    Lane:
+      type: object
+      required: [day, calls, cap, warnAt]
+      properties:
+        day: { type: string }
+        calls: { type: integer }
+        cap: { type: integer }
+        warnAt: { type: integer }
+    DepositListItem:
+      type: object
+      description: A deposit row as the hub stores it (snake_case).
+      required: [id, kind, name, deposit_date, tape_cents, tape_count, status]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [regular, acquisition, grant] }
+        name: { type: string }
+        deposit_date: { type: string }
+        tape_cents: { type: integer }
+        tape_count: { type: integer }
+        status: { type: string, enum: [open, sending, created, committed, needs_person, removed] }
+        bb_batch_number: { type: string, nullable: true }
+        gifts: { type: integer }
+        cents: { type: integer }
+    DepositList:
+      type: object
+      required: [ok, deposits, lane, today]
+      properties:
+        ok: { type: boolean }
+        deposits: { type: array, items: { $ref: "#/components/schemas/DepositListItem" } }
+        lane: { $ref: "#/components/schemas/Lane" }
+        today: { type: string }
+        stage: { type: integer }
+        me:
+          type: object
+          properties:
+            name: { type: string }
+            email: { type: string }
+    Progress:
+      type: object
+      properties:
+        status: { type: string }
+        waiting: { type: string, nullable: true }
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              op: { type: string }
+              status: { type: string }
+              attempts: { type: integer }
+              next_try_at: { type: string, nullable: true }
+              error: { type: string, nullable: true }
+    Tape:
+      type: object
+      required: [tapeCents, tapeCount, cents, count, diffCents, diffCount, needLook, matches]
+      properties:
+        tapeCents: { type: integer }
+        tapeCount: { type: integer }
+        cents: { type: integer }
+        count: { type: integer }
+        diffCents: { type: integer }
+        diffCount: { type: integer }
+        needLook: { type: integer }
+        matches: { type: boolean }
+    ReaderFields:
+      type: object
+      nullable: true
+      properties:
+        docType: { type: string, nullable: true }
+        amountCents: { type: integer, nullable: true }
+        wordsCents: { type: integer, nullable: true }
+        checkDate: { type: string, nullable: true }
+        payer: { type: string, nullable: true }
+        checkNumber: { type: string, nullable: true }
+        memo: { type: string, nullable: true }
+        slipAppeal: { type: string, nullable: true }
+    GiftRowView:
+      type: object
+      required: [id, seq, status, kind, candidates, flags, why, readers, blockers, confirmed, images]
+      properties:
+        id: { type: string }
+        seq: { type: integer }
+        status: { type: string, enum: [reading, review, ready, sent, failed, by_hand, removed] }
+        kind: { type: string, enum: [check, cash] }
+        partner:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            lookup: { type: string, nullable: true }
+            name: { type: string, nullable: true }
+            place: { type: string, nullable: true }
+        candidates:
+          type: array
+          items:
+            type: object
+            properties:
+              cid: { type: string }
+              lookup: { type: string }
+              name: { type: string }
+              place: { type: string }
+              exact: { type: boolean }
+        amountCents: { type: integer, nullable: true }
+        giftDate: { type: string, nullable: true }
+        checkNumber: { type: string, nullable: true }
+        checkDate: { type: string, nullable: true }
+        payer: { type: string, nullable: true }
+        memo: { type: string, nullable: true }
+        fund:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            name: { type: string, nullable: true }
+        appeal:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string }
+            name: { type: string, nullable: true }
+        soft:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, nullable: true }
+            name: { type: string, nullable: true }
+        rule: { type: string }
+        ruleLabel: { type: string }
+        prayer: { type: boolean }
+        flags: { type: array, items: { type: string, enum: [amount, number, date, payer, memo] } }
+        why: { type: object, additionalProperties: { type: string } }
+        readers:
+          type: array
+          items:
+            type: object
+            properties:
+              reader: { type: string }
+              fields: { $ref: "#/components/schemas/ReaderFields" }
+              error: { type: string, nullable: true }
+              secs: { type: number }
+        card: { type: boolean }
+        unreadable: { type: boolean }
+        dup:
+          type: object
+          nullable: true
+          properties:
+            kind: { type: string, enum: [hub, photo, blackbaud] }
+            message: { type: string }
+            decision: { type: string, nullable: true, enum: [keep, remove] }
+        blockers: { type: array, items: { type: string } }
+        confirmed: { type: boolean }
+        confirmedBy: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              kind: { type: string }
+              copyToBb: { type: boolean }
+              attached: { type: boolean }
+              attachError: { type: string, nullable: true }
+    DepositView:
+      type: object
+      required: [deposit, rows, tape, canSend]
+      properties:
+        ok: { type: boolean }
+        deposit:
+          type: object
+          required: [id, kind, name, date, tapeCents, tapeCount, status]
+          properties:
+            id: { type: string }
+            kind: { type: string, enum: [regular, acquisition, grant] }
+            name: { type: string }
+            date: { type: string }
+            tapeCents: { type: integer }
+            tapeCount: { type: integer }
+            status: { type: string, enum: [open, sending, created, committed, needs_person, removed] }
+            batchNumber: { type: string, nullable: true }
+            committedAt: { type: string, nullable: true }
+            lastPolledAt: { type: string, nullable: true }
+            note: { type: string, nullable: true }
+        rows: { type: array, items: { $ref: "#/components/schemas/GiftRowView" } }
+        tape: { $ref: "#/components/schemas/Tape" }
+        canSend:
+          type: object
+          required: [ok, why]
+          properties:
+            ok: { type: boolean }
+            why: { type: array, items: { type: string } }
+        steps:
+          type: object
+          nullable: true
+          properties:
+            status: { type: string }
+            waiting: { type: string, nullable: true }
+        attachments:
+          type: object
+          properties:
+            planned: { type: integer }
+            done: { type: integer }
+            failed: { type: integer }
+        watch:
+          type: object
+          nullable: true
+        attach:
+          type: object
+          nullable: true
+        lane: { $ref: "#/components/schemas/Lane" }
