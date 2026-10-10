@@ -372,7 +372,7 @@ function paintSideBody(full) {
     body.innerHTML = `<div class="priv">${ic('lock')}Only you see these answers until you post one.</div>
       ${S.brainQ.length ? '' : `<p style="margin:0;font-size:13.5px;color:var(--h-ink-2)">Ask about this meeting, a partner, a number or a document. Favor Brain reads the meeting as it happens and knows the hub's data.</p>`}
       ${S.brainQ.map((q, i) => `<div class="ask">${esc(q.q)}</div>${brainAnswerHTML(q, i)}`).join('')}
-      <div class="bq">${[['missed', 'What did I miss?'], ['agreed', 'What have we agreed so far?']].map(([k, l]) => `<button data-a="ask" data-k="${k}">${l}</button>`).join('')}</div>`;
+      <div class="bq">${[['missed', 'What did I miss?'], ['agreed', 'What have we agreed so far?'], ['open', 'What is still open?'], ['owners', 'Who owns what?']].map(([k, l]) => `<button data-a="ask" data-k="${k}">${l}</button>`).join('')}</div>`;
     if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="brainin" placeholder="Ask Favor Brain" maxlength="400" autocomplete="off" /><button class="icb send" data-a="ask-typed" aria-label="Ask">${ic('send')}</button></div>`;
     if (full || stick) body.scrollTop = body.scrollHeight;
   } else if (S.panel === 'people') {
@@ -411,8 +411,8 @@ function onDocClick(e) {
     case 'sharepolicy': send('cmd', { a: 'sharepolicy', v: S.sharePolicy === 'hosts' ? 'all' : 'hosts' }); break;
     case 'copylink': copy(roomLink(MID)); break;
     case 'guestlink': api('meetings/' + MID + '/guestlink', { method: 'POST', body: {} }).then((r) => copy(r.url)).catch((e) => toast(e.message)); break;
-    case 'ask': askBrain(a.dataset.k === 'missed' ? 'What did I miss?' : 'What have we agreed so far?', a.dataset.k); break;
-    case 'ask-typed': { const i = $('#brainin'); if (i && i.value.trim()) { const q = i.value.trim(); i.value = ''; askBrain(q, /\b(miss|catch me up|recap)\b/i.test(q) ? 'missed' : /\b(agreed|decid|action items)\b/i.test(q) && /\b(so far|meeting|we)\b/i.test(q) ? 'agreed' : 'brain'); } break; }
+    case 'ask': { const L = { missed: 'What did I miss?', agreed: 'What have we agreed so far?', open: 'What is still open?', owners: 'Who owns what?' }; askBrain(L[a.dataset.k] || 'What did I miss?', a.dataset.k); break; }
+    case 'ask-typed': { const i = $('#brainin'); if (i && i.value.trim()) { const q = i.value.trim(); i.value = ''; askBrain(q, brainKindOf(q)); } break; }
     case 'brain-post': postBrain(Number(a.dataset.i), false); break;
     case 'brain-show': postBrain(Number(a.dataset.i), true); break;
     case 'brain-stop': send('brain', { stop: true }); break;
@@ -422,7 +422,7 @@ function onDocClick(e) {
 }
 function onKey(e) {
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
-  if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, /\b(miss|catch me up|recap)\b/i.test(q) ? 'missed' : /\b(agreed|decid|action items)\b/i.test(q) && /\b(so far|meeting|we)\b/i.test(q) ? 'agreed' : 'brain'); } return; }
+  if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, brainKindOf(q)); } return; }
   if (e.target.matches && e.target.matches('input, textarea')) return;
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
@@ -566,7 +566,7 @@ function handleEvent(e) {
     else if (b.a === 'end') { /* the sync's meeting.status ends the room */ }
   } else if (e.kind === 'brain') {
     S.show = e.body.stop ? null : { ...e.body, from: e.from };
-    if (S.show) toast(S.show.by + ' put a Favor Brain answer on screen'); 
+    if (S.show && e.from !== S.me.pid) toast(S.show.by + ' put a Favor Brain answer on screen');
     paintGrid(); scheduleReconcile();
   } else if (e.kind === 'react') {
     floatEmoji(e.body.e);
@@ -709,7 +709,7 @@ setInterval(() => { if (S.cc) paintCap(); }, 2000);
 const stripMd = (t) => String(t || '').replace(/\*\*([^*]+)\*\*/g, '$1').replace(/^#+\s*/gm, '').replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 $2');
 
 function brainAnswerHTML(q, i) {
-  if (q.state === 'working') return `<div class="ans"><div class="mt-sub">Working on it.</div></div>`;
+  if (q.state === 'working') return `<div class="ans"><div class="brain-wait" role="status" aria-label="Favor Brain is working on it"><span></span><span></span><span></span></div></div>`;
   if (q.state === 'error') return `<div class="ans"><div>${esc(q.error)}</div></div>`;
   const B = window.BrainBlocks;
   let html = '';
@@ -718,24 +718,42 @@ function brainAnswerHTML(q, i) {
   return `<div class="ans">${html}<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="h-btn h-btn--primary h-btn--sm" data-a="brain-post" data-i="${i}">${ic('chat')}Post to chat</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="brain-show" data-i="${i}">${ic('screen')}Show on screen</button></div></div>`;
 }
 
+// Typed questions that ask for the meeting so far go to the transcript answers; everything else goes to the Brain page route.
+function brainKindOf(q) {
+  if (/\b(miss|catch me up|recap)\b/i.test(q)) return 'missed';
+  if (/\b(still open|unanswered|open questions)\b/i.test(q)) return 'open';
+  if (/\b(who owns|owners?|who has)\b/i.test(q)) return 'owners';
+  if (/\b(agreed|decid|action items)\b/i.test(q) && /\b(so far|meeting|we)\b/i.test(q)) return 'agreed';
+  return 'brain';
+}
+
+// Plain reasons for a failed answer, from the status code. The same words for a limit, a timeout and a permission problem were the bug.
+const BRAIN_ERR = { 403: 'Favor Brain answers are for staff only.', 429: 'That is too many questions in a minute. Wait a moment, then ask again.', 503: 'Favor Brain is busy right now. Ask again in a moment.', 504: 'Favor Brain took too long to answer. Ask again.' };
+function brainError(e) {
+  if (!e || !e.status) return 'Favor Brain could not be reached. Check the connection and ask again.';
+  if (BRAIN_ERR[e.status]) return BRAIN_ERR[e.status];
+  if (e.status === 404) return 'This meeting is no longer open to you.';
+  return e.message && !/^Something went wrong/.test(e.message) ? e.message : 'Favor Brain could not answer that. Ask again.';
+}
+
 async function askBrain(q, kind) {
   S.panel = 'brain'; paintCtl(); paintSide();
   const item = { q, state: 'working' };
   S.brainQ.push(item); paintSideBody(false);
   try {
-    if (kind === 'missed' || kind === 'agreed') {
+    if (kind === 'missed' || kind === 'agreed' || kind === 'open' || kind === 'owners') {
       const start = Date.parse(S.meeting.startedAt || '') || S.started;
-      const since = S.dropRel != null ? S.dropRel : Math.max(0, Math.round((S.joinedAt - start) / 1000) || 0);
-      const r = await api('meetings/' + MID + '/brain', { method: 'POST', body: { pid: S.me.pid, kind, sinceSec: kind === 'missed' ? (S.dropRel != null ? S.dropRel : Math.max(0, Math.round((Date.now() - start) / 1000) - 300)) : 0 } });
+      const dropped = S.dropRel != null;
+      const r = await api('meetings/' + MID + '/brain', { method: 'POST', body: { pid: S.me.pid, kind, dropped, sinceSec: kind === 'missed' ? (dropped ? S.dropRel : Math.max(0, Math.round((Date.now() - start) / 1000) - 300)) : 0 } });
       item.blocks = r.blocks; item.markdown = r.markdown || (r.blocks[0] && r.blocks[0].md) || '';
     } else {
       const res = await fetch('/api/brain/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ question: q }) });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok || d.ok === false) throw new Error(d.message || 'Favor Brain did not answer. Ask again.');
+      if (!res.ok || d.ok === false) { const err = new Error(d.message || ''); err.status = res.status; throw err; }
       item.blocks = d.blocks || []; item.markdown = d.markdown || d.text || '';
     }
     item.state = 'done';
-  } catch (e) { item.state = 'error'; item.error = e.message; }
+  } catch (e) { item.state = 'error'; item.error = brainError(e); }
   paintSideBody(false);
   const body = $('#rm-body'); if (body) body.scrollTop = body.scrollHeight;
 }
@@ -760,7 +778,7 @@ function paintBrainTile(grid, i) {
     if (S.show.blocks && S.show.blocks.length && B) { try { html = S.show.blocks.map((b, bi) => B.render(b, { ti: 950, bi, canSheets: false, canRequest: () => false, expired: true })).join(''); } catch { html = ''; } }
     if (!html) html = `<div class="ans"><div style="white-space:pre-wrap">${esc(stripMd(S.show.md))}</div></div>`;
     const mine = S.show.from === S.me.pid || hostish();
-    el.innerHTML = `<div class="bc-root bc-show"><div class="bc-show__h"><span>${ic('brain')}Favor Brain, shown by ${esc(S.show.by)}</span>${mine ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="brain-stop">Stop showing</button>` : ''}</div><div class="bc-show__b">${html}</div></div>`;
+    el.innerHTML = `<div class="bc-root bc-show"><div class="bc-show__h"><span>${ic('brain')}<span><b>${esc(S.show.q || 'Favor Brain')}</b><small>Shown by ${esc(S.show.by)}</small></span></span>${mine ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="brain-stop">Stop showing</button>` : ''}</div><div class="bc-show__b">${html}</div></div>`;
     try { if (B) { B.countUp && B.countUp(el, true); B.drawCharts && B.drawCharts(el); } } catch {}
   }
   if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);

@@ -39,7 +39,7 @@ export async function route({ request, env, params }: { request: Request; env: M
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') return json(await remind(env, new URL(request.url).origin));
     if (parts.length === 1) {
-      if (m === 'GET') return json(await listMeetings(env, user, new URL(request.url).searchParams.get('scope') || 'upcoming'));
+      if (m === 'GET') { const sp = new URL(request.url).searchParams; return json(await listMeetings(env, user, sp.get('scope') || 'upcoming', (sp.get('q') || '').trim().slice(0, 200).toLowerCase())); }
       if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => null), new URL(request.url).origin));
     }
     const id = parts[1];
@@ -113,9 +113,12 @@ function publicMeeting(m: Meeting, user: { email: string }) {
     durationMin: m.duration_min, rec: m.rec_mode, access: m.access, status: m.status, locked: !!m.locked, spot: m.spot_pid,
     sharePolicy: m.share_policy, repeat: m.repeat, backupLink: m.backup_link, invitees: safeJson(m.invitees, []), mine: isHost(m, user.email),
     recState: m.rec_state, driveFileId: m.drive_file_id, notesStatus: m.notes_status, summary: m.summary, createdAt: m.created_at,
-    startedAt: m.started_at, endedAt: m.ended_at,
+    startedAt: m.started_at, endedAt: m.ended_at, seriesId: m.series_id || '',
   };
 }
+
+/** Notes search: the title, the summary, the host, or anything said in the transcript. `p` is the bind slot for the query text. */
+const notesHit = (p: string) => `(instr(lower(title), ${p}) > 0 OR instr(lower(summary), ${p}) > 0 OR instr(lower(host_name), ${p}) > 0 OR id IN (SELECT meeting_id FROM hub_meeting_lines WHERE instr(lower(text), ${p}) > 0))`;
 
 function safeJson<T>(s: string, d: T): T {
   try {
@@ -125,35 +128,44 @@ function safeJson<T>(s: string, d: T): T {
   }
 }
 
-async function listMeetings(env: MeetEnv, user: { email: string; role: string }, scope: string) {
+async function listMeetings(env: MeetEnv, user: { email: string; role: string }, scope: string, q = '') {
   await endStaleMeetings(env);
   const me = user.email.toLowerCase();
   // An address matches only as a whole quoted address in the JSON, so ann@ never finds a meeting that invited joann@.
   const mine = `(lower(host_email) = ?1 OR access IN ('staff','guests') OR instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
   let sql: string;
   if (scope === 'recent') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 60`;
-  else if (scope === 'notes') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' AND notes_status != 'none' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 100`;
+  else if (scope === 'notes') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' AND notes_status != 'none'${q ? ` AND ${notesHit('?2')}` : ''} ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 100`;
   else sql = `SELECT * FROM hub_meetings WHERE ${mine} AND (status = 'live' OR (status = 'scheduled' AND (starts_at IS NULL AND created_at > ?2 OR starts_at > ?3))) ORDER BY COALESCE(starts_at, created_at) LIMIT 80`;
-  const q = env.DB.prepare(sql);
+  const stmt = env.DB.prepare(sql);
   const rows =
-    scope === 'recent' || scope === 'notes'
-      ? await q.bind(me).all<Meeting>()
-      : await q.bind(me, new Date(Date.now() - 12 * 3600_000).toISOString(), new Date(Date.now() - 3600_000).toISOString()).all<Meeting>();
+    scope === 'notes' && q
+      ? await stmt.bind(me, q).all<Meeting>()
+      : scope === 'recent' || scope === 'notes'
+        ? await stmt.bind(me).all<Meeting>()
+        : await stmt.bind(me, new Date(Date.now() - 12 * 3600_000).toISOString(), new Date(Date.now() - 3600_000).toISOString()).all<Meeting>();
   const counts = await env.DB.prepare(
     `SELECT meeting_id, COUNT(*) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND seen > ? GROUP BY meeting_id`
   ).bind(Date.now() - GONE_MS).all<{ meeting_id: string; n: number }>();
   const inRoom = new Map((counts.results || []).map((c) => [c.meeting_id, c.n]));
-  const found = scope === 'recent' || scope === 'notes' ? await withLedMeetings(env, user, scope, rows.results || []) : rows.results || [];
-  return { ok: true, meetings: found.map((r) => ({ ...publicMeeting(r, user), inRoom: inRoom.get(r.id) || 0 })) };
+  const found = scope === 'recent' || scope === 'notes' ? await withLedMeetings(env, user, scope, rows.results || [], scope === 'notes' ? q : '') : rows.results || [];
+  // Action items per meeting, for the notes library.
+  const actN = new Map<string, number>();
+  if (scope === 'notes' && found.length) {
+    const ids = found.map((r) => r.id);
+    const a = await env.DB.prepare(`SELECT meeting_id, COUNT(*) AS n FROM hub_meeting_actions WHERE meeting_id IN (${ids.map(() => '?').join(',')}) GROUP BY meeting_id`).bind(...ids).all<{ meeting_id: string; n: number }>();
+    for (const r of a.results || []) actN.set(r.meeting_id, r.n);
+  }
+  return { ok: true, meetings: found.map((r) => ({ ...publicMeeting(r, user), inRoom: inRoom.get(r.id) || 0, actionCount: actN.get(r.id) || 0 })) };
 }
 
 /** A team leader's notes list also holds the finished meetings that have someone from the team on the roster. Same rule as the notes page (mayReadNotes). */
-async function withLedMeetings(env: MeetEnv, user: { email: string; role: string }, scope: 'recent' | 'notes', mine: Meeting[]): Promise<Meeting[]> {
+async function withLedMeetings(env: MeetEnv, user: { email: string; role: string }, scope: 'recent' | 'notes', mine: Meeting[], q = ''): Promise<Meeting[]> {
   const led = await ledPeople(env, user.email);
   if (!led.size) return mine;
   const more = await env.DB.prepare(
-    `SELECT * FROM hub_meetings WHERE status = 'ended'${scope === 'notes' ? ` AND notes_status != 'none'` : ''} ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 400`
-  ).all<Meeting>();
+    `SELECT * FROM hub_meetings WHERE status = 'ended'${scope === 'notes' ? ` AND notes_status != 'none'` : ''}${q ? ` AND ${notesHit('?1')}` : ''} ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 400`
+  ).bind(...(q ? [q] : [])).all<Meeting>();
   const have = new Set(mine.map((r) => r.id));
   const all = [...mine, ...(more.results || []).filter((r) => !have.has(r.id) && mayReadNotes(r, user, led))];
   all.sort((a, b) => (b.ended_at || b.created_at).localeCompare(a.ended_at || a.created_at));
@@ -818,21 +830,34 @@ async function brainInMeeting(env: MeetEnv, user: { email: string }, id: string,
   const me = await getPresence(env, id, clean(b.pid, 12), user.email);
   if (me.role === 'guest') throw new HttpError(403, 'staff_only', 'Favor Brain is for staff.');
   const mt = await getMeeting(env, id);
-  const kind = b.kind === 'agreed' ? 'agreed' : 'missed';
+  const kind = b.kind === 'agreed' || b.kind === 'open' || b.kind === 'owners' ? b.kind : 'missed';
   const started = Date.parse(mt.started_at || mt.created_at);
   const nowSec = Math.round((Date.now() - started) / 1000);
   const from = kind === 'missed' ? Math.max(0, Number.isFinite(Number(b.sinceSec)) && Number(b.sinceSec) >= 0 ? Number(b.sinceSec) : nowSec - 300) : 0;
+  // The clock time (Eastern) of a point in the meeting, for the card heading.
+  const clock = (sec: number) => new Date(started + sec * 1000).toLocaleTimeString('en-US', { timeZone: TZ, hour: 'numeric', minute: '2-digit' });
   const rows = (await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ? ORDER BY t, n LIMIT 600').bind(id, from).all<{ t: number; who: string; text: string }>()).results || [];
-  if (!rows.length) return { ok: true, blocks: [{ type: 'text', md: kind === 'missed' ? 'Nothing has been said in that time, or the transcript has not caught up yet. It runs about 15 seconds behind.' : 'Nothing has been said yet that I can read, or the transcript has not caught up. It runs about 15 seconds behind.' }], markdown: '' };
+  if (!rows.length) {
+    const md = kind === 'missed' ? 'Nothing has been said in that time, or the transcript has not caught up yet. It runs about 15 seconds behind.' : 'Nothing has been said yet that I can read, or the transcript has not caught up. It runs about 15 seconds behind.';
+    return { ok: true, blocks: [{ type: 'text', md }], markdown: '' };
+  }
   const text = rows.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n').slice(-20000);
-  const system = kind === 'missed'
-    ? 'You catch a late or dropped person up on a staff meeting. Return keys: lead (one short sentence saying what the stretch was about) and points (array of at most 6 objects {t: seconds, text}, one plain sentence each, in order). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.'
-    : 'You list what a staff meeting has agreed so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each: decisions, and tasks with the person named when the talk names them). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.';
-  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, system, `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900);
+  const PROMPTS: Record<string, string> = {
+    missed: 'You catch a late or dropped person up on a staff meeting. Return keys: lead (one short sentence saying what the stretch was about) and points (array of at most 6 objects {t: seconds, text}, one plain sentence each, in order). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
+    agreed: 'You list what a staff meeting has agreed so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each: decisions, and tasks with the person named when the talk names them). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
+    open: 'You list what a staff meeting has left open so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each: questions raised with no answer yet, and items with no decision). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
+    owners: 'You list who owns each task a staff meeting has named so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each in the form "Name: task", using only names the transcript says). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
+  };
+  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, PROMPTS[kind], `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900);
   const pts = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 10).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 300) })).filter((p) => p.text);
   const lead = plain(out.lead, 200);
+  const heading = kind === 'missed'
+    ? (b.dropped ? `Since you dropped off at ${clock(from)}` : `Since ${clock(from)}`)
+    : kind === 'agreed' ? 'Agreed so far' : kind === 'open' ? 'Still open' : 'Who owns what';
   const md = `${lead}\n\n${pts.map((p) => `- ${stamp(p.t)}  ${p.text}`).join('\n')}`.trim();
-  return { ok: true, blocks: [{ type: 'text', md }], markdown: md };
+  const blocks: Array<Record<string, unknown>> = [{ type: 'text', md: lead || heading }];
+  if (pts.length) blocks.push({ type: 'steps', title: heading, steps: pts.map((p) => ({ md: p.text, hint: stamp(p.t) })) });
+  return { ok: true, blocks, markdown: md };
 }
 
 // ---------------------------------------------------------------- action items
