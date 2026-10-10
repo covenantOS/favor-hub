@@ -1,0 +1,66 @@
+---
+// Clips: record your screen and voice, get a link. Admins only for now; watching is on /c/<id>.
+import App from '../../layouts/App.astro';
+import '../../styles/clips.css';
+---
+<App title="Clips" crumb="Work" nav="clips" description="Record your screen and voice and share a link.">
+  <div class="cl" id="cl">
+    <section class="cl-head">
+      <div>
+        <h1>Clips</h1>
+        <p class="h-lede">Record your screen and your voice, then share a link. Good for a short walkthrough of something you built. Clips run up to 15 minutes.</p>
+      </div>
+    </section>
+
+    <section class="h-card cl-rec" id="cl-rec" aria-live="polite">
+      <div class="cl-state" id="cl-idle">
+        <div class="cl-dot" aria-hidden="true"></div>
+        <div class="cl-idle__copy">
+          <h2>Record a clip</h2>
+          <p>Pick a screen, window or tab, and the microphone. Your camera stays off.</p>
+        </div>
+        <div class="cl-idle__go">
+          <label class="cl-title"><span>Title</span><input id="cl-title" type="text" maxlength="120" placeholder="Name this clip (optional)" autocomplete="off" /></label>
+          <button type="button" class="h-btn h-btn--primary cl-big" id="cl-start">Start recording</button>
+        </div>
+        <p class="cl-note" id="cl-unsupported" hidden>This browser cannot record the screen. Use Chrome, Edge, Firefox or Safari on a computer.</p>
+      </div>
+
+      <div class="cl-state" id="cl-count" hidden>
+        <div class="cl-count__n" id="cl-count-n" aria-live="assertive">3</div>
+        <p>Recording starts now. Switch to what you want to show.</p>
+      </div>
+
+      <div class="cl-state" id="cl-live" hidden>
+        <div class="cl-live__time"><span class="cl-rdot" id="cl-rdot" aria-hidden="true"></span><b id="cl-time">0:00</b><span class="cl-cap">of 15:00</span><em id="cl-paused" hidden>Paused</em></div>
+        <div class="cl-meter" aria-hidden="true"><i id="cl-meter-i"></i></div>
+        <div class="cl-live__btns">
+          <button type="button" class="h-btn h-btn--ghost" id="cl-pause">Pause</button>
+          <button type="button" class="h-btn h-btn--primary" id="cl-stop">Stop and save</button>
+          <button type="button" class="h-btn h-btn--ghost cl-danger" id="cl-discard">Discard</button>
+        </div>
+      </div>
+
+      <div class="cl-state" id="cl-up" hidden>
+        <h2 id="cl-up-h">Saving your clip</h2>
+        <div class="cl-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="cl-bar"><i id="cl-bar-i"></i></div>
+        <p class="cl-note" id="cl-up-note">Keep this tab open until it finishes.</p>
+      </div>
+
+      <div class="cl-state" id="cl-done" hidden>
+        <h2>Your clip is ready</h2>
+        <div class="cl-link"><input id="cl-link" type="text" readonly aria-label="Share link" /><button type="button" class="h-btn h-btn--primary" id="cl-copy">Copy link</button><a class="h-btn h-btn--ghost" id="cl-open" href="#">Open</a></div>
+        <p class="cl-note">Only signed-in Favor staff can open it. Turn on Anyone with the link below to share it outside Favor.</p>
+        <button type="button" class="h-btn h-btn--ghost" id="cl-again">Record another</button>
+      </div>
+
+      <p class="cl-err" id="cl-err" role="alert" hidden></p>
+    </section>
+
+    <section class="cl-list" aria-label="My clips">
+      <div class="cl-list__head"><h2>My clips</h2><span id="cl-count-label"></span></div>
+      <div id="cl-rows" aria-busy="true"><div class="h-card h-skel" style="min-height:92px"></div></div>
+    </section>
+  </div>
+  <script is:inline src="/js/clips.js?v=1" defer></script>
+</App>

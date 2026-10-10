@@ -17,6 +17,11 @@ database_id = "56466fae-d166-4010-9f7f-b8f2d8b50c8b"
 binding = "UPLOADS"
 bucket_name = "favor-requests"
 
+# Clips (screen recordings): a private bucket, read only through /api/clips/<id>/media.
+[[r2_buckets]]
+binding = "CLIPS"
+bucket_name = "favor-clips"
+
 # Google sign-in for the whole hub (functions/_middleware.ts). "off" leaves pages open and the old
 # per-app codes working; "on" sends everyone through /login with their @favorintl.org account.
 [vars]

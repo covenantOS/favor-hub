@@ -46,6 +46,7 @@ const ICONS: Record<string, string> = {
   chat: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>',
   mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m17 9 5 6"/><path d="m22 9-5 6"/>',
+  video: '<rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 5-3v9l-5-3z"/>',
   work: '<path d="M4 7h4"/><path d="M4 12h4"/><path d="M4 17h4"/><path d="m11 7 1.5 1.5L15 6"/><path d="m11 12 1.5 1.5L15 11"/><path d="M11 17h9"/><path d="M17 7h3"/><path d="M17 12h3"/>',
 };
 const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -59,6 +60,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       { id: 'new', label: 'Make a request', href: '/requests/new', icon: 'plus' },
       { id: 'board', label: 'Request board', href: '/requests/', icon: 'inbox', count: 'inbox' },
       { id: 'work', label: 'Work Center', href: '/work/', icon: 'work', count: 'workWaiting', need: 'workCenter' },
+      { id: 'clips', label: 'Clips', href: '/clips/', icon: 'video', need: 'admin' },
       { id: 'expense', label: 'Expense request', href: '/expenses/new', icon: 'receipt' },
       { id: 'expenses', label: 'Expense log', href: '/expenses/', icon: 'log', count: 'expensesWaiting', need: 'expenseLog' },
       { id: 'receipts', label: 'Thank-you receipts', href: '/receipts/', icon: 'mail', count: 'receiptsLeft' },

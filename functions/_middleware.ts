@@ -35,6 +35,10 @@ const RETIRED: Record<string, string> = {
   '/newsletter-analytics/': '/dashboard/?page=%2Fmarketing',
 };
 
+// A clip's share page and its video are reachable without sign-in at the middleware; each decides for
+// itself by the clip's share switch (functions/c/[id].ts, functions/api/clips/[id]/media.ts).
+const CLIP_OPEN = /^\/(c\/[0-9a-f]{32}\/?|api\/clips\/[0-9a-f]{32}\/media)$/;
+
 function isHtml(res: Response): boolean {
   return (res.headers.get('Content-Type') || '').includes('text/html');
 }
@@ -64,7 +68,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     console.error('[signin] resolve', err);
   }
   const forwarded = withUserHeaders(request, user);
-  const open = OPEN_PATHS.has(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));
+  const open = OPEN_PATHS.has(path) || CLIP_OPEN.test(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));
 
   // Google is part of signing in: a person with no connected Google account goes to Google's consent
   // screen before any page opens (calendar, Drive file names, mail headers; read-only). A cookie set

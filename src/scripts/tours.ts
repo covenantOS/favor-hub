@@ -255,6 +255,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'clips',
+    page: '/clips/',
+    via: 'clips',
+    at: '#cl-rec',
+    title: 'Record a clip',
+    body: 'Press Start recording, pick a screen, window or tab, and talk. A 3, 2, 1 countdown runs first. Stop and save gives you a link to send. Only signed-in Favor staff can open it unless you turn on Anyone with the link.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'feedback',
     at: '#h-fb',
     title: 'Tell us what you think',
