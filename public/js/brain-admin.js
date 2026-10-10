@@ -70,6 +70,8 @@
   });
 
   let labels = {};
+  let peopleRows = [];
+  let activityRows = [];
   let activityShown = 20;
   async function load() {
     let d;
@@ -87,6 +89,8 @@
     labels = d.packages || {};
     const people = d.people || [];
     const activity = (d.recent || []).filter((r) => !/^admin_/.test(r.tool));
+    peopleRows = people;
+    activityRows = activity;
     $('a-stats').removeAttribute('aria-busy');
     $('s-pending').textContent = String(d.pending.length);
     $('s-calls').textContent = people.reduce((n, p) => n + (Number(p.calls30) || 0), 0).toLocaleString('en-US');
@@ -168,9 +172,14 @@
       $('a-missed').innerHTML = `<li class="b-empty">${esc(err.message)}</li>`;
       return;
     }
+    const unplaced = d.missed.filter((m) => /^unrouted/.test(String(m.outcome || '')));
+    const missed = d.missed.filter((m) => !/^unrouted/.test(String(m.outcome || '')));
     $('a-missed-n').textContent = d.missed.length ? String(d.missed.length) : '';
-    $('a-missed').innerHTML = d.missed.length
-      ? d.missed
+    $('a-unplaced').innerHTML = unplaced.length
+      ? unplaced.map((m) => `<li><div><b>${esc(m.question || m.tool)}</b><span>${esc(m.who)} · ${esc(when(m.at))}</span></div></li>`).join('')
+      : '<li class="b-empty">Nothing the Brain could not place in the last three weeks.</li>';
+    $('a-missed').innerHTML = missed.length
+      ? missed
           .map(
             (m) => `<li class="ba-miss"><div><b>${esc(m.question || m.tool)}</b><span>${esc(m.who)} · ${esc(when(m.at))}</span><q>${esc(m.reading || '')}</q>${
               m.suggestion ? `<span>They found it next as <b>${esc(m.suggestion.name)}</b></span>` : ''
@@ -265,6 +274,95 @@
       $('a-grant-msg').textContent = err.message;
     }
   });
+  // ---- iWave: credits, the screenings waiting for Will, and the log ------------------------------
+  const num0 = (n) => (n == null ? 'Unknown' : Number(n).toLocaleString('en-US'));
+  async function loadIwave() {
+    let d;
+    try {
+      d = await api('admin/iwave');
+    } catch (err) {
+      $('a-iw-stats').innerHTML = `<p class="b-muted">${esc(err.message)}</p>`;
+      $('a-iw-props').innerHTML = '';
+      return;
+    }
+    if (!d.connected) {
+      $('a-iw-stats').innerHTML = '';
+      $('a-iw-msg').textContent = d.message || 'The sync worker is not answering about iWave yet.';
+      $('a-iw-props').innerHTML = '<li class="b-empty">Nothing to approve until iWave is switched on.</li>';
+      $('a-iw-log').innerHTML = '';
+      $('a-iw-n').textContent = '';
+      return;
+    }
+    const st = d.status || {};
+    const r = st.refreshes_today || {};
+    $('a-iw-msg').textContent = st.balance_note || '';
+    $('a-iw-read').textContent = st.balance_read_at ? 'Balance read ' + when(st.balance_read_at) : '';
+    $('a-iw-stats').innerHTML = [
+      [num0(st.balance), 'Credits left'],
+      [`${r.used ?? 0} of ${r.daily_cap ?? '?'}`, 'Refreshes today, all of Favor'],
+      [num0(st.rated_partners), 'Partners rated'],
+      [`${st.credit_floor ?? '?'}`, 'Credit floor'],
+      [st.mode === 'off' ? 'Off' : st.mode === 'staff' ? 'Staff' : 'Admin only', 'Who can refresh'],
+      [`${st.min_age_days ?? '?'} days`, 'Before a re-score'],
+    ].map(([n, l]) => `<div class="ba-stat"><b>${esc(n)}</b><span>${esc(l)}</span></div>`).join('');
+    const props = d.proposals || [];
+    $('a-iw-n').textContent = props.length ? String(props.length) : '';
+    $('a-iw-props').innerHTML = props.length
+      ? props
+          .map((p) => {
+            let scope = '';
+            try {
+              const sj = JSON.parse(p.scope_json || '{}');
+              scope = sj.segment ? String(sj.segment).replace(/-/g, ' ') : sj.portfolio ? 'One portfolio' : '';
+            } catch {
+              scope = '';
+            }
+            return `<li class="b-req"><div><b>Screen ${Number(p.credits_needed || p.households).toLocaleString('en-US')} households</b><span>${esc(scope)}${scope ? ' · ' : ''}${esc(String(p.email || '').split('@')[0])} · ${esc(when(p.made_at))}</span><q>${Number(p.eligible || 0).toLocaleString('en-US')} partners, ${Number(p.held_partner_care || 0).toLocaleString('en-US')} held by Partner Care stay out. Balance then: ${esc(num0(p.balance_at))}.</q></div>
+            <div class="b-req__go"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-iw="${p.id}" data-ok="1">Approve</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-iw="${p.id}" data-ok="0">Decline</button></div></li>`;
+          })
+          .join('')
+      : '<li class="b-empty">No screenings waiting.</li>';
+    const log = d.log || [];
+    $('a-iw-log').innerHTML =
+      '<thead><tr><th>When</th><th>Who</th><th>What</th><th>Result</th><th>Credits</th></tr></thead><tbody>' +
+      (log.length
+        ? log
+            .map((l) => `<tr><td>${esc(when(l.made_at))}</td><td>${esc(String(l.email || '').split('@')[0])}</td><td><b>${esc(l.kind === 'refresh' ? 'Refresh' : l.kind === 'screen' ? 'Screening' : l.kind || '')}</b>${l.constituent_id ? `<span>Record ${esc(l.constituent_id)}</span>` : ''}</td><td>${esc(l.status || '')}${l.detail ? `<span>${esc(String(l.detail).slice(0, 120))}</span>` : ''}</td><td>${l.credits_before != null ? esc(num0(l.credits_before)) + ' to ' + esc(num0(l.credits_after)) : ''}</td></tr>`)
+            .join('')
+        : '<tr><td colspan="5" class="b-muted">Nothing logged yet.</td></tr>') +
+      '</tbody>';
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-iw]');
+    if (!b) return;
+    b.disabled = true;
+    try {
+      await api('admin/iwave/decide', { id: Number(b.dataset.iw), approve: b.dataset.ok === '1' });
+      document.dispatchEvent(new CustomEvent('favor:cue', { detail: 'success' }));
+      loadIwave();
+    } catch (err) {
+      $('a-iw-msg').textContent = err.message;
+      b.disabled = false;
+    }
+  });
+
+  // ---- Open in Google Sheets: who sees what, and every question (the rows on this page) -------------------
+  if (window.FavorSheets) {
+    window.FavorSheets.register('brain-people', () => {
+      const q = $('a-find').value.trim().toLowerCase();
+      const rows = peopleRows
+        .filter((p) => !q || (p.email + ' ' + p.role).toLowerCase().includes(q))
+        .map((p) => ({ email: p.email, role: p.role, access: (p.packages || []).filter((k) => k !== 'basics').map((k) => labels[k] || k).join(', '), calls: p.calls30 || 0, last: p.last || null }));
+      return window.FavorSheets.screen('Brain access', [{ name: 'People', columns: [{ key: 'email', label: 'Person', type: 'text' }, { key: 'role', label: 'Role', type: 'text' }, { key: 'access', label: 'Access beyond the basics', type: 'text' }, { key: 'calls', label: 'Calls, 30 days', type: 'int' }, { key: 'last', label: 'Last call', type: 'datetime' }], rows }], { classes: ['staff'] });
+    });
+    window.FavorSheets.register('brain-activity', () => {
+      const rows = activityRows.map((r) => ({ at: r.at, who: r.email, via: r.tool === 'ask' ? via(r) : '', what: said(r), result: OUTCOME(r.outcome)[0], rows: r.rows || 0 }));
+      // A question can name a partner, so this sheet is partner information as well as staff information.
+      return window.FavorSheets.screen('Brain activity', [{ name: 'Questions', columns: [{ key: 'at', label: 'When', type: 'datetime' }, { key: 'who', label: 'Who', type: 'text' }, { key: 'via', label: 'Where', type: 'text' }, { key: 'what', label: 'Question', type: 'text' }, { key: 'result', label: 'Result', type: 'text' }, { key: 'rows', label: 'Rows', type: 'int' }], rows }], { classes: ['staff', 'partner'] });
+    });
+  }
   load();
   loadNames();
+  loadIwave();
 })();
+
