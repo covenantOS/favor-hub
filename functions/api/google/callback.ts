@@ -1,5 +1,6 @@
 import { exchangeCode, seal } from '../../_lib/hub/google';
 import type { Env } from '../../_lib/http';
+import { safeNextPath } from '../../_lib/next';
 import { hubUserOf } from '../../_lib/session';
 
 // Google sends the person back here. The code is traded for a refresh token, which is stored encrypted
@@ -15,7 +16,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const state = url.searchParams.get('state') || '';
   const parts = state.split('|');
   const nextPath = decodeURIComponent(parts[1] || '%2F');
-  const safeNext = /^\/(?![\/])/.test(nextPath) ? nextPath : '/';
+  const safeNext = safeNextPath(nextPath);
   const flow = parts[2] || '';
   const kind = flow.startsWith('meetings') ? 'meetings' : flow.startsWith('sheets') ? 'sheets' : '';
   const sheets = !!kind;
@@ -29,7 +30,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return new Response(null, { status: 302, headers: h });
   };
   const user = hubUserOf(request);
-  if (!user || user.via !== 'google') return back('signin');
+  // The session was lost on the way back from Google: sign in again, then return to the page they asked for.
+  if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=' + encodeURIComponent(safeNext), request.url).toString(), 302);
   if (url.searchParams.get('error')) return back('declined');
   const cookie = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)hub_gstate=([^;]+)/)?.[1];
   if (!cookie || decodeURIComponent(cookie) !== state) return back('expired');

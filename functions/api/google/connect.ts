@@ -1,5 +1,6 @@
 import { clientId, DRIVE_FILE, MEET_SCOPES, redirectUri, SCOPES } from '../../_lib/hub/google';
 import type { Env } from '../../_lib/http';
+import { safeNextPath } from '../../_lib/next';
 import { hubUserOf } from '../../_lib/session';
 
 // Starts Connect my Google: sends the signed-in person to Google's consent screen, with a one-time state
@@ -11,10 +12,9 @@ import { hubUserOf } from '../../_lib/session';
 // Both ask for the sign-in identity (openid, email) so the callback can always check the account.
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = hubUserOf(request);
-  if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=%2F', request.url).toString(), 302);
   const params = new URL(request.url).searchParams;
-  const asked = params.get('next') || '/';
-  const next = /^\/(?![\/])/.test(asked) ? asked : '/';
+  const next = safeNextPath(params.get('next'));
+  if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=' + encodeURIComponent(next), request.url).toString(), 302);
   const addKind = params.get('add') === 'meetings' ? 'meetings' : params.get('add') === 'sheets' ? 'sheets' : '';
   const add = !!addKind;
   const force = params.get('force') === '1';

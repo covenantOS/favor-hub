@@ -4,8 +4,11 @@
   const msg = document.getElementById('si-msg');
   const params = new URLSearchParams(location.search);
   const asked = params.get('next') || '/';
-  // Only a path on this site, never another address.
-  const next = /^\/(?![\\/])/.test(asked) ? asked : '/';
+  // Only a path on this site, never another address (same rule as functions/_lib/next.ts). The fragment
+  // (#...) survives the redirect to this page, so it goes back with the path.
+  const path = asked.length <= 2000 && /^\/(?![\/\\])[\x21-\x7e]*$/.test(asked) ? asked : '/';
+  const onSite = new URL(path, location.origin).origin === location.origin;
+  const next = (onSite ? path : '/') + location.hash;
   const signedOut = params.has('signedout');
 
   function say(text, kind) {
