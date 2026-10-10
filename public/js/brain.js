@@ -158,6 +158,7 @@
     if (t.hint) h += `<div class="hintline">${ic('spark')}<span>You can ask the same questions from another app you already use.</span><button type="button" class="lnk" data-act="connect">Show me how</button><button type="button" class="ib ib--sm ib--bare x" data-act="hint-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
     const r = t.rated;
     h += `<div class="m-foot"><button type="button" class="ib ib--sm ib--bare tip" data-act="acopy" data-turn="${ti}" aria-label="Copy the answer" data-tip="Copy">${ic('copy')}</button>
+      <button type="button" class="ib ib--sm ib--bare tip" data-act="alink" data-turn="${ti}" aria-label="Copy link to this chat" data-tip="Copy link">${ic('link')}</button>
       <button type="button" class="ib ib--sm ib--bare tip${r === 'right' ? ' is-done' : ''}" data-act="aup" data-turn="${ti}" aria-label="Right" data-tip="Right" aria-pressed="${r === 'right'}"${t.ref ? '' : ' disabled'}>${ic('up')}</button>
       <button type="button" class="ib ib--sm ib--bare tip${r === 'wrong' ? ' is-done' : ''}" data-feedback="hub-brain" data-rating="wrong" data-ref="${esc(t.ref || '')}" data-question="${esc(t.q)}" aria-label="Not right" data-tip="Not right" aria-pressed="${r === 'wrong'}"${t.ref ? '' : ' disabled'}>${ic('down')}</button>
       <button type="button" class="ib ib--sm ib--bare tip" data-act="again" data-turn="${ti}" aria-label="Ask again" data-tip="Ask again">${ic('redo')}</button>
@@ -817,6 +818,12 @@
         const body = document.querySelector(`[data-abody="${ti}"]`);
         const ok = await copy(t.markdown || (body ? body.innerText : ''));
         toast(ok ? 'Answer copied' : 'Your browser would not copy.');
+        break;
+      }
+      case 'alink': {
+        if (!cur || !cur.id) { toast('The link is ready once this answer is saved.'); break; }
+        const ok = await copy(location.origin + '/brain/?c=' + encodeURIComponent(cur.id));
+        toast(ok ? 'Link copied. Only you can open it.' : 'Your browser would not copy.');
         break;
       }
       case 'qcopy': { const ok = await copy(cur.turns[ti].q); toast(ok ? 'Question copied' : 'Your browser would not copy.'); break; }

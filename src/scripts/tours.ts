@@ -450,6 +450,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'partner-copy-share',
+    page: '/work/partner/',
+    via: 'work',
+    at: '#pv-search',
+    title: 'Copy and share',
+    body: 'Press a partner\'s phone, email or address to copy it. Copy link gives a link to that partner, and Find a partner lists the last eight you opened. Reports and Favor Brain answers have Copy link too.',
+    for: (w) => w.admin || w.work,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'clips',
     at: '#clip-cam',
     title: 'Record a clip from any page',

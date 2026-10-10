@@ -188,6 +188,7 @@
     });
     h += '<div class="rp-acts">' + (shown.some(function (f) { return res.values[f.id] !== f.def; }) ? '<button type="button" class="rp-link" id="rp-reset">Reset</button>' : '') +
       (res.post != null ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-copy">Copy for WhatsApp</button>' : '') +
+      '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-link">Copy link</button>' +
       '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>CSV</a>' +
       '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="reports">Google Sheets</button></div></div>';
 
@@ -251,6 +252,12 @@
     var pv = $('#rp-prev'), nx = $('#rp-next');
     if (pv) pv.addEventListener('click', function () { cur.page -= 1; drawReport(); });
     if (nx) nx.addEventListener('click', function () { cur.page += 1; drawReport(); });
+    var lk = $('#rp-link');
+    if (lk) lk.addEventListener('click', function () {
+      var fail = function () { toast('Copy did not work. Copy the address bar instead.'); };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(location.href).then(function () { toast('Link copied.'); }, fail);
+      else fail();
+    });
     var cp = $('#rp-copy');
     if (cp) cp.addEventListener('click', function () {
       var done = function () { toast('Post text copied.'); };

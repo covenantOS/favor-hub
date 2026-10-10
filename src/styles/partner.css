@@ -291,3 +291,7 @@ html.pp-locked, html.pp-locked body { overflow: hidden; }
 .wg-instr { margin: 12px 22px 0; padding: 10px 14px; border-radius: 12px; background: var(--h-red-soft); border: 1px solid color-mix(in srgb, var(--h-red) 35%, transparent); display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
 .wg-instr b { font: 700 11px var(--h-font); letter-spacing: .14em; text-transform: uppercase; color: var(--h-red); }
 .wg-instr span { font: 600 14px/1.4 var(--h-font); color: #7a2a17; overflow-wrap: anywhere; }
+.pp-copy { display: inline; margin: 0; padding: 0; border: 0; border-radius: 4px; background: none; font: inherit; color: inherit; text-align: left; cursor: copy; }
+.pp-copy:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pp-copy:focus-visible { outline: 2px solid var(--h-leaf); outline-offset: 2px; }
+.pv-find__list .pv-find__head { padding: 8px 12px 4px; font: 600 11px var(--h-font); letter-spacing: .12em; text-transform: uppercase; color: var(--h-ink-2); pointer-events: none; }

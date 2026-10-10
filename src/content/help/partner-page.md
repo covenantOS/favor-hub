@@ -36,6 +36,12 @@ The timeline mixes gifts and contacts, newest first. All, Gifts and Contacts nar
 
 Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom; Edit beside a phone, email or the address changes it in Blackbaud, and Add puts in a new phone or email.
 
+## Copy and share
+
+Press a phone number, an email or the address to copy it. A Copied note confirms it. Copy link in the top row copies the address of this partner page. The link opens for signed-in staff who already have access to the partner. For anyone else the page shows an error.
+
+Click into Find a partner with nothing typed and it lists Recent partners, the last eight you opened. That list stays in this browser only.
+
 ## Saving and Undo
 
 Each change shows at once and saves to Blackbaud in the background. The message at the bottom has Undo for 24 hours. Gifts come from the copy of Blackbaud that refreshes at 5 AM and 5 PM.

@@ -23,7 +23,7 @@ const I = {
   meet: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c.8-3.5 3.2-5.5 6-5.5s5.2 2 6 5.5"/>', letter: '<path d="M4 4h16v16H4z"/><path d="M8 9h8"/><path d="M8 13h8"/>',
   note: '<path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4"/><path d="M8 13h8"/><path d="M8 17h5"/>', task: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>', expand: '<path d="M14 4h6v6"/><path d="M10 20H4v-6"/><path d="M20 4l-7 7"/>', ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>',
-  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/>', link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5"/>',
 };
 const ic = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${I[n] || ''}</svg>`;
 const CAT_IC = { 'Phone call': 'phone', Email: 'mail', Mailing: 'letter', Meeting: 'meet', 'Task/Other': 'task' };
@@ -51,6 +51,17 @@ async function load(id, fresh) {
   CACHE.set(id, { at: Date.now(), p: d.partner });
   return d.partner;
 }
+/* Recent partners: the last eight opened in this browser (localStorage, never sent anywhere). */
+const RECENT_KEY = 'favor.hub.recent.v1';
+function recent() { try { const a = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); return Array.isArray(a) ? a.filter((x) => x && x.cid).slice(0, 8) : []; } catch (_) { return []; } }
+function remember(p) {
+  try {
+    const rest = recent().filter((x) => String(x.cid) !== String(p.id));
+    localStorage.setItem(RECENT_KEY, JSON.stringify([{ cid: String(p.id), name: p.name, place: p.place || '', lookup: p.lookup || '', deceased: !!p.deceased }, ...rest].slice(0, 8)));
+  } catch (_) { /* private mode: the list stays empty */ }
+}
+async function copyText(text) { try { await navigator.clipboard.writeText(text); return true; } catch (_) { return false; } }
+const copyBtn = (v, what) => (v ? `<button type="button" class="pp-copy" data-pp-copy="${esc(v)}" aria-label="Copy ${what}">${esc(v)}</button>` : '');
 let GATE = null, GATEP = null;
 /* One /api/work/gate call per page, shared with work.js through window.hubGate, with last answer kept so the header search shows from the first frame. */
 async function allowed() {
@@ -213,6 +224,7 @@ function view(p, o = {}) {
       ${window.FavorPrep ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-prep="${esc(p.id)}">Call prep</button>` : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="task">Task</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="note">Note</button>
+      <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-link="${esc(p.id)}">${ic('link')}Copy link</button>
     </div>`;
   const giving = `<div class="pp-giving">
       ${figure('Lifetime', money(Math.round(g.total)), g.count ? g.count.toLocaleString('en-US') + ' gifts' : 'No gifts')}
@@ -238,11 +250,11 @@ function view(p, o = {}) {
       const v = kind === 'phone' ? x.number : kind === 'email' ? x.address : '';
       return `<dt>${kind === 'phone' ? esc(x.type || 'Phone') : 'Email'}</dt><dd><form class="pp-inline" data-pp-field="${kind}" data-id="${esc(x.id || '')}"><input type="text" name="v" value="${esc(v)}" /><label class="pp-chk"><input type="checkbox" name="dn" ${(kind === 'phone' ? x.doNotCall : x.doNotEmail) ? 'checked' : ''}/>${kind === 'phone' ? 'Do not call' : 'Do not email'}</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button><button type="button" class="pp-edit" data-pp-cancel>Cancel</button></form></dd><span></span>`;
     }
-    return row(kind === 'phone' ? esc(x.type || 'Phone') : 'Email', `${esc(kind === 'phone' ? x.number : x.address)}${x.primary ? '<small>Primary</small>' : ''}${(kind === 'phone' ? x.doNotCall : x.doNotEmail) ? `<small class="is-bad">Do not ${kind === 'phone' ? 'call' : 'email'}</small>` : ''}`, x.id ? `<button type="button" class="pp-edit" data-pp-edit="${kind}${esc(x.id)}">Edit</button>` : '');
+    return row(kind === 'phone' ? esc(x.type || 'Phone') : 'Email', `${copyBtn(kind === 'phone' ? x.number : x.address, kind === 'phone' ? 'phone number' : 'email address')}${x.primary ? '<small>Primary</small>' : ''}${(kind === 'phone' ? x.doNotCall : x.doNotEmail) ? `<small class="is-bad">Do not ${kind === 'phone' ? 'call' : 'email'}</small>` : ''}`, x.id ? `<button type="button" class="pp-edit" data-pp-edit="${kind}${esc(x.id)}">Edit</button>` : '');
   };
   const a = c.address;
   const addrRow = a ? (V.editing === 'address' ? `<dt>Address</dt><dd><form class="pp-inline pp-inline--addr" data-pp-field="address" data-id="${esc(a.id || '')}"><input type="text" name="lines" value="${esc(a.lines)}" placeholder="Street" /><input type="text" name="city" value="${esc(a.city)}" placeholder="City" /><input type="text" name="state" value="${esc(a.state)}" placeholder="State" /><input type="text" name="zip" value="${esc(a.zip)}" placeholder="ZIP" /><label class="pp-chk"><input type="checkbox" name="dn" ${a.doNotMail ? 'checked' : ''}/>Do not mail</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button><button type="button" class="pp-edit" data-pp-cancel>Cancel</button></form></dd><span></span>`
-    : row('Address', `${esc([a.lines, a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '))}${a.doNotMail ? '<small class="is-bad">Do not mail</small>' : ''}${c.otherAddresses ? `<small>${c.otherAddresses} more on file</small>` : ''}`, a.id ? '<button type="button" class="pp-edit" data-pp-edit="address">Edit</button>' : '')) : row('Address', 'None on file');
+    : row('Address', `${copyBtn([a.lines, a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '), 'address')}${a.doNotMail ? '<small class="is-bad">Do not mail</small>' : ''}${c.otherAddresses ? `<small>${c.otherAddresses} more on file</small>` : ''}`, a.id ? '<button type="button" class="pp-edit" data-pp-edit="address">Edit</button>' : '')) : row('Address', 'None on file');
   const details = `<details class="pp-fold"${V.editing && !String(V.editing).startsWith('opp') ? ' open' : ''}><summary>Contact details, codes and assignments</summary>
       <dl class="pp-dl">
         ${(c.phones || []).map((x, i) => fieldRow('phone', x, i)).join('')}
@@ -308,7 +320,7 @@ async function show(host, id, mode) {
   try {
     const p = await load(id);
     if (V.id !== id) return null;
-    V.p = p; paint();
+    V.p = p; remember(p); paint();
     api('/api/work/partners/' + encodeURIComponent(id) + '/notes').then((d) => { if (V.id === id) { V.notes = d.rows || []; paint(); } }).catch(() => {});
     return p;
   } catch (e) {
@@ -406,6 +418,14 @@ document.addEventListener('click', async (e) => {
   if (!t.closest) return;
   const undoBtn = t.closest('[data-pp-undo]');
   if (undoBtn) { if (!undoBtn.disabled) { undoBtn.disabled = true; undo(undoBtn.dataset.ppUndo); } return; }
+  const cp = t.closest('[data-pp-copy], [data-pp-link]');
+  if (cp) {
+    e.preventDefault();
+    const link = cp.dataset.ppLink ? location.origin + href(cp.dataset.ppLink) : '';
+    const ok = await copyText(link || cp.dataset.ppCopy);
+    toast(ok ? (link ? 'Link copied' : 'Copied') : 'Your browser would not copy. Select the text and copy it.', null, !ok);
+    return;
+  }
   const name = t.closest(NAME_SEL);
   if (name && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
     const onFullPage = /^\/work\/partner\/\d+/.test(location.pathname);
@@ -582,22 +602,29 @@ function search(host, o = {}) {
 }
 function wireSearch(input, list, o = {}) {
   let timer = 0; let seq = 0; let hits = []; let hi = -1;
-  const draw = () => {
+  const draw = (head) => {
     list.hidden = false;
-    list.innerHTML = hits.length
+    list.innerHTML = (head ? `<li class="pv-find__head" role="presentation">${esc(head)}</li>` : '') + (hits.length
       ? hits.map((h, i) => `<li role="option" class="${i === hi ? 'is-hi' : ''}"><a href="${href(h.cid)}" data-i="${i}"><b>${esc(h.name)}</b><span>${esc(h.place || 'No city on file')} · ${esc(h.lookup)}${h.deceased ? ' · deceased' : ''}</span></a></li>`).join('')
-      : '<li class="is-none">No partner found.</li>';
+      : '<li class="is-none">No partner found.</li>');
+  };
+  const showRecent = () => {
+    seq++;
+    const r = recent();
+    if (!r.length) { list.hidden = true; return; }
+    hits = r; hi = -1; draw('Recent partners');
   };
   const pick = (h) => { list.hidden = true; if (o.onPick) o.onPick(h); else { input.value = ''; open(h.cid); } };
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const t = input.value.trim();
-    if (t.length < 2) { list.hidden = true; return; }
+    if (t.length < 2) { showRecent(); return; }
     timer = setTimeout(async () => {
       const mine = ++seq;
       try { const d = await api('/api/work/partners?wide=1&q=' + encodeURIComponent(t)); if (mine !== seq) return; hits = d.rows || []; hi = hits.length ? 0 : -1; draw(); } catch (e) { list.hidden = false; list.innerHTML = `<li class="is-none">${esc(e.message)}</li>`; }
     }, 200);
   });
+  input.addEventListener('focus', () => { if (input.value.trim().length < 2) showRecent(); });
   input.addEventListener('keydown', (e) => {
     if (e.key === 'ArrowDown' && hits.length) { e.preventDefault(); hi = (hi + 1) % hits.length; draw(); }
     else if (e.key === 'ArrowUp' && hits.length) { e.preventDefault(); hi = (hi - 1 + hits.length) % hits.length; draw(); }
