@@ -468,7 +468,6 @@ async function syncNow() {
 }
 
 function applySync(r) {
-  const had = JSON.stringify(S.people.map((p) => [p.pid, p.sessionId, p.mic, p.cam, p.hand, p.sharing, p.role, p.waiting, p.speaking]));
   S.people = r.people; S.me.role = r.role;
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
@@ -476,9 +475,14 @@ function applySync(r) {
   for (const e of r.events) handleEvent(e);
   if (r.events.length) S.events = r.events[r.events.length - 1].seq;
   if (r.meeting.status === 'ended') return leaveRoom('The meeting ended');
-  const now = JSON.stringify(S.people.map((p) => [p.pid, p.sessionId, p.mic, p.cam, p.hand, p.sharing, p.role, p.waiting, p.speaking]));
-  const meCh = true;
-  if (had !== now || meCh) { paintGrid(); paintCtl(); if (S.panel === 'people') paintSideBody(false); }
+  // Repaint only what changed, so a button is never replaced under a click.
+  const base = (p) => [p.pid, p.name, p.sessionId, p.mic, p.cam, p.hand, p.sharing, p.role, p.waiting, p.canShare];
+  const gridSig = JSON.stringify([S.people.map((p) => [...base(p), p.speaking]), S.spot, S.pin]);
+  const ctlSig = JSON.stringify([S.people.filter((p) => p.waiting).length, (S.people.find((p) => p.pid === S.me.pid) || {}).canShare, S.locked, S.sharePolicy, S.recording && [S.recording.active, S.recording.owner], S.me.role]);
+  const sideSig = JSON.stringify([S.people.map(base), S.spot, S.locked, S.sharePolicy]);
+  if (gridSig !== S.gridSig) { S.gridSig = gridSig; paintGrid(); }
+  if (ctlSig !== S.ctlSig) { S.ctlSig = ctlSig; paintCtl(); }
+  if (sideSig !== S.sideSig) { S.sideSig = sideSig; if (S.panel === 'people' && !S.menu) paintSideBody(false); }
   paintBar();
   scheduleReconcile();
   if (recorder) recorder.onSync(r.recording, S.people);

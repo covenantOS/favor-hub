@@ -4,8 +4,8 @@ import App from '../../layouts/App.astro';
 import '../../styles/meet.css';
 ---
 <App title="Meetings" crumb="Meetings" nav="meet" description="Start, join and book meetings.">
-  <button slot="actions" type="button" class="h-btn h-btn--ghost h-btn--sm only-dt" id="mt-now"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg><span class="h-lbl">Start a meeting now</span></button>
-  <a slot="actions" class="h-btn h-btn--primary h-btn--sm" href="/meet/book/"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span class="h-lbl">Book a meeting</span></a>
+  <button slot="actions" type="button" class="h-btn h-btn--ghost h-btn--sm only-dt" id="mt-now"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></svg><span class="h-lbl">Start now</span></button>
+  <a slot="actions" class="h-btn h-btn--primary h-btn--sm" href="/meet/book/"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span class="h-lbl">Book</span></a>
   <div id="mt-home" aria-busy="true"><div class="h-card h-skel" style="min-height:220px"></div></div>
   <script is:inline type="module" src="/js/meet/home.js?v=1"></script>
 </App>

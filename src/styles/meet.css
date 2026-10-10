@@ -282,7 +282,7 @@
 .lobby .prev .cl { z-index: 2; }
 .cb[disabled] { opacity: .45; cursor: default; }
 .only-dt { }
-@media (max-width: 860px) { .only-dt { display: none !important; } }
+@media (max-width: 860px) { .only-dt { display: none !important; } .h-app.is-room { grid-template-columns: minmax(0, 1fr); } .h-app.is-room.is-nav .h-side { visibility: visible; padding: 20px 16px 16px; } .h-app.is-room .h-page { padding: 0; } }
 .rm-input { padding: 10px; }
 .rm-body .msg a { word-break: break-all; }
 .mt-pill .h-i { width: 12px; height: 12px; }

@@ -344,6 +344,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'meetings',
+    page: '/meet/',
+    via: 'meet',
+    at: '#mt-home',
+    title: 'Meetings, in the hub',
+    body: 'Start a room with one press, or book one. Everyone joins from the browser, with video, sound, chat and screen sharing. The host can mute people, spotlight one person for everyone, lock the room and hand out host rights. A meeting that records saves its video to the Meetings drive in Google Drive and writes notes with decisions and action items under Meeting notes.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'feedback',
     at: '#h-fb',
     title: 'Tell us what you think',
