@@ -4,6 +4,7 @@
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { can } from './role';
 import { addMeter, getSetting, listStaff, logEvent, setSetting, type StaffRow } from './db';
+import { partnersWithNew } from './newpartners';
 import { monthsBack, readOwnerTabs, SheetReadError } from './sheetsa';
 import { batchByReq, saveBatch, todayEt, validDate, type Ctx, type PlannedItem } from './service';
 import { idemKey } from '../actions/outbox';
@@ -95,6 +96,9 @@ function shapeSub(r: SubRow, parts: Map<string, PartnerHit>) {
     posted: r.posted_at ? { at: r.posted_at, by: r.posted_by || '' } : null,
     email: !!raw.email,
     phone: !!raw.phone,
+    emailV: raw.emailRaw || '',
+    phoneV: raw.phoneRaw || '',
+    addr: raw.address || '',
   };
 }
 
@@ -122,7 +126,7 @@ export async function entryView(ctx: Ctx, ownerFid: string) {
   const fid = owner ? String(owner.bb_fundraiser_id) : '';
   const rows = fid ? all.filter((r) => r.owner_fid === fid) : [];
   const cids = [...new Set(rows.flatMap((r) => [r.constituent_id, ...(j(r.raw, {}).cands || [])]).filter(Boolean) as string[])];
-  const hits = await ctx.repo.partnersByIds(cids.slice(0, 500)).catch(() => []);
+  const hits = await partnersWithNew(ctx.env, ctx.repo, cids.slice(0, 500)).catch(() => []);
   const parts = new Map(hits.map((h) => [h.cid, h]));
   let bb = { this: 0, last: 0, lastByMon3: 0 };
   if (owner) {
@@ -192,7 +196,7 @@ export async function entryIngest(ctx: Ctx, ownerFid: string, sheet: SheetRow[],
     const dup = cid ? findDuplicate(cid, ownerFid, f.date, done) : null;
     const notes = f.r.notes.replace(/\s+/g, ' ').trim();
     const raw = {
-      name: f.r.name, org: f.r.name.includes(' - ') ? f.r.name.split(' - ').slice(1).join(' - ') : '', isNew: f.r.isNew, act: f.r.act, notes, ticked: f.r.ticked, email: !!f.r.email, phone: !!f.r.phone,
+      name: f.r.name, org: f.r.name.includes(' - ') ? f.r.name.split(' - ').slice(1).join(' - ') : '', isNew: f.r.isNew, act: f.r.act, notes, ticked: f.r.ticked, email: !!f.r.email, phone: !!f.r.phone, emailRaw: f.r.email.slice(0, 120), phoneRaw: f.r.phone.slice(0, 40), address: f.r.address.slice(0, 200),
       cands: m.hits.length > 1 || m.how === 'many' || m.how === 'name' ? m.hits : [], dup: dup ? { id: dup.id, added: (dup.added || '').slice(0, 10), cat: dup.category || '', same: dup.due.slice(0, 10) === f.date } : null,
     };
     const id = newId('wcs');
@@ -230,7 +234,7 @@ export async function entryPatch(ctx: Ctx, id: string, body: Record<string, unkn
   if (body.constituent_id !== undefined) {
     const v = body.constituent_id === null || body.constituent_id === '' ? null : String(body.constituent_id);
     if (v) {
-      const hit = await ctx.repo.partnersByIds([v]);
+      const hit = await partnersWithNew(ctx.env, ctx.repo, [v]);
       if (!hit.length) throw new HttpError(400, 'bad_partner', 'That partner is not in Blackbaud.');
     }
     cid = v;
@@ -267,7 +271,7 @@ export async function entryPatch(ctx: Ctx, id: string, body: Record<string, unkn
   }
   if (sets.length) await ctx.env.DB.prepare(`UPDATE act_submissions SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, id).run();
   const fresh = (await ctx.env.DB.prepare('SELECT * FROM act_submissions WHERE id = ?').bind(id).first<SubRow>())!;
-  const hits = await ctx.repo.partnersByIds([fresh.constituent_id, ...(j(fresh.raw, {}).cands || [])].filter(Boolean) as string[]).catch(() => []);
+  const hits = await partnersWithNew(ctx.env, ctx.repo, [fresh.constituent_id, ...(j(fresh.raw, {}).cands || [])].filter(Boolean) as string[]).catch(() => []);
   return { ok: true, row: shapeSub(fresh, new Map(hits.map((h) => [h.cid, h]))), partners: Object.fromEntries(hits.map((h) => [h.cid, { n: h.name, loc: h.place, lk: h.lookup, hold: h.holders, dec: h.deceased ? 1 : 0 }])) };
 }
 
@@ -288,7 +292,7 @@ export async function entryPost(ctx: Ctx, submissionIds: string[], req?: string)
   const staff = await entryOwners(ctx.env);
   const items: PlannedItem[] = [];
   const notReady: string[] = [];
-  const parts = new Map((await ctx.repo.partnersByIds([...new Set(rows.map((r) => r.constituent_id).filter(Boolean) as string[])])).map((h) => [h.cid, h]));
+  const parts = new Map((await partnersWithNew(ctx.env, ctx.repo, [...new Set(rows.map((r) => r.constituent_id).filter(Boolean) as string[])])).map((h) => [h.cid, h]));
   for (const r of rows) {
     const owner = staff.find((s) => String(s.bb_fundraiser_id) === r.owner_fid);
     const ready = (r.state === 'waiting' || r.state === 'failed') && r.constituent_id && r.channel && (r.summary || '').trim() && owner && parts.has(r.constituent_id) && !parts.get(r.constituent_id)!.deceased;
@@ -333,7 +337,7 @@ export async function entryMany(ctx: Ctx, input: ManyInput) {
   if (!summary) throw new HttpError(400, 'missing_summary', 'Say what happened in one line.');
   const ids = [...new Set((input.constituent_ids || []).map(String))].slice(0, 250);
   if (!ids.length) throw new HttpError(400, 'nothing_to_do', 'Pick at least one partner.');
-  const hits = await ctx.repo.partnersByIds(ids);
+  const hits = await partnersWithNew(ctx.env, ctx.repo, ids);
   const known = new Map(hits.map((h) => [h.cid, h]));
   const tags = (Array.isArray(input.tags) ? input.tags : []).map(String).filter((t) => TAGS[t]);
   const done = await ctx.repo.doneActions(addDays(date, -2), [String(input.owner)]).catch(() => []);

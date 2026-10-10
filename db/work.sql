@@ -105,3 +105,9 @@ CREATE TABLE IF NOT EXISTS act_cache (key TEXT PRIMARY KEY, value TEXT NOT NULL,
 
 CREATE TABLE IF NOT EXISTS act_opps (id TEXT PRIMARY KEY, cid TEXT NOT NULL, raw TEXT NOT NULL, at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_act_opps_cid ON act_opps(cid);
+
+-- 2026-10-10: partners added from Entry. Blackbaud has them at once; the mirror takes up to 12 hours, so the hub keeps its own list until the row is sent.
+CREATE TABLE IF NOT EXISTS act_new_partners (
+  cid TEXT PRIMARY KEY, lookup TEXT, name TEXT NOT NULL, place TEXT, holder TEXT,
+  created_by TEXT NOT NULL, created_at TEXT NOT NULL
+);

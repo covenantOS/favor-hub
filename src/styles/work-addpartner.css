@@ -1,0 +1,40 @@
+/* Add a partner from Entry: the form on the left, the records already in Blackbaud on the right. Uses the Work Center dialog frame. */
+.wc-dlg.ap-dlg { width: min(900px, calc(100vw - 32px)); }
+.ap { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 20px; align-items: start; }
+.ap-form { display: grid; gap: 10px; }
+.ap-src { padding: 10px 12px; border-radius: 14px; background: var(--h-surface-2); font-size: 13px; color: var(--h-ink-2); line-height: 1.45; }
+.ap-src b { color: var(--h-ink); }
+.ap-seg { display: flex; gap: 6px; flex-wrap: wrap; }
+.ap-seg button { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 12.5px var(--h-font); color: var(--h-ink-2); }
+.ap-seg button:hover { border-color: var(--h-brand); }
+.ap-seg button.is-on { background: var(--h-brand); border-color: var(--h-brand); color: #fbfaf6; }
+.ap-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ap-three { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+.ap input[type=text], .ap input[type=tel], .ap input[type=email], .ap select { height: 40px; border-radius: 12px; border: 1px solid var(--h-line-2); background: #fff; padding: 0 12px; width: 100%; font: 400 14px var(--h-font); color: var(--h-ink); }
+.ap label.ap-lab { display: grid; gap: 6px; font: 600 11px var(--h-font); letter-spacing: .12em; text-transform: uppercase; color: var(--h-ink-3); }
+.ap-matches h3 { margin: 0 0 8px; font: 600 11px var(--h-font); letter-spacing: .16em; text-transform: uppercase; color: var(--h-ink-3); display: flex; justify-content: space-between; gap: 8px; }
+.ap-status { font: 500 12.5px var(--h-font); color: var(--h-ink-3); margin: 0 0 8px; min-height: 18px; }
+.ap-status.is-warn { color: var(--h-gold-ink); }
+.ap-match { padding: 12px; border-radius: 14px; border: 1px solid var(--h-line); background: #fff; display: grid; gap: 6px; margin-bottom: 8px; }
+.ap-match.is-strong { border-color: #e2c98b; box-shadow: 0 0 0 3px var(--h-gold-soft); }
+.ap-match b { font-size: 14px; }
+.ap-match p { margin: 0; font-size: 12.5px; color: var(--h-ink-3); line-height: 1.4; }
+.ap-why { display: flex; flex-wrap: wrap; gap: 4px; }
+.ap-match .h-btn { justify-self: start; height: 30px; }
+.ap-clear { padding: 12px; border-radius: 14px; background: var(--h-leaf-soft); color: var(--h-brand-ink); font: 600 13px var(--h-font); }
+.ap-idle { padding: 12px; border-radius: 14px; background: var(--h-surface-2); color: var(--h-ink-3); font-size: 13px; }
+.ap-check { display: flex; align-items: center; gap: 8px; font: 500 13px var(--h-font); color: var(--h-ink-2); margin-right: auto; }
+.ap-check input { width: 16px; height: 16px; accent-color: var(--h-brand); }
+.ap-warns { display: grid; gap: 6px; }
+.ap-done { padding: 14px 16px; border-radius: 16px; background: var(--h-leaf-soft); color: var(--h-brand-ink); display: grid; gap: 6px; font-size: 13.5px; }
+.ap-done b { font-size: 15px; }
+.ap-done code { font: 500 12px/1.5 ui-monospace, Consolas, monospace; color: var(--h-ink-2); white-space: pre-wrap; }
+@media (max-width: 860px) {
+  .wc-dlg.ap-dlg { width: calc(100vw - 16px); }
+  .ap { grid-template-columns: 1fr; }
+  .ap-matches { order: -1; }
+  .ap-three { grid-template-columns: 1fr 1fr; }
+  .ap-dlg .wc-dlg__foot { flex-wrap: wrap; }
+  .ap-check { flex-basis: 100%; }
+}
+.wc-addp { margin-top: 6px; }

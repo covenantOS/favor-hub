@@ -802,7 +802,7 @@ function intakeRowHTML(r) {
   if (r.cid && d) partner = `<b class="wc-pname"><a class="wc-ppage wc-ppage--name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(d.n)}</a></b><span class="wc-match">${esc(d.loc || 'No city on file')} · ${esc(d.lk)} · <i>${how}</i>${locked ? '' : `<span style="white-space:nowrap"> · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button></span>`}</span>`;
   else if (r.cid) partner = `<b class="wc-pname"><a class="wc-ppage wc-ppage--name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a></b><span class="wc-match">Partner ${esc(r.cid)} · <i>${how}</i>${locked ? '' : ` · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button>`}</span>`;
   else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length === 1 ? 'One record has this name. Is it the partner?' : r.cands.length + ' records match. Pick one:'}</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
-  else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>`;
+  else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>${DATA.me.canMove && window.WCAdd ? `<div class="wc-addp"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-addp="${r.id}">${ic('user')}Add partner</button></div>` : ''}`;
   const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'sheet' ? 'Tracking sheet' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
   return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" role="row" tabindex="-1" data-id="${r.id}" aria-selected="${picked}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${locked ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(r.name)}" /></div>
@@ -1215,6 +1215,7 @@ document.addEventListener('click', async (e) => {
     return;
   }
   if (t.hasAttribute('data-many')) { dlgMany(); return; }
+  if (d.addp) { window.WCAdd.open(d.addp); return; }
   if (t.hasAttribute('data-postall')) { postRows(visibleIntake()); return; }
   if (d.pick) { editRow(d.pick, { local: { cid: d.cid, how: 'picked', cands: [] }, server: { constituent_id: d.cid } }); render(); return; }
   if (d.unpick) { editRow(d.unpick, { local: { cid: null, how: 'none' }, server: { constituent_id: null } }); render(); setTimeout(() => { const i = $(`[data-ta="${d.unpick}"]`); if (i) i.focus(); }, 30); return; }
@@ -1268,6 +1269,7 @@ setInterval(() => { const c = $('#clock'); if (!c || !S.in.data) return; const d
 window.WC = {
   api, post, S, esc, ic, I, fd, plural, money, addDays, dayn, lateClass, P, live, gone, cur, render, runJob, driveBatch, toast, refreshBoard, loadRecent,
   closeLayer, dialog, reqId, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
+  entryReload: async () => { await loadEntry(); render(); },
   get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, mayAssign, get TODAY() { return TODAY; }, AS,
 };
 

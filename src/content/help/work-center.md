@@ -30,6 +30,14 @@ Entry shows the week's contacts for each regional director, how many are already
 
 Work Center reads each director's tracking sheet tabs for this month and last month by itself. Opening Entry checks the sheet, at most once every ten minutes, and the Read the sheet button checks it right away. Rows it has already seen are skipped, so reading twice never enters a contact twice. Paste rows is still there for rows from any other list. Ticking a row on the sheet after you enter it stays a manual step.
 
+### Add a partner
+
+Some sheet rows match no record. A row like that has an Add partner button, for the Support Team. The form fills in from the row: Individual, Household or Organization, the names, phone, email, address, the code (Prospect, Partner or Church) and who holds the partner.
+
+While you type, the right side lists records already in Blackbaud with the reason: the same phone, the same email, the same web address for an organization, the same name and city, or the same name. Blackbaud's own duplicate search runs a moment after you stop typing, so a record added in the last 12 hours shows too. An organization is never matched on its name alone. Use this record matches the row to a record that is already there and adds nothing.
+
+Add as new partner stays locked until you tick None of these is the same person. Changing a name, phone, email or city clears the tick. After the add, the row is ready to enter like any matched row. A household makes two records joined as spouses. If one step after the record fails, the message says which one to finish in Blackbaud.
+
 ## Thank-yous
 
 Thank-yous shows one row per gift. Thanked already, Probably done and Owed sit in three lanes. Pick the gifts you thanked and press Mark thanked.
