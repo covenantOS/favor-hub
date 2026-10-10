@@ -1,0 +1,114 @@
+/* Phone layout, 2026-10-09. Loads last. Every rule sits inside a max-width query, so the desktop
+   page is untouched. Targets a 390 to 430 px iPhone: nothing scrolls sideways, cards size to their
+   content, tap targets are 44 px, and the menu drawer covers the page cleanly. */
+
+@media (max-width: 860px) {
+  /* ---- menu drawer: opaque, wide enough, scrolls to the last item above Safari's toolbar */
+  .h-side {
+    width: min(86vw, 340px);
+    height: 100vh;
+    height: 100dvh;
+    background: #faf8f2;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  .h-app.is-nav::after {
+    background: rgba(28, 26, 22, 0.58);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+  .h-side .h-nav__item { min-height: 44px; }
+  .h-side .h-learn a { min-height: 44px; display: flex; align-items: center; }
+  .h-side .h-out { min-width: 44px; min-height: 44px; }
+  .h-side .h-search { min-height: 44px; }
+
+  /* ---- top bar: 44 px targets, title may take two lines */
+  .h-top { height: 64px; gap: 6px; }
+  .h-top__menu, .h-top__search { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; flex: none; }
+  .h-top__menu { margin-right: 4px; }
+  .h-top .h-btn { min-width: 44px; height: 44px; padding: 0 12px; justify-content: center; flex: none; }
+  .h-top__title { font-size: 18px; line-height: 1.15; }
+  .h-top > div:nth-child(2) { min-width: 0; flex: 1 1 auto; }
+  .h-top__right { gap: 6px; flex: none; }
+
+  /* ---- tap targets inside pages */
+  .h-page :is(button, select, input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not(.req-hp), [role='button']) { min-height: 44px; }
+  .h-page :is(a.h-btn, a.h-chip, .h-start, .req-tabs button, .fbp-tabs button, .b-tab, .b-rate__btn) { min-height: 44px; }
+  .h-page .h-btn { min-height: 44px; }
+  .h-page .ba-back, .h-page .hd-crumbs a, .h-page nav[aria-label='Breadcrumb'] a { display: inline-flex; align-items: center; min-height: 44px; }
+  .h-page input[type='checkbox'], .h-page input[type='radio'] { width: 22px; height: 22px; }
+  .h-page label:has(> input[type='checkbox']), .h-page label:has(> input[type='radio']) { min-height: 44px; display: flex; align-items: center; gap: 10px; }
+
+  /* remaining small targets */
+  .h-x { min-width: 44px; min-height: 44px; display: inline-grid; place-items: center; }
+  .h-page .h-link { min-height: 44px; }
+  .h-page .hd-kicker a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 2px; }
+  .h-page li[data-for] > a[data-doc] { display: flex; align-items: center; min-height: 44px; }
+  .h-page td > a[target='_blank'], .h-page .fbp-item a[href^='/'] { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; }
+  .h-page .fbp-tabs button { min-width: 44px; }
+  .h-page .exp-ovr-row { grid-template-columns: minmax(0, 1fr); }
+  .h-page .exp-ovr-row input, .h-page .exp-settings-row input { min-width: 0; max-width: 100%; width: 100%; }
+  .h-page textarea { min-height: 44px; }
+
+  /* ---- Today */
+  .h-hello h1 { font-size: 28px; }
+  .h-section { margin: 24px 0 10px; }
+  .h-section h2 { font-size: 20px; }
+  .h-welcome { grid-template-columns: 36px minmax(0, 1fr); gap: 10px 12px; align-items: start; padding: 14px 16px; }
+  .h-welcome__mark { width: 36px; height: 36px; }
+  .h-welcome > div:nth-child(2) { grid-column: 2; }
+  .h-welcome b { font-size: 17px; line-height: 1.25; }
+  .h-welcome p { font-size: 14px; line-height: 1.45; }
+  .h-welcome__acts { grid-column: 1 / -1; justify-content: flex-start; gap: 6px; }
+
+  /* Your day: a stack of compact cards, no sideways scrolling */
+  .h-board { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; overflow: visible; margin: 0; padding: 0; scroll-snap-type: none; }
+  .h-board > #t-cards, .h-board > #d-grid { display: contents; }
+  .h-board > div > .h-card, .h-board .h-todo, .h-board .h-allclear, .h-board .h-day__connect {
+    flex: none; width: auto; min-width: 0; height: auto; min-height: 0; max-height: none; overflow: visible;
+  }
+  .h-board .h-skel { height: 104px; flex: none; max-height: none; }
+  .h-board .h-day__card .h-card__body { max-height: 260px; overflow-y: auto; }
+  .h-todo { padding: 14px 16px; gap: 4px; }
+  .h-todo__n { font-size: 34px; margin-top: 2px; }
+  .h-todo .h-btn { margin-top: 8px; }
+  .h-board .h-allclear { flex-direction: row; justify-content: flex-start; text-align: left; padding: 14px 16px; }
+  .h-board .h-allclear .h-start__icon { width: 40px; height: 40px; flex: none; }
+  .h-big, .h-mission .n { font-size: 32px; }
+  .h-lower { gap: 12px; }
+
+  /* ---- fixed toast: gone until it has something to say */
+  .fnd-toast { bottom: calc(18px + env(safe-area-inset-bottom)); }
+  .fnd-toast:not(.is-on) { display: none; }
+}
+
+@media (max-width: 600px) {
+  .h-page { padding: 16px 14px 64px; }
+  .h-hello h1 { font-size: 26px; }
+
+  /* search boxes on Help and Foundations: one border, text that fits */
+  .h-page .hd-search { height: 48px; padding: 0 16px; max-width: 100%; }
+  .h-page .hd-search input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  .h-page .hd-search input:not([type='checkbox']):not([type='radio']):focus,
+  .h-page .fnd-check__box input:not([type='checkbox']):not([type='radio']):not([type='file']),
+  .h-page .fnd-check__box input:not([type='checkbox']):not([type='radio']):focus {
+    border: 0; box-shadow: none; background: none; border-radius: 0; min-height: 0; height: 100%; font-size: 16px; padding: 0;
+  }
+  .h-page .fnd-check__box { padding-right: 12px; }
+
+  /* tab rows wrap instead of clipping at the screen edge */
+  .req-tabs, .fbp-tabs, .b-tabs { flex-wrap: wrap; overflow-x: visible; }
+  .req-tabs button { min-height: 44px; display: inline-flex; align-items: center; }
+
+  /* iOS zooms into any field under 16 px */
+  .h-page input:not([type='checkbox']):not([type='radio']):not([type='file']), .h-page select, .h-page textarea { font-size: 16px; }
+
+  /* big display type sized for a phone */
+  .b-head h1, .ba-head h1, .hd-hero h1 { font-size: 30px; }
+  .b-head .h-lede, .hd-hero p { font-size: 15px; }
+  .ba-stat b { font-size: 26px; }
+  .ba-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
