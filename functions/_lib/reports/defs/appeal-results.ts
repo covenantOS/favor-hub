@@ -6,7 +6,7 @@
 // marketing category, all gift types, dated in the year. The tie-out reads the Marketing tab's own answer.
 import { kpiGet } from '../../hub/kpi';
 import { compare, noTie } from '../tieout';
-import type { ReportContext, ReportDef, Row, TieOut } from '../types';
+import type { ReportContext, ReportDef, Row, Tile, TieOut } from '../types';
 
 // The Marketing tab's categories (backend/routes/marketing.js MARKETING_CATEGORIES). Keep the two lists identical.
 export const MARKETING_CATEGORIES = [
@@ -119,13 +119,14 @@ const def: ReportDef = {
     const gifts = rows.reduce((s, r) => s + (Number(r.gifts) || 0), 0);
     const mailedRows = rows.filter((r) => Number(r.mailed) > 0);
     const mailedGifts = mailedRows.reduce((s, r) => s + (Number(r.gifts) || 0), 0);
-    return [
+    const tiles: Tile[] = [
       { label: 'Raised', value: money(raised), kind: 'money' },
       { label: 'Gifts', value: gifts, kind: 'int' },
       { label: 'Appeals', value: rows.length, kind: 'int' },
       { label: 'Mailed (typed in)', value: x.mailedTotal, kind: 'int' },
-      { label: 'Response', value: x.mailedTotal ? `${((mailedGifts / x.mailedTotal) * 100).toFixed(1)}%` : '', kind: 'text' },
     ];
+    if (x.mailedTotal) tiles.push({ label: 'Response', value: `${((mailedGifts / x.mailedTotal) * 100).toFixed(1)}%`, kind: 'text' });
+    return tiles;
   },
   async tie(ctx: ReportContext, rows, f, extra): Promise<TieOut> {
     const x = extra as Extra;
