@@ -499,6 +499,14 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'feedback-shot',
+    at: '#h-fb',
+    title: 'A picture of the page comes with it',
+    body: 'Feedback attaches a picture of the screen you are looking at. Before it sends, press Blur an area and drag a box over anything private, such as a partner name or a gift. Press Remove to send the note without the picture.',
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'feedback-admin',
     page: '/feedback/',
     via: 'feedback',

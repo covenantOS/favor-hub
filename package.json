@@ -15,6 +15,7 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "astro": "^6.1.10",
     "cuelume": "^0.1.2",
+    "html2canvas-pro": "^1.6.7",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.5"
   },

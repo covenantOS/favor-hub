@@ -22,6 +22,9 @@
     const [label, cls] = STATUS[s] || STATUS.new;
     return `<span class="fbp-status fbp-status--${cls}">${label}</span>`;
   };
+  // The picture the sender attached, from the private route (the sender and the hub admin only).
+  const shotOf = (f) =>
+    f.has_shot ? `<a class="fbp-shotlink" href="/api/feedback/${f.id}/shot" target="_blank" rel="noopener"><img class="fbp-shot" loading="lazy" src="/api/feedback/${f.id}/shot" alt="Picture of the page this note was sent from" /></a>` : '';
   const initials = (n) => String(n || '').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
   function mine(items) {
@@ -37,6 +40,7 @@
           <div class="fbp-meta">${chip(f.rating)}<span class="fbp-src">${esc(SOURCE[f.source] || f.source)}</span><time>${esc(when(f.at))}</time>${pill(f.status)}</div>
           ${f.question ? `<p class="fbp-q"><span>Your question</span>${esc(f.question)}</p>` : ''}
           ${f.comment ? `<p class="fbp-text">${esc(f.comment)}</p>` : ''}
+          ${shotOf(f)}
           ${f.reply ? `<div class="fbp-reply"><b>Will's answer${f.unread ? ' <em class="h-new">New</em>' : ''}</b><p>${esc(f.reply)}</p><time>${esc(when(f.handled_at))}</time></div>` : ''}
         </li>`
       )
@@ -61,6 +65,7 @@
           ${f.question ? `<p class="fbp-q"><span>Question${f.ref ? ` · ref ${esc(f.ref)}` : ''}</span>${esc(f.question)}</p>` : ''}
           ${f.reading ? `<p class="fbp-q fbp-q--read"><span>How it read the question</span>${esc(f.reading)}</p>` : ''}
           ${f.comment ? `<p class="fbp-text">${esc(f.comment)}</p>` : '<p class="fbp-text fbp-text--none">No words, only the rating.</p>'}
+          ${shotOf(f)}
           ${f.page ? `<p class="fbp-page">From <a href="${esc(f.page.split(' ')[0])}">${esc(f.page)}</a></p>` : ''}
           <form class="fbp-act" data-act="${f.id}">
             <label class="h-label" for="fb-r-${f.id}">Your answer ${f.reply ? '(they can read this)' : '(optional; they read it on this page)'}</label>

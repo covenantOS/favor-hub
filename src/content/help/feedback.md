@@ -6,7 +6,7 @@ order: 1
 related: [something-wrong, ask-favor]
 tool: /feedback/
 toolLabel: Open Feedback
-updated: 2026-10-09
+updated: 2026-10-10
 ---
 
 ## Send a note
@@ -17,6 +17,16 @@ updated: 2026-10-09
 4. Press **Send**.
 
 The note goes with the page you were on, so you don't have to explain where you were.
+
+## Attaching a picture of the page
+
+When you press **Feedback** on the hub, the hub also takes a picture of the screen you are looking at, and it shows as a thumbnail above the note. Before you send, you can blur anything private:
+
+1. Press **Blur an area**.
+2. Drag a box over the name, number or gift you want hidden. It blurs when you let go. **Undo** steps back, and **Done** keeps the change.
+3. Press **Remove** under the thumbnail if you don't want a picture sent.
+
+The picture stays private. Only you and the hub admin can see it.
 
 ## Other ways to send one
 

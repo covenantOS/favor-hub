@@ -6,8 +6,14 @@
 //   GET  /api/feedback/mine         the signed-in person's notes
 //   GET  /api/feedback/all?status=  every note (admin)
 //   POST /api/feedback/<id>         { status, reply } (admin)
+//   POST /api/feedback/<id>/shot    a JPEG of the page, by the sender only (private R2, no caching)
+//   GET  /api/feedback/<id>/shot    that picture, to the sender and the hub admin
+//   DELETE /api/feedback/<id>/shot  remove the picture, by the sender only
 import { errorJson, handleError, json, nowIso, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
+
+const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
+const MAX_SHOT_BYTES = 1_500_000;
 
 const SOURCES = new Set(['hub', 'brain', 'hub-brain', 'help', 'tour', 'video']);
 const RATINGS = new Set(['right', 'wrong', 'confusing', 'missing', 'idea', 'praise', 'problem', 'helpful', 'not-helpful']);
@@ -54,10 +60,45 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       return json({ ok: true, id: res.meta?.last_row_id || null });
     }
 
+    // A screenshot attached to a note. Only the sender attaches or removes one; the sender and the hub admin view it.
+    const shotPath = path.match(/^(\d+)\/shot$/);
+    if (shotPath) {
+      const id = Number(shotPath[1]);
+      const row = await env.DB.prepare('SELECT id, email, shot_key FROM brain_feedback WHERE id = ?')
+        .bind(id)
+        .first<{ id: number; email: string; shot_key: string | null }>();
+      if (!row) return errorJson('not_found', 'That note is gone.', 404);
+      const mineNote = row.email.toLowerCase() === user.email.toLowerCase();
+      if (request.method === 'GET') {
+        if (!mineNote && !admin) return errorJson('admin_only', 'Only the hub admin sees every note.', 403);
+        const obj = row.shot_key ? await env.UPLOADS.get(row.shot_key) : null;
+        if (!obj) return new Response('Not found', { status: 404, headers: PRIVATE_HEADERS });
+        return new Response(obj.body, { headers: { ...PRIVATE_HEADERS, 'Content-Type': 'image/jpeg' } });
+      }
+      if (!mineNote) return errorJson('not_yours', 'Only the person who sent the note can change its picture.', 403);
+      if (request.method === 'POST') {
+        const bytes = await request.arrayBuffer();
+        if (!bytes.byteLength) return errorJson('empty', 'The picture did not arrive. Try again.', 400);
+        if (bytes.byteLength > MAX_SHOT_BYTES) return errorJson('too_big', 'That picture is too large. Try again with a smaller area.', 413);
+        if (request.headers.get('Content-Type') !== 'image/jpeg') return errorJson('type', 'The picture must be a JPEG.', 415);
+        const key = `feedback/${id}.jpg`;
+        await env.UPLOADS.put(key, bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+        await env.DB.prepare('UPDATE brain_feedback SET shot_key = ? WHERE id = ?').bind(key, id).run();
+        return json({ ok: true });
+      }
+      if (request.method === 'DELETE') {
+        if (row.shot_key) await env.UPLOADS.delete(row.shot_key);
+        await env.DB.prepare('UPDATE brain_feedback SET shot_key = NULL WHERE id = ?').bind(id).run();
+        return json({ ok: true });
+      }
+      return errorJson('not_found', 'No such feedback route.', 404);
+    }
+
     if (request.method === 'GET' && path === 'mine') {
       const r = await env.DB.prepare(
         `SELECT id, at, source, rating, comment, ref, question, page, status, reply, handled_at,
-                CASE WHEN reply IS NOT NULL AND reply_seen_at IS NULL THEN 1 ELSE 0 END AS unread
+                CASE WHEN reply IS NOT NULL AND reply_seen_at IS NULL THEN 1 ELSE 0 END AS unread,
+                CASE WHEN shot_key IS NOT NULL THEN 1 ELSE 0 END AS has_shot
            FROM brain_feedback WHERE email = ? ORDER BY id DESC LIMIT 50`
       )
         .bind(user.email)
@@ -74,7 +115,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       const status = new URL(request.url).searchParams.get('status') || '';
       const where = STATUSES.has(status) ? 'WHERE status = ?' : '';
       const r = await env.DB.prepare(
-        `SELECT id, at, email, name, source, rating, comment, ref, question, reading, page, status, reply, handled_by, handled_at
+        `SELECT id, at, email, name, source, rating, comment, ref, question, reading, page, status, reply, handled_by, handled_at,
+                CASE WHEN shot_key IS NOT NULL THEN 1 ELSE 0 END AS has_shot
            FROM brain_feedback ${where} ORDER BY CASE status WHEN 'new' THEN 0 WHEN 'seen' THEN 1 ELSE 2 END, id DESC LIMIT 300`
       )
         .bind(...(where ? [status] : []))

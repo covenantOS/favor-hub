@@ -188,6 +188,16 @@ dialog.fb::backdrop { background: rgba(10, 22, 10, 0.42); }
 .fb-done__mark svg { width: 26px; height: 26px; fill: none; stroke: var(--h-brand); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 30; stroke-dashoffset: 30; animation: fb-check 0.6s 0.1s var(--h-ease) forwards; }
 @keyframes fb-check { to { stroke-dashoffset: 0; } }
 
+/* Screenshot attached to a feedback note: thumbnail and blur editor */
+.fb-shot { display: grid; gap: 8px; }
+.fb-shot__wait { margin: 0; padding: 26px 12px; text-align: center; font-size: 12.5px; color: var(--h-ink-3); border: 1px dashed var(--h-line-2); border-radius: 10px; }
+.fb-shot__img { display: block; width: auto; max-width: 100%; height: auto; max-height: 170px; border-radius: 8px; border: 1px solid var(--h-line); }
+.fb-shot__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.fb-shot__row p { margin: 0; font-size: 12px; color: var(--h-ink-3); }
+.fb-shot__edit { position: relative; max-height: 46vh; overflow: auto; border: 1px solid var(--h-line); border-radius: 8px; touch-action: none; }
+.fb-shot__edit canvas { display: block; width: 100%; height: auto; cursor: crosshair; }
+.fb-shot__box { position: absolute; border: 2px solid var(--h-brand); background: rgba(10, 22, 10, 0.14); pointer-events: none; }
+
 /* ------------------------------------------------------------ Favor brain additions */
 
 /* ------------------------------------------------------------ Feedback page */
@@ -227,6 +237,7 @@ dialog.fb::backdrop { background: rgba(10, 22, 10, 0.42); }
 .fbp-q { margin: 0; padding: 8px 11px; border-radius: 9px; background: var(--h-surface-2); border: 1px solid var(--h-line); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .fbp-q span { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: var(--h-ink-3); }
 .fbp-q--read { font-weight: 500; color: var(--h-ink-2); }
+.fbp-shot { display: block; width: auto; max-width: 100%; height: auto; max-height: 260px; border-radius: 9px; border: 1px solid var(--h-line); }
 .fbp-page { margin: 0; font-size: 12px; color: var(--h-ink-3); }
 .fbp-page a { color: var(--h-brand); font-weight: 700; overflow-wrap: anywhere; }
 .fbp-reply { padding: 10px 12px; border-radius: 10px; background: var(--h-leaf-soft); border: 1px solid #cfe3d2; display: grid; gap: 3px; }
