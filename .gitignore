@@ -10,3 +10,4 @@ preview-*.png
 .wrangler/
 .dev.vars
 .seed.sql
+.dev.vars

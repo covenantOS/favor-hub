@@ -1,0 +1,9 @@
+---
+// Meetings: book a meeting. Drawn by /js/meet/book.js.
+import App from '../../layouts/App.astro';
+import '../../styles/meet.css';
+---
+<App title="Book a meeting" crumb="Meetings" nav="meet-book" description="Book a meeting from everyone's calendars.">
+  <div id="mt-book" aria-busy="true"><div class="h-card h-skel" style="min-height:260px"></div></div>
+  <script is:inline type="module" src="/js/meet/book.js?v=1"></script>
+</App>

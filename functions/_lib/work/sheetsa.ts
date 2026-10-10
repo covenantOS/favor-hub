@@ -22,10 +22,11 @@ const b64url = (bytes: ArrayBuffer | Uint8Array): string => {
 };
 const b64urlText = (t: string): string => b64url(new TextEncoder().encode(t));
 
-let memo: { token: string; exp: number } | null = null;
+const memos = new Map<string, { token: string; exp: number }>();
 
 /** A short-lived access token for the service account, signed with its key (RS256). Kept in memory until a few minutes before it ends. */
-export async function saToken(env: Env, fetchFn: typeof fetch = fetch): Promise<string> {
+export async function saToken(env: Env, fetchFn: typeof fetch = fetch, scope: string = SCOPE): Promise<string> {
+  const memo = memos.get(scope);
   if (memo && memo.exp > Date.now() + 120000) return memo.token;
   if (!env.GOOGLE_SA_JSON) throw new SheetReadError('no_key', 'The hub cannot open the tracking sheet yet. Tell the technology team through Feedback.');
   let acct: { client_email?: string; private_key?: string; private_key_id?: string };
@@ -40,7 +41,7 @@ export async function saToken(env: Env, fetchFn: typeof fetch = fetch): Promise<
   const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const now = Math.floor(Date.now() / 1000);
   const head = b64urlText(JSON.stringify({ alg: 'RS256', typ: 'JWT', ...(acct.private_key_id ? { kid: acct.private_key_id } : {}) }));
-  const claim = b64urlText(JSON.stringify({ iss: acct.client_email, scope: SCOPE, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }));
+  const claim = b64urlText(JSON.stringify({ iss: acct.client_email, scope, aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }));
   const sig = b64url(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(`${head}.${claim}`)));
   const res = await fetchFn('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -49,12 +50,12 @@ export async function saToken(env: Env, fetchFn: typeof fetch = fetch): Promise<
   });
   const data = (await res.json().catch(() => null)) as { access_token?: string; expires_in?: number } | null;
   if (!res.ok || !data?.access_token) throw new SheetReadError('token', 'Google did not let the hub in to the tracking sheet. Try again in a minute.');
-  memo = { token: data.access_token, exp: Date.now() + (data.expires_in || 3600) * 1000 };
-  return memo.token;
+  memos.set(scope, { token: data.access_token, exp: Date.now() + (data.expires_in || 3600) * 1000 });
+  return data.access_token;
 }
 
 export function forgetToken(): void {
-  memo = null;
+  memos.clear();
 }
 
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];

@@ -1,0 +1,9 @@
+---
+// Meetings: the lobby and the room. All of it is drawn by /js/meet/room.js.
+import App from '../../layouts/App.astro';
+import '../../styles/meet.css';
+---
+<App title="Meeting" crumb="Meetings" nav="meet" bare description="A Favor meeting room.">
+  <div class="meet-room" id="meet-root" aria-live="polite"><div class="h-card h-skel" style="min-height:360px;margin:14px"></div></div>
+  <script is:inline type="module" src="/js/meet/room.js?v=1"></script>
+</App>

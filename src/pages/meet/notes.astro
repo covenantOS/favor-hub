@@ -1,0 +1,9 @@
+---
+// Meetings: one meeting's notes page. Drawn by /js/meet/notes.js.
+import App from '../../layouts/App.astro';
+import '../../styles/meet.css';
+---
+<App title="Meeting notes" crumb="Meeting notes" nav="meet-notes" description="Meeting notes.">
+  <div id="mt-notes" aria-busy="true"><div class="h-card h-skel" style="min-height:260px"></div></div>
+  <script is:inline type="module" src="/js/meet/notes.js?v=1"></script>
+</App>

@@ -15,6 +15,8 @@ export interface Access {
   workCenter: boolean;
   /** Every signed-in person records clips and has a clip library of their own. */
   clips: boolean;
+  /** Meetings: admins until MEET_RELEASE is "staff". */
+  meetings: boolean;
 }
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
@@ -28,6 +30,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     expenseLog: approver || (await isExpenseAdmin(env, request)),
     workCenter: !!work && work.ok,
     clips: true,
+    meetings: user.role === 'admin' || (env as { MEET_RELEASE?: string }).MEET_RELEASE === 'staff',
   };
 }
 
@@ -77,16 +80,19 @@ export interface Counts {
   feedback: number;
   /** Support: contacts waiting to be entered in Blackbaud. */
   workWaiting: number;
+  /** Meetings running right now that this person can open. */
+  meetingsNow: number;
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
     access.admin ? brainPending(env) : null,
     feedbackWaiting(env, user, access),
     access.workCenter ? waitingCount(env) : 0,
+    access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings WHERE status = 'live'").first<{ n: number }>().catch(() => null) : null,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -95,6 +101,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access): Promis
     brainRequests: Number(brain?.n) || 0,
     feedback: Number(notes?.n) || 0,
     workWaiting: Number(waiting) || 0,
+    meetingsNow: Number(meetingsNow?.n) || 0,
   };
 }
 
