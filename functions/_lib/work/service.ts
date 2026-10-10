@@ -249,7 +249,11 @@ function targetOf(r: BoardRow, description: string, thankedOn?: string | null): 
 
 /** One page of the freshness check: the actions Blackbaud changed since the mirror's last sync, so a description edited since is never overwritten. */
 async function changedSince(ctx: Ctx, syncedIso: string): Promise<{ ids: Set<string>; complete: boolean }> {
-  const t = (syncedIso || new Date(Date.now() - 13 * 3600000).toISOString()).slice(0, 19);
+  // Blackbaud reads last_modified as Eastern clock time (proved on the test record 2026-10-09), not UTC, so convert and step back five minutes.
+  const from = new Date(Date.parse(syncedIso || '') - 5 * 60000);
+  const base = Number.isNaN(from.getTime()) ? new Date(Date.now() - 13 * 3600000) : from;
+  const e = etParts(base);
+  const t = `${e.date}T${String(e.hour).padStart(2, '0')}:${String(e.minute).padStart(2, '0')}:00`;
   const r = await ctx.repo.send([{ method: 'GET', path: `/constituent/v1/actions?last_modified=${t}&limit=2000` }]);
   await addMeter(ctx.env, r.results.length, r.callsToday);
   const res = r.results[0];
