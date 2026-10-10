@@ -19,6 +19,30 @@
   };
   const icon = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n] || ''}</svg>`;
 
+
+  // Show what this tab last saw at once, then refresh it, so a page change never starts from empty.
+  // Kept per tab (sessionStorage); the hub clears it on sign out.
+  const swr = (key, url, apply, bad) => {
+    try {
+      const hit = JSON.parse(sessionStorage.getItem(key) || 'null');
+      if (hit) apply(hit);
+    } catch {
+      // storage refused or the copy is unreadable; the fetch below still runs
+    }
+    return fetch(url, { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || !d.ok) throw new Error((d && d.message) || 'Could not load.');
+        try {
+          sessionStorage.setItem(key, JSON.stringify(d));
+        } catch {
+          // too big or refused; fine
+        }
+        apply(d);
+      })
+      .catch(bad || (() => {}));
+  };
+
   const hour = Number(et(new Date().toISOString(), { hour: 'numeric', hour12: false }));
   const part = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   $('t-date').textContent = et(new Date().toISOString(), { weekday: 'long', month: 'long', day: 'numeric' }) + '.';
@@ -79,6 +103,7 @@
   }
   const hideWelcome = () => {
     $('t-welcome').hidden = true;
+    document.documentElement.classList.remove('show-welcome');
     try {
       localStorage.setItem(WELCOME, String(Date.now()));
     } catch {
@@ -116,10 +141,7 @@
     $('t-year-wrap').hidden = false;
   }
 
-  fetch('/api/hub/today', { credentials: 'same-origin' })
-    .then((r) => r.json())
-    .then((d) => {
-      if (!d.ok) throw new Error(d.message || 'Could not load.');
+  swr('favor.hub.today.v1', '/api/hub/today', (d) => {
       const first = String((d.user && d.user.name) || '').split(' ')[0];
       $('t-hello').textContent = first && d.user.via === 'google' ? `${part}, ${first}` : part;
       cards(d.cards || []);
@@ -131,15 +153,11 @@
         const column = $('t-mine-card').parentElement;
         if (card && column) column.insertBefore(card, column.firstChild);
       } else {
-        fetch('/api/hub/kpi', { credentials: 'same-origin' })
-          .then((r) => r.json())
-          .then((k) => {
-            if (k.ok && k.summary) year(k.summary);
-          })
-          .catch(() => {});
+        swr('favor.hub.kpi.v1', '/api/hub/kpi', (k) => {
+          if (k.ok && k.summary) year(k.summary);
+        });
       }
-    })
-    .catch((err) => {
+    }, (err) => {
       $('t-cards').innerHTML = `<div class="h-card h-empty" style="grid-column:1 / -1">${esc(err.message)}</div>`;
     });
 })();
@@ -168,9 +186,7 @@
     history.replaceState(null, '', '/');
   }
 
-  fetch('/api/hub/day', { credentials: 'same-origin' })
-    .then((r) => r.json())
-    .then((d) => {
+  const showDay = (d) => {
       grid.removeAttribute('aria-busy');
       const bb = d.blackbaud || {};
       const g = d.google || {};
@@ -225,8 +241,40 @@
         card('Unread mail', '<a class="h-link" href="https://mail.google.com" target="_blank" rel="noopener">Gmail</a>', mail) +
         card('Shared with you', 'This week', files) +
         '';
+  };
+  // What this tab last saw shows at once; the fresh answer replaces it.
+  let shown = false;
+  try {
+    const hit = JSON.parse(sessionStorage.getItem('favor.hub.day.v1') || 'null');
+    if (hit) {
+      showDay(hit);
+      shown = true;
+    }
+  } catch {
+    // unreadable copy; the fetch below still runs
+  }
+  fetch('/api/hub/day', { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((d) => {
+      try {
+        sessionStorage.setItem('favor.hub.day.v1', JSON.stringify(d));
+      } catch {
+        // refused; fine
+      }
+      showDay(d);
+      // Remember how tall the board came out, for the next page load.
+      requestAnimationFrame(() => {
+        const board = document.querySelector('.h-board');
+        if (!board) return;
+        board.style.minHeight = '';
+        try {
+          localStorage.setItem('favor.hub.boardh.' + (innerWidth <= 860 ? 'p' : 'd'), String(board.offsetHeight));
+        } catch {
+          // refused; fine
+        }
+      });
     })
     .catch(() => {
-      grid.innerHTML = '<div class="h-card h-empty" style="grid-column:1 / -1">Your day could not load. Refresh to try again.</div>';
+      if (!shown) grid.innerHTML = '<div class="h-card h-empty" style="grid-column:1 / -1">Your day could not load. Refresh to try again.</div>';
     });
 })();

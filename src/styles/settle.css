@@ -1,0 +1,6 @@
+/* Nothing moves while a page fills in. Space is held for what will arrive, using what the menu
+   cache and the welcome flag already say about this person. */
+.has-kpi #t-year-wrap[hidden] { display: block !important; }
+.has-kpi #t-year:empty { min-height: 280px; }
+.show-welcome #t-welcome[hidden] { display: grid !important; }
+@media (max-width: 860px) { .has-kpi #t-year:empty { min-height: 690px; } }

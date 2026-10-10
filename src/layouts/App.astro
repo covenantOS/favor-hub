@@ -6,6 +6,8 @@ import '../styles/global.css';
 import '../styles/app.css';
 import '../styles/feel.css';
 import '../styles/elevate.css';
+import '../styles/phone.css';
+import '../styles/settle.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -104,7 +106,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="Hub">
-        <a class="h-brand" href="/" aria-label="Favor Hub home"><img src="/images/favor-logo-color.png" alt="Favor International" /><span>Hub</span></a>
+        <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="Favor Hub home"><img src="/images/favor-logo-color.png" alt="Favor International" /><span>Hub</span></a>
         <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} />Search<kbd>Ctrl K</kbd></button>
         <nav>
           {GROUPS.map((g) => (
@@ -117,6 +119,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
                   <a
                     class={`h-nav__item${it.sub ? ' h-nav__sub' : ''}${it.id === nav ? ' is-on' : ''}`}
                     href={it.href}
+                    data-astro-prefetch="hover"
                     data-nav-id={it.id}
                     data-need={it.need || undefined}
                     data-kpi-team={it.team || undefined}
@@ -141,7 +144,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             { id: 'videos', label: 'Videos', href: '/help/videos/', icon: 'play' },
             { id: 'feedback', label: 'Feedback', href: '/feedback/', icon: 'chat', count: 'feedback' },
           ].map((it) => (
-            <a href={it.href} data-nav-id={it.id} class={it.id === nav ? 'is-on' : undefined} aria-current={it.id === nav ? 'page' : undefined}>
+            <a href={it.href} data-astro-prefetch="hover" data-nav-id={it.id} class={it.id === nav ? 'is-on' : undefined} aria-current={it.id === nav ? 'page' : undefined}>
               {it.label}
               {it.count && <span class="h-nav__count" data-count={it.count} hidden></span>}
             </a>
@@ -154,6 +157,46 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
           <button type="button" class="h-out" id="h-out" title="Sign out" aria-label="Sign out"><Fragment set:html={icon('out')} /></button>
         </div>
       </aside>
+      <script is:inline>
+        // Paint the menu the way this person last saw it, before the first frame, so entries never pop in
+        // after the sign-in check. hub-shell.js refreshes the saved copy on every page.
+        window.hubApplyNav = function (d) {
+          var $ = function (id) { return document.getElementById(id); };
+          var u = d.user || {};
+          if (u.via === 'google' && $('h-foot')) {
+            var name = u.name || u.email || '';
+            $('h-name').textContent = name;
+            $('h-email').textContent = u.email || '';
+            var av = $('h-avatar');
+            if (u.picture) {
+              av.innerHTML = '';
+              var img = document.createElement('img');
+              img.alt = ''; img.referrerPolicy = 'no-referrer'; img.src = u.picture;
+              av.appendChild(img);
+            } else {
+              av.textContent = String(name).split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join('');
+            }
+            $('h-foot').hidden = false;
+          }
+          var access = d.access || {};
+          document.documentElement.classList.toggle('has-kpi', !!access.kpi);
+          document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
+          var teams = d.kpiTeams || [];
+          document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
+          var counts = d.counts || {};
+          document.querySelectorAll('[data-count]').forEach(function (el) {
+            var n = Number(counts[el.dataset.count]) || 0;
+            el.hidden = !n;
+            el.textContent = n.toLocaleString('en-US');
+            el.classList.toggle('h-nav__count--warn', el.dataset.count === 'receiptsLeft');
+          });
+        };
+        try {
+          var saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null');
+          if (saved) window.hubApplyNav(saved);
+          if (!localStorage.getItem('favor.hub.welcome.v1')) document.documentElement.classList.add('show-welcome');
+        } catch (e) {}
+      </script>
 
       <div class="h-main">
         <header class="h-top">
@@ -177,7 +220,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       </div>
     </div>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=3" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=4" defer></script>
     <script>
       import '../scripts/hub';
     </script>
