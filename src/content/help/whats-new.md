@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Ask Favor Brain in your own words.** A typo, a short follow-up like "only major ones", or a question such as "are you able to rate a prospect?" now gets a real answer. A question nothing can place comes back with buttons for what it can do, and Will sees it so it gets built.
 - **Gift entry, the mail day.** Set up a deposit with the tape total and count, photograph each check, and two readers fill in the amount, check number, date and name. The page highlights a field when the readers disagree, matches each gift to a partner, and checks every row against the tape. Admins only for now.
 - **Gift entry creates the batch in Blackbaud.** When the gifts equal the tape and every row is checked, one button creates an unapproved batch in Blackbaud with the check number, date, fund, appeal and a Reference that names the deposit and the hub gift. Jennifer approves it in Blackbaud as she does now, and the status view turns to Approved when the hub sees it. Gift entry has its own lane of 400 Blackbaud calls a day. Admins only for now.
 - **Gift entry copies check photos after approval.** Once Jennifer approves the batch in Blackbaud, the hub attaches the photo to each designated gift, each gift of $5,000 or more and each giving fund gift. It checks the batch every ten minutes from 6 AM to 2 PM Eastern, so the copy happens with the page closed. Every photo stays in Favor storage. Admins only for now.

@@ -99,9 +99,9 @@
   // ---- Small parts ---------------------------------------------------------------------------------
   const scoreHTML = (v, max = 4) => {
     if (v == null) return '<span class="ns">Not rated</span>';
-    let h = `<span class="score${v >= max ? ' hi' : ''}" aria-hidden="true">`;
+    let h = `<span class="scw"><span class="score${v >= max ? ' hi' : ''}" aria-hidden="true">`;
     for (let k = 1; k <= max; k++) h += `<i class="${k <= v ? 'on' : ''}"></i>`;
-    return h + `</span>${esc(v)}`;
+    return h + `</span><b class="scn">${esc(v)}</b></span>`;
   };
   // A band text such as "$50,000 to $250,000" or "$500,000 and up" gets a step from its first amount.
   const bandStep = (label) => {
@@ -481,6 +481,12 @@
   function sheetHTML(b) {
     return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} rows in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
   }
+  /** A Sources row: one chip per manual section, opening that section. */
+  function sourcesHTML(b) {
+    const items = (b.items || []).slice(0, 2);
+    if (!items.length) return '';
+    return `<div class="srcrow"><span class="srcrow__l">Sources</span>${items.map((i) => (i.href ? `<a class="srcchip" href="${esc(href(i.href))}" target="_blank" rel="noopener">${ic('book')}${esc(i.label)}${ic('ext')}</a>` : `<span class="srcchip">${ic('book')}${esc(i.label)}</span>`)).join('')}</div>`;
+  }
   function consentHTML(b, ctx) {
     return `<div class="card consent" data-extra="consent"><b>Allow Favor to make Google Sheets for you</b><p>Google will ask once. Favor can then create sheets in your own Drive and open only the sheets it made. Only you can open them.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="h-btn h-btn--primary" data-act="consent-go" data-turn="${ctx.ti}" data-bi="${ctx.bi}">Allow</button><button type="button" class="h-btn h-btn--ghost" data-act="consent-no" data-turn="${ctx.ti}" data-bi="${ctx.bi}">No thanks</button></div></div>`;
   }
@@ -500,6 +506,7 @@
       case 'confirm': return confirmHTML(b, ctx);
       case 'note': return noteHTML(b, ctx);
       case 'sheet': return sheetHTML(b);
+      case 'sources': return sourcesHTML(b);
       case 'consent': return consentHTML(b, ctx);
       default: return b && b.md ? `<div class="blk-text">${md(b.md)}</div>` : '';
     }

@@ -328,7 +328,14 @@ body.h-body[data-nav='brain'] .h-app.is-nav::after { z-index: 90; }
 .h-body .bc-root .t a.lk:hover { color: var(--h-brand-ink); border-color: var(--h-brand); }
 .h-body .bc-root .tbl__foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid var(--h-line); font-size: 12.5px; color: var(--h-ink-3); flex-wrap: wrap; }
 .h-body .bc-root .tbl__foot .h-btn { margin-left: auto; }
-.h-body .bc-root .score { display: inline-flex; gap: 2px; vertical-align: middle; margin-right: 6px; }
+.h-body .bc-root .srcrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.h-body .bc-root .srcrow__l { font-size: 12px; font-weight: 600; letter-spacing: .02em; color: var(--h-ink-3); text-transform: uppercase; }
+.h-body .bc-root .srcchip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; color: var(--h-ink-2); font-size: 12.5px; text-decoration: none; }
+.h-body .bc-root a.srcchip:hover { border-color: var(--h-brand); color: var(--h-brand-ink); }
+.h-body .bc-root .srcchip .h-i { width: 13px; height: 13px; flex: none; }
+.h-body .bc-root .scw { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; vertical-align: middle; }
+.h-body .bc-root .scw .scn { font-weight: 600; font-variant-numeric: tabular-nums; }
+.h-body .bc-root .score { display: inline-flex; gap: 2px; vertical-align: middle; }
 .h-body .bc-root .score i { width: 6px; height: 12px; border-radius: 2px; background: #e8e3d8; }
 .h-body .bc-root .score i.on { background: var(--c-a); }
 .h-body .bc-root .score.hi i.on { background: var(--h-gold); }
