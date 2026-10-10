@@ -94,7 +94,7 @@ function draw(up, notes, me, cal) {
     ${later.length ? `<section class="h-card" style="overflow:hidden"><div class="mt-card" style="padding-bottom:6px"><div class="h-label">Later</div></div>${later.map(({ it, extra }) => (it.cal ? calRow(it.cal, canWrite, true) : laterRow(it.hub, extra))).join('')}</section>` : ''}
   </div><div class="mt-stack">
     <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Latest notes</div>
-      ${notes.slice(0, 3).map((m) => `<a class="libc h-card" style="box-shadow:none;margin-bottom:10px;text-decoration:none" href="/meet/notes/?m=${m.id}"><h4>${esc(m.title)}</h4><p>${esc(clip(m.summary, 150))}</p><div class="ft"><span>${m.endedAt ? fmtDay(m.endedAt) : ''}</span></div></a>`).join('') || `<p class="mt-sub" style="margin:0 0 10px">Notes show up here after a meeting that records.</p>`}
+      ${notes.slice(0, 3).map((m) => `<a class="libc h-card" style="box-shadow:none;margin-bottom:10px;text-decoration:none" href="/meet/notes/?m=${m.id}"><h4>${esc(m.title)}</h4><p>${esc(clip(m.summary, 150))}</p><div class="ft"><span>${m.endedAt ? fmtDay(m.endedAt) : ''}</span></div></a>`).join('') || `<p class="mt-sub" style="margin:0 0 10px">No notes yet</p>`}
       <a class="h-btn h-btn--ghost h-btn--sm" href="/meet/library/" style="width:100%">All meeting notes</a></section>
   </div></div>`;
   root.querySelectorAll('[data-switch]').forEach((b) => b.addEventListener('click', async () => {

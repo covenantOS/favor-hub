@@ -28,7 +28,7 @@
 .mt-row .t b { display: block; font: 500 17px var(--h-serif); font-variant-numeric: lining-nums; } .mt-row .t span { font-size: 12px; color: var(--h-ink-3); }
 .mt-row .w b { display: block; font: 600 13.5px var(--h-font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mt-row .w span { display: block; font-size: 12px; color: var(--h-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mt-row.is-now { background: color-mix(in srgb, var(--h-leaf-soft) 55%, transparent); }
-.mt-prov { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: var(--h-ink-2); margin-right: 8px; vertical-align: middle; }
+.mt-prov { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--h-ink-2); margin: 0 0 3px; } .mt-prov .mt-pv { flex: none; }
 .mt-pv { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 5px; color: #fff; font: 700 10px var(--h-font); font-style: normal; } .mt-pv .h-i { width: 11px; height: 11px; }
 .mt-pv--meet { background: #00897b; } .mt-pv--zoom { background: #2d8cff; } .mt-pv--teams { background: #5b5fc7; } .mt-pv--webex { background: #0a7ea4; } .mt-pv--favor { background: var(--h-brand-ink); }
 .mt-row .w em { font-style: normal; }
