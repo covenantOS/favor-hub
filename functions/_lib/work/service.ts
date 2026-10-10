@@ -41,10 +41,10 @@ export function validDate(s: unknown, field = 'date'): string {
 }
 
 /** A new due date: a real day from today on, up to two years out. Completion dates use validDate, which stops at tomorrow. */
-export function validDue(s: unknown, field = 'the new due date'): string {
+export function validDue(s: unknown): string {
   const v = typeof s === 'string' ? s.trim() : '';
   const today = todayEt();
-  if (!DATE.test(v) || v < today || v > addDays(today, 730)) throw new HttpError(400, 'bad_date', `Pick a due date from today on for ${field}.`);
+  if (!DATE.test(v) || v < today || v > addDays(today, 730)) throw new HttpError(400, 'bad_date', 'Pick a due date from today on.');
   return v;
 }
 
