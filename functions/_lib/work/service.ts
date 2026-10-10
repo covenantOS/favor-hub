@@ -194,7 +194,7 @@ export function meOf(s: Scope | undefined) {
     canDelete: can(s, 'delete'),
     canMove: can(s, 'move'),
     canEntry: can(s, 'entry'),
-    canGifts: !s || s.role === 'admin' || s.role === 'support' || s.role === 'director',
+    canGifts: !s || s.role === 'admin' || s.role === 'support' || s.role === 'director' || s.role === 'partner_care',
     anyTeam: s.role === 'admin',
     fids: [...s.fids],
     canPartnerEdit: can(s, 'partner_edit'),

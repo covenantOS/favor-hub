@@ -38,7 +38,7 @@ const nameOf = (r) => r.partner.name;
 const ago = (r) => (r.ageDays === 0 ? 'Today' : r.ageDays === 1 ? 'Yesterday' : r.ageDays + ' days');
 const badge = (b) => `<span class="wc-tag ${/first/i.test(b) ? 'wc-tag--done' : /largest|\$1,000/i.test(b) ? 'wc-tag--gift' : /soft/i.test(b) ? 'wc-tag--maybe' : ''}">${F().esc(b)}</span>`;
 const tel = (n) => 'tel:' + String(n).replace(/[^\d+]/g, '');
-const asGift = (r) => ({ giftId: r.giftId, cid: r.cid, name: nameOf(r), amount: r.amount, date: r.date, fund: r.fund, phone: r.partner.phone, left: G.leftNow[r.key] || r.left, tasks: r.taskIds && r.taskIds.length });
+const asGift = (r) => ({ team: r.team, giftId: r.giftId, cid: r.cid, name: nameOf(r), amount: r.amount, date: r.date, fund: r.fund, phone: r.partner.phone, left: G.leftNow[r.key] || r.left, tasks: r.taskIds && r.taskIds.length });
 
 function rowHTML(r) {
   const f = F(); const e = f.esc; const p = r.partner;
@@ -78,7 +78,7 @@ function view() {
         ${!list.length ? `<div class="wg-empty"><b>${all.length ? 'Nothing matches' : 'All thanked'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New gifts show here after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>` : ''}
       </div>
       ${G.shelf.length ? `<div class="wg-done"><span>Thanked today</span>${G.shelf.map((t) => `<span class="wc-tag wc-tag--done">${e(t.name)} · ${e(t.how)}</span>`).join('')}</div>` : ''}
-      <div class="wg-foot"><span>${all.length} ${all.length === 1 ? 'gift' : 'gifts'} on ${who}, soft credits included, from the last ${d.days} days</span></div>
+      <div class="wg-foot"><span>${all.length} ${all.length === 1 ? 'gift' : 'gifts'} on ${who}, soft credits included, from the last ${d.days} days${W().DATA.me.role === 'partner_care' ? '. First gifts and gifts under $1,000 on partners Partner Care holds' : ''}</span></div>
     </section>`;
   bulkBar();
   registerSheet();

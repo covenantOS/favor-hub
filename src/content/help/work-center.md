@@ -46,7 +46,7 @@ Marking a gift thanked closes the fundraiser's task and records one contact for 
 
 ## Gifts to thank
 
-Gifts to thank lists every gift on the partners you hold that nobody has thanked yet, soft credits included, oldest first. Gifts older than a day sit under Over 24 hours. The row shows the amount and how long ago, the partner with lifetime giving and last contact, the fund, how it was paid, and notes such as First gift, First monthly gift, Largest gift, $1,000 and up, Soft credit and Task open. Directors see their own partners. The Support Team picks a director from the list at the top.
+Gifts to thank lists every gift on the partners you hold that nobody has thanked yet, soft credits included, oldest first. Gifts older than a day sit under Over 24 hours. The row shows the amount and how long ago, the partner with lifetime giving and last contact, the fund, how it was paid, and notes such as First gift, First monthly gift, Largest gift, $1,000 and up, Soft credit and Task open. Directors see their own partners. Partner Care sees the gifts on partners it holds under a Partner Care assignment that are first gifts or under $1,000, and thanks them by call, card, letter or email. A partner a director also holds stays on the director's list. The Support Team picks a director from the list at the top.
 
 Press Call to ring the partner, Prep to open the call brief, or Thank. Thank opens a short form. Pick how the thank-you went out (call, text, email, letter, card or visit). For a call, choose Talked or Left a message. Write what was said and press Save thank-you. Tick Follow up in 2 weeks and a follow-up task goes on the partner.
 
@@ -54,7 +54,7 @@ A saved thank-you is one completed contact in your name with the Thanked tag, so
 
 Tick several gifts and press Thank by letter or Thank by email to record them together with one shared line. The message at the bottom has Undo for each thank-you, and Recent lists them for 24 hours.
 
-A gift counts as thanked when the partner has a completed contact after the gift with the Thanked tag or a completed call or mailing, so a thank-you made in Blackbaud itself clears the list after the next refresh at 5 AM and 5 PM. A recurring pledge shows its first payment only. Partner Care keeps its own thank-you process and is not on this list.
+A gift counts as thanked when the partner has a completed contact after the gift with the Thanked tag or a completed call or mailing, so a thank-you made in Blackbaud itself clears the list after the next refresh at 5 AM and 5 PM. A recurring pledge shows its first payment only.
 
 ## Call prep
 

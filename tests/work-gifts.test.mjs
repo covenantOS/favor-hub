@@ -109,6 +109,27 @@ describe('weekStart and lastWorkday', () => {
   });
 });
 
+describe('Partner Care list', () => {
+  it('puts a gift on a Partner Care partner on Partner Care lists when it is a first gift or under $1,000', async () => {
+    const out = await loadGifts(env, q, { today: TODAY, days: 21 });
+    const pc = out.rows.find((r) => r.key === 'g7:4');
+    assert.equal(pc.team, 'pc');
+    assert.deepEqual(pc.owners, ['600']);
+    // Di is held by an RDD and by Partner Care: the director keeps the partner.
+    assert.ok(out.rows.every((r) => r.team === 'pc' ? !['1', '2', '3', '5'].includes(r.cid) : true));
+    assert.ok(out.rows.filter((r) => r.team === 'dir').every((r) => !r.owners.includes('600')));
+  });
+  it('leaves out a Partner Care gift of $1,000 or more unless it is the first', () => {
+    const base = { gifts: [], holds: [{ cid: '4', fid: '600', type: 'Partner Care' }], evidence: [], facts: [{ id: '4', name: 'Cy Care', kind: 'Individual', city: '', st: '', deceased: 0, inactive: 0 }], stats: [{ cid: '4', n: 5, total: 9000, mx: 2000, firstd: '2019-01-01' }], last: [], phones: [], monthly: [], funds: [], thanks: [], fundraisers: [{ id: '600', first: 'P', last: 'C', active: 1 }] };
+    const g = (id, amount) => ({ id, giver: '4', amount, gdate: '2026-10-08', added: '2026-10-09T06:00:00-04:00', gtype: 'Donation', pm: 'Cash', splits: null, soft: null, link: null, comment: null });
+    const o = { today: TODAY, nowMs: Date.parse('2026-10-10T14:00:00-04:00') };
+    const rows = shapeGifts({ ...base, gifts: [g('a', 999), g('b', 1000), g('c', 5000)] }, o).rows;
+    assert.deepEqual(rows.map((r) => r.giftId), ['a']);
+    const first = shapeGifts({ ...base, stats: [{ cid: '4', n: 1, total: 3000, mx: 3000, firstd: '2026-10-08' }], gifts: [g('d', 3000)] }, o).rows;
+    assert.deepEqual(first.map((r) => r.giftId), ['d']);
+  });
+});
+
 describe('gifts to thank', () => {
   let out;
   before(async () => {
@@ -117,13 +138,12 @@ describe('gifts to thank', () => {
   const keys = () => out.rows.map((r) => r.key);
 
   it('lists gifts on partners a director holds, soft credits included, oldest first', () => {
-    assert.deepEqual(keys().slice().sort(), ['g3:1', 'g5:2', 'g6:1', 'g6:3']);
+    assert.deepEqual(keys().slice().sort(), ['g3:1', 'g5:2', 'g6:1', 'g6:3', 'g7:4']);
     const dates = out.rows.map((r) => r.date);
     assert.deepEqual(dates, dates.slice().sort());
   });
 
   it('leaves out Partner Care partners, partners no director holds, thanked gifts, old gifts and later payments of a pledge', () => {
-    assert.ok(!keys().some((k) => k.endsWith(':4')), 'a Partner Care partner is not on a director list');
     assert.ok(!keys().some((k) => k.startsWith('g9')), 'the assignment ended');
     assert.ok(!keys().includes('g4:1'), 'a Thanked action dated after the gift');
     assert.ok(!keys().includes('g8:5'), 'a completed phone call after the gift');

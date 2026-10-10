@@ -133,7 +133,7 @@ function pop(anchor, g, o = {}) {
     const keepFu = $('#wg-fu', popEl) ? $('#wg-fu', popEl).checked : false;
     const attempt = st.how === 'call' && st.reach === 'left';
     popEl.innerHTML = `<h4><span>Thank ${esc(g.name)}<small>${money(g.amount)} on ${fd(g.date)} · ${esc(g.fund || '')}</small></span><button type="button" class="pp-iconbtn" data-wg-x aria-label="Close">${ic('x')}</button></h4>
-      <div class="pp-seg wg-how" role="group" aria-label="How">${HOWS.map(([k, l, i]) => `<button type="button" class="${st.how === k ? 'is-on' : ''}" data-wg-how="${k}">${ic(i)}${l}</button>`).join('')}</div>
+      <div class="pp-seg wg-how" role="group" aria-label="How">${HOWS.filter(([k]) => g.team !== 'pc' || !['text', 'visit'].includes(k)).map(([k, l, i]) => `<button type="button" class="${st.how === k ? 'is-on' : ''}" data-wg-how="${k}">${ic(i)}${l}</button>`).join('')}</div>
       ${st.how === 'call' ? `<div class="pp-seg" role="group" aria-label="Result"><button type="button" class="${st.reach === 'talked' ? 'is-on' : ''}" data-wg-reach="talked">Talked</button><button type="button" class="${st.reach === 'left' ? 'is-on' : ''}" data-wg-reach="left">Left a message</button></div>` : ''}
       ${g.left ? `<p class="wg-note">You left a message ${esc(fd(g.left.date))}${g.left.by ? ' (' + esc(g.left.by) + ')' : ''}. The gift stays on the list until it is thanked.</p>` : ''}
       <input type="text" id="wg-line" maxlength="200" placeholder="${attempt ? 'Anything to note' : 'What was said'}" value="${esc(keepLine)}" autocomplete="off" />

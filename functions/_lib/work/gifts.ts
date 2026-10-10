@@ -12,7 +12,9 @@ import { addDays } from '../actions/completion';
 /** The gift types that count as money received. A RecurringGift row is the pledge; its payments are the gifts. */
 export const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
 /** The assignment types that make someone the partner's director. Partner Care keeps its own thank-you process. */
-export const HOLD_TYPES = ['Regional Development Director (RDD)', 'Prospect Steward', 'Church Engagement Director'] as const;
+export const HOLD_TYPES = ['Regional Development Director (RDD)', 'Prospect Steward', 'Church Engagement Director', 'Partner Care'] as const;
+/** Partner Care thanks first-time gifts and gifts under this amount (Who Does What, Thanking partners). A partner a director holds stays the director's. */
+export const PC_LIMIT = 1000;
 /** How far back a gift can be owed. Older gifts are not asked about. act_settings thank_days changes it. */
 export const DEFAULT_DAYS = 21;
 const PAY: Record<string, string> = { PersonalCheck: 'Check', CreditCard: 'Card', Cash: 'Cash', DirectDebit: 'Bank draft', PayPal: 'PayPal', Other: 'Other' };
@@ -85,6 +87,8 @@ export interface GiftRow {
   badges: string[];
   /** The directors who hold this partner (Blackbaud fundraiser ids). */
   owners: string[];
+  /** Whose list it is on: the partner's director, or Partner Care when no director holds the partner. */
+  team: 'dir' | 'pc';
   /** Open thank-you tasks about this gift; the service fills these from the board. */
   taskIds: string[];
   /** Set when a thank-you is on record at or after the gift date. */
@@ -129,7 +133,11 @@ const daysBetween = (a: string, b: string): number => Math.round((Date.parse(b +
  */
 export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): Shaped {
   const holds = new Map<string, Set<string>>();
-  for (const h of raw.holds) (holds.get(h.cid) || holds.set(h.cid, new Set()).get(h.cid)!).add(h.fid);
+  const pcHold = new Map<string, Set<string>>();
+  for (const h of raw.holds) {
+    const m = h.type === 'Partner Care' ? pcHold : holds;
+    (m.get(h.cid) || m.set(h.cid, new Set()).get(h.cid)!).add(h.fid);
+  }
   const live = new Set(raw.fundraisers.filter((f) => num(f.active) === 1).map((f) => String(f.id)));
   const facts = new Map(raw.facts.map((f) => [String(f.id), f]));
   const stats = new Map(raw.stats.map((s) => [String(s.cid), s]));
@@ -161,7 +169,9 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
       if (c && c !== String(g.giver) && a > 0 && !credited.some((x) => x.cid === c)) credited.push({ cid: c, amount: a, soft: true });
     }
     for (const c of credited) {
-      const owners = [...(holds.get(c.cid) || [])];
+      const dirOwners = [...(holds.get(c.cid) || [])];
+      const team: 'dir' | 'pc' = dirOwners.length ? 'dir' : 'pc';
+      const owners = dirOwners.length ? dirOwners : [...(pcHold.get(c.cid) || [])];
       if (!owners.length) continue;
       const f = facts.get(c.cid);
       const st = stats.get(c.cid);
@@ -198,6 +208,7 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
       if (!c.soft && st && count > 1 && c.amount >= num(st.mx) && c.amount > 0) badges.push('Largest gift');
       if (c.amount >= 1000) badges.push('$1,000 and up');
       if (c.soft) badges.push('Soft credit');
+      if (team === 'pc' && !badges.some((b) => /first/i.test(b)) && c.amount >= PC_LIMIT) continue;
       const ph = (phones.get(c.cid) || []).slice().sort((a, b) => num(b.prim) - num(a.prim));
       const callable = ph.find((p) => num(p.dnc) !== 1);
       const addedMs = Date.parse(g.added || '') || Date.parse(date + 'T12:00:00-04:00');
@@ -228,6 +239,7 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
         },
         badges,
         owners: owners.filter((x) => live.has(x)),
+        team,
         taskIds: [],
         thanked: null,
         left: left ? { date: day(left.created_at), how: left.how, by: left.actor, remind: text(left.remind_on) } : null,

@@ -22,7 +22,7 @@ export function visibleOwners(s: Scope | undefined): Set<string> | null {
   return s.fids;
 }
 
-export const mayGifts = (s: Scope | undefined): boolean => !s || s.role === 'admin' || s.role === 'support' || s.role === 'director';
+export const mayGifts = (s: Scope | undefined): boolean => !s || s.role === 'admin' || s.role === 'support' || s.role === 'director' || s.role === 'partner_care';
 
 export interface GiftsOut {
   ok: true;
@@ -57,7 +57,7 @@ export function lastWorkday(today: string): string {
 }
 
 export async function giftsResponse(ctx: Ctx, ownerIn: string): Promise<GiftsOut> {
-  if (!mayGifts(ctx.scope)) throw new HttpError(403, 'not_yours', 'Gifts to thank is for directors and the Support Team. Partner Care keeps its own thank-you process.');
+  if (!mayGifts(ctx.scope)) throw new HttpError(403, 'not_yours', 'Gifts to thank is for directors, Partner Care and the Support Team.');
   const today = todayEt();
   const days = await daysSetting(ctx);
   const [shaped, board, names] = await Promise.all([loadGifts(ctx.env, mirrorQ(ctx.env), { today, days }), currentBoard({ ...ctx, scope: undefined }).catch(() => null), ownerNames(ctx)]);
@@ -105,7 +105,7 @@ async function testRow(ctx: Ctx, giftId: string, cid: string, fid: string): Prom
   return {
     key: `${giftId}:${cid}`, giftId, cid, amount: Number(g.amount) || 0, date: String(g.d), added: '', ageDays: 0, hours: 0, type: 'Donation', pay: '', fund: 'Test gift', comment: '', soft: null,
     partner: { name: 'Test partner', kind: '', place: '', lifetime: 0, count: 0, lastContact: '', phone: null, doNotCall: false, deceased: false },
-    badges: [], owners: [owner], taskIds: [], thanked: null, left: null,
+    badges: [], team: ctx.scope?.role === 'partner_care' ? 'pc' : 'dir', owners: [owner], taskIds: [], thanked: null, left: null,
   };
 }
 
@@ -183,6 +183,7 @@ export async function thankGifts(ctx: Ctx, input: ThankInput) {
       continue;
     }
     const mine = vis ? row.owners.filter((o) => vis.has(o)) : row.owners;
+    if (row.team === 'pc' && (how === 'text' || how === 'visit')) throw new HttpError(400, 'bad_how', 'Partner Care thanks by call, card, letter or email.');
     if (!mine.length) throw new HttpError(403, 'not_yours', 'That partner is outside your portfolio. You can thank gifts on partners you hold.');
     const owner = input.owner && mine.includes(String(input.owner)) ? String(input.owner) : ctx.scope && ctx.scope.fid && mine.includes(ctx.scope.fid) ? ctx.scope.fid : mine[0];
     const tasks = (taskBy.get(row.giftId) || []).filter((t) => t.cid === row.cid || (row.soft && t.cid === row.soft.giverId)).map((t) => t.id);
@@ -217,7 +218,7 @@ export async function thankGifts(ctx: Ctx, input: ThankInput) {
       const ref = `Gift ${r.giftId}: ${money(r.amount)} on ${shortDay(r.date)}${r.fund && r.fund !== 'No fund on file' ? ', ' + r.fund : ''}${r.soft ? ' (soft credit, given through ' + r.soft.giver + ')' : ''}`;
       const set: Record<string, unknown> = {
         category: spec.category,
-        type: types[p.owner] || 'RDD Action',
+        type: types[p.owner] || (r.team === 'pc' ? 'PC Action' : 'RDD Action'),
         date: today,
         summary: `${label} the ${money(r.amount)} gift`,
         description: [line, ref].filter(Boolean).join('\n'),
