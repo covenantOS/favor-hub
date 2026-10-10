@@ -1,6 +1,9 @@
-// Connect my Google: each person's read-only calendar, Drive file list and inbox headers, for Today.
-// The refresh token is stored encrypted (AES-GCM with GOOGLE_TOKEN_KEY). Scopes are the narrowest
-// Google offers: event details, file names and dates, and mail headers (never a mail body or a file).
+// Connect my Google: each person's calendar, Drive file list and inbox headers, for Today, and the
+// Google Sheets the hub makes for them. The refresh token is stored encrypted (AES-GCM with
+// GOOGLE_TOKEN_KEY). The three base scopes are the narrowest Google offers: event details, file names and
+// dates, and mail headers (never a mail body or a file). The one extra scope, drive.file, is asked for only
+// when a person first presses "Open in Google Sheets", and lets the hub create and open only the sheets it
+// makes.
 import type { Env } from '../http';
 
 export const SCOPES = [
@@ -8,6 +11,10 @@ export const SCOPES = [
   'https://www.googleapis.com/auth/drive.metadata.readonly',
   'https://www.googleapis.com/auth/gmail.metadata',
 ];
+/** Create and open only the files this app made (the hub's Google Sheets). Asked for on the first export. */
+export const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
+const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+export const tokenUrl = (env: Env) => env.GOOGLE_TOKEN_URL || TOKEN_URL;
 const CLIENT_ID = '538890082341-5ka1icfropum9nl9csq8adaiusbuesea.apps.googleusercontent.com';
 export const clientId = (env: Env) => env.GOOGLE_CLIENT_ID || CLIENT_ID;
 export const redirectUri = (req: Request) => new URL('/api/google/callback', req.url).origin + '/api/google/callback';
@@ -32,7 +39,7 @@ async function open(env: Env, sealed: string): Promise<string> {
 }
 
 export async function exchangeCode(env: Env, req: Request, code: string) {
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const res = await fetch(tokenUrl(env), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ code, client_id: clientId(env), client_secret: env.GOOGLE_CLIENT_SECRET || '', redirect_uri: redirectUri(req), grant_type: 'authorization_code' }),
@@ -46,7 +53,7 @@ export async function exchangeCode(env: Env, req: Request, code: string) {
 export async function accessToken(env: Env, email: string): Promise<{ token: string; scopes: string } | null> {
   const row = await env.DB.prepare('SELECT refresh_enc, scopes FROM hub_google WHERE email = ?').bind(email).first<{ refresh_enc: string; scopes: string }>();
   if (!row) return null;
-  const res = await fetch('https://oauth2.googleapis.com/token', {
+  const res = await fetch(tokenUrl(env), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ refresh_token: await open(env, row.refresh_enc), client_id: clientId(env), client_secret: env.GOOGLE_CLIENT_SECRET || '', grant_type: 'refresh_token' }),
