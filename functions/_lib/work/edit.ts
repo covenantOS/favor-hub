@@ -117,8 +117,8 @@ export async function actionRaw(env: Env, id: string): Promise<{ raw: ActionRaw;
 /** Changes the hub has saved for one action that the mirror does not show yet, laid over its copy. */
 export async function pendingFor(env: Env, id: string, syncedAt: string): Promise<{ body: Record<string, unknown>; state: string; deleted: boolean }> {
   const r = await env.DB.prepare(
-    `SELECT o.payload, o.state, o.op, o.queued_at FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id
-      WHERE o.action_id = ? AND o.op IN ('patch', 'delete') AND o.state IN ('queued', 'sent', 'verified') AND b.state <> 'undone' AND b.op <> 'undo'
+    `SELECT o.payload, CASE WHEN o.state = 'sending' THEN 'queued' ELSE o.state END AS state, o.op, o.queued_at FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id
+      WHERE o.action_id = ? AND o.op IN ('patch', 'delete') AND o.state IN ('queued', 'sending', 'sent', 'verified') AND b.state <> 'undone' AND b.op <> 'undo'
       ORDER BY o.queued_at`
   )
     .bind(id)

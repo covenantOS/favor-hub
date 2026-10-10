@@ -78,9 +78,9 @@ interface PendingDb {
 export async function loadPending(env: Env): Promise<PendingChange[]> {
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
   const r = await env.DB.prepare(
-    `SELECT o.action_id, o.op AS op, o.state, o.payload, o.queued_at, o.sent_at, b.op AS bop, b.run_when
+    `SELECT o.action_id, o.op AS op, CASE WHEN o.state = 'sending' THEN 'queued' ELSE o.state END AS state, o.payload, o.queued_at, o.sent_at, b.op AS bop, b.run_when
        FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id
-      WHERE o.state IN ('queued', 'sent', 'verified') AND o.action_id IS NOT NULL AND o.op IN ('patch', 'delete') AND b.state <> 'undone' AND b.op <> 'undo' AND o.queued_at >= ?`
+      WHERE o.state IN ('queued', 'sending', 'sent', 'verified') AND o.action_id IS NOT NULL AND o.op IN ('patch', 'delete') AND b.state <> 'undone' AND b.op <> 'undo' AND o.queued_at >= ?`
   )
     .bind(since)
     .all<PendingDb>()
@@ -882,6 +882,27 @@ export interface RunResult {
 const toItemState = (s: string): string => (s === 'sent' || s === 'verified' ? 'posted' : s === 'failed' || s === 'needs_human' ? 'failed' : s);
 const itemId = (r: OutboxRow) => String(r.action_id || r.submission_id || r.id);
 
+/** A claim this old belongs to a run that stopped (a closed window, a crash). Its rows go back to queued. */
+const CLAIM_STALE_MS = 10 * 60000;
+
+/**
+ * Claims a queued row before it goes to Blackbaud. One UPDATE guarded by state = 'queued' means only the request that changes the row
+ * sends it. The batch lock is a two-minute lease that a slow send can outlive, so the row claim is what stops a second run from
+ * sending the same row.
+ */
+async function claimRow(env: Env, row: OutboxRow, claimed: Set<string>): Promise<boolean> {
+  const out = await env.DB.prepare("UPDATE act_outbox SET state = 'sending', claimed_at = ? WHERE id = ? AND state = 'queued'").bind(nowIso(), row.id).run();
+  if (!((out.meta?.changes ?? 0) > 0)) return false;
+  claimed.add(row.id);
+  return true;
+}
+
+/** Puts back the rows this run claimed and did not write. The state guard leaves any row that was already written alone. */
+async function releaseClaims(env: Env, ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  await env.DB.prepare(`UPDATE act_outbox SET state = 'queued', claimed_at = NULL WHERE state = 'sending' AND id IN (${ids.map(() => '?').join(',')})`).bind(...ids).run();
+}
+
 async function markSubmission(ctx: Ctx, row: OutboxRow, state: string, extra: { bb?: string | null; err?: string } = {}) {
   if (!row.submission_id) return;
   await ctx.env.DB.prepare('UPDATE act_submissions SET state = ?, bb_action_id = COALESCE(?, bb_action_id), posted_at = CASE WHEN ? = \'posted\' THEN ? ELSE posted_at END, posted_by = CASE WHEN ? = \'posted\' THEN ? ELSE posted_by END WHERE id = ?')
@@ -900,7 +921,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
   const items: RunResult['items'] = [];
   const finish = async (held?: RunResult['held']): Promise<RunResult> => {
     const left = await runnableLeft(ctx, batchId);
-    const tagsWaiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND op = 'tag' AND state = 'queued'").bind(batchId).first<{ n: number }>())?.n || 0;
+    const tagsWaiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND op = 'tag' AND state IN ('queued', 'sending')").bind(batchId).first<{ n: number }>())?.n || 0;
     return { ok: true, done: items.filter((i) => i.state === 'posted').length, left, held, tagsWaiting: Number(tagsWaiting), items, meter: await meterView(env) };
   };
   if (!opts.tags && (batch.state === 'done' || batch.state === 'undone' || batch.state === 'partial')) {
@@ -915,9 +936,14 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
   const t0 = etClock(new Date(started - 10 * 60000));
   let held: RunResult['held'];
   const touched = new Map<string, boolean>(); // action id -> whether to read its tags too
+  const claimed = new Set<string>(); // rows this run claimed (state sending) and has not written back yet
   const tagParent = new Map<string, string>(); // tag row -> the action it was sent for
   try {
     await env.DB.prepare("UPDATE act_batches SET state = 'running' WHERE id = ? AND state = 'queued'").bind(batchId).run();
+    // Rows a stopped run left in sending go back to queued once their claim is ten minutes old.
+    await env.DB.prepare("UPDATE act_outbox SET state = 'queued', claimed_at = NULL WHERE batch_id = ? AND state = 'sending' AND (claimed_at IS NULL OR claimed_at < ?)")
+      .bind(batchId, new Date(Date.now() - CLAIM_STALE_MS).toISOString())
+      .run();
     for (let round = 0; round < 3 && Date.now() - started < 18000; round++) {
       const meter = await getMeter(env);
       // A batch held for tonight waits for the new UTC day (the allowance starts again then) unless today's lane can take all of it.
@@ -953,6 +979,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
           const value = payload.value === undefined ? await tagValue(ctx, String(payload.category)) : typeof payload.value === 'number' || typeof payload.value === 'boolean' ? payload.value : String(payload.value);
           const body: Record<string, unknown> = { parent_id: parent, category: payload.category, value, date: payload.date };
           if (payload.comment) body.comment = payload.comment;
+          if (!(await claimRow(env, row, claimed))) continue;
           send.push({ row, call: { method: 'POST', path: '/constituent/v1/actions/customfields', body } });
           continue;
         }
@@ -966,7 +993,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
             items.push({ id: itemId(row), state: 'failed', error: why });
             continue;
           }
-          if (dep.state === 'queued') continue; // it goes in a later request of this batch
+          if (dep.state === 'queued' || dep.state === 'sending') continue; // it goes in a later request of this batch, or the run that claimed it sends it
           depId = dep.bb_id || '';
         }
         if (row.op === 'create' && (row.last_error || '').startsWith('check:') && row.cid) {
@@ -1007,6 +1034,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
           path = fillDep(path, depId);
           body = fillDep(body, depId);
         }
+        if (!(await claimRow(env, row, claimed))) continue;
         send.push({ row, call: { method: req.method, path, body: req.method === 'DELETE' ? undefined : body } });
       }
       if (!send.length) break;
@@ -1023,8 +1051,11 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
         if (v === 'wait' && !r) {
           // The route stopped before this call, or the answer was lost. A create may have landed: check before sending it again.
           if (res.lost && row.op === 'create') {
-            await env.DB.prepare("UPDATE act_outbox SET attempts = attempts + 1, last_error = 'check: the answer was lost' WHERE id = ?").bind(row.id).run();
+            await env.DB.prepare("UPDATE act_outbox SET state = 'queued', claimed_at = NULL, attempts = attempts + 1, last_error = 'check: the answer was lost' WHERE id = ?").bind(row.id).run();
+          } else {
+            await env.DB.prepare("UPDATE act_outbox SET state = 'queued', claimed_at = NULL WHERE id = ?").bind(row.id).run();
           }
+          claimed.delete(row.id);
           items.push({ id: itemId(row), state: 'queued' });
           continue;
         }
@@ -1033,18 +1064,20 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
           const n = row.attempts + 1;
           const why = sayWhy(r);
           if (n >= 5) {
-            await env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', attempts = ?, last_error = ? WHERE id = ?").bind(n, why, row.id).run();
+            await env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', claimed_at = NULL, attempts = ?, last_error = ? WHERE id = ?").bind(n, why, row.id).run();
             if (row.op === 'create') await markSubmission(ctx, row, 'failed', { err: why });
             items.push({ id: itemId(row), state: 'failed', error: why });
           } else {
-            await env.DB.prepare("UPDATE act_outbox SET attempts = ?, last_error = ? WHERE id = ?").bind(n, why, row.id).run();
+            await env.DB.prepare("UPDATE act_outbox SET state = 'queued', claimed_at = NULL, attempts = ?, last_error = ? WHERE id = ?").bind(n, why, row.id).run();
             items.push({ id: itemId(row), state: 'queued' });
           }
+          claimed.delete(row.id);
           stalled = true;
           continue;
         }
         if (v === 'refused' && row.op === 'tag') {
-          await env.DB.prepare("UPDATE act_outbox SET last_error = 'waiting for the tag rule' WHERE id = ?").bind(row.id).run();
+          await env.DB.prepare("UPDATE act_outbox SET state = 'queued', claimed_at = NULL, last_error = 'waiting for the tag rule' WHERE id = ?").bind(row.id).run();
+          claimed.delete(row.id);
           await setSetting(env, 'rule:tags', `0|${now}`);
           tagRuleMemo = { v: false, at: Date.now() };
           items.push({ id: itemId(row), state: 'queued' });
@@ -1055,9 +1088,10 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
         const err = v === 'sent' ? null : sayWhy(r);
         const made = row.op === 'create' || row.op === 'tag' || (row.op === 'call' && parseObj(row.payload).__call?.method === 'POST');
         const bbId = v === 'sent' && made && r?.body?.id ? String(r.body.id) : row.bb_id;
-        await env.DB.prepare('UPDATE act_outbox SET state = ?, attempts = ?, bb_id = ?, last_error = ?, sent_at = CASE WHEN ? = \'sent\' THEN ? ELSE sent_at END WHERE id = ?')
+        await env.DB.prepare('UPDATE act_outbox SET state = ?, claimed_at = NULL, attempts = ?, bb_id = ?, last_error = ?, sent_at = CASE WHEN ? = \'sent\' THEN ? ELSE sent_at END WHERE id = ?')
           .bind(next.state, next.attempts, bbId, err, next.state, now, row.id)
           .run();
+        claimed.delete(row.id);
         if (v === 'sent') {
           // A tag on an action made earlier in this batch records that action, so Undo can remove the tag from it.
           if (row.op === 'tag' && !row.action_id && tagParent.get(row.id)) {
@@ -1104,6 +1138,8 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       if (ran < send.length) break; // the route stopped: let the next call (or the drain) pick it up
     }
   } finally {
+    // A row this run still holds (an error part way through a round) goes back to queued for the next run.
+    await releaseClaims(env, [...claimed]).catch(() => undefined);
     await refreshTouched(ctx, batchId, touched);
     await dropLock(env, batchId);
     forgetBoard();
@@ -1196,8 +1232,9 @@ async function refreshTouched(ctx: Ctx, batchId: string, touched: Map<string, bo
   }
 }
 
+/** Rows still to send. A row a run has claimed (sending) still counts, so the batch does not close under a send in flight. */
 async function runnableLeft(ctx: Ctx, batchId: string): Promise<number> {
-  const r = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state = 'queued' AND NOT (op = 'tag' AND last_error = 'waiting for the tag rule')").bind(batchId).first<{ n: number }>();
+  const r = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state IN ('queued', 'sending') AND NOT (op = 'tag' AND last_error = 'waiting for the tag rule')").bind(batchId).first<{ n: number }>();
   return Number(r?.n) || 0;
 }
 
@@ -1237,6 +1274,9 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   if (!batch) throw new HttpError(404, 'not_found', 'That batch is not here.');
   if (batch.state === 'undone' || batch.op === 'undo') throw new HttpError(409, 'already_undone', 'That batch is already undone.');
   if (nowIso() > batch.undo_until) throw new HttpError(409, 'too_late', 'Undo is open for 24 hours. This batch is past that.');
+  // A row in flight may already be at Blackbaud, so Undo waits for the send to finish rather than guessing which rows went.
+  const inFlight = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state = 'sending'").bind(batchId).first<{ n: number }>();
+  if (Number(inFlight?.n)) throw new HttpError(409, 'busy', 'Blackbaud is still taking this batch. Undo it when it finishes.');
   const rows = (await ctx.env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid').bind(batchId).all<OutboxRow>()).results;
   const items: PlannedItem[] = [];
   let cancelled = 0;
@@ -1300,7 +1340,7 @@ export async function recentBatches(env: Env, hours = 36, email?: string) {
       if (r.op === 'tag' && byItem.has(itemId(r))) continue;
       const [name, what] = String(r.label || '').split(' | ');
       const prev = byItem.get(itemId(r));
-      let state = r.state === 'sent' || r.state === 'verified' ? 'posted' : r.state === 'failed' || r.state === 'needs_human' ? 'failed' : r.state === 'queued' ? (b.run_when === 'tonight' ? 'tonight' : 'saving') : r.state;
+      let state = r.state === 'sent' || r.state === 'verified' ? 'posted' : r.state === 'failed' || r.state === 'needs_human' ? 'failed' : r.state === 'queued' || r.state === 'sending' ? (b.run_when === 'tonight' ? 'tonight' : 'saving') : r.state;
       if (prev && prev.state === 'failed') state = 'failed';
       byItem.set(itemId(r), { id: itemId(r), name: name || 'Partner', what: what || '', state, error: r.last_error || undefined });
     }

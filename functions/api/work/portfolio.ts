@@ -52,7 +52,7 @@ async function plannedTasks(env: any, cids: string[]): Promise<PlannedTask[]> {
   const since = new Date(Date.now() - 3 * 86400000).toISOString();
   const r = await env.DB.prepare(
     `SELECT o.id AS oid, o.cid AS cid, o.bb_id AS bb, o.payload AS payload FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id
-      WHERE o.op = 'create' AND o.state IN ('queued', 'sent', 'verified') AND o.cid IS NOT NULL AND o.queued_at >= ? AND b.state <> 'undone' ORDER BY o.queued_at DESC LIMIT 600`
+      WHERE o.op = 'create' AND o.state IN ('queued', 'sending', 'sent', 'verified') AND o.cid IS NOT NULL AND o.queued_at >= ? AND b.state <> 'undone' ORDER BY o.queued_at DESC LIMIT 600`
   )
     .bind(since)
     .all()

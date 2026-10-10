@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS act_outbox (            -- one Blackbaud change per r
   before TEXT,                                     -- JSON of the fields this change replaces (from the mirror or the read-back), for Undo
   payload TEXT NOT NULL,                           -- JSON body sent to Blackbaud
   idem_key TEXT UNIQUE,                            -- creates: hash of what makes the create the same one; cleared when the row is undone so it can be entered again
-  state TEXT NOT NULL DEFAULT 'queued',            -- queued | sent | verified | failed | needs_human | undone
+  state TEXT NOT NULL DEFAULT 'queued',            -- queued | sending | sent | verified | failed | needs_human | undone
+  claimed_at TEXT,                                 -- when a run claimed the row to send it (state sending); a claim ten minutes old is released
   attempts INTEGER NOT NULL DEFAULT 0,
   bb_id TEXT, last_error TEXT,
   queued_at TEXT NOT NULL, sent_at TEXT, verified_at TEXT
