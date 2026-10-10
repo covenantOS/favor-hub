@@ -225,7 +225,8 @@
           ? `<ul class="h-mine">${g.events
               .map((e) => {
                 const who = e.people.map(partnerTag).join('');
-                return `<li><a href="${esc(e.meet || e.link)}" target="_blank" rel="noopener">${e.allDay ? 'All day' : esc(time(e.start))} · ${esc(e.title)}</a>${who}</li>`;
+                const via = { favor: 'Favor Meetings', meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', webex: 'Webex' }[e.provider];
+                return `<li><a href="${esc(e.meet || e.link)}" target="_blank" rel="noopener">${e.allDay ? 'All day' : esc(time(e.start))} · ${esc(e.title)}</a>${via ? ` <span class="h-sub">${via}</span>` : ''}${who}</li>`;
               })
               .join('')}</ul>`
           : empty('Nothing on your calendar today.')

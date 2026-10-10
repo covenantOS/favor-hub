@@ -5,6 +5,7 @@
 // when a person first presses "Open in Google Sheets", and lets the hub create and open only the sheets it
 // makes.
 import type { Env } from '../http';
+import { providerOf } from '../meetprovider';
 
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events.readonly',
@@ -88,7 +89,7 @@ const g = async (token: string, url: string) => {
   return res.json() as Promise<any>;
 };
 
-export interface DayEvent { start: string; end: string; allDay: boolean; title: string; link: string; meet: string; people: string[] }
+export interface DayEvent { start: string; end: string; allDay: boolean; title: string; link: string; meet: string; provider: string; people: string[] }
 export interface DayFile { name: string; link: string; modified: string; by: string; icon: string }
 export interface DayMail { from: string; fromEmail: string; subject: string; date: string; link: string }
 

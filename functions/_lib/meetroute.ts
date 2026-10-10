@@ -12,7 +12,8 @@
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp } from './clipai';
 import { makeNotes, pumpDrive, pumpTranscript, transcribeRow, type NotesOut } from './meetdrive';
-import { createEvent, deleteEvent, freeBusy, mayBook, patchEvent, sendReminder, TZ } from './meetcal';
+import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
+import { mayMove } from './meetprovider';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
@@ -34,6 +35,8 @@ export async function route({ request, env, params }: { request: Request; env: M
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
     if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)) });
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
+    if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids))) });
+    if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') return json(await remind(env, new URL(request.url).origin));
     if (parts.length === 1) {
       if (m === 'GET') return json(await listMeetings(env, user, new URL(request.url).searchParams.get('scope') || 'upcoming'));
@@ -188,6 +191,43 @@ async function createMeeting(env: MeetEnv, user: { email: string; name: string }
   if (withGuests) rows.push(env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(id), env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(id, gkey));
   await env.DB.batch(rows);
   return { ok: true, meeting: publicMeeting(await getMeeting(env, id), user), calendar: !!eventId };
+}
+
+/** Which of these calendar event ids already belong to a Favor Meetings room. */
+async function hubEventIds(env: MeetEnv, ids: string[]): Promise<Set<string>> {
+  const found = new Set<string>();
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const rows = await env.DB.prepare(`SELECT DISTINCT calendar_event_id AS id FROM hub_meetings WHERE calendar_event_id IN (${chunk.map(() => '?').join(',')})`).bind(...chunk).all<{ id: string }>();
+    for (const r of rows.results || []) found.add(r.id);
+  }
+  return found;
+}
+
+/** The organizer's click: put a Favor room on an internal Zoom or Meet event and send the guests the updated invite. Nothing changes before this call. */
+async function switchToFavor(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown>, origin: string) {
+  const eventId = clean(b.eventId, 200);
+  if (!eventId) throw new HttpError(400, 'event', 'Pick a meeting to move.');
+  const ev = await getEvent(env, user.email, eventId);
+  if (!mayMove(ev, user.email)) throw new HttpError(403, 'organizer_only', 'Only the organizer can move an internal Zoom or Google Meet meeting that has not ended.');
+  if ((await hubEventIds(env, [ev.id])).size) throw new HttpError(409, 'already', 'This meeting is already in Favor Meetings.');
+  const id = hex(12);
+  const startsAt = new Date(ev.start?.dateTime as string).toISOString();
+  const endsAt = new Date(ev.end?.dateTime as string).toISOString();
+  const dur = Math.max(10, Math.round((Date.parse(endsAt) - Date.parse(startsAt)) / 60000));
+  const me = user.email.toLowerCase();
+  const invitees = (ev.attendees || []).filter((a) => !a.self && !a.resource && a.email && String(a.email).toLowerCase() !== me).slice(0, 200).map((a) => ({ email: String(a.email).toLowerCase(), name: clean(a.displayName, 120), team: '', guest: false }));
+  await env.DB.prepare(
+    `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
+     VALUES (?, ?, '', ?, ?, ?, ?, ?, 'notes', 'invited', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
+  ).bind(id, clean(ev.summary, 140) || 'Meeting', me, user.name, startsAt, endsAt, dur, JSON.stringify(invitees), nowIso(), ev.id).run();
+  try {
+    await swapConferencing(env, user.email, ev, `${origin}/meet/room/?m=${id}`);
+  } catch (e) {
+    await env.DB.prepare('DELETE FROM hub_meetings WHERE id = ?').bind(id).run();
+    throw e;
+  }
+  return { ok: true, id };
 }
 
 async function updateMeeting(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {

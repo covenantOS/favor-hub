@@ -3,6 +3,7 @@
 // The meeting itself is created on the booker's calendar with the guests invited, so Google sends the invitations.
 import { accessToken, CAL_EVENTS, CAL_FREEBUSY, hasScopes } from './hub/google';
 import { HttpError } from './http';
+import { providerOf, summarize, type CalEvent, type CalMeeting } from './meetprovider';
 import type { MeetEnv } from './meet';
 
 const CAL_DEFAULT = 'https://www.googleapis.com/calendar/v3';
@@ -130,4 +131,53 @@ export async function sendReminder(env: MeetEnv, to: string[], m: { title: strin
     });
     if (!r.ok) console.error('[meet] reminder failed', r.status, (await r.text()).slice(0, 200));
   }
+}
+
+// ---------------------------------------------------------------- the person's own calendar, every provider
+
+const READ_SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly', CAL_EVENTS, 'https://www.googleapis.com/auth/calendar.readonly'];
+const canRead = (granted: string) => READ_SCOPES.some((s) => hasScopes(granted, [s]));
+
+/** Meetings with a video link on this person's calendar for the next two weeks, from every provider. Meetings already made in Favor Meetings are left out; they show from the hub's own list. */
+export async function calendarMeetings(env: MeetEnv, email: string, ours: (ids: string[]) => Promise<Set<string>>): Promise<{ connected: boolean; canWrite: boolean; meetings: CalMeeting[]; error?: string }> {
+  const t = await accessToken(env, email).catch(() => null);
+  if (!t || !canRead(t.scopes)) return { connected: false, canWrite: false, meetings: [] };
+  const canWrite = hasScopes(t.scopes, [CAL_EVENTS]);
+  const q = new URLSearchParams({ timeMin: new Date().toISOString(), timeMax: new Date(Date.now() + 14 * 86400_000).toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: '100', timeZone: TZ });
+  const r = await fetch(`${cal(env)}/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${t.token}` } });
+  if (!r.ok) return { connected: true, canWrite, meetings: [], error: 'Google Calendar did not answer.' };
+  const j = (await r.json().catch(() => ({}))) as { items?: CalEvent[] };
+  const items = (j.items || []).filter((e) => e.status !== 'cancelled');
+  const mine = await ours([...new Set(items.flatMap((e) => [e.id, e.recurringEventId || e.id]))]);
+  const out: CalMeeting[] = [];
+  for (const e of items) {
+    const m = summarize(e, email, canWrite);
+    if (!m || m.provider === 'favor' || (mine.has(e.id) || mine.has(e.recurringEventId || e.id))) continue;
+    out.push(m);
+  }
+  return { connected: true, canWrite, meetings: out };
+}
+
+/** The event as Google has it, for the checks before a switch. */
+export async function getEvent(env: MeetEnv, booker: string, eventId: string): Promise<CalEvent> {
+  const tok = await token(env, booker, [CAL_EVENTS]);
+  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId)}`, { headers: { Authorization: `Bearer ${tok}` } });
+  if (!r.ok) throw new HttpError(r.status === 404 ? 404 : 502, 'calendar', r.status === 404 ? 'That event is no longer on your calendar.' : 'Google Calendar did not answer.');
+  return (await r.json()) as CalEvent;
+}
+
+/** Swap the video link on an existing event for a Favor room. Google sends the guests an updated invite. */
+export async function swapConferencing(env: MeetEnv, booker: string, ev: CalEvent, roomUrl: string): Promise<void> {
+  const tok = await token(env, booker, [CAL_EVENTS]);
+  const desc = (ev.description || '').trim();
+  const swapped = providerOf({ description: desc }).urls.reduce((a, u) => a.split(u).join(roomUrl), desc);
+  const body: Record<string, unknown> = {
+    location: roomUrl,
+    description: swapped.includes(roomUrl) ? swapped : `Join in Favor Meetings: ${roomUrl}${swapped ? '\n\n' + swapped : ''}`,
+  };
+  if (ev.conferenceData) body.conferenceData = null;
+  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(ev.id)}?conferenceDataVersion=1&sendUpdates=all`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new HttpError(502, 'calendar', 'Google Calendar did not accept the change.');
 }
