@@ -6,7 +6,6 @@
 // them when a person opens that tab (one Blackbaud call each, kept ten minutes).
 import { HttpError, nowIso, type Env } from '../http';
 import { mirror } from '../foundations/blackbaud';
-import { openActionSql } from '../hub/actions';
 import { readOnly } from './repo';
 import { addMeter, getMeter, getSetting, listStaff, setSetting } from './db';
 import { DAILY_CAP } from '../actions/batch';
@@ -184,79 +183,22 @@ export async function actionDetail(ctx: Ctx, id: string) {
 
 /* ------------------------------------------------------------------ the partner beside the edit panel */
 
-const GIFT_TYPES = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other', 'PledgePayment')";
-
+/**
+ * What the edit panel itself needs about the partner: the name, current holders (the default fundraiser of a new action) and
+ * opportunities (the linked-opportunity list). Everything else beside the panel is the partner page's own view
+ * (GET /api/work/partners/:id, mounted compact on the page), so the two never disagree.
+ */
 export async function partnerContext(ctx: Ctx, cid: string) {
   if (!ID.test(cid)) throw new HttpError(400, 'bad_partner', 'That is not a partner record.');
   const env = ctx.env;
   const today = todayEt();
-  const year = today.slice(0, 4);
-  const [who, phones, emails, giving, last, recent, holders, iwave, opps, openN] = await Promise.all([
-    q<any>(env, `SELECT k.id AS id, k.constituent_lookup_id AS lookup, k.constituent_type AS ctype, k.first_name AS first, k.last_name AS last, k.preferred_name AS pref,
-        k.organization_name AS org, k.deceased AS deceased, k.inactive AS inactive, json_extract(k.raw_json, '$.address.city') AS city,
-        json_extract(k.raw_json, '$.address.state') AS st, json_extract(k.raw_json, '$.spouse.first') AS spouse FROM constituents k WHERE k.id = ?1 LIMIT 1`, [cid]),
-    q<any>(env, `SELECT phone_type AS t, phone_number AS n, is_primary AS p, do_not_call AS dnc, is_inactive AS x FROM phones WHERE constituent_record_id = ?1 ORDER BY is_inactive, is_primary DESC LIMIT 6`, [cid]).catch(() => []),
-    q<any>(env, `SELECT email_address AS e, is_primary AS p, do_not_email AS dne, is_inactive AS x FROM emails WHERE constituent_record_id = ?1 ORDER BY is_inactive, is_primary DESC LIMIT 6`, [cid]).catch(() => []),
-    q<any>(env, `SELECT SUM(CASE WHEN substr(gift_date, 1, 4) = ?2 THEN gift_amount ELSE 0 END) AS ytd, SUM(CASE WHEN substr(gift_date, 1, 4) = ?2 THEN 1 ELSE 0 END) AS ytdn,
-        SUM(CASE WHEN substr(gift_date, 1, 4) = ?3 THEN gift_amount ELSE 0 END) AS lyt, SUM(gift_amount) AS life, COUNT(*) AS n, MIN(substr(gift_date, 1, 10)) AS firstd
-        FROM gifts WHERE constituent_record_id = ?1 AND gift_amount > 0 AND gift_type IN ${GIFT_TYPES}`, [cid, year, String(Number(year) - 1)]).catch(() => []),
-    q<any>(env, `SELECT g.id AS id, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS d, g.gift_type AS type, g.gift_splits AS splits FROM gifts g
-        WHERE g.constituent_record_id = ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIFT_TYPES} ORDER BY g.gift_date DESC LIMIT 1`, [cid]).catch(() => []),
-    q<any>(env, `SELECT a.id AS id, substr(a.action_date_due, 1, 10) AS d, a.action_type AS type, a.action_category AS cat, a.action_summary AS summary,
-        json_extract(a.raw_json, '$.completed') AS done, json_extract(a.raw_json, '$.fundraisers') AS frs, substr(a.action_completed_date, 1, 10) AS cd
-        FROM actions a WHERE a.constituent_record_id = ?1 ORDER BY a.action_date_due DESC LIMIT 12`, [cid]).catch(() => []),
-    q<any>(env, `SELECT assignment_fundraiser_id AS fid, assignment_type AS type, substr(assignment_from_date, 1, 10) AS since FROM assignments
+  const [name, holders, opps] = await Promise.all([
+    partnerName(env, cid),
+    q<any>(env, `SELECT assignment_fundraiser_id AS fid, assignment_type AS type FROM assignments
         WHERE constituent_record_id = ?1 AND (assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= ?2)`, [cid, today]).catch(() => []),
-    q<any>(env, `SELECT x.cid AS cid, i.overall AS overall, substr(i.overall_date, 1, 10) AS overall_date, i.estimated_capacity AS cap, i.capacity_band AS band,
-        substr(i.estimated_capacity_date, 1, 10) AS cap_date, b.score AS score, substr(b.score_date, 1, 10) AS score_date, b.capacity AS bcap, substr(b.capacity_date, 1, 10) AS bcap_date
-        FROM (SELECT ?1 AS cid) x LEFT JOIN iwave_ratings i ON i.constituent_record_id = x.cid LEFT JOIN bb_iwave_ratings b ON b.constituent_record_id = x.cid`, [cid]).catch(() => []),
     oppsFor(ctx, [cid]).catch(() => [] as OppView[]),
-    q<{ n: number }>(env, `SELECT COUNT(*) AS n FROM actions a WHERE a.constituent_record_id = ?1 AND ${openActionSql('a')}`, [cid]).catch(() => [{ n: 0 }]),
   ]);
-  const w = who[0];
-  if (!w) throw new HttpError(404, 'not_found', 'That partner is not in the hub’s copy of Blackbaud.');
-  const fund = await (async () => {
-    const g = last[0];
-    if (!g) return '';
-    const ids = (parse(g.splits) || []).map((s: any) => String(s.fund_id || '')).filter(Boolean);
-    if (!ids.length) return '';
-    const f = await q<{ name: string }>(env, 'SELECT fund_description AS name FROM funds WHERE id = ?1 LIMIT 1', [ids[0]]).catch(() => []);
-    return f[0]?.name || '';
-  })();
-  const lastDone = recent.find((a: any) => Number(a.done) === 1);
-  const iw = iwave[0] || {};
-  const name = w.ctype === 'Organization' ? w.org : `${w.pref || w.first || ''} ${w.last || ''}`.trim();
-  return {
-    cid,
-    name: name || '(no name)',
-    lookup: String(w.lookup || ''),
-    org: w.ctype === 'Organization',
-    place: [w.city, w.st].filter(Boolean).join(', '),
-    deceased: Number(w.deceased) === 1,
-    inactive: Number(w.inactive) === 1,
-    spouse: w.spouse || '',
-    phones: phones.filter((p: any) => Number(p.x) !== 1).map((p: any) => ({ type: p.t || '', number: p.n || '', primary: Number(p.p) === 1, dnc: Number(p.dnc) === 1 })),
-    emails: emails.filter((e: any) => Number(e.x) !== 1).map((e: any) => ({ address: e.e || '', primary: Number(e.p) === 1, dne: Number(e.dne) === 1 })),
-    giving: {
-      year,
-      ytd: Number(giving[0]?.ytd) || 0,
-      ytdCount: Number(giving[0]?.ytdn) || 0,
-      lastYear: Number(giving[0]?.lyt) || 0,
-      lifetime: Number(giving[0]?.life) || 0,
-      count: Number(giving[0]?.n) || 0,
-      first: giving[0]?.firstd || '',
-      last: last[0] ? { id: String(last[0].id), amount: Number(last[0].amount) || 0, date: last[0].d, type: last[0].type || '', fund } : null,
-    },
-    lastContact: lastDone ? { id: String(lastDone.id), date: lastDone.cd || lastDone.d, type: lastDone.type || '', category: lastDone.cat || '', summary: lastDone.summary || '', by: parseArr(lastDone.frs) } : null,
-    recent: recent.map((a: any) => ({ id: String(a.id), date: a.d, type: a.type || '', category: a.cat || '', summary: a.summary || '', done: Number(a.done) === 1, by: parseArr(a.frs) })),
-    open: Number(openN[0]?.n) || 0,
-    holders: holders.map((h: any) => ({ fid: String(h.fid), type: h.type || '', since: h.since || '' })),
-    iwave:
-      iw.overall != null || iw.score != null || iw.cap != null || iw.bcap != null
-        ? { score: iw.overall ?? iw.score ?? null, scoreDate: iw.overall_date || iw.score_date || '', capacity: iw.cap ?? iw.bcap ?? null, capacityDate: iw.cap_date || iw.bcap_date || '', band: iw.band || '' }
-        : null,
-    opps,
-  };
+  return { cid, name: name || '(no name)', holders: holders.map((h: any) => ({ fid: String(h.fid), type: h.type || '' })), opps };
 }
 
 const parseArr = (s: unknown): string[] => {
