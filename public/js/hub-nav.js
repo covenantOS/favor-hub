@@ -156,8 +156,8 @@
     const cur = $('.h-area.is-cur');
     if (on && cur && $$('.h-pg', cur).length > 1) remember(cur.dataset.area, on.dataset.navId);
     // the dashboard swaps tabs inside the page: follow its marks
-    if (cur && cur.dataset.area === 'dashboards') {
-      new MutationObserver(() => { const a = $('.h-tab.is-on[data-nav-id]'); if (a) remember('dashboards', a.dataset.navId); }).observe($('#h-tabs') || document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+    if (cur && cur.dataset.area === 'kpi') {
+      new MutationObserver(() => { const a = $('.h-tab.is-on[data-nav-id]'); if (a) remember('kpi', a.dataset.navId); }).observe($('#h-tabs') || document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
     }
   }
 

@@ -4,14 +4,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const src = fs.readFileSync('src/data/areas.ts', 'utf8');
-const mod = await import('data:text/javascript;base64,' + Buffer.from(
-  src.replace(/export type[^\n]*\n/g, '').replace(/export interface [\s\S]*?\n}\n/g, '')
-     .replace(/: Array<\[string, string\]>/g, '').replace(/: Record<string, string>/g, '').replace(/: NavArea\[\]/g, '')
-     .replace(/new Map<string, \{ area: NavArea; page: NavPage \}>\(\)/g, 'new Map()')
-     .replace(/\(navId: string\)/g, '(navId)').replace(/const rows: Array<Record<string, unknown>> = \[\]/g, 'const rows = []')
-).toString('base64'));
-const { AREAS, REDIRECTS, SWAP_PATHS, resolveNav, paletteItems } = mod;
+const { AREAS, REDIRECTS, SWAP_PATHS, resolveNav, paletteItems } = await import('../src/data/areas.ts');
 
 const pages = AREAS.flatMap((a) => a.pages.map((p) => ({ a, p })));
 
@@ -21,7 +14,7 @@ test('page ids are unique', () => {
 });
 
 test('there are six working areas plus Admin, Help and Tools at the foot', () => {
-  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'dashboards', 'reports', 'ask', 'meet']);
+  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'meet', 'ask', 'kpi']);
   assert.deepEqual(AREAS.filter((a) => a.foot).map((a) => a.id), ['admin', 'help', 'tools']);
 });
 

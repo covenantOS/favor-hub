@@ -45,15 +45,17 @@
       document.body.dataset.nav = nav;
       const t = (sel) => { const a = $(sel, doc); const b = $(sel); if (a && b) b.textContent = a.textContent; };
       t('.h-top__crumb'); t('.h-top__title');
-      const oldTabs = document.getElementById('h-tabs');
-      const newTabs = doc.getElementById('h-tabs');
       const newArea = $('.h-area.is-cur', doc);
-      if (oldTabs && newTabs && oldTabs.dataset.area === newTabs.dataset.area) {
+      document.body.dataset.area = doc.body.dataset.area || '';
+      const tile = document.getElementById('h-tile'); const ntile = $('#h-tile', doc);
+      if (tile && ntile) tile.innerHTML = ntile.innerHTML; else if (tile && !ntile) tile.remove();
+      const slot = document.getElementById('h-tabs-slot'); const nslot = $('#h-tabs-slot', doc);
+      const oldTabs = document.getElementById('h-tabs'); const newTabs = doc.getElementById('h-tabs');
+      if (slot && oldTabs && newTabs && oldTabs.dataset.area === newTabs.dataset.area) {
         const onId = (newTabs.querySelector('.h-tab.is-on') || { dataset: {} }).dataset.navId;
         oldTabs.querySelectorAll('.h-tab').forEach((a) => { const on = a.dataset.navId === onId; a.classList.toggle('is-on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
-      } else {
-        if (oldTabs) oldTabs.remove();
-        if (newTabs) oldMain.parentNode.insertBefore(document.importNode(newTabs, true), oldMain);
+      } else if (slot && nslot) {
+        slot.innerHTML = nslot.innerHTML;
       }
       const onPg = $('.h-pg__a.is-on', doc);
       const onId = onPg ? onPg.dataset.navId : null;

@@ -14,6 +14,7 @@ import '../styles/wc-bell.css';
 import '../styles/color.css';
 import '../styles/gifts.css';
 import '../styles/nav.css';
+import '../styles/round2.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -65,7 +66,7 @@ const footAreas = AREAS.filter((a) => a.foot);
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
   </head>
-  <body class="h-body" data-nav={nav}>
+  <body class="h-body" data-nav={nav} data-area={curArea || undefined}>
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="Hub">
@@ -188,10 +189,12 @@ const footAreas = AREAS.filter((a) => a.foot);
       <div class="h-main">
         <header class="h-top">
           <button type="button" class="h-top__menu" id="h-menu" aria-label="Open the menu" aria-controls="h-side" aria-expanded="false"><Fragment set:html={icon('menu')} /></button>
-          <div>
+          {found && <span class="h-tile" id="h-tile" aria-hidden="true"><Fragment set:html={icon(found.area.icon)} /></span>}
+          <div class="h-top__head">
             <div class="h-top__crumb">{crumbText}</div>
-            <div class="h-top__title">{title}</div>
+            <div class="h-top__title">{found ? found.area.label : title}</div>
           </div>
+          <div class="h-top__tabs" id="h-tabs-slot">{found && <NavTabs area={found.area} nav={nav} />}</div>
           <div class="h-top__right">
             <div class="pp-headsearch pv-find" id="pp-headsearch" hidden><label class="pv-find__box"><Fragment set:html={icon('search')} /><input type="search" placeholder="Find a partner" autocomplete="off" aria-label="Find a partner" /><kbd>Ctrl K</kbd></label><ul class="pv-find__list" role="listbox" hidden></ul></div>
             <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
@@ -209,7 +212,6 @@ const footAreas = AREAS.filter((a) => a.foot);
           // The top bar comes after the menu script above, so the saved sections (reminders bell, clips buttons) are applied to it here, before its first paint.
           try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); var sb = document.querySelector('.h-top__search'); if (hb) hb.hidden = false; if (sb) sb.hidden = true; } } catch (e) {}
         </script>
-        {found && <NavTabs area={found.area} nav={nav} />}
         <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
         </main>

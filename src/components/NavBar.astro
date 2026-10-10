@@ -6,7 +6,7 @@ interface Props { curArea: string; }
 const { curArea } = Astro.props;
 const areas = AREAS.filter((a) => !a.foot);
 ---
-<nav class="h-bar" id="h-bar" aria-label="Areas">
+<nav class="h-navbar" id="h-bar" aria-label="Areas">
   {areas.map((a) => (
     <a class={`h-bar__a${a.id === curArea ? ' is-on' : ''}`} href={a.pages[0].href} data-bar={a.id} data-rank={a.barRank} data-area-link={a.id} data-default={a.pages[0].href} data-astro-prefetch="hover" aria-current={a.id === curArea ? 'true' : undefined} hidden={a.pages.every((p) => p.need || p.team) ? true : undefined}>
       <span class="h-bar__i"><Fragment set:html={icon(a.icon)} /><i class="h-bar__n" data-sum={a.id} hidden></i></span>

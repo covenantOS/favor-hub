@@ -49,7 +49,7 @@ import App from '../../layouts/App.astro';
       window.addEventListener('message', (e) => {
         if (e.origin !== KPI || !e.data || e.data.source !== 'kpi-dashboard') return;
         if (e.data.type === 'page') {
-          if (title) title.textContent = e.data.title || 'KPI dashboard';
+          // the header keeps the area name; the tab names the page
           document.title = (e.data.title || 'KPI dashboard') + ' - KPI dashboard - Favor Hub';
           mark(e.data.path);
           const want = e.data.path === '/' ? '/dashboard/' : '/dashboard/?page=' + encodeURIComponent(e.data.path);
