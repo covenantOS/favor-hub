@@ -1,96 +1,68 @@
 ---
-// The Favor Brain: ask it a question right here, connect Claude or ChatGPT, see what this person may
-// ask about and their recent questions. Answers come from the Brain itself (mcp.favorintl.org/hub
-// through /api/brain), so the access rules live in one place. Admin lives at /brain/admin/.
+// The Favor Brain: a full-window chat. Your chats on the left, the conversation in the middle, a side
+// panel for large tables on the right. Answers come from the Brain (mcp.favorintl.org/hub through
+// /api/brain) as blocks, and public/js/brain.js draws each block as a component. The Brain keeps the
+// access rules; this page only says who is asking. Admin lives at /brain/admin/.
 import App from '../../layouts/App.astro';
+import '../../styles/brain.css';
+import { SPRITE } from './_icons';
 
-const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use href="#bci-${n}"/></svg>`;
 ---
-<App title="Favor Brain" crumb="Favor Brain" nav="brain" description="Ask about partners, giving, team numbers, grants and the manuals, here or from Claude or ChatGPT.">
-  <div class="b-page">
-    <header class="b-head">
-      <div class="b-head__text">
-        <span class="h-label">Ask about Favor in plain words</span>
-        <h1>Favor Brain <em class="h-beta h-beta--lg">Beta</em></h1>
-        <p class="h-lede">Ask about partners, giving, every team's numbers, grants, actions and the manuals. Try it here. For the full conversation, connect Claude or ChatGPT below.</p>
-      </div>
-      <div class="b-head__acts">
-        <a class="h-btn h-btn--ghost" href="/help/videos/meet-the-brain/"><Fragment set:html={I('<path d="m10 8 6 4-6 4z"/><circle cx="12" cy="12" r="9"/>')} />Watch the one-minute intro</a>
-        <a class="h-btn h-btn--ghost b-adminlink" id="b-adminlink" href="/brain/admin/" hidden><Fragment set:html={I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')} />Brain admin<span class="b-adminlink__n" id="b-adminlink-n" hidden></span></a>
-      </div>
-    </header>
-
-    <section class="h-card b-chat" id="b-chat" aria-label="Ask a question">
-      <div class="h-card__head">
-        <span class="h-card__title">Ask a question</span>
-        <button type="button" class="b-clear" id="b-clear" hidden>Start over</button>
-      </div>
-      <div class="b-thread" id="b-thread" aria-live="polite">
-        <div class="b-start" id="b-start">
-          <p>Ask the way you would ask a colleague. Lists and tables come with a download, and you can follow up: "show me them", "what about Texas?", "only major partners".</p>
-          <ul class="b-egs" id="b-egs"></ul>
-        </div>
-      </div>
-      <form class="b-compose" id="b-compose">
-        <label class="sr-only" for="b-input">Your question</label>
-        <textarea id="b-input" rows="1" maxlength="600" placeholder="Ask a question in plain words" autocomplete="off"></textarea>
-        <button type="submit" class="h-btn h-btn--primary b-send" id="b-send"><Fragment set:html={I('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>')} />Ask</button>
-      </form>
-      <p class="b-chatfoot"><em class="h-beta">Beta</em> Answers can be off. Press <b>Not right</b> under an answer and your note reaches Will.</p>
-    </section>
-
-    <div class="b-cols">
-      <section class="h-card b-connect" id="connect">
-        <div class="h-card__head"><span class="h-card__title">Use it from Claude or ChatGPT</span>
-          <div class="b-tabs" role="tablist">
-            <button type="button" role="tab" class="b-tab is-on" aria-selected="true" data-tab="claude">Claude</button>
-            <button type="button" role="tab" class="b-tab" aria-selected="false" data-tab="chatgpt">ChatGPT</button>
+<App title="Favor Brain" crumb="Work" nav="brain" bare description="Ask about partners, giving, team numbers, iWave ratings, grants and the manuals, here or from Claude or ChatGPT.">
+  <div class="bc-root">
+    <Fragment set:html={SPRITE} />
+    <div class="bc-app" id="bc-app" data-ready="0">
+      <aside class="bc-rail" id="bc-rail" aria-label="Your chats">
+        <div class="bc-rail__in">
+          <div style="display:flex;gap:6px;align-items:center">
+            <button type="button" class="bc-new" id="bc-new"><Fragment set:html={I('edit')} />New chat<kbd>Ctrl Shift O</kbd></button>
+            <button type="button" class="ib ib--bare" id="bc-rail-x" aria-label="Close your chats" style="display:none"><Fragment set:html={I('close')} /></button>
+          </div>
+          <div class="bc-find"><Fragment set:html={I('search')} /><input id="bc-find" type="search" placeholder="Search your chats" aria-label="Search your chats" autocomplete="off" /></div>
+          <div class="bc-convs" id="bc-convs" role="list"></div>
+          <div class="bc-rail__foot">
+            <div class="bc-grp" style="padding-top:2px">Your sheets</div>
+            <div class="bc-sheets-mini" id="bc-sheets"></div>
+            <button type="button" class="bc-hint" data-act="connect"><Fragment set:html={I('link')} />Ask from Claude or ChatGPT too</button>
           </div>
         </div>
-        <div class="h-card__body">
-          <p class="b-why">Your own AI can compare two lists, combine answers and follow up on anything you ask. Connect it once.</p>
-          <div class="b-addr__row"><code id="b-url">https://mcp.favorintl.org/mcp</code><button type="button" class="h-btn h-btn--primary h-btn--sm" id="b-copy">Copy</button></div>
-          <ol class="b-steps" data-panel="claude">
-            <li>Open <b>claude.ai</b> or the Claude app, then <b>Customize</b> and <b>Connectors</b>.</li>
-            <li>In the Favor organization, <b>Favor</b> is already listed under <b>Yours</b>: press <b>Connect</b>. On your own account, press <b>+ Add</b>, then <b>Add custom connector</b>, name it <b>Favor</b>, paste the address and press <b>Continue</b>.</li>
-            <li>Press <b>Continue with Google</b> and sign in with your Favor Google account.</li>
-            <li>Press <b>Favor</b> in your list and change <b>Read-only tools</b> from <b>Needs approval</b> to <b>Always allow</b>. Favor Brain has its own protections, so we recommend it. Then ask a question.</li>
-          </ol>
-          <ol class="b-steps" data-panel="chatgpt" hidden>
-            <li>This needs ChatGPT Business, Enterprise or Edu, or a Pro plan. On the free and Plus plans, use Claude.</li>
-            <li>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</li>
-            <li>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</li>
-            <li>In a chat, pick <b>Favor</b> from the tools menu.</li>
-          </ol>
-          <p class="b-muted b-plan">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/">Step by step, with pictures</a></p>
+      </aside>
+
+      <section class="bc-pane" aria-label="Chat">
+        <div class="bc-bar">
+          <button type="button" class="ib ib--bare" id="bc-railbtn" aria-label="Show your chats" aria-expanded="true" data-tip="Your chats"><Fragment set:html={I('rail')} /></button>
+          <button type="button" class="ib ib--bare" id="bc-new2" aria-label="New chat" data-tip="New chat"><Fragment set:html={I('edit')} /></button>
+          <button type="button" class="bc-bar__title" id="bc-title" aria-label="Rename this chat">New chat</button>
+          <div class="bc-bar__right">
+            <button type="button" class="ib ib--bare" id="bc-focus" aria-label="Hide the hub menu while chatting" aria-pressed="false" data-tip="Focus"><Fragment set:html={I('focus')} /></button>
+            <button type="button" class="ib ib--bare" id="bc-menu" aria-label="More" aria-haspopup="menu" data-tip="More"><Fragment set:html={I('more')} /><span class="dot" id="bc-menudot" hidden></span></button>
+          </div>
+        </div>
+        <div class="bc-scroll" id="bc-scroll">
+          <div class="bc-col" id="bc-thread" aria-live="polite"></div>
+        </div>
+        <div class="bc-dock">
+          <button type="button" class="h-btn h-btn--ghost h-btn--sm bc-jump" id="bc-jump"><Fragment set:html={I('caret')} />Latest answer</button>
+          <div class="bc-dock__in">
+            <form class="bc-compose" id="bc-compose">
+              <label class="bc-sr" for="bc-input">Ask the Favor Brain</label>
+              <textarea id="bc-input" rows="1" maxlength="600" placeholder="Ask about partners, giving, team numbers, iWave or the manuals" autocomplete="off"></textarea>
+              <button type="submit" class="bc-send" id="bc-send" aria-label="Send" disabled><Fragment set:html={I('send')} /></button>
+            </form>
+            <div class="bc-fine"><i class="h-beta">Beta</i><span class="bc-fine__l">Answers can be off. Press <b>Not right</b> under an answer and your note reaches Will.</span><span class="bc-fine__s">Answers can be off. <b>Not right</b> tells Will.</span></div>
+          </div>
         </div>
       </section>
 
-      <section class="h-card b-access">
-        <div class="h-card__head"><span class="h-card__title">What you can ask about</span><span class="h-card__meta" id="b-role"></span></div>
-        <div class="h-card__body">
-          <ul class="b-pkgs" id="b-pkgs" aria-busy="true"><li class="h-skel" style="height:120px"></li></ul>
-          <form class="b-ask" id="b-ask" hidden>
-            <label class="h-label" for="b-ask-pkg">Ask Will for</label>
-            <select id="b-ask-pkg" name="package"></select>
-            <label class="h-label" for="b-ask-why">Why your work needs it</label>
-            <input id="b-ask-why" name="reason" maxlength="300" placeholder="For example: I call lapsed partners in my region" required />
-            <label class="h-label" for="b-ask-days">For how long</label>
-            <select id="b-ask-days" name="days"><option value="7">A week</option><option value="30" selected>A month</option><option value="90">Three months</option><option value="365">A year</option></select>
-            <div class="b-ask__go"><button type="submit" class="h-btn h-btn--primary">Send the request</button><button type="button" class="h-btn h-btn--ghost" id="b-ask-cancel">Cancel</button></div>
-            <p class="b-msg" id="b-ask-msg" role="status"></p>
-          </form>
-        </div>
-      </section>
+      <aside class="bc-panel" id="bc-panel" aria-label="Side panel"><div class="bc-panel__in" id="bc-panel-in"></div></aside>
     </div>
-
-    <section class="h-card b-recent">
-      <div class="h-card__head"><span class="h-card__title">Your recent questions</span><span class="h-card__meta" id="b-calls"></span></div>
-      <div class="h-card__body">
-        <ul class="b-list b-list--two" id="b-recent"><li class="h-skel" style="height:80px"></li></ul>
-        <button type="button" class="h-more" id="b-more" hidden>Show more</button>
-      </div>
-    </section>
   </div>
-  <script is:inline src="/js/brain.js?v=9" defer></script>
+  <div class="bc-root" id="bc-portal">
+    <div class="scrim" id="bc-scrim"></div>
+    <div class="dlg" id="bc-dlg" role="dialog" aria-modal="true" aria-labelledby="bc-dlg-h"></div>
+    <div class="toast" id="bc-toast" role="status" aria-live="polite"></div>
+  </div>
+  <script is:inline src="/js/brain-blocks.js?v=1"></script>
+  <script is:inline src="/js/brain.js?v=10" defer></script>
 </App>

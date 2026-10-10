@@ -190,20 +190,6 @@ dialog.fb::backdrop { background: rgba(10, 22, 10, 0.42); }
 
 /* ------------------------------------------------------------ Favor brain additions */
 
-.b-kicker { margin: -2px 0 8px; font-size: 13px; font-weight: 700; color: var(--h-brand); }
-.b-beta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 14px 18px; border-color: #f0d9a8; background: linear-gradient(90deg, var(--h-gold-soft), #fff 65%); }
-.b-beta > div { display: grid; gap: 2px; }
-.b-beta b { font-size: 13.5px; }
-.b-beta span { font-size: 12.5px; color: var(--h-ink-2); }
-.b-beta__mark { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--h-gold); color: #2a1e04; }
-.b-recent__end { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex: none; }
-.b-rate { display: inline-flex; gap: 4px; }
-.b-rate__btn { border: 1px solid var(--h-line-2); background: #fff; border-radius: 999px; padding: 3px 10px; font: 700 11.5px 'Inter', sans-serif; color: var(--h-ink-2); cursor: pointer; transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.15s ease; }
-.b-rate__btn:hover { border-color: var(--h-brand); color: var(--h-brand); }
-.b-rate__btn:active { transform: scale(0.95); }
-.b-list .b-told { font-size: 11.5px; font-weight: 700; color: var(--h-brand); }
-@media (max-width: 600px) { .b-beta { grid-template-columns: auto minmax(0, 1fr); } .b-beta .h-btn { grid-column: 1 / -1; justify-self: start; } }
-
 /* ------------------------------------------------------------ Feedback page */
 
 .fbp { display: grid; gap: 16px; max-width: 980px; }

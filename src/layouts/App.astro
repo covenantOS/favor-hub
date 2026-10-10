@@ -17,10 +17,12 @@ interface Props {
   wide?: boolean;
   /** Use the whole width beside the sidebar (boards and long tables), keeping the page padding. */
   full?: boolean;
+  /** The page lays itself out (the Favor Brain chat): no page padding, width limit or h-page rules. */
+  bare?: boolean;
   description?: string;
 }
 
-const { title, crumb = 'Favor Hub', nav = '', wide = false, full = false, description = 'Favor International staff hub.' } = Astro.props;
+const { title, crumb = 'Favor Hub', nav = '', wide = false, full = false, bare = false, description = 'Favor International staff hub.' } = Astro.props;
 
 const ICONS: Record<string, string> = {
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>',
@@ -101,6 +103,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#f4efe0" />
+    <script is:inline src="/js/sheets.js?v=1"></script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
   </head>
@@ -216,7 +219,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             )}
           </div>
         </header>
-        <main id="h-content" tabindex="-1" class={wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
+        <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
         </main>
       </div>

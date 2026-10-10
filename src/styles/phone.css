@@ -36,7 +36,7 @@
 
   /* ---- tap targets inside pages */
   .h-page :is(button, select, input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not(.req-hp), [role='button']) { min-height: 44px; }
-  .h-page :is(a.h-btn, a.h-chip, .h-start, .req-tabs button, .fbp-tabs button, .b-tab, .b-rate__btn) { min-height: 44px; }
+  .h-page :is(a.h-btn, a.h-chip, .h-start, .req-tabs button, .fbp-tabs button, .b-tab) { min-height: 44px; }
   .h-page .h-btn { min-height: 44px; }
   .h-page .ba-back, .h-page .hd-crumbs a, .h-page nav[aria-label='Breadcrumb'] a { display: inline-flex; align-items: center; min-height: 44px; }
   .h-page input[type='checkbox'], .h-page input[type='radio'] { width: 22px; height: 22px; }
@@ -107,8 +107,8 @@
   .h-page input:not([type='checkbox']):not([type='radio']):not([type='file']), .h-page select, .h-page textarea { font-size: 16px; }
 
   /* big display type sized for a phone */
-  .b-head h1, .ba-head h1, .hd-hero h1 { font-size: 30px; }
-  .b-head .h-lede, .hd-hero p { font-size: 15px; }
+  .ba-head h1, .hd-hero h1 { font-size: 30px; }
+  .hd-hero p { font-size: 15px; }
   .ba-stat b { font-size: 26px; }
   .ba-stats { grid-template-columns: 1fr 1fr; gap: 10px; }
 }
