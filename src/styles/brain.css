@@ -632,6 +632,13 @@ body.h-body[data-nav='brain'] .h-app.is-nav::after { z-index: 90; }
    and the meeting room alike. */
 .h-body .bc-root .fcards { container: fcard / inline-size; }
 .h-body .bc-root .fcards .card__s .h-i { width: 13px; height: 13px; vertical-align: -2px; margin-right: 2px; }
+.h-body .bc-root .fmore { border-top: 1px solid var(--h-line); }
+.h-body .bc-root .fmore > summary { display: flex; align-items: center; gap: 4px; padding: 11px 16px; cursor: pointer; list-style: none; color: var(--h-ink-3); font-size: 12.5px; line-height: 1.4; user-select: none; }
+.h-body .bc-root .fmore > summary::-webkit-details-marker { display: none; }
+.h-body .bc-root .fmore > summary:hover { color: var(--h-ink-2); }
+.h-body .bc-root .fmore > summary .h-i { width: 12px; height: 12px; transition: transform .15s ease; }
+.h-body .bc-root .fmore[open] > summary .h-i { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .h-body .bc-root .fmore > summary .h-i { transition: none; } }
 .h-body .bc-root .frow { --ft: var(--h-ink-3); --ft-ink: var(--h-ink-2); display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 14px; row-gap: 10px; align-items: start; padding: 14px 16px; border-top: 1px solid var(--h-line); }
 .h-body .bc-root .frow--doc { --ft: var(--tc-sky); --ft-ink: var(--tc-sky-ink); }
 .h-body .bc-root .frow--sheet { --ft: var(--tc-leaf); --ft-ink: var(--tc-leaf-ink); }

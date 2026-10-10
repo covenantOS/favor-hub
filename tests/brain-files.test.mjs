@@ -101,6 +101,30 @@ describe('Drive file cards', () => {
     assert.match(html, /href="#"/);
   });
 
+  it('keeps the weaker matches behind a quiet N more matches line that opens in place', () => {
+    const more = [file({ id: '2', title: 'Awarded Grants' }), file({ id: '3', title: 'Grant Tracker', kind: 'sheet', kind_label: 'Sheet' })];
+    const html = render({ title: 'I found this file', files: [file({ title: 'Grants Comparison' })], more });
+    assert.match(html, /<details class="fmore"><summary>2 more matches<svg/);
+    assert.equal((html.match(/class="frow /g) || []).length, 3);
+    // The extra rows sit inside the disclosure, after the file that shows at once.
+    const open = html.indexOf('<details class="fmore">');
+    assert.ok(html.indexOf('Grants Comparison') < open);
+    assert.ok(html.indexOf('Awarded Grants') > open && html.indexOf('Grant Tracker') > open);
+    assert.equal((html.match(/Open in Drive/g) || []).length, 3);
+  });
+
+  it('reads one more match in the singular and draws no control when nothing waits', () => {
+    assert.match(render({ title: 't', files: [file()], more: [file({ id: '2' })] }), /<summary>1 more match<svg/);
+    assert.doesNotMatch(render({ title: 't', files: [file()] }), /fmore|more match/);
+    assert.doesNotMatch(render({ title: 't', files: [file()], more: [] }), /fmore|more match/);
+  });
+
+  it('escapes the files behind the control the same way', () => {
+    const html = render({ title: 't', files: [file()], more: [file({ id: '2', title: '<img src=x onerror=alert(1)>', link: 'javascript:alert(1)' })] });
+    assert.doesNotMatch(html, /<img src=x/);
+    assert.match(html, /href="#"/);
+  });
+
   it('draws a card with no files without breaking', () => {
     const html = render({ title: 'I found 0 files', files: [] });
     assert.match(html, /<div class="frows" role="list"><\/div>/);

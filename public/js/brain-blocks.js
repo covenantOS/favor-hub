@@ -488,8 +488,13 @@
       <div class="frow__side"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(f.link))}" target="_blank" rel="noopener" aria-label="Open ${esc(f.title)} in Drive">${ic('ext')}Open in Drive</a>${idx ? `<span class="fidx">Indexed <time datetime="${esc(String(f.indexed).slice(0, 10))}">${esc(idx)}</time></span>` : ''}</div>
       ${ps || hint ? `<div class="frow__b">${ps}${hint}</div>` : ''}</div>`;
   }
+  // The weaker matches wait behind a quiet "N more matches" line. A native disclosure opens them in place, with no script.
   function filesHTML(b) {
-    return `<div class="card fcards"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s">${ic('lock')} Only files your Google account can open</div></div></div><div class="frows" role="list">${(b.files || []).map(fileRowHTML).join('')}</div></div>`;
+    const more = b.more || [];
+    const moreHTML = more.length
+      ? `<details class="fmore"><summary>${more.length} more ${more.length === 1 ? 'match' : 'matches'}${ic('caret')}</summary><div class="frows" role="list">${more.map(fileRowHTML).join('')}</div></details>`
+      : '';
+    return `<div class="card fcards"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s">${ic('lock')} Only files your Google account can open</div></div></div><div class="frows" role="list">${(b.files || []).map(fileRowHTML).join('')}</div>${moreHTML}</div>`;
   }
   const STATUS = { ready: ['wait', 'Ready'], waiting: ['wait', 'Waiting for Will'], sent: ['wait', 'Sent to Will'], approved: ['ok', 'Approved'], running: ['wait', 'Running'], done: ['ok', 'Done'], declined: ['no', 'Declined'], refused: ['no', 'Not done'] };
   function confirmHTML(b, ctx) {
