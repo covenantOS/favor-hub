@@ -26,6 +26,8 @@
     if (!Number.isFinite(n)) return String(v);
     return f === 'money' ? money(n) : f === 'money_short' ? moneyS(n) : f === 'pct' ? n + '%' : f === 'date' ? dlong(v) : int(n);
   };
+  // A link from an answer opens only as a web address or a page on this site.
+  const href = (u) => (/^(https?:\/\/|\/(?!\/))/i.test(String(u || '')) ? String(u) : '#');
   const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   B.esc = esc; B.ic = ic; B.money = money; B.moneyS = moneyS; B.int = int; B.dlong = dlong; B.fmt = fmt;
 
@@ -295,7 +297,7 @@
       <div class="qs">${b.quarters.map((q) => `<div class="q"><span>Q${q.q}</span><b>${q.a ? esc(moneyS(q.a)) : '&mdash;'}</b><span style="font-weight:500;letter-spacing:0">${q.b != null ? esc(moneyS(q.b)) + ' in ' + (yr - 1) : ''}${q.goal ? ' &middot; goal ' + esc(moneyS(q.goal)) : ''}</span><i><em style="width:${((q.a || 0) / qmx) * 100}%"></em></i></div>`).join('')}</div>
       <div class="months" role="list" aria-label="Giving by month">${b.months.map((m, k) => `<button type="button" class="mo" role="listitem" aria-label="${MONTHS[m.m - 1]}: ${m.a == null ? 'not yet' : money(m.a)} in ${yr}, ${m.b == null ? 'none' : money(m.b)} in ${yr - 1}"><i class="a" style="height:${m.a ? Math.max((m.a / mx) * 100, 1.5) : 0}%;animation-delay:${k * 30}ms"></i><i class="b" style="height:${m.b ? (m.b / mx) * 100 : 0}%;animation-delay:${k * 30 + 60}ms"></i><span class="tipbox"><b>${MONTHS[m.m - 1]}${m.partial ? ' so far' : ''}</b><br><s style="background:var(--c-a)"></s>${yr}: ${m.a == null ? 'not yet' : esc(money(m.a))}<br><s style="background:var(--c-b)"></s>${yr - 1}: ${m.b == null ? 'none' : esc(money(m.b))}</span></button>`).join('')}</div>
       <div class="mlabels" style="grid-template-columns:repeat(${b.months.length},minmax(0,1fr))">${b.months.map((m) => `<span>${MONTHS[m.m - 1]}</span>`).join('')}</div>
-      ${link ? `<div style="margin-top:10px"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(link[2])}">${ic('ext')}${esc(link[1])}</a></div>` : ''}
+      ${link ? `<div style="margin-top:10px"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(link[2]))}">${ic('ext')}${esc(link[1])}</a></div>` : ''}
     </div>`;
   }
 
@@ -398,7 +400,7 @@
     const lg = s.last_gift, lc = s.last_contact;
     const acts = (b.actions || [])
       .map((a) => {
-        if (a.href) return `<a class="h-btn h-btn--ghost h-btn--sm" href="${esc(a.href)}" target="_blank" rel="noopener">${ic('ext')}${esc(a.label)}</a>`;
+        if (a.href) return `<a class="h-btn h-btn--ghost h-btn--sm" href="${esc(href(a.href))}" target="_blank" rel="noopener">${ic('ext')}${esc(a.label)}</a>`;
         if (a.sheet) return ctx && ctx.canSheets ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="pexport" data-turn="${ctx.ti}" data-bi="${ctx.bi}">${ic('sheet')}${esc(a.label)}</button>` : '';
         return `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="ask" data-q="${esc(a.ask || a.label)}"${a.id === 'gifts' ? '' : ''}>${ic(a.id === 'refresh' ? 'redo' : 'list')}${esc(a.label)}</button>`;
       })
@@ -426,7 +428,7 @@
   }
   function stepsHTML(b) {
     const src = b.source;
-    const acts = `${b.video ? `<a class="h-btn h-btn--ghost h-btn--xs" href="${esc(b.video.href)}">${ic('play')}Watch the video</a>` : ''}${src && src.href ? `<a class="h-btn h-btn--ghost h-btn--xs" href="${esc(src.href)}" target="_blank" rel="noopener">${ic('ext')}Open in the manual</a>` : ''}`;
+    const acts = `${b.video ? `<a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(b.video.href))}">${ic('play')}Watch the video</a>` : ''}${src && src.href ? `<a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(src.href))}" target="_blank" rel="noopener">${ic('ext')}Open in the manual</a>` : ''}`;
     return `<div class="card"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div>${src ? `<div class="card__s">${ic('book')} ${esc(src.manual)}${src.section ? ' &middot; ' + esc(src.section) : ''}</div>` : ''}</div>${acts ? `<div class="card__acts">${acts}</div>` : ''}</div>
       <div class="steps"><ol>${(b.steps || []).map((s) => `<li><div>${inline(s.md)}${s.hint ? `<small>${esc(s.hint)}</small>` : ''}</div></li>`).join('')}</ol></div></div>`;
   }
@@ -461,7 +463,7 @@
       .join('')}</div>${b.other ? '<button type="button" class="else" data-act="else">Something else</button>' : ''}</div>`;
   }
   function sheetHTML(b) {
-    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} rows in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(b.url)}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
+    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} rows in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
   }
   function consentHTML(b, ctx) {
     return `<div class="card consent" data-extra="consent"><b>Allow Favor to make Google Sheets for you</b><p>Google will ask once. Favor can then create sheets in your own Drive and open only the sheets it made. Only you can open them.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="h-btn h-btn--primary" data-act="consent-go" data-turn="${ctx.ti}" data-bi="${ctx.bi}">Allow</button><button type="button" class="h-btn h-btn--ghost" data-act="consent-no" data-turn="${ctx.ti}" data-bi="${ctx.bi}">No thanks</button></div></div>`;
