@@ -181,7 +181,7 @@ function drawFoot(state, text) {
   const dirty = Object.keys(P.dirty).length || P.recurDirty;
   const foot = $('.ep-foot', P.box);
   if (state) P.state = [state, text];
-  const st = P.state ? statusLine(P.state[0], P.state[1]) : dirty ? statusLine('dirty', 'Not saved yet') : '<span class="ep-state">Every change saves to Blackbaud</span>';
+  const st = P.state ? statusLine(P.state[0], P.state[1]) : dirty ? statusLine('dirty', 'Not saved yet') : '<span class="ep-state"></span>';
   foot.innerHTML = `<div class="ep-foot__more">
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="dup" title="Copy this action to this partner or others">Duplicate</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ep="move" title="Move it to another partner">Move</button>
@@ -302,7 +302,7 @@ async function paneFiles(pane, fresh) {
     <div class="ep-list">${list.length ? list.map((f) => `<div class="ep-file"><span>${wc.ic(f.type === 'Link' ? 'ext' : 'clip')}</span><div><b>${f.url ? `<a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name || f.url)}</a>` : esc(f.name || f.file)}</b><span class="wc-sub">${esc(f.type)}${f.file ? ' · ' + esc(f.file) : ''}${f.date ? ' · ' + wc.fd(f.date, true) : ''}</span></div><button type="button" class="wc-linkbtn ep-del" data-filedel="${esc(f.id)}">Remove</button></div>`).join('') : '<p class="wc-note">No attachments on this action yet.</p>'}</div>
     <form class="ep-add" data-linkform><b class="lab">Attach a link</b><div class="wc-row2"><input type="url" name="url" placeholder="https://" required /><input type="text" name="name" maxlength="150" placeholder="Name (optional)" /></div>
       <div class="ep-add__acts"><button type="submit" class="h-btn h-btn--primary h-btn--sm">Attach link</button></div></form>
-    <form class="ep-add" data-fileform><b class="lab">Attach a file</b><input type="file" name="file" /><small>Up to 10 MB. It is stored on the action in Blackbaud.</small>
+    <form class="ep-add" data-fileform><b class="lab">Attach a file</b><input type="file" name="file" /><small>Up to 10 MB.</small>
       <div class="ep-add__acts"><button type="submit" class="h-btn h-btn--ghost h-btn--sm">Upload</button></div></form>`;
 }
 async function extraChange(params, what, label) {
@@ -366,7 +366,7 @@ function dlgCopy(id, mode) {
   dlg(move ? 'Move to another partner' : 'Duplicate this action', esc(a.p), `
     <div class="wc-field"><span class="lab">${move ? 'Move it to' : 'Copy it to'}</span><div class="ep-people" data-picked></div><div data-find></div></div>
     ${move ? '' : field('Date on the copies <span class="wc-opt">(optional)</span>', `<input type="date" data-cdate />`)}
-    <div class="wc-plan"><span class="wc-note">${move ? 'Blackbaud cannot change an action’s partner, so the hub adds a copy on the new partner first and removes the original only after the copy is in. Notes and attachments stay with the original. Undo puts it back.' : 'Each copy keeps the summary, type, category, fundraisers and description. Undo removes the copies.'}</span></div>`,
+    <div class="wc-plan"><span class="wc-note">${move ? 'Notes and attachments stay with the original.' : 'Copies keep the summary, type, category, fundraisers and description.'}</span></div>`,
     `<button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go disabled>${move ? 'Move it' : 'Make the copies'}</button>`,
     (box) => {
       partnerPicker($('[data-find]', box), { onPick: (h) => { if (move) st.cids = [{ cid: h.cid, name: h.name }]; else if (!st.cids.some((c) => c.cid === h.cid)) st.cids.push({ cid: h.cid, name: h.name }); draw(box); $('[data-find] input', box).value = ''; } });
@@ -424,8 +424,8 @@ function dlgBulk(ids) {
     if (k === 'line') return `<input type="text" data-bv="line" maxlength="200" value="${esc(v)}" placeholder="For example: Moved to Partner Care" />`;
     return `<select data-bv="tag">${((C.tagCategories || []).filter((c) => c.type === 'CodeTableEntry' && !/^NXT /.test(c.name))).map((c) => opt(c.name, c.name, v === c.name)).join('')}</select>`;
   };
-  dlg(`Edit ${wc.plural(ids.length, 'action')}`, 'Tick what to change. Everything else on each action stays as it is.', `<div class="ep-bulk">${BULK.map(([k, l]) => `<label class="ep-bulkrow"><input type="checkbox" data-bon="${k}" /><span>${l}</span><span class="ep-bulkin">${input(k)}</span></label>`).join('')}</div>
-    <div class="wc-plan"><span class="wc-note">An action someone changed in Blackbaud since the list loaded is left alone and counted. Undo from Recent for 24 hours.</span></div>`,
+  dlg(`Edit ${wc.plural(ids.length, 'action')}`, '', `<div class="ep-bulk">${BULK.map(([k, l]) => `<label class="ep-bulkrow"><input type="checkbox" data-bon="${k}" /><span>${l}</span><span class="ep-bulkin">${input(k)}</span></label>`).join('')}</div>
+`,
     `<span class="wc-cost" data-bcost></span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go disabled>Change ${ids.length}</button>`,
     (box) => {
       const sync = () => { const n = Object.values(st.on).filter(Boolean).length; $('[data-go]', box).disabled = !n; $('[data-bcost]', box).textContent = n ? `About ${ids.length * 2 + Math.ceil(ids.length / 15) + 1} Blackbaud calls` : ''; };
@@ -475,7 +475,7 @@ function dlgNew(pre = {}) {
     $('[data-go]', box).textContent = st.cids.length > 1 ? `Add to ${st.cids.length} partners` : 'Add action';
   };
   const C = E.codes || {};
-  box = dlg('New action', 'For a contact already made, or a task to do later.', `
+  box = dlg('New action', '', `
     <div class="wc-field"><span class="lab">Partner</span><div class="ep-people" data-picked></div><div data-find></div></div>
     ${field('What kind', `<div class="wc-choices">${CATS.map(([v, l, i]) => `<button type="button" class="wc-choice" data-ncat="${esc(v)}">${wc.ic(i)}${l}</button>`).join('')}</div>`)}
     ${field('', `<div class="wc-choices"><button type="button" class="wc-choice" data-done="true">Done already</button><button type="button" class="wc-choice" data-done="false">To do</button></div>`)}
@@ -562,7 +562,7 @@ function inline(kind, id, anchor) {
     });
   } else if (kind === 'who') {
     const list = staffList();
-    pop(anchor, `<b class="lab">Who it belongs to</b><input type="search" data-pwq placeholder="Find a person" aria-label="Find a person" /><div class="ep-pop__list ep-pop__people">${list.map((f) => `<button type="button" data-pw="${esc(f)}" class="${c.f.includes(f) ? 'is-on' : ''}">${esc(wc.P(f).n)}<span>${esc(wc.P(f).team || '')}</span></button>`).join('')}</div><small>Click to give it to that person. Shift-click to add them alongside.</small>`, (p) => {
+    pop(anchor, `<b class="lab">Who it belongs to</b><input type="search" data-pwq placeholder="Find a person" aria-label="Find a person" /><div class="ep-pop__list ep-pop__people">${list.map((f) => `<button type="button" data-pw="${esc(f)}" class="${c.f.includes(f) ? 'is-on' : ''}">${esc(wc.P(f).n)}<span>${esc(wc.P(f).team || '')}</span></button>`).join('')}</div><small>Shift-click adds a person alongside.</small>`, (p) => {
       $('[data-pwq]', p).addEventListener('input', (e) => { const q = e.target.value.toLowerCase(); $$('[data-pw]', p).forEach((b) => { b.hidden = !b.textContent.toLowerCase().includes(q); }); });
       p.addEventListener('click', (e) => {
         const b = e.target.closest('[data-pw]'); if (!b) return; closePop();
@@ -599,7 +599,7 @@ function applyCols(idp) {
 function menu(kind, anchor) {
   const wc = W();
   if (kind === 'views') {
-    pop(anchor, `<b class="lab">Saved views</b><div class="ep-pop__list">${E.views.length ? E.views.map((v) => `<div class="ep-viewrow"><button type="button" data-view="${esc(v.id)}">${esc(v.name)}${v.default ? ' <i>opens first</i>' : ''}</button><button type="button" class="ep-x" data-viewdel="${esc(v.id)}" aria-label="Delete ${esc(v.name)}">×</button></div>`).join('') : '<p class="wc-note">None yet. Set the filters, sort and columns you want, then save them here.</p>'}</div>
+    pop(anchor, `<b class="lab">Saved views</b><div class="ep-pop__list">${E.views.length ? E.views.map((v) => `<div class="ep-viewrow"><button type="button" data-view="${esc(v.id)}">${esc(v.name)}${v.default ? ' <i>opens first</i>' : ''}</button><button type="button" class="ep-x" data-viewdel="${esc(v.id)}" aria-label="Delete ${esc(v.name)}">×</button></div>`).join('') : '<p class="wc-note">No saved views.</p>'}</div>
       <form data-viewsave class="ep-viewsave"><input type="text" name="name" maxlength="60" placeholder="Name this view" required /><label class="wc-toggle"><input type="checkbox" name="def" />Open with it</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button></form>`, (p) => {
       p.addEventListener('click', async (e) => {
         const b = e.target.closest('button'); if (!b) return;
@@ -694,7 +694,7 @@ function viewOpps() {
         <div class="ep-orow ep-orow--head" role="row"><span>Opportunity</span><span>Partner</span><span>Status</span><span>Ask</span><span>Expected</span><span>Funded</span><span>Next date</span><span>Fundraisers</span></div>
         ${list.length ? list.slice(0, 400).map((o) => `<button type="button" class="ep-orow${o.inactive ? ' is-inactive' : ''}" role="row" data-opp="${esc(o.id)}"><span><b>${esc(o.name || 'No name')}</b><small>${esc(o.purpose)}</small></span><span>${esc(E.oppNames[o.cid] || 'Partner ' + o.cid)}</span><span><i class="ep-ostatus">${esc(o.status || 'No status')}</i></span><span>${o.ask ? money(o.ask) : ''}</span><span>${o.expected ? money(o.expected) : ''}</span><span>${o.funded ? money(o.funded) : ''}</span><span>${esc(wc.fd(o.deadline || o.expectedDate || o.askDate || ''))}</span><span>${o.fundraisers.map((f) => esc(wc.P(f).n)).join(', ')}</span></button>`).join('') : '<div class="wc-empty"><b>Nothing matches</b>Change a filter.</div>'}
       </div>
-      <div class="wc-foot"><span>${list.length === base.length ? wc.plural(base.length, 'opportunity', 'opportunities') : `${list.length} of ${wc.plural(base.length, 'opportunity', 'opportunities')} match`}${list.length > 400 ? ' · showing the first 400' : ''}</span><span class="wc-note">Opportunities refresh from Blackbaud twice a day; a change made here shows at once.</span></div>
+      <div class="wc-foot"><span>${list.length === base.length ? wc.plural(base.length, 'opportunity', 'opportunities') : `${list.length} of ${wc.plural(base.length, 'opportunity', 'opportunities')} match`}${list.length > 400 ? ' · showing the first 400' : ''}</span></div>
     </section>`;
 }
 function dlgOpp(o, pre = {}) {
@@ -703,7 +703,7 @@ function dlgOpp(o, pre = {}) {
   const isNew = !o;
   const v = o || { name: '', status: 'Planned', purpose: (C.oppPurposes || []).includes('Engagement') ? 'Engagement' : (C.oppPurposes || [''])[0], ask: '', askDate: '', expected: '', expectedDate: '', funded: '', fundedDate: '', deadline: '', fundraisers: E.me.fid ? [E.me.fid] : [], inactive: false, summary: '', cid: pre.cid || '' };
   const st = { cid: v.cid, name: pre.name || E.oppNames[v.cid] || '', fr: v.fundraisers.slice() };
-  const box = dlg(isNew ? 'New opportunity' : v.name, isNew ? 'An ask you are working toward with one partner.' : esc(st.name), `
+  const box = dlg(isNew ? 'New opportunity' : v.name, isNew ? '' : esc(st.name), `
     ${isNew ? `<div class="wc-field"><span class="lab">Partner</span><div class="ep-people" data-picked>${st.cid ? `<span class="ep-person">${esc(st.name)}</span>` : ''}</div>${st.cid ? '' : '<div data-find></div>'}</div>` : ''}
     <div class="wc-field"><label class="lab" for="op-name">Name</label><input type="text" id="op-name" maxlength="255" value="${esc(v.name)}" placeholder="For example: 2026 year-end gift" autofocus /></div>
     <div class="wc-row2">${field('Status', `<select data-o="status">${opt('', 'No status', !v.status)}${(C.oppStatuses || []).map((s) => opt(s, s, v.status === s)).join('')}</select>`)}${field('Purpose', `<select data-o="purpose">${(C.oppPurposes || []).map((s) => opt(s, s, v.purpose === s)).join('')}${v.purpose && !(C.oppPurposes || []).includes(v.purpose) ? opt(v.purpose, v.purpose, true) : ''}</select>`)}</div>
@@ -716,7 +716,7 @@ function dlgOpp(o, pre = {}) {
     `<span class="wc-cost">${isNew ? '' : `<a href="/work/partner/${esc(v.cid)}">Partner page</a>`}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go>${isNew ? 'Add opportunity' : 'Save'}</button>`,
     (b) => {
       if (isNew && !st.cid) partnerPicker($('[data-find]', b), { onPick: (h) => { st.cid = h.cid; st.name = h.name; $('[data-picked]', b).innerHTML = `<span class="ep-person">${esc(h.name)}</span>`; $('[data-find]', b).remove(); $('#op-name', b).focus(); } });
-      if (!isNew) wc.api('/api/work/opps?linked=' + v.id).then((d) => { const host = $('[data-linked]', b); if (host) host.innerHTML = d.actions.length ? `<ul class="ep-linked">${d.actions.map((x) => `<li><button type="button" class="wc-linkbtn" data-openact="${esc(x.id)}">${esc(x.summary || x.type)}</button><span class="wc-sub">${wc.fd(x.date)} · ${esc(x.category)}${x.done ? ' · done' : ' · open'}</span></li>`).join('')}</ul>` : '<p class="wc-note">No actions linked yet. Link one from its edit panel.</p>'; }).catch(() => {});
+      if (!isNew) wc.api('/api/work/opps?linked=' + v.id).then((d) => { const host = $('[data-linked]', b); if (host) host.innerHTML = d.actions.length ? `<ul class="ep-linked">${d.actions.map((x) => `<li><button type="button" class="wc-linkbtn" data-openact="${esc(x.id)}">${esc(x.summary || x.type)}</button><span class="wc-sub">${wc.fd(x.date)} · ${esc(x.category)}${x.done ? ' · done' : ' · open'}</span></li>`).join('')}</ul>` : '<p class="wc-note">No linked actions.</p>'; }).catch(() => {});
       b.addEventListener('change', (e) => { if (e.target.matches('[data-addperson]') && e.target.value) { st.fr.push(e.target.value); $('[data-ofr]', b).innerHTML = peopleChips(st.fr, 'oppfr'); } });
       b.addEventListener('click', async (e) => {
         const t = e.target.closest('button'); if (!t) return;
