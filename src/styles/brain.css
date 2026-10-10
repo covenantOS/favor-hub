@@ -625,3 +625,37 @@ body.h-body[data-nav='brain'] .h-app.is-nav::after { z-index: 90; }
   .h-body .bc-root .bc-app.has-panel.panel-full { --panel: 0px; }
   .h-body .bc-root .bc-app.has-panel.panel-full .bc-panel { grid-column: 1 / -1; position: absolute; inset: 0; width: 100%; z-index: 70; box-shadow: none; animation: bc-slidel .25s var(--ease); }
 }
+
+/* Drive file cards (Brain answer block "files"). The card, tag, button and muted text are the Brain's own; each
+   file type takes a tool color from color.css (doc blue, sheet green, slides gold, PDF terracotta, photo, video
+   and audio violet). The card is its own container, so the layout follows its width in the chat, the side panel
+   and the meeting room alike. */
+.h-body .bc-root .fcards { container: fcard / inline-size; }
+.h-body .bc-root .fcards .card__s .h-i { width: 13px; height: 13px; vertical-align: -2px; margin-right: 2px; }
+.h-body .bc-root .frow { --ft: var(--h-ink-3); --ft-ink: var(--h-ink-2); display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; column-gap: 14px; row-gap: 10px; align-items: start; padding: 14px 16px; border-top: 1px solid var(--h-line); }
+.h-body .bc-root .frow--doc { --ft: var(--tc-sky); --ft-ink: var(--tc-sky-ink); }
+.h-body .bc-root .frow--sheet { --ft: var(--tc-leaf); --ft-ink: var(--tc-leaf-ink); }
+.h-body .bc-root .frow--slides { --ft: var(--tc-sun); --ft-ink: var(--tc-sun-ink); }
+.h-body .bc-root .frow--pdf { --ft: var(--tc-terra); --ft-ink: var(--tc-terra-ink); }
+.h-body .bc-root .frow--image, .h-body .bc-root .frow--video, .h-body .bc-root .frow--audio { --ft: var(--tc-dusk); --ft-ink: var(--tc-dusk-ink); }
+.h-body .bc-root .ftile { width: 44px; height: 44px; border-radius: 13px; display: grid; place-items: center; color: var(--ft-ink); background: linear-gradient(140deg, color-mix(in srgb, var(--ft) 7%, #fff), color-mix(in srgb, var(--ft) 18%, #fff)); }
+.h-body .bc-root .ftile .h-i { width: 21px; height: 21px; }
+.h-body .bc-root .frow__t { min-width: 0; }
+.h-body .bc-root .frow__n { display: block; font: 650 14.5px/1.35 var(--h-font); color: var(--h-ink); overflow-wrap: anywhere; }
+.h-body .bc-root .frow__m { margin-top: 4px; color: var(--h-ink-3); font-size: 12.5px; line-height: 1.7; overflow-wrap: anywhere; }
+.h-body .bc-root .frow__f { margin-top: 1px; color: var(--h-ink-3); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.h-body .bc-root .ftag { background: color-mix(in srgb, var(--ft) 13%, #fff); color: var(--ft-ink); margin-right: 8px; vertical-align: middle; }
+.h-body .bc-root .frow__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.h-body .bc-root .fidx { color: var(--h-ink-3); font-size: 11.5px; white-space: nowrap; }
+.h-body .bc-root .frow__b { grid-column: 2 / -1; display: grid; gap: 8px; justify-items: start; min-width: 0; }
+.h-body .bc-root .fq { justify-self: stretch; margin: 0; padding: 2px 0 2px 12px; border-left: 3px solid var(--h-line-2); color: var(--h-ink-2); font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; }
+.h-body .bc-root .fq em { display: block; font-style: normal; color: var(--h-ink-3); font-size: 12px; margin-top: 3px; }
+.h-body .bc-root .fnum { display: grid; gap: 1px; max-width: 100%; padding: 10px 16px 11px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--ft) 24%, var(--h-line)); background: color-mix(in srgb, var(--ft) 7%, #fff); }
+.h-body .bc-root .fnum b { font: 500 28px/1.1 var(--h-serif); letter-spacing: -.01em; font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
+.h-body .bc-root .fnum span { margin-top: 2px; color: var(--h-ink-2); font-size: 13px; }
+.h-body .bc-root .fnum em { font-style: normal; color: var(--h-ink-3); font-size: 12px; }
+@container fcard (max-width: 520px) {
+  .h-body .bc-root .frow { grid-template-columns: 44px minmax(0, 1fr); }
+  .h-body .bc-root .frow__side { grid-column: 2; flex-direction: row; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+  .h-body .bc-root .frow__b { grid-column: 1 / -1; }
+}

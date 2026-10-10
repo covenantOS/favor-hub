@@ -1,5 +1,5 @@
 /* Favor Brain page: draws each answer block as a component. The Brain sends blocks (text, choice,
-   partner, tiles, team, table, chart, coverage, steps, confirm, note, sheet, consent) and the same
+   partner, tiles, team, table, chart, coverage, steps, confirm, note, sheet, consent, files) and the same
    answer as markdown; a block type this file does not know falls back to that markdown.
    Money is a number in dollars and dates are ISO. public/js/brain.js owns the page and the events. */
 (() => {
@@ -448,6 +448,34 @@
     return `<div class="card"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div>${src ? `<div class="card__s">${ic('book')} ${esc(src.manual)}${src.section ? ' &middot; ' + esc(src.section) : ''}</div>` : ''}</div>${acts ? `<div class="card__acts">${acts}</div>` : ''}</div>
       <div class="steps"><ol>${(b.steps || []).map((s) => `<li><div>${inline(s.md)}${s.hint ? `<small>${esc(s.hint)}</small>` : ''}</div></li>`).join('')}</ol></div></div>`;
   }
+  // ---- Drive file cards: the file, its owner and dates, Open in Drive, then the passage or the number ----
+  // The icon follows the file type; the tool color follows it in brain.css (doc blue, sheet green, slides gold, PDF terracotta, media violet).
+  const FILE_ICON = { doc: 'fdoc', pdf: 'fdoc', office: 'fdoc', text: 'fdoc', sheet: 'fgrid', slides: 'fslides', image: 'fimage', video: 'play', audio: 'volume' };
+  // The day the index last read a file: "Oct 10", with the year when it is not this one.
+  const dshort = (iso) => {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}${+m[1] === new Date().getFullYear() ? '' : ', ' + m[1]}` : '';
+  };
+  function fileRowHTML(f) {
+    const kind = FILE_ICON[f.kind] ? f.kind : 'other';
+    const meta = [f.owner ? esc(f.owner) : '', f.modified ? esc(dlong(f.modified)) : ''].filter(Boolean).join(' &middot; ');
+    const ps = (f.passages || [])
+      .map((p) =>
+        p.cell
+          ? `<div class="fnum"><b>${esc(p.cell.value)}</b><span>${esc(p.cell.header)}</span><em>Sheet ${esc(p.sheet)}, cell ${esc(p.cell.ref)}</em></div>`
+          : `<blockquote class="fq">${esc(p.text)}${p.loc ? `<em>${esc(p.loc)}</em>` : ''}</blockquote>`,
+      )
+      .join('');
+    const hint = f.hint ? '<span class="tag">Matched by picture description</span>' : '';
+    const idx = f.indexed ? dshort(f.indexed) : '';
+    return `<div class="frow frow--${kind}" role="listitem"><span class="ftile">${ic(FILE_ICON[kind] || 'fdoc')}</span>
+      <div class="frow__t"><b class="frow__n">${esc(f.title)}</b><div class="frow__m"><span class="tag ftag">${esc(f.kind_label || 'File')}</span>${meta}</div>${f.folder ? `<div class="frow__f">${esc(f.folder)}</div>` : ''}</div>
+      <div class="frow__side"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(f.link))}" target="_blank" rel="noopener" aria-label="Open ${esc(f.title)} in Drive">${ic('ext')}Open in Drive</a>${idx ? `<span class="fidx">Indexed <time datetime="${esc(String(f.indexed).slice(0, 10))}">${esc(idx)}</time></span>` : ''}</div>
+      ${ps || hint ? `<div class="frow__b">${ps}${hint}</div>` : ''}</div>`;
+  }
+  function filesHTML(b) {
+    return `<div class="card fcards"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s">${ic('lock')} Only files your Google account can open</div></div></div><div class="frows" role="list">${(b.files || []).map(fileRowHTML).join('')}</div></div>`;
+  }
   const STATUS = { ready: ['wait', 'Ready'], waiting: ['wait', 'Waiting for Will'], sent: ['wait', 'Sent to Will'], approved: ['ok', 'Approved'], running: ['wait', 'Running'], done: ['ok', 'Done'], declined: ['no', 'Declined'], refused: ['no', 'Not done'] };
   function confirmHTML(b, ctx) {
     const st = STATUS[b.status] || STATUS.ready;
@@ -508,6 +536,7 @@
       case 'sheet': return sheetHTML(b);
       case 'sources': return sourcesHTML(b);
       case 'consent': return consentHTML(b, ctx);
+      case 'files': return filesHTML(b);
       default: return b && b.md ? `<div class="blk-text">${md(b.md)}</div>` : '';
     }
   };
