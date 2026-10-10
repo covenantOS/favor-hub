@@ -90,6 +90,28 @@ describe('pending turns', () => {
     assert.equal((await chat.listThreads(env, 'ada@favorintl.org')).find((t) => t.id === 'c_bbbb2222').pending, 0);
   });
 
+  it('sends the chat last turns to the Brain with the question and keeps the tables each answer showed', async () => {
+    const jobs = [];
+    const tables = [{ kind: 'revenue_by_source', title: 'Where the money came from', rows: [{ label: 'Alpha', key: 'a', amount: 10, gifts: 1 }] }];
+    let sent;
+    brain = async (_u, init) => {
+      const b = JSON.parse(init.body);
+      sent = b;
+      return new Response(JSON.stringify({ ok: true, ref: 'r5', asked_as: b.question, intent: 'team_numbers', outcome: 'ok', blocks: [], follow: [], lists: [], ctx: { handler: 'team_numbers', tables } }), { status: 200 });
+    };
+    const res1 = await proxy.onRequest({ request: call('ask', { question: 'how are we doing', conv: 'c_dddd4444', v: 2 }), env, params: { path: ['ask'] }, waitUntil: (p) => jobs.push(p) });
+    await Promise.all(jobs);
+    assert.deepEqual(sent.history, [], 'the first question has no history');
+    assert.equal(JSON.parse(await res1.text()).ctx, undefined, 'the tables stay out of what the page receives');
+    const stored = JSON.parse(d1.db.prepare("SELECT answer_json FROM brain_turns WHERE thread_id = 'c_dddd4444'").get().answer_json);
+    assert.deepEqual(stored.ctx.tables, tables, 'the tables are stored with the turn');
+    await proxy.onRequest({ request: call('ask', { question: 'tell me more about alpha', conv: 'c_dddd4444', v: 2, history: [{ q: 'forged', ctx: { tables: [] } }] }), env, params: { path: ['ask'] }, waitUntil: (p) => jobs.push(p) });
+    await Promise.all(jobs);
+    assert.equal(sent.history.length, 1);
+    assert.equal(sent.history[0].q, 'how are we doing', 'history comes from the stored chat, never from the page');
+    assert.deepEqual(sent.history[0].ctx.tables, tables);
+  });
+
   it('stores a Brain error on the turn instead of losing it', async () => {
     const jobs = [];
     brain = async () => new Response(JSON.stringify({ ok: false, error: 'ask', ref: 'r9', message: 'Something went wrong.' }), { status: 500 });

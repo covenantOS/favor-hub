@@ -100,6 +100,30 @@ export async function startTurn(env: Env, email: string, conv: string, question:
   }
 }
 
+/** The chat's last finished turns, oldest first, for the Brain to read a follow-up against: the question as asked, the kind of answer and the tables it showed. */
+export async function recentHistory(env: Env, email: string, conv: string, n = 3): Promise<{ q: string; intent?: string; ctx?: unknown }[]> {
+  try {
+    const rows = (
+      await env.DB.prepare(
+        `SELECT t.question, t.answer_json FROM brain_turns t JOIN brain_threads h ON h.id = t.thread_id WHERE t.thread_id = ? AND h.email = ? AND t.answer_json NOT LIKE '{"pending":1%' ORDER BY t.n DESC LIMIT ?`,
+      )
+        .bind(conv, email, n)
+        .all<{ question: string; answer_json: string }>()
+    ).results || [];
+    return rows.reverse().map((r) => {
+      let a: any = {};
+      try {
+        a = JSON.parse(r.answer_json || '{}');
+      } catch {
+        a = {};
+      }
+      return { q: String(a.asked_as || r.question), intent: typeof a.intent === 'string' ? a.intent : undefined, ctx: a.ctx && typeof a.ctx === 'object' ? a.ctx : undefined };
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Puts the finished answer (or the error) on the pending turn and touches the chat. */
 export async function finishTurn(env: Env, turnId: number, conv: string, answer: unknown, ref: string | null): Promise<void> {
   const now = new Date().toISOString();
