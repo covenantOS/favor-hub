@@ -12,7 +12,8 @@ import { weekStart } from './gifts';
 import { loadCadence, splitLists, STEP_LABEL, RULE_LABEL, STEP_ORDER, type CadenceRow, type StepKey } from './cadence';
 
 const ID = /^\d{1,12}$/;
-const CACHE_KEY = 'cadence:rows';
+// The version is part of the key, so a deploy that changes a row's shape never reads rows built by the one before.
+const CACHE_KEY = 'cadence:rows:v2';
 const MAX_CACHE = 900_000;
 
 export const mayCadence = (s: Ctx['scope']): boolean => !s || s.role === 'admin' || s.role === 'partner_care';
