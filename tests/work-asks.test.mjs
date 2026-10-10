@@ -113,6 +113,27 @@ describe('shapeAsks', () => {
     assert.equal(asks.lineOf('First.\nSecond.', 'S'), 'First.');
     assert.equal(asks.lineOf('', 'TEXTED'), 'TEXTED');
   });
+  it('counts the same amount tagged again within 90 days on the same partner once', () => {
+    const rows = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01'), A('2', '1', 100, '2026-10-01'), A('3', '1', 100, '2027-01-05'), A('4', '2', 100, '2026-09-02')] }), TODAY);
+    assert.equal(rows.length, 3);
+    const one = rows.find((r) => r.id === '1');
+    assert.deepEqual([one.tags, one.date, one.first], [2, '2026-10-01', '2026-09-01']);
+    assert.equal(rows.find((r) => r.id === '3').tags, 1);
+  });
+  it('matches a gift from the first tag of a repeated ask', () => {
+    const [r] = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01'), A('2', '1', 100, '2026-10-01')], gifts: [{ id: 'g', giver: '1', amount: 100, gdate: '2026-09-15', soft: null }] }), TODAY);
+    assert.equal(r.state, 'gave');
+  });
+  it('leaves out actions Blackbaud no longer has', () => {
+    const rows = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01'), A('2', '2', 200, '2026-09-01')], gone: new Set(['1']) }), TODAY);
+    assert.deepEqual(rows.map((r) => r.id), ['2']);
+  });
+  it('flags an ask of $1,000,000 or more and keeps it out of the totals', () => {
+    const rows = asks.shapeAsks(base({ asks: [A('1', '1', 2000000, '2026-09-01'), A('2', '2', 500, '2026-09-01'), A('3', '3', 999999, '2026-09-01')] }), TODAY);
+    assert.equal(rows.find((r) => r.id === '1').review, true);
+    assert.equal(rows.find((r) => r.id === '3').review, false);
+    assert.deepEqual(asks.statsOf(rows, TODAY).stats.open, { n: 2, total: 500 + 999999 });
+  });
   it('totals the board', () => {
     const rows = asks.shapeAsks(base({ asks: [A('1', '1', 100, '2026-09-01'), A('2', '2', 200, '2026-09-01'), A('3', '3', 300, '2026-09-01')], closes: [{ action_id: '2', expected_close: '2026-12-01', set_by: 'x' }, { action_id: '3', expected_close: '2026-10-01', set_by: 'x' }], gifts: [{ id: 'g', giver: '1', amount: 150, gdate: '2026-09-02', soft: null }] }), TODAY);
     const { stats, columns } = asks.statsOf(rows, TODAY);
@@ -121,6 +142,7 @@ describe('shapeAsks', () => {
     assert.deepEqual(stats.past, { n: 1, total: 300 });
     assert.deepEqual(stats.gave, { n: 1, total: 150 });
     assert.deepEqual(columns.open, { n: 0, total: 0 });
+    assert.deepEqual(columns.closing, { n: 1, total: 200 });
   });
 });
 

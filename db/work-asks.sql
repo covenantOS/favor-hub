@@ -7,3 +7,9 @@ CREATE TABLE IF NOT EXISTS act_ask_close (
   set_by_email TEXT NOT NULL,
   set_at TEXT NOT NULL
 );
+
+-- Actions found deleted in Blackbaud (read live, answered 404). The mirror keeps deleted rows, so the board leaves these out.
+CREATE TABLE IF NOT EXISTS act_ask_gone (
+  action_id TEXT PRIMARY KEY,
+  checked_at TEXT NOT NULL
+);

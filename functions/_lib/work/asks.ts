@@ -3,8 +3,12 @@
 // (act_ask_close in the hub database); everything else is read from the D1 copy of Blackbaud. No Blackbaud calls.
 //
 // Match rule (decided 2026-10-10): a gift settles an ask when it is credited to the ask's partner (as the giver or as a soft credit),
-// is dated on or after the day of the ask, and the credited amount is at least the asked amount. One gift settles one ask, the oldest
-// ask it covers. Opportunities are not used: regional directors do not keep them.
+// is dated on or after the day the ask was first tagged, and the credited amount is at least the asked amount. One gift settles one ask,
+// the oldest it covers. Opportunities are not used: regional directors do not keep them.
+//
+// Counting (corrected 2026-10-10 after the first total, $76.3M, looked far too high): one ask is one partner and one amount, so a follow-up
+// action that repeats the amount within 90 days joins the ask. An action Blackbaud no longer has (act_ask_gone) is left out. An ask of
+// $1,000,000 or more is held back from the default board and every total. The board opens on the last 12 months.
 //
 // Mirror rules that shape the SQL: the endpoint refuses any statement whose text contains insert, update, replace, upsert, delete,
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
@@ -17,8 +21,12 @@ import { todayEt, type Ctx } from './service';
 import { addDays } from '../actions/completion';
 import type { Scope } from './role';
 
-/** How far back an ask stays on the board. */
+/** The default window: asks tagged in the last 12 months. The "All time" filter widens it to every ask on record. */
 export const ASK_DAYS = 365;
+/** An ask this size or larger is left out of the default board and totals. The largest gift Favor has received is $1,999,775 and the whole year's giving is about $13M. */
+export const REVIEW_AMOUNT = 1_000_000;
+/** Tags on the same partner for the same amount, each within this many days of the one before, are one ask. */
+export const SAME_ASK_DAYS = 90;
 export const CLOSE_AHEAD_DAYS = 90;
 const ID = /^\d{1,12}$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,6 +50,12 @@ export interface AskRow {
   close: { date: string; by: string } | null;
   state: AskState;
   gave: { amount: number; date: string; giftId: string } | null;
+  /** Actions tagged with this same ask (a follow-up that repeats the amount is not a new ask). */
+  tags: number;
+  /** Day of the first tag. The gift match starts here; `date` is the latest tag. */
+  first: string;
+  /** At or over REVIEW_AMOUNT: kept out of the default board. */
+  review: boolean;
 }
 
 const num = (v: unknown): number => {
@@ -67,7 +81,7 @@ export function lineOf(description: string, summary: string): string {
 }
 
 /** Put every ask in its column. An ask with a zero amount is not an ask. Asks are settled oldest first, and a gift settles one ask. */
-export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: AskClose[] }, today: string): AskRow[] {
+export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: AskClose[]; gone?: Set<string> }, today: string): AskRow[] {
   const closeOf = new Map(raw.closes.map((c) => [String(c.action_id), c]));
   // The credits each gift gives, per partner.
   const credits = new Map<string, { id: string; date: string; amount: number }[]>();
@@ -82,12 +96,28 @@ export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: As
   }
   for (const l of credits.values()) l.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.id < b.id ? -1 : 1));
   const used = new Set<string>();
-  const asks = raw.asks.filter((a) => num(a.amt) > 0 && day(a.d)).slice().sort((a, b) => (day(a.d) < day(b.d) ? -1 : day(a.d) > day(b.d) ? 1 : String(a.id) < String(b.id) ? -1 : 1));
+  const sorted = raw.asks.filter((a) => num(a.amt) > 0 && day(a.d) && !(raw.gone && raw.gone.has(String(a.id)))).slice().sort((a, b) => (day(a.d) < day(b.d) ? -1 : day(a.d) > day(b.d) ? 1 : String(a.id) < String(b.id) ? -1 : 1));
+  // One ask is one partner and one amount. The same amount tagged again within SAME_ASK_DAYS of the last tag joins that ask.
+  type Chain = { a: RawAsk; first: string; last: string; n: number; owners: Set<string> };
+  const chains: Chain[] = [];
+  const open = new Map<string, Chain>();
+  for (const a of sorted) {
+    const k = `${a.cid}|${num(a.amt)}`;
+    const c = open.get(k);
+    const owners = parse<string[]>(a.frs, []).map(String);
+    if (c && daysBetween(c.last, day(a.d)) <= SAME_ASK_DAYS) {
+      c.last = day(a.d); c.n++; c.a = a; owners.forEach((o) => c.owners.add(o));
+    } else {
+      const n: Chain = { a, first: day(a.d), last: day(a.d), n: 1, owners: new Set(owners) };
+      chains.push(n); open.set(k, n);
+    }
+  }
   const out: AskRow[] = [];
-  for (const a of asks) {
-    const date = day(a.d);
+  for (const ch of chains) {
+    const a = { ...ch.a, id: sorted.find((x) => String(x.cid) === String(ch.a.cid) && num(x.amt) === num(ch.a.amt) && day(x.d) === ch.first)!.id };
+    const date = ch.last;
     const amount = num(a.amt);
-    const hit = (credits.get(String(a.cid)) || []).find((g) => g.date >= date && g.amount >= amount && !used.has(`${a.cid}|${g.id}`));
+    const hit = (credits.get(String(a.cid)) || []).find((g) => g.date >= ch.first && g.amount >= amount && !used.has(`${a.cid}|${g.id}`));
     if (hit) used.add(`${a.cid}|${hit.id}`);
     const c = closeOf.get(String(a.id));
     const close = c ? { date: day(c.expected_close), by: c.set_by } : null;
@@ -101,10 +131,13 @@ export function shapeAsks(raw: { asks: RawAsk[]; gifts: RawAskGift[]; closes: As
       date,
       ageDays: Math.max(0, daysBetween(date, today)),
       line: lineOf(a.description, a.summary),
-      owners: parse<string[]>(a.frs, []).map(String),
+      owners: [...ch.owners],
       close,
       state,
       gave: hit ? { amount: hit.amount, date: hit.date, giftId: hit.id } : null,
+      tags: ch.n,
+      first: ch.first,
+      review: amount >= REVIEW_AMOUNT,
     });
   }
   return out;
@@ -116,7 +149,9 @@ export interface AskColumns { open: Tally; closing: Tally; past: Tally; gave: Ta
 
 const sum = (rows: AskRow[], f: (r: AskRow) => number = (r) => r.amount): Tally => ({ n: rows.length, total: rows.reduce((t, r) => t + f(r), 0) });
 
-export function statsOf(rows: AskRow[], today: string): { stats: AskStats; columns: AskColumns } {
+/** Tiles and column totals leave out the asks held for review (REVIEW_AMOUNT and over). */
+export function statsOf(all: AskRow[], today: string): { stats: AskStats; columns: AskColumns } {
+  const rows = all.filter((r) => !r.review);
   const live = rows.filter((r) => r.state !== 'gave');
   const horizon = addDays(today, CLOSE_AHEAD_DAYS);
   const gave = (r: AskRow) => (r.gave ? r.gave.amount : 0);
@@ -163,6 +198,13 @@ const chunkOf = <T>(list: T[], n: number): T[][] => {
   return out;
 };
 
+/** Actions Blackbaud no longer has (read live and answered 404). The mirror keeps deleted rows, so these are left out. */
+export async function loadGone(env: Env): Promise<Set<string>> {
+  if (!env.DB) return new Set();
+  const r = await env.DB.prepare('SELECT action_id FROM act_ask_gone').all<{ action_id: string }>().catch(() => ({ results: [] as { action_id: string }[] }));
+  return new Set(r.results.map((x) => String(x.action_id)));
+}
+
 export async function loadCloses(env: Env): Promise<AskClose[]> {
   if (!env.DB) return [];
   const r = await env.DB.prepare('SELECT action_id, expected_close, set_by FROM act_ask_close').all<AskClose>().catch(() => ({ results: [] as AskClose[] }));
@@ -170,9 +212,10 @@ export async function loadCloses(env: Env): Promise<AskClose[]> {
 }
 
 /** Every ask in the window, with its column. A few mirror reads and one hub read. */
-export async function loadAsks(env: Env, q: Q, today: string): Promise<AskRow[]> {
-  const since = addDays(today, -ASK_DAYS);
-  const asks = await q<RawAsk>(ASKS_SQL, [since]);
+export async function loadAsks(env: Env, q: Q, today: string, allTime = false): Promise<AskRow[]> {
+  const since = allTime ? '2000-01-01' : addDays(today, -ASK_DAYS);
+  // Read a little further back so an ask first tagged just before the window still joins its later tags.
+  const asks = await q<RawAsk>(ASKS_SQL, [allTime ? since : addDays(since, -SAME_ASK_DAYS)]);
   const cids = [...new Set(asks.map((a) => String(a.cid)))];
   const minDate = asks.reduce((m, a) => (day(a.d) < m ? day(a.d) : m), today);
   const parts = await Promise.all(chunkOf(cids, 400).map((c) => q<RawAskGift>(GIVER_GIFTS_SQL, [JSON.stringify(c), minDate])));
@@ -180,7 +223,8 @@ export async function loadAsks(env: Env, q: Q, today: string): Promise<AskRow[]>
   const seen = new Set<string>();
   const gifts: RawAskGift[] = [];
   for (const g of parts.flat().concat(soft)) if (!seen.has(String(g.id))) { seen.add(String(g.id)); gifts.push(g); }
-  return shapeAsks({ asks, gifts, closes: await loadCloses(env) }, today);
+  const [closes, gone] = await Promise.all([loadCloses(env), loadGone(env)]);
+  return shapeAsks({ asks, gifts, closes, gone }, today).filter((r) => r.date >= since);
 }
 
 export interface AsksOut {
@@ -188,6 +232,8 @@ export interface AsksOut {
   today: string;
   synced: string;
   days: number;
+  /** '12m' or 'all': how far back the asks reach. */
+  range: '12m' | 'all';
   owner: string;
   /** Every ask in the person's portfolio, before the director picker narrows it. */
   everyone: number;
@@ -197,16 +243,18 @@ export interface AsksOut {
   columns: AskColumns;
   /** Sum of every ask on the board, for the tie-out against a direct count of the Amount of Ask tags. */
   total: number;
+  /** Asks at or over REVIEW_AMOUNT, left out of every total above. */
+  review: Tally;
 }
 
 const visible = (s: Scope | undefined): Set<string> | null => (!s || s.all ? null : s.fids);
 export const mayAsks = (s: Scope | undefined): boolean => !s || s.role === 'admin' || s.role === 'support' || s.role === 'director';
 
-export async function asksResponse(ctx: Ctx, ownerIn: string): Promise<AsksOut> {
+export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m'): Promise<AsksOut> {
   if (!mayAsks(ctx.scope)) throw new HttpError(403, 'not_yours', 'Asks is for directors and the Support Team.');
   const today = todayEt();
   const q = mirrorQ(ctx.env);
-  const [all, names] = await Promise.all([loadAsks(ctx.env, q, today), q<{ id: string; first: string; last: string }>(FUNDRAISER_NAMES_SQL).catch(() => [])]);
+  const [all, names] = await Promise.all([loadAsks(ctx.env, q, today, rangeIn === 'all'), q<{ id: string; first: string; last: string }>(FUNDRAISER_NAMES_SQL).catch(() => [])]);
   const nameOf: Record<string, string> = {};
   for (const f of names) nameOf[String(f.id)] = `${f.first || ''} ${f.last || ''}`.trim();
   const vis = visible(ctx.scope);
@@ -221,13 +269,15 @@ export async function asksResponse(ctx: Ctx, ownerIn: string): Promise<AsksOut> 
     today,
     synced: await ctx.repo.synced().catch(() => ''),
     days: ASK_DAYS,
+    range: rangeIn === 'all' ? 'all' : '12m',
     owner,
     everyone: mine.length,
     owners: [...count.entries()].map(([id, n]) => ({ id, name: nameOf[id] || `Fundraiser ${id}`, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)),
     rows: rows.map((r) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`) })),
     stats,
     columns,
-    total: rows.reduce((t, r) => t + r.amount, 0),
+    total: rows.filter((r) => !r.review).reduce((t, r) => t + r.amount, 0),
+    review: { n: rows.filter((r) => r.review).length, total: rows.filter((r) => r.review).reduce((t, r) => t + r.amount, 0) },
   };
 }
 

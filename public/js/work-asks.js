@@ -8,7 +8,9 @@ const W = () => window.WC;
 const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-const A = { data: null, loading: false, error: '', owner: '', mode: 'board', q: '', more: {}, started: false, undo: null };
+const A = { data: null, loading: false, error: '', owner: '', mode: 'board', q: '', status: 'open', range: '12m', more: {}, started: false, undo: null };
+const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Over $1M'], ['all', 'All']];
+const COLS_FOR = { open: ['open', 'closing', 'past'], gave: ['gave'], review: ['open', 'closing', 'past', 'gave'], all: ['open', 'closing', 'past', 'gave'] };
 const PAGE = 20;
 const COLS = [['open', 'Asked, no close date'], ['closing', 'Closing'], ['past', 'Past the close date'], ['gave', 'Gave']];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -41,7 +43,8 @@ function quick(t) {
 async function load(owner) {
   A.loading = true; A.error = '';
   try {
-    const d = await W().api('/api/work/asks' + (owner ? '?owner=' + encodeURIComponent(owner) : ''));
+    const qs = [owner ? 'owner=' + encodeURIComponent(owner) : '', A.range === 'all' ? 'range=all' : ''].filter(Boolean).join('&');
+    const d = await W().api('/api/work/asks' + (qs ? '?' + qs : ''));
     A.data = d; A.owner = d.owner || ''; A.more = {};
   } catch (e) { A.error = e.message; }
   A.loading = false;
@@ -55,7 +58,9 @@ async function start() {
 
 const rows = () => (A.data ? A.data.rows : []);
 const match = (r) => !A.q || (r.name + ' ' + r.line + ' ' + r.place).toLowerCase().includes(A.q.toLowerCase());
-const shown = () => rows().filter(match);
+const inStatus = (r) => (A.status === 'open' ? !r.review && r.state !== 'gave' : A.status === 'gave' ? !r.review && r.state === 'gave' : A.status === 'review' ? r.review : true);
+const shown = () => rows().filter((r) => match(r) && inStatus(r));
+const daysFrom = (iso) => Math.max(0, Math.round((Date.parse(today() + 'T12:00:00Z') - Date.parse(iso + 'T12:00:00Z')) / 86400000));
 const count = () => (A.data ? A.data.stats.open.n : '');
 const dot = () => !!A.data && A.data.stats.past.n > 0;
 
@@ -64,7 +69,7 @@ function chip(r) {
   if (r.state === 'gave') return `<span class="wa-gave">Gave ${money(r.gave.amount)} on ${esc(fd(r.gave.date, true))}</span>`;
   return `<button type="button" class="wa-chip${r.state === 'past' ? ' is-past' : !r.close ? ' is-none' : ''}" data-wa-close="${esc(r.id)}" aria-haspopup="dialog" aria-label="Expected close for ${esc(r.name)}: ${esc(label)}">${W().ic('clock')}${esc(label)}</button>`;
 }
-const asked = (r) => `Asked ${fd(r.date, true)}${r.ageDays > 0 ? ' · ' + (r.ageDays === 1 ? '1 day ago' : r.ageDays.toLocaleString('en-US') + ' days ago') : ' · today'}`;
+const asked = (r) => { const n = daysFrom(r.first || r.date); return `Asked ${fd(r.first || r.date, true)}${n > 0 ? ' · ' + (n === 1 ? '1 day ago' : n.toLocaleString('en-US') + ' days ago') : ' · today'}`; };
 const prepBtn = (r) => `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wa-prep="${esc(r.cid)}">${ic('brief')}Prep</button>`;
 const who = (r) => (A.data.owners.length > 1 && !A.owner ? `<span class="wa-who">${esc(r.ownerNames.join(', '))}</span>` : '');
 
@@ -87,11 +92,11 @@ function colRows(k) {
 }
 
 function boardHTML() {
-  const cols = A.data.columns;
-  return `<div class="wa-board">${COLS.map(([k, label]) => {
+  const use = COLS.filter(([k]) => COLS_FOR[A.status].includes(k));
+  return `<div class="wa-board" style="--wa-cols:${use.length}">${use.map(([k, label]) => {
     const l = colRows(k); const cap = PAGE + (A.more[k] || 0);
-    const t = cols[k]; const total = shown().filter((r) => r.state === k).reduce((s, r) => s + (k === 'gave' ? r.gave.amount : r.amount), 0);
-    return `<section class="wa-col" aria-label="${esc(label)}"><h4>${esc(label)} <b>${A.q ? l.length : t.n}</b><em>${short(A.q ? total : t.total)}</em></h4>
+    const total = l.reduce((s, r) => s + (k === 'gave' ? r.gave.amount : r.amount), 0);
+    return `<section class="wa-col" aria-label="${esc(label)}"><h4>${esc(label)} <b>${l.length}</b><em>${short(total)}</em></h4>
       ${l.slice(0, cap).map(card).join('') || '<div class="wa-col__empty">Nothing here</div>'}
       ${l.length > cap ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm wa-more" data-wa-more="${k}">Show ${Math.min(PAGE, l.length - cap)} more of ${l.length - cap}</button>` : ''}</section>`;
   }).join('')}</div>`;
@@ -121,11 +126,13 @@ function view() {
   el.innerHTML = `
     <div class="h-card wc-band wa-band" style="--n:4">${tiles.map(([l, t, warn]) => `<div class="wc-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><span class="wa-tot">${short(t.total)}</span></div>`).join('')}</div>
     <section class="h-card wc-sheet" id="wa-sheet" aria-label="Asks">
+      <div class="wa-filters" role="group" aria-label="Filter">${STATUS.map(([k, l]) => `<button type="button" class="wa-fchip${A.status === k ? ' is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + d.review.n + '</span>' : ''}</button>`).join('')}
+        <select class="wc-sel wa-range${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select></div>
       <div class="wa-tools"><div class="wa-seg" role="group" aria-label="View"><button type="button" class="${A.mode === 'board' ? 'is-on' : ''}" data-wa-mode="board" aria-pressed="${A.mode === 'board'}">Board</button><button type="button" class="${A.mode === 'list' ? 'is-on' : ''}" data-wa-mode="list" aria-pressed="${A.mode === 'list'}">List</button></div>
         <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(A.q)}" autocomplete="off" /></label>${picker}<span class="wa-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Google Sheets</button></div>
-      ${d.rows.length ? (A.mode === 'board' ? boardHTML() : listHTML()) : '<div class="wa-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>'}
-      <div class="wa-foot">${plural(d.rows.length, 'ask')} from actions tagged Amount of Ask in the last ${d.days} days. A gift of the asked amount or more after the ask moves it to Gave.</div>
+      ${shown().length || d.rows.length ? (A.mode === 'board' ? boardHTML() : listHTML()) : '<div class="wa-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>'}
+      <div class="wa-foot">${plural(shown().length, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks of $1,000,000 or more sit under Over $1M. A gift of the asked amount or more after the ask moves it to Gave.</div>
     </section>`;
   registerSheet();
 }
@@ -166,12 +173,13 @@ async function saveClose(id, date) {
 // Move the card to its new column at once and recompute the totals the same way the server does.
 function apply(id, date) {
   const d = A.data; const r = d.rows.find((x) => x.id === id); if (!r) return;
+  const all = d.rows; d.rows = all.filter((x) => !x.review);
   r.close = date ? { date, by: 'you' } : null;
   if (r.state !== 'gave') r.state = !date ? 'open' : date < d.today ? 'past' : 'closing';
   const live = d.rows.filter((x) => x.state !== 'gave'); const horizon = addDay(d.today, 90);
   const sum = (l, f) => ({ n: l.length, total: l.reduce((t, x) => t + (f ? f(x) : x.amount), 0) });
   d.stats = { open: sum(live), soon: sum(live.filter((x) => x.state === 'closing' && x.close.date <= horizon)), past: sum(live.filter((x) => x.state === 'past')), gave: sum(d.rows.filter((x) => x.state === 'gave'), (x) => x.gave.amount) };
-  d.columns = { open: sum(d.rows.filter((x) => x.state === 'open')), closing: sum(d.rows.filter((x) => x.state === 'closing')), past: sum(d.rows.filter((x) => x.state === 'past')), gave: sum(d.rows.filter((x) => x.state === 'gave'), (x) => x.gave.amount) };
+  d.rows = all;
   if (W().S.view === 'asks') W().render();
 }
 function toast(msg, id, previous) {
@@ -204,6 +212,7 @@ document.addEventListener('click', (e) => {
   const b = t.closest('button'); if (!b) return;
   const d = b.dataset;
   if (d.waMode) { A.mode = d.waMode; view(); return; }
+  if (d.waStatus) { A.status = d.waStatus; A.more = {}; view(); return; }
   if (d.waClose) { panel(d.waClose); return; }
   if (d.waMore) { A.more[d.waMore] = (A.more[d.waMore] || 0) + PAGE * (d.waMore === 'list' ? 5 : 1); view(); return; }
   if (d.waPrep) { e.preventDefault(); if (window.FavorPrep) window.FavorPrep.open(d.waPrep); return; }
@@ -211,6 +220,7 @@ document.addEventListener('click', (e) => {
 }, false);
 document.addEventListener('change', async (e) => {
   const t = e.target;
+  if (t.matches && t.matches('[data-wa-range]')) { A.range = t.value; A.data = null; view(); await load(A.owner); view(); W().render(); return; }
   if (t.matches && t.matches('[data-wa-owner]')) { A.data = null; view(); await load(t.value); view(); W().render(); }
 });
 let qT;
