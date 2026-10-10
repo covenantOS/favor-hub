@@ -456,16 +456,22 @@
     const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
     return m ? `${MONTHS[+m[2] - 1]} ${+m[3]}${+m[1] === new Date().getFullYear() ? '' : ', ' + m[1]}` : '';
   };
+  // A sheet cell that holds a number shows large with its column name; a cell that holds words reads as a quote.
+  // A column the sheet never named comes through as "col A", which says nothing, so it is left out.
+  const NUMBERISH = /^[-(]?\$?\d[\d,]*(\.\d+)?\s?(%|[KMB])?\)?$/i;
+  const namedColumn = (h) => (/^col [A-Z]{1,3}$/i.test(String(h || '').trim()) ? '' : String(h || '').trim());
+  function passageHTML(p) {
+    if (!p.cell) return `<blockquote class="fq">${esc(p.text)}${p.loc ? `<em>${esc(p.loc)}</em>` : ''}</blockquote>`;
+    const v = String(p.cell.value == null ? '' : p.cell.value).trim();
+    const col = namedColumn(p.cell.header);
+    const where = `${p.sheet ? `Sheet ${p.sheet}, cell` : 'Cell'} ${p.cell.ref}`;
+    if (NUMBERISH.test(v)) return `<div class="fnum"><b>${esc(v)}</b>${col ? `<span>${esc(col)}</span>` : ''}<em>${esc(where)}</em></div>`;
+    return `<blockquote class="fq">${esc(v)}<em>${col ? esc(col) + ' &middot; ' : ''}${esc(where)}</em></blockquote>`;
+  }
   function fileRowHTML(f) {
     const kind = FILE_ICON[f.kind] ? f.kind : 'other';
     const meta = [f.owner ? esc(f.owner) : '', f.modified ? esc(dlong(f.modified)) : ''].filter(Boolean).join(' &middot; ');
-    const ps = (f.passages || [])
-      .map((p) =>
-        p.cell
-          ? `<div class="fnum"><b>${esc(p.cell.value)}</b><span>${esc(p.cell.header)}</span><em>Sheet ${esc(p.sheet)}, cell ${esc(p.cell.ref)}</em></div>`
-          : `<blockquote class="fq">${esc(p.text)}${p.loc ? `<em>${esc(p.loc)}</em>` : ''}</blockquote>`,
-      )
-      .join('');
+    const ps = (f.passages || []).map(passageHTML).join('');
     const hint = f.hint ? '<span class="tag">Matched by picture description</span>' : '';
     const idx = f.indexed ? dshort(f.indexed) : '';
     return `<div class="frow frow--${kind}" role="listitem"><span class="ftile">${ic(FILE_ICON[kind] || 'fdoc')}</span>
