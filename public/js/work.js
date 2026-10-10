@@ -225,7 +225,7 @@ function rowHTML(a) {
   return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" role="row" tabindex="-1" data-id="${a.id}" aria-selected="${picked}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="Select ${esc(a.p)}, ${esc(a.sum || a.type)}" tabindex="-1" /></div>
     <div class="wc-due"><b>${fd(c.due)}</b><span class="wc-late ${lc ? 'wc-late--' + lc : ''}">${ll}</span></div>
-    <div class="wc-partner"><button type="button" class="wc-plink" data-open="${a.id}">${esc(a.p)}</button><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ' + esc(a.lk) : ''}</span></div>
+    <div class="wc-partner"><button type="button" class="wc-plink" data-open="${a.id}">${esc(a.p)}</button><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ' + esc(a.lk) : ''} · <a class="wc-ppage" href="/work/partner/${esc(a.cid)}">Partner page</a></span></div>
     <div class="wc-type"><b>${esc(a.type)}</b><span class="wc-cat">${ic(CAT_IC[a.cat] || 'task')}${esc(a.cat)}</span></div>
     <div class="wc-what"><b class="${a.sum ? '' : 'is-empty'}" title="${esc(a.desc)}">${esc(a.sum || (a.desc ? a.desc.slice(0, 80) : 'No summary'))}</b>${tags.length ? `<div class="wc-tags">${tags.join('')}</div>` : ''}</div>
     <div class="wc-who">${who}${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
@@ -477,7 +477,7 @@ function drawer(id) {
         ${a.gift ? `<dt>Gift</dt><dd>${money(a.gift.a)} on ${fd(a.gift.d, true)}${a.gift.fund ? ' · ' + esc(a.gift.fund) : ''}</dd>` : ''}
         <dt>Added</dt><dd>${fd(a.add, true)}</dd><dt>Action id</dt><dd>${esc(a.id)}</dd></dl>
       ${later}
-      <div class="wc-chips"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(a.cid)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a>
+      <div class="wc-chips"><a class="h-btn h-btn--primary h-btn--sm" href="/work/partner/${esc(a.cid)}">Partner page</a><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(a.cid)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a>
         <button class="h-btn h-btn--ghost h-btn--sm" data-onlypartner="${esc(a.cid)}">Only this partner's actions</button></div>
       <div class="wc-chips"><button class="h-btn h-btn--primary" data-one="complete" data-id="${a.id}">${ic('check')}Mark complete</button><button class="h-btn h-btn--ghost" data-one="reassign" data-id="${a.id}">Reassign</button><button class="h-btn h-btn--ghost" data-one="reschedule" data-id="${a.id}">Reschedule</button></div>
     </div></aside>`;
@@ -785,8 +785,8 @@ function intakeRowHTML(r) {
   const picked = S.sel.has(r.id);
   let partner;
   const how = { email: 'matched by email', phone: 'matched by phone', name: 'matched by name', name_portfolio: 'name, in ' + esc(first(r.owner)) + '\'s portfolio', picked: 'picked' }[r.how] || 'matched by name';
-  if (r.cid && d) partner = `<b class="wc-pname">${esc(d.n)}</b><span class="wc-match">${esc(d.loc || 'No city on file')} · ${esc(d.lk)} · <i>${how}</i>${locked ? '' : `<span style="white-space:nowrap"> · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button></span>`}</span>`;
-  else if (r.cid) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">Partner ${esc(r.cid)} · <i>${how}</i>${locked ? '' : ` · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button>`}</span>`;
+  if (r.cid && d) partner = `<b class="wc-pname"><a class="wc-ppage wc-ppage--name" href="/work/partner/${esc(r.cid)}">${esc(d.n)}</a></b><span class="wc-match">${esc(d.loc || 'No city on file')} · ${esc(d.lk)} · <i>${how}</i>${locked ? '' : `<span style="white-space:nowrap"> · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button></span>`}</span>`;
+  else if (r.cid) partner = `<b class="wc-pname"><a class="wc-ppage wc-ppage--name" href="/work/partner/${esc(r.cid)}">${esc(r.name)}</a></b><span class="wc-match">Partner ${esc(r.cid)} · <i>${how}</i>${locked ? '' : ` · <button type="button" class="wc-linkbtn" data-unpick="${r.id}">Change</button>`}</span>`;
   else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length === 1 ? 'One record has this name. Is it the partner?' : r.cands.length + ' records match. Pick one:'}</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
   else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>`;
   const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'sheet' ? 'Tracking sheet' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
@@ -1038,7 +1038,7 @@ function viewTy() {
     const btn = S.ty.lane === 's' ? 'Close' : S.ty.lane === 'l' ? 'That was it' : 'Thanked';
     return `<div class="wc-row${picked ? ' is-picked' : ''}${saving ? ' is-saving' : ''}" role="row" tabindex="-1" data-id="${g.key}" aria-selected="${picked}">
       <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${saving ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(a.p)}" /></div>
-      <div class="wc-partner"><button type="button" class="wc-plink" data-open="${a.id}">${esc(a.p)}</button><span class="wc-sub">${esc(a.loc || 'No city on file')} · ${cur(a).f.map((x) => esc(P(x).n)).join(', ')}</span></div>
+      <div class="wc-partner"><button type="button" class="wc-plink" data-open="${a.id}">${esc(a.p)}</button><span class="wc-sub">${esc(a.loc || 'No city on file')} · ${cur(a).f.map((x) => esc(P(x).n)).join(', ')} · <a class="wc-ppage" href="/work/partner/${esc(a.cid)}">Partner page</a></span></div>
       <div class="wc-what wc-task"><b>${esc(a.sum || a.type)}</b><div class="wc-tags">${a.gift ? `<span class="wc-tag wc-tag--gift">${money(a.gift.a)} on ${fd(a.gift.d)}${a.gift.fund ? ' · ' + esc(a.gift.fund) : ''}</span>` : '<span class="wc-tag">Gift not named in the task</span>'}${g.ids.length > 1 ? `<span class="wc-tag" title="Blackbaud holds ${g.ids.length} open tasks for this one gift. Closing the row closes all of them.">${g.ids.length} tasks, one gift</span>` : ''}${saving ? '<span class="wc-tag wc-tag--saving">Saving</span>' : ''}${failed ? '<span class="wc-tag wc-tag--warn">Did not go through. Try again.</span>' : ''}</div></div>
       <div class="wc-evid">${evid}</div>
       <div class="wc-rowbtn"><button class="h-btn h-btn--ghost h-btn--sm" ${S.ty.lane === 'o' ? 'data-tydone' : 'data-tyclose'}="${g.key}">${btn}</button></div></div>`;

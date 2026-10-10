@@ -255,6 +255,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'partner-page',
+    page: '/work/partner/',
+    via: 'work',
+    at: '#pv-search',
+    title: 'Find any partner',
+    body: 'Type a name, an email, a phone number, a street address or a lookup id. The partner page shows contact details, giving by year, the largest and last gift, recurring gifts, open actions, notes, who holds the partner and the iWave rating. Every partner name in the Work Center opens it, and so does the search at the top of every page.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'clips',
     page: '/clips/',
     via: 'clips',
