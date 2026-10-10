@@ -217,6 +217,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'work-center',
+    page: '/work/',
+    via: 'work',
+    at: '#wc-board',
+    title: 'Finish many actions at once',
+    body: 'Pick a fundraiser, tick the actions you want or press Shift and click for a range, then press Mark complete. One date and one shared line go on all of them, and every batch can be undone from Recent for 24 hours.',
+    for: (w) => w.admin,
+    added: '2026-10-09',
+    side: 'top',
+  },
+  {
     id: 'feedback',
     at: '#h-fb',
     title: 'Tell us what you think',

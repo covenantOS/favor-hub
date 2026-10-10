@@ -39,6 +39,17 @@ This board is not Asana and not for marketing projects. Marketing Request still 
 
 Schema: `db/foundations.sql`. The first load came from the 160 contacts on Unsolicited Foundations on 2026-10-05; that seed holds real notes and is kept out of the repository.
 
+## Work Center
+
+`/work/` recreates Blackbaud's Work Center for the Support Team with bulk select and bulk mark complete. Admins only until `act_settings.release` is `support`; then the people on `act_staff` get in. Blackbaud stays the database.
+
+- Reads come from the D1 mirror through the sync worker's `/d1/query`. Writes go through favorintl.org's `/api/blackbaud/ops` route, with each call recorded in `act_outbox` and counted in `act_meter` against the upkeep cap (Work Center is held to 2,400 of the 3,000 a day; a batch that would pass it queues for after 8:00 PM ET and `/api/work/drain` sends it).
+- A change the hub wrote stays visible as pending until the mirror catches up, so a just-finished action never reappears.
+- An action is open only when its completed flag is false (`openActionSql` in `functions/_lib/hub/actions.ts`).
+- Tags: if the upkeep route refuses an action tag, the tag waits in the outbox as pending and the action itself still saves.
+- Schema: `db/work.sql` (`act_` tables). Engine: `functions/_lib/actions/` (pure functions, tests in `tests/actions/`). Routes: `functions/api/work/`.
+- Test data in this repository is made up. Partner names and real addresses stay out of it.
+
 ## Deploy
 
 Pushes to `main` should deploy once GitHub is connected. Until then:
