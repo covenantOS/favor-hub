@@ -24,6 +24,7 @@ const sub = (m) => {
   bits.push(m.rec === 'video' ? 'notes on, video recording on' : m.rec === 'notes' ? 'notes on' : 'not recorded');
   return bits.join(', ');
 };
+const mine = (m) => (m.mine && m.startsAt && m.status === 'scheduled' ? `${m.repeat && m.repeat !== 'none' ? '' : `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/book/?edit=${m.id}">Move</a>`}<button class="h-btn h-btn--ghost h-btn--sm" data-cancel="${m.id}">Cancel</button>` : '');
 const row = (m) => {
   const when = m.startsAt || m.createdAt;
   const live = m.status === 'live';
@@ -31,7 +32,7 @@ const row = (m) => {
   return `<div class="mt-row${live ? ' is-now' : ''}"><div class="t"><b>${m.startsAt ? fmtTime(when) : 'Now'}</b><span>${m.endsAt ? 'to ' + fmtTime(m.endsAt) : 'open room'}</span></div>
     <div class="w"><b>${esc(m.title)}</b><span>${esc(sub(m))}</span></div>
     <div class="mt-avs">${names.slice(0, 4).map((n) => av(n)).join('')}</div>
-    <div><a class="h-btn ${live || !m.startsAt ? 'h-btn--primary' : 'h-btn--ghost'} h-btn--sm" href="/meet/room/?m=${m.id}">${live || !m.startsAt ? ic('video') + 'Join' : 'Open'}</a></div></div>`;
+    <div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><a class="h-btn ${live || !m.startsAt ? 'h-btn--primary' : 'h-btn--ghost'} h-btn--sm" href="/meet/room/?m=${m.id}">${live || !m.startsAt ? ic('video') + 'Join' : 'Open'}</a>${mine(m)}</div></div>`;
 };
 
 function draw(up, notes, who) {
@@ -45,7 +46,7 @@ function draw(up, notes, who) {
   <div class="mt-grid"><div class="mt-stack">
     <section class="h-card" style="overflow:hidden"><div class="mt-card" style="padding-bottom:6px"><div class="h-label">Today, ${now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div></div>
       ${todayList.length ? todayList.map(row).join('') : `<div class="mt-card"><p class="mt-sub" style="margin:0">Nothing booked for today. Start a meeting now, or book one.</p></div>`}</section>
-    ${later.length ? `<section class="h-card" style="overflow:hidden"><div class="mt-card" style="padding-bottom:6px"><div class="h-label">Later</div></div>${later.map((m) => `<div class="mt-row"><div class="t"><b style="font-size:14px;font-family:var(--h-font);font-weight:600">${fmtDay(m.startsAt)}</b><span>${fmtTime(m.startsAt)}</span></div><div class="w"><b>${esc(m.title)}</b><span>${esc(sub(m))}</span></div><div></div><div><a class="h-btn h-btn--ghost h-btn--sm" href="/meet/room/?m=${m.id}">Open</a></div></div>`).join('')}</section>` : ''}
+    ${later.length ? `<section class="h-card" style="overflow:hidden"><div class="mt-card" style="padding-bottom:6px"><div class="h-label">Later</div></div>${later.map((m) => `<div class="mt-row"><div class="t"><b style="font-size:14px;font-family:var(--h-font);font-weight:600">${fmtDay(m.startsAt)}</b><span>${fmtTime(m.startsAt)}</span></div><div class="w"><b>${esc(m.title)}</b><span>${esc(sub(m))}</span></div><div></div><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap"><a class="h-btn h-btn--ghost h-btn--sm" href="/meet/room/?m=${m.id}">Open</a>${mine(m)}</div></div>`).join('')}</section>` : ''}
   </div><div class="mt-stack">
     <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Latest notes</div>
       ${notes.slice(0, 3).map((m) => `<a class="libc h-card" style="box-shadow:none;margin-bottom:10px;text-decoration:none" href="/meet/notes/?m=${m.id}"><h4>${esc(m.title)}</h4><p>${esc(clip(m.summary, 150))}</p><div class="ft"><span>${m.endedAt ? fmtDay(m.endedAt) : ''}</span></div></a>`).join('') || `<p class="mt-sub" style="margin:0 0 10px">Notes show up here after a meeting that records.</p>`}
@@ -55,6 +56,7 @@ function draw(up, notes, who) {
       <button class="h-btn h-btn--ghost h-btn--sm" id="mt-now2">${ic('video')}Start a meeting now</button></section>
   </div></div>`;
   for (const b of [$('#mt-now'), $('#mt-now2')]) b && b.addEventListener('click', startNow);
+  root.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', async () => { if (!confirm('Cancel this meeting? Everyone invited gets a cancellation from Google Calendar.')) return; try { await api('meetings/' + b.dataset.cancel + '/update', { method: 'POST', body: { status: 'cancelled' } }); toast('Cancelled'); load(); } catch (e) { toast(e.message); } }));
 }
 
 async function startNow() {

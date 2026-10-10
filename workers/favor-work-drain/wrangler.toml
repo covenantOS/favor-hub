@@ -15,4 +15,5 @@ HUB_URL = "https://dash.favorintl.org"
 # Every 10 minutes from 6 AM to 2 PM Eastern (10:00 to 18:50 UTC): gift entry notices an approved batch and copies the photos.
 # Every 10 minutes on weekdays from 11:00 to 14:50 UTC (7 AM to 10:50 AM Eastern in summer, 6 AM to 9:50 AM in winter): the morning email.
 # The hub checks the Eastern clock itself, so the daylight saving switch needs no change here.
-crons = ["*/15 0-7 * * *", "10 * * * *", "*/10 10-18 * * *", "*/10 11-14 * * 1-5"]
+# Every 5 minutes: meeting reminder emails (a day before and 15 minutes before), repeating meetings kept four ahead, and any finished meeting whose recording or notes are still waiting.
+crons = ["*/15 0-7 * * *", "10 * * * *", "*/10 10-18 * * *", "*/10 11-14 * * 1-5", "*/5 * * * *"]

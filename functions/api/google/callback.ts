@@ -17,11 +17,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const nextPath = decodeURIComponent(parts[1] || '%2F');
   const safeNext = /^\/(?![\/])/.test(nextPath) ? nextPath : '/';
   const flow = parts[2] || '';
-  const sheets = flow.startsWith('sheets');
+  const kind = flow.startsWith('meetings') ? 'meetings' : flow.startsWith('sheets') ? 'sheets' : '';
+  const sheets = !!kind;
   const back = (note: string) => {
     const h = new Headers({ 'Cache-Control': 'no-store' });
     h.append('Set-Cookie', 'hub_gstate=; Path=/api/google; Max-Age=0');
-    if (note === 'connected' || note === 'sheets') {
+    if (note === 'connected' || note === 'sheets' || note === 'meetings') {
       h.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
       h.set('Location', safeNext + (safeNext.includes('?') ? '&' : '?') + 'google=' + note);
     } else h.set('Location', '/connect/?google=' + note);
@@ -41,7 +42,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // Google already holds this grant, so it showed no screen and sent no refresh token: ask once more with the screen.
       if (sheets && !flow.includes('force')) {
         const again = new URL('/api/google/connect', url);
-        again.searchParams.set('add', 'sheets');
+        again.searchParams.set('add', kind);
         again.searchParams.set('force', '1');
         again.searchParams.set('next', safeNext);
         return new Response(null, { status: 302, headers: { Location: again.toString(), 'Cache-Control': 'no-store' } });
@@ -54,7 +55,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     )
       .bind(user.email, await seal(env, t.refresh_token), t.scope || '', new Date().toISOString())
       .run();
-    return back(sheets ? 'sheets' : 'connected');
+    return back(kind || 'connected');
   } catch {
     return back('failed');
   }

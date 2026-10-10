@@ -13,6 +13,11 @@ export const SCOPES = [
 ];
 /** Create and open only the files this app made (the hub's Google Sheets). Asked for on the first export. */
 export const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
+/** Booking a meeting: read everyone's free and busy times, and put the meeting on the booker's own calendar with the guests invited. Asked for on the first booking. */
+export const CAL_FREEBUSY = 'https://www.googleapis.com/auth/calendar.freebusy';
+export const CAL_EVENTS = 'https://www.googleapis.com/auth/calendar.events';
+export const MEET_SCOPES = [CAL_FREEBUSY, CAL_EVENTS];
+export const hasScopes = (granted: string, want: string[]) => want.every((w) => String(granted || '').split(/\s+/).includes(w));
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const tokenUrl = (env: Env) => env.GOOGLE_TOKEN_URL || TOKEN_URL;
 const CLIENT_ID = '538890082341-5ka1icfropum9nl9csq8adaiusbuesea.apps.googleusercontent.com';

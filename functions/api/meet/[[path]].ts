@@ -11,6 +11,7 @@
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
 import { errorJson, handleError, json, nowIso, HttpError } from '../../_lib/http';
 import { makeNotes, pumpDrive, pumpTranscript, type NotesOut } from '../../_lib/meetdrive';
+import { createEvent, deleteEvent, freeBusy, mayBook, patchEvent, sendReminder, TZ } from '../../_lib/meetcal';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, hex, iceServers, isHost, mayJoin, meetUser, sfuCall,
   type Meeting, type MeetEnv, type Presence,
@@ -26,9 +27,13 @@ export const onRequest: PagesFunction<MeetEnv> = async ({ request, env, params }
     if (parts[0] !== 'meetings') return errorJson('not_found', 'Not found.', 404);
 
     if (parts[1] === 'pump' && m === 'POST') return json(await pumpNext(env, user));
+    if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
+    if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)) });
+    if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
+    if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') return json(await remind(env, new URL(request.url).origin));
     if (parts.length === 1) {
       if (m === 'GET') return json(await listMeetings(env, user, new URL(request.url).searchParams.get('scope') || 'upcoming'));
-      if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => ({}))));
+      if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     }
     const id = parts[1];
     if (!ID_RE.test(id)) return errorJson('not_found', 'That meeting does not exist.', 404);
@@ -80,7 +85,7 @@ function publicMeeting(m: Meeting, user: { email: string }) {
   return {
     id: m.id, title: m.title, agenda: m.agenda, hostEmail: m.host_email, hostName: m.host_name, startsAt: m.starts_at, endsAt: m.ends_at,
     durationMin: m.duration_min, rec: m.rec_mode, access: m.access, status: m.status, locked: !!m.locked, spot: m.spot_pid,
-    sharePolicy: m.share_policy, backupLink: m.backup_link, invitees: safeJson(m.invitees, []), mine: isHost(m, user.email),
+    sharePolicy: m.share_policy, repeat: m.repeat, backupLink: m.backup_link, invitees: safeJson(m.invitees, []), mine: isHost(m, user.email),
     recState: m.rec_state, driveFileId: m.drive_file_id, notesStatus: m.notes_status, summary: m.summary, createdAt: m.created_at,
     startedAt: m.started_at, endedAt: m.ended_at,
   };
@@ -120,7 +125,7 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
   return { ok: true, meetings: (rows.results || []).map((r) => ({ ...publicMeeting(r, user), inRoom: inRoom.get(r.id) || 0 })) };
 }
 
-async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown>) {
+async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown>, origin = '') {
   const title = clean(b.title, 140) || 'Meeting';
   const id = hex(12);
   const startsAt = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) ? new Date(b.startsAt).toISOString() : null;
@@ -130,13 +135,32 @@ async function createMeeting(env: MeetEnv, user: { email: string; name: string }
   const invitees = Array.isArray(b.invitees)
     ? (b.invitees as Array<Record<string, unknown>>).slice(0, 200).map((i) => ({ email: clean(i.email, 200).toLowerCase(), name: clean(i.name, 120), team: clean(i.team, 80), guest: !!i.guest })).filter((i) => i.email)
     : [];
-  await env.DB.prepare(
-    `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?)`
-  )
-    .bind(id, title, clean(b.agenda, 2000), user.email.toLowerCase(), user.name, startsAt, startsAt ? new Date(Date.parse(startsAt) + dur * 60000).toISOString() : null, dur, rec, access, JSON.stringify(invitees), nowIso())
-    .run();
-  return { ok: true, meeting: publicMeeting(await getMeeting(env, id), user) };
+  const repeat = ['weekly', 'biweekly', 'monthly'].includes(String(b.repeat)) ? String(b.repeat) : 'none';
+  const endsAt = startsAt ? new Date(Date.parse(startsAt) + dur * 60000).toISOString() : null;
+  // A booked meeting goes on the booker's Google Calendar first, so a refusal from Google leaves nothing half made.
+  let eventId = '';
+  let backup = '';
+  const remind = b.remind === false ? 0 : 1;
+  if (startsAt && b.calendar !== false) {
+    const ev = await createEvent(env, user.email, {
+      title, agenda: clean(b.agenda, 2000), roomUrl: `${origin}/meet/room/?m=${id}`, startsAt, endsAt: endsAt as string,
+      attendees: invitees.map((i) => i.email).filter((e) => e !== user.email.toLowerCase()), recording: rec, backupMeet: b.backup !== false, repeat,
+    });
+    eventId = ev.id;
+    backup = ev.meetLink;
+  }
+  const insert = (rid: string, at: string | null, until: string | null) =>
+    env.DB.prepare(
+      `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?)`
+    ).bind(rid, title, clean(b.agenda, 2000), user.email.toLowerCase(), user.name, at, until, dur, rec, access, JSON.stringify(invitees), nowIso(), repeat, repeat === 'none' ? '' : id, eventId, backup, remind);
+  const rows = [insert(id, startsAt, endsAt)];
+  if (startsAt && repeat !== 'none') {
+    // The next few occurrences get their own rooms now; the reminder pass adds more as they come close.
+    for (const at of occurrences(startsAt, repeat, 9).slice(1)) rows.push(insert(hex(12), at, new Date(Date.parse(at) + dur * 60000).toISOString()));
+  }
+  await env.DB.batch(rows);
+  return { ok: true, meeting: publicMeeting(await getMeeting(env, id), user), calendar: !!eventId };
 }
 
 async function updateMeeting(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {
@@ -148,7 +172,25 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
   if (typeof b.agenda === 'string') { sets.push('agenda = ?'); vals.push(clean(b.agenda, 2000)); }
   if (['off', 'notes', 'video'].includes(String(b.rec))) { sets.push('rec_mode = ?'); vals.push(String(b.rec)); }
   if (['invited', 'staff', 'guests'].includes(String(b.access))) { sets.push('access = ?'); vals.push(String(b.access)); }
-  if (b.status === 'cancelled') { sets.push(`status = 'cancelled'`); }
+  if (b.status === 'cancelled') {
+    sets.push(`status = 'cancelled'`);
+    if (mt.calendar_event_id) {
+      try {
+        if (mt.series_id) {
+          await deleteEvent(env, mt.host_email, mt.calendar_event_id);
+          await env.DB.prepare(`UPDATE hub_meetings SET status = 'cancelled' WHERE series_id = ? AND status = 'scheduled' AND starts_at >= ?`).bind(mt.series_id, mt.starts_at || nowIso()).run();
+        } else await deleteEvent(env, mt.host_email, mt.calendar_event_id);
+      } catch (e) { if (user.email.toLowerCase() === mt.host_email.toLowerCase()) throw e; }
+    }
+  }
+  if (typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) && mt.starts_at) {
+    const s0 = new Date(b.startsAt).toISOString();
+    const e0 = new Date(Date.parse(s0) + mt.duration_min * 60000).toISOString();
+    if (mt.series_id) throw new HttpError(400, 'series', 'A repeating meeting changes from Google Calendar, or cancel it and book it again.');
+    if (mt.calendar_event_id) await patchEvent(env, mt.host_email, mt.calendar_event_id, { startsAt: s0, endsAt: e0 });
+    sets.push('starts_at = ?', 'ends_at = ?');
+    vals.push(s0, e0);
+  }
   if (!sets.length) return { ok: true };
   await env.DB.prepare(`UPDATE hub_meetings SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, id).run();
   return { ok: true };
@@ -526,4 +568,81 @@ async function pumpNext(env: MeetEnv, user: { email: string; role: string }) {
   ).bind(me, user.role, me).first<{ id: string }>();
   if (!row) return { ok: true, done: true, state: 'idle', progress: '' };
   return { ...(await pump(env, user, row.id)), id: row.id };
+}
+
+// ---------------------------------------------------------------- directory, repeats and reminders
+
+async function directory(env: MeetEnv) {
+  const rows = await env.DB.prepare(
+    `SELECT email, name, title, team FROM meet_directory WHERE active = 1
+     UNION SELECT lower(email), name, '' AS title, 'Other staff' AS team FROM hub_users WHERE blocked = 0 AND lower(email) NOT IN (SELECT email FROM meet_directory)
+     ORDER BY name`
+  ).all<{ email: string; name: string; title: string; team: string }>();
+  return { ok: true, people: rows.results || [] };
+}
+
+/** Start times of a repeating meeting, Eastern wall clock kept the same across daylight saving. */
+function occurrences(first: string, repeat: string, n: number): string[] {
+  const parts = (iso: string) => {
+    const f = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso));
+    const g = (t: string) => Number(f.find((x) => x.type === t)?.value);
+    return { y: g('year'), mo: g('month'), d: g('day'), h: g('hour'), mi: g('minute') };
+  };
+  const base = parts(first);
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(Date.UTC(base.y, base.mo - 1, base.d, 12));
+    if (repeat === 'monthly') d.setUTCMonth(d.getUTCMonth() + i);
+    else d.setUTCDate(d.getUTCDate() + i * (repeat === 'biweekly' ? 14 : 7));
+    // Find the instant whose Eastern wall clock is that date and time.
+    const guess = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), base.h, base.mi);
+    let t = guess;
+    for (let k = 0; k < 3; k++) {
+      const p = parts(new Date(t).toISOString());
+      const want = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), base.h, base.mi);
+      const got = Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi);
+      t += want - got;
+    }
+    out.push(new Date(t).toISOString());
+  }
+  return out;
+}
+
+/** Called every few minutes by the cron worker: reminder emails a day before and 15 minutes before, and more occurrences of repeating meetings. */
+async function remind(env: MeetEnv, origin: string) {
+  const now = Date.now();
+  let sent = 0;
+  const windows: Array<{ kind: 'day' | 'soon'; from: number; to: number }> = [
+    { kind: 'day', from: now + 23.9 * 3600_000, to: now + 24.1 * 3600_000 },
+    { kind: 'soon', from: now + 10 * 60_000, to: now + 16 * 60_000 },
+  ];
+  for (const w of windows) {
+    const rows = await env.DB.prepare(`SELECT * FROM hub_meetings WHERE status = 'scheduled' AND remind = 1 AND starts_at BETWEEN ? AND ?`).bind(new Date(w.from).toISOString(), new Date(w.to).toISOString()).all<Meeting>();
+    for (const mt of rows.results || []) {
+      const done = await env.DB.prepare('SELECT 1 AS ok FROM hub_meeting_reminders WHERE meeting_id = ? AND kind = ?').bind(mt.id, w.kind).first();
+      if (done) continue;
+      await env.DB.prepare('INSERT OR IGNORE INTO hub_meeting_reminders (meeting_id, kind, sent_at) VALUES (?, ?, ?)').bind(mt.id, w.kind, now).run();
+      const to = [...new Set([mt.host_email.toLowerCase(), ...emailsOf(mt.invitees)])];
+      for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt: mt.starts_at as string, roomUrl: `${origin}/meet/room/?m=${mt.id}`, backup: mt.backup_link, rec: mt.rec_mode, kind: w.kind, host: mt.host_name || mt.host_email });
+      sent += to.length;
+    }
+  }
+  // Repeating meetings keep four occurrences ahead.
+  const series = await env.DB.prepare(
+    `SELECT series_id, MAX(starts_at) AS last, SUM(CASE WHEN starts_at > ? THEN 1 ELSE 0 END) AS ahead FROM hub_meetings WHERE series_id != '' AND status = 'scheduled' GROUP BY series_id HAVING ahead < 4`
+  ).bind(new Date(now).toISOString()).all<{ series_id: string; last: string; ahead: number }>();
+  let made = 0;
+  for (const sr of series.results || []) {
+    const t = await env.DB.prepare('SELECT * FROM hub_meetings WHERE id = ?').bind(sr.series_id).first<Meeting>();
+    if (!t || !sr.last) continue;
+    const next = occurrences(sr.last, t.repeat, 5).slice(1, 5 - Number(sr.ahead));
+    for (const at of next) {
+      await env.DB.prepare(
+        `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?)`
+      ).bind(hex(12), t.title, t.agenda, t.host_email, t.host_name, at, new Date(Date.parse(at) + t.duration_min * 60000).toISOString(), t.duration_min, t.rec_mode, t.access, t.invitees, nowIso(), t.repeat, t.series_id, t.calendar_event_id, t.backup_link, t.remind).run();
+      made++;
+    }
+  }
+  return { ok: true, sent, made };
 }

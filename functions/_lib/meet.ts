@@ -14,6 +14,10 @@ export interface MeetEnv extends Env {
   /** "admin" (default) opens meetings to admins only; "staff" opens them to every signed-in person. */
   MEET_RELEASE?: string;
   CLIPS: R2Bucket;
+  /** Local tests only: a stand-in for Google Calendar. Never set on the live site. */
+  MEET_CAL_URL?: string;
+  RESEND_API_KEY?: string;
+  RESEND_FROM?: string;
 }
 
 export const SFU = 'https://rtc.live.cloudflare.com/v1';

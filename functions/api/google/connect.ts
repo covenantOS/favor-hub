@@ -1,4 +1,4 @@
-import { clientId, DRIVE_FILE, redirectUri, SCOPES } from '../../_lib/hub/google';
+import { clientId, DRIVE_FILE, MEET_SCOPES, redirectUri, SCOPES } from '../../_lib/hub/google';
 import type { Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 
@@ -15,14 +15,15 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const params = new URL(request.url).searchParams;
   const asked = params.get('next') || '/';
   const next = /^\/(?![\/])/.test(asked) ? asked : '/';
-  const add = params.get('add') === 'sheets';
+  const addKind = params.get('add') === 'meetings' ? 'meetings' : params.get('add') === 'sheets' ? 'sheets' : '';
+  const add = !!addKind;
   const force = params.get('force') === '1';
-  const state = crypto.randomUUID() + '|' + encodeURIComponent(next) + (add ? '|sheets' + (force ? '+force' : '') : '');
+  const state = crypto.randomUUID() + '|' + encodeURIComponent(next) + (add ? '|' + addKind + (force ? '+force' : '') : '');
   const q = new URLSearchParams({
     client_id: clientId(env),
     redirect_uri: redirectUri(request),
     response_type: 'code',
-    scope: (add ? [DRIVE_FILE, 'openid', 'email'] : [...SCOPES, 'openid', 'email']).join(' '),
+    scope: (add ? [...(addKind === 'meetings' ? MEET_SCOPES : [DRIVE_FILE]), 'openid', 'email'] : [...SCOPES, 'openid', 'email']).join(' '),
     access_type: 'offline',
     include_granted_scopes: 'true',
     login_hint: user.email,

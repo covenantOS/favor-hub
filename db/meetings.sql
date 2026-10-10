@@ -121,3 +121,19 @@ CREATE TABLE IF NOT EXISTS hub_meeting_drive (
   state TEXT NOT NULL DEFAULT 'open',     -- open | done | failed
   PRIMARY KEY (meeting_id, epoch)
 );
+
+-- The staff list the booking page offers by team (seeded by hand from the staff directory, never from the repository).
+CREATE TABLE IF NOT EXISTS meet_directory (
+  email TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  team TEXT NOT NULL DEFAULT '',
+  active INTEGER NOT NULL DEFAULT 1
+);
+-- Reminder emails already sent, so a meeting is never reminded twice.
+CREATE TABLE IF NOT EXISTS hub_meeting_reminders (
+  meeting_id TEXT NOT NULL,
+  kind TEXT NOT NULL,                     -- day | soon
+  sent_at INTEGER NOT NULL,
+  PRIMARY KEY (meeting_id, kind)
+);
