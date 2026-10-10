@@ -278,13 +278,12 @@ describe('Daily Revenue Report post', () => {
     }
   });
 
-  it('shows Differs when the KPI figure is not the report total, and checks the month for part of a month', async () => {
+  it('shows Differs when the KPI figure is not the report total, and shows no tie-out line for part of a month', async () => {
     const wrong = async () => ({ ...(await kpiFrom()()), monthlyGiving: [null, null, null, null, null, null, null, null, 1, null, null, null] });
     const r = await run(daily, { mode: 'range', from: '2026-09-01', to: '2026-09-30' }, { kpi: wrong });
     assert.equal(r.tie.status, 'differs');
     const part = await run(daily, { mode: 'day', day: '2026-09-29' });
-    assert.equal(part.tie.status, 'match');
-    assert.match(part.tie.label, /the month these dates fall in/);
+    assert.equal(part.tie.status, 'none');
   });
 
   it('is shown to the admin desk only', () => {
@@ -317,8 +316,7 @@ describe('Weekly recurring report', () => {
     }
     const part = await run(weekly, { month: '2026-10', through: '2026-10-01' });
     assert.equal(part.rows.length, 0);
-    assert.equal(part.tie.status, 'match');
-    assert.match(part.tie.label, /the whole month/);
+    assert.equal(part.tie.status, 'none');
     const bad = await run(weekly, { month: '2026-09' }, { kpi: async () => ({ ...(await kpiFrom()()), monthlyRecurring: Array.from({ length: 12 }, () => 3) }) });
     assert.equal(bad.tie.status, 'differs');
   });

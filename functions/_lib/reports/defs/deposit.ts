@@ -58,7 +58,7 @@ const def: ReportDef = {
       const p = byId.get(g.lookup)!;
       const hard = g.rows[0];
       const soft = [...new Set(g.rows.filter((r) => r.softCredit).map((r) => r.softCredit))];
-      const funds = [...new Set(g.rows.filter((r) => !r.softCredit).map((r) => r.fund).filter(Boolean))];
+      const funds = [...new Set(g.rows.filter((r) => r.partner === hard.partner).map((r) => r.fund).filter(Boolean))];
       return {
         date: g.date,
         gift: g.lookup,

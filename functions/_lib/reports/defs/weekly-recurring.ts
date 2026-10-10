@@ -39,11 +39,7 @@ async function tie(ctx: Parameters<NonNullable<ReportDef['tie']>>[0], s: Span, t
   const kpi = k?.monthlyRecurring[i] ?? null;
   const label = `KPI dashboard, recurring giving for ${monthName(i + 1)}`;
   if (s.to >= lastDayOfMonth(s.month) || s.to >= ctx.today) return compare(label, total, kpi);
-  const r = await ctx.sql<{ s: number }>(
-    `SELECT COALESCE(SUM(gift_amount), 0) AS s FROM gifts WHERE substr(gift_date, 1, 7) = ?1 AND gift_type = 'RecurringGiftPayment' AND gift_amount > 0`,
-    [s.month]
-  );
-  return compare(`${label} (the whole month)`, round2(num(r[0]?.s)), kpi);
+  return noTie();
 }
 
 const def: ReportDef = {

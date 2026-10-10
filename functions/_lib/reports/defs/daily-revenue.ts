@@ -45,11 +45,7 @@ async function tie(ctx: Parameters<NonNullable<ReportDef['tie']>>[0], total: num
   const covers = from.slice(8) === '01' && (to === lastDayOfMonth(to.slice(0, 7)) || to >= ctx.today);
   const names = m1 === m2 ? `month ${from.slice(0, 7)}` : `months ${from.slice(0, 7)} to ${to.slice(0, 7)}`;
   if (covers) return compare(`KPI dashboard, Executive, revenue for ${names}`, total, kpiSum);
-  const r = await ctx.sql<{ s: number }>(
-    `SELECT COALESCE(SUM(gift_amount), 0) AS s FROM gifts WHERE substr(gift_date, 1, 7) >= ?1 AND substr(gift_date, 1, 7) <= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift'`,
-    [from.slice(0, 7), to.slice(0, 7)]
-  );
-  return compare(`KPI dashboard, Executive, revenue for ${names} (the month these dates fall in)`, round2(num(r[0]?.s)), kpiSum);
+  return noTie();
 }
 
 const def: ReportDef = {
@@ -78,8 +74,8 @@ const def: ReportDef = {
       const p = byId.get(g.lookup);
       const hard = g.rows[0];
       const soft = [...new Set(g.rows.filter((r) => r.softCredit).map((r) => r.softCredit))];
-      const funds = [...new Set(g.rows.filter((r) => !r.softCredit).map((r) => r.fund).filter(Boolean))];
-      const appeals = [...new Set(g.rows.filter((r) => !r.softCredit).map((r) => r.appealID).filter(Boolean))];
+      const funds = [...new Set(g.rows.filter((r) => r.partner === hard.partner).map((r) => r.fund).filter(Boolean))];
+      const appeals = [...new Set(g.rows.filter((r) => r.partner === hard.partner).map((r) => r.appealID).filter(Boolean))];
       const amount = hard.fullAmount;
       return {
         date: g.date,
