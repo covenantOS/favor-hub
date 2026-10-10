@@ -46,17 +46,14 @@
       const type = s.getAttribute('type') || '';
       if (type && type !== 'text/javascript') continue;
       if (s.src) {
-        try { parts.push('// ' + s.src + '
-' + await (await fetch(s.src, { credentials: 'same-origin' })).text()); } catch (e) { /* the page shows its own error */ }
+        try { parts.push('// ' + s.src + '\n' + await (await fetch(s.src, { credentials: 'same-origin' })).text()); } catch (e) { /* the page shows its own error */ }
       } else if (s.textContent.trim()) parts.push(s.textContent);
       s.remove();
     }
     held.length = 0;
     tracking = true;
     setTimeout(() => { tracking = false; }, 2500);
-    try { (0, eval)(parts.join('
-;
-')); } catch (e) { console.error('page script', e); }
+    try { (0, eval)(parts.join('\n;\n')); } catch (e) { console.error('page script', e); }
     // the document is already loaded, so the load and DOMContentLoaded handlers the page asked for run now
     const run = held.splice(0);
     run.forEach(([ty, fn]) => { try { fn.call(ty === 'load' ? window : document, new Event(ty)); } catch (e) { console.error(e); } });
