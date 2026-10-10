@@ -395,8 +395,8 @@ body.has-bar .wc-toast { bottom: 100px; }
   .wc-filters.is-sheet .wc-sel, .wc-filters.is-sheet .wc-toggle { display: flex; max-width: none; width: 100%; height: 44px; }
   .wc-filters.is-sheet .wc-find, .wc-filters.is-sheet .wc-filterbtn { display: none; }
   .wc-filters.is-sheet .wc-sheettitle { display: flex; }
-  .wc-scroll { max-height: calc(100dvh - 300px); min-height: 280px; overflow: auto; }
-  .wc-scroll--in { max-height: calc(100dvh - 300px); }
+  .wc-scroll { max-height: calc(100dvh - 170px); min-height: 280px; overflow: auto; }
+  .wc-scroll--in { max-height: calc(100dvh - 170px); }
   .wc-head { display: none; }
   .wc-grid .wc-row, .wc-tg .wc-row { grid-template-columns: 40px 1fr auto; grid-template-areas: 'cb partner due' 'cb what what' 'cb who type'; row-gap: 4px; padding: 12px 12px 12px 2px; align-items: start; }
   .wc-grid .wc-cb, .wc-tg .wc-cb { grid-area: cb; min-height: 40px; align-items: start; padding-top: 2px; }
