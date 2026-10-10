@@ -243,7 +243,7 @@ describe('the morning email', () => {
     const b = await digest.buildFor(env, people[0], data, digest.DEFAULT_PREFS, now);
     assert.equal(b.empty, false);
     assert.equal(b.subject, '2 gifts to thank, 1 due today, 1 task late');
-    assert.deepEqual(b.counts, { gifts: 2, due: 1, late: 1, sent_back: 0, quiet: 4, reminders: 0 });
+    assert.deepEqual(b.counts, { gifts: 2, due: 1, late: 1, quiet: 4, reminders: 0 });
     assert.ok(b.html.indexOf('Big Foundation') < b.html.indexOf('Small Giver'), 'largest gift first');
     assert.match(b.html, /\$10,000[\s\S]*?3 days/);
     assert.ok(!b.html.includes('Thanked Already'), 'a thanked gift is not owed');
@@ -262,7 +262,7 @@ describe('the morning email', () => {
 
   it('leaves out a section the person turned off, and counts only what is shown', async () => {
     const env = mkEnv();
-    const prefs = { ...digest.DEFAULT_PREFS, sections: { gifts: false, due: true, sent_back: true, quiet: false, reminders: true } };
+    const prefs = { ...digest.DEFAULT_PREFS, sections: { gifts: false, due: true, quiet: false, reminders: true } };
     const b = await digest.buildFor(env, people[0], data, prefs, now);
     assert.equal(b.subject, '1 due today, 1 task late');
     assert.ok(!b.html.includes('Big Foundation') && !b.html.includes('Thomas Whitaker'));
@@ -289,7 +289,7 @@ describe('the morning email', () => {
     const env = mkEnv();
     assert.deepEqual(await digest.getPrefs(env, 'rdd@favorintl.org'), digest.DEFAULT_PREFS);
     const saved = await digest.savePrefs(env, 'RDD@favorintl.org', { sections: { quiet: false }, send_time: '8:00', skip_empty: false });
-    assert.deepEqual(saved, { sections: { gifts: true, due: true, sent_back: true, quiet: false, reminders: true }, send_time: '8:00', skip_empty: false });
+    assert.deepEqual(saved, { sections: { gifts: true, due: true, quiet: false, reminders: true }, send_time: '8:00', skip_empty: false });
     assert.deepEqual(await digest.getPrefs(env, 'rdd@favorintl.org'), saved);
     assert.equal((await digest.savePrefs(env, 'rdd@favorintl.org', { send_time: 'bogus' })).send_time, '8:00');
   });

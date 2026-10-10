@@ -11,12 +11,11 @@ import { listReminders } from './remind';
 import { scopeFor } from './role';
 import { currentBoard, type Ctx } from './service';
 
-export const SECTION_KEYS = ['gifts', 'due', 'sent_back', 'quiet', 'reminders'] as const;
+export const SECTION_KEYS = ['gifts', 'due', 'quiet', 'reminders'] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 export const SECTION_LABEL: Record<SectionKey, string> = {
   gifts: 'Gifts to thank',
   due: 'Due today and late',
-  sent_back: 'Sent back by Support',
   quiet: 'Quiet partners, top 3',
   reminders: 'Reminders',
 };
@@ -28,7 +27,7 @@ export interface Prefs {
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  sections: { gifts: true, due: true, sent_back: true, quiet: true, reminders: true },
+  sections: { gifts: true, due: true, quiet: true, reminders: true },
   send_time: '7:30',
   skip_empty: true,
 };
@@ -142,7 +141,7 @@ export interface Built {
   html: string;
   text: string;
   empty: boolean;
-  counts: { gifts: number; due: number; late: number; sent_back: number; quiet: number; reminders: number };
+  counts: { gifts: number; due: number; late: number; quiet: number; reminders: number };
 }
 
 const BASE = 'https://dash.favorintl.org';
@@ -183,15 +182,6 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
     return { text: r.summary ? `${r.summary}${r.partner ? ` (${r.partner})` : ''}` : r.partner, late: n > 0 ? `${dayWord(n)} late` : undefined, link: `${BASE}/work/?action=${r.id}`, verb: 'Open' };
   });
 
-  // Sent back by Support (Entry submissions a director logged and Support returned). Empty until directors log their own contacts.
-  const sent: Line[] = [];
-  let sentN = 0;
-  if (fid) {
-    const r = await env.DB.prepare(`SELECT * FROM act_submissions WHERE source = 'rdd' AND state = 'sent_back' AND owner_fid = ? ORDER BY created_at DESC LIMIT 20`).bind(fid).all<Record<string, any>>().catch(() => ({ results: [] as Record<string, any>[] }));
-    sentN = r.results.length;
-    for (const s of r.results.slice(0, 3)) sent.push({ text: String(s.sent_back_note || s.summary || 'A contact Support sent back').slice(0, 140), link: `${BASE}/work/?view=contacts`, verb: 'Fix' });
-  }
-
   // Quiet partners: the three the person has gone longest without, by giving. Directors only.
   const pf = portfolios.get(fid) || [];
   const quietAll = pf.filter((r) => r.quiet === null || r.quiet >= 90).sort((a, b) => b.l12 - a.l12);
@@ -206,22 +196,20 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   const reminders: Line[] = remDue.slice(0, 4).map((x) => ({ text: x.title, link: x.cid ? `${BASE}/work/partner/${x.cid}` : `${BASE}/work/`, verb: 'Open' }));
 
   const S = prefs.sections;
-  const counts = { gifts: owed.length, due: dueToday, late: lateN, sent_back: sentN, quiet: quietAll.length, reminders: remDue.length };
+  const counts = { gifts: owed.length, due: dueToday, late: lateN, quiet: quietAll.length, reminders: remDue.length };
   const shown = {
     gifts: S.gifts ? owed.length : 0,
     due: S.due ? dueRows.length : 0,
-    sent_back: S.sent_back ? sentN : 0,
     quiet: S.quiet ? quietAll.length : 0,
     reminders: S.reminders ? remDue.length : 0,
   };
   // Something is due when a section other than quiet partners has lines. Quiet partners are a nudge, not a due item.
-  const empty = shown.gifts + shown.due + shown.sent_back + shown.reminders === 0;
+  const empty = shown.gifts + shown.due + shown.reminders === 0;
 
   const bits: string[] = [];
   if (shown.gifts) bits.push(`${plural(counts.gifts, 'gift')} to thank`);
   if (S.due && dueToday) bits.push(`${dueToday} due today`);
   if (S.due && lateN) bits.push(`${plural(lateN, 'task')} late`);
-  if (shown.sent_back) bits.push(`${sentN} sent back`);
   if (shown.reminders) bits.push(plural(remDue.length, 'reminder'));
   const subject = bits.length ? bits.join(', ') : shown.quiet ? `${plural(counts.quiet, 'quiet partner')} to call` : 'Nothing due this morning';
 
@@ -230,7 +218,6 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   const sections: { title: string; n: number | null; lines: Line[]; more?: string }[] = [];
   if (S.gifts && gifts.length) sections.push({ title: 'Gifts to thank', n: counts.gifts, lines: gifts, more: counts.gifts > gifts.length ? `${counts.gifts - gifts.length} more in the Work Center` : undefined });
   if (S.due && due.length) sections.push({ title: 'Due today and late', n: dueRows.length, lines: due, more: [dueRows.length > due.length ? `${dueRows.length - due.length} more in the Work Center` : '', olderN ? `${plural(olderN, 'older task')} on the Stale tab` : ''].filter(Boolean).join('. ') || undefined });
-  if (S.sent_back && sent.length) sections.push({ title: 'Sent back by Support', n: sentN, lines: sent });
   if (S.quiet && quiet.length) sections.push({ title: 'Quiet the longest, by giving', n: null, lines: quiet });
   if (S.reminders && reminders.length) sections.push({ title: 'Reminders', n: remDue.length, lines: reminders });
 

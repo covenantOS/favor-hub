@@ -34,6 +34,6 @@ Open a partner and press the small bell on any open task to set a reminder for i
 
 ## The morning email
 
-Press Morning email on the Work Center. The window shows the email as you would get it today. Switch off any section you do not want: Gifts to thank, Due today and late, Sent back by Support, Quiet partners, or Reminders. Pick 7:30 AM, 8:00 AM or Off, and choose whether a day with nothing due is skipped. Send me a test mails it to you now.
+Press Morning email on the Work Center. The window shows the email as you would get it today. Switch off any section you do not want: Gifts to thank, Due today and late, Quiet partners, or Reminders. Pick 7:30 AM, 8:00 AM or Off, and choose whether a day with nothing due is skipped. Send me a test mails it to you now.
 
 The email comes on weekdays and each line opens that item in the Work Center. It starts with the regional directors. Support and Partner Care follow a week later. An admin sets the day for each group in Work Center settings, and you can still turn your own off.
