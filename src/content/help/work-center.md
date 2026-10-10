@@ -24,6 +24,8 @@ Reassign changes who an action belongs to. The partner and the summary stay as t
 
 Every batch appears under Recent with an Undo button. Undo works for 24 hours. An action that did not save stays on its row with the reason, and you can try it again.
 
+Press Undo once. The button turns off while the change goes back, and a second press is refused with a note that the change is already being undone. An undo cannot be undone, so make the change again if you want it back.
+
 ## Entry
 
 Entry shows the week's contacts for each regional director, how many are already in Blackbaud and how many are still waiting. Rows already in Blackbaud are blocked so nothing enters twice.

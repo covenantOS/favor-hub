@@ -79,6 +79,9 @@ const S = {
   in: { rdd: '', lane: 'wait', paste: false, data: null, loading: false, ta: {} },
   ty: { owner: '' }, st: { lane: 'left' },
 };
+// Undo is pressed once per change. UNDOING holds the changes whose Undo was pressed. The partner drawer and the thank-you toast share it, so a
+// second click, the u key, or the toast and Recent open together cannot send it twice. The server refuses a repeat too.
+const UNDOING = (window.favorUndoing = window.favorUndoing || new Set());
 
 // A row from /api/work/board in the shape the lists below use.
 function adapt(r) {
@@ -738,17 +741,32 @@ async function runJob(job) {
   refreshBoard();
 }
 const isDoneId = (id, job) => (job.entry ? !!(inRow(id) && inRow(id).state === 'posted') : !!S.gone[id] || !!(S.ov[id]));
+const undoButtons = (bid, off) => $$(`[data-undo="${CSS.escape(bid)}"]`).forEach((el) => { el.disabled = off; el.setAttribute('aria-busy', off ? 'true' : 'false'); el.innerHTML = ic('undo') + (off ? 'Undoing…' : 'Undo'); });
+// After Recent is read again: a change that is undone, or whose undo is still being sent, keeps its button off. When some rows did not go
+// back, Undo opens again for those.
+function settleUndo(bid) { const b = S.batches.find((x) => x.id === bid); if (!b || (!b.undone && !b.undoing)) UNDOING.delete(bid); }
 async function undoBatch(bid) {
+  if (UNDOING.has(bid)) return;
+  UNDOING.add(bid); undoButtons(bid, true);
   $('#toast').classList.remove('is-on');
   let out;
-  try { out = await post(`/api/work/batches/${bid}/undo`); } catch (e) { toast(e.message); return; }
+  try { out = await post(`/api/work/batches/${bid}/undo`); } catch (e) {
+    // Already undone, or being undone: the button stays off. Any other failure puts it back.
+    const again = e.data && (e.data.error === 'already_undone' || e.data.error === 'undo_of_undo');
+    if (!again) { UNDOING.delete(bid); undoButtons(bid, false); }
+    toast(e.message);
+    if (again) { await loadRecent(); settleUndo(bid); if (S.view === 'recent') render(); }
+    return;
+  }
   const b = out.batch;
   if (b && b.id) {
     bar('Undoing…');
     const items = (S.batches.find((x) => x.id === bid) || { items: [] }).items.filter((i) => i.state === 'posted').map((i) => i.id);
     await driveBatch(b.id, items.length ? items : ['x'], {}, { undo: true });
   }
-  await refreshBoard(); await loadRecent(); if (S.view === 'intake') await loadEntry(); render();
+  await refreshBoard(); await loadRecent(); if (S.view === 'intake') await loadEntry();
+  settleUndo(bid);
+  render();
   toast('Undone.' + (out.tagsStay ? ' The Thanked and Texted tags stay on those actions in Blackbaud.' : '') + (out.unresolved ? ` ${out.unresolved} contact${out.unresolved === 1 ? '' : 's'} need a look in Blackbaud. Recent lists them.` : ''));
 }
 async function retryBatch(bid) {
@@ -763,7 +781,7 @@ async function retryBatch(bid) {
 }
 function toast(msg, bid) {
   const t = $('#toast');
-  t.innerHTML = `<span class="ok">${ic('check')}</span><span>${esc(msg)}</span>${bid ? `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${bid}">${ic('undo')}Undo</button>` : ''}`;
+  t.innerHTML = `<span class="ok">${ic('check')}</span><span>${esc(msg)}</span>${bid ? `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${bid}"${UNDOING.has(bid) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}Undo</button>` : ''}`;
   t.classList.add('is-on'); clearTimeout(S.tt); S.tt = setTimeout(() => t.classList.remove('is-on'), bid ? 9000 : 5200);
 }
 
@@ -1104,7 +1122,7 @@ function viewRecent() {
     return `<article class="h-card wc-batch${S.openB === b.id ? ' is-open' : ''}"><div class="wc-batch__head"><span class="wc-batch__icon${b.undone ? ' undone' : b.failed ? ' fail' : ''}">${ic(b.undone ? 'undo' : b.failed ? 'alert' : b.op === 'reassign' ? 'user' : b.op === 'reschedule' ? 'cal' : 'check')}</span>
       <div><b>${esc(b.label)}</b><span>${esc(b.actor)} · ${esc(et(b.at, { hour: 'numeric', minute: '2-digit' }))} ${et(b.at, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'on ' + esc(et(b.at, { month: 'short', day: 'numeric' }))} · ${status} · ${plural(b.calls, 'Blackbaud call')}</span></div>
       <div class="wc-batch__acts">${b.failed && !b.undone ? `<button class="h-btn h-btn--primary h-btn--sm" data-retry="${b.id}">Try ${b.failed} again</button>` : ''}
-        ${b.undone ? '' : `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${b.id}">${ic('undo')}Undo</button><small>until ${esc(tomorrow)} ${et(b.undo_until, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'tomorrow'}</small>`}
+        ${b.undone ? '' : `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${b.id}"${b.undoing || UNDOING.has(b.id) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}${b.undoing || UNDOING.has(b.id) ? 'Undoing…' : 'Undo'}</button><small>until ${esc(tomorrow)} ${et(b.undo_until, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'tomorrow'}</small>`}
         <button class="wc-clear" data-openb="${b.id}">${S.openB === b.id ? 'Hide' : 'Show'} ${b.items.length}</button></div></div>
       <ul>${b.items.map((it) => `<li><b>${esc(it.name)}</b><span>${esc(it.what)}</span><span class="wc-state wc-state--${({ posted: 'ready', failed: 'fail', tonight: 'pick', saving: 'dup', undone: 'dup', queued: 'pick' })[it.state] || 'dup'}">${({ posted: 'In Blackbaud', failed: 'Not sent', tonight: 'Tonight', saving: 'Sending', undone: 'Undone', queued: 'Waiting' })[it.state] || it.state}</span></li>`).join('')}</ul></article>`; }).join('')}</div>`
     : `<div class="h-card wc-empty"><b>Nothing done here yet today</b>What you finish in the Work Center lands here, with Undo for 24 hours.</div>`}`;
@@ -1196,7 +1214,7 @@ document.addEventListener('click', async (e) => {
     if (own) own(); else if (window.WCEdit && window.WCEdit.act[d.do]) window.WCEdit.act[d.do](ids);
     return;
   }
-  if (d.undo) { undoBatch(d.undo); return; }
+  if (d.undo) { if (!t.disabled) undoBatch(d.undo); return; }
   if (d.openb) { S.openB = S.openB === d.openb ? null : d.openb; render(); return; }
   if (d.retry) { retryBatch(d.retry); return; }
   // Entry

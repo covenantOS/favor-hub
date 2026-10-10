@@ -78,19 +78,29 @@ async function run(params, label, after) {
   if (after) after();
   return true;
 }
+// The changes whose Undo was pressed, shared with the Work Center and the thank-you toast: a change is undone once.
+const UNDOING = (window.favorUndoing = window.favorUndoing || new Set());
 async function undo(bid) {
+  if (UNDOING.has(bid)) return;
+  UNDOING.add(bid);
   toast('Undoing…');
   try {
     const out = await post(`/api/work/batches/${bid}/undo`);
     if (out.batch && out.batch.id) for (let i = 0; i < 30; i++) { const r = await post(`/api/work/batches/${out.batch.id}/run`); if (!r.left || r.held) break; }
+    // When some rows did not go back, Undo opens again for them.
+    try { const b = ((await api('/api/work/recent')).batches || []).find((x) => x.id === bid); if (!b || (!b.undone && !b.undoing)) UNDOING.delete(bid); } catch (_) { /* the button stays off until the page reloads */ }
     toast('Undone.');
     if (V.id) { LOCAL.delete(V.id); refresh(true); }
-  } catch (e) { toast(e.message, null, true); }
+  } catch (e) {
+    // Already undone, or being undone: the button stays off. Any other failure puts it back.
+    if (!(e.data && e.data.error === 'already_undone')) UNDOING.delete(bid);
+    toast(e.message, null, true);
+  }
 }
 let toastEl = null;
 function toast(msg, bid, bad) {
   if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'pp-toast'; toastEl.setAttribute('role', 'status'); document.body.appendChild(toastEl); }
-  toastEl.innerHTML = `<span class="${bad ? 'is-bad' : ''}">${esc(msg)}</span>${bid ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-undo="${esc(bid)}">Undo</button>` : ''}`;
+  toastEl.innerHTML = `<span class="${bad ? 'is-bad' : ''}">${esc(msg)}</span>${bid ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-undo="${esc(bid)}"${UNDOING.has(bid) ? ' disabled aria-busy="true"' : ''}>Undo</button>` : ''}`;
   toastEl.classList.add('is-on'); clearTimeout(toastEl._h); toastEl._h = setTimeout(() => toastEl.classList.remove('is-on'), bid ? 9000 : msg.endsWith('…') ? 30000 : 4200);
 }
 
@@ -347,7 +357,7 @@ document.addEventListener('click', async (e) => {
   const t = e.target;
   if (!t.closest) return;
   const undoBtn = t.closest('[data-pp-undo]');
-  if (undoBtn) { undo(undoBtn.dataset.ppUndo); return; }
+  if (undoBtn) { if (!undoBtn.disabled) { undoBtn.disabled = true; undo(undoBtn.dataset.ppUndo); } return; }
   const name = t.closest(NAME_SEL);
   if (name && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
     const onFullPage = /^\/work\/partner\/\d+/.test(location.pathname);

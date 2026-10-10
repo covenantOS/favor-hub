@@ -1269,11 +1269,25 @@ export async function verify(ctx: Ctx, batchId: string, rows: OutboxRow[], since
 
 /* ------------------------------------------------------------------ undo, retry, recent, drain */
 
+/** The note a create row carries when it went out without its number coming back. A second Undo leaves it for the person to find. */
+const CREATE_NO_NUMBER = 'This contact is in Blackbaud but its number was not saved. Find it on the partner and remove it there.';
+
+/**
+ * Put a change back the way it was. A change is undone once. The undo is saved as its own batch (undo_of names the change), and its
+ * request id comes from the change, so two presses in the same instant cannot both save one. A press after the first, while the undo
+ * is waiting or running or after it finished, is refused in plain words. When an undo ended with some rows not sent (partial), the
+ * next press puts back only those. An undo is never itself undone.
+ */
 export async function undoBatch(ctx: Ctx, batchId: string) {
   const batch = await ctx.env.DB.prepare('SELECT * FROM act_batches WHERE id = ? LIMIT 1').bind(batchId).first<BatchRow>();
   if (!batch) throw new HttpError(404, 'not_found', 'That batch is not here.');
-  if (batch.state === 'undone' || batch.op === 'undo') throw new HttpError(409, 'already_undone', 'That batch is already undone.');
+  if (batch.op === 'undo') throw new HttpError(409, 'undo_of_undo', 'An undo cannot be undone. Make the change again to get it back.');
+  if (batch.state === 'undone') throw new HttpError(409, 'already_undone', 'That change was already undone.');
   if (nowIso() > batch.undo_until) throw new HttpError(409, 'too_late', 'Undo is open for 24 hours. This batch is past that.');
+  // An undo is saved after its change, so the created_at bound keeps this read on the date index.
+  const earlier = (await ctx.env.DB.prepare("SELECT id, state FROM act_batches WHERE created_at >= ? AND op = 'undo' AND undo_of = ? ORDER BY created_at, rowid").bind(batch.created_at, batchId).all<{ id: string; state: string }>()).results;
+  const standing = earlier.find((u) => u.state !== 'partial');
+  if (standing) throw new HttpError(409, 'already_undone', standing.state === 'done' ? 'That change was already undone.' : 'That change is already being undone.');
   // A row in flight may already be at Blackbaud, so Undo waits for the send to finish rather than guessing which rows went.
   const inFlight = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state = 'sending'").bind(batchId).first<{ n: number }>();
   if (Number(inFlight?.n)) throw new HttpError(409, 'busy', 'Blackbaud is still taking this batch. Undo it when it finishes.');
@@ -1284,6 +1298,11 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   let tagsStay = 0;
   for (const r of rows) {
     if (r.state === 'undone') continue;
+    if (r.state === 'needs_human' && r.last_error === CREATE_NO_NUMBER) {
+      // An earlier press held this contact for a person. Pressing again leaves it held; it is not a send that never happened.
+      unresolved++;
+      continue;
+    }
     if (r.state === 'queued' || r.state === 'failed' || r.state === 'needs_human') {
       // Never reached Blackbaud: nothing to put back. The key is cleared so the same contact can be entered again.
       await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ?").bind(r.id).run();
@@ -1293,7 +1312,7 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
     }
     if (r.op === 'create' && !r.bb_id) {
       // The create went out but its id never came back, so there is nothing to delete by. A person finds it in Blackbaud.
-      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', last_error = ? WHERE id = ?").bind('This contact is in Blackbaud but its number was not saved. Find it on the partner and remove it there.', r.id).run();
+      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'needs_human', last_error = ? WHERE id = ?").bind(CREATE_NO_NUMBER, r.id).run();
       unresolved++;
       continue;
     }
@@ -1312,7 +1331,10 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
     forgetBoard();
     return { batch: null, cancelled, unresolved, tagsStay };
   }
-  const saved = await saveBatch(ctx, 'undo', items, { undo_of: batchId }, { undoOf: batchId, whenOverride: 'now' });
+  // The unique request id is the claim. Two presses in the same instant both reach this line; one saves the undo and the other is handed
+  // the first one back (repeat), which is refused the same way as a press that came later.
+  const saved = await saveBatch(ctx, 'undo', items, { undo_of: batchId }, { undoOf: batchId, whenOverride: 'now', reqId: `undo:${batchId}:${earlier.length}` });
+  if (saved.repeat) throw new HttpError(409, 'already_undone', 'That change is already being undone.');
   await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'undone', detail: `undo batch ${saved.id}` });
   return { batch: saved, cancelled, unresolved, tagsStay };
 }
@@ -1332,6 +1354,12 @@ export async function recentBatches(env: Env, hours = 36, email?: string) {
       ? await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' AND lower(actor_email) = ? ORDER BY created_at DESC LIMIT 60").bind(since, email.toLowerCase()).all<BatchRow>()
       : await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' ORDER BY created_at DESC LIMIT 60").bind(since).all<BatchRow>()
   ).results;
+  // A change whose undo is saved but not finished. The page turns its Undo button off, on every screen, until the undo is done.
+  const undoing = new Set<string>();
+  if (bs.length) {
+    const going = await env.DB.prepare("SELECT undo_of FROM act_batches WHERE created_at >= ? AND op = 'undo' AND state IN ('queued', 'running')").bind(since).all<{ undo_of: string }>();
+    going.results.forEach((u) => undoing.add(u.undo_of));
+  }
   const out = [];
   for (const b of bs) {
     const rows = (await env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid LIMIT 400').bind(b.id).all<OutboxRow>()).results;
@@ -1349,7 +1377,7 @@ export async function recentBatches(env: Env, hours = 36, email?: string) {
     out.push({
       id: b.id, op: b.op, label: batchLabel(b, items.length), actor: b.actor, at: b.created_at, n: b.n,
       posted: count('posted'), failed: count('failed'), queued: count('tonight') + count('saving'), tonight: count('tonight'), calls: b.calls_used || b.calls_planned,
-      planned: b.calls_planned, undo_until: b.undo_until, undone: b.state === 'undone', state: b.state, run_when: b.run_when, items,
+      planned: b.calls_planned, undo_until: b.undo_until, undone: b.state === 'undone', undoing: undoing.has(b.id), state: b.state, run_when: b.run_when, items,
     });
   }
   return out;

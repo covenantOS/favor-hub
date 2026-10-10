@@ -762,7 +762,10 @@ window.addEventListener('keydown', (e) => {
   if (k === 'n') { e.preventDefault(); dlgNew(); return; }
   if (k === '?') { e.preventDefault(); keysDialog(); return; }
   if (k === 'u' || (e.ctrlKey && k.toLowerCase() === 'z')) {
-    const b = wc.S.batches.find((x) => !x.undone && x.posted && Date.parse(x.undo_until) > Date.now());
+    // A held key is one press. A change whose Undo was already pressed is skipped, so a second press takes back the change before it.
+    if (e.repeat) { e.preventDefault(); return; }
+    const pressed = window.favorUndoing || new Set();
+    const b = wc.S.batches.find((x) => !x.undone && !x.undoing && !pressed.has(x.id) && x.posted && Date.parse(x.undo_until) > Date.now());
     if (b) { e.preventDefault(); wc.undoBatch(b.id); } return;
   }
   if ((k === 'j' || k === 'k') && !focusedRow()) { const r = $('#view .wc-row[data-id]'); if (r) { e.preventDefault(); r.focus(); } return; }

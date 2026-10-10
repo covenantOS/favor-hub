@@ -41,10 +41,12 @@ async function api(path, opts = {}) {
 const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body || {}) });
 
 /* ------------------------------------------------------------------ the toast, with Undo for one or two batches */
+// The changes whose Undo was pressed, shared with the Work Center and the partner drawer: a change is undone once.
+const UNDOING = (window.favorUndoing = window.favorUndoing || new Set());
 let toastEl = null;
 function toast(msg, bids, bad) {
   if (!toastEl) { toastEl = document.createElement('div'); toastEl.id = 'wg-toast'; toastEl.className = 'pp-toast wg-toast'; toastEl.setAttribute('role', 'status'); document.body.appendChild(toastEl); }
-  toastEl.innerHTML = `<span class="${bad ? 'is-bad' : ''}">${esc(msg)}</span>${bids && bids.length ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-undo="${esc(bids.join(','))}">${ic('undo')}Undo</button>` : ''}`;
+  toastEl.innerHTML = `<span class="${bad ? 'is-bad' : ''}">${esc(msg)}</span>${bids && bids.length ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-undo="${esc(bids.join(','))}"${bids.every((x) => UNDOING.has(x)) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}Undo</button>` : ''}`;
   toastEl.classList.add('is-on'); clearTimeout(toastEl._h);
   toastEl._h = setTimeout(() => toastEl.classList.remove('is-on'), bids && bids.length ? 9000 : msg.endsWith('…') ? 30000 : 4800);
 }
@@ -91,19 +93,39 @@ async function thank(items, o) {
   return Object.assign({ ok: true }, detail);
 }
 
-async function undo(csv) {
-  toast('Undoing…');
+// After an undo: a change that is undone, or whose undo is still being sent, keeps its button off. When some rows did not go back, Undo opens again.
+async function settleUndo(ids) {
   try {
-    const ids = csv.split(',').filter(Boolean);
+    const recent = (await api('/api/work/recent')).batches || [];
+    ids.forEach((bid) => { const b = recent.find((x) => x.id === bid); if (!b || (!b.undone && !b.undoing)) UNDOING.delete(bid); });
+  } catch (_) { /* the button stays off until the page reloads */ }
+}
+async function undo(csv) {
+  const ids = csv.split(',').filter(Boolean).filter((bid) => !UNDOING.has(bid)); // a change is undone once
+  if (!ids.length) return;
+  ids.forEach((bid) => UNDOING.add(bid));
+  toast('Undoing…');
+  let at = '';
+  try {
     for (const bid of ids) {
-      const r = await post(`/api/work/batches/${bid}/undo`);
-      if (r.batch && r.batch.id) await drive(r.batch.id);
+      at = bid;
+      try {
+        const r = await post(`/api/work/batches/${bid}/undo`);
+        if (r.batch && r.batch.id) await drive(r.batch.id);
+      } catch (e) {
+        // Already undone, or being undone: it is on its way back and the button stays off.
+        if (!(e.data && e.data.error === 'already_undone')) throw e;
+      }
     }
+    await settleUndo(ids);
     toast('Undone.');
     document.dispatchEvent(new CustomEvent('favor:thanked-undone', { detail: { batches: ids } }));
-  } catch (e) { toast(e.message, null, true); }
+  } catch (e) {
+    ids.slice(ids.indexOf(at)).forEach((bid) => UNDOING.delete(bid)); // the one that failed and the ones not tried
+    toast(e.message, null, true);
+  }
 }
-document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-wg-undo]'); if (b) { e.preventDefault(); undo(b.dataset.wgUndo); } });
+document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-wg-undo]'); if (b && !b.disabled) { e.preventDefault(); b.disabled = true; undo(b.dataset.wgUndo); } });
 
 /* ------------------------------------------------------------------ popover */
 let popEl = null;
