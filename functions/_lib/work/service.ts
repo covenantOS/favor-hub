@@ -608,6 +608,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
   const t0 = etClock(new Date(started - 10 * 60000));
   let held: RunResult['held'];
   const touched = new Map<string, boolean>(); // action id -> whether to read its tags too
+  const tagParent = new Map<string, string>(); // tag row -> the action it was sent for
   try {
     await env.DB.prepare("UPDATE act_batches SET state = 'running' WHERE id = ? AND state = 'queued'").bind(batchId).run();
     for (let round = 0; round < 3 && Date.now() - started < 18000; round++) {
@@ -628,7 +629,8 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
         if (row.op === 'tag') {
           if (!tagsOk) continue;
           const payload = parseObj(row.payload);
-          let parent = row.action_id;
+          // A tag that depends on a created action goes on that new action, never on the task the item started from.
+          let parent = payload.__dep ? null : row.action_id;
           if (!parent && payload.__dep) {
             const dep = await env.DB.prepare('SELECT state, bb_id FROM act_outbox WHERE id = ?').bind(payload.__dep).first<{ state: string; bb_id: string | null }>();
             if (!dep || dep.state === 'failed' || dep.state === 'needs_human' || dep.state === 'undone') {
@@ -639,6 +641,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
             if (!dep.bb_id) continue; // its action posts in an earlier request of this batch
             parent = dep.bb_id;
           }
+          if (parent) tagParent.set(row.id, parent);
           const body = { parent_id: parent, category: payload.category, value: payload.value !== undefined ? String(payload.value) : await tagValue(ctx, String(payload.category)), date: payload.date };
           send.push({ row, call: { method: 'POST', path: '/constituent/v1/actions/customfields', body } });
           continue;
@@ -748,7 +751,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       if (sentRows.length) {
         await verify(ctx, batchId, sentRows, t0);
         for (const r of sentRows) {
-          const id = r.op === 'create' ? r.bb_id : r.action_id;
+          const id = r.op === 'create' ? r.bb_id : r.op === 'tag' ? tagParent.get(r.id) || r.action_id : r.action_id;
           if (!id) continue;
           touched.set(id, (touched.get(id) || false) || r.op === 'create' || r.op === 'tag');
         }

@@ -261,6 +261,20 @@ describe('sending', () => {
     await svc.runBatch(ctx, b.id);
     assert.deepEqual(refreshes, [{ ids: ['7'], tags: true }]);
   });
+  it('a thank-you that makes a new action reads the new one with its tags and the old one plain', async () => {
+    const items = [{ actionId: '8', cid: '100', label: 'P | TY', steps: [
+      { op: 'create', body: { summary: 'Thank you letter' } },
+      { op: 'tag', dep: 0, body: { category: 'Thanked' } },
+      { op: 'patch', actionId: '8', body: { completed: true }, before: { completed: false } },
+    ] }];
+    const b = await svc.saveBatch(ctx, 'complete', items, {});
+    assert.equal(b.calls, 3 + 1 + 3); // 3 steps, 1 read-back, new action with tags 2 + old action 1
+    await svc.runBatch(ctx, b.id);
+    const sorted = refreshes.map((r) => ({ n: r.ids.length, tags: r.tags })).sort((x, y) => Number(y.tags) - Number(x.tags));
+    assert.deepEqual(sorted, [{ n: 1, tags: true }, { n: 1, tags: false }]);
+    const tag = calls.find((c) => c.path === '/constituent/v1/actions/customfields');
+    assert.ok(tag && tag.body.parent_id && tag.body.parent_id !== '8', 'the tag goes on the new action, not the old task');
+  });
   it('stops after one round when the route sends nothing back', async () => {
     script = () => 'stop';
     const b = await patchBatch(3);

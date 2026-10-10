@@ -486,12 +486,13 @@ function drawer(id) {
 
 // ------------------------------------------------------------ writes: plan, cost, run
 const CHUNK = 15;
-function costOf(n, extraPerItem = 0) { return n + Math.ceil(n * extraPerItem) + Math.ceil(n / CHUNK); }
+// Each changed action is read back once by the sync worker afterwards (1 Blackbaud call, 2 with tags), so the plan adds those.
+function costOf(n, extraPerItem = 0) { return n + Math.ceil(n * extraPerItem) + Math.ceil(n / CHUNK) + n; }
 // Mark complete: 1 PATCH each. Logged as a thank-you: an RDD, PC or CED task is completed in place (PATCH + Thanked tag = 2);
 // a Follow Up task gets a new completed contact (POST + tag) and is then closed (PATCH) = 4 with its two tags. Plus one read-back per 15.
 function completeCost(ids, how) {
   const thank = how && how !== 'none' && how !== 'logged';
-  return ids.reduce((n, id) => n + (thank && BYID[id].ty ? (BYID[id].type === 'Follow Up - New Gift' ? 3 : 2) : 1), 0) + Math.ceil(ids.length / CHUNK);
+  return ids.reduce((n, id) => n + (thank && BYID[id].ty ? (BYID[id].type === 'Follow Up - New Gift' ? 3 + 3 : 2 + 2) : 1 + 1), 0) + Math.ceil(ids.length / CHUNK);
 }
 // The Work Center may use 2,400 of the 3,000 upkeep calls a day; the last 600 stay for Foundation prospects, the
 // morning jobs and one-off fixes. A change that would cross 2,400 waits for the reset.
@@ -776,7 +777,7 @@ function rowState(r) {
   if (!r.ch) return { k: 'pick', l: 'Pick how' };
   return { k: 'ready', l: 'Ready' };
 }
-function estCreate(rows) { const tags = rows.reduce((n, r) => n + r.tags.length + (r.ch === 'text' ? 1 : 0) + (r.ask ? 1 : 0), 0); return rows.length + tags + Math.ceil(rows.length / CHUNK); }
+function estCreate(rows) { const tags = rows.reduce((n, r) => n + r.tags.length + (r.ch === 'text' ? 1 : 0) + (r.ask ? 1 : 0), 0); return rows.length + tags + Math.ceil(rows.length / CHUNK) + rows.length * 2; }
 function owners() { return S.in.data ? S.in.data.owners : []; }
 function intakeRowHTML(r) {
   const st = rowState(r); const d = r.cid ? partnerOf(r.cid) : null;
@@ -913,7 +914,7 @@ function dlgMany() {
   const draw = (el, keepFocus) => {
     const res = st.res.filter((h) => !st.picks.includes(h.cid));
     const household = hh();
-    const calls = st.picks.length + st.picks.length * st.tags.length + Math.ceil(st.picks.length / CHUNK);
+    const calls = st.picks.length + st.picks.length * st.tags.length + Math.ceil(st.picks.length / CHUNK) + st.picks.length * 2;
     el.innerHTML = `<div class="wc-dlg__head"><div><h2>One contact, many partners</h2><p>One date, one summary, one way it went out. Blackbaud gets one ${esc(me ? me.type : 'RDD Action')} on each partner, with ${esc(me ? me.name : 'the owner')} as fundraiser.</p></div><button class="wc-dlg__x" data-closelayer aria-label="Close">${ic('x')}</button></div>
       <div class="wc-dlg__body">
         <div class="wc-row2"><div class="wc-field"><label for="m-date">Date of the contact</label><input type="date" id="m-date" value="${st.date}" max="${TODAY}" /></div>

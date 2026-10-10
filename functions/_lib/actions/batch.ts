@@ -24,9 +24,17 @@ export function plannedCalls(steps: number, items: number): number {
  * when the action is new or the batch tags it. A refresh holds at most REFRESH_MAX ids; the rest wait for the next sync.
  */
 export const REFRESH_MAX = 200;
-export function refreshCalls(items: { steps: { op: string }[] }[]): number {
+export function refreshCalls(items: { actionId?: string; steps: { op: string; actionId?: string; dep?: number }[] }[]): number {
   let n = 0;
-  for (const it of items.slice(0, REFRESH_MAX)) n += 1 + (it.steps.some((s) => s.op === 'create' || s.op === 'tag') ? 1 : 0);
+  for (const it of items.slice(0, REFRESH_MAX)) {
+    // The actions an item touches: each created action (read with its tags), and each existing one (with tags only when tagged).
+    const touched = new Map<string, boolean>();
+    it.steps.forEach((s, k) => {
+      const id = s.op === 'create' ? `new${k}` : s.op === 'tag' && s.dep !== undefined ? `new${s.dep}` : String(s.actionId ?? it.actionId ?? '');
+      touched.set(id, (touched.get(id) || false) || s.op === 'create' || s.op === 'tag');
+    });
+    for (const withTags of touched.values()) n += withTags ? 2 : 1;
+  }
   return n;
 }
 
