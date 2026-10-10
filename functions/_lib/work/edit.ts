@@ -291,7 +291,8 @@ async function liveAction(ctx: Ctx, id: string): Promise<Record<string, any>> {
   const r = await ctx.repo.send([{ method: 'GET', path: `/constituent/v1/actions/${id}` }]);
   await addMeter(ctx.env, r.results.length, r.callsToday);
   const x = r.results[0];
-  if (!x) throw new HttpError(503, 'blackbaud_wait', 'Blackbaud did not answer, so nothing was changed. Try again in a minute.');
+  if (!x) throw new HttpError(503, 'blackbaud_wait', `${r.wait || 'Blackbaud did not answer.'} Nothing was changed. Try again in a minute.`);
+  if (x.refused) throw new HttpError(503, 'not_allowed', 'The Blackbaud connection does not allow this yet.');
   if (x.status === 404) throw new HttpError(404, 'gone', 'Blackbaud no longer has this action. Someone may have deleted it.');
   if (!x.ok || !x.body) throw new HttpError(503, 'blackbaud_wait', 'Blackbaud did not answer, so nothing was changed. Try again in a minute.');
   return x.body;
@@ -790,3 +791,30 @@ export async function typesByFundraiser(env: Env): Promise<Record<string, string
 }
 
 export { defaultsFor, oppView };
+
+/** Partner names for a list of opportunities, in one mirror read. */
+export async function oppNames(ctx: Ctx, cids: string[]): Promise<Record<string, string>> {
+  const ids = [...new Set(cids.filter((x) => ID.test(x)))];
+  const out: Record<string, string> = {};
+  for (let i = 0; i < ids.length; i += 500) {
+    const rows = await q<any>(
+      ctx.env,
+      `SELECT id AS id, constituent_type AS t, first_name AS f, last_name AS l, preferred_name AS p, organization_name AS o FROM constituents WHERE id IN (SELECT value FROM json_each(?1))`,
+      [JSON.stringify(ids.slice(i, i + 500))]
+    ).catch(() => []);
+    for (const w of rows) out[String(w.id)] = w.t === 'Organization' ? w.o || '' : `${w.p || w.f || ''} ${w.l || ''}`.trim();
+  }
+  return out;
+}
+
+/** The actions linked to one opportunity (Blackbaud's opportunity_id on the action), newest first. */
+export async function oppLinked(ctx: Ctx, oppId: string) {
+  const rows = await q<any>(
+    ctx.env,
+    `SELECT a.id AS id, substr(a.action_date_due, 1, 10) AS d, a.action_type AS type, a.action_category AS cat, a.action_summary AS summary,
+            json_extract(a.raw_json, '$.completed') AS done, json_extract(a.raw_json, '$.fundraisers') AS frs
+       FROM actions a WHERE json_extract(a.raw_json, '$.opportunity_id') = ?1 ORDER BY a.action_date_due DESC LIMIT 50`,
+    [oppId]
+  ).catch(() => []);
+  return rows.map((a: any) => ({ id: String(a.id), date: a.d, type: a.type || '', category: a.cat || '', summary: a.summary || '', done: Number(a.done) === 1, by: parseArr(a.frs) }));
+}

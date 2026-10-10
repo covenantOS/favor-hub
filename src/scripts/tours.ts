@@ -255,6 +255,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'work-center-edit',
+    page: '/work/',
+    via: 'work',
+    at: '#wc-tools2',
+    title: 'Change anything on an action',
+    body: 'Press a partner name to open the action: every field, its notes, tags and attachments, with the partner beside it. Press a date, a status or a name in the list to change it in place. New action adds a contact or a task with a follow-up. Press ? for the keyboard shortcuts.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'partner-page',
     page: '/work/partner/',
     via: 'work',

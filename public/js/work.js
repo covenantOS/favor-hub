@@ -193,11 +193,11 @@ function page() {
       </div>
     </div>
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
-      ${[['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['recent', 'Recent', S.batches.length]].map(([k, l, n]) =>
-        `<button class="wc-tab${S.view === k ? ' is-on' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n || k !== 'recent' ? `<span>${n}</span>` : ''}</button>`).join('')}
+      ${[['open', 'Open actions', openN], ['intake', 'Entry', intakeWait], ['ty', 'Thank-yous', tyN], ['stale', 'Stale', staleN], ['opps', 'Opportunities', window.WCEdit ? window.WCEdit.oppCount() : ''], ['recent', 'Recent', S.batches.length]].map(([k, l, n]) =>
+        `<button class="wc-tab${S.view === k ? ' is-on' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
     </div>
     <div id="view"></div>`;
-  ({ open: viewOpen, intake: viewIntake, ty: viewTy, stale: viewStale, recent: viewRecent })[S.view]();
+  ({ open: viewOpen, intake: viewIntake, ty: viewTy, stale: viewStale, recent: viewRecent, opps: () => window.WCEdit && window.WCEdit.viewOpps() })[S.view]();
 }
 
 // ------------------------------------------------------------ the shared action table
@@ -224,11 +224,11 @@ function rowHTML(a) {
   const disabled = saving === 'saving' || queued;
   return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" role="row" tabindex="-1" data-id="${a.id}" aria-selected="${picked}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="Select ${esc(a.p)}, ${esc(a.sum || a.type)}" tabindex="-1" /></div>
-    <div class="wc-due"><b>${fd(c.due)}</b><span class="wc-late ${lc ? 'wc-late--' + lc : ''}">${ll}</span></div>
+    <div class="wc-due"><button type="button" class="wc-inl" data-inl="due" data-id="${a.id}" title="Change the date"><b>${fd(c.due)}</b><span class="wc-late ${lc ? 'wc-late--' + lc : ''}">${ll}</span></button></div>
     <div class="wc-partner"><button type="button" class="wc-plink" data-open="${a.id}">${esc(a.p)}</button><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ' + esc(a.lk) : ''} · <a class="wc-ppage" href="/work/partner/${esc(a.cid)}">Partner page</a></span></div>
-    <div class="wc-type"><b>${esc(a.type)}</b><span class="wc-cat">${ic(CAT_IC[a.cat] || 'task')}${esc(a.cat)}</span></div>
+    <div class="wc-type"><b>${esc(a.type)}</b><span class="wc-cat">${ic(CAT_IC[a.cat] || 'task')}${esc(a.cat)}<button type="button" class="wc-inl wc-st" data-inl="status" data-id="${a.id}" title="Change the status">Open</button></span></div>
     <div class="wc-what"><b class="${a.sum ? '' : 'is-empty'}" title="${esc(a.desc)}">${esc(a.sum || (a.desc ? a.desc.slice(0, 80) : 'No summary'))}</b>${tags.length ? `<div class="wc-tags">${tags.join('')}</div>` : ''}</div>
-    <div class="wc-who">${who}${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
+    <div class="wc-who"><button type="button" class="wc-inl wc-inl--who" data-inl="who" data-id="${a.id}" title="Change who it belongs to">${who}</button>${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
     <div class="wc-added">${fd(a.add)}</div>
   </div>`;
 }
@@ -309,12 +309,14 @@ function viewOpen() {
         <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-filterbtn" data-openfilters>${ic('filter')}Filters${chips.filter((c) => c[0] !== 'q').length ? ' (' + chips.filter((c) => c[0] !== 'q').length + ')' : ''}</button>
       </div>
+      <div class="wc-tools2" id="wc-tools2"></div>
       <div class="wc-active">${chips.map(([k, l]) => `<button type="button" class="wc-fchip" data-unf="${k}">${esc(l)}<i aria-label="Remove">×</i></button>`).join('')}${chips.length > 1 ? '<button type="button" class="wc-clear" data-unf="all">Clear all</button>' : ''}</div>
       ${tableHTML(list, base.length, 'o')}
     </section>`;
   afterTable('o', list);
   countUp();
   bar();
+  if (window.WCEdit) window.WCEdit.afterOpen('o');
 }
 
 // ------------------------------------------------------------ selection (shared by every list)
@@ -413,13 +415,15 @@ function bar(busy) {
   if (S.view === 'intake') { introBar(); return; }
   if (S.view === 'ty') { tyBar(); return; }
   const ids = [...S.sel].filter((id) => BYID[id]);
-  if (!ids.length || S.view === 'recent') { b.classList.remove('is-on', 'is-busy'); return; }
+  if (!ids.length || S.view === 'recent' || S.view === 'opps') { b.classList.remove('is-on', 'is-busy'); return; }
   const tyN = ids.filter((id) => BYID[id].ty).length;
   b.className = 'wc-bar is-on';
   b.innerHTML = `<span class="wc-bar__n">${ids.length}</span><span class="wc-bar__l">selected${tyN ? ` · ${tyN} thank-you` : ''}</span>
     <span class="wc-bar__acts"><button class="h-btn h-btn--primary h-btn--sm" data-do="complete">${ic('check')}Mark complete</button>
     <button class="h-btn h-btn--ghost h-btn--sm" data-do="reassign">${ic('user')}Reassign</button>
-    <button class="h-btn h-btn--ghost h-btn--sm" data-do="reschedule">${ic('cal')}Reschedule</button></span>
+    <button class="h-btn h-btn--ghost h-btn--sm" data-do="reschedule">${ic('cal')}Reschedule</button>
+    <button class="h-btn h-btn--ghost h-btn--sm" data-do="bulkedit" title="Change any field on every selected action">${ic('filter')}Edit</button>
+    <button class="h-btn h-btn--ghost h-btn--sm wc-bar__del" data-do="delete" title="Delete the selected actions">${ic('x')}Delete</button></span>
     <button class="wc-bar__x" data-do="clear" aria-label="Clear the selection" title="Clear (Esc)">${ic('x')}</button>`;
 }
 function tyBar() {
@@ -462,6 +466,7 @@ function dialog(html, mount) {
   if (mount) mount($('.wc-dlg', l));
 }
 function drawer(id) {
+  if (window.WCEdit && window.WCEdit.panel) { window.WCEdit.panel(id); return; }
   const a = BYID[id]; if (!a) return;
   S.retFocus = document.activeElement;
   const c = cur(a); const [lc, ll] = lateClass(c.due);
@@ -1177,7 +1182,8 @@ document.addEventListener('click', async (e) => {
       return;
     }
     const ids = S.view === 'ty' ? tyIds([...S.sel]) : selIds();
-    ({ complete: () => dlgComplete(ids, S.view === 'ty' && S.tyMode === 'close' ? 'close' : undefined), reassign: () => dlgReassign(ids), reschedule: () => dlgReschedule(ids) })[d.do]();
+    const own = { complete: () => dlgComplete(ids, S.view === 'ty' && S.tyMode === 'close' ? 'close' : undefined), reassign: () => dlgReassign(ids), reschedule: () => dlgReschedule(ids) }[d.do];
+    if (own) own(); else if (window.WCEdit && window.WCEdit.act[d.do]) window.WCEdit.act[d.do](ids);
     return;
   }
   if (d.undo) { undoBatch(d.undo); return; }
@@ -1250,6 +1256,13 @@ document.addEventListener('click', (e) => { if (!e.target.closest('.wc-ta, #wc-p
 window.addEventListener('scroll', closePop, true);
 setInterval(() => { const c = $('#clock'); if (!c || !S.in.data) return; const dl = Math.max(0, Date.parse(S.in.data.deadline.iso) - Date.now()); c.innerHTML = `${Math.floor(dl / 86400000)}<small>d</small> ${Math.floor(dl % 86400000 / 3600000)}<small>h</small> ${Math.floor(dl % 3600000 / 60000)}<small>m</small>`; }, 15000);
 
+// ------------------------------------------------------------ shared with the edit panel (work-edit.js)
+window.WC = {
+  api, post, S, esc, ic, I, fd, plural, money, addDays, dayn, lateClass, P, live, gone, cur, render, runJob, driveBatch, toast, refreshBoard, loadRecent,
+  closeLayer, dialog, reqId, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
+  get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, get TODAY() { return TODAY; }, AS,
+};
+
 // ------------------------------------------------------------ start
 async function init() {
   document.documentElement.classList.add('wc-page');
@@ -1262,7 +1275,8 @@ async function init() {
   try {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
-    const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent'].includes(v)) S.view = v;
+    const v = QS.get('view'); if (v && ['open', 'intake', 'ty', 'stale', 'recent', 'opps'].includes(v)) S.view = v;
+    if (window.WCEdit) await window.WCEdit.start();
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
     // A batch sent from a window that closed picks up here.
