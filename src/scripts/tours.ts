@@ -505,7 +505,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'help',
-    at: '#h-help',
+    at: '.h-area[data-area="help"] .h-area__link',
     title: 'Come back any time',
     body: 'Press Help and what\'s new to take this tour again. A green dot on it means something new is waiting to be shown.',
     side: 'top',

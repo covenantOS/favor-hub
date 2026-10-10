@@ -250,3 +250,11 @@ body.h-body .h-out:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 body.h-body .h-top .h-top__title, body.h-body .has-gate .h-top .h-top__title { display: block !important; }
 body.h-body .h-top > div:nth-child(2), body.h-body .h-top .h-top__head { flex: none; min-width: 0; }
 body.h-body .rp-toast:empty, body.h-body .wc-toast:empty { display: none; }
+
+/* the tour button lives in the Help group */
+body.h-body .h-pg .h-nav__help { flex-direction: row; justify-content: flex-start; align-items: center; gap: 8px; width: 100%; min-height: 34px; margin: 0; padding: 6px 36px 6px 42px; border-radius: 999px; font-size: 13px; font-weight: 500; text-align: left; color: rgba(255, 255, 255, 0.7); background: none; }
+body.h-body .h-pg .h-nav__help:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+body.h-body .h-pg .h-nav__help .h-dot { position: static; margin-left: auto; }
+body.h-body .h-area[data-area='help']:has(.has-new) > .h-area__link::after { content: ''; position: absolute; top: 8px; right: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--h-gold); box-shadow: 0 0 0 2px var(--r-rail); }
+html.nav-wide body.h-body .h-area[data-area='help']:has(.has-new) > .h-area__link::after, body.h-body .h-app.is-peek .h-area[data-area='help']:has(.has-new) > .h-area__link::after, body.h-body .h-app.is-nav .h-area[data-area='help']:has(.has-new) > .h-area__link::after { top: 16px; right: 44px; }
+.h-top__actions { display: contents; }

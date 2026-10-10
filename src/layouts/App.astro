@@ -81,7 +81,6 @@ const footAreas = AREAS.filter((a) => a.foot);
           <div class="h-areas h-areas--foot">
             {footAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
           </div>
-          <button type="button" class="h-nav__item h-nav__help" id="h-help" data-tour-start title="A guided tour of the hub, set up for your work"><Fragment set:html={icon('help')} /><span class="h-help__full">Help and what's new</span><span class="h-help__rail">Tour</span><span class="h-dot" aria-hidden="true"></span></button>
           <div class="h-side__foot" id="h-foot" hidden>
             <button type="button" class="h-acct" id="h-acct" aria-haspopup="menu" aria-expanded="false" aria-controls="h-acctmenu" title="Your account">
               <span class="h-avatar" id="h-avatar"></span>
@@ -198,7 +197,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           <div class="h-top__right">
             <div class="pp-headsearch pv-find" id="pp-headsearch" hidden><label class="pv-find__box"><Fragment set:html={icon('search')} /><input type="search" placeholder="Find a partner" autocomplete="off" aria-label="Find a partner" /><kbd>Ctrl K</kbd></label><ul class="pv-find__list" role="listbox" hidden></ul></div>
             <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
-            <slot name="actions" />
+            <span class="h-top__actions" id="h-actions"><slot name="actions" /></span>
             <button type="button" class="h-top__cam wm-bell" id="wm-bell" data-need="workCenter" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Reminders" title="Reminders"><Fragment set:html={icon('bell')} /><em></em></button>
             <a class="h-top__cam h-top__lib" id="clip-lib" href="/clips/" data-need="clips" hidden aria-label="My clips" title="My clips"><Fragment set:html={icon('clips')} /></a>
             <button type="button" class="h-top__cam" id="clip-cam" data-need="clips" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip"><Fragment set:html={icon('camera')} /></button>
@@ -222,8 +221,8 @@ const footAreas = AREAS.filter((a) => a.foot);
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=4" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=1" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=1" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=2" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=2" defer></script>
     <script is:inline src="/js/clips-launch.js?v=3" defer></script>
     <script is:inline src="/js/wc-bell.js?v=2" defer></script>
     <script>
