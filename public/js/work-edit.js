@@ -280,6 +280,18 @@ function tagValueInput(cat, val) {
   if (c.type === 'Boolean') return `<select name="value">${opt('true', 'Yes', val !== false)}${opt('false', 'No', val === false)}</select>`;
   return `<input type="text" name="value" value="${esc(val ?? (c.type === 'CodeTableEntry' ? c.name : ''))}" placeholder="Value" />`;
 }
+// The nine tags one click away: seven on and off, two that carry a number.
+const QUICK_TAGS = ['Thanked', 'Texted', 'Stewardship', 'Scheduling', 'Favor Presentation', 'Attended Event', 'Hosted Event'];
+const QUICK_NUMS = [['Amount of Ask', 'Amount of Ask', 'Dollars'], ['Number of Referrals', 'Number of Referrals', 'Count']];
+const QUICK_ALL = QUICK_TAGS.concat(QUICK_NUMS.map((x) => x[0]));
+/** The short labels the Open actions list shows for the tags on an action. */
+function tagLabels(list) {
+  const by = {}; for (const t of list || []) by[t.category] = t.value;
+  const out = QUICK_TAGS.filter((c) => c in by);
+  if (Number(by['Amount of Ask']) > 0) out.push('Ask ' + money(by['Amount of Ask']));
+  if (Number(by['Number of Referrals']) > 0) out.push(Number(by['Number of Referrals']) + (Number(by['Number of Referrals']) === 1 ? ' referral' : ' referrals'));
+  return out;
+}
 async function paneTags(pane, fresh) {
   const P = E.panel; const wc = W();
   if (!P.tags || fresh) { pane.innerHTML = '<div class="h-skel" style="height:120px;border-radius:14px"></div>'; P.tags = await loadExtra('tags', fresh); }
@@ -287,9 +299,11 @@ async function paneTags(pane, fresh) {
   const list = Array.isArray(P.tags) ? P.tags : [];
   const cats = ((E.codes && E.codes.tagCategories) || []).filter((c) => !/^RESERVED|^NXT /.test(c.name) || list.some((t) => t.category === c.name));
   const more = ((E.codes && E.codes.tagCategories) || []).filter((c) => /^RESERVED|^NXT /.test(c.name));
+  const other = list.filter((t) => !QUICK_ALL.includes(t.category));
   pane.innerHTML = `${P.tags && P.tags.error ? `<div class="wc-warn">${wc.ic('alert')}<span>${esc(P.tags.error)}</span></div>` : ''}
-    <div class="ep-list">${list.length ? list.map((t) => `<form class="ep-tag" data-tagform="${esc(t.id)}"><b>${esc(t.category)}</b>${tagValueInput(t.category, t.value)}<button type="submit" class="wc-linkbtn">Change</button><button type="button" class="wc-linkbtn ep-del" data-tagdel="${esc(t.id)}" data-cat="${esc(t.category)}">Remove</button></form>`).join('') : '<p class="wc-note">No tags on this action yet.</p>'}</div>
-    <div class="ep-quicktags"><span class="lab">Add with one click</span><div class="wc-choices">${['Thanked', 'Texted', 'Stewardship', 'Scheduling', 'Favor Presentation', 'Attended Event', 'Hosted Event'].filter((c) => tagCat(c) && !list.some((t) => t.category === c)).map((c) => `<button type="button" class="wc-choice" data-quicktag="${esc(c)}">${W().ic('plus')}${esc(c)}</button>`).join('')}</div></div>
+    <div class="ep-quicktags"><span class="lab">Tags</span><div class="wc-choices" role="group" aria-label="Tags">${QUICK_TAGS.filter(tagCat).map((c) => { const on = list.find((t) => t.category === c); return `<button type="button" class="wc-choice${on ? ' is-on' : ''}" aria-pressed="${on ? 'true' : 'false'}" data-qtoggle="${esc(c)}"${on ? ` data-qtid="${esc(on.id)}"` : ''}>${W().ic(on ? 'check' : 'plus')}${esc(c)}</button>`; }).join('')}</div>
+      <div class="ep-qnums">${QUICK_NUMS.filter(([c]) => tagCat(c)).map(([c, l, ph]) => { const on = list.find((t) => t.category === c); return `<form class="ep-qnum" data-qnum="${esc(c)}"${on ? ` data-qtid="${esc(on.id)}"` : ''}><label><span>${esc(l)}</span><input type="number" name="value" min="0" step="any" inputmode="decimal" placeholder="${esc(ph)}" value="${on ? esc(on.value) : ''}" required /></label><button type="submit" class="h-btn h-btn--ghost h-btn--sm">${on ? 'Change' : 'Add'}</button>${on ? `<button type="button" class="wc-linkbtn ep-del" data-tagdel="${esc(on.id)}" data-cat="${esc(c)}">Remove</button>` : ''}</form>`; }).join('')}</div></div>
+    ${other.length ? `<div class="ep-list">${other.map((t) => `<form class="ep-tag" data-tagform="${esc(t.id)}"><b>${esc(t.category)}</b>${tagValueInput(t.category, t.value)}<button type="submit" class="wc-linkbtn">Change</button><button type="button" class="wc-linkbtn ep-del" data-tagdel="${esc(t.id)}" data-cat="${esc(t.category)}">Remove</button></form>`).join('')}</div>` : ''}
     <form class="ep-add" data-tagadd><b class="lab">Add a tag with a value</b><div class="wc-row2"><select name="category" data-tagcat aria-label="Tag">${cats.concat(more).map((c) => opt(c.name, c.name.replace(/^RESERVED \((.*)\)$/, '$1'))).join('')}</select><span data-tagval>${tagValueInput(cats[0] ? cats[0].name : '')}</span></div>
       <div class="ep-add__acts"><button type="submit" class="h-btn h-btn--primary h-btn--sm">Add tag</button></div></form>`;
 }
@@ -305,10 +319,19 @@ async function paneFiles(pane, fresh) {
     <form class="ep-add" data-fileform><b class="lab">Attach a file</b><input type="file" name="file" /><small>Up to 10 MB.</small>
       <div class="ep-add__acts"><button type="submit" class="h-btn h-btn--ghost h-btn--sm">Upload</button></div></form>`;
 }
+/** After a tag change lands, show the action's tags (the list the Tags tab just read) on its row in Open actions. */
+function syncTagLabels(P) {
+  const row = W().BYID[P.id]; const list = P.tags;
+  if (!row || !Array.isArray(list)) return;
+  row.tg = tagLabels(list);
+  if (P.act) P.act.tags = list.map((t) => ({ category: t.category, value: String(t.value ?? '') }));
+  W().render();
+}
 async function extraChange(params, what, label) {
   const P = E.panel;
   const r = await send(Object.assign({ ids: [P.id] }, params), { label, say: (s, t) => { if (E.panel === P) drawFoot(s, t); } });
-  if (E.panel === P) { P[what] = null; const pane = $('#ep-pane', P.box); ({ notes: paneNotes, tags: paneTags, files: paneFiles })[what](pane, true); }
+  if (E.panel === P) { P[what] = null; const pane = $('#ep-pane', P.box); await ({ notes: paneNotes, tags: paneTags, files: paneFiles })[what](pane, true); }
+  if (what === 'tags' && r && r.ok) syncTagLabels(P);
   return r;
 }
 
@@ -805,6 +828,13 @@ document.addEventListener('click', async (e) => {
   if (d.noteedit) { const n = (P.notes || []).find((x) => x.id === d.noteedit); const f = $('[data-noteform]', P.box); if (n && f) { f.type.value = n.type; f.summary.value = n.summary; f.text.value = n.text; f.id.value = n.id; $('button[type=submit]', f).textContent = 'Save the note'; $('[data-notecancel]', f).hidden = false; f.summary.focus(); } return; }
   if (t.hasAttribute('data-notecancel')) { P.notes = P.notes; paneNotes($('#ep-pane', P.box)); return; }
   if (d.tagdel) { extraChange({ op: 'edit', set: {}, tags: { remove: [{ id: d.tagdel, category: d.cat }] } }, 'tags', 'Removed the ' + d.cat + ' tag'); return; }
+  if (d.qtoggle) {
+    if (t.disabled) return;
+    t.disabled = true;
+    if (d.qtid) extraChange({ op: 'edit', set: {}, tags: { remove: [{ id: d.qtid, category: d.qtoggle }] } }, 'tags', 'Removed the ' + d.qtoggle + ' tag');
+    else extraChange({ op: 'edit', set: {}, tags: { add: [{ category: d.qtoggle }] } }, 'tags', 'Tagged ' + d.qtoggle);
+    return;
+  }
   if (d.quicktag) { extraChange({ op: 'edit', set: {}, tags: { add: [{ category: d.quicktag }] } }, 'tags', 'Tagged ' + d.quicktag); return; }
   if (d.filedel) { extraChange({ op: 'attach', attach: { id: d.filedel, remove: true } }, 'files', 'Removed the attachment'); return; }
 });
@@ -835,6 +865,11 @@ document.addEventListener('submit', async (e) => {
     const note = { type: f.type.value, summary: f.summary.value, text: f.text.value }; if (f.id.value) note.id = f.id.value;
     if (!note.summary && !note.text) return;
     await extraChange({ op: 'note', note }, 'notes', note.id ? 'Saved the note' : 'Added the note');
+  } else if (f.matches('[data-qnum]')) {
+    const cat = f.dataset.qnum; const raw = String(f.value.value).replace(/[$,\s]/g, ''); const n = Number(raw);
+    if (!raw || !Number.isFinite(n) || n < 0) return;
+    if (f.dataset.qtid) await extraChange({ op: 'edit', set: {}, tags: { change: [{ id: f.dataset.qtid, value: n }] } }, 'tags', 'Changed ' + cat);
+    else await extraChange({ op: 'edit', set: {}, tags: { add: [{ category: cat, value: n }] } }, 'tags', 'Added ' + cat);
   } else if (f.matches('[data-tagform]')) {
     const v = f.value.value;
     await extraChange({ op: 'edit', set: {}, tags: { change: [{ id: f.dataset.tagform, value: f.value.type === 'number' ? Number(v) : v }] } }, 'tags', 'Changed the tag');

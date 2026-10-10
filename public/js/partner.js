@@ -76,7 +76,7 @@ async function run(params, label, after) {
     } catch (_) { /* the change is saved; the toast still offers Undo */ }
   }
   toast(b.run_when === 'tonight' ? label + '. It goes to Blackbaud tonight.' : label + '.', b.id);
-  if (after) after();
+  if (after) after(b.id);
   return true;
 }
 // The changes whose Undo was pressed, shared with the Work Center and the thank-you toast: a change is undone once.
@@ -106,7 +106,7 @@ function toast(msg, bid, bad) {
 }
 
 /* ------------------------------------------------------------------ the view */
-const V = { id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, host: null, mode: 'drawer', editing: null };
+const V = { id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host: null, mode: 'drawer', editing: null };
 function holderOf(p) { const cur = (p.assignments || []).filter((a) => a.current); return cur; }
 function figure(label, value, sub) { return `<div class="pp-fig"><b>${value}</b><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</div>`; }
 function eventsOf(p) {
@@ -115,9 +115,46 @@ function eventsOf(p) {
   for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment].filter(Boolean).join(' · ') });
   for (const g of ((p.giving.soft && p.giving.soft.recent) || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: 'Soft credit' });
   for (const a of (p.actions.recent || [])) ev.push({ t: 'act', id: a.id, d: a.done || a.due, icon: CAT_IC[a.category] || 'task', what: a.summary || plain(a.type), text: a.description, by: (a.fundraisers || []).map((f) => f.name).join(', ') + (a.outcome ? ' · ' + a.outcome : '') });
-  for (const n of (V.notes || [])) ev.push({ t: 'note', d: n.date, what: n.summary || n.type, text: n.text && n.text !== n.summary ? n.text : '', by: n.type });
   for (const e of L.events) if (!ev.some((x) => x.t === e.t && x.what === e.what && x.d === e.d)) ev.push(e);
   return ev.filter((e) => e.d).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+}
+/* ------------------------------------------------------------------ notes on the partner (B5) */
+const NOTE_LEAD = /^(instruction|prayer|giving|family)\s*:\s*/i;
+const TOPICS = ['General', 'Prayer', 'Giving', 'Family'];
+/** A note's topic and title. Blackbaud has one note type for these; the topic leads the summary ("Prayer: ..."). */
+function noteParts(n) {
+  const sum = String(n.summary || '');
+  const m = sum.match(NOTE_LEAD);
+  const topic = m ? m[1][0].toUpperCase() + m[1].slice(1).toLowerCase() : 'General';
+  const title = (m ? sum.slice(m[0].length) : sum).trim() || String(n.text || '').trim().slice(0, 80);
+  const type = String(n.type || '');
+  const label = topic !== 'General' ? topic : !type || /^note \(general\)$/i.test(type) ? 'General' : type.replace(/^Reserved Note \((.*)\)$/i, '$1');
+  const text = String(n.text || '').trim();
+  return { topic, title, label, text: text === title ? '' : text, instr: topic === 'Instruction' };
+}
+/** The newest instruction note, shown in red under the partner's name. */
+function instructionOf() {
+  const list = (V.notes || []).filter((n) => /^instruction\s*:/i.test(String(n.summary || '')));
+  list.sort((a, b) => (String(a.date) < String(b.date) ? 1 : -1));
+  return list[0] ? Object.assign(noteParts(list[0]), { date: list[0].date, author: list[0].author }) : null;
+}
+function instrBox() {
+  const i = instructionOf();
+  if (!i) return '';
+  return `<div class="pp-instr" role="note"><span class="pp-instr__k">Instruction</span><p>${esc(i.title)}${i.text ? ' ' + esc(i.text) : ''}</p><small>${esc(fd(i.date, true))}${i.author ? ' · ' + esc(i.author) : ''}</small></div>`;
+}
+function noteItem(n, o) {
+  const x = noteParts(n);
+  const long = x.text.length > 220 || x.text.split('\n').length > 3;
+  const open = V.noteOpen.has(String(n.id));
+  const state = n.local ? '<span class="pp-nt__st">Saving</span>' : n.undo && !o.compact ? `<span class="pp-nt__st is-ok">${ic('check')}In Blackbaud</span><button type="button" class="pp-nt__undo" data-pp-undo="${esc(n.undo)}"${UNDOING.has(n.undo) ? ' disabled aria-busy="true"' : ''}>Undo</button>` : '';
+  return `<li class="pp-nt${x.instr ? ' pp-nt--instr' : ''}${n.local ? ' is-local' : ''}"><div class="pp-nt__top"><span class="pp-nt__type">${esc(x.label)}</span><span class="pp-nt__when">${esc(fd(n.date, true))}${n.author ? ' · ' + esc(n.author) : ''}</span></div>
+    <b>${esc(x.title)}</b>${x.text ? `<p class="pp-nt__text${long && !open ? ' is-clamped' : ''}">${esc(x.text)}</p>${long ? `<button type="button" class="pp-nt__more" data-pp-noteopen="${esc(n.id)}" aria-expanded="${open}">${open ? 'Show less' : 'Read all'}</button>` : ''}` : ''}${state ? `<div class="pp-nt__foot">${state}</div>` : ''}</li>`;
+}
+function notesSection(o) {
+  const list = V.notes;
+  const body = list === null ? '<p class="pp-empty">Loading notes.</p>' : list.length ? `<ul class="pp-nl">${list.slice(0, V.notesShown).map((n) => noteItem(n, o)).join('')}</ul>${list.length > V.notesShown ? `<button type="button" class="pp-more" data-pp-notemore>Show ${Math.min(10, list.length - V.notesShown)} older</button>` : ''}` : '<p class="pp-empty">No notes on this partner.</p>';
+  return `<section class="pp-sec pp-notes"><h3>Notes${list ? ` <span class="pp-count">${list.length}</span>` : ''}${o.compact ? '' : ' <button type="button" data-pp-compose="note">Add a note</button>'}</h3>${body}</section>`;
 }
 function tasksOf(p) {
   const L = local(p.id);
@@ -185,7 +222,7 @@ function view(p, o = {}) {
     </div>`;
   const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? -dayn(t.due) + ' days late' : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
       <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? -n + (n === -1 ? ' day late' : ' days late') : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>`;
-  const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts'], ['notes', 'Notes']].map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
+  const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
   if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
@@ -220,7 +257,7 @@ function view(p, o = {}) {
         ${row('Added', esc(fd(p.addedOn, true)))}
       </dl>
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
-  return `<div class="pp">${head}${acts}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
+  return `<div class="pp">${head}${instrBox()}${acts}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
 }
 function oppForm(x) {
   const C = (CODES && CODES.codes) || {};
@@ -231,7 +268,16 @@ function oppForm(x) {
     <div class="pp-compose__row"><label class="pp-lab">Expected by<input type="date" name="expected_date" value="${esc(v.expectedDate || '')}" /></label><label class="pp-lab">Deadline<input type="date" name="deadline" value="${esc(v.deadline || '')}" /></label></div>
     <div class="pp-compose__foot"><span></span><span><button type="button" class="pp-edit" data-pp-cancel>Cancel</button> <button type="submit" class="h-btn h-btn--primary h-btn--sm">${x ? 'Save' : 'Add opportunity'}</button></span></div></form>`;
 }
+function noteComposer() {
+  return `<form class="pp-compose" data-pp-save="note"><div class="pp-compose__top"><b>Add a note</b><button type="button" class="pp-iconbtn" data-pp-close-compose aria-label="Cancel">${ic('x')}</button></div>
+    <div class="pp-seg" role="group" aria-label="Topic">${TOPICS.map((t, i) => `<button type="button" class="${i === 0 ? 'is-on' : ''}" data-pp-topic="${t}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
+    <input type="text" name="what" placeholder="Summary" maxlength="200" required />
+    <textarea name="text" placeholder="The note"></textarea>
+    <label class="pp-chk"><input type="checkbox" name="instruction" />Show at the top as an instruction</label>
+    <div class="pp-compose__foot"><small>Note on the partner record</small><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save note</button></div></form>`;
+}
 function composer(k, p) {
+  if (k === 'note') return noteComposer();
   const t = { contact: 'Log a contact', task: 'Add a task', note: 'Add a note' }[k];
   const kinds = [['Phone call', 'Call', 'phone'], ['Email', 'Email', 'mail'], ['Meeting', 'Meeting', 'meet'], ['Mailing', 'Mailing', 'letter'], ['Task/Other', 'Task', 'task']];
   const pick = k === 'task' ? 'Task/Other' : 'Phone call';
@@ -256,7 +302,7 @@ function paint() {
   sc.scrollTop = y;
 }
 async function show(host, id, mode) {
-  Object.assign(V, { id, p: null, filter: 'all', shown: 8, compose: null, notes: null, host, mode, editing: null });
+  Object.assign(V, { id, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host, mode, editing: null });
   host.innerHTML = skeleton;
   codes();
   try {
@@ -273,6 +319,7 @@ async function show(host, id, mode) {
 async function refresh(fresh) {
   if (!V.id) return;
   try { V.p = await load(V.id, fresh); paint(); } catch (_) { /* keep what is shown */ }
+  if (fresh) { const id = V.id; try { const d = await api('/api/work/partners/' + encodeURIComponent(id) + '/notes?fresh=1'); if (V.id === id) { V.notes = d.rows || []; paint(); } } catch (_) { /* the notes stay as they were */ } }
 }
 /** The compact view beside the Work Center's edit panel. It has its own state, so it never disturbs an open drawer. */
 async function mount(el, id, o = {}) {
@@ -386,6 +433,9 @@ document.addEventListener('click', async (e) => {
   if (b.hasAttribute('data-pp-close-compose')) { V.compose = null; paint(); return; }
   if (d.ppKind) { $$('[data-pp-kind]', b.parentElement).forEach((x) => x.classList.toggle('is-on', x === b)); return; }
   if (d.ppTag) { b.classList.toggle('is-on'); return; }
+  if (d.ppTopic) { $$('[data-pp-topic]', b.parentElement).forEach((x) => { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', x === b); }); return; }
+  if (d.ppNoteopen) { if (V.noteOpen.has(d.ppNoteopen)) V.noteOpen.delete(d.ppNoteopen); else V.noteOpen.add(d.ppNoteopen); paint(); return; }
+  if (b.hasAttribute('data-pp-notemore')) { V.notesShown += 10; paint(); return; }
   if (d.ppFilter) { V.filter = d.ppFilter; paint(); return; }
   if (b.hasAttribute('data-pp-more')) { V.shown += 30; paint(); return; }
   if (d.ppEdit) { V.editing = d.ppEdit; paint(); setTimeout(() => { const i = $('.pp-inline input[type="text"]', V.host); if (i) i.focus(); }, 30); return; }
@@ -460,10 +510,14 @@ document.addEventListener('submit', async (e) => {
     const k = f.dataset.ppSave;
     const what = f.what.value.trim(); if (!what) return;
     if (k === 'note') {
-      L.events.push({ t: 'note', d: TODAY, what, text: f.text ? f.text.value : '', by: 'Saving', fresh: 1 });
-      V.compose = null; paint();
-      const ok = await run({ op: 'pnote', cid, note: { summary: what, text: f.text ? f.text.value : '' } }, 'Note added', async () => { L.events = L.events.filter((x) => !(x.t === 'note' && x.what === what)); try { V.notes = (await api('/api/work/partners/' + cid + '/notes?fresh=1')).rows || []; } catch (_) {} paint(); });
-      if (!ok) { L.events = L.events.filter((x) => x.what !== what); paint(); }
+      const topic = ($('[data-pp-topic].is-on', f) || {}).dataset ? $('[data-pp-topic].is-on', f).dataset.ppTopic : 'General';
+      const instruction = !!(f.instruction && f.instruction.checked);
+      const text = f.text ? f.text.value : '';
+      const lead = instruction ? 'Instruction: ' : topic !== 'General' ? topic + ': ' : '';
+      const local = { id: 'local' + Date.now(), type: 'Note (general)', summary: lead + what, text, date: TODAY, author: 'You', local: true };
+      V.notes = [local].concat(V.notes || []); V.compose = null; paint();
+      const ok = await run({ op: 'pnote', cid, note: { topic, instruction, summary: what, text } }, instruction ? 'Instruction added' : 'Note added', async () => { try { V.notes = (await api('/api/work/partners/' + cid + '/notes?fresh=1')).rows || []; } catch (_) { V.notes = (V.notes || []).map((n) => (n.id === local.id ? Object.assign({}, n, { local: false }) : n)); } paint(); });
+      if (!ok) { V.notes = (V.notes || []).filter((n) => n.id !== local.id); paint(); }
       return;
     }
     const cat = ($('[data-pp-kind].is-on', f) || {}).dataset ? $('[data-pp-kind].is-on', f).dataset.ppKind : 'Phone call';

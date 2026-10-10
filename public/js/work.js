@@ -87,7 +87,7 @@ const UNDOING = (window.favorUndoing = window.favorUndoing || new Set());
 function adapt(r) {
   return {
     id: r.id, due: r.due, add: r.added, type: r.type, cat: r.category, sum: r.summary, desc: r.description, cid: r.cid, p: r.partner, loc: r.place, lk: r.lookup,
-    f: r.fundraisers || [], dec: r.deceased ? 1 : 0, ty: r.ty ? 1 : 0, ctg: r.ctg ? 1 : 0, pri: r.priority,
+    f: r.fundraisers || [], dec: r.deceased ? 1 : 0, ty: r.ty ? 1 : 0, ctg: r.ctg ? 1 : 0, pri: r.priority, tg: r.tags || [],
     gift: r.gift ? { id: r.gift.id, a: r.gift.amount, d: r.gift.date, fund: r.gift.fund } : null,
     later: r.later ? { id: r.later.id, d: r.later.date, by: r.later.by || [], s: r.later.summary, cat: r.later.category, k: r.later.strength === 'thanked' ? 's' : 'l' } : null,
     hold: r.holders || [], grp: r.group, pending: r.pending || null, reopened: !!r.reopened,
@@ -244,6 +244,7 @@ function rowHTML(a) {
     ? `<span class="wc-tag wc-tag--done" title="${esc(a.later.s)}">Thanked ${fd(a.later.d)}</span>`
     : `<span class="wc-tag wc-tag--maybe" title="${esc(a.later.s)}">Contact ${fd(a.later.d)}, maybe done</span>`);
   if (a.grp) tags.push(`<span class="wc-tag" title="Another open task is about the same gift">${a.grp.length} tasks, one gift</span>`);
+  for (const t of (a.tg || [])) tags.push(`<span class="wc-tag wc-tag--tag">${esc(t)}</span>`);
   if (a.dec) tags.push('<span class="wc-tag wc-tag--warn">Deceased</span>');
   const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}">${esc(P(x).n)}${gone(x)}</span>`).join('') : '<span class="none">No one</span>';
   const theirs = S.f.fr && S.f.theirs && !c.f.includes(S.f.fr) && a.hold.includes(S.f.fr);

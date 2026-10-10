@@ -20,11 +20,17 @@ The name, the household, who holds the partner, and the iWave rating sit at the 
 
 The four figures below are lifetime giving, this year (with the last 12 months), the last gift and the largest gift.
 
+## Notes
+
+The Notes section sits under Due and open. It lists every note on the partner record in Blackbaud, newest first, with its topic (General, Prayer, Giving or Family), who wrote it and the date. A long note shows its first lines, and Read all opens the rest.
+
+Add a note, or the Note button at the top, opens one form. Pick the topic, write a summary and the note, and press Save note. The note saves to the partner record in Blackbaud and shows In Blackbaud with Undo for 24 hours. Tick Show at the top as an instruction for a do-not-contact request or any rule the next caller must see. The newest instruction sits in red under the partner's name and on the Call prep screen. Topics other than General lead the note's summary, so Prayer: Pray for the surgery reads the same in Blackbaud.
+
 ## Due and open, then the timeline
 
 Due and open lists the partner's open actions. Tick one to complete it, or press its date to move it. Press its name to open it in the Work Center with every field.
 
-The timeline mixes gifts, contacts and notes, newest first. All, Gifts, Contacts and Notes narrow it.
+The timeline mixes gifts and contacts, newest first. All, Gifts and Contacts narrow it.
 
 ## Further down
 

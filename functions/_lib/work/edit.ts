@@ -276,7 +276,7 @@ export interface EditInput {
   seen?: Record<string, unknown>;
   line?: string;
   tags?: { add?: { category: string; value?: unknown; comment?: string }[]; remove?: { id: string; category?: string }[]; change?: { id: string; value: unknown }[] };
-  note?: { id?: string; type?: string; summary?: string; text?: string; date?: string; remove?: boolean };
+  note?: { id?: string; type?: string; summary?: string; text?: string; date?: string; remove?: boolean; topic?: string; instruction?: boolean };
   attach?: { id?: string; name?: string; url?: string; remove?: boolean; file_id?: string; file_name?: string };
   cids?: string[];
   /** New action on many partners: a due date for each partner (Plan calls spreads calls over the days). The set date covers any partner left out. */
@@ -336,7 +336,17 @@ export interface PlanOut {
   conflict?: { fields: string[]; current: Record<string, unknown> };
 }
 
-function tagSteps(actionId: string | undefined, dep: number | undefined, input: EditInput['tags'], today: string, codes: Codes): Step[] {
+/** A tag value as Blackbaud wants it sent: numbers as numbers, the rest as read. */
+function backValue(known: Map<string, { type: string }>, t: { category: string; value: unknown }): unknown {
+  const c = known.get(String(t.category).toLowerCase());
+  if (c && c.type === 'Number') { const n = Number(String(t.value).replace(/[$,\s]/g, '')); return Number.isFinite(n) ? n : t.value; }
+  if (c && c.type === 'Boolean') return t.value === true || t.value === 'true' || t.value === 'True';
+  return t.value;
+}
+
+type TagNow = { id: string; category: string; value: unknown; date: string; comment: string };
+
+function tagSteps(actionId: string | undefined, dep: number | undefined, input: EditInput['tags'], today: string, codes: Codes, now: Map<string, TagNow> = new Map()): Step[] {
   const steps: Step[] = [];
   if (!input) return steps;
   const known = new Map(codes.tagCategories.map((c) => [c.name.toLowerCase(), c]));
@@ -359,11 +369,19 @@ function tagSteps(actionId: string | undefined, dep: number | undefined, input: 
   }
   for (const t of input.change || []) {
     if (!ID.test(String(t.id)) || !actionId) continue;
-    steps.push({ op: 'call' as any, actionId, body: { __call: { method: 'PATCH', path: `/constituent/v1/actions/customfields/${t.id}` }, value: t.value }, label: 'tag change' });
+    // Undo puts the old value back, from the tag as Blackbaud holds it now.
+    const was = now.get(String(t.id));
+    if (was) was.value = backValue(known, was);
+    steps.push({ op: 'call' as any, actionId, body: { __call: { method: 'PATCH', path: `/constituent/v1/actions/customfields/${t.id}` }, value: t.value }, before: was ? { __call: { method: 'PATCH', path: `/constituent/v1/actions/customfields/${t.id}` }, value: was.value } : undefined, label: 'tag change' });
   }
   for (const t of input.remove || []) {
     if (!ID.test(String(t.id)) || !actionId) continue;
-    steps.push({ op: 'call' as any, actionId, body: { __call: { method: 'DELETE', path: `/constituent/v1/actions/customfields/${t.id}?action=${actionId}` }, __tag: t.category || '' }, label: 'tag remove' });
+    // Undo adds the tag back with the value and date it had.
+    const was = now.get(String(t.id));
+    if (was) was.value = backValue(known, was);
+    const back: Record<string, unknown> | undefined = was ? { __call: { method: 'POST', path: '/constituent/v1/actions/customfields' }, parent_id: actionId, category: was.category, value: was.value, date: was.date ? stamp(was.date) : stamp(today) } : undefined;
+    if (back && was && was.comment) back.comment = was.comment;
+    steps.push({ op: 'call' as any, actionId, body: { __call: { method: 'DELETE', path: `/constituent/v1/actions/customfields/${t.id}?action=${actionId}` }, __tag: t.category || '' }, before: back, label: 'tag remove' });
   }
   return steps;
 }
@@ -398,7 +416,13 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     }
     const steps: Step[] = [];
     if (Object.keys(body).length) steps.push({ op: 'patch', actionId: id, body, before: valuesOf(current, Object.keys(body)), label: 'edit' });
-    steps.push(...tagSteps(id, undefined, input.tags, today, codes));
+    const tagNow = new Map<string, TagNow>();
+    if ((input.tags?.remove && input.tags.remove.length) || (input.tags?.change && input.tags.change.length)) {
+      const list = await actionExtra(ctx, id, 'tags').catch(() => []);
+      reads++;
+      for (const t of list as any[]) tagNow.set(String(t.id), t);
+    }
+    steps.push(...tagSteps(id, undefined, input.tags, today, codes, tagNow));
     const recurOnly = input.recur !== undefined && (input.recur === null || !!checkRecur(input.recur));
     if (!steps.length && !recurOnly) throw new HttpError(400, 'nothing_to_do', 'Nothing changed.');
     const partner = await partnerName(ctx.env, String(current.constituent_id));
@@ -659,15 +683,15 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     // A note on the partner record (Blackbaud's constituent notes), from the partner drawer.
     const cid = String(input.cid || '');
     if (!ID.test(cid)) throw new HttpError(400, 'no_partner', 'Pick the partner first.');
-    const n = input.note || {};
+    const n = (input.note || {}) as { type?: string; summary?: string; text?: string; topic?: string; instruction?: boolean };
     const types: string[] = (codes as any).partnerNoteTypes || ['Note (general)'];
-    const type = types.find((t) => t.toLowerCase() === String(n.type || '').toLowerCase()) || types[0];
-    const summary = String(n.summary || '').replace(/\s+/g, ' ').trim().slice(0, 255);
+    const type = types.find((t) => t.toLowerCase() === String(n.type || '').toLowerCase()) || types.find((t) => t === 'Note (general)') || types[0];
     const text = String(n.text || '').slice(0, 20000);
-    if (!summary && !text) throw new HttpError(400, 'bad_note', 'Write the note first.');
+    if (!String(n.summary || '').trim() && !text.trim()) throw new HttpError(400, 'bad_note', 'Write the note first.');
+    const summary = noteSummary(String(n.summary || '') || text.slice(0, 80), String(n.topic || 'General'), n.instruction === true);
     const [y, m, d] = today.split('-').map(Number);
     const partner = await partnerName(ctx.env, cid);
-    items.push({ cid, label: labelFor(partner, 'Note'), steps: [{ op: 'call' as any, body: { __call: { method: 'POST', path: '/constituent/v1/notes' }, __pnote: cid, constituent_id: cid, type, summary: summary || text.slice(0, 80), text, date: { y, m, d } }, before: { __call: { method: 'DELETE', path: '/constituent/v1/notes/{id}' } }, label: 'partner note' }] });
+    items.push({ cid, label: labelFor(partner, 'Note'), steps: [{ op: 'call' as any, body: { __call: { method: 'POST', path: '/constituent/v1/notes' }, __pnote: cid, constituent_id: cid, type, summary, text, date: { y, m, d } }, before: { __call: { method: 'DELETE', path: '/constituent/v1/notes/{id}' } }, label: 'partner note' }] });
     return { items, params: { op: 'pnote' }, reads, skipped: 0, changed: 0 };
   }
 
@@ -906,8 +930,35 @@ export async function partnerNotes(ctx: Ctx, cid: string, fresh = false): Promis
     type: v.type || '',
     summary: v.summary || '',
     text: v.text || '',
+    author: String(v.author || v.added_by || ''),
     date: v.date && v.date.y ? `${v.date.y}-${String(v.date.m || 1).padStart(2, '0')}-${String(v.date.d || 1).padStart(2, '0')}` : String(v.date_added || '').slice(0, 10),
   }));
   await ctx.env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at').bind(key, JSON.stringify(list), nowIso()).run().catch(() => undefined);
   return list;
+}
+
+/** The topics a partner note can carry. Blackbaud has no note type for them, so a topic other than General leads the summary ("Prayer: ..."). */
+export const NOTE_TOPICS = ['General', 'Prayer', 'Giving', 'Family'];
+export const INSTRUCTION_LEAD = 'Instruction';
+
+/** The summary a partner note is saved with: an instruction leads with "Instruction:", another topic with its name. */
+export function noteSummary(summary: string, topic: string, instruction: boolean): string {
+  const clean = String(summary || '').replace(/\s+/g, ' ').trim();
+  const lead = instruction ? INSTRUCTION_LEAD : NOTE_TOPICS.includes(topic) && topic !== 'General' ? topic : '';
+  const body = clean.replace(/^(instruction|prayer|giving|family)\s*:\s*/i, '');
+  return (lead ? `${lead}: ${body}` : clean).slice(0, 255);
+}
+
+/** The partner notes this hub saved in the last 24 hours that are still in Blackbaud: note id to the batch that made it, for Undo. */
+export async function noteUndoable(env: Env, cid: string): Promise<Record<string, string>> {
+  if (!ID.test(cid)) return {};
+  const now = nowIso();
+  const since = new Date(Date.parse(now) - 25 * 3600000).toISOString();
+  const rows = await env.DB.prepare(
+    `SELECT o.bb_id AS note, o.batch_id AS batch FROM act_batches b JOIN act_outbox o ON o.batch_id = b.id
+      WHERE b.created_at >= ?1 AND b.op = 'pnote' AND b.state IN ('done', 'partial', 'running') AND b.undo_until > ?2 AND o.cid = ?3 AND o.bb_id IS NOT NULL AND o.state IN ('sent', 'verified')`
+  ).bind(since, now, cid).all<{ note: string; batch: string }>().catch(() => ({ results: [] as { note: string; batch: string }[] }));
+  const out: Record<string, string> = {};
+  for (const r of rows.results) out[String(r.note)] = String(r.batch);
+  return out;
 }

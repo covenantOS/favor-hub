@@ -32,8 +32,10 @@ const OPEN_COLUMNS = `a.id AS id, a.constituent_record_id AS cid, substr(a.actio
 export function openActionsSql(limit = 3000): string {
   return readOnly(`SELECT ${OPEN_COLUMNS}, a.date_modified AS modfull, a.action_priority_level AS priority, c.constituent_lookup_id AS lookup,
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS partner,
-       json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.deceased AS deceased
-  FROM actions a JOIN constituents c ON c.id = a.constituent_record_id
+       json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st, c.deceased AS deceased,
+       t.thanked AS tg_thanked, t.texted AS tg_texted, t.stewardship AS tg_stew, t.scheduling AS tg_sched, t.presented AS tg_pres, t.attended_Hosted AS tg_att,
+       t.action_ask_amount AS tg_ask, t.action_referrals AS tg_ref
+  FROM actions a JOIN constituents c ON c.id = a.constituent_record_id LEFT JOIN action_tags t ON t.id = a.id
  WHERE ${openActionSql('a')}
  ORDER BY a.action_date_due LIMIT ${Math.floor(limit)}`);
 }

@@ -39,7 +39,8 @@ function briefHTML(b, owedRows) {
   const dne = b.flags.includes('Do not email');
   return `
     <div class="wg-dlg__head"><div><span class="wg-kick">Call prep · ${e(b.kind)} · ${e(b.lookup)}${b.since ? ' · Partner since ' + e(b.since) : ''}</span><h2>${e(b.name)}</h2><p>${e([b.place || 'No city on file', house].join(' · '))}</p></div><button type="button" class="pp-iconbtn" data-wg-pclose aria-label="Close (Esc)">${f.ic('x')}</button></div>
-    <div class="wg-brief__acts">${call}${text}<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wg-logcall>${f.ic('plus')}Log this call</button>${owed ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-pthank>${f.ic('check')}Thank${f.ic('down', 'wg-caret')}</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-print>${f.ic('print')}Print</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-partner>${f.ic('expand')}Partner</button></div>
+    <div class="wg-brief__acts">${call}${text}<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wg-logcall>${f.ic('plus')}Log this call</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-addnote>${f.ic('plus')}Add a note</button>${owed ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-pthank>${f.ic('check')}Thank${f.ic('down', 'wg-caret')}</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-print>${f.ic('print')}Print</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-partner>${f.ic('expand')}Partner</button></div>
+    ${b.instruction ? `<div class="wg-instr" role="note"><b>Instruction</b><span>${e(b.instruction.text)}</span></div>` : ''}
     <div class="wg-dlg__body"><div class="wg-brief__grid">
       <div class="wg-bsec"><h3>The call</h3><ol class="wg-steps">${b.steps.map(stepHTML).join('')}</ol>${b.notesLive ? '' : '<p class="wg-note">Notes on the partner record did not load, so the prayer line reads the logged contacts only.</p>'}</div>
       <div>
@@ -69,6 +70,7 @@ async function open(cid, o = {}) {
   }
   if (!layer) return;
   const b = d.brief;
+  b.instruction = d.instruction || null;
   box.innerHTML = briefHTML(b, d.owedRows || []);
   const owed = (d.owedRows || []).slice().sort((a, c) => (a.date < c.date ? -1 : 1))[0];
   layer.addEventListener('click', (e) => {
@@ -76,6 +78,7 @@ async function open(cid, o = {}) {
     if (t.hasAttribute('data-wg-pclose')) { close(); return; }
     if (t.hasAttribute('data-wg-print')) { document.documentElement.classList.add('wg-printing'); setTimeout(() => { window.print(); setTimeout(() => document.documentElement.classList.remove('wg-printing'), 400); }, 50); return; }
     if (t.hasAttribute('data-wg-partner')) { close(); if (window.FavorPartner) window.FavorPartner.open(cid); else location.href = '/work/partner/' + encodeURIComponent(cid); return; }
+    if (t.hasAttribute('data-wg-addnote')) { close(); if (window.FavorPartner) (window.FavorPartner.openCompose || window.FavorPartner.open)(cid, 'note'); return; }
     if (t.hasAttribute('data-wg-logcall')) { close(); if (window.FavorPartner) (window.FavorPartner.openCompose || window.FavorPartner.open)(cid, 'contact'); return; }
     if (t.hasAttribute('data-wg-pthank') && owed) {
       f.pop(t, { giftId: owed.giftId, cid: owed.cid, name: b.name, amount: owed.amount, date: owed.date, fund: owed.fund, phone: b.call ? b.call.number : null }, { done: () => { box.innerHTML = briefHTML(Object.assign({}, b, { owed: [], steps: b.steps.map((s, i) => (i === 0 ? { n: 1, title: 'Thank', post: 'Thanked just now.' } : s)) }), []); } });

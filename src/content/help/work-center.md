@@ -114,6 +114,10 @@ From the panel you can also press Complete, Complete and next (it closes this on
 
 Press a due date to move it, the small Open label to complete or cancel the action, or the fundraiser name to give it to someone else (Shift and click adds a person alongside). The row changes at once and saves to Blackbaud in the background. Undo sits on the message that appears.
 
+## Tags
+
+The Tags tab on an action shows nine tags one press away: Thanked, Texted, Stewardship, Scheduling, Favor Presentation, Attended Event, Hosted Event, Amount of Ask and Number of Referrals. A tag that is on shows filled. Press it to take it off, press a plain one to put it on. Amount of Ask and Number of Referrals have a box for the number, with Add or Change beside it. Every press saves to Blackbaud at once and shows Undo. The tags on an action also show as small green labels on its row in Open actions. Other tag categories stay in the list under the nine.
+
 ## Change many at once
 
 Tick the actions, then press Edit in the bar at the bottom. Tick each field to change and pick its new value; everything else on each action stays as it is. Delete in the same bar removes them after you confirm.

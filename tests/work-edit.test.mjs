@@ -181,6 +181,7 @@ function bbScript(c) {
   if (c.method === 'GET' && c.path.includes('/customfields/categories')) return { ok: true, status: 200, body: { value: [] } };
   if (c.method === 'GET' && m) return live[m[1]] ? { ok: true, status: 200, body: { ...live[m[1]] } } : { ok: false, status: 404, body: null };
   if (c.method === 'GET' && /\/actions\/\d+\/notes$/.test(c.path)) return { ok: true, status: 200, body: { value: [{ id: '31', type: 'Note (general)', summary: 'Old note', text: 'Was here', date: { y: 2026, m: 10, d: 1 } }] } };
+  if (c.method === 'GET' && /\/actions\/\d+\/customfields$/.test(c.path)) return { ok: true, status: 200, body: { value: [{ id: '44', category: 'Texted', value: 'Texted', date: '2026-10-01T00:00:00' }, { id: '45', category: 'Amount of Ask', value: '2500', date: '2026-10-02T00:00:00' }] } };
   if (c.method === 'GET') return { ok: true, status: 200, body: { value: [] } };
   if (c.method === 'PATCH' && m) {
     if (!live[m[1]]) return { ok: false, status: 404, body: null };
@@ -373,6 +374,65 @@ describe('duplicate, move, delete', () => {
     const back = Object.values(live).find((a) => a.summary === 'Call about the year-end gift');
     assert.equal(back.constituent_id, '100');
     assert.equal(back.description, 'First line');
+  });
+});
+
+describe('tags: Undo puts back what a press changed or removed', () => {
+  it('a removed tag comes back with its category, value and date', async () => {
+    const out = await svc.createBatch(ctx, { op: 'edit', ids: ['500'], set: {}, tags: { remove: [{ id: '45', category: 'Amount of Ask' }] }, req: 't1' });
+    await runAll(out.batch.id);
+    assert.ok(sent().some((c) => c.method === 'DELETE' && c.path === '/constituent/v1/actions/customfields/45?action=500'));
+    calls = [];
+    const undo = await svc.undoBatch(ctx, out.batch.id);
+    await runAll(undo.batch.id);
+    const back = sent().find((c) => c.method === 'POST' && c.path === '/constituent/v1/actions/customfields');
+    assert.deepEqual([back.body.parent_id, back.body.category, back.body.value], ['500', 'Amount of Ask', 2500]);
+    assert.equal(back.body.date, '2026-10-02T00:00:00');
+  });
+  it('a changed tag goes back to its old value', async () => {
+    const out = await svc.createBatch(ctx, { op: 'edit', ids: ['500'], set: {}, tags: { change: [{ id: '45', value: 4000 }] }, req: 't2' });
+    await runAll(out.batch.id);
+    assert.equal(sent().find((c) => c.method === 'PATCH' && c.path.endsWith('/customfields/45')).body.value, 4000);
+    calls = [];
+    const undo = await svc.undoBatch(ctx, out.batch.id);
+    await runAll(undo.batch.id);
+    assert.equal(sent().find((c) => c.method === 'PATCH' && c.path.endsWith('/customfields/45')).body.value, 2500);
+  });
+  it('Amount of Ask and Number of Referrals go as numbers, with the dollar sign and commas stripped', async () => {
+    const out = await svc.createBatch(ctx, { op: 'edit', ids: ['500'], set: {}, tags: { add: [{ category: 'Amount of Ask', value: '$12,500' }] }, req: 't3' });
+    await runAll(out.batch.id);
+    assert.equal(sent().find((c) => c.method === 'POST' && c.path === '/constituent/v1/actions/customfields').body.value, 12500);
+  });
+});
+
+describe('notes on the partner', () => {
+  it('saves a partner note with its topic leading the summary, and Undo removes it', async () => {
+    const out = await svc.createBatch(ctx, { op: 'pnote', cid: '100', note: { topic: 'Prayer', summary: 'Pray for the surgery', text: 'Hip surgery Friday' }, req: 'n1' });
+    await runAll(out.batch.id);
+    const add = sent().find((c) => c.method === 'POST' && c.path === '/constituent/v1/notes');
+    assert.equal(add.body.summary, 'Prayer: Pray for the surgery');
+    assert.equal(add.body.constituent_id, '100');
+    assert.equal(add.body.type, 'Note (general)');
+    const undo = await svc.undoBatch(ctx, out.batch.id);
+    await runAll(undo.batch.id);
+    assert.ok(sent().some((c) => c.method === 'DELETE' && /\/constituent\/v1\/notes\/\d+$/.test(c.path)));
+  });
+  it('an instruction leads with Instruction and wins over the topic', async () => {
+    const out = await svc.createBatch(ctx, { op: 'pnote', cid: '100', note: { topic: 'Family', instruction: true, summary: 'Do not call after 8 PM' }, req: 'n2' });
+    await runAll(out.batch.id);
+    assert.equal(sent().find((c) => c.path === '/constituent/v1/notes').body.summary, 'Instruction: Do not call after 8 PM');
+  });
+  it('an empty note is refused', async () => {
+    await assert.rejects(() => svc.createBatch(ctx, { op: 'pnote', cid: '100', note: { summary: ' ', text: '' }, req: 'n3' }), /Write the note/);
+  });
+  it('a note this hub saved in the last 24 hours is offered for Undo, an undone one is not', async () => {
+    const out = await svc.createBatch(ctx, { op: 'pnote', cid: '100', note: { summary: 'Prefers mornings' }, req: 'n4' });
+    await runAll(out.batch.id);
+    const mine = await edit.noteUndoable(ctx.env, '100');
+    assert.equal(Object.values(mine)[0], out.batch.id);
+    const undo = await svc.undoBatch(ctx, out.batch.id);
+    await runAll(undo.batch.id);
+    assert.deepEqual(await edit.noteUndoable(ctx.env, '100'), {});
   });
 });
 

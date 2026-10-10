@@ -69,6 +69,30 @@ export interface OpenRow extends SlimActionRow {
   city: string | null;
   st: string | null;
   deceased: number | string | boolean | null;
+  /** The mirror's tag columns for this action (action_tags). */
+  tg_thanked?: number | null;
+  tg_texted?: number | null;
+  tg_stew?: number | null;
+  tg_sched?: number | null;
+  tg_pres?: number | null;
+  tg_att?: string | null;
+  tg_ask?: number | null;
+  tg_ref?: number | null;
+}
+
+/** The tags an open action carries, as short labels for the Open actions list. */
+export function tagLabels(o: Partial<OpenRow>): string[] {
+  const out: string[] = [];
+  if (Number(o.tg_thanked) === 1) out.push('Thanked');
+  if (Number(o.tg_texted) === 1) out.push('Texted');
+  if (Number(o.tg_stew) === 1) out.push('Stewardship');
+  if (Number(o.tg_sched) === 1) out.push('Scheduling');
+  if (Number(o.tg_pres) === 1) out.push('Favor Presentation');
+  const att = String(o.tg_att || '');
+  if (att) out.push(/host/i.test(att) ? 'Hosted Event' : 'Attended Event');
+  if (Number(o.tg_ask) > 0) out.push('Ask $' + Math.round(Number(o.tg_ask)).toLocaleString('en-US'));
+  if (Number(o.tg_ref) > 0) out.push(Number(o.tg_ref) + (Number(o.tg_ref) === 1 ? ' referral' : ' referrals'));
+  return out;
 }
 
 export interface BoardInput {
@@ -123,6 +147,8 @@ export interface BoardRow {
   ty: boolean;
   ctg: boolean;
   priority: string;
+  /** Tag labels from the mirror (Thanked, Ask $2,500 ...). */
+  tags?: string[];
   pending: PendingMark | null;
   reopened?: boolean;
 }
@@ -221,6 +247,7 @@ export function shapeBoard(inp: BoardInput): BoardRow[] {
       ty,
       ctg,
       priority: o.priority || '',
+      tags: tagLabels(o),
       pending: null,
     };
   });
