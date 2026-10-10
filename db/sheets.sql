@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS hub_sheets (
   needs TEXT NOT NULL DEFAULT '',
   dedupe TEXT,
   private INTEGER NOT NULL DEFAULT 1,
-  ms INTEGER
+  ms INTEGER,
+  state TEXT NOT NULL DEFAULT 'ready'
 );
 CREATE INDEX IF NOT EXISTS idx_hub_sheets_email_at ON hub_sheets (email, at);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_hub_sheets_dedupe ON hub_sheets (email, dedupe) WHERE dedupe IS NOT NULL;
@@ -25,3 +26,5 @@ CREATE TABLE IF NOT EXISTS hub_sheets_folder (
   folder_id TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+-- 2026-10-10: a row is written as 'creating' when Drive makes the file, then 'ready' or 'failed'.
+-- Apply once: ALTER TABLE hub_sheets ADD COLUMN state TEXT NOT NULL DEFAULT 'ready';

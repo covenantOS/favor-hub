@@ -248,7 +248,55 @@ describe('createSheet', () => {
     await assert.rejects(S.createSheet(env, who, spec(), { fetch: g.fetch }), (e) => e.code === 'google' && e.extra.step === 'share');
     assert.ok(g.calls.some((c) => c.method === 'DELETE' && c.path === '/drive/v3/files/sheet1'), 'the file was removed');
     assert.equal(g.state.files.size, 0);
-    assert.equal(d1.db.prepare('SELECT COUNT(*) AS n FROM hub_sheets').get().n, 0);
+    assert.deepEqual(d1.db.prepare('SELECT state FROM hub_sheets').all().map((r) => r.state), ['failed']);
+  });
+
+  it('records the row as creating when Drive makes the file, and ready when the build ends', async () => {
+    await connect(who.email, SCOPES);
+    const g = fakeGoogle();
+    const seen = [];
+    const inner = g.fetch;
+    const fetchSpy = async (url, init) => {
+      if (String(url).includes('values:batchUpdate')) seen.push(d1.db.prepare('SELECT sheet_id, state FROM hub_sheets').all());
+      return inner(url, init);
+    };
+    const r = await S.createSheet(env, who, spec(), { fetch: fetchSpy });
+    assert.deepEqual(JSON.parse(JSON.stringify(seen[0])), [{ sheet_id: 'sheet1', state: 'creating' }], 'recorded before any data is written');
+    assert.equal(d1.db.prepare('SELECT state FROM hub_sheets').get().state, 'ready');
+    assert.equal(r.id, 'sheet1');
+  });
+
+  it('hands the build to waitUntil so it finishes after the client is gone', async () => {
+    await connect(who.email, SCOPES);
+    const g = fakeGoogle();
+    const kept = [];
+    const r = await S.createSheet(env, who, spec(), { fetch: g.fetch }, { waitUntil: (p) => kept.push(p) });
+    assert.equal(kept.length, 1);
+    await Promise.all(kept);
+    assert.equal(r.ok, true);
+    // A client that never reads the answer: the row and the finished sheet are still there.
+    const g2 = fakeGoogle();
+    const kept2 = [];
+    const pending = S.createSheet(env, who, spec({ dedupe: 'gone' }), { fetch: g2.fetch }, { waitUntil: (p) => kept2.push(p) });
+    pending.catch(() => undefined);
+    while (!kept2.length) await new Promise((r) => setTimeout(r, 1));
+    await Promise.all(kept2);
+    const row = d1.db.prepare("SELECT state FROM hub_sheets WHERE dedupe = 'gone'").get();
+    assert.equal(row.state, 'ready');
+  });
+
+  it('keeps fetch bound: a bare global fetch on an object is not used', () => {
+    const src = readFileSync(new URL('../functions/_lib/hub/sheets.ts', import.meta.url), 'utf8');
+    assert.ok(/d: Deps = \{ fetch: \(input, init\) => fetch\(input, init\) \}/.test(src));
+    assert.ok(!/fetch: fetch[,} ]/.test(src));
+  });
+
+  it('marks the row failed and trashes the file when a step fails after the row exists', async () => {
+    await connect(who.email, SCOPES);
+    const g = fakeGoogle({ failAt: 'values' });
+    await assert.rejects(S.createSheet(env, who, spec(), { fetch: g.fetch }), (e) => e.step === undefined || e.extra.step === 'values');
+    assert.equal(g.state.files.size, 0);
+    assert.deepEqual(JSON.parse(JSON.stringify(d1.db.prepare('SELECT sheet_id, state FROM hub_sheets').all())), [{ sheet_id: 'sheet1', state: 'failed' }]);
   });
 
   it('deletes the file when a step fails part way', async () => {

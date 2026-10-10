@@ -6,7 +6,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
-    const r = await env.DB.prepare('SELECT title, url, at, rows FROM hub_sheets WHERE email = ? ORDER BY at DESC LIMIT 5').bind(user.email.toLowerCase()).all().catch(() => ({ results: [] }));
+    const r = await env.DB.prepare("SELECT title, url, at, rows FROM hub_sheets WHERE email = ? AND state = 'ready' ORDER BY at DESC LIMIT 5").bind(user.email.toLowerCase()).all().catch(() => ({ results: [] }));
     return json({ ok: true, sheets: r.results || [] });
   } catch (err) {
     return handleError(err);

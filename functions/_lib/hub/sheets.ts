@@ -319,13 +319,15 @@ export async function dropLinkPermissions(d: Deps, token: string, fileId: string
 export interface Made { id: string; url: string; title: string; tabs: { name: string; rows: number }[]; private: true; ms: number }
 
 /** Builds the sheet. Any failure after the file exists deletes the file before it throws. */
-export async function buildSheet(env: Env, d: Deps, token: string, email: string, meta: Meta, tabs: Tab[]): Promise<Made> {
+export async function buildSheet(env: Env, d: Deps, token: string, email: string, meta: Meta, tabs: Tab[], onCreated?: (id: string, url: string) => Promise<void>): Promise<Made> {
   const t0 = Date.now();
   const parent = await folderId(env, d, token, email);
   const file = await call(d, token, 'create', `${DRIVE}/files?fields=id,webViewLink`, { method: 'POST', body: JSON.stringify({ name: meta.title, mimeType: 'application/vnd.google-apps.spreadsheet', parents: [parent] }) });
   const id: string = file.id;
   const drop = () => d.fetch(`${DRIVE}/files/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(() => undefined);
   try {
+    // The caller records the file the moment Drive has made it, so a sheet is never unknown to the hub.
+    if (onCreated) await onCreated(id, file.webViewLink || `https://docs.google.com/spreadsheets/d/${id}/edit`);
     const about = aboutRows(meta, tabs);
     const setup: unknown[] = [
       { updateSpreadsheetProperties: { properties: { locale: 'en_US', timeZone: TZ }, fields: 'locale,timeZone' } },
@@ -420,7 +422,12 @@ async function rateOk(env: Env, email: string): Promise<boolean> {
   return (r?.n ?? 0) < 10;
 }
 
-export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, c: Caller, spec: Spec, d: Deps = { fetch: (input, init) => fetch(input, init) }): Promise<Result> {
+/** The part of an execution context createSheet needs: keep working after the client has gone. */
+export interface Ctx { waitUntil(p: Promise<unknown>): void }
+
+// The default fetch calls the global from inside an arrow. Passing the bare global as a property of an object
+// throws "Illegal invocation" in the Workers runtime (fixed in 1226696); keep it wrapped.
+export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, c: Caller, spec: Spec, d: Deps = { fetch: (input, init) => fetch(input, init) }, ctx?: Ctx): Promise<Result> {
   const t0 = Date.now();
   const email = c.email.toLowerCase();
   if (spec.mode !== 'rows' && spec.mode !== 'brain') throw new SheetError(400, 'bad_rows', 'Unknown way to build a sheet.');
@@ -430,6 +437,14 @@ export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL
   if (!hasDriveFile(g.scopes)) throw new SheetError(409, 'consent', 'Allow Favor to make Google Sheets for you. Google asks once.', { consentUrl: '/api/google/connect?add=sheets&next=' + encodeURIComponent('/brain/') });
   if (!(await rateOk(env, email))) throw new SheetError(429, 'rate', 'That is a lot of sheets in a few minutes. Try again shortly.', { retryAfter: 120 });
 
+  // Everything below runs as one job. With a context it is handed to waitUntil, so closing the page during
+  // the 15 to 20 second first press does not stop it halfway and leave a finished sheet nobody recorded.
+  const job = buildAndRecord(env, c, spec, d, g.token, email, t0);
+  if (ctx) ctx.waitUntil(job.catch(() => undefined));
+  return job;
+}
+
+async function buildAndRecord(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, c: Caller, spec: Spec, d: Deps, token: string, email: string, t0: number): Promise<Result> {
   let tabs: Tab[];
   let prov: Provenance = { ...(spec.provenance || {}) };
   const classes = new Set(spec.classes || []);
@@ -447,19 +462,32 @@ export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL
   const key = spec.dedupe ? String(spec.dedupe).slice(0, 120) : 'h:' + (await digest(tabs));
   const window = spec.dedupe ? 24 * 3600_000 : 60_000;
 
-  const prior = await env.DB.prepare('SELECT sheet_id, url, title, tabs, rows, at FROM hub_sheets WHERE email = ? AND dedupe = ?').bind(email, key).first<{ sheet_id: string; url: string; title: string; tabs: number; rows: number; at: string }>().catch(() => null);
+  const prior = await env.DB.prepare("SELECT sheet_id, url, title, tabs, rows, at FROM hub_sheets WHERE email = ? AND dedupe = ? AND state = 'ready'").bind(email, key).first<{ sheet_id: string; url: string; title: string; tabs: number; rows: number; at: string }>().catch(() => null);
   if (prior && Date.now() - new Date(prior.at).getTime() < window) {
-    const ok = await d.fetch(`${DRIVE}/files/${prior.sheet_id}?fields=id,trashed`, { headers: { Authorization: `Bearer ${g.token}` } }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as any;
+    const ok = await d.fetch(`${DRIVE}/files/${prior.sheet_id}?fields=id,trashed`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as any;
     if (ok && ok.id && !ok.trashed) return { ok: true, reused: true, id: prior.sheet_id, url: prior.url, title: prior.title, tabs: tabs.map((t) => ({ name: t.name, rows: t.rows.length })), private: true, ms: Date.now() - t0 };
   }
   const meta: Meta = { title, who: email, name: c.name || email, via: c.via, provenance: prov, classes: [...classes], now };
-  const made = await buildSheet(env, d, g.token, email, meta, tabs);
   const rows = tabs.reduce((n, t) => n + t.rows.length, 0);
-  // A repeat of the same key replaces the old row; no row values are ever logged.
-  await env.DB.prepare('DELETE FROM hub_sheets WHERE email = ? AND dedupe = ?').bind(email, key).run().catch(() => undefined);
-  await env.DB.prepare('INSERT INTO hub_sheets (at, email, sheet_id, url, title, source, via, tabs, rows, classes, needs, dedupe, private, ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)')
-    .bind(now.toISOString(), email, made.id, made.url, made.title, `${spec.mode}:${prov.page || prov.kind || ''}`.slice(0, 80), c.via, tabs.length, rows, [...classes].join(','), (spec.needs || []).join(','), key, made.ms)
-    .run()
-    .catch(() => undefined);
+  let rowId: number | null = null;
+  // Recorded as 'creating' the moment Drive has the file. A repeat of the same key replaces the old row; no
+  // row values are ever logged.
+  const record = async (id: string, url: string) => {
+    await env.DB.prepare('DELETE FROM hub_sheets WHERE email = ? AND dedupe = ?').bind(email, key).run().catch(() => undefined);
+    const r = await env.DB.prepare("INSERT INTO hub_sheets (at, email, sheet_id, url, title, source, via, tabs, rows, classes, needs, dedupe, private, ms, state) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, NULL, 'creating')")
+      .bind(now.toISOString(), email, id, url, title, `${spec.mode}:${prov.page || prov.kind || ''}`.slice(0, 80), c.via, tabs.length, rows, [...classes].join(','), (spec.needs || []).join(','), key)
+      .run()
+      .catch(() => null);
+    rowId = (r?.meta?.last_row_id as number | undefined) ?? null;
+  };
+  let made: Made;
+  try {
+    made = await buildSheet(env, d, token, email, meta, tabs, record);
+  } catch (e) {
+    // buildSheet has already trashed the file; the row stays as the record that it was tried.
+    if (rowId != null) await env.DB.prepare("UPDATE hub_sheets SET state = 'failed' WHERE id = ?").bind(rowId).run().catch(() => undefined);
+    throw e;
+  }
+  if (rowId != null) await env.DB.prepare("UPDATE hub_sheets SET state = 'ready', ms = ?, url = ?, private = 1 WHERE id = ?").bind(made.ms, made.url, rowId).run().catch(() => undefined);
   return { ok: true, reused: false, ...made };
 }
