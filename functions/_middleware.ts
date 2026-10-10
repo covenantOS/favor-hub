@@ -37,7 +37,7 @@ const RETIRED: Record<string, string> = {
 
 // A clip's share page and its video are reachable without sign-in at the middleware; each decides for
 // itself by the clip's share switch (functions/c/[id].ts, functions/api/clips/[id]/media.ts).
-const CLIP_OPEN = /^\/(c\/[0-9a-f]{32}\/?|api\/clips\/[0-9a-f]{32}\/media)$/;
+const CLIP_OPEN = /^\/(c\/[0-9a-f]{32}\/?|api\/clips\/[0-9a-f]{32}\/(media|info|views))$/;
 
 function isHtml(res: Response): boolean {
   return (res.headers.get('Content-Type') || '').includes('text/html');

@@ -1,0 +1,12 @@
+/* The camera button at the top right of the hub (admins only). It opens the pop-up recorder, public/js/clips/launcher.js. */
+.h-top__cam {
+  width: 38px; height: 38px; display: grid; place-items: center; padding: 0; flex: none; cursor: pointer;
+  border-radius: 999px; border: 1px solid var(--h-line);
+  background: color-mix(in srgb, var(--h-ivory) 80%, transparent); color: var(--h-ink-2);
+}
+.h-top__cam[hidden] { display: none; }
+.h-top__cam:hover { background: #fff; color: var(--h-ink); }
+.h-top__cam[aria-expanded='true'] { background: var(--h-brand); border-color: var(--h-brand); color: #fff; }
+.h-top__cam:focus-visible { outline: 2px solid var(--h-brand-ink); outline-offset: 2px; }
+.h-top__cam .h-i { width: 18px; height: 18px; }
+@media (max-width: 860px) { .h-top__cam { width: 44px; height: 44px; } }

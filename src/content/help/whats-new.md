@@ -11,7 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
-- **Clips.** Record your screen and voice, up to 15 minutes, and send a link to a short walkthrough. Only signed-in Favor staff can open it unless you turn on Anyone with the link. Admins can record for now.
+- **Clips from any page.** Press the camera at the top right (admins) to record your screen, a window, a tab or just the camera, with a round camera bubble you can drag anywhere. When you stop, the clip gets a title, a summary, chapters and a searchable transcript on its own. Watch with captions, reactions and timestamped comments, trim and cut in the editor, and draft a help article from what you said. Only signed-in Favor staff can open a clip unless you turn on Anyone with the link.
 - **A question is never lost.** Your question is saved the moment you send it and the answer finishes on its own, even if you switch chats, open another hub page or reload. Come back and the chat shows it working, then the answer fills in. A dot beside a chat in your list means an answer is on its way.
 - **Tables show every column.** A wide table scrolls sideways with a visible bar, a fade at the edge, and the Partner column stays in place. The expand button opens the table across the whole page.
 - **The Claude and ChatGPT popup shows once.** It asks you to request a Favor Claude seat from the technology team, then connect. Press **Keep using it here** and it does not come back. **Connect Claude or ChatGPT** in your chat list opens the steps any time.

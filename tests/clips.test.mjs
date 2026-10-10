@@ -69,3 +69,70 @@ describe('media route', () => {
     assert.equal(res.headers.get('Cache-Control'), 'private, no-store');
   });
 });
+
+describe('watch data for each kind of viewer', () => {
+  let info;
+  let comments;
+  before(async () => {
+    info = (await import('../functions/api/clips/[id]/info.ts')).onRequestGet;
+    comments = (await import('../functions/api/clips/[id]/comments.ts')).onRequestPost;
+  });
+  const id = 'b'.repeat(32);
+  const row = (share, status = 'ready') => ({ id, title: 'T', summary: 'S', status, share, mime: 'video/webm', kind: 'screen', owner_email: 'owner@favorintl.org', owner_name: 'Owner', duration_ms: 12000, size_bytes: 1, has_poster: 0, views: 3, created_at: '2026-10-10T12:00:00Z', chapters: '[{"at":0,"title":"Start"}]', transcript: '[{"s":0,"e":2,"t":"Hello"}]', words: '[]', edits: '{}', help_draft: 'draft', error: null });
+  const env = (share, status) => ({
+    DB: {
+      prepare: (sql) => ({
+        bind: () => ({
+          first: async () => row(share, status),
+          all: async () => ({ results: /hub_clip_views/.test(sql) ? [{ person_email: 'ada@favorintl.org', person_name: 'Ada', at: '2026-10-10T13:00:00Z', seconds: 5 }, { person_email: 'owner@favorintl.org', person_name: 'Owner', at: '2026-10-10T13:00:00Z', seconds: 9 }] : [] }),
+          run: async () => ({}),
+        }),
+      }),
+    },
+  });
+  const call = (share, headers = {}, status) => info({ request: new Request('https://hub.test/api/clips/' + id + '/info', { headers }), env: env(share, status), params: { id } });
+  const staff = { 'X-Hub-Email': 'ada@favorintl.org', 'X-Hub-Name': 'Ada', 'X-Hub-Role': 'staff' };
+  const admin = { 'X-Hub-Email': 'will@favorintl.org', 'X-Hub-Name': 'Will', 'X-Hub-Role': 'admin' };
+
+  it('refuses a signed-out viewer when sharing is off', async () => {
+    const res = await call(0);
+    assert.equal(res.status, 401);
+    assert.match(res.headers.get('Cache-Control'), /no-store/);
+  });
+  it('gives a signed-out viewer through the link the words and nothing private', async () => {
+    const res = await call(1);
+    assert.equal(res.status, 200);
+    const d = await res.json();
+    assert.equal(d.clip.transcript[0].t, 'Hello');
+    assert.equal(d.clip.chapters[0].title, 'Start');
+    assert.equal(d.comments, undefined);
+    assert.equal(d.viewers, undefined);
+    assert.equal(d.can, undefined);
+    assert.equal(d.helpDraft, undefined);
+  });
+  it('gives staff comments, reactions and viewers (the owner is not a viewer) but no manage rights', async () => {
+    const d = await (await call(0, staff)).json();
+    assert.deepEqual(d.viewers.map((v) => v.email), ['ada@favorintl.org']);
+    assert.equal(d.can.edit, false);
+    assert.equal(d.helpDraft, undefined);
+  });
+  it('gives an admin the manage rights and the help article draft', async () => {
+    const d = await (await call(0, admin)).json();
+    assert.equal(d.can.edit, true);
+    assert.equal(d.helpDraft, 'draft');
+  });
+  it('shows a clip that is still being named', async () => {
+    const res = await call(0, staff, 'processing');
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).clip.status, 'processing');
+  });
+  it('hides a clip that is still uploading', async () => {
+    const res = await call(1, staff, 'uploading');
+    assert.equal(res.status, 404);
+  });
+  it('lets only signed-in staff comment', async () => {
+    const post = (headers) => comments({ request: new Request('https://hub.test/api/clips/' + id + '/comments', { method: 'POST', headers, body: JSON.stringify({ at: 3, text: 'hi' }) }), env: env(1), params: { id } });
+    assert.equal((await post({})).status, 401);
+    assert.equal((await post(staff)).status, 200);
+  });
+});

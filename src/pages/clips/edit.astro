@@ -1,0 +1,12 @@
+---
+// Clips: the editor (/clips/edit/?id=<clip id>). Trim, cut, split, delete words, take out silences and filler words.
+// Edits are saved as a list; the recording itself is never rewritten.
+import App from '../../layouts/App.astro';
+import '../../styles/clipedit.css';
+---
+<App title="Edit clip" crumb="Clips" nav="clips" full description="Trim and cut a clip. The original is never changed.">
+  <div class="ce" id="ce" aria-busy="true">
+    <div class="ce-loading" id="ce-loading" role="status"><i></i>Opening the editor</div>
+  </div>
+  <script is:inline type="module" src="/js/clips/editor.js?v=1"></script>
+</App>

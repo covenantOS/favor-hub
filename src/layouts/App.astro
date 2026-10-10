@@ -8,6 +8,7 @@ import '../styles/feel.css';
 import '../styles/elevate.css';
 import '../styles/phone.css';
 import '../styles/settle.css';
+import '../styles/clipbtn.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -47,6 +48,7 @@ const ICONS: Record<string, string> = {
   sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/><path d="M19 6a8.5 8.5 0 0 1 0 12"/>',
   mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="m17 9 5 6"/><path d="m22 9-5 6"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 5-3v9l-5-3z"/>',
+  camera: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   work: '<path d="M4 7h4"/><path d="M4 12h4"/><path d="M4 17h4"/><path d="m11 7 1.5 1.5L15 6"/><path d="m11 12 1.5 1.5L15 11"/><path d="M11 17h9"/><path d="M17 7h3"/><path d="M17 12h3"/>',
 };
 const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -60,7 +62,6 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
       { id: 'new', label: 'Make a request', href: '/requests/new', icon: 'plus' },
       { id: 'board', label: 'Request board', href: '/requests/', icon: 'inbox', count: 'inbox' },
       { id: 'work', label: 'Work Center', href: '/work/', icon: 'work', count: 'workWaiting', need: 'workCenter' },
-      { id: 'clips', label: 'Clips', href: '/clips/', icon: 'video', need: 'admin' },
       { id: 'expense', label: 'Expense request', href: '/expenses/new', icon: 'receipt' },
       { id: 'expenses', label: 'Expense log', href: '/expenses/', icon: 'log', count: 'expensesWaiting', need: 'expenseLog' },
       { id: 'receipts', label: 'Thank-you receipts', href: '/receipts/', icon: 'mail', count: 'receiptsLeft' },
@@ -215,6 +216,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
           <div class="h-top__right">
             <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
             <slot name="actions" />
+            <button type="button" class="h-top__cam" id="clip-cam" data-need="admin" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip"><Fragment set:html={icon('camera')} /></button>
             <button type="button" class="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} /><span class="h-lbl">Feedback</span></button>
             {nav !== 'new' && (
               <a class="h-btn h-btn--primary" href="/requests/new"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>
@@ -228,6 +230,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     </div>
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=4" defer></script>
+    <script is:inline src="/js/clips-launch.js?v=1" defer></script>
     <script>
       import '../scripts/hub';
     </script>
