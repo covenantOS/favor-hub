@@ -234,6 +234,8 @@ async function shapeOrgs(env: Env, rows: any[]): Promise<BbOrg[]> {
   for (const c of codes) {
     try {
       const j = JSON.parse(c.raw_json || '{}');
+      // The mirror keeps ended codes (inactive true) since the sync worker pulls them; a card shows current codes only.
+      if (j.inactive === true || j.inactive === 'true') continue;
       (byOrg[c.c] = byOrg[c.c] || []).push({ s: Number(j.sequence) || 9, d: String(j.description || '') });
     } catch {
       // skip a code row that will not parse
