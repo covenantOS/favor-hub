@@ -621,7 +621,7 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
       if (!ID.test(cid)) throw new HttpError(400, 'no_partner', 'Pick the partner first.');
       if (!body.purpose) body.purpose = codes.oppPurposes.includes('Engagement') ? 'Engagement' : codes.oppPurposes[0];
       const partner = await partnerName(ctx.env, cid);
-      items.push({ cid, label: labelFor(partner, `Opportunity: ${body.name}`), steps: [{ op: 'call' as any, body: { __call: { method: 'POST', path: '/opportunity/v1/opportunities' }, __opp: cid, ...body, constituent_id: cid }, before: { __call: { method: 'PATCH', path: '/opportunity/v1/opportunities/{id}' }, inactive: true }, label: 'opportunity add' }] });
+      items.push({ cid, label: labelFor(partner, `Opportunity: ${body.name}`), steps: [{ op: 'call' as any, body: { __call: { method: 'POST', path: '/opportunity/v1/opportunities' }, __opp: cid, ...body, constituent_id: cid }, before: { __call: { method: 'DELETE', path: `/opportunity/v1/opportunities/{id}?constituent=${cid}` } }, label: 'opportunity add' }] });
       // Link the action the person was on to the new opportunity, once it has an id.
       const link = ids[0];
       if (link) items[0].steps.push({ op: 'call' as any, actionId: link, dep: 0, body: { __call: { method: 'PATCH', path: `/constituent/v1/actions/${link}` }, opportunity_id: '__dep__' }, before: { __call: { method: 'PATCH', path: `/constituent/v1/actions/${link}` }, opportunity_id: null }, label: 'link action' });

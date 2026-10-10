@@ -985,6 +985,9 @@ async function afterSent(ctx: Ctx, batchId: string, row: OutboxRow, bbId: string
     if (id) await shadowOpp(env, id, String(p.__opp), bodyFor(p), p.__oppid ? await oppRaw(ctx, id).catch(() => null) : null);
   }
   if (row.op === 'delete' && row.action_id) await stopRecur(env, String(row.action_id));
+  // An opportunity removed (the Undo of one just added) leaves the hub's copy too.
+  const gone = row.op === 'call' && p.__call && p.__call.method === 'DELETE' ? /^\/opportunity\/v1\/opportunities\/(\d+)/.exec(String(p.__call.path)) : null;
+  if (gone) await env.DB.prepare('DELETE FROM act_opps WHERE id = ?').bind(gone[1]).run();
   // A repeating action that was just completed: its next one goes out in this same batch.
   if (row.op === 'patch' && row.action_id && p.completed === true) {
     const rec = await env.DB.prepare('SELECT action_id, cid, rule, template FROM act_recur WHERE action_id = ? AND active = 1 LIMIT 1').bind(String(row.action_id)).first<{ action_id: string; cid: string; rule: string; template: string }>().catch(() => null);
