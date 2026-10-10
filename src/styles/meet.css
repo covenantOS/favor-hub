@@ -343,3 +343,5 @@
   .fb td.h { width: 40px; font-size: 10.5px; }
   .fb th { letter-spacing: .02em; font-size: 10px; }
 }
+
+@media (max-width: 600px) { #mt-now .h-lbl { display: none; } }
