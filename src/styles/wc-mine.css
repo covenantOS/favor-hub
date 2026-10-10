@@ -1,0 +1,92 @@
+/* My partners, a tab on the Work Center (public/js/wc-mine.js). Tokens only, so a palette change carries through. */
+.wc-pill--btn { cursor: pointer; }
+.wc-pill--btn .h-i { width: 14px; height: 14px; }
+.wc-pill--btn b { font-weight: 600; }
+.wc-band.wm-band .wc-stat small { display: block; font-size: 11.5px; color: var(--h-ink-3); margin-top: 2px; }
+.wc-stat.is-warn b { color: var(--h-red); }
+
+.wm-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--h-line); }
+.wm-tools .wc-find { flex: 1 1 220px; max-width: 320px; }
+.wm-tools .wc-sel { max-width: 240px; }
+.wm-tools .wm-spacer { flex: 1; }
+.wm-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: var(--h-surface-2); border: 1px solid var(--h-line); flex-wrap: wrap; }
+.wm-seg button { height: 30px; padding: 0 12px; border-radius: 999px; border: 0; background: none; font: 600 12.5px var(--h-font); color: var(--h-ink-2); white-space: nowrap; cursor: pointer; }
+.wm-seg button.is-on { background: var(--h-ivory); color: var(--h-ink); box-shadow: 0 1px 2px rgba(42,39,34,.08); }
+.wm-seg button:hover { color: var(--h-ink); }
+
+.wm-list { display: block; }
+.wm-row { display: grid; align-items: center; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #efebe3; position: relative; transition: background-color .12s; }
+.wm-row:hover { background: #fbf9f4; }
+.wm-row.is-picked { background: #f1f5ee; }
+.wm-cb { display: grid; place-items: center; }
+.wm-cb input { width: 17px; height: 17px; accent-color: var(--h-brand); }
+.wm-name { font: 600 14.5px var(--h-font); color: var(--h-ink); text-decoration: none; }
+.wm-name:hover { color: var(--h-brand-ink); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--h-line-2); }
+.wm-sub { display: block; font-size: 12.5px; color: var(--h-ink-3); margin-top: 2px; line-height: 1.4; }
+.wm-port { grid-template-columns: 28px minmax(190px, 1.4fr) 116px 100px 104px 76px minmax(120px, .9fr) 206px; }
+.wm-port.wm-head { padding-top: 10px; padding-bottom: 10px; background: none; font: 600 10.5px var(--h-font); letter-spacing: .14em; text-transform: uppercase; color: var(--h-ink-3); }
+.wm-head:hover { background: none; }
+.wm-head button { border: 0; background: none; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer; }
+.wm-head button.is-on { color: var(--h-ink); }
+.wm-num { font: 600 14px var(--h-font); color: var(--h-ink); font-variant-numeric: tabular-nums; }
+.wm-num small { display: block; font-weight: 500; font-size: 12px; color: var(--h-ink-3); margin-top: 2px; }
+.wm-quiet { font: 600 14px var(--h-font); color: var(--h-ink); }
+.wm-quiet small { display: block; font-weight: 500; font-size: 12px; color: var(--h-ink-3); margin-top: 2px; }
+.wm-quiet.is-90 b { color: #7a5a17; }
+.wm-quiet.is-180 b { color: var(--h-red); }
+.wm-next .wc-tag { cursor: default; max-width: 100%; }
+.wm-addtask { border: 1px dashed var(--h-line-2); background: none; border-radius: 999px; height: 26px; padding: 0 10px; font: 600 12px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.wm-addtask:hover { border-color: var(--h-brand); color: var(--h-brand-ink); }
+.wm-acts { display: flex; gap: 6px; justify-content: flex-end; align-items: center; flex-wrap: nowrap; }
+.wm-acts .h-btn { height: 34px; }
+.wm-acts .h-btn .h-i { width: 15px; height: 15px; }
+.wm-icon { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--h-line-2); background: #fff; display: inline-grid; place-items: center; color: var(--h-brand); text-decoration: none; flex: none; }
+.wm-icon:hover { border-color: var(--h-brand); }
+.wm-icon .h-i { width: 15px; height: 15px; }
+.wm-icon.is-off { color: var(--h-ink-3); border-style: dashed; background: var(--h-surface-2); cursor: not-allowed; }
+.wm-empty { padding: 34px 16px; text-align: center; color: var(--h-ink-3); font-size: 14px; }
+.wm-empty b { display: block; font: 600 22px var(--h-serif); color: var(--h-ink); margin-bottom: 4px; }
+.wm-more { padding: 12px 16px; text-align: center; }
+.wm-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; font-size: 12.5px; color: var(--h-ink-3); flex-wrap: wrap; }
+.wm-bulk { position: fixed; left: 50%; transform: translateX(-50%); bottom: 64px; z-index: 60; width: max-content; max-width: calc(100vw - 24px); display: none; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-radius: 999px; background: var(--h-ink); color: #f6f3ec; box-shadow: var(--h-shadow-2); flex-wrap: wrap; }
+.wm-bulk.is-on { display: flex; }
+.wm-bulk b { font: 600 13px var(--h-font); margin-right: auto; }
+.wm-bulk .h-btn { height: 34px; }
+.wm-bulk .h-btn--ghost { background: transparent; color: #f6f3ec; border-color: rgba(255,255,255,.25); }
+.wm-bulk .h-btn--ghost:hover { border-color: #fff; }
+
+.wm-plan { display: grid; max-height: 320px; overflow-y: auto; }
+.wm-plan__row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-bottom: 1px solid #efebe3; font-size: 13.5px; }
+.wm-plan__row:last-child { border-bottom: 0; }
+.wm-plan__row b { font-weight: 600; color: var(--h-ink); }
+.wm-plan__row span { color: var(--h-ink); }
+.wm-plan__row small { display: block; font-size: 12px; color: var(--h-ink-3); margin-top: 2px; }
+.wm-check2 { display: flex; align-items: center; gap: 8px; font: 500 13px var(--h-font); color: var(--h-ink-2); }
+.wm-check2 input { width: 16px; height: 16px; accent-color: var(--h-brand); }
+
+@media (max-width: 1180px) {
+  .wm-port { grid-template-columns: 28px minmax(170px, 1.4fr) 110px 96px 100px minmax(110px, .9fr) 206px; }
+  .wm-port .wm-c-life { display: none; }
+}
+@media (max-width: 860px) {
+  .wc-band.wm-band { display: flex !important; overflow-x: auto; scrollbar-width: none; padding: 4px; }
+  .wc-band.wm-band .wc-stat { display: block !important; flex: 0 0 auto; min-width: 128px; max-width: 170px; padding: 10px 12px; }
+  .wc-band.wm-band .wc-stat b { font-size: 28px; }
+  .wm-seg { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+  .wm-tools { padding: 12px; }
+  .wm-tools .wc-find { max-width: none; flex-basis: 100%; }
+  .wm-tools .wc-sel { max-width: none; flex: 1; }
+  .wm-head { display: none !important; }
+  .wm-row { padding: 14px 12px; gap: 6px 10px; }
+  .wm-port { grid-template-columns: 26px minmax(0, 1fr) auto; grid-template-areas: 'cb who twelve' 'cb quiet quiet' 'cb next next' 'cb acts acts'; align-items: start; }
+  .wm-port .wm-cb { grid-area: cb; padding-top: 3px; }
+  .wm-port .wm-c-who { grid-area: who; }
+  .wm-port .wm-c-12 { grid-area: twelve; text-align: right; }
+  .wm-port .wm-c-quiet { grid-area: quiet; }
+  .wm-port .wm-c-quiet small { display: inline; margin-left: 6px; }
+  .wm-port .wm-c-last, .wm-port .wm-c-life { display: none; }
+  .wm-port .wm-c-next { grid-area: next; }
+  .wm-port .wm-acts { grid-area: acts; justify-content: flex-start; margin-top: 4px; }
+  .wm-bulk { border-radius: 18px; bottom: 60px; }
+  .wm-plan__row { grid-template-columns: 84px minmax(0, 1fr); }
+}

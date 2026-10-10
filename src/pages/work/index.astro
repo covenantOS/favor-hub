@@ -2,6 +2,7 @@
 import App from '../../layouts/App.astro';
 import '../../styles/work.css';
 import '../../styles/work-edit.css';
+import '../../styles/wc-mine.css';
 ---
 <App full title="Work Center" crumb="Work" nav="work" description="Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place.">
   <div class="wc-root" id="wc-root" aria-live="polite">
@@ -17,4 +18,5 @@ import '../../styles/work-edit.css';
   <div id="layer"></div>
   <script is:inline src="/js/work-edit.js?v=2" defer></script>
   <script is:inline src="/js/work.js?v=3" defer></script>
+  <script is:inline src="/js/wc-mine.js?v=1" defer></script>
 </App>

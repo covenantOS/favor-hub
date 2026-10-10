@@ -10,6 +10,7 @@ import '../styles/phone.css';
 import '../styles/settle.css';
 import '../styles/clipbtn.css';
 import '../styles/partner.css';
+import '../styles/wc-bell.css';
 import '../styles/color.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
@@ -53,6 +54,7 @@ const ICONS: Record<string, string> = {
   camera: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
   clips: '<rect x="3" y="8" width="14" height="11" rx="2"/><path d="M7 5h12a2 2 0 0 1 2 2v9"/><path d="m8.5 11.5 4 2-4 2z"/>',
   gift: '<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8"/><path d="M12 8v12"/><path d="M12 8S9 7 9 5.5 10.5 3.5 12 8Z"/><path d="M12 8s3-1 3-2.5S13.5 3.5 12 8Z"/>',
+  bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
   work: '<path d="M4 7h4"/><path d="M4 12h4"/><path d="M4 17h4"/><path d="m11 7 1.5 1.5L15 6"/><path d="m11 12 1.5 1.5L15 11"/><path d="M11 17h9"/><path d="M17 7h3"/><path d="M17 12h3"/>',
 };
 const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -229,6 +231,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
             <div class="pp-headsearch pv-find" id="pp-headsearch" hidden><label class="pv-find__box"><Fragment set:html={icon('search')} /><input type="search" placeholder="Find a partner" autocomplete="off" aria-label="Find a partner" /><kbd>Ctrl K</kbd></label><ul class="pv-find__list" role="listbox" hidden></ul></div>
             <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
             <slot name="actions" />
+            <button type="button" class="h-top__cam wm-bell" id="wm-bell" data-need="workCenter" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Reminders" title="Reminders"><Fragment set:html={icon('bell')} /><em></em></button>
             <a class="h-top__cam h-top__lib" id="clip-lib" href="/clips/" data-need="clips" hidden aria-label="My clips" title="My clips"><Fragment set:html={icon('clips')} /></a>
             <button type="button" class="h-top__cam" id="clip-cam" data-need="clips" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip"><Fragment set:html={icon('camera')} /></button>
             <button type="button" class="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} /><span class="h-lbl">Feedback</span></button>
@@ -245,6 +248,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=4" defer></script>
     <script is:inline src="/js/clips-launch.js?v=2" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=1" defer></script>
     <script>
       import '../scripts/hub';
     </script>

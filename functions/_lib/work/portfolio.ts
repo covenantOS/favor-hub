@@ -202,28 +202,3 @@ export function statsOf(rows: PortfolioRow[]) {
     noPhone: rows.filter((r) => !r.phone).length,
   };
 }
-
-/**
- * Weekdays to spread phone calls over, starting tomorrow when today is past noon Eastern or a weekend, else today.
- * `span` is the number of calendar days to cover: 7 (this week), 14 or 30.
- */
-export function weekdaysFrom(today: string, span: number): string[] {
-  const out: string[] = [];
-  for (let i = 0; i < span; i++) {
-    const d = new Date(Date.parse(`${today}T12:00:00Z`) + (i + 1) * 86400000);
-    const dow = d.getUTCDay();
-    if (dow === 0 || dow === 6) continue;
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
-
-/** One day for each partner, highest giving first, spread evenly across the days. Returns cid to date. */
-export function spreadCalls(cids: string[], days: string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  if (!days.length) return out;
-  cids.forEach((c, i) => {
-    out[c] = days[Math.min(days.length - 1, Math.floor((i * days.length) / cids.length))];
-  });
-  return out;
-}
