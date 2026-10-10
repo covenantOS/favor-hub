@@ -701,15 +701,35 @@ export async function authorizeBatch(ctx: Ctx, input: Record<string, any>): Prom
   const needBoard = ids.length > 0 || assignedFids(input).length > 0 || !!ctx.testCid;
   const board = needBoard ? await currentBoardAll(ctx) : null;
   const byId = new Map((board ? board.rows : []).map((r) => [r.id, r]));
-  if (ctx.testCid) {
+  // Where an action is when it is not on the board (done, or made a minute ago and not read back yet): the mirror's copy, or the hub's own batch that made it.
+  const located = new Map<string, { cid: string; mine: boolean; yours: boolean } | null>();
+  const locate = async (id: string) => {
+    if (located.has(id)) return located.get(id)!;
+    let out: { cid: string; mine: boolean; yours: boolean } | null = null;
+    const got = await actionRaw(ctx.env, id).catch(() => null);
+    if (got) {
+      const frs = Array.isArray(got.raw.fundraisers) ? got.raw.fundraisers.map(String) : [];
+      const cid = String(got.raw.constituent_id || '');
+      const holders = s.all ? [] : (await partnerHolders(ctx, cid).catch(() => [])) as string[];
+      out = { cid, mine: false, yours: !!s && (s.all || frs.some((f: string) => s.fids.has(f)) || holders.some((h) => s.fids.has(h))) };
+    } else {
+      const o = await ctx.env.DB.prepare('SELECT o.cid AS cid, lower(b.actor_email) AS who FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id WHERE o.bb_id = ? LIMIT 1').bind(id).first<{ cid: string | null; who: string }>().catch(() => null);
+      if (o) out = { cid: String(o.cid || ''), mine: o.who === ctx.email.toLowerCase(), yours: o.who === ctx.email.toLowerCase() };
+    }
+    located.set(id, out);
+    return out;
+  };
+  const testGuard = async () => {
+    if (!ctx.testCid) return;
     for (const id of ids) {
       const r = byId.get(id);
-      if (!r || r.cid !== ctx.testCid) throw new HttpError(403, 'test_only', TEST_REFUSED);
+      const cid = r ? r.cid : (await locate(id))?.cid;
+      if (cid !== ctx.testCid) throw new HttpError(403, 'test_only', TEST_REFUSED);
     }
     for (const c of partnersOf(input)) if (c !== ctx.testCid) throw new HttpError(403, 'test_only', TEST_REFUSED);
     if (!ids.length && !partnersOf(input).length && op !== 'new') throw new HttpError(403, 'test_only', TEST_REFUSED);
-  }
-  if (s.all) return;
+  };
+  if (s.all) { await testGuard(); return; }
   if (op === 'delete' && !can(s, 'delete')) throw new HttpError(403, 'not_yours', 'Only an admin or the Support Team can delete an action. Cancel it instead, or ask Support.');
   if (op === 'move' && !can(s, 'move')) throw new HttpError(403, 'not_yours', 'Only an admin or the Support Team can move an action to another partner.');
   for (const id of ids) {
@@ -717,7 +737,8 @@ export async function authorizeBatch(ctx: Ctx, input: Record<string, any>): Prom
     if (r) {
       if (!inScope(s, r)) throw new HttpError(403, 'not_yours', 'That action is outside your portfolio. You can change actions you work and actions on partners you hold.');
     } else if (s.role !== 'support') {
-      throw new HttpError(403, 'not_yours', 'That action is not open in your portfolio, so it cannot be changed here.');
+      const l = await locate(id);
+      if (!l || !l.yours) throw new HttpError(403, 'not_yours', 'That action is outside your portfolio. You can change actions you work and actions on partners you hold.');
     }
   }
   if (board) {
@@ -726,6 +747,7 @@ export async function authorizeBatch(ctx: Ctx, input: Record<string, any>): Prom
       if (!mayAssignTo(s, fid, teamOf)) throw new HttpError(403, 'not_yours', 'Only an admin can hand an action to someone on another team. Pick someone on your team, or ask an admin.');
     }
   }
+  await testGuard();
   // Logging a contact, a task or a note on any partner is allowed: every role can already do that in Blackbaud. Changing a partner's
   // contact details needs a role that edits partners, and a partner another team holds is that team's to change (Support may change any).
   if (op === 'pfield') {
