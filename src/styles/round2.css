@@ -87,7 +87,7 @@ body.h-body .h-area[data-area] > .h-area__link .h-i { color: var(--soft); }
 .h-area.is-cur > .h-area__link .h-i { color: #fff !important; }
 .h-area__link .h-nav__count { top: 2px; right: 14px; background: #fff; color: var(--r-ink); box-shadow: 0 0 0 2px var(--r-rail); }
 .h-area__link .h-nav__count--warn { background: var(--h-gold); }
-.h-area[data-area='meet'] .h-area__link .h-nav__count[data-count='meetingsNow'], .h-area[data-area='meet'] .h-area__link .h-area__sum { background: #e5533a; color: #fff; }
+.h-area[data-area='meet'] .h-area__link .h-nav__count[data-count='meetingsNow'], .h-area[data-area='meet'] .h-area__link .h-area__sum { background: #b93a20; color: #fff; }
 .h-areas--foot { border-top-color: rgba(255, 255, 255, 0.12); }
 .h-side__tog { background: var(--r-rail); border-color: rgba(255, 255, 255, 0.25); color: rgba(255, 255, 255, 0.85); top: 22px; z-index: 50; }
 .h-side__tog:hover { color: #fff; border-color: #fff; }
@@ -214,7 +214,7 @@ body.h-body .rp-toast, body.h-body .wc-toast { background: var(--r-ink); color: 
   .h-bar__a[data-bar='today'] .h-i { color: var(--soft-sun); } .h-bar__a[data-bar='work'] .h-i { color: var(--soft-leaf); } .h-bar__a[data-bar='meet'] .h-i { color: var(--soft-teal); }
   .h-bar__a[data-bar='ask'] .h-i { color: var(--soft-dusk); } .h-bar__a[data-bar='kpi'] .h-i { color: var(--soft-sky); }
   .h-bar__a.is-on .h-i { color: #fff !important; }
-  .h-bar__n { background: #e5533a; box-shadow: 0 0 0 2px var(--r-rail); }
+  .h-bar__n { background: #b93a20; box-shadow: 0 0 0 2px var(--r-rail); }
   body.h-body[data-nav='brain'] .h-app { height: calc(100dvh - 64px - env(safe-area-inset-bottom)); }
 }
 
@@ -258,3 +258,10 @@ body.h-body .h-pg .h-nav__help .h-dot { position: static; margin-left: auto; }
 body.h-body .h-area[data-area='help']:has(.has-new) > .h-area__link::after { content: ''; position: absolute; top: 8px; right: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--h-gold); box-shadow: 0 0 0 2px var(--r-rail); }
 html.nav-wide body.h-body .h-area[data-area='help']:has(.has-new) > .h-area__link::after, body.h-body .h-app.is-peek .h-area[data-area='help']:has(.has-new) > .h-area__link::after, body.h-body .h-app.is-nav .h-area[data-area='help']:has(.has-new) > .h-area__link::after { top: 16px; right: 44px; }
 .h-top__actions { display: contents; }
+body.h-body .wc-intro { display: none; }
+body.h-body[data-nav='brain'] .h-top, body.h-body[data-nav='brain'] .h-app .h-top { height: auto; min-height: 56px; }
+@media (max-width: 860px) {
+  body.h-body .h-side { z-index: 95; }
+  body.h-body #clip-lib, body.h-body #clip-cam { display: none !important; }
+  body.h-body[data-nav='brain'] .h-top { padding-bottom: 0; }
+}
