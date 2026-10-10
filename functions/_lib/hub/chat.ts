@@ -25,9 +25,10 @@ export async function purgeOld(env: Env, now = Date.now()): Promise<void> {
 
 export async function listThreads(env: Env, email: string, q = ''): Promise<ThreadRow[]> {
   const term = q.trim().slice(0, 80);
+  // Chats the agent key or a script session started (source 'agent') are kept for the record but never listed.
   const sql = term
-    ? `SELECT id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending FROM brain_threads WHERE email = ? AND (title LIKE ? ESCAPE '\\' OR id IN (SELECT thread_id FROM brain_turns WHERE question LIKE ? ESCAPE '\\')) ORDER BY pinned DESC, changed_at DESC LIMIT 200`
-    : `SELECT id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending FROM brain_threads WHERE email = ? ORDER BY pinned DESC, changed_at DESC LIMIT 200`;
+    ? `SELECT id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending FROM brain_threads WHERE email = ? AND source = 'person' AND (title LIKE ? ESCAPE '\\' OR id IN (SELECT thread_id FROM brain_turns WHERE question LIKE ? ESCAPE '\\')) ORDER BY pinned DESC, changed_at DESC LIMIT 200`
+    : `SELECT id, title, pinned, made_at, changed_at, ${PENDING_SQL} AS pending FROM brain_threads WHERE email = ? AND source = 'person' ORDER BY pinned DESC, changed_at DESC LIMIT 200`;
   const st = term ? env.DB.prepare(sql).bind(email, like(term), like(term)) : env.DB.prepare(sql).bind(email);
   return ((await st.all<ThreadRow>()).results || []).map((r) => ({ ...r, pinned: r.pinned ? 1 : 0, pending: r.pending ? 1 : 0 }));
 }
@@ -84,12 +85,12 @@ export const titleOf = (q: string) => {
 
 /** Saves the question the moment it is sent, as a pending turn, and returns the turn's row id.
  *  Returns null when the chat belongs to someone else or the tables are not there yet. */
-export async function startTurn(env: Env, email: string, conv: string, question: string): Promise<{ id: number; n: number } | null> {
+export async function startTurn(env: Env, email: string, conv: string, question: string, source: 'person' | 'agent' = 'person'): Promise<{ id: number; n: number } | null> {
   try {
     const now = new Date().toISOString();
     const th = await env.DB.prepare('SELECT email FROM brain_threads WHERE id = ?').bind(conv).first<{ email: string }>();
     if (th && th.email !== email) return null;
-    if (!th) await env.DB.prepare('INSERT INTO brain_threads (id, email, title, pinned, made_at, changed_at) VALUES (?, ?, ?, 0, ?, ?)').bind(conv, email, titleOf(question), now, now).run();
+    if (!th) await env.DB.prepare("INSERT INTO brain_threads (id, email, title, pinned, made_at, changed_at, source) VALUES (?, ?, ?, 0, ?, ?, ?)").bind(conv, email, titleOf(question), now, now, source).run();
     else await env.DB.prepare('UPDATE brain_threads SET changed_at = ? WHERE id = ?').bind(now, conv).run();
     const last = await env.DB.prepare('SELECT COALESCE(MAX(n), 0) AS n FROM brain_turns WHERE thread_id = ?').bind(conv).first<{ n: number }>();
     const n = Number(last?.n || 0) + 1;

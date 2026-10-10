@@ -39,7 +39,10 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
   const question = String(body.question || '').trim();
   const email = user.email.toLowerCase();
   const conv: string = validConv(body.conv) ? body.conv : newConvId();
-  const turn = question ? await startTurn(env, email, conv, question) : null;
+  // The agent key and the script password session act as Will's account. Their chats are filed as 'agent' so they stay
+  // out of his sidebar; a sign-in from a browser or the phone app is a person's chat.
+  const source = user.via === 'agent' || user.via === 'password' ? 'agent' : 'person';
+  const turn = question ? await startTurn(env, email, conv, question, source) : null;
   if (!turn) {
     // The tables are not there yet, or the chat is someone else's: answer the old way, nothing is saved here.
     const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: headersFor(env, user), body: raw });

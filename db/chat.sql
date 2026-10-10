@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS brain_threads (
   title TEXT NOT NULL,
   pinned INTEGER NOT NULL DEFAULT 0,
   made_at TEXT NOT NULL,
-  changed_at TEXT NOT NULL
+  changed_at TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'person'
 );
 CREATE INDEX IF NOT EXISTS idx_brain_threads_email ON brain_threads(email, changed_at);
 CREATE INDEX IF NOT EXISTS idx_brain_threads_changed ON brain_threads(changed_at);
