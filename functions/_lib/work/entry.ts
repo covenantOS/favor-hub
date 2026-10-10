@@ -284,6 +284,7 @@ export async function entryPost(ctx: Ctx, submissionIds: string[], req?: string)
     rows.push(...(await ctx.env.DB.prepare(`SELECT * FROM act_submissions WHERE id IN (${part.map(() => '?').join(',')})`).bind(...part).all<SubRow>()).results);
   }
   for (const r of rows) if (!mayEnter(ctx, r.owner_fid)) throw new HttpError(403, 'not_yours', 'Some of those rows belong to someone whose Entry is not yours.');
+  if (ctx.testCid) for (const r of rows) if (r.constituent_id !== ctx.testCid) throw new HttpError(403, 'test_only', 'This is a test run as another role, and it may only enter rows for the one test record.');
   const staff = await entryOwners(ctx.env);
   const items: PlannedItem[] = [];
   const notReady: string[] = [];
@@ -324,6 +325,7 @@ export interface ManyInput {
 }
 
 export async function entryMany(ctx: Ctx, input: ManyInput) {
+  if (ctx.testCid && (input.constituent_ids || []).some((x) => String(x) !== ctx.testCid)) throw new HttpError(403, 'test_only', 'This is a test run as another role, and it may only enter for the one test record.');
   const owner = await ownerOf(ctx, String(input.owner));
   const date = validDate(input.date, 'the date of the contact');
   if (!HOWS[input.channel]) throw new HttpError(400, 'bad_how', 'Pick how it went out.');
