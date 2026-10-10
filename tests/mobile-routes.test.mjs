@@ -330,6 +330,43 @@ describe('log a contact', () => {
     assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM mobile_writes').get().n, 0);
   });
 
+  it('Support logs for a director they support, never for one they do not, and must say which', async () => {
+    const dir = { email: 'dee@favorintl.org', name: 'Dee Director', fid: '601', entry_owner: 1 };
+    const other = { email: 'oz@favorintl.org', name: 'Oz Elsewhere', fid: '602', entry_owner: 1 };
+    const sup = { email: 'sam@favorintl.org', name: 'Sam Support', team: 'support', fid: '700', work_center: 1, entry_owner: 0 };
+    const w = await world({ board: board(), people, staff: [sup, dir, other], settings: { release: 'support', 'scope:sam@favorintl.org': '601' } });
+    const token = await signIn(w, { email: 'sam@favorintl.org', name: 'Sam Support' });
+    const owners = await callChecked(w, 'GET', '/api/mobile/log-owners', { token });
+    assert.equal(owners.status, 200);
+    assert.deepEqual(owners.body.items, [{ id: '601', name: 'Dee Director' }, { id: '700', name: 'Sam Support' }].filter((x) => x.id === '601'));
+    assert.equal(owners.body.default_id, null);
+    const none = await callChecked(w, 'POST', '/api/mobile/contacts', { token, body: body() });
+    assert.equal(none.status, 400);
+    assert.equal(none.body.error, 'pick_owner');
+    const wrong = await callChecked(w, 'POST', '/api/mobile/contacts', { token, body: body({ for_fundraiser_id: '602' }) });
+    assert.equal(wrong.status, 403);
+    assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM act_submissions').get().n, 0);
+    const ok = await callChecked(w, 'POST', '/api/mobile/contacts', { token, body: body({ for_fundraiser_id: '601' }) });
+    assert.equal(ok.status, 200);
+    const sub = w.db.prepare('SELECT owner_fid, created_by FROM act_submissions').get();
+    assert.equal(sub.owner_fid, '601');
+    assert.equal(sub.created_by, 'Sam Support');
+    const created = w.bbCalls.filter((c) => c.method === 'POST' && c.path === '/constituent/v1/actions');
+    assert.deepEqual(created[0].body.fundraisers, ['601']);
+  });
+
+  it('a director sees only themselves in the owner list, and an admin sees every director', async () => {
+    const dir = { email: 'dee@favorintl.org', name: 'Dee Director', fid: '601', entry_owner: 1, work_center: 1 };
+    const { w, token } = await ready({ staff: [dir] });
+    const all = await callChecked(w, 'GET', '/api/mobile/log-owners', { token });
+    assert.deepEqual(all.body.items.map((i) => i.id), ['601', '501']);
+    assert.equal(all.body.default_id, '501');
+    const w2 = await world({ board: board(), people, staff: [dir], settings: { release: 'support' } });
+    const deeToken = await signIn(w2, { email: 'dee@favorintl.org', name: 'Dee Director' });
+    const mine = await callChecked(w2, 'GET', '/api/mobile/log-owners', { token: deeToken });
+    assert.deepEqual(mine.body, { items: [{ id: '601', name: 'Dee Director' }], default_id: '601' });
+  });
+
   it('refuses an unknown partner, a deceased partner and malformed input', async () => {
     const { w, token } = await ready();
     assert.equal((await callChecked(w, 'POST', '/api/mobile/contacts', { token, body: body({ partner_id: '555555' }) })).status, 404);

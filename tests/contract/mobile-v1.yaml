@@ -232,6 +232,20 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
 
+  /api/mobile/log-owners:
+    get:
+      operationId: logOwners
+      summary: The directors this person may log a contact for
+      x-work-center-route: The Entry tab's owner list, narrowed to the person's Work Center scope (GET /api/work/staff).
+      responses:
+        "200":
+          description: Directors, and the person's own id when they are one
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogOwners" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /api/mobile/config:
     get:
       operationId: config
@@ -710,6 +724,22 @@ components:
         kind: { type: string, enum: [call, visit, text, email] }
         note: { type: string }
         occurred_at: { type: string, format: date-time }
+        for_fundraiser_id:
+          type: string
+          description: The director the contact is for, from logOwners. Support sends it; a director logging their own contact leaves it out.
+    LogOwners:
+      type: object
+      required: [items, default_id]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string }
+              name: { type: string }
+        default_id: { type: string, nullable: true }
     CatalogOption:
       type: object
       required: [id, name]

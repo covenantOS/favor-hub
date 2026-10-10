@@ -1,6 +1,7 @@
 // Log a call, visit or text from the phone. It enters the Work Center's one-contact-many-partners path with one partner, so the
 // hub's duplicate guard, the outbox (saved first, then sent), the daily cap (lane 2,400 of 3,000) and the posting switch all apply
-// unchanged. The person must be on the Entry list (an RDD or an executive owner); the contact is entered under their own name.
+// unchanged. A director on the Entry list logs under their own name. Support names the director the contact is for, from the list
+// logOwners returns, which is the same list the Work Center's Entry tab offers them.
 import { HttpError, nowIso } from '../http';
 import { etParts } from '../actions/intake';
 import { entryMany, entryOwners } from '../work/entry';
@@ -16,6 +17,8 @@ export interface ContactInput {
   kind: ContactKind;
   note?: string;
   occurred_at: string;
+  /** The director's Blackbaud fundraiser id when the person logs for someone else (Support). */
+  for_fundraiser_id?: string;
 }
 
 export function parseContact(b: Record<string, any>): ContactInput {
@@ -27,7 +30,9 @@ export function parseContact(b: Record<string, any>): ContactInput {
   if (!Number.isFinite(when)) throw new HttpError(400, 'bad_date', 'occurred_at must be a date and time.');
   if (when > Date.now() + 36 * 3600 * 1000) throw new HttpError(400, 'bad_date', 'That contact is dated in the future.');
   if (when < Date.now() - 400 * 86400 * 1000) throw new HttpError(400, 'bad_date', 'That contact is over a year old. Enter it in the Work Center.');
-  return { partner_id: partner, kind, note: typeof b.note === 'string' ? b.note : '', occurred_at: new Date(when).toISOString() };
+  const forId = b.for_fundraiser_id == null || b.for_fundraiser_id === '' ? '' : String(b.for_fundraiser_id).trim();
+  if (forId && !/^\d{1,12}$/.test(forId)) throw new HttpError(400, 'bad_owner', 'for_fundraiser_id is a fundraiser id.');
+  return { partner_id: partner, kind, note: typeof b.note === 'string' ? b.note : '', occurred_at: new Date(when).toISOString(), ...(forId ? { for_fundraiser_id: forId } : {}) };
 }
 
 /** One line for the action's summary: the first line of the note, else the kind. The Work Center caps a summary at 255. */
@@ -37,14 +42,19 @@ export function summaryOf(kind: ContactKind, note: string | undefined): string {
 }
 
 export async function logContact(ctx: Ctx, fid: string, input: ContactInput, req: string, waitUntil: (p: Promise<unknown>) => void) {
-  const owner = fid ? (await entryOwners(ctx.env)).find((o) => String(o.bb_fundraiser_id) === fid) : undefined;
-  if (!owner) throw new HttpError(403, 'not_entry_owner', 'Your account is not set up to log contacts from the app yet.');
+  const ownerFid = input.for_fundraiser_id || fid;
+  const owners = await entryOwners(ctx.env);
+  const owner = ownerFid ? owners.find((o) => String(o.bb_fundraiser_id) === ownerFid) : undefined;
+  if (!owner) {
+    if (!input.for_fundraiser_id && (await logOwners(ctx, fid)).items.length) throw new HttpError(400, 'pick_owner', 'Pick the director this contact is for.');
+    throw new HttpError(403, 'not_entry_owner', 'Your account is not set up to log contacts from the app yet.');
+  }
   const hits = await ctx.repo.partnersByIds([input.partner_id]);
   if (!hits.length) throw new HttpError(404, 'no_partner', 'No partner has that number.');
   if (hits[0].deceased) throw new HttpError(400, 'deceased', 'That partner is marked deceased.');
   const date = etParts(new Date(input.occurred_at)).date;
   const out = (await entryMany(ctx, {
-    owner: fid,
+    owner: String(owner.bb_fundraiser_id),
     date,
     channel: CHANNEL[input.kind],
     summary: summaryOf(input.kind, input.note),
@@ -60,4 +70,16 @@ export async function logContact(ctx: Ctx, fid: string, input: ContactInput, req
   const b = out.batch;
   if (b && b.id && b.run_when === 'now') waitUntil(runBatch(ctx, b.id).catch(() => undefined));
   return { recorded: true, batch_id: b?.id || null, run_when: b?.run_when || null, at: nowIso() };
+}
+
+/**
+ * The directors this person may log a contact for: the Entry list narrowed to their Work Center scope. A director sees themselves,
+ * Support sees every director they support, an admin sees everyone on the list. default_id is the person's own id when it is on the list.
+ */
+export async function logOwners(ctx: Ctx, fid: string): Promise<{ items: { id: string; name: string }[]; default_id: string | null }> {
+  const owners = await entryOwners(ctx.env);
+  const s = ctx.scope;
+  const mine = owners.filter((o) => !s || s.all || s.fids.has(String(o.bb_fundraiser_id)));
+  const items = mine.map((o) => ({ id: String(o.bb_fundraiser_id), name: o.name })).sort((a, b) => a.name.localeCompare(b.name));
+  return { items, default_id: items.some((i) => i.id === fid) ? fid : null };
 }

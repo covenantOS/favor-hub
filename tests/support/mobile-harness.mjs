@@ -207,6 +207,7 @@ const routeFiles = {
   'POST /api/auth/native/revoke-all': '../../functions/api/auth/native/revoke-all.ts',
   'GET /api/auth/native/devices': '../../functions/api/auth/native/devices.ts',
   'GET /api/mobile/config': '../../functions/api/mobile/config.ts',
+  'GET /api/mobile/log-owners': '../../functions/api/mobile/log-owners.ts',
   'GET /api/mobile/today': '../../functions/api/mobile/today.ts',
   'POST /api/mobile/today/:id/done': '../../functions/api/mobile/today/[id]/done.ts',
   'GET /api/mobile/partners': '../../functions/api/mobile/partners.ts',
