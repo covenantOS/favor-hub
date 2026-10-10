@@ -980,7 +980,12 @@ export async function resumeStuck(ctx: Ctx): Promise<void> {
 export async function healthView(ctx: Ctx, mirrorOk: boolean, blackbaudOk: boolean) {
   const release = await getSetting(ctx.env, 'release', 'admins');
   const posting = await getSetting(ctx.env, 'posting', 'on');
-  const rule = await getSetting(ctx.env, 'rule:tags');
+  // Until the tag rule is known to be live, a look at health asks the route once (one empty tag call, at most every 30 minutes). Once live, health makes no Blackbaud call.
+  let rule = await getSetting(ctx.env, 'rule:tags');
+  if (blackbaudOk && (!rule || rule.startsWith('0'))) {
+    const live = await tagRuleLive(ctx).catch(() => false);
+    rule = live ? '1' : '0';
+  }
   return { ok: true, mirror: { reachable: mirrorOk }, blackbaud: { reachable: blackbaudOk, rules: { tags: rule ? rule.startsWith('1') : null } }, meter: await meterView(ctx.env), release, posting };
 }
 

@@ -275,6 +275,14 @@ describe('sending', () => {
     const tag = calls.flat().find((c) => c.path === '/constituent/v1/actions/customfields');
     assert.ok(tag && tag.body.parent_id && tag.body.parent_id !== '8', 'the tag goes on the new action, not the old task');
   });
+  it('health asks once whether the tag rule is live, then reads it from the saved answer', async () => {
+    script = (c) => (c.path === '/constituent/v1/actions/customfields' ? { ok: false, status: 400, body: { message: 'incomplete' } } : okScript(c));
+    const h = await svc.healthView(ctx, true, true);
+    assert.equal(h.blackbaud.rules.tags, true);
+    const n = calls.length;
+    await svc.healthView(ctx, true, true);
+    assert.equal(calls.length, n, 'no second call once the rule shows live');
+  });
   it('stops after one round when the route sends nothing back', async () => {
     script = () => 'stop';
     const b = await patchBatch(3);
