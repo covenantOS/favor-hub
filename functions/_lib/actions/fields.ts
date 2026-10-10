@@ -167,7 +167,9 @@ export function checkFields(set: Record<string, unknown>, codes: Codes, today: s
     if (!body.completed_date && !has('completed_date')) body.completed_date = stamp(today);
   }
   if (body.status === 'Open' && body.completed === undefined) body.completed = false;
-  if (body.completed === false && body.status === undefined && !opts.create) body.status = 'Open';
+  // Favor's Blackbaud uses action statuses, so the status decides: completed alone is ignored (proved on the test record 2026-10-10).
+  if (body.completed === true && body.status === undefined) body.status = 'Completed';
+  if (body.completed === false && body.status === undefined) body.status = 'Open';
   if (opts.create) {
     if (!body.category) errors.push('Pick a category.');
     if (!body.date) body.date = stamp(today);

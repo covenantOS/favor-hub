@@ -670,6 +670,7 @@ export async function createEditBatch(ctx: Ctx, input: EditInput & { req?: strin
       await saveRecur(ctx.env, id, String(raw.constituent_id || (it && it.cid) || ''), plan.params.recur as any, templateOf({ ...raw, ...patch }), ctx.actor);
     }
   }
+  if (!plan.items.length) return { batch: { id: '', op: input.op, n: 0, calls: plan.reads, run_when: 'now', undo_until: '', left: 0, duplicates: 0 }, skipped: 0, changed: 0, items: [], recur: plan.params.recur || null };
   const salt = ['new', 'duplicate', 'move', 'complete_next'].includes(input.op) ? input.req || String(Date.now()) : '';
   const batch = await saveBatch(ctx, input.op, plan.items, plan.params, { reqId: input.req, reads: plan.reads, keySalt: salt });
   return { batch, skipped: plan.skipped, changed: plan.changed, items: plan.items.map((i) => ({ id: i.actionId || i.cid || '', state: 'queued' })) };

@@ -88,8 +88,9 @@ function fresh(a: Target, o: CompleteOpts): { date: string; description: string 
 /** Mark complete, no thank-you handling: one PATCH. */
 export function completeStep(a: Target, o: CompleteOpts): Step {
   const { date, description } = fresh(a, o);
-  const body: Record<string, unknown> = { completed: true, completed_date: stamp(date) };
-  const before: Record<string, unknown> = { completed: false };
+  // The status decides completion in Favor's Blackbaud (it uses action statuses); completed alone is ignored on some actions.
+  const body: Record<string, unknown> = { completed: true, completed_date: stamp(date), status: 'Completed' };
+  const before: Record<string, unknown> = { completed: false, status: 'Open' };
   if (description !== undefined) {
     body.description = description;
     before.description = a.description;
@@ -117,8 +118,8 @@ export function thankSteps(a: Target, o: CompleteOpts): Step[] {
   const inPlace = mode === 'one' && !!a.type && IN_PLACE_TYPES.has(a.type);
   const steps: Step[] = [];
   if (inPlace) {
-    const body: Record<string, unknown> = { completed: true, completed_date: stamp(date), category: how.category };
-    const before: Record<string, unknown> = { completed: false, category: a.category ?? 'Task/Other' };
+    const body: Record<string, unknown> = { completed: true, completed_date: stamp(date), status: 'Completed', category: how.category };
+    const before: Record<string, unknown> = { completed: false, status: 'Open', category: a.category ?? 'Task/Other' };
     if (description !== undefined) {
       body.description = description;
       before.description = a.description;
@@ -138,6 +139,7 @@ export function thankSteps(a: Target, o: CompleteOpts): Step[] {
     description: description ?? '',
     completed: true,
     completed_date: stamp(date),
+    status: 'Completed',
     priority: 'Normal',
   };
   if (['Mailing', 'Phone call', 'Email'].includes(how.category)) contact.direction = 'Outbound';
@@ -146,7 +148,7 @@ export function thankSteps(a: Target, o: CompleteOpts): Step[] {
   if (fr.length) contact.fundraisers = fr;
   steps.push({ op: 'create', body: contact, label: 'thank contact' });
   for (const t of tags) steps.push({ op: 'tag', dep: 0, body: { category: t, date: stamp(date) }, label: 'tag ' + t });
-  steps.push({ op: 'patch', actionId: a.id, body: { completed: true, completed_date: stamp(date) }, before: { completed: false }, label: 'close task' });
+  steps.push({ op: 'patch', actionId: a.id, body: { completed: true, completed_date: stamp(date), status: 'Completed' }, before: { completed: false, status: 'Open' }, label: 'close task' });
   return steps;
 }
 

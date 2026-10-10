@@ -10,8 +10,9 @@ const O = { actor: 'Pat Smith', today: '2026-10-09' };
 describe('complete', () => {
   it('closes with a date and keeps the old description when there is no line', () => {
     const s = completeStep(T, { ...O, date: '2026-10-08' });
-    assert.deepEqual(s.body, { completed: true, completed_date: '2026-10-08T00:00:00' });
-    assert.deepEqual(s.before, { completed: false });
+    // The status is sent too: Favor's Blackbaud uses action statuses, and completed alone is ignored on some actions.
+    assert.deepEqual(s.body, { completed: true, completed_date: '2026-10-08T00:00:00', status: 'Completed' });
+    assert.deepEqual(s.before, { completed: false, status: 'Open' });
     assert.equal(s.op, 'patch');
   });
   it("each one's due date", () => {
@@ -86,7 +87,7 @@ describe('reassign and reschedule', () => {
 describe('undo', () => {
   it('a complete comes back with completed false and the old description', () => {
     const s = completeStep(T, { ...O, line: 'x' });
-    assert.deepEqual(undoStep({ op: 'patch', action_id: '11', bb_id: null, before: s.before }).body, { completed: false, description: 'Old note' });
+    assert.deepEqual(undoStep({ op: 'patch', action_id: '11', bb_id: null, before: s.before }).body, { completed: false, status: 'Open', description: 'Old note' });
   });
   it('a create is removed with DELETE and a tag has nothing to undo', () => {
     assert.deepEqual(undoStep({ op: 'create', action_id: null, bb_id: '77', before: null }), { op: 'delete', actionId: '77', body: {}, label: 'undo create' });

@@ -391,9 +391,10 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     const steps: Step[] = [];
     if (Object.keys(body).length) steps.push({ op: 'patch', actionId: id, body, before: valuesOf(current, Object.keys(body)), label: 'edit' });
     steps.push(...tagSteps(id, undefined, input.tags, today, codes));
-    if (!steps.length) throw new HttpError(400, 'nothing_to_do', 'Nothing changed.');
+    const recurOnly = input.recur !== undefined && (input.recur === null || !!checkRecur(input.recur));
+    if (!steps.length && !recurOnly) throw new HttpError(400, 'nothing_to_do', 'Nothing changed.');
     const partner = await partnerName(ctx.env, String(current.constituent_id));
-    items.push({ actionId: id, cid: String(current.constituent_id), label: labelFor(partner, current.summary || current.type), steps });
+    if (steps.length) items.push({ actionId: id, cid: String(current.constituent_id), label: labelFor(partner, current.summary || current.type), steps });
     // A repeat set while editing: stored once the edit is sent (the action already exists).
     const r = input.recur === null ? 'off' : checkRecur(input.recur);
     if (r) params.recur = r;
