@@ -28,7 +28,7 @@ Open **People** and press the dots beside a person: Mute, Spotlight for everyone
 
 ## Recording and notes
 
-A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, the hub saves the video to the Meetings drive in Google Drive, reads the sound, and writes a summary, decisions and action items. They appear under **Meeting notes** a few minutes later, and the transcript is searchable on that page.
+A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, the hub saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. They appear under **Meeting notes** a few minutes later, and the transcript is searchable on that page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
 
 ## Limits while it is tested
 

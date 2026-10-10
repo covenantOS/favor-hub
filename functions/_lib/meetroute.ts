@@ -14,7 +14,7 @@ import { chatJson, plain, stamp } from './clipai';
 import { makeNotes, pumpDrive, pumpTranscript, transcribeRow, type NotesOut } from './meetdrive';
 import { createEvent, deleteEvent, freeBusy, mayBook, patchEvent, sendReminder, TZ } from './meetcal';
 import {
-  GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, mayJoin, meetUser, sfuCall, sha,
+  GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
 } from './meet';
 
@@ -117,7 +117,8 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
     if (!p?.s || p.s < cutoff) await endMeeting(env, r.id);
   }
   const me = user.email.toLowerCase();
-  const mine = `(lower(host_email) = ?1 OR access IN ('staff','guests') OR lower(invitees) LIKE '%' || ?1 || '%' OR lower(cohosts) LIKE '%' || ?1 || '%')`;
+  // An address matches only as a whole quoted address in the JSON, so ann@ never finds a meeting that invited joann@.
+  const mine = `(lower(host_email) = ?1 OR access IN ('staff','guests') OR instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
   let sql: string;
   if (scope === 'recent') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 60`;
   else if (scope === 'notes') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' AND notes_status != 'none' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 100`;
@@ -131,7 +132,21 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
     `SELECT meeting_id, COUNT(*) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND seen > ? GROUP BY meeting_id`
   ).bind(Date.now() - GONE_MS).all<{ meeting_id: string; n: number }>();
   const inRoom = new Map((counts.results || []).map((c) => [c.meeting_id, c.n]));
-  return { ok: true, meetings: (rows.results || []).map((r) => ({ ...publicMeeting(r, user), inRoom: inRoom.get(r.id) || 0 })) };
+  const found = scope === 'recent' || scope === 'notes' ? await withLedMeetings(env, user, scope, rows.results || []) : rows.results || [];
+  return { ok: true, meetings: found.map((r) => ({ ...publicMeeting(r, user), inRoom: inRoom.get(r.id) || 0 })) };
+}
+
+/** A team leader's notes list also holds the finished meetings that have someone from the team on the roster. Same rule as the notes page (mayReadNotes). */
+async function withLedMeetings(env: MeetEnv, user: { email: string; role: string }, scope: 'recent' | 'notes', mine: Meeting[]): Promise<Meeting[]> {
+  const led = await ledPeople(env, user.email);
+  if (!led.size) return mine;
+  const more = await env.DB.prepare(
+    `SELECT * FROM hub_meetings WHERE status = 'ended'${scope === 'notes' ? ` AND notes_status != 'none'` : ''} ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 400`
+  ).all<Meeting>();
+  const have = new Set(mine.map((r) => r.id));
+  const all = [...mine, ...(more.results || []).filter((r) => !have.has(r.id) && mayReadNotes(r, user, led))];
+  all.sort((a, b) => (b.ended_at || b.created_at).localeCompare(a.ended_at || a.created_at));
+  return all.slice(0, scope === 'recent' ? 60 : 100);
 }
 
 async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown>, origin = '') {
@@ -550,7 +565,8 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
 
 async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: string) {
   const m = await getMeeting(env, id);
-  if (!mayJoin(m, user as never)) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  // The server decides who reads the notes: the people who may join, and the leader of a team with someone on the roster. Anyone else gets a 404.
+  if (!mayJoin(m, user) && !mayReadNotes(m, user, await ledPeople(env, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
   const files = await env.DB.prepare(`SELECT file_id, file_name FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch`).bind(id).all<{ file_id: string; file_name: string }>();
   return {
     ok: true,

@@ -116,12 +116,38 @@ export function isHost(m: Meeting, email: string): boolean {
   return m.host_email.toLowerCase() === e || emailsOf(m.cohosts).includes(e);
 }
 
-export function mayJoin(m: Meeting, user: HubUser): boolean {
+export function mayJoin(m: Meeting, user: Pick<HubUser, 'email' | 'role'>): boolean {
   if (m.status === 'cancelled') return false;
   if (user.role === 'admin') return true;
   if (isHost(m, user.email)) return true;
   if (m.access === 'staff' || m.access === 'guests') return true;
   return emailsOf(m.invitees).includes(user.email.toLowerCase());
+}
+
+/** Emails of the active staff on every team this person leads. Empty for a person who leads no team, and when the lookup fails (never opens more). */
+export async function ledPeople(env: MeetEnv, email: string): Promise<Set<string>> {
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT lower(m.email) AS email FROM meet_directory m
+        WHERE m.active = 1 AND m.team != ''
+          AND m.team IN (SELECT l.team FROM meet_directory l WHERE lower(l.email) = ? AND l.lead = 1 AND l.active = 1)`
+    ).bind(email.toLowerCase()).all<{ email: string }>();
+    return new Set((rows.results || []).map((r) => r.email));
+  } catch (err) {
+    console.error('[meet] ledPeople', err);
+    return new Set();
+  }
+}
+
+/**
+ * Who may read a meeting's notes, transcript and recording link: whoever may join it (a host, an invited person, an admin,
+ * anyone on staff when the meeting was open to all staff), and the leader of a team that has someone on the meeting's
+ * roster (the host, a made host or an invited person). led is what ledPeople returns for the person asking.
+ */
+export function mayReadNotes(m: Meeting, user: Pick<HubUser, 'email' | 'role'>, led: ReadonlySet<string>): boolean {
+  if (mayJoin(m, user)) return true;
+  if (m.status === 'cancelled' || !led.size) return false;
+  return [m.host_email, ...emailsOf(m.cohosts), ...emailsOf(m.invitees)].some((e) => led.has(e.toLowerCase()));
 }
 
 export async function getMeeting(env: MeetEnv, id: string): Promise<Meeting> {

@@ -128,7 +128,8 @@ CREATE TABLE IF NOT EXISTS meet_directory (
   name TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '',
   team TEXT NOT NULL DEFAULT '',
-  active INTEGER NOT NULL DEFAULT 1
+  active INTEGER NOT NULL DEFAULT 1,
+  lead INTEGER NOT NULL DEFAULT 0         -- 1 for the leader of the team; reads the notes of meetings with someone from the team on the roster
 );
 -- Reminder emails already sent, so a meeting is never reminded twice.
 CREATE TABLE IF NOT EXISTS hub_meeting_reminders (
