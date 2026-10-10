@@ -125,7 +125,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
     <script is:inline src="/js/sheets.js?v=1"></script>
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=1" defer></script>
-    <script is:inline src="/js/partner.js?v=5" defer></script>
+    <script is:inline src="/js/partner.js?v=6" defer></script>
     <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-learn a' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
     <title>{title} - Favor Hub</title>
     <meta name="description" content={description} />
@@ -260,7 +260,7 @@ const GROUPS: Array<{ label: string | null; need?: string; items: Item[] }> = [
         </header>
         <script is:inline>
           // The top bar comes after the menu script above, so the saved sections (reminders bell, clips buttons) are applied to it here, before its first paint.
-          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); } catch (e) {}
+          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); var sb = document.querySelector('.h-top__search'); if (hb) hb.hidden = false; if (sb) sb.hidden = true; } } catch (e) {}
         </script>
         <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
