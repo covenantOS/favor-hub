@@ -98,10 +98,10 @@ export async function addReminders(env: Env, owner: string, items: ReminderInput
 
 /** A person's open reminders, soonest first, with the bucket each falls in (now, today, tomorrow, later) by Eastern day. */
 export async function listReminders(env: Env, owner: string, now = new Date()) {
-  // A Plan calls reminder points at the batch that made the task (ref_id), so undoing the batch drops the reminder with it.
+  // A Plan calls or Cadence reminder points at the batch that made the contact (ref_id), so undoing the batch drops the reminder with it.
   const r = await env.DB.prepare(
     `SELECT r.* FROM act_reminders r WHERE r.owner = ? AND r.state = 'open'
-       AND NOT (r.kind = 'plan_call' AND r.ref_id IS NOT NULL AND EXISTS (SELECT 1 FROM act_batches b WHERE b.id = r.ref_id AND b.state = 'undone'))
+       AND NOT (r.kind IN ('plan_call', 'cadence') AND r.ref_id IS NOT NULL AND EXISTS (SELECT 1 FROM act_batches b WHERE b.id = r.ref_id AND b.state = 'undone'))
      ORDER BY COALESCE(r.snoozed_until, r.due_at) LIMIT 200`
   )
     .bind(owner.toLowerCase())

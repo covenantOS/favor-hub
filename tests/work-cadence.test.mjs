@@ -197,11 +197,12 @@ function buildMirror() {
     CREATE TABLE fundraisers (id TEXT PRIMARY KEY, fundraiser_first_name TEXT, fundraiser_last_name TEXT);
     INSERT INTO fundraisers VALUES ('600', 'Pat', 'Care'), ('601', 'Quinn', 'Care');
   `);
-  const names2 = ['Mo Monthly', 'Fran First', 'Noah NoPhone', 'Quinn Quarterly', 'Sam Semi', 'Ann Annual', 'Bill Big', 'Rex Director', 'Lou Lapsed', 'Dee DoNotCall', 'Dora Deceased', 'Olive OneGift'];
+  const names2 = ['Mo Monthly', 'Fran First', 'Noah NoPhone', 'Quinn Quarterly', 'Sam Semi', 'Ann Annual', 'Bill Big', 'Rex Director', 'Lou Lapsed', 'Dee DoNotCall', 'Dora Deceased', 'Olive OneGift', 'Gus Unreachable'];
   names2.forEach((n, i) => {
     const id = String(i + 1);
     mirror.prepare('INSERT INTO constituents (id, constituent_type, first_name, last_name, deceased, raw_json) VALUES (?,?,?,?,?,?)').run(id, 'Individual', n.split(' ')[0], n.split(' ')[1], n === 'Dora Deceased' ? 1 : 0, JSON.stringify({ name: n, address: { city: 'Tampa', state: 'FL' } }));
     mirror.prepare('INSERT INTO assignments VALUES (?,?,?,?,?)').run('pc' + id, id, '600', 'Partner Care', null);
+    if (id === '13') return;
     if (id !== '3') mirror.prepare('INSERT INTO phones (id, constituent_record_id, phone_number, do_not_call) VALUES (?,?,?,?)').run('ph' + id, id, '(555) 010-00' + String(id).padStart(2, '0'), n === 'Dee DoNotCall' ? 1 : 0);
     mirror.prepare('INSERT INTO emails (id, constituent_record_id, email_address) VALUES (?,?,?)').run('em' + id, id, `p${id}@example.org`);
     mirror.prepare('INSERT INTO addresses (id, constituent_record_id, address_lines) VALUES (?,?,?)').run('ad' + id, id, '1 Test Way');
@@ -218,6 +219,7 @@ function buildMirror() {
   ['2026-07-15', '2026-08-15', '2026-09-15'].forEach((d, i) => { gift('b' + i, '7', 1500, d, 'RecurringGiftPayment'); gift('r' + i, '8', 40, d, 'RecurringGiftPayment'); gift('d' + i, '10', 40, d, 'RecurringGiftPayment'); gift('x' + i, '11', 40, d, 'RecurringGiftPayment'); });
   ['2026-01-15', '2026-02-15', '2026-03-15'].forEach((d, i) => gift('l' + i, '9', 40, d, 'RecurringGiftPayment'));
   gift('o1', '12', 100, '2026-09-01');
+  ['2026-07-15', '2026-08-15', '2026-09-15'].forEach((d, i) => gift('u' + i, '13', 40, d, 'RecurringGiftPayment'));
 }
 
 describe('loadCadence against the mirror', () => {
@@ -225,7 +227,9 @@ describe('loadCadence against the mirror', () => {
   it('lists each partner with a rule, in order of how long they have waited, and leaves out the rest', async () => {
     const rows = await cad.loadCadence({ DB: null }, q, { today: TODAY, names });
     const by = Object.fromEntries(rows.map((r) => [r.name, r]));
-    assert.deepEqual(Object.keys(by).sort(), ['Ann Annual', 'Dee DoNotCall', 'Fran First', 'Mo Monthly', 'Noah NoPhone', 'Quinn Quarterly', 'Sam Semi']);
+    assert.deepEqual(Object.keys(by).sort(), ['Ann Annual', 'Dee DoNotCall', 'Fran First', 'Gus Unreachable', 'Mo Monthly', 'Noah NoPhone', 'Quinn Quarterly', 'Sam Semi']);
+    assert.equal(by['Gus Unreachable'].blocked, true);
+    assert.equal(by['Mo Monthly'].blocked, false);
     assert.equal(by['Fran First'].rule, 'first');
     assert.deepEqual(by['Fran First'].steps.map((s) => s.k), ['call']);
     assert.deepEqual(by['Fran First'].holders.sort(), ['600', '601']);
@@ -321,6 +325,8 @@ describe('pressing a step', () => {
     const first = await csvc.cadenceResponse(ctx, 'all');
     assert.equal(first.rows.find((r) => r.name === 'Mo Monthly').steps.length, 1);
     assert.equal(first.stats.first, 2);
+    assert.equal(first.unreachable, 1);
+    assert.ok(!first.rows.some((r) => r.name === 'Gus Unreachable'), 'a partner nobody can reach is left off the list');
     assert.equal(first.stats.quarterly, 1);
     const out = await csvc.stepCadence(ctx, { cid: '1', step: 'call', outcome: 'talked', line: 'Glad to hear from her', req: 'r1' });
     assert.ok(out.batch.id);
@@ -348,6 +354,14 @@ describe('pressing a step', () => {
     assert.deepEqual(rem.map((r) => [r.kind, r.cid, r.state]), [['cadence', '2', 'open']]);
     const done = hub.prepare('SELECT outcome, remind_on FROM act_cadence_done').all();
     assert.deepEqual(done.map((d) => [d.outcome, d.remind_on]), [['left', '2026-10-11']]);
+  });
+  it('undoing a left message takes its reminder out of the bell', async () => {
+    const rem = await import('../functions/_lib/work/remind.ts');
+    const out = await csvc.stepCadence(ctx, { cid: '2', step: 'call', outcome: 'left', req: 'ru1' });
+    await run(out.batch.id);
+    assert.equal((await rem.listReminders(ctx.env, 'pat@example.org')).rows.length, 1);
+    hub.prepare("UPDATE act_batches SET state = 'undone' WHERE id = ?").run(out.batch.id);
+    assert.equal((await rem.listReminders(ctx.env, 'pat@example.org')).rows.length, 0);
   });
   it('a text is a completed call with the Texted tag', async () => {
     const out = await csvc.stepCadence(ctx, { cid: '6', step: 'text', req: 'r3' });

@@ -115,6 +115,8 @@ export interface CadenceRow {
   steps: Step[];
   /** 'any': one of the steps finishes the row (a quarterly thank-you). 'all': every step does. */
   need: 'any' | 'all';
+  /** Every step the row needs is switched off (no phone, email or address, or a do-not flag), so nobody can do it. */
+  blocked: boolean;
 }
 
 const CONTACT_WORDS: Record<StepKey, string> = { call: 'Call', text: 'Text', email: 'Email', card: 'Card' };
@@ -205,7 +207,7 @@ export function finish(c: Candidate, facts: PartnerFacts, info: ContactInfo, con
   return {
     cid: c.cid, name: facts.name, kind: facts.kind, place: facts.place, rule: c.rule, ruleLabel: RULE_LABEL[c.rule], pattern: describe(c), line,
     last: lastWhat(contacts), due: c.due, over, holders, holderNames: holders.map((h) => names[h] || `Fundraiser ${h}`), phone: info.hasPhone && info.callOk ? info.phone : null,
-    steps, need,
+    steps, need, blocked: steps.every((s) => !!s.off),
   };
 }
 

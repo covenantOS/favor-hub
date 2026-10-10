@@ -82,6 +82,8 @@ export interface CadenceOut {
   me: string | null;
   owners: { id: string; name: string; n: number }[];
   everyone: number;
+  /** Partners who are due but have no phone, email or mailing address for any step they need. They are left off the list. */
+  unreachable: number;
   rows: CadenceRow[];
   stats: { due: number; first: number; repeat: number; quarterly: number; week: number };
   lists: { friday: CadenceRow[]; saturday: CadenceRow[]; sunday: CadenceRow[] };
@@ -94,7 +96,8 @@ export async function cadenceResponse(ctx: Ctx, ownerIn: string): Promise<Cadenc
   const built = await cadenceRows(ctx, today);
   const wk = weekStart(today);
   const done = await doneSince(ctx, built.at < wk ? built.at : wk);
-  const live = overlay(built.rows, done.filter((d) => d.done_at >= built.at));
+  const all = overlay(built.rows, done.filter((d) => d.done_at >= built.at));
+  const live = all.filter((r) => !r.blocked);
   const count = new Map<string, number>();
   for (const r of live) for (const h of r.holders) count.set(h, (count.get(h) || 0) + 1);
   // Mine by default for a Partner Care person; 'all' is the whole team. An owner Partner Care does not hold shows everyone.
@@ -108,6 +111,7 @@ export async function cadenceResponse(ctx: Ctx, ownerIn: string): Promise<Cadenc
     ok: true, today, synced: built.synced, owner, me: ctx.scope && ctx.scope.fid ? ctx.scope.fid : null,
     owners: [...count.entries()].map(([id, n]) => ({ id, name: names.get(id) || `Fundraiser ${id}`, n })).sort((a, b) => a.name.localeCompare(b.name)),
     everyone: live.length,
+    unreachable: all.length - live.length,
     rows,
     stats: {
       due: due.length,

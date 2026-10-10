@@ -89,7 +89,7 @@ function view() {
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence">${f.ic('sheet')}Google Sheets</button></div>
       <div class="wg-list">${list.slice(0, C.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>${all.length ? 'Nothing matches' : 'Queue clear'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New partners come due after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>`}
         ${list.length > C.shown ? `<div class="wg-group"><span>${list.length - C.shown} more</span><button type="button" data-wcd-more>Show ${Math.min(100, list.length - C.shown)} more</button></div>` : ''}</div>
-      <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'partner' : 'partners'}. Each step you press logs an action on the partner.</span></div>
+      <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'partner' : 'partners'}. Each step you press logs an action on the partner.${d.unreachable ? ` ${d.unreachable.toLocaleString('en-US')} more ${d.unreachable === 1 ? 'partner is' : 'partners are'} due with no phone, email or mailing address for the step they need.` : ''}</span></div>
     </section>`;
   registerSheet();
 }
