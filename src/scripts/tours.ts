@@ -82,8 +82,8 @@ export const STEPS: Step[] = [
   {
     id: 'menu',
     at: '.h-side .h-areas',
-    title: 'Six areas in the menu',
-    body: 'Today, Work, Dashboards, Reports, Ask and Meet each open on their own page, with that area\'s sections as tabs across the top. A number on an area shows how much is waiting there. Press the arrow at the top of the menu, or the backslash key, to widen it into a list of every page.',
+    title: 'Five areas in the menu',
+    body: 'Today, Work, Meetings, Favor Brain and KPI each open on their own page, with that area\'s sections as tabs across the top. A number on an area shows how much is waiting there. Press the arrow at the top of the menu, or the backslash key, to widen it into a list of every page.',
     added: '2026-10-10',
     side: 'right',
   },
