@@ -28,7 +28,7 @@
 
 /* the list: one table, group rows */
 .rp-list { overflow: hidden; }
-.rp-head, .rp-row { display: grid; grid-template-columns: minmax(220px, 2.2fr) minmax(130px, 1.2fr) minmax(150px, 1.6fr) minmax(110px, 0.9fr) minmax(170px, 1.2fr); align-items: center; }
+.rp-head, .rp-row { display: grid; grid-template-columns: minmax(220px, 2.2fr) minmax(130px, 1.2fr) minmax(150px, 1.6fr) minmax(170px, 1.2fr); align-items: center; }
 .rp-head { height: 38px; border-bottom: 1px solid var(--r-line); font: 600 12px var(--h-font); color: var(--r-ink-3); }
 .rp-head > *, .rp-row > * { padding: 0 14px; min-width: 0; }
 .rp-grp { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 14px; background: var(--r-hover); border-bottom: 1px solid var(--r-line); font: 600 12.5px var(--h-font); color: var(--r-ink-2); }
@@ -127,8 +127,8 @@ a.rp-row:hover { background: var(--r-hover); }
   .rp-row { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 0; }
   .rp-row > :nth-child(1) { grid-column: 1; grid-row: 1; }
   .rp-row > :nth-child(2) { grid-column: 1; grid-row: 2; }
-  .rp-row > :nth-child(3), .rp-row > :nth-child(4) { display: none; }
-  .rp-row > :nth-child(5) { grid-column: 2; grid-row: 1 / span 2; }
+  .rp-row > :nth-child(3) { display: none; }
+  .rp-row > :nth-child(4) { grid-column: 2; grid-row: 1 / span 2; }
   .rp-params { padding: 12px; }
   .rp-f:not(.rp-f--dd) { flex: 1 1 100%; flex-wrap: wrap; }
   .rp-f--dd { flex: 1 1 140px; flex-wrap: nowrap; }

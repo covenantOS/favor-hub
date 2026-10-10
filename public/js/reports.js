@@ -44,7 +44,7 @@
 
   function flags(r) {
     if (!r.ready) return '<span class="rp-tag rp-tag--soon">Coming soon</span>';
-    return (r.emailed ? '<span class="rp-tag rp-tag--info">Emailed</span>' : '') + (r.kpiTie ? '<span class="rp-tag rp-tag--ok">Ties to KPI</span>' : '');
+    return (r.kpiTie ? '<span class="rp-tag rp-tag--ok">Ties to KPI</span>' : '');
   }
 
   function drawList(data) {
@@ -59,7 +59,7 @@
       '<div class="rp-groups"><div class="rp-seg2" role="group" aria-label="Group">' +
       segs.map(function (c) { return '<button type="button" class="' + (listGroup === c[0] ? 'is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + ' <small>' + c[2] + '</small></button>'; }).join('') + '</div></div>';
     var any = false;
-    var t = '<div class="h-card rp-list" role="table" aria-label="Reports"><div class="rp-head" role="row"><span>Report</span><span>How often</span><span>Used by</span><span>Last run</span><span>Flags</span></div>';
+    var t = '<div class="h-card rp-list" role="table" aria-label="Reports"><div class="rp-head" role="row"><span>Report</span><span>How often</span><span>Used by</span><span>Flags</span></div>';
     groups.forEach(function (g) {
       if (listGroup !== 'all' && listGroup !== g.id) return;
       var rows = reports.filter(function (r) { return r.group === g.id && (!q || (r.name + ' ' + (r.replaces || '') + ' ' + r.who).toLowerCase().indexOf(q) >= 0); });
@@ -67,7 +67,7 @@
       any = true;
       t += '<div class="rp-grp">' + esc(g.label) + ' <b>' + rows.length + '</b></div>';
       rows.forEach(function (r) {
-        var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c">' + esc(r.freq) + '</span><span class="rp-c">' + esc(r.who) + '</span><span class="rp-c">' + esc(r.lastRun || '') + '</span><span class="rp-flags">' + flags(r) + '</span>';
+        var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c">' + esc(r.freq) + '</span><span class="rp-c">' + esc(r.who) + '</span><span class="rp-flags">' + flags(r) + '</span>';
         t += r.ready ? '<a class="rp-row" role="row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon" role="row">' + inner + '</div>';
       });
     });
