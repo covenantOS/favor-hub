@@ -18,7 +18,7 @@ const ic = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICO
 const HOWIC = { Call: 'phone', Email: 'mail', Visit: 'meet', Letter: 'letter', Task: 'task' };
 const rowIc = (how) => (W().I && W().I[HOWIC[how]] ? W().ic(HOWIC[how]) : '');
 
-const S = { data: null, owner: '', back: 0, loading: false, error: '', started: false, kind: '', opts: { give: true, asks: true, refs: true, next: true }, edited: null };
+const S = { data: null, owner: '', back: 0, loading: false, error: '', started: false, kind: '', opts: { give: true, asks: true, refs: true, next: true }, edited: null, all: false };
 const todayDow = () => new Date(W().TODAY + 'T12:00:00Z').getUTCDay();
 
 // A director with weekly goals: the server answers week: null for anyone else, and the tab and strip stay away.
@@ -32,7 +32,7 @@ async function load(owner, back) {
     if (owner) q.push('owner=' + encodeURIComponent(owner));
     if (back) q.push('week=last');
     const d = await W().api('/api/work/week' + (q.length ? '?' + q.join('&') : ''));
-    S.data = d; S.owner = d.owner || ''; S.back = back || 0; S.edited = null;
+    S.data = d; S.owner = d.owner || ''; S.back = back || 0; S.edited = null; S.all = false;
   } catch (e) { S.error = e.message; }
   S.loading = false;
 }
@@ -88,7 +88,7 @@ function view() {
         <span class="wwk-sub">${v.behind > 0 ? `${R().short(v.behind)} behind pace. ${R().money(v.perWeek)} a week for ${v.weeks} ${v.weeks === 1 ? 'week' : 'weeks'} reaches the goal.` : v.ytd >= v.goal && v.goal ? 'The goal is met.' : 'On pace for the goal.'}</span>
         <i class="wwk-pace wwk-pace--big"><u style="width:${v.pct}%"></u><s style="left:${v.ppct}%" title="Pace ${R().short(v.pace)}"></s></i></div>
       <div class="wwk-group"><span>What counted · ${total} ${total === 1 ? 'action' : 'actions'}</span></div>
-      <div>${d.rows.map(rowHTML).join('') || '<div class="wwk-none">Nothing counted yet this week.</div>'}${d.moreRows ? `<div class="wwk-row wwk-row--more"><time></time><span></span><div><b>${d.moreRows} more</b></div></div>` : ''}</div>
+      <div>${(S.all ? d.rows : d.rows.slice(0, 12)).map(rowHTML).join('') || '<div class="wwk-none">Nothing counted yet this week.</div>'}${!S.all && d.rows.length > 12 ? `<div class="wwk-row wwk-row--more"><time></time><span></span><div><button type="button" class="wwk-reset" data-wwk-all>Show ${d.rows.length - 12 + d.moreRows} more</button></div></div>` : d.moreRows ? `<div class="wwk-row wwk-row--more"><time></time><span></span><div><b>${d.moreRows} more</b></div></div>` : ''}</div>
     </section>
     <section class="h-card wwk-report" aria-label="Report draft">
       <h3>Report draft</h3>
@@ -115,13 +115,14 @@ function mailto() {
   location.href = 'mailto:?subject=' + encodeURIComponent(sub);
 }
 
-document.addEventListener('input', (e) => { if (e.target && e.target.id === 'wwk-draft') { S.edited = e.target.value; } });
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'wwk-draft') { S.edited = e.target.value; if (!$('[data-wwk-reset]')) { const b = document.createElement('button'); b.type = 'button'; b.className = 'wwk-reset'; b.setAttribute('data-wwk-reset', ''); b.textContent = 'Reset the draft'; $('.wwk-acts').appendChild(b); } } });
 document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[data-wwk-go]')) { e.preventDefault(); goWeek(); } });
 function goWeek() { const wc = W(); wc.S.view = 'week'; wc.S.sel.clear(); wc.render(); }
 document.addEventListener('click', async (e) => {
-  const t = e.target.closest && e.target.closest('[data-wwk-go],[data-wwk-week],[data-wwk-kind],[data-wwk-copy],[data-wwk-mailto],[data-wwk-reset],[data-wwk-retry]');
+  const t = e.target.closest && e.target.closest('[data-wwk-go],[data-wwk-week],[data-wwk-kind],[data-wwk-copy],[data-wwk-mailto],[data-wwk-reset],[data-wwk-retry],[data-wwk-all]');
   if (!t || !W()) return;
   if (t.hasAttribute('data-wwk-go')) { goWeek(); return; }
+  if (t.hasAttribute('data-wwk-all')) { S.all = true; view(); return; }
   if (t.hasAttribute('data-wwk-retry')) { S.error = ''; S.data = null; S.started = false; W().render(); return; }
   if (t.dataset.wwkWeek !== undefined) { const b = Number(t.dataset.wwkWeek); if (b !== S.back) { S.loading = true; await load(S.owner, b); S.kind = ''; W().render(); } return; }
   if (t.dataset.wwkKind) { S.kind = t.dataset.wwkKind; S.edited = null; view(); return; }
@@ -143,7 +144,7 @@ const reg = () => window.WCTabs.registerTab({
   get label() { return mayStrip(W() && W().DATA && W().DATA.me) ? 'My week' : 'Weekly reports'; },
   roles: ['director', 'support'],
   show: (me) => mayTab(me),
-  after: 'mine',
+  after: 'asks',
   count: () => '',
   mount: view,
 });

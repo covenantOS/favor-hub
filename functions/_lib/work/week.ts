@@ -6,8 +6,9 @@
 //   Connections   distinct partners with a completed Phone call, Email or Meeting action of the director's in the week, or a completed
 //                 Mailing carrying the Thanked tag (a thank-you letter). RESERVED action types are staff data work and never count.
 //   Meetings      completed actions tagged Attended or Hosted.
-//   Event         an action of the director's dated in the week, open or done, that is tagged Hosted, has the Event location, or says
-//                 "event" in its summary, in the Meeting or Task/Other categories.
+//   Event         an action of the director's dated in the week, open or done, in the Meeting or Task/Other categories, that is tagged
+//                 Hosted or whose summary says an event was planned, scheduled, hosted or booked. "event/f2f" (a meeting held at an
+//                 event) does not count.
 //   One-on-ones   completed Meeting actions with no Attended or Hosted tag.
 // An action is dated by its completed date, else its due date. Weeks run Monday to Sunday, Eastern. Giving to goal is the year's
 // portfolio credit the KPI RDD tab shows (fundraiser_totals) against annual_goal, prorated for part-year directors the way that tab does.
@@ -165,6 +166,8 @@ function tagsOf(r: any): string[] {
   return out;
 }
 
+/** A summary that says an event was planned or scheduled. "event/f2f" (a meeting held at an event) does not match. */
+const EVENT_PLAN = /\b(schedul\w*|plan\w*|host\w*|book\w*)\b[^.]*\bevent\b|\bevent\b[^.]*\b(schedul\w*|plan\w*|date)\b/i;
 const reserved = (typ: string) => /^RESERVED/i.test(typ);
 
 /** What one week's actions come to, by the rules at the top of this file. Pure, so the tests can feed it rows. */
@@ -183,7 +186,7 @@ export function countWeek(rows: any[]): { counts: WeekData['counts']; rows: Week
     const isConn = done && !res && (CONNECT.has(r.cat) || (r.cat === 'Mailing' && Number(r.thx) === 1));
     const isMtg = done && !res && (r.ah === 'Attended' || r.ah === 'Hosted');
     const isOo = done && !res && r.cat === 'Meeting' && !r.ah;
-    const isEv = !res && (r.cat === 'Meeting' || r.cat === 'Task/Other') && (r.ah === 'Hosted' || r.loc === 'Event' || /\bevent\b/i.test(String(r.summary || '')));
+    const isEv = !res && (r.cat === 'Meeting' || r.cat === 'Task/Other') && (r.ah === 'Hosted' || EVENT_PLAN.test(String(r.summary || '')));
     if (isConn) partners.add(String(r.cid));
     if (isMtg) mtg += 1;
     if (isOo) oo += 1;
@@ -195,7 +198,7 @@ export function countWeek(rows: any[]): { counts: WeekData['counts']; rows: Week
         date: String(r.d),
         how: HOW[r.cat] || String(r.cat),
         name: String(r.name || '').replace(/\s+/g, ' ').trim() || `Record ${r.cid}`,
-        said: clip(r.descr || r.summary),
+        said: clip(r.cat === 'Mailing' ? r.summary : r.descr || r.summary),
         tags: tagsOf(r),
         ask: num(r.ask),
         refs: num(r.refs),
