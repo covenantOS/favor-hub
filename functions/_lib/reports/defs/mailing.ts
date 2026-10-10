@@ -130,7 +130,7 @@ const def: ReportDef = {
 
   totals: () => ({}),
   tiles: (rows): Tile[] => [{ label: 'Partners to mail', value: rows.length, kind: 'int' }],
-  tie: async () => noTie('This list has no figure on the KPI dashboard. Its count matches the saved Appeal List Format query for the same last gift date and amount.'),
+  tie: async () => noTie(),
 };
 
 export default def;

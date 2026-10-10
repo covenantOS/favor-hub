@@ -11,8 +11,8 @@ const def: ReportDef = {
   id: 'prayer',
   pageSize: 500,
   filters: [
-    { id: 'from', label: 'Gift on or after (blank is two years back)', type: 'date', def: '' },
-    { id: 'to', label: 'Gift on or before (blank is today)', type: 'date', def: '' },
+    { id: 'from', label: 'Gift on or after', type: 'date', def: '' },
+    { id: 'to', label: 'Gift on or before', type: 'date', def: '' },
     { id: 'tfrom', label: 'Total gifts from', type: 'date', def: '2023-01-01' },
     { id: 'tto', label: 'Total gifts through', type: 'date', def: '2025-01-31' },
   ],
@@ -20,7 +20,7 @@ const def: ReportDef = {
     { key: 'first', label: 'First name' },
     { key: 'name', label: 'Name' },
   ],
-  note: 'Total gifts of at least $0.01 is counted between the two "Total gifts" dates, as the saved query does. Clear both to drop that rule.',
+  note: 'Blank gift dates run from two years back to today. A partner needs total gifts of at least $0.01 between the two Total gifts dates, as in the saved query. Clearing both dates drops that rule.',
   fileTag: (f) => f.from || '',
 
   async load(ctx, f) {
@@ -55,7 +55,7 @@ const def: ReportDef = {
 
   totals: () => ({}),
   tiles: (rows): Tile[] => [{ label: 'Names on the list', value: rows.length, kind: 'int' }],
-  tie: async () => noTie('This list has no figure on the KPI dashboard. Its count matches the saved Prayer List query for the same dates.'),
+  tie: async () => noTie(),
 };
 
 export default def;

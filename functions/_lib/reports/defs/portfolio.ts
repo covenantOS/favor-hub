@@ -148,7 +148,7 @@ ORDER BY COALESCE(NULLIF(c.last_name, ''), c.organization_name), c.first_name`;
     { label: 'Partners', value: rows.length, kind: 'int' },
     { label: 'Total giving', value: Math.round(rows.reduce((s, r) => s + (Number(r.total) || 0), 0) * 100) / 100, kind: 'money' },
   ],
-  tie: async () => noTie('This list has no figure on the KPI dashboard. Its partner count matches the saved portfolio query for the same fundraiser.'),
+  tie: async () => noTie(),
 };
 
 export default def;
