@@ -21,7 +21,7 @@ function mirror() {
     CREATE TABLE funds (id TEXT, fund_description TEXT);
     CREATE TABLE constituents (id TEXT, constituent_type TEXT, first_name TEXT, last_name TEXT, organization_name TEXT, inactive INTEGER, deceased INTEGER);
     CREATE TABLE gifts (id TEXT, constituent_record_id TEXT, gift_amount REAL, gift_date TEXT, gift_type TEXT, gift_status TEXT,
-                        gift_constituency TEXT, fund_id TEXT, soft_credits TEXT);
+                        gift_constituency TEXT, gift_splits TEXT, soft_credits TEXT);
     CREATE TABLE addresses (id TEXT, constituent_record_id TEXT, address_lines TEXT, address_city TEXT, address_state TEXT,
                             address_postal_code TEXT, is_primary INTEGER, is_inactive INTEGER);
     CREATE TABLE emails (id TEXT, constituent_record_id TEXT, email_address TEXT, is_primary INTEGER, do_not_email INTEGER, is_inactive INTEGER);
@@ -39,13 +39,13 @@ function mirror() {
       ('201', 'Individual', 'Typed', 'Partner', NULL, 0, 0);
 
     INSERT INTO gifts VALUES
-      ('g1', '101', 6000, '2026-09-15T10:00:00', 'Donation', 'Active', 'Partner', 'F2', NULL),
-      ('g2', '103', 25000, '2026-09-20T10:00:00', 'Donation', 'Active', 'DAF Provider', 'F1', '[{"constituent_id":"102","amount":25000}]'),
-      ('g3', '104', 5000, '2026-08-02T10:00:00', 'Donation', 'Active', 'Partner', 'F1', NULL),
-      ('g4', '105', 7000, '2026-09-10T10:00:00', 'Donation', 'Active', 'Partner', 'F1', NULL),
-      ('g5', '101', 5200, '2026-05-01T10:00:00', 'Donation', 'Active', 'Partner', 'F1', NULL),
-      ('g6', '101', 12000, '2026-10-02T10:00:00', 'Donation', 'Active', 'Partner', 'F1', NULL),
-      ('g7', '201', 40, '2026-09-01T10:00:00', 'Donation', 'Active', 'Partner', 'F1', NULL);
+      ('g1', '101', 6000, '2026-09-15T10:00:00', 'Donation', 'Active', 'Partner', '[{"id":"s1","amount":{"value":6000},"fund_id":"F2"}]', NULL),
+      ('g2', '103', 25000, '2026-09-20T10:00:00', 'Donation', 'Active', 'DAF Provider', '[{"id":"s2","amount":{"value":25000},"fund_id":"F1"}]', '[{"constituent_id":"102","amount":25000}]'),
+      ('g3', '104', 5000, '2026-08-02T10:00:00', 'Donation', 'Active', 'Partner', '[{"id":"s3","amount":{"value":5000},"fund_id":"F1"}]', NULL),
+      ('g4', '105', 7000, '2026-09-10T10:00:00', 'Donation', 'Active', 'Partner', '[{"id":"s4","amount":{"value":7000},"fund_id":"F1"}]', NULL),
+      ('g5', '101', 5200, '2026-05-01T10:00:00', 'Donation', 'Active', 'Partner', '[{"id":"s5","amount":{"value":5200},"fund_id":"F1"}]', NULL),
+      ('g6', '101', 12000, '2026-10-02T10:00:00', 'Donation', 'Active', 'Partner', '[{"id":"s6","amount":{"value":12000},"fund_id":"F1"}]', NULL),
+      ('g7', '201', 40, '2026-09-01T10:00:00', 'Donation', 'Active', 'Partner', '[{"id":"s7","amount":{"value":40},"fund_id":"F1"}]', NULL);
 
     INSERT INTO addresses VALUES
       ('a1', '101', '12 Oak St', 'Tampa', 'FL', '33601', 1, 0),

@@ -11,9 +11,9 @@ const NAME = (a: string) =>
 
 const BASE = `WITH base AS (
   SELECT g.id AS gift_id, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS gdate, g.constituent_record_id AS giver_id,
-         COALESCE(g.gift_constituency, '') AS constituency, COALESCE(f.fund_description, g.fund_id, '') AS fund,
+         COALESCE(g.gift_constituency, '') AS constituency, COALESCE(f.fund_description, '') AS fund,
          json_extract(g.soft_credits, '$[0].constituent_id') AS soft_id
-    FROM gifts g LEFT JOIN funds f ON f.id = g.fund_id
+    FROM gifts g LEFT JOIN funds f ON f.id = json_extract(g.gift_splits, '$[0].fund_id')
    WHERE g.gift_amount >= ?1 AND substr(g.gift_date, 1, 10) BETWEEN ?2 AND ?3
      AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
 )`;

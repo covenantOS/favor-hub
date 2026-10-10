@@ -70,6 +70,7 @@ const def: ReportDef = {
         ['12', '12 months'],
         ['24', '24 months'],
         ['60', '5 years'],
+        ['0', 'All time'],
       ],
       def: '24',
     },
@@ -89,8 +90,8 @@ const def: ReportDef = {
   editable: { keyOf: (row) => String(row.id), columns: [] },
 
   async load(ctx: ReportContext, f: Record<string, string>): Promise<Loaded> {
-    const months = Number(f.within) || 24;
-    const from = monthsBack(ctx.today, months);
+    const months = f.within === '0' ? 0 : Number(f.within) || 24;
+    const from = months ? monthsBack(ctx.today, months) : '1900-01-01';
     const ids = typedIds(ctx.edits);
     const params = [from, ctx.today, JSON.stringify(ids)];
     const all = await ctx.sql<Row>(ROWS_SQL, params);
