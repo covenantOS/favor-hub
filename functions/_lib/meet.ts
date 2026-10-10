@@ -11,6 +11,8 @@ export interface MeetEnv extends Env {
   TURN_KEY_TOKEN?: string;
   /** Local tests only: skips the SFU and returns made-up sessions. Never set on the live site. */
   MEET_FAKE_SFU?: string;
+  /** "on" opens the guest door (link plus waiting room). Off by default: it is the first public meeting path in the hub. */
+  MEET_GUESTS?: string;
   /** "admin" (default) opens meetings to admins only; "staff" opens them to every signed-in person. */
   MEET_RELEASE?: string;
   CLIPS: R2Bucket;
@@ -181,3 +183,13 @@ export async function iceServers(env: MeetEnv): Promise<unknown[]> {
 }
 
 export const clean = (s: unknown, max: number): string => (typeof s === 'string' ? s.trim().slice(0, max) : '');
+
+export const guestsOn = (env: MeetEnv): boolean => (env.MEET_GUESTS || '').toLowerCase() === 'on';
+
+export async function sha(text: string): Promise<string> {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** The identity a guest's token stands for inside a meeting. The token itself is never stored. */
+export const guestEmail = async (token: string): Promise<string> => 'guest:' + (await sha(token)).slice(0, 24);

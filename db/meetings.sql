@@ -164,3 +164,15 @@ CREATE TABLE IF NOT EXISTS hub_meeting_actions (
   PRIMARY KEY (meeting_id, idx)
 );
 CREATE INDEX IF NOT EXISTS idx_hub_meeting_actions_owner ON hub_meeting_actions(owner_email, done);
+
+-- Guests from outside Favor join by a link with a secret key, wait for the host to let them in, and never see Favor Brain or the transcript.
+CREATE TABLE IF NOT EXISTS hub_meeting_guest (
+  meeting_id TEXT PRIMARY KEY,
+  gkey TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS hub_meeting_guest_rate (
+  ip TEXT NOT NULL,
+  minute INTEGER NOT NULL,
+  n INTEGER NOT NULL,
+  PRIMARY KEY (ip, minute)
+);

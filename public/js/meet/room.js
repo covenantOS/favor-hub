@@ -1,6 +1,6 @@
 // Meetings: the lobby and the room. The SFU work is in rtc.js. This file draws the room, runs the sync loop (roster, chat,
 // host commands), keeps the subscriptions the layout needs, and handles a dropped connection.
-import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, whoami, pump } from './ui.js';
+import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, whoami, pump, MODE } from './ui.js';
 import { Rtc, linkLevel } from './rtc.js';
 import { Recorder } from './rec.js';
 
@@ -9,7 +9,10 @@ const MID = params.get('m') || '';
 const root = $('#meet-root');
 const isPhone = () => matchMedia('(max-width: 860px)').matches;
 const FEATURES = { brain: true, captions: true, docs: false };
-const OFFSET = Number(localStorage.getItem('meet.clockOffset') || 0);
+const GUEST = MODE.guest;
+const GKEY = params.get('k') || '';
+if (GUEST) { FEATURES.brain = false; FEATURES.captions = false; MODE.token = sessionStorage.getItem('meet.gtoken.' + MID) || ''; }
+const nav = (staff, guest) => (GUEST ? guest : staff);
 
 const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
@@ -26,10 +29,12 @@ else boot();
 
 async function boot() {
   try {
-    const r = await api('meetings/' + MID);
-    S.meeting = r.meeting;
+    const r = GUEST ? await api('meetings/' + MID + '/guestinfo?k=' + encodeURIComponent(GKEY)) : await api('meetings/' + MID);
+    S.meeting = GUEST ? { id: MID, title: r.title, hostName: r.host, rec: r.rec, status: r.status, startsAt: r.startsAt, backupLink: '', notesStatus: 'none', locked: r.locked } : r.meeting;
+    S.guestsEnabled = !!r.guestsEnabled;
     document.title = S.meeting.title + ' - Favor Hub';
     const t = $('.h-top__title'); if (t) t.textContent = S.meeting.title;
+    if (GUEST && S.meeting.status === 'ended') return ended('This meeting has ended');
     if (S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000) return ended();
     lobby();
   } catch (e) {
@@ -38,7 +43,7 @@ async function boot() {
 }
 
 function ended(msg) {
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${S.meeting && S.meeting.notesStatus !== 'none' ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap"><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>${S.meeting && S.meeting.notesStatus !== 'none' ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}</div></div>`;
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${S.meeting && S.meeting.notesStatus !== 'none' ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap">${GUEST ? '' : `<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>${S.meeting && S.meeting.notesStatus !== 'none' ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`}</div></div>`;
 }
 
 // ---------------------------------------------------------------- lobby
@@ -46,12 +51,13 @@ let preview = null;
 async function lobby() {
   const m = S.meeting;
   const recLine = m.rec === 'video' ? 'This meeting records video and makes notes. Everyone sees a recording notice.' : m.rec === 'notes' ? 'This meeting records sound for notes. Everyone sees a notice.' : 'This meeting is not recorded.';
-  const name = (await whoami()).name || '';
+  const name = GUEST ? '' : (await whoami()).name || '';
+  const consent = GUEST && m.rec !== 'off' ? `<label class="mt-toggle" style="border:0;padding:0"><input type="checkbox" id="lb-consent" style="width:18px;height:18px;accent-color:var(--h-brand)" /><div><b>I agree to be recorded</b><span>${m.rec === 'video' ? 'Video and sound are recorded and written up.' : 'The sound is recorded to make notes.'} Florida law asks every person for consent.</span></div></label>` : '';
   root.innerHTML = `<div class="h-card mt-card lobby" style="max-width:980px;margin:6px auto"><div class="prev" id="lb-prev"><video id="lb-video" muted playsinline autoplay></video><span class="face" id="lb-face">${esc(initials(name))}</span><div class="cl"><button class="cb is-on" id="lb-mic" aria-label="Microphone"><span class="k">${ic('mic')}</span></button><button class="cb is-on" id="lb-cam" aria-label="Camera"><span class="k">${ic('video')}</span></button></div></div>
     <div style="display:grid;gap:12px"><div class="h-label">${esc(m.hostName || 'Meeting')}</div><h2 class="mt-h2" style="font-size:28px">${esc(m.title)}</h2>
       <p class="mt-sub" style="font-size:14px;margin:0" id="lb-who">${esc(recLine)}</p>
-      <div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" /></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button><a class="h-btn h-btn--ghost" href="/meet/">Not yet</a></div>
+      <div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" ${GUEST ? 'placeholder="First and last name"' : ''} /></div>${consent}
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? '' : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a>'}</div>
       <p class="mt-sub" style="margin:0" id="lb-dev">Checking your camera and microphone.</p></div></div>`;
   $('#lb-join').addEventListener('click', enter);
   $('#lb-mic').addEventListener('click', () => { S.mic = !S.mic; lobbyButtons(); });
@@ -79,15 +85,18 @@ function lobbyVideo() {
 
 // ---------------------------------------------------------------- joining
 async function enter() {
-  const name = ($('#lb-name').value || '').trim() || 'Guest';
+  const name = ($('#lb-name').value || '').trim() || (GUEST ? '' : 'Guest');
+  if (GUEST) { if (name.length < 2) { toast('Type your name so the host knows who you are.'); return; } if ($('#lb-consent') && !$('#lb-consent').checked) { toast('Tick the box to accept the recording notice.'); return; } }
   $('#lb-join').disabled = true; $('#lb-join').textContent = 'Joining';
   S.me.name = name;
   if (preview) { local.mic = preview.getAudioTracks()[0] || null; local.cam = preview.getVideoTracks()[0] || null; }
   if (local.mic) local.mic.enabled = S.mic;
   try {
-    await withTimeout(connect(false), 20000);
+    const j = await withTimeout(joinCall(false), 20000);
+    if (j.waiting) await waitAdmit();
+    await withTimeout(openRtc(j, false), 20000);
   } catch (e) {
-    if (e.status === 403 || e.status === 404) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">You cannot join this meeting</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a></div>`; return; }
+    if (e.status === 403 || e.status === 404 || e.status === 410 || e.status === 429 || e.status === 400) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">You cannot join this meeting</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(e.message)}</p>${GUEST ? '' : '<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>'}</div>`; return; }
     failScreen(e); return;
   }
   S.joined = true; S.started = Date.now(); S.joinedAt = Date.now();
@@ -97,11 +106,38 @@ async function enter() {
 
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('The room did not load in time.')), ms))]);
 
-async function connect(isRejoin) {
-  const j = await api('meetings/' + MID + '/join', { method: 'POST', body: { pid: S.me.pid || undefined, name: S.me.name, mic: S.mic, cam: S.cam } });
+async function joinCall(isRejoin) {
+  const body = { pid: S.me.pid || undefined, name: S.me.name, mic: S.mic, cam: S.cam };
+  if (GUEST) { body.k = GKEY; body.accepted = !!($('#lb-consent') ? $('#lb-consent').checked : true) || isRejoin; }
+  const j = await api('meetings/' + MID + '/join', { method: 'POST', body });
+  if (GUEST && j.token) { MODE.token = j.token; sessionStorage.setItem('meet.gtoken.' + MID, j.token); }
   joinInfo = j; S.me.pid = j.pid; S.me.role = j.role; S.events = isRejoin ? S.events : j.since;
   sessionStorage.setItem('meet.pid.' + MID, j.pid);
   S.meeting = j.meeting;
+  S.guestsEnabled = !!j.guestsEnabled;
+  return j;
+}
+
+// A guest stays on this screen until a host lets them in. Nothing is published or pulled before that.
+async function waitAdmit() {
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">Waiting for the host</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(S.meeting.hostName || 'The host')} will let you in to ${esc(S.meeting.title)} shortly. Keep this page open.</p></div>`;
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 1500));
+    let r;
+    try { r = await api('meetings/' + MID + '/sync', { method: 'POST', body: { pid: S.me.pid, since: S.events, me: { mic: S.mic, cam: S.cam, lvl: 0 } } }); }
+    catch (e) { if (e.code === 'removed') throw Object.assign(new Error('The host did not let you in.'), { status: 403 }); continue; }
+    if (r.meeting.status === 'ended') throw Object.assign(new Error('This meeting has ended.'), { status: 410 });
+    if (!r.me.waiting) { S.me.role = r.role; return; }
+  }
+}
+
+async function connect(isRejoin) {
+  const j = await joinCall(isRejoin);
+  if (j.waiting) await waitAdmit();
+  await openRtc(j, isRejoin);
+}
+
+async function openRtc(j, isRejoin) {
   if (rtc) rtc.close();
   rtc = new Rtc({ call: (op, body) => api('meetings/' + MID + '/sfu/' + op, { method: 'POST', body: { pid: S.me.pid, ...body } }), iceServers: j.iceServers, relay: new URLSearchParams(location.search).get('relay') === '1' });
   rtc.onTrack = onTrack;
@@ -125,7 +161,7 @@ async function connect(isRejoin) {
 function failScreen(err) {
   const back = S.meeting && S.meeting.backupLink;
   root.innerHTML = `<div class="rm-stage" style="min-height:420px"><div class="fail" style="position:static;min-height:420px"><div><h3>The room did not load</h3><p>${esc(err && err.message ? err.message : 'Tried for 20 seconds.')} ${back ? 'Everyone can move to the backup Google Meet link from the invite.' : 'Try again, or ask the host for another way to meet.'}</p>${back ? `<a class="h-btn h-btn--gold" href="${esc(back)}" target="_blank" rel="noopener">${ic('link')}Join the backup Meet</a>` : ''}<button class="h-btn h-btn--ghost" id="retry">Try the room again</button></div></div></div>`;
-  $('#retry').addEventListener('click', () => lobby());
+  $('#retry').addEventListener('click', () => (GUEST ? location.reload() : lobby()));
 }
 
 // ---------------------------------------------------------------- the room
@@ -137,7 +173,7 @@ function buildRoom() {
   window.addEventListener('keydown', onKey);
   window.addEventListener('beforeunload', onUnload);
   document.addEventListener('click', onDocClick);
-  if (S.me.role !== 'guest') maybeStartRecording();
+  if (!GUEST && S.me.role !== 'guest') maybeStartRecording();
 }
 
 const mePerson = () => ({ pid: S.me.pid, name: S.me.name, role: S.me.role, mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, speaking: S.lvl > 12 && S.mic, me: true });
@@ -290,7 +326,7 @@ function paintCtl() {
   const el = $('#rm-ctl'); if (!el) return;
   const h = hostish(); const rec = S.recording && S.recording.active && S.recording.owner === S.me.pid;
   const recOn = S.recording && S.recording.active;
-  const canShare = S.sharePolicy === 'all' || h || (S.people.find((p) => p.pid === S.me.pid) || {}).canShare;
+  const canShare = h || (S.sharePolicy === 'all' && (S.people.find((p) => p.pid === S.me.pid) || {}).canShare !== false);
   const waiting = h ? S.people.filter((p) => p.waiting).length : 0;
   el.innerHTML = `
     <button class="cb${S.mic ? '' : ' is-off'}" data-a="mic"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button>
@@ -298,11 +334,11 @@ function paintCtl() {
     ${navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia && !isPhone() ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
     ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc"><span class="k">${ic('cc')}</span>Captions</button>` : ''}
     ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? 'Stop rec' : 'Record'}</button>` : ''}
-    <button class="cb${S.hand ? ' is-on' : ''}" data-a="hand"><span class="k">${ic('hand')}</span>${S.hand ? 'Lower hand' : 'Raise hand'}</button>
+    <button class="cb${S.hand ? ' is-on' : ''}" data-a="hand"><span class="k">${ic('hand')}</span><span class="l-full">${S.hand ? 'Lower hand' : 'Raise hand'}</span><span class="l-short">${S.hand ? 'Lower' : 'Hand'}</span></button>
     <span class="rm-sep"></span>
     <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
     <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
-    ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain"><span class="k">${ic('brain')}</span>Favor Brain</button>` : ''}
+    ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain"><span class="k">${ic('brain')}</span>Brain</button>` : ''}
     <button class="cb leave" data-a="leave"><span class="k">${ic('leave')}</span>Leave</button>`;
 }
 
@@ -350,7 +386,7 @@ function paintSideBody(full) {
       ${all.map((p) => `<div class="pp" style="position:relative">${av(p.name)}<div><b>${esc(p.name)}${p.me ? ' (you)' : ''}</b><span>${p.role === 'host' ? 'Host' : p.role === 'cohost' ? 'Host' : p.role === 'guest' ? 'Guest' : 'Staff'}${p.hand ? ' · hand raised' : ''}${p.sharing ? ' · sharing' : ''}</span></div>
         <div class="ctl"><span class="icon-b ${p.mic ? 'is-on' : 'is-off'}" title="${p.mic ? 'Mic on' : 'Muted'}">${ic(p.mic ? 'mic' : 'micOff')}</span>${h && !p.me ? `<button class="icon-b" data-a="pmenu" data-pid="${p.pid}" aria-label="Host controls for ${esc(p.name)}">${ic('more')}</button>` : ''}</div>
         ${S.menu === p.pid ? `<div class="menu"><button data-a="cmd" data-c="mute" data-pid="${p.pid}">${ic('micOff')}Mute</button><button data-a="cmd" data-c="${S.spot === p.pid ? 'unspot' : 'spot'}" data-pid="${p.pid}">${ic('pin')}${S.spot === p.pid ? 'End spotlight' : 'Spotlight for everyone'}</button><button data-a="cmd" data-c="camoff" data-pid="${p.pid}">${ic('videoOff')}Turn camera off</button>${p.hand ? `<button data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">${ic('hand')}Lower hand</button>` : ''}<button data-a="cmd" data-c="allowshare" data-v="${p.canShare === false ? 'true' : 'false'}" data-pid="${p.pid}">${ic('screen')}${p.canShare === false ? 'Allow sharing' : 'Stop sharing rights'}</button>${p.role === 'cohost' ? `<button data-a="cmd" data-c="unhost" data-pid="${p.pid}">${ic('users')}Remove host rights</button>` : `<button data-a="cmd" data-c="makehost" data-pid="${p.pid}">${ic('users')}Make a host</button>`}<button class="danger" data-a="cmd" data-c="remove" data-pid="${p.pid}">${ic('remove')}Remove from meeting</button></div>` : ''}</div>`).join('')}
-      ${h ? `<div style="display:flex;gap:8px;margin-top:6px"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>` : ''}`;
+      ${h ? `<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>` : ''}`;
   }
 }
 
@@ -374,6 +410,7 @@ function onDocClick(e) {
     case 'cmd': { const c = a.dataset.c; if (c === 'remove' && !confirm('Remove ' + nameOf(a.dataset.pid) + ' from the meeting?')) break; send('cmd', { a: c, v: a.dataset.v === undefined ? undefined : a.dataset.v === 'true' }, a.dataset.pid || ''); S.menu = null; paintSideBody(false); break; }
     case 'sharepolicy': send('cmd', { a: 'sharepolicy', v: S.sharePolicy === 'hosts' ? 'all' : 'hosts' }); break;
     case 'copylink': copy(roomLink(MID)); break;
+    case 'guestlink': api('meetings/' + MID + '/guestlink', { method: 'POST', body: {} }).then((r) => copy(r.url)).catch((e) => toast(e.message)); break;
     case 'ask': askBrain(a.dataset.k === 'missed' ? 'What did I miss?' : 'What have we agreed so far?', a.dataset.k); break;
     case 'ask-typed': { const i = $('#brainin'); if (i && i.value.trim()) { const q = i.value.trim(); i.value = ''; askBrain(q, /\b(miss|catch me up|recap)\b/i.test(q) ? 'missed' : /\b(agreed|decid|action items)\b/i.test(q) && /\b(so far|meeting|we)\b/i.test(q) ? 'agreed' : 'brain'); } break; }
     case 'brain-post': postBrain(Number(a.dataset.i), false); break;
@@ -390,7 +427,7 @@ function onKey(e) {
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
 }
-function onUnload() { try { navigator.sendBeacon('/api/meet/meetings/' + MID + '/leave', new Blob([JSON.stringify({ pid: S.me.pid })], { type: 'application/json' })); } catch {} }
+function onUnload() { try { fetch((GUEST ? '/api/meet-guest/' : '/api/meet/') + 'meetings/' + MID + '/leave', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', ...(GUEST ? { 'X-Guest-Token': MODE.token } : {}) }, body: JSON.stringify({ pid: S.me.pid }) }); } catch {} }
 
 async function send(kind, body, to) {
   try { await api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind, body, to: to || '' } }); syncNow(); }
@@ -429,7 +466,8 @@ async function toggleShare() {
     const pub = await rtc.publish(items);
     S.sharing = true;
     const all = [...rtc.out.entries()].map(([name, o]) => ({ name, kind: o.kind, mid: o.mid }));
-    await api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: all } });
+    const rr = await api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: all } });
+    if (rr.shared === false) { toast('The host has not allowed you to share your screen.'); await stopShare(); return; }
     toast('You are sharing your screen');
     paintAll(); syncNow();
   } catch (e) { if (e && e.name !== 'NotAllowedError') toast('Sharing did not start.'); local.screen = null; S.sharing = false; }
@@ -457,7 +495,7 @@ async function leaveRoom(msg) {
   window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); document.removeEventListener('click', onDocClick);
   ended(msg || 'You left the meeting');
   // The last person out saves the recording and starts the notes. Anyone invited can finish the work later from Meetings.
-  pump(MID, (st) => { const p = root.querySelector('.mt-sub'); if (p && st) p.textContent = st; });
+  if (!GUEST) pump(MID, (st) => { const p = root.querySelector('.mt-sub'); if (p && st) p.textContent = st; });
 }
 
 // ---------------------------------------------------------------- loops

@@ -52,6 +52,7 @@ export interface EventInput {
   title: string;
   agenda: string;
   roomUrl: string;
+  guestUrl?: string;
   startsAt: string;
   endsAt: string;
   attendees: string[];
@@ -67,7 +68,7 @@ export async function createEvent(env: MeetEnv, booker: string, ev: EventInput):
   const recLine = ev.recording === 'video' ? 'This meeting is recorded on video and written up in the hub.' : ev.recording === 'notes' ? 'The sound of this meeting is recorded to make notes.' : 'This meeting is not recorded.';
   const body: Record<string, unknown> = {
     summary: ev.title,
-    description: `Join in the Favor hub: ${ev.roomUrl}\n\n${ev.agenda ? ev.agenda + '\n\n' : ''}${recLine}`,
+    description: `Join in the Favor hub: ${ev.roomUrl}\n${ev.guestUrl ? `Guests from outside Favor, join here: ${ev.guestUrl}\n` : ''}\n${ev.agenda ? ev.agenda + '\n\n' : ''}${recLine}`,
     start: { dateTime: ev.startsAt, timeZone: TZ },
     end: { dateTime: ev.endsAt, timeZone: TZ },
     attendees: ev.attendees.map((email) => ({ email })),

@@ -161,7 +161,7 @@ export class Recorder {
       rec.onstop = () => {
         const blob = new Blob(parts, { type: mime }); const t1 = Date.now();
         if (blob.size < 1500) return;
-        const who = this.dominant();
+        const who = rec._who || '';
         const put = async () => {
           for (let i = 0; i < 6; i++) {
             try { const r = await fetch(`/api/meet/meetings/${this.MID}/rec/audio/${epoch}/${n}?pid=${this.S.me.pid}`, { method: 'PUT', headers: { 'x-start': String(t0), 'x-end': String(t1), 'x-ext': ext, 'x-who': encodeURIComponent(who) }, body: blob, credentials: 'same-origin' }); if (r.ok || r.status === 403) return; } catch { /* retry */ }
@@ -172,7 +172,7 @@ export class Recorder {
       };
       rec.start(2000);
       this.ar = rec;
-      this.arTimer = setTimeout(() => { try { rec.stop(); } catch {} cycle(); }, 10000);
+      this.arTimer = setTimeout(() => { rec._who = this.dominant(); try { rec.stop(); } catch {} cycle(); }, 10000);
     };
     cycle();
   }
@@ -188,7 +188,7 @@ export class Recorder {
     if (this.arTimer) clearTimeout(this.arTimer);
     this.arTimer = null;
     const r = this.ar; this.ar = null;
-    if (r && r.state !== 'inactive') { try { r.stop(); } catch {} }
+    if (r && r.state !== 'inactive') { r._who = r._who || this.dominant(); try { r.stop(); } catch {} }
   }
 
   piece(e) {

@@ -34,8 +34,10 @@ export function toast(msg) {
   clearTimeout(tt); tt = setTimeout(() => el.classList.remove('is-on'), 3000);
 }
 
+// Guests reach the same routes through /api/meet-guest with the token they were given when they joined.
+export const MODE = { guest: location.pathname.startsWith('/meet/g'), token: '' };
 export async function api(path, opts = {}) {
-  const r = await fetch('/api/meet/' + path, { credentials: 'same-origin', ...opts, headers: { ...(opts.body ? { 'content-type': 'application/json' } : {}), ...(opts.headers || {}) }, body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body });
+  const r = await fetch((MODE.guest ? '/api/meet-guest/' : '/api/meet/') + path, { credentials: 'same-origin', ...opts, headers: { ...(opts.body ? { 'content-type': 'application/json' } : {}), ...(MODE.guest && MODE.token ? { 'X-Guest-Token': MODE.token } : {}), ...(opts.headers || {}) }, body: opts.body && typeof opts.body !== 'string' ? JSON.stringify(opts.body) : opts.body });
   let j = {};
   try { j = await r.json(); } catch { /* not json */ }
   if (!r.ok) { const e = new Error(j.message || 'Something went wrong. Try again.'); e.status = r.status; e.code = j.error; throw e; }

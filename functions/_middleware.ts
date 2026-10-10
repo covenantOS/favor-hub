@@ -16,10 +16,12 @@ const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-fr
 // is the key), the agent queue (it checks the agent key itself), and the admin password sign-in
 // that scripts use (it checks the password itself), and the service doors the Favor Brain calls with
 // the shared key (each checks the key itself).
-const OPEN_PREFIXES = ['/api/auth/', '/api/agent/', '/api/service/'];
+const OPEN_PREFIXES = ['/api/auth/', '/api/agent/', '/api/service/', '/api/meet-guest/'];
 const OPEN_PATHS = new Set([
   '/login',
   '/login/',
+  '/meet/g',
+  '/meet/g/',
   '/expenses/review',
   '/expenses/review/',
   '/api/expenses/review',

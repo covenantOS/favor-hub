@@ -299,3 +299,18 @@
 .bc-mini ul, .bc-show ul { display: block; padding-left: 18px; margin: 6px 0; list-style: disc; }
 .bc-mini li, .bc-show li { display: list-item; grid-template-columns: none; gap: 0; margin: 3px 0; }
 .bc-mini a, .bc-show a { height: auto; line-height: inherit; background: none; border-radius: 0; text-align: left; }
+
+.rm-body { grid-template-columns: minmax(0, 1fr); }
+.rm-body > * { min-width: 0; }
+.mt-card, .mt-stack, .mt-grid > * { min-width: 0; }
+.mt-card[style*="display:grid"], .mt-card[style*="display: grid"] { grid-template-columns: minmax(0, 1fr); }
+.hostbar .h-btn { flex: 1 1 auto; }
+@media (max-width: 860px) {
+  .rm-ctl { gap: 0; padding: 8px 2px 12px; overflow-x: visible; justify-content: space-between; }
+  .cb { min-width: 0; flex: 1 1 0; padding: 6px 0; font-size: 10.5px; white-space: nowrap; }
+  .cb span.k { width: 38px; height: 38px; }
+  .cb.leave span.k { width: 44px; }
+}
+
+.l-short { display: none; }
+@media (max-width: 860px) { .l-full { display: none; } .l-short { display: inline; } }

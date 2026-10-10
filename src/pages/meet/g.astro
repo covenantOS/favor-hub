@@ -1,0 +1,27 @@
+---
+// Meetings: the page a guest from outside Favor opens from the invitation link. It is outside the hub's sign-in on purpose and has
+// no menu or hub scripts. The room is the same room.js, running against /api/meet-guest with the guest's token.
+import '../../styles/global.css';
+import '../../styles/app.css';
+import '../../styles/elevate.css';
+import '../../styles/color.css';
+import '../../styles/meet.css';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/png" href="/images/favor-icon.png" />
+    <title>Join the meeting - Favor International</title>
+  </head>
+  <body class="h-body meet-guest">
+    <div class="h-app" id="h-app" style="display:block;margin:0;border-radius:0;border:0;min-height:100vh">
+      <header class="h-top" style="position:static"><a class="h-brand" href="https://www.favorintl.org" style="padding:0"><img src="/images/favor-logo-color.png" alt="Favor International" /></a><div class="h-top__title" style="margin-left:14px">Meeting</div></header>
+      <main id="h-content" class="h-page" style="padding:14px 16px"><div class="meet-room" id="meet-root" aria-live="polite"><div class="h-card h-skel" style="min-height:300px"></div></div></main>
+    </div>
+    <script is:inline type="module" src="/js/meet/room.js?v=3"></script>
+  </body>
+</html>
