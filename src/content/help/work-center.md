@@ -69,6 +69,13 @@ The month button, for example **October letter**, edits the letter text once for
 ## Letters from Gifts to thank
 
 The Support Team and admins see **Letter** next to Prep on every row of Gifts to thank. It opens a page with the letter on the right. Pick who the letter is from (the partner's director by default), paste what the director said, and switch the Designation, Director's words and Invitation paragraphs on or off. **Print PDF and log** prints the letter and records a Mailing action with the Thanked tag, which clears the row. **Copy for email** copies the text and records an Email action instead. Tick several gifts and press **Letters, one PDF** to print them together. Directors keep Thank on their own list and do not see Letter.
+## Cadence
+
+Cadence is the Partner Care tab. It applies the contact rules from the Partner Care manual to the Blackbaud copy and lists the partners who are due. First-time partners get a call at once when they gave a number, and a card when they did not. Monthly partners under $1,000 get a call and a handwritten card every three months. Quarterly partners are thanked each time they give. Twice-a-year partners get a card and a call twice a year. Annual partners get a call, card, email and text. A partner a director holds stays off this list.
+
+Each row shows the partner, the giving pattern, the rule, the last contact, how many days over the partner is, who holds the partner and the steps in the manual's order: call, text, email, card. The next step is green. A step with no phone number, no email or mailing address, or a do-not flag is switched off and says why. Press a step, pick Talked or Left a message for a call, write a line and save. The step becomes one completed contact in your name, and a text carries the Texted tag. Left a message logs the call as unsuccessful, keeps the step due and puts a reminder in your bell for the next workday. A row leaves when every step it needs is done. Undo on the message at the bottom puts the row back.
+
+The five numbers across the top filter the list: Due now, First-time partners, Monthly, twice a year and annual, Quarterly gifts to thank, and Done this week. Mine and All of Partner Care show when the two lists differ. **Print the three lists** splits the partners who are due into Friday, Saturday and Sunday, longest wait first, with Print and Open in Google Sheets. The pattern comes from the partner's gifts in the last 24 months, because Blackbaud's copy holds no schedule for a recurring gift.
 
 ## Call prep
 

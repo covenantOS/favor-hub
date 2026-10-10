@@ -1,0 +1,46 @@
+/* Cadence (Work Center tab for Partner Care). Built on the Gifts to thank rows (gifts.css) and the hub tokens. */
+.wcd-row { grid-template-columns: minmax(180px, 1.1fr) minmax(210px, 1.2fr) 112px minmax(240px, 1.2fr) 44px; align-items: start; }
+.wcd-who { display: grid; gap: 2px; align-content: start; justify-items: start; }
+.wcd-why { display: grid; gap: 3px; justify-items: start; }
+.wcd-why .wg-sub { margin: 0; }
+.wcd-due b { font: 600 13.5px var(--h-font); color: var(--h-ink); display: block; }
+.wcd-due b.is-late { color: var(--h-red); }
+.wcd-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.wcd-seq { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 12.5px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.wcd-seq:hover:not(:disabled) { border-color: var(--h-brand); }
+.wcd-seq .h-i { width: 14px; height: 14px; }
+.wcd-seq.is-next { background: var(--h-brand); color: #fff; border-color: var(--h-brand); }
+.wcd-seq:disabled { border-style: dashed; color: var(--h-ink-3); background: var(--h-surface-2); text-decoration: line-through; cursor: not-allowed; }
+.wcd-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 12.5px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.wcd-chip .h-i { width: 12px; height: 12px; }
+.wcd-lists3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.wcd-list3 { border: 1px solid var(--h-line); border-radius: 14px; background: #fff; padding: 12px; display: grid; gap: 8px; align-content: start; }
+.wcd-list3 h3 { margin: 0; display: flex; justify-content: space-between; font: 600 14px var(--h-font); color: var(--h-ink); }
+.wcd-list3 h3 span { color: var(--h-ink-3); font-size: 12px; }
+.wcd-l3row { padding: 7px 0; border-top: 1px solid #efebe3; display: grid; gap: 1px; }
+.wcd-l3row b { font: 600 13px var(--h-font); color: var(--h-ink); }
+.wcd-l3row span { font-size: 12px; color: var(--h-ink-3); }
+
+@media (max-width: 1180px) {
+  .wcd-row { grid-template-columns: minmax(160px, 1fr) minmax(190px, 1fr) 104px minmax(220px, 1fr); }
+  .wcd-row .wg-acts { display: none; }
+}
+@media (max-width: 860px) {
+  .wcd-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'who due' 'why why' 'steps steps'; align-items: start; }
+  .wcd-row .wcd-who { grid-area: who; }
+  .wcd-row .wcd-due { grid-area: due; text-align: right; }
+  .wcd-row .wcd-why { grid-area: why; }
+  .wcd-row .wcd-steps { grid-area: steps; }
+  .wcd-lists3 { grid-template-columns: 1fr; }
+}
+
+/* print: only the three lists */
+@media print {
+  body.wcd-printing > *:not(.wcd-printlayer) { display: none !important; }
+  body.wcd-printing .wg-scrim { display: none !important; }
+  body.wcd-printing .wg-dlg { position: static !important; transform: none !important; width: 100% !important; max-height: none !important; box-shadow: none !important; border: 0 !important; animation: none !important; }
+  body.wcd-printing .wg-dlg__body { overflow: visible !important; }
+  body.wcd-printing .wg-dlg__foot, body.wcd-printing [data-wcd-close] { display: none !important; }
+  body.wcd-printing .wcd-lists3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  body.wcd-printing .wcd-list3 { break-inside: auto; }
+}

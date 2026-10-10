@@ -5,7 +5,7 @@ import { etInstant, etParts } from '../actions/intake';
 
 export type Later = 'hour' | 'afternoon' | 'tomorrow' | 'nextweek';
 export const LATERS: Later[] = ['hour', 'afternoon', 'tomorrow', 'nextweek'];
-export const KINDS = ['task', 'gift', 'partner', 'plan_call', 'message'] as const;
+export const KINDS = ['task', 'gift', 'partner', 'plan_call', 'message', 'cadence'] as const;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
