@@ -1,0 +1,14 @@
+---
+// Admin > Work Center: Daily Blackbaud calls, morning email start dates, where each role starts, tags and cadence rules.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+---
+<App title="Work Center settings" crumb="Admin" nav="admin-work" description="Daily Blackbaud calls, morning email start dates, where each role starts, tags and cadence rules.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="work" title="Work Center" lede="Daily Blackbaud calls, morning email start dates, where each role starts, and the rules the lists follow." />
+    <div class="ad" data-ad-area="work" aria-busy="true"><div class="ad-tile h-skel" style="min-height:140px"></div></div>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-settings.js?v=1" defer></script>
+</App>

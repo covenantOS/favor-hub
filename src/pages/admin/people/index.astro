@@ -1,0 +1,27 @@
+---
+// People and roles: who can sign in, their role and team, their Blackbaud fundraiser link and Work Center access, and what each
+// person sees. Act as opens a preview of one person's hub; it never signs in as them.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+---
+<App title="People and roles" crumb="Admin" nav="admin-people" description="Add or block people, set roles, teams, fundraiser links and Work Center access.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="people" title="People and roles" lede="Who can sign in, what each person is, and what the hub shows them." />
+    <section class="ad-card">
+      <div class="ad-sub">
+        <input id="pp-find" class="ad-field ad-find" type="search" placeholder="Find a person" aria-label="Find a person" />
+        <select id="pp-filter" class="ad-field" style="width:auto" aria-label="Show">
+          <option value="">Everyone</option><option value="admin">Admins</option><option value="blocked">Blocked</option><option value="wc">Work Center access</option><option value="nolist">Not on the Work Center list</option>
+        </select>
+        <button type="button" class="ad-btn ad-btn--primary" id="pp-add">Add a person</button>
+        <span class="ad-stamp" id="pp-count" role="status"></span>
+      </div>
+      <div class="ad-scroll"><table class="ad-table" id="pp-table"><thead><tr><th>Person</th><th>Role</th><th>Team</th><th>Fundraiser</th><th>Work Center</th><th>Sees</th><th></th></tr></thead><tbody id="pp-body"><tr><td colspan="7" class="mute">Loading.</td></tr></tbody></table></div>
+    </section>
+    <div class="ad-sheet" id="pp-sheet" hidden></div>
+    <aside class="ad-panel" id="pp-panel" hidden aria-label="Person"></aside>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-people.js?v=1" defer></script>
+</App>
