@@ -317,3 +317,20 @@ body.h-body .fnd-tabs button:hover { color: var(--r-ink); border: 0; }
 body.h-body .fnd-tabs button.is-on { background: #fff; color: var(--r-ink); border: 0; box-shadow: 0 1px 2px rgba(42, 39, 34, 0.06), 0 4px 12px -6px rgba(42, 39, 34, 0.18); }
 body.h-body .fnd-tabs button span { margin: 0; padding: 1px 7px; border-radius: 999px; background: #e9e4d9; color: var(--r-ink-2); font: 600 11px var(--h-font); letter-spacing: 0; opacity: 1; }
 body.h-body .fnd-tabs button.is-on span { background: var(--a-tint); color: var(--a-ink); }
+/* Favor Brain mark (living gradient). Still in nav and on past answers, drifts on the empty chat, turns while thinking, settles on a new answer. */
+.bm { --bm-g: #3d7a35; --bm-o: #a87410; --bm-d: #5b4f93; overflow: visible; }
+.h-side .bm, .h-bar .bm, .h-area__link .bm { --bm-g: #8fc884; --bm-o: #e6b94d; --bm-d: #b5a9e6; }
+.h-tile .bm { width: 22px; height: 22px; }
+.m3 .sh, .m3 .gr { transform-origin: 24px 24px; }
+.m3[data-state=idle] .gr { animation: bm3r 26s linear infinite; }
+.m3[data-state=thinking] .gr { animation: bm3r 2.6s linear infinite; }
+.m3[data-state=thinking] .sh { animation: bm3q 2.4s ease-in-out infinite; }
+.m3[data-state=answered] .sh { animation: bm3s .7s cubic-bezier(.2,.8,.2,1); }
+@keyframes bm3r { to { transform: rotate(360deg); } }
+@keyframes bm3q { 25% { transform: rotate(45deg) scale(1.08,.92); } 50% { transform: rotate(90deg) scale(.93,1.07); } 75% { transform: rotate(135deg) scale(1.07,.93); } }
+@keyframes bm3s { from { transform: scale(.84); } 60% { transform: scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .m3 .sh, .m3 .gr { animation: none !important; } }
+.h-body .bc-root .m-a__av--bm, .h-body .bc-root .bc-mark--bm { background: none; box-shadow: none; }
+.h-body .bc-root .m-a__av--bm .bm { width: 30px; height: 30px; }
+.h-body .bc-root .bc-mark--bm { width: 96px; height: 96px; }
+.h-body .bc-root .bc-mark--bm .bm { width: 96px; height: 96px; }

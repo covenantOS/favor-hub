@@ -173,7 +173,9 @@
       return `<div class="m-q" style="width:min(80%,620px)"><div class="bc-compose" style="width:100%;border-radius:20px"><textarea data-edit="${ti}" aria-label="Edit your question" style="height:auto" maxlength="600">${esc(t.q)}</textarea></div><div style="display:flex;gap:6px"><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="edit-cancel" data-turn="${ti}">Cancel</button><button type="button" class="h-btn h-btn--primary h-btn--xs" data-act="edit-save" data-turn="${ti}">Ask</button></div></div>`;
     return `<div class="m-q"><div class="m-q__b">${esc(t.q)}</div><div class="m-q__acts"><button type="button" class="ib ib--sm ib--bare tip" data-act="qcopy" data-turn="${ti}" aria-label="Copy the question" data-tip="Copy">${ic('copy')}</button>${latest && !busy ? `<button type="button" class="ib ib--sm ib--bare tip" data-act="edit" data-turn="${ti}" aria-label="Edit the question" data-tip="Edit">${ic('edit')}</button>` : ''}</div></div>`;
   }
-  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av" aria-hidden="true">${ic('spark')}</div><div><div class="m-think__st"><i></i><i></i><i></i><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
+  let bmN = 0;
+  const mark = (state) => { const u = 'bmj' + (++bmN); return `<svg class="bm m3" viewBox="0 0 48 48" data-state="${state}" aria-hidden="true"><defs><linearGradient id="g${u}" x1="0" y1="0" x2="1" y2="1"><stop offset=".22" style="stop-color:var(--bm-g)"/><stop offset=".5" style="stop-color:var(--bm-o)"/><stop offset=".8" style="stop-color:var(--bm-d)"/></linearGradient><clipPath id="c${u}"><circle cx="24" cy="24" r="18"/></clipPath></defs><g class="sh"><g clip-path="url(#c${u})"><rect class="gr" x="-8" y="-8" width="64" height="64" fill="url(#g${u})"/></g></g></svg>`; };
+  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div><div class="m-think__st"><i></i><i></i><i></i><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
 
   const STARTERS = () => {
     const s = [];
@@ -191,7 +193,7 @@
     const hr = hourET();
     const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     const n = firstName();
-    return `<div class="bc-empty"><div class="bc-mark">${ic('spark')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1><p>Ask about partners, giving, every team's numbers, iWave ratings, actions and the manuals.</p>
+    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1><p>Ask about partners, giving, every team's numbers, iWave ratings, actions and the manuals.</p>
       <div class="bc-starters">${STARTERS().map(([i, q, s, g], k) => `<button type="button" class="bc-starter" data-act="ask" data-q="${esc(q)}" style="animation-delay:${80 + k * 50}ms"><span class="bc-starter__i${g ? ' g' : ''}">${ic(i)}</span><b>${esc(q)}</b><span>${esc(s)}</span></button>`).join('')}</div>
       <div class="bc-cando">Not sure what to ask? <button type="button" data-act="ask" data-q="What can you do?">See everything you can ask about</button></div></div>`;
   }
@@ -208,7 +210,7 @@
     th.innerHTML = cur.turns.map((t, ti) => {
       const latest = ti === cur.turns.length - 1;
       const waiting = (t.pending || (busy && busy.conv === cur)) && latest && !t.blocks && !t.error && !t.stopped;
-      return `<div class="turn" style="display:contents">${qHTML(t, ti, latest)}${waiting ? '' : `<div class="m-a"><div class="m-a__av" aria-hidden="true">${ic('spark')}</div><div class="m-a__body" data-abody="${ti}">${answerHTML(t, ti, latest)}</div></div>`}</div>`;
+      return `<div class="turn" style="display:contents">${qHTML(t, ti, latest)}${waiting ? '' : `<div class="m-a"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark(latest && t.blocks && !t._settled && (t._settled = true) ? 'answered' : 'still')}</div><div class="m-a__body" data-abody="${ti}">${answerHTML(t, ti, latest)}</div></div>`}</div>`;
     }).join('') + (working ? thinkHTML(busy ? busy.status : 'Looking at the records') : '');
     if (opts.noAnim) th.querySelectorAll('.m-q, .m-a, .m-a__body > *').forEach((e) => (e.style.animation = 'none'));
     B.drawCharts(th);

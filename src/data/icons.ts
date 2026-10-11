@@ -38,4 +38,10 @@ export const ICONS: Record<string, string> = {
   reports: '<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 17v-4"/><path d="M12 17V10"/><path d="M16 17v-2"/>',
 };
 
-export const icon = (name: string, cls = 'h-i') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+let bmN = 0;
+// Favor Brain's mark: a disc in green, gold and dusk (the living gradient). Animated states live in round2.css.
+export const brainMark = (cls = 'h-i', state = 'still') => {
+  const u = 'bmk' + (++bmN);
+  return `<svg class="${cls} bm m3" viewBox="0 0 48 48" data-state="${state}" aria-hidden="true"><defs><linearGradient id="g${u}" x1="0" y1="0" x2="1" y2="1"><stop offset=".22" style="stop-color:var(--bm-g)"/><stop offset=".5" style="stop-color:var(--bm-o)"/><stop offset=".8" style="stop-color:var(--bm-d)"/></linearGradient><clipPath id="c${u}"><circle cx="24" cy="24" r="18"/></clipPath></defs><g class="sh"><g clip-path="url(#c${u})"><rect class="gr" x="-8" y="-8" width="64" height="64" fill="url(#g${u})"/></g></g></svg>`;
+};
+export const icon = (name: string, cls = 'h-i') => name === 'brain' ? brainMark(cls) : `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
