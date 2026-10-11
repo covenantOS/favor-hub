@@ -2,6 +2,7 @@
 // steps of the send, and the lane. One shape for the review grid, the status view and the tests.
 import type { Env } from '../http';
 import { canSend, progress } from './flow';
+import { commentsForDeposit, reviewState } from './comments';
 import { blockers, getDeposit, giftsOf, imagesOf, parseJson, tapeOf, RULE_LABEL, type Dup } from './store';
 
 export async function depositView(env: Env, id: string) {
@@ -9,6 +10,7 @@ export async function depositView(env: Env, id: string) {
   if (!d || d.status === 'removed') return null;
   const gifts = await giftsOf(env, id);
   const images = await imagesOf(env, id);
+  const threads = await commentsForDeposit(env, id);
   const events = (await env.DB.prepare('SELECT at, kind, actor, detail, gift_id FROM ge_event WHERE deposit_id = ? ORDER BY id DESC LIMIT 40').bind(id).all<any>()).results;
   const rows = gifts.map((g) => {
     const f = parseJson<any>(g.fields_json, {});
@@ -43,6 +45,8 @@ export async function depositView(env: Env, id: string) {
       confirmedBy: g.confirmed_by,
       bbBatchGiftId: g.bb_batch_gift_id,
       bbGiftId: g.bb_gift_id,
+      review: reviewState(threads.get(g.id) || []),
+      thread: (threads.get(g.id) || []).map((c) => ({ id: c.id, author: c.author_name, email: c.author_email, kind: c.kind, body: c.body, at: c.created_at })),
       error: g.error,
       images: images.filter((i) => i.gift_id === g.id).map((i) => ({ id: i.id, kind: i.kind, copyToBb: !!i.copy_to_bb, attached: !!i.attached_at, attachError: i.attach_error })),
     };

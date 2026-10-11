@@ -4,9 +4,14 @@ import { laneRow } from '../../_lib/gifts/view';
 import { HttpError } from '../../_lib/http';
 import { etParts } from '../../_lib/actions/intake';
 import { STAGE } from '../../_lib/gifts/stage';
+import { needsFixByDeposit } from '../../_lib/gifts/comments';
 
 export const onRequestGet = gift(async ({ env, user }) => {
-  return { deposits: await listDeposits(env), lane: await laneRow(env), me: { name: user.name, email: user.email }, stage: STAGE, today: etParts(new Date()).date };
+  const [deposits, needsFix] = await Promise.all([listDeposits(env), needsFixByDeposit(env)]);
+  return {
+    deposits: deposits.map((d) => ({ ...d, needsFix: needsFix[d.id] || 0 })),
+    lane: await laneRow(env), me: { name: user.name, email: user.email }, stage: STAGE, today: etParts(new Date()).date,
+  };
 });
 
 // Step 1: set up the deposit with the tape total and count.
