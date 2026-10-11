@@ -26,6 +26,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { id: 'chat', href: '/admin/chat/', label: 'Chat', desc: 'Who can use Favor Chat: admins, all staff or nobody.', live: true, card: true, tab: true },
   { id: 'receipts', href: '/admin/receipts/', label: 'Receipts', desc: 'The receipt window and the morning email line.', live: true, card: true, tab: true },
   { id: 'feedback', href: '/feedback/', label: 'Feedback triage', desc: 'Notes from staff and the answers.', count: 'feedback', live: true, card: true, tab: true },
+  { id: 'appeals', href: '/admin/appeal-codes/', label: 'Appeal codes', desc: 'Build an appeal code from the scheme and create it in Blackbaud. Funds and campaigns wait in a list.', live: true, card: true },
   { id: 'bbusers', href: '/admin/blackbaud-users/', label: 'Blackbaud users', desc: 'Everyone with a Blackbaud login, their status and what each product lets them do.', live: true, card: true },
   { id: 'audit', href: '/admin/audit/', label: 'Audit log', desc: 'Every settings change with who, when, before and after.', live: true, card: true },
 ];
