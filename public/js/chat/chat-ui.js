@@ -36,6 +36,8 @@
     out: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
     ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>'
   };
+  // Favor Brain's mark (same shape as src/data/icons.ts brainMark)
+  function bmark(state) { return '<svg class="bm bm4" viewBox="0 0 48 48" data-state="' + (state || 'still') + '" aria-hidden="true"><circle class="bm-d" cx="24" cy="24" r="20"/><circle class="bm-h" cx="24" cy="24" r="12"/><g class="bm-o"><circle class="bm-a" cx="24" cy="24" r="13.5" pathLength="100" stroke-dasharray="24 76"/></g><circle class="bm-c" cx="24" cy="24" r="7"/></svg>'; }
   function ic(n, cls) { return '<svg viewBox="0 0 24 24" aria-hidden="true"' + (cls ? ' class="' + cls + '"' : '') + '>' + (ICON[n] || '') + '</svg>'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -125,7 +127,7 @@
     }
     function avatar(u, size, dot) {
       if (u.sys) return '<span class="ch-av" data-c="teal' + '"' + (size ? ' data-s="' + size + '"' : '') + '>' + ic(u.sys) + '</span>';
-      if (u.brain) return '<span class="ch-av ch-av--brain' + (size ? ' ch-av--' + size : '') + '">' + ic('spark') + '</span>';
+      if (u.brain) return '<span class="ch-av ch-av--brain' + (size ? ' ch-av--' + size : '') + '">' + bmark() + '</span>';
       var c = u.color || COLORS[hash(u.id || u.name || '') % 7];
       var inner = u.picture ? '<img src="' + esc(u.picture) + '" alt="" referrerpolicy="no-referrer" />' : esc(initials(u.name));
       return '<span class="ch-av' + (size ? ' ch-av--' + size : '') + '" data-c="' + c + '">' + inner + (dot ? '<i class="ch-dot" data-p="' + esc(u.presence || 'off') + '"></i>' : '') + '</span>';
@@ -215,7 +217,7 @@
     }
     function brainHtml(m) {
       var b = m.brain || {};
-      if (b.status === 'thinking') return '<div class="ch-ans"><span class="ch-ans__live"><i></i><i></i><i></i>Reading the records</span></div>';
+      if (b.status === 'thinking') return '<div class="ch-ans"><span class="ch-ans__live">' + bmark('thinking') + 'Reading the records</span></div>';
       if (!(b.blocks && b.blocks.length)) return '';
       if (opts.renderBlocks) { var h = opts.renderBlocks(b.blocks, m); if (h) return '<div class="ch-ans">' + h + '</div>'; }
       return '<div class="ch-ans">' + b.blocks.map(function (x) {
@@ -589,7 +591,7 @@
       var c = chan(S.active), cands = mentionCandidates(m[2], c);
       if (!cands.length) { closePop(); mentionState = null; return; }
       mentionState = { scope: scope, start: pos - m[2].length - 1, end: pos, cands: cands, i: 0 };
-      var p = openPop('<div class="ch-pop__h">People</div>' + cands.map(function (o, i) { return '<button type="button" class="ch-pop__i' + (i === 0 ? ' is-on' : '') + '" role="option" data-act="mention-pick" data-i="' + i + '"><b style="background:transparent">' + (o.brain ? '<span class="ch-av ch-av--sm ch-av--brain">' + ic('spark') + '</span>' : o.special ? '<span class="ch-av ch-av--sm" data-c="sun">@</span>' : avatar(o.u, 'sm')) + '</b><span>' + esc(o.name) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span></button>'; }).join(''), ta.closest('.ch-comp__box'), 'ch-pop--mention');
+      var p = openPop('<div class="ch-pop__h">People</div>' + cands.map(function (o, i) { return '<button type="button" class="ch-pop__i' + (i === 0 ? ' is-on' : '') + '" role="option" data-act="mention-pick" data-i="' + i + '"><b style="background:transparent">' + (o.brain ? '<span class="ch-av ch-av--sm ch-av--brain">' + bmark() + '</span>' : o.special ? '<span class="ch-av ch-av--sm" data-c="sun">@</span>' : avatar(o.u, 'sm')) + '</b><span>' + esc(o.name) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span></button>'; }).join(''), ta.closest('.ch-comp__box'), 'ch-pop--mention');
       popAnchor = ta;
     }
     function pickMention(i) {

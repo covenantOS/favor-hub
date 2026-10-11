@@ -173,9 +173,8 @@
       return `<div class="m-q" style="width:min(80%,620px)"><div class="bc-compose" style="width:100%;border-radius:20px"><textarea data-edit="${ti}" aria-label="Edit your question" style="height:auto" maxlength="600">${esc(t.q)}</textarea></div><div style="display:flex;gap:6px"><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="edit-cancel" data-turn="${ti}">Cancel</button><button type="button" class="h-btn h-btn--primary h-btn--xs" data-act="edit-save" data-turn="${ti}">Ask</button></div></div>`;
     return `<div class="m-q"><div class="m-q__b">${esc(t.q)}</div><div class="m-q__acts"><button type="button" class="ib ib--sm ib--bare tip" data-act="qcopy" data-turn="${ti}" aria-label="Copy the question" data-tip="Copy">${ic('copy')}</button>${latest && !busy ? `<button type="button" class="ib ib--sm ib--bare tip" data-act="edit" data-turn="${ti}" aria-label="Edit the question" data-tip="Edit">${ic('edit')}</button>` : ''}</div></div>`;
   }
-  let bmN = 0;
-  const mark = (state) => { const u = 'bmj' + (++bmN); return `<svg class="bm m3" viewBox="0 0 48 48" data-state="${state}" aria-hidden="true"><defs><linearGradient id="g${u}" x1="0" y1="0" x2="1" y2="1"><stop offset=".22" style="stop-color:var(--bm-g)"/><stop offset=".5" style="stop-color:var(--bm-o)"/><stop offset=".8" style="stop-color:var(--bm-d)"/></linearGradient><clipPath id="c${u}"><circle cx="24" cy="24" r="18"/></clipPath></defs><g class="sh"><g clip-path="url(#c${u})"><rect class="gr" x="-8" y="-8" width="64" height="64" fill="url(#g${u})"/></g></g></svg>`; };
-  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div><div class="m-think__st"><i></i><i></i><i></i><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
+  const mark = (state) => `<svg class="bm bm4" viewBox="0 0 48 48" data-state="${state}" aria-hidden="true"><circle class="bm-d" cx="24" cy="24" r="20"/><circle class="bm-h" cx="24" cy="24" r="12"/><g class="bm-o"><circle class="bm-a" cx="24" cy="24" r="13.5" pathLength="100" stroke-dasharray="24 76"/></g><circle class="bm-c" cx="24" cy="24" r="7"/></svg>`;
+  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div><div class="m-think__st"><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
 
   const STARTERS = () => {
     const s = [];
@@ -953,7 +952,9 @@
   // The composer
   const inp = $('bc-input');
   function grow() { inp.style.height = '40px'; inp.style.height = Math.min(inp.scrollHeight, 192) + 'px'; }
-  inp.addEventListener('input', () => { grow(); setSend(); });
+  // the start-screen mark listens while a question is being typed
+  const listen = () => { const m = document.querySelector('.bc-mark--bm .bm'); if (m) m.setAttribute('data-state', inp.value.trim() ? 'listening' : 'idle'); };
+  inp.addEventListener('input', () => { grow(); setSend(); listen(); });
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
   $('bc-compose').addEventListener('submit', (e) => { e.preventDefault(); if (busy) stop(); else send(); });
   $('bc-send').addEventListener('mousedown', (e) => e.preventDefault());
