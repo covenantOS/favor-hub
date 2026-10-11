@@ -1,0 +1,61 @@
+/* Shell critic round, 2026-10-11. Loaded after every other shell sheet.
+   Phone: the More menu is a sheet that rises from the bottom, listing only what the tab bar does not;
+   the Help panel is a sheet too. Pinned with top and bottom offsets, never viewport units (iOS 26 toolbar). */
+
+@media (max-width: 860px) {
+  /* ---------- More sheet */
+  body.h-body .h-side {
+    top: auto; left: 0; right: 0; bottom: 0; width: auto; height: auto; max-height: calc(100% - 48px);
+    border-radius: 22px 22px 0 0; overflow: hidden; z-index: 95;
+    transform: translateY(104%); visibility: hidden;
+    transition: transform .3s cubic-bezier(.2, .8, .2, 1), visibility 0s linear .3s;
+  }
+  body.h-body .h-app.is-nav .h-side { transform: none; visibility: visible; transition: transform .3s cubic-bezier(.2, .8, .2, 1), visibility 0s; }
+  body.h-body .h-side::before { content: ''; position: absolute; z-index: 3; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: rgba(255, 255, 255, .28); }
+  body.h-body .h-side__in { height: auto; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); padding: 0 12px calc(10px + env(safe-area-inset-bottom)); gap: 0; border-radius: 22px 22px 0 0; overflow-y: auto; }
+  body.h-body .h-side__in::before { content: 'More'; display: flex; align-items: center; min-height: 64px; padding: 14px 8px 0; font: 600 20px var(--h-font); color: #fff; }
+  body.h-body .h-side .h-side__x { top: 14px; right: 12px; }
+  /* The tab bar already holds these. */
+  body.h-body .h-side .h-brand, body.h-body .h-side .h-search, body.h-body .h-area.in-bar { display: none !important; }
+  body.h-body .h-areas { display: block; margin: 0; }
+  body.h-body .h-areas--foot { margin: 6px 0 0; padding-top: 6px; border-top: 1px solid rgba(255, 255, 255, .12); }
+  /* One row style for every line, with Feedback and the account in the same family. */
+  body.h-body .h-side .h-area__link, body.h-body .h-side .h-side__fb, body.h-body .h-side .h-nav__help {
+    min-height: 52px; padding: 0 56px 0 14px; gap: 16px; border-radius: 12px; font: 500 16px var(--h-font); letter-spacing: 0;
+  }
+  body.h-body .h-side .h-side__fb { margin: 0; width: 100%; padding-right: 14px; color: rgba(255, 255, 255, .82); }
+  body.h-body .h-side .h-area__link .h-i, body.h-body .h-side .h-side__fb .h-i { width: 22px; height: 22px; opacity: 1; flex: none; }
+  body.h-body .h-side .h-area__link .h-nav__count { font-size: 13px; }
+  body.h-body .h-side .h-area__tog { right: 4px; top: 4px; }
+  body.h-body .h-side .h-pg__a { min-height: 48px; font-size: 15px; }
+  body.h-body .h-side__foot { margin: 6px 0 0; border-top: 1px solid rgba(255, 255, 255, .12); border-radius: 0; padding: 12px 6px 4px; }
+  body.h-body .h-app.is-nav::after { z-index: 90; }
+
+  /* ---------- Help sheet */
+  body.h-body dialog.lp[open] {
+    display: flex; flex-direction: column; inset: auto 0 0 0; width: 100%; max-width: 100%; height: auto; max-height: calc(100% - 56px);
+    border: 0; border-radius: 22px 22px 0 0; animation: crit-up .28s cubic-bezier(.2, .8, .2, 1);
+  }
+  body.h-body dialog.lp[open]::before { content: ''; position: absolute; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: #d6d0c1; }
+  body.h-body .lp .lp__in { height: auto; flex: 1 1 auto; min-height: 0; padding-top: 16px; }
+  body.h-body .lp .lp__x { outline: none; }
+}
+@keyframes crit-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  body.h-body .h-side, body.h-body .h-app.is-nav .h-side { transition: none; }
+  body.h-body dialog.lp[open] { animation: none; }
+}
+
+/* Where the tab bar is hidden (Favor Brain, a chat conversation) the menu lists every area, so nobody is stranded. */
+@media (max-width: 860px) {
+  body.h-body[data-nav='brain'] .h-area.in-bar, body.h-body.ch-deep .h-area.in-bar { display: block !important; }
+  body.h-body[data-nav='chat'] .ch-skel--boot { padding: calc(84px + env(safe-area-inset-top)) 20px 0; }
+}
+
+/* Page on its way (hub-swap.js). */
+#h-prog { position: fixed; z-index: 200; top: 0; left: 0; width: 0; height: 3px; background: var(--a, var(--h-brand, #2f6b2f)); box-shadow: 0 0 8px rgba(47, 107, 47, .4); transition: width 6s cubic-bezier(.1, .7, .2, 1), opacity .2s ease; pointer-events: none; }
+
+@media (max-width: 860px) {
+  body.h-body .h-side .h-side__fb { font: 500 16px var(--h-font) !important; padding-left: 14px !important; gap: 16px !important; }
+  body.h-body .h-side .h-area__tog { display: flex; align-items: center; justify-content: center; top: 4px; height: 44px; width: 44px; }
+}

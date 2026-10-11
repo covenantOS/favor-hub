@@ -25,6 +25,7 @@ import '../styles/mobile.css';
 import '../styles/admin-fix.css';
 import '../styles/sticky-col.css';
 import '../styles/fix-shell.css';
+import '../styles/crit-shell.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -175,6 +176,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           var vis = bar.filter(function (b) { var a = document.querySelector('.h-area[data-area="' + b.dataset.bar + '"]'); return a && !a.hidden; });
           vis.sort(function (x, y) { return Number(x.dataset.rank) - Number(y.dataset.rank); });
           bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 3; });
+          q('.h-area').forEach(function (a) { a.classList.toggle('in-bar', bar.some(function (b) { return !b.hidden && b.dataset.bar === a.dataset.area; })); });
           q('[data-sum]').forEach(function (el) {
             var s = sums[el.dataset.sum];
             if (el.dataset.sum === 'more') { s = { n: 0, warn: false }; q('#h-bar [data-bar][hidden]').forEach(function (b) { var t = sums[b.dataset.bar]; if (t) s.n += t.n; }); ['admin', 'help'].forEach(function (k) { if (sums[k]) s.n += sums[k].n; }); }
@@ -268,8 +270,8 @@ const footAreas = AREAS.filter((a) => a.foot);
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=5" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=2" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=2" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=3" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=3" defer></script>
     <script is:inline src="/js/clips-launch.js?v=4" defer></script>
     <script is:inline src="/js/wc-bell.js?v=2" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>

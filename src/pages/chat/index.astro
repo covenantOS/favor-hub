@@ -9,8 +9,8 @@ import { SPRITE } from '../brain/_icons';
 ---
 <App title="Chat" crumb="Chat" nav="chat" bare description="Channels, direct messages and threads for the Favor team, with clips, meetings, Drive files and Favor Brain in the conversation.">
   <Fragment set:html={SPRITE} />
-  <div id="chat-root"></div>
+  <div id="chat-root"><div class="ch-skel ch-skel--boot" aria-hidden="true"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div></div>
   <script is:inline src="/js/brain-blocks.js?v=7"></script>
-  <script is:inline src="/js/chat/chat-ui.js?v=10" defer></script>
+  <script is:inline src="/js/chat/chat-ui.js?v=11" defer></script>
   <script is:inline src="/js/chat/chat.js?v=2" defer></script>
 </App>

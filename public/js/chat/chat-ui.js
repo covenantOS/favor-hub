@@ -244,7 +244,7 @@
         '<span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="' + scope + '" disabled aria-label="Send">' + ic('send') + '<span>Send</span></button></div></div></form>';
     }
     function frameHtml() {
-      return '<aside class="ch-side" aria-label="Channels"></aside>' +
+      return '<aside class="ch-side" aria-label="Channels"><div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div></aside>' +
         '<section class="ch-main" aria-label="Channel"><header class="ch-head"></header><div class="ch-msgs" tabindex="0" aria-live="polite"></div><div class="ch-typing" aria-live="polite"></div>' + composerHtml('main', 'Message') + '</section>' +
         '<aside class="ch-right" hidden></aside>';
     }
@@ -883,6 +883,8 @@
 
     /* ------------------------------------------------------------------ boot */
     root.classList.add('ch');
+    // The right screen from the first frame: the list on a phone (the message pane stays out of sight), a skeleton in the side list until the channels arrive.
+    root.dataset.view = isPhone() ? 'list' : 'channel';
     root.innerHTML = frameHtml() + '<input type="file" data-file multiple hidden />';
     $('[data-file]', root).addEventListener('change', function (e) { addFiles(e.target.dataset.scope || 'main', e.target.files); e.target.value = ''; });
     api.onEvent(onEvent);
