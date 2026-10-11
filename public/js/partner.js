@@ -275,7 +275,7 @@ function recurringList(list) {
     const line = `${money(r.amount)} ${esc(r.status)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.since ? ' · started ' + fd(r.since) : ''}${r.lastPayment ? ' · last ' + fd(r.lastPayment) : ''}`;
     by.set(line, (by.get(line) || 0) + 1);
   }
-  const lines = [...by].map(([l, n]) => (n > 1 ? `${l} <small>(${n} gifts)</small>` : l));
+  const lines = [...by].map(([l, n]) => (n > 1 ? `${l} <small>(${n} on this date)</small>` : l));
   const head = lines.slice(0, 4).join('<br>');
   return lines.length > 4 ? `${head}<details class="pp-more"><summary>${lines.length - 4} more</summary>${lines.slice(4).join('<br>')}</details>` : head;
 }
