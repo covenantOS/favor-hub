@@ -310,3 +310,10 @@ body.h-body .h-page .req-submit.exp-green { background: var(--h-brand); border-c
 body.h-body .h-page .req-submit.exp-green:hover:not(:disabled) { background: var(--h-brand-ink); border-color: var(--h-brand-ink); color: #fff; }
 /* focus rings on the dark rail and phone bar are light, so a keyboard user can see them */
 body.h-body .h-side :focus-visible, body.h-body .h-side__tog:focus-visible, body.h-body .h-navbar :focus-visible { outline: 2px solid var(--soft-leaf); outline-offset: -2px; }
+/* Thank-yous and Foundations tab sets use the same track and white active pill as the Work Center tabs */
+body.h-body .fnd-tabs { display: flex; flex-wrap: nowrap; gap: 6px; padding: 5px; border-radius: 999px; background: color-mix(in srgb, #f1eee7 80%, transparent); border: 1px solid var(--r-line); width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; margin-bottom: 16px; }
+body.h-body .fnd-tabs button { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: none; font: 600 13px var(--h-font); color: var(--r-ink-2); white-space: nowrap; }
+body.h-body .fnd-tabs button:hover { color: var(--r-ink); border: 0; }
+body.h-body .fnd-tabs button.is-on { background: #fff; color: var(--r-ink); border: 0; box-shadow: 0 1px 2px rgba(42, 39, 34, 0.06), 0 4px 12px -6px rgba(42, 39, 34, 0.18); }
+body.h-body .fnd-tabs button span { margin: 0; padding: 1px 7px; border-radius: 999px; background: #e9e4d9; color: var(--r-ink-2); font: 600 11px var(--h-font); letter-spacing: 0; opacity: 1; }
+body.h-body .fnd-tabs button.is-on span { background: var(--a-tint); color: var(--a-ink); }
