@@ -17,6 +17,7 @@ import '../styles/gifts.css';
 import '../styles/nav.css';
 import '../styles/round2.css';
 import '../styles/ux-night.css';
+import '../styles/ux-pass.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -62,6 +63,7 @@ const footAreas = AREAS.filter((a) => a.foot);
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=1" defer></script>
     <script is:inline src="/js/partner.js?v=7" defer></script>
+    <script is:inline src="/js/ux-pass.js?v=1" defer></script>
     <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-tabs a[data-astro-prefetch]' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
     <script is:inline>
       // The menu opens the way this person left it (slim rail or full sidebar) before the first frame.

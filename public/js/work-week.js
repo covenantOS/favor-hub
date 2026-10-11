@@ -83,7 +83,7 @@ function view() {
   el.innerHTML = `<div class="wwk-grid">
     <section class="h-card wc-sheet wwk-card">
       <div class="wwk-tools">${sel}<div class="wwk-seg" role="group" aria-label="Week">${[[0, 'This week'], [1, 'Last week']].map(([b, l]) => `<button type="button" class="${S.back === b ? 'is-on' : ''}" data-wwk-week="${b}" aria-pressed="${S.back === b}">${l}</button>`).join('')}</div><span class="wwk-spacer"></span><span class="wwk-sub">${esc(d.week.range)}</span></div>
-      <div class="wwk-goalgrid">${GOALCARDS.map(([k, l, h]) => `<div class="wwk-goal${c[k] >= g[k] ? ' is-met' : ''}"><b>${c[k]}<small> of ${g[k]}</small></b><span>${l}</span><i><u style="width:${Math.min(100, (c[k] / g[k]) * 100)}%"></u></i><em>${h}</em></div>`).join('')}</div>
+      <div class="wwk-goalgrid">${GOALCARDS.map(([k, l, h]) => `<div class="wwk-goal${c[k] >= g[k] ? ' is-met' : ''}" title="${h.replace(/"/g, '&quot;')}"><b>${c[k]}<small> of ${g[k]}</small></b><span>${l}</span><i><u style="width:${Math.min(100, (c[k] / g[k]) * 100)}%"></u></i></div>`).join('')}</div>
       <div class="wwk-give"><b>${R().short(v.ytd)}<small> of ${R().short(v.goal)} credited this year</small></b>
         <span class="wwk-sub">${v.behind > 0 ? `${R().short(v.behind)} behind pace. ${R().money(v.perWeek)} a week for ${v.weeks} ${v.weeks === 1 ? 'week' : 'weeks'} reaches the goal.` : v.ytd >= v.goal && v.goal ? 'The goal is met.' : 'On pace for the goal.'}</span>
         <i class="wwk-pace wwk-pace--big"><u style="width:${v.pct}%"></u><s style="left:${v.ppct}%" title="Pace ${R().short(v.pace)}"></s></i></div>

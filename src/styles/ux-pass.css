@@ -1,0 +1,62 @@
+/* UX pass 2026-10-10: Work Center, Requests, Thank-yous, Expenses, Foundations. Polish only. */
+
+/* Scrolling pill rows fade at the cut edge so a clipped tab reads as scrollable. */
+.wc-tabs, .wc-lanes, .wc-owners, .wc-scope, .req-tabs { scroll-behavior: smooth; }
+.ux-fade-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 34px), transparent); }
+.ux-fade-l { -webkit-mask-image: linear-gradient(270deg, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(270deg, #000 calc(100% - 34px), transparent); }
+.ux-fade-l.ux-fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 34px, #000 calc(100% - 34px), transparent); mask-image: linear-gradient(90deg, transparent, #000 34px, #000 calc(100% - 34px), transparent); }
+
+/* The "Start here" setting shows on hover or focus on a pointer device, so the scope row reads as three choices. */
+@media (hover: hover) and (min-width: 761px) {
+  .wc-scope__chip:not(:hover):not(:focus-within) .wc-scope__start { display: none; }
+  .wc-scope__chip:not(:hover):not(:focus-within) > button:first-child { padding-right: 16px; }
+}
+@media (max-width: 760px) { .wc-scope__start { display: none; } }
+
+/* Numbers that must line up. */
+.wc-root table, .wc-row, .wg-row, .exp-admin-table td, .fnd-table td, .rcp-page td { font-variant-numeric: tabular-nums; }
+.wc-row [class*="wc-when"], .wc-row .wc-due { white-space: nowrap; }
+
+/* Cells that wrapped to three lines made rows uneven. */
+.wc-row .wc-sub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Keyboard focus is visible on every control in these pages. */
+.wc-root :is(button, a, select, input, [tabindex]):focus-visible,
+.rcp-page :is(button, a, select, input):focus-visible,
+.fnd-page :is(button, a, select, input):focus-visible,
+.req-board :is(button, a, [tabindex]):focus-visible,
+.exp-admin-table :is(button, a, tr):focus-visible { outline: 2px solid var(--h-brand); outline-offset: 2px; border-radius: 8px; }
+
+/* Tables: a hover row and centred cells on the log tables. */
+.exp-admin-table td, .fnd-table td { vertical-align: middle; }
+.exp-admin-table tbody tr, .fnd-table tbody tr { transition: background-color .12s ease; }
+.exp-admin-table tbody tr:hover, .fnd-table tbody tr:hover { background: #fbf9f4; }
+
+/* Gate controls (name, Lock) sit on one row and stay out of the way. */
+.board-intro__actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.board-intro__actions .fnd-who { display: grid; gap: 4px; }
+.board-intro__actions .fnd-who span { font: 600 11.5px var(--h-font); color: var(--h-ink-3); }
+
+/* Touch: every tap target is at least 40px and a row action never leaves the card. */
+@media (pointer: coarse), (max-width: 860px) {
+  .wc-root .h-btn--sm, .wg-acts .h-btn, .wc-row .h-btn--sm { min-height: 40px; }
+  .wc-tab, .wc-lane, .wc-owner, .wa-fchip { min-height: 40px; }
+  .wc-root button[data-wc-close], .wc-row .wc-act button { min-height: 40px; min-width: 56px; }
+}
+@media (max-width: 560px) {
+  .wg-acts { flex-wrap: wrap; justify-content: flex-start; }
+  .wg-acts .h-btn { flex: 0 1 auto; }
+  .wwk-goalgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .wwk-goal:nth-child(3) { border-left: 0; }
+  .wwk-goal:nth-child(n+3) { border-top: 1px solid var(--h-line); }
+}
+
+/* Weekly report cards no longer carry paragraphs, so they stay one height. */
+.wwk-goal { align-content: center; }
+
+/* Loading card gets a label so a slow tab does not look broken. */
+.wc-sheet[aria-busy="true"] { position: relative; }
+.wc-sheet[aria-busy="true"]::after { content: 'Loading'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 600 13px var(--h-font); color: var(--h-ink-3); }
+
+/* Requests: the hint is one short line, not a bold paragraph. */
+.board-hint { font-weight: 500; font-size: 12.5px; color: var(--h-ink-3); }

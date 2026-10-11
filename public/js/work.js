@@ -1076,9 +1076,9 @@ function viewTy() {
   S.list = L.map((g) => g.key);
   S.tyMap = Object.fromEntries(gs.map((g) => [g.key, g]));
   const LANE = {
-    s: ['Thanked already', 'A thank-you was logged on the partner after the task was made. Closing writes nothing new; each task closes on the day its thank-you was logged.'],
-    l: ['Probably done', 'Someone called, emailed or wrote after the task. Close it when that contact was the thank-you.'],
-    o: ['Owed', 'No contact since the task. Select the ones you thanked and press Mark thanked. Each row is one gift, even when Blackbaud holds two tasks for it.'],
+    s: ['Thanked already', 'Thank-you logged after the task'],
+    l: ['Probably done', 'Contact logged after the task'],
+    o: ['Owed', 'No contact since the task'],
   };
   const rowT = (g) => {
     const a = g.a; const picked = S.sel.has(g.key); const age = -dayn(a.add);
@@ -1100,7 +1100,6 @@ function viewTy() {
     <section class="h-card wc-sheet" id="wc-ty" aria-label="Thank-yous">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${['s', 'l', 'o'].map((k) => `<button type="button" class="wc-lane${S.ty.lane === k ? ' is-on' : ''}" data-tylane="${k}">${LANE[k][0]}<span>${sec[k].length}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${S.ty.lane === 's' && L.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-tycloseall="s">${ic('check')}Close all ${L.length}</button>` : ''}</div></div>
-      <div class="wc-lanehead"><p>${LANE[S.ty.lane][1]}</p></div>
       <div class="wc-scroll" role="grid" aria-multiselectable="true">
         ${L.length ? `<div class="wc-head wc-tg" role="row"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
         <div class="wc-tg">${L.map(rowT).join('')}</div>` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
