@@ -140,7 +140,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             a.hidden = !pages.length;
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
-            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var mem = last[id] && q('.h-pg:not([hidden]) a[data-nav-id="' + last[id] + '"]', a)[0];

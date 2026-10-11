@@ -27,7 +27,7 @@ Open actions is every open Blackbaud action you may see: all of them for an admi
 
 On the Overview, Today's work counts the open actions due today or earlier. Overdue counts those due before today and Due today counts those due today. Open all shows the open actions the link opens. If you hold actions of your own, these counts cover yours and the links add your name as the fundraiser. Otherwise they cover everything you may see.
 
-The badge on Work in the left rail adds up the badges inside it: open actions, requests in the inbox and thank-you receipts still to mark. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
+The badge on Work in the left rail shows the same open actions number. Requests and Thank-yous keep their own badges on their own tabs. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
 
 ## Finish many actions at once
 
