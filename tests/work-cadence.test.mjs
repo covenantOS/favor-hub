@@ -353,7 +353,9 @@ describe('pressing a step', () => {
     const rem = hub.prepare("SELECT kind, cid, state FROM act_reminders").all();
     assert.deepEqual(rem.map((r) => [r.kind, r.cid, r.state]), [['cadence', '2', 'open']]);
     const done = hub.prepare('SELECT outcome, remind_on FROM act_cadence_done').all();
-    assert.deepEqual(done.map((d) => [d.outcome, d.remind_on]), [['left', '2026-10-11']]);
+    const { nextWorkday } = await import('../functions/_lib/work/remind.ts');
+    const etToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    assert.deepEqual(done.map((d) => [d.outcome, d.remind_on]), [['left', nextWorkday(etToday)]]);
   });
   it('undoing a left message takes its reminder out of the bell', async () => {
     const rem = await import('../functions/_lib/work/remind.ts');

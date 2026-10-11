@@ -35,7 +35,7 @@
   .h-top__right { gap: 6px; flex: none; }
 
   /* ---- tap targets inside pages */
-  .h-page :is(button, select, input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not(.req-hp), [role='button']) { min-height: 44px; }
+  .h-page :is(button, select, input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='hidden']):not(.req-hp), [role='button']:not(.dr-num)) { min-height: 44px; }
   .h-page :is(a.h-btn, a.h-chip, .h-start, .req-tabs button, .fbp-tabs button, .b-tab) { min-height: 44px; }
   .h-page .h-btn { min-height: 44px; }
   .h-page .ba-back, .h-page .hd-crumbs a, .h-page nav[aria-label='Breadcrumb'] a { display: inline-flex; align-items: center; min-height: 44px; }
