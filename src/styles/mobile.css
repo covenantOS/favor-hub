@@ -1,0 +1,25 @@
+/* Phone fixes, loaded last.
+   Safari on iOS 26 floats its toolbar over the bottom of the page: 100vh and 100dvh reach under it, while anything
+   fixed to bottom: 0 (the hub's tab bar) sits above it. So on a phone, full-height pieces are pinned with top and
+   bottom offsets, never sized with a viewport height, and they end where the tab bar starts. */
+@media (max-width: 860px) {
+  /* Brain: the chat ends at the top of the tab bar, so the ask box is never under it. */
+  body.h-body[data-nav='brain'] .h-app { position: fixed; top: 0; left: 0; right: 0; bottom: calc(63px + env(safe-area-inset-bottom)); height: auto; }
+
+  /* The menu drawer ends above Safari's toolbar, so Feedback and the last items can be reached. */
+  body.h-body .h-side { top: 0; bottom: 0; height: auto; }
+
+  /* Header: the title gives way (it shortens with an ellipsis) and the buttons stay on one line. */
+  body.h-body .h-top .h-top__head { flex: 1 1 auto; min-width: 0; }
+  body.h-body .h-top .h-top__title { overflow: hidden; text-overflow: ellipsis; }
+  body.h-body .h-top .h-top__right { flex: none; flex-wrap: nowrap; gap: 2px; }
+  body.h-body .h-top .h-top__actions .h-lbl { display: none; }
+  body.h-body .h-top .h-top__actions .h-btn { width: 44px; padding: 0; justify-content: center; }
+  /* Meetings: Book is the second tab and the empty day's button, so the header copy goes. */
+  body.h-body .h-top .h-top__actions a[href='/meet/book/'] { display: none; }
+}
+
+@media (max-width: 860px) {
+  /* Requests: the board's heading block is empty inside the hub and only added a gap above the buttons. */
+  .h-page .board-intro > div:first-child:not(.board-intro__actions) { display: none; }
+}

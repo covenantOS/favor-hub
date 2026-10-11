@@ -25,6 +25,9 @@
   let admin = false;
   let items = [];
   let activeTab = 'inbox';
+  // On a phone the board shows one lane at a time. It opens on the first lane with cards until a lane is tapped.
+  let tabPicked = false;
+  const touch = window.matchMedia('(hover: none)').matches;
   let openId = null;
   let drag = null;
 
@@ -99,7 +102,7 @@
       const list = items.filter((i) => i.status === c.id);
       const body = list.length
         ? list.map((item, i) => cardHtml(item, i)).join('')
-        : `<p class="req-empty">${admin ? 'Drop a card here.' : 'Nothing here yet.'}</p>`;
+        : `<p class="req-empty">${admin && !touch ? 'Drop a card here.' : 'Nothing here yet.'}</p>`;
       return `<section class="req-col ${c.id === activeTab ? 'is-on' : ''}" data-col="${c.id}">
         <div class="req-col__head"><h2>${c.label}</h2><span>${list.length}</span></div>
         <div class="req-col__stack">${body}</div>
@@ -235,6 +238,7 @@
     const data = await api('/api/requests');
     admin = Boolean(data.admin);
     items = data.requests || [];
+    if (!tabPicked) activeTab = (COLS.find((c) => items.some((i) => i.status === c.id)) || COLS[0]).id;
     setAdminUi();
     renderBoard();
   }
@@ -340,6 +344,7 @@
     const btn = e.target.closest('[data-tab]');
     if (!btn) return;
     activeTab = btn.dataset.tab;
+    tabPicked = true;
     renderBoard();
   });
 
