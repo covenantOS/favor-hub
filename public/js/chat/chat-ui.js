@@ -261,10 +261,14 @@
         var self = c.kind === 'dm' && (c.members || []).every(function (m) { return m === S.me.id; });
         return '<button type="button" class="ch-row' + (on ? ' is-on' : '') + (unread && !c.muted ? ' is-unread' : '') + (c.muted ? ' is-muted' : '') + '" data-act="open" data-id="' + c.id + '"' + (on ? ' aria-current="true"' : '') + '>' + icon + '<span class="ch-row__n">' + esc(n) + (self ? ' (you)' : '') + '</span>' + (c.mentions > 0 ? '<span class="ch-badge" aria-label="' + plural(c.mentions, 'mention') + '">' + c.mentions + '</span>' : '') + '</button>';
       };
-      side.innerHTML = '<div class="ch-side__head"><button type="button" class="ch-jump" data-act="search">' + ic('search') + '<span>Search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('pen') + '</button></div>' +
-        '<div class="ch-list"><div class="ch-sec"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" data-act="new-channel" aria-label="New channel" title="New channel">' + ic('plus') + '</button></div>' +
+      var dmNew = s.dms.filter(function (c) { return c.unread > 0 && !c.muted; }).length;
+      side.innerHTML = '<div class="ch-pnav"><button type="button" class="ch-pn" data-act="hub-menu" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
+        '<div class="ch-seg"><button type="button" data-act="seg" data-seg="channels" aria-pressed="' + (S.seg !== 'messages') + '">Channels</button><button type="button" data-act="seg" data-seg="messages" aria-pressed="' + (S.seg === 'messages') + '">Messages' + (dmNew ? '<i class="ch-seg__dot" aria-label="' + dmNew + ' unread"></i>' : '') + '</button></div>' +
+        '<button type="button" class="ch-pn" data-act="new-dm" aria-label="New message">' + ic('pen') + '</button></div>' +
+        '<div class="ch-side__head"><button type="button" class="ch-jump" data-act="search">' + ic('search') + '<span>Search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('pen') + '</button></div>' +
+        '<div class="ch-list" data-seg="' + (S.seg === 'messages' ? 'messages' : 'channels') + '"><div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" data-act="new-channel" aria-label="New channel" title="New channel">' + ic('plus') + '</button></div>' +
         s.chans.map(row).join('') + '<button type="button" class="ch-row ch-more" data-act="browse"><span class="ch-row__ic">' + ic('search') + '</span><span class="ch-row__n">Browse channels</span></button></div>' +
-        '<div class="ch-sec"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('plus') + '</button></div>' + (s.dms.length ? s.dms.map(row).join('') : '<div class="ch-empty" style="padding:8px">No messages yet</div>') + '</div></div>';
+        '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('plus') + '</button></div>' + (s.dms.length ? s.dms.map(row).join('') : '<div class="ch-empty" style="padding:8px">No messages yet</div>') + '</div></div>';
     }
     function renderHead() {
       var c = chan(S.active), h = $('.ch-head', root);
@@ -738,6 +742,8 @@
       else if (act === 'details') openDetails();
       else if (act === 'tab') { S.tab = el.dataset.tab; renderRight(); }
       else if (act === 'search') openSearch();
+      else if (act === 'hub-menu') { e.stopPropagation(); var shell = document.querySelector('.h-app'); if (shell) { var open = !shell.classList.contains('is-nav'); shell.classList.toggle('is-nav', open); ['h-bar-more', 'h-menu'].forEach(function (id) { var b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', String(open)); }); } }
+      else if (act === 'seg') { S.seg = el.dataset.seg === 'messages' ? 'messages' : 'channels'; renderSide(); }
       else if (act === 'search-x') closeSearch();
       else if (act === 'hit') jumpTo(S.search.items[+el.dataset.i]);
       else if (act === 'react') { guard(api.react(id, el.dataset.e)).then(function (r) { var m = findMsg(id); if (m && r && r.reactions) { m.reactions = r.reactions; patchMessage(m); } }); }

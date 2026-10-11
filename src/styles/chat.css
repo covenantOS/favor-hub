@@ -466,3 +466,24 @@ body.h-body .ch .ch-comp textarea:focus, body.h-body .ch .ch-comp textarea:focus
 .ch-msg--brain:has(.ch-private) .ch-ans { border-left: 0; }
 .ch-shared { font: 500 12px/1 var(--h-font, Inter, sans-serif); color: var(--tc-ink-3, #6b7280); align-self: center; }
 @media (max-width: 760px) { .ch-private__acts .ch-btn { min-height: 44px; } }
+
+/* Phone navigation, matching Favor Brain: a menu circle, a Channels / Messages switch, a new message circle. No hub tab bar
+   or hub header on this page there; the menu circle opens the hub menu. Desktop keeps the side list with both sections. */
+.ch-pnav { display: none; }
+@media (max-width: 860px) {
+  body.h-body[data-nav='chat'] .h-navbar, body.h-body[data-nav='chat'] .h-top { display: none !important; }
+  .ch-pnav { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 14px 6px; }
+  .ch-pn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 999px; border: 1px solid var(--r-line, #e7e0cf); background: #fffdf8; color: var(--r-ink, #1d211b); box-shadow: 0 2px 10px -4px rgba(42, 39, 34, .25); }
+  .ch-pn:last-child { justify-self: end; }
+  .ch-pn .h-i, .ch-pn svg { width: 20px; height: 20px; }
+  .ch-seg { justify-self: center; display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px; background: #fffdf8; border: 1px solid var(--r-line, #e7e0cf); box-shadow: 0 2px 10px -4px rgba(42, 39, 34, .25); }
+  .ch-seg button { position: relative; border: 0; background: none; min-height: 38px; padding: 0 16px; border-radius: 999px; font: 600 15px var(--h-font, Inter, sans-serif); color: var(--r-ink-3, #8a8578); }
+  .ch-seg button[aria-pressed='true'] { background: var(--r-ink, #1d211b); color: #fff; }
+  .ch-seg__dot { position: absolute; top: 7px; right: 8px; width: 8px; height: 8px; border-radius: 999px; background: var(--tc-terra, #b85c38); }
+  .ch-side__head .ch-iconbtn[data-act='new-dm'] { display: none; }
+  .ch-list[data-seg='channels'] .ch-sec[data-sec='messages'], .ch-list[data-seg='messages'] .ch-sec[data-sec='channels'] { display: none; }
+  .ch-list .ch-sec__h b { font-size: 13px; }
+  /* The message box floats as a card above the home bar. */
+  .ch-main .ch-comp { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .ch-comp__box { border-radius: 22px; box-shadow: 0 8px 28px -12px rgba(42, 39, 34, .35); }
+}
