@@ -221,6 +221,13 @@ async function createMeeting(env: MeetEnv, user: { email: string; name: string }
   }
   if (withGuests) rows.push(env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(id), env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(id, gkey));
   await env.DB.batch(rows);
+  if (!startsAt && invitees.length && b.notify !== false) {
+    const host = user.name || user.email;
+    for (const i of invitees) {
+      const url = i.guest && withGuests ? `${origin}/meet/g/?m=${id}&k=${gkey}` : `${origin}/meet/room/?m=${id}`;
+      await sendReminder(env, [i.email], { title, startsAt: nowIso(), roomUrl: url, backup: '', rec, kind: 'now', host }).catch(() => undefined);
+    }
+  }
   return { ok: true, meeting: publicMeeting(await getMeeting(env, id), user), calendar: !!eventId };
 }
 
@@ -970,7 +977,7 @@ async function joinGuest(env: MeetEnv, id: string, b: Record<string, unknown>, i
   const m = await getMeeting(env, id);
   if (m.access !== 'guests' || !sameKey(await keyOf(env, id), clean(b.k, 64)) || m.status === 'cancelled') throw new HttpError(404, 'not_found', 'That link does not work. Ask the host for a new one.');
   if (m.status === 'ended') throw new HttpError(410, 'ended', 'This meeting has ended.');
-  if (m.starts_at && Date.now() < Date.parse(m.starts_at) - 30 * 60_000) throw new HttpError(403, 'early', 'This meeting has not started. Come back closer to the start time.');
+  if (m.status !== 'live' && m.starts_at && Date.now() < Date.parse(m.starts_at) - 30 * 60_000) throw new HttpError(403, 'early', 'This meeting has not started. Come back closer to the start time.');
   if (m.locked) throw new HttpError(403, 'locked', 'The host locked this meeting.');
   const name = clean(b.name, 60);
   if (name.length < 2) throw new HttpError(400, 'name', 'Type your name so the host knows who you are.');

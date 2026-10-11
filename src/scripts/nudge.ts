@@ -112,7 +112,7 @@ function askLink() {
   if (!hasNotifications() || Notification.permission !== 'default') return;
   if (!location.pathname.startsWith('/meet')) return;
   if (localStorage.getItem(ASKED)) return;
-  const main = document.getElementById('h-content');
+  const main = document.querySelector('#meet-root .mt-card') || document.getElementById('h-content');
   if (!main || document.getElementById('nudge-ask')) return;
   const p = document.createElement('p');
   p.id = 'nudge-ask';

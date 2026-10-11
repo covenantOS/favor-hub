@@ -447,3 +447,10 @@ body.meet-guest .h-app.is-room .h-page { flex: 1; min-height: 0; padding: 10px 1
 .rm-top .rm-bar { flex-wrap: nowrap; }
 .rec-confirm .modal__body { gap: 12px; }
 .rec-confirm .h-btn[data-x="yes"] { background: #8a3b22; border-color: #8a3b22; color: #fff; }
+
+/* 2026-10-10: empty toasts never show; past booking cells; guest link box; the alerts link inside the ended card. */
+.toast:empty { display: none; }
+.fb td.c.is-past { background: repeating-linear-gradient(135deg, #eeeae0 0 4px, #f6f3ec 4px 8px); cursor: not-allowed; }
+.mt-guestlink { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; width: 100%; margin-top: 4px; }
+.mt-guestlink input { min-width: 0; height: 34px; border: 1px solid var(--h-line); border-radius: 8px; padding: 0 10px; font: 13px var(--h-font); color: var(--h-ink); background: #fff; }
+.mt-ended .nudge-ask { margin: 4px 0 0; }

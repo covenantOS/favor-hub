@@ -6,6 +6,8 @@ const KEY = 'meet.home.v1';
 const TTL = 20000;
 const REPEAT = { weekly: 'Repeats every week', biweekly: 'Repeats every two weeks', monthly: 'Repeats every month' };
 let people = new Map();
+let GUESTS_ON = false;
+api('meetings/bookstatus').then((r) => { GUESTS_ON = !!r.guestsEnabled; }).catch(() => {});
 const clip = (t, n) => { t = (t || '').trim(); if (t.length <= n) return t; const c = t.slice(0, n); return c.slice(0, c.lastIndexOf(' ')) + '...'; };
 const nameOf = (i) => { const e = String(i.email || '').toLowerCase(); return (e && people.get(e)?.name) || i.name || i.email || ''; };
 
@@ -53,7 +55,8 @@ const sub = (m) => {
   return bits.join(', ');
 };
 const repeats = (m) => Boolean(m.repeat && m.repeat !== 'none');
-const mine = (m) => (m.mine && m.startsAt && m.status === 'scheduled' ? `${repeats(m) ? '' : `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/book/?edit=${m.id}">Move</a>`}<button class="h-btn h-btn--ghost h-btn--sm" data-cancel="${m.id}" data-series="${repeats(m) ? 1 : 0}">Cancel</button>` : '');
+const guestBtn = (m) => (m.mine && m.status !== 'ended' && m.status !== 'cancelled' && (m.access === 'guests' || GUESTS_ON) ? `<button class="h-btn h-btn--ghost h-btn--sm" data-glink="${m.id}">${ic('link')}Guest link</button>` : '');
+const mine = (m) => guestBtn(m) + (m.mine && m.startsAt && m.status === 'scheduled' ? `${repeats(m) ? '' : `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/book/?edit=${m.id}">Move</a>`}<button class="h-btn h-btn--ghost h-btn--sm" data-cancel="${m.id}" data-series="${repeats(m) ? 1 : 0}">Cancel</button>` : '');
 const row = (m) => {
   const when = m.startsAt || m.createdAt;
   const live = m.status === 'live';
@@ -103,6 +106,11 @@ function draw(up, notes, me, cal) {
     try { await api('meetings/calendar/switch', { method: 'POST', body: { eventId: b.dataset.switch } }); toast('Moved to Favor Meetings'); load(true); } catch (e) { b.disabled = false; if (e.code === 'consent') location.href = '/api/google/connect?add=meetings&next=' + encodeURIComponent('/meet/'); else toast(e.message); }
   }));
   root.querySelectorAll('[data-cancel]').forEach((b) => b.addEventListener('click', () => askCancel(b)));
+  root.querySelectorAll('[data-glink]').forEach((b) => b.addEventListener('click', () => {
+    api('meetings/' + b.dataset.glink + '/guestlink', { method: 'POST', body: {} })
+      .then((g) => navigator.clipboard.writeText(g.url).then(() => toast('Guest link copied')))
+      .catch((e) => toast(e.message));
+  }));
 }
 
 // Cancel asks in the page: the button becomes one line with Yes and Keep it.

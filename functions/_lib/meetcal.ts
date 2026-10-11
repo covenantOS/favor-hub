@@ -122,13 +122,13 @@ function zoneTime(iso: string, zone: string): string {
   return new Date(iso).toLocaleString('en-US', { timeZone: zone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
-export async function sendReminder(env: MeetEnv, to: string[], m: { title: string; startsAt: string; roomUrl: string; backup: string; rec: string; kind: 'day' | 'soon'; host: string }): Promise<void> {
+export async function sendReminder(env: MeetEnv, to: string[], m: { title: string; startsAt: string; roomUrl: string; backup: string; rec: string; kind: 'day' | 'soon' | 'now'; host: string }): Promise<void> {
   const key = env.RESEND_API_KEY;
   if (!key || !to.length) return;
   const from = env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>';
-  const lead = m.kind === 'day' ? 'Tomorrow' : 'Starting in 15 minutes';
+  const lead = m.kind === 'day' ? 'Tomorrow' : m.kind === 'now' ? `${m.host} started a meeting` : 'Starting in 15 minutes';
   const day = new Date(m.startsAt).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
-  const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
+  const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : m.kind === 'now' ? `Join now: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
   const rec = m.rec === 'video' ? 'This meeting is recorded on video and written up in the hub.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
   const eastern = whenLine(m.startsAt);
   const local = `Kampala ${zoneTime(m.startsAt, 'Africa/Kampala')}, Juba ${zoneTime(m.startsAt, 'Africa/Juba')}`;

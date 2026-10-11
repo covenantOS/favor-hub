@@ -48,8 +48,9 @@ function ended(msg, sub, opts = {}) {
   const notes = () => S.meeting && S.meeting.notesStatus && S.meeting.notesStatus !== 'none';
   const canRejoin = !opts.noRejoin && !(S.meeting && S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000);
   const links = () => (GUEST || opts.saving ? '' : `<a class="h-btn ${canRejoin ? 'h-btn--ghost' : 'h-btn--primary'}" href="/meet/">Back to meetings</a>${notes() ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`);
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : !GUEST && notes() ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap" id="end-acts">${canRejoin ? '<button class="h-btn h-btn--primary" id="rejoin-btn">Rejoin</button>' : ''}<span id="end-links" style="display:contents">${links()}</span></div></div>`;
+  root.innerHTML = `<div class="h-card mt-card mt-ended" style="max-width:560px;margin:12vh auto 20px;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : !GUEST && notes() ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap" id="end-acts">${canRejoin ? '<button class="h-btn h-btn--primary" id="rejoin-btn">Rejoin</button>' : ''}<span id="end-links" style="display:contents">${links()}</span></div></div>`;
   const rj = $('#rejoin-btn'); if (rj) { rj.addEventListener('click', rejoinAfterLeave); rj.focus(); }
+  const ask = document.getElementById('nudge-ask'); const card = root.querySelector('.mt-ended'); if (ask && card) card.appendChild(ask);
   // The meeting row from join time is stale by now. Read it again so the notes link shows when notes exist.
   if (!GUEST && MID) api('meetings/' + MID).then((r) => {
     if (!r.meeting) return; S.meeting = r.meeting;

@@ -16,11 +16,12 @@ const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', mo
 const parts = (t) => { const f = fmt.formatToParts(new Date(t)); const g = (k) => Number(f.find((x) => x.type === k).value); return { y: g('year'), mo: g('month'), d: g('day'), h: g('hour'), mi: g('minute') }; };
 function etInstant(y, mo, d, h, mi) { let t = Date.UTC(y, mo - 1, d, h, mi); for (let k = 0; k < 3; k++) { const p = parts(t); t += Date.UTC(y, mo - 1, d, h, mi) - Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi); } return t; }
 function weekDays(offset) {
-  // Five weekdays: the next five from today (offset 0), then five more per page.
+  // Seven days starting today (offset 0), then seven more per page. Weekends show; past times cannot be picked.
   const out = []; const p = parts(Date.now()); const c = new Date(Date.UTC(p.y, p.mo - 1, p.d, 12));
-  const nowMin = p.h * 60 + p.mi; if (nowMin > 15 * 60) c.setUTCDate(c.getUTCDate() + 1);
-  while (out.length < 5 + offset * 5) { const wd = c.getUTCDay(); if (wd !== 0 && wd !== 6) out.push({ y: c.getUTCFullYear(), mo: c.getUTCMonth() + 1, d: c.getUTCDate(), wd }); c.setUTCDate(c.getUTCDate() + 1); }
-  return out.slice(offset * 5);
+  if (p.h * 60 + p.mi >= 19 * 60) c.setUTCDate(c.getUTCDate() + 1);
+  c.setUTCDate(c.getUTCDate() + offset * 7);
+  while (out.length < 7) { out.push({ y: c.getUTCFullYear(), mo: c.getUTCMonth() + 1, d: c.getUTCDate(), wd: c.getUTCDay() }); c.setUTCDate(c.getUTCDate() + 1); }
+  return out;
 }
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const hourLabel = (h) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
@@ -111,6 +112,7 @@ function busyCount(startMs, endMs) { return emailsAll().filter((e) => busyAt(e, 
 function slotsFor(days) {
   const out = []; const step = 30 * 60000; const dur = S.dur * 60000; const now = Date.now() + 30 * 60000;
   for (const d of days) for (const [h, mi] of HOURS) {
+    if (d.wd === 0 || d.wd === 6) continue;
     const s = etInstant(d.y, d.mo, d.d, h, mi); const e = s + dur; if (s < now) continue;
     if (parts(e - 1).h >= 17 && parts(e).h !== 17) continue; // keep inside the working day
     if (h * 60 + mi + S.dur > 17 * 60 + 30) continue;
@@ -148,7 +150,7 @@ function draw() {
       ${S.guestsOn ? `<div><h3 class="mt-h3">Guests from outside Favor</h3><div class="mt-add"><input id="addg" placeholder="Email address" /><button class="h-btn h-btn--ghost h-btn--sm" id="addgbtn">${ic('plus')}Add guest</button></div></div>` : ''}
     </section><aside class="mt-stack"><div class="mt-note">Reads free and busy times only.</div>
       <div class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">How long</div><div class="mt-seg">${[30, 45, 60, 90].map((d) => `<button class="${S.dur === d ? 'is-on' : ''}" data-dur="${d}">${d} min</button>`).join('')}</div></div></aside></div>
-      <div class="mt-foot"><button class="h-btn h-btn--primary" data-step="2" ${hasWho() ? '' : 'disabled'}>Find times${ic('chev')}</button></div>`;
+      <div class="mt-foot"><button class="h-btn h-btn--ghost" id="startnow" ${hasWho() ? '' : 'disabled'}>${ic('video')}Start now</button><button class="h-btn h-btn--primary" data-step="2" ${hasWho() ? '' : 'disabled'}>Find times${ic('chev')}</button></div>`;
   } else if (S.step === 2 && S.fb === 'consent') {
     body = `<div class="mt-note mt-note--gold" style="margin-bottom:10px"><b>Allow calendar access once.</b> ${esc(S.fbMsg || 'Favor needs to read free and busy times and add the meeting to your calendar.')} <a class="h-btn h-btn--primary h-btn--sm" href="/api/google/connect?add=meetings&next=${encodeURIComponent(EDIT ? '/meet/book/?edit=' + EDIT : '/meet/book/')}" id="allow">Allow in Google</a></div>
       <div class="mt-foot">${EDIT ? '<a class="h-btn h-btn--ghost" href="/meet/">Cancel</a>' : `<button class="h-btn h-btn--ghost" data-step="1">${ic('back')}Back</button>`}</div>`;
@@ -158,8 +160,8 @@ function draw() {
     const slots = S.fb === 'ok' || S.fb === 'error' ? slotsFor(days).slice(0, 4) : [];
     const total = emailsAll().length;
     const pickCell = S.start ? null : slots[0];
-    const cell = (d, [h, mi]) => { const s = etInstant(d.y, d.mo, d.d, h, mi); const n = S.fb === 'ok' ? busyCount(s, s + 1800000) : 0; const b = n === 0 ? 0 : n / total < 0.25 ? 1 : n / total < 0.5 ? 2 : 3; const sel = S.start && s >= Date.parse(S.start) && s < Date.parse(S.start) + S.dur * 60000; const pick = slots.some((x) => x.s === s); const first = S.start ? s === Date.parse(S.start) : pickCell ? s === pickCell.s : h === HOURS[0][0] && mi === 0 && d === days[0]; const label = `${WD[d.wd]} ${d.mo}/${d.d}, ${hourLabel(h)}${mi ? ':30' : ''}${n ? `, ${n} of ${total} busy` : ''}`; return `<td class="c${sel ? ' is-sel' : ''}${pick && !sel ? ' is-pick' : ''}" role="gridcell" tabindex="${first ? 0 : -1}" aria-selected="${sel ? 'true' : 'false'}" aria-label="${esc(label)}" data-b="${b}" data-at="${new Date(s).toISOString()}" title="${esc(label)}"></td>`; };
-    body = `<div class="mt-grid"><section class="h-card mt-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><h3 class="mt-h3" style="margin:0">${S.week ? 'Week ' + (S.week + 1) : 'The next five working days'}, ${total} people, ${S.dur} minutes</h3><span style="display:flex;gap:6px;align-items:center"><span class="mt-sub">Eastern time</span><button class="icon-b" data-week="-1" ${S.week ? '' : 'disabled'} aria-label="Earlier">${ic('chevl')}</button><button class="icon-b" data-week="1" aria-label="Later">${ic('chev')}</button></span></div>
+    const cell = (d, [h, mi]) => { const s = etInstant(d.y, d.mo, d.d, h, mi); if (s + 1800000 <= Date.now()) return `<td class="c is-past" role="gridcell" aria-disabled="true" tabindex="-1"></td>`; const n = S.fb === 'ok' ? busyCount(s, s + 1800000) : 0; const b = n === 0 ? 0 : n / total < 0.25 ? 1 : n / total < 0.5 ? 2 : 3; const sel = S.start && s >= Date.parse(S.start) && s < Date.parse(S.start) + S.dur * 60000; const pick = slots.some((x) => x.s === s); const first = S.start ? s === Date.parse(S.start) : pickCell ? s === pickCell.s : h === HOURS[0][0] && mi === 0 && d === days[0]; const label = `${WD[d.wd]} ${d.mo}/${d.d}, ${hourLabel(h)}${mi ? ':30' : ''}${n ? `, ${n} of ${total} busy` : ''}`; return `<td class="c${sel ? ' is-sel' : ''}${pick && !sel ? ' is-pick' : ''}" role="gridcell" tabindex="${first ? 0 : -1}" aria-selected="${sel ? 'true' : 'false'}" aria-label="${esc(label)}" data-b="${b}" data-at="${new Date(s).toISOString()}" title="${esc(label)}"></td>`; };
+    body = `<div class="mt-grid"><section class="h-card mt-card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><h3 class="mt-h3" style="margin:0">${S.week ? 'Week ' + (S.week + 1) : 'The next seven days'}, ${total} people, ${S.dur} minutes</h3><span style="display:flex;gap:6px;align-items:center"><span class="mt-sub">Eastern time</span><button class="icon-b" data-week="-1" ${S.week ? '' : 'disabled'} aria-label="Earlier">${ic('chevl')}</button><button class="icon-b" data-week="1" aria-label="Later">${ic('chev')}</button></span></div>
       ${S.fb === 'loading' ? '<p class="mt-sub">Reading calendars.</p>' : ''}
       ${S.fb === 'error' ? `<div class="mt-note mt-note--gold" style="margin-bottom:10px">${esc(S.fbMsg || 'Calendars did not load.')} You can still pick a time below.</div>` : ''}
       ${S.fb === 'ok' && unk.length ? `<p class="mt-sub" style="margin:0 0 8px">${esc(listNames(unk))}: calendar could not be read, so ${unk.length === 1 ? 'that time is' : 'those times are'} not checked.</p>` : ''}
@@ -211,6 +213,7 @@ root.addEventListener('click', async (e) => {
   else if (t.dataset.rm) { S.people.delete(t.dataset.rm); draw(); }
   else if (t.dataset.rg) { S.guests.splice(Number(t.dataset.rg), 1); draw(); }
   else if (t.id === 'addbtn') { const v = ($('#addp').value || '').trim().toLowerCase(); if (!v) return; const p = S.dir.find((x) => x.name.toLowerCase() === v) || S.dir.find((x) => x.name.toLowerCase().includes(v) || x.email.toLowerCase() === v); if (p) addPerson(p); else if (/^[^@\s]+@favorintl\.org$/.test(v)) addPerson(personByEmail(v)); else { toast('No one on staff by that name. Type a full Favor email address.'); return; } $('#addp').value = ''; draw(); }
+  else if (t.id === 'startnow') { startNow_(t); }
   else if (t.id === 'addgbtn') { const v = ($('#addg').value || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) { toast('Type a full email address'); return; } if (/@favorintl\.org$/.test(v)) { addPerson(personByEmail(v)); } else if (!S.guests.includes(v)) S.guests.push(v); $('#addg').value = ''; draw(); }
   else if (t.dataset.dur) { S.dur = Number(t.dataset.dur); S.busyKey = ''; draw(); }
   else if (t.dataset.step) {
@@ -247,6 +250,20 @@ function capture() {
   if ($('#ag')) S.agenda = $('#ag').value;
 }
 
+async function startNow_(btn) {
+  capture();
+  btn.disabled = true;
+  try {
+    const guests = S.guestsOn ? S.guests : [];
+    const r = await api('meetings', { method: 'POST', body: {
+      title: S.title.trim() || defaultTitle() || 'Meeting', rec: S.rec, access: 'invited',
+      invitees: [...invited().map((p) => ({ email: p.email, name: p.name, team: p.team })), ...guests.map((g) => ({ email: g, name: g, guest: true }))],
+    } });
+    sessionStorage.removeItem('meet.book');
+    location.href = '/meet/room/?m=' + r.meeting.id;
+  } catch (e) { btn.disabled = false; toast(e.message); }
+}
+
 async function confirm_() {
   capture();
   if (!S.start) { toast('Pick a time first.'); return; }
@@ -258,6 +275,12 @@ async function confirm_() {
       invitees: [...invited().map((p) => ({ email: p.email, name: p.name, team: p.team })), ...guests.map((g) => ({ email: g, name: g, guest: true }))],
     } });
     sessionStorage.removeItem('meet.book'); S.booked = r; draw();
+    if (guests.length) api('meetings/' + r.meeting.id + '/guestlink', { method: 'POST', body: {} }).then((g) => {
+      const box = document.createElement('div'); box.className = 'mt-guestlink';
+      box.innerHTML = `<span class="h-label">Guest link</span><input readonly value="${esc(g.url)}" aria-label="Guest link"><button class="h-btn h-btn--ghost h-btn--sm" type="button">${ic('link')}Copy</button>`;
+      box.querySelector('button').addEventListener('click', () => { navigator.clipboard.writeText(g.url).then(() => toast('Guest link copied')); });
+      const done = document.querySelector('.done-ic'); (done ? done.parentElement : root).appendChild(box);
+    }).catch(() => {});
   } catch (e) {
     btn.disabled = false; btn.innerHTML = `${ic('check')}Book it and send invites`;
     if (e.code === 'consent') { S.fb = 'consent'; S.fbMsg = e.message; S.step = 2; save(); draw(); } else toast(e.message);
