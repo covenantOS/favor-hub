@@ -148,7 +148,9 @@ function teamBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
     }
   }
   const people = [...by.values()].sort((a, b) => b.overdue - a.overdue || b.open - a.open).slice(0, 14);
-  return { people, total: by.size };
+  // Each action once, the same rows the Open actions tab counts, so the card's chip equals Today's work and the board.
+  const all = { open: board.rows.length, overdue: board.rows.filter((r) => r.due && dayDiff(r.due, board.today) < 0).length, ty: board.rows.filter((r) => r.ty).length };
+  return { people, total: by.size, all };
 }
 
 async function recentBlock(ctx: Ctx) {

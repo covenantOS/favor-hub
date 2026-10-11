@@ -198,11 +198,12 @@
     const t = w && w.team;
     card.hidden = !t || !t.people.length;
     if (card.hidden) return;
-    const over = t.people.reduce((n, p) => n + p.overdue, 0);
+    const over = t.all ? t.all.overdue : t.people.reduce((n, p) => n + p.overdue, 0);
     $('wh-team-chips').innerHTML = over ? `<a class="r2t-chip r2t-chip--late" href="/work/?view=open&quick=past"><i></i>${n0(over)} overdue</a>` : '';
     const TEAM = { rdd: 'RDD', church: 'Church Engagement', partner_care: 'Partner Care', support: 'Support', grants: 'Grants', exec: 'Executive', admin: 'Operations' };
     $('wh-team-table').innerHTML = '<thead><tr><th>Person</th><th>Team</th><th class="n">Open</th><th class="n">Overdue</th><th class="n">Thank-yous</th></tr></thead><tbody>'
-      + t.people.map((p) => `<tr><td><a href="/work/?view=open&fr=${esc(p.fid)}">${esc(p.name)}</a></td><td>${esc(TEAM[p.team] || p.team || '')}</td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}">${n0(p.open)}</a></td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}&quick=past" class="${p.overdue ? 'wh-late' : ''}">${n0(p.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${n0(p.ty)}</a></td></tr>`).join('') + '</tbody>';
+      + t.people.map((p) => `<tr><td><a href="/work/?view=open&fr=${esc(p.fid)}">${esc(p.name)}</a></td><td>${esc(TEAM[p.team] || p.team || '')}</td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}">${n0(p.open)}</a></td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}&quick=past" class="${p.overdue ? 'wh-late' : ''}">${n0(p.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${n0(p.ty)}</a></td></tr>`).join('') + '</tbody>'
+      + (t.all ? `<tfoot><tr><td>Everyone</td><td>Each action once</td><td class="n"><a href="/work/?view=open">${n0(t.all.open)}</a></td><td class="n"><a href="/work/?view=open&quick=past">${n0(t.all.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${n0(t.all.ty)}</a></td></tr></tfoot>` : '');
   }
 
   function paint(d) {
