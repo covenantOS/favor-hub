@@ -177,3 +177,4 @@
   .wh-card .r2t-ch .h-link { white-space: nowrap; order: 2; }
   .wh-card .r2t-ch .wh-chips { order: 3; flex: 1 0 100%; margin-left: 0; }
 }
+@media (max-width: 860px) { .wh-tool__l { white-space: normal; line-height: 1.2; } }
