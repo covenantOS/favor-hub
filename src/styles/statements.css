@@ -61,6 +61,8 @@
 .stm-words td { line-height: 1.5; }
 
 @media (max-width: 720px) {
+  .stm-lines th:nth-child(2), .stm-lines td:nth-child(2), .stm-lines th:nth-child(4), .stm-lines td:nth-child(4) { display: none; }
+  .stm-table td:first-child { white-space: nowrap; }
   .stm-controls > * { flex: 1 1 100%; }
   .stm-controls select, .stm-controls input[type='date'] { min-width: 0; width: 100%; }
   .stm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }

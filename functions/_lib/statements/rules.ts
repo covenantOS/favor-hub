@@ -251,7 +251,7 @@ export function composeStatement(partner: PartnerInfo, gifts: RawGift[], from: s
   if (n('declined')) out.notes.push(`${n('declined')} declined card recorded with an amount is left off. Settle it in Blackbaud before this statement goes out.`);
   if (out.gifts.some((l) => l.flags.includes('noncash'))) out.notes.push('A stock or in-kind gift is on the list. The non-cash note prints under it.');
   if (out.gifts.some((l) => l.flags.includes('split'))) out.notes.push('A gift with a part in a non-deductible fund is shown in two lines.');
-  if (out.refunds.length) out.notes.push(`${out.refunds.length} refund${out.refunds.length === 1 ? '' : 's'} reduce the net total.`);
+  if (out.refunds.length) out.notes.push(out.refunds.length === 1 ? '1 refund reduces the net total.' : `${out.refunds.length} refunds reduce the net total.`);
   if (n('soft_hidden')) out.notes.push(`${n('soft_hidden')} gift${n('soft_hidden') === 1 ? '' : 's'} given through another record and soft-credited to this partner ${n('soft_hidden') === 1 ? 'is' : 'are'} not shown. Turn on the soft credit section to list them.`);
   return out;
 }

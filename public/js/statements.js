@@ -199,7 +199,7 @@
   function lineTable(title, lines, opt = {}) {
     if (!lines.length) return '';
     return `<h3 class="stm-h">${esc(title)}</h3>
-      <div class="fnd-table-wrap"><table class="exp-admin-table sc-table stm-table">
+      <div class="fnd-table-wrap"><table class="exp-admin-table sc-table stm-table stm-lines">
         <thead><tr><th>Date</th><th>Gift ID</th><th>Designation</th><th>Type</th><th class="r">Amount</th></tr></thead>
         <tbody>${lines
           .map(
