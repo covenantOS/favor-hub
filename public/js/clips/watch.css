@@ -211,3 +211,11 @@ body { margin: 0; min-height: 100vh; font: 15px/1.55 Inter, system-ui, sans-seri
 
 /* menus inside the transcript tools open downward, so the tabs above never cover them */
 .cw-trbtns .cw-menu { top: calc(100% + 6px); bottom: auto; right: 0; left: auto; min-width: 190px; }
+
+/* 2026-10-10 polish: on a phone the six reactions fill one row and Comment gets its own row under them. */
+@media (max-width: 480px) {
+  .cw-reacts { width: 100%; justify-content: space-between; border-radius: 22px; padding: 4px 6px; }
+  .cw-rx button { min-width: 38px; padding: 0 4px; font-size: 22px; }
+  .cw-rsep { display: none; }
+  .cw-cbtn { flex: 1 1 100%; justify-content: center; border-top: 1px solid var(--w-line2); border-radius: 0 0 18px 18px; margin-top: 2px; }
+}

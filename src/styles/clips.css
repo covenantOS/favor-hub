@@ -71,3 +71,13 @@
 .cl-ppl__r em { font-style: normal; color: var(--h-ink-3); font-size: 12px; }
 .cl-tag { font-style: normal; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--h-red-soft, #f6e7df); color: #7a3320; }
 @media (max-width: 700px) { .cl-ppl__h { display: none; } .cl-ppl__r { grid-template-columns: 1fr 1fr; } .cl-old li { grid-template-columns: 1fr auto; } .cl-old li span { display: none; } }
+
+/* 2026-10-10 polish: the page fills the width like the other Meetings pages; the admin link lines up with the search box. */
+.cl { max-width: none; }
+.cl-lede { max-width: 68ch; }
+@media (max-width: 640px) {
+  .cl-head { flex-wrap: wrap; }
+  .cl-head .h-btn { width: 100%; justify-content: center; }
+  .cl-adminlink { padding: 0; min-height: 44px; display: inline-flex; align-items: center; }
+}
+.cl-empty .h-btn { margin-top: 12px; }

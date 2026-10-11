@@ -60,7 +60,7 @@ function paintUsage() {
       : '';
     return;
   }
-  if (!usage) return (box.hidden = true);
+  if (!usage || !usage.clips) return (box.hidden = true);
   box.hidden = false;
   const old = (usage.oldestUnwatched || [])
     .map((c) => `<li data-id="${c.id}"><a href="/c/${c.id}">${esc(c.title || 'Untitled clip')}</a><span>${esc(et(c.created_at, { month: 'short', day: 'numeric', year: 'numeric' }))} · ${esc(fmtBytes(c.size_bytes))}</span><button type="button" class="h-btn h-btn--ghost h-btn--sm cl-danger" data-act="delete-old">Delete</button></li>`)
@@ -79,7 +79,7 @@ function paint() {
     box.innerHTML = rows.map(cardHtml).join('');
   } else {
     box.className = '';
-    box.innerHTML = `<div class="h-card cl-empty">${q ? 'No clip matches that search.' : ADMIN_VIEW ? 'No clips have been recorded yet.' : 'You have not recorded a clip yet. Press the camera at the top right of any page to record your first one.'}</div>`;
+    box.innerHTML = `<div class="h-card cl-empty">${q ? 'No clip matches that search.' : ADMIN_VIEW ? 'No clips have been recorded yet.' : 'No clips yet.'}${!q && !ADMIN_VIEW ? '<div><button type="button" class="h-btn h-btn--primary" data-act="empty-record">Record a clip</button></div>' : ''}</div>`;
   }
   clearTimeout(poll);
   if (rows.some((c) => c.status === 'processing')) poll = setTimeout(() => load(true), 4000);
@@ -211,12 +211,13 @@ function wire() {
       load();
     }, 250);
   });
+  document.addEventListener('click', (ev) => { if (ev.target.closest('[data-act=empty-record]')) { const n = $('cl-new'); if (n) n.click(); } });
   const nb = $('cl-new');
   if (nb) {
     nb.addEventListener('click', () => {
       const b = document.getElementById('clip-cam');
       if (b && !b.hidden) b.click();
-      else toast('The camera button at the top right opens the recorder.');
+      else window.open('/clips/rec/', 'clip-recorder', 'popup,width=440,height=700') || (location.href = '/clips/rec/');
     });
   }
   // Deleting one of the oldest clips nobody watched, from the storage note.

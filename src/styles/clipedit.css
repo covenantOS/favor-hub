@@ -109,3 +109,5 @@
   .ce-trbody { max-height: 34vh; }
   #ce-zoom { width: 90px; }
 }
+.ce-msg { display: grid; gap: 12px; justify-items: center; }
+.ce-msg h2, .ce-msg p { margin: 0; }

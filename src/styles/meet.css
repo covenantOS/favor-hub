@@ -517,3 +517,28 @@ body.h-body[data-area='meet'] .mt-grid > *, body.h-body[data-area='meet'] .mt-st
 .rm-foot { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px; }
 .mt-card > .nudge-ask, .h-card > .nudge-ask { margin: 0 0 12px; }
 .dv-card > .nudge-ask { margin: 0; padding: 12px 16px 0; }
+
+/* 2026-10-10 polish pass (Meetings and Clips UX) */
+/* The sound player kept its height on a phone: the phone rule that gives buttons a 44px floor was beating min-height 210px. */
+.h-page .player.is-sound { min-height: 210px; }
+@media (max-width: 860px) {
+  /* Room top bar on a phone: the title gets a line of its own, the status and tools share the next one. */
+  .rm-top { flex-wrap: wrap; padding: 8px 10px 0 0; row-gap: 2px; }
+  .rm-top .rm-bar { display: contents; }
+  .rm-top .rm-bar > b { flex: 1 1 100%; padding: 0 12px; font-size: 17px; }
+  .rm-top .rm-bar > :not(b) { margin-left: 0; }
+  .rm-top .rm-bar > :nth-child(2) { margin-left: 12px; }
+  .rm-top .rm-tools { margin-left: auto; }
+  .rt { height: 40px; min-width: 40px; }
+  /* The host menu for a person opens as a sheet above the control bar, so it is never cut off by the panel. */
+  .menu { position: fixed; left: 12px; right: 12px; top: auto; bottom: calc(var(--ctl-h, 76px) + 10px); width: auto; max-height: 58dvh; overflow-y: auto; z-index: 90; padding: 8px; }
+  .menu button { padding: 12px 12px; font-size: 15px; min-height: 44px; }
+  .lb-line { flex-direction: column; gap: 2px; }
+}
+.lb-line { flex-wrap: wrap; }
+/* Guests get the same teal buttons as staff. */
+body.meet-guest .h-btn--primary { background: #1f7a78; border-color: #1f7a78; color: #fff; }
+body.meet-guest .h-btn--primary:hover { background: #165a58; }
+@media (max-width: 860px) { body.meet-guest .h-app.is-room .h-top { display: none; } }
+/* Lobby, ended and error cards keep a margin from the screen edge on a phone (the room page has no side padding). */
+@media (max-width: 860px) { body:not(.meet-guest) .meet-room > .h-card.mt-card { margin-left: 12px !important; margin-right: 12px !important; } body:not(.meet-guest) .meet-room > .h-card.mt-ended { margin-top: 8vh !important; } }

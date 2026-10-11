@@ -166,3 +166,12 @@
   .dv-day { min-height: 64px; }
   .dv-conn .dv-btn { width: 100%; }
 }
+
+/* 2026-10-10 polish: the timeline fits the screen under the header so the current hour is in view, and a week fits a phone. */
+.dv-tl { height: clamp(420px, calc(100dvh - 300px), 820px); }
+@media (max-width: 720px) {
+  .dv-days { gap: 2px; overflow-x: visible; }
+  .dv-day { flex: 1 1 0; width: auto; min-width: 0; }
+  .dv-tl { height: 560px; }
+}
+@media (max-width: 600px) { .h-top a[href="/meet/book/"] .h-lbl { display: inline; } }
