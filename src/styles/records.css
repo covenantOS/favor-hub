@@ -188,3 +188,7 @@
 .bu-mail { color: var(--h-ink-3); font-size: 13px; }
 .bu-none { color: var(--h-ink-3); font-size: 13px; }
 @media (max-width: 640px) { .bu-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } .bu-asof { margin-left: 0; flex-basis: 100%; } }
+
+#bu-table td:first-child { min-width: 230px; }
+#bu-table td:last-child { white-space: nowrap; }
+#bu-table .bu-chip { white-space: nowrap; }

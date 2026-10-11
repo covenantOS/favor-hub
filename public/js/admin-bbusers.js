@@ -21,7 +21,7 @@
     });
     $('bu-body').innerHTML = list.length ? list.map(function (u) {
       var re = u.access.renxt ? chip(u.access.renxt, u.access.renxt === 'Admin' ? 'bu-chip--gold' : '') : '<span class="bu-none">None</span>';
-      var other = Object.keys(OTHER).filter(function (k) { return u.access[k]; }).map(function (k) { return chip(OTHER[k] + ' ' + u.access[k]); }).join('') + u.admin.map(function (a) { return chip(a + ' admin', 'bu-chip--gold'); }).join('');
+      var other = Object.keys(OTHER).filter(function (k) { return u.access[k]; }).map(function (k) { return chip(OTHER[k] + ' ' + u.access[k]); }).join('') + u.admin.filter(function (a) { return a === 'Organization'; }).map(function (a) { return chip('Organization admin', 'bu-chip--gold'); }).join('');
       return '<tr><td data-label="User"><b>' + A.esc(u.name) + '</b><br><span class="bu-mail">' + A.esc(u.email) + '</span></td><td data-label="Raiser\'s Edge NXT">' + re + '</td><td data-label="Other products">' + (other || '<span class="bu-none">None</span>') + '</td><td data-label="Status">' + chip(u.active ? 'Active' : 'Inactive', u.active ? 'bu-chip--ok' : '') + '</td></tr>';
     }).join('') : '<tr><td colspan="4" class="au-empty">' + (D.users.length ? 'No user matches.' : 'The users page has not been read yet.') + '</td></tr>';
   }
