@@ -167,7 +167,7 @@
         <div class="r2t-bar r2t-bar--lg"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
         <div class="r2t-goal"><span>${pct.toFixed(1)}% of the ${money0(s.goal)} goal</span>${delta ? `<span class="r2t-delta">${delta}</span>` : ''}</div>
         ${strip}
-        <div class="r2t-open"><a class="h-btn h-btn--sm" href="/dashboard/">Open the KPI dashboard</a><span class="copy-stamp" data-copy-stamp></span></div>
+        <div class="r2t-open"><a class="h-btn h-btn--primary h-btn--sm" href="/dashboard/">Open the KPI dashboard</a><span class="copy-stamp" data-copy-stamp></span></div>
       </div>
       <div><div class="r2t-lab">Team goals</div><div class="r2t-teams">${teams}</div></div>`;
     if (s.lastUpdated) $('t-fresh').textContent = `KPI dashboard, Raiser's Edge as of ${clock(s.lastUpdated)}`;
