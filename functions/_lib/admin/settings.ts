@@ -10,7 +10,7 @@ import { getRollout, GROUPS, setRollout } from '../work/digest';
 import { setSetting as actSet } from '../work/db';
 import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
 
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'chat';
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'chat' | 'projects';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {
@@ -257,6 +257,9 @@ export const DEFS: Def[] = [
   hubDef({ id: 'chat.enabled', area: 'chat', label: 'Who can use Chat', hint: 'Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'requests.notify', area: 'chat', group: 'Request board', label: 'Request notices', hint: 'Send to, @mentions, comments and Waiting on reach Today, the bell and a Chat card. Off records them on the request only.', kind: 'enum', options: ON_OFF, def: 'off' }),
   hubDef({ id: 'requests.notify.only', area: 'chat', group: 'Request board', label: 'Notices while off', hint: 'Email addresses, separated by commas, that still get request notices while the setting above is off.', kind: 'text', def: '' }),
+  // ---------------------------------------------------------------------------------------------------- Projects
+  hubDef({ id: 'projects.enabled', area: 'projects', label: 'Who can use Projects', hint: 'Admins only, every signed-in staff member, or nobody. Task notices follow the Request notices setting in Admin > Chat.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'projects.marketing_key', area: 'projects', label: 'Project for Marketing requests', hint: 'The key of the project where a Marketing request lands as a task, for example MKT. Empty leaves requests going to the form they use now.', kind: 'text', def: '' }),
   // ------------------------------------------------------------------------------------------- Thank-you receipts
   hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a receipt', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
   hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops the hub from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
