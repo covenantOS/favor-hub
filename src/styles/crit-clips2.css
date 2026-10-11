@@ -1,0 +1,113 @@
+/* Clips, critic round 2 (2026-10-11): library, admin view and editor. Loaded after clips.css and clipedit.css. */
+
+/* ---- Library ---- */
+.cl-head h1 { margin-bottom: 4px; }
+.cl-adminlink { display: inline-flex; align-items: center; min-height: 44px; padding: 0; }
+.cl-search input { height: 44px; font-size: 16px; }
+.cl-tools { display: flex; align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.cl-tools .cl-chip { height: 36px; min-width: 56px; }
+.cl-sort select { height: 44px; padding: 0 34px 0 16px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%2357524a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center; -webkit-appearance: none; appearance: none; font: 500 14px var(--h-font); color: var(--h-ink); cursor: pointer; }
+.cl-sort select:focus-visible { outline: 2px solid var(--h-brand); outline-offset: 1px; }
+#cl-select { margin-left: auto; min-height: 44px; }
+#cl-select[aria-pressed='true'] { background: var(--h-ink); color: #fff; border-color: var(--h-ink); }
+.cl-listhead { justify-content: flex-start; }
+.cl-switch { min-height: 44px; }
+.cl-btns .h-btn { min-height: 44px; }
+
+.cl-card { position: relative; }
+.cl-card.is-picking .cl-thumb, .cl-card.is-picking .cl-name a { cursor: pointer; }
+.cl-card.is-picked { box-shadow: 0 0 0 2px var(--h-brand); }
+.cl-pick { position: absolute; z-index: 5; left: 0; top: 0; width: 52px; height: 52px; display: grid; place-items: center; border: 0; background: none; padding: 0; cursor: pointer; }
+.cl-pick i { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; background: rgba(20, 19, 15, .45); box-shadow: 0 1px 4px rgba(0, 0, 0, .35); display: grid; place-items: center; }
+.cl-pick[aria-checked='true'] i { background: var(--h-brand); border-color: #fff; }
+.cl-pick[aria-checked='true'] i::after { content: ''; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: translateY(-1px) rotate(45deg); }
+.cl-pick:focus-visible i { outline: 2px solid var(--h-brand-ink); outline-offset: 2px; }
+
+.cl-selbar { position: sticky; bottom: 16px; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 8px 12px; flex-wrap: wrap; padding: 8px 10px 8px 18px; border-radius: 20px; background: #2a2722; color: #fff; box-shadow: 0 16px 44px -10px rgba(20, 19, 15, .55); }
+.cl-selbar[hidden] { display: none; }
+.cl-selcount { font: 600 14px var(--h-font); }
+.cl-selbtns { display: flex; gap: 6px; flex-wrap: wrap; }
+.cl-selbar .h-btn.h-btn--ghost { min-height: 44px; background: rgba(255, 255, 255, .12); border-color: transparent; color: #fff; }
+.cl-selbar .h-btn.h-btn--ghost:hover:not(:disabled) { background: rgba(255, 255, 255, .22); }
+.cl-selbar .h-btn.h-btn--ghost:disabled { opacity: .4; }
+.cl-selbar .h-btn.h-btn--ghost.cl-danger { color: #ffb9a6; }
+
+/* A phone card is a picture and a title side by side, with the actions as a full-width row under them. */
+@media (max-width: 640px) {
+  .cl { gap: 14px; }
+  .cl-grid { gap: 12px; }
+  .cl-card { display: grid; grid-template-columns: 128px minmax(0, 1fr); }
+  .cl-thumb { grid-column: 1; grid-row: 1; align-self: start; margin: 12px 0 0 12px; border-radius: 12px; }
+  .cl-thumb b { right: 4px; bottom: 4px; font-size: 13px; padding: 1px 6px; }
+  .cl-badge { left: 4px; top: 4px; padding: 2px 8px; }
+  .cl-body { grid-column: 2; grid-row: 1; padding: 10px 14px 0 12px; }
+  .cl-name a { font-size: 17px; }
+  .cl-acts { grid-column: 1 / -1; padding: 6px 12px 12px; gap: 6px; }
+  .cl-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .cl-btns .h-btn { justify-content: center; padding: 0 6px; }
+  .cl-rename { height: 44px; font-size: 16px; }
+  .cl-pick { left: 12px; top: 12px; width: 44px; height: 44px; }
+  .cl-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+  .cl-tools .cl-chips { grid-column: 1 / -1; display: flex; }
+  #cl-select { margin-left: 0; }
+  .cl-head { gap: 6px; }
+  .cl-tools .cl-chip { flex: 1; min-width: 0; padding: 0 10px; }
+  .cl-selbar { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); border-radius: 18px; padding: 8px; }
+  .cl-selcount { flex: 1 1 100%; padding: 4px 6px 0; }
+  .cl-selbtns { flex: 1 1 100%; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .cl-selbtns .h-btn { padding: 0 4px; justify-content: center; }
+  .cl-use { padding: 12px 14px; }
+}
+
+/* ---- Editor ---- */
+.ce-len:empty { display: none; }
+.ce-title { white-space: nowrap; }
+.ce-icon { width: 44px; height: 44px; }
+.ce-icon--s { width: 44px; height: 44px; }
+.ce-tb { min-height: 44px; }
+.ce-t { min-width: 44px; min-height: 36px; }
+@media (pointer: coarse) {
+  .ce-t { min-height: 44px; }
+  .cl-tools .cl-chip { height: 44px; }
+}
+.ce-handle { min-width: 44px; }
+.ce-handle--start { margin-left: -8px; }
+.ce-handle--end { margin-right: -8px; }
+.ce-rb { min-height: 44px; }
+
+@media (max-width: 760px) {
+  .ce-top { display: grid; grid-template-columns: 44px 44px 44px minmax(0, 1fr) auto; gap: 4px 8px; align-items: center; }
+  .ce-top > a.ce-icon { grid-area: 1 / 1; }
+  .ce-top > .ce-title { grid-area: 1 / 2 / 2 / 5; font-size: 21px; }
+  .ce-top > #ce-finish { grid-area: 1 / 5; min-height: 44px; padding: 0 22px; }
+  .ce-top > .ce-save { grid-area: 2 / 4 / 3 / 6; justify-self: end; min-width: 0; }
+  .ce-top > .ce-menuwrap { grid-area: 2 / 1; }
+  .ce-top > #ce-undo { grid-area: 2 / 2; }
+  .ce-top > #ce-redo { grid-area: 2 / 3; }
+  .ce-menu { left: 0; right: auto; top: 50px; width: min(340px, calc(100vw - 32px)); }
+  .ce-menu button { min-height: 48px; font-size: 15px; }
+  .ce-menu ul { max-height: 50vh; }
+  .ce-rail { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 8px; }
+  .ce-rb { width: 100%; justify-content: flex-start; }
+  .ce-levels { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .ce-levels button { min-height: 52px; }
+  .ce-tlbar #ce-fit, .ce-tlbar #ce-zoom { display: none; }
+  .ce-tlbar { gap: 4px; }
+  .ce-tlbar .ce-flex { display: none; }
+  .ce-tlbar .ce-total { margin-left: auto; }
+  .ce-trsearch input { height: 44px; font-size: 16px; }
+  .ce-wbtn { height: 48px; }
+}
+@media (max-width: 560px) {
+  .ce-tb { padding: 0 10px; }
+  #ce-wave { display: none; }
+}
+
+/* ---- Confirm dialog (shared by the library and the editor): a bottom sheet on a phone, 48 px buttons. ---- */
+.cl-askback .cl-ask__btns button { height: 48px; }
+@media (max-width: 560px) {
+  .cl-askback { place-items: end center; padding: 8px; }
+  .cl-askback .cl-ask { border-radius: 24px; padding: 22px 20px 20px; }
+  .cl-askback .cl-ask__btns { flex-direction: column-reverse; }
+  .cl-askback .cl-ask__btns button { width: 100%; height: 52px; font-size: 16px; }
+}

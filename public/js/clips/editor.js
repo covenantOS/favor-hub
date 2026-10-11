@@ -108,7 +108,7 @@ function setSave(state) {
   const el = $('#ce-save');
   if (!el) return;
   el.dataset.state = state;
-  el.innerHTML = `${state === 'saving' ? '<i class="ce-spin"></i>' : icon('check')}${state === 'error' ? 'Could not save. Retrying on the next change.' : state === 'saving' ? 'Saving' : 'Edits are saved automatically'}`;
+  el.innerHTML = `${state === 'saving' ? '<i class="ce-spin"></i>' : icon('check')}${state === 'error' ? 'Could not save. Retrying on the next change.' : state === 'saving' ? 'Saving' : 'Saved'}`;
 }
 
 /* ------------------------------------------------------------------ load and build */
@@ -156,7 +156,7 @@ function build() {
     <button type="button" class="h-btn h-btn--primary" id="ce-finish">Finish</button>
   </header>
   <div class="ce-work">
-    <div class="ce-stage"><video id="ce-video" controls playsinline preload="metadata" src="/api/clips/${ID}/media" ${c.hasPoster ? `poster="/api/clips/${ID}/media?poster=1"` : ''}></video><p class="ce-len" id="ce-len"></p></div>
+    <div class="ce-stage"${c.hasPoster ? ` style="background:#14130f url(/api/clips/${ID}/media?poster=1) center / contain no-repeat"` : ''}><video id="ce-video" controls playsinline preload="metadata" src="/api/clips/${ID}/media" ${c.hasPoster ? `poster="/api/clips/${ID}/media?poster=1"` : ''}></video><p class="ce-len" id="ce-len"></p></div>
     <div class="ce-tr" id="ce-trwrap">
       <div class="ce-trsearch" id="ce-trs" hidden><label><span class="ce-sr">Search the transcript</span><input id="ce-q" type="search" placeholder="Search the transcript" /></label></div>
       <div class="ce-trbody" id="ce-tr"></div>
@@ -183,7 +183,6 @@ function build() {
       <button type="button" class="ce-icon ce-icon--s" id="ce-zin" aria-label="Zoom in">${icon('plus')}</button>
     </div>
     <div class="ce-tlbox" id="ce-tlbox"><div class="ce-tlin" id="ce-tlin"></div></div>
-    <p class="ce-tip">Drag a handle to trim. Click a part, then Delete selection. Press S to split at the playhead.</p>
   </section>`;
   video = $('#ce-video');
   wire();
@@ -258,7 +257,7 @@ function paintLength() {
   const el = $('#ce-len');
   const r = keepRanges(edits(), duration());
   const len = r.length ? rangesLength(r) : duration();
-  el.innerHTML = hasEdits(edits()) ? `<s>${longTime(duration())}</s> → <b>${longTime(len)}</b>` : 'Original kept. Edits saved as a list.';
+  el.innerHTML = hasEdits(edits()) ? `<s>${longTime(duration())}</s> → <b>${longTime(len)}</b>` : '';
   $('#ce-total').textContent = fmtPrecise(len);
 }
 
@@ -570,8 +569,18 @@ function wire() {
     jumpTo(Number(b.dataset.jump));
     $('#ce-histm').hidden = true;
   });
+  const closeHist = () => {
+    $('#ce-histm').hidden = true;
+    $('#ce-hist').setAttribute('aria-expanded', 'false');
+  };
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.ce-menuwrap')) $('#ce-histm').hidden = true;
+    if (!e.target.closest('.ce-menuwrap')) closeHist();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#ce-histm').hidden) {
+      closeHist();
+      $('#ce-hist').focus();
+    }
   });
   $('#ce-fillers').addEventListener('click', () => toggleAuto('fillers'));
   $('#ce-silences').addEventListener('click', () => toggleAuto('silences'));

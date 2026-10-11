@@ -20,6 +20,21 @@ let usage = null;
 let q = '';
 let timer = 0;
 let poll = 0;
+let sort = 'new';
+let filter = 'all';
+let picking = false;
+const picked = new Set();
+
+const SORTS = {
+  new: (a, b) => String(b.created_at).localeCompare(String(a.created_at)),
+  old: (a, b) => String(a.created_at).localeCompare(String(b.created_at)),
+  views: (a, b) => Number(b.views) - Number(a.views) || String(b.created_at).localeCompare(String(a.created_at)),
+  title: (a, b) => String(a.title || 'Untitled clip').localeCompare(String(b.title || 'Untitled clip'), 'en', { sensitivity: 'base' }),
+  size: (a, b) => Number(b.size_bytes) - Number(a.size_bytes),
+  person: (a, b) => String(a.owner_name || '').localeCompare(String(b.owner_name || ''), 'en', { sensitivity: 'base' }) || String(b.created_at).localeCompare(String(a.created_at)),
+};
+/** The rows on screen: the search result, narrowed by the Shared / Private chip, in the chosen order. */
+const shown = () => rows.filter((c) => (filter === 'shared' ? c.share : filter === 'private' ? !c.share : true)).sort(SORTS[sort] || SORTS.new);
 
 function cardHtml(c) {
   const when = et(c.created_at, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -29,7 +44,9 @@ function cardHtml(c) {
   const naming = c.status === 'processing' ? '<span class="cl-badge">Writing the title</span>' : '';
   const sum = c.summary ? `<p class="cl-sum">${esc(c.summary)}</p>` : '';
   const hit = c.match ? `<a class="cl-hit" href="/c/${c.id}?t=${Math.floor(c.match.at)}"><span>${fmtTime(c.match.at)}</span>${esc(c.match.text)}</a>` : '';
-  return `<article class="h-card cl-card" data-id="${c.id}">
+  const on = picked.has(c.id);
+  return `<article class="h-card cl-card${picking ? ' is-picking' : ''}${on ? ' is-picked' : ''}" data-id="${c.id}">
+    ${picking ? `<button type="button" class="cl-pick" data-act="pick" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(c.title || 'clip')}"><i></i></button>` : ''}
     <a class="cl-thumb" href="/c/${c.id}" aria-label="Open ${esc(c.title || 'clip')}" data-thumb>${thumb}${dur}${naming}</a>
     <div class="cl-body">
       <div class="cl-name"><a href="/c/${c.id}">${esc(c.title || 'Untitled clip')}</a></div>
@@ -73,16 +90,68 @@ function paint() {
   paintUsage();
   const box = $('cl-rows');
   box.removeAttribute('aria-busy');
-  $('cl-count-label').textContent = rows.length ? (rows.length === 1 ? '1 clip' : `${rows.length} clips`) : '';
-  if (rows.length) {
+  const list = shown();
+  for (const id of [...picked]) if (!rows.some((c) => c.id === id)) picked.delete(id);
+  $('cl-count-label').textContent = list.length ? (list.length === 1 ? '1 clip' : `${list.length} clips`) : '';
+  if (list.length) {
     box.className = 'cl-grid';
-    box.innerHTML = rows.map(cardHtml).join('');
+    box.innerHTML = list.map(cardHtml).join('');
   } else {
     box.className = '';
-    box.innerHTML = `<div class="h-card cl-empty">${q ? 'No clip matches that search.' : ADMIN_VIEW ? 'No clips have been recorded yet.' : 'No clips yet.'}</div>`;
+    box.innerHTML = rows.length
+      ? `<div class="h-card cl-empty">No ${filter} clips.</div>`
+      : `<div class="h-card cl-empty">${q ? 'No clip matches that search.' : ADMIN_VIEW ? 'No clips have been recorded yet.' : 'No clips yet.'}</div>`;
   }
+  paintSel();
   clearTimeout(poll);
   if (rows.some((c) => c.status === 'processing')) poll = setTimeout(() => load(true), 4000);
+}
+
+function paintSel() {
+  const bar = $('cl-selbar');
+  const btn = $('cl-select');
+  if (btn) {
+    btn.textContent = picking ? 'Done' : 'Select';
+    btn.setAttribute('aria-pressed', String(picking));
+  }
+  if (!bar) return;
+  bar.hidden = !picking;
+  if (!picking) return;
+  const n = picked.size;
+  const mineOnly = [...picked].every((id) => (rows.find((c) => c.id === id) || {}).mine);
+  $('cl-selcount').textContent = n ? (n === 1 ? '1 selected' : `${n} selected`) : 'Nothing selected';
+  bar.querySelectorAll('button[data-sel]').forEach((b) => {
+    const s = b.dataset.sel;
+    b.disabled = s === 'all' ? false : !n || (b.hasAttribute('data-need-mine') && !mineOnly);
+    if (s === 'all') b.textContent = n && n >= shown().length ? 'Select none' : 'Select all';
+  });
+}
+
+async function bulk(kind) {
+  const ids = [...picked];
+  if (!ids.length) return;
+  if (kind === 'delete') {
+    const n = ids.length;
+    if (!(await ask({ title: n === 1 ? 'Delete this clip?' : `Delete ${n} clips?`, body: n === 1 ? 'The clip is removed for good. The link stops working, and its comments go with it.' : `These ${n} clips are removed for good. Their links stop working, and their comments go with them.`, ok: n === 1 ? 'Delete clip' : `Delete ${n} clips` }))) return;
+  }
+  let failed = 0;
+  for (const id of ids) {
+    try {
+      if (kind === 'delete') await api(`/api/clips/${id}`, { method: 'DELETE' });
+      else await api(`/api/clips/${id}`, { method: 'PATCH', json: { share: kind === 'on' } });
+      const c = rows.find((x) => x.id === id);
+      if (kind === 'delete') {
+        rows = rows.filter((x) => x.id !== id);
+        picked.delete(id);
+      } else if (c) c.share = kind === 'on' ? 1 : 0;
+    } catch (e) {
+      failed += 1;
+    }
+  }
+  if (kind === 'delete' && !picked.size) picking = false;
+  paint();
+  toast(failed ? `${failed} could not be changed` : kind === 'delete' ? (ids.length === 1 ? 'Clip deleted' : `${ids.length} clips deleted`) : kind === 'on' ? 'Anyone with the link can watch' : 'Only signed-in Favor staff can watch', failed ? 'bad' : undefined);
+  if (kind === 'delete') load(true);
 }
 
 async function load(quiet) {
@@ -146,6 +215,59 @@ function wire() {
     const th = e.target.closest('[data-thumb]');
     if (th && !th.contains(e.relatedTarget)) stopPreview();
   });
+  box.addEventListener('click', (ev) => {
+    if (!picking) return;
+    const card = ev.target.closest('.cl-card');
+    if (!card || ev.target.closest('.cl-rename, [data-act=save]')) return;
+    if (ev.target.closest('.cl-switch, button[data-act]:not([data-act=pick])')) return;
+    // In selection mode a tap on the card, its picture or its title selects it instead of opening it.
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+    const id = card.dataset.id;
+    if (picked.has(id)) picked.delete(id);
+    else picked.add(id);
+    card.classList.toggle('is-picked', picked.has(id));
+    const pk = card.querySelector('.cl-pick');
+    if (pk) pk.setAttribute('aria-checked', String(picked.has(id)));
+    paintSel();
+  }, true);
+  const selBtn = $('cl-select');
+  if (selBtn) selBtn.addEventListener('click', () => {
+    picking = !picking;
+    if (!picking) picked.clear();
+    paint();
+  });
+  const bar = $('cl-selbar');
+  if (bar) bar.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button[data-sel]');
+    if (!b || b.disabled) return;
+    if (b.dataset.sel === 'all') {
+      const list = shown();
+      if (picked.size >= list.length) picked.clear();
+      else list.forEach((c) => picked.add(c.id));
+      paint();
+    } else bulk(b.dataset.sel);
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && picking && !ev.defaultPrevented && !document.querySelector('.cl-askback')) {
+      picking = false;
+      picked.clear();
+      paint();
+    }
+  });
+  const sortEl = $('cl-sort');
+  if (sortEl) sortEl.addEventListener('change', () => {
+    sort = sortEl.value;
+    paint();
+  });
+  document.querySelectorAll('.cl-chip[data-f]').forEach((chip) => chip.addEventListener('click', () => {
+    filter = chip.dataset.f;
+    document.querySelectorAll('.cl-chip[data-f]').forEach((x) => {
+      x.classList.toggle('is-on', x === chip);
+      x.setAttribute('aria-pressed', String(x === chip));
+    });
+    paint();
+  }));
   box.addEventListener('click', async (ev) => {
     const btn = ev.target.closest('button[data-act]');
     if (!btn) return;

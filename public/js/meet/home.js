@@ -128,12 +128,19 @@ function askCancel(b) {
   });
 }
 
+function nowTitle() {
+  // "Meeting, Oct 11, 3:40 PM" in Eastern time. The host's name already shows in the room.
+  var d = new Date();
+  var day = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
+  var tm = d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
+  return ('Meeting, ' + day + ', ' + tm).replace(/[  ]/g, ' ');
+}
+
 async function startNow(e) {
   const btn = e && e.currentTarget;
   if (btn) btn.disabled = true;
-  const name = ((await whoami()).name || '').split(' ')[0];
   try {
-    const r = await api('meetings', { method: 'POST', body: { title: name ? `${name}'s meeting` : 'Meeting', rec: 'notes', access: 'staff' } });
+    const r = await api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'notes', access: 'staff' } });
     location.href = '/meet/room/?m=' + r.meeting.id;
   } catch (err) { if (btn) btn.disabled = false; toast(err.message); }
 }

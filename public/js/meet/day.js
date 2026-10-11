@@ -263,11 +263,17 @@
   }
   root.addEventListener('click', onClick);
 
+  function nowTitle() {
+    // "Meeting, Oct 11, 3:40 PM" in Eastern time. The host's name already shows in the room.
+    var d = new Date();
+    var day = d.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' });
+    var tm = d.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' });
+    return ('Meeting, ' + day + ', ' + tm).replace(/[  ]/g, ' ');
+  }
+
   function startNow(e) {
     var btn = e.currentTarget; btn.disabled = true;
-    var name = '';
-    try { name = String(JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null').user.name || '').split(' ')[0]; } catch (x) { /* no saved name */ }
-    api('meetings', { method: 'POST', body: { title: name ? name + "'s meeting" : 'Meeting', rec: 'notes', access: 'staff' } })
+    api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'notes', access: 'staff' } })
       .then(function (r) { location.href = '/meet/room/?m=' + r.meeting.id; }).catch(function (err) { btn.disabled = false; toast(err.message); });
   }
   nowBtn = document.getElementById('mt-now');

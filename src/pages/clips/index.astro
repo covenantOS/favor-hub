@@ -2,13 +2,15 @@
 // Clips: a person's own library. Recording happens in the recorder window from the camera button at the top right of any page.
 import App from '../../layouts/App.astro';
 import '../../styles/clips.css';
+import '../../styles/crit-clips2.css';
 ---
 <App title="Clips" crumb="Work" nav="clips" description="Your recorded clips.">
   <div class="cl" id="cl" data-scope="mine">
     <section class="cl-head">
       <div>
         <h1>My clips</h1>
-        <p class="h-lede cl-lede">Only you see this list. A clip you share opens for people signed in to the hub.</p>
+        <p class="h-lede cl-lede">Only you see this list.</p>
+        <a class="cl-adminlink" id="cl-adminlink" href="/clips/all/" data-need="admin" hidden>All clips (admin)</a>
       </div>
       <button type="button" class="h-btn h-btn--primary" id="cl-new">Record a clip</button>
     </section>
@@ -17,13 +19,32 @@ import '../../styles/clips.css';
 
     <section class="cl-bar" aria-label="Search">
       <label class="cl-search"><span class="cl-sr">Search your clips</span><input id="cl-q" type="search" placeholder="Search clips and what was said" autocomplete="off" /></label>
-      <a class="cl-adminlink" id="cl-adminlink" href="/clips/all/" data-need="admin" hidden>All clips (admin)</a>
+    </section>
+
+    <section class="cl-tools" aria-label="Filter and sort">
+      <div class="cl-chips" role="group" aria-label="Show">
+        <button type="button" class="cl-chip is-on" data-f="all" aria-pressed="true">All</button>
+        <button type="button" class="cl-chip" data-f="shared" aria-pressed="false">Shared</button>
+        <button type="button" class="cl-chip" data-f="private" aria-pressed="false">Private</button>
+      </div>
+      <label class="cl-sort"><span class="cl-sr">Sort by</span><select id="cl-sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="views">Most viewed</option><option value="title">Title A to Z</option><option value="size">Largest</option></select></label>
+      <button type="button" class="h-btn h-btn--ghost" id="cl-select" aria-pressed="false">Select</button>
     </section>
 
     <section aria-label="Clips">
       <div class="cl-listhead"><span id="cl-count-label"></span></div>
       <div id="cl-rows" class="cl-grid" aria-busy="true"><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div></div>
     </section>
+
+    <div class="cl-selbar" id="cl-selbar" hidden role="region" aria-label="Selected clips">
+      <span class="cl-selcount" id="cl-selcount" role="status"></span>
+      <span class="cl-selbtns">
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sel="all">Select all</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sel="on" data-need-mine>Link on</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sel="off" data-need-mine>Link off</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm cl-danger" data-sel="delete">Delete</button>
+      </span>
+    </div>
   </div>
-  <script is:inline type="module" src="/js/clips/library.js?v=2"></script>
+  <script is:inline type="module" src="/js/clips/library.js?v=3"></script>
 </App>

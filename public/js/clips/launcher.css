@@ -221,3 +221,9 @@
 .cr-usage { padding: 9px 12px; border-radius: 12px; background: #f3ead2; color: #5e4812; margin: 10px 0 0; text-align: left; }
 .cr-usage[hidden] { display: none; }
 .cr-usage a { color: inherit; font-weight: 600; }
+
+/* Critic round 2 (2026-10-11): real 44 px targets in the recorder card. */
+.cr-x { width: 44px; height: 44px; margin: -6px -8px -6px 0; }
+.cr-switch::after { content: ''; position: absolute; inset: -9px -6px; }
+.cr-link { min-height: 44px; padding: 0 10px; }
+.cr-pill { min-height: 44px; }

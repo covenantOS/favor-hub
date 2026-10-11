@@ -1,5 +1,6 @@
 // The poster frame the browser captured while recording (a small JPEG).
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
+import { onRequestGet as mediaGet } from './media';
 import { staffOrError, ownClip, posterKey, type ClipsEnv } from '../../../_lib/clips';
 
 export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
@@ -18,4 +19,11 @@ export const onRequestPut: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
   } catch (err) {
     return handleError(err);
   }
+};
+
+// A GET on the poster URL returns the same image as media?poster=1, so a poster link never answers 404 for a clip that has one.
+export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = (ctx) => {
+  const url = new URL(ctx.request.url);
+  url.searchParams.set('poster', '1');
+  return mediaGet({ ...ctx, request: new Request(url.toString(), ctx.request) } as Parameters<typeof mediaGet>[0]);
 };

@@ -86,7 +86,7 @@ export const fname = (m: Pick<Meeting, 'title' | 'started_at' | 'created_at'>, e
   `${etDate(m.started_at || m.created_at)} ${cleanTitle(m.title) || 'Meeting'}, ${kind}${total > 1 ? ` part ${epoch}` : ''}.${ext}`;
 
 /** A meeting that kept a placeholder title such as "Meeting" or "Will's meeting" takes the title the notes give it. */
-export const isDefaultTitle = (t: string): boolean => t === '' || t === 'Meeting' || /\smeeting$/i.test(t);
+export const isDefaultTitle = (t: string): boolean => t === '' || t === 'Meeting' || /\smeeting$/i.test(t) || /^Meeting, [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2}\s?[AP]M$/.test(t);
 
 /** One part of one epoch's file to Drive. Returns whether every epoch is now in Drive. */
 export async function pumpDrive(env: DriveEnv, m: Meeting): Promise<{ done: boolean; progress: string }> {
