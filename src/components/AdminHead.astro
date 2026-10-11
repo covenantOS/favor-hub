@@ -1,6 +1,7 @@
 ---
 // The head every Admin page shares: the title, one line about the page and the row of admin pages.
 import { ADMIN_PAGES } from '../data/admin-pages';
+import '../styles/crit-reportadmin.css';
 interface Props { on: string; title: string; lede?: string; }
 const { on, title, lede = '' } = Astro.props;
 // The settings pages share one row of tabs. The pages above them (Overview, People and roles, Audit log) sit in the menu's own tab row.
@@ -18,3 +19,11 @@ const showTabs = TABS.some((p) => p.id === on);
     {TABS.map((p) => <a class={`ad-tab${p.id === on ? ' is-on' : ''}`} href={p.href} aria-current={p.id === on ? 'page' : undefined}>{p.label}</a>)}
   </div>
 </nav>}
+<script is:inline>
+  // The tab for this page can sit off screen in the scrolling row; bring it into view without moving the page.
+  (function () {
+    var on = document.querySelector('.ad-tab.is-on');
+    var row = on && on.parentElement;
+    if (row && row.scrollWidth > row.clientWidth) row.scrollLeft = Math.max(0, on.offsetLeft - (row.clientWidth - on.offsetWidth) / 2);
+  })();
+</script>

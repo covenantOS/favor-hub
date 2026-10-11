@@ -190,6 +190,18 @@
     });
   }
 
+  // Phones hide the header row, so sorting moves into one select.
+  function sortSelect(res) {
+    var cur_ = cur.sort ? cur.sort.k + '|' + cur.sort.d : '';
+    return '<label class="rp-sortm"><span>Sort</span><select id="rp-sortm" aria-label="Sort rows"><option value="">Report order</option>' + res.columns.map(function (c) {
+      var t = isRight(c) || c.type === 'date';
+      return [1, -1].map(function (d) {
+        var v = c.key + '|' + d;
+        return '<option value="' + esc(v) + '"' + (v === cur_ ? ' selected' : '') + '>' + esc(c.label) + ', ' + (t ? (d > 0 ? 'low to high' : 'high to low') : (d > 0 ? 'A to Z' : 'Z to A')) + '</option>';
+      }).join('');
+    }).join('') + '</select></label>';
+  }
+
   function drawReport() {
     var res = cur.res, rows = visibleRows();
     var oldScroll = $('.rp-scroll', root), keepTop = oldScroll && !cur.top ? oldScroll.scrollTop : 0, keepLeft = oldScroll ? oldScroll.scrollLeft : 0;
@@ -230,14 +242,17 @@
 
     var bars = teamBars(res, rows);
     var side = res.post != null || res.note || bars;
-    h += '<div class="rp-main' + (side ? '' : ' is-solo') + '"><div><div class="h-card rp-tcard"><div class="rp-thead"><span class="cnt">Rows <small>' + num(rows.length) + '</small> <span class="copy-stamp" data-copy-stamp></span>' + (res.more ? ' <em>first ' + num(res.rows.length) + ' of ' + num(res.count) + '</em>' : '') + '</span><label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-find" placeholder="Search these rows" value="' + esc(cur.find || '') + '" aria-label="Search these rows"></label></div><div class="rp-scroll"><table class="rp-table sc-table"><thead><tr>' +
+    h += '<div class="rp-main' + (side ? '' : ' is-solo') + '"><div><div class="h-card rp-tcard"><div class="rp-thead"><span class="cnt">Rows <small>' + num(rows.length) + '</small> <span class="copy-stamp" data-copy-stamp></span>' + (res.more ? ' <em>first ' + num(res.rows.length) + ' of ' + num(res.count) + '</em>' : '') + '</span><label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-find" placeholder="Search these rows" value="' + esc(cur.find || '') + '" aria-label="Search these rows"></label>' + sortSelect(res) + '</div><div class="rp-scroll"><table class="rp-table sc-table"><thead><tr>' +
       res.columns.map(function (c) { var on = cur.sort && cur.sort.k === c.key; return '<th class="' + (isRight(c) ? 'r ' : '') + (on ? 'is-sort' : '') + '" data-sort="' + c.key + '" aria-sort="' + (on ? (cur.sort.d > 0 ? 'ascending' : 'descending') : 'none') + '"><button type="button">' + esc(c.label) + '<span class="ar">' + (on ? (cur.sort.d > 0 ? ARROW_UP : ARROW_DOWN) : ARROW_BOTH) + '</span></button></th>'; }).join('') + '</tr></thead><tbody>';
-    pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c) { return '<td class="' + (isRight(c) ? 'r' : c.type === 'id' ? 'id' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
+    // On a phone each row is a card: the first text column is its headline, the rest are labelled facts (css reads data-label).
+    var headAt = 0;
+    for (var hi = 0; hi < res.columns.length; hi++) { if (['money', 'int', 'pct', 'cell', 'cellint', 'date', 'id', 'chip'].indexOf(res.columns[hi].type) < 0) { headAt = hi; break; } }
+    pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c, ci) { return '<td data-label="' + esc(c.label) + '" class="' + (isRight(c) ? 'r' : c.type === 'id' ? 'id' : '') + (ci === headAt ? ' rp-hd' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
     if (!pageRows.length) h += '<tr><td colspan="' + res.columns.length + '" class="rp-empty">No rows for these filters. <button type="button" class="rp-link" id="rp-clear">Clear</button></td></tr>';
     h += '</tbody>';
     // A total opens the rows it adds up (the page's own rows, never a new query). Not while searching or when the list is cut short.
     var canOpen = !searching && !res.more;
-    if (Object.keys(totals).length) h += '<tfoot><tr>' + res.columns.map(function (c, i) { var v = totals[c.key]; var txt = i === 0 ? 'Total' : v == null ? '' : c.type === 'money' || c.type === 'cell' ? money(v) : num(v); if (canOpen && i > 0 && v != null) txt = '<span class="dr-num" tabindex="0" role="button" data-report-total="' + esc(c.key) + '">' + txt + '</span>'; return '<td class="' + (isRight(c) ? 'r' : '') + '">' + txt + '</td>'; }).join('') + '</tr></tfoot>';
+    if (Object.keys(totals).length) h += '<tfoot><tr>' + res.columns.map(function (c, i) { var v = totals[c.key]; var txt = i === 0 ? 'Total' : v == null ? '' : c.type === 'money' || c.type === 'cell' ? money(v) : num(v); if (canOpen && i > 0 && v != null) txt = '<span class="dr-num" tabindex="0" role="button" data-report-total="' + esc(c.key) + '">' + txt + '</span>'; return '<td data-label="' + esc(c.label) + '" class="' + (isRight(c) ? 'r' : '') + (i === 0 ? ' rp-hd' : '') + '">' + txt + '</td>'; }).join('') + '</tr></tfoot>';
     h += '</table></div>';
     if (rows.length > ps) h += '<div class="rp-pager"><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-prev"' + (cur.page ? '' : ' disabled') + '>Previous</button><span>' + (cur.page * ps + 1) + ' to ' + Math.min(rows.length, cur.page * ps + ps) + ' of ' + num(rows.length) + '</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-next"' + (cur.page + 1 < pages ? '' : ' disabled') + '>Next</button></div>';
     h += '</div></div>';
@@ -286,6 +301,8 @@
     var reset = $('#rp-reset');
     if (reset) reset.addEventListener('click', function () { cur.find = ''; cur.sort = null; reload({}); });
     $$('[data-sort]', root).forEach(function (th) { th.addEventListener('click', function () { var k = th.dataset.sort; cur.sort = cur.sort && cur.sort.k === k ? { k: k, d: -cur.sort.d } : { k: k, d: 1 }; drawReport(); }); });
+    var sm = $('#rp-sortm');
+    if (sm) sm.addEventListener('change', function () { var p = sm.value.split('|'); cur.sort = p[0] ? { k: p[0], d: Number(p[1]) } : null; cur.page = 0; drawReport(); });
     $('#rp-find').addEventListener('input', function (e) { cur.find = e.target.value; cur.page = 0; var p = e.target.selectionStart; drawReport(); var i = $('#rp-find'); i.focus(); i.setSelectionRange(p, p); });
     var pv = $('#rp-prev'), nx = $('#rp-next');
     if (pv) pv.addEventListener('click', function () { cur.page -= 1; cur.top = true; drawReport(); });

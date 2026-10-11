@@ -3,13 +3,14 @@
 // Favor Brain, the help docs and the tour, marks each one, and writes the answer the sender reads.
 import App from '../../layouts/App.astro';
 import SheetsButton from '../../components/SheetsButton.astro';
+import '../../styles/crit-reportadmin.css';
 ---
 <App title="Feedback" crumb="Learn" nav="feedback" description="Notes about the hub and Favor Brain, and the answers.">
   <div class="fbp">
     <section class="fbp-head">
       <div>
         <h1>Feedback</h1>
-        <p class="h-lede" id="fb-lede">Notes you've sent about the hub, Favor Brain and the help docs, with Will's answers. Every note is read.</p>
+        <p class="h-lede" id="fb-lede">Your notes and the answers.</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <SheetsButton name="feedback" />
@@ -27,5 +28,5 @@ import SheetsButton from '../../components/SheetsButton.astro';
 
     <ul class="fbp-list" id="fb-list" aria-busy="true" aria-live="polite"><li class="h-card h-skel" style="min-height:120px"></li></ul>
   </div>
-  <script is:inline src="/js/feedback-page.js?v=1" defer></script>
+  <script is:inline src="/js/feedback-page.js?v=2" defer></script>
 </App>

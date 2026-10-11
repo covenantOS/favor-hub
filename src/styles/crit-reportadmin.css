@@ -1,0 +1,187 @@
+/* Critic round, reports/admin/help/feedback. */
+.hd-card--skel { min-height: 104px; animation: h-shimmer 1.2s ease-in-out infinite; }
+
+/* Feedback: the tab row spans the card width on a phone, the two header buttons share a row, the four answer buttons sit in a 2 x 2 grid. */
+@media (max-width: 700px) {
+  .fbp-tabs { display: flex; flex-wrap: nowrap; width: 100%; box-sizing: border-box; }
+  .fbp-tabs button { flex: 1 1 0; min-width: 0; padding-inline: 4px; white-space: nowrap; }
+  .fbp-head > div:last-child { width: 100%; }
+  .fbp-head > div:last-child > * { flex: 1 1 0; justify-content: center; }
+  .fbp-act__go { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .fbp-act__go .h-btn { min-height: 44px; justify-content: center; }
+  .fbp-act__go .fbp-msg { grid-column: 1 / -1; min-height: 0; }
+}
+
+/* Admin tables below 1100 px (iPad portrait and phones) stack each row into a card, so no button sits off screen, no word breaks
+   mid-word and the page scrolls once instead of a box inside the page. */
+.ad-chip, .ad-yes, .ad-no, .bu-chip { white-space: nowrap; }
+@media (max-width: 1100px) {
+  .ad-scroll:has(#pp-table), .ad-scroll:has(#au-table), .ad-scroll:has(#bu-table), #bu-jobs .ad-scroll { max-height: none; overflow: visible; }
+  #pp-table, #pp-table tbody, #pp-table tr, #pp-table td,
+  #au-table, #au-table tbody, #au-table tr, #au-table td,
+  #bu-table, #bu-table tbody, #bu-table tr, #bu-table td,
+  #bu-jobs .ad-table, #bu-jobs .ad-table tbody, #bu-jobs .ad-table tr, #bu-jobs .ad-table td { display: block; width: auto; min-width: 0; }
+  #pp-table thead, #au-table thead, #bu-table thead, #bu-jobs .ad-table thead { display: none; }
+  #pp-table tr, #au-table tr, #bu-table tr, #bu-jobs .ad-table tr { display: grid; padding: 14px 16px; border-bottom: 1px solid var(--h-line, #e4e7eb); }
+  #pp-table tr:last-child, #au-table tr:last-child, #bu-table tr:last-child, #bu-jobs .ad-table tr:last-child { border-bottom: 0; }
+  #pp-table td, #au-table td, #bu-table td, #bu-jobs .ad-table td { padding: 0; border: 0; min-width: 0 !important; overflow-wrap: anywhere; white-space: normal; }
+  #pp-table td:empty, #au-table td:empty, #bu-table td:empty, #bu-jobs .ad-table td:empty { display: none; }
+  .ad-table td:first-child { min-width: 0; }
+
+  /* People: name and role on the left, the facts in the middle, buttons on the right */
+  #pp-table tr { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; gap: 4px 20px; align-items: start; }
+  #pp-table td:nth-child(1) { grid-area: 1 / 1; font-size: 16px; }
+  #pp-table td:nth-child(2) { grid-area: 2 / 1; }
+  #pp-table td:nth-child(3) { grid-area: 1 / 2; }
+  #pp-table td:nth-child(4) { grid-area: 2 / 2; }
+  #pp-table td:nth-child(5) { grid-area: 3 / 2; }
+  #pp-table td:nth-child(6) { grid-area: 4 / 2; }
+  #pp-table td:nth-child(7) { grid-area: 1 / 3 / 5 / 4; align-self: center; }
+  #pp-table td[data-label]:not([data-label="Role"]) { display: flex; gap: 10px; align-items: baseline; font-size: 14px; }
+  #pp-table td[data-label]:not([data-label="Role"])::before { content: attr(data-label); flex: 0 0 116px; white-space: nowrap; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--h-ink-3, #5f6770); }
+  #pp-table td:nth-child(6) .mute, #pp-table td:nth-child(1) .mute { overflow-wrap: anywhere; }
+  #pp-table td:last-child .ad-acts { display: grid; grid-template-columns: repeat(2, minmax(104px, 1fr)); gap: 8px; }
+  #pp-table td:last-child .ad-btn { min-height: 44px; font-size: 14px; padding: 8px 12px; white-space: nowrap; }
+
+  /* Audit log: setting first, before and after beside it, who and when under it */
+  #au-table tr { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px 16px; }
+  #au-table td::before { content: none; }
+  #au-table td[data-label="Before"]::before, #au-table td[data-label="After"]::before { content: attr(data-label); display: block; font: 600 12px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--h-ink-3, #5f6770); margin-bottom: 1px; }
+  #au-table td[data-label="Setting"] { grid-area: 1 / 1; font-size: 15px; font-weight: 600; }
+  #au-table td[data-label="Before"] { grid-area: 1 / 2; }
+  #au-table td[data-label="After"] { grid-area: 1 / 3; }
+  #au-table td[data-label="When"] { grid-area: 2 / 1; font-size: 13px; color: var(--h-ink-2, #48505a); white-space: normal; }
+  #au-table td[data-label="Who"] { grid-area: 2 / 2 / 3 / 4; font-size: 13px; color: var(--h-ink-2, #48505a); }
+  #au-table td[data-label="Note"] { grid-area: 3 / 1 / 4 / 4; font-size: 13px; }
+  #au-table td.au-empty { grid-column: 1 / -1; grid-area: auto; }
+
+  /* Blackbaud users: name, then the two product columns, then status and buttons */
+  #bu-table tr { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; align-items: start; }
+  #bu-table td[data-label="User"] { grid-area: 1 / 1; font-size: 15px; }
+  #bu-table td[data-label="Raiser's Edge NXT"] { grid-area: 1 / 2; }
+  #bu-table td[data-label="Other products"] { grid-area: 1 / 3; }
+  #bu-table td[data-label="Status"] { grid-area: 2 / 1; }
+  #bu-table td.bu-acts { grid-area: 2 / 2 / 3 / 4; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #bu-table td[data-label]:not([data-label="User"]):not([data-label="Actions"])::before, #bu-jobs .ad-table td[data-label]:not(:first-child):not([data-label=""])::before { content: attr(data-label); display: block; font: 600 12px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--h-ink-3, #5f6770); margin-bottom: 2px; }
+  #bu-table td.au-empty { grid-area: auto; grid-column: 1 / -1; }
+  .bu-acts { white-space: normal; }
+  .bu-acts .ad-btn { min-height: 44px; margin-right: 0; font-size: 14px; padding: 8px 14px; }
+  #bu-jobs .ad-table tr { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px 16px; }
+  #bu-jobs .ad-table td:nth-child(1) { grid-column: 1 / -1; }
+  #bu-jobs .ad-table td:nth-child(5) { grid-column: 1 / -1; }
+  #bu-jobs .ad-table td:nth-child(5) .ad-btn { min-height: 44px; }
+}
+@media (max-width: 700px) {
+  #pp-table tr { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  #pp-table td:nth-child(n) { grid-area: auto; }
+  #pp-table td:nth-child(2) { order: -1; }
+  #pp-table td:nth-child(1) { order: -2; }
+  #pp-table td:nth-child(7) { order: 9; padding-top: 10px; }
+  #pp-table td:last-child .ad-acts { grid-template-columns: 1fr 1fr; }
+
+  #au-table tr { grid-template-columns: 1fr 1fr; }
+  #au-table td[data-label="Setting"] { grid-area: 1 / 1 / 2 / 3; }
+  #au-table td[data-label="Before"] { grid-area: 2 / 1; }
+  #au-table td[data-label="After"] { grid-area: 2 / 2; }
+  #au-table td[data-label="Note"] { grid-area: 3 / 1 / 4 / 3; }
+  #au-table td[data-label="Who"] { grid-area: 4 / 1 / 5 / 3; }
+  #au-table td[data-label="When"] { grid-area: 5 / 1 / 6 / 3; }
+
+  #bu-table tr, #bu-jobs .ad-table tr { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  #bu-table td:nth-child(n), #bu-jobs .ad-table td:nth-child(n) { grid-area: auto; grid-column: auto; }
+  #bu-table td.bu-acts { padding-top: 6px; display: grid; grid-template-columns: 1fr 1fr; }
+}
+
+/* records.css (Add partner) also defines .ad, .ad-grid and .ad-form and loads after admin.css, which put 28 px of side padding
+   and no gap on every admin page: cards touched each other and the tabs touched the title. These restore the admin values. */
+#ad-root.ad, #ad-root .ad { padding: 0; gap: 20px; }
+#ad-root .ad-head { margin-bottom: 0; }
+#ad-root .ad-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+#ad-root .ad-form { gap: 12px; }
+#ad-root .ad-form label { gap: 4px; font-size: 13px; color: var(--h-ink-2, #48505a); }
+@media (max-width: 1100px) { #ad-root .ad-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 700px) { #ad-root .ad-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* Touch size for the settings controls on phones and iPad */
+.ad-msg:empty { display: none; }
+@media (max-width: 1100px) {
+  #ad-root .ad-btn, #ad-root .ad-field, #ad-root .ad-tab { min-height: 44px; box-sizing: border-box; }
+  #ad-root .ad-tab { display: inline-flex; align-items: center; }
+  #ad-root .ad-roles { gap: 8px; }
+  #ad-root .ad-roles label { min-height: 44px; padding: 0 14px 0 10px; border: 1px solid var(--h-line-2, #d3d7dd); border-radius: 999px; background: var(--h-surface, #fff); gap: 8px; }
+  #ad-root .ad-roles label:has(input:checked) { border-color: var(--h-brand, #2b4d24); background: var(--h-leaf-soft, #e3eedd); }
+  #ad-root .ad-roles input, #ad-root .ad-check input { width: 20px; height: 20px; }
+}
+
+/* Reports: the loading state is a quiet block that matches the first card, not the word "Loading". */
+#rp-app .rp-loading { font-size: 0; min-height: 360px; margin: 14px 0 0; border-radius: 14px; background: linear-gradient(90deg, #fff 0%, #f4f5f7 50%, #fff 100%); background-size: 200% 100%; animation: h-shimmer 1.2s ease-in-out infinite; }
+.rp-sortm { display: none; }
+
+/* Reports: type never under 13 px, back link and filter links are real touch targets */
+@media (max-width: 1100px) {
+  #rp-app :is(.rp-link, .rp-seg2 button, .rp-segl, .rp-grp, .rp-grp b, .rp-tag, .rp-f > span, .rp-tile .k, .rp-tile .s, .rp-tie span:not(.rp-tie__i), .rp-pre, .rp-head, .rp-pager, .rp-back, .rp-thead .cnt small, .rp-thead .cnt em, .rp-table th, .rp-table td.id, .rp-seg2 small) { font-size: 13px; }
+  #rp-app .rp-back { min-height: 44px; }
+  #rp-app .rp-link { min-height: 44px; padding: 0 10px; }
+  #rp-app .rp-pager .h-btn { min-height: 44px; }
+}
+
+/* Reports on a phone: each row is a card, the first text column is its headline. The page scrolls once. */
+@media (max-width: 700px) {
+  #rp-app .rp-thead { flex-wrap: wrap; gap: 8px; }
+  #rp-app .rp-thead .rp-find { flex: 1 1 100%; }
+  #rp-app .rp-sortm { display: flex; align-items: center; gap: 8px; flex: 1 1 100%; font: 600 13px var(--h-font); color: var(--r-ink-3, #5f6770); }
+  #rp-app .rp-sortm select { flex: 1; min-width: 0; min-height: 44px; border-radius: 10px; border: 1px solid var(--r-line-2, #d3d7dd); background: #fff; padding: 0 10px; font: 500 16px var(--h-font); color: var(--r-ink, #12161a); }
+  #rp-app .rp-scroll { max-height: none; min-height: 0; overflow: visible; }
+  #rp-app .rp-table, #rp-app .rp-table tbody, #rp-app .rp-table tfoot, #rp-app .rp-table tr, #rp-app .rp-table td { display: block; }
+  #rp-app .rp-table thead { display: none; }
+  #rp-app .rp-table tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 14px; padding: 12px 14px; border-bottom: 1px solid var(--r-line, #e4e0d4); }
+  #rp-app .rp-table td { height: auto; padding: 0; border: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; font-size: 14px; min-width: 0; }
+  #rp-app .rp-table td:empty { display: none; }
+  #rp-app .rp-table td::before { content: attr(data-label); display: block; font: 600 12px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--r-ink-3, #5f6770); margin-bottom: 1px; }
+  #rp-app .rp-table td.rp-hd { grid-column: 1 / -1; font-size: 16px; font-weight: 600; order: -1; }
+  #rp-app .rp-table td.rp-hd::before { content: none; }
+  #rp-app .rp-table td.rp-empty { grid-column: 1 / -1; }
+  #rp-app .rp-table td.rp-empty::before { content: none; }
+  #rp-app .rp-table tbody tr:hover td { background: none; }
+  #rp-app .rp-table tfoot { position: static; }
+  #rp-app .rp-table tfoot tr { background: var(--r-hover, #f7f5ef); }
+  #rp-app .rp-table tfoot td { position: static; background: none; border: 0; }
+  #rp-app .rp-table td .dr-num { display: inline-flex; align-items: center; min-height: 44px; }
+  #rp-app .rp-table input.cell { width: 100%; min-height: 44px; box-sizing: border-box; font-size: 16px; }
+  #rp-app .rp-pager { flex-wrap: wrap; justify-content: space-between; }
+}
+
+/* Selects: one flat style with a chevron instead of the stacked native border on iOS */
+#rp-app select, #ad-root select { -webkit-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2348505a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center / 14px; padding-right: 34px; box-shadow: none; }
+
+/* Empty facts stay hidden (the label rule above sets display, so the empty rule needs the same weight) */
+@media (max-width: 1100px) {
+  #pp-table td[data-label]:empty { display: none; }
+  #au-table td[data-label="Before"]:empty + td[data-label="After"] { grid-column: 2 / 4; }
+}
+@media (max-width: 700px) {
+  #au-table td[data-label="Before"]:empty + td[data-label="After"] { grid-column: 1 / -1; }
+}
+
+@media (max-width: 700px) {
+  #ad-root .ad-sub .ad-find { max-width: none; flex: 1 1 100%; }
+  #ad-root #pp-filter { flex: 1 1 0; width: auto !important; min-width: 0; }
+  #ad-root .ad-stamp:empty { display: none; }
+}
+
+/* The person panel: a real side sheet above the bars, close button at the top, buttons pinned at the bottom */
+.ad-sheet { z-index: 85; }
+.ad-panel { z-index: 90; top: 0; bottom: 0; right: 0; left: auto; height: auto; padding: 20px 20px 0; position: fixed; padding-top: 56px; }
+.ad-panel .ad-panel__x { position: absolute; top: 6px; right: 6px; width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font: 400 30px/1 var(--h-font); color: var(--h-ink-2, #48505a); cursor: pointer; }
+.ad-panel .ad-panel__x:hover { background: var(--h-surface-2, #f3f4f6); }
+.ad-panel .ad-form .ad-acts { position: sticky; bottom: 0; margin: 0 -20px; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); background: var(--h-surface, #fff); border-top: 1px solid var(--h-line, #e4e7eb); z-index: 2; }
+.ad-panel .ad-form .ad-acts .ad-btn { min-height: 44px; }
+@media (max-width: 700px) { .ad-panel { width: 100%; border-left: 0; } }
+.ad-panel .ad-form { gap: 12px; }
+.ad-panel .ad-form label { gap: 4px; font-size: 13px; color: var(--h-ink-2, #48505a); }
+.ad-panel select { -webkit-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2348505a' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center / 14px; padding-right: 34px; }
+@media (max-width: 1100px) {
+  .ad-panel .ad-field { min-height: 44px; box-sizing: border-box; }
+  .ad-panel .ad-form .ad-check { min-height: 44px; }
+  .ad-panel .ad-btn { min-height: 44px; }
+}

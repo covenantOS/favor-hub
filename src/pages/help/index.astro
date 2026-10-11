@@ -5,6 +5,7 @@ import { getCollection } from 'astro:content';
 import App from '../../layouts/App.astro';
 import { TOPICS, mins } from '../../data/help-topics';
 import videos from '../../data/videos.json';
+import '../../styles/crit-reportadmin.css';
 
 const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
 const newest = [...videos].sort((a, b) => b.added.localeCompare(a.added)).slice(0, 4);
@@ -43,9 +44,11 @@ const ICON: Record<string, string> = {
       </div>
     </section>
 
-    <section class="hd-foryou" id="hd-foryou" hidden>
-      <div class="h-section"><h2>For your work</h2><p id="hd-foryou-who"></p></div>
-      <div class="hd-cards" id="hd-foryou-list"></div>
+    <section class="hd-foryou" id="hd-foryou">
+      <div class="h-section"><h2>For your work</h2><p id="hd-foryou-who">&nbsp;</p></div>
+      <div class="hd-cards" id="hd-foryou-list" aria-busy="true">
+        {Array.from({ length: 6 }).map(() => <div class="h-card hd-card hd-card--skel h-skel" aria-hidden="true"></div>)}
+      </div>
     </section>
 
     <div class="h-section"><h2>Topics</h2><p>Every tool in the hub, step by step</p></div>
@@ -80,5 +83,5 @@ const ICON: Record<string, string> = {
       ))}
     </div>
   </div>
-  <script is:inline src="/js/help.js?v=1" defer></script>
+  <script is:inline src="/js/help.js?v=2" defer></script>
 </App>

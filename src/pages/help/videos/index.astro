@@ -14,7 +14,7 @@ const total = Math.round(videos.reduce((n, v) => n + v.seconds, 0) / 60);
     <div class="hd-lib">
       <div class="hd-kicker"><a href="/help/">Help</a><span aria-hidden="true">/</span>Videos</div>
       <h1>Training videos</h1>
-      <p class="hd-lede">{videos.length} videos, about {total} minutes in all. Each has captions; press CC in the player. The names and numbers in them are made up.</p>
+      <p class="hd-lede">{videos.length} videos, about {total} minutes. Names and numbers in them are made up.</p>
       <div class="hd-chips" role="tablist" aria-label="Filter by topic">
         <button type="button" role="tab" class="is-on" aria-selected="true" data-topic="">All</button>
         {used.map(([k, label]) => <button type="button" role="tab" aria-selected="false" data-topic={k}>{label}</button>)}
@@ -32,5 +32,5 @@ const total = Math.round(videos.reduce((n, v) => n + v.seconds, 0) / 60);
       </div>
     </div>
   </div>
-  <script is:inline src="/js/help.js?v=1" defer></script>
+  <script is:inline src="/js/help.js?v=2" defer></script>
 </App>

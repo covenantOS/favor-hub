@@ -45,9 +45,9 @@
     $('pp-body').innerHTML = list.length ? list.map(function (p) {
       var role = p.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : '<span class="ad-chip' + (p.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (p.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
       return '<tr data-email="' + E(p.email) + '"><td><b>' + E(p.name) + '</b>' + (p.name === p.email ? '' : '<br><span class="mute">' + E(p.email) + '</span>') + '</td>' +
-        '<td>' + role + (p.envAdmin ? '<br><span class="mute">Set in Pages</span>' : '') + '</td>' +
-        '<td>' + E(teamLabel(p.team)) + '</td><td class="mute">' + E(p.fundraiser) + '</td>' +
-        '<td>' + (p.workCenter ? '<span class="ad-yes">Yes</span>' : '<span class="ad-no">No</span>') + '</td><td>' + sees(p) + '</td>' +
+        '<td data-label="Role">' + role + (p.envAdmin ? '<br><span class="mute">Set in Pages</span>' : '') + '</td>' +
+        '<td data-label="Team">' + E(teamLabel(p.team)) + '</td><td class="mute" data-label="Fundraiser">' + E(p.fundraiser) + '</td>' +
+        '<td data-label="Work Center">' + (p.workCenter ? '<span class="ad-yes">Yes</span>' : '<span class="ad-no">No</span>') + '</td><td data-label="Sees">' + sees(p) + '</td>' +
         '<td><div class="ad-acts"><button type="button" class="ad-btn" data-edit="' + E(p.email) + '">Edit</button><button type="button" class="ad-btn" data-as="' + E(p.email) + '">Act as</button>' + quick(p) + '</div></td></tr>';
     }).join('') : '<tr><td colspan="7" class="mute">Nobody matches.</td></tr>';
   }
@@ -56,8 +56,13 @@
     return A.api('/api/admin/people').then(function (d) { D = d; draw(); }).catch(function (e) { A.fail($('ad-root'), e); });
   }
 
+  // The panel and its backdrop live on the body. Inside the page they were positioned against the page wrapper, so the panel
+  // was as tall as the whole list and Save sat thousands of pixels down.
+  document.body.appendChild($('pp-sheet'));
+  document.body.appendChild($('pp-panel'));
   function open(html) {
-    $('pp-panel').innerHTML = html;
+    $('pp-panel').innerHTML = '<button type="button" class="ad-panel__x" id="pp-x" aria-label="Close">&times;</button>' + html;
+    $('pp-x').onclick = close;
     $('pp-panel').hidden = false;
     $('pp-sheet').hidden = false;
     var f = $('pp-panel').querySelector('input:not([readonly]),select,button');

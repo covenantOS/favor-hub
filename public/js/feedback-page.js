@@ -68,8 +68,8 @@
           ${shotOf(f)}
           ${f.page ? `<p class="fbp-page">From <a href="${esc(f.page.split(' ')[0])}">${esc(f.page)}</a></p>` : ''}
           <form class="fbp-act" data-act="${f.id}">
-            <label class="h-label" for="fb-r-${f.id}">Your answer ${f.reply ? '(they can read this)' : '(optional; they read it on this page)'}</label>
-            <textarea id="fb-r-${f.id}" rows="2" maxlength="2000" placeholder="Thanks, fixed it. Or: here's why it works that way.">${esc(f.reply || '')}</textarea>
+            <label class="h-label" for="fb-r-${f.id}">Your answer</label>
+            <textarea id="fb-r-${f.id}" rows="2" maxlength="2000" placeholder="Write an answer">${esc(f.reply || '')}</textarea>
             <div class="fbp-act__go">
               <button type="submit" class="h-btn h-btn--ghost h-btn--sm" data-set="seen">Mark read</button>
               <button type="submit" class="h-btn h-btn--primary h-btn--sm" data-set="fixed">Fixed</button>
@@ -154,7 +154,7 @@
     admin = !!(d && d.access && d.access.admin);
     if (admin) {
       $('fb-tabs').hidden = false;
-      $('fb-lede').textContent = 'Every note from the hub, Favor Brain, the help docs and the tour. Mark each one, and write an answer when it needs one; the sender reads it on their Feedback page.';
+      $('fb-lede').textContent = 'Every note from the hub, Favor Brain, the help docs and the tour.';
     }
     load();
   };
