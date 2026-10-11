@@ -1,7 +1,7 @@
 // The Work Overview page's one read: everything the signed-in person needs on the Work home, cut to their role, in a single answer.
 // Each part reads from the hub's own tables or the D1 copy of Blackbaud, so the page costs no Blackbaud calls. A part that fails
 // comes back null and the page leaves that card out, so one slow source never blanks the page.
-import { dayDiff, isLive, type BoardRow } from '../actions/board';
+import { dayDiff, isLive, mineRows, type BoardRow } from '../actions/board';
 import type { Env } from '../http';
 import { cadenceResponse, mayCadence } from './cadence-svc';
 import { listStaff } from './db';
@@ -28,27 +28,29 @@ export interface DueRow {
 }
 
 /** The actions the Work Overview's due card counts: the person's own, or the portfolio when they hold none. One place, so the card and its rows never differ. */
-function duePool(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
+export function duePool(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
   const s = ctx.scope;
   const fid = s && s.fid ? s.fid : '';
   // Every count here is a count of open actions on the Work Center board, the same rows its Open actions tab counts, so each number
   // equals what its link opens. Someone who holds actions of their own sees those (the link adds their fundraiser id). Support,
   // Partner Care and admins who hold none see every open action in their scope.
-  const own = fid ? board.rows.filter((r) => r.fundraisers.includes(fid)) : [];
+  const own = mineRows(board.rows, fid);
   const portfolio = !own.length;
   const pool = portfolio ? board.rows : own;
   const dueAll = pool.filter((r) => r.due && dayDiff(r.due, board.today) <= 0);
   // The short list leaves out thank-you tasks (Gifts to thank lists those), pending changes and deceased partners.
   const due = dueAll.filter((r) => !r.pending && !r.deceased && !r.ty).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
   const row = (r: BoardRow): DueRow => ({ id: r.id, cid: r.cid, partner: r.partner, place: r.place, due: r.due, late: Math.max(0, -dayDiff(r.due, board.today)), type: r.type, summary: clip(r.summary || '', 90) });
-  return { portfolio, fid, pool, dueAll, due, row, today: board.today };
+  return { portfolio, fid, pool, dueAll, due, row, today: board.today, mine: own.length };
 }
 
 async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
-  const { portfolio, fid, pool, dueAll, due, row } = duePool(ctx, board);
+  const { portfolio, fid, pool, dueAll, due, row, mine } = duePool(ctx, board);
   return {
     scope: portfolio ? 'portfolio' : 'mine',
     fr: portfolio ? '' : fid,
+    // Mine: the signed-in person's open actions (mineRows), the same number the Work Center's Mine chip shows.
+    mine,
     open: pool.length,
     total: dueAll.length,
     overdue: dueAll.filter((r) => dayDiff(r.due, board.today) < 0).length,

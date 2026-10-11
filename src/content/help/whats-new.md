@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 11, 2026
 
+- **Mine shows one number.** The Mine chip on Open actions and Mine on the Overview count the same open actions, the ones that list you as a fundraiser. "What each number counts" in the Work Center article has the definition.
 - **Add a partner, in full.** Add partner in the Work Center's tool row and on Find a partner opens one form for an individual, a household or an organization. A household joins two people as spouses, each with their own phone and email. An organization takes a type and a main contact who gets their own record. Add a relationship links the new partner to someone already in Blackbaud. Matches show beside the form with the reason, and Add stays locked until you tick that none is the same person. The holder follows the state on the address. Admins and the Support Team only.
 - **Blackbaud users in Admin.** Admin has a new page, Blackbaud users, that lists every Blackbaud login with its status and access. The desktop reads it each weekday morning, and the page shows when. Read only.
 

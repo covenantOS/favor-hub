@@ -172,7 +172,7 @@ export async function boardResponse(ctx: Ctx, q: BoardQuery) {
     synced: b.synced,
     today: b.today,
     meter: await meterView(ctx.env),
-    counts: countsOf(b.rows, b.today),
+    counts: countsOf(b.rows, b.today, ctx.scope && ctx.scope.fid ? ctx.scope.fid : ''),
     facets: f,
     lanes: LANES.map((l) => ({ k: l.k, n: l.n, hint: l.hint, count: b.rows.filter((a) => l.test(a, b.today, b.people)).length })),
     people: b.people,

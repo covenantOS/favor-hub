@@ -220,7 +220,8 @@ function scopeBar(base) {
   const fid = DATA.me.fid; if (!fid) return '';
   const f = S.f, start = window.WCStart ? window.WCStart.startScope() : 'mine';
   const open = base.filter(isOpenNow);
-  const n = { mine: open.filter((a) => cur(a).f.includes(fid)).length, partners: open.filter((a) => a.hold.includes(fid) && !cur(a).f.includes(fid)).length, all: open.length };
+  // Mine is the server's count (mineRows in functions/_lib/actions/board.ts), the same number the Work Overview shows.
+  const n = { mine: (DATA.counts && DATA.counts.mine) || 0, partners: open.filter((a) => a.hold.includes(fid) && !cur(a).f.includes(fid)).length, all: open.length };
   const on = f.scope === 'partners' ? 'partners' : f.fr === fid ? 'mine' : !f.fr ? 'all' : '';
   return `<div class="wc-scope" role="group" aria-label="Open actions shows">${[['mine', 'Mine'], ['partners', 'On my partners'], ['all', 'Everyone']].map(([k, l]) =>
     `<span class="wc-scope__chip${on === k ? ' is-on' : ''}"><button type="button" data-scope="${k}" aria-pressed="${on === k}">${l}<span>${n[k]}</span></button>${start !== k ? `<button type="button" class="wc-scope__start" data-scopestart="${k}">Start here</button>` : ''}</span>`).join('')}</div>`;

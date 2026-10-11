@@ -414,16 +414,29 @@ export function facetsOf(rows: BoardRow[], f: Filters, today: string, people: Pe
   };
 }
 
+/**
+ * The one definition of "Mine" on the Work Center: the open actions on the board that list this fundraiser (the signed-in
+ * person's Blackbaud fundraiser id). Every "Mine" number in the hub comes from this function: the Work Center scope chip, the
+ * Work Overview due card and the board counts. Snoozing does not apply to actions (a snooze reschedules the due date), so no
+ * snooze filter is needed. Thank-you tasks count, because the Open actions tab lists them too.
+ */
+export function mineRows(rows: BoardRow[], fid: string): BoardRow[] {
+  return fid ? rows.filter((r) => r.fundraisers.includes(fid)) : [];
+}
+
 export interface Counts {
   open: number;
   past: number;
   ty: number;
   done: number;
   ctg: number;
+  /** Open actions where the signed-in fundraiser is on the action (see mineRows). */
+  mine: number;
 }
 
-export function countsOf(rows: BoardRow[], today: string): Counts {
+export function countsOf(rows: BoardRow[], today: string, fid = ''): Counts {
   return {
+    mine: mineRows(rows, fid).length,
     open: rows.length,
     past: rows.filter((a) => dayDiff(a.due, today) < 0).length,
     ty: rows.filter((a) => a.ty).length,

@@ -81,7 +81,7 @@ describe('filters, counts, sort', () => {
     assert.deepEqual(ids({ q: 'ancient' }), ['3']);
   });
   it('counts and facets respect the other filters', () => {
-    assert.deepEqual(countsOf(rows, TODAY), { open: 4, past: 2, ty: 0, done: 0, ctg: 0 });
+    assert.deepEqual(countsOf(rows, TODAY), { open: 4, past: 2, ty: 0, done: 0, ctg: 0, mine: 0 });
     const f = facetsOf(rows, { cat: 'Phone call' }, TODAY, people);
     assert.equal(f.noOwner, 1);
     assert.deepEqual(f.cat.map((c) => c.v), ['Phone call', 'Task/Other']);
