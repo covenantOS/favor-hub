@@ -231,7 +231,7 @@ async function startLive() {
       fillList();
     } catch (e) {
       const n = card.querySelector('#cr-micname');
-      if (n) n.textContent = 'Allow the microphone in your browser';
+      if (n) n.textContent = 'Microphone not available';
     }
   }
 }
