@@ -12,7 +12,8 @@
   .h-top { view-transition-name: hub-top; }
 }
 ::view-transition-group(*) { animation-duration: 0s; }
-::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.08s; }
+/* The old page is replaced in one frame. A cross-fade showed both pages at once (Today under Chat), which read as the wrong screen first. */
+::view-transition-old(root), ::view-transition-new(root) { animation: none; }
 @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
 
 /* The top bar's buttons take their place from the saved menu on the first frame, so nothing slides when the sign-in check answers. */
