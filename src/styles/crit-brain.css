@@ -18,6 +18,6 @@
   body.h-body .bc-root .bc-seg button { min-height: 44px; }
   .h-body .bc-root .bc-jump { min-height: 44px; }
   .h-body .bc-root .blk-follow button { min-height: 44px; }
-  .h-body .bc-root .tbl [data-act='topen'] { width: 44px; height: 44px; }
-  .h-body .bc-root .tbl th button { min-height: 44px; }
+  .h-body .bc-root [data-act='topen'] { width: 44px; height: 44px; }
+  .h-body .bc-root th button[data-act='sort'] { min-height: 44px; }
 }
