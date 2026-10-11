@@ -8,13 +8,14 @@ body.h-body .hd-topics { align-items: start; }
 @media (min-width: 861px) and (hover: hover) {
   body.h-body .wh-row .wh-acts--hover { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 4px 4px 4px 12px; border-radius: var(--r-md); background: var(--r-hover); pointer-events: none; }
   body.h-body .wh-row:hover .wh-acts--hover, body.h-body .wh-row:focus-within .wh-acts--hover { pointer-events: auto; }
-  body.h-body .wh-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
 }
 
 @media (max-width: 860px) {
   body.h-body .r2t-sec { flex-wrap: wrap; row-gap: 2px; }
   body.h-body .wh-tools > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   body.h-body .wh-table th, body.h-body .wh-table td { padding-left: 6px; padding-right: 6px; }
-  body.h-body .wh-table td:nth-child(2) { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
-  body.h-body .wh-tw { padding: 0 6px 10px; }
+  body.h-body .wh-table td:nth-child(2) { max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
+  body.h-body .wh-tw { padding: 0 4px 10px; }
+  body.h-body .wh-table { font-size: 12.5px; }
+  body.h-body .wh-table th { font-size: 11.5px; }
 }
