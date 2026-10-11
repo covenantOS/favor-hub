@@ -1,0 +1,157 @@
+/* Design critic round, forms area (2026-10-11): requests board, request form, expense form, receipts, foundations.
+   Phone first. Loading states are shapes, a pinned action row sits above the keyboard, drawers cover the bars. */
+
+/* ---------------------------------------------------------------- loading shapes */
+
+@keyframes cf-shimmer { 0% { background-position: 120% 0; } 100% { background-position: -20% 0; } }
+.req-skel,
+.cf-skel {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #ebe7dc 25%, #f5f2ea 50%, #ebe7dc 75%);
+  background-size: 220% 100%;
+  animation: cf-shimmer 1.3s ease-in-out infinite;
+}
+.req-skel--tab { display: inline-block; width: 92px; height: 44px; border-radius: 999px; margin-right: 6px; flex: none; }
+.req-skel-card { display: grid; gap: 9px; padding: 14px; margin-bottom: 8px; background: #fff; border: 1px solid var(--r-line, #e6e1d4); border-radius: 14px; }
+.req-skel-card .req-skel:first-child { width: 34%; }
+.req-skel--title { height: 16px; width: 78%; }
+.req-skel--line { width: 56%; }
+.cf-skel--stat { height: 34px; width: 56px; border-radius: 8px; margin-bottom: 8px; }
+.cf-skel--row { height: 18px; margin: 18px 0; }
+.cf-skel--rowhead { height: 14px; width: 40%; margin-bottom: 8px; }
+@media (prefers-reduced-motion: reduce) { .req-skel, .cf-skel { animation: none; } }
+
+/* ---------------------------------------------------------------- drawers cover every bar, and the page behind stays put */
+
+html.req-drawer-open, html.req-drawer-open body { overflow: hidden; }
+body.h-body > .req-drawer { z-index: 200; }
+body.h-body > .req-drawer .req-drawer__panel { padding-bottom: calc(40px + env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+
+@media (max-width: 860px) {
+  body.h-body > .req-drawer .req-drawer__panel { padding-top: calc(60px + env(safe-area-inset-top)); }
+  body.h-body .req-drawer__x { top: calc(10px + env(safe-area-inset-top)); right: 12px; width: 44px; height: 44px; }
+  body.h-body .req-drawer .req-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  body.h-body .req-drawer .req-actions button { min-height: 48px; font-size: 15px; border-radius: 12px; padding: 10px 12px; }
+  body.h-body .req-drawer .req-actions button.primary { grid-column: 1 / -1; }
+  body.h-body .req-drawer .req-actions button:last-child:nth-child(odd):not(.primary) { grid-column: 1 / -1; }
+}
+
+/* ---------------------------------------------------------------- requests board, phone */
+
+@media (max-width: 860px) {
+  /* The lane tabs already carry the counts. */
+  body.h-body #req-count { display: none; }
+  body.h-body .board-intro__actions { gap: 8px; }
+  body.h-body .req-tabs { margin-bottom: 12px; padding-bottom: 2px; scrollbar-width: none; }
+  body.h-body .req-tabs::-webkit-scrollbar { display: none; }
+  body.h-body .req-tabs button { min-height: 44px; padding: 0 16px; font-size: 14px; }
+  body.h-body .req-col__head { min-height: 40px; }
+  body.h-body .req-col--wide > summary { min-height: 48px; display: flex; align-items: center; }
+}
+
+/* ---------------------------------------------------------------- request form: the answer card has no accent bar */
+
+body.h-body .h-route__result { border-left: 1px solid var(--r-line, #e6e1d4); }
+body.h-body .h-route__result h3::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 10px; background: var(--h-brand); vertical-align: 1px; }
+body.h-body .h-route__result[data-route='marketing'] h3::before { background: #6b46c1; }
+body.h-body .h-route__result[data-route='expense'] h3::before { background: var(--h-gold); }
+
+.req-drop .req-drop__t { display: none; }
+@media (pointer: coarse) {
+  .req-drop .req-drop__d { display: none; }
+  .req-drop .req-drop__t { display: block; }
+  .h-route__keys { display: none !important; }
+}
+
+@media (max-width: 860px) {
+  /* One screen is one job: the form first. The long intro and the step list go; the links sit under the form. */
+  body.h-body .make-stage { display: flex; flex-direction: column; gap: 10px; padding-top: 0; }
+  body.h-body .make-stage { align-items: stretch; width: 100%; }
+  body.h-body .make-col { order: 1; width: 100%; max-width: none; }
+  body.h-body .make-copy { order: 2; display: flex; align-items: center; gap: 0 18px; flex-wrap: wrap; padding: 2px 4px 12px; }
+  body.h-body .make-copy .make-kicker,
+  body.h-body .make-copy h1,
+  body.h-body .make-copy > p,
+  body.h-body .make-toc { display: none; }
+  body.h-body .make-copy .make-board-link,
+  body.h-body .make-copy .make-aside.h-route-restart { display: inline-flex; align-items: center; min-height: 44px; margin: 0; }
+
+  body.h-body .make-sheet { padding: 16px 16px 0; }
+  body.h-body .make-sheet .req-field { margin-bottom: 14px; }
+  body.h-body .make-sheet .req-field input,
+  body.h-body .make-sheet .req-field textarea { min-height: 48px; font-size: 16px; scroll-margin-top: 130px; scroll-margin-bottom: 120px; }
+  body.h-body .make-sheet .req-field textarea { min-height: 96px; }
+  body.h-body .make-where label,
+  body.h-body .make-pills label { min-height: 44px; }
+
+  /* Back and Continue stay pinned above the tab bar or the keyboard; the message sits on top of them. */
+  body.h-body .make-sheet__foot {
+    position: sticky;
+    bottom: var(--h-bar-h, 0px);
+    z-index: 6;
+    margin: 12px -16px 0;
+    padding: 10px 16px calc(10px + 2px);
+    background: #fff;
+    border-top: 1px solid var(--r-line, #e6e1d4);
+    border-radius: 0 0 14px 14px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: stretch;
+  }
+  body.h-body .make-sheet__foot .req-msg { flex: 1 0 100%; margin: 0; order: -1; min-height: 0; }
+  body.h-body .make-sheet__foot .req-msg:empty { display: none; }
+  body.h-body .make-sheet__foot .req-ghost { flex: 0 0 auto; min-width: 92px; min-height: 48px; font-size: 15px; }
+  body.h-body .make-sheet__foot .req-submit { flex: 1 1 0; min-height: 48px; font-size: 16px; }
+  body.h-body .make-sheet__foot [hidden] { display: none !important; }
+
+  /* The answer card: each alternative is a full-width tap target, not a link in a sentence. */
+  body.h-body .h-route__alt { display: grid; gap: 6px; font-size: 14px; }
+  body.h-body .h-route__alt button { display: flex; align-items: center; min-height: 44px; margin: 0; font-size: 15px; text-decoration: none; padding: 0 12px; border: 1px solid var(--r-line, #e6e1d4); border-radius: 12px; background: #fff; }
+  body.h-body .h-route__result .h-route__row .h-btn { min-height: 48px; width: 100%; justify-content: center; font-size: 16px; }
+  body.h-body .h-route__row #route-go { min-height: 48px; min-width: 140px; font-size: 16px; justify-content: center; }
+  body.h-body .h-route__egs button { min-height: 44px; padding: 0 14px; font-size: 14px; }
+}
+
+/* Typing: the section tabs step aside so the field and the action row get the screen. */
+@media (max-width: 860px) {
+  body.h-body.kb-open .h-top__tabs { display: none; }
+}
+
+/* ---------------------------------------------------------------- expense form, phone */
+
+@media (max-width: 860px) {
+  body.h-body .exp-page .req-field input,
+  body.h-body .exp-page .req-field textarea { min-height: 48px; font-size: 16px; scroll-margin-top: 130px; scroll-margin-bottom: 120px; }
+  body.h-body .exp-page .req-field textarea { min-height: 110px; }
+  /* Description across the top, item and amount side by side, remove as a corner button. */
+  body.h-body .exp-item-row { grid-template-columns: minmax(0, 1fr) minmax(0, 120px) 44px; gap: 8px; align-items: center; padding: 10px; }
+  body.h-body .exp-item-row input { min-height: 48px; font-size: 16px; }
+  body.h-body .exp-item-row input[data-k='description'] { grid-column: 1 / -1; }
+  body.h-body .exp-item-row input[data-k='item'] { grid-column: 1; }
+  body.h-body .exp-item-row .exp-amt { grid-column: 2; text-align: right; }
+  body.h-body .exp-item-row .exp-rm { grid-column: 3; width: 44px; height: 44px; justify-self: stretch; }
+  body.h-body .exp-add-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  body.h-body .exp-add { min-height: 48px; }
+  body.h-body .exp-nav { bottom: var(--h-bar-h, 0px); z-index: 6; margin: 14px -16px 0; padding: 10px 16px; border-top: 1px solid var(--r-line, #e6e1d4); }
+  body.h-body .exp-nav .h-btn { height: 48px; font-size: 16px; }
+  body.h-body #exp-submit { min-height: 52px; width: 100%; font-size: 16px; justify-content: center; }
+  body.h-body .exp-foot { flex-direction: column; align-items: stretch; }
+  body.h-body .exp-affirm { min-height: 56px; }
+  body.h-body .exp-affirm input { width: 24px; height: 24px; flex: none; }
+}
+
+/* ---------------------------------------------------------------- foundations drawer */
+
+body.h-body > .fnd-drawer { z-index: 200; }
+
+/* ---------------------------------------------------------------- receipts loading */
+
+.rcp-skel { padding: 4px 0 8px; display: grid; gap: 10px; }
+.rcp-skel__stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 24px; }
+.rcp-load-note { font-size: 14px; color: var(--ink-soft, #6b6759); display: flex; align-items: center; gap: 10px; }
+.rcp-load-note .rcp-spin { border-color: rgba(29, 33, 27, 0.15); border-top-color: var(--green-deep, #2b4d24); }
+.rcp-loading.is-bad { color: var(--terracotta, #b04a34); opacity: 1; flex-wrap: wrap; }
+.rcp-loading.is-bad .fnd-textbtn { color: var(--green-deep, #2b4d24); min-height: 44px; font-weight: 600; }

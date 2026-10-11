@@ -8,7 +8,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     await requireReceiptsUser(env, request);
     const days = Math.min(Math.max(Number(new URL(request.url).searchParams.get('days')) || (await receiptsDays(env).catch(() => DEFAULT_DAYS)), 7), 365);
-    return json({ ok: true, ...(await waitingView(env, days)) });
+    return json({ ok: true, ...(await waitingView(env, days, new URL(request.url).searchParams.get('fresh') === '1')) });
   } catch (err) {
     return handleError(err);
   }

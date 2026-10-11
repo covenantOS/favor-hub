@@ -22,10 +22,10 @@
       var row = document.createElement("div");
       row.className = "exp-item-row";
       row.innerHTML =
-        '<input placeholder="Description of expense" maxlength="200" data-k="description" />' +
-        '<input placeholder="Item" maxlength="80" data-k="item" />' +
-        '<input class="exp-amt" placeholder="0.00" inputmode="decimal" data-k="amount" />' +
-        '<button type="button" class="exp-rm" title="Remove line">&times;</button>';
+        '<input placeholder="Description of expense" maxlength="200" data-k="description" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" aria-label="Description of expense" />' +
+        '<input placeholder="Item" maxlength="80" data-k="item" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" aria-label="Item" />' +
+        '<input class="exp-amt" placeholder="0.00" inputmode="decimal" data-k="amount" autocomplete="off" enterkeyhint="done" aria-label="Estimated amount" />' +
+        '<button type="button" class="exp-rm" title="Remove line" aria-label="Remove line">&times;</button>';
       row.querySelectorAll("input").forEach(function (inp) {
         inp.value = it[inp.dataset.k] || "";
         inp.addEventListener("input", function () {

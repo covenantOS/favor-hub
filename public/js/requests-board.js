@@ -23,6 +23,7 @@
   document.body.appendChild(drawer);
 
   let admin = false;
+  let loaded = false;
   let items = [];
   let activeTab = 'inbox';
   // On a phone the board shows one lane at a time. It opens on the first lane with cards until a lane is tapped.
@@ -66,12 +67,21 @@
 
   function setAdminUi() {
     const viaGoogle = Boolean(me && me.user && me.user.via === 'google');
-    unlockBtn.hidden = admin || Boolean(me && me.enforce);
+    unlockBtn.hidden = !loaded || admin || Boolean(me && me.enforce);
     lockBtn.hidden = !admin || viaGoogle;
     login.hidden = admin || login.hidden;
     if (admin) login.hidden = true;
     hint.hidden = !admin;
     boardEl.classList.toggle('is-reviewing', admin);
+  }
+
+  // Shown until the first answer arrives: the same four lanes and card shapes, so nothing jumps when the cards land.
+  function skeleton() {
+    tabsEl.innerHTML = COLS.map((c) => `<span class="req-skel req-skel--tab" aria-hidden="true"></span>`).join('');
+    boardEl.innerHTML = `<section class="req-col is-on" aria-busy="true" aria-label="Loading requests">
+      <div class="req-col__stack">${[0, 1, 2, 3]
+        .map(() => `<div class="req-skel-card" aria-hidden="true"><span class="req-skel"></span><span class="req-skel req-skel--title"></span><span class="req-skel req-skel--line"></span></div>`)
+        .join('')}</div></section>`;
   }
 
   function renderTabs() {
@@ -118,6 +128,7 @@
       );
     }
     renderTabs();
+    countEl.hidden = false;
     const open = items.filter((i) => i.status !== 'done' && i.status !== 'declined').length;
     countEl.textContent = `${open} open · ${items.filter((i) => i.status === 'done').length} done`;
   }
@@ -184,7 +195,7 @@
     `;
     // Keyboard users land on Close when the drawer opens.
     const close = panel.querySelector('[data-close]');
-    if (close && !panel.contains(document.activeElement)) close.focus();
+    if (close && !touch && !panel.contains(document.activeElement)) close.focus();
   }
 
   function openDrawer(id) {
@@ -192,6 +203,9 @@
     if (!item) return;
     openId = id;
     drawer.hidden = false;
+    document.documentElement.classList.add('req-drawer-open');
+    // The phone back gesture closes the drawer and stays on the board.
+    if (!(history.state && history.state.reqDrawer)) history.pushState({ reqDrawer: true }, '');
     paintDrawer(item);
     fetch(`/api/requests/${id}`, { credentials: 'same-origin' })
       .then((r) => r.json())
@@ -204,11 +218,16 @@
       .catch(() => {});
   }
 
-  function closeDrawer() {
+  function closeDrawer(fromPop) {
     drawer.hidden = true;
     openId = null;
     panel.innerHTML = '';
+    document.documentElement.classList.remove('req-drawer-open');
+    if (fromPop !== true && history.state && history.state.reqDrawer) history.back();
   }
+  window.addEventListener('popstate', () => {
+    if (!drawer.hidden) closeDrawer(true);
+  });
 
   async function moveCard(id, status) {
     const item = items.find((i) => i.id === id);
@@ -238,6 +257,7 @@
     const data = await api('/api/requests');
     admin = Boolean(data.admin);
     items = data.requests || [];
+    loaded = true;
     if (!tabPicked) activeTab = (COLS.find((c) => items.some((i) => i.status === c.id)) || COLS[0]).id;
     setAdminUi();
     renderBoard();
@@ -393,8 +413,13 @@
     }
   });
 
+  skeleton();
   load().catch((err) => {
+    countEl.hidden = false;
     countEl.textContent = 'Board unavailable';
+    boardEl.innerHTML = '<p class="req-empty">The board did not load. <button type="button" class="req-ghost" id="req-retry">Try again</button></p>';
+    const retry = document.getElementById('req-retry');
+    if (retry) retry.addEventListener('click', () => { skeleton(); load().catch(() => { boardEl.innerHTML = '<p class="req-empty">Still not loading. Check the connection and try again in a minute.</p>'; }); });
     if (loginMsg) loginMsg.textContent = err.message;
   });
 })();

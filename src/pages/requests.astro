@@ -3,6 +3,7 @@ import App from '../layouts/App.astro';
 import SheetsButton from '../components/SheetsButton.astro';
 import '../styles/requests.css';
 import '../styles/qa-work.css';
+import '../styles/crit-forms.css';
 ---
 <App full title="Requests" crumb="Work" nav="board" description="What the team has asked to change, what Will has approved, and what is finished.">
   <div class="board-page">
@@ -15,9 +16,9 @@ import '../styles/qa-work.css';
         </div>
         <div class="board-intro__actions">
           <a class="req-submit" href="/requests/new">Make a request</a>
-          <span class="req-chip" id="req-count">Loading</span>
+          <span class="req-chip" id="req-count" hidden></span>
           <SheetsButton name="requests" />
-          <button type="button" class="req-admin-btn" id="req-unlock">Sign in to review</button>
+          <button type="button" class="req-admin-btn" id="req-unlock" hidden>Sign in to review</button>
           <button type="button" class="req-ghost" id="req-lock" hidden>Lock</button>
         </div>
       </header>
@@ -42,5 +43,5 @@ import '../styles/qa-work.css';
     <div class="req-drawer__scrim" data-close></div>
     <aside class="req-drawer__panel" id="req-drawer-panel"></aside>
   </div>
-  <script is:inline src="/js/requests-board.js?v=10"></script>
+  <script is:inline src="/js/requests-board.js?v=11"></script>
 </App>

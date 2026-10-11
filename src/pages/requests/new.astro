@@ -1,6 +1,7 @@
 ---
 import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
+import '../../styles/crit-forms.css';
 ---
 <App title="Make a request" crumb="Work" nav="new" description="One place to ask for anything: the hub sends it to the request board or to the Marketing team.">
   <section class="h-route-wrap" id="route">
@@ -9,7 +10,7 @@ import '../../styles/requests.css';
         <h2>What do you need?</h2>
         <p>Say it in a sentence or two, the way you'd say it to a coworker. The hub suggests where it goes, and you can change that.</p>
         <label class="sr-only" for="route-text">What do you need?</label>
-        <textarea id="route-text" maxlength="4000" placeholder="Type your request here"></textarea>
+        <textarea id="route-text" maxlength="4000" rows="3" placeholder="Type your request here" autocapitalize="sentences" enterkeyhint="go"></textarea>
         <div class="h-route__egs" aria-label="Examples">
           <span>Try:</span>
           <button type="button" data-eg="Add Sarah's bio to the team page on the website">A bio on the website</button>
@@ -74,11 +75,11 @@ import '../../styles/requests.css';
             <h2>You and where</h2>
             <label class="req-field">
               <span>Your name</span>
-              <input name="name" required maxlength="80" placeholder="Terry" />
+              <input name="name" required maxlength="80" placeholder="Full name" autocomplete="name" autocapitalize="words" enterkeyhint="next" />
             </label>
             <label class="req-field">
               <span>Your email</span>
-              <input name="email" type="email" required maxlength="120" placeholder="you@favorintl.org" />
+              <input name="email" type="email" required maxlength="120" placeholder="you@favorintl.org" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" />
               <small>Required. We email you here when the work is done.</small>
             </label>
             <fieldset class="make-where make-kind">
@@ -124,7 +125,7 @@ import '../../styles/requests.css';
             </fieldset>
             <label class="req-field">
               <span id="loc-label">Where should this live (optional)</span>
-              <input name="page_url" maxlength="400" id="loc-input" placeholder="Careers page, or skip" />
+              <input name="page_url" maxlength="400" id="loc-input" placeholder="Careers page, or skip" autocomplete="off" enterkeyhint="next" />
             </label>
           </section>
 
@@ -132,7 +133,7 @@ import '../../styles/requests.css';
             <h2 id="need-heading">What you need</h2>
             <label class="req-field">
               <span>One-line summary</span>
-              <input name="title" required maxlength="160" placeholder="Jobs" />
+              <input name="title" required maxlength="160" placeholder="A few words" autocomplete="off" autocapitalize="sentences" enterkeyhint="next" />
             </label>
             <div id="change-fields">
               <label class="req-field">
@@ -156,7 +157,7 @@ import '../../styles/requests.css';
             <h2>Who and when (optional)</h2>
             <label class="req-field">
               <span>Who asked for this (optional)</span>
-              <input name="who_asked" maxlength="160" placeholder="Name, or skip" />
+              <input name="who_asked" maxlength="160" placeholder="Name, or skip" autocomplete="off" autocapitalize="words" enterkeyhint="next" />
             </label>
             <fieldset class="make-pills">
               <legend>Who sees this</legend>
@@ -186,7 +187,7 @@ import '../../styles/requests.css';
             <h2>Files and send</h2>
             <p class="make-help">Optional. A screenshot, a PDF or Word job description, or more copy below.</p>
             <div class="req-drop" id="req-drop" tabindex="0" role="button" aria-label="Add files">
-              <strong>Drop, paste, or click.</strong>
+              <strong class="req-drop__d">Drop, paste, or click.</strong><strong class="req-drop__t">Tap to add a photo or file.</strong>
               Pictures, PDF, Word, or text. Up to 6. Under 4 MB each.
               <input id="req-files" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf,.doc,.docx,.txt,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" multiple hidden />
             </div>
@@ -221,6 +222,6 @@ import '../../styles/requests.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/requests-compose.js?v=7"></script>
-  <script is:inline src="/js/request-router.js?v=4"></script>
+  <script is:inline src="/js/requests-compose.js?v=8"></script>
+  <script is:inline src="/js/request-router.js?v=5"></script>
 </App>

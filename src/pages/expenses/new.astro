@@ -2,6 +2,7 @@
 import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
+import '../../styles/crit-forms.css';
 ---
 <App title="Expense request" crumb="Work" nav="expense" description="Submit an expense request for approval and signature.">
   <div class="exp-page">
@@ -24,14 +25,14 @@ import '../../styles/expenses.css';
         <div class="exp-step" data-step="1" data-title="You and the trip">
         <span class="exp-legend">Who you are</span>
         <div class="exp-grid2">
-          <label class="req-field"><span>Name</span><input id="exp-name" required maxlength="80" /></label>
-          <label class="req-field"><span>Favor email</span><input id="exp-email" type="email" required maxlength="120" placeholder="you@favorintl.org" /></label>
+          <label class="req-field"><span>Name</span><input id="exp-name" required maxlength="80" autocomplete="name" autocapitalize="words" enterkeyhint="next" /></label>
+          <label class="req-field"><span>Favor email</span><input id="exp-email" type="email" required maxlength="120" placeholder="you@favorintl.org" inputmode="email" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" /></label>
         </div>
 
         <span class="exp-legend">Travel details (if any)</span>
         <div class="exp-grid2">
-          <label class="req-field"><span>Dates</span><input id="exp-dates" maxlength="120" placeholder="Oct 6 &ndash; Oct 9" /></label>
-          <label class="req-field"><span>City and state</span><input id="exp-city" maxlength="120" placeholder="Dallas, TX" /></label>
+          <label class="req-field"><span>Dates</span><input id="exp-dates" maxlength="120" placeholder="Oct 6 &ndash; Oct 9" autocomplete="off" enterkeyhint="next" /></label>
+          <label class="req-field"><span>City and state</span><input id="exp-city" maxlength="120" placeholder="Dallas, TX" autocomplete="off" autocapitalize="words" enterkeyhint="done" /></label>
         </div>
 
         </div>
@@ -46,7 +47,7 @@ import '../../styles/expenses.css';
         </div>
         <div class="exp-mi-calc" id="exp-mi-calc" hidden>
           <span class="exp-legend">Mileage calculator</span>
-          <label class="req-field"><span>Miles driven (total for the trip)</span><input id="exp-mi-miles" inputmode="decimal" placeholder="0" /></label>
+          <label class="req-field"><span>Miles driven (total for the trip)</span><input id="exp-mi-miles" inputmode="decimal" placeholder="0" autocomplete="off" enterkeyhint="done" /></label>
           <p class="exp-mi-note" id="exp-mi-note">Loading the current mileage policy&hellip;</p>
           <div class="exp-mi-foot">
             <button type="button" class="req-admin-btn" id="exp-mi-add">Add to expenses</button>
@@ -61,7 +62,7 @@ import '../../styles/expenses.css';
         <span class="exp-legend">Reason</span>
         <label class="req-field">
           <span>Why is this needed?</span>
-          <textarea id="exp-reason" required maxlength="4000" placeholder="For a trip, state its purpose. For a purchase, state what it supports and why it is needed."></textarea>
+          <textarea id="exp-reason" required maxlength="4000" autocapitalize="sentences" placeholder="For a trip, state its purpose. For a purchase, state what it supports and why it is needed."></textarea>
         </label>
 
         </div>
@@ -83,7 +84,7 @@ import '../../styles/expenses.css';
         <p class="req-msg" id="exp-msg" aria-live="polite"></p>
         <div class="exp-nav" id="exp-nav"><button type="button" class="h-btn h-btn--ghost" id="exp-back">Back</button><button type="button" class="h-btn h-btn--primary" id="exp-next">Next</button></div>
       </form>
-      <script is:inline src="/js/expense-steps.js?v=1" defer></script>
+      <script is:inline src="/js/expense-steps.js?v=2" defer></script>
 
       <div class="make-done" id="exp-done" hidden>
         <p class="make-kicker">Sent for approval</p>
@@ -96,8 +97,8 @@ import '../../styles/expenses.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/expense-sign.js?v=1"></script>
-  <script is:inline src="/js/expenses-new.js?v=1"></script>
+  <script is:inline src="/js/expense-sign.js?v=2"></script>
+  <script is:inline src="/js/expenses-new.js?v=2"></script>
   <script is:inline>
     // Signed in with Google: name and email come from the account. "Make a request" can pass the
     // words the person typed as ?reason=.
