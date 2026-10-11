@@ -249,7 +249,9 @@ export async function loadAsks(env: Env, q: Q, today: string, allTime = false): 
   for (const part of await Promise.all(chunkOf(bigCids, 400).map((c) => q<{ cid: string; m: number }>(LARGEST_SQL, [JSON.stringify(c)])))) for (const g of part) largest[String(g.cid)] = num(g.m);
   const holders: Record<string, string[]> = {};
   for (const part of await Promise.all(chunkOf(cids, 400).map((c) => q<{ cid: string; fid: string }>(HOLDERS_SQL, [JSON.stringify(c), JSON.stringify(HOLD_TYPES), today])))) for (const h of part) (holders[String(h.cid)] ||= []).push(String(h.fid));
-  return shapeAsks({ asks, gifts, closes, gone, largest, holders }, today).filter((r) => r.date >= since);
+  // An ask on a partner who has passed away is no longer pursued: it leaves the open, closing and past columns. A gift it brought stays.
+  const passed = new Set(asks.filter((a) => Number(a.deceased) === 1).map((a) => String(a.cid)));
+  return shapeAsks({ asks, gifts, closes, gone, largest, holders }, today).filter((r) => r.date >= since && !(passed.has(String(r.cid)) && r.state !== 'gave'));
 }
 
 export interface AsksOut {

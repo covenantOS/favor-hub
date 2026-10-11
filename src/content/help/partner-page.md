@@ -46,6 +46,8 @@ Four tabs sit under the Call, Text and Email buttons: Overview, Contact, Codes a
 
 **Record** marks a partner Active, Inactive or Deceased. Deceased and Inactive show what goes with it: set the flag (always), end the Partner code and the assignments on that date, add the Do Not Solicit solicit code, and cancel open actions you pick. A household shows Who, and the other person stays active; a note can go on their record. An organization is marked inactive only. Mark active reverses the flag and reopens the codes that ended with it. The assignments stay ended for the morning run to settle the next day.
 
+Marking deceased also reaches the places outside Blackbaud that would still contact the person. The hub copy of the record updates at once. The GoHighLevel contact, found by the record's emails, gets Do Not Disturb on every channel, the tag deceased and a removal from the published workflows. The giving portal stops emailing the record and refuses its sign-in. Reminders the hub holds for the partner close, and the partner's open asks leave Asks. Mark active turns off the Do Not Disturb the hub set, removes the tag and lifts the portal block; an unsubscribe the person made earlier stays. Each of these writes a row to the Audit log under Records.
+
 Admins change contact details, codes and record status. The Support Team changes codes and record status, and contact details for any partner. Directors and Partner Care change contact details for partners their team holds. Everyone else reads.
 
 ## Add a partner

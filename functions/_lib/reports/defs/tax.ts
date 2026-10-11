@@ -120,7 +120,7 @@ const def: ReportDef = {
        SELECT t.cid AS cid, c.constituent_lookup_id AS lookup, c.organization_name AS org, c.first_name AS first, c.last_name AS last,
               c.spouse_first_name AS spouse_first, c.spouse_last_name AS spouse_last, t.total AS total, t.excluded AS excluded,
               a.address_lines AS line, a.address_city AS city, a.address_state AS state, a.address_postal_code AS zip, a.address_country AS country, a.do_not_mail AS dnm,
-              (SELECT COUNT(*) FROM solicit_codes s WHERE s.constituent_record_id = t.cid AND s.solicit_code = 'Email Annual Tax Receipts') AS etr,
+              (SELECT COUNT(*) FROM solicit_codes s WHERE s.constituent_record_id = t.cid AND s.solicit_code = 'Email Annual Tax Receipts' AND (s.solicit_end IS NULL OR s.solicit_end > date('now'))) AS etr,
               (SELECT e.email_address FROM emails e WHERE e.constituent_record_id = t.cid AND e.is_inactive = 0 AND COALESCE(e.email_address, '') <> ''
                ORDER BY e.is_primary DESC, e.id LIMIT 1) AS email
        FROM t

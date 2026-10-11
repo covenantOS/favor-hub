@@ -192,3 +192,16 @@
 #bu-table td:first-child { min-width: 230px; }
 #bu-table td:last-child { white-space: nowrap; }
 #bu-table .bu-chip { white-space: nowrap; }
+
+/* Blackbaud user requests (public/js/admin-bbusers.js). */
+.bu-chip--bad { background: #f6dcd5; color: #7a2412; }
+.bu-acts { white-space: nowrap; }
+.bu-acts .ad-btn { min-height: 34px; padding: 5px 12px; font-size: 13px; margin-right: 6px; }
+.bu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.bu-f { display: grid; gap: 4px; font-size: 13px; color: var(--h-ink-2); }
+.bu-f span { font-weight: 600; }
+.bu-groups { border: 1px solid var(--h-line-2, #d3d7dd); border-radius: 12px; padding: 10px 12px; margin: 10px 0 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px 14px; }
+.bu-groups legend { font: 600 13px var(--h-font); padding: 0 6px; color: var(--h-ink-2); }
+.bu-check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.bu-row { display: flex; gap: 10px; flex-wrap: wrap; }
+#bu-jobs .ad-table td:nth-child(4) { min-width: 200px; }

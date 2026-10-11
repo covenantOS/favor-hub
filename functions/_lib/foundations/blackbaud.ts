@@ -245,6 +245,34 @@ export async function mirrorRefresh(env: Env, ids: string[], tags: boolean): Pro
   }
 }
 
+/**
+ * Ask the sync worker to re-read partner records the Records screens just changed (the record, its addresses, emails, phones, codes and
+ * solicit codes), so the hub copy shows the change the same day. At most 10 records, 6 Blackbaud calls each. Never sent in a scheduled
+ * sync window (the worker answers 503 and the next sync catches up).
+ */
+export async function mirrorRecordRefresh(env: Env, ids: string[]): Promise<{ ok: boolean; runId?: string; maxCalls: number; wait?: string }> {
+  const list = [...new Set(ids.filter((i) => /^\d{1,12}$/.test(i)))].slice(0, 10);
+  if (!env.MIRROR_API_KEY || !list.length) return { ok: false, maxCalls: 0, wait: 'no key or no ids' };
+  const base = (env.MIRROR_QUERY_URL || MIRROR_URL).replace(/\/d1\/query$/, '');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 10000);
+  try {
+    const res = await fetch(`${base}/record-refresh`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.MIRROR_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: list }),
+      signal: ctl.signal,
+    });
+    const data = (await res.json().catch(() => null)) as any;
+    if (res.status === 202 && data && data.runId) return { ok: true, runId: String(data.runId), maxCalls: Number(data.maxSkyCalls) || 0 };
+    return { ok: false, maxCalls: 0, wait: String((data && (data.wait || data.error)) || `status ${res.status}`).slice(0, 200) };
+  } catch {
+    return { ok: false, maxCalls: 0, wait: 'the sync worker did not answer' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function sayWhy(body: any): string {
   if (!body) return 'Blackbaud turned it down.';
   if (typeof body === 'string') return body.slice(0, 240);

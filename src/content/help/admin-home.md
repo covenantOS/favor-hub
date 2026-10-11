@@ -35,7 +35,9 @@ Open a tab in the Admin row. Each setting shows what it is now, where it lives a
 
 ## Blackbaud users
 
-**Blackbaud users** lists everyone with a Blackbaud login: name, email, Active or Inactive, Raiser's Edge NXT access (Admin or User) and any other product they can open. Active, Inactive and All narrow the list, and the box finds a name or an email. The desktop reads Blackbaud's own users page each weekday morning after the other jobs, and **As of** shows when; it turns amber after 36 hours. The page is read only. Adding a user and changing access stay in Blackbaud for now. The list has no sign-in date.
+**Blackbaud users** lists everyone with a Blackbaud login: name, email, Active or Inactive, Raiser's Edge NXT access (Admin or User) and any other product they can open. Active, Inactive and All narrow the list, and the box finds a name or an email. The desktop reads Blackbaud's own users page each weekday morning after the other jobs, and **As of** shows when; it turns amber after 36 hours. The list has no sign-in date.
+
+**Add user** takes a first name, last name, email and an access choice: Normal user (Fundraising, Analysis and Marketing View Only, with the Query and View Only Everything groups), Solution admin, or a set of roles and database view groups you pick. **Change access** and **Deactivate** sit on each active row. Blackbaud has no way for the hub to change a user directly, so each press saves a request and the desktop runs it in Blackbaud. The **Requests** list shows each one as Waiting for the desktop, Running on the desktop, Checked, not applied, Done or Failed, with the result line, and **Cancel** takes back a request the desktop has not started. The list refreshes while a request is open. A request for someone who already has one open is refused, and you cannot deactivate or change your own login. Every request writes a row to the Audit log under Blackbaud users.
 
 ## Read the audit log
 

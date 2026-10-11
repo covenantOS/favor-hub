@@ -78,7 +78,7 @@ const def: ReportDef = {
           : `${SELECT}, NULL AS email, NULL AS email_inactive, NULL AS do_not_email
              FROM constituents c LEFT JOIN addresses a ON a.id = c.primary_address_id
              WHERE NOT EXISTS (SELECT 1 FROM emails e WHERE e.constituent_record_id = c.id AND COALESCE(e.email_address, '') <> '')
-               AND NOT EXISTS (SELECT 1 FROM solicit_codes s WHERE s.constituent_record_id = c.id AND s.solicit_code = 'Has no valid email')
+               AND NOT EXISTS (SELECT 1 FROM solicit_codes s WHERE s.constituent_record_id = c.id AND s.solicit_code = 'Has no valid email' AND (s.solicit_end IS NULL OR s.solicit_end > date('now')))
              ORDER BY LOWER(COALESCE(c.organization_name, c.last_name, '')), c.first_name`;
       raw = await ctx.sql<Raw>(sql);
     } else if (f.list === 'online-express') {
