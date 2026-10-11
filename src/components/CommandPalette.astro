@@ -176,9 +176,11 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
   function navigateTo(item) {
     if (!item) return;
     if (item.href === '#nav-toggle') { close(); window.dispatchEvent(new Event('hub-nav-toggle')); return; }
-    if (item.external) window.open(item.href, '_blank', 'noopener');
-    else window.location.href = item.href;
-    close();
+    if (item.external) { window.open(item.href, '_blank', 'noopener'); close(); return; }
+    // Take the search's history entry off first; a page change started while that step is pending would be cancelled by it.
+    const go = () => { window.location.href = item.href; close(); };
+    const ov = window.hubOv;
+    if (ov && ov.depth()) ov.unwind(go); else go();
   }
 
   // Hotkey: Cmd-K, Ctrl-K, or "/"

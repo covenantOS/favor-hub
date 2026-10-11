@@ -1,0 +1,98 @@
+/* Shell critic, round 2, 2026-10-11. Loaded after crit-shell.css.
+   Phone overlays are sheets pinned with top and bottom offsets (never viewport units, iOS 26 toolbar). */
+
+/* ---------- Tab rows: the fade shows only when more tabs wait off the edge. */
+@media (max-width: 860px) {
+  body.h-body .h-tabs__row { -webkit-mask-image: none; mask-image: none; padding-right: 12px; }
+  body.h-body .h-tabs__row.is-over { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+  body.h-body .h-tabs__row.is-over.is-over-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 40px), transparent); }
+  body.h-body .h-tabs__row:not(.is-over).is-over-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); mask-image: linear-gradient(90deg, transparent, #000 24px); }
+  body.h-body .h-tab { padding: 0 11px; }
+  body.h-body .h-tabs__row { gap: 2px; }
+}
+
+/* ---------- Search: a full sheet that follows the visible area, so the keyboard never covers the results. */
+@media (max-width: 860px) {
+  body.h-body .cmdk { padding: 0; inset: auto; top: var(--vv-top, 0px); left: 0; right: 0; height: var(--vv-h, 100%); place-items: stretch; z-index: 130; }
+  body.h-body .cmdk__overlay { background: rgba(13, 15, 12, 0.5); }
+  body.h-body .cmdk__panel { width: 100%; height: 100%; max-height: none; display: flex; flex-direction: column; border: 0; border-radius: 0; background: #fbfaf6; box-shadow: none; animation: crit-up .26s cubic-bezier(.2, .8, .2, 1); }
+  body.h-body .cmdk__head { flex: none; min-height: 64px; padding: calc(8px + env(safe-area-inset-top)) 10px 8px 18px; gap: 10px; }
+  body.h-body .cmdk__head input { font-size: 17px; min-height: 44px; }
+  body.h-body .cmdk__list { flex: 1 1 auto; min-height: 0; max-height: none; padding: 6px 8px calc(14px + env(safe-area-inset-bottom)); overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  body.h-body .cmdk__list li[role='option'] { min-height: 56px; }
+  body.h-body .cmdk__empty { padding: 40px 20px; }
+}
+
+/* ---------- Feedback: a sheet, a thumbnail instead of a half-screen picture, and room for the note with the keyboard up. */
+@media (max-width: 860px) {
+  body.h-body dialog.fb[open] { inset: auto 0 0 0; margin: 0; width: 100%; max-width: 100%; max-height: calc(100% - 48px); border-radius: 22px 22px 0 0; animation: crit-up .28s cubic-bezier(.2, .8, .2, 1); overflow-x: hidden; }
+  body.h-body dialog.fb[open]::before { content: ''; position: absolute; top: 8px; left: 50%; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: #d6d0c1; }
+  body.h-body dialog.fb .fb-form, body.h-body dialog.fb .fb-done { padding: 22px 18px calc(16px + env(safe-area-inset-bottom)); }
+  body.h-body dialog.fb .fb-head .tr-x { width: 44px; height: 44px; border-radius: 999px; background: #efe9db; outline: none; }
+  body.h-body dialog.fb .fb-shot:has(.fb-shot__img) { grid-template-columns: 84px minmax(0, 1fr); align-items: start; column-gap: 12px; }
+  body.h-body dialog.fb .fb-shot__img { width: 84px; height: 112px; max-height: none; object-fit: cover; object-position: top left; }
+  body.h-body dialog.fb .fb-shot__row { display: flex; flex-wrap: wrap; gap: 6px 8px; align-content: start; }
+  body.h-body dialog.fb .fb-shot__row p { flex: 1 0 100%; }
+  body.h-body dialog.fb .fb-shot__row .h-btn { flex: 1 1 auto; }
+  body.h-body dialog.fb .fb-acts { padding-bottom: 2px; }
+  body.h-body.kb-open dialog.fb[open] { inset: var(--vv-top, 0px) 6px auto 6px; width: auto; max-width: none; margin: 6px 0 0; border-radius: 18px; max-height: calc(var(--vv-h, 100%) - 12px); animation: none; }
+  body.h-body.kb-open dialog.fb[open]::before { display: none; }
+  body.h-body.kb-open dialog.fb .fb-shot, body.h-body.kb-open dialog.fb .fb-where { display: none; }
+  body.h-body.kb-open dialog.fb .fb-form { padding-top: 14px; }
+}
+@media (hover: none) { dialog.fb .tr-x:focus-visible, dialog.fb .fb-chips input:focus-visible + span { outline: none; } }
+
+/* ---------- Meetings: the system-alerts link is a row, not a loose underlined sentence above the title. */
+@media (max-width: 860px) {
+  .nudge-ask { padding: 0; margin: 0 0 12px; }
+  .nudge-ask button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 0 14px; border: 1px solid var(--h-line); border-radius: 12px; background: var(--h-ivory); text-decoration: none; color: var(--h-ink-2); font: 500 13.5px var(--h-font); }
+  .nudge-ask button::after { content: '\203A'; font-size: 20px; line-height: 1; color: var(--h-ink-3); flex: none; }
+  .nudge-ask button:hover { border-color: var(--h-line-2); color: var(--h-ink); }
+}
+
+/* ---------- Work Overview tiles: the count keeps its own room and the name wraps, so the pill never meets the tile edge. */
+@media (max-width: 860px) {
+  body.h-body .wh-tool { gap: 10px; padding: 10px 12px 10px 12px; }
+  body.h-body .wh-tool__l { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+  body.h-body .wh-tool__n { flex: none; margin-left: 4px; white-space: nowrap; }
+}
+
+/* ---------- Toasts on a phone: every kind sits the same distance above the tab bar (or the screen edge when the bar is hidden), same height and corners. */
+@media (max-width: 860px) {
+  body.h-body :is(.toast, .fnd-toast, .pp-toast, .rp-toast, .wm-toast, .wc-toast, #snz-toast, .nudge) {
+    bottom: calc(var(--h-bar-h, 70px) + 12px) !important; max-width: calc(100vw - 24px); min-height: 44px; border-radius: 14px;
+    font-size: 14px; line-height: 1.35; box-shadow: 0 12px 30px -12px rgba(29, 33, 27, .5);
+  }
+  body.h-body :is(.toast, .rp-toast, .wm-toast, .wc-toast) { display: flex; align-items: center; justify-content: center; }
+  body.h-body :is(.toast, .fnd-toast, .rp-toast, .wm-toast, .wc-toast):empty { display: none; }
+  body.h-body .h-app.is-room ~ .toast { bottom: 104px !important; }
+}
+
+/* ---------- Touch: close buttons and link rows inside overlays reach 44 px. */
+@media (pointer: coarse) {
+  .wm-x { width: 44px; height: 44px; }
+  .wm-foot button, .tr-link, dialog.fb .fb-acts a, .lp__go { display: inline-flex; align-items: center; min-height: 44px; }
+  .tr-x { width: 44px; height: 44px; font-size: 16px; }
+  .tr-as select { height: 44px; }
+  .tr-acts .tr-link { padding: 0 4px; }
+}
+
+/* ---------- iPad portrait and big phones turned sideways use the phone layout, so their sheets stay a card width instead of spanning the screen. */
+@media (min-width: 600px) and (max-width: 860px) {
+  body.h-body dialog.lp[open], body.h-body dialog.fb[open] { inset: auto 0 0 0; margin: 0 auto; width: min(560px, 100%); max-width: 560px; }
+  body.h-body.kb-open dialog.fb[open] { inset: var(--vv-top, 0px) 0 auto 0; margin: 6px auto 0; width: min(560px, calc(100% - 12px)); }
+  body.h-body .h-side { left: 0; right: 0; width: min(560px, 100%); margin: 0 auto; }
+  body.h-body .cmdk { padding: 72px 16px 16px; place-items: start center; }
+  body.h-body .cmdk__panel { width: min(620px, 100%); height: auto; max-height: 100%; border: 1px solid var(--rule); border-radius: 18px; box-shadow: 0 30px 80px -20px rgba(13, 15, 12, .4); }
+  body.h-body .wm-pop { left: auto !important; right: 12px !important; width: 380px; }
+  body.h-body .cmdk__panel { max-height: min(760px, 100%); }
+  body.h-body .tr-pop { width: min(520px, calc(100vw - 24px)) !important; left: 50% !important; transform: translateX(-50%); }
+}
+
+/* ---------- iPad on its side and small laptops: the header keeps six controls, not seven. My clips stays in the account menu and on Meetings > Clips. */
+@media (min-width: 861px) and (max-width: 1280px) and (pointer: coarse) {
+  body.h-body #clip-lib { display: none; }
+}
+
+/* ---------- Tour card: opaque, so the page behind it never shows through the words. */
+body.h-body .tr-pop { background: #fbfaf6; -webkit-backdrop-filter: none; backdrop-filter: none; }

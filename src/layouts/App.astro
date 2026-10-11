@@ -26,6 +26,7 @@ import '../styles/admin-fix.css';
 import '../styles/sticky-col.css';
 import '../styles/fix-shell.css';
 import '../styles/crit-shell.css';
+import '../styles/crit-shell2.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -76,10 +77,10 @@ const footAreas = AREAS.filter((a) => a.foot);
     <meta name="theme-color" content="#f4efe0" />
     <style is:inline>html,body{background:#f4efe0}</style>
     <script is:inline src="/js/sheets.js?v=1"></script>
-    <script is:inline src="/js/drill.js?v=1" defer></script>
+    <script is:inline src="/js/drill.js?v=3" defer></script>
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=2" defer></script>
-    <script is:inline src="/js/partner.js?v=10" defer></script>
+    <script is:inline src="/js/partner.js?v=11" defer></script>
     <script is:inline src="/js/records.js?v=2" defer></script>
     <script is:inline src="/js/add-partner.js?v=2" defer></script>
     <script is:inline src="/js/ux-pass.js?v=1" defer></script>
@@ -258,7 +259,7 @@ const footAreas = AREAS.filter((a) => a.foot);
         </header>
         <script is:inline>
           // The top bar comes after the menu script above, so the saved sections (reminders bell, clips buttons) are applied to it here, before its first paint.
-          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); var sb = document.querySelector('.h-top__search'); if (hb) hb.hidden = false; if (sb) sb.hidden = true; } } catch (e) {}
+          try { var s2 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s2) window.hubApplyNav(s2); if (localStorage.getItem('favor.hub.gate.v1') === '1') { var hb = document.getElementById('pp-headsearch'); if (hb) hb.hidden = false; } } catch (e) {}
         </script>
         <main id="h-content" tabindex="-1" class={bare ? 'h-bare' : wide ? 'h-page h-page--wide' : full ? 'h-page h-page--full' : 'h-page'}>
           <slot />
@@ -268,12 +269,12 @@ const footAreas = AREAS.filter((a) => a.foot);
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=5" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=7" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=3" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=4" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=4" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=6" defer></script>
     <script is:inline src="/js/clips-launch.js?v=4" defer></script>
-    <script is:inline src="/js/wc-bell.js?v=2" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=3" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
     <script>
       import '../scripts/hub';

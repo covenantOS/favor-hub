@@ -53,7 +53,21 @@
 .dr-acts{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
 .dr-msg{margin:12px 0 0;padding:12px 14px;border-radius:10px;background:var(--h-gold-soft,#fbf1dc);color:var(--h-ink,#12161a)}
 .dr-load{margin:18px 0 0;color:var(--h-ink-2,#48505a)}
-@media (max-width:600px){.dr-panel{padding:16px 16px 24px}.dr-tbl{font-size:12px}}
+@media (max-width:600px){.dr-tbl{font-size:12px}}
+.dr-sk{display:block;height:14px;margin:0 0 12px;border-radius:7px;background:linear-gradient(90deg,#eeeadf 25%,#f7f4ec 50%,#eeeadf 75%);background-size:200% 100%;animation:dr-sh 1.2s linear infinite}
+.dr-sk--box{height:74px;border-radius:12px;margin-top:16px}.dr-sk--h{width:42%;height:12px;margin-top:22px}.dr-sk--s{width:70%}
+@keyframes dr-sh{from{background-position:100% 0}to{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.dr-sk{animation:none}}
+@media (max-width:860px){
+.dr-scrim{background:rgba(18,22,26,.42)}
+.dr-panel{top:auto;left:0;right:0;bottom:0;width:100%;max-height:calc(100% - 48px);min-height:62%;border-radius:22px 22px 0 0;padding:26px 18px calc(28px + env(safe-area-inset-bottom));animation:dr-up .28s cubic-bezier(.2,.8,.2,1)}
+.dr-panel::before{content:'';position:absolute;top:8px;left:50%;width:40px;height:5px;margin-left:-20px;border-radius:3px;background:#d6d0c1}
+.dr-panel{font-size:15px}.dr-x{width:44px;height:44px;border:0;border-radius:999px;background:#efe9db;font-size:26px}
+.dr-title{font-size:20px}.dr-eyebrow{font-size:12px}.dr-tbl{font-size:13px}.dr-tbl th{font-size:12px}
+}
+@media (min-width:600px) and (max-width:860px){.dr-panel{left:0;right:0;margin:0 auto;width:min(560px,100%)}}
+@media (hover:none){.dr-x:focus-visible{outline:none}}
+@keyframes dr-up{from{transform:translateY(36px);opacity:0}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion:no-preference){.dr-panel{animation:dr-in .18s ease-out}}
 @keyframes dr-in{from{transform:translateX(16px);opacity:.6}to{transform:none;opacity:1}}`;
   document.head.appendChild(style);
@@ -75,6 +89,7 @@
     panel.hidden = true;
     panel.innerHTML = '<div class="dr-head"><div><p class="dr-eyebrow">What is behind this number</p><h2 class="dr-title" id="dr-title"></h2></div><button type="button" class="dr-x" aria-label="Close">&times;</button></div><div id="dr-body"></div>';
     document.body.append(scrim, panel);
+    if (window.hubOv) window.hubOv.watch(panel, (p) => !p.hidden, () => close());
     scrim.addEventListener('click', close);
     panel.querySelector('.dr-x').addEventListener('click', close);
     document.addEventListener('keydown', (e) => {
@@ -175,7 +190,7 @@
     }
     const acts = `<div class="dr-acts">${s.rows && s.rows.length ? '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="drill">Open in Google Sheets</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-dr-csv>Download CSV</button>' : ''}</div>`;
     const err = s.error ? `<div class="dr-msg" role="status">${esc(s.error)}</div>` : '';
-    panel.querySelector('#dr-body').innerHTML = `${shownBlock}${totalLine}${s.loading ? '<p class="dr-load" role="status">Opening the rows</p>' : ''}${err}${tieLine(s)}${def}${rows}${acts}`;
+    panel.querySelector('#dr-body').innerHTML = `${shownBlock}${totalLine}${s.loading ? '<div class="dr-skel" role="status" aria-label="Opening the rows"><i class="dr-sk dr-sk--box"></i><i class="dr-sk dr-sk--h"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i></div>' : ''}${err}${tieLine(s)}${def}${rows}${acts}`;
     const csv = panel.querySelector('[data-dr-csv]');
     if (csv) csv.addEventListener('click', download);
   }
