@@ -31,7 +31,7 @@ Mine is the open actions that list you as a fundraiser. The Mine chip on Open ac
 
 Press the number on the Overview counts, the Open actions tiles or the Gifts to thank tiles to open a side panel with that number's Favor definition and the actions or gifts it counts. The panel says whether the rows add up to the number on the page, and exports them to Google Sheets or CSV. On the tiles, the label under the number still filters the list.
 
-The badge on Work in the left rail shows the same open actions number. Requests and Thank-yous keep their own badges on their own tabs. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
+The badge on Work in the left rail shows the same open actions number. Requests and Receipts keep their own badges on their own tabs. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
 
 ## Finish many actions at once
 
