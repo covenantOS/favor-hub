@@ -13,9 +13,11 @@ body.h-body .hd-topics { align-items: start; }
 @media (max-width: 860px) {
   body.h-body .r2t-sec { flex-wrap: wrap; row-gap: 2px; }
   body.h-body .wh-tools > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-  body.h-body .wh-table th, body.h-body .wh-table td { padding-left: 6px; padding-right: 6px; }
-  body.h-body .wh-table td:nth-child(2) { max-width: 64px; overflow: hidden; text-overflow: ellipsis; }
-  body.h-body .wh-tw { padding: 0 4px 10px; }
-  body.h-body .wh-table { font-size: 12.5px; }
-  body.h-body .wh-table th { font-size: 11.5px; }
+  body.h-body .wh-tw { padding: 0 0 10px; -webkit-overflow-scrolling: touch; }
+  body.h-body .wh-table { min-width: 440px; }
+  body.h-body .wh-table th:first-child, body.h-body .wh-table td:first-child { position: sticky; left: 0; z-index: 1; background: #fff; padding-left: 14px; box-shadow: 1px 0 0 var(--r-line); }
+  body.h-body .wh-table tbody tr:hover td:first-child { background: var(--r-hover); }
 }
+
+/* Help rail: a thin scrollbar and bottom room so the last topics are reachable and visibly scrollable. */
+body.h-body .hd-side { scrollbar-width: thin; padding-bottom: 24px; overscroll-behavior: contain; }

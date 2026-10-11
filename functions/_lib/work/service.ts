@@ -1351,8 +1351,8 @@ export async function recentBatches(env: Env, hours = 36, email?: string) {
   const since = new Date(Date.now() - hours * 3600000).toISOString();
   const bs = (
     email
-      ? await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' AND lower(actor_email) = ? ORDER BY created_at DESC LIMIT 60").bind(since, email.toLowerCase()).all<BatchRow>()
-      : await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' ORDER BY created_at DESC LIMIT 60").bind(since).all<BatchRow>()
+      ? await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' AND actor_email <> 'agent' AND actor NOT LIKE '%(role test)' AND lower(actor_email) = ? ORDER BY created_at DESC LIMIT 60").bind(since, email.toLowerCase()).all<BatchRow>()
+      : await env.DB.prepare("SELECT * FROM act_batches WHERE created_at >= ? AND op <> 'undo' AND actor_email <> 'agent' AND actor NOT LIKE '%(role test)' ORDER BY created_at DESC LIMIT 60").bind(since).all<BatchRow>()
   ).results;
   // A change whose undo is saved but not finished. The page turns its Undo button off, on every screen, until the undo is done.
   const undoing = new Set<string>();
