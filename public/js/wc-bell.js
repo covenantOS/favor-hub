@@ -110,11 +110,14 @@ const chatOn = () => document.documentElement.classList.contains('has-chat');
 // Request board: things sent to this person, mentions, comments and Waiting on, for people on any request (access.tasks).
 const TK = { count: 0, items: [] };
 const tasksOn = () => document.documentElement.classList.contains('has-tasks');
+// Projects hook: task notices (given to you, mentions, comments, waiting, due soon) for people with Projects (access.projects).
+const PJ = { count: 0, items: [] };
+const projectsOn = () => document.documentElement.classList.contains('has-projects');
 const wcOn = () => document.documentElement.classList.contains('has-wc');
 const bellBtn = () => document.getElementById('wm-bell');
 function paintBadge() {
   const b = bellBtn(); if (!b) return;
-  const total = R.count + CH.count + TK.count;
+  const total = R.count + CH.count + TK.count + PJ.count;
   const em = $('em', b); em.textContent = total ? String(total) : '';
   b.setAttribute('aria-label', total ? 'Notifications, ' + total + ' waiting' : 'Notifications');
 }
@@ -127,6 +130,7 @@ function take(d) {
 async function refresh() {
   if (wcOn() || !tasksOn()) { try { take(await api('/api/work/reminders')); } catch (_) { /* the bell keeps what it had */ } }
   if (tasksOn()) { try { const d = await api('/api/requests/notices'); TK.count = d.count || 0; TK.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no request notices */ } }
+  if (projectsOn()) { try { const d = await api('/api/tasks/links/bell'); PJ.count = d.count || 0; PJ.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no project notices */ } }
   if (chatOn()) { try { const d = await api('/api/chat/inbox'); CH.count = d.count || 0; CH.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no chat */ } }
 }
 const chatLine = (it) => {
@@ -152,10 +156,11 @@ function bellHTML() {
         <div class="wm-remacts">${r.cid ? `<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wm-open="${esc(r.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-done="${esc(r.id)}">Done</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-later="${esc(r.id)}" aria-haspopup="menu">Later${ic('down')}</button></div></div></div>`).join('')
     : `<div class="wm-empty"><b>Nothing to remember</b>Press the bell on a task in a partner's page to be reminded.</div>`;
   const taskList = TK.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Requests</div>${TK.items.map((it) => { const c = taskLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-task="${it.id}"><time>${esc(label(it.created_at))}</time><div><b>${esc(c.head)} ${esc(c.title)}</b>${c.txt ? `<span>${esc(c.txt)}</span>` : ''}</div></a>`; }).join('')}</div>` : '';
+  const projList = PJ.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Projects</div>${PJ.items.map((it) => `<a class="wm-rem wm-rem--chat" href="${esc(it.url)}" data-wm-pj="${esc(it.id)}"><time>${esc(label(it.created_at))}</time><div><b>${esc(it.head)} ${esc(it.title)}</b>${it.txt ? `<span>${esc(it.txt)}</span>` : ''}</div></a>`).join('')}</div>` : '';
   const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time>${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
   const wc = wcOn() || !tasksOn();
   return `<h4><span>${wc ? 'Reminders' : 'Notifications'}${wc && R.count ? `<small>${R.count} due today</small>` : ''}</span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
-    <div>${taskList}${chatList}${wc ? list : !TK.items.length && !CH.items.length ? '<div class="wm-empty"><b>Nothing new</b>Requests sent to you and mentions show here.</div>' : ''}</div>${wc ? '<div class="wm-foot"><span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button></div>' : ''}`;
+    <div>${projList}${taskList}${chatList}${wc ? list : !TK.items.length && !CH.items.length && !PJ.items.length ? '<div class="wm-empty"><b>Nothing new</b>Requests sent to you and mentions show here.</div>' : ''}</div>${wc ? '<div class="wm-foot"><span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button></div>' : ''}${projectsOn() ? '<div class="wm-foot"><span>Task email and calendar</span><button type="button" data-wm-pjprefs>Project notices</button></div>' : ''}`;
 }
 function paintBell() { if (popEl) popEl.innerHTML = bellHTML(); }
 
@@ -327,6 +332,8 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-wm-closedlg')) { closeDlg(); return; }
   if (t.hasAttribute('data-wm-mail') || t.hasAttribute('data-wm-mailchip')) { openMail(); return; }
   if (t.hasAttribute('data-wm-task')) { send('POST', '/api/requests/notices', { id: Number(d.wmTask) }).catch(() => {}); return; }
+  if (t.hasAttribute('data-wm-pj')) { send('POST', '/api/tasks/notices/read', { ids: [d.wmPj] }).catch(() => {}); return; }
+  if (t.hasAttribute('data-wm-pjprefs')) { closePop(); if (window.PJLinks) window.PJLinks.prefs(); return; }
   if (t.hasAttribute('data-wm-chat')) { send('POST', '/api/chat/inbox/read', { message_id: Number(d.wmChat) }).catch(() => {}); return; }
   if (d.wmOpen) {
     const id = d.wmOpen; closePop();

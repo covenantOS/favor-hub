@@ -173,7 +173,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             a.hidden = !pages.length;
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
-            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen' && c.dataset.count !== 'projectsMine') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
@@ -222,6 +222,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           document.documentElement.classList.toggle('has-clips', !!access.clips);
           document.documentElement.classList.toggle('has-chat', !!access.chat);
           document.documentElement.classList.toggle('has-tasks', !!access.tasks);
+          document.documentElement.classList.toggle('has-projects', !!access.projects); // projects hook
           document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);
           document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
           var teams = d.kpiTeams || [];
@@ -283,7 +284,8 @@ const footAreas = AREAS.filter((a) => a.foot);
     <script is:inline src="/js/hub-nav.js?v=4" defer></script>
     <script is:inline src="/js/hub-swap.js?v=9" defer></script>
     <script is:inline src="/js/clips-launch.js?v=4" defer></script>
-    <script is:inline src="/js/wc-bell.js?v=4" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=5" defer></script>
+    <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
     <script>
       import '../scripts/hub';

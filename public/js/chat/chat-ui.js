@@ -304,6 +304,8 @@
       }
       // q3-tasks hook: a request board card (title, note, status, Open) is drawn by task-card.js.
       if (a.type === 'task') return window.FavorTaskCard ? window.FavorTaskCard.html(a, { esc: esc, ic: ic }) : '';
+      // projects hook: a project task card is drawn by projects/links (public/js/chat/project-card.js).
+      if (a.type === 'ptask') return window.FavorProjectCard ? window.FavorProjectCard.html(a, { esc: esc, ic: ic }) : '';
       if (a.type === 'link') {
         return '<a class="ch-card ch-link" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-card__m">' + esc(a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</a>';
       }
