@@ -4,6 +4,7 @@
    came from so Leave brings them back there.
    FavorPrejoin.open({
      title,                       sheet title
+     icon,                        'head' (a huddle, the default) or 'video' (a meeting)
      load(): Promise<{ live, startedAt, people: [{ name, email, pid }] }>   polled every 4 seconds while open
      me: { email, pid? },         this person; their own earlier visit (same pid) is left out of the faces
      face(person): html,          optional avatar renderer
@@ -20,7 +21,8 @@
     camOff: '<path d="M16 16v1a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1m4 0h5a1 1 0 0 1 1 1v3.5l5-3v9"/><path d="M3 3l18 18"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
-    head: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>'
+    head: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
+    video: '<rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 5-3v9l-5-3z"/>'
   };
   function ic(n) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -44,7 +46,7 @@
     wrap.innerHTML = '<div class="pj-scrim" data-pj="close"></div>' +
       '<section class="pj-sheet" role="dialog" aria-modal="true" aria-labelledby="pj-title">' +
       '<div class="pj-grab" aria-hidden="true"></div>' +
-      '<header class="pj-head"><span class="pj-kick">' + ic('head') + '</span><div class="pj-ht"><h2 id="pj-title">' + esc(o.title) + '</h2><p class="pj-status" id="pj-status" aria-live="polite">Checking who is here</p></div>' +
+      '<header class="pj-head"><span class="pj-kick">' + ic(o.icon || 'head') + '</span><div class="pj-ht"><h2 id="pj-title">' + esc(o.title) + '</h2><p class="pj-status" id="pj-status" aria-live="polite">Checking who is here</p></div>' +
       '<button type="button" class="pj-x" data-pj="close" aria-label="Close">' + ic('x') + '</button></header>' +
       '<div class="pj-who" id="pj-who"></div>' +
       '<div class="pj-prev" id="pj-prev"><video id="pj-video" muted playsinline autoplay></video><span class="pj-me" id="pj-me"></span><span class="pj-camoff" id="pj-camoff">Camera off</span></div>' +
@@ -61,9 +63,10 @@
     wrap.addEventListener('click', onClick);
     wrap.addEventListener('change', onChange);
     wrap.addEventListener('keydown', onKey);
-    // Back on a phone closes the sheet instead of leaving the page.
-    try { history.pushState({ pj: 1 }, ''); S.pushed = true; } catch (e) { /* ignore */ }
-    window.addEventListener('popstate', onPop);
+    // Back (the phone's back gesture too) closes the sheet instead of leaving the page. The hub shell's overlay stack owns the
+    // history entry where it exists, so Back closes the top overlay only.
+    if (window.hubOv && window.hubOv.on) S.ov = window.hubOv.on(function () { if (cur === S) close(true); });
+    else { try { history.pushState({ pj: 1 }, ''); S.pushed = true; } catch (e) { /* ignore */ } window.addEventListener('popstate', onPop); }
     paintToggles();
     paintMe();
     media();
@@ -80,6 +83,7 @@
     clearInterval(S.timer); clearInterval(S.tick); clearInterval(S.meter);
     stopMedia(S);
     window.removeEventListener('popstate', onPop);
+    if (S.ov && !keepHistory && window.hubOv) window.hubOv.off(S.ov);
     if (S.pushed && !keepHistory && history.state && history.state.pj) { try { history.back(); } catch (e) { /* ignore */ } }
     document.documentElement.classList.remove('pj-open');
     S.el.classList.remove('is-in');
@@ -215,7 +219,7 @@
       stopMedia(S); clearInterval(S.meter);
       window.removeEventListener('popstate', onPop);
       // The sheet's history entry is replaced by the room, so Back from the room returns to this page.
-      if (S.pushed && history.state && history.state.pj) location.replace(url); else location.href = url;
+      if (history.state && (history.state.pj || history.state.hubov)) location.replace(url); else location.href = url;
     }).catch(function (e) {
       S.busy = false; go.disabled = false; paintStatus();
       var n = $('pj-note'); if (n) { n.hidden = false; n.textContent = (e && e.message) || 'That did not work. Try again.'; }

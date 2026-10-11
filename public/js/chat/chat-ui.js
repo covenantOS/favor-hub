@@ -765,11 +765,10 @@
       var h = S.huddle && S.active ? S.huddle[S.active] : null;
       if (!h) { bar.hidden = true; setHtml(bar, ''); return; }
       var ppl = h.people || [];
-      var mine = ppl.some(function (p) { return p.email === S.me.id; });
       bar.hidden = false;
       setHtml(bar, '<span class="ch-hud__dot" aria-hidden="true"></span><span class="ch-stack">' + ppl.slice(0, 4).map(function (p) { return avatar(user(p.email), 'sm'); }).join('') + '</span>' +
         '<span class="ch-hud__t"><b>Huddle</b><span><span data-hud-dur>' + (h.startedAt ? hudDur(h.startedAt) : 'Starting') + '</span>' + (ppl.length ? ' · ' + esc(ppl.length === 1 ? user(ppl[0].email).name.split(' ')[0] : plural(ppl.length, 'person', 'people')) : '') + '</span></span>' +
-        '<button type="button" class="ch-hud__join" data-act="huddle">' + (mine ? 'Rejoin' : 'Join') + '</button>');
+        '<button type="button" class="ch-hud__join" data-act="huddle">Join</button>');
     }
     function hudDur(t) { var s = Math.max(0, Math.floor((Date.now() - t) / 1000)), m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); }
     function openHuddle(channelId) {
@@ -781,7 +780,7 @@
         me: { email: S.me.id, name: S.me.name },
         face: function (p) { return avatar(p.email ? user(p.email) : { name: p.name }, 'sm'); },
         load: function () { return huddleGet(channelId).then(function (h) { setHuddle(channelId, h); return h ? { live: true, startedAt: h.startedAt, people: h.people } : { live: false, people: [] }; }); },
-        emptyLine: 'No huddle going in ' + name,
+        emptyLine: 'No huddle going',
         joinLabel: function (st, list) { return st.live && list.length ? 'Join huddle' : 'Start a huddle'; },
         join: function () { return api.startMeeting(channelId).then(function (r) { return { id: r.id || (r.message && r.message.attachments && r.message.attachments[0] && r.message.attachments[0].id), url: r.url }; }); }
       });
@@ -999,6 +998,8 @@
     // runs first (capture, at the window) and keeps the hub out of it while a channel or thread is open.
     window.addEventListener('popstate', function (e) {
       if (!root.isConnected || S.view === 'list') return;
+      // Back while the huddle sheet is open closes the sheet (the hub's overlay stack handles it), and the channel stays.
+      if (window.FavorPrejoin && window.FavorPrejoin.isOpen()) return;
       e.stopImmediatePropagation();
       var v = e.state && e.state.chv;
       if (v === 'thread' && S.threadRoot) { setView('thread'); return; }

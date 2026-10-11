@@ -248,6 +248,7 @@
     if (!window.FavorPrejoin) { location.href = '/meet/room/?m=' + encodeURIComponent(id); return; }
     window.FavorPrejoin.open({
       title: title || 'Meeting',
+      icon: 'video',
       me: { email: '', name: '', pid: (function () { try { return sessionStorage.getItem('meet.pid.' + id) || ''; } catch (e) { return ''; } })() },
       load: function () { return api('meetings/' + encodeURIComponent(id)).then(function (r) { var ppl = r.people || []; return { live: ppl.length > 0, startedAt: r.meeting && r.meeting.startedAt && ppl.length ? Date.parse(r.meeting.startedAt) : 0, people: ppl }; }); },
       emptyLine: 'Nobody is in the room yet',
@@ -299,6 +300,7 @@
     if (!window.FavorPrejoin) { create().then(function (r) { location.href = r.url; }).catch(function (err) { toast(err.message); }); return; }
     window.FavorPrejoin.open({
       title: 'New meeting',
+      icon: 'video',
       me: { email: '', name: '' },
       load: function () { return Promise.resolve({ live: false, people: [] }); },
       emptyLine: 'Open to all staff, notes on',

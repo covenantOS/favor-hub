@@ -96,7 +96,7 @@ html.pj-open { overflow: hidden; }
 .ch-hud__t b { font-size: 14px; color: var(--r-ink); }
 .ch-hud__t span { font-size: 13px; color: var(--r-ink-2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ch-hud .ch-stack { flex: none; }
-.ch-hud__join { min-height: 44px; min-width: 76px; border: 0; border-radius: 12px; background: #1f7a3a; color: #fff; font: 650 15px/1 var(--h-font, inherit); padding: 0 16px; cursor: pointer; flex: none; }
-.ch-hud__join:hover { background: #186330; }
+.ch .ch-hud__join { min-height: 44px; min-width: 76px; border: 0; border-radius: 12px; background: #1f7a3a; color: #fff; font: 650 15px/1 var(--h-font, inherit); padding: 0 16px; cursor: pointer; flex: none; }
+.ch .ch-hud__join:hover { background: #186330; }
 .ch-btn--meet.is-live { background: #1f7a3a; color: #fff; border-color: transparent; }
 .ch-btn--meet.is-live svg { stroke: #fff; }
