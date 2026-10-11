@@ -14,7 +14,7 @@ The page reads nothing from this harness. The switch is the ?data= value in the 
 the harness reads when it answers a call: demo, worst, empty, one, huge. In `open` mode a small
 segmented control at the bottom of the window flips it and reloads. ?badges=N sets every menu count.
 
-BASE picks the site: the local dev server by default (npx astro dev --port 4399), or a preview
+BASE picks the site: the local dev server by default (npx astro dev --port 4471), or a preview
 deploy (HUB=https://break-ui.favor-hub-d4n.pages.dev) with the saved admin cookie.
 """
 import argparse, asyncio, json, os, re, sys, time
@@ -34,7 +34,7 @@ sys.path.insert(0, HERE)
 import fixtures as FX  # noqa: E402
 from pages import PAGES  # noqa: E402
 
-BASE = os.environ.get('HUB', 'http://127.0.0.1:4399').rstrip('/')
+BASE = os.environ.get('HUB', 'http://127.0.0.1:4471').rstrip('/')
 COOKIES = os.environ.get('HUB_COOKIES', r'Q:\Temp\Will\mobile\cookies-dash.json')
 # Stylesheets of the clip watch shell, kept in step with functions/c/[id].ts.
 CLIP_CSS = '<link rel="stylesheet" href="/js/clips/watch.css?v=3"><link rel="stylesheet" href="/js/clips/crit-watch.css?v=1"><link rel="stylesheet" href="/js/clips/launcher.css?v=5">'
@@ -274,15 +274,18 @@ async def shoot(p, name, mode, dev, out, extra=None, full=True, arrive=False, ta
     audit = await pg.evaluate(AUDIT_JS)
     os.makedirs(out, exist_ok=True)
     fn = os.path.join(out, f"{tag}{name}-{mode}-{dev}{'-tap' if arrive else ''}.png")
-    for attempt in range(3):
+    shot_err = ''
+    for attempt in range(4):
         try:
-            await pg.screenshot(path=fn, full_page=full and spec.get('full', True) and attempt == 0)
-        except Exception:
-            pass
-        # WebKit now and then writes an empty file; shoot again.
-        if os.path.exists(fn) and os.path.getsize(fn) > 0:
-            break
-        await pg.wait_for_timeout(400)
+            data = await pg.screenshot(full_page=full and spec.get('full', True) and attempt == 0, animations='disabled', timeout=20000)
+            if data:
+                open(fn, 'wb').write(data)
+                break
+        except Exception as e:  # WebKit now and then fails a capture; shoot again, viewport only
+            shot_err = str(e).splitlines()[0][:120]
+        await pg.wait_for_timeout(500)
+    else:
+        print('   no screenshot:', shot_err)
     await ctx.close()
     audit.update({'page': name, 'mode': mode, 'dev': dev, 'shot': fn, 'errors': errs, 'dialogs': dialogs, 'misses': sorted(set(state.get('misses', [])))})
     return audit
