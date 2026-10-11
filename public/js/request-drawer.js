@@ -99,13 +99,12 @@
     const list = k.followers || [];
     const fol = list.slice(0, 6).map((e) => `<span class="rq-fol" title="${esc(RT.person(e).name)}">${RT.avatar(e, 'sm')}</span>`).join('');
     const more = list.length > 6 ? `<span class="rq-more">+${list.length - 6}</span>` : '';
-    const names = list.length ? `<span class="rq-sr">${esc(list.map((e) => RT.person(e).name).join(', '))}</span>` : '';
     const follow = can.follow ? `<button type="button" class="rt-btn rt-btn--sm${r.following ? ' is-on' : ''}" data-follow aria-pressed="${r.following ? 'true' : 'false'}">${r.following ? 'Following' : 'Follow'}</button>` : '';
     return `<dl class="rq-fields">
       <div class="rq-field"><dt>Owner</dt><dd><div class="rq-row">${owner}${send}</div>${toldLine(told.owner, me, can.send)}</dd></div>
       <div class="rq-field"><dt>Due</dt><dd><div class="rq-row">${due}</div></dd></div>
       <div class="rq-field"><dt>Waiting on</dt><dd><div class="rq-row">${wait}</div>${toldLine(told.waiting, me, can.edit)}</dd></div>
-      <div class="rq-field"><dt>Following</dt><dd><div class="rq-row">${list.length ? `<span class="rq-fols">${fol}${more}${names}</span>` : '<span class="rq-none">Nobody yet</span>'}${follow}</div></dd></div>
+      <div class="rq-field"><dt>Following</dt><dd><div class="rq-row">${list.length ? `<span class="rq-fols" role="group" aria-label="${esc('Following: ' + list.map((e) => RT.person(e).name).join(', '))}">${fol}${more}</span>` : '<span class="rq-none">Nobody yet</span>'}${follow}</div></dd></div>
     </dl>`;
   }
 
@@ -284,8 +283,8 @@
   }, true);
 
   async function open(id, opts = {}) {
-    await RT.people();
     ensure();
+    const ready = RT.people();
     if (openId !== id) {
       root.querySelector('.rq__foot').dataset.kind = 'x';
       root.querySelector('.rq__body').scrollTop = 0;
@@ -300,15 +299,16 @@
       // Back closes the panel and stays on the page.
       if (window.hubOv) ovTok = window.hubOv.on(() => { ovTok = null; close(true); });
     }
-    if (opts.preview) paint(opts.preview, { first: true });
+    if (opts.preview) { await ready; paint(opts.preview, { first: true }); }
     else if (!wasOpen || !cur || cur.id !== id) {
       root.querySelector('.rq__head').innerHTML = `<div class="rq__chips"><span class="rq-skel rq-skel--chip"></span><span class="rq-skel rq-skel--chip"></span></div><button type="button" class="rt-x" data-rq-close aria-label="Close">${ic('x')}</button>`;
       root.querySelector('.rq__body').innerHTML = `<div class="rq-skel rq-skel--title"></div><div class="rq-skel rq-skel--line"></div><div class="rq-skel rq-skel--line"></div><div class="rq-skel rq-skel--block"></div>`;
       root.querySelector('.rq__foot').innerHTML = '';
     }
-    if (!touch) { const x = root.querySelector('[data-rq-close].rt-x'); if (x && !panel.contains(document.activeElement)) x.focus({ preventScroll: true }); }
+    // Focus moves into the panel: to Close with a keyboard, to the panel itself on touch (no ring, no keyboard popping up).
+    if (!panel.contains(document.activeElement)) { const x = root.querySelector('[data-rq-close].rt-x'); if (!touch && x) x.focus({ preventScroll: true }); else { panel.tabIndex = -1; panel.focus({ preventScroll: true }); } }
     try {
-      const data = await api(`/api/requests/${encodeURIComponent(id)}`);
+      const [data] = await Promise.all([api(`/api/requests/${encodeURIComponent(id)}`), ready]);
       if (openId !== id || !data.request) return;
       // Before the task tables exist the answer carries no rights; an admin still triages.
       if (!data.request.can && data.admin) data.request.can = { triage: true };
