@@ -11,7 +11,8 @@
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp } from './clipai';
-import { makeNotes, pumpDrive, pumpTranscript, transcribeRow, type NotesOut } from './meetdrive';
+import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
+import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
 import { meetSettings, withMeetSettings } from './admin/settings';
@@ -22,13 +23,15 @@ import {
 
 const COMMANDS = new Set(['mute', 'camoff', 'remove', 'spot', 'unspot', 'lock', 'unlock', 'makehost', 'unhost', 'muteall', 'sharepolicy', 'letin', 'end', 'lowerhand', 'allowshare']);
 
-export async function route({ request, env: rawEnv, params }: { request: Request; env: MeetEnv; params: Record<string, string | string[]> }, guestMode = false): Promise<Response> {
+export async function route({ request, env: rawEnv, params, waitUntil }: { request: Request; env: MeetEnv; params: Record<string, string | string[]>; waitUntil?: (p: Promise<unknown>) => void }, guestMode = false): Promise<Response> {
   try {
     // Settings an admin saved on Admin > Meetings sit over the Pages variables; with none saved the variables answer, as before.
     const env = await withMeetSettings(rawEnv);
     const user = guestMode ? await guestUser(request, env, params) : meetUser(request, env);
     const parts = ((params.path as string[]) || []).filter(Boolean);
     const m = request.method;
+    // The moment a meeting ends the notes start; the five-minute cron and the open notes page only finish what this leaves.
+    const onEnd = (mid: string) => { if (waitUntil) waitUntil(pumpAfterEnd(env, mid)); };
     if (parts[0] !== 'meetings') return errorJson('not_found', 'Not found.', 404);
     const sub0 = parts[2] || '';
     if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
@@ -60,13 +63,15 @@ export async function route({ request, env: rawEnv, params }: { request: Request
     if (sub === 'join' && m === 'POST' && guestMode) return json(await joinGuest(env, id, await request.json().catch(() => ({})), clientIpOf(request), request.headers.get('X-Guest-Token') || ''));
     if (sub === 'join' && m === 'POST') return json(await join(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sync' && m === 'POST') return json(await sync(env, user, id, await request.json().catch(() => ({}))));
-    if (sub === 'event' && m === 'POST') return json(await postEvent(env, user, id, await request.json().catch(() => ({}))));
-    if (sub === 'leave' && m === 'POST') return json(await leave(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'event' && m === 'POST') return json(await postEvent(env, user, id, await request.json().catch(() => ({})), onEnd));
+    if (sub === 'leave' && m === 'POST') return json(await leave(env, user, id, await request.json().catch(() => ({})), onEnd));
     if (sub === 'tracks' && m === 'POST') return json(await setTracks(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
+    if (sub === 'media' && m === 'GET') return await mediaOf(env, user, id, parts[3] || '', request.headers.get('Range'));
+    if (sub === 'invite' && m === 'POST') return json(await inviteTo(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (sub === 'pump' && m === 'POST') return json(await pump(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'ask' && m === 'POST') return json(await askAboutMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'action' && m === 'POST') return json(await markAction(env, user, id, await request.json().catch(() => ({}))));
@@ -110,9 +115,9 @@ async function endStaleMeetings(env: MeetEnv) {
   return ended;
 }
 
-async function endIfEmpty(env: MeetEnv, id: string) {
+async function endIfEmpty(env: MeetEnv, id: string, onEnd?: (id: string) => void) {
   const p = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, Date.now() - GONE_MS).first<{ n: number }>();
-  if (!p?.n) await endMeeting(env, id);
+  if (!p?.n) { await endMeeting(env, id); if (onEnd) onEnd(id); }
 }
 
 // ---------------------------------------------------------------- meetings
@@ -442,18 +447,18 @@ async function setTracks(env: MeetEnv, user: { email: string }, id: string, b: R
   return { ok: true, shared: mayShare };
 }
 
-async function leave(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>) {
+async function leave(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>, onEnd?: (id: string) => void) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email).catch(() => null);
   if (!me) return { ok: true };
   await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ?, tracks = ? WHERE meeting_id = ? AND pid = ?').bind(Date.now(), '[]', id, me.pid).run();
   await addEvent(env, id, 'notice', me.pid, '', { a: 'left', name: me.name });
-  await endIfEmpty(env, id);
+  await endIfEmpty(env, id, onEnd);
   return { ok: true };
 }
 
 // ---------------------------------------------------------------- events and host commands
 
-async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>) {
+async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>, onEnd?: (id: string) => void) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email);
   const kind = String(b.kind);
   const to = clean(b.to, 12);
@@ -500,7 +505,7 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
       case 'lock': await env.DB.prepare('UPDATE hub_meetings SET locked = 1 WHERE id = ?').bind(id).run(); break;
       case 'unlock': await env.DB.prepare('UPDATE hub_meetings SET locked = 0 WHERE id = ?').bind(id).run(); break;
       case 'sharepolicy': await env.DB.prepare('UPDATE hub_meetings SET share_policy = ? WHERE id = ?').bind(body.v === 'hosts' ? 'hosts' : 'all', id).run(); break;
-      case 'end': await endMeeting(env, id); break;
+      case 'end': await endMeeting(env, id); if (onEnd) onEnd(id); break;
       case 'lowerhand': if (target) await env.DB.prepare('UPDATE hub_meeting_presence SET hand = 0 WHERE meeting_id = ? AND pid = ?').bind(id, to).run(); break;
       case 'allowshare': if (target) await env.DB.prepare('UPDATE hub_meeting_presence SET can_share = ? WHERE meeting_id = ? AND pid = ?').bind(body.v === false ? 0 : 1, id, to).run(); break;
       case 'letin': if (target) await env.DB.prepare('UPDATE hub_meeting_presence SET waiting = 0 WHERE meeting_id = ? AND pid = ?').bind(id, to).run(); break;
@@ -659,17 +664,23 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
 
 // ---------------------------------------------------------------- recording to Drive, transcript and notes
 
-async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: string) {
+async function notesMeeting(env: MeetEnv, user: { email: string; role: string }, id: string): Promise<Meeting> {
   const m = await getMeeting(env, id);
   // The server decides who reads the notes: the people who may join, and the leader of a team with someone on the roster. Anyone else gets a 404.
-  if (!mayJoin(m, user) && !mayReadNotes(m, user, await ledPeople(env, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
-  const files = await env.DB.prepare(`SELECT file_id, file_name FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch`).bind(id).all<{ file_id: string; file_name: string }>();
+  if (!mayJoin(m, user as never) && !mayReadNotes(m, user as never, await ledPeople(env, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  return m;
+}
+
+async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: string) {
+  const m = await notesMeeting(env, user, id);
+  const files = await env.DB.prepare(`SELECT epoch, file_id, file_name FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch`).bind(id).all<{ epoch: number; file_id: string; file_name: string }>();
   return {
     ok: true,
     meeting: publicMeeting(m, user),
     notes: safeJson(m.notes_json, {}),
-    transcript: m.status === 'ended' && m.transcript && m.transcript !== '[]' ? safeJson(m.transcript, []) : ((await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(id).all()).results || []),
-    files: (files.results || []).map((f) => ({ id: f.file_id, name: f.file_name, url: `https://drive.google.com/file/d/${f.file_id}/view` })),
+    transcript: dedupeLines(m.status === 'ended' && m.transcript && m.transcript !== '[]' ? safeJson<Array<{ t: number; who?: string; text: string }>>(m.transcript, []) : (((await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(id).all<{ t: number; who: string; text: string }>()).results || []))),
+    files: (files.results || []).map((f) => ({ id: f.file_id, name: f.file_name, kind: m.rec_mode === 'video' ? 'video' : 'audio', src: `/api/meet/meetings/${id}/media/${f.epoch}`, url: `https://drive.google.com/file/d/${f.file_id}/view` })),
+    doc: m.notes_doc_id ? { id: m.notes_doc_id, url: `https://docs.google.com/document/d/${m.notes_doc_id}/edit` } : null,
     actions: (await env.DB.prepare('SELECT idx, text, owner_name, owner_email, due, t, done FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all()).results || [],
     people: (await env.DB.prepare('SELECT lower(email) AS email, MIN(name) AS name FROM hub_meeting_presence WHERE meeting_id = ? GROUP BY lower(email) ORDER BY MIN(joined_at)').bind(id).all<{ email: string; name: string }>()).results || [],
     asked: await askedDuring(env, m),
@@ -710,23 +721,64 @@ async function pump(env: MeetEnv, user: { email: string; role: string }, id: str
     await env.DB.prepare(`DELETE FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%pump-error%'`).bind(id).run();
     m.notes_status = 'pending';
   }
+  return pumpStep(env, m);
+}
+
+/** Starts the work for a meeting that just ended and keeps going for most of the time a background task is allowed, one step after another. */
+async function pumpAfterEnd(env: MeetEnv, id: string) {
+  const until = Date.now() + 24_000;
+  try {
+    for (let i = 0; i < 40 && Date.now() < until; i++) {
+      const m = await getMeeting(env, id);
+      const r = await pumpStep(env, m);
+      if (r.done) break;
+      if (!r.ok) await new Promise((res) => setTimeout(res, 1500));
+    }
+  } catch (err) {
+    console.error('[meet] pumpAfterEnd', id, err);
+  }
+}
+
+/** The time one stage took, kept with the meeting so the speed of the notes can be read back. */
+async function timed<T>(env: MeetEnv, id: string, stage: string, fn: () => Promise<T>): Promise<T> {
+  const t0 = Date.now();
+  try { return await fn(); } finally {
+    await env.DB.prepare(`INSERT INTO hub_meeting_events (meeting_id, kind, body, ts) VALUES (?, 'notice', ?, ?)`).bind(id, JSON.stringify({ a: 'pump-time', stage, ms: Date.now() - t0 }), Date.now()).run().catch(() => undefined);
+  }
+}
+
+async function docFor(env: MeetEnv & { MEET_DRIVE_FOLDER?: string }, m: Meeting, title: string): Promise<void> {
+  if (m.notes_doc_id || !env.MEET_DRIVE_FOLDER) return;
+  const n = safeJson<Partial<NotesOut>>(m.notes_json, {});
+  const done = (await env.DB.prepare(`SELECT file_id FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' AND file_id != '' ORDER BY epoch`).bind(m.id).all<{ file_id: string }>()).results || [];
+  const people = (await env.DB.prepare('SELECT MIN(name) AS name FROM hub_meeting_presence WHERE meeting_id = ? GROUP BY lower(email) ORDER BY MIN(joined_at)').bind(m.id).all<{ name: string }>()).results || [];
+  const input: DocInput = {
+    title, startedAt: m.started_at || m.created_at, summary: m.summary, decisions: n.decisions || [], actions: n.actions || [], chapters: n.chapters || [],
+    transcript: safeJson(m.transcript, []), people: people.map((p) => p.name).filter(Boolean), notesUrl: `${HUB}/meet/notes/?m=${m.id}`, recordingUrls: done.map((f) => `https://drive.google.com/file/d/${f.file_id}/view`),
+  };
+  await timed(env, m.id, 'doc', () => makeNotesDoc(env, m, title, input));
+}
+
+async function pumpStep(env: MeetEnv, m: Meeting) {
+  const id = m.id;
   if (m.status === 'live') return { ok: true, done: true, state: 'live', progress: '' };
   const denv = env as MeetEnv & { MEET_DRIVE_FOLDER?: string };
   try {
     if (m.rec_state === 'uploading') {
       if (!denv.MEET_DRIVE_FOLDER) throw new Error('Drive folder not set');
-      const r = await pumpDrive(denv, m);
+      const r = await timed(env, id, 'drive', () => pumpDrive(denv, m));
       if (r.done) await env.DB.prepare(`UPDATE hub_meetings SET rec_state = 'stored' WHERE id = ?`).bind(id).run();
       return { ok: true, done: false, state: 'uploading', progress: r.progress };
     }
     if (m.notes_status === 'pending') {
-      const t = await pumpTranscript(env, m);
+      const t = await timed(env, id, 'whisper', () => pumpTranscript(env, m));
       if (!t.done) return { ok: true, done: false, state: 'transcribing', progress: t.progress };
       const invitees = safeJson<Array<{ name?: string; email?: string }>>(m.invitees, []).map((i) => i.name || i.email || '');
       const people = (await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string }>()).results || [];
       const names = [...new Set([...people.map((p) => p.name), ...invitees].filter(Boolean))];
-      const notes = await makeNotes(env, m, names);
+      const notes = await timed(env, id, 'summary', () => makeNotes(env, m, names));
       if (notes) {
+        const retitle = !!notes.title && isDefaultTitle(m.title);
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'ready', summary = ?, notes_json = ?, title = CASE WHEN title IN ('Meeting', '') OR title LIKE '% meeting' THEN ? ELSE title END WHERE id = ?`)
           .bind(notes.summary, JSON.stringify({ decisions: notes.decisions, actions: notes.actions, chapters: notes.chapters } satisfies Omit<NotesOut, 'title' | 'summary'>), notes.title || m.title, id).run();
         // Each action item goes to its owner's Today when the talk named someone who was in the room, by first name when that is unambiguous.
@@ -740,11 +792,18 @@ async function pump(env: MeetEnv, user: { email: string; role: string }, id: str
           return first.length === 1 ? first[0] : null;
         };
         await env.DB.prepare('DELETE FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).run();
-        await env.DB.batch(notes.actions.map((a, i) => { const o = pick(a.owner); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, i, a.text, o ? o.name : a.owner, o ? o.email.toLowerCase() : '', a.due, a.t); }));
+        if (notes.actions.length) await env.DB.batch(notes.actions.map((a, i) => { const o = pick(a.owner); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, i, a.text, o ? o.name : a.owner, o ? o.email.toLowerCase() : '', a.due, a.t); }));
+        // The files and the Google Doc take the notes title. A failure here never undoes the notes.
+        const fresh = await getMeeting(env, id);
+        try { if (retitle && denv.MEET_DRIVE_FOLDER) await renameRecordings(denv, fresh, notes.title); } catch (err) { console.warn('[meet] rename', id, err); }
+        try { await docFor(denv, fresh, fresh.title); } catch (err) { console.warn('[meet] doc', id, err); }
       } else {
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'none', summary = 'Nobody spoke, so there are no notes.' WHERE id = ?`).bind(id).run();
       }
       return { ok: true, done: true, state: 'ready', progress: '' };
+    }
+    if (m.notes_status === 'ready' && !m.notes_doc_id && m.rec_state !== 'uploading') {
+      try { await docFor(denv, m, m.title); } catch (err) { console.warn('[meet] doc', id, err); }
     }
     return { ok: true, done: true, state: m.rec_state === 'stored' ? 'stored' : 'idle', progress: '' };
   } catch (err) {
@@ -770,6 +829,77 @@ async function pumpNext(env: MeetEnv, user: { email: string; role: string }) {
   ).bind(me, user.role, me).first<{ id: string }>();
   if (!row) return { ok: true, done: true, state: 'idle', progress: '' };
   return { ...(await pump(env, user, row.id)), id: row.id };
+}
+
+
+// ---------------------------------------------------------------- the recording in the hub, and inviting people into a call
+
+/** The recording, streamed from Drive through the service account with the range the player asks for. Same access as the notes. */
+async function mediaOf(env: MeetEnv, user: { email: string; role: string }, id: string, epoch: string, range: string | null): Promise<Response> {
+  await notesMeeting(env, user, id);
+  const e = Number(epoch);
+  if (!Number.isInteger(e) || e < 1) throw new HttpError(404, 'not_found', 'That recording does not exist.');
+  const row = await env.DB.prepare(`SELECT file_id FROM hub_meeting_drive WHERE meeting_id = ? AND epoch = ? AND state = 'done' AND file_id != ''`).bind(id, e).first<{ file_id: string }>();
+  if (!row) throw new HttpError(404, 'not_found', 'That recording is not ready.');
+  return streamFile(env as MeetEnv & { MEET_DRIVE_FOLDER?: string }, row.file_id, range && /^bytes=\d*-\d*$/.test(range) ? range : null);
+}
+
+/** The guest link for a meeting, made once and turned on. Used by the Guest link button and by invitations. */
+async function ensureGuestUrl(env: MeetEnv, m: Meeting, origin: string): Promise<string> {
+  let key = await keyOf(env, m.id);
+  if (!key) { key = hex(16); await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(m.id, key).run(); }
+  if (m.access !== 'guests') await env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(m.id).run();
+  return `${origin}/meet/g/?m=${m.id}&k=${key}`;
+}
+
+/** A host invites one person while the meeting runs: a Favor name, an email, or a phone number. Staff get the room link, everyone else the guest link. */
+async function inviteTo(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>, origin: string) {
+  const m = await getMeeting(env, id);
+  if (!isHost(m, user.email) && user.role !== 'admin') throw new HttpError(403, 'host_only', 'Only a host can invite people.');
+  if (m.status === 'ended' || m.status === 'cancelled') throw new HttpError(400, 'over', 'This meeting is over.');
+  const target = parseTarget(String(b.to ?? ''));
+  if (!target) throw new HttpError(400, 'bad_target', 'Type a Favor name, an email address or a phone number.');
+  const dry = b.dry === true;
+  const sent = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%"a":"invited"%'`).bind(id).first<{ n: number }>();
+  if (!dry && (sent?.n || 0) >= 40) throw new HttpError(429, 'too_many', 'This meeting has reached 40 invitations.');
+  const host = user.name || user.email;
+  const roomUrl = `${origin}/meet/room/?m=${id}`;
+  let email = '', name = '', staff = false;
+  if (target.kind === 'name') {
+    const dir = (await directory(env)).people;
+    const hit = matchPeople(dir, target.query);
+    if (!hit.length) throw new HttpError(404, 'no_match', `No one named ${target.query.slice(0, 60)} is on the Favor list. Use an email address or a phone number.`);
+    if (hit.length > 1 && hit[0].name.toLowerCase() !== target.query.toLowerCase()) return { ok: false, matches: hit.slice(0, 6).map((p) => ({ name: p.name, email: p.email })) };
+    email = hit[0].email.toLowerCase(); name = hit[0].name; staff = true;
+  } else if (target.kind === 'email') {
+    email = target.email;
+    const dir = (await directory(env)).people.find((p) => p.email.toLowerCase() === email);
+    name = dir?.name || '';
+    staff = !!dir || email.endsWith('@favorintl.org');
+  }
+  const outside = target.kind === 'phone' || !staff;
+  if (outside && !guestsOn(env)) throw new HttpError(400, 'guests_off', 'Guests are not switched on yet.');
+  const link = outside ? (dry ? `${origin}/meet/g/?m=${id}&k=…` : await ensureGuestUrl(env, m, origin)) : roomUrl;
+  const result: { to: string; kind: string; status: 'sent' | 'failed' | 'dry'; detail: string } = { to: target.kind === 'phone' ? target.phone : email, kind: target.kind === 'phone' ? 'text' : staff ? 'staff' : 'guest', status: 'dry', detail: '' };
+  if (target.kind === 'phone') {
+    const text = smsText(host, m.title, link);
+    const r = await textInvite(env, target.phone, clean(b.name, 80) || '', text, dry);
+    result.status = dry ? 'dry' : r.ok ? 'sent' : 'failed';
+    result.detail = r.ok ? (dry ? 'Texting is set up. Nothing was sent.' : 'Text sent.') : r.reason || 'The text did not go.';
+  } else {
+    if (!dry) {
+      const list = safeJson<Array<{ email?: string; name?: string; team?: string; guest?: boolean }>>(m.invitees, []);
+      if (!list.some((i) => String(i.email).toLowerCase() === email) && email !== m.host_email.toLowerCase()) {
+        list.push({ email, name, team: '', guest: !staff });
+        await env.DB.prepare('UPDATE hub_meetings SET invitees = ? WHERE id = ?').bind(JSON.stringify(list), id).run();
+      }
+      const ok = await sendReminder(env, [email], { title: m.title, startsAt: nowIso(), roomUrl: link, backup: '', rec: m.rec_mode, kind: 'now', host });
+      result.status = ok ? 'sent' : 'failed';
+      result.detail = ok ? 'Email sent.' : 'The email did not go.';
+    } else result.detail = 'Nothing was sent.';
+  }
+  if (!dry && result.status === 'sent') await addEvent(env, id, 'notice', '', '', { a: 'invited' });
+  return { ok: true, result };
 }
 
 // ---------------------------------------------------------------- directory, repeats and reminders
@@ -952,10 +1082,7 @@ async function guestLink(env: MeetEnv, user: { email: string; role: string }, id
   if (!guestsOn(env)) throw new HttpError(404, 'not_found', 'Guests are not switched on yet.');
   const m = await getMeeting(env, id);
   if (!isHost(m, user.email) && user.role !== 'admin') throw new HttpError(403, 'host_only', 'Only the host can make the guest link.');
-  let key = await keyOf(env, id);
-  if (!key) { key = hex(16); await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(id, key).run(); }
-  if (m.access !== 'guests') await env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(id).run();
-  return { ok: true, url: `${origin}/meet/g/?m=${id}&k=${key}` };
+  return { ok: true, url: await ensureGuestUrl(env, m, origin) };
 }
 
 async function joinGuest(env: MeetEnv, id: string, b: Record<string, unknown>, ip: string, token0: string) {

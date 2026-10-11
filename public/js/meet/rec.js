@@ -184,7 +184,7 @@ export class Recorder {
   dominant() {
     let total = 0; let best = ''; let bestN = 0;
     for (const [name, n] of this.tally) { total += n; if (n > bestN) { best = name; bestN = n; } }
-    return total && bestN / total >= 0.6 ? best : '';
+    return total && bestN / total >= 0.4 ? best : '';
   }
 
   stopPieces() {
@@ -222,8 +222,10 @@ export class Recorder {
 
   // ---- standby and takeover, driven by the sync
   async onSync(rec, people) {
-    if (this.mr) for (const p of people) if (p.speaking) this.tally.set(p.name, (this.tally.get(p.name) || 0) + 1);
-    if (this.mr && this.S.lvl > 12 && this.S.mic) this.tally.set(this.S.me.name, (this.tally.get(this.S.me.name) || 0) + 1);
+    // A tick where someone else was flagged as speaking counts for them; the recorder's own microphone also picks up their sound from the speakers, so it only counts when nobody else was flagged.
+    let remote = false;
+    if (this.mr) for (const p of people) if (p.speaking) { remote = true; this.tally.set(p.name, (this.tally.get(p.name) || 0) + 1); }
+    if (this.mr && !remote && this.S.lvl > 12 && this.S.mic) this.tally.set(this.S.me.name, (this.tally.get(this.S.me.name) || 0) + 1);
     if (!rec || !rec.active) { if (this.warm && !this.mr) this.teardown(); return; }
     const me = this.S.me.pid;
     if (this.mr && rec.owner !== me) { this.lostOwnership(); }

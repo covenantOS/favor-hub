@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Meetings round two.** Hosts invite a Favor name, an email or a phone number from People inside a call, and each invitation shows Sent or Failed. Recordings are named by the Eastern date, a Google Doc of the notes is saved beside them, and the notes page plays sound or video in the hub. The notes start when the last person leaves. Guest lines show the guest's name and a repeated line shows once.
 - **Admin overview.** Admin opens on a health strip with the last run of the Blackbaud copy, the morning jobs, the overnight sender, the Drive library job, the SKY call meter, iWave credits, Workers AI and the unsubscribe write-back, each marked OK, Late or Failed. The Audit log lists every settings change with who made it and the before and after values. Hub admins only.
 - **Drive files in Ctrl K.** Type a word and the palette adds a Drive group after the rest: up to six files you can open, with type, owner, date and folder. Each row opens the file in Drive in a new tab. A slow Drive search never holds back the other rows.
 - **Feedback on a phone.** Feedback is in **More** at the bottom of the screen and in your account menu. It opens the same form, with the picture of the page and Blur an area.

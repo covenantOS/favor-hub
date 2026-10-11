@@ -26,9 +26,13 @@ If your connection is weak the room shows fewer pictures at lower quality and sa
 
 Open **People** and press the dots beside a person: Mute, Spotlight for everyone, Turn camera off, Stop sharing rights, Make a host, Remove from meeting. **Mute everyone**, **Lock room** (nobody new can join) and **Only hosts share** sit at the top of the list. **End for everyone** closes the meeting. If every host leaves, the person who has been there longest becomes a host after 30 seconds.
 
+## Invite someone during the meeting
+
+Open **People** and use the Invite box at the bottom. Type a Favor name, an email address or a phone number and press Send. A Favor person gets an email with a Join now link. An email address outside Favor gets the guest link by email. A phone number gets the guest link by text. Each invitation shows Sent or Failed under the box.
+
 ## Recording and notes
 
-A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, the hub saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. They appear under **Meeting notes** a few minutes later, and the transcript is searchable on that page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
+A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, the hub saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. The notes start the moment the last person leaves and appear under **Meeting notes** a few minutes later. The recording plays on that page. A Google Doc of the notes, with the summary, action items, chapters and the transcript with speaker names, is saved next to the recording and linked as Notes in Google Docs. The transcript is searchable on the notes page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
 
 ## Two minutes before
 

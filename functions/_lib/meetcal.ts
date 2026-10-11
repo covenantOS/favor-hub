@@ -122,9 +122,10 @@ function zoneTime(iso: string, zone: string): string {
   return new Date(iso).toLocaleString('en-US', { timeZone: zone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
-export async function sendReminder(env: MeetEnv, to: string[], m: { title: string; startsAt: string; roomUrl: string; backup: string; rec: string; kind: 'day' | 'soon' | 'now'; host: string }): Promise<void> {
+export async function sendReminder(env: MeetEnv, to: string[], m: { title: string; startsAt: string; roomUrl: string; backup: string; rec: string; kind: 'day' | 'soon' | 'now'; host: string }): Promise<boolean> {
   const key = env.RESEND_API_KEY;
-  if (!key || !to.length) return;
+  if (!key || !to.length) return false;
+  let all = true;
   const from = env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>';
   const lead = m.kind === 'day' ? 'Tomorrow' : m.kind === 'now' ? `${m.host} started a meeting` : 'Starting in 15 minutes';
   const day = new Date(m.startsAt).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
@@ -141,8 +142,9 @@ export async function sendReminder(env: MeetEnv, to: string[], m: { title: strin
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to: to.slice(i, i + 40), subject, html, text }),
     });
-    if (!r.ok) console.error('[meet] reminder failed', r.status, (await r.text()).slice(0, 200));
+    if (!r.ok) { all = false; console.error('[meet] reminder failed', r.status, (await r.text()).slice(0, 200)); }
   }
+  return all;
 }
 
 // ---------------------------------------------------------------- the person's own calendar, every provider

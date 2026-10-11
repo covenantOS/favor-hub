@@ -18,7 +18,7 @@ const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
   mic: true, cam: true, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
-  layout: 'grid', pop: '', syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
+  inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, layout: 'grid', pop: '', syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
 let recorder = null, barTimer = null, capTimer = null;
@@ -256,6 +256,8 @@ function buildRoom() {
   dragToClose($('#rm-side'));
   window.addEventListener('resize', fitCtl);
   window.addEventListener('keydown', onKey);
+  document.addEventListener('input', onInvInput);
+  document.addEventListener('focusin', (e) => { if (e.target && e.target.id === 'invin') loadDirectory(); });
   window.addEventListener('beforeunload', onUnload);
   document.addEventListener('click', onDocClick);
   if (!GUEST && S.me.role !== 'guest') maybeStartRecording();
@@ -563,11 +565,52 @@ function chatHTML(m) {
 }
 const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--h-brand-ink)">$1</a>');
 
+const invRow = (r) => `<div class="rm-inv__r is-${r.status}"><span>${esc(r.to)}</span><b>${r.status === 'failed' ? 'Failed' : r.status === 'dry' ? 'Checked' : 'Sent'}</b>${r.detail && r.status !== 'sent' ? `<i>${esc(r.detail)}</i>` : ''}</div>`;
+function footHTML() {
+  if (!hostish()) return '';
+  const v = S.inv;
+  return `<div class="rm-inv"><div class="rm-inv__t">Invite</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name, email or phone" maxlength="200" autocomplete="off" autocapitalize="off" value="${esc(v.text)}" /><button class="icb send" data-a="invite" aria-label="Send invitation"${v.busy ? ' disabled' : ''}>${ic('send')}</button></div>${(v.matches.length ? v.matches : v.sugg).length ? `<div class="rm-inv__s">${(v.matches.length ? v.matches : v.sugg).map((p) => `<button data-a="invite-pick" data-v="${esc(p.email)}">${esc(p.name)}</button>`).join('')}</div>` : ''}${v.rows.slice(0, 6).map(invRow).join('')}</div>
+    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`;
+}
+function paintFoot() {
+  const inp = $('#rm-input'); if (!inp || S.panel !== 'people') return;
+  const html = footHTML();
+  if (inp.dataset.k === 'people' && S.footSig === html) return;
+  const ae = document.activeElement; const had = ae && ae.id === 'invin'; const pos = had ? ae.selectionStart : 0;
+  inp.innerHTML = html; inp.dataset.k = 'people'; S.footSig = html;
+  if (had) { const i = $('#invin'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(pos, pos); } catch {} } }
+}
+async function loadDirectory() {
+  if (S.inv.dir) return;
+  S.inv.dir = [];
+  try { S.inv.dir = (await api('meetings/directory')).people || []; } catch { S.inv.dir = null; }
+}
+function onInvInput(e) {
+  if (!e.target || e.target.id !== 'invin') return;
+  S.inv.text = e.target.value; S.inv.matches = [];
+  const words = S.inv.text.toLowerCase().split(/\s+/).filter(Boolean);
+  S.inv.sugg = words.length && !S.inv.text.includes('@') && !/^[+\d(]/.test(S.inv.text.trim()) && S.inv.dir ? S.inv.dir.filter((p) => words.every((w) => (p.name + ' ' + p.email).toLowerCase().includes(w))).slice(0, 5) : [];
+  paintFoot();
+}
+async function sendInvite(to) {
+  const v = S.inv; const target = (to || v.text).trim();
+  if (!target || v.busy) return;
+  v.busy = true; v.matches = []; paintFoot();
+  try {
+    const r = await api('meetings/' + MID + '/invite', { method: 'POST', body: { to: target } });
+    if (r.matches) v.matches = r.matches;
+    else if (r.result) { v.rows.unshift(r.result); v.text = ''; v.sugg = []; }
+  } catch (e) { v.rows.unshift({ to: target, status: 'failed', detail: e.message }); }
+  v.busy = false; paintFoot();
+  const i = $('#invin'); if (i && !v.text) i.focus({ preventScroll: true });
+}
+
 function paintSideBody(full) {
   const body = $('#rm-body'); if (!body) return;
   if (S.panel === 'chat') {
     const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
     body.innerHTML = S.chat.length ? S.chat.map(chatHTML).join('') : `<p class="mt-sub" style="margin:0">No messages yet. Messages go to everyone in the meeting.</p>`;
+    if (full) $('#rm-input').dataset.k = 'chat';
     if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="chatin" placeholder="Message everyone" maxlength="2000" autocomplete="off" /><button class="icb send" data-a="chat-send" aria-label="Send">${ic('send')}</button></div>`;
     if (full || stick) body.scrollTop = body.scrollHeight;
   } else if (S.panel === 'brain') {
@@ -576,14 +619,14 @@ function paintSideBody(full) {
       ${S.brainQ.length ? '' : `<p style="margin:0;font-size:13.5px;color:var(--h-ink-2)">Ask about this meeting, a partner, a number or a document. Favor Brain reads the meeting as it happens and knows the hub's data.</p>`}
       ${S.brainQ.map((q, i) => `<div class="ask">${esc(q.q)}</div>${brainAnswerHTML(q, i)}`).join('')}
       <div class="bq">${[['missed', 'What did I miss?'], ['agreed', 'What have we agreed so far?'], ['open', 'What is still open?'], ['owners', 'Who owns what?']].map(([k, l]) => `<button data-a="ask" data-k="${k}">${l}</button>`).join('')}</div>`;
+    if (full) $('#rm-input').dataset.k = 'brain';
     if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="brainin" placeholder="Ask Favor Brain" maxlength="400" autocomplete="off" /><button class="icb send" data-a="ask-typed" aria-label="Ask">${ic('send')}</button></div>`;
     if (full || stick) body.scrollTop = body.scrollHeight;
   } else if (S.panel === 'people') {
     const h = hostish();
     const all = [mePerson(), ...others()];
     const wait = h ? S.people.filter((p) => p.waiting) : [];
-    const foot = h ? `<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px;border-top:1px solid var(--h-line)"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>` : '';
-    const inp = $('#rm-input'); if (inp && inp.innerHTML !== foot) inp.innerHTML = foot;
+    paintFoot();
     body.innerHTML = `${wait.map((p) => `<div class="wait"><b>Waiting to join</b><div class="pp" style="padding:0">${av(p.name)}<div><b>${esc(p.name)}</b><span>Guest</span></div><div class="ctl"><button class="h-btn h-btn--primary h-btn--sm" data-a="cmd" data-c="letin" data-pid="${p.pid}">Let in</button></div></div></div>`).join('')}
       ${h ? `<div class="hostbar"><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="muteall">${ic('micOff')}Mute everyone</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="${S.locked ? 'unlock' : 'lock'}">${ic('lock')}${S.locked ? 'Unlock room' : 'Lock room'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="sharepolicy">${ic('screen')}${S.sharePolicy === 'hosts' ? 'Anyone can share' : 'Only hosts share'}</button></div>` : ''}
       <div class="h-label">In the meeting, ${all.length}</div>
@@ -623,6 +666,8 @@ function onDocClick(e) {
     }
     case 'sharepolicy': send('cmd', { a: 'sharepolicy', v: S.sharePolicy === 'hosts' ? 'all' : 'hosts' }); break;
     case 'copylink': copy(roomLink(MID)); break;
+    case 'invite': sendInvite(); break;
+    case 'invite-pick': sendInvite(a.dataset.v); break;
     case 'guestlink': api('meetings/' + MID + '/guestlink', { method: 'POST', body: {} }).then((r) => copy(r.url)).catch((e) => toast(e.message)); break;
     case 'ask': { const L = { missed: 'What did I miss?', agreed: 'What have we agreed so far?', open: 'What is still open?', owners: 'Who owns what?' }; askBrain(L[a.dataset.k] || 'What did I miss?', a.dataset.k); break; }
     case 'ask-typed': { const i = $('#brainin'); if (i && i.value.trim()) { const q = i.value.trim(); i.value = ''; askBrain(q, brainKindOf(q)); } break; }
@@ -645,6 +690,7 @@ function onKey(e) {
     const items = $$('.menu button'); if (items.length) { const i = items.indexOf(document.activeElement); items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); e.preventDefault(); }
     return;
   }
+  if (e.target.id === 'invin' && e.key === 'Enter') { e.preventDefault(); sendInvite(); return; }
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
   if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, brainKindOf(q)); } return; }
   if (e.target.matches && e.target.matches('input, textarea')) return;
@@ -726,7 +772,7 @@ async function leaveRoom(msg) {
   for (const [, t] of tiles) t.el.remove(); tiles.clear();
   $$('audio[id^="a-"]').forEach((a) => a.remove());
   document.getElementById('h-app').classList.remove('is-room');
-  window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); document.removeEventListener('click', onDocClick);
+  window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); document.removeEventListener('click', onDocClick); document.removeEventListener('input', onInvInput);
   ended(msg || 'You left the meeting');
   // The last person out saves the recording and starts the notes. Anyone invited can finish the work later from Meetings.
   if (!GUEST) pump(MID, (st) => { const p = root.querySelector('.mt-sub'); if (p && st) p.textContent = st; });

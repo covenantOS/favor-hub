@@ -513,6 +513,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'meeting-invite',
+    page: '/meet/',
+    via: 'meet',
+    at: '#mt-home',
+    title: 'Invite someone from inside a call',
+    body: 'Open People in a room and type a Favor name, an email or a phone number in the Invite box. Favor people get an email with a Join now link, outside emails get the guest link, and a phone number gets the guest link by text. Each invitation shows Sent or Failed.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'feedback',
     at: '#h-fb',
     title: 'Tell us what you think',

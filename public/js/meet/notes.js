@@ -7,6 +7,43 @@ const stamp = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStar
 let data = null, q = '';
 const ask = { q: '', busy: false, answer: null };
 
+// ---- the recording player. One media element per file, kept between redraws so typing in the search box never stops playback.
+const players = new Map();
+const clock = (t) => (Number.isFinite(t) && t >= 0 ? `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}` : '0:00');
+function playerNode(f, label, mins) {
+  const key = f.src;
+  if (players.has(key)) return players.get(key);
+  const video = f.kind === 'video';
+  const wrap = document.createElement('div');
+  wrap.className = 'player is-' + (video ? 'video' : 'sound');
+  wrap.setAttribute('role', 'button'); wrap.tabIndex = 0;
+  wrap.setAttribute('aria-label', (video ? 'Play the video recording' : 'Play the sound recording') + (label ? ', ' + label : ''));
+  const media = document.createElement(video ? 'video' : 'audio');
+  media.preload = 'metadata'; media.src = f.src; media.playsInline = true; media.setAttribute('playsinline', '');
+  const bars = Array.from({ length: 28 }, (_, i) => `<i style="--h:${22 + ((i * 37) % 58)}%;--d:${(i % 7) * 0.11}s"></i>`).join('');
+  wrap.innerHTML = `${video ? '' : `<div class="pl-top">${ic('mic')}<span>Sound only${label ? ', ' + esc(label) : ''}</span></div><div class="pl-bars" aria-hidden="true">${bars}</div>`}
+    <span class="pl-btn" aria-hidden="true">${ic('play')}</span><span class="pl-spin" aria-hidden="true"></span><p class="pl-err" hidden>The recording did not load.</p>
+    <div class="pl-bar" role="slider" aria-label="Position" tabindex="0"><i></i></div><div class="pl-time"><b>0:00</b><span>${mins ? clock(mins * 60) : ''}</span></div>`;
+  if (video) wrap.insertBefore(media, wrap.firstChild); else wrap.appendChild(media);
+  const bar = wrap.querySelector('.pl-bar'), fill = bar.firstElementChild, now = wrap.querySelector('.pl-time b'), total = wrap.querySelector('.pl-time span'), err = wrap.querySelector('.pl-err');
+  const length = () => (Number.isFinite(media.duration) && media.duration > 0 ? media.duration : (mins || 0) * 60);
+  const paint = () => { const L = length(); fill.style.width = L ? Math.min(100, (media.currentTime / L) * 100) + '%' : '0%'; now.textContent = clock(media.currentTime); if (L) total.textContent = clock(L); };
+  const toggle = () => { if (media.paused || media.ended) { wrap.classList.add('is-loading'); err.hidden = true; media.play().catch(() => { wrap.classList.remove('is-loading'); wrap.classList.add('is-error'); err.hidden = false; }); } else media.pause(); };
+  wrap.addEventListener('click', (e) => { if (e.target.closest('.pl-bar')) return; toggle(); });
+  wrap.addEventListener('keydown', (e) => { if (e.target === wrap && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); toggle(); } });
+  const seek = (x) => { const r = bar.getBoundingClientRect(); const L = length(); if (L && r.width) { media.currentTime = Math.max(0, Math.min(1, (x - r.left) / r.width)) * L; paint(); } };
+  bar.addEventListener('click', (e) => { e.stopPropagation(); seek(e.clientX); });
+  bar.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') { media.currentTime += 10; e.preventDefault(); } else if (e.key === 'ArrowLeft') { media.currentTime = Math.max(0, media.currentTime - 10); e.preventDefault(); } });
+  for (const ev of ['timeupdate', 'durationchange', 'seeked']) media.addEventListener(ev, paint);
+  media.addEventListener('playing', () => { wrap.classList.remove('is-loading', 'is-error'); wrap.classList.add('is-playing'); });
+  for (const ev of ['pause', 'ended']) media.addEventListener(ev, () => { wrap.classList.remove('is-playing', 'is-loading'); });
+  for (const ev of ['waiting', 'seeking']) media.addEventListener(ev, () => { if (!media.paused) wrap.classList.add('is-loading'); });
+  media.addEventListener('canplay', () => wrap.classList.remove('is-loading'));
+  media.addEventListener('error', () => { wrap.classList.remove('is-loading', 'is-playing'); wrap.classList.add('is-error'); err.hidden = false; });
+  players.set(key, wrap);
+  return wrap;
+}
+
 async function load() {
   try {
     data = await api('meetings/' + MID + '/notes');
@@ -50,18 +87,19 @@ function draw() {
   root.innerHTML = `<div class="nt-head"><div><div class="h-label" style="margin-bottom:6px">Meeting notes</div><h2>${esc(m.title)}</h2>
     <div class="nt-meta"><span>${ic('cal')}${m.startedAt ? fmtDay(m.startedAt) : ''}</span>${m.startedAt && m.endedAt ? `<span>${ic('clock')}${fmtTime(m.startedAt)} to ${fmtTime(m.endedAt)}${mins ? ' (' + mins + ' min)' : ''}</span>` : ''}<span>${ic('users')}${ppl.length} ${ppl.length === 1 ? 'person' : 'people'}</span><span class="mt-avs">${ppl.slice(0, 6).map((p) => av(p.name)).join('')}</span></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="h-btn h-btn--ghost h-btn--sm" id="nt-dl">${ic('download')}Transcript</button><button class="h-btn h-btn--ghost h-btn--sm" id="nt-copy">${ic('share')}Share</button><a class="h-btn h-btn--primary h-btn--sm" href="/meet/book/?follow=${encodeURIComponent(MID)}">${ic('plus')}Book the follow-up</a></div></div>
-    ${pending ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px"><b>${m.status === 'live' ? 'The meeting is still going.' : 'The notes are being made.'}</b> <span id="nt-prog">${m.recState === 'uploading' ? 'Saving the recording to Google Drive.' : 'Reading the recording.'}</span> This page fills in by itself.</div>` : ''}
+    ${pending ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px"><b>${m.status === 'live' ? 'The meeting is still going.' : 'The notes are being made.'}</b> <span id="nt-prog">${m.recState === 'uploading' ? 'Saving the recording to Google Drive.' : 'Reading the recording.'}</span></div>` : ''}
     ${failed ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span><b>The notes failed.</b> The recording is safe in Google Drive.</span><button class="h-btn h-btn--primary h-btn--sm" id="nt-retry">Try again</button></div>` : ''}
     <div class="mt-grid"><div class="mt-stack">
-      <section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Summary</div><p class="nt-sum">${esc(m.summary || (pending ? 'Coming soon.' : failed ? 'No summary yet.' : 'No summary.'))}</p></section>
+      <section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Summary</div>${!m.summary && pending && m.status !== 'live' ? `<p class="nt-sum nt-wait" role="status"><span class="nt-spin" aria-hidden="true"></span>Writing the summary</p>` : `<p class="nt-sum">${esc(m.summary || (pending ? 'The meeting is still going.' : failed ? 'No summary yet.' : 'No summary.'))}</p>`}</section>
       ${(n.decisions || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Decisions</div><ul class="nt-list">${n.decisions.map((d) => `<li><span class="b">${ic('check')}</span><span>${esc(d.text)} ${ts(d.t)}</span></li>`).join('')}</ul></section>` : ''}
       ${(data.actions || []).length ? `<section class="h-card mt-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px"><div class="h-label">Action items</div><span class="mt-sub">${data.actions.filter((a) => a.done).length} of ${data.actions.length} done</span></div>${data.actions.map((a) => `<label class="act${a.done ? ' is-done' : ''}"><input type="checkbox" data-idx="${a.idx}" ${a.done ? 'checked' : ''} /><div><b>${esc(a.text)}</b><span>${[a.owner_name, a.due ? 'due ' + a.due : ''].filter(Boolean).map(esc).join(' · ') || 'No owner named'}${a.t ? ' · ' + ts(a.t) : ''}</span></div><span class="mt-pill ${a.done ? 'mt-pill--ok' : ''}">${a.done ? 'Done' : 'Open'}</span></label>`).join('')}<p class="mt-sub" style="margin:8px 0 0">Each person sees their items on Today in the hub.</p></section>` : ''}
       <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Transcript</div><div class="nt-search">${ic('search')}<input id="trq" placeholder="Search what was said" value="${esc(q)}" /></div>
         <div class="nt-tr">${lines.length ? lines.map((l) => `<div class="nt-l" id="t${l.t}"><time>${stamp(l.t)}</time><div>${l.who ? `<b>${hi(l.who)}</b> ` : ''}${hi(l.text)}</div></div>`).join('') : `<p class="mt-sub">${hasTr ? 'Nothing matches.' : pending ? 'The transcript is on its way.' : 'No transcript. Nobody spoke, or this meeting was not recorded.'}</p>`}</div></section>
     </div><div class="mt-stack">
-      ${files.length ? `<section class="h-card mt-card" style="display:grid;gap:12px"><div class="player" id="nt-player"><div class="mini"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><button class="play" id="nt-play" aria-label="Play the recording">${ic('play')}</button></div>
+      ${files.length || data.doc ? `<section class="h-card mt-card" style="display:grid;gap:12px">${files.map((f, i) => `<div class="nt-slot" data-slot="${i}"></div>`).join('')}
         ${files.map((f) => `<div class="drive">${ic('drive')}<div><b>${files.length > 1 ? esc(f.name) : 'Saved in Google Drive'}</b><span>${esc(files.length > 1 ? 'Google Drive' : f.name)}</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(f.url)}" target="_blank" rel="noopener">Open</a></div>`).join('')}
-        <p class="mt-sub" style="margin:0">${files.length > 1 ? `The recording is in ${files.length} parts because it moved to another person's computer partway through. All are in Meetings in US Team Files.` : 'The file is in Meetings in US Team Files.'}</p></section>` : ''}
+        ${data.doc ? `<div class="drive">${ic('doc')}<div><b>Notes in Google Docs</b><span>Google Docs</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(data.doc.url)}" target="_blank" rel="noopener">Open</a></div>` : ''}
+        ${files.length ? `<p class="mt-sub" style="margin:0">Meetings in US Team Files${files.length > 1 ? ', ' + files.length + ' parts' : ''}</p>` : ''}</section>` : ''}
       ${(n.chapters || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Chapters</div>${n.chapters.map((c) => `<a class="chap" href="#t=${c.t}" data-t="${c.t}" style="text-decoration:none;color:inherit"><em>${stamp(c.t)}</em><span>${esc(c.title)}</span></a>`).join('')}</section>` : ''}
       ${(data.asked || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Asked during the meeting</div><div class="ans"><ul>${data.asked.map((a) => `<li>${ts(a.t)}<span>${a.by ? esc(a.by) + ' asked ' : ''}"${esc(a.q)}"</span></li>`).join('')}</ul></div></section>` : ''}
       ${hasTr ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Ask about this meeting</div><div class="rm-input" style="border:0;padding:0"><input id="nt-ask" placeholder="Who owns the print file?" maxlength="300" value="${esc(ask.q)}" ${ask.busy ? 'disabled' : ''} /><button class="icb send" id="nt-ask-go" aria-label="Ask" ${ask.busy ? 'disabled' : ''}>${ic('send')}</button></div>
@@ -79,8 +117,7 @@ function draw() {
       data = await api('meetings/' + MID + '/notes'); draw();
     } catch (e) { retry.disabled = false; toast(e.message); }
   });
-  const play = $('#nt-play');
-  if (play) play.addEventListener('click', () => { $('#nt-player').innerHTML = `<iframe src="https://drive.google.com/file/d/${encodeURIComponent(files[0].id)}/preview" allow="autoplay; fullscreen" allowfullscreen title="Recording"></iframe>`; });
+  root.querySelectorAll('.nt-slot').forEach((slot) => { const f = files[Number(slot.dataset.slot)]; if (f) slot.replaceWith(playerNode(f, files.length > 1 ? 'part ' + (Number(slot.dataset.slot) + 1) : '', mins)); });
   root.querySelectorAll('input[data-idx]').forEach((c) => c.addEventListener('change', async () => {
     try {
       await api('meetings/' + MID + '/action', { method: 'POST', body: { idx: Number(c.dataset.idx), done: c.checked } });

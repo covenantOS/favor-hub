@@ -2,4 +2,4 @@
 import { route } from '../../_lib/meetroute';
 import type { MeetEnv } from '../../_lib/meet';
 
-export const onRequest: PagesFunction<MeetEnv> = (ctx) => route(ctx as never, false);
+export const onRequest: PagesFunction<MeetEnv> = (ctx) => route({ request: ctx.request, env: ctx.env, params: ctx.params, waitUntil: (p) => ctx.waitUntil(p) } as never, false);

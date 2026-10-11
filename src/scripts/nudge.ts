@@ -107,13 +107,19 @@ function check() {
   if (due.length && !toastEl) show(due[0], minutesLeft(due[0].startMs, now));
 }
 
-/** On the Meetings pages only: one quiet link that asks for system notifications. It goes away after any answer. */
+/** On the Meetings pages only: one quiet link that asks for system notifications. It sits inside the page's first card, or in the header when the page has none, and goes away after any answer. */
+const CARD = '#h-content .mt-card, #h-content .h-card:not(.h-skel), #h-content .dv-card:not(.dv-skel)';
+function place(link: HTMLElement): void {
+  const host = document.querySelector<HTMLElement>(CARD) || document.querySelector<HTMLElement>('.h-top');
+  if (host && link.parentElement !== host) host.appendChild(link);
+}
+
 function askLink() {
   if (!hasNotifications() || Notification.permission !== 'default') return;
-  if (!location.pathname.startsWith('/meet')) return;
+  const path = location.pathname;
+  if (!path.startsWith('/meet') || path.startsWith('/meet/room') || path.startsWith('/meet/g')) return;
   if (localStorage.getItem(ASKED)) return;
-  const main = document.querySelector('#meet-root .mt-card') || document.getElementById('h-content');
-  if (!main || document.getElementById('nudge-ask')) return;
+  if (document.getElementById('nudge-ask')) return;
   const p = document.createElement('p');
   p.id = 'nudge-ask';
   p.className = 'nudge-ask';
@@ -123,10 +129,23 @@ function askLink() {
   b.addEventListener('click', () => {
     store(() => localStorage.setItem(ASKED, '1'));
     p.remove();
+    obs?.disconnect();
     Notification.requestPermission().catch(() => undefined);
   });
   p.appendChild(b);
-  main.appendChild(p);
+  place(p);
+  // The pages draw themselves after load and redraw on every change, so the link follows the first card.
+  let queued = false;
+  const obs: MutationObserver | null = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      if (!document.body.contains(p) || !(document.querySelector(CARD) || document.querySelector('.h-top'))?.contains(p)) place(p);
+    });
+  });
+  const root = document.getElementById('h-content');
+  if (obs && root) obs.observe(root, { childList: true, subtree: true });
 }
 
 export function initNudge(): void {

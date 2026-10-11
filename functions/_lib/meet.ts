@@ -20,6 +20,10 @@ export interface MeetEnv extends Env {
   MEET_CAL_URL?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM?: string;
+  /** Texting through GoHighLevel (Pages secrets). */
+  GHL_PIT?: string;
+  GHL_LOCATION?: string;
+  GHL_URL?: string;
 }
 
 export const SFU = 'https://rtc.live.cloudflare.com/v1';
@@ -62,6 +66,7 @@ export interface Meeting {
   rec_state: string;
   drive_file_id: string;
   drive_folder: string;
+  notes_doc_id: string;
   notes_status: string;
   summary: string;
   notes_json: string;
