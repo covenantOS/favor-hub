@@ -191,7 +191,7 @@ function draw() {
 
 function drawBooked() {
   const m = S.booked.meeting; const link = roomLink(m.id);
-  const head = document.querySelector('.h-top__title'); if (head) head.textContent = 'Booked'; document.title = 'Booked';
+  document.title = 'Booked - Favor Hub';
   const end = new Date(Date.parse(m.startsAt) + (m.durationMin || S.dur) * 60000).toISOString();
   const repeatLine = m.repeat && m.repeat !== 'none' ? REPEAT[m.repeat] || '' : '';
   const everyone = [S.me, ...invited()].filter(Boolean).map((p) => ({ name: p.name || p.email, email: p.email }));

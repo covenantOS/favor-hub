@@ -106,3 +106,7 @@ body.h-body .tr-pop { background: #fbfaf6; -webkit-backdrop-filter: none; backdr
 
 /* Help carries one badge, its count. The gold "something new" dot sat beside it and read as noise. */
 body.h-body .h-area[data-area='help'] > .h-area__link::after { content: none !important; display: none !important; }
+
+/* No focus ring after a mouse or touch press (html.kbd is set by the keyboard, see App.astro). Text fields keep their own
+   focus style, since a caret alone is easy to lose. */
+html:not(.kbd) .h-body :is(a, button, summary, [role='tab'], [role='button'], [role='menuitem'], [tabindex]):focus-visible { outline: none !important; }

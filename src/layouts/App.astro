@@ -76,6 +76,15 @@ const footAreas = AREAS.filter((a) => a.foot);
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#f4efe0" />
     <style is:inline>html,body{background:#f4efe0}</style>
+    <script is:inline>
+      // Focus rings are for the keyboard. A browser can show one after a mouse click when a script moves focus, so the page
+      // marks keyboard use itself: Tab and arrow keys turn rings on, any pointer press turns them off.
+      (function () {
+        var r = document.documentElement;
+        addEventListener('keydown', function (e) { if (e.key === 'Tab' || e.key.indexOf('Arrow') === 0) r.classList.add('kbd'); }, true);
+        addEventListener('pointerdown', function () { r.classList.remove('kbd'); }, true);
+      })();
+    </script>
     <script is:inline src="/js/sheets.js?v=1"></script>
     <script is:inline src="/js/drill.js?v=3" defer></script>
     <script is:inline src="/js/thank.js?v=2" defer></script>

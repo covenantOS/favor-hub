@@ -17,9 +17,11 @@
   var $$ = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
 
   var top = { crumb: $('.h-top__crumb'), title: $('.h-top__title') };
+  // The header keeps the area's name on every tab (Reporting), so the tab row never shifts. The report's own name goes in
+  // the browser tab and in exports.
+  var curTitle = 'Reports';
   function setHeader(crumb, title) {
-    if (top.crumb) top.crumb.textContent = crumb;
-    if (top.title) top.title.textContent = title;
+    curTitle = title;
     document.title = title + ' - Favor Hub';
   }
 
@@ -177,7 +179,7 @@
     var isMoney = c.type === 'money' || c.type === 'cell';
     var shown = res.totals ? res.totals[key] : null;
     window.FavorDrill.open({
-      title: (top.title ? top.title.textContent : 'Report') + ', ' + c.label + ' total',
+      title: curTitle + ', ' + c.label + ' total',
       shown: shown == null ? null : Number(shown),
       shownType: isMoney ? 'money' : 'int',
       shownLabel: 'Total on this report',
@@ -186,7 +188,7 @@
       total: Math.round(sum * 100) / 100,
       totalLabel: 'Sum of the rows below',
       rowsLabel: 'Rows in this total',
-      sheetTitle: (top.title ? top.title.textContent : 'Report') + ' rows'
+      sheetTitle: curTitle + ' rows'
     });
   }
 
