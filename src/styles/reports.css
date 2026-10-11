@@ -1,6 +1,6 @@
 /* Reports, design round 2. rp- classes only. Colors come from the shared tokens (--a, --r-*, --tc-*); the
    status pairs are the spec's. No accent bars, no gradients. */
-#rp-app { --late: #a8381f; --late-tint: #fbe7e0; --due: #7a5300; --due-tint: #fbedc8; --ok: #2a5a24; --ok-tint: #e1efdc; display: grid; gap: 14px; max-width: 1360px; font-variant-numeric: tabular-nums; }
+#rp-app { --late: #a8381f; --late-tint: #fbe7e0; --due: #7a5300; --due-tint: #fbedc8; --ok: #2a5a24; --ok-tint: #e1efdc; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 1360px; font-variant-numeric: tabular-nums; }
 #rp-app.is-busy { opacity: 0.55; transition: opacity 0.15s; pointer-events: none; }
 #rp-app :where(p) { margin: 0; }
 #rp-app button { font-family: inherit; }
