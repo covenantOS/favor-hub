@@ -1,11 +1,15 @@
 // "Make a request" for the Marketing team. Off by default: the person is sent to the Asana form as before. When an admin picks a hub
-// project in Admin > Projects (setting requests.marketing_project), the words become a task in that project instead.
+// project in Admin > Projects (setting projects.marketing_key), the words become a task in that project instead.
 //   GET  -> {ok, mode: 'asana'} or {ok, mode: 'project', project: {key, name}}
 //   POST {text, route_id?} -> {ok, mode: 'project', task: {code, title, href}} or {ok, mode: 'asana'} when the setting is off
 import { hitRateLimit } from '../../_lib/auth';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, newId, nowIso, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
-import { hubGet } from '../../_lib/admin/settings';
+import { effective } from '../../_lib/admin/settings';
+import { projectsMode } from '../../_lib/projects/access';
+import { addEvent, projectOf, taskById } from '../../_lib/projects/db';
+import { fire } from '../../_lib/projects/hooks';
+import { tell } from '../../_lib/projects/notices';
 
 interface Target {
   id: string;
@@ -15,10 +19,10 @@ interface Target {
 }
 
 async function target(env: Env): Promise<Target | null> {
-  const id = (await hubGet(env, 'requests.marketing_project'))?.value;
-  if (!id) return null;
-  if ((await hubGet(env, 'projects.enabled'))?.value === 'off') return null;
-  const p = await env.DB.prepare("SELECT id, key, name, lead_email AS lead FROM hub_projects WHERE id = ? AND status != 'archived'").bind(id).first<Target>().catch(() => null);
+  const key = (await effective(env, 'projects.marketing_key', undefined, '').catch(() => '')).trim().toUpperCase();
+  if (!key) return null;
+  if ((await projectsMode(env)) === 'off') return null;
+  const p = await env.DB.prepare("SELECT id, key, name, lead_email AS lead FROM hub_projects WHERE key = ? AND status != 'archived'").bind(key).first<Target>().catch(() => null);
   return p || null;
 }
 
@@ -31,7 +35,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ env }) => {
   }
 };
 
-export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     const user = hubUserOf(request);
     if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
@@ -53,10 +57,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
          VALUES (?, ?, NULL, ?, ?, ?, 'open', 'normal', ?, ?, ?, ?)`
       ).bind(id, t.id, code, title, description, t.lead, user.email, now, now),
       env.DB.prepare("INSERT OR IGNORE INTO hub_task_people (task_id, email, role) VALUES (?, ?, 'follower')").bind(id, user.email),
-      env.DB.prepare("INSERT INTO hub_task_events (id, task_id, project_id, actor_email, kind, detail, created_at) VALUES (?, ?, ?, ?, 'created', ?, ?)").bind(
-        newId('evt'), id, t.id, user.email, JSON.stringify({ via: 'make-a-request' }), now
-      ),
     ]);
+    await addEvent(env, { task_id: id, project_id: t.id, actor: user.email, kind: 'created', detail: { title, via: 'make-a-request' } });
+    const told = await tell(env, id, user.email, t.lead ? [{ email: t.lead, kind: 'assigned', body: title }] : []);
+    fire(env, { kind: 'task.created', actor: user.email, actorName: user.name, task: await taskById(env, id), project: await projectOf(env, t.id), told }, waitUntil).catch(() => {});
     const routeId = typeof body.route_id === 'string' ? body.route_id.slice(0, 60) : '';
     if (routeId) await env.DB.prepare('UPDATE request_routes SET chosen = ?, chosen_at = ?, request_id = ? WHERE id = ?').bind('marketing', now, code, routeId).run().catch(() => {});
     return json({ ok: true, mode: 'project', task: { code, title, href: `/projects/p/?p=${encodeURIComponent(t.key)}&t=${encodeURIComponent(code)}` }, project: { key: t.key, name: t.name } });

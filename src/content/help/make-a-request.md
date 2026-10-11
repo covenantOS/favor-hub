@@ -21,7 +21,7 @@ Use Make a request for anything you need from someone else: a change to the webs
 ## Where a request can go
 
 - **Request board**: website, portal, dashboard, app and Blackbaud work. Answer a few short questions in four steps (you and where, what you need, who and when, files and send), add up to six files, and press **Send to the board**. You get an email when the work is done.
-- **Marketing team**: design, print, social and video work. The Marketing request form opens in a new tab with your words already copied. Paste them in and finish the form there.
+- **Marketing team**: design, print, social and video work. The Marketing request form opens in a new tab with your words already copied. Paste them in and finish the form there. When an admin has pointed Marketing requests at a hub project, **Send to Marketing** makes a task in that project instead, and the page shows its code.
 - **Expense request**: a purchase or a trip. The expense form opens with your words in the reason box.
 
 ## Good requests

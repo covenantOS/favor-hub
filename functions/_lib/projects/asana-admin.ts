@@ -3,7 +3,7 @@
 // key and the same seal() the hub uses for stored Google refresh tokens) and kept in hub_settings under projects.asana.token. It is never
 // returned by any route, never written to the audit log, and never put in a log line.
 import { HttpError, newId, nowIso, type Env } from '../http';
-import { audit, hubDel, hubGet, hubPut } from '../admin/settings';
+import { audit, changeSetting, hubDel, hubGet, hubPut } from '../admin/settings';
 import { open, seal } from '../hub/google';
 import {
   AsanaApiSource, AsanaAuthError, ExportSource, parseExport,
@@ -14,7 +14,7 @@ import { createRun, getRun, stepRun, type Pick, type RunOptions, type RunRow, ty
 export const TOKEN_KEY = 'projects.asana.token';
 const WHO_KEY = 'projects.asana.who';
 export const ENABLED_KEY = 'projects.enabled';
-export const REQUEST_KEY = 'requests.marketing_project';
+export const REQUEST_KEY = 'projects.marketing_key';
 const ENABLED = ['admins', 'staff', 'off'];
 const lower = (v: unknown) => String(v || '').trim().toLowerCase();
 
@@ -67,7 +67,7 @@ export async function testToken(env: Env, f: typeof fetch = fetch): Promise<{ na
 
 export async function readSettings(env: Env) {
   const enabled = (await hubGet(env, ENABLED_KEY))?.value || 'admins';
-  const req = (await hubGet(env, REQUEST_KEY))?.value || '';
+  const reqKey = (await hubGet(env, REQUEST_KEY))?.value || '';
   const tokenRow = await hubGet(env, TOKEN_KEY);
   const who = (await hubGet(env, WHO_KEY).catch(() => null))?.value;
   let whoObj: any = null;
@@ -78,35 +78,23 @@ export async function readSettings(env: Env) {
   }
   return {
     enabled: ENABLED.includes(enabled) ? enabled : 'admins',
-    marketing_project: req,
+    marketing_project: reqKey,
     token: { saved: !!tokenRow, by: tokenRow?.by || '', at: tokenRow?.at || '', who: whoObj },
     sealing: !!env.GOOGLE_TOKEN_KEY,
   };
 }
 
+/** Both settings are the Defs in admin/settings.ts (projects.enabled, projects.marketing_key), so Admin > Projects and the generic settings routes agree. */
 export async function saveSettings(env: Env, actor: string, b: { enabled?: unknown; marketing_project?: unknown }) {
-  if (b.enabled !== undefined) {
-    const v = String(b.enabled);
-    if (!ENABLED.includes(v)) throw new HttpError(400, 'bad_value', 'Who can use Projects is admins, staff or off.');
-    const before = (await hubGet(env, ENABLED_KEY))?.value || 'admins';
-    if (v !== before) {
-      await hubPut(env, ENABLED_KEY, v, actor);
-      await audit(env, { actor, area: 'projects', key: ENABLED_KEY, label: 'Who can use Projects', before, after: v });
-    }
-  }
+  if (b.enabled !== undefined) await changeSetting(env, actor, ENABLED_KEY, b.enabled);
   if (b.marketing_project !== undefined) {
-    const v = String(b.marketing_project || '').trim();
+    const v = String(b.marketing_project || '').trim().toUpperCase();
     if (v) {
-      const p = await env.DB.prepare("SELECT id, status FROM hub_projects WHERE id = ?").bind(v).first<{ id: string; status: string }>().catch(() => null);
+      const p = await env.DB.prepare('SELECT key, status FROM hub_projects WHERE key = ?').bind(v).first<{ key: string; status: string }>().catch(() => null);
       if (!p) throw new HttpError(400, 'no_project', 'Pick one of the hub projects.');
       if (p.status === 'archived') throw new HttpError(400, 'archived', 'That project is archived. Restore it first.');
     }
-    const before = (await hubGet(env, REQUEST_KEY))?.value || '';
-    if (v !== before) {
-      if (v) await hubPut(env, REQUEST_KEY, v, actor);
-      else await hubDel(env, REQUEST_KEY);
-      await audit(env, { actor, area: 'projects', key: REQUEST_KEY, label: 'Marketing requests go to a project', before: before || 'off', after: v || 'off' });
-    }
+    await changeSetting(env, actor, REQUEST_KEY, v);
   }
   return readSettings(env);
 }
@@ -126,18 +114,16 @@ export async function hubProjects(env: Env) {
 
 export async function setProjectState(env: Env, actor: string, id: string, action: string) {
   if (action !== 'archive' && action !== 'restore') throw new HttpError(400, 'bad_action', 'Archive or restore.');
-  const p = await env.DB.prepare('SELECT id, name, status FROM hub_projects WHERE id = ?').bind(id).first<{ id: string; name: string; status: string }>();
+  const p = await env.DB.prepare('SELECT id, key, name, status FROM hub_projects WHERE id = ?').bind(id).first<{ id: string; key: string; name: string; status: string }>();
   if (!p) throw new HttpError(404, 'no_project', 'There is no such project.');
   const to = action === 'archive' ? 'archived' : 'active';
   if (p.status !== to) {
     await env.DB.prepare('UPDATE hub_projects SET status = ?, updated_at = ? WHERE id = ?').bind(to, nowIso(), id).run();
     await audit(env, { actor, area: 'projects', key: `project.${id}`, label: `Project ${p.name}`, before: p.status, after: to });
     if (to === 'archived') {
+      // A Marketing request must not land in a project nobody opens: switch the setting off with the archive.
       const cur = (await hubGet(env, REQUEST_KEY))?.value;
-      if (cur === id) {
-        await hubDel(env, REQUEST_KEY);
-        await audit(env, { actor, area: 'projects', key: REQUEST_KEY, label: 'Marketing requests go to a project', before: p.name, after: 'off', note: 'the project was archived' });
-      }
+      if (cur && cur.toUpperCase() === p.key) await changeSetting(env, actor, REQUEST_KEY, '');
     }
   }
   return { id, status: to };

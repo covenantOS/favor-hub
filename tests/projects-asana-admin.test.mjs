@@ -258,11 +258,11 @@ test('a file that is not an Asana export is refused with a plain message', async
 test('archive and restore a hub project; archiving the Marketing request target switches the setting off', async () => {
   const w = setup();
   w.d1.db.prepare(`INSERT INTO hub_projects (id, key, name, lead_email, created_by, created_at, updated_at) VALUES ('p1','MKT','Marketing','ada@favorintl.org','ada@favorintl.org','x','x')`).run();
-  assert.equal((await call(w, ADMIN, 'POST', '/settings', { marketing_project: 'p1' })).data.settings.marketing_project, 'p1');
+  assert.equal((await call(w, ADMIN, 'POST', '/settings', { marketing_project: 'mkt' })).data.settings.marketing_project, 'MKT');
   const a = await call(w, ADMIN, 'POST', '/hub/p1', { action: 'archive' });
   assert.equal(a.data.status, 'archived');
   assert.equal((await call(w, ADMIN, 'GET', '')).data.settings.marketing_project, '');
-  assert.equal((await call(w, ADMIN, 'POST', '/settings', { marketing_project: 'p1' })).data.error, 'archived');
+  assert.equal((await call(w, ADMIN, 'POST', '/settings', { marketing_project: 'MKT' })).data.error, 'archived');
   const r = await call(w, ADMIN, 'POST', '/hub/p1', { action: 'restore' });
   assert.equal(r.data.status, 'active');
   const list = (await call(w, ADMIN, 'GET', '')).data.projects;
@@ -283,7 +283,7 @@ test('Make a request: off by default it answers asana; on, a Marketing request b
   assert.equal((await mkt(w, STAFF, 'GET')).data.mode, 'asana');
   assert.equal((await mkt(w, STAFF, 'POST', { text: 'A flyer for the gala' })).data.mode, 'asana');
   assert.equal(rows(w, 'SELECT id FROM hub_tasks').length, 0);
-  await call(w, ADMIN, 'POST', '/settings', { marketing_project: 'p1' });
+  await call(w, ADMIN, 'POST', '/settings', { marketing_project: 'MKT' });
   const g = await mkt(w, STAFF, 'GET');
   assert.deepEqual(g.data.project, { key: 'MKT', name: 'Marketing' });
   const made = await mkt(w, STAFF, 'POST', { text: 'A flyer for the gala\nFront and back, 8.5 by 11' });
@@ -297,6 +297,10 @@ test('Make a request: off by default it answers asana; on, a Marketing request b
   assert.match(t.description, /Front and back/);
   assert.deepEqual(rows(w, 'SELECT email, role FROM hub_task_people').map((r) => r.email), ['vic@favorintl.org']);
   assert.equal(rows(w, 'SELECT next_num FROM hub_projects')[0].next_num, 2);
+  assert.equal(rows(w, 'SELECT id FROM hub_task_notices').length, 0, 'notices stay off until requests.notify is on');
+  w.d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('requests.notify', 'on', 't', 'x')").run();
+  await mkt(w, STAFF, 'POST', { text: 'A second ask' });
+  assert.deepEqual(rows(w, 'SELECT email, kind FROM hub_task_notices').map((r) => [r.email, r.kind]), [['ada@favorintl.org', 'assigned']]);
   assert.equal((await mkt(w, {}, 'POST', { text: 'x y' })).status, 401);
   // Projects switched off falls back to the Asana form
   await call(w, ADMIN, 'POST', '/settings', { enabled: 'off' });

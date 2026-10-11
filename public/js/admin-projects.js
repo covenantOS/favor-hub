@@ -29,7 +29,7 @@
       '<div><select class="ad-field" id="ap-enabled">' + opt('admins', 'Admins only', s.enabled) + opt('staff', 'Every staff member', s.enabled) + opt('off', 'Nobody', s.enabled) + '</select></div>' +
       '<div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-act="save-enabled">Save</button><p class="ad-msg" data-msg="enabled" role="status"></p></div></div>' +
       '<div class="ad-set"><div><label class="ad-set__name" for="ap-mkt">Marketing requests</label><div class="ad-set__hint">Where a Marketing request from Make a request goes. The Asana form is the default.</div></div>' +
-      '<div><select class="ad-field" id="ap-mkt">' + opt('', 'The Asana form', s.marketing_project) + live.map(function (p) { return opt(p.id, p.name + ' (' + p.key + ')', s.marketing_project); }).join('') + '</select></div>' +
+      '<div><select class="ad-field" id="ap-mkt">' + opt('', 'The Asana form', (s.marketing_project || '').toUpperCase()) + live.map(function (p) { return opt(p.key, p.name + ' (' + p.key + ')', (s.marketing_project || '').toUpperCase()); }).join('') + '</select></div>' +
       '<div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-act="save-mkt">Save</button><p class="ad-msg" data-msg="mkt" role="status"></p></div></div></section>';
   }
 

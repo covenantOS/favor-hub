@@ -270,7 +270,7 @@ export interface StepDeps {
   maxOps?: number;
   maxCalls?: number;
   uploads?: R2Bucket;
-  /** The address a copied file is read from, given its task and file ids. Lane CORE decides the real shape. */
+  /** The address a copied file is read from, given its task and file ids (CORE's download route when unset). */
   fileUrl?: (taskId: string, fileId: string, key: string) => string;
 }
 
@@ -769,7 +769,7 @@ export class Engine {
       }
       if (outcome === 'copied') c.rep.files.copy++;
       else c.rep.files.link++;
-      const url = outcome === 'copied' ? (this.deps.fileUrl ? this.deps.fileUrl(hubTask, id, key) : `/api/tasks/${hubTask}/files/${id}`) : a.permanent_url;
+      const url = outcome === 'copied' ? (this.deps.fileUrl ? this.deps.fileUrl(hubTask, id, key) : `/api/tasks/${hubTask}/files/${id}/download`) : a.permanent_url;
       const hash = outcome === 'copied' ? 'copied' : external ? 'link-final' : 'link';
       if (have) {
         await this.batch([
