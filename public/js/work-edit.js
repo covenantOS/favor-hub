@@ -696,7 +696,7 @@ function oppMatches(o) {
 function viewOpps() {
   const wc = W();
   const v = $('#view');
-  if (!E.opps) { v.innerHTML = `<section class="h-card wc-sheet"><div class="h-skel" style="height:360px;border-radius:18px"></div></section>`; loadOpps(); return; }
+  if (!E.opps) { v.innerHTML = window.WCSkel(5); loadOpps(); return; }
   const base = E.opps.filter((o) => E.oppF.inactive || !o.inactive);
   const list = E.opps.filter(oppMatches);
   const C = E.codes || {};
@@ -915,7 +915,7 @@ async function start() {
 }
 
 window.WCEdit = {
-  panel, start, afterOpen, viewOpps, oppCount: () => (E.opps ? E.opps.filter((o) => !o.inactive).length : ''),
+  panel, start, afterOpen, viewOpps, warmOpps: () => loadOpps(), oppCount: () => (E.opps ? E.opps.filter((o) => !o.inactive).length : ''),
   act: { bulkedit: (ids) => dlgBulk(ids), delete: (ids) => dlgDelete(ids) },
   newAction: dlgNew, completeNext: dlgNext, opp: dlgOpp, _E: E,
 };

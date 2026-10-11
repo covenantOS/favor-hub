@@ -369,15 +369,29 @@ let memo: { at: number; today: string; data: BoardData } | null = null;
 const MEMO_MS = 60_000;
 
 /** The board, reread from the mirror at most once a minute per server instance. Any change made here drops it. */
-export async function boardData(repo: ActionsRepo, today: string, staff: StaffPeople[]): Promise<BoardData> {
+export interface BoardKv { get(key: string, type: 'json'): Promise<unknown>; put(key: string, value: string, o?: { expirationTtl?: number }): Promise<void>; delete(key: string): Promise<void> }
+/** KV's shortest expiry is 60 seconds. A tab opened in any server instance reuses the shaped board another instance just read. */
+const KV_BOARD_TTL_S = 60;
+const kvKey = (today: string) => `hub:work:board:${today}`;
+
+export async function boardData(repo: ActionsRepo, today: string, staff: StaffPeople[], kv?: BoardKv): Promise<BoardData> {
   if (memo && memo.today === today && Date.now() - memo.at < MEMO_MS) return memo.data;
+  if (kv) {
+    const hit = (await kv.get(kvKey(today), 'json').catch(() => null)) as { at: number; data: BoardData } | null;
+    if (hit && hit.data && Array.isArray(hit.data.rows) && Date.now() - hit.at < MEMO_MS) {
+      memo = { at: hit.at, today, data: hit.data };
+      return hit.data;
+    }
+  }
   const data = await repo.loadBoard(today, staff);
   memo = { at: Date.now(), today, data };
+  if (kv) await kv.put(kvKey(today), JSON.stringify({ at: memo.at, data }), { expirationTtl: KV_BOARD_TTL_S }).catch((err) => console.warn('[board] kv put', err));
   return data;
 }
 
-export function forgetBoard(): void {
+export async function forgetBoard(kv?: BoardKv, today?: string): Promise<void> {
   memo = null;
+  if (kv && today) await kv.delete(kvKey(today)).catch(() => undefined);
 }
 
 export { applyOverlay, actionFromSlim, nameKeys };

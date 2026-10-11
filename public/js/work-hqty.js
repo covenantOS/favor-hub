@@ -80,7 +80,7 @@ function rowHTML(r) {
 function view() {
   const el = $('#view'); if (!el) return;
   const f = F();
-  if (!H.data && !H.error) { el.innerHTML = '<section class="h-card wc-sheet" aria-busy="true"><div class="h-skel" style="height:320px;border-radius:18px"></div></section>'; if (!H.loading) start(); return; }
+  if (!H.data && !H.error) { el.innerHTML = window.WCSkel(5); if (!H.loading) start(); return; }
   if (H.error && !H.data) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wg-empty"><b>The list did not load</b>${e(H.error)}<p><button type="button" class="h-btn h-btn--primary" data-hq-reload>Try again</button></p></div></section>`; return; }
   const d = H.data; const s = d.stats; const mo = monthLabel(d.today.slice(0, 7));
   const stats = [['write', 'To write', s.write], ['printed', 'Printed, to sign', s.printed], ['signed', 'Signed, to mail', s.signed], ['mailed', 'Mailed this month', s.mailedMonth], ['earlier', 'Earlier gifts, no letter logged', s.earlier, 1]];
@@ -344,5 +344,5 @@ document.addEventListener('click', (ev) => { const t = ev.target.closest && ev.t
 document.addEventListener('favor:thanked-undone', () => { if (H.data) reload(); });
 
 window.WCHqty = { H, view, count };
-window.WCTabs.registerTab({ id: 'hqty', label: 'HQTY letters', roles: ['support'], after: 'open', count: () => count(), mount: () => view() });
+window.WCTabs.registerTab({ id: 'hqty', label: 'HQTY letters', roles: ['support'], after: 'open', count: () => count(), mount: () => view(), warm: () => start() });
 })();

@@ -169,7 +169,7 @@ function gateScreen(g) {
 }
 function skeleton() {
   root.innerHTML = `<div class="wc-intro"><p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p></div>
-    <div id="view"><section class="h-card wc-sheet" id="wc-board" aria-busy="true" aria-label="Open actions"><div class="h-skel" style="height:360px;border-radius:18px"></div></section></div>`;
+    <div id="view">${window.WCSkel(6, 'wc-board')}</div>`;
 }
 function errorScreen(msg) {
   root.innerHTML = `<div class="h-card wc-gate"><div class="wc-batch__icon">${ic('alert')}</div><h2>The list did not load</h2><p>${esc(msg)}</p>
@@ -891,7 +891,7 @@ async function readSheet(fid, force, say) {
 }
 function viewIntake() {
   const d = S.in.data;
-  if (S.in.loading && !d) { $('#view').innerHTML = '<section class="h-card wc-sheet" id="wc-intake"><div class="h-skel" style="height:300px;border-radius:18px"></div></section>'; return; }
+  if (S.in.loading && !d) { $('#view').innerHTML = window.WCSkel(5, 'wc-intake'); return; }
   if (!d) { $('#view').innerHTML = `<div class="h-card wc-empty"><b>Entry did not load</b>${esc(S.in.error || 'Try again in a minute.')} <button class="h-btn h-btn--ghost h-btn--sm" data-reentry>Try again</button></div>`; return; }
   if (!d.owners.length) { $('#view').innerHTML = '<div class="h-card wc-empty"><b>No one is set up for Entry yet</b>An admin adds the people whose contacts Support enters in Settings.</div>'; return; }
   const me = d.owners.find((x) => x.fid === S.in.rdd) || d.owners[0];
@@ -1324,16 +1324,29 @@ window.WC = {
 };
 
 // ------------------------------------------------------------ start
+// Each tab reads its own data the first time it opens. Reading it now, right after the first paint, means a tab opens on rows.
+function warmTabs() {
+  setTimeout(() => {
+    try {
+      if (DATA.me.canEntry && !S.in.data && !S.in.loading && S.view !== 'intake') loadEntry().then(() => { if (S.view === 'intake') render(); });
+      if (window.WCEdit && window.WCEdit.warmOpps) window.WCEdit.warmOpps();
+      window.WCTabs.list(DATA.me).forEach((t) => { if (t.warm) t.warm(); });
+    } catch (_) { /* a tab reads again when it opens */ }
+  }, 300);
+}
 async function init() {
   document.documentElement.classList.add('wc-page');
   // The bar, the toast and the dialogs are fixed on screen, so they live on the body, outside the frame's blurred sheet.
   ['bar', 'toast', 'layer'].forEach((id) => { const el = document.getElementById(id); if (el && el.parentElement !== document.body) document.body.appendChild(el); });
   const bar0 = $('#bar'); new MutationObserver(() => document.body.classList.toggle('has-bar', bar0.classList.contains('is-on'))).observe(bar0, { attributes: true, attributeFilter: ['class'] });
   skeleton();
+  // The lists are read while the gate answers, not after it. A closed gate throws the reads away.
+  const boardP = api('/api/work/board?limit=3000'); const recentP = api('/api/work/recent');
+  boardP.catch(() => undefined); recentP.catch(() => undefined);
   try { S.gate = window.hubGate && !AS ? await window.hubGate().catch(() => api('/api/work/gate')) : await api('/api/work/gate'); } catch (e) { errorScreen(e.message); return; }
   if (!S.gate.open) { gateScreen(S.gate); return; }
   try {
-    const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
+    const [b, rc] = await Promise.all([boardP, recentP]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
     const v = QS.get('view'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
     { const qk = QS.get('quick'), fr = QS.get('fr'), dq = QS.get('due'); if (['past', 'today', 'now', 'week'].includes(dq)) S.f.due = dq; if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
@@ -1342,6 +1355,7 @@ async function init() {
     if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
+    warmTabs();
     // A batch sent from a window that closed picks up here.
     const stuck = S.batches.find((x) => x.run_when === 'now' && (x.state === 'running' || x.state === 'queued') && !x.undone);
     if (stuck && stuck.queued) { const ids = stuck.items.filter((i) => i.state === 'saving').map((i) => i.id); bar('Finishing what was sent…'); driveBatch(stuck.id, ids.length ? ids : ['x'], { keep: true }).then(async () => { await loadRecent(); refreshBoard(); }); }

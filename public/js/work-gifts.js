@@ -58,7 +58,7 @@ function rowHTML(r) {
 function view() {
   const f = F(); const e = f.esc; const el = $('#view');
   if (!el) return;
-  if (!G.data && !G.error) { el.innerHTML = '<section class="h-card wc-sheet" aria-busy="true"><div class="h-skel" style="height:320px;border-radius:18px"></div></section>'; if (!G.loading) start(); return; }
+  if (!G.data && !G.error) { el.innerHTML = window.WCSkel(5); if (!G.loading) start(); return; }
   if (G.error && !G.data) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wg-empty"><b>The list did not load</b>${e(G.error)}<p><button type="button" class="h-btn h-btn--primary" data-wg-reload>Try again</button></p></div></section>`; return; }
   const d = G.data; const all = rows();
   const late = all.filter(isLate).length; const first = all.filter(isFirst).length; const big = all.filter((r) => r.amount >= 1000).length;

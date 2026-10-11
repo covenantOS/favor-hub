@@ -170,7 +170,7 @@ function view() {
   if (!el || !W().S || W().S.view !== 'asks') return;
   if (!A.meta) {
     if (A.error) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wa-empty"><b>The asks did not load</b>${esc(A.error)}<p><button type="button" class="h-btn h-btn--primary" data-wa-reload>Try again</button></p></div></section>`; return; }
-    el.innerHTML = `<section class="h-card wc-sheet" aria-busy="true">${skel(320)}</section>`;
+    el.innerHTML = window.WCSkel(5);
     if (!A.started) start();
     return;
   }
@@ -305,6 +305,6 @@ document.addEventListener('input', (e) => {
   }, 280);
 });
 
-window.WCAsks = { A, view, shapeQuick: quick, easter };
-window.WCTabs.registerTab({ id: 'asks', label: 'Asks', roles: ['director', 'support'], after: 'open', count: () => (A.meta ? A.meta.stats.open.n : ''), dot: () => !!A.meta && A.meta.stats.past.n > 0, mount: () => view() });
+window.WCAsks = { A, start, view, shapeQuick: quick, easter };
+window.WCTabs.registerTab({ id: 'asks', label: 'Asks', roles: ['director', 'support'], after: 'open', count: () => (A.meta ? A.meta.stats.open.n : ''), dot: () => !!A.meta && A.meta.stats.past.n > 0, mount: () => view(), warm: () => { if (!A.started) start(); } });
 })();

@@ -3,7 +3,7 @@
 // person's work is never lost when Blackbaud is down (the same shape as Foundation prospects and Thank-you receipts).
 import { HttpError, newId, nowIso, type Env } from '../http';
 import type { ActionsRepo, BoardData, StaffPeople } from './repo';
-import { boardData, forgetBoard } from './repo';
+import { boardData, forgetBoard, type BoardKv } from './repo';
 import { addMeter, dropLock, getMeter, getSetting, listStaff, logEvent, setSetting, takeLock } from './db';
 import {
   applyOverlay, bigGift, countsOf, facetsOf, holdersOf, isLive, LANES, matches, sortRows, thankGroups, thankLanes, thankOwners,
@@ -112,7 +112,7 @@ export interface Board {
 export async function currentBoard(ctx: Ctx): Promise<Board> {
   const today = todayEt();
   const staff = await staffPeople(ctx.env);
-  const [data, changes] = await Promise.all([boardData(ctx.repo, today, staff), loadPending(ctx.env)]);
+  const [data, changes] = await Promise.all([boardData(ctx.repo, today, staff, (ctx.env as unknown as { BB_KV?: BoardKv }).BB_KV), loadPending(ctx.env)]);
   return { rows: scopeRows(ctx.scope, applyOverlay(data.rows, changes, data.synced)), people: data.people, synced: data.synced, orphans: data.orphans, today };
 }
 
@@ -659,7 +659,7 @@ export async function saveBatch(ctx: Ctx, op: string, itemsIn: PlannedItem[], pa
     throw err;
   }
   await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: id, kind: 'batch_created', detail: `${op} ${items.length} (${planned} calls, ${when})` });
-  forgetBoard();
+  await forgetBoard((ctx.env as unknown as { BB_KV?: BoardKv }).BB_KV, todayEt());
   return { id, op, n: items.length, calls: planned, run_when: when, undo_until: undoUntil(), left: meter.used, duplicates: keyed.length - keyed.filter((k) => items.includes(k.it)).length };
 }
 
@@ -1164,7 +1164,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
     await releaseClaims(env, [...claimed]).catch(() => undefined);
     await refreshTouched(ctx, batchId, touched);
     await dropLock(env, batchId);
-    forgetBoard();
+    await forgetBoard((ctx.env as unknown as { BB_KV?: BoardKv }).BB_KV, todayEt());
   }
   const left = await runnableLeft(ctx, batchId);
   if (!left) {
@@ -1354,7 +1354,7 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   }
   if (!items.length) {
     if (!unresolved) await ctx.env.DB.prepare("UPDATE act_batches SET state = 'undone', finished_at = ? WHERE id = ?").bind(nowIso(), batchId).run();
-    forgetBoard();
+    await forgetBoard((ctx.env as unknown as { BB_KV?: BoardKv }).BB_KV, todayEt());
     return { batch: null, cancelled, unresolved, tagsStay };
   }
   // The unique request id is the claim. Two presses in the same instant both reach this line; one saves the undo and the other is handed

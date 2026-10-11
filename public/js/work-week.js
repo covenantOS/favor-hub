@@ -75,7 +75,7 @@ const GOALCARDS = [['conn', 'Connections', 'A two-way phone call or an in-person
 
 function view() {
   const el = $('#view'); if (!el) return;
-  if (!S.data && !S.error) { el.innerHTML = '<section class="h-card wc-sheet" aria-busy="true"><div class="h-skel" style="height:320px;border-radius:18px"></div></section>'; if (!S.loading) start(); return; }
+  if (!S.data && !S.error) { el.innerHTML = window.WCSkel(5); if (!S.loading) start(); return; }
   if (S.error) { el.innerHTML = `<section class="h-card wc-sheet wwk-empty"><b>The week did not load</b><span>${esc(S.error)}</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wwk-retry>Try again</button></section>`; return; }
   const d = wk();
   if (!d) { el.innerHTML = '<section class="h-card wc-sheet wwk-empty"><b>No director to show</b><span>My week covers the regional directors.</span></section>'; return; }

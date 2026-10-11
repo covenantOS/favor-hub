@@ -73,7 +73,7 @@ function rowHTML(r) {
 function view() {
   const f = F(); const el = $('#view');
   if (!el) return;
-  if (!C.data && !C.error) { el.innerHTML = '<section class="h-card wc-sheet" aria-busy="true"><div class="h-skel" style="height:320px;border-radius:18px"></div></section>'; if (!C.loading) start(); return; }
+  if (!C.data && !C.error) { el.innerHTML = window.WCSkel(5); if (!C.loading) start(); return; }
   if (C.error && !C.data) { el.innerHTML = `<section class="h-card wc-sheet"><div class="wg-empty"><b>The list did not load</b>${esc(C.error)}<p><button type="button" class="h-btn h-btn--primary" data-wcd-reload>Try again</button></p></div></section>`; return; }
   const d = C.data; const all = rows(); const due = all.filter(isDue);
   const stats = [['due', 'Due now', due.length, 1], ['first', 'First-time partners', due.filter((r) => r.rule === 'first').length], ['repeat', QUICK.repeat, due.filter((r) => ['monthly', 'semi', 'annual'].includes(r.rule)).length], ['quarterly', QUICK.quarterly, due.filter((r) => r.rule === 'quarterly').length], ['', 'Done this week', d.stats.week + C.weekAdd]];
@@ -247,7 +247,7 @@ document.addEventListener('input', (e) => {
 document.addEventListener('favor:thanked-undone', async () => { if (!C.started) return; await load(C.owner || 'all'); W().render(); });
 
 if (window.WCTabs) {
-  window.WCTabs.registerTab({ id: 'cadence', label: 'Cadence', roles: ['partner_care'], after: 'open', count: () => count(), dot: () => dot(), mount: () => view() });
+  window.WCTabs.registerTab({ id: 'cadence', label: 'Cadence', roles: ['partner_care'], after: 'open', count: () => count(), dot: () => dot(), mount: () => view(), warm: () => start() });
 }
 window.WCCadence = { start, view, count, dot, C };
 })();

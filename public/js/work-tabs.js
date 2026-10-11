@@ -45,6 +45,13 @@
     }
     return out;
   }
+  // A grey card shaped like the rows it stands for, so a tab never opens on a blank box. Styles: src/styles/crit-work2.css.
+  function skel(rows, id) {
+    let h = '';
+    for (let i = 0; i < (rows || 5); i++) h += '<div class="wc-skelrow"><i class="a"></i><i class="b"></i><i class="c"></i></div>';
+    return '<section class="h-card wc-sheet wc-skelrows" aria-busy="true"' + (id ? ' id="' + id + '"' : '') + '><div class="wc-skelbar"><i></i><i></i><i></i></div>' + h + '</section>';
+  }
+  window.WCSkel = skel;
   const get = (id) => all().find((t) => t.id === id) || null;
   window.WCTabs = { registerTab, list, get, has: (id, me) => list(me).some((t) => t.id === id) };
 })();

@@ -1,0 +1,94 @@
+/* Critic round 2 (Work Center): a loading card shaped like the rows it stands for. No "Loading" word, no tall grey box. */
+#wc-root .wc-sheet.wc-skelrows[aria-busy="true"]::after, #wc-root .wc-sheet[aria-busy="true"]::after { content: none; }
+#wc-root .wc-skelrows { min-height: 0; padding: 0; }
+.wc-skelrows .wc-skelbar { display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--h-line); }
+.wc-skelrows .wc-skelbar i { height: 32px; border-radius: 999px; background: var(--r-sunk, #ebe8de); flex: 0 0 22%; }
+.wc-skelrows .wc-skelbar i:first-child { flex-basis: 38%; }
+.wc-skelrow { display: grid; grid-template-columns: minmax(0, 1fr) 64px; grid-template-rows: 16px 13px; gap: 9px 12px; padding: 16px 14px; border-bottom: 1px solid var(--h-line); min-height: 76px; }
+.wc-skelrow:last-child { border-bottom: 0; }
+.wc-skelrow i { border-radius: 6px; background: linear-gradient(90deg, var(--r-sunk, #ebe8de) 0%, var(--r-hover, #f7f5ef) 50%, var(--r-sunk, #ebe8de) 100%); background-size: 200% 100%; animation: wc-skel 1.2s ease-in-out infinite; }
+.wc-skelrow .a { width: 62%; }
+.wc-skelrow .b { grid-row: 2; width: 85%; }
+.wc-skelrow .c { grid-row: 1 / span 2; grid-column: 2; align-self: center; height: 28px; border-radius: 14px; }
+.wc-skelrow:nth-child(2n) .a { width: 48%; }
+.wc-skelrow:nth-child(3n) .b { width: 70%; }
+@keyframes wc-skel { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .wc-skelrow i { animation: none; } }
+
+/* ---- Phone and touch ---- */
+@media (max-width: 860px) {
+  /* Tab chips: 8 px apart, so a thumb lands on one. */
+  body.h-body #wc-root .wc-tabs { gap: 8px; }
+  /* Stat tiles keep their whole label, on two lines when it needs them. */
+  body.h-body #wc-root .wc-band .wc-stat span, body.h-body #wc-root .wc-band.wm-band .wc-stat span, body.h-body #wc-root .wc-band.wg-band .wc-stat span { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.25; }
+  body.h-body #wc-root .wc-band.wm-band .wc-stat, body.h-body #wc-root .wc-band.wg-band .wc-stat { min-width: 132px; }
+
+  /* My partners tools: search, then sort with the sheet button on one line, then the filter chips on one scrolling line. */
+  body.h-body #wc-root .wm-tools { gap: 8px; }
+  body.h-body #wc-root .wm-tools .wm-spacer { display: none; }
+  body.h-body #wc-root .wm-tools .wm-find { order: 1; }
+  body.h-body #wc-root .wm-tools .wm-sortsel { order: 2; flex: 1 1 0; min-width: 0; }
+  body.h-body #wc-root .wm-tools [data-sheets] { order: 3; flex: none; min-height: 44px; }
+  body.h-body #wc-root .wm-tools .wm-seg { order: 4; flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; border-radius: 999px; }
+  body.h-body #wc-root .wm-tools .wm-seg button { flex: none; min-height: 40px; }
+
+  /* Row checkboxes on My partners and Gifts to thank: the same 44 px target as Open actions. */
+  body.h-body :is(.wm-cb, .wg-cb) { min-width: 44px; min-height: 44px; display: grid; place-items: center; padding-top: 0 !important; align-self: start; }
+  body.h-body :is(.wm-cb, .wg-cb) input { appearance: none; -webkit-appearance: none; margin: 0; width: 44px; height: 44px; box-sizing: border-box; border: 11px solid transparent; border-radius: 17px; background: #fff; background-clip: padding-box; box-shadow: inset 0 0 0 1.5px #c9c2b4; display: grid; place-items: center; cursor: pointer; }
+  body.h-body :is(.wm-cb, .wg-cb) input:checked, body.h-body :is(.wm-cb, .wg-cb) input:indeterminate { background-color: var(--h-brand); box-shadow: none; }
+  body.h-body :is(.wm-cb, .wg-cb) input:checked::after { content: ''; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+  body.h-body :is(.wm-cb, .wg-cb) input:indeterminate::after { content: ''; width: 8px; height: 2px; background: #fff; border-radius: 2px; }
+  body.h-body .wm-port { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  body.h-body .wg-gift { grid-template-columns: 44px minmax(0, 1fr) auto; }
+  body.h-body .wm-port.wm-row, .wg-gift.wg-row { padding-left: 0; }
+
+  /* Partner drawer actions: Call, Text and Email share a row; Log a contact is the one primary button; the four small ones share the last row. */
+  body.h-body .pp-acts { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 8px; padding: 14px 18px 4px; }
+  body.h-body .pp-acts .pp-acts__sep { display: none; }
+  body.h-body .pp-acts > .pp-tap { grid-column: span 4; justify-content: center; min-height: 44px; }
+  body.h-body .pp-acts > .pp-tap small { display: none; }
+  body.h-body .pp-acts > .h-btn { grid-column: span 3; height: 44px; justify-content: center; padding-inline: 4px; white-space: nowrap; }
+  body.h-body .pp-acts > .h-btn--primary { grid-column: 1 / -1; order: 5; }
+  body.h-body .pp-acts > .h-btn--ghost { order: 6; }
+  body.h-body .pp-tabs button { min-height: 44px; }
+}
+
+@media (max-width: 860px) {
+  /* The Columns menu is desktop only, but its empty wrapper took a grid cell and pushed Export to a second line. */
+  body.h-body #wc-root .wc-tools2 > .ep-menu:has(> [data-menu="cols"]) { display: none; }
+
+  /* Selection bar: solid, so rows do not show through it, with the actions in two even columns. */
+  body.h-body .wc-bar { background: #2a2722; bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding: 10px 12px 12px; row-gap: 10px; }
+  body.h-body .wc-bar .wc-bar__acts { grid-template-columns: 1fr 1fr; gap: 8px; }
+  body.h-body .wc-bar .wc-bar__acts .h-btn { min-height: 44px; justify-content: center; white-space: nowrap; }
+  body.h-body .wc-bar .wc-bar__acts .wc-bar__del { grid-column: 1 / -1; }
+  body.h-body .wc-bar .wc-bar__n { font-size: 20px; }
+  body.h-body .wc-bar .wc-bar__l { font-size: 14px; }
+}
+@media (max-width: 860px) { body.h-body.has-bar .wc-toast { bottom: 230px; } }
+
+@media (max-width: 860px) {
+  /* The box sits beside the first line of the row, not in the middle of three. */
+  body.h-body .wc-grid .wc-cb, body.h-body .wc-tg .wc-cb, body.h-body .wc-ig .wc-cb { align-self: start; align-items: start; }
+}
+
+@media (max-width: 860px), (pointer: coarse) {
+  /* Reminders panel and the Morning email dialog: 44 px targets. */
+  body.h-body .wm-x { width: 44px; height: 44px; }
+  body.h-body .wm-foot button, body.h-body .wm-link { min-height: 44px; padding: 0 8px; margin-right: -8px; }
+  body.h-body .wm-check { min-height: 44px; }
+}
+
+/* ---- Tablet and desktop ---- */
+/* The week strip showed both the long and the short meter label (fix-work.css showed the short one at every width). */
+@media (min-width: 861px) {
+  html body.h-body #wc-root .wwk-meter__l .s { display: none; }
+  html body.h-body #wc-root .wwk-strip__week { grid-template-columns: 132px repeat(4, minmax(0, 1fr)); }
+}
+/* An iPad is a touch screen wider than 860 px. fix-work.css gave it the phone's three-column row without the phone's cell areas, so every cell landed in the wrong place. */
+@media (pointer: coarse) and (min-width: 861px) {
+  html body.h-body #wc-root .wc-grid .wc-row, html body.h-body #wc-root .wc-tg .wc-row, html body.h-body #wc-root .wc-ig .wc-row { grid-template-columns: var(--cols); padding-left: 6px; }
+  html body.h-body #wc-root .wc-grid .wc-cb, html body.h-body #wc-root .wc-tg .wc-cb, html body.h-body #wc-root .wc-ig .wc-cb { align-self: center; align-items: center; }
+}
+/* The Added column is hidden below 1280 px; its header goes with it. */
+@media (max-width: 1280px) and (min-width: 861px) { html body.h-body #wc-root .wc-head.wc-grid > :last-child { display: none; } }
