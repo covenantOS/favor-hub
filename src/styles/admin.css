@@ -128,3 +128,16 @@
 .ad-set--rep { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto; }
 @media (max-width: 1100px) { .ad-set--rep { grid-template-columns: minmax(0, 1fr); } }
 .ad-tabs::after { display: none; }
+
+/* People list: compact row buttons, and on a phone each person is a card with the buttons in view. */
+#pp-table .ad-btn { min-height: 34px; padding: 5px 12px; font-size: 13px; }
+#pp-table td:last-child { min-width: 250px; }
+@media (max-width: 700px) {
+  #pp-table, #pp-table tbody, #pp-table tr, #pp-table td { display: block; width: 100%; }
+  #pp-table thead { display: none; }
+  #pp-table tr { padding: 10px 12px; border-bottom: 1px solid var(--h-line, #e4e7eb); }
+  #pp-table td { padding: 2px 0; border: 0; }
+  #pp-table td:last-child { min-width: 0; padding-top: 8px; }
+  #pp-table td:last-child .ad-acts { justify-content: flex-start; }
+  .ad-scroll:has(#pp-table) { max-height: none; }
+}

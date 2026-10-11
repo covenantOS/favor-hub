@@ -44,7 +44,7 @@
     $('pp-count').textContent = list.length + ' of ' + D.people.length;
     $('pp-body').innerHTML = list.length ? list.map(function (p) {
       var role = p.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : '<span class="ad-chip' + (p.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (p.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
-      return '<tr data-email="' + E(p.email) + '"><td><b>' + E(p.name) + '</b><br><span class="mute">' + E(p.email) + '</span></td>' +
+      return '<tr data-email="' + E(p.email) + '"><td><b>' + E(p.name) + '</b>' + (p.name === p.email ? '' : '<br><span class="mute">' + E(p.email) + '</span>') + '</td>' +
         '<td>' + role + (p.envAdmin ? '<br><span class="mute">Set in Pages</span>' : '') + '</td>' +
         '<td>' + E(teamLabel(p.team)) + '</td><td class="mute">' + E(p.fundraiser) + '</td>' +
         '<td>' + (p.workCenter ? '<span class="ad-yes">Yes</span>' : '<span class="ad-no">No</span>') + '</td><td>' + sees(p) + '</td>' +
