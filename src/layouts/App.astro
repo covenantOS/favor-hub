@@ -152,7 +152,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             if (el.dataset.sum === 'more') { s = { n: 0, warn: false }; q('#h-bar [data-bar][hidden]').forEach(function (b) { var t = sums[b.dataset.bar]; if (t) s.n += t.n; }); ['admin', 'help'].forEach(function (k) { if (sums[k]) s.n += sums[k].n; }); }
             var n = s ? s.n : 0;
             el.hidden = !n;
-            el.textContent = n > 99 ? '99+' : n.toLocaleString('en-US');
+            el.textContent = n.toLocaleString('en-US');
             el.classList.toggle('h-nav__count--warn', !!(s && s.warn));
           });
           var tabs = document.getElementById('h-tabs');
