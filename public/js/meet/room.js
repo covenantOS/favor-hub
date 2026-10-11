@@ -36,7 +36,7 @@ async function boot() {
     S.present = r.present || [];
     document.title = S.meeting.title + ' - Favor Hub';
     const t = $('.h-top__title'); if (t) t.textContent = S.meeting.title;
-    if (GUEST && S.meeting.status === 'ended') return ended('This meeting has ended');
+    if (GUEST && S.meeting.status === 'ended' && !(S.meeting.startsAt && Date.parse(S.meeting.startsAt) > Date.now())) return ended('This meeting has ended');
     if (S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000) return ended();
     lobby();
   } catch (e) {

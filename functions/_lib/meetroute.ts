@@ -80,6 +80,12 @@ export async function route({ request, env: rawEnv, params }: { request: Request
 // ---------------------------------------------------------------- ending a meeting
 
 /** The meeting is over: stop the recording and queue the recording and the notes for processing. */
+/** A meeting opened early and then left still has its booked time ahead; it stays joinable and listed until that time is over. */
+const aheadOf = (m: { ends_at?: string | null; starts_at?: string | null }): boolean => {
+  const end = m.ends_at || m.starts_at;
+  return !!end && Date.now() < Date.parse(end);
+};
+
 async function endMeeting(env: MeetEnv, id: string) {
   const m = await env.DB.prepare('SELECT status, rec_mode FROM hub_meetings WHERE id = ?').bind(id).first<{ status: string; rec_mode: string }>();
   if (!m || m.status === 'ended') return;
@@ -140,7 +146,7 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
   let sql: string;
   if (scope === 'recent') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 60`;
   else if (scope === 'notes') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' AND notes_status != 'none'${q ? ` AND ${notesHit('?2')}` : ''} ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 100`;
-  else sql = `SELECT * FROM hub_meetings WHERE ${mine} AND (status = 'live' OR (status = 'scheduled' AND (starts_at IS NULL AND created_at > ?2 OR starts_at > ?3))) ORDER BY COALESCE(starts_at, created_at) LIMIT 80`;
+  else sql = `SELECT * FROM hub_meetings WHERE ${mine} AND (status = 'live' OR (status = 'scheduled' AND (starts_at IS NULL AND created_at > ?2 OR starts_at > ?3)) OR (status = 'ended' AND starts_at > ?3)) ORDER BY COALESCE(starts_at, created_at) LIMIT 80`;
   const stmt = env.DB.prepare(sql);
   const rows =
     scope === 'notes' && q
@@ -306,7 +312,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
 async function join(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
   const mt = await getMeeting(env, id);
   if (!mayJoin(mt, user as never)) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
-  if (mt.status === 'ended' && mt.ended_at && Date.now() - Date.parse(mt.ended_at) > 6 * 3600_000) throw new HttpError(410, 'ended', 'This meeting has ended.');
+  if (mt.status === 'ended' && !aheadOf(mt) && mt.ended_at && Date.now() - Date.parse(mt.ended_at) > 6 * 3600_000) throw new HttpError(410, 'ended', 'This meeting has ended.');
   const now = Date.now();
   const hostNow = isHost(mt, user.email);
   if (mt.locked && !hostNow) throw new HttpError(403, 'locked', 'The host locked this meeting.');
@@ -976,7 +982,7 @@ async function joinGuest(env: MeetEnv, id: string, b: Record<string, unknown>, i
   if ((rate?.n || 0) > 12) throw new HttpError(429, 'slow_down', 'Too many tries. Wait a minute and use the link again.');
   const m = await getMeeting(env, id);
   if (m.access !== 'guests' || !sameKey(await keyOf(env, id), clean(b.k, 64)) || m.status === 'cancelled') throw new HttpError(404, 'not_found', 'That link does not work. Ask the host for a new one.');
-  if (m.status === 'ended') throw new HttpError(410, 'ended', 'This meeting has ended.');
+  if (m.status === 'ended' && !aheadOf(m)) throw new HttpError(410, 'ended', 'This meeting has ended.');
   if (m.status !== 'live' && m.starts_at && Date.now() < Date.parse(m.starts_at) - 30 * 60_000) throw new HttpError(403, 'early', 'This meeting has not started. Come back closer to the start time.');
   if (m.locked) throw new HttpError(403, 'locked', 'The host locked this meeting.');
   const name = clean(b.name, 60);
