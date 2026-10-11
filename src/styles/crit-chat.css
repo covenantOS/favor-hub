@@ -1,0 +1,37 @@
+/* Chat, design critic round (2026-10-11): the first paint is the finished layout, nothing swaps in a different screen. */
+
+/* Skeleton bits shown until the channels arrive. Same box sizes as the real rows, so nothing moves when they load. */
+.ch-bone { display: block; border-radius: 6px; background: linear-gradient(90deg, var(--r-sunk), var(--r-hover), var(--r-sunk)); background-size: 200% 100%; animation: chsk 1.4s infinite linear; }
+.ch-row--skel { pointer-events: none; }
+.ch-row--skel .ch-row__ic .ch-bone { border-radius: 5px; }
+.ch-row--skel .ch-row__n { display: block; }
+.ch[data-boot] button, .ch[data-boot] textarea { pointer-events: none; }
+.ch[data-boot] .ch-send { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .ch-bone { animation: none; } }
+
+/* On a phone the hub header and tab bar are hidden on this page, so the page fills the screen from the first paint
+   (chat-ui.js only measures them for the keyboard). */
+@media (max-width: 860px) {
+  .ch { top: var(--ch-top, 0px); bottom: var(--ch-bot, 0px); }
+}
+
+/* Link cards: site name, title and description each on their own line. */
+.ch-link > span { display: block; }
+
+/* Search hits and the member count in Browse channels. */
+.ch-pick__i > span:not(.ch-row__ic) { min-width: 0; }
+
+@media (max-width: 860px) {
+  /* Channels / Messages switch: 44 px tall. */
+  .ch-seg { padding: 2px; }
+  .ch-seg button { min-height: 44px; }
+  /* A tapped message opens its action bar in its own space, so it never covers the line above. */
+  .ch-msg { transition: padding-top .14s ease; }
+  .ch-msg.is-actions { padding-top: 52px; }
+  .ch-msg.is-actions .ch-bar { top: 4px !important; right: 12px; }
+  /* Nothing under 13 px. */
+  .ch-msg__time, .ch-msg--cont .ch-msg__time, .ch-msg__edited, .ch-replies small, .ch-card__m, .ch-card__s, .ch-ans__tile small, .ch-ans__tile span,
+  .ch-hit__m, .ch-search__f button, .ch-person small, .ch-pop__i small, .ch-right__head small, .ch-head__topic, .ch-typing, .ch-person__r,
+  .ch-sec__h b, .ch-meet__live, .ch-pick__i small, .ch-btn--sm, .ch-search__foot { font-size: 13px; }
+  .ch-msg--cont .ch-msg__time { opacity: 0; }
+}

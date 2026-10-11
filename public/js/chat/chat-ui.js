@@ -63,12 +63,56 @@
   function initials(name) { return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join(''); }
   function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b || a + 's'); }
 
+  function composerHtml(scope, placeholder) {
+    return '<form class="ch-comp" data-scope="' + scope + '" autocomplete="off"><div class="ch-comp__box"><div class="ch-pend" data-pend="' + scope + '" hidden></div>' +
+      '<textarea rows="1" data-ta="' + scope + '" placeholder="' + esc(placeholder) + '" aria-label="' + esc(placeholder) + '" enterkeyhint="send"></textarea>' +
+      '<div class="ch-comp__bar"><button type="button" class="ch-iconbtn" data-act="plus" data-scope="' + scope + '" aria-label="Add to the message" title="Add a file, Drive file, clip or meeting">' + ic('plus') + '</button>' +
+      '<button type="button" class="ch-iconbtn" data-act="at" data-scope="' + scope + '" aria-label="Mention someone" title="Mention someone">' + ic('at') + '</button>' +
+      '<button type="button" class="ch-iconbtn" data-act="emoji" data-scope="' + scope + '" aria-label="Emoji" title="Emoji">' + ic('smile') + '</button>' +
+      '<button type="button" class="ch-iconbtn" data-act="ask-brain" data-scope="' + scope + '" aria-label="Ask Favor Brain" title="Ask Favor Brain">' + ic('spark') + '</button>' +
+      '<span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="' + scope + '" disabled aria-label="Send">' + ic('send') + '<span>Send</span></button></div></div></form>';
+  }
+  var BONE = function (w, h) { return '<i class="ch-bone" style="width:' + w + ';height:' + h + '"></i>'; };
+  function skelRows(ws) { return ws.map(function (w, i) { return '<div class="ch-row ch-row--skel" aria-hidden="true"><span class="ch-row__ic">' + BONE('14px', '14px') + '</span><span class="ch-row__n">' + BONE(w, '12px') + '</span></div>'; }).join(''); }
+  // The screen as it looks before the channels arrive. src/pages/chat/index.astro carries this same markup so the first paint is already
+  // the right screen (tests/chat-boot.test.mjs keeps the two in step).
+  function bootSide() {
+    return '<div class="ch-pnav"><button type="button" class="ch-pn" tabindex="-1" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
+      '<div class="ch-seg"><button type="button" tabindex="-1" aria-pressed="true">Channels</button><button type="button" tabindex="-1" aria-pressed="false">Messages</button></div>' +
+      '<button type="button" class="ch-pn" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
+      '<div class="ch-side__head"><button type="button" class="ch-jump" tabindex="-1">' + ic('search') + '<span>Search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
+      '<div class="ch-list" data-seg="channels"><div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" tabindex="-1" aria-label="New channel">' + ic('plus') + '</button></div>' + skelRows(['46%', '62%', '38%', '54%']) + '</div>' +
+      '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" tabindex="-1" aria-label="New message">' + ic('plus') + '</button></div>' + skelRows(['50%', '40%']) + '</div></div>';
+  }
+  function bootHtml() {
+    return '<aside class="ch-side" aria-label="Channels">' + bootSide() + '</aside>' +
+      '<section class="ch-main" aria-label="Channel"><header class="ch-head"><div class="ch-head__t">' + BONE('150px', '16px') + '</div></header><div class="ch-msgs" tabindex="0" aria-live="polite"><div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div></div><div class="ch-typing" aria-live="polite"></div>' + composerHtml('main', 'Message') + '</section>' +
+      '<aside class="ch-right" hidden></aside>';
+  }
+
+  /* Redraws a list of top-level blocks without touching the ones that did not change, so images, the scroll position and
+     anything being typed stay put and nothing flickers when a reaction, a presence dot or a new message arrives. */
+  function morph(box, html) {
+    var t = document.createElement('template'); t.innerHTML = html;
+    var keyOf = function (e) { return e.getAttribute('data-mid') ? 'm' + e.getAttribute('data-mid') : e.id ? '#' + e.id : e.className === 'ch-day' ? 'd' + e.textContent : e.tagName + '.' + e.className; };
+    var old = {}, kids = Array.prototype.slice.call(box.children);
+    kids.forEach(function (e) { if (e._src != null) old[keyOf(e)] = e; });
+    var used = [], cur = box.firstElementChild;
+    Array.prototype.slice.call(t.content.children).forEach(function (n) {
+      var src = n.outerHTML, o = old[keyOf(n)];
+      if (o && o._src === src) { used.push(o); if (o === cur) cur = cur.nextElementSibling; else box.insertBefore(o, cur); }
+      else { n._src = src; box.insertBefore(n, cur); }
+    });
+    kids.forEach(function (e) { if (used.indexOf(e) < 0 && e.parentNode === box) box.removeChild(e); });
+  }
+  function setHtml(el, html) { if (el._h === html) return false; el._h = html; el.innerHTML = html; return true; }
+
   function mount(root, api, opts) {
     opts = opts || {};
     var S = {
       me: null, users: {}, channels: {}, active: null, right: 'none', threadRoot: null, tab: 'about',
       msgs: {}, threads: {}, typing: {}, search: null, view: 'list', lastRead: {}, memberPick: null, editing: null, pending: { main: [], thread: [] },
-      mentionMap: { main: {}, thread: {} }, hasMore: {}, loaded: {}, connected: true
+      mentionMap: { main: {}, thread: {} }, hasMore: {}, loaded: {}, warm: {}, connected: true
     };
     var pop = null, popAnchor = null, modal = null, typingSent = 0, toastT = 0;
     var isPhone = function () { return matchMedia('(max-width: 860px)').matches; };
@@ -234,20 +278,7 @@
     }
 
     /* ------------------------------------------------------------------ chrome */
-    function composerHtml(scope, placeholder) {
-      return '<form class="ch-comp" data-scope="' + scope + '" autocomplete="off"><div class="ch-comp__box"><div class="ch-pend" data-pend="' + scope + '" hidden></div>' +
-        '<textarea rows="1" data-ta="' + scope + '" placeholder="' + esc(placeholder) + '" aria-label="' + esc(placeholder) + '" enterkeyhint="send"></textarea>' +
-        '<div class="ch-comp__bar"><button type="button" class="ch-iconbtn" data-act="plus" data-scope="' + scope + '" aria-label="Add to the message" title="Add a file, Drive file, clip or meeting">' + ic('plus') + '</button>' +
-        '<button type="button" class="ch-iconbtn" data-act="at" data-scope="' + scope + '" aria-label="Mention someone" title="Mention someone">' + ic('at') + '</button>' +
-        '<button type="button" class="ch-iconbtn" data-act="emoji" data-scope="' + scope + '" aria-label="Emoji" title="Emoji">' + ic('smile') + '</button>' +
-        '<button type="button" class="ch-iconbtn" data-act="ask-brain" data-scope="' + scope + '" aria-label="Ask Favor Brain" title="Ask Favor Brain">' + ic('spark') + '</button>' +
-        '<span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="' + scope + '" disabled aria-label="Send">' + ic('send') + '<span>Send</span></button></div></div></form>';
-    }
-    function frameHtml() {
-      return '<aside class="ch-side" aria-label="Channels"><div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div></aside>' +
-        '<section class="ch-main" aria-label="Channel"><header class="ch-head"></header><div class="ch-msgs" tabindex="0" aria-live="polite"></div><div class="ch-typing" aria-live="polite"></div>' + composerHtml('main', 'Message') + '</section>' +
-        '<aside class="ch-right" hidden></aside>';
-    }
+    function frameHtml() { return bootHtml(); }
 
     function renderSide() {
       var s = sortedChannels(), side = $('.ch-side', root);
@@ -262,25 +293,27 @@
         return '<button type="button" class="ch-row' + (on ? ' is-on' : '') + (unread && !c.muted ? ' is-unread' : '') + (c.muted ? ' is-muted' : '') + '" data-act="open" data-id="' + c.id + '"' + (on ? ' aria-current="true"' : '') + '>' + icon + '<span class="ch-row__n">' + esc(n) + (self ? ' (you)' : '') + '</span>' + (c.mentions > 0 ? '<span class="ch-badge" aria-label="' + plural(c.mentions, 'mention') + '">' + c.mentions + '</span>' : '') + '</button>';
       };
       var dmNew = s.dms.filter(function (c) { return c.unread > 0 && !c.muted; }).length;
-      side.innerHTML = '<div class="ch-pnav"><button type="button" class="ch-pn" data-act="hub-menu" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
+      var html = '<div class="ch-pnav"><button type="button" class="ch-pn" data-act="hub-menu" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
         '<div class="ch-seg"><button type="button" data-act="seg" data-seg="channels" aria-pressed="' + (S.seg !== 'messages') + '">Channels</button><button type="button" data-act="seg" data-seg="messages" aria-pressed="' + (S.seg === 'messages') + '">Messages' + (dmNew ? '<i class="ch-seg__dot" aria-label="' + dmNew + ' unread"></i>' : '') + '</button></div>' +
         '<button type="button" class="ch-pn" data-act="new-dm" aria-label="New message">' + ic('pen') + '</button></div>' +
         '<div class="ch-side__head"><button type="button" class="ch-jump" data-act="search">' + ic('search') + '<span>Search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('pen') + '</button></div>' +
         '<div class="ch-list" data-seg="' + (S.seg === 'messages' ? 'messages' : 'channels') + '"><div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" data-act="new-channel" aria-label="New channel" title="New channel">' + ic('plus') + '</button></div>' +
         s.chans.map(row).join('') + '<button type="button" class="ch-row ch-more" data-act="browse"><span class="ch-row__ic">' + ic('search') + '</span><span class="ch-row__n">Browse channels</span></button></div>' +
         '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('plus') + '</button></div>' + (s.dms.length ? s.dms.map(row).join('') : '<div class="ch-empty" style="padding:8px">No messages yet</div>') + '</div></div>';
+      var ls = $('.ch-list', side), st = ls ? ls.scrollTop : 0;
+      if (setHtml(side, html) && st) { var nl = $('.ch-list', side); if (nl) nl.scrollTop = st; }
     }
     function renderHead() {
       var c = chan(S.active), h = $('.ch-head', root);
-      if (!c) { h.innerHTML = ''; return; }
+      if (!c) return;
       var name = chName(c), ms = (c.members || []).slice(0, 4);
       var lead = c.kind === 'public' ? '<span>#</span>' : c.kind === 'private' ? ic('lock') : '';
-      h.innerHTML = '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
+      setHtml(h, '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
         '<div class="ch-head__t"><div class="ch-head__name">' + lead + '<span style="color:var(--r-ink);font-weight:700">' + esc(name) + '</span></div>' + (c.topic ? '<div class="ch-head__topic">' + esc(c.topic) + '</div>' : '') + '</div>' +
         '<div class="ch-head__acts"><button type="button" class="ch-members" data-act="details" aria-label="Members"><span class="ch-stack">' + ms.map(function (id) { return avatar(user(id), 'sm'); }).join('') + '</span>' + (c.members || []).length + '</button>' +
         '<button type="button" class="ch-btn ch-btn--meet" data-act="meeting">' + ic('video') + '<span>Start a meeting</span></button>' +
         '<button type="button" class="ch-iconbtn ch-hide-m" data-act="search" aria-label="Search" title="Search">' + ic('search') + '</button>' +
-        '<button type="button" class="ch-iconbtn' + (S.right === 'details' ? ' is-on' : '') + '" data-act="details" aria-label="Channel details" title="Channel details">' + ic('info') + '</button></div>';
+        '<button type="button" class="ch-iconbtn' + (S.right === 'details' ? ' is-on' : '') + '" data-act="details" aria-label="Channel details" title="Channel details">' + ic('info') + '</button></div>');
       $('[data-ta="main"]', root).placeholder = c.kind === 'dm' || c.kind === 'group' ? 'Message ' + name : 'Message ' + (c.kind === 'public' ? '#' : '') + name;
     }
     function introHtml(c) {
@@ -294,8 +327,9 @@
       if (!c) return;
       var list = S.msgs[c.id];
       var near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
-      if (!list) { box.innerHTML = '<div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div>'; return; }
-      box.innerHTML = (S.hasMore[c.id] ? '<div style="text-align:center;padding:10px"><button type="button" class="ch-btn ch-btn--sm" data-act="older">Load earlier messages</button></div>' : introHtml(c)) + listHtml(list, { lastRead: S.lastRead[c.id] });
+      if (!list) { setHtml(box, '<div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div>'); return; }
+      box._h = null;
+      morph(box, (S.hasMore[c.id] ? '<div style="text-align:center;padding:10px"><button type="button" class="ch-btn ch-btn--sm" data-act="older">Load earlier messages</button></div>' : introHtml(c)) + listHtml(list, { lastRead: S.lastRead[c.id] }));
       if (forceBottom || near) {
         var nw = forceBottom === 'unread' ? $('#ch-new', box) : null;
         if (nw) box.scrollTop = Math.max(0, nw.offsetTop - 60); else box.scrollTop = box.scrollHeight;
@@ -304,7 +338,7 @@
     function renderTyping() {
       var el = $('.ch-typing', root), t = S.typing[S.active] || {}, now = Date.now();
       var names = Object.keys(t).filter(function (id) { return id !== S.me.id && now - t[id] < 5000; }).map(function (id) { return user(id).name.split(' ')[0]; });
-      el.innerHTML = names.length ? '<i></i><i></i><i></i><span>' + esc(names.length === 1 ? names[0] + ' is typing' : names.length === 2 ? names.join(' and ') + ' are typing' : 'Several people are typing') + '</span>' : '';
+      setHtml(el, names.length ? '<i></i><i></i><i></i><span>' + esc(names.length === 1 ? names[0] + ' is typing' : names.length === 2 ? names.join(' and ') + ' are typing' : 'Several people are typing') + '</span>' : '');
     }
     function renderRight() {
       var el = $('.ch-right', root), c = chan(S.active);
@@ -319,7 +353,7 @@
         var body = !t ? '<div class="ch-skel"><i style="width:60%"></i><i style="width:85%"></i></div>' :
           msgHtml(t.root, { inThread: true }) + (t.replies.length ? '<div class="ch-thread__n">' + plural(t.replies.length, 'reply', 'replies') + '</div>' : '') + listHtml(t.replies, { inThread: true });
         var keep = el.dataset.mode === 'thread' && el.dataset.root === String(S.threadRoot) && $('.ch-comp', el);
-        if (keep) { $('.ch-thread__body', el).innerHTML = body; }
+        if (keep) { var tbx = $('.ch-thread__body', el); if (tbx.querySelector('.ch-skel')) tbx.innerHTML = ''; morph(tbx, body); }
         else { el.innerHTML = head + '<div class="ch-thread__body">' + body + '</div><div class="ch-typing"></div>' + composerHtml('thread', 'Reply'); el.dataset.mode = 'thread'; el.dataset.root = String(S.threadRoot); }
         var tb = $('.ch-thread__body', el);
         if (S.threadSeen === S.threadRoot && S.threadScroll != null) tb.scrollTop = S.threadScroll.bottom ? tb.scrollHeight : S.threadScroll.top; else tb.scrollTop = 0;
@@ -390,8 +424,24 @@
           S.msgs[id] = r.messages; S.hasMore[id] = !!r.more;
           if (S.active === id) { renderMsgs('unread'); markRead(); }
         });
-      } else markRead();
+      } else {
+        markRead();
+        // A channel read ahead of time opens finished; a quiet refresh catches anything that arrived since.
+        if (S.warm[id]) { S.warm[id] = false; api.history(id).then(function (r) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; if (S.active === id) renderMsgs(false); }).catch(function () {}); }
+      }
       if (!isPhone()) setTimeout(function () { var ta = $('[data-ta="main"]', root); if (ta) ta.focus(); }, 0);
+    }
+    // Quietly loads the messages of the channels a person is most likely to open next (unread first, then the most recent), one at a time,
+    // so tapping a channel shows its messages in the same frame as the slide instead of a skeleton.
+    function readAhead() {
+      var ids = Object.keys(S.channels).map(function (k) { return S.channels[k]; }).filter(function (c) { return c.joined !== false && (c.id !== S.active || S.view === 'list') && !S.msgs[c.id]; })
+        .sort(function (a, b) { return (b.unread > 0) - (a.unread > 0) || String(b.last_at || '').localeCompare(String(a.last_at || '')); }).slice(0, 6).map(function (c) { return c.id; });
+      var next = function () {
+        var id = ids.shift(); if (!id) return;
+        if (S.msgs[id]) return next();
+        Promise.resolve(api.history(id)).then(function (r) { if (!S.msgs[id]) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; S.warm[id] = true; } }, function () {}).then(function () { setTimeout(next, 250); });
+      };
+      setTimeout(next, 0);
     }
     function markRead() {
       var c = chan(S.active), list = S.msgs[S.active];
@@ -608,7 +658,7 @@
       var m = openModal('Browse channels', '<div class="ch-pick" data-br><div class="ch-skel"><i style="width:60%"></i><i style="width:80%"></i></div></div>', '');
       guard(api.browse()).then(function (r) {
         m._items = r.channels || [];
-        $('[data-br]', m).innerHTML = m._items.length ? m._items.map(function (c, i) { return '<button type="button" class="ch-pick__i" data-act="browse-open" data-i="' + i + '"><span class="ch-row__ic" style="font-size:20px">#</span><span><b>' + esc(c.name) + '</b><small>' + esc(c.topic || '') + ' ' + plural(c.member_count || 0, 'member') + '</small></span>' + (chan(c.id) && chan(c.id).joined !== false ? '<span class="ch-badge">Joined</span>' : '<span class="ch-btn ch-btn--sm">Join</span>') + '</button>'; }).join('') : '<div class="ch-empty">No other channels</div>';
+        $('[data-br]', m).innerHTML = m._items.length ? m._items.map(function (c, i) { return '<button type="button" class="ch-pick__i" data-act="browse-open" data-i="' + i + '"><span class="ch-row__ic" style="font-size:20px">#</span><span><b>' + esc(c.name) + '</b>' + (c.topic ? '<small>' + esc(c.topic) + '</small>' : '') + '<small>' + plural(c.member_count || 0, 'member') + '</small></span>' + (chan(c.id) && chan(c.id).joined !== false ? '<span class="ch-badge">Joined</span>' : '<span class="ch-btn ch-btn--sm">Join</span>') + '</button>'; }).join('') : '<div class="ch-empty">No other channels</div>';
       });
     }
 
@@ -634,8 +684,10 @@
           res.innerHTML = S.search.items.length ? S.search.items.map(function (h, i) {
             var cname = chan(h.channel_id) ? chName(chan(h.channel_id)) : h.channel_name || '';
             var kind = chan(h.channel_id) ? chan(h.channel_id).kind : 'public';
+            var files = (h.attachments || []).map(function (a) { return a.name || a.title || ''; }).filter(Boolean);
             var plain = String(h.body || '').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : user(id).name); }).replace(/<#[^>]+>/g, '');
-            return '<button type="button" class="ch-hit' + (i === 0 ? ' is-on' : '') + '" data-act="hit" data-i="' + i + '">' + avatar(user(h.user_id)) + '<span><span class="ch-hit__m"><b>' + esc(user(h.user_id).name) + '</b><span>' + (kind === 'public' ? '#' : '') + esc(cname) + ' · ' + esc(fmtShort.format(new Date(h.created_at))) + ', ' + esc(timeOf(h.created_at)) + '</span></span><span class="ch-hit__t">' + esc(plain).replace(rx, '<mark>$1</mark>') + '</span></span></button>';
+            var hitText = plain.trim() ? esc(plain).replace(rx, '<mark>$1</mark>') : esc((h.attachments || []).some(function (a) { return /^image\//.test(a.mime || ''); }) ? 'Shared an image' + (files[0] ? ': ' : '') : 'Shared a file' + (files[0] ? ': ' : '')) + esc(files.join(', ')).replace(rx, '<mark>$1</mark>');
+            return '<button type="button" class="ch-hit' + (i === 0 ? ' is-on' : '') + '" data-act="hit" data-i="' + i + '">' + avatar(user(h.user_id)) + '<span><span class="ch-hit__m"><b>' + esc(user(h.user_id).name) + '</b><span>' + (kind === 'public' ? '#' : '') + esc(cname) + ' · ' + esc(fmtShort.format(new Date(h.created_at))) + ', ' + esc(timeOf(h.created_at)) + '</span></span><span class="ch-hit__t">' + hitText + '</span></span></button>';
           }).join('') : '<div class="ch-empty">Nothing found for “' + esc(v) + '”</div>';
         });
       };
@@ -806,6 +858,11 @@
       else if (act === 'older') { var lst = S.msgs[S.active]; guard(api.history(S.active, { before: lst[0].id })).then(function (r) { var h = $('.ch-msgs', root).scrollHeight; S.msgs[S.active] = r.messages.concat(lst); S.hasMore[S.active] = !!r.more; renderMsgs(false); var b = $('.ch-msgs', root); b.scrollTop = b.scrollHeight - h; }); }
       else if (act === 'modal-x') closeModal();
     });
+    // A clip with no poster image shows the drawn placeholder instead of a broken picture.
+    root.addEventListener('error', function (e) {
+      var im = e.target; if (!im || im.tagName !== 'IMG' || !im.closest('.ch-clip__thumb')) return;
+      var ph = document.createElement('span'); ph.className = 'ch-clip__scr'; ph.innerHTML = '<i></i><i></i><i></i><i></i>'; im.replaceWith(ph);
+    }, true);
     root.addEventListener('mousedown', function (e) { if (pop && !pop.contains(e.target) && e.target !== popAnchor && !(popAnchor && popAnchor.contains && popAnchor.contains(e.target))) { closePop(); mentionState = null; } });
     root.addEventListener('submit', function (e) { var f = e.target.closest('.ch-comp'); if (f) { e.preventDefault(); send(f.dataset.scope); } });
     root.addEventListener('input', function (e) {
@@ -883,26 +940,35 @@
 
     /* ------------------------------------------------------------------ boot */
     root.classList.add('ch');
-    // The right screen from the first frame: the list on a phone (the message pane stays out of sight), a skeleton in the side list until the channels arrive.
-    root.dataset.view = isPhone() ? 'list' : 'channel';
-    root.innerHTML = frameHtml() + '<input type="file" data-file multiple hidden />';
+    // The page ships the first paint already (same markup as frameHtml); only a bare root needs drawing.
+    if (!root.hasAttribute('data-boot')) root.innerHTML = frameHtml();
+    root.insertAdjacentHTML('beforeend', '<input type="file" data-file multiple hidden />');
+    setView(isPhone() ? 'list' : 'channel');
     $('[data-file]', root).addEventListener('change', function (e) { addFiles(e.target.dataset.scope || 'main', e.target.files); e.target.value = ''; });
     api.onEvent(onEvent);
-    return guard(api.boot()).then(function (b) {
+    // On a screen that opens straight into a channel, its messages are fetched while the channel list loads, so the first thing drawn is the finished channel.
+    var wantId = null;
+    try { wantId = opts.initial || localStorage.getItem('favor.chat.last'); } catch (e) { wantId = opts.initial || null; }
+    var early = wantId && (!isPhone() || opts.initial) ? Promise.resolve(api.history(wantId)).then(function (r) { return { id: wantId, r: r }; }, function () { return null; }) : Promise.resolve(null);
+    return guard(Promise.all([api.boot(), early])).then(function (both) {
+      var b = both[0], pre = both[1];
       S.me = b.me; S.users = b.users || {}; S.users[S.me.id] = Object.assign({}, S.users[S.me.id] || {}, S.me);
       (b.channels || []).forEach(function (c) { S.channels[c.id] = c; });
-      renderSide();
       var saved = null;
       try { saved = localStorage.getItem('favor.chat.last'); } catch (e) { /* private mode */ }
       var gen = sortedChannels().chans.filter(function (c) { return c.name === 'general'; })[0];
       var first = (opts.initial && chan(opts.initial) && opts.initial) || (saved && chan(saved) && chan(saved).joined !== false && saved) || (gen && gen.id) || (sortedChannels().chans[0] || sortedChannels().dms[0] || {}).id;
-      setView(isPhone() ? 'list' : 'channel');
+      if (pre && pre.id === first && pre.r && pre.r.messages && !S.msgs[first]) { S.msgs[first] = pre.r.messages; S.hasMore[first] = !!pre.r.more; }
+      root.removeAttribute('data-boot');
+      if (first && isPhone() && !opts.initial) S.active = first;
+      renderSide();
       if (first) { if (isPhone() && !opts.initial) { S.active = first; renderHead(); } else openChannel(first, { pop: true }); }
       if (opts.onUnread) opts.onUnread(totalUnread());
       measure();
+      readAhead();
       return { open: openChannel, state: S, toast: toast, search: openSearch, focus: focusMessage, thread: openThread, details: openDetails, view: setView, render: renderAll, openPop: closePop };
     });
   }
 
-  window.FavorChat = { mount: mount, util: { esc: esc, fmtBody: null, ic: ic } };
+  window.FavorChat = { mount: mount, bootHtml: bootHtml, util: { esc: esc, fmtBody: null, ic: ic } };
 })();

@@ -80,6 +80,7 @@ export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN
             'User-Agent': 'favor-hub',
           },
           body: JSON.stringify({ question, v: 2, conv: 'chat_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20) }),
+          signal: AbortSignal.timeout(90000),
         });
         answer = readAnswer(await res.json().catch(() => null));
       } catch {
