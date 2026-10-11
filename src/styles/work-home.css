@@ -155,3 +155,15 @@
   .wh-tool, .wh-row, .wh-chk { transition: none; }
   .wh-tool:hover { transform: none; }
 }
+
+@media (max-width: 960px) {
+  .wh-col { display: contents; }
+  #wh-due { order: 1; } #wh-gifts { order: 2; } #wh-week { order: 3; } #wh-req { order: 4; } #wh-quick { order: 5; } #wh-feed { order: 6; }
+}
+@media (max-width: 860px) {
+  .wh-tool { position: relative; }
+  .wh-tool__n { position: absolute; top: -7px; right: -4px; min-width: 22px; height: 22px; font-size: 12px; box-shadow: 0 0 0 2px var(--r-canvas); }
+  .wh-gift .wh-t { grid-row: 1 / span 2; grid-column: 1; }
+  .wh-gift .wh-amt { grid-row: 1; grid-column: 2; justify-self: end; }
+  .wh-gift .wh-acts { grid-row: 2; grid-column: 2; justify-self: end; }
+}
