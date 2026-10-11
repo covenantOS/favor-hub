@@ -153,6 +153,9 @@ export const START_TABS: Opt[] = [
   { value: 'asks', label: 'Asks' },
   { value: 'cadence', label: 'Cadence' },
   { value: 'hqty', label: 'HQTY letters' },
+  { value: 'declines', label: 'Declines' },
+  { value: 'grants', label: 'Grants' },
+  { value: 'giftimages', label: 'Gift images' },
 ];
 export const START_ROLES: Array<{ role: string; label: string; def: string }> = [
   { role: 'admin', label: 'Admin', def: 'open' },

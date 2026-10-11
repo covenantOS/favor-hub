@@ -1,0 +1,48 @@
+---
+// Appeal codes: build an appeal code from the scheme, create it in Blackbaud, and keep the list of funds and campaigns waiting to be created.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+import '../../../styles/q3-desk.css';
+import '../../../styles/work-functions.css';
+---
+<App title="Appeal codes" crumb="Admin" nav="admin-appeals" description="Create appeal codes in Blackbaud and keep the list of funds and campaigns waiting.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="appeals" title="Appeal codes" lede="Build a code from Favor's scheme and create the appeal in Blackbaud. Funds and campaigns wait in a list until someone creates them." />
+    <section class="ad-card" id="ap-new" aria-label="New appeal code">
+      <h2>New appeal code</h2>
+      <div class="ap-grid">
+        <label class="bu-f"><span>Kind</span><select class="ad-field" id="ap-kind"></select></label>
+        <label class="bu-f"><span id="ap-datelab">Start date</span><input class="ad-field" type="date" id="ap-date" /></label>
+        <label class="bu-f"><span>Suffix</span><input class="ad-field" id="ap-suffix" maxlength="14" autocomplete="off" /><small id="ap-hint" class="ap-hint"></small></label>
+        <label class="bu-f"><span>Title <i class="ap-opt">(optional)</i></span><input class="ad-field" id="ap-title" maxlength="120" autocomplete="off" /></label>
+        <label class="bu-f ap-wide"><span>Description</span><input class="ad-field" id="ap-desc" maxlength="255" autocomplete="off" /></label>
+        <label class="bu-f"><span>Category</span><select class="ad-field" id="ap-cat"></select></label>
+        <label class="bu-check ap-twin"><input type="checkbox" id="ap-online" /> Also create the online -WS code</label>
+      </div>
+      <div class="ap-preview" id="ap-preview" aria-live="polite"></div>
+      <p class="ad-msg" id="ap-msg" role="status"></p>
+      <div class="bu-row"><button type="button" class="ad-btn ad-btn--primary" id="ap-create" disabled>Create in Blackbaud</button></div>
+    </section>
+    <section class="ad-card" aria-label="Recent appeals">
+      <h2>Newest appeals</h2>
+      <div class="ad-scroll"><table class="ad-table sc-table"><thead><tr><th>Code</th><th>Description</th><th>Category</th><th>Starts</th></tr></thead><tbody id="ap-recent"><tr><td colspan="4" class="au-empty">Loading</td></tr></tbody></table></div>
+    </section>
+    <section class="ad-card" aria-label="Funds and campaigns waiting">
+      <h2>Funds and campaigns waiting</h2>
+      <p class="ad-card__meta">The Blackbaud connection cannot create a fund or a campaign yet. A request waits here until someone creates it in Blackbaud and marks it done.</p>
+      <div class="ap-grid">
+        <label class="bu-f"><span>Kind</span><select class="ad-field" id="rq-kind"><option value="fund">Fund</option><option value="campaign">Campaign</option></select></label>
+        <label class="bu-f"><span>Code</span><input class="ad-field" id="rq-code" maxlength="30" autocomplete="off" /></label>
+        <label class="bu-f ap-wide"><span>Description</span><input class="ad-field" id="rq-desc" maxlength="255" autocomplete="off" /></label>
+        <label class="bu-f"><span>Category <i class="ap-opt">(optional)</i></span><input class="ad-field" id="rq-cat" maxlength="80" autocomplete="off" /></label>
+        <label class="bu-f"><span>Start date <i class="ap-opt">(optional)</i></span><input class="ad-field" type="date" id="rq-start" /></label>
+      </div>
+      <p class="ad-msg" id="rq-msg" role="status"></p>
+      <div class="bu-row"><button type="button" class="ad-btn" id="rq-add">Add to the list</button></div>
+      <div id="rq-list"></div>
+    </section>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-appeals.js?v=1" defer></script>
+</App>
