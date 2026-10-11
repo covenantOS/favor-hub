@@ -28,6 +28,15 @@
     });
   }
 
+  const sideX = $('h-side-x');
+  if (sideX && app && menu) sideX.addEventListener('click', () => {
+    app.classList.remove('is-nav');
+    menu.setAttribute('aria-expanded', 'false');
+    menu.setAttribute('aria-label', 'Open the menu');
+    const more = $('h-bar-more');
+    if (more) more.setAttribute('aria-expanded', 'false');
+  });
+
   // The account menu: My clips and Record a clip, under the person's own name.
   const acct = $('h-acct');
   const acctMenu = $('h-acctmenu');

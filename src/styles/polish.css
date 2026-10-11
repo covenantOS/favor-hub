@@ -1,0 +1,100 @@
+/* Polish pass, 2026-10-10 night. Shell and shared pieces only; loaded after round2.css so it settles the final value.
+   Reports keeps its own file (reports.css). The Admin audit page is scoped to #au-* so the settings pages stay untouched. */
+
+/* ---------------------------------------------------------------- rail: account button and menu */
+@media (min-width: 861px) {
+  html:not(.nav-wide) .h-app:not(.is-peek) .h-side__foot { padding: 6px 0; }
+  html:not(.nav-wide) .h-app:not(.is-peek) .h-acct { width: 44px; height: 44px; margin: 0 auto; padding: 0; border-radius: 50%; justify-content: center; flex: none; }
+  /* The menu opens beside the rail. It used to open at 100% of the screen, off the right edge. */
+  html:not(.nav-wide) .h-app:not(.is-peek) .h-acctmenu { left: 100px; right: auto; bottom: 12px; width: 232px; min-width: 232px; }
+}
+.h-acctmenu { animation: h-pop 0.14s ease-out; transform-origin: bottom left; }
+@keyframes h-pop { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: none; } }
+.h-acctmenu a:focus-visible, .h-acctmenu button:focus-visible { outline: 2px solid var(--a, var(--h-brand)); outline-offset: -2px; background: var(--h-leaf-soft); }
+.h-avatar { flex: none; overflow: hidden; line-height: 1; letter-spacing: 0; }
+.h-who b, .h-who span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------------------------------------------------------------- command palette */
+body.h-body .cmdk__head input, body.h-body .cmdk__head input:focus { outline: 0; box-shadow: none; border: 0; background: none; border-radius: 0; height: auto; }
+body.h-body .cmdk__esc:hover { background: var(--r-sunk, #ebe8de); }
+body.h-body .cmdk__esc:focus-visible { outline: 2px solid var(--a, var(--h-brand)); outline-offset: 2px; }
+body.h-body .cmdk__list li[role='option'] { padding: 8px 12px; }
+body.h-body .cmdk__list li[role='option'] .cmdk__row-title { font-size: 16px; }
+body.h-body .cmdk__list li[role='option'] .cmdk__row-desc { font-size: 12.5px; color: var(--r-ink-2, #464c42); }
+body.h-body .cmdk__group { color: var(--r-ink-2, #464c42); }
+body.h-body .cmdk__foot { color: var(--r-ink-2, #464c42); }
+@media (max-width: 860px) {
+  .cmdk { padding-top: 10vh; }
+  body.h-body .cmdk__list { max-height: 56vh; }
+  body.h-body .cmdk__list li[role='option'] { min-height: 52px; }
+  body.h-body .cmdk__foot { display: none; }
+  body.h-body .cmdk__head input { font-size: 16px; }
+}
+
+/* ---------------------------------------------------------------- feedback form */
+.fb-shot__img { width: 100%; max-height: 200px; object-fit: contain; background: var(--r-sunk, #ebe8de); }
+.fb-chips span:focus-visible, .fb-chips input:focus-visible + span { outline: 2px solid var(--a, var(--h-brand)); outline-offset: 2px; }
+.fb-form textarea:focus { outline: 0; border-color: var(--a, var(--h-brand)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a, var(--h-brand)) 22%, transparent); }
+
+/* ---------------------------------------------------------------- header */
+/* the Feedback button keeps its pressed look only while the dialog is open, not after it closes */
+.h-top .h-fb:focus:not(:focus-visible) { background: none; }
+.h-top__cam:focus-visible, .h-top__search:focus-visible, .h-top .h-btn:focus-visible { outline: 2px solid var(--a, var(--h-brand)); outline-offset: 2px; }
+.h-tab:focus-visible { border-radius: 8px; }
+
+/* ---------------------------------------------------------------- phone */
+@media (max-width: 860px) {
+  body.h-body .h-top__cam, body.h-body .h-top__search, body.h-body .h-top .h-fb { width: 44px; height: 44px; }
+  body.h-body .h-top .h-btn--primary { height: 44px; min-width: 44px; }
+  .h-app .h-search kbd, .h-app.is-nav .h-search kbd { display: none; }
+  .h-side .h-side__x { display: grid; }
+  .h-side__in { padding-top: 16px; }
+  .h-app.is-nav .h-brand { padding-right: 52px; }
+  .h-bar__a:active .h-bar__i { transform: scale(0.94); }
+}
+.h-side__x {
+  display: none; position: absolute; z-index: 2; top: 12px; right: 12px; width: 44px; height: 44px; padding: 0; place-items: center; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08); color: rgba(255, 255, 255, 0.85); cursor: pointer;
+}
+.h-side__x:hover { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.h-side__x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.h-side__x:focus-visible { outline: 2px solid var(--soft-leaf, #b9d1ab); outline-offset: 2px; }
+.h-side__tog:focus-visible { outline-offset: 2px; }
+@media (min-width: 861px) { .h-side__x { display: none !important; } }
+
+/* ---------------------------------------------------------------- toasts */
+@media (max-width: 860px) {
+  .toast, .fnd-toast, .pp-toast { bottom: calc(78px + env(safe-area-inset-bottom)); }
+}
+
+/* ---------------------------------------------------------------- Admin audit page */
+#au-area, #au-find { height: 40px; min-height: 40px; box-sizing: border-box; }
+#au-area { appearance: none; -webkit-appearance: none; padding-right: 34px; cursor: pointer;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23464c42' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 16px; }
+#au-find { flex: 1 1 240px; max-width: 360px; }
+#au-area:focus, #au-find:focus { outline: 0; border-color: var(--a, var(--h-brand)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--a, var(--h-brand)) 22%, transparent); }
+#ad-root .ad-sub { gap: 10px; }
+#au-table tbody tr:hover td { background: var(--r-hover, #f7f5ef); }
+#au-table th { background: #fff; }
+#au-table td { font-variant-numeric: tabular-nums; }
+#au-table td:first-child { white-space: nowrap; color: var(--r-ink-2, #464c42); }
+#au-table td.mute { color: var(--r-ink-2, #464c42); }
+#au-table .au-empty { padding: 28px 12px; text-align: center; color: var(--r-ink-2, #464c42); }
+#au-more:focus-visible { outline: 2px solid var(--a, var(--h-brand)); outline-offset: 2px; }
+@media (max-width: 700px) {
+  #au-area { flex: none; }
+  #au-find { max-width: none; flex-basis: 100%; }
+  #au-table thead { display: none; }
+  #au-table, #au-table tbody { display: block; }
+  #au-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 14px; border-bottom: 1px solid var(--h-line, #e4e0d4); }
+  #au-table tr:last-child { border-bottom: 0; }
+  #au-table td { display: block; padding: 0; border: 0; min-width: 0; overflow-wrap: anywhere; }
+  #au-table td::before { content: attr(data-label); display: block; margin-bottom: 1px; font: 600 11px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--r-ink-2, #464c42); }
+  #au-table td[data-label='When'], #au-table td[data-label='Who'], #au-table td[data-label='Setting'], #au-table td[data-label='Note'] { grid-column: 1 / -1; }
+  #au-table td:empty { display: none; }
+  #au-table td.au-empty { grid-column: 1 / -1; }
+  #au-table td.au-empty::before { content: none; }
+  #au-table td:first-child { white-space: normal; }
+}
+
+@media (prefers-reduced-motion: reduce) { .h-acctmenu { animation: none; } }

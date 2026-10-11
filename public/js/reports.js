@@ -67,7 +67,7 @@
       any = true;
       t += '<div class="rp-grp">' + esc(g.label) + ' <b>' + rows.length + '</b></div>';
       rows.forEach(function (r) {
-        var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c">' + esc(r.freq) + '</span><span class="rp-c">' + esc(r.who) + '</span><span class="rp-flags">' + flags(r) + '</span>';
+        var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c" title="' + esc(r.freq) + '">' + esc(r.freq) + '</span><span class="rp-c" title="' + esc(r.who) + '">' + esc(r.who) + '</span><span class="rp-flags">' + flags(r) + '</span>';
         t += r.ready ? '<a class="rp-row" role="row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon" role="row">' + inner + '</div>';
       });
     });
@@ -122,14 +122,18 @@
 
   function tileValue(t) { return t.kind === 'money' ? money(t.value) : t.kind === 'int' ? num(t.value) : String(t.value); }
 
+  var ARROW_UP = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 10V2.5M2.8 5.5 6 2.3l3.2 3.2"/></svg>';
+  var ARROW_DOWN = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v7.5M2.8 6.5 6 9.7l3.2-3.2"/></svg>';
+  var ARROW_BOTH = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3.5 4.5 2.5-2.5 2.5 2.5M3.5 7.5 6 10l2.5-2.5"/></svg>';
+  var BACK = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg>';
   var CHECK = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
   function tieHtml(t) {
     if (t.status === 'none' && !t.note) return '';
     var f = function (v) { return t.kind === 'count' ? num(v) : money(v); };
     if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches the KPI dashboard</b><span>' + esc(t.label) + ': ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'differs') return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from the KPI dashboard by ' + f(t.diff) + '</b><span>This report ' + f(t.mine) + ', ' + esc(t.label) + ' ' + f(t.kpi) + '</span></div></div>';
-    if (t.status === 'unavailable') return '<div class="rp-tie is-off"><div><b>KPI figure not available</b><span>' + esc(t.note || '') + '</span></div></div>';
-    return '<div class="rp-tie is-off"><div><b>No KPI line</b><span>' + esc(t.note || '') + '</span></div></div>';
+    if (t.status === 'unavailable') return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>KPI figure not available</b><span>' + esc(t.note || '') + '</span></div></div>';
+    return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>No KPI line</b><span>' + esc(t.note || '') + '</span></div></div>';
   }
 
   // Bars by team, from the rows on screen, only when the report has a team column and a money column.
@@ -188,6 +192,8 @@
 
   function drawReport() {
     var res = cur.res, rows = visibleRows();
+    var oldScroll = $('.rp-scroll', root), keepTop = oldScroll && !cur.top ? oldScroll.scrollTop : 0, keepLeft = oldScroll ? oldScroll.scrollLeft : 0;
+    cur.top = false;
     var ps = res.pageSize, pages = Math.max(1, Math.ceil(rows.length / ps));
     cur.page = Math.min(cur.page || 0, pages - 1);
     var pageRows = rows.slice(cur.page * ps, cur.page * ps + ps);
@@ -199,7 +205,7 @@
       res.columns.forEach(function (c) { if (c.total) { var s = 0; rows.forEach(function (r) { s += Number(r[c.key]) || 0; }); totals[c.key] = Math.round(s * 100) / 100; } });
     } else if (searching) totals = {};
 
-    var h = '<div class="h-card rp-params">';
+    var h = '<a class="rp-back" href="' + BASE + '">' + BACK + 'All reports</a><div class="h-card rp-params">';
     var shown = res.filters.filter(function (f) { return !f.showWhen || res.values[f.showWhen.id] === f.showWhen.is; });
     shown.forEach(function (f) {
       var v = res.values[f.id];
@@ -218,14 +224,14 @@
     var tie = tieHtml(res.tie);
     if (res.tiles.length || tie) {
       h += '<div class="h-card rp-sum">';
-      res.tiles.forEach(function (t, i) { h += '<div class="rp-tile' + (i === 0 ? ' is-hero' : '') + '"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; });
+      res.tiles.forEach(function (t, i) { h += '<div class="rp-tile' + (i === 0 ? ' is-hero' : '') + (i > 0 && i === res.tiles.length - 1 && i % 2 === 1 ? ' rp-tile--wide' : '') + '"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; });
       h += tie + '</div>';
     }
 
     var bars = teamBars(res, rows);
     var side = res.post != null || res.note || bars;
     h += '<div class="rp-main' + (side ? '' : ' is-solo') + '"><div><div class="h-card rp-tcard"><div class="rp-thead"><span class="cnt">Rows <small>' + num(rows.length) + '</small> <span class="copy-stamp" data-copy-stamp></span>' + (res.more ? ' <em>first ' + num(res.rows.length) + ' of ' + num(res.count) + '</em>' : '') + '</span><label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-find" placeholder="Search these rows" value="' + esc(cur.find || '') + '" aria-label="Search these rows"></label></div><div class="rp-scroll"><table class="rp-table"><thead><tr>' +
-      res.columns.map(function (c) { var on = cur.sort && cur.sort.k === c.key; return '<th class="' + (isRight(c) ? 'r ' : '') + (on ? 'is-sort' : '') + '" data-sort="' + c.key + '" aria-sort="' + (on ? (cur.sort.d > 0 ? 'ascending' : 'descending') : 'none') + '"><button type="button">' + esc(c.label) + '<span class="ar">' + (on ? (cur.sort.d > 0 ? '\u25B2' : '\u25BC') : '\u21C5') + '</span></button></th>'; }).join('') + '</tr></thead><tbody>';
+      res.columns.map(function (c) { var on = cur.sort && cur.sort.k === c.key; return '<th class="' + (isRight(c) ? 'r ' : '') + (on ? 'is-sort' : '') + '" data-sort="' + c.key + '" aria-sort="' + (on ? (cur.sort.d > 0 ? 'ascending' : 'descending') : 'none') + '"><button type="button">' + esc(c.label) + '<span class="ar">' + (on ? (cur.sort.d > 0 ? ARROW_UP : ARROW_DOWN) : ARROW_BOTH) + '</span></button></th>'; }).join('') + '</tr></thead><tbody>';
     pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c) { return '<td class="' + (isRight(c) ? 'r' : c.type === 'id' ? 'id' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
     if (!pageRows.length) h += '<tr><td colspan="' + res.columns.length + '" class="rp-empty">No rows for these filters. <button type="button" class="rp-link" id="rp-clear">Clear</button></td></tr>';
     h += '</tbody>';
@@ -243,6 +249,8 @@
     }
     h += '</div>';
     root.innerHTML = h;
+    var newScroll = $('.rp-scroll', root);
+    if (newScroll) { newScroll.scrollTop = keepTop; newScroll.scrollLeft = keepLeft; }
     bindReport();
   }
 
@@ -280,8 +288,8 @@
     $$('[data-sort]', root).forEach(function (th) { th.addEventListener('click', function () { var k = th.dataset.sort; cur.sort = cur.sort && cur.sort.k === k ? { k: k, d: -cur.sort.d } : { k: k, d: 1 }; drawReport(); }); });
     $('#rp-find').addEventListener('input', function (e) { cur.find = e.target.value; cur.page = 0; var p = e.target.selectionStart; drawReport(); var i = $('#rp-find'); i.focus(); i.setSelectionRange(p, p); });
     var pv = $('#rp-prev'), nx = $('#rp-next');
-    if (pv) pv.addEventListener('click', function () { cur.page -= 1; drawReport(); });
-    if (nx) nx.addEventListener('click', function () { cur.page += 1; drawReport(); });
+    if (pv) pv.addEventListener('click', function () { cur.page -= 1; cur.top = true; drawReport(); });
+    if (nx) nx.addEventListener('click', function () { cur.page += 1; cur.top = true; drawReport(); });
     var lk = $('#rp-link');
     if (lk) lk.addEventListener('click', function () {
       var fail = function () { toast('Copy did not work. Copy the address bar instead.'); };

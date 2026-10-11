@@ -18,6 +18,7 @@ import '../styles/nav.css';
 import '../styles/round2.css';
 import '../styles/ux-night.css';
 import '../styles/ux-pass.css';
+import '../styles/polish.css';
 import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
@@ -76,6 +77,7 @@ const footAreas = AREAS.filter((a) => a.foot);
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="Hub">
+        <button type="button" class="h-side__x" id="h-side-x" aria-label="Close the menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         <button type="button" class="h-side__tog" id="h-wide" aria-pressed="false" aria-label="Expand the menu" title="Expand the menu (press the backslash key)"><Fragment set:html={icon('chev')} /></button>
         <div class="h-side__in">
           <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="Favor Hub home"><img class="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" /><img class="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" /><span>Hub</span></a>
@@ -246,7 +248,7 @@ const footAreas = AREAS.filter((a) => a.foot);
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=4" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=5" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=2" defer></script>
     <script is:inline src="/js/hub-swap.js?v=2" defer></script>

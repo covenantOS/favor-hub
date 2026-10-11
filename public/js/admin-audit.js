@@ -8,8 +8,8 @@
     var q = $('au-find').value.trim().toLowerCase();
     var list = rows.filter(function (e) { return !q || (e.actor + ' ' + e.label + ' ' + e.key + ' ' + e.before + ' ' + e.after + ' ' + e.note).toLowerCase().indexOf(q) >= 0; });
     $('au-body').innerHTML = list.length ? list.map(function (e) {
-      return '<tr><td>' + A.esc(A.full(e.at)) + '</td><td>' + A.esc(e.actor) + '</td><td>' + A.esc(e.label) + '</td><td class="mute">' + A.esc(e.before == null ? '' : e.before) + '</td><td>' + A.esc(e.after == null ? '' : e.after) + '</td><td class="mute">' + A.esc(e.note || '') + '</td></tr>';
-    }).join('') : '<tr><td colspan="6" class="mute">No changes match.</td></tr>';
+      return '<tr><td data-label="When">' + A.esc(A.full(e.at)) + '</td><td data-label="Who">' + A.esc(e.actor) + '</td><td data-label="Setting">' + A.esc(e.label) + '</td><td data-label="Before" class="mute">' + A.esc(e.before == null ? '' : e.before) + '</td><td data-label="After">' + A.esc(e.after == null ? '' : e.after) + '</td><td data-label="Note" class="mute">' + A.esc(e.note || '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="6" class="au-empty">' + (rows.length ? 'No changes match that search.' : 'No settings changes recorded for this area yet.') + '</td></tr>';
     $('au-more').hidden = done;
   }
 
