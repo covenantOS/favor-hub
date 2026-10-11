@@ -167,3 +167,4 @@
   .wh-gift .wh-amt { grid-row: 1; grid-column: 2; justify-self: end; }
   .wh-gift .wh-acts { grid-row: 2; grid-column: 2; justify-self: end; }
 }
+@media (max-width: 860px) { .wh-rl .r2t-chip { display: none; } }
