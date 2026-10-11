@@ -284,3 +284,8 @@ html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__
 @media (max-width: 1600px) { .h-tab { padding: 0 9px; font-size: 12.5px; } }
 .h-tabs__row { overflow-x: auto; }
 .h-tabs__row.is-over { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+
+/* Tab focus ring sits inside the pill so the scrolling row never clips it into a square box. */
+.h-tabs__row { padding-left: 2px; padding-top: 3px; padding-bottom: 3px; }
+.h-tab:focus { outline: none; }
+.h-tab:focus-visible { outline: 2px solid var(--a-ink, var(--h-brand)); outline-offset: -2px; }
