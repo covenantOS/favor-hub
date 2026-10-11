@@ -154,6 +154,8 @@ let giftRows;
 beforeEach(() => {
   db = new DatabaseSync(':memory:');
   db.exec(SCHEMA);
+  db.exec(readFileSync(new URL('../db/admin-home.sql', import.meta.url), 'utf8'));
+  db.exec(readFileSync(new URL('../db/work-reminders.sql', import.meta.url), 'utf8'));
   calls = [];
   nextId = 9000;
   ignore = new Set();
@@ -358,6 +360,18 @@ describe('record flags and status', () => {
     assert.equal(bb.constituent.deceased_date, undefined);
     assert.equal(bb.codes.find((c) => c.description === 'Partner').end, undefined);
     assert.ok(!bb.prefs.some((p) => p.solicit_code === 'Do Not Solicit'));
+  });
+  it('a deceased mark runs its effects once Blackbaud keeps it, logs each, and the reversal logs again', async () => {
+    const out = await svc.createBatch(ctx, { op: 'pstatus', cid: '100', status: 'deceased', date: '2026-10-08', effects: { endPartner: false, endAssignments: false, doNotSolicit: false }, req: 'x1' });
+    await runAll(out.batch.id);
+    const rows = db.prepare("SELECT label FROM hub_audit WHERE area = 'records' ORDER BY id").all().map((r) => r.label);
+    assert.deepEqual(rows, ['Marked deceased: Hub copy', 'Marked deceased: GoHighLevel', 'Marked deceased: Giving portal', 'Marked deceased: Work Center']);
+    const back = await svc.createBatch(ctx, { op: 'pstatus', cid: '100', status: 'active', req: 'x2' });
+    await runAll(back.batch.id);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM hub_audit WHERE area = 'records' AND label LIKE 'Marked active%'").get().n, 4);
+    const flag = await svc.createBatch(ctx, { op: 'pflags', cid: '100', flags: { givesAnonymously: true }, req: 'x3' });
+    await runAll(flag.batch.id);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM hub_audit WHERE area = 'records'").get().n, 8, 'a flag change refreshes the copy and logs nothing');
   });
   it('marking active sends the deceased date as null, because {deceased:false} alone is ignored, and reopens what ended with it', async () => {
     const out = await svc.createBatch(ctx, { op: 'pstatus', cid: '100', status: 'deceased', date: '2026-10-08', effects: { endPartner: true, endAssignments: false, doNotSolicit: true }, req: 's2' });

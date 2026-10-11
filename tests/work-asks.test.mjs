@@ -242,3 +242,23 @@ describe('the quick dates', () => {
     assert.equal(shapeQuick('2027-01-05')[3][1], '2027-03-29');
   });
 });
+
+describe('a partner marked deceased', () => {
+  it('takes its open ask off the board and keeps an ask that already brought a gift', async () => {
+    mdb.exec(`INSERT INTO constituents (id, first_name, last_name, deceased, raw_json) VALUES ('4', 'Di', 'Fourth', 1, '{"name":"Di Fourth"}');
+      INSERT INTO assignments VALUES ('s5', '4', '501', 'Regional Development Director (RDD)', NULL);`);
+    ask('41', '4', 2500, '2026-09-05');
+    ask('42', '4', 900, '2026-05-05');
+    gift('g4', '4', 900, '2026-06-01');
+    try {
+      const out = await asks.asksResponse(ctx({ ...dirScope('501'), role: 'admin', all: true }), '');
+      const ids = out.rows.map((r) => r.id);
+      assert.ok(!ids.includes('41'), 'the open ask leaves');
+      assert.ok(ids.includes('42'), 'the ask that brought a gift stays');
+      assert.equal(out.rows.find((r) => r.id === '42').state, 'gave');
+    } finally {
+      mdb.exec(`DELETE FROM actions WHERE id IN ('41','42'); DELETE FROM action_tags WHERE id IN ('41','42'); DELETE FROM gifts WHERE id = 'g4';
+        DELETE FROM assignments WHERE id = 's5'; DELETE FROM constituents WHERE id = '4';`);
+    }
+  });
+});

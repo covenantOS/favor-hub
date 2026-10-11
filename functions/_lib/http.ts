@@ -16,6 +16,8 @@ export interface Env {
   BLACKBAUD_OPS_URL?: string;
   MIRROR_API_KEY?: string;
   MIRROR_QUERY_URL?: string;
+  /** The giving portal's database (favor-portal, same account). Records writes portal_blocks there when a record is marked deceased. */
+  PORTAL_DB?: D1Database;
   RECEIPTS_CODE?: string;
   RECEIPTS_KEY?: string;
   RECEIPTS_WORKER_URL?: string;

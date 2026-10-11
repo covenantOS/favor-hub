@@ -16,6 +16,7 @@ import {
 import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, refreshCalls, REFRESH_MAX, resetLabel, undoUntil, utcDay } from '../actions/batch';
 import { advance, bodyFor, fillDep, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
 import { planRecord, RECORD_OPS, verifyRecords, forgetRecord, type RecordInput } from './records';
+import { afterRecordRows } from './deceased';
 import { actionRaw, forgetExtra, nextOfRecur, oppRaw, partnerContext, planEdit, saveRecur, shadowOpp, stopRecur, type EditInput } from './edit';
 import { etParts } from '../actions/intake';
 import { can, inScope, mayAssignTo, ROLE_LABEL, scopeRows, type Scope } from './role';
@@ -1136,6 +1137,8 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       if (sentRows.length) {
         await verify(ctx, batchId, sentRows, t0);
         await verifyRecords(ctx, sentRows).catch(() => undefined);
+        // The hub copy re-reads each changed record, and a deceased mark (or its reversal) runs its effects outside Blackbaud.
+        await afterRecordRows(env, { actor: ctx.actor, email: ctx.email }, sentRows).catch(() => undefined);
         for (const r of sentRows) {
           const call = r.op === 'call' ? parseObj(r.payload).__call : null;
           // Notes, attachments and opportunities are not in the mirror, so they need no re-read.

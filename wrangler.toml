@@ -44,6 +44,13 @@ service = "kpi-dashboard"
 
 # Admin > Overview reads these, never writes them: the Drive library job's state, the unsubscribe write-back queue, and the
 # upkeep route's call counter (Admin > Work Center also saves the daily cap, the key bb:ops:cap, there).
+# The giving portal's database. The hub writes portal_blocks here when a partner record is marked deceased (functions/_lib/work/deceased.ts);
+# the portal refuses sign-in and email for a blocked record. Nothing else in the hub reads or writes it.
+[[d1_databases]]
+binding = "PORTAL_DB"
+database_name = "favor-portal"
+database_id = "7bf92237-2f84-4a96-885f-2e3e37e7e742"
+
 [[d1_databases]]
 binding = "DRIVE_DB"
 database_name = "favor-drive"

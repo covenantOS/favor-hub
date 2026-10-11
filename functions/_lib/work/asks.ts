@@ -252,7 +252,9 @@ export async function loadAsks(env: Env, q: Q, today: string, allTime = false): 
   const since = allTime ? '2000-01-01' : addDays(today, -ASK_DAYS);
   const m = await mirrorAsks(q, today, allTime);
   const [closes, gone] = await Promise.all([loadCloses(env), loadGone(env)]);
-  return shapeAsks({ ...m, closes, gone }, today).filter((r) => r.date >= since);
+  // An ask on a partner who has passed away is no longer pursued: it leaves the open, closing and past columns. A gift it brought stays.
+  const passed = new Set(m.asks.filter((a) => Number(a.deceased) === 1).map((a) => String(a.cid)));
+  return shapeAsks({ ...m, closes, gone }, today).filter((r) => r.date >= since && !(passed.has(String(r.cid)) && r.state !== 'gave'));
 }
 
 async function readMirrorAsks(q: Q, today: string, allTime: boolean): Promise<MirrorAsks> {
