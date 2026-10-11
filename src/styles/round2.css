@@ -63,7 +63,7 @@ body.h-body .h-side__in::-webkit-scrollbar-thumb { background: rgba(255, 255, 25
 .h-brand span { color: rgba(255, 255, 255, 0.6); border-left-color: rgba(255, 255, 255, 0.2); }
 
 .h-area__link {
-  color: rgba(255, 255, 255, 0.78); min-height: 62px; padding: 6px 2px; gap: 5px; border-radius: 12px; font-size: 11px; letter-spacing: 0; font-weight: 600;
+  color: rgba(255, 255, 255, 0.78); min-height: 62px; padding: 6px 2px; gap: 5px; border-radius: 12px; font-size: 13px; letter-spacing: 0; font-weight: 600;
   background: none;
 }
 .h-area__link:hover { background: none; color: #fff; }
@@ -92,7 +92,7 @@ body.h-body .h-area[data-area] > .h-area__link .h-i { color: var(--soft); }
 .h-side__tog { background: var(--r-rail); border-color: rgba(255, 255, 255, 0.25); color: rgba(255, 255, 255, 0.85); top: 22px; z-index: 50; }
 .h-side__tog:hover { color: #fff; border-color: #fff; }
 
-.h-search { background: none; border: 0; color: rgba(255, 255, 255, 0.78); box-shadow: none; border-radius: 12px; min-height: 52px; font-size: 11px; font-weight: 600; margin: 0; order: 9; }
+.h-search { background: none; border: 0; color: rgba(255, 255, 255, 0.78); box-shadow: none; border-radius: 12px; min-height: 52px; font-size: 13px; font-weight: 600; margin: 0; order: 9; }
 .h-search:hover { background: rgba(255, 255, 255, 0.08); color: #fff; border: 0; }
 .h-search .h-i { color: var(--soft-slate); }
 .h-search kbd { background: rgba(255, 255, 255, 0.1); border-color: transparent; color: rgba(255, 255, 255, 0.7); }
@@ -168,7 +168,7 @@ body.h-body[data-area='today'] .h-top .h-btn--primary:hover { background: #000; 
 
 body.h-body .h-btn { height: 36px; border-radius: 10px; padding: 0 16px; font: 600 13px var(--h-font); box-shadow: none; transition: background 0.15s var(--r-ease), transform 0.1s; }
 body.h-body .h-btn:active { transform: translateY(1px); }
-body.h-body .h-btn--sm { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; }
+body.h-body .h-btn--sm { height: 30px; padding: 0 12px; border-radius: 8px; font-size: 13px; }
 body.h-body .h-btn--primary { background: var(--a); color: #fff; }
 body.h-body .h-btn--primary:hover { background: var(--a-ink); }
 body.h-body .h-btn--ghost { background: #fff; border: 1px solid var(--r-line-2); color: var(--r-ink); }
@@ -182,7 +182,7 @@ body.h-body .h-hello h1 { font-variant-numeric: lining-nums tabular-nums; }
 body.h-body .h-todo__icon { border-radius: 10px; }
 body.h-body .h-new, body.h-body .h-chip { border-radius: 999px; }
 body.h-body .h-beta { background: var(--tc-sun-tint); color: var(--tc-sun-ink); border: 0; }
-body.h-body table th { font: 600 12px var(--h-font); letter-spacing: 0; text-transform: none; color: var(--r-ink-3); }
+body.h-body table th { font: 600 13px var(--h-font); letter-spacing: 0; text-transform: none; color: var(--r-ink-3); }
 body.h-body table td { font-variant-numeric: lining-nums tabular-nums; }
 /* no accent bars on cards or rows */
 body.h-body .h-board .h-todo, body.h-body .h-route__result { border-top-width: 1px; border-left-width: 1px; }
@@ -268,8 +268,8 @@ body.h-body[data-nav='brain'] .h-top, body.h-body[data-nav='brain'] .h-app .h-to
 
 /* 2026-10-10 evening fixes (Will's review) */
 /* rail badges sit on the icon's top right corner instead of covering it */
-.h-area__link .h-nav__count { top: 3px; right: auto; left: calc(50% + 9px); min-width: 16px; height: 16px; padding: 0 4px; font-size: 9.5px; line-height: 16px; font-weight: 700; border-radius: 999px; }
-html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__count, .h-app.is-nav .h-area__link .h-nav__count { position: static; margin-left: auto; height: 18px; line-height: 18px; font-size: 11px; }
+.h-area__link .h-nav__count { top: 3px; right: auto; left: calc(50% + 9px); min-width: 16px; height: 16px; padding: 0 4px; font-size: 13px; line-height: 16px; font-weight: 700; border-radius: 999px; }
+html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__count, .h-app.is-nav .h-area__link .h-nav__count { position: static; margin-left: auto; height: 18px; line-height: 18px; font-size: 13px; }
 /* the account menu holds sounds and sign out, so the rail foot is just the avatar */
 .h-acctmenu .h-sound .h-sound__off { display: none; }
 .h-acctmenu .h-sound[aria-pressed='false'] .h-sound__on { display: none; }
@@ -281,7 +281,7 @@ html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__
   .r2t-row3:has(> :nth-child(4)) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 /* tab rows never clip a label without a cue: tighter at mid widths, a fade where more tabs scroll */
-@media (max-width: 1600px) { .h-tab { padding: 0 9px; font-size: 12.5px; } }
+@media (max-width: 1600px) { .h-tab { padding: 0 9px; font-size: 13px; } }
 .h-tabs__row { overflow-x: auto; }
 .h-tabs__row.is-over { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
 
@@ -315,7 +315,7 @@ body.h-body .fnd-tabs { display: flex; flex-wrap: nowrap; gap: 6px; padding: 5px
 body.h-body .fnd-tabs button { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: none; font: 600 13px var(--h-font); color: var(--r-ink-2); white-space: nowrap; }
 body.h-body .fnd-tabs button:hover { color: var(--r-ink); border: 0; }
 body.h-body .fnd-tabs button.is-on { background: #fff; color: var(--r-ink); border: 0; box-shadow: 0 1px 2px rgba(42, 39, 34, 0.06), 0 4px 12px -6px rgba(42, 39, 34, 0.18); }
-body.h-body .fnd-tabs button span { margin: 0; padding: 1px 7px; border-radius: 999px; background: #e9e4d9; color: var(--r-ink-2); font: 600 11px var(--h-font); letter-spacing: 0; opacity: 1; }
+body.h-body .fnd-tabs button span { margin: 0; padding: 1px 7px; border-radius: 999px; background: #e9e4d9; color: var(--r-ink-2); font: 600 13px var(--h-font); letter-spacing: 0; opacity: 1; }
 body.h-body .fnd-tabs button.is-on span { background: var(--a-tint); color: var(--a-ink); }
 /* Favor Brain mark (living gradient). Still in nav and on past answers, drifts on the empty chat, turns while thinking, settles on a new answer. */
 .bm { --bm-g: #3d7a35; --bm-o: #a87410; --bm-d: #5b4f93; overflow: visible; }
@@ -338,11 +338,11 @@ body.h-body .fnd-tabs button.is-on span { background: var(--a-tint); color: var(
 /* 2026-10-10 polish from Will's screenshots. Rail: the hover and active block wraps the icon and its label, so a long label
    like Meetings never hangs past its tile. */
 html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__link::before { top: 3px; bottom: 3px; height: auto; width: 74px; margin-left: -37px; border-radius: 14px; }
-html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__label { font-size: 11px; }
+html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__label { font-size: 13px; }
 /* Reporting: the freshness stamp only shows when the numbers are stale; the page itself says "As of". */
 .h-kpi-fresh:not(.is-stale) { display: none !important; }
 /* Avatars inside a meta row keep their own centering. */
-.nt-meta .mt-av { display: grid; gap: 0; place-items: center; font-size: 10px; letter-spacing: -0.02em; }
+.nt-meta .mt-av { display: grid; gap: 0; place-items: center; font-size: 13px; letter-spacing: -0.02em; }
 
 /* Areas with many sections (Reporting has eight) put their tabs on a full-width second row when the header is too narrow
    to hold the title, every tab and the header buttons on one line. */

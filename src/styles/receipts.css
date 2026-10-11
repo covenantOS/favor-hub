@@ -2,7 +2,7 @@
 
 .rcp-band .ticker__label { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .rcp-days {
-  font: 500 11px/1 var(--mono);
+  font: 500 13px/1 var(--mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: inherit;
@@ -44,7 +44,7 @@
 .rcp-date { margin: 0 !important; }
 .rcp-date input { min-width: 170px; }
 .rcp-code { display: flex; flex-direction: column; gap: 4px; padding-bottom: 2px; }
-.rcp-code span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
+.rcp-code span { font-family: var(--mono); font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-soft); }
 .rcp-code b { font-family: var(--mono); font-size: 18px; font-weight: 600; letter-spacing: 0.04em; color: var(--green-deep); }
 .rcp-code--big {
   background: var(--cream);
@@ -129,13 +129,13 @@
 .rcp-tick { width: 34px; }
 .rcp-tick input { width: 17px; height: 17px; accent-color: var(--green-deep); }
 .rcp-table tr.is-off td:not(.rcp-tick) { opacity: 0.42; }
-.rcp-note { display: block; margin-top: 4px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: #3d6a82; }
+.rcp-note { display: block; margin-top: 4px; font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: #3d6a82; }
 .rcp-note.is-warn { color: var(--ochre); }
 .rcp-pill-regular { background: var(--paper-warm); border: 1px solid var(--rule); }
 .rcp-pill-major { background: #fbf2dc; border: 1px solid #ecd9a8; color: #8a6410; }
 .rcp-pill-recurring { background: #eaf1f5; border: 1px solid #cfdde6; color: #3d6a82; }
 
-.rcp-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; font: 500 12px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink-soft); }
+.rcp-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; font: 500 13px/1.4 var(--mono); letter-spacing: 0.04em; color: var(--ink-soft); }
 .rcp-pager[hidden] { display: none; }
 .rcp-pager button[disabled] { opacity: 0.4; cursor: not-allowed; }
 #rcp-tabs { scroll-margin-top: 96px; }
@@ -143,7 +143,7 @@
 
 .rcp-held + .rcp-held { margin-top: 26px; }
 .rcp-held h3 { font-family: var(--display); font-weight: 400; font-size: 24px; letter-spacing: -0.015em; }
-.rcp-held h3 span { font: 500 12px/1 var(--mono); color: var(--ink-soft); margin-left: 8px; vertical-align: middle; }
+.rcp-held h3 span { font: 500 13px/1 var(--mono); color: var(--ink-soft); margin-left: 8px; vertical-align: middle; }
 .rcp-held .rcp-fine { margin: 2px 0 8px; }
 .rcp-held table { table-layout: fixed; }
 .rcp-held td:nth-child(1) { width: 46%; }

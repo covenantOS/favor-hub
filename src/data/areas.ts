@@ -105,7 +105,7 @@ export const AREAS: NavArea[] = [
     barRank: 4,
     beta: true,
     pages: [
-      { id: 'brain', label: 'Chat', href: '/brain/', desc: 'Ask about partners, giving, team numbers and the manuals', keywords: 'brain favor ask ai claude chatgpt question query beta chat', learn: 'ask-favor', swap: true },
+      { id: 'brain', label: 'Brain', href: '/brain/', desc: 'Ask about partners, giving, team numbers and the manuals', keywords: 'brain favor ask ai claude chatgpt question query beta chat', learn: 'ask-favor', swap: true },
       { id: 'connect-ai', label: 'Connect an AI app', href: '/help/connect-your-ai/', desc: 'Use the same answers from Claude or ChatGPT', keywords: 'connect claude chatgpt mcp connector ai app', learn: 'connect-your-ai' },
     ],
   },

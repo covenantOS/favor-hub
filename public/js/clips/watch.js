@@ -998,7 +998,20 @@ function paintTabs() {
   const tabs = tabsFor();
   if (!tabs.some((t) => t.id === S.tab)) S.tab = 'transcript';
   box.innerHTML = tabs.map((t) => `<button type="button" role="tab" aria-selected="${t.id === S.tab}" data-tab="${t.id}">${esc(t.label)}</button>`).join('');
+  fitTabs();
 }
+// A tab row wider than the panel scrolls sideways and fades at the edge that still has tabs behind it.
+function fitTabs() {
+  const box = $('#cw-tabs');
+  if (!box) return;
+  const more = box.scrollWidth > box.clientWidth + 2;
+  box.classList.toggle('is-over-r', more && box.scrollLeft + box.clientWidth < box.scrollWidth - 2);
+  box.classList.toggle('is-over-l', more && box.scrollLeft > 2);
+  const on = box.querySelector('[aria-selected="true"]');
+  if (on && on.offsetLeft + on.offsetWidth > box.scrollLeft + box.clientWidth) box.scrollLeft = on.offsetLeft - 12;
+}
+window.addEventListener('resize', fitTabs);
+document.addEventListener('scroll', (e) => { if (e.target && e.target.id === 'cw-tabs') fitTabs(); }, true);
 document.addEventListener('click', (e) => {
   const t = e.target.closest('[data-tab]');
   if (!t) return;

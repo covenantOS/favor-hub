@@ -107,7 +107,7 @@ import '../../styles/expenses.css';
       if (reason && box && !box.value) box.value = reason;
       const fill = (d) => {
         const u = d && d.user;
-        if (!u || u.via !== 'google') return;
+        if (!u || !u.name || u.via === 'agent' || u.via === 'guest') return;
         const name = document.getElementById('exp-name');
         const email = document.getElementById('exp-email');
         if (name && !name.value) name.value = u.name || '';

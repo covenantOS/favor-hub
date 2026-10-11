@@ -13,7 +13,7 @@
   var winAlive = false;
 
   function load() {
-    if (!mod) mod = import('/js/clips/launcher.js?v=3');
+    if (!mod) mod = import('/js/clips/launcher.js?v=4');
     return mod;
   }
   function isPhone() {

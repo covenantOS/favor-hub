@@ -258,7 +258,7 @@ function paintLength() {
   const el = $('#ce-len');
   const r = keepRanges(edits(), duration());
   const len = r.length ? rangesLength(r) : duration();
-  el.innerHTML = hasEdits(edits()) ? `<s>${longTime(duration())}</s> → <b>${longTime(len)}</b>` : 'Edits never change the original. Switch them off any time.';
+  el.innerHTML = hasEdits(edits()) ? `<s>${longTime(duration())}</s> → <b>${longTime(len)}</b>` : 'Original kept. Edits saved as a list.';
   $('#ce-total').textContent = fmtPrecise(len);
 }
 
