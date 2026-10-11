@@ -758,7 +758,7 @@
       else if (act === 'drive-pick') driveModal(scope);
       else if (act === 'clip-pick') clipModal(scope);
       else if (act === 'clip-rec') { closePop(); if (opts.recordClip) opts.recordClip(S.active, function (att) { S.pending[scope].push(att); renderPending(scope); }); else toast('Recording is not available here'); }
-      else if (act === 'meeting') { closePop(); guard(api.startMeeting(S.active)).then(function (r) { toast('Meeting started'); if (r && r.message) addMessage(r.message, true); }); }
+      else if (act === 'meeting') { closePop(); guard(api.startMeeting(S.active)).then(function (r) { if (r && r.message) addMessage(r.message, true); if (r && r.url) { toast(r.joined ? 'Joining the meeting' : 'Starting the meeting'); location.href = r.url; } }); }
       else if (act === 'drive-choose') { var it = modal._items[+el.dataset.i], sc = modal._scope; closeModal(); S.pending[sc].push(Object.assign({ type: 'drive' }, it)); renderPending(sc); var tt = $('[data-ta="' + sc + '"]', root); if (tt) tt.focus(); }
       else if (act === 'clip-choose') { var cl = modal._items[+el.dataset.i], sc2 = modal._scope; closeModal(); S.pending[sc2].push(Object.assign({ type: 'clip' }, cl)); renderPending(sc2); }
       else if (act === 'unpend') { S.pending[scope].splice(+el.dataset.i, 1); renderPending(scope); }

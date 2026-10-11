@@ -16,7 +16,7 @@
 //   GET  inbox   POST inbox/read       the bell
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import type { HubUser } from '../session';
-import { createMeeting } from '../meetroute';
+import { createMeeting, endMeeting } from '../meetroute';
 import type { MeetEnv } from '../meet';
 import * as store from './db';
 import { chatMode, chatUser } from './gate';
@@ -115,7 +115,7 @@ async function route(ctx: Ctx): Promise<Response> {
       ctx.waitUntil(publish(env, ch.members, { type: 'channel', channel: { ...ch, unread: 0, mentions: 0 } }));
       return json({ ok: true, channel: ch });
     }
-    if (b && c === 'meeting' && method === 'POST') return json({ ok: true, message: await startMeeting(ctx, user, b) });
+    if (b && c === 'meeting' && method === 'POST') return json({ ok: true, ...(await startMeeting(ctx, user, b)) });
   }
 
   if (a === 'conversations' && method === 'POST') {
@@ -270,10 +270,30 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   return msg;
 }
 
-async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise<store.MessageOut> {
+/** A channel meeting is open while someone is in the room, or for its first ten minutes while people find the Join button. */
+export const MEET_GRACE_MS = 10 * 60_000;
+const ROOM_SEEN_MS = 60_000;
+
+/**
+ * The meeting button in a channel. One meeting per channel at a time: if one is open, the press joins it and posts nothing.
+ * A meeting nobody is in after its first ten minutes is ended on the way, so old cards stop reading Live now.
+ * Returns the room address; the page goes straight there.
+ */
+async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise<{ url: string; joined: boolean; message?: store.MessageOut }> {
   const { env, request } = ctx;
   const me = user.email.toLowerCase();
   const ch = await store.postableChannel(env, channelId, me);
+  const openMeets = (await env.DB.prepare(
+    `SELECT m.id, m.created_at FROM chat_meetings cm JOIN hub_meetings m ON m.id = cm.meeting_id WHERE cm.channel_id = ? AND m.status NOT IN ('ended', 'cancelled') ORDER BY m.created_at DESC`
+  ).bind(ch.id).all<{ id: string; created_at: string }>().catch(() => ({ results: [] as Array<{ id: string; created_at: string }> }))).results || [];
+  let reuse = '';
+  for (const m of openMeets) {
+    const inRoom = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(m.id, Date.now() - ROOM_SEEN_MS).first<{ n: number }>().catch(() => ({ n: 0 }));
+    const fresh = Date.now() - Date.parse(m.created_at) < MEET_GRACE_MS;
+    if (!reuse && ((inRoom?.n || 0) > 0 || fresh)) reuse = m.id;
+    else if (!(inRoom?.n || 0)) await endMeeting(env as unknown as MeetEnv, m.id).catch((err) => console.warn('[chat] end stale meeting', err));
+  }
+  if (reuse) return { url: `/meet/room/?m=${reuse}&now=1`, joined: true };
   const members = await store.membersOf(env, ch.id);
   const dir = await directory(env, await chatMode(env), user);
   const label = ch.kind === 'public' || ch.kind === 'private' ? '#' + ch.name : members.filter((m) => m !== me).map((m) => (dir[m]?.name || m).split(' ')[0]).join(', ') || 'Meeting';
@@ -285,7 +305,7 @@ async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise
   const mid = made.meeting.id;
   const posted = await store.post(env, { channel_id: ch.id, email: me, body: '', attachments: [{ type: 'meeting', id: mid }] });
   await env.DB.prepare('INSERT OR REPLACE INTO chat_meetings (meeting_id, channel_id, message_id, started_by, notes_posted) VALUES (?, ?, ?, ?, 0)').bind(mid, ch.id, posted.message.id, me).run();
-  return broadcast(ctx, posted.message, 'message');
+  return { url: `/meet/room/?m=${mid}&now=1`, joined: false, message: await broadcast(ctx, posted.message, 'message') };
 }
 
 /* ------------------------------------------------------------------ Drive, files */

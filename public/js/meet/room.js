@@ -108,6 +108,8 @@ async function lobby() {
   }
   const help = permHelp(denied); if (help) { const h = $('#lb-help'); if (h) { h.textContent = help; h.hidden = false; } }
   lobbyButtons(); lobbyVideo(); lobbyDevices(); lobbyMeter();
+  // A huddle from a Chat channel (?now=1) skips the preview: sound on, camera off, straight into the room, once.
+  if (params.get('now') === '1' && !GUEST && !lobby.went) { lobby.went = true; S.cam = false; lobbyButtons(); lobbyVideo(); enter(); }
 }
 async function deviceList() {
   try { const all = await navigator.mediaDevices.enumerateDevices(); return { mics: all.filter((d) => d.kind === 'audioinput' && d.deviceId), cams: all.filter((d) => d.kind === 'videoinput' && d.deviceId), spks: all.filter((d) => d.kind === 'audiooutput' && d.deviceId) }; }

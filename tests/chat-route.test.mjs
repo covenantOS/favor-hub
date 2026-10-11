@@ -265,6 +265,27 @@ test('the Drive picker asks the Brain as the person and keeps Google links', asy
   assert.deepEqual(await driveSearch({ BRAIN_HUB_KEY: 'k' }, ADMIN, 'a', fetcher), [], 'one letter searches nothing');
 });
 
+test('the meeting button opens one meeting per channel: a second press joins it, a stale one is ended and replaced', async () => {
+  const w = world();
+  for (const u of [ADMIN, ADMIN2]) await call(w, u, 'GET', 'boot');
+  const first = await call(w, ADMIN, 'POST', `channels/${GEN}/meeting`);
+  assert.equal(first.status, 200, JSON.stringify(first.data));
+  assert.equal(first.data.joined, false);
+  const id = first.data.message.attachments[0].id;
+  assert.equal(first.data.url, `/meet/room/?m=${id}&now=1`);
+  const again = await call(w, ADMIN2, 'POST', `channels/${GEN}/meeting`);
+  assert.equal(again.data.joined, true, 'a second press joins the open meeting');
+  assert.equal(again.data.url, `/meet/room/?m=${id}&now=1`);
+  assert.equal(again.data.message, undefined, 'no second card');
+  assert.equal(w.d1.db.prepare('SELECT COUNT(*) AS n FROM chat_meetings').get().n, 1);
+  // Twenty minutes on with nobody in the room: the card reads ended, and the next press ends it and starts a new one.
+  w.d1.db.prepare("UPDATE hub_meetings SET created_at = '2026-01-01T00:00:00Z' WHERE id = ?").run(id);
+  const later = await call(w, ADMIN, 'POST', `channels/${GEN}/meeting`);
+  assert.equal(later.data.joined, false);
+  assert.notEqual(later.data.message.attachments[0].id, id);
+  assert.equal(w.d1.db.prepare('SELECT status FROM hub_meetings WHERE id = ?').get(id).status, 'ended');
+});
+
 test('a meeting started from a channel posts a Join card; ending it and its notes post back', async () => {
   const w = world();
   for (const u of [ADMIN, ADMIN2]) await call(w, u, 'GET', 'boot');

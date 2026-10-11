@@ -92,7 +92,7 @@ const aheadOf = (m: { ends_at?: string | null; starts_at?: string | null }): boo
   return !!end && Date.now() < Date.parse(end);
 };
 
-async function endMeeting(env: MeetEnv, id: string) {
+export async function endMeeting(env: MeetEnv, id: string) {
   const m = await env.DB.prepare('SELECT status, rec_mode FROM hub_meetings WHERE id = ?').bind(id).first<{ status: string; rec_mode: string }>();
   if (!m || m.status === 'ended') return;
   const had = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_chunks WHERE meeting_id = ?').bind(id).first<{ n: number }>();
