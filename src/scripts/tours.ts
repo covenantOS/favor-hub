@@ -617,6 +617,14 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'clips-controls',
+    at: '#clip-cam',
+    title: 'Clip controls follow you',
+    body: 'While a clip records, a small window with Stop, the time, Pause, Mute, Start over and Discard floats above every app in Chrome and Edge. Drag it anywhere. In Safari and Firefox the same controls show as a pill on every hub page. Closing the floating window never ends the recording.',
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'meetings',
     page: '/meet/',
     via: 'meet',

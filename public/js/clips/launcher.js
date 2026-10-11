@@ -1,14 +1,25 @@
-// Clips: the pop-up recorder. A camera button at the top right of the hub opens this card over whatever page you are on.
-// Pick what to record, whether the camera and microphone are on, press Start. A 3, 2, 1 countdown runs, a small bar
-// holds Pause, Mute and Stop, and the round camera can be dragged anywhere (and floated above other windows in Chrome and Edge).
-// Everything is built here (no framework); styles are in launcher.css.
-import { api, copyText, esc, fmtTime, toast } from './core.js';
+// Clips: the pop-up recorder. A camera button at the top right of the hub opens this card in a window of its own.
+// Pick what to record, whether the camera and microphone are on, press Start. A 3, 2, 1 countdown runs, then the
+// recording controls show in three places at once: this window, a small window that floats above every app (Chrome and
+// Edge, Document Picture-in-Picture) and a pill on hub pages (see pill.js). All three drive the same recording.
+// Everything is built here (no framework); styles are in launcher.css, the controls in controls.js.
+import { api, copyText, esc, toast } from './core.js';
 import { BUBBLE_FRACTION, ClipRecorder, canRecordCamera, canRecordScreen, setMaxSeconds } from './recorder.js';
 import { MAX_UPLOAD_BYTES, uploadVideoFile } from './upload.js';
+import { controlsHtml, makeDraggable, wireControls } from './controls.js';
 
+const CSS_URL = '/js/clips/launcher.css?v=8';
 const PREFS_KEY = 'favor.clips.prefs';
-const DEFAULTS = { source: 'screen', camOn: false, camId: '', micOn: true, micId: '', systemAudio: true, size: 'M' };
+const PILL_KEY = 'favor.clips.pill';
+const DEFAULTS = { source: 'screen', camOn: false, camId: '', micOn: true, micId: '', systemAudio: true, size: 'M', float: true, bx: 0.12, by: 0.78 };
 const BUBBLE_PX = { S: 140, M: 200, L: 280 };
+const PIP_BAR = { width: 420, height: 68 };
+const SOURCES = {
+  screen: { label: 'Full screen', icon: 'screen', note: 'Chosen in the browser prompt' },
+  window: { label: 'Window', icon: 'window', note: 'Chosen in the browser prompt' },
+  tab: { label: 'Tab', icon: 'tab', note: 'Chosen in the browser prompt' },
+  camera: { label: 'Camera only', icon: 'camera', note: '' },
+};
 
 const I = {
   screen: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/>',
@@ -18,10 +29,8 @@ const I = {
   cameraOff: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/><path d="M3 3l18 18"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>',
   micOff: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/><path d="M3 3l18 18"/>',
+  sound: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/>',
   close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
-  pause: '<path d="M8 5v14"/><path d="M16 5v14"/>',
-  play: '<path d="M7 4v16l13-8z"/>',
-  stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   float: '<rect x="3" y="4" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="5" rx="1"/>',
   upload: '<path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M5 20h14"/>',
   list: '<path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><path d="M4 6h.01"/><path d="M4 12h.01"/><path d="M4 18h.01"/>',
@@ -29,6 +38,13 @@ const I = {
   link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
 };
 const svg = (n, cls = '') => `<svg class="cr-i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${I[n] || ''}</svg>`;
+
+// What the chosen source looks like, drawn small on the preview stage.
+const ART = {
+  screen: '<svg viewBox="0 0 160 100" aria-hidden="true"><rect class="a-frame" x="14" y="6" width="132" height="76" rx="7"/><rect class="a-fill" x="20" y="12" width="120" height="64" rx="3"/><rect class="a-line" x="30" y="24" width="52" height="6" rx="3"/><rect class="a-line a-soft" x="30" y="37" width="92" height="5" rx="2.5"/><rect class="a-line a-soft" x="30" y="48" width="76" height="5" rx="2.5"/><rect class="a-line a-soft" x="30" y="59" width="84" height="5" rx="2.5"/><path class="a-stand" d="M66 94h28M80 82v12"/></svg>',
+  window: '<svg viewBox="0 0 160 100" aria-hidden="true"><rect class="a-desk" x="6" y="6" width="148" height="88" rx="8"/><rect class="a-frame" x="30" y="20" width="100" height="62" rx="6"/><path class="a-bar" d="M30 26a6 6 0 0 1 6-6h88a6 6 0 0 1 6 6v6H30z"/><circle class="a-dot" cx="38" cy="26" r="2"/><circle class="a-dot" cx="45" cy="26" r="2"/><circle class="a-dot" cx="52" cy="26" r="2"/><rect class="a-line" x="40" y="42" width="40" height="5" rx="2.5"/><rect class="a-line a-soft" x="40" y="53" width="78" height="4" rx="2"/><rect class="a-line a-soft" x="40" y="63" width="62" height="4" rx="2"/></svg>',
+  tab: '<svg viewBox="0 0 160 100" aria-hidden="true"><rect class="a-frame" x="14" y="10" width="132" height="80" rx="7"/><path class="a-bar" d="M14 17a7 7 0 0 1 7-7h118a7 7 0 0 1 7 7v11H14z"/><path class="a-tab" d="M24 28v-8a4 4 0 0 1 4-4h34a4 4 0 0 1 4 4v8z"/><rect class="a-ghost" x="70" y="17" width="34" height="8" rx="4"/><rect class="a-ghost" x="108" y="17" width="28" height="8" rx="4"/><rect class="a-line" x="28" y="42" width="46" height="6" rx="3"/><rect class="a-line a-soft" x="28" y="55" width="100" height="5" rx="2.5"/><rect class="a-line a-soft" x="28" y="66" width="82" height="5" rx="2.5"/></svg>',
+};
 
 function readPrefs() {
   try {
@@ -65,11 +81,12 @@ const post = (m) => {
   }
 };
 
-/** Resize the recorder window to fit what it shows (a card, a bar, a saved note). */
+/** Resize the recorder window to fit what it shows (a card, the controls, a saved note). */
 function fitWindow(w, h) {
   if (!STANDALONE) return;
   try {
-    window.resizeTo(w + (window.outerWidth - window.innerWidth), h + (window.outerHeight - window.innerHeight));
+    const maxH = (screen.availHeight || 900) - 40;
+    window.resizeTo(w + (window.outerWidth - window.innerWidth), Math.min(maxH, h + (window.outerHeight - window.innerHeight)));
   } catch (e) {
     /* the browser keeps the size the person chose */
   }
@@ -77,33 +94,39 @@ function fitWindow(w, h) {
 
 const docPip = () => (typeof window !== 'undefined' && window.documentPictureInPicture) || null;
 const isPhone = () => !STANDALONE && (matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 1023px)').matches));
+const hubTarget = STANDALONE ? ' target="favor-hub-main"' : '';
 
 let cssReady = false;
 function ensureCss() {
-  if (cssReady) return;
+  if (cssReady || document.getElementById('cr-css') || STANDALONE) return;
   cssReady = true;
   const l = document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = '/js/clips/launcher.css?v=7';
+  l.href = CSS_URL;
   l.id = 'cr-css';
   document.head.appendChild(l);
 }
 
 /* ------------------------------------------------------------------ module state */
 
+const newLive = () => ({ camKey: null, micKey: null, camStream: null, micStream: null, camErr: false, micErr: false, ctx: null, analyser: null, raf: 0, devices: null });
+
 const S = {
   prefs: readPrefs(),
   anchor: null,
   card: null, // the launcher card element
-  live: { cam: null, mic: null, ctx: null, raf: 0, camStream: null, micStream: null },
+  live: newLive(), // the card's own camera and microphone, for the preview and the level meter
   rec: null,
   rs: null,
-  barEl: null,
-  barCtl: null,
+  unsub: null,
+  bar: null, // { el, ctl, drag } the controls in this page or window
+  panel: null, // the recorder window's recording view (holds the bar)
   bubbleEl: null,
   pip: null, // { win, kind: 'bubble' | 'controls', ctl }
   countEl: null,
   countTimer: 0,
+  countN: 0,
+  countGo: null,
   savedCard: null,
   busy: false,
 };
@@ -114,8 +137,23 @@ const recordingNow = () => !!(S.rec && S.rs && ['preparing', 'ready', 'recording
 
 function sourceTiles() {
   const p = S.prefs;
-  const t = (id, label, icon) => `<button type="button" class="cr-tile${p.source === id ? ' is-on' : ''}" data-src="${id}" aria-pressed="${p.source === id}">${svg(icon)}<span>${label}</span></button>`;
-  return t('screen', 'Full screen', 'screen') + t('window', 'Window', 'window') + t('tab', 'Tab', 'tab') + t('camera', 'Camera only', 'camera');
+  return Object.entries(SOURCES)
+    .map(([id, s]) => `<button type="button" class="cr-tile${p.source === id ? ' is-on' : ''}" data-src="${id}" role="radio" aria-checked="${p.source === id}">${svg(s.icon)}<span>${s.label}</span></button>`)
+    .join('');
+}
+
+const switchHtml = (act, on, label, disabled) => `<button type="button" class="cr-switch" role="switch" aria-checked="${on}" aria-label="${label}" data-act="${act}" ${disabled ? 'disabled' : ''}><i></i></button>`;
+
+function stageHtml(p, cameraOnly, camShown) {
+  const src = SOURCES[p.source] || SOURCES.screen;
+  if (cameraOnly) {
+    return `<div class="cr-stage is-camera" id="cr-stage"><video class="cr-stage__full" id="cr-camfull" muted playsinline></video><span class="cr-stage__msg" id="cr-cammsg">Starting the camera</span></div>`;
+  }
+  return `<div class="cr-stage" id="cr-stage" data-source="${esc(p.source)}">
+      <div class="cr-stage__art">${ART[p.source] || ART.screen}</div>
+      <div class="cr-stage__src"><b>${src.label}</b><span>${src.note}</span></div>
+      ${camShown ? '<div class="cr-stage__bubble" id="cr-stagebubble" title="Camera position"><video muted playsinline></video></div>' : ''}
+    </div>`;
 }
 
 function cardHtml(phone) {
@@ -123,127 +161,257 @@ function cardHtml(phone) {
   const cameraOnly = p.source === 'camera';
   const camShown = p.camOn || cameraOnly;
   const screenOk = canRecordScreen() && !phone;
-  const sizes = ['S', 'M', 'L'].map((s) => `<button type="button" class="cr-size${p.size === s ? ' is-on' : ''}" data-size="${s}" aria-pressed="${p.size === s}" aria-label="Camera size ${s === 'S' ? 'small' : s === 'M' ? 'medium' : 'large'}">${s}</button>`).join('');
+  const floatOk = !!docPip() && !phone;
+  const sizes = ['S', 'M', 'L'].map((z) => `<button type="button" class="cr-size${p.size === z ? ' is-on' : ''}" data-size="${z}" aria-pressed="${p.size === z}" aria-label="Camera size ${z === 'S' ? 'small' : z === 'M' ? 'medium' : 'large'}" title="${z === 'S' ? 'Small' : z === 'M' ? 'Medium' : 'Large'} camera">${z}</button>`).join('');
+  const meter = `<span class="cr-meter" id="cr-meter" aria-hidden="true">${Array.from({ length: 12 }, () => '<i></i>').join('')}</span>`;
   return `
-  <div class="cr-head"><h2>Record a clip</h2><button type="button" class="cr-x" data-act="close" aria-label="Close">${svg('close')}</button></div>
-  ${screenOk ? `<div class="cr-tiles" role="group" aria-label="What to record">${sourceTiles()}</div>` : '<p class="cr-note">This browser records the camera only. Use a computer to record the screen.</p>'}
-  <div class="cr-row" data-row="camera">
-    <span class="cr-row__ico ${camShown ? '' : 'is-off'}">${svg(camShown ? 'camera' : 'cameraOff')}</span>
-    <span class="cr-row__txt"><b>Camera</b><em id="cr-camname">${camShown ? 'On' : 'Off'}</em></span>
-    <button type="button" class="cr-switch" role="switch" aria-checked="${camShown}" aria-label="Camera" data-act="cam" ${cameraOnly ? 'disabled' : ''}><i></i></button>
-  </div>
-  ${camShown ? `<div class="cr-camwrap"><div class="cr-preview" id="cr-preview"><video muted playsinline></video><span class="cr-preview__msg" id="cr-previewmsg">Starting the camera</span></div>
-    ${cameraOnly ? '' : `<div class="cr-sizes" role="group" aria-label="Camera size">${sizes}</div><p class="cr-hint">Drag the round camera anywhere while you record.</p>`}
-    <select id="cr-camsel" class="cr-sel" aria-label="Choose a camera" hidden></select></div>` : ''}
-  <div class="cr-row" data-row="mic">
-    <span class="cr-row__ico ${p.micOn ? '' : 'is-off'}">${svg(p.micOn ? 'mic' : 'micOff')}</span>
-    <span class="cr-row__txt"><b>Microphone</b><em id="cr-micname">${p.micOn ? 'On' : 'Off'}</em></span>
-    <button type="button" class="cr-switch" role="switch" aria-checked="${p.micOn}" aria-label="Microphone" data-act="mic"><i></i></button>
-    ${p.micOn ? '<span class="cr-level" aria-hidden="true"><i id="cr-level"></i></span>' : ''}
-  </div>
-  ${p.micOn ? '<select id="cr-micsel" class="cr-sel" aria-label="Choose a microphone" hidden></select>' : ''}
-  ${!cameraOnly && screenOk ? `<label class="cr-check"><input type="checkbox" data-act="sys" ${p.systemAudio ? 'checked' : ''}/><span>Include computer sound</span></label>` : ''}
-  <p class="cr-err" id="cr-err" role="alert" hidden></p>
-  <p class="cr-note cr-usage" id="cr-usage" hidden></p>
-  <button type="button" class="cr-start" data-act="start" id="cr-start"><i aria-hidden="true"></i>Start recording</button>
-  <p class="cr-keep">${STANDALONE ? 'Leave this window open while you record. Go anywhere in the hub, or in other apps, and it keeps recording.' : 'Keep this tab open while you record. Switch to what you want to show.'}</p>
-  <div class="cr-foot">
-    <button type="button" class="cr-link" data-act="file">${svg('upload')}Upload a video</button>
-    <a class="cr-link" href="/clips/" ${STANDALONE ? 'target="favor-hub-main"' : ''}>${svg('list')}My clips</a>
+  <div class="cr-head"><h2>Record a clip</h2>${STANDALONE ? '' : `<button type="button" class="cr-x" data-act="close" aria-label="Close">${svg('close')}</button>`}</div>
+  <div class="cr-cols">
+    <div class="cr-stagecol">${stageHtml(p, cameraOnly, camShown)}</div>
+    <div class="cr-ctlcol">
+      ${screenOk ? `<div class="cr-tiles" role="radiogroup" aria-label="What to record">${sourceTiles()}</div>` : '<p class="cr-note cr-note--top">This browser records the camera only. A computer records the screen.</p>'}
+      <div class="cr-opts">
+        <div class="cr-row" data-row="camera">
+          <span class="cr-row__ico ${camShown ? '' : 'is-off'}">${svg(camShown ? 'camera' : 'cameraOff')}</span>
+          <span class="cr-row__txt"><b>Camera</b><span class="cr-dev" id="cr-camdev">${camShown ? 'On' : 'Off'}</span></span>
+          ${camShown && !cameraOnly ? `<span class="cr-sizes" role="group" aria-label="Camera size">${sizes}</span>` : ''}
+          ${switchHtml('cam', camShown, 'Camera', cameraOnly)}
+        </div>
+        <div class="cr-row" data-row="mic">
+          <span class="cr-row__ico ${p.micOn ? '' : 'is-off'}">${svg(p.micOn ? 'mic' : 'micOff')}</span>
+          <span class="cr-row__txt"><b>Microphone</b><span class="cr-dev" id="cr-micdev">${p.micOn ? 'On' : 'Off'}</span></span>
+          ${p.micOn ? meter : ''}
+          ${switchHtml('mic', p.micOn, 'Microphone')}
+        </div>
+        ${!cameraOnly && screenOk ? `<div class="cr-row" data-row="sys">
+          <span class="cr-row__ico ${p.systemAudio ? '' : 'is-off'}">${svg('sound')}</span>
+          <span class="cr-row__txt"><b>Computer sound</b><span class="cr-dev">${p.systemAudio ? 'On' : 'Off'}</span></span>
+          ${switchHtml('sys', p.systemAudio, 'Computer sound')}
+        </div>` : ''}
+        ${floatOk ? `<div class="cr-row" data-row="float">
+          <span class="cr-row__ico ${p.float !== false ? '' : 'is-off'}">${svg('float')}</span>
+          <span class="cr-row__txt"><b>Floating controls</b><span class="cr-dev">${p.float !== false ? 'Above every window' : 'Off'}</span></span>
+          ${switchHtml('float', p.float !== false, 'Floating controls')}
+        </div>` : ''}
+      </div>
+      <p class="cr-err" id="cr-err" role="alert" hidden></p>
+      <p class="cr-note cr-usage" id="cr-usage" hidden></p>
+      <button type="button" class="cr-start" data-act="start" id="cr-start"><i aria-hidden="true"></i>Start recording</button>
+      <p class="cr-keep">${STANDALONE ? 'Keeps recording while you use other tabs and apps.' : 'The recording runs in this tab.'}</p>
+      <div class="cr-foot">
+        <button type="button" class="cr-link" data-act="file">${svg('upload')}Upload a video</button>
+        <a class="cr-link" href="/clips/"${hubTarget}>${svg('list')}My clips</a>
+      </div>
+    </div>
   </div>`;
 }
+
+const stopStream = (s) => s && s.getTracks().forEach((t) => t.stop());
 
 function stopLive() {
   const L = S.live;
   cancelAnimationFrame(L.raf);
-  [L.camStream, L.micStream].forEach((s) => s && s.getTracks().forEach((t) => t.stop()));
+  stopStream(L.camStream);
+  stopStream(L.micStream);
   if (L.ctx) L.ctx.close().catch(() => undefined);
-  S.live = { cam: null, mic: null, ctx: null, raf: 0, camStream: null, micStream: null };
+  S.live = newLive();
 }
 
-async function startLive() {
-  stopLive();
+const tidyLabel = (s) => String(s || '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').replace(/^Default - /, '');
+
+async function listDevices() {
+  const L = S.live;
+  try {
+    const all = await navigator.mediaDevices.enumerateDevices();
+    if (S.live !== L) return;
+    const of = (kind) => all.filter((d) => d.kind === kind && d.deviceId && d.deviceId !== 'communications' && d.deviceId !== 'default' && d.label);
+    L.devices = { cam: of('videoinput'), mic: of('audioinput') };
+  } catch (e) {
+    /* names are a nicety */
+  }
+}
+
+/** Device names: a picker when there is a choice, the one device's name when there is not. */
+function paintDevices() {
   const card = S.card;
   if (!card) return;
   const p = S.prefs;
   const L = S.live;
-  const gen = (L.gen = (L.gen || 0) + 1);
-  const camShown = p.camOn || p.source === 'camera';
-  const md = navigator.mediaDevices;
-  if (!md || !md.getUserMedia) return;
-  const fillList = async () => {
-    try {
-      const all = await md.enumerateDevices();
-      const fill = (sel, kind, current, label) => {
-        if (!sel) return;
-        const list = all.filter((d) => d.kind === kind && d.deviceId && d.deviceId !== 'communications');
-        if (list.length < 2) return;
-        sel.innerHTML = `<option value="">Default ${label}</option>` + list.filter((d) => d.deviceId !== 'default').map((d) => `<option value="${esc(d.deviceId)}"${d.deviceId === current ? ' selected' : ''}>${esc(d.label || label)}</option>`).join('');
-        sel.hidden = false;
-      };
-      fill(card.querySelector('#cr-camsel'), 'videoinput', p.camId, 'camera');
-      fill(card.querySelector('#cr-micsel'), 'audioinput', p.micId, 'microphone');
-    } catch (e) {
-      /* names are a nicety */
-    }
+  const fill = (el, on, err, list, current, noun, selId) => {
+    if (!el) return;
+    if (!on) return (el.textContent = 'Off');
+    if (err) return (el.textContent = `${noun} not available`);
+    if (!list || !list.length) return (el.textContent = 'On');
+    if (list.length === 1) return (el.textContent = tidyLabel(list[0].label));
+    el.innerHTML = `<select id="${selId}" class="cr-sel" aria-label="Choose a ${noun.toLowerCase()}"><option value="">Default ${noun.toLowerCase()}</option>${list.map((d) => `<option value="${esc(d.deviceId)}"${d.deviceId === current ? ' selected' : ''}>${esc(tidyLabel(d.label))}</option>`).join('')}</select>`;
   };
-  if (camShown) {
-    try {
-      const s = await md.getUserMedia({ video: p.camId ? { deviceId: { exact: p.camId } } : true, audio: false });
-      if (gen !== L.gen || !S.card) return s.getTracks().forEach((t) => t.stop());
-      L.camStream = s;
-      const v = card.querySelector('#cr-preview video');
-      if (v) {
-        v.srcObject = s;
-        v.play().catch(() => undefined);
-        const msg = card.querySelector('#cr-previewmsg');
-        if (msg) msg.hidden = true;
-      }
-      fillList();
-    } catch (e) {
-      const msg = card.querySelector('#cr-previewmsg');
-      if (msg) msg.textContent = 'Allow the camera in your browser to see it here.';
+  const camShown = p.camOn || p.source === 'camera';
+  fill(card.querySelector('#cr-camdev'), camShown, L.camErr, L.devices && L.devices.cam, p.camId, 'Camera', 'cr-camsel');
+  fill(card.querySelector('#cr-micdev'), p.micOn, L.micErr, L.devices && L.devices.mic, p.micId, 'Microphone', 'cr-micsel');
+}
+
+/** Put the running camera and microphone into the card that is on screen now. */
+function attachLive() {
+  const card = S.card;
+  if (!card) return;
+  const L = S.live;
+  const msg = card.querySelector('#cr-cammsg');
+  const v = card.querySelector('#cr-camfull') || card.querySelector('#cr-stagebubble video');
+  if (v && L.camStream && v.srcObject !== L.camStream) {
+    v.srcObject = L.camStream;
+    v.play().catch(() => undefined);
+  }
+  if (msg) {
+    msg.hidden = !!L.camStream;
+    if (L.camErr) msg.textContent = 'Camera blocked in the browser';
+  }
+  paintDevices();
+  placeStageBubble();
+  cancelAnimationFrame(L.raf);
+  const sticks = [...card.querySelectorAll('#cr-meter i')];
+  if (!L.analyser || !sticks.length) return;
+  const buf = new Uint8Array(L.analyser.fftSize);
+  let last = 0;
+  let shown = -1;
+  const loop = (t) => {
+    L.raf = requestAnimationFrame(loop);
+    if (t - last < 60) return;
+    last = t;
+    L.analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (const b of buf) sum += ((b - 128) / 128) ** 2;
+    const n = Math.round(Math.min(1, Math.sqrt(sum / buf.length) * 4) * sticks.length);
+    if (n === shown) return;
+    shown = n;
+    sticks.forEach((el, i) => el.classList.toggle('is-on', i < n));
+  };
+  L.raf = requestAnimationFrame(loop);
+}
+
+/** Start, stop or switch the card's camera and microphone so they match the switches. Running streams are kept. */
+async function syncLive() {
+  const card = S.card;
+  const md = navigator.mediaDevices;
+  if (!card || !md || !md.getUserMedia) return;
+  const p = S.prefs;
+  const L = S.live;
+  const wantCam = p.camOn || p.source === 'camera' ? p.camId || 'default' : '';
+  const wantMic = p.micOn ? p.micId || 'default' : '';
+  const jobs = [];
+  if (L.camKey !== wantCam) {
+    L.camKey = wantCam;
+    stopStream(L.camStream);
+    L.camStream = null;
+    L.camErr = false;
+    if (wantCam) {
+      jobs.push((async () => {
+        let s = null;
+        try {
+          s = await md.getUserMedia({ video: p.camId ? { deviceId: { exact: p.camId } } : true, audio: false }).catch((e) => {
+            // The remembered camera is gone (unplugged): use the default one.
+            if (p.camId && e && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) return md.getUserMedia({ video: true, audio: false });
+            throw e;
+          });
+        } catch (e) {
+          if (S.live === L && L.camKey === wantCam) L.camErr = true;
+          return;
+        }
+        if (S.live !== L || L.camKey !== wantCam) return stopStream(s);
+        L.camStream = s;
+      })());
     }
   }
-  if (p.micOn) {
-    try {
-      const s = await md.getUserMedia({ audio: p.micId ? { deviceId: { exact: p.micId } } : true });
-      if (gen !== L.gen || !S.card) return s.getTracks().forEach((t) => t.stop());
-      L.micStream = s;
-      const AC = window.AudioContext || window.webkitAudioContext;
-      L.ctx = new AC();
-      const an = L.ctx.createAnalyser();
-      an.fftSize = 512;
-      L.ctx.createMediaStreamSource(s).connect(an);
-      const buf = new Uint8Array(an.fftSize);
-      let last = 0;
-      const loop = (t) => {
-        L.raf = requestAnimationFrame(loop);
-        if (t - last < 66) return;
-        last = t;
-        an.getByteTimeDomainData(buf);
-        let sum = 0;
-        for (const b of buf) sum += ((b - 128) / 128) ** 2;
-        const bar = card.querySelector('#cr-level');
-        if (bar) bar.style.width = Math.round(Math.min(1, Math.sqrt(sum / buf.length) * 4) * 100) + '%';
-      };
-      L.raf = requestAnimationFrame(loop);
-      fillList();
-    } catch (e) {
-      const n = card.querySelector('#cr-micname');
-      if (n) n.textContent = 'Microphone not available';
+  if (L.micKey !== wantMic) {
+    L.micKey = wantMic;
+    stopStream(L.micStream);
+    L.micStream = null;
+    L.micErr = false;
+    L.analyser = null;
+    if (L.ctx) L.ctx.close().catch(() => undefined);
+    L.ctx = null;
+    if (wantMic) {
+      jobs.push((async () => {
+        let s = null;
+        try {
+          s = await md.getUserMedia({ audio: p.micId ? { deviceId: { exact: p.micId } } : true }).catch((e) => {
+            if (p.micId && e && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) return md.getUserMedia({ audio: true });
+            throw e;
+          });
+        } catch (e) {
+          if (S.live === L && L.micKey === wantMic) L.micErr = true;
+          return;
+        }
+        if (S.live !== L || L.micKey !== wantMic) return stopStream(s);
+        L.micStream = s;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        L.ctx = new AC();
+        L.analyser = L.ctx.createAnalyser();
+        L.analyser.fftSize = 512;
+        L.ctx.createMediaStreamSource(s).connect(L.analyser);
+      })());
     }
   }
+  attachLive();
+  if (!jobs.length) return;
+  await Promise.all(jobs);
+  if (S.live !== L) return;
+  await listDevices();
+  if (S.live === L) attachLive();
+}
+
+/** The round camera on the stage sits where it will sit in the video, at the size it will have. */
+function placeStageBubble() {
+  const stage = S.card && S.card.querySelector('#cr-stage');
+  const b = stage && stage.querySelector('#cr-stagebubble');
+  if (!b) return;
+  const p = S.prefs;
+  const w = stage.clientWidth;
+  const h = stage.clientHeight;
+  if (!w || !h) return;
+  const d = Math.max(40, Math.round(h * (BUBBLE_FRACTION[p.size] || BUBBLE_FRACTION.M)));
+  const m = 8;
+  const x = Math.min(w - d / 2 - m, Math.max(d / 2 + m, p.bx * w));
+  const y = Math.min(h - d / 2 - m, Math.max(d / 2 + m, p.by * h));
+  b.style.width = b.style.height = d + 'px';
+  b.style.left = Math.round(x - d / 2) + 'px';
+  b.style.top = Math.round(y - d / 2) + 'px';
+}
+
+/** Dragging the round camera on the stage sets where it starts in the video. */
+function onStageDown(e) {
+  const b = e.target.closest('#cr-stagebubble');
+  const stage = b && b.closest('#cr-stage');
+  if (!stage || e.button) return;
+  e.preventDefault();
+  b.setPointerCapture(e.pointerId);
+  b.classList.add('is-drag');
+  const move = (ev) => {
+    const r = stage.getBoundingClientRect();
+    S.prefs = { ...S.prefs, bx: Math.min(0.98, Math.max(0.02, (ev.clientX - r.left) / r.width)), by: Math.min(0.98, Math.max(0.02, (ev.clientY - r.top) / r.height)) };
+    placeStageBubble();
+  };
+  const up = () => {
+    b.classList.remove('is-drag');
+    b.removeEventListener('pointermove', move);
+    b.removeEventListener('pointerup', up);
+    b.removeEventListener('pointercancel', up);
+    savePrefs(S.prefs);
+  };
+  b.addEventListener('pointermove', move);
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointercancel', up);
 }
 
 /** Storage note: past 80% of 10 GB the card says so, and at 100% it will not start. */
 async function showUsage() {
-  try {
-    const d = await api('/api/clips/usage');
-    S.usage = d.usage;
-    if (d.usage && d.usage.maxMs) setMaxSeconds(Math.round(d.usage.maxMs / 1000));
-  } catch (e) {
-    return;
+  if (!S.usage) {
+    try {
+      const d = await api('/api/clips/usage');
+      S.usage = d.usage;
+      if (d.usage && d.usage.maxMs) setMaxSeconds(Math.round(d.usage.maxMs / 1000));
+    } catch (e) {
+      return;
+    }
   }
   const el = S.card && S.card.querySelector('#cr-usage');
   const u = S.usage;
@@ -251,22 +419,27 @@ async function showUsage() {
   const gb = (n) => (n / 1024 ** 3).toFixed(1);
   el.hidden = false;
   el.innerHTML = u.full
-    ? `Your clips use all ${gb(u.cap)} GB, so recording waits until you delete some. <a href="/clips/"${STANDALONE ? ' target="favor-hub-main"' : ''}>Open My clips</a>`
-    : `You are using ${gb(u.used)} of ${gb(u.cap)} GB. Your oldest clips that nobody watched are listed in <a href="/clips/"${STANDALONE ? ' target="favor-hub-main"' : ''}>My clips</a>.`;
+    ? `Your clips use all ${gb(u.cap)} GB. Recording starts again once some are deleted. <a href="/clips/"${hubTarget}>My clips</a>`
+    : `${gb(u.used)} of ${gb(u.cap)} GB used. <a href="/clips/"${hubTarget}>My clips</a> lists the oldest clips nobody watched.`;
 }
 
-function paintCard() {
+/** Draw the card again after a switch changed. The camera and microphone keep running; focus stays on the same control. */
+function paintCard(focusSel) {
   if (!S.card) return;
   const phone = isPhone();
   if (phone && S.prefs.source !== 'camera') S.prefs = { ...S.prefs, source: 'camera', camOn: true };
   S.card.innerHTML = cardHtml(phone);
-  startLive();
+  const f = focusSel && S.card.querySelector(focusSel);
+  if (f) f.focus({ preventScroll: true });
+  syncLive();
   showUsage();
 }
 
 function placeCard() {
   const c = S.card;
-  if (!c || STANDALONE) return;
+  if (!c) return;
+  placeStageBubble();
+  if (STANDALONE) return;
   if (isPhone()) {
     c.classList.add('is-sheet');
     c.style.cssText = '';
@@ -274,7 +447,7 @@ function placeCard() {
   }
   c.classList.remove('is-sheet');
   const r = S.anchor ? S.anchor.getBoundingClientRect() : null;
-  const w = 380;
+  const w = 400;
   const right = r ? Math.max(12, window.innerWidth - r.right) : 20;
   c.style.top = (r ? Math.round(r.bottom + 10) : 76) + 'px';
   c.style.right = Math.min(right, window.innerWidth - w - 12 > 0 ? right : 12) + 'px';
@@ -285,9 +458,11 @@ export function openLauncher(anchor) {
   if (recordingNow()) return pulseBar();
   ensureCss();
   closeSaved();
+  if (S.pip && !S.rec) closePip();
   if (S.card) return closeLauncher();
   S.anchor = anchor || S.anchor;
   S.prefs = readPrefs();
+  S.usage = null;
   const c = document.createElement('div');
   c.className = 'cr-card' + (STANDALONE ? ' cr-card--solo' : '');
   c.setAttribute('role', 'dialog');
@@ -297,18 +472,22 @@ export function openLauncher(anchor) {
   back.className = 'cr-back';
   back.id = 'cr-back';
   back.addEventListener('pointerdown', closeLauncher);
-  if (STANDALONE) document.body.append(c);
+  if (STANDALONE) (document.getElementById('cr-root') || document.body).append(c);
   else document.body.append(back, c);
   S.card = c;
+  fitWindow(440, 720);
   placeCard();
   paintCard();
-  fitWindow(420, 640);
   c.addEventListener('click', onCardClick);
   c.addEventListener('change', onCardChange);
+  c.addEventListener('pointerdown', onStageDown);
   document.addEventListener('keydown', onKey, true);
   window.addEventListener('resize', placeCard);
-  const first = c.querySelector('[data-src].is-on') || c.querySelector('[data-act=start]');
-  if (first) first.focus();
+  // In a hub page the card is a dialog, so the keyboard starts inside it. The recorder window is the card.
+  if (!STANDALONE) {
+    c.tabIndex = -1;
+    c.focus({ preventScroll: true });
+  }
   if (S.anchor) S.anchor.setAttribute('aria-expanded', 'true');
 }
 
@@ -325,11 +504,20 @@ export function closeLauncher() {
 }
 
 function onKey(e) {
-  if (e.key === 'Escape' && S.card) {
+  if (e.key === 'Escape' && S.card && !STANDALONE) {
     e.preventDefault();
-    if (STANDALONE) return window.close();
     closeLauncher();
     if (S.anchor) S.anchor.focus();
+    return;
+  }
+  // Arrow keys move between the four sources, as in any radio group.
+  const tile = e.target && e.target.closest && e.target.closest('.cr-tile');
+  if (tile && S.card && /^Arrow(Left|Right|Up|Down)$/.test(e.key)) {
+    const ids = Object.keys(SOURCES);
+    const i = ids.indexOf(tile.dataset.src);
+    const next = ids[(i + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? ids.length - 1 : 1)) % ids.length];
+    e.preventDefault();
+    pickSource(next);
   }
 }
 
@@ -341,15 +529,17 @@ function setErr(msg) {
   }
 }
 
+function pickSource(id) {
+  S.prefs = { ...S.prefs, source: id, ...(id === 'camera' ? { camOn: true } : {}) };
+  savePrefs(S.prefs);
+  paintCard(`[data-src="${id}"]`);
+}
+
 function onCardClick(ev) {
   const t = ev.target.closest('[data-act],[data-src],[data-size]');
   if (!t) return;
   const p = S.prefs;
-  if (t.dataset.src) {
-    S.prefs = { ...p, source: t.dataset.src, ...(t.dataset.src === 'camera' ? { camOn: true } : {}) };
-    savePrefs(S.prefs);
-    return paintCard();
-  }
+  if (t.dataset.src) return pickSource(t.dataset.src);
   if (t.dataset.size) {
     S.prefs = { ...p, size: t.dataset.size };
     savePrefs(S.prefs);
@@ -357,22 +547,25 @@ function onCardClick(ev) {
       b.classList.toggle('is-on', b.dataset.size === S.prefs.size);
       b.setAttribute('aria-pressed', String(b.dataset.size === S.prefs.size));
     });
-    const pv = S.card.querySelector('#cr-preview');
-    if (pv) pv.dataset.size = S.prefs.size;
+    placeStageBubble();
     return;
   }
+  const flip = (key, act) => {
+    S.prefs = { ...p, [key]: !p[key] };
+    savePrefs(S.prefs);
+    paintCard(`[data-act="${act}"]`);
+  };
   switch (t.dataset.act) {
     case 'close':
-      if (STANDALONE) return window.close();
       return closeLauncher();
     case 'cam':
-      S.prefs = { ...p, camOn: !p.camOn };
-      savePrefs(S.prefs);
-      return paintCard();
+      return flip('camOn', 'cam');
     case 'mic':
-      S.prefs = { ...p, micOn: !p.micOn };
-      savePrefs(S.prefs);
-      return paintCard();
+      return flip('micOn', 'mic');
+    case 'sys':
+      return flip('systemAudio', 'sys');
+    case 'float':
+      return flip('float', 'float');
     case 'start':
       return startRecording();
     case 'file':
@@ -383,17 +576,14 @@ function onCardClick(ev) {
 
 function onCardChange(ev) {
   const t = ev.target;
-  if (t.dataset && t.dataset.act === 'sys') {
-    S.prefs = { ...S.prefs, systemAudio: t.checked };
-    savePrefs(S.prefs);
-  } else if (t.id === 'cr-camsel') {
+  if (t.id === 'cr-camsel') {
     S.prefs = { ...S.prefs, camId: t.value };
     savePrefs(S.prefs);
-    startLive();
+    syncLive();
   } else if (t.id === 'cr-micsel') {
     S.prefs = { ...S.prefs, micId: t.value };
     savePrefs(S.prefs);
-    startLive();
+    syncLive();
   }
 }
 
@@ -411,38 +601,50 @@ function settingsOf(p) {
   };
 }
 
+/** True while a real floating camera window is in a whole-screen capture: the camera is already in the picture. */
+const nativeCheckFor = (rec) => () => {
+  if (!rec.wholeScreen || debugFlag('composite')) return false;
+  return !!(S.pip && S.pip.kind === 'bubble') || (!STANDALONE && !!S.bubbleEl && document.visibilityState === 'visible');
+};
+
+function adopt(rec) {
+  if (S.unsub) S.unsub();
+  S.rec = rec;
+  S.rs = rec.state;
+  S.busy = true;
+  rec.nativeCheck = nativeCheckFor(rec);
+  S.unsub = rec.subscribe(onRecState);
+}
+
 function startRecording() {
   if (!canRecordCamera()) {
-    setErr('This browser cannot record video. Use Chrome, Edge, Firefox or Safari.');
+    setErr('This browser cannot record video. Chrome, Edge, Firefox and Safari can.');
     return;
   }
   const p = S.prefs;
   const settings = settingsOf(p);
   if (S.usage && S.usage.full) {
-    setErr('Your clips use all 10 GB. Delete clips you no longer need in My clips, then record again.');
+    setErr('Your clips use all 10 GB. Recording starts again once some are deleted in My clips.');
     return;
   }
   if (settings.source !== 'camera' && !canRecordScreen()) {
-    setErr('This browser cannot record the screen. Use Chrome, Edge, Firefox or Safari on a computer.');
+    setErr('This browser cannot record the screen. Chrome, Edge, Firefox and Safari on a computer can.');
     return;
   }
   savePrefs(p);
   stopLive(); // the card's preview lets go of the camera and microphone first
   const rec = new ClipRecorder(settings);
-  rec.setBubble({ size: p.size });
-  S.rec = rec;
-  S.rs = rec.state;
-  S.busy = true;
-  rec.nativeCheck = () => {
-    if (!rec.wholeScreen || debugFlag('composite')) return false;
-    return !!(S.pip && S.pip.kind === 'bubble') || (!STANDALONE && !!S.bubbleEl && document.visibilityState === 'visible');
-  };
-  rec.subscribe(onRecState);
-  // The floating camera window and the screen picker both need this click, so both start before anything is awaited.
+  rec.setBubble({ size: p.size, cx: p.bx, cy: p.by });
+  adopt(rec);
+  // The floating window and the screen picker both need this click, so both start before anything is awaited.
   const wantBubble = settings.source === 'screen+camera';
-  const winP = wantBubble && docPip() ? openPip('bubble').catch(() => null) : null;
+  const wantFloat = !isPhone() && p.float !== false;
+  const winP = docPip() && (wantBubble || wantFloat) ? openPip(wantBubble ? 'bubble' : 'controls').catch(() => null) : null;
+  // A picker that was dismissed before the floating window opened leaves no window behind.
+  if (winP) winP.then(() => S.rec !== rec && !S.rec && closePip());
   const prep = rec.prepare();
   closeLauncher();
+  mountBar(rec);
   prep.then(
     async () => {
       if (winP) await winP;
@@ -450,47 +652,57 @@ function startRecording() {
       if (S.pip && S.pip.attach && rec.camStream) S.pip.attach(rec.camStream);
       if (S.pip && S.pip.showCorners) S.pip.showCorners();
       if (wantBubble && !(S.pip && S.pip.kind === 'bubble') && !STANDALONE) mountPageBubble(rec);
-      if (settings.source === 'camera') mountPageBubble(rec, true);
+      if (settings.source === 'camera' && !STANDALONE) mountPageBubble(rec, true);
+      paintLivePanel(rec);
       countdown(rec);
     },
     (e) => {
-      S.busy = false;
-      closePip();
-      removeBubble();
-      S.rec = null;
       // A failed start already toasted through the recorder's error state; say it once.
-      if (!(rec.state && rec.state.phase === 'error')) toast(e && e.message ? e.message : 'Recording could not start.', 'bad');
+      if (!(rec.state && rec.state.phase === 'error')) {
+        toast(e && e.message ? e.message : 'Recording could not start.', 'bad');
+        if (S.rec === rec) teardown();
+      }
     }
   );
 }
 
 function countdown(rec) {
   let n = 3;
+  clearTimeout(S.countTimer);
+  if (S.countEl) S.countEl.remove();
   const el = document.createElement('div');
   el.className = 'cr-count';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Recording starts soon');
-  el.innerHTML = `<div class="cr-count__n" id="cr-count-n" aria-live="assertive">3</div><p>Recording starts now. Switch to what you want to show.</p><div class="cr-count__btns"><button type="button" data-act="skip" class="cr-pill">Start now</button><button type="button" data-act="cancel" class="cr-pill is-ghost">Cancel</button></div>`;
+  el.innerHTML = `<div class="cr-count__n" id="cr-count-n" aria-live="assertive">3</div><p>Recording starts</p><div class="cr-count__btns"><button type="button" data-act="skip" class="cr-pill">Start now</button><button type="button" data-act="cancel" class="cr-pill is-ghost">Cancel</button></div>`;
   document.body.appendChild(el);
   S.countEl = el;
+  S.countN = n;
+  paintControls();
+  const go = () => {
+    clearTimeout(S.countTimer);
+    el.remove();
+    S.countEl = null;
+    S.countN = 0;
+    S.countGo = null;
+    if (S.rec !== rec) return;
+    fitLive(rec);
+    rec.begin();
+    paintControls();
+  };
   const tick = () => {
     n -= 1;
     if (n <= 0) return go();
+    S.countN = n;
     const nn = el.querySelector('#cr-count-n');
     nn.textContent = String(n);
     nn.style.animation = 'none';
     void nn.offsetWidth;
     nn.style.animation = '';
+    paintControls();
     S.countTimer = setTimeout(tick, 1000);
   };
-  const go = () => {
-    clearTimeout(S.countTimer);
-    el.remove();
-    S.countEl = null;
-    if (S.rec !== rec) return;
-    mountBar(rec);
-    rec.begin();
-  };
+  S.countGo = go;
   el.addEventListener('click', (ev) => {
     const a = ev.target.closest('[data-act]');
     if (!a) return;
@@ -501,137 +713,174 @@ function countdown(rec) {
 }
 
 function cancelCountdown(rec) {
+  if (!S.countEl && !S.countN) return;
   clearTimeout(S.countTimer);
   if (S.countEl) S.countEl.remove();
   S.countEl = null;
+  S.countN = 0;
+  S.countGo = null;
+  if (S.unsub) S.unsub();
+  S.unsub = null;
   rec.discard();
   teardown();
 }
 
-function teardown(keepClosed) {
+function teardown(keepClosed, keepPip) {
+  if (S.unsub) S.unsub();
+  S.unsub = null;
   S.rec = null;
   S.rs = null;
   S.busy = false;
-  if (S.barEl) S.barEl.remove();
-  S.barEl = null;
-  S.barCtl = null;
+  S.countN = 0;
+  S.countGo = null;
+  clearTimeout(S.countTimer);
+  if (S.countEl) S.countEl.remove();
+  S.countEl = null;
+  if (S.bar && S.bar.drag) S.bar.drag.destroy();
+  if (S.bar) S.bar.el.remove();
+  S.bar = null;
+  if (S.panel) S.panel.remove();
+  S.panel = null;
   removeBubble();
-  closePip();
+  if (!keepPip) closePip();
   if (STANDALONE && !keepClosed && !S.leaving) {
     post({ t: 'state', phase: 'idle' });
+    if (S.card) closeLauncher();
     openLauncher();
   }
 }
 
-/* ------------------------------------------------------------------ controls (shared by the page bar and the floating window) */
+/* ------------------------------------------------------------------ controls: this window, the floating window, the hub pill */
 
-function controlsHtml() {
-  return `<span class="cr-rec"><i class="cr-rdot"></i><b class="cr-time" data-t>0:00</b></span>
-  <span class="cr-bars" aria-hidden="true">${[0.2, 0.4, 0.6, 0.8, 1].map((b) => `<i data-bar="${b}"></i>`).join('')}</span>
-  <button type="button" class="cr-ic" data-ctl="mute" aria-pressed="false" aria-label="Mute microphone" title="Mute">${svg('mic')}</button>
-  <button type="button" class="cr-ic" data-ctl="pause" aria-label="Pause" title="Pause">${svg('pause')}</button>
-  <button type="button" class="cr-ic cr-ic--stop" data-ctl="stop" aria-label="Stop and save" title="Stop and save">${svg('stop')}</button>
-  <button type="button" class="cr-ic cr-ic--float" data-ctl="float" aria-label="Float these controls above other windows" title="Float these controls above other windows">${svg('float')}</button>
-  <button type="button" class="cr-ic cr-ic--x" data-ctl="discard" aria-label="Discard recording" title="Discard">${svg('close')}</button>
-  <span class="cr-sub" data-sub></span>`;
+function viewState() {
+  const rs = S.rs || { phase: 'idle', elapsed: 0 };
+  const rec = S.rec;
+  return {
+    phase: S.countN ? 'countdown' : rs.phase === 'ready' ? 'preparing' : rs.phase,
+    elapsed: rs.elapsed || 0,
+    level: rs.level || 0,
+    muted: !!rs.muted,
+    hasMic: rec ? (rec.hasMic || (rs.phase === 'preparing' && rec.settings.micId !== null)) : false,
+    retrying: !!rs.retrying,
+    count: S.countN,
+    canFloat: !!docPip() && !S.pip,
+    cameraOnly: !!rec && rec.settings.source === 'camera',
+  };
 }
 
-/** Wire a controls element (in this page or the floating window). Returns { update(rs) }. */
-function wireControls(host, rec) {
-  const $ = (sel) => host.querySelector(sel);
-  const doc = host.ownerDocument;
-  let asking = false;
-  host.addEventListener('click', (ev) => {
-    const b = ev.target.closest('[data-ctl]');
-    if (!b) return;
-    const rs = rec.state;
-    switch (b.dataset.ctl) {
-      case 'mute':
-        rec.setMuted(!rs.muted);
-        break;
-      case 'pause':
-        if (rs.phase === 'recording') rec.pause();
-        else if (rs.phase === 'paused') rec.resume();
-        break;
-      case 'stop':
-        finishRecording(rec);
-        break;
-      case 'float':
-        floatControls();
-        break;
-      case 'discard':
-        if (!asking) {
-          asking = true;
-          host.classList.add('is-asking');
-          $('[data-ask]') || host.insertAdjacentHTML('beforeend', `<span class="cr-ask" data-ask><span>Discard this recording?</span><button type="button" class="cr-pill is-red" data-ctl="yes">Discard</button><button type="button" class="cr-pill is-ghost" data-ctl="no">Keep going</button></span>`);
-        }
-        break;
-      case 'yes':
-        discardRecording(rec);
-        break;
-      case 'no':
-        asking = false;
-        host.classList.remove('is-asking');
-        $('[data-ask]')?.remove();
-        break;
-      default:
+function paintControls() {
+  const st = viewState();
+  if (S.bar) S.bar.ctl.update(st);
+  if (S.pip && S.pip.ctl && S.rec) S.pip.ctl.update(st);
+  if (S.panel) S.panel.classList.toggle('has-pip', !!S.pip);
+  if (STANDALONE) announce(st);
+}
+
+/** One command from any set of controls (this window, the floating window, a hub page). */
+function onCtl(cmd, extra) {
+  const rec = S.rec;
+  switch (cmd) {
+    case 'pause':
+      if (rec) rec.pause();
+      break;
+    case 'resume':
+      if (rec) rec.resume();
+      break;
+    case 'mute':
+      if (rec) rec.setMuted(!rec.state.muted);
+      break;
+    case 'stop':
+      if (rec) finishRecording(rec);
+      break;
+    case 'restart':
+      if (rec) restartRecording(rec);
+      break;
+    case 'discard':
+      if (rec) discardRecording(rec);
+      break;
+    case 'float':
+      floatControls();
+      break;
+    case 'skip':
+      if (S.countGo) S.countGo();
+      break;
+    case 'cancel':
+      if (rec) cancelCountdown(rec);
+      break;
+    case 'open':
+      if (extra) window.open(`/c/${extra}`, 'favor-hub-main');
+      closePip();
+      break;
+    case 'dismiss':
+      closePip();
+      break;
+    default:
+  }
+}
+
+/** The recorder window's view while a recording runs: the controls, the camera when it is the picture, and where the round camera sits. */
+function paintLivePanel(rec) {
+  const panel = S.panel;
+  if (!panel) return;
+  const cam = panel.querySelector('[data-livecam]');
+  if (cam) {
+    cam.hidden = !(rec.settings.source === 'camera' && rec.camStream);
+    const v = cam.querySelector('video');
+    if (!cam.hidden && v.srcObject !== rec.camStream) {
+      v.srcObject = rec.camStream;
+      v.play().catch(() => undefined);
     }
+  }
+  const corners = panel.querySelector('.cr-corners');
+  // Without a floating camera window the camera is drawn into the picture; these buttons pick its corner.
+  if (corners) corners.hidden = !(rec.settings.source === 'screen+camera' && rec.camStream && !(S.pip && S.pip.kind === 'bubble'));
+}
+
+const CORNERS = [['tl', 0.12, 0.2, 'top left'], ['tr', 0.88, 0.2, 'top right'], ['bl', 0.12, 0.78, 'bottom left'], ['br', 0.88, 0.78, 'bottom right']];
+const cornersHtml = () => `<span>Camera in the video</span>${CORNERS.map(([k, x, y, name]) => `<button type="button" data-corner="${k}" data-x="${x}" data-y="${y}" aria-label="Move the camera to the ${name}"><i></i></button>`).join('')}`;
+function wireCorners(el) {
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-corner]');
+    if (b && S.rec) S.rec.setBubble({ cx: Number(b.dataset.x), cy: Number(b.dataset.y) });
   });
-  const update = (rs) => {
-    const paused = rs.phase === 'paused';
-    const fin = rs.phase === 'finishing';
-    host.classList.toggle('is-paused', paused);
-    host.classList.toggle('is-finishing', fin);
-    const t = $('[data-t]');
-    if (t) t.textContent = fmtTime(rs.elapsed);
-    host.querySelectorAll('[data-bar]').forEach((el) => el.classList.toggle('is-on', rs.level >= Number(el.dataset.bar) * 0.9));
-    const m = $('[data-ctl=mute]');
-    if (m) {
-      m.setAttribute('aria-pressed', String(rs.muted));
-      m.setAttribute('aria-label', rs.muted ? 'Unmute microphone' : 'Mute microphone');
-      m.classList.toggle('is-on', rs.muted);
-      m.innerHTML = svg(rs.muted ? 'micOff' : 'mic');
-    }
-    const p = $('[data-ctl=pause]');
-    if (p) {
-      p.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
-      p.innerHTML = svg(paused ? 'play' : 'pause');
-    }
-    const sub = $('[data-sub]');
-    if (sub) sub.textContent = fin ? 'Saving' : rs.retrying ? 'Reconnecting' : rs.pending > 1 ? 'Uploading' : 'Saved';
-    const fl = $('[data-ctl=float]');
-    if (fl) fl.hidden = !docPip() || !!S.pip || doc !== document;
-  };
-  update(rec.state);
-  return { update };
+}
+
+function fitLive(rec) {
+  if (!STANDALONE) return;
+  const camera = rec.settings.source === 'camera';
+  const composite = rec.settings.source === 'screen+camera' && !(S.pip && S.pip.kind === 'bubble');
+  fitWindow(500, camera ? 440 : composite ? 190 : 150);
 }
 
 function mountBar(rec) {
+  if (S.bar) return;
   const bar = document.createElement('div');
   bar.className = 'cr-bar';
   bar.setAttribute('role', 'region');
   bar.setAttribute('aria-label', 'Recording controls');
   bar.id = 'cr-bar';
-  bar.innerHTML = controlsHtml();
-  document.body.appendChild(bar);
-  S.barEl = bar;
-  S.barCtl = wireControls(bar, rec);
+  bar.innerHTML = controlsHtml({ grip: !STANDALONE, float: true });
   if (STANDALONE) {
-    const composite = rec.settings.source === 'screen+camera' && !(S.pip && S.pip.kind === 'bubble');
-    fitWindow(composite ? 560 : 500, composite ? 150 : 96);
-    // Without a floating camera window the camera is drawn into the picture; these buttons pick its corner.
-    if (composite) {
-      bar.insertAdjacentHTML('beforeend', `<span class="cr-corners cr-corners--bar"><span>Camera in the video</span>${[['tl', 0.12, 0.2, 'top left'], ['tr', 0.88, 0.2, 'top right'], ['bl', 0.12, 0.78, 'bottom left'], ['br', 0.88, 0.78, 'bottom right']].map(([k, x, y, name]) => `<button type="button" data-corner="${k}" data-x="${x}" data-y="${y}" aria-label="Move the camera to the ${name}">${k}</button>`).join('')}</span>`);
-      bar.querySelector('.cr-corners').addEventListener('click', (e) => {
-        const b = e.target.closest('[data-corner]');
-        if (b) rec.setBubble({ cx: Number(b.dataset.x), cy: Number(b.dataset.y) });
-      });
-    }
+    const panel = document.createElement('section');
+    panel.className = 'cr-live';
+    panel.id = 'cr-live';
+    panel.setAttribute('aria-label', 'Recording');
+    panel.innerHTML = `<div class="cr-live__cam" data-livecam hidden><video muted playsinline></video></div><div class="cr-live__slot"></div><div class="cr-corners cr-corners--bar" hidden>${cornersHtml()}</div><p class="cr-live__note"><span class="cr-live__here">This window holds the recording.</span><span class="cr-live__float">This window holds the recording. The controls float above your other windows.</span></p>`;
+    panel.querySelector('.cr-live__slot').appendChild(bar);
+    wireCorners(panel.querySelector('.cr-corners'));
+    (document.getElementById('cr-root') || document.body).appendChild(panel);
+    S.panel = panel;
+  } else {
+    document.body.appendChild(bar);
   }
+  S.bar = { el: bar, ctl: wireControls(bar, onCtl), drag: null };
+  if (!STANDALONE) S.bar.drag = makeDraggable(bar, PILL_KEY);
+  paintControls();
+  void rec;
 }
 
 function pulseBar() {
-  const b = S.barEl;
+  const b = S.bar && S.bar.el;
   if (!b) return;
   b.classList.remove('is-pulse');
   void b.offsetWidth;
@@ -639,22 +888,22 @@ function pulseBar() {
 }
 
 let lastPost = 0;
-let lastPhase = '';
-function announce() {
+let lastSig = '';
+/** Tell every hub page what the recording is doing (their camera button and their pill follow it). */
+function announce(st) {
   const rs = S.rs;
   if (!rs) return;
   const now = Date.now();
-  if (rs.phase === lastPhase && now - lastPost < 1500) return;
+  const sig = [st.phase, st.muted, !!S.pip, st.count, st.retrying].join('|');
+  if (sig === lastSig && now - lastPost < 1000) return;
   lastPost = now;
-  lastPhase = rs.phase;
-  post({ t: 'state', phase: rs.phase, id: rs.id || '', elapsed: rs.elapsed || 0 });
+  lastSig = sig;
+  post({ t: 'state', phase: st.phase, id: rs.id || '', elapsed: st.elapsed, muted: st.muted, hasMic: st.hasMic, pip: !!S.pip, count: st.count, retrying: st.retrying, cameraOnly: st.cameraOnly });
 }
 
 function onRecState(rs) {
   S.rs = rs;
-  if (STANDALONE) announce();
-  if (S.barCtl) S.barCtl.update(rs);
-  if (S.pip && S.pip.ctl) S.pip.ctl.update(rs);
+  paintControls();
   if (rs.phase === 'error') {
     toast(rs.error || 'The recording failed.', 'bad');
     teardown();
@@ -709,8 +958,8 @@ function mountPageBubble(rec, previewOnly) {
   el.addEventListener('pointercancel', endDrag);
   el.addEventListener('click', (e) => {
     const b = e.target.closest('[data-size]');
-    if (!b) return;
-    setBubbleSize(rec, b.dataset.size);
+    if (!b || !S.rec) return;
+    setBubbleSize(S.rec, b.dataset.size);
   });
 }
 
@@ -727,7 +976,8 @@ function setBubbleSize(rec, size) {
     const w = S.pip.win;
     S.pip.setSize(size);
     try {
-      w.resizeTo(BUBBLE_PX[size] + 28, BUBBLE_PX[size] + 28 + 64);
+      const box = pipSize('bubble', size);
+      w.resizeTo(box.width + (w.outerWidth - w.innerWidth), box.height + (w.outerHeight - w.innerHeight));
     } catch (e) {
       /* the browser may keep the size the person chose */
     }
@@ -746,35 +996,73 @@ function removeBubble() {
 
 /* ------------------------------------------------------------------ the floating window (Chrome and Edge) */
 
+// The camera window leaves room for the camera, the controls and the row that places the camera in the video.
+const pipSize = (kind, size) => (kind === 'bubble' ? { width: Math.max(BUBBLE_PX[size] + 28, PIP_BAR.width), height: BUBBLE_PX[size] + 16 + PIP_BAR.height + 36 } : { ...PIP_BAR });
+
+/** Copy from the floating window: the clipboard belongs to the window that has the focus. */
+async function copyFrom(win, text) {
+  try {
+    await win.navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) {
+    return copyText(text);
+  }
+}
+
+/**
+ * Open the small always-on-top window. It holds the recording controls (and the round camera when the camera is on),
+ * stays above every app and tab, and can be dragged anywhere on the screen. Closing it never touches the recording:
+ * the recorder window holds the streams.
+ */
 async function openPip(kind) {
   const api2 = docPip();
   if (!api2) throw new Error('no pip');
-  const size = kind === 'bubble' ? { width: BUBBLE_PX[S.prefs.size] + 28, height: BUBBLE_PX[S.prefs.size] + 28 + 64 } : { width: 460, height: 96 };
-  const win = await api2.requestWindow(size);
-  const l = win.document.createElement('link');
+  if (S.pip) closePip();
+  const win = await api2.requestWindow({ ...pipSize(kind, S.prefs.size), disallowReturnToOpener: true });
+  const doc = win.document;
+  doc.title = 'Recording';
+  const l = doc.createElement('link');
   l.rel = 'stylesheet';
-  l.href = new URL('/js/clips/launcher.css?v=7', location.href).toString();
-  win.document.head.appendChild(l);
-  win.document.body.className = 'cr-pipbody';
-  win.document.body.style.margin = '0';
+  l.href = new URL(CSS_URL, location.href).toString();
+  doc.head.appendChild(l);
+  // The fonts are declared by the page, so the floating window declares them too.
+  const st = doc.createElement('style');
+  st.textContent = `@font-face{font-family:'Inter';src:url('${new URL('/fonts/inter-var.woff2', location.href)}') format('woff2');font-weight:100 900;font-display:swap}`;
+  doc.head.appendChild(st);
+  doc.documentElement.lang = 'en';
+  doc.body.className = 'cr-pipbody';
   const rec = S.rec;
-  const pip = { win, kind, ctl: null, setSize: () => undefined };
+  const pip = { win, kind, ctl: null, setSize: () => undefined, timer: 0 };
   S.pip = pip;
   win.addEventListener('pagehide', () => {
-    if (S.pip && S.pip.win === win) {
-      S.pip = null;
-      // Closing the floating window by hand puts the camera back on the page. The recording is never touched.
-      if (S.rec && kind === 'bubble' && !STANDALONE && S.rec.state.phase !== 'finishing' && S.rec.state.phase !== 'done') mountPageBubble(S.rec);
-      if (S.barCtl && S.rec) S.barCtl.update(S.rec.state);
+    clearTimeout(pip.timer);
+    if (S.pip !== pip) return;
+    S.pip = null;
+    // Closing the floating window by hand puts the camera back on the page. The recording is never touched.
+    const live = S.rec && S.rec.state.phase !== 'finishing' && S.rec.state.phase !== 'done';
+    if (live && kind === 'bubble' && !STANDALONE) mountPageBubble(S.rec);
+    if (S.rec) paintLivePanel(S.rec);
+    paintControls();
+  });
+  const wrap = doc.createElement('div');
+  wrap.className = 'cr-pip';
+  wrap.dataset.kind = kind;
+  const inner = (rec && rec.bubble.size) || 'M';
+  wrap.innerHTML = `${kind === 'bubble' ? `<div class="cr-pip__cam"><div class="cr-pipcircle" data-size="${inner}"><video muted playsinline></video><div class="cr-bubble__sz" role="group" aria-label="Camera size">${['S', 'M', 'L'].map((s) => `<button type="button" data-size="${s}" aria-pressed="${s === inner}">${s}</button>`).join('')}</div></div></div>` : ''}
+    <div class="cr-pip__ctl cr-bar cr-bar--pip" role="region" aria-label="Recording controls">${controlsHtml()}</div>
+    ${kind === 'bubble' ? `<div class="cr-corners" hidden>${cornersHtml()}</div>` : ''}`;
+  doc.body.appendChild(wrap);
+  const ctlEl = wrap.querySelector('.cr-pip__ctl');
+  pip.ctl = wireControls(ctlEl, async (cmd, extra) => {
+    if (cmd === 'copy') {
+      const ok = await copyFrom(win, `${location.origin}/c/${extra}`);
+      const b = ctlEl.querySelector('[data-ctl=copy]');
+      if (b) b.lastChild.textContent = ok ? 'Copied' : 'Copy failed';
+      return;
     }
+    onCtl(cmd, extra);
   });
   if (kind === 'bubble') {
-    const wrap = win.document.createElement('div');
-    wrap.className = 'cr-pip';
-    const inner = (rec && rec.bubble.size) || 'M';
-    wrap.innerHTML = `<div class="cr-pip__cam"><div class="cr-pipcircle" data-size="${inner}"><video muted playsinline></video><div class="cr-bubble__sz" role="group" aria-label="Camera size">${['S', 'M', 'L'].map((s) => `<button type="button" data-size="${s}" aria-pressed="${s === inner}">${s}</button>`).join('')}</div></div></div>
-      <div class="cr-pip__ctl cr-bar cr-bar--pip" role="region" aria-label="Recording controls">${controlsHtml()}</div>`;
-    win.document.body.appendChild(wrap);
     const v = wrap.querySelector('video');
     // The window opens inside the click, before the camera is ready; the camera is attached once prepare() finishes.
     pip.attach = (stream) => {
@@ -791,39 +1079,37 @@ async function openPip(kind) {
       const b = e.target.closest('[data-size]');
       if (b && S.rec) setBubbleSize(S.rec, b.dataset.size);
     });
-    const ctl = wrap.querySelector('.cr-pip__ctl');
-    pip.ctl = wireControls(ctl, rec);
     // A recording of a window or tab draws the camera into the picture; the corner buttons say where.
-    const corners = win.document.createElement('div');
-    corners.className = 'cr-corners';
-    corners.hidden = true;
-    corners.innerHTML = `<span>Camera in the video</span>${[['tl', 0.12, 0.2], ['tr', 0.88, 0.2], ['bl', 0.12, 0.78], ['br', 0.88, 0.78]].map(([k, x, y]) => `<button type="button" data-corner="${k}" data-x="${x}" data-y="${y}" aria-label="Move the camera to the ${k === 'tl' ? 'top left' : k === 'tr' ? 'top right' : k === 'bl' ? 'bottom left' : 'bottom right'}">${k}</button>`).join('')}`;
-    wrap.appendChild(corners);
-    corners.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-corner]');
-      if (b && S.rec) S.rec.setBubble({ cx: Number(b.dataset.x), cy: Number(b.dataset.y) });
-    });
+    const corners = wrap.querySelector('.cr-corners');
+    wireCorners(corners);
     pip.showCorners = () => (corners.hidden = !(S.rec && !S.rec.wholeScreen));
-  } else {
-    const wrap = win.document.createElement('div');
-    wrap.className = 'cr-bar cr-bar--pip cr-bar--solo';
-    wrap.innerHTML = controlsHtml();
-    win.document.body.appendChild(wrap);
-    pip.ctl = wireControls(wrap, rec);
+    pip.hideCam = () => {
+      v.srcObject = null;
+      wrap.classList.add('is-done');
+      try {
+        win.resizeTo(PIP_BAR.width + (win.outerWidth - win.innerWidth), PIP_BAR.height + (win.outerHeight - win.innerHeight));
+      } catch (e) {
+        /* the size stays; the note sits in the middle */
+      }
+    };
   }
+  paintControls();
   return win;
 }
 
+/** The Float button in the recorder window: bring the controls back above every window after the floating one was closed. */
 async function floatControls() {
   if (!S.rec || !docPip() || S.pip) return;
+  const rec = S.rec;
+  const bubble = rec.settings.source === 'screen+camera' && !!rec.camStream;
   try {
-    await openPip('controls');
-    if (S.barEl) S.barEl.hidden = true;
-    S.pip.win.addEventListener('pagehide', () => {
-      if (S.barEl) S.barEl.hidden = false;
-    });
+    await openPip(bubble ? 'bubble' : 'controls');
+    if (S.pip && S.pip.showCorners) S.pip.showCorners();
+    if (bubble) removeBubble();
+    paintLivePanel(rec);
+    paintControls();
   } catch (e) {
-    toast('Your browser would not open the floating controls.', 'bad');
+    toast('The browser did not open the floating controls.', 'bad');
   }
 }
 
@@ -831,29 +1117,69 @@ function closePip() {
   const p = S.pip;
   S.pip = null;
   if (p) {
+    clearTimeout(p.timer);
     try {
       if (!p.win.closed) p.win.close();
     } catch (e) {
       /* already gone */
     }
   }
-  if (S.barEl) S.barEl.hidden = false;
 }
 
-/* ------------------------------------------------------------------ stop, save, name */
+/* ------------------------------------------------------------------ stop, start over, discard */
 
 async function finishRecording(rec) {
   if (rec.state.phase !== 'recording' && rec.state.phase !== 'paused') return;
   const r = await rec.stop();
   if (!r) return; // an error already told the person
-  teardown(true);
+  const pip = S.pip;
+  teardown(true, true);
+  // The floating window says the clip is saved and links to it, then closes by itself.
+  if (pip && pip.ctl) {
+    if (pip.hideCam) pip.hideCam();
+    pip.ctl.saved(r.id);
+    pip.timer = setTimeout(() => S.pip === pip && closePip(), 30000);
+  }
   await afterSave(r.id);
 }
 
 function discardRecording(rec) {
+  if (S.unsub) S.unsub();
+  S.unsub = null;
   rec.cancel();
   teardown();
   toast('Recording discarded');
+}
+
+/**
+ * Start over: the first take is deleted and a new one begins after the countdown, with the same screen, camera and
+ * microphone. The browser is not asked for the screen again.
+ */
+function restartRecording(old) {
+  if (old.state.phase !== 'recording' && old.state.phase !== 'paused') return;
+  const muted = !!old.state.muted;
+  const bubble = { ...old.bubble };
+  const pageBubble = !!S.bubbleEl;
+  const preview = pageBubble && S.bubbleEl.classList.contains('is-preview');
+  if (S.unsub) S.unsub();
+  S.unsub = null;
+  const kept = old.handOff();
+  old.cancel();
+  const rec = new ClipRecorder(old.settings, kept);
+  rec.setBubble(bubble);
+  adopt(rec);
+  paintControls();
+  rec.prepare().then(
+    () => {
+      if (S.rec !== rec) return;
+      if (muted) rec.setMuted(true);
+      if (S.pip && S.pip.attach && rec.camStream) S.pip.attach(rec.camStream);
+      if (pageBubble) mountPageBubble(rec, preview);
+      paintLivePanel(rec);
+      countdown(rec);
+    },
+    () => undefined // the recorder's error state closes the controls and says why
+  );
 }
 
 function closeSaved() {
@@ -870,22 +1196,24 @@ async function afterSave(id, label) {
   const el = document.createElement('div');
   el.className = 'cr-saved';
   el.setAttribute('role', 'status');
-  el.innerHTML = `<div class="cr-head"><h2>${esc(label || 'Clip saved')}</h2><button type="button" class="cr-x" data-act="dismiss" aria-label="Close">${svg('close')}</button></div>
+  el.innerHTML = `<div class="cr-head"><h2>${esc(label || 'Clip saved')}</h2>${STANDALONE ? '' : `<button type="button" class="cr-x" data-act="dismiss" aria-label="Close">${svg('close')}</button>`}</div>
     <div class="cr-saved__body" data-body><p class="cr-spin"><i></i>Writing the transcript and a title</p></div>
-    <div class="cr-saved__btns"><a class="cr-pill" href="/c/${id}" ${STANDALONE ? 'target="favor-hub-main"' : ''} data-act="open">Open it now</a></div>`;
-  document.body.appendChild(el);
+    <div class="cr-saved__btns"><a class="cr-pill" href="/c/${id}"${hubTarget} data-act="open">Open the clip</a></div>`;
+  (STANDALONE ? document.getElementById('cr-root') || document.body : document.body).appendChild(el);
   S.savedCard = el;
   if (STANDALONE) {
     el.classList.add('cr-saved--solo');
-    fitWindow(420, 420);
+    fitWindow(440, 440);
     post({ t: 'state', phase: 'idle' });
-    post({ t: 'saved', id });
+    post({ t: 'saved', id, pip: !!S.pip });
+    try {
+      window.focus();
+    } catch (e) {
+      /* the browser decides */
+    }
   }
   el.addEventListener('click', (ev) => {
-    if (ev.target.closest('[data-act=dismiss]')) {
-      closeSaved();
-      if (STANDALONE) window.close();
-    }
+    if (ev.target.closest('[data-act=dismiss]')) closeSaved();
     if (ev.target.closest('[data-act=again]')) {
       closeSaved();
       openLauncher();
@@ -903,10 +1231,10 @@ async function afterSave(id, label) {
   const btns = el.querySelector('.cr-saved__btns');
   const title = clip && clip.title ? clip.title : 'Your clip';
   const sum = clip && clip.summary ? clip.summary : '';
-  body.innerHTML = `<p class="cr-saved__title">${esc(title)}</p>${sum ? `<p class="cr-saved__sum">${esc(sum.length > 170 ? sum.slice(0, 167) + '...' : sum)}</p>` : ''}
+  body.innerHTML = `<p class="cr-saved__title">${esc(title)}</p>${sum ? `<p class="cr-saved__sum">${esc(sum)}</p>` : ''}
     <label class="cr-check cr-check--share"><input type="checkbox" data-act="share"/><span>Anyone with the link can watch</span></label>
-    <p class="cr-note" data-note>Only signed-in Favor staff can open the link.</p>`;
-  btns.innerHTML = `<a class="cr-pill" href="/c/${id}" ${STANDALONE ? 'target="favor-hub-main"' : ''}>Open</a><button type="button" class="cr-pill is-ghost" data-act="copy">${svg('link')}Copy link</button>${STANDALONE ? '<button type="button" class="cr-pill is-ghost" data-act="again">Record another</button>' : ''}`;
+    <p class="cr-note" data-note>Signed-in Favor staff can open the link.</p>`;
+  btns.innerHTML = `<a class="cr-pill" href="/c/${id}"${hubTarget}>Open the clip</a><button type="button" class="cr-pill is-ghost" data-act="copy">${svg('link')}Copy link</button>${STANDALONE ? '<button type="button" class="cr-pill is-ghost" data-act="again">Record another</button>' : ''}`;
   el.addEventListener('click', async (ev) => {
     if (ev.target.closest('[data-act=copy]')) {
       toast((await copyText(linkFor(id))) ? 'Link copied' : 'Could not copy the link', 'ok');
@@ -917,7 +1245,7 @@ async function afterSave(id, label) {
     const on = ev.target.checked;
     try {
       await api(`/api/clips/${id}`, { method: 'PATCH', json: { share: on } });
-      el.querySelector('[data-note]').textContent = on ? 'Anyone with the link can watch, signed in or not.' : 'Only signed-in Favor staff can open the link.';
+      el.querySelector('[data-note]').textContent = on ? 'Anyone with the link can watch, signed in or not.' : 'Signed-in Favor staff can open the link.';
     } catch (e) {
       ev.target.checked = !on;
       toast(e.message, 'bad');
@@ -953,10 +1281,10 @@ async function uploadFile(f) {
   ensureCss();
   S.busy = true;
   const el = document.createElement('div');
-  el.className = 'cr-saved';
+  el.className = 'cr-saved' + (STANDALONE ? ' cr-saved--solo' : '');
   el.setAttribute('role', 'status');
-  el.innerHTML = `<div class="cr-head"><h2>Uploading</h2></div><p class="cr-saved__file">${esc(f.name)}</p><div class="cr-prog" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><p class="cr-note" data-label>Uploading</p>`;
-  document.body.appendChild(el);
+  el.innerHTML = `<div class="cr-head"><h2>Uploading</h2></div><p class="cr-saved__file">${esc(f.name)}</p><div class="cr-prog" role="progressbar" aria-label="Upload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><p class="cr-note" data-label>Uploading</p>`;
+  (STANDALONE ? document.getElementById('cr-root') || document.body : document.body).appendChild(el);
   S.savedCard = el;
   try {
     const r = await uploadVideoFile(f, (frac, label) => {
@@ -970,6 +1298,7 @@ async function uploadFile(f) {
     S.busy = false;
     closeSaved();
     toast(e && e.message ? e.message : 'Upload failed', 'bad');
+    if (STANDALONE) openLauncher();
   }
 }
 
@@ -999,9 +1328,9 @@ export const _state = S;
 /* ------------------------------------------------------------------ the recorder window talks to the hub pages */
 
 if (STANDALONE && CHANNEL) {
-  // A hub page that just loaded asks whether a recording is running (its camera button shows a red dot).
   CHANNEL.addEventListener('message', (e) => {
-    if (e.data && e.data.t === 'open') {
+    const m = e.data || {};
+    if (m.t === 'open') {
       // The camera button was pressed again while this window sat on a saved note: show the card for the next clip.
       if (!S.rec && !S.busy && !S.card) {
         closeSaved();
@@ -1009,11 +1338,15 @@ if (STANDALONE && CHANNEL) {
       }
       return;
     }
-    if (e.data && e.data.t === 'ping') {
-      lastPhase = '';
-      announce();
-      if (!S.rs) post({ t: 'state', phase: 'idle' });
+    // A hub page that just loaded asks whether a recording is running (its camera button shows a red dot).
+    if (m.t === 'ping') {
+      lastSig = '';
+      if (S.rs) announce(viewState());
+      else post({ t: 'state', phase: 'idle' });
+      return;
     }
+    // The pill on a hub page: pause, resume, mute, stop, start over, discard.
+    if (m.t === 'cmd' && typeof m.c === 'string' && ['pause', 'resume', 'mute', 'stop', 'restart', 'discard', 'skip', 'cancel'].includes(m.c)) onCtl(m.c);
   });
   // Closing the window mid-recording: ask the server to finish the clip from what it already holds (whole parts and the
   // tail). The footage up to the last few seconds is kept and the clip lands in My clips.
