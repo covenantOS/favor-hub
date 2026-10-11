@@ -18,7 +18,7 @@ const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
   mic: true, cam: true, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
-  inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, layout: 'grid', pop: '', syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
+  inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
 let recorder = null, barTimer = null, capTimer = null;
@@ -252,11 +252,11 @@ function failScreen(err) {
 // ---------------------------------------------------------------- the room
 function buildRoom() {
   document.getElementById('h-app').classList.add('is-room');
-  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage" aria-label="Meeting"><div class="rm-top"><div class="rm-bar" id="rm-bar"></div><div class="rm-tools" id="rm-tools"></div></div><div id="rm-banner"></div><div id="rm-wait"></div><div class="rm-grid" id="rm-grid"></div><div class="rm-hint" id="rm-hint" hidden></div><div class="rm-cap" id="rm-cap" hidden aria-live="off"></div><div id="rm-pop-wrap"></div><div class="rm-ctl" id="rm-ctl" role="toolbar" aria-label="Meeting controls"></div></section><aside class="rm-side" id="rm-side" aria-label="Meeting panel"></aside></div>`;
+  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage" aria-label="Meeting"><div class="rm-top"><div class="rm-bar" id="rm-bar"></div><div class="rm-tools" id="rm-tools"></div></div><div id="rm-banner"></div><div id="rm-wait"></div><div class="rm-grid" id="rm-grid"></div><div class="rm-hint" id="rm-hint" hidden></div><div class="rm-cap" id="rm-cap" hidden aria-live="off"></div><div id="rm-pop-wrap"></div><div class="rm-ctl" id="rm-ctl" role="toolbar" aria-label="Meeting controls"></div></section><aside class="rm-side" id="rm-side" aria-label="Meeting panel"></aside><div id="rm-more-wrap"></div></div>`;
   S.panel = isPhone() ? '' : 'people';
   paintAll();
   dragToClose($('#rm-side'));
-  window.addEventListener('resize', fitCtl);
+  window.addEventListener('resize', onResizeMode);
   window.addEventListener('keydown', onKey);
   document.addEventListener('input', onInvInput);
   document.addEventListener('focusin', (e) => { if (e.target && e.target.id === 'invin') loadDirectory(); });
@@ -270,7 +270,14 @@ const hostish = () => S.me.role === 'host' || S.me.role === 'cohost';
 const others = () => S.people.filter((p) => p.pid !== S.me.pid && !p.waiting);
 const nameOf = (pid) => (pid === S.me.pid ? S.me.name : (S.people.find((p) => p.pid === pid) || {}).name || 'Someone');
 
-function paintAll() { paintBar(); paintTools(); paintGrid(); paintCtl(); paintSide(); }
+function paintAll() { paintBar(); paintTools(); paintGrid(); paintCtl(); paintSide(); paintMore(); }
+// The phone layout has five controls and a More sheet. Turning the phone or resizing the window can switch layouts.
+let lastMode = null;
+function onResizeMode() {
+  const m = sheetMode();
+  if (lastMode !== null && m !== lastMode) { S.more = false; S.moreDev = false; paintTools(); paintCtl(); paintMore(); }
+  lastMode = m; fitCtl();
+}
 
 // Keep keyboard focus on the same control when a bar is repainted (R4).
 function keepFocus(container, fn) {
@@ -297,6 +304,8 @@ function dragToClose(side) {
 // The tools beside the title: reactions, layout, full screen, copy link, devices (R8, R25).
 function paintTools() {
   const el = $('#rm-tools'); if (!el) return;
+  lastMode = sheetMode();
+  if (lastMode) { keepFocus(el, () => { el.innerHTML = `<button class="rt rt-leave" data-a="leave" aria-label="Leave the meeting">${ic('leave')}<span>Leave</span></button>`; }); return; }
   keepFocus(el, () => {
     el.innerHTML = `<button class="rt${S.pop === 'react' ? ' is-on' : ''}" data-a="pop" data-p="react" aria-label="Reactions" aria-haspopup="dialog" aria-expanded="${S.pop === 'react'}">${ic('smile')}</button>
       <button class="rt" data-a="layout" aria-label="${S.layout === 'grid' ? 'Switch to speaker view' : 'Switch to gallery view'}" title="${S.layout === 'grid' ? 'Speaker view' : 'Gallery view'}">${ic(S.layout === 'grid' ? 'speaker' : 'grid')}</button>
@@ -530,6 +539,18 @@ function paintCtl() {
   const waiting = h ? S.people.filter((p) => p.waiting).length : 0;
   const lab = (full, short) => `<span class="lb-f">${full}</span><span class="lb-s">${short}</span>`;
   const canDisplay = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) && !isPhone();
+  if (sheetMode()) {
+    keepFocus(el, () => {
+      el.innerHTML = `
+      <button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button>
+      <button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button>
+      <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
+      <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
+      <button class="cb${S.more ? ' is-on' : ''}" data-a="more" aria-expanded="${S.more}" aria-haspopup="dialog"><span class="k badge">${ic('more')}${S.hand || S.cc ? '<span class="dotc dotc--s"></span>' : ''}</span>More</button>`;
+    });
+    const hint0 = $('#rm-hint'); if (hint0) hint0.hidden = true;
+    fitCtl(); return;
+  }
   keepFocus(el, () => {
     el.innerHTML = `
     <button class="cb${S.mic ? '' : ' is-off'}" data-a="mic"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button>
@@ -547,6 +568,41 @@ function paintCtl() {
   const hint = $('#rm-hint');
   if (hint) { const no = canDisplay && !canShare; hint.hidden = !no; if (no) hint.textContent = 'The host limited screen sharing.'; }
   fitCtl();
+}
+
+// ---- More sheet (phone): everything that does not need to be one tap away during a call
+async function paintMore() {
+  const wrap = $('#rm-more-wrap'); if (!wrap) return;
+  if (!S.more || !sheetMode()) { wrap.innerHTML = ''; return; }
+  const h = hostish(), recOn = S.recording && S.recording.active;
+  const row = (a, icon, label, state, extra = '') => `<button class="mr" data-a="${a}"${extra}><span class="mr-i">${ic(icon)}</span><span class="mr-l">${label}</span>${state ? `<span class="mr-s">${state}</span>` : ''}</button>`;
+  const rows = [
+    row('hand', 'hand', S.hand ? 'Lower hand' : 'Raise hand', S.hand ? 'Raised' : ''),
+    FEATURES.captions ? row('cc', 'cc', 'Captions', S.cc ? 'On' : 'Off') : '',
+    h && S.meeting.rec !== 'off' ? row('rec', 'rec', recOn ? 'Stop recording' : 'Start recording', recOn ? 'On' : '') : '',
+    FEATURES.brain ? row('panel', 'brain', 'Ask Favor Brain', '', ' data-p="brain"') : '',
+    row('layout', S.layout === 'grid' ? 'speaker' : 'grid', S.layout === 'grid' ? 'Speaker view' : 'Gallery view', ''),
+    document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
+    GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
+    row('moredev', 'gear', 'Camera, microphone and speaker', S.moreDev ? 'Hide' : ''),
+  ].join('');
+  wrap.innerHTML = `<div class="mr-scrim" data-a="more-close"></div><div class="mr-sheet" id="rm-more" role="dialog" aria-label="More"><div class="rm-grab" aria-hidden="true"></div><div class="mr-emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div><div class="mr-list">${rows}</div><div class="mr-dev" id="mr-dev"></div></div>`;
+  dragToCloseMore($('#rm-more'));
+  if (!S.moreDev) return;
+  const { mics, cams, spks } = await deviceList();
+  const box = $('#mr-dev'); if (!box || !S.moreDev) return;
+  const curMic = local.mic && local.mic.getSettings().deviceId, curCam = (local.cam && local.cam.getSettings().deviceId) || S.camId;
+  box.innerHTML = `${mics.length ? `<label>Microphone<select data-dev="mic">${optList(mics, curMic, 'Microphone')}</select></label>` : ''}${cams.length ? `<label>Camera<select data-dev="cam">${optList(cams, curCam, 'Camera')}</select></label>` : ''}${spks.length && 'setSinkId' in HTMLMediaElement.prototype ? `<label>Speaker<select data-dev="spk">${optList(spks, S.spkId, 'Speaker')}</select></label>` : ''}${!mics.length && !cams.length ? '<p class="mt-sub" style="margin:0">No devices were found. Check that the browser may use the camera and microphone.</p>' : ''}`;
+  box.querySelectorAll('select[data-dev]').forEach((sel) => sel.addEventListener('change', () => switchDevice(sel.dataset.dev, sel.value)));
+}
+function closeMore() { if (!S.more) return; S.more = false; S.moreDev = false; paintMore(); paintCtl(); }
+function dragToCloseMore(sheet) {
+  if (!sheet) return;
+  let d = null;
+  sheet.addEventListener('touchstart', (e) => { if (!e.target.closest('.rm-grab')) return; d = { y: e.touches[0].clientY, dy: 0 }; }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => { if (!d) return; d.dy = Math.max(0, e.touches[0].clientY - d.y); sheet.style.transform = 'translateY(' + d.dy + 'px)'; }, { passive: true });
+  const end = () => { if (!d) return; const close = d.dy > 70; d = null; sheet.style.transform = ''; if (close) closeMore(); };
+  sheet.addEventListener('touchend', end); sheet.addEventListener('touchcancel', end);
 }
 
 // ---- side panel
@@ -651,7 +707,9 @@ function onDocClick(e) {
     case 'cc': S.cc = !S.cc; paintCtl(); paintCap(); break;
     case 'rec': toggleRecording(); break;
     case 'hand': S.hand = !S.hand; paintCtl(); paintGrid(); syncNow(); break;
-    case 'panel': S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') S.unread = 0; paintCtl(); paintSide(); break;
+    case 'panel': S.more = false; S.moreDev = false; S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') S.unread = 0; paintCtl(); paintSide(); paintMore(); break;
+    case 'more': S.more = !S.more; S.moreDev = false; if (S.more && S.panel && sheetMode()) { S.panel = ''; paintSide(); } paintCtl(); paintMore(); break;
+    case 'moredev': S.moreDev = !S.moreDev; paintMore(); return;
     case 'panel-close': S.panel = ''; paintCtl(); paintSide(); break;
     case 'leave': leaveClick(); break;
     case 'pop': S.pop = S.pop === a.dataset.p ? '' : a.dataset.p; paintTools(); paintPop(); break;
@@ -679,10 +737,13 @@ function onDocClick(e) {
     case 'endall': confirmCard({ title: 'End the meeting for everyone?', body: 'Everyone in the room is disconnected.', ok: 'End for everyone', danger: true }).then((ok) => { if (ok) send('cmd', { a: 'end' }); }); break;
     default: break;
   }
+  // A choice in the More sheet closes it, except the one that opens the device list.
+  if (S.more && act !== 'more' && act !== 'moredev' && a.closest('#rm-more-wrap')) closeMore();
 }
 function onKey(e) {
   if (document.querySelector('.cf')) return;
   if (e.key === 'Escape') {
+    if (S.more) { closeMore(); const o = $('#rm-ctl [data-a="more"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.pop) { const p = S.pop; S.pop = ''; paintTools(); paintPop(); const o = $('[data-a="pop"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.menu) { const pid = S.menu; S.menu = null; paintSideBody(false); const o = $('[data-a="pmenu"][data-pid="' + pid + '"]'); o && o.focus(); e.preventDefault(); return; }
     if (sheetMode() && S.panel) { const p = S.panel; S.panel = ''; paintCtl(); paintSide(); const o = $('#rm-ctl [data-a="panel"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
