@@ -146,7 +146,7 @@ function draw(o) {
     try {
       const out = await post('/api/work/partner-add/matches', Object.assign(probe(), { live }));
       if (my !== seq && !live) return;
-      if (s !== sig()) return;
+      if (s !== sig()) { if (live && /^Checking/.test(S.status)) { S.status = ''; drawMatches(); } return; }
       S.matches = out.matches;
       if (live) { S.liveSig = s; S.liveCount++; }
       S.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These are from the hub\'s copy.' : '';

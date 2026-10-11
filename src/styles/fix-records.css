@@ -1,0 +1,43 @@
+/* Fix round, records: partner drawer and page, record tabs, Add partner. Loaded after partner.css and records.css. */
+
+/* Text floor: 13px, 12px only for tab bar labels (shell). */
+.pp-kicker { font-size: 12px; letter-spacing: .12em; }
+.pp-holder i { font-size: 12px; }
+.pp-tap small, .pp-lab, .pp-chk { font-size: 13px; }
+.pp-seg button, .pp-filter button, .pp-acts .h-btn, .pp-compose .h-btn--sm, .rc-add, .rc-edit, .pp-dl .pp-edit { font-size: 13px; }
+.pp-notes > h3 button, .pp-sec > h3 button[data-pp-compose] { font: 600 13px var(--h-font); letter-spacing: 0; text-transform: none; color: var(--h-brand-ink); border: 0; background: none; padding: 6px 4px; }
+.pp-datechip, .pp-ev .by, .pp-task__what > span { font-size: 13px; }
+.pp-lab { gap: 6px; font-weight: 600; }
+
+/* Recurring list */
+.pp-more { margin-top: 4px; }
+.pp-more > summary { cursor: pointer; color: var(--h-brand-ink); font-weight: 600; padding: 4px 0; }
+.pp-dl dd small { font-size: 13px; }
+
+/* Add partner: the last row clears the sticky footer. */
+.ad-form { padding-bottom: 28px; }
+.ad-form .ad-sec:last-of-type { padding-bottom: 8px; }
+.ap-form { padding-bottom: 24px; }
+
+/* Touch targets: 44px where a finger lands. */
+@media (pointer: coarse), (max-width: 900px) {
+  .pp-acts .h-btn, .pp-acts .pp-tap, .pp-compose .h-btn, .pp-seg button { min-height: 44px; height: auto; }
+  .pp-acts .pp-tap { padding: 0 16px; }
+  .pp-iconbtn { width: 44px; height: 44px; }
+  .pp-filter button { min-height: 44px; min-width: 44px; }
+  .pp-sec > h3 .pp-filter button { height: 44px; }
+  .pp-dl .pp-edit, .rc-edit, .rc-add { min-height: 44px; min-width: 44px; padding-left: 8px; padding-right: 8px; }
+  .pp-notes > h3 button, .pp-sec > h3 button[data-pp-compose] { min-height: 44px; min-width: 44px; padding: 0 8px; }
+  .pp-task { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 8px; }
+  .pp-check { width: 44px; height: 44px; border: 0; background: none; position: relative; }
+  .pp-check::before { content: ''; position: absolute; inset: 11px; border-radius: 50%; border: 1.5px solid var(--h-line-2); background: #fff; }
+  .pp-check .h-i { position: relative; }
+  .pp-task.is-done .pp-check { background: none; border-color: transparent; }
+  .pp-task.is-done .pp-check::before { background: var(--h-brand); border-color: var(--h-brand); }
+  .pp-remind { width: 44px; height: 44px; }
+  .pp-datechip { min-height: 44px; }
+  .pp-compose input[type=text], .pp-compose input[type=date], .pp-compose textarea, .pp-compose select,
+  .ad-form input[type='text'], .ad-form input[type='tel'], .ad-form input[type='email'], .ad-form select,
+  .ap-form input, .ap-form select, .rc-form input, .rc-form select { font-size: 16px; min-height: 44px; }
+  .pp-tabs button { min-height: 44px; }
+}

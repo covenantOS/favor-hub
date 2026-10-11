@@ -87,11 +87,11 @@ function open(rowId) {
     try {
       const out = await wc.post('/api/work/partner-add/matches', Object.assign(probe(), { live }));
       if (my !== seq && !live) return;
-      if (s !== sig()) return;
+      if (s !== sig()) { if (live && /^Checking/.test(st.status)) { st.status = ''; drawMatches(); } return; }
       st.matches = out.matches;
       if (live) { st.liveSig = s; st.liveCount++; }
       st.warn = false;
-      st.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These come from the hub\'s copy, which can be 12 hours old.' : 'Checking Blackbaud…';
+      st.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These come from the hub\'s copy, which can be 12 hours old.' : live ? '' : /^Checking/.test(st.status) ? st.status : '';
       st.warn = out.live === 'failed';
     } catch (e) { st.status = e.message; st.warn = true; }
     drawMatches();
