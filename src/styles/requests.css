@@ -2,7 +2,7 @@
 
 .make-kicker {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--green-deep);
@@ -108,7 +108,7 @@
 
 .make-where legend {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -135,7 +135,7 @@
   transform: translateY(-1px);
 }
 .make-where span { font-weight: 600; font-size: 14px; }
-.make-where small { font-size: 12px; color: var(--ink-soft); }
+.make-where small { font-size: 13px; color: var(--ink-soft); }
 
 .make-more {
   margin: 4px 0 14px;
@@ -197,7 +197,7 @@
 
 .make-step-label {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -233,7 +233,7 @@
 
 .make-pills legend {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -387,7 +387,7 @@
 
 .req-chip {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 6px 10px;
@@ -424,7 +424,7 @@
 
 .req-field span {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -576,7 +576,7 @@
 
 .req-col__head span {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
 }
 
@@ -629,7 +629,7 @@
   justify-content: space-between;
   gap: 8px;
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);

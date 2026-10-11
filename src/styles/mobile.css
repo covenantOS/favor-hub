@@ -47,14 +47,14 @@
 
   /* Menu drawer: area toggles are 44 px, text in the bar and search is 12 px or more. */
   .h-area__tog { width: 44px; height: 44px; }
-  .h-area__label, .h-search__t { font-size: 12px; }
-  .h-nav__count, .h-area__link .h-nav__count { font-size: 11px; font-weight: 700; }
+  .h-area__label, .h-search__t { font-size: 13px; }
+  .h-nav__count, .h-area__link .h-nav__count { font-size: 13px; font-weight: 700; }
 
   /* Admin people: the row actions are 44 px. */
   .h-page .ad-btn, #pp-table .ad-btn { min-height: 44px; }
 
   /* Lock buttons take the Sheets chip's size and shape. */
-  .h-page :is(#exp-lock, #fnd-lock, #rcp-lock, #req-lock) { min-height: 44px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #d3cdbd; background: #fff; color: #1d211b; font-size: 12.5px; font-weight: 600; }
+  .h-page :is(#exp-lock, #fnd-lock, #rcp-lock, #req-lock) { min-height: 44px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #d3cdbd; background: #fff; color: #1d211b; font-size: 13px; font-weight: 600; }
 
   /* Tab bar labels: 12 px minimum (they were 10.5 px). */
   body.h-body .h-bar__l { font-size: 12px; }
@@ -67,7 +67,7 @@
   .h-side__fb .h-i { width: 20px; height: 20px; }
 
   /* Meetings notes: the initials fit inside the circle, with less overlap so the next circle does not cover them. */
-  .dv-av { width: 28px; height: 28px; margin-left: -4px; font: 600 10px/1 var(--h-font); letter-spacing: -0.2px; padding: 0; overflow: visible; }
+  .dv-av { width: 28px; height: 28px; margin-left: -4px; font: 600 13px/1 var(--h-font); letter-spacing: -0.2px; padding: 0; overflow: visible; }
 }
 
 @media (max-width: 860px) {
@@ -106,7 +106,7 @@
   body.h-body .bc-root .bc-starter span:not(.bc-starter__i) { display: none; }
   body.h-body .bc-root .bc-starter b { font-size: 15px; }
   body.h-body .bc-root .bc-cando { margin-top: 12px; }
-  body.h-body .bc-root .bc-dock__in > :not(form) { font-size: 11.5px; margin-top: 4px; margin-bottom: 2px; }
+  body.h-body .bc-root .bc-dock__in > :not(form) { font-size: 13px; margin-top: 4px; margin-bottom: 2px; }
   /* The tab bar: native height, the home bar inset and no more. */
   body.h-body .h-navbar { padding-top: 2px; padding-bottom: env(safe-area-inset-bottom); }
   body.h-body .h-bar__a { min-height: 48px; padding: 2px; }

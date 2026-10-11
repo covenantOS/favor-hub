@@ -84,7 +84,7 @@ function ensureCss() {
   cssReady = true;
   const l = document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = '/js/clips/launcher.css?v=3';
+  l.href = '/js/clips/launcher.css?v=4';
   l.id = 'cr-css';
   document.head.appendChild(l);
 }
@@ -752,7 +752,7 @@ async function openPip(kind) {
   const win = await api2.requestWindow(size);
   const l = win.document.createElement('link');
   l.rel = 'stylesheet';
-  l.href = new URL('/js/clips/launcher.css?v=3', location.href).toString();
+  l.href = new URL('/js/clips/launcher.css?v=4', location.href).toString();
   win.document.head.appendChild(l);
   win.document.body.className = 'cr-pipbody';
   win.document.body.style.margin = '0';

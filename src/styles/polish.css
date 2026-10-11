@@ -20,7 +20,7 @@ body.h-body .cmdk__esc:hover { background: var(--r-sunk, #ebe8de); }
 body.h-body .cmdk__esc:focus-visible { outline: 2px solid var(--a, var(--h-brand)); outline-offset: 2px; }
 body.h-body .cmdk__list li[role='option'] { padding: 8px 12px; }
 body.h-body .cmdk__list li[role='option'] .cmdk__row-title { font-size: 16px; }
-body.h-body .cmdk__list li[role='option'] .cmdk__row-desc { font-size: 12.5px; color: var(--r-ink-2, #464c42); }
+body.h-body .cmdk__list li[role='option'] .cmdk__row-desc { font-size: 13px; color: var(--r-ink-2, #464c42); }
 body.h-body .cmdk__group { color: var(--r-ink-2, #464c42); }
 body.h-body .cmdk__foot { color: var(--r-ink-2, #464c42); }
 @media (max-width: 860px) {
@@ -89,7 +89,7 @@ body.h-body .cmdk__foot { color: var(--r-ink-2, #464c42); }
   #au-table tr { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px 14px; border-bottom: 1px solid var(--h-line, #e4e0d4); }
   #au-table tr:last-child { border-bottom: 0; }
   #au-table td { display: block; padding: 0; border: 0; min-width: 0; overflow-wrap: anywhere; }
-  #au-table td::before { content: attr(data-label); display: block; margin-bottom: 1px; font: 600 11px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--r-ink-2, #464c42); }
+  #au-table td::before { content: attr(data-label); display: block; margin-bottom: 1px; font: 600 13px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--r-ink-2, #464c42); }
   #au-table td[data-label='When'], #au-table td[data-label='Who'], #au-table td[data-label='Setting'], #au-table td[data-label='Note'] { grid-column: 1 / -1; }
   #au-table td:empty { display: none; }
   #au-table td.au-empty { grid-column: 1 / -1; }

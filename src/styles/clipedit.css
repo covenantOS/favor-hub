@@ -23,8 +23,8 @@
 .ce-menu button { display: flex; width: 100%; align-items: center; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font: 500 13.5px var(--h-font); color: var(--h-ink); cursor: pointer; text-align: left; }
 .ce-menu button:hover { background: var(--h-surface-2); }
 .ce-menu button span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ce-menu button em { font-style: normal; color: var(--h-ink-3); font-size: 12px; }
-.ce-menu p { margin: 6px 12px; font-size: 12.5px; color: var(--h-ink-3); }
+.ce-menu button em { font-style: normal; color: var(--h-ink-3); font-size: 13px; }
+.ce-menu p { margin: 6px 12px; font-size: 13px; color: var(--h-ink-3); }
 
 .ce-work { display: grid; grid-template-columns: minmax(0, 1fr) 360px 92px; gap: 14px; align-items: stretch; }
 .ce-stage { background: #14130f; border-radius: 16px; padding: 0; display: flex; flex-direction: column; justify-content: center; min-width: 0; overflow: hidden; }
@@ -53,15 +53,15 @@
 .ce-wordact[hidden] { display: none; }
 .ce-wbtn { pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: var(--h-ink); color: #fff; font: 600 14px var(--h-font); cursor: pointer; box-shadow: 0 10px 28px rgba(42, 39, 34, .35); }
 .ce-rail { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 4px; background: #fffdf9; border: 1px solid var(--h-line); border-radius: 16px; }
-.ce-rb { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 6px 4px; border: 0; background: none; border-radius: 12px; font: 500 12px/1.2 var(--h-font); color: var(--h-ink-2); text-align: center; cursor: pointer; }
+.ce-rb { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; padding: 6px 4px; border: 0; background: none; border-radius: 12px; font: 500 13px/1.2 var(--h-font); color: var(--h-ink-2); text-align: center; cursor: pointer; }
 .ce-rb[disabled] { opacity: .4; cursor: default; }
 .ce-rbi { position: relative; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: var(--h-surface-2); }
 .ce-rb[aria-pressed='true'] { color: var(--h-brand-ink); }
 .ce-rb[aria-pressed='true'] .ce-rbi { background: var(--h-leaf-soft); color: var(--h-brand); }
-.ce-rbi em { position: absolute; right: -5px; top: -5px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--h-brand); color: #fff; font: 700 11px var(--h-font); font-style: normal; }
+.ce-rbi em { position: absolute; right: -5px; top: -5px; min-width: 20px; height: 20px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--h-brand); color: #fff; font: 700 13px var(--h-font); font-style: normal; }
 .ce-levels { display: flex; flex-direction: column; gap: 4px; width: 100%; }
 .ce-levels[hidden] { display: none; }
-.ce-levels button { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border: 0; border-radius: 10px; background: var(--h-surface-2); font: 600 11.5px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.ce-levels button { display: flex; flex-direction: column; align-items: center; padding: 6px 2px; border: 0; border-radius: 10px; background: var(--h-surface-2); font: 600 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
 .ce-levels button small { font-weight: 400; opacity: .7; }
 .ce-levels button[aria-pressed='true'] { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
 
@@ -77,7 +77,7 @@
 .ce-tlbox { position: relative; overflow-x: auto; overflow-y: hidden; padding-bottom: 8px; touch-action: pan-x; }
 .ce-tlin { position: relative; min-width: 100%; }
 .ce-ruler { position: absolute; left: 0; right: 0; top: 0; height: 28px; }
-.ce-tick { position: absolute; top: 4px; transform: translateX(-30%); font: 500 12.5px var(--h-font); color: var(--h-ink-3); font-variant-numeric: tabular-nums; }
+.ce-tick { position: absolute; top: 4px; transform: translateX(-30%); font: 500 13px var(--h-font); color: var(--h-ink-3); font-variant-numeric: tabular-nums; }
 .ce-seg { position: absolute; top: 32px; overflow: hidden; border-radius: 16px; border: 2px solid rgba(90, 114, 80, .6); background: rgba(90, 114, 80, .1); }
 .ce-seg.is-on { border-color: var(--h-brand); background: rgba(90, 114, 80, .24); }
 .ce-seg canvas { display: block; margin: 2px; }
@@ -95,7 +95,7 @@
 .ce-tiptag em { font-style: normal; font-weight: 400; opacity: .7; }
 .ce-playhead { position: absolute; top: 20px; width: 2px; background: var(--h-red); z-index: 10; pointer-events: none; margin-left: -1px; }
 .ce-playhead i { position: absolute; left: -5px; top: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--h-red); }
-.ce-tip { margin: 0; padding: 0 14px 10px; font-size: 12.5px; color: var(--h-ink-3); }
+.ce-tip { margin: 0; padding: 0 14px 10px; font-size: 13px; color: var(--h-ink-3); }
 
 @media (max-width: 1100px) {
   .ce-work { grid-template-columns: minmax(0, 1fr) 320px; }

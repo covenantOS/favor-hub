@@ -122,7 +122,7 @@ button {
 
 .eyebrow {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -223,7 +223,7 @@ main {
 
 .brand__tag {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -277,7 +277,7 @@ main {
 
 .clock {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.1em;
   color: var(--ink-soft);
   display: flex;
@@ -312,7 +312,7 @@ main {
 
 .cmdk-trigger kbd {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.06em;
   background: var(--cream);
   border: 1px solid var(--rule);
@@ -350,7 +350,7 @@ main {
   place-items: center;
   background: var(--green-deep);
   color: #fff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -378,7 +378,7 @@ main {
   font-size: 13px;
 }
 
-.hub-user__who span { color: var(--ink-soft); opacity: 0.75; font-size: 12px; }
+.hub-user__who span { color: var(--ink-soft); opacity: 0.75; font-size: 13px; }
 
 .hub-user__out {
   width: 100%;
@@ -422,7 +422,7 @@ main {
 
 .hero__greeting {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -528,7 +528,7 @@ main {
 
 .ticker__label {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(250, 246, 236, 0.6);
@@ -597,7 +597,7 @@ main {
 
 .ticker__verse cite {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-style: normal;
@@ -643,7 +643,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .section-head .meta {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -783,7 +783,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .tile__num {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.18em;
   color: var(--ink-soft);
   transition: color 300ms, transform 400ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -862,7 +862,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .tile__lock {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ochre);
@@ -947,7 +947,7 @@ section.section:first-of-type { padding-top: 0; }
   border-radius: 999px;
   padding: 8px 14px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   display: flex;
@@ -989,7 +989,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .founder p.kicker {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -1028,7 +1028,7 @@ section.section:first-of-type { padding-top: 0; }
   justify-content: center;
   font-family: var(--display);
   color: var(--cream);
-  font-size: 9px;
+  font-size: 13px;
   text-align: center;
   padding: 8px;
   letter-spacing: 0.05em;
@@ -1193,7 +1193,7 @@ section.section:first-of-type { padding-top: 0; }
 }
 
 .rail .rail__sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ink-soft);
   margin-top: 4px;
 }
@@ -1237,7 +1237,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .site-footer h4 {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(250,246,236,0.5);
@@ -1282,7 +1282,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .badge {
   font-family: var(--mono);
-  font-size: 9px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   border: 1px solid rgba(250,246,236,0.18);
@@ -1301,7 +1301,7 @@ section.section:first-of-type { padding-top: 0; }
   justify-content: space-between;
   align-items: center;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(250,246,236,0.5);
@@ -1411,7 +1411,7 @@ section.section:first-of-type { padding-top: 0; }
 
 .gate__back {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-soft);

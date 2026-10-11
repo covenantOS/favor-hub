@@ -1,0 +1,41 @@
+/* Fix round 2026-10-11 (shell, Today, Clips, forms). Loaded last. Tap targets 44 px on touch, text 13 px minimum, 16 px text boxes on phones. */
+
+/* The hub is light only. A phone set to dark mode keeps the same page, form controls and scrollbars included. */
+:root { color-scheme: light; }
+
+/* Feedback sheet with the keyboard up: it takes the visible area (--vv-top, --vv-h from app-update.js) and Send stays pinned at its foot. */
+body.h-body.kb-open dialog.fb[open] { inset: var(--vv-top, 0px) 0 auto 0; margin: 6px auto; max-height: calc(var(--vv-h, 100%) - 12px); overflow-y: auto; overscroll-behavior: contain; }
+dialog.fb .fb-acts { position: sticky; bottom: 0; z-index: 1; background: #fbfaf6; padding-top: 8px; margin-top: 2px; }
+
+/* Rail: 13 px labels in a 100 px rail, the active tile a little wider to hold them. */
+html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__link::before { width: 86px; margin-left: -43px; }
+.h-area__link, .h-search, .h-nav__help { font-size: 13px; }
+.h-area__link .h-area__label { letter-spacing: -0.02em; }
+
+/* Tab rows: 13 px, 44 px on touch, and a fade where more tabs scroll off the edge. */
+.h-tab { font-size: 13px; }
+@media (pointer: coarse), (max-width: 860px) {
+  body.h-body .h-tab { min-height: 44px; }
+  body.h-body .h-skip { padding: 13px 14px; }
+}
+
+/* Touch: buttons and list controls reach 44 px. */
+@media (pointer: coarse) {
+  body.h-body .h-btn, body.h-body .h-btn--sm, body.h-body .h-more { min-height: 44px; }
+  .cl-switch { min-height: 44px; }
+  .cl-hit { min-height: 44px; align-items: center; }
+  .cl-name a { padding: 11px 0; }
+  body.h-body .h-tab { min-width: 44px; justify-content: center; }
+  summary.req-col__head { min-height: 44px; }
+  .cl-btns .h-btn { min-height: 44px; }
+}
+
+/* Foundations: the list pages in fifties. */
+.fnd-morerow td { padding: 12px; text-align: center; border: 0; }
+.fnd-morerow .h-more { width: 100%; max-width: 360px; margin: 0 auto; }
+.fnd-morerow .h-more span { color: var(--h-ink-3); font-weight: 500; margin-left: 6px; }
+.cl-switch input { inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.req-actions { scroll-margin-bottom: 110px; }
+@media (max-width: 860px) {
+  .fnd-tabs { overflow-x: auto; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); scrollbar-width: none; }
+}

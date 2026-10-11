@@ -9,7 +9,7 @@
 }
 .fnd-who span {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -68,7 +68,7 @@
 .fnd-check__box input::-webkit-search-cancel-button { display: none; }
 .fnd-check__clear {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 9px 12px;
@@ -80,7 +80,7 @@
 .fnd-check__clear:hover { border-color: var(--ink); color: var(--ink); }
 .fnd-check__hint {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -140,7 +140,7 @@
   z-index: 2;
 }
 .fnd-band .ticker__num { font-size: clamp(30px, 3.4vw, 44px); }
-.fnd-band .ticker__caption { font-size: 12px; margin-top: 6px; }
+.fnd-band .ticker__caption { font-size: 13px; margin-top: 6px; }
 
 /* --------------------------------------------------------------- tabs */
 
@@ -158,7 +158,7 @@
 .fnd-tabs button.is-on { background: var(--ink); color: var(--cream); border-color: var(--ink); }
 .fnd-tabs button span {
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 13px;
   letter-spacing: 0.08em;
   margin-left: 8px;
   opacity: 0.7;
@@ -169,7 +169,7 @@
 .fnd-sheet { padding: clamp(18px, 2.4vw, 28px); }
 .fnd-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 16px; }
 .fnd-filters button {
-  font: 500 12px/1 var(--body);
+  font: 500 13px/1 var(--body);
   padding: 7px 14px;
   border-radius: 999px;
   border: 1px solid var(--rule-strong);
@@ -177,24 +177,24 @@
   color: var(--ink-soft);
 }
 .fnd-filters button.on { background: var(--ink); border-color: var(--ink); color: var(--cream); }
-.fnd-filters button small { font-family: var(--mono); font-size: 10.5px; margin-left: 6px; opacity: 0.7; }
+.fnd-filters button small { font-family: var(--mono); font-size: 13px; margin-left: 6px; opacity: 0.7; }
 .fnd-filters select {
   margin-left: auto;
   border: 1px solid var(--rule-strong);
   border-radius: 999px;
   background: var(--bone);
   padding: 7px 12px;
-  font: 500 12px/1 var(--body);
+  font: 500 13px/1 var(--body);
   color: var(--ink);
 }
 
 .fnd-table td { padding: 13px 8px; font-size: 14.5px; }
 .fnd-table th:first-child, .fnd-table td:first-child { padding-left: 4px; }
 .fnd-name { font-weight: 600; display: block; line-height: 1.3; }
-.fnd-sub { display: block; font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+.fnd-sub { display: block; font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
 .fnd-table td.mono { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
 .fnd-table tr.exp-admin-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
-.fnd-table .fnd-flag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; color: var(--ochre); margin-left: 8px; white-space: nowrap; }
+.fnd-table .fnd-flag { font-family: var(--mono); font-size: 13px; letter-spacing: 0.06em; color: var(--ochre); margin-left: 8px; white-space: nowrap; }
 
 .fnd-pill-work { background: #fbf2dc; border: 1px solid #ecd9a8; color: #8a6410; }
 .fnd-pill-two { background: #faeee8; border: 1px solid #ecd2c4; color: var(--terracotta); }
@@ -229,7 +229,7 @@
 .fnd-bb b { font-weight: 600; }
 .fnd-bb__kicker {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 13px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -258,7 +258,7 @@
   padding: 9px 0;
   font-size: 13.5px;
 }
-.fnd-sug li span { color: var(--ink-soft); display: block; font-size: 12.5px; }
+.fnd-sug li span { color: var(--ink-soft); display: block; font-size: 13px; }
 .fnd-textbtn {
   background: none;
   border: none;
@@ -316,12 +316,12 @@
 .fnd-tl li.is-new { animation: cardIn 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .fnd-tl__head { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .fnd-tl__head b { font-weight: 600; font-size: 15px; }
-.fnd-tl__head span { font: 400 11px/1.3 var(--mono); color: var(--ink-soft); white-space: nowrap; }
+.fnd-tl__head span { font: 400 13px/1.3 var(--mono); color: var(--ink-soft); white-space: nowrap; }
 .fnd-tl p { font-size: 14.5px; line-height: 1.5; margin: 5px 0 8px; white-space: pre-wrap; word-break: break-word; max-width: 62ch; }
 .fnd-tl p.is-blank { color: var(--ink-soft); font-style: italic; }
 .fnd-tl__foot { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
 .fnd-tl__foot .fnd-textbtn { margin-left: auto; }
-.fnd-tl__err { font-size: 12.5px; color: var(--terracotta); margin-top: 6px; }
+.fnd-tl__err { font-size: 13px; color: var(--terracotta); margin-top: 6px; }
 
 /* ------------------------------------------------- cleanup and activity */
 
@@ -332,7 +332,7 @@
 .fnd-clean td:first-child, .fnd-clean th:first-child { padding-left: 4px; }
 .fnd-clean td.mono { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
 .fnd-clean .fnd-move { display: block; font-size: 13.5px; padding: 1px 0; }
-.fnd-clean .fnd-move span { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+.fnd-clean .fnd-move span { font-family: var(--mono); font-size: 13px; color: var(--ink-soft); }
 .fnd-state {
   display: flex;
   gap: 12px;
@@ -348,7 +348,7 @@
 .fnd-state.is-off .dot { background: var(--ochre); box-shadow: 0 0 0 4px rgba(216, 160, 34, 0.2); }
 .fnd-state .fnd-textbtn { margin-left: auto; }
 .fnd-verb {
-  font: 500 10.5px/1.5 var(--mono);
+  font: 500 13px/1.5 var(--mono);
   letter-spacing: 0.06em;
   border-radius: 6px;
   padding: 1px 7px;
@@ -399,7 +399,7 @@
   .fnd-table tr.exp-admin-row { border-top: 1px solid var(--rule); padding: 12px 2px; position: relative; }
   .fnd-table td { border: 0; padding: 0; }
   .fnd-table td.r { text-align: left; }
-  .fnd-table td:nth-child(2), .fnd-table td:nth-child(3), .fnd-table td:nth-child(4) { display: inline; font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+  .fnd-table td:nth-child(2), .fnd-table td:nth-child(3), .fnd-table td:nth-child(4) { display: inline; font-family: var(--mono); font-size: 13px; color: var(--ink-soft); }
   .fnd-table td:nth-child(2)::after { content: ' contacts · '; }
   .fnd-table td:nth-child(3)::after { content: ' · '; }
   .fnd-table td:nth-child(5) { margin-top: 8px; }

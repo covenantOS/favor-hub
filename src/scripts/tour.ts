@@ -449,7 +449,7 @@ function intro() {
   card(
     `<div class="tr-meta"><span>Help and what's new</span><button type="button" class="tr-x" data-tr-close aria-label="Close">&#x2715;</button></div>
      <h3 id="tr-title">${hi} Let me show you around.</h3>
-     <p>This tour is set up for ${esc(roleName(who))}: ${steps.length} stops, about two minutes. I'll move the pointer, open things and type examples for you. Nothing gets sent or changed.</p>
+     <p>Tour for ${esc(roleName(who))}: ${steps.length} stops, about two minutes. The pointer moves, opens things and types examples. Nothing is sent or changed.</p>
      ${newCount ? `<p class="tr-new"><em class="h-new">New</em> ${newCount} new ${newCount === 1 ? 'thing' : 'things'} since you last looked.</p>` : ''}
      ${preview}
      <div class="tr-acts tr-acts--intro">
@@ -550,7 +550,7 @@ function wire() {
     who = whoFrom(await hub(), as);
     steps = stepsFor(who, 'full', seenAtStart);
     const p = pop.querySelector('p');
-    if (p) p.textContent = `This tour is set up for ${roleName(who)}: ${steps.length} stops, about two minutes. I'll move the pointer, open things and type examples for you. Nothing gets sent or changed.`;
+    if (p) p.textContent = `Tour for ${roleName(who)}: ${steps.length} stops, about two minutes. The pointer moves, opens things and types examples. Nothing is sent or changed.`;
   });
 }
 

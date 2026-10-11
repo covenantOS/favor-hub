@@ -212,6 +212,7 @@
       </select>`;
     $('fnd-sort').addEventListener('change', (e) => {
       state.sort = e.target.value;
+      shown = PAGE;
       renderRows();
     });
   }
@@ -220,6 +221,7 @@
     const b = e.target.closest('[data-filter]');
     if (!b) return;
     state.filter = b.dataset.filter;
+    shown = PAGE;
     renderFilters();
     renderRows();
   });
@@ -231,8 +233,11 @@
     return rows;
   }
 
+  const PAGE = 50;
+  let shown = PAGE;
   function renderRows() {
-    const rows = visibleRows();
+    const all = visibleRows();
+    const rows = all.slice(0, shown);
     $('fnd-rows').innerHTML = rows.length
       ? rows
           .map(
@@ -244,9 +249,17 @@
               <td>${pill(f)}${Number(f.waiting) ? `<span class="fnd-flag">${f.waiting} waiting</span>` : ''}</td>
             </tr>`
           )
-          .join('')
+          .join('') + (all.length > rows.length
+            ? `<tr class="fnd-morerow"><td colspan="5"><button type="button" class="h-more" id="fnd-more">Show ${Math.min(PAGE, all.length - rows.length)} more <span>${all.length - rows.length} left of ${all.length}</span></button></td></tr>`
+            : '')
       : `<tr><td colspan="5" class="fnd-empty">Nothing here yet.</td></tr>`;
   }
+  $('fnd-rows').addEventListener('click', (e) => {
+    if (!e.target.closest('#fnd-more')) return;
+    e.stopPropagation();
+    shown += PAGE;
+    renderRows();
+  }, true);
 
   // Open in Google Sheets: the rows the list shows now, in the order shown.
   if (window.FavorSheets) {

@@ -4,7 +4,7 @@
    Phone: a bottom bar with up to five areas and More. Colors come from the live tokens in color.css
    and elevate.css, so a later look swap changes nothing here. Loaded last. */
 
-.h-app { position: relative; --h-side: 92px; --h-rail: 92px; --h-full: 264px; }
+.h-app { position: relative; --h-side: 100px; --h-rail: 100px; --h-full: 264px; }
 html.nav-wide .h-app { --h-side: var(--h-full); }
 .h-main { grid-column: 2; }
 .h-area[hidden], .h-pg[hidden], .h-tabs[hidden], .h-bar__a[hidden], .h-pins[hidden], .h-side__foot[hidden] { display: none !important; }
@@ -38,7 +38,7 @@ html.nav-wide .h-app { --h-side: var(--h-full); }
 
 .h-search {
   flex-direction: column; justify-content: center; gap: 3px; width: 100%; min-height: 54px; padding: 8px 4px; margin: 0 0 8px;
-  border-radius: 14px; font-size: 11px; font-weight: 600; text-align: center;
+  border-radius: 14px; font-size: 13px; font-weight: 600; text-align: center;
 }
 .h-search kbd { display: none; }
 .h-search .h-i { width: 20px; height: 20px; }
@@ -48,13 +48,13 @@ html.nav-wide .h-app { --h-side: var(--h-full); }
 .h-area { position: relative; }
 .h-area__link {
   flex-direction: column; justify-content: center; gap: 3px; width: 100%; min-height: 56px; padding: 8px 1px; margin: 0;
-  border-radius: 14px; text-align: center; font-size: 10.5px; letter-spacing: -0.01em; font-weight: 600; line-height: 1.15; color: var(--h-ink-2); text-decoration: none;
+  border-radius: 14px; text-align: center; font-size: 13px; letter-spacing: -0.02em; font-weight: 600; line-height: 1.15; color: var(--h-ink-2); text-decoration: none;
   --ic: var(--h-ink-3); --ic-ink: var(--h-brand-ink);
 }
 .h-area__link .h-i { width: 21px; height: 21px; color: var(--ic); }
 .h-area__link .h-beta { display: none; }
 .h-area__label { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.h-area__link .h-nav__count { position: absolute; top: 3px; right: 10px; margin: 0; min-width: 18px; text-align: center; padding: 1px 5px; font-size: 10.5px; background: var(--ic-ink); color: #fff; }
+.h-area__link .h-nav__count { position: absolute; top: 3px; right: 10px; margin: 0; min-width: 18px; text-align: center; padding: 1px 5px; font-size: 13px; background: var(--ic-ink); color: #fff; }
 .h-area__link .h-nav__count--warn { background: var(--h-gold); color: #3a2a06; }
 .h-area.is-cur > .h-area__link { background: var(--h-leaf-soft); color: var(--h-brand-ink); font-weight: 700; }
 .h-area__link:hover { background: color-mix(in srgb, var(--h-leaf-soft) 70%, transparent); color: var(--h-ink); }
@@ -70,7 +70,7 @@ html.nav-wide .h-app { --h-side: var(--h-full); }
 .h-area[data-area] > .h-area__link .h-i { color: var(--ic); }
 
 .h-area__tog, .h-area__pages, .h-pins, .h-search__t + kbd { display: none; }
-.h-nav__help { flex-direction: column; justify-content: center; gap: 3px; min-height: 52px; margin-top: 4px; padding: 8px 4px; border-radius: 14px; font-size: 11px; font-weight: 600; text-align: center; }
+.h-nav__help { flex-direction: column; justify-content: center; gap: 3px; min-height: 52px; margin-top: 4px; padding: 8px 4px; border-radius: 14px; font-size: 13px; font-weight: 600; text-align: center; }
 .h-nav__help .h-i { width: 20px; height: 20px; }
 .h-help__full { display: none; }
 .h-nav__help { position: relative; }
@@ -110,7 +110,7 @@ html.nav-wide .h-search .h-i, .h-app.is-peek .h-search .h-i, .h-app.is-nav .h-se
 html.nav-wide .h-pins:not([hidden]), .h-app.is-peek .h-pins:not([hidden]), .h-app.is-nav .h-pins:not([hidden]) { display: block; margin-bottom: 4px; }
 .h-pinrow { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; color: var(--h-ink-2); text-decoration: none; }
 .h-pinrow span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.h-pinrow em { font-style: normal; font-size: 11px; color: var(--h-ink-3); }
+.h-pinrow em { font-style: normal; font-size: 13px; color: var(--h-ink-3); }
 .h-pinrow.is-on { background: var(--h-leaf-soft); color: var(--h-brand-ink); font-weight: 600; }
 .h-pinrow:hover { background: color-mix(in srgb, var(--h-leaf-soft) 70%, transparent); }
 .h-pins .h-nav__label { padding: 8px 12px 4px; }
@@ -177,7 +177,7 @@ html.nav-wide .h-area--pop .h-pg__a, .h-app.is-peek .h-area--pop .h-pg__a, .h-ap
 }
 .h-tab:hover { color: var(--h-ink); }
 .h-tab.is-on { color: var(--h-ink); border-bottom-color: var(--h-brand); }
-.h-tab .h-nav__count { margin: 0; padding: 0 7px; font-size: 11px; background: var(--h-leaf-soft); color: var(--h-brand-ink); }
+.h-tab .h-nav__count { margin: 0; padding: 0 7px; font-size: 13px; background: var(--h-leaf-soft); color: var(--h-brand-ink); }
 .h-tab .h-nav__count--warn { background: var(--h-gold); color: #3a2a06; }
 .h-app.is-room .h-tabs { display: none; }
 body.h-body[data-nav='brain'] .h-tabs { flex: none; }
@@ -208,13 +208,13 @@ body.h-body[data-nav='brain'] .h-tabs { flex: none; }
   .h-app.is-room .h-navbar { display: none; }
   .h-bar__a {
     flex: 1 1 0; min-width: 0; min-height: 52px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px 2px;
-    border: 0; background: none; border-radius: 12px; font: 600 10.5px var(--h-font); color: var(--h-ink-3); text-decoration: none; cursor: pointer;
+    border: 0; background: none; border-radius: 12px; font: 600 13px var(--h-font); color: var(--h-ink-3); text-decoration: none; cursor: pointer;
   }
   .h-bar__i { position: relative; display: grid; place-items: center; width: 44px; height: 28px; border-radius: 999px; transition: background 0.2s ease; }
   .h-bar__i .h-i { width: 22px; height: 22px; }
   .h-bar__a.is-on { color: var(--h-brand-ink); }
   .h-bar__a.is-on .h-bar__i { background: var(--h-leaf-soft); }
-  .h-bar__n { position: absolute; top: -2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--h-brand); color: #fff; font: 700 10px/16px var(--h-font); font-style: normal; text-align: center; }
+  .h-bar__n { position: absolute; top: -2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--h-brand); color: #fff; font: 700 11px/16px var(--h-font); font-style: normal; text-align: center; }
   .h-bar__n.h-nav__count--warn { background: var(--h-gold); color: #3a2a06; }
   body.h-body[data-nav='brain'] .h-app { height: calc(100dvh - 60px - env(safe-area-inset-bottom)); }
   .h-area--pop .h-area__pages { position: static; }

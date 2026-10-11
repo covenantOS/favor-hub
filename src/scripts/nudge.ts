@@ -107,14 +107,23 @@ function check() {
   if (due.length && !toastEl) show(due[0], minutesLeft(due[0].startMs, now));
 }
 
-/** On the Meetings pages only: one quiet link that asks for system notifications. It sits inside the page's first card, or in the header when the page has none, and goes away after any answer. */
+/** On the Meetings pages only: one quiet link that asks for system notifications. It sits above the page content, outside every card, or in the header when the page has none, and goes away after any answer. */
 const CARD = '#h-content .mt-card, #h-content .h-card:not(.h-skel), #h-content .dv-card:not(.dv-skel)';
+function anchorOf(): HTMLElement | null {
+  const card = document.querySelector<HTMLElement>(CARD);
+  if (!card) return null;
+  return card.closest<HTMLElement>('#h-content > *') || card;
+}
 function place(link: HTMLElement): void {
-  const host = document.querySelector<HTMLElement>(CARD) || document.querySelector<HTMLElement>('.h-top');
-  if (!host) return;
-  if (link.parentElement === host && (host.matches('.h-top') || host.firstElementChild === link)) return;
-  // At the top of the first card, so it shows without scrolling; in the header when the page has no card.
-  if (host.matches('.h-top')) host.appendChild(link); else host.prepend(link);
+  const anchor = anchorOf();
+  if (anchor) {
+    if (anchor.previousElementSibling === link) return;
+    anchor.before(link);
+    return;
+  }
+  const head = document.querySelector<HTMLElement>('.h-top');
+  if (!head || link.parentElement === head) return;
+  head.appendChild(link);
 }
 
 function askLink() {
@@ -144,7 +153,7 @@ function askLink() {
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
-      if (!document.body.contains(p) || !(document.querySelector(CARD) || document.querySelector('.h-top'))?.contains(p)) place(p);
+      if (!document.body.contains(p) || (anchorOf() ? anchorOf()!.previousElementSibling !== p : p.parentElement?.id !== 'h-content' && !p.parentElement?.matches('.h-top'))) place(p);
     });
   });
   const root = document.getElementById('h-content');

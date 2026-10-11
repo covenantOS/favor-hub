@@ -35,7 +35,7 @@
 /* Gate controls (name, Lock) sit on one row and stay out of the way. */
 .board-intro__actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .board-intro__actions .fnd-who { display: grid; gap: 4px; }
-.board-intro__actions .fnd-who span { font: 600 11.5px var(--h-font); color: var(--h-ink-3); }
+.board-intro__actions .fnd-who span { font: 600 13px var(--h-font); color: var(--h-ink-3); }
 
 /* Touch: every tap target is at least 40px and a row action never leaves the card. */
 @media (pointer: coarse), (max-width: 860px) {
@@ -59,7 +59,7 @@
 .wc-sheet[aria-busy="true"]::after { content: 'Loading'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 600 13px var(--h-font); color: var(--h-ink-3); }
 
 /* Requests: the hint is one short line, not a bold paragraph. */
-.board-hint { font-weight: 500; font-size: 12.5px; color: var(--h-ink-3); }
+.board-hint { font-weight: 500; font-size: 13px; color: var(--h-ink-3); }
 
 /* My partners: the 12 month trend stays on one line. */
 .wm-c-12 small { white-space: nowrap; }
