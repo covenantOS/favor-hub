@@ -454,3 +454,16 @@ body.meet-guest .h-app.is-room .h-page { flex: 1; min-height: 0; padding: 10px 1
 .mt-guestlink { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; width: 100%; margin-top: 4px; }
 .mt-guestlink input { min-width: 0; height: 34px; border: 1px solid var(--h-line); border-radius: 8px; padding: 0 10px; font: 13px var(--h-font); color: var(--h-ink); background: #fff; }
 .mt-ended .nudge-ask { margin: 4px 0 0; }
+/* 2026-10-10: in a room the hidden menu keeps no column, so the meeting uses the full width. */
+body:not(.meet-guest) .h-app.is-room { grid-template-columns: minmax(0, 1fr) !important; grid-template-areas: none !important; }
+body:not(.meet-guest) .h-app.is-room > .h-main { grid-column: 1 / -1 !important; grid-row: 1 / -1 !important; }
+/* 2026-10-10: on a phone the room fills the screen for guests too, the page never scrolls behind it, and text boxes are
+   16px so Safari does not zoom when someone taps into chat. */
+@media (max-width: 860px) {
+  body.meet-guest .h-app.is-room { position: fixed !important; inset: 0; z-index: 20; margin: 0; border: 0; border-radius: 0; height: 100dvh; }
+  body.meet-guest .h-app.is-room .h-page { padding: 0 !important; max-width: none; }
+  html:has(.h-app.is-room), html:has(.h-app.is-room) body { overflow: hidden; overscroll-behavior: none; }
+  .h-app.is-room input, .h-app.is-room textarea, .h-app.is-room select { font-size: 16px !important; }
+  .h-app.is-room .rm-stage { border-radius: 0; }
+  .h-app.is-room .rm-ctl { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+}

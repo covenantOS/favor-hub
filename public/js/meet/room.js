@@ -1023,3 +1023,27 @@ function paintBrainTile(grid, i) {
   }
   if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
 }
+
+// Phones pause call audio, and iOS can end the microphone, when someone takes a screenshot, gets a call or leaves the
+// app for a moment. Coming back (or any tap) restarts playback and reopens the microphone on the same connection.
+let reviving = false;
+async function revive() {
+  if (reviving || !rtc || !S.me || !S.me.pid) return;
+  reviving = true;
+  try {
+    $$('audio[id^="a-"]').forEach((a) => { if (a.paused && a.srcObject) a.play().catch(() => {}); });
+    $$('#rm-grid video').forEach((v) => { if (v.paused && v.srcObject) v.play().catch(() => {}); });
+    if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+    if (local.mic && local.mic.readyState === 'ended') {
+      const ns = await navigator.mediaDevices.getUserMedia({ audio: S.micId ? { deviceId: { ideal: S.micId } } : true });
+      const t = ns.getAudioTracks()[0];
+      t.enabled = S.mic; local.mic = t; analyser = null; try { actx && actx.close(); } catch {} actx = null;
+      await rtc.replace('a', t);
+    }
+  } catch {} finally { reviving = false; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') revive(); });
+window.addEventListener('pageshow', revive);
+window.addEventListener('focus', revive);
+document.addEventListener('touchend', revive, { passive: true });
+setInterval(revive, 3000);
