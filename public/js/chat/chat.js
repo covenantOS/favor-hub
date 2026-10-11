@@ -102,7 +102,7 @@
   function blocks(list, m) {
     var B = window.BrainBlocks;
     if (!B || !B.render) return '';
-    var h = list.map(function (b, i) { try { return B.render(b, { ti: 0, bi: i, canSheets: false, expired: true }); } catch (e) { return ''; } }).join('');
+    var h = list.map(function (b, i) { try { return B.render(b, { ti: 0, bi: i, canSheets: false }); } catch (e) { return ''; } }).join('');
     var follow = (m && m.brain && m.brain.follow) || [];
     if (follow.length) h += '<div class="ch-ans__chips">' + follow.map(function (q) { return '<button type="button" class="ch-chip" data-act="chip" data-q="' + String(q).replace(/"/g, '&quot;') + '">' + String(q).replace(/</g, '&lt;') + '</button>'; }).join('') + '</div>';
     return '<div class="bc-root">' + h + '</div>';

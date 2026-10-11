@@ -455,6 +455,7 @@ export interface InboxItem {
   channel_kind: Kind;
   thread_id: number | null;
   from: string;
+  from_name: string;
   body: string;
   kind: string;
   at: string;
@@ -464,8 +465,8 @@ export async function inbox(env: ChatEnv, email: string): Promise<{ count: numbe
   const me = lower(email);
   const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions WHERE email = ? AND read_at IS NULL').bind(me).first<{ n: number }>();
   const rows = await env.DB.prepare(
-    `SELECT m.id, m.channel_id, c.name AS channel_name, c.kind AS channel_kind, m.thread_id, m.email AS "from", m.body, n.kind, n.created_at AS at
-       FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id
+    `SELECT m.id, m.channel_id, c.name AS channel_name, c.kind AS channel_kind, m.thread_id, m.email AS "from", COALESCE(u.name, '') AS from_name, m.body, n.kind, n.created_at AS at
+       FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id LEFT JOIN hub_users u ON u.email = m.email
       WHERE n.email = ? AND n.read_at IS NULL ORDER BY n.created_at DESC LIMIT 20`
   ).bind(me).all<InboxItem>();
   return { count: c?.n || 0, items: rows.results || [] };

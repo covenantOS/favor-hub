@@ -193,7 +193,7 @@
       var meta = o.cont ? '' : '<div class="ch-msg__meta"><span class="ch-msg__name">' + esc(u.name) + '</span>' + (brain ? '<span class="ch-tag">Brain</span>' : m.user_id === 'meetings' ? '<span class="ch-tag" style="background:var(--tc-teal-tint);color:var(--tc-teal-ink)">Meeting</span>' : '') + '<span class="ch-msg__time">' + esc(timeOf(m.created_at)) + '</span></div>';
       var text;
       if (m.deleted) text = '<div class="ch-msg__text ch-msg__deleted">This message was deleted.</div>';
-      else if (S.editing === m.id) text = '<div class="ch-edit"><textarea class="ch-input" data-edit="' + m.id + '" rows="2" style="height:auto;padding:8px 12px">' + esc(m.body) + '</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="ch-btn ch-btn--sm ch-btn--primary" data-act="edit-save" data-id="' + m.id + '">Save</button><button class="ch-btn ch-btn--sm" data-act="edit-cancel">Cancel</button></div></div>';
+      else if (S.editing === m.id) text = '<div class="ch-edit"><textarea class="ch-input" data-edit="' + m.id + '" rows="2" style="height:auto;padding:8px 12px">' + esc(S.editDraft != null && S.editDraftId === m.id ? S.editDraft : m.body) + '</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="ch-btn ch-btn--sm ch-btn--primary" data-act="edit-save" data-id="' + m.id + '">Save</button><button class="ch-btn ch-btn--sm" data-act="edit-cancel">Cancel</button></div></div>';
       else text = (m.body ? '<div class="ch-msg__text">' + fmtBody(m.body) + (m.edited_at ? '<span class="ch-msg__edited">(edited)</span>' : '') + '</div>' : '');
       var cards = '';
       if (!m.deleted && m.attachments && m.attachments.length) cards = '<div class="ch-cards">' + m.attachments.map(cardHtml).join('') + '</div>';
@@ -306,12 +306,15 @@
         var head = '<div class="ch-right__head"><button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to the channel">' + ic('back') + '</button><div><b>Thread</b><small>' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</small></div><button type="button" class="ch-iconbtn" data-act="close-right" aria-label="Close the thread">' + ic('x') + '</button></div>';
         var body = !t ? '<div class="ch-skel"><i style="width:60%"></i><i style="width:85%"></i></div>' :
           msgHtml(t.root, { inThread: true }) + (t.replies.length ? '<div class="ch-thread__n">' + plural(t.replies.length, 'reply', 'replies') + '</div>' : '') + listHtml(t.replies, { inThread: true });
-        el.innerHTML = head + '<div class="ch-thread__body">' + body + '</div><div class="ch-typing"></div>' + composerHtml('thread', 'Reply');
+        var keep = el.dataset.mode === 'thread' && el.dataset.root === String(S.threadRoot) && $('.ch-comp', el);
+        if (keep) { $('.ch-thread__body', el).innerHTML = body; }
+        else { el.innerHTML = head + '<div class="ch-thread__body">' + body + '</div><div class="ch-typing"></div>' + composerHtml('thread', 'Reply'); el.dataset.mode = 'thread'; el.dataset.root = String(S.threadRoot); }
         var tb = $('.ch-thread__body', el);
         if (S.threadSeen === S.threadRoot && S.threadScroll != null) tb.scrollTop = S.threadScroll.bottom ? tb.scrollHeight : S.threadScroll.top; else tb.scrollTop = 0;
         S.threadSeen = S.threadRoot;
-        syncSend('thread'); renderPending('thread');
+        syncSend('thread'); if (!keep) renderPending('thread');
       } else {
+        el.dataset.mode = 'details'; el.dataset.root = '';
         var members = (c.members || []).map(function (id) { return user(id); });
         var tabs = '<div class="ch-tabs" role="tablist">' + [['about', 'About'], ['members', 'Members ' + members.length], ['files', 'Files']].map(function (x) { return '<button type="button" role="tab" data-act="tab" data-tab="' + x[0] + '" class="' + (S.tab === x[0] ? 'is-on' : '') + '" aria-selected="' + (S.tab === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>';
         var det = '';
@@ -351,7 +354,8 @@
       o = o || {};
       if (!chan(id)) return;
       var changed = S.active !== id;
-      S.active = id; if (changed) { S.right = S.right === 'details' ? 'details' : 'none'; S.threadRoot = null; S.editing = null; }
+      S.active = id; try { localStorage.setItem('favor.chat.last', id); } catch (e) { /* private mode */ }
+      if (changed) { S.right = S.right === 'details' ? 'details' : 'none'; S.threadRoot = null; S.editing = null; }
       if (opts.onOpen) opts.onOpen(id);
       var c = chan(id);
       S.lastRead[id] = c.last_read != null ? c.last_read : S.lastRead[id];
@@ -377,6 +381,7 @@
     }
     function totalUnread() { var n = 0, m = 0; Object.keys(S.channels).forEach(function (k) { var c = S.channels[k]; if (c.joined === false || c.muted) return; n += c.unread > 0 ? 1 : 0; m += c.mentions || 0; }); return { channels: n, mentions: m }; }
     function openThread(id) {
+      id = Number(id);
       S.right = 'thread'; S.threadRoot = id; S.editing = null;
       var found = (S.msgs[S.active] || []).filter(function (m) { return String(m.id) === String(id); })[0];
       if (found && !S.threads[id]) S.threads[id] = { root: found, replies: [] };
@@ -434,7 +439,7 @@
       guard(api.send(S.active, { body: body, thread_id: thread, attachments: att })).then(function (m) { addMessage(m, true); }).catch(function () { ta.value = raw; grow(ta); syncSend(scope); });
     }
     function addMessage(m, mine) {
-      var ch = chan(m.channel_id); if (!ch) return;
+      var ch = chan(m.channel_id); if (!ch) { resync(); return; }
       ch.last_at = m.created_at;
       if (m.thread_id) {
         var root = (S.msgs[m.channel_id] || []).filter(function (x) { return String(x.id) === String(m.thread_id); })[0];
@@ -654,6 +659,8 @@
       else if (ev.type === 'resync') { resync(); }
     }
     function resync() {
+      if (S.resyncing) return;
+      S.resyncing = true;
       api.boot().then(function (b) {
         S.users = Object.assign(S.users, b.users || {});
         (b.channels || []).forEach(function (c) { var prev = S.channels[c.id]; var keep = prev && c.id === S.active ? { unread: 0, mentions: 0 } : {}; S.channels[c.id] = Object.assign(prev || {}, c, keep); });
@@ -662,7 +669,7 @@
         if (id) api.history(id).then(function (r) { if (S.active !== id) return; S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; renderMsgs(false); markRead(); });
         if (S.right === 'thread' && S.threadRoot) api.thread(S.threadRoot).then(function (t) { S.threads[S.threadRoot] = t; renderRight(); });
         if (opts.onUnread) opts.onUnread(totalUnread());
-      }).catch(function () {});
+      }).catch(function () {}).then(function () { S.resyncing = false; });
     }
     function setConn(ok) {
       S.connected = ok; var el = $('.ch-conn', root);
@@ -708,7 +715,7 @@
       else if (act === 'hit') jumpTo(S.search.items[+el.dataset.i]);
       else if (act === 'react') { guard(api.react(id, el.dataset.e)).then(function (r) { var m = findMsg(id); if (m && r && r.reactions) { m.reactions = r.reactions; patchMessage(m); } }); }
       else if (act === 'react-pick') { emojiPicker(el, function (em) { guard(api.react(id, em)).then(function (r) { var m = findMsg(id); if (m && r && r.reactions) { m.reactions = r.reactions; patchMessage(m); } }); }); }
-      else if (act === 'edit') { S.editing = Number(id) || id; renderMsgs(false); if (S.right === 'thread') renderRight(); var ed = $('[data-edit]', root); if (ed) { ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); } }
+      else if (act === 'edit') { S.editing = Number(id) || id; S.editDraft = null; renderMsgs(false); if (S.right === 'thread') renderRight(); var ed = $('[data-edit]', root); if (ed) { ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); } }
       else if (act === 'edit-cancel') { S.editing = null; renderMsgs(false); if (S.right === 'thread') renderRight(); }
       else if (act === 'edit-save') { var ta2 = $('[data-edit="' + id + '"]', root); var v = tokenize('main', ta2.value).trim(); if (!v) return; S.editing = null; guard(api.edit(id, v)).then(function (m) { patchMessage(m); }); }
       else if (act === 'del') {
@@ -753,6 +760,8 @@
         grow(ta); syncSend(ta.dataset.ta); updateMention(ta);
         if (Date.now() - typingSent > 3000 && ta.value) { typingSent = Date.now(); api.typing(S.active); }
       }
+      var ed = e.target.closest('[data-edit]');
+      if (ed) { S.editDraft = ed.value; S.editDraftId = Number(ed.dataset.edit); }
       var tp = e.target.closest('[data-topic]');
       if (tp) { clearTimeout(tp._t); tp._t = setTimeout(function () { api.setTopic(S.active, tp.value.trim()).then(function () { chan(S.active).topic = tp.value.trim(); renderHead(); }); }, 700); }
     });
@@ -789,12 +798,16 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) markRead(); });
     window.addEventListener('focus', markRead);
     window.addEventListener('resize', measure);
+    // The hub reloads the page on any popstate it does not own. Chat's screens (list, channel, thread) own theirs, so this listener
+    // runs first (capture, at the window) and keeps the hub out of it while a channel or thread is open.
     window.addEventListener('popstate', function (e) {
-      if (!root.isConnected) return;
+      if (!root.isConnected || S.view === 'list') return;
+      e.stopImmediatePropagation();
       var v = e.state && e.state.chv;
-      if (!v) { if (S.view !== 'list') { S.right = 'none'; setView('list'); renderRight(); } return; }
-      if (v === 'channel') { S.right = 'none'; S.threadRoot = null; setView('channel'); renderRight(); }
-    });
+      if (v === 'thread' && S.threadRoot) { setView('thread'); return; }
+      if (v === 'channel') { S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('channel'); renderRight(); renderHead(); return; }
+      S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('list'); renderRight();
+    }, true);
     setInterval(function () { if (root.isConnected) renderTyping(); }, 2000);
 
     function focusMessage(id) {
@@ -816,7 +829,10 @@
       S.me = b.me; S.users = b.users || {}; S.users[S.me.id] = Object.assign({}, S.users[S.me.id] || {}, S.me);
       (b.channels || []).forEach(function (c) { S.channels[c.id] = c; });
       renderSide();
-      var first = (opts.initial && chan(opts.initial) && opts.initial) || (sortedChannels().chans[0] || sortedChannels().dms[0] || {}).id;
+      var saved = null;
+      try { saved = localStorage.getItem('favor.chat.last'); } catch (e) { /* private mode */ }
+      var gen = sortedChannels().chans.filter(function (c) { return c.name === 'general'; })[0];
+      var first = (opts.initial && chan(opts.initial) && opts.initial) || (saved && chan(saved) && chan(saved).joined !== false && saved) || (gen && gen.id) || (sortedChannels().chans[0] || sortedChannels().dms[0] || {}).id;
       setView(isPhone() ? 'list' : 'channel');
       if (first) { if (isPhone() && !opts.initial) { S.active = first; renderHead(); } else openChannel(first, { pop: true }); }
       if (opts.onUnread) opts.onUnread(totalUnread());

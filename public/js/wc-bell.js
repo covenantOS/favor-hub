@@ -122,7 +122,7 @@ async function refresh() {
   if (chatOn()) { try { const d = await api('/api/chat/inbox'); CH.count = d.count || 0; CH.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no chat */ } }
 }
 const chatLine = (it) => {
-  const who = it.from === 'brain' ? 'Favor Brain' : it.from === 'meetings' ? 'Favor Meetings' : String(it.from || '').split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const who = it.from === 'brain' ? 'Favor Brain' : it.from === 'meetings' ? 'Favor Meetings' : it.from_name ? it.from_name : String(it.from || '').split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const where = it.channel_kind === 'public' || it.channel_kind === 'private' ? '#' + it.channel_name : 'direct message';
   const txt = String(it.body || '').replace(/<@([^>]+)>/g, (_a, id) => '@' + (id === 'brain' ? 'Favor Brain' : id.split('@')[0])).replace(/\s+/g, ' ').slice(0, 110);
   return { head: it.kind === 'dm' ? who + ' sent you a message' : it.kind === 'reply' ? who + ' replied in a thread' : who + ' mentioned you', where, txt, href: '/chat/?c=' + encodeURIComponent(it.channel_id) + '&m=' + it.id + (it.thread_id ? '&t=' + it.thread_id : '') };

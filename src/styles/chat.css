@@ -23,6 +23,9 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
 .ch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .ch [hidden] { display: none !important; }
 .ch > .ch-gate { grid-column: 1 / -1; }
+.ch textarea:focus-visible, .ch-search__in input:focus-visible, .ch-edit textarea:focus-visible { outline: none; }
+.ch-search__in:focus-within { box-shadow: inset 0 -2px 0 var(--a); }
+.ch-ans .blk-text { margin: 0; }
 .ch-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ------------------------------------------------------------ avatars */
@@ -385,8 +388,8 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
   .ch-jump kbd { display: none; }
   .ch-row { min-height: 48px; font-size: 15.5px; border-radius: 12px; }
   .ch-row__ic { width: 24px; }
-  .ch-sec__h { height: 34px; }
-  .ch-sec__h .ch-iconbtn { width: 36px; height: 36px; }
+  .ch-sec__h { height: 44px; }
+  .ch-sec__h .ch-iconbtn { width: 44px; height: 44px; }
   .ch-back { display: grid; margin-left: -8px; }
   .ch-head { padding: 6px 8px 6px 12px; min-height: 56px; gap: 4px; }
   .ch-head__name { font-size: 16px; }
@@ -402,7 +405,8 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
   .ch-bar { display: none !important; }
   .ch-msg.is-actions .ch-bar { display: flex !important; top: -22px; right: 12px; }
   .ch-bar button { width: 44px; height: 44px; }
-  .ch-rx { height: 36px; padding: 0 12px; font-size: 14px; }
+  .ch-rx { height: 36px; padding: 0 12px; font-size: 14px; position: relative; }
+  .ch-rx::before { content: ''; position: absolute; inset: -4px -2px; }
   .ch-rx--add { width: 36px; opacity: 1; }
   .ch-replies { min-height: 44px; }
   .ch-day { margin: 12px 14px 4px; }
