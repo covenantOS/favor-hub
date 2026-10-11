@@ -60,3 +60,6 @@
 
 /* Requests: the hint is one short line, not a bold paragraph. */
 .board-hint { font-weight: 500; font-size: 12.5px; color: var(--h-ink-3); }
+
+/* My partners: the 12 month trend stays on one line. */
+.wm-c-12 small { white-space: nowrap; }
