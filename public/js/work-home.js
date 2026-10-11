@@ -104,7 +104,7 @@
     const role = w ? ROLE[w.role] || '' : 'Staff';
     const day = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' });
     const at = d.at ? new Date(d.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) : '';
-    $('wh-meta').innerHTML = esc([role, day].filter(Boolean).join(' · ')) + (w && w.synced ? ` · Blackbaud copy <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : '') + (at ? ` · Updated ${esc(at)}` : '');
+    $('wh-meta').innerHTML = esc([role, day].filter(Boolean).join(' · ')) + (w && w.synced ? ` · Blackbaud data <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : '') + (at ? ` · Updated ${esc(at)}` : '');
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }
     // Admins have the shorter left column, so the activity feed goes under the right one; everyone else keeps it beside their gifts.
     const feed = $('wh-feed');
@@ -127,7 +127,9 @@
   /* ------------------------------------------------------------------ today's work */
   // The data sends "No type" when an action has no type. That placeholder is not a label a person wants to read.
   const whatOf = (r) => r.summary || (r.type && r.type !== 'No type' ? r.type : '') || 'Action';
-  const dueChip = (r) => (r.late > 0 ? `<span class="r2t-chip r2t-chip--late"><i></i><span class="wh-cl">${plural(r.late, 'day')} late</span><span class="wh-cs">${n0(r.late)}d</span></span>` : '<span class="r2t-chip r2t-chip--due"><i></i>Today</span>');
+  // Up to 60 days the chip counts days. Past that it counts weeks, then months, so a years-old action does not read as a typo.
+  const lateSpan = (n) => (n <= 60 ? { l: plural(n, 'day') + ' late', s: n0(n) + 'd' } : n < 120 ? { l: Math.round(n / 7) + ' wk late', s: Math.round(n / 7) + ' wk' } : { l: Math.round(n / 30.4) + ' mo late', s: Math.round(n / 30.4) + ' mo' });
+  const dueChip = (r) => (r.late > 0 ? `<span class="r2t-chip r2t-chip--late" title="${esc(plural(r.late, 'day'))} late"><i></i><span class="wh-cl">${lateSpan(r.late).l}</span><span class="wh-cs">${lateSpan(r.late).s}</span></span>` : '<span class="r2t-chip r2t-chip--due"><i></i>Today</span>');
   function paintDue(w) {
     const card = $('wh-due');
     const d = w && w.due;
@@ -150,7 +152,7 @@
       <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.partner)}</a><span>${esc(whatOf(r))}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
       ${dueChip(r)}
       <div class="wh-acts wh-acts--hover"><button type="button" class="wh-do wh-do--go wh-do--c" data-do="complete">Complete</button><button type="button" class="wh-do" data-do="snooze" aria-haspopup="true" aria-label="Snooze: ${esc(r.partner)}">${CLOCK}<span class="wh-lbl">Snooze</span></button><a class="wh-do" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}" aria-label="Open partner: ${esc(r.partner)}">${PERSON}<span class="wh-lbl">Partner</span></a></div>
-    </li>`).join('') + (d.total > d.rows.length ? `<li class="wh-more"><a href="/work/?view=open&due=now${fr}">${n0(d.total)} due today or overdue</a></li>` : '');
+    </li>`).join('') + (d.total > d.rows.length ? `<li class="wh-more"><a href="/work/?view=open&due=now${fr}">${n0(d.total)} due or overdue of ${n0(d.open)} open</a></li>` : '');
   }
 
   /* ------------------------------------------------------------------ gifts to thank */
@@ -246,7 +248,9 @@
   }
 
   /* ------------------------------------------------------------------ team (admins) */
+  let teamW = null;
   function paintTeam(w) {
+    teamW = w;
     const card = $('wh-team');
     const t = w && w.team;
     card.hidden = !t || !t.people.length;
@@ -254,9 +258,13 @@
     const over = t.all ? t.all.overdue : t.people.reduce((n, p) => n + p.overdue, 0);
     $('wh-team-chips').innerHTML = over ? `<a class="r2t-chip r2t-chip--late" href="/work/?view=open&quick=past"><i></i>${n0(over)} overdue</a>` : '';
     const TEAM = { rdd: 'RDD', church: 'Church Engagement', partner_care: 'Partner Care', support: 'Support', grants: 'Grants', exec: 'Executive', admin: 'Operations' };
-    $('wh-team-table').innerHTML = '<thead><tr><th>Person</th><th>Team</th><th class="n">Open</th><th class="n">Overdue</th><th class="n">Thank-yous</th></tr></thead><tbody>'
-      + t.people.map((p) => `<tr><td><a href="/work/?view=open&fr=${esc(p.fid)}">${esc(p.name)}</a></td><td>${esc(TEAM[p.team] || p.team || '')}</td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}">${dn('teamopen', n0(p.open), p.open)}</a></td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}&quick=past" class="${p.overdue ? 'wh-late' : ''}">${dn('teamlate', n0(p.overdue), p.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${dn('teamty', n0(p.ty), p.ty)}</a></td></tr>`).join('') + '</tbody>'
-      + (t.all ? `<tfoot><tr><td>Everyone</td><td>Each action once</td><td class="n"><a href="/work/?view=open">${dn('teamopen', n0(t.all.open), t.all.open)}</a></td><td class="n"><a href="/work/?view=open&quick=past">${dn('teamlate', n0(t.all.overdue), t.all.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${dn('teamty', n0(t.all.ty), t.all.ty)}</a></td></tr></tfoot>` : '');
+    const SORT = window.__whTeamSort || (window.__whTeamSort = { key: 'name', dir: 1 });
+    const val = (p) => (SORT.key === 'name' ? String(p.name || '').toLowerCase() : SORT.key === 'team' ? String(TEAM[p.team] || p.team || '').toLowerCase() : Number(p[SORT.key]) || 0);
+    const people = t.people.slice().sort((x, y) => (val(x) < val(y) ? -1 : val(x) > val(y) ? 1 : 0) * SORT.dir);
+    const th = (key, label, cls) => `<th${cls ? ' class="n"' : ''} aria-sort="${SORT.key === key ? (SORT.dir > 0 ? 'ascending' : 'descending') : 'none'}"><button type="button" class="wh-sort" data-teamsort="${key}">${label}${SORT.key === key ? (SORT.dir > 0 ? ' ↑' : ' ↓') : ''}</button></th>`;
+    $('wh-team-table').innerHTML = '<thead><tr>' + th('name', 'Person') + th('team', 'Team') + th('open', 'Open', 1) + th('overdue', 'Overdue', 1) + th('ty', 'Thank-yous', 1) + '</tr></thead><tbody>'
+      + people.map((p) => `<tr><td><a href="/work/?view=open&fr=${esc(p.fid)}">${esc(p.name)}</a></td><td>${esc(TEAM[p.team] || p.team || '')}</td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}">${dn('teamopen', n0(p.open), p.open)}</a></td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}&quick=past" class="${p.overdue ? 'wh-late' : ''}">${dn('teamlate', n0(p.overdue), p.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${dn('teamty', n0(p.ty), p.ty)}</a></td></tr>`).join('') + '</tbody>'
+      + (t.all ? `<tfoot><tr><td>All people</td><td></td><td class="n"><a href="/work/?view=open">${dn('teamopen', n0(t.all.open), t.all.open)}</a></td><td class="n"><a href="/work/?view=open&quick=past">${dn('teamlate', n0(t.all.overdue), t.all.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${dn('teamty', n0(t.all.ty), t.all.ty)}</a></td></tr></tfoot>` : '');
   }
 
   function paint(d) {
@@ -338,6 +346,15 @@
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSnooze(); });
 
   root.addEventListener('click', (e) => {
+    const srt = e.target.closest('[data-teamsort]');
+    if (srt && teamW) {
+      const S = window.__whTeamSort || (window.__whTeamSort = { key: 'name', dir: 1 });
+      const k = srt.dataset.teamsort;
+      if (S.key === k) S.dir = -S.dir; else { S.key = k; S.dir = k === 'name' || k === 'team' ? 1 : -1; }
+      paintTeam(teamW);
+      const again = document.querySelector('[data-teamsort="' + k + '"]'); if (again) again.focus();
+      return;
+    }
     const rel = e.target.closest('[data-reload]');
     if (rel) { load(); return; }
     const act = e.target.closest('[data-do]');

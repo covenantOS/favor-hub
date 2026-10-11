@@ -12,7 +12,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 const PAGE = 50;
 // meta: the figures that do not change with the page (tiles, owners, badges, counts for the filter). cols: loaded pages, by column key.
-const A = { meta: null, error: '', started: false, epoch: 0, cols: {}, owner: '', mode: 'board', q: '', status: 'open', range: '12m', sheetOn: false, undo: null, io: null, tt: null, panelId: null };
+const A = { meta: null, error: '', started: false, epoch: 0, cols: {}, owner: '', mode: 'board', q: '', status: 'open', range: '12m', sheetOn: false, undo: null, io: null, tt: null, panelId: null, fopen: false };
 const STATUS = [['open', 'Open'], ['gave', 'Gave'], ['review', 'Check amount'], ['former', 'From former staff'], ['all', 'All']];
 const COLS_FOR = { open: ['open', 'closing', 'past'], gave: ['gave'], review: ['open', 'closing', 'past', 'gave'], former: ['open', 'closing', 'past', 'gave'], all: ['open', 'closing', 'past', 'gave'] };
 const COLS = [['open', 'Asked, no close date'], ['closing', 'Closing'], ['past', 'Past the close date'], ['gave', 'Gave']];
@@ -182,6 +182,10 @@ function view() {
   const text = live ? live.value : A.q;
   const tiles = [['Open asks', s.open], ['Closing in 90 days', s.soon], ['Past the close date', s.past, 1], ['Gifts since the ask', s.gave]];
   const picker = m.owners.length > 1 ? `<select class="wc-sel${A.owner ? ' is-set' : ''}" data-wa-owner aria-label="Director"><option value="">Every director (${m.everyone})</option>${m.owners.map((o) => `<option value="${esc(o.id)}"${A.owner === o.id ? ' selected' : ''}>${esc(o.name)} (${o.n})</option>`).join('')}</select>` : '';
+  // On a phone the filters sit behind one button; whatever is set shows as chips that clear it.
+  const ownerName = A.owner ? ((m.owners.find((o) => o.id === A.owner) || {}).name || 'Director') : '';
+  const active = [A.status !== 'open' ? ['status', (STATUS.find((x) => x[0] === A.status) || [0, A.status])[1]] : null, A.range !== '12m' ? ['range', 'All time'] : null, A.owner ? ['owner', ownerName] : null].filter(Boolean);
+  const activeHTML = active.length ? `<div class="wa-active">${active.map(([k, l]) => `<button type="button" class="wa-achip" data-wa-unf="${k}" aria-label="Clear filter: ${esc(l)}">${esc(l)}<span aria-hidden="true">×</span></button>`).join('')}</div>` : '';
   const shownN = keys().reduce((n, k) => n + rowsIn(k).length, 0);
   const M = m.shown;
   const body = M === 0 && !text.trim() && A.status === 'all' ? '<div class="wa-empty"><b>No asks in the last year</b>An action with the Amount of Ask tag shows here.</div>'
@@ -189,12 +193,13 @@ function view() {
       : A.mode === 'board' ? boardHTML() : listHTML();
   el.innerHTML = `
     <div class="h-card wc-band wa-band" style="--n:4">${tiles.map(([l, t, warn]) => `<div class="wc-stat${warn && t.n ? ' is-warn' : ''}"><b>${t.n.toLocaleString('en-US')}</b><span>${esc(l)}</span><span class="wa-tot">${short(t.total)}</span></div>`).join('')}</div>
-    <section class="h-card wc-sheet" id="wa-sheet" aria-label="Asks">
+    <section class="h-card wc-sheet${A.fopen ? ' is-fopen' : ''}" id="wa-sheet" aria-label="Asks">
       <div class="wa-filters" role="group" aria-label="Filter">${STATUS.map(([k, l]) => `<button type="button" class="wa-fchip${A.status === k ? ' is-on' : ''}" data-wa-status="${k}" aria-pressed="${A.status === k}">${esc(l)}${k === 'review' ? ' <span>' + m.review.n + '</span>' : k === 'former' ? ' <span>' + m.former.n + '</span>' : ''}</button>`).join('')}
         <select class="wc-sel wa-range${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select></div>
       <div class="wa-tools"><div class="wa-seg" role="group" aria-label="View"><button type="button" class="${A.mode === 'board' ? 'is-on' : ''}" data-wa-mode="board" aria-pressed="${A.mode === 'board'}">Board</button><button type="button" class="${A.mode === 'list' ? 'is-on' : ''}" data-wa-mode="list" aria-pressed="${A.mode === 'list'}">List</button></div>
-        <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(text)}" autocomplete="off" /></label>${picker}<span class="wa-spacer"></span>
+        <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(text)}" autocomplete="off" /></label><button type="button" class="h-btn h-btn--ghost h-btn--sm wa-fbtn" data-wa-ftoggle aria-expanded="${A.fopen}">Filters${active.length ? ' ' + active.length : ''}</button>${picker}<span class="wa-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Google Sheets</button></div>
+      ${activeHTML}
       <div class="wa-count" aria-live="polite">Showing ${shownN.toLocaleString('en-US')} of ${M.toLocaleString('en-US')} ${M === 1 ? 'ask' : 'asks'}</div>
       ${body}
       <div class="wa-foot">${plural(M, 'ask')} shown, ${A.range === 'all' ? 'tagged at any time' : 'tagged in the last 12 months'}. An amount tagged again on the same partner within 90 days counts once. Asks are listed under the partner's current director. Asks on partners no current director holds sit under From former staff, and asks that look far above what the partner has given sit under Check amount. Neither is in the totals. A gift of the asked amount or more after the ask moves it to Gave.</div>
@@ -276,6 +281,8 @@ document.addEventListener('click', (e) => {
   if (!t.closest('#wc-root')) return;
   const b = t.closest('button'); if (!b) return;
   const d = b.dataset;
+  if (d.waFtoggle !== undefined) { A.fopen = !A.fopen; view(); return; }
+  if (d.waUnf) { if (d.waUnf === 'status') A.status = 'open'; else if (d.waUnf === 'range') A.range = '12m'; else A.owner = ''; changed(true); return; }
   if (d.waMode) { A.mode = d.waMode; changed(false); return; }
   if (d.waStatus) { A.status = d.waStatus; changed(false); return; }
   if (d.waClose) { panel(d.waClose); return; }

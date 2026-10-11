@@ -1,0 +1,8 @@
+/* QA round 2, Work Center (wcasks), 2026-10-11. Touch targets on the tab bar, Asks chips and Entry owners reach 44px on touch screens. */
+@media (pointer: coarse) {
+  .wc-tabs button { min-height: 44px; }
+  .wa-fchip { min-height: 44px; }
+  .wa-q { min-height: 44px; }
+  .wc-owner { min-height: 44px; }
+  .wc-lane { min-height: 44px; }
+}

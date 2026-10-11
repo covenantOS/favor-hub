@@ -107,7 +107,7 @@ function pendingOf(a) { return a.pending && a.pending.state === 'saving' ? 'savi
 function queuedOf(a) { return a.pending && a.pending.state === 'queued' ? a.pending.label : ''; }
 function isOpenNow(a) { return !S.gone[a.id]; }
 function cur(a) { const o = S.ov[a.id] || {}; return { due: o.due || a.due, f: o.f || a.f }; }
-function lateClass(due) { const n = dayn(due); if (n > 0) return ['ok', 'Due in ' + plural(n, 'day')]; if (n === 0) return ['soon', 'Due today']; if (n >= -7) return ['soon', -n + (n === -1 ? ' day late' : ' days late')]; if (n <= -365) return ['old', Math.floor(-n / 365) + (n <= -730 ? ' years late' : ' year late')]; return ['', -n + ' days late']; }
+function lateClass(due) { const n = dayn(due); if (n > 0) return ['ok', 'Due in ' + plural(n, 'day')]; if (n === 0) return ['soon', 'Due today']; if (n >= -7) return ['soon', -n + (n === -1 ? ' day late' : ' days late')]; if (n >= -60) return ['', -n + ' days late']; const d = -n; const txt = d < 120 ? Math.round(d / 7) + ' wk late' : Math.round(d / 30.4) + ' mo late'; return [n <= -365 ? 'old' : '', txt]; }
 function hasDeparted(a) { return cur(a).f.some((x) => !live(x)); }
 const LANES = [
   { k: 'left', n: 'Owner left or inactive', hint: 'Someone on it left Favor or is not set up as a fundraiser. Give it to the partner\'s current holder.', test: (a) => hasDeparted(a) },
@@ -253,7 +253,7 @@ function rowHTML(a) {
   return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" role="row" tabindex="-1" data-id="${a.id}" aria-selected="${picked}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="Select ${esc(a.p)}, ${esc(a.sum || a.type)}" tabindex="-1" /></div>
     <div class="wc-due"><button type="button" class="wc-inl" data-inl="due" data-id="${a.id}" title="Change the date"><b>${fd(c.due)}</b><span class="wc-late ${lc ? 'wc-late--' + lc : ''}">${ll}</span></button></div>
-    <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ' + esc(a.lk) : ''}</span></div>
+    <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ID ' + esc(a.lk) : ''}</span></div>
     <div class="wc-type"><b>${esc(a.type)}</b><span class="wc-cat">${ic(CAT_IC[a.cat] || 'task')}${esc(a.cat)}<button type="button" class="wc-inl wc-st" data-inl="status" data-id="${a.id}" title="Change the status">Open</button></span></div>
     <div class="wc-what"><button type="button" class="wc-open${a.sum ? '' : ' is-empty'}" data-open="${a.id}" title="${esc(a.desc)}">${esc(a.sum || (a.desc ? a.desc.slice(0, 80) : 'No summary'))}</button>${tags.length ? `<div class="wc-tags">${tags.join('')}</div>` : ''}</div>
     <div class="wc-who"><button type="button" class="wc-inl wc-inl--who" data-inl="who" data-id="${a.id}" title="Change who it belongs to">${who}</button>${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
@@ -292,7 +292,7 @@ function banner(idp, list) {
 
 // ------------------------------------------------------------ open actions view
 const TILES = [
-  ['', 'Open', () => true, 'Open actions'], ['past', 'Past due', (a) => dayn(cur(a).due) < 0, 'Past due actions'], ['ty', 'Thank-you tasks', (a) => a.ty, 'Thank-you tasks'],
+  ['', 'Open', () => true, 'Open actions'], ['past', 'Past due', (a) => dayn(cur(a).due) < 0, 'Past due actions'], ['ty', 'Thank‐you tasks', (a) => a.ty, 'Thank-you tasks'],
   ['done', 'Thanked already or likely', (a) => a.ty && a.later, 'Thank-you tasks thanked already or likely'], ['ctg', 'Recurring Gift tasks', (a) => a.ctg, 'Recurring Gift tasks'],
 ];
 // Click a tile's number: its Favor definition and the actions that make it up, the rows the tile counted.

@@ -210,7 +210,7 @@ function view(p, o = {}) {
   const flags = [p.deceased ? 'Deceased' : '', p.inactive ? 'Inactive' : '', p.flags.doNotCall ? 'Do not call' : '', p.flags.doNotEmail ? 'Do not email' : '', p.flags.doNotMail ? 'Do not mail' : ''].filter(Boolean);
   const head = `
     <div class="pp-head">
-      <div><span class="pp-kicker">${esc(p.kind)} · ${esc(p.lookup)}${g.firstDate ? ' · Giving since ' + esc(String(g.firstDate).slice(0, 4)) : ''}</span>
+      <div><span class="pp-kicker">${esc(p.kind)} · ID ${esc(p.lookup)}${g.firstDate ? ' · Giving since ' + esc(String(g.firstDate).slice(0, 4)) : ''}</span>
         <h1>${o.full ? esc(p.name) : `<a href="${href(p.id)}" class="pp-h1link">${esc(p.name)}</a>`}</h1>
         <p class="pp-house">${esc(p.place || 'No city on file')}${p.household && p.household.length ? ' · ' + p.household.map((h) => `${esc(h.relation || 'Household')} <a href="${href(h.id)}" class="pp-link" data-partner-id="${esc(h.id)}">${esc(h.name)}</a>`).join(', ') : ''}</p></div>
       <div class="pp-meta">

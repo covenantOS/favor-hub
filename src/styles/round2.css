@@ -258,7 +258,9 @@ body.h-body .h-pg .h-nav__help .h-dot { position: static; margin-left: auto; }
 body.h-body .h-area[data-area='help']:has(.has-new) > .h-area__link::after { content: ''; position: absolute; top: 8px; right: 26px; width: 9px; height: 9px; border-radius: 50%; background: var(--h-gold); box-shadow: 0 0 0 2px var(--r-rail); }
 html.nav-wide body.h-body .h-area[data-area='help']:has(.has-new) > .h-area__link::after, body.h-body .h-app.is-peek .h-area[data-area='help']:has(.has-new) > .h-area__link::after, body.h-body .h-app.is-nav .h-area[data-area='help']:has(.has-new) > .h-area__link::after { top: 16px; right: 44px; }
 .h-top__actions { display: contents; }
-body.h-body .wc-intro { display: none; }
+body.h-body .wc-intro p { display: none; }
+body.h-body .wc-intro { justify-content: flex-start; margin-bottom: 10px; }
+body.h-body .wc-intro:not(:has(.wc-chips > *)) { display: none; }
 body.h-body[data-nav='brain'] .h-top, body.h-body[data-nav='brain'] .h-app .h-top { height: auto; min-height: 56px; }
 @media (max-width: 860px) {
   body.h-body .h-side { z-index: 95; }
