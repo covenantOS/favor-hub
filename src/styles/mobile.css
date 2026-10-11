@@ -61,3 +61,8 @@
   /* Meetings notes: the initials fit inside the circle, with less overlap so the next circle does not cover them. */
   .dv-av { width: 28px; height: 28px; margin-left: -4px; font: 600 10px/1 var(--h-font); letter-spacing: -0.2px; padding: 0; overflow: visible; }
 }
+
+@media (max-width: 860px) {
+  /* iOS Safari zooms the page into any text box under 16 px when it gets focus. */
+  body.h-body input:not([type='checkbox']):not([type='radio']):not([type='range']), body.h-body textarea, body.h-body select { font-size: 16px; }
+}

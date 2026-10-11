@@ -341,6 +341,16 @@
       measure();
     }
     function measure() {
+      // iOS keyboard: the visual viewport shrinks and Safari scrolls the page under it. While it is open, the chat fits the
+      // visible area above the keyboard and the hub tab bar steps aside, so the channel header and the composer both show.
+      var vv = window.visualViewport;
+      var kb = isPhone() && !!vv && window.innerHeight - vv.height > 150;
+      document.body.classList.toggle('ch-kb', kb);
+      if (kb) {
+        root.style.setProperty('--ch-top', Math.round(vv.offsetTop) + 'px');
+        root.style.setProperty('--ch-bot', Math.max(0, Math.round(window.innerHeight - vv.offsetTop - vv.height)) + 'px');
+        return;
+      }
       var top = $('.h-top'), bar = $('.h-navbar');
       var t = 0, b = 0;
       if (top && getComputedStyle(top).display !== 'none') t = Math.round(top.getBoundingClientRect().bottom);
@@ -417,7 +427,7 @@
       var b = $('[data-send="' + scope + '"]', root); if (!b) return;
       b.disabled = !(composerText(scope).trim() || S.pending[scope].length);
     }
-    function grow(ta) { ta.style.height = '24px'; ta.style.height = Math.min(180, ta.scrollHeight) + 'px'; }
+    function grow(ta) { ta.style.height = '0px'; ta.style.height = Math.min(180, ta.scrollHeight) + 'px'; }
     function renderPending(scope) {
       var el = $('[data-pend="' + scope + '"]', root); if (!el) return;
       var p = S.pending[scope]; el.hidden = !p.length;
@@ -798,6 +808,7 @@
     document.addEventListener('visibilitychange', function () { if (!document.hidden) markRead(); });
     window.addEventListener('focus', markRead);
     window.addEventListener('resize', measure);
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', measure); window.visualViewport.addEventListener('scroll', measure); }
     // The hub reloads the page on any popstate it does not own. Chat's screens (list, channel, thread) own theirs, so this listener
     // runs first (capture, at the window) and keeps the hub out of it while a channel or thread is open.
     window.addEventListener('popstate', function (e) {
