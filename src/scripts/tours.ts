@@ -367,6 +367,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'work-record-tabs',
+    page: '/work/',
+    via: 'work',
+    at: '#pp-headsearch',
+    title: 'Keep the record right from the partner',
+    body: 'Open any partner and the tabs under the name are Overview, Contact, Codes and Record. Contact lists every address with its dates and seasonal window, every phone and every email, and Edit changes one. Codes holds the constituent codes and the solicit codes. Record marks a partner deceased or inactive and lists what goes with it. Each change shows what Blackbaud kept, and Undo stays for 24 hours.',
+    for: (w) => w.admin || team('support')(w),
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'work-partner-notes',
     page: '/work/',
     via: 'work',

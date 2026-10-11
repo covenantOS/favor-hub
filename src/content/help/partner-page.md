@@ -1,6 +1,6 @@
 ---
 title: Partner
-summary: Open any partner with one click, see their giving and history, and log a contact, add a task or note, or fix a phone, email or address.
+summary: Open any partner with one click, see their giving and history, log a contact, add a task or note, and keep their addresses, phones, emails, codes and record status right.
 topic: work
 order: 5
 for: [admin, rdd, pc, ce, grants, leader]
@@ -34,7 +34,19 @@ The timeline mixes gifts and contacts, newest first. All, Gifts and Contacts nar
 
 ## Further down
 
-Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom; Edit beside a phone, email or the address changes it in Blackbaud, and Add puts in a new phone or email.
+Giving by year shows the last eight years; this year is gold. Opportunities lists each ask with its status; press the pencil to change it, or New opportunity to add one. Contact details, codes and assignments are folded at the bottom as a summary; Edit beside a phone, email or the address opens the Contact tab.
+
+## Contact, Codes and Record
+
+Four tabs sit under the Call, Text and Email buttons: Overview, Contact, Codes and Record. Contact, Codes and Record read Blackbaud live each time you open them, so they show what is in Blackbaud now, including ended addresses and ended codes.
+
+**Contact** lists every address, phone and email. An address shows its type, a Preferred mark, Do not mail, the dates it was in use and, for a seasonal address, the window ("Every year May 1 to Oct 15"). Edit opens the row in place. Add an address, Add a phone and Add an email open a blank form. A new preferred address or phone takes the mark from the old one, and the tab checks that exactly one row holds it. End this address records the last day it was in use. Mark inactive keeps a phone or email on the record and stops it counting. A seasonal address keeps its type; end it and add the new address instead. The three record flags (Gives anonymously, Requests no email, No valid address) sit at the bottom. If someone changed the same field in Blackbaud since you opened the form, the form stops and shows their value with Use theirs and Keep mine.
+
+**Codes** lists the constituent codes and the solicit codes. Partner and Prospect carry a Morning run mark. The morning run owns them, so they are not added or ended here, and choosing Partner in Add a code shows the gifts check first: a record whose gifts are all soft-credited to someone else stays a Prospect. Church and the other codes are added with a start date and ended with End. Add a solicit code picks from Favor's list, such as Do Not Call or Do Not Solicit, and End stamps today. Ended codes fold under "ended", and Reopen puts one back.
+
+**Record** marks a partner Active, Inactive or Deceased. Deceased and Inactive show what goes with it: set the flag (always), end the Partner code and the assignments on that date, add the Do Not Solicit solicit code, and cancel open actions you pick. A household shows Who, and the other person stays active; a note can go on their record. An organization is marked inactive only. Mark active reverses the flag and reopens the codes that ended with it. The assignments stay ended for the morning run to settle the next day.
+
+Admins change contact details, codes and record status. The Support Team changes codes and record status, and contact details for any partner. Directors and Partner Care change contact details for partners their team holds. Everyone else reads.
 
 ## Copy and share
 
@@ -44,4 +56,4 @@ Click into Find a partner with nothing typed and it lists Recent partners, the l
 
 ## Saving and Undo
 
-Each change shows at once and saves to Blackbaud in the background. The message at the bottom has Undo for 24 hours. Gifts come from the copy of Blackbaud that refreshes at 5 AM and 5 PM.
+Each change shows at once and saves to Blackbaud in the background. After a save, the Contact, Codes and Record tabs read Blackbaud again and show what it kept. If Blackbaud answers yes and keeps something different, the row says so in plain words. The message at the bottom has Undo for 24 hours. Gifts come from the copy of Blackbaud that refreshes at 5 AM and 5 PM.

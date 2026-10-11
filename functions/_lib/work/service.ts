@@ -15,6 +15,7 @@ import {
 } from '../actions/completion';
 import { CHUNK, DAILY_CAP, LANE_CAP, MAX_IDS, SINGLES_UNTIL, laneFor, plannedCalls, refreshCalls, REFRESH_MAX, resetLabel, undoUntil, utcDay } from '../actions/batch';
 import { advance, bodyFor, fillDep, idemKey, matchLostCreate, requestFor, sayWhy, verdictOf, type CallResult } from '../actions/outbox';
+import { planRecord, RECORD_OPS, verifyRecords, forgetRecord, type RecordInput } from './records';
 import { actionRaw, forgetExtra, nextOfRecur, oppRaw, partnerContext, planEdit, saveRecur, shadowOpp, stopRecur, type EditInput } from './edit';
 import { etParts } from '../actions/intake';
 import { can, inScope, mayAssignTo, ROLE_LABEL, scopeRows, type Scope } from './role';
@@ -219,7 +220,7 @@ export async function thanksResponse(ctx: Ctx, owner: string) {
 /* ------------------------------------------------------------------ planning a batch */
 
 /** The kinds of change the edit panel, Edit selected, New action and the opportunity form make (planned in edit.ts). */
-export const EDIT_OPS = ['edit', 'bulk_edit', 'new', 'complete_next', 'duplicate', 'move', 'delete', 'note', 'attach', 'opp_new', 'opp_edit', 'pnote', 'pfield'] as const;
+export const EDIT_OPS = ['edit', 'bulk_edit', 'new', 'complete_next', 'duplicate', 'move', 'delete', 'note', 'attach', 'opp_new', 'opp_edit', 'pnote', 'pfield', ...RECORD_OPS] as const;
 
 export type BatchOp = 'complete' | 'thank' | 'close_thanked' | 'reassign' | 'reschedule' | 'create' | (typeof EDIT_OPS)[number];
 
@@ -685,6 +686,7 @@ function partnersOf(input: Record<string, any>): string[] {
   const out: string[] = [];
   if (Array.isArray(input.cids)) out.push(...input.cids.map(String));
   if (input.cid) out.push(String(input.cid));
+  if (input.alsoNote) out.push(String(input.alsoNote));
   if (input.op === 'move' && input.to) out.push(String(input.to));
   return out.filter((x) => /^\d+$/.test(x));
 }
@@ -751,7 +753,12 @@ export async function authorizeBatch(ctx: Ctx, input: Record<string, any>): Prom
   await testGuard();
   // Logging a contact, a task or a note on any partner is allowed: every role can already do that in Blackbaud. Changing a partner's
   // contact details needs a role that edits partners, and a partner another team holds is that team's to change (Support may change any).
-  if (op === 'pfield') {
+  // Codes, solicit codes and the deceased or inactive mark belong to admins and Support. Contact rows and the three flags follow the
+  // contact-details rule below.
+  if (op === 'pcode' || op === 'psolicit' || op === 'pstatus') {
+    if (s.role !== 'support') throw new HttpError(403, 'not_yours', 'Admins and the Support Team change codes and mark a record deceased or inactive. Ask Support.');
+  }
+  if (op === 'pfield' || op === 'pcontact' || op === 'pflags') {
     if (!can(s, 'partner_edit')) throw new HttpError(403, 'not_yours', 'Your role does not change partner contact details.');
     for (const c of partnersOf(input)) {
       const holders = await partnerHolders(ctx, c);
@@ -798,6 +805,17 @@ export async function createBatch(ctx: Ctx, input: BatchInput & { req?: string }
  * opportunities. Planned in edit.ts, saved and sent here like every other batch.
  */
 export async function createEditBatch(ctx: Ctx, input: EditInput & { req?: string }) {
+  if ((RECORD_OPS as readonly string[]).includes(input.op)) {
+    // Contact rows, flags, codes, solicit codes and the deceased or inactive mark: planned in records.ts, from Blackbaud's live rows.
+    const rp = await planRecord(ctx, input as unknown as RecordInput);
+    if (rp.conflict && rp.conflict.length) {
+      return { ok: false, error: 'conflict', message: 'Someone changed this in Blackbaud after you opened it. Check their change, then save again.', conflict: rp.conflict };
+    }
+    const saved = await saveBatch(ctx, input.op, rp.items, rp.params, { reqId: input.req, reads: rp.reads, keySalt: input.req || String(Date.now()) });
+    const cids = [...new Set(rp.items.map((i) => i.cid).filter(Boolean))] as string[];
+    for (const c of cids) await forgetRecord(ctx.env, c);
+    return { batch: saved, skipped: 0, changed: rp.items.length, items: rp.items.map((i) => ({ id: i.cid || '', state: 'queued' })) };
+  }
   const synced = await ctx.repo.synced().catch(() => '');
   const plan = await planEdit(ctx, input, { today: todayEt(), synced });
   if (plan.conflict) {
@@ -1117,6 +1135,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
       await logEvent(env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'call', ok: sentRows.length === send.length, detail: `${ran} of ${send.length} calls ran, ${sentRows.length} sent` });
       if (sentRows.length) {
         await verify(ctx, batchId, sentRows, t0);
+        await verifyRecords(ctx, sentRows).catch(() => undefined);
         for (const r of sentRows) {
           const call = r.op === 'call' ? parseObj(r.payload).__call : null;
           // Notes, attachments and opportunities are not in the mirror, so they need no re-read.
@@ -1413,6 +1432,11 @@ export function batchLabel(b: { op: string; params: string }, n: number): string
   if (b.op === 'opp_edit') return 'Edited an opportunity';
   if (b.op === 'pnote') return 'Added a note on the partner';
   if (b.op === 'pfield') return `Changed the partner's ${p.kind || 'details'}`;
+  if (b.op === 'pcontact') return `${p.mode === 'add' ? 'Added' : p.mode === 'end' ? 'Ended' : 'Changed'} an ${p.kind === 'phone' ? 'phone number' : p.kind === 'email' ? 'email address' : 'address'}`.replace('an phone', 'a phone');
+  if (b.op === 'pflags') return 'Changed the record flags';
+  if (b.op === 'pcode') return `${p.mode === 'add' ? 'Added' : p.mode === 'end' ? 'Ended' : 'Reopened'} a constituent code`;
+  if (b.op === 'psolicit') return `${p.mode === 'add' ? 'Added' : p.mode === 'end' ? 'Ended' : 'Reopened'} a solicit code`;
+  if (b.op === 'pstatus') return p.status === 'active' ? 'Marked a record active' : p.status === 'deceased' ? 'Marked a record deceased' : 'Marked a record inactive';
   return `${b.op} ${n}`;
 }
 

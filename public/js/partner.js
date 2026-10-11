@@ -2,7 +2,7 @@
    /work/partner/<id>, and a compact copy beside the Work Center's edit panel. Reads GET /api/work/partners/:id (the D1 copy of
    Blackbaud) and the partner's notes (live, kept ten minutes). Writes go through /api/work/batches like the Work Center: saved,
    sent to Blackbaud, checked, and undone from the toast for 24 hours.
-   Public: window.FavorPartner = { open, mount, view, search, href }. */
+   Public: window.FavorPartner = { open, mount, view, search, href, tools }. */
 (() => {
 'use strict';
 const $ = (s, el = document) => el.querySelector(s);
@@ -73,10 +73,13 @@ let CODES = null;
 async function codes() { if (CODES) return CODES; try { CODES = await api('/api/work/codes'); } catch (_) { CODES = { codes: {}, me: {}, types: {} }; } return CODES; }
 
 /* ------------------------------------------------------------------ writes */
-async function run(params, label, after) {
+async function run(params, label, after, opts) {
   toast('Saving…');
   let out;
-  try { out = await post('/api/work/batches', Object.assign({ req: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) }, params)); } catch (e) { toast(e.message, null, true); return false; }
+  try { out = await post('/api/work/batches', Object.assign({ req: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random())) }, params)); } catch (e) {
+    if (e.data && e.data.error === 'conflict' && opts && opts.onConflict) { toast(''); toastEl.classList.remove('is-on'); opts.onConflict(e.data); return false; }
+    toast(e.message, null, true); return false;
+  }
   const b = out.batch || {};
   if (b.id && b.run_when !== 'tonight') {
     for (let i = 0; i < 40; i++) { let r; try { r = await post(`/api/work/batches/${b.id}/run`); } catch (e) { toast(e.message, b.id, true); return false; } if (!r.left || r.held) break; await new Promise((res) => setTimeout(res, 1200)); }
@@ -88,7 +91,7 @@ async function run(params, label, after) {
   }
   toast(b.run_when === 'tonight' ? label + '. It goes to Blackbaud tonight.' : label + '.', b.id);
   if (after) after(b.id);
-  return true;
+  return b.id || true;
 }
 // The changes whose Undo was pressed, shared with the Work Center and the thank-you toast: a change is undone once.
 const UNDOING = (window.favorUndoing = window.favorUndoing || new Set());
@@ -102,7 +105,7 @@ async function undo(bid) {
     // When some rows did not go back, Undo opens again for them.
     try { const b = ((await api('/api/work/recent')).batches || []).find((x) => x.id === bid); if (!b || (!b.undone && !b.undoing)) UNDOING.delete(bid); } catch (_) { /* the button stays off until the page reloads */ }
     toast('Undone.');
-    if (V.id) { LOCAL.delete(V.id); refresh(true); }
+    if (V.id) { LOCAL.delete(V.id); refresh(true); PANES.forEach((el) => el.dispatchEvent(new Event('rc:reload'))); }
   } catch (e) {
     // Already undone, or being undone: the button stays off. Any other failure puts it back.
     if (!(e.data && e.data.error === 'already_undone')) UNDOING.delete(bid);
@@ -117,7 +120,8 @@ function toast(msg, bid, bad) {
 }
 
 /* ------------------------------------------------------------------ the view */
-const V = { id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host: null, mode: 'drawer', editing: null };
+const PANES = new Map(); // id:tab -> the element a record tab (records.js) draws into, kept so a repaint never loses a half-typed form
+const V = { tab: 'overview', id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host: null, mode: 'drawer', editing: null };
 function holderOf(p) { const cur = (p.assignments || []).filter((a) => a.current); return cur; }
 function figure(label, value, sub) { return `<div class="pp-fig"><b>${value}</b><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</div>`; }
 function eventsOf(p) {
@@ -244,32 +248,23 @@ function view(p, o = {}) {
       ${V.editing === 'oppnew' ? oppForm(null) : ''}</section>`;
   const c = p.contact;
   const row = (dt, dd, btn) => `<dt>${dt}</dt><dd>${dd}</dd>${btn || '<span></span>'}`;
-  const fieldRow = (kind, x, i) => {
-    const key = kind + (x.id || i);
-    if (V.editing === key) {
-      const v = kind === 'phone' ? x.number : kind === 'email' ? x.address : '';
-      return `<dt>${kind === 'phone' ? esc(x.type || 'Phone') : 'Email'}</dt><dd><form class="pp-inline" data-pp-field="${kind}" data-id="${esc(x.id || '')}"><input type="text" name="v" value="${esc(v)}" /><label class="pp-chk"><input type="checkbox" name="dn" ${(kind === 'phone' ? x.doNotCall : x.doNotEmail) ? 'checked' : ''}/>${kind === 'phone' ? 'Do not call' : 'Do not email'}</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button><button type="button" class="pp-edit" data-pp-cancel>Cancel</button></form></dd><span></span>`;
-    }
-    return row(kind === 'phone' ? esc(x.type || 'Phone') : 'Email', `${copyBtn(kind === 'phone' ? x.number : x.address, kind === 'phone' ? 'phone number' : 'email address')}${x.primary ? '<small>Primary</small>' : ''}${(kind === 'phone' ? x.doNotCall : x.doNotEmail) ? `<small class="is-bad">Do not ${kind === 'phone' ? 'call' : 'email'}</small>` : ''}`, x.id ? `<button type="button" class="pp-edit" data-pp-edit="${kind}${esc(x.id)}">Edit</button>` : '');
-  };
+  const fieldRow = (kind, x) => row(kind === 'phone' ? esc(x.type || 'Phone') : 'Email', `${copyBtn(kind === 'phone' ? x.number : x.address, kind === 'phone' ? 'phone number' : 'email address')}${x.primary ? '<small>Primary</small>' : ''}${(kind === 'phone' ? x.doNotCall : x.doNotEmail) ? `<small class="is-bad">Do not ${kind === 'phone' ? 'call' : 'email'}</small>` : ''}`, x.id && p.canEdit !== false ? '<button type="button" class="pp-edit" data-pp-tab="contact">Edit</button>' : '');
   const a = c.address;
-  const addrRow = a ? (V.editing === 'address' ? `<dt>Address</dt><dd><form class="pp-inline pp-inline--addr" data-pp-field="address" data-id="${esc(a.id || '')}"><input type="text" name="lines" value="${esc(a.lines)}" placeholder="Street" /><input type="text" name="city" value="${esc(a.city)}" placeholder="City" /><input type="text" name="state" value="${esc(a.state)}" placeholder="State" /><input type="text" name="zip" value="${esc(a.zip)}" placeholder="ZIP" /><label class="pp-chk"><input type="checkbox" name="dn" ${a.doNotMail ? 'checked' : ''}/>Do not mail</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button><button type="button" class="pp-edit" data-pp-cancel>Cancel</button></form></dd><span></span>`
-    : row('Address', `${copyBtn([a.lines, a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '), 'address')}${a.doNotMail ? '<small class="is-bad">Do not mail</small>' : ''}${c.otherAddresses ? `<small>${c.otherAddresses} more on file</small>` : ''}`, a.id ? '<button type="button" class="pp-edit" data-pp-edit="address">Edit</button>' : '')) : row('Address', 'None on file');
-  const details = `<details class="pp-fold"${V.editing && !String(V.editing).startsWith('opp') ? ' open' : ''}><summary>Contact details, codes and assignments</summary>
+  const addrRow = a ? row('Address', `${copyBtn([a.lines, a.city, [a.state, a.zip].filter(Boolean).join(' ')].filter(Boolean).join(', '), 'address')}${a.doNotMail ? '<small class="is-bad">Do not mail</small>' : ''}${c.otherAddresses ? `<small>${c.otherAddresses} more on file</small>` : ''}`, a.id && p.canEdit !== false ? '<button type="button" class="pp-edit" data-pp-tab="contact">Edit</button>' : '') : row('Address', 'None on file');
+  const details = `<details class="pp-fold"><summary>Contact details, codes and assignments</summary>
       <dl class="pp-dl">
-        ${(c.phones || []).map((x, i) => fieldRow('phone', x, i)).join('')}
-        ${V.editing === 'phonenew' ? `<dt>New phone</dt><dd><form class="pp-inline" data-pp-field="phone" data-id=""><input type="text" name="v" placeholder="(813) 555-0100" /><label class="pp-chk"><input type="checkbox" name="dn" />Do not call</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Add</button><button type="button" class="pp-edit" data-pp-cancel>Cancel</button></form></dd><span></span>` : ''}
-        ${(c.emails || []).map((x, i) => fieldRow('email', x, i)).join('')}
-        ${V.editing === 'emailnew' ? `<dt>New email</dt><dd><form class="pp-inline" data-pp-field="email" data-id=""><input type="text" name="v" placeholder="name@example.com" /><label class="pp-chk"><input type="checkbox" name="dn" />Do not email</label><button type="submit" class="h-btn h-btn--primary h-btn--sm">Add</button><button type="button" class="pp-edit" data-pp-cancel>Cancel</button></form></dd><span></span>` : ''}
+        ${(c.phones || []).map((x) => fieldRow('phone', x)).join('')}
+        ${(c.emails || []).map((x) => fieldRow('email', x)).join('')}
         ${addrRow}
-        ${row('Add', `<button type="button" class="pp-edit" data-pp-edit="phonenew">Phone</button> <button type="button" class="pp-edit" data-pp-edit="emailnew">Email</button>`)}
         ${row('Codes', (p.codes || []).map(esc).join(' · ') || 'None')}
         ${row('Assignments', (p.assignments || []).map((x) => `${esc(x.name)}${x.type ? ' (' + esc(x.type) + ')' : ''}${x.current ? '' : ' until ' + esc(fd(x.to, true))}`).join('<br>') || 'None')}
         ${(p.recurring || []).length ? row('Recurring', p.recurring.map((r) => `${money(r.amount)} ${esc(r.status)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.lastPayment ? ' · last ' + fd(r.lastPayment) : ''}`).join('<br>')) : ''}
         ${row('Added', esc(fd(p.addedOn, true)))}
       </dl>
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
-  return `<div class="pp">${head}${instrBox()}${acts}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
+  const tabs = `<nav class="pp-tabs" role="tablist" aria-label="Partner sections">${[['overview', 'Overview'], ['contact', 'Contact'], ['codes', 'Codes'], ['record', 'Record']].map(([k, l]) => `<button type="button" role="tab" class="${V.tab === k ? 'is-on' : ''}" aria-selected="${V.tab === k}" data-pp-tab="${k}">${l}</button>`).join('')}</nav>`;
+  if (V.tab !== 'overview' && window.FavorRecords) return `<div class="pp">${head}${instrBox()}${acts}${tabs}<div data-pp-pane></div><div class="pp-pad"></div></div>`;
+  return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
 }
 function oppForm(x) {
   const C = (CODES && CODES.codes) || {};
@@ -311,10 +306,13 @@ function paint() {
   const y = sc.scrollTop;
   sc.classList.toggle('pp-ro', V.p.canEdit === false);
   sc.innerHTML = view(V.p, { full: V.mode === 'full' });
+  const slot = $('[data-pp-pane]', sc);
+  if (slot && window.FavorRecords) slot.replaceWith(paneFor(V.id, V.tab));
   sc.scrollTop = y;
 }
 async function show(host, id, mode) {
-  Object.assign(V, { id, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host, mode, editing: null });
+  PANES.clear();
+  Object.assign(V, { tab: 'overview', id, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host, mode, editing: null });
   host.innerHTML = skeleton;
   codes();
   try {
@@ -345,6 +343,40 @@ async function mount(el, id, o = {}) {
     el.innerHTML = `<div class="pp-err"><p>${esc(e.message)}</p></div>`;
     return null;
   }
+}
+
+/* The record tabs (Contact, Codes, Record) live in records.js. Each keeps its own element and state per partner, so a repaint of the header never wipes a form. */
+function paneFor(id, tab) {
+  const key = id + ':' + tab;
+  if (!PANES.has(key)) {
+    const el = document.createElement('div');
+    el.className = 'rc-pane';
+    PANES.set(key, el);
+    window.FavorRecords.mount(el, { id, tab, partner: () => (V.p && V.p.id === id ? V.p : null), tools: TOOLS, merge: mergeRecord, goto: (t) => { V.tab = t; paint(); } });
+  }
+  return PANES.get(key);
+}
+/** What a record tab read live from Blackbaud goes into the partner shown, so the header links and the Overview show it before the next refresh of the copy. */
+function mergeRecord(id, part) {
+  const c = CACHE.get(id);
+  const targets = [V.p && V.p.id === id ? V.p : null, c ? c.p : null].filter(Boolean);
+  for (const p of targets) {
+    if (part.phones) p.contact.phones = part.phones.filter((x) => !x.inactive).map((x) => ({ id: x.id, number: x.number, type: x.type, primary: x.primary, doNotCall: x.doNotCall }));
+    if (part.emails) p.contact.emails = part.emails.filter((x) => !x.inactive).map((x) => ({ id: x.id, address: x.address, primary: x.primary, doNotEmail: x.doNotEmail }));
+    if (part.addresses) {
+      const live = part.addresses.filter((x) => !x.inactive);
+      const pick = live.find((x) => x.preferred) || live[0];
+      p.contact.address = pick ? { id: pick.id, lines: pick.lines, city: pick.city, state: pick.state, zip: pick.zip, country: pick.country, doNotMail: pick.doNotMail } : null;
+      p.contact.otherAddresses = Math.max(0, live.length - (pick ? 1 : 0));
+      if (pick) p.place = [pick.city, pick.state].filter(Boolean).join(', ') || p.place;
+    }
+    if (part.flags) {
+      p.deceased = !!part.flags.deceased;
+      p.inactive = !!part.flags.inactive;
+    }
+    if (part.codes) p.codes = part.codes.filter((x) => !x.inactive).map((x) => x.code);
+  }
+  if (V.p && V.p.id === id) paint();
 }
 
 /* drawer */
@@ -449,6 +481,7 @@ document.addEventListener('click', async (e) => {
     window.FavorWG.pop(b, { giftId: g.giftId, cid: g.cid, name: V.p.name, amount: g.amount, date: g.date, fund: g.fund, phone: ph ? ph.number : null, left: g.left, tasks: (g.taskIds || []).length });
     return;
   }
+  if (d.ppTab) { if (V.tab !== d.ppTab) { V.tab = d.ppTab; V.compose = null; paint(); } return; }
   if (d.ppCompose) { V.compose = d.ppCompose; V.editing = null; paint(); setTimeout(() => { const i = $('.pp-composer input[name="what"]', V.host); if (i) i.focus(); }, 30); return; }
   if (b.hasAttribute('data-pp-close-compose')) { V.compose = null; paint(); return; }
   if (d.ppKind) { $$('[data-pp-kind]', b.parentElement).forEach((x) => x.classList.toggle('is-on', x === b)); return; }
@@ -660,5 +693,6 @@ if (root) {
   }
 }
 
-window.FavorPartner = { open, close, mount, view, search, href, refresh, openCompose };
+const TOOLS = { api, post, run, toast, esc, fd, ic, undo };
+window.FavorPartner = { tools: TOOLS, open, close, mount, view, search, href, refresh, openCompose };
 })();

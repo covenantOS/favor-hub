@@ -9,6 +9,10 @@ updated: 2026-10-10
 
 Press **Help and what's new**, then **Only what's new**, and the tour shows you each new thing where it lives.
 
+## October 11, 2026
+
+- **Contact, Codes and Record tabs on every partner.** Open a partner and four tabs sit under the name. Contact lists every address with its dates and seasonal window, every phone and every email, and Edit, Add an address, Add a phone and Add an email change them in Blackbaud with the preferred mark moving cleanly from the old row to the new one. Codes lists constituent codes and solicit codes with Add and End. Record marks a partner deceased or inactive with the effects listed first, and marks active again. Each save reads Blackbaud back and shows what it kept, and Undo stays for 24 hours.
+
 ## October 10, 2026
 
 - **Work counts agree.** The Work Center badge in the menu, the Work Center tile on the Overview, the Open actions tab and its Open tile all show the same number of open actions, and each Overview link opens exactly the actions its number counts. "What each number counts" is in the Work Center article.
