@@ -235,6 +235,8 @@ export interface MirrorAsks { asks: RawAsk[]; gifts: RawAskGift[]; largest: Reco
 /** A paging request is a fresh read of the mirror within this many milliseconds. The board asks four columns at once, so one read serves them all. */
 export const MIRROR_TTL_MS = 60_000;
 const mirrorCache = new Map<string, { at: number; p: Promise<MirrorAsks> }>();
+/** Drops the cached mirror reads, so the next request reads the mirror again (tests that change mirror rows). */
+export const clearAskCache = () => mirrorCache.clear();
 
 /** Shared by every request in the same isolate for MIRROR_TTL_MS, per window and day. A failed read is not kept. */
 export function mirrorAsks(q: Q, today: string, allTime: boolean): Promise<MirrorAsks> {

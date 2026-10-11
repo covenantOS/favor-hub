@@ -250,6 +250,7 @@ describe('a partner marked deceased', () => {
     ask('41', '4', 2500, '2026-09-05');
     ask('42', '4', 900, '2026-05-05');
     gift('g4', '4', 900, '2026-06-01');
+    asks.clearAskCache();
     try {
       const out = await asks.asksResponse(ctx({ ...dirScope('501'), role: 'admin', all: true }), '');
       const ids = out.rows.map((r) => r.id);
