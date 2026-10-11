@@ -125,6 +125,8 @@
   }
 
   /* ------------------------------------------------------------------ today's work */
+  // The data sends "No type" when an action has no type. That placeholder is not a label a person wants to read.
+  const whatOf = (r) => r.summary || (r.type && r.type !== 'No type' ? r.type : '') || 'Action';
   const dueChip = (r) => (r.late > 0 ? `<span class="r2t-chip r2t-chip--late"><i></i><span class="wh-cl">${plural(r.late, 'day')} late</span><span class="wh-cs">${n0(r.late)}d</span></span>` : '<span class="r2t-chip r2t-chip--due"><i></i>Today</span>');
   function paintDue(w) {
     const card = $('wh-due');
@@ -144,8 +146,8 @@
     const list = $('wh-due-list');
     if (!d.rows.length) { list.innerHTML = `<li class="wh-empty">Nothing due or overdue. ${plural(d.open, 'open action')} in the Work Center.</li>`; return; }
     list.innerHTML = d.rows.map((r) => `<li class="wh-row" data-id="${esc(r.id)}" data-cid="${esc(r.cid)}" data-name="${esc(r.partner)}">
-      <button type="button" class="wh-chk" data-do="complete" aria-label="Complete: ${esc(r.summary || r.type || 'action')} for ${esc(r.partner)}">${tick}</button>
-      <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.partner)}</a><span>${esc(r.summary || r.type || 'Action')}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
+      <button type="button" class="wh-chk" data-do="complete" aria-label="Complete: ${esc(whatOf(r))} for ${esc(r.partner)}">${tick}</button>
+      <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.partner)}</a><span>${esc(whatOf(r))}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
       ${dueChip(r)}
       <div class="wh-acts wh-acts--hover"><button type="button" class="wh-do wh-do--go wh-do--c" data-do="complete">Complete</button><button type="button" class="wh-do" data-do="snooze" aria-haspopup="true" aria-label="Snooze: ${esc(r.partner)}">${CLOCK}<span class="wh-lbl">Snooze</span></button><a class="wh-do" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}" aria-label="Open partner: ${esc(r.partner)}">${PERSON}<span class="wh-lbl">Partner</span></a></div>
     </li>`).join('') + (d.total > d.rows.length ? `<li class="wh-more"><a href="/work/?view=open&due=now${fr}">${n0(d.total)} due today or overdue</a></li>` : '');
