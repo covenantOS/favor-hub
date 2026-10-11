@@ -29,6 +29,18 @@ describe('chapters from the model', () => {
     assert.deepEqual(ch.chapterRange(900), [3, 8]);
     assert.deepEqual(ch.startAtZero([{ at: 9, title: 'Late' }]), [{ at: 0, title: 'Start' }, { at: 9, title: 'Late' }]);
   });
+  it('moves to the next model when every chapter starts at 0, and asks the larger model first', async () => {
+    const asked = [];
+    const answers = {
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast': { chapters: [{ at: 0, title: 'Opening' }, { at: 0, title: 'Board' }, { at: 0, title: 'Cards' }] },
+      '@cf/meta/llama-3.1-8b-instruct-fast': { chapters: [{ at: 0, title: 'Opening' }, { at: 60, title: 'The board' }, { at: 140, title: 'Moving cards' }] },
+    };
+    const env = { AI: { run: async (model) => { asked.push(model); return { response: answers[model] }; } } };
+    const lines = Array.from({ length: 20 }, (_, i) => ({ s: i * 10, e: i * 10 + 9, t: `Made-up line ${i}` }));
+    const got = await ai.chaptersFor(env, lines, 200);
+    assert.deepEqual(asked, ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fast']);
+    assert.deepEqual(got.map((c) => c.at), [0, 60, 140]);
+  });
   it('always gives a clip with words a table of contents', () => {
     const lines = [{ s: 0, e: 5, t: 'Open the board' }, { s: 40, e: 45, t: 'Pick the team' }, { s: 90, e: 95, t: 'Drag the card' }];
     const f = ch.fallbackChapters(lines, 120);

@@ -8,6 +8,8 @@ import { chapterLines, chapterRange, cleanChapters, fallbackChapters, parseAiJso
 export const WHISPER = '@cf/openai/whisper-large-v3-turbo';
 /** Small first. If it errors the larger model the hub already uses for routing steps in. */
 export const TEXT_MODELS = ['@cf/meta/llama-3.1-8b-instruct-fast', '@cf/meta/llama-3.3-70b-instruct-fp8-fast'];
+/** Chapters need start times read off the transcript stamps, which the 8B model gets wrong, so the 70B model goes first. */
+export const CHAPTER_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fast'];
 /**
  * Whisper writes clean text and drops "um" and "uh" unless the prompt shows it that fillers belong in the transcript.
  * Speech that sounds like this prompt is kept verbatim. The editor's "Remove filler words" needs them to be there.
@@ -195,20 +197,25 @@ export async function chaptersFor(env: ClipsEnv, segments: ClipSegment[], durati
   if (!lines.length) return screenChapters(seen, duration);
   const dur = duration || lines[lines.length - 1].e;
   const [lo, hi] = chapterRange(dur);
-  try {
-    const text = lines.map((l) => `[${stamp(l.s)}] ${l.t}`).join('\n').slice(0, 30000) + (screen ? `\n\nWhat the screen showed (use it to place chapter breaks where the person moved to a new page or tool, and to name them):\n${screen}` : '');
-    const out = await chatJson<unknown>(
-      env,
-      'Split the transcript into chapters like a video table of contents. Return {"chapters":[{"at":0,"title":"..."}]}. ' +
-        'at is the start in whole seconds (a number, not "m:ss"), taken from a [m:ss] stamp in the transcript; the first chapter starts at 0. title is 2 to 6 plain words naming that section. ' +
-        `Use ${lo === hi ? lo : `${lo} to ${hi}`} chapter${hi === 1 ? '' : 's'} (this recording is ${Math.round(dur)} seconds long; a very short one still gets at least 1). Never invent topics that are not in the transcript.`,
-      text,
-      1200
-    );
-    const got = cleanChapters(out, dur, dur < 60 ? 3 : 5).map((c) => ({ ...c, title: plain(c.title, 90) }));
-    if (got.length) return startAtZero(got);
-  } catch (err) {
-    console.warn('[clips] chapters', err);
+  const text = lines.map((l) => `[${stamp(l.s)}] ${l.t}`).join('\n').slice(0, 30000) + (screen ? `\n\nWhat the screen showed (use it to place chapter breaks where the person moved to a new page or tool, and to name them):\n${screen}` : '');
+  // The larger model first: the 8B model answered every chapter with "at": 0 on real clips, which left only the
+  // transcript fallback. An answer with fewer usable chapters than the range asks for goes to the next model.
+  for (const model of CHAPTER_MODELS) {
+    try {
+      const out = await chatJson<unknown>(
+        env,
+        'Split the transcript into chapters like a video table of contents. Return {"chapters":[{"at":0,"title":"..."}]}. ' +
+          'at is the start in whole seconds (a number, not "m:ss"), taken from a [m:ss] stamp in the transcript; the first chapter starts at 0 and each later one starts later than the one before. title is 2 to 6 plain words naming that section. ' +
+          `Use ${lo === hi ? lo : `${lo} to ${hi}`} chapter${hi === 1 ? '' : 's'} (this recording is ${Math.round(dur)} seconds long; a very short one still gets at least 1). Never invent topics that are not in the transcript.`,
+        text,
+        1200,
+        [model]
+      );
+      const got = cleanChapters(out, dur, dur < 60 ? 3 : 5).map((c) => ({ ...c, title: plain(c.title, 90) }));
+      if (got.length >= lo) return startAtZero(got);
+    } catch (err) {
+      console.warn('[clips] chapters', model, err);
+    }
   }
   // The model was unreachable or answered in a shape we could not read: still give the clip a table of contents.
   return fallbackChapters(lines, dur);
