@@ -19,7 +19,8 @@
 .wgi-why .wg-sub { margin: 0; }
 .wgi-toggle { display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
 
-.ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; }
+.ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; align-items: start; }
+.ap-grid .bu-f { align-content: start; }
 .ap-wide { grid-column: 1 / -1; }
 .ap-hint { color: var(--h-ink-3); font-size: 12px; }
 .ap-opt { color: var(--h-ink-3); font-style: normal; font-weight: 400; }
