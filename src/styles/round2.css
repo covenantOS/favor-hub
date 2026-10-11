@@ -308,3 +308,5 @@ body.h-body .h-page .hd-search input:focus, body.h-body .h-page .fnd-check__box 
 /* the expense submit button matches the other Work buttons */
 body.h-body .h-page .req-submit.exp-green { background: var(--h-brand); border-color: var(--h-brand); }
 body.h-body .h-page .req-submit.exp-green:hover:not(:disabled) { background: var(--h-brand-ink); border-color: var(--h-brand-ink); color: #fff; }
+/* focus rings on the dark rail and phone bar are light, so a keyboard user can see them */
+body.h-body .h-side :focus-visible, body.h-body .h-side__tog:focus-visible, body.h-body .h-navbar :focus-visible { outline: 2px solid var(--soft-leaf); outline-offset: -2px; }
