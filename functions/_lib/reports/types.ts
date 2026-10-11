@@ -43,6 +43,18 @@ export interface TieOut {
   status: 'match' | 'differs' | 'none' | 'unavailable';
   diff?: number;
   note?: string;
+  /** Set when the figure is a saved Blackbaud query's own output and not the KPI dashboard ("Saved query 1066, ..."). */
+  against?: string;
+}
+
+/** The file a mailing list goes to the mail house in: the columns and values the saved query's export had. */
+export interface MailFile {
+  /** Button text. */
+  label: string;
+  /** Part of the file and sheet name. */
+  name: string;
+  columns: ColumnDef[];
+  rows(rows: Row[], filters: Record<string, string>, extra: unknown): Row[];
 }
 
 export type Row = Record<string, unknown>;
@@ -90,6 +102,9 @@ export interface ReportDef {
   totals?(rows: Row[], filters: Record<string, string>): Record<string, number>;
   tiles?(rows: Row[], filters: Record<string, string>, extra: unknown): Tile[];
   tie?(ctx: ReportContext, rows: Row[], filters: Record<string, string>, extra: unknown): Promise<TieOut>;
+  /** More tie-out lines, against the saved queries the report replaces. */
+  ties?(ctx: ReportContext, rows: Row[], filters: Record<string, string>, extra: unknown): Promise<TieOut[]>;
+  mailFile?: MailFile;
   /** WhatsApp text, for the reports a person posts by hand. */
   post?(rows: Row[], filters: Record<string, string>, extra: unknown): string;
   note?: string;
@@ -125,6 +140,9 @@ export interface RunResult {
   totals: Record<string, number>;
   tiles: Tile[];
   tie: TieOut;
+  ties: TieOut[];
+  /** Present when the report has a mail house file. */
+  mailFile: { label: string; name: string; rows: number } | null;
   post: string | null;
   note: string | null;
   editable: string[];
