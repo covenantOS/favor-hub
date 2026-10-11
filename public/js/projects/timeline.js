@@ -12,8 +12,8 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 function cfg() {
   return isPhone()
-    ? { leftW: 136, rowH: 52, barH: 30, headH: 56, phone: true }
-    : { leftW: 320, rowH: 40, barH: 24, headH: 56, phone: false };
+    ? { leftW: 136, rowH: 52, barH: 30, headH: 64, phone: true }
+    : { leftW: 320, rowH: 40, barH: 24, headH: 64, phone: false };
 }
 
 export async function mount(host, ctx) {
@@ -277,7 +277,7 @@ export async function mount(host, ctx) {
     const inside = !g.dia && g.w >= 84;
     const label = '<span class="tl-bl">' + esc(t.title) + '</span>';
     const range = sp.both ? fmtRange(sp.s, sp.d) : fmtShort(sp.d);
-    return '<div class="tl-bar' + (g.dia ? ' is-dia' : '') + (done ? ' is-done' : '') + (over ? ' is-over' : '') + (blocked ? ' is-blocked' : '') + (sel ? ' is-sel' : '') + (inside ? ' is-in' : ' is-out') + '"' +
+    return '<div class="tl-bar' + (g.dia ? ' is-dia' : '') + (done ? ' is-done' : '') + (over ? ' is-over' : '') + (blocked ? ' is-blocked' : '') + (sel ? ' is-sel' : '') + (inside ? ' is-in' : ' is-out') + (!g.dia && g.w < (C.phone ? 66 : 40) ? ' is-narrow' : '') + '"' +
       ' data-id="' + esc(t.id) + '" data-pc="' + c + '" tabindex="0" role="button" aria-label="' + esc(t.title + ', ' + range + (done ? ', completed' : '')) + '"' +
       ' style="left:' + g.x + 'px;width:' + g.w + 'px">' +
       (g.dia ? '<i class="tl-dia"></i>' : '<i class="tl-prog" style="width:' + prog + '%"></i>') +
@@ -579,6 +579,7 @@ export async function mount(host, ctx) {
       const inside = !g.dia && g.w >= 84;
       d.bar.classList.toggle('is-in', inside);
       d.bar.classList.toggle('is-out', !inside);
+      d.bar.classList.toggle('is-narrow', !g.dia && g.w < (C.phone ? 66 : 40));
       tip(o.both ? fmtRange(s, e2) : fmtShort(e2), d.bar);
       drawEdges();
     } else if (d.kind === 'create') {
