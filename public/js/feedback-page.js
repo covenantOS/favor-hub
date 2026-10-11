@@ -152,10 +152,7 @@
 
   const start = (d) => {
     admin = !!(d && d.access && d.access.admin);
-    if (admin) {
-      $('fb-tabs').hidden = false;
-      $('fb-lede').textContent = 'Every note from the hub, Favor Brain, the help docs and the tour.';
-    }
+    if (admin) $('fb-tabs').hidden = false;
     load();
   };
   if (window.FAVOR_HUB) start(window.FAVOR_HUB);

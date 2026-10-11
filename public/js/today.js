@@ -75,11 +75,11 @@
       $('t-cards').innerHTML = '<div class="h-card r2t-clear r2t-span" data-tool="leaf"><span class="r2t-ico"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg></span>Nothing is waiting on you right now.</div>';
       return;
     }
-    const total = list.reduce((s, c) => s + (Number(c.n) || 0), 0);
-    meta.textContent = `${total.toLocaleString('en-US')} ${total === 1 ? 'item' : 'items'} across ${list.length} ${list.length === 1 ? 'tool' : 'tools'}`;
+    // Each card carries its own count; a total of the totals beside the heading said the same thing twice.
+    meta.textContent = '';
     $('t-cards').innerHTML = list
       .map((c) => {
-        const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
+        const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
         return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}" aria-label="${esc(c.label)}: ${esc(c.cta)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
           <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
@@ -298,14 +298,14 @@
               (a) => `<li class="r2t-snzrow" data-row="${esc(a.id)}"><a class="r2t-lr" href="${cid(a)}" target="_blank" rel="noopener" title="${esc(a.summary || a.type)}"><span class="r2t-chk" aria-hidden="true"></span><span class="r2t-lr__t"><b>${esc(a.partner || 'Partner')}</b><span>${esc(a.summary || a.type || a.category)}</span></span><span class="r2t-chip ${a.due < today ? 'r2t-chip--late' : 'r2t-chip--plain'}" data-chip>${esc(et(a.due + 'T12:00:00Z', { month: 'short', day: 'numeric' }))}</span></a>${window.hubSnoozeButton ? window.hubSnoozeButton('bb', a.id, a.partner || 'Partner', 'r2t-snz--row') : ''}</li>`
             )
             .join('')}</ul>${bb.total > bb.actions.length ? `<p class="r2t-more-n">${bb.total - bb.actions.length} more in Blackbaud</p>` : ''}`,
-          bb.overdue ? `<span class="r2t-chip r2t-chip--late"><i></i>${bb.overdue} overdue</span>` : ''
+          bb.overdue ? `<span class="r2t-chip r2t-chip--late">${bb.overdue} overdue</span>` : ''
         );
 
       if (!g.connected) {
         grid.innerHTML =
           actions +
           `<div class="h-card r2t-connect"><b>Calendar, files and mail</b>
-            <p>Shows today's meetings, files shared with you and who emailed you. Reads titles and names only. Disconnect any time.</p>
+            <p>Today's meetings, files shared with you and who emailed you. Reads titles and names only.</p>
             <a class="h-btn h-btn--primary h-btn--sm" href="/api/google/connect">Connect my Google</a></div>`;
         return;
       }

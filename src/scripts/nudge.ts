@@ -129,7 +129,8 @@ function place(link: HTMLElement): void {
 function askLink() {
   if (!hasNotifications() || Notification.permission !== 'default') return;
   const path = location.pathname;
-  if (!path.startsWith('/meet') || path.startsWith('/meet/room') || path.startsWith('/meet/g')) return;
+  // Only on the Meetings day page. On Book and Notes it sat above work it has nothing to do with.
+  if (path !== '/meet/' && path !== '/meet') return;
   if (localStorage.getItem(ASKED)) return;
   if (document.getElementById('nudge-ask')) return;
   const p = document.createElement('p');

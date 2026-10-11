@@ -57,7 +57,7 @@
     var h = '<div class="rp-top"><div class="rp-seg2" role="group" aria-label="Kind"><button type="button" class="is-on">Reports <small>' + reports.length + '</small></button><a class="rp-segl" href="' + BASE + '?r=query-map">' + esc(data.queryMap.name) + '</a></div>' +
       '<label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-q" placeholder="Find a report or query" value="' + esc(listQuery) + '" aria-label="Find a report or query"></label></div>' +
       '<div class="rp-groups"><div class="rp-seg2" role="group" aria-label="Group">' +
-      segs.map(function (c) { return '<button type="button" class="' + (listGroup === c[0] ? 'is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + ' <small>' + c[2] + '</small></button>'; }).join('') + '</div></div>';
+      segs.map(function (c) { return '<button type="button" class="' + (listGroup === c[0] ? 'is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + (c[0] === 'all' ? '' : ' <small>' + c[2] + '</small>') + '</button>'; }).join('') + '</div></div>';
     var any = false;
     var t = '<div class="h-card rp-list" role="table" aria-label="Reports"><div class="rp-head" role="row"><span>Report</span><span>How often</span><span>Used by</span><span>Flags</span></div>';
     groups.forEach(function (g) {
@@ -65,7 +65,8 @@
       var rows = reports.filter(function (r) { return r.group === g.id && (!q || (r.name + ' ' + (r.replaces || '') + ' ' + r.who).toLowerCase().indexOf(q) >= 0); });
       if (!rows.length) return;
       any = true;
-      t += '<div class="rp-grp">' + esc(g.label) + ' <b>' + rows.length + '</b></div>';
+      // The group buttons above carry each group's count; the heading repeats it only when a search has narrowed the list.
+      t += '<div class="rp-grp">' + esc(g.label) + (q ? ' <b>' + rows.length + '</b>' : '') + '</div>';
       rows.forEach(function (r) {
         var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c" title="' + esc(r.freq) + '">' + esc(r.freq) + '</span><span class="rp-c" title="' + esc(r.who) + '">' + esc(r.who) + '</span><span class="rp-flags">' + flags(r) + '</span>';
         t += r.ready ? '<a class="rp-row" role="row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon" role="row">' + inner + '</div>';

@@ -190,7 +190,7 @@
     box.setAttribute('role', 'group');
     box.innerHTML = `
       ${question ? `<p>${esc(question)}</p>` : ''}
-      ${named ? '' : `<label class="fnd-who rcp-ask__who"><span>Your name</span><input list="rcp-staff" placeholder="Your name" autocomplete="off" maxlength="60" /></label>`}
+      ${named ? '' : `<label class="fnd-who rcp-ask__who"><span>Your name</span><input list="rcp-staff" autocomplete="off" maxlength="60" /></label>`}
       <p class="rcp-ask__msg" role="alert"></p>
       <div class="rcp-ask__row">
         <button type="button" class="req-submit${danger ? ' rcp-danger' : ''}" data-yes>${esc(yes)}</button>
