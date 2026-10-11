@@ -334,3 +334,12 @@ body.h-body .fnd-tabs button.is-on span { background: var(--a-tint); color: var(
 .h-body .bc-root .m-a__av--bm .bm { width: 30px; height: 30px; }
 .h-body .bc-root .bc-mark--bm { width: 96px; height: 96px; }
 .h-body .bc-root .bc-mark--bm .bm { width: 96px; height: 96px; }
+
+/* 2026-10-10 polish from Will's screenshots. Rail: the hover and active block wraps the icon and its label, so a long label
+   like Meetings never hangs past its tile. */
+html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__link::before { top: 3px; bottom: 3px; height: auto; width: 74px; margin-left: -37px; border-radius: 14px; }
+html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__label { font-size: 11px; }
+/* Reporting: the freshness stamp only shows when the numbers are stale; the page itself says "As of". */
+.h-kpi-fresh:not(.is-stale) { display: none !important; }
+/* Avatars inside a meta row keep their own centering. */
+.nt-meta .mt-av { display: grid; gap: 0; place-items: center; font-size: 10px; letter-spacing: -0.02em; }
