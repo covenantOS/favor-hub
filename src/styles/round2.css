@@ -289,3 +289,22 @@ html.nav-wide .h-area__link .h-nav__count, .h-app.is-peek .h-area__link .h-nav__
 .h-tabs__row { padding-left: 2px; padding-top: 3px; padding-bottom: 3px; }
 .h-tab:focus { outline: none; }
 .h-tab:focus-visible { outline: 2px solid var(--a-ink, var(--h-brand)); outline-offset: -2px; }
+
+/* ------------------------------------------------------------ polish sweep 2026-10-10 */
+
+/* Today: the Since Favor began card keeps its dark rail color (the shared card rule had turned it white under white text) */
+body.h-body .h-card.r2t-mission { background: var(--r-rail); color: #fff; border: 0; }
+/* Help hero keeps its dark gradient, so its title is white */
+body.h-body .hd-hero h1 { color: #fff; }
+/* a search box that draws its own border holds a bare input, with no second border inside it */
+body.h-body .h-page .hd-search input:not([type='checkbox']):not([type='radio']):not([type='file']),
+body.h-body .h-page .fnd-check__box input:not([type='checkbox']):not([type='radio']):not([type='file']),
+body.h-body .h-page .bigsearch input:not([type='checkbox']):not([type='radio']):not([type='file']) { border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+body.h-body .h-page .hd-search input:focus, body.h-body .h-page .fnd-check__box input:focus, body.h-body .h-page .bigsearch input:focus { border: 0; box-shadow: none; }
+/* an empty toast stays out of sight */
+.fnd-toast:empty { display: none; }
+/* the Favor Brain header is the same height as every other page's */
+@media (min-width: 861px) { body.h-body[data-nav='brain'] .h-top, body.h-body[data-nav='brain'] .h-app .h-top { min-height: 64px; } }
+/* the expense submit button matches the other Work buttons */
+body.h-body .h-page .req-submit.exp-green { background: var(--h-brand); border-color: var(--h-brand); }
+body.h-body .h-page .req-submit.exp-green:hover:not(:disabled) { background: var(--h-brand-ink); border-color: var(--h-brand-ink); color: #fff; }
