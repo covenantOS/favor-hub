@@ -8,7 +8,7 @@ related: [signing-in, today, search, guided-tour]
 updated: 2026-10-09
 ---
 
-The hub at **dash.favorintl.org** is where Favor staff do their everyday work outside Blackbaud: asking for work, expense requests, thank-you receipts, foundation prospects, the KPI dashboard and Favor Brain. You sign in once with your Favor Google account and every tool is one press away.
+The hub at **dash.favorintl.org** is where Favor staff do their everyday work outside Blackbaud: asking for work, expense requests, receipts, foundation prospects, the KPI dashboard and Favor Brain. You sign in once with your Favor Google account and every tool is one press away.
 
 ## The fastest way to learn it
 
@@ -37,7 +37,7 @@ Press the **three lines** at the top left to open the menu. Everything works the
 | --- | --- |
 | Ask someone for work, a list or a design | Make a request |
 | Get approval for a purchase or a trip | Expense request |
-| Print thank-you letters | Thank-you receipts |
+| Print receipts | Receipts |
 | Check a foundation before you call | Foundation prospects |
 | See how the year is going | KPI dashboard |
 | Ask a question about partners, giving or the manuals | Favor Brain |

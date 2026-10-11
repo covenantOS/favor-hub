@@ -1,0 +1,85 @@
+/* q3-desk: desktop and iPad design pass, 2026-10-11. Imported from the pages it touches; loads after the page styles. */
+
+/* A page that is not full width centres in the space beside the rail, so a 1920 screen has no dead strip on the right. */
+@media (min-width: 1500px) {
+  body.h-body .h-page:not(.h-page--full) { margin-inline: auto; }
+}
+
+/* Today: the Needs you tiles share the row, however many there are, and the two cards under them match in height. */
+@media (min-width: 1181px) {
+  .r2t-needs { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+  .r2t-row3 { align-items: stretch; }
+  .r2t-row3 > .h-card { height: 100%; }
+}
+
+/* Work Overview: a long request title wraps inside its card instead of pushing the card past the page edge. */
+.wh-body { grid-template-columns: minmax(0, 1fr); }
+.wh-rl .wh-t { min-width: 0; overflow-wrap: anywhere; }
+.wh-rl a { min-width: 0; }
+
+/* The old tool pages (Requests, Receipts, Foundations, Expenses): one toolbar row, same control height, name field inline. */
+body.h-body .h-page .board-intro { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-bottom: 14px; }
+body.h-body .h-page .board-intro > div:first-child:not(.board-intro__actions) { display: none; }
+body.h-body .board-intro__actions { align-items: center; justify-content: flex-end; gap: 10px; }
+body.h-body .board-intro__actions .fnd-who { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+body.h-body .board-intro__actions .fnd-who span { white-space: nowrap; }
+body.h-body .board-intro__actions .fnd-who input,
+body.h-body .board-intro__actions .req-ghost,
+body.h-body .board-intro__actions .req-submit,
+body.h-body .board-intro__actions .req-admin-btn,
+body.h-body .board-intro__actions .h-btn { height: 38px; min-height: 38px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; padding-block: 0; line-height: 1; }
+body.h-body .board-intro__actions .fnd-who input { display: block; }
+body.h-body .board-intro__actions .req-chip { height: 38px; display: inline-flex; align-items: center; }
+body.h-body .h-page .board-hint { margin: -4px 0 12px; }
+
+/* Feedback: title and actions sit on one centre line. */
+.fbp-head { align-items: center; }
+
+/* Meeting library cards: the same top row and the same foot on every card. */
+.libc { display: flex; flex-direction: column; }
+.libc > :last-child { margin-top: auto; }
+
+/* The system-alerts ask is a quiet pill, not a bare link. */
+.nudge-ask { margin: 0 0 12px; }
+.nudge-ask button { font: 600 13px var(--h-font); color: var(--h-ink-2); text-decoration: none; background: #fff; border: 1px solid var(--h-line); border-radius: 999px; padding: 6px 14px; cursor: pointer; transition: border-color .14s, color .14s; }
+.nudge-ask button:hover { border-color: var(--h-ink-3); color: var(--h-ink); }
+.nudge-ask button:focus-visible { outline: 2px solid var(--h-leaf); outline-offset: 2px; }
+
+/* Meetings timeline: a crowd of meetings stacks as one-line rows. */
+.dv-ev.is-row { flex-direction: row; align-items: center; gap: 10px; padding: 0 11px; min-width: 0; }
+.dv-ev.is-row .dv-ev__t { min-height: 0; flex: none; }
+.dv-ev.is-row h4 { font-size: 12.5px; }
+.dv-ev.is-row h4 { margin: 0; font: 600 13px var(--h-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dv-ev:focus-visible { outline: 2px solid var(--a, var(--h-leaf)); outline-offset: 2px; z-index: 5; }
+
+/* Work Overview request rows keep their date chip at full size. */
+.wh-rl .r2t-chip { min-width: max-content; overflow: visible; }
+
+/* Keyboard focus: every field shows a ring, not only a border tint. */
+body.h-body .h-page :is(input:not([type='checkbox']):not([type='radio']), select, textarea):focus-visible { outline: 2px solid var(--h-leaf); outline-offset: 1px; }
+
+/* iPad portrait (the phone layout with room to spare): Work Center rows read across in one line. */
+@media (min-width: 700px) and (max-width: 860px) {
+  .wc-grid .wc-row { grid-template-columns: 44px minmax(0, 1.1fr) minmax(0, 1.5fr) minmax(0, 0.9fr) auto; grid-template-areas: 'cb partner what who due' 'cb partner what type due'; column-gap: 14px; align-items: center; }
+  .wc-grid .wc-type { text-align: left; }
+  .wc-grid .wc-what b { -webkit-line-clamp: 2; }
+}
+
+/* The expense log shows a placeholder card until it knows which view to open. */
+.exp-page:has(#exp-admin:not([hidden]), #exp-denied:not([hidden]), #exp-locked:not([hidden])) #exp-skel { display: none; }
+
+/* An empty tab strip draws nothing. */
+.fnd-tabs:empty, .req-tabs:empty { display: none; }
+
+/* Hover states for components that had none. */
+.hd-card { transition: border-color .14s, box-shadow .14s, transform .14s; }
+.hd-card:hover { border-color: #cfd3c6; box-shadow: 0 10px 24px -14px rgba(29, 33, 27, .45); transform: translateY(-1px); }
+.h-btn--primary.h-btn--sm:hover { filter: brightness(1.2); }
+.cl-chip:not(.is-on):hover, .fnd-tabs button:not(.on):not(.is-on):hover, .fbp-tabs button:not(.is-on):hover, .fnd-filters button:not(.on):not(.is-on):hover, .rp-seg button:not(.is-on):hover { background: rgba(29, 33, 27, .07); }
+.cl-thumb { transition: filter .14s; }
+.cl-thumb:hover { filter: brightness(.95); }
+a.r2t-chip:hover { filter: brightness(.95); text-decoration: underline; }
+summary.req-col__head:hover { background: rgba(29, 33, 27, .04); border-radius: 8px; }
+
+/* A chip with no text (a request without a due date) draws nothing. */
+.wh-rl .r2t-chip:empty, .r2t-chip:empty { display: none; }

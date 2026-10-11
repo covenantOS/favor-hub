@@ -16,7 +16,7 @@ Today opens every time you sign in. It greets you and lays out your day.
 The cards on the left are things waiting on you in the hub. Each card has a number, a line about the oldest item, and a button that takes you straight to the work. You only see cards that apply to you, for example:
 
 - **Expenses**: expense requests waiting for your signature, if you approve expenses.
-- **Thank-you receipts**: a print file you made that still needs printing or marking.
+- **Receipts**: a print file you made that still needs printing or marking.
 - **Feedback**: an answer to a note you sent.
 
 When nothing is waiting, the card says so.

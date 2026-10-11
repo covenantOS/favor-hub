@@ -11,7 +11,7 @@ Press **Help and what's new** at the bottom of the menu.
 
 ## Show me around
 
-The full tour visits each tool you use. The pointer moves across the screen, opens things and types examples, and a card explains each stop. Nothing gets sent, saved or changed. The tour differs by role: an RDD sees foundation prospects and their team tab, Marketing sees thank-you receipts, approvers see the expense log.
+The full tour visits each tool you use. The pointer moves across the screen, opens things and types examples, and a card explains each stop. Nothing gets sent, saved or changed. The tour differs by role: an RDD sees foundation prospects and their team tab, Marketing sees receipts, approvers see the expense log.
 
 - **Next** or the right arrow goes forward. **Back** or the left arrow goes back.
 - **Esc** or the ✕ ends the tour. It keeps your place while it moves between pages.

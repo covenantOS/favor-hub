@@ -36,7 +36,7 @@ def make(tok, title, size, views=0):
 
 s1, s2, will = 'tok-staff1-local', 'tok-staff2-local', 'tok-will-local'
 GB = 1024 ** 3
-mine = [make(s1, 'Moving a request on the Request board', int(2.6 * GB), 3), make(s1, 'Thank-you receipts, a first look', int(2.4 * GB)), make(s1, 'Favor hub, Today and the menu', int(2.1 * GB)), make(s1, 'Old walkthrough nobody opened', int(1.5 * GB))]
+mine = [make(s1, 'Moving a request on the Request board', int(2.6 * GB), 3), make(s1, 'Receipts, a first look', int(2.4 * GB)), make(s1, 'Favor hub, Today and the menu', int(2.1 * GB)), make(s1, 'Old walkthrough nobody opened', int(1.5 * GB))]
 other = make(s2, 'Gift entry from a phone photo', int(0.8 * GB))
 ids = mine + [other]
 

@@ -2,7 +2,7 @@
 export const TOPICS: Array<{ id: string; label: string; blurb: string }> = [
   { id: 'start', label: 'Getting started', blurb: 'Signing in, Today, the menu and search' },
   { id: 'work', label: 'Requests and expenses', blurb: 'Asking for work, the request board, expense requests' },
-  { id: 'partners', label: 'Receipts and foundations', blurb: 'Thank-you receipts and foundation prospects' },
+  { id: 'partners', label: 'Receipts and foundations', blurb: 'Receipts and foundation prospects' },
   { id: 'numbers', label: 'The KPI dashboard', blurb: 'Reading the dashboard and how each number is counted' },
   { id: 'ask', label: 'Favor Brain (beta)', blurb: 'Asking questions, connecting Claude or ChatGPT, and asking well' },
   { id: 'blackbaud', label: 'Blackbaud', blurb: 'Raiser\'s Edge NXT training on video' },

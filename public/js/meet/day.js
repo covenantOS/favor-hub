@@ -73,12 +73,23 @@
   // Side by side lanes for events that overlap.
   function lanes(evs) {
     var cluster = [], end = 0;
-    var flush = function () { var n = 0; cluster.forEach(function (e) { n = Math.max(n, e.lane + 1); }); cluster.forEach(function (e) { e.lanes = n; }); cluster = []; };
+    // Draw every event at least 45 minutes tall so a short or empty meeting never sits on top of its neighbours.
+    evs.forEach(function (e) { e.vend = Math.max(e.end, e.start + 45 * 60000); });
+    var flush = function () { var n = 0; cluster.forEach(function (e) { n = Math.max(n, e.lane + 1); }); cluster.forEach(function (e) { e.lanes = n; });
+      // Many meetings starting within the same stretch cannot sit side by side. They stack as one-line rows from the first start.
+      if (cluster.length > 3) {
+        var first = cluster[0].start, last = cluster[cluster.length - 1].start, nxt = Infinity;
+        evs.forEach(function (o) { if (o.start > last && o.start < nxt) nxt = o.start; });
+        var room = nxt === Infinity ? 32 * cluster.length : (nxt - first) / 3600000 * PXH - 6;
+        var pitch = Math.max(22, Math.min(32, Math.floor(room / cluster.length)));
+        cluster.forEach(function (e, i) { e.stack = i; e.stackTop = first; e.pitch = pitch; e.lanes = 1; e.lane = 0; });
+      }
+      cluster = []; };
     evs.forEach(function (e) {
       if (cluster.length && e.start >= end) { flush(); end = 0; }
-      var used = {}; cluster.forEach(function (c) { if (c.end > e.start) used[c.lane] = 1; });
+      var used = {}; cluster.forEach(function (c) { if (c.vend > e.start) used[c.lane] = 1; });
       var l = 0; while (used[l]) l++;
-      e.lane = l; cluster.push(e); end = Math.max(end, e.end);
+      e.lane = l; cluster.push(e); end = Math.max(end, e.vend);
     });
     flush();
   }
@@ -122,8 +133,14 @@
   }
 
   function eventHtml(e, geo) {
-    var h = (e.end - e.start) / 3600000 * PXH - 3, compact = h < 50, tall = h >= 76;
+    var h = ((e.vend || e.end) - e.start) / 3600000 * PXH - 3, compact = h < 50, tall = h >= 76;
     var top = (e.start - geo.t0) / 3600000 * PXH + 1;
+    if (e.stack !== undefined) {
+      var rt = (e.stackTop - geo.t0) / 3600000 * PXH + 1 + e.stack * e.pitch;
+      var rc = 'dv-ev is-row' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.sel === e.id ? ' is-sel' : '');
+      return '<button type="button" class="' + rc + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.sel === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + (PROV[e.p] || e.p)) + '"' +
+        ' style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:70px;width:calc(100% - 76px)"><span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4>' + esc(e.title) + '</h4></button>';
+    }
     var c = 'dv-ev' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (compact ? ' is-compact' : '') + (state.sel === e.id ? ' is-sel' : '');
     var chip = e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start);
     var foot = tall ? '<span class="dv-ev__f"><span>' + (e.live && e.inRoom ? e.inRoom + ' in the room' : e.count + ' people') + '</span>' + (e.noteId ? '<span class="dv-chip dv-chip--plain">' + ic('doc') + 'Notes</span>' : '') + '</span>' : '';
@@ -196,16 +213,18 @@
     // A phone starts the timeline at the first meeting's hour and ends after the last, so no empty hours sit above the day.
     var phone = window.matchMedia && matchMedia('(max-width: 860px)').matches;
     var h0 = phone && evs.length ? 23 : 8, h1 = phone && evs.length ? 0 : 18;
-    evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); var ed = new Date(e.end); h1 = Math.max(h1, ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
+    evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); var ed = new Date(Math.max(e.end, e.start + 45 * 60000)); h1 = Math.max(h1, ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
     if (h1 <= h0) h1 = h0 + 1;
     var t0 = keyDate(state.day).getTime() + h0 * 3600000, geo = { t0: t0 };
     lanes(evs);
+    var gridH = (h1 - h0) * PXH + 8;
+    evs.forEach(function (e) { if (e.stack !== undefined) gridH = Math.max(gridH, (e.stackTop - t0) / 3600000 * PXH + e.stack * e.pitch + e.pitch + 8); });
     var hrs = '';
     for (var h = h0; h <= h1; h++) hrs += '<div class="dv-hr" style="top:' + (h - h0) * PXH + 'px"><span>' + hourLabel(h) + '</span></div>';
     var selEv = evs.filter(function (e) { return e.id === state.sel; })[0];
     var nowLine = isToday && now.getTime() >= t0 ? '<div class="dv-now" style="top:' + (now.getTime() - t0) / 3600000 * PXH + 'px"><span>' + hm(now) + '</span></div>' : '';
     var tlBody = evs.length
-      ? '<div class="dv-tl__scroll"><div class="dv-tl__grid" style="height:' + ((h1 - h0) * PXH + 8) + 'px">' + hrs + evs.map(function (e) { return eventHtml(e, geo); }).join('') + nowLine + '</div></div>'
+      ? '<div class="dv-tl__scroll"><div class="dv-tl__grid" style="height:' + gridH + 'px">' + hrs + evs.map(function (e) { return eventHtml(e, geo); }).join('') + nowLine + '</div></div>'
       : '<div class="dv-empty"><span class="dv-tile">' + ic('cal') + '</span><b>' + (isToday ? 'No meetings today' : 'No meetings on ' + esc(wk(state.day))) + '</b><a class="dv-btn dv-btn--primary" href="/meet/book/">' + ic('plus') + 'Book a meeting</a></div>';
     var notes = d.notes || [];
     root.innerHTML = '<div class="dv">' +

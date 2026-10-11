@@ -291,9 +291,9 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     const marking = file.status === 'marking';
     cards.push({
       id: 'receipts',
-      label: 'Thank-you receipts',
+      label: 'Receipts',
       n: marking ? left : file.letters,
-      what: marking ? 'printed gifts not yet marked thanked' : 'letters in the open print file',
+      what: marking ? 'printed gifts not yet marked thanked' : 'receipts in the open print file',
       note: marking ? `Marking stopped at ${file.marked} of ${file.gifts}; opening the page finishes it` : `Made by ${file.createdBy}. Print it, then mark it thanked`,
       warn: true,
       href: '/receipts/',

@@ -4,6 +4,7 @@ import SheetsButton from '../components/SheetsButton.astro';
 import '../styles/requests.css';
 import '../styles/qa-work.css';
 import '../styles/crit-forms.css';
+import '../styles/q3-desk.css';
 ---
 <App full title="Requests" crumb="Work" nav="board" description="What the team has asked to change, what Will has approved, and what is finished.">
   <div class="board-page">
@@ -19,7 +20,7 @@ import '../styles/crit-forms.css';
           <span class="req-chip" id="req-count" hidden></span>
           <SheetsButton name="requests" />
           <button type="button" class="req-admin-btn" id="req-unlock" hidden>Sign in to review</button>
-          <button type="button" class="req-ghost" id="req-lock" hidden>Lock</button>
+          <button type="button" class="req-ghost" id="req-lock" hidden title="Lock this page until the password is entered again">Lock</button>
         </div>
       </header>
 

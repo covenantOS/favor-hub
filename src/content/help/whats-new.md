@@ -24,7 +24,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 ## October 10, 2026
 
 - **Work counts agree.** The Work Center badge in the menu, the Work Center tile on the Overview, the Open actions tab and its Open tile all show the same number of open actions, and each Overview link opens exactly the actions its number counts. "What each number counts" is in the Work Center article.
-- **Admin settings.** Admin has a tab for People and roles, Work Center, Meetings, Favor Brain, Clips, Reports, Expenses and Thank-you receipts. Each setting saves on its own and writes a row to the Audit log. People and roles lists everyone who signs in and lets an admin change a role or block and unblock a person. Expenses holds the approvers, substitutes and mileage rate. Hub admins only.
+- **Admin settings.** Admin has a tab for People and roles, Work Center, Meetings, Favor Brain, Clips, Reports, Expenses and Receipts. Each setting saves on its own and writes a row to the Audit log. People and roles lists everyone who signs in and lets an admin change a role or block and unblock a person. Expenses holds the approvers, substitutes and mileage rate. Hub admins only.
 - **Meetings round two.** Hosts invite a Favor name, an email or a phone number from People inside a call, and each invitation shows Sent or Failed. Recordings are named by the Eastern date, a Google Doc of the notes is saved beside them, and the notes page plays sound or video in the hub. The notes start when the last person leaves. Guest lines show the guest's name and a repeated line shows once.
 - **Admin overview.** Admin opens on a health strip with the last run of the Blackbaud copy, the morning jobs, the overnight sender, the Drive library job, the SKY call meter, iWave credits, Workers AI and the unsubscribe write-back, each marked OK, Late or Failed. The Audit log lists every settings change with who made it and the before and after values. Hub admins only.
 - **Drive files in Ctrl K.** Type a word and the palette adds a Drive group after the rest: up to six files you can open, with type, owner, date and folder. Each row opens the file in Drive in a new tab. A slow Drive search never holds back the other rows.
@@ -66,7 +66,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 - **The Claude and ChatGPT popup shows once.** It asks you to request a Favor Claude seat from the technology team, then connect. Press **Keep using it here** and it does not come back. **Connect Claude or ChatGPT** in your chat list opens the steps any time.
 - **Favor Brain is a full-window chat.** Answers come back as cards and buttons, not only text: partner cards, team numbers by quarter and month, charts, tables you can sort and filter, and steps from the manuals. When a question could mean two things you pick from buttons, and under each answer you can change the year, state or team it used and the answer redraws.
 - **Your chats are kept for 30 days.** Search them, rename, pin or delete one, and open an old chat where you left it. Ctrl Shift O starts a new one.
-- **Open in Google Sheets** beside every download on Favor Brain tables, Foundation prospects, Thank-you receipts, the Request board, the Expense log and Feedback. The first time, Google asks once for permission. The sheet lands in your own Drive and only you can open it.
+- **Open in Google Sheets** beside every download on Favor Brain tables, Foundation prospects, Receipts, the Request board, the Expense log and Feedback. The first time, Google asks once for permission. The sheet lands in your own Drive and only you can open it.
 
 ## October 9, 2026
 
@@ -89,7 +89,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 6, 2026
 
-- **Thank-you receipts** moved into the hub: make the print file, print, and mark the gifts thanked in Blackbaud.
+- **Receipts** moved into the hub: make the print file, print, and mark the gifts thanked in Blackbaud.
 
 ## October 5, 2026
 

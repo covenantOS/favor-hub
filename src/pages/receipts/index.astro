@@ -7,14 +7,15 @@ import '../../styles/foundations.css';
 import '../../styles/receipts.css';
 import '../../styles/qa-work.css';
 import '../../styles/crit-forms.css';
+import '../../styles/q3-desk.css';
 ---
-<App title="Thank-you receipts" crumb="Work" nav="receipts" description="Every gift Blackbaud has not thanked yet, ready to print on the receipt paper.">
+<App title="Receipts" crumb="Work" nav="receipts" description="Every gift Blackbaud has not receipted yet, ready to print on the receipt paper.">
   <div class="fnd-page rcp-page">
     <div class="container">
       <header class="board-intro">
         <div>
           <p class="make-kicker">Marketing</p>
-          <h1>Thank-you <em>receipts</em></h1>
+          <h1>Receipts</h1>
           
         </div>
         <div class="board-intro__actions" id="rcp-actions" hidden>
@@ -29,12 +30,12 @@ import '../../styles/crit-forms.css';
               <option value="Will Hamilton"></option>
             </datalist>
           </label>
-          <button type="button" class="req-ghost" id="rcp-lock">Lock</button>
+          <button type="button" class="req-ghost" id="rcp-lock" title="Lock this page until the code is entered again">Lock</button>
         </div>
       </header>
 
       <form class="board-login" id="rcp-login" hidden>
-        <p>Enter the code to open thank-you receipts.</p>
+        <p>Enter the code to open receipts.</p>
         <div class="board-login__row">
           <input type="password" id="rcp-code" placeholder="Code" autocomplete="off" autocapitalize="off" spellcheck="false" />
           <button type="submit" class="req-admin-btn">Unlock</button>
@@ -61,7 +62,7 @@ import '../../styles/crit-forms.css';
           <div class="fnd-table-wrap">
             <table class="exp-admin-table rcp-table sc-table">
               <thead>
-                <tr><th class="rcp-tick"><input type="checkbox" id="rcp-all" checked aria-label="Print every letter" title="Check or uncheck every letter, on every page" /></th><th>Partner</th><th>Gift date</th><th class="r">Amount</th><th>Letter</th></tr>
+                <tr><th class="rcp-tick"><input type="checkbox" id="rcp-all" checked aria-label="Print every receipt" title="Check or uncheck every receipt, on every page" /></th><th>Partner</th><th>Gift date</th><th class="r">Amount</th><th>Receipt</th></tr>
               </thead>
               <tbody id="rcp-rows"></tbody>
             </table>
@@ -77,5 +78,5 @@ import '../../styles/crit-forms.css';
   </div>
 
   <div class="fnd-toast" id="rcp-toast" role="status" aria-live="polite"></div>
-  <script is:inline src="/js/receipts.js?v=11"></script>
+  <script is:inline src="/js/receipts.js?v=12"></script>
 </App>

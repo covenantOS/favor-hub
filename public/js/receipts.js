@@ -1,4 +1,4 @@
-/* Thank-you receipts: the gifts waiting for a letter, the print file, and marking them thanked in Blackbaud. */
+/* Receipts: the gifts waiting for a receipt, the print file, and marking them thanked in Blackbaud. */
 (() => {
   const $ = (id) => document.getElementById(id);
   const app = $('rcp-app');
@@ -12,18 +12,18 @@
   const makeEl = $('rcp-make');
 
   const KINDS = { regular: 'Regular', major: '$200 and up', recurring: 'Monthly' };
-  const PAGE = 50; // letters on a page of the list
+  const PAGE = 50; // receipts on a page of the list
   const HELD_SHOW = 10; // rows a long held-back group shows before "Show all"
   const HELD = {
-    no_address: ['No mailing address', 'Add the address in Blackbaud and the gift comes back to the letters.'],
-    preference: ['Asked for less mail', 'The record is marked Do Not Mail Solicitation, Do Not Solicit, All Email or Event Invitations Only. The reply slip asks for a gift, so add a letter only if you know this partner wants a paper receipt.'],
-    pass_through: ['Passed along for a partner', 'A fund or brokerage sent it for someone else. Add a letter only if you mean to thank the organization.'],
-    organization: ['Foundation, business or fund', 'Churches and ministries get letters. Other organizations do not, and neither does a person whose gift came through a foundation, business or DAF.'],
+    no_address: ['No mailing address', 'Add the address in Blackbaud and the gift comes back to the receipts.'],
+    preference: ['Asked for less mail', 'The record is marked Do Not Mail Solicitation, Do Not Solicit, All Email or Event Invitations Only. The reply slip asks for a gift, so add a receipt only if you know this partner wants a paper receipt.'],
+    pass_through: ['Passed along for a partner', 'A fund or brokerage sent it for someone else. Add a receipt only if you mean to thank the organization.'],
+    organization: ['Foundation, business or fund', 'Churches and ministries get receipts. Other organizations do not, and neither does a person whose gift came through a foundation, business or DAF.'],
     inactive: ['Record marked inactive', ''],
     deceased: ['Marked deceased', ''],
-    abroad: ['Outside the U.S.', 'Letters go to U.S. addresses only.'],
+    abroad: ['Outside the U.S.', 'Receipts go to U.S. addresses only.'],
     no_mail: ['No mail', 'The record is marked Do Not Mail, Do Not Contact or Do Not Mail Thank You, or its address is marked not to send mail.'],
-    small: ['Under $10', 'Gifts under $10 never got a letter.'],
+    small: ['Under $10', 'Gifts under $10 never got a receipt.'],
     gift_type: ['Other gift types', ''],
   };
 
@@ -296,7 +296,7 @@
     return picked.concat(extra);
   }
 
-  // The print file makes one letter per partner, listing each of the partner's gifts.
+  // The print file makes one receipt per partner, listing each of the partner's gifts.
   const partnerKey = (l) => l.constituentLookup || `${l.addressee}|${l.addressKey}`;
 
   function segmentOfGifts(gifts) {
@@ -305,7 +305,7 @@
     return Math.max(...once.map((x) => x.amount)) >= 200 ? 'major' : 'regular';
   }
 
-  /** Gifts grouped into letters. A gift already in a print file stays with that file's letter. */
+  /** Gifts grouped into receipts. A gift already in a print file stays with that file's receipt. */
   function letters(list) {
     const by = new Map();
     for (const l of list) {
@@ -325,7 +325,7 @@
     return c;
   }
 
-  /** Street addresses with letters for two or more different records. Often one household with two records. */
+  /** Street addresses with receipts for two or more different records. Often one household with two records. */
   function sharedAddresses() {
     const v = state.view;
     const going = v.letters.filter((l) => !l.batch).concat(v.held.filter((h) => !h.batch && state.added.has(h.id)));
@@ -366,7 +366,7 @@
     });
     const stat = (n, cap) => `<div class="ticker__stat"><div class="ticker__num">${Number(n).toLocaleString('en-US')}</div><div class="ticker__caption">${cap}</div></div>`;
     $('rcp-stats').innerHTML =
-      stat(c.letters, `${openBatch() ? 'Not in the print file yet' : 'Letters to print'}${dates.length ? `<br>${plural(c.gifts, 'gift')}, ${esc(shortDay(dates[0]))} to ${esc(day(dates[dates.length - 1]))}` : ''}`) +
+      stat(c.letters, `${openBatch() ? 'Not in the print file yet' : 'Receipts to print'}${dates.length ? `<br>${plural(c.gifts, 'gift')}, ${esc(shortDay(dates[0]))} to ${esc(day(dates[dates.length - 1]))}` : ''}`) +
       stat(c.regular, 'Regular') +
       stat(c.major, '$200 and up') +
       stat(c.recurring, 'Monthly partners');
@@ -388,14 +388,14 @@
           <h2>Make the print file</h2>
           <p class="fnd-note">${
             list.length
-              ? `${plural(c.letters, 'letter')} for ${plural(c.gifts, 'gift')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly. A partner with two or more gifts gets one letter that lists each gift.${
-                  shared ? ` ${shared === 1 ? 'One address has letters' : `${shared} addresses have letters`} for two different records, marked "Same address" below. Each record gets its own letter, and the two print back to back so they can share an envelope.` : ''
+              ? `${plural(c.letters, 'receipt')} for ${plural(c.gifts, 'gift')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly. A partner with two or more gifts gets one receipt that lists each gift.${
+                  shared ? ` ${shared === 1 ? 'One address has receipts' : `${shared} addresses have receipts`} for two different records, marked "Same address" below. Each record gets its own receipt, and the two print back to back so they can share an envelope.` : ''
                 }`
-              : 'Nothing is waiting for a letter.'
+              : 'Nothing is waiting for a receipt.'
           }</p>
         </div>
         <div class="rcp-make__form">
-          <label class="req-field rcp-date"><span>Date on the letters</span><input type="date" id="rcp-date" value="${esc(date)}" /></label>
+          <label class="req-field rcp-date"><span>Date on the receipts</span><input type="date" id="rcp-date" value="${esc(date)}" /></label>
           <div class="rcp-code"><span>Reply code</span><b id="rcp-code-out">${esc(codeFor(date))}</b></div>
           <button type="button" class="req-submit" id="rcp-make-go" ${list.length && !state.busy ? '' : 'disabled'}>${state.busy ? 'Making the file' : `Make the print file`}</button>
         </div>
@@ -424,14 +424,14 @@
       <div class="rcp-make__row">
         <div>
           <p class="make-kicker">Print file ready</p>
-          <h2>${plural(b.count, 'letter')} dated ${esc(day(b.letterDate))}</h2>
+          <h2>${plural(b.count, 'receipt')} dated ${esc(day(b.letterDate))}</h2>
           <p class="fnd-note">${b.regular} regular, ${b.major} of $200 and up, ${b.recurring} monthly. ${plural(total, 'gift')} from ${esc(day(b.firstGift))} to ${esc(day(b.lastGift))}, ${esc(money(b.amount))} in all. Made by ${esc(b.createdBy || 'someone')} on ${esc(stamp(b.createdAt))}.</p>
         </div>
         <div class="rcp-code rcp-code--big"><span>Write on the reply envelopes</span><b>${esc(b.appealCode)}</b></div>
       </div>
       ${
         waited
-          ? `<p class="rcp-nudge" role="status"><b>Not marked thanked yet.</b> This print file was made ${esc(day(madeDay))}. If the letters were printed, mark them thanked now. If they were never printed, throw the file away.</p>`
+          ? `<p class="rcp-nudge" role="status"><b>Not marked thanked yet.</b> This print file was made ${esc(day(madeDay))}. If the receipts were printed, mark them thanked now. If they were never printed, throw the file away.</p>`
           : ''
       }
       <ol class="rcp-steps">
@@ -448,7 +448,7 @@
         ${step(
           3,
           'Mark as thanked in Blackbaud',
-          `<p>${printed || waited ? '<b>Printed? Press this now.</b>' : 'Press this once the letters are printed.'} Every gift in them is marked thanked, dated ${esc(day(b.letterDate))}, so it leaves this list. No new print file can be made until this one is marked.</p>
+          `<p>${printed || waited ? '<b>Printed? Press this now.</b>' : 'Press this once the receipts are printed.'} Every gift in them is marked thanked, dated ${esc(day(b.letterDate))}, so it leaves this list. No new print file can be made until this one is marked.</p>
            ${
              marking || b.marked
                ? `<div class="rcp-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${pct}%"></span></div><p class="rcp-fine" id="rcp-mark-msg">${b.marked} of ${plural(total, 'gift')} marked${b.markFailed ? `, ${b.markFailed} Blackbaud turned down` : ''}.</p>`
@@ -481,7 +481,7 @@
       ['letters', 'Letters', letters(v.letters).length],
       ['held', 'Held back', v.held.length],
       ['past', 'Past printings', state.batches.length],
-      ['wording', 'Letter wording', null],
+      ['wording', 'Receipt wording', null],
     ];
     $('rcp-tabs').innerHTML = tabs
       .map(([k, label, n]) => `<button type="button" role="tab" data-tab="${k}" class="${state.tab === k ? 'is-on' : ''}" aria-selected="${state.tab === k}">${label}${n == null ? '' : `<span>${n}</span>`}</button>`)
@@ -500,7 +500,7 @@
     for (const k of ['letters', 'held', 'past', 'wording']) $(`rcp-view-${k}`).hidden = state.tab !== k;
   }
 
-  // The letters the filter pills and the search box leave, all pages.
+  // The receipts the filter pills and the search box leave, all pages.
   function filteredLetters() {
     const q = state.find.toLowerCase();
     return letters(state.view.letters).filter(
@@ -508,19 +508,19 @@
     );
   }
 
-  // Open in Google Sheets: one row per gift in the letters shown, every page. No street address goes in.
+  // Open in Google Sheets: one row per gift in the receipts shown, every page. No street address goes in.
   if (window.FavorSheets) {
     window.FavorSheets.register('receipts', () => {
-      if (!state.view) throw new Error('The letters have not loaded yet.');
+      if (!state.view) throw new Error('The receipts have not loaded yet.');
       const groups = filteredLetters();
       const rows = groups.flatMap((g) => g.gifts.map((x) => ({ partner: g.first.addressee, place: g.first.place || '', lookup: g.first.constituentLookup || '', date: x.date ? String(x.date).slice(0, 10) : null, amount: x.amount, fund: x.fund || '', kind: KINDS[g.segment] || '', in_file: g.batch ? 'Yes' : '' })));
-      const pill = { all: '', regular: 'Regular letters', major: '$200 and up', recurring: 'Monthly gifts' }[state.filter] || '';
+      const pill = { all: '', regular: 'Regular receipts', major: '$200 and up', recurring: 'Monthly gifts' }[state.filter] || '';
       const words = [pill && `Showing: ${pill}`, state.find && `Search: ${state.find}`].filter(Boolean).join('. ');
-      return window.FavorSheets.screen('Thank-you receipts waiting', [{
+      return window.FavorSheets.screen('Receipts waiting', [{
         name: 'Letters waiting',
         columns: [
           { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'lookup', label: 'Lookup ID', type: 'id' }, { key: 'date', label: 'Gift date', type: 'date' },
-          { key: 'amount', label: 'Amount', type: 'money' }, { key: 'fund', label: 'Fund', type: 'text' }, { key: 'kind', label: 'Letter', type: 'text' }, { key: 'in_file', label: 'In a print file', type: 'flag' },
+          { key: 'amount', label: 'Amount', type: 'money' }, { key: 'fund', label: 'Fund', type: 'text' }, { key: 'kind', label: 'Receipt', type: 'text' }, { key: 'in_file', label: 'In a print file', type: 'flag' },
         ],
         rows,
       }], { filters: words, classes: ['partner'] });
@@ -553,7 +553,7 @@
       pages < 2
         ? ''
         : `<button type="button" class="req-ghost" data-page="${state.page - 1}" ${state.page === 1 ? 'disabled' : ''}>Previous</button>
-           <span>Letters ${((state.page - 1) * PAGE + 1).toLocaleString('en-US')} to ${Math.min(state.page * PAGE, rows.length).toLocaleString('en-US')} of ${rows.length.toLocaleString('en-US')}</span>
+           <span>Receipts ${((state.page - 1) * PAGE + 1).toLocaleString('en-US')} to ${Math.min(state.page * PAGE, rows.length).toLocaleString('en-US')} of ${rows.length.toLocaleString('en-US')}</span>
            <button type="button" class="req-ghost" data-page="${state.page + 1}" ${state.page === pages ? 'disabled' : ''}>Next</button>`;
     pager.querySelectorAll('button').forEach((btn) =>
       btn.addEventListener('click', () => {
@@ -564,7 +564,7 @@
     );
     const tbody = $('rcp-rows');
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="5" class="fnd-empty">${all.length ? 'No letters match.' : 'Nothing is waiting for a letter.'}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" class="fnd-empty">${all.length ? 'No receipts match.' : 'Nothing is waiting for a receipt.'}</td></tr>`;
     } else {
       tbody.innerHTML = shown
         .map((g) => {
@@ -574,14 +574,14 @@
           const on = !off && !ids.some((id) => state.left.has(id));
           const funds = [...new Set(g.gifts.map((x) => x.fund).filter((f) => f && f !== 'Where Needed Most'))];
           const notes = [];
-          if (g.gifts.length > 1) notes.push(['', `One letter for ${g.gifts.length} gifts, ${money(g.gifts.reduce((t, x) => t + x.amount, 0))} in all`]);
+          if (g.gifts.length > 1) notes.push(['', `One receipt for ${g.gifts.length} gifts, ${money(g.gifts.reduce((t, x) => t + x.amount, 0))} in all`]);
           const same = !off && l.addressKey && shared.get(l.addressKey);
           if (same) {
             const others = [...same].filter(([k]) => k !== partnerKey(l)).map(([, name]) => name);
             if (others.length) notes.push([' is-warn', `Same address as ${others.join(' and ')}`]);
           }
           return `<tr class="${on ? '' : 'is-off'}">
-            <td class="rcp-tick"><input type="checkbox" data-ids="${esc(ids.join(','))}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} aria-label="Print a letter for ${esc(l.addressee)}" /></td>
+            <td class="rcp-tick"><input type="checkbox" data-ids="${esc(ids.join(','))}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} aria-label="Print a receipt for ${esc(l.addressee)}" /></td>
             <td><span class="fnd-name">${esc(l.addressee)}</span><span class="fnd-sub">${esc(l.place)}${funds.length ? ` &middot; ${esc(funds.join(', '))}` : ''}</span>${notes
               .map(([cls, text]) => `<span class="rcp-note${cls}">${esc(text)}</span>`)
               .join('')}</td>
@@ -636,7 +636,7 @@
     for (const h of v.held) (groups[h.key] = groups[h.key] || []).push(h);
     const order = Object.keys(HELD).filter((k) => groups[k]);
     el.innerHTML =
-      `<p class="fnd-note">These gifts stay unthanked in Blackbaud and get no letter. A gift that is fixed in Blackbaud (an address added, a code removed) comes back to the letters the next time this page loads.</p>` +
+      `<p class="fnd-note">These gifts stay unthanked in Blackbaud and get no receipt. A gift that is fixed in Blackbaud (an address added, a code removed) comes back to the receipts the next time this page loads.</p>` +
       order
         .map((k) => {
           const [title, note] = HELD[k];
@@ -657,7 +657,7 @@
                       h.batch
                         ? `<span class="exp-pill pending">In the ${esc(shortDay(h.batch.letterDate))} print file</span>`
                         : h.canAdd
-                          ? `<button type="button" class="fnd-textbtn${state.added.has(h.id) ? '' : ' is-quiet'}" data-add="${esc(h.id)}">${state.added.has(h.id) ? 'Will print. Undo' : 'Add a letter'}</button>`
+                          ? `<button type="button" class="fnd-textbtn${state.added.has(h.id) ? '' : ' is-quiet'}" data-add="${esc(h.id)}">${state.added.has(h.id) ? 'Will print. Undo' : 'Add a receipt'}</button>`
                           : ''
                     }</td>
                   </tr>`
@@ -703,7 +703,7 @@
       ${
         rows.length
           ? `<div class="fnd-table-wrap"><table class="exp-admin-table rcp-table sc-table">
-          <thead><tr><th>Letters dated</th><th class="r">Letters</th><th>Gifts from</th><th>Made by</th><th>Status</th><th></th></tr></thead>
+          <thead><tr><th>Receipts dated</th><th class="r">Receipts</th><th>Gifts from</th><th>Made by</th><th>Status</th><th></th></tr></thead>
           <tbody>${rows
             .map((b) => {
               const base = `/api/receipts/batches/${encodeURIComponent(b.id)}/pdf`;
@@ -721,10 +721,10 @@
       }
       <div class="rcp-again">
         <h3>Print a past run again</h3>
-        <p class="rcp-fine">Makes letters for every gift Blackbaud shows as thanked on one day, for a run that was marked but never printed or mailed. Nothing in Blackbaud changes.</p>
+        <p class="rcp-fine">Makes receipts for every gift Blackbaud shows as thanked on one day, for a run that was marked but never printed or mailed. Nothing in Blackbaud changes.</p>
         <div class="rcp-again__row">
           <label class="req-field"><span>Gifts marked thanked on</span><input type="date" id="rcp-again-date" /></label>
-          <label class="req-field"><span>Date on the letters</span><input type="date" id="rcp-again-letter" value="${esc(today())}" /></label>
+          <label class="req-field"><span>Date on the receipts</span><input type="date" id="rcp-again-letter" value="${esc(today())}" /></label>
           <button type="button" class="req-ghost" id="rcp-again-go">Make the print file</button>
         </div>
       </div>`;
@@ -748,7 +748,7 @@
       });
       state.added.clear();
       state.left.clear();
-      toast(`${plural(out.batch.count, 'letter')} ready to print.${out.skipped && out.skipped.length ? ` ${out.skipped.length} changed in Blackbaud and were left out.` : ''}`);
+      toast(`${plural(out.batch.count, 'receipt')} ready to print.${out.skipped && out.skipped.length ? ` ${out.skipped.length} changed in Blackbaud and were left out.` : ''}`);
       state.busy = false;
       await load(true);
     } catch (err) {
@@ -780,8 +780,8 @@
       if (file && !file.marked) {
         const gifts = plural(file.gifts || file.count, 'gift');
         ask = file.downloadedAt
-          ? `Were all ${plural(file.count, 'letter')} printed? This marks ${gifts} as thanked in Blackbaud.`
-          : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the letters were printed some other way.`;
+          ? `Were all ${plural(file.count, 'receipt')} printed? This marks ${gifts} as thanked in Blackbaud.`
+          : `This print file has not been downloaded yet. Mark ${gifts} as thanked only if the receipts were printed some other way.`;
       }
       const yes = file && file.marked ? 'Finish marking' : 'Yes, mark them thanked';
       if (!(await askFirst($('rcp-mark'), ask, yes, 'Cancel', false))) return;
@@ -824,7 +824,7 @@
 
   async function cancelBatch(b) {
     const button = $('rcp-cancel');
-    const ask = `Throw away the print file of ${plural(b.count, 'letter')}? Do this only if the letters were not mailed. Nothing in Blackbaud changes, and the gifts go back on the list.`;
+    const ask = `Throw away the print file of ${plural(b.count, 'receipt')}? Do this only if the receipts were not mailed. Nothing in Blackbaud changes, and the gifts go back on the list.`;
     if (!(await askFirst(button, ask, 'Throw it away', 'Keep it', true))) return;
     button.disabled = true;
     try {
@@ -850,7 +850,7 @@
     btn.textContent = 'Reading Blackbaud';
     try {
       const out = await api('/api/receipts/batches', { method: 'POST', body: JSON.stringify({ reprintOf: date, letterDate: $('rcp-again-letter').value || today() }) });
-      toast(`${plural(out.batch.count, 'letter')} ready. It is under Past printings.`);
+      toast(`${plural(out.batch.count, 'receipt')} ready. It is under Past printings.`);
       state.tab = 'past';
       state.busy = false;
       await load(true);
@@ -867,7 +867,7 @@
   async function renderWording() {
     const el = $('rcp-view-wording');
     if (!state.wording) {
-      el.innerHTML = `<p class="fnd-empty">Loading the letter.</p>`;
+      el.innerHTML = `<p class="fnd-empty">Loading the receipt.</p>`;
       try {
         state.wording = await api('/api/receipts/wording');
       } catch (err) {
@@ -878,7 +878,7 @@
     const w = state.wording;
     const c = w.copy;
     el.innerHTML = `
-      <p class="fnd-note">Every letter prints these words. Put **two stars** around words to print them in bold, and {amount} where the gift amount goes. The page says when the letter is too long for the paper.</p>
+      <p class="fnd-note">Every receipt prints these words. Put **two stars** around words to print them in bold, and {amount} where the gift amount goes. The page says when the receipt is too long for the paper.</p>
       <div class="rcp-word">
         ${c.paragraphs
           .map((p, i) => `<label class="req-field"><span>Paragraph ${i + 1}</span><textarea data-p="${i}" rows="4">${esc(p)}</textarea></label>`)
@@ -893,11 +893,11 @@
           <label class="req-field"><span>Amounts on the reply slip</span><input id="rcp-w-asks" value="${esc(c.asks.regular.join(', '))}" /></label>
           <label class="req-field"><span>Amounts for gifts of $200 and up</span><input id="rcp-w-asks-major" value="${esc(c.asks.major.join(', '))}" /></label>
         </div>
-        <p class="rcp-fine" id="rcp-w-fit">${w.fit.fits ? 'Fits on the page.' : 'Too long for the page.'}${w.saved ? ` Last changed by ${esc(w.saved.updated_by || 'someone')} on ${esc(stamp(w.saved.updated_at))}.` : ' This is the standard letter.'}</p>
+        <p class="rcp-fine" id="rcp-w-fit">${w.fit.fits ? 'Fits on the page.' : 'Too long for the page.'}${w.saved ? ` Last changed by ${esc(w.saved.updated_by || 'someone')} on ${esc(stamp(w.saved.updated_at))}.` : ' This is the standard receipt.'}</p>
         <div class="fnd-form__foot">
           <button type="button" class="req-submit" id="rcp-w-save">Save the wording</button>
-          <button type="button" class="req-ghost" id="rcp-w-sample">See a sample letter</button>
-          <button type="button" class="fnd-textbtn is-quiet" id="rcp-w-reset">Put back the standard letter</button>
+          <button type="button" class="req-ghost" id="rcp-w-sample">See a sample receipt</button>
+          <button type="button" class="fnd-textbtn is-quiet" id="rcp-w-reset">Put back the standard receipt</button>
         </div>
       </div>`;
     const collect = () => ({
@@ -925,11 +925,11 @@
     });
     $('rcp-w-reset').addEventListener('click', async () => {
       if (needWho()) return;
-      if (!confirm('Put back the standard letter? The current wording is kept in the log.')) return;
+      if (!confirm('Put back the standard receipt? The current wording is kept in the log.')) return;
       try {
         await api('/api/receipts/wording', { method: 'POST', body: JSON.stringify({ reset: true }) });
         state.wording = null;
-        toast('The standard letter is back.');
+        toast('The standard receipt is back.');
         renderWording();
       } catch (err) {
         toast(err.message);

@@ -18,6 +18,7 @@ const topic = TOPICS.find((t) => t.id === doc.data.topic);
 const vids = doc.data.videos.map((s) => videos.find((v) => v.slug === s)).filter(Boolean) as typeof videos;
 const related = doc.data.related.map((r) => all.find((d) => d.id === r)).filter(Boolean) as typeof all;
 const toc = headings.filter((h) => h.depth === 2);
+import '../../styles/q3-desk.css';
 ---
 <App title={doc.data.title} crumb="Help docs" nav="docs" description={doc.data.summary}>
   <div class="hd-wrap" data-for={doc.data.for.join(' ')}>

@@ -256,7 +256,7 @@ export const DEFS: Def[] = [
   // -------------------------------------------------------------------------------------------------------- Chat
   hubDef({ id: 'chat.enabled', area: 'chat', label: 'Who can use Chat', hint: 'Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   // ------------------------------------------------------------------------------------------- Thank-you receipts
-  hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a letter', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
+  hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a receipt', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
   hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops the hub from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
   // -------------------------------------------------------------------------------------------------------- Expenses
   expDef({ id: 'expenses.approver_name', label: 'Approver name', kind: 'text', def: '', hint: 'Shown on each request and in the emails.',
