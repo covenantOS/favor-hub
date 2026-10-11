@@ -37,3 +37,33 @@
   window.addEventListener('resize', bar);
   window.addEventListener('orientationchange', bar);
 })();
+
+// Phone keyboard. A home screen app shrinks the whole page when the keyboard opens and Safari does not, so the keyboard is
+// read from focus: while a text box has focus on a touch screen, body.kb-open hides the tab bar and pages pinned to the
+// screen fit the visible area (--vv-top, --vv-h). Pages that size themselves listen for the hub-kb event.
+(function () {
+  if (!window.matchMedia || !matchMedia('(pointer: coarse)').matches) return;
+  var vv = window.visualViewport;
+  var typing = function (el) {
+    if (!el) return false;
+    if (el.tagName === 'TEXTAREA' || el.isContentEditable) return true;
+    return el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|file|color|date|time|month|week)$/i.test(el.type || '');
+  };
+  function frame() {
+    var root = document.documentElement.style;
+    if (vv) { root.setProperty('--vv-top', Math.round(vv.offsetTop) + 'px'); root.setProperty('--vv-h', Math.round(vv.height) + 'px'); }
+    var b = document.querySelector('.h-navbar');
+    var open = document.body && document.body.classList.contains('kb-open');
+    root.setProperty('--h-bar-h', open || !b ? '0px' : Math.round(b.getBoundingClientRect().height) + 'px');
+  }
+  function set(open) {
+    if (!document.body || document.body.classList.contains('kb-open') === open) return;
+    document.body.classList.toggle('kb-open', open);
+    frame();
+    window.dispatchEvent(new Event('hub-kb'));
+  }
+  var off = 0;
+  document.addEventListener('focusin', function (e) { if (typing(e.target)) { clearTimeout(off); set(true); } });
+  document.addEventListener('focusout', function () { clearTimeout(off); off = setTimeout(function () { set(typing(document.activeElement)); }, 120); });
+  if (vv) { vv.addEventListener('resize', function () { frame(); window.dispatchEvent(new Event('hub-kb')); }); vv.addEventListener('scroll', function () { frame(); window.dispatchEvent(new Event('hub-kb')); }); }
+})();

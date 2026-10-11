@@ -66,3 +66,13 @@
   /* iOS Safari zooms the page into any text box under 16 px when it gets focus. */
   body.h-body input:not([type='checkbox']):not([type='radio']):not([type='range']), body.h-body textarea, body.h-body select { font-size: 16px; }
 }
+
+@media (max-width: 860px) {
+  /* Keyboard open (body.kb-open, set from focus in app-update.js): the tab bar steps aside and the Brain fits above the keyboard. */
+  body.h-body.kb-open .h-navbar { display: none !important; }
+  body.h-body.kb-open[data-nav='brain'] .h-app { top: var(--vv-top, 0px); bottom: auto; height: var(--vv-h, 100%); }
+}
+@media (max-width: 860px) {
+  /* Chat and the Brain are pinned to the screen; the page behind them must not scroll, or iOS slides the header away while typing. */
+  body.h-body[data-nav='chat'], body.h-body[data-nav='brain'] { overflow: hidden; overscroll-behavior: none; }
+}

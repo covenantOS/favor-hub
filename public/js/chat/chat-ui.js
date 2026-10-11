@@ -352,7 +352,8 @@
       // iOS keyboard: the visual viewport shrinks and Safari scrolls the page under it. While it is open, the chat fits the
       // visible area above the keyboard and the hub tab bar steps aside, so the channel header and the composer both show.
       var vv = window.visualViewport;
-      var kb = isPhone() && !!vv && window.innerHeight - vv.height > 150;
+      // body.kb-open comes from focus (app-update.js): a home screen app shrinks the whole page with the keyboard, so a height gap never shows there.
+      var kb = isPhone() && !!vv && document.body.classList.contains('kb-open');
       document.body.classList.toggle('ch-kb', kb);
       if (kb) {
         root.style.setProperty('--ch-top', Math.round(vv.offsetTop) + 'px');
@@ -827,6 +828,12 @@
     window.addEventListener('focus', markRead);
     window.addEventListener('resize', measure);
     if (window.visualViewport) { window.visualViewport.addEventListener('resize', measure); window.visualViewport.addEventListener('scroll', measure); }
+    // Typing in the composer means writing the next message: while the keyboard is open the newest messages stay in view.
+    window.addEventListener('hub-kb', function () {
+      measure();
+      if (!document.body.classList.contains('kb-open')) return;
+      requestAnimationFrame(function () { [$('.ch-msgs', root), $('.ch-right .ch-thread__body', root)].forEach(function (b) { if (b) b.scrollTop = b.scrollHeight; }); });
+    });
     // The hub reloads the page on any popstate it does not own. Chat's screens (list, channel, thread) own theirs, so this listener
     // runs first (capture, at the window) and keeps the hub out of it while a channel or thread is open.
     window.addEventListener('popstate', function (e) {
