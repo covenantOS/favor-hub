@@ -965,7 +965,9 @@ async function remind(env: MeetEnv, origin: string) {
       const to = [...new Set([mt.host_email.toLowerCase(), ...emailsOf(mt.invitees)])];
       const gk = mt.access === 'guests' ? await keyOf(env, mt.id) : '';
       const guestSet = new Set(safeJson<Array<{ email?: string; guest?: boolean }>>(mt.invitees, []).filter((i) => i.guest).map((i) => String(i.email).toLowerCase()));
-      for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt: mt.starts_at as string, roomUrl: guestSet.has(e) && gk ? `${origin}/meet/g/?m=${mt.id}&k=${gk}` : `${origin}/meet/room/?m=${mt.id}`, backup: mt.backup_link, rec: mt.rec_mode, kind: w.kind, host: mt.host_name || mt.host_email });
+      // Who is coming, by name, for the reminder's faces: everyone invited but the host.
+      const people = safeJson<Array<{ email?: string; name?: string }>>(mt.invitees, []).filter((i) => i.email && String(i.email).toLowerCase() !== mt.host_email.toLowerCase()).map((i) => String(i.name || i.email));
+      for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt: mt.starts_at as string, endsAt: mt.ends_at, durationMin: mt.duration_min, agenda: mt.agenda, people, hostEmail: mt.host_email, roomUrl: guestSet.has(e) && gk ? `${origin}/meet/g/?m=${mt.id}&k=${gk}` : `${origin}/meet/room/?m=${mt.id}`, backup: mt.backup_link, rec: mt.rec_mode, kind: w.kind, host: mt.host_name || mt.host_email });
       sent += to.length;
     }
   }

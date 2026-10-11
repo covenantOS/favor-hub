@@ -118,31 +118,117 @@ export function whenLine(iso: string): string {
 
 const LOGO = 'https://dash.favorintl.org/images/favor-icon.png';
 
-function zoneTime(iso: string, zone: string): string {
-  return new Date(iso).toLocaleString('en-US', { timeZone: zone, weekday: 'short', hour: 'numeric', minute: '2-digit' });
+export interface ReminderInput {
+  title: string;
+  startsAt: string;
+  roomUrl: string;
+  backup: string;
+  rec: string;
+  kind: 'day' | 'soon' | 'now';
+  host: string;
+  hostEmail?: string;
+  endsAt?: string | null;
+  durationMin?: number;
+  agenda?: string;
+  people?: string[];
 }
 
-export async function sendReminder(env: MeetEnv, to: string[], m: { title: string; startsAt: string; roomUrl: string; backup: string; rec: string; kind: 'day' | 'soon' | 'now'; host: string }): Promise<boolean> {
+const ZONES: Array<[string, string]> = [['Eastern', TZ], ['Kampala', 'Africa/Kampala'], ['Juba', 'Africa/Juba']];
+const C = { bg: '#f4efe0', card: '#fffdf8', ink: '#1d211b', ink2: '#57534a', ink3: '#8a8578', line: '#e7e0cf', green: '#2b4d24', leaf: '#e6efdc', sun: '#fbe9c6', red: '#b3412b' };
+
+const fmt = (iso: string, zone: string, o: Intl.DateTimeFormatOptions) => new Date(iso).toLocaleString('en-US', { timeZone: zone, ...o });
+const timeOf = (iso: string, zone = TZ) => fmt(iso, zone, { hour: 'numeric', minute: '2-digit' });
+const initialsOf = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
+const gcalDate = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+
+/** The reminder: a date tile, the time where each team works, who is coming, one Join button, calendar links and a way to say no. */
+export function buildReminder(m: ReminderInput): { subject: string; html: string; text: string } {
+  const endIso = m.endsAt || new Date(Date.parse(m.startsAt) + (m.durationMin || 30) * 60_000).toISOString();
+  const mins = Math.max(5, Math.round((Date.parse(endIso) - Date.parse(m.startsAt)) / 60_000));
+  const day = fmt(m.startsAt, TZ, { weekday: 'short', month: 'short', day: 'numeric' });
+  const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : m.kind === 'now' ? `Join now: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
+  const pill = m.kind === 'day' ? { t: 'Tomorrow', bg: C.sun, fg: '#7a5410' } : m.kind === 'now' ? { t: 'Live now', bg: '#f7dcd5', fg: C.red } : { t: 'In 15 minutes', bg: C.leaf, fg: C.green };
+  const rec = m.rec === 'video' ? 'Recorded on video, with notes written up in the hub.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
+  const when = `${fmt(m.startsAt, TZ, { weekday: 'long', month: 'long', day: 'numeric' })}, ${timeOf(m.startsAt)} to ${timeOf(endIso)} Eastern`;
+  const zones = ZONES.map(([label, z]) => ({ label, t: `${fmt(m.startsAt, z, { weekday: 'short' })} ${timeOf(m.startsAt, z)}` }));
+  const people = (m.people || []).filter(Boolean);
+  const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.title)}&dates=${gcalDate(m.startsAt)}/${gcalDate(endIso)}&details=${encodeURIComponent(`Join: ${m.roomUrl}${m.agenda ? `\n\n${m.agenda}` : ''}`)}&location=${encodeURIComponent(m.roomUrl)}`;
+  const outlook = `https://outlook.office.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(m.title)}&startdt=${encodeURIComponent(m.startsAt)}&enddt=${encodeURIComponent(endIso)}&body=${encodeURIComponent(`Join: ${m.roomUrl}`)}&location=${encodeURIComponent(m.roomUrl)}`;
+  const decline = m.hostEmail
+    ? `mailto:${m.hostEmail}?subject=${encodeURIComponent(`Can't make it: ${m.title}`)}&body=${encodeURIComponent(`I can't make ${m.title} on ${day} at ${timeOf(m.startsAt)} Eastern.`)}`
+    : '';
+  const join = m.kind === 'day' ? 'Join the meeting' : 'Join now';
+
+  const label = (t: string) => `<div style="font:700 11px/1 Arial,sans-serif;letter-spacing:1.4px;color:${C.ink3};text-transform:uppercase;padding-bottom:10px">${t}</div>`;
+  const tile =
+    `<td width="72" valign="top" style="padding:0 16px 0 0"><table role="presentation" cellpadding="0" cellspacing="0" width="72" style="border-collapse:separate;background:${C.green};border-radius:16px">` +
+    `<tr><td align="center" style="padding:10px 0 0;font:700 11px/1 Arial,sans-serif;letter-spacing:1.5px;color:#cfe3c4;text-transform:uppercase">${esc(fmt(m.startsAt, TZ, { month: 'short' }))}</td></tr>` +
+    `<tr><td align="center" style="padding:5px 0 3px;font:400 32px/1 Georgia,'Times New Roman',serif;color:#ffffff">${esc(fmt(m.startsAt, TZ, { day: 'numeric' }))}</td></tr>` +
+    `<tr><td align="center" style="padding:0 0 10px;font:700 11px/1 Arial,sans-serif;letter-spacing:1px;color:#cfe3c4;text-transform:uppercase">${esc(fmt(m.startsAt, TZ, { weekday: 'short' }))}</td></tr></table></td>`;
+  const chip = (name: string, t: string, on: boolean) =>
+    `<span style="display:inline-block;white-space:nowrap;margin:0 6px 6px 0;padding:7px 11px;border-radius:999px;background:${on ? C.leaf : C.bg};font:400 13px/1.2 Arial,sans-serif;color:${C.ink2}"><b style="color:${C.ink}">${esc(name)}</b>&nbsp; ${esc(t)}</span>`;
+  const avatar = (n: string) =>
+    `<td style="padding:0 6px 0 0"><span title="${esc(n)}" style="display:inline-block;width:32px;height:32px;border-radius:999px;background:${C.leaf};color:${C.green};font:700 12px/32px Arial,sans-serif;text-align:center">${esc(initialsOf(n))}</span></td>`;
+  const shown = people.slice(0, 7);
+  const who = people.length
+    ? `<tr><td style="padding:20px 28px 0">${label('Who is coming')}<table role="presentation" cellpadding="0" cellspacing="0"><tr>${shown.map(avatar).join('')}${people.length > shown.length ? `<td style="font:400 13px Arial,sans-serif;color:${C.ink2}">+${people.length - shown.length}</td>` : ''}</tr></table>` +
+      `<div style="padding-top:8px;font:400 13px/1.5 Arial,sans-serif;color:${C.ink2}">Hosted by <b style="color:${C.ink}">${esc(m.host)}</b>, with ${esc(people.slice(0, 3).join(', '))}${people.length > 3 ? ` and ${people.length - 3} more` : ''}</div></td></tr>`
+    : `<tr><td style="padding:20px 28px 0;font:400 13px/1.5 Arial,sans-serif;color:${C.ink2}">Hosted by <b style="color:${C.ink}">${esc(m.host)}</b></td></tr>`;
+  const agenda =
+    m.agenda && m.agenda.trim()
+      ? `<tr><td style="padding:18px 28px 0"><div style="background:${C.bg};border-radius:14px;padding:14px 16px">${label('Agenda')}<div style="font:400 14px/1.55 Arial,sans-serif;color:${C.ink};white-space:pre-line">${esc(m.agenda.trim().slice(0, 1200))}</div></div></td></tr>`
+      : '';
+  const smallBtn = (href: string, text: string) =>
+    `<a href="${esc(href)}" style="display:inline-block;white-space:nowrap;margin:0 8px 8px 0;padding:10px 14px;border:1px solid ${C.line};border-radius:12px;background:#ffffff;font:600 13px/1 Arial,sans-serif;color:${C.ink};text-decoration:none">${esc(text)}</a>`;
+
+  const html =
+    `<!doctype html><html><head><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:${C.bg}">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg}"><tr><td align="center" style="padding:24px 12px">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:${C.card};border:1px solid ${C.line};border-radius:24px;border-collapse:separate">` +
+    `<tr><td style="padding:20px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="font:600 13px/1 Arial,sans-serif;color:${C.ink3}"><img src="${LOGO}" alt="" width="28" height="24" style="vertical-align:middle;border:0" />&nbsp; Favor Meetings</td>` +
+    `<td align="right"><span style="display:inline-block;padding:6px 12px;border-radius:999px;background:${pill.bg};color:${pill.fg};font:700 12px/1 Arial,sans-serif">${m.kind === 'now' ? '&#9679;&nbsp;' : ''}${pill.t}</span></td></tr></table></td></tr>` +
+    `<tr><td style="padding:22px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${tile}<td valign="middle"><div style="font:400 24px/1.25 Georgia,'Times New Roman',serif;color:${C.ink}">${esc(m.title)}</div>` +
+    `<div style="padding-top:6px;font:400 14px/1.45 Arial,sans-serif;color:${C.ink2}">${esc(when)} &middot; ${mins} min</div></td></tr></table></td></tr>` +
+    `<tr><td style="padding:16px 28px 0;font-size:0">${zones.map((z, i) => chip(z.label, z.t, i === 0)).join('')}</td></tr>` +
+    `<tr><td style="padding:16px 28px 0"><a href="${esc(m.roomUrl)}" style="display:block;text-align:center;padding:16px 20px;border-radius:16px;background:${C.green};color:#ffffff;font:700 16px/1 Arial,sans-serif;text-decoration:none">${join} &rarr;</a></td></tr>` +
+    `<tr><td style="padding:12px 28px 0;font-size:0">${smallBtn(gcal, 'Google Calendar')}${smallBtn(outlook, 'Outlook')}${decline ? smallBtn(decline, "Can't make it") : ''}</td></tr>` +
+    who +
+    agenda +
+    `<tr><td style="padding:20px 28px 24px"><div style="border-top:1px solid ${C.line};padding-top:14px;font:400 12.5px/1.6 Arial,sans-serif;color:${C.ink3}">${rec ? `${esc(rec)}<br/>` : ''}` +
+    `${m.backup ? `Room not loading? Use the backup: <a href="${esc(m.backup)}" style="color:${C.green}">${esc(m.backup.replace(/^https?:\/\//, ''))}</a>` : ''}</div></td></tr>` +
+    `</table></td></tr></table></body></html>`;
+  const text = [
+    `${pill.t}: ${m.title}`,
+    when,
+    zones.map((z) => `${z.label} ${z.t}`).join(' · '),
+    `Host: ${m.host}`,
+    ...(people.length ? [`Who is coming: ${people.join(', ')}`] : []),
+    '',
+    `${join}: ${m.roomUrl}`,
+    `Add to Google Calendar: ${gcal}`,
+    ...(m.agenda ? ['', 'Agenda', m.agenda.trim()] : []),
+    ...(rec ? ['', rec] : []),
+    ...(m.backup ? ['', `Backup: ${m.backup}`] : []),
+  ].join('\n');
+  return { subject, html, text };
+}
+
+export async function sendReminder(env: MeetEnv, to: string[], m: ReminderInput): Promise<boolean> {
   const key = env.RESEND_API_KEY;
   if (!key || !to.length) return false;
   let all = true;
   const from = env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>';
-  const lead = m.kind === 'day' ? 'Tomorrow' : m.kind === 'now' ? `${m.host} started a meeting` : 'Starting in 15 minutes';
-  const day = new Date(m.startsAt).toLocaleDateString('en-US', { timeZone: TZ, weekday: 'short', month: 'short', day: 'numeric' });
-  const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : m.kind === 'now' ? `Join now: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
-  const rec = m.rec === 'video' ? 'This meeting is recorded on video and written up in the hub.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
-  const eastern = whenLine(m.startsAt);
-  const local = `Kampala ${zoneTime(m.startsAt, 'Africa/Kampala')}, Juba ${zoneTime(m.startsAt, 'Africa/Juba')}`;
-  const backup = m.backup ? `If the room does not load, use the backup: ${m.backup}` : '';
-  const text = [`${lead}: ${m.title}`, eastern, local, `Host: ${m.host}`, '', `Join the meeting: ${m.roomUrl}`, ...(rec ? ['', rec] : []), ...(backup ? ['', backup] : [])].join('\n');
-  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;color:#2a2722;line-height:1.5;max-width:520px"><p style="margin:0 0 14px"><img src="${LOGO}" alt="Favor International" width="36" height="36" style="border-radius:8px;vertical-align:middle" /> <span style="font-size:13px;color:#6b665c;vertical-align:middle">Favor Meetings</span></p><p style="margin:0 0 4px">${lead}: <b>${esc(m.title)}</b></p><p style="margin:0 0 14px">${esc(eastern)}<br/><span style="color:#6b665c">${esc(local)}</span><br/>Host: ${esc(m.host)}</p><p><a href="${esc(m.roomUrl)}" style="background:#2b4d24;color:#fff;padding:10px 18px;border-radius:999px;text-decoration:none">Join the meeting</a></p>${rec ? `<p>${esc(rec)}</p>` : ''}${m.backup ? `<p>If the room does not load, use the backup: <a href="${esc(m.backup)}">${esc(m.backup)}</a></p>` : ''}</div>`;
+  const { subject, html, text } = buildReminder(m);
   for (let i = 0; i < to.length; i += 40) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ from, to: to.slice(i, i + 40), subject, html, text }),
     });
-    if (!r.ok) { all = false; console.error('[meet] reminder failed', r.status, (await r.text()).slice(0, 200)); }
+    if (!r.ok) {
+      all = false;
+      console.error('[meet] reminder failed', r.status, (await r.text()).slice(0, 200));
+    }
   }
   return all;
 }
