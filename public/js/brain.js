@@ -987,6 +987,25 @@
   });
   $('bc-railbtn').addEventListener('click', () => { if (wide()) app.classList.toggle('no-rail'); else app.classList.toggle('rail-over'); syncRailBtn(); });
   $('bc-rail-x').addEventListener('click', closeRailOver);
+  // Phone header: one menu circle, an Ask / History switch, a new chat circle. The hub tab bar is hidden on this page there.
+  const hubMenu = $('bc-hubmenu');
+  if (hubMenu) hubMenu.addEventListener('click', (e) => { e.stopPropagation(); const shell = document.querySelector('.h-app'); if (!shell) return; const open = !shell.classList.contains('is-nav'); shell.classList.toggle('is-nav', open); ['h-bar-more', 'h-menu'].forEach((id) => { const b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', String(open)); }); });
+  const seg = $('bc-seg');
+  const syncSeg = () => {
+    if (!seg) return;
+    const hist = app.classList.contains('rail-over');
+    seg.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.seg === 'history') === hist)));
+  };
+  if (seg) {
+    seg.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-seg]');
+      if (!b) return;
+      const wantHist = b.dataset.seg === 'history';
+      if (wantHist !== app.classList.contains('rail-over')) { app.classList.toggle('rail-over', wantHist); syncRailBtn(); }
+      syncSeg();
+    });
+    new MutationObserver(syncSeg).observe(app, { attributes: true, attributeFilter: ['class'] });
+  }
   $('bc-focus').addEventListener('click', () => setFocus(!hubApp.classList.contains('is-focus')));
   // On a wide screen the hub's menu button hides the hub sidebar; on a phone it opens the menu as everywhere.
   document.addEventListener('click', (e) => {
@@ -995,7 +1014,7 @@
   }, true);
   // A tap outside the open phone menu only closes the menu.
   document.addEventListener('click', (e) => {
-    if (innerWidth <= 860 && hubApp.classList.contains('is-nav') && !e.target.closest('.h-side') && !e.target.closest('#h-menu')) { e.preventDefault(); e.stopPropagation(); hubApp.classList.remove('is-nav'); }
+    if (innerWidth <= 860 && hubApp.classList.contains('is-nav') && !e.target.closest('.h-side') && !e.target.closest('#h-menu') && !e.target.closest('#bc-hubmenu')) { e.preventDefault(); e.stopPropagation(); hubApp.classList.remove('is-nav'); }
   }, true);
   $('bc-scrim').addEventListener('click', closeDlg);
   const soundOn = () => { try { return localStorage.getItem('favor.hub.sound') !== 'off'; } catch { return true; } };

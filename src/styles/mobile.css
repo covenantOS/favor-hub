@@ -103,3 +103,28 @@
   body.h-body .h-navbar { padding-top: 2px; padding-bottom: env(safe-area-inset-bottom); }
   body.h-body .h-bar__a { min-height: 48px; padding: 2px; }
 }
+
+/* Favor Brain phone header, after the clean chat apps: a menu circle, an Ask / History switch, a new chat circle.
+   No hub tab bar on this page; the menu circle opens the hub menu. Desktop never shows these pieces. */
+.bc-root .bc-pn, .bc-root .bc-seg { display: none; }
+@media (max-width: 860px) {
+  body.h-body[data-nav='brain'] .h-navbar { display: none !important; }
+  body.h-body[data-nav='brain'] .h-app { bottom: 0 !important; }
+  body.h-body .bc-root .bc-bar { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; min-height: 64px; padding: 8px 14px; background: transparent; border: 0; }
+  body.h-body .bc-root .bc-bar > #bc-railbtn, body.h-body .bc-root .bc-bar > #bc-title, body.h-body .bc-root .bc-bar__right { display: none !important; }
+  body.h-body .bc-root .bc-pn, body.h-body .bc-root .bc-bar > #bc-new2 {
+    display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 999px; border: 1px solid var(--h-line);
+    background: var(--h-ivory, #fffdf8); color: var(--h-ink); box-shadow: 0 2px 10px -4px rgba(42, 39, 34, .25);
+  }
+  body.h-body .bc-root .bc-pn { grid-column: 1; }
+  body.h-body .bc-root .bc-bar > #bc-new2 { grid-column: 3; justify-self: end; }
+  body.h-body .bc-root .bc-seg {
+    grid-column: 2; justify-self: center; display: inline-flex; gap: 2px; padding: 4px; border-radius: 999px;
+    background: var(--h-ivory, #fffdf8); border: 1px solid var(--h-line); box-shadow: 0 2px 10px -4px rgba(42, 39, 34, .25);
+  }
+  body.h-body .bc-root .bc-seg button { border: 0; background: none; min-height: 38px; padding: 0 18px; border-radius: 999px; font: 600 15px var(--h-font); color: var(--h-ink-3); }
+  body.h-body .bc-root .bc-seg button[aria-pressed='true'] { background: var(--h-ink, #1d211b); color: #fff; }
+  /* The composer floats above the home bar as a card. */
+  body.h-body .bc-root .bc-dock { padding: 0 12px calc(10px + env(safe-area-inset-bottom)); }
+  body.h-body .bc-root .bc-compose { border-radius: 26px; box-shadow: 0 8px 28px -12px rgba(42, 39, 34, .35); }
+}

@@ -39,6 +39,8 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
           </div>
         </div>
         <div class="bc-bar">
+          <button type="button" class="bc-pn" id="bc-hubmenu" aria-label="Hub menu" aria-controls="h-side"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>
+          <div class="bc-seg" id="bc-seg"><button type="button" data-seg="ask" aria-pressed="true">Ask</button><button type="button" data-seg="history" aria-pressed="false">History</button></div>
           <button type="button" class="ib ib--bare" id="bc-railbtn" aria-label="Show your chats" aria-expanded="true" data-tip="Your chats"><Fragment set:html={I('rail')} /></button>
           <button type="button" class="ib ib--bare" id="bc-new2" aria-label="New chat" data-tip="New chat"><Fragment set:html={I('edit')} /></button>
           <button type="button" class="bc-bar__title" id="bc-title" aria-label="Rename this chat">New chat</button>
@@ -73,5 +75,5 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
   </div>
   <script is:inline src="/js/brain-blocks.js?v=7"></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/brain.js?v=11" defer></script>
+  <script is:inline src="/js/brain.js?v=14" defer></script>
 </App>
