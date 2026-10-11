@@ -6,7 +6,7 @@
 
   function teamLabel(v) { var t = D.teams.filter(function (x) { return x.value === v; })[0]; return t ? t.label : ''; }
   function sees(p) {
-    if (p.blocked) return '<span class="ad-chip ad-chip--block">Blocked</span>';
+    if (p.blocked) return '<span class="mute">Nothing</span>';
     var s = p.sees, out = [];
     if (s.admin) out.push('Admin');
     if (s.workCenter) out.push('Work Center');
