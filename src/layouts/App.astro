@@ -268,7 +268,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
             <LearnPanel />
             <button type="button" class="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} /><span class="h-lbl">Feedback</span></button>
             {nav !== 'new' && (
-              <a class="h-btn h-btn--primary" href="/requests/new"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>
+              <a class="h-btn h-btn--primary" href="/requests/new" aria-label="Make a request"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>
             )}
           </div>
         </header>
@@ -284,7 +284,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=9" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=11" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=5" defer></script>
     <script is:inline src="/js/hub-swap.js?v=14" defer></script>

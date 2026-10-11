@@ -5,6 +5,37 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const initials = (name) => String(name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 
+  // A control with only an icon gets its name as a real tooltip (role=tooltip, linked with aria-describedby) that shows on hover and
+  // keyboard focus, on every page and after every page change.
+  let tipN = 0;
+  const tip = () => document.querySelectorAll('button[aria-label]:not([data-tt]), a[aria-label]:not([data-tt])').forEach((el) => {
+    if (el.textContent.trim() || el.closest('#h-content, dialog, .cmdk, [role=dialog]')) return;
+    const t = document.createElement('span');
+    t.className = 'h-tt'; t.id = 'h-tt' + (++tipN); t.setAttribute('role', 'tooltip'); t.textContent = el.getAttribute('aria-label');
+    el.after(t);
+    el.dataset.tt = t.id; el.setAttribute('aria-describedby', t.id);
+    el.removeAttribute('title');
+  });
+  const showTip = (e) => {
+    const el = e.target.closest && e.target.closest('[data-tt]');
+    if (!el) return;
+    const t = document.getElementById(el.dataset.tt);
+    if (!t) return;
+    const r = el.getBoundingClientRect();
+    t.style.top = Math.round(r.bottom + 6) + 'px';
+    t.style.left = Math.round(Math.max(8, Math.min(innerWidth - t.offsetWidth - 8, r.left + r.width / 2 - t.offsetWidth / 2))) + 'px';
+    t.classList.add('is-on');
+  };
+  const hideTip = (e) => { const el = e.target.closest && e.target.closest('[data-tt]'); if (el) { const t = document.getElementById(el.dataset.tt); if (t) t.classList.remove('is-on'); } };
+  document.addEventListener('pointerover', (e) => { if (e.pointerType === 'mouse') showTip(e); });
+  document.addEventListener('pointerout', hideTip);
+  document.addEventListener('focusin', (e) => { if (e.target.matches && e.target.matches(':focus-visible')) showTip(e); });
+  document.addEventListener('focusout', hideTip);
+  document.addEventListener('pointerdown', hideTip, true);
+  tip();
+  document.addEventListener('hub-swapped', tip);
+  new MutationObserver(() => { clearTimeout(tip.t); tip.t = setTimeout(tip, 300); }).observe(document.body, { childList: true, subtree: true });
+
   const app = $('h-app');
   const menu = $('h-menu');
   if (menu && app) {
