@@ -343,3 +343,11 @@ html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__label { font-size
 .h-kpi-fresh:not(.is-stale) { display: none !important; }
 /* Avatars inside a meta row keep their own centering. */
 .nt-meta .mt-av { display: grid; gap: 0; place-items: center; font-size: 10px; letter-spacing: -0.02em; }
+
+/* Areas with many sections (Reporting has eight) put their tabs on a full-width second row when the header is too narrow
+   to hold the title, every tab and the header buttons on one line. */
+@media (min-width: 861px) and (max-width: 1599px) {
+  body.h-body .h-top:has(.h-tab:nth-child(7)) { height: auto; min-height: 64px; padding: 10px 28px 0; flex-wrap: wrap; row-gap: 6px; align-content: flex-start; }
+  body.h-body .h-top:has(.h-tab:nth-child(7)) .h-top__tabs { order: 5; flex: 1 0 100%; margin: 0 0 0 -4px; }
+  body.h-body .h-top:has(.h-tab:nth-child(7)) .h-tabs__row { padding-bottom: 8px; }
+}
