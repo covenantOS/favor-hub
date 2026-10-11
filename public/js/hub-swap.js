@@ -84,6 +84,15 @@
   function dropOldCss(doc) {
     const want = new Set(Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style')).map(keyOf));
     document.head.querySelectorAll('link[rel=stylesheet], style').forEach((el) => { const k = keyOf(el); if (pageCss.has(k) && !want.has(k)) el.remove(); });
+    // Sheets both pages share can sit in a different order on the new page; put the managed ones in its order.
+    const order = Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style')).map(keyOf).filter((k) => pageCss.has(k));
+    const now = Array.from(document.head.querySelectorAll('link[rel=stylesheet], style')).filter((el) => pageCss.has(keyOf(el)));
+    if (now.map(keyOf).join('|') !== order.join('|')) {
+      const byKey = new Map(now.map((el) => [keyOf(el), el]));
+      const last = now[now.length - 1];
+      const anchor = last ? last.nextSibling : null;
+      order.forEach((k) => { const el = byKey.get(k); if (el) document.head.insertBefore(el, anchor); });
+    }
   }
 
   // A thin line under the status bar shows a page is on its way, but only when it takes longer than a blink.
