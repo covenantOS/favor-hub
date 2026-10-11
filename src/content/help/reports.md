@@ -16,7 +16,7 @@ Reports lists every report your team runs. You see the reports your role uses to
 
 Press a report's name. The name sits once, at the top of the page. Use the filters to choose dates, categories or states. The tiles and the table change with them, and the address keeps your filters so you can bookmark a view.
 
-Press a column heading to sort. Type in **Search these rows** to narrow the table. The totals row follows what you search.
+Press a column heading to sort. Type in **Search these rows** to narrow the table. The totals row follows what you search. Press a total to open a side panel with its Favor definition and the rows it adds up. It opens when the whole list is on the page and nothing is searched.
 
 ## Check against the KPI dashboard
 

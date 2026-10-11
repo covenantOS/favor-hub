@@ -35,7 +35,7 @@ Each card under What needs you and each Blackbaud action has a clock button. Pre
 
 ## Where the year stands
 
-If you can see the KPI dashboard, Today shows money raised against the year's goal and each team's progress, from the dashboard's own numbers.
+If you can see the KPI dashboard, Today shows money raised against the year's goal and each team's progress, from the dashboard's own numbers. Press the amount raised or a team's amount to open a side panel with its Favor definition and the gifts behind it, with Open in Google Sheets and Download CSV.
 
 ## Recent activity and your requests
 

@@ -75,7 +75,7 @@ export const STEPS: Step[] = [
     page: '/',
     at: '#t-year-wrap',
     title: 'Where the year stands',
-    body: "Money raised against the year's goal and each team's progress, from the KPI dashboard's own numbers.",
+    body: "Money raised against the year's goal and each team's progress, from the KPI dashboard's own numbers. Press the amount raised or a team's amount to see its Favor definition and the gifts behind it.",
     for: (w) => w.kpi,
     side: 'top',
   },

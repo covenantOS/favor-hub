@@ -41,11 +41,11 @@ function duePool(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
   // The short list leaves out thank-you tasks (Gifts to thank lists those), pending changes and deceased partners.
   const due = dueAll.filter((r) => !r.pending && !r.deceased && !r.ty).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
   const row = (r: BoardRow): DueRow => ({ id: r.id, cid: r.cid, partner: r.partner, place: r.place, due: r.due, late: Math.max(0, -dayDiff(r.due, board.today)), type: r.type, summary: clip(r.summary || '', 90) });
-  return { portfolio, pool, due, row, today: board.today };
+  return { portfolio, fid, pool, dueAll, due, row, today: board.today };
 }
 
 async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
-  const { portfolio, pool, due, row } = duePool(ctx, board);
+  const { portfolio, fid, pool, dueAll, due, row } = duePool(ctx, board);
   return {
     scope: portfolio ? 'portfolio' : 'mine',
     fr: portfolio ? '' : fid,
@@ -57,7 +57,7 @@ async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>
   };
 }
 
-export const HOME_DRILLS = ['open', 'due', 'overdue', 'today', 'gifts', 'over24', 'first'] as const;
+export const HOME_DRILLS = ['open', 'overdue', 'today', 'gifts', 'over24', 'first'] as const;
 export type HomeDrill = (typeof HOME_DRILLS)[number];
 
 /** The rows behind one Work Overview count, from the same pool and the same tests the card used. */
@@ -70,8 +70,8 @@ export async function homeDrill(ctx: Ctx, key: HomeDrill) {
     return { kind: 'gifts' as const, today: g.today, rows, total: key === 'gifts' ? g.stats.owed : key === 'over24' ? g.stats.over24 : g.stats.first, owner: g.owner };
   }
   const board = await currentBoard(ctx);
-  const { pool, due, row, portfolio } = duePool(ctx, board);
-  const pickRows = key === 'open' ? [...pool].sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0)) : key === 'due' ? due : key === 'overdue' ? due.filter((r) => dayDiff(r.due, board.today) < 0) : due.filter((r) => dayDiff(r.due, board.today) === 0);
+  const { pool, dueAll, row, portfolio } = duePool(ctx, board);
+  const pickRows = key === 'open' ? [...pool].sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0)) : dueAll.filter((r) => (key === 'overdue' ? dayDiff(r.due, board.today) < 0 : key === 'today' ? dayDiff(r.due, board.today) === 0 : true)).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
   return { kind: 'actions' as const, today: board.today, scope: portfolio ? 'portfolio' : 'mine', rows: pickRows.map((r) => ({ ...row(r), late: r.due ? row(r).late : 0, summary: clip(r.summary || '', 120) })), total: pickRows.length };
 }
 
