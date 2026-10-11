@@ -73,7 +73,7 @@ function rowHTML(r) {
   const prep = window.WCPrep && window.WCPrep.open;
   return `<div class="wm-row wm-port${on ? ' is-picked' : ''}" data-cid="${esc(r.cid)}">
     <label class="wm-cb"><input type="checkbox" data-wm-pick="${esc(r.cid)}" ${on ? 'checked' : ''} aria-label="Select ${esc(r.name)}" /></label>
-    <div class="wm-c-who"><a class="wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wm-sub">${esc(r.place || 'No city on file')}${r.lookup ? ' · ' + esc(r.lookup) : ''}</span></div>
+    <div class="wm-c-who"><a class="wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wm-sub">${esc(r.place || 'No city on file')}${r.lookup ? ' · ID ' + esc(r.lookup) : ''}</span></div>
     <div class="wm-quiet wm-c-quiet ${cls}"><b>${q === null ? 'Never' : q + (q === 1 ? ' day' : ' days')}</b><small>${r.last ? fd(r.last.date, true) + ' · ' + esc(r.last.how) : 'No contact on file'}</small></div>
     <div class="wm-num wm-c-last">${g ? money(g.amount) : 'None'}<small>${g ? fd(g.date, true) + (g.soft ? ' · soft credit' : '') : ''}</small></div>
     <div class="wm-num wm-c-12">${money(r.l12)}<small>${esc(delta)}</small></div>
@@ -101,6 +101,7 @@ function paint() {
       <div class="wm-tools">
         ${M.directors.length > 1 ? `<select class="wc-sel" data-wm-owner aria-label="Whose partners">${M.directors.map((d) => `<option value="${esc(d.fid)}"${d.fid === M.owner ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}</select>` : ''}
         <label class="wc-find wm-find">${ic('search')}<span class="sr-only">Find a partner</span><input id="wm-q" type="search" placeholder="Find a partner" value="${esc(M.q)}" autocomplete="off" /></label>
+        <label class="wm-sortsel"><span class="sr-only">Sort by</span><select class="wc-sel" data-wm-sortsel aria-label="Sort by">${[['quiet', 'Last contact'], ['l12', '12 months'], ['life', 'Lifetime'], ['name', 'Name']].map(([k, l]) => `<option value="${k}"${M.sort === k ? ' selected' : ''}>Sort: ${l}</option>`).join('')}</select><button type="button" class="wm-dir" data-wm-sort="${M.sort}" aria-label="Reverse the order">${M.dir < 0 ? '↓' : '↑'}</button></label>
         <div class="wm-seg" role="group" aria-label="Show">${FILTERS.map(([k, l]) => `<button type="button" class="${M.f === k ? 'is-on' : ''}" data-wm-f="${k}" aria-pressed="${M.f === k}">${l}</button>`).join('')}${M.f === 'nophone' ? '<button type="button" class="is-on" data-wm-f="nophone" aria-pressed="true">No phone</button>' : ''}</div>
         <span class="wm-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="work-partners">${SHEET}Google Sheets</button>
@@ -235,6 +236,7 @@ document.addEventListener('change', async (e) => {
   const t = e.target; if (!t.closest || !t.closest('#wc-root')) return;
   if (t.dataset.wmPick) { if (t.checked) M.sel.add(t.dataset.wmPick); else M.sel.delete(t.dataset.wmPick); const row = t.closest('.wm-row'); if (row) row.classList.toggle('is-picked', t.checked); updateBulk(); return; }
   if (t.hasAttribute('data-wm-pickall')) { const list = visible().slice(0, M.shown); list.forEach((r) => (t.checked ? M.sel.add(r.cid) : M.sel.delete(r.cid))); paint(); return; }
+  if (t.hasAttribute('data-wm-sortsel')) { M.sort = t.value; M.dir = t.value === 'name' ? 1 : -1; paint(); return; }
   if (t.hasAttribute('data-wm-owner')) { M.loading = true; M.sel.clear(); M.f = 'q90'; M.shown = 100; await load(t.value); paint(); return; }
 });
 function updateBulk() { const b = $('.wm-bulk'); if (!b) return; b.classList.toggle('is-on', M.sel.size > 0); $('b', b).textContent = M.sel.size + ' selected'; const all = $('[data-wm-pickall]'); if (all) { const list = visible().slice(0, M.shown); all.checked = list.length > 0 && list.every((r) => M.sel.has(r.cid)); } }

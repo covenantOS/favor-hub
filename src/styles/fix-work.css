@@ -82,3 +82,54 @@ body.h-body #wc-root .wwk-group small, body.h-body #wc-root .ep-stage small, bod
 @media (pointer: coarse), (max-width: 860px) {
   body.h-body #wc-root .wm-seg button, body.h-body #wc-root .wc-lane, body.h-body #wc-root .wc-owner { min-width: 44px; min-height: 44px; }
 }
+
+/* ---- Intro chips (stamp, meter, start tab, settings gear) are on the page; the explaining paragraph stays hidden. ---- */
+body.h-body #wc-root .wc-intro .wc-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+body.h-body #wc-root .wc-intro .wc-pill--btn { min-height: 36px; }
+@media (max-width: 860px) {
+  body.h-body #wc-root .wc-intro .wc-chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; scrollbar-width: none; }
+  body.h-body #wc-root .wc-intro .wc-pill { flex: none; min-height: 44px; }
+}
+
+/* ---- My partners: a sort control where the header row is hidden. ---- */
+.wm-sortsel { display: none; }
+@media (max-width: 860px) {
+  .wm-sortsel { display: flex; gap: 8px; flex: 1 1 100%; }
+  .wm-sortsel .wc-sel { flex: 1; max-width: none; min-height: 44px; font-size: 16px; }
+  .wm-sortsel .wm-dir { flex: none; width: 44px; min-height: 44px; border: 1px solid var(--h-line-2); border-radius: 12px; background: #fff; font: 600 16px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+}
+
+/* ---- Asks on a phone: search, view and one Filters button; the rest opens on demand and set filters show as chips. ---- */
+.wa-fbtn, .wa-active { display: none; }
+@media (max-width: 860px) {
+  body.h-body #wa-sheet .wa-fbtn { display: inline-flex; min-height: 44px; }
+  body.h-body #wa-sheet .wa-filters, body.h-body #wa-sheet .wa-tools > .wc-sel { display: none; }
+  body.h-body #wa-sheet.is-fopen .wa-filters { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  body.h-body #wa-sheet.is-fopen .wa-tools > .wc-sel { display: block; flex: 1 1 100%; max-width: none; min-height: 44px; font-size: 16px; }
+  body.h-body #wa-sheet.is-fopen .wa-filters .wc-sel { flex: 1 1 100%; max-width: none; min-height: 44px; font-size: 16px; }
+  body.h-body #wa-sheet .wa-active { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 0; }
+  body.h-body #wa-sheet .wa-achip { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--h-line-2); background: var(--h-leaf-soft); color: var(--h-brand-ink); font: 600 13px var(--h-font); cursor: pointer; }
+  body.h-body #wa-sheet .wa-fchip { min-height: 44px; }
+  body.h-body #wa-sheet .wa-tools { gap: 8px; }
+  body.h-body #wa-sheet .wa-tools .wc-find { flex: 1 1 100%; max-width: none; }
+  body.h-body #wa-sheet .wa-count, body.h-body #wa-sheet .wa-sub, body.h-body #wa-sheet .wa-who, body.h-body #wa-sheet .wa-foot, body.h-body #wa-sheet .wa-chip, body.h-body #wa-sheet .wa-col__empty,
+  body.h-body #wa-sheet .wa-col h4, body.h-body #wa-sheet .wa-col h4 b, body.h-body #wa-sheet .wa-amt small { font-size: 13px; }
+}
+body.h-body #wa-sheet .wa-count, body.h-body #wa-sheet .wa-sub, body.h-body #wa-sheet .wa-who, body.h-body #wa-sheet .wa-foot, body.h-body #wa-sheet .wa-chip, body.h-body #wa-sheet .wa-col__empty,
+body.h-body #wa-sheet .wa-col h4, body.h-body #wa-sheet .wa-col h4 b, body.h-body #wa-sheet .wa-amt small { font-size: 13px; }
+@media (pointer: coarse), (max-width: 860px) { body.h-body #wa-sheet a.wa-name { display: inline-block; padding-block: 14px; margin-block: -14px; } }
+@media (max-width: 860px) { body.h-body #wc-root .wm-seg { border-radius: 22px; flex-wrap: wrap; } }
+
+/* ---- Work Overview on touch: every control is 44 px. ---- */
+@media (pointer: coarse), (max-width: 860px) {
+  body.h-body .wh .wh-chk, body.h-body .wh .wh-do { min-width: 44px; min-height: 44px; width: 44px; height: 44px; }
+  body.h-body .wh .wh-do.wh-do--go { width: auto; min-width: 44px; padding: 0 14px; }
+  body.h-body .wh .wh-row:not(.wh-gift) { grid-template-columns: 44px minmax(0, 1fr) auto auto auto; height: 68px; min-height: 68px; }
+  body.h-body .wh a.wh-do { min-height: 44px; min-width: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  body.h-body .wh .wh-goal, body.h-body .wh .wh-more a, body.h-body .wh .wh-more { min-height: 44px; }
+  body.h-body .wh .wh-more a { display: inline-flex; align-items: center; }
+  body.h-body .wh .r2t-ch .h-link { min-height: 44px; display: inline-flex; align-items: center; }
+}
+@media (pointer: coarse), (max-width: 860px) {
+  body.h-body .wc-bar button, body.h-body .wc-bar .wc-bar__x { min-height: 44px; min-width: 44px; }
+}
