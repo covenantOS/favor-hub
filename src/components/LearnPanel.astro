@@ -1,0 +1,78 @@
+---
+// The ? button in the header. It opens the help article for the page you are on, with its videos, in a side panel.
+// The page is read from body[data-nav] when pressed, so a page swapped in place opens its own article.
+// Pages with no article, or a help index that cannot load, get the help home.
+import { icon } from '../data/icons';
+---
+<button type="button" class="h-top__cam lp-btn" id="lp-btn" aria-haspopup="dialog" aria-controls="lp-dlg" aria-label="Help for this page" title="Help for this page"><Fragment set:html={icon('help')} /></button>
+<dialog class="lp" id="lp-dlg" aria-labelledby="lp-title">
+  <div class="lp__in">
+    <div class="lp__bar"><span>Help</span><button type="button" class="lp__x" data-lp-close aria-label="Close help">&times;</button></div>
+    <div id="lp-body"></div>
+  </div>
+</dialog>
+
+<style>
+  .lp { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(440px, 100vw); max-width: 100vw; height: 100dvh; max-height: none; padding: 0; border: 0; border-left: 1px solid var(--h-line); background: var(--h-surface); color: var(--h-ink); box-shadow: var(--h-shadow-2); }
+  .lp::backdrop { background: rgba(29, 33, 27, 0.25); }
+  .lp__in { box-sizing: border-box; height: 100%; overflow-y: auto; padding: 14px 20px 28px; }
+  .lp__bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font: 600 12px/1 var(--h-font); letter-spacing: 0.06em; text-transform: uppercase; color: var(--h-ink-3); }
+  .lp__x { width: 40px; height: 40px; border: 0; border-radius: 10px; background: none; color: var(--h-ink-2); font-size: 24px; line-height: 1; cursor: pointer; }
+  .lp__x:hover { background: var(--h-leaf-soft); color: var(--h-ink); }
+  .lp__x:focus-visible, .lp__go:focus-visible { outline: 2px solid var(--h-brand-ink); outline-offset: 2px; }
+  .lp h2 { margin: 0 0 8px; font: 600 20px/1.25 var(--h-font); color: var(--h-ink); }
+  .lp p { margin: 0; font: 400 14.5px/1.55 var(--h-font); color: var(--h-ink-2); }
+  .lp figure { margin: 18px 0 0; }
+  .lp video { display: block; width: 100%; border-radius: var(--h-radius); background: #000; }
+  .lp figcaption { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; font: 600 13.5px/1.35 var(--h-font); color: var(--h-ink); }
+  .lp figcaption span { font-weight: 500; color: var(--h-ink-3); }
+  .lp__go { display: inline-flex; margin-top: 18px; font: 600 14px var(--h-font); color: var(--h-brand-ink); }
+  .lp__go:hover { text-decoration: underline; }
+  .lp__more { display: grid; gap: 8px; margin-top: 16px; }
+</style>
+
+<script>
+  type Vid = { slug: string; title: string; length: string; src: string; poster: string; track: string };
+  type Index = { articles: Record<string, { title: string; summary: string; href: string; videos: Vid[] }>; pages: Record<string, string> };
+
+  const btn = document.getElementById('lp-btn') as HTMLButtonElement | null;
+  const dlg = document.getElementById('lp-dlg') as HTMLDialogElement | null;
+  const body = document.getElementById('lp-body');
+  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
+
+  let index: Promise<Index | null> | null = null;
+  const load = () => {
+    if (!index) index = fetch('/help/learn.json', { credentials: 'same-origin' }).then((r) => (r.ok ? (r.json() as Promise<Index>) : null)).catch(() => null);
+    return index;
+  };
+
+  const home = () =>
+    `<h2 id="lp-title">Help</h2><p>This page has no help article yet. The help library has every tool, with search, and the training videos.</p><div class="lp__more"><a class="lp__go" href="/help/">Open the help home</a><a class="lp__go" href="/help/videos/">Training videos</a></div>`;
+
+  const article = (a: Index['articles'][string]) => {
+    const vids = a.videos
+      .map(
+        (v) => `<figure><video controls preload="none" playsinline poster="${esc(v.poster)}" data-video="${esc(v.slug)}"><source src="${esc(v.src)}" type="video/mp4"><track kind="captions" src="${esc(v.track)}" srclang="en" label="English" default></video><figcaption>${esc(v.title)} <span>${esc(v.length)}</span></figcaption></figure>`
+      )
+      .join('');
+    return `<h2 id="lp-title">${esc(a.title)}</h2><p>${esc(a.summary)}</p>${vids}<a class="lp__go" href="${esc(a.href)}">Read the full article</a>`;
+  };
+
+  if (btn && dlg && body) {
+    btn.addEventListener('click', async () => {
+      body.innerHTML = '<p>Loading</p>';
+      if (!dlg.open) dlg.showModal();
+      const idx = await load();
+      const nav = document.body.dataset.nav || '';
+      const slug = idx && nav ? idx.pages[nav] : '';
+      const a = idx && slug ? idx.articles[slug] : null;
+      body.innerHTML = a ? article(a) : home();
+      dlg.querySelector<HTMLElement>('.lp__x')?.focus();
+    });
+    dlg.querySelector('[data-lp-close]')?.addEventListener('click', () => dlg.close());
+    // A press on the backdrop, outside the panel's box, closes it.
+    dlg.addEventListener('click', (e) => {
+      if (e.target === dlg) dlg.close();
+    });
+  }
+</script>

@@ -14,6 +14,10 @@ The hub at **dash.favorintl.org** is where Favor staff do their everyday work ou
 
 Press **Help and what's new** at the bottom of the menu. A short tour, set up for your work, moves the pointer across the screen, opens each tool and explains it. Nothing gets sent or changed. It takes about two minutes, and you can stop it any time with Esc.
 
+## Help for the page you are on
+
+The ? button in the top bar opens the help article for the page you are on, with its training videos, in a panel on the right. Press Read the full article to open the whole article. A page with no article opens the help home.
+
 ## Getting around
 
 1. **Today** is your home page. It shows what is waiting on you, your Blackbaud actions for the week, and once Google is connected, your meetings, new files and who emailed you.

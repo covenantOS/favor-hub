@@ -177,3 +177,28 @@ body.h-body .r2t-mission { padding: 22px; background: var(--r-rail); color: #fff
   .r2t-tile, .r2t-go, .r2t-start, .r2t-lr, .r2t-fr { transition: none; }
   .r2t-tile:hover, .r2t-start:hover { transform: none; }
 }
+
+/* Snooze: the clock on each Needs you card and Blackbaud action, and the menu and toast it opens. */
+.r2t-snzwrap { position: relative; display: grid; min-width: 0; }
+.r2t-snzwrap > .r2t-snz { position: absolute; top: 12px; right: 12px; }
+.r2t-snz { display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 9px; background: none; color: var(--r-ink-3); cursor: pointer; transition: background 0.12s, color 0.12s; }
+.r2t-snz:hover { background: var(--r-hover); color: var(--r-ink); }
+.r2t-snz:focus-visible { outline: 2px solid var(--r-ink-2); outline-offset: 2px; }
+.r2t-snz .h-i { width: 18px; height: 18px; }
+.r2t-snzrow { display: flex; align-items: center; gap: 2px; }
+.r2t-snzrow > .r2t-lr { flex: 1; min-width: 0; }
+.r2t-snzrow.is-moved > .r2t-lr { opacity: 0.6; }
+.r2t-snz--row { flex: none; width: 36px; height: 36px; }
+.snz-menu { position: fixed; z-index: 80; box-sizing: border-box; width: 232px; padding: 6px; display: grid; gap: 2px; background: #fff; border: 1px solid var(--r-line); border-radius: 12px; box-shadow: 0 10px 30px -10px rgba(29, 33, 27, 0.35); }
+.snz-menu > button { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: 100%; padding: 9px 10px; border: 0; border-radius: 8px; background: none; color: var(--r-ink); font: 500 14px/1.3 var(--h-font); text-align: left; cursor: pointer; }
+.snz-menu > button small { color: var(--r-ink-3); font: 400 12.5px var(--h-font); }
+.snz-menu > button:hover, .snz-menu > button:focus-visible { background: var(--r-hover); outline: none; box-shadow: inset 0 0 0 2px var(--r-line-2); }
+.snz-pick { display: grid; gap: 8px; padding: 6px 8px 8px; }
+.snz-pick[hidden] { display: none; }
+.snz-pick input { box-sizing: border-box; width: 100%; padding: 8px 10px; border: 1px solid var(--r-line-2); border-radius: 8px; background: #fff; color: var(--r-ink); font: 500 14px var(--h-font); }
+#snz-toast { position: fixed; left: 50%; bottom: 20px; z-index: 90; transform: translateX(-50%); display: flex; align-items: center; gap: 14px; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 12px; background: var(--r-ink); color: #fff; font: 500 14px/1.4 var(--h-font); box-shadow: 0 10px 30px -10px rgba(29, 33, 27, 0.5); }
+#snz-toast[hidden] { display: none; }
+#snz-toast .snz-undo { padding: 4px 6px; border: 0; background: none; color: #fff; font: 600 14px var(--h-font); text-decoration: underline; cursor: pointer; }
+#snz-toast .snz-undo:disabled { opacity: 0.6; cursor: default; }
+@media (max-width: 860px) { #snz-toast { bottom: 84px; } }
+.r2t-snzwrap > .r2t-tile .r2t-tile__h { padding-right: 36px; }

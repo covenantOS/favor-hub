@@ -37,6 +37,7 @@ import { AREAS, SWAP_PATHS, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
 import NavTabs from '../components/NavTabs.astro';
 import NavBar from '../components/NavBar.astro';
+import LearnPanel from '../components/LearnPanel.astro';
 
 const found = resolveNav(nav);
 const curArea = found ? found.area.id : '';
@@ -221,6 +222,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             <button type="button" class="h-top__cam wm-bell" id="wm-bell" data-need="workCenter" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Reminders" title="Reminders"><Fragment set:html={icon('bell')} /><em></em></button>
             <a class="h-top__cam h-top__lib" id="clip-lib" href="/clips/" data-need="clips" hidden aria-label="My clips" title="My clips"><Fragment set:html={icon('clips')} /></a>
             <button type="button" class="h-top__cam" id="clip-cam" data-need="clips" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip"><Fragment set:html={icon('camera')} /></button>
+            <LearnPanel />
             <button type="button" class="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} /><span class="h-lbl">Feedback</span></button>
             {nav !== 'new' && (
               <a class="h-btn h-btn--primary" href="/requests/new"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>

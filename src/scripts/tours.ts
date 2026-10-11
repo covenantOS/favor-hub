@@ -67,7 +67,7 @@ export const STEPS: Step[] = [
     page: '/',
     at: '.h-board',
     title: 'What needs you',
-    body: 'Things waiting on you sit on the left, with a button that takes you straight to the work. On the right are your Blackbaud actions due this week, and once you connect Google, your meetings, new files and who emailed you.',
+    body: 'Things waiting on you sit on the left, with a button that takes you straight to the work. On the right are your Blackbaud actions due this week, and once you connect Google, your meetings, new files and who emailed you. Press the clock on a card or an action to snooze it until tomorrow, next week or a day you pick.',
     side: 'bottom',
   },
   {

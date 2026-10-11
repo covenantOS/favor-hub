@@ -21,6 +21,13 @@ The cards on the left are things waiting on you in the hub. Each card has a numb
 
 When nothing is waiting, the card says so.
 
+## Snooze
+
+Each card under What needs you and each Blackbaud action has a clock button. Press it and choose Tomorrow, Next week, or Pick a date.
+
+- **A card** hides until that day. Its Undo brings it back at once.
+- **A Blackbaud action** gets a new due date in Blackbaud, the same change the Work Center makes. It leaves the list when its date moves past the next seven days, and it shows its new date until the next full load. Undo puts the old date back for 24 hours.
+
 ## Your day
 
 - **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. The overdue number and the "more in Blackbaud" line cover the whole list, including the rows past the first twelve. Press one to open the partner in Raiser's Edge. If your hub account is not linked to a fundraiser record in Blackbaud, the card says so.

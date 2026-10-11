@@ -67,12 +67,12 @@
     $('t-cards').innerHTML = list
       .map((c) => {
         const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i>${esc(c.note)}</span>` : '';
-        return `<a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}" aria-label="${esc(c.label)}: ${esc(c.cta)}">
+        return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}" aria-label="${esc(c.label)}: ${esc(c.cta)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
           <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
           <span class="r2t-tile__w">${esc(c.what)}</span>
           <span class="r2t-tile__f">${note}<span class="r2t-go">${icon('arrow')}</span></span>
-        </a>`;
+        </a>${window.hubSnoozeButton ? window.hubSnoozeButton('hub', 'card:' + c.id, c.label) : ''}</div>`;
       })
       .join('');
   }
@@ -162,6 +162,17 @@
     if (s.lastUpdated) $('t-fresh').textContent = `KPI dashboard, Raiser's Edge as of ${clock(s.lastUpdated)}`;
     $('t-year-wrap').hidden = false;
   }
+
+  // A snoozed card leaves the list at once; the hub hides it until its day.
+  document.addEventListener('hub:snoozed', (e) => {
+    if (!e.detail || e.detail.kind !== 'hub') return;
+    fetch('/api/hub/today', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && d.ok) cards(d.cards || []);
+      })
+      .catch(() => {});
+  });
 
   let kpiAsked = false;
   swr('favor.hub.today.v1', '/api/hub/today', (d) => {
@@ -258,7 +269,7 @@
           '<a class="h-link" href="/work/">Work Center</a>',
           `<ul class="r2t-list">${bb.actions
             .map(
-              (a) => `<li><a class="r2t-lr" href="${cid(a)}" target="_blank" rel="noopener" title="${esc(a.summary || a.type)}"><span class="r2t-chk" aria-hidden="true"></span><span class="r2t-lr__t"><b>${esc(a.partner || 'Partner')}</b><span>${esc(a.summary || a.type || a.category)}</span></span><span class="r2t-chip ${a.due < today ? 'r2t-chip--late' : 'r2t-chip--plain'}">${esc(et(a.due + 'T12:00:00Z', { month: 'short', day: 'numeric' }))}</span></a></li>`
+              (a) => `<li class="r2t-snzrow" data-row="${esc(a.id)}"><a class="r2t-lr" href="${cid(a)}" target="_blank" rel="noopener" title="${esc(a.summary || a.type)}"><span class="r2t-chk" aria-hidden="true"></span><span class="r2t-lr__t"><b>${esc(a.partner || 'Partner')}</b><span>${esc(a.summary || a.type || a.category)}</span></span><span class="r2t-chip ${a.due < today ? 'r2t-chip--late' : 'r2t-chip--plain'}" data-chip>${esc(et(a.due + 'T12:00:00Z', { month: 'short', day: 'numeric' }))}</span></a>${window.hubSnoozeButton ? window.hubSnoozeButton('bb', a.id, a.partner || 'Partner', 'r2t-snz--row') : ''}</li>`
             )
             .join('')}</ul>${bb.total > bb.actions.length ? `<p class="r2t-more-n">${bb.total - bb.actions.length} more in Blackbaud</p>` : ''}`,
           bb.overdue ? `<span class="r2t-chip r2t-chip--late"><i></i>${bb.overdue} overdue</span>` : ''
