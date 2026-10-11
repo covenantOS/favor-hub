@@ -162,6 +162,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'statements',
+    page: '/statements/',
+    via: 'statements',
+    at: '#stm-tabs',
+    title: 'Giving statements',
+    body: 'Find a partner, pick a year, and see every gift that belongs on their statement before you make the PDF. The Year-end run tab makes the January statements for the mail, email and other tax lists in print files, one at a time, and shows how the totals compare with the KPI dashboard.',
+    for: (w) => w.admin || w.leader,
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'reports',
     page: '/reports/',
     via: 'reports',

@@ -9,8 +9,9 @@ import { HttpError, nowIso, type Env } from '../http';
 import { getRollout, GROUPS, setRollout } from '../work/digest';
 import { setSetting as actSet } from '../work/db';
 import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
+import { DEFAULT_COPY, WORDING } from '../statements/copy';
 
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'chat';
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {
@@ -31,6 +32,8 @@ export interface Def {
   unit?: string;
   /** Changing it changes what the hub may write to Blackbaud, so the page shows the current value and asks to confirm. */
   bb?: boolean;
+  /** Changing it changes whether the hub contacts partners, so the page asks to confirm. */
+  contact?: boolean;
   /** Where it lives, in words for the audit log. */
   where: string;
   /** The value when nothing is saved. */
@@ -263,6 +266,21 @@ export const DEFS: Def[] = [
   // ------------------------------------------------------------------------------------------- Thank-you receipts
   hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a receipt', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
   hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops the hub from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
+  // ------------------------------------------------------------------------------------------------- Giving statements
+  hubDef({
+    id: 'statements.email', area: 'statements', group: 'Sending', label: 'Emailing statements', contact: true,
+    hint: 'On lets the Statements page email a statement to a partner who has an email address. Off keeps every statement a print file. Turning it on contacts partners.',
+    kind: 'enum', options: ON_OFF, def: 'off',
+  }),
+  hubDef({ id: 'statements.batch_size', area: 'statements', group: 'Print files', label: 'Statements in one print file', hint: 'The year-end run makes files of this size, one at a time.', kind: 'int', min: 10, max: 500, unit: 'statements', def: '100' }),
+  hubDef({
+    id: 'statements.drive_folder', area: 'statements', group: 'Print files', label: 'Copy folder in US Team Files',
+    hint: 'The Google Drive folder id of a folder inside US Team Files. A single statement is saved there when this is set. Blank keeps copies in the hub only.',
+    kind: 'text', def: '',
+  }),
+  ...WORDING.map((w) =>
+    hubDef({ id: w.id, area: 'statements', group: 'Wording on the statement', label: w.label, hint: w.hint, kind: 'text', def: DEFAULT_COPY[w.key] })
+  ),
   // -------------------------------------------------------------------------------------------------------- Expenses
   expDef({ id: 'expenses.approver_name', label: 'Approver name', kind: 'text', def: '', hint: 'Shown on each request and in the emails.',
     get: async (e) => (await getSettings(e)).approver_name, put: async (e, v) => saveSettings(e, { ...(await getSettings(e)), approver_name: v }) }),
@@ -298,7 +316,7 @@ export function normalize(d: Def, raw: unknown): string {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v + 'T12:00:00Z'))) throw new HttpError(400, 'bad_value', `${d.label} is a date, YYYY-MM-DD.`);
     return v;
   }
-  const t = v.slice(0, 400);
+  const t = v.slice(0, WORDING.find((w) => w.id === d.id)?.max ?? 400);
   if (d.id === 'expenses.approver_name' && !t) throw new HttpError(400, 'bad_value', 'The approver needs a name.');
   if (d.id === 'expenses.approver_email' || d.id === 'expenses.distribution' || d.id === 'expenses.viewers') {
     const list = splitEmails(t);
@@ -311,6 +329,7 @@ export function normalize(d: Def, raw: unknown): string {
     if (list.some((e) => !/^[a-z0-9._-]+@favorintl\.org$/.test(e))) throw new HttpError(400, 'bad_value', 'Use favorintl.org addresses, separated by commas.');
     return list.join(', ');
   }
+  if (d.id === 'statements.drive_folder' && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
   if (d.id === 'meet.drive_folder' && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
   return t;
 }
@@ -337,6 +356,7 @@ export interface View {
   max?: number;
   unit: string;
   bb: boolean;
+  contact: boolean;
   value: string;
   def: string;
   saved: boolean;
@@ -350,7 +370,7 @@ async function viewOf(env: Env, d: Def): Promise<View> {
   const r = await d.read(env).catch(() => ({ value: d.def, saved: false } as { value: string; saved: boolean; by?: string; at?: string }));
   return {
     id: d.id, area: d.area, group: d.group || '', label: d.label, hint: d.hint || '', kind: d.kind, options: d.options || [], min: d.min, max: d.max,
-    unit: d.unit || '', bb: !!d.bb, value: r.value, def: d.def, saved: r.saved, by: r.by || '', at: r.at || '', where: d.where, canReset: !!d.clear && r.saved,
+    unit: d.unit || '', bb: !!d.bb, contact: !!d.contact, value: r.value, def: d.def, saved: r.saved, by: r.by || '', at: r.at || '', where: d.where, canReset: !!d.clear && r.saved,
   };
 }
 
@@ -382,6 +402,9 @@ export async function changeSetting(env: Env, actor: string, id: string, raw: un
   const value = normalize(d, raw);
   if (d.bb && !opts.confirm) {
     throw new HttpError(409, 'confirm', `${d.label} changes what the hub sends to Blackbaud. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
+  }
+  if (d.contact && !opts.confirm) {
+    throw new HttpError(409, 'confirm', `${d.label} changes whether the hub emails partners. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
   }
   if (d.check) await d.check(env, value);
   if (value === before) return viewOf(env, d);
