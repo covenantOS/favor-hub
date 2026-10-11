@@ -6,7 +6,7 @@
 // (kpi-dashboard backend/access.js).
 import App from '../../layouts/App.astro';
 ---
-<App title="KPI dashboard" crumb="KPI dashboard" nav="kpi" wide description="The KPI dashboard inside the hub.">
+<App title="Reporting" crumb="Reporting" nav="kpi" wide description="The KPI dashboard inside the hub.">
   <span slot="actions" class="h-kpi-fresh" id="kpi-fresh" hidden></span>
   <div class="h-frame-wrap">
     <div class="h-frame-wait" id="kpi-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Opening the KPI dashboard</div>
@@ -50,7 +50,7 @@ import App from '../../layouts/App.astro';
         if (e.origin !== KPI || !e.data || e.data.source !== 'kpi-dashboard') return;
         if (e.data.type === 'page') {
           // the header keeps the area name; the tab names the page
-          document.title = (e.data.title || 'KPI dashboard') + ' - KPI dashboard - Favor Hub';
+          document.title = (e.data.title || 'KPI dashboard') + ' - Reporting - Favor Hub';
           mark(e.data.path);
           const want = e.data.path === '/' ? '/dashboard/' : '/dashboard/?page=' + encodeURIComponent(e.data.path);
           if (location.pathname + location.search !== want) history.replaceState(null, '', want);
