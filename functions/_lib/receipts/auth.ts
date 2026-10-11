@@ -52,7 +52,7 @@ export async function isReceiptsUser(env: Env, request: Request): Promise<boolea
 
 export async function requireReceiptsUser(env: Env, request: Request): Promise<void> {
   if (!(await isReceiptsUser(env, request))) {
-    throw new HttpError(401, 'unauthorized', 'Enter the code to open thank-you receipts.');
+    throw new HttpError(401, 'unauthorized', 'Enter the code to open receipts.');
   }
 }
 

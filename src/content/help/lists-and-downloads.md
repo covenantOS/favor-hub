@@ -11,7 +11,7 @@ When an answer has more rows than fit on screen, it shows the first few. On the 
 
 ## Open in Google Sheets
 
-**Open in Google Sheets** sits beside Copy and CSV on every list in the hub: Favor Brain tables, Foundation prospects, Thank-you receipts, the Request board, the Expense log, Feedback and Brain admin. It makes a sheet in a folder called Favor exports in your own Drive, with a header row, a line saying where the rows came from, and an About tab. Only you can open it until you share it.
+**Open in Google Sheets** sits beside Copy and CSV on every list in the hub: Favor Brain tables, Foundation prospects, Receipts, the Request board, the Expense log, Feedback and Brain admin. It makes a sheet in a folder called Favor exports in your own Drive, with a header row, a line saying where the rows came from, and an About tab. Only you can open it until you share it.
 
 The first time, Google asks once whether Favor may make sheets in your Drive. Press **Allow** and the sheet is built when you come back, without pressing the button again. A sheet holds what you could already copy from the screen, so the same rule applies: it holds partner information, keep it inside Favor, and delete it when you are done. From Claude or ChatGPT, ask "put that in a Google Sheet".
 

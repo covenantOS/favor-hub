@@ -6,6 +6,7 @@ import AdminHead from '../../components/AdminHead.astro';
 import { ADMIN_PAGES } from '../../data/admin-pages';
 import '../../styles/admin.css';
 const CARDS = ADMIN_PAGES.filter((p) => p.live && p.card);
+import '../../styles/q3-desk.css';
 ---
 <App title="Admin" crumb="Admin" nav="admin-home" description="Hub health and settings for admins.">
   <div class="ad" id="ad-root">

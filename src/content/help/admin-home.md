@@ -31,7 +31,7 @@ Open a tab in the Admin row. Each setting shows what it is now, where it lives a
 - **Work Center** holds the Blackbaud call caps, who can open it, where each role starts and the morning email start date for each team.
 - **Meetings** holds who can use them, guests, the number of people in one meeting, the recording folder and the reminder lead time.
 - **Favor Brain** holds the connect prompt and automatic chat titles. **Clips** holds storage for each person, the longest recording, the sharing default and who can record.
-- **Reports** sets which roles see each report. **Expenses** holds the approvers, substitutes, who can open the log and the mileage rate. **Thank-you receipts** holds the letter window and the morning email line.
+- **Reports** sets which roles see each report. **Expenses** holds the approvers, substitutes, who can open the log and the mileage rate. **Receipts** holds the letter window and the morning email line.
 
 ## Blackbaud users
 

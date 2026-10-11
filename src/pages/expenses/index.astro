@@ -4,6 +4,7 @@ import SheetsButton from '../../components/SheetsButton.astro';
 import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/qa-work.css';
+import '../../styles/q3-desk.css';
 ---
 <App full title="Expense log" crumb="Work" nav="expenses" description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too.">
   <div class="exp-page">
@@ -19,6 +20,7 @@ import '../../styles/qa-work.css';
         </div>
       </div>
 
+      <div class="h-card h-skel" id="exp-skel" aria-hidden="true" style="min-height:420px"></div>
       <div class="board-login" id="exp-denied" hidden>
         <p id="exp-denied-msg">The expense log is open to the approvers and the people they add.</p>
       </div>
