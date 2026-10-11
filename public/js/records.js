@@ -93,7 +93,7 @@ function mount(el, c) {
         <div class="rc-grid rc-grid--4"><label>From month<select name="sm">${MON.map((m, i) => `<option value="${i + 1}"${ss.m === i + 1 ? ' selected' : ''}>${m.slice(0, 3)}</option>`).join('')}</select></label><label>Day<input type="number" name="sd" min="1" max="31" value="${ss.d}" /></label>
         <label>To month<select name="em">${MON.map((m, i) => `<option value="${i + 1}"${se.m === i + 1 ? ' selected' : ''}>${m.slice(0, 3)}</option>`).join('')}</select></label><label>Day<input type="number" name="ed" min="1" max="31" value="${se.d}" /></label></div>
         <p class="rc-words" data-rc-words>${esc(words(ss, se))}</p></fieldset>` : ''}
-      <div class="rc-toggles">${toggle('preferred', 'Preferred address', v.preferred)}${toggle('doNotMail', 'Do not mail', v.doNotMail)}</div>
+      <div class="rc-toggles">${toggle('preferred', 'Preferred address', v.preferred, !!(a && a.preferred))}${toggle('doNotMail', 'Do not mail', v.doNotMail)}</div>
       ${conflictHTML()}
       <div class="rc-foot">${a && !a.inactive ? (S.ask === 'endaddr:' + a.id ? `<span class="rc-ask"><label>Last day in use<input type="date" name="endday" value="${TODAY}" max="${TODAY}" /></label><button type="button" class="h-btn h-btn--sm rc-btn-bad" data-rc-endgo="${esc(a.id)}">End address</button></span>` : `<button type="button" class="rc-link rc-link--bad" data-rc-endaddr="${esc(a.id)}">End this address</button>`) : '<span></span>'}<span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-rc-cancel>Cancel</button> <button type="submit" class="h-btn h-btn--primary h-btn--sm"${S.busy ? ' disabled' : ''}>${a ? 'Save' : 'Add address'}</button></span></div></form>`;
   }

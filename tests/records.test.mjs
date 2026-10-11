@@ -95,6 +95,8 @@ function bbScript(c) {
     if (ignore.has(c.path)) return ok(null);
     const row = bb[key[m[1]]].find((x) => x.id === m[2]);
     if (!row) return { ok: false, status: 404, body: null };
+    // Blackbaud refuses to unmark a preferred address (found on record 27202, 2026-10-11).
+    if (m[1] === 'addresses' && row.preferred === true && c.body.preferred === false) return { ok: false, status: 400, body: [{ message: 'The address is marked as Preferred and that cannot be changed.' }] };
     if (c.body.preferred === true) bb[key[m[1]]].forEach((x) => (x.preferred = false));
     if (c.body.primary === true) bb[key[m[1]]].forEach((x) => (x.primary = false));
     for (const [k, v] of Object.entries(c.body)) {
@@ -106,6 +108,8 @@ function bbScript(c) {
     return ok(null);
   }
   if (m && m[2] && c.method === 'DELETE') {
+    const gone = bb[key[m[1]]].find((x) => x.id === m[2].split('?')[0]);
+    if (m[1] === 'addresses' && gone && gone.preferred === true) return { ok: false, status: 400, body: [{ message: 'The address is a preferred address and cannot be deleted.' }] };
     bb[key[m[1]]] = bb[key[m[1]]].filter((x) => x.id !== m[2].split('?')[0]);
     return ok(null);
   }
@@ -235,20 +239,34 @@ describe('contact rows', () => {
     assert.ok(sent().some((c) => c.method === 'DELETE' && c.path === `/constituent/v1/addresses/${made.id}?constituent=100`));
     assert.equal(bb.addresses.length, 1);
   });
-  it('a new preferred address unmarks the old one first, exactly one stays preferred, and Undo marks the old one again', async () => {
+  it('a new preferred address is made unmarked, then marked, exactly one stays preferred, and Undo marks the old one before it removes the new one', async () => {
     const out = await svc.createBatch(ctx, { op: 'pcontact', cid: '100', kind: 'address', mode: 'add', set: { type: 'Home', lines: '9 New Ave', city: 'Tampa', state: 'FL', zip: '33606', preferred: true }, req: 'a2' });
     await runAll(out.batch.id);
+    assert.ok(rows(out.batch.id).every((r) => r.state === 'verified'), JSON.stringify(rows(out.batch.id).map((r) => [r.state, r.last_error])));
     const writes = sent();
-    assert.equal(writes[0].method, 'PATCH');
-    assert.equal(writes[0].path, '/constituent/v1/addresses/1');
-    assert.deepEqual(writes[0].body, { preferred: false });
-    assert.equal(writes[1].method, 'POST');
+    assert.equal(writes[0].method, 'POST');
+    assert.equal(writes[0].body.preferred, false);
+    assert.equal(writes[1].method, 'PATCH');
+    assert.deepEqual(writes[1].body, { preferred: true });
     assert.equal(bb.addresses.filter((a) => a.preferred).length, 1);
     assert.equal(bb.addresses.find((a) => a.preferred).address_lines, '9 New Ave');
     const undo = await svc.undoBatch(ctx, out.batch.id);
     await runAll(undo.batch.id);
+    assert.equal(rows(undo.batch.id).filter((r) => r.state === 'failed').length, 0);
     assert.equal(bb.addresses.length, 1);
     assert.equal(bb.addresses[0].preferred, true);
+  });
+  it('an address marked Preferred cannot be unmarked: the person is told to mark another one', async () => {
+    await assert.rejects(() => svc.createBatch(ctx, { op: 'pcontact', cid: '100', kind: 'address', mode: 'edit', id: '1', set: { preferred: false }, req: 'a2b' }), /Mark the other address preferred/);
+  });
+  it('marking another existing address preferred moves the mark, and Undo moves it back', async () => {
+    bb.addresses.push({ id: '2', constituent_id: '100', type: 'Business', address_lines: '5 Work St', city: 'Tampa', state: 'FL', preferred: false, inactive: false });
+    const out = await svc.createBatch(ctx, { op: 'pcontact', cid: '100', kind: 'address', mode: 'edit', id: '2', set: { preferred: true }, req: 'a2c' });
+    await runAll(out.batch.id);
+    assert.deepEqual(bb.addresses.map((a) => [a.id, a.preferred]), [['1', false], ['2', true]]);
+    const undo = await svc.undoBatch(ctx, out.batch.id);
+    await runAll(undo.batch.id);
+    assert.deepEqual(bb.addresses.map((a) => [a.id, a.preferred]), [['1', true], ['2', false]]);
   });
   it('ends an address with an end date, which makes it inactive, and Undo reopens it', async () => {
     const out = await svc.createBatch(ctx, { op: 'pcontact', cid: '100', kind: 'address', mode: 'end', id: '1', set: { end: TODAY }, req: 'a3' });

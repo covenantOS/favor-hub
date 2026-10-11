@@ -1310,7 +1310,11 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   // A row in flight may already be at Blackbaud, so Undo waits for the send to finish rather than guessing which rows went.
   const inFlight = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state = 'sending'").bind(batchId).first<{ n: number }>();
   if (Number(inFlight?.n)) throw new HttpError(409, 'busy', 'Blackbaud is still taking this batch. Undo it when it finishes.');
-  const rows = (await ctx.env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid').bind(batchId).all<OutboxRow>()).results;
+  const rows0 = (await ctx.env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid').bind(batchId).all<OutboxRow>()).results;
+  // A change that must come back before its batch-mates (the old preferred address is marked again before the new one is removed) says so
+  // in its before-call; those rows are undone first, the rest keep their order.
+  const first = (r: OutboxRow) => (r.before && parseObj(r.before).__undoFirst ? 0 : 1);
+  const rows = rows0.map((r, i) => ({ r, i })).sort((x, y) => first(x.r) - first(y.r) || x.i - y.i).map((x) => x.r);
   const items: PlannedItem[] = [];
   let cancelled = 0;
   let unresolved = 0;

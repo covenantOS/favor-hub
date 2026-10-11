@@ -4,7 +4,10 @@
 // route's write guard and its ledger, counted in the day's meter, undone for 24 hours), and read back after the send so the screen shows
 // what Blackbaud kept, not what was sent.
 //
-// Probed on record 27202 on 2026-10-10:
+// Probed on record 27202 on 2026-10-10 and 2026-10-11 (live test through the hub):
+//  - An address marked Preferred cannot be unmarked and cannot be deleted. Another address is marked preferred instead (Blackbaud
+//    clears the old mark itself), so a new preferred address is made unmarked and then marked, and Undo marks the old one again before
+//    it removes the new one. Phones and emails can be unmarked and deleted.
 //  - Blackbaud puts "preferred" and "primary" on the newest row and clears the old one itself. The plan still unmarks the old row first
 //    and the read-back counts exactly one preferred active address.
 //  - Ending an address (an end date in the past) makes it inactive. An end of null puts it back.
@@ -481,7 +484,9 @@ export async function planContact(ctx: Ctx, input: RecordInput): Promise<RecordP
   const steps: Step[] = [];
   const base = WRITE[kind];
   const others = (except?: string) => rows.filter((r) => r.inactive !== true && r[markKey] === true && String(r.id) !== except);
+  // Phones and emails: the old primary is unmarked first. (An address cannot be unmarked; see the note at the top.)
   const unmark = (except?: string) => {
+    if (kind === 'address') return;
     for (const r of others(except)) steps.push(step('PATCH', `${base}/${r.id}`, { [markKey]: false }, { method: 'PATCH', path: `${base}/${r.id}`, body: { [markKey]: true } }, { k: kind, cid, id: String(r.id), expect: { [markKey]: false } }, `unmark ${markKey}`));
   };
   let conflict: { key: string; theirs: unknown }[] | undefined;
@@ -489,9 +494,18 @@ export async function planContact(ctx: Ctx, input: RecordInput): Promise<RecordP
   if (mode === 'add') {
     const body = kind === 'address' ? checkAddress(set, tables, { create: true }) : kind === 'phone' ? checkPhone(set, tables, { create: true }) : checkEmail(set, { create: true });
     const wantMark = body[markKey] === true;
+    const oldMark = others()[0];
     if (wantMark) unmark();
     if (kind === 'phone' && body.number && rows.some((r) => String(r.number).replace(/\D/g, '') === String(body.number).replace(/\D/g, '') && r.inactive !== true)) throw new HttpError(409, 'duplicate', 'This partner already has that number.');
     if (kind === 'email' && rows.some((r) => String(r.address).toLowerCase() === String(body.address).toLowerCase() && r.inactive !== true)) throw new HttpError(409, 'duplicate', 'This partner already has that email address.');
+    if (kind === 'address' && wantMark && oldMark) {
+      // Made unmarked, then marked: the mark moves off the old address by Blackbaud's own rule, and Undo can move it back first.
+      const plain = { ...body, preferred: false };
+      steps.push(step('POST', base, { constituent_id: cid, ...plain }, { method: 'DELETE', path: `${base}/{id}?constituent=${cid}` }, { k: kind, cid, made: true, expect: plain }, 'address add'));
+      const mark = step('PATCH', `${base}/{dep}`, { preferred: true }, { method: 'PATCH', path: `${base}/${oldMark.id}`, body: { preferred: true, __undoFirst: true } }, { k: kind, cid, viaDep: true, expect: { preferred: true } }, 'address preferred', 0);
+      steps.push(mark);
+      return finish();
+    }
     const expect: Record<string, unknown> = { ...body };
     steps.push(step('POST', base, { constituent_id: cid, ...body }, { method: 'DELETE', path: `${base}/{id}?constituent=${cid}` }, { k: kind, cid, made: true, expect }, `${word.toLowerCase()} add`));
     // Blackbaud puts the mark on the newest row when none is marked; the read-back asks for exactly one.
@@ -518,7 +532,19 @@ export async function planContact(ctx: Ctx, input: RecordInput): Promise<RecordP
   if (!keys.length) throw new HttpError(400, 'nothing_to_do', 'Nothing changed.');
   const send: Record<string, unknown> = {};
   for (const k of keys) send[k] = body[k];
+  if (kind === 'address' && live.preferred === true && send.preferred === false) {
+    throw new HttpError(400, 'bad_field', 'An address marked Preferred stays preferred until another address is marked. Mark the other address preferred instead.');
+  }
   if (send[markKey] === true) unmark(id);
+  if (kind === 'address' && send.preferred === true) {
+    // The mark moves by Blackbaud's own rule. It is its own step so Undo moves it back to the old address.
+    const rest: Record<string, unknown> = { ...send };
+    delete rest.preferred;
+    if (Object.keys(rest).length) steps.push(step('PATCH', `${base}/${id}`, rest, { method: 'PATCH', path: `${base}/${id}`, body: oldValues(live, Object.keys(rest)) }, { k: kind, cid, id, expect: rest }, 'address change'));
+    const oldMark = others(id)[0];
+    steps.push(step('PATCH', `${base}/${id}`, { preferred: true }, oldMark ? { method: 'PATCH', path: `${base}/${oldMark.id}`, body: { preferred: true, __undoFirst: true } } : undefined, { k: kind, cid, id, expect: { preferred: true } }, 'address preferred'));
+    return finish();
+  }
   steps.push(step('PATCH', `${base}/${id}`, send, { method: 'PATCH', path: `${base}/${id}`, body: oldValues(live, keys) }, { k: kind, cid, id, expect: send }, `${word.toLowerCase()} ${mode === 'end' ? 'end' : 'change'}`));
   return finish();
 
@@ -755,6 +781,8 @@ interface Check {
   cid: string;
   id?: string;
   made?: boolean;
+  /** The row to read back is the one an earlier step of the same batch made. */
+  viaDep?: boolean;
   expect: Record<string, unknown>;
 }
 
@@ -813,7 +841,12 @@ export async function verifyRecords(ctx: Ctx, rows: { id: string; op: string; bb
     if (!ck || !ck.cid) continue;
     const key = `${ck.cid}:${ck.k}`;
     const g = groups.get(key) || { check: ck, rows: [] };
-    g.rows.push({ id: r.id, bb_id: r.bb_id, check: ck });
+    let bb = r.bb_id;
+    if (ck.viaDep && p.__dep) {
+      const dep = await ctx.env.DB.prepare('SELECT bb_id FROM act_outbox WHERE id = ?').bind(p.__dep).first<{ bb_id: string | null }>().catch(() => null);
+      bb = dep ? dep.bb_id : null;
+    }
+    g.rows.push({ id: r.id, bb_id: bb, check: ck.viaDep ? { ...ck, made: true } : ck });
     groups.set(key, g);
   }
   for (const g of groups.values()) {
@@ -837,7 +870,8 @@ export async function verifyRecords(ctx: Ctx, rows: { id: string; op: string; bb
       if (!why && (k === 'address' || k === 'phone' || k === 'email') && row.check.expect && (row.check.expect.preferred === true || row.check.expect.primary === true)) {
         const flag = k === 'address' ? 'preferred' : 'primary';
         const marked = live.filter((x) => x[flag] === true && x.inactive !== true && String(x.id) !== id);
-        for (const o of marked) {
+        if (k === 'address' && marked.length) why = 'Blackbaud shows two preferred addresses';
+        for (const o of k === 'address' ? [] : marked) {
           const path = `${WRITE[k]}/${o.id}`;
           const fix = await ctx.repo.send([{ method: 'PATCH', path, body: { [flag]: false } }]);
           await addMeter(ctx.env, fix.results.length, fix.callsToday).catch(() => undefined);
