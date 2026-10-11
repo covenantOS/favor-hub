@@ -1,0 +1,83 @@
+/* Critic round 2026-10-11, meet area. Phone first: the room has five controls and a More sheet, Leave sits top right,
+   full-height pieces are pinned with top and bottom offsets (iOS Safari floats its toolbar over 100vh and 100dvh). */
+
+/* ---- the room on a phone held upright (also iPad portrait) */
+@media (max-width: 860px) and (min-height: 501px) {
+  body:not(.meet-guest) .h-app.is-room, body.meet-guest .h-app.is-room { position: fixed !important; inset: 0; height: auto !important; }
+  .h-app.is-room .rm-top { align-items: flex-start; padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 8px 16px; gap: 10px; }
+  .h-app.is-room .rm-top .rm-bar { flex-wrap: wrap; row-gap: 6px; padding: 2px 0 0; align-content: flex-start; }
+  .h-app.is-room .rm-top .rm-bar > b { flex: 1 1 100%; font-size: 18px; line-height: 1.2; }
+  .h-app.is-room .rm-bar { font-size: 13px; }
+  .h-app.is-room .rm-rec { font-size: 12px; }
+  .rm-tools { gap: 0; }
+  .rt-leave { height: 44px; min-width: 92px; padding: 0 18px; gap: 8px; background: #b4583b; border-color: #b4583b; color: #fff; font: 600 15px var(--h-font); }
+  .rt-leave:active { background: #9c4a30; }
+  .rt-leave .h-i { width: 20px; height: 20px; }
+  .h-app.is-room .rm-grid { padding: 0 10px 8px; gap: 10px; }
+  .h-app.is-room .rm-ctl { justify-content: space-around; gap: 0; padding: 8px 8px max(12px, env(safe-area-inset-bottom)); overflow: visible; }
+  .h-app.is-room .cb { flex: 1 1 0; min-width: 0; padding: 4px 0; font: 500 12px var(--h-font); gap: 5px; }
+  .h-app.is-room .cb span.k { width: 52px; height: 52px; }
+  .h-app.is-room .cb .h-i { width: 22px; height: 22px; }
+  .cb .dotc--s { width: 11px; height: 11px; padding: 0; top: 1px; right: 1px; }
+  .h-app.is-room .cb .dotc { right: -10px; }
+  /* Panels: pinned between a top offset and the control bar. */
+  .h-app.is-room .rm-side { top: calc(env(safe-area-inset-top, 0px) + 124px); bottom: var(--ctl-h, 84px); height: auto; }
+  .h-app.is-room .rm-tabs { padding: 6px 10px 8px; gap: 6px; }
+  .h-app.is-room .rm-tabs button { height: 44px; font-size: 14px; }
+  .h-app.is-room .rm-tabs .x { flex: 0 0 44px; }
+  .h-app.is-room .rm-grab { height: 24px; }
+  .h-app.is-room .rm-body { padding: 14px 16px; }
+  .h-app.is-room .rm-input { padding: 10px 12px; }
+  .h-app.is-room .rm-input input { height: 46px; }
+  .h-app.is-room .rm-input .icb { width: 46px; height: 46px; }
+  .h-app.is-room .rm-foot .h-btn, .h-app.is-room .hostbar .h-btn { min-height: 44px; }
+  .h-app.is-room .rm-body .icon-b { min-width: 44px; min-height: 44px; }
+  .h-app.is-room .pin { min-width: 44px; min-height: 44px; }
+  .h-app.is-room ~ .toast { bottom: calc(var(--ctl-h, 84px) + 12px); }
+  /* More sheet */
+  .mr-scrim { position: fixed; inset: 0; z-index: 71; background: rgba(20, 24, 18, .45); }
+  .mr-sheet { position: fixed; left: 0; right: 0; bottom: var(--ctl-h, 84px); z-index: 72; max-height: calc(100% - var(--ctl-h, 84px) - 96px); overflow-y: auto; overscroll-behavior: contain; background: var(--h-ivory); border-radius: 22px 22px 0 0; box-shadow: var(--h-shadow-2); color: var(--h-ink); animation: mr-up .18s ease-out; }
+  .mr-sheet .rm-grab { display: block; height: 24px; }
+  .mr-emo { display: flex; justify-content: space-between; padding: 2px 14px 10px; border-bottom: 1px solid var(--h-line); }
+  .mr-emo button { width: 52px; height: 52px; border-radius: 14px; border: 0; background: none; font-size: 28px; display: grid; place-items: center; }
+  .mr-emo button:active { background: var(--h-leaf-soft); }
+  .mr-list { display: grid; }
+  .mr { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 56px; padding: 0 20px; background: none; border: 0; border-bottom: 1px solid var(--h-line); font: 500 16px var(--h-font); color: var(--h-ink); text-align: left; }
+  .mr:last-child { border-bottom: 0; }
+  .mr:active { background: var(--h-leaf-soft); }
+  .mr-i { width: 24px; display: grid; place-items: center; color: var(--h-ink-2); }
+  .mr-i .h-i { width: 22px; height: 22px; }
+  .mr-l { flex: 1; min-width: 0; }
+  .mr-s { font: 600 14px var(--h-font); color: var(--h-brand-ink); }
+  .mr-dev { display: grid; gap: 10px; padding: 0 20px; }
+  .mr-dev:not(:empty) { padding: 4px 20px 16px; }
+  .mr-dev label { display: grid; gap: 4px; font: 600 13px var(--h-font); color: var(--h-ink-2); }
+  .mr-dev select { height: 46px; border-radius: 12px; border: 1px solid var(--h-line-2); background: #fff; padding: 0 12px; font: 500 16px var(--h-font); width: 100%; min-width: 0; }
+}
+@keyframes mr-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mr-sheet { animation: none; } }
+@media (min-width: 861px), (max-height: 500px) { #rm-more-wrap { display: none; } }
+
+/* ---- the lobby and the leave screens on a phone: one purpose, no app chrome around them */
+@media (max-width: 860px) {
+  .h-app.is-lobby:not(.is-room) .h-top, .h-app.is-lobby:not(.is-room) .h-tabs, .h-app.is-lobby:not(.is-room) .h-navbar { display: none; }
+  .h-app.is-lobby:not(.is-room) .h-bare, .h-app.is-lobby:not(.is-room) .h-page { padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 24px; }
+  .h-app.is-lobby .lobby { padding: 14px; gap: 16px; margin: 0 auto; }
+  .h-app.is-lobby .lobby .prev { aspect-ratio: 4 / 3; }
+  .h-app.is-lobby .lobby .mt-h2 { font-size: 26px !important; }
+  .h-app.is-lobby .lobby .h-btn { min-height: 52px; flex: 1 1 100%; justify-content: center; font-size: 16px; }
+  .h-app.is-lobby .lobby .cb { min-width: 0; padding: 0; }
+  .h-app.is-lobby .lobby .cb span.k { width: 52px; height: 52px; }
+  .h-app.is-lobby .lobby input, .h-app.is-lobby .lobby select { font-size: 16px; min-height: 46px; }
+  .h-app.is-lobby .lobby .lb-dev select { height: 46px; }
+  .h-app.is-lobby .mt-ended { margin: 56px auto 20px !important; }
+  .h-app.is-lobby .mt-ended .h-btn { min-height: 52px; flex: 1 1 100%; justify-content: center; font-size: 16px; }
+  .h-app.is-lobby .mt-ended #end-acts { flex-direction: column; }
+}
+
+/* Ended and left screens on a phone: stacked full-width buttons, nothing past the card edge. */
+@media (max-width: 860px) {
+  .h-app.is-lobby .mt-ended #end-acts { display: grid !important; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .h-app.is-lobby .mt-ended #end-acts .h-btn { flex: none; width: 100%; min-height: 52px; height: auto; }
+  .h-app.is-room .bq button { min-height: 44px; padding: 0 16px; font-size: 14px; }
+}
