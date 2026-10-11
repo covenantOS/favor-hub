@@ -1,0 +1,22 @@
+/* QA pass, Work area, 2026-10-11. Phone rules sit under 860px and 760px. */
+
+/* The Work tab row runs past a 440px phone. Each tab snaps to the left edge when scrolled, and the cut edge fades out
+   under a wider mask so a label never stops mid-word at the edge. */
+@media (max-width: 860px) {
+  body.h-body .h-tabs__row { scroll-snap-type: x proximity; scroll-padding-left: 14px; }
+  body.h-body .h-tabs__row .h-tab { scroll-snap-align: start; }
+  body.h-body .h-tabs__row { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 48px), transparent); }
+}
+
+/* The Asks summary band has four tiles. work.css hides every tile after the third at 860px and below (built for three-tile
+   bands), so the fourth tile never showed on a phone. Two columns, all four tiles shown. */
+@media (max-width: 860px) {
+  body.h-body .wa-band { grid-template-columns: repeat(2, minmax(0, 1fr)); height: auto; }
+  body.h-body .wa-band .wc-stat:nth-child(n+4) { display: block; }
+  body.h-body .wa-band .wc-stat { min-height: 0; }
+}
+
+/* Under 16px, Safari zooms the page when this select takes focus. */
+@media (max-width: 760px) {
+  body.h-body .h-page .rcp-days { font-size: 16px; }
+}
