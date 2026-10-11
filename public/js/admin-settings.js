@@ -18,7 +18,7 @@
 
   function row(s) {
     var id = 'f-' + s.id.replace(/\W/g, '-');
-    var who = s.saved && s.at ? 'Changed ' + A.day(s.at) + (s.by ? ' by ' + s.by : '') : '';
+    var who = s.saved && s.at ? 'Changed ' + new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }).format(new Date(s.at)) + (s.by ? ' by ' + s.by : '') : '';
     return '<div class="ad-set" data-row="' + E(s.id) + '"><div><label class="ad-set__name" for="' + id + '">' + E(s.label) + (s.bb ? '<span class="ad-bbtag">Blackbaud</span>' : '') + '</label>' +
       (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + (who ? '<div class="ad-set__where">' + E(who) + '</div>' : '') + '</div>' +
       '<div>' + control(s) + '</div><div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-save="' + E(s.id) + '" disabled>Save</button>' +
