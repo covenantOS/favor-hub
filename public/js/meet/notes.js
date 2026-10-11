@@ -25,6 +25,8 @@ function playerNode(f, label, mins) {
     <span class="pl-btn" aria-hidden="true">${ic('play')}</span><span class="pl-spin" aria-hidden="true"></span><p class="pl-err" hidden>The recording did not load.</p>
     <div class="pl-bar" role="slider" aria-label="Position" tabindex="0"><i></i></div><div class="pl-time"><b>0:00</b><span>${mins ? clock(mins * 60) : ''}</span></div>`;
   if (video) wrap.insertBefore(media, wrap.firstChild); else wrap.appendChild(media);
+  const btn = wrap.querySelector('.pl-btn');
+  const PLAY = btn.innerHTML, PAUSE = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7z"/><path d="M13 5h4v14h-4z"/></svg>';
   const bar = wrap.querySelector('.pl-bar'), fill = bar.firstElementChild, now = wrap.querySelector('.pl-time b'), total = wrap.querySelector('.pl-time span'), err = wrap.querySelector('.pl-err');
   const length = () => (Number.isFinite(media.duration) && media.duration > 0 ? media.duration : (mins || 0) * 60);
   const paint = () => { const L = length(); fill.style.width = L ? Math.min(100, (media.currentTime / L) * 100) + '%' : '0%'; now.textContent = clock(media.currentTime); if (L) total.textContent = clock(L); };
@@ -35,8 +37,8 @@ function playerNode(f, label, mins) {
   bar.addEventListener('click', (e) => { e.stopPropagation(); seek(e.clientX); });
   bar.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') { media.currentTime += 10; e.preventDefault(); } else if (e.key === 'ArrowLeft') { media.currentTime = Math.max(0, media.currentTime - 10); e.preventDefault(); } });
   for (const ev of ['timeupdate', 'durationchange', 'seeked']) media.addEventListener(ev, paint);
-  media.addEventListener('playing', () => { wrap.classList.remove('is-loading', 'is-error'); wrap.classList.add('is-playing'); });
-  for (const ev of ['pause', 'ended']) media.addEventListener(ev, () => { wrap.classList.remove('is-playing', 'is-loading'); });
+  media.addEventListener('playing', () => { wrap.classList.remove('is-loading', 'is-error'); wrap.classList.add('is-playing'); btn.innerHTML = PAUSE; });
+  for (const ev of ['pause', 'ended']) media.addEventListener(ev, () => { wrap.classList.remove('is-playing', 'is-loading'); btn.innerHTML = PLAY; });
   for (const ev of ['waiting', 'seeking']) media.addEventListener(ev, () => { if (!media.paused) wrap.classList.add('is-loading'); });
   media.addEventListener('canplay', () => wrap.classList.remove('is-loading'));
   media.addEventListener('error', () => { wrap.classList.remove('is-loading', 'is-playing'); wrap.classList.add('is-error'); err.hidden = false; });
