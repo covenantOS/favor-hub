@@ -61,8 +61,10 @@
 
   // Page stylesheets come and go with their page. Styles a script added at run time are left alone; only the
   // links and style blocks a page's own HTML carried are managed, so one page's rules never restyle the next.
-  const pageCss = new Set(Array.from(document.head.querySelectorAll('link[rel=stylesheet], style')).map((el) => (el.tagName === 'LINK' ? 'L' + el.getAttribute('href') : 'S' + el.textContent)));
+  // Managed: the built stylesheets (/_astro/) and style blocks copied in from a swapped page. Style blocks the first page
+  // carried cannot be told apart from ones hub scripts add at run time, so those stay.
   const keyOf = (el) => (el.tagName === 'LINK' ? 'L' + el.getAttribute('href') : 'S' + el.textContent);
+  const pageCss = new Set(Array.from(document.head.querySelectorAll('link[rel=stylesheet][href^="/_astro/"]')).map(keyOf));
   // A new stylesheet goes in at the same place it sits in the new page, before the next one both pages share. Appended at the
   // end it would outrank the shared sheets and older rules would win (the Brain mark drew as a small purple square).
   function mergeHead(doc) {
@@ -70,7 +72,7 @@
     const list = Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style'));
     list.forEach((el, i) => {
       const k = keyOf(el);
-      pageCss.add(k);
+      if (el.tagName === 'LINK' ? (el.getAttribute('href') || '').startsWith('/_astro/') : true) pageCss.add(k);
       if (cur.has(k)) return;
       let next = null;
       for (let j = i + 1; j < list.length && !next; j++) next = cur.get(keyOf(list[j])) || null;
