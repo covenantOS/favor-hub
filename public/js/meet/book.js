@@ -150,7 +150,7 @@ function draw() {
       ${S.guestsOn ? `<div><h3 class="mt-h3">Guests from outside Favor</h3><div class="mt-add"><input id="addg" placeholder="Email address" /><button class="h-btn h-btn--ghost h-btn--sm" id="addgbtn">${ic('plus')}Add guest</button></div></div>` : ''}
     </section><aside class="mt-stack"><div class="mt-note">Reads free and busy times only.</div>
       <div class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">How long</div><div class="mt-seg">${[30, 45, 60, 90].map((d) => `<button class="${S.dur === d ? 'is-on' : ''}" data-dur="${d}">${d} min</button>`).join('')}</div></div></aside></div>
-      <div class="mt-foot"><button class="h-btn h-btn--ghost" id="startnow" ${hasWho() ? '' : 'disabled'}>${ic('video')}Start now</button><button class="h-btn h-btn--primary" data-step="2" ${hasWho() ? '' : 'disabled'}>Find times${ic('chev')}</button></div>`;
+      <div class="mt-foot"><button class="h-btn h-btn--ghost" id="startnow">${ic('video')}Start now</button><button class="h-btn h-btn--primary" data-step="2" ${hasWho() ? '' : 'disabled'}>Find times${ic('chev')}</button></div>`;
   } else if (S.step === 2 && S.fb === 'consent') {
     body = `<div class="mt-note mt-note--gold" style="margin-bottom:10px"><b>Allow calendar access once.</b> ${esc(S.fbMsg || 'Favor needs to read free and busy times and add the meeting to your calendar.')} <a class="h-btn h-btn--primary h-btn--sm" href="/api/google/connect?add=meetings&next=${encodeURIComponent(EDIT ? '/meet/book/?edit=' + EDIT : '/meet/book/')}" id="allow">Allow in Google</a></div>
       <div class="mt-foot">${EDIT ? '<a class="h-btn h-btn--ghost" href="/meet/">Cancel</a>' : `<button class="h-btn h-btn--ghost" data-step="1">${ic('back')}Back</button>`}</div>`;
