@@ -2,6 +2,7 @@
 import App from '../layouts/App.astro';
 import '../styles/r2-today.css';
 import '../styles/qa-today.css';
+import '../styles/crit-today.css';
 
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const starts = [
@@ -15,7 +16,8 @@ const starts = [
   <div class="r2t">
     <div class="r2t-hello">
       <section class="h-hello">
-        <h1 id="t-hello">Welcome</h1>
+        <h1 id="t-hello">Good day</h1>
+        <script is:inline>(function(){try{var h=+new Date().toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false})%24,p=h<12?'Good morning':h<17?'Good afternoon':'Good evening',n=localStorage.getItem('favor.hub.first.v1')||'';document.getElementById('t-hello').textContent=n?p+', '+n:p;}catch(e){}})();</script>
         <p id="t-date"></p>
       </section>
       <div class="r2t-hello__r" id="t-now"></div>
@@ -72,6 +74,6 @@ const starts = [
     </div>
   </div>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/today-snooze.js?v=1" defer></script>
-  <script is:inline src="/js/today.js?v=12" defer></script>
+  <script is:inline src="/js/today-snooze.js?v=2" defer></script>
+  <script is:inline src="/js/today.js?v=13" defer></script>
 </App>

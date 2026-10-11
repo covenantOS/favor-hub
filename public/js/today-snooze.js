@@ -120,6 +120,8 @@
   function closeMenu(returnFocus) {
     if (menu) menu.remove();
     menu = null;
+    const scrim = document.querySelector('.snz-scrim');
+    if (scrim) scrim.remove();
     if (returnFocus && trigger) trigger.focus();
     trigger = null;
   }
@@ -146,6 +148,7 @@
     menu.setAttribute('role', 'dialog');
     menu.setAttribute('aria-label', `Snooze ${item.label}`);
     menu.innerHTML = `
+      <p class="snz-title">Snooze ${esc(item.label)}</p>
       <button type="button" data-days="1">Tomorrow <small>${esc(dayLabel(tomorrow))}</small></button>
       <button type="button" data-days="7">Next week <small>${esc(dayLabel(nextWeek))}</small></button>
       <button type="button" data-pick="1" aria-expanded="false">Pick a date</button>
@@ -153,6 +156,11 @@
         <input type="date" name="due" min="${tomorrow}" max="${addDays(t, 730)}" value="${nextWeek}" aria-label="Snooze until this day" required>
         <button type="submit" class="h-btn h-btn--primary h-btn--sm">Snooze</button>
       </form>`;
+    if (window.matchMedia('(max-width: 860px)').matches) {
+      const scrim = document.createElement('div');
+      scrim.className = 'snz-scrim';
+      document.body.appendChild(scrim);
+    }
     document.body.appendChild(menu);
     const r = btn.getBoundingClientRect();
     const h = menu.offsetHeight;

@@ -8,6 +8,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const F = () => window.FavorWG;
   const KEY = 'favor.wh.v1';
+  const SHAPE = 'favor.wh.shape.v1';
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const ROLE = { admin: 'Admin', support: 'Support Team', director: 'Director', partner_care: 'Partner Care', grants: 'Grants writer', staff: 'Staff' };
   const n0 = (n) => Number(n || 0).toLocaleString('en-US');
@@ -100,11 +101,12 @@
   /* ------------------------------------------------------------------ header and tools */
   function paintTop(d) {
     const w = d.work;
-    $('wh-title').textContent = d.name || 'Work';
+    // The heading stays "Work" so it never changes after the first paint; the person's name leads the line under it.
     const role = w ? ROLE[w.role] || '' : 'Staff';
+    const who = d.name && d.name !== 'Admin' ? d.name : '';
     const day = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York' });
     const at = d.at ? new Date(d.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) : '';
-    $('wh-meta').innerHTML = esc([role, day].filter(Boolean).join(' · ')) + (w && w.synced ? ` · Blackbaud data <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : '') + (at ? ` · Updated ${esc(at)}` : '');
+    $('wh-meta').innerHTML = esc([who, role, day].filter(Boolean).join(' · ')) + (w && w.synced ? ` · Blackbaud data <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : '') + (at ? ` · Updated ${esc(at)}` : '');
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }
     // Admins have the shorter left column, so the activity feed goes under the right one; everyone else keeps it beside their gifts.
     const feed = $('wh-feed');
@@ -269,6 +271,7 @@
 
   function paint(d) {
     D = d;
+    try { localStorage.setItem(SHAPE, JSON.stringify({ due: !!(d.work && d.work.due), gifts: !!(d.work && d.work.gifts) })); } catch (_) { /* storage refused */ }
     paintTop(d);
     paintDue(d.work);
     paintGifts(d.work);
@@ -291,7 +294,16 @@
     }
     loading = false;
   }
-  try { const hit = JSON.parse(sessionStorage.getItem(KEY) || 'null'); if (hit && hit.ok) paint(hit); } catch (_) { /* no copy yet */ }
+  let hit = null;
+  try { hit = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (_) { /* no copy yet */ }
+  if (hit && hit.ok) paint(hit);
+  else {
+    // First look in this tab: hold the room the Due card takes for this browser's last layout, so the cards below do not jump down.
+    try {
+      const shape = JSON.parse(localStorage.getItem(SHAPE) || 'null');
+      if (shape && shape.due) { $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel"></li>'; $('wh-due-h').textContent = "Today's work"; }
+    } catch (_) { /* nothing held */ }
+  }
   load();
 
   /* ------------------------------------------------------------------ complete and snooze */

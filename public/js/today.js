@@ -53,6 +53,18 @@
   const hour = Number(et(new Date().toISOString(), { hour: 'numeric', hour12: false }));
   const part = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   $('t-date').textContent = et(new Date().toISOString(), { weekday: 'long', month: 'long', day: 'numeric' });
+  // The greeting is final text from the first paint (part of day, and the first name this browser last saw), so the heading never changes under the eye.
+  const NAME_KEY = 'favor.hub.first.v1';
+  const CARDS_KEY = 'favor.hub.cards.v1';
+  let knownFirst = '';
+  try { knownFirst = localStorage.getItem(NAME_KEY) || ''; } catch { /* storage refused */ }
+  $('t-hello').textContent = knownFirst ? `${part}, ${knownFirst}` : part;
+  // The Needs you placeholders match the number of cards this browser last saw.
+  try {
+    const n = Math.min(4, Math.max(0, Number(localStorage.getItem(CARDS_KEY) || 4)));
+    const box = $('t-cards');
+    if (box && box.querySelectorAll('.r2t-skel').length !== n && n > 0) box.innerHTML = '<div class="r2t-skel"></div>'.repeat(n);
+  } catch { /* storage refused */ }
 
   function cards(list) {
     $('t-cards').removeAttribute('aria-busy');
@@ -66,7 +78,7 @@
     meta.textContent = `${total.toLocaleString('en-US')} ${total === 1 ? 'item' : 'items'} across ${list.length} ${list.length === 1 ? 'tool' : 'tools'}`;
     $('t-cards').innerHTML = list
       .map((c) => {
-        const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i>${esc(c.note)}</span>` : '';
+        const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
         return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}" aria-label="${esc(c.label)}: ${esc(c.cta)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
           <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
@@ -188,7 +200,9 @@
   let kpiAsked = false;
   swr('favor.hub.today.v1', '/api/hub/today', (d) => {
       const first = String((d.user && d.user.name) || '').split(' ')[0];
-      $('t-hello').textContent = first && d.user.via === 'google' ? `${part}, ${first}` : part;
+      const shownName = first && d.user.via === 'google' ? first : '';
+      $('t-hello').textContent = shownName ? `${part}, ${shownName}` : part;
+      try { shownName ? localStorage.setItem(NAME_KEY, shownName) : localStorage.removeItem(NAME_KEY); localStorage.setItem(CARDS_KEY, String((d.cards || []).length || 1)); } catch { /* storage refused */ }
       cards(d.cards || []);
       mine(d.mine || []);
       feed(d.activity || []);

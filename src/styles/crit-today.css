@@ -1,0 +1,92 @@
+/* Design critic round 2026-10-11: Today and Work Overview. Colors and tokens stay with round2.css. */
+
+/* Needs you note: one clean line with an ellipsis on desktop, wrapping to two lines on a phone. */
+.r2t-chip__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 860px) {
+  .r2t-tile__f .r2t-chip { height: auto; min-height: 28px; padding: 5px 10px; align-items: flex-start; white-space: normal; border-radius: 14px; }
+  .r2t-tile__f .r2t-chip i { margin-top: 6px; }
+  .r2t-tile__f .r2t-chip__t { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
+}
+
+/* Snooze clock on a Needs you card: a 44 px tap target in the corner. */
+.r2t-snzwrap > .r2t-snz { top: 6px; right: 6px; width: 44px; height: 44px; }
+.r2t-snzwrap > .r2t-tile .r2t-tile__h { padding-right: 48px; }
+
+/* Snooze menu: a bottom sheet on a phone (full-width rows, 16 px date field so iOS does not zoom, a dimmed page behind). */
+.snz-title { display: none; margin: 0; }
+.snz-scrim { position: fixed; inset: 0; z-index: 79; background: rgba(29, 33, 27, 0.35); }
+@media (max-width: 860px) {
+  .snz-menu { left: 12px !important; right: 12px !important; top: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px) !important; width: auto; padding: 8px; border-radius: 16px; gap: 0; }
+  .snz-title { display: block; padding: 10px 12px 8px; font: 600 13px var(--h-font); color: var(--r-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .snz-menu > button { min-height: 52px; padding: 0 12px; font-size: 16px; align-items: center; }
+  .snz-menu > button small { font-size: 14px; }
+  .snz-pick { grid-template-columns: 1fr auto; padding: 4px 8px 8px; align-items: center; }
+  .snz-pick input { height: 48px; font-size: 16px; }
+  .snz-pick .h-btn { height: 48px; padding: 0 18px; }
+  #snz-toast { bottom: 88px; }
+}
+@media (pointer: coarse) and (min-width: 861px) {
+  .snz-menu > button { min-height: 48px; }
+}
+
+/* Work Overview snooze menu: same sheet on a phone. */
+.wh-snz button { min-height: 36px; }
+@media (max-width: 860px) {
+  .wh-snz { left: 12px !important; right: 12px !important; top: auto !important; bottom: calc(env(safe-area-inset-bottom, 0px) + 84px) !important; width: auto; padding: 8px; border-radius: 16px; gap: 0; box-shadow: 0 0 0 100vmax rgba(29, 33, 27, 0.35); }
+  .wh-snz button { min-height: 52px; font-size: 16px; }
+  .wh-snz label { font-size: 13px; padding: 8px 12px; }
+  .wh-snz input { height: 48px; font-size: 16px; }
+}
+
+/* A figure you can press (team goals, year total): the finger lands even though the text is small. */
+.r2t [data-drill], .wh [data-whd] { cursor: pointer; }
+@media (pointer: coarse), (max-width: 860px) {
+  .r2t-team small [data-drill] { display: inline-block; padding: 14px 4px; margin: -14px -4px; }
+  .r2t-team small { line-height: 1.2; }
+  .r2t-team { row-gap: 10px; }
+}
+
+/* Year strip: the figure never splits across lines. */
+.r2t-strip b { overflow-wrap: normal; white-space: nowrap; font-size: clamp(14px, 1.5vw + 8px, 18px); }
+@media (min-width: 861px) and (max-width: 1280px) { .r2t-strip { grid-template-columns: repeat(3, minmax(0, auto)); justify-content: start; } .r2t-strip div { padding: 8px 14px; } }
+
+/* Start something: tiles take the width they need, one column when the card is narrow. */
+.r2t-starts { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+@media (max-width: 860px) { .r2t-starts { grid-template-columns: 1fr; } }
+
+/* Needs you with one or two cards on a wide screen: the card does not sit alone in a quarter of the row. */
+@media (min-width: 861px) {
+  .r2t-needs > .r2t-snzwrap:only-child { grid-column: span 2; }
+  .r2t-needs > .r2t-snzwrap:only-child .r2t-tile { min-height: 150px; }
+  .r2t-needs > .r2t-snzwrap:only-child .r2t-tile__f { max-width: 640px; }
+}
+
+/* Today skeletons keep their shape: no layout jump when the real cards arrive. */
+.r2t-skel { animation: r2t-pulse 1.4s ease-in-out infinite; }
+@keyframes r2t-pulse { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) { .r2t-skel { animation: none; } }
+
+/* Work Overview on a touch screen wider than a phone (iPad): the row buttons are icon squares, not cut-off words. */
+@media (pointer: coarse) and (min-width: 861px) {
+  .wh-row:not(.wh-gift) .wh-lbl { display: none; }
+  .wh-row:not(.wh-gift) .wh-ic { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .wh-row:not(.wh-gift) .wh-do:not(.wh-do--go) { padding: 0; }
+}
+/* Tool tiles: a count never pushes the name out of its tile. */
+.wh-tool { min-width: 0; }
+@media (min-width: 861px) and (max-width: 1280px) {
+  .wh-tools { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+  .wh-tool { padding: 9px 10px; gap: 8px; }
+  .wh-tool .r2t-ico { display: none; }
+  .wh-tool__l { flex: 1; }
+}
+
+/* Work Overview chips: the label pills stay pill-sized (24 px); a chip that is a link keeps a 44 px hit area through an invisible pad. */
+@media (max-width: 860px) {
+  body.h-body .wh span.r2t-chip, body.h-body .wh .wh-row .r2t-chip { height: 24px; min-height: 0; padding: 0 9px; }
+  body.h-body .wh a.r2t-chip { height: 30px; min-height: 30px; padding: 0 10px; position: relative; }
+  body.h-body .wh a.r2t-chip::after { content: ''; position: absolute; inset: -7px -3px; }
+  body.h-body .wh .dr-num { min-height: 30px; min-width: 0; padding: 0 1px; position: relative; display: inline-flex; align-items: center; }
+  body.h-body .wh .dr-num::after { content: ''; position: absolute; inset: -7px -4px; }
+  body.h-body .wh .wh-chips { gap: 10px; }
+}
