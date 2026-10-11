@@ -687,7 +687,8 @@ if (root) {
   if (m) {
     show(root, m[1], 'full').then((p) => { if (p) { document.title = p.name + ' - Favor Hub'; const t = document.querySelector('.h-top__title'); if (t) t.textContent = p.name; } });
   } else {
-    root.innerHTML = '<div class="pp-landing"><h1>Find a partner</h1><div id="pv-search"></div></div>';
+    root.innerHTML = '<div class="pp-landing"><h1>Find a partner</h1><div id="pv-search"></div><p class="pp-landing__add"><button type="button" class="h-btn h-btn--primary" data-add-partner hidden>Add partner</button></p></div>';
+    if (window.FavorAddPartner) window.FavorAddPartner.mountButtons();
     const input = search($('#pv-search'), { onPick: (h) => { location.href = href(h.cid); } });
     input.focus();
   }

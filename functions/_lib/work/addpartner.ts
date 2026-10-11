@@ -8,13 +8,59 @@ import { mirror, type OpsCall, type OpsManyResult } from '../foundations/blackba
 import { digits } from '../actions/intake';
 import { idemKey } from '../actions/outbox';
 import { liveQuery, mergeLive, probeOf, probeReady, rankCandidates, type Cand, type LiveHit, type Match, type Probe } from '../actions/partner-match';
-import { addMeter, listStaff, logEvent } from './db';
+import { addMeter, listStaff, logEvent, type StaffRow } from './db';
 import { readOnly } from './repo';
-import { entryOwners, entryPatch } from './entry';
+import { MORNING_RUN_CODES, TABLES_FALLBACK, getTables, type Tables } from './records';
+import { entryPatch } from './entry';
 import { todayEt, type Ctx } from './service';
 
 export const CODES = ['Prospect', 'Partner', 'Church'] as const;
 export type Code = (typeof CODES)[number];
+
+/** Who can hold a new partner: every director with an Entry chip, and Partner Care. */
+export async function holdersForAdd(env: Env): Promise<StaffRow[]> {
+  return (await listStaff(env).catch(() => [])).filter((x) => x.active === 1 && x.bb_fundraiser_id && (x.entry_owner === 1 || x.team === 'partner_care'));
+}
+
+/** State to the regional director, from the Regions tab of the Daily Procedures sheet (the rows the worker keeps in dp_reference). */
+export function regionMap(rows: unknown[][]): Map<string, string> {
+  const out = new Map<string, string>();
+  const names = Array.isArray(rows[3]) ? rows[3] : [];
+  for (let i = 4; i < rows.length; i++) {
+    const r = Array.isArray(rows[i]) ? rows[i] : [];
+    for (let c = 0; c < r.length; c++) {
+      const v = String(r[c] ?? '').trim();
+      const who = String(names[c] ?? '').trim();
+      if (/^[A-Z]{2}$/.test(v) && who && !out.has(v)) out.set(v, who);
+    }
+  }
+  return out;
+}
+
+export interface HolderGuess {
+  fid: string;
+  name: string;
+  source: 'territory' | 'partner_care' | '';
+}
+
+/** The holder a new partner gets from the state on the address. No state, or a state no region lists (Alaska and Hawaii), shows Partner Care. */
+export async function holderForState(env: Env, state: string): Promise<HolderGuess> {
+  const st = state.trim().toUpperCase();
+  const staff = await holdersForAdd(env);
+  const pc = staff.find((x) => x.team === 'partner_care');
+  const fallback: HolderGuess = pc ? { fid: String(pc.bb_fundraiser_id), name: pc.name, source: 'partner_care' } : { fid: '', name: '', source: '' };
+  if (!/^[A-Z]{2}$/.test(st)) return fallback;
+  try {
+    const rows = await mirror<{ json: string }>(env, readOnly("SELECT json FROM dp_reference WHERE name = 'regions' LIMIT 1"));
+    const table = rows[0] ? (JSON.parse(rows[0].json) as unknown[][]) : [];
+    const who = regionMap(Array.isArray(table) ? table : []).get(st);
+    const hit = who ? staff.find((x) => x.entry_owner === 1 && x.name.toLowerCase() === who.toLowerCase()) : undefined;
+    if (hit) return { fid: String(hit.bb_fundraiser_id), name: hit.name, source: 'territory' };
+  } catch {
+    // The table could not be read: Partner Care holds it until a person picks.
+  }
+  return fallback;
+}
 
 /** Support and admins add partners. A director asks Support. */
 export function mayAddPartner(ctx: Ctx): boolean {
@@ -156,6 +202,11 @@ async function limitLive(ctx: Ctx): Promise<void> {
 
 /* ------------------------------------------------------------------ adding */
 
+/** Relationships between two people, and the reciprocal Blackbaud files on the other side (read back on test records 2026-10-10). */
+export const PERSON_RELATIONS: Record<string, string> = { Parent: 'Child', Child: 'Parent', Sibling: 'Sibling', Friend: 'Friend', Grandparent: 'Grandchild', Grandchild: 'Grandparent', Mentor: 'Mentee', Mentee: 'Mentor' };
+/** What an organization's contact is to the organization, and what the organization is to the contact. */
+export const CONTACT_ROLES: Record<string, string> = { Employee: 'Employer', 'Staff Member': 'Employer', Pastor: 'Church', 'Board Member': 'Organization', Member: 'Organization' };
+
 export interface AddInput {
   probe: Probe;
   code: Code;
@@ -163,14 +214,53 @@ export interface AddInput {
   street: string;
   none_same: boolean;
   row: string;
+  title: string;
+  middle: string;
+  suffix: string;
+  phoneType: string;
+  spouse: { title: string; middle: string; suffix: string; phone: string; phoneType: string; email: string };
+  /** The organization's type code (Church, DAF Provider, Foundation and the like). Prospect or Partner is `code`. */
+  typeCode: string;
+  contact: { first: string; last: string; title: string; phone: string; email: string; position: string; role: string } | null;
+  /** Links from the new partner to partners already in Blackbaud. The other partner is the new partner's `type`. */
+  relations: { id: string; type: string }[];
 }
 
 export function parseAdd(b: Record<string, unknown>): AddInput {
   const probe = probeOf(b);
   const code = String(b.code || '') as Code;
   const clean = (v: unknown, n: number) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
-  const out: AddInput = { probe, code, holder: clean(b.holder, 20), street: clean(b.street, 100), none_same: b.none_same === true, row: clean(b.row, 40) };
+  const out: AddInput = {
+    probe, code, holder: clean(b.holder, 20), street: clean(b.street, 100), none_same: b.none_same === true, row: clean(b.row, 40),
+    title: clean(b.title, 30), middle: clean(b.middle, 50), suffix: clean(b.suffix, 30), phoneType: clean(b.phone_type, 30),
+    spouse: { title: clean(b.spouse_title, 30), middle: clean(b.spouse_middle, 50), suffix: clean(b.spouse_suffix, 30), phone: clean(b.spouse_phone, 30), phoneType: clean(b.spouse_phone_type, 30), email: clean(b.spouse_email, 120).toLowerCase() },
+    typeCode: clean(b.type_code, 60), contact: null, relations: [],
+  };
+  const ct = b.contact && typeof b.contact === 'object' ? (b.contact as Record<string, unknown>) : null;
+  if (ct && (clean(ct.first, 50) || clean(ct.last, 100))) {
+    out.contact = { first: clean(ct.first, 50), last: clean(ct.last, 100), title: clean(ct.title, 30), phone: clean(ct.phone, 30), email: clean(ct.email, 120).toLowerCase(), position: clean(ct.position, 50), role: clean(ct.role, 40) || 'Employee' };
+  }
+  if (Array.isArray(b.relations)) {
+    for (const r of b.relations.slice(0, 6)) {
+      const o = r && typeof r === 'object' ? (r as Record<string, unknown>) : {};
+      const id = clean(o.id, 12);
+      if (/^\d{1,12}$/.test(id)) out.relations.push({ id, type: clean(o.type, 40) });
+    }
+  }
   if (!CODES.includes(code)) throw new HttpError(400, 'bad_code', 'Pick the code: Prospect, Partner or Church.');
+  for (const r of out.relations) if (!PERSON_RELATIONS[r.type]) throw new HttpError(400, 'bad_relationship', 'Pick the relationship from the list.');
+  if (out.contact) {
+    if (probe.kind !== 'organization') out.contact = null;
+    else {
+      if (!out.contact.first || !out.contact.last) throw new HttpError(400, 'missing_field', 'Type the contact\'s first and last name, or clear the contact.');
+      if (!CONTACT_ROLES[out.contact.role]) throw new HttpError(400, 'bad_relationship', 'Pick what the contact is to the organization.');
+      if (out.contact.phone && digits(out.contact.phone).length !== 10) throw new HttpError(400, 'bad_phone', 'The contact\'s phone number needs 10 digits.');
+      if (out.contact.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(out.contact.email)) throw new HttpError(400, 'bad_email', 'The contact\'s email address does not look right.');
+    }
+  }
+  if (out.typeCode && MORNING_RUN_CODES.includes(out.typeCode)) throw new HttpError(400, 'bad_code', 'Prospect and Partner are picked as the status, not the type.');
+  if (out.spouse.phone && digits(out.spouse.phone).length !== 10) throw new HttpError(400, 'bad_phone', 'The spouse\'s phone number needs 10 digits.');
+  if (out.spouse.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(out.spouse.email)) throw new HttpError(400, 'bad_email', 'The spouse\'s email address does not look right.');
   if (probe.kind === 'organization') {
     if (probe.org.length < 3) throw new HttpError(400, 'missing_field', 'Type the organization name.');
   } else {
@@ -186,6 +276,7 @@ export function parseAdd(b: Record<string, unknown>): AddInput {
 /** The Blackbaud assignment type a holder gets: church engagement directors keep their own type; a Prospect gets a Prospect Steward; a Partner gets an RDD. */
 export function assignmentType(code: Code, holderTeam: string): string {
   if (holderTeam === 'church') return 'Church Engagement Director';
+  if (holderTeam === 'partner_care') return 'Partner Care';
   return code === 'Prospect' ? 'Prospect Steward' : 'Regional Development Director (RDD)';
 }
 
@@ -194,31 +285,72 @@ const PHONE_TYPE = (org: boolean) => (org ? 'Business Phone' : 'Cell Phone');
 /** The body of one POST /constituent/v1/constituents. Only keys the upkeep route lets through. */
 export function personBody(a: AddInput, who: 'first' | 'spouse'): Record<string, unknown> {
   const p = a.probe;
-  const body: Record<string, unknown> = { type: 'Individual', first: who === 'first' ? p.first : p.spouseFirst, last: who === 'first' ? p.last : p.spouseLast || p.last };
-  addContact(body, a, who === 'first');
+  const me = who === 'first';
+  const body: Record<string, unknown> = { type: 'Individual', first: me ? p.first : p.spouseFirst, last: me ? p.last : p.spouseLast || p.last };
+  const t = me ? a.title : a.spouse.title;
+  const m = me ? a.middle : a.spouse.middle;
+  const x = me ? a.suffix : a.spouse.suffix;
+  if (t) body.title = t;
+  if (m) body.middle = m;
+  if (x) body.suffix = x;
+  addContact(body, a, who);
   return body;
 }
 
-function addContact(body: Record<string, unknown>, a: AddInput, withReach: boolean): void {
+function addContact(body: Record<string, unknown>, a: AddInput, who: 'first' | 'spouse' | 'org'): void {
   const p = a.probe;
-  const org = p.kind === 'organization';
+  const org = who === 'org';
   if (a.street || p.city || p.state || p.zip) {
     body.address = { type: org ? 'Business' : 'Home', address_lines: a.street, city: p.city, state: p.state, postal_code: p.zip, preferred: true };
   }
-  if (withReach && p.email) body.email = { address: p.email, type: 'Email', primary: true };
-  if (withReach && digits(p.phone)) body.phone = { number: p.phone, type: PHONE_TYPE(org), primary: true };
+  const email = who === 'spouse' ? a.spouse.email : p.email;
+  const phone = who === 'spouse' ? a.spouse.phone : p.phone;
+  const phoneType = (who === 'spouse' ? a.spouse.phoneType : a.phoneType) || PHONE_TYPE(org);
+  if (email) body.email = { address: email, type: 'Email', primary: true };
+  if (digits(phone)) body.phone = { number: phone, type: phoneType, primary: true };
 }
 
 export function orgBody(a: AddInput): Record<string, unknown> {
   const body: Record<string, unknown> = { type: 'Organization', name: a.probe.org };
-  addContact(body, a, true);
+  addContact(body, a, 'org');
   return body;
+}
+
+/** The organization's main contact: a person with their own phone and email, joined to the organization afterwards. */
+export function contactBody(a: AddInput): Record<string, unknown> {
+  const c = a.contact!;
+  const body: Record<string, unknown> = { type: 'Individual', first: c.first, last: c.last };
+  if (c.title) body.title = c.title;
+  if (c.email) body.email = { address: c.email, type: 'Email', primary: true };
+  if (digits(c.phone)) body.phone = { number: c.phone, type: 'Cell Phone', primary: true };
+  return body;
+}
+
+/** Titles, suffixes, phone types and the organization's type code must be entries in Blackbaud's tables. Read once a week; fixes the case. */
+export async function checkTables(ctx: Ctx, a: AddInput): Promise<void> {
+  const need = [a.title, a.suffix, a.phoneType, a.spouse.title, a.spouse.suffix, a.spouse.phoneType, a.typeCode, a.contact?.title].some(Boolean);
+  if (!need) return;
+  const t = await getTables(ctx).catch(() => ({ ...TABLES_FALLBACK, at: '', source: 'fallback' }) as Tables);
+  const pick = (v: string, list: string[], what: string): string => {
+    if (!v) return v;
+    const hit = list.find((x) => x.toLowerCase() === v.toLowerCase());
+    if (!hit) throw new HttpError(400, 'bad_field', `Pick the ${what} from the list.`);
+    return hit;
+  };
+  a.title = pick(a.title, t.titles, 'title');
+  a.suffix = pick(a.suffix, t.suffixes, 'suffix');
+  a.phoneType = pick(a.phoneType, t.phoneTypes, 'phone type');
+  a.spouse.title = pick(a.spouse.title, t.titles, 'spouse\'s title');
+  a.spouse.suffix = pick(a.spouse.suffix, t.suffixes, 'spouse\'s suffix');
+  a.spouse.phoneType = pick(a.spouse.phoneType, t.phoneTypes, 'spouse\'s phone type');
+  a.typeCode = pick(a.typeCode, t.constituentCodes, 'type');
+  if (a.contact) a.contact.title = pick(a.contact.title, t.titles, 'contact\'s title');
 }
 
 export type Sender = (calls: OpsCall[]) => Promise<OpsManyResult>;
 
-const CREATE_KEYS = ['type', 'first', 'last', 'name', 'address', 'email', 'phone'];
-const REL_KEYS = ['constituent_id', 'relation_id', 'type', 'reciprocal_type', 'is_spouse'];
+const CREATE_KEYS = ['type', 'first', 'last', 'name', 'address', 'email', 'phone', 'middle', 'title', 'suffix'];
+const REL_KEYS = ['constituent_id', 'relation_id', 'type', 'reciprocal_type', 'is_spouse', 'is_organization_contact', 'position', 'organization_contact_type'];
 
 /** The stand-in. It checks each call the way the upkeep route does and answers with made-up ids. It sends nothing to Blackbaud. */
 export function standInSender(log: OpsCall[]): Sender {
@@ -252,6 +384,7 @@ export interface AddResult {
   standin: boolean;
   cid: string;
   cid2: string | null;
+  cid3: string | null;
   lookup: string;
   name: string;
   warnings: string[];
@@ -265,18 +398,19 @@ export async function addPartner(ctx: Ctx, body: Record<string, unknown>, mode: 
   if (!mayAddPartner(ctx)) throw new HttpError(403, 'not_yours', 'Support adds partners. Ask Support to add this one.');
   if (ctx.testCid && !mode.standin) throw new HttpError(403, 'test_only', 'This is a test run, and a test never makes a real record. It uses the stand-in route.');
   const a = parseAdd(body);
+  await checkTables(ctx, a);
   if (!a.none_same) throw new HttpError(400, 'not_confirmed', 'Tick "None of these is the same person" first.');
   const env = ctx.env;
   let holderTeam = '';
   if (a.holder) {
-    const owner = (await entryOwners(env)).find((o) => String(o.bb_fundraiser_id) === a.holder);
+    const owner = (await holdersForAdd(env)).find((o) => String(o.bb_fundraiser_id) === a.holder);
     if (!owner) throw new HttpError(400, 'bad_holder', 'Pick who holds this partner from the list.');
-    if (ctx.scope && !ctx.scope.all && !ctx.scope.fids.has(a.holder)) throw new HttpError(403, 'not_yours', 'That person is not one of the directors you support.');
+    if (owner.team !== 'partner_care' && ctx.scope && !ctx.scope.all && !ctx.scope.fids.has(a.holder)) throw new HttpError(403, 'not_yours', 'That person is not one of the directors you support.');
     holderTeam = owner.team;
   }
   // The check runs again on save, whatever the form showed. Its answer goes in the log with the tick.
   const check = await findMatches(ctx, body, { live: true }).catch(() => null);
-  const keyHash = (await idemKey([a.probe.kind, a.probe.first, a.probe.last, a.probe.spouseFirst, a.probe.org, digits(a.probe.phone), a.probe.email, a.probe.city])).slice(0, 24);
+  const keyHash = (await idemKey([a.probe.kind, a.probe.first, a.probe.last, a.probe.spouseFirst, a.probe.org, digits(a.probe.phone), a.probe.email, a.probe.city, a.contact ? a.contact.first + a.contact.last : '', a.typeCode])).slice(0, 24);
   const claim = `addp:${keyHash}`;
   const log: OpsCall[] = [];
   const send: Sender = mode.standin ? standInSender(log) : mode.send || ((c) => ctx.repo.send(c));
@@ -314,16 +448,28 @@ export async function addPartner(ctx: Ctx, body: Record<string, unknown>, mode: 
     if (r2 && r2.ok && r2.body && r2.body.id) cid2 = String(r2.body.id);
     else warnings.push(`The spouse's record was not made (${(r2?.body?.refused || second.wait || 'Blackbaud said no').toString().slice(0, 100)}). Add the spouse in Blackbaud.`);
   }
-  const rest: OpsCall[] = [{ method: 'POST', path: '/constituent/v1/constituentcodes', body: { constituent_id: cid, description: a.code } }];
-  if (cid2) rest.push({ method: 'POST', path: '/constituent/v1/constituentcodes', body: { constituent_id: cid2, description: a.code } });
-  if (cid2) rest.push({ method: 'POST', path: '/constituent/v1/relationships', body: { constituent_id: cid, relation_id: cid2, type: 'Spouse', reciprocal_type: 'Spouse', is_spouse: true } });
-  if (a.holder) rest.push({ method: 'POST', path: '/fundraising/v1/fundraisers/assignments', body: { constituent_id: cid, fundraiser_id: a.holder, type: assignmentType(a.code, holderTeam), start: `${todayEt()}T00:00:00` } });
+  let cid3: string | null = null;
+  if (a.contact) {
+    const third = await run([{ method: 'POST', path: '/constituent/v1/constituents', body: contactBody(a) }]);
+    const r3 = third.results[0];
+    if (r3 && r3.ok && r3.body && r3.body.id) cid3 = String(r3.body.id);
+    else warnings.push(`The contact's record was not made (${(r3?.body?.refused || third.wait || 'Blackbaud said no').toString().slice(0, 100)}). Add the contact in Blackbaud.`);
+  }
+  // Each step after the records carries the words the person reads if it fails.
+  const steps: { call: OpsCall; what: string }[] = [{ call: { method: 'POST', path: '/constituent/v1/constituentcodes', body: { constituent_id: cid, description: a.code } }, what: 'The code' }];
+  if (a.typeCode) steps.push({ call: { method: 'POST', path: '/constituent/v1/constituentcodes', body: { constituent_id: cid, description: a.typeCode } }, what: `The ${a.typeCode} code` });
+  if (cid2) steps.push({ call: { method: 'POST', path: '/constituent/v1/constituentcodes', body: { constituent_id: cid2, description: a.code } }, what: 'The spouse\'s code' });
+  if (cid2) steps.push({ call: { method: 'POST', path: '/constituent/v1/relationships', body: { constituent_id: cid, relation_id: cid2, type: 'Spouse', reciprocal_type: 'Spouse', is_spouse: true } }, what: 'The spouse link' });
+  if (cid3 && a.contact) {
+    steps.push({ call: { method: 'POST', path: '/constituent/v1/relationships', body: { constituent_id: cid, relation_id: cid3, type: a.contact.role, reciprocal_type: CONTACT_ROLES[a.contact.role], is_organization_contact: true, ...(a.contact.position ? { position: a.contact.position } : {}) } }, what: 'The contact link' });
+  }
+  for (const r of a.relations) steps.push({ call: { method: 'POST', path: '/constituent/v1/relationships', body: { constituent_id: cid, relation_id: r.id, type: r.type, reciprocal_type: PERSON_RELATIONS[r.type] } }, what: `The ${r.type.toLowerCase()} link` });
+  if (a.holder) steps.push({ call: { method: 'POST', path: '/fundraising/v1/fundraisers/assignments', body: { constituent_id: cid, fundraiser_id: a.holder, type: assignmentType(a.code, holderTeam), start: `${todayEt()}T00:00:00` } }, what: 'The holder' });
+  const rest: OpsCall[] = steps.map((x) => x.call);
   rest.push({ method: 'GET', path: `/constituent/v1/constituents/${cid}` });
   const tail = await run(rest);
-  const label = ['The code', cid2 ? 'the spouse\'s code' : '', cid2 ? 'the spouse link' : '', a.holder ? 'the holder' : ''].filter(Boolean);
-  const names = label.slice();
   tail.results.slice(0, rest.length - 1).forEach((r, i) => {
-    if (!r.ok) warnings.push(`${names[i] || 'One step'} was not saved (${(r.body?.refused || sayShort(r.body)).toString().slice(0, 100)}). Finish it in Blackbaud.`);
+    if (!r.ok) warnings.push(`${steps[i]?.what || 'One step'} was not saved (${(r.body?.refused || sayShort(r.body)).toString().slice(0, 100)}). Finish it in Blackbaud.`);
   });
   if (tail.results.length < rest.length - 1) warnings.push('Some steps after the record were not sent. Check the record in Blackbaud.');
   const lookupRes = tail.results[rest.length - 1];
@@ -343,9 +489,9 @@ export async function addPartner(ctx: Ctx, body: Record<string, unknown>, mode: 
   }
   await logEvent(env, {
     actor: ctx.actor, actor_email: ctx.email, kind: mode.standin ? 'partner_add_standin' : 'partner_added',
-    detail: `${name} (${cid}${cid2 ? ', ' + cid2 : ''}) code ${a.code}${a.holder ? ' holder ' + a.holder : ''}; ${spent} calls; matches shown ${check ? check.matches.length : '?'} (${check ? check.live : 'unchecked'}); tick confirmed`,
+    detail: `${name} (${cid}${cid2 ? ', ' + cid2 : ''}${cid3 ? ', ' + cid3 : ''}) code ${a.code}${a.typeCode ? ' + ' + a.typeCode : ''}${a.holder ? ' holder ' + a.holder : ''}; ${spent} calls; matches shown ${check ? check.matches.length : '?'} (${check ? check.live : 'unchecked'}); tick confirmed`,
   }).catch(() => undefined);
-  return { ok: true, standin: mode.standin, cid, cid2, lookup, name, warnings, calls: mode.standin ? log : null, row };
+  return { ok: true, standin: mode.standin, cid, cid2, cid3, lookup, name, warnings, calls: mode.standin ? log : null, row };
 }
 
 const sayShort = (b: any): string => (!b ? 'Blackbaud said no' : typeof b === 'string' ? b : Array.isArray(b) && b[0] ? String(b[0].message || b[0].error_name || 'Blackbaud said no') : String(b.message || 'Blackbaud said no'));

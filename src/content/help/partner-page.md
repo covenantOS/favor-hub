@@ -48,6 +48,16 @@ Four tabs sit under the Call, Text and Email buttons: Overview, Contact, Codes a
 
 Admins change contact details, codes and record status. The Support Team changes codes and record status, and contact details for any partner. Directors and Partner Care change contact details for partners their team holds. Everyone else reads.
 
+## Add a partner
+
+Add partner sits in the Work Center's tool row, and on Find a partner. It is for admins and the Support Team. The form takes three kinds of record.
+
+**Individual** takes a title, first, middle and last name, a suffix, a phone with its type, an email and an address. **Household** adds a second person with their own title, names, phone and email, and joins the two as spouses; both get the address. **Organization** takes the name, a type (Church, DAF Provider, Foundation and the like), and a main contact. The contact is a person with their own record, joined to the organization with what they are to it (Employee, Staff Member, Pastor, Board Member or Member) and their position.
+
+Records already in Blackbaud show beside the form as you type: the hub's copy at once, then Blackbaud's own search a moment after you stop. Each shows why it matches, such as the same phone, the same email, the same name and city. An organization never matches on its name alone. Open this record opens it in a new tab. Add as new partner stays locked until you tick **None of these is the same person**, and changing a name, phone, email or city clears the tick. The server checks again when you press Add.
+
+Add a relationship links the new partner to someone already in Blackbaud: pick the partner, then what they are to the new one (Parent, Child, Sibling, Friend, Grandparent, Grandchild, Mentor or Mentee). Code is Prospect or Partner. Held by comes from the state on the address through the Regions table; with no state, or a state no region lists, it shows Partner Care, and you can pick anyone. The source code, addressee and salutation come from the record review the next weekday, as they do now. A step that does not save, such as a link, comes back by name so you can finish it in Blackbaud.
+
 ## Copy and share
 
 Press a phone number, an email or the address to copy it. A Copied note confirms it. Copy link in the top row copies the address of this partner page. The link opens for signed-in staff who already have access to the partner. For anyone else the page shows an error.

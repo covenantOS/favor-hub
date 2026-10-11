@@ -608,6 +608,7 @@ function afterOpen(idp) {
       <div class="ep-menu"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-menu="views">${wc.ic('filter')}Views${E.views.length ? ' (' + E.views.length + ')' : ''}</button></div>
       <div class="ep-menu"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-menu="cols">Columns</button></div>
       <div class="ep-menu"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-menu="export">${wc.ic('ext')}Export</button></div>
+      <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-add-partner hidden>${wc.ic('plus')}Add partner</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm ep-keysbtn" data-ep="keys" title="Keyboard shortcuts (?)">Shortcuts</button>`;
   }
   applyCols(idp);

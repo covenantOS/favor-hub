@@ -11,6 +11,9 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 11, 2026
 
+- **Add a partner, in full.** Add partner in the Work Center's tool row and on Find a partner opens one form for an individual, a household or an organization. A household joins two people as spouses, each with their own phone and email. An organization takes a type and a main contact who gets their own record. Add a relationship links the new partner to someone already in Blackbaud. Matches show beside the form with the reason, and Add stays locked until you tick that none is the same person. The holder follows the state on the address. Admins and the Support Team only.
+- **Blackbaud users in Admin.** Admin has a new page, Blackbaud users, that lists every Blackbaud login with its status and access. The desktop reads it each weekday morning, and the page shows when. Read only.
+
 - **Contact, Codes and Record tabs on every partner.** Open a partner and four tabs sit under the name. Contact lists every address with its dates and seasonal window, every phone and every email, and Edit, Add an address, Add a phone and Add an email change them in Blackbaud with the preferred mark moving cleanly from the old row to the new one. Codes lists constituent codes and solicit codes with Add and End. Record marks a partner deceased or inactive with the effects listed first, and marks active again. Each save reads Blackbaud back and shows what it kept, and Undo stays for 24 hours.
 
 ## October 10, 2026

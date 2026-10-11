@@ -25,5 +25,6 @@ export const ADMIN_PAGES: AdminPage[] = [
   { id: 'expenses', href: '/admin/expenses/', label: 'Expenses', desc: 'Approvers, substitutes, who can open the log and the mileage rate.', count: 'expensesWaiting', live: true, card: true, tab: true },
   { id: 'receipts', href: '/admin/receipts/', label: 'Thank-you receipts', desc: 'The letter window and the morning email line.', live: true, card: true, tab: true },
   { id: 'feedback', href: '/feedback/', label: 'Feedback triage', desc: 'Notes from staff and the answers.', count: 'feedback', live: true, card: true, tab: true },
+  { id: 'bbusers', href: '/admin/blackbaud-users/', label: 'Blackbaud users', desc: 'Everyone with a Blackbaud login, their status and what each product lets them do.', live: true, card: true },
   { id: 'audit', href: '/admin/audit/', label: 'Audit log', desc: 'Every settings change with who, when, before and after.', live: true, card: true },
 ];

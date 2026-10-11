@@ -33,6 +33,10 @@ Open a tab in the Admin row. Each setting shows what it is now, where it lives a
 - **Favor Brain** holds the connect prompt and automatic chat titles. **Clips** holds storage for each person, the longest recording, the sharing default and who can record.
 - **Reports** sets which roles see each report. **Expenses** holds the approvers, substitutes, who can open the log and the mileage rate. **Thank-you receipts** holds the letter window and the morning email line.
 
+## Blackbaud users
+
+**Blackbaud users** lists everyone with a Blackbaud login: name, email, Active or Inactive, Raiser's Edge NXT access (Admin or User) and any other product they can open. Active, Inactive and All narrow the list, and the box finds a name or an email. The desktop reads Blackbaud's own users page each weekday morning after the other jobs, and **As of** shows when; it turns amber after 36 hours. The page is read only. Adding a user and changing access stay in Blackbaud for now. The list has no sign-in date.
+
 ## Read the audit log
 
 Press **Audit log**. Each row shows when a setting changed, who changed it, and the value before and after. Pick an area to narrow the list, or type a name or a setting. **Show more** loads older rows.

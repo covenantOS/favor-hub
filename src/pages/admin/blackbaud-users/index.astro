@@ -1,0 +1,24 @@
+---
+// Blackbaud users: who has a Blackbaud login and what it opens, as the Blackbaud users page lists them. Read only.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+---
+<App title="Blackbaud users" crumb="Admin" nav="admin-bbusers" description="Who has a Blackbaud login and what it opens.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="bbusers" title="Blackbaud users" lede="Everyone with a Blackbaud login, with their status and what each product lets them do." />
+    <section class="ad-card">
+      <div class="ad-sub bu-tools">
+        <input id="bu-find" class="ad-field ad-find" type="search" placeholder="Find a name or email" aria-label="Find a name or email" />
+        <div class="bu-seg" role="group" aria-label="Status" id="bu-status">
+          <button type="button" class="is-on" data-s="active">Active</button><button type="button" data-s="inactive">Inactive</button><button type="button" data-s="all">All</button>
+        </div>
+        <span class="bu-asof" id="bu-asof"></span>
+      </div>
+      <div class="bu-tiles" id="bu-tiles"></div>
+      <div class="ad-scroll"><table class="ad-table" id="bu-table"><thead><tr><th>User</th><th>Raiser's Edge NXT</th><th>Other products</th><th>Status</th></tr></thead><tbody id="bu-body"><tr><td colspan="4" class="au-empty">Loading</td></tr></tbody></table></div>
+    </section>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-bbusers.js?v=1" defer></script>
+</App>
