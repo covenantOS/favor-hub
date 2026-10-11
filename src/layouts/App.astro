@@ -21,6 +21,7 @@ import '../styles/round2.css';
 import '../styles/ux-night.css';
 import '../styles/ux-pass.css';
 import '../styles/polish.css';
+import '../styles/request-tasks.css';
 import '../styles/mobile.css';
 import '../styles/admin-fix.css';
 import '../styles/sticky-col.css';
@@ -165,6 +166,8 @@ const footAreas = AREAS.filter((a) => a.foot);
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
             pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            // Work also counts request notices this person has not opened (sent to them, mentions, comments).
+            if (id === 'work') n += Number(window.__hubTasks) || 0;
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
@@ -218,6 +221,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
           var counts = d.counts || {};
+          window.__hubTasks = Number(counts.tasks) || 0;
           document.querySelectorAll('[data-count]').forEach(function (el) {
             var n = Number(counts[el.dataset.count]) || 0;
             el.hidden = !n;
@@ -274,7 +278,10 @@ const footAreas = AREAS.filter((a) => a.foot);
     <script is:inline src="/js/hub-nav.js?v=4" defer></script>
     <script is:inline src="/js/hub-swap.js?v=9" defer></script>
     <script is:inline src="/js/clips-launch.js?v=4" defer></script>
-    <script is:inline src="/js/wc-bell.js?v=4" defer></script>
+    <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
+    <script is:inline src="/js/request-tasks.js?v=2" defer></script>
+    <script is:inline src="/js/request-drawer.js?v=1" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=5" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
     <script>
       import '../scripts/hub';

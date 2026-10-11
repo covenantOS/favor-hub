@@ -8,7 +8,6 @@ import '../../styles/chat.css';
 import '../../styles/crit-chat.css';
 import '../../styles/q3-chat.css';
 import '../../styles/huddle.css';
-import '../../styles/request-tasks.css';
 import { SPRITE } from '../brain/_icons';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -28,7 +27,7 @@ const bootHtml: string = ctx.window.FavorChat.bootHtml();
   <script is:inline src="/js/brain-blocks.js?v=8"></script>
   <script is:inline src="/js/meet/prejoin.js?v=3" defer></script>
   <script is:inline src="/js/chat/chat-view.js?v=1" defer></script>
-  <script is:inline src="/js/chat/task-card.js?v=1" defer></script>
+  <script is:inline src="/js/chat/task-card.js?v=2" defer></script>
   <script is:inline src="/js/chat/chat-ui.js?v=19" defer></script>
   <script is:inline src="/js/chat/chat.js?v=5" defer></script>
 </App>

@@ -28,7 +28,7 @@ Open the card and press **Send to...** beside Owner. Search the staff list by na
 
 ## Comments and @mentions
 
-Every request has a conversation under it. Type in the box at the bottom and press Enter (on a phone, press Send). Type **@** and a name to bring someone in. The people you name follow the request and hear about it on Today, the bell and in Chat.
+Every request has a conversation under it. Type in the box at the bottom and press Enter (on a phone, press Send). Type **@** and a name, then pick the person. The mention becomes a solid tag: Backspace removes it whole, and it reads the same in the comment, in Chat and in email. The people you name follow the request and hear about it on Today, the bell and in Chat.
 
 A reply typed under the request's card in Chat lands in the request's conversation, and a comment typed on the board lands under that card in Chat. It is one conversation in two places.
 
@@ -37,6 +37,24 @@ A reply typed under the request's card in Chat lands in the request's conversati
 - **Due** sets the day it should be done. A card past its day reads Late.
 - **Waiting on** names the person the work is stuck on. They hear about it.
 - **Follow** puts you on the list of people told about new comments, without sending it to you. **Following** turns that off.
+
+## Has the person been told
+
+Request notices can be switched off for everyone. While they are off, a hand-off is recorded and nobody is told. The panel says so under Owner or Waiting on: "Sam has not been told: notices are off." Nothing is sent later for a hand-off made while notices were off. Once notices are on, the line offers **Tell Sam**, and pressing it sends the notice.
+
+## Email
+
+Each notice also goes by email: who sent it, the request, the note or comment with the last two entries of the thread, and **Open the request**, **Mark done** and **Reply** links. Press **Request email** above the board, or in the bell, and choose:
+
+- **Immediately**: one email for each thing sent to you, each mention and each comment.
+- **Daily summary**: one email each weekday morning, grouped by request.
+- **None**: Today, the bell and Chat only.
+
+The owner of a request with a due date gets a notice the day before it is due and on the day. The person who did something never gets an email about it.
+
+## It opens where you are
+
+A request opens in a panel on the page you are on: from its card in Chat, from Today, from the bell, from the Work Overview and from search (Ctrl K finds a request by its title or by a person on it). Today shows **Sent to you**, **Waiting on you** and **Mentions**, and the Work badge counts what you have not opened.
 
 ## Who can do what
 
@@ -49,7 +67,7 @@ Marking a request done emails the person who asked, the same email the board has
 
 ## Filters
 
-The row above the board shows **All**, **Mine** (you are the owner), **Sent by me**, **Waiting on others** (yours, waiting on someone else) and **New for you** when something new waits on a request you are on. **By person** shows the requests one person owns, sent, follows or is waited on.
+The row above the board shows **All**, **Mine** (you are the owner), **Sent by me**, **Waiting on others** (yours, waiting on someone else), **Waiting on me**, and **New for you** when something new waits on a request you are on. **By person** shows the requests one person owns, sent, follows or is waited on.
 
 ## For the hub admin
 

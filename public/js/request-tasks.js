@@ -1,9 +1,9 @@
-/* Request board tasks: the people picker (Send to, Waiting on, @mention, filter by person) and the conversation under a request.
-   The conversation is drawn with Favor Chat's own markup and styles (ch-msg, ch-av, ch-comp, ch-pop) and its composer
-   (FavorChat.util.composerHtml from chat-ui.js), so a comment reads the same on the board and under the card in Chat.
-   Mentions are Chat's tokens: the box shows @Name, the server gets <@email>. Used by requests-board.js. */
+/* Request board tasks: the staff list and the people picker (Send to, Waiting on, the @ button, filter by person), as a sheet on a
+   phone and a dialog on a desktop. Loaded on every hub page with request-drawer.js, so a request opens in place from Chat,
+   Today, the bell and search. The comment box is the shared mention composer (public/js/chat/mention-input.js). */
 (() => {
   'use strict';
+  if (window.ReqTasks) return;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const COLORS = ['sun', 'sky', 'leaf', 'dusk', 'terra', 'teal', 'slate'];
   const hash = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
@@ -41,7 +41,7 @@
   function avatar(email, size) {
     const p = person(email);
     const inner = p.picture ? `<img src="${esc(p.picture)}" alt="" referrerpolicy="no-referrer" />` : esc(initials(p.name));
-    return `<span class="ch-av${size ? ' ch-av--' + size : ''}" data-c="${COLORS[hash(String(email || '')) % 7]}">${inner}</span>`;
+    return `<span class="rq-av${size ? ' rq-av--' + size : ''}" data-c="${COLORS[hash(String(email || '')) % 7]}">${inner}</span>`;
   }
   const sub = (p) => [p.team, p.title].filter(Boolean).join(' · ');
   // Every word typed must appear; a first name that starts with it comes first, then any name that does, then the rest.
@@ -181,155 +181,7 @@
     return done;
   }
 
-  /* ------------------------------------------------------------------ text */
-  function fmt(body, me) {
-    let t = esc(body || '');
-    t = t.replace(/&lt;@([^&\s]+?)&gt;/g, (_, id) => `<span class="ch-at${id === me ? ' ch-at--me' : ''}">@${esc(person(id).name)}</span>`);
-    t = t.replace(/(https?:\/\/[^\s<]+[^\s<).,;:!?])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-    t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-    return t;
-  }
-  const ET = 'America/New_York';
-  const when = (iso) => {
-    const d = new Date(iso);
-    const day = (x) => x.toLocaleDateString('en-CA', { timeZone: ET });
-    const time = d.toLocaleTimeString('en-US', { timeZone: ET, hour: 'numeric', minute: '2-digit' });
-    if (day(d) === day(new Date())) return time;
-    return d.toLocaleDateString('en-US', { timeZone: ET, month: 'short', day: 'numeric' }) + ', ' + time;
-  };
-
-  /** What happened, in the order it happened: the comments as Chat messages and the hand-offs and changes as lines between them. */
-  function activityHtml(req, me) {
-    const items = [];
-    for (const c of req.comments || []) items.push({ at: c.created_at, c });
-    for (const e of req.events || []) if (e.kind !== 'mention') items.push({ at: e.created_at, e });
-    items.sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.e ? -1 : 1));
-    let prev = null;
-    return items.map((it) => {
-      if (it.e) { prev = null; return eventHtml(it.e); }
-      const c = it.c;
-      const cont = prev && prev.email === c.email && Date.parse(c.created_at) - Date.parse(prev.created_at) < 5 * 60000;
-      prev = c;
-      const name = c.name && c.name.includes('@') ? person(c.email).name : c.name || person(c.email).name;
-      const text = c.deleted ? '<div class="ch-msg__text ch-msg__deleted">This comment was deleted.</div>' : `<div class="ch-msg__text">${fmt(c.body, me)}</div>`;
-      const from = c.source === 'chat' ? '<span class="ch-tag rt-tag">Chat</span>' : c.source === 'send' ? '<span class="ch-tag rt-tag">Note</span>' : '';
-      const del = !c.deleted && c.email === me ? `<div class="ch-bar" role="toolbar" aria-label="Comment actions"><button type="button" data-rt-del="${esc(c.id)}" aria-label="Delete" title="Delete">${ic('trash')}</button></div>` : '';
-      const gut = cont ? `<span class="ch-msg__time">${esc(when(c.created_at).replace(/^.*, /, '').replace(/ (AM|PM)/, ''))}</span>` : avatar(c.email);
-      const meta = cont ? '' : `<div class="ch-msg__meta"><span class="ch-msg__name">${esc(name)}</span>${from}<span class="ch-msg__time">${esc(when(c.created_at))}</span></div>`;
-      return `<article class="ch-msg${cont ? ' ch-msg--cont' : ''}" data-cid="${esc(c.id)}"><div class="ch-msg__gut">${gut}</div><div class="ch-msg__body">${meta}${text}</div>${del}</article>`;
-    }).join('');
-  }
-  const STATUS = { inbox: 'Inbox', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' };
   const dayWord = (d) => (d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' }) : '');
-  function eventHtml(e) {
-    const p = e.payload || {};
-    const who = esc(e.actor);
-    let text = '';
-    if (e.kind === 'created') text = `${who} made the request`;
-    else if (e.kind === 'status') text = `${who} moved it to ${esc(STATUS[p.to] || p.to)}`;
-    else if (e.kind === 'sent') text = `${esc(p.from_name || e.actor)} sent it to <b>${esc(p.to_name || person(p.to).name)}</b>`;
-    else if (e.kind === 'due') text = p.to ? `${who} set the due date to ${esc(dayWord(p.to))}` : `${who} cleared the due date`;
-    else if (e.kind === 'waiting') text = p.email ? `${who} marked it waiting on <b>${esc(p.name || person(p.email).name)}</b>` : `${who} cleared Waiting on`;
-    else text = `${who} · ${esc(e.kind)}`;
-    return `<div class="rt-event"><span>${text}</span><time>${esc(when(e.created_at))}</time></div>`;
-  }
 
-  /* ------------------------------------------------------------------ the composer */
-  // Chat's composer when chat-ui.js is on the page; the same markup otherwise.
-  function composerHtml(placeholder) {
-    const u = window.FavorChat && window.FavorChat.util;
-    if (u && typeof u.composerHtml === 'function') return u.composerHtml('rt', placeholder);
-    return `<form class="ch-comp" data-scope="rt" autocomplete="off"><div class="ch-comp__box"><textarea rows="1" data-ta="rt" placeholder="${esc(placeholder)}" aria-label="${esc(placeholder)}" enterkeyhint="send"></textarea><div class="ch-comp__bar"><button type="button" class="ch-iconbtn" data-act="at" data-scope="rt" aria-label="Mention someone" title="Mention someone">${ic('at')}</button><span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="rt" disabled aria-label="Send">${ic('send')}<span>Send</span></button></div></div></form>`;
-  }
-
-  /** Wires a composer: @ suggestions, the @ button, Enter to send (Shift Enter for a new line), and the tokens on send. */
-  function bindComposer(root, onSend) {
-    const form = root.querySelector('.ch-comp');
-    const ta = root.querySelector('[data-ta="rt"]');
-    const btn = root.querySelector('[data-send="rt"]');
-    if (!form || !ta) return;
-    const map = {};
-    let pop = null;
-    let st = null;
-    const grow = () => { ta.style.height = '0px'; ta.style.height = Math.min(160, ta.scrollHeight) + 'px'; };
-    const sync = () => { if (btn) btn.disabled = !ta.value.trim(); };
-    const closePop = () => { if (pop) { pop.remove(); pop = null; } st = null; };
-    const insert = (p) => {
-      const label = '@' + p.name;
-      map[label] = '<@' + p.email + '>';
-      const start = st ? st.start : ta.selectionStart;
-      const end = st ? st.end : ta.selectionStart;
-      const pre = st ? '' : ta.value.slice(0, start).match(/(^|\s)$/) ? '' : ' ';
-      ta.value = ta.value.slice(0, start) + pre + label + ' ' + ta.value.slice(end);
-      const at = start + pre.length + label.length + 1;
-      ta.focus();
-      ta.setSelectionRange(at, at);
-      closePop();
-      grow();
-      sync();
-    };
-    const suggest = () => {
-      const pos = ta.selectionStart;
-      const m = ta.value.slice(0, pos).match(/(^|\s)@([\w .'-]{0,24})$/);
-      if (!m) { closePop(); return; }
-      const cands = match(m[2]).filter((p) => p.email !== P.me).slice(0, 6);
-      if (!cands.length) { closePop(); return; }
-      st = { start: pos - m[2].length - 1, end: pos, cands, i: 0 };
-      if (!pop) {
-        pop = document.createElement('div');
-        pop.className = 'ch-pop ch-pop--mention rt-mention';
-        pop.setAttribute('role', 'listbox');
-        form.querySelector('.ch-comp__box').appendChild(pop);
-        pop.addEventListener('mousedown', (e) => e.preventDefault());
-        pop.addEventListener('click', (e) => { const b = e.target.closest('[data-i]'); if (b && st) insert(st.cands[+b.dataset.i]); });
-      }
-      pop.innerHTML = '<div class="ch-pop__h">People</div>' + cands.map((p, i) => `<button type="button" class="ch-pop__i${i === 0 ? ' is-on' : ''}" role="option" data-i="${i}"><b style="background:transparent">${avatar(p.email, 'sm')}</b><span>${esc(p.name)}${sub(p) ? `<small>${esc(sub(p))}</small>` : ''}</span></button>`).join('');
-    };
-    people();
-    ta.addEventListener('input', () => { grow(); sync(); suggest(); });
-    ta.addEventListener('blur', () => setTimeout(closePop, 150));
-    ta.addEventListener('keydown', (e) => {
-      if (st && pop && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-        e.preventDefault();
-        st.i = Math.max(0, Math.min(st.cands.length - 1, st.i + (e.key === 'ArrowDown' ? 1 : -1)));
-        pop.querySelectorAll('.ch-pop__i').forEach((b, i) => b.classList.toggle('is-on', i === st.i));
-        return;
-      }
-      if (st && pop && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); insert(st.cands[st.i]); return; }
-      if (st && pop && e.key === 'Escape') { e.stopPropagation(); closePop(); return; }
-      if (e.key === 'Enter' && !e.shiftKey && !phone()) { e.preventDefault(); form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true })); }
-    });
-    root.addEventListener('click', async (e) => {
-      const at = e.target.closest('[data-act="at"]');
-      if (!at || !root.contains(at)) return;
-      e.preventDefault();
-      const r = await pick({ title: 'Mention someone', exclude: [P.me] });
-      if (r && r.email) { st = null; insert(person(r.email)); }
-    });
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      let text = ta.value.trim();
-      if (!text) return;
-      Object.keys(map).sort((a, b) => b.length - a.length).forEach((label) => {
-        const re = new RegExp('(^|[^\\w])' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\w])', 'g');
-        text = text.replace(re, (_, pre) => pre + map[label]);
-      });
-      const was = ta.value;
-      ta.value = '';
-      grow();
-      sync();
-      if (btn) btn.disabled = true;
-      try {
-        await onSend(text);
-      } catch (err) {
-        ta.value = was;
-        grow();
-        sync();
-        throw err;
-      }
-    });
-    sync();
-  }
-
-  window.ReqTasks = { people, person, avatar, pick, activityHtml, composerHtml, bindComposer, closeSheet, sub, dayWord };
+  window.ReqTasks = { people, person, avatar, pick, openSheet, closeSheet, sub, dayWord, match, names: (id) => person(id).name, me: () => P.me, list: () => P.list, ic, esc };
 })();

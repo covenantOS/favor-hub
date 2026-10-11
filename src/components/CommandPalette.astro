@@ -178,7 +178,9 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
     if (item.href === '#nav-toggle') { close(); window.dispatchEvent(new Event('hub-nav-toggle')); return; }
     if (item.external) { window.open(item.href, '_blank', 'noopener'); close(); return; }
     // Take the search's history entry off first; a page change started while that step is pending would be cancelled by it.
-    const go = () => { window.location.href = item.href; close(); };
+    // A request opens in its panel on the page the person is on.
+    const rq = /^\/requests\/\?r=/.test(item.href) && window.FavorRequest ? new URL(item.href, location.href).searchParams.get('r') : '';
+    const go = () => { if (rq) window.FavorRequest.open(rq); else window.location.href = item.href; close(); };
     const ov = window.hubOv;
     if (ov && ov.depth()) ov.unwind(go); else go();
   }
@@ -211,9 +213,9 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
   // sources such as Drive and runs after tier 2 settles. Every server call applies the signed-in person's access, so a
   // row this person cannot open never comes back. A denied or failed source shows no rows and the rest keep working.
   const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const KIND_ORDER = ['Partners', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Favor Brain', 'Help', 'External', 'Drive'];
+  const KIND_ORDER = ['Partners', 'Requests', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Favor Brain', 'Help', 'External', 'Drive'];
   const kindRank = (g) => KIND_ORDER.indexOf(g);
-  const remote = { partners: [], reports: [], chats: [], meetings: [], messages: [], clips: [], drive: [] };
+  const remote = { partners: [], requests: [], reports: [], chats: [], meetings: [], messages: [], clips: [], drive: [] };
   let seq = 0;
   let remoteTimer = 0;
   let partnerDenied = false;
@@ -237,6 +239,13 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
     if (r.denied) partnerDenied = true;
     const rows = r.data && Array.isArray(r.data.rows) ? r.data.rows : [];
     return rows.map((h) => ({ title: escHtml(h.name), desc: escHtml((h.place || 'No city on file') + (h.lookup ? ' · ' + h.lookup : '') + (h.deceased ? ' · deceased' : '')), href: '/work/partner/' + encodeURIComponent(h.cid), external: false, group: 'Partners' }));
+  }
+
+  // Requests on the board, by title, by what was asked, or by a person on it (who asked, the owner, who it waits on).
+  async function requestHits(text) {
+    const r = await getJson('/api/requests/search?q=' + encodeURIComponent(text));
+    const rows = r.data && Array.isArray(r.data.results) ? r.data.results : [];
+    return rows.map((h) => ({ title: escHtml(h.title), desc: escHtml(['Request', h.status, h.owner ? 'Owner ' + h.owner : 'Asked by ' + h.asked_by, h.waiting_on ? 'Waiting on ' + h.waiting_on : ''].filter(Boolean).join(' · ')), href: h.url, external: false, group: 'Requests' }));
   }
 
   // Reports: the registry this person may open, read once per page and matched here. Only ready reports get a row.
@@ -340,7 +349,7 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
 
   // Merge the local list with every server source. Groups keep KIND_ORDER, and rows inside a group keep their order.
   function merged(local) {
-    const extra = [].concat(remote.partners, remote.reports, remote.chats, remote.meetings, remote.messages, remote.clips, remote.drive);
+    const extra = [].concat(remote.partners, remote.requests, remote.reports, remote.chats, remote.meetings, remote.messages, remote.clips, remote.drive);
     return local.concat(extra)
       .map((x, i) => ({ x, i }))
       .sort((a, b) => kindRank(a.x.group) - kindRank(b.x.group) || a.i - b.i)
@@ -366,6 +375,7 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
     // Tier 2a: quick answers.
     await Promise.all([
       source('partners', text, mine, () => partnerHits(text)),
+      source('requests', text, mine, () => requestHits(text)),
       source('reports', text, mine, () => reportHits(text)),
       source('chats', text, mine, () => chatHits(text)),
     ]);
