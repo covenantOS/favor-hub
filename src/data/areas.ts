@@ -91,7 +91,7 @@ export const AREAS: NavArea[] = [
     label: 'Chat',
     icon: 'chat',
     key: 'c',
-    barRank: 3.5,
+    barRank: 2.4,
     pages: [
       { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat' },
     ],
@@ -102,7 +102,7 @@ export const AREAS: NavArea[] = [
     short: 'Brain',
     icon: 'brain',
     key: 'b',
-    barRank: 4,
+    barRank: 2.6,
     beta: true,
     pages: [
       { id: 'brain', label: 'Brain', href: '/brain/', desc: 'Ask about partners, giving, team numbers and the manuals', keywords: 'brain favor ask ai claude chatgpt question query beta chat', learn: 'ask-favor', swap: true },

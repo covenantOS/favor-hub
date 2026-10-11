@@ -168,20 +168,20 @@ const footAreas = AREAS.filter((a) => a.foot);
             var href = (mem || target) ? (mem || target).getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
             q('[data-area-link="' + id + '"]').forEach(function (l) { if (!l.closest('.h-area--pop')) l.setAttribute('href', href); });
           });
-          q('[data-sum]').forEach(function (el) {
-            var s = sums[el.dataset.sum];
-            if (el.dataset.sum === 'more') { s = { n: 0, warn: false }; q('#h-bar [data-bar][hidden]').forEach(function (b) { var t = sums[b.dataset.bar]; if (t) s.n += t.n; }); ['admin', 'help'].forEach(function (k) { if (sums[k]) s.n += sums[k].n; }); }
-            var n = s ? s.n : 0;
-            el.hidden = !n;
-            el.textContent = n.toLocaleString('en-US');
-            el.classList.toggle('h-nav__count--warn', !!(s && s.warn));
-          });
           var tabs = document.getElementById('h-tabs');
           if (tabs) tabs.hidden = q('.h-tab:not([hidden])', tabs).length < 2;
           var bar = q('#h-bar [data-bar]');
           var vis = bar.filter(function (b) { var a = document.querySelector('.h-area[data-area="' + b.dataset.bar + '"]'); return a && !a.hidden; });
           vis.sort(function (x, y) { return Number(x.dataset.rank) - Number(y.dataset.rank); });
-          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 5; });
+          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 3; });
+          q('[data-sum]').forEach(function (el) {
+            var s = sums[el.dataset.sum];
+            if (el.dataset.sum === 'more') { s = { n: 0, warn: false }; q('#h-bar [data-bar][hidden]').forEach(function (b) { var t = sums[b.dataset.bar]; if (t) s.n += t.n; }); ['admin', 'help'].forEach(function (k) { if (sums[k]) s.n += sums[k].n; }); }
+            var n = s ? s.n : 0;
+            el.hidden = !n;
+            el.textContent = el.closest('#h-bar') && n > 99 ? '99+' : n.toLocaleString('en-US');
+            el.classList.toggle('h-nav__count--warn', !!(s && s.warn));
+          });
           var cur = document.querySelector('.h-area.is-cur');
           var more = document.getElementById('h-bar-more');
           if (more) more.classList.toggle('is-on', !!cur && !bar.some(function (b) { return !b.hidden && b.dataset.bar === cur.dataset.area; }));

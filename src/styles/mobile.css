@@ -14,7 +14,7 @@
   body.h-body .h-top .h-top__title { overflow: hidden; white-space: normal; display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.12; }
   body.h-body .h-top .h-top__title { font-size: 17px !important; }
   body.h-body .h-top .h-top__right { flex: 0 0 auto !important; flex-wrap: nowrap; gap: 0; }
-  body.h-body .h-top .h-top__right > :not([hidden]):not(.h-top__actions):not(.pp-headsearch), body.h-body .h-top .h-top__actions > * { width: 44px !important; min-width: 44px; height: 44px; padding: 0 !important; justify-content: center; }
+  body.h-body .h-top .h-top__right > :is(button, a):not([hidden]), body.h-body .h-top .h-top__actions > :is(button, a) { width: 44px !important; min-width: 44px; height: 44px; padding: 0 !important; justify-content: center; }
   body.h-body .h-top .h-top__actions .h-lbl { display: none; }
   body.h-body .h-top .h-top__actions .h-btn { width: 44px; padding: 0; justify-content: center; }
   /* Meetings: Book is the second tab and the empty day's button, so the header copy goes. */
@@ -135,4 +135,32 @@
   /* The composer floats above the home bar as a card. */
   body.h-body .bc-root .bc-dock { padding: 0 12px calc(10px + env(safe-area-inset-bottom)); }
   body.h-body .bc-root .bc-compose { border-radius: 26px; box-shadow: 0 8px 28px -12px rgba(42, 39, 34, .35); }
+}
+
+/* Phone tab bar: four areas and More, each a full-height tap area. Built for a thumb, not a cursor. */
+@media (max-width: 860px) {
+  body.h-body .h-navbar { padding: 6px 8px calc(4px + env(safe-area-inset-bottom)); gap: 4px; }
+  body.h-body .h-bar__a { flex: 1 1 0; min-height: 58px; padding: 4px 0 2px; gap: 4px; border-radius: 16px; -webkit-tap-highlight-color: transparent; }
+  body.h-body .h-bar__a .h-bar__i { width: 56px; height: 32px; border-radius: 999px; }
+  body.h-body .h-bar__a .h-bar__i .h-i, body.h-body .h-bar__a .h-bar__i svg { width: 24px; height: 24px; }
+  body.h-body .h-bar__l { font-size: 12.5px; font-weight: 600; letter-spacing: 0; }
+  body.h-body .h-bar__a:active .h-bar__i { transform: scale(.94); transition: transform .08s ease; }
+  body.h-body .h-bar__n { top: -4px; right: 4px; min-width: 20px; height: 18px; padding: 0 5px; font: 700 11px/18px var(--h-font); }
+}
+
+/* Help panel on a phone: a full sheet with readable type, a quiet close button and a real button to the article. */
+@media (max-width: 860px) {
+  body.h-body dialog.lp { width: 100vw; border-left: 0; }
+  body.h-body .lp .lp__in { padding: calc(10px + env(safe-area-inset-top)) 20px calc(28px + env(safe-area-inset-bottom)); }
+  body.h-body .lp .lp__bar { margin-bottom: 14px; font-size: 13px; }
+  body.h-body .lp .lp__x { width: 44px; height: 44px; border-radius: 999px; background: #efe9db; font-size: 26px; outline: none; box-shadow: none; }
+  body.h-body .lp h2 { font: 500 26px/1.2 var(--h-serif, Georgia, serif); margin-bottom: 10px; }
+  body.h-body .lp p { font-size: 16px; }
+  body.h-body .lp a.lp__go { display: flex; justify-content: center; align-items: center; min-height: 48px; margin-top: 22px; border-radius: 14px; background: #1d211b; color: #fff; font-size: 15px; text-decoration: none; }
+}
+/* On touch screens, a dialog's first focus is not a keyboard focus: no ring on open. */
+@media (hover: none) {
+  body.h-body .lp .lp__x:focus-visible, body.h-body .lp .lp__go:focus-visible { outline: none; }
+  .cmdk__esc { font-size: 0 !important; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 999px; }
+  .cmdk__esc::before { content: '\00d7'; font-size: 24px; line-height: 1; }
 }
