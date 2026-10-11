@@ -127,6 +127,7 @@
     c.cleanup.forEach(function (f) { try { f(); } catch (e) { /* gone */ } });
     c.el.querySelectorAll('video,audio').forEach(function (m) { try { m.pause(); } catch (e) { /* none */ } });
     document.body.classList.remove('ch-viewing');
+    document.dispatchEvent(new CustomEvent('favor-chat:view-closed'));
     if (quiet) { c.el.remove(); return true; }
     c.el.classList.remove('is-in'); c.el.classList.add('is-out');
     setTimeout(function () { c.el.remove(); }, 180);
@@ -135,7 +136,8 @@
   }
   document.addEventListener('keydown', function (e) {
     if (!cur) return;
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
+    // Escape puts away a small menu inside the sheet first (a table's filter values), then the sheet.
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (window.BrainBlocks && window.BrainBlocks.closePop && window.BrainBlocks.closePop(true)) return; if (document.documentElement.classList.contains('rt-sheet-open')) return; close(); }
     else if (cur.key) cur.key(e);
   }, true);
 
@@ -318,5 +320,6 @@
     });
   }
 
-  window.FavorChatView = { open: open, close: close, isOpen: function () { return !!cur; }, thumb: thumbFor, watch: watchThumbs, onOpen: null, onClose: null };
+  // sheet(item, html, cls) opens the same sheet with any content (a large table, a request); it closes like a file does.
+  window.FavorChatView = { open: open, sheet: sheet, close: close, isOpen: function () { return !!cur; }, thumb: thumbFor, watch: watchThumbs, onOpen: null, onClose: null };
 })();
