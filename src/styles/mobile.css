@@ -76,3 +76,30 @@
   /* Chat and the Brain are pinned to the screen; the page behind them must not scroll, or iOS slides the header away while typing. */
   body.h-body[data-nav='chat'], body.h-body[data-nav='brain'] { overflow: hidden; overscroll-behavior: none; }
 }
+
+/* Favor Brain on a phone: one header row, a compact start screen, every starter visible above the ask box. */
+@media (max-width: 860px) {
+  body.h-body[data-nav='brain'] .h-top { display: none !important; }
+  body.h-body .bc-root .bc-pane { padding-top: env(safe-area-inset-top); }
+  body.h-body .bc-root .bc-connect { display: none !important; }
+  body.h-body .bc-root .bc-bar { min-height: 52px; padding: 4px 6px; }
+  body.h-body .bc-root .bc-bar__title { font: 600 16px/1.2 var(--h-font); }
+  body.h-body .bc-root .bc-bar__right .ib:first-child { display: none; }
+  body.h-body .bc-root .bc-empty { padding-top: 10px; }
+  body.h-body .bc-root .bc-empty .bc-mark--bm, body.h-body .bc-root .bc-empty .bc-mark--bm .bm { width: 52px; height: 52px; }
+  body.h-body .bc-root .bc-empty .bc-mark--bm { margin: 10px auto 18px; overflow: visible; }
+  body.h-body .bc-root .bc-empty h1 { font-size: 24px; margin-top: 10px; line-height: 1.15; }
+  body.h-body .bc-root .bc-empty > p { font-size: 14px; margin: 6px auto 0; max-width: 34ch; }
+  body.h-body .bc-root .bc-starters { margin-top: 14px; gap: 8px; }
+  body.h-body .bc-root .bc-starter { display: flex; align-items: center; padding: 10px 12px; min-height: 52px; gap: 12px; border-radius: 14px; }
+  body.h-body .bc-root .bc-starter__i { flex: none; }
+  body.h-body .bc-root .bc-col:has(> .bc-empty) { min-height: 100%; display: flex; flex-direction: column; justify-content: center; }
+  body.h-body .bc-root .bc-starter__i { width: 32px; height: 32px; }
+  body.h-body .bc-root .bc-starter span:not(.bc-starter__i) { display: none; }
+  body.h-body .bc-root .bc-starter b { font-size: 15px; }
+  body.h-body .bc-root .bc-cando { margin-top: 12px; }
+  body.h-body .bc-root .bc-dock__in > :not(form) { font-size: 11.5px; margin-top: 4px; margin-bottom: 2px; }
+  /* The tab bar: native height, the home bar inset and no more. */
+  body.h-body .h-navbar { padding-top: 2px; padding-bottom: env(safe-area-inset-bottom); }
+  body.h-body .h-bar__a { min-height: 48px; padding: 2px; }
+}
