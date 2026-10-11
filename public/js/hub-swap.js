@@ -66,14 +66,28 @@
     doc.head.querySelectorAll('style').forEach((s) => { if (!sty.has(s.textContent)) document.head.appendChild(s.cloneNode(true)); });
   }
 
+  // A thin line under the status bar shows a page is on its way, but only when it takes longer than a blink.
+  let progT = 0;
+  const progress = (on) => {
+    clearTimeout(progT);
+    let el = document.getElementById('h-prog');
+    if (!on) { if (el) { el.style.width = '100%'; el.style.opacity = '0'; setTimeout(() => el && el.remove(), 250); } return; }
+    progT = setTimeout(() => {
+      if (!el) { el = document.createElement('div'); el.id = 'h-prog'; document.body.appendChild(el); }
+      el.style.cssText = ''; void el.offsetWidth; el.style.width = '78%';
+    }, 140);
+  };
+
   async function go(u, push) {
     let html;
+    progress(true);
     try { html = await fetchPage(u); } catch (e) { location.href = u; return; }
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newMain = doc.getElementById('h-content');
     const oldMain = document.getElementById('h-content');
     if (!newMain || !oldMain || !doc.body.classList.contains('h-body')) { location.href = u; return; }
     const stamp = performance.now();
+    progress(false);
     cleanup();
     mergeHead(doc);
     await Promise.all(Array.from(document.head.querySelectorAll('link[rel=stylesheet]')).filter((l) => !l.sheet).map((l) => new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); setTimeout(r, 1500); })));

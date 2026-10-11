@@ -164,6 +164,9 @@
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof Element)) return;
+    // The tab you pressed lights up at once, before the next page arrives.
+    const bb = t.closest('#h-bar a.h-bar__a[data-bar]');
+    if (bb && !e.metaKey && !e.ctrlKey && !e.shiftKey) $$('#h-bar .h-bar__a').forEach((x) => { const on = x === bb; x.classList.toggle('is-on', on); if (on) x.setAttribute('aria-current', 'true'); else x.removeAttribute('aria-current'); });
     const wb = t.closest('#h-wide');
     if (wb) { e.preventDefault(); toggleWide(); return; }
     if (t.closest('#h-scrim')) { setPeek(false); return; }

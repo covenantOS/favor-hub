@@ -30,6 +30,15 @@ import { icon } from '../data/icons';
   .lp__go:hover { text-decoration: underline; }
   .lp__load { color: var(--h-ink-3); }
   .lp__more { display: grid; gap: 8px; margin-top: 16px; }
+  .lp[open] { animation: lp-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .lp[open]::backdrop { animation: lp-fade 0.22s ease; }
+  .lp__skel { display: grid; gap: 10px; padding-top: 6px; }
+  .lp__skel i { display: block; height: 14px; border-radius: 7px; background: #efe9db; }
+  .lp__skel i:first-child { height: 24px; width: 60%; }
+  .lp__skel i:last-child { width: 80%; }
+  @keyframes lp-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes lp-fade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .lp[open], .lp[open]::backdrop { animation: none; } }
 </style>
 
 <script>
@@ -59,16 +68,23 @@ import { icon } from '../data/icons';
     return `<h2 id="lp-title">${esc(a.title)}</h2><p>${esc(a.summary)}</p>${vids}<a class="lp__go" href="${esc(a.href)}">Read the full article</a>`;
   };
 
+  let loaded: Index | null | undefined;
+  const fill = (idx: Index | null) => {
+    const nav = document.body.dataset.nav || '';
+    const slug = idx && nav ? idx.pages[nav] : '';
+    const a = idx && slug ? idx.articles[slug] : null;
+    body!.innerHTML = a ? article(a) : home();
+  };
   if (btn && dlg && body) {
+    // The index loads while the page is idle, so the panel opens with its answer already in it.
+    const idle = (window as any).requestIdleCallback || ((f: () => void) => setTimeout(f, 1200));
+    idle(() => load().then((i) => { loaded = i; }));
     btn.addEventListener('click', async () => {
-      body.innerHTML = '<p class="lp__load" role="status">Loading the help for this page</p>';
+      if (loaded !== undefined) fill(loaded);
+      else body.innerHTML = '<div class="lp__skel" role="status" aria-label="Loading"><i></i><i></i><i></i></div>';
       if (!dlg.open) dlg.showModal();
-      const idx = await load();
-      const nav = document.body.dataset.nav || '';
-      const slug = idx && nav ? idx.pages[nav] : '';
-      const a = idx && slug ? idx.articles[slug] : null;
-      body.innerHTML = a ? article(a) : home();
-      dlg.querySelector<HTMLElement>('.lp__x')?.focus();
+      if (loaded === undefined) { loaded = await load(); fill(loaded); }
+      dlg.querySelector<HTMLElement>('.lp__x')?.focus({ preventScroll: true });
     });
     dlg.querySelector('[data-lp-close]')?.addEventListener('click', () => dlg.close());
     // A press on the backdrop, outside the panel's box, closes it.
