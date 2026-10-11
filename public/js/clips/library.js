@@ -79,7 +79,7 @@ function paint() {
     box.innerHTML = rows.map(cardHtml).join('');
   } else {
     box.className = '';
-    box.innerHTML = `<div class="h-card cl-empty">${q ? 'No clip matches that search.' : ADMIN_VIEW ? 'No clips have been recorded yet.' : 'No clips yet.'}${!q && !ADMIN_VIEW ? '<div><button type="button" class="h-btn h-btn--primary" data-act="empty-record">Record a clip</button></div>' : ''}</div>`;
+    box.innerHTML = `<div class="h-card cl-empty">${q ? 'No clip matches that search.' : ADMIN_VIEW ? 'No clips have been recorded yet.' : 'No clips yet.'}</div>`;
   }
   clearTimeout(poll);
   if (rows.some((c) => c.status === 'processing')) poll = setTimeout(() => load(true), 4000);

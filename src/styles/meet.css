@@ -520,7 +520,7 @@ body.h-body[data-area='meet'] .mt-grid > *, body.h-body[data-area='meet'] .mt-st
 
 /* 2026-10-10 polish pass (Meetings and Clips UX) */
 /* The sound player kept its height on a phone: the phone rule that gives buttons a 44px floor was beating min-height 210px. */
-.h-page .player.is-sound { min-height: 210px; }
+.h-page .player.is-sound { min-height: 210px !important; }
 @media (max-width: 860px) {
   /* Room top bar on a phone: the title gets a line of its own, the status and tools share the next one. */
   .rm-top { flex-wrap: wrap; padding: 8px 10px 0 0; row-gap: 2px; }
