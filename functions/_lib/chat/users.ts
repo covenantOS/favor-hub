@@ -13,12 +13,16 @@ export interface PersonOut {
 
 export async function directory(env: Env, mode: ChatMode, me: HubUser): Promise<Record<string, PersonOut>> {
   const where = mode === 'staff' ? '' : `AND role = 'admin'`;
-  const r = await env.DB.prepare(`SELECT email, name, picture FROM hub_users WHERE blocked = 0 ${where} ORDER BY name`).all<{ email: string; name: string; picture: string }>();
+  // The title under each name comes from the staff directory (meet_directory), so the @ picker reads "Founder", not blank.
+  const r = await env.DB.prepare(
+    `SELECT u.email, u.name, u.picture, COALESCE(d.title, '') AS title FROM hub_users u LEFT JOIN meet_directory d ON lower(d.email) = lower(u.email) AND d.active = 1
+      WHERE u.blocked = 0 ${where.replace('role', 'u.role')} ORDER BY u.name`
+  ).all<{ email: string; name: string; picture: string; title: string }>().catch(() => env.DB.prepare(`SELECT email, name, picture, '' AS title FROM hub_users WHERE blocked = 0 ${where} ORDER BY name`).all<{ email: string; name: string; picture: string; title: string }>());
   const out: Record<string, PersonOut> = {};
   for (const u of r.results || []) {
     const id = u.email.toLowerCase();
     if (id === BRAIN_ID || id === MEETINGS_ID) continue;
-    out[id] = { id, name: u.name || id.split('@')[0], picture: u.picture || '', title: '' };
+    out[id] = { id, name: u.name || id.split('@')[0], picture: u.picture || '', title: u.title || '' };
   }
   const mine = me.email.toLowerCase();
   if (!out[mine]) out[mine] = { id: mine, name: me.name || mine.split('@')[0], picture: me.picture || '', title: '' };

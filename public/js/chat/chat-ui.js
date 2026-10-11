@@ -302,6 +302,8 @@
         return '<div class="ch-card ch-prev' + (canView ? '' : ' ch-prev--plain') + '"' + at + '>' + (canView ? '<button type="button" class="ch-prev__open" data-act="view"' + at + ' aria-label="Preview ' + esc(a.name) + '">' + inner + '</button>' : '<a class="ch-prev__open" href="' + esc(a.url) + '" download>' + inner + '</a>') +
           '<a class="ch-prev__ext" href="' + esc(a.url) + '" download aria-label="Download ' + esc(a.name) + '" title="Download">' + ic('dl') + '</a></div>';
       }
+      // q3-tasks hook: a request board card (title, note, status, Open) is drawn by task-card.js.
+      if (a.type === 'task') return window.FavorTaskCard ? window.FavorTaskCard.html(a, { esc: esc, ic: ic }) : '';
       if (a.type === 'link') {
         return '<a class="ch-card ch-link" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-card__m">' + esc(a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</a>';
       }
@@ -1300,5 +1302,6 @@
     });
   }
 
-  window.FavorChat = { mount: mount, bootHtml: bootHtml, util: { esc: esc, fmtBody: null, ic: ic } };
+  // q3-tasks hook: composerHtml is shared so the request board's comment box is Chat's own.
+  window.FavorChat = { mount: mount, bootHtml: bootHtml, util: { esc: esc, fmtBody: null, ic: ic, composerHtml: composerHtml } };
 })();

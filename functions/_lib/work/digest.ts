@@ -69,7 +69,7 @@ export const GROUPS: { key: string; label: string; teams: string[] }[] = [
   { key: 'rdd', label: 'Regional directors', teams: ['rdd'] },
   { key: 'support', label: 'Support Team', teams: ['support'] },
   { key: 'partner_care', label: 'Partner Care', teams: ['partner_care'] },
-  { key: 'church', label: 'Church engagement and executives', teams: ['church', 'exec'] },
+  { key: 'church', label: 'Church engagement and leadership', teams: ['church', 'exec'] },
   { key: 'grants', label: 'Grants writers', teams: ['grants'] },
 ];
 

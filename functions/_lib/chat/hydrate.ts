@@ -4,6 +4,7 @@ import type { Env } from '../http';
 import type { Attachment } from './db';
 import { GONE_MS } from '../meet';
 import { isLive } from './huddle';
+import { hydrateTaskCards } from './tasks';
 
 const mins = (ms: number) => {
   const s = Math.round((ms || 0) / 1000);
@@ -24,6 +25,8 @@ interface ClipRow { id: string; title: string; summary: string; status: string; 
 interface MeetRow { id: string; title: string; status: string; started_at: string | null; ended_at: string | null; notes_status: string; summary: string; created_at: string }
 
 export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<Attachment[]> {
+  // q3-tasks hook: request board cards ({type: 'task'}) are filled in by chat/tasks.ts.
+  if (list.some((a) => a.type === 'task')) list = await hydrateTaskCards(env, list);
   const clipIds = [...new Set(list.filter((a) => a.type === 'clip' && typeof a.id === 'string').map((a) => String(a.id)))];
   const meetIds = [...new Set(list.filter((a) => a.type === 'meeting' && typeof a.id === 'string').map((a) => String(a.id)))];
   const clips = new Map<string, ClipRow>();

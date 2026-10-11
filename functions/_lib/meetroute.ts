@@ -930,7 +930,12 @@ async function inviteTo(env: MeetEnv, user: { email: string; name: string; role:
 async function directory(env: MeetEnv) {
   const rows = await env.DB.prepare(
     `SELECT email, name, title, team FROM meet_directory WHERE active = 1
-     UNION SELECT lower(email), name, '' AS title, 'Other staff' AS team FROM hub_users WHERE blocked = 0 AND lower(email) NOT IN (SELECT email FROM meet_directory)
+     UNION SELECT lower(h.email), h.name, '' AS title,
+       -- Someone the directory does not list takes their Work Center roster team (a founder is Leadership), else Other staff.
+       CASE s.team WHEN 'exec' THEN 'Leadership' WHEN 'rdd' THEN 'Development (RDD)' WHEN 'church' THEN 'Church Engagement' WHEN 'support' THEN 'Support Team'
+         WHEN 'partner_care' THEN 'Partner Care' WHEN 'grants' THEN 'Grants' WHEN 'admin' THEN 'Operations' ELSE 'Other staff' END AS team
+       FROM hub_users h LEFT JOIN act_staff s ON lower(s.email) = lower(h.email) AND s.active = 1
+       WHERE h.blocked = 0 AND lower(h.email) NOT IN (SELECT lower(email) FROM meet_directory)
      ORDER BY name`
   ).all<{ email: string; name: string; title: string; team: string }>();
   return { ok: true, people: rows.results || [] };

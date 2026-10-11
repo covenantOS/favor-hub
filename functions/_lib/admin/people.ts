@@ -14,7 +14,7 @@ import { isAdminEmail } from '../session';
 
 export const TEAMS = ['support', 'rdd', 'partner_care', 'church', 'grants', 'admin', 'exec'];
 export const TEAM_LABEL: Record<string, string> = {
-  support: 'Support Team', rdd: 'Regional directors', partner_care: 'Partner Care', church: 'Church Engagement', grants: 'Grants', admin: 'Admin desk', exec: 'Executive',
+  support: 'Support Team', rdd: 'Regional directors', partner_care: 'Partner Care', church: 'Church Engagement', grants: 'Grants', admin: 'Admin desk', exec: 'Leadership',
 };
 export const ENTRY_TYPES = ['RDD Action', 'CED Action', 'Carole Action', 'Terry Action'];
 

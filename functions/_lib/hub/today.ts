@@ -10,6 +10,7 @@ import { currentBoard, type Ctx } from '../work/service';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
+import { noticesFor } from '../requests/tasks';
 
 export interface Access {
   admin: boolean;
@@ -26,12 +27,23 @@ export interface Access {
   clipsRecord: boolean;
   /** Favor Chat: hub admins until Admin > Chat opens it to staff (hub setting chat.enabled). */
   chat: boolean;
+  /** On at least one request: its owner, sent it, named on it or following it. Shows the bell for request notices. */
+  tasks: boolean;
+  /** The bell in the top bar: Work Center reminders, Chat and request notices. */
+  bell: boolean;
+}
+
+/** True when this person is on any request (db/request-tasks.sql). False before the tables exist. */
+async function onAnyRequest(env: Env, email: string): Promise<boolean> {
+  const row = await env.DB.prepare('SELECT 1 AS ok FROM request_followers WHERE email = ? AND muted = 0 LIMIT 1').bind(email).first().catch(() => null);
+  return !!row;
 }
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
   const email = user.email.toLowerCase();
   const approver = user.via === 'google' && (await approverEmails(env)).has(email);
   const work = await workAccessFor(env, email, user.role === 'admin').catch(() => null);
+  const tasks = user.role === 'admin' || (await onAnyRequest(env, email));
   return {
     admin: user.role === 'admin',
     kpi: user.kpi,
@@ -42,6 +54,8 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
     clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
     chat: mayUse(await chatMode(env), user),
+    tasks,
+    bell: (!!work && work.ok) || tasks,
   };
 }
 
@@ -96,6 +110,8 @@ export interface Counts {
   meetingsNow: number;
   /** Chat: messages that mention this person, direct messages and thread replies they have not read. */
   chatMentions: number;
+  /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
+  tasks: number;
 }
 
 /** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
@@ -106,7 +122,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -116,6 +132,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     // Meetings with someone in the room now (a heartbeat in the last 20 seconds), so the count drops when the last person goes.
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
+    access.tasks ? noticesFor(env, user.email, 1).then((n) => n.count).catch(() => 0) : 0,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -126,6 +143,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     workOpen: Number(waiting) || 0,
     meetingsNow: Number(meetingsNow?.n) || 0,
     chatMentions: Number(chatMentions) || 0,
+    tasks: Number(tasks) || 0,
   };
 }
 
@@ -172,6 +190,28 @@ export interface Activity {
 
 const DAY = 86400000;
 
+const KIND_WORD: Record<string, string> = { sent: 'Sent you', mention: 'Named you on', comment: 'Commented on', waiting: 'Waiting on you for', done: 'Finished' };
+
+/** Requests sent to this person, or that name them, with something they have not opened yet. */
+export async function sentToYouCard(env: Env, email: string): Promise<Card | null> {
+  const n = await noticesFor(env, email, 20);
+  if (!n.requests) return null;
+  const top = n.items[0];
+  const allSent = n.items.every((i) => i.kind === 'sent');
+  const ids = [...new Set(n.items.map((i) => i.request_id))];
+  const title = top.title.length > 60 ? top.title.slice(0, 58) + '...' : top.title;
+  return {
+    id: 'tasks',
+    label: 'Sent to you',
+    n: n.requests,
+    what: allSent ? (n.requests === 1 ? 'request sent to you' : 'requests sent to you') : n.requests === 1 ? 'request with news for you' : 'requests with news for you',
+    note: `${top.actor_name || 'Someone'}: ${KIND_WORD[top.kind] || 'Updated'} ${title}`,
+    warn: false,
+    href: ids.length === 1 ? `/requests/?r=${encodeURIComponent(ids[0])}` : '/requests/?view=new',
+    cta: ids.length === 1 ? 'Open the request' : 'Open them',
+  };
+}
+
 function plural(n: number, one: string, many = one + 's'): string {
   return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 }
@@ -198,6 +238,10 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         cta: 'Review the board',
       });
     }
+  }
+  if (access.tasks) {
+    const card = await sentToYouCard(env, user.email).catch(() => null);
+    if (card) cards.push(card);
   }
   if (access.admin) {
     const brain = await brainPending(env);

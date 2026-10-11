@@ -225,6 +225,7 @@
     const t = wt.totals || {};
     const chips = [];
     if (t.requests) chips.push(`<a class="r2t-chip r2t-chip--due" href="/requests/"><i></i>${n0(t.requests)} to review</a>`);
+    if (t.tasks) chips.push(`<a class="r2t-chip r2t-chip--due" href="/requests/?view=mine"><i></i>${n0(t.tasks)} sent to you</a>`);
     if (t.expenses) chips.push(`<a class="r2t-chip r2t-chip--due" href="/expenses/"><i></i>${n0(t.expenses)} to sign</a>`);
     if (t.meetings) chips.push(`<a class="r2t-chip r2t-chip--plain" href="/meet/library/">${n0(t.meetings)} meeting ${t.meetings === 1 ? 'item' : 'items'}</a>`);
     $('wh-req-chips').innerHTML = chips.join('');
@@ -259,7 +260,7 @@
     if (card.hidden) return;
     const over = t.all ? t.all.overdue : t.people.reduce((n, p) => n + p.overdue, 0);
     $('wh-team-chips').innerHTML = over ? `<a class="r2t-chip r2t-chip--late" href="/work/?view=open&quick=past"><i></i>${n0(over)} overdue</a>` : '';
-    const TEAM = { rdd: 'RDD', church: 'Church Engagement', partner_care: 'Partner Care', support: 'Support', grants: 'Grants', exec: 'Executive', admin: 'Operations' };
+    const TEAM = { rdd: 'RDD', church: 'Church Engagement', partner_care: 'Partner Care', support: 'Support', grants: 'Grants', exec: 'Leadership', admin: 'Operations' };
     const SORT = window.__whTeamSort || (window.__whTeamSort = { key: 'name', dir: 1 });
     const val = (p) => (SORT.key === 'name' ? String(p.name || '').toLowerCase() : SORT.key === 'team' ? String(TEAM[p.team] || p.team || '').toLowerCase() : Number(p[SORT.key]) || 0);
     const people = t.people.slice().sort((x, y) => (val(x) < val(y) ? -1 : val(x) > val(y) ? 1 : 0) * SORT.dir);
