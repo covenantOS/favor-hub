@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Drive files in Ctrl K.** Type a word and the palette adds a Drive group after the rest: up to six files you can open, with type, owner, date and folder. Each row opens the file in Drive in a new tab. A slow Drive search never holds back the other rows.
 - **Feedback on a phone.** Feedback is in **More** at the bottom of the screen and in your account menu. It opens the same form, with the picture of the page and Blur an area.
 - **Ctrl K searches the whole hub.** Type two letters and it finds partners, reports, your Favor Brain chats, meetings and their notes, and clips, grouped by kind. Each row is one you can already open. Local pages and help articles still show as you type, and the server rows follow a moment later. Drive files are not in it yet.
 - **Work opens as your day.** The Work Overview page lists what is due today and overdue from your Work Center, with a circle to complete each action, Snooze to move it and a link to the partner. Gifts to thank shows the oldest five for your role with a Thank button. Your week shows a director's goals, the Support Team's entry backlog or Partner Care's cadence counts. Requests lists what waits on you and your own open ones, Recent activity covers the last seven days, and admins get a team table with open and overdue counts per person. Every number opens the page it comes from.
