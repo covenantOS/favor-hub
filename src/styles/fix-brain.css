@@ -1,0 +1,10 @@
+/* Brain fix round 2026-10-11: touch targets in the chat rail. */
+@media (pointer: coarse) {
+  .h-body .bc-root .bc-new { height: 44px; }
+  .h-body .bc-root .bc-find { min-height: 44px; }
+  .h-body .bc-root .bc-find input { height: 44px; font-size: 16px; }
+  .h-body .bc-root .bc-conv { min-height: 44px; }
+  .h-body .bc-root .bc-conv__go { min-height: 44px; padding-right: 52px; }
+  .h-body .bc-root .bc-conv__more { right: 0; width: 44px; height: 44px; border-radius: 12px; opacity: 1; }
+  .h-body .bc-root .bc-conv input { height: 44px; font-size: 16px; }
+}
