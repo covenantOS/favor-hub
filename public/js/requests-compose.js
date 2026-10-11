@@ -28,6 +28,8 @@
     other: 'Other',
   };
 
+  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'This hub', app: 'App' };
+
   const LOC = {
     change: {
       website: { label: 'Page or URL (optional)', placeholder: 'The page or link, if you know it' },
@@ -224,7 +226,7 @@
       ['Name', val('name')],
       ['Email', val('email')],
       ['Kind', KIND[kind()] || kind()],
-      ['Surface', surface()],
+      ['Surface', SURFACE[surface()] || surface()],
       ['Location', val('page_url') || 'Not given'],
       ['Summary', val('title')],
       ['Who asked', val('who_asked')],
@@ -253,6 +255,9 @@
     }
     if (n === 2) {
       if (!val('title')) fail('Give a one-line summary. One word is enough.', 'title');
+    }
+    if (n === 3) {
+      if (val('needed') === 'By a date' && !val('needed_date')) fail('Pick the date it is needed by.', 'needed_date');
     }
   }
 
