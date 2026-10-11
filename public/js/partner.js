@@ -127,7 +127,7 @@ function figure(label, value, sub) { return `<div class="pp-fig"><b>${value}</b>
 function eventsOf(p) {
   const L = local(p.id);
   const ev = [];
-  for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment].filter(Boolean).join(' · ') });
+  for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment ? String(g.comment).replace(/Donor note/gi, 'Partner note') : ''].filter(Boolean).join(' · ') });
   for (const g of ((p.giving.soft && p.giving.soft.recent) || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: 'Soft credit' });
   for (const a of (p.actions.recent || [])) ev.push({ t: 'act', id: a.id, d: a.done || a.due, icon: CAT_IC[a.category] || 'task', what: a.summary || plain(a.type), text: a.description, by: (a.fundraisers || []).map((f) => f.name).join(', ') + (a.outcome ? ' · ' + a.outcome : '') });
   for (const e of L.events) if (!ev.some((x) => x.t === e.t && x.what === e.what && x.d === e.d)) ev.push(e);
@@ -236,8 +236,8 @@ function view(p, o = {}) {
       ${figure('Last gift', g.last ? money(g.last.amount) : 'None', g.last ? fd(g.last.date) + (g.last.fund ? ' · ' + esc(g.last.fund) : '') : '')}
       ${figure('Largest', g.largest ? money(g.largest.amount) : 'None', g.largest ? fd(g.largest.date, true) : '')}
     </div>`;
-  const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? -dayn(t.due) + ' days late' : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
-      <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? -n + (n === -1 ? ' day late' : ' days late') : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>`;
+  const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? lateText(-dayn(t.due)) : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
+      <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? lateText(-n) : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>`;
   const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
@@ -258,13 +258,26 @@ function view(p, o = {}) {
         ${addrRow}
         ${row('Codes', (p.codes || []).map(esc).join(' · ') || 'None')}
         ${row('Assignments', (p.assignments || []).map((x) => `${esc(x.name)}${x.type ? ' (' + esc(x.type) + ')' : ''}${x.current ? '' : ' until ' + esc(fd(x.to, true))}`).join('<br>') || 'None')}
-        ${(p.recurring || []).length ? row('Recurring', p.recurring.map((r) => `${money(r.amount)} ${esc(r.status)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.lastPayment ? ' · last ' + fd(r.lastPayment) : ''}`).join('<br>')) : ''}
+        ${(p.recurring || []).length ? row('Recurring', recurringList(p.recurring)) : ''}
         ${row('Added', esc(fd(p.addedOn, true)))}
       </dl>
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
   const tabs = `<nav class="pp-tabs" role="tablist" aria-label="Partner sections">${[['overview', 'Overview'], ['contact', 'Contact'], ['codes', 'Codes'], ['record', 'Record']].map(([k, l]) => `<button type="button" role="tab" class="${V.tab === k ? 'is-on' : ''}" aria-selected="${V.tab === k}" data-pp-tab="${k}">${l}</button>`).join('')}</nav>`;
   if (V.tab !== 'overview' && window.FavorRecords) return `<div class="pp">${head}${instrBox()}${acts}${tabs}<div data-pp-pane></div><div class="pp-pad"></div></div>`;
   return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
+}
+/** Overdue wording: whole days up to 60, then months ("34 mo late"). */
+function lateText(d) { return d === 1 ? '1 day late' : d <= 60 ? d + ' days late' : Math.round(d / 30.4) + ' mo late'; }
+/** Recurring gifts, one line each with the date it started. Identical lines (same amount, status, fund, dates) fold into one with a count; past 4 lines the rest sit behind a "more" fold. */
+function recurringList(list) {
+  const by = new Map();
+  for (const r of list) {
+    const line = `${money(r.amount)} ${esc(r.status)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.since ? ' · started ' + fd(r.since) : ''}${r.lastPayment ? ' · last ' + fd(r.lastPayment) : ''}`;
+    by.set(line, (by.get(line) || 0) + 1);
+  }
+  const lines = [...by].map(([l, n]) => (n > 1 ? `${l} <small>(${n} on this date)</small>` : l));
+  const head = lines.slice(0, 4).join('<br>');
+  return lines.length > 4 ? `${head}<details class="pp-more"><summary>${lines.length - 4} more</summary>${lines.slice(4).join('<br>')}</details>` : head;
 }
 function oppForm(x) {
   const C = (CODES && CODES.codes) || {};
@@ -278,8 +291,8 @@ function oppForm(x) {
 function noteComposer() {
   return `<form class="pp-compose" data-pp-save="note"><div class="pp-compose__top"><b>Add a note</b><button type="button" class="pp-iconbtn" data-pp-close-compose aria-label="Cancel">${ic('x')}</button></div>
     <div class="pp-seg" role="group" aria-label="Topic">${TOPICS.map((t, i) => `<button type="button" class="${i === 0 ? 'is-on' : ''}" data-pp-topic="${t}" aria-pressed="${i === 0}">${t}</button>`).join('')}</div>
-    <input type="text" name="what" placeholder="Summary" maxlength="200" required />
-    <textarea name="text" placeholder="The note"></textarea>
+    <label class="pp-lab">Summary<input type="text" name="what" maxlength="200" required /></label>
+    <label class="pp-lab">The note<textarea name="text"></textarea></label>
     <label class="pp-chk"><input type="checkbox" name="instruction" />Show at the top as an instruction</label>
     <div class="pp-compose__foot"><small>Note on the partner record</small><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save note</button></div></form>`;
 }
@@ -293,7 +306,7 @@ function composer(k, p) {
   const who = holders[0] ? holders[0].name : me ? me.name : '';
   return `<form class="pp-compose" data-pp-save="${k}"><div class="pp-compose__top"><b>${t}</b><button type="button" class="pp-iconbtn" data-pp-close-compose aria-label="Cancel">${ic('x')}</button></div>
     ${k === 'note' ? '' : `<div class="pp-seg">${kinds.map(([v, l, i]) => `<button type="button" class="${v === pick ? 'is-on' : ''}" data-pp-kind="${v}">${ic(i)}${l}</button>`).join('')}</div>`}
-    <input type="text" name="what" placeholder="${k === 'note' ? 'The note' : k === 'task' ? 'What to do' : 'What happened'}" maxlength="255" required />
+    <label class="pp-lab">${k === 'note' ? 'The note' : k === 'task' ? 'What to do' : 'What happened'}<input type="text" name="what" maxlength="255" required /></label>
     ${k === 'note' ? '<textarea name="text" placeholder="More detail (optional)"></textarea>' : `<div class="pp-compose__row"><label class="pp-lab">${k === 'task' ? 'Due' : 'Date'}<input type="date" name="when" value="${k === 'task' ? new Date(Date.parse(TODAY + 'T12:00:00Z') + 7 * 86400000).toISOString().slice(0, 10) : TODAY}" /></label>${k === 'contact' ? '<div class="pp-seg pp-seg--tags"><button type="button" data-pp-tag="Thanked">Thanked</button><button type="button" data-pp-tag="Stewardship">Stewardship</button><button type="button" data-pp-tag="Scheduling">Scheduling</button></div>' : '<span></span>'}</div>`}
     <div class="pp-compose__foot"><small>${k === 'note' ? 'Note on the partner record' : who ? 'For ' + esc(who) : ''}</small><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button></div></form>`;
 }

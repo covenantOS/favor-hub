@@ -1,0 +1,65 @@
+/* Fix round, records: partner drawer and page, record tabs, Add partner. Loaded after partner.css and records.css. */
+
+/* Text floor: 13px everywhere in the record views (12px stays only for the shell's tab bar labels). Selectors carry the .pp scope so they beat the older rules. */
+.pp .pp-kicker, .pp .pp-holder i, .pp .pp-tap small, .pp .pp-lab, .pp .pp-chk, .pp .h-btn, .pp .h-btn--sm, .pp .pp-seg button, .pp .pp-filter button,
+.pp .rc-add, .pp .rc-edit, .pp .pp-dl .pp-edit, .pp .pp-sec > h3, .pp .pp-fig span, .pp .pp-fig small, .pp .pp-count, .pp .pp-month, .pp .pp-ev .when,
+.pp .pp-chart em, .pp .pp-chart span, .pp .pp-fold > summary, .pp .rc-h, .pp .rc-chip, .pp .rc-card small, .pp .rc-status span, .pp .rc-status, .pp .pp-more > summary,
+.pp .pp-datechip, .pp .pp-ev .by, .pp .pp-task__what > span, .pp .rc-ended > summary, .pp small, .pp .pp-flag, .pp .pp-iw, .pp .pp-dl .pp-edit { font-size: 13px; }
+.pp .pp-kicker, .pp .pp-sec > h3, .pp .rc-h, .pp .pp-fold > summary, .pp .pp-fig span, .pp .pp-month { letter-spacing: .1em; }
+.pp .pp-notes > h3 button, .pp .pp-sec > h3 button[data-pp-compose] { font: 600 13px var(--h-font); letter-spacing: 0; text-transform: none; color: var(--h-brand-ink); border: 0; background: none; padding: 6px 4px; }
+.pp .pp-lab { gap: 6px; font-weight: 600; }
+body.h-body .pp .h-btn, body.h-body .pp .h-btn--sm, body.h-body .pp .pp-sec button, body.h-body .pp .pp-more, body.h-body .pp .pp-more small,
+body.h-body .pp .pp-seg button, body.h-body .pp .pp-filter button, body.h-body .pp .rc-add, body.h-body .pp .pp-fold > summary, body.h-body .pp .rc-ended > summary { font-size: 13px; }
+
+/* Recurring list: one line per gift with its start date, four shown, the rest behind a fold. */
+.pp .pp-dl .pp-more { margin: 4px 0 0; padding: 0; border: 0; }
+.pp .pp-more > summary { padding: 0; list-style: none; cursor: pointer; color: var(--h-brand-ink); font-weight: 600; }
+.pp .pp-more > summary::-webkit-details-marker { display: none; }
+.pp .pp-more > summary::after { content: ' +'; }
+.pp .pp-more[open] > summary::after { content: ' \2212'; }
+.pp .pp-dl dd small { font-size: 13px; }
+
+/* Add partner: the last row clears the sticky footer. */
+.ad-form { padding-bottom: 28px; }
+.ad-form .ad-sec:last-of-type { padding-bottom: 8px; }
+.ap-form { padding-bottom: 24px; }
+
+/* Small text links get a taller hit area with a mouse too. */
+.pp .pp-notes > h3 button, .pp .pp-sec > h3 button, .pp .rc-add, .pp .rc-edit, .pp .pp-dl .pp-edit { min-height: 32px; }
+
+/* Touch targets: 44px where a finger lands. */
+@media (pointer: coarse), (max-width: 900px) {
+  .pp .pp-sec > h3 button { min-height: 44px; padding: 0 8px; }
+  .pp-acts .h-btn, .pp-acts .pp-tap, .pp-compose .h-btn, .pp-seg button { min-height: 44px; height: auto; }
+  .pp-acts .pp-tap { padding: 0 16px; }
+  .pp-iconbtn { width: 44px; height: 44px; }
+  .pp-filter button { min-height: 44px; min-width: 44px; }
+  .pp-sec > h3 .pp-filter button { height: 44px; }
+  .pp .pp-dl .pp-edit, .pp .rc-edit, .pp .rc-add { min-height: 44px; min-width: 44px; padding-left: 8px; padding-right: 8px; }
+  .pp .pp-notes > h3 button, .pp .pp-sec > h3 button[data-pp-compose] { min-height: 44px; min-width: 44px; padding: 0 8px; }
+  .pp-task { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 8px; }
+  .pp-check { width: 44px; height: 44px; border: 0; background: none; position: relative; }
+  .pp-check::before { content: ''; position: absolute; inset: 11px; border-radius: 50%; border: 1.5px solid var(--h-line-2); background: #fff; }
+  .pp-check .h-i { position: relative; }
+  .pp-task.is-done .pp-check { background: none; border-color: transparent; }
+  .pp-task.is-done .pp-check::before { background: var(--h-brand); border-color: var(--h-brand); }
+  .pp .pp-remind { width: 44px; height: 44px; }
+  .pp .pp-fold > summary, .pp .rc-ended > summary, .pp .pp-more > summary { min-height: 44px; display: flex; align-items: center; }
+  .pp .pp-chk, .pp .rc-check label, .pp label:has(> input[type=checkbox]) { min-height: 44px; }
+  .pp-datechip { min-height: 44px; }
+  .pp-compose input[type=text], .pp-compose input[type=date], .pp-compose textarea, .pp-compose select,
+  .ad-form input[type='text'], .ad-form input[type='tel'], .ad-form input[type='email'], .ad-form select,
+  .ap-form input, .ap-form select, .rc-form input, .rc-form select { font-size: 16px; min-height: 44px; }
+  .pp-tabs button { min-height: 44px; }
+  .pp .h-btn, .pp .pp-sec button, .pp .pp-sec > h3 button, .pp .pp-taskopen { min-height: 44px; height: auto; }
+  .pp .pp-taskopen { display: inline-flex; align-items: center; text-align: left; }
+  .pp .pp-copy { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* A focused field scrolls to a spot with room for the keyboard below it. */
+.pp-compose input, .pp-compose textarea, .ad-form input, .ad-form select, .ap-form input, .rc-form input, .rc-form select { scroll-margin: 90px 0 220px; }
+
+/* Find a partner landing: the card gets padding, and the search box shows one focus ring, on the pill. */
+.pp-landing { padding: 0 28px; width: auto; }
+@media (max-width: 900px) { .pp-landing { padding: 0 18px; margin: 28px auto; } }
+body.h-body .pv-find__box input, body.h-body .pv-find__box input:focus, body.h-body .pv-find__box input:focus-visible { outline: 0 !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; background: none !important; min-height: 0; }
