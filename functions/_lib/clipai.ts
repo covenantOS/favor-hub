@@ -14,7 +14,10 @@ export const CHAPTER_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/
  * Whisper writes clean text and drops "um" and "uh" unless the prompt shows it that fillers belong in the transcript.
  * Speech that sounds like this prompt is kept verbatim. The editor's "Remove filler words" needs them to be there.
  */
-export const VERBATIM_PROMPT = 'Umm, let me think like, hmm... Okay, uh, so, you know, I mean, uh, yeah.';
+// The filler words keep "um" and "uh" in the transcript; the names teach the spelling of Favor's own words, which
+// Whisper heard as "Favorite Brain" and "Team Cloud" before they were here.
+export const VERBATIM_PROMPT =
+  'Umm, let me think like, hmm... Okay, uh, so, you know, I mean, uh, yeah. Favor International, the Favor hub, Favor Brain, Favor Chat, Claude, ChatGPT, Blackbaud, Raiser\'s Edge NXT, Work Center, RDD, Partner Care, GoHighLevel, iWave.';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 type WW = { word?: string; start?: number; end?: number };
