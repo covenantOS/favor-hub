@@ -244,6 +244,8 @@ export const DEFS: Def[] = [
   hubDef({ id: 'meet.drive_folder', area: 'meetings', label: 'Recording folder', hint: 'The Google Drive folder id of the Meetings folder in US Team Files.', kind: 'text', def: '', envVar: 'MEET_DRIVE_FOLDER' }),
   hubDef({ id: 'meet.lead_min', area: 'meetings', label: 'Reminder lead time', hint: 'Minutes before the start that the second reminder email goes out. The first goes a day ahead.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '15' }),
   hubDef({ id: 'meet.max_people', area: 'meetings', label: 'People in one meeting', hint: 'The next person to join a full meeting is turned away.', kind: 'int', min: 2, max: 100, unit: 'people', def: '60' }),
+  // ---------------------------------------------------------------------------------------------------- Reports
+  hubDef({ id: 'reports.mail_folder', area: 'reports', label: 'Mail files folder', hint: 'The Google Drive folder id where the Mail file sheets go, inside US Team Files. Empty means the folder called Hub mail files.', kind: 'text', def: '' }),
   // ------------------------------------------------------------------------------------------------ Favor Brain
   hubDef({ id: 'brain.connect_prompt', area: 'brain', label: 'Connect prompt', hint: 'The one-time window that offers to connect Claude or ChatGPT.', kind: 'enum', options: ON_OFF, def: 'on' }),
   hubDef({ id: 'brain.auto_titles', area: 'brain', label: 'Automatic chat titles', hint: 'A short title written after the first answer in a chat.', kind: 'enum', options: ON_OFF, def: 'on' }),
@@ -308,7 +310,7 @@ export function normalize(d: Def, raw: unknown): string {
     if (list.some((e) => !/^[a-z0-9._-]+@favorintl\.org$/.test(e))) throw new HttpError(400, 'bad_value', 'Use favorintl.org addresses, separated by commas.');
     return list.join(', ');
   }
-  if (d.id === 'meet.drive_folder' && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
+  if ((d.id === 'meet.drive_folder' || d.id === 'reports.mail_folder') && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
   return t;
 }
 
