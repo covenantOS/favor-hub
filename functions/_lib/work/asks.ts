@@ -238,12 +238,28 @@ const mirrorCache = new Map<string, { at: number; p: Promise<MirrorAsks> }>();
 /** Drops the cached mirror reads, so the next request reads the mirror again (tests that change mirror rows). */
 export const clearAskCache = () => mirrorCache.clear();
 
-/** Shared by every request in the same isolate for MIRROR_TTL_MS, per window and day. A failed read is not kept. */
-export function mirrorAsks(q: Q, today: string, allTime: boolean): Promise<MirrorAsks> {
+/** The mirror read is kept in KV this long (seconds), so a page load in any isolate skips the 1.5 s read. The mirror itself
+ *  changes only when the sync runs, so five minutes behind is never staler than the mirror already is. */
+export const KV_TTL_S = 300;
+type Kv = { get(key: string, type: 'json'): Promise<unknown>; put(key: string, value: string, o?: { expirationTtl?: number }): Promise<void> };
+
+async function kvOrRead(kv: Kv | undefined, key: string, read: () => Promise<MirrorAsks>): Promise<MirrorAsks> {
+  if (kv) {
+    const hit = (await kv.get(`hub:asks:${key}`, 'json').catch(() => null)) as MirrorAsks | null;
+    if (hit && Array.isArray(hit.asks)) return hit;
+  }
+  const fresh = await read();
+  if (kv) await kv.put(`hub:asks:${key}`, JSON.stringify(fresh), { expirationTtl: KV_TTL_S }).catch((err) => console.warn('[asks] kv put', err));
+  return fresh;
+}
+
+/** Shared by every request in the same isolate for MIRROR_TTL_MS, and across isolates through KV for KV_TTL_S, per window and day.
+ *  A failed read is not kept. */
+export function mirrorAsks(q: Q, today: string, allTime: boolean, kv?: Kv): Promise<MirrorAsks> {
   const key = `${allTime ? 'all' : '12m'}|${today}`;
   const hit = mirrorCache.get(key);
   if (hit && Date.now() - hit.at < MIRROR_TTL_MS) return hit.p;
-  const p = readMirrorAsks(q, today, allTime);
+  const p = kvOrRead(kv, key, () => readMirrorAsks(q, today, allTime));
   mirrorCache.set(key, { at: Date.now(), p });
   p.catch(() => { if (mirrorCache.get(key)?.p === p) mirrorCache.delete(key); });
   return p;
@@ -252,7 +268,7 @@ export function mirrorAsks(q: Q, today: string, allTime: boolean): Promise<Mirro
 /** Every ask in the window, with its column. A few mirror reads (cached) and two hub reads. */
 export async function loadAsks(env: Env, q: Q, today: string, allTime = false): Promise<AskRow[]> {
   const since = allTime ? '2000-01-01' : addDays(today, -ASK_DAYS);
-  const m = await mirrorAsks(q, today, allTime);
+  const m = await mirrorAsks(q, today, allTime, (env as unknown as { BB_KV?: Kv }).BB_KV);
   const [closes, gone] = await Promise.all([loadCloses(env), loadGone(env)]);
   // An ask on a partner who has passed away is no longer pursued: it leaves the open, closing and past columns. A gift it brought stays.
   const passed = new Set(m.asks.filter((a) => Number(a.deceased) === 1).map((a) => String(a.cid)));

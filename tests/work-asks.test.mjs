@@ -263,3 +263,21 @@ describe('a partner marked deceased', () => {
     }
   });
 });
+
+describe('the mirror read kept in KV', () => {
+  it('reads the mirror once, stores it, and serves the next isolate from KV', async () => {
+    const store = new Map();
+    const kv = { get: async (k) => (store.has(k) ? JSON.parse(store.get(k)) : null), put: async (k, v) => { store.set(k, v); } };
+    let reads = 0;
+    const q = async () => { reads++; return []; };
+    asks.clearAskCache();
+    await asks.mirrorAsks(q, '2026-10-11', false, kv);
+    const after = reads;
+    assert.ok(after > 0, 'the first request reads the mirror');
+    assert.equal(store.size, 1, 'and keeps the read in KV');
+    asks.clearAskCache();
+    await asks.mirrorAsks(q, '2026-10-11', false, kv);
+    assert.equal(reads, after, 'a second isolate (no memory cache) is served from KV without reading the mirror');
+    asks.clearAskCache();
+  });
+});
