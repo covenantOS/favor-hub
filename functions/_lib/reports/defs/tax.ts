@@ -41,6 +41,7 @@ const LISTS: Array<[string, string]> = [
 
 const LIST_NAMES: Record<string, string> = { mail: 'Mail', email: 'Email', other: 'Other', none: 'No receipt' };
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const moneyWords = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
 interface Extra {
   year: string;
@@ -54,6 +55,8 @@ interface Extra {
   mailCount: number;
   mailTotal: number;
   mailRows: Row[];
+  /** Other-list partners with no address of any kind (no country on the record). */
+  noAddress: { count: number; total: number };
 }
 
 interface Raw {
@@ -182,6 +185,7 @@ const def: ReportDef = {
     const groups: Extra['groups'] = { mail: { count: 0, total: 0 }, email: { count: 0, total: 0 }, other: { count: 0, total: 0 }, none: { count: 0, total: 0 } };
     const all: Row[] = [];
     const mailRows: Row[] = [];
+    const noAddress = { count: 0, total: 0 };
     for (const r of raw) {
       const total = round2(Number(r.total) || 0);
       const complete = [r.line, r.city, r.state, r.zip].every((x) => (x || '').trim() !== '');
@@ -214,12 +218,16 @@ const def: ReportDef = {
       };
       all.push(row);
       if (list === 'mail') mailRows.push(row);
+      if (list === 'other' && !r.country && !(r.line || r.city || r.state || r.zip)) {
+        noAddress.count += 1;
+        noAddress.total = round2(noAddress.total + total);
+      }
     }
     const unmatchedTotal = round2(Number(unmatched[0]?.total) || 0);
     const everything = round2(all.reduce((s, r) => s + (r.total as number), 0) + unmatchedTotal);
     const rows = f.list === 'all' ? all : all.filter((r) => r.key === f.list);
     const flagRead = raw.length === 0 || raw.some((r) => r.nva_read === undefined || Number(r.nva_read) > 0);
-    const extra: Extra = { year: String(year), through, groups, all: everything, flagRead, mailCount: groups.mail.count, mailTotal: groups.mail.total, mailRows };
+    const extra: Extra = { year: String(year), through, groups, all: everything, flagRead, mailCount: groups.mail.count, mailTotal: groups.mail.total, mailRows, noAddress };
     return { rows, extra };
   },
   tiles(rows, f, extra) {
@@ -235,7 +243,20 @@ const def: ReportDef = {
   },
   async ties(_ctx, _rows, f, extra): Promise<TieOut[]> {
     const x = extra as Extra;
-    return savedTie('tax', { year: x.year, through: x.through }, x.mailCount, x.mailTotal);
+    const lists = f.list === 'mail' || f.list === 'email' || f.list === 'other' ? [f.list] : f.list === 'all' ? ['mail', 'email', 'other'] : [];
+    const out: TieOut[] = [];
+    for (const list of lists) {
+      let { count, total } = x.groups[list];
+      let note = '';
+      if (list === 'other' && x.noAddress.count) {
+        // The saved OTHERS query needs the preferred country to be United States, so a partner with no address of any kind is on none of the saved lists.
+        count -= x.noAddress.count;
+        total = round2(total - x.noAddress.total);
+        note = `${x.noAddress.count} more partner${x.noAddress.count === 1 ? '' : 's'} on this list ${x.noAddress.count === 1 ? 'has' : 'have'} no address of any kind (${moneyWords(x.noAddress.total)}); the saved query needs a United States address and leaves ${x.noAddress.count === 1 ? 'that partner' : 'them'} off.`;
+      }
+      out.push(...savedTie('tax', { year: x.year, through: x.through }, count, total, { list, note }));
+    }
+    return out;
   },
   mailFile,
   async tie(ctx: ReportContext, _rows, f, extra): Promise<TieOut> {

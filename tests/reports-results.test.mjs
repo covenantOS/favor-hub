@@ -146,6 +146,25 @@ describe('annual tax receipt lists: valid addresses, names and the mail file', (
     const other = await run({}, tax, { list: 'mail', year: '2024' }, { sql, kpi: kpi([9999]) });
     assert.deepEqual(other.ties, [], 'no stored run for another year, so no line');
   });
+  it('ties the Email and Other lists too, and leaves partners with no address of any kind out of the Other comparison with a note', async () => {
+    const more = [
+      ...rows,
+      person({ cid: '6', lookup: '106', first: 'Hal', last: 'Ives', line: '', city: '', state: '', zip: '', country: null, raw_lines: '', email: null }),
+      person({ cid: '7', lookup: '107', first: 'Ida', last: 'Jay', line: '', city: '', state: '', zip: '', country: 'United States', raw_lines: '', email: null }),
+    ];
+    const r = await run({}, tax, { list: 'all', year: '2025' }, { sql: async (t) => (/constituent_record_id IS NULL/.test(t) ? [{ total: 0 }] : more), kpi: kpi([9999]) });
+    assert.deepEqual(r.ties.map((t) => [t.against.slice(0, 18), t.label]), [
+      ['Saved query 1066, ', 'Partners'], ['Saved query 1066, ', "Last Year's Giving"],
+      ['Saved query 1069, ', 'Partners'], ['Saved query 1069, ', 'Total gifts'],
+      ['Saved query 1070, ', 'Partners'], ['Saved query 1070, ', 'Total gifts'],
+    ]);
+    const other = r.ties.find((t) => t.against.includes('1070') && t.label === 'Partners');
+    assert.equal(other.mine, 1, 'the partner with a United States country and no street stays in the comparison');
+    assert.match(other.note, /1 more partner on this list has no address of any kind/);
+    const one = await run({}, tax, { list: 'email', year: '2025' }, { sql: async (t) => (/constituent_record_id IS NULL/.test(t) ? [{ total: 0 }] : more), kpi: kpi([9999]) });
+    assert.equal(one.ties.length, 2);
+    assert.ok(one.ties.every((t) => t.against.includes('1069')));
+  });
   it('shows a tile when the sync worker has not read the no valid address mark yet', async () => {
     const unread = rows.map((o) => ({ ...o, nva_read: 0 }));
     const r = await run({}, tax, { list: 'mail', year: String(year) }, { sql: async (t) => (/constituent_record_id IS NULL/.test(t) ? [{ total: 0 }] : unread), kpi: kpi([9999]) });

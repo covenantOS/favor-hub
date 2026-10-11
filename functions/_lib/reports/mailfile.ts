@@ -51,14 +51,14 @@ export function byText(a: unknown, b: unknown): number {
  * The line under a list that ties it to the saved query it replaces. The saved run is a stored figure (partners, dollars) from
  * running that query on the date shown, for the same inputs; when the inputs differ no line is drawn.
  */
-export function savedTie(report: string, inputs: Record<string, string | undefined>, partners: number, total: number | null): TieOut[] {
-  const run = SAVED_RUNS.find((r) => r.report === report && Object.entries(r.inputs).every(([k, v]) => (inputs[k] ?? '') === v));
+export function savedTie(report: string, inputs: Record<string, string | undefined>, partners: number, total: number | null, more: { list?: string; note?: string } = {}): TieOut[] {
+  const run = SAVED_RUNS.find((r) => r.report === report && (r.list ?? more.list) === more.list && Object.entries(r.inputs).every(([k, v]) => (inputs[k] ?? '') === v));
   if (!run) return [];
   const against = `Saved query ${run.query}, ${run.name}, run ${run.ran}`;
   const out: TieOut[] = [];
   const count = (): TieOut => {
     const diff = Math.abs(partners - run.partners);
-    return { label: 'Partners', mine: partners, kpi: run.partners, kind: 'count', status: diff === 0 ? 'match' : 'differs', diff, against, note: run.rows !== run.partners ? `The saved file has ${run.rows} rows for ${run.partners} partners (${run.rows - run.partners} partner${run.rows - run.partners === 1 ? '' : 's'} on two rows).` : undefined };
+    return { label: 'Partners', mine: partners, kpi: run.partners, kind: 'count', status: diff === 0 ? 'match' : 'differs', diff, against, note: [run.rows !== run.partners ? `The saved file has ${run.rows} rows for ${run.partners} partners.` : '', diff !== 0 ? run.named || '' : '', more.note || ''].filter(Boolean).join(' ') || undefined };
   };
   out.push(count());
   if (total !== null && run.total !== null) {

@@ -45,18 +45,27 @@ describe('the saved export forms', () => {
 describe('the saved-query tie', () => {
   const run = saved.SAVED_RUNS.find((r) => r.report === 'tax');
   it('matches when partners and dollars equal the saved run', () => {
-    const t = mf.savedTie('tax', { year: '2025', through: '' }, run.partners, run.total);
+    const t = mf.savedTie('tax', { year: '2025', through: '' }, run.partners, run.total, { list: 'mail' });
     assert.deepEqual(t.map((x) => x.status), ['match', 'match']);
     assert.equal(t[0].against, `Saved query 1066, Annual Tax Receipts - MAIL, run ${run.ran}`);
     assert.match(t[0].note, /650 rows for 649 partners/);
+    assert.equal(mf.savedTie('tax', { year: '2025', through: '' }, 1, 1, {}).length, 0, 'a tax tie needs the list');
   });
   it('names the difference in partners and in dollars', () => {
-    const t = mf.savedTie('tax', { year: '2025', through: '' }, run.partners - 2, run.total - 10.5);
+    const t = mf.savedTie('tax', { year: '2025', through: '' }, run.partners - 2, run.total - 10.5, { list: 'mail' });
     assert.deepEqual(t.map((x) => [x.status, x.diff]), [['differs', 2], ['differs', 10.5]]);
   });
+  it('names the known difference on the Email list only when the counts differ', () => {
+    const e = saved.SAVED_RUNS.find((r) => r.list === 'email');
+    const off = mf.savedTie('tax', { year: '2025', through: '' }, e.partners - 1, e.total - 900, { list: 'email' });
+    assert.equal(off[0].status, 'differs');
+    assert.match(off[0].note, /two preferred addresses/);
+    const on = mf.savedTie('tax', { year: '2025', through: '' }, e.partners, e.total, { list: 'email' });
+    assert.equal(on[0].note, 'The saved file has 32 rows for 15 partners.');
+  });
   it('draws no line when the filters are not the ones the saved query was run with', () => {
-    assert.deepEqual(mf.savedTie('tax', { year: '2024', through: '' }, 1, 1), []);
-    assert.deepEqual(mf.savedTie('tax', { year: '2025', through: '2025-06' }, 1, 1), []);
+    assert.deepEqual(mf.savedTie('tax', { year: '2024', through: '' }, 1, 1, { list: 'mail' }), []);
+    assert.deepEqual(mf.savedTie('tax', { year: '2025', through: '2025-06' }, 1, 1, { list: 'mail' }), []);
     assert.deepEqual(mf.savedTie('mailing', { from: '2025-01-01', to: '', min: '0.01', state: 'FL', held: '', appeal: '', kind: 'partners' }, 1, 1), []);
   });
 });
@@ -104,7 +113,7 @@ describe('the mail sheet in US Team Files', () => {
     await sheet.makeMailSheet(envWith(), 't', 'Tab', ['ID'], rows, g.deps);
     const puts = g.log.filter((l) => l.method === 'PUT');
     assert.equal(puts.length, 3);
-    assert.match(decodeURIComponent(puts[1].url.split('?')[0]), /A4002$/);
+    assert.match(decodeURIComponent(puts[1].url.split('?')[0]), /A4001$/);
   });
   it('uses the folder an admin saved before it looks by name', async () => {
     const g = google();
