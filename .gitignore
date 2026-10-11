@@ -11,3 +11,6 @@ preview-*.png
 .dev.vars
 .seed.sql
 .dev.vars
+
+.ui-report/
+tests/ui/.cookies.json

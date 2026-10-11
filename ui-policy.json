@@ -1,0 +1,108 @@
+{
+  "fonts": [
+    "Inter",
+    "Playfair Display"
+  ],
+  "fontSizes": [
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    20,
+    22,
+    24,
+    26,
+    28,
+    32,
+    34,
+    40,
+    44,
+    56
+  ],
+  "typeRules": [
+    {
+      "selector": ".h-bar__l",
+      "sizes": [
+        12,
+        13
+      ]
+    }
+  ],
+  "minControlSize": 24,
+  "controlSizeRules": [
+    {
+      "selector": "button, [role=button], input[type=button], input[type=submit], input[type=reset]",
+      "minSize": 44,
+      "maxViewportWidth": 1023
+    }
+  ],
+  "minControlGap": 8,
+  "minControlInset": 8,
+  "controlContainers": [
+    ".h-top__right",
+    ".h-tabs__row",
+    "#h-bar",
+    ".make-sheet__foot",
+    ".wm-foot",
+    ".m-foot",
+    ".wg-dlg__foot",
+    ".wc-dlg__foot",
+    ".wm-dlg__foot",
+    ".req-actions",
+    ".board-intro__actions",
+    ".ep-foot",
+    ".exp-foot",
+    ".cmdk__foot",
+    ".rc-foot",
+    ".wc-foot",
+    ".wa-foot",
+    ".ad-foot"
+  ],
+  "minLayoutGap": 8,
+  "bannedCopy": [
+    "—",
+    "donors",
+    "unlock your potential",
+    "seamlessly",
+    "game-changing"
+  ],
+  "viewports": [
+    {
+      "width": 440,
+      "height": 893
+    },
+    {
+      "width": 834,
+      "height": 1194
+    },
+    {
+      "width": 1440,
+      "height": 900
+    }
+  ],
+  "colorSchemes": [
+    "light"
+  ],
+  "exceptions": [
+    {
+      "selector": ".req-hp",
+      "rules": [
+        "viewport-bounds",
+        "form-label",
+        "accessible-name",
+        "text-contrast"
+      ],
+      "reason": "Honeypot field, positioned off screen on purpose and hidden from people."
+    },
+    {
+      "selector": ".h-skip",
+      "rules": [
+        "viewport-bounds",
+        "content-clipping"
+      ],
+      "reason": "Skip link, off screen until it takes focus."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "phone": {
+    "typeRules": [{ "selector": "input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select", "sizes": [16] }]
+  },
+  "ipad": {
+    "typeRules": [{ "selector": "input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select", "sizes": [16] }]
+  },
+  "desktop": {
+    "typeRules": [{ "selector": "input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select", "sizes": [13, 14, 15, 16] }]
+  }
+}

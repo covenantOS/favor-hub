@@ -242,7 +242,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             <div class="h-top__title">{found ? found.area.label : title}</div>
           </div>
           <div class="h-top__tabs" id="h-tabs-slot">{found && <NavTabs area={found.area} nav={nav} />}</div>
-          <div class="h-top__right">
+          <div class="h-top__right" data-ui-actions>
             <div class="pp-headsearch pv-find" id="pp-headsearch" hidden><label class="pv-find__box"><Fragment set:html={icon('search')} /><input type="search" placeholder="Find a partner" autocomplete="off" aria-label="Find a partner" /><kbd>Ctrl K</kbd></label><ul class="pv-find__list" role="listbox" hidden></ul></div>
             <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
             <span class="h-top__actions" id="h-actions"><slot name="actions" /></span>
