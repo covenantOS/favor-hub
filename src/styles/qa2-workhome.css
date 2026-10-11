@@ -2,5 +2,5 @@
 @media (max-width: 860px) {
   /* The Work Center tile's "3 open" count stays on one line beside its label. */
   .wh-tool__n { white-space: nowrap; }
-  .wh-tool__l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .wh-tool__l { white-space: normal; overflow: visible; text-overflow: clip; min-width: 0; }
 }
