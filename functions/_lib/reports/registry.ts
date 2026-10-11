@@ -4,9 +4,11 @@
 import appealResults from './defs/appeal-results';
 import caroleList from './defs/carole-list';
 import contact from './defs/contact';
+import creditGaps from './defs/credit-gaps';
 import dailyRevenue from './defs/daily-revenue';
 import deposit from './defs/deposit';
 import foundations from './defs/foundations';
+import giftDay from './defs/gift-day';
 import largeGifts from './defs/large-gifts';
 import mailing from './defs/mailing';
 import monthToMonth from './defs/month-to-month';
@@ -14,8 +16,10 @@ import packets from './defs/packets';
 import portfolio from './defs/portfolio';
 import prayer from './defs/prayer';
 import queryMap from './defs/query-map';
+import rddActions from './defs/rdd-actions';
 import status from './defs/status';
 import tax from './defs/tax';
+import topPartners from './defs/top-partners';
 import weeklyRecurring from './defs/weekly-recurring';
 import ytdIncome from './defs/ytd-income';
 import type { Audience, CatalogEntry, GroupId, ReportDef } from './types';
@@ -36,13 +40,17 @@ export const CATALOG: CatalogEntry[] = [
   { id: 'ytd-income', group: 'daily', name: '2026 YTD Income', replaces: 'YTD Daily Totals query and the 2026 YTD Income sheet', who: 'Admin desk, leadership', freq: 'Daily', audience: ['admin_desk', 'leadership'], kpiTie: true, build: 'B1' },
   { id: 'month-to-month', group: 'daily', name: 'Month to month', replaces: 'Month to Month sheet', who: 'Admin desk, leadership', freq: 'Mondays', audience: ['admin_desk', 'leadership'], kpiTie: true, build: 'B1' },
   { id: 'deposit', group: 'daily', name: 'Deposit highlights for RDDs', replaces: 'Deposit email with RDD highlights', who: 'Admin desk', freq: 'Each deposit day (Mon, Wed, Fri)', audience: ['admin_desk'], kpiTie: true, build: 'B1' },
+  { id: 'gift-day', group: 'daily', name: "Yesterday's gifts", replaces: 'Constituents for Actions queries (all directors and Partner Care) and Partner Care Constituent Gifts', who: 'Partner Care, directors, Support', freq: 'Daily; Mondays for the weekend', audience: ['partner_care', 'rdd', 'support'], kpiTie: false, build: 'BQ' },
+  { id: 'credit-gaps', group: 'daily', name: 'Gifts with no fundraiser credit', replaces: 'ZZZ Gifts not Credited to a Fundraiser, ZZZ Major Donors without Fundraiser Assignment and Blank PC gifts check', who: 'Operations, Partner Care', freq: 'Daily check', audience: ['operations', 'partner_care'], kpiTie: false, build: 'BQ' },
   { id: 'large-gifts', group: 'thanks', name: 'Gifts of $5,000 and up', replaces: '5k TY query and the $5,000 and Up lists', who: 'Support, Partner Care, Operations', freq: '1 to 3 times a week', audience: ['support', 'partner_care', 'operations'], kpiTie: false, build: 'B2' },
   { id: 'carole-list', group: 'thanks', name: 'Six-week email list, $5,000 partners', replaces: "Carole's email list query", who: 'Marketing', freq: 'Fridays', audience: ['marketing'], kpiTie: false, build: 'B2' },
   { id: 'packets', group: 'thanks', name: 'Thank-you packets, quarterly', replaces: 'Quarterly $5,000 packet list', who: 'Marketing', freq: 'Quarterly', audience: ['marketing'], kpiTie: false, build: 'B2' },
   { id: 'mailing', group: 'lists', name: 'Appeal mailing list', replaces: 'Appeal list, mail list and email list builder queries, state lists', who: 'Marketing', freq: 'Every four weeks', audience: ['marketing'], kpiTie: false, build: 'B3' },
   { id: 'status', group: 'lists', name: 'Active, LYBUNT and lapsed partners', replaces: 'Active Partners, LYBUNT, Lapsed and Annual Givers queries', who: 'RDDs, leadership', freq: 'Weekly', audience: ['rdd', 'leadership'], kpiTie: true, build: 'B3' },
+  { id: 'top-partners', group: 'lists', name: 'Top partners by total giving', replaces: 'Top Givers saved queries (1197 and the yearly top donor copies)', who: 'Operations, leadership', freq: 'As needed', audience: ['operations', 'leadership'], kpiTie: false, build: 'BQ' },
   { id: 'portfolio', group: 'lists', name: 'Portfolio export', replaces: 'Full Portfolio and Partner Data templates', who: 'RDDs', freq: 'As needed', audience: ['rdd'], kpiTie: false, build: 'B3' },
   { id: 'prayer', group: 'lists', name: 'Prayer list', replaces: 'Prayer List query', who: 'Operations', freq: 'As needed', audience: ['operations'], kpiTie: false, build: 'B3' },
+  { id: 'rdd-actions', group: 'results', name: 'RDD and church engagement actions', replaces: 'RDD Action Reporting query (718)', who: 'Leadership, RDD team, Operations', freq: 'Monthly and on request', audience: ['leadership', 'rdd', 'operations'], kpiTie: false, build: 'BQ' },
   { id: 'foundations', group: 'results', name: 'Foundations', replaces: 'Foundations List and Partner foundations queries', who: 'Grants, Operations', freq: 'As needed', audience: ['grants', 'operations'], kpiTie: true, build: 'B4' },
   { id: 'tax', group: 'results', name: 'Annual tax receipt lists', replaces: 'Annual Tax Receipts mail, email and others queries', who: 'Operations, Admin desk', freq: 'Each January', audience: ['operations', 'admin_desk'], kpiTie: true, build: 'B4' },
   { id: 'contact', group: 'results', name: 'Contact data lists', replaces: 'Email address and new constituent queries', who: 'Operations', freq: 'Weekly', audience: ['operations'], kpiTie: false, build: 'B4' },
@@ -58,14 +66,18 @@ const DEFS: Record<string, ReportDef | null> = {
   'ytd-income': ytdIncome,
   'month-to-month': monthToMonth,
   deposit,
+  'gift-day': giftDay,
+  'credit-gaps': creditGaps,
   'large-gifts': largeGifts,
   'carole-list': caroleList,
   packets,
   // Held until each list ties to its saved query: mailing (795) and tax (1066) still differ on which addresses Blackbaud counts as valid (2026-10-10).
   mailing: null,
   status,
+  'top-partners': topPartners,
   portfolio,
   prayer,
+  'rdd-actions': rddActions,
   foundations,
   tax: null,
   contact,

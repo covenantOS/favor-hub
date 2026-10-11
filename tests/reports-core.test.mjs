@@ -165,9 +165,9 @@ describe('who sees which report', () => {
     assert.equal(reg.isReady('query-map'), true);
     for (const r of reg.listFor(mine(), true)) assert.equal(r.ready, reg.isReady(r.id));
   });
-  it('has 16 reports in four groups and no repeated id', () => {
-    assert.equal(reg.CATALOG.length, 16);
-    assert.equal(new Set(reg.CATALOG.map((r) => r.id)).size, 16);
+  it('has 20 reports in four groups and no repeated id', () => {
+    assert.equal(reg.CATALOG.length, 20);
+    assert.equal(new Set(reg.CATALOG.map((r) => r.id)).size, 20);
     for (const r of reg.CATALOG) assert.ok(reg.GROUPS.some((g) => g.id === r.group));
   });
 });
@@ -199,7 +199,7 @@ describe('the routes', () => {
     for (const r of d.reports) assert.equal(r.ready, reg.isReady(r.id));
     assert.equal(d.queryMap.ready, true);
     const rdd = await (await call(listRoute, 'onRequestGet', req('/api/reports', { email: 'dir@x.org' }), {}, e)).json();
-    assert.deepEqual(rdd.reports.map((r) => r.id).sort(), ['portfolio', 'status']);
+    assert.deepEqual(rdd.reports.map((r) => r.id).sort(), ['gift-day', 'portfolio', 'rdd-actions', 'status']);
   });
   it('refuse a report to someone who does not use it, and say coming soon to someone who does', async () => {
     const e = env();

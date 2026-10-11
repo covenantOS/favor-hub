@@ -110,7 +110,7 @@ export interface CatalogEntry {
   /** True when the report has a figure on the KPI dashboard to tie to. */
   kpiTie: boolean;
   /** Which build group delivers it, for the coming-soon line. */
-  build: 'B0' | 'B1' | 'B2' | 'B3' | 'B4';
+  build: 'B0' | 'B1' | 'B2' | 'B3' | 'B4' | 'BQ';
 }
 
 export interface RunResult {
