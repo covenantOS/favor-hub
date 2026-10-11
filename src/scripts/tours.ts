@@ -578,6 +578,16 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'chat-files',
+    page: '/chat/',
+    at: '.ch-msgs',
+    title: 'Files open right here',
+    body: 'Clips and videos play in the message. Press a picture, a PDF, a Word or Excel file or a Drive file to read it on top of the chat, then close it to land back where you were. Download and Open in Google Drive sit at the top right.',
+    for: (w) => w.admin,
+    added: '2026-10-11',
+    side: 'left',
+  },
+  {
     id: 'chat-huddle',
     page: '/chat/',
     at: '.ch-btn--meet',

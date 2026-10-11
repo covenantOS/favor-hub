@@ -24,7 +24,14 @@ Type in the box and press Enter. Shift and Enter start a new line. Hold the poin
 
 **Reply in a thread** opens the thread beside the channel, so side talks stay out of the main line. Type @ and a name to mention someone. They see it on the bell and on the Chat badge in the menu. @channel notifies everyone in the channel.
 
-Paste or drag a file into the box to upload it, up to 25 MB. A pasted web address becomes a card with the page title.
+Paste or drag a file into the box to upload it, up to 25 MB. A pasted web address becomes a card with the page title, and a pasted Google Docs, Sheets, Slides or Drive address becomes a Drive card.
+
+Files open where they were posted:
+
+- A clip or a video plays in the message. Press the play button in the middle; the player has full screen. **Open in Clips** under a clip opens its page.
+- A picture opens full screen. Swipe or use the arrow keys for the other pictures in the conversation, pinch or double tap to zoom, and swipe down or press Escape to close.
+- A PDF, a Word file, an Excel file and a Drive file show their first page on the card and open in a viewer with every page. **Download** and **Open in Google Drive** sit at the top right. When Drive will not hand over a file, the viewer shows its first page and the Drive button.
+- A voice note or other audio file plays in its card.
 
 ## Clips, Drive and meetings
 
@@ -51,4 +58,4 @@ Press **Ctrl K** in Chat, or the search box at the top of the channel list, to s
 
 ## On a phone
 
-The channel list, a channel and a thread are three screens. The back arrow at the top left goes up one. The message box sits above the tab bar.
+The channel list, a channel and a thread are three screens. The back arrow at the top left goes up one. The message box sits above the tab bar. Tap a message for its actions: reactions, reply in thread, copy, edit and delete.

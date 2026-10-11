@@ -29,3 +29,12 @@ export function pickTargets(sockets, audience) {
   const want = new Set((Array.isArray(audience) ? audience : []).map((e) => String(e).toLowerCase()));
   return sockets.filter((s) => s.email && want.has(s.email));
 }
+
+/** A socket is stale when nothing came from it (a ping, a message, the connect itself) for this long: browsers ping every 30 s. */
+export const STALE_MS = 75_000;
+
+/** True when the socket's newest sign of life is older than STALE_MS. Times are milliseconds; a missing time counts as never. */
+export function isStale(times, now) {
+  const last = Math.max(0, ...times.filter((t) => Number.isFinite(t)));
+  return now - last > STALE_MS;
+}

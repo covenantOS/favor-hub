@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { pickTargets, presenceChanges, presenceOf } = await import('../workers/favor-chat/src/room.js');
+const { isStale, pickTargets, presenceChanges, presenceOf, STALE_MS } = await import('../workers/favor-chat/src/room.js');
 
 test('presence: online beats away, two tabs make one person, a gone person is absent', () => {
   assert.deepEqual(presenceOf([{ email: 'a@x.org', state: 'away' }, { email: 'a@x.org', state: 'online' }, { email: 'b@x.org', state: 'away' }]), { 'a@x.org': 'online', 'b@x.org': 'away' });
@@ -35,4 +35,13 @@ test('the worker config binds ChatRoom, has no public address, and the Pages pro
   assert.doesNotMatch(w, /\[\[d1_databases\]\]/, 'the room never touches a database');
   const hub = fs.readFileSync('wrangler.toml', 'utf8');
   assert.match(hub, /name = "CHAT_ROOM"\r?\nclass_name = "ChatRoom"\r?\nscript_name = "favor-chat"/);
+});
+
+test('a socket with no ping, message or connect for 75 seconds is stale; a recent one is not', () => {
+  const now = 1_000_000;
+  assert.equal(STALE_MS, 75_000);
+  assert.equal(isStale([now - 10_000, NaN, now - 200_000], now), false);
+  assert.equal(isStale([NaN, NaN, now - 80_000], now), true);
+  assert.equal(isStale([NaN, now - 5_000, now - 300_000], now), false);
+  assert.equal(isStale([], now), true);
 });

@@ -1,5 +1,5 @@
 import { DurableObject } from 'cloudflare:workers';
-import { pickTargets, presenceChanges, presenceOf } from './room.js';
+import { isStale, pickTargets, presenceChanges, presenceOf, STALE_MS } from './room.js';
 
 // ChatRoom: every signed-in browser holds one WebSocket here. The hub (a Pages Function) checks who the person is, sets X-Chat-User,
 // and forwards the upgrade. Events arrive as POST /event {audience, event} from the hub after it has saved a message to D1.
@@ -11,11 +11,21 @@ export class ChatRoom extends DurableObject {
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
   }
 
+  // The newest sign of life from a socket: its last auto-answered ping, its last message, or when it connected.
+  lastSeen(ws, a) {
+    let auto = null;
+    try { auto = this.ctx.getWebSocketAutoResponseTimestamp(ws); } catch (_) { auto = null; }
+    return [auto ? auto.getTime() : NaN, Number(a.seen), Number(a.at)];
+  }
+
   sockets(except) {
     const out = [];
+    const now = Date.now();
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === except || ws.readyState !== 1) continue;
       const a = ws.deserializeAttachment() || {};
+      // A phone that lost its signal or was locked leaves a socket that never closes. Without pings it stops counting.
+      if (isStale(this.lastSeen(ws, a), now)) continue;
       out.push({ ws, email: a.email || '', state: a.state || 'online' });
     }
     return out;
@@ -35,8 +45,9 @@ export class ChatRoom extends DurableObject {
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
       this.ctx.acceptWebSocket(server, [email]);
-      server.serializeAttachment({ email, state: 'online' });
+      server.serializeAttachment({ email, state: 'online', at: Date.now() });
       this.announce(before, this.presence());
+      await this.watch();
       return new Response(null, { status: 101, webSocket: client });
     }
     if (url.pathname === '/event' && request.method === 'POST') {
@@ -69,9 +80,26 @@ export class ChatRoom extends DurableObject {
     if (m && m.t === 'p') {
       const a = ws.deserializeAttachment() || {};
       const before = this.presence();
-      ws.serializeAttachment({ ...a, state: m.s === 'away' ? 'away' : 'online' });
+      ws.serializeAttachment({ ...a, state: m.s === 'away' ? 'away' : 'online', seen: Date.now() });
       this.announce(before, this.presence());
     }
+  }
+
+  // While anyone is connected, a check every 30 seconds closes stale sockets and tells everyone who went offline.
+  async watch() {
+    if ((await this.ctx.storage.getAlarm()) == null) await this.ctx.storage.setAlarm(Date.now() + 30_000);
+  }
+
+  async alarm() {
+    const now = Date.now();
+    const all = this.ctx.getWebSockets().filter((ws) => ws.readyState === 1);
+    const before = presenceOf(all.map((ws) => { const a = ws.deserializeAttachment() || {}; return { email: a.email || '', state: a.state || 'online' }; }));
+    for (const ws of all) {
+      const a = ws.deserializeAttachment() || {};
+      if (isStale(this.lastSeen(ws, a), now)) { try { ws.close(1001, 'stale'); } catch (_) { /* already gone */ } }
+    }
+    this.announce(before, this.presence());
+    if (this.ctx.getWebSockets().some((ws) => ws.readyState === 1)) await this.ctx.storage.setAlarm(Date.now() + 30_000);
   }
 
   async webSocketClose(ws) {

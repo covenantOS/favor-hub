@@ -35,6 +35,8 @@
     pen: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
     bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
     out: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
+    dl: '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>',
+    wave: '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/>',
     ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>'
   };
   function ic(n, cls) { return '<svg viewBox="0 0 24 24" aria-hidden="true"' + (cls ? ' class="' + cls + '"' : '') + '>' + (ICON[n] || '') + '</svg>'; }
@@ -45,7 +47,8 @@
   var fmtDayKey = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' });
   var fmtDayLong = new Intl.DateTimeFormat('en-US', { timeZone: TZ, weekday: 'long', month: 'long', day: 'numeric' });
   var fmtShort = new Intl.DateTimeFormat('en-US', { timeZone: TZ, month: 'short', day: 'numeric' });
-  function dayKey(iso) { return fmtDayKey.format(new Date(iso)); }
+  var dayKeys = {};
+  function dayKey(iso) { return dayKeys[iso] || (dayKeys[iso] = fmtDayKey.format(new Date(iso))); }
   function dayLabel(iso) {
     var k = dayKey(iso), now = new Date();
     if (k === dayKey(now.toISOString())) return 'Today';
@@ -87,26 +90,81 @@
   }
   function bootHtml() {
     return '<aside class="ch-side" aria-label="Channels">' + bootSide() + '</aside>' +
-      '<section class="ch-main" aria-label="Channel"><header class="ch-head"><div class="ch-head__t">' + BONE('150px', '16px') + '</div></header><div class="ch-msgs" tabindex="0" aria-live="polite"><div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div></div><div class="ch-typing" aria-live="polite"></div>' + composerHtml('main', 'Message') + '</section>' +
+      '<section class="ch-main" aria-label="Channel"><header class="ch-head"><div class="ch-head__t">' + BONE('150px', '16px') + '</div></header><div class="ch-msgs" tabindex="0" aria-live="polite"><div class="ch-msgs__in"><div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div></div></div><div class="ch-typing" aria-live="polite"></div>' + composerHtml('main', 'Message') + '</section>' +
       '<aside class="ch-right" hidden></aside>';
   }
 
   /* Redraws a list of top-level blocks without touching the ones that did not change, so images, the scroll position and
      anything being typed stay put and nothing flickers when a reaction, a presence dot or a new message arrives. */
+  // Keyed blocks ({k, h}): a block whose source did not change is reused as is, without parsing it again; a changed one is patched.
+  function morphItems(box, items) {
+    var old = {}, kids = Array.prototype.slice.call(box.children), used = new Set(), cur = box.firstElementChild;
+    kids.forEach(function (e) { if (e._k != null) old[e._k] = e; });
+    var parse = function (h) { var t = document.createElement('template'); t.innerHTML = h; return t.content.firstElementChild; };
+    items.forEach(function (it) {
+      var o = old[it.k], n;
+      if (o && !used.has(o)) {
+        var wasCur = o === cur;
+        if (o._src !== it.h) { n = parse(it.h); if (n) { if (n.nodeName !== o.nodeName || n.className !== o.className && /ch-(day|new|intro)/.test(n.className + o.className)) { n._k = it.k; o.parentNode.replaceChild(n, o); o = n; } else patchNode(o, n); } o._src = it.h; }
+        used.add(o); if (wasCur) cur = o.nextElementSibling; else box.insertBefore(o, cur);
+      } else {
+        n = parse(it.h); if (!n) return;
+        n._k = it.k; n._src = it.h; used.add(n); box.insertBefore(n, cur);
+      }
+    });
+    kids.forEach(function (e) { if (!used.has(e) && e.parentNode === box) box.removeChild(e); });
+  }
   function morph(box, html) {
+    if (Array.isArray(html)) return morphItems(box, html);
+    var parts = null;
     var t = document.createElement('template'); t.innerHTML = html;
+    var news = Array.prototype.slice.call(t.content.children);
     var keyOf = function (e) { return e.getAttribute('data-mid') ? 'm' + e.getAttribute('data-mid') : e.id ? '#' + e.id : e.className === 'ch-day' ? 'd' + e.textContent : e.tagName + '.' + e.className; };
     var old = {}, kids = Array.prototype.slice.call(box.children);
     kids.forEach(function (e) { if (e._src != null) old[keyOf(e)] = e; });
     var used = [], cur = box.firstElementChild;
-    Array.prototype.slice.call(t.content.children).forEach(function (n) {
-      var src = n.outerHTML, o = old[keyOf(n)];
-      if (o && o._src === src) { used.push(o); if (o === cur) cur = cur.nextElementSibling; else box.insertBefore(o, cur); }
+    news.forEach(function (n, i) {
+      var src = parts ? parts[i] : n.outerHTML, o = old[keyOf(n)];
+      if (o && used.indexOf(o) < 0) {
+        // The same message with a change (a reaction, an edit, a reply count) is patched in place, so a playing video,
+        // a drawn preview and the picture underneath stay as they are.
+        if (o._src !== src) { patchNode(o, n); o._src = src; }
+        used.push(o); if (o === cur) cur = cur.nextElementSibling; else box.insertBefore(o, cur);
+      }
       else { n._src = src; box.insertBefore(n, cur); }
     });
     kids.forEach(function (e) { if (used.indexOf(e) < 0 && e.parentNode === box) box.removeChild(e); });
   }
+  // A small in-place DOM patch: same tag keeps the element and updates what differs. Players keep playing, a focused box keeps its text.
+  function patchNode(o, n) {
+    if (o.nodeType !== n.nodeType || o.nodeName !== n.nodeName) { o.parentNode.replaceChild(n, o); return; }
+    if (o.nodeType !== 1) { if (o.nodeValue !== n.nodeValue) o.nodeValue = n.nodeValue; return; }
+    if (o.hasAttribute('data-vsrc') && o.classList.contains('is-playing') && o.getAttribute('data-vsrc') === n.getAttribute('data-vsrc')) return;
+    if (/^(VIDEO|AUDIO|IFRAME)$/.test(o.nodeName)) { if (o.getAttribute('src') !== n.getAttribute('src')) o.parentNode.replaceChild(n, o); return; }
+    if (o.classList.contains('is-drawn') && o.getAttribute('data-thumb') === n.getAttribute('data-thumb')) return;
+    if (o.nodeName === 'TEXTAREA' || (o.nodeName === 'INPUT' && o === document.activeElement)) return;
+    var oa = o.attributes;
+    for (var i = oa.length - 1; i >= 0; i--) if (!n.hasAttribute(oa[i].name)) o.removeAttribute(oa[i].name);
+    var na = n.attributes;
+    for (var j = 0; j < na.length; j++) if (o.getAttribute(na[j].name) !== na[j].value) o.setAttribute(na[j].name, na[j].value);
+    patchKids(o, n);
+  }
+  function patchKids(o, n) {
+    var oc = Array.prototype.slice.call(o.childNodes), nc = Array.prototype.slice.call(n.childNodes);
+    for (var i = 0; i < nc.length; i++) {
+      if (i < oc.length) patchNode(oc[i], nc[i]);
+      else o.appendChild(nc[i]);
+    }
+    for (var k = oc.length - 1; k >= nc.length; k--) if (oc[k].parentNode === o) o.removeChild(oc[k]);
+  }
   function setHtml(el, html) { if (el._h === html) return false; el._h = html; el.innerHTML = html; return true; }
+  // Like setHtml, but keeps the elements that did not change, so rows, avatars and the header never blink.
+  function patchHtml(el, html) {
+    if (el._h === html) return false;
+    var t = document.createElement('template'); t.innerHTML = html;
+    if (el._h == null && !el.firstChild) el.appendChild(t.content); else patchKids(el, t.content);
+    el._h = html; return true;
+  }
 
   function mount(root, api, opts) {
     opts = opts || {};
@@ -115,7 +173,7 @@
       msgs: {}, threads: {}, typing: {}, search: null, view: 'list', lastRead: {}, memberPick: null, editing: null, pending: { main: [], thread: [] },
       mentionMap: { main: {}, thread: {} }, hasMore: {}, loaded: {}, warm: {}, connected: true
     };
-    var pop = null, popAnchor = null, modal = null, typingSent = 0, toastT = 0;
+    var pop = null, popAnchor = null, modal = null, typingSent = 0, toastT = 0, pinned = true;
     var isPhone = function () { return matchMedia('(max-width: 860px)').matches; };
 
     /* ------------------------------------------------------------------ helpers */
@@ -178,15 +236,43 @@
     }
 
     /* ------------------------------------------------------------------ cards */
-    function cardHtml(a) {
+    // Every card plays or previews where it was posted. A clip or a video plays in the message; a picture, a PDF, a Word or Excel
+    // file and a Drive file open in the viewer on top of the chat (chat-view.js). Opening the file's own page is a small link.
+    function vidHtml(src, poster, label, dur, ratio) {
+      var box = ratio ? ' style="aspect-ratio:' + ratio + '"' : '';
+      return '<span class="ch-vid"' + box + ' data-vsrc="' + esc(src) + '">' + (poster && !broken[poster] ? '<img class="ch-vid__poster" src="' + esc(poster) + '" alt="" loading="lazy" decoding="async" />' : '<span class="ch-clip__scr"><i></i><i></i><i></i><i></i></span>') +
+        '<button type="button" class="ch-vid__play" data-act="play" aria-label="Play ' + esc(label) + '">' + ic('play') + '</button>' + (dur ? '<span class="ch-vid__dur">' + esc(dur) + '</span>' : '') + '</span>';
+    }
+    function fileKind(a) {
+      var t = (a.mime || '') + ' ' + (a.name || '');
+      if (/^image\//.test(a.mime || '')) return 'image';
+      if (/^video\//.test(a.mime || '')) return 'video';
+      if (/^audio\//.test(a.mime || '')) return 'audio';
+      if (/pdf/i.test(t)) return 'pdf';
+      if (/wordprocessingml|\.docx$/i.test(t)) return 'docx';
+      if (/spreadsheetml|\.xlsx$|text\/csv|\.csv$/i.test(t)) return 'xlsx';
+      if (/msword|\.doc$/i.test(t)) return 'doc';
+      if (/excel|\.xls$/i.test(t)) return 'sheet';
+      return 'file';
+    }
+    var LAB = { pdf: 'PDF', docx: 'DOC', doc: 'DOC', xlsx: 'XLS', sheet: 'XLS', slides: 'PPT', photo: 'IMG', file: 'FILE', audio: 'AUDIO' };
+    function thumbBox(key, src, k, lab) {
+      var V = window.FavorChatView, have = V && V.thumb(key);
+      return '<span class="ch-prev__pic' + (have ? ' is-drawn' : '') + '" data-thumb="' + esc(key) + '"' + (have || !src ? '' : ' data-src="' + esc(src) + '" data-k="' + esc(k) + '"') + '>' + (have || '<span class="ch-file__ic" data-k="' + esc(k) + '">' + lab + '</span>') + '</span>';
+    }
+    function cardHtml(a, m, i) {
+      var at = m ? ' data-cm="' + m.id + '" data-ai="' + i + '"' : '';
       if (a.type === 'clip') {
-        var thumb = a.thumb ? '<img src="' + esc(a.thumb) + '" alt="" loading="lazy" />' : '<span class="ch-clip__scr"><i></i><i></i><i></i><i></i></span>';
-        return '<a class="ch-card ch-clip" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-clip__thumb">' + thumb + '<span class="ch-clip__play">' + ic('play') + '</span>' + (a.duration ? '<span class="ch-clip__dur">' + esc(a.duration) + '</span>' : '') + '</span>' +
-          '<span class="ch-clip__info"><span class="ch-kicker">' + ic('rec') + 'Clip</span><span class="ch-card__t">' + esc(a.title) + '</span><span class="ch-card__m">' + esc(a.by || '') + (a.when ? ' · ' + esc(a.when) : '') + '</span>' + (a.summary ? '<span class="ch-card__s">' + esc(a.summary) + '</span>' : '') + '</span></a>';
+        return '<div class="ch-card ch-clip"' + at + '>' + vidHtml('/api/clips/' + esc(a.id) + '/media', a.thumb, a.title, a.duration, '16 / 9') +
+          '<span class="ch-clip__info"><span class="ch-kicker">' + ic('rec') + 'Clip</span><span class="ch-card__t">' + esc(a.title) + '</span><span class="ch-card__m">' + esc(a.by || '') + (a.when ? ' · ' + esc(a.when) : '') + '</span>' + (a.summary ? '<span class="ch-card__s">' + esc(a.summary) + '</span>' : '') +
+          '<a class="ch-clip__open" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open in Clips' + ic('ext') + '</a></span></div>';
       }
       if (a.type === 'drive') {
-        var k = a.kind || 'file', lab = { doc: 'DOC', sheet: 'XLS', pdf: 'PDF', slides: 'PPT', photo: 'IMG', file: 'FILE' }[k] || 'FILE';
-        return '<a class="ch-card ch-file" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-file__ic" data-k="' + esc(k) + '">' + lab + '</span><span class="ch-file__t"><span class="ch-kicker" style="color:var(--tc-sky-ink)">' + ic('drive') + 'Drive</span><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(a.path || '') + (a.indexed ? ' · Indexed ' + esc(a.indexed) : '') + '</span></span><span class="ch-btn ch-btn--sm">Open</span></a>';
+        var k = a.kind || 'file', lab = LAB[k] || 'FILE';
+        var pic = m && !broken['/api/chat/drive-file/' + m.id + '/' + i + '/thumb'] ? '<span class="ch-prev__pic" data-thumb="d' + m.id + '-' + i + '"><img src="/api/chat/drive-file/' + m.id + '/' + i + '/thumb" alt="" loading="lazy" decoding="async" data-fallback="' + lab + '" data-k="' + esc(k) + '" /></span>' : '<span class="ch-prev__pic"><span class="ch-file__ic" data-k="' + esc(k) + '">' + lab + '</span></span>';
+        return '<div class="ch-card ch-prev ch-prev--drive"' + at + '><button type="button" class="ch-prev__open" data-act="view"' + at + ' aria-label="Preview ' + esc(a.name) + '">' + pic +
+          '<span class="ch-prev__t"><span class="ch-kicker" style="color:var(--tc-sky-ink)">' + ic('drive') + 'Drive</span><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(a.path || '') + (a.indexed ? ' · Indexed ' + esc(a.indexed) : '') + '</span></span></button>' +
+          '<a class="ch-prev__ext" href="' + esc(a.url) + '" target="_blank" rel="noopener" aria-label="Open in Google Drive" title="Open in Google Drive">' + ic('ext') + '</a></div>';
       }
       if (a.type === 'meeting') {
         // A huddle card reads who is in the room from the channel's live huddle state when the page has it, so it changes the
@@ -200,15 +286,72 @@
         return '<a class="ch-card ch-meet' + (live ? '' : ' ch-meet--ended') + '" href="' + esc(live ? a.url : (a.notes_url || a.url)) + '"' + (live ? ' data-act="huddle" data-mid="' + esc(a.id) + '"' : ' target="_blank" rel="noopener"') + '>' + inner + btn + '</a>';
       }
       if (a.type === 'file') {
-        if (/^image\//.test(a.mime || '')) return '<a href="' + esc(a.url) + '" target="_blank" rel="noopener"><img class="ch-img" src="' + esc(a.url) + '" alt="' + esc(a.name) + '" loading="lazy" /></a>';
-        var kk = /pdf/.test(a.mime || '') ? 'pdf' : /sheet|excel|csv/.test(a.mime || '') ? 'sheet' : /word|document/.test(a.mime || '') ? 'doc' : 'file';
-        return '<a class="ch-card ch-file" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-file__ic" data-k="' + kk + '">' + ({ pdf: 'PDF', sheet: 'XLS', doc: 'DOC', file: 'FILE' }[kk]) + '</span><span class="ch-file__t"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span></span><span class="ch-btn ch-btn--sm">Download</span></a>';
+        var fk = fileKind(a);
+        if (fk === 'image') {
+          // The picture's own shape is reserved before it arrives, so nothing below it moves when it loads.
+          var w = Number(a.w) || 0, h = Number(a.h) || 0;
+          var shape = w && h ? ' style="aspect-ratio:' + w + ' / ' + h + ';width:min(100%,' + Math.round(Math.min(360, 280 * w / h)) + 'px)"' : '';
+          return '<button type="button" class="ch-media ch-photo" data-act="view"' + at + shape + ' aria-label="View ' + esc(a.name) + '"><img class="ch-img" src="' + esc(a.url) + '" alt="' + esc(a.name) + '"' + (w && h ? ' width="' + w + '" height="' + h + '"' : '') + ' loading="lazy" decoding="async" /></button>';
+        }
+        if (fk === 'video') return '<div class="ch-card ch-clip ch-clip--file"' + at + '>' + vidHtml(a.url + '#t=0.1', '', a.name, '', '16 / 9') + '<span class="ch-clip__info"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span><a class="ch-clip__open" href="' + esc(a.url) + '" download>Download' + ic('dl') + '</a></span></div>';
+        if (fk === 'audio') return '<div class="ch-card ch-audio"' + at + '><span class="ch-file__ic" data-k="audio">' + ic('wave') + '</span><span class="ch-audio__t"><span class="ch-card__t">' + esc(a.name) + '</span><audio controls preload="none" src="' + esc(a.url) + '"></audio></span><a class="ch-prev__ext" href="' + esc(a.url) + '" download aria-label="Download ' + esc(a.name) + '" title="Download">' + ic('dl') + '</a></div>';
+        var canView = fk === 'pdf' || fk === 'docx' || fk === 'xlsx';
+        var lab2 = LAB[fk] || 'FILE';
+        var picf = canView && a.id ? thumbBox('f' + a.id, a.url, fk, lab2) : '<span class="ch-prev__pic"><span class="ch-file__ic" data-k="' + fk + '">' + lab2 + '</span></span>';
+        var inner = picf + '<span class="ch-prev__t"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span></span>';
+        return '<div class="ch-card ch-prev' + (canView ? '' : ' ch-prev--plain') + '"' + at + '>' + (canView ? '<button type="button" class="ch-prev__open" data-act="view"' + at + ' aria-label="Preview ' + esc(a.name) + '">' + inner + '</button>' : '<a class="ch-prev__open" href="' + esc(a.url) + '" download>' + inner + '</a>') +
+          '<a class="ch-prev__ext" href="' + esc(a.url) + '" download aria-label="Download ' + esc(a.name) + '" title="Download">' + ic('dl') + '</a></div>';
       }
       if (a.type === 'link') {
         return '<a class="ch-card ch-link" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-card__m">' + esc(a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</a>';
       }
       return '';
     }
+    /* ------------------------------------------------------------------ playing and previewing in place */
+    var viewPop = false, viewBack = false, broken = {};
+    function playIn(box) {
+      if (!box || box.querySelector('video')) return;
+      root.querySelectorAll('.ch-vid video').forEach(function (v) { try { v.pause(); } catch (e) { /* none */ } });
+      var v = document.createElement('video');
+      v.className = 'ch-vid__v'; v.controls = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+      var p = box.querySelector('.ch-vid__poster'); if (p && p.complete && p.naturalWidth) v.poster = p.src;
+      v.src = box.getAttribute('data-vsrc');
+      // The poster stays up with a spinner until the first frame plays, so a slow start never shows a black box.
+      box.classList.add('is-loading');
+      var ready = function () { box.classList.remove('is-loading'); };
+      v.addEventListener('playing', ready); v.addEventListener('pause', ready); v.addEventListener('error', ready);
+      box.appendChild(v); box.classList.add('is-playing');
+      var pr = v.play(); if (pr && pr.catch) pr.catch(function () { /* the controls are there to press */ });
+    }
+    function driveId(u) { var m = String(u || '').match(/\/d\/([A-Za-z0-9_-]{10,})/) || String(u || '').match(/[?&]id=([A-Za-z0-9_-]{10,})/); return m ? m[1] : ''; }
+    function openViewer(mid, i) {
+      var m = findMsg(mid), V = window.FavorChatView;
+      var a = m && m.attachments && m.attachments[i];
+      if (!a) return;
+      if (!V) { window.open(a.url, '_blank', 'noopener'); return; }
+      var item;
+      if (a.type === 'file' && fileKind(a) === 'image') {
+        // Every picture in this conversation, oldest first, so a swipe goes to the next one.
+        var list = [], at = 0;
+        (S.msgs[m.channel_id] || []).concat(m.thread_id && S.threads[m.thread_id] ? S.threads[m.thread_id].replies : []).forEach(function (x) {
+          (x.attachments || []).forEach(function (y) { if (y.type === 'file' && fileKind(y) === 'image') { if (y === a) at = list.length; list.push({ kind: 'image', url: y.url, name: y.name, download: y.url, sub: user(x.user_id).name }); } });
+        });
+        if (!list.length) list.push({ kind: 'image', url: a.url, name: a.name, download: a.url });
+        item = list[at]; V.open(item, list);
+      } else if (a.type === 'drive') {
+        var id = driveId(a.url);
+        V.open({ kind: 'drive', url: '/api/chat/drive-file/' + m.id + '/' + i + '/content', name: a.name, sub: a.path || 'Google Drive', external: a.url, externalShort: 'Drive', externalLabel: 'Open in Google Drive', page: '/api/chat/drive-file/' + m.id + '/' + i + '/thumb?s=1600', embed: id ? 'https://drive.google.com/file/d/' + id + '/preview' : '' });
+      } else {
+        var k = fileKind(a);
+        V.open({ kind: k, url: a.url, name: a.name, sub: sizeOf(a.size), download: a.url, external: k === 'pdf' ? a.url : '', externalShort: 'Open', externalLabel: 'Open in a new tab' });
+      }
+      history.pushState(Object.assign({}, history.state || {}, { chv: (history.state && history.state.chv) || S.view, chview: 1 }), '');
+    }
+    if (window.FavorChatView) window.FavorChatView.onClose = function () {
+      if (viewBack) { viewBack = false; return; }
+      if (history.state && history.state.chview) { viewPop = true; history.back(); }
+    };
+
     function sizeOf(n) { n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
 
     /* A Favor Brain answer only its asker can read: a label, and Share to channel / Dismiss once the answer is in. */
@@ -252,7 +395,7 @@
       else if (S.editing === m.id) text = '<div class="ch-edit"><textarea class="ch-input" data-edit="' + m.id + '" rows="2" style="height:auto;padding:8px 12px">' + esc(S.editDraft != null && S.editDraftId === m.id ? S.editDraft : m.body) + '</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="ch-btn ch-btn--sm ch-btn--primary" data-act="edit-save" data-id="' + m.id + '">Save</button><button class="ch-btn ch-btn--sm" data-act="edit-cancel">Cancel</button></div></div>';
       else text = (m.body ? '<div class="ch-msg__text">' + fmtBody(m.body) + (m.edited_at ? '<span class="ch-msg__edited">(edited)</span>' : '') + '</div>' : '');
       var cards = '';
-      if (!m.deleted && m.attachments && m.attachments.length) cards = '<div class="ch-cards">' + m.attachments.map(cardHtml).join('') + '</div>';
+      if (!m.deleted && m.attachments && m.attachments.length) cards = '<div class="ch-cards">' + m.attachments.map(function (a, i) { return cardHtml(a, m, i); }).join('') + '</div>';
       var br = !m.deleted && brain ? brainHtml(m) : '';
       var own = !m.deleted && m.visible_to ? privateHtml(m) : '';
       var rx = m.deleted ? '' : rxHtml(m);
@@ -268,18 +411,32 @@
       }
       return '<article class="' + cls + '" data-mid="' + m.id + '"><div class="ch-msg__gut">' + gut + '</div><div class="ch-msg__body">' + meta + text + cards + br + own + rx + rep + '</div>' + bar + '</article>';
     }
-    function listHtml(list, o) {
+    // One string per top-level block (day line, New line, message), so a redraw compares each block's source without reading the DOM.
+    function listParts(list, o) {
       o = o || {};
-      var out = '', prev = null, newShown = false, lr = o.lastRead;
+      var out = [], prev = null, newShown = false, lr = o.lastRead;
       list.forEach(function (m) {
         var dk = dayKey(m.created_at);
-        if (!prev || dayKey(prev.created_at) !== dk) out += '<div class="ch-day"><span>' + esc(dayLabel(m.created_at)) + '</span></div>';
-        if (!newShown && lr != null && Number(m.id) > Number(lr) && m.user_id !== S.me.id) { out += '<div class="ch-new" id="ch-new">New</div>'; newShown = true; }
+        if (!prev || dayKey(prev.created_at) !== dk) out.push({ k: 'd' + dk, h: '<div class="ch-day"><span>' + esc(dayLabel(m.created_at)) + '</span></div>' });
+        if (!newShown && lr != null && Number(m.id) > Number(lr) && m.user_id !== S.me.id) { out.push({ k: 'new', h: '<div class="ch-new" id="ch-new">New</div>' }); newShown = true; }
         var cont = prev && prev.user_id === m.user_id && dayKey(prev.created_at) === dk && (new Date(m.created_at) - new Date(prev.created_at)) < 5 * 60000 && !m.deleted && !prev.deleted && !(prev.reply_count && !o.inThread);
-        out += msgHtml(m, { cont: cont, inThread: o.inThread });
+        out.push({ k: 'm' + m.id, h: msgHtml(m, { cont: cont, inThread: o.inThread }) });
         prev = m;
       });
       return out;
+    }
+    function listHtml(list, o) { return listParts(list, o).map(function (x) { return x.h; }).join(''); }
+    function channelParts(c) {
+      return [{ k: 'top', h: S.hasMore[c.id] ? '<div style="text-align:center;padding:10px"><button type="button" class="ch-btn ch-btn--sm" data-act="older">Load earlier messages</button></div>' : introHtml(c) }].concat(listParts(S.msgs[c.id] || [], { lastRead: S.lastRead[c.id] }));
+    }
+    // Channels read ahead are drawn ahead too, off screen, when the page is idle; opening one moves the finished blocks in.
+    var built = {};
+    function prebuild(id) {
+      var c = chan(id);
+      if (!c || !S.msgs[id] || built[id] || (id === S.active && S.view !== 'list')) return;
+      var box = document.createElement('div');
+      morph(box, channelParts(c));
+      built[id] = box;
     }
 
     /* ------------------------------------------------------------------ chrome */
@@ -305,15 +462,14 @@
         '<div class="ch-list" data-seg="' + (S.seg === 'messages' ? 'messages' : 'channels') + '"><div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" data-act="new-channel" aria-label="New channel" title="New channel">' + ic('plus') + '</button></div>' +
         s.chans.map(row).join('') + '<button type="button" class="ch-row ch-more" data-act="browse"><span class="ch-row__ic">' + ic('search') + '</span><span class="ch-row__n">Browse channels</span></button></div>' +
         '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('plus') + '</button></div>' + (s.dms.length ? s.dms.map(row).join('') : '<div class="ch-empty" style="padding:8px">No messages yet</div>') + '</div></div>';
-      var ls = $('.ch-list', side), st = ls ? ls.scrollTop : 0;
-      if (setHtml(side, html) && st) { var nl = $('.ch-list', side); if (nl) nl.scrollTop = st; }
+      patchHtml(side, html);
     }
     function renderHead() {
       var c = chan(S.active), h = $('.ch-head', root);
       if (!c) return;
       var name = chName(c), ms = (c.members || []).slice(0, 4);
       var lead = c.kind === 'public' ? '<span>#</span>' : c.kind === 'private' ? ic('lock') : '';
-      setHtml(h, '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
+      patchHtml(h, '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
         '<div class="ch-head__t"><div class="ch-head__name">' + lead + '<span style="color:var(--r-ink);font-weight:700">' + esc(name) + '</span></div>' + (c.topic ? '<div class="ch-head__topic">' + esc(c.topic) + '</div>' : '') + '</div>' +
         '<div class="ch-head__acts"><button type="button" class="ch-members" data-act="details" aria-label="Members"><span class="ch-stack">' + ms.map(function (id) { return avatar(user(id), 'sm'); }).join('') + '</span>' + (c.members || []).length + '</button>' +
         '<button type="button" class="ch-btn ch-btn--meet' + (S.huddle && S.huddle[c.id] ? ' is-live' : '') + '" data-act="huddle" aria-label="' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '">' + ic('headset') + '<span>' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '</span></button>' +
@@ -330,15 +486,26 @@
     function renderMsgs(forceBottom) {
       var box = $('.ch-msgs', root), c = chan(S.active);
       if (!c) return;
+      var inner = $('.ch-msgs__in', box) || box;
       var list = S.msgs[c.id];
       var near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
-      if (!list) { setHtml(box, '<div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div>'); return; }
-      box._h = null;
-      morph(box, (S.hasMore[c.id] ? '<div style="text-align:center;padding:10px"><button type="button" class="ch-btn ch-btn--sm" data-act="older">Load earlier messages</button></div>' : introHtml(c)) + listHtml(list, { lastRead: S.lastRead[c.id] }));
+      // Switching channels keeps the old channel's blocks aside for a quick return and brings in this one's, built or kept.
+      if (inner._ch !== c.id) {
+        if (inner._ch) { var keep = document.createElement('div'); while (inner.firstChild) keep.appendChild(inner.firstChild); built[inner._ch] = keep; }
+        else inner.innerHTML = '';
+        inner._ch = null; inner._h = null;
+        if (list && built[c.id]) { var got = built[c.id]; delete built[c.id]; while (got.firstChild) inner.appendChild(got.firstChild); }
+      }
+      if (!list) { setHtml(inner, '<div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div>'); return; }
+      if (inner._h != null) inner.innerHTML = '';
+      inner._ch = c.id; inner._h = null;
+      morph(inner, channelParts(c));
       if (forceBottom || near) {
         var nw = forceBottom === 'unread' ? $('#ch-new', box) : null;
-        if (nw) box.scrollTop = Math.max(0, nw.offsetTop - 60); else box.scrollTop = box.scrollHeight;
+        if (nw) { box.scrollTop = Math.max(0, nw.offsetTop - 60); pinned = box.scrollHeight - box.scrollTop - box.clientHeight < 60; }
+        else { box.scrollTop = box.scrollHeight; pinned = true; }
       }
+      if (window.FavorChatView) window.FavorChatView.watch(inner);
     }
     function renderTyping() {
       var el = $('.ch-typing', root), t = S.typing[S.active] || {}, now = Date.now();
@@ -380,8 +547,8 @@
             return '<div class="ch-person">' + avatar(u, '', true) + '<span><b>' + esc(u.name) + (u.id === S.me.id ? ' (you)' : '') + '</b><small>' + esc(u.title || (u.presence === 'online' ? 'Active now' : u.presence === 'away' ? 'Away' : 'Offline')) + '</small></span>' + (c.created_by === u.id ? '<span class="ch-person__r">Created it</span>' : '') + '</div>';
           }).join('');
         } else {
-          var files = []; (S.msgs[c.id] || []).forEach(function (m) { (m.attachments || []).forEach(function (a) { if (a.type !== 'link') files.push({ a: a, m: m }); }); });
-          det = files.length ? files.reverse().map(function (f) { return '<div style="margin-bottom:8px">' + cardHtml(f.a).replace('class="ch-card', 'class="ch-card') + '<div class="ch-card__m" style="margin:2px 2px 0">' + esc(user(f.m.user_id).name) + ' · ' + esc(ago(f.m.created_at)) + '</div></div>'; }).join('') : '<div class="ch-empty">No files shared yet</div>';
+          var files = []; (S.msgs[c.id] || []).forEach(function (m) { (m.attachments || []).forEach(function (a, i) { if (a.type !== 'link') files.push({ a: a, m: m, i: i }); }); });
+          det = files.length ? files.reverse().map(function (f) { return '<div style="margin-bottom:8px">' + cardHtml(f.a, f.m, f.i) + '<div class="ch-card__m" style="margin:2px 2px 0">' + esc(user(f.m.user_id).name) + ' · ' + esc(ago(f.m.created_at)) + '</div></div>'; }).join('') : '<div class="ch-empty">No files shared yet</div>';
         }
         el.innerHTML = '<div class="ch-right__head"><button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to the channel">' + ic('back') + '</button><div><b>' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b><small>Details</small></div><button type="button" class="ch-iconbtn" data-act="close-right" aria-label="Close details">' + ic('x') + '</button></div>' + tabs + '<div class="ch-det">' + det + '</div>';
       }
@@ -389,7 +556,8 @@
     function setView(v) {
       S.view = v; root.dataset.view = v;
       document.body.classList.toggle('ch-deep', v !== 'list');
-      measure();
+      // Measured in the next frame, before it paints, so a tap never waits on a forced layout of the whole page.
+      measureSoon();
     }
     function measure() {
       // iOS keyboard: the visual viewport shrinks and Safari scrolls the page under it. While it is open, the chat fits the
@@ -445,9 +613,18 @@
       var next = function () {
         var id = ids.shift(); if (!id) return;
         if (S.msgs[id]) return next();
-        Promise.resolve(api.history(id)).then(function (r) { if (!S.msgs[id]) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; S.warm[id] = true; } }, function () {}).then(function () { setTimeout(next, 250); });
+        Promise.resolve(api.history(id)).then(function (r) { if (!S.msgs[id]) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; S.warm[id] = true; warmPictures(r.messages); (window.requestIdleCallback || function (f) { setTimeout(f, 50); })(function () {
+          // On the phone list, the channel the header already names is drawn into its (hidden) screen, so tapping it only slides.
+          if (id === S.active && S.view === 'list') renderMsgs('unread'); else prebuild(id);
+        }); } }, function () {}).then(function () { setTimeout(next, 250); });
       };
       setTimeout(next, 0);
+    }
+    // The newest pictures and clip posters of a channel read ahead are fetched too, so they are in place when the channel slides in.
+    function warmPictures(list) {
+      var urls = [];
+      (list || []).slice(-15).forEach(function (m) { (m.attachments || []).forEach(function (a) { if (a.type === 'clip' && a.thumb) urls.push(a.thumb); else if (a.type === 'file' && /^image\//.test(a.mime || '')) urls.push(a.url); }); });
+      urls.slice(-6).forEach(function (u) { var im = new Image(); im.decoding = 'async'; im.src = u; });
     }
     function markRead() {
       var c = chan(S.active), list = S.msgs[S.active];
@@ -529,6 +706,7 @@
         if (!m.visible_to) notifyIfNeeded(m, ch);
         return;
       }
+      if (S.typing[m.channel_id] && S.typing[m.channel_id][m.user_id]) { delete S.typing[m.channel_id][m.user_id]; if (S.active === m.channel_id) renderTyping(); }
       var list = S.msgs[m.channel_id];
       if (list) { if (list.some(function (x) { return String(x.id) === String(m.id); })) return; list.push(m); }
       if (S.active === m.channel_id && !document.hidden) { renderMsgs(mine ? true : false); if (!mine) markRead(); else { ch.last_read = m.id; api.read(m.channel_id, m.id); } renderSide(); }
@@ -556,6 +734,16 @@
       if (top + pr.height > rr.height - 8) top = Math.max(8, rr.height - pr.height - 8);
       pop.style.left = left + 'px'; pop.style.top = top + 'px';
       return pop;
+    }
+    // The message actions on a phone: quick reactions, then reply, copy, edit and delete as full-width rows.
+    function msgSheet(mid) {
+      var m = findMsg(mid); if (!m || m.deleted || m.visible_to) return;
+      var mine = m.user_id === S.me.id, inThread = !!m.thread_id;
+      var row = function (act, icon, label, danger) { return '<button type="button" class="ch-msheet__row' + (danger ? ' is-danger' : '') + '" data-act="' + act + '" data-id="' + m.id + '">' + ic(icon) + '<span>' + label + '</span></button>'; };
+      var quick = EMOJI;
+      openModal(user(m.user_id).name + ', ' + timeOf(m.created_at),
+        '<div class="ch-msheet"><div class="ch-msheet__rx">' + quick.map(function (q) { return '<button type="button" data-act="react" data-id="' + m.id + '" data-e="' + q + '" aria-label="React ' + q + '">' + q + '</button>'; }).join('') + '</div>' +
+        (inThread ? '' : row('thread', 'reply', 'Reply in thread')) + (m.body ? row('copy', 'file', 'Copy text') : '') + (mine ? row('edit', 'edit', 'Edit') + row('del', 'trash', 'Delete', true) : '') + '</div>', '');
     }
     function closeModal() { if (modal) { modal.remove(); modal = null; } }
     function openModal(title, bodyHtml, footHtml) {
@@ -803,7 +991,7 @@
       else if (ev.type === 'delete' && ev.purge) { purgeMessage(ev.id); }
       else if (ev.type === 'delete') { patchMessage(Object.assign({}, findMsg(ev.id) || { id: ev.id }, { deleted: true, body: '', attachments: [] })); }
       else if (ev.type === 'reaction') { var m = findMsg(ev.id); if (m) { m.reactions = ev.reactions; patchMessage(m); } }
-      else if (ev.type === 'typing') { (S.typing[ev.channel_id] = S.typing[ev.channel_id] || {})[ev.user_id] = Date.now(); if (S.active === ev.channel_id) { renderTyping(); setTimeout(renderTyping, 5200); } }
+      else if (ev.type === 'typing') { (S.typing[ev.channel_id] = S.typing[ev.channel_id] || {})[ev.user_id] = Date.now(); if (S.active === ev.channel_id) typingTick(); }
       else if (ev.type === 'presence') { if (S.users[ev.user_id]) { S.users[ev.user_id].presence = ev.presence; renderSide(); if (S.right === 'details') renderRight(); } }
       else if (ev.type === 'channel') { var prev = S.channels[ev.channel.id]; S.channels[ev.channel.id] = Object.assign(prev || {}, ev.channel); renderSide(); if (S.active === ev.channel.id) { renderHead(); if (S.right === 'details') renderRight(); } }
       else if (ev.type === 'users') { Object.assign(S.users, ev.users); renderSide(); }
@@ -844,10 +1032,16 @@
       shell.classList.remove('is-nav');
       ['h-bar-more', 'h-menu'].forEach(function (id) { var b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', 'false'); });
     }, true);
+    // A socket that drops and comes back within a few seconds (a phone waking up) shows nothing; a longer gap shows the line.
+    var connT = 0;
     function setConn(ok) {
-      S.connected = ok; var el = $('.ch-conn', root);
+      S.connected = ok; clearTimeout(connT);
+      var el = $('.ch-conn', root);
       if (ok) { if (el) el.remove(); return; }
-      if (!el) { el = document.createElement('div'); el.className = 'ch-conn'; el.textContent = 'Reconnecting'; root.appendChild(el); }
+      connT = setTimeout(function () {
+        if (S.connected || $('.ch-conn', root)) return;
+        var d = document.createElement('div'); d.className = 'ch-conn'; d.setAttribute('role', 'status'); d.textContent = navigator.onLine === false ? 'Offline' : 'Reconnecting'; root.appendChild(d);
+      }, 3000);
     }
     function findMsg(id) {
       var hit = null;
@@ -882,8 +1076,21 @@
     /* ------------------------------------------------------------------ DOM events */
     root.addEventListener('click', function (e) {
       var el = e.target.closest('[data-act]');
-      if (!el) { if (e.target.closest('.ch-msg') && isPhone() && !e.target.closest('a,button,textarea')) { var mm = e.target.closest('.ch-msg'); var was = mm.classList.contains('is-actions'); root.querySelectorAll('.ch-msg.is-actions').forEach(function (x) { x.classList.remove('is-actions'); }); if (!was) mm.classList.add('is-actions'); } return; }
+      if (modal && e.target === modal) { closeModal(); return; }
+      if (!el) {
+        // On a phone a tap on a message opens its actions as a sheet from the bottom. With the keyboard up, the tap only lowers it.
+        var mm = e.target.closest('.ch-msg');
+        if (mm && isPhone() && !e.target.closest('a,button,textarea,input,video,audio,.ch-vid,.ch-ans')) {
+          if (document.body.classList.contains('kb-open') && document.activeElement && document.activeElement.blur) { document.activeElement.blur(); return; }
+          msgSheet(mm.getAttribute('data-mid'));
+        }
+        return;
+      }
       var act = el.dataset.act, id = el.dataset.id, scope = el.dataset.scope;
+      if (modal && el.closest('.ch-msheet')) closeModal();
+      if (act === 'play') { playIn(el.closest('.ch-vid')); return; }
+      if (act === 'view') { openViewer(el.dataset.cm, Number(el.dataset.ai) || 0); return; }
+      if (act === 'copy') { var cm = findMsg(id); var txt = cm ? String(cm.body || '').replace(/<@([^>]+)>/g, function (_, u) { return '@' + (u === 'brain' ? 'Favor Brain' : user(u).name); }).replace(/<#[^>]+>/g, '') : ''; if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Copied'); }, function () { toast('Copy did not work'); }); return; }
       if (act === 'open') { closeSearch(); openChannel(id); }
       else if (act === 'back') back();
       else if (act === 'thread') openThread(id);
@@ -937,9 +1144,14 @@
       else if (act === 'modal-x') closeModal();
     });
     // A clip with no poster image shows the drawn placeholder instead of a broken picture.
+    // A clip poster or a Drive picture that will not load is remembered, so every later draw shows the placeholder instead.
     root.addEventListener('error', function (e) {
-      var im = e.target; if (!im || im.tagName !== 'IMG' || !im.closest('.ch-clip__thumb')) return;
-      var ph = document.createElement('span'); ph.className = 'ch-clip__scr'; ph.innerHTML = '<i></i><i></i><i></i><i></i>'; im.replaceWith(ph);
+      var im = e.target; if (!im || im.tagName !== 'IMG') return;
+      if (!im.closest('.ch-vid') && !im.closest('.ch-prev__pic')) return;
+      broken[im.getAttribute('src')] = 1;
+      im.hidden = true;
+      var pic = im.closest('.ch-prev__pic');
+      if (pic && im.dataset.fallback) { pic.innerHTML = '<span class="ch-file__ic" data-k="' + esc(im.dataset.k || 'file') + '">' + esc(im.dataset.fallback) + '</span>'; }
     }, true);
     root.addEventListener('mousedown', function (e) { if (pop && !pop.contains(e.target) && e.target !== popAnchor && !(popAnchor && popAnchor.contains && popAnchor.contains(e.target))) { closePop(); mentionState = null; } });
     root.addEventListener('submit', function (e) { var f = e.target.closest('.ch-comp'); if (f) { e.preventDefault(); send(f.dataset.scope); } });
@@ -986,18 +1198,42 @@
     }, true);
     document.addEventListener('visibilitychange', function () { if (!document.hidden) markRead(); });
     window.addEventListener('focus', markRead);
-    window.addEventListener('resize', measure);
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', measure); window.visualViewport.addEventListener('scroll', measure); }
-    // Typing in the composer means writing the next message: while the keyboard is open the newest messages stay in view.
+    // iOS sends many viewport events while the keyboard slides; the layout is measured once a frame, not once an event.
+    var measureQ = 0;
+    function measureSoon() { if (measureQ) return; measureQ = requestAnimationFrame(function () { measureQ = 0; measure(); }); }
+    window.addEventListener('resize', measureSoon);
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', measureSoon); window.visualViewport.addEventListener('scroll', measureSoon); }
+    // The keyboard opening keeps the newest message in view when the list was at the bottom (the pin below does that), and
+    // leaves a person reading further up where they were. The thread does the same once, as the keyboard opens.
+    var kbWas = false;
     window.addEventListener('hub-kb', function () {
-      measure();
-      if (!document.body.classList.contains('kb-open')) return;
-      requestAnimationFrame(function () { [$('.ch-msgs', root), $('.ch-right .ch-thread__body', root)].forEach(function (b) { if (b) b.scrollTop = b.scrollHeight; }); });
+      measureSoon();
+      var open = document.body.classList.contains('kb-open');
+      if (open && !kbWas) { var tb = $('.ch-right .ch-thread__body', root); if (tb && tb.scrollHeight - tb.scrollTop - tb.clientHeight < 140) requestAnimationFrame(function () { tb.scrollTop = tb.scrollHeight; }); }
+      kbWas = open;
     });
+    // The newest message stays in view while pictures, previews and link cards arrive above it, and while the keyboard shrinks
+    // the list. Scrolling up turns this off until the list is back at the bottom.
+    (function () {
+      var box = $('.ch-msgs', root), inner = $('.ch-msgs__in', root);
+      if (!box) return;
+      // Only a scroll upward unpins. The browser moving the list down by itself (content above settling) keeps the pin.
+      var lastTop = box.scrollTop;
+      box.addEventListener('scroll', function () {
+        var gap = box.scrollHeight - box.scrollTop - box.clientHeight;
+        pinned = gap < 60 || (pinned && box.scrollTop >= lastTop - 2);
+        lastTop = box.scrollTop;
+      }, { passive: true });
+      if ('ResizeObserver' in window) { var ro = new ResizeObserver(function () { if (pinned && S.view !== 'list') box.scrollTop = box.scrollHeight; }); ro.observe(box); if (inner) ro.observe(inner); }
+    })();
     // The hub reloads the page on any popstate it does not own. Chat's screens (list, channel, thread) own theirs, so this listener
     // runs first (capture, at the window) and keeps the hub out of it while a channel or thread is open.
     window.addEventListener('popstate', function (e) {
-      if (!root.isConnected || S.view === 'list') return;
+      if (!root.isConnected) return;
+      // The file viewer owns one history step: Back closes it and leaves the chat as it was.
+      if (viewPop) { viewPop = false; e.stopImmediatePropagation(); return; }
+      if (window.FavorChatView && window.FavorChatView.isOpen()) { e.stopImmediatePropagation(); viewBack = true; window.FavorChatView.close(); return; }
+      if (S.view === 'list') return;
       // Back while the huddle sheet is open closes the sheet (the hub's overlay stack handles it), and the channel stays.
       if (window.FavorPrejoin && window.FavorPrejoin.isOpen()) return;
       e.stopImmediatePropagation();
@@ -1006,7 +1242,9 @@
       if (v === 'channel') { S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('channel'); renderRight(); renderHead(); return; }
       S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('list'); renderRight();
     }, true);
-    setInterval(function () { if (root.isConnected) renderTyping(); }, 2000);
+    // The typing line clears itself; the timer runs only while someone is typing.
+    var typingT = 0;
+    function typingTick() { clearTimeout(typingT); renderTyping(); var t = S.typing[S.active] || {}, now = Date.now(); if (Object.keys(t).some(function (id) { return id !== S.me.id && now - t[id] < 5000; })) typingT = setTimeout(typingTick, 1000); }
 
     function focusMessage(id) {
       var tries = 0;
@@ -1030,9 +1268,21 @@
     var wantId = null;
     try { wantId = opts.initial || localStorage.getItem('favor.chat.last'); } catch (e) { wantId = opts.initial || null; }
     var early = wantId && (!isPhone() || opts.initial) ? Promise.resolve(api.history(wantId)).then(function (r) { return { id: wantId, r: r }; }, function () { return null; }) : Promise.resolve(null);
+    // The channel list from this tab's last visit draws at once (rows, names, badges), then the fresh list replaces it in place.
+    // Kept for this tab only, without any message text.
+    var CACHE = 'favor.chat.boot.v1', cachedPaint = false;
+    try {
+      var cb = JSON.parse(sessionStorage.getItem(CACHE) || 'null');
+      if (cb && cb.me && Date.now() - cb.at < 30 * 60000) {
+        S.me = cb.me; S.users = cb.users || {}; (cb.channels || []).forEach(function (c) { S.channels[c.id] = c; });
+        root.removeAttribute('data-boot'); renderSide(); cachedPaint = true;
+      }
+    } catch (e) { /* no cache */ }
     return guard(Promise.all([api.boot(), early])).then(function (both) {
       var b = both[0], pre = both[1];
+      try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), me: b.me, users: b.users, channels: b.channels })); } catch (e) { /* full or private */ }
       S.me = b.me; S.users = b.users || {}; S.users[S.me.id] = Object.assign({}, S.users[S.me.id] || {}, S.me);
+      if (cachedPaint) S.channels = {};
       (b.channels || []).forEach(function (c) { S.channels[c.id] = c; });
       var saved = null;
       try { saved = localStorage.getItem('favor.chat.last'); } catch (e) { /* private mode */ }

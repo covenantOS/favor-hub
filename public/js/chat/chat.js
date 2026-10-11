@@ -28,13 +28,13 @@
       if (everOpen || Date.now() - lastSeen > 20000) emit({ type: 'resync' });
       everOpen = true;
     };
-    ws.onmessage = function (e) { if (e.data === 'pong') return; try { lastSeen = Date.now(); emit(JSON.parse(e.data)); } catch (_) { /* not ours */ } };
+    ws.onmessage = function (e) { lastSeen = Date.now(); clearTimeout(checkT); if (e.data === 'pong') return; try { emit(JSON.parse(e.data)); } catch (_) { /* not ours */ } };
     ws.onclose = function () {
       clearInterval(pingT);
       if (closedByUs) return;
       emit({ type: 'conn', ok: false });
       retry = Math.min(retry + 1, 6);
-      setTimeout(connect, Math.min(30000, 800 * Math.pow(2, retry)));
+      setTimeout(connect, retry <= 1 ? 250 : Math.min(30000, 800 * Math.pow(2, retry)));
       fallback();
     };
     ws.onerror = function () { /* onclose follows */ };
@@ -43,10 +43,24 @@
     if (pollT) return;
     pollT = setInterval(function () { if (!document.hidden) emit({ type: 'resync' }); }, 20000);
   }
+  // A phone that was locked or lost its signal can hold a socket that looks open and carries nothing. Coming back, the page asks
+  // the room for a pong; no answer in four seconds means a new socket, and a new socket catches up on what was missed.
+  var checkT = 0, hiddenAt = 0;
+  function check() {
+    if (!ws || ws.readyState !== 1) { connect(); return; }
+    clearTimeout(checkT);
+    try { ws.send('ping'); } catch (_) { /* closing */ }
+    checkT = setTimeout(function () { if (ws && ws.readyState === 1) { try { ws.close(); } catch (_) { /* gone */ } } }, 4000);
+  }
   document.addEventListener('visibilitychange', function () {
+    if (document.hidden) hiddenAt = Date.now();
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'p', s: document.hidden ? 'away' : 'online' }));
-    if (!document.hidden && (!ws || ws.readyState !== 1)) connect();
+    if (document.hidden) return;
+    if (!ws || ws.readyState !== 1) { retry = 0; connect(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 10000) check();
   });
+  window.addEventListener('online', function () { retry = 0; check(); });
+  window.addEventListener('offline', function () { emit({ type: 'conn', ok: false }); });
 
   /* ------------------------------------------------------------------ clips recorded from a channel */
   var pendingClip = null;
