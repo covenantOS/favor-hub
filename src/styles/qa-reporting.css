@@ -2,7 +2,7 @@
 
 /* Phones: tap targets at least 44 px, and the field text is 16 px so Safari does not zoom. */
 @media (max-width: 860px) {
-  .h-tab { min-height: 44px; }
+  body.h-body .h-tab { min-height: 44px; }
   #rp-app .rp-find input { font-size: 16px; }
   #rp-app .rp-f--dd { min-width: 0; max-width: 100%; box-sizing: border-box; overflow: hidden; }
   #rp-app .rp-f--dd select { min-width: 0; max-width: 100%; box-sizing: border-box; }
