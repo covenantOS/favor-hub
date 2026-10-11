@@ -171,7 +171,7 @@
       const body = shown.map((r) => `<tr>${s.columns.map((c) => `<td class="${c.type === 'money' || c.type === 'int' ? 'r' : ''}">${cell(c, r[c.key])}</td>`).join('')}</tr>`).join('');
       const more = s.rows.length > PAGE ? `<p class="dr-note">Showing ${count(PAGE)} of ${count(s.rows.length)} rows. The sheet and the CSV have every row.</p>` : '';
       const trunc = s.truncated ? `<p class="dr-note">${esc(s.truncated)}</p>` : '';
-      rows = `<section class="dr-rows"><h3>${esc(s.rowsLabel || 'Rows behind it')} <span>${count(s.rows.length)}</span></h3>${s.rows.length ? `<div style="overflow-x:auto"><table class="dr-tbl"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${more}` : '<p class="dr-note">No rows.</p>'}${trunc}</section>`;
+      rows = `<section class="dr-rows"><h3>${esc(s.rowsLabel || 'Rows behind it')} <span>${count(s.rows.length)}</span></h3>${s.rows.length ? `<div style="overflow-x:auto"><table class="dr-tbl sc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${more}` : '<p class="dr-note">No rows.</p>'}${trunc}</section>`;
     }
     const acts = `<div class="dr-acts">${s.rows && s.rows.length ? '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="drill">Open in Google Sheets</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-dr-csv>Download CSV</button>' : ''}</div>`;
     const err = s.error ? `<div class="dr-msg" role="status">${esc(s.error)}</div>` : '';

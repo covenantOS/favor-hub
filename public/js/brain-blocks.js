@@ -53,7 +53,7 @@
     const head = cells(rows[0]);
     const body = rows.slice(2).map(cells);
     const num = head.map((_, i) => body.length > 0 && body.every((r) => !r[i] || NUM.test(r[i])));
-    return `<div class="md-tbl"><table><thead><tr>${head.map((h, i) => `<th${num[i] ? ' class="is-num"' : ''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body
+    return `<div class="md-tbl"><table class="sc-table"><thead><tr>${head.map((h, i) => `<th${num[i] ? ' class="is-num"' : ''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body
       .map((r) => `<tr>${head.map((_, i) => `<td${num[i] ? ' class="is-num"' : ''}>${/^https?:\/\/\S+$/.test(r[i] || '') ? `<a href="${esc(r[i])}" target="_blank" rel="noopener">Open</a>` : inline(r[i] || '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   }
   function md(text) {
@@ -167,7 +167,7 @@
     const rows = tableRows(tb);
     const show = all ? rows : rows.slice(0, tb.preview || 8);
     const cols = all ? tb.cols : tb.cols.filter((c) => !c.panel_only);
-    let h = `<table class="t"><caption class="bc-sr">${esc(tb.title)}, ${rows.length} rows</caption><thead><tr>`;
+    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${rows.length} rows</caption><thead><tr>`;
     cols.forEach((c) => {
       const s = tb.sort === c.key ? ` aria-sort="${tb.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
       h += `<th class="${isNum(c) ? 'num' : ''}"${s}><button type="button" data-act="sort" data-tb="${tb.id}" data-k="${esc(c.key)}">${esc(c.label)}${ic('sort', 'h-i ar')}</button></th>`;

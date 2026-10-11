@@ -791,7 +791,7 @@
         }</p>
         ${
           groups.length
-            ? `<table class="exp-admin-table fnd-clean"><thead><tr><th>Foundation</th><th>Its Blackbaud record</th><th>Contacts to move</th></tr></thead><tbody>${groups
+            ? `<table class="exp-admin-table fnd-clean sc-table"><thead><tr><th>Foundation</th><th>Its Blackbaud record</th><th>Contacts to move</th></tr></thead><tbody>${groups
                 .map(
                   (g) => `<tr class="exp-admin-row" data-id="${esc(g.id)}"><td><span class="fnd-name">${esc(g.name)}</span></td>
                     <td>#${esc(g.lookup)}<span class="fnd-sub">${esc(g.why || '')}</span></td>
@@ -810,7 +810,7 @@
         }</p>
         ${
           T.length
-            ? `<table class="exp-admin-table fnd-clean"><thead><tr><th>Record</th><th>Made</th><th class="r">Contacts</th><th>Last contact</th></tr></thead><tbody>${T.map(
+            ? `<table class="exp-admin-table fnd-clean sc-table"><thead><tr><th>Record</th><th>Made</th><th class="r">Contacts</th><th>Last contact</th></tr></thead><tbody>${T.map(
                 (t) => `<tr><td><span class="fnd-name">${esc(t.name)}</span><span class="fnd-sub">#${esc(t.lookup_id)}</span></td><td class="mono">${day(t.made)}</td><td class="r mono">${t.contacts}</td><td class="mono">${day(t.last)}</td></tr>`
               ).join('')}</tbody></table>`
             : ''
