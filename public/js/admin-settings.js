@@ -20,7 +20,7 @@
     var id = 'f-' + s.id.replace(/\W/g, '-');
     var who = s.saved && s.by ? 'Saved by ' + s.by + ', ' + A.full(s.at) : s.saved ? 'Saved ' + (s.at ? A.full(s.at) : '') : 'Not changed yet';
     return '<div class="ad-set" data-row="' + E(s.id) + '"><div><label class="ad-set__name" for="' + id + '">' + E(s.label) + (s.bb ? '<span class="ad-bbtag">Blackbaud</span>' : '') + '</label>' +
-      (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + '<div class="ad-set__where">' + E(s.where) + '. ' + E(who) + '.</div></div>' +
+      (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + '<div class="ad-set__where">' + E(who) + '.</div></div>' +
       '<div>' + control(s) + '</div><div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-save="' + E(s.id) + '" disabled>Save</button>' +
       (s.canReset ? '<button type="button" class="ad-btn" data-reset="' + E(s.id) + '">Use ' + (s.id.indexOf('meet.') === 0 || s.id === 'receipts.report' ? 'the Pages value' : 'the default') + '</button>' : '') + '</div>' +
       '<p class="ad-msg" data-msg="' + E(s.id) + '" role="status"></p></div>';
