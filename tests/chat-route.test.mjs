@@ -272,18 +272,53 @@ test('the meeting button opens one meeting per channel: a second press joins it,
   assert.equal(first.status, 200, JSON.stringify(first.data));
   assert.equal(first.data.joined, false);
   const id = first.data.message.attachments[0].id;
-  assert.equal(first.data.url, `/meet/room/?m=${id}&now=1`);
+  assert.equal(first.data.url, `/meet/room/?m=${id}`);
+  assert.equal(first.data.id, id);
   const again = await call(w, ADMIN2, 'POST', `channels/${GEN}/meeting`);
   assert.equal(again.data.joined, true, 'a second press joins the open meeting');
-  assert.equal(again.data.url, `/meet/room/?m=${id}&now=1`);
+  assert.equal(again.data.url, `/meet/room/?m=${id}`);
   assert.equal(again.data.message, undefined, 'no second card');
   assert.equal(w.d1.db.prepare('SELECT COUNT(*) AS n FROM chat_meetings').get().n, 1);
-  // Twenty minutes on with nobody in the room: the card reads ended, and the next press ends it and starts a new one.
+  // A minute on with nobody in the room: the card reads ended, and the next press ends it and starts a new one.
   w.d1.db.prepare("UPDATE hub_meetings SET created_at = '2026-01-01T00:00:00Z' WHERE id = ?").run(id);
   const later = await call(w, ADMIN, 'POST', `channels/${GEN}/meeting`);
   assert.equal(later.data.joined, false);
   assert.notEqual(later.data.message.attachments[0].id, id);
   assert.equal(w.d1.db.prepare('SELECT status FROM hub_meetings WHERE id = ?').get(id).status, 'ended');
+});
+
+test('the huddle bar: who is in the room comes from heartbeats, and a room everyone left reads ended within 20 seconds', async () => {
+  const w = world();
+  for (const u of [ADMIN, ADMIN2]) await call(w, u, 'GET', 'boot');
+  assert.equal((await call(w, ADMIN, 'GET', `channels/${GEN}/huddle`)).data.huddle, null, 'no huddle yet');
+  w.events.length = 0;
+  const first = await call(w, ADMIN, 'POST', `channels/${GEN}/meeting`);
+  const id = first.data.id;
+  const news = w.events.find((e) => e.event.type === 'huddle');
+  assert.ok(news, 'starting a huddle tells the channel');
+  assert.equal(news.event.huddle.id, id);
+  assert.match(w.d1.db.prepare('SELECT title FROM hub_meetings WHERE id = ?').get(id).title, /^Huddle in #general$/);
+  // Two people in the room, one of them on two devices: two faces.
+  const now = Date.now();
+  const add = (pid, email, name, seen) => w.d1.db.prepare("INSERT INTO hub_meeting_presence (meeting_id, pid, email, name, role, session_id, tracks, mic, cam, joined_at, seen) VALUES (?, ?, ?, ?, 'staff', 's', '[]', 1, 0, ?, ?)").run(id, pid, email, name, now - 5000, seen);
+  w.d1.db.prepare('UPDATE hub_meetings SET started_at = ? WHERE id = ?').run(new Date(now - 5000).toISOString(), id);
+  add('aaaaaaaaaaaa', ADMIN.email, 'Ann Admin', now);
+  add('bbbbbbbbbbbb', ADMIN2.email, 'Bo', now);
+  add('cccccccccccc', ADMIN2.email, 'Bo', now);
+  const live = (await call(w, ADMIN2, 'GET', `channels/${GEN}/huddle`)).data.huddle;
+  assert.equal(live.id, id);
+  assert.equal(live.live, true);
+  assert.equal(live.people.length, 2, 'one face per person');
+  const card = (await call(w, ADMIN2, 'GET', `channels/${GEN}/messages`)).data.messages.find((m) => m.attachments && m.attachments[0] && m.attachments[0].type === 'meeting').attachments[0];
+  assert.equal(card.status, 'live');
+  assert.equal(card.count, 2);
+  // Everyone closed the tab without pressing Leave: 21 seconds after the last heartbeat nobody is in the room.
+  w.d1.db.prepare('UPDATE hub_meeting_presence SET seen = ? WHERE meeting_id = ?').run(now - 21_000, id);
+  const card2 = (await call(w, ADMIN2, 'GET', `channels/${GEN}/messages`)).data.messages.find((m) => m.attachments && m.attachments[0] && m.attachments[0].type === 'meeting').attachments[0];
+  assert.equal(card2.status, 'ended', 'the card stops reading Live now');
+  assert.equal(card2.count, 0);
+  assert.equal((await call(w, ADMIN, 'GET', `channels/${GEN}/huddle`)).data.huddle, null, 'the bar goes away');
+  assert.equal(w.d1.db.prepare('SELECT status FROM hub_meetings WHERE id = ?').get(id).status, 'ended', 'and the empty room is closed');
 });
 
 test('a meeting started from a channel posts a Join card; ending it and its notes post back', async () => {

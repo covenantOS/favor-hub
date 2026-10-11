@@ -6,6 +6,7 @@ import * as store from './db';
 import { MEETINGS_ID } from './text';
 import { hydrateAttachments } from './hydrate';
 import { publish, type LiveEnv } from './live';
+import { huddleOf } from './huddle';
 
 interface Link { channel_id: string; message_id: number; notes_posted: number }
 
@@ -20,9 +21,22 @@ async function refreshCard(env: LiveEnv, link: Link): Promise<void> {
   await publish(env, await store.membersOf(env, link.channel_id), { type: 'edit', message: msg });
 }
 
+/** Tells the channel's members who is in its huddle now, so the huddle bar and the card update without a reload. */
+async function pushHuddle(env: LiveEnv, link: Link): Promise<void> {
+  await publish(env, await store.membersOf(env, link.channel_id), { type: 'huddle', channel_id: link.channel_id, huddle: await huddleOf(env, link.channel_id) });
+}
+
 export async function chatMeetingEnded(env: Env, meetingId: string): Promise<void> {
   const link = await linkOf(env, meetingId);
-  if (link) await refreshCard(env as LiveEnv, link);
+  if (!link) return;
+  await refreshCard(env as LiveEnv, link);
+  await pushHuddle(env as LiveEnv, link);
+}
+
+/** Someone joined or left a huddle started from Chat. Nothing happens for a meeting that was not. */
+export async function chatHuddleChanged(env: Env, meetingId: string): Promise<void> {
+  const link = await linkOf(env, meetingId);
+  if (link) await pushHuddle(env as LiveEnv, link);
 }
 
 /** The notes are ready: the card flips to "Notes ready" and a summary lands in the card's thread. */

@@ -16,7 +16,7 @@ import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
 import { meetSettings, withMeetSettings } from './admin/settings';
-import { chatMeetingEnded, chatNotesReady } from './chat/meet';
+import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
@@ -33,6 +33,8 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     const m = request.method;
     // The moment a meeting ends the notes start; the five-minute cron and the open notes page only finish what this leaves.
     const onEnd = (mid: string) => { if (waitUntil) waitUntil(pumpAfterEnd(env, mid)); };
+    // A join or a leave in a huddle started from Chat updates the channel's huddle bar for everyone in the channel.
+    const huddleNews = (mid: string) => { const p = chatHuddleChanged(env, mid).catch((err) => console.warn('[chat] huddle news', err)); if (waitUntil) waitUntil(p); };
     if (parts[0] !== 'meetings') return errorJson('not_found', 'Not found.', 404);
     const sub0 = parts[2] || '';
     if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
@@ -56,16 +58,19 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (!sub && m === 'GET') {
       const mt = await getMeeting(env, id);
       if (!mayJoin(mt, user)) return errorJson('not_found', 'That meeting does not exist.', 404);
-      const here = await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? ORDER BY joined_at LIMIT 12').bind(id, Date.now() - GONE_MS).all<{ name: string }>();
-      return json({ ok: true, meeting: publicMeeting(mt, user), guestsEnabled: guestsOn(env), present: (here.results || []).map((r) => r.name) });
+      // Who is in the room now (a heartbeat in the last 20 seconds), for the lobby and the pre-join sheet. The pid lets a page
+      // leave out its own earlier visit.
+      const here = await env.DB.prepare('SELECT pid, name, lower(email) AS email FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? ORDER BY joined_at LIMIT 24').bind(id, Date.now() - GONE_MS).all<{ pid: string; name: string; email: string }>();
+      const rows = here.results || [];
+      return json({ ok: true, meeting: publicMeeting(mt, user), guestsEnabled: guestsOn(env), present: rows.map((r) => r.name), people: rows.map((r) => ({ pid: r.pid, name: r.name, email: r.email })) });
     }
     if (sub === 'guestinfo' && m === 'GET') return json(await guestInfo(env, id, new URL(request.url).searchParams.get('k') || ''));
     if (sub === 'guestlink' && m === 'POST') return json(await guestLink(env, user, id, new URL(request.url).origin));
     if (sub === 'join' && m === 'POST' && guestMode) return json(await joinGuest(env, id, await request.json().catch(() => ({})), clientIpOf(request), request.headers.get('X-Guest-Token') || ''));
-    if (sub === 'join' && m === 'POST') return json(await join(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'join' && m === 'POST') { const r = await join(env, user, id, await request.json().catch(() => ({}))); huddleNews(id); return json(r); }
     if (sub === 'sync' && m === 'POST') return json(await sync(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'event' && m === 'POST') return json(await postEvent(env, user, id, await request.json().catch(() => ({})), onEnd));
-    if (sub === 'leave' && m === 'POST') return json(await leave(env, user, id, await request.json().catch(() => ({})), onEnd));
+    if (sub === 'leave' && m === 'POST') { const r = await leave(env, user, id, await request.json().catch(() => ({})), onEnd); huddleNews(id); return json(r); }
     if (sub === 'tracks' && m === 'POST') return json(await setTracks(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
@@ -105,15 +110,21 @@ export async function endMeeting(env: MeetEnv, id: string) {
   await chatMeetingEnded(env, id).catch((err) => console.warn('[chat] meeting end', err));
 }
 
-/** A live meeting whose people have all stopped sending heartbeats (browsers closed without Leave) is over. The cron, pumping and the Meetings list all run it. */
+/**
+ * A live meeting whose people have all stopped sending heartbeats (browsers closed without Leave, a phone locked, the network
+ * gone) is over. A huddle from Chat ends 30 seconds after the last heartbeat; a booked meeting waits 90 seconds, so a host
+ * whose connection drops for a moment comes back to the same meeting. The cron, pumping and the Meetings list all run it.
+ */
 const STALE_ROOM_MS = 90_000;
+const STALE_HUDDLE_MS = 30_000;
 async function endStaleMeetings(env: MeetEnv) {
-  const cutoff = Date.now() - STALE_ROOM_MS;
-  const live = await env.DB.prepare(`SELECT id FROM hub_meetings WHERE status = 'live'`).all<{ id: string }>();
+  const now = Date.now();
+  const live = await env.DB.prepare(`SELECT m.id, (SELECT 1 FROM chat_meetings c WHERE c.meeting_id = m.id) AS huddle FROM hub_meetings m WHERE m.status = 'live'`).all<{ id: string; huddle: number | null }>()
+    .catch(() => env.DB.prepare(`SELECT id, NULL AS huddle FROM hub_meetings WHERE status = 'live'`).all<{ id: string; huddle: number | null }>());
   let ended = 0;
   for (const r of live.results || []) {
     const p = await env.DB.prepare('SELECT MAX(seen) AS s FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0').bind(r.id).first<{ s: number | null }>();
-    if (!p?.s || p.s < cutoff) { await endMeeting(env, r.id); ended++; }
+    if (!p?.s || p.s < now - (r.huddle ? STALE_HUDDLE_MS : STALE_ROOM_MS)) { await endMeeting(env, r.id); ended++; }
   }
   return ended;
 }
@@ -163,7 +174,7 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
         ? await stmt.bind(me).all<Meeting>()
         : await stmt.bind(me, new Date(Date.now() - 12 * 3600_000).toISOString(), new Date(Date.now() - 3600_000).toISOString()).all<Meeting>();
   const counts = await env.DB.prepare(
-    `SELECT meeting_id, COUNT(*) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND seen > ? GROUP BY meeting_id`
+    `SELECT meeting_id, COUNT(DISTINCT lower(email)) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? GROUP BY meeting_id`
   ).bind(Date.now() - GONE_MS).all<{ meeting_id: string; n: number }>();
   const inRoom = new Map((counts.results || []).map((c) => [c.meeting_id, c.n]));
   const found = scope === 'recent' || scope === 'notes' ? await withLedMeetings(env, user, scope, rows.results || [], scope === 'notes' ? q : '') : rows.results || [];
@@ -454,6 +465,13 @@ async function setTracks(env: MeetEnv, user: { email: string }, id: string, b: R
 async function leave(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>, onEnd?: (id: string) => void) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email).catch(() => null);
   if (!me) return { ok: true };
+  // An iPhone page going to the background: Safari stops its microphone, so the person drops out of the count now. Their next
+  // heartbeat, when the page is back, puts them back in. The room is not ended here; the stale check does that if nobody returns.
+  if (b.away === true) {
+    await env.DB.prepare('UPDATE hub_meeting_presence SET seen = ? WHERE meeting_id = ? AND pid = ? AND left_at = 0').bind(Date.now() - GONE_MS - 1, id, me.pid).run();
+    return { ok: true };
+  }
+  if (me.left_at) return { ok: true };
   await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ?, tracks = ? WHERE meeting_id = ? AND pid = ?').bind(Date.now(), '[]', id, me.pid).run();
   await addEvent(env, id, 'notice', me.pid, '', { a: 'left', name: me.name });
   await endIfEmpty(env, id, onEnd);

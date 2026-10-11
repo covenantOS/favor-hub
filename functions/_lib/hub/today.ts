@@ -113,7 +113,8 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.admin ? brainPending(env) : null,
     feedbackWaiting(env, user, access),
     access.workCenter && request ? workOpenCount(env, request).catch(() => 0) : 0,
-    access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings WHERE status = 'live'").first<{ n: number }>().catch(() => null) : null,
+    // Meetings with someone in the room now (a heartbeat in the last 20 seconds), so the count drops when the last person goes.
+    access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
   ]);
   return {

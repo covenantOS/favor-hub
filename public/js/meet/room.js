@@ -13,6 +13,20 @@ const GUEST = MODE.guest;
 const GKEY = params.get('k') || '';
 if (GUEST) { FEATURES.brain = false; FEATURES.captions = false; MODE.token = sessionStorage.getItem('meet.gtoken.' + MID) || ''; }
 const nav = (staff, guest) => (GUEST ? guest : staff);
+// The page the person came from (a Chat channel, Meetings), so Leave takes them back there. Only a path on this site.
+const BACK = (() => { const b = params.get('back') || ''; return /^\/(?!\/)[^\s]*$/.test(b) && !b.startsWith('/meet/room') ? b : ''; })();
+const backLabel = () => (BACK.startsWith('/chat') ? 'Back to Chat' : BACK.startsWith('/meet') ? 'Back to Meetings' : 'Go back');
+// Choices from the pre-join sheet (public/js/meet/prejoin.js): used once, within two minutes, for this meeting only.
+const PRE = (() => {
+  if (GUEST || params.get('pj') !== '1') return null;
+  try {
+    const p = JSON.parse(sessionStorage.getItem('meet.prejoin') || 'null');
+    sessionStorage.removeItem('meet.prejoin');
+    return p && p.mid === MID && Date.now() - p.at < 120_000 ? p : null;
+  } catch { return null; }
+})();
+// iPhone and iPad Safari stop the microphone when the page goes to the background; there the person steps out of the count at once.
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
@@ -34,10 +48,12 @@ async function boot() {
     S.meeting = GUEST ? { id: MID, title: r.title, hostName: r.host, rec: r.rec, status: r.status, startsAt: r.startsAt, backupLink: '', notesStatus: 'none', locked: r.locked } : r.meeting;
     S.guestsEnabled = !!r.guestsEnabled;
     S.present = r.present || [];
+    S.here = r.people || null;
     document.title = S.meeting.title + ' - Favor Hub';
     const t = $('.h-top__title'); if (t) t.textContent = S.meeting.title;
     if (GUEST && S.meeting.status === 'ended' && !(S.meeting.startsAt && Date.parse(S.meeting.startsAt) > Date.now())) return ended('This meeting has ended');
     if (S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000) return ended();
+    if (PRE && S.meeting.status !== 'cancelled') return quickEnter(PRE);
     lobby();
   } catch (e) {
     root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto"><h2 class="mt-h2">${e.status === 404 ? 'That meeting is not available' : 'Could not open the meeting'}</h2><p class="mt-sub" style="font-size:14px">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a></div>`;
@@ -47,7 +63,7 @@ async function boot() {
 function ended(msg, sub, opts = {}) {
   const notes = () => S.meeting && S.meeting.notesStatus && S.meeting.notesStatus !== 'none';
   const canRejoin = !opts.noRejoin && !(S.meeting && S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000);
-  const links = () => (GUEST || opts.saving ? '' : `<a class="h-btn ${canRejoin ? 'h-btn--ghost' : 'h-btn--primary'}" href="/meet/">Back to meetings</a>${notes() ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`);
+  const links = () => (GUEST || opts.saving ? '' : `${BACK ? `<a class="h-btn h-btn--ghost" href="${esc(BACK)}">${esc(backLabel())}</a>` : `<a class="h-btn ${canRejoin ? 'h-btn--ghost' : 'h-btn--primary'}" href="/meet/">Back to meetings</a>`}${notes() ? `<a class="h-btn h-btn--ghost" href="/meet/notes/?m=${S.meeting.id}">Open the notes</a>` : ''}`);
   root.innerHTML = `<div class="h-card mt-card mt-ended" style="max-width:560px;margin:12vh auto 20px;display:grid;gap:12px"><h2 class="mt-h2">${esc(msg || 'This meeting has ended')}</h2><p class="mt-sub" style="font-size:14px;margin:0">${sub ? esc(sub) : !GUEST && notes() ? 'The notes are in Meeting notes.' : ''}</p><div style="display:flex;gap:10px;flex-wrap:wrap" id="end-acts">${canRejoin ? '<button class="h-btn h-btn--primary" id="rejoin-btn">Rejoin</button>' : ''}<span id="end-links" style="display:contents">${links()}</span></div></div>`;
   const rj = $('#rejoin-btn'); if (rj) { rj.addEventListener('click', rejoinAfterLeave); rj.focus(); }
   const ask = document.getElementById('nudge-ask'); const card = root.querySelector('.mt-ended'); if (ask && card) card.appendChild(ask);
@@ -85,7 +101,7 @@ async function lobby() {
   const name = GUEST ? '' : (await whoami()).name || '';
   const consent = GUEST && m.rec !== 'off' ? `<label class="lb-consent"><input type="checkbox" id="lb-consent" /><div><b>I agree to be recorded</b><span>${m.rec === 'video' ? 'Video and sound are recorded and written up.' : 'The sound is recorded to make notes.'} Florida law asks every person for consent.</span></div></label>` : '';
   const when = whenLine(m);
-  const inRoom = !GUEST && S.present && S.present.length ? `<div class="lb-in">${S.present.slice(0, 4).map((n) => av(n)).join('')}<span>${esc(S.present.slice(0, 3).join(', '))}${S.present.length > 3 ? ' and ' + (S.present.length - 3) + ' more' : ''} ${S.present.length === 1 ? 'is' : 'are'} in the room.</span></div>` : '';
+  const inRoom = GUEST ? '' : `<div class="lb-in" id="lb-in">${hereLine()}</div>`;
   root.innerHTML = `<div class="h-card mt-card lobby" style="max-width:980px;margin:6px auto"><div class="prev" id="lb-prev"><video id="lb-video" muted playsinline autoplay></video><span class="face" id="lb-face">${esc(initials(name))}</span><div class="cl"><button class="cb is-on" id="lb-mic" aria-label="Microphone" aria-pressed="true"><span class="k">${ic('mic')}</span></button><button class="cb is-on" id="lb-cam" aria-label="Camera" aria-pressed="true"><span class="k">${ic('video')}</span></button></div></div>
     <div style="display:grid;gap:12px"><div class="h-label">Ready to join?</div><h2 class="mt-h2" style="font-size:28px">${esc(m.title)}</h2>
       <p class="lb-line"><span>${esc(m.hostName ? 'Host: ' + m.hostName : '')}</span>${when ? `<span>${esc(when)}</span>` : ''}</p>${inRoom}
@@ -108,8 +124,41 @@ async function lobby() {
   }
   const help = permHelp(denied); if (help) { const h = $('#lb-help'); if (h) { h.textContent = help; h.hidden = false; } }
   lobbyButtons(); lobbyVideo(); lobbyDevices(); lobbyMeter();
-  // A huddle from a Chat channel (?now=1) skips the preview: sound on, camera off, straight into the room, once.
-  if (params.get('now') === '1' && !GUEST && !lobby.went) { lobby.went = true; S.cam = false; lobbyButtons(); lobbyVideo(); enter(); }
+  watchHere();
+}
+// The names in the room now. A row with this tab's own pid is a visit from before a reload, not a person.
+function hereNames() {
+  if (S.here) return S.here.filter((p) => p.pid !== S.me.pid).map((p) => p.name);
+  return S.present || [];
+}
+function hereLine() {
+  const n = hereNames();
+  if (!n.length) return '<span>Nobody is in the room yet.</span>';
+  return `${n.slice(0, 4).map((x) => av(x)).join('')}<span>${esc(n.slice(0, 3).join(', '))}${n.length > 3 ? ' and ' + (n.length - 3) + ' more' : ''} ${n.length === 1 ? 'is' : 'are'} in the room.</span>`;
+}
+let hereTimer = null;
+function watchHere() {
+  if (GUEST || hereTimer) return;
+  hereTimer = setInterval(async () => {
+    const el = $('#lb-in');
+    if (!el || S.joined) { clearInterval(hereTimer); hereTimer = null; return; }
+    if (document.hidden) return;
+    try { const r = await api('meetings/' + MID); S.here = r.people || null; S.present = r.present || []; if (r.meeting) S.meeting.status = r.meeting.status; el.innerHTML = hereLine(); } catch {}
+  }, 4000);
+}
+// From the pre-join sheet: the choices are made, so the room opens with them and no second preview.
+async function quickEnter(pre) {
+  S.mic = pre.mic !== false; S.cam = !!pre.cam; S.micId = pre.micId || ''; S.camId = pre.camId || '';
+  const name = (await whoami()).name || '';
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:520px;margin:12vh auto 20px;display:grid;gap:10px;justify-items:start" role="status"><h2 class="mt-h2"><span class="spin"></span>Joining ${esc(S.meeting.title)}</h2><p class="mt-sub" id="lb-dev" style="margin:0;font-size:14px">Connecting to the room.</p><input type="hidden" id="lb-name" value="${esc(name)}" /><button class="h-btn h-btn--primary" id="lb-join" hidden>Join now</button></div>`;
+  const audio = S.micId ? { deviceId: { ideal: S.micId } } : true;
+  const video = S.cam ? { width: 1280, height: 720, ...(S.camId ? { deviceId: { ideal: S.camId } } : {}) } : false;
+  try { preview = await navigator.mediaDevices.getUserMedia({ audio, video }); }
+  catch {
+    try { preview = await navigator.mediaDevices.getUserMedia({ audio }); S.cam = false; }
+    catch { preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; }
+  }
+  enter();
 }
 async function deviceList() {
   try { const all = await navigator.mediaDevices.enumerateDevices(); return { mics: all.filter((d) => d.kind === 'audioinput' && d.deviceId), cams: all.filter((d) => d.kind === 'videoinput' && d.deviceId), spks: all.filter((d) => d.kind === 'audiooutput' && d.deviceId) }; }
@@ -768,7 +817,34 @@ async function leaveClick() {
   }
   leaveRoom();
 }
-function onUnload() { try { fetch((GUEST ? '/api/meet-guest/' : '/api/meet/') + 'meetings/' + MID + '/leave', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json', ...(GUEST ? { 'X-Guest-Token': MODE.token } : {}) }, body: JSON.stringify({ pid: S.me.pid }) }); } catch {} }
+// Closing the tab, going Back, or the phone discarding the page: tell the server now, so the room's count drops at once instead of
+// after the 20 second heartbeat timeout. sendBeacon survives the page closing; guests need their token header, so they use fetch.
+function beaconLeave(extra) {
+  if (!S.me.pid) return;
+  const url = (GUEST ? '/api/meet-guest/' : '/api/meet/') + 'meetings/' + MID + '/leave';
+  const body = JSON.stringify({ pid: S.me.pid, ...(extra || {}) });
+  try {
+    if (!GUEST && navigator.sendBeacon && navigator.sendBeacon(url, new Blob([body], { type: 'application/json' }))) return;
+    fetch(url, { method: 'POST', keepalive: true, credentials: 'same-origin', headers: { 'content-type': 'application/json', ...(GUEST ? { 'X-Guest-Token': MODE.token } : {}) }, body });
+  } catch {}
+}
+function onUnload() { if (!S.joined || S.left || S.beaconed) return; S.beaconed = true; beaconLeave(); }
+window.addEventListener('pagehide', onUnload);
+// A page brought back from the back-forward cache already left the room: show that, with Rejoin.
+window.addEventListener('pageshow', (e) => {
+  if (!e.persisted || !S.beaconed || S.left) return;
+  S.left = true; clearIntervals();
+  [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());
+  if (rtc) rtc.close();
+  document.getElementById('h-app').classList.remove('is-room');
+  ended('You left the meeting');
+});
+// iPhone: hidden means the microphone stopped. Step out of the count now, stop the heartbeat, and come back on return.
+document.addEventListener('visibilitychange', () => {
+  if (!IOS || !S.joined || S.left) return;
+  if (document.visibilityState === 'hidden') { S.away = true; beaconLeave({ away: true }); }
+  else if (S.away) { S.away = false; syncNow(); }
+});
 
 async function send(kind, body, to) {
   try { await api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind, body, to: to || '' } }); syncNow(); }
@@ -836,6 +912,8 @@ async function leaveRoom(msg) {
   $$('audio[id^="a-"]').forEach((a) => a.remove());
   document.getElementById('h-app').classList.remove('is-room');
   window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); document.removeEventListener('click', onDocClick); document.removeEventListener('input', onInvInput);
+  // Leave pressed from a huddle or a meeting opened from another page: back to that page. The server starts the notes.
+  if (!msg && BACK && !GUEST) { location.replace(BACK); return; }
   ended(msg || 'You left the meeting');
   // The last person out saves the recording and starts the notes. Anyone invited can finish the work later from Meetings.
   if (!GUEST) pump(MID, (st) => { const p = root.querySelector('.mt-sub'); if (p && st) p.textContent = st; });
@@ -845,7 +923,7 @@ async function leaveRoom(msg) {
 function clearIntervals() { [syncTimer, statTimer, reconcileTimer, levelTimer, barTimer].forEach((t) => t && clearInterval(t)); }
 function startLoops() {
   // One sync per person every two seconds (three above 15 people, four in a hidden tab) so a big room stays light on the database.
-  const tick = async () => { await syncNow(); if (!S.left) syncTimer = setTimeout(tick, document.hidden ? 4000 : S.people.length > 15 ? 3000 : 2000); };
+  const tick = async () => { if (!S.away) await syncNow(); if (!S.left) syncTimer = setTimeout(tick, document.hidden ? 4000 : S.people.length > 15 ? 3000 : 2000); };
   syncTimer = setTimeout(tick, 0);
   statTimer = setInterval(onStats, 1500);
   levelTimer = setInterval(measureLevel, 250);
@@ -854,7 +932,7 @@ function startLoops() {
 
 let syncing = false;
 async function syncNow() {
-  if (syncing || S.left || rejoining) return;
+  if (syncing || S.left || rejoining || S.away) return;
   syncing = true;
   try {
     const r = await api('meetings/' + MID + '/sync', { method: 'POST', body: { pid: S.me.pid, since: S.events, tx: S.tx, me: { mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, lvl: S.lvl } } });

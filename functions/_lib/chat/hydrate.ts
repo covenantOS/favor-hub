@@ -2,6 +2,8 @@
 // so a card always shows the clip's current title or whether the meeting is live, ended, or has notes.
 import type { Env } from '../http';
 import type { Attachment } from './db';
+import { GONE_MS } from '../meet';
+import { isLive } from './huddle';
 
 const mins = (ms: number) => {
   const s = Math.round((ms || 0) / 1000);
@@ -34,8 +36,8 @@ export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<
   if (meetIds.length) {
     const r = await env.DB.prepare(`SELECT id, title, status, started_at, ended_at, notes_status, summary, created_at FROM hub_meetings WHERE id IN (${meetIds.map(() => '?').join(',')})`).bind(...meetIds).all<MeetRow>().catch(() => ({ results: [] as MeetRow[] }));
     for (const m of r.results || []) meets.set(m.id, m);
-    const cutoff = Date.now() - 20_000;
-    const p = await env.DB.prepare(`SELECT meeting_id, COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id IN (${meetIds.map(() => '?').join(',')}) AND left_at = 0 AND seen > ? AND removed = 0 AND waiting = 0 GROUP BY meeting_id`).bind(...meetIds, cutoff).all<{ meeting_id: string; n: number }>().catch(() => ({ results: [] as Array<{ meeting_id: string; n: number }> }));
+    const cutoff = Date.now() - GONE_MS;
+    const p = await env.DB.prepare(`SELECT meeting_id, COUNT(DISTINCT lower(email)) AS n FROM hub_meeting_presence WHERE meeting_id IN (${meetIds.map(() => '?').join(',')}) AND left_at = 0 AND seen > ? AND removed = 0 AND waiting = 0 GROUP BY meeting_id`).bind(...meetIds, cutoff).all<{ meeting_id: string; n: number }>().catch(() => ({ results: [] as Array<{ meeting_id: string; n: number }> }));
     for (const x of p.results || []) live.set(x.meeting_id, x.n);
   }
   return list.map((a) => {
@@ -50,13 +52,12 @@ export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<
     if (a.type === 'meeting') {
       const m = meets.get(String(a.id));
       if (!m) return { type: 'link', url: '#', host: 'Meeting', title: 'This meeting is no longer available' };
-      // Live while someone is in the room, or for the first ten minutes after the button was pressed. A room nobody is in
-      // after that reads as ended, even before the meeting is closed.
+      // Live while someone is in the room (a heartbeat in the last 20 seconds), or in the first minute after Start a huddle
+      // before anyone has joined. A room everyone left reads as ended at once, even before the meeting row is closed.
       const inRoom = live.get(m.id) || 0;
-      const fresh = Date.now() - Date.parse(m.created_at || '') < 10 * 60_000;
-      const ended = m.status === 'ended' || m.status === 'cancelled' || (!inRoom && !fresh);
+      const ended = !isLive(m, inRoom);
       return {
-        type: 'meeting', id: m.id, title: m.title || 'Meeting', status: ended ? 'ended' : 'live', count: ended ? 0 : live.get(m.id) || 0,
+        type: 'meeting', id: m.id, title: m.title || 'Meeting', status: ended ? 'ended' : 'live', count: ended ? 0 : inRoom,
         url: `/meet/room/?m=${m.id}`, notes: m.notes_status === 'ready', notes_url: `/meet/notes/?m=${m.id}`,
         duration: m.started_at && m.ended_at ? `${Math.max(1, Math.round((Date.parse(m.ended_at) - Date.parse(m.started_at)) / 60000))} min` : '',
       };
