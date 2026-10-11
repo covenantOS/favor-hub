@@ -1,0 +1,102 @@
+/* Huddles: the pre-join sheet (public/js/meet/prejoin.js) and the huddle bar in a Chat channel (chat-ui.js). A bottom sheet on a
+   phone, a centred dialog on a desktop. Round 2 tokens only. */
+
+html.pj-open { overflow: hidden; }
+.pj { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; }
+.pj-scrim { position: absolute; inset: 0; background: rgba(21, 35, 26, .42); opacity: 0; transition: opacity .2s var(--r-ease, ease); }
+.pj.is-in .pj-scrim { opacity: 1; }
+.pj-sheet {
+  position: relative; width: min(460px, calc(100vw - 32px)); max-height: calc(100% - 48px); overflow: auto; overscroll-behavior: contain;
+  background: #fff; color: var(--r-ink); border-radius: 18px; box-shadow: 0 24px 60px rgba(21, 35, 26, .28);
+  padding: 18px 20px 20px; display: grid; gap: 14px;
+  transform: translateY(12px) scale(.98); opacity: 0; transition: transform .22s var(--r-ease, ease), opacity .18s ease;
+}
+.pj.is-in .pj-sheet { transform: none; opacity: 1; }
+.pj-grab { display: none; }
+.pj-head { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; }
+.pj-kick { width: 40px; height: 40px; border-radius: 12px; background: var(--tc-teal-tint); color: var(--tc-teal-ink); display: grid; place-items: center; }
+.pj-kick svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.pj-ht { min-width: 0; }
+.pj-ht h2 { margin: 0; font: 650 18px/1.25 var(--h-font, inherit); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-status { margin: 2px 0 0; font-size: 14px; color: var(--r-ink-3); font-variant-numeric: tabular-nums; }
+.pj-live { display: inline-flex; align-items: center; gap: 6px; color: #1f7a3a; font-weight: 650; }
+.pj-live i { width: 8px; height: 8px; border-radius: 50%; background: #2f9e55; box-shadow: 0 0 0 3px rgba(47, 158, 85, .18); }
+.pj-x { width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--r-ink-2); display: grid; place-items: center; cursor: pointer; }
+.pj-x:hover { background: var(--r-hover); }
+.pj-x svg, .pj-tg svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.pj-who[hidden] { display: none; }
+.pj-faces { display: flex; flex-wrap: wrap; gap: 10px 14px; }
+.pj-face { display: grid; justify-items: center; gap: 4px; width: 52px; }
+.pj-face small { font-size: 13px; color: var(--r-ink-2); max-width: 56px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-face .ch-av, .pj-face .pj-av { width: 40px !important; height: 40px !important; font-size: 14px !important; }
+.pj-av { width: 40px; height: 40px; border-radius: 50%; display: inline-grid; place-items: center; font: 650 14px/1 var(--h-font, inherit); color: #fff; background: var(--tc-slate); }
+.pj-av[data-h='0'] { background: #2b4d24; } .pj-av[data-h='1'] { background: #1f7a78; } .pj-av[data-h='2'] { background: #8a5a12; }
+.pj-av[data-h='3'] { background: #5b4b9a; } .pj-av[data-h='4'] { background: #a2452a; } .pj-av[data-h='5'] { background: #2f5f86; }
+.pj-av[data-h='x'] { background: var(--r-sunk); color: var(--r-ink-2); }
+
+.pj-prev { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #1d2a21; display: grid; place-items: center; }
+.pj-prev video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: none; }
+.pj-prev.has-video video { display: block; }
+.pj-prev.has-video .pj-me, .pj-prev.has-video .pj-camoff { display: none; }
+.pj-me .ch-av, .pj-me .pj-av { width: 72px !important; height: 72px !important; font-size: 24px !important; }
+.pj-camoff { position: absolute; left: 12px; bottom: 10px; font-size: 13px; color: rgba(255, 255, 255, .8); }
+.pj-lvl { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; color: var(--r-ink-3); }
+.pj-lvl svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; display: block; }
+.pj-lvl i { height: 6px; border-radius: 3px; background: var(--r-sunk); overflow: hidden; }
+.pj-lvl b { display: block; height: 100%; width: 0; background: #2f9e55; transition: width .1s linear; }
+.pj-note { margin: 0; font-size: 14px; color: #8a3a1e; background: var(--tc-terra-tint); border-radius: 10px; padding: 10px 12px; }
+.pj-note[hidden] { display: none; }
+
+.pj-ctl { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
+.pj-tg { min-height: 48px; border-radius: 12px; border: 1px solid var(--r-line-2); background: #fff; color: var(--r-ink); display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 600 15px/1 var(--h-font, inherit); padding: 0 12px; cursor: pointer; }
+.pj-tg.is-off { background: var(--tc-terra-tint); border-color: transparent; color: #8a3a1e; }
+.pj-tg.is-on { background: var(--r-hover); }
+.pj-tg--dev[aria-expanded='true'] { background: var(--r-sunk); }
+.pj-devs { display: grid; gap: 10px; }
+.pj-devs[hidden] { display: none; }
+.pj-devs label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--r-ink-2); }
+.pj-devs select { min-height: 44px; border-radius: 10px; border: 1px solid var(--r-line-2); padding: 0 10px; font-size: 16px; background: #fff; color: var(--r-ink); max-width: 100%; }
+.pj-devs p { margin: 0; font-size: 14px; color: var(--r-ink-3); }
+
+.pj-acts { display: flex; gap: 10px; justify-content: flex-end; }
+.pj-cancel, .pj-go { min-height: 48px; border-radius: 12px; padding: 0 20px; font: 650 15px/1 var(--h-font, inherit); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.pj-cancel { border: 1px solid var(--r-line-2); background: #fff; color: var(--r-ink); }
+.pj-go { border: 0; background: #1f7a3a; color: #fff; min-width: 150px; }
+.pj-go:disabled { opacity: .7; cursor: default; }
+.pj-go:not(:disabled):hover { background: #186330; }
+.pj-spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .45); border-top-color: #fff; animation: pj-spin .8s linear infinite; }
+@keyframes pj-spin { to { transform: rotate(360deg); } }
+.pj :focus-visible { outline: 2px solid var(--tc-teal); outline-offset: 2px; }
+
+/* Phone: a bottom sheet clear of the home indicator. Pinned with offsets, never viewport units (Safari's floating toolbar). */
+@media (max-width: 640px) {
+  .pj { align-items: flex-end; }
+  .pj-sheet {
+    width: 100%; max-height: calc(100% - max(24px, env(safe-area-inset-top))); border-radius: 20px 20px 0 0;
+    padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); gap: 12px; transform: translateY(100%); opacity: 1;
+  }
+  .pj.is-in .pj-sheet { transform: none; }
+  .pj-grab { display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--r-line-2); margin: 2px auto 0; }
+  .pj-prev { aspect-ratio: 4 / 3; max-height: 34vh; }
+  .pj-tg span { font-size: 14px; }
+  .pj-tg--dev span { display: none; }
+  .pj-tg--dev { width: 48px; padding: 0; }
+  .pj-acts { display: grid; grid-template-columns: 1fr 2fr; }
+  .pj-go { min-height: 52px; min-width: 0; }
+  .pj-cancel { min-height: 52px; }
+}
+@media (prefers-reduced-motion: reduce) { .pj-sheet, .pj-scrim { transition: none; } }
+
+/* The huddle bar under a channel's header while a huddle is live. */
+.ch-hud { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--tc-leaf-tint); border-bottom: 1px solid var(--r-line); min-height: 56px; box-sizing: border-box; }
+.ch-hud[hidden] { display: none; }
+.ch-hud__dot { width: 9px; height: 9px; border-radius: 50%; background: #2f9e55; box-shadow: 0 0 0 3px rgba(47, 158, 85, .2); flex: none; }
+.ch-hud__t { display: grid; min-width: 0; flex: 1; line-height: 1.25; }
+.ch-hud__t b { font-size: 14px; color: var(--r-ink); }
+.ch-hud__t span { font-size: 13px; color: var(--r-ink-2); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-hud .ch-stack { flex: none; }
+.ch-hud__join { min-height: 44px; min-width: 76px; border: 0; border-radius: 12px; background: #1f7a3a; color: #fff; font: 650 15px/1 var(--h-font, inherit); padding: 0 16px; cursor: pointer; flex: none; }
+.ch-hud__join:hover { background: #186330; }
+.ch-btn--meet.is-live { background: #1f7a3a; color: #fff; border-color: transparent; }
+.ch-btn--meet.is-live svg { stroke: #fff; }

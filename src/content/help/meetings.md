@@ -14,7 +14,9 @@ Meetings runs video calls inside the hub. Nobody installs anything. You join fro
 
 ## Start or join
 
-Press **Start now** on the Meetings page for a room you can use at once, then **Copy meeting link** in the People tab and send it to the people you want. Anyone signed in to the hub can open the link. Before you go in, a preview shows your camera and microphone, and you can turn either off and change the name people see.
+Press **Start now** on the Meetings page for a room you can use at once, then **Copy meeting link** in the People tab and send it to the people you want. Anyone signed in to the hub can open the link. **Join** and **Start now** open a sheet first: who is in the room now, a preview of your camera, a microphone level, buttons for the microphone, the camera and your devices, and the Join button. The room opens with those choices. A link opened on its own shows the same preview on the room page, where you can also change the name people see.
+
+Live and the count of people in the room mean people whose browser checked in during the last 20 seconds. A person who closes the tab, locks an iPhone or loses the connection drops off on their own.
 
 ## In the room
 
