@@ -40,7 +40,7 @@
   .wh .dr-num { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; font-size: 13px; font-weight: 700; }
 
   /* Brain: the rail close button is 44 px and suggestions wrap to two lines instead of cutting mid-sentence. */
-  #bc-rail-x { width: 44px; height: 44px; }
+  #bc-rail-x { width: 44px; height: 44px; min-width: 44px; flex: none; }
   .h-body .bc-root .bc-conv__go { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; padding-top: 10px; padding-bottom: 10px; }
 
   /* Menu drawer: area toggles are 44 px, text in the bar and search is 12 px or more. */
