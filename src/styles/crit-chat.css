@@ -12,7 +12,9 @@
 /* On a phone the hub header and tab bar are hidden on this page, so the page fills the screen from the first paint
    (chat-ui.js only measures them for the keyboard). */
 @media (max-width: 860px) {
-  .ch { top: var(--ch-top, 0px); bottom: var(--ch-bot, 0px); }
+  /* Until chat-ui.js measures, the pane stops above the tab bar, so the bar shows from the first frame. */
+  .ch { top: var(--ch-top, 0px); bottom: var(--ch-bot, var(--h-bar-h, calc(63px + env(safe-area-inset-bottom)))); }
+  body.ch-deep .ch { bottom: var(--ch-bot, 0px); }
 }
 
 /* Link cards: site name, title and description each on their own line. */
