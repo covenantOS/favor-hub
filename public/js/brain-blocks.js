@@ -311,6 +311,9 @@
       <div class="legend" style="margin-left:auto">${(b.series || []).map((s, i) => `<span><s class="${b.kind === 'line' ? 'ln' : ''}" style="background:${SERIES[i % 4]}"></s>${esc(s.label)}</span>`).join('')}</div></div>
       <div class="chart__wrap" data-chart="${id}"></div>${b.note ? `<div style="font-size:12px;color:var(--h-ink-3);margin-top:6px">${esc(b.note)}</div>` : ''}</div>`;
   }
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // 2026-03 reads as Mar; the year shows on the first label and on every January.
+  const monthLab = (lab, k, every) => { const m = /^(\d{4})-(\d{2})$/.exec(String(lab)); if (!m) return lab; const mo = MON[+m[2] - 1]; return mo ? (k === 0 || m[2] === '01' ? mo + ' ' + m[1].slice(2) : mo) : lab; };
   const niceTicks = (mx) => {
     if (mx <= 0) return { top: 1, step: 1 };
     const raw = mx / 4, p = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -336,7 +339,7 @@
         ax += `<text x="${L - 8}" y="${y(t) + 4}" text-anchor="end">${esc(yl(t))}</text>`;
       }
       const every = Math.ceil(n / Math.max(2, Math.floor((W - L) / 54)));
-      X.forEach((lab, k) => { if (k % every === 0) ax += `<text x="${x(k)}" y="${H - 6}" text-anchor="middle">${esc(lab)}</text>`; });
+      X.forEach((lab, k) => { if (k % every === 0) ax += `<text x="${x(k)}" y="${H - 6}" text-anchor="middle">${esc(monthLab(lab, k, every))}</text>`; });
       let marks = '';
       if (b.kind === 'bar') {
         const gw = ((W - L - R) / n) * 0.72, bw = Math.min(26, gw / Math.max(S.length, 1) - 2);
@@ -578,7 +581,8 @@
       const fm = (v) => (f === 'money_short' ? moneyS(v) : f === 'money' || f === 'moneyfull' ? money(v) : f === 'pct' ? Math.round(v) + '%' : int(v));
       if (el.dataset.counted) return;
       el.dataset.counted = '1';
-      if (noAnim || reduced() || !Number.isFinite(n)) { el.textContent = fm(n); return; }
+      // Numbers appear at their final value; a count-up shows wrong figures for 700 ms and reads as a glitch.
+      if (true || noAnim || reduced() || !Number.isFinite(n)) { el.textContent = fm(n); return; }
       const t0 = performance.now(), dur = 700;
       const step = (t) => {
         const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);

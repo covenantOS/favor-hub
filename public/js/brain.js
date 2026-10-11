@@ -1033,7 +1033,11 @@
   });
   $('bc-scroll').addEventListener('scroll', () => {
     const s = $('bc-scroll');
-    $('bc-jump').classList.toggle('is-on', s.scrollHeight - s.scrollTop - s.clientHeight > 250);
+    // Show the pill only while the newest question is below the viewport top, so it never sits on the answer being read.
+    const qs = document.querySelectorAll('#bc-thread .m-q'), lastQ = qs[qs.length - 1];
+    const farFromEnd = s.scrollHeight - s.scrollTop - s.clientHeight > 250;
+    const aboveLatest = !lastQ || lastQ.getBoundingClientRect().top > s.getBoundingClientRect().top + 8;
+    $('bc-jump').classList.toggle('is-on', farFromEnd && aboveLatest);
   });
   $('bc-jump').addEventListener('click', () => { const s = $('bc-scroll'); s.scrollTop = s.scrollHeight; });
   addEventListener('resize', () => { syncRailBtn(); B.drawCharts($('bc-thread')); });
@@ -1047,6 +1051,7 @@
     } catch (err) {
       $('bc-thread').innerHTML = `<div class="bc-empty-note">${esc(err.message)}</div>`;
     }
+    app.dataset.me = '1';
   }
   document.addEventListener('favor-hub', () => { if (!cur || !cur.turns.length) renderThread(); });
   // Back from Google's one-time step: the sheet the person asked for is built by sheets.js; show it here.

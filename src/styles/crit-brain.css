@@ -1,0 +1,20 @@
+/* Critic round, brain. Loaded after brain.css and fix-brain.css. */
+/* The greeting waits for the person's name so it never changes under the eye. */
+.h-body .bc-root .bc-app:not([data-me]) .bc-empty { opacity: 0; }
+.h-body .bc-root .bc-app[data-me] .bc-empty { opacity: 1; transition: opacity .12s; }
+/* The thinking skeleton is text lines only: it never promises tiles or a table the answer may not have. */
+.h-body .bc-root .sk .t, .h-body .bc-root .sk .r { display: none; }
+.h-body .bc-root .sk { gap: 12px; }
+.h-body .bc-root .sk > i { height: 14px; }
+.h-body .bc-root .sk > i:nth-child(1) { width: 86% !important; }
+.h-body .bc-root .sk > i:nth-child(2) { width: 64% !important; }
+@media (pointer: coarse) {
+  /* Thumb targets: icon buttons under an answer, filter chips, the Ask and History switch. */
+  .h-body .bc-root .m-foot { gap: 0; }
+  .h-body .bc-root .m-foot .ib--sm, .h-body .bc-root .m-q__acts .ib--sm { width: 44px; height: 44px; }
+  .h-body .bc-root .chip { height: 36px; position: relative; }
+  .h-body .bc-root .chip::after { content: ''; position: absolute; inset: -4px 0; }
+  .h-body .bc-root .tbl__chips { gap: 8px; }
+  body.h-body .bc-root .bc-seg button { min-height: 44px; }
+  .h-body .bc-root .bc-jump { min-height: 44px; }
+}
