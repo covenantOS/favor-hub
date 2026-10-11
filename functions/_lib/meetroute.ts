@@ -754,7 +754,7 @@ async function docFor(env: MeetEnv & { MEET_DRIVE_FOLDER?: string }, m: Meeting,
   const people = (await env.DB.prepare('SELECT MIN(name) AS name FROM hub_meeting_presence WHERE meeting_id = ? GROUP BY lower(email) ORDER BY MIN(joined_at)').bind(m.id).all<{ name: string }>()).results || [];
   const input: DocInput = {
     title, startedAt: m.started_at || m.created_at, summary: m.summary, decisions: n.decisions || [], actions: n.actions || [], chapters: n.chapters || [],
-    transcript: safeJson(m.transcript, []), people: people.map((p) => p.name).filter(Boolean), notesUrl: `${HUB}/meet/notes/?m=${m.id}`, recordingUrls: done.map((f) => `https://drive.google.com/file/d/${f.file_id}/view`),
+    transcript: dedupeLines(safeJson<Array<{ t: number; who?: string; text: string }>>(m.transcript, [])), people: people.map((p) => p.name).filter(Boolean), notesUrl: `${HUB}/meet/notes/?m=${m.id}`, recordingUrls: done.map((f) => `https://drive.google.com/file/d/${f.file_id}/view`),
   };
   await timed(env, m.id, 'doc', () => makeNotesDoc(env, m, title, input));
 }

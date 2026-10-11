@@ -227,13 +227,16 @@ export async function makeNotes(env: MeetEnv, m: Meeting, names: string[]): Prom
   if (!lines.length) return null;
   const text = lines.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n');
   const body = text.length > 28000 ? `${text.slice(0, 19000)}\n[...]\n${text.slice(-9000)}` : text;
-  const out = await chatJson<{ title?: unknown; summary?: unknown; decisions?: unknown; actions?: unknown; chapters?: unknown }>(
+  const ask = () => chatJson<{ title?: unknown; summary?: unknown; decisions?: unknown; actions?: unknown; chapters?: unknown }>(
     env as never,
     `You write the notes of a staff meeting at a nonprofit. Each transcript line has a time in minutes and seconds and, when the system could tell, the name of the person who was talking for most of that stretch (the label can be wrong when people talk over each other). People who were invited: ${names.slice(0, 30).join(', ') || 'unknown'}.
 Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period); summary (3 to 5 sentences of what was covered and decided); decisions (array of up to 8 objects {t: seconds from the start, text}, only things the group agreed); actions (array of up to 12 objects {text, owner, due, t}, where owner is a person named in the talk or empty, due is a date or phrase said aloud or empty, t is seconds); chapters (array of 4 to 10 objects {t: seconds, title of at most 6 words}). Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details, address or phone number into the notes. No em dashes.`,
     `Meeting title: ${m.title}\n\nTranscript:\n${body}`,
     1800
   );
+  let out = await ask();
+  // A reply with a title and no summary is a miss; one more try before the notes go out empty.
+  if (!plain(out.summary, 1600)) out = await ask().catch(() => out);
   const num = (x: unknown) => Math.max(0, Math.round(Number(x) || 0));
   const arr = (x: unknown) => (Array.isArray(x) ? (x as Array<Record<string, unknown>>) : []);
   return {
