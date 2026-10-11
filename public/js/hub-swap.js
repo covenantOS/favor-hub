@@ -86,6 +86,8 @@
     const newMain = doc.getElementById('h-content');
     const oldMain = document.getElementById('h-content');
     if (!newMain || !oldMain || !doc.body.classList.contains('h-body')) { location.href = u; return; }
+    // A page built on module scripts starts itself only on a real load, so it gets one. Swapped in, it would sit on its placeholder.
+    if (newMain.querySelector('script[type="module"]')) { location.href = u; return; }
     const stamp = performance.now();
     progress(false);
     cleanup();
@@ -124,7 +126,10 @@
       runScripts(oldMain);
       if (push) history.pushState({ hubSwap: 1 }, '', u);
       window.scrollTo(0, 0);
-      if (window.hubNavLayout) window.hubNavLayout();
+      // The new tab row arrives with its gated tabs hidden: show the ones this person may open, as a full load does.
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); } catch (e) {}
+      if (saved && window.hubApplyNav) window.hubApplyNav(saved); else if (window.hubNavLayout) window.hubNavLayout();
       if (window.__hubNav) window.__hubNav.init();
       document.dispatchEvent(new CustomEvent('hub-swapped', { detail: { path: pathOf(u), ms: Math.round(performance.now() - stamp) } }));
     };

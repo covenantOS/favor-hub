@@ -35,3 +35,11 @@
   .ch-sec__h b, .ch-meet__live, .ch-pick__i small, .ch-btn--sm, .ch-search__foot { font-size: 13px; }
   .ch-msg--cont .ch-msg__time { opacity: 0; }
 }
+
+/* The reply box in a thread and the details panel clear the home bar, as the channel's message box does. With the
+   keyboard up the home bar is gone, so the gap goes too. */
+@media (max-width: 860px) {
+  .ch-right .ch-comp { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  .ch-right > :last-child:not(.ch-comp) { padding-bottom: env(safe-area-inset-bottom); }
+  body.ch-kb .ch-main .ch-comp, body.ch-kb .ch-right .ch-comp { padding-bottom: 8px; }
+}
