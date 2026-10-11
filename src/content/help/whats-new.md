@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Feedback on a phone.** Feedback is in **More** at the bottom of the screen and in your account menu. It opens the same form, with the picture of the page and Blur an area.
 - **Links survive sign-in.** Open a hub link while signed out, whether a partner, a report, a meeting, a clip or a Brain answer, and the hub takes you to that same page after you sign in with Google. A link that carries a # section opens at that section too.
 - **Copy and share.** Press a partner's phone, email or address to copy it. Recent partners lists the last eight you opened, at the top of Find a partner. Copy link on a partner, on a report (with its filters) and beside a Favor Brain answer copies a link. Each link opens only for signed-in staff who already have access to that item.
 - **As of stamps on Blackbaud numbers.** Today's year tiles, Work Center counts, Reports totals and Favor Brain answers with figures show "As of" and the time the Blackbaud copy last finished a full sync. The stamp turns amber when that copy is more than 26 hours old.

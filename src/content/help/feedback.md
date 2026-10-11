@@ -11,7 +11,7 @@ updated: 2026-10-10
 
 ## Send a note
 
-1. Press **Feedback** at the top right of any page.
+1. Press **Feedback** at the top right of any page. On a phone, it is in **More** at the bottom of the screen and in your account menu.
 2. Pick what kind of note it is: something's wrong, confusing, an idea, or works well.
 3. Write a few words. Say which button, number or page if it helps.
 4. Press **Send**.

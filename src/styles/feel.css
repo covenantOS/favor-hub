@@ -90,6 +90,13 @@ button.h-nav__help { width: 100%; background: none; border: 0; font-family: inhe
   .h-fb { padding: 0 9px; }
   .h-fb .h-lbl { display: none; }
 }
+/* Phone "More" sheet: the Feedback entry (the header button is hidden at 860px and under). */
+.h-side__fb { display: none; }
+@media (max-width: 860px) {
+  .h-side__fb { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; margin: 6px 0; padding: 0 12px; border: 0; border-radius: 12px; background: none; color: rgba(255, 255, 255, 0.78); font: 600 14px var(--h-font); cursor: pointer; text-align: left; }
+  .h-side__fb .h-i { width: 18px; height: 18px; opacity: 0.85; }
+  .h-side__fb:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+}
 
 /* ------------------------------------------------------------ the tour */
 

@@ -82,6 +82,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           <div class="h-areas h-areas--foot">
             {footAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
           </div>
+          <button type="button" class="h-side__fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} />Feedback</button>
           <div class="h-side__foot" id="h-foot" hidden>
             <button type="button" class="h-acct" id="h-acct" aria-haspopup="menu" aria-expanded="false" aria-controls="h-acctmenu" title="Your account">
               <span class="h-avatar" id="h-avatar"></span>
@@ -90,6 +91,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             <div class="h-acctmenu" id="h-acctmenu" role="menu" hidden>
               <a role="menuitem" href="/clips/" data-astro-prefetch="hover"><Fragment set:html={icon('clips')} />My clips</a>
               <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
+              <button type="button" role="menuitem" data-feedback="hub"><Fragment set:html={icon('chat')} />Feedback</button>
               <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
               <button type="button" role="menuitem" class="h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>
               <button type="button" role="menuitem" id="h-out"><Fragment set:html={icon('out')} />Sign out</button>
