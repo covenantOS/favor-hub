@@ -18,9 +18,9 @@
 
   function row(s) {
     var id = 'f-' + s.id.replace(/\W/g, '-');
-    var who = s.saved && s.by ? 'Saved by ' + s.by + ', ' + A.full(s.at) : s.saved ? 'Saved ' + (s.at ? A.full(s.at) : '') : 'Not changed yet';
+    var who = s.saved && s.at ? 'Changed ' + A.day(s.at) + (s.by ? ' by ' + s.by : '') : '';
     return '<div class="ad-set" data-row="' + E(s.id) + '"><div><label class="ad-set__name" for="' + id + '">' + E(s.label) + (s.bb ? '<span class="ad-bbtag">Blackbaud</span>' : '') + '</label>' +
-      (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + '<div class="ad-set__where">' + E(s.where) + '. ' + E(who) + '.</div></div>' +
+      (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + (who ? '<div class="ad-set__where">' + E(who) + '</div>' : '') + '</div>' +
       '<div>' + control(s) + '</div><div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-save="' + E(s.id) + '" disabled>Save</button>' +
       (s.canReset ? '<button type="button" class="ad-btn" data-reset="' + E(s.id) + '">Use ' + (s.id.indexOf('meet.') === 0 || s.id === 'receipts.report' ? 'the Pages value' : 'the default') + '</button>' : '') + '</div>' +
       '<p class="ad-msg" data-msg="' + E(s.id) + '" role="status"></p></div>';
@@ -43,9 +43,9 @@
       return '<section class="ad-card"><h2>Blackbaud calls today</h2><div class="ad-meter" role="img" aria-label="' + cal.used + ' of ' + cal.cap + '"><i style="width:' + Math.min(100, (cal.used / (cal.cap || 1)) * 100) + '%"></i></div>' +
         '<div class="ad-meter__note"><span>' + num(cal.used) + ' of ' + num(cal.cap) + ' upkeep calls</span><span>Work Center lane ' + num(cal.lane) + '</span></div></section>' +
         '<div class="ad-cols"><section class="ad-card"><h2>Cadence rules</h2><p class="ad-card__meta">Read only. These come from the Partner Care manual.</p>' +
-        table(['Rule', 'What it asks'], (x.rules || []).map(function (r) { return '<tr><td><b>' + E(r.rule) + '</b></td><td>' + E(r.text) + '</td></tr>'; })) + '</section>' +
+        table(['Rule', 'What it asks'], (x.rules || []).map(function (r) { return '<tr><td class="ad-nw"><b>' + E(r.rule) + '</b></td><td>' + E(r.text) + '</td></tr>'; })) + '</section>' +
         '<section class="ad-card"><h2>Action tags</h2><p class="ad-card__meta">Read only. Blackbaud holds the list' + (x.tagsAt ? ', read ' + E(A.full(x.tagsAt)) : '') + '.</p>' +
-        table(['Tag', 'Type', 'Values'], (x.tags || []).map(function (t) { return '<tr><td><b>' + E(t.name) + '</b></td><td>' + E(t.type) + '</td><td class="mute">' + E((t.values || []).join(', ')) + '</td></tr>'; })) + '</section></div>';
+        table(['Tag', 'Type', 'Values'], (x.tags || []).map(function (t) { return '<tr><td class="ad-nw"><b>' + E(t.name) + '</b></td><td class="ad-nw">' + E(t.type) + '</td><td class="mute">' + E((t.values || []).join(', ')) + '</td></tr>'; })) + '</section></div>';
     }
     if (area === 'brain') {
       var iw = x.iwave;
@@ -55,7 +55,7 @@
         '<section class="ad-card"><h2>iWave caps</h2><p class="ad-card__meta">Read only. The sync worker holds these.</p>' +
         (iw ? table(['Cap', 'Value'], iw.map(function (r) { return '<tr><td>' + E(r.label) + '</td><td>' + E(r.value) + '</td></tr>'; })) : '<p class="ad-empty">The sync worker did not answer.</p>') + '</section></div>' +
         '<section class="ad-card"><h2>Question log</h2><p class="ad-card__meta">The last 100 questions people asked.</p>' +
-        table(['When', 'Who', 'Question'], (x.questions || []).map(function (q) { return '<tr><td>' + E(A.full(q.at)) + '</td><td>' + E(q.email) + '</td><td>' + E(q.question) + '</td></tr>'; })) + '</section>';
+        table(['When', 'Who', 'Question'], (x.questions || []).map(function (q) { return '<tr><td class="ad-nw">' + E(A.full(q.at)) + '</td><td class="ad-mail">' + E(q.email) + '</td><td>' + E(q.question) + '</td></tr>'; })) + '</section>';
     }
     if (area === 'clips') {
       var cap = Number((S.filter(function (s) { return s.id === 'clips.cap_gb'; })[0] || {}).value || 10) * 1024 * 1024 * 1024;
