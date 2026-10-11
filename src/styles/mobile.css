@@ -10,9 +10,11 @@
   body.h-body .h-side { top: 0; bottom: 0; height: auto; }
 
   /* Header: the title gives way (it shortens with an ellipsis) and the buttons stay on one line. */
-  body.h-body .h-top .h-top__head { flex: 1 1 auto; min-width: 0; }
-  body.h-body .h-top .h-top__title { overflow: hidden; text-overflow: ellipsis; }
-  body.h-body .h-top .h-top__right { flex: none; flex-wrap: nowrap; gap: 2px; }
+  body.h-body .h-top .h-top__head { flex: 1 1 0; min-width: 0; }
+  body.h-body .h-top .h-top__title { overflow: hidden; white-space: normal; display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.12; }
+  body.h-body .h-top .h-top__title { font-size: 17px !important; }
+  body.h-body .h-top .h-top__right { flex: 0 0 auto !important; flex-wrap: nowrap; gap: 0; }
+  body.h-body .h-top .h-top__right > :not([hidden]):not(.h-top__actions):not(.pp-headsearch), body.h-body .h-top .h-top__actions > * { width: 42px !important; min-width: 42px; height: 42px; padding: 0 !important; justify-content: center; }
   body.h-body .h-top .h-top__actions .h-lbl { display: none; }
   body.h-body .h-top .h-top__actions .h-btn { width: 44px; padding: 0; justify-content: center; }
   /* Meetings: Book is the second tab and the empty day's button, so the header copy goes. */
