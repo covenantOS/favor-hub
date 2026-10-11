@@ -80,7 +80,7 @@
     $('t-cards').innerHTML = list
       .map((c) => {
         const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
-        return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}" aria-label="${esc(c.label)}: ${esc(c.cta)}">
+        return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
           <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
           <span class="r2t-tile__w">${esc(c.what)}</span>

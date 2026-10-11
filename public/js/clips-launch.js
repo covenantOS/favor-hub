@@ -23,7 +23,7 @@
     var t = document.createElement('div');
     t.className = 'h-toast';
     t.setAttribute('role', 'status');
-    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2a2722;color:#fff;padding:10px 18px;border-radius:999px;font:500 13.5px Inter,system-ui,sans-serif;z-index:3000;max-width:calc(100vw - 24px)';
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2a2722;color:#fff;padding:10px 18px;border-radius:999px;font:500 14px Inter,system-ui,sans-serif;z-index:3000;max-width:calc(100vw - 24px)';
     t.textContent = msg;
     document.body.appendChild(t);
     setTimeout(function () { t.remove(); }, 4200);

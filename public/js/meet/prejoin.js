@@ -44,7 +44,7 @@
     var wrap = document.createElement('div');
     wrap.className = 'pj';
     wrap.innerHTML = '<div class="pj-scrim" data-pj="close"></div>' +
-      '<section class="pj-sheet" role="dialog" aria-modal="true" aria-labelledby="pj-title">' +
+      '<section class="pj-sheet" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="pj-title">' +
       '<div class="pj-grab" aria-hidden="true"></div>' +
       '<header class="pj-head"><span class="pj-kick">' + ic(o.icon || 'head') + '</span><div class="pj-ht"><h2 id="pj-title">' + esc(o.title) + '</h2><p class="pj-status" id="pj-status" aria-live="polite">Checking who is here</p></div>' +
       '<button type="button" class="pj-x" data-pj="close" aria-label="Close">' + ic('x') + '</button></header>' +
@@ -73,7 +73,8 @@
     refresh();
     S.timer = setInterval(function () { if (!document.hidden) refresh(); }, 4000);
     S.tick = setInterval(paintStatus, 1000);
-    setTimeout(function () { var g = document.getElementById('pj-go'); if (g) g.focus(); }, 60);
+    var sh = wrap.querySelector('.pj-sheet'); if (sh) sh.focus({ preventScroll: true });
+    setTimeout(function () { var g = document.getElementById('pj-go'); if (g && !g.disabled) g.focus(); }, 60);
     return { close: close };
   }
 

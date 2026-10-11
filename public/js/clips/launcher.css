@@ -52,7 +52,7 @@
 .cr-row__ico { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 999px; background: #fff; color: var(--cr-brand-ink); flex: none; }
 .cr-row__ico.is-off { color: var(--cr-red); }
 .cr-row__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.cr-row__txt b { font-weight: 600; font-size: 13.5px; }
+.cr-row__txt b { font-weight: 600; font-size: 14px; }
 .cr-row__txt em { font-style: normal; font-size: 13px; color: var(--cr-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cr-switch { position: relative; width: 44px; height: 26px; border-radius: 999px; border: 0; background: #d9d4c8; cursor: pointer; flex: none; transition: background .15s; padding: 0; }
 .cr-switch i { position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, .25); transition: transform .15s; }
@@ -98,7 +98,7 @@
 .cr-count__btns { display: flex; gap: 10px; margin-top: 16px; }
 
 /* ------------------------------------------------------------ pills */
-.cr-pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--cr-brand); color: #fff; font: 600 13.5px var(--cr-font); text-decoration: none; cursor: pointer; }
+.cr-pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 40px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--cr-brand); color: #fff; font: 600 14px var(--cr-font); text-decoration: none; cursor: pointer; }
 .cr-pill:hover { background: var(--cr-brand-ink); }
 .cr-pill .cr-i { width: 16px; height: 16px; }
 .cr-pill.is-ghost { background: #fff; color: var(--cr-ink); border: 1px solid var(--cr-line-2); }
@@ -160,7 +160,7 @@
   font: 400 14px/1.45 var(--cr-font); color: var(--cr-ink); animation: cr-rise .2s ease both;
 }
 .cr-saved__body { min-height: 24px; }
-.cr-saved__title { margin: 0; font: 500 19px/1.25 var(--cr-serif); overflow-wrap: anywhere; }
+.cr-saved__title { margin: 0; font: 500 20px/1.25 var(--cr-serif); overflow-wrap: anywhere; }
 .cr-saved__sum { margin: 6px 0 0; font-size: 13px; color: var(--cr-ink-2); }
 .cr-saved__file { margin: 0 0 10px; font-size: 13px; color: var(--cr-ink-2); overflow-wrap: anywhere; }
 .cr-saved__btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
@@ -205,7 +205,7 @@
 .cr-corners button:hover { background: rgba(255, 255, 255, .16); }
 
 /* a toast shared by the recorder and the clip pages */
-.cl-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2a2722; color: #fff; padding: 10px 18px; border-radius: 999px; font: 500 13.5px var(--cr-font); z-index: 3000; max-width: calc(100vw - 24px); }
+.cl-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #2a2722; color: #fff; padding: 10px 18px; border-radius: 999px; font: 500 14px var(--cr-font); z-index: 3000; max-width: calc(100vw - 24px); }
 .cl-toast.is-bad { background: #7a3320; }
 @media (prefers-reduced-motion: reduce) { .cr-card, .cr-saved, .cr-count__n, .cr-rdot, .cr-spin i { animation: none; } }
 

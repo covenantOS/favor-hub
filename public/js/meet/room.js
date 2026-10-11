@@ -723,7 +723,7 @@ function paintSideBody(full) {
   } else if (S.panel === 'brain') {
     const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
     body.innerHTML = `<div class="priv">${ic('lock')}Only you see these answers until you post one.</div>
-      ${S.brainQ.length ? '' : `<p style="margin:0;font-size:13.5px;color:var(--h-ink-2)">Ask about this meeting, a partner, a number or a document. Favor Brain reads the meeting as it happens and knows the hub's data.</p>`}
+      ${S.brainQ.length ? '' : `<p style="margin:0;font-size:14px;color:var(--h-ink-2)">Ask about this meeting, a partner, a number or a document. Favor Brain reads the meeting as it happens and knows the hub's data.</p>`}
       ${S.brainQ.map((q, i) => `<div class="ask">${esc(q.q)}</div>${brainAnswerHTML(q, i)}`).join('')}
       <div class="bq">${[['missed', 'What did I miss?'], ['agreed', 'What have we agreed so far?'], ['open', 'What is still open?'], ['owners', 'Who owns what?']].map(([k, l]) => `<button data-a="ask" data-k="${k}">${l}</button>`).join('')}</div>`;
     if (full) $('#rm-input').dataset.k = 'brain';

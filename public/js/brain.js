@@ -460,7 +460,7 @@
       h += `<div class="bc-grp">${esc(g)}</div>`;
       h += groups.get(g).map((c) => c.renaming
         ? `<div class="bc-conv" role="listitem"><input data-rename="${esc(c.id)}" value="${esc(c.title)}" aria-label="Rename the chat" maxlength="80" /></div>`
-        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
+        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" aria-haspopup="menu" aria-expanded="false" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
     }
     if (!h) h = `<div class="bc-norail">${q ? 'No chats match.' : 'Your chats show here for 30 days.'}</div>`;
     $('bc-convs').innerHTML = h;
@@ -659,7 +659,7 @@
         <li><div>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</div></li>
         <li><div>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</div></li>
         <li><div>In a chat, pick <b>Favor</b> from the tools menu.</div></li></ol></div>
-      <p style="margin:14px 0 0;font-size:12.5px;color:var(--h-ink-3)">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/" style="color:var(--h-brand-ink)">Step by step, with pictures</a></p>`;
+      <p style="margin:14px 0 0;font-size:13px;color:var(--h-ink-3)">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/" style="color:var(--h-brand-ink)">Step by step, with pictures</a></p>`;
   }
 
   // ---- Sheets ----------------------------------------------------------------------------------------------------
@@ -740,7 +740,7 @@
       case 'fchip': {
         const tb = B.TB[el.dataset.tb], k = el.dataset.k;
         const label = (tb.chips.find((c) => c.key === k) || {}).label || k;
-        pop(el, `<div class="pop__h">${esc(label)}</div>` + B.chipValues(tb, k).slice(0, 40).map(([v, n]) => `<button type="button" role="menuitem" data-v="${esc(v)}">${esc(v)}<span style="margin-left:auto;color:var(--h-ink-3);font-size:12px">${n}</span></button>`).join(''), (v) => { tb.f[k] = v; B.refreshTable(tb.id); });
+        pop(el, `<div class="pop__h">${esc(label)}</div>` + B.chipValues(tb, k).slice(0, 40).map(([v, n]) => `<button type="button" role="menuitem" data-v="${esc(v)}">${esc(v)}<span style="margin-left:auto;color:var(--h-ink-3);font-size:13px">${n}</span></button>`).join(''), (v) => { tb.f[k] = v; B.refreshTable(tb.id); });
         break;
       }
       case 'fclear': { const tb = B.TB[el.dataset.tb]; delete tb.f[el.dataset.k]; B.refreshTable(tb.id); break; }
