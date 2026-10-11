@@ -34,8 +34,11 @@ function sourceOf(buf, chunk = 5000) {
   return {
     size: buf.byteLength,
     opens: 0,
+    /** Where each open began. */
+    from: [],
     async open(offset) {
       this.opens++;
+      this.from.push(offset);
       let at = offset;
       return new ReadableStream({
         pull(c) {
@@ -150,6 +153,38 @@ describe('fragmented MP4 to one index at the front', () => {
     const buf = fixture('frag-bframes.mp4');
     const whole = await rewrite(buf, 1 << 20);
     for (const chunk of [1, 7, 4096]) assert.ok(Buffer.from((await rewrite(buf, chunk)).out).equals(whole.out), `chunk ${chunk}`);
+  });
+
+  it('reads a long file in several stretches at once and builds the same file', async () => {
+    for (const name of FRAGMENTED) {
+      const buf = fixture(name);
+      const plain = await lib.planMux(sourceOf(buf), { segments: 1 });
+      for (const segments of [2, 3, 5]) {
+        for (const chunk of [5000, 11]) {
+          const src = sourceOf(buf, chunk);
+          const res = await lib.planMux(src, { segments, minSegmentBytes: 1 });
+          assert.ok(src.from.some((o) => o > buf.byteLength / (segments + 1)), 'readers started in the middle of the file');
+          assert.ok(Buffer.from(res.head).equals(plain.head), `${name} in ${segments} stretches, ${chunk} bytes a read`);
+          assert.deepEqual(res.plan, plain.plan);
+        }
+      }
+    }
+    // A recording cut short, read the same way.
+    const cut = fixture('frag-base.mp4').subarray(0, fixture('frag-base.mp4').byteLength - 900);
+    assert.deepEqual((await lib.planMux(sourceOf(cut), { segments: 3, minSegmentBytes: 1 })).plan, (await lib.planMux(sourceOf(cut), { segments: 1 })).plan);
+  });
+
+  it('falls back to reading front to back when media bytes look like a fragment header', async () => {
+    const buf = fixture('frag-base.mp4').slice();
+    // Write the bytes a reader searches for into the middle of the fourth fragment's media.
+    const m = boxesOf(buf).filter((b) => b.type === 'mdat')[3];
+    buf.set([0, 0, 0, 24, 0x6d, 0x6f, 0x6f, 0x66, 0, 0, 0, 16, 0x6d, 0x66, 0x68, 0x64], m.at + 200);
+    const plain = await lib.planMux(sourceOf(buf), { segments: 1 });
+    for (const segments of [2, 3, 4, 6, 9]) {
+      const res = await lib.planMux(sourceOf(buf), { segments, minSegmentBytes: 1 });
+      assert.ok(Buffer.from(res.head).equals(plain.head), `${segments} stretches`);
+      assert.deepEqual(res.plan, plain.plan);
+    }
   });
 
   it('keeps a pause: a later fragment that starts late lengthens the sample before it', { skip: !hasFfmpeg && 'ffmpeg is not installed' }, async () => {
@@ -334,7 +369,7 @@ describe('the fast-start job', () => {
     // A budget of nothing: each run writes one part and stops.
     const states = [];
     for (let i = 0; i < 10 && states[states.length - 1] !== 'done'; i++) {
-      states.push(await job.muxStep(w.env, ID, { budgetMs: -1, partBytes: 25000 }));
+      states.push(await job.muxStep(w.env, ID, { budgetMs: -1, partBytes: 25000, atOnce: 1 }));
       if (states[states.length - 1] === 'plan') {
         assert.equal(w.info().upload.parts.length, states.length);
         assert.equal(w.row().mux_at, null, 'the clip is free for the next run');
@@ -350,6 +385,14 @@ describe('the fast-start job', () => {
     assert.equal(got.res.headers.get('ETag'), etag);
     assert.ok(Buffer.from(got.body).equals(want.subarray(100, 40100)));
     assert.equal(await job.muxStep(w.env, ID), 'done');
+  });
+
+  it('writes several parts at the same time and still builds the same file', async () => {
+    const w = world('frag-base.mp4');
+    const want = (await rewrite(w.buf)).out;
+    assert.equal(await job.muxStep(w.env, ID, { partBytes: 7000, atOnce: 3 }), 'done');
+    assert.equal(w.CLIPS.log.filter((l) => l.startsWith('part ')).length, Math.ceil(want.byteLength / 7000));
+    assert.ok(Buffer.from(w.CLIPS.objects.get(`clips/${ID}/video.fast`)).equals(want));
   });
 
   it('a request for the video starts the job for a clip that has not been looked at', async () => {

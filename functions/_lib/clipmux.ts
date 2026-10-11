@@ -4,7 +4,8 @@
 // file as <video src> reads every moof with its own range request before it shows a frame (22 seconds for a 6 minute clip).
 // A progressive file has one moov at the front that lists every sample, so one request is enough.
 //
-// This module has no Cloudflare code in it. It reads the source once, front to back, skipping the media bytes, and returns
+// This module has no Cloudflare code in it. It reads the source once, skipping the media bytes (a long recording is read
+// in a few stretches at the same time, see scanAhead), and returns
 //   head   the new front of the file: ftyp, the full moov and the mdat header
 //   plan   where the media bytes sit in the source (ext) and how long the new file is
 // The new file is head followed by the source bytes the plan names, in order. Media bytes are never changed or re-encoded.
@@ -58,6 +59,16 @@ const MAX_MOOV = 96 * 1024 * 1024;
 const MAX_MOOF = 16 * 1024 * 1024;
 /** A skip longer than this reopens the source at the new place; a shorter one reads through. */
 const REOPEN_BYTES = 8 * 1024 * 1024;
+/** A long recording is read in up to this many stretches at once, each at least this long. */
+const AHEAD_SEGMENTS = 4;
+const AHEAD_MIN_BYTES = 24 * 1024 * 1024;
+
+export interface MuxOptions {
+  /** How many stretches of a long fragmented file are read at once. 1 reads it front to back. */
+  segments?: number;
+  /** The shortest stretch worth its own reader. */
+  minSegmentBytes?: number;
+}
 
 /* ------------------------------------------------------------------ bytes */
 
@@ -186,8 +197,9 @@ class Forward {
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   private left: Uint8Array | null = null;
   private src: MuxSource;
-  constructor(src: MuxSource) {
+  constructor(src: MuxSource, start = 0) {
     this.src = src;
+    this.pos = start;
   }
 
   private async chunk(): Promise<Uint8Array | null> {
@@ -499,6 +511,121 @@ function readMoof(body: Uint8Array, moofAt: number, srcSize: number, accs: Map<n
     }
     prevEnd = at;
   }
+}
+
+/* ------------------------------------------------------------------ reading a long file in stretches */
+
+// One reader gets through about 40 MB a second of R2, so the 600 MB of a 45 minute recording would take 15 seconds
+// front to back. The fragments are independent, so the file is cut into a few stretches that are read at the same time.
+// A reader dropped into the middle of the file has to find where a box starts: it looks for the start of a fragment
+// header, which always reads "moof", then a 16 byte "mfhd" box. From there it walks box by box like the first reader.
+// Each reader stops exactly where the next one began. If one does not land there (the bytes it took for a fragment
+// header were media that happened to look like one), the whole attempt is thrown away and the file is read front to back.
+
+type Ahead = { t: 'moof'; at: number; body: Uint8Array } | { t: 'mdat'; at: number; len: number } | { t: 'cut' };
+
+const MOOF_MFHD = [0x6d, 0x6f, 0x6f, 0x66, 0x00, 0x00, 0x00, 0x10, 0x6d, 0x66, 0x68, 0x64];
+
+function signAt(b: Uint8Array, i: number): boolean {
+  if (i + MOOF_MFHD.length > b.byteLength) return false;
+  for (let k = 0; k < MOOF_MFHD.length; k++) if (b[i + k] !== MOOF_MFHD[k]) return false;
+  return true;
+}
+
+/** Where the first fragment header that starts in [from, to) begins, or null. */
+async function findFragment(src: MuxSource, from: number, to: number): Promise<number | null> {
+  const reader = (await src.open(from)).getReader();
+  try {
+    let tail = new Uint8Array(0);
+    let pos = from; // source offset of the next chunk's first byte
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done || !value) return null;
+      // A signature that straddles two chunks: the end of the last one joined to the start of this one.
+      if (tail.byteLength) {
+        const join = concat([tail, value.subarray(0, MOOF_MFHD.length - 1)]);
+        for (let i = 0; i < tail.byteLength; i++) {
+          if (signAt(join, i)) {
+            const at = pos - tail.byteLength + i - 4;
+            if (at >= from) return at < to ? at : null;
+          }
+        }
+      }
+      for (let i = value.indexOf(0x6d); i >= 0; i = value.indexOf(0x6d, i + 1)) {
+        if (signAt(value, i)) {
+          const at = pos + i - 4;
+          if (at >= from) return at < to ? at : null;
+        }
+      }
+      pos += value.byteLength;
+      if (pos - MOOF_MFHD.length >= to + 4) return null;
+      const keep = MOOF_MFHD.length - 1;
+      tail = value.byteLength >= keep ? value.slice(value.byteLength - keep) : concat([tail, value]).slice(-keep);
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
+/** The fragment headers and media stretches from `from` to the end, in order. Null when the stretches do not join up. */
+async function scanAhead(src: MuxSource, from: number, segments: number): Promise<Ahead[] | null> {
+  const span = src.size - from;
+  const starts = Array.from({ length: segments }, (_, i) => from + Math.floor((span * i) / segments));
+  const firsts = starts.map((s, i) => (i === 0 ? Promise.resolve<number | null>(from) : findFragment(src, s, i + 1 < segments ? starts[i + 1] : src.size).catch(() => null)));
+  const run = async (i: number): Promise<Ahead[] | null> => {
+    const first = await firsts[i];
+    const evs: Ahead[] = [];
+    if (first === null) return evs;
+    const f = new Forward(src, first);
+    try {
+      let next = i + 1;
+      let target = -1; // where the next reader began, once this one is far enough to need it
+      for (;;) {
+        const at = f.pos;
+        while (target < 0 && next < segments && at >= starts[next]) {
+          const b = await firsts[next];
+          if (b === null) next++;
+          else target = b;
+        }
+        if (target >= 0 && at >= target) return at === target ? evs : null;
+        if (at + 8 > src.size) return target < 0 ? evs : null;
+        const h = await f.take(8);
+        if (h.byteLength < 8 || !isType(h, 4)) return null;
+        let size = u32(h, 0);
+        let hdr = 8;
+        if (size === 1) {
+          const big = await f.take(8);
+          if (big.byteLength < 8) return null;
+          size = u64(big, 0);
+          hdr = 16;
+        } else if (size === 0) size = src.size - at;
+        if (size < hdr) return null;
+        const type = fourcc(h, 4);
+        const bodyLen = size - hdr;
+        if (type === 'moof') {
+          if (at + size > src.size) {
+            evs.push({ t: 'cut' });
+            return target < 0 ? evs : null;
+          }
+          if (bodyLen > MAX_MOOF) return null;
+          evs.push({ t: 'moof', at, body: await f.take(bodyLen) });
+        } else if (type === 'moov' || type === 'ftyp') {
+          return null; // not where these belong: leave it to the plain read
+        } else {
+          if (type === 'mdat') {
+            const have = Math.min(bodyLen, src.size - (at + hdr));
+            if (have > 0) evs.push({ t: 'mdat', at: at + hdr, len: have });
+          }
+          await f.skip(bodyLen);
+        }
+      }
+    } finally {
+      await f.close();
+    }
+  };
+  const got = await Promise.all(starts.map((_, i) => run(i).catch(() => null)));
+  if (got.some((g) => g === null)) return null;
+  return (got as Ahead[][]).flat();
 }
 
 /* ------------------------------------------------------------------ where source bytes land */
@@ -813,8 +940,10 @@ export function readHead(head: Uint8Array): { moovAt: number; moovLen: number; t
 /* ------------------------------------------------------------------ the plan */
 
 /** Reads the source once and says what to do with it. Throws MuxError for an MP4 it cannot rewrite safely. */
-export async function planMux(src: MuxSource): Promise<MuxResult> {
+export async function planMux(src: MuxSource, opts: MuxOptions = {}): Promise<MuxResult> {
   const f = new Forward(src);
+  const minSegment = opts.minSegmentBytes ?? AHEAD_MIN_BYTES;
+  const maxSegments = opts.segments ?? AHEAD_SEGMENTS;
   try {
     let ftyp: Uint8Array | null = null;
     let ftypAt = -1;
@@ -828,8 +957,27 @@ export async function planMux(src: MuxSource): Promise<MuxResult> {
     const accs = new Map<number, Acc>();
     const warn = new Set<string>();
     let boxes = 0;
+    let triedAhead = false;
 
     while (f.pos + 8 <= src.size) {
+      // Past the first fragment of a long recording, the rest is read in several stretches at once.
+      const segments = Math.min(maxSegments, Math.floor((src.size - f.pos) / Math.max(1, minSegment)));
+      if (!triedAhead && fragments > 0 && segments >= 2) {
+        triedAhead = true;
+        await f.close();
+        const evs = await scanAhead(src, f.pos, segments);
+        if (evs) {
+          for (const e of evs) {
+            if (e.t === 'cut') warn.add('the recording ends inside a fragment');
+            else if (e.t === 'mdat') mdat.push(e.at, e.len);
+            else {
+              readMoof(e.body, e.at, src.size, accs, warn);
+              fragments++;
+            }
+          }
+          break;
+        }
+      }
       const at = f.pos;
       const h = await f.take(8);
       if (h.byteLength < 8) break;

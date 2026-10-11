@@ -23,6 +23,8 @@ export const muxPlanKey = (id: string) => `clips/${id}/mux/plan.json`;
 
 /** R2 wants every part but the last to be one size. */
 export const MUX_PART_BYTES = 16 * 1024 * 1024;
+/** Parts written at the same time. Each holds its bytes in memory, so three is 48 MiB at most. */
+const MUX_PARTS_AT_ONCE = 3;
 /** Another run may take over a clip whose last sign of life is older than this. */
 const LOCK_MS = 45_000;
 /** The first recording is kept this long after the new file passes its checks. */
@@ -258,7 +260,7 @@ async function planStage(env: ClipsEnv, clip: Clip, info: MuxInfo): Promise<{ mu
 }
 
 /** Writes parts of the new file until it is whole or the time is up. */
-async function copyStage(env: ClipsEnv, clip: Clip, info: MuxInfo, deadline: number, partBytes: number): Promise<{ mux: MuxState; info: MuxInfo; size?: number; gone?: boolean }> {
+async function copyStage(env: ClipsEnv, clip: Clip, info: MuxInfo, deadline: number, partBytes: number, atOnce: number): Promise<{ mux: MuxState; info: MuxInfo; size?: number; gone?: boolean }> {
   const t0 = Date.now();
   const stored = await loadPlan(env, clip.id);
   const src = await env.CLIPS.head(videoKey(clip.id));
@@ -283,19 +285,25 @@ async function copyStage(env: ClipsEnv, clip: Clip, info: MuxInfo, deadline: num
     const mpu = env.CLIPS.resumeMultipartUpload(fastKey(clip.id), cur.upload.id);
     let wrote = 0;
     while (cur.upload.parts.length < count) {
-      // Every run writes at least one part, so a clip always moves forward.
+      // Every run writes at least one batch of parts, so a clip always moves forward.
       if (wrote && Date.now() > deadline) {
         cur.copyMs = (cur.copyMs || 0) + (Date.now() - t0);
         return { mux: 'plan', info: cur };
       }
-      const n = cur.upload.parts.length + 1;
-      const off = (n - 1) * size;
-      const len = Math.min(size, plan.total - off);
-      const bytes = await collect(await readLayout(env, clip.id, plan, off, len, head), len);
-      const up = await mpu.uploadPart(n, bytes);
-      wrote++;
-      // A part that landed clears the note an earlier failed try left.
-      cur = { ...cur, error: undefined, upload: { id: cur.upload.id, partBytes: size, parts: [...cur.upload.parts, { n, etag: up.etag }] } };
+      const firstN = cur.upload.parts.length + 1;
+      const batch = Array.from({ length: Math.min(atOnce, count - firstN + 1) }, (_, k) => firstN + k);
+      const done = await Promise.all(
+        batch.map(async (n) => {
+          const off = (n - 1) * size;
+          const len = Math.min(size, plan.total - off);
+          const bytes = await collect(await readLayout(env, clip.id, plan, off, len, head), len);
+          const up = await mpu.uploadPart(n, bytes);
+          return { n, etag: up.etag };
+        })
+      );
+      wrote += done.length;
+      // Parts that landed clear the note an earlier failed try left.
+      cur = { ...cur, error: undefined, upload: { id: cur.upload.id, partBytes: size, parts: [...cur.upload.parts, ...done] } };
       // Each part is written down as it lands (the next run carries on from here) and keeps the lock alive.
       // No row means the clip was deleted while this ran.
       if (!(await save(env, clip.id, 'plan', cur, { lock: nowIso() }))) {
@@ -325,7 +333,7 @@ async function copyStage(env: ClipsEnv, clip: Clip, info: MuxInfo, deadline: num
  * One run of the job for one clip. Safe to call from anywhere, any number of times: a clip with nothing waiting, or one
  * another run holds, returns at once. Never throws. `stage: 'plan'` stops before the file is written (the fast part).
  */
-export async function muxStep(env: ClipsEnv, id: string, opts: { budgetMs?: number; stage?: 'plan' | 'all'; partBytes?: number } = {}): Promise<MuxState | null> {
+export async function muxStep(env: ClipsEnv, id: string, opts: { budgetMs?: number; stage?: 'plan' | 'all'; partBytes?: number; atOnce?: number } = {}): Promise<MuxState | null> {
   const deadline = Date.now() + (opts.budgetMs ?? 20_000);
   try {
     let clip = await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
@@ -357,7 +365,7 @@ export async function muxStep(env: ClipsEnv, id: string, opts: { budgetMs?: numb
           return 'plan';
         }
         clip = (await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>()) ?? clip;
-        const out = await copyStage(env, clip, info, deadline, opts.partBytes || MUX_PART_BYTES);
+        const out = await copyStage(env, clip, info, deadline, opts.partBytes || MUX_PART_BYTES, opts.atOnce || MUX_PARTS_AT_ONCE);
         if (out.gone) return null;
         mux = out.mux;
         info = out.info;
