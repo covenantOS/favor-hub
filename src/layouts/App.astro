@@ -186,6 +186,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           document.documentElement.classList.toggle('has-kpi', !!access.kpi);
           document.documentElement.classList.toggle('has-wc', !!access.workCenter);
           document.documentElement.classList.toggle('has-clips', !!access.clips);
+          document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);
           document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
@@ -221,7 +222,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             <span class="h-top__actions" id="h-actions"><slot name="actions" /></span>
             <button type="button" class="h-top__cam wm-bell" id="wm-bell" data-need="workCenter" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Reminders" title="Reminders"><Fragment set:html={icon('bell')} /><em></em></button>
             <a class="h-top__cam h-top__lib" id="clip-lib" href="/clips/" data-need="clips" hidden aria-label="My clips" title="My clips"><Fragment set:html={icon('clips')} /></a>
-            <button type="button" class="h-top__cam" id="clip-cam" data-need="clips" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip"><Fragment set:html={icon('camera')} /></button>
+            <button type="button" class="h-top__cam" id="clip-cam" data-need="clipsRecord" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Record a clip" title="Record a clip"><Fragment set:html={icon('camera')} /></button>
             <LearnPanel />
             <button type="button" class="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} /><span class="h-lbl">Feedback</span></button>
             {nav !== 'new' && (

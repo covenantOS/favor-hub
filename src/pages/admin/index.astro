@@ -1,0 +1,38 @@
+---
+// Admin overview: the health of the jobs the hub depends on, the settings, and what changed lately. Hub admins only; every call
+// behind it checks the role again, so the page only hides itself.
+import App from '../../layouts/App.astro';
+import AdminHead from '../../components/AdminHead.astro';
+import { ADMIN_PAGES } from '../../data/admin-pages';
+import '../../styles/admin.css';
+const CARDS = ADMIN_PAGES.filter((p) => p.live && p.card);
+---
+<App title="Admin" crumb="Admin" nav="admin-home" description="Hub health and settings for admins.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="overview" title="Admin" lede="Health of the jobs behind the hub, and every setting that runs it." />
+
+    <section aria-labelledby="ad-h-health">
+      <div class="ad-head" style="margin-bottom:10px">
+        <h2 id="ad-h-health" style="margin:0;font-size:18px">Health</h2>
+        <div class="ad-sub"><span class="ad-stamp" id="ad-stamp" role="status"></span><button type="button" class="ad-btn" id="ad-refresh">Check again</button></div>
+      </div>
+      <div class="ad-strip" id="ad-strip" aria-busy="true">
+        {Array.from({ length: 8 }).map(() => <div class="ad-tile h-skel" style="min-height:120px"></div>)}
+      </div>
+    </section>
+
+    <section aria-labelledby="ad-h-go">
+      <h2 id="ad-h-go" style="margin:0 0 10px;font-size:18px">Settings</h2>
+      <div class="ad-grid" id="ad-go">
+        {CARDS.map((p) => <a class="ad-go" href={p.href}><b>{p.label}</b><span>{p.desc}</span>{p.count && <em data-ad-count={p.count} hidden></em>}</a>)}
+      </div>
+    </section>
+
+    <section class="ad-card" aria-labelledby="ad-h-recent">
+      <h2 id="ad-h-recent">Recent changes</h2>
+      <div id="ad-recent"><p class="ad-empty">Loading.</p></div>
+    </section>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-home.js?v=1" defer></script>
+</App>

@@ -4,6 +4,7 @@
 import { json, type Env } from './_lib/http';
 import { resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
 import { REDIRECTS } from '../src/data/areas';
+import { countAiCalls } from './_lib/admin/aiuse';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -57,6 +58,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   const url = new URL(request.url);
   const path = url.pathname;
   const enforce = signinEnforced(env);
+  countAiCalls(env);
 
   if (enforce && REDIRECT_HOSTS.has(url.hostname)) {
     url.protocol = 'https:';

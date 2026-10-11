@@ -125,6 +125,8 @@ export const AREAS: NavArea[] = [
     barRank: 9,
     foot: true,
     pages: [
+      { id: 'admin-home', label: 'Overview', href: '/admin/', desc: 'Health of the Blackbaud copy, the morning jobs, the sender and the call meter, with every setting one click away', keywords: 'admin overview health status settings jobs sync meter iwave', need: 'admin', learn: 'admin-home' },
+      { id: 'admin-audit', label: 'Audit log', href: '/admin/audit/', desc: 'Every settings change with who made it, when, and the before and after values', keywords: 'audit log history changes who changed settings', need: 'admin', learn: 'admin-home' },
       { id: 'brain-admin', label: 'Brain requests', href: '/brain/admin/', desc: 'Access requests, who can ask about what, every question asked', keywords: 'brain admin access requests iwave approvals names', need: 'admin', count: 'brainRequests' },
       { id: 'expenses', label: 'Expense log', href: '/expenses/', desc: 'Statuses, signed PDFs, approver schedule', keywords: 'expense log approver schedule pdf admin', need: 'expenseLog', count: 'expensesWaiting', learn: 'expense-log' },
     ],

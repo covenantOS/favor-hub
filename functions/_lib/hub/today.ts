@@ -5,6 +5,7 @@ import type { Env } from '../http';
 import type { HubUser } from '../session';
 import { workAccessFor } from '../work/gate';
 import { waitingCount } from '../work/db';
+import { effective, mayRecordClips } from '../admin/settings';
 
 export interface Access {
   admin: boolean;
@@ -15,8 +16,10 @@ export interface Access {
   workCenter: boolean;
   /** Every signed-in person records clips and has a clip library of their own. */
   clips: boolean;
-  /** Meetings: admins until MEET_RELEASE is "staff". */
+  /** Meetings: admins until MEET_RELEASE is "staff" (or the answer an admin saved on Admin > Meetings). */
   meetings: boolean;
+  /** May start a recording (Admin > Clips). Every signed-in person does until an admin narrows it. */
+  clipsRecord: boolean;
 }
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
@@ -30,7 +33,8 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     expenseLog: approver || (await isExpenseAdmin(env, request)),
     workCenter: !!work && work.ok,
     clips: true,
-    meetings: user.role === 'admin' || (env as { MEET_RELEASE?: string }).MEET_RELEASE === 'staff',
+    meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
+    clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
   };
 }
 

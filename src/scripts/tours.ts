@@ -256,6 +256,17 @@ export const STEPS: Step[] = [
     side: 'left',
   },
   {
+    id: 'admin-health',
+    page: '/admin/',
+    via: 'admin-home',
+    at: '#ad-strip',
+    title: 'Check the jobs behind the hub',
+    body: 'Each tile shows when a job last ran and whether it is OK, Late or Failed: the Blackbaud copy, the morning jobs, the overnight sender, the Drive library job, SKY calls, iWave credits, Workers AI and the unsubscribe write-back. The Audit log lists every settings change.',
+    for: (w) => w.admin,
+    added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
     id: 'brain-admin',
     page: '/brain/admin/',
     via: 'brain-admin',

@@ -37,7 +37,7 @@ export interface Env {
   /** Local tests only: a stand-in for Google's signing keys. Never set on the live site. */
   GOOGLE_JWKS_URL?: string;
   /** Workers AI, used to sort "Make a request" between Will's board, Marketing and expenses. */
-  AI?: { run(model: string, input: unknown): Promise<unknown> };
+  AI?: { run(model: string, input: unknown): Promise<unknown>; counted?: boolean };
   /** The KPI dashboard Worker (kpi-dashboard), bound so the hub can read its numbers and hand people over. */
   KPI?: AssetsFetcher;
   /** The KPI dashboard's session key, so the hub can sign a KPI session for someone allowed to see it. */

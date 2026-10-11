@@ -1,5 +1,6 @@
 // Favor Brain chat titles. A small Workers AI model writes a 2 to 5 word title after a chat's first answer and
 // again every third turn after that, when the topic has moved. A title the person typed by hand is never touched.
+import { brainFlag } from '../admin/settings';
 import type { Env } from '../http';
 import { titleOf } from './chat';
 
@@ -53,6 +54,7 @@ export const editable = (th: { title: string; title_by: string | null }, firstQu
 export async function retitle(env: Env, email: string, conv: string, n: number): Promise<void> {
   if (!shouldTitle(n)) return;
   try {
+    if (!(await brainFlag(env, 'brain.auto_titles'))) return;
     const { titleInputs, setAutoTitle } = await import('./chat');
     const th = await titleInputs(env, email, conv);
     if (!th || !editable(th, th.first)) return;

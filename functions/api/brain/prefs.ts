@@ -1,5 +1,6 @@
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
+import { brainFlag } from '../../_lib/admin/settings';
 
 // What this person has already been shown on the Favor Brain page. Today: the connect popup, shown once.
 const KEYS = new Set(['connect_seen']);
@@ -14,7 +15,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     } catch {
       // the table arrives with db/prefs.sql; until then the page falls back to this browser's memory
     }
-    return json({ ok: true, seen });
+    // Admin > Favor Brain can switch the connect window off for everyone.
+    return json({ ok: true, seen, prompt: await brainFlag(env, 'brain.connect_prompt').catch(() => true) });
   } catch (err) {
     return handleError(err);
   }

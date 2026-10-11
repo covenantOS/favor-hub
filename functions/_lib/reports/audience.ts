@@ -7,8 +7,9 @@ import type { Env } from '../http';
 import type { HubUser } from '../session';
 import { ALL_AUDIENCES } from './registry';
 import type { Audience } from './types';
+import { applyReportRoles } from '../admin/reportRoles';
 
-const FROM_TEAM: Record<string, Audience[]> = {
+export const FROM_TEAM: Record<string, Audience[]> = {
   support: ['support'],
   rdd: ['rdd'],
   church: ['rdd'],
@@ -19,6 +20,7 @@ const FROM_TEAM: Record<string, Audience[]> = {
 };
 
 export async function audiencesOf(env: Env, user: HubUser): Promise<{ admin: boolean; mine: Set<Audience> }> {
+  await applyReportRoles(env);
   const admin = user.role === 'admin';
   const mine = new Set<Audience>();
   const email = user.email.toLowerCase();

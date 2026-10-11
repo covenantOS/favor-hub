@@ -2,6 +2,7 @@
 // (the saved views table already has its own "opens first" flag for filters, so the two stay apart).
 import { HttpError, type Env } from '../http';
 import { getSetting, setSetting } from './db';
+import { startTabFor } from '../admin/settings';
 import { DEFAULT_TAB, START_SCOPES, type Scope, type StartScope } from './role';
 
 export interface StartPref {
@@ -21,7 +22,8 @@ export async function getStart(env: Env, email: string, s: Scope | undefined) {
     pref = null;
   }
   const role = s ? s.role : 'admin';
-  return { pref, role, defaultTab: DEFAULT_TAB[role], scopes: START_SCOPES };
+  // Admin > Work Center can set the starting tab for each role; with nothing saved the built-in one holds.
+  return { pref, role, defaultTab: await startTabFor(env, role, DEFAULT_TAB[role]).catch(() => DEFAULT_TAB[role]), scopes: START_SCOPES };
 }
 
 export async function putStart(env: Env, email: string, s: Scope | undefined, v: { tab?: unknown; scope?: unknown; reset?: unknown }) {

@@ -1,0 +1,25 @@
+---
+// Audit log: every settings change, with who made it, when, and the values before and after.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+---
+<App title="Audit log" crumb="Admin" nav="admin-audit" description="Every settings change with who made it, when, and the before and after values.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="audit" title="Audit log" lede="Every settings change with who made it, when, and the values before and after." />
+    <section class="ad-card">
+      <div class="ad-sub">
+        <label class="h-label" for="au-area" style="margin:0">Area</label>
+        <select id="au-area" class="ad-field" style="width:auto">
+          <option value="">All</option><option value="work">Work Center</option><option value="meetings">Meetings</option><option value="brain">Favor Brain</option>
+          <option value="clips">Clips</option><option value="reports">Reports</option><option value="people">People</option>
+        </select>
+        <input id="au-find" class="ad-field ad-find" type="search" placeholder="Find a person or setting" aria-label="Find a person or setting" />
+      </div>
+      <div class="ad-scroll"><table class="ad-table" id="au-table"><thead><tr><th>When</th><th>Who</th><th>Setting</th><th>Before</th><th>After</th><th>Note</th></tr></thead><tbody id="au-body"><tr><td colspan="6" class="mute">Loading.</td></tr></tbody></table></div>
+      <div><button type="button" class="ad-btn" id="au-more" hidden>Show more</button></div>
+    </section>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-audit.js?v=1" defer></script>
+</App>

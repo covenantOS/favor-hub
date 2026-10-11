@@ -1,6 +1,7 @@
 // Clips: shared helpers. Every signed-in hub user records clips and manages their own; an admin can also see every clip
 // and delete any of them. Watching is for any signed-in staff member with the link, or anyone with the link when the clip's
 // share switch is on (not when the person who made it has been blocked from the hub).
+import { clipsCapBytes } from './admin/settings';
 import { errorJson, type Env } from './http';
 import { hubUserOf, type HubUser } from './session';
 
@@ -220,16 +221,17 @@ export async function purgeClip(env: ClipsEnv, id: string): Promise<number> {
 
 /** What a person's clips take up, and the oldest ones nobody has watched (offered for deletion once they pass 80%). */
 export async function usageOf(env: ClipsEnv, email: string) {
+  const CAP = await clipsCapBytes(env).catch(() => CAP_BYTES);
   const row = await env.DB.prepare("SELECT COALESCE(SUM(size_bytes), 0) AS used, COUNT(*) AS clips FROM hub_clips WHERE owner_email = ? AND status != 'failed'").bind(email).first<{ used: number; clips: number }>();
   const used = Number(row?.used || 0);
-  const pct = Math.min(100, Math.round((used / CAP_BYTES) * 100));
-  const warn = used >= CAP_BYTES * WARN_FRACTION;
+  const pct = Math.min(100, Math.round((used / CAP) * 100));
+  const warn = used >= CAP * WARN_FRACTION;
   let oldest: Array<{ id: string; title: string; created_at: string; size_bytes: number }> = [];
   if (warn) {
     const r = await env.DB.prepare("SELECT id, title, created_at, size_bytes FROM hub_clips WHERE owner_email = ? AND status = 'ready' AND views = 0 ORDER BY created_at ASC LIMIT 5").bind(email).all<{ id: string; title: string; created_at: string; size_bytes: number }>();
     oldest = r.results || [];
   }
-  return { used, cap: CAP_BYTES, pct, warn, full: used >= CAP_BYTES, clips: Number(row?.clips || 0), oldestUnwatched: oldest };
+  return { used, cap: CAP, pct, warn, full: used >= CAP, clips: Number(row?.clips || 0), oldestUnwatched: oldest };
 }
 
 const TEAM_LABEL: Record<string, string> = {

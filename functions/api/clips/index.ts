@@ -1,6 +1,7 @@
 // Clips: list the library (with a search that reads titles, summaries and what was said), start a new upload.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../_lib/http';
-import { CAP_BYTES, PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
+import { clipsCapBytes, mayRecordClips } from '../../_lib/admin/settings';
+import { PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
 import type { ClipSegment } from '../../_lib/clipChapters';
 
 /** The first transcript line that holds the search words, for the library's result row. */
@@ -64,7 +65,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) =>
            FROM hub_clips c LEFT JOIN hub_users u ON u.email = c.owner_email WHERE c.status != 'failed' GROUP BY c.owner_email ORDER BY bytes DESC LIMIT 100`
       ).all();
       out.people = ppl.results || [];
-      out.cap = CAP_BYTES;
+      out.cap = await clipsCapBytes(env);
     } else {
       out.usage = await usageOf(env, who.user.email);
     }
@@ -91,8 +92,9 @@ export const onRequestPost: PagesFunction<ClipsEnv> = async ({ request, env }) =
     const who = staffOrError(request);
     if ('res' in who) return who.res;
     const body = (await request.json().catch(() => ({}))) as { title?: string; mime?: string; kind?: string };
+    if (!(await mayRecordClips(env, who.user.email, who.user.role === 'admin'))) return errorJson('not_allowed', 'Recording is limited to some people right now. Ask a hub admin if you need it.', 403);
     const use = await usageOf(env, who.user.email);
-    if (use.full) return errorJson('storage_full', 'Your clips use all 10 GB. Delete clips you no longer need in My clips, then record again.', 409);
+    if (use.full) return errorJson('storage_full', `Your clips use all ${Math.round(use.cap / 1024 ** 3)} GB. Delete clips you no longer need in My clips, then record again.`, 409);
     const given = asTrimmed(body.title, 'title', 120, false);
     const mime = cleanMime(body.mime);
     const id = clipId();

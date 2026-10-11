@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 10, 2026
 
+- **Admin overview.** Admin opens on a health strip with the last run of the Blackbaud copy, the morning jobs, the overnight sender, the Drive library job, the SKY call meter, iWave credits, Workers AI and the unsubscribe write-back, each marked OK, Late or Failed. The Audit log lists every settings change with who made it and the before and after values. Hub admins only.
 - **Drive files in Ctrl K.** Type a word and the palette adds a Drive group after the rest: up to six files you can open, with type, owner, date and folder. Each row opens the file in Drive in a new tab. A slow Drive search never holds back the other rows.
 - **Feedback on a phone.** Feedback is in **More** at the bottom of the screen and in your account menu. It opens the same form, with the picture of the page and Blur an area.
 - **Ctrl K searches the whole hub.** Type two letters and it finds partners, reports, your Favor Brain chats, meetings and their notes, and clips, grouped by kind. Each row is one you can already open. Local pages and help articles still show as you type, and the server rows follow a moment later. Drive files are not in it yet.

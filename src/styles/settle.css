@@ -16,7 +16,7 @@
 @media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }
 
 /* The top bar's buttons take their place from the saved menu on the first frame, so nothing slides when the sign-in check answers. */
-.has-wc #wm-bell[hidden], .has-clips #clip-lib[hidden], .has-clips #clip-cam[hidden] { display: grid; }
+.has-wc #wm-bell[hidden], .has-clips #clip-lib[hidden], .has-clip-rec #clip-cam[hidden] { display: grid; }
 .has-gate #pp-headsearch[hidden] { display: block; }
 .has-gate .h-top__search { display: none; }
 @media (max-width: 860px) { .has-gate .h-top .h-top__crumb, .has-gate .h-top .h-top__title { display: none; } }

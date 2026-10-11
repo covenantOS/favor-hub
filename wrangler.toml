@@ -41,3 +41,19 @@ binding = "AI"
 [[services]]
 binding = "KPI"
 service = "kpi-dashboard"
+
+# Admin > Overview reads these, never writes them: the Drive library job's state, the unsubscribe write-back queue, and the
+# upkeep route's call counter (Admin > Work Center also saves the daily cap, the key bb:ops:cap, there).
+[[d1_databases]]
+binding = "DRIVE_DB"
+database_name = "favor-drive"
+database_id = "d915f036-8825-4c6d-a3a6-f461fd86e58d"
+
+[[d1_databases]]
+binding = "MARKETING_DB"
+database_name = "favor-marketing-db"
+database_id = "bb2c7ff8-a8e3-4661-9418-a0cb55dca5db"
+
+[[kv_namespaces]]
+binding = "BB_KV"
+id = "3510f9c623df4bd3a06d420b5d1e9160"

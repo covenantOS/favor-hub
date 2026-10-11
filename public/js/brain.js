@@ -254,12 +254,18 @@
   const PROMPTS_LIVE = true;
   // The preview flag is read once: asking a question rewrites the URL to ?c=, which would drop it.
   const PREVIEW = /[?&]prompts=1\b/.test(location.search);
-  const promptsOn = () => PROMPTS_LIVE || PREVIEW;
+  // Admin > Favor Brain can switch the prompts off for everyone; the page reads that once at load (on until it says otherwise).
+  let PROMPT_FLAG = true;
+  const promptsOn = () => (PROMPTS_LIVE && PROMPT_FLAG) || PREVIEW;
   const LATER = 'favor.brain.connect.later';
   const ANSWERS = 'favor.brain.answers';
   const DAY_MS = 24 * 3600 * 1000;
   let connected = null; // true, false, or null while the Brain has not said
   async function loadConnector() {
+    try {
+      const pr = await fetch('/api/brain/prefs', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      if (pr && pr.prompt === false) PROMPT_FLAG = false;
+    } catch { /* the prompts stay on */ }
     try {
       const d = await api('connector');
       connected = !!d.connected;

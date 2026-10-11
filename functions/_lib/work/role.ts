@@ -33,7 +33,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   grants: 'Grants writer',
 };
 
-function roleOfTeam(team: string): Role | null {
+export function roleOfTeam(team: string): Role | null {
   if (team === 'support') return 'support';
   if (team === 'rdd' || team === 'church' || team === 'exec') return 'director';
   if (team === 'partner_care') return 'partner_care';

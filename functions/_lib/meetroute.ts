@@ -14,6 +14,7 @@ import { chatJson, plain, stamp } from './clipai';
 import { makeNotes, pumpDrive, pumpTranscript, transcribeRow, type NotesOut } from './meetdrive';
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
+import { meetSettings, withMeetSettings } from './admin/settings';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
@@ -21,8 +22,10 @@ import {
 
 const COMMANDS = new Set(['mute', 'camoff', 'remove', 'spot', 'unspot', 'lock', 'unlock', 'makehost', 'unhost', 'muteall', 'sharepolicy', 'letin', 'end', 'lowerhand', 'allowshare']);
 
-export async function route({ request, env, params }: { request: Request; env: MeetEnv; params: Record<string, string | string[]> }, guestMode = false): Promise<Response> {
+export async function route({ request, env: rawEnv, params }: { request: Request; env: MeetEnv; params: Record<string, string | string[]> }, guestMode = false): Promise<Response> {
   try {
+    // Settings an admin saved on Admin > Meetings sit over the Pages variables; with none saved the variables answer, as before.
+    const env = await withMeetSettings(rawEnv);
     const user = guestMode ? await guestUser(request, env, params) : meetUser(request, env);
     const parts = ((params.path as string[]) || []).filter(Boolean);
     const m = request.method;
@@ -799,9 +802,11 @@ async function remind(env: MeetEnv, origin: string) {
   const now = Date.now();
   await endStaleMeetings(env);
   let sent = 0;
+  // The second reminder goes out `lead` minutes ahead (Admin > Meetings, 15 unless changed): a window from 5 minutes before to 1 after.
+  const lead = (await meetSettings(env).catch(() => null))?.leadMin ?? 15;
   const windows: Array<{ kind: 'day' | 'soon'; from: number; to: number }> = [
     { kind: 'day', from: now + 23.9 * 3600_000, to: now + 24.1 * 3600_000 },
-    { kind: 'soon', from: now + 10 * 60_000, to: now + 16 * 60_000 },
+    { kind: 'soon', from: now + (lead - 5) * 60_000, to: now + (lead + 1) * 60_000 },
   ];
   for (const w of windows) {
     const rows = await env.DB.prepare(`SELECT * FROM hub_meetings WHERE status = 'scheduled' AND remind = 1 AND starts_at BETWEEN ? AND ?`).bind(new Date(w.from).toISOString(), new Date(w.to).toISOString()).all<Meeting>();

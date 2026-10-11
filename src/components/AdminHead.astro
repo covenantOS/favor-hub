@@ -1,0 +1,20 @@
+---
+// The head every Admin page shares: the title, one line about the page and the row of admin pages.
+import { ADMIN_PAGES } from '../data/admin-pages';
+interface Props { on: string; title: string; lede?: string; }
+const { on, title, lede = '' } = Astro.props;
+// The settings pages share one row of tabs. The pages above them (Overview, People and roles, Audit log) sit in the menu's own tab row.
+const TABS = ADMIN_PAGES.filter((p) => p.live && p.tab);
+const showTabs = TABS.some((p) => p.id === on);
+---
+<header class="ad-head">
+  <div>
+    <h1>{title}</h1>
+    {lede && <p class="h-lede">{lede}</p>}
+  </div>
+</header>
+{showTabs && <nav class="ad-tabs" aria-label="Settings pages">
+  <div class="ad-tabs__row">
+    {TABS.map((p) => <a class={`ad-tab${p.id === on ? ' is-on' : ''}`} href={p.href} aria-current={p.id === on ? 'page' : undefined}>{p.label}</a>)}
+  </div>
+</nav>}
