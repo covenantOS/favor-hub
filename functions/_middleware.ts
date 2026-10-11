@@ -12,7 +12,7 @@ const REDIRECT_HOSTS = new Set(['hub.favorintl.org', 'favor-hub-d4n.pages.dev'])
 
 // Files the sign-in page itself needs, and files with nothing private in them.
 const STATIC_PREFIXES = ['/_astro/', '/images/', '/js/', '/fonts/', '/receipts/fonts/'];
-const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg']);
+const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg', '/manifest.webmanifest', '/apple-touch-icon.png']);
 
 // Open without sign-in: the sign-in page and its API, the approver's emailed review link (its token
 // is the key), the agent queue (it checks the agent key itself), and the admin password sign-in
