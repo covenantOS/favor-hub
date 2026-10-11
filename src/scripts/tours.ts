@@ -173,6 +173,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'reports-queries',
+    page: '/reports/',
+    via: 'reports',
+    at: '#rp-app',
+    title: "Yesterday's gifts and the other saved queries",
+    body: "Yesterday's gifts lists every gift since the last list with who holds the partner and the partner's last action. Top partners by total giving, RDD and church engagement actions, and Gifts with no fundraiser credit sit beside it. The Blackbaud query map shows what replaced each saved query.",
+    for: (w) => w.admin || w.leader || w.teams.includes('pc') || w.teams.includes('rdd') || w.teams.includes('support') || w.teams.includes('ce'),
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'foundations',
     page: '/foundations/',
     via: 'foundations',

@@ -7,7 +7,7 @@ for: [admin, leader, marketing, rdd, pc, grants]
 related: [kpi-definitions, lists-and-downloads, whats-new]
 tool: /reports/
 toolLabel: Open Reports
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 Reports lists every report your team runs. You see the reports your role uses today. A report marked **Coming soon** is not built yet and keeps running in Blackbaud until it is.
@@ -34,6 +34,15 @@ Reports do not send email. Whoever posts or sends a report today keeps doing it,
 
 A few reports hold a number Blackbaud does not have, such as Africa income from QuickBooks or the mailed count for an appeal. Those cells are text boxes. Type the number, press Tab, and the totals update.
 
+## Lists that replace saved queries
+
+- **Yesterday's gifts** replaces the Constituents for Actions queries Partner Care runs each morning. It lists every gift since the last list (Monday reaches back over the weekend) with who holds the partner and the partner's last action. Set the amount, the gift type and who holds the partner, or pick dates to see any week. The $5,000 and up gifts by director list comes from the same page with the amount set to $5,000 and up and Held by set to A director.
+- **Top partners by total giving** replaces the Top Givers queries. Pick the cut-off and the years it counts.
+- **RDD and church engagement actions** replaces RDD Action Reporting. One row for each completed action with the tags typed on it, for any dates.
+- **Gifts with no fundraiser credit** replaces the three credit checks: gifts with no credit, major gifts with no credit and Partner Care's personal contact gifts.
+
+Each page says on its tie-out line how its count compares with the gifts table, and the query map names the saved query each one was checked against.
+
 ## Where each Blackbaud query went
 
-The lookup at the bottom of Reports lists the 105 Blackbaud queries run in 2026 and what replaced each: a report here, the Work Center, Favor Brain, or the morning run. Type a query name to find it.
+The lookup at the bottom of Reports lists the Blackbaud queries run in 2026 with the query number and what replaced each: a report here, the Work Center, Favor Brain, or the morning run. Pick **Run in the last 120 days** to see the queries staff still run. Type a query name to find it.
