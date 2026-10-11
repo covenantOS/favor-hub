@@ -20,7 +20,7 @@ Press a column heading to sort. Type in **Search these rows** to narrow the tabl
 
 ## Check against the KPI dashboard
 
-The line under the tiles names the KPI dashboard figure the report overlaps and shows both numbers. **Matches** means they are equal to the cent. **Differs by** shows the gap. **No KPI line** means the dashboard has no figure for this report, so it is checked against the saved Blackbaud query instead.
+The line under the tiles names the KPI dashboard figure the report overlaps and shows both numbers. **Matches** means they are equal to the cent. **Differs by** shows the gap. **Not on the KPI dashboard** means the dashboard has no figure for this report, so it is checked against the saved Blackbaud query instead.
 
 ## Get the rows out
 

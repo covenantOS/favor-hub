@@ -81,4 +81,4 @@ export function compare(label: string, mine: number, kpi: number | null | undefi
 }
 
 /** For a report with no KPI line. */
-export const noTie = (note = 'This report has no figure on the KPI dashboard.'): TieOut => ({ label: '', mine: 0, kpi: null, kind: 'count', status: 'none', note });
+export const noTie = (note = 'Not on the KPI dashboard.'): TieOut => ({ label: '', mine: 0, kpi: null, kind: 'count', status: 'none', note });

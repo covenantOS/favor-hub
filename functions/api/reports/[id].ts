@@ -8,7 +8,7 @@ import { toSheetSpec } from '../../_lib/reports/sheets';
 
 // One report, three ways: ?format=json (the page, the default), csv (the download) or sheet (the request the
 // hub's Open in Google Sheets button sends). Filters are query parameters named by the report's own filter ids.
-export const onRequestGet: PagesFunction<Env> = async ({ request, env, params }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   try {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
@@ -29,10 +29,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, params })
     const result = await runReport(env, def, { user: { email: user.email, name: user.name }, asked, name: reportName(id) });
     const today = easternToday();
 
-    await env.DB.prepare('INSERT INTO rpt_runs (report_id, email, format, row_count, ran_at) VALUES (?, ?, ?, ?, ?)')
+    const logged = env.DB.prepare('INSERT INTO rpt_runs (report_id, email, format, row_count, ran_at) VALUES (?, ?, ?, ?, ?)')
       .bind(id, user.email.toLowerCase(), format, result.count, nowIso())
       .run()
       .catch(() => undefined);
+    if (typeof waitUntil === 'function') waitUntil(logged);
+    else await logged;
 
     if (format === 'csv') {
       const tag = def.fileTag ? def.fileTag(result.values) : '';

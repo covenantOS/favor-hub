@@ -50,7 +50,7 @@ export const CATALOG: CatalogEntry[] = [
 ];
 
 /** The query map is a lookup for everyone. */
-export const QUERY_MAP_ENTRY = { id: 'query-map', name: 'Where each Blackbaud query went' };
+export const QUERY_MAP_ENTRY = { id: 'query-map', name: 'Blackbaud query map' };
 
 const DEFS: Record<string, ReportDef | null> = {
   'daily-revenue': dailyRevenue,
