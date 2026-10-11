@@ -631,7 +631,7 @@
           return `<div class="rcp-held">
             <h3>${esc(title)} <span>${every.length}</span></h3>
             ${note ? `<p class="rcp-fine">${esc(note)}</p>` : ''}
-            <table class="exp-admin-table rcp-table">
+            <table class="exp-admin-table rcp-table sc-table">
               <tbody>${list
                 .map(
                   (h) => `<tr>
@@ -687,7 +687,7 @@
     el.innerHTML = `
       ${
         rows.length
-          ? `<div class="fnd-table-wrap"><table class="exp-admin-table rcp-table">
+          ? `<div class="fnd-table-wrap"><table class="exp-admin-table rcp-table sc-table">
           <thead><tr><th>Letters dated</th><th class="r">Letters</th><th>Gifts from</th><th>Made by</th><th>Status</th><th></th></tr></thead>
           <tbody>${rows
             .map((b) => {

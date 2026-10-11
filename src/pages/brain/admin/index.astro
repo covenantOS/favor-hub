@@ -63,12 +63,12 @@ const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true
 
     <section class="h-card b-apanel" data-apanel="people" hidden>
       <div class="h-card__head"><span class="h-card__title">Who sees what</span><input class="b-find" id="a-find" type="search" placeholder="Find a person" aria-label="Find a person" /><SheetsButton name="brain-people" /></div>
-      <div class="h-card__body b-scroll"><table class="b-table" id="a-people-t"></table></div>
+      <div class="h-card__body b-scroll"><table class="b-table sc-table" id="a-people-t"></table></div>
     </section>
 
     <section class="h-card b-apanel" data-apanel="activity" hidden>
       <div class="h-card__head"><span class="h-card__title">Every question, newest first</span><SheetsButton name="brain-activity" /></div>
-      <div class="h-card__body b-scroll"><table class="b-table" id="a-recent"></table><button type="button" class="h-more" id="a-more" hidden>Show more</button></div>
+      <div class="h-card__body b-scroll"><table class="b-table sc-table" id="a-recent"></table><button type="button" class="h-more" id="a-more" hidden>Show more</button></div>
     </section>
 
     <div class="b-apanel b-grid2" data-apanel="iwave" hidden>
@@ -84,7 +84,7 @@ const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true
       </div>
       <section class="h-card">
         <div class="h-card__head"><span class="h-card__title">Refresh and screening log</span><span class="h-card__meta">Newest first, credits before and after</span></div>
-        <div class="h-card__body b-scroll"><table class="b-table" id="a-iw-log"></table></div>
+        <div class="h-card__body b-scroll"><table class="b-table sc-table" id="a-iw-log"></table></div>
       </section>
     </div>
 

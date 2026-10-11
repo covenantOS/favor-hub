@@ -34,7 +34,7 @@
 
   function num(n) { return Number(n || 0).toLocaleString('en-US'); }
   function table(head, rows) {
-    return '<div class="ad-scroll"><table class="ad-table"><thead><tr>' + head.map(function (h) { return '<th>' + E(h) + '</th>'; }).join('') + '</tr></thead><tbody>' + (rows.length ? rows.join('') : '<tr><td colspan="' + head.length + '" class="mute">Nothing yet.</td></tr>') + '</tbody></table></div>';
+    return '<div class="ad-scroll"><table class="ad-table sc-table"><thead><tr>' + head.map(function (h) { return '<th>' + E(h) + '</th>'; }).join('') + '</tr></thead><tbody>' + (rows.length ? rows.join('') : '<tr><td colspan="' + head.length + '" class="mute">Nothing yet.</td></tr>') + '</tbody></table></div>';
   }
 
   function extras(x) {

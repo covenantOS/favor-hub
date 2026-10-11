@@ -1,0 +1,25 @@
+/* Sticky first column for every wide table. Any table with class sc-table gets it.
+   public/js/sticky-col.js adds sc-wide to a table only when its scroll box overflows, so
+   tables that stack into cards on a phone never change. sc-scrolled appears once the box
+   has moved sideways and draws the edge shadow. Header rows keep whatever sticky top they
+   already had. Loaded last in App.astro. */
+
+.sc-table { --sc-cell: #fff; --sc-head: #fff; --sc-hover: var(--r-hover, #f7f5ef); }
+.sc-table.exp-admin-table, .sc-table.fnd-table, .sc-table.rcp-table { --sc-hover: #fbf9f4; }
+.sc-table.ad-table { --sc-head: var(--h-surface-2, #f8f9fa); }
+
+.sc-table.sc-wide th:first-child,
+.sc-table.sc-wide td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--sc-cell);
+  background-clip: padding-box;
+}
+.sc-table.sc-wide thead th:first-child { z-index: 4; background-color: var(--sc-head); }
+.sc-table.sc-wide thead th:not(:first-child) { z-index: 3; }
+.sc-table.sc-wide tbody tr:hover > td:first-child,
+.sc-table.sc-wide tbody tr:hover > th:first-child { background-color: var(--sc-hover); }
+
+.sc-table.sc-wide.sc-scrolled th:first-child,
+.sc-table.sc-wide.sc-scrolled td:first-child { box-shadow: 6px 0 8px -6px rgba(31, 36, 28, 0.28); }

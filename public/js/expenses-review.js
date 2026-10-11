@@ -45,7 +45,7 @@
       "<b>City / state</b><span>" + (esc(r.travel_city) || "&mdash;") + "</span>" +
       "<b>Submitted</b><span>" + fmt(r.submitted_at) + "</span>" +
       "</div>" +
-      '<table class="exp-table"><tr><th>Description</th><th>Item</th><th class="r">Est. amount</th></tr>' + rows +
+      '<table class="exp-table sc-table"><tr><th>Description</th><th>Item</th><th class="r">Est. amount</th></tr>' + rows +
       '<tr class="tot"><td colspan="2">Total estimated</td><td class="r">' + money(r.total_cents) + "</td></tr></table>" +
       '<div class="exp-rows" style="margin-top:14px"><b>Reason</b><span>' + esc(r.reason) + "</span></div>" +
       '<div class="exp-sigstamp">' +

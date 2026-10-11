@@ -83,7 +83,7 @@
       "<b>City / state</b><span>" + (esc(r.travel_city) || "&mdash;") + "</span>" +
       "<b>Reason</b><span>" + esc(r.reason) + "</span>" +
       "</div>" +
-      '<table class="exp-table"><tr><th>Item</th><th class="r">Amount</th></tr>' + itemRows +
+      '<table class="exp-table sc-table"><tr><th>Item</th><th class="r">Amount</th></tr>' + itemRows +
       '<tr class="tot"><td>Total</td><td class="r">' + money(r.total_cents) + "</td></tr></table>" +
       sigs +
       '<span class="exp-legend">Timeline</span>' +
@@ -202,7 +202,7 @@
       return;
     }
     var table = document.createElement("table");
-    table.className = "exp-admin-table";
+    table.className = "exp-admin-table sc-table";
     table.innerHTML = "<tr><th>Doc</th><th>Submitted</th><th>Requester</th><th>Approver</th><th>Status</th><th class=\"r\">Total</th><th></th></tr>";
     rows.forEach(function (r) {
       var row = document.createElement("tr");
