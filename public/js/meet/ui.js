@@ -24,7 +24,7 @@ export const ic = (n, c = '') => `<svg class="h-i ${c}" viewBox="0 0 24 24" aria
 
 const COLORS = ['#5a7250', '#8a6b3a', '#4f6f86', '#8a4f5e', '#6b5a8a', '#3f7a6a', '#a0673f', '#5e6b3a', '#7a4f3a', '#3f5e8a', '#86714f', '#6a3f5e'];
 export const hashColor = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
-export const initials = (n) => String(n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0].toUpperCase()).join('') || '?';
+export const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 export const av = (name, cls = '') => `<span class="mt-av ${cls}" style="background:${hashColor(name)}">${esc(initials(name))}</span>`;
 
 let tt;

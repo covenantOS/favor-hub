@@ -41,3 +41,7 @@
 .cw-ctl { pointer-events: none; z-index: 2; }
 .cw-ctl > * { pointer-events: auto; }
 .cw-player.is-idle .cw-ctl > * { pointer-events: none; }
+/* Worst-case data (scripts/break-ui): a long owner name, a pasted link in the summary, a comment with no spaces. */
+.cw-sub, .cw-sumtxt, .cw-cmeta, .cw-vlist b, .cw-mktip { overflow-wrap: anywhere; }
+.cw-mktip { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.cw-av { overflow: hidden; }

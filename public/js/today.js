@@ -4,9 +4,10 @@
   const $ = (id) => document.getElementById(id);
   if (!$('t-cards')) return;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const money0 = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
-  const money2 = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const compact = (n) => (n >= 1e6 ? '$' + (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? '$' + Math.round(n / 1e3) + 'K' : '$' + Math.round(n));
+  const neg = (n) => (Number(n) < 0 ? '-' : '');
+  const money0 = (n) => neg(Math.round(Number(n) || 0)) + '$' + Math.abs(Math.round(Number(n) || 0)).toLocaleString('en-US');
+  const money2 = (n) => neg(n) + '$' + Math.abs(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const compact = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : ''; return a >= 1e9 ? s + '$' + (a / 1e9).toFixed(2) + 'B' : a >= 999500 ? s + '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? s + '$' + Math.round(a / 1e3) + 'K' : s + '$' + Math.round(a); };
   const et = (iso, opts) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, opts));
   const clock = (iso) => et(iso, { hour: 'numeric', minute: '2-digit' });
   const dayKey = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -84,7 +85,7 @@
         const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
         return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
-          <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
+          <span class="r2t-tile__n${String(Math.round(Number(c.n) || 0)).length > 5 ? ' is-long' : ''}"><span data-countup>${(Number(c.n) || 0).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
           <span class="r2t-tile__w">${esc(c.what)}</span>
           <span class="r2t-tile__f">${note}<span class="r2t-go">${icon('arrow')}</span></span>
         </a>${window.hubSnoozeButton ? window.hubSnoozeButton('hub', 'card:' + c.id, c.label) : ''}</div>`;
@@ -96,7 +97,7 @@
     if (!list.length) return;
     const cls = (s) => (/Done|Approved/.test(s) ? 'r2t-chip--ok' : /Declined/.test(s) ? 'r2t-chip--late' : 'r2t-chip--due');
     $('t-mine').innerHTML = list
-      .map((m) => `<li><a class="r2t-lr" href="${esc(m.href)}" title="${esc(m.title)}"><span class="r2t-lr__t"><b>${esc(m.title)}</b></span><span class="r2t-chip ${cls(m.status)}">${esc(m.status)}</span></a></li>`)
+      .map((m) => `<li><a class="r2t-lr" href="${esc(m.href)}" title="${esc(m.title)}"><span class="r2t-lr__t"><b>${esc(String(m.title || '').trim() || 'Untitled')}</b></span><span class="r2t-chip ${cls(m.status)}" title="${esc(m.status)}"><span class="r2t-chip__t">${esc(m.status)}</span></span></a></li>`)
       .join('');
     $('t-mine-card').hidden = false;
   }
@@ -158,7 +159,7 @@
     let delta = '';
     if (s.raisedLastYear) {
       const d = ((s.raised - s.raisedLastYear) / s.raisedLastYear) * 100;
-      delta = `<span class="r2t-chip ${d >= 0 ? 'r2t-chip--ok' : 'r2t-chip--late'}">${d >= 0 ? '+' : ''}${d.toFixed(1)}%</span><span class="r2t-sub">vs. this day last year</span>`;
+      delta = `<span class="r2t-chip ${d >= 0 ? 'r2t-chip--ok' : 'r2t-chip--late'}">${d >= 0 ? '+' : ''}${d.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span><span class="r2t-sub">vs. this day last year</span>`;
     }
     const teams = s.teams
       .map((t) => {
@@ -202,7 +203,7 @@
 
   let kpiAsked = false;
   swr('favor.hub.today.v1', '/api/hub/today', (d) => {
-      const first = String((d.user && d.user.name) || '').split(' ')[0];
+      const first = String((d.user && d.user.name) || '').trim().split(/\s+/)[0];
       const shownName = first && d.user.via === 'google' ? first : '';
       $('t-hello').textContent = shownName ? `${part}, ${shownName}` : part;
       try { shownName ? localStorage.setItem(NAME_KEY, shownName) : localStorage.removeItem(NAME_KEY); localStorage.setItem(CARDS_KEY, String((d.cards || []).length || 1)); } catch { /* storage refused */ }
@@ -242,7 +243,7 @@
     return h < 1 ? 'just now' : h < 24 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago';
   };
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  const initials = (s) => String(s || '?').replace(/[^A-Za-z ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  const initials = (s) => { const w = String(s || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const pick = w.length > 1 ? [w[0], w[w.length - 1]] : w; return pick.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
   const hue = (s) => { let n = 0; for (const c of String(s)) n = (n * 31 + c.charCodeAt(0)) % 8; return n; };
   const card = (title, meta, body, extra) =>
     `<div class="h-card r2t-card"><div class="r2t-ch"><h3>${title}${extra || ''}</h3><span>${meta}</span></div>${body}</div>`;
@@ -275,7 +276,7 @@
     if (!box) return;
     const e = (events || []).find(isLive);
     box.innerHTML = e
-      ? `<div class="r2t-now"><span class="r2t-pv pv-favor-on">${PV[e.provider] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${PV[e.provider][1]}</svg>` : ''}</span><span>${esc(e.title)}<small>Live, until ${time(e.end)}</small></span><a class="r2t-join" href="${esc(e.meet || e.link)}" target="_blank" rel="noopener">Join</a></div>`
+      ? `<div class="r2t-now"><span class="r2t-pv pv-favor-on">${PV[e.provider] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${PV[e.provider][1]}</svg>` : ''}</span><span class="r2t-now__t">${esc(String(e.title || '').trim() || 'No title')}<small>Live, until ${time(e.end)}</small></span><a class="r2t-join" href="${esc(e.meet || e.link)}" target="_blank" rel="noopener">Join</a></div>`
       : '';
   };
 
@@ -284,7 +285,9 @@
       const bb = d.blackbaud || {};
       const g = d.google || {};
       const partners = g.partners || {};
-      const partnerTag = (email) => (partners[email] ? `<span class="r2t-chip r2t-chip--plain" title="In Blackbaud">${esc(partners[email].name)}</span>` : '');
+      const partnerTag = (email) => (partners[email] ? `<span class="r2t-chip r2t-chip--plain r2t-chip--who" title="${esc(partners[email].name)}, in Blackbaud"><span class="r2t-chip__t">${esc(partners[email].name)}</span></span>` : '');
+      // One partner chip a row, then a count: the meeting title keeps the room.
+      const partnerTags = (emails) => { const hit = (emails || []).filter((x) => partners[x]); return hit.length ? partnerTag(hit[0]) + (hit.length > 1 ? `<span class="r2t-chip r2t-chip--plain r2t-chip--n" title="${esc(hit.slice(1).map((x) => partners[x].name).join(', '))}">+${hit.length - 1}</span>` : '') : ''; };
       livePill(g.events);
 
       let actions;
@@ -299,8 +302,8 @@
             .map(
               (a) => `<li class="r2t-snzrow" data-row="${esc(a.id)}"><a class="r2t-lr" href="${cid(a)}" target="_blank" rel="noopener" title="${esc(a.summary || a.type)}"><span class="r2t-chk" aria-hidden="true"></span><span class="r2t-lr__t"><b>${esc(a.partner || 'Partner')}</b><span>${esc(a.summary || a.type || a.category)}</span></span><span class="r2t-chip ${a.due < today ? 'r2t-chip--late' : 'r2t-chip--plain'}" data-chip>${esc(et(a.due + 'T12:00:00Z', { month: 'short', day: 'numeric' }))}</span></a>${window.hubSnoozeButton ? window.hubSnoozeButton('bb', a.id, a.partner || 'Partner', 'r2t-snz--row') : ''}</li>`
             )
-            .join('')}</ul>${bb.total > bb.actions.length ? `<p class="r2t-more-n">${bb.total - bb.actions.length} more in Blackbaud</p>` : ''}`,
-          bb.overdue ? `<span class="r2t-chip r2t-chip--late"><i></i>${bb.overdue} overdue</span>` : ''
+            .join('')}</ul>${bb.total > bb.actions.length ? `<p class="r2t-more-n">${(bb.total - bb.actions.length).toLocaleString('en-US')} more in Blackbaud</p>` : ''}`,
+          bb.overdue ? `<span class="r2t-chip r2t-chip--late"><i></i>${Number(bb.overdue).toLocaleString('en-US')} overdue</span>` : ''
         );
 
       if (!g.connected) {
@@ -316,8 +319,8 @@
           ? `<ul class="r2t-list">${g.events
               .map((e) => {
                 const live = isLive(e);
-                const who = (e.people || []).map(partnerTag).join('');
-                return `<li><a class="r2t-lr${live ? ' is-now' : ''}" href="${esc(e.meet || e.link)}" target="_blank" rel="noopener"><span class="r2t-time">${live ? 'Now' : e.allDay ? 'All day' : esc(time(e.start))}</span>${mark(e.provider)}<span class="r2t-lr__t"><b>${esc(e.title)}</b></span>${who}${live ? '<span class="r2t-chip r2t-chip--live"><i></i>Live</span>' : ''}</a></li>`;
+                const who = partnerTags(e.people);
+                return `<li><a class="r2t-lr${live ? ' is-now' : ''}" href="${esc(e.meet || e.link)}" target="_blank" rel="noopener"><span class="r2t-time">${live ? 'Now' : e.allDay ? 'All day' : esc(time(e.start))}</span>${mark(e.provider)}<span class="r2t-lr__t"><b title="${esc(e.title)}">${esc(String(e.title || '').trim() || 'No title')}</b></span>${who}${live ? '<span class="r2t-chip r2t-chip--live"><i></i>Live</span>' : ''}</a></li>`;
               })
               .join('')}</ul>`
           : empty('Nothing on your calendar today.')
@@ -328,7 +331,7 @@
           : empty('No unread mail from the last three days.')
         : empty('Your inbox could not be read just now.');
       const files = g.files && g.files.length
-        ? card('Shared with you', 'This week', `<ul class="r2t-list">${g.files.map((f) => `<li><a class="r2t-lr" href="${esc(f.link)}" target="_blank" rel="noopener"><span class="r2t-lr__t"><b>${esc(f.name)}</b><span>${esc(f.by)} ${ago(f.modified)}</span></span></a></li>`).join('')}</ul>`)
+        ? card('Shared with you', 'This week', `<ul class="r2t-list">${g.files.map((f) => `<li><a class="r2t-lr" href="${esc(f.link)}" target="_blank" rel="noopener"><span class="r2t-lr__t"><b title="${esc(f.name)}">${esc(f.name)}</b><span>${esc([String(f.by || '').trim(), ago(f.modified)].filter(Boolean).join(' · '))}</span></span></a></li>`).join('')}</ul>`)
         : '';
       const nMail = g.mail ? g.mail.length : 0;
       grid.innerHTML =

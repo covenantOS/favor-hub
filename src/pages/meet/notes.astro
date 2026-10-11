@@ -10,4 +10,10 @@ import '../../styles/lint-fix.css';
 <App title="Meeting notes" crumb="Meeting notes" nav="meet-notes" description="Meeting notes.">
   <div id="mt-notes" aria-busy="true"><div class="h-card h-skel" style="min-height:260px"></div></div>
   <script is:inline type="module" src="/js/meet/notes.js?v=7"></script>
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
+---
+<App title="Meeting notes" crumb="Meeting notes" nav="meet-notes" description="Meeting notes.">
+  <div id="mt-notes" aria-busy="true"><div class="h-card h-skel" style="min-height:260px"></div></div>
+  <script is:inline type="module" src="/js/meet/notes.js?v=6"></script>
 </App>

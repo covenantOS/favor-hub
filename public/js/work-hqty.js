@@ -70,7 +70,7 @@ function rowHTML(r) {
   const canPick = r.state !== 'mailed';
   return `<div class="wg-row hq-row${picked ? ' is-picked' : ''}${H.working.has(r.key) ? ' is-working' : ''}" data-key="${e(r.key)}">
     <label class="wg-cb">${canPick ? `<input type="checkbox" data-hq-pick="${e(r.key)}" ${picked ? 'checked' : ''} aria-label="Select ${e(r.partner.name)}" />` : ''}</label>
-    <div class="wg-amt wg-c-amt">${f.money(r.amount)}<small>${f.fd(r.date)} · ${e(r.pay || r.type)}</small></div>
+    <div class="wg-amt wg-c-amt${f.money(r.amount).length > 10 ? ' is-long' : ''}">${f.money(r.amount)}<small>${f.fd(r.date)} · ${e(r.pay || r.type)}</small></div>
     <div class="wg-c-who"><a class="wg-name" href="/work/partner/${e(r.cid)}" data-partner-id="${e(r.cid)}">${e(r.partner.name)}</a><span class="wg-sub">${sub}</span>${flags ? `<div class="wg-badges">${flags}</div>` : ''}</div>
     <div class="hq-addr"><b>${e(r.fund || 'No fund on file')}</b>${r.address ? `<span class="wg-sub">${e(r.address)}</span>` : '<span class="wg-sub is-bad">No mailing address</span>'}${signerCtl(r)}</div>
     <div class="hq-state">${stateCell(r)}</div>
@@ -88,15 +88,15 @@ function view() {
   const groups = [];
   for (const r of list) { const g = groups[groups.length - 1]; if (g && g.m === r.month) g.rows.push(r); else groups.push({ m: r.month, rows: [r] }); }
   el.innerHTML = `
-    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn]) => `<button type="button" class="wc-stat${H.filter === k ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}" data-hq-filter="${k}"><b>${n}</b><span>${l}</span></button>`).join('')}</div>
+    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn]) => `<button type="button" class="wc-stat${H.filter === k ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}" data-hq-filter="${k}"><b>${(Number(n) || 0).toLocaleString('en-US')}</b><span>${l}</span></button>`).join('')}</div>
     <section class="h-card wc-sheet" id="hq-sheet" aria-label="HQTY letters">
-      <div class="wg-tools"><button type="button" class="hq-all${H.filter ? '' : ' is-on'}" data-hq-filter="">All gifts of $5,000 and up<span>${s.total}</span></button>
+      <div class="wg-tools"><button type="button" class="hq-all${H.filter ? '' : ' is-on'}" data-hq-filter="">All gifts of $5,000 and up<span>${Number(s.total).toLocaleString('en-US')}</span></button>
         <label class="wc-find">${f.ic('search')}<input type="search" id="hq-q" placeholder="Find a partner" value="${e(H.q)}" autocomplete="off" /></label><span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-text>${f.ic('letter')}${e(mo)} letter</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="hqty-letters">${f.ic('sheet')}Google Sheets</button></div>
       <div class="wg-list">${groups.map((g) => `<div class="wg-group"><span>${e(monthLabel(g.m))} · ${g.rows.length}</span><button type="button" data-hq-grp="${e(g.m)}">Select all</button></div>${g.rows.map(rowHTML).join('')}`).join('')}
         ${!list.length ? `<div class="wg-empty"><b>${H.data.rows.length ? 'Nothing matches' : 'No gifts yet'}</b>${H.data.rows.length ? 'Clear the filter above to see the rest.' : 'Gifts of $5,000 and up show here after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>` : ''}</div>
-      <div class="wg-foot"><span>${s.total} gifts of $5,000 and up since ${f.fd(d.since)}. A gift counts as written when Blackbaud holds an HQTY Letter on its partner dated on or after the gift.</span></div>
+      <div class="wg-foot"><span>${Number(s.total).toLocaleString('en-US')} ${Number(s.total) === 1 ? 'gift' : 'gifts'} of $5,000 and up since ${f.fd(d.since)}. A gift counts as written when Blackbaud holds an HQTY Letter on its partner dated on or after the gift.</span></div>
     </section>`;
   bar(); sheet();
 }

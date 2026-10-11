@@ -125,7 +125,7 @@
     switch (c.type) {
       case 'name': {
         const q = x.lookup_id ? `Tell me about lookup ${x.lookup_id}` : `Tell me about ${v}${x.place ? ' in ' + x.place : ''}`;
-        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''}>${esc(v)}</a>`;
+        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''} title="${esc(v)}">${esc(v)}</a>`;
       }
       case 'money': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(money(v));
       case 'int': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(int(v));
@@ -264,7 +264,7 @@
   });
 
   // ---- Tiles, team ----------------------------------------------------------------------------------
-  const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(d.pct))}%</span>` : '');
+  const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(Number(d.pct) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 }))}%</span>` : '');
   function spark(v) {
     if (!v || v.length < 2) return '';
     const mx = Math.max(...v), mn = Math.min(...v);
@@ -276,7 +276,7 @@
       .map((t) => {
         const num = typeof t.value === 'number' ? `<span data-count="${t.value}" data-f="${esc(t.format || 'int')}">${esc(fmt(t.value, t.format || 'int'))}</span>` : esc(t.value);
         const prog = t.progress != null ? `<div style="height:6px;border-radius:999px;background:#ece7dc;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:${Math.max(Math.min(t.progress, 100), 2)}%;background:var(--c-a);border-radius:999px;transform-origin:left;animation:bc-grow .8s var(--ease) both"></i></div>` : '';
-        return `<div class="bc-tile"><div class="bc-tile__l">${esc(t.label)}</div><div class="bc-tile__n${typeof t.value === 'string' ? ' is-txt' : ''}">${num}</div><div class="bc-tile__c">${delta(t.delta)}${t.compare ? `<span>${esc(t.compare)}</span>` : ''}</div>${spark(t.trend)}${prog}</div>`;
+        return `<div class="bc-tile"><div class="bc-tile__l">${esc(t.label)}</div><div class="bc-tile__n${typeof t.value === 'string' ? ' is-txt' : fmt(t.value, t.format || 'int').length > 10 ? ' is-long' : ''}">${num}</div><div class="bc-tile__c">${delta(t.delta)}${t.compare ? `<span>${esc(t.compare)}</span>` : ''}</div>${spark(t.trend)}${prog}</div>`;
       })
       .join('')}</div>`;
   }
@@ -400,7 +400,7 @@
   new MutationObserver(() => { clearTimeout(fadeT); fadeT = setTimeout(tableFades, 60); }).observe(document.body, { childList: true, subtree: true });
 
   // ---- Partner card ---------------------------------------------------------------------------------
-  const initials = (n) => String(n || '?').replace(/[^A-Za-z\s.]/g, '').split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
   function partnerHTML(b, ctx) {
     const ys = b.years || [];
     const mx = Math.max(1, ...ys.map((y) => y.amount));
@@ -434,7 +434,7 @@
       </div>
       <div class="pc__body"><div class="pc__giving"><div class="pc__sec">Giving by year</div>
         ${ys.length ? `<div class="yb" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<button type="button" aria-label="${y.y}: ${money(y.amount)}"><i class="${y.amount ? '' : 'z'}" style="height:${(y.amount / mx) * 100}%;animation-delay:${k * 50}ms"></i><span class="tipbox"><b>${y.y}</b><br>${esc(money(y.amount))}</span></button>`).join('')}</div>
-        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y) => `<span>${y.y}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
+        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<span>${ys.length <= 10 || k % Math.ceil(ys.length / 8) === 0 ? y.y : ''}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
       ${acts ? `<div class="pc__acts">${acts}</div>` : ''}</div>`;
   }
 
@@ -543,7 +543,8 @@
   }
 
   /** One block as HTML. ctx: { ti, bi, canSheets, canRequest(pkg), expired }. */
-  B.render = (b, ctx) => {
+  B.render = (b, ctx) => { try { return draw(b, ctx); } catch (e) { return ''; } };
+  const draw = (b, ctx) => {
     switch (b.type) {
       case 'text': return `<div class="blk-text">${md(b.md)}</div>`;
       case 'tiles': return tilesHTML(b);

@@ -3,7 +3,7 @@
 import { $, esc, ic, api, fmtDay, pump } from './ui.js';
 const root = $('#mt-lib');
 let list = [], acts = [], people = new Map(), team = '', q = '', seq = 0, timer = 0;
-const clip = (t, n = 220) => { t = (t || '').trim(); if (t.length <= n) return t; const c = t.slice(0, n); return c.slice(0, c.lastIndexOf(' ')) + '...'; };
+const clip = (t, n = 220) => { t = (t || '').trim(); if (t.length <= n) return t; const c = t.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c) + '...'; };
 const teamOf = (m) => people.get(String(m.hostEmail || '').toLowerCase())?.team || '';
 const mins = (m) => {
   if (!m.startedAt || !m.endedAt) return '';

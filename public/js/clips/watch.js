@@ -65,7 +65,7 @@ const isAdmin = () => !!(S.can && S.can.edit);
 const canDelete = () => !!(S.can && S.can.delete);
 const signedIn = () => !!S.user;
 const firstName = (n) => String(n || '').split(/\s+/)[0] || 'Someone';
-const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const mediaUrl = () => `/api/clips/${ID}/media`;
 const shareUrl = () => `${location.origin}/c/${ID}`;
 

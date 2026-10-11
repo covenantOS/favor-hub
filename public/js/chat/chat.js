@@ -112,16 +112,17 @@
   var app = null;
   function paintUnread(u) {
     var n = (u && u.mentions) || 0;
-    document.querySelectorAll('[data-count="chatMentions"]').forEach(function (el) { el.textContent = String(n); el.hidden = !n; });
-    document.title = (n ? '(' + n + ') ' : '') + 'Chat - Favor Hub';
+    document.querySelectorAll('[data-count="chatMentions"]').forEach(function (el) { el.textContent = n.toLocaleString('en-US'); el.hidden = !n; });
+    document.title = (n ? '(' + (n > 99 ? '99+' : n) + ') ' : '') + 'Chat - Favor Hub';
     window.dispatchEvent(new CustomEvent('favor-chat:unread', { detail: u }));
   }
+  function escAttr(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function blocks(list, m) {
     var B = window.BrainBlocks;
     if (!B || !B.render) return '';
     var h = list.map(function (b, i) { try { return B.render(b, { ti: 0, bi: i, canSheets: false }); } catch (e) { return ''; } }).join('');
     var follow = (m && m.brain && m.brain.follow) || [];
-    if (follow.length) h += '<div class="ch-ans__chips">' + follow.map(function (q) { return '<button type="button" class="ch-chip" data-act="chip" data-q="' + String(q).replace(/"/g, '&quot;') + '">' + String(q).replace(/</g, '&lt;') + '</button>'; }).join('') + '</div>';
+    if (follow.length) h += '<div class="ch-ans__chips">' + follow.map(function (q) { return '<button type="button" class="ch-chip" data-act="chip" data-q="' + escAttr(q) + '">' + escAttr(q) + '</button>'; }).join('') + '</div>';
     return '<div class="bc-root">' + h + '</div>';
   }
   window.FavorChat.mount(root, api, {

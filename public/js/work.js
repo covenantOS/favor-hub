@@ -40,13 +40,13 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const dayn = (iso) => Math.round((Date.parse(iso + 'T12:00:00Z') - Date.parse(TODAY + 'T12:00:00Z')) / 86400000);
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(TODAY.slice(0, 4)) ? ', ' + y : ''); };
 const addDays = (iso, n) => { const t = new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000); return t.toISOString().slice(0, 10); };
-const money = (a) => '$' + (Math.round(a) === a ? a.toLocaleString('en-US') : a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
 const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : (many || one + 's'));
 const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
 const clock = () => et(now(), { hour: 'numeric', minute: '2-digit' });
 const P = (fid) => (DATA.people[fid] || { n: 'Fundraiser ' + fid, team: '', active: 0, listed: 0 });
-const first = (fid) => P(fid).n.split(' ')[0];
-const ini = (name) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const first = (fid) => String(P(fid).n || '').trim().split(/\s+/)[0] || '';
+const ini = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const live = (fid) => { const p = DATA.people[fid]; return !!(p && p.active && p.listed); };
 // how a name reads when that person can no longer own work: left Favor, or never set up as a fundraiser
@@ -197,7 +197,7 @@ function page() {
     ${window.WCWeek ? window.WCWeek.strip() : ''}
     <div class="wc-tabs" role="tablist" aria-label="Work Center">
       ${tabsNow().map(([k, l, n]) =>
-        `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
+        `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${typeof n === 'number' ? n.toLocaleString('en-US') : n}</span>` : ''}</button>`).join('')}
     </div>
     <div id="view"></div>`;
   if (window.WCGifts) window.WCGifts.hideBulk();
@@ -245,7 +245,9 @@ function rowHTML(a) {
     ? `<span class="wc-tag wc-tag--done" title="${esc(a.later.s)}">Thanked ${fd(a.later.d)}</span>`
     : `<span class="wc-tag wc-tag--maybe" title="${esc(a.later.s)}">Contact ${fd(a.later.d)}, maybe done</span>`);
   if (a.grp) tags.push(`<span class="wc-tag" title="Another open task is about the same gift">${a.grp.length} tasks, one gift</span>`);
-  for (const t of (a.tg || [])) tags.push(`<span class="wc-tag wc-tag--tag">${esc(t)}</span>`);
+  const tg = a.tg || [];
+  for (const t of tg.slice(0, 3)) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(t)}">${esc(t)}</span>`);
+  if (tg.length > 3) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(tg.slice(3).join(', '))}">+${tg.length - 3}</span>`);
   if (a.dec) tags.push('<span class="wc-tag wc-tag--warn">Deceased</span>');
   const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}">${esc(P(x).n)}${gone(x)}</span>`).join('') : '<span class="none">No one</span>';
   const theirs = S.f.fr && S.f.theirs && !c.f.includes(S.f.fr) && a.hold.includes(S.f.fr);
@@ -905,16 +907,16 @@ function viewIntake() {
   const span = `${fd(d.deadline.from)} to ${Number(d.deadline.to.slice(8))}`;
   $('#view').innerHTML = `
     <div class="wc-owners" role="tablist" aria-label="Whose contacts">
-      ${d.owners.map((x) => { const n = x.wait + x.late; return `<button type="button" class="wc-owner${S.in.rdd === x.fid ? ' is-on' : ''}" data-rdd="${x.fid}" title="${esc(x.type)}"><span class="wc-ini">${ini(x.name)}</span>${esc(x.name)}${n ? `<em class="warn">${n}</em>` : x.all ? '<em>Done</em>' : '<em class="none">Nothing yet</em>'}</button>`; }).join('')}
+      ${d.owners.map((x) => { const n = x.wait + x.late; return `<button type="button" class="wc-owner${S.in.rdd === x.fid ? ' is-on' : ''}" data-rdd="${x.fid}" title="${esc(x.type)}"><span class="wc-ini">${esc(ini(x.name))}</span>${esc(x.name)}${n ? `<em class="warn">${n}</em>` : x.all ? '<em>Done</em>' : '<em class="none">Nothing yet</em>'}</button>`; }).join('')}
     </div>
     <section class="h-card wc-clock" aria-label="This week's deadline">
       <div class="wc-clock__left"><span class="h-label">${esc(me.name)} · due ${esc(d.deadline.label.replace('Monday', 'Monday'))}</span><div class="wc-clock__time" id="clock">${clk(dl)}</div><div class="wc-clock__when">Contacts from ${esc(span)}. The report is pulled Wednesday at noon.</div></div>
-      <div class="wc-prog"><div class="wc-prog__nums"><span><b>${w.inBB}</b>of ${w.sub} submitted this week are in Blackbaud</span><span class="wc-prog__side">${bb.this} ${esc(me.type)}s dated this week in Blackbaud<br />Last week: ${bb.lastByMon3} of ${bb.last} in by Monday 3:00 PM</span></div>
+      <div class="wc-prog"><div class="wc-prog__nums"><span><b>${w.inBB}</b>of ${w.sub} submitted this week are in Blackbaud</span><span class="wc-prog__side">${Number(bb.this).toLocaleString('en-US')} ${esc(me.type)}${Number(bb.this) === 1 ? '' : 's'} dated this week in Blackbaud<br />Last week: ${bb.lastByMon3} of ${bb.last} in by Monday 3:00 PM</span></div>
         <div class="wc-prog__bar" role="img" aria-label="${w.inBB} of ${w.sub} entered"><i style="width:${w.sub ? w.inBB / w.sub * 100 : 0}%"></i><i style="width:${w.sub ? w.wait / w.sub * 100 : 0}%"></i></div>
-        <div class="wc-prog__legend"><span><i></i>In Blackbaud ${w.inBB}</span><span><i class="w"></i>Waiting ${w.wait}</span><span><i class="b"></i>Late from earlier weeks ${w.late}</span></div></div>
+        <div class="wc-prog__legend"><span><i></i>In Blackbaud ${Number(w.inBB).toLocaleString('en-US')}</span><span><i class="w"></i>Waiting ${Number(w.wait).toLocaleString('en-US')}</span><span><i class="b"></i>Late from earlier weeks ${Number(w.late).toLocaleString('en-US')}</span></div></div>
     </section>
     <section class="h-card wc-sheet" id="wc-intake" aria-label="Contacts to enter">
-      <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${n}</span></button>`).join('')}</div>
+      <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${Number(n).toLocaleString('en-US')}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${me.tab ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-readsheet>${ic('paste')}Read the sheet</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
       <div class="wc-paste${S.in.paste ? ' is-on' : ''}" id="paste">
         <label for="pastebox" class="wc-pastelab">Paste rows from ${esc(me.name)}'s tracking sheet: Name, New?, Date, Phone, Email, Address, Ask, Action, Notes</label>
@@ -1109,7 +1111,7 @@ function viewTy() {
   $('#view').innerHTML = `
     <div class="wc-owners" role="tablist" aria-label="Whose thank-yous">
       <button type="button" class="wc-owner${!S.ty.owner ? ' is-on' : ''}" data-owner=""><span class="wc-ini">All</span>Everyone<em>${tyGroups('').length}</em></button>
-      ${ownList.map((x) => `<button type="button" class="wc-owner${S.ty.owner === x ? ' is-on' : ''}" data-owner="${x}"><span class="wc-ini">${ini(P(x).n)}</span>${esc(P(x).n)}<em>${tyGroups(x).length}</em></button>`).join('')}
+      ${ownList.map((x) => `<button type="button" class="wc-owner${S.ty.owner === x ? ' is-on' : ''}" data-owner="${x}"><span class="wc-ini">${esc(ini(P(x).n))}</span>${esc(P(x).n)}<em>${tyGroups(x).length}</em></button>`).join('')}
     </div>
     <section class="h-card wc-sheet" id="wc-ty" aria-label="Thank-yous">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${['s', 'l', 'o'].map((k) => `<button type="button" class="wc-lane${S.ty.lane === k ? ' is-on' : ''}" data-tylane="${k}">${LANE[k][0]}<span>${sec[k].length}</span></button>`).join('')}</div>
