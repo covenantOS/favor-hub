@@ -230,8 +230,32 @@ export async function loadCloses(env: Env): Promise<AskClose[]> {
   return r.results;
 }
 
-/** Every ask in the window, with its column. A few mirror reads and one hub read. */
+/** The mirror side of the asks: the actions, their gifts, the largest gifts and the current holders. Closes are read fresh per request. */
+export interface MirrorAsks { asks: RawAsk[]; gifts: RawAskGift[]; largest: Record<string, number>; holders: Record<string, string[]> }
+/** A paging request is a fresh read of the mirror within this many milliseconds. The board asks four columns at once, so one read serves them all. */
+export const MIRROR_TTL_MS = 60_000;
+const mirrorCache = new Map<string, { at: number; p: Promise<MirrorAsks> }>();
+
+/** Shared by every request in the same isolate for MIRROR_TTL_MS, per window and day. A failed read is not kept. */
+export function mirrorAsks(q: Q, today: string, allTime: boolean): Promise<MirrorAsks> {
+  const key = `${allTime ? 'all' : '12m'}|${today}`;
+  const hit = mirrorCache.get(key);
+  if (hit && Date.now() - hit.at < MIRROR_TTL_MS) return hit.p;
+  const p = readMirrorAsks(q, today, allTime);
+  mirrorCache.set(key, { at: Date.now(), p });
+  p.catch(() => { if (mirrorCache.get(key)?.p === p) mirrorCache.delete(key); });
+  return p;
+}
+
+/** Every ask in the window, with its column. A few mirror reads (cached) and two hub reads. */
 export async function loadAsks(env: Env, q: Q, today: string, allTime = false): Promise<AskRow[]> {
+  const since = allTime ? '2000-01-01' : addDays(today, -ASK_DAYS);
+  const m = await mirrorAsks(q, today, allTime);
+  const [closes, gone] = await Promise.all([loadCloses(env), loadGone(env)]);
+  return shapeAsks({ ...m, closes, gone }, today).filter((r) => r.date >= since);
+}
+
+async function readMirrorAsks(q: Q, today: string, allTime: boolean): Promise<MirrorAsks> {
   const since = allTime ? '2000-01-01' : addDays(today, -ASK_DAYS);
   // Read a little further back so an ask first tagged just before the window still joins its later tags.
   const asks = await q<RawAsk>(ASKS_SQL, [allTime ? since : addDays(since, -SAME_ASK_DAYS)]);
@@ -242,15 +266,57 @@ export async function loadAsks(env: Env, q: Q, today: string, allTime = false): 
   const seen = new Set<string>();
   const gifts: RawAskGift[] = [];
   for (const g of parts.flat().concat(soft)) if (!seen.has(String(g.id))) { seen.add(String(g.id)); gifts.push(g); }
-  const [closes, gone] = await Promise.all([loadCloses(env), loadGone(env)]);
   // The partner's largest gift ever, for the asks big enough to need the comparison.
   const bigCids = [...new Set(asks.filter((a) => num(a.amt) >= REVIEW_FLOOR && num(a.amt) < REVIEW_AMOUNT).map((a) => String(a.cid)))];
   const largest: Record<string, number> = {};
   for (const part of await Promise.all(chunkOf(bigCids, 400).map((c) => q<{ cid: string; m: number }>(LARGEST_SQL, [JSON.stringify(c)])))) for (const g of part) largest[String(g.cid)] = num(g.m);
   const holders: Record<string, string[]> = {};
   for (const part of await Promise.all(chunkOf(cids, 400).map((c) => q<{ cid: string; fid: string }>(HOLDERS_SQL, [JSON.stringify(c), JSON.stringify(HOLD_TYPES), today])))) for (const h of part) (holders[String(h.cid)] ||= []).push(String(h.fid));
-  return shapeAsks({ asks, gifts, closes, gone, largest, holders }, today).filter((r) => r.date >= since);
+  return { asks, gifts, largest, holders };
 }
+
+export const PAGE_SIZE = 50;
+/** The most rows one request returns. The Sheets export asks for everything in one request. */
+export const MAX_PAGE = 5000;
+export const STATUSES = ['open', 'gave', 'review', 'former', 'all'] as const;
+export const STATES: AskState[] = ['open', 'closing', 'past', 'gave'];
+
+/** What the page asks for. Every filter runs here over all asks, so a filter answers for the whole set, not the rows already loaded. */
+export interface AskQuery {
+  /** The filter chip: open, gave, review, former or all. Default all. */
+  status?: string;
+  /** One column: open, closing, past or gave. Empty means every column, in list order. */
+  state?: string;
+  /** Text to find in the partner's name, the first line and the place. */
+  q?: string;
+  offset?: number;
+  limit?: number;
+}
+export interface ColumnCount { n: number; total: number }
+
+const inStatus = (r: AskRow, s: string): boolean =>
+  s === 'open' ? !r.review && !r.former && r.state !== 'gave'
+    : s === 'gave' ? !r.review && !r.former && r.state === 'gave'
+      : s === 'review' ? r.review && !r.former
+        : s === 'former' ? r.former
+          : true;
+/** A column's total counts the gift for Gave and the asked amount for every other column. */
+const colTotal = (r: AskRow): number => (r.state === 'gave' ? (r.gave ? r.gave.amount : 0) : r.amount);
+const cmp = (x: string, y: string): number => (x < y ? -1 : x > y ? 1 : 0);
+const STATE_ORDER: Record<AskState, number> = { past: 0, closing: 1, open: 2, gave: 3 };
+/** The order of one board column, or the list order when no column is named. Ties break on the ask id, newest first. */
+export function askOrder(state: string): (a: AskRow, b: AskRow) => number {
+  if (state === 'open') return (a, b) => cmp(b.date, a.date) || cmp(b.id, a.id);
+  if (state === 'closing') return (a, b) => cmp(a.close!.date, b.close!.date) || cmp(a.id, b.id);
+  if (state === 'past') return (a, b) => cmp(b.close!.date, a.close!.date) || cmp(b.id, a.id);
+  if (state === 'gave') return (a, b) => cmp(b.gave!.date, a.gave!.date) || cmp(b.id, a.id);
+  return (a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state] || cmp(b.date, a.date) || cmp(b.id, a.id);
+}
+const whole = (v: unknown, dflt: number, lo: number, hi: number): number => {
+  if (v === undefined || v === null || v === '') return dflt;
+  const n = Math.floor(Number(v));
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+};
 
 export interface AsksOut {
   ok: true;
@@ -260,6 +326,19 @@ export interface AsksOut {
   /** '12m' or 'all': how far back the asks reach. */
   range: '12m' | 'all';
   owner: string;
+  /** The filter this page answers to, as applied. */
+  status: string;
+  state: string;
+  q: string;
+  /** Asks that match the status, search and director, in the state named (all four when none is named). */
+  matched: number;
+  /** Every ask that matches the status, search and director, across all columns. */
+  shown: number;
+  /** Per column, for the same filter: how many asks and their total. The board headers read these. */
+  counts: Record<AskState, ColumnCount>;
+  /** This page: rows from offset, at most limit. */
+  offset: number;
+  limit: number;
   /** Every ask in the person's portfolio, before the director picker narrows it. */
   everyone: number;
   owners: { id: string; name: string; n: number }[];
@@ -277,7 +356,7 @@ export interface AsksOut {
 const visible = (s: Scope | undefined): Set<string> | null => (!s || s.all ? null : s.fids);
 export const mayAsks = (s: Scope | undefined): boolean => !s || s.role === 'admin' || s.role === 'support' || s.role === 'director';
 
-export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m'): Promise<AsksOut> {
+export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m', query: AskQuery = {}): Promise<AsksOut> {
   if (!mayAsks(ctx.scope)) throw new HttpError(403, 'not_yours', 'Asks is for directors and the Support Team.');
   const today = todayEt();
   const q = mirrorQ(ctx.env);
@@ -291,6 +370,19 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m'): 
   const owner = ownerIn && count.has(ownerIn) ? ownerIn : ctx.scope && ctx.scope.role === 'director' && ctx.scope.fid ? ctx.scope.fid : '';
   const rows = mine.filter((r) => !owner || r.owners.includes(owner));
   const { stats, columns } = statsOf(rows.filter((r) => !r.former), today);
+  const status = (STATUSES as readonly string[]).includes(query.status || '') ? String(query.status) : 'all';
+  const state = (STATES as string[]).includes(query.state || '') ? String(query.state) : '';
+  const text = String(query.q || '').trim().slice(0, 100);
+  const needle = text.toLowerCase();
+  const offset = whole(query.offset, 0, 0, Number.MAX_SAFE_INTEGER);
+  const limit = whole(query.limit, PAGE_SIZE, 1, MAX_PAGE);
+  const filtered = rows.filter((r) => inStatus(r, status) && (!needle || (r.name + ' ' + r.line + ' ' + r.place).toLowerCase().includes(needle)));
+  const counts = Object.fromEntries(STATES.map((s) => {
+    const l = filtered.filter((r) => r.state === s);
+    return [s, { n: l.length, total: l.reduce((t, r) => t + colTotal(r), 0) }];
+  })) as Record<AskState, ColumnCount>;
+  const pick = state ? filtered.filter((r) => r.state === state) : filtered;
+  const page = pick.slice().sort(askOrder(state)).slice(offset, offset + limit);
   return {
     ok: true,
     today,
@@ -298,9 +390,17 @@ export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m'): 
     days: ASK_DAYS,
     range: rangeIn === 'all' ? 'all' : '12m',
     owner,
+    status,
+    state,
+    q: text,
+    matched: pick.length,
+    shown: filtered.length,
+    counts,
+    offset,
+    limit,
     everyone: mine.filter((r) => !r.former).length,
     owners: [...count.entries()].map(([id, n]) => ({ id, name: nameOf[id] || `Fundraiser ${id}`, n })).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name)),
-    rows: rows.map((r) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`) })),
+    rows: page.map((r) => ({ ...r, ownerNames: r.owners.map((o) => nameOf[o] || `Fundraiser ${o}`) })),
     stats,
     columns,
     former: { n: rows.filter((r) => r.former && !r.review && r.state !== 'gave').length, total: rows.filter((r) => r.former && !r.review && r.state !== 'gave').reduce((t, r) => t + r.amount, 0) },
