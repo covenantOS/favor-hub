@@ -12,7 +12,8 @@
 //   POST messages/:id/reactions        { emoji }
 //   GET  search?q=&filter=&channel=    messages
 //   GET  drive?q=  clips               the two pickers
-//   POST upload  GET file/:id          shared files
+//   POST upload  GET file/:id          shared files (byte ranges for audio and video)
+//   GET  drive-file/:mid/:i/thumb|content   preview of a Drive card in a message this person can read
 //   GET  inbox   POST inbox/read       the bell
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import type { HubUser } from '../session';
@@ -25,9 +26,11 @@ import { hydrateAttachments } from './hydrate';
 import { presence, publish, type LiveEnv } from './live';
 import { askInThread } from './brain';
 import { unfurl } from './unfurl';
+import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } from './preview';
+import { parseRange } from '../clips';
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
-export type ChatRouteEnv = LiveEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string };
+export type ChatRouteEnv = LiveEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string; GOOGLE_SA_JSON?: string };
 export interface Ctx {
   request: Request;
   env: ChatRouteEnv;
@@ -187,7 +190,11 @@ async function route(ctx: Ctx): Promise<Response> {
   }
 
   if (a === 'upload' && method === 'POST') return json({ ok: true, ...(await upload(ctx, user)) });
-  if (a === 'file' && b && method === 'GET') return serveFile(env, b);
+  if (a === 'file' && b && method === 'GET') return serveFile(env, b, request);
+  if (a === 'drive-file' && b && c && method === 'GET') {
+    const f = await sharedDriveFile(env, me, num(b), Number(c) || 0);
+    return path[3] === 'thumb' ? driveThumb(env, f.id, Number(url.searchParams.get('s')) || 800) : driveContent(env, f.id);
+  }
 
   if (a === 'inbox' && !b && method === 'GET') return json({ ok: true, ...(await store.inbox(env, me)) });
   if (a === 'inbox' && b === 'read' && method === 'POST') {
@@ -233,7 +240,10 @@ async function cleanAttachments(env: ChatRouteEnv, raw: unknown, me: string): Pr
       out.push({ type: 'drive', name: String(x.name || 'File').slice(0, 200), kind: ['doc', 'sheet', 'pdf', 'slides', 'photo', 'file'].includes(String(x.kind)) ? String(x.kind) : 'file', path: String(x.path || '').slice(0, 240), indexed: String(x.indexed || '').slice(0, 40), url: String(x.url) });
     } else if (x.type === 'file' && typeof x.id === 'string') {
       const f = await env.DB.prepare('SELECT id, name, mime, size FROM chat_files WHERE id = ? AND email = ?').bind(x.id, me).first<{ id: string; name: string; mime: string; size: number }>();
-      if (f) out.push({ type: 'file', id: f.id, name: f.name, mime: f.mime, size: f.size, url: `/api/chat/file/${f.id}` });
+      // A picture keeps its width and height so the message reserves its space before the picture arrives.
+      const w = Number(x.w), h = Number(x.h);
+      const dims = f && /^image\//.test(f.mime) && Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 && w <= 20000 && h <= 20000 ? { w, h } : {};
+      if (f) out.push({ type: 'file', id: f.id, name: f.name, mime: f.mime, size: f.size, url: `/api/chat/file/${f.id}`, ...dims });
     }
   }
   return out;
@@ -252,10 +262,16 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     const ref = classifyUrl(u, hosts);
     if (ref && !attachments.some((x) => x.type === ref.type && x.id === ref.id)) attachments.push(ref);
   }
+  // A pasted Google Docs, Sheets, Slides or Drive address becomes a Drive card the page can preview.
+  for (const u of urls) {
+    if (attachments.length >= 6 || !driveIdOf(u) || attachments.some((x) => x.type === 'drive' && x.url === u)) continue;
+    const card = await driveCardFor(env, u);
+    if (card) attachments.push(card as Att);
+  }
   const threadId = input.thread_id ? Number(input.thread_id) : null;
   const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments });
   const msg = await broadcast(ctx, posted.message, 'message');
-  const fresh = urls.find((u) => !classifyUrl(u, hosts));
+  const fresh = urls.find((u) => !classifyUrl(u, hosts) && !attachments.some((x) => x.type === 'drive' && x.url === u));
   if (fresh && !attachments.some((x) => x.type === 'link')) {
     ctx.waitUntil((async () => {
       const card = await unfurl(fresh, hosts);
@@ -362,20 +378,34 @@ async function upload(ctx: Ctx, user: HubUser) {
   return { id, name, mime, size: buf.byteLength, url: `/api/chat/file/${id}` };
 }
 
-async function serveFile(env: ChatRouteEnv, id: string): Promise<Response> {
+async function serveFile(env: ChatRouteEnv, id: string, request?: Request): Promise<Response> {
   if (!/^[0-9a-f]{24}$/.test(id)) return errorJson('not_found', 'That file is gone.', 404);
   const f = await env.DB.prepare('SELECT r2_key, name, mime FROM chat_files WHERE id = ?').bind(id).first<{ r2_key: string; name: string; mime: string }>();
-  const obj = f ? await env.UPLOADS.get(f.r2_key) : null;
-  if (!f || !obj) return errorJson('not_found', 'That file is gone.', 404);
+  if (!f) return errorJson('not_found', 'That file is gone.', 404);
   const inline = SAFE_INLINE.test(f.mime);
-  return new Response(obj.body, {
-    headers: {
-      'Content-Type': inline ? f.mime : 'application/octet-stream',
-      'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`,
-      'Cache-Control': 'private, max-age=3600',
-      'X-Content-Type-Options': 'nosniff',
-    },
-  });
+  const base: Record<string, string> = {
+    'Content-Type': inline ? f.mime : 'application/octet-stream',
+    'Content-Disposition': `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(f.name)}`,
+    'Cache-Control': 'private, max-age=3600',
+    'X-Content-Type-Options': 'nosniff',
+    'Accept-Ranges': 'bytes',
+  };
+  // Audio and video ask for byte ranges; Safari will not play a file served without them.
+  const want = request ? request.headers.get('Range') : null;
+  if (want) {
+    const head = await env.UPLOADS.head(f.r2_key);
+    if (!head) return errorJson('not_found', 'That file is gone.', 404);
+    const range = parseRange(want, head.size);
+    if (range === 'bad') return new Response('Range not satisfiable', { status: 416, headers: { ...base, 'Content-Range': `bytes */${head.size}` } });
+    if (range) {
+      const part = await env.UPLOADS.get(f.r2_key, { range: { offset: range.start, length: range.end - range.start + 1 } });
+      if (!part) return errorJson('not_found', 'That file is gone.', 404);
+      return new Response(part.body, { status: 206, headers: { ...base, 'Content-Range': `bytes ${range.start}-${range.end}/${head.size}`, 'Content-Length': String(range.end - range.start + 1) } });
+    }
+  }
+  const obj = await env.UPLOADS.get(f.r2_key);
+  if (!obj) return errorJson('not_found', 'That file is gone.', 404);
+  return new Response(obj.body, { headers: { ...base, 'Content-Length': String(obj.size) } });
 }
 
 export { BRAIN_ID, channelSlug, plainLine };
