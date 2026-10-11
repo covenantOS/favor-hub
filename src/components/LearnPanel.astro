@@ -12,7 +12,7 @@ import { icon } from '../data/icons';
   </div>
 </dialog>
 
-<style>
+<style is:global>
   .lp { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(440px, 100vw); max-width: 100vw; height: 100dvh; max-height: none; padding: 0; border: 0; border-left: 1px solid var(--h-line); background: var(--h-surface); color: var(--h-ink); box-shadow: var(--h-shadow-2); }
   .lp::backdrop { background: rgba(29, 33, 27, 0.25); }
   .lp__in { box-sizing: border-box; height: 100%; overflow-y: auto; padding: 14px 20px 28px; }
@@ -28,6 +28,7 @@ import { icon } from '../data/icons';
   .lp figcaption span { font-weight: 500; color: var(--h-ink-3); }
   .lp__go { display: inline-flex; margin-top: 18px; font: 600 14px var(--h-font); color: var(--h-brand-ink); }
   .lp__go:hover { text-decoration: underline; }
+  .lp__load { color: var(--h-ink-3); }
   .lp__more { display: grid; gap: 8px; margin-top: 16px; }
 </style>
 
@@ -47,7 +48,7 @@ import { icon } from '../data/icons';
   };
 
   const home = () =>
-    `<h2 id="lp-title">Help</h2><p>This page has no help article yet. The help library has every tool, with search, and the training videos.</p><div class="lp__more"><a class="lp__go" href="/help/">Open the help home</a><a class="lp__go" href="/help/videos/">Training videos</a></div>`;
+    `<h2 id="lp-title">Help</h2><p>No article for this page yet.</p><div class="lp__more"><a class="lp__go" href="/help/">Open the help home</a><a class="lp__go" href="/help/videos/">Training videos</a></div>`;
 
   const article = (a: Index['articles'][string]) => {
     const vids = a.videos
@@ -60,7 +61,7 @@ import { icon } from '../data/icons';
 
   if (btn && dlg && body) {
     btn.addEventListener('click', async () => {
-      body.innerHTML = '<p>Loading</p>';
+      body.innerHTML = '<p class="lp__load" role="status">Loading the help for this page</p>';
       if (!dlg.open) dlg.showModal();
       const idx = await load();
       const nav = document.body.dataset.nav || '';

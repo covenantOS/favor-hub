@@ -1,0 +1,20 @@
+/* UX pass 2026-10-10: polish fixes for Today, Work Overview, Help and the page help panel. */
+body.h-body .h-welcome .h-x { min-width: 36px; min-height: 36px; display: inline-grid; place-items: center; }
+body.h-body .r2t .r2t-card { min-height: 0; }
+body.h-body .r2t-connect b { font: 600 14.5px var(--h-font); }
+body.h-body .hd-topics { align-items: start; }
+
+/* Work Overview: the row actions sit over the late chip on hover instead of wrapping to a second row. */
+@media (min-width: 861px) and (hover: hover) {
+  body.h-body .wh-row .wh-acts--hover { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 4px 4px 4px 12px; border-radius: var(--r-md); background: var(--r-hover); pointer-events: none; }
+  body.h-body .wh-row:hover .wh-acts--hover, body.h-body .wh-row:focus-within .wh-acts--hover { pointer-events: auto; }
+  body.h-body .wh-row { grid-template-columns: 28px minmax(0, 1fr) auto; }
+}
+
+@media (max-width: 860px) {
+  body.h-body .r2t-sec { flex-wrap: wrap; row-gap: 2px; }
+  body.h-body .wh-tools > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  body.h-body .wh-table th, body.h-body .wh-table td { padding-left: 6px; padding-right: 6px; }
+  body.h-body .wh-table td:nth-child(2) { max-width: 92px; overflow: hidden; text-overflow: ellipsis; }
+  body.h-body .wh-tw { padding: 0 6px 10px; }
+}

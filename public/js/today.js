@@ -278,8 +278,8 @@
       if (!g.connected) {
         grid.innerHTML =
           actions +
-          `<div class="h-card r2t-connect"><b>See your meetings, files and mail here</b>
-            <p>Connect your Favor Google account once. The hub reads today's calendar, the names of files shared with you, and who emailed you. It never opens an email or a file, and you can disconnect any time.</p>
+          `<div class="h-card r2t-connect"><b>Calendar, files and mail</b>
+            <p>Shows today's meetings, files shared with you and who emailed you. Reads titles and names only. Disconnect any time.</p>
             <a class="h-btn h-btn--primary h-btn--sm" href="/api/google/connect">Connect my Google</a></div>`;
         return;
       }
