@@ -25,6 +25,7 @@ import { hydrateAttachments } from './hydrate';
 import { presence, publish, type LiveEnv } from './live';
 import { askInThread } from './brain';
 import { unfurl } from './unfurl';
+import { taskDeleted, taskReply } from './tasks';
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
 export type ChatRouteEnv = LiveEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string };
@@ -145,6 +146,7 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     if (!c && method === 'DELETE') {
       const row = await store.remove(env, me, id);
+      ctx.waitUntil(taskDeleted(env, id)); // q3-tasks hook: the matching request comment goes too.
       ctx.waitUntil(publish(env, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type: 'delete', id, channel_id: row.channel_id }));
       return json({ ok: true });
     }
@@ -255,6 +257,8 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   const threadId = input.thread_id ? Number(input.thread_id) : null;
   const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments });
   const msg = await broadcast(ctx, posted.message, 'message');
+  // q3-tasks hook: a reply under a request's card is also a comment on the request (chat/tasks.ts).
+  if (threadId) ctx.waitUntil(taskReply(env, posted.message, user));
   const fresh = urls.find((u) => !classifyUrl(u, hosts));
   if (fresh && !attachments.some((x) => x.type === 'link')) {
     ctx.waitUntil((async () => {

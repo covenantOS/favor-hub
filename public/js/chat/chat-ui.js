@@ -199,6 +199,8 @@
         var kk = /pdf/.test(a.mime || '') ? 'pdf' : /sheet|excel|csv/.test(a.mime || '') ? 'sheet' : /word|document/.test(a.mime || '') ? 'doc' : 'file';
         return '<a class="ch-card ch-file" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-file__ic" data-k="' + kk + '">' + ({ pdf: 'PDF', sheet: 'XLS', doc: 'DOC', file: 'FILE' }[kk]) + '</span><span class="ch-file__t"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span></span><span class="ch-btn ch-btn--sm">Download</span></a>';
       }
+      // q3-tasks hook: a request board card (title, note, status, Open) is drawn by task-card.js.
+      if (a.type === 'task') return window.FavorTaskCard ? window.FavorTaskCard.html(a, { esc: esc, ic: ic }) : '';
       if (a.type === 'link') {
         return '<a class="ch-card ch-link" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-card__m">' + esc(a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</a>';
       }
@@ -970,5 +972,6 @@
     });
   }
 
-  window.FavorChat = { mount: mount, bootHtml: bootHtml, util: { esc: esc, fmtBody: null, ic: ic } };
+  // q3-tasks hook: composerHtml is shared so the request board's comment box is Chat's own.
+  window.FavorChat = { mount: mount, bootHtml: bootHtml, util: { esc: esc, fmtBody: null, ic: ic, composerHtml: composerHtml } };
 })();

@@ -57,7 +57,7 @@ export function validDue(s: unknown): string {
   return v;
 }
 
-const TEAM_WORDS: Record<string, string> = { support: 'Support', rdd: 'RDD', partner_care: 'Partner Care', church: 'Church Engagement', grants: 'Grants', admin: 'Operations', exec: 'Executive' };
+const TEAM_WORDS: Record<string, string> = { support: 'Support', rdd: 'RDD', partner_care: 'Partner Care', church: 'Church Engagement', grants: 'Grants', admin: 'Operations', exec: 'Leadership' };
 
 export async function staffPeople(env: Env): Promise<StaffPeople[]> {
   const rows = await listStaff(env).catch(() => []);

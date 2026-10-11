@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 11, 2026
 
+- **Send a request to someone, and talk about it.** Open a card on the request board and press **Send to...**: pick anyone on staff, add context, and they get it on Today, the bell and as a card in a Chat direct message. Every request has comments with @mentions, a due date, Waiting on and Follow. A reply under the card in Chat shows up on the request, and the other way round. The board filters to Mine, Sent by me, Waiting on others and By person.
 - **Work Center fits a phone better.** My partners has a sort menu, Asks keeps its filters behind one **Filters** button, every stat tile scrolls into view, and late actions older than 60 days read in weeks or months. The Work Overview team table sorts by any column.
 - **Favor Brain answers in Chat are private.** An answer in a channel or group is visible only to the person who asked, with **Share to channel** and **Dismiss** under it.
 - **Chat, for admins.** Chat in the menu opens channels, direct messages, groups and threads. Messages arrive live, with reactions, @mentions, typing and who is online. Share a Drive file, a clip or a meeting from the plus in the message box, and type @Favor Brain in any thread to get an answer back as cards and tables. Mentions show on the bell and the Chat badge. Ctrl K finds messages. Every admin joins #general and #hub-feedback.

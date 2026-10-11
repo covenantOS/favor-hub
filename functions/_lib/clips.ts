@@ -241,7 +241,7 @@ const TEAM_LABEL: Record<string, string> = {
   church: 'Church Engagement',
   grants: 'Grants',
   admin: 'Admin',
-  exec: 'Executive',
+  exec: 'Leadership',
   pc: 'Partner Care',
   ce: 'Church Engagement',
   marketing: 'Marketing',

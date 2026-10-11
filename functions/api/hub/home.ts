@@ -23,7 +23,7 @@ interface Waiting {
 
 async function waitingFor(env: Env, email: string, admin: boolean, approver: boolean) {
   const out: Waiting[] = [];
-  const totals = { requests: 0, expenses: 0, meetings: 0 };
+  const totals = { requests: 0, expenses: 0, meetings: 0, tasks: 0 };
   const jobs: Promise<unknown>[] = [];
   if (admin) {
     jobs.push(
@@ -45,6 +45,22 @@ async function waitingFor(env: Env, email: string, admin: boolean, approver: boo
       })()
     );
   }
+  // Requests sent to this person, or waiting on them (db/request-tasks.sql; nothing before it is applied).
+  jobs.push(
+    (async () => {
+      const r = await env.DB.prepare(
+        `SELECT q.id, q.title, t.owner_email, t.waiting_on, t.sent_by, t.sent_at, q.created_at, COALESCE(d.name, u.name, t.sent_by) AS from_name
+           FROM request_tasks t JOIN requests q ON q.id = t.request_id
+           LEFT JOIN meet_directory d ON lower(d.email) = t.sent_by LEFT JOIN hub_users u ON lower(u.email) = t.sent_by
+          WHERE (t.owner_email = ?1 OR t.waiting_on = ?1) AND q.status NOT IN ('done', 'declined') ORDER BY COALESCE(t.sent_at, q.created_at) LIMIT 20`
+      ).bind(email).all<{ id: string; title: string; owner_email: string | null; waiting_on: string | null; sent_by: string | null; sent_at: string | null; created_at: string; from_name: string | null }>().catch(() => ({ results: [] as never[] }));
+      totals.tasks = r.results.length;
+      for (const x of r.results.slice(0, 4)) {
+        const sub = x.waiting_on === email && x.owner_email !== email ? 'Waiting on you' : x.from_name ? `From ${x.from_name}` : 'Yours';
+        out.push({ kind: 'request', title: clip(x.title, 80), sub, at: x.sent_at || x.created_at, href: `/requests/?r=${encodeURIComponent(x.id)}` });
+      }
+    })()
+  );
   jobs.push(
     (async () => {
       const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_actions WHERE owner_email = ? AND done = 0').bind(email).first<{ n: number }>().catch(() => null);
@@ -94,7 +110,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const [work, counts, waiting, mine, activity] = await Promise.all([
       workP,
       access ? navCounts(env, me, access, request).catch(() => null) : null,
-      approverP.then((approver) => waitingFor(env, email, admin, approver)).catch(() => ({ rows: [], totals: { requests: 0, expenses: 0, meetings: 0 } })),
+      approverP.then((approver) => waitingFor(env, email, admin, approver)).catch(() => ({ rows: [], totals: { requests: 0, expenses: 0, meetings: 0, tasks: 0 } })),
       mineFor(env, me).catch(() => []),
       access ? activityFor(env, access).catch(() => []) : [],
     ]);

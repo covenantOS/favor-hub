@@ -13,7 +13,7 @@ export interface Scope {
   name: string;
   /** The person's own Blackbaud fundraiser id, when they have one. */
   fid: string | null;
-  /** The team word the board uses for this person (RDD, Support, Partner Care, Church Engagement, Grants, Executive). */
+  /** The team word the board uses for this person (RDD, Support, Partner Care, Church Engagement, Grants, Leadership). */
   team: string;
   /** Admins see everything. */
   all: boolean;
@@ -21,7 +21,7 @@ export interface Scope {
   fids: Set<string>;
 }
 
-const TEAM_WORDS: Record<string, string> = { support: 'Support', rdd: 'RDD', partner_care: 'Partner Care', church: 'Church Engagement', grants: 'Grants', admin: 'Operations', exec: 'Executive' };
+const TEAM_WORDS: Record<string, string> = { support: 'Support', rdd: 'RDD', partner_care: 'Partner Care', church: 'Church Engagement', grants: 'Grants', admin: 'Operations', exec: 'Leadership' };
 
 export const ADMIN_SCOPE: Scope = { role: 'admin', email: '', name: '', fid: null, team: '', all: true, fids: new Set() };
 
@@ -45,7 +45,7 @@ export function roleOfTeam(team: string): Role | null {
  * The person's scope. Defaults by role, which an admin can override per person with an act_settings row
  * scope:<email> = comma list of fundraiser ids ("*" for everything):
  *   director      their own id
- *   support       the id of every director with an Entry chip (RDDs, church engagement, executives) and their own
+ *   support       the id of every director with an Entry chip (RDDs, church engagement, leadership) and their own
  *   partner_care  every Partner Care fundraiser (the team shares its partners)
  *   grants        their own id
  */

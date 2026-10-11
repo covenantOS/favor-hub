@@ -120,6 +120,19 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'board-tasks',
+    page: '/requests/',
+    via: 'board',
+    at: '#req-filters',
+    title: 'Send a request, talk it through',
+    body: (w) =>
+      w.admin
+        ? 'Open a card and press Send to... to hand it to anyone on staff with a note. They get it on Today, the bell and in Chat. Type @ in the comments to bring someone in. These filters show Mine, Sent by me, Waiting on others and one person.'
+        : 'A request sent to you shows on Today and the bell, and opens here with the note. Comment, type @ to bring someone in, and mark it done. Mine shows the ones you own.',
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'expense',
     page: '/expenses/new',
     via: 'expense',
