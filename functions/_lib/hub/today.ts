@@ -8,6 +8,8 @@ import { requireWork } from '../work/gate';
 import { blackbaudRepo } from '../work/repo';
 import { currentBoard, type Ctx } from '../work/service';
 import { effective, mayRecordClips } from '../admin/settings';
+import { chatMode, mayUse } from '../chat/gate';
+import { unreadMentionCount } from '../chat/db';
 
 export interface Access {
   admin: boolean;
@@ -22,6 +24,8 @@ export interface Access {
   meetings: boolean;
   /** May start a recording (Admin > Clips). Every signed-in person does until an admin narrows it. */
   clipsRecord: boolean;
+  /** Favor Chat: hub admins until Admin > Chat opens it to staff (hub setting chat.enabled). */
+  chat: boolean;
 }
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
@@ -37,6 +41,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     clips: true,
     meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
     clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
+    chat: mayUse(await chatMode(env), user),
   };
 }
 
@@ -89,6 +94,8 @@ export interface Counts {
   workOpen: number;
   /** Meetings running right now that this person can open. */
   meetingsNow: number;
+  /** Chat: messages that mention this person, direct messages and thread replies they have not read. */
+  chatMentions: number;
 }
 
 /** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
@@ -99,7 +106,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -107,6 +114,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     feedbackWaiting(env, user, access),
     access.workCenter && request ? workOpenCount(env, request).catch(() => 0) : 0,
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings WHERE status = 'live'").first<{ n: number }>().catch(() => null) : null,
+    access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -116,6 +124,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     feedback: Number(notes?.n) || 0,
     workOpen: Number(waiting) || 0,
     meetingsNow: Number(meetingsNow?.n) || 0,
+    chatMentions: Number(chatMentions) || 0,
   };
 }
 

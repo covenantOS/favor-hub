@@ -209,9 +209,9 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
   // sources such as Drive and runs after tier 2 settles. Every server call applies the signed-in person's access, so a
   // row this person cannot open never comes back. A denied or failed source shows no rows and the rest keep working.
   const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const KIND_ORDER = ['Partners', 'Menu', 'Tools', 'Reports', 'Meetings', 'Clips', 'Favor Brain', 'Help', 'External', 'Drive'];
+  const KIND_ORDER = ['Partners', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Favor Brain', 'Help', 'External', 'Drive'];
   const kindRank = (g) => KIND_ORDER.indexOf(g);
-  const remote = { partners: [], reports: [], chats: [], meetings: [], clips: [], drive: [] };
+  const remote = { partners: [], reports: [], chats: [], meetings: [], messages: [], clips: [], drive: [] };
   let seq = 0;
   let remoteTimer = 0;
   let partnerDenied = false;
@@ -281,6 +281,20 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
     return rows.slice(0, 10);
   }
 
+  // Chat messages the person can read, only for people who may use Chat.
+  async function messageHits(text) {
+    if (!document.documentElement.classList.contains('has-chat')) return [];
+    const r = await getJson('/api/chat/search?q=' + encodeURIComponent(text));
+    const rows = r.data && Array.isArray(r.data.results) ? r.data.results : [];
+    return rows.slice(0, 6).map((m) => ({
+      title: escHtml(String(m.body || '').replace(/<@([^>]+)>/g, (_a, id) => '@' + (id === 'brain' ? 'Favor Brain' : id.split('@')[0])).replace(/\s+/g, ' ').slice(0, 90) || 'Message'),
+      desc: escHtml((m.channel_name ? '#' + m.channel_name : 'Direct message') + ' · ' + when(m.created_at)),
+      href: '/chat/?c=' + encodeURIComponent(m.channel_id) + '&m=' + m.id + (m.thread_id ? '&t=' + m.thread_id : ''),
+      external: false,
+      group: 'Chat',
+    }));
+  }
+
   // Clips: the person's own library, matched on titles, summaries, what was said and what was on screen.
   async function clipHits(text) {
     const r = await getJson('/api/clips?q=' + encodeURIComponent(text));
@@ -324,7 +338,7 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
 
   // Merge the local list with every server source. Groups keep KIND_ORDER, and rows inside a group keep their order.
   function merged(local) {
-    const extra = [].concat(remote.partners, remote.reports, remote.chats, remote.meetings, remote.clips, remote.drive);
+    const extra = [].concat(remote.partners, remote.reports, remote.chats, remote.meetings, remote.messages, remote.clips, remote.drive);
     return local.concat(extra)
       .map((x, i) => ({ x, i }))
       .sort((a, b) => kindRank(a.x.group) - kindRank(b.x.group) || a.i - b.i)
@@ -357,6 +371,7 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
     await Promise.all([
       source('meetings', text, mine, () => meetingHits(text)),
       source('clips', text, mine, () => clipHits(text)),
+      source('messages', text, mine, () => messageHits(text)),
     ]);
     // Tier 3: Drive files, last. Its rows join the list when they arrive; the rows above never wait for it.
     await source('drive', text, mine, () => driveHits(text));

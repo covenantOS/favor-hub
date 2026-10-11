@@ -101,11 +101,15 @@ document.addEventListener('keydown', (e) => {
 
 /* ------------------------------------------------------------------ reminders: the bell */
 const R = { rows: [], count: 0, now: 0, loaded: false, by: new Map() };
+// Chat: unread mentions, direct messages and thread replies, for people who may use Chat.
+const CH = { count: 0, items: [] };
+const chatOn = () => document.documentElement.classList.contains('has-chat');
 const bellBtn = () => document.getElementById('wm-bell');
 function paintBadge() {
   const b = bellBtn(); if (!b) return;
-  const em = $('em', b); em.textContent = R.count ? String(R.count) : '';
-  b.setAttribute('aria-label', R.count ? 'Reminders, ' + R.count + ' due' : 'Reminders');
+  const total = R.count + CH.count;
+  const em = $('em', b); em.textContent = total ? String(total) : '';
+  b.setAttribute('aria-label', total ? 'Reminders and chat, ' + total + ' waiting' : 'Reminders');
 }
 function take(d) {
   R.rows = d.rows || []; R.count = d.count || 0; R.now = d.now || 0; R.loaded = true;
@@ -113,7 +117,16 @@ function take(d) {
   paintBadge(); decorate();
   if (popEl && popFor === bellBtn()) paintBell();
 }
-async function refresh() { try { take(await api('/api/work/reminders')); } catch (_) { /* the bell keeps what it had */ } }
+async function refresh() {
+  try { take(await api('/api/work/reminders')); } catch (_) { /* the bell keeps what it had */ }
+  if (chatOn()) { try { const d = await api('/api/chat/inbox'); CH.count = d.count || 0; CH.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no chat */ } }
+}
+const chatLine = (it) => {
+  const who = it.from === 'brain' ? 'Favor Brain' : it.from === 'meetings' ? 'Favor Meetings' : it.from_name ? it.from_name : String(it.from || '').split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const where = it.channel_kind === 'public' || it.channel_kind === 'private' ? '#' + it.channel_name : 'direct message';
+  const txt = String(it.body || '').replace(/<@([^>]+)>/g, (_a, id) => '@' + (id === 'brain' ? 'Favor Brain' : id.split('@')[0])).replace(/\s+/g, ' ').slice(0, 110);
+  return { head: it.kind === 'dm' ? who + ' sent you a message' : it.kind === 'reply' ? who + ' replied in a thread' : who + ' mentioned you', where, txt, href: '/chat/?c=' + encodeURIComponent(it.channel_id) + '&m=' + it.id + (it.thread_id ? '&t=' + it.thread_id : '') };
+};
 
 function bellHTML() {
   const rows = R.rows;
@@ -122,8 +135,9 @@ function bellHTML() {
       <div><b>${esc(r.title)}</b>${r.note ? `<span>${esc(r.note)}</span>` : ''}
         <div class="wm-remacts">${r.cid ? `<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wm-open="${esc(r.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-done="${esc(r.id)}">Done</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-later="${esc(r.id)}" aria-haspopup="menu">Later${ic('down')}</button></div></div></div>`).join('')
     : `<div class="wm-empty"><b>Nothing to remember</b>Press the bell on a task in a partner's page to be reminded.</div>`;
+  const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time>${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
   return `<h4><span>Reminders${R.count ? `<small>${R.count} due today</small>` : ''}</span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
-    <div>${list}</div><div class="wm-foot"><span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button></div>`;
+    <div>${chatList}${list}</div><div class="wm-foot"><span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button></div>`;
 }
 function paintBell() { if (popEl) popEl.innerHTML = bellHTML(); }
 
@@ -294,6 +308,7 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-wm-closepop')) { const f = popFor; closePop(); if (f && f.focus) f.focus(); return; }
   if (t.hasAttribute('data-wm-closedlg')) { closeDlg(); return; }
   if (t.hasAttribute('data-wm-mail') || t.hasAttribute('data-wm-mailchip')) { openMail(); return; }
+  if (t.hasAttribute('data-wm-chat')) { send('POST', '/api/chat/inbox/read', { message_id: Number(d.wmChat) }).catch(() => {}); return; }
   if (d.wmOpen) {
     const id = d.wmOpen; closePop();
     if (window.WCPrep && window.WCPrep.open) window.WCPrep.open(id); else if (window.FavorPartner) window.FavorPartner.open(id); else location.href = '/work/partner/' + id;

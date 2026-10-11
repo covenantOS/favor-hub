@@ -198,6 +198,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           document.documentElement.classList.toggle('has-kpi', !!access.kpi);
           document.documentElement.classList.toggle('has-wc', !!access.workCenter);
           document.documentElement.classList.toggle('has-clips', !!access.clips);
+          document.documentElement.classList.toggle('has-chat', !!access.chat);
           document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);
           document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
           var teams = d.kpiTeams || [];

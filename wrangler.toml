@@ -64,3 +64,10 @@ database_id = "bb2c7ff8-a8e3-4661-9418-a0cb55dca5db"
 [[kv_namespaces]]
 binding = "BB_KV"
 id = "3510f9c623df4bd3a06d420b5d1e9160"
+
+# Favor Chat's live room: the ChatRoom Durable Object lives in the favor-chat Worker (workers/favor-chat); a Pages project can
+# only bind a class from another Worker. One socket per browser reaches it through /api/chat/ws.
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+script_name = "favor-chat"
