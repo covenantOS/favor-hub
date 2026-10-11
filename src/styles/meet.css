@@ -515,4 +515,5 @@ body.h-body[data-area='meet'] .mt-grid > *, body.h-body[data-area='meet'] .mt-st
 .rm-inv__r.is-failed b { color: #a23b21; }
 .rm-inv__r i { flex-basis: 100%; font-style: normal; color: var(--h-ink-3); }
 .rm-foot { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px; }
-.mt-card .nudge-ask, .nt-head .nudge-ask { margin: 12px 0 0; }
+.mt-card > .nudge-ask, .h-card > .nudge-ask { margin: 0 0 12px; }
+.dv-card > .nudge-ask { margin: 0; padding: 12px 16px 0; }

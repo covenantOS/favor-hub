@@ -111,7 +111,10 @@ function check() {
 const CARD = '#h-content .mt-card, #h-content .h-card:not(.h-skel), #h-content .dv-card:not(.dv-skel)';
 function place(link: HTMLElement): void {
   const host = document.querySelector<HTMLElement>(CARD) || document.querySelector<HTMLElement>('.h-top');
-  if (host && link.parentElement !== host) host.appendChild(link);
+  if (!host) return;
+  if (link.parentElement === host && (host.matches('.h-top') || host.firstElementChild === link)) return;
+  // At the top of the first card, so it shows without scrolling; in the header when the page has no card.
+  if (host.matches('.h-top')) host.appendChild(link); else host.prepend(link);
 }
 
 function askLink() {
