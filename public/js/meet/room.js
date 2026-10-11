@@ -566,19 +566,19 @@ function chatHTML(m) {
 const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--h-brand-ink)">$1</a>');
 
 const invRow = (r) => `<div class="rm-inv__r is-${r.status}"><span>${esc(r.to)}</span><b>${r.status === 'failed' ? 'Failed' : r.status === 'dry' ? 'Checked' : 'Sent'}</b>${r.detail && r.status !== 'sent' ? `<i>${esc(r.detail)}</i>` : ''}</div>`;
-function footHTML() {
-  if (!hostish()) return '';
-  const v = S.inv;
-  return `<div class="rm-inv"><div class="rm-inv__t">Invite</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name, email or phone" maxlength="200" autocomplete="off" autocapitalize="off" value="${esc(v.text)}" /><button class="icb send" data-a="invite" aria-label="Send invitation"${v.busy ? ' disabled' : ''}>${ic('send')}</button></div>${(v.matches.length ? v.matches : v.sugg).length ? `<div class="rm-inv__s">${(v.matches.length ? v.matches : v.sugg).map((p) => `<button data-a="invite-pick" data-v="${esc(p.email)}">${esc(p.name)}</button>`).join('')}</div>` : ''}${v.rows.slice(0, 6).map(invRow).join('')}</div>
-    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`;
-}
+// The box and its input are drawn once; only the suggestions and results under it change, so typing is never interrupted.
+const invShell = () => (!hostish() ? '' : `<div class="rm-inv"><div class="rm-inv__t">Invite</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name, email or phone" maxlength="200" autocomplete="off" autocapitalize="off" enterkeyhint="send" /><button class="icb send" id="invgo" data-a="invite" aria-label="Send invitation">${ic('send')}</button></div><div id="inv-extra"></div></div>
+    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`);
+const invExtra = () => {
+  const v = S.inv; const pick = v.matches.length ? v.matches : v.sugg;
+  return (pick.length ? `<div class="rm-inv__s">${pick.map((p) => `<button data-a="invite-pick" data-v="${esc(p.email)}">${esc(p.name)}</button>`).join('')}</div>` : '') + v.rows.slice(0, 6).map(invRow).join('');
+};
 function paintFoot() {
   const inp = $('#rm-input'); if (!inp || S.panel !== 'people') return;
-  const html = footHTML();
-  if (inp.dataset.k === 'people' && S.footSig === html) return;
-  const ae = document.activeElement; const had = ae && ae.id === 'invin'; const pos = had ? ae.selectionStart : 0;
-  inp.innerHTML = html; inp.dataset.k = 'people'; S.footSig = html;
-  if (had) { const i = $('#invin'); if (i) { i.focus({ preventScroll: true }); try { i.setSelectionRange(pos, pos); } catch {} } }
+  const shell = invShell();
+  if (inp.dataset.k !== 'people' || S.footSig !== shell) { inp.innerHTML = shell; inp.dataset.k = 'people'; S.footSig = shell; const i = $('#invin'); if (i) i.value = S.inv.text; }
+  const ex = $('#inv-extra'); if (ex) { const h = invExtra(); if (ex.dataset.h !== h) { ex.innerHTML = h; ex.dataset.h = h; } }
+  const go = $('#invgo'); if (go) go.disabled = !!S.inv.busy;
 }
 async function loadDirectory() {
   if (S.inv.dir) return;
@@ -602,7 +602,7 @@ async function sendInvite(to) {
     else if (r.result) { v.rows.unshift(r.result); v.text = ''; v.sugg = []; }
   } catch (e) { v.rows.unshift({ to: target, status: 'failed', detail: e.message }); }
   v.busy = false; paintFoot();
-  const i = $('#invin'); if (i && !v.text) i.focus({ preventScroll: true });
+  const i = $('#invin'); if (i && !v.text) { i.value = ''; i.focus({ preventScroll: true }); }
 }
 
 function paintSideBody(full) {
