@@ -206,7 +206,7 @@ const def: ReportDef = {
 
   async tie(_ctx, rows, f, extra): Promise<TieOut> {
     const e = extra as Extra;
-    if (f.group === 'annual') return noTie('Annual givers has no figure on the KPI dashboard.');
+    if (f.group === 'annual') return noTie();
     if (e.narrowed) return noTie('This list is narrowed by state or held by, so it is smaller than the KPI count.');
     const key = f.group as 'active' | 'lybunt' | 'lapsed';
     const kpi = e.kpi ? e.kpi[key] : null;

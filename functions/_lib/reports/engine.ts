@@ -1,6 +1,6 @@
 // Runs one report definition: checks the filters, reads the mirror (SELECT only), adds the totals, tiles, the tie-out
 // and the post text, and returns one result that the page, the CSV and the Sheets export all use.
-import { mirror } from '../foundations/blackbaud';
+import { cachedMirror } from './cache';
 import { HttpError, type Env } from '../http';
 import { kpiFigures, noTie } from './tieout';
 import type { ColumnDef, FilterDef, KpiFigures, ReportContext, ReportDef, Row, RunResult } from './types';
@@ -86,7 +86,7 @@ export async function runReport(env: Env, def: ReportDef, opt: RunOptions): Prom
     user: opt.user,
     sql: async (sql, params = []) => {
       assertReadOnly(sql);
-      return opt.sql ? opt.sql(sql, params) : (mirror(env, sql, params) as Promise<never>);
+      return opt.sql ? opt.sql(sql, params) : (cachedMirror(env, sql, params) as Promise<never>);
     },
     kpi: () => (figures ||= opt.kpi ? opt.kpi() : kpiFigures(env)),
     edits,

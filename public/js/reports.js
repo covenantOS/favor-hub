@@ -133,7 +133,7 @@
     if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches the KPI dashboard</b><span>' + esc(t.label) + ': ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'differs') return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from the KPI dashboard by ' + f(t.diff) + '</b><span>This report ' + f(t.mine) + ', ' + esc(t.label) + ' ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'unavailable') return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>KPI figure not available</b><span>' + esc(t.note || '') + '</span></div></div>';
-    return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>No KPI line</b><span>' + esc(t.note || '') + '</span></div></div>';
+    return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>Not on the KPI dashboard</b>' + (t.note && t.note !== 'Not on the KPI dashboard.' ? '<span>' + esc(t.note) + '</span>' : '') + '</div></div>';
   }
 
   // Bars by team, from the rows on screen, only when the report has a team column and a money column.
