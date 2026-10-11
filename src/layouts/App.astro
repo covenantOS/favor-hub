@@ -40,6 +40,7 @@ interface Props {
 const { title, crumb = 'Favor Hub', nav = '', wide = false, full = false, bare = false, description = 'Favor International staff hub.' } = Astro.props;
 
 import { icon } from '../data/icons';
+import { BUILD } from '../data/build';
 import { AREAS, SWAP_PATHS, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
 import NavTabs from '../components/NavTabs.astro';
@@ -65,6 +66,8 @@ const footAreas = AREAS.filter((a) => a.foot);
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Favor Hub" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="hub-build" content={BUILD} />
+    <script is:inline src="/js/app-update.js?v=1" defer></script>
     <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#f4efe0" />
