@@ -171,7 +171,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           var bar = q('#h-bar [data-bar]');
           var vis = bar.filter(function (b) { var a = document.querySelector('.h-area[data-area="' + b.dataset.bar + '"]'); return a && !a.hidden; });
           vis.sort(function (x, y) { return Number(x.dataset.rank) - Number(y.dataset.rank); });
-          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 4; });
+          bar.forEach(function (b) { b.hidden = vis.indexOf(b) < 0 || vis.indexOf(b) > 5; });
           var cur = document.querySelector('.h-area.is-cur');
           var more = document.getElementById('h-bar-more');
           if (more) more.classList.toggle('is-on', !!cur && !bar.some(function (b) { return !b.hidden && b.dataset.bar === cur.dataset.area; }));
