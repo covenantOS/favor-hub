@@ -93,7 +93,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const approverP = me.via === 'google' ? approverEmails(env).then((s) => s.has(email)).catch(() => false) : Promise.resolve(false);
     const [work, counts, waiting, mine, activity] = await Promise.all([
       workP,
-      access ? navCounts(env, me, access).catch(() => null) : null,
+      access ? navCounts(env, me, access, request).catch(() => null) : null,
       approverP.then((approver) => waitingFor(env, email, admin, approver)).catch(() => ({ rows: [], totals: { requests: 0, expenses: 0, meetings: 0 } })),
       mineFor(env, me).catch(() => []),
       access ? activityFor(env, access).catch(() => []) : [],

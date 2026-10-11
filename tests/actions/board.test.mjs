@@ -65,6 +65,7 @@ describe('filters, counts, sort', () => {
   it('due windows', () => {
     assert.deepEqual(ids({ due: 'past' }), ['2', '3']);
     assert.deepEqual(ids({ due: 'today' }), ['4']);
+    assert.deepEqual(ids({ due: 'now' }), ['2', '3', '4']);
     assert.deepEqual(ids({ due: 'week' }), ['4']);
     assert.deepEqual(ids({ due: 'l90' }), ['3']);
     assert.deepEqual(ids({ due: 'l365' }), ['3']);

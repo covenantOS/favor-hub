@@ -66,7 +66,7 @@ export const AREAS: NavArea[] = [
     barRank: 2,
     pages: [
       { id: 'work-home', label: 'Overview', href: '/work-home/', desc: 'Every work tool and what is waiting in each', keywords: 'work home overview tools', swap: true },
-      { id: 'work', label: 'Work Center', href: '/work/', desc: 'Finish many Blackbaud actions together, enter the week, thank gifts', keywords: 'work center bulk select complete actions thank you entry tracking stale reassign reschedule support partner', need: 'workCenter', count: 'workWaiting', learn: 'work-center', swap: true },
+      { id: 'work', label: 'Work Center', href: '/work/', desc: 'Finish many Blackbaud actions together, enter the week, thank gifts', keywords: 'work center bulk select complete actions thank you entry tracking stale reassign reschedule support partner', need: 'workCenter', count: 'workOpen', learn: 'work-center', swap: true },
       { id: 'board', label: 'Requests', href: '/requests/', desc: 'Request board: inbox, approved, in motion, done', keywords: 'request board kanban review approve website portal app marketing', count: 'inbox', also: ['new'], learn: 'request-board', swap: true },
       { id: 'expense', label: 'Expenses', href: '/expenses/new', desc: 'Expense request, signed online', keywords: 'expense request travel pre-travel approval signature purchase', learn: 'expense-request' },
       { id: 'receipts', label: 'Thank-yous', href: '/receipts/', desc: 'Thank-you receipts Blackbaud has waiting', keywords: 'thank you receipt receipts letter letters ty acknowledgement print mail', count: 'receiptsLeft', learn: 'thank-you-receipts', swap: true },

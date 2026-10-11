@@ -21,6 +21,14 @@ The Work area opens on the Overview page. Today's work lists your actions due to
 
 Gifts to thank lists the oldest five gifts waiting for your role. Thank opens the same form as the Gifts to thank tab. Your week shows a director's goals, the Support Team's entry backlog, or Partner Care's cadence counts. Quick actions starts a task or logs a contact on any partner you find. Admins also see a team table with open and overdue actions per person. Every number opens the Work Center page it comes from.
 
+## What each number counts
+
+Open actions is every open Blackbaud action you may see: all of them for an admin, your own and your partners' for a director. The Work Center badge in the menu, the Work Center tile on the Overview, the Open actions tab and the Open tile on that tab show this same number.
+
+On the Overview, Today's work counts the open actions due today or earlier. Overdue counts those due before today and Due today counts those due today. Open all shows the open actions the link opens. If you hold actions of your own, these counts cover yours and the links add your name as the fundraiser. Otherwise they cover everything you may see.
+
+The badge on Work in the left rail adds up the badges inside it: open actions, requests in the inbox and thank-you receipts still to mark. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
+
 ## Finish many actions at once
 
 Open the Open actions tab. Pick a fundraiser, then narrow the list by type, category, due window or partner. Tick the boxes you want, press Shift and click to pick a range, or drag down the checkbox column. When every row on the screen is ticked, a line offers Select all with the full count that match.

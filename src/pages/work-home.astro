@@ -5,7 +5,7 @@ import '../styles/work-home.css';
 
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const tools = [
-  { id: 'work', tool: 'leaf', label: 'Work Center', href: '/work/', count: 'workWaiting', need: 'workCenter', icon: I('<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/><path d="m15 17 2 2 4-4"/>') },
+  { id: 'work', tool: 'leaf', label: 'Work Center', href: '/work/', count: 'workOpen', need: 'workCenter', icon: I('<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/><path d="m15 17 2 2 4-4"/>') },
   { id: 'board', tool: 'sky', label: 'Requests', href: '/requests/', count: 'inbox', icon: I('<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>') },
   { id: 'receipts', tool: 'sun', label: 'Thank-yous', href: '/receipts/', count: 'receiptsLeft', icon: I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
   { id: 'expense', tool: 'terra', label: 'Expenses', href: '/expenses/new', count: 'expensesWaiting', icon: I('<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>') },

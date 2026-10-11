@@ -4,7 +4,9 @@ import { approverEmails, isExpenseAdmin } from '../expenses/auth';
 import type { Env } from '../http';
 import type { HubUser } from '../session';
 import { workAccessFor } from '../work/gate';
-import { waitingCount } from '../work/db';
+import { requireWork } from '../work/gate';
+import { blackbaudRepo } from '../work/repo';
+import { currentBoard, type Ctx } from '../work/service';
 import { effective, mayRecordClips } from '../admin/settings';
 
 export interface Access {
@@ -83,19 +85,27 @@ export interface Counts {
   /** Will: notes not yet looked at. Everyone else: answers to their notes they have not read. */
   feedback: number;
   /** Support: contacts waiting to be entered in Blackbaud. */
-  workWaiting: number;
+  /** Open actions on the Work Center board in this person's scope: what its Open actions tab counts. */
+  workOpen: number;
   /** Meetings running right now that this person can open. */
   meetingsNow: number;
 }
 
-export async function navCounts(env: Env, user: HubUser, access: Access): Promise<Counts> {
+/** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
+async function workOpenCount(env: Env, request: Request): Promise<number> {
+  const wu = await requireWork(env, request);
+  const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
+  return (await currentBoard(ctx)).rows.length;
+}
+
+export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
   const [inbox, exp, file, brain, notes, waiting, meetingsNow] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
     access.admin ? brainPending(env) : null,
     feedbackWaiting(env, user, access),
-    access.workCenter ? waitingCount(env) : 0,
+    access.workCenter && request ? workOpenCount(env, request).catch(() => 0) : 0,
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings WHERE status = 'live'").first<{ n: number }>().catch(() => null) : null,
   ]);
   return {
@@ -104,7 +114,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access): Promis
     receiptsLeft: file && fileIsMine(file, user, access) ? Math.max(0, file.gifts - file.marked) : 0,
     brainRequests: Number(brain?.n) || 0,
     feedback: Number(notes?.n) || 0,
-    workWaiting: Number(waiting) || 0,
+    workOpen: Number(waiting) || 0,
     meetingsNow: Number(meetingsNow?.n) || 0,
   };
 }

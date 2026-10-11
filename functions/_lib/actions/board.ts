@@ -363,6 +363,7 @@ export function matches(a: BoardRow, f: Filters, today: string, people: People, 
     const n = dayDiff(a.due, today);
     if (f.due === 'past' && !(n < 0)) return false;
     if (f.due === 'today' && n !== 0) return false;
+    if (f.due === 'now' && !(n <= 0)) return false;
     if (f.due === 'week' && !(n >= 0 && n <= 7)) return false;
     if (f.due === 'l30' && !(n < -30)) return false;
     if (f.due === 'l90' && !(n < -90)) return false;

@@ -132,6 +132,7 @@ function matches(a, f, skip) {
     const n = dayn(c.due);
     if (f.due === 'past' && !(n < 0)) return false;
     if (f.due === 'today' && n !== 0) return false;
+    if (f.due === 'now' && !(n <= 0)) return false;
     if (f.due === 'week' && !(n >= 0 && n <= 7)) return false;
     if (f.due === 'l30' && !(n < -30)) return false;
     if (f.due === 'l90' && !(n < -90)) return false;
@@ -311,7 +312,7 @@ function viewOpen() {
     (frCount._none ? opt('_none', `No fundraiser (${frCount._none})`, f.fr === '_none') : '');
   const typeOpts = opt('', 'Every type', !f.type) + Object.keys(typeCount).sort((a, b) => typeCount[b] - typeCount[a]).map((k) => opt(k, `${k} (${typeCount[k]})`, f.type === k)).join('');
   const catOpts = opt('', 'Every category', !f.cat) + Object.keys(catCount).sort().map((k) => opt(k, `${k} (${catCount[k]})`, f.cat === k)).join('');
-  const DUES = [['', 'Any due date'], ['past', 'Past due'], ['today', 'Due today'], ['week', 'Due in the next 7 days'], ['l30', 'More than 30 days late'], ['l90', 'More than 90 days late'], ['l365', 'A year late or more']];
+  const DUES = [['', 'Any due date'], ['past', 'Past due'], ['today', 'Due today'], ['now', 'Due today or overdue'], ['week', 'Due in the next 7 days'], ['l30', 'More than 30 days late'], ['l90', 'More than 90 days late'], ['l365', 'A year late or more']];
   const dueOpts = DUES.map(([v, l]) => opt(v, l, f.due === v)).join('');
   const chips = [];
   if (f.cid) { const a = ACTS.find((x) => x.cid === f.cid); chips.push(['cid', 'Partner: ' + (a ? a.p : f.cid)]); }
@@ -1321,7 +1322,7 @@ async function init() {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
     const v = QS.get('view'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
-    { const qk = QS.get('quick'), fr = QS.get('fr'); if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
+    { const qk = QS.get('quick'), fr = QS.get('fr'), dq = QS.get('due'); if (['past', 'today', 'now', 'week'].includes(dq)) S.f.due = dq; if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
     if (window.WCEdit) await window.WCEdit.start();
     if (window.WCStart) await window.WCStart.apply();
     if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();

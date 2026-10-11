@@ -29,20 +29,24 @@ export interface DueRow {
 
 async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
   const s = ctx.scope;
-  const live = board.rows.filter((r) => !r.pending && !r.deceased && !r.ty);
   const fid = s && s.fid ? s.fid : '';
-  const own = fid ? live.filter((r) => r.fundraisers.includes(fid)) : [];
-  // Support, Partner Care and admins who hold no actions of their own open on the portfolio they work from.
+  // Every count here is a count of open actions on the Work Center board, the same rows its Open actions tab counts, so each number
+  // equals what its link opens. Someone who holds actions of their own sees those (the link adds their fundraiser id). Support,
+  // Partner Care and admins who hold none see every open action in their scope.
+  const own = fid ? board.rows.filter((r) => r.fundraisers.includes(fid)) : [];
   const portfolio = !own.length;
-  const pool = portfolio ? live : own;
-  const due = pool.filter((r) => r.due && dayDiff(r.due, board.today) <= 0).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
+  const pool = portfolio ? board.rows : own;
+  const dueAll = pool.filter((r) => r.due && dayDiff(r.due, board.today) <= 0);
+  // The short list leaves out thank-you tasks (Gifts to thank lists those), pending changes and deceased partners.
+  const due = dueAll.filter((r) => !r.pending && !r.deceased && !r.ty).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
   const row = (r: BoardRow): DueRow => ({ id: r.id, cid: r.cid, partner: r.partner, place: r.place, due: r.due, late: Math.max(0, -dayDiff(r.due, board.today)), type: r.type, summary: clip(r.summary || '', 90) });
   return {
     scope: portfolio ? 'portfolio' : 'mine',
+    fr: portfolio ? '' : fid,
     open: pool.length,
-    total: due.length,
-    overdue: due.filter((r) => dayDiff(r.due, board.today) < 0).length,
-    today: due.filter((r) => dayDiff(r.due, board.today) === 0).length,
+    total: dueAll.length,
+    overdue: dueAll.filter((r) => dayDiff(r.due, board.today) < 0).length,
+    today: dueAll.filter((r) => dayDiff(r.due, board.today) === 0).length,
     rows: due.slice(0, 8).map(row),
   };
 }

@@ -67,10 +67,9 @@
       if (need && access[need] === false) { el.hidden = true; return; }
       const key = el.getAttribute('data-wh-count');
       let n = key ? Number(counts[key] || 0) : 0;
-      if (el.getAttribute('data-wh') === 'work' && w && w.due) n = w.due.total;
       const nEl = el.querySelector('[data-n]');
       nEl.hidden = !(n > 0);
-      if (n > 0) nEl.textContent = n0(n);
+      if (n > 0) { nEl.textContent = n0(n) + (key === 'workOpen' ? ' open' : ''); if (key === 'workOpen') nEl.title = plural(n, 'open action'); }
     });
     document.querySelectorAll('[data-need="workCenter"]').forEach((el) => { if (!el.hasAttribute('data-wh')) el.hidden = access.workCenter === false || !w; });
   }
@@ -85,8 +84,11 @@
     const mine = d.scope === 'mine';
     $('wh-due-h').textContent = mine ? "Today's work" : 'Due today and overdue';
     const chips = [];
-    if (d.overdue) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=open&quick=past"><i></i>${n0(d.overdue)} overdue</a>`);
-    if (d.today) chips.push(`<a class="r2t-chip r2t-chip--due" href="/work/?view=open"><i></i>${n0(d.today)} due today</a>`);
+    // Every number on this card counts open actions on the Work Center board, and its link opens exactly those.
+    const fr = d.fr ? '&fr=' + encodeURIComponent(d.fr) : '';
+    if (d.overdue) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=open&due=past${fr}"><i></i>${n0(d.overdue)} overdue</a>`);
+    if (d.today) chips.push(`<a class="r2t-chip r2t-chip--due" href="/work/?view=open&due=today${fr}"><i></i>${n0(d.today)} due today</a>`);
+    $('wh-due-all').setAttribute('href', '/work/?view=open' + fr);
     $('wh-due-chips').innerHTML = chips.join('');
     $('wh-due-all').textContent = `Open all ${n0(d.open)}`;
     const list = $('wh-due-list');
@@ -96,7 +98,7 @@
       <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.partner)}</a><span>${esc(r.summary || r.type || 'Action')}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
       ${dueChip(r)}
       <div class="wh-acts wh-acts--hover"><button type="button" class="wh-do wh-do--go" data-do="complete">Complete</button><button type="button" class="wh-do" data-do="snooze" aria-haspopup="true">Snooze</button><a class="wh-do" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">Partner</a></div>
-    </li>`).join('') + (d.total > d.rows.length ? `<li class="wh-more"><a href="/work/?view=open${d.overdue ? '&quick=past' : ''}">${n0(d.total - d.rows.length)} more due</a></li>` : '');
+    </li>`).join('') + (d.total > d.rows.length ? `<li class="wh-more"><a href="/work/?view=open&due=now${fr}">${n0(d.total)} due today or overdue</a></li>` : '');
   }
 
   /* ------------------------------------------------------------------ gifts to thank */

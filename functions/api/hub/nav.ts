@@ -12,7 +12,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // The KPI dashboard's own team map (kpi-dashboard backend/access.js) decides which of its tabs
     // show in the sidebar. A slow or failed answer leaves just the Executive page and Definitions.
     const [counts, kpiTeams] = await Promise.all([
-      navCounts(env, user, access),
+      navCounts(env, user, access, request),
       user.via === 'google'
         ? kpiGet<{ teams?: string[] }>(env, '/auth/verify', { email: user.email, name: user.name })
             .then((v) => (Array.isArray(v.teams) ? v.teams : []))
