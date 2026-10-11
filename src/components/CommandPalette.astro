@@ -314,7 +314,7 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
       .filter((f) => f && /^https:\/\/(drive|docs)\.google\.com\//.test(f.link || ''))
       .slice(0, 6)
       .map((f) => ({
-        title: escHtml(f.name || 'Untitled file'),
+        title: escHtml((f.name || '').trim() || 'Untitled file'),
         desc: escHtml([f.type, f.owner, f.modified ? when(f.modified + 'T12:00:00') : '', f.folder].filter(Boolean).join(' · ')),
         href: f.link,
         external: true,
