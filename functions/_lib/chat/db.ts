@@ -35,6 +35,8 @@ export interface MessageRow {
   deleted_at: string | null;
   reply_count: number;
   last_reply_at: string | null;
+  /** Null: everyone in the channel. An email: only that person (a private Favor Brain answer). */
+  visible_to: string | null;
 }
 
 export interface Reaction {
@@ -57,6 +59,8 @@ export interface MessageOut {
   reply_count: number;
   last_reply_at: string | null;
   reply_users: string[];
+  /** Set only on a message the reader alone can see; the client labels it and offers Share and Dismiss. */
+  visible_to: string | null;
 }
 
 export const DEFAULT_CHANNELS = ['ch_general', 'ch_hub_feedback'];
@@ -134,14 +138,14 @@ export async function listChannels(env: ChatEnv, email: string): Promise<Channel
   const me = lower(email);
   const rows = await env.DB.prepare(
     `SELECT c.id, c.kind, c.name, c.topic, c.created_by, c.created_at, c.last_at, m.muted AS muted, COALESCE(r.last_read_id, 0) AS last_read,
-            (SELECT COUNT(*) FROM chat_messages x WHERE x.channel_id = c.id AND x.thread_id IS NULL AND x.deleted_at IS NULL AND x.email != ? AND x.id > COALESCE(r.last_read_id, 0)) AS unread,
+            (SELECT COUNT(*) FROM chat_messages x WHERE x.channel_id = c.id AND x.thread_id IS NULL AND x.deleted_at IS NULL AND (x.visible_to IS NULL OR x.visible_to = ?) AND x.email != ? AND x.id > COALESCE(r.last_read_id, 0)) AS unread,
             (SELECT COUNT(*) FROM chat_mentions n WHERE n.channel_id = c.id AND n.email = ? AND n.read_at IS NULL) AS mentions
        FROM chat_members m
        JOIN chat_channels c ON c.id = m.channel_id AND c.archived = 0
        LEFT JOIN chat_reads r ON r.channel_id = c.id AND r.email = m.email
       WHERE m.email = ?
       ORDER BY c.kind, c.name`
-  ).bind(me, me, me).all<{ id: string; kind: Kind; name: string; topic: string; created_by: string; created_at: string; last_at: string | null; muted: number; last_read: number; unread: number; mentions: number }>();
+  ).bind(me, me, me, me).all<{ id: string; kind: Kind; name: string; topic: string; created_by: string; created_at: string; last_at: string | null; muted: number; last_read: number; unread: number; mentions: number }>();
   const list = rows.results || [];
   if (!list.length) return [];
   const mem = await env.DB.prepare(`SELECT channel_id, email FROM chat_members WHERE channel_id IN (${list.map(() => '?').join(',')}) ORDER BY joined_at, email`).bind(...list.map((c) => c.id)).all<{ channel_id: string; email: string }>();
@@ -252,7 +256,7 @@ async function reactionsFor(env: ChatEnv, ids: number[]): Promise<Map<number, Re
 async function replyUsers(env: ChatEnv, rootIds: number[]): Promise<Map<number, string[]>> {
   const out = new Map<number, string[]>();
   if (!rootIds.length) return out;
-  const r = await env.DB.prepare(`SELECT thread_id, email FROM chat_messages WHERE thread_id IN (${rootIds.map(() => '?').join(',')}) AND deleted_at IS NULL ORDER BY id DESC`).bind(...rootIds).all<{ thread_id: number; email: string }>();
+  const r = await env.DB.prepare(`SELECT thread_id, email FROM chat_messages WHERE thread_id IN (${rootIds.map(() => '?').join(',')}) AND deleted_at IS NULL AND visible_to IS NULL ORDER BY id DESC`).bind(...rootIds).all<{ thread_id: number; email: string }>();
   for (const x of r.results || []) {
     const list = out.get(x.thread_id) || out.set(x.thread_id, []).get(x.thread_id)!;
     if (!list.includes(x.email) && list.length < 3) list.push(x.email);
@@ -284,31 +288,38 @@ export async function shape(env: ChatEnv, rows: MessageRow[], hydrate?: (a: Atta
       reply_count: r.reply_count,
       last_reply_at: r.last_reply_at,
       reply_users: ru.get(r.id) || [],
+      visible_to: r.visible_to || null,
     });
   }
   return out;
 }
 
-const COLS = 'id, channel_id, thread_id, email, body, attachments, brain, created_at, edited_at, deleted_at, reply_count, last_reply_at';
+const COLS = 'id, channel_id, thread_id, email, body, attachments, brain, created_at, edited_at, deleted_at, reply_count, last_reply_at, visible_to';
+
+/** True when this person may read the message: a normal one, or a private one that is theirs. */
+export const canSee = (row: Pick<MessageRow, 'visible_to'>, email: string): boolean => !row.visible_to || row.visible_to === lower(email);
+
+/** Who a live event about this message goes to: its one reader when private, else the whole channel. */
+export const audienceOf = (row: Pick<MessageRow, 'visible_to'>, members: string[]): string[] => (row.visible_to ? [row.visible_to] : members);
 
 export async function getMessage(env: ChatEnv, id: number): Promise<MessageRow | null> {
   return env.DB.prepare(`SELECT ${COLS} FROM chat_messages WHERE id = ?`).bind(id).first<MessageRow>();
 }
 
-export async function history(env: ChatEnv, channelId: string, before: number | null, hydrate?: (a: Attachment[]) => Promise<Attachment[]>): Promise<{ messages: MessageOut[]; more: boolean }> {
+export async function history(env: ChatEnv, channelId: string, before: number | null, hydrate: ((a: Attachment[]) => Promise<Attachment[]>) | undefined, email: string): Promise<{ messages: MessageOut[]; more: boolean }> {
   const rows = await env.DB.prepare(
-    `SELECT ${COLS} FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL ${before ? 'AND id < ?' : ''} ORDER BY id DESC LIMIT ?`
-  ).bind(...(before ? [channelId, before, PAGE + 1] : [channelId, PAGE + 1])).all<MessageRow>();
+    `SELECT ${COLS} FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND (visible_to IS NULL OR visible_to = ?) ${before ? 'AND id < ?' : ''} ORDER BY id DESC LIMIT ?`
+  ).bind(...(before ? [channelId, lower(email), before, PAGE + 1] : [channelId, lower(email), PAGE + 1])).all<MessageRow>();
   const list = rows.results || [];
   const more = list.length > PAGE;
   const page = list.slice(0, PAGE).reverse();
   return { messages: await shape(env, page, hydrate), more };
 }
 
-export async function thread(env: ChatEnv, rootId: number, hydrate?: (a: Attachment[]) => Promise<Attachment[]>): Promise<{ root: MessageOut; replies: MessageOut[] } | null> {
+export async function thread(env: ChatEnv, rootId: number, hydrate: ((a: Attachment[]) => Promise<Attachment[]>) | undefined, email: string): Promise<{ root: MessageOut; replies: MessageOut[] } | null> {
   const root = await getMessage(env, rootId);
-  if (!root || root.thread_id) return null;
-  const rows = await env.DB.prepare(`SELECT ${COLS} FROM chat_messages WHERE thread_id = ? ORDER BY id LIMIT 500`).bind(rootId).all<MessageRow>();
+  if (!root || root.thread_id || !canSee(root, email)) return null;
+  const rows = await env.DB.prepare(`SELECT ${COLS} FROM chat_messages WHERE thread_id = ? AND (visible_to IS NULL OR visible_to = ?) ORDER BY id LIMIT 500`).bind(rootId, lower(email)).all<MessageRow>();
   const shaped = await shape(env, [root, ...(rows.results || [])], hydrate);
   return { root: shaped[0], replies: shaped.slice(1) };
 }
@@ -320,6 +331,8 @@ export interface PostInput {
   thread_id?: number | null;
   attachments?: Attachment[];
   brain?: unknown;
+  /** Only this person can read the message (a private Favor Brain answer). */
+  visible_to?: string | null;
 }
 
 export interface Posted {
@@ -347,9 +360,14 @@ export async function post(env: ChatEnv, input: PostInput): Promise<Posted> {
   }
   const now = nowIso();
   const res = await env.DB.prepare(
-    'INSERT INTO chat_messages (channel_id, thread_id, email, body, attachments, brain, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  ).bind(channel.id, threadId, email, body, JSON.stringify(att), input.brain ? JSON.stringify(input.brain) : null, now).run();
+    'INSERT INTO chat_messages (channel_id, thread_id, email, body, attachments, brain, created_at, visible_to) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(channel.id, threadId, email, body, JSON.stringify(att), input.brain ? JSON.stringify(input.brain) : null, now, input.visible_to ? lower(input.visible_to) : null).run();
   const id = Number((res.meta as { last_row_id?: number }).last_row_id);
+  // A private message leaves no trace for anyone else: no channel activity, no reply count, no notification, no live event.
+  if (input.visible_to) {
+    const row = (await getMessage(env, id))!;
+    return { message: row, channel, members: [lower(input.visible_to)], notify: [] };
+  }
   const stmts = [env.DB.prepare('UPDATE chat_channels SET last_at = ? WHERE id = ?').bind(now, channel.id)];
   if (threadId) stmts.push(env.DB.prepare('UPDATE chat_messages SET reply_count = reply_count + 1, last_reply_at = ? WHERE id = ?').bind(now, threadId));
   await env.DB.batch(stmts);
@@ -362,7 +380,7 @@ export async function post(env: ChatEnv, input: PostInput): Promise<Posted> {
   if (mm.everyone) for (const m of members) want.set(m, 'mention');
   for (const p of mm.people) if (members.includes(p) || channel.kind === 'public') want.set(p, 'mention');
   if (threadId) {
-    const part = await env.DB.prepare('SELECT DISTINCT email FROM chat_messages WHERE (id = ? OR thread_id = ?) AND deleted_at IS NULL').bind(threadId, threadId).all<{ email: string }>();
+    const part = await env.DB.prepare('SELECT DISTINCT email FROM chat_messages WHERE (id = ? OR thread_id = ?) AND deleted_at IS NULL AND visible_to IS NULL').bind(threadId, threadId).all<{ email: string }>();
     for (const p of part.results || []) if (!SYSTEM_VOICES.has(p.email) && !want.has(p.email)) want.set(p.email, 'reply');
   }
   want.delete(email);
@@ -414,6 +432,7 @@ export async function toggleReaction(env: ChatEnv, email: string, id: number, em
   const m = await getMessage(env, id);
   if (!m || m.deleted_at) throw new HttpError(404, 'not_found', 'That message is gone.');
   await readableChannel(env, m.channel_id, email);
+  if (!canSee(m, email)) throw new HttpError(404, 'not_found', 'That message is gone.');
   const me = lower(email);
   const has = await env.DB.prepare('SELECT 1 AS ok FROM chat_reactions WHERE message_id = ? AND email = ? AND emoji = ?').bind(id, me, emoji).first();
   if (has) await env.DB.prepare('DELETE FROM chat_reactions WHERE message_id = ? AND email = ? AND emoji = ?').bind(id, me, emoji).run();
@@ -463,12 +482,12 @@ export interface InboxItem {
 
 export async function inbox(env: ChatEnv, email: string): Promise<{ count: number; items: InboxItem[] }> {
   const me = lower(email);
-  const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions WHERE email = ? AND read_at IS NULL').bind(me).first<{ n: number }>();
+  const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id WHERE n.email = ? AND n.read_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?)').bind(me, me).first<{ n: number }>();
   const rows = await env.DB.prepare(
     `SELECT m.id, m.channel_id, c.name AS channel_name, c.kind AS channel_kind, m.thread_id, m.email AS "from", COALESCE(u.name, '') AS from_name, m.body, n.kind, n.created_at AS at
        FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id LEFT JOIN hub_users u ON u.email = m.email
-      WHERE n.email = ? AND n.read_at IS NULL ORDER BY n.created_at DESC LIMIT 20`
-  ).bind(me).all<InboxItem>();
+      WHERE n.email = ? AND n.read_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?) ORDER BY n.created_at DESC LIMIT 20`
+  ).bind(me, me).all<InboxItem>();
   return { count: c?.n || 0, items: rows.results || [] };
 }
 
@@ -479,7 +498,7 @@ export async function clearInbox(env: ChatEnv, email: string, messageId: number 
 }
 
 export async function unreadMentionCount(env: ChatEnv, email: string): Promise<number> {
-  const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions WHERE email = ? AND read_at IS NULL').bind(lower(email)).first<{ n: number }>();
+  const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id WHERE n.email = ? AND n.read_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?)').bind(lower(email), lower(email)).first<{ n: number }>();
   return c?.n || 0;
 }
 
@@ -494,8 +513,9 @@ export async function search(env: ChatEnv, email: string, q: string, opts: { fil
     'm.deleted_at IS NULL',
     `(c.kind = 'public' OR c.id IN (SELECT channel_id FROM chat_members WHERE email = ?))`,
     'c.archived = 0',
+    '(m.visible_to IS NULL OR m.visible_to = ?)',
   ];
-  const args: unknown[] = [me];
+  const args: unknown[] = [me, me];
   if (opts.filter === 'here' && opts.channel) { where.push('m.channel_id = ?'); args.push(opts.channel); }
   if (opts.filter === 'files') where.push(`m.attachments != '[]'`);
   if (opts.filter === 'mine') { where.push('m.id IN (SELECT message_id FROM chat_mentions WHERE email = ?)'); args.push(me); }
@@ -503,10 +523,47 @@ export async function search(env: ChatEnv, email: string, q: string, opts: { fil
   const pat = likePattern(text);
   args.push(pat, pat);
   const r = await env.DB.prepare(
-    `SELECT m.id, m.channel_id, m.thread_id, m.email, m.body, m.attachments, m.brain, m.created_at, m.edited_at, m.deleted_at, m.reply_count, m.last_reply_at
+    `SELECT m.id, m.channel_id, m.thread_id, m.email, m.body, m.attachments, m.brain, m.created_at, m.edited_at, m.deleted_at, m.reply_count, m.last_reply_at, m.visible_to
        FROM chat_messages m JOIN chat_channels c ON c.id = m.channel_id WHERE ${where.join(' AND ')} ORDER BY m.id DESC LIMIT ?`
   ).bind(...args, Math.min(30, opts.limit || 20)).all<MessageRow>();
   return r.results || [];
+}
+
+/** True when a Brain answer in this channel is for the asker alone: any channel others can read, or a conversation with anyone else in it. */
+export async function brainIsPrivate(env: ChatEnv, channelId: string, asker: string): Promise<boolean> {
+  const ch = await getChannel(env, channelId);
+  if (!ch) return false;
+  if (ch.kind === 'public') return true;
+  return (await membersOf(env, channelId)).some((m) => m !== lower(asker));
+}
+
+/** The asker's private answer, or a 404 for anyone else (the message does not exist as far as they can tell). */
+export async function privateAnswer(env: ChatEnv, email: string, id: number): Promise<MessageRow> {
+  const m = await getMessage(env, id);
+  if (!m || m.deleted_at || m.email !== BRAIN_ID || m.visible_to !== lower(email)) throw new HttpError(404, 'not_found', 'That message is gone.');
+  await readableChannel(env, m.channel_id, email);
+  return m;
+}
+
+/** Dismiss: the private copy is deleted for good. */
+export async function dismissAnswer(env: ChatEnv, email: string, id: number): Promise<MessageRow> {
+  const m = await privateAnswer(env, email, id);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM chat_mentions WHERE message_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM chat_reactions WHERE message_id = ?').bind(id),
+    env.DB.prepare('DELETE FROM chat_messages WHERE id = ?').bind(id),
+  ]);
+  return m;
+}
+
+/** Share: the answer is posted to the channel (or the same thread) as a normal Brain message labelled with who shared it, and the private copy is removed. */
+export async function shareAnswer(env: ChatEnv, email: string, id: number): Promise<{ posted: Posted; removed: MessageRow }> {
+  const m = await privateAnswer(env, email, id);
+  const brain = parseJson<Record<string, unknown> | null>(m.brain, null);
+  if (!brain || brain.status !== 'done') throw new HttpError(400, 'not_ready', 'The answer is not ready to share.');
+  const posted = await post(env, { channel_id: m.channel_id, email: BRAIN_ID, body: '', thread_id: m.thread_id, brain: { ...brain, shared_by: lower(email) } });
+  await dismissAnswer(env, email, id);
+  return { posted, removed: m };
 }
 
 export { BRAIN_ID, MEETINGS_ID };

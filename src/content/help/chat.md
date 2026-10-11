@@ -37,7 +37,7 @@ Press the **plus** in the message box.
 
 ## Ask Favor Brain
 
-Type **@Favor Brain** and a question in a channel or a thread. Favor Brain answers in the thread as cards, tiles and tables, using the records the person who asked can see. Everyone in the conversation can read the answer, so ask in a direct message when the question is private.
+Type **@Favor Brain** and a question in a channel or a thread. Favor Brain answers as cards, tiles and tables, using the records the person who asked can see. In a channel or a conversation with other people in it, the answer is marked **Only visible to you** and no one else sees it. Press **Share to channel** to post it for everyone, labelled with your name, or **Dismiss** to delete it. In a direct message with only you in it, the answer stays as a normal message.
 
 ## Search
 

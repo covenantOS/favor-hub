@@ -315,9 +315,10 @@ test('a private channel meeting is invitation only, and nobody gets an email', a
   assert.equal((await call(w, ADMIN3, 'POST', `channels/${priv.id}/meeting`)).status, 403);
 });
 
-test('@Favor Brain posts a thinking message, asks as the sender, and fills in the answer blocks', async () => {
+test('@Favor Brain in a conversation with only the asker posts a thinking message, asks as the sender, and fills in the answer blocks', async () => {
   const w = world();
   for (const u of [ADMIN, ADMIN2]) await call(w, u, 'GET', 'boot');
+  const GEN = (await call(w, ADMIN2, 'POST', 'conversations', { members: [] })).data.channel.id;
   const asks = [];
   const answer = { ok: true, blocks: [
     { type: 'tiles', items: [{ label: 'Gifts', value: '12' }] },
@@ -341,13 +342,14 @@ test('@Favor Brain posts a thinking message, asks as the sender, and fills in th
   assert.deepEqual(done.brain.blocks.map((b) => b.type), ['tiles', 'table'], 'blocks the chat cannot answer a click for are left out');
   assert.equal(done.brain.blocks[1].rows.length, 3);
   assert.deepEqual(done.brain.follow, ['Show more']);
-  const t = (await call(w, ADMIN, 'GET', `threads/${root.id}`)).data;
+  const t = (await call(w, ADMIN2, 'GET', `threads/${root.id}`)).data;
   assert.equal(t.replies.length, 1);
 });
 
 test('the Brain failing or being unset leaves a plain message, never a stuck spinner', async () => {
   const w = world();
   await call(w, ADMIN, 'GET', 'boot');
+  const GEN = (await call(w, ADMIN, 'POST', 'conversations', { members: [] })).data.channel.id;
   const { askInThread } = await import('../functions/_lib/chat/brain.ts');
   const root = (await call(w, ADMIN, 'POST', `channels/${GEN}/messages`, { body: 'question' })).data.message;
   const boom = async () => { throw new Error('network'); };
@@ -366,6 +368,7 @@ test('the Brain failing or being unset leaves a plain message, never a stuck spi
 test('sending an @Favor Brain message from the route starts the Brain without a second request', async () => {
   const w = world();
   await call(w, ADMIN, 'GET', 'boot');
+  const GEN = (await call(w, ADMIN, 'POST', 'conversations', { members: [] })).data.channel.id;
   // BRAIN_URL points nowhere reachable, so the answer is the plain failure line, which proves the trigger ran in waitUntil.
   const sent = await call(w, ADMIN, 'POST', `channels/${GEN}/messages`, { body: '@Favor Brain ping' }, { env: { BRAIN_HUB_KEY: undefined } });
   assert.equal(sent.status, 200);

@@ -457,3 +457,12 @@ body.h-body .ch .ch-comp textarea:focus, body.h-body .ch .ch-comp textarea:focus
 @media (max-width: 860px) {
   .ch textarea, .ch input, .ch-comp textarea, .ch-edit textarea, .ch-input { font-size: 16px !important; }
 }
+/* A Favor Brain answer only its asker can read. */
+.ch-private { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.ch-private__tag { display: inline-flex; align-items: center; gap: 5px; font: 600 12px/1 var(--h-font, Inter, sans-serif); color: var(--tc-dusk-ink); }
+.ch-private__tag svg { width: 13px; height: 13px; }
+.ch-private__acts { display: inline-flex; gap: 8px; }
+.ch-private__acts .ch-btn { min-height: 32px; }
+.ch-msg--brain:has(.ch-private) .ch-ans { border-left: 0; }
+.ch-shared { font: 500 12px/1 var(--h-font, Inter, sans-serif); color: var(--tc-ink-3, #6b7280); align-self: center; }
+@media (max-width: 760px) { .ch-private__acts .ch-btn { min-height: 44px; } }

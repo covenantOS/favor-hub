@@ -162,6 +162,13 @@
     }
     function sizeOf(n) { n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
 
+    /* A Favor Brain answer only its asker can read: a label, and Share to channel / Dismiss once the answer is in. */
+    function privateHtml(m) {
+      var b = m.brain || {};
+      var ready = b.status === 'done';
+      return '<div class="ch-private" data-private="' + m.id + '"><span class="ch-private__tag">' + ic('lock') + 'Only visible to you</span>' +
+        (b.status === 'thinking' ? '' : '<span class="ch-private__acts">' + (ready ? '<button type="button" class="ch-btn ch-btn--sm ch-btn--primary" data-act="share-answer" data-id="' + m.id + '">Share to channel</button>' : '') + '<button type="button" class="ch-btn ch-btn--sm" data-act="dismiss-answer" data-id="' + m.id + '">Dismiss</button></span>') + '</div>';
+    }
     function brainHtml(m) {
       var b = m.brain || {};
       if (b.status === 'thinking') return '<div class="ch-ans"><span class="ch-ans__live"><i></i><i></i><i></i>Reading the records</span></div>';
@@ -190,7 +197,7 @@
       var u = user(m.user_id), mine = m.user_id === S.me.id, brain = m.user_id === 'brain';
       var cls = 'ch-msg' + (o.cont ? ' ch-msg--cont' : '') + (brain ? ' ch-msg--brain' : '') + (mentionsMe(m) && !mine ? ' is-mention' : '');
       var gut = o.cont ? '<span class="ch-msg__time">' + esc(timeOf(m.created_at).replace(/ (AM|PM)/, '')) + '</span>' : avatar(u, '', false);
-      var meta = o.cont ? '' : '<div class="ch-msg__meta"><span class="ch-msg__name">' + esc(u.name) + '</span>' + (brain ? '<span class="ch-tag">Brain</span>' : m.user_id === 'meetings' ? '<span class="ch-tag" style="background:var(--tc-teal-tint);color:var(--tc-teal-ink)">Meeting</span>' : '') + '<span class="ch-msg__time">' + esc(timeOf(m.created_at)) + '</span></div>';
+      var meta = o.cont ? '' : '<div class="ch-msg__meta"><span class="ch-msg__name">' + esc(u.name) + '</span>' + (brain ? '<span class="ch-tag">Brain</span>' + (m.brain && m.brain.shared_by ? '<span class="ch-shared">Shared by ' + esc(user(m.brain.shared_by).name) + '</span>' : '') : m.user_id === 'meetings' ? '<span class="ch-tag" style="background:var(--tc-teal-tint);color:var(--tc-teal-ink)">Meeting</span>' : '') + '<span class="ch-msg__time">' + esc(timeOf(m.created_at)) + '</span></div>';
       var text;
       if (m.deleted) text = '<div class="ch-msg__text ch-msg__deleted">This message was deleted.</div>';
       else if (S.editing === m.id) text = '<div class="ch-edit"><textarea class="ch-input" data-edit="' + m.id + '" rows="2" style="height:auto;padding:8px 12px">' + esc(S.editDraft != null && S.editDraftId === m.id ? S.editDraft : m.body) + '</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="ch-btn ch-btn--sm ch-btn--primary" data-act="edit-save" data-id="' + m.id + '">Save</button><button class="ch-btn ch-btn--sm" data-act="edit-cancel">Cancel</button></div></div>';
@@ -198,18 +205,19 @@
       var cards = '';
       if (!m.deleted && m.attachments && m.attachments.length) cards = '<div class="ch-cards">' + m.attachments.map(cardHtml).join('') + '</div>';
       var br = !m.deleted && brain ? brainHtml(m) : '';
+      var own = !m.deleted && m.visible_to ? privateHtml(m) : '';
       var rx = m.deleted ? '' : rxHtml(m);
       var rep = '';
       if (!o.inThread && m.reply_count) {
         rep = '<button type="button" class="ch-replies" data-act="thread" data-id="' + m.id + '"><span class="ch-stack">' + (m.reply_users || []).slice(0, 3).map(function (id) { return avatar(user(id), 'xs'); }).join('') + '</span>' + plural(m.reply_count, 'reply', 'replies') + '<small>Last reply ' + esc(ago(m.last_reply_at)) + '</small></button>';
       }
       var bar = '';
-      if (!m.deleted) {
+      if (!m.deleted && !m.visible_to) {
         bar = '<div class="ch-bar" role="toolbar" aria-label="Message actions"><button type="button" data-act="react-pick" data-id="' + m.id + '" aria-label="React" title="React">' + ic('smile') + '</button>' +
           (o.inThread ? '' : '<button type="button" data-act="thread" data-id="' + m.id + '" aria-label="Reply in thread" title="Reply in thread">' + ic('reply') + '</button>') +
           (mine ? '<button type="button" data-act="edit" data-id="' + m.id + '" aria-label="Edit" title="Edit">' + ic('edit') + '</button><button type="button" data-act="del" data-id="' + m.id + '" aria-label="Delete" title="Delete">' + ic('trash') + '</button>' : '') + '</div>';
       }
-      return '<article class="' + cls + '" data-mid="' + m.id + '"><div class="ch-msg__gut">' + gut + '</div><div class="ch-msg__body">' + meta + text + cards + br + rx + rep + '</div>' + bar + '</article>';
+      return '<article class="' + cls + '" data-mid="' + m.id + '"><div class="ch-msg__gut">' + gut + '</div><div class="ch-msg__body">' + meta + text + cards + br + own + rx + rep + '</div>' + bar + '</article>';
     }
     function listHtml(list, o) {
       o = o || {};
@@ -453,18 +461,18 @@
       ch.last_at = m.created_at;
       if (m.thread_id) {
         var root = (S.msgs[m.channel_id] || []).filter(function (x) { return String(x.id) === String(m.thread_id); })[0];
-        if (root) { root.reply_count = (root.reply_count || 0) + (hasMsg(S.threads[m.thread_id], m.id) ? 0 : 1); root.last_reply_at = m.created_at; root.reply_users = (root.reply_users || []).filter(function (u) { return u !== m.user_id; }).concat([m.user_id]).slice(-3); }
+        if (root && !m.visible_to) { root.reply_count = (root.reply_count || 0) + (hasMsg(S.threads[m.thread_id], m.id) ? 0 : 1); root.last_reply_at = m.created_at; root.reply_users = (root.reply_users || []).filter(function (u) { return u !== m.user_id; }).concat([m.user_id]).slice(-3); }
         var t = S.threads[m.thread_id];
         if (t && !hasMsg(t, m.id)) t.replies.push(m);
         if (S.active === m.channel_id) { renderMsgs(false); if (S.threadRoot === m.thread_id) { renderRight(); } }
-        notifyIfNeeded(m, ch);
+        if (!m.visible_to) notifyIfNeeded(m, ch);
         return;
       }
       var list = S.msgs[m.channel_id];
       if (list) { if (list.some(function (x) { return String(x.id) === String(m.id); })) return; list.push(m); }
       if (S.active === m.channel_id && !document.hidden) { renderMsgs(mine ? true : false); if (!mine) markRead(); else { ch.last_read = m.id; api.read(m.channel_id, m.id); } renderSide(); }
       else { renderSide(); }
-      notifyIfNeeded(m, ch);
+      if (!m.visible_to) notifyIfNeeded(m, ch);
     }
     function hasMsg(t, id) { return !!t && (t.replies || []).some(function (x) { return String(x.id) === String(id); }); }
     function notifyIfNeeded(m, ch) {
@@ -659,6 +667,7 @@
     function onEvent(ev) {
       if (ev.type === 'message') addMessage(ev.message, ev.message.user_id === S.me.id);
       else if (ev.type === 'edit') patchMessage(ev.message);
+      else if (ev.type === 'delete' && ev.purge) { purgeMessage(ev.id); }
       else if (ev.type === 'delete') { patchMessage(Object.assign({}, findMsg(ev.id) || { id: ev.id }, { deleted: true, body: '', attachments: [] })); }
       else if (ev.type === 'reaction') { var m = findMsg(ev.id); if (m) { m.reactions = ev.reactions; patchMessage(m); } }
       else if (ev.type === 'typing') { (S.typing[ev.channel_id] = S.typing[ev.channel_id] || {})[ev.user_id] = Date.now(); if (S.active === ev.channel_id) { renderTyping(); setTimeout(renderTyping, 5200); } }
@@ -691,6 +700,13 @@
       Object.keys(S.msgs).forEach(function (k) { (S.msgs[k] || []).forEach(function (m) { if (String(m.id) === String(id)) hit = m; }); });
       if (!hit) Object.keys(S.threads).forEach(function (k) { var t = S.threads[k]; if (String(t.root.id) === String(id)) hit = t.root; (t.replies || []).forEach(function (m) { if (String(m.id) === String(id)) hit = m; }); });
       return hit;
+    }
+    function purgeMessage(id) {
+      var gone = false;
+      var drop = function (arr) { for (var i = arr.length - 1; i >= 0; i--) if (String(arr[i].id) === String(id)) { arr.splice(i, 1); gone = true; } };
+      Object.keys(S.msgs).forEach(function (k) { drop(S.msgs[k] || []); });
+      Object.keys(S.threads).forEach(function (k) { drop(S.threads[k].replies || []); });
+      if (gone) { renderMsgs(false); if (S.right === 'thread') { renderRight(); } }
     }
     function patchMessage(nm) {
       var done = false;
@@ -732,6 +748,8 @@
         var m0 = openModal('Delete message', '<p style="margin:4px 0 8px">This removes the message for everyone in the conversation.</p>', '<button type="button" class="ch-btn" data-act="modal-x">Cancel</button><button type="button" class="ch-btn ch-btn--primary" data-act="del-yes" data-id="' + id + '">Delete</button>');
       }
       else if (act === 'del-yes') { closeModal(); guard(api.del(id)).then(function () { var m = findMsg(id); patchMessage(Object.assign({}, m, { deleted: true, body: '', attachments: [] })); }); }
+      else if (act === 'share-answer') { el.disabled = true; guard(api.shareAnswer(id)).then(function (r) { purgeMessage(id); if (r && r.message) addMessage(r.message, true); toast('Shared to the channel'); }).catch(function () { el.disabled = false; }); }
+      else if (act === 'dismiss-answer') { el.disabled = true; guard(api.dismissAnswer(id)).then(function () { purgeMessage(id); }).catch(function () { el.disabled = false; }); }
       else if (act === 'plus') plusMenu(scope, el);
       else if (act === 'at') { insertAtCaret(scope, '@'); updateMention($('[data-ta="' + scope + '"]', root)); }
       else if (act === 'emoji') emojiPicker(el, function (em) { insertAtCaret(scope, em); });
