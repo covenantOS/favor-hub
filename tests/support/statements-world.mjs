@@ -6,7 +6,8 @@ import { memoryD1 } from './d1.mjs';
 
 const MIRROR = `
 CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, constituent_type TEXT, first_name TEXT, middle_name TEXT, last_name TEXT, organization_name TEXT,
-  spouse_first_name TEXT, spouse_last_name TEXT, primary_address_id TEXT);
+  spouse_first_name TEXT, spouse_last_name TEXT, primary_address_id TEXT,
+  primary_addressee TEXT, primary_salutation TEXT, no_valid_address INTEGER DEFAULT 0);
 CREATE TABLE addresses (id TEXT PRIMARY KEY, constituent_record_id TEXT, address_lines TEXT, address_city TEXT, address_state TEXT, address_postal_code TEXT, address_country TEXT,
   is_primary INTEGER, do_not_mail INTEGER DEFAULT 0, is_inactive INTEGER DEFAULT 0);
 CREATE TABLE emails (id TEXT PRIMARY KEY, constituent_record_id TEXT, email_address TEXT, is_primary INTEGER DEFAULT 1, is_inactive INTEGER DEFAULT 0);
