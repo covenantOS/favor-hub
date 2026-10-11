@@ -1,0 +1,18 @@
+/* Admin tables: keep words and dates whole. Narrow first columns broke words mid-word
+   ("partn er", "Oct / 11,"). Tables in .ad-scroll scroll sideways instead of wrapping. */
+.ad-table td.ad-nw,
+.ad-table th.ad-nw {
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+.ad-table td:first-child {
+  min-width: 11rem;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+/* Emails and URLs are the only values allowed to break anywhere. */
+.ad-table td.ad-mail {
+  overflow-wrap: anywhere;
+  min-width: 13rem;
+}
