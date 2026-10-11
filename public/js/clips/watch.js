@@ -249,7 +249,18 @@ function wireTop() {
     if (b) b.setAttribute('aria-expanded', 'false');
   });
   document.addEventListener('click', (e) => {
-    if (!e.target.closest('.cw-menuwrap')) closeMenus();
+    const inMenu = e.target.closest('.cw-menu, [aria-haspopup]');
+    // The phone sheet's scrim is a pseudo-element of the menu, so a tap on the menu box outside its own rectangle closes it.
+    const onScrim = e.target.classList.contains('cw-menu') && (() => { const r = e.target.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; })();
+    if (!inMenu || onScrim) closeMenus();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const open = $$('.cw-menu').find((m) => !m.hidden);
+    if (!open) return;
+    closeMenus();
+    const b = open.previousElementSibling;
+    if (b) b.focus();
   });
   box.addEventListener('click', async (e) => {
     const t = e.target.closest('button, a');
@@ -988,7 +999,7 @@ function tabsFor() {
   if (signedIn()) t.push({ id: 'comments', label: S.comments.length ? `Comments (${S.comments.length})` : 'Comments' });
   if (signedIn()) t.push({ id: 'activity', label: 'Activity' });
   if (isAdmin() && S.seen && S.seen.length) t.push({ id: 'screen', label: 'On screen' });
-  if (isAdmin()) t.push({ id: 'article', label: 'Help article' });
+  if (isAdmin()) t.push({ id: 'article', label: 'Article' });
   return t;
 }
 
@@ -1034,7 +1045,7 @@ function paintPanel() {
 
 function paintScreen(box) {
   const seen = S.seen || [];
-  box.innerHTML = `<p class="cw-empty cw-empty--pad cw-screen__note">The tools and pages this clip showed, in order. Only you see this list.</p>
+  box.innerHTML = `<p class="cw-empty cw-empty--pad cw-screen__note">Only you see this list.</p>
     <ol class="cw-chlist cw-screen">${seen.map((x) => `<li><button type="button" class="cw-ch" data-seek="${x.from}"><span class="cw-t">${fmtTime(edited(x.from))}</span><span class="cw-ct">${esc([x.app, x.page].filter(Boolean).join(', '))}</span></button></li>`).join('')}</ol>`;
 }
 
@@ -1231,7 +1242,7 @@ function paintComments(box) {
   const list = [...S.comments].sort((a, b) => a.at_seconds - b.at_seconds || a.created_at.localeCompare(b.created_at));
   box.innerHTML = list.length
     ? `<ul class="cw-comments">${list.map((c) => `<li data-c="${c.id}"><span class="cw-av">${esc(initials(c.author_name))}</span><div><p class="cw-cmeta"><b>${esc(firstName(c.author_name))}</b> · ${esc(ago(c.created_at))} <button type="button" class="cw-t" data-seek="${c.at_seconds}" aria-label="Jump to ${fmtTime(edited(c.at_seconds))}">${fmtTime(edited(c.at_seconds))}</button></p><p class="cw-cbody">${esc(c.body)}</p></div>${c.author_email === S.user.email || (S.user && S.user.admin) ? `<button type="button" class="cw-ib2" data-cdel="${c.id}" aria-label="Delete comment">${icon('x')}</button>` : ''}</li>`).join('')}</ul>`
-    : '<p class="cw-empty cw-empty--pad">No comments yet. Pause where you want to say something, then write it under the video.</p>';
+    : '<p class="cw-empty cw-empty--pad">No comments yet.</p>';
 }
 document.addEventListener('click', async (e) => {
   const d = e.target.closest('[data-cdel]');

@@ -2,13 +2,14 @@
 // Clips, admin view: every person's clips and what each person's storage looks like. Admins only (the data route refuses everyone else).
 import App from '../../layouts/App.astro';
 import '../../styles/clips.css';
+import '../../styles/crit-clips2.css';
 ---
 <App title="All clips" crumb="Clips" nav="clips" description="Every person's clips, for hub admins.">
   <div class="cl" id="cl" data-scope="all">
     <section class="cl-head">
       <div>
         <h1>All clips</h1>
-        <p class="h-lede cl-lede">Every person's clips and storage. Admins can open and delete any clip. Only the owner can edit one.</p>
+        <p class="h-lede cl-lede">Every person's clips and storage.</p>
       </div>
       <a class="h-btn h-btn--ghost" href="/clips/">My clips</a>
     </section>
@@ -19,10 +20,25 @@ import '../../styles/clips.css';
       <label class="cl-search"><span class="cl-sr">Search all clips</span><input id="cl-q" type="search" placeholder="Search clips and people" autocomplete="off" /></label>
     </section>
 
+    <section class="cl-tools" aria-label="Filter and sort">
+      <label class="cl-sort"><span class="cl-sr">Sort by</span><select id="cl-sort"><option value="new">Newest</option><option value="old">Oldest</option><option value="views">Most viewed</option><option value="title">Title A to Z</option><option value="size">Largest</option><option value="person">Person</option></select></label>
+      <button type="button" class="h-btn h-btn--ghost" id="cl-select" aria-pressed="false">Select</button>
+    </section>
+
     <section aria-label="Clips">
       <div class="cl-listhead"><span id="cl-count-label"></span></div>
       <div id="cl-rows" class="cl-grid" aria-busy="true"><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div><div class="h-card h-skel" style="min-height:220px"></div></div>
     </section>
+
+    <div class="cl-selbar" id="cl-selbar" hidden role="region" aria-label="Selected clips">
+      <span class="cl-selcount" id="cl-selcount" role="status"></span>
+      <span class="cl-selbtns">
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sel="all">Select all</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sel="on" data-need-mine>Link on</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sel="off" data-need-mine>Link off</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm cl-danger" data-sel="delete">Delete</button>
+      </span>
+    </div>
   </div>
-  <script is:inline type="module" src="/js/clips/library.js?v=2"></script>
+  <script is:inline type="module" src="/js/clips/library.js?v=3"></script>
 </App>
