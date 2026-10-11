@@ -59,11 +59,29 @@
     run.forEach(([ty, fn]) => { try { fn.call(ty === 'load' ? window : document, new Event(ty)); } catch (e) { console.error(e); } });
   }
 
+  // Page stylesheets come and go with their page. Styles a script added at run time are left alone; only the
+  // links and style blocks a page's own HTML carried are managed, so one page's rules never restyle the next.
+  const pageCss = new Set(Array.from(document.head.querySelectorAll('link[rel=stylesheet], style')).map((el) => (el.tagName === 'LINK' ? 'L' + el.getAttribute('href') : 'S' + el.textContent)));
+  const keyOf = (el) => (el.tagName === 'LINK' ? 'L' + el.getAttribute('href') : 'S' + el.textContent);
+  // A new stylesheet goes in at the same place it sits in the new page, before the next one both pages share. Appended at the
+  // end it would outrank the shared sheets and older rules would win (the Brain mark drew as a small purple square).
   function mergeHead(doc) {
-    const have = new Set(Array.from(document.head.querySelectorAll('link[rel=stylesheet]')).map((l) => l.getAttribute('href')));
-    doc.head.querySelectorAll('link[rel=stylesheet]').forEach((l) => { if (!have.has(l.getAttribute('href'))) document.head.appendChild(l.cloneNode(true)); });
-    const sty = new Set(Array.from(document.head.querySelectorAll('style')).map((s) => s.textContent));
-    doc.head.querySelectorAll('style').forEach((s) => { if (!sty.has(s.textContent)) document.head.appendChild(s.cloneNode(true)); });
+    const cur = new Map(Array.from(document.head.querySelectorAll('link[rel=stylesheet], style')).map((el) => [keyOf(el), el]));
+    const list = Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style'));
+    list.forEach((el, i) => {
+      const k = keyOf(el);
+      pageCss.add(k);
+      if (cur.has(k)) return;
+      let next = null;
+      for (let j = i + 1; j < list.length && !next; j++) next = cur.get(keyOf(list[j])) || null;
+      const copy = el.cloneNode(true);
+      if (next) document.head.insertBefore(copy, next); else document.head.appendChild(copy);
+      cur.set(k, copy);
+    });
+  }
+  function dropOldCss(doc) {
+    const want = new Set(Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style')).map(keyOf));
+    document.head.querySelectorAll('link[rel=stylesheet], style').forEach((el) => { const k = keyOf(el); if (pageCss.has(k) && !want.has(k)) el.remove(); });
   }
 
   // A thin line under the status bar shows a page is on its way, but only when it takes longer than a blink.
@@ -119,6 +137,7 @@
       document.querySelectorAll('.h-pg__a[data-nav-id], .h-pinrow').forEach((a) => { const id = a.dataset.navId || a.dataset.pinned; const on = !!onId && id === onId; a.classList.toggle('is-on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
       document.querySelectorAll('#h-bar .h-bar__a[data-bar]').forEach((a) => a.classList.toggle('is-on', !!newArea && a.dataset.bar === newArea.dataset.area));
       document.getElementById('h-app').classList.remove('is-nav', 'is-peek');
+      dropOldCss(doc);
       oldMain.className = newMain.className;
       oldMain.innerHTML = '';
       Array.from(newMain.childNodes).forEach((n) => oldMain.appendChild(document.importNode(n, true)));
