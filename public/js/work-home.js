@@ -210,13 +210,12 @@
     paintTeam(d.work);
     root.removeAttribute('aria-busy');
   }
-
   /* ------------------------------------------------------------------ loading: last copy first, then fresh */
-  async function load() {
-    if (loading) return;
+  async function load(fresh) {
+    if (loading) { if (fresh) setTimeout(() => load(true), 600); return; }
     loading = true;
     try {
-      const d = await api('/api/hub/home');
+      const d = await api('/api/hub/home' + (fresh ? '?fresh=1' : ''));
       try { sessionStorage.setItem(KEY, JSON.stringify(d)); } catch (_) { /* storage refused */ }
       paint(d);
     } catch (e) {
@@ -243,12 +242,12 @@
       const b = out.batch;
       li.classList.remove('is-busy'); li.classList.add('is-gone');
       F().toast(msg, b && b.id ? [b.id] : null);
-      setTimeout(() => load(), 260);
+      setTimeout(() => load(true), 260);
       if (b && b.id && b.run_when !== 'tonight') {
         drive(b.id).then(async () => {
           const rc = (await api('/api/work/recent').catch(() => ({ batches: [] }))).batches || [];
           const mine = rc.find((x) => x.id === b.id);
-          if (mine && mine.failed) { F().toast(`Blackbaud turned it down. Nothing was lost. Recent has Try again.`, [b.id], true); load(); }
+          if (mine && mine.failed) { F().toast('Blackbaud turned it down. Nothing was lost. Recent has Try again.', [b.id], true); load(true); }
         }).catch(() => undefined);
       }
     } catch (e) {
@@ -302,10 +301,10 @@
   document.addEventListener('favor:thanked', (e) => {
     const ids = new Set(((e.detail && e.detail.items) || []).map((i) => String(i.giftId)));
     document.querySelectorAll('#wh-gifts-list .wh-gift').forEach((li) => { if (ids.has(li.dataset.gift)) li.classList.add('is-gone'); });
-    setTimeout(load, 1800);
+    setTimeout(() => load(true), 1800);
   });
-  document.addEventListener('favor:thanked-failed', () => load());
-  document.addEventListener('favor:thanked-undone', () => load());
+  document.addEventListener('favor:thanked-failed', () => load(true));
+  document.addEventListener('favor:thanked-undone', () => load(true));
 
   /* ------------------------------------------------------------------ quick actions and search */
   function ready(fn, n) {

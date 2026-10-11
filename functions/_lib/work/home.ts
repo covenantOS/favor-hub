@@ -159,9 +159,10 @@ async function recentBlock(ctx: Ctx) {
 
 /** Every Work Center part of the page. Any part that fails is null. */
 export async function workHome(ctx: Ctx) {
-  const board = await currentBoard(ctx);
-  const [due, gifts, week, recent] = await Promise.all([
-    dueBlock(ctx, board).catch(() => null),
+  const boardP = currentBoard(ctx);
+  const [board, due, gifts, week, recent] = await Promise.all([
+    boardP,
+    boardP.then((b) => dueBlock(ctx, b)).catch(() => null),
     giftsBlock(ctx).catch(() => null),
     weekBlock(ctx).catch(() => null),
     recentBlock(ctx).catch(() => null),

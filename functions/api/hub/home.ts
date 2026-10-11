@@ -59,7 +59,7 @@ async function waitingFor(env: Env, email: string, admin: boolean, approver: boo
   return { rows: out.sort((a, b) => (a.at < b.at ? -1 : 1)).slice(0, 8), totals };
 }
 
-export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
@@ -69,38 +69,56 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const admin = user.role === 'admin' && !actAs;
     const me: HubUser = actAs ? { ...user, email, name: actAs, role: 'staff', via: 'google', kpi: false } : user;
 
-    const access = await accessOf(env, request, me).catch(() => null);
-    let work: Awaited<ReturnType<typeof workHome>> | null = null;
-    let name = me.name;
-    if (access && access.workCenter) {
-      try {
-        const wu = await requireWork(env, request);
-        const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
-        name = wu.scope && wu.scope.name ? wu.scope.name : name;
-        work = await workHome(ctx);
-      } catch (err) {
-        console.error('[work-home]', err);
-      }
+    const cacheKey = `home:${email}`;
+    if (new URL(request.url).searchParams.get('fresh') !== '1') {
+      const hit = await env.DB.prepare('SELECT value, at FROM act_cache WHERE key = ?').bind(cacheKey).first<{ value: string; at: string }>().catch(() => null);
+      if (hit && Date.now() - Date.parse(hit.at) < 45000) return new Response(hit.value, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
-    const approver = me.via === 'google' && (await approverEmails(env).catch(() => new Set<string>())).has(email);
-    const [counts, waiting, mine, activity] = await Promise.all([
+
+    const access = await accessOf(env, request, me).catch(() => null);
+    let name = me.name;
+    const workP: Promise<Awaited<ReturnType<typeof workHome>> | null> =
+      access && access.workCenter
+        ? requireWork(env, request)
+            .then((wu) => {
+              const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
+              name = wu.scope && wu.scope.name ? wu.scope.name : name;
+              return workHome(ctx);
+            })
+            .catch((err) => {
+              console.error('[work-home]', err);
+              return null;
+            })
+        : Promise.resolve(null);
+    const approverP = me.via === 'google' ? approverEmails(env).then((s) => s.has(email)).catch(() => false) : Promise.resolve(false);
+    const [work, counts, waiting, mine, activity] = await Promise.all([
+      workP,
       access ? navCounts(env, me, access).catch(() => null) : null,
-      waitingFor(env, email, admin, approver).catch(() => ({ rows: [], totals: { requests: 0, expenses: 0, meetings: 0 } })),
+      approverP.then((approver) => waitingFor(env, email, admin, approver)).catch(() => ({ rows: [], totals: { requests: 0, expenses: 0, meetings: 0 } })),
       mineFor(env, me).catch(() => []),
       access ? activityFor(env, access).catch(() => []) : [],
     ]);
     const since = ago(7);
-    return json({
+    const at = new Date().toISOString();
+    const body = JSON.stringify({
       ok: true,
+      at,
       name,
       email,
       access,
       counts,
       waiting,
-      mine: mine.filter((m) => m.kind === 'request' ? m.status !== 'Done' && m.status !== 'Declined' : m.status === 'Waiting for approval').slice(0, 6),
+      mine: mine.filter((m) => (m.kind === 'request' ? m.status !== 'Done' && m.status !== 'Declined' : m.status === 'Waiting for approval')).slice(0, 6),
       activity: activity.filter((a) => a.at > since).slice(0, 8),
       work,
     });
+    waitUntil(
+      env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at')
+        .bind(cacheKey, body, at)
+        .run()
+        .then(() => undefined, () => undefined)
+    );
+    return new Response(body, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   } catch (err) {
     return handleError(err);
   }
