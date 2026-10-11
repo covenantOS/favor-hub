@@ -296,7 +296,7 @@ export const STEPS: Step[] = [
     via: 'admin-home',
     at: '#ap-new',
     title: 'Create an appeal code',
-    body: 'Pick the kind, the date and the suffix, and the page builds the code and description from Favor's scheme and says whether Blackbaud already has it. A newsletter gets its EMW week from the send date. Tick the online code for a letter and both appeals are created in Blackbaud. Funds and campaigns wait in the list below until someone creates them.',
+    body: 'Pick the kind, the date and the suffix, and the page builds the code and description from the scheme and says whether Blackbaud already has it. A newsletter gets its EMW week from the send date. Tick the online code for a letter and both appeals are created in Blackbaud. Funds and campaigns wait in the list below until someone creates them.',
     for: (w) => w.admin,
     added: '2026-10-11',
     side: 'bottom',
