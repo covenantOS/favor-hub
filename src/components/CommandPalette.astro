@@ -204,28 +204,143 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
     }
   });
 
-  // Partners: past two letters, ask the Work Center's partner search (name, email, phone, address, lookup id). People the Work Center
-  // is closed to get an error back and simply see no partner rows.
+  // Search has three tiers. Tier 1 is local (pages, tools, help) and redraws on every keystroke. Tier 2 asks the server
+  // after a short pause, in two steps: partners, reports and Brain chats first, then meetings and clips. Tier 3 is for slow
+  // sources such as Drive and runs after tier 2 settles. Every server call applies the signed-in person's access, so a
+  // row this person cannot open never comes back. A denied or failed source shows no rows and the rest keep working.
   const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  let partnerTimer = 0;
-  let partnerSeq = 0;
+  const KIND_ORDER = ['Partners', 'Menu', 'Tools', 'Reports', 'Meetings', 'Clips', 'Favor Brain', 'Help', 'External', 'Drive'];
+  const kindRank = (g) => KIND_ORDER.indexOf(g);
+  const remote = { partners: [], reports: [], chats: [], meetings: [], clips: [] };
+  let seq = 0;
+  let remoteTimer = 0;
   let partnerDenied = false;
+  let reportsAll = null;
+
+  async function getJson(url) {
+    try {
+      const res = await fetch(url, { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } });
+      if (!res.ok) return { denied: res.status === 401 || res.status === 403, data: null };
+      return { denied: false, data: await res.json().catch(() => null) };
+    } catch (_) {
+      return { denied: false, data: null };
+    }
+  }
+  const when = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
+
+  // Partners: the Work Center's partner search (name, email, phone, address, lookup id).
+  async function partnerHits(text) {
+    if (partnerDenied) return [];
+    const r = await getJson('/api/work/partners?wide=1&q=' + encodeURIComponent(text));
+    if (r.denied) partnerDenied = true;
+    const rows = r.data && Array.isArray(r.data.rows) ? r.data.rows : [];
+    return rows.map((h) => ({ title: escHtml(h.name), desc: escHtml((h.place || 'No city on file') + (h.lookup ? ' · ' + h.lookup : '') + (h.deceased ? ' · deceased' : '')), href: '/work/partner/' + encodeURIComponent(h.cid), external: false, group: 'Partners' }));
+  }
+
+  // Reports: the registry this person may open, read once per page and matched here. Only ready reports get a row.
+  async function reportHits(text) {
+    if (!reportsAll) {
+      const r = await getJson('/api/reports');
+      if (!r.data || !Array.isArray(r.data.reports)) return [];
+      reportsAll = r.data.reports.filter((x) => x.ready);
+    }
+    const lq = norm(text);
+    return reportsAll
+      .filter((x) => norm(`${x.name} ${x.who || ''} ${x.replaces || ''}`).includes(lq))
+      .slice(0, 8)
+      .map((x) => ({ title: escHtml(x.name), desc: escHtml(x.who || 'Report'), href: '/reports/?r=' + encodeURIComponent(x.id), external: false, group: 'Reports' }));
+  }
+
+  // The person's own Favor Brain chats, matched on title and on what they asked.
+  async function chatHits(text) {
+    const r = await getJson('/api/brain/history?q=' + encodeURIComponent(text));
+    const threads = r.data && Array.isArray(r.data.threads) ? r.data.threads : [];
+    return threads.slice(0, 8).map((t) => ({ title: escHtml(t.title || 'Untitled chat'), desc: escHtml(when(t.changed_at) ? 'Chat · ' + when(t.changed_at) : 'Chat'), href: '/brain/?c=' + encodeURIComponent(t.id), external: false, group: 'Favor Brain' }));
+  }
+
+  // Meetings: ended meetings whose notes, summary or transcript match, ended meetings and upcoming meetings whose title matches.
+  async function meetingHits(text) {
+    const lq = norm(text);
+    const [notes, recent, upcoming] = await Promise.all([
+      getJson('/api/meet/meetings?scope=notes&q=' + encodeURIComponent(text)),
+      getJson('/api/meet/meetings?scope=recent'),
+      getJson('/api/meet/meetings?scope=upcoming'),
+    ]);
+    const rows = [];
+    const seen = new Set();
+    const add = (m, href, desc) => {
+      if (!m || !m.id || seen.has(m.id)) return;
+      seen.add(m.id);
+      rows.push({ title: escHtml(m.title || 'Meeting'), desc: escHtml(desc), href, external: false, group: 'Meetings' });
+    };
+    const notesOf = (notes.data && Array.isArray(notes.data.meetings)) ? notes.data.meetings : [];
+    for (const m of notesOf) add(m, '/meet/notes/?m=' + encodeURIComponent(m.id), 'Meeting notes' + (m.hostName ? ' · ' + m.hostName : ''));
+    const titled = (list) => (list.data && Array.isArray(list.data.meetings) ? list.data.meetings : []).filter((m) => norm(m.title).includes(lq));
+    for (const m of titled(recent)) add(m, '/meet/notes/?m=' + encodeURIComponent(m.id), 'Meeting notes' + (m.endedAt ? ' · ' + when(m.endedAt) : ''));
+    for (const m of titled(upcoming)) add(m, '/meet/room/?m=' + encodeURIComponent(m.id), 'Meeting' + (m.startsAt ? ' · ' + when(m.startsAt) : ''));
+    return rows.slice(0, 10);
+  }
+
+  // Clips: the person's own library, matched on titles, summaries, what was said and what was on screen.
+  async function clipHits(text) {
+    const r = await getJson('/api/clips?q=' + encodeURIComponent(text));
+    const clips = r.data && Array.isArray(r.data.clips) ? r.data.clips : [];
+    return clips.slice(0, 8).map((c) => ({
+      title: escHtml(c.title || 'Untitled clip'),
+      desc: escHtml(c.match ? c.match.text : (c.summary || 'Clip')),
+      href: '/c/' + encodeURIComponent(c.id) + (c.match ? '?t=' + Math.floor(c.match.at) : ''),
+      external: false,
+      group: 'Clips',
+    }));
+  }
+
+  // Merge the local list with every server source. Groups keep KIND_ORDER, and rows inside a group keep their order.
+  function merged(local) {
+    const extra = [].concat(remote.partners, remote.reports, remote.chats, remote.meetings, remote.clips);
+    return local.concat(extra)
+      .map((x, i) => ({ x, i }))
+      .sort((a, b) => kindRank(a.x.group) - kindRank(b.x.group) || a.i - b.i)
+      .map((r) => r.x);
+  }
+  // Redraw with the newest local and server rows, and keep the highlighted row where it still is.
+  function redraw() {
+    const keep = current[selected] ? current[selected].href : '';
+    render(merged(filter(input.value)));
+    const at = keep ? current.findIndex((x) => x.href === keep) : -1;
+    if (at >= 0) selected = at;
+    highlight();
+  }
+  // A late answer applies only when the person has not typed since it was asked for.
+  function apply(kind, hits, mine, text) {
+    if (mine !== seq || input.value.trim() !== text) return;
+    remote[kind] = hits;
+    redraw();
+  }
+  const source = (kind, text, mine, load) => load().then((hits) => apply(kind, hits, mine, text)).catch(() => undefined);
+
+  async function runRemote(text, mine) {
+    // Tier 2a: quick answers.
+    await Promise.all([
+      source('partners', text, mine, () => partnerHits(text)),
+      source('reports', text, mine, () => reportHits(text)),
+      source('chats', text, mine, () => chatHits(text)),
+    ]);
+    // Tier 2b: meetings and clips, after the quick answers have drawn.
+    await Promise.all([
+      source('meetings', text, mine, () => meetingHits(text)),
+      source('clips', text, mine, () => clipHits(text)),
+    ]);
+    // Tier 3 (Drive files through the Brain's Drive search) runs here once the Brain has a route for it.
+  }
+
   input.addEventListener('input', () => {
     const text = input.value.trim();
-    render(filter(input.value));
-    clearTimeout(partnerTimer);
-    if (text.length < 2 || partnerDenied) return;
-    partnerTimer = setTimeout(async () => {
-      const mine = ++partnerSeq;
-      try {
-        const res = await fetch('/api/work/partners?wide=1&q=' + encodeURIComponent(text), { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } });
-        if (res.status === 403 || res.status === 401) { partnerDenied = true; return; }
-        const data = await res.json().catch(() => null);
-        if (mine !== partnerSeq || !data || !Array.isArray(data.rows) || !data.rows.length || input.value.trim() !== text) return;
-        const hits = data.rows.map((h) => ({ title: escHtml(h.name), desc: escHtml((h.place || 'No city on file') + (h.lookup ? ' · ' + h.lookup : '') + (h.deceased ? ' · deceased' : '')), href: '/work/partner/' + encodeURIComponent(h.cid), external: false, group: 'Partners' }));
-        render(hits.concat(filter(input.value)));
-      } catch (_) { /* the search keeps working without partner rows */ }
-    }, 250);
+    const mine = ++seq;
+    clearTimeout(remoteTimer);
+    for (const k of Object.keys(remote)) remote[k] = [];
+    render(merged(filter(input.value)));
+    if (text.length < 2) return;
+    remoteTimer = setTimeout(() => runRemote(text, mine), 180);
   });
 
   list.addEventListener('click', (e) => {
