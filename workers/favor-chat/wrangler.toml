@@ -1,0 +1,17 @@
+# Favor Chat's live room (Marketing account, same as the hub). One Durable Object class, ChatRoom, holds the open WebSockets and fans
+# an event out to the people it names. It stores nothing: messages live in the hub's D1 (chat_* tables) and files in R2.
+# The hub's Pages project binds this class with a durable_objects binding (script_name = "favor-chat"); see the hub's wrangler.toml.
+# Deploy: wrangler deploy (from this folder, with the Marketing account credentials). No route and no workers.dev address:
+# the room answers only through that binding.
+name = "favor-chat"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+workers_dev = false
+
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ChatRoom"]

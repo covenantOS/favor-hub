@@ -16,6 +16,7 @@ import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
 import { meetSettings, withMeetSettings } from './admin/settings';
+import { chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
@@ -100,6 +101,8 @@ async function endMeeting(env: MeetEnv, id: string) {
   await env.DB.prepare(`UPDATE hub_meetings SET status = 'ended', ended_at = ?, rec_state = ?, notes_status = ? WHERE id = ?`)
     .bind(nowIso(), recorded ? 'uploading' : 'none', recorded && m.rec_mode !== 'off' ? 'pending' : 'none', id).run();
   await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ? WHERE meeting_id = ? AND left_at = 0').bind(Date.now(), id).run();
+  // A meeting started from a Chat channel updates its card there. A failure here never changes the meeting.
+  await chatMeetingEnded(env, id).catch((err) => console.warn('[chat] meeting end', err));
 }
 
 /** A live meeting whose people have all stopped sending heartbeats (browsers closed without Leave) is over. The cron, pumping and the Meetings list all run it. */
@@ -187,7 +190,7 @@ async function withLedMeetings(env: MeetEnv, user: { email: string; role: string
   return all.slice(0, scope === 'recent' ? 60 : 100);
 }
 
-async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown> | null, origin = '') {
+export async function createMeeting(env: MeetEnv, user: { email: string; name: string }, b: Record<string, unknown> | null, origin = '') {
   if (!b || typeof b !== 'object' || Array.isArray(b)) throw new HttpError(400, 'bad_json', 'The request was not valid JSON.');
   const title = clean(b.title, 140) || 'Meeting';
   const id = hex(12);
@@ -782,6 +785,7 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
         const retitle = !!notes.title && isDefaultTitle(m.title);
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'ready', summary = ?, notes_json = ?, title = CASE WHEN title IN ('Meeting', '') OR title LIKE '% meeting' THEN ? ELSE title END WHERE id = ?`)
           .bind(notes.summary, JSON.stringify({ decisions: notes.decisions, actions: notes.actions, chapters: notes.chapters } satisfies Omit<NotesOut, 'title' | 'summary'>), notes.title || m.title, id).run();
+        await chatNotesReady(env, id).catch((err) => console.warn('[chat] notes', err));
         // Each action item goes to its owner's Today when the talk named someone who was in the room, by first name when that is unambiguous.
         const roster = (await env.DB.prepare('SELECT DISTINCT name, email FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string; email: string }>()).results || [];
         const pick = (who: string) => {

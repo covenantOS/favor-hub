@@ -1,0 +1,16 @@
+---
+// Favor Chat: channels, direct messages, threads, reactions, mentions, files from Drive, clips, meeting cards and @Favor Brain.
+// public/js/chat/chat-ui.js draws the screen; chat.js talks to /api/chat and the live WebSocket. Open to hub admins for now
+// (hub setting chat.enabled). The Brain's answer blocks reuse the Brain page's renderer and styles.
+import App from '../../layouts/App.astro';
+import '../../styles/brain.css';
+import '../../styles/chat.css';
+import { SPRITE } from '../brain/_icons';
+---
+<App title="Chat" crumb="Chat" nav="chat" bare description="Channels, direct messages and threads for the Favor team, with clips, meetings, Drive files and Favor Brain in the conversation.">
+  <Fragment set:html={SPRITE} />
+  <div id="chat-root"></div>
+  <script is:inline src="/js/brain-blocks.js?v=7"></script>
+  <script is:inline src="/js/chat/chat-ui.js?v=1" defer></script>
+  <script is:inline src="/js/chat/chat.js?v=1" defer></script>
+</App>

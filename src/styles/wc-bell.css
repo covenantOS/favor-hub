@@ -95,3 +95,9 @@
   .wm-roll__row { grid-template-columns: 1fr; }
   .wm-roll__ctl { justify-content: flex-start; }
 }
+.wm-chat { margin-bottom: 4px; border-bottom: 1px solid #e4e0d4; }
+.wm-chat__h { font: 700 11px var(--h-font); letter-spacing: 0.06em; text-transform: uppercase; color: var(--h-ink-3); padding: 6px 0 0; }
+.wm-rem--chat { text-decoration: none; color: inherit; }
+.wm-rem--chat:hover b { text-decoration: underline; }
+.wm-rem--chat span { display: block; font-size: 12.5px; color: var(--h-ink-2); overflow-wrap: anywhere; }
+.wm-rem--chat time { overflow-wrap: anywhere; color: var(--tc-terra-ink, #8f3d1f); }
