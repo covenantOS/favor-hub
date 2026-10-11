@@ -487,3 +487,9 @@ body.h-body .ch .ch-comp textarea:focus, body.h-body .ch .ch-comp textarea:focus
   .ch-main .ch-comp { padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
   .ch-comp__box { border-radius: 22px; box-shadow: 0 8px 28px -12px rgba(42, 39, 34, .35); }
 }
+
+/* On a phone the list is its own screen, so no row reads as open while it shows. */
+@media (max-width: 860px) {
+  .ch[data-view='list'] .ch-side .ch-row.is-on { background: none; color: inherit; }
+  .ch[data-view='list'] .ch-side .ch-row.is-on .ch-row__ic { color: inherit; }
+}
