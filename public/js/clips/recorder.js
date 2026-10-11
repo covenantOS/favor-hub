@@ -69,8 +69,10 @@ export class ClipRecorder {
    * settings: { source: 'screen' | 'screen+camera' | 'camera', surface?: 'monitor' | 'window' | 'browser', micId: string | null,
    *             camId: string | null, facing?: 'user' | 'environment', systemAudio: boolean, title?: string }
    */
-  constructor(settings) {
+  constructor(settings, adopt) {
     this.settings = settings;
+    // Streams handed over by a recorder that is starting again (see handOff): the screen is not asked for twice.
+    this.adopt = adopt || null;
     this.state = { phase: 'idle', elapsed: 0, level: 0, muted: false, pending: 0, retrying: false, error: '', id: '', mime: '' };
     this.listeners = new Set();
     // The round camera in the picture: size S, M or L and its centre as a fraction of the frame.
@@ -155,6 +157,22 @@ export class ClipRecorder {
   get hasCamera() {
     return !!this.cam;
   }
+  get hasMic() {
+    return !!this.micGain;
+  }
+
+  /**
+   * Start again: give the screen, camera, microphone and audio context to a new recorder. After this, cancel() on this
+   * recorder deletes its clip and leaves those streams running.
+   */
+  handOff() {
+    const kept = { display: this.display, cam: this.cam, mic: this.mic, actx: this.actx };
+    this.display = null;
+    this.cam = null;
+    this.mic = null;
+    this.actx = null;
+    return kept;
+  }
 
   setBubble(patch) {
     this.bubble = { ...this.bubble, ...patch };
@@ -165,6 +183,7 @@ export class ClipRecorder {
   async prepare() {
     this.set({ phase: 'preparing', error: '' });
     const s = this.settings;
+    if (this.adopt) return this.prepareAdopted();
     // Made now, inside the click, so Safari lets it run.
     const AC = window.AudioContext || window.webkitAudioContext;
     this.actx = new AC();
@@ -204,6 +223,34 @@ export class ClipRecorder {
       this.release();
       const msg = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'No screen was picked, so nothing is recording.' : e && e.message ? e.message : 'Could not start.';
       this.set({ phase: 'error', error: msg });
+      throw e;
+    }
+  }
+
+  /** The second take of a restart: the same screen, camera and microphone, a new file. */
+  async prepareAdopted() {
+    const a = this.adopt;
+    this.adopt = null;
+    this.display = a.display;
+    this.cam = a.cam;
+    this.mic = a.mic;
+    this.actx = a.actx;
+    try {
+      const vt = this.display ? this.display.getVideoTracks()[0] : null;
+      if (this.display && (!vt || vt.readyState === 'ended')) throw new Error('The shared screen ended.');
+      if (!this.actx || this.actx.state === 'closed') this.actx = new (window.AudioContext || window.webkitAudioContext)();
+      this.actx.resume().catch(() => undefined);
+      this.monitor = !!vt && vt.getSettings().displaySurface === 'monitor';
+      if (vt) {
+        vt.addEventListener('ended', () => {
+          if (this.state.phase === 'recording' || this.state.phase === 'paused') this.stop();
+        });
+      }
+      await this.build();
+      this.set({ phase: 'ready' });
+    } catch (e) {
+      this.release();
+      this.set({ phase: 'error', error: e && e.message ? e.message : 'Could not start again.' });
       throw e;
     }
   }

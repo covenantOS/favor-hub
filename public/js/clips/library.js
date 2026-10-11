@@ -23,6 +23,9 @@ let poll = 0;
 let sort = 'new';
 let filter = 'all';
 let picking = false;
+// A long library draws 60 clips at a time.
+const PAGE = 60;
+let limit = PAGE;
 const picked = new Set();
 
 const SORTS = {
@@ -95,7 +98,8 @@ function paint() {
   $('cl-count-label').textContent = list.length ? (list.length === 1 ? '1 clip' : `${list.length} clips`) : '';
   if (list.length) {
     box.className = 'cl-grid';
-    box.innerHTML = list.map(cardHtml).join('');
+    const left = list.length - limit;
+    box.innerHTML = list.slice(0, limit).map(cardHtml).join('') + (left > 0 ? `<div class="cl-more"><button type="button" class="h-btn h-btn--ghost" data-act="more">Show ${Math.min(PAGE, left)} more</button><span>${left.toLocaleString('en-US')} not shown</span></div>` : '');
   } else {
     box.className = '';
     box.innerHTML = rows.length
@@ -207,6 +211,15 @@ function startPreview(thumb) {
 
 function wire() {
   const box = $('cl-rows');
+  // A poster that is missing leaves the plain dark tile, never a broken-picture mark.
+  box.addEventListener('error', (e) => {
+    if (e.target && e.target.tagName === 'IMG') e.target.remove();
+  }, true);
+  box.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-act=more]')) return;
+    limit += PAGE;
+    paint();
+  });
   box.addEventListener('pointerover', (e) => {
     const th = e.target.closest('[data-thumb]');
     if (th && (!current || !th.contains(current.v))) startPreview(th);
@@ -258,10 +271,12 @@ function wire() {
   const sortEl = $('cl-sort');
   if (sortEl) sortEl.addEventListener('change', () => {
     sort = sortEl.value;
+    limit = PAGE;
     paint();
   });
   document.querySelectorAll('.cl-chip[data-f]').forEach((chip) => chip.addEventListener('click', () => {
     filter = chip.dataset.f;
+    limit = PAGE;
     document.querySelectorAll('.cl-chip[data-f]').forEach((x) => {
       x.classList.toggle('is-on', x === chip);
       x.setAttribute('aria-pressed', String(x === chip));
@@ -330,6 +345,7 @@ function wire() {
     clearTimeout(timer);
     timer = setTimeout(() => {
       q = $('cl-q').value.trim();
+      limit = PAGE;
       load();
     }, 250);
   });

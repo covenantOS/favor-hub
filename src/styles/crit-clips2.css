@@ -111,3 +111,13 @@
   .cl-askback .cl-ask__btns { flex-direction: column-reverse; }
   .cl-askback .cl-ask__btns button { width: 100%; height: 52px; font-size: 16px; }
 }
+
+/* Worst-case data (2026-10-11): unbreakable text wraps, a long search hit stays three lines, the badge stays one line. */
+.cl-sum, .cl-hit { overflow-wrap: anywhere; }
+.cl-hit { align-items: flex-start; }
+.cl-hit { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cl-hit span { margin-right: 8px; }
+.cl-badge { white-space: nowrap; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; }
+.cl-more { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 8px 0 4px; font-size: 13px; color: var(--h-ink-3); }
+.cl-more .h-btn { min-height: 44px; }
+@media (max-width: 700px) { .cl-badge { max-width: calc(100% - 8px); } }
