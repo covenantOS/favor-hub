@@ -7,7 +7,7 @@
 (function () {
   if (window.__hubOwn) return;
   var SHELL = /\/js\/(app-update|sheets|drill|thank|prep|partner|records|add-partner|ux-pass|hub-own|hub-shell|hub-nav|hub-swap|clips-launch|wc-bell|sticky-col)\.js|\/_astro\//;
-  var own = { iv: [], to: [], ls: [], ob: [] };
+  var own = { iv: [], to: [], ls: [], ob: [], ws: [] };
   var st = { sync: false, held: [] };
   var oSI = window.setInterval, oCI = window.clearInterval, oST = window.setTimeout, oCT = window.clearTimeout;
   var oAdd = EventTarget.prototype.addEventListener, oRem = EventTarget.prototype.removeEventListener;
@@ -49,6 +49,19 @@
     var o = C.prototype.observe;
     C.prototype.observe = function () { if (owned()) own.ob.push(this); return o.apply(this, arguments); };
   });
+  // A page's open connections close with the page.
+  ['WebSocket', 'EventSource'].forEach(function (n) {
+    var C = window[n];
+    if (!C) return;
+    var W = function () {
+      var o = arguments.length > 1 ? new C(arguments[0], arguments[1]) : new C(arguments[0]);
+      if (owned()) own.ws.push(o);
+      return o;
+    };
+    W.prototype = C.prototype;
+    ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'].forEach(function (k) { if (k in C) W[k] = C[k]; });
+    window[n] = W;
+  });
   function tag(n) { if (n && n.nodeType === 1) n.setAttribute('data-hub-own', '1'); }
   var oAppend = Node.prototype.appendChild, oInsert = Node.prototype.insertBefore;
   Node.prototype.appendChild = function (n) { if (this === document.body && owned()) tag(n); return oAppend.call(this, n); };
@@ -68,6 +81,7 @@
       own.to.splice(0).forEach(function (id) { oCT.call(window, id); });
       own.ls.splice(0).forEach(function (a) { try { oRem.call(a[0], a[1], a[2], a[3]); } catch (e) { /* gone */ } });
       own.ob.splice(0).forEach(function (o) { try { o.disconnect(); } catch (e) { /* gone */ } });
+      own.ws.splice(0).forEach(function (o) { try { o.close(); } catch (e) { /* gone */ } });
       Array.prototype.slice.call(document.body.children).forEach(function (n) { if (n.getAttribute && n.getAttribute('data-hub-own')) n.remove(); });
       CLASSES.html.forEach(function (c) { document.documentElement.classList.remove(c); });
       CLASSES.body.forEach(function (c) { document.body.classList.remove(c); });

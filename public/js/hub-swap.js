@@ -9,20 +9,43 @@
   const pathOf = (u) => { const x = new URL(u, location.href); return x.origin === location.origin ? x.pathname.replace(/\/?$/, '/') : null; };
   const swappable = (u) => { const p = pathOf(u); return !!p && allow.has(p) && !new URL(u, location.href).search; };
   const here = () => swappable(location.href);
+  // Page HTML is the same for everyone and changes only with a new build, so a copy read once is kept for the browser session
+  // (keyed by the build) and a tap finds it already here. Anything the person's data fills in arrives from the API afterwards.
+  const BUILD = (document.querySelector('meta[name="hub-build"]') || {}).content || '';
+  const SKEY = 'hub.pg.' + BUILD + ':';
+  const keep = (k, h) => { try { sessionStorage.setItem(SKEY + k, h); } catch (e) { /* storage full or refused; the memory copy still serves this visit */ } };
+  const kept = (k) => { try { return sessionStorage.getItem(SKEY + k); } catch (e) { return null; } };
+  try { Object.keys(sessionStorage).forEach((x) => { if (x.indexOf('hub.pg.') === 0 && x.indexOf(SKEY) !== 0) sessionStorage.removeItem(x); }); } catch (e) { /* no storage */ }
+  const warmAssets = (h) => {
+    const d = new DOMParser().parseFromString(h, 'text/html');
+    const m = d.getElementById('h-content');
+    if (m) { scriptSrcs(m).forEach((x) => loadScript(x).catch(() => {})); moduleSrcs(m).forEach((x) => fetch(x, { credentials: 'same-origin' }).catch(() => {})); }
+    d.head.querySelectorAll('link[rel=stylesheet]').forEach((l) => {
+      const ref = l.getAttribute('href');
+      if (!ref || document.head.querySelector('link[href="' + ref + '"]')) return;
+      const pl = document.createElement('link'); pl.rel = 'preload'; pl.as = 'style'; pl.href = ref;
+      document.head.appendChild(pl);
+    });
+  };
   const fetchPage = (u) => {
     const k = pathOf(u);
     if (!cache.has(k)) {
-      cache.set(k, fetch(u, { credentials: 'same-origin' }).then((r) => {
-        if (!r.ok || !/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('not a page');
-        return r.text();
-      }).catch((e) => { cache.delete(k); throw e; }));
-      setTimeout(() => cache.delete(k), 60000);
-      cache.get(k).then((h) => { const d = new DOMParser().parseFromString(h, 'text/html'); const m = d.getElementById('h-content'); if (m) scriptSrcs(m).forEach((x) => loadScript(x).catch(() => {})); }).catch(() => {});
+      const copy = BUILD ? kept(k) : null;
+      if (copy) {
+        cache.set(k, Promise.resolve(copy));
+      } else {
+        cache.set(k, fetch(u, { credentials: 'same-origin' }).then((r) => {
+          if (!r.ok || r.redirected || !/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('not a page');
+          return r.text();
+        }).then((h) => { if (BUILD && h.length < 600000 && h.indexOf('id="h-content"') > 0) keep(k, h); return h; }).catch((e) => { cache.delete(k); throw e; }));
+      }
+      setTimeout(() => cache.delete(k), 300000);
+      cache.get(k).then(warmAssets).catch(() => {});
     }
     return cache.get(k);
   };
   const $ = (s, r) => (r || document).querySelector(s);
-  const HEAVY = new Set(['/work/', '/brain/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
+  const HEAVY = new Set(window.__hubFullLoad || ['/work/', '/brain/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
   let viaSwap = false;
 
   // Timers, listeners, observers and body nodes a page made are noted by hub-own.js (inlined in the head) and removed
@@ -35,12 +58,15 @@
     return scripts.get(src);
   };
   const scriptSrcs = (root) => Array.from(root.querySelectorAll('script[src]')).filter((s) => !s.getAttribute('type') || s.getAttribute('type') === 'text/javascript').map((s) => s.src);
+  const moduleSrcs = (root) => Array.from(root.querySelectorAll('script[type="module"][src]')).map((s) => s.src);
 
   async function runScripts(root, ready) {
     const list = Array.from(root.querySelectorAll('script'));
     const parts = [];
+    const mods = [];
     for (const s of list) {
       const type = s.getAttribute('type') || '';
+      if (type === 'module' && s.src) { mods.push(s.src); s.remove(); continue; }
       if (type && type !== 'text/javascript') continue;
       if (s.src) {
         try { parts.push('// ' + s.src + '\n' + await (ready ? ready.get(s.src) : loadScript(s.src))); } catch (e) { /* the page shows its own error */ }
@@ -54,6 +80,8 @@
     // the document is already loaded, so the load and DOMContentLoaded handlers the page asked for run now
     const run = own.state.held.splice(0);
     run.forEach(([ty, fn]) => { try { fn.call(ty === 'load' ? window : document, new Event(ty)); } catch (e) { console.error(e); } });
+    // Module scripts run once per address, so each visit asks for a fresh copy of the page's own module (what it imports stays shared).
+    for (const m of mods) { try { await import(m + (m.indexOf('?') < 0 ? '?' : '&') + 'sw=' + epoch); } catch (e) { console.error('page module', e); } }
   }
 
   // Page stylesheets come and go with their page. Styles a script added at run time are left alone; only the
@@ -77,6 +105,14 @@
       if (next) document.head.insertBefore(copy, next); else document.head.appendChild(copy);
       cur.set(k, copy);
     });
+    // Sheets both pages share sit in the order the new page has them (a shared sheet can come before the layout's sheet on one page and after it on another).
+    const els = list.map((el) => cur.get(keyOf(el))).filter(Boolean);
+    const slots = els.slice().sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    if (slots.some((s, i) => s !== els[i])) {
+      const marks = slots.map((s) => { const m = document.createComment(''); s.parentNode.insertBefore(m, s); return m; });
+      els.forEach((el, i) => marks[i].parentNode.insertBefore(el, marks[i]));
+      marks.forEach((m) => m.remove());
+    }
   }
   function dropOldCss(doc) {
     const want = new Set(Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style')).map(keyOf));
@@ -104,6 +140,13 @@
     }, 140);
   };
 
+  let noticeT = 0;
+  function notice(text) {
+    let el = document.getElementById('h-notice');
+    if (!el) { el = document.createElement('div'); el.id = 'h-notice'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = text; el.classList.add('is-on');
+    clearTimeout(noticeT); noticeT = setTimeout(() => el.classList.remove('is-on'), 4000);
+  }
   let seq = 0;
   async function go(u, push) {
     const my = ++seq;
@@ -111,14 +154,18 @@
     if (HEAVY.has(pathOf(u))) { location.href = u; return; }
     let html;
     progress(true);
-    try { html = await fetchPage(u); } catch (e) { location.href = u; return; }
+    try { html = await fetchPage(u); } catch (e) {
+      // No connection: the page stays where it is and says so, instead of handing the screen to the browser's error page.
+      if (navigator.onLine === false) { progress(false); const m = document.getElementById('h-content'); if (m) m.classList.remove('is-leaving'); notice('No connection. Try again when you are back online.'); return; }
+      location.href = u; return;
+    }
     if (my !== seq) return;
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newMain = doc.getElementById('h-content');
     const oldMain = document.getElementById('h-content');
     if (!newMain || !oldMain || !doc.body.classList.contains('h-body')) { location.href = u; return; }
     // A page built on module scripts starts itself only on a real load, so it gets one. Swapped in, it would sit on its placeholder.
-    if (newMain.querySelector('script[type="module"]')) { location.href = u; return; }
+    if (Array.from(newMain.querySelectorAll('script[type="module"]')).some((x) => !x.src)) { location.href = u; return; }
     // The page's scripts are read before the change, so the new page and its code arrive together.
     const ready = new Map();
     try { await Promise.all(scriptSrcs(newMain).map((src) => loadScript(src).then((t) => ready.set(src, t)))); } catch (e) { location.href = u; return; }
@@ -180,6 +227,13 @@
     } else apply();
   }
 
+  // The press is answered at once, before the next page arrives: the tab or menu entry lights up and the old page steps back.
+  function answer(a) {
+    const tab = a.closest('.h-tab');
+    if (tab) { tab.parentElement.querySelectorAll('.h-tab').forEach((x) => x.classList.toggle('is-on', x === tab)); }
+    const m = document.getElementById('h-content');
+    if (m) m.classList.add('is-leaving');
+  }
   const warm = (e) => { const a = e.target instanceof Element && e.target.closest('a[href]'); if (a && !a.target && swappable(a.href)) fetchPage(a.href).catch(() => {}); };
   document.addEventListener('pointerover', warm, { passive: true });
   document.addEventListener('touchstart', warm, { passive: true });
@@ -187,13 +241,24 @@
     if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target instanceof Element && e.target.closest('a[href]');
     if (!a || a.target || a.hasAttribute('download') || !here() || !swappable(a.href)) return;
-    if (HEAVY.has(pathOf(a.href))) return;
     if (pathOf(a.href) === pathOf(location.href)) return;
+    answer(a);
+    if (HEAVY.has(pathOf(a.href))) return;
     e.preventDefault();
     const href = a.href;
     if (window.hubOv && window.hubOv.depth()) window.hubOv.unwind(() => go(href, true));
     else go(href, true);
   });
   window.addEventListener('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap && !HEAVY.has(pathOf(location.href))) go(location.href, false); else location.reload(); });
-  window.__hubSwap = { go, cache };
+  // Soon after a page is up, the phone bar's pages and this area's other tabs are read ahead (page and scripts), bar first,
+  // so a tap finds them here. Skipped when the person asked their phone to save data.
+  function warmArea() {
+    if (navigator.connection && navigator.connection.saveData) return;
+    const links = Array.from(document.querySelectorAll('#h-bar a[data-bar]:not([hidden]), #h-tabs a.h-tab:not([hidden])'));
+    links.forEach((a, i) => setTimeout(() => { if (swappable(a.href) && !HEAVY.has(pathOf(a.href)) && pathOf(a.href) !== pathOf(location.href)) fetchPage(a.href).catch(() => {}); }, 1200 + i * 140));
+  }
+  document.addEventListener('hub-swapped', warmArea);
+  if (here()) { if (document.readyState === 'complete') warmArea(); else window.addEventListener('load', warmArea, { once: true }); }
+  window.addEventListener('pageshow', (e) => { if (e.persisted) { const m = document.getElementById('h-content'); if (m) m.classList.remove('is-leaving'); } });
+  window.__hubSwap = { go, cache, fetchPage };
 })();

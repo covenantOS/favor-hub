@@ -108,6 +108,18 @@
   };
   window.hubNavRefresh = readNav;
   readNav(true);
+  // A change made on a page (a request approved, a note answered, a mention read) moves a count: read the counts again a moment after it.
+  const realFetch = window.fetch;
+  let afterT = 0;
+  window.fetch = function (input, init) {
+    const p = realFetch.apply(this, arguments);
+    const m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+    if (m !== 'GET' && m !== 'HEAD') {
+      const u = String((input && input.url) || input);
+      if (/\/api\//.test(u) && !/\/api\/(hub\/nav|auth|clips\/|meet\/|chat\/(?!inbox))/.test(u)) p.then(() => { clearTimeout(afterT); afterT = setTimeout(() => readNav(true), 1500); }, () => {});
+    }
+    return p;
+  };
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') readNav(false); });
 })();
 

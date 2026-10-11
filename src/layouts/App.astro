@@ -46,7 +46,7 @@ const { title, crumb = 'Favor Hub', nav = '', wide = false, full = false, bare =
 
 import { icon } from '../data/icons';
 import { BUILD } from '../data/build';
-import { AREAS, SWAP_PATHS, resolveNav } from '../data/areas';
+import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
 import NavTabs from '../components/NavTabs.astro';
 import NavBar from '../components/NavBar.astro';
@@ -57,6 +57,10 @@ const curArea = found ? found.area.id : '';
 const crumbText = found ? found.area.label : crumb;
 const mainAreas = AREAS.filter((a) => !a.foot);
 const footAreas = AREAS.filter((a) => a.foot);
+// Links to pages that swap in place need nothing fetched ahead by the browser (hub-swap.js reads them itself). Links to pages that load whole
+// are fetched ahead, as HTML only: a prerendered page would run its scripts (reads, presence, polling) before anyone opened it.
+const lightPaths = SWAP_PATHS.filter((p) => !FULL_LOAD_PATHS.includes(p));
+const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-tabs a[data-astro-prefetch]' }, { not: { or: lightPaths.map((p) => ({ href_matches: p })) } }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] };
 ---
 <!doctype html>
 <html lang="en">
@@ -95,7 +99,7 @@ const footAreas = AREAS.filter((a) => a.foot);
     <script is:inline src="/js/records.js?v=2" defer></script>
     <script is:inline src="/js/add-partner.js?v=2" defer></script>
     <script is:inline src="/js/ux-pass.js?v=1" defer></script>
-    <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-tabs a[data-astro-prefetch]' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
+    <script type="speculationrules" is:inline set:html={JSON.stringify(specRules)}></script>
     <script is:inline>
       // The menu opens the way this person left it (slim rail or full sidebar) before the first frame.
       try { var np = JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1') || '{}'); var nu = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); var pr = np[(nu && nu.user && nu.user.email) || '_'] || np._ || {}; if (pr.wide && matchMedia('(min-width: 1280px)').matches) document.documentElement.classList.add('nav-wide'); } catch (e) {}
@@ -280,10 +284,10 @@ const footAreas = AREAS.filter((a) => a.foot);
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=8" defer></script>
-    <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
+    <script is:inline src="/js/hub-shell.js?v=9" defer></script>
+    <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=5" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=10" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=14" defer></script>
     <script is:inline src="/js/clips-launch.js?v=4" defer></script>
     <script is:inline src="/js/wc-bell.js?v=4" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
