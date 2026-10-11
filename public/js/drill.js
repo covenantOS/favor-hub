@@ -15,6 +15,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const money = (n) => (Number(n) < 0 ? '-$' : '$') + Math.abs(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const count = (n) => Number(n || 0).toLocaleString('en-US');
+  const dshort = (s) => (/^\d{4}-\d{2}-\d{2}/.test(s || '') ? new Date(String(s).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : s || '');
   const PAGE = 200;
 
   const style = document.createElement('style');
@@ -22,7 +23,7 @@
 .dr-num{cursor:pointer;text-decoration:underline dotted var(--h-ink-2,#48505a);text-underline-offset:4px;border-radius:4px}
 .dr-num:focus-visible{outline:2px solid var(--h-brand,#2b4d24);outline-offset:3px}
 .dr-scrim{position:fixed;inset:0;background:rgba(18,22,26,.32);z-index:220}
-.dr-panel{position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);background:var(--h-surface,#fff);color:var(--h-ink,#12161a);box-shadow:var(--h-shadow-2);z-index:221;overflow:auto;padding:20px 22px 28px;font:14px/1.45 Inter,system-ui,sans-serif;-webkit-overflow-scrolling:touch}
+.dr-panel{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--h-surface,#fff);color:var(--h-ink,#12161a);box-shadow:var(--h-shadow-2);z-index:221;overflow:auto;padding:20px 22px 28px;font:14px/1.45 Inter,system-ui,sans-serif;-webkit-overflow-scrolling:touch}
 .dr-panel[hidden],.dr-scrim[hidden]{display:none}
 .dr-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
 .dr-eyebrow{margin:0 0 4px;font-size:12px;color:var(--h-ink-2,#48505a);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
@@ -45,6 +46,7 @@
 .dr-tbl th,.dr-tbl td{text-align:left;padding:6px 6px 6px 0;border-bottom:1px solid var(--h-line,#e4e7eb);vertical-align:top}
 .dr-tbl th{font-size:11.5px;color:var(--h-ink-2,#48505a);font-weight:600}
 .dr-tbl .r{text-align:right;white-space:nowrap}
+.dr-tbl td:first-child{white-space:nowrap}
 .dr-note{margin:8px 0 0;font-size:12.5px;color:var(--h-ink-2,#48505a)}
 .dr-acts{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0 0}
 .dr-msg{margin:12px 0 0;padding:12px 14px;border-radius:10px;background:var(--h-gold-soft,#fbf1dc);color:var(--h-ink,#12161a)}
@@ -156,7 +158,7 @@
     panel.querySelector('.dr-title').textContent = state.title || '';
     const s = state;
     const shownBlock = s.shown != null
-      ? `<div class="dr-shown"><b>${s.shownType === 'int' ? count(s.shown) : money(s.shown)}</b><span>${esc(s.shownLabel || 'On the page')}${s.asOf ? `, as of ${esc(s.asOf)}` : ''}</span></div>`
+      ? `<div class="dr-shown"><b>${s.shownType === 'int' ? count(s.shown) : money(s.shown)}</b><span>${esc(s.shownLabel || 'On the page')}${s.asOf ? `, as of ${esc(dshort(s.asOf))}` : ''}</span></div>`
       : '';
     const totalLine = s.total != null && s.shown == null ? `<div class="dr-shown"><b>${s.shownType === 'int' ? count(s.total) : money(s.total)}</b><span>${esc(s.totalLabel || 'In the rows below')}</span></div>` : '';
     const def = s.definition ? `<section class="dr-def"><h3>Favor definition</h3>${md(s.definition)}</section>` : '';
