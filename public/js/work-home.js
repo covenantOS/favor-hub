@@ -17,6 +17,8 @@
   const addDays = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
   const TODAY = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const arrow = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+  const CLOCK = '<svg class="wh-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>';
+  const PERSON = '<svg class="wh-ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8.5" r="3.5"/><path d="M5 20c.6-3.8 3.4-6 7-6s6.4 2.2 7 6"/></svg>';
   const tick = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const AS = new URLSearchParams(location.search).get('as') || '';
@@ -123,7 +125,7 @@
   }
 
   /* ------------------------------------------------------------------ today's work */
-  const dueChip = (r) => (r.late > 0 ? `<span class="r2t-chip r2t-chip--late"><i></i>${plural(r.late, 'day')} late</span>` : '<span class="r2t-chip r2t-chip--due"><i></i>Today</span>');
+  const dueChip = (r) => (r.late > 0 ? `<span class="r2t-chip r2t-chip--late"><i></i><span class="wh-cl">${plural(r.late, 'day')} late</span><span class="wh-cs">${n0(r.late)}d</span></span>` : '<span class="r2t-chip r2t-chip--due"><i></i>Today</span>');
   function paintDue(w) {
     const card = $('wh-due');
     const d = w && w.due;
@@ -145,7 +147,7 @@
       <button type="button" class="wh-chk" data-do="complete" aria-label="Complete: ${esc(r.summary || r.type || 'action')} for ${esc(r.partner)}">${tick}</button>
       <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.partner)}</a><span>${esc(r.summary || r.type || 'Action')}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
       ${dueChip(r)}
-      <div class="wh-acts wh-acts--hover"><button type="button" class="wh-do wh-do--go" data-do="complete">Complete</button><button type="button" class="wh-do" data-do="snooze" aria-haspopup="true">Snooze</button><a class="wh-do" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">Partner</a></div>
+      <div class="wh-acts wh-acts--hover"><button type="button" class="wh-do wh-do--go wh-do--c" data-do="complete">Complete</button><button type="button" class="wh-do" data-do="snooze" aria-haspopup="true" aria-label="Snooze: ${esc(r.partner)}">${CLOCK}<span class="wh-lbl">Snooze</span></button><a class="wh-do" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}" aria-label="Open partner: ${esc(r.partner)}">${PERSON}<span class="wh-lbl">Partner</span></a></div>
     </li>`).join('') + (d.total > d.rows.length ? `<li class="wh-more"><a href="/work/?view=open&due=now${fr}">${n0(d.total)} due today or overdue</a></li>` : '');
   }
 
@@ -190,12 +192,13 @@
         + (gv && gv.goal ? `<a class="wh-goal${gv.ytd >= gv.goal ? ' is-met' : ''}" href="/work/?view=week"><b>Giving this year</b><span>${money(gv.ytd)} of ${money(gv.goal)}</span><div class="r2t-bar" role="presentation"><i style="width:${Math.min(100, Math.round(gv.pct || (gv.ytd / gv.goal) * 100))}%"></i></div></a>` : '');
     } else if (k.kind === 'support' || k.kind === 'admin') {
       $('wh-week-h').textContent = k.kind === 'admin' ? 'Entry' : 'Your week';
-      sub.textContent = '';
+      sub.innerHTML = k.kind === 'admin' ? '<a class="h-link" href="/work/?view=intake">Open entry</a>' : '';
       const e = k.entry;
       const owners = e && e.owners ? e.owners.filter((o) => o.wait) : [];
-      body.innerHTML = `<div data-tool="leaf"><a class="wh-big" href="/work/?view=intake"><b>${n0(e ? e.wait : 0)}</b><span>${e && e.wait === 1 ? 'contact' : 'contacts'} waiting to enter in Blackbaud${e && e.late ? `, ${n0(e.late)} from earlier weeks` : ''}</span></a></div>`
-        + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span>${esc(o.name)}</span>${o.late ? `<span class="r2t-chip r2t-chip--late">${n0(o.late)} late</span>` : ''}<b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
-        + `<div class="wh-kv wh-kv--1"><a href="/work/?view=recent"><b>${n0(k.sending)}</b><span>${k.sending === 1 ? 'change' : 'changes'} waiting to send</span></a></div>`;
+      const top = Math.max(1, ...owners.map((o) => o.wait));
+      body.innerHTML = `<div data-tool="leaf"><a class="wh-big" href="/work/?view=intake"><b>${n0(e ? e.wait : 0)}</b><span>to enter${e && e.late ? `, ${n0(e.late)} from earlier weeks` : ''}</span></a></div>`
+        + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span>${esc(o.name)}</span><span class="wh-mini" role="presentation"><i style="width:${Math.max(4, Math.round((o.wait / top) * 100))}%"></i></span><span class="wh-lc">${o.late ? `<span class="r2t-chip r2t-chip--late">${n0(o.late)} late</span>` : ''}</span><b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
+        + (k.sending > 0 ? `<div class="wh-send"><span>${n0(k.sending)} ${k.sending === 1 ? 'change' : 'changes'} waiting to send</span><a class="h-btn h-btn--sm" href="/work/?view=recent">View</a></div>` : '');
     } else if (k.kind === 'pc') {
       $('wh-week-h').textContent = 'Cadence';
       sub.textContent = '';

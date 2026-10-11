@@ -156,13 +156,18 @@
           <div class="r2t-bar"><i style="width:${Math.min(100, p).toFixed(1)}%"></i></div></div>`;
       })
       .join('');
+    const left = Math.max(0, (s.goal || 0) - (s.raised || 0));
+    const yr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const days = Math.max(0, Math.round((Date.UTC(+yr.slice(0, 4), 11, 31) - Date.UTC(+yr.slice(0, 4), +yr.slice(5, 7) - 1, +yr.slice(8, 10))) / 864e5));
+    const strip = s.goal ? `<div class="r2t-strip"><div><b>${money0(left)}</b><span>to goal</span></div><div><b>${days.toLocaleString('en-US')}</b><span>days left</span></div><div><b>${days ? money0(left / days) : money0(left)}</b><span>needed a day</span></div></div>` : '';
     $('t-year').innerHTML = `
       <div>
         <div class="r2t-lab">Raised so far this year</div>
         <div class="r2t-hero" data-countup data-drill="year" data-drill-label="Raised so far this year" data-drill-value="${Number(s.raised) || 0}" data-drill-def="Which gifts count|Whose gift it is">${money0(s.raised)}</div>
         <div class="r2t-bar r2t-bar--lg"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
         <div class="r2t-goal"><span>${pct.toFixed(1)}% of the ${money0(s.goal)} goal</span>${delta ? `<span class="r2t-delta">${delta}</span>` : ''}</div>
-        <a class="h-link r2t-open" href="/dashboard/">Open the KPI dashboard ${icon('arrow')}</a><span class="copy-stamp" data-copy-stamp></span>
+        ${strip}
+        <div class="r2t-open"><a class="h-btn h-btn--sm" href="/dashboard/">Open the KPI dashboard</a><span class="copy-stamp" data-copy-stamp></span></div>
       </div>
       <div><div class="r2t-lab">Team goals</div><div class="r2t-teams">${teams}</div></div>`;
     if (s.lastUpdated) $('t-fresh').textContent = `KPI dashboard, Raiser's Edge as of ${clock(s.lastUpdated)}`;

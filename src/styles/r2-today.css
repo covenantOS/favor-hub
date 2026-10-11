@@ -115,8 +115,9 @@
 .r2t-av[data-h='6'] { background: #f3d6dc; color: #85334a; } .r2t-av[data-h='7'] { background: #e2e4cf; color: #4f5a22; }
 
 /* Where the year stands */
-.r2t-yearrow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; }
-.r2t-year { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 32px; padding: 20px 22px; align-content: start; }
+.r2t-yearrow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
+.r2t-year { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 32px; padding: 20px 22px; align-items: stretch; }
+.r2t-year > div { display: flex; flex-direction: column; min-width: 0; }
 .r2t-lab { font: 600 13px var(--h-font); color: var(--r-ink-2); }
 .r2t-hero { font: 600 56px/1 var(--h-serif); letter-spacing: -0.01em; font-variant-numeric: lining-nums tabular-nums; margin: 6px 0 14px; }
 .r2t-bar { height: 6px; border-radius: 6px; background: var(--r-sunk); overflow: hidden; grid-column: 1 / -1; }
@@ -124,9 +125,13 @@
 .r2t-bar--lg { height: 10px; }
 .r2t-goal { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; font: 500 12.5px var(--h-font); color: var(--r-ink-3); }
 .r2t-delta { display: inline-flex; align-items: center; gap: 8px; }
-.r2t-open { margin-top: 14px; }
+.r2t-open { margin-top: auto; padding-top: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.r2t-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 16px; }
+.r2t-strip div { background: var(--r-hover); border: 1px solid var(--r-line); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.r2t-strip b { display: block; font: 600 18px var(--h-serif); font-variant-numeric: lining-nums tabular-nums; overflow-wrap: anywhere; }
+.r2t-strip span { font: 500 12px var(--h-font); color: var(--r-ink-3); }
 .r2t .h-link { font: 600 12.5px var(--h-font); color: var(--tc-sky-ink); }
-.r2t-teams { display: grid; gap: 12px; margin-top: 12px; }
+.r2t-teams { display: grid; gap: 12px; margin-top: 12px; flex: 1; align-content: space-between; }
 .r2t-team { display: grid; grid-template-columns: 1fr 44px; gap: 4px 10px; align-items: center; }
 .r2t-team b { font: 600 13px var(--h-font); }
 .r2t-team small { font: 400 12px var(--h-font); color: var(--r-ink-3); margin-left: 6px; }

@@ -44,6 +44,7 @@
 .wh-t a, .wh-t b { display: block; font: 600 13.5px/1.3 var(--h-font); color: var(--r-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wh-t a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .wh-t span { display: block; font: 400 12.5px var(--h-font); color: var(--r-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wh-ic, .wh-cs { display: none; }
 .wh-acts { display: flex; gap: 6px; align-items: center; }
 .wh-acts .h-btn, .wh-do { height: 28px; padding: 0 10px; font: 600 12px var(--h-font); border-radius: 8px; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; cursor: pointer; border: 1px solid var(--r-line-2); background: #fff; color: var(--r-ink-2); }
 .wh-do:hover { border-color: var(--r-ink-3); color: var(--r-ink); }
@@ -86,6 +87,11 @@
 .wh-owners a { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; color: inherit; text-decoration: none; font: 500 13px var(--h-font); }
 .wh-owners a:hover { background: var(--r-hover); }
 .wh-owners a span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wh-mini { flex: none !important; width: 90px; height: 5px; border-radius: 5px; background: var(--r-sunk); overflow: hidden; }
+.wh-mini i { display: block; height: 100%; background: var(--tc-leaf); }
+.wh-lc { flex: none !important; width: 64px; display: flex; justify-content: flex-end; }
+.wh-send { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px; border-radius: var(--r-md); background: var(--due-tint, #fbedc8); color: var(--due, #7a5300); font: 600 13px var(--h-font); }
+.wh-send .h-btn { margin-left: auto; }
 .wh-owners b { font-variant-numeric: lining-nums tabular-nums; }
 
 /* requests */
@@ -143,6 +149,18 @@
   .wh-row:hover > .r2t-chip { opacity: 1; }
   .wh-chk { width: 32px; height: 32px; }
   .wh-do, .wh-acts .h-btn { height: 34px; }
+  /* Due rows: 64px, every action one tap on the row (circle, Snooze, Partner), no menu and no swipe. */
+  .wh-row:not(.wh-gift) { grid-template-columns: 40px minmax(0, 1fr) auto auto auto; gap: 4px; height: 64px; min-height: 64px; padding: 0 2px; }
+  .wh-row:not(.wh-gift) .r2t-chip { display: inline-flex; padding: 0 7px; }
+  .wh-row:not(.wh-gift) .wh-cl { display: none; }
+  .wh-row:not(.wh-gift) .wh-cs { display: inline; }
+  .wh-row:not(.wh-gift) .wh-chk { width: 40px; height: 40px; }
+  .wh-row:not(.wh-gift) .wh-chk svg { width: 18px; height: 18px; }
+  .wh-row:not(.wh-gift) .wh-acts { display: contents; }
+  .wh-row:not(.wh-gift) .wh-do--c, .wh-row:not(.wh-gift) .wh-lbl { display: none; }
+  .wh-row:not(.wh-gift) .wh-do { width: 40px; height: 40px; padding: 0; border-radius: 10px; border-color: transparent; background: none; color: var(--r-ink-2); }
+  .wh-row:not(.wh-gift) .wh-do:hover, .wh-row:not(.wh-gift) .wh-do:focus-visible { background: var(--r-hover); border-color: var(--r-line-2); }
+  .wh-row:not(.wh-gift) .wh-ic { display: block; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .wh-gift { grid-template-columns: minmax(0, 1fr) auto; }
   .wh-gift .wh-amt { grid-row: 1; grid-column: 2; }
   .wh-gift .wh-acts { grid-column: 1 / -1; }
@@ -178,3 +196,5 @@
   .wh-card .r2t-ch .wh-chips { order: 3; flex: 1 0 100%; margin-left: 0; }
 }
 @media (max-width: 860px) { .wh-tool__l { white-space: normal; line-height: 1.2; } }
+
+@media (max-width: 420px) { .wh-mini { width: 48px; } .wh-lc { width: 58px; } }
