@@ -45,7 +45,7 @@
 /* ---------- Meetings: the system-alerts link is a row, not a loose underlined sentence above the title. */
 @media (max-width: 860px) {
   .nudge-ask { padding: 0; margin: 0 0 12px; }
-  .nudge-ask button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 0 14px; border: 1px solid var(--h-line); border-radius: 12px; background: var(--h-ivory); text-decoration: none; color: var(--h-ink-2); font: 500 13.5px var(--h-font); }
+  .nudge-ask button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 44px; padding: 0 14px; border: 1px solid var(--h-line); border-radius: 12px; background: var(--h-ivory); text-decoration: none; color: var(--h-ink-2); font: 500 14px var(--h-font); }
   .nudge-ask button::after { content: '\203A'; font-size: 20px; line-height: 1; color: var(--h-ink-3); flex: none; }
   .nudge-ask button:hover { border-color: var(--h-line-2); color: var(--h-ink); }
 }

@@ -2,7 +2,7 @@
 
 /* Tabs: five labels fit the 400 px panel without clipping. */
 .cw-tabs { padding: 4px 6px 0; gap: 0; }
-.cw-tabs button { flex: 1 1 auto; padding: 0 8px; font-size: 13.5px; }
+.cw-tabs button { flex: 1 1 auto; padding: 0 8px; font-size: 14px; }
 .cw-tabs button[aria-selected='true']::after { left: 6px; right: 6px; }
 
 /* The logo link and the two header pills are real 44 px targets. */

@@ -1,0 +1,44 @@
+/* Fixes for lintapple findings in page content. Page styles only; shell files are owned elsewhere. */
+
+/* Controls that set no font-size render at the browser default of 13.33px. */
+:where(button, input, select, textarea) { font-size: 14px; }
+
+/* Placeholder gray measured 3.1:1 on white; the hub's third ink is 5.7:1. */
+.h-page input::placeholder, .h-page textarea::placeholder { color: var(--r-ink-3, #666b60); }
+
+.pj-sheet:focus { outline: none; }
+
+/* Foundations contact counts use a lighter placeholder tint than the rest of the hub. */
+.fnd-check__box input::placeholder { color: rgba(26, 29, 24, 0.66); }
+.h-body .bc-root .bc-compose textarea::placeholder { color: var(--h-ink-3); }
+
+/* Brain chat rows: the options button sits beside the row button, not on top of it. */
+.h-body .bc-root .bc-conv > .bc-conv__go { padding-right: 10px; }
+.h-body .bc-root .bc-conv > .bc-conv__more { position: static; transform: none; flex: none; right: auto; top: auto; margin-right: 4px; }
+
+/* Button groups that sat 2 to 6 px apart. */
+.h-page .b-tabs, .ch-tabs { gap: 8px; }
+
+/* Small text buttons get a real hit area without making rows taller: padding with a matching negative margin. */
+.h-body .bc-root .bc-cando button,
+.h-body .bc-root .bc-connect__gpt,
+.h-page .h-more,
+.mt-step,
+.wm-foot button[data-wm-mail] { padding-block: 4px; margin-block: -4px; }
+
+@media (max-width: 1023px) {
+  .h-body .bc-root .bc-cando button,
+  .h-body .bc-root .bc-connect__gpt,
+  .h-page .h-more,
+  .mt-step,
+  .wm-foot button[data-wm-mail] { padding-block: 12px; margin-block: -12px; }
+  .h-body .bc-root .bc-hint { min-height: 44px; }
+  .h-body .bc-root .bc-seg button { min-height: 44px; }
+}
+
+/* Work Overview number links: a real 24 px box on desktop, 44 px on touch, with matching negative margins so rows keep their height. */
+body.h-body .wh .dr-num.dr-num { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; min-width: 24px; min-height: 24px; padding: 4px 8px; margin: -4px -8px; }
+body.h-body .wh .dr-num.dr-num::after { content: none; }
+@media (max-width: 1023px) {
+  body.h-body .wh .dr-num.dr-num { min-width: 44px; min-height: 44px; padding: 14px 17px; margin: -14px -17px; }
+}

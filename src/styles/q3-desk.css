@@ -48,7 +48,7 @@ body.h-body .h-page .board-hint { margin: -4px 0 12px; }
 /* Meetings timeline: a crowd of meetings stacks as one-line rows. */
 .dv-ev.is-row { flex-direction: row; align-items: center; gap: 10px; padding: 0 11px; min-width: 0; }
 .dv-ev.is-row .dv-ev__t { min-height: 0; flex: none; }
-.dv-ev.is-row h4 { font-size: 12.5px; }
+.dv-ev.is-row h4 { font-size: 13px; }
 .dv-ev.is-row h4 { margin: 0; font: 600 13px var(--h-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .dv-ev:focus-visible { outline: 2px solid var(--a, var(--h-leaf)); outline-offset: 2px; z-index: 5; }
 
