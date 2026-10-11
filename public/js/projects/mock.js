@@ -1,4 +1,4 @@
-﻿/* Projects: the in-memory stand-in for the server, used when a page address has ?mock=1 (see api.js).
+/* Projects: the in-memory stand-in for the server, used when a page address has ?mock=1 (see api.js).
    3 projects, 60 tasks and 8 invented people, built fresh on every page load around today's date. Reads and writes behave
    like the real routes closely enough to build screens on: filters, sections, ordering, subtasks, done, comments,
    people, dependencies, notices. Nothing leaves the browser. Every name here is made up. */
@@ -191,7 +191,7 @@ export function createMock() {
       const p = findProject(id);
       if (!canSee(p)) fail(403, 'forbidden', 'You do not have access to this project.');
       const s = shapeProject(p);
-      return delay({ ok: true, project: s, sections: sections.filter((x) => x.project_id === p.id).sort((a, b) => a.sort - b.sort), members: (members.get(p.id) || []).map((e) => PEOPLE.find((x) => x.email === e)).filter(Boolean), counts: { open: s.open, done: s.done, overdue: s.overdue } });
+      return delay({ ok: true, project: s, sections: sections.filter((x) => x.project_id === p.id).sort((a, b) => a.sort - b.sort), members: (members.get(p.id) || []).map((e) => PEOPLE.find((x) => x.email === e)).filter(Boolean), counts: { open: s.open, done: s.done, overdue: s.overdue }, can: { manage: true, edit: true } });
     },
     async createProject(b) {
       if (!b || !String(b.name || '').trim()) fail(400, 'missing_field', 'name is required');
@@ -248,8 +248,8 @@ export function createMock() {
       if (st === 'open') list = list.filter((t) => t.status !== 'done' && t.status !== 'dropped');
       else if (st === 'done') list = list.filter((t) => t.status === 'done');
       else list = list.filter((t) => t.status !== 'dropped');
-      if (q.parent) list = list.filter((t) => t.parent_id === findTask(q.parent).id);
-      else if (!('parent' in q)) list = list.filter((t) => !t.parent_id);
+      if (q.parent && q.parent !== 'any') list = list.filter((t) => t.parent_id === findTask(q.parent).id);
+      else if (q.parent !== 'any' && !q.owner) list = list.filter((t) => !t.parent_id);
       if (q.q) { const n = String(q.q).toLowerCase(); list = list.filter((t) => `${t.title} ${t.code || ''} ${t.description}`.toLowerCase().includes(n)); }
       if (q.from || q.to) {
         const from = q.from || '0000-00-00';
@@ -278,6 +278,7 @@ export function createMock() {
         deps: { blockedBy: blockedBy(t).map(ref), blocks: deps.filter((d) => d.depends_on === t.id).map((d) => tasks.find((x) => x.id === d.task_id)).filter(Boolean).map(ref) },
         people: [...pe.map((x) => ({ ...(PEOPLE.find((p) => p.email === x.email) || { email: x.email, name: x.email }), role: x.role })), ...(t.owner_email ? [{ ...PEOPLE.find((p) => p.email === t.owner_email), role: 'owner' }] : [])],
         told,
+        can: { edit: true, remove: true },
       });
     },
     async createTask(b) {
