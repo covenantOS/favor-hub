@@ -56,6 +56,10 @@
     const at = d.at ? new Date(d.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) : '';
     $('wh-meta').innerHTML = esc([role, day].filter(Boolean).join(' · ')) + (w && w.synced ? ` · Blackbaud copy <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : '') + (at ? ` · Updated ${esc(at)}` : '');
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }
+    // Admins have the shorter left column, so the activity feed goes under the right one; everyone else keeps it beside their gifts.
+    const feed = $('wh-feed');
+    const dest = document.querySelector(w && w.role === 'admin' ? '.wh-col--side' : '.wh-col--main');
+    if (feed && dest && feed.parentElement !== dest) dest.appendChild(feed);
     const counts = d.counts || {};
     const access = d.access || {};
     document.querySelectorAll('[data-wh]').forEach((el) => {
@@ -141,7 +145,7 @@
       const owners = e && e.owners ? e.owners.filter((o) => o.wait) : [];
       body.innerHTML = `<div data-tool="leaf"><a class="wh-big" href="/work/?view=intake"><b>${n0(e ? e.wait : 0)}</b><span>${e && e.wait === 1 ? 'contact' : 'contacts'} waiting to enter in Blackbaud${e && e.late ? `, ${n0(e.late)} from earlier weeks` : ''}</span></a></div>`
         + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span>${esc(o.name)}</span>${o.late ? `<span class="r2t-chip r2t-chip--late">${n0(o.late)} late</span>` : ''}<b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
-        + `<div class="wh-kv"><a href="/work/?view=recent"><b>${n0(k.sending)}</b><span>${k.sending === 1 ? 'change' : 'changes'} waiting to send</span></a></div>`;
+        + `<div class="wh-kv wh-kv--1"><a href="/work/?view=recent"><b>${n0(k.sending)}</b><span>${k.sending === 1 ? 'change' : 'changes'} waiting to send</span></a></div>`;
     } else if (k.kind === 'pc') {
       $('wh-week-h').textContent = 'Cadence';
       sub.textContent = '';

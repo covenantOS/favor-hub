@@ -72,7 +72,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const cacheKey = `home:${email}`;
     if (new URL(request.url).searchParams.get('fresh') !== '1') {
       const hit = await env.DB.prepare('SELECT value, at FROM act_cache WHERE key = ?').bind(cacheKey).first<{ value: string; at: string }>().catch(() => null);
-      if (hit && Date.now() - Date.parse(hit.at) < 45000) return new Response(hit.value, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+      if (hit && Date.now() - Date.parse(hit.at) < 120000) return new Response(hit.value, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
 
     const access = await accessOf(env, request, me).catch(() => null);
