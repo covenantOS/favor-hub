@@ -24,7 +24,7 @@ async function start() {
   W().render();
 }
 const rows = () => (I.data ? I.data.rows : []);
-const visible = () => rows().filter((r) => (I.why ? r.why === I.why : I.designated || r.why !== 'designated') && (!I.q || (r.name + ' ' + r.fund + ' ' + r.check).toLowerCase().includes(I.q.toLowerCase())));
+const visible = () => rows().filter((r) => (I.why ? r.why === I.why : I.designated || r.why !== 'designated') && (!I.q || (r.name + ' ' + r.fund + ' ' + r.batch).toLowerCase().includes(I.q.toLowerCase())));
 const count = () => (I.data ? rows().filter((r) => r.why !== 'designated').length : '');
 
 function rowHTML(r) {
@@ -33,7 +33,7 @@ function rowHTML(r) {
   const state = r.state === 'none' ? '<span class="wc-tag wc-tag--gift">No attachment</span>' : '<span class="wc-tag">Not checked</span>';
   return `<div class="wg-row wgi-row" data-id="${esc(r.giftId)}">
     <div class="wg-amt wg-c-amt">${f.money(r.amount)}<small class="${r.age > 14 ? 'is-late' : ''}">${esc(f.fd(r.date))} · ${r.age === 0 ? 'Today' : r.age + (r.age === 1 ? ' day' : ' days')}</small></div>
-    <div class="wgi-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wg-sub">${esc(r.method)}${r.check ? ' · check ' + esc(r.check) : ''}</span></div>
+    <div class="wgi-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wg-sub">${esc(r.method)}${r.batch ? ' · batch ' + esc(r.batch) : ''}</span></div>
     <div class="wgi-why"><span class="wc-tag">${esc(r.whyLabel)}</span>${state}<span class="wg-sub">${esc(r.fund)}</span></div>
     <div class="wg-acts"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgi-check="${esc(r.giftId)}" ${busy ? 'disabled' : ''}>${f.ic('search')}Check</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgi-attach="${esc(r.giftId)}" ${busy ? 'disabled' : ''}>${f.ic('plus')}Attach</button></div></div>`;
 }
@@ -49,7 +49,7 @@ function view() {
   el.innerHTML = `
     <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n]) => `<button type="button" class="wc-stat${k && I.why === k ? ' is-on' : ''}" ${k ? `data-wgi-why="${k}"` : 'data-wgi-noop'}><b>${n}</b><span>${esc(l)}</span></button>`).join('')}</div>
     <section class="h-card wc-sheet" aria-label="Gift images">
-      <div class="wg-tools"><label class="wc-find">${f.ic('search')}<input type="search" id="wgi-q" placeholder="Find a partner or check number" value="${esc(I.q)}" autocomplete="off" /></label>
+      <div class="wg-tools"><label class="wc-find">${f.ic('search')}<input type="search" id="wgi-q" placeholder="Find a partner or batch number" value="${esc(I.q)}" autocomplete="off" /></label>
         <label class="wgi-toggle"><input type="checkbox" data-wgi-designated ${I.designated ? 'checked' : ''} />Include designated funds</label>${I.why ? `<button type="button" class="wcd-chip" data-wgi-why="">${f.ic('x')}${esc(WHYS[I.why])}</button>` : ''}<span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="giftimages">${f.ic('sheet')}Google Sheets</button>
         <button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgi-checkmany ${unchecked.length && (!lane || lane.left >= unchecked.length) ? '' : 'disabled'}>${f.ic('search')}Check ${unchecked.length} in Blackbaud</button></div>
@@ -63,9 +63,9 @@ function view() {
 function registerSheet() {
   if (!window.FavorSheets || I.sheetOn) return;
   I.sheetOn = true;
-  const cols = [{ key: 'partner', label: 'Partner', type: 'text' }, { key: 'amount', label: 'Amount', type: 'currency' }, { key: 'date', label: 'Gift date', type: 'date' }, { key: 'method', label: 'Method', type: 'text' }, { key: 'check', label: 'Check number', type: 'text' },
+  const cols = [{ key: 'partner', label: 'Partner', type: 'text' }, { key: 'amount', label: 'Amount', type: 'currency' }, { key: 'date', label: 'Gift date', type: 'date' }, { key: 'method', label: 'Method', type: 'text' }, { key: 'batch', label: 'Batch', type: 'text' },
     { key: 'fund', label: 'Fund', type: 'text' }, { key: 'why', label: 'Why an image', type: 'text' }, { key: 'state', label: 'State', type: 'text' }];
-  window.FavorSheets.register('giftimages', () => window.FavorSheets.screen('Gift images', [{ name: 'Gift images', columns: cols, rows: visible().map((r) => ({ partner: r.name, amount: r.amount, date: r.date, method: r.method, check: r.check, fund: r.fund, why: r.whyLabel, state: r.state === 'none' ? 'No attachment' : 'Not checked' })) }], { classes: ['partner'] }));
+  window.FavorSheets.register('giftimages', () => window.FavorSheets.screen('Gift images', [{ name: 'Gift images', columns: cols, rows: visible().map((r) => ({ partner: r.name, amount: r.amount, date: r.date, method: r.method, batch: r.batch, fund: r.fund, why: r.whyLabel, state: r.state === 'none' ? 'No attachment' : 'Not checked' })) }], { classes: ['partner'] }));
 }
 
 async function check(ids) {

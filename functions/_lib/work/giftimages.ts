@@ -21,7 +21,7 @@ export const WHY_LABEL: Record<Why, string> = { big: '$5,000 or more', giving_fu
 const ONLINE = "('CreditCard', 'DirectDebit', 'PayPal', 'Venmo', 'ApplePay', 'GooglePay')";
 
 export const GIFTS_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS cid, g.gift_amount AS amount, substr(g.gift_date, 1, 10) AS d, g.gift_type AS type,
-       g.gift_payment_method AS pm, g.gift_splits AS splits, json_extract(g.raw_json, '$.payments[0].check_number') AS chk,
+       g.gift_payment_method AS pm, g.gift_splits AS splits, json_extract(g.raw_json, '$.batch_number') AS batch,
        COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name
   FROM gifts g LEFT JOIN constituents c ON c.id = g.constituent_record_id
  WHERE g.gift_date >= ?1 AND g.gift_amount > 0 AND COALESCE(g.gift_status, 'Active') = 'Active'
@@ -61,7 +61,7 @@ export interface ImageRow {
   amount: number;
   date: string;
   method: string;
-  check: string;
+  batch: string;
   fund: string;
   why: Why;
   whyLabel: string;
@@ -71,7 +71,7 @@ export interface ImageRow {
   age: number;
 }
 
-interface RawGift { id: string; cid: string; amount: number; d: string; type: string; pm: string; splits: string | null; chk: string | null; name: string }
+interface RawGift { id: string; cid: string; amount: number; d: string; type: string; pm: string; splits: string | null; batch: string | null; name: string }
 
 const daysBetween = (a: string, b: string): number => Math.round((Date.parse(b + 'T12:00:00Z') - Date.parse(a + 'T12:00:00Z')) / 86400000);
 
@@ -86,7 +86,7 @@ export function shape(raw: RawGift[], o: { today: string; fundNames: Map<string,
     const k = o.known.get(String(g.id));
     if (k && k.state === 'has') continue;
     rows.push({
-      giftId: String(g.id), cid: String(g.cid), name: text(g.name) || `Record ${g.cid}`, amount: num(g.amount), date: g.d, method: text(g.pm), check: text(g.chk),
+      giftId: String(g.id), cid: String(g.cid), name: text(g.name) || `Record ${g.cid}`, amount: num(g.amount), date: g.d, method: text(g.pm), batch: text(g.batch),
       fund: funds.map((f) => o.fundNames.get(f) || '').filter(Boolean).join(', '), why, whyLabel: WHY_LABEL[why],
       state: k ? 'none' : 'unknown', checkedAt: k ? k.checked_at : null, age: Math.max(0, daysBetween(g.d, o.today)),
     });

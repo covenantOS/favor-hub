@@ -34,7 +34,7 @@ const q = async (sql, params = []) => {
 };
 function addGift(id, cid, amount, date, o = {}) {
   mirror.prepare('INSERT INTO gifts (id, gift_amount, gift_date, gift_type, gift_status, gift_payment_method, gift_splits, constituent_record_id, raw_json) VALUES (?,?,?,?,?,?,?,?,?)').run(
-    id, amount, date + 'T00:00:00', o.type || 'Donation', 'Active', o.pm || 'PersonalCheck', JSON.stringify([{ fund_id: o.fund || '79' }]), cid, JSON.stringify({ payments: [{ check_number: o.chk || '1001' }] })
+    id, amount, date + 'T00:00:00', o.type || 'Donation', 'Active', o.pm || 'PersonalCheck', JSON.stringify([{ fund_id: o.fund || '79' }]), cid, JSON.stringify({ batch_number: o.chk || 'GFT-2026-1001' })
   );
 }
 function buildMirror() {
@@ -66,7 +66,7 @@ describe('loadImageRows', () => {
     assert.deepEqual(rows.map((r) => r.why), ['big', 'giving_fund', 'designated', 'big']);
     assert.equal(rows[0].state, 'unknown');
     assert.equal(rows[3].state, 'none');
-    assert.equal(rows[0].check, '1001');
+    assert.equal(rows[0].batch, 'GFT-2026-1001');
     assert.equal(rows[2].fund, 'Clean Water');
     assert.equal(rows[0].age, 2);
   });
