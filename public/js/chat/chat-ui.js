@@ -311,6 +311,10 @@
       v.className = 'ch-vid__v'; v.controls = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       var p = box.querySelector('.ch-vid__poster'); if (p && p.complete && p.naturalWidth) v.poster = p.src;
       v.src = box.getAttribute('data-vsrc');
+      // The poster stays up with a spinner until the first frame plays, so a slow start never shows a black box.
+      box.classList.add('is-loading');
+      var ready = function () { box.classList.remove('is-loading'); };
+      v.addEventListener('playing', ready); v.addEventListener('pause', ready); v.addEventListener('error', ready);
       box.appendChild(v); box.classList.add('is-playing');
       var pr = v.play(); if (pr && pr.catch) pr.catch(function () { /* the controls are there to press */ });
     }

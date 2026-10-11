@@ -3,11 +3,6 @@
 
 /* The message list scrolls; its content sits in one box the page watches for growth (pictures, cards) to keep the newest in view. */
 .ch-msgs__in { display: block; }
-/* Messages off screen skip layout and paint until they come near, so a long channel opens in one frame. */
-.ch-msgs__in > .ch-msg { content-visibility: auto; contain-intrinsic-size: auto 64px; }
-/* The newest twenty always draw in full, so a new message lands at its real height and the list never twitches at the bottom. */
-.ch-msgs__in > .ch-msg:nth-last-child(-n+20), .ch-msgs__in > .ch-msg:hover, .ch-msgs__in > .ch-msg:focus-within, .ch-msgs__in > .ch-msg.is-flash { content-visibility: visible; }
-
 /* ------------------------------------------------------------ clips and videos, played in place */
 .ch-clip, .ch-clip--file { display: flex; flex-direction: column; max-width: 480px; overflow: hidden; }
 .ch-vid { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; background: #15231a; overflow: hidden; }
@@ -174,3 +169,19 @@ body.ch-viewing { overflow: hidden; }
 .ch .ch-msgs:focus-visible { outline: 2px solid var(--a); outline-offset: -2px; }
 .ch .ch-grid th, .ch .ch-grid td { font: 400 5.5px/1.6 var(--h-font, Inter, sans-serif); padding: 0 2px; height: auto; }
 .ch .ch-grid th { font-weight: 700; }
+
+/* Phone screens slide over each other. The screen leaving stays drawn until the slide ends (visibility switches at the end),
+   so no frame shows an empty page between the list and the channel. */
+@media (max-width: 860px) {
+  .ch-side, .ch-main, .ch-right { transition: transform 0.28s var(--r-ease), opacity 0.2s, visibility 0.28s; }
+  .ch[data-view='list'] .ch-main { box-shadow: none; }
+  .ch[data-view='channel'] .ch-main, .ch[data-view='thread'] .ch-right, .ch[data-view='details'] .ch-right { box-shadow: -8px 0 24px -16px rgba(29, 33, 27, 0.35); }
+}
+@media (max-width: 860px) and (prefers-reduced-motion: reduce) {
+  .ch-side, .ch-main, .ch-right { transition: none; }
+}
+
+/* A clip that is still starting keeps its poster with a spinner in the middle. */
+.ch-vid.is-loading > .ch-vid__poster { display: block; }
+.ch-vid.is-loading > video { opacity: 0; }
+.ch-vid.is-loading::after { content: ''; position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.35); border-top-color: #fff; animation: chspin 0.8s linear infinite; }
