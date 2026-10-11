@@ -1,0 +1,15 @@
+/* QA pass 2026-10-11, Today and Work Overview. Phone only (860px and under); desktop is unchanged. */
+@media (max-width: 860px) {
+  /* Today: the empty greeting-side row and the welcome card's own top margin made a tall band under the date. */
+  .r2t-hello__r:empty { display: none; }
+  .r2t > #t-welcome { margin-top: 0; }
+  /* Today: a single "Needs you" card spans the phone width instead of half of it, with no empty height. */
+  .r2t-needs > :only-child { grid-column: 1 / -1; min-height: 0; }
+  .r2t-needs > :only-child .r2t-tile { min-height: 0; }
+  /* Work: an odd last tool tile spans the row, so no tile sits alone at the left. */
+  .wh-tools > .wh-tool:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* Work: 44 px tap targets for the Partner buttons, the row names and the "due" link. */
+  .wh .wh-do, .wh .wh-acts .h-btn { height: 44px; }
+  .wh-t a { padding: 13px 0; margin: -13px 0; }
+  .wh-more a { display: inline-block; padding: 12px 0; margin: -12px 0; }
+}
