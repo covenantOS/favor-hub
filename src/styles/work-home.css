@@ -168,3 +168,12 @@
   .wh-gift .wh-acts { grid-row: 2; grid-column: 2; justify-self: end; }
 }
 @media (max-width: 860px) { .wh-rl .r2t-chip { display: none; } }
+
+/* Phone: the count sits inside its tile like on a desktop, and a card header puts its chips on their own line so
+   "Open all" never wraps. */
+@media (max-width: 860px) {
+  .wh-tool__n { position: static; margin-left: auto; box-shadow: none; }
+  .wh-card .r2t-ch { flex-wrap: wrap; row-gap: 6px; }
+  .wh-card .r2t-ch .h-link { white-space: nowrap; order: 2; }
+  .wh-card .r2t-ch .wh-chips { order: 3; flex: 1 0 100%; margin-left: 0; }
+}
