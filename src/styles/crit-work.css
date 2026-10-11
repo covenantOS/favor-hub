@@ -1,0 +1,75 @@
+/* Critic round (Work Center): feel on a phone. Imported last from /work/. Tokens from round2.css. */
+
+/* Phone and portrait iPad: the list comes first. The chips, the week strip, the stat tiles and the tools are slimmed so a person sees rows, not chrome. */
+@media (max-width: 860px) {
+  body.h-body #wc-root .wc-intro { margin: 0 0 8px; }
+  body.h-body #wc-root .wc-intro .wc-pill { min-height: 32px; padding-block: 0; font-size: 13px; }
+  body.h-body #wc-root .wc-intro .wc-pill--btn { min-height: 44px; }
+
+  body.h-body #wc-root .wwk-strip { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 10px 14px; margin-bottom: 10px; }
+  body.h-body #wc-root .wwk-strip__week { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  body.h-body #wc-root .wwk-strip__week > .wwk-k { display: none; }
+  body.h-body #wc-root .wwk-strip__give { display: flex; align-items: center; gap: 10px; border-left: 0; padding-left: 0; border-top: 1px solid var(--h-line); padding-top: 8px; }
+  body.h-body #wc-root .wwk-strip__give > .wwk-k { display: none; }
+  body.h-body #wc-root .wwk-strip__give b { font-size: 18px; white-space: nowrap; }
+  body.h-body #wc-root .wwk-strip__give .wwk-pace { flex: 1; min-width: 40px; }
+  body.h-body #wc-root .wwk-strip__give .wwk-sub { white-space: nowrap; }
+  body.h-body #wc-root .wwk-strip__go { display: none; }
+  body.h-body #wc-root .wwk-meter b { font-size: 18px; }
+
+  body.h-body #wc-root .wc-tabs { margin-bottom: 10px; }
+  body.h-body #wc-root .wc-band { margin-bottom: 10px; }
+  body.h-body #wc-root .wc-band .wc-stat, body.h-body #wc-root .wc-band .wc-stat--split { padding: 8px 12px; flex-basis: 33%; }
+  body.h-body #wc-root .wc-band .wc-stat--split > button { min-height: 0; }
+  body.h-body #wc-root .wc-band .wc-stat--split > .wc-stat__n { padding: 4px 0 0; }
+  body.h-body #wc-root .wc-band .wc-stat--split > button:not(.wc-stat__n) { padding: 0 0 4px; }
+  body.h-body #wc-root .wc-toggle input { flex: none; }
+  body.h-body #wc-root .wc-band .wc-stat b { font-size: 22px; }
+  body.h-body #wc-root .wc-band .wc-stat span { margin-top: 2px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Search on its own line, then Select all and Filters side by side; New action, Views, Export share the next line. */
+  body.h-body #wc-root .wc-filters { gap: 8px; padding: 10px 12px 8px; }
+  body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-find { flex: 1 1 100%; }
+  body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-phonly, body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-filterbtn { flex: 1 1 0; justify-content: center; min-height: 44px; }
+  body.h-body #wc-root .wc-tools2 { gap: 8px; padding: 0 12px 10px; }
+  body.h-body #wc-root .wc-tools2 > .ep-menu > .h-btn { width: 100%; }
+  body.h-body #wc-root .wc-tools2 .h-btn, body.h-body #wc-root .wc-tools2 .ep-menu > .h-btn { min-height: 44px; justify-content: center; }
+}
+
+/* Sheets: full width, pinned by top and bottom offsets (not viewport units, which sit under Safari's floating toolbar). */
+@media (max-width: 860px) {
+  body.h-body .wc-drawer, body.h-body .wc-drawer.ep, body.h-body .pp-drawer {
+    top: calc(env(safe-area-inset-top, 0px) + 44px); bottom: 0; left: 0; right: 0; width: auto; height: auto; max-height: none; border-radius: 22px 22px 0 0;
+  }
+  body.h-body .wc-dlg { max-height: calc(100% - 56px); }
+
+  /* Action panel footer: two even columns, each button 44 px, Save last. */
+  body.h-body .ep-foot { position: relative; display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px)); }
+  body.h-body .ep-foot__more, body.h-body .ep-foot__main { display: contents; }
+  body.h-body .ep-foot .h-btn { flex: 1 1 calc(50% - 4px); min-height: 44px; justify-content: center; margin: 0; }
+  body.h-body .ep-foot [data-ep="next"] { order: 1; }
+  body.h-body .ep-foot [data-ep="complete"] { order: 2; }
+  body.h-body .ep-foot [data-ep="dup"] { order: 3; }
+  body.h-body .ep-foot [data-ep="move"] { order: 4; }
+  body.h-body .ep-foot [data-ep="delete"] { order: 5; }
+  body.h-body .ep-foot [data-ep="save"] { order: 6; }
+  body.h-body .ep-ctx > summary { min-height: 44px; display: flex; align-items: center; }
+
+  /* Popovers (saved views, change date, status, who) become bottom sheets. */
+  body.h-body .ep-pop { left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; max-width: none; border-radius: 22px 22px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 0 0 100vmax rgba(38, 44, 30, .38), var(--h-shadow-2); gap: 12px; animation: none; }
+  body.h-body .ep-pop input[type=date], body.h-body .ep-pop input[type=search], body.h-body .ep-pop input[type=text] { height: 44px; font-size: 16px; }
+  body.h-body .ep-pop__chips button { height: 44px; padding: 0 16px; font-size: 14px; }
+  body.h-body .ep-pop__list > button, body.h-body .ep-viewrow > button:first-child { min-height: 44px; font-size: 14px; }
+}
+
+/* A touch screen gets no focus ring on a dialog's first focus. */
+@media (pointer: coarse) {
+  body.h-body .pp-h1link:focus-visible, body.h-body .pp-drawer :focus:not(input):not(textarea):not(select) { outline: none; box-shadow: none; }
+}
+
+/* The goals strip holds its space while the week loads, so the tabs do not drop when it arrives. */
+.wwk-strip--wait { min-height: 78px; cursor: default; background: linear-gradient(90deg, #fff 0%, #f4f5f7 50%, #fff 100%); background-size: 200% 100%; animation: h-shimmer 1.2s ease-in-out infinite; }
+@media (max-width: 860px) { body.h-body #wc-root .wwk-strip--wait { min-height: 92px; } }
+@media (prefers-reduced-motion: reduce) { .wwk-strip--wait { animation: none; } }
+
+@media (max-width: 600px) { body.h-body #wc-root .wc-tools2 { display: grid; grid-template-columns: 1.25fr 1fr 1fr; } }
