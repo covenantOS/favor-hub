@@ -82,20 +82,33 @@
     });
   }
 
-  fetch('/api/hub/nav', { credentials: 'same-origin' })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((d) => {
-      if (!d || !d.ok) return;
-      window.FAVOR_HUB = d;
-      document.dispatchEvent(new CustomEvent('favor-hub', { detail: d }));
-      if (window.hubApplyNav) window.hubApplyNav(d);
-      try {
-        localStorage.setItem('favor.hub.nav.v1', JSON.stringify({ user: d.user, access: d.access, kpiTeams: d.kpiTeams, counts: d.counts }));
-      } catch {
-        // storage refused; the menu still fills in from this answer
-      }
-    })
-    .catch(() => {});
+  // The counts beside each tool, the sections this person may open and who is signed in. Read on load, again after a page changes
+  // in place (at most every 20 seconds) and when the tab comes back to the front, so a badge never shows a count from an hour ago.
+  let navAt = 0;
+  let navBusy = false;
+  const readNav = (force) => {
+    if (navBusy || (!force && Date.now() - navAt < 20000)) return;
+    navBusy = true;
+    fetch('/api/hub/nav', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !d.ok) return;
+        navAt = Date.now();
+        window.FAVOR_HUB = d;
+        document.dispatchEvent(new CustomEvent('favor-hub', { detail: d }));
+        if (window.hubApplyNav) window.hubApplyNav(d);
+        try {
+          localStorage.setItem('favor.hub.nav.v1', JSON.stringify({ user: d.user, access: d.access, kpiTeams: d.kpiTeams, counts: d.counts }));
+        } catch {
+          // storage refused; the menu still fills in from this answer
+        }
+      })
+      .catch(() => {})
+      .then(() => { navBusy = false; });
+  };
+  window.hubNavRefresh = readNav;
+  readNav(true);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') readNav(false); });
 })();
 
 /* The back gesture closes whatever is open on top (search, feedback, help, the phone menu, a number's rows, the tour)

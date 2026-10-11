@@ -17,45 +17,42 @@
         return r.text();
       }).catch((e) => { cache.delete(k); throw e; }));
       setTimeout(() => cache.delete(k), 60000);
+      cache.get(k).then((h) => { const d = new DOMParser().parseFromString(h, 'text/html'); const m = d.getElementById('h-content'); if (m) scriptSrcs(m).forEach((x) => loadScript(x).catch(() => {})); }).catch(() => {});
     }
     return cache.get(k);
   };
   const $ = (s, r) => (r || document).querySelector(s);
-  const HEAVY = new Set(['/work/', '/brain/', '/meet/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
+  const HEAVY = new Set(['/work/', '/brain/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
   let viaSwap = false;
 
-  // Listeners a swapped-in page adds to document or window are removed when the next swap starts.
-  const mine = [];
-  let tracking = false;
-  const held = [];
-  const origDoc = document.addEventListener.bind(document);
-  const origWin = window.addEventListener.bind(window);
-  const wrap = (target, orig) => function (type, fn, opts) {
-    if (tracking && (type === 'DOMContentLoaded' || type === 'load') && target !== window.__none) { held.push([type, fn]); return; }
-    if (tracking) mine.push([target, type, fn, opts]);
-    return orig(type, fn, opts);
+  // Timers, listeners, observers and body nodes a page made are noted by hub-own.js (inlined in the head) and removed
+  // before the next page arrives, for a page that loaded normally and for one swapped in.
+  const own = window.__hubOwn || { state: { sync: false, held: [] }, cleanup() {} };
+  let epoch = 0;
+  const scripts = new Map();
+  const loadScript = (src) => {
+    if (!scripts.has(src)) scripts.set(src, fetch(src, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('script'); return r.text(); }).catch((e) => { scripts.delete(src); throw e; }));
+    return scripts.get(src);
   };
-  document.addEventListener = wrap(document, origDoc);
-  window.addEventListener = wrap(window, origWin);
-  const cleanup = () => { while (mine.length) { const [t, ty, fn, o] = mine.pop(); t.removeEventListener(ty, fn, o); } };
+  const scriptSrcs = (root) => Array.from(root.querySelectorAll('script[src]')).filter((s) => !s.getAttribute('type') || s.getAttribute('type') === 'text/javascript').map((s) => s.src);
 
-  async function runScripts(root) {
+  async function runScripts(root, ready) {
     const list = Array.from(root.querySelectorAll('script'));
     const parts = [];
     for (const s of list) {
       const type = s.getAttribute('type') || '';
       if (type && type !== 'text/javascript') continue;
       if (s.src) {
-        try { parts.push('// ' + s.src + '\n' + await (await fetch(s.src, { credentials: 'same-origin' })).text()); } catch (e) { /* the page shows its own error */ }
+        try { parts.push('// ' + s.src + '\n' + await (ready ? ready.get(s.src) : loadScript(s.src))); } catch (e) { /* the page shows its own error */ }
       } else if (s.textContent.trim()) parts.push(s.textContent);
       s.remove();
     }
-    held.length = 0;
-    tracking = true;
-    setTimeout(() => { tracking = false; }, 2500);
-    try { (0, eval)(parts.join('\n;\n')); } catch (e) { console.error('page script', e); }
+    own.state.held.length = 0;
+    own.state.sync = true;
+    try { (0, eval)(parts.join('\n;\n') + '\n//# sourceURL=hub-page-' + (++epoch) + '.js'); } catch (e) { console.error('page script', e); }
+    own.state.sync = false;
     // the document is already loaded, so the load and DOMContentLoaded handlers the page asked for run now
-    const run = held.splice(0);
+    const run = own.state.held.splice(0);
     run.forEach(([ty, fn]) => { try { fn.call(ty === 'load' ? window : document, new Event(ty)); } catch (e) { console.error(e); } });
   }
 
@@ -107,22 +104,32 @@
     }, 140);
   };
 
+  let seq = 0;
   async function go(u, push) {
+    const my = ++seq;
+    // Pages that run a lot of their own script keep a full load: they start from a clean page.
+    if (HEAVY.has(pathOf(u))) { location.href = u; return; }
     let html;
     progress(true);
     try { html = await fetchPage(u); } catch (e) { location.href = u; return; }
+    if (my !== seq) return;
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newMain = doc.getElementById('h-content');
     const oldMain = document.getElementById('h-content');
     if (!newMain || !oldMain || !doc.body.classList.contains('h-body')) { location.href = u; return; }
     // A page built on module scripts starts itself only on a real load, so it gets one. Swapped in, it would sit on its placeholder.
     if (newMain.querySelector('script[type="module"]')) { location.href = u; return; }
+    // The page's scripts are read before the change, so the new page and its code arrive together.
+    const ready = new Map();
+    try { await Promise.all(scriptSrcs(newMain).map((src) => loadScript(src).then((t) => ready.set(src, t)))); } catch (e) { location.href = u; return; }
+    if (my !== seq) return;
     const stamp = performance.now();
     progress(false);
-    cleanup();
     mergeHead(doc);
     await Promise.all(Array.from(document.head.querySelectorAll('link[rel=stylesheet]')).filter((l) => !l.sheet).map((l) => new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); setTimeout(r, 1500); })));
+    if (my !== seq) return;
     const apply = () => {
+      own.cleanup();
       document.title = doc.title;
       const nav = doc.body.dataset.nav || '';
       document.body.dataset.nav = nav;
@@ -155,7 +162,7 @@
       document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) { /* already closed */ } });
       if (window.FavorDrill) window.FavorDrill.close();
       viaSwap = true;
-      runScripts(oldMain);
+      runScripts(oldMain, ready);
       if (push) history.pushState({ hubSwap: 1 }, '', u);
       window.scrollTo(0, 0);
       // The new tab row arrives with its gated tabs hidden: show the ones this person may open, as a full load does.
@@ -163,6 +170,7 @@
       try { saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); } catch (e) {}
       if (saved && window.hubApplyNav) window.hubApplyNav(saved); else if (window.hubNavLayout) window.hubNavLayout();
       if (window.__hubNav) window.__hubNav.init();
+      if (window.hubNavRefresh) window.hubNavRefresh(false);
       document.dispatchEvent(new CustomEvent('hub-swapped', { detail: { path: pathOf(u), ms: Math.round(performance.now() - stamp) } }));
     };
     if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -179,13 +187,13 @@
     if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target instanceof Element && e.target.closest('a[href]');
     if (!a || a.target || a.hasAttribute('download') || !here() || !swappable(a.href)) return;
-    if (!viaSwap && HEAVY.has(pathOf(location.href))) return;
+    if (HEAVY.has(pathOf(a.href))) return;
     if (pathOf(a.href) === pathOf(location.href)) return;
     e.preventDefault();
     const href = a.href;
     if (window.hubOv && window.hubOv.depth()) window.hubOv.unwind(() => go(href, true));
     else go(href, true);
   });
-  origWin('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap) go(location.href, false); else location.reload(); });
+  window.addEventListener('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap && !HEAVY.has(pathOf(location.href))) go(location.href, false); else location.reload(); });
   window.__hubSwap = { go, cache };
 })();

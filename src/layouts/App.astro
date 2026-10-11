@@ -28,6 +28,7 @@ import '../styles/fix-shell.css';
 import '../styles/crit-shell.css';
 import '../styles/crit-shell2.css';
 import CommandPalette from '../components/CommandPalette.astro';
+import hubOwn from '../../public/js/hub-own.js?raw';
 
 interface Props {
   title: string;
@@ -71,6 +72,7 @@ const footAreas = AREAS.filter((a) => a.foot);
     <meta name="apple-mobile-web-app-title" content="Favor Hub" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="hub-build" content={BUILD} />
+    <script is:inline set:html={hubOwn}></script>
     <script is:inline src="/js/app-update.js?v=2" defer></script>
     <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
@@ -278,10 +280,10 @@ const footAreas = AREAS.filter((a) => a.foot);
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=7" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=8" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=4" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=9" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=5" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=10" defer></script>
     <script is:inline src="/js/clips-launch.js?v=4" defer></script>
     <script is:inline src="/js/wc-bell.js?v=4" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
