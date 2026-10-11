@@ -14,7 +14,7 @@
   body.h-body .h-top .h-top__title { overflow: hidden; white-space: normal; display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.12; }
   body.h-body .h-top .h-top__title { font-size: 17px !important; }
   body.h-body .h-top .h-top__right { flex: 0 0 auto !important; flex-wrap: nowrap; gap: 0; }
-  body.h-body .h-top .h-top__right > :not([hidden]):not(.h-top__actions):not(.pp-headsearch), body.h-body .h-top .h-top__actions > * { width: 42px !important; min-width: 42px; height: 42px; padding: 0 !important; justify-content: center; }
+  body.h-body .h-top .h-top__right > :not([hidden]):not(.h-top__actions):not(.pp-headsearch), body.h-body .h-top .h-top__actions > * { width: 44px !important; min-width: 44px; height: 44px; padding: 0 !important; justify-content: center; }
   body.h-body .h-top .h-top__actions .h-lbl { display: none; }
   body.h-body .h-top .h-top__actions .h-btn { width: 44px; padding: 0; justify-content: center; }
   /* Meetings: Book is the second tab and the empty day's button, so the header copy goes. */
@@ -55,6 +55,12 @@
 
   /* Lock buttons take the Sheets chip's size and shape. */
   .h-page :is(#exp-lock, #fnd-lock, #rcp-lock, #req-lock) { min-height: 44px; height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid #d3cdbd; background: #fff; color: #1d211b; font-size: 12.5px; font-weight: 600; }
+
+  /* Tab bar labels: 12 px minimum (they were 10.5 px). */
+  body.h-body .h-bar__l { font-size: 12px; }
+
+  /* Feedback dialog on a phone: an opaque sheet that scrolls, so Send stays reachable with the keyboard up. */
+  dialog.fb { background: #fbfaf6; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
   /* Drawer: Feedback uses the same icon width, gap and inset as the menu items, so its label lines up. */
   .h-side__fb { padding: 0 10px; gap: 11px; }
