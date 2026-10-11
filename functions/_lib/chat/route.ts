@@ -6,6 +6,7 @@
 //   GET  channels/:id/messages?before= a page of messages
 //   POST channels/:id/messages         { body, thread_id?, attachments? }
 //   POST channels/:id/read|typing|join|leave|mute|members|meeting
+//   GET  channels/:id/huddle           the live huddle in a channel and who is in it, or null
 //   PATCH channels/:id                 { topic }
 //   GET  threads/:id                   a thread
 //   PATCH|DELETE messages/:id          edit, delete (own)
@@ -25,6 +26,7 @@ import { directory, onlyKnown } from './users';
 import { hydrateAttachments } from './hydrate';
 import { presence, publish, type LiveEnv } from './live';
 import { askInThread } from './brain';
+import { huddlesOf, type HuddleState } from './huddle';
 import { unfurl } from './unfurl';
 import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } from './preview';
 import { parseRange } from '../clips';
@@ -119,6 +121,10 @@ async function route(ctx: Ctx): Promise<Response> {
       return json({ ok: true, channel: ch });
     }
     if (b && c === 'meeting' && method === 'POST') return json({ ok: true, ...(await startMeeting(ctx, user, b)) });
+    if (b && c === 'huddle' && method === 'GET') {
+      await store.readableChannel(env, b, me);
+      return json({ ok: true, huddle: await liveHuddle(env, b) });
+    }
   }
 
   if (a === 'conversations' && method === 'POST') {
@@ -286,42 +292,42 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   return msg;
 }
 
-/** A channel meeting is open while someone is in the room, or for its first ten minutes while people find the Join button. */
-export const MEET_GRACE_MS = 10 * 60_000;
-const ROOM_SEEN_MS = 60_000;
+/**
+ * The channel's live huddle, or null. Rooms everyone has left (no heartbeat in 20 seconds, or nobody joined within a minute of
+ * Start a huddle) are ended on the way, so their cards flip to Ended for everyone and the notes start.
+ */
+async function liveHuddle(env: ChatRouteEnv, channelId: string): Promise<HuddleState | null> {
+  const all = await huddlesOf(env, channelId);
+  for (const h of all) if (!h.live) await endMeeting(env as unknown as MeetEnv, h.id).catch((err) => console.warn('[chat] end empty huddle', err));
+  return all.find((h) => h.live) || null;
+}
 
 /**
- * The meeting button in a channel. One meeting per channel at a time: if one is open, the press joins it and posts nothing.
- * A meeting nobody is in after its first ten minutes is ended on the way, so old cards stop reading Live now.
- * Returns the room address; the page goes straight there.
+ * Start a huddle, or join the one already going. Pressed from the pre-join sheet, after the person chose their microphone and
+ * camera; the page then opens the room and goes straight in. One huddle per channel: if one is live the press joins it and posts
+ * nothing. A new huddle posts one card in the channel.
  */
-async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise<{ url: string; joined: boolean; message?: store.MessageOut }> {
+async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise<{ id: string; url: string; joined: boolean; message?: store.MessageOut }> {
   const { env, request } = ctx;
   const me = user.email.toLowerCase();
   const ch = await store.postableChannel(env, channelId, me);
-  const openMeets = (await env.DB.prepare(
-    `SELECT m.id, m.created_at FROM chat_meetings cm JOIN hub_meetings m ON m.id = cm.meeting_id WHERE cm.channel_id = ? AND m.status NOT IN ('ended', 'cancelled') ORDER BY m.created_at DESC`
-  ).bind(ch.id).all<{ id: string; created_at: string }>().catch(() => ({ results: [] as Array<{ id: string; created_at: string }> }))).results || [];
-  let reuse = '';
-  for (const m of openMeets) {
-    const inRoom = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(m.id, Date.now() - ROOM_SEEN_MS).first<{ n: number }>().catch(() => ({ n: 0 }));
-    const fresh = Date.now() - Date.parse(m.created_at) < MEET_GRACE_MS;
-    if (!reuse && ((inRoom?.n || 0) > 0 || fresh)) reuse = m.id;
-    else if (!(inRoom?.n || 0)) await endMeeting(env as unknown as MeetEnv, m.id).catch((err) => console.warn('[chat] end stale meeting', err));
-  }
-  if (reuse) return { url: `/meet/room/?m=${reuse}&now=1`, joined: true };
+  const open = await liveHuddle(env, ch.id);
+  if (open) return { id: open.id, url: `/meet/room/?m=${open.id}`, joined: true };
   const members = await store.membersOf(env, ch.id);
   const dir = await directory(env, await chatMode(env), user);
-  const label = ch.kind === 'public' || ch.kind === 'private' ? '#' + ch.name : members.filter((m) => m !== me).map((m) => (dir[m]?.name || m).split(' ')[0]).join(', ') || 'Meeting';
-  const open = ch.kind === 'public';
+  const others = members.filter((m) => m !== me).map((m) => (dir[m]?.name || m).split(' ')[0]);
+  const title = ch.kind === 'public' || ch.kind === 'private' ? `Huddle in #${ch.name}` : others.length ? `Huddle with ${others.join(', ')}` : 'Huddle';
+  const isOpen = ch.kind === 'public';
   const made = (await createMeeting(env as unknown as MeetEnv, { email: me, name: user.name }, {
-    title: `${label} meeting`, access: open ? 'staff' : 'invited', rec: 'notes', notify: false,
-    invitees: open ? [] : members.filter((m) => m !== me).map((m) => ({ email: m, name: dir[m]?.name || m })),
+    title, access: isOpen ? 'staff' : 'invited', rec: 'notes', notify: false,
+    invitees: isOpen ? [] : members.filter((m) => m !== me).map((m) => ({ email: m, name: dir[m]?.name || m })),
   }, new URL(request.url).origin)) as { meeting: { id: string } };
   const mid = made.meeting.id;
   const posted = await store.post(env, { channel_id: ch.id, email: me, body: '', attachments: [{ type: 'meeting', id: mid }] });
   await env.DB.prepare('INSERT OR REPLACE INTO chat_meetings (meeting_id, channel_id, message_id, started_by, notes_posted) VALUES (?, ?, ?, ?, 0)').bind(mid, ch.id, posted.message.id, me).run();
-  return { url: `/meet/room/?m=${mid}&now=1`, joined: false, message: await broadcast(ctx, posted.message, 'message') };
+  const message = await broadcast(ctx, posted.message, 'message');
+  ctx.waitUntil(publish(env, members, { type: 'huddle', channel_id: ch.id, huddle: (await huddlesOf(env, ch.id)).find((h) => h.id === mid) || null }));
+  return { id: mid, url: `/meet/room/?m=${mid}`, joined: false, message };
 }
 
 /* ------------------------------------------------------------------ Drive, files */

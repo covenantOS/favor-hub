@@ -100,6 +100,7 @@
     dismissAnswer: function (id) { return req('POST', 'messages/' + id + '/dismiss', {}); },
     clips: function () { return req('GET', 'clips'); },
     startMeeting: function (ch) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/meeting', {}); },
+    huddle: function (ch) { return req('GET', 'channels/' + encodeURIComponent(ch) + '/huddle').then(function (d) { return d.huddle || null; }); },
     upload: function (file) {
       return req('POST', 'upload', null, { body: file, headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) } }).then(function (d) { return { id: d.id, name: d.name, size: d.size, mime: d.mime, url: d.url }; });
     },

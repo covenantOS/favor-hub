@@ -18,6 +18,7 @@
     clip: '<path d="m21 11-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/>',
     drive: '<path d="M8 3h8l6 10-4 7H6l-4-7z"/><path d="M8 3l6 10M16 3 10 13M2 13h12"/>',
     video: '<rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 5-3v9l-5-3z"/>',
+    headset: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
     rec: '<rect x="3" y="8" width="14" height="11" rx="2"/><path d="M7 5h12a2 2 0 0 1 2 2v9"/><path d="m8.5 11.5 4 2-4 2z"/>',
     x: '<path d="M6 6l12 12M18 6 6 18"/>',
     back: '<path d="m15 5-7 7 7 7"/>',
@@ -274,11 +275,15 @@
           '<a class="ch-prev__ext" href="' + esc(a.url) + '" target="_blank" rel="noopener" aria-label="Open in Google Drive" title="Open in Google Drive">' + ic('ext') + '</a></div>';
       }
       if (a.type === 'meeting') {
+        // A huddle card reads who is in the room from the channel's live huddle state when the page has it, so it changes the
+        // moment people join or leave instead of keeping the count from when the message loaded.
+        var hs = huddleFor(a.id);
+        if (hs !== undefined) a = Object.assign({}, a, hs ? { status: 'live', count: hs.people.length } : a.status === 'ended' ? {} : { status: 'ended', count: 0 });
         var live = a.status !== 'ended';
         var inner = '<span class="ch-meet__ic">' + ic('video') + '</span><span class="ch-meet__t"><span class="ch-kicker">' + ic('video') + 'Meeting</span><span class="ch-card__t">' + esc(a.title) + '</span>' +
           (live ? '<span class="ch-meet__live"><i></i>Live now' + (a.count ? ' · ' + plural(a.count, 'person', 'people') + ' in the room' : '') + '</span>' : '<span class="ch-card__m">Ended' + (a.duration ? ' · ' + esc(a.duration) : '') + (a.notes ? ' · Notes ready' : '') + '</span>') + '</span>';
         var btn = live ? '<span class="ch-btn">Join</span>' : (a.notes ? '<span class="ch-btn">Open notes</span>' : '');
-        return '<a class="ch-card ch-meet' + (live ? '' : ' ch-meet--ended') + '" href="' + esc(live ? a.url : (a.notes_url || a.url)) + '" target="_blank" rel="noopener">' + inner + btn + '</a>';
+        return '<a class="ch-card ch-meet' + (live ? '' : ' ch-meet--ended') + '" href="' + esc(live ? a.url : (a.notes_url || a.url)) + '"' + (live ? ' data-act="huddle" data-mid="' + esc(a.id) + '"' : ' target="_blank" rel="noopener"') + '>' + inner + btn + '</a>';
       }
       if (a.type === 'file') {
         var fk = fileKind(a);
@@ -467,7 +472,7 @@
       patchHtml(h, '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
         '<div class="ch-head__t"><div class="ch-head__name">' + lead + '<span style="color:var(--r-ink);font-weight:700">' + esc(name) + '</span></div>' + (c.topic ? '<div class="ch-head__topic">' + esc(c.topic) + '</div>' : '') + '</div>' +
         '<div class="ch-head__acts"><button type="button" class="ch-members" data-act="details" aria-label="Members"><span class="ch-stack">' + ms.map(function (id) { return avatar(user(id), 'sm'); }).join('') + '</span>' + (c.members || []).length + '</button>' +
-        '<button type="button" class="ch-btn ch-btn--meet" data-act="meeting">' + ic('video') + '<span>Start a meeting</span></button>' +
+        '<button type="button" class="ch-btn ch-btn--meet' + (S.huddle && S.huddle[c.id] ? ' is-live' : '') + '" data-act="huddle" aria-label="' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '">' + ic('headset') + '<span>' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '</span></button>' +
         '<button type="button" class="ch-iconbtn ch-hide-m" data-act="search" aria-label="Search" title="Search">' + ic('search') + '</button>' +
         '<button type="button" class="ch-iconbtn' + (S.right === 'details' ? ' is-on' : '') + '" data-act="details" aria-label="Channel details" title="Channel details">' + ic('info') + '</button></div>');
       $('[data-ta="main"]', root).placeholder = c.kind === 'dm' || c.kind === 'group' ? 'Message ' + name : 'Message ' + (c.kind === 'public' ? '#' : '') + name;
@@ -572,7 +577,7 @@
       if (bar && getComputedStyle(bar).display !== 'none') b = Math.round(window.innerHeight - bar.getBoundingClientRect().top);
       if (isPhone()) { root.style.setProperty('--ch-top', t + 'px'); root.style.setProperty('--ch-bot', b + 'px'); }
     }
-    function renderAll(bottom) { renderSide(); renderHead(); renderMsgs(bottom); renderTyping(); renderRight(); syncSend('main'); }
+    function renderAll(bottom) { renderSide(); renderHead(); renderHud(); renderMsgs(bottom); renderTyping(); renderRight(); syncSend('main'); }
 
     /* ------------------------------------------------------------------ actions */
     function openChannel(id, o) {
@@ -597,6 +602,7 @@
         // A channel read ahead of time opens finished; a quiet refresh catches anything that arrived since.
         if (S.warm[id]) { S.warm[id] = false; api.history(id).then(function (r) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; if (S.active === id) renderMsgs(false); }).catch(function () {}); }
       }
+      loadHuddle(id);
       if (!isPhone()) setTimeout(function () { var ta = $('[data-ta="main"]', root); if (ta) ta.focus(); }, 0);
     }
     // Quietly loads the messages of the channels a person is most likely to open next (unread first, then the most recent), one at a time,
@@ -908,6 +914,76 @@
       else go();
     }
 
+    /* ------------------------------------------------------------------ huddles
+       S.huddle[channel] is the channel's live huddle ({ id, title, startedAt, people, live }) or null. It comes from
+       GET channels/:id/huddle when a channel opens, from 'huddle' events when someone joins or leaves, and from a check every
+       5 seconds while a huddle shows, which is what notices a person whose tab closed or phone locked without Leave. */
+    function huddleGet(id) {
+      if (api.huddle) return Promise.resolve(api.huddle(id));
+      return fetch('/api/chat/channels/' + encodeURIComponent(id) + '/huddle', { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } })
+        .then(function (r) { return r.json(); }).then(function (d) { if (!d || d.ok === false) throw new Error((d && d.message) || 'Huddle check failed'); return d.huddle || null; });
+    }
+    // The live state for a meeting card in the open channel: the huddle, null when it is over, undefined when the page does not know.
+    function huddleFor(mid) {
+      if (!S.huddle || !S.active || !Object.prototype.hasOwnProperty.call(S.huddle, S.active)) return undefined;
+      var h = S.huddle[S.active];
+      if (h && h.id === mid) return h;
+      return null;
+    }
+    function loadHuddle(id) {
+      return huddleGet(id).then(function (h) { setHuddle(id, h); }).catch(function () { /* the bar keeps its last state */ });
+    }
+    function setHuddle(id, h) {
+      S.huddle = S.huddle || {}; S.huddleEnded = S.huddleEnded || {};
+      var prev = S.huddle[id];
+      if (prev && (!h || h.id !== prev.id)) S.huddleEnded[prev.id] = true;
+      S.huddle[id] = h && h.live !== false ? h : null;
+      S.huddleKnown = true;
+      if (id !== S.active) return;
+      var sig = id + JSON.stringify(S.huddle[id]);
+      if (sig === S.hudSig) return;
+      S.hudSig = sig;
+      renderHead(); renderHud();
+      if (S.msgs[id]) renderMsgs(false);
+    }
+    function renderHud() {
+      var head = $('.ch-head', root); if (!head) return;
+      var bar = $('.ch-hud', root);
+      if (!bar) { bar = document.createElement('div'); bar.className = 'ch-hud'; bar.hidden = true; head.insertAdjacentElement('afterend', bar); }
+      var h = S.huddle && S.active ? S.huddle[S.active] : null;
+      if (!h) { bar.hidden = true; setHtml(bar, ''); return; }
+      var ppl = h.people || [];
+      bar.hidden = false;
+      setHtml(bar, '<span class="ch-hud__dot" aria-hidden="true"></span><span class="ch-stack">' + ppl.slice(0, 4).map(function (p) { return avatar(user(p.email), 'sm'); }).join('') + '</span>' +
+        '<span class="ch-hud__t"><b>Huddle</b><span><span data-hud-dur>' + (h.startedAt ? hudDur(h.startedAt) : 'Starting') + '</span>' + (ppl.length ? ' · ' + esc(ppl.length === 1 ? user(ppl[0].email).name.split(' ')[0] : plural(ppl.length, 'person', 'people')) : '') + '</span></span>' +
+        '<button type="button" class="ch-hud__join" data-act="huddle">Join</button>');
+    }
+    function hudDur(t) { var s = Math.max(0, Math.floor((Date.now() - t) / 1000)), m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); }
+    function openHuddle(channelId) {
+      var c = chan(channelId); if (!c) return;
+      if (!window.FavorPrejoin) { guard(api.startMeeting(channelId)).then(function (r) { if (r && r.url) location.href = r.url; }); return; }
+      var name = c.kind === 'public' ? '#' + c.name : c.kind === 'private' ? c.name : chName(c);
+      window.FavorPrejoin.open({
+        title: 'Huddle in ' + name,
+        me: { email: S.me.id, name: S.me.name },
+        face: function (p) { return avatar(p.email ? user(p.email) : { name: p.name }, 'sm'); },
+        load: function () { return huddleGet(channelId).then(function (h) { setHuddle(channelId, h); return h ? { live: true, startedAt: h.startedAt, people: h.people } : { live: false, people: [] }; }); },
+        emptyLine: 'No huddle going',
+        joinLabel: function (st, list) { return st.live && list.length ? 'Join huddle' : 'Start a huddle'; },
+        join: function () { return api.startMeeting(channelId).then(function (r) { return { id: r.id || (r.message && r.message.attachments && r.message.attachments[0] && r.message.attachments[0].id), url: r.url }; }); }
+      });
+    }
+    setInterval(function () {
+      if (document.hidden || !S.active || !S.huddle || !S.huddle[S.active]) return;
+      var d = $('[data-hud-dur]', root), h = S.huddle[S.active];
+      if (d && h.startedAt) d.textContent = hudDur(h.startedAt);
+    }, 1000);
+    setInterval(function () {
+      if (document.hidden || !S.active || !S.huddle || !S.huddle[S.active]) return;
+      loadHuddle(S.active);
+    }, 5000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && S.active && S.me) loadHuddle(S.active); });
+
     /* ------------------------------------------------------------------ events from the server */
     function onEvent(ev) {
       if (ev.type === 'message') addMessage(ev.message, ev.message.user_id === S.me.id);
@@ -921,6 +997,7 @@
       else if (ev.type === 'users') { Object.assign(S.users, ev.users); renderSide(); }
       else if (ev.type === 'conn') { setConn(ev.ok); }
       else if (ev.type === 'resync') { resync(); }
+      else if (ev.type === 'huddle') setHuddle(ev.channel_id, ev.huddle);
     }
     function resync() {
       if (S.resyncing) return;
@@ -931,6 +1008,7 @@
         renderSide(); renderHead();
         var id = S.active;
         if (id) api.history(id).then(function (r) { if (S.active !== id) return; S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; renderMsgs(false); markRead(); });
+        if (id) loadHuddle(id);
         if (S.right === 'thread' && S.threadRoot) api.thread(S.threadRoot).then(function (t) { S.threads[S.threadRoot] = t; renderRight(); });
         if (opts.onUnread) opts.onUnread(totalUnread());
       }).catch(function () {}).then(function () { S.resyncing = false; });
@@ -1043,7 +1121,7 @@
       else if (act === 'drive-pick') driveModal(scope);
       else if (act === 'clip-pick') clipModal(scope);
       else if (act === 'clip-rec') { closePop(); if (opts.recordClip) opts.recordClip(S.active, function (att) { S.pending[scope].push(att); renderPending(scope); }); else toast('Recording is not available here'); }
-      else if (act === 'meeting') { closePop(); guard(api.startMeeting(S.active)).then(function (r) { if (r && r.message) addMessage(r.message, true); if (r && r.url) { toast(r.joined ? 'Joining the meeting' : 'Starting the meeting'); location.href = r.url; } }); }
+      else if (act === 'meeting' || act === 'huddle') { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); closePop(); openHuddle(S.active); }
       else if (act === 'drive-choose') { var it = modal._items[+el.dataset.i], sc = modal._scope; closeModal(); S.pending[sc].push(Object.assign({ type: 'drive' }, it)); renderPending(sc); var tt = $('[data-ta="' + sc + '"]', root); if (tt) tt.focus(); }
       else if (act === 'clip-choose') { var cl = modal._items[+el.dataset.i], sc2 = modal._scope; closeModal(); S.pending[sc2].push(Object.assign({ type: 'clip' }, cl)); renderPending(sc2); }
       else if (act === 'unpend') { S.pending[scope].splice(+el.dataset.i, 1); renderPending(scope); }
@@ -1156,6 +1234,8 @@
       if (viewPop) { viewPop = false; e.stopImmediatePropagation(); return; }
       if (window.FavorChatView && window.FavorChatView.isOpen()) { e.stopImmediatePropagation(); viewBack = true; window.FavorChatView.close(); return; }
       if (S.view === 'list') return;
+      // Back while the huddle sheet is open closes the sheet (the hub's overlay stack handles it), and the channel stays.
+      if (window.FavorPrejoin && window.FavorPrejoin.isOpen()) return;
       e.stopImmediatePropagation();
       var v = e.state && e.state.chv;
       if (v === 'thread' && S.threadRoot) { setView('thread'); return; }

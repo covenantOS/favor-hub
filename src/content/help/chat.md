@@ -40,7 +40,13 @@ Press the **plus** in the message box.
 - **Share from Drive** searches the Drive library. It lists only files your own Google account can open, and posts the pick as a card with an Open button.
 - **Share a clip** lists your clips. A pasted clip link becomes a clip card too.
 - **Record a clip** opens the recorder. The clip posts to the channel when you finish it.
-- **Start a meeting** makes a Favor Meetings room and posts a card with a Join button. The card shows how many people are in the room. When the meeting ends the card says so, and when its notes are ready they post in the card's thread with the action items.
+- **Start a meeting** opens the huddle sheet, the same as the **Huddle** button.
+
+## Huddles
+
+Press **Huddle** at the top of a channel or a conversation. A sheet opens with who is in the huddle now, a preview of your camera, a bar that moves when your microphone hears you, and buttons for the microphone, the camera and your devices. Nothing starts until you press **Join huddle** or, when nobody is in one, **Start a huddle**. The room then opens with the choices you made.
+
+A channel has one huddle at a time. While one is going, a green bar under the channel name shows the faces, how long it has run and a **Join** button, and the Huddle button turns green. A new huddle posts a card in the channel. The bar and the card count only people who are in the room now: a person who closes the tab, locks their phone or loses the connection drops off within about 20 seconds, and a huddle everyone has left reads Ended. **Leave** takes you back to the channel. When the notes are ready they post in the card's thread with the action items.
 
 ## Ask Favor Brain
 

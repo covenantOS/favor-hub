@@ -96,3 +96,10 @@
 
 /* ---------- Tour card: opaque, so the page behind it never shows through the words. */
 body.h-body .tr-pop { background: #fbfaf6; -webkit-backdrop-filter: none; backdrop-filter: none; }
+
+/* Rail and tab bar: the keyboard ring sits inside the item's own shape, in cream, instead of a green ring around it. A
+   script returning focus to a rail item (Safari shows that as a keyboard ring) no longer draws a second outline. */
+.h-body .h-side .h-area__link:focus-visible, .h-body .h-side .h-pg__a:focus-visible, .h-body #h-bar .h-bar__a:focus-visible {
+  outline: 2px solid rgba(255, 253, 248, .55); outline-offset: -3px;
+}
+.h-body .h-side .h-area__link:focus:not(:focus-visible), .h-body #h-bar .h-bar__a:focus:not(:focus-visible) { outline: none; }

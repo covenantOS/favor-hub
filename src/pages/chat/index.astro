@@ -7,6 +7,7 @@ import '../../styles/brain.css';
 import '../../styles/chat.css';
 import '../../styles/crit-chat.css';
 import '../../styles/q3-chat.css';
+import '../../styles/huddle.css';
 import { SPRITE } from '../brain/_icons';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
@@ -20,11 +21,12 @@ const bootHtml: string = ctx.window.FavorChat.bootHtml();
 <App title="Chat" crumb="Chat" nav="chat" bare description="Channels, direct messages and threads for the Favor team, with clips, meetings, Drive files and Favor Brain in the conversation.">
   <Fragment set:html={SPRITE} />
   <div id="chat-root" class="ch" data-view="list" data-boot set:html={bootHtml}></div>
-  <link rel="preload" href="/js/chat/chat-ui.js?v=15" as="script" />
-  <link rel="preload" href="/js/chat/chat.js?v=4" as="script" />
+  <link rel="preload" href="/js/chat/chat-ui.js?v=18" as="script" />
+  <link rel="preload" href="/js/chat/chat.js?v=5" as="script" />
   <link rel="preload" href="/js/brain-blocks.js?v=8" as="script" />
   <script is:inline src="/js/brain-blocks.js?v=8"></script>
+  <script is:inline src="/js/meet/prejoin.js?v=3" defer></script>
   <script is:inline src="/js/chat/chat-view.js?v=1" defer></script>
-  <script is:inline src="/js/chat/chat-ui.js?v=15" defer></script>
-  <script is:inline src="/js/chat/chat.js?v=4" defer></script>
+  <script is:inline src="/js/chat/chat-ui.js?v=18" defer></script>
+  <script is:inline src="/js/chat/chat.js?v=5" defer></script>
 </App>

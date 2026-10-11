@@ -51,7 +51,9 @@
       var start = Date.parse(m.startsAt || m.startedAt || m.createdAt);
       if (isNaN(start)) return;
       var end = Date.parse(m.endsAt || m.endedAt || '') || start + (m.durationMin || 30) * 60000;
-      var live = m.status === 'live';
+      // Live only while someone is in the room (a heartbeat in the last 20 seconds). A room everyone left is not live, even
+      // before the server closes it.
+      var live = m.status === 'live' && (m.inRoom || 0) > 0;
       if (live && end < now + 10 * 60000) end = now + 10 * 60000;
       var host = m.hostName || nameOf({ email: m.hostEmail });
       var names = [host].concat((m.invitees || []).map(nameOf)).filter(Boolean);
@@ -241,8 +243,29 @@
     el.textContent = msg; el.classList.add('is-on'); clearTimeout(tt); tt = setTimeout(function () { el.classList.remove('is-on'); }, 3000);
   }
 
+  // Join on a Favor room opens the pre-join sheet (who is in the room, microphone, camera) instead of dropping the person in.
+  function prejoin(id, title) {
+    if (!window.FavorPrejoin) { location.href = '/meet/room/?m=' + encodeURIComponent(id); return; }
+    window.FavorPrejoin.open({
+      title: title || 'Meeting',
+      icon: 'video',
+      me: { email: '', name: '', pid: (function () { try { return sessionStorage.getItem('meet.pid.' + id) || ''; } catch (e) { return ''; } })() },
+      load: function () { return api('meetings/' + encodeURIComponent(id)).then(function (r) { var ppl = r.people || []; return { live: ppl.length > 0, startedAt: r.meeting && r.meeting.startedAt && ppl.length ? Date.parse(r.meeting.startedAt) : 0, people: ppl }; }); },
+      emptyLine: 'Nobody is in the room yet',
+      joinLabel: function () { return 'Join'; },
+      join: function () { return Promise.resolve({ id: id, url: '/meet/room/?m=' + encodeURIComponent(id) }); }
+    });
+  }
+  function titleOf(id) {
+    var all = state.data ? (state.data.up || []).concat(state.data.recent || []) : [];
+    for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i].title;
+    return '';
+  }
   function onClick(ev) {
     var t = ev.target.closest('button, a'); if (!t || !root.contains(t)) return;
+    var href = t.tagName === 'A' ? t.getAttribute('href') || '' : '';
+    var jm = /^\/meet\/room\/\?m=([0-9a-f]{24})$/.exec(href);
+    if (jm && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey) { ev.preventDefault(); return prejoin(jm[1], titleOf(jm[1])); }
     if (t.dataset.day) return setDay(t.dataset.day);
     if (t.dataset.step) return setDay(addDays(state.day, +t.dataset.step));
     if (t.dataset.today) { state.winStart = dayKey(new Date()); return setDay(state.winStart); }
@@ -271,10 +294,19 @@
     return ('Meeting, ' + day + ', ' + tm).replace(/[  ]/g, ' ');
   }
 
-  function startNow(e) {
-    var btn = e.currentTarget; btn.disabled = true;
-    api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'notes', access: 'staff' } })
-      .then(function (r) { location.href = '/meet/room/?m=' + r.meeting.id; }).catch(function (err) { btn.disabled = false; toast(err.message); });
+  // Start now opens the same pre-join sheet; the room is made when the person presses Start.
+  function startNow() {
+    var create = function () { return api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'notes', access: 'staff' } }).then(function (r) { return { id: r.meeting.id, url: '/meet/room/?m=' + r.meeting.id }; }); };
+    if (!window.FavorPrejoin) { create().then(function (r) { location.href = r.url; }).catch(function (err) { toast(err.message); }); return; }
+    window.FavorPrejoin.open({
+      title: 'New meeting',
+      icon: 'video',
+      me: { email: '', name: '' },
+      load: function () { return Promise.resolve({ live: false, people: [] }); },
+      emptyLine: 'Open to all staff, notes on',
+      joinLabel: function () { return 'Start'; },
+      join: create
+    });
   }
   nowBtn = document.getElementById('mt-now');
   if (nowBtn) nowBtn.addEventListener('click', startNow);
@@ -282,11 +314,28 @@
   // The now line and the lists refresh on their own.
   timers.push(setInterval(function () { if (!stopped && state.data && !document.hidden) { state.now = new Date(); draw(); } }, 30000));
   timers.push(setInterval(function () { if (!stopped && !document.hidden) load(true); }, 60000));
+  // While a Favor room shows as live (or open), who is in it is re-read every 10 seconds, so a room everyone left stops reading
+  // Live within about 30 seconds.
+  function refreshLive() {
+    return api('meetings?scope=upcoming').then(function (r) {
+      if (stopped || !state.data) return;
+      var before = JSON.stringify((state.data.up || []).map(function (m) { return [m.id, m.status, m.inRoom]; }));
+      var after = JSON.stringify((r.meetings || []).map(function (m) { return [m.id, m.status, m.inRoom]; }));
+      state.data.up = r.meetings || [];
+      if (before !== after) { state.now = new Date(); draw(); }
+    }).catch(function () {});
+  }
+  timers.push(setInterval(function () {
+    if (stopped || document.hidden || !state.data) return;
+    if ((state.data.up || []).some(function (m) { return m.status === 'live'; })) refreshLive();
+  }, 10000));
+  document.addEventListener('visibilitychange', function () { if (!stopped && !document.hidden && state.data) refreshLive(); });
 
   window.__mtDay = { root: root, stop: function () {
     stopped = true; timers.forEach(clearInterval); clearTimeout(tt);
     root.removeEventListener('click', onClick);
     if (nowBtn) nowBtn.removeEventListener('click', startNow);
   } };
-  load();
+  // A page drawn from the 20 second cache checks who is in each room right away.
+  load().then(function () { if (state.data && Date.now() - (state.data.at || 0) > 3000) refreshLive(); });
 })();
