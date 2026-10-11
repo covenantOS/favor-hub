@@ -1,0 +1,84 @@
+/* Fix round, Work area (/work/ and /work-home/), 2026-10-11. Text 13 px minimum, 44 px touch targets, a scroll cue on the stat strip. */
+
+/* ---- Text floor: 13 px everywhere in the Work pages (labels, captions, tags, chips). ---- */
+body.h-body .wwk-k, body.h-body .wwk-meter__l, body.h-body .wwk-seg button { font-size: 13px; }
+body.h-body .wwk-sub, body.h-body .wwk-strip__give b small, body.h-body .wwk-meter b small, body.h-body .wc-stat span,
+body.h-body .wc-sub, body.h-body .wc-late, body.h-body .wc-tag, body.h-body .wc-cat, body.h-body .wc-who, body.h-body .wc-type b,
+body.h-body .wc-toggle, body.h-body .wc-lane, body.h-body .wc-owner, body.h-body .wc-how, body.h-body .wc-tt, body.h-body .wc-linkbtn,
+body.h-body .wc-ini, body.h-body .wc-state, body.h-body .wc-match, body.h-body .wc-prog__side, body.h-body .wc-clock__when, body.h-body .wc-ask,
+body.h-body .wg-sub, body.h-body .wm-sub, body.h-body .wm-addtask, body.h-body .ep-ostatus, body.h-body .ep-stageamt, body.h-body .wc-tab span,
+body.h-body .wc-scope__chip span, body.h-body .wc-scope__start, body.h-body .copy-stamp,
+body.h-body .wh-t span, body.h-body .wh-do, body.h-body .wh-acts .h-btn, body.h-body .wh-more, body.h-body .wh-snz label, body.h-body .wh-kv span,
+body.h-body .wh-sub, body.h-body .wh-fr time, body.h-body .wh-pick p, body.h-body .wh-table th, body.h-body .wh-tool__n, body.h-body .wc-lane em,
+body.h-body .wc-owner em { font-size: 13px; }
+body.h-body .wc-late, body.h-body .wc-tag { line-height: 1.5; }
+body.h-body .wc-tag { height: 22px; }
+body.h-body .wh .r2t-chip, body.h-body .wh .r2t-chip span { font-size: 13px; }
+body.h-body .wh-tool__n { font-size: 13px; }
+
+/* Stat labels read "Thank-you tasks", not "Thank - you tasks". */
+body.h-body .wc-stat span, body.h-body .wc-tab, body.h-body .wh-t span { font-feature-settings: 'calt' 0, 'case' 0, 'ss01' 0; font-kerning: none; letter-spacing: 0; word-spacing: 0; }
+
+/* The switch sits a clear gap from its label. */
+body.h-body .wc-toggle { gap: 12px; }
+
+/* ---- Row checkboxes: a 20 px box on a pointer, a 22 px box on touch, a 44 px target either way. ---- */
+body.h-body .wc-cb input { width: 20px; height: 20px; position: relative; }
+body.h-body .wc-cb input::before { content: ''; position: absolute; inset: -12px; }
+body.h-body .wc-cb { min-width: 44px; min-height: 44px; }
+@media (pointer: coarse), (max-width: 860px) {
+  /* The box stays 22 px; a transparent 11 px border around it makes the control itself 44 x 44. */
+  body.h-body .wc-cb input { width: 44px; height: 44px; box-sizing: border-box; border: 11px solid transparent; background-clip: padding-box; border-radius: 17px; box-shadow: inset 0 0 0 1.5px #c9c2b4; }
+  body.h-body .wc-cb input:checked, body.h-body .wc-cb input:indeterminate { box-shadow: none; }
+  body.h-body .wc-cb input::before { display: none; }
+  body.h-body .wc-grid .wc-row, body.h-body .wc-tg .wc-row, body.h-body .wc-ig .wc-row { grid-template-columns: 44px 1fr auto; padding-left: 0; }
+  body.h-body .wc-grid .wc-cb, body.h-body .wc-tg .wc-cb, body.h-body .wc-ig .wc-cb { min-height: 44px; min-width: 44px; padding-top: 0; align-items: center; }
+}
+/* Sort headers are a full row tall. */
+body.h-body .wc-head button { min-height: 32px; }
+
+/* ---- Touch targets: names and icons are 44 px tall without moving the text around them. ---- */
+@media (pointer: coarse), (max-width: 860px) {
+  body.h-body a.wc-plink, body.h-body a.wc-ppage--name, body.h-body a.wg-name, body.h-body a.wm-name, body.h-body .wh-t a {
+    display: inline-block; padding-block: 14px; margin-block: -14px; max-width: 100%; vertical-align: top;
+  }
+  body.h-body a.wg-icon, body.h-body a.wm-icon { width: 44px; height: 44px; }
+  body.h-body .wc-how, body.h-body .wc-linkbtn, body.h-body .wc-tt { min-height: 44px; min-width: 44px; }
+  body.h-body .wh-table td a, body.h-body .wh-table th button { min-height: 44px; }
+  body.h-body .wh-table td { height: 44px; }
+}
+body.h-body .wh-sort { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+body.h-body .wh-table th.n .wh-sort { margin-left: auto; }
+body.h-body .wh-sort:hover { color: var(--r-ink); }
+body.h-body .wh-sort:focus-visible { outline: 2px solid var(--h-brand); outline-offset: 2px; border-radius: 4px; }
+
+/* ---- Phone stat strip: every tile shows, the row scrolls sideways, the cut edge fades. ---- */
+@media (max-width: 860px) {
+  body.h-body .wc-grid .wc-due b, body.h-body .wc-grid .wc-type b, body.h-body .wc-grid .wc-who { font-size: 13px; }
+  body.h-body .wc-band { display: flex; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; padding: 2px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent); }
+  body.h-body .wc-band::-webkit-scrollbar { display: none; }
+  body.h-body .wc-band .wc-stat, body.h-body .wc-band .wc-stat:nth-child(n+4) { display: block; flex: 0 0 38%; min-width: 0; scroll-snap-align: start; }
+  body.h-body .wc-band .wc-stat:last-child { margin-right: 36px; }
+  body.h-body .wc-tabs { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent); }
+  body.h-body .wc-tabs .wc-tab { min-height: 44px; }
+  body.h-body .wwk-strip__week { gap: 10px; }
+}
+
+/* The rest of the 11 to 12.5 px text in the Work Center tabs. */
+body.h-body #wc-root .wc-evid b, body.h-body #wc-root .wc-evid span, body.h-body #wc-root .wc-lanehead p, body.h-body #wc-root .wc-lanehead b,
+body.h-body #wc-root .wc-pickp button, body.h-body #wc-root .wg-group button, body.h-body #wc-root .wm-seg button,
+body.h-body #wc-root .h-btn--sm, body.h-body #wc-root .wc-sc .notes, body.h-body #wc-root .wwk-report h3, body.h-body #wc-root .wc-lc small,
+body.h-body #wc-root .wc-lc span, body.h-body #wc-root .wm-num small, body.h-body #wc-root .wm-quiet small, body.h-body #wc-root .wg-amt small,
+body.h-body #wc-root .wc-foot span, body.h-body #wc-root .wc-prog__legend span, body.h-body #wc-root .wc-prog__nums span, body.h-body #wc-root .wg-foot span,
+body.h-body #wc-root .wg-group span, body.h-body #wc-root .wm-foot span, body.h-body #wc-root .wwk-goal span, body.h-body #wc-root .wwk-group span,
+body.h-body #wc-root .wwk-report b small, body.h-body #wc-root .wc-clock__left .h-label, body.h-body #wc-root .wwk-meter__l .s,
+body.h-body #wc-root .wc-pickp button span, body.h-body #wc-root .wc-open, body.h-body #wc-root .wc-open b, body.h-body #wc-root .wc-filters .h-btn,
+body.h-body #wc-root .wc-tools .h-btn, body.h-body #wc-root .wc-tools2 .h-btn { font-size: 13px; }
+body.h-body #wc-root .wwk-meter__l .s { display: inline; }
+body.h-body #wc-root .wc-head span, body.h-body #wc-root .wc-head button, body.h-body #wc-root .wm-head button, body.h-body #wc-root .wm-head span,
+body.h-body #wc-root .ep-orow--head span { font-size: 13px; letter-spacing: .06em; }
+body.h-body #wc-root .wc-inl.wc-st, body.h-body #wc-root .wc-added, body.h-body #wc-root kbd, body.h-body .wc-bar kbd, body.h-body #wc-root .wwk-report small,
+body.h-body #wc-root .wwk-group small, body.h-body #wc-root .ep-stage small, body.h-body #wc-root small { font-size: 13px; }
+@media (pointer: coarse), (max-width: 860px) {
+  body.h-body #wc-root .wm-seg button, body.h-body #wc-root .wc-lane, body.h-body #wc-root .wc-owner { min-width: 44px; min-height: 44px; }
+}

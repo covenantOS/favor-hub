@@ -292,7 +292,7 @@ function banner(idp, list) {
 
 // ------------------------------------------------------------ open actions view
 const TILES = [
-  ['', 'Open', () => true, 'Open actions'], ['past', 'Past due', (a) => dayn(cur(a).due) < 0, 'Past due actions'], ['ty', 'Thank-you tasks', (a) => a.ty, 'Thank-you tasks'],
+  ['', 'Open', () => true, 'Open actions'], ['past', 'Past due', (a) => dayn(cur(a).due) < 0, 'Past due actions'], ['ty', 'Thank‐you tasks', (a) => a.ty, 'Thank-you tasks'],
   ['done', 'Thanked already or likely', (a) => a.ty && a.later, 'Thank-you tasks thanked already or likely'], ['ctg', 'Recurring Gift tasks', (a) => a.ctg, 'Recurring Gift tasks'],
 ];
 // Click a tile's number: its Favor definition and the actions that make it up, the rows the tile counted.
