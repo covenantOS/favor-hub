@@ -278,13 +278,13 @@ export async function shape(env: ChatEnv, rows: MessageRow[], hydrate?: (a: Atta
       channel_id: r.channel_id,
       thread_id: r.thread_id,
       user_id: r.email,
-      body: deleted ? '' : r.body,
+      body: deleted ? '' : staleThinking(r) ? 'The Brain did not answer. Ask again.' : r.body,
       created_at: r.created_at,
       edited_at: r.edited_at,
       deleted,
       reactions: deleted ? [] : rx.get(r.id) || [],
       attachments: att,
-      brain: deleted ? null : parseJson<unknown>(r.brain, null),
+      brain: deleted || staleThinking(r) ? null : parseJson<unknown>(r.brain, null),
       reply_count: r.reply_count,
       last_reply_at: r.last_reply_at,
       reply_users: ru.get(r.id) || [],
@@ -292,6 +292,12 @@ export async function shape(env: ChatEnv, rows: MessageRow[], hydrate?: (a: Atta
     });
   }
   return out;
+}
+
+/** A Brain answer still marked "thinking" two minutes on lost its run (the request ended before it could write the answer). */
+function staleThinking(r: { brain: string | null; created_at: string }): boolean {
+  if (!r.brain || r.brain.indexOf('"thinking"') < 0) return false;
+  return Date.now() - Date.parse(r.created_at) > 120000;
 }
 
 const COLS = 'id, channel_id, thread_id, email, body, attachments, brain, created_at, edited_at, deleted_at, reply_count, last_reply_at, visible_to';

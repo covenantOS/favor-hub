@@ -5,12 +5,24 @@
 import App from '../../layouts/App.astro';
 import '../../styles/brain.css';
 import '../../styles/chat.css';
+import '../../styles/crit-chat.css';
 import { SPRITE } from '../brain/_icons';
+import { readFileSync } from 'node:fs';
+import { createContext, runInContext } from 'node:vm';
+
+// The first paint is the real screen: the same skeleton chat-ui.js draws while it loads the channels, so nothing is replaced with a different layout.
+const ctx: any = { window: {}, document: {}, Intl, matchMedia: () => ({ matches: false }) };
+createContext(ctx);
+runInContext(readFileSync(new URL('../../../public/js/chat/chat-ui.js', import.meta.url), 'utf8'), ctx);
+const bootHtml: string = ctx.window.FavorChat.bootHtml();
 ---
 <App title="Chat" crumb="Chat" nav="chat" bare description="Channels, direct messages and threads for the Favor team, with clips, meetings, Drive files and Favor Brain in the conversation.">
   <Fragment set:html={SPRITE} />
-  <div id="chat-root"></div>
+  <div id="chat-root" class="ch" data-view="list" data-boot set:html={bootHtml}></div>
+  <link rel="preload" href="/js/chat/chat-ui.js?v=14" as="script" />
+  <link rel="preload" href="/js/chat/chat.js?v=3" as="script" />
+  <link rel="preload" href="/js/brain-blocks.js?v=7" as="script" />
   <script is:inline src="/js/brain-blocks.js?v=7"></script>
-  <script is:inline src="/js/chat/chat-ui.js?v=10" defer></script>
-  <script is:inline src="/js/chat/chat.js?v=2" defer></script>
+  <script is:inline src="/js/chat/chat-ui.js?v=14" defer></script>
+  <script is:inline src="/js/chat/chat.js?v=3" defer></script>
 </App>
