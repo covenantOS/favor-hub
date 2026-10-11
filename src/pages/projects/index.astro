@@ -1,0 +1,50 @@
+---
+// Projects, the project list and My tasks. The page is a shell: public/js/projects/app.js (an ES module) reads window.PJ and draws into #pj-root,
+// loading home.js, list.js, board.js, calendar.js, timeline.js, workload.js, drawer.js, quick-add.js and links.js itself. Each
+// module is optional. If app.js does not load, the fallback below stays on screen and offers a reload.
+import App from '../../layouts/App.astro';
+import '../../styles/chat.css';
+import '../../styles/request-tasks.css';
+// Style files that belong to the UI and Views lanes (projects.css, projects-views.css) join the page when they exist.
+import.meta.glob('../../styles/projects*.css', { eager: true });
+---
+<App full title="Projects" crumb="Work" nav="projects" description="Projects and tasks for the Favor team: lists, boards, calendar and timeline.">
+  <div id="pj-root" class="pj" data-page="home" aria-live="polite">
+    <div class="pj-boot" id="pj-boot">
+      <h1 class="pj-boot__h">Projects</h1>
+      <p class="pj-boot__t" id="pj-boot-t">Loading</p>
+      <button type="button" class="pj-boot__b" id="pj-boot-b" hidden>Reload</button>
+    </div>
+  </div>
+  <script is:inline>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var views = ['list', 'board', 'calendar', 'timeline', 'workload'];
+      var view = q.get('view');
+      window.PJ = {
+        page: 'home',
+        project: (q.get('p') || '').toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+        view: views.indexOf(view) >= 0 ? view : 'list',
+        task: (q.get('t') || '').toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+        mock: q.get('mock') === '1'
+      };
+      // If the app has not drawn anything in six seconds, say so and offer a reload. A missing module never leaves a blank page.
+      setTimeout(function () {
+        var root = document.getElementById('pj-root');
+        if (!root || root.getAttribute('data-ready')) return;
+        var t = document.getElementById('pj-boot-t');
+        var b = document.getElementById('pj-boot-b');
+        if (t) t.textContent = 'Projects did not load. Check the connection and reload.';
+        if (b) { b.hidden = false; b.onclick = function () { location.reload(); }; }
+      }, 6000);
+    })();
+  </script>
+  <link rel="modulepreload" href="/js/projects/api.js" />
+  <script type="module" src="/js/projects/app.js"></script>
+</App>
+<style>
+  .pj-boot { padding: 32px 16px; max-width: 640px; }
+  .pj-boot__h { margin: 0 0 8px; font-size: 22px; }
+  .pj-boot__t { margin: 0 0 12px; font-size: 14px; color: var(--ink-2, #555); }
+  .pj-boot__b { min-height: 44px; padding: 0 16px; font-size: 14px; }
+</style>

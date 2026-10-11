@@ -11,6 +11,7 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { noticesFor } from '../requests/tasks';
+import { projectsFlag } from '../projects/access';
 
 export interface Access {
   admin: boolean;
@@ -27,6 +28,8 @@ export interface Access {
   clipsRecord: boolean;
   /** Favor Chat: hub admins until Admin > Chat opens it to staff (hub setting chat.enabled). */
   chat: boolean;
+  /** Projects: hub admins until Admin > Projects opens it to staff (hub setting projects.enabled). */
+  projects: boolean;
   /** On at least one request: its owner, sent it, named on it or following it. Shows the bell for request notices. */
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
@@ -54,6 +57,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
     clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
     chat: mayUse(await chatMode(env), user),
+    projects: await projectsFlag(env, user).catch(() => false),
     tasks,
     bell: (!!work && work.ok) || tasks,
   };
