@@ -8,8 +8,9 @@
 import { HttpError, nowIso, type Env } from '../http';
 import { getRollout, GROUPS, setRollout } from '../work/digest';
 import { setSetting as actSet } from '../work/db';
+import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
 
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses';
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {
@@ -122,6 +123,25 @@ function hubDef(p: Omit<Def, 'read' | 'write' | 'where' | 'clear'>): Def {
   };
 }
 
+
+/** An expense setting. It lives in the expense tables, where the expense log reads it, so a save here changes the log at once. */
+function expDef(p: Omit<Def, 'read' | 'write' | 'where' | 'area' | 'clear'> & { get(env: Env): Promise<string>; put(env: Env, value: string): Promise<void> }): Def {
+  const { get, put, ...rest } = p;
+  return {
+    ...rest,
+    area: 'expenses',
+    where: 'the expense tables',
+    async read(env) {
+      const v = await get(env).catch(() => p.def);
+      const last = await env.DB.prepare('SELECT actor, at FROM hub_audit WHERE key = ? ORDER BY id DESC LIMIT 1').bind(p.id).first<{ actor: string; at: string }>().catch(() => null);
+      return { value: v, saved: !!last, by: last?.actor, at: last?.at };
+    },
+    async write(env, value) {
+      await put(env, value);
+    },
+  };
+}
+
 export const START_TABS: Opt[] = [
   { value: 'open', label: 'Open actions' },
   { value: 'intake', label: 'Entry' },
@@ -223,6 +243,7 @@ export const DEFS: Def[] = [
   hubDef({ id: 'meet.guests', area: 'meetings', label: 'Guests from outside Favor', hint: 'Guests join a meeting from an invitation link without a sign-in.', kind: 'enum', options: ON_OFF, def: 'off', envVar: 'MEET_GUESTS' }),
   hubDef({ id: 'meet.drive_folder', area: 'meetings', label: 'Recording folder', hint: 'The Google Drive folder id of the Meetings folder in US Team Files.', kind: 'text', def: '', envVar: 'MEET_DRIVE_FOLDER' }),
   hubDef({ id: 'meet.lead_min', area: 'meetings', label: 'Reminder lead time', hint: 'Minutes before the start that the second reminder email goes out. The first goes a day ahead.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '15' }),
+  hubDef({ id: 'meet.max_people', area: 'meetings', label: 'People in one meeting', hint: 'The next person to join a full meeting is turned away.', kind: 'int', min: 2, max: 100, unit: 'people', def: '60' }),
   // ------------------------------------------------------------------------------------------------ Favor Brain
   hubDef({ id: 'brain.connect_prompt', area: 'brain', label: 'Connect prompt', hint: 'The one-time window that offers to connect Claude or ChatGPT.', kind: 'enum', options: ON_OFF, def: 'on' }),
   hubDef({ id: 'brain.auto_titles', area: 'brain', label: 'Automatic chat titles', hint: 'A short title written after the first answer in a chat.', kind: 'enum', options: ON_OFF, def: 'on' }),
@@ -230,6 +251,24 @@ export const DEFS: Def[] = [
   hubDef({ id: 'clips.cap_gb', area: 'clips', label: 'Storage for each person', kind: 'int', min: 1, max: 100, unit: 'GB', def: '10', hint: 'A person at the cap deletes clips before recording another.' }),
   hubDef({ id: 'clips.who', area: 'clips', label: 'Who can record', kind: 'enum', options: [{ value: 'all', label: 'Every staff member' }, { value: 'admins', label: 'Admins only' }, { value: 'list', label: 'Admins and the people listed' }], def: 'all' }),
   hubDef({ id: 'clips.list', area: 'clips', label: 'People who can record', hint: 'Email addresses, separated by commas. Used when the setting above is the list.', kind: 'text', def: '' }),
+  hubDef({ id: 'clips.max_min', area: 'clips', label: 'Longest recording', hint: 'The recorder stops a clip at this length.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '45' }),
+  hubDef({ id: 'clips.share_default', area: 'clips', label: 'Sharing link on a new clip', hint: 'A person can still switch the link on or off for each clip.', kind: 'enum', options: ON_OFF, def: 'off' }),
+  // ------------------------------------------------------------------------------------------- Thank-you receipts
+  hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a letter', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
+  hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops the hub from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
+  // -------------------------------------------------------------------------------------------------------- Expenses
+  expDef({ id: 'expenses.approver_name', label: 'Approver name', kind: 'text', def: '', hint: 'Shown on each request and in the emails.',
+    get: async (e) => (await getSettings(e)).approver_name, put: async (e, v) => saveSettings(e, { ...(await getSettings(e)), approver_name: v }) }),
+  expDef({ id: 'expenses.approver_email', label: 'Approver emails', kind: 'text', def: '', hint: 'One address, or several separated by commas. Each can approve.',
+    get: async (e) => (await getSettings(e)).approver_email, put: async (e, v) => saveSettings(e, { ...(await getSettings(e)), approver_email: v }) }),
+  expDef({ id: 'expenses.distribution', label: 'Copy of every decision', kind: 'text', def: '', hint: 'Addresses that get a copy, separated by commas.',
+    get: async (e) => (await getSettings(e)).distribution.join(', '), put: async (e, v) => saveSettings(e, { ...(await getSettings(e)), distribution: splitEmails(v) }) }),
+  expDef({ id: 'expenses.viewers', label: 'Who else can open the log', kind: 'text', def: '', hint: 'Addresses, separated by commas. Approvers and admins always can.',
+    get: async (e) => (await getSettings(e)).viewers.join(', '), put: async (e, v) => saveSettings(e, { ...(await getSettings(e)), viewers: splitEmails(v).map((x) => x.toLowerCase()) }) }),
+  expDef({ id: 'expenses.mileage_rate', label: 'Mileage rate', kind: 'int', min: 1, max: 500, unit: 'cents a mile', def: '76',
+    get: async (e) => String((await getMileageSettings(e)).rate_cents), put: async (e, v) => saveMileageSettings(e, { ...(await getMileageSettings(e)), rate_cents: Number(v) }) }),
+  expDef({ id: 'expenses.mileage_deduction', label: 'Commute miles deducted', kind: 'int', min: 0, max: 500, unit: 'miles', def: '40', hint: 'Taken off each mileage claim.',
+    get: async (e) => String((await getMileageSettings(e)).deduction_miles), put: async (e, v) => saveMileageSettings(e, { ...(await getMileageSettings(e)), deduction_miles: Number(v) }) }),
 ];
 
 export const defOf = (id: string): Def | undefined => DEFS.find((d) => d.id === id);
@@ -253,6 +292,13 @@ export function normalize(d: Def, raw: unknown): string {
     return v;
   }
   const t = v.slice(0, 400);
+  if (d.id === 'expenses.approver_name' && !t) throw new HttpError(400, 'bad_value', 'The approver needs a name.');
+  if (d.id === 'expenses.approver_email' || d.id === 'expenses.distribution' || d.id === 'expenses.viewers') {
+    const list = splitEmails(t);
+    if (d.id === 'expenses.approver_email' && !list.length) throw new HttpError(400, 'bad_value', 'Add at least one approver address.');
+    if (list.some((e) => !/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(e))) throw new HttpError(400, 'bad_value', `${d.label}: use full email addresses, separated by commas.`);
+    return list.join(', ');
+  }
   if (d.id === 'clips.list') {
     const list = t.split(/[,\s]+/).map((e) => e.toLowerCase()).filter(Boolean);
     if (list.some((e) => !/^[a-z0-9._-]+@favorintl\.org$/.test(e))) throw new HttpError(400, 'bad_value', 'Use favorintl.org addresses, separated by commas.');
@@ -344,14 +390,15 @@ export async function startTabFor(env: Env, role: string, fallback: string): Pro
   return row && START_TABS.some((t) => t.value === row.value) ? row.value : fallback;
 }
 
-export async function meetSettings(env: Env): Promise<{ release: string; guests: string; folder: string; leadMin: number }> {
-  const [release, guests, folder, lead] = await Promise.all([
+export async function meetSettings(env: Env): Promise<{ release: string; guests: string; folder: string; leadMin: number; maxPeople: number }> {
+  const [release, guests, folder, lead, max] = await Promise.all([
     effective(env, 'meet.release', 'MEET_RELEASE', 'admin'),
     effective(env, 'meet.guests', 'MEET_GUESTS', 'off'),
     effective(env, 'meet.drive_folder', 'MEET_DRIVE_FOLDER', ''),
     effective(env, 'meet.lead_min', undefined, '15'),
+    effective(env, 'meet.max_people', undefined, '60'),
   ]);
-  return { release: release.toLowerCase(), guests: guests.toLowerCase(), folder, leadMin: Math.min(120, Math.max(5, Number(lead) || 15)) };
+  return { release: release.toLowerCase(), guests: guests.toLowerCase(), folder, leadMin: Math.min(120, Math.max(5, Number(lead) || 15)), maxPeople: Math.min(100, Math.max(2, Number(max) || 60)) };
 }
 
 /** The same environment with the saved meeting answers laid over the Pages variables, so the code that reads env.MEET_* needs no change. */
@@ -378,4 +425,23 @@ export async function mayRecordClips(env: Env, email: string, admin: boolean): P
   if (who === 'admins') return false;
   const list = (await effective(env, 'clips.list', undefined, '')).split(/[,\s]+/).map((e) => e.toLowerCase());
   return list.includes(email.toLowerCase());
+}
+
+export async function clipsMaxMs(env: Env): Promise<number> {
+  const m = Number(await effective(env, 'clips.max_min', undefined, '45')) || 45;
+  return Math.min(120, Math.max(5, m)) * 60_000;
+}
+
+/** Does a new clip start with its sharing link on? */
+export async function clipsShareDefault(env: Env): Promise<boolean> {
+  return (await effective(env, 'clips.share_default', undefined, 'off')) === 'on';
+}
+
+export async function receiptsDays(env: Env): Promise<number> {
+  const n = Math.floor(Number(await effective(env, 'receipts.days', undefined, '90')));
+  return Number.isFinite(n) ? Math.min(365, Math.max(7, n)) : 90;
+}
+
+export async function receiptsReportOn(env: Env): Promise<boolean> {
+  return (await effective(env, 'receipts.report', 'RECEIPTS_REPORT', 'on')).toLowerCase() !== 'off';
 }

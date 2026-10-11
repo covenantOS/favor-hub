@@ -23,6 +23,16 @@ The strip has one tile for each job: the Blackbaud copy, the morning jobs, the o
 
 The morning jobs tile lists assignments, gift phase, record review and credit with their own times. The SKY tile shows the upkeep route's calls against its daily cap. Press **Check again** to read everything again. The strip refreshes every two minutes while the page is open.
 
+## Change a setting
+
+Open a tab in the Admin row. Each setting shows what it is now, where it lives and who last saved it. Change the value, press **Save**, and the row shows the new value and who saved it. A setting that has a saved answer over a default shows **Use the default** or **Use the Pages value** to put the original back.
+
+- **People and roles** lists everyone who signs in with their role and team. Make admin, Make staff, Block and Unblock are one press each, and a block ends that person's open sessions. You cannot block or demote your own account.
+- **Work Center** holds the Blackbaud call caps, who can open it, where each role starts and the morning email start date for each team.
+- **Meetings** holds who can use them, guests, the number of people in one meeting, the recording folder and the reminder lead time.
+- **Favor Brain** holds the connect prompt and automatic chat titles. **Clips** holds storage for each person, the longest recording, the sharing default and who can record.
+- **Reports** sets which roles see each report. **Expenses** holds the approvers, substitutes, who can open the log and the mileage rate. **Thank-you receipts** holds the letter window and the morning email line.
+
 ## Read the audit log
 
 Press **Audit log**. Each row shows when a setting changed, who changed it, and the value before and after. Pick an area to narrow the list, or type a name or a setting. **Show more** loads older rows.

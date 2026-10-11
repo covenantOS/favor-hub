@@ -1,7 +1,7 @@
 // Clips: shared helpers. Every signed-in hub user records clips and manages their own; an admin can also see every clip
 // and delete any of them. Watching is for any signed-in staff member with the link, or anyone with the link when the clip's
 // share switch is on (not when the person who made it has been blocked from the hub).
-import { clipsCapBytes } from './admin/settings';
+import { clipsCapBytes, clipsMaxMs } from './admin/settings';
 import { errorJson, type Env } from './http';
 import { hubUserOf, type HubUser } from './session';
 
@@ -231,7 +231,7 @@ export async function usageOf(env: ClipsEnv, email: string) {
     const r = await env.DB.prepare("SELECT id, title, created_at, size_bytes FROM hub_clips WHERE owner_email = ? AND status = 'ready' AND views = 0 ORDER BY created_at ASC LIMIT 5").bind(email).all<{ id: string; title: string; created_at: string; size_bytes: number }>();
     oldest = r.results || [];
   }
-  return { used, cap: CAP, pct, warn, full: used >= CAP, clips: Number(row?.clips || 0), oldestUnwatched: oldest };
+  return { used, cap: CAP, maxMs: await clipsMaxMs(env).catch(() => MAX_MS), pct, warn, full: used >= CAP, clips: Number(row?.clips || 0), oldestUnwatched: oldest };
 }
 
 const TEAM_LABEL: Record<string, string> = {

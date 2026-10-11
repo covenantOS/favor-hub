@@ -1,0 +1,14 @@
+---
+// Admin > Thank-you receipts: The letter window and the morning email line.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+---
+<App title="Thank-you receipts settings" crumb="Admin" nav="admin-receipts" description="The letter window and the morning email line.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="receipts" title="Thank-you receipts" lede="The letter window and the morning email line." />
+    <div class="ad" data-ad-area="receipts" aria-busy="true"><div class="ad-tile h-skel" style="min-height:140px"></div></div>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-settings.js?v=2" defer></script>
+</App>

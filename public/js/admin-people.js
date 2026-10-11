@@ -17,6 +17,20 @@
     return E(out.join(', ') || 'Today, Reporting, Favor Brain');
   }
 
+  function quick(p) {
+    if (p.email === me) return '';
+    var out = '';
+    if (!p.blocked && !p.envAdmin) out += '<button type="button" class="ad-btn" data-role="' + E(p.email) + '" data-to="' + (p.role === 'admin' ? 'staff' : 'admin') + '">' + (p.role === 'admin' ? 'Make staff' : 'Make admin') + '</button>';
+    out += '<button type="button" class="ad-btn' + (p.blocked ? '' : ' ad-btn--warn') + '" data-block="' + E(p.email) + '" data-to="' + (p.blocked ? '0' : '1') + '">' + (p.blocked ? 'Unblock' : 'Block') + '</button>';
+    return out;
+  }
+
+  function quickSave(b, body, ask) {
+    if (ask && !window.confirm(ask)) return;
+    b.disabled = true;
+    A.api('/api/admin/people', body).then(load).catch(function (e) { b.disabled = false; window.alert(e.message); });
+  }
+
   function draw() {
     var q = $('pp-find').value.trim().toLowerCase(), f = $('pp-filter').value;
     var list = D.people.filter(function (p) {
@@ -34,7 +48,7 @@
         '<td>' + role + (p.envAdmin ? '<br><span class="mute">Set in Pages</span>' : '') + '</td>' +
         '<td>' + E(teamLabel(p.team)) + '</td><td class="mute">' + E(p.fundraiser) + '</td>' +
         '<td>' + (p.workCenter ? '<span class="ad-yes">Yes</span>' : '<span class="ad-no">No</span>') + '</td><td>' + sees(p) + '</td>' +
-        '<td><div class="ad-acts"><button type="button" class="ad-btn" data-edit="' + E(p.email) + '">Edit</button><button type="button" class="ad-btn" data-as="' + E(p.email) + '">Act as</button></div></td></tr>';
+        '<td><div class="ad-acts"><button type="button" class="ad-btn" data-edit="' + E(p.email) + '">Edit</button><button type="button" class="ad-btn" data-as="' + E(p.email) + '">Act as</button>' + quick(p) + '</div></td></tr>';
     }).join('') : '<tr><td colspan="7" class="mute">Nobody matches.</td></tr>';
   }
 
@@ -112,6 +126,13 @@
   }
 
   document.addEventListener('click', function (e) {
+    var q = e.target.closest('[data-role],[data-block]');
+    if (q) {
+      var em = q.dataset.role || q.dataset.block, who = (D.people.filter(function (x) { return x.email === em; })[0] || {}).name || em;
+      if (q.dataset.role) quickSave(q, { email: em, role: q.dataset.to }, q.dataset.to === 'admin' ? 'Make ' + who + ' an admin? Admins can change every setting.' : 'Make ' + who + ' staff? They lose admin access.');
+      else quickSave(q, { email: em, blocked: q.dataset.to === '1' }, q.dataset.to === '1' ? 'Block ' + who + '? Their open sessions end now.' : '');
+      return;
+    }
     var b = e.target.closest('[data-edit],[data-as]');
     if (!b) return;
     if (b.dataset.edit) editor(b.dataset.edit); else preview(b.dataset.as);

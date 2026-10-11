@@ -1,6 +1,7 @@
 // Finishes the multipart upload and starts the transcript, title, summary and chapters. The clip is watchable at once
 // ("processing"); the words and the name arrive a few seconds later.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
+import { clipsMaxMs } from '../../../_lib/admin/settings';
 import { J, MAX_MS, purgeClip, staffOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
 import { runProcess } from '../../../_lib/clipjob';
 import { clearTail, contiguous, foldTail } from '../../../_lib/clipTail';
@@ -49,7 +50,7 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
       }
       size = head.size;
     }
-    const duration = Math.max(0, Math.min(MAX_MS + 5000, Math.round(Number(body.durationMs) || clip.duration_ms || 0)));
+    const duration = Math.max(0, Math.min((await clipsMaxMs(env).catch(() => MAX_MS)) + 5000, Math.round(Number(body.durationMs) || clip.duration_ms || 0)));
     const given = asTrimmed(body.title, 'title', 120, false);
     // A title the person typed is theirs. A hint (a file name) stands in until the transcript names the clip.
     const hint = asTrimmed(body.titleHint, 'titleHint', 120, false);

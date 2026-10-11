@@ -322,7 +322,8 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
   const hostNow = isHost(mt, user.email);
   if (mt.locked && !hostNow) throw new HttpError(403, 'locked', 'The host locked this meeting.');
   const alive = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, now - GONE_MS).first<{ n: number }>();
-  if ((alive?.n || 0) >= MAX_PEOPLE) throw new HttpError(403, 'full', 'This meeting is full.');
+  const maxPeople = (await meetSettings(env).catch(() => null))?.maxPeople ?? MAX_PEOPLE;
+  if ((alive?.n || 0) >= maxPeople) throw new HttpError(403, 'full', 'This meeting is full.');
 
   // The same person rejoining keeps their pid; their old SFU session is dropped by the SFU on its own.
   let pid = clean(b.pid, 12);

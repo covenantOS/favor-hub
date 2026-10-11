@@ -22,7 +22,7 @@
     return '<div class="ad-set" data-row="' + E(s.id) + '"><div><label class="ad-set__name" for="' + id + '">' + E(s.label) + (s.bb ? '<span class="ad-bbtag">Blackbaud</span>' : '') + '</label>' +
       (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + '<div class="ad-set__where">' + E(s.where) + '. ' + E(who) + '.</div></div>' +
       '<div>' + control(s) + '</div><div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-save="' + E(s.id) + '" disabled>Save</button>' +
-      (s.canReset ? '<button type="button" class="ad-btn" data-reset="' + E(s.id) + '">Use ' + (s.id.indexOf('meet.') === 0 ? 'the Pages value' : 'the default') + '</button>' : '') + '</div>' +
+      (s.canReset ? '<button type="button" class="ad-btn" data-reset="' + E(s.id) + '">Use ' + (s.id.indexOf('meet.') === 0 || s.id === 'receipts.report' ? 'the Pages value' : 'the default') + '</button>' : '') + '</div>' +
       '<p class="ad-msg" data-msg="' + E(s.id) + '" role="status"></p></div>';
   }
 
@@ -64,8 +64,37 @@
         return '<tr><td>' + E(u.name) + '<br><span class="mute">' + E(u.email) + '</span></td><td class="num">' + num(u.clips) + '</td><td class="num">' + (u.bytes / 1073741824).toFixed(2) + ' GB</td><td class="num">' + pct + '%</td></tr>';
       })) + '</section>';
     }
+    if (area === 'expenses') return '<section class="ad-card" id="ex-subs"></section>';
     return '';
   }
+
+  var subs = [];
+  function drawSubs() {
+    var box = document.getElementById('ex-subs');
+    if (!box) return;
+    box.innerHTML = '<h2>Substitute approvers</h2>' + table(['Dates', 'Name', 'Email', ''], subs.map(function (o) {
+      return '<tr><td>' + E(o.start) + ' to ' + E(o.end) + '</td><td>' + E(o.name) + '</td><td class="mute">' + E(o.email) + '</td><td><button type="button" class="ad-btn" data-sub-del="' + E(o.id) + '">Remove</button></td></tr>';
+    })) +
+      '<form class="ad-sub" id="ex-sub-form" autocomplete="off"><label>From<input class="ad-field" name="start" type="date" required></label><label>To<input class="ad-field" name="end" type="date" required></label>' +
+      '<label>Name<input class="ad-field" name="name" required></label><label>Email<input class="ad-field" name="email" type="email" required></label>' +
+      '<button class="ad-btn ad-btn--primary" type="submit">Add substitute</button></form><p class="ad-msg" id="ex-sub-msg" role="status"></p>';
+  }
+  function subPost(body) {
+    var m = document.getElementById('ex-sub-msg');
+    m.className = 'ad-msg'; m.textContent = 'Saving';
+    return A.api('/api/admin/expense-subs', body).then(function (d) { subs = d.subs; drawSubs(); var n = document.getElementById('ex-sub-msg'); n.className = 'ad-msg ad-msg--ok'; n.textContent = 'Saved'; })
+      .catch(function (e) { m.className = 'ad-msg ad-msg--bad'; m.textContent = e.message; });
+  }
+  root.addEventListener('submit', function (e) {
+    if (e.target.id !== 'ex-sub-form') return;
+    e.preventDefault();
+    var f = e.target.elements;
+    subPost({ start: f.start.value, end: f.end.value, name: f.name.value, email: f.email.value });
+  });
+  root.addEventListener('click', function (e) {
+    var d = e.target.closest('[data-sub-del]');
+    if (d) subPost({ remove: d.dataset.subDel });
+  });
 
   function msg(id, text, bad) {
     var m = root.querySelector('[data-msg="' + id + '"]');
@@ -128,7 +157,9 @@
 
   A.api('/api/admin/settings?area=' + area).then(function (d) {
     S = d.settings;
+    subs = (d.extras && d.extras.overrides) || [];
     root.innerHTML = groups() + extras(d.extras || {});
+    drawSubs();
     root.removeAttribute('aria-busy');
   }).catch(function (e) { A.fail(document.getElementById('ad-root'), e); });
 })();

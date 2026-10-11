@@ -1,3 +1,4 @@
+import { receiptsReportOn } from '../admin/settings';
 // Batches, the letter wording, and the print files.
 
 import { HttpError, newId, nowIso, type Env } from '../http';
@@ -271,7 +272,7 @@ export function batchSummary(b: BatchRow): Record<string, unknown> {
  * thanked. Best effort: every load of the page sends it again.
  */
 export async function syncPrintFile(env: Env, batchId?: string): Promise<void> {
-  if (env.RECEIPTS_REPORT === 'off') return;
+  if (!(await receiptsReportOn(env).catch(() => env.RECEIPTS_REPORT !== 'off'))) return;
   try {
     const columns = 'id, letter_date, count, gifts, marked, created_by, created_at, downloaded_at, status';
     const row = batchId

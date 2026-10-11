@@ -1,6 +1,6 @@
 // Clips: list the library (with a search that reads titles, summaries and what was said), start a new upload.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../_lib/http';
-import { clipsCapBytes, mayRecordClips } from '../../_lib/admin/settings';
+import { clipsCapBytes, clipsShareDefault, mayRecordClips } from '../../_lib/admin/settings';
 import { PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
 import type { ClipSegment } from '../../_lib/clipChapters';
 
@@ -101,8 +101,8 @@ export const onRequestPost: PagesFunction<ClipsEnv> = async ({ request, env }) =
     const upload = await env.CLIPS.createMultipartUpload(videoKey(id), { httpMetadata: { contentType: mime } });
     const now = nowIso();
     await env.DB.prepare(
-      'INSERT INTO hub_clips (id, owner_email, owner_name, owner_team, title, title_auto, status, share, mime, kind, upload_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)'
-    ).bind(id, who.user.email, who.user.name, await teamOf(env, who.user.email), given, given ? 0 : 1, 'uploading', mime, cleanKind(body.kind), upload.uploadId, now, now).run();
+      'INSERT INTO hub_clips (id, owner_email, owner_name, owner_team, title, title_auto, status, share, mime, kind, upload_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, who.user.email, who.user.name, await teamOf(env, who.user.email), given, given ? 0 : 1, 'uploading', (await clipsShareDefault(env).catch(() => false)) ? 1 : 0, mime, cleanKind(body.kind), upload.uploadId, now, now).run();
     return json({ ok: true, id, ext: extFor(mime), partBytes: PART_BYTES }, 200, { 'Cache-Control': 'private, no-store' });
   } catch (err) {
     return handleError(err);

@@ -3,7 +3,7 @@ import type { Env } from '../http';
 import { mirror } from '../foundations/blackbaud';
 import { getSetting } from '../work/db';
 import { AHEAD_DAYS, FIRST_DAYS, LIMIT, PERIOD, QUARTERLY_DAYS, RULE_LABEL, RULE_STEPS, STEP_LABEL } from '../work/cadence';
-import { getSettings, listOverrides, splitEmails } from '../expenses/db';
+import { listOverrides } from '../expenses/db';
 import { GROUPS } from '../work/digest';
 import { DAILY_CAP, LANE_CAP } from '../actions/batch';
 import { getMeter } from '../work/db';
@@ -78,19 +78,17 @@ async function clipsExtras(env: Env) {
 }
 
 async function expenseExtras(env: Env) {
-  const s = await getSettings(env).catch(() => null);
   const overrides = await listOverrides(env).catch(() => []);
   return {
-    approver: s ? { name: s.approver_name, emails: splitEmails(s.approver_email) } : null,
-    viewers: s ? s.viewers : [],
-    overrides: overrides.map((o) => ({ start: o.start_date, end: o.end_date, name: o.name, email: o.email })),
+    overrides: overrides.map((o) => ({ id: o.id, start: o.start_date, end: o.end_date, name: o.name, email: o.email })),
   };
 }
 
-export async function areaExtras(env: Env, area: Area | 'expenses') {
+export async function areaExtras(env: Env, area: Area) {
   if (area === 'work') return workExtras(env);
   if (area === 'brain') return brainExtras(env);
   if (area === 'clips') return clipsExtras(env);
   if (area === 'expenses') return expenseExtras(env);
+  if (area === 'receipts') return {};
   return {};
 }

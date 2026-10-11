@@ -69,9 +69,9 @@ describe('every setting saves, is audited and reverts', () => {
     if (v.kind === 'enum') return v.options.find((o) => o.value !== v.value).value;
     if (v.kind === 'int') return String(Number(v.value) === v.min ? v.min + 1 : v.min);
     if (v.kind === 'date') return v.value === '2026-12-01' ? '2026-12-02' : '2026-12-01';
-    return v.id === 'clips.list' ? 'pat@favorintl.org' : v.id === 'meet.drive_folder' ? 'abcdefghij1234' : 'x';
+    return v.id === 'clips.list' || /^expenses\.(approver_email|distribution|viewers)$/.test(v.id) ? 'pat@favorintl.org' : v.id === 'meet.drive_folder' ? 'abcdefghij1234' : 'x';
   };
-  for (const area of ['work', 'meetings', 'brain', 'clips']) {
+  for (const area of ['work', 'meetings', 'brain', 'clips', 'receipts', 'expenses']) {
     it(`${area}: change, read back, audit row, revert`, async () => {
       for (const v of await S.readArea(env, area)) {
         const orig = v.value;
@@ -157,6 +157,53 @@ describe('every setting saves, is audited and reverts', () => {
     await S.changeSetting(env, 'a', 'wc.lane_cap', '2400', { confirm: true });
     assert.equal(kv.m.get('bb:ops:cap'), '3000');
     assert.equal(db.db.prepare("SELECT value FROM act_settings WHERE key = 'lane_cap'").get().value, '2400');
+  });
+});
+
+describe('the new settings reach the code that obeys them', () => {
+  it('meeting size, clip length, share default and the receipts window', async () => {
+    assert.equal((await S.meetSettings(env)).maxPeople, 60);
+    await S.changeSetting(env, 'a', 'meet.max_people', '12');
+    assert.equal((await S.meetSettings(env)).maxPeople, 12);
+    await assert.rejects(() => S.changeSetting(env, 'a', 'meet.max_people', '1'), /2 to 100/);
+    assert.equal(await S.clipsMaxMs(env), 45 * 60000);
+    await S.changeSetting(env, 'a', 'clips.max_min', '30');
+    assert.equal(await S.clipsMaxMs(env), 30 * 60000);
+    assert.equal(await S.clipsShareDefault(env), false);
+    await S.changeSetting(env, 'a', 'clips.share_default', 'on');
+    assert.equal(await S.clipsShareDefault(env), true);
+    assert.equal(await S.receiptsDays(env), 90);
+    await S.changeSetting(env, 'a', 'receipts.days', '60');
+    assert.equal(await S.receiptsDays(env), 60);
+    assert.equal(await S.receiptsReportOn({ ...env, RECEIPTS_REPORT: 'off' }), false);
+    await S.changeSetting({ ...env, RECEIPTS_REPORT: 'off' }, 'a', 'receipts.report', 'on');
+    assert.equal(await S.receiptsReportOn({ ...env, RECEIPTS_REPORT: 'off' }), true);
+    for (const id of ['meet.max_people', 'clips.max_min', 'clips.share_default', 'receipts.days', 'receipts.report']) await S.changeSetting(env, 'a', id, null, { reset: true });
+  });
+
+  it('expense settings write the tables the expense log reads', async () => {
+    const E = await import('../functions/_lib/expenses/db.ts');
+    await S.changeSetting(env, 'a', 'expenses.mileage_rate', '70');
+    assert.equal((await E.getMileageSettings(env)).rate_cents, 70);
+    await S.changeSetting(env, 'a', 'expenses.approver_email', 'pat@favorintl.org, lee@favorintl.org');
+    assert.equal((await E.getSettings(env)).approver_email, 'pat@favorintl.org, lee@favorintl.org');
+    await assert.rejects(() => S.changeSetting(env, 'a', 'expenses.approver_email', 'not an address'), /email addresses/);
+    await assert.rejects(() => S.changeSetting(env, 'a', 'expenses.approver_email', ''), /at least one/);
+    await S.changeSetting(env, 'a', 'expenses.mileage_rate', '76');
+  });
+
+  it('substitute approvers are added and removed through an audited admin route', async () => {
+    const sub = await import('../functions/api/admin/expense-subs.ts');
+    const add = await call(sub.onRequestPost, 'POST', '/api/admin/expense-subs', { start: '2026-11-02', end: '2026-11-06', name: 'Lee Test', email: 'lee@favorintl.org' }, hdr('will@favorintl.org'));
+    const d = await add.json();
+    assert.equal(d.subs.length, 1);
+    assert.ok(db.db.prepare("SELECT 1 FROM hub_audit WHERE key = 'expenses.substitute' AND after_value LIKE 'Lee Test%'").get());
+    const bad = await call(sub.onRequestPost, 'POST', '/api/admin/expense-subs', { start: '2026-11-06', end: '2026-11-02', name: 'x', email: 'lee@favorintl.org' }, hdr('will@favorintl.org'));
+    assert.equal(bad.status, 400);
+    const staff = await call(sub.onRequestPost, 'POST', '/api/admin/expense-subs', { remove: d.subs[0].id }, hdr('pat@favorintl.org', 'staff'));
+    assert.equal(staff.status, 403);
+    const gone = await (await call(sub.onRequestPost, 'POST', '/api/admin/expense-subs', { remove: d.subs[0].id }, hdr('will@favorintl.org'))).json();
+    assert.equal(gone.subs.length, 0);
   });
 });
 

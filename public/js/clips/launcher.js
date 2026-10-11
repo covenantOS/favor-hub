@@ -3,7 +3,7 @@
 // holds Pause, Mute and Stop, and the round camera can be dragged anywhere (and floated above other windows in Chrome and Edge).
 // Everything is built here (no framework); styles are in launcher.css.
 import { api, copyText, esc, fmtTime, toast } from './core.js';
-import { BUBBLE_FRACTION, ClipRecorder, canRecordCamera, canRecordScreen } from './recorder.js';
+import { BUBBLE_FRACTION, ClipRecorder, canRecordCamera, canRecordScreen, setMaxSeconds } from './recorder.js';
 import { MAX_UPLOAD_BYTES, uploadVideoFile } from './upload.js';
 
 const PREFS_KEY = 'favor.clips.prefs';
@@ -241,6 +241,7 @@ async function showUsage() {
   try {
     const d = await api('/api/clips/usage');
     S.usage = d.usage;
+    if (d.usage && d.usage.maxMs) setMaxSeconds(Math.round(d.usage.maxMs / 1000));
   } catch (e) {
     return;
   }

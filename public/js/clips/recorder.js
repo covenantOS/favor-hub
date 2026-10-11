@@ -12,6 +12,9 @@
 import { api, putWithRetry } from './core.js';
 
 export const MAX_SECONDS = 45 * 60;
+let maxSeconds = MAX_SECONDS;
+/** The longest clip an admin allows; the launcher sets it from the usage answer. */
+export function setMaxSeconds(n) { if (n > 0) maxSeconds = n; }
 const VIDEO_BPS = 2500000;
 const AUDIO_BPS = 32000;
 const SLICE_SECONDS = 120;
@@ -358,7 +361,7 @@ export class ClipRecorder {
       this.frameTick(elapsed);
       if (!this.thumbDone && elapsed >= 2) this.poster();
       if (elapsed - this.sliceStart >= (debug().sliceSeconds || SLICE_SECONDS) && this.audioRec) this.rotateSlice();
-      if (elapsed >= MAX_SECONDS) {
+      if (elapsed >= maxSeconds) {
         this.stop();
         return;
       }

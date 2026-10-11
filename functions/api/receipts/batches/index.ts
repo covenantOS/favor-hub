@@ -1,3 +1,4 @@
+import { receiptsDays } from '../../../_lib/admin/settings';
 import { requireActor, requireReceiptsUser } from '../../../_lib/receipts/auth';
 import {
   batchSummary,
@@ -58,7 +59,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     const picked = ids(body.ids);
     const added = ids(body.added);
     if (picked.length + added.length === 0) throw new HttpError(400, 'empty', 'Pick at least one gift.');
-    const days = Math.min(Math.max(Number(body.days) || DEFAULT_DAYS, 7), 365);
+    const days = Math.min(Math.max(Number(body.days) || (await receiptsDays(env).catch(() => DEFAULT_DAYS)), 7), 365);
     // One print file at a time, so a gift can never sit in two files and be mailed twice.
     if (!(await takePrintLock(env, actor))) {
       throw new HttpError(409, 'busy', 'Someone else is making a print file right now. Wait a minute, then load the page again.');
