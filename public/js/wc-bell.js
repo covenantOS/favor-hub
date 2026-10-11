@@ -56,8 +56,9 @@ function toast(msg) {
   if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'wm-toast'; toastEl.setAttribute('role', 'status'); toastEl.setAttribute('aria-live', 'polite'); document.body.appendChild(toastEl); }
   toastEl.textContent = msg; toastEl.classList.add('is-on'); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove('is-on'), 3200);
 }
-let popEl = null, popFor = null;
-function closePop() { if (popEl) { popEl.remove(); popEl = null; } if (popFor) { popFor.setAttribute('aria-expanded', 'false'); popFor = null; } }
+let popEl = null, popFor = null, popTok = null, dlgTok = null;
+const ovOff = (t) => { if (t && window.hubOv) window.hubOv.off(t); };
+function closePop() { if (popTok) { const t = popTok; popTok = null; ovOff(t); } if (popEl) { popEl.remove(); popEl = null; } if (popFor) { popFor.setAttribute('aria-expanded', 'false'); popFor = null; } }
 function openPop(anchor, html, opts = {}) {
   closePop();
   popEl = document.createElement('div');
@@ -71,13 +72,14 @@ function openPop(anchor, html, opts = {}) {
   popEl.style.left = Math.max(12, Math.min(window.innerWidth - w - 12, opts.alignLeft ? r.left : r.right - w)) + 'px';
   popEl.style.top = Math.min(r.bottom + 10, window.innerHeight - 120) + 'px';
   if (anchor.setAttribute) { anchor.setAttribute('aria-expanded', 'true'); popFor = anchor; }
+  if (window.hubOv) popTok = window.hubOv.on(() => { popTok = null; closePop(); });
   return popEl;
 }
 document.addEventListener('mousedown', (e) => { if (popEl && !popEl.contains(e.target) && !(popFor && popFor.contains(e.target))) closePop(); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && popEl) { const f = popFor; closePop(); if (f && f.focus) f.focus(); } });
 
 let dlgEl = null, dlgBack = null;
-function closeDlg() { if (!dlgEl) return; dlgEl.remove(); dlgBack.remove(); dlgEl = dlgBack = null; document.documentElement.classList.remove('wm-locked'); if (closeDlg.ret && closeDlg.ret.focus) { try { closeDlg.ret.focus(); } catch (_) {} } }
+function closeDlg() { if (dlgTok) { const t = dlgTok; dlgTok = null; ovOff(t); } if (!dlgEl) return; dlgEl.remove(); dlgBack.remove(); dlgEl = dlgBack = null; document.documentElement.classList.remove('wm-locked'); if (closeDlg.ret && closeDlg.ret.focus) { try { closeDlg.ret.focus(); } catch (_) {} } }
 function openDlg(html, cls) {
   closeDlg(); closePop();
   closeDlg.ret = document.activeElement;
@@ -85,6 +87,7 @@ function openDlg(html, cls) {
   dlgEl = document.createElement('div'); dlgEl.className = 'wm-dlg' + (cls ? ' ' + cls : ''); dlgEl.setAttribute('role', 'dialog'); dlgEl.setAttribute('aria-modal', 'true');
   dlgEl.innerHTML = html;
   document.body.append(dlgBack, dlgEl);
+  if (window.hubOv) dlgTok = window.hubOv.on(() => { dlgTok = null; closeDlg(); });
   const f = $('[autofocus], button', dlgEl); if (f) f.focus();
   return dlgEl;
 }

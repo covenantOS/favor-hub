@@ -254,8 +254,13 @@ function place(r?: DOMRect) {
   const pw = pop.offsetWidth;
   const ph = pop.offsetHeight;
   if (phone()) {
+    // The card sits at the bottom or the top edge, whichever leaves the highlighted thing uncovered.
     pop.style.left = '12px';
-    pop.style.top = `${innerHeight - ph - 12}px`;
+    const below = r ? innerHeight - r.bottom - 12 : Infinity;
+    const above = r ? r.top - 64 : 0;
+    const atTop = !!r && below < ph + 12 && above >= ph + 12;
+    pop.style.top = atTop ? 'calc(env(safe-area-inset-top) + 12px)' : `${innerHeight - ph - 12}px`;
+    pop.dataset.at = atTop ? 'top' : 'bottom';
     return;
   }
   if (!r) {
@@ -358,7 +363,12 @@ async function go(i: number) {
       if (my !== gen) return;
     }
     leaving = true;
-    location.href = step.page;
+    // Closing the search or menu a moment ago may still be stepping the history back; a page change started now would be cancelled by it.
+    const dest = step.page;
+    await new Promise((r) => setTimeout(r, 30));
+    const ov = (window as unknown as { hubOv?: { whenIdle: (f: () => void) => void } }).hubOv;
+    if (ov) ov.whenIdle(() => { location.href = dest; });
+    else location.href = dest;
     return;
   }
   await show(step, my);
@@ -376,7 +386,7 @@ async function scrollTo(el: Element) {
   }
   if (el.closest('#cmdk')) return;
   const top = phone() ? 72 : 84;
-  const roomBelow = phone() ? 260 : 40;
+  const roomBelow = phone() ? Math.min(340, Math.round(innerHeight * 0.4)) : 40;
   if (r.top >= top && r.bottom <= innerHeight - roomBelow) return;
   // Big things start under the top bar; small ones sit in the middle of the screen.
   const tall = r.height > innerHeight - top - roomBelow;
@@ -385,7 +395,18 @@ async function scrollTo(el: Element) {
   await sleep(480);
 }
 
-async function show(step: Step, my: number) {
+// On a phone a few steps name things that live somewhere else (the bottom bar, the More sheet, the search button).
+const PHONE_COPY: Record<string, { at?: string; title?: string; body?: string }> = {
+  menu: { at: '#h-bar', title: 'The bar at the bottom', body: 'Today, Work, Chat and Favor Brain open from the bar at the bottom. More holds Meetings, Reporting, Admin, Help and Feedback. A number on an area shows how much is waiting there.' },
+  search: { body: 'Press the magnifier at the top, type a few letters, and press Go. It finds any page, partner, help topic and video you can open.' },
+  feedback: { at: '.h-side .h-side__fb', body: 'Something wrong, confusing, or a good idea? Open More and press Feedback. Your note goes to Will with the page you were on, and his answer shows under Feedback in the menu.' },
+  'feedback-shot': { at: '.h-side .h-side__fb' },
+  sound: { at: '' },
+};
+
+async function show(rawStep: Step, my: number) {
+  const pc = phone() ? PHONE_COPY[rawStep.id] : undefined;
+  const step: Step = pc ? { ...rawStep, ...(pc.at !== undefined ? { at: pc.at || undefined } : {}), ...(pc.title ? { title: pc.title } : {}), ...(pc.body ? { body: pc.body } : {}) } : rawStep;
   openMenuFor(step.at);
   const n = steps.length;
   const body = typeof step.body === 'function' ? step.body(who) : step.body;

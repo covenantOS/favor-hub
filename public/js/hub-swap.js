@@ -120,6 +120,8 @@
       oldMain.className = newMain.className;
       oldMain.innerHTML = '';
       Array.from(newMain.childNodes).forEach((n) => oldMain.appendChild(document.importNode(n, true)));
+      document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) { /* already closed */ } });
+      if (window.FavorDrill) window.FavorDrill.close();
       viaSwap = true;
       runScripts(oldMain);
       if (push) history.pushState({ hubSwap: 1 }, '', u);
@@ -145,8 +147,10 @@
     if (!viaSwap && HEAVY.has(pathOf(location.href))) return;
     if (pathOf(a.href) === pathOf(location.href)) return;
     e.preventDefault();
-    go(a.href, true);
+    const href = a.href;
+    if (window.hubOv && window.hubOv.depth()) window.hubOv.unwind(() => go(href, true));
+    else go(href, true);
   });
-  origWin('popstate', () => { if (here() && viaSwap) go(location.href, false); else location.reload(); });
+  origWin('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap) go(location.href, false); else location.reload(); });
   window.__hubSwap = { go, cache };
 })();

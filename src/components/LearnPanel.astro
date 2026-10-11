@@ -75,6 +75,8 @@ import { icon } from '../data/icons';
     const a = idx && slug ? idx.articles[slug] : null;
     body!.innerHTML = a ? article(a) : home();
   };
+  // The panel lives under the page body, not inside the header, so no header rule (a button size, a flex rule) can ever reach it.
+  if (dlg && dlg.parentElement !== document.body) document.body.appendChild(dlg);
   if (btn && dlg && body) {
     // The index loads while the page is idle, so the panel opens with its answer already in it.
     const idle = (window as any).requestIdleCallback || ((f: () => void) => setTimeout(f, 1200));
@@ -88,8 +90,11 @@ import { icon } from '../data/icons';
     });
     dlg.querySelector('[data-lp-close]')?.addEventListener('click', () => dlg.close());
     // A press on the backdrop, outside the panel's box, closes it.
+    let downOn: EventTarget | null = null;
+    dlg.addEventListener('pointerdown', (e) => { downOn = e.target; }, true);
     dlg.addEventListener('click', (e) => {
-      if (e.target === dlg) dlg.close();
+      if (e.target === dlg && (downOn === dlg || downOn === null)) dlg.close();
+      downOn = null;
     });
   }
 </script>

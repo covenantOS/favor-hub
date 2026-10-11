@@ -684,11 +684,10 @@ function wireSearch(input, list, o = {}) {
 const headBox = document.getElementById('pp-headsearch');
 if (headBox) {
   let early = false; try { early = localStorage.getItem('favor.hub.gate.v1') === '1'; } catch (_) { /* fine */ }
-  if (early) { headBox.hidden = false; const sb0 = document.querySelector(".h-top__search"); if (sb0) sb0.hidden = true; }
+  if (early) headBox.hidden = false;
   allowed().then((ok) => {
     if (!ok) { headBox.hidden = true; document.documentElement.classList.remove('has-gate'); return; }
     headBox.hidden = false;
-    const btn = document.querySelector('.h-top__search'); if (btn) btn.hidden = true;
     wireSearch($('input', headBox), $('.pv-find__list', headBox), {});
   });
 }

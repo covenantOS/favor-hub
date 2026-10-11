@@ -97,3 +97,69 @@
     })
     .catch(() => {});
 })();
+
+/* The back gesture closes whatever is open on top (search, feedback, help, the phone menu, a number's rows, the tour)
+   instead of leaving the page. Opening an overlay adds one history entry; closing it any other way removes that entry.
+   hub-swap.js asks hubOv to unwind before it changes pages, and ignores the popstate this causes. */
+(() => {
+  const stack = [];
+  let quiet = 0;
+  const pop = () => { try { quiet++; history.back(); } catch (e) { quiet--; } };
+  const hubOv = {
+    depth: () => stack.length,
+    on(close) {
+      const t = { close };
+      stack.push(t);
+      try { history.pushState({ hubov: stack.length }, ''); } catch (e) { /* no history entry; the overlay still closes the usual ways */ }
+      return t;
+    },
+    off(t) {
+      const i = stack.indexOf(t);
+      if (i < 0) return;
+      stack.splice(i, 1);
+      if (i === stack.length && history.state && history.state.hubov) pop();
+    },
+    /** Remove every overlay entry, then run fn once the browser has settled. */
+    unwind(fn) {
+      if (!stack.length || !(history.state && history.state.hubov)) { stack.length = 0; fn(); return; }
+      const n = stack.length;
+      stack.length = 0;
+      let left = n;
+      const step = () => { if (--left <= 0) { removeEventListener('popstate', step); setTimeout(fn, 0); } };
+      addEventListener('popstate', step);
+      for (let k = 0; k < n; k++) { quiet++; history.back(); }
+    },
+    /** Run fn once any history step this module started has finished (a navigation started sooner would be cancelled by it). */
+    whenIdle(fn) {
+      if (quiet <= 0) { fn(); return; }
+      let n = 0;
+      const t = setInterval(() => { if (quiet <= 0 || ++n > 40) { clearInterval(t); fn(); } }, 25);
+    },
+    /** Track an element that opens and closes by itself (an attribute or class change). */
+    watch(el, isOpen, close) {
+      let tok = null;
+      const sync = () => {
+        const open = !!isOpen(el);
+        if (tok && stack.indexOf(tok) < 0) tok = null;
+        if (open && !tok) tok = hubOv.on(() => { tok = null; close(el); });
+        else if (!open && tok) { const t = tok; tok = null; hubOv.off(t); }
+      };
+      new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: ['hidden', 'open', 'class'] });
+      sync();
+    },
+  };
+  addEventListener('popstate', () => {
+    window.__hubOvHandled = true;
+    if (quiet > 0) { quiet--; return; }
+    const t = stack.pop();
+    if (t) t.close(); else window.__hubOvHandled = false;
+  });
+  window.hubOv = hubOv;
+  const phone = matchMedia('(max-width: 860px)');
+  const cmdk = document.getElementById('cmdk');
+  if (cmdk) hubOv.watch(cmdk, (e) => !e.hidden, (e) => { const x = e.querySelector('[data-cmdk-close]'); if (x) x.click(); else e.hidden = true; });
+  const lp = document.getElementById('lp-dlg');
+  if (lp) hubOv.watch(lp, (e) => e.open, (e) => e.close());
+  const app = document.getElementById('h-app');
+  if (app) hubOv.watch(app, (e) => phone.matches && e.classList.contains('is-nav'), () => { const x = document.getElementById('h-side-x'); if (x) x.click(); else app.classList.remove('is-nav'); });
+})();

@@ -312,13 +312,30 @@ export function openFeedback(o: Open = {}) {
     dlg.className = 'fb';
     dlg.setAttribute('aria-labelledby', 'fb-title');
     document.body.appendChild(dlg);
+    const ov = (window as unknown as { hubOv?: { watch: (el: Element, open: (e: HTMLDialogElement) => boolean, close: (e: HTMLDialogElement) => void) => void } }).hubOv;
+    if (ov) ov.watch(dlg, (e) => e.open, (e) => e.close());
+    // A press that starts inside the sheet and ends outside it (the sheet moves up when the keyboard opens) is not a tap on the backdrop.
+    let downOn: EventTarget | null = null;
+    dlg.addEventListener('pointerdown', (e) => { downOn = e.target; }, true);
     dlg.addEventListener('click', (e) => {
-      if (e.target === dlg) dlg!.close();
+      if (e.target === dlg && (downOn === dlg || downOn === null)) dlg!.close();
+      downOn = null;
     });
   }
+  // Opened from the phone menu: the menu closes first, so the picture shows the page and not the menu.
+  const menu = document.getElementById('h-app');
+  const hadMenu = !!menu?.classList.contains('is-nav');
+  if (hadMenu) document.getElementById('h-side-x')?.click();
   render();
   dlg.showModal();
-  if (wantsShot(o)) void capture();
+  if (wantsShot(o)) {
+    if (hadMenu) {
+      shot = 'busy';
+      renderShot();
+      setTimeout(() => void capture(), 380);
+    }
+    else void capture();
+  }
 }
 
 export function initFeedback() {
