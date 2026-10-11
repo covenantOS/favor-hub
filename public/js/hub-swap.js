@@ -114,7 +114,11 @@
       if (window.__hubNav) window.__hubNav.init();
       document.dispatchEvent(new CustomEvent('hub-swapped', { detail: { path: pathOf(u), ms: Math.round(performance.now() - stamp) } }));
     };
-    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) document.startViewTransition(apply); else apply();
+    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // A navigation that starts mid-transition aborts it. The browser then rejects these promises, and nothing else is waiting on them.
+      const vt = document.startViewTransition(apply);
+      for (const p of [vt.ready, vt.finished, vt.updateCallbackDone]) if (p && p.catch) p.catch(() => {});
+    } else apply();
   }
 
   const warm = (e) => { const a = e.target instanceof Element && e.target.closest('a[href]'); if (a && !a.target && swappable(a.href)) fetchPage(a.href).catch(() => {}); };
