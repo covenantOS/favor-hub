@@ -163,6 +163,29 @@
     return rows;
   }
 
+  // A footer total opens the rows it adds up: the report's own rows, never a new query. The total on the page stays as the server sent it.
+  function openTotal(key) {
+    var res = cur.res;
+    var c = res.columns.filter(function (x) { return x.key === key; })[0];
+    if (!c || !window.FavorDrill) return;
+    var sum = 0;
+    res.rows.forEach(function (r) { sum += Number(r[key]) || 0; });
+    var isMoney = c.type === 'money' || c.type === 'cell';
+    var shown = res.totals ? res.totals[key] : null;
+    window.FavorDrill.open({
+      title: (top.title ? top.title.textContent : 'Report') + ', ' + c.label + ' total',
+      shown: shown == null ? null : Number(shown),
+      shownType: isMoney ? 'money' : 'int',
+      shownLabel: 'Total on this report',
+      columns: res.columns.map(function (x) { return { key: x.key, label: x.label, type: x.type === 'money' || x.type === 'cell' ? 'money' : x.type === 'int' ? 'int' : 'text' }; }),
+      rows: res.rows,
+      total: Math.round(sum * 100) / 100,
+      totalLabel: 'Sum of the rows below',
+      rowsLabel: 'Rows in this total',
+      sheetTitle: (top.title ? top.title.textContent : 'Report') + ' rows'
+    });
+  }
+
   function drawReport() {
     var res = cur.res, rows = visibleRows();
     var ps = res.pageSize, pages = Math.max(1, Math.ceil(rows.length / ps));
@@ -206,7 +229,9 @@
     pageRows.forEach(function (r) { h += '<tr>' + res.columns.map(function (c) { return '<td class="' + (isRight(c) ? 'r' : c.type === 'id' ? 'id' : '') + '">' + cell(c, r[c.key], r) + '</td>'; }).join('') + '</tr>'; });
     if (!pageRows.length) h += '<tr><td colspan="' + res.columns.length + '" class="rp-empty">No rows for these filters. <button type="button" class="rp-link" id="rp-clear">Clear</button></td></tr>';
     h += '</tbody>';
-    if (Object.keys(totals).length) h += '<tfoot><tr>' + res.columns.map(function (c, i) { var v = totals[c.key]; return '<td class="' + (isRight(c) ? 'r' : '') + '">' + (i === 0 ? 'Total' : v == null ? '' : c.type === 'money' || c.type === 'cell' ? money(v) : num(v)) + '</td>'; }).join('') + '</tr></tfoot>';
+    // A total opens the rows it adds up (the page's own rows, never a new query). Not while searching or when the list is cut short.
+    var canOpen = !searching && !res.more;
+    if (Object.keys(totals).length) h += '<tfoot><tr>' + res.columns.map(function (c, i) { var v = totals[c.key]; var txt = i === 0 ? 'Total' : v == null ? '' : c.type === 'money' || c.type === 'cell' ? money(v) : num(v); if (canOpen && i > 0 && v != null) txt = '<span class="dr-num" tabindex="0" role="button" data-report-total="' + esc(c.key) + '">' + txt + '</span>'; return '<td class="' + (isRight(c) ? 'r' : '') + '">' + txt + '</td>'; }).join('') + '</tr></tfoot>';
     h += '</table></div>';
     if (rows.length > ps) h += '<div class="rp-pager"><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-prev"' + (cur.page ? '' : ' disabled') + '>Previous</button><span>' + (cur.page * ps + 1) + ' to ' + Math.min(rows.length, cur.page * ps + ps) + ' of ' + num(rows.length) + '</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-next"' + (cur.page + 1 < pages ? '' : ' disabled') + '>Next</button></div>';
     h += '</div></div>';
@@ -245,6 +270,11 @@
     });
     var clr = $('#rp-clear');
     if (clr) clr.addEventListener('click', function () { cur.find = ''; drawReport(); });
+    $$('[data-report-total]', root).forEach(function (el) {
+      var open = function () { openTotal(el.dataset.reportTotal); };
+      el.addEventListener('click', open);
+      el.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    });
     var reset = $('#rp-reset');
     if (reset) reset.addEventListener('click', function () { cur.find = ''; cur.sort = null; reload({}); });
     $$('[data-sort]', root).forEach(function (th) { th.addEventListener('click', function () { var k = th.dataset.sort; cur.sort = cur.sort && cur.sort.k === k ? { k: k, d: -cur.sort.d } : { k: k, d: 1 }; drawReport(); }); });

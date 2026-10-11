@@ -136,6 +136,8 @@
   $('t-welcome-x').addEventListener('click', hideWelcome);
   $('t-welcome').querySelector('[data-tour-start]').addEventListener('click', hideWelcome);
 
+  const SLICE_OF = { rdd: 'rdds', pc: 'pc', ce: 'ce', mk: 'marketing' };
+
   function year(s) {
     const pct = s.goal ? (s.raised / s.goal) * 100 : 0;
     let delta = '';
@@ -146,14 +148,18 @@
     const teams = s.teams
       .map((t) => {
         const p = t.goal ? (t.amount / t.goal) * 100 : 0;
-        return `<div class="r2t-team"><div><b>${esc(t.name)}</b><small>${compact(t.amount)} of ${compact(t.goal)}${t.measure === 'awarded' ? ' awarded' : ''}</small></div><span>${Math.round(p)}%</span>
+        const slice = SLICE_OF[t.key];
+        const amt = slice && t.measure !== 'awarded'
+          ? `<span data-drill="slice:${slice}" data-drill-label="${esc(t.name)}, this year" data-drill-value="${Number(t.amount) || 0}" data-drill-def="Team revenue">${compact(t.amount)}</span>`
+          : compact(t.amount);
+        return `<div class="r2t-team"><div><b>${esc(t.name)}</b><small>${amt} of ${compact(t.goal)}${t.measure === 'awarded' ? ' awarded' : ''}</small></div><span>${Math.round(p)}%</span>
           <div class="r2t-bar"><i style="width:${Math.min(100, p).toFixed(1)}%"></i></div></div>`;
       })
       .join('');
     $('t-year').innerHTML = `
       <div>
         <div class="r2t-lab">Raised so far this year</div>
-        <div class="r2t-hero" data-countup>${money0(s.raised)}</div>
+        <div class="r2t-hero" data-countup data-drill="year" data-drill-label="Raised so far this year" data-drill-value="${Number(s.raised) || 0}" data-drill-def="Which gifts count|Whose gift it is">${money0(s.raised)}</div>
         <div class="r2t-bar r2t-bar--lg"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
         <div class="r2t-goal"><span>${pct.toFixed(1)}% of the ${money0(s.goal)} goal</span>${delta ? `<span class="r2t-delta">${delta}</span>` : ''}</div>
         <a class="h-link r2t-open" href="/dashboard/">Open the KPI dashboard ${icon('arrow')}</a><span class="copy-stamp" data-copy-stamp></span>
