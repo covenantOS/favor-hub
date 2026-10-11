@@ -267,6 +267,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'work-overview',
+    page: '/work-home/',
+    via: 'work-home',
+    at: '#wh-due',
+    title: 'Your day in Work',
+    body: 'Work opens on what is due today and overdue. Press the circle to complete an action, Snooze to move it, or the partner name to open the partner. Gifts to thank lists the oldest five with a Thank button, and Your week shows your goals.',
+    for: (w) => w.admin || w.work,
+    added: '2026-10-10',
+    side: 'right',
+  },
+  {
     id: 'work-center',
     page: '/work/',
     via: 'work',

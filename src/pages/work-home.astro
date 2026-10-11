@@ -1,62 +1,93 @@
 ---
 import App from '../layouts/App.astro';
 import '../styles/r2-today.css';
+import '../styles/work-home.css';
 
 const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
 const tools = [
-  { id: 'work', tool: 'leaf', label: 'Work Center', href: '/work/', count: 'workWaiting', what: 'actions waiting on you', idle: 'Finish actions, enter the week, thank gifts', need: 'workCenter', icon: I('<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/><path d="m15 17 2 2 4-4"/>') },
-  { id: 'board', tool: 'sky', label: 'Requests', href: '/requests/', count: 'inbox', what: 'requests in the inbox', idle: 'Website, Blackbaud, design, print and more', icon: I('<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>') },
-  { id: 'receipts', tool: 'sun', label: 'Thank-yous', href: '/receipts/', count: 'receiptsLeft', what: 'letters left to print', idle: 'Thank-you receipts Blackbaud has waiting', icon: I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
-  { id: 'expense', tool: 'terra', label: 'Expenses', href: '/expenses/new', count: 'expensesWaiting', what: 'expense requests to review', idle: 'Purchases, travel and reimbursements', icon: I('<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>') },
-  { id: 'foundations', tool: 'slate', label: 'Foundations', href: '/foundations/', what: '', idle: 'Check a foundation before you call, log a contact', icon: I('<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>') },
+  { id: 'work', tool: 'leaf', label: 'Work Center', href: '/work/', count: 'workWaiting', need: 'workCenter', icon: I('<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h7"/><path d="m15 17 2 2 4-4"/>') },
+  { id: 'board', tool: 'sky', label: 'Requests', href: '/requests/', count: 'inbox', icon: I('<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>') },
+  { id: 'receipts', tool: 'sun', label: 'Thank-yous', href: '/receipts/', count: 'receiptsLeft', icon: I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>') },
+  { id: 'expense', tool: 'terra', label: 'Expenses', href: '/expenses/new', count: 'expensesWaiting', icon: I('<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>') },
+  { id: 'foundations', tool: 'slate', label: 'Foundations', href: '/foundations/', icon: I('<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>') },
 ];
-const arrow = I('<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>');
+const plus = I('<path d="M12 5v14"/><path d="M5 12h14"/>');
+const quick = [
+  { k: 'task', label: 'New task', icon: I('<path d="m5 12.5 4.5 4.5L19 7.5"/>'), need: 'workCenter' },
+  { k: 'contact', label: 'Log a contact', icon: I('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>'), need: 'workCenter' },
+  { k: 'request', label: 'Make a request', href: '/requests/new', icon: plus },
+  { k: 'expense', label: 'Expense request', href: '/expenses/new', icon: I('<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/>') },
+];
 ---
-<App title="Work" nav="work-home" description="Every work tool in one place, with what is waiting in each.">
-  <div class="r2t">
-    <section>
-      <div class="r2t-sec"><h2>Your tools</h2><span id="wh-meta"></span></div>
-      <div class="r2t-needs wh-grid">
-        {tools.map((t) => (
-          <a class="r2t-tile" data-tool={t.tool} data-wh={t.id} data-wh-count={t.count} data-need={t.need} href={t.href}>
-            <span class="r2t-tile__h"><span class="r2t-ico"><Fragment set:html={t.icon} /></span>{t.label}</span>
-            <span class="r2t-tile__n" data-n hidden></span>
-            <span class="r2t-tile__w" data-what data-idle={t.idle} data-busy={t.what}>{t.idle}</span>
-            <span class="r2t-tile__f"><span class="r2t-go"><Fragment set:html={arrow} /></span></span>
-          </a>
-        ))}
+<App title="Work" nav="work-home" description="Your work in one place: what is due, who to thank, requests and your week.">
+  <div class="r2t wh" id="wh">
+    <div class="wh-top">
+      <h1 id="wh-title">Work</h1>
+      <span class="wh-meta" id="wh-meta"></span>
+    </div>
+
+    <nav class="wh-tools" aria-label="Work tools">
+      {tools.map((t) => (
+        <a class="wh-tool" data-tool={t.tool} data-wh={t.id} data-wh-count={t.count} data-need={t.need} href={t.href}>
+          <span class="r2t-ico r2t-ico--sm"><Fragment set:html={t.icon} /></span>
+          <span class="wh-tool__l">{t.label}</span>
+          <span class="wh-tool__n" data-n hidden></span>
+        </a>
+      ))}
+    </nav>
+
+    <div class="wh-grid">
+      <div class="wh-col wh-col--main">
+        <section class="h-card wh-card" id="wh-due" aria-labelledby="wh-due-h" hidden>
+          <header class="r2t-ch"><h3 id="wh-due-h">Today's work</h3><span class="wh-chips" id="wh-due-chips"></span><a class="h-link" id="wh-due-all" href="/work/?view=open">Open all</a></header>
+          <ul class="wh-list" id="wh-due-list"></ul>
+        </section>
+
+        <section class="h-card wh-card" id="wh-gifts" aria-labelledby="wh-gifts-h" hidden>
+          <header class="r2t-ch"><h3 id="wh-gifts-h">Gifts to thank</h3><span class="wh-chips" id="wh-gifts-chips"></span><a class="h-link" id="wh-gifts-all" href="/work/?view=gifts">Open all</a></header>
+          <ul class="wh-list" id="wh-gifts-list"></ul>
+        </section>
+
+        <section class="h-card wh-card" id="wh-team" aria-labelledby="wh-team-h" hidden>
+          <header class="r2t-ch"><h3 id="wh-team-h">Team</h3><span class="wh-chips" id="wh-team-chips"></span><a class="h-link" href="/work/?view=open">Open all</a></header>
+          <div class="wh-tw"><table class="wh-table" id="wh-team-table"></table></div>
+        </section>
       </div>
-    </section>
+
+      <div class="wh-col wh-col--side">
+        <section class="h-card wh-card" id="wh-week" aria-labelledby="wh-week-h" hidden>
+          <header class="r2t-ch"><h3 id="wh-week-h">Your week</h3><span id="wh-week-sub"></span></header>
+          <div class="wh-body" id="wh-week-body"></div>
+        </section>
+
+        <section class="h-card wh-card" id="wh-req" aria-labelledby="wh-req-h">
+          <header class="r2t-ch"><h3 id="wh-req-h">Requests</h3><span class="wh-chips" id="wh-req-chips"></span><a class="h-link" href="/requests/">The board</a></header>
+          <div class="wh-body" id="wh-req-body"><div class="wh-skel"></div></div>
+        </section>
+
+        <section class="h-card wh-card" id="wh-quick" aria-labelledby="wh-quick-h">
+          <header class="r2t-ch"><h3 id="wh-quick-h">Quick actions</h3></header>
+          <div class="wh-quick">
+            <div class="wh-find" id="wh-find" data-need="workCenter"></div>
+            <div class="wh-qgrid">
+              {quick.map((q) =>
+                q.href ? (
+                  <a class="wh-q" href={q.href} data-need={q.need}><span class="r2t-ico r2t-ico--sm"><Fragment set:html={q.icon} /></span>{q.label}</a>
+                ) : (
+                  <button type="button" class="wh-q" data-q={q.k} data-need={q.need}><span class="r2t-ico r2t-ico--sm"><Fragment set:html={q.icon} /></span>{q.label}</button>
+                )
+              )}
+            </div>
+            <div class="wh-pick" id="wh-pick" hidden></div>
+          </div>
+        </section>
+
+        <section class="h-card wh-card" id="wh-feed" aria-labelledby="wh-feed-h">
+          <header class="r2t-ch"><h3 id="wh-feed-h">Recent activity</h3><span>Last 7 days</span></header>
+          <ul class="wh-list wh-list--feed" id="wh-feed-list"><li class="wh-skel"></li></ul>
+        </section>
+      </div>
+    </div>
   </div>
-  <style>
-    .wh-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-  </style>
-  <script is:inline>
-    (() => {
-      function paint(d) {
-        if (!d) return;
-        const counts = d.counts || {};
-        const access = d.access || {};
-        document.querySelectorAll('[data-wh]').forEach((el) => {
-          const need = el.getAttribute('data-need');
-          if (need && access[need] === false) { el.hidden = true; return; }
-          const key = el.getAttribute('data-wh-count');
-          const n = key ? Number(counts[key] || 0) : 0;
-          const nEl = el.querySelector('[data-n]');
-          const wEl = el.querySelector('[data-what]');
-          if (n > 0) {
-            nEl.textContent = n.toLocaleString('en-US');
-            nEl.hidden = false;
-            wEl.textContent = wEl.getAttribute('data-busy');
-          } else {
-            nEl.hidden = true;
-            wEl.textContent = wEl.getAttribute('data-idle');
-          }
-        });
-      }
-      try { paint(JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null')); } catch {}
-      if (window.FAVOR_HUB) paint(window.FAVOR_HUB);
-      document.addEventListener('favor-hub', (e) => paint(e.detail));
-    })();
-  </script>
+  <script is:inline src="/js/work-home.js?v=1" defer></script>
 </App>

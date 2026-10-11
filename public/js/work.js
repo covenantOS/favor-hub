@@ -1321,6 +1321,7 @@ async function init() {
     const [b, rc] = await Promise.all([api('/api/work/board?limit=3000'), api('/api/work/recent')]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
     const v = QS.get('view'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
+    { const qk = QS.get('quick'), fr = QS.get('fr'); if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
     if (window.WCEdit) await window.WCEdit.start();
     if (window.WCStart) await window.WCStart.apply();
     if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
