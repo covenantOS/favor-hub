@@ -149,22 +149,9 @@
   }
 
   function render() {
-    renderStats();
     renderTabs();
     renderFilters();
     renderRows();
-  }
-
-  function renderStats() {
-    const L = state.list;
-    // The filter chips under this band already count foundations, Blackbaud records and dead ends.
-    // Contacts logged is the one total they do not show.
-    const stats = [
-      [L.reduce((s, f) => s + Number(f.contacts || 0), 0), 'Contacts logged'],
-    ];
-    $('fnd-stats').innerHTML = stats
-      .map((s) => `<div class="ticker__stat"><div class="ticker__num">${s[0].toLocaleString('en-US')}</div><div class="ticker__caption">${s[1]}</div></div>`)
-      .join('');
   }
 
   function renderTabs() {

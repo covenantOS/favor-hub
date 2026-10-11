@@ -118,7 +118,7 @@
       if (mine.devs) devices();
     }).catch(function (e) {
       if (cur !== mine) return;
-      mine.denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'The browser blocked the microphone. Allow it from the lock icon in the address bar, or join to listen.' : 'No microphone found. You can still join to listen.';
+      mine.denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError') ? 'Microphone blocked. Allow it from the lock icon in the address bar, or join to listen.' : 'No microphone found. You can still join to listen.';
       paintPreview(); paintNote();
     });
   }

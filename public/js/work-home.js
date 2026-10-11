@@ -103,7 +103,7 @@
     // One line under the top bar: whose work this is (when it is not the admin's own) and how fresh Blackbaud's copy is.
     // The role, the date and a second clock time used to sit here too; the menu and Today already show them.
     const who = d.name && d.name !== 'Admin' ? d.name : '';
-    $('wh-meta').innerHTML = [esc(who), w && w.synced ? `Blackbaud data <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : ''].filter(Boolean).join(' · ');
+    $('wh-meta').innerHTML = [esc(who), w && w.synced ? `Blackbaud data · <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : ''].filter(Boolean).join(' · ');
     // With nothing to say the row would leave an empty band above the tools.
     $('wh-meta').parentElement.hidden = !$('wh-meta').innerHTML;
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }

@@ -150,7 +150,7 @@ function bellHTML() {
   const list = rows.length ? rows.map((r) => `<div class="wm-rem" data-rid="${esc(r.id)}"><time class="${r.bucket === 'now' ? 'is-now' : ''}">${r.bucket === 'now' ? 'Now' : r.bucket === 'tomorrow' ? 'Tomorrow' : esc(label(r.at))}</time>
       <div><b>${esc(r.title)}</b>${r.note ? `<span>${esc(r.note)}</span>` : ''}
         <div class="wm-remacts">${r.cid ? `<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wm-open="${esc(r.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-done="${esc(r.id)}">Done</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-later="${esc(r.id)}" aria-haspopup="menu">Later${ic('down')}</button></div></div></div>`).join('')
-    : `<div class="wm-empty"><b>No reminders</b>The bell on a task sets one.</div>`;
+    : `<div class="wm-empty"><b>No reminders</b></div>`;
   const taskList = TK.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Requests</div>${TK.items.map((it) => { const c = taskLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-task="${it.id}"><time>${esc(label(it.created_at))}</time><div><b>${esc(c.head)} ${esc(c.title)}</b>${c.txt ? `<span>${esc(c.txt)}</span>` : ''}</div></a>`; }).join('')}</div>` : '';
   const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time>${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
   const wc = wcOn() || !tasksOn();

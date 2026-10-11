@@ -167,7 +167,7 @@ const upkeepCap: Def = {
   area: 'work',
   group: 'Blackbaud calls a day',
   label: 'Upkeep calls a day',
-  hint: 'Everything the hub and the sync worker send through the upkeep route. The giving form keeps the rest of the key.',
+  hint: 'Hub and sync worker calls. The giving form keeps the rest of the key.',
   kind: 'int',
   min: 1000,
   max: 3000,
@@ -194,7 +194,7 @@ const upkeepCap: Def = {
 
 const laneCap = actDef({
   id: 'wc.lane_cap', key: 'lane_cap', area: 'work', group: 'Blackbaud calls a day', label: 'Work Center lane',
-  hint: 'Calls a day the Work Center may use out of the upkeep cap. The rest stays for the sync worker.',
+  hint: 'Share of the upkeep cap. The rest stays for the sync worker.',
   kind: 'int', min: 100, max: 2900, unit: 'calls', bb: true, def: '2400', norm: (v) => String(Number(v) || 2400),
 });
 laneCap.check = async (env, value) => {

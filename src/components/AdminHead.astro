@@ -1,7 +1,7 @@
 ---
-// The head every Admin page shares: the title and the row of admin pages. A page may pass one fact staff need (fact);
-// a line that describes the page (lede) is not drawn, the title and the tabs already say it. On the overview the title
-// repeats the top bar, so it stays for screen readers only.
+// The head every Admin page shares: the title and the row of admin pages. The active tab above already names the page,
+// so the title stays for screen readers only. A page may pass one fact staff need (fact); a line that describes the
+// page (lede) is not drawn.
 import { ADMIN_PAGES } from '../data/admin-pages';
 import '../styles/crit-reportadmin.css';
 interface Props { on: string; title: string; lede?: string; fact?: string; }
@@ -10,14 +10,8 @@ const { on, title, fact = '' } = Astro.props;
 const TABS = ADMIN_PAGES.filter((p) => p.live && p.tab);
 const showTabs = TABS.some((p) => p.id === on);
 ---
-{on === 'overview'
-  ? <h1 class="sr-only">{title}</h1>
-  : <header class="ad-head">
-      <div>
-        <h1>{title}</h1>
-        {fact && <p class="h-lede">{fact}</p>}
-      </div>
-    </header>}
+<h1 class="sr-only">{title}</h1>
+{fact && <p class="h-lede">{fact}</p>}
 {showTabs && <nav class="ad-tabs" aria-label="Settings pages">
   <div class="ad-tabs__row">
     {TABS.map((p) => <a class={`ad-tab${p.id === on ? ' is-on' : ''}`} href={p.href} aria-current={p.id === on ? 'page' : undefined}>{p.label}</a>)}
