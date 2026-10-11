@@ -695,6 +695,25 @@
         if (opts.onUnread) opts.onUnread(totalUnread());
       }).catch(function () {}).then(function () { S.resyncing = false; });
     }
+    // A Favor Brain answer arrives as one live update. A phone that dropped its connection for a moment misses it and the message
+    // would read "Reading the records" for good, so while one is still thinking the page re-reads the channel every few seconds.
+    setInterval(function () {
+      if (document.hidden || S.resyncing) return;
+      var lists = [S.msgs[S.active] || []];
+      if (S.right === 'thread' && S.threadRoot && S.threads[S.threadRoot]) lists.push(S.threads[S.threadRoot].replies || S.threads[S.threadRoot].messages || []);
+      var now = Date.now();
+      var waiting = lists.some(function (l) { return l.some(function (m) { return m && m.brain && m.brain.status === 'thinking' && now - Date.parse(m.created_at || 0) > 4000 && now - Date.parse(m.created_at || 0) < 600000; }); });
+      if (waiting) resync();
+    }, 4000);
+    // The hub menu opened from the phone list sits over the chat: a tap outside it closes it and goes no further.
+    document.addEventListener('click', function (e) {
+      var shell = document.querySelector('.h-app');
+      if (!isPhone() || !shell || !shell.classList.contains('is-nav')) return;
+      if (e.target.closest('.h-side') || e.target.closest('[data-act="hub-menu"]')) return;
+      e.preventDefault(); e.stopPropagation();
+      shell.classList.remove('is-nav');
+      ['h-bar-more', 'h-menu'].forEach(function (id) { var b = document.getElementById(id); if (b) b.setAttribute('aria-expanded', 'false'); });
+    }, true);
     function setConn(ok) {
       S.connected = ok; var el = $('.ch-conn', root);
       if (ok) { if (el) el.remove(); return; }
