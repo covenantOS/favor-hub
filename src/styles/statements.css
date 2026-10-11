@@ -1,0 +1,69 @@
+/* Giving statements. Leans on receipts.css, foundations.css and requests.css for the hub's primitives. */
+
+.stm-find { margin-bottom: 18px; max-width: 560px; }
+.stm-find .req-field { margin-bottom: 8px; }
+.stm-find input { width: 100%; }
+.stm-hits { display: flex; flex-direction: column; gap: 6px; }
+.stm-hit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  width: 100%;
+  background: var(--cream);
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font: 400 15px/1.3 var(--body);
+  color: var(--ink);
+  cursor: pointer;
+}
+.stm-hit:hover, .stm-hit:focus-visible { border-color: var(--green-deep); background: #fff; }
+.stm-hit span { font-size: 13px; color: var(--ink-soft); }
+
+.stm-who h2, .stm-h2 { font-family: var(--display); font-weight: 400; font-size: clamp(24px, 2.4vw, 32px); letter-spacing: -0.02em; margin-bottom: 4px; }
+.stm-controls { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin: 14px 0 12px; }
+.stm-controls .req-field { margin: 0; }
+.stm-controls select, .stm-controls input[type='date'] { min-width: 170px; }
+.stm-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); padding-bottom: 10px; }
+.stm-check input { width: 17px; height: 17px; accent-color: var(--green-deep); }
+.stm-sheet { margin: 0 0 12px; }
+
+.stm-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 8px 0 16px; }
+.stm-tile { background: var(--cream); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.stm-tile b { font-family: var(--display); font-weight: 400; font-size: 26px; letter-spacing: -0.02em; }
+.stm-tile span { font-size: 13px; color: var(--ink-soft); }
+
+.stm-notes { margin: 0 0 16px; padding: 12px 16px 12px 32px; border: 1px solid #ecd9a8; border-left: 4px solid var(--ochre); border-radius: 12px; background: #fbf2dc; font-size: 14.5px; line-height: 1.5; }
+.stm-h { font-family: var(--display); font-weight: 400; font-size: 22px; letter-spacing: -0.015em; margin: 22px 0 8px; }
+.stm-table td, .stm-table th { font-size: 14.5px; }
+.stm-table .r { text-align: right; white-space: nowrap; }
+.stm-flag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #fbf2dc; border: 1px solid #ecd9a8; font: 500 12px/1.5 var(--mono); color: #8a6410; }
+.stm-left { margin-top: 18px; }
+.stm-left summary { cursor: pointer; font-size: 14.5px; color: var(--ink-soft); padding: 6px 0; }
+.stm-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--rule); }
+.stm-actions .rcp-btn { margin: 0; }
+.stm-actions .rcp-fine { margin: 0; }
+.stm-actions p.rcp-fine { flex-basis: 100%; }
+
+.stm-year { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.stm-year .req-field { margin: 0; }
+.stm-ties { list-style: none; margin: 16px 0 22px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.stm-tie { display: flex; gap: 10px; align-items: baseline; font-size: 14.5px; line-height: 1.45; padding: 10px 14px; border: 1px solid var(--rule); border-radius: 12px; background: var(--cream); }
+.stm-tie b { flex: none; font: 600 12px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.stm-tie.is-match b { color: var(--green-deep); }
+.stm-tie.is-differs { border-color: #ecd2c4; background: #fdf6f2; }
+.stm-tie.is-differs b { color: var(--terracotta); }
+.stm-tie.is-none b { color: var(--ink-soft); }
+.stm-done { margin: 8px 0 0; }
+.stm-words th { width: 28%; text-align: left; vertical-align: top; font-weight: 600; }
+.stm-words td { line-height: 1.5; }
+
+@media (max-width: 720px) {
+  .stm-controls > * { flex: 1 1 100%; }
+  .stm-controls select, .stm-controls input[type='date'] { min-width: 0; width: 100%; }
+  .stm-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stm-actions .rcp-btn, .stm-actions .req-submit, .stm-actions .req-ghost { flex: 1 1 100%; text-align: center; }
+  .stm-words th { width: 36%; }
+}
