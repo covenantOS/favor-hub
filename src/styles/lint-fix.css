@@ -42,3 +42,8 @@ body.h-body .wh .dr-num.dr-num::after { content: none; }
 @media (max-width: 1023px) {
   body.h-body .wh .dr-num.dr-num { min-width: 44px; min-height: 44px; padding: 14px 17px; margin: -14px -17px; }
 }
+
+/* Work Center row buttons (status, summary): 24 px hit area on desktop, rows keep their height. */
+@media (min-width: 1024px) {
+  #wc-root .wc-row .wc-inl, #wc-root .wc-row .wc-open { padding-block: 4px; margin-block: -4px; }
+}

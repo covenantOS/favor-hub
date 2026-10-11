@@ -373,7 +373,7 @@ body.has-bar .wc-toast { bottom: 100px; }
 
 /* ------------------------------------------------ phone */
 @media (max-width: 1280px) {
-  .wc-grid { --cols: 44px 104px minmax(160px, 1.3fr) 136px minmax(170px, 2fr) 128px; }
+  .wc-grid { --cols: 44px 104px minmax(190px, 1.7fr) 136px minmax(160px, 1.8fr) 128px; }
   .wc-grid .wc-added { display: none; }
   .wc-lanecards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .wc-ig { --cols: 44px minmax(180px, 1fr) 136px 360px 132px; }
