@@ -114,6 +114,7 @@ function readRecur(box) {
 }
 
 /* ------------------------------------------------------------------ the edit panel */
+const TOUCH = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
 const PANEL_TABS = [['details', 'Details'], ['notes', 'Notes'], ['tags', 'Tags'], ['files', 'Attachments']];
 
 async function panel(id) {
@@ -153,7 +154,7 @@ function drawPanel() {
     const C = E.codes || {};
     const opps = P.partner.opps || [];
     pane.innerHTML = `
-      <div class="wc-field"><label for="ep-sum" class="lab">Summary</label><input type="text" id="ep-sum" data-f="summary" maxlength="255" value="${esc(a.summary)}" placeholder="What happened, or what to do" autofocus /></div>
+      <div class="wc-field"><label for="ep-sum" class="lab">Summary</label><input type="text" id="ep-sum" data-f="summary" maxlength="255" value="${esc(a.summary)}" placeholder="What happened, or what to do"${TOUCH ? '' : ' autofocus'} /></div>
       ${field('Category', `<div class="wc-choices">${CATS.map(([v, l, i]) => chip('data-fv="category" data-v', v, l, a.category === v, i)).join('')}</div>`)}
       <div class="wc-row2">${field('Type', `<select data-f="type">${opt('', 'No type', !a.type)}${(C.types || []).map((t) => opt(t, t.replace(/^RESERVED \((.*)\)$/, '$1'), a.type === t)).join('')}${a.type && !(C.types || []).includes(a.type) ? opt(a.type, a.type, true) : ''}</select>`)}
         ${field('Status', `<div class="wc-choices">${(C.statuses || ['Open', 'Completed', 'Canceled']).map((s) => chip('data-fv="status" data-v', s, s, a.status === s || (s === 'Open' && /past due/i.test(a.status)))).join('')}</div>`)}</div>
@@ -559,7 +560,7 @@ function pop(anchor, html, onMount) {
   p.style.top = (r.bottom + h + 8 > window.innerHeight ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
   E.pop = p;
   if (onMount) onMount(p);
-  const f = $('input, button', p); if (f) f.focus();
+  const f = $('input, button', p); if (f && !TOUCH) f.focus();
 }
 function closePop() { if (E.pop) { E.pop.remove(); E.pop = null; } }
 function inline(kind, id, anchor) {

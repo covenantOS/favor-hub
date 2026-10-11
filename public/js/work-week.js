@@ -52,8 +52,10 @@ const meter = (label, short, n, goal) => `<div class="wwk-meter${n >= goal ? ' i
 function strip() {
   const me = W().DATA.me;
   if (!mayStrip(me) || W().S.view === 'week') return '';
-  if (!S.started) { start(); return ''; }
+  const hold = '<div class="h-card wwk-strip wwk-strip--wait" aria-hidden="true"></div>';
+  if (!S.started) { start(); return hold; }
   const d = wk();
+  if (S.loading && !d) return hold;
   if (!d || S.back !== 0 || S.owner !== me.fid) return '';
   const c = d.counts, g = d.goals, v = d.giving;
   return `<div class="h-card wwk-strip" data-wwk-go role="button" tabindex="0" aria-label="Open My week">
