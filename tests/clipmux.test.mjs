@@ -409,24 +409,29 @@ describe('the fast-start job', () => {
   it('someone in the middle of the stored recording keeps getting it after the clip changes', async () => {
     const w = world('frag-base.mp4');
     const want = (await rewrite(w.buf)).out;
-    // The play starts on the recording as stored: the answer marks it, and the job runs behind it.
+    // The play starts on the recording as stored: the answer marks the browser, and the job runs behind it.
     const first = await mediaOf(w.env, 'bytes=0-');
     assert.ok(Buffer.from(first.body).equals(w.buf));
     const set = first.res.headers.get('Set-Cookie');
-    assert.match(set, /^clipsrc=o; Path=\/api\/clips\/c{32}\/; Max-Age=3600; Secure; HttpOnly; SameSite=Lax$/);
+    assert.match(set, /^clipsrc=o; Path=\/api\/clips\/c{32}\/; Max-Age=600; Secure; HttpOnly; SameSite=Lax$/);
     assert.equal(w.row().mux, 'done');
     const cookie = 'favor_hub=x; clipsrc=o';
-    // The same play asks for more by position: still the stored recording.
-    const more = await mediaOf(w.env, 'bytes=30000-30099', { cookie });
-    assert.ok(Buffer.from(more.body).equals(w.buf.subarray(30000, 30100)));
-    assert.equal(more.res.headers.get('Content-Range'), `bytes 30000-30099/${w.buf.byteLength}`);
-    assert.equal(more.res.headers.get('Set-Cookie'), null);
-    // A viewer without the mark gets the new file at the same position.
-    assert.ok(Buffer.from((await mediaOf(w.env, 'bytes=30000-30099')).body).equals(want.subarray(30000, 30100)));
-    // The next play from the start gets the new file and the mark is removed.
-    const again = await mediaOf(w.env, 'bytes=0-', { cookie });
-    assert.ok(Buffer.from(again.body).equals(want));
-    assert.match(again.res.headers.get('Set-Cookie'), /^clipsrc=; .*Max-Age=0/);
+    // The same play asks for more by position, then comes back to byte 0: still the stored recording, and the mark is kept alive.
+    for (const [range, a, b] of [['bytes=30000-30099', 30000, 30100], ['bytes=0-', 0, w.buf.byteLength]]) {
+      const more = await mediaOf(w.env, range, { cookie });
+      assert.ok(Buffer.from(more.body).equals(w.buf.subarray(a, b)), range);
+      assert.equal(more.res.headers.get('Content-Range'), `bytes ${a}-${b - 1}/${w.buf.byteLength}`);
+      assert.equal(more.res.headers.get('Set-Cookie'), set);
+    }
+    // A viewer without the mark gets the new file, and is not marked.
+    const fresh = await mediaOf(w.env, 'bytes=30000-30099');
+    assert.ok(Buffer.from(fresh.body).equals(want.subarray(30000, 30100)));
+    assert.equal(fresh.res.headers.get('Set-Cookie'), null);
+    // Once the stored recording is gone, the mark means nothing.
+    w.CLIPS.objects.delete(`clips/${ID}/video`);
+    const late = await mediaOf(w.env, 'bytes=0-', { cookie });
+    assert.ok(Buffer.from(late.body).equals(want));
+    assert.equal(late.res.headers.get('Set-Cookie'), null);
     // WebM never changes, so it is never marked.
     const webm = world('tiny.webm', { mime: 'video/webm' });
     assert.equal((await mediaOf(webm.env, 'bytes=0-')).res.headers.get('Set-Cookie'), null);

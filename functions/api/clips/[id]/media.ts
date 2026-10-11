@@ -6,10 +6,11 @@
 import { PRIVATE, ID_RE, isWatchable, canWatch, parseRange, posterKey, extFor, type Clip, type ClipsEnv } from '../../../_lib/clips';
 //
 // One viewer needs care: someone already playing a clip in the layout it was recorded in when the clip changes to the new
-// one. Their player is partway through the old file and asks for more of it by byte position, and the same positions in
-// the new file hold different bytes. So a play that starts on the old layout is marked with a short-lived cookie for that
-// clip, and later requests of that play (any that do not start at byte 0) keep getting the old file. The next play from
-// the start gets the new layout and the mark is removed.
+// one. Their player is partway through the old file and asks for more of it by byte position (and comes back to byte 0
+// once it has read every fragment header), and the same positions in the new file hold different bytes. So a browser
+// that is given the old layout is marked with a cookie for that one clip, and while the mark lasts it keeps getting the
+// old file. The mark runs out ten minutes after that browser last asked for the clip; its next play gets the new layout.
+// This only happens to clips recorded before the job existed, or when reading a recording took longer than /complete waits.
 import { muxPending, muxRun, servedVideo, storedVideo, type Served } from '../../../_lib/clipmuxjob';
 import { hubUserOf } from '../../../_lib/session';
 
@@ -28,7 +29,7 @@ const deny = async (env: ClipsEnv, request: Request, clip: Clip | null): Promise
 
 const MARK = 'clipsrc';
 const marked = (request: Request) => /(?:^|;\s*)clipsrc=o(?:;|$)/.test(request.headers.get('Cookie') || '');
-const markCookie = (id: string, on: boolean) => `${MARK}=${on ? 'o' : ''}; Path=/api/clips/${id}/; Max-Age=${on ? 3600 : 0}; Secure; HttpOnly; SameSite=Lax`;
+const markCookie = (id: string) => `${MARK}=o; Path=/api/clips/${id}/; Max-Age=600; Secure; HttpOnly; SameSite=Lax`;
 
 const fileName = (c: Clip) => `${(c.title || 'Clip').replace(/[^\w\- ]+/g, '').trim().slice(0, 60) || 'Clip'}.${extFor(c.mime)}`;
 
@@ -45,17 +46,18 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
   const q = new URL(request.url).searchParams;
   const isPoster = q.get('poster') === '1';
   const rangeHeader = request.headers.get('Range');
-  const fromStart = !rangeHeader || /^bytes=0-/.test(rangeHeader.trim());
   const changed = clip.mux === 'plan' || clip.mux === 'done';
   let mark = '';
   let file: Served | null = null;
   if (isPoster) file = await posterOf(env, clip.id);
   else {
-    // A play that began on the stored recording carries on with it (see the top of this file).
-    if (changed && !fromStart && marked(request)) file = await storedVideo(env, clip.id);
+    // A browser that began on the stored recording carries on with it (see the top of this file).
+    if (changed && marked(request)) {
+      file = await storedVideo(env, clip.id);
+      if (file) mark = markCookie(clip.id);
+    }
     if (!file) file = await servedVideo(env, clip);
-    if (fromStart && clip.mux === '' && /mp4|quicktime/.test(clip.mime)) mark = markCookie(clip.id, true);
-    else if (fromStart && changed && marked(request)) mark = markCookie(clip.id, false);
+    if (clip.mux === '' && /mp4|quicktime/.test(clip.mime)) mark = markCookie(clip.id);
   }
   if (!file) return new Response('Not found', { status: 404, headers: PRIVATE });
   if (!isPoster && waitUntil && muxPending(clip)) waitUntil(muxRun(env, clip.id, 20_000).then(() => undefined).catch(() => undefined));
