@@ -1,0 +1,29 @@
+/* QA round 2, meet area (2026-10-11). Loaded by the meet pages after meet.css and r2-meet.css. */
+
+/* Day timeline: the now label sits at the right edge so it no longer covers the 12 PM hour label. */
+.dv .dv-now span { left: auto; right: 8px; top: -11px; font-size: 13px; }
+.dv .dv-hr span { font-size: 13px; }
+.dv .dv-day small { font-size: 13px; }
+.dv .dv-tl span, .dv .dv-legend span, .dv .dv-lv span { font-size: 13px; }
+
+/* Day page, notes column: initials at 13 px fit inside the avatar without clipping. */
+.dv .dv-av { min-width: 26px; height: 26px; padding: 0 5px; width: auto; font-size: 11px; }
+
+/* Touch targets: 44 px on touch screens. */
+@media (pointer: coarse) {
+  .dv .dv-ib { width: 44px; height: 44px; }
+  .dv .dv-btn { min-height: 44px; }
+  #mt-now { min-width: 44px; min-height: 44px; }
+  #mt-book .mt-chip { height: 44px; }
+  #mt-book .mt-seg button { min-height: 44px; }
+  #mt-book .mt-step { min-height: 44px; }
+}
+
+/* Library cards: the Drive mark sits on the text line. */
+.libc .ft { font-size: 13px; }
+.libc .ft > span:last-child { display: inline-flex; align-items: center; gap: 6px; }
+.libc .ft svg { width: 16px; height: 16px; flex: none; }
+
+/* Book: labels, chips and step names at 13 px. */
+#mt-book .h-label, #mt-book .mt-step, #mt-book .mt-h3 { font-size: 13px; }
+#mt-book .mt-seg button, #mt-book .mt-chip, #mt-book .mt-chip span, #mt-book .h-btn--sm { font-size: 13px; }
