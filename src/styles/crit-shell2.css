@@ -103,3 +103,6 @@ body.h-body .tr-pop { background: #fbfaf6; -webkit-backdrop-filter: none; backdr
   outline: 2px solid rgba(255, 253, 248, .55); outline-offset: -3px;
 }
 .h-body .h-side .h-area__link:focus:not(:focus-visible), .h-body #h-bar .h-bar__a:focus:not(:focus-visible) { outline: none; }
+
+/* Help carries one badge, its count. The gold "something new" dot sat beside it and read as noise. */
+body.h-body .h-area[data-area='help'] > .h-area__link::after { content: none !important; display: none !important; }

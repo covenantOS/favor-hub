@@ -478,7 +478,7 @@
   function renderTabs() {
     const v = state.view;
     const tabs = [
-      ['letters', 'Letters', letters(v.letters).length],
+      ['letters', 'Receipts', letters(v.letters).length],
       ['held', 'Held back', v.held.length],
       ['past', 'Past printings', state.batches.length],
       ['wording', 'Receipt wording', null],
