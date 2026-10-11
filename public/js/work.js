@@ -290,16 +290,29 @@ function banner(idp, list) {
 }
 
 // ------------------------------------------------------------ open actions view
+const TILES = [
+  ['', 'Open', () => true, 'Open actions'], ['past', 'Past due', (a) => dayn(cur(a).due) < 0, 'Past due actions'], ['ty', 'Thank-you tasks', (a) => a.ty, 'Thank-you tasks'],
+  ['done', 'Thanked already or likely', (a) => a.ty && a.later, 'Thank-you tasks thanked already or likely'], ['ctg', 'Recurring Gift tasks', (a) => a.ctg, 'Recurring Gift tasks'],
+];
+// Click a tile's number: its Favor definition and the actions that make it up, the rows the tile counted.
+function openTile(key, shown) {
+  const t = TILES.find((x) => x[0] === key);
+  if (!t || !window.FavorDrill) return;
+  const rows = ACTS.filter(isOpenNow).filter(t[2]).map((a) => ({ due: cur(a).due, partner: a.p, place: a.loc || '', type: a.type, category: a.cat, summary: a.sum || '', fundraisers: cur(a).f.map((x) => P(x).n).join(', '), late: Math.max(0, -dayn(cur(a).due)) }));
+  window.FavorDrill.open({
+    title: t[3], shown, shownType: 'int', shownLabel: 'On the Work Center', defs: ['Open and overdue actions'],
+    columns: [{ key: 'due', label: 'Due', type: 'text' }, { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'type', label: 'Type', type: 'text' }, { key: 'category', label: 'Category', type: 'text' }, { key: 'summary', label: 'Summary', type: 'text' }, { key: 'fundraisers', label: 'Fundraisers', type: 'text' }, { key: 'late', label: 'Days late', type: 'int' }],
+    rows, total: rows.length, totalLabel: 'Actions behind it', rowsLabel: 'Actions in this count', sheetTitle: t[3] + ' rows',
+  });
+}
 function viewOpen() {
   const f = S.f;
   const base = ACTS.filter(isOpenNow);
   const list = sorted(base.filter((a) => matches(a, f)));
   S.list = list.map((a) => a.id);
   const cnt = (fn) => base.filter(fn).length;
-  const stats = [
-    ['', 'Open', base.length], ['past', 'Past due', cnt((a) => dayn(cur(a).due) < 0)], ['ty', 'Thank-you tasks', cnt((a) => a.ty)],
-    ['done', 'Thanked already or likely', cnt((a) => a.ty && a.later)], ['ctg', 'Recurring Gift tasks', cnt((a) => a.ctg)],
-  ];
+  // Each tile counts with its own test, and the number opens the rows that test picks (tileRows), so the two never differ.
+  const stats = TILES.map(([k, l, fn]) => [k, l, cnt(fn)]);
   // option counts respect the other filters
   const frCount = {}; base.filter((a) => matches(a, f, 'fr')).forEach((a) => { const c = cur(a).f; if (!c.length) frCount._none = (frCount._none || 0) + 1; c.forEach((x) => { frCount[x] = (frCount[x] || 0) + 1; }); });
   const frs = Object.keys(frCount).filter((k) => k !== '_none').sort((a, b) => (live(b) - live(a)) || P(a).n.localeCompare(P(b).n));
@@ -325,7 +338,7 @@ function viewOpen() {
   if (f.q) chips.push(['q', 'Search: ' + f.q]);
   $('#view').innerHTML = `
     ${scopeBar(base)}
-    <div class="h-card wc-band">${stats.map(([k, l, n]) => `<button type="button" class="wc-stat${f.quick === k && (k || !f.quick) ? ' is-on' : ''}" data-quick="${k}"><b data-countup="${n}">${n}</b><span>${l}</span></button>`).join('')}</div>
+    <div class="h-card wc-band">${stats.map(([k, l, n]) => `<div class="wc-stat wc-stat--split${f.quick === k && (k || !f.quick) ? ' is-on' : ''}"><button type="button" class="wc-stat__n" data-tile="${k}" data-tile-n="${n}" aria-label="${n} ${esc(l)}, open the actions behind it"><b data-countup="${n}">${n}</b></button><button type="button" class="wc-stat__l" data-quick="${k}"><span>${l}</span></button></div>`).join('')}</div>
     <section class="h-card wc-sheet" id="wc-board" aria-label="Open actions">
       <div class="wc-filters" id="filters">
         <div class="wc-sheettitle"><b>Filters</b><button class="wc-dlg__x" data-closefilters aria-label="Close filters">${ic('x')}</button></div>
@@ -1208,6 +1221,7 @@ document.addEventListener('click', async (e) => {
     render(); return;
   }
   if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = 100; render(); return; }
+  if (t.hasAttribute('data-tile')) { openTile(d.tile, Number(d.tileN)); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
   if (d.unf) { if (d.unf === 'all') S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' }; else { S.f[d.unf] = d.unf === 'theirs' ? false : ''; if (d.unf === 'fr') S.f.theirs = false; } render(); return; }
   if (d.sort) { if (S.sort === d.sort) S.dir = -S.dir; else { S.sort = d.sort; S.dir = d.sort === 'partner' || d.sort === 'fr' ? 1 : -1; } render(); return; }

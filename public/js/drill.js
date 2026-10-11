@@ -7,7 +7,9 @@
    plus data-drill-label (the panel title), data-drill-value (the number on the page, so the panel can tie to it),
    data-drill-def (Favor definition sections to show, separated by |, e.g. "Which gifts count|Team revenue").
 
-   A page with rows of its own opens the panel with FavorDrill.open({ ... }) and never asks the server.
+   A page with rows of its own opens the panel with FavorDrill.open({ ... }) and never asks the server for numbers
+   (spec.defs names the Favor definition sections to load). FavorDrill.openAsync(spec, fetchRows) opens it while a route
+   answers with the rows.
    Numbers are never recomputed here: the server answer or the page's own rows are shown as they came. */
 (() => {
   'use strict';
@@ -269,6 +271,25 @@
   window.FavorDrill = {
     open(spec) {
       show({ ...spec, rows: spec.rows || [], loading: false });
+      const defs = spec.defs || [];
+      if (!defs.length || spec.definition) return;
+      post({ kind: 'definition', sections: defs }).then((def) => {
+        if (!state || state.title !== spec.title) return;
+        show({ ...state, definition: def && def.ok ? def.definition : '' });
+      });
+    },
+    /** Rows that a route returns: open with the page's count and the server's rows. fetchRows resolves to { rows, total, columns } or { message }. */
+    async openAsync(spec, fetchRows) {
+      show({ ...spec, rows: [], loading: true });
+      const defs = spec.defs || [];
+      const [def, res] = await Promise.all([defs.length ? post({ kind: 'definition', sections: defs }) : null, fetchRows ? fetchRows() : null]);
+      if (!state || state.title !== spec.title) return;
+      const next = { ...spec, loading: false, definition: def && def.ok ? def.definition : '', rows: [], total: null };
+      if (res) {
+        if (res.message) next.error = res.message;
+        else { next.rows = res.rows || []; next.total = res.total; next.columns = res.columns || next.columns; }
+      }
+      show(next);
     },
     close,
   };

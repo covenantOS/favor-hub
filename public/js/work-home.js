@@ -47,6 +47,54 @@
     return d === addDays(TODAY(), -1) ? 'Yesterday' : fd(d);
   };
 
+  /* ------------------------------------------------------------------ click a number: its Favor definition and the rows behind it */
+  // data-whd names the count. The rows come from /api/hub/home-drill (same pool and tests as the card); a count with no rows opens its definition only.
+  const WHD = {
+    open: { title: 'Open actions', defs: ['Open and overdue actions'], rows: true, type: 'int' },
+    overdue: { title: 'Overdue actions', defs: ['Open and overdue actions'], rows: true, type: 'int' },
+    today: { title: 'Actions due today', defs: ['Open and overdue actions'], rows: true, type: 'int' },
+    gifts: { title: 'Gifts to thank', defs: ['Gifts to thank'], rows: true, type: 'int' },
+    over24: { title: 'Gifts waiting over 24 hours', defs: ['Gifts to thank'], rows: true, type: 'int' },
+    first: { title: 'First gifts to thank', defs: ['Gifts to thank'], rows: true, type: 'int' },
+    teamopen: { title: 'Open actions', defs: ['Open and overdue actions'], type: 'int' },
+    teamlate: { title: 'Overdue actions', defs: ['Open and overdue actions'], type: 'int' },
+    teamty: { title: 'Thank-you tasks', defs: ['Open and overdue actions'], type: 'int' },
+  };
+  const COLS = {
+    actions: [{ key: 'due', label: 'Due', type: 'text' }, { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'type', label: 'Type', type: 'text' }, { key: 'summary', label: 'Summary', type: 'text' }, { key: 'late', label: 'Days late', type: 'int' }],
+    gifts: [{ key: 'date', label: 'Gift date', type: 'text' }, { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'amount', label: 'Gift', type: 'money' }, { key: 'fund', label: 'Fund', type: 'text' }, { key: 'waiting', label: 'Days waiting', type: 'int' }, { key: 'badges', label: 'Notes', type: 'text' }],
+  };
+  const dn = (key, text, n) => `<span class="dr-num" tabindex="0" role="button" data-whd="${key}"${n == null ? '' : ` data-whd-n="${Number(n) || 0}"`}>${text}</span>`;
+  function openCount(el) {
+    const key = el.getAttribute('data-whd');
+    const def = WHD[key];
+    const FD = window.FavorDrill;
+    if (!def || !FD) return;
+    const shown = el.hasAttribute('data-whd-n') ? Number(el.getAttribute('data-whd-n')) : Number((el.textContent.match(/[\d,]+/) || ['0'])[0].replace(/,/g, ''));
+    const spec = { title: def.title, shown, shownType: 'int', shownLabel: 'On the Work Overview', defs: def.defs, totalLabel: 'Rows behind it', rowsLabel: def.title };
+    if (!def.rows) { FD.open(spec); return; }
+    FD.openAsync(spec, async () => {
+      try {
+        const out = await api('/api/hub/home-drill?key=' + encodeURIComponent(key));
+        return { rows: out.rows, total: out.total, columns: COLS[out.kind] };
+      } catch (e) { return { message: e.message }; }
+    }).then(() => {});
+  }
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest && e.target.closest('[data-whd]');
+    if (!el) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openCount(el);
+  }, true);
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest && e.target.closest('[data-whd]');
+    if (!el) return;
+    e.preventDefault();
+    openCount(el);
+  });
+
   /* ------------------------------------------------------------------ header and tools */
   function paintTop(d) {
     const w = d.work;
@@ -86,11 +134,11 @@
     const chips = [];
     // Every number on this card counts open actions on the Work Center board, and its link opens exactly those.
     const fr = d.fr ? '&fr=' + encodeURIComponent(d.fr) : '';
-    if (d.overdue) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=open&due=past${fr}"><i></i>${n0(d.overdue)} overdue</a>`);
-    if (d.today) chips.push(`<a class="r2t-chip r2t-chip--due" href="/work/?view=open&due=today${fr}"><i></i>${n0(d.today)} due today</a>`);
+    if (d.overdue) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=open&due=past${fr}"><i></i>${dn('overdue', n0(d.overdue), d.overdue)} overdue</a>`);
+    if (d.today) chips.push(`<a class="r2t-chip r2t-chip--due" href="/work/?view=open&due=today${fr}"><i></i>${dn('today', n0(d.today), d.today)} due today</a>`);
     $('wh-due-all').setAttribute('href', '/work/?view=open' + fr);
     $('wh-due-chips').innerHTML = chips.join('');
-    $('wh-due-all').textContent = `Open all ${n0(d.open)}`;
+    $('wh-due-all').innerHTML = `Open all ${dn('open', n0(d.open), d.open)}`;
     const list = $('wh-due-list');
     if (!d.rows.length) { list.innerHTML = `<li class="wh-empty">Nothing due or overdue. ${plural(d.open, 'open action')} in the Work Center.</li>`; return; }
     list.innerHTML = d.rows.map((r) => `<li class="wh-row" data-id="${esc(r.id)}" data-cid="${esc(r.cid)}" data-name="${esc(r.partner)}">
@@ -108,10 +156,10 @@
     card.hidden = !g;
     if (!g) return;
     const chips = [];
-    if (g.over24) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=gifts"><i></i>${n0(g.over24)} waiting over 24 hours</a>`);
-    if (g.first) chips.push(`<a class="r2t-chip r2t-chip--plain" href="/work/?view=gifts">${n0(g.first)} first gifts</a>`);
+    if (g.over24) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=gifts"><i></i>${dn('over24', n0(g.over24), g.over24)} waiting over 24 hours</a>`);
+    if (g.first) chips.push(`<a class="r2t-chip r2t-chip--plain" href="/work/?view=gifts">${dn('first', n0(g.first), g.first)} first gifts</a>`);
     $('wh-gifts-chips').innerHTML = chips.join('');
-    $('wh-gifts-all').textContent = `Open all ${n0(g.total)}`;
+    $('wh-gifts-all').innerHTML = `Open all ${dn('gifts', n0(g.total), g.total)}`;
     const list = $('wh-gifts-list');
     if (!g.rows.length) { list.innerHTML = `<li class="wh-empty">No gifts waiting for a thank-you.${g.week ? ' ' + plural(g.week, 'partner') + ' thanked this week.' : ''}</li>`; return; }
     list.innerHTML = g.rows.map((r) => {
@@ -202,8 +250,8 @@
     $('wh-team-chips').innerHTML = over ? `<a class="r2t-chip r2t-chip--late" href="/work/?view=open&quick=past"><i></i>${n0(over)} overdue</a>` : '';
     const TEAM = { rdd: 'RDD', church: 'Church Engagement', partner_care: 'Partner Care', support: 'Support', grants: 'Grants', exec: 'Executive', admin: 'Operations' };
     $('wh-team-table').innerHTML = '<thead><tr><th>Person</th><th>Team</th><th class="n">Open</th><th class="n">Overdue</th><th class="n">Thank-yous</th></tr></thead><tbody>'
-      + t.people.map((p) => `<tr><td><a href="/work/?view=open&fr=${esc(p.fid)}">${esc(p.name)}</a></td><td>${esc(TEAM[p.team] || p.team || '')}</td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}">${n0(p.open)}</a></td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}&quick=past" class="${p.overdue ? 'wh-late' : ''}">${n0(p.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${n0(p.ty)}</a></td></tr>`).join('') + '</tbody>'
-      + (t.all ? `<tfoot><tr><td>Everyone</td><td>Each action once</td><td class="n"><a href="/work/?view=open">${n0(t.all.open)}</a></td><td class="n"><a href="/work/?view=open&quick=past">${n0(t.all.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${n0(t.all.ty)}</a></td></tr></tfoot>` : '');
+      + t.people.map((p) => `<tr><td><a href="/work/?view=open&fr=${esc(p.fid)}">${esc(p.name)}</a></td><td>${esc(TEAM[p.team] || p.team || '')}</td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}">${dn('teamopen', n0(p.open), p.open)}</a></td><td class="n"><a href="/work/?view=open&fr=${esc(p.fid)}&quick=past" class="${p.overdue ? 'wh-late' : ''}">${dn('teamlate', n0(p.overdue), p.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${dn('teamty', n0(p.ty), p.ty)}</a></td></tr>`).join('') + '</tbody>'
+      + (t.all ? `<tfoot><tr><td>Everyone</td><td>Each action once</td><td class="n"><a href="/work/?view=open">${dn('teamopen', n0(t.all.open), t.all.open)}</a></td><td class="n"><a href="/work/?view=open&quick=past">${dn('teamlate', n0(t.all.overdue), t.all.overdue)}</a></td><td class="n"><a href="/work/?view=ty">${dn('teamty', n0(t.all.ty), t.all.ty)}</a></td></tr></tfoot>` : '');
   }
 
   function paint(d) {

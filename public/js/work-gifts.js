@@ -69,7 +69,7 @@ function view() {
   const picker = d.owners.length > 1 ? `<select class="wc-sel${G.owner ? ' is-set' : ''}" data-wg-owner aria-label="Director"><option value="">Every director (${d.everyone})</option>${d.owners.map((o) => `<option value="${e(o.id)}"${G.owner === o.id ? ' selected' : ''}>${e(o.name)} (${o.n})</option>`).join('')}</select>` : '';
   const who = d.owners.length > 1 || W().DATA.me.role === 'admin' ? "directors' partners" : 'your partners';
   el.innerHTML = `
-    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn, plain]) => `<button type="button" class="wc-stat${!plain && G.quick === k && k ? ' is-on' : !plain && !k && !G.quick ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}" ${plain ? 'data-wg-noop' : `data-wg-quick="${k}"`}><b>${n}</b><span>${l}</span></button>`).join('')}</div>
+    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn, plain]) => (plain ? `<button type="button" class="wc-stat${warn && n ? ' is-warn' : ''}" data-wg-noop><b>${n}</b><span>${l}</span></button>` : `<div class="wc-stat wc-stat--split${k && G.quick === k ? ' is-on' : !k && !G.quick ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}"><button type="button" class="wc-stat__n" data-wg-tile="${k}" data-wg-tile-n="${n}" aria-label="${n} ${l}, open the gifts behind it"><b>${n}</b></button><button type="button" class="wc-stat__l" data-wg-quick="${k}"><span>${l}</span></button></div>`)).join('')}</div>
     <section class="h-card wc-sheet" id="wg-sheet" aria-label="Gifts to thank">
       <div class="wg-tools"><label class="wc-find">${f.ic('search')}<input type="search" id="wg-q" placeholder="Find a partner" value="${e(G.q)}" autocomplete="off" /></label>${picker}<span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="gifts-to-thank">${f.ic('sheet')}Google Sheets</button></div>
@@ -116,6 +116,18 @@ document.addEventListener('click', async (e) => {
   const b = t.closest('button, a, input[data-wg-pick]');
   if (!b) return;
   const d = b.dataset;
+  if (d.wgTile !== undefined && window.FavorDrill) {
+    // The number opens the gifts the tile counted, from this page's own list.
+    const T = { '': ['Gifts to thank', () => true], late: ['Gifts waiting over 24 hours', isLate], first: ['First gifts to thank', isFirst], big: ['Gifts of $1,000 and up to thank', (r) => r.amount >= 1000] }[d.wgTile];
+    if (!T) return;
+    const list = rows().filter(T[1]).map((r) => ({ date: r.date, partner: r.partner.name, place: r.partner.place || '', amount: r.amount, fund: r.fund || '', waiting: r.ageDays, notes: r.badges.join(', ') }));
+    window.FavorDrill.open({
+      title: T[0], shown: Number(d.wgTileN), shownType: 'int', shownLabel: 'On Gifts to thank', defs: ['Gifts to thank'],
+      columns: [{ key: 'date', label: 'Gift date', type: 'text' }, { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'amount', label: 'Gift', type: 'money' }, { key: 'fund', label: 'Fund', type: 'text' }, { key: 'waiting', label: 'Days waiting', type: 'int' }, { key: 'notes', label: 'Notes', type: 'text' }],
+      rows: list, total: list.length, totalLabel: 'Gifts behind it', rowsLabel: 'Gifts in this count', sheetTitle: T[0] + ' rows',
+    });
+    return;
+  }
   if (d.wgQuick !== undefined) { G.quick = G.quick === d.wgQuick ? '' : d.wgQuick; view(); return; }
   if (b.hasAttribute('data-wg-reload')) { G.data = null; G.error = ''; G.loading = false; G.started = false; view(); return; }
   if (d.wgAll) { const list = visible().filter((r) => (d.wgAll === 'late' ? isLate(r) : !isLate(r))); const every = list.every((r) => G.sel.has(r.key)); list.forEach((r) => (every ? G.sel.delete(r.key) : G.sel.add(r.key))); view(); return; }

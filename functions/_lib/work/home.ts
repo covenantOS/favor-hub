@@ -27,7 +27,8 @@ export interface DueRow {
   summary: string;
 }
 
-async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
+/** The actions the Work Overview's due card counts: the person's own, or the portfolio when they hold none. One place, so the card and its rows never differ. */
+function duePool(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
   const s = ctx.scope;
   const fid = s && s.fid ? s.fid : '';
   // Every count here is a count of open actions on the Work Center board, the same rows its Open actions tab counts, so each number
@@ -40,6 +41,11 @@ async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>
   // The short list leaves out thank-you tasks (Gifts to thank lists those), pending changes and deceased partners.
   const due = dueAll.filter((r) => !r.pending && !r.deceased && !r.ty).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
   const row = (r: BoardRow): DueRow => ({ id: r.id, cid: r.cid, partner: r.partner, place: r.place, due: r.due, late: Math.max(0, -dayDiff(r.due, board.today)), type: r.type, summary: clip(r.summary || '', 90) });
+  return { portfolio, pool, due, row, today: board.today };
+}
+
+async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
+  const { portfolio, pool, due, row } = duePool(ctx, board);
   return {
     scope: portfolio ? 'portfolio' : 'mine',
     fr: portfolio ? '' : fid,
@@ -49,6 +55,24 @@ async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>
     today: dueAll.filter((r) => dayDiff(r.due, board.today) === 0).length,
     rows: due.slice(0, 8).map(row),
   };
+}
+
+export const HOME_DRILLS = ['open', 'due', 'overdue', 'today', 'gifts', 'over24', 'first'] as const;
+export type HomeDrill = (typeof HOME_DRILLS)[number];
+
+/** The rows behind one Work Overview count, from the same pool and the same tests the card used. */
+export async function homeDrill(ctx: Ctx, key: HomeDrill) {
+  if (key === 'gifts' || key === 'over24' || key === 'first') {
+    if (!mayGifts(ctx.scope)) return null;
+    const g = await giftsResponse(ctx, '');
+    const pick = key === 'gifts' ? g.rows : key === 'over24' ? g.rows.filter((r) => r.hours >= 24) : g.rows.filter((r) => r.badges.includes('First gift') || r.badges.includes('First monthly gift'));
+    const rows = pick.map((r) => ({ id: r.giftId, date: r.date, partner: r.partner.name, place: r.partner.place, amount: r.amount, fund: r.fund, waiting: r.ageDays, badges: r.badges.join(', ') }));
+    return { kind: 'gifts' as const, today: g.today, rows, total: key === 'gifts' ? g.stats.owed : key === 'over24' ? g.stats.over24 : g.stats.first, owner: g.owner };
+  }
+  const board = await currentBoard(ctx);
+  const { pool, due, row, portfolio } = duePool(ctx, board);
+  const pickRows = key === 'open' ? [...pool].sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0)) : key === 'due' ? due : key === 'overdue' ? due.filter((r) => dayDiff(r.due, board.today) < 0) : due.filter((r) => dayDiff(r.due, board.today) === 0);
+  return { kind: 'actions' as const, today: board.today, scope: portfolio ? 'portfolio' : 'mine', rows: pickRows.map((r) => ({ ...row(r), late: r.due ? row(r).late : 0, summary: clip(r.summary || '', 120) })), total: pickRows.length };
 }
 
 async function giftsBlock(ctx: Ctx) {
