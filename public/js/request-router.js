@@ -153,6 +153,13 @@
   text.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) ask();
   });
+  // On a phone the keyboard's Go key reads the words, like Send in Messages.
+  text.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && window.matchMedia('(pointer: coarse)').matches) {
+      e.preventDefault();
+      if (!go.hidden && !go.disabled) ask();
+    }
+  });
 
   function restart() {
     board.hidden = true;
@@ -196,5 +203,6 @@
   // A link can carry the words: /requests/new?text=...
   const preset = new URLSearchParams(location.search).get('text');
   if (preset) text.value = preset;
-  text.focus();
+  // A phone opens its keyboard on focus, which would cover the page before anyone has read it.
+  if (!window.matchMedia('(pointer: coarse)').matches) text.focus();
 })();

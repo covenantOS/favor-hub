@@ -91,8 +91,33 @@ export async function loadGifts(env: Env, days: number): Promise<Gift[]> {
   return giftsFromRows(parseCsv(await queryWaiting(env, days)));
 }
 
-export async function waitingView(env: Env, days: number): Promise<View> {
-  const gifts = await loadGifts(env, days);
+const WAIT_CACHE_MS = 5 * 60_000;
+
+/**
+ * The waiting list takes about 6 seconds to come back from Blackbaud (a query job that is started, then polled).
+ * A page open reads a copy up to five minutes old. Making a print file and marking read Blackbaud fresh, and the
+ * page asks for a fresh read after either, so the copy never decides what is printed or marked.
+ */
+async function waitingGifts(env: Env, days: number, fresh: boolean): Promise<{ gifts: Gift[]; cached: boolean }> {
+  const key = `cache:waiting:${days}`;
+  if (!fresh) {
+    const row = await env.DB.prepare('SELECT value, updated_at FROM rcp_settings WHERE key = ?').bind(key).first<{ value: string; updated_at: string }>().catch(() => null);
+    if (row && Date.now() - Date.parse(row.updated_at) < WAIT_CACHE_MS) {
+      return { gifts: giftsFromRows(parseCsv(row.value)), cached: true };
+    }
+  }
+  const csv = await queryWaiting(env, days);
+  await env.DB.prepare(
+    "INSERT INTO rcp_settings (key, value, updated_by, updated_at) VALUES (?, ?, 'cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+  )
+    .bind(key, csv, nowIso())
+    .run()
+    .catch(() => {});
+  return { gifts: giftsFromRows(parseCsv(csv)), cached: false };
+}
+
+export async function waitingView(env: Env, days: number, fresh = false): Promise<View> {
+  const { gifts } = await waitingGifts(env, days, fresh);
   const open = await openBatchGifts(env);
   const letters: Item[] = [];
   const held: Item[] = [];

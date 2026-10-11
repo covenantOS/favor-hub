@@ -275,13 +275,43 @@
   nextBtn.addEventListener('click', goNext);
   backBtn.addEventListener('click', () => showStep(Math.max(1, step - 1)));
 
+  // The keyboard's Next key moves down the form: each field hands over to the one below it, and the last
+  // field of a step goes on to the next step.
   form.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return;
-    if (e.target && e.target.tagName === 'TEXTAREA') return;
+    if (e.key !== 'Enter' || e.isComposing) return;
+    const t = e.target;
+    if (t && t.tagName === 'TEXTAREA') return;
     if (step === STEPS) return;
+    if (t && t.tagName === 'INPUT' && ['radio', 'checkbox'].includes(t.type)) return;
     e.preventDefault();
+    const fields = [...form.querySelectorAll(`.make-step[data-step="${step}"] input, .make-step[data-step="${step}"] textarea`)].filter(
+      (el) => !el.closest('[hidden]') && !['radio', 'checkbox', 'hidden'].includes(el.type) && el.tabIndex !== -1
+    );
+    const at = fields.indexOf(t);
+    if (at >= 0 && at < fields.length - 1) {
+      fields[at + 1].focus();
+      return;
+    }
+    if (t && t.blur) t.blur();
     goNext();
   });
+
+  // Signed in with Google: the name and email come from the account.
+  function prefill(d) {
+    const u = d && d.user;
+    if (!u || !u.name || u.via === 'agent' || u.via === 'guest') return;
+    const n = form.elements.namedItem('name');
+    const m = form.elements.namedItem('email');
+    if (n && !n.value) n.value = u.name;
+    if (m && !m.value) m.value = u.email || '';
+  }
+  try {
+    prefill(JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'));
+  } catch (_) {
+    // no saved account; the live answer below fills it in
+  }
+  if (window.FAVOR_HUB) prefill(window.FAVOR_HUB);
+  document.addEventListener('favor-hub', (e) => prefill(e.detail));
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();

@@ -18,7 +18,7 @@
       '<button type="button" data-m="draw">Draw</button>' +
       "</div>" +
       '<div class="exp-sig-typed">' +
-      '<input placeholder="Type your full name" maxlength="80" value="' + esc(prefillName || "") + '" />' +
+      '<input placeholder="Type your full name" maxlength="80" autocomplete="name" autocapitalize="words" enterkeyhint="done" value="' + esc(prefillName || "") + '" />' +
       '<div class="preview">' + esc(prefillName || " ") + "</div>" +
       "</div>" +
       '<div class="exp-sig-box" style="display:none">' +

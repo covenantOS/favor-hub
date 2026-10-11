@@ -84,6 +84,7 @@
   };
 
   let toastTimer = null;
+  let slowTimer = null;
   function toast(text) {
     toastEl.textContent = text;
     toastEl.classList.add('is-on');
@@ -130,7 +131,7 @@
     try {
       await api('/api/receipts/login', { method: 'POST', body: JSON.stringify({ code: $('rcp-code').value }) });
       $('rcp-code').value = '';
-      await load();
+      await load(true);
     } catch (err) {
       loginMsg.textContent = err.message;
     }
@@ -226,16 +227,17 @@
 
   /* -------------------------------------------------------------- load */
 
-  async function load() {
+  async function load(fresh) {
     login.hidden = true;
     app.hidden = false;
     actions.hidden = false;
     state.view = null;
     renderLoading();
     const [view, past] = await Promise.all([
-      api(`/api/receipts/waiting?days=${state.days}`).catch((err) => ({ error: err.message })),
+      api(`/api/receipts/waiting?days=${state.days}${fresh === true ? '&fresh=1' : ''}`).catch((err) => ({ error: err.message })),
       api('/api/receipts/batches').catch(() => ({ batches: [] })),
     ]);
+    clearTimeout(slowTimer);
     state.batches = past.batches || [];
     if (view.error) {
       renderError(view.error);
@@ -258,15 +260,28 @@
     }
   }
 
+  // The same shapes the page fills with: four totals, the print file card, then rows. The list below
+  // waits for the answer, so nothing real-looking is on screen that cannot be used yet.
   function renderLoading() {
-    $('rcp-stats').innerHTML = `<div class="rcp-loading"><span class="rcp-spin" aria-hidden="true"></span>Reading Blackbaud. This takes about fifteen seconds.</div>`;
-    makeEl.innerHTML = '';
+    for (const k of ['letters', 'held', 'past', 'wording']) $(`rcp-view-${k}`).hidden = true;
+    $('rcp-tabs').innerHTML = '';
+    $('rcp-band-label').textContent = 'Waiting for a receipt';
+    $('rcp-stats').innerHTML = `<div class="rcp-skel" role="status" aria-label="Reading Blackbaud">
+      <div class="rcp-skel__stats">${[0, 1, 2, 3].map(() => '<div><span class="cf-skel cf-skel--stat"></span><span class="cf-skel cf-skel--rowhead"></span></div>').join('')}</div>
+      <p class="rcp-load-note"><span class="rcp-spin" aria-hidden="true"></span><span id="rcp-load-text">Reading Blackbaud</span></p></div>`;
+    makeEl.innerHTML = `<div class="rcp-skel" aria-hidden="true"><span class="cf-skel" style="height:26px;width:46%"></span><span class="cf-skel" style="width:84%"></span><span class="cf-skel" style="width:70%"></span><span class="cf-skel" style="height:48px;width:160px;border-radius:999px;margin-top:10px"></span></div>`;
     $('rcp-rows').innerHTML = '';
+    clearTimeout(slowTimer);
+    slowTimer = setTimeout(() => {
+      const t = $('rcp-load-text');
+      if (t) t.textContent = 'Still reading Blackbaud';
+    }, 12000);
   }
 
   function renderError(message) {
+    makeEl.innerHTML = '';
     $('rcp-stats').innerHTML = `<div class="rcp-loading is-bad">${esc(message)} <button type="button" class="fnd-textbtn" id="rcp-retry">Try again</button></div>`;
-    $('rcp-retry').addEventListener('click', load);
+    $('rcp-retry').addEventListener('click', () => load(true));
   }
 
   /* ----------------------------------------------------------- helpers */
@@ -347,7 +362,7 @@
     $('rcp-days').addEventListener('change', (e) => {
       state.days = Number(e.target.value) || 90;
       localStorage.setItem('rcp_days', String(state.days));
-      load();
+      load(true);
     });
     const stat = (n, cap) => `<div class="ticker__stat"><div class="ticker__num">${Number(n).toLocaleString('en-US')}</div><div class="ticker__caption">${cap}</div></div>`;
     $('rcp-stats').innerHTML =
@@ -735,7 +750,7 @@
       state.left.clear();
       toast(`${plural(out.batch.count, 'letter')} ready to print.${out.skipped && out.skipped.length ? ` ${out.skipped.length} changed in Blackbaud and were left out.` : ''}`);
       state.busy = false;
-      await load();
+      await load(true);
     } catch (err) {
       state.busy = false;
       renderMake();
@@ -804,7 +819,7 @@
     }
     state.busy = false;
     state.marking = false;
-    await load();
+    await load(true);
   }
 
   async function cancelBatch(b) {
@@ -815,7 +830,7 @@
     try {
       await api(`/api/receipts/batches/${encodeURIComponent(b.id)}`, { method: 'DELETE' });
       toast('Print file thrown away.');
-      await load();
+      await load(true);
     } catch (err) {
       button.disabled = false;
       toast(err.message);
@@ -838,7 +853,7 @@
       toast(`${plural(out.batch.count, 'letter')} ready. It is under Past printings.`);
       state.tab = 'past';
       state.busy = false;
-      await load();
+      await load(true);
     } catch (err) {
       state.busy = false;
       btn.disabled = false;

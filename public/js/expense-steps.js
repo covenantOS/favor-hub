@@ -30,6 +30,21 @@
   };
   back.addEventListener('click', () => show(at - 1));
   next.addEventListener('click', () => { if (ok()) show(at + 1); });
+  // The keyboard's Next key moves down the form; the last field of a step closes the keyboard and goes on.
+  form.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing || !phone.matches) return;
+    const t = e.target;
+    if (!t || t.tagName !== 'INPUT' || ['checkbox', 'radio', 'button', 'submit'].includes(t.type)) return;
+    e.preventDefault();
+    const fields = [...steps[at].querySelectorAll('input, textarea')].filter((el) => el.offsetParent && !['checkbox', 'radio', 'hidden'].includes(el.type));
+    const i = fields.indexOf(t);
+    if (i >= 0 && i < fields.length - 1) {
+      fields[i + 1].focus();
+      return;
+    }
+    t.blur();
+    if (at < steps.length - 1 && ok()) show(at + 1);
+  });
   form.classList.add('is-stepped');
   show(0);
 })();

@@ -387,17 +387,24 @@
 
   /* ------------------------------------------------------------ drawer */
 
+  // The drawer sits on the body so it covers the tab bar and the header, and the phone back gesture closes it.
+  document.body.appendChild(drawer);
   function openDrawer() {
     drawer.hidden = false;
     document.documentElement.style.overflow = 'hidden';
+    if (!(history.state && history.state.fndDrawer)) history.pushState({ fndDrawer: true }, '');
   }
-  function closeDrawer() {
+  function closeDrawer(fromPop) {
     drawer.hidden = true;
     document.documentElement.style.overflow = '';
     state.openId = null;
     state.detail = null;
     state.bb = null;
+    if (fromPop !== true && history.state && history.state.fndDrawer) history.back();
   }
+  window.addEventListener('popstate', () => {
+    if (!drawer.hidden) closeDrawer(true);
+  });
   drawer.addEventListener('click', (e) => {
     if (e.target.closest('[data-close]')) closeDrawer();
   });
@@ -545,7 +552,7 @@
       </div>
       <fieldset class="make-pills"><legend>How</legend>${m.hows.map((h, i) => `<label><input type="radio" name="how" value="${esc(h)}"${i === 0 ? ' checked' : ''} />${esc(h)}</label>`).join('')}</fieldset>
       <label class="req-field"><span>Outcome</span><select name="outcome"><option value="">Choose</option>${m.outcomes.map((o) => `<option>${esc(o)}</option>`).join('')}</select></label>
-      <label class="req-field"><span>What happened</span><textarea name="note" maxlength="4000" placeholder="Who you reached and what they said" required></textarea></label>
+      <label class="req-field"><span>What happened</span><textarea name="note" autocapitalize="sentences" maxlength="4000" placeholder="Who you reached and what they said" required></textarea></label>
       <fieldset class="make-pills"><legend>Mark what applies</legend>${m.tags.map((t) => `<label><input type="checkbox" name="tags" value="${esc(t)}" />${esc(t)}</label>`).join('')}</fieldset>
       <p class="fnd-posts">${m.settings.posting === 'on' ? `Saves here and posts to Blackbaud as an action on <b>${esc(target)}</b>.` : 'Saves here. Posting to Blackbaud is switched off, so it waits.'}</p>
       <div class="fnd-form__foot"><button type="submit" class="req-submit">Save and post</button><button type="button" class="req-ghost" data-act="cancel">Cancel</button><p class="req-msg" aria-live="polite"></p></div>
@@ -555,7 +562,7 @@
   function deadForm(prefill) {
     return `<form class="fnd-form" id="fnd-dead">
       <h3>Mark a dead end</h3>
-      <label class="req-field"><span>Why</span><input name="reason" maxlength="300" value="${esc(prefill || '')}" placeholder="Only funds in Texas. Number disconnected. Not interested." required /></label>
+      <label class="req-field"><span>Why</span><input name="reason" maxlength="300" autocomplete="off" autocapitalize="sentences" enterkeyhint="done" value="${esc(prefill || '')}" placeholder="Only funds in Texas. Number disconnected. Not interested." required /></label>
       <p class="fnd-posts">Nothing goes to Blackbaud. The foundation stays on this list with its history, so nobody calls it cold again.</p>
       <div class="fnd-form__foot"><button type="submit" class="req-submit">Mark dead end</button><button type="button" class="req-ghost" data-act="cancel">Cancel</button><p class="req-msg" aria-live="polite"></p></div>
     </form>`;
@@ -563,21 +570,21 @@
 
   function fieldsHtml(f) {
     return `
-      <label class="req-field"><span>Foundation name</span><input name="name" maxlength="160" value="${esc(f.name || '')}" required /></label>
+      <label class="req-field"><span>Foundation name</span><input name="name" maxlength="160" value="${esc(f.name || '')}" autocomplete="off" autocapitalize="words" enterkeyhint="next" required /></label>
       <div id="fnd-dupes"></div>
       <div class="exp-grid2">
-        <label class="req-field"><span>City and state</span><input name="location" maxlength="120" value="${esc(f.location || '')}" /></label>
-        <label class="req-field"><span>Phone</span><input name="phone" maxlength="40" value="${esc(f.phone || '')}" /></label>
+        <label class="req-field"><span>City and state</span><input name="location" maxlength="120" autocomplete="off" autocapitalize="words" enterkeyhint="next" value="${esc(f.location || '')}" /></label>
+        <label class="req-field"><span>Phone</span><input name="phone" type="tel" inputmode="tel" autocomplete="off" enterkeyhint="next" maxlength="40" value="${esc(f.phone || '')}" /></label>
       </div>
       <div style="height:14px"></div>
       <div class="exp-grid2">
-        <label class="req-field"><span>Website</span><input name="website" maxlength="200" value="${esc(f.website || '')}" /></label>
-        <label class="req-field"><span>Email</span><input name="email" maxlength="120" value="${esc(f.email || '')}" /></label>
+        <label class="req-field"><span>Website</span><input name="website" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="next" maxlength="200" value="${esc(f.website || '')}" /></label>
+        <label class="req-field"><span>Email</span><input name="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off" enterkeyhint="next" maxlength="120" value="${esc(f.email || '')}" /></label>
       </div>
       <div style="height:14px"></div>
       <div class="exp-grid2">
-        <label class="req-field"><span>EIN</span><input name="ein" maxlength="20" value="${esc(f.ein || '')}" /></label>
-        <label class="req-field"><span>Assets</span><input name="assets" maxlength="60" value="${esc(f.assets || '')}" /></label>
+        <label class="req-field"><span>EIN</span><input name="ein" autocomplete="off" autocapitalize="none" enterkeyhint="next" maxlength="20" value="${esc(f.ein || '')}" /></label>
+        <label class="req-field"><span>Assets</span><input name="assets" autocomplete="off" enterkeyhint="next" maxlength="60" value="${esc(f.assets || '')}" /></label>
       </div>
       <div style="height:14px"></div>
       <label class="req-field"><span>Notes</span><textarea name="notes" maxlength="2000" style="min-height:80px">${esc(f.notes || '')}</textarea></label>`;
