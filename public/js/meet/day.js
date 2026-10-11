@@ -193,8 +193,11 @@
       strip += '<button type="button" class="dv-day' + (k === state.day ? ' is-on' : '') + (k === today ? ' is-today' : '') + '" role="tab" aria-selected="' + (k === state.day) + '" aria-label="' + esc(longDay(k) + ', ' + n + ' meeting' + (n === 1 ? '' : 's')) + '" data-day="' + k + '"><small>' + wk(k, 'short') + '</small><b>' + keyDate(k).getDate() + '</b><span>' + new Array(Math.min(n, 3) + 1).join('<i></i>') + '</span></button>';
     }
 
-    var h0 = 8, h1 = 18;
+    // A phone starts the timeline at the first meeting's hour and ends after the last, so no empty hours sit above the day.
+    var phone = window.matchMedia && matchMedia('(max-width: 860px)').matches;
+    var h0 = phone && evs.length ? 23 : 8, h1 = phone && evs.length ? 0 : 18;
     evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); var ed = new Date(e.end); h1 = Math.max(h1, ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
+    if (h1 <= h0) h1 = h0 + 1;
     var t0 = keyDate(state.day).getTime() + h0 * 3600000, geo = { t0: t0 };
     lanes(evs);
     var hrs = '';
