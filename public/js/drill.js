@@ -22,7 +22,7 @@
 
   const style = document.createElement('style');
   style.textContent = `
-.dr-num{cursor:pointer;text-decoration:underline dotted var(--h-ink-2,#48505a);text-underline-offset:4px;border-radius:4px}
+.dr-num{cursor:pointer;text-decoration:none;border-radius:6px;transition:background .15s}.dr-num:hover{background:rgba(29,33,27,.06);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:.18em}
 .dr-num:focus-visible{outline:2px solid var(--h-brand,#2b4d24);outline-offset:3px}
 .dr-scrim{position:fixed;inset:0;background:rgba(18,22,26,.32);z-index:220}
 .dr-panel{position:fixed;top:0;right:0;bottom:0;width:min(560px,100vw);background:var(--h-surface,#fff);color:var(--h-ink,#12161a);box-shadow:var(--h-shadow-2);z-index:221;overflow:auto;padding:20px 22px 28px;font:14px/1.45 Inter,system-ui,sans-serif;-webkit-overflow-scrolling:touch}
