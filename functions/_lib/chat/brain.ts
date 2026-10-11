@@ -39,6 +39,8 @@ export function readAnswer(d: any): BrainAnswer | { error: string } {
 export interface AskInput {
   channel_id: string;
   root_id: number;
+  /** The thread the question was asked in, or null for a top level question. */
+  thread_id?: number | null;
   asker: { email: string; name: string };
   text: string;
 }
@@ -50,12 +52,17 @@ export interface AskInput {
 export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, input: AskInput, fetcher: typeof fetch = fetch): Promise<void> {
   try {
     const question = brainQuestion(input.text);
-    const placeholder = await store.post(env, { channel_id: input.channel_id, email: BRAIN_ID, body: '', thread_id: input.root_id, brain: { status: 'thinking' } });
+    // In a channel, group or conversation with anyone else in it the answer is for the asker alone ("Only visible to you"):
+    // stored with visible_to, pushed only to the asker's sockets, and top level when the question was top level. In a
+    // conversation with only the asker (and the Brain) it stays a normal thread reply, as before.
+    const asker = input.asker.email.toLowerCase();
+    const priv = await store.brainIsPrivate(env, input.channel_id, asker);
+    const placeholder = await store.post(env, { channel_id: input.channel_id, email: BRAIN_ID, body: '', thread_id: priv ? input.thread_id ?? null : input.root_id, brain: { status: 'thinking' }, visible_to: priv ? asker : null });
     const live = async (id: number, type: 'message' | 'edit') => {
       const row = await store.getMessage(env, id);
       if (!row) return;
       const [msg] = await store.shape(env, [row]);
-      await publish(env, placeholder.members, { type, message: msg });
+      await publish(env, store.audienceOf(row, placeholder.members), { type, message: msg });
     };
     await live(placeholder.message.id, 'message');
     let answer: BrainAnswer | { error: string };

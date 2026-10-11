@@ -582,7 +582,7 @@ export const STEPS: Step[] = [
     page: '/chat/',
     at: '.ch-comp',
     title: 'Ask Favor Brain in a thread',
-    body: 'Type @Favor Brain and your question in any channel or thread. The answer comes back in the thread as cards, tiles and tables, from the records your own account can see. Everyone in the conversation can read it.',
+    body: 'Type @Favor Brain and your question in any channel or thread. The answer comes back as cards, tiles and tables, from the records your own account can see. Only you see it until you press Share to channel.',
     for: (w) => w.admin,
     added: '2026-10-11',
     side: 'top',

@@ -83,7 +83,7 @@ async function route(ctx: Ctx): Promise<Response> {
     if (b && c === 'messages' && method === 'GET') {
       await store.readableChannel(env, b, me);
       const before = Number(url.searchParams.get('before')) || null;
-      return json({ ok: true, ...(await store.history(env, b, before, (x) => hydrateAttachments(env, x))) });
+      return json({ ok: true, ...(await store.history(env, b, before, (x) => hydrateAttachments(env, x), me)) });
     }
     if (b && c === 'messages' && method === 'POST') return json({ ok: true, message: await send(ctx, user, b) });
     if (b && c === 'read' && method === 'POST') {
@@ -129,9 +129,9 @@ async function route(ctx: Ctx): Promise<Response> {
   if (a === 'threads' && b && method === 'GET') {
     const root = num(b);
     const rootRow = await store.getMessage(env, root);
-    if (!rootRow) throw new HttpError(404, 'not_found', 'That thread is gone.');
+    if (!rootRow || !store.canSee(rootRow, me)) throw new HttpError(404, 'not_found', 'That thread is gone.');
     await store.readableChannel(env, rootRow.channel_id, me);
-    const t = await store.thread(env, root, (x) => hydrateAttachments(env, x));
+    const t = await store.thread(env, root, (x) => hydrateAttachments(env, x), me);
     if (!t) throw new HttpError(404, 'not_found', 'That thread is gone.');
     await store.markThreadRead(env, me, root);
     return json({ ok: true, ...t });
@@ -145,15 +145,26 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     if (!c && method === 'DELETE') {
       const row = await store.remove(env, me, id);
-      ctx.waitUntil(publish(env, await store.membersOf(env, row.channel_id), { type: 'delete', id, channel_id: row.channel_id }));
+      ctx.waitUntil(publish(env, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type: 'delete', id, channel_id: row.channel_id }));
       return json({ ok: true });
+    }
+    if (c === 'share' && method === 'POST') {
+      const { posted, removed } = await store.shareAnswer(env, me, id);
+      const msg = await broadcast(ctx, posted.message, 'message');
+      ctx.waitUntil(publish(env, [me], { type: 'delete', id, channel_id: removed.channel_id, purge: true }));
+      return json({ ok: true, message: msg, removed: id });
+    }
+    if (c === 'dismiss' && method === 'POST') {
+      const removed = await store.dismissAnswer(env, me, id);
+      ctx.waitUntil(publish(env, [me], { type: 'delete', id, channel_id: removed.channel_id, purge: true }));
+      return json({ ok: true, removed: id });
     }
     if (c === 'reactions' && method === 'POST') {
       const emoji = String((await body(request)).emoji || '');
       if (!EMOJI_OK.test(emoji)) throw new HttpError(400, 'emoji', 'Pick an emoji.');
       const reactions = await store.toggleReaction(env, me, id, emoji);
       const row = await store.getMessage(env, id);
-      if (row) ctx.waitUntil(publish(env, await store.membersOf(env, row.channel_id), { type: 'reaction', id, reactions }));
+      if (row) ctx.waitUntil(publish(env, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type: 'reaction', id, reactions }));
       return json({ ok: true, reactions });
     }
   }
@@ -203,7 +214,7 @@ async function boot(env: ChatRouteEnv, user: HubUser) {
 
 async function broadcast(ctx: Ctx, row: store.MessageRow, type: 'message' | 'edit'): Promise<store.MessageOut> {
   const [msg] = await store.shape(ctx.env, [row], (x) => hydrateAttachments(ctx.env, x));
-  const members = await store.membersOf(ctx.env, row.channel_id);
+  const members = store.audienceOf(row, await store.membersOf(ctx.env, row.channel_id));
   ctx.waitUntil(publish(ctx.env, members, { type, message: msg }));
   return msg;
 }
@@ -254,7 +265,7 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     })().catch(() => undefined));
   }
   if (parseMentions(text).brain && !SYSTEM_VOICES.has(me)) {
-    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, asker: { email: me, name: user.name }, text }));
+    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name }, text }));
   }
   return msg;
 }

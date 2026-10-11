@@ -19,6 +19,7 @@ export function world({ mode } = {}) {
   d1.exec(read('db/clips-v2.sql'));
   d1.exec(read('db/meetings.sql'));
   d1.exec(read('db/favor-chat.sql'));
+  d1.exec(read('db/favor-chat-private.sql'));
   const now = '2026-10-11T12:00:00.000Z';
   for (const u of [ADMIN, ADMIN2, ADMIN3, STAFF]) {
     d1.db.prepare('INSERT INTO hub_users (email, name, picture, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)').run(u.email, u.name, u.picture, u.role, now, now);

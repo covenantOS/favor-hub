@@ -11,6 +11,7 @@ Press **Help and what's new**, then **Only what's new**, and the tour shows you 
 
 ## October 11, 2026
 
+- **Favor Brain answers in Chat are private.** An answer in a channel or group is visible only to the person who asked, with **Share to channel** and **Dismiss** under it.
 - **Chat, for admins.** Chat in the menu opens channels, direct messages, groups and threads. Messages arrive live, with reactions, @mentions, typing and who is online. Share a Drive file, a clip or a meeting from the plus in the message box, and type @Favor Brain in any thread to get an answer back as cards and tables. Mentions show on the bell and the Chat badge. Ctrl K finds messages. Every admin joins #general and #hub-feedback.
 - **Mine shows one number.** The Mine chip on Open actions and Mine on the Overview count the same open actions, the ones that list you as a fundraiser. "What each number counts" in the Work Center article has the definition.
 - **Add a partner, in full.** Add partner in the Work Center's tool row and on Find a partner opens one form for an individual, a household or an organization. A household joins two people as spouses, each with their own phone and email. An organization takes a type and a main contact who gets their own record. Add a relationship links the new partner to someone already in Blackbaud. Matches show beside the form with the reason, and Add stays locked until you tick that none is the same person. The holder follows the state on the address. Admins and the Support Team only.

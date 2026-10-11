@@ -82,6 +82,8 @@
     setTopic: function (id, topic) { return req('PATCH', 'channels/' + encodeURIComponent(id), { topic: topic }); },
     addMembers: function (id, emails) { return req('POST', 'channels/' + encodeURIComponent(id) + '/members', { emails: emails }).then(function (d) { return d.channel; }); },
     driveSearch: function (q) { return req('GET', 'drive?q=' + encodeURIComponent(q)); },
+    shareAnswer: function (id) { return req('POST', 'messages/' + id + '/share', {}); },
+    dismissAnswer: function (id) { return req('POST', 'messages/' + id + '/dismiss', {}); },
     clips: function () { return req('GET', 'clips'); },
     startMeeting: function (ch) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/meeting', {}); },
     upload: function (file) {
