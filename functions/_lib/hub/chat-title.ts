@@ -1,10 +1,13 @@
 // Favor Brain chat titles. A small Workers AI model writes a 2 to 5 word title after a chat's first answer and
 // again every third turn after that, when the topic has moved. A title the person typed by hand is never touched.
+// Every word of a title has to come from the person's own questions; a title with a word they never used is thrown
+// out and the chat keeps its first question as the title. The 1B model made up "Texas Oil Companies" for a list of
+// lapsed major partners in Texas and copied a number out of its own instructions, so the model moved to Scout.
 import { brainFlag } from '../admin/settings';
 import type { Env } from '../http';
 import { titleOf } from './chat';
 
-export const TITLE_MODEL = '@cf/meta/llama-3.2-1b-instruct';
+export const TITLE_MODEL = '@cf/meta/llama-4-scout-17b-16e-instruct';
 const TITLE_TIMEOUT_MS = 6000;
 
 /** Turn 1 gets a title. After that the topic is checked at turns 4, 7, 10 and so on. */
@@ -21,12 +24,28 @@ export function cleanTitle(raw: string): string | null {
   return t.length > 44 ? null : t;
 }
 
+// Small words a title may add that the questions did not use.
+const GLUE = new Set(['a', 'an', 'the', 'of', 'in', 'on', 'for', 'by', 'and', 'or', 'to', 'with', 'from', 'about', 'at', 'per', 'vs']);
+const wordsOf = (s: string) => s.toLowerCase().match(/[a-z0-9]+/g) || [];
+
+/** True when every word of the title appears in the questions. Numbers must match exactly; other words match on
+ *  their first four letters, so "entering" passes for "enter" and "gifts" for "gift". */
+export function grounded(title: string, questions: string[]): boolean {
+  const said = wordsOf(questions.join(' '));
+  return wordsOf(title).every((w) => {
+    if (GLUE.has(w)) return true;
+    if (/\d/.test(w)) return said.includes(w);
+    const stem = w.slice(0, 4);
+    return said.some((s) => (s.length < 4 || w.length < 4 ? s === w : s.slice(0, 4) === stem));
+  });
+}
+
 export function titlePrompt(questions: string[], current: string) {
   return [
     {
       role: 'system',
       content:
-        'You name chats. Reply with only a plain 2 to 5 word title in sentence case, such as "2026 giving by team" or "Lookup 15032, Twila Adams". No quotes, no closing punctuation, no dashes. Keep names and numbers exactly as written. If the questions are still on the topic of the current title, reply KEEP.',
+        'You name chats. Reply with only a plain 2 to 5 word title in sentence case, built only from words in the questions. Never add a topic, number or name the questions do not contain. No quotes, no closing punctuation, no dashes. If the questions are still on the topic of the current title, reply KEEP.',
     },
     { role: 'user', content: `Current title: ${current || '(none)'}\nQuestions, oldest first:\n${questions.map((q, i) => `${i + 1}. ${q.slice(0, 300)}`).join('\n')}` },
   ];
@@ -39,7 +58,8 @@ export async function makeTitle(ai: Env['AI'] | undefined, questions: string[], 
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), TITLE_TIMEOUT_MS));
   try {
     const out = await Promise.race([run, timeout]);
-    return cleanTitle(String(out?.response || ''));
+    const t = cleanTitle(String(out?.response || ''));
+    return t && grounded(t, questions) ? t : null;
   } catch (err) {
     console.error('[brain] title', err);
     return null;

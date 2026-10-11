@@ -20,7 +20,7 @@ before(async () => {
   d1 = memoryD1();
   d1.exec(readFileSync(new URL('../db/chat.sql', import.meta.url), 'utf8'));
   d1.exec(readFileSync(new URL('../db/chat-titles.sql', import.meta.url), 'utf8'));
-  env = { DB: d1, AI: ai('2026 giving by team') };
+  env = { DB: d1, AI: ai('Giving this year') };
   chat = await import('../functions/_lib/hub/chat.ts');
   titles = await import('../functions/_lib/hub/chat-title.ts');
   backfill = await import('../functions/api/brain/titles-backfill.ts');
@@ -54,6 +54,14 @@ describe('title rules', () => {
     assert.equal(titles.cleanTitle('Giving ' + 'x'.repeat(60)), null);
   });
 
+  it('accepts only titles built from the words of the questions', () => {
+    assert.equal(titles.grounded('Lapsed major partners in Texas', ['List lapsed major partners in Texas']), true);
+    assert.equal(titles.grounded('Entering a check gift', ['How do I enter a check gift?']), true);
+    assert.equal(titles.grounded('Texas oil companies', ['List lapsed major partners in Texas']), false);
+    assert.equal(titles.grounded('We received 15032 gifts', ['How many gifts did we receive in September?']), false);
+    assert.equal(titles.grounded('Lookup 15032', ['Tell me about lookup 15032']), true);
+  });
+
   it('treats a title as editable only when the Brain set it or it is still the default', () => {
     assert.equal(titles.editable({ title: 'Anything', title_by: 'hand' }, 'Anything'), false);
     assert.equal(titles.editable({ title: 'Model title', title_by: 'auto' }, 'x'), true);
@@ -66,7 +74,7 @@ describe('retitling', () => {
   it('writes a model title after the first answer and marks it auto', async () => {
     await addChat('c_titl0001', 'How is giving this year?');
     await titles.retitle(env, ADA, 'c_titl0001', 1);
-    assert.deepEqual(await titleOfChat('c_titl0001'), { title: '2026 giving by team', title_by: 'auto' });
+    assert.deepEqual(await titleOfChat('c_titl0001'), { title: 'Giving this year', title_by: 'auto' });
   });
 
   it('never overwrites a title the person typed', async () => {
@@ -82,7 +90,15 @@ describe('retitling', () => {
     await d1.db.prepare("UPDATE brain_threads SET title = 'Giving this year', title_by = 'auto' WHERE id = 'c_keep0003'").run();
     await titles.retitle(env, ADA, 'c_keep0003', 4);
     assert.equal((await titleOfChat('c_keep0003')).title, 'Giving this year');
-    env.AI = ai('2026 giving by team');
+    env.AI = ai('Giving this year');
+  });
+
+  it('drops a title with words the person never used', async () => {
+    env.AI = ai('Texas oil companies');
+    await addChat('c_made0007', 'List lapsed major partners in Texas');
+    await titles.retitle(env, ADA, 'c_made0007', 1);
+    assert.deepEqual(await titleOfChat('c_made0007'), { title: 'List lapsed major partners in Texas', title_by: null });
+    env.AI = ai('Giving this year');
   });
 
   it('a model that does not answer leaves the default title alone', async () => {
@@ -90,7 +106,7 @@ describe('retitling', () => {
     env.AI = { run: async () => { throw new Error('down'); } };
     await titles.retitle(env, ADA, 'c_none0004', 1);
     assert.deepEqual(await titleOfChat('c_none0004'), { title: 'Lookup 15032', title_by: null });
-    env.AI = ai('2026 giving by team');
+    env.AI = ai('Giving this year');
   });
 });
 
