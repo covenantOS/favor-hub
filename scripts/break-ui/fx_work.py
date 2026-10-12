@@ -302,3 +302,10 @@ def home(mode, m, q, state):
 @route('GET', r'^/api/hub/home-drill$')
 def home_drill(mode, m, q, state):
     return {'ok': True, 'kind': 'actions', 'today': day(), 'rows': [], 'total': 0, 'scope': 'portfolio'}
+
+
+@route('GET', r'^/api/work/(declines|giftimages|grants)$')
+def new_lanes(mode, m, q, state):
+    # Tabs added on main after this harness was written. They get an empty, well-formed answer until someone
+    # writes a worst case for them.
+    return {'ok': True, 'rows': [], 'stats': {}, 'owners': [], 'today': day(), 'synced': stamp(4)}
