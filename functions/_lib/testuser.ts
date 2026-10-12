@@ -37,7 +37,7 @@ export function testerWriteBlocked(email: string, method: string, path: string):
   const m = method.toUpperCase();
   if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return false;
   if (!WRITE_FAMILIES.some((re) => re.test(path))) return false;
-  if (READ_STEPS.test(path)) return false;
+  if (READ_STEPS.test(path) || /^\/api\/requests\/(route|search|people|prefs)\/?$/.test(path)) return false;
   return true;
 }
 

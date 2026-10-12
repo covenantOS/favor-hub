@@ -44,7 +44,8 @@ test('no agent key configured means nobody gets a session', async () => {
 test('writes to Blackbaud, mail, requests and meetings are refused for the tester only', () => {
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/work/actions'), true);
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/gift-entry/gifts'), true);
-  assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/requests/route'), true);
+  assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/requests'), true);
+  assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/requests/route'), false, 'autofill reads only');
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/work/calls/preview'), false);
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'GET', '/api/work/actions'), false);
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/meet/meetings'), false, 'a start-now meeting alone is allowed');
