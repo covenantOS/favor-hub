@@ -290,9 +290,16 @@ function teardown() {
 }
 
 let lastRect = '';
+let targetSel = '';
+let replaceT = 0;
 function follow() {
   raf = requestAnimationFrame(follow);
   if (!root) return;
+  // A page that draws its list again replaces the element: find the same thing again.
+  if (target && !target.isConnected && targetSel) {
+    const again = Array.from(document.querySelectorAll(targetSel)).find((e) => visible(e) && onScreenX(e) && !e.closest('.tr'));
+    if (again) target = again;
+  }
   if (!target || !target.isConnected) {
     if (lastRect !== 'none') {
       hole.classList.add('is-none');
@@ -314,6 +321,12 @@ function follow() {
     return;
   }
   hole.classList.remove('is-none');
+  // The thing grew or moved after the card was placed (its rows loaded): place the card again so it never sits on it.
+  const p = pop.getBoundingClientRect();
+  if (!pop.classList.contains('is-busy') && Math.min(x + w, p.right) - Math.max(x, p.left) > 2 && Math.min(y + h, p.bottom) - Math.max(y, p.top) > 2) {
+    clearTimeout(replaceT);
+    replaceT = window.setTimeout(() => { if (target) void settle(target, pop.dataset.side, gen); }, 120);
+  }
   hole.style.cssText = `transform:translate(${Math.round(x)}px,${Math.round(y)}px);width:${Math.round(w)}px;height:${Math.round(h)}px`;
 }
 
@@ -771,6 +784,7 @@ async function show(step: Step, my: number) {
     await settle(el, step.side, my);
     if (stale()) return;
     target = el;
+    targetSel = el.matches(step.at || '') ? step.at! : step.alt || '';
     lastRect = '';
     await pointAt(el, false);
     if (stale()) return;

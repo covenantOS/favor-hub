@@ -170,7 +170,7 @@ export const CORE: Step[] = [
     title: 'Search finds anything',
     body: 'Press Ctrl and K on any page (Command and K on a Mac) and type a few letters. Search finds pages, partners, help topics and videos.',
     side: 'bottom',
-    phone: { press: '.h-top__search', body: '{Tap} the magnifier at the top of any page and type a few letters. Search finds pages, partners, help topics and videos.' },
+    phone: { press: '.h-top__search', at: '#cmdk input', body: '{Tap} the magnifier at the top of any page and type a few letters. Search finds pages, partners, help topics and videos.' },
   },
   {
     id: 'core-work',
@@ -195,7 +195,7 @@ export const CORE: Step[] = [
     id: 'core-board',
     page: '/requests/',
     via: 'board',
-    at: '.req-col.is-on',
+    at: '.req-col[data-col="inbox"]',
     title: 'Follow your request',
     body: 'Every request moves through Inbox, Approved, In motion and Done. You get an email when yours is done.',
     side: 'right',
