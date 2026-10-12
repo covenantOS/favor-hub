@@ -70,9 +70,10 @@ function shell() {
 }
 
 (async () => {
-  shell();
+  // The page draws once its notes and action items are in, so the action items never push the search box and list down.
   try {
     const [r, a, d] = await Promise.all([api('meetings?scope=notes'), api('meetings/actions'), api('meetings/directory').catch(() => ({ people: [] }))]);
+    shell();
     list = r.meetings;
     acts = a.actions;
     people = new Map((d.people || []).map((p) => [String(p.email).toLowerCase(), p]));
