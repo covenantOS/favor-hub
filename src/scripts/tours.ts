@@ -707,7 +707,7 @@ export const STEPS: Step[] = [
     via: 'mail',
     at: '.ml-tabs',
     title: 'Mail sorts itself',
-    body: 'Needs you lists what asks you something, oldest first. Partners, Staff, Receipts and gifts and the other tabs sort the inbox and count each one. {Tap} the circle beside a sender to select several, then archive, label, snooze or move them. Open a partner's email to see their giving and who holds them, with three short replies to start from.',
+    body: 'Needs you lists what asks you something, oldest first. Partners, Staff, Receipts and gifts and the other tabs sort the inbox and count each one. {Tap} the circle beside a sender to select several, then archive, label, snooze or move them. Open an email from a partner to see their giving and who holds them, with three short replies to start from.',
     for: (w) => w.admin,
     added: '2026-10-12',
     side: 'bottom',
