@@ -110,10 +110,12 @@ body.h-body .ch-intro__lock svg { width: 0.72em; height: 0.72em; }
 @media (min-width: 861px) {
   body.h-body .wh > .wh-top[hidden] { display: block !important; visibility: hidden; }
   body.h-body .wh > .wh-top[hidden] .wh-meta::before { content: '\00a0'; }
-  body.h-body .wh .wh-col--main:not(:has(> .wh-card:not([hidden])))::before { content: ''; display: block; height: 460px; border-radius: var(--r-lg, 16px); background: var(--r-sunk); opacity: 0.55; }
+  body.h-body .wh:not(.is-in) .wh-col > .wh-card { display: none; }
+  body.h-body .wh:not(.is-in) .wh-col::before { content: ''; display: block; height: 460px; border-radius: var(--r-lg, 16px); background: var(--r-sunk); opacity: 0.55; }
+  body.h-body .wh:not(.is-in) .wh-col--side::before { height: 300px; }
 }
 /* Request board placeholder chips match the filter chips' size. */
-.req-skel--chip { display: inline-block; width: 86px; height: 36px; border-radius: 999px; margin-right: 8px; vertical-align: middle; }
+body.h-body .req-skel.req-skel--chip { display: inline-block; width: 86px; height: 36px; border-radius: 999px; margin-right: 8px; vertical-align: middle; }
 /* "Drag a card to move it" narrated the board and arrived a moment after the board, pushing it down; the cards show a grab cursor. */
 body.h-body .h-page .board-hint { display: none !important; }
 body.h-body .req-board.is-reviewing .req-card { cursor: grab; }
@@ -125,3 +127,12 @@ body.h-body .req-board.is-reviewing .req-card { cursor: grab; }
    The empty box closes up and only the big Reply and Forward stay. (The list banner stays: hiding it moved the list under the pointer.) */
 body.h-body .ml-thread__msgs:has(.ml-connect) .ml-msg__acts { display: none; }
 body.h-body .ml-hdronly:empty { display: none; }
+/* The reserved Work overview line matches the real one (16 px, the stamp's line height). */
+@media (min-width: 861px) { body.h-body .wh > .wh-top { min-height: 16px; } body.h-body .wh > .wh-top[hidden] { height: 16px; overflow: hidden; } }
+
+/* Learn lesson: the Lessons button opened a list that is already on screen beside the lesson on a computer. */
+@media (min-width: 861px) { body.h-body .ln-lessons-btn { display: none !important; } }
+
+/* Onboarding and Welcome titles were bold sans while every other page title (Projects, Learn, Evaluations, Meeting notes) is
+   the serif. Same face and weight now. */
+body.h-body .ob h1, body.h-body .wl-hero h1 { font-family: var(--h-serif, 'Playfair Display', serif); font-weight: 500; letter-spacing: -0.01em; }
