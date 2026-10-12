@@ -266,3 +266,8 @@
 }
 :root .hd-hero { min-width: 0; max-width: 100%; box-sizing: border-box; }
 :root .hd-hero h1, :root .hd-hero p { overflow-wrap: anywhere; }
+
+/* Work Center paging and the day view's "continues" mark */
+:root .wc-more .h-more { margin: 0; min-height: 44px; }
+:root .wc-more .h-more span { font-weight: 500; color: var(--r-ink-3); margin-left: 6px; }
+:root .dv-cont { flex: none; font: 600 11px var(--h-font); padding: 1px 7px; border-radius: 999px; background: var(--r-sunk); color: var(--r-ink-2); white-space: nowrap; }

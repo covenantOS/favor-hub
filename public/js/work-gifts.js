@@ -8,7 +8,10 @@ const W = () => window.WC;
 const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-const G = { data: null, loading: false, error: '', owner: null, quick: '', q: '', sel: new Set(), gone: new Set(), leftNow: {}, shelf: [], weekAdd: 0, started: false };
+const PAGE = 60;
+// Rows come 60 at a time, with what is left, the way Foundations pages its list.
+const moreBtn = (n, shown, attr) => (n > shown ? `<div class="wc-more"><button type="button" class="h-more" ${attr}>Show ${Math.min(PAGE, n - shown)} more <span>${(n - shown).toLocaleString('en-US')} left of ${n.toLocaleString('en-US')}</span></button></div>` : '');
+const G = { shown: 60, data: null, loading: false, error: '', owner: null, quick: '', q: '', sel: new Set(), gone: new Set(), leftNow: {}, shelf: [], weekAdd: 0, started: false };
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 async function load(owner) {
@@ -74,8 +77,8 @@ function view() {
       <div class="wg-tools"><label class="wc-find">${f.ic('search')}<input type="search" id="wg-q" placeholder="Find a partner" value="${e(G.q)}" autocomplete="off" /></label>${picker}<span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="gifts-to-thank">${f.ic('sheet')}Google Sheets</button></div>
       <div class="wg-list">
-        ${lateL.length ? `<div class="wg-group is-late"><span>Over 24 hours · ${lateL.length.toLocaleString('en-US')}</span><button type="button" data-wg-all="late">Select all</button></div>${lateL.map(rowHTML).join('')}` : ''}
-        ${newL.length ? `<div class="wg-group"><span>New since ${e(since)} · ${newL.length}</span><button type="button" data-wg-all="new">Select all</button></div>${newL.map(rowHTML).join('')}` : ''}
+        ${lateL.length ? `<div class="wg-group is-late"><span>Over 24 hours · ${lateL.length.toLocaleString('en-US')}</span><button type="button" data-wg-all="late">Select all</button></div>${lateL.slice(0, G.shown).map(rowHTML).join('')}` : ''}
+        ${newL.length ? `<div class="wg-group"><span>New since ${e(since)} · ${newL.length.toLocaleString('en-US')}</span><button type="button" data-wg-all="new">Select all</button></div>${newL.slice(0, Math.max(0, G.shown - lateL.length)).map(rowHTML).join('')}` : ''}${moreBtn(list.length, G.shown, 'data-wg-more')}
         ${!list.length ? `<div class="wg-empty"><b>${all.length ? 'Nothing matches' : 'All thanked'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New gifts show here after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>` : ''}
       </div>
       ${G.shelf.length ? `<div class="wg-done"><span>Thanked today</span>${G.shelf.map((t) => `<span class="wc-tag wc-tag--done">${e(t.name)} · ${e(t.how)}</span>`).join('')}</div>` : ''}
@@ -128,7 +131,8 @@ document.addEventListener('click', async (e) => {
     });
     return;
   }
-  if (d.wgQuick !== undefined) { G.quick = G.quick === d.wgQuick ? '' : d.wgQuick; view(); return; }
+  if (b.hasAttribute('data-wg-more')) { G.shown += PAGE; view(); return; }
+  if (d.wgQuick !== undefined) { G.quick = G.quick === d.wgQuick ? '' : d.wgQuick; G.shown = PAGE; view(); return; }
   if (b.hasAttribute('data-wg-reload')) { G.data = null; G.error = ''; G.loading = false; G.started = false; view(); return; }
   if (d.wgAll) { const list = visible().filter((r) => (d.wgAll === 'late' ? isLate(r) : !isLate(r))); const every = list.every((r) => G.sel.has(r.key)); list.forEach((r) => (every ? G.sel.delete(r.key) : G.sel.add(r.key))); view(); return; }
   if (b.hasAttribute('data-wg-clear')) { G.sel.clear(); view(); return; }
@@ -157,14 +161,14 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('change', async (e) => {
   const t = e.target;
-  if (t.matches && t.matches('[data-wg-owner]')) { G.sel.clear(); G.data = null; view(); await load(t.value); view(); W().render(); }
+  if (t.matches && t.matches('[data-wg-owner]')) { G.sel.clear(); G.shown = PAGE; G.data = null; view(); await load(t.value); view(); W().render(); }
 });
 let qT;
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id !== 'wg-q') return;
   clearTimeout(qT);
-  qT = setTimeout(() => { G.q = t.value; view(); const i = $('#wg-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
+  qT = setTimeout(() => { G.q = t.value; G.shown = PAGE; view(); const i = $('#wg-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
 });
 
 // A thank-you saved anywhere (this tab, the partner drawer, the brief) updates the rows without a reload.

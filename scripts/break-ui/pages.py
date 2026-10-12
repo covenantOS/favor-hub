@@ -31,6 +31,7 @@ PAGES = {
     'foundation-drawer': {'path': '/foundations/', 'about': 'Foundation drawer', 'settle': 1500, 'steps': [('click', '.fnd-table tbody tr'), ('sleep', 1200)], 'full': False},
     'meet': {'path': '/meet/', 'about': 'Meetings day view', 'settle': 1800},
     'meet-cluster': {'path': '/meet/', 'about': 'Meetings, eight in one hour', 'settle': 1800, 'full': False, 'steps': [('js', "(function(){var s=document.querySelector('.dv-tl__scroll'); if(s){ s.scrollTop=0; var e=document.querySelector('.dv-ev'); if(e) s.scrollTop=Math.max(0, e.offsetTop-40); s.scrollIntoView({block:'start'}); }})()"), ('sleep', 500)]},
+    'meet-late': {'path': '/meet/', 'about': 'Meetings, one that runs past midnight', 'settle': 1800, 'full': False, 'steps': [('js', "(function(){var s=document.querySelector('.dv-tl__scroll'); if(s){ s.scrollTop=s.scrollHeight; s.scrollIntoView({block:'end'}); }})()"), ('sleep', 500)]},
     'meet-library': {'path': '/meet/library/', 'about': 'Notes library', 'settle': 1500},
     'meet-notes': {'path': '/meet/notes/?m=' + MEET, 'about': 'One meeting, notes page', 'settle': 1800},
     'chat': {'path': '/chat/', 'about': 'Chat, channel list and newest messages', 'settle': 2200, 'full': False, 'steps': OPEN_CH},

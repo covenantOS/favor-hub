@@ -43,5 +43,8 @@
 .cw-player.is-idle .cw-ctl > * { pointer-events: none; }
 /* Worst-case data (scripts/break-ui): a long owner name, a pasted link in the summary, a comment with no spaces. */
 .cw-sub, .cw-sumtxt, .cw-cmeta, .cw-vlist b, .cw-mktip { overflow-wrap: anywhere; }
-.cw-mktip { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.cw-mk:not(.cw-mk--many):hover .cw-mktip, .cw-mk:not(.cw-mk--many):focus-visible .cw-mktip, .cw-mk:not(.cw-mk--many).is-open .cw-mktip { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
 .cw-av { overflow: hidden; }
+/* Several comments at one spot on the bar share a marker that shows their count. */
+.cw-mk--many .cw-av { background: #fff; color: #14130f; font-weight: 700; }
+.cw-mk--many .cw-mktip b:not(:first-child) { margin-top: 6px; }

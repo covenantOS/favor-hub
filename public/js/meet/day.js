@@ -76,7 +76,7 @@
   function lanes(evs) {
     var cluster = [], end = 0;
     // Draw every event at least 45 minutes tall so a short or empty meeting never sits on top of its neighbours.
-    evs.forEach(function (e) { e.vend = Math.max(e.end, e.start + 45 * 60000); });
+    evs.forEach(function (e) { e.vend = e.capEnd ? Math.max(e.capEnd, e.start + 30 * 60000) : Math.max(e.end, e.start + 45 * 60000); });
     var flush = function () { var n = 0; cluster.forEach(function (e) { n = Math.max(n, e.lane + 1); }); cluster.forEach(function (e) { e.lanes = n; });
       // Many meetings starting within the same stretch cannot sit side by side. They stack as one-line rows from the first start.
       if (cluster.length > 3) {
@@ -141,10 +141,10 @@
       var rt = (e.stackTop - geo.t0) / 3600000 * PXH + 1 + e.stack * e.pitch;
       var rc = 'dv-ev is-row' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.sel === e.id ? ' is-sel' : '');
       return '<button type="button" class="' + rc + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.sel === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + (PROV[e.p] || e.p)) + '"' +
-        ' style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:70px;width:calc(100% - 76px)"><span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
+        ' style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:70px;width:calc(100% - 76px)"><span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + (e.capEnd ? '<span class="dv-cont">continues</span>' : '') + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
     }
     var c = 'dv-ev' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (compact ? ' is-compact' : '') + (state.sel === e.id ? ' is-sel' : '');
-    var chip = e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start);
+    var chip = (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + (e.capEnd ? '<span class="dv-cont" title="Ends ' + esc(hm(e.end)) + ' the next day">continues</span>' : '');
     var foot = tall ? '<span class="dv-ev__f"><span>' + (e.live && e.inRoom ? Number(e.inRoom).toLocaleString('en-US') + ' in the room' : people(e.count)) + '</span>' + (e.noteId ? '<span class="dv-chip dv-chip--plain">' + ic('doc') + 'Notes</span>' : '') + '</span>' : '';
     return '<button type="button" class="' + c + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.sel === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ' to ' + hm(e.end) + ', ' + (PROV[e.p] || e.p)) + '"' +
       ' style="top:' + top + 'px;height:' + h + 'px;left:calc(70px + (100% - 76px) * ' + (e.lane / e.lanes) + ');width:calc((100% - 76px) / ' + e.lanes + ' - 6px)">' +
@@ -218,7 +218,10 @@
     // A phone starts the timeline at the first meeting's hour and ends after the last, so no empty hours sit above the day.
     var phone = window.matchMedia && matchMedia('(max-width: 860px)').matches;
     var h0 = phone && evs.length ? 23 : 8, h1 = phone && evs.length ? 0 : 18;
-    evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); var ed = new Date(Math.max(e.end, e.start + 45 * 60000)); h1 = Math.max(h1, ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
+    // A meeting that runs past midnight is drawn to the end of its day and marked "continues".
+    var dayEnd = keyDate(state.day).getTime() + 24 * 3600000;
+    evs.forEach(function (e) { e.capEnd = e.end > dayEnd ? dayEnd : 0; });
+    evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); if (e.capEnd) { h1 = 24; return; } var ed = new Date(Math.min(dayEnd, Math.max(e.end, e.start + 45 * 60000))); h1 = Math.max(h1, ed.getTime() >= dayEnd ? 24 : ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
     if (h1 <= h0) h1 = h0 + 1;
     var t0 = keyDate(state.day).getTime() + h0 * 3600000, geo = { t0: t0 };
     lanes(evs);
