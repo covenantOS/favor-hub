@@ -4,6 +4,7 @@ import { getCollection, render } from 'astro:content';
 import App from '../../layouts/App.astro';
 import HelpSide from '../../components/HelpSide.astro';
 import { TOPICS, mins } from '../../data/help-topics';
+import { AREAS } from '../../data/areas';
 import videos from '../../data/videos.json';
 
 export async function getStaticPaths() {
@@ -20,8 +21,11 @@ const related = doc.data.related.map((r) => all.find((d) => d.id === r)).filter(
 const toc = headings.filter((h) => h.depth === 2);
 import '../../styles/q3-desk.css';
 import '../../styles/lint-fix.css';
+// An article that is also a page in another area's tab row (Connect an AI app under Favor Brain) keeps that area's header and tabs.
+const slugNav: Record<string, string> = Object.fromEntries(AREAS.filter((a) => a.id !== 'help').flatMap((a) => a.pages).filter((pg) => /^\/help\/[^/]+\/?$/.test(pg.href)).map((pg) => [pg.href.replace(/^\/help\/|\/$/g, ''), pg.id]));
+const navId = slugNav[doc.id] || 'docs';
 ---
-<App title={doc.data.title} crumb="Help docs" nav="docs" description={doc.data.summary}>
+<App title={doc.data.title} crumb="Help docs" nav={navId} description={doc.data.summary}>
   <div class="hd-wrap" data-for={doc.data.for.join(' ')}>
     <HelpSide current={doc.id} />
     <article class="hd-article">

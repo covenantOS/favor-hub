@@ -103,3 +103,19 @@ body.h-body .ch-head__name > :last-child { min-width: 0; overflow: hidden; text-
 body.h-body .ch-head__name > svg { flex: none; }
 body.h-body .ch-intro__lock { display: inline-flex; vertical-align: -0.08em; margin-right: 8px; color: var(--r-ink-3); }
 body.h-body .ch-intro__lock svg { width: 0.72em; height: 0.72em; }
+
+/* ---- Work overview while it loads: the left column was blank for up to two seconds and then the "Blackbaud data as of" line
+   arrived above everything and pushed the whole page down. The line keeps its room from the first frame, and the left column
+   shows the same quiet placeholder the right column already has until its first card is ready. */
+@media (min-width: 861px) {
+  body.h-body .wh > .wh-top[hidden] { display: block !important; visibility: hidden; }
+  body.h-body .wh > .wh-top[hidden] .wh-meta::before { content: '\00a0'; }
+  body.h-body .wh .wh-col--main:not(:has(> .wh-card:not([hidden])))::before { content: ''; display: block; height: 460px; border-radius: var(--r-lg, 16px); background: var(--r-sunk); opacity: 0.55; }
+}
+/* Request board placeholder chips match the filter chips' size. */
+.req-skel--chip { display: inline-block; width: 86px; height: 36px; border-radius: 999px; margin-right: 8px; vertical-align: middle; }
+/* "Drag a card to move it" narrated the board and arrived a moment after the board, pushing it down; the cards show a grab cursor. */
+body.h-body .h-page .board-hint { display: none !important; }
+body.h-body .req-board.is-reviewing .req-card { cursor: grab; }
+/* Admin overview: the "All clear as of" stamp filled in after load and pushed Check again sideways. */
+@media (min-width: 861px) { body.h-body #ad-stamp { display: inline-block; min-width: 220px; text-align: right; } }
