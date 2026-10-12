@@ -18,21 +18,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const nextPath = decodeURIComponent(parts[1] || '%2F');
   const safeNext = safeNextPath(nextPath);
   const flow = parts[2] || '';
-  const kind = flow.startsWith('meetings') ? 'meetings' : flow.startsWith('sheets') ? 'sheets' : '';
+  const kind = (['meetings', 'sheets', 'mailsend', 'mail'] as const).find((k) => flow === k || flow.startsWith(k + '+')) || '';
   const sheets = !!kind;
   const back = (note: string) => {
     const h = new Headers({ 'Cache-Control': 'no-store' });
     h.append('Set-Cookie', 'hub_gstate=; Path=/api/google; Max-Age=0');
-    if (note === 'connected' || note === 'sheets' || note === 'meetings') {
+    if (note === 'connected' || note === 'sheets' || note === 'meetings' || note === 'mail' || note === 'mailsend') {
       h.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
       h.set('Location', safeNext + (safeNext.includes('?') ? '&' : '?') + 'google=' + note);
     } else h.set('Location', '/connect/?google=' + note);
     return new Response(null, { status: 302, headers: h });
   };
+  const backTo = (to: string, note: string) => {
+    const h = new Headers({ 'Cache-Control': 'no-store', Location: to + (to.includes('?') ? '&' : '?') + 'google=' + note });
+    h.append('Set-Cookie', 'hub_gstate=; Path=/api/google; Max-Age=0');
+    return new Response(null, { status: 302, headers: h });
+  };
   const user = hubUserOf(request);
   // The session was lost on the way back from Google: sign in again, then return to the page they asked for.
   if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=' + encodeURIComponent(safeNext), request.url).toString(), 302);
-  if (url.searchParams.get('error')) return back('declined');
+  // Mail: a refusal goes back to Mail, which stays read only (or headers only) and says so.
+  if (url.searchParams.get('error')) return kind === 'mail' || kind === 'mailsend' ? backTo(safeNext, kind + '-declined') : back('declined');
   const cookie = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)hub_gstate=([^;]+)/)?.[1];
   if (!cookie || decodeURIComponent(cookie) !== state) return back('expired');
   try {

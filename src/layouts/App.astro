@@ -71,7 +71,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <meta name="robots" content="noindex" />
     <link rel="icon" type="image/png" href="/images/favor-icon.png" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href={`/manifest.webmanifest?b=${BUILD}`} />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="FavorOS" />

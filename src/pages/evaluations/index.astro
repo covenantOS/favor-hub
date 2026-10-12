@@ -1,0 +1,15 @@
+---
+// Evaluations: my evaluation, the feedback I owe a colleague, and my team's reviews. The three forms are Rachel Cox's questionnaire.
+import App from '../../layouts/App.astro';
+import '../../styles/evaluations.css';
+---
+<App title="Evaluations" crumb="Work" nav="evals" description="Your evaluation, the feedback you owe a colleague and your team's reviews.">
+  <div class="ev-page">
+    <div class="container">
+      <div class="ev-root" id="ev-root" hidden></div>
+      <p class="ev-loading" id="ev-loading">Opening</p>
+    </div>
+  </div>
+  <div class="ev-toast" id="ev-toast" role="status" aria-live="polite"></div>
+  <script is:inline src="/js/evaluations.js?v=1"></script>
+</App>

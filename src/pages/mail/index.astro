@@ -1,0 +1,21 @@
+---
+// Mail: the signed-in person's own Gmail inside FavorOS. public/js/mail/mail.js draws the screen and talks to /api/mail; files open
+// in the FavorOS file viewer (public/js/chat/chat-view.js). Open to hub admins until Admin opens it to staff (hub setting mail.enabled).
+import App from '../../layouts/App.astro';
+import '../../styles/q3-chat.css';
+import '../../styles/mail.css';
+const mock = '/js/mail/mail-mock.js?v=1';
+---
+<App title="Mail" crumb="Mail" nav="mail" bare description="Your Gmail inside FavorOS: read, reply, archive, labels, drafts and search.">
+  <div id="mail-root" class="ml" data-view="list"></div>
+  <link rel="preload" href="/js/mail/mail.js?v=2" as="script" />
+  <script is:inline src="/js/chat/chat-view.js?v=1" defer></script>
+  <script is:inline define:vars={{ mock }}>
+    // ?mock=1 draws invented mail for this browser tab (screenshots and tests); ?mock=0 goes back to the real mailbox.
+    var mq = location.search, on = /[?&]mock=1/.test(mq);
+    try { if (on) sessionStorage.setItem('favor.mail.mock', '1'); if (/[?&]mock=0/.test(mq)) sessionStorage.removeItem('favor.mail.mock'); on = sessionStorage.getItem('favor.mail.mock') === '1'; } catch (e) { /* private mode */ }
+    window.__mailMock = on;
+    if (on) document.write('<script src="' + mock + '"><\/script>');
+  </script>
+  <script is:inline src="/js/mail/mail.js?v=2" defer></script>
+</App>

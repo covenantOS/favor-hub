@@ -13,8 +13,8 @@ test('page ids are unique', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test('there are six working areas (Chat is one) plus Admin, Help and Tools at the foot', () => {
-  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'meet', 'chat', 'ask', 'kpi']);
+test('there are eight working areas (Chat, Mail and Learn among them) plus Admin, Help and Tools at the foot', () => {
+  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'meet', 'chat', 'mail', 'ask', 'learn', 'kpi']);
   assert.deepEqual(AREAS.filter((a) => a.foot).map((a) => a.id), ['admin', 'help', 'tools']);
 });
 
@@ -43,7 +43,7 @@ test('every page the layout receives as nav resolves to an area', () => {
 });
 
 test('gated pages carry a flag the nav answer returns', () => {
-  const flags = new Set(['admin', 'kpi', 'expenseLog', 'workCenter', 'clips', 'meetings', 'chat', 'projects']);
+  const flags = new Set(['admin', 'kpi', 'expenseLog', 'workCenter', 'clips', 'meetings', 'chat', 'projects', 'hr', 'mail']);
   for (const { p } of pages) if (p.need) assert.ok(flags.has(p.need), `${p.id} needs ${p.need}`);
 });
 

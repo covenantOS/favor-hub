@@ -1,0 +1,15 @@
+---
+// Evaluations admin: open a term, pick the people, see who is behind, change a supervisor, name the folder the signed documents go to.
+import App from '../../../layouts/App.astro';
+import '../../../styles/evaluations.css';
+---
+<App title="Evaluation terms" crumb="Work" nav="evals-admin" description="Open an evaluation term, see who is behind and change supervisors.">
+  <div class="ev-page">
+    <div class="container">
+      <div id="eva-root" hidden></div>
+      <p class="ev-loading" id="ev-loading">Opening</p>
+    </div>
+  </div>
+  <div class="ev-toast" id="ev-toast" role="status" aria-live="polite"></div>
+  <script is:inline src="/js/evaluations-admin.js?v=1"></script>
+</App>
