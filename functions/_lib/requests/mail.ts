@@ -55,7 +55,7 @@ export interface Outbox {
 }
 
 /** Sends through Resend, the sender the hub already uses. Returns false when there is no key or the send failed. */
-async function send(env: Env, m: Outbox): Promise<boolean> {
+export async function send(env: Env, m: Outbox): Promise<boolean> {
   const hook = (env as unknown as { MAIL_HOOK?: (m: Outbox) => Promise<boolean> | boolean }).MAIL_HOOK;
   if (hook) return !!(await hook(m)); // tests collect the mail here; nothing leaves the process
   const key = env.RESEND_API_KEY;

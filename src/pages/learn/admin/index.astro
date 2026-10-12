@@ -1,0 +1,13 @@
+---
+// Learn, Manage: courses, paths, assignments and reports for hub admins and people marked HR.
+import App from '../../../layouts/App.astro';
+import '../../../styles/learn.css';
+import '../../../styles/lint-fix.css';
+---
+<App title="Manage learning" crumb="Learn" nav="learn-admin" description="Build courses and paths, assign them, and see who has finished.">
+  <div class="ln" id="ln" data-view="admin" aria-busy="true">
+    <div class="ln-head"><div><h1>Manage learning</h1></div></div>
+    <div class="ln-list"><div class="ln-card ln-skel h-skel"></div><div class="ln-card ln-skel h-skel"></div></div>
+  </div>
+  <script is:inline src="/js/learn-admin.js?v=1" defer></script>
+</App>

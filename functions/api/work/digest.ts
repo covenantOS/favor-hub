@@ -3,6 +3,7 @@ import { adminAddresses, dryRun, run } from '../../_lib/work/digest';
 import { body, work } from '../../_lib/work/route';
 import { dailyPass as projectsDailyPass } from '../../_lib/projects/links/email'; // projects hook
 import { dailyPass } from '../../_lib/requests/mail';
+import { learnDailyPass } from '../../_lib/learn/notices';
 import { reminderPass } from '../../_lib/onboard/mail';
 
 // The morning email run. The small drain Worker calls POST with {} several times each weekday morning (the run sends nothing before a
@@ -25,7 +26,9 @@ export const onRequestPost = work(
     const projects = await projectsDailyPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
     // Onboarding steps that are due or late go to their owners in the same pass.
     const onboarding = await reminderPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
-    return { ...(await run(env)), requests, projects, onboarding } as any;
+    // Learn reminders (due soon, due today, overdue) ride the same morning pass.
+    const learn = await learnDailyPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
+    return { ...(await run(env)), requests, projects, onboarding, learn } as any;
   },
   { adminOnly: true }
 );

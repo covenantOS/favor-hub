@@ -9,13 +9,10 @@ export interface Done {
 
 export async function completedLearning(env: Pick<Env, 'DB'>, email: string, sinceIso = ''): Promise<Done[]> {
   try {
-    const r = await env.DB.prepare(
-      `SELECT c.title AS title, p.completed_at AS completedAt FROM learn_completions p JOIN learn_courses c ON c.id = p.course_id
-        WHERE lower(p.email) = ? AND p.completed_at IS NOT NULL AND p.completed_at >= ? ORDER BY p.completed_at DESC LIMIT 40`
-    )
-      .bind(String(email).toLowerCase(), sinceIso)
-      .all<Done>();
-    return r.results || [];
+    // One source for what a person finished: Learn's own record.
+    const { learningRecord } = await import('../learn/report');
+    const rec = await learningRecord(env as Env, email, { since: sinceIso || undefined });
+    return rec.completed.slice(0, 40).map((c) => ({ title: c.course, completedAt: c.completed_at }));
   } catch {
     return [];
   }

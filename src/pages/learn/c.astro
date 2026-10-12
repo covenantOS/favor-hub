@@ -1,0 +1,13 @@
+---
+// Learn: Course. The page is a frame; /js/learn.js draws it from /api/learn and moves between Learn pages without a reload.
+import App from '../../layouts/App.astro';
+import '../../styles/learn.css';
+import '../../styles/lint-fix.css';
+---
+<App title="Course" crumb="Learn" nav="learn-course" description="A course and its lessons.">
+  <div class="ln" id="ln" data-view="course" aria-busy="true">
+    <div class="ln-head"><div></div></div>
+    <div class="ln-list"><div class="ln-card ln-skel h-skel"></div><div class="ln-card ln-skel h-skel"></div></div>
+  </div>
+  <script is:inline src="/js/learn.js?v=1" defer></script>
+</App>

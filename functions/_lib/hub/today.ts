@@ -12,6 +12,9 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
+// learn: begin
+import { learnAccess, learnCards, learnCount } from '../learn/today';
+// learn: end
 import { projectsFlag } from '../projects/access';
 import { openActionsWithoutTask, projectCards, projectsMineCount } from '../projects/links/today'; // projects hook
 import { waitingOn } from '../evals/service';
@@ -37,6 +40,9 @@ export interface Access {
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
   bell: boolean;
+  /** Learn: open to this person (hub setting learn.enabled), and authoring (a hub admin or a person marked HR). */
+  learn: boolean;
+  learnAdmin: boolean;
   /** People tools (Onboarding, and the other people areas): hub admins and people an admin marked HR in Admin > People. */
   hr: boolean;
 }
@@ -52,6 +58,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
   const approver = user.via === 'google' && (await approverEmails(env)).has(email);
   const work = await workAccessFor(env, email, user.role === 'admin').catch(() => null);
   const tasks = user.role === 'admin' || (await onAnyRequest(env, email));
+  const learn = await learnAccess(env, user);
   return {
     admin: user.role === 'admin',
     kpi: user.kpi,
@@ -65,6 +72,8 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     projects: await projectsFlag(env, user).catch(() => false),
     tasks,
     bell: (!!work && work.ok) || tasks,
+    learn: learn.learn,
+    learnAdmin: learn.learnAdmin,
     hr: user.role === 'admin' || (await isHr(env, email)),
   };
 }
@@ -126,6 +135,8 @@ export interface Counts {
   evals: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
+  /** Learn: courses and paths assigned to this person and not finished. */
+  learn: number;
   /** Projects hook: tasks due today or late plus unread task notices. The Projects menu entry and the phone bar show it. */
   projectsMine: number;
 }
@@ -138,7 +149,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine, evals] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine, evals, learn] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -149,6 +160,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
     access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
+    learnCount(env, user, access).catch(() => 0),
     projectsMineCount(env, user), // projects hook
     waitingOn(env, { email: user.email, name: user.name, role: user.role }).then((w) => w.n).catch(() => 0),
   ]);
@@ -162,6 +174,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     meetingsNow: Number(meetingsNow?.n) || 0,
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
+    learn: Number(learn) || 0,
     evals: Number(evals) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
     projectsMine: Number(projectsMine) || 0, // projects hook
@@ -346,6 +359,9 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   if (access.tasks) {
     cards.push(...(await taskCards(env, user.email).catch(() => [] as Card[])));
   }
+  // learn: begin
+  cards.push(...(await learnCards(env, user, access).catch(() => [] as Card[])));
+  // learn: end
   // projects hook: tasks due, given to you and with news.
   cards.push(...(await projectCards(env, user).catch(() => [] as Card[])));
   if (access.admin) {

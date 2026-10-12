@@ -14,7 +14,7 @@ test('page ids are unique', () => {
 });
 
 test('there are six working areas (Chat is one) plus Admin, Help and Tools at the foot', () => {
-  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'meet', 'chat', 'ask', 'kpi']);
+  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'meet', 'chat', 'ask', 'learn', 'kpi']);
   assert.deepEqual(AREAS.filter((a) => a.foot).map((a) => a.id), ['admin', 'help', 'tools']);
 });
 
