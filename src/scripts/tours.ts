@@ -73,7 +73,7 @@ export const STEPS: Step[] = [
   {
     id: 'today-outside',
     page: '/',
-    at: '#d-grid',
+    at: '[data-td="meetings"]',
     title: 'Meetings held anywhere',
     body: "Today's meetings lists everything on your Google Calendar. Press a meeting held in Zoom, Meet or Teams to join it or to Move to FavorOS, which makes a FavorOS meeting at the same time with the same people. Blackbaud actions and shared files open inside FavorOS too.",
     added: '2026-10-11',
