@@ -27,11 +27,11 @@
       var box = $('ap-preview'), go = $('ap-create');
       if (!$('ap-date').value) { box.innerHTML = ''; go.disabled = true; return; }
       A.api('/api/admin/appeal-codes', { op: 'preview', draft: draft(), online: $('ap-online').checked }).then(function (d) {
-        box.innerHTML = d.built.map(function (b) {
-          var gone = d.exists.indexOf(b.code.toUpperCase()) >= 0;
+        box.innerHTML = (d.built || []).map(function (b) {
+          var gone = (d.exists || []).indexOf(b.code.toUpperCase()) >= 0;
           return '<div><code>' + A.esc(b.code) + '</code> ' + A.esc(b.description) + (gone ? ' <span class="is-bad">already exists in Blackbaud</span>' : '') + '</div>';
         }).join('');
-        go.disabled = busy || d.exists.length > 0;
+        go.disabled = busy || !(d.built || []).length || (d.exists || []).length > 0;
         if (!busy) { $('ap-msg').textContent = ''; $('ap-msg').className = 'ad-msg'; }
       }).catch(function (e) { box.innerHTML = '<div class="is-bad">' + A.esc(e.message) + '</div>'; go.disabled = true; });
     }, 220);

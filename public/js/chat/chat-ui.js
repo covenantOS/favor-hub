@@ -696,7 +696,8 @@
       var n = chName(c);
       if (c.kind === 'dm') return '<div class="ch-intro"><h2>' + esc(n) + '</h2><p>This is the start of your conversation with ' + esc(n) + '.</p></div>';
       if (c.kind === 'group') return '<div class="ch-intro"><h2>' + esc(n) + '</h2><p>This is the start of the group conversation.</p></div>';
-      return '<div class="ch-intro"><h2># ' + esc(n) + '</h2><p>' + esc(c.topic || 'The start of the channel.') + '</p></div>';
+      // A private channel shows its lock here too, as in the header and the channel list.
+      return '<div class="ch-intro"><h2>' + (c.kind === 'private' ? '<span class="ch-intro__lock">' + ic('lock') + '</span>' : '# ') + esc(n) + '</h2><p>' + esc(c.topic || 'The start of the channel.') + '</p></div>';
     }
     function renderMsgs(forceBottom) {
       var box = $('.ch-msgs', root), c = chan(S.active);

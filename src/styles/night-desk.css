@@ -95,3 +95,11 @@ body.h-body .ch-jump span { white-space: nowrap; overflow: hidden; text-overflow
 /* Projects timeline: a short month at the left edge ran its name into the next ("September 2026October 2026"). Each month
    name now stops 14 px short of its column's end, so the next month pushes it off to the left as the timeline scrolls. */
 body.h-body .tl-tk--top { padding-right: 14px; }
+
+/* Chat header: the worst-case pass made the channel name a block so a long name trails off, which glued the # and the lock to
+   the name ("#general"). The row is flex again and the name itself trails off. */
+body.h-body .ch-head__name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+body.h-body .ch-head__name > :last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+body.h-body .ch-head__name > svg { flex: none; }
+body.h-body .ch-intro__lock { display: inline-flex; vertical-align: -0.08em; margin-right: 8px; color: var(--r-ink-3); }
+body.h-body .ch-intro__lock svg { width: 0.72em; height: 0.72em; }
