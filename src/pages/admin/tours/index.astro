@@ -1,0 +1,40 @@
+---
+// Tours: who has finished the tour of FavorOS and each release's walkthroughs, and Send again for a person or a team.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+import '../../../styles/crit-reportadmin.css';
+import '../../../styles/q3-desk.css';
+import '../../../styles/lint-fix.css';
+import '../../../styles/admin-tours.css';
+---
+<App title="Tours" crumb="Admin" nav="admin-tours" description="Who has finished the tour of FavorOS and the walkthroughs of each release.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="tours" title="Tours" />
+    <div class="tu-tiles" id="tu-tiles" aria-live="polite"></div>
+    <section class="ad-card">
+      <div class="ad-sub">
+        <input id="tu-find" class="ad-field ad-find" type="search" placeholder="Find a person" aria-label="Find a person" />
+        <span class="tu-selw"><select id="tu-team" class="ad-field tu-sel" aria-label="Team"><option value="">Every team</option></select></span>
+        <span class="tu-selw"><select id="tu-show" class="ad-field tu-sel" aria-label="Show">
+          <option value="">Everyone</option><option value="open">Not finished</option><option value="done">Finished everything</option><option value="never">Not shown yet</option>
+        </select></span>
+        <span class="ad-stamp" id="tu-count" role="status"></span>
+      </div>
+      <div class="ad-sub tu-send">
+        <label class="h-label" for="tu-what">Send again</label>
+        <span class="tu-selw"><select id="tu-what" class="ad-field tu-sel"></select></span>
+        <button type="button" class="ad-btn" id="tu-send-team" disabled>Send to the team</button>
+        <span class="ad-stamp" id="tu-msg" role="status"></span>
+      </div>
+      <p class="tu-note" id="tu-note" hidden>This list fills in once the tours table is added to the database. Until then each browser keeps its own progress.</p>
+      <div class="ad-scroll" id="tu-scroll"><table class="ad-table sc-table" id="tu-table"><thead id="tu-head"></thead><tbody id="tu-body"><tr><td class="mute">Loading</td></tr></tbody></table></div>
+    </section>
+    <section class="ad-card">
+      <h2>See a tour as a role</h2>
+      <div class="tu-as" id="tu-as"></div>
+    </section>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-tours.js?v=2" defer></script>
+</App>

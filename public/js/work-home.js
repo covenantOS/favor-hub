@@ -304,6 +304,7 @@
       paint(d);
     } catch (e) {
       if (!D) { const whRoot = document.getElementById('wh'); if (whRoot) whRoot.classList.add('is-in'); }
+      root.removeAttribute('aria-busy');
       if (!D) $('wh-req-body').innerHTML = `<div class="wh-empty" style="padding:0">${esc(e.message)} <button type="button" class="wh-do" data-reload>Try again</button></div>`;
     }
     loading = false;
@@ -315,7 +316,9 @@
     // First look in this tab: hold the room the Due card takes for this browser's last layout, so the cards below do not jump down.
     try {
       const shape = JSON.parse(localStorage.getItem(SHAPE) || 'null');
-      if (shape && shape.due) { $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel"></li>'; $('wh-due-h').textContent = "Today's work"; }
+      // With no saved shape yet, a person who has the Work Center gets the Due card too (has-wc is set before the first paint).
+      const wc = shape ? shape.due : document.documentElement.classList.contains('has-wc');
+      if (wc) { $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel wh-skel--row"></li>'.repeat(8); $('wh-due-h').textContent = "Today's work"; }
     } catch (_) { /* nothing held */ }
   }
   load();

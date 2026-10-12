@@ -86,7 +86,6 @@
   body.h-body .cmdk__panel { width: min(620px, 100%); height: auto; max-height: 100%; border: 1px solid var(--rule); border-radius: 18px; box-shadow: 0 30px 80px -20px rgba(13, 15, 12, .4); }
   body.h-body .wm-pop { left: auto !important; right: 12px !important; width: 380px; }
   body.h-body .cmdk__panel { max-height: min(760px, 100%); }
-  body.h-body .tr-pop { width: min(520px, calc(100vw - 24px)) !important; left: 50% !important; transform: translateX(-50%); }
 }
 
 /* ---------- iPad on its side and small laptops: the header keeps six controls, not seven. My clips stays in the account menu and on Meetings > Clips. */

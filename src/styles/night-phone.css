@@ -61,3 +61,58 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
 
 /* Work Center, HQTY letters: the More button on each letter was 34 px. */
 @media (max-width: 860px) { body.h-body .hq-more { width: 44px; height: 44px; } }
+
+/* Statements, Print files (and other tables in the same wrapper): the table ran off the right edge of its card with nothing to
+   scroll it. It scrolls sideways inside the card now, with the first column kept to one line. */
+@media (max-width: 860px) {
+  body.h-body .h-page .fnd-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  body.h-body .stm-page .stm-table td, body.h-body .stm-page .stm-table th { white-space: nowrap; }
+}
+
+/* Work Center: the tab chips under each group (Open actions, Gifts to thank...) were 40 px tall. */
+@media (max-width: 860px) { body.h-body #wc-root .wc-nav .wc-tabs .wc-tab { min-height: 44px; } }
+
+/* Chat: a picture posted before sizes were recorded sat at the left of a full-width beige box. The box now fits the picture.
+   All sizes. */
+.ch-photo:not([style]):not(.is-broken) { width: fit-content; }
+
+/* Work Overview: the Due card's placeholder rows match the real rows, so nothing below moves when the list arrives. */
+.wh-list > li.wh-skel.wh-skel--row { height: 56px; margin: 0 14px 12px; }
+/* Its "Blackbaud data as of" line keeps its room while it loads, so the cards under it do not drop 14 px. */
+/* On a phone the cards stack, so the side cards (Requests, Quick actions, Recent activity) wait until the first copy of the page is
+   drawn: shown early, they were pushed down the screen by the Due and Gifts cards a moment later. */
+@media (max-width: 860px) {
+  body.h-body #wh[aria-busy='true'] .wh-col--side, body.h-body #wh[aria-busy='true'] #wh-team { display: none; }
+}
+
+/* Narrow phones (iPhone SE and the like, 320 to 400 px): headers wrap instead of pushing the page sideways. */
+@media (max-width: 400px) {
+  body.h-body .pj-ph { flex-wrap: wrap; }
+  body.h-body .pj-ph__act { flex: 1 1 100%; }
+  body.h-body .pj-ph__act .pj-btn { flex: 1 1 0; justify-content: center; }
+  body.h-body .la-tabs { width: auto; }
+  body.h-body #h-content :is(.ln-head, .ln-head > *, #la-body, .ln-list, .la-tabs) { min-width: 0; max-width: 100%; }
+}
+
+/* Touch screens: a header button's tooltip showed after a sheet closed and handed focus back ("Search FavorOS" hanging under the
+   header). Tooltips there are for a keyboard only. */
+@media (hover: none) { html:not(.kbd) .h-tt { display: none; } }
+
+/* 320 to 360 px: the page title was cut to "Tod". The area tile steps aside so the title fits beside the four buttons. */
+@media (max-width: 360px) {
+  body.h-body .h-top .h-tile { display: none; }
+  body.h-body .h-top .h-top__right > :is(button, a):not([hidden]) { width: 40px !important; min-width: 40px; }
+}
+
+/* Admin sheets (Edit a person, Add a person): Save and Cancel were two small buttons at the left of the footer. On a phone
+   they split the width, Save on the right where a thumb ends. Checkboxes take the brand green, not the browser's blue. */
+@media (max-width: 860px) {
+  body.h-body .ad-panel .ad-acts { display: flex; flex-direction: row-reverse; gap: 10px; }
+  body.h-body .ad-panel .ad-acts > .ad-btn { flex: 1 1 0; min-height: 48px; justify-content: center; }
+  body.h-body #h-content input[type='checkbox'], body.h-body dialog input[type='checkbox'], body.h-body .ad-panel input[type='checkbox'] { accent-color: var(--h-brand, #3c6b2f); }
+}
+/* Work Overview: the "Blackbaud data as of" line keeps its room on a phone too (the desktop rule is in night-desk.css). */
+@media (max-width: 860px) {
+  body.h-body .wh > .wh-top[hidden] { display: block !important; visibility: hidden; }
+  body.h-body .wh > .wh-top[hidden] .wh-meta::before { content: '\00a0'; }
+}
