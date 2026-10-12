@@ -21,6 +21,8 @@ const ICON: Record<string, string> = {
 };
 import '../../styles/q3-desk.css';
 import '../../styles/lint-fix.css';
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
 ---
 <App title="Help docs" crumb="Learn" nav="docs" description="How FavorOS works: every tool, Favor Brain, the KPI dashboard, and training videos.">
   <div class="hd-home">
@@ -71,7 +73,7 @@ import '../../styles/lint-fix.css';
       ))}
     </div>
 
-    <div class="h-section"><h2>Newest videos</h2><p><a class="h-link" href="/help/videos/">All {videos.length} videos</a></p></div>
+    <div class="h-section"><h2>Newest videos</h2><p><a class="h-link" href="/help/videos/">All {videos.length} {videos.length === 1 ? 'video' : 'videos'}</a></p></div>
     <div class="hd-vids">
       {newest.map((v) => (
         <a class="h-card hd-vid" href={`/help/videos/${v.slug}/`}>

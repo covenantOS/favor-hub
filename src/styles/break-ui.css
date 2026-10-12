@@ -1,0 +1,273 @@
+/* Worst-case data fixes (2026-10-11). Each rule answers a break found with scripts/break-ui/harness.py:
+   long household and organization names, addresses abroad, unbroken links and emails, seven-figure
+   amounts, counts in the thousands, missing fields. Rules lead with :root so they win over the page
+   sheets whatever order the build bundles them in. Tokens come from round2.css. */
+
+/* ------------------------------------------------------------------ Today */
+/* The side column was an auto-sized grid: one long request title pushed the page 800 px wide. */
+:root .r2t-stack { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+:root .r2t-lower > *, :root .r2t-row3 > *, :root .r2t-yearrow > * { min-width: 0; }
+:root .r2t-tile { min-width: 0; }
+:root .r2t-tile__h { min-width: 0; overflow-wrap: break-word; }
+/* Under 380 px two tiles a row leave no room for a label beside the icon and the snooze button: one a row. */
+@media (max-width: 380px) { :root .r2t-needs { grid-template-columns: minmax(0, 1fr); } }
+:root .r2t-tile__n { flex-wrap: wrap; row-gap: 4px; min-width: 0; }
+:root .r2t-tile__n.is-long { font-size: 30px; }
+:root .r2t-tile__n small { white-space: nowrap; }
+:root .r2t-tile__w { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+/* Rows: the name keeps at least half the row, a date or a time never shrinks, a status or partner chip gives way. */
+:root .r2t-lr__t { flex: 1 1 50%; }
+:root .r2t-lr > .r2t-chip { flex: 0 1 auto; }
+:root .r2t-lr > .r2t-chip[data-chip], :root .r2t-lr > .r2t-chip--live, :root .r2t-lr > .r2t-chip--n { flex: none; }
+:root .r2t-lr > .r2t-chip--who { max-width: 38%; }
+:root #t-mine .r2t-chip { max-width: 46%; }
+:root .r2t-ch > a, :root .r2t-ch > span { white-space: nowrap; flex: none; }
+:root .r2t-ch h3 { min-width: 0; }
+:root .r2t-now { min-width: 0; max-width: 100%; }
+:root .r2t-now__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: min(46vw, 420px); }
+:root .r2t-now__t small { overflow: hidden; text-overflow: ellipsis; }
+/* Activity: a pasted link wraps inside its line, and a long entry stops at three lines. */
+:root .r2t-fr p, :root .wh-fr p { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+:root .r2t-team b, :root .r2t-team small { overflow-wrap: anywhere; }
+:root .r2t-hero { font-size: clamp(34px, 5.2vw, 56px); overflow-wrap: anywhere; }
+:root .r2t-hello .h-hello h1 { overflow-wrap: anywhere; }
+:root .r2t-delta { flex-wrap: wrap; }
+
+/* ------------------------------------------------------------------ Work Overview */
+/* A tool tile keeps its label in whole words; the count drops under it when the two do not fit. */
+:root body.h-body .wh-tool { flex-wrap: wrap; row-gap: 4px; }
+:root body.h-body .wh-tool__l { flex: 1 1 auto; overflow-wrap: normal; word-break: normal; }
+:root .wh-big { flex-wrap: wrap; row-gap: 4px; }
+:root .wh-big b { overflow-wrap: anywhere; }
+/* Entry by person: the late chip takes the width its number needs and the totals share a right edge. */
+:root .wh-lc { width: auto; min-width: 64px; }
+:root .wh-lc .r2t-chip { flex: none; overflow: visible; }
+:root .wh-owners b { min-width: 6ch; text-align: right; flex: none; }
+:root .wh-amt { white-space: nowrap; }
+:root .wh-table td:first-child, :root .wh-table td:nth-child(2) { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+
+/* ------------------------------------------------------------------ Work Center */
+/* A tag ends in an ellipsis when it runs out of room (an inline-flex box only clips). */
+:root .wc-tag:not(.wc-tag--saving):not(.wc-tag--queued) { display: inline-block; line-height: 20px; vertical-align: middle; }
+:root .wc-tabs .wc-tab > span { font-variant-numeric: tabular-nums; }
+/* My partners: a long name wraps inside its own column, a place with no spaces breaks, money stays on one line. */
+:root .wm-port > * { min-width: 0; }
+:root .wm-name, :root .wm-sub, :root .wm-quiet small, :root .wm-num small { overflow-wrap: anywhere; }
+:root .wm-num, :root .wm-quiet b { white-space: nowrap; }
+:root .wm-num small, :root .wm-quiet small { white-space: normal; }
+:root .wm-next .wc-tag.wc-tag.wc-tag { display: inline-flex; gap: 4px; }
+:root .wm-next__t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Gifts to thank and letters: text columns may shrink and wrap; eight-figure amounts step down a size. */
+:root .wg-gift > *, :root .hq-row > * { min-width: 0; }
+:root .wg-name, :root .wg-sub, :root .wg-fund b, :root .hq-addr b, :root .wg-who { overflow-wrap: anywhere; }
+:root .wg-amt { white-space: nowrap; }
+:root .wg-amt small { white-space: normal; overflow-wrap: anywhere; }
+:root .wg-amt.is-long { font-size: 16px; letter-spacing: -0.01em; }
+@media (min-width: 1181px) {
+  /* Letters: the last column holds a fixed width, so status and buttons line up from row to row. */
+  :root .hq-row { grid-template-columns: 28px 130px minmax(190px, 1.2fr) minmax(190px, 1fr) 132px 252px; }
+  :root .hq-row .wg-acts { justify-content: flex-end; }
+}
+:root .hq-ref { overflow-wrap: anywhere; }
+:root .hq-state .wg-sub { overflow-wrap: anywhere; }
+:root .wc-owner { max-width: 100%; }
+/* Entry and Thank-yous candidates */
+:root .wc-pickp button { max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+:root .wc-match { overflow-wrap: anywhere; }
+:root .wa-sub, :root .wa-who { overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------ Partner drawer and page */
+/* The page title in the top bar holds one line; the full name is in its tooltip and in the heading below. */
+@media (min-width: 861px) {
+  :root body.h-body .h-top .h-top__title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  :root body.h-body .h-top .h-top__head { flex: 0 1 auto; min-width: 0; max-width: 46%; }
+}
+:root .pp-head > * { min-width: 0; }
+:root .pp-head h1, :root .pp-house, :root .pp-kicker { overflow-wrap: anywhere; }
+/* Holder and rating sit beside the name while they fit, and take at most 46% of the row. */
+:root .pp-meta { max-width: min(46vw, 420px); min-width: 0; }
+:root .pp-holder { min-width: 0; align-items: flex-start; }
+:root .pp-holder i { flex: none; }
+:root .pp-holder span { min-width: 0; overflow-wrap: anywhere; }
+:root .pp-iw { flex-wrap: wrap; justify-content: flex-end; }
+:root .pp-iw__dots { flex: none; }
+@media (max-width: 860px) { :root .pp-meta { max-width: 100%; } :root .pp-iw { justify-content: flex-start; } }
+:root .pp--compact .pp-meta { max-width: 100%; }
+/* Giving figures: eight figures step down instead of running into the next box. */
+:root .pp-giving > * { min-width: 0; }
+:root .pp-fig b { font-size: clamp(17px, 2.1vw, 26px); overflow-wrap: anywhere; }
+:root .pp-fig small { overflow-wrap: anywhere; }
+:root .wg-owe > div { min-width: 0; }
+:root .wg-owe span, :root .wg-owe b { overflow-wrap: anywhere; }
+:root .pp-ev b, :root .pp-ev .by, :root .pp-task__what span, :root .pp-opp .sub, :root .pp-nt__when, :root .pp-nt__type { overflow-wrap: anywhere; }
+:root .pp-datechip { white-space: nowrap; flex: none; }
+:root .pp-dl dd { min-width: 0; overflow-wrap: anywhere; }
+:root .pp-dl dt { overflow-wrap: anywhere; }
+:root .pp-stage { max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+:root .pp-openmore { margin: 8px 0 0; }
+:root .pp-tap { max-width: 100%; }
+:root .pp-tap small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A long instruction scrolls inside its box, so the Call button stays near the top. */
+:root .pp-instr p { max-height: 8.4em; overflow-y: auto; }
+
+/* ------------------------------------------------------------------ Receipts and Foundations */
+/* A partner with many gifts makes a tall row: the name sits at the top of it, beside the first gift. */
+:root .rcp-table td, :root .rcp-held td, :root .fnd-table td { vertical-align: top; }
+:root .fnd-name, :root .fnd-sub, :root .rcp-note { overflow-wrap: anywhere; }
+:root .rcp-held__act { white-space: normal; }
+:root .rcp-held__act .exp-pill { white-space: normal; text-align: left; height: auto; }
+@media (max-width: 1180px) {
+  /* The stacked row reads "1 contact" and drops the trailing dot when no fundraiser follows. */
+  :root .fnd-table td.is-one:nth-child(2)::after { content: ' contact · '; }
+  :root .fnd-table td.is-end:nth-child(3)::after { content: ''; }
+}
+/* The drawer heading breaks a name with no spaces at the edge. */
+:root .req-drawer h2, :root .fnd-drawer h2, :root .req-card h3, :root .fnd-none strong, :root .fnd-bb b, :root .fnd-advice { overflow-wrap: anywhere; }
+:root .fnd-tl__head { flex-wrap: wrap; }
+:root .exp-tl-row { flex-wrap: wrap; gap: 2px 12px; }
+:root .exp-tl-row > b { min-width: 0; overflow-wrap: anywhere; }
+:root .fnd-toast { border-radius: 18px; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------ Meetings */
+/* Day view. A stacked row gives its title the room left over and ends it in an ellipsis on every engine. */
+:root .dv-ev.is-row h4 { display: block; flex: 1 1 0; -webkit-line-clamp: unset; }
+:root .dv-ev h4 { overflow-wrap: anywhere; }
+:root .dv-ev__t { min-width: 0; }
+:root .dv-ev__t .dv-avs { flex: none; }
+:root .dv-ev__f { min-width: 0; gap: 8px; }
+:root .dv-ev__f > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+:root .dv-lv > * { min-width: 0; }
+:root .dv-lv h3 { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* Note cards: one column that may shrink, so an unbroken title wraps instead of widening the list. */
+:root .dv-nt, :root .dv-notes__list { grid-template-columns: minmax(0, 1fr); }
+:root .dv-nt h3 { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+:root .dv-nt p { overflow-wrap: anywhere; }
+:root .dv-sel__t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+/* Library */
+:root .libc { min-width: 0; }
+:root .libc p, :root .libc .ft > *, :root .act span, :root .mt-chips .mt-chip { overflow-wrap: anywhere; }
+:root .mt-chips .mt-chip { white-space: normal; text-align: left; height: auto; min-height: 30px; }
+:root .lib { grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); }
+/* Notes page */
+:root .nt-head > div:first-child { min-width: 0; flex: 1 1 320px; }
+:root .nt-head h2 { overflow-wrap: anywhere; }
+:root .nt-list li { grid-template-columns: 22px minmax(0, 1fr); }
+:root .nt-list li > span, :root .chap > span, :root .ans li > span, :root .drive b { overflow-wrap: anywhere; min-width: 0; }
+:root .chap, :root .ans li { grid-template-columns: 52px minmax(0, 1fr); }
+:root .drive .h-btn { flex: none; }
+:root .act > .mt-pill, :root .act > .h-btn { flex: none; align-self: start; }
+:root .mt-avs .mt-av--more { width: auto; min-width: 26px; padding: 0 6px; border-radius: 999px; background: var(--r-sunk); color: var(--r-ink-2) !important; }
+
+/* ------------------------------------------------------------------ Chat */
+:root .ch-head__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; display: block; }
+:root .ch-head__acts { flex: none; }
+:root .ch-msg__meta { flex-wrap: wrap; row-gap: 0; min-width: 0; }
+:root .ch-msg__name { min-width: 0; overflow-wrap: anywhere; text-align: left; }
+:root .ch-msg__time { flex: none; white-space: nowrap; }
+:root .ch-msg__text pre { max-height: 320px; overflow: auto; overflow-wrap: anywhere; }
+:root .ch-msg__text code { overflow-wrap: anywhere; }
+/* Cards: titles wrap to two lines inside the card; a path or a host ends in an ellipsis. */
+:root .ch-card__t { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:root .ch-prev__t .ch-card__t, :root .ch-audio__t .ch-card__t { display: block; }
+:root .ch-card__m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+:root .ch-link .ch-card__s, :root .ch-link span { overflow-wrap: anywhere; }
+:root .ch-link .ch-card__m { white-space: normal; }
+:root .ch-mid { display: flex; min-width: 0; }
+:root .ch-mid__a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }
+:root .ch-mid__b { flex: none; white-space: pre; }
+/* A picture that did not load: a plain row with its name. */
+:root .ch-photo.is-broken { display: flex; align-items: center; gap: 10px; padding: 10px 12px; width: auto; max-width: min(360px, 100%); aspect-ratio: auto; cursor: default; background: #fff; text-align: left; }
+:root .ch-photo__n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13.5px var(--h-font); color: var(--r-ink); }
+:root .ch-photo { min-width: 96px; min-height: 64px; }
+:root .ch-replies { flex-wrap: wrap; max-width: 100%; text-align: left; }
+:root .ch-person > span:not(.ch-av):not(.ch-person__r) { min-width: 0; flex: 1 1 auto; }
+:root .ch-person b { overflow-wrap: anywhere; }
+:root .ch-person__r { flex: none; white-space: nowrap; }
+:root .ch-hit__m { flex-wrap: wrap; row-gap: 0; }
+:root .ch-hit__t { overflow-wrap: anywhere; }
+:root .ch-meet__t b, :root .ch-meet__t span { overflow-wrap: anywhere; }
+:root .ch-rx { white-space: nowrap; flex: none; }
+:root .ch-stack .ch-av { flex: none; }
+:root .ch-ans__chips .ch-chip { max-width: 100%; white-space: normal; text-align: left; overflow-wrap: anywhere; height: auto; min-height: 32px; }
+
+/* ------------------------------------------------------------------ Favor Brain answer blocks */
+/* A table written in the answer scrolls sideways before its columns crush to a word a line. */
+:root .h-body .bc-root .blk-text .md-tbl table { width: max-content; min-width: 100%; }
+:root .h-body .bc-root .blk-text .md-tbl td { max-width: 280px; min-width: 72px; overflow-wrap: anywhere; vertical-align: top; }
+:root .h-body .bc-root .blk-text { overflow-wrap: anywhere; min-width: 0; }
+:root .h-body .bc-root .bc-tile__l, :root .h-body .bc-root .bc-tile__n.is-txt, :root .h-body .bc-root .bc-tile__c { overflow-wrap: anywhere; min-width: 0; }
+:root .h-body .bc-root .bc-tile__n.is-long { font-size: clamp(15px, 11.5cqw, 24px); }
+/* The pinned first column never takes more than about half the table, so the numbers stay in view. */
+:root .h-body .bc-root .t td:first-child { max-width: min(46vw, 320px); overflow: hidden; text-overflow: ellipsis; }
+:root .h-body .bc-root .t td { max-width: 360px; overflow: hidden; text-overflow: ellipsis; }
+:root .h-body .bc-root .t th { max-width: 360px; }
+:root .h-body .bc-root .t th button { overflow: hidden; text-overflow: ellipsis; }
+:root .h-body .bc-root .card__t, :root .h-body .bc-root .card__s { overflow-wrap: anywhere; min-width: 0; }
+/* Partner card */
+:root .h-body .bc-root .pc__n, :root .h-body .bc-root .pc__s { overflow-wrap: anywhere; }
+:root .h-body .bc-root .tag { height: auto; min-height: 22px; padding-top: 2px; padding-bottom: 2px; line-height: 1.3; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
+:root .h-body .bc-root .yl span { white-space: nowrap; overflow: visible; min-width: 0; }
+:root .h-body .bc-root .team__n { font-size: clamp(26px, 8.4cqw, 38px); overflow-wrap: anywhere; }
+:root .h-body .bc-root .q span, :root .h-body .bc-root .q small { overflow-wrap: anywhere; }
+/* Steps, choices, confirm, notes, sheets, sources */
+:root .h-body .bc-root .steps li > *, :root .h-body .bc-root .steps li { overflow-wrap: anywhere; min-width: 0; }
+:root .h-body .bc-root .opt b, :root .h-body .bc-root .opt small { overflow-wrap: anywhere; min-width: 0; }
+:root .h-body .bc-root .kv b, :root .h-body .bc-root .kv span { overflow-wrap: anywhere; }
+:root .h-body .bc-root .note b, :root .h-body .bc-root .note p, :root .h-body .bc-root .sheet b { overflow-wrap: anywhere; min-width: 0; }
+:root .h-body .bc-root .src, :root .h-body .bc-root .chipx { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+:root .bc-starter b { overflow-wrap: anywhere; }
+:root .bc-toast { max-width: calc(100vw - 32px); overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------ Reports */
+:root .rp-tile .n { overflow-wrap: anywhere; font-size: clamp(18px, 2.2vw, 26px); }
+:root .rp-tile.is-hero .n { font-size: clamp(24px, 6.4vw, 42px); }
+:root .rp-tile .k, :root .rp-tile .s { overflow-wrap: anywhere; }
+:root .rp-pre { overflow-wrap: anywhere; }
+:root .rp-name, :root .rp-grp { overflow-wrap: anywhere; min-width: 0; }
+:root .rp-seg2 { max-width: 100%; overflow-x: auto; }
+@media (min-width: 701px) {
+  :root .rp-cell { display: inline-block; max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+}
+
+/* ------------------------------------------------------------------ Clips, Help, Feedback */
+/* A search hit shows three lines of what was said; the card no longer grows to the whole transcript line. */
+:root .cl-hit__t { min-width: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+:root .cl-sum, :root .cl-meta b, :root .cl-use__t { overflow-wrap: anywhere; }
+:root .cl-ppl__r > span { min-width: 0; overflow-wrap: anywhere; }
+:root .cl-old li span { white-space: nowrap; }
+:root .hd-hit > *, :root .hd-card > *, :root .hd-topic li a, :root .hd-vid b, :root .hd-vid span { min-width: 0; overflow-wrap: anywhere; }
+:root .hd-topics { grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); }
+:root .hd-topics > * { min-width: 0; }
+:root .fbp-item { min-width: 0; }
+:root .fbp-who > div:first-of-type { min-width: 0; flex: 1 1 160px; }
+:root .fbp-who > div:first-of-type > * { overflow-wrap: anywhere; min-width: 0; }
+:root .fbp-reply p, :root .fbp-chip, :root .fbp-status { overflow-wrap: anywhere; }
+:root .fbp-meta { flex-wrap: wrap; }
+
+/* ------------------------------------------------------------------ Search palette (on the pages that load this sheet) */
+/* The text column may shrink, so a long file name or a transcript line wraps inside the row instead of
+   pushing the arrow out of the panel. The description stops at two lines. */
+:root .cmdk__list li[role='option'] { grid-template-columns: minmax(0, 1fr) auto; }
+:root .cmdk__list li[role='option'] .cmdk__row-title { overflow-wrap: anywhere; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:root .cmdk__list li[role='option'] .cmdk__row-desc { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+:root .cmdk__head input { min-width: 0; }
+
+/* Round faces in the day view: two-letter initials fit a 26 px circle; only the "+N" count is a pill. */
+:root .dv-avs .dv-av:not([data-h='x']) { width: 26px; min-width: 26px; height: 26px; padding: 0; font-size: 10px; letter-spacing: -0.02em; overflow: hidden; }
+/* Brain partner card: a long reason under a meter wraps instead of running out of the card. */
+:root .h-body .bc-root .pc__iw .meter em { white-space: normal; min-width: 0; overflow-wrap: anywhere; }
+/* Feedback on a narrow phone: tab counts in the thousands make the tab row scroll instead of overlapping;
+   the two head buttons stack when they do not fit side by side. */
+@media (max-width: 700px) {
+  :root .fbp-tabs { overflow-x: auto; scrollbar-width: none; }
+  :root .fbp-tabs button { flex: 0 0 auto; padding-inline: 10px; }
+  :root .fbp-head > div:last-child { flex-wrap: wrap; }
+  :root .fbp-head > div:last-child > * { min-width: min(100%, 150px); }
+}
+:root .hd-hero { min-width: 0; max-width: 100%; box-sizing: border-box; }
+:root .hd-hero h1, :root .hd-hero p { overflow-wrap: anywhere; }
+
+/* Work Center paging and the day view's "continues" mark */
+:root .wc-more .h-more { margin: 0; min-height: 44px; }
+:root .wc-more .h-more span { font-weight: 500; color: var(--r-ink-3); margin-left: 6px; }
+:root .dv-cont { flex: none; font: 600 11px var(--h-font); padding: 1px 7px; border-radius: 999px; background: var(--r-sunk); color: var(--r-ink-2); white-space: nowrap; }

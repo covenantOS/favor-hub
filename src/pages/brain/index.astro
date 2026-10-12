@@ -11,6 +11,8 @@ import '../../styles/lint-fix.css';
 import { SPRITE } from './_icons';
 
 const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use href="#bci-${n}"/></svg>`;
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
 ---
 <App title="Favor Brain" crumb="Work" nav="brain" bare description="Ask about partners, giving, team numbers, iWave ratings, grants and the manuals, here or from Claude or ChatGPT.">
   <div class="bc-root">
@@ -76,7 +78,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
     <div class="dlg" id="bc-dlg" role="dialog" aria-modal="true" aria-labelledby="bc-dlg-h"></div>
     <div class="toast" id="bc-toast" role="status" aria-live="polite"></div>
   </div>
-  <script is:inline src="/js/brain-blocks.js?v=11"></script>
+  <script is:inline src="/js/brain-blocks.js?v=12"></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
   <script is:inline src="/js/brain.js?v=18" defer></script>
 </App>

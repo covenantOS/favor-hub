@@ -65,7 +65,7 @@ const isAdmin = () => !!(S.can && S.can.edit);
 const canDelete = () => !!(S.can && S.can.delete);
 const signedIn = () => !!S.user;
 const firstName = (n) => String(n || '').split(/\s+/)[0] || 'Someone';
-const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const mediaUrl = () => `/api/clips/${ID}/media`;
 const shareUrl = () => `${location.origin}/c/${ID}`;
 
@@ -757,14 +757,30 @@ function paintMarkers() {
     track.appendChild(t);
   }
   if (!signedIn()) return;
-  for (const c of S.comments) {
+  // Comments closer than one marker's width share a marker with a count, so forty comments never pile into one band.
+  const width = track.clientWidth || 600;
+  const pct = (c) => Math.min(97, Math.max(3, (edited(c.at_seconds) / tot) * 100));
+  const groups = [];
+  for (const c of [...S.comments].sort((a, b) => a.at_seconds - b.at_seconds)) {
+    const g = groups[groups.length - 1];
+    if (g && ((pct(c) - g.left) / 100) * width < 28) g.items.push(c);
+    else groups.push({ left: pct(c), items: [c] });
+  }
+  for (const g of groups) {
+    const c = g.items[0], many = g.items.length > 1;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'cw-mk';
+    b.className = 'cw-mk' + (many ? ' cw-mk--many' : '');
     b.dataset.id = c.id;
-    b.style.left = Math.min(97, Math.max(3, (edited(c.at_seconds) / tot) * 100)) + '%';
-    b.setAttribute('aria-label', `${firstName(c.author_name)} commented at ${fmtTime(edited(c.at_seconds))}`);
-    b.innerHTML = `<span class="cw-av">${esc(initials(c.author_name))}</span><span class="cw-mktip"><b>${esc(firstName(c.author_name))} · ${fmtTime(edited(c.at_seconds))}</b>${esc(c.body)}</span>`;
+    b.style.left = g.left + '%';
+    if (many) {
+      const lines = g.items.slice(0, 3).map((x) => `<b>${esc(firstName(x.author_name))} · ${fmtTime(edited(x.at_seconds))}</b>${esc(String(x.body || '').slice(0, 90))}`).join('');
+      b.setAttribute('aria-label', `${g.items.length.toLocaleString('en-US')} comments from ${fmtTime(edited(c.at_seconds))}`);
+      b.innerHTML = `<span class="cw-av">${g.items.length > 99 ? '99+' : g.items.length}</span><span class="cw-mktip">${lines}${g.items.length > 3 ? `<b>and ${(g.items.length - 3).toLocaleString('en-US')} more in Comments</b>` : ''}</span>`;
+    } else {
+      b.setAttribute('aria-label', `${firstName(c.author_name)} commented at ${fmtTime(edited(c.at_seconds))}`);
+      b.innerHTML = `<span class="cw-av">${esc(initials(c.author_name))}</span><span class="cw-mktip"><b>${esc(firstName(c.author_name))} · ${fmtTime(edited(c.at_seconds))}</b>${esc(c.body)}</span>`;
+    }
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       seekSource(c.at_seconds);
@@ -774,6 +790,8 @@ function paintMarkers() {
     track.appendChild(b);
   }
 }
+let markT = 0;
+window.addEventListener('resize', () => { clearTimeout(markT); markT = setTimeout(() => { if (S.clip) paintMarkers(); }, 200); });
 
 /* ------------------------------------------------------------------ view tracking */
 

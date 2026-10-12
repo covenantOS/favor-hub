@@ -118,8 +118,9 @@ const bellBtn = () => document.getElementById('wm-bell');
 function paintBadge() {
   const b = bellBtn(); if (!b) return;
   const total = R.count + CH.count + TK.count + PJ.count;
-  const em = $('em', b); em.textContent = total ? String(total) : '';
-  b.setAttribute('aria-label', total ? 'Notifications, ' + total + ' waiting' : 'Notifications');
+  // The dot holds two digits; past that it reads 99+ and the label carries the exact count.
+  const em = $('em', b); em.textContent = total ? (total > 99 ? '99+' : String(total)) : '';
+  b.setAttribute('aria-label', total ? 'Notifications, ' + total.toLocaleString('en-US') + ' waiting' : 'Notifications');
 }
 function take(d) {
   R.rows = d.rows || []; R.count = d.count || 0; R.now = d.now || 0; R.loaded = true;
@@ -158,9 +159,9 @@ function bellHTML() {
     : `<div class="wm-empty"><b>No reminders</b></div>`;
   const taskList = TK.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Requests</div>${TK.items.map((it) => { const c = taskLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-task="${it.id}"><time>${esc(label(it.created_at))}</time><div><b>${esc(c.head)} ${esc(c.title)}</b>${c.txt ? `<span>${esc(c.txt)}</span>` : ''}</div></a>`; }).join('')}</div>` : '';
   const projList = PJ.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Projects</div>${PJ.items.map((it) => `<a class="wm-rem wm-rem--chat" href="${esc(it.url)}" data-wm-pj="${esc(it.id)}"><time>${esc(label(it.created_at))}</time><div><b>${esc(it.head)} ${esc(it.title)}</b>${it.txt ? `<span>${esc(it.txt)}</span>` : ''}</div></a>`).join('')}</div>` : '';
-  const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time>${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
+  const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time title="${esc(c.where)}">${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
   const wc = wcOn() || !tasksOn();
-  return `<h4><span>${wc ? 'Reminders' : 'Notifications'}${wc && R.count ? `<small>${R.count} due today</small>` : ''}</span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
+  return `<h4><span>${wc ? 'Reminders' : 'Notifications'}${wc && R.count ? `<small>${Number(R.count).toLocaleString('en-US')} due today</small>` : ''}</span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
     <div>${projList}${taskList}${chatList}${wc ? list : !TK.items.length && !CH.items.length && !PJ.items.length ? '<div class="wm-empty"><b>Nothing new</b>Requests sent to you and mentions show here.</div>' : ''}</div><div class="wm-foot">${wc ? '<span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button>' : '<span></span>'}${tasksOn() ? '<button type="button" data-wm-reqmail>Request email</button>' : ''}${projectsOn() ? '<button type="button" data-wm-pjprefs>Project notices</button>' : ''}</div>`;
 }
 function paintBell() { if (popEl) popEl.innerHTML = bellHTML(); }

@@ -130,3 +130,6 @@ body.h-body .h-top .h-top__title { padding-top: 2px; line-height: 1.2; }
 .h-tt { position: fixed; z-index: 140; padding: 6px 10px; border-radius: 8px; background: #1d211b; color: #fbfaf6; font: 500 13px/1.2 var(--h-font); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity 0.1s; }
 .h-tt.is-on { opacity: 1; }
 body.h-body .h-top .h-top__right { padding: 8px; }
+
+/* The walkthrough's moving mouse pointer belongs on a computer. A phone or tablet shows the highlight and the card only. */
+@media (pointer: coarse) { .tr-cursor { display: none !important; } }

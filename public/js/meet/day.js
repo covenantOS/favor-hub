@@ -18,7 +18,7 @@
   var hourLabel = function (h) { return ((h + 11) % 12 + 1) + ' ' + (h >= 12 && h < 24 ? 'PM' : 'AM'); };
   var longDay = function (k) { return keyDate(k).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }); };
   var wk = function (k, w) { return keyDate(k).toLocaleDateString('en-US', { weekday: w || 'long' }); };
-  var clip = function (t, n) { t = (t || '').trim(); if (t.length <= n) return t; var c = t.slice(0, n); return c.slice(0, c.lastIndexOf(' ')) + '...'; };
+  var clip = function (t, n) { t = (t || '').trim(); if (t.length <= n) return t; var c = t.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c) + '...'; };
 
   var I = {
     video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/>', arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
@@ -37,7 +37,7 @@
   MARK.webex = MARK.meet;
   var pv = function (k) { return '<span class="dv-pv dv-pv--' + (k === 'favor' ? 'favor' : 'x') + '" title="' + esc(PROV[k] || k) + '">' + (MARK[k] || MARK.favor) + '</span>'; };
 
-  var initials = function (n) { return String(n || '?').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(function (x) { return x[0].toUpperCase(); }).join('') || '?'; };
+  var initials = function (n) { var w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(function (x) { return x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x); }); var p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map(function (x) { return Array.from(x)[0]; }).join('').toUpperCase() || '?'; };
   var hue = function (n) { var h = 0; String(n).split('').forEach(function (c) { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return h % 6; };
   var av = function (n) { return '<span class="dv-av" data-h="' + hue(n) + '" title="' + esc(n) + '">' + esc(initials(n)) + '</span>'; };
   var avs = function (names, max) { names = names.filter(Boolean); max = max || 4; return '<span class="dv-avs">' + names.slice(0, max).map(av).join('') + (names.length > max ? '<span class="dv-av" data-h="x">+' + (names.length - max) + '</span>' : '') + '</span>'; };
@@ -57,7 +57,7 @@
       if (live && end < now + 10 * 60000) end = now + 10 * 60000;
       var host = m.hostName || nameOf({ email: m.hostEmail });
       var names = [host].concat((m.invitees || []).map(nameOf)).filter(Boolean);
-      out.push({ id: m.id, hub: m, p: 'favor', title: m.title, start: start, end: end, live: live, past: !live && (m.status === 'ended' || end <= now), who: names, count: names.length || 1,
+      out.push({ id: m.id, hub: m, p: 'favor', title: String(m.title || '').trim() || 'Meeting', start: start, end: end, live: live, past: !live && (m.status === 'ended' || end <= now), who: names, count: names.length || 1,
         rec: m.rec, inRoom: m.inRoom || 0, open: !m.startsAt, noteId: m.notesStatus && m.notesStatus !== 'none' ? m.id : '' });
     };
     (d.up || []).forEach(add); (d.recent || []).forEach(add);
@@ -66,7 +66,7 @@
       var s = Date.parse(c.startsAt), e = Date.parse(c.endsAt) || s + 30 * 60000;
       if (isNaN(s)) return;
       var names = (c.people || []).map(function (p) { return p.name || p.email; });
-      out.push({ id: 'c:' + c.eventId, cal: c, p: c.provider || 'meet', title: c.title, start: s, end: e, live: s <= now && e > now, past: e <= now, who: names, count: names.length || 1, rec: 'none', inRoom: 0, noteId: '' });
+      out.push({ id: 'c:' + c.eventId, cal: c, p: c.provider || 'meet', title: String(c.title || '').trim() || '(No title)', start: s, end: e, live: s <= now && e > now, past: e <= now, who: names, count: names.length || 1, rec: 'none', inRoom: 0, noteId: '' });
     });
     out.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
     return out;
@@ -76,7 +76,7 @@
   function lanes(evs) {
     var cluster = [], end = 0;
     // Draw every event at least 45 minutes tall so a short or empty meeting never sits on top of its neighbours.
-    evs.forEach(function (e) { e.vend = Math.max(e.end, e.start + 45 * 60000); });
+    evs.forEach(function (e) { e.vend = e.capEnd ? Math.max(e.capEnd, e.start + 30 * 60000) : Math.max(e.end, e.start + 45 * 60000); });
     var flush = function () { var n = 0; cluster.forEach(function (e) { n = Math.max(n, e.lane + 1); }); cluster.forEach(function (e) { e.lanes = n; });
       // Many meetings starting within the same stretch cannot sit side by side. They stack as one-line rows from the first start.
       if (cluster.length > 3) {
@@ -141,20 +141,23 @@
       var rt = (e.stackTop - geo.t0) / 3600000 * PXH + 1 + e.stack * e.pitch;
       var rc = 'dv-ev is-row' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.sel === e.id ? ' is-sel' : '');
       return '<button type="button" class="' + rc + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.sel === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + (PROV[e.p] || e.p)) + '"' +
-        ' style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:70px;width:calc(100% - 76px)"><span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4>' + esc(e.title) + '</h4></button>';
+        ' style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:70px;width:calc(100% - 76px)"><span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + (e.capEnd ? '<span class="dv-cont">continues</span>' : '') + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
     }
     var c = 'dv-ev' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (compact ? ' is-compact' : '') + (state.sel === e.id ? ' is-sel' : '');
-    var chip = e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start);
-    var foot = tall ? '<span class="dv-ev__f"><span>' + (e.live && e.inRoom ? e.inRoom + ' in the room' : e.count + ' people') + '</span>' + (e.noteId ? '<span class="dv-chip dv-chip--plain">' + ic('doc') + 'Notes</span>' : '') + '</span>' : '';
+    var chip = (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + (e.capEnd ? '<span class="dv-cont" title="Ends ' + esc(hm(e.end)) + ' the next day">continues</span>' : '');
+    var foot = tall ? '<span class="dv-ev__f"><span>' + (e.live && e.inRoom ? Number(e.inRoom).toLocaleString('en-US') + ' in the room' : people(e.count)) + '</span>' + (e.noteId ? '<span class="dv-chip dv-chip--plain">' + ic('doc') + 'Notes</span>' : '') + '</span>' : '';
     return '<button type="button" class="' + c + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.sel === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ' to ' + hm(e.end) + ', ' + (PROV[e.p] || e.p)) + '"' +
       ' style="top:' + top + 'px;height:' + h + 'px;left:calc(70px + (100% - 76px) * ' + (e.lane / e.lanes) + ');width:calc((100% - 76px) / ' + e.lanes + ' - 6px)">' +
       '<span class="dv-ev__t">' + pv(e.p) + chip + (compact ? '' : avs(e.who, e.lanes > 1 ? 2 : 4)) + '</span><h4>' + esc(e.title) + '</h4>' + foot + '</button>';
   }
 
+  // "1 person", "41 people".
+  function people(n) { return Number(n).toLocaleString('en-US') + (Number(n) === 1 ? ' person' : ' people'); }
+
   function liveCard(e) {
     var ext = !!e.cal, url = ext ? e.cal.joinUrl : '/meet/room/?m=' + e.id;
     var until = e.hub && !e.hub.endsAt ? '' : ', until ' + hm(e.end);
-    var room = ext ? e.count + ' people' : e.inRoom ? e.inRoom + ' in the room' : 'Open now';
+    var room = ext ? people(e.count) : e.inRoom ? Number(e.inRoom).toLocaleString('en-US') + ' in the room' : 'Open now';
     var rec = e.rec === 'video' ? 'Notes and video on' : e.rec === 'notes' ? 'Notes on' : 'Not recorded';
     return '<article class="dv-lv"><div class="dv-lv__top">' + pv(e.p) + '<span class="dv-live"><i></i>Live</span><span>' + esc(PROV[e.p] || e.p) + until + '</span></div>' +
       '<h3>' + esc(e.title) + '</h3><div class="dv-lv__meta">' + avs(e.who, 4) + '<span>' + esc(room) + '</span><span class="dv-lv__chip">' + (e.rec === 'notes' || e.rec === 'video' ? ic('mic') : '') + rec + '</span></div>' +
@@ -185,11 +188,11 @@
   }
 
   function noteHtml(m) {
-    var when = m.endedAt || m.startedAt || m.startsAt, d = new Date(when), today = dayKey(d) === dayKey(state.now);
-    var label = today ? 'Today, ' + hm(d) : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    var when = m.endedAt || m.startedAt || m.startsAt || m.createdAt, d = new Date(when || NaN), ok = !isNaN(d.getTime()), today = ok && dayKey(d) === dayKey(state.now);
+    var label = !ok ? 'No date on file' : today ? 'Today, ' + hm(d) : d.toLocaleDateString('en-US', Object.assign({ weekday: 'short', month: 'short', day: 'numeric' }, d.getFullYear() === state.now.getFullYear() ? {} : { year: 'numeric' }));
     var names = [m.hostName].concat((m.invitees || []).map(nameOf)).filter(Boolean);
     return '<a class="dv-nt' + (state.sel === m.id ? ' is-sel' : '') + '" href="/meet/notes/?m=' + esc(m.id) + '" data-note="' + esc(m.id) + '"><div class="dv-nt__top">' + pv('favor') + '<span>' + esc(label) + '</span></div>' +
-      '<h3>' + esc(m.title) + '</h3>' + (m.summary ? '<p>' + esc(clip(m.summary, 150)) + '</p>' : '') +
+      '<h3>' + esc(String(m.title || '').trim() || 'Meeting') + '</h3>' + (m.summary ? '<p>' + esc(clip(m.summary, 150)) + '</p>' : '') +
       '<div class="dv-nt__f"><span class="dv-chip dv-chip--teal">' + ic('doc') + 'Transcript</span>' + (m.actionCount ? '<span class="dv-chip">' + m.actionCount + ' action' + (m.actionCount === 1 ? '' : 's') + '</span>' : '') + avs(names, 3) + '</div></a>';
   }
 
@@ -215,7 +218,10 @@
     // A phone starts the timeline at the first meeting's hour and ends after the last, so no empty hours sit above the day.
     var phone = window.matchMedia && matchMedia('(max-width: 860px)').matches;
     var h0 = phone && evs.length ? 23 : 8, h1 = phone && evs.length ? 0 : 18;
-    evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); var ed = new Date(Math.max(e.end, e.start + 45 * 60000)); h1 = Math.max(h1, ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
+    // A meeting that runs past midnight is drawn to the end of its day and marked "continues".
+    var dayEnd = keyDate(state.day).getTime() + 24 * 3600000;
+    evs.forEach(function (e) { e.capEnd = e.end > dayEnd ? dayEnd : 0; });
+    evs.forEach(function (e) { h0 = Math.min(h0, new Date(e.start).getHours()); if (e.capEnd) { h1 = 24; return; } var ed = new Date(Math.min(dayEnd, Math.max(e.end, e.start + 45 * 60000))); h1 = Math.max(h1, ed.getTime() >= dayEnd ? 24 : ed.getHours() + (ed.getMinutes() ? 1 : 0)); });
     if (h1 <= h0) h1 = h0 + 1;
     var t0 = keyDate(state.day).getTime() + h0 * 3600000, geo = { t0: t0 };
     lanes(evs);

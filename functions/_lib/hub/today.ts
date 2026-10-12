@@ -18,6 +18,7 @@ import { learnAccess, learnCards, learnCount } from '../learn/today';
 import { projectsFlag } from '../projects/access';
 import { openActionsWithoutTask, projectCards, projectsMineCount } from '../projects/links/today'; // projects hook
 import { waitingOn } from '../evals/service';
+import { mailMode, mailUnreadCount, mayUseMail } from '../mail/route';
 
 export interface Access {
   admin: boolean;
@@ -45,6 +46,8 @@ export interface Access {
   learnAdmin: boolean;
   /** People tools (Onboarding, and the other people areas): hub admins and people an admin marked HR in Admin > People. */
   hr: boolean;
+  /** Mail in FavorOS (the person's own Gmail): hub admins until Admin > Chat > Mail opens it to staff (hub setting mail.enabled). */
+  mail: boolean;
 }
 
 /** True when this person is on any request (db/request-tasks.sql). False before the tables exist. */
@@ -75,6 +78,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     learn: learn.learn,
     learnAdmin: learn.learnAdmin,
     hr: user.role === 'admin' || (await isHr(env, email)),
+    mail: mayUseMail(await mailMode(env), user),
   };
 }
 
@@ -139,6 +143,8 @@ export interface Counts {
   learn: number;
   /** Projects hook: tasks due today or late plus unread task notices. The Projects menu entry and the phone bar show it. */
   projectsMine: number;
+  /** Mail: unread conversations in the person's Gmail inbox (0 until they connect Google). */
+  mailUnread: number;
 }
 
 /** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
@@ -149,7 +155,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine, evals, learn] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine, evals, learn, mailUnread] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -163,6 +169,8 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     learnCount(env, user, access).catch(() => 0),
     projectsMineCount(env, user), // projects hook
     waitingOn(env, { email: user.email, name: user.name, role: user.role }).then((w) => w.n).catch(() => 0),
+    // Gmail answers in about 150 ms; a slow answer never holds the menu back (the badge waits for the next page).
+    access.mail ? Promise.race([mailUnreadCount(env, user.email).catch(() => 0), new Promise<number>((r) => setTimeout(() => r(0), 1200))]) : 0,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -178,6 +186,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     evals: Number(evals) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
     projectsMine: Number(projectsMine) || 0, // projects hook
+    mailUnread: Number(mailUnread) || 0,
   };
 }
 

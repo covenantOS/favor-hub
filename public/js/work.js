@@ -40,13 +40,13 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const dayn = (iso) => Math.round((Date.parse(iso + 'T12:00:00Z') - Date.parse(TODAY + 'T12:00:00Z')) / 86400000);
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(TODAY.slice(0, 4)) ? ', ' + y : ''); };
 const addDays = (iso, n) => { const t = new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000); return t.toISOString().slice(0, 10); };
-const money = (a) => '$' + (Math.round(a) === a ? a.toLocaleString('en-US') : a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
 const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : (many || one + 's'));
 const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
 const clock = () => et(now(), { hour: 'numeric', minute: '2-digit' });
 const P = (fid) => (DATA.people[fid] || { n: 'Fundraiser ' + fid, team: '', active: 0, listed: 0 });
-const first = (fid) => P(fid).n.split(' ')[0];
-const ini = (name) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const first = (fid) => String(P(fid).n || '').trim().split(/\s+/)[0] || '';
+const ini = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const live = (fid) => { const p = DATA.people[fid]; return !!(p && p.active && p.listed); };
 // how a name reads when that person can no longer own work: left Favor, or never set up as a fundraiser
@@ -73,7 +73,7 @@ let ACTS = [];
 let BYID = {};
 const S = {
   view: 'open', sel: new Set(), anchor: null, list: [],
-  f: { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sort: 'due', dir: -1, shown: 100,
+  f: { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sort: 'due', dir: -1, shown: 60,
   gone: {}, ov: {}, saving: {}, queued: {}, back: {},
   batches: [], gate: null, loaded: false, error: '', running: null,
   in: { rdd: '', lane: 'wait', paste: false, data: null, loading: false, ta: {} },
@@ -94,7 +94,7 @@ function adapt(r) {
   };
 }
 function takeBoard(d) {
-  DATA = Object.assign({}, DATA, { me: d.me || DATA.me, people: d.people, today: d.today, synced: d.synced, meter: d.meter, counts: d.counts, orphans: d.orphans });
+  DATA = Object.assign({}, DATA, { total: Number(d.total) || 0, me: d.me || DATA.me, people: d.people, today: d.today, synced: d.synced, meter: d.meter, counts: d.counts, orphans: d.orphans });
   TODAY = d.today;
   ACTS = d.rows.map(adapt);
   BYID = Object.fromEntries(ACTS.map((a) => [a.id, a]));
@@ -242,7 +242,9 @@ function rowHTML(a) {
     ? `<span class="wc-tag wc-tag--done" title="${esc(a.later.s)}">Thanked ${fd(a.later.d)}</span>`
     : `<span class="wc-tag wc-tag--maybe" title="${esc(a.later.s)}">Contact ${fd(a.later.d)}, maybe done</span>`);
   if (a.grp) tags.push(`<span class="wc-tag" title="Another open task is about the same gift">${a.grp.length} tasks, one gift</span>`);
-  for (const t of (a.tg || [])) tags.push(`<span class="wc-tag wc-tag--tag">${esc(t)}</span>`);
+  const tg = a.tg || [];
+  for (const t of tg.slice(0, 3)) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(t)}">${esc(t)}</span>`);
+  if (tg.length > 3) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(tg.slice(3).join(', '))}">+${tg.length - 3}</span>`);
   if (a.dec) tags.push('<span class="wc-tag wc-tag--warn">Deceased</span>');
   const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}">${esc(P(x).n)}${gone(x)}</span>`).join('') : '<span class="none">No one</span>';
   const theirs = S.f.fr && S.f.theirs && !c.f.includes(S.f.fr) && a.hold.includes(S.f.fr);
@@ -257,6 +259,9 @@ function rowHTML(a) {
     <div class="wc-added">${fd(a.add)}</div>
   </div>`;
 }
+// Rows come 60 at a time, with what is left: "Show 60 more  1,224 left of 1,284".
+const PAGE = 60;
+function moreBtn(n) { return n > S.shown ? `<div class="wc-more"><button type="button" class="h-more" data-more>Show ${Math.min(PAGE, n - S.shown)} more <span>${(n - S.shown).toLocaleString('en-US')} left of ${n.toLocaleString('en-US')}</span></button></div>` : ''; }
 function tableHTML(list, total, idp) {
   const shown = list.slice(0, S.shown);
   const allOn = shown.length && shown.every((a) => S.sel.has(a.id));
@@ -265,9 +270,9 @@ function tableHTML(list, total, idp) {
   <div class="wc-scroll" id="${idp}-scroll" data-grid>
     <div class="wc-head wc-grid"><div class="wc-cb" data-cball><input type="checkbox" ${allOn ? 'checked' : ''} aria-label="Select every action shown" /></div>${sb('due', 'Due')}${sb('partner', 'Partner')}<span>Type</span><span>Summary</span>${sb('fr', 'Fundraiser')}${sb('added', 'Added')}</div>
     <div class="wc-grid" id="${idp}-rows">${shown.length ? shown.map((a) => rowHTML(a)).join('') : `<div class="wc-empty"><b>Nothing matches</b>Change a filter or clear them all.</div>`}</div>
-    ${list.length > S.shown ? `<div class="wc-more"><button class="h-btn h-btn--ghost h-btn--sm" data-more>Show ${Math.min(100, list.length - S.shown)} more of ${list.length - S.shown}</button></div>` : ''}
+    ${moreBtn(list.length)}
   </div>
-  <div class="wc-foot"><span>${list.length === total ? plural(total, 'open action') : `${list.length.toLocaleString()} of ${plural(total, 'open action')} match`}</span>
+  <div class="wc-foot"><span>${list.length === total ? plural(total, 'open action') : `${list.length.toLocaleString()} of ${plural(total, 'open action')} match`}${DATA.total > ACTS.length ? ` · the newest ${ACTS.length.toLocaleString('en-US')} of ${DATA.total.toLocaleString('en-US')} in Blackbaud` : ''}</span>
     <span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Space</kbd>select</span><span><kbd>Ctrl</kbd><kbd>A</kbd>all that match</span><span><kbd>Esc</kbd>clear</span></span></div>`;
 }
 function afterTable(idp, list) {
@@ -902,16 +907,16 @@ function viewIntake() {
   const span = `${fd(d.deadline.from)} to ${Number(d.deadline.to.slice(8))}`;
   $('#view').innerHTML = `
     <div class="wc-owners" role="tablist" aria-label="Whose contacts">
-      ${d.owners.map((x) => { const n = x.wait + x.late; return `<button type="button" class="wc-owner${S.in.rdd === x.fid ? ' is-on' : ''}" data-rdd="${x.fid}" title="${esc(x.type)}"><span class="wc-ini">${ini(x.name)}</span>${esc(x.name)}${n ? `<em class="warn">${n}</em>` : x.all ? '<em>Done</em>' : '<em class="none">Nothing yet</em>'}</button>`; }).join('')}
+      ${d.owners.map((x) => { const n = x.wait + x.late; return `<button type="button" class="wc-owner${S.in.rdd === x.fid ? ' is-on' : ''}" data-rdd="${x.fid}" title="${esc(x.type)}"><span class="wc-ini">${esc(ini(x.name))}</span>${esc(x.name)}${n ? `<em class="warn">${n}</em>` : x.all ? '<em>Done</em>' : '<em class="none">Nothing yet</em>'}</button>`; }).join('')}
     </div>
     <section class="h-card wc-clock" aria-label="This week's deadline">
       <div class="wc-clock__left"><span class="h-label">${esc(me.name)} · due ${esc(d.deadline.label.replace('Monday', 'Monday'))}</span><div class="wc-clock__time" id="clock">${clk(dl)}</div><div class="wc-clock__when">Contacts from ${esc(span)}. The report is pulled Wednesday at noon.</div></div>
-      <div class="wc-prog"><div class="wc-prog__nums"><span><b>${w.inBB}</b>of ${w.sub} submitted this week are in Blackbaud</span><span class="wc-prog__side">${bb.this} ${esc(me.type)}s dated this week in Blackbaud<br />Last week: ${bb.lastByMon3} of ${bb.last} in by Monday 3:00 PM</span></div>
+      <div class="wc-prog"><div class="wc-prog__nums"><span><b>${w.inBB}</b>of ${w.sub} submitted this week are in Blackbaud</span><span class="wc-prog__side">${Number(bb.this).toLocaleString('en-US')} ${esc(me.type)}${Number(bb.this) === 1 ? '' : 's'} dated this week in Blackbaud<br />Last week: ${bb.lastByMon3} of ${bb.last} in by Monday 3:00 PM</span></div>
         <div class="wc-prog__bar" role="img" aria-label="${w.inBB} of ${w.sub} entered"><i style="width:${w.sub ? w.inBB / w.sub * 100 : 0}%"></i><i style="width:${w.sub ? w.wait / w.sub * 100 : 0}%"></i></div>
-        <div class="wc-prog__legend"><span><i></i>In Blackbaud ${w.inBB}</span><span><i class="w"></i>Waiting ${w.wait}</span><span><i class="b"></i>Late from earlier weeks ${w.late}</span></div></div>
+        <div class="wc-prog__legend"><span><i></i>In Blackbaud ${Number(w.inBB).toLocaleString('en-US')}</span><span><i class="w"></i>Waiting ${Number(w.wait).toLocaleString('en-US')}</span><span><i class="b"></i>Late from earlier weeks ${Number(w.late).toLocaleString('en-US')}</span></div></div>
     </section>
     <section class="h-card wc-sheet" id="wc-intake" aria-label="Contacts to enter">
-      <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${n}</span></button>`).join('')}</div>
+      <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${Number(n).toLocaleString('en-US')}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${me.tab ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-readsheet>${ic('paste')}Read the sheet</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
       <div class="wc-paste${S.in.paste ? ' is-on' : ''}" id="paste">
         <label for="pastebox" class="wc-pastelab">Paste rows from ${esc(me.name)}'s tracking sheet: Name, New?, Date, Phone, Email, Address, Ask, Action, Notes</label>
@@ -920,7 +925,7 @@ function viewIntake() {
       </div>
       <div class="wc-scroll wc-scroll--in" data-grid>
         ${list.length ? `<div class="wc-head wc-ig"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row shown" /></div><span>Partner</span><span>Date</span><span>How</span><span>State</span></div>
-        <div class="wc-ig">${list.map(intakeRowHTML).join('')}</div>` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
+        <div class="wc-ig">${list.slice(0, S.shown).map(intakeRowHTML).join('')}</div>${moreBtn(list.length)}` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
       </div>
       <div class="wc-foot"><span>${readyAll.length} of ${list.length} rows ready${readyAll.length ? ` · entering them all uses about ${estCreate(readyAll)} Blackbaud calls` : ''}</span>
         ${readyAll.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-postall>${ic('check')}Enter ${readyAll.length} ready rows</button>` : '<span></span>'}</div>
@@ -1106,14 +1111,14 @@ function viewTy() {
   $('#view').innerHTML = `
     <div class="wc-owners" role="tablist" aria-label="Whose thank-yous">
       <button type="button" class="wc-owner${!S.ty.owner ? ' is-on' : ''}" data-owner=""><span class="wc-ini">All</span>Everyone<em>${tyGroups('').length}</em></button>
-      ${ownList.map((x) => `<button type="button" class="wc-owner${S.ty.owner === x ? ' is-on' : ''}" data-owner="${x}"><span class="wc-ini">${ini(P(x).n)}</span>${esc(P(x).n)}<em>${tyGroups(x).length}</em></button>`).join('')}
+      ${ownList.map((x) => `<button type="button" class="wc-owner${S.ty.owner === x ? ' is-on' : ''}" data-owner="${x}"><span class="wc-ini">${esc(ini(P(x).n))}</span>${esc(P(x).n)}<em>${tyGroups(x).length}</em></button>`).join('')}
     </div>
     <section class="h-card wc-sheet" id="wc-ty" aria-label="Thank-yous">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${['s', 'l', 'o'].map((k) => `<button type="button" class="wc-lane${S.ty.lane === k ? ' is-on' : ''}" data-tylane="${k}">${LANE[k][0]}<span>${sec[k].length}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${S.ty.lane === 's' && L.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-tycloseall="s">${ic('check')}Close all ${L.length}</button>` : ''}</div></div>
       <div class="wc-scroll" data-grid>
         ${L.length ? `<div class="wc-head wc-tg"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
-        <div class="wc-tg">${L.map(rowT).join('')}</div>` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
+        <div class="wc-tg">${L.slice(0, S.shown).map(rowT).join('')}</div>${moreBtn(L.length)}` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
       </div>
       <div class="wc-foot"><span>${plural(L.length, 'row')} · ${plural(L.reduce((n, g) => n + g.ids.length, 0), 'open task')} in Blackbaud</span><span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Esc</kbd>clear</span></span></div>
     </section>`;
@@ -1194,7 +1199,7 @@ function render() { if (!S.loaded) return; const y = window.scrollY; const sc = 
 // whose data arrived. The page never redraws once per tab.
 const pendingTabs = new Set(); let refreshT = 0;
 function tabBtn([k, l, n]) {
-  return `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`;
+  return `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${typeof n === 'number' ? n.toLocaleString('en-US') : n}</span>` : ''}</button>`;
 }
 // Two short rows. The group row names the kind of work; the tab row shows the tabs of the group you are in, with their counts.
 // Every tab of every group is one tap from the group row, and neither row scrolls sideways.
@@ -1227,7 +1232,7 @@ function drawBody(from) {
 }
 async function goTab(k) {
   const from = S.view;
-  S.view = k; S.sel.clear(); S.anchor = null; S.shown = 100; window.WCTabs.remember(k);
+  S.view = k; S.sel.clear(); S.anchor = null; S.shown = PAGE; window.WCTabs.remember(k);
   if (k === 'intake' && !S.in.data) { S.in.loading = true; drawBody(from); await loadEntry(); }
   if (k === 'intake') readSheet(S.in.rdd);
   if (k === 'recent') await loadRecent();
@@ -1268,12 +1273,12 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-settings')) { dlgSettings(); return; }
   if (d.view) { await goTab(d.view); return; }
   if (d.wcgroup) { const k = window.WCTabs.entry(d.wcgroup, DATA.me); if (k && k !== S.view) await goTab(k); return; }
-  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = 100; render(); return; }
+  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = PAGE; render(); return; }
   if (t.hasAttribute('data-tile')) { openTile(d.tile, Number(d.tileN)); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
   if (d.unf) { if (d.unf === 'all') S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' }; else { S.f[d.unf] = d.unf === 'theirs' ? false : ''; if (d.unf === 'fr') S.f.theirs = false; } render(); return; }
   if (d.sort) { if (S.sort === d.sort) S.dir = -S.dir; else { S.sort = d.sort; S.dir = d.sort === 'partner' || d.sort === 'fr' ? 1 : -1; } render(); return; }
-  if (t.hasAttribute('data-more')) { S.shown += 100; render(); return; }
+  if (t.closest('[data-more]')) { S.shown += PAGE; render(); return; }
   if (d.open) { drawer(d.open); return; }
   if (d.onlypartner) { S.f.cid = d.onlypartner; S.view = 'open'; closeLayer(); render(); return; }
   if (d.one) { const id = d.id; closeLayer(); setTimeout(() => ({ complete: dlgComplete, reassign: dlgReassign, reschedule: dlgReschedule })[d.one]([id]), 240); return; }
@@ -1296,8 +1301,8 @@ document.addEventListener('click', async (e) => {
   if (d.retry) { retryBatch(d.retry); return; }
   // Entry
   if (t.hasAttribute('data-reentry')) { S.in.loading = true; render(); await loadEntry(); render(); return; }
-  if (d.rdd) { S.sel.clear(); S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
-  if (d.lane) { S.in.lane = d.lane; S.sel.clear(); render(); return; }
+  if (d.rdd) { S.sel.clear(); S.shown = PAGE; S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
+  if (d.lane) { S.in.lane = d.lane; S.sel.clear(); S.shown = PAGE; render(); return; }
   if (t.hasAttribute('data-readsheet')) { t.disabled = true; await readSheet(S.in.rdd, true, true); t.disabled = false; return; }
   if (t.hasAttribute('data-paste')) { S.in.paste = !S.in.paste; render(); if (S.in.paste) $('#pastebox').focus(); return; }
   if (t.hasAttribute('data-readpaste')) {
@@ -1320,13 +1325,13 @@ document.addEventListener('click', async (e) => {
   if (d.rtag) { const r = inRow(d.rtag); const tags = r.tags.includes(d.v) ? r.tags.filter((x) => x !== d.v) : r.tags.concat([d.v]); editRow(d.rtag, { local: { tags }, server: { tags } }); t.classList.toggle('is-on'); return; }
   if (d.tapick) { closePop(); editRow(d.tapick, { local: { cid: d.cid, how: 'picked', cands: [] }, server: { constituent_id: d.cid } }); render(); return; }
   // Thank-yous
-  if (d.tylane) { S.ty.lane = d.tylane; S.sel.clear(); render(); return; }
-  if (d.owner !== undefined && t.hasAttribute('data-owner')) { S.ty.owner = d.owner; S.ty.lane = ''; S.sel.clear(); render(); return; }
+  if (d.tylane) { S.ty.lane = d.tylane; S.sel.clear(); S.shown = PAGE; render(); return; }
+  if (d.owner !== undefined && t.hasAttribute('data-owner')) { S.ty.owner = d.owner; S.ty.lane = ''; S.sel.clear(); S.shown = PAGE; render(); return; }
   if (d.tycloseall) { const keys = S.list.filter((k) => S.tyMap[k] && S.tyMap[k].later && S.tyMap[k].later.k === 's'); dlgComplete(tyIds(keys), 'close'); return; }
   if (d.tyclose) { dlgComplete(tyIds([d.tyclose]), S.ty.lane === 's' ? 'close' : undefined); return; }
   if (d.tydone) { dlgComplete(tyIds([d.tydone])); return; }
   // Stale
-  if (d.stl) { S.st.lane = d.stl; S.sel.clear(); S.shown = 100; render(); return; }
+  if (d.stl) { S.st.lane = d.stl; S.sel.clear(); S.shown = PAGE; render(); return; }
   if (d.stbulk) { const pick = S.list.filter((id) => !(BYID[id].gift && BYID[id].gift.a >= 1000)).filter(selectable); if (d.stbulk === 'holder') dlgReassign(pick); else { dlgComplete(pick); setTimeout(() => { const l = $('#line'); if (l) { l.value = 'Closed as no longer needed'; l.dispatchEvent(new Event('input', { bubbles: true })); } }, 60); } return; }
   // filters sheet (phone)
   if (t.hasAttribute('data-openfilters')) { $('#filters').classList.add('is-sheet'); return; }
@@ -1335,7 +1340,7 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (!t.closest || !t.closest('#wc-root')) return;
-  if (t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === 'fr' && !t.value) S.f.theirs = false; S.sel.clear(); S.shown = 100; const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
+  if (t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === 'fr' && !t.value) S.f.theirs = false; S.sel.clear(); S.shown = PAGE; const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
   if (t.hasAttribute('data-theirs')) { S.f.theirs = t.checked; S.sel.clear(); const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
   if (t.dataset.rdate) { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) editRow(t.dataset.rdate, { local: { date: t.value }, server: { contact_date: t.value } }); return; }
 });
@@ -1387,7 +1392,7 @@ function pointAt(id, quiet) {
   if (!a || !isOpenNow(a)) { if (!quiet) toast('That action is not open any more.'); else S.actMiss = true; return false; }
   S.view = 'open'; S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' };
   const at = sorted(ACTS.filter(isOpenNow)).findIndex((x) => x.id === id);
-  S.shown = Math.max(100, at + 30); S.sel.clear(); S.sel.add(id); S.actMiss = false;
+  S.shown = Math.max(PAGE, at + 30); S.sel.clear(); S.sel.add(id); S.actMiss = false;
   return true;
 }
 function showAction(id) {

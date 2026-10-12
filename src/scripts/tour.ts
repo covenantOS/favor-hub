@@ -216,6 +216,7 @@ let root: HTMLDivElement | null = null;
 let hole: HTMLDivElement;
 let pop: HTMLDivElement;
 let cursor: HTMLDivElement;
+let tap: HTMLDivElement;
 let target: Element | null = null;
 let raf = 0;
 let typed: { el: HTMLInputElement | HTMLTextAreaElement; was: string } | null = null;
@@ -237,11 +238,12 @@ function build() {
   if (root) return;
   root = document.createElement('div');
   root.className = 'tr' + (touch() ? ' tr--touch' : '');
-  root.innerHTML = `<div class="tr-block"></div><div class="tr-hole is-none"></div><div class="tr-cursor">${POINTER}<i></i></div><div class="tr-pop" role="dialog" aria-modal="true" aria-labelledby="tr-title" tabindex="-1"></div>`;
+  root.innerHTML = `<div class="tr-block"></div><div class="tr-hole is-none"></div><div class="tr-cursor">${POINTER}<i></i></div><div class="tr-tap" aria-hidden="true"></div><div class="tr-pop" role="dialog" aria-modal="true" aria-labelledby="tr-title" tabindex="-1"></div>`;
   document.body.appendChild(root);
   hole = root.querySelector('.tr-hole')!;
   pop = root.querySelector('.tr-pop')!;
   cursor = root.querySelector('.tr-cursor')!;
+  tap = root.querySelector('.tr-tap')!;
   // Presses inside the tour stay inside it (the phone menu closes on any press outside it).
   root.addEventListener('click', (e) => e.stopPropagation());
   root.addEventListener('pointerdown', (e) => e.stopPropagation());
@@ -328,9 +330,11 @@ async function pointAt(el: Element, press = false) {
   moveCursor(Math.min(innerWidth - 8, Math.max(8, x)), Math.min(innerHeight - 8, Math.max(8, y)));
   if (!touch()) await sleep(650);
   if (press) {
-    cursor.classList.remove('is-press');
-    void cursor.offsetWidth;
-    cursor.classList.add('is-press');
+    const mark = touch() ? tap : cursor;
+    if (touch()) { tap.style.left = `${Math.round(x) - 26}px`; tap.style.top = `${Math.round(y) - 26}px`; }
+    mark.classList.remove('is-press');
+    void mark.offsetWidth;
+    mark.classList.add('is-press');
     cue('press');
     await sleep(touch() ? 380 : 220);
   }
@@ -1158,8 +1162,18 @@ export function initTour() {
   void load();
   const q = new URLSearchParams(location.search);
   if (q.has('tour')) {
+    // A link can open the list (?tour) or start one walkthrough (?tour=core, ?tour=f:2026-10-11.chat, ?tour=new, ?tour=page).
+    // An admin can add &as=rdd to see another role's.
+    const want = q.get('tour') || '';
+    as = q.get('as') || undefined;
     history.replaceState(null, '', location.pathname + location.hash);
-    void startTour();
+    void load().then(async () => {
+      who = whoFrom(await hub(), as);
+      if (!who.admin && !PRESETS[as || '']) as = undefined;
+      const list = want === 'new' ? (offers().map((o) => runFor(o.item)).filter(Boolean) as Run[]) : [runFor(want)].filter(Boolean) as Run[];
+      if (list.length && list[0].ids.length) start(list, false);
+      else openSheet(false);
+    });
     return;
   }
   void resume().then((on) => { if (!on) maybeAuto(); });
