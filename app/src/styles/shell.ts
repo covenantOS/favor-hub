@@ -1,0 +1,35 @@
+// The frame's stylesheets, in the order src/layouts/App.astro imports them (the cascade depends on it). The classic and the new frame
+// look the same because they read the same files. Copied rules (the palette and help panel, which were inline in Astro components) are below.
+import '../../../src/styles/global.css';
+import '../../../src/styles/app.css';
+import '../../../src/styles/feel.css';
+import '../../../src/styles/elevate.css';
+import '../../../src/styles/phone.css';
+import '../../../src/styles/settle.css';
+import '../../../src/styles/clipbtn.css';
+import '../../../src/styles/partner.css';
+import '../../../src/styles/records.css';
+import '../../../src/styles/fix-records.css';
+import '../../../src/styles/wc-bell.css';
+import '../../../src/styles/nudge.css';
+import '../../../src/styles/color.css';
+import '../../../src/styles/gifts.css';
+import '../../../src/styles/nav.css';
+import '../../../src/styles/round2.css';
+import '../../../src/styles/ux-night.css';
+import '../../../src/styles/ux-pass.css';
+import '../../../src/styles/polish.css';
+import '../../../src/styles/request-tasks.css';
+import '../../../src/styles/mobile.css';
+import '../../../src/styles/admin-fix.css';
+import '../../../src/styles/sticky-col.css';
+import '../../../src/styles/fix-shell.css';
+import '../../../src/styles/crit-shell.css';
+import '../../../src/styles/crit-shell2.css';
+import '../../../src/styles/tour.css';
+import '../../../src/styles/night-desk.css';
+import '../../../src/styles/night-phone.css';
+import '../../../src/styles/dock.css';
+import '../../../src/styles/entity.css';
+import './cmdk.css';
+import './learn-panel.css';

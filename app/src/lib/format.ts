@@ -54,3 +54,41 @@ export function hue(s: string): number {
 }
 
 export const phoneHref = (n: string) => 'tel:' + String(n).replace(/[^0-9+]/g, '');
+
+/* ------------------------------------------------------------------ the one shared module for dates, money and names
+   The classic pages define these again and again (the one-app audit counted 14 date formats). A route that moves to the app
+   imports from here and drops its copy. */
+
+/** "Oct 12" from a YYYY-MM-DD day. */
+export const dayShort = (ymd: string) => new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric' });
+
+/** "Mon, Oct 12" from a YYYY-MM-DD day. */
+export const dayLabel = (ymd: string) => new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
+
+/** "Oct 12, 2026" from an ISO time or day. */
+export const dateLong = (iso: string) => {
+  const d = new Date(iso.length === 10 ? iso + 'T12:00:00Z' : iso);
+  return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { timeZone: iso.length === 10 ? 'UTC' : TZ, month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+/** A time as people say it: the clock today, "Tue 9:00 AM" on another day (Eastern). */
+export const whenLabel = (iso: string) => {
+  if (!iso) return '';
+  const same = dayKey(iso) === todayEt();
+  return same ? clock(iso) : et(iso, { weekday: 'short' }) + ' ' + clock(iso);
+};
+
+/** "ada.lovelace@favorintl.org" becomes "Ada Lovelace". */
+export const nameFromEmail = (email: string) =>
+  String(email || '')
+    .split('@')[0]
+    .replace(/[._]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+/** Turns <@email> mentions in stored text into @Name. */
+export const plainMentions = (text: string) =>
+  String(text || '').replace(/<@([^>]+)>/g, (_m, id: string) => '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? id : nameFromEmail(id)));
+
+export const oneLine = (text: string, n = 110) => plainMentions(text).replace(/\s+/g, ' ').slice(0, n);
+
+export const count = (n: number) => Number(n || 0).toLocaleString('en-US');

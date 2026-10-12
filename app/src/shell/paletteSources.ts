@@ -32,13 +32,13 @@ const norm = (s: unknown) => String(s || '').toLowerCase();
 const rows = (d: J | null, key: string): J[] => (d && Array.isArray(d[key]) ? (d[key] as J[]) : []);
 const hit = (title: string, desc: string, href: string, group: string, external = false): Hit => ({ title, desc, href, external, group });
 
-export type SourceKind = 'partners' | 'requests' | 'projects' | 'reports' | 'chats' | 'meetings' | 'messages' | 'clips' | 'learn' | 'drive';
+export type SourceKind = 'find' | 'partners' | 'requests' | 'projects' | 'reports' | 'chats' | 'meetings' | 'messages' | 'clips' | 'learn' | 'drive';
 
-export const GROUP_ORDER = ['Partners', 'Requests', 'Projects', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive'];
+export const GROUP_ORDER = ['People', 'Partners', 'Funds', 'Appeal codes', 'Requests', 'Projects', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive', 'Mail', 'Ask Brain'];
 
 /** One tier of sources: the kinds in a tier run together; tier 3 (Drive) runs after the others settle. */
 export const TIERS: SourceKind[][] = [
-  ['partners', 'requests', 'projects', 'reports', 'chats'],
+  ['find', 'partners', 'requests', 'projects', 'reports', 'chats'],
   ['meetings', 'clips', 'messages', 'learn'],
   ['drive'],
 ];
@@ -49,6 +49,12 @@ let reportsAll: J[] | null = null;
 export async function runSource(kind: SourceKind, text: string, hasChat: boolean): Promise<Hit[]> {
   const q = encodeURIComponent(text);
   switch (kind) {
+    case 'find': {
+      const r = await getJson('/api/hub/find?q=' + q);
+      const d = r.data || {};
+      const row = (g: string, list: unknown) => (Array.isArray(list) ? (list as J[]) : []).map((h) => ({ ...hit(String(h.title), String(h.sub || ''), '', g), href: '#entity:' + h.kind + ':' + h.id }));
+      return [...row('People', d.people), ...row('Funds', d.funds), ...row('Appeal codes', d.appeals)];
+    }
     case 'partners': {
       if (partnerDenied) return [];
       const r = await getJson('/api/work/partners?wide=1&q=' + q);
@@ -166,4 +172,14 @@ export function mergeHits(local: Hit[], remote: Hit[]): Hit[] {
     .map((x, i) => ({ x, i }))
     .sort((a, b) => GROUP_ORDER.indexOf(a.x.group) - GROUP_ORDER.indexOf(b.x.group) || a.i - b.i)
     .map((r) => r.x);
+}
+
+/** The rows that need no server: search Mail for the words, and ask Favor Brain the same words (always the last row). */
+export function typedRows(text: string, mail: boolean): Hit[] {
+  const t = text.trim();
+  if (t.length < 2) return [];
+  const rows: Hit[] = [];
+  if (mail) rows.push(hit('Search Mail: ' + t, 'Mail · Your Gmail inside FavorOS', '/mail/#/search/' + encodeURIComponent(t), 'Mail'));
+  rows.push(hit('Ask Brain: ' + t, 'Favor Brain · Ask it in a new chat', '/brain/?ask=' + encodeURIComponent(t), 'Ask Brain'));
+  return rows;
 }

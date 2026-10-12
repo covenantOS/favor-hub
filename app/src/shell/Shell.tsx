@@ -7,6 +7,7 @@ import { afterPaint, mountShellScripts } from '@/lib/legacy';
 import { clearStored, keys } from '@/lib/query';
 import { KEYS, readString, writeString } from '@/lib/storage';
 import { Dock } from './Dock';
+import { EntityHost } from '@/features/entity/EntityHost';
 import { ErrorBoundary } from './ErrorBoundary';
 import { NavLink, ServedRoutes } from './NavLink';
 import { Palette } from './Palette';
@@ -139,6 +140,9 @@ export function Shell({ children }: { children: ReactNode }) {
       </div>
       <ErrorBoundary label="Search could not load." className="h-card">
         <Palette access={access} kpiTeams={kpiTeams} />
+      </ErrorBoundary>
+      <ErrorBoundary label="" className="h-card">
+        <EntityHost />
       </ErrorBoundary>
       <Dock chat={!!access.chat} page={navId} />
     </ServedRoutes.Provider>

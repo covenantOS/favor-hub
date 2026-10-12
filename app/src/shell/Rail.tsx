@@ -202,6 +202,10 @@ function Account({ user, onSignOut }: { user: HubUser; onSignOut: () => void }) 
           <Icon name="mute" className="h-i h-sound__off" />
           Sounds
         </button>
+        <a role="menuitem" href="/?app2=0" data-fe-off="1">
+          <Icon name="panel" />
+          Use classic FavorOS
+        </a>
         <button type="button" role="menuitem" id="h-out" onClick={onSignOut}>
           <Icon name="out" />
           Sign out

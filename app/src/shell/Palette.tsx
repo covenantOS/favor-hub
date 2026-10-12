@@ -4,14 +4,15 @@ import { useRouter } from '@tanstack/react-router';
 import type { Access } from '@shared/schemas';
 import { hubOv } from '@/lib/hubOv';
 import { isInApp, useServedRoutes } from './NavLink';
-import { filterLocal, mergeHits, runSource, TIERS, type Hit, type SourceKind } from './paletteSources';
+import { filterLocal, mergeHits, runSource, TIERS, typedRows, type Hit, type SourceKind } from './paletteSources';
+import { entityStore } from '@/features/entity/store';
 
 interface Props {
   access: Partial<Access> & Record<string, unknown>;
   kpiTeams: string[];
 }
 
-const REMOTE_ORDER: SourceKind[] = ['partners', 'requests', 'projects', 'reports', 'chats', 'meetings', 'messages', 'clips', 'learn', 'drive'];
+const REMOTE_ORDER: SourceKind[] = ['find', 'partners', 'requests', 'projects', 'reports', 'chats', 'meetings', 'messages', 'clips', 'learn', 'drive'];
 
 /** Ctrl K search. Tier 1 is local (pages, tools, help) and redraws on every keystroke; tiers 2 and 3 ask the server after a short pause. */
 export function Palette({ access, kpiTeams }: Props) {
@@ -44,8 +45,8 @@ export function Palette({ access, kpiTeams }: Props) {
   const shown = useMemo(() => {
     const local = filterLocal(items.data || [], text, allowed);
     const extra = REMOTE_ORDER.flatMap((k) => remote[k] || []);
-    return mergeHits(local, extra);
-  }, [items.data, text, remote, allowed]);
+    return mergeHits(local, [...extra, ...typedRows(text, !!access.mail)]);
+  }, [items.data, text, remote, allowed, access.mail]);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -125,6 +126,12 @@ export function Palette({ access, kpiTeams }: Props) {
     if (item.href === '#nav-toggle') {
       close();
       window.dispatchEvent(new Event('hub-nav-toggle'));
+      return;
+    }
+    if (item.href.startsWith('#entity:')) {
+      const [, kind, ...rest] = item.href.split(':');
+      close();
+      entityStore.openCard(kind, rest.join(':'), item.title);
       return;
     }
     if (item.external) {

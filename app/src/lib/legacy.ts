@@ -33,7 +33,6 @@ export function loadStyle(href: string) {
 export const SHELL_SCRIPTS = [
   '/js/chat/mention-input.js?v=1', // the Chat and Brain dock panel builds on it
   '/js/clips-launch.js?v=5', // the camera button (#clip-cam) and the recording pill
-  '/js/wc-bell.js?v=8', // the reminders bell (#wm-bell), until the notifications endpoint replaces it
   '/js/drill.js?v=5', // the rows behind a number (data-drill)
   '/js/copy-stamp.js?v=1', // the "as of" stamp (data-copy-stamp)
 ] as const;

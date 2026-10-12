@@ -1,4 +1,5 @@
 import type { Access } from '@shared/schemas';
+import { Bell } from './Bell';
 import { HelpPanel } from './HelpPanel';
 import { Icon } from './Icon';
 import { NavLink } from './NavLink';
@@ -68,10 +69,7 @@ export function TopBar({ view, navId, title, crumb = 'FavorOS', access, kpiTeams
           <Icon name="search" />
         </button>
         <span className="h-top__actions" id="h-actions" />
-        <button type="button" className="h-top__cam wm-bell" id="wm-bell" hidden={!access.bell} aria-haspopup="dialog" aria-expanded="false" aria-label="Reminders" title="Reminders">
-          <Icon name="bell" />
-          <em />
-        </button>
+        <Bell access={access} />
         <a className="h-top__cam h-top__lib" id="clip-lib" href="/clips/" hidden={!access.clips} aria-label="My clips" title="My clips">
           <Icon name="clips" />
         </a>

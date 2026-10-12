@@ -297,7 +297,7 @@ async function send(e: Event) {
     dlg.querySelector('[data-fb-close]')!.addEventListener('click', () => dlg!.close());
     (dlg.querySelector('[data-fb-close]') as HTMLElement).focus();
     document.dispatchEvent(new CustomEvent('favor:feedback-sent', { detail: { ref: ctx.ref, rating } }));
-  } catch {
+  } catch (err) {
     msg.textContent = (err as Error).message;
     btn.disabled = false;
     cue('error');
