@@ -752,6 +752,16 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'projects',
+    page: '/projects/',
+    via: 'projects',
+    title: 'Projects and tasks',
+    body: 'Projects hold task lists, a board, a calendar and a timeline. Every project can have a Chat channel and a folder in US Team Files. A task opens in place from Chat, Today, the bell and search. Type /task in Chat to make one, or press Make a task from this message. Due dates can go on your Google Calendar, and Project notices in the bell sets how email comes.',
+    for: (w) => w.admin,
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'help',
     at: '.h-area[data-area="help"] .h-area__link',
     title: 'Come back any time',

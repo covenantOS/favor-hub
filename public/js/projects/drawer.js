@@ -45,6 +45,7 @@ function build() {
       <section class="pj-dr__sec" data-subs></section>
       <section class="pj-dr__sec" data-deps></section>
       <section class="pj-dr__sec" data-files></section>
+      <section class="pj-dr__sec" data-pjl></section>
       <section class="pj-dr__sec"><h3 class="rt-h">Activity</h3><div class="rt-activity rt-ch" data-activity aria-live="polite"></div></section>
     </div>
     <footer class="rt-dfoot" data-comp></footer>
@@ -168,6 +169,7 @@ function paintAll() {
   paintSubs();
   paintDeps();
   paintFiles();
+  paintLinks(); // links hook: Chat, Drive, clips, expense request, calendar (public/js/projects/links.js)
   paintActivity();
   paintComposer();
 }
@@ -259,6 +261,14 @@ function paintDeps() {
   const bl = st.deps.blocks || [];
   const h = `<h3 class="rt-h">Dependencies</h3>${by.length ? `<p class="pj-dep__h">Blocked by</p>${by.map((d) => depRow(d, true)).join('')}` : ''}${bl.length ? `<p class="pj-dep__h">Blocking</p>${bl.map((d) => depRow(d, false)).join('')}` : ''}<button type="button" class="rt-pchip pj-fbtn is-empty" data-a="depadd">${icon('plus')}<span>Add a task this waits on</span></button>`;
   if (box._h !== h) { box.innerHTML = h; box._h = h; }
+}
+function paintLinks() {
+  const box = el.querySelector('[data-pjl]');
+  if (!box || api.mock || !st || !st.task) return;
+  const ref = st.task.code || st.task.id;
+  if (box._ref === ref) return;
+  box._ref = ref;
+  box.innerHTML = `<h3 class="rt-h">Links</h3><div data-pj-links data-task="${esc(ref)}"></div>`;
 }
 function paintFiles() {
   const box = el.querySelector('[data-files]');

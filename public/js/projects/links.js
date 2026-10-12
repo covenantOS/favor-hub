@@ -97,6 +97,7 @@
   function openTask(ref, opts) {
     ref = String(ref || '');
     if (!ref) return;
+    if (window.PJ && typeof window.PJ.openTask === 'function' && (window.PJ.ctx || window.PJ.homeCtx)) { window.PJ.openTask(ref); return; }
     if (window.PJDrawer && typeof window.PJDrawer.open === 'function') { window.PJDrawer.open(ref, opts || {}); return; }
     quickSheet(ref);
   }
