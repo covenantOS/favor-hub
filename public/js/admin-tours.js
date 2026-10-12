@@ -43,6 +43,8 @@
         '<td data-label="Last in FavorOS">' + (p.lastSeen ? A.esc(A.day(p.lastSeen)) : '<span class="mute">Never</span>') + '</td>' +
         '<td class="tu-act"><button type="button" class="ad-btn" data-send="' + A.esc(p.email) + '">' + (armed === p.email ? 'Press again to send' : 'Send again') + '</button></td></tr>';
     }).join('') : '<tr><td colspan="' + cols + '" class="mute">' + (data.ready ? 'Nobody matches.' : 'This list fills in once the tours table is added to the database. Until then each browser keeps its own progress.') + '</td></tr>';
+    $('tu-note').hidden = !!data.ready;
+    $('tu-scroll').hidden = !data.ready;
     $('tu-count').textContent = data.ready ? list.length + (list.length === 1 ? ' person' : ' people') : '';
     var t = $('tu-send-team');
     t.disabled = !team || !data.ready;

@@ -4,7 +4,8 @@
 .tu-tile { display: grid; gap: 2px; padding: 16px 18px; border: 1px solid var(--r-line); border-radius: 14px; background: #fff; }
 .tu-tile b { font: 500 26px/1.15 var(--h-serif); color: var(--r-ink); }
 .tu-tile span { font: 400 14px/1.4 var(--h-font); color: var(--r-ink-2); }
-.tu-sel { width: auto; }
+.tu-note { margin: 0; font: 400 15px/1.5 var(--h-font); color: var(--r-ink-2); }
+.tu-sel { width: auto; background-image: none; -webkit-appearance: menulist; appearance: auto; padding-right: 8px; }
 .tu-send { padding-top: 4px; }
 .tu-send .h-label { margin: 0; }
 .tu-cell { white-space: nowrap; }

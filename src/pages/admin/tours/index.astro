@@ -27,7 +27,8 @@ import '../../../styles/admin-tours.css';
         <button type="button" class="ad-btn" id="tu-send-team" disabled>Send to the team</button>
         <span class="ad-stamp" id="tu-msg" role="status"></span>
       </div>
-      <div class="ad-scroll"><table class="ad-table sc-table" id="tu-table"><thead id="tu-head"></thead><tbody id="tu-body"><tr><td class="mute">Loading</td></tr></tbody></table></div>
+      <p class="tu-note" id="tu-note" hidden>This list fills in once the tours table is added to the database. Until then each browser keeps its own progress.</p>
+      <div class="ad-scroll" id="tu-scroll"><table class="ad-table sc-table" id="tu-table"><thead id="tu-head"></thead><tbody id="tu-body"><tr><td class="mute">Loading</td></tr></tbody></table></div>
     </section>
     <section class="ad-card">
       <h2>See a tour as a role</h2>
@@ -35,5 +36,5 @@ import '../../../styles/admin-tours.css';
     </section>
   </div>
   <script is:inline src="/js/admin.js?v=1" defer></script>
-  <script is:inline src="/js/admin-tours.js?v=1" defer></script>
+  <script is:inline src="/js/admin-tours.js?v=2" defer></script>
 </App>
