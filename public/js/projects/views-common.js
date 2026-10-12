@@ -76,7 +76,7 @@ export function initials(name, email) {
 export function avatar(p, size) {
   if (!p) return '<span class="pjv-av pjv-av--none' + (size ? ' pjv-av--' + size : '') + '" aria-hidden="true"></span>';
   const c = hashColor(p.email || p.name);
-  return '<span class="pjv-av' + (size ? ' pjv-av--' + size : '') + '" data-pc="' + c + '" title="' + esc(p.name || p.email) + '">' +
+  return '<span class="pjv-av' + (size ? ' pjv-av--' + size : '') + '"' + (p.email ? ' data-entity="person:' + esc(p.email) + '" data-label="' + esc(p.name || p.email) + '"' : '') + ' data-pc="' + c + '" title="' + esc(p.name || p.email) + '">' +
     (p.picture ? '<img src="' + esc(p.picture) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '') +
     '<b>' + esc(initials(p.name, p.email)) + '</b></span>';
 }

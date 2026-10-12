@@ -879,7 +879,10 @@
     loadSheets();
     if (new URLSearchParams(location.search).get('connect') === '1') openPanel('connect');
     const c = new URLSearchParams(location.search).get('c');
-    if (c && /^c_[a-z0-9]{4,16}$/.test(c)) openConv(c);
+    // /brain/?ask=text starts a new chat with that question (Ask Brain on a hover card, in Send to and in Search).
+    const aq = new URLSearchParams(location.search).get('ask');
+    if (aq && aq.trim().length > 1) { cur = null; ask(aq.trim().slice(0, 600)); }
+    else if (c && /^c_[a-z0-9]{4,16}$/.test(c)) openConv(c);
     else {
       // Back from another hub page: reopen the chat that was being answered (or answered a moment ago).
       let last = null;

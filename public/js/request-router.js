@@ -237,6 +237,21 @@
   if (mineList && window.FavorReqTrack) {
     window.FavorReqTrack.mount(mineList, { limit: 6, onload: (list) => { const card = $('mine-card'); if (card) card.hidden = !list.length; } });
   }
+  // The person's own recent requests, beside the box.
+  (window.FavorData ? window.FavorData.get('today', '/api/hub/today') : fetch('/api/hub/today', { credentials: 'same-origin' }).then((r) => r.json()))
+    .then((d) => {
+      const list = (d && d.mine) || [];
+      const card = $('mine-card');
+      if (!list.length || !card) return;
+      const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const cls = (st) => (/Done|Approved/.test(st) ? 'h-status--done' : /Declined/.test(st) ? 'h-status--declined' : 'h-status--wait');
+      $('mine-list').innerHTML = list
+        .slice(0, 6)
+        .map((m) => `<li><a href="${esc(m.href)}" title="${esc(m.title)}">${esc(m.title)}</a><span class="h-status ${cls(m.status)}">${esc(m.status)}</span></li>`)
+        .join('');
+      card.hidden = false;
+    })
+    .catch(() => {});
 
   // A link can carry the words: /requests/new?text=...
   const preset = new URLSearchParams(location.search).get('text');

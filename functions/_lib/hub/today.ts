@@ -74,7 +74,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     chat: mayUse(await chatMode(env), user),
     projects: await projectsFlag(env, user).catch(() => false),
     tasks,
-    bell: (!!work && work.ok) || tasks,
+    bell: true,
     learn: learn.learn,
     learnAdmin: learn.learnAdmin,
     hr: user.role === 'admin' || (await isHr(env, email)),

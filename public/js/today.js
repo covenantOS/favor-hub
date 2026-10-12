@@ -37,7 +37,17 @@
 
   // Show what this tab last saw at once, then refresh it, so a page change never starts from empty.
   // Kept per tab (sessionStorage); the hub clears it on sign out.
+  // FavorData holds Today's answers: the last copy paints at once (also after a page change), the page refreshes behind it, and a change made
+  // anywhere (a request read, a task done) invalidates 'today' and the page redraws.
   const swr = (key, url, apply, bad) => {
+    if (window.FavorData) {
+      const name = key === 'favor.hub.today.v1' ? 'today' : key === 'favor.hub.kpi.v1' ? 'kpi' : key;
+      let got = false;
+      return new Promise((resolve) => window.FavorData.watch(name, url, { stale: name === 'kpi' ? 120000 : 20000 }, (d, meta) => {
+        if (meta.error) { if (!got && bad) bad(meta.error); resolve(); return; }
+        got = true; apply(d); resolve();
+      }));
+    }
     try {
       const hit = JSON.parse(sessionStorage.getItem(key) || 'null');
       if (hit) apply(hit);
@@ -181,6 +191,7 @@
   // A snoozed card leaves the list at once; the hub hides it until its day.
   document.addEventListener('hub:snoozed', (e) => {
     if (!e.detail || e.detail.kind !== 'hub') return;
+    if (window.FavorData) { window.FavorData.invalidate('today'); return; }
     fetch('/api/hub/today', { credentials: 'same-origin' })
       .then((r) => r.json())
       .then((d) => {

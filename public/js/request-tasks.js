@@ -41,7 +41,7 @@
   function avatar(email, size) {
     const p = person(email);
     const inner = p.picture ? `<img src="${esc(p.picture)}" alt="" referrerpolicy="no-referrer" />` : esc(initials(p.name));
-    return `<span class="rq-av${size ? ' rq-av--' + size : ''}" data-c="${COLORS[hash(String(email || '')) % 7]}">${inner}</span>`;
+    return `<span class="rq-av${size ? ' rq-av--' + size : ''}" data-entity="person:${esc(String(email || '').toLowerCase())}" data-label="${esc(p.name)}" data-c="${COLORS[hash(String(email || '')) % 7]}">${inner}</span>`;
   }
   const sub = (p) => [p.team, p.title].filter(Boolean).join(' · ');
   // Every word typed must appear; a first name that starts with it comes first, then any name that does, then the rest.

@@ -13,6 +13,10 @@ Press **Ctrl** and **K** together on any page (**Command** and **K** on a Mac), 
 
 Search covers every FavorOS tool, the outside tools (Blackbaud and Paycom), every help topic and every training video.
 
+## Cards on every name
+
+Point at a colleague, a partner, a task code like SB-0003 or a request and a card shows its key facts. A partner card shows lifetime giving, last gift and who holds the partner, to people who may open the Work Center. **Send to** on a card puts it in Chat, makes it a task, links it in a request, asks Favor Brain about it or copies the link. On a phone, tap the name.
+
 ## Searching the help docs
 
 The search box at the top of **Help docs** searches the full text of every article and every video's captions, so a word spoken in a video finds that video.

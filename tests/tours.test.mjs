@@ -63,6 +63,8 @@ test('each walkthrough shows only to the people who can open the feature', () =>
   const titles = (who) => T.offersFor(who).map((o) => o.feature.id);
   assert.deepEqual(titles(roles.staff), ['request-fill', 'clips-ops', 'requests', 'today-meetings', 'clips']);
   assert.deepEqual(titles({ ...roles.staff, clips: false }), ['request-fill', 'requests', 'today-meetings']);
+  assert.deepEqual(titles(roles.staff), ['one-app', 'requests', 'today-meetings', 'clips']);
+  assert.deepEqual(titles({ ...roles.staff, clips: false }), ['one-app', 'requests', 'today-meetings']);
   assert.ok(titles({ ...roles.staff, chat: true }).includes('chat'));
   assert.ok(titles({ ...roles.staff, chat: true }).includes('chat-brain'));
   assert.ok(titles({ ...roles.staff, projects: true }).includes('projects'));

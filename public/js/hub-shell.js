@@ -115,43 +115,22 @@
 
   // The counts beside each tool, the sections this person may open and who is signed in. Read on load, again after a page changes
   // in place (at most every 20 seconds) and when the tab comes back to the front, so a badge never shows a count from an hour ago.
-  let navAt = 0;
-  let navBusy = false;
-  const readNav = (force) => {
-    if (navBusy || (!force && Date.now() - navAt < 20000)) return;
-    navBusy = true;
-    fetch('/api/hub/nav', { credentials: 'same-origin' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d || !d.ok) return;
-        navAt = Date.now();
-        window.FAVOR_HUB = d;
-        document.dispatchEvent(new CustomEvent('favor-hub', { detail: d }));
-        if (window.hubApplyNav) window.hubApplyNav(d);
-        try {
-          localStorage.setItem('favor.hub.nav.v1', JSON.stringify({ user: d.user, access: d.access, kpiTeams: d.kpiTeams, counts: d.counts }));
-        } catch {
-          // storage refused; the menu still fills in from this answer
-        }
-      })
-      .catch(() => {})
-      .then(() => { navBusy = false; });
-  };
-  window.hubNavRefresh = readNav;
-  readNav(true);
-  // A change made on a page (a request approved, a note answered, a mention read) moves a count: read the counts again a moment after it.
-  const realFetch = window.fetch;
-  let afterT = 0;
-  window.fetch = function (input, init) {
-    const p = realFetch.apply(this, arguments);
-    const m = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
-    if (m !== 'GET' && m !== 'HEAD') {
-      const u = String((input && input.url) || input);
-      if (/\/api\//.test(u) && !/\/api\/(hub\/nav|auth|clips\/|meet\/|chat\/(?!inbox))/.test(u)) p.then(() => { clearTimeout(afterT); afterT = setTimeout(() => readNav(true), 1500); }, () => {});
+  // FavorData (favor-data.js) holds the answer: one request however many pages ask, the last copy shown at once, a refresh when the tab comes
+  // back, and a refetch whenever any write to a known route invalidates 'nav'.
+  const apply = (d) => {
+    if (!d || !d.ok) return;
+    window.FAVOR_HUB = d;
+    document.dispatchEvent(new CustomEvent('favor-hub', { detail: d }));
+    if (window.hubApplyNav) window.hubApplyNav(d);
+    try {
+      localStorage.setItem('favor.hub.nav.v1', JSON.stringify({ user: d.user, access: d.access, kpiTeams: d.kpiTeams, counts: d.counts }));
+    } catch {
+      // storage refused; the menu still fills in from this answer
     }
-    return p;
   };
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') readNav(false); });
+  window.hubNavRefresh = (force) => { if (window.FavorData) { if (force) window.FavorData.invalidate('nav'); else window.FavorData.get('nav').catch(() => {}); } };
+  if (window.FavorData) window.FavorData.watch('nav', '/api/hub/nav', { stale: 20000, persist: false }, (d, meta) => { if (!meta.error) apply(d); });
+  else fetch('/api/hub/nav', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).then(apply).catch(() => {});
 })();
 
 /* The back gesture closes whatever is open on top (search, feedback, help, the phone menu, a number's rows, the tour)

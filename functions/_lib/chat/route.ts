@@ -44,6 +44,8 @@ import { DRAWABLE } from './brain';
 import { insertRequest } from '../db';
 import { notifyNewRequest } from '../notify';
 import { asSurface } from '../http';
+import { resolveEntity, type EntityOut } from '../hub/entity';
+import { accessOf, type Access } from '../hub/today';
 import { slashTask, taskDeleted as ptaskDeleted, taskReply as ptaskReply } from '../projects/links/chat'; // projects hook
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
@@ -317,13 +319,26 @@ async function broadcast(ctx: Ctx, row: store.MessageRow, type: 'message' | 'edi
 
 type Att = store.Attachment;
 
+/** When the access answer fails, the card still resolves what needs no special access (a colleague, a clip). Partners and tasks stay closed. */
+const FALLBACK_ACCESS = { admin: false, chat: true, workCenter: false, projects: false } as unknown as Access;
+
 /** What a client may attach: references the server fills in, never a URL or a title the client invented. */
-async function cleanAttachments(env: ChatRouteEnv, raw: unknown, me: string): Promise<Att[]> {
+async function cleanAttachments(env: ChatRouteEnv, raw: unknown, me: string, ent?: (kind: string, id: string) => Promise<EntityOut | null>): Promise<Att[]> {
   const out: Att[] = [];
   for (const a of (Array.isArray(raw) ? raw : []).slice(0, 6)) {
     if (!a || typeof a !== 'object') continue;
     const x = a as Record<string, unknown>;
-    if (x.type === 'clip' && /^[0-9a-f]{32}$/.test(String(x.id))) out.push({ type: 'clip', id: String(x.id) });
+    // A FavorOS entity or page sent from a hover card or Send to (public/js/favor-share.js). The server resolves it as the sender and keeps
+    // only the name, one line and the address; the facts behind it load for each reader through their own access.
+    if (x.type === 'entity' && ent && typeof x.kind === 'string' && typeof x.id === 'string') {
+      const e = await ent(x.kind, x.id).catch(() => null);
+      // A clip and a meeting keep their own richer cards.
+      if (e && e.kind === 'clip') out.push({ type: 'clip', id: e.id });
+      else if (e && e.kind === 'meeting') out.push({ type: 'meeting', id: e.id });
+      else if (e && !e.restricted) out.push({ type: 'entity', kind: e.kind, id: e.id, title: e.title.slice(0, 160), sub: e.sub.slice(0, 160), url: e.url });
+    } else if (x.type === 'page' && /^\/(?![/\\])[^\s]{0,300}$/.test(String(x.url || '')) && String(x.title || '').trim()) {
+      out.push({ type: 'entity', kind: 'page', id: String(x.url), title: String(x.title).trim().slice(0, 160), sub: '', url: String(x.url) });
+    } else if (x.type === 'clip' && /^[0-9a-f]{32}$/.test(String(x.id))) out.push({ type: 'clip', id: String(x.id) });
     else if (x.type === 'meeting' && /^[0-9a-f]{24}$/.test(String(x.id))) out.push({ type: 'meeting', id: String(x.id) });
     else if (x.type === 'drive' && /^https:\/\/(drive|docs)\.google\.com\//.test(String(x.url || ''))) {
       out.push({ type: 'drive', name: String(x.name || 'File').slice(0, 200), kind: ['doc', 'sheet', 'pdf', 'slides', 'photo', 'file'].includes(String(x.kind)) ? String(x.kind) : 'file', path: String(x.path || '').slice(0, 240), indexed: String(x.indexed || '').slice(0, 40), url: String(x.url) });
@@ -343,7 +358,8 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   const me = user.email.toLowerCase();
   const input = await body(request);
   const text = cleanBody(input.body);
-  const attachments = await cleanAttachments(env, input.attachments, me);
+  const access = (input.attachments as unknown[] | undefined)?.some((a) => (a as { type?: string } | null)?.type === 'entity') ? await accessOf(env, request, user).catch(() => FALLBACK_ACCESS) : null;
+  const attachments = await cleanAttachments(env, input.attachments, me, access ? (kind, id) => resolveEntity(env, request, user, access, kind, id) : undefined);
   // Pasted hub clip and meeting links become cards; the other first link is unfurled after the post.
   const hosts = HOSTS(new URL(request.url));
   const urls = urlsIn(text);

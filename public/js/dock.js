@@ -216,7 +216,7 @@
   function refresh(force) {
     if (refreshing) return refreshing;
     if (!force && ready && Date.now() - (D.at || 0) < 20000) return Promise.resolve();
-    refreshing = req('GET', 'dock').then(function (d) {
+    refreshing = (window.FavorData ? window.FavorData.get('dock', '/api/chat/dock', { stale: force ? 0 : 20000, persist: false }) : req('GET', 'dock')).then(function (d) {
       D.me = d.me; D.users = d.users || {}; D.threads = d.threads_unread || 0; D.at = Date.now();
       var next = {}; (d.channels || []).forEach(function (c) { next[c.id] = c; }); D.ch = next; ready = true;
       try { sessionStorage.setItem(DATA, JSON.stringify({ at: D.at, me: D.me, users: D.users, ch: D.ch, threads: D.threads })); } catch (e) { /* full */ }

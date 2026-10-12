@@ -236,7 +236,7 @@
       if (u.brain) return '<span class="ch-av ch-av--brain' + (size ? ' ch-av--' + size : '') + '">' + ring('still') + '</span>';
       var c = u.color || COLORS[hash(u.id || u.name || '') % 7];
       var inner = u.picture && !broken[u.picture] ? '<img src="' + esc(u.picture) + '" alt="" referrerpolicy="no-referrer" data-ini="' + esc(initials(u.name)) + '" />' : esc(initials(u.name));
-      return '<span class="ch-av' + (size ? ' ch-av--' + size : '') + '" data-c="' + c + '">' + inner + (dot ? '<i class="ch-dot" data-p="' + esc(u.presence || 'off') + '"></i>' : '') + '</span>';
+      return '<span class="ch-av' + (size ? ' ch-av--' + size : '') + '"' + (String(u.id || '').indexOf('@') > 0 ? ' data-entity="person:' + esc(u.id) + '" data-label="' + esc(u.name) + '"' : '') + ' data-c="' + c + '">' + inner + (dot ? '<i class="ch-dot" data-p="' + esc(u.presence || 'off') + '"></i>' : '') + '</span>';
     }
     function chan(id) { return S.channels[id]; }
     function chName(c) {
@@ -286,7 +286,7 @@
       t = t.replace(/&lt;@([^&\s]+?)&gt;/g, function (_, id) {
         if (id === 'brain') return '<span class="ch-at ch-at--brain">@Favor Brain</span>';
         if (id === 'all' || id === 'channel') return '<span class="ch-at ch-at--me">@channel</span>';
-        return '<span class="ch-at' + (id === S.me.id ? ' ch-at--me' : '') + '">@' + esc(user(id).name) + '</span>';
+        return '<span class="ch-at' + (id === S.me.id ? ' ch-at--me' : '') + '" data-entity="person:' + esc(id) + '" data-label="' + esc(user(id).name) + '" tabindex="0">@' + esc(user(id).name) + '</span>';
       });
       t = t.replace(/&lt;#([^&\s]+?)&gt;/g, function (_, id) { var c = chan(id); return '<span class="ch-chan"># ' + esc(c ? c.name : 'channel') + '</span>'; });
       // [words](address) is a link that reads as the words; a bare address is a link that reads as itself.
@@ -383,6 +383,8 @@
       }
       // q3-tasks hook: a request board card (title, note, status, Open) is drawn by task-card.js.
       if (a.type === 'task') return window.FavorTaskCard ? window.FavorTaskCard.html(a, { esc: esc, ic: ic }) : '';
+      // The shared layer: a colleague, partner, fund, task, course or page sent from Send to (public/js/favor-entity.js).
+      if (a.type === 'entity') return window.FavorEntity ? window.FavorEntity.cardHtml(a, { esc: esc }) : '';
       // projects hook: a project task card is drawn by projects/links (public/js/chat/project-card.js).
       if (a.type === 'ptask') return window.FavorProjectCard ? window.FavorProjectCard.html(a, { esc: esc, ic: ic }) : '';
       if (a.type === 'link') {

@@ -79,7 +79,7 @@ export function avatar(p, size) {
   if (!p) return `<span class="pj-av pj-av--empty${size ? ' pj-av--' + size : ''}" title="Unassigned">${icon('user')}</span>`;
   const name = p.name || String(p.email || '').split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   const inner = p.picture ? `<img src="${esc(p.picture)}" alt="" referrerpolicy="no-referrer" loading="lazy" />` : '';
-  return `<span class="pj-av${size ? ' pj-av--' + size : ''}" data-c="${COLORS[hash(String(p.email || name)) % 7]}" data-i="${esc(initials(name))}">${inner}</span>`;
+  return `<span class="pj-av${size ? ' pj-av--' + size : ''}"${p.email ? ` data-entity="person:${esc(p.email)}" data-label="${esc(name)}"` : ''} data-c="${COLORS[hash(String(p.email || name)) % 7]}" data-i="${esc(initials(name))}">${inner}</span>`;
 }
 export const firstName = (p) => String((p && p.name) || '').split(/\s+/)[0] || '';
 

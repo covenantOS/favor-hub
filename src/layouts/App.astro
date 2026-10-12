@@ -32,6 +32,7 @@ import '../styles/tour.css';
 import '../styles/night-desk.css';
 import '../styles/night-phone.css';
 import '../styles/dock.css';
+import '../styles/entity.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
 
@@ -100,6 +101,9 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
       // The width a scrollbar takes on this computer (0 on a Mac or a tablet), for pages that fill the window (night-desk.css).
       (function () { try { var d = document.createElement('div'); d.style.cssText = 'position:absolute;top:-99px;width:50px;height:50px;overflow:scroll'; document.documentElement.appendChild(d); var w = d.offsetWidth - d.clientWidth; d.remove(); document.documentElement.style.setProperty('--sbw', w + 'px'); } catch (e) {} })();
     </script>
+    <script is:inline src="/js/favor-data.js?v=1"></script>
+    <script is:inline src="/js/favor-ui.js?v=1" defer></script>
+    <script is:inline src="/js/favor-entity.js?v=1" defer></script>
     <script is:inline src="/js/sheets.js?v=2"></script>
     <script is:inline src="/js/drill.js?v=5" defer></script>
     <script is:inline src="/js/thank.js?v=3" defer></script>

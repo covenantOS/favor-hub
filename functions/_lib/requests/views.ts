@@ -80,6 +80,13 @@ const shape = (r: Joined, dir: Map<string, Person>): Hit => ({
   url: `/requests/?r=${encodeURIComponent(r.id)}`,
 });
 
+/** One request as a search row, or null when it is not on the board for this person (a declined request shows to admins only). */
+export async function requestHit(env: Env, actor: Actor, id: string): Promise<Hit | null> {
+  const dir = new Map((await staffDirectory(env)).map((p) => [p.email, p]));
+  const row = (await joined(env, actor.admin)).find((r) => r.id === id);
+  return row ? shape(row, dir) : null;
+}
+
 /** Requests whose title, text or people match every word typed. Everyone reads the board, so everyone may find a request on it. */
 export async function searchRequests(env: Env, actor: Actor, q: string, limit = 8): Promise<Hit[]> {
   const words = lower(q).split(/\s+/).filter(Boolean).slice(0, 6);
