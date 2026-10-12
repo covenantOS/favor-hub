@@ -559,7 +559,7 @@ describe('enclosures: a letter in the envelope', () => {
     const cj = JSON.parse(g.coding_json);
     assert.equal(cj.suggestions.length, 0, 'the opportunity names no appeal code, so it suggests no appeal');
     assert.equal(g.fund_id, '15', 'but its purpose names the fund');
-    assert.equal(cj.fundReason, 'Named in an expected gift');
+    assert.equal(cj.fundReason, 'Oct 6: an expected gift of $100.00 was logged for Clean Water Wells');
     const letter = mk('letter', { purpose: 'Responding to the October mailing', slipAppeal: 'L26A-AD' });
     await capture.addPhoto(env, { repo: fakeRepo, q: fakeQ, read: letter, triage: async () => ({ kind: 'other', p: 0.9, secs: 0, error: null }), bucket }, d.id, who, { bytes: new Uint8Array([3, 3, 4]), mime: 'image/jpeg', kind: 'letter', giftId: g.id });
     g = await store.getGift(env, g.id);

@@ -10,7 +10,7 @@ import { searchPartners, mirrorQ, type Q } from '../work/partner';
 import { blackbaudRepo, readOnly, type ActionsRepo, type PartnerHit } from '../work/repo';
 import { newId } from '../http';
 import { WHERE_NEEDED_MOST, parseJson, sha256Hex, type Dup, type GiftRow } from './store';
-import { expectedFits, type Expected } from './code';
+import { amountIn, comingGift, expectedFits, type Expected } from './code';
 
 export interface Candidate {
   cid: string;
@@ -167,21 +167,39 @@ export async function expectedFor(q: Q, partnerId: string, giftDate: string, amo
     /* the mirror has no opportunities yet; the other evidence still counts */
   }
   try {
-    const acts = await q<{ id: string; d: string; s: string | null; t: string | null }>(
+    // The partner's calls, visits and notes in the two months before the gift (emails and mailings carry Favor's own wording, so they are
+    // left out). The words are read here, not in the statement: a note counts when one of its sentences says a gift is coming (comingGift).
+    const WHEN = "substr(COALESCE(action_completed_date, action_date_due, date_added), 1, 10)";
+    const acts = await q<{ id: string; d: string; s: string | null; t: string | null; cat: string | null; fr: string | null }>(
       readOnly(
-        `SELECT id AS id, substr(COALESCE(date_added, action_date_due), 1, 10) AS d, action_summary AS s, action_description AS t FROM actions
-          WHERE constituent_record_id = ?1 AND substr(COALESCE(date_added, action_date_due), 1, 10) >= ?2 AND substr(COALESCE(date_added, action_date_due), 1, 10) <= ?3
-            AND (lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%expect%' OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%pledge%'
-              OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%promis%' OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%gift is coming%'
-              OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%will be sending%') LIMIT 5`
+        `SELECT id AS id, ${WHEN} AS d, action_summary AS s, action_description AS t, action_category AS cat, json_extract(raw_json, '$.fundraisers') AS fr FROM actions
+          WHERE constituent_record_id = ?1 AND ${WHEN} >= ?2 AND ${WHEN} <= ?3
+            AND length(COALESCE(action_summary, '') || COALESCE(action_description, '')) > 12
+            AND COALESCE(action_category, '') NOT IN ('Email', 'Mailing')
+          ORDER BY ${WHEN} DESC LIMIT 25`
       ),
       [partnerId, from, giftDate]
     );
+    const found: (Expected & { fid: string })[] = [];
     for (const a of acts) {
-      const text = `${a.s || ''} ${a.t || ''}`.replace(/\s+/g, ' ').trim().slice(0, 300);
-      const m = text.match(/\$\s?([\d,]+(?:\.\d{2})?)/);
-      out.push({ id: a.id, kind: 'action', date: a.d, amountCents: m ? Math.round(Number(m[1].replace(/,/g, '')) * 100) : null, purpose: null, text });
+      const text = `${a.s || ''}. ${a.t || ''}`.replace(/\s+/g, ' ').trim().slice(0, 1200);
+      const said = comingGift(text);
+      if (!said) continue;
+      const cents = amountIn(said);
+      const fids = parseJson<any[]>(a.fr, []);
+      found.push({ id: a.id, kind: 'action', date: a.d, amountCents: cents, purpose: null, text: text.slice(0, 400), category: a.cat, said, who: null, fid: fids.length ? String(fids[0]) : '' });
+      if (found.length >= 5) break;
     }
+    const fids = [...new Set(found.map((f) => f.fid).filter(Boolean))];
+    const names = new Map<string, string>();
+    if (fids.length) {
+      const rows = await q<{ id: string; first: string | null; last: string | null }>(
+        readOnly('SELECT id AS id, fundraiser_first_name AS first, fundraiser_last_name AS last FROM fundraisers WHERE id IN (SELECT value FROM json_each(?1))'),
+        [JSON.stringify(fids)]
+      ).catch(() => []);
+      for (const r of rows) names.set(String(r.id), `${r.first || ''} ${r.last || ''}`.trim());
+    }
+    for (const { fid, ...e } of found) out.push({ ...e, who: names.get(fid) || null });
   } catch {
     /* no actions to read */
   }

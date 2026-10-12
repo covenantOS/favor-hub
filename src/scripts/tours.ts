@@ -1020,7 +1020,7 @@ export const STEPS: Step[] = [
     via: 'gift-entry',
     at: '#ge-root',
     title: 'Gift entry from a photo',
-    body: 'Start a deposit with the tape total and count, then photograph each check with its reply slip or drop scans. Each gift shows beside its photo with the partner, amount, check number and fund filled in. The appeal comes from a reply slip or letter photographed with the check, and says why; with neither, the gift is coded White Mail and listed under Needs coding. Press Approve, Hold or Reject, or use A, H and R. The batch goes to Blackbaud only for people an admin switched on.',
+    body: 'Start a deposit with the tape total and count, then photograph each check with its reply slip or drop scans. Each gift shows beside its photo with the partner, amount, check number and fund filled in. The appeal comes from a reply slip or letter photographed with the check, and says why; with neither, the gift is coded White Mail and listed under Needs coding. When a call or note on the partner said a gift was coming, the fund it names and the appeal of the person who called are suggested with the date and the sentence. Press Approve, Hold or Reject, or use A, H and R. The batch goes to Blackbaud only for people an admin switched on.',
     for: (w) => w.admin,
     added: '2026-10-12',
     side: 'top',
