@@ -98,6 +98,7 @@ dialog.trn[open]::backdrop, dialog.tra[open]::backdrop { animation: trn-fade 0.2
 .trn-links { display: flex; flex-wrap: wrap; gap: 0 4px; padding: 0 8px 4px 60px; }
 .trn-links a, .trn-more a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; font: 600 14px/1 var(--h-font); color: var(--r-ink-2); text-decoration: underline; text-decoration-color: var(--r-line-2); text-underline-offset: 4px; }
 .trn-links a:hover, .trn-more a:hover { color: var(--r-ink); text-decoration-color: var(--r-ink-3); }
+.trn-after { margin: 14px 2px 0; font: 400 15px/1.45 var(--h-font); color: var(--r-ink-2); }
 .trn-more { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 10px 0 0 -8px; }
 .trn-as { display: flex; align-items: center; gap: 10px; margin: 6px 0 10px; font: 600 14px/1 var(--h-font); color: var(--r-ink-2); }
 .trn-as select { height: 44px; padding: 0 12px; border: 1px solid var(--r-line-2); border-radius: 12px; background: #fff; font: 500 15px var(--h-font); color: var(--r-ink); }
@@ -109,8 +110,8 @@ body.h-body .trn-foot .h-btn--primary:hover, body.h-body .tra-acts .h-btn--prima
 
 @media (max-width: 860px) {
   /* A sheet from the bottom edge, pinned with offsets (a phone browser runs viewport units under its toolbar). */
-  dialog.trn { position: fixed; inset: auto 0 0 0; top: auto; width: 100%; max-width: none; max-height: none; margin: 0; border-radius: 24px 24px 0 0; }
-  dialog.trn[open] { top: calc(env(safe-area-inset-top) + 44px); animation-name: trn-up; }
+  dialog.trn { position: fixed; inset: auto 0 0 0; width: 100%; max-width: none; height: auto; max-height: calc(100% - env(safe-area-inset-top) - 44px); margin: 0; border-radius: 24px 24px 0 0; }
+  dialog.trn[open] { animation-name: trn-up; }
   @keyframes trn-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   .trn-head { padding: 20px 18px 12px; }
   .trn-x { width: 44px; height: 44px; margin: -4px -4px 0 auto; }

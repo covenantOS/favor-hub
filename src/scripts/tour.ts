@@ -688,6 +688,7 @@ function next() {
   const run = runs[ri];
   if (run && run.item !== 'page') commit(markDone(progress, run.item));
   if (ri + 1 < runs.length) {
+    target = null;
     void undoStep().then(() => {
       ri++;
       steps = stepsOf(runs[ri]);
@@ -763,6 +764,8 @@ async function show(step: Step, my: number) {
     save();
     return show(steps[index], ++gen);
   }
+  // Something found but drawn with no size (a list that failed to load) counts as not there.
+  if (el) { const r = el.getBoundingClientRect(); if (r.width < 8 || r.height < 8) el = null; }
   pop.dataset.found = el ? '1' : step.at ? '0' : 'none';
   if (el) {
     await settle(el, step.side, my);
@@ -782,6 +785,7 @@ async function show(step: Step, my: number) {
 /** The last card: what just finished, and what is still waiting. */
 async function done() {
   gen++;
+  target = null;
   await undoStep();
   const was = runs[ri];
   store.clear();
@@ -824,7 +828,7 @@ const confirmOpen = () => !!ask && ask.open;
 
 /** The group a skip is counted on: the core tour, or the release of the walkthrough in hand. */
 function groupsToSkip(): string[] {
-  if (corePending() && (!runs[ri] || runs[ri].item === coreItem)) return [coreItem];
+  if (corePending() && !(sheetOpen() && leadNew) && (!runs[ri] || runs[ri].item === coreItem || sheetOpen())) return [coreItem];
   const rel = new Set(pendingOffers().map((o) => releaseItem(o.release.id)));
   return rel.size ? [...rel] : [];
 }
@@ -918,10 +922,13 @@ function closeSheet() {
 
 const mins = (n: number) => { const m = Math.max(1, Math.round((n * 14) / 60)); return m === 1 ? 'about a minute' : `about ${m} minutes`; };
 
+// The list leads with the tour while the tour is waiting. Once the tour has been skipped past its last return, what is new leads.
+let leadNew = false;
+let sheetAuto = false;
 function sheetHtml(): string {
   const all = offers();
   const waiting = all.filter((o) => !isDone(progress, o.item));
-  const core = corePending();
+  const core = corePending() && !(leadNew && waiting.length);
   const coreSteps = coreFor(who, device());
   const here = pageSteps(who, location.pathname, device());
   const anyWaiting = core || waiting.length > 0;
@@ -951,7 +958,7 @@ function sheetHtml(): string {
     : waiting.length
       ? `${waiting.length} ${waiting.length === 1 ? 'walkthrough' : 'walkthroughs'} for you, ${mins(waiting.reduce((t, o) => t + featureSteps(o.feature, who, device()).length, 0))} in all.`
       : 'You have seen everything here. Any of them plays again.';
-  const preview = who.admin || as
+  const preview = (who.admin || as) && !sheetAuto
     ? `<label class="trn-as"><span>Show as</span><select data-trn-as>
         <option value="">Me</option><option value="staff">Any staff member</option><option value="rdd">RDD team</option>
         <option value="pc">Partner Care</option><option value="ce">Church Engagement</option><option value="grants">Grants</option>
@@ -964,16 +971,16 @@ function sheetHtml(): string {
     </header>
     <div class="trn-body">
       <ul class="trn-list">
-        <li class="trn-row${core ? '' : ' is-done'}">
-          <button type="button" class="trn-go" data-trn-run="core">
+        <li class="trn-row${corePending() ? '' : ' is-done'}">
+ <button type="button" class="trn-go" data-trn-run="core">
             <span class="trn-ico">${svg('home')}</span>
             <span class="trn-t"><b>Tour of FavorOS</b><span>Today, the menu, search, requests and your own tools.</span></span>
-            ${core ? '<span class="trn-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>' : '<em class="trn-done">Done</em>'}
+            ${corePending() ? '<span class="trn-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>' : '<em class="trn-done">Done</em>'}
           </button>
           <div class="trn-links"><a href="/help/getting-started/">Help article</a><a href="/help/videos/meet-the-hub/">Training video</a></div>
         </li>
       </ul>
-      ${groups}
+      ${core && waiting.length ? `<p class="trn-after">After the tour: ${waiting.length} short ${waiting.length === 1 ? 'walkthrough' : 'walkthroughs'} of what is new.</p>` : groups}
       ${here.length && !anyWaiting ? `<h3 class="trn-h">This page</h3><ul class="trn-list"><li class="trn-row"><button type="button" class="trn-go" data-trn-run="page"><span class="trn-ico">${svg('help')}</span><span class="trn-t"><b>Show me this page</b><span>${here.length} ${here.length === 1 ? 'step' : 'steps'} on what is here.</span></span><span class="trn-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span></button></li></ul>` : ''}
       <p class="trn-more"><a href="/help/whats-new/">Every change, by date</a><a href="/help/">Help docs</a></p>
       ${preview}
@@ -1007,8 +1014,10 @@ function start(list: Run[], isAuto: boolean) {
   void go(0);
 }
 
-function openSheet(isAuto: boolean) {
+function openSheet(isAuto: boolean, newFirst = false) {
   if (sheetOpen() || root) return;
+  leadNew = newFirst;
+  sheetAuto = isAuto;
   const seen = [coreItem, ...offers().map((o) => o.item)];
   if (!as && seen.some((i) => !progress[i])) commit(markOffered(progress, seen));
   sheet = document.createElement('dialog');
@@ -1029,7 +1038,7 @@ function openSheet(isAuto: boolean) {
       return;
     }
     if (t.closest('[data-trn-go]')) {
-      if (corePending()) return start([runFor(coreItem)!], isAuto);
+      if (corePending() && !(leadNew && pendingOffers().length)) return start([runFor(coreItem)!], isAuto);
       const todo = pendingOffers().map((o) => runFor(o.item)).filter(Boolean) as Run[];
       if (todo.length) return start(todo, isAuto);
       return closeSheet();
@@ -1169,7 +1178,7 @@ function maybeAuto() {
       // Skipped past its last return: the new things still get their turn.
       if ((progress[coreItem]?.n || 0) <= RETURNS) return;
     }
-    if (pendingOffers().some((o) => mayOpen(progress, releaseItem(o.release.id), today))) openSheet(true);
+    if (pendingOffers().some((o) => mayOpen(progress, releaseItem(o.release.id), today))) openSheet(true, corePending());
   }, 1400);
 }
 
