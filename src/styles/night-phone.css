@@ -111,3 +111,8 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body .ad-panel .ad-acts > .ad-btn { flex: 1 1 0; min-height: 48px; justify-content: center; }
   body.h-body #h-content input[type='checkbox'], body.h-body dialog input[type='checkbox'], body.h-body .ad-panel input[type='checkbox'] { accent-color: var(--h-brand, #3c6b2f); }
 }
+/* Work Overview: the "Blackbaud data as of" line keeps its room on a phone too (the desktop rule is in night-desk.css). */
+@media (max-width: 860px) {
+  body.h-body .wh > .wh-top[hidden] { display: block !important; visibility: hidden; }
+  body.h-body .wh > .wh-top[hidden] .wh-meta::before { content: '\00a0'; }
+}
