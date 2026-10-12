@@ -41,3 +41,7 @@ On the day a batch was sent, and while Blackbaud still shows it unapproved, Take
 ## Day summary
 
 The Day summary on the front page lists each deposit for a day: the tape, what was entered and approved, who approved, what is held or rejected, and whether the day ties to the tape.
+
+## After the batch is approved
+
+Once Jennifer approves the batch in Blackbaud, each gift joins the thank-you receipts queue on the Receipts page, which prints a receipt for every partner who gives. A gift at the level that earns a handwritten thank-you letter appears on the HQ thank-you letters list in the Work Center when the Work Center rule says so. The receipts run never prints those letters.
