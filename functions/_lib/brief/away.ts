@@ -117,7 +117,7 @@ export async function awayFor(i: AwayInput): Promise<Away> {
     ),
   ]);
   if (messages || mentions) {
-    parts.push({ key: 'chat', label: 'Chat', count: messages, line: [`${plural(messages, 'new message')} in your channels`, mentions ? `${plural(mentions, 'mention')} of you` : ''].filter(Boolean).join(', '), href: '/chat/' });
+    parts.push({ key: 'chat', label: 'Chat', count: messages, line: [messages ? `${plural(messages, 'new message')} in your channels` : '', mentions ? `${plural(mentions, 'mention')} of you` : ''].filter(Boolean).join(', '), href: '/chat/' });
   }
 
   let summary = '';

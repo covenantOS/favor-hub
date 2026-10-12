@@ -219,9 +219,9 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
       else {
         const all: Moment[] = [];
         for (const d of book.directors.slice(0, 14)) {
-          const b = await bookFor(ctx, d.fid, today).catch(() => null);
+          const b = await bookFor(ctx, d.fid, today).catch((e) => { console.error('[brief] book', d.fid, String(e && e.message || e)); return null; });
           if (!b || !b.portfolio || !b.portfolio.rows.length) continue;
-          const r = await readBook(mirrorQ(env), b.portfolio.rows, today).catch(() => []);
+          const r = await readBook(mirrorQ(env), b.portfolio.rows, today).catch((e) => { console.error('[brief] read', d.fid, String(e && e.message || e)); return []; });
           all.push(...momentsFor(r.map(momentFacts), today, 4));
         }
         const seen = new Set<string>();
