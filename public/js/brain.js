@@ -894,7 +894,7 @@
     if (new URLSearchParams(location.search).get('connect') === '1') openPanel('connect');
     const asked = (new URLSearchParams(location.search).get('ask') || '').slice(0, 600);
     if (asked && !new URLSearchParams(location.search).get('c')) { history.replaceState(null, '', '/brain/'); ask(asked); return; }
-    const c = new URLSearchParams(location.search).get('c');
+    const c = new URLSearchParams(location.search).get('c') || new URLSearchParams(location.search).get('t'); // ?t= is the link a text message carries
     // /brain/?ask=text starts a new chat with that question (Ask Brain on a hover card, in Send to and in Search).
     const aq = new URLSearchParams(location.search).get('ask');
     if (aq && aq.trim().length > 1) { cur = null; ask(aq.trim().slice(0, 600)); }

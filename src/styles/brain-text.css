@@ -1,0 +1,25 @@
+/* Text Favor Brain settings page (/brain/text/). */
+html body.h-body .bt { max-width: 560px; margin: 0 auto; padding: 24px 16px 48px; }
+html body.h-body .bt-back { display: inline-block; font: 500 13px var(--h-font); color: var(--h-ink-3); text-decoration: none; margin-bottom: 8px; }
+html body.h-body .bt-back:hover { color: var(--h-ink); }
+html body.h-body .bt-h { font-family: var(--h-serif, 'Playfair Display', serif); font-size: 28px; font-weight: 600; margin: 0 0 16px; color: var(--h-ink); }
+html body.h-body .bt-card { padding: 16px; }
+html body.h-body .bt-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+html body.h-body .bt-head h2 { font: 600 15px var(--h-font); margin: 0; color: var(--h-ink); }
+html body.h-body .bt-pill { font: 600 12px var(--h-font); padding: 4px 10px; border-radius: 999px; background: var(--h-gold-soft); color: var(--h-gold-ink); white-space: nowrap; }
+html body.h-body .bt-pill.is-on { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
+html body.h-body .bt-fact { font: 400 14px/1.45 var(--h-font); color: var(--h-ink-3); margin: 4px 0 16px; }
+html body.h-body .bt-form { display: grid; gap: 8px; }
+html body.h-body .bt-form[hidden], html body.h-body .bt-done[hidden], html body.h-body .bt-err[hidden], html body.h-body .bt-pill[hidden] { display: none; }
+html body.h-body .bt-form label { font: 500 13px var(--h-font); color: var(--h-ink-2); }
+html body.h-body .bt-form input { height: 44px; border: 1px solid var(--h-line); border-radius: 10px; padding: 0 12px; font: 400 16px var(--h-font); background: #fff; color: var(--h-ink); box-sizing: border-box; width: 100%; }
+html body.h-body .bt-form input:focus { outline: 0; border-color: var(--h-brand); box-shadow: 0 0 0 3px rgba(90, 114, 80, .16); }
+html body.h-body .bt-form .h-btn { justify-self: start; }
+html body.h-body .bt-form .dp-link { justify-self: start; }
+html body.h-body .bt-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0 12px; border-bottom: 1px solid var(--h-line); }
+html body.h-body .bt-num { font: 600 15px var(--h-font); color: var(--h-ink); }
+html body.h-body .bt-sub { font: 400 13px var(--h-font); color: var(--h-ink-3); white-space: nowrap; }
+html body.h-body .bt-acts { display: flex; align-items: center; justify-content: space-between; padding-top: 8px; }
+html body.h-body .bt-del { appearance: none; background: none; border: 1px solid #a3321c; color: #a3321c; border-radius: 999px; padding: 0 12px; min-height: 32px; font: 600 13px var(--h-font); cursor: pointer; }
+html body.h-body .bt-del:hover { background: #fbeeea; }
+html body.h-body .bt-err { font: 500 13px var(--h-font); color: #a3321c; margin: 12px 0 0; }

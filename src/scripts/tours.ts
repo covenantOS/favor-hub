@@ -1252,6 +1252,16 @@ export const STEPS: Step[] = [
     side: 'left',
   },
   {
+    id: 'brain-text',
+    skipIfMissing: true,
+    page: '/brain/text/',
+    at: '#bt-card',
+    title: 'Text a question',
+    body: 'Enter your mobile number, {tap} Send code, and type the 6 digits that arrive by text. After that, text a question to the Favor number from this phone and the answer comes back in the thread, with a link to the full answer here.',
+    added: '2026-10-12',
+    side: 'bottom',
+  },
+  {
     id: 'admin-health',
     page: '/admin/',
     via: 'admin-home',

@@ -1,0 +1,43 @@
+---
+// Text Favor Brain: a person registers the mobile number they will text from. The number is confirmed with a 6 digit
+// code texted to it. Only registered numbers get answers; the Brain checks the number on every message.
+import App from '../../../layouts/App.astro';
+import '../../../styles/design-pass.css';
+import '../../../styles/brain-text.css';
+---
+<App title="Text Favor Brain" crumb="Favor Brain" nav="brain" description="Register the mobile number you will text Favor Brain from.">
+  <div class="bt">
+    <a class="bt-back" href="/brain/">Favor Brain</a>
+    <h1 class="bt-h">Text Favor Brain</h1>
+    <section class="h-card bt-card" id="bt-card" aria-busy="true">
+      <header class="bt-head">
+        <h2>Your number</h2>
+        <span class="bt-pill" id="bt-pill" hidden></span>
+      </header>
+      <p class="bt-fact" id="bt-fact">Ask from your phone. Answers come back in the same thread.</p>
+
+      <form class="bt-form" id="bt-send" hidden>
+        <label for="bt-phone">Mobile number</label>
+        <input id="bt-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="(813) 555-0142" maxlength="24" />
+        <button type="submit" class="h-btn h-btn--primary" id="bt-send-go">Send code</button>
+      </form>
+
+      <form class="bt-form" id="bt-code" hidden>
+        <label for="bt-c">Code sent to <b id="bt-to"></b></label>
+        <input id="bt-c" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="6 digits" maxlength="6" pattern="[0-9]{6}" />
+        <button type="submit" class="h-btn h-btn--primary" id="bt-code-go">Confirm</button>
+        <button type="button" class="dp-link" id="bt-back-num">Use another number</button>
+      </form>
+
+      <div class="bt-done" id="bt-done" hidden>
+        <div class="bt-row"><span class="bt-num" id="bt-num"></span><span class="bt-sub" id="bt-since"></span></div>
+        <div class="bt-acts">
+          <button type="button" class="dp-link" id="bt-change">Change number</button>
+          <button type="button" class="bt-del" id="bt-remove">Remove</button>
+        </div>
+      </div>
+      <p class="bt-err" id="bt-err" role="alert" hidden></p>
+    </section>
+  </div>
+  <script is:inline src="/js/brain-text.js?v=1" defer></script>
+</App>
