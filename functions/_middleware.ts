@@ -85,7 +85,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   const open = OPEN_PATHS.has(path) || CLIP_OPEN.test(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));
 
   // Google is part of signing in: a person with no connected Google account goes to Google's consent
-  // screen before any page opens (calendar, Drive file names, mail headers; read-only). A cookie set
+  // screen before any page opens, and that one screen asks for everything FavorOS uses. A cookie set
   // when they connect saves the lookup on later pages. Scripts and the admin password are exempt.
   if (enforce && user && user.via === 'google' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
     const marked = /(?:^|;\s*)hub_gc=1/.test(request.headers.get('Cookie') || '');

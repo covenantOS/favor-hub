@@ -7,19 +7,16 @@ for: [admin]
 related: [chat, today, partner-page, work-center, whats-new]
 tool: /mail/
 toolLabel: Open Mail
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Mail shows your own Gmail inside FavorOS. Nobody else sees your mail, and FavorOS keeps no copy of it. It is open to admins for now, and Admin > Settings > Chat > Mail changes who can use it.
 
 ## Allowing it
 
-Google asks you twice, each time once:
+Google asks once, the first time you sign in to FavorOS. That one screen covers your mail, calendar, Drive and contacts for every tool here, Mail included.
 
-- The first time you open Mail, Google asks to let FavorOS read your mail. That covers opening messages and their files and searching.
-- The first time you reply, archive, delete, label, star, snooze or send, Google asks to let FavorOS change and send your mail and look up your Google contacts for the To box.
-
-Say no to the second one and Mail stays read only. **Open in Gmail** is always in the **More** menu.
+If you signed in before that screen covered Mail, Google asks one more time when you open Mail. Leave the mail boxes unticked and Mail stays read only. **Open in Gmail** is always in the **More** menu.
 
 ## Reading
 

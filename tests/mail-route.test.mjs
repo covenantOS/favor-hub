@@ -415,23 +415,16 @@ describe('asking Google for the mail scopes', () => {
   const asUser = (url) => new Request('https://dash.test' + url, { headers: { 'X-Hub-Email': ADMIN.email, 'X-Hub-Name': 'Ada', 'X-Hub-Via': 'google' } });
   const start = async (qs) => new URL((await connect.onRequestGet({ request: asUser('/api/google/connect' + qs), env })).headers.get('Location')).searchParams;
 
-  it('the first sign-in connection still asks for no mail reading or changing', async () => {
+  it('the first sign-in connection asks for mail changing and contacts too, so Mail never asks again', async () => {
     const scopes = (await start('?next=%2F')).get('scope').split(' ');
-    assert.ok(!scopes.includes(READ) && !scopes.includes(MODIFY));
+    assert.ok(scopes.includes(MODIFY) && scopes.includes(CONTACTS) && !scopes.includes(META));
   });
 
-  it('opening Mail asks for reading only; the first change asks for changing and contacts', async () => {
+  it('a person who connected earlier gets the whole set from Mail on one screen, with the earlier grant kept', async () => {
     await grant(ADMIN.email, META);
-    assert.deepEqual((await start('?add=mail&next=%2Fmail%2F')).get('scope').split(' ').sort(), ['email', READ, 'openid'].sort());
-    const w = (await start('?add=mailsend&next=%2Fmail%2F')).get('scope').split(' ');
-    assert.ok(w.includes(MODIFY) && w.includes(CONTACTS) && !w.includes(READ));
+    const first = (await start('?next=%2F')).get('scope');
+    for (const kind of ['mail', 'mailsend']) assert.equal((await start('?add=' + kind + '&next=%2Fmail%2F')).get('scope'), first);
     assert.equal((await start('?add=mail&next=%2Fmail%2F')).get('include_granted_scopes'), 'true');
-  });
-
-  it('a person with no Google connection gets the calendar and Drive scopes with it, without the headers scope', async () => {
-    const scopes = (await start('?add=mail&next=%2Fmail%2F')).get('scope').split(' ');
-    assert.ok(scopes.includes('https://www.googleapis.com/auth/calendar.events.readonly'));
-    assert.ok(scopes.includes(READ) && !scopes.includes(META));
   });
 
   it('a refusal at Google goes back to Mail, which stays as it was', async () => {

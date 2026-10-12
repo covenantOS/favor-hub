@@ -11,7 +11,7 @@ updated: 2026-10-09
 
 1. Go to **dash.favorintl.org**.
 2. Press **Sign in with Google** and pick your **@favorintl.org** account.
-3. Google asks to share your calendar, Drive and inbox with FavorOS. Allow it. No page opens until Google is connected.
+3. Google asks once to share your calendar, Drive, mail and contacts with FavorOS. Allow it. That one screen covers every tool, and no page opens until Google is connected.
 
 The old codes for receipts, foundations and the expense log are gone. Your Google sign-in opens everything your job needs.
 

@@ -27,6 +27,12 @@ export const CONTACTS_READ = 'https://www.googleapis.com/auth/contacts.readonly'
 export const CONTACTS_OTHER = 'https://www.googleapis.com/auth/contacts.other.readonly';
 export const MAIL_READ_SCOPES = [GMAIL_READ];
 export const MAIL_WRITE_SCOPES = [GMAIL_MODIFY, CONTACTS_READ, CONTACTS_OTHER];
+/**
+ * Everything FavorOS uses, asked for on one Google screen the first time a person signs in, so no tool asks again later.
+ * gmail.modify covers reading and headers, and calendar.events covers reading events; gmail.metadata is left out because a
+ * token that carries it reads headers only.
+ */
+export const ALL_SCOPES = [CAL_EVENTS, CAL_FREEBUSY, 'https://www.googleapis.com/auth/drive.metadata.readonly', DRIVE_FILE, GMAIL_MODIFY, CONTACTS_READ, CONTACTS_OTHER];
 /** What a stored grant lets Mail do. gmail.modify reads too. */
 export function mailLevel(granted: string): { read: boolean; write: boolean; contacts: boolean; headers: boolean } {
   const g = String(granted || '').split(/\s+/);

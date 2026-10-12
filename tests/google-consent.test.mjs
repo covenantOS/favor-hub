@@ -44,20 +44,21 @@ const startOf = async (qs) => {
 };
 
 describe('connect', () => {
-  it('asks for the three read scopes and the identity the first time, with the consent screen', async () => {
+  it('asks for everything FavorOS uses and the identity the first time, on one consent screen', async () => {
     const { q, res } = await startOf('?next=%2Ftoday');
     assert.equal(res.status, 302);
     const scopes = q.get('scope').split(' ');
-    assert.ok(scopes.includes('https://www.googleapis.com/auth/calendar.events.readonly'));
+    for (const s of ['calendar.events', 'calendar.freebusy', 'drive.metadata.readonly', 'drive.file', 'gmail.modify', 'contacts.readonly', 'contacts.other.readonly']) assert.ok(scopes.includes('https://www.googleapis.com/auth/' + s), s);
     assert.ok(scopes.includes('openid') && scopes.includes('email'));
-    assert.ok(!scopes.includes('https://www.googleapis.com/auth/drive.file'));
+    assert.ok(!scopes.includes('https://www.googleapis.com/auth/gmail.metadata'));
     assert.equal(q.get('prompt'), 'consent');
     assert.equal(q.get('include_granted_scopes'), 'true');
   });
 
-  it('asks for drive.file and the identity only for Google Sheets, with no forced screen', async () => {
+  it('asks for the same full set from a tool, so one more screen covers the rest, with no forced screen', async () => {
     const { q } = await startOf('?add=sheets&next=%2Fbrain%2F');
-    assert.deepEqual(q.get('scope').split(' ').sort(), ['email', 'https://www.googleapis.com/auth/drive.file', 'openid']);
+    assert.equal(q.get('scope'), (await startOf('?next=%2Ftoday')).q.get('scope'));
+    assert.ok(q.get('scope').split(' ').includes('https://www.googleapis.com/auth/drive.file'));
     assert.equal(q.get('prompt'), null);
     assert.equal(q.get('include_granted_scopes'), 'true');
     assert.equal(q.get('access_type'), 'offline');

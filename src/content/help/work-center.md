@@ -13,8 +13,6 @@ updated: 2026-10-11
 
 Work Center lists every open action in Blackbaud, the week's contacts to enter and the thank-yous still owed. Blackbaud finishes one action at a time. Work Center finishes as many as you pick in one pass.
 
-New to it? Watch [the Work Center walk-through](/help/videos/work-center/). It covers finding your list, Entry, thanking a gift, the partner panel, changing a task, My partners and Plan calls, Call prep and the morning email.
-
 ## Work Overview
 
 The Work area opens on the Overview page. Today's work lists your actions due today and overdue, oldest first. Press the circle to complete one, Snooze to move it to tomorrow, in three days, next week or a date you pick, or the partner name to open the partner. Each change is saved, sent to Blackbaud and undone from the message at the bottom for 24 hours.

@@ -46,8 +46,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Everyone',
     color: 'sky',
     lessons: [
-      video('meet-the-hub'),
-      video('hub-walk-through'),
       article('getting-started', 'Start here'),
       article('signing-in', 'Signing in and connecting Google'),
       article('today', 'Your Today page'),
@@ -94,8 +92,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'Everyone',
     color: 'dusk',
     lessons: [
-      video('meet-the-brain'),
-      video('connect-the-brain'),
       article('ask-favor', 'What Favor Brain is'),
       article('asking-well', 'Asking good questions'),
       article('lists-and-downloads', 'Lists, downloads and Google Sheets'),
@@ -259,7 +255,6 @@ export const COURSES: SeedCourse[] = [
     audience: 'RDDs, Partner Care, Support Team, Church Engagement',
     color: 'leaf',
     lessons: [
-      video('work-center'),
       article('work-center', 'Work Center'),
       article('my-partners-and-reminders', 'My partners, reminders and the morning email'),
       article('partner-page', 'Partner'),
@@ -282,7 +277,6 @@ export const COURSES: SeedCourse[] = [
     color: 'terra',
     lessons: [
       video('entering-an-rdd-action'),
-      video('foundation-prospects'),
       article('foundation-prospects', 'Foundation prospects'),
       quiz('Check what you learned', [
         { text: 'Which action type counts in the weekly report?', options: ['RDD Action', 'Phone call', 'Task', 'Grants Action'], answer: 0, explain: 'Only RDD actions show up in the weekly report.' },
@@ -304,7 +298,6 @@ export const COURSES: SeedCourse[] = [
     color: 'teal',
     lessons: [
       video('taking-a-gift-by-phone'),
-      video('thank-you-receipts'),
       article('thank-you-receipts', 'Receipts'),
       quiz('Check what you learned', [
         { text: 'Where do you enter a card gift a partner gives by phone?', options: ['On the partner’s record, under Giving History, with Add Gift', 'On the request board', 'In a batch with the checks', 'In Paycom'], answer: 0, explain: 'You do not need an email.' },
@@ -326,7 +319,6 @@ export const COURSES: SeedCourse[] = [
     lessons: [
       video('logging-a-grants-action'),
       video('recording-a-grant-award'),
-      video('foundation-prospects'),
       quiz('Check what you learned', [
         { text: 'Which three things must an award have for the dashboard to count it?', options: ['Purpose Grant Request, a status that starts with Awarded, and an Expected amount', 'A gift, a pledge and a receipt', 'A PDF, a date and a fund', 'A letter, a contact and a campaign'], answer: 0, explain: 'If one of those is missing, the award does not show up.' },
         { text: 'A foundation says yes and the money is still coming. Which status?', options: ['Awarded - Active', 'Awarded - Closed', 'Pending', 'Solicited'], answer: 0, explain: 'Switch to Awarded - Closed when the last payment comes in.' },
@@ -347,7 +339,6 @@ export const COURSES: SeedCourse[] = [
     color: 'slate',
     lessons: [
       article('make-a-request', 'Make a request'),
-      video('thank-you-receipts'),
       article('thank-you-receipts', 'Receipts'),
       article('reports', 'Reports'),
       article('lists-and-downloads', 'Lists, downloads and Google Sheets'),
@@ -377,7 +368,6 @@ export const COURSES: SeedCourse[] = [
           'If a record looks wrong, tell the Blackbaud administrator. Do not fix it yourself.',
         ].join('\n\n')
       ),
-      video('thank-you-receipts'),
       article('thank-you-receipts', 'Receipts'),
       article('giving-statements', 'Giving statements'),
       article('expense-request', 'Send an expense request'),

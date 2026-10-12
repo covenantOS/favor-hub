@@ -336,7 +336,6 @@ export const RELEASES: Release[] = [
         icon: 'brain',
         for: chatPeople,
         article: 'chat',
-        clip: 'meet-the-brain',
         steps: [
           {
             id: 'n-brain-ask',
@@ -477,7 +476,6 @@ export const RELEASES: Release[] = [
         icon: 'work',
         for: (w) => w.work,
         article: 'work-center',
-        clip: 'work-center',
         steps: [
           {
             id: 'n-wc-groups',
@@ -536,7 +534,6 @@ export const RELEASES: Release[] = [
         icon: 'receipt',
         for: receiptsPeople,
         article: 'giving-statements',
-        clip: 'thank-you-receipts',
         steps: [
           {
             id: 'n-rcp-stats',
