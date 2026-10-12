@@ -1400,15 +1400,16 @@ function warmTabs() {
   if (window.WCEdit && window.WCEdit.warmOpps) jobs.push(() => window.WCEdit.warmOpps());
   window.WCTabs.list(DATA.me).forEach((t) => { if (t.warm) jobs.push(() => t.warm()); });
   setTimeout(() => idle(async () => {
-    // Three at a time: fast enough that tab counts fill in within a few seconds, few enough that a click never queues behind them.
+    // One at a time. Two or more together queue up behind the Blackbaud copy and each takes five seconds instead of half a second.
     let next = 0;
     const lane = async () => {
       while (next < jobs.length) {
         const job = jobs[next++];
         try { await Promise.race([Promise.resolve(job()), wait(8000)]); } catch (_) { /* a tab reads again when it opens */ }
+        await wait(100);
       }
     };
-    await Promise.all([lane(), lane(), lane()]);
+    await lane();
     S.warmed = true;
   }), 500);
 }
