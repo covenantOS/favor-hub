@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { MI, hue, initials, kindOf, size, when, who } from './util';
 import { getApi } from './mailApi';
+import { KIND_NAME } from './Assist';
 
 export interface ThreadTools {
   inInbox: boolean;
@@ -15,6 +16,56 @@ export function toolsOf(t: any): ThreadTools {
   const labels: Record<string, 1> = {};
   msgs.forEach((m) => (m.labelIds || []).forEach((l: string) => (labels[l] = 1)));
   return { inInbox: !!labels.INBOX, unread: msgs.some((m) => m.unread), starred: msgs.some((m) => m.starred), inTrash: !!labels.TRASH, labels };
+}
+
+
+const ENT_RE = /\b[A-Z]\d{2}[0-9A-C]-[A-Z0-9]{1,14}\b|\b(?:Lookup ID|lookup id|Constituent ID|ID)\s*[:#]?\s*(\d{3,7})\b/g;
+export interface EntityApi {
+  names: string[];
+  load: (kind: string, q: string) => Promise<any>;
+  open: (card: any) => void;
+}
+function markEntities(d: Document, names: string[]) {
+  if (!d || !d.body || d.body.dataset.fosEnt) return;
+  d.body.dataset.fosEnt = '1';
+  const esc = (n: string) => n.replace(/[.*+?^${}()|[\]\\]/g, (c) => '\\' + c);
+  const fundRe = names && names.length ? new RegExp('\\b(' + names.slice(0, 200).map(esc).join('|') + ')\\b', 'g') : null;
+  const walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => (n.parentElement && !n.parentElement.closest('a,script,style,.fos-ent') && /\S/.test(n.nodeValue || '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT),
+  });
+  const nodes: Node[] = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.slice(0, 400).forEach((n) => {
+    const text = n.nodeValue || '';
+    const hits: Array<{ i: number; t: string; k: string; q: string }> = [];
+    let m: RegExpExecArray | null;
+    ENT_RE.lastIndex = 0;
+    while ((m = ENT_RE.exec(text))) hits.push({ i: m.index, t: m[0], k: m[1] ? 'lookup' : 'appeal', q: m[1] || m[0] });
+    if (fundRe) {
+      fundRe.lastIndex = 0;
+      while ((m = fundRe.exec(text))) hits.push({ i: m.index, t: m[0], k: 'fund', q: m[0] });
+    }
+    if (!hits.length) return;
+    hits.sort((a, b) => a.i - b.i);
+    const frag = d.createDocumentFragment();
+    let at = 0;
+    hits.forEach((h) => {
+      if (h.i < at) return;
+      frag.appendChild(d.createTextNode(text.slice(at, h.i)));
+      const sp = d.createElement('span');
+      sp.className = 'fos-ent';
+      sp.dataset.k = h.k;
+      sp.dataset.q = h.q;
+      sp.textContent = h.t;
+      frag.appendChild(sp);
+      at = h.i + h.t.length;
+    });
+    frag.appendChild(d.createTextNode(text.slice(at)));
+    n.parentNode?.replaceChild(frag, n);
+  });
+  const st = d.createElement('style');
+  st.textContent = '.fos-ent{border-bottom:1px dotted #235578;cursor:help}';
+  d.head.appendChild(st);
 }
 
 const frameDoc = (html: string) => {
@@ -31,7 +82,7 @@ const frameDoc = (html: string) => {
 };
 
 /** A message body in a sandboxed frame (no scripts) sized to its content, with quoted text folded away as in Gmail. */
-function MessageFrame({ html, title, fold }: { html: string; title: string; fold: boolean }) {
+function MessageFrame({ html, title, fold, ent }: { html: string; title: string; fold: boolean; ent?: EntityApi & { tip: (c: any, rect: DOMRect | null) => void } }) {
   const box = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const [hasQuote, setHasQuote] = useState(false);
@@ -75,6 +126,39 @@ function MessageFrame({ html, title, fold }: { html: string; title: string; fold
         }
       }
       fit();
+      if (ent) {
+        markEntities(doc, ent.names);
+        let tt = 0;
+        doc.addEventListener('mouseover', (e) => {
+          const el = (e.target as Element).closest?.('.fos-ent') as HTMLElement | null;
+          if (!el) return;
+          clearTimeout(tt);
+          tt = window.setTimeout(() => {
+            void ent.load(el.dataset.k || '', el.dataset.q || '').then((c) => {
+              if (!c) return;
+              const fr = f.getBoundingClientRect();
+              const r = el.getBoundingClientRect();
+              ent.tip(c, new DOMRect(fr.left + r.left, fr.top + r.bottom, r.width, r.height));
+            });
+          }, 250);
+        });
+        doc.addEventListener('mouseout', (e) => {
+          if ((e.target as Element).closest?.('.fos-ent')) {
+            clearTimeout(tt);
+            ent.tip(null, null);
+          }
+        });
+        doc.addEventListener('click', (e) => {
+          const el = (e.target as Element).closest?.('.fos-ent') as HTMLElement | null;
+          if (!el) return;
+          e.preventDefault();
+          void ent.load(el.dataset.k || '', el.dataset.q || '').then((c) => {
+            if (!c) return;
+            ent.tip(null, null);
+            ent.open(c);
+          });
+        });
+      }
       doc.querySelectorAll('img').forEach((im) => {
         if (!im.complete) im.addEventListener('load', fit);
       });
@@ -178,7 +262,7 @@ function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }
               <em>Partner in Blackbaud</em>
             </a>
           )}
-          {c.headersOnly ? <div className="ml-hdronly">{m.snippet || ''}</div> : <MessageFrame html={m.html} title={'Message from ' + who(m.from)} fold={i > 0} />}
+          {c.headersOnly ? <div className="ml-hdronly">{m.snippet || ''}</div> : <MessageFrame html={m.html} title={'Message from ' + who(m.from)} fold={i > 0} ent={c.headersOnly ? undefined : c.ent} />}
           {files.length > 0 && (
             <div className="ml-files">
               {files.map((f: any, k: number) => {
@@ -186,16 +270,25 @@ function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }
                 const url = api.fileUrl(m.id, f, false, c.box);
                 return (
                   <div className="ml-file" key={f.id || k}>
-                    <a className="ml-file__open" href={url} target="_blank" rel="noreferrer">
+                    <button type="button" className="ml-file__open" onClick={() => (c.onViewFile ? c.onViewFile(m, f, files) : window.open(url, '_blank'))}>
                       {kind === 'image' ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="ml-fic" data-k={kind}>{(String(f.name).split('.').pop() || 'file').slice(0, 4).toUpperCase()}</span>}
                       <span className="ml-file__t">
                         <b>{f.name}</b>
                         <small>{size(f.size)}</small>
                       </span>
-                    </a>
+                    </button>
                     <a className="ml-iconbtn" href={api.fileUrl(m.id, f, true, c.box)} download={f.name} aria-label={'Download ' + f.name} title="Download">
                       <MI n="dl" />
                     </a>
+                    {(() => {
+                      const r = c.fileKinds && c.fileKinds[m.id + '|' + f.id];
+                      return r && KIND_NAME[r.kind] ? (
+                        <span className="ml-fk">
+                          <em className="ml-chip">{KIND_NAME[r.kind]}</em>
+                          {r.next ? r.next.href ? <a className="ml-linkbtn" href={r.next.href}>{r.next.text}</a> : <span>{r.next.text}</span> : null}
+                        </span>
+                      ) : null;
+                    })()}
                   </div>
                 );
               })}
@@ -248,6 +341,10 @@ export interface ReaderProps {
   onEditDraft: (mid: string) => void;
   onDropDraft: (mid: string) => void;
   extra?: React.ReactNode;
+  suggested?: React.ReactNode;
+  fileKinds?: Record<string, any>;
+  ent?: EntityApi & { tip: (c: any, rect: DOMRect | null) => void };
+  onViewFile?: (m: any, f: any, files: any[]) => void;
 }
 
 export function Reader(c: ReaderProps) {
@@ -298,6 +395,9 @@ export function Reader(c: ReaderProps) {
           </button>
           <button type="button" className="ml-iconbtn ml-dt" onClick={act('labels')} aria-label="Labels" title="Labels">
             <MI n="tag" />
+          </button>
+          <button type="button" className="ml-iconbtn" onClick={act('thread-more')} aria-label="More" title="More" aria-haspopup="dialog">
+            <MI n="more" />
           </button>
         </span>
         <span className="ml-nav">
@@ -352,6 +452,7 @@ export function Reader(c: ReaderProps) {
             msgs.map((m, i) => <Msg key={m.id} m={m} i={i} all={msgs} c={c} />)
           )}
         </div>
+        {!c.loading && last && c.suggested}
         {!c.loading && last && (
           <div className="ml-thread__foot">
             <button type="button" className="ml-btn" onClick={() => c.onReply('reply')}>

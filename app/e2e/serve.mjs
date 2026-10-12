@@ -15,7 +15,7 @@ const OUT = process.env.SHOTS || 'Q:/Temp/Will/react-app/shots/islands';
 mkdirSync(OUT, { recursive: true });
 
 const key = readFileSync('C:/Users/Willb/.claude/secrets/favor-hub-agent-key.txt', 'utf8').split(/\r?\n/)[0].trim();
-const sess = await (await fetch(LIVE + '/api/admin/test-session', { method: 'POST', headers: { Authorization: 'Bearer ' + key } })).json();
+const sess = await (await fetch(LIVE + '/api/admin/test-session' + (process.env.WHO === 'two' ? '?who=two' : ''), { method: 'POST', headers: { Authorization: 'Bearer ' + key } })).json();
 if (!sess.cookie) throw new Error('no test session');
 const COOKIE = `favor_hub_session=${sess.cookie}; hub_gc=1; hub_tester=1`;
 

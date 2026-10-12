@@ -1085,9 +1085,11 @@ export async function releaseHeld(env: Env, owner: string, id: string, fetcher: 
     return { sent: st?.state === 'sent', state: st?.state || 'gone', threadId: st?.thread_id || '' };
   }
   try {
-    const tok = row.mailbox ? await boxToken(env, owner, row.mailbox) : await accessToken(env, owner);
+    // The test users hold a stored sample mailbox, never Gmail (the same way the other routes read it).
+    const sample = isTester(owner);
+    const tok = sample ? SAMPLE_TOKEN : row.mailbox ? await boxToken(env, owner, row.mailbox) : await accessToken(env, owner);
     if (!tok || !mailLevel(tok.scopes).write) throw new Error('no token');
-    const gm = gmail(tok.token, fetcher);
+    const gm = gmail(tok.token, sample ? sampleFetcher(env, owner) : fetcher);
     const body = safeJson(row.payload);
     const files: Array<{ name: string; mime: string; data: string }> = [];
     for (const f of Array.isArray(body.heldFiles) ? body.heldFiles : []) {

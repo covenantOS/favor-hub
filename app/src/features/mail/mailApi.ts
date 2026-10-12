@@ -163,6 +163,38 @@ const real = {
   dropDraft: (id: string, mb?: string) => req('DELETE', pathMb('drafts/' + encodeURIComponent(id), mb)),
   contacts: (q: string) => req('GET', 'contacts?q=' + encodeURIComponent(q || '')),
   timeline: (pid: string, email: string, id: string) => req('GET', pathMb('partner/' + encodeURIComponent(pid) + '/timeline?email=' + encodeURIComponent(email || ''), boxOf(id))),
+  sender: (email: string, name: string, mb?: string) => req('GET', pathMb('smart/sender?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name || ''), mb)),
+  categories: () => req('GET', 'smart/categories'),
+  newCategory: (name: string, description: string) => req('POST', 'smart/categories', { name, description }),
+  dropCategory: (id: string) => req('DELETE', 'smart/categories/' + encodeURIComponent(id)),
+  moveCat: (senders: string[], cat: string, mb?: string) => req('POST', pathMb('smart/move', mb), { senders, cat }),
+  logged: (threadId: string, partnerId?: string) => req('POST', pathMb('smart/logged', boxOf(threadId)), { threadId, partnerId: partnerId || '' }),
+  templates: () => req('GET', 'templates'),
+  saveTemplate: (name: string, body: string) => req('POST', 'templates', { name, body }),
+  dropTemplate: (id: string) => req('DELETE', 'templates/' + encodeURIComponent(id)),
+  fillTemplate: (body: string, to: string[]) => req('POST', 'templates/fill', { body, to }),
+  later: () => req('GET', 'later'),
+  makeLater: (b: any) => req('POST', pathMb('later', b.mb), b),
+  dropLater: (id: string) => req('DELETE', 'later/' + encodeURIComponent(id)),
+  snoozeWait: (id: string, kind: string, partnerId?: string) => req('POST', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id)), { until: kind, partnerId: partnerId || '' }),
+  readFile: (mid: string, f: any, subject: string, id: string) => req('GET', pathMb('messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '/read?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + '&size=' + (f.size || 0) + '&subject=' + encodeURIComponent(subject || ''), boxOf(id))),
+  ask: (id: string, q: string) => req('POST', pathMb('threads/' + encodeURIComponent(id) + '/ask', boxOf(id)), { q }),
+  times: (b: any) => req('POST', 'smart/times', b),
+  entity: (kind: string, q: string) => req('GET', 'entity?kind=' + encodeURIComponent(kind) + '&q=' + encodeURIComponent(q)),
+  entityNames: () => req('GET', 'entity/names'),
+  assign: (id: string, to: string, note: string) => req('POST', pathMb('threads/' + encodeURIComponent(id) + '/assign', boxOf(id)), { to, note }),
+  mention: (id: string, to: string[], note: string) => req('POST', pathMb('threads/' + encodeURIComponent(id) + '/mention', boxOf(id)), { to, note }),
+  makeRequest: (id: string, note: string, surface: string) => req('POST', pathMb('threads/' + encodeURIComponent(id) + '/request', boxOf(id)), { note, surface }),
+  assigned: () => req('GET', 'assigned'),
+  assignedDone: (id: string) => req('POST', 'assigned/' + encodeURIComponent(id) + '/done', {}),
+  meetCreate: (b: any) => req('POST', '/api/meet/meetings', b),
+  drive: (q: string) => req('GET', 'drive?q=' + encodeURIComponent(q || '')),
+  clips: () => req('GET', 'clips'),
+  owners: () => req('GET', 'log-owners'),
+  task: (b: any) => req('POST', '/api/tasks', b),
+  chatBoot: () => req('GET', '/api/chat/boot'),
+  chatSend: (ch: string, body: string) => req('POST', '/api/chat/channels/' + encodeURIComponent(ch) + '/messages', { body }),
+  logAction: (b: any) => req('POST', '/api/work/entry/many', b),
   fileUrl: (mid: string, f: any, dl?: boolean, mb?: string) =>
     '/api/mail/messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + (dl ? '&dl=1' : '') + (mb ? '&mb=' + encodeURIComponent(mb) : ''),
 };
@@ -180,7 +212,7 @@ declare global {
 /** The sample mailbox is on for the FavorOS Tester, ?mock=1, and a tab that asked for it; ?mock=0 goes back to the real one. */
 export function wantsMock(): boolean {
   const q = location.search;
-  let on = /[?&]mock=1/.test(q) || /(?:^|;\s*)hub_tester=1/.test(document.cookie);
+  let on = /[?&]mock=1/.test(q);
   try {
     if (on) sessionStorage.setItem('favor.mail.mock', '1');
     if (/[?&]mock=0/.test(q)) sessionStorage.removeItem('favor.mail.mock');

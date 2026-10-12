@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MI, hue, initials, size } from './util';
 import { getApi } from './mailApi';
+import { ClipPick, DrivePick, LaterMenu, TemplatesMenu } from './ComposeSheets';
 
 export interface ComposeInit {
   title?: string;
@@ -156,9 +157,10 @@ interface Props {
   onDiscard: (draftId: string, mb: string, pending: Promise<unknown> | null) => void;
   onAsk: (what: string) => void;
   onToast: (msg: string) => void;
+  onLater: (o: Outgoing, at: Date, remindDays: number) => void;
 }
 
-export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, onSend, onClose, onDiscard, onAsk, onToast }: Props) {
+export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, onSend, onClose, onDiscard, onAsk, onToast, onLater }: Props) {
   const [to, setTo] = useState<any[]>(init.to || []);
   const [cc, setCc] = useState<any[]>(init.cc || []);
   const [bcc, setBcc] = useState<any[]>(init.bcc || []);
@@ -168,6 +170,8 @@ export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, o
   const [forward, setForward] = useState<any[]>(init.forward || []);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [saved, setSaved] = useState('');
+  const [sheet, setSheet] = useState<'' | 'templates' | 'later' | 'drive' | 'photos' | 'clips'>('');
+  const range = useRef<Range | null>(null);
   const ed = useRef<HTMLDivElement>(null);
   const qd = useRef<HTMLDivElement>(null);
   const fileIn = useRef<HTMLInputElement>(null);
@@ -294,6 +298,28 @@ export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, o
     setFiles((f) => f.concat(add));
   };
 
+  const keepRange = () => {
+    const sel = getSelection();
+    if (sel && sel.rangeCount && ed.current && ed.current.contains(sel.anchorNode)) range.current = sel.getRangeAt(0).cloneRange();
+  };
+  const insertHtml = (html: string) => {
+    const e = ed.current;
+    if (!e) return;
+    e.focus();
+    if (range.current && e.contains(range.current.startContainer)) {
+      const s2 = getSelection();
+      s2?.removeAllRanges();
+      s2?.addRange(range.current);
+    }
+    if (!document.execCommand('insertHTML', false, html)) e.insertAdjacentHTML('afterbegin', html);
+    changed();
+  };
+  const open = (k: typeof sheet) => {
+    keepRange();
+    setSheet(k);
+  };
+  const photoWords = subject.replace(/^(re|fwd?):\s*/gi, '').replace(/[^\w\s]/g, ' ').split(/\s+/).filter((w) => w.length > 3).slice(0, 4).join(' ') || 'photos';
+
   const all = forward.map((f, i) => ({ f, k: 'w' + i })).concat(files.map((f, i) => ({ f, k: 'u' + i })));
   return createPortal(
     <div
@@ -376,6 +402,18 @@ export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, o
           <button type="button" className="ml-iconbtn" onClick={() => fileIn.current?.click()} aria-label="Attach a file" title="Attach a file">
             <MI n="clip" />
           </button>
+          <button type="button" className="ml-iconbtn" onClick={() => open('drive')} aria-label="Link a Drive file" title="Link a Drive file">
+            <MI n="drive" />
+          </button>
+          <button type="button" className="ml-iconbtn" onClick={() => open('clips')} aria-label="Link a clip" title="Link a clip">
+            <MI n="rec" />
+          </button>
+          <button type="button" className="ml-iconbtn" onClick={() => open('photos')} aria-label="Photos from Drive" title="Photos from the Drive library">
+            <MI n="image" />
+          </button>
+          <button type="button" className="ml-iconbtn" onClick={() => open('templates')} aria-label="Templates" title="Templates with the partner's details">
+            <MI n="draft" />
+          </button>
           <span className="ml-c__sep" />
           {[['bold', 'bold', 'Bold (Ctrl B)'], ['italic', 'ital', 'Italic (Ctrl I)'], ['link', 'link', 'Link (Ctrl K)'], ['insertUnorderedList', 'list', 'Bulleted list']].map(([c, i, t]) => (
             <button type="button" className="ml-iconbtn" key={c} onMouseDown={(e) => e.preventDefault()} onClick={() => fmt(c)} aria-label={t.replace(/ \(.*/, '')} title={t}>
@@ -383,6 +421,9 @@ export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, o
             </button>
           ))}
           <span className="ml-c__grow" />
+          <button type="button" className="ml-iconbtn ml-c__later" onClick={() => open('later')} aria-label="Send later" title="Send later">
+            <MI n="clock" />
+          </button>
           <button
             type="button"
             className="ml-iconbtn"
@@ -402,6 +443,22 @@ export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, o
           <input ref={fileIn} type="file" multiple hidden onChange={(e) => (void addFiles(e.target.files), (e.target.value = ''))} />
         </div>
       </div>
+      {sheet === 'later' && (
+        <LaterMenu
+          onClose={() => setSheet('')}
+          say={onToast}
+          onPick={(at, remindDays) => {
+            if (files.length || forward.length) return onToast('A message with files cannot wait. Send it now.');
+            setSheet('');
+            sent.current = true;
+            onLater(collect(), at, remindDays);
+          }}
+        />
+      )}
+      {sheet === 'templates' && <TemplatesMenu onClose={() => setSheet('')} to={to.map((x) => x.email)} bodyText={() => (ed.current?.innerText || '').trim()} insert={insertHtml} say={onToast} />}
+      {sheet === 'drive' && <DrivePick title="Link a Drive file" onClose={() => setSheet('')} insert={insertHtml} />}
+      {sheet === 'photos' && <DrivePick title="Photos from the Drive library" first={photoWords + ' photo'} onClose={() => setSheet('')} insert={insertHtml} />}
+      {sheet === 'clips' && <ClipPick onClose={() => setSheet('')} insert={insertHtml} say={onToast} />}
     </div>,
     document.body
   );

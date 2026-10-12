@@ -5,6 +5,8 @@ import './styles';
 import { Compose, type ComposeInit, type Outgoing } from './Compose';
 import { Reader, replyAllList, toolsOf } from './Reader';
 import { Sheet, Toast, type ToastState } from './Sheet';
+import { AssistPanel, BriefCards, SuggestedReplies, shortDay, type AssistState } from './Assist';
+import { SmartSheets, type SmartCtx } from './SmartSheets';
 import { BASE_VIEWS, CAT_NAMES, FLAG_NAMES, MI, SYS_ICON, hue, initials, isPhone, isPrimary, when, who } from './util';
 import { MailError, PRE, boxOf, device, getApi, mailApi, mbOf, setMe, sigOf } from './mailApi';
 
@@ -48,13 +50,19 @@ interface State {
   view: 'list' | 'thread';
   scanned: number;
   loadError: string;
+  assist: AssistState | null;
+  tl: null | { open: boolean; items?: any[]; error?: string };
+  brief: any;
+  briefFailed: boolean;
+  briefGone: number;
+  names: string[] | null;
   sheet: null | { kind: string; anchor?: HTMLElement | null; data?: any };
 }
 
 const initial = (): State => ({
   me: '', name: '', level: { read: false, write: false, headers: false, contacts: false }, write: true, connected: false, signature: '', ready: false, error: '',
   label: 'INBOX', q: '', v: '', threads: [], nexts: {}, loading: false, labels: [], sel: -1, open: '', thread: null, threadLoading: false, partners: {}, drafts: {}, headersOnly: false,
-  exp: {}, flags: {}, sort: '', picked: {}, anchor: '', boxes: [], box: '', counts: {}, customs: [], ov: null, fromOpts: null, view: 'list', scanned: 0, loadError: '', sheet: null,
+  exp: {}, flags: {}, sort: '', picked: {}, anchor: '', boxes: [], box: '', counts: {}, customs: [], ov: null, fromOpts: null, view: 'list', scanned: 0, loadError: '', assist: null, tl: null, brief: null, briefFailed: false, briefGone: 0, names: null, sheet: null,
 });
 
 /* ------------------------------------------------------------------ routing (#/LABEL[/thread], #/search/words[/thread]) */
@@ -122,6 +130,7 @@ export function MailPage() {
   const threadSeq = useRef(0);
   const ovSeq = useRef(0);
   const syncT = useRef(0);
+  const pendingReply = useRef<null | { id: string; text: string }>(null);
   const batching = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const rowsRef = useRef<HTMLDivElement>(null);
@@ -380,6 +389,7 @@ export function MailPage() {
           setTimeout(() => seq === listSeq.current && loadList({ quiet: true, noStale: true }), 1500);
         if (inboxPlain() && !opts.more) {
           loadOverview();
+          setTimeout(() => loadBrief(), 1200);
         }
         if (!opts.more && S.current.level.read && !S.current.q) idleFirst();
       })
@@ -451,6 +461,12 @@ export function MailPage() {
             })
             .catch(() => undefined);
         }
+        if (!d.headersOnly && S.current.level.read) loadAssist(id, seq);
+        if (pendingReply.current && pendingReply.current.id === id) {
+          const pr = pendingReply.current;
+          pendingReply.current = null;
+          startReply('reply', undefined, pr.text);
+        }
       })
       .catch((e: any) => {
         if (seq !== threadSeq.current) return;
@@ -509,6 +525,7 @@ export function MailPage() {
     if (kind === 'back') return go(x.label, x.q, '');
     if (kind === 'prev' || kind === 'next') return stepThread(kind === 'next' ? 1 : -1);
     if (kind === 'compose') return openCompose();
+    if (kind === 'thread-more') return openSmart('more', undefined, anchor);
     const id = curId(idIn);
     if (!id) return;
     if (!x.level.write || !canWrite()) return askWrite(kind);
@@ -719,7 +736,7 @@ export function MailPage() {
     setCompose(o);
     if (isPhone()) history.pushState({ mlCompose: 1 }, '');
   };
-  const startReply = (kind: 'reply' | 'replyall' | 'forward', mIn?: any) => {
+  const startReply = (kind: 'reply' | 'replyall' | 'forward', mIn?: any, text?: string) => {
     const x = S.current;
     if (!x.level.write || !canWrite()) return askWrite('reply');
     const t = x.thread;
@@ -755,6 +772,7 @@ export function MailPage() {
       threadId: t.id,
       replyTo: m.id,
       mb: boxOf(t.id),
+      body: text ? '<div>' + escH(text).split(String.fromCharCode(10)).join('<br>') + '</div><div><br></div>' + (x.signature ? '<br><div class="gmail_signature">' + x.signature + '</div>' : '') : undefined,
     });
   };
   const editDraft = (mid: string) => {
@@ -852,6 +870,303 @@ export function MailPage() {
       .catch(() => doSend(b));
   };
 
+  /* ------------------------------------------------------------------ smart side: assist, briefing, entities, hand-offs */
+  const ET = (iso?: string) => new Date(iso || Date.now()).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const hubAccess = (): Record<string, boolean> => {
+    try {
+      const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null');
+      return (nv && nv.access) || {};
+    } catch {
+      return {};
+    }
+  };
+  const partnerOf = (t: any) => {
+    const x = S.current;
+    const msgs: any[] = (t && t.messages) || [];
+    for (const m of msgs) {
+      const p = x.partners[(m.from || {}).email];
+      if (p) return { email: m.from.email, ...p };
+    }
+    const k = Object.keys(x.partners)[0];
+    return k ? { email: k, ...x.partners[k] } : null;
+  };
+  const lastMsg = () => {
+    const t = S.current.thread;
+    return t ? (t.messages || []).filter((m: any) => !m.draft).slice(-1)[0] : null;
+  };
+  const hashFor = (id: string) => '#/' + (S.current.q ? 'search/' + encodeURIComponent(S.current.q) : encodeURIComponent(S.current.label)) + '/' + encodeURIComponent(id);
+
+  const patchAssist = (p: Partial<AssistState>) => {
+    if (!S.current.assist) return;
+    S.current.assist = { ...S.current.assist, ...p };
+    bump();
+  };
+  const loadAssist = (id: string, seq: number) => {
+    const x = S.current;
+    const th = findThread(id);
+    x.assist = { id, summary: '', replies: [], ask: false, card: null, loading: true, gift: null, commitments: [], profile: null, files: {}, answer: '', major: !!(th && th.major) };
+    x.tl = null;
+    bump();
+    const live = () => seq === threadSeq.current && S.current.assist && S.current.assist.id === id;
+    api()
+      .assist(id)
+      .then((a: any) => live() && patchAssist({ summary: a.summary || '', replies: a.replies || [], ask: !!a.ask, loading: false, gift: a.gift || null, commitments: a.commitments || [] }))
+      .catch(() => live() && patchAssist({ loading: false }));
+    const p = partnerOf(x.thread);
+    if (p && hubAccess().workCenter)
+      api()
+        .partner(p.id)
+        .then((d: any) => live() && patchAssist({ card: d.partner }))
+        .catch(() => undefined);
+    const m = ((x.thread && x.thread.messages) || []).filter((q: any) => !q.draft && q.from && q.from.email !== x.me).slice(-1)[0];
+    if (m)
+      api()
+        .sender(m.from.email, m.from.name, boxOf(id))
+        .then((d: any) => live() && patchAssist({ profile: d.profile }))
+        .catch(() => undefined);
+    const files: Array<{ m: any; f: any }> = [];
+    ((x.thread && x.thread.messages) || []).forEach((q: any) => (q.attachments || []).forEach((f: any) => (!f.inline || !/^image\//.test(f.mime)) && files.push({ m: q, f })));
+    files.slice(0, 3).forEach((q) =>
+      api()
+        .readFile(q.m.id, q.f, x.thread.subject, id)
+        .then((r: any) => live() && patchAssist({ files: { ...(S.current.assist as AssistState).files, [q.m.id + '|' + q.f.id]: r } }))
+        .catch(() => undefined)
+    );
+  };
+  const loadBrief = (fresh?: boolean) => {
+    const x = S.current;
+    if (!x.level.read || !inboxPlain() || x.v) return;
+    api()
+      .briefing(!!fresh, accts()[0] || '')
+      .then((d: any) => set({ brief: d.briefing }))
+      .catch(() => set({ briefFailed: true }));
+  };
+  const loadNames = () => {
+    const x = S.current;
+    if (x.names || !x.level.read) return;
+    x.names = [];
+    api()
+      .entityNames()
+      .then((d: any) => set({ names: d.funds || [] }))
+      .catch(() => undefined);
+  };
+  const entCache = useRef<Record<string, Promise<any>>>({});
+  const [tip, setTip] = useState<null | { c: any; x: number; y: number }>(null);
+  const entityApi = {
+    names: s.names || [],
+    load: (kind: string, key: string) => {
+      const k = kind + '|' + key;
+      if (!entCache.current[k]) {
+        const FE = (window as any).FavorEntity;
+        if (kind === 'appeal' && !window.__mailMock && FE && FE.load)
+          entCache.current[k] = FE.load('appeal', key)
+            .then((it: any) => (!it || it.restricted ? null : { kind, key, title: it.title, sub: it.sub, lines: (it.facts || []).map((f: any) => ({ k: f.k, v: f.v })), href: it.url || '' }))
+            .catch(() => null);
+        else
+          entCache.current[k] = api()
+            .entity(kind, key)
+            .then((d: any) => d.card)
+            .catch(() => null);
+      }
+      return entCache.current[k];
+    },
+    open: (c: any) => set({ sheet: { kind: 'entity', data: c } }),
+    tip: (c: any, rect: DOMRect | null) => setTip(c && rect ? { c, x: Math.max(8, Math.min(innerWidth - 300, rect.left)), y: Math.min(innerHeight - 170, rect.bottom + 6) } : null),
+  };
+  const viewFile = (m: any, f: any, files: any[]) => {
+    const A = api();
+    const mb = boxOf(S.current.thread.id);
+    const kindOf2 = (mime: string, name: string) => (/^image\//.test(mime || '') || /\.(png|jpe?g|gif|webp)$/i.test(name || '') ? 'image' : /pdf/i.test((mime || '') + name) ? 'pdf' : /wordprocessingml|\.docx\b/i.test((mime || '') + name) ? 'docx' : /spreadsheetml|\.xlsx\b|\.csv\b/i.test((mime || '') + name) ? 'xlsx' : /^video\//.test(mime || '') ? 'video' : /^audio\//.test(mime || '') ? 'audio' : 'file');
+    const kind = kindOf2(f.mime, f.name);
+    const item = { kind, url: A.fileUrl(m.id, f, false, mb), name: f.name, sub: Math.round((f.size || 0) / 1024) + ' KB', download: A.fileUrl(m.id, f, true, mb) };
+    const V = (window as any).FavorChatView;
+    if (kind === 'video' || kind === 'audio') return set({ sheet: { kind: 'media', data: item } });
+    if (!V || kind === 'file') {
+      location.href = item.download;
+      return;
+    }
+    if (kind === 'image') {
+      const pics = files.filter((q) => kindOf2(q.mime, q.name) === 'image').map((q) => ({ kind: 'image', url: A.fileUrl(m.id, q, false, mb), name: q.name, download: A.fileUrl(m.id, q, true, mb) }));
+      return V.open(pics.find((q: any) => q.name === f.name) || item, pics);
+    }
+    V.open(item);
+  };
+  const logOneQuick = () => {
+    const p = partnerOf(S.current.thread);
+    const t = S.current.thread;
+    if (!p || !t || (S.current.assist && S.current.assist.logged)) return;
+    api()
+      .owners()
+      .then((d: any) => {
+        const mine = (d.owners || []).find((o: any) => o.fid === d.mine);
+        if (!mine) return set({ sheet: { kind: 'log-action' } });
+        const m = lastMsg();
+        const date = ET(m && m.date);
+        return api()
+          .logAction({ owner: mine.fid, date, channel: 'email', summary: ('Email: ' + (t.subject || '')).slice(0, 255), tags: [], constituent_ids: [String(p.id)], req: 'mail-' + t.id + '-' + p.id + '-' + date })
+          .then((r: any) => {
+            void api().logged(t.id, p.id).catch(() => undefined);
+            patchAssist({ logged: true });
+            say(r.dups && !r.created ? 'Already logged' : 'Logged on ' + (p.name || 'the partner'));
+            loadOverview();
+          });
+      })
+      .catch((e: any) => say(e.message || 'That did not log. Try again.'));
+  };
+  const showTimeline = () => {
+    const x = S.current;
+    const p = partnerOf(x.thread);
+    if (!p) return;
+    if (x.tl && x.tl.open) return set({ tl: { open: false } });
+    set({ tl: { open: true } });
+    api()
+      .timeline(p.id, p.email, x.open)
+      .then((d: any) => set({ tl: { open: true, items: d.items || [] } }))
+      .catch((e: any) => set({ tl: { open: true, error: e.message } }));
+  };
+  const giftNote = () => {
+    const p = partnerOf(S.current.thread);
+    const a = S.current.assist;
+    if (!p || !a || !a.gift) return;
+    if (!window.confirm('Add an action to ' + (p.name || 'the partner') + ' in Blackbaud: expected gift of $' + Math.round(a.gift.amount).toLocaleString('en-US') + '?')) return;
+    api()
+      .owners()
+      .then((d: any) => {
+        const mine = (d.owners || []).find((o: any) => o.fid === d.mine) || (d.owners || [])[0];
+        if (!mine) throw new Error('Action entry is not open to you.');
+        const date = ET();
+        return api().logAction({ owner: mine.fid, date, channel: 'email', summary: ('Expected gift $' + Math.round(a.gift.amount).toLocaleString('en-US') + ' (email)').slice(0, 255), tags: [], constituent_ids: [String(p.id)], req: 'mail-gift-' + S.current.thread.id + '-' + p.id + '-' + date });
+      })
+      .then(() => say('Expected gift noted on ' + (p.name || 'the partner')))
+      .catch((e: any) => say(e.message || 'That did not save.'));
+  };
+  const giftChat = () => {
+    const p = partnerOf(S.current.thread);
+    const a = S.current.assist;
+    if (!p || !a || !a.gift) return;
+    api()
+      .chatBoot()
+      .then((d: any) => {
+        const ch = (d.channels || []).find((c: any) => /partner.?care/i.test(c.name || ''));
+        if (!ch) return say('No Partner Care channel to post in. Use Send to Chat.');
+        const amt = '$' + Math.round(a.gift.amount).toLocaleString('en-US');
+        if (!window.confirm('Post in #' + ch.name + ': ' + (p.name || 'A partner') + ' mentions a ' + amt + ' gift?')) return;
+        return api().chatSend(ch.id, (p.name || 'A partner') + ' emailed about a ' + amt + ' gift. Expect it. I have it from here.').then(() => say('Partner Care told'));
+      })
+      .catch((e: any) => say(e.message || 'That did not post.'));
+  };
+  const commitTask = (i: number) => {
+    const a = S.current.assist;
+    const c = a && a.commitments[i];
+    const t = S.current.thread;
+    if (!a || !c) return;
+    const b: any = { title: c.text.slice(0, 200), description: 'From my email "' + (t.subject || '') + '"\n\n' + location.origin + '/mail/' + hashFor(t.id), owner_email: S.current.me };
+    if (c.due) b.due_date = c.due;
+    api()
+      .task(b)
+      .then((d: any) => {
+        say('Task made' + (d.task && d.task.code ? ' ' + d.task.code : ''));
+        patchAssist({ commitments: a.commitments.filter((_, k) => k !== i) });
+      })
+      .catch((er: any) => say(er.status === 404 || er.status === 403 ? 'Projects is not open to you yet' : er.message));
+  };
+  const addProspect = () => {
+    const pr = S.current.assist && S.current.assist.profile;
+    const t = S.current.thread;
+    if (!pr) return;
+    if (!window.confirm('Make a task for Support to add ' + (pr.name || pr.email) + ' as a prospect in Blackbaud?')) return;
+    api()
+      .task({ title: 'Add ' + (pr.name || pr.email) + ' as a prospect in Blackbaud', description: 'Email ' + pr.email + '. From my email "' + (t.subject || '') + '"\n\n' + location.origin + '/mail/' + hashFor(t.id), owner_email: S.current.me })
+      .then(() => say('Task made'))
+      .catch((er: any) => say(er.status === 404 || er.status === 403 ? 'Projects is not open to you yet' : er.message));
+  };
+  const askAbout = (q: string) => {
+    const x = S.current;
+    patchAssist({ answer: 'Reading the conversation' });
+    api()
+      .ask(x.open, q)
+      .then((d: any) => patchAssist({ answer: d.answer }))
+      .catch((e: any) => patchAssist({ answer: e.message }));
+  };
+  const askBrain = (q?: string) => {
+    const t = S.current.thread;
+    const m = lastMsg();
+    if (!t) return;
+    const text = (q || 'What should I do about this email?') + '\n\nThe email: "' + (t.subject || '') + '" from ' + who(m && m.from) + ' on ' + when(m && m.date, true) + '. ' + String((m && m.snippet) || '').slice(0, 300);
+    window.open('/brain/?ask=' + encodeURIComponent(text.slice(0, 590)), '_blank', 'noopener');
+  };
+  const unsubscribe = () => {
+    const t = S.current.thread;
+    if (!t) return;
+    const m = (t.messages || []).filter((x: any) => x.unsubscribe && (x.unsubscribe.url || x.unsubscribe.mailto)).slice(-1)[0];
+    if (!m) return say('This sender gave no unsubscribe address');
+    const u = m.unsubscribe;
+    if (u.url) window.open(u.url, '_blank', 'noopener');
+    else {
+      const addr = u.mailto.replace(/^mailto:/i, '').split('?')[0];
+      if (!window.confirm('Send an unsubscribe email to ' + addr + '?')) return;
+      api()
+        .send({ to: [{ email: addr, name: '' }], subject: 'unsubscribe', html: '<p>unsubscribe</p>', mb: boxOf(t.id) })
+        .then(() => say('Unsubscribe sent'))
+        .catch((e: any) => failed(e));
+    }
+    act('archive');
+  };
+  const nudgeKey = () => ET().slice(0, 8) + Math.floor(Number(ET().slice(8, 10)) / 7);
+  const hiddenToday = (k: string) => {
+    try {
+      return sessionStorage.getItem(k) === ET();
+    } catch {
+      return false;
+    }
+  };
+  const hideToday = (k: string) => {
+    try {
+      sessionStorage.setItem(k, ET());
+    } catch {
+      // private mode
+    }
+    set({ briefGone: Date.now() });
+  };
+  const archiveMany = (ids: string[]) => {
+    set({ sheet: null });
+    const x = S.current;
+    const gone: Array<{ t: any; i: number }> = [];
+    ids.forEach((id) => {
+      const i = x.threads.findIndex((t) => t.id === id);
+      if (i >= 0) gone.push({ t: x.threads[i], i });
+    });
+    x.threads = x.threads.filter((t) => ids.indexOf(t.id) < 0);
+    bump();
+    const back = () => {
+      gone.sort((a, b) => a.i - b.i).forEach((g) => S.current.threads.splice(Math.min(g.i, S.current.threads.length), 0, g.t));
+      bump();
+    };
+    bulk({ ids, action: 'archive' })
+      .then((d: any) => {
+        syncFrom(d);
+        say('Archived ' + ids.length + ' conversations', () =>
+          bulk({ ids, action: 'inbox' })
+            .then((d2: any) => {
+              back();
+              syncFrom(d2);
+              loadOverview();
+            })
+            .catch((e: any) => failed(e))
+        );
+        loadOverview();
+      })
+      .catch((e: any) => {
+        back();
+        failed(e, 'archive');
+      });
+  };
+  const openSmart = (kind: string, data?: any, anchor?: HTMLElement | null) => {
+    if (kind === 'unsub') return unsubscribe();
+    if (kind === 'ask-brain') return askBrain();
+    set({ sheet: { kind, data, anchor } });
+  };
+
   /* ------------------------------------------------------------------ boot, polling, keys */
   useEffect(() => {
     let dead = false;
@@ -871,6 +1186,7 @@ export function MailPage() {
         device.sweep();
         void loadBoxes();
         void loadLabels();
+        loadNames();
         route();
       } catch (e: any) {
         if (!dead) set({ ready: true, error: e.status === 403 ? 'Mail is not open to you yet' : 'Mail did not load: ' + e.message });
@@ -1040,7 +1356,30 @@ export function MailPage() {
         onReply={startReply}
         onEditDraft={editDraft}
         onDropDraft={dropDraft}
-        extra={s.headersOnly ? <ConnectCard need="read" level={s.level} me={s.me} /> : null}
+        extra={
+          s.headersOnly ? (
+            <ConnectCard need="read" level={s.level} me={s.me} />
+          ) : s.level.read && s.assist ? (
+            <AssistPanel
+              a={s.assist}
+              partner={partnerOf(s.thread)}
+              tl={s.tl}
+              onLog={() => (s.assist && s.assist.logged ? undefined : openSmart('log-action'))}
+              onTimeline={showTimeline}
+              onGiftNote={giftNote}
+              onGiftChat={giftChat}
+              onCommitTask={commitTask}
+              onProspect={addProspect}
+              onAsk={askAbout}
+              onFindTime={() => openSmart('find-time')}
+              onAskBrain={(q) => askBrain(q)}
+            />
+          ) : null
+        }
+        suggested={s.assist && s.assist.replies.length ? <SuggestedReplies replies={s.assist.replies} onPick={(text) => startReply('reply', undefined, text)} /> : null}
+        fileKinds={s.assist ? s.assist.files : undefined}
+        ent={s.level.read ? entityApi : undefined}
+        onViewFile={viewFile}
       />
     ) : null;
 
@@ -1065,7 +1404,7 @@ export function MailPage() {
             <span>Compose</span>
           </button>
           <div className="ml-boxes">
-            <BoxesPane s={s} total={boxTotal()} pick={(key) => {
+            <BoxesPane s={s} total={boxTotal()} manage={() => openSmart('boxes')} pick={(key) => {
               if (S.current.box === key) return;
               Object.assign(S.current, { box: key, ov: null, labels: [], threads: [], nexts: {}, v: '' });
               history.replaceState(history.state, '', '#/INBOX');
@@ -1075,7 +1414,7 @@ export function MailPage() {
             }} />
           </div>
           <nav className="ml-labels">
-            <LabelsPane s={s} sys={labelsList.sys} own={labelsList.own} views={liveViews()} viewCount={viewCount} inboxPlain={inboxPlain()} />
+            <LabelsPane s={s} sys={labelsList.sys} own={labelsList.own} views={liveViews()} viewCount={viewCount} inboxPlain={inboxPlain()} onOpen={(k) => openSmart(k)} />
           </nav>
         </aside>
         <section className="ml-list" aria-label="Conversations">
@@ -1164,6 +1503,9 @@ export function MailPage() {
                 <button type="button" className="ml-iconbtn" onClick={(e) => selAct('snooze', e.currentTarget)} aria-label="Snooze">
                   <MI n="clock" />
                 </button>
+                <button type="button" className="ml-iconbtn" onClick={() => openSmart('move', { senders: Array.from(new Set(pickedIds().map(findThread).filter(Boolean).map((r: any) => (r.from && r.from.email) || ''))).filter(Boolean) })} aria-label="Move to category">
+                  <MI n="folder" />
+                </button>
               </span>
             </div>
           )}
@@ -1210,6 +1552,21 @@ export function MailPage() {
                 {s.q ? <span>Gmail search words work here, like from:, has:attachment and before:2026/10/01.</span> : flagsOn.length ? <button type="button" className="ml-btn" onClick={() => set({ flags: {} })}>Clear filters</button> : null}
               </div>
             ) : (
+              <>
+              <BriefCards
+                b={s.brief}
+                wait={!s.briefFailed}
+                ov={s.ov}
+                showBrief={inboxPlain() && !s.v && !!rows.length && !s.briefFailed && s.level.read && !hiddenToday('favor.mail.brief')}
+                showNudge={inboxPlain() && !s.v && (() => { try { return localStorage.getItem('favor.mail.nudge') !== nudgeKey(); } catch { return true; } })()}
+                showClean={inboxPlain() && !s.v && !hiddenToday('favor.mail.clean')}
+                onOpen={(id: string) => go(s.label, s.q, id)}
+                onFresh={() => { set({ brief: null }); loadBrief(true); }}
+                onHide={() => hideToday('favor.mail.brief')}
+                onNudgeHide={() => { try { localStorage.setItem('favor.mail.nudge', nudgeKey()); } catch { /* private mode */ } set({ briefGone: Date.now() }); }}
+                onCleanReview={() => (!s.level.write || !canWrite() ? askWrite('archive') : openSmart('clean'))}
+                onCleanDismiss={() => hideToday('favor.mail.clean')}
+              />
               <div style={{ height: virt.getTotalSize(), position: 'relative', width: '100%' }}>
                 {virt.getVirtualItems().map((vi) => {
                   const t = rows[vi.index];
@@ -1297,6 +1654,7 @@ export function MailPage() {
                   </div>
                 )}
               </div>
+              </>
             )}
           </div>
         </section>
@@ -1318,7 +1676,68 @@ export function MailPage() {
         </section>
         <Toast t={toast} onDone={() => setToast(null)} />
       </div>
-      {s.sheet && <Sheets s={s} S={S} close={() => set({ sheet: null })} say={say} failed={failed} api={api} bump={bump} go={go} goView={goView} removeFromList={removeFromList} putBack={putBack} afterLeave={afterLeave} bumpInbox={bumpInbox} loadLabels={loadLabels} loadList={loadList} openThread={openThread} findThread={findThread} labelsList={labelsList} />}
+      {s.sheet && <Sheets s={s} S={S} close={() => set({ sheet: null })} say={say} failed={failed} api={api} bump={bump} go={go} goView={goView} removeFromList={removeFromList} putBack={putBack} afterLeave={afterLeave} bumpInbox={bumpInbox} loadLabels={loadLabels} partnerOf={partnerOf} loadList={loadList} openThread={openThread} findThread={findThread} labelsList={labelsList} />}
+      {s.sheet && !['allow', 'filter', 'sort', 'keys', 'labels-nav', 'snooze', 'labels'].includes(s.sheet.kind) && (
+        <SmartSheets
+          kind={s.sheet.kind}
+          data={s.sheet.data}
+          anchor={s.sheet.anchor}
+          c={{
+            me: s.me,
+            thread: s.thread,
+            partner: partnerOf(s.thread),
+            customs: s.customs,
+            ov: s.ov,
+            boxes: s.boxes,
+            threadBox: s.thread ? boxOf(s.thread.id) : '',
+            lastHash: s.thread ? hashFor(s.thread.id) : '',
+            starred: toolsOf(s.thread).starred,
+            hasWorkCenter: !!hubAccess().workCenter,
+            close: () => set({ sheet: null }),
+            say,
+            failed,
+            then: (fn) => {
+              set({ sheet: null });
+              setTimeout(fn, 0);
+            },
+            open: (k, d) => openSmart(k, d),
+            act: (k) => act(k),
+            reply: (_k, text) => startReply('reply', undefined, text),
+            setCustoms: (c) => set({ customs: c }),
+            reloadOverview: loadOverview,
+            markLogged: () => patchAssist({ logged: true }),
+            removeBox: (email) => {
+              api()
+                .removeBox(email)
+                .then(() => {
+                  const x = S.current;
+                  const counts = { ...x.counts };
+                  delete counts[email];
+                  Object.assign(x, { boxes: x.boxes.filter((b) => b.email !== email), counts, box: x.box === email ? '' : x.box, threads: [], labels: [], sheet: null });
+                  bump();
+                  void loadBoxes();
+                  void loadLabels();
+                  route();
+                  say('Mailbox removed');
+                })
+                .catch((e: any) => failed(e));
+            },
+            archiveMany,
+          } as SmartCtx}
+        />
+      )}
+      {tip && (
+        <div className="ml-ent" style={{ left: tip.x, top: tip.y }}>
+          <b>{tip.c.title}</b>
+          <span>{tip.c.sub || ''}</span>
+          {(tip.c.lines || []).map((l: any) => (
+            <div key={l.k}>
+              <small>{l.k}</small> {l.v}
+            </div>
+          ))}
+          <small className="ml-ent__more">Press for details</small>
+        </div>
+      )}
       {warnings && <WarnSheet list={warnings.list} go={warnings.go} close={() => setWarnings(null)} auto={countdownOn()} onSent={() => setWarnings(null)} />}
       {compose && (
         <Compose
@@ -1339,6 +1758,19 @@ export function MailPage() {
           }}
           onAsk={askWrite}
           onToast={(m) => say(m)}
+          onLater={(b, at, remindDays) => {
+            const body: any = { to: b.to, cc: b.cc, bcc: b.bcc, subject: b.subject, html: b.html, threadId: b.threadId, replyTo: b.replyTo, draftId: b.draftId, mb: b.mb, from: b.from, sendAt: at.toISOString(), remindDays };
+            api()
+              .makeLater(body)
+              .then(() => {
+                closeCompose(true);
+                say('Scheduled for ' + at.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }));
+              })
+              .catch((e: any) => {
+                setCompose(b.init);
+                failed(e);
+              });
+          }}
         />
       )}
     </>
@@ -1346,7 +1778,7 @@ export function MailPage() {
 }
 
 /* ------------------------------------------------------------------ panes */
-function BoxesPane({ s, total, pick }: { s: State; total: number; pick: (key: string) => void }) {
+function BoxesPane({ s, total, pick, manage }: { s: State; total: number; pick: (key: string) => void; manage: () => void }) {
   if (!s.boxes.length)
     return (
       <a className="ml-addbox" href={'/api/google/connect?add=mailbox&next=' + encodeURIComponent('/mail/')}>
@@ -1368,15 +1800,15 @@ function BoxesPane({ s, total, pick }: { s: State; total: number; pick: (key: st
       {one('', 'All mailboxes', '#c9cfc2', total)}
       {one(s.me, s.me.split('@')[0], PRIMARY_DOT, s.counts[s.me] || 0, s.me)}
       {s.boxes.map((b) => one(b.email, boxLabel(b.email), b.color || PRIMARY_DOT, s.counts[b.email] || 0, b.email))}
-      <a className="ml-addbox" href={'/api/google/connect?add=mailbox&next=' + encodeURIComponent('/mail/')}>
+      <button type="button" className="ml-addbox" onClick={manage}>
         <MI n="plus" />
-        Add a mailbox
-      </a>
+        Manage mailboxes
+      </button>
     </>
   );
 }
 
-function LabelsPane({ s, sys, own, views, viewCount, inboxPlain }: { s: State; sys: any[]; own: any[]; views: Array<[string, string]>; viewCount: (v: string) => number | null; inboxPlain: boolean }) {
+function LabelsPane({ s, sys, own, views, viewCount, inboxPlain, onOpen }: { s: State; sys: any[]; own: any[]; views: Array<[string, string]>; viewCount: (v: string) => number | null; inboxPlain: boolean; onOpen?: (kind: string) => void }) {
   const row = (l: any) => {
     const n = l.id === 'DRAFT' ? l.total : l.unread;
     const on = s.label === l.id && !s.q && !(l.id === 'INBOX' && s.v);
@@ -1406,6 +1838,24 @@ function LabelsPane({ s, sys, own, views, viewCount, inboxPlain }: { s: State; s
                 );
               })
             : null}
+          {l.id === 'INBOX' && s.ov && (s.level.read || window.__mailMock) && onOpen ? (
+            <button type="button" className="ml-addbox ml-addbox--sub" onClick={() => onOpen('cats')}>
+              <MI n="wand" />
+              New category
+            </button>
+          ) : null}
+          {l.id === 'DRAFT' && onOpen ? (
+            <>
+              <button type="button" className="ml-lab ml-lab--btn" onClick={() => onOpen('later-list')}>
+                <MI n="clock" />
+                <span>Scheduled</span>
+              </button>
+              <button type="button" className="ml-lab ml-lab--btn" onClick={() => onOpen('assigned')}>
+                <MI n="person" />
+                <span>Assigned</span>
+              </button>
+            </>
+          ) : null}
         </span>
       ))}
       {own.length > 0 && <div className="ml-labels__h">Labels</div>}
@@ -1585,8 +2035,37 @@ function Sheets(p: any) {
           failed(e);
         });
     };
+    const pp = ids.length === 1 && s.thread && s.thread.id === ids[0] ? p.partnerOf(s.thread) : null;
+    const wait = (kind: string) => {
+      const id = ids[0];
+      close();
+      const t = findThread(id);
+      const wu = !!(t && t.unread && isPrimary(t.labelIds));
+      const goneW = S.current.label === 'INBOX' ? removeFromList(id) : null;
+      afterLeave(id);
+      if (wu) bumpInbox(-1);
+      api()
+        .snoozeWait(id, kind, pp ? pp.id : '')
+        .then(() => say(kind === 'reply' ? 'Back in your inbox when they reply' : 'Back in your inbox at their next gift', () => api().unsnooze(id).then(() => { putBack(goneW); if (wu) bumpInbox(1); }).catch((e: any) => failed(e))))
+        .catch((er: any) => { putBack(goneW); if (wu) bumpInbox(1); failed(er); });
+    };
     return (
       <Sheet title="Snooze until" anchor={sh.anchor} onClose={close}>
+        {ids.length === 1 && (
+          <>
+            <button type="button" className="ml-menu__i" onClick={() => wait('reply')}>
+              <MI n="reply" />
+              <span>Until they reply</span>
+            </button>
+            {pp ? (
+              <button type="button" className="ml-menu__i" onClick={() => wait('gift')}>
+                <MI n="person" />
+                <span>Until their next gift</span>
+                <small>{pp.name}</small>
+              </button>
+            ) : null}
+          </>
+        )}
         <div className="ml-menu">
           {opts.map((o, k) => (
             <button type="button" className="ml-menu__i" key={k} onClick={() => doSnooze(o[1])}>
