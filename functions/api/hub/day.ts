@@ -1,5 +1,6 @@
 import { mirror } from '../../_lib/foundations/blackbaud';
 import { yourDayBlackbaud } from '../../_lib/hub/actions';
+import { mailUnreadCount } from '../../_lib/mail/route';
 import { accessToken, CAL_EVENTS, easternDay, hasScopes, recentFiles, todaysEvents, unreadMail, type DayEvent } from '../../_lib/hub/google';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
@@ -57,10 +58,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       if (user.via !== 'google') return { connected: false, events: await withRooms(env, email, []) };
       const t = await accessToken(env, email);
       if (!t) return { connected: false, events: await withRooms(env, email, []) };
-      const [events, files, mail] = await Promise.all([
+      const [events, files, mail, mailUnread] = await Promise.all([
         todaysEvents(t.token).catch(() => null),
         recentFiles(t.token).catch(() => null),
-        unreadMail(t.token).catch(() => null),
+        unreadMail(t.token).catch((e) => (console.error('[day] unread mail', String(e && e.message ? e.message : e)), null)),
+        mailUnreadCount(env, email).catch(() => null),
       ]);
       // Who among meeting guests and mail senders is a partner in Blackbaud.
       const emails = [...new Set([...(events || []).flatMap((e) => e.people), ...(mail || []).map((m) => m.fromEmail)])].filter((e) => e && !e.endsWith('@favorintl.org')).slice(0, 60);
@@ -77,7 +79,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         partners = Object.fromEntries(rows.map((r: any) => [r.email, { name: r.name, id: String(r.id) }]));
       }
       const mayWrite = hasScopes(t.scopes, [CAL_EVENTS]);
-      return { connected: true, events: await withRooms(env, email, events), mayWrite, files, mail, partners };
+      return { connected: true, events: await withRooms(env, email, events), mayWrite, files, mail, mailUnread, partners };
     })()).catch((e) => ({ connected: true, error: String(e.message || e) }));
 
     const [blackbaud, g] = await Promise.all([bb, google]);

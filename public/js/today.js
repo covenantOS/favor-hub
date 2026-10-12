@@ -506,7 +506,8 @@
     const files = g.files && g.files.length
       ? card('Shared with you', 'This week', `<ul class="r2t-list">${g.files.map((f, i) => `<li><button type="button" class="r2t-lr t2-rowbtn" data-file="${i}" aria-haspopup="dialog"><span class="r2t-lr__t"><b>${esc(f.name)}</b><span>${esc(f.by)} ${ago(f.modified)}</span></span></button></li>`).join('')}</ul>`)
       : '';
-    const nMail = g.mail ? g.mail.length : 0;
+    // The count is the Inbox number from Mail and the menu; the list below is the newest of those from the last three days.
+    const nMail = typeof g.mailUnread === 'number' ? g.mailUnread : g.mail ? g.mail.length : 0;
     grid.innerHTML =
       actions +
       meetingsCard(g) +

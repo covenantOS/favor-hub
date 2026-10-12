@@ -133,10 +133,20 @@ export async function revoke(env: Env, email: string): Promise<void> {
   forgetTokens(email);
 }
 
+// Google answers 429 or 5xx when one person's calls bunch up (Today, the menu badge and Mail all ask at once), so a refusal waits a
+// moment and asks again, and the last one is logged with Google's own reason.
 const g = async (token: string, url: string) => {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`${new URL(url).hostname} ${res.status}`);
-  return res.json() as Promise<any>;
+  let last = '';
+  for (let i = 0; i < 4; i++) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.ok) return res.json() as Promise<any>;
+    const body = (await res.json().catch(() => ({}))) as any;
+    last = `${new URL(url).hostname} ${res.status} ${String(body?.error?.errors?.[0]?.reason || body?.error?.status || '').slice(0, 60)} ${String(body?.error?.message || '').slice(0, 120)}`.trim();
+    if (res.status !== 429 && res.status < 500 && !(res.status === 403 && /rate|quota/i.test(last))) break;
+    await new Promise((r) => setTimeout(r, 300 * (i + 1)));
+  }
+  console.error('[google]', last);
+  throw new Error(last);
 };
 
 export interface DayEvent {

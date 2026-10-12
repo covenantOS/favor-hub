@@ -59,6 +59,7 @@
     sort: '<path d="M7 5v14"/><path d="m3.5 15.5 3.5 3.5 3.5-3.5"/><path d="M17 19V5"/><path d="m13.5 8.5 3.5-3.5 3.5 3.5"/>',
     bolt: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
     hourglass: '<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5 8 9s-8 4-8 9"/><path d="M16 3c0 5-8 5-8 9s8 4 8 9"/>',
+    filter: '<path d="M4 5h16l-6 8v6l-4-2v-4z"/>',
     broom: '<path d="M14 4l6 6"/><path d="m12.5 7.5 4 4L9 19H4v-5z"/><path d="M8 15l3 3"/>'
   };
   function ic(n, cls) { return '<svg class="ml-i' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; }
@@ -166,8 +167,8 @@
     '<aside class="ml-side" aria-label="Mailboxes"><button type="button" class="ml-compose" data-act="compose">' + ic('pen') + '<span>Compose</span></button><nav class="ml-labels" data-labels></nav></aside>' +
     '<section class="ml-list" aria-label="Conversations">' +
       '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
-      '<div class="ml-tabs" data-tabs role="navigation" aria-label="Views" hidden></div><div class="ml-filters" data-filters hidden></div>' +
-      '<div class="ml-list__head"><button type="button" class="ml-iconbtn ml-pickall" data-act="pick-all" aria-label="Select all">' + ic('box') + '</button><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
+      '<div class="ml-tabs" data-tabs role="navigation" aria-label="Views" hidden></div>' +
+      '<div class="ml-list__head"><button type="button" class="ml-iconbtn ml-pickall" data-act="pick-all" aria-label="Select all">' + ic('box') + '</button><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-fon" data-act="flags-clear" data-fstate hidden></button><button type="button" class="ml-iconbtn" data-act="filter-menu" data-filterbtn aria-label="Filter" aria-haspopup="dialog">' + ic('filter') + '</button><button type="button" class="ml-iconbtn" data-act="sort-menu" aria-label="Sort" aria-haspopup="dialog">' + ic('sort') + '</button><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
       '<div class="ml-selbar" data-selbar hidden></div><div class="ml-allow" data-allow hidden><span>Senders and subjects only. Allow Mail adds the full message, files and search.</span><a class="ml-btn ml-btn--primary" data-allow-link href="#">Allow Mail</a></div>' +
       '<div class="ml-rows" data-rows></div>' +
     '</section>' +
@@ -292,15 +293,16 @@
       var n = l.id === 'DRAFT' ? l.total : l.unread;
       var dot = l.color ? '<i class="ml-dot" style="background:' + esc(l.color) + '"></i>' : ic(SYS_ICON[l.id] || 'tag');
       var tip = l.id === 'INBOX' && l.unreadAll != null && l.unreadAll !== l.unread ? ' title="Unread in the Primary tab, as Gmail counts it. ' + l.unreadAll + ' unread across all tabs."' : '';
-      return '<a class="ml-lab' + (S.label === l.id && !S.q ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + tip + (S.label === l.id && !S.q ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
+      return '<a class="ml-lab' + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + tip + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
     };
-    var html = sys.map(row).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
+    var html = sys.map(function (l) { return row(l) + (l.id === 'INBOX' ? viewsHtml() : ''); }).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
     var nav = $('[data-labels]'); if (nav) nav.innerHTML = html;
     var nm = $('[data-label-name]'); if (nm) nm.textContent = S.q ? 'Search' : labelName(S.label);
     var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
     if (inbox) setRailCount(inbox.unread);
     return html;
   }
+  function renderLabelsOnly() { if (S.labels.length) renderLabels(); }
   function setRailCount(n) {
     document.querySelectorAll('[data-count="mailUnread"]').forEach(function (el) { el.hidden = !n; el.textContent = Number(n || 0).toLocaleString('en-US'); });
     try { var nav = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nav && nav.counts) { nav.counts.mailUnread = n; localStorage.setItem('favor.hub.nav.v1', JSON.stringify(nav)); } } catch (e) { /* full */ }
@@ -345,27 +347,54 @@
   function inboxPlain() { return S.label === 'INBOX' && !S.q; }
   function effSort() { return S.sort || ((S.v === 'needs' || S.v === 'waiting') && inboxPlain() ? 'old' : 'new'); }
   function listOpts() { return { view: inboxPlain() ? S.v : '', flags: activeFlags().filter(function (f) { return f !== 'partner' || inboxPlain(); }), sort: S.sort }; }
-  function renderTabs() {
-    var box = $('[data-tabs]'); if (!box) return;
-    var show = inboxPlain() && (S.level.read || MOCK);
-    box.hidden = !show;
-    if (!show) { box.innerHTML = ''; return; }
-    box.innerHTML = VIEWS.map(function (x) {
-      var n = viewCount(x[0]), on = S.v === x[0];
-      return '<a class="ml-tab' + (on ? ' is-on' : '') + (x[0] === 'needs' && n ? ' is-hot' : '') + '" href="#/' + (slugOf(x[0]) || 'INBOX') + '"' + (on ? ' aria-current="page"' : '') + '>' + esc(x[1]) + (n != null ? '<em>' + n + '</em>' : '') + '</a>';
+  var FLAG_NAMES = { unread: 'Unread', starred: 'Starred', files: 'Has attachments', partner: 'From a partner' };
+  // Views with something in them (the one you are in always shows). The sidebar lists them under Inbox; a phone gets one scrolling row.
+  function liveViews() {
+    return VIEWS.filter(function (x) { if (x[0] === '') return true; var n = viewCount(x[0]); return S.v === x[0] || (n != null && n > 0); });
+  }
+  function viewsHtml() {
+    if (!S.ov || !(S.level.read || MOCK)) return '';
+    return liveViews().filter(function (x) { return x[0] !== ''; }).map(function (x) {
+      var n = viewCount(x[0]), unread = x[0] === 'needs' ? n : x[0] === 'waiting' ? 0 : (S.ov.counts[x[0].slice(4)] || {}).unread;
+      var on = inboxPlain() && S.v === x[0];
+      return '<a class="ml-lab ml-lab--sub' + (on ? ' is-on' : '') + '" href="#/' + slugOf(x[0]) + '" data-label="INBOX" data-v="' + esc(x[0]) + '"' + (on ? ' aria-current="page"' : '') + '><span>' + esc(x[1]) + '</span>' + (n ? '<em class="ml-count ml-count--sub' + (unread ? ' is-bold' : '') + '">' + n + '</em>' : '') + '</a>';
     }).join('');
   }
-  function renderFilters() {
-    var box = $('[data-filters]'); if (!box) return;
-    var show = S.label !== 'SNOOZED' && (S.level.read || S.level.headers);
+  function renderTabs() {
+    var box = $('[data-tabs]'); if (!box) return;
+    var show = inboxPlain() && !!S.ov && (S.level.read || MOCK);
     box.hidden = !show;
     if (!show) { box.innerHTML = ''; return; }
-    var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
-    var ua = S.label === 'INBOX' && inbox && inbox.unreadAll ? '<em>' + inbox.unreadAll + '</em>' : '';
-    var chip = function (f, name, extra) { return '<button type="button" class="ml-fchip' + (S.flags[f] ? ' is-on' : '') + '" data-flag="' + f + '" aria-pressed="' + (S.flags[f] ? 'true' : 'false') + '">' + name + (extra || '') + '</button>'; };
-    var waiting = inboxPlain() && S.v === 'waiting';
-    box.innerHTML = (waiting ? '' : chip('unread', 'Unread', ua) + chip('starred', 'Starred') + chip('files', 'Has attachments') + (inboxPlain() ? chip('partner', 'From a partner') : '')) +
-      '<button type="button" class="ml-fchip ml-fchip--sort" data-act="sort" aria-label="Sort order">' + ic('sort') + (effSort() === 'old' ? 'Oldest first' : 'Newest first') + '</button>';
+    box.innerHTML = liveViews().map(function (x) {
+      var n = viewCount(x[0]), on = S.v === x[0];
+      return '<a class="ml-tab' + (on ? ' is-on' : '') + (x[0] === 'needs' && n ? ' is-hot' : '') + '" href="#/' + (slugOf(x[0]) || 'INBOX') + '"' + (on ? ' aria-current="page"' : '') + '>' + esc(x[1]) + (n ? '<em>' + n + '</em>' : '') + '</a>';
+    }).join('');
+    renderLabelsOnly();
+  }
+  function renderFilters() {
+    var chip = $('[data-fstate]'), btn = $('[data-filterbtn]'); if (!chip || !btn) return;
+    var act = activeFlags().filter(function (f) { return f !== 'partner' || inboxPlain(); });
+    btn.hidden = S.label === 'SNOOZED' || !(S.level.read || S.level.headers);
+    btn.classList.toggle('is-on', act.length > 0);
+    chip.hidden = !act.length;
+    chip.innerHTML = act.length ? esc(act.map(function (f) { return FLAG_NAMES[f]; }).join(', ')) + ic('x') : '';
+    chip.setAttribute('aria-label', act.length ? 'Remove filters: ' + act.map(function (f) { return FLAG_NAMES[f]; }).join(', ') : '');
+  }
+  function filterMenu(anchor) {
+    var items = ['unread', 'starred', 'files'].concat(inboxPlain() && S.v !== 'waiting' ? ['partner'] : []);
+    var el = openSheet('Filter', '<div class="ml-menu">' + items.map(function (f) { return '<label class="ml-menu__i ml-check"><input type="checkbox" data-fl="' + f + '"' + (S.flags[f] ? ' checked' : '') + ' /><span>' + FLAG_NAMES[f] + '</span></label>'; }).join('') + '</div>', { anchor: anchor });
+    el.addEventListener('change', function (e) {
+      var c = e.target.closest('[data-fl]'); if (!c) return;
+      S.flags[c.dataset.fl] = c.checked; renderFilters(); loadList();
+    });
+  }
+  function sortMenu(anchor) {
+    var cur = effSort();
+    var el = openSheet('Sort', '<div class="ml-menu">' + [['new', 'Newest first'], ['old', 'Oldest first']].map(function (x) { return '<button type="button" class="ml-menu__i" data-sort="' + x[0] + '"><span>' + x[1] + '</span>' + (cur === x[0] ? ic('check') : '') + '</button>'; }).join('') + '</div>', { anchor: anchor });
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-sort]'); if (!b) return;
+      S.sort = b.dataset.sort; closeSheet(); loadList();
+    });
   }
   function applyMarks() {
     if (!S.ov || !S.ov.marks) return;
@@ -1459,8 +1488,6 @@
   /* ------------------------------------------------------------------ clicks */
   root.addEventListener('click', function (e) {
     var a = e.target.closest('[data-act]');
-    var tab = e.target.closest('[data-flag]');
-    if (tab) { S.flags[tab.dataset.flag] = !S.flags[tab.dataset.flag]; renderFilters(); loadList(); return; }
     var sel = e.target.closest('[data-sel]');
     if (sel) { selAct(sel.dataset.sel); return; }
     // The avatar circle chooses a row (a check shows); once any row is chosen, a press on a row chooses it too. Shift takes a range.
@@ -1476,17 +1503,18 @@
       return;
     }
     var lab = e.target.closest('[data-label]');
-    if (lab && !a) { e.preventDefault(); location.hash = hashFor(lab.dataset.label, '', '', ''); if (location.hash === hashFor(lab.dataset.label, '', '', '') && S.v) route(); return; }
+    if (lab && !a) { e.preventDefault(); location.hash = hashFor(lab.dataset.label, '', '', lab.dataset.v || ''); if (location.hash === hashFor(lab.dataset.label, '', '', lab.dataset.v || '') && S.v) route(); return; }
     if (!a) return;
     var k = a.dataset.act, id = a.dataset.id || '';
     if (a.closest('.ml-row')) e.preventDefault();
     if (k === 'hub-menu') { var m = document.getElementById('h-menu') || document.getElementById('h-bar-more'); if (m) m.click(); }
-    else if (k === 'labels-sheet') { var el = openSheet('Mailboxes', '<nav class="ml-labels ml-labels--sheet">' + renderLabels() + '</nav>'); el.addEventListener('click', function (ev) { var l = ev.target.closest('[data-label]'); if (l) { ev.preventDefault(); ev.stopPropagation(); closeSheet(null, function () { var h = hashFor(l.dataset.label, '', '', ''); if (location.hash === h) route(); else { history.replaceState(history.state, '', h); route(); } }); } }); }
+    else if (k === 'labels-sheet') { var el = openSheet('Mailboxes', '<nav class="ml-labels ml-labels--sheet">' + renderLabels() + '</nav>'); el.addEventListener('click', function (ev) { var l = ev.target.closest('[data-label]'); if (l) { ev.preventDefault(); ev.stopPropagation(); closeSheet(null, function () { var h = hashFor(l.dataset.label, '', '', l.dataset.v || ''); if (location.hash === h) route(); else { history.replaceState(history.state, '', h); route(); } }); } }); }
     else if (k === 'compose') { if (!S.level.write || !canWrite()) askWrite('compose'); else openCompose(); }
     else if (k === 'refresh') { loadLabels(); loadList({ quiet: true }); }
     else if (k === 'pick-all') pickAll();
     else if (k === 'pick-clear') clearPicks();
-    else if (k === 'sort') { S.sort = effSort() === 'old' ? 'new' : 'old'; renderFilters(); loadList(); }
+    else if (k === 'filter-menu') filterMenu(a);
+    else if (k === 'sort-menu') sortMenu(a);
     else if (k === 'flags-clear') { S.flags = {}; renderFilters(); loadList(); }
     else if (k === 'clean-review') cleanReview();
     else if (k === 'clean-dismiss') { try { sessionStorage.setItem('favor.mail.clean', ET()); } catch (e2) { /* private mode */ } var cl = $('.ml-clean'); if (cl) cl.remove(); }
@@ -1544,6 +1572,7 @@
   function typing(t) { return t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)); }
   document.addEventListener('keydown', function (e) {
     if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (sheetEl && e.key === 'Escape' && sheetEl.contains(e.target)) { e.preventDefault(); closeSheet(); return; }
     if (typing(e.target) || C || (window.FavorChatView && window.FavorChatView.isOpen())) return;
     if (sheetEl) { if (e.key === 'Escape') { e.preventDefault(); closeSheet(); } return; }
     if (document.querySelector('.cmdk[open], .cmdk.is-open, dialog[open]')) return;
