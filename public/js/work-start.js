@@ -34,7 +34,14 @@
     const wc = W();
     if (document.readyState === 'loading') await new Promise((r) => document.addEventListener('DOMContentLoaded', r, { once: true }));
     await load();
-    { const qs = new URLSearchParams(location.search); if (qs.get('view') || qs.get('tab')) return; }
+    { const qs = new URLSearchParams(location.search);
+      // An address that names a tab keeps that tab. A person with a book of their own still opens on Mine unless the address names a filter.
+      if (qs.get('view') || qs.get('tab')) {
+        const named = ['fr', 'quick', 'due', 'action', 'cid', 'q'].some((k) => qs.get(k));
+        if (!named && wc.S.view === 'open' && wc.DATA.me.fid && !wc.S.f.fr && !wc.S.f.scope) applyScope(startScope());
+        return;
+      }
+    }
     const savedFirst = !!(window.WCEdit && window.WCEdit._E && (window.WCEdit._E.views || []).some((v) => v.default));
     if (ST.pref || !savedFirst) {
       wc.S.view = (!ST.pref && window.WCTabs.last(wc.DATA.me)) || startTab();

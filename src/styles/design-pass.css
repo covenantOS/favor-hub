@@ -419,3 +419,18 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
   html body.h-body #wc-root .wc-intro .wc-chips .wc-pill { min-height: 32px; padding: 0 10px; font-size: 12.5px; gap: 6px; }
   html body.h-body #wc-root .wc-intro .wc-chips .wc-meter__bar { width: 28px; flex: 0 0 28px; }
 }
+/* Phone round 3: the first action is on screen without scrolling. One status pill with a Details toggle, a compact stat strip. */
+.wc-chipsmore { display: none; }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-intro .wc-chips { flex-wrap: wrap; row-gap: 6px; }
+  html body.h-body #wc-root .wc-intro .wc-chips .wc-chipsmore { display: inline-flex; order: 2; font-weight: 600; color: var(--h-ink-3); }
+  html body.h-body #wc-root .wc-intro .wc-chips:not(.is-open) > .wc-pill:not(:nth-child(2)):not(.wc-chipsmore) { display: none; }
+  html body.h-body #wc-root .wc-intro .wc-chips.is-open .wc-chipsmore::after { content: ' ▴'; }
+  html body.h-body #wc-root .wc-intro .wc-chips:not(.is-open) .wc-chipsmore::after { content: ' ▾'; }
+  html body.h-body #wc-root .wc-band { padding: 2px; }
+  html body.h-body #wc-root .wc-band .wc-stat { padding: 6px 10px; min-height: 0; }
+  html body.h-body #wc-root .wc-band .wc-stat b, html body.h-body #wc-root .wc-band .wc-stat .wc-stat__n { font-size: 22px; line-height: 1.1; }
+  html body.h-body #wc-root .wc-band .wc-stat span { font-size: 12px; margin-top: 0; white-space: nowrap; }
+  html body.h-body #wc-root .wc-band .wc-stat--split { min-height: 0; }
+  html body.h-body #wc-root .wc-intro { margin-bottom: 6px; }
+}

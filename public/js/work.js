@@ -188,6 +188,7 @@ function page() {
     <div class="wc-intro">
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
+        <button type="button" class="wc-pill wc-chipsmore" data-chipsmore aria-expanded="false" aria-label="Show or hide Work Center details">Details</button>
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
         ${g.admin ? `<span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
         ${meterHTML()}` : `<span class="wc-pill"><i class="dot"></i>Updated ${esc(updatedAt(DATA.synced))}</span>`}
@@ -205,7 +206,7 @@ function page() {
 function tabsNow() { return window.WCTabs.list(DATA.me).map((t) => [t.id, t.label, t.count ? t.count() : '']); }
 function extraDot(k) { const t = window.WCTabs.get(k); return !!(t && t.dot && t.dot()); }
 [
-  ['open', 'Open actions', () => ACTS.filter(isOpenNow).length, () => viewOpen()],
+  ['open', 'Open actions', () => ACTS.filter(isOpenNow).filter(inScope).length, () => viewOpen()],
   ['intake', 'Entry', () => entryWaiting(), () => viewIntake(), (me) => !!me.canEntry],
   ['ty', 'Thank-yous', () => tyGroups('').length, () => viewTy()],
   ['stale', 'Stale', () => ACTS.filter((a) => isOpenNow(a) && LANES.some((l) => l.test(a))).length, () => viewStale()],
@@ -312,12 +313,15 @@ function openTile(key, shown) {
     rows, total: rows.length, totalLabel: 'Actions behind it', rowsLabel: 'Actions in this count', sheetTitle: t[3] + ' rows',
   });
 }
+// The rows the chosen scope (Mine, On my partners, Everyone) and fundraiser pick leave in play. The Open actions count and the tiles follow it.
+const inScope = (a) => matches(a, Object.assign({}, S.f, { quick: '', due: '', q: '', type: '', cat: '', cid: '' }));
 function viewOpen() {
   const f = S.f;
   const base = ACTS.filter(isOpenNow);
   const list = sorted(base.filter((a) => matches(a, f)));
   S.list = list.map((a) => a.id);
-  const cnt = (fn) => base.filter(fn).length;
+  const scoped = base.filter(inScope);
+  const cnt = (fn) => scoped.filter(fn).length;
   // Each tile counts with its own test, and the number opens the rows that test picks (tileRows), so the two never differ.
   const stats = TILES.map(([k, l, fn]) => [k, l, cnt(fn)]);
   // option counts respect the other filters
@@ -1291,6 +1295,7 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-settings')) { dlgSettings(); return; }
   if (d.view) { await goTab(d.view); return; }
   if (d.wcgroup) { const k = window.WCTabs.entry(d.wcgroup, DATA.me); if (k && k !== S.view) await goTab(k); return; }
+  if (t.closest('[data-chipsmore]')) { const c = t.closest('.wc-chips'); const on = c.classList.toggle('is-open'); t.closest('[data-chipsmore]').setAttribute('aria-expanded', on ? 'true' : 'false'); return; }
   if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = PAGE; render(); return; }
   if (t.hasAttribute('data-tile')) { openTile(d.tile, Number(d.tileN)); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
