@@ -171,7 +171,7 @@ describe('Shared with you files', () => {
   it('rejects an id that is not a Drive id', async () => {
     assert.equal((await get('?id=../x&v=content')).status, 404);
   });
-  it('falls back to the picture Drive draws for the person when the hub cannot read the file', async () => {
+  it('falls back to the picture Drive draws for the person when FavorOS cannot read the file', async () => {
     const res = await get('?id=abcdefghijk1&v=thumb&s=1200');
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('Content-Type'), 'image/png');

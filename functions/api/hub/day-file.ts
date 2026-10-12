@@ -32,7 +32,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return new Response(pic.body, { headers: { 'Cache-Control': 'private, max-age=600', 'Content-Type': pic.headers.get('Content-Type') || 'image/png', 'X-Content-Type-Options': 'nosniff' } });
     }
     // The viewer reads a 404 as "this file is gone"; a file the hub cannot read answers 502 so the viewer offers Drive instead.
-    return await driveContent(env, id).catch(() => errorJson('no_preview', 'The hub cannot show this file. Open it in Drive.', 502));
+    return await driveContent(env, id).catch(() => errorJson('no_preview', 'FavorOS cannot show this file. Open it in Drive.', 502));
   } catch (err) {
     return handleError(err);
   }

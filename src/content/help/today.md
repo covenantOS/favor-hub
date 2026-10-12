@@ -30,7 +30,7 @@ Each card under What needs you and each Blackbaud action has a clock button. Pre
 
 ## Your day
 
-- **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. The overdue number and the "more in Blackbaud" line cover the whole list, including the rows past the first twelve. Press one to open it in the Work Center, where the panel has **Open in Blackbaud** if you want the record there. If your hub account is not linked to a fundraiser record in Blackbaud, the card says so.
+- **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. The overdue number and the "more in Blackbaud" line cover the whole list, including the rows past the first twelve. Press one to open it in the Work Center, where the panel has **Open in Blackbaud** if you want the record there. If your FavorOS account is not linked to a fundraiser record in Blackbaud, the card says so.
 - **Today's meetings**: every event on your Google Calendar today, whether it is held in FavorOS, Zoom, Google Meet, Teams, on the phone or has no link. A FavorOS meeting opens its room. Any other meeting opens a sheet with **Join**, **Move to FavorOS** and **Open in Google Calendar**.
 - **Shared with you**: Drive files shared with you or changed this week. A file opens in the FavorOS file viewer, the same one Chat uses, with **Open in Google Drive** inside it.
 - **Unread mail**: unread mail from the last three days (sender and subject only), from your Google account.
