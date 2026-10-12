@@ -70,3 +70,13 @@ The notification list (`shell/notices.ts`, `Bell.tsx`) merges /api/hub/notificat
 ## Build and deploy
 
 `npm run build` runs the Astro build, stamps it, then builds the SPA into `dist/_app`. The Pages deploy is unchanged. `npm run app:dev` serves the app on :5180; set `HUB_ORIGIN=https://dash.favorintl.org` and `HUB_COOKIE=...` to read the live API while you work.
+
+## Speed rules (2026-10-12, Will: "obscenely fast")
+
+- The app runs on Preact through its React-compatible layer (`PREACT` alias in `app/vite.config.ts`). Write normal React code and types. Unit tests run on real React, the Playwright run covers the built Preact bundle. Do not import a library that needs React internals without checking it in the e2e run.
+- First-screen JS stays under 120 KB gzipped (it is 116 now: preact 10, router 25, query 13, zod 26, app 42). Check the `vite build` output before you merge. Anything heavy loads after the first paint with `import()` or `loadScript`.
+- `app/index.html` asks for `/api/hub/nav`, `/today`, `/day` (and `/kpi` for leadership) before the bundle arrives; `lib/early.ts` hands them to `api()`. A new first-screen route adds its path to that script.
+- The last `nav`, `today`, `kpi` and `day` answers are restored into the cache before the first render (`restoreCache`) and saved 800 ms after they change. Add a key to `PERSISTED` in `lib/query.ts` to keep another.
+- Work the first screen does not need (bell lists, dock socket, search index) waits for `useIdleReady()`.
+- Styles: the shell imports only what the frame needs (`styles/shell.ts`). A route's styles go in its feature folder (`features/<name>/styles.ts`), so they load with the route's chunk. Styles for drawers and popups that open later go in `styles/lazy.ts`.
+- Built files under `/_app/assets/` are cached for a year (`public/_headers`) and kept by the service worker (`public/sw.js`). Account data under `/api/` is never cached.
