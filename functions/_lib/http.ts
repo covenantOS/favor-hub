@@ -136,6 +136,8 @@ export class HttpError extends Error {
 
 export function handleError(err: unknown): Response {
   if (err instanceof HttpError) return errorJson(err.code, err.message, err.status);
+  // The daily AI budget guard held a model call (functions/_lib/ai/guard.ts) and nothing caught it on the way up.
+  if (err && typeof err === 'object' && (err as { code?: string }).code === 'ai_paused') return errorJson('paused', 'This is paused for today. It works again tomorrow.', 503);
   console.error('[requests] unexpected', err);
   return errorJson('internal', 'Something went wrong on our side.', 500);
 }

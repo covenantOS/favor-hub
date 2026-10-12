@@ -167,3 +167,14 @@ describe('the reconciler', () => {
     await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-understand', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => G.isAiPaused(e));
   });
 });
+
+describe('a held call nobody caught', () => {
+  it('answers 503 paused in plain words', async () => {
+    const { handleError } = await import('../functions/_lib/http.ts');
+    const res = handleError(new G.AiPaused('budget', 'clip-text'));
+    assert.equal(res.status, 503);
+    const body = await res.json();
+    assert.equal(body.error, 'paused');
+    assert.doesNotMatch(body.message, /\bAI\b|model|neuron|\$/);
+  });
+});

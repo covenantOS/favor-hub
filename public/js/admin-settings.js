@@ -46,7 +46,7 @@
       return '<section class="ad-card"><h2>Today, UTC day</h2><div class="ad-meter" role="img" aria-label="' + num(used) + ' of ' + num(free) + ' units"><i style="width:' + Math.min(100, (used / free) * 100) + '%"></i></div>' +
         '<div class="ad-meter__note"><span>' + num(used) + ' of ' + num(free) + ' free units</span><span>Cap ' + num(x.cap) + (t.off ? ' · stopped for the day' : '') + '</span></div>' +
         '<p class="ad-card__meta">' + E(stamp) + ' · Cloudflare ' + num(t.truth) + ' · FavorOS count ' + num(t.est) + (t.refused ? ' · ' + num(t.refused) + ' held' : '') + '</p></section>' +
-        '<section class="ad-card"><h2>Last 7 days</h2>' + table(['Day', 'Units', 'Over the free 10,000', 'Held'], (x.week || []).map(function (d) {
+        '<section class="ad-card"><h2>Last 7 days</h2>' + table(['Day', 'Units', 'Over 10,000', 'Held'], (x.week || []).map(function (d) {
           return '<tr><td class="ad-nw">' + E(aiDay(d.day)) + '</td><td class="num">' + num(d.used) + '</td><td class="num">' + (d.over ? num(d.over) : '0') + '</td><td class="num">' + num(d.refused) + '</td></tr>';
         })) + '</section>' +
         '<section class="ad-card"><h2>Today by feature</h2>' + table(['Feature', 'Calls', 'Units', 'Held'], (x.features || []).map(function (f) {
