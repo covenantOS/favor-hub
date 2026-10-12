@@ -2,6 +2,7 @@
 // server already holds; every caller has a fixed sentence to fall back on, so a slow or missing model never blanks a card.
 // Staff-facing text never mentions how it was written.
 import type { Env } from '../http';
+import { aiFor, isAiPaused } from '../ai/guard';
 
 export const BRIEF_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-3.1-8b-instruct-fast'];
 
@@ -59,7 +60,7 @@ export interface WriteOpts {
 
 /** One short piece of text from the model, scrubbed. Null when the model is not bound, is slow, or says nothing. */
 export async function writeText(env: Pick<Env, 'AI'>, o: WriteOpts): Promise<string | null> {
-  const ai = env.AI as Run | undefined;
+  const ai = aiFor(env.AI, 'brief') as Run | undefined;
   if (!ai) return null;
   for (const model of BRIEF_MODELS) {
     try {
@@ -75,6 +76,7 @@ export async function writeText(env: Pick<Env, 'AI'>, o: WriteOpts): Promise<str
       const text = scrub(String((out as { response?: string } | null)?.response || ''));
       if (text && (o.raw || acceptable(text))) return text;
     } catch (err) {
+      if (isAiPaused(err)) return null;
       console.error('[brief] ai', model, String((err as Error)?.message || err).slice(0, 200));
     }
   }

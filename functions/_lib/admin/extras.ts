@@ -8,6 +8,7 @@ import { GROUPS } from '../work/digest';
 import { DAILY_CAP, LANE_CAP } from '../actions/batch';
 import { getMeter } from '../work/db';
 import type { Area } from './settings';
+import { aiExtras } from '../ai/admin';
 
 const money = (n: number) => '$' + n.toLocaleString('en-US');
 
@@ -90,5 +91,6 @@ export async function areaExtras(env: Env, area: Area) {
   if (area === 'clips') return clipsExtras(env);
   if (area === 'expenses') return expenseExtras(env);
   if (area === 'receipts') return {};
+  if (area === 'ai') return aiExtras(env);
   return {};
 }

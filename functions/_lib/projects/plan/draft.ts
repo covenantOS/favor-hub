@@ -3,6 +3,7 @@
 // scaffold to the sentence. Whatever it returns is checked against the directory and the calendar before anyone sees it, and
 // the unchanged template stands when the model is missing, slow or wrong. Nothing is saved until the person presses Create.
 import type { Env } from '../../http';
+import { aiFor } from '../../ai/guard';
 import { staffDirectory, type Person } from '../../people';
 import { parseAiJson } from '../../clipChapters';
 import { lower, todayEastern } from '../db';
@@ -142,7 +143,7 @@ const MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-4-sc
 const TIMEOUT_MS = 8000;
 
 async function askModel(env: Env, system: string, user: string): Promise<unknown | null> {
-  const ai = env.AI;
+  const ai = aiFor(env.AI, 'plan-draft');
   if (!ai) return null;
   for (const model of MODELS.slice(0, 1)) {
     try {

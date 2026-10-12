@@ -9,6 +9,7 @@ import type { Addr, Gmail } from './gmail';
 import { idsFor, rowsFor } from './rows';
 import { MAJOR, TEXT_MODEL, scanInbox, tidy, type SmartCtx, type SmartRow } from './smart';
 import { partnerMap } from './partners';
+import { aiFor } from '../ai/guard';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const DAY = 864e5;
@@ -241,7 +242,7 @@ export async function fileKind(ai: { run(model: string, input: unknown): Promise
       questions: { kind: { type: 'choice', instructions: 'What kind of file is this attachment?', criteria: FILE_KINDS } },
     };
     if (dataUrl) input.images = [dataUrl];
-    const out: any = await ai.run('@cf/cloudflare/clef', input);
+    const out: any = await aiFor(ai, 'mail-sort').run('@cf/cloudflare/clef', input);
     const a = (out?.answers || out?.result?.answers)?.kind;
     const k = String(a?.choice || '');
     if (!(k in FILE_KINDS)) return { kind: byName, p: 0 };

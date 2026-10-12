@@ -11,8 +11,10 @@ import { setSetting as actSet } from '../work/db';
 import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
 import { DEFAULT_COPY, WORDING } from '../statements/copy';
 import { DEFAULT_EXTRA_DOMAINS, parseDomains } from '../session';
+import { aiSettings, saveAiSettings } from '../ai/admin';
+import { monthOf, utcDay } from '../ai/guard';
 
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects' | 'people';
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects' | 'people' | 'ai';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {
@@ -35,6 +37,8 @@ export interface Def {
   bb?: boolean;
   /** Changing it changes whether the hub contacts partners, so the page asks to confirm. */
   contact?: boolean;
+  /** Changing it can make Favor pay for model use past the free allowance, so the page asks to confirm. */
+  spend?: boolean;
   /** Where it lives, in words for the audit log. */
   where: string;
   /** The value when nothing is saved. */
@@ -209,7 +213,43 @@ laneCap.check = async (env, value) => {
   if (Number(value) > cap - 100) throw new HttpError(400, 'bad_value', `The upkeep cap is ${cap}. The lane must stay at least 100 below it.`);
 };
 
+/** A switch for a feature the AI budget guard keeps off by default (functions/_lib/ai/guard.ts). Lives in KV ai:settings. */
+function aiAllowDef(feature: string, label: string, hint: string): Def {
+  return {
+    id: `ai.allow.${feature}`, area: 'ai', group: 'Paid features', label, hint, kind: 'enum', options: ON_OFF, def: 'off', spend: true, where: `KV ai:settings allow.${feature}`,
+    async read(env) {
+      const s = await aiSettings(env);
+      return { value: s.allow[feature] ? 'on' : 'off', saved: feature in s.allow };
+    },
+    async write(env, value) {
+      await saveAiSettings(env, (s) => {
+        s.allow[feature] = value === 'on';
+      });
+    },
+  };
+}
+
+const aiExtraUnits: Def = {
+  id: 'ai.extra', area: 'ai', group: 'Testing', label: 'Extra AI units for testing this month',
+  hint: 'Raises the daily cap for test runs only, until this many units past the cap are used this month. Each 1,000 units past the free 10,000 a day costs $0.011.',
+  kind: 'int', min: 0, max: 2_000_000, unit: 'units', def: '0', spend: true, where: 'KV ai:settings extra.<month>',
+  async read(env) {
+    const s = await aiSettings(env);
+    const m = monthOf(utcDay());
+    return { value: String(Number(s.extra[m]) || 0), saved: m in s.extra };
+  },
+  async write(env, value) {
+    await saveAiSettings(env, (s) => {
+      s.extra[monthOf(utcDay())] = Number(value) || 0;
+    });
+  },
+};
+
 export const DEFS: Def[] = [
+  // --------------------------------------------------------------------------------------------------------- AI use
+  aiAllowDef('brain-writer', 'Favor Brain query writer', 'Writes new database questions with the large model. Off: Favor Brain answers from its rules, the stored household lists and the menu.'),
+  aiAllowDef('check-reading', 'Gift entry check reading', 'Reads the amount, number, date and payer from a check photo. Off: the photo is kept and a person types the gift.'),
+  aiExtraUnits,
   // ------------------------------------------------------------------------------------------------ Work Center
   actDef({
     id: 'wc.release', key: 'release', area: 'work', group: 'Who has the Work Center', label: 'Who can open the Work Center', kind: 'enum', bb: true, def: 'admins',
@@ -385,6 +425,7 @@ export interface View {
   unit: string;
   bb: boolean;
   contact: boolean;
+  spend: boolean;
   value: string;
   def: string;
   saved: boolean;
@@ -398,7 +439,7 @@ async function viewOf(env: Env, d: Def): Promise<View> {
   const r = await d.read(env).catch(() => ({ value: d.def, saved: false } as { value: string; saved: boolean; by?: string; at?: string }));
   return {
     id: d.id, area: d.area, group: d.group || '', label: d.label, hint: d.hint || '', kind: d.kind, options: d.options || [], min: d.min, max: d.max,
-    unit: d.unit || '', bb: !!d.bb, contact: !!d.contact, value: r.value, def: d.def, saved: r.saved, by: r.by || '', at: r.at || '', where: d.where, canReset: !!d.clear && r.saved,
+    unit: d.unit || '', bb: !!d.bb, contact: !!d.contact, spend: !!d.spend, value: r.value, def: d.def, saved: r.saved, by: r.by || '', at: r.at || '', where: d.where, canReset: !!d.clear && r.saved,
   };
 }
 
@@ -430,6 +471,9 @@ export async function changeSetting(env: Env, actor: string, id: string, raw: un
   const value = normalize(d, raw);
   if (d.bb && !opts.confirm) {
     throw new HttpError(409, 'confirm', `${d.label} changes what FavorOS sends to Blackbaud. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
+  }
+  if (d.spend && !opts.confirm) {
+    throw new HttpError(409, 'confirm', `${d.label} can add model charges past the free allowance. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
   }
   if (d.contact && !opts.confirm) {
     throw new HttpError(409, 'confirm', `${d.label} changes whether FavorOS emails partners. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);

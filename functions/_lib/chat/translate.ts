@@ -88,6 +88,8 @@ export function pieces(text: string): Piece[] {
   return out;
 }
 
+import { isAiPaused } from '../ai/guard';
+
 export interface Ai {
   run(model: string, input: unknown): Promise<unknown>;
 }
@@ -105,6 +107,8 @@ export async function translateRun(ai: Ai, text: string, from: string, to: strin
     const out = String(r?.translated_text || '').trim();
     if (out) return lead + out + tail;
   } catch (err) {
+    // Today's model allowance is used up: no second model, the original stays.
+    if (isAiPaused(err)) throw err;
     console.warn('[chat] translate m2m', err);
   }
   try {
@@ -118,12 +122,13 @@ export async function translateRun(ai: Ai, text: string, from: string, to: strin
     const out = String(r?.response || '').trim();
     if (out) return lead + out + tail;
   } catch (err) {
+    if (isAiPaused(err)) throw err;
     console.warn('[chat] translate fallback', err);
   }
   return null;
 }
 
-/** A whole message translated, keeping mentions, links and code. Null when any part could not be translated. */
+/** A whole message translated, keeping mentions, links and code. Null when any part could not be translated. Throws AiPaused when today's allowance is used up. */
 export async function translateText(ai: Ai, text: string, from: string, to: string): Promise<string | null> {
   if (from === to) return text;
   const parts = pieces(text);

@@ -5,6 +5,7 @@
 // Workers AI reads the request; keyword rules decide when it does not answer. Every suggestion and the
 // person's choice are kept in request_routes.
 import { hitRateLimit } from '../../_lib/auth';
+import { aiFor } from '../../_lib/ai/guard';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, newId, nowIso, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { easternDay, suggestFill, suggestOwner, type Fill, type OwnerGuess } from '../../_lib/requests/suggest';
@@ -51,7 +52,7 @@ function byWords(text: string): Route | null {
 
 async function byAi(env: Env, text: string): Promise<Route | null> {
   if (!env.AI) return null;
-  const run = env.AI.run(MODEL, {
+  const run = aiFor(env.AI, 'request-route')!.run(MODEL, {
     messages: [
       { role: 'system', content: PROMPT },
       { role: 'user', content: text.slice(0, 2000) },

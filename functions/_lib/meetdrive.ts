@@ -3,6 +3,7 @@
 // epoch are joined, in order, into one Drive file with a resumable upload in 8 MiB parts, one part per call. The R2 copy is deleted
 // only after Drive reports the full size. Sound pieces (meet/<id>/audio/<epoch>-<n>.webm) go through Whisper for the transcript.
 import { saToken } from './work/sheetsa';
+import { aiFor } from './ai/guard';
 import type { MeetEnv, Meeting } from './meet';
 import { chatJson, plain, stamp, VERBATIM_PROMPT, WHISPER } from './clipai';
 
@@ -178,7 +179,7 @@ export async function transcribeRow(env: MeetEnv, m: Pick<Meeting, 'id' | 'start
   const obj = await env.CLIPS.get(key);
   const lines: Line[] = [];
   if (obj && next.bytes < 24 * 1024 * 1024) {
-    const ai = env.AI as { run(model: string, input: unknown): Promise<unknown> } | undefined;
+    const ai = aiFor(env.AI, 'meet-notes') as { run(model: string, input: unknown): Promise<unknown> } | undefined;
     if (!ai) throw new Error('no ai binding');
     const res = (await ai.run(WHISPER, { audio: b64(new Uint8Array(await obj.arrayBuffer())), initial_prompt: VERBATIM_PROMPT, condition_on_previous_text: false })) as { text?: string; segments?: Array<{ start?: number; text?: string; no_speech_prob?: number }> };
     const t0 = Date.parse(m.started_at || m.created_at);

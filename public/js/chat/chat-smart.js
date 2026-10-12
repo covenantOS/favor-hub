@@ -66,7 +66,7 @@
         ids.forEach(function (id) {
           var it = d.items && d.items[id]; if (!it) return;
           var m = app.find(id); if (!m) return;
-          S.tr[id] = { text: it.text || '', src: it.src || '', body: m.body, voice: it.voice || null };
+          S.tr[id] = { text: it.text || '', src: it.src || '', body: m.body, voice: it.voice || null, paused: !!it.paused };
         });
         app.redraw();
       }).catch(function () { /* the original stays on screen */ });

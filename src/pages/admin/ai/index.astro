@@ -1,0 +1,16 @@
+---
+// Admin > AI use: units used today against the free 10,000 (Cloudflare's own count, reconciled every 10 minutes), the last 7
+// days, use by feature, and the switches for the features that stay off until Will approves the spend (functions/_lib/ai/guard.ts).
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+import '../../../styles/lint-fix.css';
+---
+<App title="AI use" crumb="Admin" nav="admin-ai" description="Units used today of the free 10,000, the last 7 days, paid features.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="ai" title="AI use" />
+    <div class="ad" data-ad-area="ai" aria-busy="true"><div class="ad-tile h-skel" style="min-height:140px"></div></div>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-settings.js?v=3" defer></script>
+</App>

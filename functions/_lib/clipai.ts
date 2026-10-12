@@ -2,6 +2,7 @@
 // Marketing account (the AI binding in wrangler.toml). Whisper turns the recording's sound into timed words. A small
 // text model names the clip and cuts it into chapters. The page never says where the words came from.
 import { J, audioPrefix, sliceTextKey, MAX_AUDIO_BYTES, type AudioSeg, type Clip, type ClipsEnv, type PartRec } from './clips';
+import { aiFor } from './ai/guard';
 import { framesOf, readPending, screenChapters, screenContext, stretches, type Seen } from './clipVision';
 import { chapterLines, chapterRange, cleanChapters, fallbackChapters, parseAiJson, startAtZero, type ClipChapter, type ClipSegment, type ClipWord } from './clipChapters';
 
@@ -67,7 +68,7 @@ export async function transcribeSlice(env: ClipsEnv, clip: Pick<Clip, 'id'>, seg
   const audio = await env.CLIPS.get(`${audioPrefix(clip.id)}${seg.n}.${seg.ext}`);
   if (!audio) return null;
   if (audio.size > MAX_AUDIO_BYTES) return { lines: [], words: [] };
-  const ai = env.AI as Run | undefined;
+  const ai = aiFor(env.AI, 'clip-text') as Run | undefined;
   const out: SliceOut = { lines: [], words: [] };
   if (!ai) return null;
   const buf = new Uint8Array(await audio.arrayBuffer());
@@ -128,7 +129,7 @@ export async function transcribeAll(env: ClipsEnv, clip: Clip): Promise<{ segmen
 
 /** One JSON answer from the small model, falling back to the larger one. */
 export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900, models: string[] = TEXT_MODELS): Promise<T> {
-  const ai = env.AI as Run | undefined;
+  const ai = aiFor(env.AI, 'clip-text') as Run | undefined;
   if (!ai) throw new Error('no ai binding');
   let last: unknown = null;
   for (const model of models) {

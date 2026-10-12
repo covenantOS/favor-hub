@@ -502,12 +502,13 @@
     function trFor(m) { var t = S.lang && S.tr[m.id]; return t && t.text && t.body === m.body && !S.trOrig[m.id] && m.user_id !== S.me.id ? t : null; }
     function trNote(m, tx) {
       var t = S.lang && S.tr[m.id];
+      if (t && t.paused && t.body === m.body && m.user_id !== S.me.id) return '<div class="ch-tr"><span>Translation is paused for today</span></div>';
       if (!t || !t.text || t.body !== m.body || m.user_id === S.me.id) return '';
       return '<div class="ch-tr"><span>' + (tx ? 'Translated from ' + esc(langName(t.src)) : 'Original, ' + esc(langName(t.src))) + '</span><button type="button" data-act="sm-orig" data-id="' + m.id + '">' + (tx ? 'Show original' : 'Show translation') + '</button></div>';
     }
     function voiceHtml(a, m) {
       var t = S.lang && m && S.tr[m.id] && S.tr[m.id].voice && S.tr[m.id].voice[a.id];
-      var words = a.transcript_status === 'ready' ? (a.transcript ? '<div class="ch-voice__w">' + esc(a.transcript) + '</div>' : '<div class="ch-voice__s">No speech heard</div>') : a.transcript_status === 'failed' ? '<div class="ch-voice__s">Transcript not available</div>' : '<div class="ch-voice__s">Writing the transcript</div>';
+      var words = a.transcript_status === 'ready' ? (a.transcript ? '<div class="ch-voice__w">' + esc(a.transcript) + '</div>' : '<div class="ch-voice__s">No speech heard</div>') : a.transcript_status === 'failed' ? '<div class="ch-voice__s">Transcript not available</div>' : a.transcript_status === 'paused' ? '<div class="ch-voice__s">Transcripts are paused for today</div>' : '<div class="ch-voice__s">Writing the transcript</div>';
       var tr = t && !S.trOrig[m.id] && a.transcript ? '<div class="ch-voice__w ch-voice__w--tr">' + esc(t.text) + '</div><div class="ch-tr"><span>Translated from ' + esc(langName(t.src)) + '</span><button type="button" data-act="sm-orig" data-id="' + m.id + '">Show original</button></div>' : '';
       return '<div class="ch-card ch-voice" data-cm="' + (m ? m.id : '') + '"><div class="ch-voice__row"><span class="ch-file__ic" data-k="audio">' + ic('mic') + '</span><audio controls preload="none" src="' + esc(a.url) + '"></audio></div>' + (tr || words) + '</div>';
     }

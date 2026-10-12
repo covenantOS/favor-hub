@@ -4,6 +4,7 @@
 //   posting   to the project's Chat channel as the project lead, only when a project owner has turned the update on
 //   schedule  runDue() runs on the meeting reminder tick and posts Fridays from 3 PM Eastern, once per week per project
 import { HttpError, nowIso, type Env } from '../../http';
+import { aiFor } from '../../ai/guard';
 import { staffDirectory } from '../../people';
 import * as store from '../../chat/db';
 import { cleanBody } from '../../chat/text';
@@ -131,7 +132,7 @@ async function opening(env: Env, f: Facts): Promise<string> {
   const fallback = summaryOf(f);
   if (!env.AI) return fallback;
   try {
-    const run = env.AI.run(MODEL, {
+    const run = aiFor(env.AI, 'plan-status')!.run(MODEL, {
       messages: [
         {
           role: 'system',

@@ -23,6 +23,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { id: 'clips', href: '/admin/clips/', label: 'Clips', desc: 'Storage, longest recording, sharing default, who can record.', live: true, card: true, tab: true },
   { id: 'reports', href: '/admin/reports/', label: 'Reports', desc: 'Which roles see each report.', live: true, card: true, tab: true },
   { id: 'expenses', href: '/admin/expenses/', label: 'Expenses', desc: 'Approvers, substitutes, log access, mileage rate.', count: 'expensesWaiting', live: true, card: true, tab: true },
+  { id: 'ai', href: '/admin/ai/', label: 'AI use', desc: 'Units used today of the free 10,000, the last 7 days, paid features.', live: true, card: true, tab: true },
   { id: 'chat', href: '/admin/chat/', label: 'Chat', desc: 'Who can use Chat.', live: true, card: true, tab: true },
   { id: 'projects', href: '/admin/projects/', label: 'Projects', desc: 'Who can use Projects, the Asana import, Marketing requests.', live: true, card: true, tab: true },
   { id: 'receipts', href: '/admin/receipts/', label: 'Receipts', desc: 'Receipt window, morning email line.', live: true, card: true, tab: true },

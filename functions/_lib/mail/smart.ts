@@ -10,6 +10,7 @@ import { nowIso } from '../http';
 import { pool, type Addr, type Gmail, type ThreadRow } from './gmail';
 import { partnerMap, type PartnerLookup, type PartnerMap } from './partners';
 import { idsFor, rowsFor } from './rows';
+import { aiFor } from '../ai/guard';
 
 export const CATS = ['partners', 'staff', 'receipts', 'newsletters', 'notifications', 'calendar', 'people'] as const;
 export type Base = (typeof CATS)[number];
@@ -117,7 +118,7 @@ export async function clefRead(ai: Runner | undefined, r: ThreadRow, customs: Cu
   const questions = customs.length ? { ...QUESTIONS, kind: { ...QUESTIONS.kind, criteria: { ...QUESTIONS.kind.criteria, ...Object.fromEntries(customs.map((c) => [c.id, c.name + ': ' + c.description])) } } } : QUESTIONS;
   const state = `From: ${r.from?.name || ''} <${r.from?.email || ''}>\nSent to the recipient directly: ${r.toMe ? 'yes' : 'no, copied'}\nSubject: ${String(r.subject || '').slice(0, 200)}\nPreview: ${String(r.snippet || '').slice(0, 300)}`;
   try {
-    const out: any = await timeout(ai.run(CLEF_MODEL, { model: CLEF_MODEL.split('/').pop(), state, questions }), CLEF_MS, 'Clef');
+    const out: any = await timeout(aiFor(ai, 'mail-sort').run(CLEF_MODEL, { model: CLEF_MODEL.split('/').pop(), state, questions }), CLEF_MS, 'Clef');
     const answers = out?.answers || out?.result?.answers;
     if (!answers) return null;
     const kind = String(answers.kind?.choice || '');
@@ -502,7 +503,7 @@ export function freshText(m: { text: string; html: string; snippet: string }): s
 async function llm(ai: Runner | undefined, system: string, user: string, max: number): Promise<string> {
   if (!ai) return '';
   const out: any = await timeout(
-    ai.run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: user }], max_tokens: max, temperature: 0.4 }),
+    aiFor(ai, 'mail-draft').run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: user }], max_tokens: max, temperature: 0.4 }),
     TEXT_MS,
     'The model'
   );

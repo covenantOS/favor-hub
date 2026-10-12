@@ -16,6 +16,7 @@ import { plainLine, BRAIN_ID, SYSTEM_VOICES } from './text';
 import { LANGS, detectLang, langName, langOk, textHash, translateText, type Ai } from './translate';
 import { addReminders, checkInput, dueFor } from '../work/remind';
 import { parseAiJson } from '../clipChapters';
+import { aiFor, isAiPaused } from '../ai/guard';
 const WHISPER = '@cf/openai/whisper-large-v3-turbo';
 /** Plain text for the page: no em dashes, no line breaks. */
 const noDashes = (s: unknown, max: number): string => String(s ?? '').replace(/\s*[—–]\s*/g, ', ').replace(/\s+/g, ' ').trim().slice(0, max);
@@ -45,6 +46,8 @@ export interface Translated {
   src: string;
   same?: boolean;
   failed?: boolean;
+  /** Today's model allowance is used up: the original shows with "Translation is paused for today". */
+  paused?: boolean;
   /** Voice notes in the message: transcript translated, by file id. */
   voice?: Record<string, { text: string; src: string }>;
 }
@@ -128,7 +131,14 @@ export async function translateMessages(env: SmartEnv, me: string, input: { lang
           done.set(j.ref, { src, same: true });
           continue;
         }
-        const out = await translateText(ai, j.text, src, lang);
+        let out: string | null;
+        try {
+          out = await translateText(aiFor(ai, 'translate'), j.text, src, lang);
+        } catch (err) {
+          if (!isAiPaused(err)) throw err;
+          done.set(j.ref, { src, paused: true });
+          continue;
+        }
         if (out == null) {
           done.set(j.ref, { src, failed: true });
           continue;
@@ -214,15 +224,17 @@ export async function catchUp(env: SmartEnv, user: HubUser, channelId: string, i
   const usable = (v: any) => v && typeof v === 'object' && Array.isArray(v.points) && v.points.length ? v : null;
   for (const model of CATCHUP_MODELS) {
     try {
-      const out = (await ai.run(model, { messages: [{ role: 'system', content: sys }, { role: 'user', content: lines.join('\n') }], max_tokens: 900 })) as { response?: unknown } | null;
+      const out = (await aiFor(ai, 'chat-catchup').run(model, { messages: [{ role: 'system', content: sys }, { role: 'user', content: lines.join('\n') }], max_tokens: 900 })) as { response?: unknown } | null;
       // Some models hand back the JSON already parsed, others a string, sometimes inside a code fence.
       const r = out && out.response;
       j = usable(r && typeof r === 'object' ? r : parseAiJson(String(r || '')));
       if (j) break;
     } catch (err) {
       lastErr = err;
+      if (isAiPaused(err)) break;
     }
   }
+  if (!j && isAiPaused(lastErr)) throw new HttpError(503, 'paused', 'Catch me up is paused for today.');
   if (!j) {
     console.warn('[chat] catch up', lastErr);
     throw new HttpError(502, 'busy', 'Catch me up could not read the messages just now. Try again in a minute.');
@@ -310,7 +322,7 @@ export async function transcribe(env: SmartEnv, fileId: string, ai: Ai | undefin
     const obj = await env.UPLOADS.get(f.r2_key);
     if (!obj) return await fail(), false;
     const buf = new Uint8Array(await obj.arrayBuffer());
-    const res = (await ai.run(WHISPER, { audio: b64(buf), task: 'transcribe' })) as { text?: string; transcription_info?: { language?: string } } | null;
+    const res = (await aiFor(ai, 'chat-voice').run(WHISPER, { audio: b64(buf), task: 'transcribe' })) as { text?: string; transcription_info?: { language?: string } } | null;
     const text = String(res?.text || '').replace(/\s+/g, ' ').trim();
     if (!text) {
       // Nothing said: the card shows "No speech heard" instead of an empty transcript.
@@ -320,6 +332,11 @@ export async function transcribe(env: SmartEnv, fileId: string, ai: Ai | undefin
     await env.DB.prepare(`UPDATE chat_voice SET status = 'ready', transcript = ?, lang = ? WHERE file_id = ?`).bind(text.slice(0, 6000), String(res?.transcription_info?.language || '').slice(0, 8), fileId).run();
     return true;
   } catch (err) {
+    if (isAiPaused(err)) {
+      // Today's model allowance is used up: the card says the transcript is paused, and the audio plays as usual.
+      await env.DB.prepare(`UPDATE chat_voice SET status = 'paused' WHERE file_id = ?`).bind(fileId).run().catch(() => undefined);
+      return false;
+    }
     console.warn('[chat] voice transcript', err);
     await fail();
     return false;

@@ -7,7 +7,7 @@ for: [admin]
 related: [work-center, meetings, clips]
 tool: /admin/
 toolLabel: Open Admin
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Admin opens on the Overview. It is for FavorOS admins only.
@@ -32,6 +32,13 @@ Open a tab in the Admin row. Each setting shows what it is now, where it lives a
 - **Meetings** holds who can use them, guests, the number of people in one meeting, the recording folder and the reminder lead time.
 - **Favor Brain** holds the connect prompt and automatic chat titles. **Clips** holds storage for each person, the longest recording, the sharing default and who can record.
 - **Reports** sets which roles see each report. **Expenses** holds the approvers, substitutes, who can open the log and the mileage rate. **Receipts** holds the days a gift can wait for a receipt and the morning email line.
+
+## AI use
+
+**AI use** shows the model units Favor's account used today, the last 7 days and today's use by feature. Cloudflare gives 10,000 units a day free and bills $0.011 for each 1,000 above that. FavorOS stops itself at 8,000 a day, and Chat translation, Mail sorting and Favor Brain's question reading keep the last units of the day. A feature that reaches its share answers from its rules until the next day starts at 8 PM Eastern (7 PM in winter): Chat shows the original message, Mail leaves the conversation in its rule category, and gift entry keeps the photo for a person to type. Cloudflare's own count is read every 10 minutes, and past 9,000 every call stops for the day.
+
+- **Favor Brain query writer** and **Gift entry check reading** stay off until Will approves the spend.
+- **Extra AI units for testing this month** is 0. A number above 0 lets runs marked as tests go past the daily cap until that many units are used this month.
 
 ## Blackbaud users
 

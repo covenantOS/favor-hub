@@ -6,6 +6,7 @@
 //   */5 * * * *     POST /api/projects/status/run  Friday 3 PM Eastern: posts each project's update where the owner turned it on
 //   */5 * * * *     POST /api/work/snapshots  re-reads the Blackbaud answers the Work lists keep (6 AM to 9 PM Eastern)
 //   */10 * * * *    POST /api/receipts/warm  reads the Receipts waiting list from Blackbaud so the page never waits on it (10:00 to 02:00 UTC)
+//   */5 * * * *     POST /api/ai/reconcile  on every tenth minute: Cloudflare's own AI neuron totals over the budget guard's estimate
 //   10 * * * *      POST /api/work/fresh   asks Blackbaud which actions changed and has them re-read into the mirror
 // The hub records what each pass did (act_settings drain:last and fresh:last, shown on /api/work/health). A failed call throws, so a
 // stopped job shows as a failed run in Cloudflare and, a day later, as a stale line in health.
@@ -71,7 +72,11 @@ async function meetings(env) {
 export default {
   async scheduled(event, env, ctx) {
     if (!env.AGENT_API_KEY) throw new Error('AGENT_API_KEY is not set');
-    if (event.cron === '*/5 * * * *') { ctx.waitUntil(meetings(env)); ctx.waitUntil(warm(env, event.scheduledTime)); }
+    if (event.cron === '*/5 * * * *') {
+      ctx.waitUntil(meetings(env));
+      ctx.waitUntil(warm(env, event.scheduledTime));
+      if (new Date(event.scheduledTime).getUTCMinutes() % 10 === 0) ctx.waitUntil(call(env, '/api/ai/reconcile').then((r) => console.log('ai budget:', JSON.stringify(r))));
+    }
     else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(call(env, '/api/work/digest').then((r) => console.log('digest:', JSON.stringify(r))));
     else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(call(env, '/api/gift-entry/drain').then((r) => console.log('gift-entry:', JSON.stringify(r))));
     else if (event.cron === '35 * * * *') ctx.waitUntil(call(env, '/api/lists/refresh?ifnewer=1').then((r) => console.log('lists:', JSON.stringify(r))));

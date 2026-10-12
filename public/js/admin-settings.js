@@ -38,7 +38,21 @@
     return '<div class="ad-scroll"><table class="ad-table sc-table"><thead><tr>' + head.map(function (h) { return '<th>' + E(h) + '</th>'; }).join('') + '</tr></thead><tbody>' + (rows.length ? rows.join('') : '<tr><td colspan="' + head.length + '" class="mute">Nothing yet.</td></tr>') + '</tbody></table></div>';
   }
 
+  function aiDay(iso) { return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(new Date(iso + 'T12:00:00Z')); }
   function extras(x) {
+    if (area === 'ai') {
+      var t = x.today || {}, free = x.free || 10000, used = t.used || 0;
+      var stamp = t.at ? 'Checked with Cloudflare ' + A.full(t.at) : 'Not checked with Cloudflare yet';
+      return '<section class="ad-card"><h2>Today, UTC day</h2><div class="ad-meter" role="img" aria-label="' + num(used) + ' of ' + num(free) + ' units"><i style="width:' + Math.min(100, (used / free) * 100) + '%"></i></div>' +
+        '<div class="ad-meter__note"><span>' + num(used) + ' of ' + num(free) + ' free units</span><span>Cap ' + num(x.cap) + (t.off ? ' · stopped for the day' : '') + '</span></div>' +
+        '<p class="ad-card__meta">' + E(stamp) + ' · Cloudflare ' + num(t.truth) + ' · FavorOS count ' + num(t.est) + (t.refused ? ' · ' + num(t.refused) + ' held' : '') + '</p></section>' +
+        '<section class="ad-card"><h2>Last 7 days</h2>' + table(['Day', 'Units', 'Over the free 10,000', 'Held'], (x.week || []).map(function (d) {
+          return '<tr><td class="ad-nw">' + E(aiDay(d.day)) + '</td><td class="num">' + num(d.used) + '</td><td class="num">' + (d.over ? num(d.over) : '0') + '</td><td class="num">' + num(d.refused) + '</td></tr>';
+        })) + '</section>' +
+        '<section class="ad-card"><h2>Today by feature</h2>' + table(['Feature', 'Calls', 'Units', 'Held'], (x.features || []).map(function (f) {
+          return '<tr><td>' + E(f.label) + '</td><td class="num">' + num(f.calls) + '</td><td class="num">' + num(f.units) + '</td><td class="num">' + num(f.refused) + '</td></tr>';
+        })) + '</section>';
+    }
     if (area === 'work') {
       var cal = x.calls || {};
       return '<section class="ad-card"><h2>Blackbaud calls today</h2><div class="ad-meter" role="img" aria-label="' + cal.used + ' of ' + cal.cap + '"><i style="width:' + Math.min(100, (cal.used / (cal.cap || 1)) * 100) + '%"></i></div>' +
@@ -126,7 +140,7 @@
     var shown = function (v) { var o = s.options.filter(function (x) { return x.value === v; })[0]; return o ? o.label : (v === '' ? 'blank' : v + (s.unit ? ' ' + s.unit : '')); };
     var box = document.createElement('div');
     box.className = 'ad-confirm';
-    box.innerHTML = '<p>' + E(s.label) + (s.contact ? ' changes whether FavorOS emails partners. It is <b>' : ' changes what FavorOS sends to Blackbaud. It is <b>') + E(shown(s.value)) + '</b> now. Change it to <b>' + E(shown(next)) + '</b>?</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--warn" data-yes>Confirm the change</button><button type="button" class="ad-btn" data-no>Keep ' + E(shown(s.value)) + '</button></div>';
+    box.innerHTML = '<p>' + E(s.label) + (s.spend ? ' can add model charges past the free allowance. It is <b>' : s.contact ? ' changes whether FavorOS emails partners. It is <b>' : ' changes what FavorOS sends to Blackbaud. It is <b>') + E(shown(s.value)) + '</b> now. Change it to <b>' + E(shown(next)) + '</b>?</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--warn" data-yes>Confirm the change</button><button type="button" class="ad-btn" data-no>Keep ' + E(shown(s.value)) + '</button></div>';
     rowEl.appendChild(box);
     box.querySelector('[data-yes]').onclick = function () { send(s.id, { value: next, confirm: true }); };
     box.querySelector('[data-no]').onclick = function () { box.remove(); };
@@ -150,7 +164,7 @@
     var sv = e.target.closest('[data-save]'), rs = e.target.closest('[data-reset]');
     if (sv) {
       var s = current(sv.dataset.save), next = valueOf(s.id);
-      if (s.bb || s.contact) confirmBox(s, next); else send(s.id, { value: next });
+      if (s.bb || s.contact || s.spend) confirmBox(s, next); else send(s.id, { value: next });
     } else if (rs) {
       send(rs.dataset.reset, { reset: true });
     }
@@ -159,7 +173,7 @@
   A.api('/api/admin/settings?area=' + area).then(function (d) {
     S = d.settings;
     subs = (d.extras && d.extras.overrides) || [];
-    root.innerHTML = groups() + extras(d.extras || {});
+    root.innerHTML = area === 'ai' ? extras(d.extras || {}) + groups() : groups() + extras(d.extras || {});
     drawSubs();
     root.removeAttribute('aria-busy');
   }).catch(function (e) { A.fail(document.getElementById('ad-root'), e); });

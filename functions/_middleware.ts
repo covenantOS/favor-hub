@@ -4,7 +4,7 @@
 import { json, type Env } from './_lib/http';
 import { resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
 import { REDIRECTS } from '../src/data/areas';
-import { countAiCalls } from './_lib/admin/aiuse';
+import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
@@ -58,6 +58,12 @@ function isHtml(res: Response): boolean {
 }
 
 export const onRequest: PagesFunction<Env> = async (ctx) => {
+  // Who is asking, for the AI budget guard: filled in once the user is known.
+  const who = { tester: false, closed: false };
+  return withAiCaller(who, () => handle(ctx, who));
+};
+
+const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boolean; closed: boolean }): Promise<Response> => {
   const { request, env } = ctx;
   const url = new URL(request.url);
   const path = url.pathname;
@@ -84,6 +90,10 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     user = await resolveUser(env, request);
   } catch (err) {
     console.error('[signin] resolve', err);
+  }
+  if (user && isTester(user.email)) {
+    who.tester = true;
+    who.closed = /(?:^|;\s*)hub_ai_closed=1/.test(request.headers.get('Cookie') || '');
   }
   const forwarded = withUserHeaders(request, user);
   const open = OPEN_PATHS.has(path) || CLIP_OPEN.test(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));

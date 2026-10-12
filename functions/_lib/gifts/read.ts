@@ -8,6 +8,10 @@
 //  - the routing and account line is never asked for and never stored;
 //  - a date more than 45 days before the deposit, or after it, is highlighted (the readers drift on handwritten years).
 import type { Env } from '../http';
+import { aiFor, isAiPaused } from '../ai/guard';
+
+/** The reader error when today's model allowance is used up or reading is switched off: the photo is kept for a person to type. */
+export const READ_PAUSED = 'Reading is paused for today.';
 
 export const READERS = [
   { key: 'scout', model: '@cf/meta/llama-4-scout-17b-16e-instruct', extra: {} as Record<string, unknown> },
@@ -228,6 +232,7 @@ export async function readWith(run: Runner, reader: (typeof READERS)[number], da
     if (!obj) return { ...base, fields: null, secs, error: 'answer was not readable', card };
     return { ...base, fields: card ? null : normalizeFields(obj), secs, error: null, card };
   } catch (e: any) {
+    if (isAiPaused(e)) return { ...base, fields: null, secs: 0, error: READ_PAUSED, card: false };
     return { ...base, fields: null, secs: (Date.now() - started) / 1000, error: String(e && e.message ? e.message : e).slice(0, 200), card: false };
   }
 }
@@ -235,7 +240,8 @@ export async function readWith(run: Runner, reader: (typeof READERS)[number], da
 export async function readPhoto(env: Pick<Env, 'AI'>, dataUrl: string): Promise<ReaderResult[]> {
   const ai = env.AI;
   if (!ai) return READERS.map((r) => ({ reader: r.key, model: r.model, fields: null, secs: 0, error: 'The reader is not connected.', card: false }));
-  const run: Runner = (m, i) => ai.run(m, i);
+  const tagged = aiFor(ai, 'check-reading');
+  const run: Runner = (m, i) => tagged.run(m, i);
   return Promise.all(READERS.map((r) => readWith(run, r, dataUrl)));
 }
 
@@ -294,7 +300,8 @@ export function mergeReads(results: ReaderResult[], depositDate: string): Merged
   // amount: the readers must agree, and the figures must match the written words
   const amounts = f.map((x) => x.amountCents);
   let amount = pick((x) => x.amountCents);
-  if (unreadable) flag('amount', 'The photo could not be read. Type the amount.');
+  const paused = results.length > 0 && results.every((r) => r.error === READ_PAUSED);
+  if (unreadable) flag('amount', paused ? 'Reading is paused for today. Type the amount.' : 'The photo could not be read. Type the amount.');
   else if (ok.length < 2) flag('amount', 'Only one reader answered. Check the amount.');
   else if (amounts[0] !== amounts[1]) flag('amount', `The readers disagree: ${money(amounts[0])} and ${money(amounts[1])}.`);
   for (const x of f) {

@@ -4,6 +4,7 @@
 // out and the chat keeps its first question as the title. The 1B model made up "Texas Oil Companies" for a list of
 // lapsed major partners in Texas and copied a number out of its own instructions, so the model moved to Scout.
 import { brainFlag } from '../admin/settings';
+import { aiFor } from '../ai/guard';
 import type { Env } from '../http';
 import { titleOf } from './chat';
 
@@ -54,7 +55,7 @@ export function titlePrompt(questions: string[], current: string) {
 /** Asks the model for a title. Returns null when the model is missing, slow, says KEEP, or the reply is unusable. */
 export async function makeTitle(ai: Env['AI'] | undefined, questions: string[], current: string): Promise<string | null> {
   if (!ai || !questions.length) return null;
-  const run = ai.run(TITLE_MODEL, { messages: titlePrompt(questions, current), max_tokens: 16, temperature: 0.2 }) as Promise<{ response?: string }>;
+  const run = aiFor(ai, 'brain-title').run(TITLE_MODEL, { messages: titlePrompt(questions, current), max_tokens: 16, temperature: 0.2 }) as Promise<{ response?: string }>;
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), TITLE_TIMEOUT_MS));
   try {
     const out = await Promise.race([run, timeout]);

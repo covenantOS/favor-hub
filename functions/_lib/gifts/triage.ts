@@ -4,6 +4,7 @@
 // 6 non-checks called checks. The same run of @cf/cloudflare/clef-omni scored 73 of 103 (70.9%) and missed 4 checks, so the
 // model here is the large Clef. A low-confidence envelope or unreadable call never skips or stops a photo: it goes to the readers.
 import type { Env } from '../http';
+import { aiFor } from '../ai/guard';
 
 export const TRIAGE_MODEL = '@cf/cloudflare/clef';
 /** Below this probability an envelope or unreadable call is not trusted, and the photo is read. */
@@ -75,5 +76,6 @@ export async function triageWith(run: Runner, dataUrl: string): Promise<Triage> 
 export async function triagePhoto(env: Pick<Env, 'AI'>, dataUrl: string): Promise<Triage> {
   const ai = env.AI;
   if (!ai) return { kind: 'other', p: 0, secs: 0, error: 'The triage model is not connected.' };
-  return triageWith((m, i) => ai.run(m as any, i as any), dataUrl);
+  const tagged = aiFor(ai, 'check-triage');
+  return triageWith((m, i) => tagged.run(m as any, i as any), dataUrl);
 }

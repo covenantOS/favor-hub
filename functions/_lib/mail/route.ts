@@ -38,6 +38,7 @@ import { sanitizeHtml, textToHtml } from './sanitize';
 import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
 import { freshText } from './smart';
 import { assist, cardOf, classify, customsOf, decorate, forgetScan, isCat, isCustom, overview, saveSummary, savedSummary, smartView, tidy, TEXT_MODEL, waitingOn, type SmartCtx } from './smart';
+import { aiFor } from '../ai/guard';
 
 export type MailMode = 'admins' | 'staff' | 'off';
 
@@ -251,7 +252,7 @@ async function route(ctx: MailCtx): Promise<Response> {
   const runModel = async (system: string, userText: string, max: number): Promise<string> => {
     const ai = smartCtx.ai;
     if (!ai) return '';
-    const out: any = await ai.run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
+    const out: any = await aiFor(ai, 'mail-draft').run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
     return String(out?.response ?? out?.result?.response ?? '').trim();
   };
   const mq = async (sql: string, params: unknown[] = []): Promise<any[]> => {

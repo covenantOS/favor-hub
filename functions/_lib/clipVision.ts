@@ -4,6 +4,7 @@
 // own private record, and they are deleted with the clip. They feed the clip's title, summary and chapters and the owner's
 // library search. They are never sent anywhere else, never logged and never shown to anyone but the person who made the clip.
 import { frameKey, framesPrefix, type ClipsEnv } from './clips';
+import { aiFor } from './ai/guard';
 import { parseAiJson, type ClipChapter } from './clipChapters';
 import { plain, stamp } from './clipai';
 
@@ -45,7 +46,7 @@ function replyText(res: unknown): string {
 export interface FrameRead { app: string; page: string; text: string; step: string }
 
 export async function readPicture(env: ClipsEnv, bytes: Uint8Array): Promise<FrameRead | null> {
-  const ai = env.AI as Run | undefined;
+  const ai = aiFor(env.AI, 'clip-vision') as Run | undefined;
   if (!ai) return null;
   const url = bytesToDataUrl(bytes);
   for (const model of VISION_MODELS) {
