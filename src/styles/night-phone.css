@@ -75,3 +75,8 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
 /* Chat: a picture posted before sizes were recorded sat at the left of a full-width beige box. The box now fits the picture.
    All sizes. */
 .ch-photo:not([style]):not(.is-broken) { width: fit-content; }
+
+/* Work Overview: the Due card's placeholder rows match the real rows, so nothing below moves when the list arrives. */
+.wh-list > li.wh-skel.wh-skel--row { height: 56px; margin: 0 14px 12px; }
+/* Its "Blackbaud data as of" line keeps its room while it loads, so the cards under it do not drop 14 px. */
+@media (max-width: 860px) { body.h-body #wh .wh-top[hidden] { display: block; visibility: hidden; min-height: 18px; } }

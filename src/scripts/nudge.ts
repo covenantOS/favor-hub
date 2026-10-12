@@ -107,7 +107,7 @@ function check() {
   if (due.length && !toastEl) show(due[0], minutesLeft(due[0].startMs, now));
 }
 
-/** On the Meetings pages only: one quiet link that asks for system notifications. It sits above the page content, outside every card, or in the header when the page has none, and goes away after any answer. */
+/** On the Meetings pages only: one quiet link that asks for system notifications. It sits above the page content, outside every card, or at the top of the page while it has none, and goes away after any answer. */
 const CARD = '#h-content .mt-card, #h-content .h-card:not(.h-skel), #h-content .dv-card:not(.dv-skel)';
 function anchorOf(): HTMLElement | null {
   const card = document.querySelector<HTMLElement>(CARD);
@@ -121,9 +121,11 @@ function place(link: HTMLElement): void {
     anchor.before(link);
     return;
   }
-  const head = document.querySelector<HTMLElement>('.h-top');
-  if (!head || link.parentElement === head) return;
-  head.appendChild(link);
+  // Before the page has drawn a card, the link waits at the top of the page. In the header it widened the header on a phone, and
+  // the whole page dropped 64 px and jumped back when the first card arrived.
+  const main = document.getElementById('h-content');
+  if (!main || main.firstElementChild === link) return;
+  main.prepend(link);
 }
 
 function askLink() {
@@ -157,7 +159,7 @@ function askLink() {
       queued = false;
       // The page changed in place to one outside Meetings: the link goes with it.
       if (!location.pathname.startsWith('/meet')) { p.remove(); obs?.disconnect(); return; }
-      if (!document.body.contains(p) || (anchorOf() ? anchorOf()!.previousElementSibling !== p : p.parentElement?.id !== 'h-content' && !p.parentElement?.matches('.h-top'))) place(p);
+      if (!document.body.contains(p) || (anchorOf() ? anchorOf()!.previousElementSibling !== p : p.parentElement?.id !== 'h-content')) place(p);
     });
   });
   const root = document.getElementById('h-content');
