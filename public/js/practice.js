@@ -151,7 +151,7 @@
     btn.disabled = true;
     try {
       const body = Object.assign({}, draft[kind]);
-      if (kind === 'gift' && body.date === undefined) body.date = us(today());
+      if (kind === 'gift') { if (body.date === undefined) body.date = us(today()); if (!body.type) body.type = 'One-time gift'; if (!body.method) body.method = 'Cash'; }
       if (kind === 'call' && body.date === undefined) body.date = today();
       if (kind === 'task' && body.due === undefined) body.due = plus(today(), 7);
       const d = await api('practice/' + kind, 'POST', body);
