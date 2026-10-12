@@ -98,6 +98,16 @@ export const api = {
   notices: route('notices', () => call('GET', '/api/tasks/notices')),
   readNotices: route('readNotices', (b) => call('POST', '/api/tasks/notices/read', b || { all: true })),
 
+  /* planning, team workload and the Friday update (always the network; the mock fixture has no plans) */
+  planDraft: (b) => call('POST', '/api/projects/plan/draft', b),
+  planCheck: (tasks) => call('POST', '/api/projects/plan/check', { tasks }),
+  planCreate: (plan) => call('POST', '/api/projects/plan/create', { plan }),
+  workload: (q) => call('GET', '/api/projects/workload' + qs(q)),
+  statusGet: (id) => call('GET', `/api/projects/${enc(id)}/status`),
+  statusSet: (id, enabled) => call('PUT', `/api/projects/${enc(id)}/status`, { enabled }),
+  statusDraft: (id) => call('GET', `/api/projects/${enc(id)}/status/draft`),
+  statusPost: (id) => call('POST', `/api/projects/${enc(id)}/status/post`, {}),
+
   /** The staff list for pickers: {ok, me, people:[{email,name,team,title,picture}]}. Shared with the request board. */
   directory: route('directory', () => call('GET', '/api/requests/people')),
 };

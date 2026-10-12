@@ -7,7 +7,7 @@ for: [admin]
 related: [chat, meetings, clips, whats-new]
 tool: /projects/
 toolLabel: Open Projects
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Projects is where FavorOS keeps work that has an owner and a date. It is open to FavorOS admins for now, and Admin > Projects changes who can use it.
@@ -15,6 +15,20 @@ Projects is where FavorOS keeps work that has an owner and a date. It is open to
 ## Projects and tasks
 
 A project has a lead, members, sections, and tasks with an owner, dates, a priority and optional Blackbaud codes. Open a task to comment, @mention someone, add subtasks, set what it waits on and attach files. A task with no project is a personal task on My tasks.
+
+## Plan a project from a sentence
+
+Press **Plan a project**, write what you are doing (for example, "Banquet in Houston on December 6"), and press **Draft plan**. FavorOS picks the closest template, counts dates back from the date in your sentence and gives each task to the person whose title fits. The templates are weekly newsletter, monthly appeal letter, banquet or hosted dinner, grant application, print order and church newsletter. They follow how the Marketing team ran those jobs in Asana. Change any title, owner, date or priority, add or remove tasks and sections, then press **Create project**. Nothing is saved before that. Each owner gets one notice for all of their tasks.
+
+A yellow box lists people who would be above their usual week with the new tasks.
+
+## Team workload
+
+**Team workload** on the Projects page shows every person with open tasks and the weeks ahead. A usual week is that person's own median over the last 12 weeks. A week turns amber above one and a half times it and red above twice it. Urgent tasks count extra. Five or more past-due tasks marks a person as behind. Press a cell to see its tasks.
+
+## Friday update
+
+A project's lead or an admin presses **Friday update** on the project page. The page shows what the update would say now: tasks finished, started, pushed back, late, waiting and due in the next seven days. Turn the switch on and the update posts to the project channel every Friday at 3 PM Eastern, written by the project lead. It stays off until an owner turns it on.
 
 ## Chat
 

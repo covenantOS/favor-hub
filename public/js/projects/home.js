@@ -3,6 +3,8 @@ import { esc, icon, avatar, toast, debounce, todayStr, dueLabel } from './ui-uti
 import { api, Ctx, Staff, loadStaff } from './ui-data.js';
 import { mountList } from './list.js';
 import { openProjectForm } from './ui-projform.js';
+import { openPlanner } from './plan.js';
+import { mountTeamLoad } from './team-load.js';
 
 const TAB_KEY = 'favor.hub.projects.tab.v1';
 export const projectHref = (key, extra) => '/projects/p/?p=' + encodeURIComponent(key) + (extra || '');
@@ -10,17 +12,18 @@ export const projectHref = (key, extra) => '/projects/p/?p=' + encodeURIComponen
 export async function mountHome(root, shell) {
   const params = new URLSearchParams(location.search);
   let tab = params.get('tab') || (() => { try { return localStorage.getItem(TAB_KEY); } catch (_) { return null; } })() || 'mine';
-  if (tab !== 'mine' && tab !== 'projects') tab = 'mine';
+  if (tab !== 'mine' && tab !== 'projects' && tab !== 'team') tab = 'mine';
   const ctx = new Ctx('mine');
   ctx.showDone = false;
   let list = null;
+  let team = null;
   let summary = { projects: [], mine: { open: 0, overdue: 0, dueToday: 0 } };
   let pq = '';
   let pstatus = 'active';
 
   root.innerHTML = `<div class="pj-home">
-    <header class="pj-ph"><h1>Projects</h1><div class="pj-ph__act"><button type="button" class="pj-btn" data-h="task">${icon('plus')}Add task</button><button type="button" class="pj-btn pj-btn--primary" data-h="new">${icon('plus')}New project</button></div></header>
-    <div class="pj-seg" role="tablist" aria-label="Projects"><button type="button" role="tab" data-tab="mine" id="pj-tab-mine">My tasks<span data-c-mine></span></button><button type="button" role="tab" data-tab="projects" id="pj-tab-projects">All projects<span data-c-projects></span></button></div>
+    <header class="pj-ph"><h1>Projects</h1><div class="pj-ph__act"><button type="button" class="pj-btn" data-h="task">${icon('plus')}Add task</button><button type="button" class="pj-btn" data-h="plan">${icon('list')}Plan a project</button><button type="button" class="pj-btn pj-btn--primary" data-h="new">${icon('plus')}New project</button></div></header>
+    <div class="pj-seg" role="tablist" aria-label="Projects"><button type="button" role="tab" data-tab="mine" id="pj-tab-mine">My tasks<span data-c-mine></span></button><button type="button" role="tab" data-tab="projects" id="pj-tab-projects">All projects<span data-c-projects></span></button><button type="button" role="tab" data-tab="team" id="pj-tab-team">Team workload</button></div>
     <div class="pj-pane" data-pane></div>
   </div>`;
   const pane = root.querySelector('[data-pane]');
@@ -31,18 +34,23 @@ export async function mountHome(root, shell) {
     try { localStorage.setItem(TAB_KEY, t); } catch (_) { /* private mode */ }
     root.querySelectorAll('[data-tab]').forEach((b) => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', String(on)); b.classList.toggle('is-on', on); b.tabIndex = on ? 0 : -1; });
     if (list) { list.destroy(); list = null; }
+    if (team) { team.destroy(); team = null; }
     pane._draw = null;
-    if (t === 'mine') paintMine(); else paintProjects();
+    if (t === 'mine') paintMine(); else if (t === 'team') { pane.innerHTML = ''; mountTeamLoad(pane, shell).then((h) => { if (tab === 'team') team = h; else h.destroy(); }); } else paintProjects();
     const u = new URL(location.href);
     u.searchParams.set('tab', t);
     history.replaceState(history.state, '', u);
   }
   root.querySelector('.pj-seg').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) setTab(b.dataset.tab); });
-  root.querySelector('.pj-seg').addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { setTab(tab === 'mine' ? 'projects' : 'mine'); root.querySelector(`[data-tab="${tab}"]`).focus(); } });
+  root.querySelector('.pj-seg').addEventListener('keydown', (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const order = ['mine', 'projects', 'team']; setTab(order[(order.indexOf(tab) + (e.key === 'ArrowRight' ? 1 : 2)) % 3]); root.querySelector(`[data-tab="${tab}"]`).focus(); } });
   root.querySelector('.pj-ph__act').addEventListener('click', async (e) => {
     const b = e.target.closest('[data-h]');
     if (!b) return;
     if (b.dataset.h === 'task') shell.quickAdd(ctx);
+    if (b.dataset.h === 'plan') {
+      const p = await openPlanner({});
+      if (p) { toast('Project created'); location.href = projectHref(p.key); }
+    }
     if (b.dataset.h === 'new') {
       const p = await openProjectForm({});
       if (p) { toast('Project created'); location.href = projectHref(p.key); }

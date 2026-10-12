@@ -29,6 +29,14 @@ export const api = {
   deps: (id, b) => core.deps(id, b),
   codes: (kind, q) => core.codes(kind, q),
   staff: () => core.directory(),
+  planDraft: (b) => core.planDraft(b),
+  planCheck: (t) => core.planCheck(t),
+  planCreate: (p) => core.planCreate(p),
+  workload: (q) => core.workload(q),
+  statusGet: (id) => core.statusGet(id),
+  statusSet: (id, on) => core.statusSet(id, on),
+  statusDraft: (id) => core.statusDraft(id),
+  statusPost: (id) => core.statusPost(id),
 };
 
 /* ---------------------------------------------------------------- staff */

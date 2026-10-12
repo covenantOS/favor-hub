@@ -1,0 +1,75 @@
+/* Projects: the planner, team workload and the Friday update sheet. Joins the Projects page through the projects*.css glob. */
+.pj-sheet.pj-sheet--plan { width: min(860px, calc(100vw - 32px)); top: 6vh; max-height: 88vh; }
+.pj-pl__date { width: 220px; max-width: 100%; }
+.pj-pl__sec { margin: 16px 0 0; padding: 12px; border: 1px solid var(--r-line); border-radius: 14px; background: #fcfbf7; }
+.pj-pl__sech { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.pj-pl__secname { font-weight: 800; flex: 1; min-height: 40px; }
+.pj-pl__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pj-pl__task { display: grid; grid-template-columns: minmax(0, 1fr) 170px 150px 104px 40px; gap: 8px; align-items: center; padding: 6px; border-radius: 12px; }
+.pj-pl__task.is-warn { background: #fdf2dd; box-shadow: inset 0 0 0 1.5px #e6b95a; }
+.pj-pl__task .pj-field { min-height: 40px; padding: 6px 10px; font-size: 14px; }
+.pj-pl__own { width: 100%; min-height: 40px; justify-content: flex-start; overflow: hidden; }
+.pj-pl__own span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pj-pl__rm { width: 40px; height: 40px; }
+.pj-pl__add { margin-top: 10px; }
+.pj-pl__warn { margin: 14px 0 0; padding: 10px 14px; border-radius: 12px; background: #fdf2dd; border: 1px solid #e6b95a; color: #5c4208; font-size: 14px; }
+.pj-pl__warn b { display: flex; align-items: center; gap: 6px; }
+.pj-pl__warn ul { margin: 6px 0 0; padding-left: 20px; }
+@media (max-width: 860px) {
+  .pj-sheet.pj-sheet--plan { width: auto; top: calc(env(safe-area-inset-top) + 12px); max-height: none; }
+  .pj-sheet.pj-sheet--status { width: auto; }
+  .pj-pl__task { grid-template-columns: minmax(0, 1fr) 96px 44px; grid-template-areas: 'title title rm' 'own own own' 'due pri pri'; row-gap: 6px; padding: 8px; background: #fff; border: 1px solid var(--r-line); }
+  .pj-pl__title { grid-area: title; }
+  .pj-pl__own { grid-area: own; }
+  .pj-pl__due { grid-area: due; }
+  .pj-pl__pri { grid-area: pri; }
+  .pj-pl__rm { grid-area: rm; width: 44px; height: 40px; }
+  .pj-pa-status span { display: none; }
+  .pj-pl__date { width: 100%; }
+}
+
+/* team workload */
+.pj-tl { border: 0; background: none; overflow: visible; }
+.pj-tl .pjv-bar, .pj-tl .wl-scroll { border: 1px solid var(--pjv-line); background: #fff; }
+.pj-tl .pjv-bar { border-radius: 14px 14px 0 0; }
+.pj-tl .wl-scroll { border-top: 0; border-radius: 0 0 14px 14px; max-height: 70vh; }
+.pj-tl .pj-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pj-tl__warns { margin: 0 0 12px; }
+.pj-tl__ok { margin: 0; padding: 10px 14px; border-radius: 12px; background: #eef6ea; color: #1f3a1a; font-size: 14px; }
+.pj-tl__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.pj-tl__list li { display: flex; gap: 10px; align-items: baseline; padding: 9px 14px; border-radius: 12px; font-size: 14px; background: #fdf2dd; border: 1px solid #e6b95a; color: #5c4208; }
+.pj-tl__list li.is-over { background: #fbe4dd; border-color: #e4856f; color: #6b2112; }
+.pj-tl__list li b { flex: none; min-width: 84px; }
+.pj-tl__more { margin: 6px 0 0; color: var(--r-ink-3); font-size: 13px; }
+.pj-tl__cell { display: inline-grid; place-items: center; min-width: 48px; height: 36px; padding: 0 10px; border-radius: 10px; border: 0; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pj-tl__cell.lv-ok { background: #e1efdc; color: #1f3a1a; }
+.pj-tl__cell.lv-heavy { background: #f6d68a; color: #5c4208; }
+.pj-tl__cell.lv-over { background: #f2b9a5; color: #5c1a0d; box-shadow: inset 0 0 0 1.5px #e4856f; }
+.pj-tl__cell.lv-none { background: var(--r-sunk); color: var(--r-ink-2); }
+.pj-lvl { font-style: normal; font-weight: 700; padding: 1px 6px; border-radius: 6px; font-size: 12px; }
+.pj-lvl--heavy, .pj-lvl--behind { background: #f6d68a; color: #5c4208; }
+.pj-lvl--over { background: #f2b9a5; color: #5c1a0d; }
+
+/* Friday update */
+.pj-sheet.pj-sheet--status { width: min(560px, calc(100vw - 32px)); }
+.pj-st__sw { display: flex; gap: 12px; align-items: flex-start; padding: 12px 0 4px; cursor: pointer; }
+.pj-st__sw.is-locked { cursor: default; opacity: 0.8; }
+.pj-st__sw input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.pj-st__box { flex: none; width: 44px; height: 26px; border-radius: 999px; background: var(--r-line-2); position: relative; transition: background 0.15s; margin-top: 2px; }
+.pj-st__box::after { content: ''; position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.15s; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25); }
+.pj-st__sw input:checked + .pj-st__box { background: var(--a, #2b4d24); }
+.pj-st__sw input:checked + .pj-st__box::after { transform: translateX(18px); }
+.pj-st__sw input:focus-visible + .pj-st__box { outline: 2px solid var(--a, #2b4d24); outline-offset: 2px; }
+.pj-st__lab { display: grid; gap: 2px; }
+.pj-st__lab small, .pj-st__meta { color: var(--r-ink-3); font-size: 13px; }
+.pj-st__meta { margin: 6px 0 0; }
+.pj-st__pre { margin: 0; padding: 12px 14px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; font: 400 14px/1.5 var(--h-font, Inter, sans-serif); background: var(--r-sunk); border-radius: 12px; }
+
+/* the Projects header gained a button: on a phone it wraps under the title */
+@media (max-width: 860px) {
+  .pj-ph { flex-wrap: wrap; }
+  .pj-ph__act { flex-wrap: wrap; width: 100%; }
+  .pj-ph__act .pj-btn { flex: 1 1 auto; }
+  .pj-seg { display: flex; max-width: 100%; }
+  .pj-seg button { flex: 1 1 0; justify-content: center; padding: 0 8px; min-width: 0; }
+}

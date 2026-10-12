@@ -15,6 +15,7 @@ import { openQuickAdd } from './quick-add.js';
 import { mountHome } from './home.js';
 import { openProjectForm } from './ui-projform.js';
 import { pickOwner } from './ui-pickers.js';
+import { openStatus } from './status.js';
 
 const qs = new URLSearchParams(location.search);
 const PREFS = 'favor.hub.projects.prefs.v1';
@@ -213,10 +214,11 @@ async function mountProject(root, key) {
     document.title = p.name + ' - FavorOS';
     root.querySelector('[data-title]').innerHTML = `<i class="pj-dot pj-dot--lg" data-c="${esc(p.color)}"></i><h1>${esc(p.name)}</h1><span class="pj-pkey">${esc(p.key)}</span>${p.team ? `<span class="pj-pcard__team">${esc(p.team)}</span>` : ''}${p.status !== 'active' ? `<span class="pj-tag">${esc(p.status)}</span>` : ''}${p.visibility === 'members' ? `<span class="pj-pcard__lock" title="Members only">${icon('lock')}</span>` : ''}`;
     const ms = ctx.members.slice(0, 5);
-    root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-ib" data-pa="details" aria-label="Project details">${icon('more')}</button>`;
+    root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-btn pj-pa-status" data-pa="status" aria-label="Friday update">${icon('clock')}<span>Friday update</span></button><button type="button" class="pj-ib" data-pa="details" aria-label="Project details">${icon('more')}</button>`;
   }
   root.querySelector('[data-pact]').addEventListener('click', async (e) => {
     if (!e.target.closest('[data-pa]') || !ctx.project) return;
+    if (e.target.closest('[data-pa]').dataset.pa === 'status') { openStatus(ctx.project); return; }
     const p = await openProjectForm({ project: ctx.project, members: ctx.members });
     if (p) { Object.assign(ctx.project, p); const d = await api.project(ctx.project.id).catch(() => null); if (d) { ctx.members = d.members || ctx.members; } paintHeader(); ctx.emit('project'); }
   });

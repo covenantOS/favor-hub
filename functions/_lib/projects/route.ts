@@ -3,6 +3,7 @@
 //   GET  projects/:id (id or key)         the project, sections, members, counts  PATCH projects/:id         change it or archive it
 //   POST projects/:id/sections            PATCH/DELETE projects/:id/sections/:sid
 //   PUT  projects/:id/members             { add, remove, role }
+//   plan, workload and the Friday update: projects/plan/*, projects/workload, projects/:id/status (see plan/route.ts)
 //   GET  tasks                            ?project= &owner=me|email &status=open|done|all &from= &to= &q= &parent= &limit= &offset=
 //   POST tasks                            make one                                 GET tasks/codes ?kind= &q=
 //   GET  tasks/notices                    POST tasks/notices/read { ids | all }
@@ -17,6 +18,7 @@ import { projectsActor } from './access';
 import { KINDS, codesFor, type CodeKind } from './codes';
 import { directory, projectOf, projectsReady, type ProjectRow, type TaskRow } from './db';
 import { fire, taskRoute } from './hooks';
+import { isPlanPath, planRoutes } from './plan/route';
 import { noticesFor, readNotices } from './notices';
 import { addSection, changeMembers, createProject, deleteSection, listProjects, patchProject, patchSection, projectDetail, shapeProject, countsFor } from './projects';
 import {
@@ -79,6 +81,7 @@ async function projectRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Re
   const { request, env } = ctx;
   const method = request.method.toUpperCase();
   const [id, a, sid] = path;
+  if (isPlanPath(path)) return planRoutes({ request, env, user: ctx.user, waitUntil: ctx.waitUntil }, path, actor);
   const ev = (kind: string, project: ProjectRow, detail?: Record<string, unknown>) =>
     fire(env, { kind, actor: actor.email, actorName: actor.name, project, detail }, ctx.waitUntil);
 

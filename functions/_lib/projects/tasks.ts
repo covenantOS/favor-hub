@@ -402,7 +402,8 @@ export interface Made {
   existing: boolean;
 }
 
-export async function createTask(env: Env, actor: Actor, b: Record<string, unknown>): Promise<Made> {
+/** quiet: the caller sends its own notice (a plan makes many tasks and tells each person once). */
+export async function createTask(env: Env, actor: Actor, b: Record<string, unknown>, opts: { quiet?: boolean } = {}): Promise<Made> {
   const title = asText(b.title, 'title', 300, true);
   const dup = await existingFor(env, b);
   if (dup) {
@@ -481,7 +482,7 @@ export async function createTask(env: Env, actor: Actor, b: Record<string, unkno
   await addEvent(env, { task_id: t.id, project_id: t.project_id, actor: actor.email, kind: 'created', detail: { title } });
   const list: Notice[] = [];
   if (owner && owner !== actor.email) list.push({ email: owner, kind: 'assigned', body: title });
-  const told = await tell(env, t.id, actor.email, list);
+  const told = opts.quiet ? [] : await tell(env, t.id, actor.email, list);
   return { task: t, project, told, existing: false };
 }
 

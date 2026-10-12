@@ -3,6 +3,7 @@
 //   */10 10-18 * * *  POST /api/gift-entry/drain  notices that Jennifer approved a gift batch and copies the check photos (gift entry)
 //   */10 11-14 * * 1-5  POST /api/work/digest  the morning email: the hub sends nothing before a person's 7:30 or 8:00 Eastern, nothing after 10:30, never twice a day
 //   */5 * * * *     POST /api/meet/meetings/remind and /pump  meeting reminders, repeats, recordings to Drive, notes
+//   */5 * * * *     POST /api/projects/status/run  Friday 3 PM Eastern: posts each project's update where the owner turned it on
 //   10 * * * *      POST /api/work/fresh   asks Blackbaud which actions changed and has them re-read into the mirror
 // The hub records what each pass did (act_settings drain:last and fresh:last, shown on /api/work/health). A failed call throws, so a
 // stopped job shows as a failed run in Cloudflare and, a day later, as a stale line in health.
@@ -49,6 +50,9 @@ async function meetings(env) {
     work++;
   }
   console.log('meetings: sent ' + r.sent + ', made ' + r.made + ', work ' + work);
+  // Friday project updates: the hub answers at once unless it is Friday after 3 PM Eastern and a project has the update on.
+  const u = await call(env, '/api/projects/status/run').catch((err) => ({ error: String(err).slice(0, 160) }));
+  if ((u.posted && u.posted.length) || (u.failed && u.failed.length) || (u.error && !/ 403: /.test(u.error))) console.log('project updates:', JSON.stringify(u));
 }
 
 export default {
