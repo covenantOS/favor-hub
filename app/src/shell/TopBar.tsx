@@ -8,6 +8,8 @@ import { pageVisible } from './model';
 import { resolveNav } from '@hub/data/areas';
 
 interface Props {
+  /** Markup a classic page put in the actions slot. */
+  actions?: string;
   view: NavView;
   navId: string;
   /** The page's own title, used when the page is not in the menu. */
@@ -21,7 +23,7 @@ interface Props {
 }
 
 /** The top bar: menu button (phone), the area's tile and title, its tabs, then search, bell, Clips, help, Feedback and Make a request. */
-export function TopBar({ view, navId, title, crumb = 'FavorOS', access, kpiTeams, menuOpen, onMenu, onRemember }: Props) {
+export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, menuOpen, onMenu, onRemember }: Props) {
   const found = resolveNav(navId);
   const area = found?.area;
   const tabs = area ? area.pages.filter((p) => !p.ext && pageVisible(p, access, kpiTeams)) : [];
@@ -64,11 +66,18 @@ export function TopBar({ view, navId, title, crumb = 'FavorOS', access, kpiTeams
         )}
       </div>
       <div className="h-top__right" data-ui-actions>
-        <div className="pp-headsearch pv-find" id="pp-headsearch" hidden />
+        <div className="pp-headsearch pv-find" id="pp-headsearch" hidden>
+          <label className="pv-find__box">
+            <Icon name="search" />
+            <input type="search" placeholder="Find a partner" autoComplete="off" aria-label="Find a partner" />
+            <kbd>Ctrl K</kbd>
+          </label>
+          <ul className="pv-find__list" role="listbox" hidden />
+        </div>
         <button type="button" className="h-top__search" data-cmdk-open aria-label="Search FavorOS">
           <Icon name="search" />
         </button>
-        <span className="h-top__actions" id="h-actions" />
+        <span className="h-top__actions" id="h-actions" dangerouslySetInnerHTML={{ __html: actions }} />
         <Bell access={access} />
         <a className="h-top__cam h-top__lib" id="clip-lib" href="/clips/" hidden={!access.clips} aria-label="My clips" title="My clips">
           <Icon name="clips" />

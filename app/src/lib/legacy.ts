@@ -29,20 +29,30 @@ export function loadStyle(href: string) {
   document.head.appendChild(l);
 }
 
-/** Helper scripts the whole shell uses. Each reads markup the shell already rendered. Order matters (hubOv first, set by lib/hubOv). */
-export const SHELL_SCRIPTS = [
-  '/js/chat/mention-input.js?v=1', // the Chat and Brain dock panel builds on it
-  '/js/clips-launch.js?v=5', // the camera button (#clip-cam) and the recording pill
-  '/js/drill.js?v=5', // the rows behind a number (data-drill)
-  '/js/copy-stamp.js?v=1', // the "as of" stamp (data-copy-stamp)
-] as const;
+export interface LayoutAssets {
+  css: string[];
+  js: string[];
+}
+
+let assets: Promise<LayoutAssets> | null = null;
+/** The stylesheets and scripts the classic layout carries, read from the build (scripts/app-layout-css.mjs), so versions never drift from the pages. */
+export function layoutAssets(): Promise<LayoutAssets> {
+  if (!assets) {
+    assets = fetch('/_app/layout-assets.json', { credentials: 'same-origin' })
+      .then((r) => (r.ok ? (r.json() as Promise<LayoutAssets>) : { css: [], js: [] }))
+      .catch(() => ({ css: [], js: [] }));
+  }
+  return assets;
+}
+
+/** Helper scripts the frame itself uses, found in the layout's list by name so the version is always the one the pages use. */
+const FRAME_HELPERS = ['mention-input', 'drill'] as const;
 
 /** Load the shell's helper scripts once the first frame has painted. */
-export function mountShellScripts(): Promise<unknown> {
-  return SHELL_SCRIPTS.reduce<Promise<unknown>>(
-    (chain, src) => chain.then(() => loadScript(src)).catch((e) => console.warn('[legacy]', (e as Error).message)),
-    Promise.resolve()
-  );
+export async function mountShellScripts(): Promise<void> {
+  const { js } = await layoutAssets();
+  const list = ['/js/clips-launch.js?v=5', '/js/copy-stamp.js?v=1', ...FRAME_HELPERS.map((n) => js.find((s) => s.includes('/' + n + '.js'))).filter((x): x is string => !!x)];
+  await list.reduce<Promise<unknown>>((chain, src) => chain.then(() => loadScript(src)).catch((e) => console.warn('[legacy]', (e as Error).message)), Promise.resolve());
 }
 
 /** A frame after paint, so scripts never sit between the first render and what people see. */

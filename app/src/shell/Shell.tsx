@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore, type ReactNode } from 'react';
+import { pageMeta } from './meta';
 import { useMatches, useRouterState } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import type { HubUser } from '@shared/schemas';
@@ -37,8 +38,9 @@ export function Shell({ children }: { children: ReactNode }) {
   const app2 = useApp2();
   const meta = useMatches({ select: (m) => m.map((x) => x.staticData as RouteMeta | undefined).filter(Boolean).at(-1) }) ?? {};
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const navId = meta.nav || '';
-  const title = meta.title || 'FavorOS';
+  const pm = useSyncExternalStore(pageMeta.subscribe, pageMeta.get);
+  const navId = meta.nav || pm.nav || '';
+  const title = meta.title || pm.title || 'FavorOS';
   const d = nav.data;
   const user = d?.user ?? EMPTY_USER;
   const access = useMemo(() => (d?.access ?? { admin: false, kpi: false }) as Record<string, unknown> & { admin: boolean; kpi: boolean }, [d]);
@@ -110,7 +112,8 @@ export function Shell({ children }: { children: ReactNode }) {
     location.href = '/login/?signedout=1';
   }, [qc]);
 
-  const layoutClass = meta.layout === 'bare' ? 'h-bare' : meta.layout === 'wide' ? 'h-page h-page--wide' : meta.layout === 'full' ? 'h-page h-page--full' : 'h-page';
+  const layout = meta.layout || (pm.nav ? pm.layout : undefined);
+  const layoutClass = layout === 'bare' ? 'h-bare' : layout === 'wide' ? 'h-page h-page--wide' : layout === 'full' ? 'h-page h-page--full' : 'h-page';
 
   return (
     <ServedRoutes.Provider value={served}>
@@ -132,7 +135,7 @@ export function Shell({ children }: { children: ReactNode }) {
         />
         <div className="h-main">
           <ErrorBoundary label="The top bar could not load." className="h-top">
-            <TopBar view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />
+            <TopBar actions={pm.actions} view={view} navId={navId} title={title} access={access} kpiTeams={kpiTeams} menuOpen={rail.navOpen} onMenu={() => rail.setNavOpen(!rail.navOpen)} onRemember={rail.remember} />
           </ErrorBoundary>
           <main id="h-content" tabIndex={-1} className={layoutClass}>
             {children}

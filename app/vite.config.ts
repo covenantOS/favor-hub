@@ -21,6 +21,7 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 export default defineConfig({
   root: here,
   base: '/_app/',
+  define: { __BUILD__: JSON.stringify(String(Date.now())) },
   publicDir: false,
   plugins: [
     tanstackRouter({ target: 'react', autoCodeSplitting: true, routesDirectory: './src/routes', generatedRouteTree: './src/routeTree.gen.ts' }),

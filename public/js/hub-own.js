@@ -6,7 +6,7 @@
    list, or when it comes from code hub-swap.js evaluated (named hub-page-N.js). */
 (function () {
   if (window.__hubOwn) return;
-  var SHELL = /\/js\/(app-update|sheets|drill|thank|prep|partner|records|add-partner|ux-pass|hub-own|hub-shell|hub-nav|hub-swap|clips-launch|wc-bell|sticky-col|mention-input|request-tasks|request-drawer)\.js|\/_astro\//;
+  var SHELL = /\/js\/(?:[a-z]+\/)?(app-update|sheets|drill|thank|prep|partner|records|add-partner|ux-pass|hub-own|hub-shell|hub-nav|hub-swap|clips-launch|wc-bell|sticky-col|mention-input|request-tasks|request-drawer|favor-data|favor-ui|favor-entity|favor-share|dock|dock-panel|links)\.js|\/_astro\/|\/_app\/assets\//;
   var own = { iv: [], to: [], ls: [], ob: [], ws: [] };
   var st = { sync: false, held: [] };
   var oSI = window.setInterval, oCI = window.clearInterval, oST = window.setTimeout, oCT = window.clearTimeout;

@@ -1,7 +1,7 @@
 {
   "name": "favor-hub",
   "version": "1.0.0",
-  "description": "Favor International — Hub. Editorial mission-control dashboard.",
+  "description": "Favor International \u2014 Hub. Editorial mission-control dashboard.",
   "type": "module",
   "scripts": {
     "dev": "astro dev",
@@ -13,11 +13,12 @@
     "lint:ui": "node tests/ui/lintapple-sweep.mjs",
     "lint:ui:all": "node tests/ui/lintapple-sweep.mjs --all",
     "lint:ui:baseline": "node tests/ui/lintapple-sweep.mjs --write-baseline",
-    "app:build": "vite build -c app/vite.config.ts",
+    "app:build": "vite build -c app/vite.config.ts && node scripts/app-layout-css.mjs",
     "app:dev": "vite -c app/vite.config.ts",
     "app:test": "vitest run -c app/vite.config.ts",
     "app:e2e": "node app/e2e/run.mjs",
-    "typecheck": "tsc -p app/tsconfig.json --noEmit"
+    "typecheck": "tsc -p app/tsconfig.json --noEmit",
+    "app:e2e:islands": "node app/e2e/islands.mjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

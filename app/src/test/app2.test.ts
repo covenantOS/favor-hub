@@ -14,11 +14,14 @@ describe('which routes the app serves', () => {
   });
   it('drops routes the app has not built', () => {
     expect(parseRoutes('/, /nope/')).toEqual(['/']);
+    expect(parseRoutes('/chat/')).toEqual(['/chat/']);
     expect(parseRoutes('/nope/')).toEqual([]);
   });
   it('/ matches only itself; other routes own what is under them', () => {
     expect(routeServed('/', ['/'])).toBe(true);
     expect(routeServed('/work/', ['/'])).toBe(false);
+    expect(routeServed('/meet/room/', ['/meet/'])).toBe(false);
+    expect(routeServed('/meet/', ['/meet/'])).toBe(true);
     expect(routeServed('/chat/general', ['/chat/'])).toBe(true);
     expect(routeServed('/chatter/', ['/chat/'])).toBe(false);
     expect(routeServed('/', [])).toBe(false);

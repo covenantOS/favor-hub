@@ -76,6 +76,8 @@ export async function decide(env: Env, request: Request, url: URL, user: HubUser
     }
     return { kind: 'redirect', to, cookie: optInCookie([], false) };
   }
+  // ?classic=1 is the way out for one page load: the app uses it for a page that cannot run inside the frame.
+  if (url.searchParams.get('classic') === '1') return { kind: 'pass' };
   if (!user || !hasOptInCookie(request) || !isPageLoad(request)) return { kind: 'pass' };
   const s = await readApp2Settings(env);
   if (!inAudience(user, s) || !routeServed(url.pathname, s.routes)) return { kind: 'pass' };

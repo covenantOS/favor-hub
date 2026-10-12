@@ -62,7 +62,7 @@ export function EntityChip({ kind, id, label, href }: Props) {
       <NavLink
         className={cls}
         href={link}
-        data-entity={kind + ':' + id}
+        data-fe-react={kind + ':' + id} data-fe-off="1"
         {...handlers}
         onClick={(e) => {
           if (phone()) {
@@ -76,7 +76,7 @@ export function EntityChip({ kind, id, label, href }: Props) {
     );
   }
   return (
-    <button type="button" className={cls} data-entity={kind + ':' + id} title={KIND_LABEL[kind]} {...handlers} onClick={(e) => show(e.currentTarget)}>
+    <button type="button" className={cls} data-fe-react={kind + ':' + id} data-fe-off="1" title={KIND_LABEL[kind]} {...handlers} onClick={(e) => show(e.currentTarget)}>
       {inner}
     </button>
   );
