@@ -137,10 +137,10 @@ export async function revoke(env: Env, email: string): Promise<void> {
 
 // Google answers 429 or 5xx when one person's calls bunch up (Today, the menu badge and Mail all ask at once), so a refusal waits a
 // moment and asks again, and the last one is logged with Google's own reason.
-const g = async (token: string, url: string) => {
+const g = async (token: string, url: string, f: typeof fetch = fetch) => {
   let last = '';
   for (let i = 0; i < 4; i++) {
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await f(url, { headers: { Authorization: `Bearer ${token}` } });
     if (res.ok) return res.json() as Promise<any>;
     const body = (await res.json().catch(() => ({}))) as any;
     last = `${new URL(url).hostname} ${res.status} ${String(body?.error?.errors?.[0]?.reason || body?.error?.status || '').slice(0, 60)} ${String(body?.error?.message || '').slice(0, 120)}`.trim();
@@ -245,13 +245,13 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
 }
 
 /** Unread inbox mail from the last three days, headers only. The card's count is the Inbox's whole unread number. */
-export async function unreadMail(token: string): Promise<DayMail[]> {
+export async function unreadMail(token: string, f: typeof fetch = fetch): Promise<DayMail[]> {
   // A headers-only grant cannot search, so it lists the inbox's unread label instead.
-  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent('in:inbox is:unread newer_than:3d') + '&maxResults=15').catch(() => g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15'));
+  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent('in:inbox is:unread newer_than:3d') + '&maxResults=15', f).catch(() => g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15', f));
   const ids: string[] = (list.messages || []).map((m: any) => m.id);
   const cutoff = Date.now() - 3 * 864e5;
   // One request per message, all at once (they ran one after another and took about 3 s).
-  const msgs = await Promise.all(ids.map((id) => g(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`).catch(() => null)));
+  const msgs = await Promise.all(ids.map((id) => g(token, `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date`, f).catch(() => null)));
   const out: DayMail[] = [];
   for (const m of msgs) {
     if (!m || Number(m.internalDate) < cutoff) continue;

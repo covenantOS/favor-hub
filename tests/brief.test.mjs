@@ -60,6 +60,13 @@ describe('next best action', () => {
     assert.equal(n.urgency, 3);
     assert.match(n.label, /^Thank Ada for the \$250 gift$/);
   });
+  it('keeps the whole name of an organization with an accent or a French or Spanish word', () => {
+    for (const name of ['Église Saint-Jean', 'Eglise Evangelique de Paris', 'Iglesia Bautista Central', 'Fondation Espérance', 'New Life Church']) {
+      const n = sig.nextAction(f({ name, quiet: 300 }), TODAY);
+      assert.ok(n.label.includes(name), name + ' -> ' + n.label);
+    }
+    assert.match(sig.nextAction(f({ name: 'Zoë Martin', quiet: 300 }), TODAY).label, /Zoë to /);
+  });
   it('welcomes a new partner nobody has contacted', () => {
     const n = sig.nextAction(f({ firstGiftDays: 6, quiet: null }), TODAY);
     assert.equal(n.kind, 'welcome');

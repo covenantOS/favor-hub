@@ -37,6 +37,20 @@ async function withRooms(env: Env, email: string, events: DayEvent[] | null): Pr
   return out.sort((a, b) => a.start.localeCompare(b.start));
 }
 
+
+/** Rooms booked in the hub for today and the next two days, as calendar-shaped events (the test users have no calendar to read). */
+async function upcomingRooms(env: Env, email: string): Promise<DayEvent[]> {
+  const rows = await env.DB.prepare(
+    `SELECT id, title, starts_at, ends_at, invitees FROM hub_meetings WHERE status IN ('scheduled', 'live') AND starts_at >= ?1 AND starts_at <= ?2
+        AND (lower(host_email) = ?3 OR instr(lower(invitees), '"' || ?3 || '"') > 0) ORDER BY starts_at LIMIT 8`
+  ).bind(new Date(Date.now() - 36e5).toISOString(), new Date(Date.now() + 3 * 864e5).toISOString(), email).all<{ id: string; title: string; starts_at: string; ends_at: string | null; invitees: string }>().catch(() => ({ results: [] as any[] }));
+  return (rows.results || []).map((r) => {
+    let people: string[] = [];
+    try { people = (JSON.parse(r.invitees || '[]') as Array<{ email?: string }>).map((i) => String(i.email || '').toLowerCase()).filter((x) => x && x !== email); } catch { people = []; }
+    return { id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id } as unknown as DayEvent;
+  });
+}
+
 // Your day, for Today: open Blackbaud actions assigned to you (overdue and the next 7 days) and,
 // once you have connected Google, today's meetings, files shared or changed by others this week,
 // and unread mail. What counts as an open action is defined in _lib/hub/actions.ts. Meetings and
@@ -60,7 +74,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // A test user has no Google account: Today shows the sample mailbox's unread mail so the card and the menu count agree.
       if (isTester(email)) {
         const [sample, count, sampleP] = await Promise.all([import('../../_lib/mail/sample').then((m) => m.sampleUnread(env, email)).catch(() => null), mailUnreadCount(env, email).catch(() => null), import('../../_lib/mail/sample').then((m) => m.samplePartners(env, ['maya.okafor@example.org', 'tom@whitfieldfamily.example', 'dortiz@example.com'])).catch(() => ({}))]);
-        return { connected: true, events: await withRooms(env, email, []), mayWrite: false, files: null, mail: sample, mailUnread: count, partners: Object.fromEntries(Object.entries(sampleP as Record<string, { id: string; name: string }>).map(([k, v]) => [k, { id: v.id, name: v.name }])) };
+        return { connected: true, events: await withRooms(env, email, await upcomingRooms(env, email)), mayWrite: false, files: null, mail: sample, mailUnread: count, partners: Object.fromEntries(Object.entries(sampleP as Record<string, { id: string; name: string }>).map(([k, v]) => [k, { id: v.id, name: v.name }])) };
       }
       const t = await accessToken(env, email);
       if (!t) return { connected: false, events: await withRooms(env, email, []) };
