@@ -134,6 +134,7 @@
   try { S.ro = localStorage.getItem('favor.mail.ro') === '1'; } catch (e) { /* private mode */ }
   try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); S.nav = (nv && nv.access) || {}; } catch (e) { /* none */ }
 
+  function hubAccess() { try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); return (nv && nv.access) || {}; } catch (e) { return {}; } }
   var SYS_ICON = { INBOX: 'inbox', STARRED: 'star', SNOOZED: 'clock', IMPORTANT: 'imp', SENT: 'send', DRAFT: 'draft', ALL: 'all', SPAM: 'spam', TRASH: 'trash' };
   var labelName = function (id) { var l = S.labels.filter(function (x) { return x.id === id; })[0]; return l ? l.name : ({ INBOX: 'Inbox', STARRED: 'Starred', SNOOZED: 'Snoozed', SENT: 'Sent', DRAFT: 'Drafts', ALL: 'All mail', SPAM: 'Spam', TRASH: 'Trash', IMPORTANT: 'Important' }[id] || id); };
   var canWrite = function () { return S.write && !S.ro; };
@@ -148,10 +149,44 @@
     '<section class="ml-list" aria-label="Conversations">' +
       '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
       '<div class="ml-list__head"><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
-      '<div class="ml-rows" data-rows role="list"></div>' +
+      '<div class="ml-rows" data-rows></div>' +
     '</section>' +
     '<section class="ml-read" aria-label="Conversation" data-read></section>' +
     '<div class="ml-toast" role="status" aria-live="polite" hidden></div>';
+
+  /* ------------------------------------------------------------------ tooltips for icon buttons */
+  // Every button that shows only an icon gets a text tooltip (its label, with the key when it has one), shown on hover and on
+  // keyboard focus. The tooltip texts live once each in #ml-tips and the buttons point at them.
+  var tips = document.createElement('div'); tips.id = 'ml-tips'; document.body.appendChild(tips);
+  var bubble = document.createElement('div'); bubble.className = 'ml-tip'; bubble.hidden = true; bubble.setAttribute('aria-hidden', 'true'); document.body.appendChild(bubble);
+  var tipIds = {}, tipN = 0, tipT = 0;
+  function tipFor(text) {
+    if (!tipIds[text]) { var sp = document.createElement('span'); sp.id = 'ml-tip-' + (++tipN); sp.setAttribute('role', 'tooltip'); sp.textContent = text; tips.appendChild(sp); tipIds[text] = sp.id; }
+    return tipIds[text];
+  }
+  function tipScan(scope) {
+    if (!scope.querySelectorAll) return;
+    scope.querySelectorAll('button[aria-label]:not([data-ui-tooltip]), a[aria-label]:not([data-ui-tooltip])').forEach(function (b) {
+      if (/[A-Za-z0-9]/.test(b.textContent)) return;
+      var text = b.getAttribute('title') || b.getAttribute('aria-label');
+      b.removeAttribute('title');
+      b.setAttribute('data-ui-tooltip', tipFor(text));
+    });
+  }
+  new MutationObserver(function (list) { list.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1 && n.closest && n.closest('.ml, .ml-sheet, .ml-c')) tipScan(n.parentNode || n); }); }); }).observe(document.body, { childList: true, subtree: true });
+  tipScan(root);
+  function tipShow(b) {
+    var sp = document.getElementById(b.getAttribute('data-ui-tooltip')); if (!sp) return;
+    bubble.textContent = sp.textContent; bubble.hidden = false;
+    var r = b.getBoundingClientRect(), w = bubble.offsetWidth;
+    var top = r.bottom + 6; if (top + 30 > innerHeight) top = r.top - 32;
+    bubble.style.top = top + 'px'; bubble.style.left = Math.max(6, Math.min(innerWidth - w - 6, r.left + r.width / 2 - w / 2)) + 'px';
+  }
+  function tipHide() { clearTimeout(tipT); bubble.hidden = true; }
+  document.addEventListener('pointerover', function (e) { if (e.pointerType !== 'mouse') return; var b = e.target.closest && e.target.closest('[data-ui-tooltip]'); if (!b || !b.closest('.ml, .ml-sheet, .ml-c')) return; clearTimeout(tipT); tipT = setTimeout(function () { if (b.isConnected) tipShow(b); }, 450); });
+  document.addEventListener('pointerout', function (e) { if (e.target.closest && e.target.closest('[data-ui-tooltip]')) tipHide(); });
+  document.addEventListener('pointerdown', tipHide, true);
+  document.addEventListener('focusin', function (e) { var b = e.target.closest && e.target.closest('[data-ui-tooltip]'); if (b && document.documentElement.classList.contains('kbd') && b.closest('.ml, .ml-sheet, .ml-c')) tipShow(b); else tipHide(); });
 
   /* ------------------------------------------------------------------ toast */
   var toastT = 0;
@@ -173,7 +208,7 @@
     if (sheetEl) { hadPush = sheetPushed; sheetEl.remove(); sheetEl = null; sheetPushed = false; }
     var el = document.createElement('div');
     el.className = 'ml-sheet' + (opts.anchor && !isPhone() ? ' ml-sheet--pop' : '') + (opts.wide ? ' ml-sheet--wide' : '');
-    el.innerHTML = '<div class="ml-sheet__scrim" data-close></div><div class="ml-sheet__box" role="dialog" aria-modal="true" aria-label="' + esc(title) + '"><div class="ml-sheet__head"><b>' + esc(title) + '</b><button type="button" class="ml-iconbtn" data-close aria-label="Close">' + ic('x') + '</button></div><div class="ml-sheet__body">' + html + '</div></div>';
+    el.innerHTML = '<div class="ml-sheet__scrim" data-close></div><div class="ml-sheet__box" role="dialog" aria-modal="true" tabindex="-1" aria-label="' + esc(title) + '"><div class="ml-sheet__head"><b>' + esc(title) + '</b><button type="button" class="ml-iconbtn" data-close aria-label="Close">' + ic('x') + '</button></div><div class="ml-sheet__body">' + html + '</div></div>';
     document.body.appendChild(el);
     var box = el.querySelector('.ml-sheet__box');
     if (opts.anchor && !isPhone()) {
@@ -187,6 +222,7 @@
       el.classList.add('is-in');
       var f = el.querySelector('[autofocus], input:not([type=hidden]):not([type=checkbox]), select, textarea, button:not([data-close])');
       if (f && !isPhone()) f.focus({ preventScroll: true });
+      else box.focus({ preventScroll: true });
     });
     if (hadPush) sheetPushed = true;
     else if (isPhone()) { history.pushState({ mlSheet: 1 }, ''); sheetPushed = true; }
@@ -284,7 +320,7 @@
     var name = (t.people || []).length === 1 ? who(t.people[0]) : names.join(', ');
     if (t.draft && S.label === 'DRAFT') name = 'Draft';
     var on = S.open === t.id;
-    return '<div class="ml-row' + (t.unread ? ' is-unread' : '') + (on ? ' is-open' : '') + (i === S.sel ? ' is-sel' : '') + '" role="listitem" data-i="' + i + '" data-id="' + esc(t.id) + '">' +
+    return '<div class="ml-row' + (t.unread ? ' is-unread' : '') + (on ? ' is-open' : '') + (i === S.sel ? ' is-sel' : '') + '" data-i="' + i + '" data-id="' + esc(t.id) + '">' +
       '<a class="ml-row__a" href="#/' + (S.q ? 'search/' + encodeURIComponent(S.q) : encodeURIComponent(S.label)) + '/' + encodeURIComponent(t.id) + '" data-open="' + esc(t.id) + '"' + (on ? ' aria-current="true"' : '') + '>' +
         '<span class="ml-av" data-h="' + hue((t.from && t.from.email) || name) + '">' + esc(initials(t.from && t.from.email === S.me ? S.name : who(t.from) || name)) + '</span>' +
         '<span class="ml-row__t"><span class="ml-row__l1"><b class="ml-row__who">' + esc(name || '(no sender)') + (t.count > 1 ? ' <small>' + t.count + '</small>' : '') + (t.draft && S.label !== 'DRAFT' ? ' <em class="ml-draftword">Draft</em>' : '') + '</b><time>' + esc(when(t.date)) + '</time></span>' +
@@ -450,7 +486,7 @@
     var kind = kindOf(f.mime, f.name);
     var url = api.fileUrl(m.id, f);
     var pic = kind === 'image' ? '<img src="' + esc(url) + '" alt="" loading="lazy" decoding="async" />' : '<span class="ml-fic" data-k="' + kind + '">' + esc((String(f.name).split('.').pop() || 'file').slice(0, 4).toUpperCase()) + '</span>';
-    return '<div class="ml-file"><button type="button" class="ml-file__open" data-act="view-file" data-k="' + k + '" aria-label="Open ' + esc(f.name) + '">' + pic + '<span class="ml-file__t"><b>' + esc(f.name) + '</b><small>' + esc(size(f.size)) + '</small></span></button>' +
+    return '<div class="ml-file"><button type="button" class="ml-file__open" data-act="view-file" data-k="' + k + '">' + pic + '<span class="ml-file__t"><b>' + esc(f.name) + '</b><small>' + esc(size(f.size)) + '</small></span></button>' +
       '<a class="ml-iconbtn" href="' + esc(api.fileUrl(m.id, f, true)) + '" download="' + esc(f.name) + '" aria-label="Download ' + esc(f.name) + '" title="Download">' + ic('dl') + '</a></div>';
   }
 
@@ -690,7 +726,7 @@
       ['to-chat', 'chat', 'Send to Chat', 'A channel or a person']
     ];
     if (p) items.push(['open-partner', 'person', 'Open partner', p.name || '']);
-    if (p && S.nav.workCenter) items.push(['log-action', 'log', 'Log as an action in Blackbaud', '']);
+    if (p && hubAccess().workCenter) items.push(['log-action', 'log', 'Log as an action in Blackbaud', '']);
     if (isPhone()) {
       items.push(['toggle-read', 'unread', 'Mark as unread', '']);
       items.push(['snooze', 'clock', 'Snooze', '']);
