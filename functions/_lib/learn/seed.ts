@@ -46,6 +46,7 @@ export const COURSES: SeedCourse[] = [
     audience: 'Everyone',
     color: 'sky',
     lessons: [
+      video('favoros-walk-through'),
       article('getting-started', 'Start here'),
       article('signing-in', 'Signing in and connecting Google'),
       article('today', 'Your Today page'),

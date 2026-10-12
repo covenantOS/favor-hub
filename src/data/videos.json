@@ -1,5 +1,18 @@
 [
  {
+  "slug": "favoros-walk-through",
+  "title": "FavorOS, a walk-through",
+  "added": "2026-10-12",
+  "topic": "hub",
+  "roles": [
+   "all"
+  ],
+  "summary": "A tour of every tool in FavorOS, from signing in and the Today page through chat, meetings, mail, projects, requests, Favor Brain, reporting and help.",
+  "seconds": 176,
+  "transcript": "This is a walk through FavorOS. Every name you'll see here is made up. Go to dash.favorintl.org. Click Sign in with Google, and pick your Favor account. Google asks one time to share your calendar, mail and files. Click Allow, and you're in. You land on Today. It's your home page. Needs you shows what's waiting on you, like a task that's due. Today's meetings sit right under it. And below that is where the year stands. Every tool is in the menu on the left. Your menu shows the tools for your job, so yours may be shorter. To jump anywhere, press Control and K. Type a few letters, and press Enter. Chat is where the team talks. Channels are on the left, and direct messages are under them. Click a channel to read it. Type your message at the bottom, and press Enter to send it. When someone names you, a number shows on Chat in the menu. Meetings shows your day. Click Start now for a quick call, or Book to plan one. After a call, the notes land under Notes, with what was decided. To record your screen, click the camera at the top. That makes a clip you can share. Mail is your own Gmail, right here. Nobody else sees it. Click a message to read it, and reply from the same page. Projects holds your tasks. My tasks lists what's due, soonest first. Click the circle when a task is done. Open a project to see the whole plan, and who has each piece. When you need something from another team, click Make a request. Type what you need, the way you'd say it to a coworker. Then click Continue, and it goes to the right place. The request board shows where every request stands. Expenses, Receipts, Statements and Foundations are on the same row. Favor Brain answers questions about Favor, in plain words. Ask about partners, giving, your team's numbers, or how to do something in Blackbaud. The answer comes back with the numbers, and any list opens as a Google Sheet. Reporting has the KPI dashboard. Everyone sees the Executive page, and your team's tab sits beside it. Help has a short tour of every tool, and the docs answer the rest. And if something ever looks wrong, click Feedback at the top, and say what you saw. That's FavorOS.",
+  "cut": "2026-10-12a"
+ },
+ {
   "slug": "first-week-in-blackbaud",
   "title": "Your first week in Blackbaud",
   "added": "2026-10-06",

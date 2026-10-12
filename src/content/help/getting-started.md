@@ -3,7 +3,7 @@ title: Start here
 summary: What FavorOS is, how to get around it, and where to go when you need something.
 topic: start
 order: 1
-videos: [meet-the-hub, hub-walk-through]
+videos: [favoros-walk-through]
 related: [signing-in, today, search, guided-tour]
 updated: 2026-10-09
 ---

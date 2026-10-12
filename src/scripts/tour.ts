@@ -991,7 +991,7 @@ function sheetHtml(): string {
             <span class="trn-t"><b>Tour of FavorOS</b><span>Today, the menu, search, requests and your own tools.</span></span>
             ${corePending() ? '<span class="trn-chev" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg></span>' : '<em class="trn-done">Done</em>'}
           </button>
-          <div class="trn-links"><a href="/help/getting-started/">Help article</a></div>
+          <div class="trn-links"><a href="/help/getting-started/">Help article</a><a href="/help/videos/favoros-walk-through/">Training video</a></div>
         </li>
       </ul>
       ${core && waiting.length ? `<p class="trn-after">After the tour: ${waiting.length} short ${waiting.length === 1 ? 'walkthrough' : 'walkthroughs'} of what is new.</p>` : groups}
