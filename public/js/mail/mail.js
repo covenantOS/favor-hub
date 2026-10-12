@@ -116,6 +116,41 @@
   // Every call for a conversation names the mailbox it lives in (?mb=); the person's own mailbox is the one with none.
   function pathMb(path, mb) { return mb ? path + (path.indexOf('?') < 0 ? '?' : '&') + 'mb=' + encodeURIComponent(mb) : path; }
   function boxOf(id) { return (S.mbOf && S.mbOf[id]) || ''; }
+  /* The conversations opened or read ahead are kept on this device (IndexedDB 'favor-mail'), never on the server: a thread opens from here
+     at once while a check against Gmail runs behind it. Cleared at sign-out, when another person signs in, and after seven days. */
+  var DEV = (function () {
+    var open = null, TTL = 7 * 864e5;
+    function db() {
+      if (open) return open;
+      open = new Promise(function (ok) {
+        if (!window.indexedDB) return ok(null);
+        var r = indexedDB.open('favor-mail', 1);
+        r.onupgradeneeded = function () { r.result.createObjectStore('threads', { keyPath: 'k' }); };
+        r.onsuccess = function () { ok(r.result); };
+        r.onerror = function () { ok(null); };
+      });
+      return open;
+    }
+    function run(mode, fn) {
+      return db().then(function (d) {
+        if (!d) return null;
+        return new Promise(function (ok) {
+          try { var tx = d.transaction('threads', mode), st = tx.objectStore('threads'), req = fn(st); tx.oncomplete = function () { ok(req && req.result !== undefined ? req.result : null); }; tx.onerror = tx.onabort = function () { ok(null); }; } catch (e) { ok(null); }
+        });
+      });
+    }
+    var key = function (id) { return S.me + '|' + boxOf(id) + '|' + id; };
+    return {
+      get: function (id) { return run('readonly', function (st) { return st.get(key(id)); }).then(function (r) { return r && Date.now() - r.at < TTL ? r : null; }); },
+      put: function (id, data) { return run('readwrite', function (st) { return st.put({ k: key(id), at: Date.now(), data: data }); }); },
+      drop: function (id) { return run('readwrite', function (st) { return st.delete(key(id)); }); },
+      sweep: function () {
+        try { var who = localStorage.getItem('favor.mail.owner'); if (who && who !== S.me && window.indexedDB) { indexedDB.deleteDatabase('favor-mail'); open = null; } localStorage.setItem('favor.mail.owner', S.me); } catch (e) { /* private mode */ }
+        run('readwrite', function (st) { var c = st.openCursor(); c.onsuccess = function () { var cur = c.result; if (!cur) return; if (Date.now() - cur.value.at > TTL) cur.delete(); cur.continue(); }; return c; });
+      }
+    };
+  })();
+  var sigOf = function (d) { return (d && d.thread ? d.thread.messages || [] : []).map(function (m) { return m.id + ':' + (m.labelIds || []).join(','); }).join('|'); };
   // The first conversations of a list are read ahead, so opening one shows it at once. Any change to a conversation drops its copy.
   var PRE = {};
   var api = {
@@ -163,11 +198,12 @@
     overview: function (mb) { return req('GET', pathMb('smart/overview', mb)); },
     assist: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))); },
     partner: function (id) { return req('GET', 'partner/' + encodeURIComponent(id)); },
-    bulk: function (b, mb) { (b.ids || []).forEach(function (i) { delete PRE[i]; }); return req('POST', pathMb('bulk', mb), b); },
+    bulk: function (b, mb) { (b.ids || []).forEach(function (i) { delete PRE[i]; DEV.drop(i); }); return req('POST', pathMb('bulk', mb), b); },
     moveCat: function (senders, cat, mb) { return req('POST', pathMb('smart/move', mb), { senders: senders, cat: cat }); },
-    thread: function (id) { var h = PRE[id]; if (h && Date.now() - h.at < 90000) return h.p; return req('GET', pathMb('threads/' + encodeURIComponent(id), boxOf(id))); },
-    modify: function (id, add, remove) { delete PRE[id]; return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/modify', boxOf(id)), { add: add || [], remove: remove || [] }); },
-    trash: function (id) { delete PRE[id]; return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/trash', boxOf(id)), {}); },
+    thread: function (id) { var h = PRE[id]; if (h && Date.now() - h.at < 90000) return h.p; var p = req('GET', pathMb('threads/' + encodeURIComponent(id), boxOf(id))); p.then(function (d) { if (!d.headersOnly) DEV.put(id, d); }).catch(function () {}); return p; },
+    batch: function (ids, mb) { return req('POST', pathMb('threads/batch', mb), { ids: ids }); },
+    modify: function (id, add, remove) { delete PRE[id]; DEV.drop(id); return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/modify', boxOf(id)), { add: add || [], remove: remove || [] }); },
+    trash: function (id) { delete PRE[id]; DEV.drop(id); return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/trash', boxOf(id)), {}); },
     untrash: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/untrash', boxOf(id)), {}); },
     snooze: function (id, until) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id)), { until: until }); },
     unsnooze: function (id) { return req('DELETE', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id))); },
@@ -185,7 +221,14 @@
     logAction: function (b) { return req('POST', '/api/work/entry/many', b); },
     fileUrl: function (mid, f, dl) { return '/api/mail/messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + (dl ? '&dl=1' : '') + (S.threadBox ? '&mb=' + encodeURIComponent(S.threadBox) : ''); }
   };
-  if (MOCK && window.FavorMailMock) api = window.FavorMailMock(api);
+  if (MOCK && window.FavorMailMock) {
+    var realThread = api.thread;
+    api = window.FavorMailMock(api);
+    // The sample mailbox goes through the same read-ahead and device copy as a real one.
+    var mockThread = api.thread;
+    api.thread = function (id) { var h = PRE[id]; if (h && Date.now() - h.at < 90000) return h.p; var p = mockThread(id); p.then(function (d) { if (!d.headersOnly) DEV.put(id, d); }).catch(function () {}); return p; };
+    void realThread;
+  }
 
   /* ------------------------------------------------------------------ state */
   var S = {
@@ -833,8 +876,41 @@
       rows.innerHTML = '<div class="ml-empty"><b>Mail did not load</b><span>' + esc(e.message) + '</span><button type="button" class="ml-btn" data-act="refresh">Try again</button></div>';
     });
   }
+  // Read-ahead: the first 20 rows when the browser is idle (in batches of five, one request to Gmail each), a row as the pointer or focus
+  // reaches it, and the conversations either side of the open one. Everything lands in PRE (this tab) and on the device.
+  var batching = false;
+  function warm(ids) {
+    var want = ids.filter(function (id) { return id && !(PRE[id] && Date.now() - PRE[id].at < 90000); });
+    if (!want.length || !S.level.read || batching) return;
+    batching = true;
+    var groups = {}; want.forEach(function (id) { var a = boxOf(id); (groups[a] = groups[a] || []).push(id); });
+    var jobs = Object.keys(groups).map(function (a) {
+      return api.batch(groups[a].slice(0, 5), a).then(function (d) {
+        (d.threads || []).forEach(function (t) { var data = { thread: t.thread, partners: t.partners, drafts: t.drafts }; PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) }; DEV.put(t.id, data); });
+      }).catch(function () { /* opened the ordinary way */ });
+    });
+    Promise.all(jobs).then(function () { batching = false; });
+  }
+  function neighbors(id) {
+    var i = S.threads.findIndex(function (t) { return t.id === id; });
+    if (i < 0) return;
+    setTimeout(function () { warm([S.threads[i + 1], S.threads[i - 1], S.threads[i + 2]].filter(Boolean).map(function (t) { return t.id; })); }, 120);
+  }
+  var hoverT = 0;
+  root.addEventListener('pointerover', function (e) { var r = e.target.closest && e.target.closest('.ml-row[data-id]'); if (!r) return; clearTimeout(hoverT); hoverT = setTimeout(function () { warm([r.dataset.id]); }, 90); });
+  root.addEventListener('focusin', function (e) { var r = e.target.closest && e.target.closest('.ml-row[data-id]'); if (r) warm([r.dataset.id]); });
+  function idleFirst() {
+    var ids = S.threads.slice(0, 20).map(function (t) { return t.id; }), at = 0, seq = listSeq;
+    var next = function () {
+      if (seq !== listSeq || document.hidden || at >= ids.length) return;
+      batching = false; warm(ids.slice(at, at + 5)); at += 5;
+      setTimeout(next, 700);
+    };
+    (window.requestIdleCallback || function (f) { return setTimeout(f, 400); })(next);
+  }
   function prefetch() {
-    var ids = S.threads.slice(0, 5).map(function (t) { return t.id; }).filter(function (id) { return !PRE[id] || Date.now() - PRE[id].at > 90000; });
+    if (S.level.read && S.threads.length) { idleFirst(); return; }
+    var ids = [];
     var seq = listSeq;
     ids.forEach(function (id, k) {
       setTimeout(function () {
@@ -919,11 +995,21 @@
     // The header paints at once from the list row; the messages fill in under it.
     read.innerHTML = threadFrame(t ? { id: id, subject: t.subject, messages: [] } : { id: id, subject: '', messages: [] }, true);
     read.scrollTop = 0;
+    var shown = '';
+    // From this device first: the conversation draws in a few milliseconds while Gmail is asked whether anything changed.
+    if (!(PRE[id] && Date.now() - PRE[id].at < 90000)) DEV.get(id).then(function (c) {
+      if (!c || seq !== threadSeq || shown) return;
+      var d0 = c.data; shown = sigOf(d0);
+      S.thread = d0.thread; S.partners = d0.partners || {}; S.drafts = d0.drafts || {}; S.headersOnly = false;
+      read.innerHTML = threadFrame(d0.thread, false);
+      drawBodies();
+    });
+    neighbors(id);
     return api.thread(id).then(function (d) {
       if (seq !== threadSeq) return;
       S.thread = d.thread; S.partners = d.partners || {}; S.drafts = d.drafts || {}; S.headersOnly = !!d.headersOnly;
-      read.innerHTML = threadFrame(d.thread, false);
-      drawBodies();
+      // Nothing changed since the device copy: leave what is on screen alone.
+      if (!shown || shown !== sigOf(d) || S.headersOnly) { read.innerHTML = threadFrame(d.thread, false); drawBodies(); }
       if (S.headersOnly) renderConnect('read');
       var focus = read.querySelector('.ml-thread__h'); if (focus && opts.focus) focus.focus({ preventScroll: true });
       // Opening marks it read, as Gmail does (only with the person's permission to change mail).
@@ -2302,7 +2388,7 @@
       root.classList.toggle('is-ro', !canWrite() || !S.level.write);
       var bar = $('[data-allow]'); bar.hidden = !(S.level.headers && !S.level.read); $('[data-allow-link]').href = allowUrl('mail');
       if (!d.connected || (!S.level.headers && !S.level.read)) { renderConnect('read'); return; }
-      renderBoxes(); loadBoxes(); loadFrom(); loadNames();
+      DEV.sweep(); renderBoxes(); loadBoxes(); loadFrom(); loadNames();
       loadLabels();
       route();
     }).catch(function (e) {

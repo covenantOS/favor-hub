@@ -103,6 +103,7 @@
   window.FavorMailMock = function (real) {
     var api = Object.assign({}, real, {
       state: function () { return wait({ ok: true, connected: true, email: ME.email, name: ME.name, level: level, write: true, signature: level.read ? '<div>Sam Rivers<br>Favor International</div>' : '', mailboxes: [{ email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a' }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8' }] }, 40); },
+      batch: function (ids) { return wait({ ok: true, threads: ids.map(function (id) { var t = find(id); if (!t) return null; var mine = {}; t.messages.forEach(function (x) { [x.from].concat(x.to, x.cc).forEach(function (a) { if (partners[a.email]) mine[a.email] = partners[a.email]; }); }); return { id: t.id, thread: t, partners: mine, drafts: {} }; }).filter(Boolean) }, 60); },
       hold: function (b) { var id = 'h_' + Math.random().toString(36).slice(2, 8); holds[id] = b; return wait({ ok: true, id: id }, 60); },
       release: function (id) { var b = holds[id]; delete holds[id]; if (!b) return wait({ ok: true, sent: false }, 40); return real.send ? FavorMailMockSend(b) : wait({ ok: true }, 40); },
       cancelHold: function (id) { var had = !!holds[id]; delete holds[id]; return wait({ ok: true, undone: had }, 40); },

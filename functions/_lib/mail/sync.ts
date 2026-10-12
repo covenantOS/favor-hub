@@ -31,9 +31,13 @@ async function save(env: Env, mailbox: string, historyId: string, nextToken: str
 }
 
 /** Reads the newest INBOX conversations once and notes where Gmail's history stands. */
-export async function bootstrap(env: Env, gm: Gmail, mailbox: string): Promise<void> {
+export async function bootstrap(env: Env, gm: Gmail, mailbox: string, later?: (p: Promise<unknown>) => void): Promise<void> {
   const [profile, list] = await Promise.all([gm.get('/profile').catch(() => null), gm.get('/threads', { labelIds: 'INBOX', maxResults: String(BOOT) })]);
-  await rowsFor(gm, mailbox, list.threads || [], 5);
+  const all = list.threads || [];
+  // The first screen is read now; the rest of the first 40 is read after the answer is sent when the caller can wait on it.
+  const now = later ? all.slice(0, 20) : all;
+  await rowsFor(gm, mailbox, now, 6);
+  if (later && all.length > 20) later(rowsFor(gm, mailbox, all.slice(20), 4).catch(() => undefined));
   await save(env, mailbox, String(profile?.historyId || ''), String(list.nextPageToken || ''));
 }
 

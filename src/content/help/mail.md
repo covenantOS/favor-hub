@@ -10,7 +10,7 @@ toolLabel: Open Mail
 updated: 2026-10-12
 ---
 
-Mail shows your own Gmail inside FavorOS. Nobody else sees your mail, and FavorOS keeps no copy of it. It is open to admins for now, and Admin > Settings > Chat > Mail changes who can use it.
+Mail shows your own Gmail inside FavorOS. Nobody else sees your mail. To make the list fast, FavorOS saves for each conversation the sender, the subject, a one-line preview, the labels and the results of sorting it (its category and whether it waits on you). It never saves message bodies or attachments; those are read from Gmail when you open them, and a copy stays on your own device for seven days. Disconnecting Google or removing a mailbox deletes the saved rows for it. It is open to admins for now, and Admin > Settings > Chat > Mail changes who can use it.
 
 ## Allowing it
 

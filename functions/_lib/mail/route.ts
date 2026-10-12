@@ -26,7 +26,7 @@ import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../ht
 import { accessToken, mailLevel } from '../hub/google';
 import { staffDirectory } from '../people';
 import type { HubUser } from '../session';
-import { GmailError, ROW_HEADERS, decodeEntities, gmail, parseAddrs, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
+import { GmailError, ROW_HEADERS, batchThreads, decodeEntities, gmail, parseAddrs, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
 import { b64ToBytes, rawOf, validEmail, type OutFile } from './mime';
 import { boxToken, listBoxes, removeBox } from './boxes';
 import { partnerMap, type PartnerLookup } from './partners';
@@ -121,6 +121,7 @@ export async function handle(ctx: MailCtx): Promise<Response> {
       console.error('[mail] gmail', err.status, err.reason, err.message.slice(0, 160));
       return errorJson('gmail', 'Gmail did not answer. Try again. (' + err.status + (err.reason ? ' ' + err.reason : '') + ')', 502);
     }
+    if (!(err instanceof HttpError)) console.error('[mail] failed', ctx.request.method, ctx.path.join('/'), String((err as any)?.message || err).slice(0, 200));
     return handleError(err);
   }
 }
@@ -588,7 +589,7 @@ async function route(ctx: MailCtx): Promise<Response> {
       let st = await stateOf(env, me);
       let stale = false;
       if (!st) {
-        await bootstrap(env, gm, me);
+        await bootstrap(env, gm, me, ctx.waitUntil);
         st = await stateOf(env, me);
       } else if (Date.now() - st.syncedAt > FRESH_MS) {
         const job = catchUp(env, gm, me, st).catch(() => undefined);
@@ -676,23 +677,23 @@ async function route(ctx: MailCtx): Promise<Response> {
       const msgs = (meta.messages || []).map((m: any) => ({ ...shapeMessage(m), html: '', text: '' }));
       return json({ ok: true, headersOnly: true, thread: { id, subject: msgs[0]?.subject || '', messages: msgs }, partners: await partnersFor(ctx, msgs, me), drafts: {} });
     }
-    const t = await gm.get('/threads/' + id, { format: 'full' });
-    const msgs = (t.messages || []).map((m: any) => {
-      const s = shapeMessage(m);
-      const cid = (x: string) => {
-        const f = s.attachments.find((y) => y.cid === x);
-        return f ? fileUrl(s.id, f) : null;
-      };
-      const html = s.html ? sanitizeHtml(s.html, cid) : s.text ? textToHtml(s.text) : '';
-      return { ...s, html, text: s.html ? '' : s.text };
+    return json({ ok: true, ...(await buildThread(ctx, gm, me, id, await gm.get('/threads/' + id, { format: 'full' }))) });
+  }
+
+  // Up to 20 conversations at once for the page's read-ahead: one batch call to Gmail, and any that fail are read the ordinary way.
+  if (a === 'threads' && b === 'batch' && method === 'POST') {
+    const r = needRead();
+    if (r) return r;
+    const want = ids20((await readBody(request)).ids);
+    const got = await batchThreads(tok.token, want, 'full', fetcher);
+    const out = await pool(want, 4, async (id) => {
+      try {
+        return { id, ...(await buildThread(ctx, gm, me, id, got.get(id) || (await gm.get('/threads/' + id, { format: 'full' })))) };
+      } catch {
+        return null;
+      }
     });
-    let drafts: Record<string, string> = {};
-    if (msgs.some((m: any) => m.draft)) {
-      const dl = await gm.get('/drafts', { maxResults: '100' }).catch(() => ({ drafts: [] }));
-      drafts = Object.fromEntries((dl.drafts || []).filter((x: any) => x.message?.threadId === id).map((x: any) => [x.message.id, x.id]));
-    }
-    const sz = await env.DB.prepare('SELECT until FROM hub_mail_snooze WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(me, id).first<{ until: string }>().catch(() => null);
-    return json({ ok: true, thread: { id, subject: msgs[0]?.subject || '', messages: msgs, snoozed: sz?.until || '' }, partners: await partnersFor(ctx, msgs, me), drafts });
+    return json({ ok: true, threads: out.filter(Boolean) });
   }
 
   if (a === 'messages' && b && c === 'attachments' && d && method === 'GET') {
@@ -790,12 +791,22 @@ async function route(ctx: MailCtx): Promise<Response> {
     const w = needWrite();
     if (w) return w;
     const body = await readBody(request);
-    if ((Array.isArray(body.files) && body.files.length) || (Array.isArray(body.forward) && body.forward.length)) throw new HttpError(400, 'files', 'A message with files is held by the page, not the server.');
     const bad = [...addrs(body.to), ...addrs(body.cc), ...addrs(body.bcc)].find((x) => !validEmail(x.email));
     if (bad) throw new HttpError(400, 'bad_address', `${bad.email} is not an email address.`);
     if (!addrs(body.to).length && !addrs(body.cc).length && !addrs(body.bcc).length) throw new HttpError(400, 'no_one', 'Add who it goes to.');
     const id = 'h_' + crypto.randomUUID().replace(/-/g, '').slice(0, 14);
-    const keep = { to: body.to, cc: body.cc, bcc: body.bcc, subject: String(body.subject || '').slice(0, 900), html: sanitizeHtml(String(body.html || '').slice(0, 400000)), threadId: body.threadId, replyTo: body.replyTo, from: body.from, draftId: body.draftId };
+    // Files wait in the uploads bucket under this message's own key, 24 MB at most together, and are deleted once it is sent or undone.
+    const held: Array<{ name: string; mime: string; key: string }> = [];
+    let bytes = 0;
+    for (const [n, f] of (Array.isArray(body.files) ? body.files : []).slice(0, 20).entries()) {
+      const data = b64ToBytes(String(f?.data || ''));
+      bytes += data.length;
+      if (bytes > MAX_SEND) throw new HttpError(413, 'too_big', 'Files can add up to 24 MB. Share a big file from Drive instead.');
+      const key = `mail-hold/${id}/${n}`;
+      await env.UPLOADS.put(key, data);
+      held.push({ name: String(f?.name || 'file').slice(0, 160), mime: String(f?.mime || 'application/octet-stream').slice(0, 100), key });
+    }
+    const keep = { to: body.to, cc: body.cc, bcc: body.bcc, subject: String(body.subject || '').slice(0, 900), html: sanitizeHtml(String(body.html || '').slice(0, 400000)), threadId: body.threadId, replyTo: body.replyTo, from: body.from, draftId: body.draftId, heldFiles: held, forward: Array.isArray(body.forward) ? body.forward.slice(0, 20) : [] };
     await env.DB.prepare('INSERT INTO hub_mail_held (id, owner, mailbox, payload, release_at, state, thread_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, owner, me === owner ? '' : me, JSON.stringify(keep), new Date(Date.now() + 60000).toISOString(), 'held', String(body.threadId || '').slice(0, 40), nowIso()).run();
     return json({ ok: true, id, releaseAt: new Date(Date.now() + 15000).toISOString() });
   }
@@ -805,7 +816,9 @@ async function route(ctx: MailCtx): Promise<Response> {
   }
   if (a === 'hold' && b && method === 'DELETE') {
     const r = await env.DB.prepare("UPDATE hub_mail_held SET state = 'cancelled', payload = '{}' WHERE id = ? AND owner = ? AND state = 'held'").bind(b, owner).run();
-    return Number((r.meta as any)?.changes) > 0 ? json({ ok: true, undone: true }) : json({ ok: true, undone: false });
+    const undone = Number((r.meta as any)?.changes) > 0;
+    if (undone) await dropHeldFiles(env, b);
+    return json({ ok: true, undone });
   }
 
   if (a === 'send' && method === 'POST') {
@@ -913,6 +926,28 @@ async function outMail(gm: Gmail, sender: { name: string; email: string }, body:
   return { from: { name: sender.name, email: sender.email }, to, cc, bcc, subject: String(body.subject || '').slice(0, 900), html, inReplyTo, references, files };
 }
 
+const ids20 = (v: unknown): string[] => (Array.isArray(v) ? v : []).map(String).filter((x) => /^[A-Za-z0-9]{6,40}$/.test(x)).slice(0, 20);
+
+/** A conversation as the page shows it: bodies made safe, the partners matched, draft ids and the snooze time. Read from Gmail once. */
+async function buildThread(ctx: MailCtx, gm: Gmail, me: string, id: string, t: any) {
+  const msgs = (t.messages || []).map((m: any) => {
+    const s = shapeMessage(m);
+    const cid = (x: string) => {
+      const f = s.attachments.find((y) => y.cid === x);
+      return f ? fileUrl(s.id, f) : null;
+    };
+    const html = s.html ? sanitizeHtml(s.html, cid) : s.text ? textToHtml(s.text) : '';
+    return { ...s, html, text: s.html ? '' : s.text };
+  });
+  let drafts: Record<string, string> = {};
+  if (msgs.some((m: any) => m.draft)) {
+    const dl = await gm.get('/drafts', { maxResults: '100' }).catch(() => ({ drafts: [] }));
+    drafts = Object.fromEntries((dl.drafts || []).filter((x: any) => x.message?.threadId === id).map((x: any) => [x.message.id, x.id]));
+  }
+  const sz = await ctx.env.DB.prepare('SELECT until FROM hub_mail_snooze WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(me, id).first<{ until: string }>().catch(() => null);
+  return { thread: { id, subject: msgs[0]?.subject || '', messages: msgs, snoozed: sz?.until || '', hid: String(t.historyId || '') }, partners: await partnersFor(ctx, msgs, me), drafts };
+}
+
 async function partnersFor(ctx: MailCtx, msgs: Array<{ from: Addr; to: Addr[]; cc: Addr[] }>, me: string) {
   const emails = [...new Set(msgs.flatMap((m) => [m.from, ...m.to, ...m.cc]).map((x) => x.email))].filter((e) => e && e !== me && !e.endsWith('@favorintl.org')).slice(0, 40);
   return partnerMap(ctx.env, emails, ctx.partners);
@@ -983,6 +1018,22 @@ export async function wakeDue(env: Env, gm: Gmail, me: string): Promise<number> 
  * pass the Cloudflare cron already runs. A message that fails stays and tries again; one that is a day late is marked missed.
  */
 /** Sends one held message if it is still held. The claim is one UPDATE, so two callers never both send it. */
+const bytesToB64 = (u: Uint8Array): string => {
+  let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+
+/** Removes a held message's files from the uploads bucket. */
+async function dropHeldFiles(env: Env, id: string): Promise<void> {
+  try {
+    const l = await env.UPLOADS.list({ prefix: `mail-hold/${id}/` });
+    if (l.objects.length) await env.UPLOADS.delete(l.objects.map((o) => o.key));
+  } catch {
+    /* an old file is swept by the next release pass */
+  }
+}
+
 export async function releaseHeld(env: Env, owner: string, id: string, fetcher: Fetcher = fetch): Promise<{ sent: boolean; threadId?: string; state?: string } | 'gone'> {
   const row = await env.DB.prepare('SELECT mailbox, payload, thread_id FROM hub_mail_held WHERE id = ? AND owner = ?').bind(id, owner).first<any>().catch(() => null);
   if (!row) return 'gone';
@@ -996,16 +1047,24 @@ export async function releaseHeld(env: Env, owner: string, id: string, fetcher: 
     if (!tok || !mailLevel(tok.scopes).write) throw new Error('no token');
     const gm = gmail(tok.token, fetcher);
     const body = safeJson(row.payload);
+    const files: Array<{ name: string; mime: string; data: string }> = [];
+    for (const f of Array.isArray(body.heldFiles) ? body.heldFiles : []) {
+      const o = await env.UPLOADS.get(String(f.key));
+      if (o) files.push({ name: f.name, mime: f.mime, data: bytesToB64(new Uint8Array(await o.arrayBuffer())) });
+    }
+    body.files = files;
     const me = row.mailbox || owner;
     const who = { email: owner, name: '', picture: '', role: 'staff', via: 'google', kpi: true } as HubUser;
     const mail = await outMail(gm, await fromOf(gm, me, who, body), body, true);
     const out = await gm.send('POST', '/messages/send', { raw: rawOf(mail), threadId: body.threadId && /^[A-Za-z0-9]{6,40}$/.test(String(body.threadId)) ? String(body.threadId) : undefined });
     if (body.draftId && /^[A-Za-z0-9_-]{4,80}$/.test(String(body.draftId))) await gm.send('DELETE', '/drafts/' + String(body.draftId)).catch(() => undefined);
     await env.DB.prepare("UPDATE hub_mail_held SET state = 'sent', payload = '{}', thread_id = ? WHERE id = ?").bind(String(out.threadId || ''), id).run();
+    await dropHeldFiles(env, id);
     forgetCount(owner);
     return { sent: true, threadId: String(out.threadId || ''), state: 'sent' };
   } catch (e) {
     await env.DB.prepare("UPDATE hub_mail_held SET state = 'failed' WHERE id = ?").bind(id).run().catch(() => undefined);
+    await dropHeldFiles(env, id);
     throw e;
   }
 }

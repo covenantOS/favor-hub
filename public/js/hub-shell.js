@@ -104,6 +104,8 @@
     out.addEventListener('click', async () => {
       try {
         localStorage.removeItem('favor.hub.nav.v1');
+        localStorage.removeItem('favor.mail.rows.v1');
+        if (window.indexedDB) indexedDB.deleteDatabase('favor-mail');
         sessionStorage.clear();
       } catch {
         // nothing saved to clear

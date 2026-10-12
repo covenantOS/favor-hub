@@ -292,3 +292,41 @@ export function shapeThreadRow(t: any, me: string): ThreadRow {
     bulk,
   };
 }
+
+
+/**
+ * Up to 20 conversations in one request to Gmail's batch endpoint (one multipart call instead of twenty). A part that failed comes back
+ * null, so the caller reads that one the ordinary way. Never throws: a refused batch returns an empty map.
+ */
+export async function batchThreads(token: string, ids: string[], format = 'full', fetcher: Fetcher = fetch): Promise<Map<string, any>> {
+  const out = new Map<string, any>();
+  const list = ids.slice(0, 20);
+  if (!list.length) return out;
+  const boundary = 'fosbatch' + Math.random().toString(36).slice(2, 10);
+  const body = list.map((id, i) => `--${boundary}\r\nContent-Type: application/http\r\nContent-ID: <item${i}>\r\n\r\nGET /gmail/v1/users/me/threads/${id}?format=${format}\r\n`).join('') + `--${boundary}--`;
+  try {
+    const res = await fetcher('https://gmail.googleapis.com/batch/gmail/v1', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/mixed; boundary=${boundary}` }, body });
+    if (!res.ok) return out;
+    return parseBatch(await res.text(), String(res.headers.get('Content-Type') || ''), list, out);
+  } catch {
+    return out;
+  }
+}
+
+export function parseBatch(text: string, contentType: string, ids: string[], out = new Map<string, any>()): Map<string, any> {
+  const b = /boundary=("?)([^";]+)\1/i.exec(contentType)?.[2];
+  if (!b) return out;
+  for (const part of text.split('--' + b)) {
+    const cid = /Content-ID:\s*<response-item(\d+)>/i.exec(part)?.[1];
+    if (cid === undefined) continue;
+    const status = /HTTP\/[\d.]+\s+(\d{3})/.exec(part)?.[1];
+    const start = part.indexOf('{');
+    if (status !== '200' || start < 0) continue;
+    try {
+      out.set(ids[Number(cid)], JSON.parse(part.slice(start, part.lastIndexOf('}') + 1)));
+    } catch {
+      /* read the ordinary way */
+    }
+  }
+  return out;
+}

@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, it } from 'node:test';
 import './support/resolve-ts.mjs';
 import { memoryD1 } from './support/d1.mjs';
+import { memoryR2 } from './support/r2.mjs';
 
 const { handle, mailUnreadCount, forgetCount, sendDue, wakeDue } = await import('../functions/_lib/mail/route.ts');
 const know = await import('../functions/_lib/mail/know.ts');
@@ -150,7 +151,7 @@ beforeEach(async () => {
   d1.exec(read('db/mail.sql'));
   d1.exec(read('db/mail-smart.sql'));
   d1.exec(read('db/mail-cache.sql'));
-  env = { DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
+  env = { UPLOADS: memoryR2(), DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
   calls = [];
   box = mailbox();
   aiCalls = [];
@@ -538,8 +539,24 @@ describe('undo send: a message held on the server', () => {
     const h = (await hold()).data;
     assert.equal((await call(BEN, 'POST', 'hold/' + h.id + '/release')).status, 403);
   });
-  it('refuses a message with files, no recipient and a bad address', async () => {
-    assert.equal((await hold({ files: [{ name: 'a', data: 'AA' }] })).status, 400);
+  it('holds the files in the uploads bucket, sends them with the message, and deletes them after the send', async () => {
+    const data = Buffer.from('%PDF-1.4 hello').toString('base64');
+    const h = (await hold({ files: [{ name: 'plan.pdf', mime: 'application/pdf', data }] })).data;
+    assert.equal(env.UPLOADS.objects.size, 1);
+    assert.ok(![...env.UPLOADS.objects.keys()].some((k) => !k.startsWith('mail-hold/' + h.id + '/')));
+    assert.ok(!d1.db.prepare('SELECT payload FROM hub_mail_held').get().payload.includes(data), 'the bytes are not in D1');
+    await releaseHeld(env, ADMIN.email, h.id, fakeGoogle);
+    assert.equal(box.sent.length, 1);
+    assert.match(Buffer.from(box.sent[0].raw, 'base64url').toString(), /plan\.pdf/);
+    assert.equal(env.UPLOADS.objects.size, 0);
+  });
+  it('Undo deletes the held files', async () => {
+    const h = (await hold({ files: [{ name: 'a.txt', mime: 'text/plain', data: Buffer.from('hi').toString('base64') }] })).data;
+    assert.equal(env.UPLOADS.objects.size, 1);
+    await run('hold/' + h.id, 'DELETE');
+    assert.equal(env.UPLOADS.objects.size, 0);
+  });
+  it('refuses no recipient and a bad address', async () => {
     assert.equal((await hold({ to: [] })).status, 400);
     assert.equal((await hold({ to: ['nope'] })).status, 400);
   });
@@ -557,5 +574,44 @@ describe('the broader check before send', () => {
   });
   it('says nothing when nothing is wrong', async () => {
     assert.deepEqual((await check({})).data.warnings, []);
+  });
+});
+
+describe('the batch of conversations for read-ahead', () => {
+  it('parses the multipart answer from Gmail and leaves a failed part to be read the ordinary way', async () => {
+    const { parseBatch } = await import('../functions/_lib/mail/gmail.ts');
+    const part = (i, status, json) => `--b1
+Content-Type: application/http
+Content-ID: <response-item${i}>
+
+HTTP/1.1 ${status} X
+Content-Type: application/json
+
+${json}
+`;
+    const text = part(0, 200, '{"id":"t1","messages":[]}') + part(1, 404, '{"error":{}}') + part(2, 200, '{"id":"t3"}') + '--b1--';
+    const m = parseBatch(text, 'multipart/mixed; boundary=b1', ['t1', 't2', 't3']);
+    assert.deepEqual([...m.keys()], ['t1', 't3']);
+  });
+  it('answers up to 20 conversations in one call, each built as the conversation route builds it', async () => {
+    const r = await run('threads/batch', 'POST', { ids: ['tpartner1', 'tstaff001', 'bad id', 'tlong00001'] });
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.data.threads.map((t) => t.id).sort(), ['tlong00001', 'tpartner1', 'tstaff001']);
+    assert.ok(r.data.threads[0].thread.messages.length >= 1);
+    assert.ok('partners' in r.data.threads[0]);
+  });
+});
+
+describe('removing the saved copy', () => {
+  it('disconnecting Google deletes every saved row, answer and snooze for the person', async () => {
+    d1.exec(read('db/mail-cache.sql'));
+    await run('smart/overview');
+    await run('threads?label=INBOX');
+    d1.db.prepare("INSERT INTO hub_mail_snooze (email, thread_id, until, created_at) VALUES (?, 't1', 'x', 'x')").run(ADMIN.email);
+    const google = await import('../functions/_lib/hub/google.ts');
+    const n = () => ['hub_mail_rows', 'hub_mail_sync', 'hub_mail_class', 'hub_mail_snooze'].map((t) => d1.db.prepare('SELECT COUNT(*) AS n FROM ' + t).get().n);
+    assert.ok(n().every((x) => x > 0), JSON.stringify(n()));
+    await google.revoke(env, ADMIN.email);
+    assert.deepEqual(n(), [0, 0, 0, 0]);
   });
 });

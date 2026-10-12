@@ -5,7 +5,7 @@ import { hubUserOf } from '../../_lib/session';
 import { fieldBrainOn } from '../../_lib/field';
 
 // The sidebar: who is signed in, which sections they may open, and the counts beside each.
-export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
@@ -22,6 +22,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
             .catch(() => [] as string[])
         : Promise.resolve(['rdd', 'ce', 'pc', 'grants', 'marketing']),
     ]);
+    // The first menu request after sign-in starts the saved inbox, so Mail opens warm.
+    if (access.mail && user.via === 'google' && waitUntil) waitUntil(import('../../_lib/mail/route').then((m) => m.warmMail(env, user.email)).catch(() => undefined));
     return json({ ok: true, user, access, counts, kpiTeams });
   } catch (err) {
     return handleError(err);

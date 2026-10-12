@@ -130,6 +130,8 @@ export async function revoke(env: Env, email: string): Promise<void> {
     if (token) await fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(token), { method: 'POST' }).catch(() => undefined);
   }
   await env.DB.prepare('DELETE FROM hub_google WHERE email = ?').bind(email).run();
+  // Disconnecting Google also deletes the saved copy of the person's mail headers and what was worked out from them.
+  await env.DB.batch(['hub_mail_rows WHERE mailbox', 'hub_mail_sync WHERE mailbox', 'hub_mail_class WHERE email', 'hub_mail_cat WHERE email', 'hub_mail_logged WHERE email', 'hub_mail_waits WHERE email', 'hub_mail_brief WHERE email', 'hub_mail_snooze WHERE email'].map((t) => env.DB.prepare('DELETE FROM ' + t + ' = ?').bind(email))).catch(() => undefined);
   forgetTokens(email);
 }
 
