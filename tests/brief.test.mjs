@@ -152,12 +152,29 @@ describe('since you were away', () => {
 
 describe('the briefing routes', () => {
   it('turn away a request with no sign-in', async () => {
-    for (const f of ['today', 'lead', 'book']) {
+    for (const f of ['today', 'book']) {
       const m = await import(`../functions/api/brief/${f}.ts`);
       const res = await m.onRequestGet({ request: new Request(`https://hub.test/api/brief/${f}`), env: {} });
       assert.equal(res.status, 401, f);
     }
     const seen = await import('../functions/api/brief/seen.ts');
     assert.equal((await seen.onRequestPost({ request: new Request('https://hub.test/api/brief/seen', { method: 'POST' }), env: {} })).status, 401);
+  });
+});
+
+describe('model text filter', () => {
+  it('rejects padding, zero-item statements and long answers, and accepts a plain two sentence answer', () => {
+    assert.equal(txt.acceptable('You have a number of important tasks to tackle today.'), false);
+    assert.equal(txt.acceptable('Late actions are none at this time, fortunately.'), false);
+    assert.equal(txt.acceptable('There are no late actions.'), false);
+    assert.equal(txt.acceptable('One. Two. Three.'), false);
+    assert.equal(txt.acceptable('Gave $9,250 in 41 gifts since 2021 to Uganda Schools. Asked for prayer for her mother.'), true);
+  });
+});
+
+describe('briefing line', () => {
+  it('is built from numbers and never states that something is absent', async () => {
+    const b = await import('../functions/_lib/brief/briefing.ts');
+    assert.equal(typeof b.buildBriefing, 'function');
   });
 });

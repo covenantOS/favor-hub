@@ -267,13 +267,12 @@ export function nbaFromFacts(f: StoryFacts, p: PartnerView, today: string): Nba 
 export function plainStory(f: StoryFacts, today: string): string {
   const parts: string[] = [];
   const first = f.name.split(/\s+/)[0];
-  if (!f.count) return `${f.name} has no gifts on record. ${f.holders.length ? `${f.holders.join(' and ')} holds the record.` : ''}`.trim();
+  if (!f.count) return f.holders.length ? `${f.holders.join(' and ')} holds the record. No gift yet.` : 'No gift yet.';
   parts.push(`${f.name} has given ${money(f.life)} in ${plural(f.count, 'gift')}${f.since ? ' since ' + f.since : ''}${f.monthly ? `, and gives ${money(f.monthly.amount)} a month` : ''}.`);
   if (f.last) parts.push(`The last gift was ${money(f.last.amount)}${f.last.fund ? ' to ' + f.last.fund : ''} on ${longDay(f.last.date, today)}.`);
   parts.push(f.healthWhy);
   if (f.owed) parts.push(`${first} has ${plural(f.owed.n, 'gift')} not thanked yet.`);
   if (f.contacts[0]) parts.push(`The last contact was a ${f.contacts[0].how.toLowerCase()} on ${longDay(f.contacts[0].date, today)}.`);
-  else parts.push('No call, visit or email is on record.');
   return parts.join(' ');
 }
 
@@ -284,7 +283,7 @@ export interface Story {
   why: string;
 }
 
-const STORY_SYSTEM = `${HOUSE} You summarize one ministry partner for a staff member who is about to talk with them. Write 3 to 5 sentences in plain paragraph form. Cover who they are to Favor (how long, how much, what they give to), how their giving is moving, the last contact, and what to keep in mind. Mention a prayer request or family detail from the notes only if one is there. Do not list every gift.`;
+const STORY_SYSTEM = `${HOUSE} You summarize one ministry partner for a staff member who is about to talk with them. Write exactly two short sentences. The first says how long and how much they have given and what they give to. The second gives the one thing to keep in mind from the last contact or notes, such as a prayer request. Use dollar amounts with commas.`;
 
 export async function storyFor(ctx: Ctx, cid: string, p: PartnerView, today: string, fresh = false): Promise<{ story: Story; facts: StoryFacts; nba: Nba }> {
   const facts = await factsOf(ctx, cid, p, today);

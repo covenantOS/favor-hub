@@ -1,7 +1,7 @@
 // "Since you were away": what changed for one person while they were off for a day or more. The visit table (db/briefing.sql) records
 // when Today was last opened; a visit more than four hours after the last one starts a new session and remembers where the old one ended.
 import type { Env } from '../http';
-import { cacheGet, cachePut, HOUSE, plural, sig, writeText } from './text';
+import { cacheGet, plural, sig } from './text';
 
 export interface Seen {
   seen_at: string;
@@ -127,11 +127,7 @@ export async function awayFor(i: AwayInput): Promise<Away> {
     const hit = await cacheGet<{ sig: string; text: string }>(env, key, 12 * 3600000);
     if (hit && hit.sig === s) summary = hit.text;
     else {
-      const facts = `You were away ${plural(days, 'day')}. ` + parts.map((p) => p.line).join('. ') + '.';
-      summary =
-        (await writeText(env, { system: `${HOUSE} Write two short sentences welcoming a staff member back and saying what changed while they were gone, most important first.`, user: facts, max: 120, timeoutMs: 9000 })) ||
-        `Welcome back. While you were away ${plural(days, 'day')}: ${parts.map((p) => p.line.toLowerCase()).join('; ')}.`;
-      await cachePut(env, key, { sig: s, text: summary });
+      summary = '';
     }
   }
   return { from, days, parts, summary };

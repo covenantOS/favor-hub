@@ -30,7 +30,7 @@ const store = {
 const OWNER_KEY = 'favor.hub.brief.owner';
 const FOCUS_KEY = 'favor.hub.brief.focus';
 
-const S = { data: null, away: null, day: null, cards: null, prep: {}, owner: store.get(OWNER_KEY, ''), focus: store.get(FOCUS_KEY, '') === '1', skipped: new Set(), lead: null, error: '' };
+const S = { data: null, away: null, day: null, cards: null, prep: {}, owner: store.get(OWNER_KEY, ''), focus: store.get(FOCUS_KEY, '') === '1', skipped: new Set(), open: new Set(['thank']), all: new Set(), error: '' };
 
 async function get(url) {
   const res = await fetch(url, { credentials: 'same-origin' });
@@ -81,40 +81,65 @@ function away() {
   if (!a || !a.parts.length) return '';
   return `<section class="h-card br-away" aria-label="Since you were away">
     <div class="br-head"><h2>Since you were away</h2><span>${a.days === 1 ? 'A day' : a.days + ' days'}</span><button type="button" class="br-x" data-br-away-x aria-label="Close">${ic('x')}</button></div>
-    ${a.summary ? `<p class="br-lead">${esc(a.summary)}</p>` : ''}
     <div class="br-chips">${a.parts.map((p) => `<a class="br-chip" href="${esc(p.href)}"><b>${esc(p.label)}</b><span>${esc(p.line)}</span></a>`).join('')}</div>
   </section>`;
 }
 
-function giftRows(b) {
-  const o = b.overnight;
-  if (!o || !o.rows.length) return '';
-  return `<div class="br-col"><h3>${ic('gift')}New gifts <small>${o.count} since ${esc(fd(b.since))}, ${money(o.total)}</small></h3><ul class="br-list">${o.rows.slice(0, 5).map((g) =>
-    `<li class="br-row"><div class="br-main">${pname(g.cid, g.name)}<span class="br-prep">${money(g.amount)}${g.fund ? ' to ' + esc(g.fund) : ''}${g.place ? ', ' + esc(g.place) : ''}</span></div>${g.thanked ? '<span class="br-tag br-tag--ok">Thanked</span>' : `<span class="br-when">${esc(fd(g.date))}</span>`}</li>`).join('')}</ul></div>`;
+const pchip = (id, name) => (window.FavorEntity ? window.FavorEntity.chip('partner', id, String(name || '').trim() || 'No name on file') : pname(id, name));
+const CHEV = '<svg class="h-i br-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : many || one + 's');
+const FIRST = 3;
+
+/* One row: a count, a label and what stands out. Tapping it opens its list in place; the first three items show, Show all for the rest. */
+function row(key, icon, label, count, sub, items, all) {
+  const open = S.open.has(key);
+  const more = items.length > FIRST && !S.all.has(key);
+  const shown = open ? (more ? items.slice(0, FIRST) : items) : [];
+  return `<div class="br-item${open ? ' is-open' : ''}">
+    <button type="button" class="br-tog" data-br-tog="${key}" aria-expanded="${open}"><span class="br-ico br-ico--${key}">${ic(icon)}</span><span class="br-lab">${label}</span><span class="br-n">${count}</span>${CHEV}</button>
+    ${sub ? `<div class="br-sub">${sub}</div>` : ''}
+    ${open ? `<ul class="br-list">${shown.join('')}</ul>${more ? `<button type="button" class="br-more" data-br-all="${key}">Show all ${items.length}</button>` : ''}${all ? `<a class="br-more" href="${esc(all.href)}">${esc(all.text)}</a>` : ''}` : ''}
+  </div>`;
 }
 
-function thankRows(b) {
+function thankRow(b) {
   const t = b.thanks;
-  if (!t || !t.rows.length) return '';
-  return `<div class="br-col"><h3>${ic('phone')}To thank <small>${t.total}${t.over24 ? ', ' + t.over24 + ' waiting over a day' : ''}</small></h3><ul class="br-list">${t.rows.slice(0, 5).map((g, i) =>
-    `<li class="br-row"><div class="br-main">${pname(g.cid, g.name)}<span class="br-prep">${money(g.amount)}${g.fund ? ' to ' + esc(g.fund) : ''}, ${g.ageDays >= 1 ? g.ageDays + (g.ageDays === 1 ? ' day' : ' days') + ' ago' : 'today'}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-br-thank="${i}">Thank</button></li>`).join('')}</ul>${t.total > 5 ? '<a class="br-more" href="/work/?view=gifts">All gifts to thank</a>' : ''}</div>`;
+  if (!t || !t.total) return '';
+  const oldest = t.rows[0];
+  const sub = oldest && oldest.ageDays >= 1 ? `Oldest ${plural(oldest.ageDays, 'day')}, ${pchip(oldest.cid, oldest.name)}` : '';
+  const items = t.rows.map((g, i) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${money(g.amount)}${g.fund ? ' to ' + esc(g.fund) : ''}, ${g.ageDays >= 1 ? plural(g.ageDays, 'day') + ' ago' : 'today'}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-br-thank="${i}">Thank</button></li>`);
+  return row('thank', 'phone', 'To thank', t.total.toLocaleString('en-US'), sub, items, t.total > t.rows.length ? { href: '/work/?view=gifts', text: 'All gifts to thank' } : null);
 }
 
-function lateRows(b) {
-  const l = b.late;
-  if (!l || !l.count) return '';
-  return `<div class="br-col"><h3>${ic('clock')}Late <small>${l.count}</small></h3><ul class="br-list">${l.rows.map((x) => `<li class="br-row"><div class="br-main"><a class="br-t" href="${esc(x.href)}">${esc(x.text)}</a><span class="br-prep">${esc(x.sub || '')}</span></div><span class="br-tag br-tag--late">Late</span></li>`).join('')}</ul>${l.count > l.rows.length ? `<a class="br-more" href="/work/">${l.count - l.rows.length} more in the Work Center</a>` : ''}</div>`;
+function giftRow(b) {
+  const o = b.overnight;
+  if (!o || !o.count) return '';
+  const items = o.rows.map((g) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${money(g.amount)}${g.fund ? ' to ' + esc(g.fund) : ''}${g.place ? ', ' + esc(g.place) : ''}</span></div>${g.thanked ? '<span class="br-tag br-tag--ok">Thanked</span>' : `<span class="br-when">${esc(fd(g.date))}</span>`}</li>`);
+  return row('gifts', 'gift', 'New gifts', o.count.toLocaleString('en-US'), `${money(o.total)} since ${esc(fd(b.since))}`, items, o.count > o.rows.length ? { href: '/work/?view=gifts', text: 'All gifts' } : null);
 }
 
-function meetingCol() {
+function meetRow() {
   const ms = meetings();
   if (!ms.length) return '';
-  return `<div class="br-col"><h3>${ic('meet')}Today's meetings <small>${ms.length}</small></h3><ul class="br-list">${ms.map(meetingRow).join('')}</ul></div>`;
+  return row('meet', 'meet', 'Meetings today', String(ms.length), '', ms.map(meetingRow), null);
 }
 
-function picker(b) {
-  if (!b.partners || (b.directors || []).length < 2) return '';
-  return `<label class="br-pick"><span class="sr-only">Whose partners</span><select data-br-owner>${[['', 'All partners I can see'], ...b.directors.map((d) => [d.fid, d.name])].map(([v, l]) => `<option value="${esc(v)}"${v === (S.owner || b.owner) ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+function lateRow(b) {
+  const l = b.late;
+  if (!l || !l.count) return '';
+  const items = l.rows.map((x) => `<li class="br-li"><div class="br-main"><a class="br-t" href="${esc(x.href)}">${esc(x.text)}</a><span class="br-prep">${esc(x.sub || '')}</span></div></li>`);
+  return row('late', 'clock', 'Late', String(l.count), '', items, l.count > l.rows.length ? { href: '/work/', text: `${l.count - l.rows.length} more in the Work Center` } : null);
+}
+
+/* Whose partners: small text in the card header. A person with a portfolio opens on their own. */
+function scope(b) {
+  const ds = b.directors || [];
+  if (!b.partners || ds.length < 1) return '';
+  const own = ds.find((d) => d.fid === b.me);
+  const opts = [...(own ? [] : [['', 'All partners']]), ...ds.map((d) => [d.fid, d.fid === b.me ? 'My partners' : d.name])];
+  if (opts.length < 2) return '';
+  const cur = S.owner || b.owner || '';
+  return `<label class="br-scope"><span class="sr-only">Whose partners</span><select data-br-owner>${opts.map(([v, l]) => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
 }
 
 function moments(b) {
@@ -122,7 +147,7 @@ function moments(b) {
   if (!list.length) return '';
   const KIND = { largest: 'Largest gift', first: 'First gift', quiet: 'Gone quiet', anniversary: 'Anniversary' };
   return `<section class="br-moments" aria-label="Moments"><div class="br-head"><h2>Moments</h2><span>${list.length} worth a call</span></div><div class="br-mgrid">${list.map((m) => `<article class="h-card br-m br-m--${esc(m.kind)}">
-    <span class="br-kind">${ic('star')}${esc(KIND[m.kind] || m.kind)}</span><h3>${pname(m.cid, m.name)}</h3><p>${esc(m.line)}</p>
+    <span class="br-kind">${ic('star')}${esc(KIND[m.kind] || m.kind)}</span><h3>${pchip(m.cid, m.name)}</h3><p>${esc(m.line)}</p>
     <div class="br-m__acts"><a class="h-btn h-btn--primary h-btn--sm" href="${esc(m.href)}" data-br-call="${esc(m.cid)}">${esc(m.step.label)}</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-br-dismiss="${esc(m.id)}">Not now</button></div></article>`).join('')}</div></section>`;
 }
 
@@ -147,16 +172,14 @@ function draw() {
   const b = S.data;
   document.querySelector('.r2t')?.classList.toggle('is-focus', S.focus);
   if (!b) { root.innerHTML = S.error ? '' : '<div class="r2t-skel br-skel"></div>'; return; }
-  const toggle = `<button type="button" class="h-btn h-btn--ghost h-btn--sm br-focusbtn" data-br-focus="1">${ic('focus')}Focus</button>`;
   if (S.focus) { root.innerHTML = focus(); return; }
-  const cols = [giftRows(b), thankRows(b), lateRows(b), meetingCol()].filter(Boolean);
-  const empty = !cols.length && !(b.moments || []).length;
-  const who = b.owner ? nameOwner(b) : '';
-  root.innerHTML = `${away()}<section class="h-card br-card" aria-label="Briefing">
-    <div class="br-head"><h2>Your briefing</h2>${who ? `<span>${esc(who)}'s partners</span>` : ''}${picker(b)}${toggle}</div>
-    ${S.lead ? `<p class="br-lead">${esc(S.lead)}</p>` : `<p class="br-lead br-lead--plain">${esc(b.headline)}</p>`}
-    ${cols.length ? `<div class="br-cols">${cols.join('')}</div>` : empty ? '<p class="br-clear">Nothing came in overnight, nothing is late and nobody is waiting on a thank-you.</p>' : ''}
-  </section>${moments(b)}`;
+  const rows = [thankRow(b), giftRow(b), lateRow(b), meetRow()].filter(Boolean);
+  const card = rows.length || b.headline ? `<section class="h-card br-card" aria-label="Briefing">
+    <div class="br-head"><h2>Briefing</h2>${scope(b)}<button type="button" class="br-icon" data-br-focus="1" aria-label="Focus: show only the next three things" title="Focus">${ic('focus')}</button></div>
+    ${b.headline ? `<p class="br-line">${esc(b.headline)}</p>` : ''}
+    <div class="br-rows">${rows.join('')}</div>
+  </section>` : '';
+  root.innerHTML = away() + card + moments(b);
 }
 
 async function load(fresh) {
@@ -167,10 +190,8 @@ async function load(fresh) {
     S.data = d.briefing;
     if (d.away) S.away = d.away;
     if (!S.owner && d.briefing.owner) S.owner = '';
-    S.lead = null;
     draw();
     wantPrep();
-    get('/api/brief/lead' + (S.owner ? '?owner=' + encodeURIComponent(S.owner) : '')).then((l) => { if (l.text) { S.lead = l.text; draw(); } }).catch(() => {});
   } catch (e) {
     S.error = e.message;
     root.innerHTML = '';
@@ -183,6 +204,8 @@ root.addEventListener('click', (e) => {
   const t = e.target.closest('button');
   if (!t) return;
   if (t.hasAttribute('data-br-away-x')) { S.away = null; draw(); fetch('/api/brief/seen', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'X-Hub-Request': '1' }, body: '{}' }).catch(() => {}); return; }
+  if (t.dataset.brTog) { const k = t.dataset.brTog; if (S.open.has(k)) S.open.delete(k); else S.open.add(k); draw(); return; }
+  if (t.dataset.brAll) { S.all.add(t.dataset.brAll); draw(); return; }
   if (t.dataset.brFocus != null) { S.focus = t.dataset.brFocus === '1'; store.set(FOCUS_KEY, S.focus ? '1' : '0'); draw(); return; }
   if (t.dataset.brSkip) { S.skipped.add(t.dataset.brSkip); draw(); return; }
   if (t.dataset.brDismiss) {

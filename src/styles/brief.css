@@ -79,3 +79,43 @@
   .br-mgrid { grid-template-columns: 1fr; }
   .br-lead { font-size: 15px; }
 }
+
+/* Redesign: structure, not prose. Header like the other Today cards, one factual line, compact rows that open in place. */
+.br-card { padding: 16px 18px 6px; }
+.br-card .br-head { margin-bottom: 4px; gap: 8px; flex-wrap: nowrap; }
+.br-card .br-head h2 { font: 600 15px var(--h-font); }
+.br-card .br-scope { margin-left: auto; }
+.br-scope select { appearance: none; -webkit-appearance: none; border: 0; background: none; height: 32px; padding: 0 4px; font: 600 13px var(--h-font); color: var(--r-ink-3); cursor: pointer; text-align: right; max-width: 190px; text-overflow: ellipsis; }
+.br-scope select:hover { color: var(--r-ink); }
+.br-scope + .br-icon { margin-left: 0; }
+.br-head .br-icon { margin-left: auto; }
+.br-icon { flex: none; width: 36px; height: 36px; display: grid; place-items: center; border: 0; background: none; border-radius: 10px; color: var(--r-ink-3); cursor: pointer; }
+.br-icon:hover { background: var(--r-sunk); color: var(--r-ink); }
+.br-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.br-line { margin: 0 0 8px; font: 500 14px/1.45 var(--h-font); color: var(--r-ink-2); }
+.br-rows { display: grid; }
+.br-item { border-top: 1px solid var(--r-line); padding: 2px 0; }
+.br-item:first-child { border-top: 0; }
+.br-tog { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 6px 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+.br-ico--thank { --t-tint: var(--tc-sun-tint); --t-ink: var(--tc-sun-ink); }
+.br-ico--gifts { --t-tint: var(--tc-leaf-tint); --t-ink: var(--tc-leaf-ink); }
+.br-ico--late { --t-tint: var(--late-tint); --t-ink: var(--late); }
+.br-lab { flex: 1; min-width: 0; font: 600 15px var(--h-font); color: var(--r-ink); }
+.br-n { font: 600 20px var(--h-font); font-variant-numeric: tabular-nums; color: var(--r-ink); }
+.br-chev { width: 16px; height: 16px; fill: none; stroke: var(--r-ink-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 0.16s; }
+.br-item.is-open .br-chev { transform: rotate(90deg); }
+.br-sub { margin: -6px 0 8px 46px; font: 500 13px/1.4 var(--h-font); color: var(--r-ink-3); }
+.br-sub .fe-chip { vertical-align: baseline; }
+.br-item .br-list { margin: 0 0 4px 46px; }
+.br-li { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--r-line); }
+.br-li:first-child { border-top: 0; }
+.br-item .br-row { padding-left: 0; }
+.br-item > .br-more { margin: 0 0 6px 46px; border: 0; background: none; cursor: pointer; padding: 0; }
+.br-item > .br-more + .br-more { margin-left: 16px; }
+@media (max-width: 860px) {
+  .br-card { padding: 14px 14px 4px; }
+  .br-sub, .br-item .br-list, .br-item > .br-more { margin-left: 0; }
+  .br-item > .br-more { display: inline-flex; }
+  .br-icon { width: 44px; height: 44px; margin: -4px -8px -4px 0; }
+  .br-scope select { height: 44px; }
+}

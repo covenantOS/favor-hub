@@ -30,7 +30,26 @@ export function scrub(s: string): string {
 
 type Run = { run(model: string, input: unknown): Promise<unknown> };
 
+const PADDING = /\b(tackle|notable|notably|contributions?|fortunately|unfortunately|a number of|important|importantly|gratitude|grateful|express(?:ing)? (?:our|your)|generous|dedicated|remarkable|significant(?:ly)?|valuable|crucial|vital|ensure|journey|testament|indeed|additionally|furthermore|moreover|overall|ultimately|in conclusion|it is worth|it's worth|reach out|touch base|delve|leverage|streamline|robust|seamless|heartwarming|wonderful|amazing|great news)\b/i;
+const ZERO = /\b(there (?:are|is) (?:no|none)|none at this time|nothing (?:is |to )?(?:late|waiting|overdue|due)|no (?:late|overdue|waiting)|zero|0 (?:late|overdue|waiting))\b/i;
+
+/** True when model text is short and plain: at most two sentences, no padding words, no statement that something is absent. */
+export function acceptable(text: string): boolean {
+  const t = String(text || '').trim();
+  if (!t || t.length > 300) return false;
+  if (PADDING.test(t) || ZERO.test(t)) return false;
+  const sentences = t.split(/(?<=[.!?])\s+/).filter(Boolean);
+  return sentences.length <= 2;
+}
+
+/** The first two sentences of a text, or null when it is empty. */
+export function twoSentences(text: string): string {
+  return String(text || '').trim().split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 2).join(' ');
+}
+
 export interface WriteOpts {
+  /** Skip the plain-text filter (for JSON answers the caller checks itself). */
+  raw?: boolean;
   system: string;
   user: string;
   max?: number;
@@ -54,7 +73,7 @@ export async function writeText(env: Pick<Env, 'AI'>, o: WriteOpts): Promise<str
       }) as Promise<{ response?: string }>;
       const out = await Promise.race([run, new Promise<null>((r) => setTimeout(() => r(null), o.timeoutMs ?? 12000))]);
       const text = scrub(String((out as { response?: string } | null)?.response || ''));
-      if (text) return text;
+      if (text && (o.raw || acceptable(text))) return text;
     } catch (err) {
       console.error('[brief] ai', model, String((err as Error)?.message || err).slice(0, 200));
     }
@@ -63,7 +82,7 @@ export async function writeText(env: Pick<Env, 'AI'>, o: WriteOpts): Promise<str
 }
 
 /** The style every prompt shares. */
-export const HOUSE = 'Write for a ministry staff member. Plain, warm, direct. Use only the facts given. Do not invent names, dates or amounts. No em dashes, no lists, no headings. Say "partners", never "donors". Never mention AI, models or that this was generated.';
+export const HOUSE = 'Write for a ministry staff member. At most two short sentences. Plain and factual, with no adjectives that praise or judge. Say gifts, never contributions. Use only the facts given. Do not invent names, dates or amounts. No em dashes, no lists, no headings. Say "partners", never "donors". Never mention AI, models or that this was generated.';
 
 /* ------------------------------------------------------------------ the saved copy (act_cache: key, value, at) */
 

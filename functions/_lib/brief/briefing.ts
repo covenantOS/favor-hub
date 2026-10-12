@@ -14,7 +14,9 @@ import { scopeFor } from '../work/role';
 import { todayEt, type Ctx } from '../work/service';
 import { bookFor, momentFacts, nbaOf, readBook, type Director, type PartnerRead } from './facts';
 import { momentsFor, type Moment } from './signals';
-import { dayDiff, money, plural, shortDay } from './text';
+import { dayDiff, money, plural } from './text';
+
+const weekdayOf = (iso: string): string => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
 
 export interface Line {
   id: string;
@@ -60,6 +62,8 @@ export interface Briefing {
   /** False for people the Work Center gate does not open: they get no partner content at all. */
   partners: boolean;
   owner: string;
+  /** The signed-in person's own fundraiser id, when they hold a portfolio. */
+  me: string;
   directors: Director[];
   since: string;
   overnight: { count: number; total: number; rows: OvernightGift[] } | null;
@@ -211,16 +215,16 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
   }
 
   const late = await lateP;
-  const bits: string[] = [];
-  if (thanks && thanks.total) bits.push(`${plural(thanks.total, 'gift')} to thank`);
-  if (overnight && overnight.count) bits.push(`${plural(overnight.count, 'new gift')} since ${shortDay(since)}`);
-  if (late && late.count) bits.push(`${plural(late.count, 'late action')}`);
   const focus: Line[] = [
     ...(late ? late.rows.map((l) => ({ ...l, sub: l.sub })) : []),
     ...(thanks ? thanks.rows.slice(0, 4).map((t): Line => ({ id: `thank:${t.giftId}`, text: `Thank ${t.name} for ${money(t.amount)}`, sub: t.ageDays >= 1 ? `Waiting ${plural(t.ageDays, 'day')}` : 'Gave today', href: `/work/partner/${encodeURIComponent(t.cid)}`, urgency: t.ageDays >= 3 ? 3 : 2 })) : []),
     ...(late ? late.dueToday : []),
     ...moments.slice(0, 2).map((m): Line => ({ id: `moment:${m.id}`, text: `${m.step.label}: ${m.name}`, sub: m.line, href: m.href, urgency: 1 })),
   ].slice(0, 8);
-  const headline = bits.length ? bits.join(', ') + '.' : 'Nothing is late and nobody is waiting on a thank-you.';
-  return { ok: true, today, partners, owner, directors, since, overnight, thanks, late, moments, focus, headline, at: new Date().toISOString() };
+  const lines: string[] = [];
+  if (thanks && thanks.total) lines.push(`${plural(thanks.total, 'thank-you')} waiting${thanks.over24 ? `, ${thanks.over24} for more than a day` : ''}`);
+  if (late && late.count) lines.push(`${plural(late.count, 'late action')}`);
+  if (overnight && overnight.count) lines.push(`${plural(overnight.count, 'gift')} since ${weekdayOf(since)}, ${money(overnight.total)}`);
+  const headline = lines.length ? lines.join('. ') + '.' : '';
+  return { ok: true, today, partners, owner, me: (ctx && ctx.scope && ctx.scope.fid) || '', directors, since, overnight, thanks, late, moments, focus, headline, at: new Date().toISOString() };
 }

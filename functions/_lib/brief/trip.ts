@@ -81,6 +81,7 @@ export async function parseTrip(env: Pick<Env, 'AI'>, text: string, today: strin
   let state = '';
   const ai = await writeText(env, {
     system: 'Read a travel note and answer with one line of JSON only: {"city":"","state":""}. city is the US city the person will be in. state is its two letter code, or empty when the note does not say and you are not sure. No other text.',
+    raw: true,
     user: clean,
     max: 40,
     temperature: 0,
