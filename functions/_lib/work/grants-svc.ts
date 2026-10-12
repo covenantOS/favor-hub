@@ -3,7 +3,7 @@
 // same batch, so Recent and Undo take both back together. Reading costs no Blackbaud calls. Logging costs 1 call for the action, 1 for
 // the file's upload address and 1 for the attachment. Nothing here contacts a funder.
 import { HttpError, newId, nowIso } from '../http';
-import { mirrorQ } from './partner';
+import { mirrorQ, listMirrorQ } from './partner';
 import { saveBatch, todayEt, authorizeBatch, validDate, validDue, type Ctx } from './service';
 import { planEdit } from './edit';
 import { clean, stamp } from '../actions/completion';
@@ -44,7 +44,7 @@ export async function grantsResponse(ctx: Ctx): Promise<GrantsOut> {
   const logs = await hubLogs(ctx, new Date(Date.now() - 24 * 31 * 86400000).toISOString());
   const files = new Map<string, string>();
   for (const l of logs) if (l.bb_id && l.file_name) files.set(String(l.bb_id), l.file_name);
-  const rows = await loadGrants(mirrorQ(ctx.env), today, files);
+  const rows = await loadGrants(listMirrorQ(ctx.env), today, files);
   const have = new Set(rows.map((r) => r.id));
   const names = new Map<string, string>();
   const local: GrantRow[] = [];

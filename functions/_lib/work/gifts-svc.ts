@@ -3,7 +3,7 @@
 // gets a new completed contact with the Thanked tag), so Recent, Undo and the write guard all apply. No extra Blackbaud calls are made
 // to read the list: 0 SKY calls. A thank-you costs 2 calls (one create, one tag), plus 1 for a follow-up task.
 import { HttpError, newId, nowIso } from '../http';
-import { mirrorQ } from './partner';
+import { mirrorQ, listMirrorQ } from './partner';
 import { getSetting } from './db';
 import { currentBoard, createBatch, authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from './service';
 import { planEdit, typesByFundraiser } from './edit';
@@ -60,7 +60,7 @@ export async function giftsResponse(ctx: Ctx, ownerIn: string): Promise<GiftsOut
   if (!mayGifts(ctx.scope)) throw new HttpError(403, 'not_yours', 'Gifts to thank is for directors, Partner Care and the Support Team.');
   const today = todayEt();
   const days = await daysSetting(ctx);
-  const [shaped, board, names] = await Promise.all([loadGifts(ctx.env, mirrorQ(ctx.env), { today, days }), currentBoard({ ...ctx, scope: undefined }).catch(() => null), ownerNames(ctx)]);
+  const [shaped, board, names] = await Promise.all([loadGifts(ctx.env, listMirrorQ(ctx.env), { today, days }), currentBoard({ ...ctx, scope: undefined }).catch(() => null), ownerNames(ctx)]);
   const vis = visibleOwners(ctx.scope);
   const taskBy = new Map<string, string[]>();
   if (board) for (const r of board.rows) if (r.ty && r.gift) (taskBy.get(r.gift.id) || taskBy.set(r.gift.id, []).get(r.gift.id)!).push(r.id);

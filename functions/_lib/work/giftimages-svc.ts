@@ -4,7 +4,7 @@
 // (an upload address, the attachment) plus the bytes, which go straight to Blackbaud's file service and spend no call. The image is
 // also kept in the private gift bucket as the master copy. Nothing here changes a gift, a donor or an amount.
 import { HttpError, newId, nowIso, type Env } from '../http';
-import { mirrorQ } from './partner';
+import { mirrorQ, listMirrorQ } from './partner';
 import { todayEt } from './service';
 import { bbSender, laneToday, sayWhy, type BbSend } from '../gifts/bb';
 import { recordLane } from '../gifts/flow';
@@ -55,7 +55,7 @@ export async function giftImagesResponse(ctx: Ctx, deps: Deps): Promise<ImagesOu
   if (!mayGiftImages(ctx.scope)) throw new HttpError(403, 'not_yours', 'Gift images is for the admin desk and the Support Team.');
   const today = todayEt();
   const synced = await ctx.repo.synced().catch(() => '');
-  const rows = await loadImageRows(mirrorQ(ctx.env), { today, known: await knownMap(ctx.env) });
+  const rows = await loadImageRows(listMirrorQ(ctx.env), { today, known: await knownMap(ctx.env) });
   const lane = await deps.lane().catch(() => null);
   const count = (w: Why) => rows.filter((r) => r.why === w).length;
   return {

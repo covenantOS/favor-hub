@@ -97,32 +97,44 @@ export async function loadGifts(env: Env, days: number): Promise<Gift[]> {
 }
 
 const WAIT_CACHE_MS = 5 * 60_000;
+const WAIT_STALE_MS = 24 * 3600_000;
 
 /**
  * The waiting list takes about 6 seconds to come back from Blackbaud (a query job that is started, then polled).
  * A page open reads a copy up to five minutes old. Making a print file and marking read Blackbaud fresh, and the
  * page asks for a fresh read after either, so the copy never decides what is printed or marked.
  */
-async function waitingGifts(env: Env, days: number, fresh: boolean): Promise<{ gifts: Gift[]; cached: boolean }> {
+async function waitingGifts(env: Env, days: number, fresh: boolean, defer?: (p: Promise<unknown>) => void): Promise<{ gifts: Gift[]; cached: boolean; at: string }> {
   const key = `cache:waiting:${days}`;
+  const read = async () => {
+    const csv = await queryWaiting(env, days);
+    const at = nowIso();
+    await env.DB.prepare(
+      "INSERT INTO rcp_settings (key, value, updated_by, updated_at) VALUES (?, ?, 'cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+    )
+      .bind(key, csv, at)
+      .run()
+      .catch(() => {});
+    return { gifts: giftsFromRows(parseCsv(csv)), cached: false, at };
+  };
   if (!fresh) {
     const row = await env.DB.prepare('SELECT value, updated_at FROM rcp_settings WHERE key = ?').bind(key).first<{ value: string; updated_at: string }>().catch(() => null);
-    if (row && Date.now() - Date.parse(row.updated_at) < WAIT_CACHE_MS) {
-      return { gifts: giftsFromRows(parseCsv(row.value)), cached: true };
+    if (row) {
+      const age = Date.now() - Date.parse(row.updated_at);
+      if (age < WAIT_CACHE_MS) return { gifts: giftsFromRows(parseCsv(row.value)), cached: true, at: row.updated_at };
+      // An older copy still opens the page at once and a read of Blackbaud runs behind it, so the next open is current. Printing and
+      // marking always read fresh, so an old copy never decides what is printed.
+      if (age < WAIT_STALE_MS && defer) {
+        defer(read().catch(() => undefined));
+        return { gifts: giftsFromRows(parseCsv(row.value)), cached: true, at: row.updated_at };
+      }
     }
   }
-  const csv = await queryWaiting(env, days);
-  await env.DB.prepare(
-    "INSERT INTO rcp_settings (key, value, updated_by, updated_at) VALUES (?, ?, 'cache', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
-  )
-    .bind(key, csv, nowIso())
-    .run()
-    .catch(() => {});
-  return { gifts: giftsFromRows(parseCsv(csv)), cached: false };
+  return read();
 }
 
-export async function waitingView(env: Env, days: number, fresh = false): Promise<View> {
-  const { gifts } = await waitingGifts(env, days, fresh);
+export async function waitingView(env: Env, days: number, fresh = false, defer?: (p: Promise<unknown>) => void): Promise<View> {
+  const { gifts, at } = await waitingGifts(env, days, fresh, defer);
   const open = await openBatchGifts(env);
   const letters: Item[] = [];
   const held: Item[] = [];
@@ -143,7 +155,7 @@ export async function waitingView(env: Env, days: number, fresh = false): Promis
   held.sort((a, b) => a.key.localeCompare(b.key) || order(a, b));
   const today = todayEastern();
   const check = summarize(printing.filter((g) => !open.has(g.id)), flags);
-  return { asOf: nowIso(), days, appealCode: appealCode(today), letters, held, check };
+  return { asOf: at, days, appealCode: appealCode(today), letters, held, check };
 }
 
 /* ------------------------------------------------------------ wording */

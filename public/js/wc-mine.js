@@ -347,7 +347,7 @@ window.WCX.push({
 // Load the portfolio once the Work Center has its lists, so the tab can show how many partners are quiet before it is opened.
 (function warm(n) {
   const wc = window.WC;
-  if (!wc || !wc.S || !wc.S.loaded) { if (n < 80) setTimeout(() => warm(n + 1), 250); return; }
+  if (!wc || !wc.S || !wc.S.loaded || !wc.S.warmed) { if (n < 160) setTimeout(() => warm(n + 1), 250); return; }
   const me = wc.DATA.me;
   if (!(me.role === 'admin' || me.role === 'support' || (me.role === 'director' && me.fid)) || M.data || M.loading) return;
   let owner = ''; try { owner = sessionStorage.getItem('wm.owner') || ''; } catch (_) { /* none */ }

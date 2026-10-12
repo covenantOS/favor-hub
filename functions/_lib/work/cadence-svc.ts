@@ -3,7 +3,7 @@
 // saved as an ordinary batch (a completed contact on the partner, a text with the Texted tag), so Recent, Undo and the write guard
 // apply. Reading costs no Blackbaud calls. A call, card or email step costs 1 call, a text costs 2.
 import { HttpError, newId, nowIso } from '../http';
-import { mirrorQ } from './partner';
+import { mirrorQ, listMirrorQ } from './partner';
 import { addReminders, dueFor } from './remind';
 import { authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from './service';
 import { planEdit, typesByFundraiser } from './edit';
@@ -40,7 +40,7 @@ export async function cadenceRows(ctx: Ctx, today: string): Promise<{ rows: Cade
     }
   }
   const names = await holderNames(ctx);
-  const rows = await loadCadence(ctx.env, mirrorQ(ctx.env), { today, names });
+  const rows = await loadCadence(ctx.env, listMirrorQ(ctx.env), { today, names });
   const at = nowIso();
   const value = JSON.stringify({ synced, today, at, rows } satisfies Cached);
   if (value.length < MAX_CACHE) await ctx.env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at').bind(CACHE_KEY, value, at).run().catch(() => undefined);

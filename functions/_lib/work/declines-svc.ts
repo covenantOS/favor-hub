@@ -3,7 +3,7 @@
 // apply. The type is chosen on purpose: Information Update counts as no portfolio contact, so a billing call never changes who is
 // credited for a partner. Reading costs no Blackbaud calls. A call, card, email or note costs 1 call, a text costs 2.
 import { HttpError, newId, nowIso } from '../http';
-import { mirrorQ } from './partner';
+import { mirrorQ, listMirrorQ } from './partner';
 import { addReminders, dueFor } from './remind';
 import { saveBatch, todayEt, authorizeBatch, type Ctx } from './service';
 import { planEdit } from './edit';
@@ -40,7 +40,7 @@ export async function declinesResponse(ctx: Ctx): Promise<DeclinesOut> {
   const synced = await ctx.repo.synced().catch(() => '');
   const since = addDays(today, -DECLINE_DAYS);
   const follow = await followSince(ctx, since);
-  const rows = await loadDeclines(mirrorQ(ctx.env), { today, follow });
+  const rows = await loadDeclines(listMirrorQ(ctx.env), { today, follow });
   const wk = weekStart(today);
   const open = rows.filter((r) => r.state === 'open');
   const closedWeek = new Set(follow.filter((f) => f.status !== 'open' && f.at.slice(0, 10) >= wk).map((f) => f.gift_id)).size;

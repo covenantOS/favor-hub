@@ -14,7 +14,7 @@
 // Mirror rules that shape the SQL: the endpoint refuses any statement whose text contains insert, update, replace, upsert, delete,
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
 import { HttpError, nowIso, type Env } from '../http';
-import { mirrorQ, type Q } from './partner';
+import { mirrorQ, listMirrorQ, type Q } from './partner';
 import { readOnly } from './repo';
 import { GIVEN, HOLD_TYPES } from './gifts';
 import { logEvent } from './db';
@@ -379,7 +379,7 @@ export const mayAsks = (s: Scope | undefined): boolean => !s || s.role === 'admi
 export async function asksResponse(ctx: Ctx, ownerIn: string, rangeIn = '12m', query: AskQuery = {}): Promise<AsksOut> {
   if (!mayAsks(ctx.scope)) throw new HttpError(403, 'not_yours', 'Asks is for directors and the Support Team.');
   const today = todayEt();
-  const q = mirrorQ(ctx.env);
+  const q = listMirrorQ(ctx.env);
   const [all, names] = await Promise.all([loadAsks(ctx.env, q, today, rangeIn === 'all'), q<{ id: string; first: string; last: string }>(FUNDRAISER_NAMES_SQL).catch(() => [])]);
   const nameOf: Record<string, string> = {};
   for (const f of names) nameOf[String(f.id)] = `${f.first || ''} ${f.last || ''}`.trim();

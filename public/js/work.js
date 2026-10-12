@@ -601,7 +601,7 @@ function dlgComplete(ids, mode) {
         closeLayer();
         const label = closeAsThanked ? `Closed ${plural(ids.length, 'thank-you task')} as thanked` : `Marked ${plural(ids.length, 'action')} complete` + (st.how && st.how !== 'none' ? ' as thank-you ' + ({ letter: 'letters', card: 'cards', call: 'calls', text: 'texts', email: 'emails', visit: 'visits' })[st.how] : '');
         const params = closeAsThanked ? { op: 'close_thanked' } : { op: 'complete', date: st.own ? null : st.date, own: st.own, line: st.line, outcome: st.out, how: st.how };
-        runJob({ params, ids, label, calls, tonight, apply: (id) => { S.gone[id] = 1; } });
+        runJob({ params, ids, label, calls, tonight, gone: true, apply: (id) => { S.gone[id] = 1; } });
       }
     });
     el.addEventListener('change', (e) => { if (e.target.matches('[data-datein]') && e.target.value) { st.own = false; st.date = e.target.value; st.line = $('#line', el).value; draw(el); } });
@@ -751,6 +751,7 @@ async function runJob(job) {
   ids.forEach((id) => { if (!handled.has(id)) { delete S.saving[id]; if (job.entry && inRow(id)) inRow(id).state = 'waiting'; } });
   if (!batch.id) { render(); toast(job.entry ? 'Those contacts are already in Blackbaud. Nothing was added twice.' : 'Those actions were already handled. Reload the list if it looks out of date.'); refreshBoard(); return; }
   const sent = ids.filter((id) => handled.has(id));
+  if (job.gone && window.WCSnap) window.WCSnap.rememberGone(sent, batch.id);
   if (batch.run_when === 'tonight') {
     sent.forEach((id) => { delete S.saving[id]; S.queued[id] = job.params.op === 'complete' || job.params.op === 'close_thanked' ? 'Marked complete · goes to Blackbaud tonight' : 'Change goes to Blackbaud tonight'; if (job.entry && inRow(id)) inRow(id).state = 'posting'; });
     render(); toast(`${job.label}. Blackbaud gets ${sent.length === 1 ? 'it' : 'them'} after ${DATA.meter.resets}.`, batch.id); refreshBoard(); loadRecent();
@@ -779,6 +780,7 @@ function settleUndo(bid) { const b = S.batches.find((x) => x.id === bid); if (!b
 async function undoBatch(bid) {
   if (UNDOING.has(bid)) return;
   UNDOING.add(bid); undoButtons(bid, true);
+  if (window.WCSnap) window.WCSnap.forgetBatch(bid);
   $('#toast').classList.remove('is-on');
   let out;
   try { out = await post(`/api/work/batches/${bid}/undo`); } catch (e) {
@@ -1267,6 +1269,7 @@ async function refreshBoard() {
     const keepGone = Object.assign({}, S.gone);
     const [b] = await Promise.all([api('/api/work/board?limit=3000'), S.in.data ? loadEntry() : Promise.resolve()]);
     takeBoard(b);
+    if (window.WCSnap && !AS && S.gate) window.WCSnap.save('board', S.gate.name, b);
     void keepGone;
     if (!document.querySelector('.wc-dlg, .wc-drawer') && !S.running && !drag) render();
   } catch (_) { /* the page keeps what it has */ } finally { refreshing = false; }
@@ -1387,13 +1390,22 @@ window.WC = {
 // ------------------------------------------------------------ start
 // Each tab reads its own data the first time it opens. Reading it now, right after the first paint, means a tab opens on rows.
 function warmTabs() {
-  setTimeout(() => {
-    try {
-      if (DATA.me.canEntry && !S.in.data && !S.in.loading && S.view !== 'intake') loadEntry().then(() => { if (S.view === 'intake') render(); });
-      if (window.WCEdit && window.WCEdit.warmOpps) window.WCEdit.warmOpps();
-      window.WCTabs.list(DATA.me).forEach((t) => { if (t.warm) t.warm(); });
-    } catch (_) { /* a tab reads again when it opens */ }
-  }, 300);
+  // One read at a time, each when the browser is idle, so the open tab never waits behind a queue of reads for tabs nobody has opened.
+  // The tab that is showing reads itself when it mounts. Counts on the other tabs fill in behind it.
+  const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const jobs = [];
+  if (DATA.me.canGifts && window.WCGifts) jobs.push(() => window.WCGifts.start());
+  if (DATA.me.canEntry) jobs.push(() => (!S.in.data && !S.in.loading && S.view !== 'intake' ? loadEntry().then(() => { if (S.view === 'intake') render(); }) : null));
+  if (window.WCEdit && window.WCEdit.warmOpps) jobs.push(() => window.WCEdit.warmOpps());
+  window.WCTabs.list(DATA.me).forEach((t) => { if (t.warm) jobs.push(() => t.warm()); });
+  setTimeout(() => idle(async () => {
+    for (const job of jobs) {
+      try { await Promise.race([Promise.resolve(job()), wait(8000)]); } catch (_) { /* a tab reads again when it opens */ }
+      await wait(120);
+    }
+    S.warmed = true;
+  }), 600);
 }
 // /work/?tab=open&action=<id> opens Open actions with that action selected and scrolled into view. The filters are cleared so it cannot be hidden.
 function pointAt(id, quiet) {
@@ -1422,13 +1434,21 @@ async function init() {
   try { S.gate = window.hubGate && !AS ? await window.hubGate().catch(() => api('/api/work/gate')) : await api('/api/work/gate'); } catch (e) { errorScreen(e.message); return; }
   if (!S.gate.open) { gateScreen(S.gate); return; }
   try {
+    // The last board this person saw draws first, without the actions they finished since. The fresh board replaces it a moment later.
+    const copy = window.WCSnap && !AS && !QS.get('action') ? window.WCSnap.load('board', S.gate.name) : null;
+    if (copy && Array.isArray(copy.rows)) {
+      takeBoard(Object.assign({}, copy, { rows: window.WCSnap.withoutGone(copy.rows, (r) => r.id) }));
+      S.batches = []; S.loaded = true;
+      const v0 = QS.get('view') || QS.get('tab'); if (v0 && window.WCTabs.has(v0, DATA.me)) S.view = v0;
+      render();
+    }
     const [b, rc] = await Promise.all([boardP, recentP]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
+    if (window.WCSnap && !AS) window.WCSnap.save('board', S.gate.name, b);
     const v = QS.get('view') || QS.get('tab'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
     { const qk = QS.get('quick'), fr = QS.get('fr'), dq = QS.get('due'); if (['past', 'today', 'now', 'week'].includes(dq)) S.f.due = dq; if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
     if (window.WCEdit) await window.WCEdit.start();
     if (window.WCStart) await window.WCStart.apply();
-    if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
     const wantAct = /^\d{1,12}$/.test(QS.get('action') || '') ? QS.get('action') : '';
     if (wantAct) pointAt(wantAct, true);
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }

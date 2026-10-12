@@ -152,6 +152,29 @@ export function mirrorQ(env: Env): Q {
   return (sql, params = []) => mirror(env, readOnly(sql), params) as Promise<any[]>;
 }
 
+/**
+ * The mirror's reader for lists. Answers repeat for 60 seconds from the edge cache (one entry per statement and its values), so a
+ * second screen or the next tab does not wait again on the sync worker. The mirror is itself a copy that Blackbaud's sync refreshes
+ * on a schedule, and every list lays the hub's own pending changes over it after reading, so 60 seconds of age changes nothing a
+ * person can see. A write that has to read its own result back never uses this reader.
+ */
+export function listMirrorQ(env: Env, ttl = 60): Q {
+  const live = mirrorQ(env);
+  const store = (globalThis as { caches?: { default?: Cache } }).caches?.default;
+  if (!store) return live;
+  return async (sql, params = []) => {
+    const text = JSON.stringify([sql, params]);
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    const key = new Request('https://mirror-cache.favor.invalid/' + [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join(''));
+    const hit = await store.match(key).catch(() => undefined);
+    if (hit) return (await hit.json()) as any[];
+    const rows = await live(sql, params);
+    const body = JSON.stringify(rows);
+    if (body.length < 4_000_000) await store.put(key, new Response(body, { headers: { 'Cache-Control': `max-age=${ttl}`, 'Content-Type': 'application/json' } })).catch(() => undefined);
+    return rows;
+  };
+}
+
 export async function loadPartner(q: Q, id: string, today: string = etParts(new Date()).date): Promise<PartnerView | null> {
   if (!SYSTEM_ID.test(id)) return null;
   const rows = await q<any>(

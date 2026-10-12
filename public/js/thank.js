@@ -105,6 +105,7 @@ async function undo(csv) {
   const ids = csv.split(',').filter(Boolean).filter((bid) => !UNDOING.has(bid)); // a change is undone once
   if (!ids.length) return;
   ids.forEach((bid) => UNDOING.add(bid));
+  if (window.WCSnap) ids.forEach((bid) => window.WCSnap.forgetBatch(bid));
   toast('Undoing…');
   let at = '';
   let queued = false;

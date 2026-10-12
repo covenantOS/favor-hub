@@ -311,7 +311,8 @@
     loading = true;
     try {
       const d = await api('/api/hub/home' + (fresh ? '?fresh=1' : ''));
-      try { sessionStorage.setItem(KEY, JSON.stringify(d)); } catch (_) { /* storage refused */ }
+      await gateP;
+      if (window.WCSnap && who) window.WCSnap.save('home', who, d);
       paint(d);
     } catch (e) {
       if (!D) { const whRoot = document.getElementById('wh'); if (whRoot) whRoot.classList.add('is-in'); }
@@ -320,10 +321,18 @@
     }
     loading = false;
   }
-  let hit = null;
-  try { hit = JSON.parse(sessionStorage.getItem(KEY) || 'null'); } catch (_) { /* no copy yet */ }
-  if (hit && hit.ok) paint(hit);
-  else {
+  // The last list this person saw is drawn first (rows they finished since it was saved stay off it), and the fresh list replaces it.
+  let who = '';
+  const gateP = window.hubGate ? window.hubGate().catch(() => null) : Promise.resolve(null);
+  gateP.then((g) => {
+    who = (g && g.name) || '';
+    const copy = who && window.WCSnap ? window.WCSnap.load('home', who) : null;
+    if (copy && copy.ok && !D) {
+      if (copy.work && copy.work.due) copy.work = Object.assign({}, copy.work, { due: Object.assign({}, copy.work.due, { rows: window.WCSnap.withoutGone(copy.work.due.rows, (r) => r.id) }) });
+      paint(copy);
+    }
+  });
+  {
     // First look in this tab: hold the room the Due card takes for this browser's last layout, so the cards below do not jump down.
     try {
       const shape = JSON.parse(localStorage.getItem(SHAPE) || 'null');
@@ -349,6 +358,7 @@
       const out = await post('/api/work/batches', Object.assign({ req: F().reqId() }, body));
       const b = out.batch;
       li.classList.remove('is-busy'); li.classList.add('is-gone');
+      if (b && b.id && window.WCSnap) window.WCSnap.rememberGone(body.ids || [li.dataset.id], b.id);
       F().toast(msg, b && b.id ? [b.id] : null);
       setTimeout(() => load(true), 260);
       if (b && b.id && b.run_when !== 'tonight') {

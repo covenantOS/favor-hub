@@ -8,7 +8,7 @@
 // drop, alter or create anywhere (readOnly checks it), and a list of ids goes in as one JSON parameter read with json_each(?).
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { readOnly, FUNDS_SQL, FUNDRAISERS_SQL } from './repo';
-import { mirrorQ, type Q } from './partner';
+import { mirrorQ, listMirrorQ, type Q } from './partner';
 import { getSetting, setSetting } from './db';
 import { authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from './service';
 import { planEdit } from './edit';
@@ -374,7 +374,7 @@ export const SIGNER_CHOICES: { key: HqtySignerKey; label: string }[] = [
   { key: 'rdd', label: "The partner's RDD" },
 ];
 
-export async function hqtyResponse(ctx: Ctx, q: Q = mirrorQ(ctx.env)): Promise<HqtyOut> {
+export async function hqtyResponse(ctx: Ctx, q: Q = listMirrorQ(ctx.env)): Promise<HqtyOut> {
   if (!mayHqty(ctx.scope)) throw new HttpError(403, 'not_yours', 'HQTY letters is for the Support Team.');
   const today = todayEt();
   const { raw, shaped } = await loadHqty(ctx.env, q, { today });

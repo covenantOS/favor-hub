@@ -7,7 +7,7 @@ import { cadenceResponse, mayCadence } from './cadence-svc';
 import { listStaff } from './db';
 import { giftsResponse, mayGifts } from './gifts-svc';
 import { weekStart } from './gifts';
-import { mirrorQ } from './partner';
+import { listMirrorQ } from './partner';
 import { loadPortfolio, type PortfolioRow } from './portfolio';
 import { can, type Scope } from './role';
 import { currentBoard, recentBatches, todayEt, type Ctx } from './service';
@@ -120,7 +120,7 @@ async function waitingBatches(env: Env, email?: string): Promise<number> {
 
 async function directorWeek(ctx: Ctx, fid: string) {
   const today = todayEt();
-  const q = mirrorQ(ctx.env);
+  const q = listMirrorQ(ctx.env);
   const pf = async (): Promise<PortfolioRow[]> => (await loadPortfolio(q, fid, today)).rows;
   const w = await loadWeek(q, fid, today, 0, { portfolio: pf });
   return {
