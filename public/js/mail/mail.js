@@ -51,7 +51,15 @@
     up: '<path d="m6 15 6-6 6 6"/>',
     down: '<path d="m6 9 6 6 6-6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
-    key: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'
+    key: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+    check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+    box: '<rect x="4" y="4" width="16" height="16" rx="3"/>',
+    boxon: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+    folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H10l2 2.5h7.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/>',
+    sort: '<path d="M7 5v14"/><path d="m3.5 15.5 3.5 3.5 3.5-3.5"/><path d="M17 19V5"/><path d="m13.5 8.5 3.5-3.5 3.5 3.5"/>',
+    bolt: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
+    hourglass: '<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5 8 9s-8 4-8 9"/><path d="M16 3c0 5-8 5-8 9s8 4 8 9"/>',
+    broom: '<path d="M14 4l6 6"/><path d="m12.5 7.5 4 4L9 19H4v-5z"/><path d="M8 15l3 3"/>'
   };
   function ic(n, cls) { return '<svg class="ml-i' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -102,7 +110,16 @@
   var api = {
     state: function () { return req('GET', 'state'); },
     labels: function () { return req('GET', 'labels'); },
-    threads: function (label, q, page) { return req('GET', 'threads?label=' + encodeURIComponent(label || 'INBOX') + (q ? '&q=' + encodeURIComponent(q) : '') + (page ? '&page=' + encodeURIComponent(page) : '')); },
+    threads: function (label, q, page, o) {
+      o = o || {};
+      return req('GET', 'threads?label=' + encodeURIComponent(label || 'INBOX') + (q ? '&q=' + encodeURIComponent(q) : '') + (page ? '&page=' + encodeURIComponent(page) : '') +
+        (o.view ? '&view=' + encodeURIComponent(o.view) : '') + (o.flags && o.flags.length ? '&f=' + o.flags.join(',') : '') + (o.sort ? '&sort=' + o.sort : ''));
+    },
+    overview: function () { return req('GET', 'smart/overview'); },
+    assist: function (id) { return req('GET', 'threads/' + encodeURIComponent(id) + '/assist'); },
+    partner: function (id) { return req('GET', 'partner/' + encodeURIComponent(id)); },
+    bulk: function (b) { return req('POST', 'bulk', b); },
+    moveCat: function (senders, cat) { return req('POST', 'smart/move', { senders: senders, cat: cat }); },
     thread: function (id) { return req('GET', 'threads/' + encodeURIComponent(id)); },
     modify: function (id, add, remove) { return req('POST', 'threads/' + encodeURIComponent(id) + '/modify', { add: add || [], remove: remove || [] }); },
     trash: function (id) { return req('POST', 'threads/' + encodeURIComponent(id) + '/trash', {}); },
@@ -129,7 +146,8 @@
   var S = {
     me: '', name: '', level: { read: false, write: false, headers: false, contacts: false }, write: true, connected: false, signature: '',
     label: 'INBOX', q: '', threads: [], next: '', loading: false, labels: [], sel: -1,
-    open: '', thread: null, partners: {}, drafts: {}, view: 'list', ro: false, nav: {}, exp: {}
+    open: '', thread: null, partners: {}, drafts: {}, view: 'list', ro: false, nav: {}, exp: {},
+    v: '', flags: {}, sort: '', picked: {}, anchor: '', ov: null, ovTry: 0
   };
   try { S.ro = localStorage.getItem('favor.mail.ro') === '1'; } catch (e) { /* private mode */ }
   try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); S.nav = (nv && nv.access) || {}; } catch (e) { /* none */ }
@@ -148,8 +166,9 @@
     '<aside class="ml-side" aria-label="Mailboxes"><button type="button" class="ml-compose" data-act="compose">' + ic('pen') + '<span>Compose</span></button><nav class="ml-labels" data-labels></nav></aside>' +
     '<section class="ml-list" aria-label="Conversations">' +
       '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
-      '<div class="ml-list__head"><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
-      '<div class="ml-allow" data-allow hidden><span>Senders and subjects only. Allow Mail adds the full message, files and search.</span><a class="ml-btn ml-btn--primary" data-allow-link href="#">Allow Mail</a></div>' +
+      '<div class="ml-tabs" data-tabs role="navigation" aria-label="Views" hidden></div><div class="ml-filters" data-filters hidden></div>' +
+      '<div class="ml-list__head"><button type="button" class="ml-iconbtn ml-pickall" data-act="pick-all" aria-label="Select all">' + ic('box') + '</button><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
+      '<div class="ml-selbar" data-selbar hidden></div><div class="ml-allow" data-allow hidden><span>Senders and subjects only. Allow Mail adds the full message, files and search.</span><a class="ml-btn ml-btn--primary" data-allow-link href="#">Allow Mail</a></div>' +
       '<div class="ml-rows" data-rows></div>' +
     '</section>' +
     '<section class="ml-read" aria-label="Conversation" data-read></section>' +
@@ -272,7 +291,8 @@
     var row = function (l) {
       var n = l.id === 'DRAFT' ? l.total : l.unread;
       var dot = l.color ? '<i class="ml-dot" style="background:' + esc(l.color) + '"></i>' : ic(SYS_ICON[l.id] || 'tag');
-      return '<a class="ml-lab' + (S.label === l.id && !S.q ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + (S.label === l.id && !S.q ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
+      var tip = l.id === 'INBOX' && l.unreadAll != null && l.unreadAll !== l.unread ? ' title="Unread in the Primary tab, as Gmail counts it. ' + l.unreadAll + ' unread across all tabs."' : '';
+      return '<a class="ml-lab' + (S.label === l.id && !S.q ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + tip + (S.label === l.id && !S.q ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
     };
     var html = sys.map(row).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
     var nav = $('[data-labels]'); if (nav) nav.innerHTML = html;
@@ -289,12 +309,270 @@
   }
   function loadLabels() {
     if (!S.level.headers && !S.level.read) return Promise.resolve();
-    return api.labels().then(function (d) { S.labels = d.labels || []; renderLabels(); }).catch(function () { /* the list still works */ });
+    return api.labels().then(function (d) { S.labels = d.labels || []; renderLabels(); renderFilters(); }).catch(function () { /* the list still works */ });
+  }
+  // The rail number follows what Gmail says: a change made here moves it at once, and the real number is read a moment later.
+  var syncT = 0;
+  function syncSoon(ms) { clearTimeout(syncT); syncT = setTimeout(function () { loadLabels(); if (S.label === 'INBOX') loadOverview(); }, ms || 1500); }
+  function sync(d) {
+    if (d && d.unread != null) {
+      var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
+      if (inbox) { inbox.unread = d.unread; if (d.all != null) inbox.unreadAll = d.all; renderLabels(); renderFilters(); }
+    }
+    syncSoon();
+  }
+  // A conversation counts toward the Inbox number when it is in the Inbox's Primary tab.
+  function isPrimary(labelIds) {
+    var l = labelIds || [];
+    if (l.indexOf('INBOX') < 0) return false;
+    return !l.some(function (x) { return /^CATEGORY_(PROMOTIONS|SOCIAL|FORUMS|UPDATES)$/.test(x); });
+  }
+
+  /* ------------------------------------------------------------------ views, filters and sorting */
+  var VIEWS = [['', 'Inbox'], ['needs', 'Needs you'], ['cat:partners', 'Partners'], ['cat:staff', 'Staff'], ['cat:people', 'People'], ['cat:receipts', 'Receipts and gifts'], ['cat:newsletters', 'Newsletters'], ['cat:notifications', 'Notifications'], ['cat:calendar', 'Calendar'], ['waiting', 'Waiting on reply']];
+  var CAT_NAMES = { partners: 'Partners', staff: 'Staff', people: 'People', receipts: 'Receipts and gifts', newsletters: 'Newsletters', notifications: 'Notifications', calendar: 'Calendar' };
+  function slugOf(v) { return v === 'needs' || v === 'waiting' ? v : v ? v.slice(4) : ''; }
+  function unslug(x) { if (x === 'needs' || x === 'waiting') return x; return CAT_NAMES[x] ? 'cat:' + x : null; }
+  function viewName(v) { var r = VIEWS.filter(function (x) { return x[0] === v; })[0]; return r ? r[1] : 'Inbox'; }
+  function viewCount(v) {
+    if (!S.ov) return null;
+    if (v === 'needs') return S.ov.needs;
+    if (v === 'waiting') return S.ov.waiting;
+    if (v.indexOf('cat:') === 0) return (S.ov.counts[v.slice(4)] || {}).n || 0;
+    return null;
+  }
+  function activeFlags() { return ['unread', 'starred', 'files', 'partner'].filter(function (f) { return S.flags[f]; }); }
+  function inboxPlain() { return S.label === 'INBOX' && !S.q; }
+  function effSort() { return S.sort || ((S.v === 'needs' || S.v === 'waiting') && inboxPlain() ? 'old' : 'new'); }
+  function listOpts() { return { view: inboxPlain() ? S.v : '', flags: activeFlags().filter(function (f) { return f !== 'partner' || inboxPlain(); }), sort: S.sort }; }
+  function renderTabs() {
+    var box = $('[data-tabs]'); if (!box) return;
+    var show = inboxPlain() && (S.level.read || MOCK);
+    box.hidden = !show;
+    if (!show) { box.innerHTML = ''; return; }
+    box.innerHTML = VIEWS.map(function (x) {
+      var n = viewCount(x[0]), on = S.v === x[0];
+      return '<a class="ml-tab' + (on ? ' is-on' : '') + (x[0] === 'needs' && n ? ' is-hot' : '') + '" href="#/' + (slugOf(x[0]) || 'INBOX') + '"' + (on ? ' aria-current="page"' : '') + '>' + esc(x[1]) + (n != null ? '<em>' + n + '</em>' : '') + '</a>';
+    }).join('');
+  }
+  function renderFilters() {
+    var box = $('[data-filters]'); if (!box) return;
+    var show = S.label !== 'SNOOZED' && (S.level.read || S.level.headers);
+    box.hidden = !show;
+    if (!show) { box.innerHTML = ''; return; }
+    var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
+    var ua = S.label === 'INBOX' && inbox && inbox.unreadAll ? '<em>' + inbox.unreadAll + '</em>' : '';
+    var chip = function (f, name, extra) { return '<button type="button" class="ml-fchip' + (S.flags[f] ? ' is-on' : '') + '" data-flag="' + f + '" aria-pressed="' + (S.flags[f] ? 'true' : 'false') + '">' + name + (extra || '') + '</button>'; };
+    var waiting = inboxPlain() && S.v === 'waiting';
+    box.innerHTML = (waiting ? '' : chip('unread', 'Unread', ua) + chip('starred', 'Starred') + chip('files', 'Has attachments') + (inboxPlain() ? chip('partner', 'From a partner') : '')) +
+      '<button type="button" class="ml-fchip ml-fchip--sort" data-act="sort" aria-label="Sort order">' + ic('sort') + (effSort() === 'old' ? 'Oldest first' : 'Newest first') + '</button>';
+  }
+  function applyMarks() {
+    if (!S.ov || !S.ov.marks) return;
+    S.threads.forEach(function (t) {
+      var m = S.ov.marks[t.id]; if (!m) return;
+      if (t.cat !== m.cat || !!t.ask !== !!m.ask) { t.cat = m.cat; t.ask = m.ask; patchRow(t); }
+    });
+  }
+  function loadOverview() {
+    if (!S.level.read || !S.connected) return;
+    var seq = ++ovSeq;
+    api.overview().then(function (d) {
+      if (seq !== ovSeq) return;
+      S.ov = d; S.ovTry = d.pending ? S.ovTry + 1 : 0;
+      applyMarks(); renderTabs(); renderCleanup();
+      if (d.pending && S.ovTry < 3) setTimeout(function () { if (S.label === 'INBOX') loadOverview(); }, 2500);
+    }).catch(function () { /* the tabs stay without counts */ });
+  }
+  var ovSeq = 0;
+  function cleanHtml() {
+    var c = S.ov && S.ov.cleanup;
+    if (!c || !c.total || !inboxPlain() || S.v) return '';
+    try { if (sessionStorage.getItem('favor.mail.clean') === ET()) return ''; } catch (e) { /* private mode */ }
+    var names = c.senders.slice(0, 3).map(function (x) { return x.name; }).join(', ');
+    return '<div class="ml-clean">' + ic('broom') + '<div class="ml-clean__t"><b>' + c.total + ' unread from ' + c.senders.length + ' senders you never open</b><span>Newsletters and notices, including ' + esc(names) + '.</span></div>' +
+      '<button type="button" class="ml-btn" data-act="clean-review">Archive all</button><button type="button" class="ml-iconbtn" data-act="clean-dismiss" aria-label="Not now">' + ic('x') + '</button></div>';
+  }
+  function renderCleanup() {
+    var rows = $('[data-rows]'); if (!rows) return;
+    var old = rows.querySelector('.ml-clean'); if (old) old.remove();
+    var h = cleanHtml();
+    if (h && S.threads.length) rows.insertAdjacentHTML('afterbegin', h);
+  }
+  function cleanReview() {
+    var c = S.ov && S.ov.cleanup; if (!c || !c.total) return;
+    if (!S.level.write || !canWrite()) return askWrite('archive');
+    var el = openSheet('Archive unread newsletters and notices', '<p class="ml-p">' + c.total + ' conversations from senders where nothing has been opened. They stay in All mail.</p><div class="ml-menu">' +
+      c.senders.map(function (x) { return '<div class="ml-menu__i"><span>' + esc(x.name) + '</span><small>' + x.n + '</small></div>'; }).join('') + '</div>' +
+      '<div class="ml-sheet__acts"><button type="button" class="ml-btn ml-btn--primary" data-clean-go>Archive ' + c.total + '</button><button type="button" class="ml-btn" data-close>Not now</button></div>');
+    el.addEventListener('click', function (e) {
+      if (!e.target.closest('[data-clean-go]')) return;
+      var ids = c.ids.slice();
+      closeSheet();
+      var gone = removeMany(ids);
+      api.bulk({ ids: ids, action: 'archive' }).then(function (d) {
+        sync(d);
+        toast('Archived ' + ids.length + ' conversations', function () { api.bulk({ ids: ids, action: 'inbox' }).then(function (d2) { putBackMany(gone); sync(d2); loadOverview(); }).catch(failed); });
+        loadOverview();
+      }).catch(function (er) { putBackMany(gone); failed(er, 'archive'); });
+    });
+  }
+
+  /* ------------------------------------------------------------------ choosing several (the avatar circle turns into a check) */
+  function pickedIds() { return Object.keys(S.picked); }
+  function pickedRows() { return pickedIds().map(findThread).filter(Boolean); }
+  function setPick(id, on) { if (on) S.picked[id] = 1; else delete S.picked[id]; var t = findThread(id); if (t) patchRow(t); }
+  function pick(id, range) {
+    var i = S.threads.findIndex(function (t) { return t.id === id; });
+    var a = S.anchor ? S.threads.findIndex(function (t) { return t.id === S.anchor; }) : -1;
+    if (range && a >= 0 && i >= 0) { for (var k = Math.min(a, i); k <= Math.max(a, i); k++) setPick(S.threads[k].id, true); }
+    else setPick(id, !S.picked[id]);
+    S.anchor = id;
+    renderSelBar();
+  }
+  function clearPicks() { var ids = pickedIds(); S.picked = {}; S.anchor = ''; ids.forEach(function (id) { var t = findThread(id); if (t) patchRow(t); }); renderSelBar(); }
+  function pickAll() {
+    var all = S.threads.length && S.threads.every(function (t) { return S.picked[t.id]; });
+    if (all) return clearPicks();
+    S.threads.forEach(function (t) { if (!S.picked[t.id]) setPick(t.id, true); });
+    renderSelBar();
+  }
+  function renderSelBar() {
+    var bar = $('[data-selbar]'), head = $('.ml-list__head'); if (!bar || !head) return;
+    var n = pickedIds().length;
+    bar.hidden = !n; head.hidden = !!n;
+    var pa = $('.ml-pickall'); if (pa) pa.innerHTML = ic(S.threads.length && n === S.threads.length ? 'boxon' : 'box');
+    root.classList.toggle('is-picking', n > 0);
+    if (!n) { bar.innerHTML = ''; return; }
+    var rows = pickedRows(), anyUnread = rows.some(function (r) { return r.unread; });
+    var b = function (k, icon, label) { return '<button type="button" class="ml-iconbtn" data-sel="' + k + '" aria-label="' + label + '">' + ic(icon) + '</button>'; };
+    var gone = S.label === 'TRASH' || S.label === 'SPAM';
+    bar.innerHTML = '<button type="button" class="ml-iconbtn" data-act="pick-clear" aria-label="Clear selection">' + ic('x') + '</button><b>' + n + ' selected</b>' +
+      (n < S.threads.length ? '<button type="button" class="ml-iconbtn" data-act="pick-all" aria-label="Select all ' + S.threads.length + '">' + ic('box') + '</button>' : '') +
+      '<span class="ml-selbar__acts">' + (gone ? '' : b('archive', 'archive', 'Archive')) + b('trash', 'trash', 'Delete') + b(anyUnread ? 'read' : 'unread', anyUnread ? 'read' : 'unread', anyUnread ? 'Mark as read' : 'Mark as unread') +
+      b('label', 'tag', 'Label') + b('snooze', 'clock', 'Snooze') + b('move', 'folder', 'Move to category') + '</span>';
+  }
+  function removeMany(ids) {
+    var gone = [];
+    ids.forEach(function (id) { var i = S.threads.findIndex(function (t) { return t.id === id; }); if (i >= 0) gone.push({ t: S.threads[i], i: i }); });
+    S.threads = S.threads.filter(function (t) { return ids.indexOf(t.id) < 0; });
+    ids.forEach(function (id) { delete S.picked[id]; });
+    if (S.open && ids.indexOf(S.open) >= 0) go(S.label, S.q, '', true);
+    renderList(); renderSelBar();
+    return gone;
+  }
+  function putBackMany(gone) {
+    gone.sort(function (a, b) { return a.i - b.i; }).forEach(function (g) { S.threads.splice(Math.min(g.i, S.threads.length), 0, g.t); });
+    renderList();
+  }
+  function selAct(kind) {
+    var ids = pickedIds(); if (!ids.length) return;
+    if (!S.level.write || !canWrite()) return askWrite(kind);
+    var rows = pickedRows(), n = ids.length;
+    var plural = n === 1 ? '1 conversation' : n + ' conversations';
+    var unreadPrimary = rows.filter(function (t) { return t.unread && isPrimary(t.labelIds); }).length;
+    if (kind === 'archive' || kind === 'trash') {
+      var leaves = kind === 'trash' || S.label === 'INBOX' || S.label === 'SNOOZED';
+      var gone = leaves ? removeMany(ids) : [];
+      if (!leaves) { rows.forEach(function (t) { t.labelIds = (t.labelIds || []).filter(function (l) { return l !== 'INBOX'; }); }); clearPicks(); }
+      bumpInbox(-unreadPrimary);
+      api.bulk({ ids: ids, action: kind }).then(function (d) {
+        sync(d);
+        if (d.failed) { toast(d.failed + ' did not change. Try those again.'); loadList({ quiet: true }); return; }
+        toast((kind === 'archive' ? 'Archived ' : 'Moved to Trash: ') + plural, function () {
+          api.bulk({ ids: ids, action: kind === 'archive' ? 'inbox' : 'untrash' }).then(function (d2) { putBackMany(gone); bumpInbox(unreadPrimary); sync(d2); toast('Back where they were'); }).catch(failed);
+        });
+      }).catch(function (e) { putBackMany(gone); bumpInbox(unreadPrimary); failed(e, kind); });
+      return;
+    }
+    if (kind === 'read' || kind === 'unread') {
+      var on = kind === 'unread', delta = 0;
+      rows.forEach(function (t) { if (!!t.unread !== on) { if (isPrimary(t.labelIds)) delta += on ? 1 : -1; t.unread = on; patchRow(t); } });
+      renderSelBar();
+      bumpInbox(delta);
+      api.bulk({ ids: ids, action: kind }).then(function (d) { sync(d); toast(on ? 'Marked as unread' : 'Marked as read'); }).catch(function (e) { rows.forEach(function (t) { t.unread = !on; patchRow(t); }); bumpInbox(-delta); failed(e, kind); });
+      return;
+    }
+    if (kind === 'star') {
+      var all = rows.every(function (t) { return t.starred; });
+      rows.forEach(function (t) { t.starred = !all; patchRow(t); });
+      api.bulk({ ids: ids, action: all ? 'unstar' : 'star' }).catch(function (e) { rows.forEach(function (t) { t.starred = all; patchRow(t); }); failed(e, kind); });
+      return;
+    }
+    if (kind === 'label') return labelsMany(ids, rows);
+    if (kind === 'snooze') return snoozeMany(ids, rows);
+    if (kind === 'move') return moveMany(rows);
+  }
+  function labelsMany(ids, rows) {
+    var own = S.labels.filter(function (l) { return l.type === 'user'; });
+    var has = function (l) { var c = rows.filter(function (t) { return (t.labelIds || []).indexOf(l) >= 0; }).length; return c === 0 ? 0 : c === rows.length ? 2 : 1; };
+    var el = openSheet('Labels for ' + ids.length + ' conversations', '<div class="ml-menu">' + (own.length ? own.map(function (l) { return '<label class="ml-menu__i ml-check"><input type="checkbox" data-lab="' + esc(l.id) + '" data-was="' + has(l.id) + '"' + (has(l.id) === 2 ? ' checked' : '') + ' /><span>' + esc(l.name) + '</span></label>'; }).join('') : '<p class="ml-p">No labels yet.</p>') +
+      '<div class="ml-sheet__acts"><button type="button" class="ml-btn ml-btn--primary" data-applylab>Apply</button></div></div>');
+    el.querySelectorAll('[data-was="1"]').forEach(function (cb) { cb.indeterminate = true; });
+    el.addEventListener('click', function (e) {
+      if (!e.target.closest('[data-applylab]')) return;
+      var add = [], remove = [];
+      el.querySelectorAll('[data-lab]').forEach(function (cb) {
+        var was = +cb.dataset.was;
+        if (cb.checked && was !== 2 && !(was === 1 && cb.indeterminate)) add.push(cb.dataset.lab);
+        if (!cb.checked && !cb.indeterminate && was > 0) remove.push(cb.dataset.lab);
+      });
+      closeSheet();
+      if (!add.length && !remove.length) return;
+      api.bulk({ ids: ids, action: 'label', add: add, remove: remove }).then(function (d) {
+        rows.forEach(function (t) { t.labelIds = (t.labelIds || []).filter(function (l) { return remove.indexOf(l) < 0; }); add.forEach(function (l) { if (t.labelIds.indexOf(l) < 0) t.labelIds.push(l); }); });
+        toast('Labels saved'); sync(d);
+        if (remove.indexOf(S.label) >= 0) loadList({ quiet: true });
+      }).catch(failed);
+    });
+  }
+  function snoozeMany(ids, rows) {
+    var opts = snoozeTimes();
+    var el = openSheet('Snooze ' + ids.length + ' conversations until', '<div class="ml-menu">' + opts.map(function (o, k) { return '<button type="button" class="ml-menu__i" data-snz="' + k + '">' + ic('clock') + '<span>' + esc(o[0]) + '</span><small>' + esc(o[1].toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })) + '</small></button>'; }).join('') +
+      '<div class="ml-menu__pick"><label for="ml-snz-at">Pick a date and time</label><input id="ml-snz-at" type="datetime-local" class="ml-input" /><button type="button" class="ml-btn ml-btn--primary" data-snz="pick">Snooze</button></div></div>');
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-snz]'); if (!b) return;
+      var until = b.dataset.snz === 'pick' ? new Date(el.querySelector('#ml-snz-at').value) : opts[+b.dataset.snz][1];
+      if (!until || !isFinite(until.getTime()) || until < new Date()) { toast('Pick a time later than now'); return; }
+      closeSheet();
+      var unreadPrimary = rows.filter(function (t) { return t.unread && isPrimary(t.labelIds); }).length;
+      var gone = S.label === 'INBOX' ? removeMany(ids) : [];
+      bumpInbox(-unreadPrimary);
+      api.bulk({ ids: ids, action: 'snooze', until: until.toISOString() }).then(function (d) {
+        sync(d);
+        toast('Snoozed until ' + until.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }), function () { api.bulk({ ids: ids, action: 'inbox' }).then(function (d2) { putBackMany(gone); bumpInbox(unreadPrimary); sync(d2); }).catch(failed); });
+      }).catch(function (er) { putBackMany(gone); bumpInbox(unreadPrimary); failed(er, 'snooze'); });
+    });
+  }
+  function moveMany(rows) {
+    var senders = []; rows.forEach(function (t) { var e = t.from && t.from.email; if (e && e !== S.me && senders.indexOf(e) < 0) senders.push(e); });
+    if (!senders.length) { toast('These are your own messages'); return; }
+    var cats = ['partners', 'staff', 'people', 'receipts', 'newsletters', 'notifications', 'calendar'];
+    var el = openSheet('Move to category', '<p class="ml-p">All mail from ' + (senders.length === 1 ? esc(senders[0]) : senders.length + ' senders') + ' goes there from now on.</p><div class="ml-menu">' +
+      cats.map(function (c) { return '<button type="button" class="ml-menu__i" data-mv="' + c + '">' + ic('folder') + '<span>' + esc(CAT_NAMES[c]) + '</span></button>'; }).join('') + '</div>');
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-mv]'); if (!b) return;
+      var c = b.dataset.mv;
+      closeSheet();
+      api.moveCat(senders, c).then(function () {
+        S.threads.forEach(function (t) { if (t.from && senders.indexOf(t.from.email) >= 0) { t.cat = c; patchRow(t); } });
+        clearPicks();
+        toast('Moved to ' + CAT_NAMES[c]);
+        loadOverview();
+        if (S.v) loadList({ quiet: true });
+      }).catch(failed);
+    });
+  }
+  function followUp(id) {
+    var t = findThread(id), p = t && t.people && t.people[0];
+    var first = ((p && p.name) || '').replace(/^To: /, '').split(/\s+/)[0] || 'there';
+    S.pendingReply = { id: id, text: 'Hi ' + first + ',\n\nI am following up on my last note. Where does this stand on your side?' };
+    go(S.label, S.q, id);
   }
 
   /* ------------------------------------------------------------------ the list */
   var listSeq = 0;
-  function listTitle() { return S.q ? 'Search' : labelName(S.label); }
+  function listTitle() { return S.q ? 'Search' : inboxPlain() && S.v ? viewName(S.v) : labelName(S.label); }
   function skeleton(n) { var s = ''; for (var i = 0; i < n; i++) s += '<div class="ml-row ml-row--skel" aria-hidden="true"><span class="ml-av"></span><span class="ml-row__t"><i style="width:' + (40 + (i * 17) % 35) + '%"></i><i style="width:' + (60 + (i * 13) % 30) + '%"></i></span></div>'; return s; }
   function loadList(opts) {
     opts = opts || {};
@@ -303,14 +581,20 @@
     $('[data-list-title]').textContent = listTitle();
     $('[data-list-note]').textContent = MOCK ? 'Sample mail' : '';
     var input = $('[data-search] input'); if (input && document.activeElement !== input) input.value = S.q;
-    if (!opts.more) { if (!opts.quiet || !S.threads.length) rows.innerHTML = skeleton(8); S.next = ''; }
+    if (!opts.more) { if (!opts.quiet || !S.threads.length) rows.innerHTML = skeleton(8); S.next = ''; if (!opts.quiet) { S.picked = {}; S.anchor = ''; } }
     S.loading = true;
-    return api.threads(S.label, S.q, opts.more ? S.next : '').then(function (d) {
+    renderTabs(); renderFilters(); renderSelBar();
+    return api.threads(S.label, S.q, opts.more ? S.next : '', listOpts()).then(function (d) {
       if (seq !== listSeq) return;
       S.loading = false;
       if (d.level) S.level = Object.assign(S.level, d.level);
       S.threads = opts.more ? S.threads.concat(d.threads || []) : (d.threads || []);
       S.next = d.next || '';
+      S.scanned = d.scanned || 0;
+      Object.keys(S.picked).forEach(function (id) { if (!findThread(id)) delete S.picked[id]; });
+      renderSelBar();
+      var note = $('[data-list-note]'); if (note && !MOCK) note.textContent = S.v && inboxPlain() && S.v !== 'waiting' && S.scanned ? 'From your newest ' + S.scanned : '';
+      if (inboxPlain() && !opts.more) loadOverview();
       if (S.sel >= S.threads.length) S.sel = S.threads.length - 1;
       renderList();
     }).catch(function (e) {
@@ -325,15 +609,17 @@
     var name = (t.people || []).length === 1 ? who(t.people[0]) : names.join(', ');
     if (t.draft && S.label === 'DRAFT') name = 'Draft';
     var on = S.open === t.id;
-    return '<div class="ml-row' + (t.unread ? ' is-unread' : '') + (on ? ' is-open' : '') + (i === S.sel ? ' is-sel' : '') + '" data-i="' + i + '" data-id="' + esc(t.id) + '">' +
+    var picked = !!S.picked[t.id];
+    return '<div class="ml-row' + (t.unread ? ' is-unread' : '') + (on ? ' is-open' : '') + (i === S.sel ? ' is-sel' : '') + (picked ? ' is-picked' : '') + '" data-i="' + i + '" data-id="' + esc(t.id) + '">' +
       '<a class="ml-row__a" href="#/' + (S.q ? 'search/' + encodeURIComponent(S.q) : encodeURIComponent(S.label)) + '/' + encodeURIComponent(t.id) + '" data-open="' + esc(t.id) + '"' + (on ? ' aria-current="true"' : '') + '>' +
-        '<span class="ml-av" data-h="' + hue((t.from && t.from.email) || name) + '">' + esc(initials(t.from && t.from.email === S.me ? S.name : who(t.from) || name)) + '</span>' +
+        '<span class="ml-av' + (picked ? ' is-picked' : '') + '" data-h="' + hue((t.from && t.from.email) || name) + '" data-pick>' + (picked ? ic('check') + '<span class="ml-sr">Selected</span>' : esc(initials(t.from && t.from.email === S.me ? S.name : who(t.from) || name))) + '</span>' +
         '<span class="ml-row__t"><span class="ml-row__l1"><b class="ml-row__who">' + esc(name || '(no sender)') + (t.count > 1 ? ' <small>' + t.count + '</small>' : '') + (t.draft && S.label !== 'DRAFT' ? ' <em class="ml-draftword">Draft</em>' : '') + '</b><time>' + esc(when(t.date)) + '</time></span>' +
         '<span class="ml-row__s">' + esc(t.subject || '(no subject)') + '</span>' +
-        '<span class="ml-row__p">' + (t.snoozed ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + esc(when(t.snoozed)) + '</em>' : '') + (t.files ? ic('clip', 'ml-i--sm') : '') + esc(t.snippet || '') + '</span></span>' +
+        '<span class="ml-row__p">' + (t.ask ? '<em class="ml-chip ml-chip--sun">Needs you</em>' : '') + (t.partner && !(S.v === 'cat:partners') ? '<em class="ml-chip ml-chip--leaf">Partner</em>' : '') + (t.waitDays != null ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + 'Sent ' + (t.waitDays === 1 ? 'yesterday' : t.waitDays + ' days ago') + '</em>' : '') + (t.snoozed ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + esc(when(t.snoozed)) + '</em>' : '') + (t.files ? ic('clip', 'ml-i--sm') : '') + esc(t.snippet || '') + '</span></span>' +
       '</a>' +
       '<button type="button" class="ml-star' + (t.starred ? ' is-on' : '') + '" data-act="star" data-id="' + esc(t.id) + '" aria-pressed="' + (t.starred ? 'true' : 'false') + '" aria-label="' + (t.starred ? 'Remove star' : 'Star') + '">' + ic('star') + '</button>' +
       '<span class="ml-row__hover" aria-hidden="false">' +
+        (t.waitDays != null ? '<button type="button" class="ml-iconbtn" data-act="followup" data-id="' + esc(t.id) + '" aria-label="Follow up" title="Follow up">' + ic('reply') + '</button>' : '') +
         '<button type="button" class="ml-iconbtn" data-act="archive" data-id="' + esc(t.id) + '" aria-label="Archive" title="Archive (e)">' + ic('archive') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-act="delete" data-id="' + esc(t.id) + '" aria-label="Delete" title="Delete (#)">' + ic('trash') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-act="toggle-read" data-id="' + esc(t.id) + '" aria-label="' + (t.unread ? 'Mark as read' : 'Mark as unread') + '" title="' + (t.unread ? 'Mark as read' : 'Mark as unread') + '">' + ic(t.unread ? 'read' : 'unread') + '</button>' +
@@ -343,10 +629,11 @@
   function renderList() {
     var rows = $('[data-rows]');
     if (!S.threads.length) {
-      rows.innerHTML = '<div class="ml-empty"><b>' + (S.q ? 'Nothing matches' : S.label === 'INBOX' ? 'Inbox is empty' : 'No conversations') + '</b>' + (S.q ? '<span>Gmail search words work here, like from:, has:attachment and before:2026/10/01.</span>' : '') + '</div>';
+      var none = S.q ? 'Nothing matches' : activeFlags().length ? 'Nothing matches the filters' : inboxPlain() && S.v === 'needs' ? 'Nothing is waiting on you' : inboxPlain() && S.v === 'waiting' ? 'No sent mail is waiting on a reply' : inboxPlain() && S.v ? 'Nothing in ' + viewName(S.v) : S.label === 'INBOX' ? 'Inbox is empty' : 'No conversations';
+      rows.innerHTML = '<div class="ml-empty"><b>' + none + '</b>' + (S.q ? '<span>Gmail search words work here, like from:, has:attachment and before:2026/10/01.</span>' : activeFlags().length ? '<button type="button" class="ml-btn" data-act="flags-clear">Clear filters</button>' : '') + '</div>';
       return;
     }
-    rows.innerHTML = S.threads.map(rowHtml).join('') + (S.next ? '<div class="ml-more"><button type="button" class="ml-btn" data-act="more">Show more</button></div>' : '');
+    rows.innerHTML = cleanHtml() + S.threads.map(rowHtml).join('') + (S.next ? '<div class="ml-more"><button type="button" class="ml-btn" data-act="more">Show more</button></div>' : '');
   }
   function patchRow(t) {
     var i = S.threads.indexOf(t);
@@ -400,9 +687,12 @@
       // Opening marks it read, as Gmail does (only with the person's permission to change mail).
       var lt = findThread(id);
       var unread = (d.thread.messages || []).some(function (m) { return m.unread; });
+      var counted = (d.thread.messages || []).some(function (m) { return m.unread && isPrimary(m.labelIds); });
       if (unread && S.level.write && canWrite()) {
-        api.modify(id, [], ['UNREAD']).then(function () { if (lt) { lt.unread = false; patchRow(lt); } bumpInbox(-1); }).catch(function () { /* stays bold */ });
+        api.modify(id, [], ['UNREAD']).then(function () { if (lt) { lt.unread = false; patchRow(lt); } bumpInbox(counted ? -1 : 0); syncSoon(1200); }).catch(function () { /* stays bold */ });
       }
+      if (!S.headersOnly && S.level.read) loadAssist(id, seq);
+      if (S.pendingReply && S.pendingReply.id === id) { var pr = S.pendingReply; S.pendingReply = null; startReply('reply', null, pr.text); }
     }).catch(function (e) {
       if (seq !== threadSeq) return;
       if (e.code === 'mail_scope' || e.code === 'mail_connect') { read.innerHTML = threadFrame({ id: id, subject: t ? t.subject : '', messages: [] }, false); renderConnect('read'); return; }
@@ -410,8 +700,10 @@
     });
   }
   function bumpInbox(d) {
+    if (!d) return;
     var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
     if (inbox) { inbox.unread = Math.max(0, inbox.unread + d); renderLabels(); }
+    syncSoon(2500);
   }
   function threadTools() {
     var t = S.thread || {};
@@ -441,10 +733,10 @@
       '<div class="ml-thread__chips">' + own.map(function (l) { return '<span class="ml-chip">' + esc(labelName(l)) + '</span>'; }).join('') +
       (t.snoozed ? '<span class="ml-chip ml-chip--sun">' + ic('clock') + 'Snoozed until ' + esc(when(t.snoozed, true)) + '</span>' : '') +
       (partner ? '<a class="ml-chip ml-chip--leaf" href="/work/partner/' + encodeURIComponent(partner.id) + '">' + ic('person') + esc(partner.name || 'Partner') + '</a>' : '') +
-      '<button type="button" class="ml-star ml-star--h' + (st.starred ? ' is-on' : '') + '" data-act="star" aria-pressed="' + (st.starred ? 'true' : 'false') + '" aria-label="' + (st.starred ? 'Remove star' : 'Star') + '">' + ic('star') + '</button></div></div>';
+      '<button type="button" class="ml-star ml-star--h' + (st.starred ? ' is-on' : '') + '" data-act="star" aria-pressed="' + (st.starred ? 'true' : 'false') + '" aria-label="' + (st.starred ? 'Remove star' : 'Star') + '">' + ic('star') + '</button></div></div><div class="ml-assist" data-assist hidden></div>';
     var body = loading ? '<div class="ml-msg ml-msg--skel"><span class="ml-av"></span><span class="ml-row__t"><i style="width:40%"></i><i style="width:85%"></i><i style="width:70%"></i></span></div>' : msgs.map(msgHtml).join('');
     var last = msgs.filter(function (m) { return !m.draft; }).slice(-1)[0];
-    var foot = !loading && last ? '<div class="ml-thread__foot">' +
+    var foot = !loading && last ? '<div class="ml-sugg" data-sugg hidden></div><div class="ml-thread__foot">' +
       '<button type="button" class="ml-btn" data-act="reply">' + ic('reply') + 'Reply</button>' +
       (replyAllList(last).length > 1 ? '<button type="button" class="ml-btn" data-act="replyall">' + ic('replyall') + 'Reply all</button>' : '') +
       '<button type="button" class="ml-btn" data-act="forward">' + ic('fwd') + 'Forward</button></div>' : '';
@@ -455,6 +747,43 @@
       '<button type="button" data-act="reply-menu" aria-label="Reply, reply all or forward">' + ic('reply') + '</button>' +
       '<button type="button" data-act="compose" aria-label="New message">' + ic('pen') + '</button></div>';
     return '<div class="ml-thread" data-thread="' + esc(t.id) + '"><div class="ml-thread__bar">' + bar + '</div><div class="ml-thread__scroll">' + head + '<div class="ml-thread__msgs">' + body + '</div>' + foot + '</div>' + pbar + '</div>';
+  }
+  var money = function (n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); };
+  var shortDay = function (iso) { return iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
+  function loadAssist(id, seq) {
+    S.assist = { id: id, summary: '', replies: [], ask: false, card: null, loading: true };
+    drawAssist();
+    api.assist(id).then(function (a) {
+      if (seq !== threadSeq || !S.assist) return;
+      S.assist.summary = a.summary || ''; S.assist.replies = a.replies || []; S.assist.ask = !!a.ask; S.assist.loading = false; drawAssist();
+    }).catch(function () { if (seq === threadSeq && S.assist) { S.assist.loading = false; drawAssist(); } });
+    var p = partnerOf(S.thread);
+    if (p && hubAccess().workCenter) api.partner(p.id).then(function (d) { if (seq === threadSeq && S.assist) { S.assist.card = d.partner; drawAssist(); } }).catch(function () { /* the chip above still opens the partner */ });
+  }
+  function partnerCardHtml(c, p) {
+    var holders = (c.holders || []).map(function (h) { return esc(h.name) + (h.type ? ' (' + esc(h.type) + ')' : ''); }).join(', ');
+    var cell = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
+    return '<div class="ml-pcard"><div class="ml-pcard__h"><span class="ml-pcard__ic">' + ic('person') + '</span><a href="/work/partner/' + encodeURIComponent(c.id) + '"><b>' + esc(c.name || p.name || 'Partner') + '</b></a>' +
+      (c.doNotEmail ? '<em class="ml-chip ml-chip--sun">Do not email</em>' : '') + '</div><dl class="ml-pcard__g">' +
+      cell('Lifetime giving', c.count ? money(c.total) + ' in ' + c.count + (c.count === 1 ? ' gift' : ' gifts') : 'No gifts yet') +
+      cell('Last gift', c.last ? money(c.last.amount) + ' on ' + esc(shortDay(c.last.date)) + (c.last.fund ? ', ' + esc(c.last.fund) : '') : '') +
+      cell('This year', c.count ? money(c.ytd) : '') + cell('Held by', holders || 'No one assigned') +
+      cell('Last contact', c.lastContact ? esc(shortDay(c.lastContact.date)) + (c.lastContact.category ? ', ' + esc(c.lastContact.category) : '') : 'None on record') +
+      cell('Open actions', c.openActions ? String(c.openActions) : '') + '</dl>' +
+      '<div class="ml-pcard__acts"><a class="ml-btn" href="/work/partner/' + encodeURIComponent(c.id) + '">Open partner</a><button type="button" class="ml-btn" data-act="log-partner">' + ic('log') + 'Log as an action</button></div></div>';
+  }
+  function drawAssist() {
+    var a = S.assist, box = $('[data-assist]'), sg = $('[data-sugg]');
+    if (!a || !box) return;
+    var p = partnerOf(S.thread);
+    var html = '';
+    if (a.ask || a.summary) html += '<div class="ml-sum">' + (a.ask ? '<em class="ml-chip ml-chip--sun">' + ic('bolt') + 'Waiting on you</em>' : '') + (a.summary ? '<p><b>In short</b> ' + esc(a.summary) + '</p>' : '') + '</div>';
+    if (a.card && p) html += partnerCardHtml(a.card, p);
+    box.innerHTML = html; box.hidden = !html;
+    if (sg) {
+      sg.hidden = !a.replies.length;
+      sg.innerHTML = a.replies.length ? '<b>Suggested replies</b><div class="ml-sugg__l">' + a.replies.map(function (r, i) { return '<button type="button" class="ml-sugg__b" data-act="sugg" data-i="' + i + '">' + esc(r).replace(/\n/g, '<br>') + '</button>'; }).join('') + '</div>' : '';
+    }
   }
   function partnerOf(t) {
     var msgs = (t && t.messages) || [];
@@ -568,10 +897,15 @@
   function parseHash() {
     var h = location.hash.replace(/^#\/?/, '');
     var parts = h.split('/').map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
-    if (parts[0] === 'search') return { label: 'ALL', q: parts[1] || '', thread: parts[2] || '' };
-    return { label: parts[0] || 'INBOX', q: '', thread: parts[1] || '' };
+    if (parts[0] === 'search') return { label: 'ALL', q: parts[1] || '', thread: parts[2] || '', v: '' };
+    var v = unslug(parts[0]);
+    if (v) return { label: 'INBOX', q: '', thread: parts[1] || '', v: v };
+    return { label: parts[0] || 'INBOX', q: '', thread: parts[1] || '', v: '' };
   }
-  function hashFor(label, q, tid) { return '#/' + (q ? 'search/' + encodeURIComponent(q) : encodeURIComponent(label || 'INBOX')) + (tid ? '/' + encodeURIComponent(tid) : ''); }
+  function hashFor(label, q, tid, v) {
+    if (v === undefined) v = label === 'INBOX' && S.label === 'INBOX' && !q ? S.v : '';
+    return '#/' + (q ? 'search/' + encodeURIComponent(q) : label === 'INBOX' && v ? slugOf(v) : encodeURIComponent(label || 'INBOX')) + (tid ? '/' + encodeURIComponent(tid) : '');
+  }
   function go(label, q, tid, replace) {
     var h = hashFor(label, q, tid);
     if (location.hash === h) return route();
@@ -580,8 +914,8 @@
   }
   function route() {
     var r = parseHash();
-    var listChanged = r.label !== S.label || r.q !== S.q || (!S.threads.length && !S.loading);
-    S.label = r.label; S.q = r.q;
+    var listChanged = r.label !== S.label || r.q !== S.q || r.v !== S.v || (!S.threads.length && !S.loading);
+    S.label = r.label; S.q = r.q; S.v = r.v;
     if (listChanged) { S.sel = -1; renderLabels(); loadList(); }
     if (r.thread) { if (r.thread !== S.open || S.view !== 'thread') openThread(r.thread); }
     else { S.open = ''; S.thread = null; setView('list'); $$('.ml-row.is-open').forEach(function (x) { x.classList.remove('is-open'); }); if (!isPhone()) $('[data-read]').innerHTML = emptyRead(); }
@@ -622,7 +956,7 @@
     if (!S.level.write || !canWrite()) return askWrite(kind);
     var t = findThread(id);
     if (kind === 'archive' || kind === 'delete') {
-      var wasUnread = t && t.unread && S.label === 'INBOX';
+      var wasUnread = t && t.unread && isPrimary(t.labelIds);
       var gone = (S.label === 'INBOX' || kind === 'delete' || S.label === 'SNOOZED') ? removeFromList(id) : null;
       afterLeave(id);
       if (wasUnread) bumpInbox(-1);
@@ -649,7 +983,7 @@
       var makeUnread = kind === 'unread' || (kind === 'toggle-read' && (S.open === id || !(t && t.unread)));
       if (t) { t.unread = makeUnread; patchRow(t); }
       api.modify(id, makeUnread ? ['UNREAD'] : [], makeUnread ? [] : ['UNREAD']).then(function () {
-        if (S.label === 'INBOX' || (t && (t.labelIds || []).indexOf('INBOX') >= 0)) bumpInbox(makeUnread ? 1 : -1);
+        if (t ? isPrimary(t.labelIds) : threadTools().inInbox) bumpInbox(makeUnread ? 1 : -1);
         if (makeUnread && S.open === id) go(S.label, S.q, '', false);
         toast(makeUnread ? 'Marked as unread' : 'Marked as read');
       }).catch(function (e) { if (t) { t.unread = !makeUnread; patchRow(t); } failed(e); });
@@ -679,7 +1013,7 @@
       var until = b.dataset.snz === 'pick' ? new Date(el.querySelector('#ml-snz-at').value) : opts[+b.dataset.snz][1];
       if (!until || !isFinite(until.getTime()) || until < new Date()) { toast('Pick a time later than now'); return; }
       closeSheet();
-      var t = findThread(id), wasUnread = t && t.unread && S.label === 'INBOX';
+      var t = findThread(id), wasUnread = t && t.unread && isPrimary(t.labelIds);
       var gone = S.label === 'INBOX' ? removeFromList(id) : null;
       afterLeave(id);
       if (wasUnread) bumpInbox(-1);
@@ -856,7 +1190,10 @@
     return '<br><div class="gmail_quote"><div>---------- Forwarded message ---------</div>' + line('From', esc(who(m.from)) + ' &lt;' + esc(m.from.email) + '&gt;') + line('Date', esc(when(m.date, true))) + line('Subject', esc(m.subject)) + line('To', list(m.to)) + line('Cc', list(m.cc)) + '<br>' + (m.html || esc(m.text || '')) + '</div>';
   }
   function reSubject(s, pre) { s = String(s || ''); var re = new RegExp('^' + pre + ':', 'i'); return re.test(s) ? s : pre + ': ' + s; }
-  function startReply(kind, m) {
+  function replyBody(text) {
+    return '<div>' + esc(text).replace(/\n/g, '<br>') + '</div><div><br></div>' + (S.signature ? '<br><div class="gmail_signature">' + S.signature + '</div>' : '');
+  }
+  function startReply(kind, m, text) {
     if (!S.level.write || !canWrite()) return askWrite('reply');
     m = m || lastMsg(); if (!m) return;
     var t = S.thread;
@@ -867,7 +1204,7 @@
     var to = kind === 'replyall' ? all : [(m.replyTo && m.replyTo[0]) || (m.from.email === S.me ? (m.to || [])[0] : m.from)];
     var cc = [];
     if (kind === 'replyall' && all.length > 1) { to = [all[0]]; cc = all.slice(1); }
-    openCompose({ to: to.filter(Boolean), cc: cc, subject: reSubject(m.subject || t.subject, 'Re'), quote: quoteHtml(m), threadId: t.id, replyTo: m.id, title: kind === 'replyall' ? 'Reply all' : 'Reply' });
+    openCompose({ to: to.filter(Boolean), cc: cc, subject: reSubject(m.subject || t.subject, 'Re'), quote: quoteHtml(m), threadId: t.id, replyTo: m.id, title: kind === 'replyall' ? 'Reply all' : 'Reply', body: text ? replyBody(text) : undefined });
   }
   function editDraft(mid) {
     if (!S.level.write || !canWrite()) return askWrite('draft');
@@ -1122,6 +1459,15 @@
   /* ------------------------------------------------------------------ clicks */
   root.addEventListener('click', function (e) {
     var a = e.target.closest('[data-act]');
+    var tab = e.target.closest('[data-flag]');
+    if (tab) { S.flags[tab.dataset.flag] = !S.flags[tab.dataset.flag]; renderFilters(); loadList(); return; }
+    var sel = e.target.closest('[data-sel]');
+    if (sel) { selAct(sel.dataset.sel); return; }
+    // The avatar circle chooses a row (a check shows); once any row is chosen, a press on a row chooses it too. Shift takes a range.
+    var rowEl = e.target.closest('.ml-row[data-id]');
+    if (rowEl && !a && !e.metaKey && !e.ctrlKey && (e.target.closest('[data-pick]') || (pickedIds().length && e.target.closest('.ml-row__a')) || (e.shiftKey && pickedIds().length))) {
+      e.preventDefault(); pick(rowEl.dataset.id, e.shiftKey); return;
+    }
     var open = e.target.closest('[data-open]');
     if (open && !a) {
       if (e.metaKey || e.ctrlKey || e.shiftKey) return;
@@ -1130,14 +1476,23 @@
       return;
     }
     var lab = e.target.closest('[data-label]');
-    if (lab && !a) { e.preventDefault(); go(lab.dataset.label, '', ''); return; }
+    if (lab && !a) { e.preventDefault(); location.hash = hashFor(lab.dataset.label, '', '', ''); if (location.hash === hashFor(lab.dataset.label, '', '', '') && S.v) route(); return; }
     if (!a) return;
     var k = a.dataset.act, id = a.dataset.id || '';
     if (a.closest('.ml-row')) e.preventDefault();
     if (k === 'hub-menu') { var m = document.getElementById('h-menu') || document.getElementById('h-bar-more'); if (m) m.click(); }
-    else if (k === 'labels-sheet') { var el = openSheet('Mailboxes', '<nav class="ml-labels ml-labels--sheet">' + renderLabels() + '</nav>'); el.addEventListener('click', function (ev) { var l = ev.target.closest('[data-label]'); if (l) { ev.preventDefault(); ev.stopPropagation(); closeSheet(null, function () { go(l.dataset.label, '', '', true); }); } }); }
+    else if (k === 'labels-sheet') { var el = openSheet('Mailboxes', '<nav class="ml-labels ml-labels--sheet">' + renderLabels() + '</nav>'); el.addEventListener('click', function (ev) { var l = ev.target.closest('[data-label]'); if (l) { ev.preventDefault(); ev.stopPropagation(); closeSheet(null, function () { var h = hashFor(l.dataset.label, '', '', ''); if (location.hash === h) route(); else { history.replaceState(history.state, '', h); route(); } }); } }); }
     else if (k === 'compose') { if (!S.level.write || !canWrite()) askWrite('compose'); else openCompose(); }
     else if (k === 'refresh') { loadLabels(); loadList({ quiet: true }); }
+    else if (k === 'pick-all') pickAll();
+    else if (k === 'pick-clear') clearPicks();
+    else if (k === 'sort') { S.sort = effSort() === 'old' ? 'new' : 'old'; renderFilters(); loadList(); }
+    else if (k === 'flags-clear') { S.flags = {}; renderFilters(); loadList(); }
+    else if (k === 'clean-review') cleanReview();
+    else if (k === 'clean-dismiss') { try { sessionStorage.setItem('favor.mail.clean', ET()); } catch (e2) { /* private mode */ } var cl = $('.ml-clean'); if (cl) cl.remove(); }
+    else if (k === 'followup') followUp(id);
+    else if (k === 'sugg') { var sg = S.assist && S.assist.replies[+a.dataset.i]; if (sg) startReply('reply', null, sg); }
+    else if (k === 'log-partner') { var pp = partnerOf(S.thread); if (pp) logAction(pp); }
     else if (k === 'more') loadList({ more: true });
     else if (k === 'back') go(S.label, S.q, '', false);
     else if (k === 'archive' || k === 'delete' || k === 'toggle-read' || k === 'star' || k === 'to-inbox' || k === 'untrash') act(k, id);
@@ -1196,9 +1551,11 @@
     var map = {
       j: function () { stepThread(1); }, k: function () { stepThread(-1); },
       o: function () { var t = S.threads[S.sel]; if (t) go(S.label, S.q, t.id); }, Enter: function () { if (!S.open) { var t = S.threads[S.sel]; if (t) go(S.label, S.q, t.id); } },
-      u: function () { if (S.open) go(S.label, S.q, ''); }, Escape: function () { if (S.open) go(S.label, S.q, ''); },
-      e: function () { act('archive'); }, '#': function () { act('delete'); }, s: function () { act('star'); },
-      U: function () { act('unread'); }, I: function () { act('read'); },
+      u: function () { if (S.open) go(S.label, S.q, ''); }, Escape: function () { if (pickedIds().length) clearPicks(); else if (S.open) go(S.label, S.q, ''); },
+      x: function () { if (S.open && !isPhone()) return; var t = S.threads[S.sel < 0 ? 0 : S.sel]; if (t) { if (S.sel < 0) select(0); pick(t.id, false); } },
+      e: function () { if (pickedIds().length) selAct('archive'); else act('archive'); }, '#': function () { if (pickedIds().length) selAct('trash'); else act('delete'); },
+      s: function () { if (pickedIds().length) selAct('star'); else act('star'); },
+      U: function () { if (pickedIds().length) selAct('unread'); else act('unread'); }, I: function () { if (pickedIds().length) selAct('read'); else act('read'); },
       r: function () { if (S.thread) startReply('reply'); }, a: function () { if (S.thread) startReply('replyall'); }, f: function () { if (S.thread) startReply('forward'); },
       c: function () { if (!S.level.write || !canWrite()) askWrite('compose'); else openCompose(); },
       '/': function () { var i = $('[data-search] input'); if (i) { if (isPhone() && S.view !== 'list') go(S.label, S.q, ''); i.focus(); i.select(); } },
@@ -1212,7 +1569,7 @@
     fn();
   });
   function keysHelp() {
-    var rows = [['j / k', 'Older / newer conversation'], ['o or Enter', 'Open'], ['u or Esc', 'Back to the list'], ['e', 'Archive'], ['#', 'Delete'], ['s', 'Star'], ['Shift U / Shift I', 'Mark unread / read'], ['b', 'Snooze'], ['l', 'Labels'], ['r', 'Reply'], ['a', 'Reply all'], ['f', 'Forward'], ['c', 'Compose'], ['/', 'Search'], ['Ctrl Enter', 'Send']];
+    var rows = [['j / k', 'Older / newer conversation'], ['o or Enter', 'Open'], ['u or Esc', 'Back to the list'], ['e', 'Archive'], ['#', 'Delete'], ['s', 'Star'], ['x', 'Select the highlighted conversation'], ['Shift click', 'Select a range'], ['Shift U / Shift I', 'Mark unread / read'], ['b', 'Snooze'], ['l', 'Labels'], ['r', 'Reply'], ['a', 'Reply all'], ['f', 'Forward'], ['c', 'Compose'], ['/', 'Search'], ['Ctrl Enter', 'Send']];
     openSheet('Keyboard shortcuts', '<dl class="ml-keys">' + rows.map(function (r) { return '<dt><kbd>' + esc(r[0]) + '</kbd></dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>');
   }
 
@@ -1230,7 +1587,7 @@
   function boot() {
     notes();
     setView(parseHash().thread ? 'thread' : 'list');
-    var r = parseHash(); S.label = r.label; S.q = r.q;
+    var r = parseHash(); S.label = r.label; S.q = r.q; S.v = r.v;
     $('[data-list-title]').textContent = listTitle();
     $('[data-rows]').innerHTML = skeleton(8);
     if (!isPhone() && !r.thread) $('[data-read]').innerHTML = emptyRead();
@@ -1246,7 +1603,10 @@
       $('[data-rows]').innerHTML = '<div class="ml-empty"><b>' + esc(e.status === 403 ? 'Mail is not open to you yet' : 'Mail did not load') + '</b><span>' + esc(e.message) + '</span></div>';
     });
     // The rail count and the list stay fresh while the page is open (every two minutes, only when visible).
-    setInterval(function () { if (document.hidden || !S.connected) return; loadLabels(); if (S.view === 'list' && !S.q && !C && !sheetEl) loadList({ quiet: true }); }, 120000);
+    var refresh = function () { if (document.hidden || !S.connected) return; loadLabels(); if (S.view === 'list' && !S.q && !C && !sheetEl && !pickedIds().length) loadList({ quiet: true }); };
+    setInterval(refresh, 60000);
+    // Mail read in Gmail or on a phone shows here the moment this tab is looked at again.
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   }
   boot();
 })();

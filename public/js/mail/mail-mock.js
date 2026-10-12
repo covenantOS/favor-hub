@@ -81,6 +81,19 @@
     if (label === 'TRASH') return has(t, 'TRASH');
     return has(t, label) && !has(t, 'TRASH');
   };
+  var override = {};
+  var cls = function (t) {
+    var real = t.messages.filter(function (x) { return !x.draft; }), last = real[real.length - 1] || t.messages[0];
+    var e = last.from.email, pm = partners[e], cat = 'people';
+    if (override[e]) cat = override[e];
+    else if (/^(Invitation|Accepted)/i.test(t.subject)) cat = 'calendar';
+    else if (pm) cat = 'partners';
+    else if (/favorintl\.org$/.test(e)) cat = 'staff';
+    else if (/receipt|invoice|gift/i.test(t.subject)) cat = 'receipts';
+    else if (/news|digest|mailer/i.test(e + t.subject)) cat = 'newsletters';
+    var ask = e !== ME.email && /\?/.test(last.snippet) && ['partners', 'staff', 'people'].indexOf(cat) >= 0;
+    return { cat: cat, ask: ask, partner: pm ? { id: pm.id, name: pm.name } : null };
+  };
   var sortNew = function (a, b) { return String(row(b).date).localeCompare(String(row(a).date)); };
 
   window.FavorMailMock = function (real) {
@@ -91,19 +104,68 @@
         var sys = [['INBOX', 'Inbox'], ['STARRED', 'Starred'], ['SNOOZED', 'Snoozed'], ['IMPORTANT', 'Important'], ['SENT', 'Sent'], ['DRAFT', 'Drafts'], ['ALL', 'All mail'], ['SPAM', 'Spam'], ['TRASH', 'Trash']].map(function (x) { return { id: x[0], name: x[1], type: 'system', unread: x[0] === 'INBOX' ? count('INBOX') : 0, total: x[0] === 'DRAFT' ? threads.filter(function (t) { return inLabel(t, 'DRAFT'); }).length : 0 }; });
         return wait({ ok: true, labels: sys.concat(labels.map(function (l) { return Object.assign({ unread: count(l.id), total: threads.filter(function (t) { return inLabel(t, l.id); }).length }, l); })) }, 60);
       },
-      threads: function (label, query, page) {
+      threads: function (label, query, page, o) {
+        o = o || {};
         if (query && !level.read) return deny('read');
         var list = threads.filter(function (t) { return inLabel(t, query ? 'ALL' : label); });
+        var fl = o.flags || [];
         if (query) {
           var words = query.toLowerCase();
           var from = (words.match(/from:(\S+)/) || [])[1], att = /has:attachment/.test(words), unread = /is:unread/.test(words);
           var text = words.replace(/\b(from|to|subject|has|is|in|before|after|label):\S+/g, '').trim();
-          list = list.filter(function (t) { var r = row(t); var hay = (t.subject + ' ' + t.messages.map(function (x) { return x.snippet + ' ' + x.from.name + ' ' + x.from.email; }).join(' ')).toLowerCase(); return (!text || hay.indexOf(text) >= 0) && (!from || t.messages.some(function (x) { return (x.from.name + ' ' + x.from.email).toLowerCase().indexOf(from) >= 0; })) && (!att || r.files) && (!unread || r.unread); });
+          list = list.filter(function (t) { var r = row(t); var hay = (t.subject + ' ' + t.messages.map(function (x) { return x.snippet + ' ' + x.from.name + ' ' + x.from.email; }).join(' ')).toLowerCase(); return (!text || hay.indexOf(text) >= 0) && (!from || hay.indexOf(from) >= 0) && (!att || r.files) && (!unread || r.unread); });
+        }
+        if (fl.indexOf('unread') >= 0) list = list.filter(function (t) { return has(t, 'UNREAD'); });
+        if (fl.indexOf('starred') >= 0) list = list.filter(function (t) { return has(t, 'STARRED'); });
+        if (fl.indexOf('files') >= 0) list = list.filter(function (t) { return row(t).files; });
+        var smart = !query && label === 'INBOX' && (o.view || fl.indexOf('partner') >= 0);
+        var mk = function (t) { var r = row(t), c = cls(t); return Object.assign(r, { cat: c.cat, ask: c.ask }, c.partner ? { partner: c.partner } : {}); };
+        if (smart) {
+          var v = o.view || '';
+          var rows = list.map(mk);
+          if (v === 'waiting') rows = threads.filter(function (t) { return has(t, 'SENT') && !has(t, 'TRASH'); }).map(function (t) { return Object.assign(row(t), { waitDays: 4 }); });
+          else if (v === 'needs') rows = rows.filter(function (r) { return r.ask; });
+          else if (v.indexOf('cat:') === 0) rows = rows.filter(function (r) { return r.cat === v.slice(4); });
+          if (fl.indexOf('partner') >= 0) rows = rows.filter(function (r) { return r.partner; });
+          var old = o.sort === 'old' || (!o.sort && (v === 'needs' || v === 'waiting'));
+          rows.sort(function (x, y) { return old ? String(x.date).localeCompare(String(y.date)) : String(y.date).localeCompare(String(x.date)); });
+          return wait({ ok: true, threads: rows, next: '', estimate: rows.length, scanned: list.length, pending: 0, level: level }, 220);
         }
         list.sort(sortNew);
+        if (o.sort === 'old') list.reverse();
         var start = Number(page) || 0;
-        return wait({ ok: true, threads: list.slice(start, start + 20).map(row), next: list.length > start + 20 ? String(start + 20) : '', estimate: list.length, level: level }, 160);
+        return wait({ ok: true, threads: list.slice(start, start + 20).map(label === 'INBOX' ? mk : row), next: list.length > start + 20 ? String(start + 20) : '', estimate: list.length, level: level }, 160);
       },
+      overview: function () {
+        var inbox = threads.filter(function (t) { return inLabel(t, 'INBOX'); });
+        var counts = {}, marks = {}, needs = 0, unread = 0;
+        ['partners', 'staff', 'receipts', 'newsletters', 'notifications', 'calendar', 'people'].forEach(function (c) { counts[c] = { n: 0, unread: 0 }; });
+        inbox.forEach(function (t) { var c = cls(t); counts[c.cat].n++; if (has(t, 'UNREAD')) { counts[c.cat].unread++; unread++; } if (c.ask) needs++; marks[t.id] = { cat: c.cat, ask: c.ask }; });
+        var quiet = inbox.filter(function (t) { var c = cls(t); return (c.cat === 'newsletters' || c.cat === 'notifications') && has(t, 'UNREAD'); });
+        return wait({ ok: true, counts: counts, needs: needs, unread: unread, waiting: 2, marks: marks, cleanup: { total: quiet.length, senders: quiet.length ? [{ email: 'news@example.org', name: 'Weekly Digest', n: quiet.length }] : [], ids: quiet.map(function (t) { return t.id; }) }, scanned: inbox.length, pending: 0 }, 200);
+      },
+      assist: function (id) {
+        var t = find(id); if (!t) return wait({ ok: true, summary: '', replies: [], ask: false });
+        var real = t.messages.filter(function (x) { return !x.draft; }), last = real[real.length - 1];
+        var fromMe = last.from.email === ME.email;
+        var first = String(last.from.name || '').split(' ')[0] || 'there';
+        return wait({ ok: true, ask: cls(t).ask, summary: real.length >= 3 ? 'Maya asks to confirm the March dates by Friday and sent photos and a draft itinerary.' : '', replies: fromMe ? [] : ['Hi ' + first + ',\n\nYes, that works for me. I will confirm by Friday.', 'Hi ' + first + ',\n\nNot yet. Let me check with the team and come back to you early next week.', 'Hi ' + first + ',\n\nWhich dates are you weighing? I want to give you a clear answer.'], partner: null }, 700);
+      },
+      partner: function (id) { return wait({ ok: true, partner: { id: id, name: 'Maya and Chidi Okafor', lookup: '8841', total: 4300, count: 12, firstDate: '2019-03-02', ytd: 600, last: { amount: 100, date: '2026-10-02', fund: 'General' }, holders: [{ name: 'Grace Lin', type: 'Partner Care' }], lastContact: { date: '2026-09-12', category: 'Phone call' }, openActions: 1, doNotEmail: false } }, 300); },
+      bulk: function (b) {
+        if (!level.write) return deny('write');
+        (b.ids || []).forEach(function (id) {
+          var t = find(id); if (!t) return;
+          var ms = t.messages;
+          var set = function (add, rem) { ms.forEach(function (x) { x.labelIds = x.labelIds.filter(function (l) { return rem.indexOf(l) < 0; }); add.forEach(function (l) { if (x.labelIds.indexOf(l) < 0) x.labelIds.push(l); }); x.unread = x.labelIds.indexOf('UNREAD') >= 0; x.starred = x.labelIds.indexOf('STARRED') >= 0; }); };
+          if (b.action === 'archive') set([], ['INBOX']); else if (b.action === 'inbox') set(['INBOX'], []); else if (b.action === 'read') set([], ['UNREAD']); else if (b.action === 'unread') set(['UNREAD'], []);
+          else if (b.action === 'star') set(['STARRED'], []); else if (b.action === 'unstar') set([], ['STARRED']); else if (b.action === 'label') set(b.add || [], b.remove || []);
+          else if (b.action === 'snooze') { set([], ['INBOX']); t.snoozed = b.until; } else if (b.action === 'trash') ms.forEach(function (x) { x._was = x.labelIds.slice(); x.labelIds = ['TRASH']; }); else if (b.action === 'untrash') ms.forEach(function (x) { x.labelIds = x._was || ['INBOX']; });
+        });
+        var un = threads.filter(function (t) { return inLabel(t, 'INBOX') && has(t, 'UNREAD') && cls(t).cat !== 'newsletters'; }).length;
+        return wait({ ok: true, done: (b.ids || []).length, failed: 0, unread: un, all: un }, 200);
+      },
+      moveCat: function (senders, cat) { senders.forEach(function (e) { override[e] = cat; }); return wait({ ok: true, moved: senders.length }, 150); },
       thread: function (id) {
         var t = find(id);
         if (!t) { var e = new Error('That message is gone from Gmail.'); e.status = 404; return Promise.reject(e); }

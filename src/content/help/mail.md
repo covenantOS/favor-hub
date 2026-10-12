@@ -20,11 +20,29 @@ If you signed in before that screen covered Mail, Google asks one more time when
 
 ## Reading
 
-Mailboxes are on the left: Inbox, Starred, Snoozed, Sent, Drafts, All mail, Spam, Trash, then your labels. The number beside Inbox is unread conversations, the same number as on the Mail icon in the menu.
+Mailboxes are on the left: Inbox, Starred, Snoozed, Sent, Drafts, All mail, Spam, Trash, then your labels. The number beside Inbox is unread conversations in your Primary tab, the number Gmail shows beside Inbox and the same number as on the Mail icon in the menu. Hover it to see the count across every tab. It changes the moment you read or archive here, and a minute after you read somewhere else.
 
 Press a conversation to read it. Earlier messages fold to one line; press one to open it. The three dots under a message show the quoted text. A file opens in the viewer without leaving the page, and the arrow beside it downloads it.
 
 Search takes Gmail's own words: `from:name`, `to:name`, `has:attachment`, `is:unread`, `before:2026/10/01`, `label:trips`.
+
+## Tabs, filters and sorting
+
+Above the inbox, tabs sort your newest 100 conversations. **Needs you** holds what asks you a question or waits on your answer, oldest first. **Partners** are senders whose address is on a partner in Blackbaud. **Staff**, **People**, **Receipts and gifts**, **Newsletters**, **Notifications** and **Calendar** hold the rest, each with a count. **Waiting on reply** lists mail you sent that has had no answer for three days.
+
+**Unread**, **Starred**, **Has attachments** and **From a partner** narrow whatever list you are in. **Newest first** switches to **Oldest first**.
+
+To change where a sender belongs, select a conversation and press **Move to category**. Every later email from that address goes there.
+
+When a handful of newsletters and notices from the same senders sit unread, a card at the top of the inbox offers **Archive all**, with Undo.
+
+## Choosing several
+
+Press the circle beside a sender and it turns into a check. Press more circles to add to the choice, or Shift click to take a range. **Select all** at the top of the list takes every loaded conversation. The bar above the list then archives, deletes, marks read or unread, labels, snoozes or moves them to a category. **x** selects the highlighted conversation and **Esc** clears the choice.
+
+## From a partner
+
+When the sender is a partner, a card above the message shows lifetime giving, the last gift, who holds the partner and the last contact. **Log as an action** enters the email on the partner in Blackbaud. Long threads start with a one line summary, and **Suggested replies** offers three short replies. Pressing one opens the message window with that text for you to edit. Nothing sends until you press Send.
 
 ## Acting on a conversation
 
@@ -55,6 +73,7 @@ The same keys as Gmail. Press **?** for the list.
 | e | Archive |
 | # | Delete |
 | s | Star |
+| x | Select the highlighted conversation |
 | Shift U, Shift I | Mark unread, mark read |
 | b | Snooze |
 | l | Labels |

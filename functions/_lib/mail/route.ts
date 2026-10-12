@@ -25,9 +25,12 @@ import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../ht
 import { accessToken, mailLevel } from '../hub/google';
 import { staffDirectory } from '../people';
 import type { HubUser } from '../session';
-import { GmailError, gmail, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
+import { GmailError, ROW_HEADERS, gmail, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
 import { b64ToBytes, rawOf, validEmail, type OutFile } from './mime';
+import { partnerMap, type PartnerLookup } from './partners';
+import { idsFor, rowsFor } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
+import { assist, cardOf, classify, decorate, forgetScan, isCat, overview, saveSummary, savedSummary, smartView, type SmartCtx } from './smart';
 
 export type MailMode = 'admins' | 'staff' | 'off';
 
@@ -49,7 +52,11 @@ export interface MailCtx {
   /** Answers for Google (Gmail, People, the token call); tests pass a stand-in. */
   fetcher?: Fetcher;
   /** Partners in the Blackbaud copy by email address; tests pass a stand-in. */
-  partners?: (emails: string[]) => Promise<Record<string, { id: string; name: string }>>;
+  partners?: PartnerLookup;
+  /** Workers AI for the decision model and the text model; tests pass a stand-in. Defaults to the AI binding. */
+  ai?: { run(model: string, input: unknown): Promise<unknown> };
+  /** One partner's card (giving, holders); tests pass a stand-in. */
+  partnerCard?: (id: string) => Promise<any>;
   /** Clip and Drive pickers; tests pass stand-ins. */
   drive?: (q: string) => Promise<unknown[]>;
   workOwners?: () => Promise<{ owners: Array<{ fid: string; name: string }>; mine: string }>;
@@ -62,13 +69,6 @@ const PAGE = 20;
 
 const scopeError = (need: 'read' | 'write') =>
   json({ ok: false, error: 'mail_scope', need, message: need === 'read' ? 'Allow FavorOS to read your mail first.' : 'Allow FavorOS to change and send your mail first.' }, 403);
-
-// The rows of the list, kept per thread and history id, so a second look at a page reads only the conversations that changed.
-const ROWS = new Map<string, unknown>();
-const remember = (k: string, v: unknown) => {
-  if (ROWS.size > 2000) ROWS.clear();
-  ROWS.set(k, v);
-};
 
 async function readBody(request: Request): Promise<Record<string, any>> {
   const b = (await request.json().catch(() => ({}))) as unknown;
@@ -163,34 +163,98 @@ async function route(ctx: MailCtx): Promise<Response> {
   const needRead = () => (level.read ? null : scopeError('read'));
   const needWrite = () => (!writeOn ? errorJson('mail_readonly', 'Changing and sending mail from FavorOS is switched off. Open the message in Gmail.', 403) : level.write ? null : scopeError('write'));
 
+  const smartCtx: SmartCtx = { env, me, name: user.name || me, ai: ctx.ai || (env.AI as any), partners: ctx.partners };
+
   if (a === 'count' && method === 'GET') {
     if (level.write) await wakeDue(env, gm, me).catch(() => undefined);
-    const l = await gm.get('/labels/INBOX');
-    return json({ ok: true, unread: Number(l.threadsUnread) || 0 });
+    const c = await inboxCounts(gm, level.read);
+    remember(me, c.primary);
+    return json({ ok: true, unread: c.primary, all: c.all });
   }
 
   if (a === 'labels' && method === 'GET') {
     const list = await gm.get('/labels');
     const mine = (list.labels || []).filter((l: any) => l.type === 'user' && l.labelListVisibility !== 'labelHide');
     const want = ['INBOX', 'DRAFT', 'SPAM', ...mine.map((l: any) => l.id)].slice(0, 60);
-    const got = await pool(want, 8, (id) => gm.get('/labels/' + encodeURIComponent(id)).catch(() => null));
+    const [got, inbox] = await Promise.all([pool(want, 8, (id) => gm.get('/labels/' + encodeURIComponent(id)).catch(() => null)), inboxCounts(gm, level.read)]);
+    remember(me, inbox.primary);
     const by = new Map(got.filter(Boolean).map((l: any) => [l.id, l]));
-    const sys = SYSTEM.map((id) => ({ id, name: SYSTEM_NAME[id], type: 'system', unread: id === 'INBOX' || id === 'SPAM' ? Number(by.get(id)?.threadsUnread) || 0 : 0, total: id === 'DRAFT' ? Number(by.get(id)?.threadsTotal) || 0 : 0 }));
+    const sys = SYSTEM.map((id) => ({
+      id,
+      name: SYSTEM_NAME[id],
+      type: 'system',
+      unread: id === 'INBOX' ? inbox.primary : id === 'SPAM' ? Number(by.get(id)?.threadsUnread) || 0 : 0,
+      ...(id === 'INBOX' ? { unreadAll: inbox.all } : {}),
+      total: id === 'DRAFT' ? Number(by.get(id)?.threadsTotal) || 0 : 0,
+    }));
     const own = mine
       .map((l: any) => ({ id: l.id, name: l.name, type: 'user', unread: Number(by.get(l.id)?.threadsUnread) || 0, total: Number(by.get(l.id)?.threadsTotal) || 0, color: l.color?.backgroundColor || '' }))
       .sort((x: any, y: any) => x.name.localeCompare(y.name));
     return json({ ok: true, labels: [...sys, ...own] });
   }
 
+  if (a === 'smart' && b === 'overview' && method === 'GET') {
+    const r = needRead();
+    if (r) return r;
+    const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days')) || 3));
+    return json({ ok: true, ...(await overview(smartCtx, gm, days)) });
+  }
+
+  if (a === 'smart' && b === 'move' && method === 'POST') {
+    const body = await readBody(request);
+    const senders = (Array.isArray(body.senders) ? body.senders : []).map(lower).filter((x: string) => /^[^@\s]+@[^@\s]+$/.test(x)).slice(0, 100);
+    const cat = String(body.cat || '');
+    if (!senders.length || !isCat(cat)) throw new HttpError(400, 'nothing', 'Pick a category.');
+    await env.DB.batch(senders.map((x: string) => env.DB.prepare('INSERT INTO hub_mail_cat (email, sender, cat, at) VALUES (?, ?, ?, ?) ON CONFLICT(email, sender) DO UPDATE SET cat = excluded.cat, at = excluded.at').bind(me, x, cat, nowIso())));
+    forgetScan(me);
+    return json({ ok: true, moved: senders.length });
+  }
+
+  if (a === 'partner' && b && method === 'GET') {
+    if (!/^\d{1,12}$/.test(b)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
+    if (ctx.partnerCard) return json({ ok: true, partner: cardOf(await ctx.partnerCard(b)) });
+    const { requireWork } = await import('../work/gate');
+    const wu = await requireWork(env, request).catch(() => null);
+    if (!wu) return errorJson('forbidden', 'The Work Center is not open to you.', 403);
+    const { loadPartner, mirrorQ } = await import('../work/partner');
+    const p = await loadPartner(mirrorQ(env), b);
+    if (!p) throw new HttpError(404, 'no_partner', 'No partner has that number.');
+    return json({ ok: true, partner: cardOf(p) });
+  }
+
+  if (a === 'bulk' && method === 'POST') {
+    const w = needWrite();
+    if (w) return w;
+    return json(await bulk(env, gm, me, level.read, await readBody(request)));
+  }
+
   if (a === 'threads' && !b && method === 'GET') {
     const label = (url.searchParams.get('label') || 'INBOX').slice(0, 80);
-    const q = (url.searchParams.get('q') || '').slice(0, 500);
+    let q = (url.searchParams.get('q') || '').slice(0, 500);
     const page = (url.searchParams.get('page') || '').slice(0, 200);
+    const view = (url.searchParams.get('view') || '').slice(0, 30);
+    const flags = (url.searchParams.get('f') || '').split(',').filter((x) => ['unread', 'starred', 'files', 'partner'].includes(x));
+    const sort = url.searchParams.get('sort') === 'old' ? 'old' : url.searchParams.get('sort') === 'new' ? 'new' : '';
     if (q && !level.read) return scopeError('read');
     if (!level.read && !level.headers) return scopeError('read');
     if (level.write) await wakeDue(env, gm, me).catch(() => undefined);
+    const snoozed = await env.DB.prepare('SELECT thread_id, until FROM hub_mail_snooze WHERE email = ? AND woke_at IS NULL').bind(me).all<{ thread_id: string; until: string }>().catch(() => ({ results: [] as any[] }));
+    const sz = new Map((snoozed.results || []).map((r: any) => [r.thread_id, r.until]));
+    const mark = (rows: any[]) => rows.map((r: any) => (sz.has(r.id) ? { ...r, snoozed: sz.get(r.id) } : r));
+    // The smart views read the newest hundred conversations of the inbox (or the sent mail waiting on a reply).
+    const smart = (view === 'needs' || view === 'waiting' || /^cat:/.test(view) || flags.includes('partner')) && !q && (label === 'INBOX' || view === 'waiting');
+    if (smart) {
+      if (!level.read) return scopeError('read');
+      const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days')) || 3));
+      const v = await smartView(smartCtx, gm, { view, flags, sort, days });
+      return json({ ok: true, threads: mark(v.threads), next: '', estimate: v.threads.length, scanned: v.scanned, pending: v.pending, level });
+    }
     if (label === 'SNOOZED' && !q) return json({ ok: true, ...(await snoozedList(env, gm, me)) });
-    const params: Record<string, string | string[] | undefined> = { maxResults: String(PAGE), pageToken: page || undefined };
+    if (flags.includes('unread')) q = (q + ' is:unread').trim();
+    if (flags.includes('starred') && label !== 'STARRED') q = (q + ' is:starred').trim();
+    if (flags.includes('files')) q = (q + ' has:attachment').trim();
+    if (q && !level.read) return scopeError('read');
+    const params: Record<string, string | string[] | undefined> = {};
     if (q) params.q = q;
     // All mail is no label at all (Gmail leaves out spam and trash unless asked).
     if (label === 'ALL') {
@@ -199,26 +263,45 @@ async function route(ctx: MailCtx): Promise<Response> {
       params.labelIds = label;
       params.includeSpamTrash = 'true';
     } else if (/^[A-Za-z0-9_-]+$/.test(label)) params.labelIds = label;
-    const list = await gm.get('/threads', params);
-    const rows = await pool(list.threads || [], 8, async (t: any) => {
-      const key = me + '|' + t.id + '|' + t.historyId;
-      const hit = ROWS.get(key);
-      if (hit) return hit;
-      const full = await gm.get('/threads/' + t.id, { format: 'metadata', metadataHeaders: ['From', 'To', 'Subject', 'Date'] }).catch(() => null);
-      if (!full) return null;
-      const row = shapeThreadRow(full, me);
-      remember(key, row);
-      return row;
-    });
-    const snoozed = await env.DB.prepare('SELECT thread_id, until FROM hub_mail_snooze WHERE email = ? AND woke_at IS NULL').bind(me).all<{ thread_id: string; until: string }>().catch(() => ({ results: [] as any[] }));
-    const sz = new Map((snoozed.results || []).map((r: any) => [r.thread_id, r.until]));
-    return json({
-      ok: true,
-      threads: rows.filter(Boolean).map((r: any) => (sz.has(r.id) ? { ...r, snoozed: sz.get(r.id) } : r)),
-      next: list.nextPageToken || '',
-      estimate: Number(list.resultSizeEstimate) || 0,
-      level,
-    });
+    let listed: Array<{ id: string; historyId?: string }>;
+    let next = '';
+    let estimate = 0;
+    if (sort === 'old') {
+      // Gmail lists newest first, so the oldest page is read from the far end: every id (cheap), then one page of rows.
+      const all = await idsFor(gm, params, 2000);
+      const from = Math.max(0, Number(page.replace(/^o:/, '')) || 0);
+      const rev = [...all.threads].reverse();
+      listed = rev.slice(from, from + PAGE);
+      next = from + PAGE < rev.length ? 'o:' + (from + PAGE) : '';
+      estimate = rev.length;
+    } else {
+      const list = await gm.get('/threads', { ...params, maxResults: String(PAGE), pageToken: page || undefined });
+      listed = list.threads || [];
+      next = list.nextPageToken || '';
+      estimate = Number(list.resultSizeEstimate) || 0;
+    }
+    const rows = await rowsFor(gm, me, listed);
+    const marked = label === 'INBOX' ? decorate(rows, (await classify(smartCtx, rows, false)).by) : rows;
+    return json({ ok: true, threads: mark(marked), next, estimate, level });
+  }
+
+  if (a === 'threads' && b && c === 'assist' && method === 'GET') {
+    const r = needRead();
+    if (r) return r;
+    const id = tid(b);
+    const t = await gm.get('/threads/' + id, { format: 'full' });
+    const msgs = (t.messages || []).map((m: any) => shapeMessage(m));
+    const real = msgs.filter((m: any) => !m.draft);
+    const lastMid = real.length ? real[real.length - 1].id : '';
+    const emails = real.map((m: any) => m.from.email).filter((e: string) => e && e !== me);
+    const pm = await partnerMap(env, emails, ctx.partners);
+    const partner = real.length ? pm[real[real.length - 1].from.email] || null : null;
+    const old = await savedSummary(env, me, id, lastMid);
+    const out = await assist(smartCtx, msgs, partner);
+    // A saved summary stands in for the model on a second look; replies are written fresh each time.
+    const summary = old || out.summary;
+    if (out.summary && !old) await saveSummary(env, me, id, lastMid, out.summary);
+    return json({ ok: true, summary, replies: out.replies, ask: out.ask, partner });
   }
 
   if (a === 'threads' && b && !c && method === 'GET') {
@@ -397,18 +480,7 @@ async function outMail(gm: Gmail, user: HubUser, body: Record<string, any>, send
 
 async function partnersFor(ctx: MailCtx, msgs: Array<{ from: Addr; to: Addr[]; cc: Addr[] }>, me: string) {
   const emails = [...new Set(msgs.flatMap((m) => [m.from, ...m.to, ...m.cc]).map((x) => x.email))].filter((e) => e && e !== me && !e.endsWith('@favorintl.org')).slice(0, 40);
-  if (!emails.length) return {};
-  if (ctx.partners) return ctx.partners(emails).catch(() => ({}));
-  const { mirror } = await import('../foundations/blackbaud');
-  const rows = await mirror<any>(
-    ctx.env,
-    `SELECT lower(e.email_address) AS email, e.constituent_record_id AS id,
-            COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,''))) AS name
-       FROM emails e JOIN constituents c ON c.id = e.constituent_record_id
-      WHERE lower(e.email_address) IN (${emails.map(() => '?').join(',')})`,
-    emails
-  ).catch(() => []);
-  return Object.fromEntries(rows.map((r: any) => [r.email, { id: String(r.id), name: String(r.name || '') }]));
+  return partnerMap(ctx.env, emails, ctx.partners);
 }
 
 async function contacts(ctx: MailCtx, token: string, google: boolean, qRaw: string) {
@@ -453,27 +525,100 @@ export async function wakeDue(env: Env, gm: Gmail, me: string): Promise<number> 
 async function snoozedList(env: Env, gm: Gmail, me: string) {
   const r = await env.DB.prepare('SELECT thread_id, until FROM hub_mail_snooze WHERE email = ? AND woke_at IS NULL ORDER BY until LIMIT 50').bind(me).all<{ thread_id: string; until: string }>();
   const rows = await pool(r.results || [], 8, async (s) => {
-    const full = await gm.get('/threads/' + s.thread_id, { format: 'metadata', metadataHeaders: ['From', 'To', 'Subject', 'Date'] }).catch(() => null);
+    const full = await gm.get('/threads/' + s.thread_id, { format: 'metadata', metadataHeaders: ROW_HEADERS }).catch(() => null);
     return full ? { ...shapeThreadRow(full, me), snoozed: s.until } : null;
   });
   return { threads: rows.filter(Boolean), next: '', estimate: rows.length };
 }
 
-/** The inbox's unread conversations for the rail badge, or null when the person has not connected. Kept a minute per person. */
+/**
+ * The inbox's unread conversations. `primary` is what Gmail's own Inbox number shows (the Primary tab, as Gmail counts it when
+ * the tabs are on); `all` counts every tab. A grant that cannot search (headers only) answers `all` for both.
+ */
+export async function inboxCounts(gm: Gmail, canSearch: boolean): Promise<{ primary: number; all: number }> {
+  const l = await gm.get('/labels/INBOX');
+  const all = Number(l.threadsUnread) || 0;
+  if (!canSearch || !all) return { primary: all, all };
+  // One list call of ids is the live truth for the tab (Gmail's label counts can trail a read by a few seconds).
+  const list = await gm.get('/threads', { q: 'in:inbox is:unread category:primary', maxResults: '500', fields: 'threads/id,nextPageToken' }).catch(() => null);
+  if (!list) return { primary: all, all };
+  return { primary: Math.min(all, (list.threads || []).length), all };
+}
+
+/** The rail badge: the person's Primary inbox unread, kept 15 seconds per person; zero until they connect. */
 const COUNTS = new Map<string, { n: number; at: number }>();
+const remember = (email: string, n: number) => {
+  if (COUNTS.size > 500) COUNTS.clear();
+  COUNTS.set(lower(email), { n, at: Date.now() });
+};
 export async function mailUnreadCount(env: Env, email: string, fetcher: Fetcher = fetch): Promise<number> {
   const k = lower(email);
   const hit = COUNTS.get(k);
-  if (hit && Date.now() - hit.at < 60000) return hit.n;
+  if (hit && Date.now() - hit.at < 15000) return hit.n;
   const tok = await accessToken(env, k);
-  if (!tok || !mailLevel(tok.scopes).headers) return 0;
+  const lv = tok ? mailLevel(tok.scopes) : null;
+  if (!tok || !lv || !lv.headers) return 0;
   const gm = gmail(tok.token, fetcher);
   // The menu loads on every page, Today included, so a snoozed conversation is back by the time its owner looks.
-  if (mailLevel(tok.scopes).write) await wakeDue(env, gm, k).catch(() => undefined);
-  const l = await gm.get('/labels/INBOX');
-  const n = Number(l.threadsUnread) || 0;
-  if (COUNTS.size > 500) COUNTS.clear();
-  COUNTS.set(k, { n, at: Date.now() });
+  if (lv.write) await wakeDue(env, gm, k).catch(() => undefined);
+  const n = (await inboxCounts(gm, lv.read)).primary;
+  remember(k, n);
   return n;
 }
-export const forgetCount = (email: string) => COUNTS.delete(lower(email));
+export const forgetCount = (email: string) => {
+  forgetScan(lower(email));
+  return COUNTS.delete(lower(email));
+};
+
+/** Changes to many conversations at once: archive, Trash, read, star, labels, Inbox, snooze. At most 100, six at a time. */
+export async function bulk(env: Env, gm: Gmail, me: string, canSearch: boolean, body: Record<string, any>) {
+  const list = (Array.isArray(body.ids) ? body.ids : []).map(String).filter((x: string) => /^[A-Za-z0-9]{6,40}$/.test(x)).slice(0, 100);
+  if (!list.length) throw new HttpError(400, 'nothing', 'Pick at least one conversation.');
+  const action = String(body.action || '');
+  const add = ids(body.add);
+  const remove = ids(body.remove);
+  let until = '';
+  if (action === 'snooze') {
+    const t = new Date(String(body.until || ''));
+    if (!Number.isFinite(t.getTime()) || t.getTime() < Date.now() + 60000 || t.getTime() > Date.now() + 400 * 864e5) throw new HttpError(400, 'bad_time', 'Pick a time later than now.');
+    until = t.toISOString();
+  }
+  const mod: Record<string, { add: string[]; remove: string[] }> = {
+    archive: { add: [], remove: ['INBOX'] },
+    inbox: { add: ['INBOX'], remove: [] },
+    read: { add: [], remove: ['UNREAD'] },
+    unread: { add: ['UNREAD'], remove: [] },
+    star: { add: ['STARRED'], remove: [] },
+    unstar: { add: [], remove: ['STARRED'] },
+    label: { add, remove },
+    snooze: { add: [], remove: ['INBOX'] },
+  };
+  if (action !== 'trash' && action !== 'untrash' && !mod[action]) throw new HttpError(400, 'bad_action', 'That change is not available.');
+  if (action === 'label' && !add.length && !remove.length) throw new HttpError(400, 'nothing', 'Nothing to change.');
+  let done = 0;
+  let failed = 0;
+  await pool(list, 6, async (id: string) => {
+    try {
+      if (action === 'trash' || action === 'untrash') await gm.send('POST', `/threads/${id}/${action}`);
+      else await gm.send('POST', `/threads/${id}/modify`, { addLabelIds: mod[action].add, removeLabelIds: mod[action].remove });
+      done++;
+    } catch {
+      failed++;
+    }
+  });
+  if (action === 'inbox') await env.DB.batch(list.map((id: string) => env.DB.prepare('UPDATE hub_mail_snooze SET woke_at = ? WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(nowIso(), me, id))).catch(() => undefined);
+  if (action === 'snooze') {
+    await env.DB.batch(
+      list.map((id: string) =>
+        env.DB.prepare(
+          `INSERT INTO hub_mail_snooze (email, thread_id, until, created_at, woke_at) VALUES (?, ?, ?, ?, NULL)
+           ON CONFLICT(email, thread_id) DO UPDATE SET until = excluded.until, created_at = excluded.created_at, woke_at = NULL`
+        ).bind(me, id, until, nowIso())
+      )
+    ).catch(() => undefined);
+  }
+  forgetCount(me);
+  const c = await inboxCounts(gm, canSearch).catch(() => null);
+  if (c) remember(me, c.primary);
+  return { ok: true, done, failed, unread: c ? c.primary : null, all: c ? c.all : null, ...(until ? { until } : {}) };
+}

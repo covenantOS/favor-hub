@@ -293,7 +293,8 @@ describe('reading', () => {
 
   it('lists mailboxes with unread counts and the person labels', async () => {
     const l = (await call(ADMIN, 'GET', 'labels')).data.labels;
-    assert.equal(l.find((x) => x.id === 'INBOX').unread, 3);
+    assert.equal(l.find((x) => x.id === 'INBOX').unread, 1);
+    assert.equal(l.find((x) => x.id === 'INBOX').unreadAll, 3);
     assert.deepEqual(l.filter((x) => x.type === 'user').map((x) => x.name), ['Trips']);
     assert.ok(l.some((x) => x.id === 'SNOOZED'));
   });

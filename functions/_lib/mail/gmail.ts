@@ -211,7 +211,16 @@ export interface ThreadRow {
   files: boolean;
   draft: boolean;
   labelIds: string[];
+  /** The newest message that is not a draft: its id, whether it is mine, and whether it was sent to me by name or only copied. */
+  lastId: string;
+  fromMe: boolean;
+  toMe: boolean;
+  /** Mailing-list or automatic mail: List-Unsubscribe, List-Id, Precedence bulk or Auto-Submitted on a message from someone else. */
+  bulk: boolean;
 }
+
+/** The headers a list row reads. The extra four tell mailing lists and automatic mail from people. */
+export const ROW_HEADERS = ['From', 'To', 'Cc', 'Subject', 'Date', 'List-Unsubscribe', 'List-Id', 'Precedence', 'Auto-Submitted'];
 
 /** A thread (format=metadata) as one row of the list: who wrote, the subject, the newest date, unread and starred. */
 export function shapeThreadRow(t: any, me: string): ThreadRow {
@@ -235,6 +244,15 @@ export function shapeThreadRow(t: any, me: string): ThreadRow {
   const first = msgs[0] || {};
   const last = [...msgs].reverse().find((m) => !(m.labelIds || []).includes('DRAFT')) || msgs[msgs.length - 1] || {};
   const lastFrom = parseAddrs(hdr(last.payload?.headers, 'From'))[0] || { name: '', email: '' };
+  const lastTo = [...parseAddrs(hdr(last.payload?.headers, 'To'))];
+  let bulk = false;
+  for (const m of msgs) {
+    const h = m.payload?.headers;
+    const f = parseAddrs(hdr(h, 'From'))[0];
+    if (!f || f.email === me) continue;
+    const auto = hdr(h, 'Auto-Submitted').toLowerCase();
+    if (hdr(h, 'List-Unsubscribe') || hdr(h, 'List-Id') || /^(bulk|list|junk)$/i.test(hdr(h, 'Precedence').trim()) || (auto && auto !== 'no')) bulk = true;
+  }
   const toFirst = parseAddrs(hdr(first.payload?.headers, 'To'))[0];
   // Sent mail shows who it went to, as Gmail does.
   const shown = people.length === 1 && people[0].email === me && toFirst ? [{ name: 'To: ' + (toFirst.name || toFirst.email), email: toFirst.email }] : people;
@@ -253,5 +271,9 @@ export function shapeThreadRow(t: any, me: string): ThreadRow {
     files,
     draft,
     labelIds: [...labels],
+    lastId: String(last.id || ''),
+    fromMe: lastFrom.email === me,
+    toMe: lastTo.some((a) => a.email === me),
+    bulk,
   };
 }
