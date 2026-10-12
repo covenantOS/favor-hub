@@ -11,6 +11,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 12, 2026
 
+- **Lists.** Under Reporting, build a list of partners or gifts from menus (status, major, came in through, who holds the partner, place, giving, fund, appeal, codes, events), see the count change as you go, save it for yourself or a team, and download a CSV or open it in Google Sheets. See [Lists](/help/lists/).
 - **Cleaner screens on a phone.** Rows of chips scroll sideways and no longer wrap, lists use small buttons so the name reads first, the partner page shows a Giving pattern card with dates in place of a paragraph, and the trip planner lists each stop in short lines with 12 hour times.
 - **Work and Receipts open faster.** The Work Overview and the Work Center draw the last list you saw while the fresh one loads, with anything you finished since left off it, and tabs you have not opened read in the background one at a time. Receipts shows the last list from Blackbaud at once and refreshes it behind the page.
 - **Undo is never refused.** Press Undo while a change is still going to Blackbaud and FavorOS accepts it, puts the row back in the list at once and sends the reversal as soon as the first change lands. The message at the bottom stays for 10 seconds with a large Undo, and Z presses it. Recent changes on the Work Overview lists the last 24 hours with an Undo on each change. See [Work Center](/help/work-center/).

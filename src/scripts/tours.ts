@@ -1069,6 +1069,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'lists',
+    page: '/lists/',
+    via: 'lists',
+    at: '.ls-crit',
+    title: 'Lists',
+    body: 'Pick partners or gifts, then set the criteria from menus. The count updates as you go, and a status-only list shows its tie to the KPI dashboard. Save a list for yourself or a team, download a CSV, or open it in Google Sheets.',
+    for: (w) => w.admin || w.teams.length > 0,
+    added: '2026-10-12',
+    side: 'right',
+  },
+  {
     id: 'reports',
     page: '/reports/',
     via: 'reports',
