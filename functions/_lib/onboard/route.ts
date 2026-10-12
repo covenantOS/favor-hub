@@ -116,7 +116,8 @@ async function route(ctx: Ctx): Promise<Response> {
       }
       if (d && method === 'PATCH') {
         await editStep(env, actor, b, d, await body(request));
-        return json({ ok: true, ...(await runDetail(env, actor, b)) });
+        // The new hire marks their own step from the first-day page and gets no run detail back.
+        return json({ ok: true, ...(await runDetail(env, actor, b).catch((err) => (err instanceof HttpError && err.status === 403 ? {} : Promise.reject(err)))) });
       }
     }
     if (b && c === 'docs' && d && method === 'PUT') {

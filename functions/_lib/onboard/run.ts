@@ -409,6 +409,8 @@ export async function runDetail(env: Env, actor: Actor, id: string): Promise<Det
   let steps = await stepsOf(env, id);
   const involved = manage || run.supervisor_email === actor.email || steps.some((s) => lower(s.owner_email) === actor.email);
   if (!involved) throw new HttpError(403, 'forbidden', 'This onboarding is for HR, the supervisor and the people who own its steps.');
+  // The new hire sees their own steps on the first-day page, never the HR file or the history.
+  if (run.email === actor.email && !manage && run.supervisor_email !== actor.email) throw new HttpError(403, 'forbidden', 'Your steps are on your first-day page.');
   steps = await reconcile(env, run, steps);
   const dir = new Map((await staffDirectory(env)).map((p) => [p.email, p]));
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -547,7 +549,7 @@ export async function setDoc(env: Env, actor: Actor, runId: string, key: string,
   if (!manage && !(file && lower(file.owner_email) === actor.email)) throw new HttpError(403, 'forbidden', 'The HR file is kept by HR.');
   const r = await env.DB.prepare('UPDATE onb_docs SET got = ?, got_by = ?, got_at = ? WHERE run_id = ? AND key = ?').bind(got ? 1 : 0, got ? actor.email : null, got ? nowIso() : null, runId, key).run();
   if (!Number((r.meta as { changes?: number }).changes)) throw new HttpError(404, 'not_found', 'No such document.');
-  await log(env, runId, actor.email, got ? 'document received' : 'document unchecked', key);
+  await log(env, runId, actor.email, got ? 'document received' : 'document unchecked', (await env.DB.prepare('SELECT label FROM onb_docs WHERE run_id = ? AND key = ?').bind(runId, key).first<{ label: string }>())?.label || key);
   void run;
 }
 

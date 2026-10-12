@@ -1,5 +1,6 @@
 // What the Today page and the sidebar show the person signed in: what is waiting on them, their own
 // requests, and recent activity they are allowed to see. Read from the hub's own tables only.
+import { isHr } from '../people-dev';
 import { approverEmails, isExpenseAdmin } from '../expenses/auth';
 import type { Env } from '../http';
 import type { HubUser } from '../session';
@@ -31,6 +32,8 @@ export interface Access {
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
   bell: boolean;
+  /** People tools (Onboarding, and the other people areas): hub admins and people an admin marked HR in Admin > People. */
+  hr: boolean;
 }
 
 /** True when this person is on any request (db/request-tasks.sql). False before the tables exist. */
@@ -56,6 +59,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     chat: mayUse(await chatMode(env), user),
     tasks,
     bell: (!!work && work.ok) || tasks,
+    hr: user.role === 'admin' || (await isHr(env, email)),
   };
 }
 
