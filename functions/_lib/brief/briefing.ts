@@ -87,7 +87,7 @@ const OVERNIGHT_SQL = readOnly(`SELECT g.id AS id, g.constituent_record_id AS ci
        json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st
   FROM gifts g JOIN constituents c ON c.id = g.constituent_record_id
  WHERE substr(g.gift_date, 1, 10) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ${GIVEN} AND COALESCE(g.gift_status, 'Active') = 'Active'
-   AND (?2 = '' OR g.constituent_record_id IN (SELECT constituent_record_id FROM assignments WHERE assignment_fundraiser_id IN (SELECT value FROM json_each(?2))
+   AND (?2 = '[]' OR g.constituent_record_id IN (SELECT constituent_record_id FROM assignments WHERE assignment_fundraiser_id IN (SELECT value FROM json_each(?2))
         AND (assignment_to_date IS NULL OR substr(assignment_to_date, 1, 10) >= ?3)))
  ORDER BY g.gift_amount DESC LIMIT 80`);
 
@@ -103,7 +103,7 @@ function fundNames(splits: unknown, names: Map<string, string>): string {
 
 /** Gifts dated since the last workday on the partners this person may see. The scope is a list of fundraiser ids, or empty for every partner (admins). */
 export async function overnightGifts(env: Env, fids: string[], today: string, since: string): Promise<{ count: number; total: number; rows: Omit<OvernightGift, 'thanked'>[] }> {
-  const rows = await mirror<any>(env, OVERNIGHT_SQL, [since, fids.length ? JSON.stringify(fids) : '', today]).catch(() => [] as any[]);
+  const rows = await mirror<any>(env, OVERNIGHT_SQL, [since, JSON.stringify(fids), today]).catch(() => [] as any[]);
   const ids = new Set<string>();
   for (const r of rows) {
     try {
