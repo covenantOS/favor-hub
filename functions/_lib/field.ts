@@ -8,7 +8,7 @@ import { HttpError, type Env } from './http';
 import type { HubUser } from './session';
 
 /** Pages a field person may open. Everything else sends them to Chat. */
-const PAGES = [/^\/m(\/|$)/, /^\/chat(\/|$)/, /^\/meet(\/|$)/, /^\/brain\/?$/, /^\/help(\/|$)/, /^\/login(\/|$)/, /^\/welcome\/?$/];
+const PAGES = [/^\/css\//,/^\/m(\/|$)/, /^\/chat(\/|$)/, /^\/meet(\/|$)/, /^\/brain\/?$/, /^\/help(\/|$)/, /^\/login(\/|$)/, /^\/welcome\/?$/];
 
 /** APIs a field person may call. The routers behind them narrow further. */
 const APIS = [/^\/api\/auth\//, /^\/api\/chat\//, /^\/api\/meet\//, /^\/api\/brain\//, /^\/api\/push\//, /^\/api\/phone\//, /^\/api\/hub\/nav\/?$/, /^\/api\/work\/gate\/?$/];

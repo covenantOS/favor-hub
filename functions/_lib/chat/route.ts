@@ -375,17 +375,35 @@ async function sendOnce(ctx: Ctx, user: HubUser, channelId: string): Promise<sto
   const cid = (ctx.request.headers.get('X-Client-Id') || '').trim();
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(cid)) return send(ctx, user, channelId);
   const me = user.email.toLowerCase();
-  const done = await ctx.env.DB.prepare('SELECT result FROM phone_sends WHERE email = ? AND client_id = ?').bind(me, cid).first<{ result: string }>().catch(() => null);
-  if (done) {
+  const stored = async (): Promise<store.MessageOut | null> => {
+    const row = await ctx.env.DB.prepare('SELECT result FROM phone_sends WHERE email = ? AND client_id = ?').bind(me, cid).first<{ result: string }>().catch(() => null);
     try {
-      return JSON.parse(done.result) as store.MessageOut;
+      return row && row.result ? (JSON.parse(row.result) as store.MessageOut) : null;
     } catch {
-      // fall through and send again
+      return null;
     }
+  };
+  const done = await stored();
+  if (done) return done;
+  // Claim the id before sending, so two requests that carry the same id at the same moment post one message: the second waits for the first's answer.
+  const claim = await ctx.env.DB.prepare(`INSERT OR IGNORE INTO phone_sends (email, client_id, result, created_at) VALUES (?, ?, '', ?)`).bind(me, cid, nowIso()).run().catch(() => null);
+  if (claim && claim.meta && claim.meta.changes === 0) {
+    for (let i = 0; i < 12; i++) {
+      await new Promise((r) => setTimeout(r, 250));
+      const again = await stored();
+      if (again) return again;
+    }
+    // The first request died without an answer: release the claim and send.
+    await ctx.env.DB.prepare(`DELETE FROM phone_sends WHERE email = ? AND client_id = ? AND result = ''`).bind(me, cid).run().catch(() => undefined);
   }
-  const msg = await send(ctx, user, channelId);
-  await ctx.env.DB.prepare('INSERT OR IGNORE INTO phone_sends (email, client_id, result, created_at) VALUES (?, ?, ?, ?)').bind(me, cid, JSON.stringify(msg), nowIso()).run().catch(() => undefined);
-  return msg;
+  try {
+    const msg = await send(ctx, user, channelId);
+    await ctx.env.DB.prepare('INSERT OR REPLACE INTO phone_sends (email, client_id, result, created_at) VALUES (?, ?, ?, ?)').bind(me, cid, JSON.stringify(msg), nowIso()).run().catch(() => undefined);
+    return msg;
+  } catch (err) {
+    await ctx.env.DB.prepare(`DELETE FROM phone_sends WHERE email = ? AND client_id = ? AND result = ''`).bind(me, cid).run().catch(() => undefined);
+    throw err;
+  }
 }
 
 async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.MessageOut> {

@@ -184,7 +184,10 @@
 
     function flush() {
       if (running) return running;
-      running = store.all().then(function (list) {
+      // Two tabs, or a page and the service worker's wake-up, share one queue: only one of them sends at a time.
+      var locks = root.navigator && root.navigator.locks;
+      var turn = function (job) { return locks && locks.request ? locks.request('favor-outbox', job) : job(); };
+      running = turn(function () { return store.all(); }).then(function (list) {
         var out = { sent: [], failed: [], waiting: 0 };
         var chain = Promise.resolve(true);
         list.forEach(function (item) {

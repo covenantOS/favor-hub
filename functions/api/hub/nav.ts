@@ -10,7 +10,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     // Field staff see Chat, Meetings and Favor Brain, no counts and no dashboard tabs.
-    if (user.role === 'field') return json({ ok: true, user, access: { chat: true, meetings: true, brain: await fieldBrainOn(env), admin: false, kpi: false }, counts: {}, kpiTeams: [] });
+    if (user.role === 'field') return json({ ok: true, user, access: { field: true, chat: true, meetings: true, brain: await fieldBrainOn(env), admin: false, kpi: false }, counts: {}, kpiTeams: [] });
     const access = await accessOf(env, request, user);
     // The KPI dashboard's own team map (kpi-dashboard backend/access.js) decides which of its tabs
     // show in the sidebar. A slow or failed answer leaves just the Executive page and Definitions.

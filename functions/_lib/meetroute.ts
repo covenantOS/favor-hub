@@ -39,6 +39,9 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     // A join or a leave in a huddle started from Chat updates the channel's huddle bar for everyone in the channel.
     const huddleNews = (mid: string) => { const p = chatHuddleChanged(env, mid).catch((err) => console.warn('[chat] huddle news', err)); if (waitUntil) waitUntil(p); };
     if (parts[0] !== 'meetings') return errorJson('not_found', 'Not found.', 404);
+    // The Meetings page asks for a Google Calendar list and nudges the notes queue. A field person has neither: the true answers are empty.
+    if (user.role === 'field' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, connected: false, canWrite: false, meetings: [] });
+    if (user.role === 'field' && parts[1] === 'pump' && !parts[2] && m === 'POST') return json({ ok: true, done: true, state: 'idle' });
     if (user.role === 'field' && !fieldMeetRoute(m, parts)) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
     const sub0 = parts[2] || '';
     if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);

@@ -242,6 +242,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
             $('h-foot').hidden = false;
           }
           var access = d.access || {};
+          document.documentElement.classList.toggle('is-field', !!access.field);
+          document.documentElement.classList.toggle('has-brain', !!access.brain);
           document.documentElement.classList.toggle('has-kpi', !!access.kpi);
           document.documentElement.classList.toggle('has-wc', !!access.workCenter);
           document.documentElement.classList.toggle('has-clips', !!access.clips);

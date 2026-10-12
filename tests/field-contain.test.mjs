@@ -57,7 +57,7 @@ describe('the middleware keeps field staff to Chat, Meetings and Favor Brain', (
   it('does not match a path that only starts like an allowed one', async () => {
     const { fieldMayOpen } = await import('../functions/_lib/field.ts');
     for (const p of ['/chatter', '/chat-admin/', '/meeting-notes/', '/meetx/', '/mail/', '/m2/', '/api/chatty/boot', '/api/meeting/x', '/api/brainy', '/api/hub/navx', '/api/hub/today', '/api/work/gate/x', '/api/pushy/key', '/api/phones/x', '/brain/admin/', '/brain/anything', '/helpful']) assert.equal(fieldMayOpen(p), false, p);
-    for (const p of ['/m', '/m/', '/chat', '/chat/', '/meet/room/', '/brain/', '/api/chat/boot', '/api/meet/meetings', '/api/brain/ask', '/api/hub/nav', '/api/push/subscribe', '/api/phone/x']) assert.equal(fieldMayOpen(p), true, p);
+    for (const p of ['/css/x.css', '/m', '/m/', '/chat', '/chat/', '/meet/room/', '/brain/', '/api/chat/boot', '/api/meet/meetings', '/api/brain/ask', '/api/hub/nav', '/api/push/subscribe', '/api/phone/x']) assert.equal(fieldMayOpen(p), true, p);
   });
 
   it('leaves favorintl.org staff and admins exactly where they were', async () => {
@@ -90,7 +90,7 @@ describe('the middleware keeps field staff to Chat, Meetings and Favor Brain', (
     const { w, kofi } = await people();
     const out = await call(w, 'GET', '/api/hub/nav', { cookie: kofi });
     assert.equal(out.status, 200);
-    assert.deepEqual(out.data.access, { chat: true, meetings: true, brain: false, admin: false, kpi: false });
+    assert.deepEqual(out.data.access, { field: true, chat: true, meetings: true, brain: false, admin: false, kpi: false });
     assert.deepEqual(out.data.counts, {});
     assert.deepEqual(out.data.kpiTeams, []);
     w.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('field.brain', 'on', 't', 'x')").run();
@@ -259,12 +259,10 @@ describe('Meetings show field staff only the meetings they host or are invited t
     const { w, kofi } = await people();
     const mine = insert(w, { id: 'd'.repeat(24), host_email: 'kofi@favourafrica.org', access: 'invited' });
     const no = async (m, p, body) => assert.equal((await call(w, m, p, { cookie: kofi, body })).status, 403, `${m} ${p}`);
-    await no('GET', '/api/meet/meetings/calendar');
     await no('POST', '/api/meet/meetings/freebusy', { emails: ['ann@favorintl.org'], from: 'a', to: 'b' });
     await no('GET', '/api/meet/meetings/bookstatus');
     await no('POST', '/api/meet/meetings/calendar/switch', {});
     await no('POST', '/api/meet/meetings/remind', {});
-    await no('POST', '/api/meet/meetings/pump', {});
     await no('GET', '/api/meet/meetings/actions');
     await no('POST', `/api/meet/meetings/${mine}/guestlink`, {});
     await no('POST', `/api/meet/meetings/${mine}/invite`, { emails: ['x@example.com'] });
@@ -272,6 +270,14 @@ describe('Meetings show field staff only the meetings they host or are invited t
     await no('POST', `/api/meet/meetings/${mine}/ask`, { q: 'who gave?' });
     await no('POST', `/api/meet/meetings/${mine}/pump`, {});
     await no('GET', `/api/meet/meetings/${mine}/rec/start`);
+  });
+
+  it('answers the two calls the Meetings page makes with empty, true answers', async () => {
+    const { w, kofi } = await people();
+    const cal = await call(w, 'GET', '/api/meet/meetings/calendar', { cookie: kofi });
+    assert.deepEqual(cal.data, { ok: true, connected: false, canWrite: false, meetings: [] });
+    const pump = await call(w, 'POST', '/api/meet/meetings/pump', { cookie: kofi, body: {} });
+    assert.deepEqual(pump.data, { ok: true, done: true, state: 'idle' });
   });
 
   it('a host who is field staff can update their own meeting but not someone else’s', async () => {

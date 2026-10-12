@@ -293,3 +293,28 @@ describe('a message sent twice from an offline queue lands once', () => {
     assert.notEqual(a.data.message.id, k.data.message.id);
   });
 });
+
+describe('two sends of one client id at the same moment', () => {
+  it('post one message and both answers are that message', async () => {
+    const w = await world();
+    addUser(w, { email: 'ann@favorintl.org' });
+    addUser(w, { email: 'kofi@favourafrica.org', role: 'field', kpi: 0 });
+    const kofi = await cookieFor(w, 'kofi@favourafrica.org');
+    const ann = await cookieFor(w, 'ann@favorintl.org');
+    const dm = (await call(w, 'POST', '/api/chat/conversations', { cookie: ann, body: { members: ['kofi@favourafrica.org'] } })).data.channel;
+    const send = () => call(w, 'POST', `/api/chat/channels/${dm.id}/messages`, { cookie: kofi, body: { body: 'raced' }, headers: { 'X-Client-Id': 'racecafe00racecafe' } });
+    const [a, b, c] = await Promise.all([send(), send(), send()]);
+    assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM chat_messages WHERE channel_id = ?').get(dm.id).n, 1);
+    assert.equal(a.data.message.id, b.data.message.id);
+    assert.equal(b.data.message.id, c.data.message.id);
+  });
+
+  it('a send that fails releases its claim so the retry can post', async () => {
+    const w = await world();
+    addUser(w, { email: 'kofi@favourafrica.org', role: 'field', kpi: 0 });
+    const kofi = await cookieFor(w, 'kofi@favourafrica.org');
+    const bad = await call(w, 'POST', '/api/chat/channels/ch_nowhere/messages', { cookie: kofi, body: { body: 'x' }, headers: { 'X-Client-Id': 'failfailfailfail' } });
+    assert.ok(bad.status >= 400);
+    assert.equal(w.db.prepare('SELECT COUNT(*) AS n FROM phone_sends').get().n, 0);
+  });
+});

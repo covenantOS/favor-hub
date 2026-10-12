@@ -39,3 +39,19 @@ html:not(.nav-wide) .h-app:not(.is-peek):not(.is-nav) .h-area__link::before { wi
 @media (max-width: 860px) {
   .fnd-tabs { overflow-x: auto; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); scrollbar-width: none; }
 }
+
+/* Field staff (Admin > People, role field) have Chat, Meetings and, when an admin turns it on, Favor Brain. The rail, the phone bar and the
+   search show those and nothing else. The server refuses every other page too (functions/_lib/field.ts). */
+.is-field .h-area:not([data-area="chat"]):not([data-area="meet"]):not([data-area="ask"]),
+.is-field #h-bar [data-bar]:not([data-bar="chat"]):not([data-bar="meet"]):not([data-bar="ask"]),
+.is-field #h-bar-more,
+.is-field .h-search,
+.is-field .h-top__search,
+.is-field .h-side__fb,
+.is-field #h-fb,
+.is-field .h-top__right a[href="/requests/new"],
+.is-field .h-pins,
+.is-field #fd { display: none !important; }
+.is-field:not(.has-brain) .h-area[data-area="ask"],
+.is-field:not(.has-brain) #h-bar [data-bar="ask"] { display: none !important; }
+.is-field .dv-conn { display: none !important; }
