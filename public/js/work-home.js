@@ -122,7 +122,7 @@
       nEl.hidden = !(n > 0);
       if (n > 0) { nEl.textContent = n0(n) + (key === 'workOpen' ? ' open' : ''); if (key === 'workOpen') nEl.title = plural(n, 'open action'); }
     });
-    document.querySelectorAll('[data-need="workCenter"]').forEach((el) => { if (!el.hasAttribute('data-wh')) el.hidden = access.workCenter === false || !w; });
+    document.querySelectorAll('[data-need="workCenter"]').forEach((el) => { if (!el.hasAttribute('data-wh')) el.hidden = access.workCenter === false; });
   }
 
   /* ------------------------------------------------------------------ today's work */
