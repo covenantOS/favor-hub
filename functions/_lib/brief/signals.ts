@@ -150,7 +150,9 @@ const VERB: Record<Channel, string> = { call: 'Call', visit: 'Visit or call', em
 
 /** The one thing to do for a partner next, from what they owe us (a thank-you), how they give, and when anyone last spoke to them. */
 export function nextAction(f: NbaFacts, today: string): Nba {
-  const first = f.name.split(/\s+/)[0] || 'them';
+  // A church, a company or a foundation has no first name: "Call The to reconnect" read wrong, so an organization is "them".
+  const org = /^(the|a)\s/i.test(f.name) || /\b(church|chapel|ministr\w*|foundation|fund|trust|inc|llc|corp|company|fellowship|assembly|association|society|school|university|college|center|centre|international|charit\w*|engines|eglise|église|iglesia)\b/i.test(f.name) || /[&\d]/.test(f.name);
+  const first = (!org && f.name.split(/\s+/)[0]) || 'them';
   if (f.owed && f.owed.n > 0) {
     const what = f.owed.n === 1 ? `the ${money(f.owed.total)} gift` : `${f.owed.n} gifts, ${money(f.owed.total)}`;
     return {

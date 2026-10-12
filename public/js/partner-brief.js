@@ -27,17 +27,29 @@ function events(tl) {
 function storyHTML(V) {
   const s = V.story;
   if (s === false) return '';
-  if (!s || !s.story) return `<section class="pp-story" aria-busy="true"><div class="pp-story__h"><h3>What's the story with this partner?</h3></div><div class="pp-skel"><i style="height:14px;width:92%"></i><i style="height:14px;width:78%"></i><i style="height:14px;width:60%"></i></div></section>`;
+  if (!s || !s.story) return `<section class="pp-story" aria-busy="true"><div class="pp-story__h"><h3>Giving pattern</h3></div><div class="pp-skel"><i style="height:14px;width:92%"></i><i style="height:14px;width:78%"></i><i style="height:14px;width:60%"></i></div></section>`;
   const st = s.story;
   const n = s.nba || {};
   const callable = (V.p.contact.phones || []).some((x) => !x.doNotCall);
   const go = n.kind === 'none' ? '' : (n.channel === 'call' || n.channel === 'visit') && callable && window.FavorCall
     ? `<button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-callmode="${esc(V.p.id)}">Call mode</button>`
     : `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="contact">Log a contact</button>`;
+  const r = s.rhythm || {};
+  const day = (d) => (d && window.FavorUI ? window.FavorUI.day(String(d).slice(0, 10)) : String(d || '').slice(0, 10));
+  const CAD = { monthly: 'Monthly', quarterly: 'Quarterly', yearly: 'Yearly', 'twice a year': 'Twice a year' };
+  const facts = [
+    CAD[r.cadence] ? ['Gives', CAD[r.cadence]] : null,
+    r.lastDate ? ['Last gift', day(r.lastDate)] : null,
+    r.lateDays > 0 ? ['Next gift', r.lateDays + (r.lateDays === 1 ? ' day late' : ' days late'), 'late'] : r.expectedNext ? ['Next gift', 'About ' + day(r.expectedNext)] : null,
+  ].filter(Boolean);
+  // A written summary shows only when it is short (two sentences at most). Longer text gives way to the facts.
+  const txt = String(st.text || '').trim();
+  const short = txt && txt.length <= 180 && (txt.match(/[.!?](\s|$)/g) || []).length <= 2 ? txt : '';
   return `<section class="pp-story">
-    <div class="pp-story__h"><h3>What's the story with this partner?</h3><span class="pp-health pp-health--${esc(st.health)}" title="${esc(st.why)}">${esc(HEALTH[st.health] || st.health)}</span></div>
-    <p class="pp-story__t">${esc(st.text)}</p>
-    ${n.label ? `<div class="pp-nba pp-nba--${esc(n.kind)}"><div><small>Next best action</small><b>${esc(n.label)}</b><span>${esc(n.why)}</span></div>${go}</div>` : ''}
+    <div class="pp-story__h"><h3>Giving pattern</h3><span class="pp-health pp-health--${esc(st.health)}">${esc(HEALTH[st.health] || st.health)}</span></div>
+    <p class="pp-story__t">${esc(short || st.why || '')}</p>
+    ${facts.length ? `<dl class="pp-story__f">${facts.map(([k, v, c]) => `<div${c ? ' class="is-' + c + '"' : ''}><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>` : ''}
+    ${n.label ? `<div class="pp-nba pp-nba--${esc(n.kind)}"><div><small>Next</small><b>${esc(n.label)}</b><span>${esc(n.why)}</span></div>${go}</div>` : ''}
   </section>`;
 }
 

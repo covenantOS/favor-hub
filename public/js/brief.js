@@ -107,14 +107,14 @@ function thankRow(b) {
   if (!t || !t.total) return '';
   const oldest = t.rows[0];
   const sub = oldest && oldest.ageDays >= 1 ? `Oldest ${plural(oldest.ageDays, 'day')}, ${pchip(oldest.cid, oldest.name)}` : '';
-  const items = t.rows.map((g, i) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${money(g.amount)}${g.fund ? ' to ' + esc(g.fund) : ''}, ${g.ageDays >= 1 ? plural(g.ageDays, 'day') + ' ago' : 'today'}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-br-thank="${i}">Thank</button></li>`);
+  const items = t.rows.map((g, i) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${[money(g.amount), esc(g.fund || ''), g.ageDays >= 1 ? g.ageDays + 'd' : 'today'].filter(Boolean).join(' · ')}</span></div><button type="button" class="h-btn h-btn--ghost h-btn--sm br-act" data-br-thank="${i}" aria-label="Thank ${esc(g.name || '')}">Thank</button></li>`);
   return row('thank', 'phone', 'To thank', t.total.toLocaleString('en-US'), sub, items, t.total > t.rows.length ? { href: '/work/?view=gifts', text: 'All gifts to thank' } : null);
 }
 
 function giftRow(b) {
   const o = b.overnight;
   if (!o || !o.count) return '';
-  const items = o.rows.map((g) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${money(g.amount)}${g.fund ? ' to ' + esc(g.fund) : ''}${g.place ? ', ' + esc(g.place) : ''}</span></div>${g.thanked ? '<span class="br-tag br-tag--ok">Thanked</span>' : `<span class="br-when">${esc(fd(g.date))}</span>`}</li>`);
+  const items = o.rows.map((g) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${[money(g.amount), esc(g.fund || ''), esc(g.place || '')].filter(Boolean).join(' · ')}</span></div>${g.thanked ? '<span class="br-tag br-tag--ok">Thanked</span>' : `<span class="br-when">${esc(fd(g.date))}</span>`}</li>`);
   return row('gifts', 'gift', 'New gifts', o.count.toLocaleString('en-US'), `${money(o.total)} since ${esc(fd(b.since))}`, items, o.count > o.rows.length ? { href: '/work/?view=gifts', text: 'All gifts' } : null);
 }
 
