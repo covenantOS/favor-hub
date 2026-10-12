@@ -30,6 +30,7 @@ const CAT_IC = { 'Phone call': 'phone', Email: 'mail', Mailing: 'letter', Meetin
 const href = (id) => '/work/partner/' + encodeURIComponent(id);
 const AS = new URLSearchParams(location.search).get('as') || '';
 // /work/partner/<id>?gift=<gift id> opens on that gift: the timeline marks it and scrolls to it.
+const FOCUS_OPP = (/^\d{1,12}$/.test(new URLSearchParams(location.search).get('opp') || '') ? new URLSearchParams(location.search).get('opp') : '') || '';
 const FOCUS_GIFT = (/^\d{1,12}$/.test(new URLSearchParams(location.search).get('gift') || '') ? new URLSearchParams(location.search).get('gift') : '') || '';
 
 async function api(path, opts = {}) {
@@ -252,7 +253,7 @@ function view(p, o = {}) {
   if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
   const chart = years.length ? `<section class="pp-sec"><h3>Giving by year</h3><div class="pp-chart" style="grid-template-columns:repeat(${years.length}, minmax(0, 1fr))">${years.map((y) => `<div class="pp-bar2${y.year === TODAY.slice(0, 4) ? ' is-now' : ''}" title="${esc(y.year)}: ${money(Math.round(y.total))}${y.soft ? ' plus ' + money(Math.round(y.soft)) + ' soft credit' : ''}"><em>${short(y.total)}</em><i style="height:${Math.max(4, Math.round(y.total / max * 92))}px"></i><span>${esc(y.year)}</span></div>`).join('')}</div></section>` : '';
   const opps = `<section class="pp-sec"><h3>Opportunities <button type="button" data-pp-oppnew>New opportunity</button></h3>
-      ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp"><div><b>${esc(String(x.name || '').trim() || 'No name')}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
+      ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp${x.id && String(x.id) === FOCUS_OPP ? ' is-focus' : ''}" data-opp="${esc(x.id || '')}"><div><b>${esc(String(x.name || '').trim() || 'No name')}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
       ${V.editing === 'oppnew' ? oppForm(null) : ''}</section>`;
   const c = p.contact;
   const row = (dt, dd, btn) => `<dt>${dt}</dt><dd>${dd}</dd>${btn || '<span></span>'}`;
@@ -708,7 +709,7 @@ const root = document.getElementById('pv-root');
 if (root) {
   const m = location.pathname.match(/\/work\/partner\/(\d+)/);
   if (m) {
-    show(root, m[1], 'full').then((p) => { if (p && FOCUS_GIFT) setTimeout(() => { const li = root.querySelector(`.pp-ev[data-gift="${FOCUS_GIFT}"]`); if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300); if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - FavorOS'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
+    show(root, m[1], 'full').then((p) => { if (p && (FOCUS_GIFT || FOCUS_OPP)) setTimeout(() => { const li = FOCUS_OPP ? root.querySelector(`.pp-opp[data-opp="${FOCUS_OPP}"]`) : root.querySelector(`.pp-ev[data-gift="${FOCUS_GIFT}"]`); if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300); if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - FavorOS'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
   } else {
     root.innerHTML = '<div class="pp-landing"><h1>Find a partner</h1><div id="pv-search"></div><p class="pp-landing__add"><button type="button" class="h-btn h-btn--primary" data-add-partner hidden>Add partner</button></p></div>';
     if (window.FavorAddPartner) window.FavorAddPartner.mountButtons();

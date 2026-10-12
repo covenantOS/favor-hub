@@ -11,7 +11,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const G = { data: null, loading: false, error: '', started: false, kind: '', q: '', done: false, shown: 100, sheetOn: false };
-const KIND_TABS = { request: 'Requests', loi: 'LOIs', report: 'Reports', other: 'Tasks and cultivation' };
+const KIND_TABS = { request: 'Requests', loi: 'LOIs', report: 'Reports', conversation: 'Conversations', other: 'Tasks and cultivation' };
 
 async function load() {
   G.loading = true; G.error = '';
@@ -36,7 +36,7 @@ function rowHTML(r) {
   const open = r.local && String(r.id).startsWith('local-') ? '' : `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-open="${esc(r.id)}">${f.ic('expand')}Open</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-attach="${esc(r.id)}">${f.ic('plus')}File</button>`;
   return `<div class="wg-row wgr-row" data-id="${esc(r.id)}">
     <div class="wgr-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.foundation)}</a><span class="wg-sub">${esc(r.place)}</span></div>
-    <div class="wgr-what"><span class="wc-tag">${esc(r.kindLabel)}</span>${local}${file}<span class="wgr-sum">${esc(r.summary)}</span>${r.description ? `<span class="wg-sub">${esc(r.description.slice(0, 160))}</span>` : ''}</div>
+    <div class="wgr-what"><span class="wc-tag">${esc(r.kindLabel)}</span>${local}${file}<span class="wgr-sum">${esc(r.summary)}</span>${r.description ? `<span class="wg-sub">${esc(r.description.slice(0, 160))}</span>` : ''}${r.award ? `<a class="wgr-award" href="/work/partner/${esc(r.cid)}?opp=${esc(r.award.id)}">Award: ${esc(r.award.name)}${r.award.amount ? ' · ' + f.money(r.award.amount) : ''}</a>` : r.kind === 'report' ? '<span class="wg-sub">No award on record</span>' : ''}</div>
     <div class="wgr-date"><b>${r.date ? esc(f.fd(r.date)) : ''}</b><span class="wg-sub">${r.open ? 'Due' : esc(r.category)}</span></div>
     <div class="wgr-by"><span class="wg-sub">${esc(r.who.join(', '))}</span></div>
     <div class="wg-acts">${open}</div></div>`;
@@ -55,7 +55,7 @@ function view() {
       <div class="wg-tools"><div class="pp-seg" role="group" aria-label="Which list"><button type="button" class="${!G.done ? 'is-on' : ''}" data-wgr-done="0">Open</button><button type="button" class="${G.done ? 'is-on' : ''}" data-wgr-done="1">Done</button></div>
         <label class="wc-find">${f.ic('search')}<input type="search" id="wgr-q" placeholder="Find a foundation" value="${esc(G.q)}" autocomplete="off" /></label>${G.kind ? `<button type="button" class="wcd-chip" data-wgr-kind="">${f.ic('x')}${esc(KIND_TABS[G.kind] || G.kind)}</button>` : ''}<span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="grants">${f.ic('sheet')}Open in Google Sheets</button>
-        <button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgr-log>${f.ic('plus')}Log</button></div>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wgr-talk>Conversation</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgr-log>${f.ic('plus')}Log</button></div>
       <div class="wg-list">${list.slice(0, G.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>${G.done ? 'Nothing logged yet' : 'No open grant tasks'}</b>${G.done ? 'Requests, LOIs and reports you log show here.' : 'A to-do you log with a due date shows here until it is done.'}</div>`}
         ${list.length > G.shown ? `<div class="wg-group"><span>${list.length - G.shown} more</span><button type="button" data-wgr-more>Show ${Math.min(100, list.length - G.shown)} more</button></div>` : ''}</div>
       <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'entry' : 'entries'} from the last 24 months. Log adds one action on the foundation and attaches the file you pick.</span></div>
@@ -72,10 +72,10 @@ function registerSheet() {
 }
 
 /* ------------------------------------------------------------------ the log form */
-function logDialog() {
+function logDialog(opts) {
   const f = F(); const w = W(); const e = esc; const d = G.data;
   const today = d.today;
-  const st = { cid: '', name: '', kind: 'request', how: 'portal', state: 'sent', file: null };
+  const st = { cid: '', name: '', kind: opts && opts.kind ? opts.kind : 'request', how: opts && opts.kind === 'conversation' ? 'call' : 'portal', state: 'sent', file: null };
   const draw = (box) => {
     $('[data-picked]', box).innerHTML = st.cid ? `<span class="ep-person">${e(st.name)}<button type="button" data-unpick aria-label="Remove">×</button></span>` : '<span class="wc-note">Pick the foundation first.</span>';
     box.querySelectorAll('[data-kind]').forEach((x) => x.classList.toggle('is-on', x.dataset.kind === st.kind));
@@ -84,22 +84,31 @@ function logDialog() {
     $('[data-datelab]', box).textContent = st.state === 'sent' ? 'Date sent' : 'Due';
     const date = $('[data-date]', box);
     if (st.state === 'sent') date.max = today; else date.removeAttribute('max');
-    $('[data-go]', box).disabled = !st.cid || !$('#wgr-sum', box).value.trim();
+    const talk = st.kind === 'conversation';
+    box.querySelectorAll('[data-full]').forEach((x) => { x.hidden = talk; });
+    box.querySelectorAll('[data-talk]').forEach((x) => { x.hidden = !talk; });
+    box.querySelectorAll('[data-how]').forEach((x) => { x.hidden = talk ? x.dataset.how === 'portal' : x.dataset.how === 'call' || x.dataset.how === 'meeting'; });
+    if (talk && st.how === 'portal') st.how = 'call';
+    if (!talk && (st.how === 'call' || st.how === 'meeting')) st.how = 'portal';
+    box.querySelectorAll('[data-how]').forEach((x) => x.classList.toggle('is-on', x.dataset.how === st.how));
+    $('[data-go]', box).disabled = !st.cid || (talk ? !$('#wgr-who', box).value.trim() || !$('#wgr-said', box).value.trim() : !$('#wgr-sum', box).value.trim());
   };
   w.dialog(`<div class="wc-dlg__head"><div><h2>Log a grant entry</h2><p>One action on the foundation, with the file attached.</p></div><button class="wc-dlg__x" data-closelayer aria-label="Close">${f.ic('x')}</button></div>
     <div class="wc-dlg__body">
       <div class="wc-field"><span class="lab">Foundation</span><div class="ep-people" data-picked></div><div data-find></div></div>
       <div class="wc-field"><span class="lab">What</span><div class="wc-choices">${d.kinds.map((k) => `<button type="button" class="wc-choice" data-kind="${k.id}">${e(k.label)}</button>`).join('')}</div></div>
-      <div class="wc-field"><span class="lab">Done or to do</span><div class="wc-choices"><button type="button" class="wc-choice" data-state="sent">Sent</button><button type="button" class="wc-choice" data-state="todo">To do</button></div></div>
-      <div class="wc-row2"><div class="wc-field"><span class="lab" data-datelab>Date sent</span><input type="date" data-date value="${e(today)}" /></div>
+      <div class="wc-field" data-talk hidden><label class="lab" for="wgr-who">Who</label><input type="text" id="wgr-who" maxlength="120" autocomplete="off" placeholder="Program officer" /></div>
+      <div class="wc-field" data-talk hidden><label class="lab" for="wgr-said">What was said</label><textarea id="wgr-said" rows="3"></textarea></div>
+      <div class="wc-field" data-full><span class="lab">Done or to do</span><div class="wc-choices"><button type="button" class="wc-choice" data-state="sent">Sent</button><button type="button" class="wc-choice" data-state="todo">To do</button></div></div>
+      <div class="wc-row2"><div class="wc-field" data-full><span class="lab" data-datelab>Date sent</span><input type="date" data-date value="${e(today)}" /></div>
         <div class="wc-field"><span class="lab">How</span><div class="wc-choices">${d.hows.map((h) => `<button type="button" class="wc-choice" data-how="${h.id}">${e(h.label)}</button>`).join('')}</div></div></div>
-      <div class="wc-field"><label class="lab" for="wgr-sum">Summary</label><input type="text" id="wgr-sum" maxlength="255" autocomplete="off" /></div>
-      <div class="wc-field"><label class="lab" for="wgr-notes">Notes <span class="wc-opt">(optional)</span></label><textarea id="wgr-notes" rows="3" placeholder="Amount requested, program, deadline"></textarea></div>
-      <div class="wc-field"><label class="lab" for="wgr-file">File <span class="wc-opt">(optional, up to 10 MB)</span></label><input type="file" id="wgr-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" /></div>
+      <div class="wc-field" data-full><label class="lab" for="wgr-sum">Summary</label><input type="text" id="wgr-sum" maxlength="255" autocomplete="off" /></div>
+      <div class="wc-field" data-full><label class="lab" for="wgr-notes">Notes <span class="wc-opt">(optional)</span></label><textarea id="wgr-notes" rows="3" placeholder="Amount requested, program, deadline"></textarea></div>
+      <div class="wc-field" data-full><label class="lab" for="wgr-file">File <span class="wc-opt">(optional, up to 10 MB)</span></label><input type="file" id="wgr-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" /></div>
     </div>
     <div class="wc-dlg__foot"><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go disabled>${f.ic('check')}Log it</button></div>`,
   (box) => {
-    if (window.FavorPartner) window.FavorPartner.search($('[data-find]', box), { placeholder: 'Find the foundation: name, email, phone or lookup id', onPick: (h) => { st.cid = h.cid; st.name = h.name; $('[data-find] input', box).value = ''; draw(box); $('#wgr-sum', box).focus(); } });
+    if (window.FavorPartner) window.FavorPartner.search($('[data-find]', box), { placeholder: 'Find the foundation: name, email, phone or lookup id', onPick: (h) => { st.cid = h.cid; st.name = h.name; $('[data-find] input', box).value = ''; draw(box); $(st.kind === 'conversation' ? '#wgr-who' : '#wgr-sum', box).focus(); } });
     draw(box);
     box.addEventListener('input', () => draw(box));
     box.addEventListener('click', async (ev) => {
@@ -111,7 +120,8 @@ function logDialog() {
       if (t.hasAttribute('data-go')) {
         const fd = new FormData();
         fd.append('cid', st.cid); fd.append('kind', st.kind); fd.append('how', st.how); fd.append('state', st.state);
-        fd.append('date', $('[data-date]', box).value || today); fd.append('summary', $('#wgr-sum', box).value.trim()); fd.append('notes', $('#wgr-notes', box).value); fd.append('req', f.reqId());
+        fd.append('date', st.kind === 'conversation' ? today : $('[data-date]', box).value || today); fd.append('summary', $('#wgr-sum', box).value.trim()); fd.append('notes', $('#wgr-notes', box).value); fd.append('req', f.reqId());
+        if (st.kind === 'conversation') { fd.append('who', $('#wgr-who', box).value.trim()); fd.append('said', $('#wgr-said', box).value.trim()); }
         const file = $('#wgr-file', box).files[0]; if (file) fd.append('file', file);
         w.closeLayer();
         await submit(fd, st.name, file ? file.name : '');
@@ -187,6 +197,7 @@ document.addEventListener('click', (e) => {
   if (b.hasAttribute('data-wgr-reload')) { G.data = null; G.error = ''; G.loading = false; G.started = false; view(); return; }
   if (b.hasAttribute('data-wgr-more')) { G.shown += 100; view(); return; }
   if (b.hasAttribute('data-wgr-log')) { logDialog(); return; }
+  if (b.hasAttribute('data-wgr-talk')) { logDialog({ kind: 'conversation' }); return; }
   if (d.wgrOpen) { if (window.WCEdit && window.WCEdit.panel) window.WCEdit.panel(d.wgrOpen); return; }
   if (d.wgrAttach) { attachPick(d.wgrAttach); }
 }, false);

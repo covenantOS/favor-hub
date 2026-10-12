@@ -1610,9 +1610,9 @@ export const STEPS: Step[] = [
     press: '.wc-tab[data-view="grants"]',
     at: '[data-wgr-log]',
     title: 'Grant requests, LOIs and reports',
-    body: 'Log adds a request, LOI, report, task or cultivation step on a foundation and attaches the PDF to it in one pass. Pick Sent for something already out, or To do with a due date. The list shows every grant action from the last 24 months, and File on a row adds a document to an action that is already there.',
+    body: 'Log adds a request, LOI, report, task or cultivation step on a foundation and attaches the PDF to it in one pass. Pick Sent for something already out, or To do with a due date. The list shows every grant action from the last 24 months, and File on a row adds a document to an action that is already there. A report names the award it belongs to. Conversation logs a talk with a funder in two fields, who and what was said.',
     for: (w) => w.admin || team('grants')(w) || team('support')(w),
-    added: '2026-10-11',
+    added: '2026-10-12',
     side: 'bottom',
   },
   {

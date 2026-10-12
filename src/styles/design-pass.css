@@ -558,3 +558,9 @@ html body.h-body .br-item .br-sub a { color: var(--r-ink-2, var(--h-ink-2)); fon
 html body.h-body .pj-from { display: inline-flex; align-items: center; gap: 4px; max-width: 220px; font: 500 12px var(--h-font); color: var(--h-ink-2); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 html body.h-body .pj-from .h-i, html body.h-body .pj-from svg { width: 12px; height: 12px; flex: none; }
 html body.h-body .pj-from:hover { text-decoration: underline; }
+html body.h-body .br-item > .br-fold + .br-more { margin-left: 16px; }
+
+/* Grants (2026-10-12): the award a report belongs to, and an opportunity opened from another page. */
+html body.h-body #wc-root .wgr-award { display: block; margin-top: 4px; font: 600 13px var(--h-font); color: var(--h-brand-ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+html body.h-body #wc-root .wgr-award:hover { text-decoration: underline; }
+html body.h-body .pp-opp.is-focus { background: var(--h-leaf-soft, #e4ece1); border-radius: 10px; box-shadow: 0 0 0 6px var(--h-leaf-soft, #e4ece1); }

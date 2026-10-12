@@ -157,7 +157,7 @@ describe('logging a grant entry', () => {
     const out = await svc.grantsResponse(ctx);
     assert.equal(out.rows.length, 3);
     assert.equal(out.stats.open, 1);
-    assert.equal(out.kinds.length, 5);
+    assert.equal(out.kinds.length, 6);
   });
 
   it('a sent request with a PDF writes one completed Grant Request and attaches the file to it', async () => {

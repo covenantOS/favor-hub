@@ -11,6 +11,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 12, 2026
 
+- **Grants: the award behind a report, and conversations in two fields.** Each report on the Grants tab names the award it belongs to and opens it. Conversation logs a talk with a funder with who and what was said. See [Work Center](/help/work-center/).
 - **Prep for the next meeting.** Today's briefing shows Next meeting with a link to its prep sheet, and Prep with no meeting picked opens the next one. A task made from a meeting shows the meeting's name in Projects. See [Meetings](/help/meetings/).
 - **Partner names open the card on more pages.** Report tables in Reports and Standard reports, the rows behind a number, and the gifts in Gift entry now open the same partner card as the rest of FavorOS, with Send to and Ask.
 - **The daily revenue report when the batch is done.** A gift entry deposit whose batch is in Blackbaud shows the Daily Revenue Report built from the batch itself, with Copy for WhatsApp. See [Gift entry](/help/gift-entry/).

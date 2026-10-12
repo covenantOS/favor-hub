@@ -124,6 +124,10 @@ The grants team, the Support Team and admins see a **Grants** tab. It lists the 
 
 **File** on a row adds a document to an action that is already there, and **Open** opens the action in the usual panel. The Blackbaud copy holds no attachments, so a row shows a file name only when FavorOS attached it. Nothing here contacts a funder.
 
+**Conversation**, beside Log, records a talk with a funder in two fields: who it was with and what was said. Pick the foundation, how it happened (call, email, meeting or mail) and press Log it. It saves a completed Grants Action on the foundation in your name, dated today, so the next person who opens the record sees it. Conversations have their own filter.
+
+A report shows the award it belongs to under its summary: the foundation's awarded opportunity closest before the report's date, with the amount. Press it to open the foundation's page at that opportunity. A report on a foundation with no award on record says so.
+
 ## Gift images
 
 The Support Team and admins see a **Gift images** tab. It lists gifts from the last 45 days that need a check or letter image in Blackbaud: gifts of $5,000 or more, gifts from a giving fund, foundation or donor advised fund, and, when you tick **Include designated funds**, gifts to a designated fund. Gifts paid online are left out.

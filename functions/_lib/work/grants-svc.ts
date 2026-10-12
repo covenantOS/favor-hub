@@ -67,7 +67,7 @@ export async function grantsResponse(ctx: Ctx): Promise<GrantsOut> {
   };
 }
 
-export interface LogInput { cid?: string; kind?: string; how?: string; state?: string; date?: string; summary?: string; notes?: string; req?: string; file?: File | null }
+export interface LogInput { cid?: string; kind?: string; how?: string; state?: string; date?: string; summary?: string; notes?: string; req?: string; file?: File | null; who?: string; said?: string }
 
 /** Log one grant action, and attach the file when there is one. */
 export async function logGrant(ctx: Ctx, input: LogInput, put?: typeof fetch) {
@@ -75,7 +75,15 @@ export async function logGrant(ctx: Ctx, input: LogInput, put?: typeof fetch) {
   const cid = String(input.cid || '');
   if (!ID.test(cid)) throw new HttpError(400, 'no_partner', 'Pick the foundation first.');
   const kind = String(input.kind || '') as Kind;
-  if (!(KINDS as readonly string[]).includes(kind)) throw new HttpError(400, 'bad_kind', 'Pick request, LOI, report, task or cultivation.');
+  if (!(KINDS as readonly string[]).includes(kind)) throw new HttpError(400, 'bad_kind', 'Pick request, LOI, report, task, cultivation or conversation.');
+  // A conversation takes two fields: who it was with and what was said. It is a completed contact dated today unless a date is given.
+  if (kind === 'conversation') {
+    const who = clean(input.who, 120);
+    const said = String(input.said || '').replace(/\r\n/g, '\n').trim().slice(0, 4000);
+    if (!who) throw new HttpError(400, 'need_who', 'Say who you talked with.');
+    if (!said) throw new HttpError(400, 'need_said', 'Write what was said.');
+    input = { ...input, state: 'sent', how: (HOWS as readonly string[]).includes(String(input.how)) && input.how !== 'portal' ? input.how : 'call', summary: `Conversation with ${who}`, notes: said, file: input.file || null };
+  }
   const how = (HOWS as readonly string[]).includes(String(input.how)) ? (String(input.how) as How) : 'portal';
   const state = input.state === 'todo' ? 'todo' : 'sent';
   const today = todayEt();
