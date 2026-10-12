@@ -27,18 +27,24 @@ export function gmail(token: string, fetcher: Fetcher = fetch, base = API): Gmai
       if (v === undefined || v === '') continue;
       for (const one of Array.isArray(v) ? v : [v]) u.searchParams.append(k, one);
     }
-    const res = await fetcher(u.toString(), {
-      method,
-      headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
-    if (res.status === 204) return {} as any;
-    const data = (await res.json().catch(() => ({}))) as any;
-    if (!res.ok) {
-      const reason = data?.error?.errors?.[0]?.reason || data?.error?.status || '';
-      throw new GmailError(res.status, String(reason), String(data?.error?.message || `Gmail ${res.status}`));
+    // Gmail answers 429, or 403 with a rate reason, when one person's calls bunch up. A read waits a moment and asks again.
+    for (let i = 0; ; i++) {
+      const res = await fetcher(u.toString(), {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}) },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 204) return {} as any;
+      const data = (await res.json().catch(() => ({}))) as any;
+      if (res.ok) return data;
+      const reason = String(data?.error?.errors?.[0]?.reason || data?.error?.status || '');
+      const busy = res.status === 429 || (res.status === 403 && /rate|quota/i.test(reason + ' ' + String(data?.error?.message || ''))) || (res.status >= 500 && method === 'GET');
+      if (busy && i < 3 && (method === 'GET' || res.status === 429)) {
+        await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+        continue;
+      }
+      throw new GmailError(res.status, reason, String(data?.error?.message || `Gmail ${res.status}`));
     }
-    return data;
   };
   return {
     get: (path, q) => call('GET', path, undefined, q),

@@ -110,7 +110,8 @@ export async function handle(ctx: MailCtx): Promise<Response> {
       if (err.status === 403 && /insufficient|scope|metadata/i.test(err.reason + ' ' + err.message)) return scopeError(/metadata/i.test(err.message) ? 'read' : 'write');
       if (err.status === 404) return errorJson('not_found', 'That message is gone from Gmail.', 404);
       if (err.status === 429) return errorJson('busy', 'Gmail asked FavorOS to slow down. Try again in a minute.', 429);
-      return errorJson('gmail', 'Gmail did not answer. Try again.', 502);
+      console.error('[mail] gmail', err.status, err.reason, err.message.slice(0, 160));
+      return errorJson('gmail', 'Gmail did not answer. Try again. (' + err.status + (err.reason ? ' ' + err.reason : '') + ')', 502);
     }
     return handleError(err);
   }
