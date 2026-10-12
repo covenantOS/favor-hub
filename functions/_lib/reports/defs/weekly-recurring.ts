@@ -57,7 +57,7 @@ const def: ReportDef = {
   async load(ctx, f) {
     const s = spanOf(f, ctx.today);
     const rows = await ctx.sql<Row>(
-      `SELECT substr(g.gift_date, 1, 10) AS date, g.id AS gift,
+      `SELECT substr(g.gift_date, 1, 10) AS date, g.id AS gift, g.constituent_record_id AS cid,
               COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS partner,
               g.gift_amount AS amount, g.linked_gift_id AS setup,
               (SELECT fu.fund_description FROM funds fu WHERE fu.id = json_extract(g.gift_splits, '$[0].fund_id')) AS fund

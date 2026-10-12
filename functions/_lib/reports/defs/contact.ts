@@ -103,6 +103,7 @@ const def: ReportDef = {
       );
     }
     const rows: Row[] = raw.map((r) => ({
+      __cid: r.cid,
       record: r.lookup || r.cid,
       name: nameOf(r),
       email: r.email || '',

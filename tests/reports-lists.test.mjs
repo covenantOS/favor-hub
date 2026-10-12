@@ -248,7 +248,7 @@ describe('prayer list', () => {
     const q = seen.find((s) => s.mark === 'prayer');
     assert.deepEqual(q.params, ['2024-10-10', TODAY, '2023-01-01', '2025-01-31']);
     assert.deepEqual(r.columns.map((c) => c.label), ['First name', 'Name']);
-    assert.deepEqual(r.rows, [{ first: 'Jo', name: 'Jo Reed' }, { first: '', name: 'Test Chapel' }]);
+    assert.deepEqual(r.rows, [{ first: 'Jo', name: 'Jo Reed' }, { first: '', name: 'Test Chapel' }].map((r, i) => ({ __cid: String(i + 1), ...r })));
   });
   it('takes typed dates, and drops the total-gifts rule when its dates are cleared', async () => {
     seen.length = 0;

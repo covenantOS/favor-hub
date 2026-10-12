@@ -127,6 +127,7 @@ const def: ReportDef = {
       .filter((r) => Number(r.has_email) === 1 && Number(r.hh_out) !== 1 && Number(r.dne) !== 1)
       .map((r) => ({
         id: r.id,
+        __cid: r.id,
         name: String(r.name || '').trim(),
         email: r.email,
         phone: r.phone || '',

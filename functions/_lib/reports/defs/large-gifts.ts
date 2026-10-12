@@ -113,6 +113,7 @@ const def: ReportDef = {
         (r) =>
           ({
             gift_id: r.giftId,
+            __cid: r.cid,
             gdate: r.date,
             amount: r.amount,
             partner: r.partner.name,

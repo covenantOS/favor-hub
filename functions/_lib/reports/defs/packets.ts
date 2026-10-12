@@ -114,6 +114,7 @@ const def: ReportDef = {
       const send = Number(r.hh_out) === 1 ? 'Deceased or inactive' : !r.email ? 'No email' : Number(r.dne) === 1 ? 'Do not email' : 'Email';
       return {
         gift_id: r.gift_id,
+        __cid: r.partner_id,
         gdate: r.gdate,
         amount: Number(r.amount),
         partner: String(r.partner || '').trim(),

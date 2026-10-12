@@ -160,6 +160,7 @@ const def: ReportDef = {
       if (who && !fundraisers.toLowerCase().includes(who)) continue;
       rows.push({
         id: r.id,
+        lookup: r.lookup,
         fundraisers,
         category: String(r.category || ''),
         adate: r.adate || '',

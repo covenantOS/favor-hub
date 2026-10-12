@@ -48,7 +48,7 @@ const def: ReportDef = {
       const first = String(r.first ?? '').trim();
       const last = String(r.last ?? '').trim();
       const org = String(r.org ?? '').trim();
-      return { first, name: org && !first && !last ? org : `${first} ${last}`.trim() };
+      return { first, ...(r.id != null ? { __cid: String(r.id) } : {}), name: org && !first && !last ? org : `${first} ${last}`.trim() };
     });
     return { rows, asOf: to };
   },
