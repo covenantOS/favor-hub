@@ -8,10 +8,10 @@ const params = new URLSearchParams(location.search);
 const MID = params.get('m') || '';
 const root = $('#meet-root');
 const isPhone = () => matchMedia('(max-width: 860px)').matches;
-const FEATURES = { brain: true, captions: true, docs: false };
+const FEATURES = { brain: true, captions: true, docs: false, notes: true };
 const GUEST = MODE.guest;
 const GKEY = params.get('k') || '';
-if (GUEST) { FEATURES.brain = false; FEATURES.captions = false; MODE.token = sessionStorage.getItem('meet.gtoken.' + MID) || ''; }
+if (GUEST) { FEATURES.brain = false; FEATURES.captions = false; FEATURES.notes = false; MODE.token = sessionStorage.getItem('meet.gtoken.' + MID) || ''; }
 const nav = (staff, guest) => (GUEST ? guest : staff);
 // The page the person came from (a Chat channel, Meetings), so Leave takes them back there. Only a path on this site.
 const BACK = (() => { const b = params.get('back') || ''; return /^\/(?!\/)[^\s]*$/.test(b) && !b.startsWith('/meet/room') ? b : ''; })();
@@ -32,7 +32,7 @@ const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
   mic: true, cam: true, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
-  inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
+  inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, live: [], liveSig: '', liveKind: 'action', liveText: '', layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
 let recorder = null, barTimer = null, capTimer = null;
@@ -108,7 +108,7 @@ async function lobby() {
       <p class="mt-sub" style="font-size:14px;margin:0" id="lb-who">${esc(recLine)}</p>
       <div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" ${GUEST ? 'placeholder="First and last name"' : ''} /></div>${consent}
       <div class="lb-dev" id="lb-devs" hidden></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? '' : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a>'}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? '' : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a><a class="h-btn h-btn--ghost" href="/meet/prep/?m=' + encodeURIComponent(MID) + '" target="_blank" rel="noopener">Prep sheet</a>'}</div>
       <p class="mt-sub" style="margin:0" id="lb-dev">Checking your camera and microphone.</p><p class="lb-help" id="lb-help" hidden></p></div></div>`;
   $('#lb-join').addEventListener('click', enter);
   $('#lb-mic').addEventListener('click', () => { S.mic = !S.mic; lobbyButtons(); });
@@ -612,6 +612,7 @@ function paintCtl() {
     <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
     <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
     ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain" aria-pressed="${S.panel === 'brain'}"><span class="k">${ic('brain')}</span>Brain</button>` : ''}
+    ${FEATURES.notes ? `<button class="cb${S.panel === 'notes' ? ' is-on' : ''}" data-a="panel" data-p="notes" aria-pressed="${S.panel === 'notes'}"><span class="k badge">${ic('notes')}${liveCount() ? `<span class="dotc">${liveCount()}</span>` : ''}</span>Notes</button>` : ''}
     <button class="cb leave" data-a="leave"><span class="k">${ic('leave')}</span>Leave</button>`;
   });
   const hint = $('#rm-hint');
@@ -630,6 +631,7 @@ async function paintMore() {
     FEATURES.captions ? row('cc', 'cc', 'Captions', S.cc ? 'On' : 'Off') : '',
     h && S.meeting.rec !== 'off' ? row('rec', 'rec', recOn ? 'Stop recording' : 'Start recording', recOn ? 'On' : '') : '',
     FEATURES.brain ? row('panel', 'brain', 'Ask Favor Brain', '', ' data-p="brain"') : '',
+    FEATURES.notes ? row('panel', 'notes', 'Live notes', liveCount() ? String(liveCount()) : '', ' data-p="notes"') : '',
     row('layout', S.layout === 'grid' ? 'speaker' : 'grid', S.layout === 'grid' ? 'Speaker view' : 'Gallery view', ''),
     document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
@@ -661,7 +663,7 @@ function paintSide() {
   el.style.display = S.panel ? '' : 'none';
   if (!S.panel) return;
   const tab = (p, l, i) => `<button role="tab" aria-selected="${S.panel === p}" data-a="panel" data-p="${p}" class="${S.panel === p ? 'is-on' : ''}">${ic(i)}${l}</button>`;
-  keepFocus(el, () => { el.innerHTML = `<div class="rm-grab" aria-hidden="true"></div><div class="rm-tabs" role="tablist" aria-label="Meeting panel">${tab('chat', 'Chat', 'chat')}${tab('people', 'People', 'users')}${FEATURES.brain ? tab('brain', 'Brain', 'brain') : ''}<button class="x icon-b" data-a="panel-close" aria-label="Close the panel">${ic('x')}</button></div><div class="rm-body" id="rm-body" role="tabpanel"></div><div id="rm-input"></div>`; });
+  keepFocus(el, () => { el.innerHTML = `<div class="rm-grab" aria-hidden="true"></div><div class="rm-tabs" role="tablist" aria-label="Meeting panel">${tab('chat', 'Chat', 'chat')}${tab('people', 'People', 'users')}${FEATURES.brain ? tab('brain', 'Brain', 'brain') : ''}${FEATURES.notes ? tab('notes', 'Notes', 'notes') : ''}<button class="x icon-b" data-a="panel-close" aria-label="Close the panel">${ic('x')}</button></div><div class="rm-body" id="rm-body" role="tabpanel"></div><div id="rm-input"></div>`; });
   paintSideBody(true);
 }
 
@@ -729,6 +731,16 @@ function paintSideBody(full) {
     if (full) $('#rm-input').dataset.k = 'brain';
     if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="brainin" placeholder="Ask Favor Brain" maxlength="400" autocomplete="off" /><button class="icb send" data-a="ask-typed" aria-label="Ask">${ic('send')}</button></div>`;
     if (full || stick) body.scrollTop = body.scrollHeight;
+  } else if (S.panel === 'notes') {
+    const h = hostish();
+    const live = S.live.filter((i) => !i.dismissed || h);
+    const acts = live.filter((i) => i.kind === 'action'), decs = live.filter((i) => i.kind === 'decision');
+    const row = (i) => `<div class="ln${i.dismissed ? ' is-off' : ''}"><div><b>${esc(i.text)}</b><span>${[i.owner ? esc(i.owner) : 'No owner yet', i.due ? 'due ' + esc(i.due) : '', stampOf(i.t)].filter(Boolean).join(' · ')}</span></div>${h ? `<div class="ln-a">${i.kind === 'action' ? `<select data-a="live-owner" data-idx="${i.idx}" aria-label="Owner">${ownerOptions(i.owner)}</select>` : ''}<button class="icon-b" data-a="live-dismiss" data-idx="${i.idx}" data-v="${i.dismissed ? 'false' : 'true'}" aria-label="${i.dismissed ? 'Keep this one' : 'Dismiss this one'}" title="${i.dismissed ? 'Keep' : 'Dismiss'}">${ic(i.dismissed ? 'plus' : 'x')}</button></div>` : ''}</div>`;
+    body.innerHTML = `<div class="priv">${ic('notes')}Action items and decisions appear here as they are said. The final notes keep what stays on this list.</div>
+      <div class="h-label">Action items, ${acts.length}</div>${acts.map(row).join('') || '<p class="mt-sub" style="margin:0 0 10px">None yet.</p>'}
+      <div class="h-label" style="margin-top:12px">Decisions, ${decs.length}</div>${decs.map(row).join('') || '<p class="mt-sub" style="margin:0 0 10px">None yet.</p>'}`;
+    if (full) $('#rm-input').dataset.k = 'notes';
+    if (full) $('#rm-input').innerHTML = `<div class="ln-add"><div class="ln-kind" role="group" aria-label="Kind"><button data-a="live-kind" data-k="action" aria-pressed="${S.liveKind === 'action'}" class="${S.liveKind === 'action' ? 'is-on' : ''}">Action item</button><button data-a="live-kind" data-k="decision" aria-pressed="${S.liveKind === 'decision'}" class="${S.liveKind === 'decision' ? 'is-on' : ''}">Decision</button></div><div class="rm-input"><input id="livein" placeholder="Add one by hand" maxlength="300" autocomplete="off" value="${esc(S.liveText)}" /><button class="icb send" data-a="live-add" aria-label="Add">${ic('send')}</button></div></div>`;
   } else if (S.panel === 'people') {
     const h = hostish();
     const all = [mePerson(), ...others()];
@@ -766,6 +778,9 @@ function onDocClick(e) {
     case 'layout': S.layout = S.layout === 'grid' ? 'speaker' : 'grid'; paintTools(); paintGrid(); scheduleReconcile(); break;
     case 'fullscreen': if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else (document.getElementById('h-app') || document.documentElement).requestFullscreen().catch(() => toast('Full screen is not available here.')); break;
     case 'chat-send': sendChat(); break;
+    case 'live-add': addLive(); break;
+    case 'live-kind': S.liveKind = a.dataset.k === 'decision' ? 'decision' : 'action'; paintSideBody(true); break;
+    case 'live-dismiss': changeLive({ idx: Number(a.dataset.idx), dismissed: a.dataset.v === 'true' }); break;
     case 'pmenu': S.menu = S.menu === a.dataset.pid ? null : a.dataset.pid; paintSideBody(false); if (S.menu) { const mi = $('.menu button'); mi && mi.focus(); } break;
     case 'cmd': {
       const c = a.dataset.c, pid = a.dataset.pid || '', v = a.dataset.v === undefined ? undefined : a.dataset.v === 'true';
@@ -804,11 +819,49 @@ function onKey(e) {
   }
   if (e.target.id === 'invin' && e.key === 'Enter') { e.preventDefault(); sendInvite(); return; }
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
+  if (e.target.id === 'livein' && e.key === 'Enter') { e.preventDefault(); addLive(); return; }
   if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, brainKindOf(q)); } return; }
   if (e.target.matches && e.target.matches('input, textarea')) return;
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
 }
+// ---- live notes: action items and decisions caught as they are said, plus the ones people add by hand
+const liveCount = () => S.live.filter((i) => !i.dismissed && i.kind === 'action').length;
+const stampOf = (t) => (t ? `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}` : '');
+const ownerOptions = (cur) => {
+  const names = [...new Set((S.people || []).filter((p) => p.role !== 'guest').map((p) => p.name).filter(Boolean))];
+  return `<option value="">No owner</option>${names.map((n) => `<option value="${esc(n)}"${n === cur ? ' selected' : ''}>${esc(n)}</option>`).join('')}`;
+};
+async function loadLive() {
+  if (!FEATURES.notes || !S.joined || S.left) return;
+  try {
+    const r = await api('meetings/' + MID + '/live');
+    const sig = JSON.stringify(r.items);
+    if (sig === S.liveSig) return;
+    S.liveSig = sig; S.live = r.items;
+    paintCtl();
+    const a = document.activeElement;
+    if (S.panel === 'notes' && !(a && a.matches && a.matches('#livein, select[data-a="live-owner"]'))) paintSideBody(false);
+  } catch { /* the next poll tries again */ }
+}
+async function addLive() {
+  const i = $('#livein'); const text = (i ? i.value : S.liveText).trim(); if (!text) return;
+  try {
+    const r = await api('meetings/' + MID + '/live', { method: 'POST', body: { add: { text, kind: S.liveKind } } });
+    S.live = r.items; S.liveSig = JSON.stringify(r.items); S.liveText = ''; if (i) i.value = '';
+    paintCtl(); paintSideBody(false);
+  } catch (e) { toast(e.message); }
+}
+async function changeLive(body) {
+  try {
+    const r = await api('meetings/' + MID + '/live', { method: 'POST', body });
+    S.live = r.items; S.liveSig = JSON.stringify(r.items); paintCtl(); paintSideBody(false);
+  } catch (e) { toast(e.message); }
+}
+document.addEventListener('change', (e) => { const sel = e.target.closest && e.target.closest('select[data-a="live-owner"]'); if (sel) changeLive({ idx: Number(sel.dataset.idx), owner: sel.value }); });
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'livein') S.liveText = e.target.value; });
+setInterval(loadLive, 10000);
+
 async function leaveClick() {
   if (hostish() && others().length) {
     const r = await confirmCard({ title: 'Leave the meeting?', body: 'Other people are still in the room. You can leave and let them carry on, or end it for everyone.', ok: 'Leave meeting', cancel: 'Stay', extra: 'End for everyone' });

@@ -7,7 +7,7 @@ for: [admin]
 related: [clips, whats-new]
 tool: /meet/
 toolLabel: Open Meetings
-updated: 2026-10-10
+updated: 2026-10-12
 ---
 
 Meetings runs video calls inside FavorOS. Nobody installs anything. You join from the browser on a computer or a phone, and a call can hold the whole staff.
@@ -35,6 +35,24 @@ Open **People** and use the Invite box at the bottom. Type a Favor name, an emai
 ## Recording and notes
 
 A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, FavorOS saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. The notes start the moment the last person leaves and appear under **Meeting notes** a few minutes later. The recording plays on that page. A Google Doc of the notes, with the summary, action items, chapters and the transcript with speaker names, is saved next to the recording and linked as Notes in Google Docs. The transcript is searchable on the notes page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
+
+## Prep before a meeting
+
+On the Meetings page, a meeting that has not started has a **Prep** button, and the lobby has a **Prep sheet** link. The sheet lists who is coming, with their team and title. A partner on the invite shows their giving, last gift, last contact and who holds them. Under each person you work with, it lists the open tasks between you in both directions. It also shows what is still open from past meetings with these people, and the last meeting with the same group, with its decisions. Partner giving shows only to people who have the Work Center.
+
+## Live notes
+
+In a room, the **Notes** tab lists action items and decisions as people say them, a few seconds behind the talk. Each shows who owns it when someone was named, and the time in the meeting. Anyone in the room can add an item by hand. The host can dismiss an item or pick its owner from the people in the meeting. When the meeting ends, the final notes keep what stays on the list.
+
+## After the call
+
+Each action item with a named owner becomes a task for that person in Projects. When you book a meeting, **Post the summary to** picks a channel in Chat. When the notes are ready, the summary, decisions and action items post there once, and each owner is mentioned.
+
+If a person on the invite is a partner, the notes page shows a **Log on a partner record** card to the host. Nothing goes to Blackbaud on its own. The host presses **Log in Blackbaud**, confirms, and one completed Meeting action goes on that partner's record with the date, who from Favor was there, the summary, the decisions and the follow-ups. The host can also find a partner by hand or press **Not a partner meeting**. Logging needs the Work Center.
+
+## Ask your meetings
+
+On **Meeting notes**, **Ask your meetings** answers a question from the notes and transcripts of every meeting you can open, and lists the moments it used. Press a time to jump to it in that meeting's notes.
 
 ## Two minutes before
 

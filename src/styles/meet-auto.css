@@ -1,0 +1,44 @@
+/* Meetings that work before, during and after the call: prep sheet, live notes tab, partner confirm, ask all meetings. */
+.pr-line { margin: 0 0 16px; font-size: 15px; color: var(--h-ink-2); max-width: 70ch; }
+.pr-p { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 10px; padding: 9px 0; border-top: 1px solid var(--h-line); }
+.pr-p:first-of-type { border-top: 0; }
+.pr-p b { display: block; font: 600 14px var(--h-font); }
+.pr-p div span { display: block; font-size: 13px; color: var(--h-ink-3); overflow-wrap: anywhere; }
+.pr-tasks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.pr-tasks li { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.pr-tasks a { color: var(--h-brand-ink); }
+.pr-tasks em { font-style: normal; color: var(--h-ink-3); }
+.pr-pc { padding: 10px 0; border-top: 1px solid var(--h-line); }
+.pr-pc:first-of-type { border-top: 0; }
+.pr-pc__h { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.pr-pc b { font: 600 15px var(--h-font); display: block; }
+.pr-pc span { font-size: 13px; color: var(--h-ink-3); }
+.pr-pc .kv { margin: 0; }
+.pr-oi { display: block; padding: 9px 0; border-top: 1px solid var(--h-line); text-decoration: none; color: inherit; }
+.pr-oi:first-of-type { border-top: 0; }
+.pr-oi b { display: block; font: 600 14px var(--h-font); }
+.pr-oi span { font-size: 13px; color: var(--h-ink-3); }
+/* live notes tab */
+.ln { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 8px 0; border-top: 1px solid var(--h-line); }
+.ln b { display: block; font: 600 13px var(--h-font); overflow-wrap: anywhere; }
+.ln span { font-size: 13px; color: var(--h-ink-3); }
+.ln.is-off b { text-decoration: line-through; color: var(--h-ink-3); }
+.ln-a { display: flex; gap: 4px; align-items: center; }
+.ln-a select { max-width: 110px; height: 30px; border-radius: 10px; border: 1px solid var(--h-line-2); background: #fff; font-size: 13px; }
+.ln-add { border-top: 1px solid var(--h-line); }
+.ln-kind { display: flex; gap: 4px; padding: 8px 10px 0; }
+.ln-kind button { flex: 1; height: 30px; border-radius: 999px; border: 1px solid var(--h-line-2); background: none; font: 600 13px var(--h-font); color: var(--h-ink-2); }
+.ln-kind button.is-on { background: var(--h-leaf-soft); color: var(--h-brand-ink); border-color: transparent; }
+.ln-add .rm-input { border-top: 0; }
+/* partners to log, ask all meetings */
+.pt-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid var(--h-line); }
+.pt-row:first-of-type { border-top: 0; }
+.pt-row b { display: block; font: 600 14px var(--h-font); }
+.pt-row span { font-size: 13px; color: var(--h-ink-3); }
+.pt-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.pt-find { display: flex; gap: 6px; margin-top: 8px; }
+.pt-find input { flex: 1; min-width: 0; height: 36px; border-radius: 999px; border: 1px solid var(--h-line-2); padding: 0 12px; background: #fff; }
+.aa-src { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--h-line); }
+.aa-src a { color: var(--h-brand-ink); }
+.aa-src em { font-style: normal; color: var(--h-ink-3); display: block; }
+@media (max-width: 860px) { .pt-row { grid-template-columns: minmax(0, 1fr); } .pt-acts { justify-content: flex-start; } }

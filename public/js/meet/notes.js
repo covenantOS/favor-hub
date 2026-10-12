@@ -1,5 +1,5 @@
 // One meeting's notes: summary, decisions, action items, the recording in Drive, chapters, what was asked, and the searchable transcript.
-import { $, esc, ic, av, api, fmtDay, fmtTime, pump, copy, toast } from './ui.js';
+import { $, esc, ic, av, api, fmtDay, fmtTime, pump, copy, toast, confirmCard } from './ui.js';
 
 const MID = new URLSearchParams(location.search).get('m') || '';
 const root = $('#mt-notes');
@@ -7,6 +7,7 @@ const root = $('#mt-notes');
 const stamp = (t) => { const s = Math.max(0, Math.floor(Number(t) || 0)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), p = (n) => String(n).padStart(2, '0'); return h ? `${h}:${p(m)}:${p(s % 60)}` : `${m}:${p(s % 60)}`; };
 let data = null, q = '';
 const ask = { q: '', busy: false, answer: null };
+const pt = { busy: '', find: '', hits: [], err: '' };
 
 // ---- the recording player. One media element per file, kept between redraws so typing in the search box never stops playback.
 const players = new Map();
@@ -76,6 +77,39 @@ function download() {
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 }
 
+const PSTATE = { proposed: 'Waiting for you', sending: 'Logging', logged: 'Logged', failed: 'Did not go through' };
+function partnersCard() {
+  const list = data.partners || [];
+  const rows = list.map((p) => `<div class="pt-row"><div><b><a href="${esc(p.url)}">${esc(p.name || 'Partner ' + p.cid)}</a></b><span>${esc(PSTATE[p.state] || p.state)}${p.state === 'logged' ? (p.detail ? ', ' + esc(p.detail) : '') : p.detail ? ': ' + esc(p.detail) : ''}${p.confirmedBy && p.state === 'logged' ? ' by ' + esc(p.confirmedBy) : ''}</span></div>
+    <div class="pt-acts">${p.state === 'logged' || p.state === 'sending' ? '' : `<button class="h-btn h-btn--primary h-btn--sm" data-pt="log" data-cid="${esc(p.cid)}" ${pt.busy ? 'disabled' : ''}>${pt.busy === p.cid ? 'Logging' : 'Log in Blackbaud'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-pt="dismiss" data-cid="${esc(p.cid)}" ${pt.busy ? 'disabled' : ''}>Not a partner meeting</button>`}</div></div>`).join('');
+  return `<section class="h-card mt-card" id="partners"><div class="h-label" style="margin-bottom:4px">Log on a partner record</div>
+    <p class="mt-sub" style="margin:0 0 6px">${list.some((p) => p.state === 'proposed' || p.state === 'failed') ? 'A partner was on the invite. Logging adds one completed Meeting action to their record in Blackbaud, with the date, who was there, the summary, decisions and follow-ups.' : 'Add a partner this meeting should be logged on. Nothing goes to Blackbaud until you press Log in Blackbaud.'}</p>
+    ${rows}${pt.err ? `<p class="mt-sub" style="color:#8a3f24;margin:6px 0 0">${esc(pt.err)}</p>` : ''}
+    <div class="pt-find"><input id="ptq" placeholder="Find a partner by name, email or phone" value="${esc(pt.find)}" aria-label="Find a partner" /><button class="h-btn h-btn--ghost h-btn--sm" data-pt="find">Find</button></div>
+    ${pt.hits.map((h) => `<div class="pt-row"><div><b>${esc(h.name)}</b><span>${esc(h.place)}</span></div><div class="pt-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pt="add" data-cid="${esc(h.id)}" data-name="${esc(h.name)}">Add</button></div></div>`).join('')}</section>`;
+}
+async function partnerClick(b) {
+  const act = b.dataset.pt; const cid = b.dataset.cid;
+  pt.err = '';
+  try {
+    if (act === 'find') {
+      const q = ($('#ptq') || {}).value || ''; pt.find = q;
+      pt.hits = q.trim().length < 2 ? [] : (await api('meetings/' + MID + '/partners?q=' + encodeURIComponent(q.trim()))).hits || [];
+    } else if (act === 'add') {
+      data.partners = (await api('meetings/' + MID + '/partners', { method: 'POST', body: { action: 'add', cid, name: b.dataset.name } })).partners; pt.hits = []; pt.find = '';
+    } else if (act === 'dismiss') {
+      data.partners = (await api('meetings/' + MID + '/partners', { method: 'POST', body: { action: 'dismiss', cid } })).partners;
+    } else if (act === 'log') {
+      const row = (data.partners || []).find((p) => p.cid === cid);
+      if (!(await confirmCard({ title: 'Log this meeting in Blackbaud?', body: `One completed Meeting action goes on ${row ? row.name : 'the partner'}'s record, dated ${fmtDay(data.meeting.startedAt)}. Nobody is emailed.`, ok: 'Log in Blackbaud' }))) return;
+      pt.busy = cid; draw();
+      data.partners = (await api('meetings/' + MID + '/partners', { method: 'POST', body: { action: 'log', cid, confirm: true } })).partners;
+      toast('Logged on the record');
+    }
+  } catch (e) { pt.err = e.message; try { data.partners = (await api('meetings/' + MID + '/notes')).partners; } catch { /* keep the list */ } }
+  pt.busy = ''; draw();
+}
+
 function draw() {
   const m = data.meeting; const n = data.notes || {};
   document.title = m.title + ' - FavorOS';
@@ -104,12 +138,14 @@ function draw() {
         ${files.map((f) => `<div class="drive">${ic('drive')}<div><b>${files.length > 1 ? esc(f.name) : 'Saved in Google Drive'}</b><span>${esc(files.length > 1 ? 'Google Drive' : f.name)}</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(f.url)}" target="_blank" rel="noopener">Open</a></div>`).join('')}
         ${data.doc ? `<div class="drive">${ic('doc')}<div><b>Notes in Google Docs</b><span>Google Docs</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(data.doc.url)}" target="_blank" rel="noopener">Open</a></div>` : ''}
         ${files.length ? `<p class="mt-sub" style="margin:0">Meetings in US Team Files${files.length > 1 ? ', ' + files.length + ' parts' : ''}</p>` : ''}</section>` : ''}
+      ${(data.partners || []).length || (data.meeting.mine && data.meeting.status === 'ended') ? partnersCard() : ''}
       ${(n.chapters || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Chapters</div>${n.chapters.map((c) => `<a class="chap" href="#t=${c.t}" data-t="${c.t}" style="text-decoration:none;color:inherit"><em>${stamp(c.t)}</em><span>${esc(c.title)}</span></a>`).join('')}</section>` : ''}
       ${(data.asked || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Asked during the meeting</div><div class="ans"><ul>${data.asked.map((a) => `<li>${ts(a.t)}<span>${a.by ? esc(a.by) + ' asked ' : ''}"${esc(a.q)}"</span></li>`).join('')}</ul></div></section>` : ''}
       ${hasTr ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Ask about this meeting</div><div class="rm-input" style="border:0;padding:0"><input id="nt-ask" aria-label="Ask about this meeting" placeholder="Who owns the print file?" maxlength="300" value="${esc(ask.q)}" ${ask.busy ? 'disabled' : ''} /><button class="icb send" id="nt-ask-go" aria-label="Ask" ${ask.busy ? 'disabled' : ''}>${ic('send')}</button></div>
         ${ask.busy ? '<p class="mt-sub" style="margin:8px 0 0">Reading the transcript.</p>' : ask.answer ? `<div class="ans" style="margin-top:8px"><p style="margin:0 0 6px;font-size:14px">${esc(ask.answer.answer)}</p>${ask.answer.points.length ? `<ul>${ask.answer.points.map((p) => `<li>${ts(p.t)}<span>${esc(p.text)}</span></li>`).join('')}</ul>` : ''}</div>` : ''}</section>` : ''}
     </div></div>`;
   $('#nt-copy').addEventListener('click', () => copy(location.href));
+  root.querySelectorAll('[data-pt]').forEach((b) => b.addEventListener('click', () => partnerClick(b)));
   $('#nt-dl').addEventListener('click', download);
   const retry = $('#nt-retry');
   if (retry) retry.addEventListener('click', async () => {

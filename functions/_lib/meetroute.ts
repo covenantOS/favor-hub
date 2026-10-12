@@ -16,6 +16,7 @@ import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
+import { afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
@@ -41,6 +42,8 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
 
     if (parts[1] === 'pump' && m === 'POST') return json(await pumpNext(env, user));
+    if (parts[1] === 'ask' && m === 'POST') return json(await askMeetings(env, user, ((await request.json().catch(() => ({}))) as Record<string, unknown>).q));
+    if (parts[1] === 'channels' && m === 'GET') return json(await meetChannels(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'actions' && m === 'GET') return json(await myActions(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
     if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env) });
@@ -75,11 +78,16 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'tracks' && m === 'POST') return json(await setTracks(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
-    if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request);
+    if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request, waitUntil);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
     if (sub === 'media' && m === 'GET') return await mediaOf(env, user, id, parts[3] || '', request.headers.get('Range'));
     if (sub === 'invite' && m === 'POST') return json(await inviteTo(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (sub === 'pump' && m === 'POST') return json(await pump(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'prep' && m === 'GET') return json(await prepSheet(env, user, id, new URL(request.url).origin));
+    if (sub === 'live' && m === 'GET') return json(await liveList(env, user, id));
+    if (sub === 'live' && m === 'POST') return json(await livePost(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'partners' && m === 'GET') return json({ ok: true, ...(await partnerSearch(env, user, id, new URL(request.url).searchParams.get('q') || '')) });
+    if (sub === 'partners' && m === 'POST') return json(await partnerAct(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'ask' && m === 'POST') return json(await askAboutMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'action' && m === 'POST') return json(await markAction(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'brain' && m === 'POST') return json(await brainInMeeting(env, user, id, await request.json().catch(() => ({}))));
@@ -144,6 +152,7 @@ function publicMeeting(m: Meeting, user: { email: string }) {
     sharePolicy: m.share_policy, repeat: m.repeat, backupLink: m.backup_link, invitees: safeJson(m.invitees, []), mine: isHost(m, user.email),
     recState: m.rec_state, driveFileId: m.drive_file_id, notesStatus: m.notes_status, summary: m.summary, createdAt: m.created_at,
     startedAt: m.started_at, endedAt: m.ended_at, seriesId: m.series_id || '',
+    postChannel: (m as Meeting & { post_channel?: string }).post_channel || '',
   };
 }
 
@@ -247,6 +256,10 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   }
   if (withGuests) rows.push(env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(id), env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(id, gkey));
   await env.DB.batch(rows);
+  if (typeof b.postChannel === 'string' && b.postChannel) {
+    await setPostChannel(env, user as never, id, clean(b.postChannel, 60));
+    if (repeat !== 'none') await env.DB.prepare(`UPDATE hub_meetings SET post_channel = ? WHERE series_id = ?`).bind(clean(b.postChannel, 60), id).run();
+  }
   if (!startsAt && invitees.length && b.notify !== false) {
     const host = user.name || user.email;
     for (const i of invitees) {
@@ -303,6 +316,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
   if (typeof b.agenda === 'string') { sets.push('agenda = ?'); vals.push(clean(b.agenda, 2000)); }
   if (['off', 'notes', 'video'].includes(String(b.rec))) { sets.push('rec_mode = ?'); vals.push(String(b.rec)); }
   if (['invited', 'staff', 'guests'].includes(String(b.access))) { sets.push('access = ?'); vals.push(String(b.access)); }
+  if (typeof b.postChannel === 'string') await setPostChannel(env, user as never, id, clean(b.postChannel, 60));
   if (b.status === 'cancelled') {
     sets.push(`status = 'cancelled'`);
     if (mt.calendar_event_id) {
@@ -608,7 +622,7 @@ function trackOf(t: Record<string, unknown>): Record<string, unknown> {
 
 // ---------------------------------------------------------------- recording
 
-async function rec(env: MeetEnv, user: { email: string }, id: string, sub: string[], request: Request): Promise<Response> {
+async function rec(env: MeetEnv, user: { email: string }, id: string, sub: string[], request: Request, waitUntil?: (p: Promise<unknown>) => void): Promise<Response> {
   const url = new URL(request.url);
   const pid = clean(url.searchParams.get('pid'), 12);
   const me = await getPresence(env, id, pid, user.email);
@@ -665,6 +679,11 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     } catch (err) {
       console.warn('[meet] live read', id, err);
     }
+    // The decisions and action items in what was just said, noted while the call goes on.
+    if (lines > 0 && mt.status === 'live') {
+      const read = extractLive(env, mt).catch((err) => console.warn('[meet] live notes', id, err));
+      if (waitUntil) waitUntil(read); else await read;
+    }
     return json({ ok: true, lines });
   }
   if (sub[0] === 'chunk' && request.method === 'PUT') {
@@ -707,6 +726,8 @@ async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: 
     actions: (await env.DB.prepare('SELECT idx, text, owner_name, owner_email, due, t, done FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all()).results || [],
     people: (await env.DB.prepare('SELECT lower(email) AS email, MIN(name) AS name FROM hub_meeting_presence WHERE meeting_id = ? GROUP BY lower(email) ORDER BY MIN(joined_at)').bind(id).all<{ email: string; name: string }>()).results || [],
     asked: await askedDuring(env, m),
+    partners: await partnersOf(env, user as never, id),
+    live: m.status === 'live' ? await liveList(env, user as never, id).then((r) => r.items).catch(() => []) : [],
   };
 }
 
@@ -802,22 +823,21 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
       const notes = await timed(env, id, 'summary', () => makeNotes(env, m, names));
       if (notes) {
         const retitle = !!notes.title && isDefaultTitle(m.title);
+        // What the call already caught is folded into the final lists before anything reads them.
+        const folded = await foldLive(env, id, { decisions: notes.decisions, actions: notes.actions });
+        notes.decisions = folded.decisions;
+        notes.actions = folded.actions;
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'ready', summary = ?, notes_json = ?, title = CASE WHEN title IN ('Meeting', '') OR title LIKE '% meeting' THEN ? ELSE title END WHERE id = ?`)
           .bind(notes.summary, JSON.stringify({ decisions: notes.decisions, actions: notes.actions, chapters: notes.chapters } satisfies Omit<NotesOut, 'title' | 'summary'>), notes.title || m.title, id).run();
         await chatNotesReady(env, id).catch((err) => console.warn('[chat] notes', err));
-        // Each action item goes to its owner's Today when the talk named someone who was in the room, by first name when that is unambiguous.
-        const roster = (await env.DB.prepare('SELECT DISTINCT name, email FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string; email: string }>()).results || [];
-        const pick = (who: string) => {
-          const w = who.trim().toLowerCase();
-          if (!w) return null;
-          const full = roster.filter((p) => p.name.toLowerCase() === w);
-          if (full.length === 1) return full[0];
-          const first = roster.filter((p) => p.name.toLowerCase().split(/\s+/)[0] === w.split(/\s+/)[0]);
-          return first.length === 1 ? first[0] : null;
-        };
+        // Each action item goes to its owner's Today when the talk named someone who was
+        // in the room or invited, by first name when that is unambiguous.
+        const roster = await rosterOf(env, m);
+        const pick = (who: string) => pickPerson(roster, who);
         await env.DB.prepare('DELETE FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).run();
         if (notes.actions.length) await env.DB.batch(notes.actions.map((a, i) => { const o = pick(a.owner); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, i, a.text, o ? o.name : a.owner, o ? o.email.toLowerCase() : '', a.due, a.t); }));
         await meetActionsToTasks(env, id); // projects hook: named owners get a task
+        await afterNotes(env, id); // partners to confirm, summary to the chosen channel
         // The files and the Google Doc take the notes title. A failure here never undoes the notes.
         const fresh = await getMeeting(env, id);
         try { if (retitle && denv.MEET_DRIVE_FOLDER) await renameRecordings(denv, fresh, notes.title); } catch (err) { console.warn('[meet] rename', id, err); }
@@ -1007,9 +1027,9 @@ async function remind(env: MeetEnv, origin: string) {
     const next = occurrences(sr.last, t.repeat, 5).slice(1, 5 - Number(sr.ahead));
     for (const at of next) {
       await env.DB.prepare(
-        `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?)`
-      ).bind(hex(12), t.title, t.agenda, t.host_email, t.host_name, at, new Date(Date.parse(at) + t.duration_min * 60000).toISOString(), t.duration_min, t.rec_mode, t.access, t.invitees, nowIso(), t.repeat, t.series_id, t.calendar_event_id, t.backup_link, t.remind).run();
+        `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind, post_channel)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, ?)`
+      ).bind(hex(12), t.title, t.agenda, t.host_email, t.host_name, at, new Date(Date.parse(at) + t.duration_min * 60000).toISOString(), t.duration_min, t.rec_mode, t.access, t.invitees, nowIso(), t.repeat, t.series_id, t.calendar_event_id, t.backup_link, t.remind, (t as Meeting & { post_channel?: string }).post_channel || '').run();
       made++;
     }
   }
@@ -1066,7 +1086,7 @@ async function myActions(env: MeetEnv, user: { email: string }) {
   const notTask = ` AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a.meeting_id AND t.meeting_action_idx = a.idx AND t.status <> 'dropped')`;
   const me = user.email.toLowerCase();
   const rows = await env.DB.prepare(sql(notTask)).bind(me).all().catch(() => env.DB.prepare(sql('')).bind(me).all());
-  return { ok: true, actions: rows.results || [] };
+  return { ok: true, actions: rows.results || [], partnerConfirms: await pendingPartners(env, user as never) };
 }
 
 async function markAction(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {

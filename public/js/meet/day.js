@@ -174,7 +174,7 @@
     } else {
       var m = e.hub, rep = m.repeat && m.repeat !== 'none';
       if (m.status === 'ended') { if (e.noteId) acts += '<a class="dv-btn dv-btn--line" href="/meet/notes/?m=' + esc(m.id) + '">' + ic('doc') + 'Notes</a>'; }
-      else acts += '<a class="dv-btn dv-btn--line" href="/meet/room/?m=' + esc(m.id) + '">' + ic('video') + (e.live || e.open ? 'Join' : 'Open') + '</a>';
+      else acts += '<a class="dv-btn dv-btn--ghost" href="/meet/prep/?m=' + esc(m.id) + '">' + ic('doc') + 'Prep</a><a class="dv-btn dv-btn--line" href="/meet/room/?m=' + esc(m.id) + '">' + ic('video') + (e.live || e.open ? 'Join' : 'Open') + '</a>';
       if (m.mine && m.startsAt && m.status === 'scheduled') {
         if (state.confirm === m.id) {
           acts += '<span class="dv-ask">' + (rep ? 'Cancel every meeting in this series?' : 'Cancel this meeting?') + ' Invitees get a cancellation.</span><button type="button" class="dv-btn dv-btn--line" data-yes="' + esc(m.id) + '">' + (rep ? 'Cancel series' : 'Yes, cancel') + '</button><button type="button" class="dv-btn dv-btn--ghost" data-no="1">Keep it</button>';
@@ -244,7 +244,7 @@
       (dayLive.length ? '<div class="dv-livewrap">' + dayLive.map(liveCard).join('') + '</div>' : '') +
       '<div class="dv-cols"><section class="dv-card dv-tl" aria-label="Timeline"><div class="dv-tl__head"><h2>Timeline</h2><div class="dv-legend">' +
       ['favor', 'zoom', 'meet', 'teams'].map(function (k) { return '<span>' + pv(k) + PROV[k] + '</span>'; }).join('') + '</div></div>' + (selEv ? detailHtml(selEv) : '') + tlBody + '</section>' +
-      '<aside class="dv-notes" aria-label="Notes"><div class="dv-notes__in"><div class="dv-notes__h"><h2>Notes</h2><span class="dv-chip">' + notes.length + '</span><span class="dv-grow"></span><a class="dv-link" href="/meet/library/">All notes ' + ic('arrow') + '</a></div>' +
+      '<aside class="dv-notes" aria-label="Notes"><div class="dv-notes__in"><div class="dv-notes__h"><h2>Notes</h2><span class="dv-chip">' + notes.length + '</span><span class="dv-grow"></span><a class="dv-link" href="/meet/library/">Ask or search all notes ' + ic('arrow') + '</a></div>' +
       '<div class="dv-notes__list">' + (notes.length ? notes.map(noteHtml).join('') : '<p class="dv-none">No notes yet</p>') + '</div></div></aside></div></div>';
     var sc = root.querySelector('.dv-tl__scroll');
     if (sc) {

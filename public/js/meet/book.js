@@ -9,7 +9,7 @@ const FOLLOW = params.get('follow') || '';
 const TZ = 'America/New_York';
 const HOURS = []; for (let h = 9; h < 17; h++) { HOURS.push([h, 0]); HOURS.push([h, 30]); }
 
-const S = { step: 1, dir: [], teams: new Set(), chipAdded: new Map(), people: new Map(), guests: [], dur: 60, start: '', title: '', autoTitle: false, agenda: '', rec: 'notes', repeat: 'none', remind: true, backup: true, week: 0, busy: {}, fb: 'idle', me: null, booked: null, can: { ok: false, connected: false }, guestsOn: false, busyKey: '' };
+const S = { post: '', channels: [], step: 1, dir: [], teams: new Set(), chipAdded: new Map(), people: new Map(), guests: [], dur: 60, start: '', title: '', autoTitle: false, agenda: '', rec: 'notes', repeat: 'none', remind: true, backup: true, week: 0, busy: {}, fb: 'idle', me: null, booked: null, can: { ok: false, connected: false }, guestsOn: false, busyKey: '' };
 
 // ---- Eastern time helpers
 const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -65,6 +65,7 @@ function toggleTeam(team) {
 async function load() {
   const [who, dir, can] = await Promise.all([whoami(), api('meetings/directory'), api('meetings/bookstatus')]);
   S.me = who; S.dir = dir.people; S.can = can; S.guestsOn = !!can.guestsEnabled;
+  api('meetings/channels').then((r) => { S.channels = r.channels || []; if (S.step === 3) draw(); }).catch(() => {});
   try { const saved = JSON.parse(sessionStorage.getItem('meet.book') || 'null'); if (saved && params.get('google') === 'meetings') { S.step = saved.step || 3; S.teams = new Set(saved.teams); S.chipAdded = new Map(saved.chipAdded || []); S.autoTitle = !!saved.autoTitle; S.people = new Map(saved.people); S.guests = saved.guests; S.dur = saved.dur; S.start = saved.start; S.title = saved.title; S.agenda = saved.agenda; S.rec = saved.rec; S.repeat = saved.repeat; S.remind = saved.remind; S.backup = saved.backup; } } catch {}
   if (EDIT) {
     const m = (await api('meetings/' + EDIT)).meeting;
@@ -177,6 +178,7 @@ function draw() {
       <div class="mt-f"><label for="ag">Agenda</label><textarea id="ag" maxlength="2000">${esc(S.agenda)}</textarea></div>
       <div><div class="h-label" style="margin-bottom:8px">Record</div><div class="mt-opt">
         ${[['notes', 'Transcript and notes', 'Sound only. Notes, decisions and action items land in FavorOS after the meeting.'], ['video', 'Video recording too', 'The video goes to the Meetings folder in US Team Files, with the notes beside it.'], ['off', 'Nothing', 'No recording and no notes.']].map(([k, t, d]) => `<button class="${S.rec === k ? 'is-on' : ''}" data-rec="${k}"><i class="dot"></i><div><b>${t}</b><span>${d}</span></div></button>`).join('')}</div></div>
+      ${S.channels.length ? `<div class="mt-f"><label for="postch">Post the summary to</label><select id="postch"><option value="">Nowhere</option>${S.channels.map((c) => `<option value="${esc(c.id)}"${S.post === c.id ? ' selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>${S.rec === 'off' ? '<span class="mt-sub">Recording is off, so there is no summary to post.</span>' : '<span class="mt-sub">When the notes are ready, the summary, decisions and action items go there and each owner is mentioned.</span>'}</div>` : ''}
       <div><div class="h-label" style="margin-bottom:8px">Repeats</div><div class="mt-seg">${[['none', 'Once'], ['weekly', 'Weekly'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Monthly']].map(([k, l]) => `<button class="${S.repeat === k ? 'is-on' : ''}" data-repeat="${k}">${l}</button>`).join('')}</div></div>
     </section><aside class="mt-stack"><div class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Summary</div><dl class="kv"><dt>When</dt><dd>${esc(when)}</dd>${S.repeat !== 'none' ? `<dt>Repeats</dt><dd>${esc(REPEAT[S.repeat])}</dd>` : ''}<dt>Who</dt><dd>${S.people.size + 1} staff${S.guests.length ? `, ${S.guests.length} guest${S.guests.length === 1 ? '' : 's'}` : ''}</dd><dt>Where</dt><dd>Favor meeting room in FavorOS</dd></dl></div>
       <div class="h-card mt-card"><div class="mt-toggle"><div><b>Email reminders</b><span>A day before and 15 minutes before, with the join link</span></div><button class="mt-sw${S.remind ? ' is-on' : ''}" data-sw="remind" aria-label="Email reminders"></button></div>
@@ -248,6 +250,7 @@ root.addEventListener('keydown', (e) => {
 function capture() {
   if ($('#ttl')) { if ($('#ttl').value !== S.title) S.autoTitle = false; S.title = $('#ttl').value; }
   if ($('#ag')) S.agenda = $('#ag').value;
+  if ($('#postch')) S.post = $('#postch').value;
 }
 
 async function startNow_(btn) {
@@ -271,7 +274,7 @@ async function confirm_() {
   try {
     const guests = S.guestsOn ? S.guests : [];
     const r = await api('meetings', { method: 'POST', body: {
-      title: S.title.trim() || defaultTitle() || 'Meeting', agenda: S.agenda, startsAt: S.start, durationMin: S.dur, rec: S.rec, access: 'invited', repeat: S.repeat, remind: S.remind, backup: S.backup,
+      title: S.title.trim() || defaultTitle() || 'Meeting', agenda: S.agenda, startsAt: S.start, durationMin: S.dur, rec: S.rec, access: 'invited', repeat: S.repeat, remind: S.remind, backup: S.backup, postChannel: S.post,
       invitees: [...invited().map((p) => ({ email: p.email, name: p.name, team: p.team })), ...guests.map((g) => ({ email: g, name: g, guest: true }))],
     } });
     sessionStorage.removeItem('meet.book'); S.booked = r; draw();

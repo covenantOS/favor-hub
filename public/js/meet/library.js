@@ -2,6 +2,7 @@
 // what was said). Team chips filter the results in place. The search box is drawn once, so typing never repaints it.
 import { $, esc, ic, api, fmtDay, pump } from './ui.js';
 const root = $('#mt-lib');
+let partnerAsk = [], aa = { q: '', busy: false, out: null };
 let list = [], acts = [], people = new Map(), team = '', q = '', seq = 0, timer = 0;
 const clip = (t, n = 220) => { t = (t || '').trim(); if (t.length <= n) return t; const c = t.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c) + '...'; };
 const teamOf = (m) => people.get(String(m.hostEmail || '').toLowerCase())?.team || '';
@@ -25,6 +26,30 @@ function paint() {
   $('#liblist').innerHTML = shown.map(card).join('') || (q ? `<p class="mt-sub">Nothing matches "${esc(q)}".</p>` : team ? '<p class="mt-sub">No notes from this team yet.</p>' : '<p class="mt-sub">No notes yet. They appear after a meeting that records.</p>');
 }
 
+const sd = (iso) => (iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+const stampOf = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+function paintAsk() {
+  const el = $('#libask'); if (!el) return;
+  const o = aa.out;
+  el.innerHTML = `<div class="h-card mt-card" style="margin-bottom:14px"><div class="h-label" style="margin-bottom:8px">Ask your meetings</div>
+    <div class="rm-input" style="border:0;padding:0"><input id="aaq" aria-label="Ask your meetings" placeholder="What did we decide about the banquet?" maxlength="300" value="${esc(aa.q)}" ${aa.busy ? 'disabled' : ''} /><button class="icb send" id="aago" aria-label="Ask" ${aa.busy ? 'disabled' : ''}>${ic('send')}</button></div>
+    ${aa.busy ? '<p class="mt-sub" style="margin:8px 0 0">Reading your meetings.</p>' : o ? `<div style="margin-top:10px"><p style="margin:0 0 6px;font-size:14px">${esc(o.answer)}</p>${o.sources.map((s) => `<div class="aa-src"><a href="/meet/notes/?m=${esc(s.id)}${s.t ? '#t=' + s.t : ''}">${s.t ? stampOf(s.t) : 'Notes'}</a><div>${esc(s.text)}<em>${esc(s.title)}, ${esc(sd(s.date))}</em></div></div>`).join('')}<p class="mt-sub" style="margin:8px 0 0">Searched ${o.searched.toLocaleString('en-US')} meetings you can read.</p></div>` : ''}</div>`;
+  const go = async () => {
+    const i = $('#aaq'); const v = i.value.trim(); if (!v || aa.busy) return;
+    aa.q = v; aa.busy = true; aa.out = null; paintAsk();
+    try { aa.out = await api('meetings/ask', { method: 'POST', body: { q: v } }); } catch (e) { aa.out = { answer: e.message, sources: [], searched: 0 }; }
+    aa.busy = false; paintAsk();
+  };
+  $('#aago').addEventListener('click', go);
+  $('#aaq').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  if (aa.busy === false && document.activeElement === document.body && aa.out) $('#aaq').focus();
+}
+
+function paintPartners() {
+  const el = $('#libpartners'); if (!el) return;
+  el.innerHTML = partnerAsk.length ? `<div class="h-card mt-card" style="margin-bottom:14px"><div class="h-label" style="margin-bottom:4px">Log on a partner record</div><p class="mt-sub" style="margin:0 0 6px">These meetings had a partner on the invite. Nothing goes to Blackbaud until you press Log in Blackbaud on the meeting.</p>${partnerAsk.map((p) => `<div class="pt-row"><div><b>${esc(p.name || 'Partner')}</b><span>${esc(p.title)}, ${esc(sd(p.date))}</span></div><div class="pt-acts"><a class="h-btn h-btn--primary h-btn--sm" href="/meet/notes/?m=${esc(p.meetingId)}#partners">Review</a></div></div>`).join('')}</div>` : '';
+}
+
 function paintActs() {
   $('#libacts').innerHTML = acts.length ? `<div class="h-card mt-card" style="margin-bottom:14px"><div class="h-label" style="margin-bottom:4px">Your action items</div>${acts.map((a) => `<label class="act"><input type="checkbox" data-m="${a.meeting_id}" data-i="${a.idx}" /><div><b>${esc(a.text)}</b><span>${esc(a.title)}${a.due ? ' · due ' + esc(a.due) : ''}</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="/meet/notes/?m=${a.meeting_id}">Notes</a></label>`).join('')}</div>` : '';
 }
@@ -43,7 +68,7 @@ async function search() {
 
 function shell() {
   root.innerHTML = `<div class="mt-intro"><div><h2 class="mt-h2">Meeting notes</h2></div></div>
-    <div id="libacts"></div>
+    <div id="libpartners"></div><div id="libask"></div><div id="libacts"></div>
     <div class="bigsearch"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="libq" placeholder="Search what was said, titles and summaries" value="${esc(q)}" autocomplete="off" /></div>
     <div class="mt-chips" id="libchips" style="margin-bottom:14px"></div>
     <div class="lib" id="liblist"><div class="h-card h-skel" style="min-height:200px"></div></div>`;
@@ -77,6 +102,9 @@ function shell() {
     list = r.meetings;
     acts = a.actions;
     people = new Map((d.people || []).map((p) => [String(p.email).toLowerCase(), p]));
+    partnerAsk = a.partnerConfirms || [];
+    paintAsk();
+    paintPartners();
     paintActs();
     paint();
     pump(null, null);
