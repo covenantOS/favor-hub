@@ -104,7 +104,7 @@ export async function startTurn(env: Env, email: string, conv: string, question:
 }
 
 /** The chat's last finished turns, oldest first, for the Brain to read a follow-up against: the question as asked, the kind of answer and the tables it showed. */
-export async function recentHistory(env: Env, email: string, conv: string, n = 3): Promise<{ q: string; intent?: string; ctx?: unknown }[]> {
+export async function recentHistory(env: Env, email: string, conv: string, n = 3): Promise<{ q: string; intent?: string; ctx?: unknown; written?: unknown }[]> {
   try {
     const rows = (
       await env.DB.prepare(
@@ -120,7 +120,7 @@ export async function recentHistory(env: Env, email: string, conv: string, n = 3
       } catch {
         a = {};
       }
-      return { q: String(a.asked_as || r.question), intent: typeof a.intent === 'string' ? a.intent : undefined, ctx: a.ctx && typeof a.ctx === 'object' ? a.ctx : undefined };
+      return { q: String(a.asked_as || r.question), intent: typeof a.intent === 'string' ? a.intent : undefined, ctx: a.ctx && typeof a.ctx === 'object' ? a.ctx : undefined, ...(a.written && typeof a.written === 'object' ? { written: a.written } : {}) };
     });
   } catch {
     return [];

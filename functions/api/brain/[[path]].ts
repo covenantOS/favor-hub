@@ -29,7 +29,7 @@ const reply = (status: number, text: string) => new Response(text, { status, hea
 /** The stored form of an answer: the rows behind a list are not kept, the preview stays. */
 function stored(d: any) {
   const blocks = (Array.isArray(d.blocks) ? d.blocks : []).map((b: any) => (b && b.type === 'table' && Array.isArray(b.rows) ? { ...b, rows: b.rows.slice(0, b.preview || 8) } : b));
-  return { asked_as: d.asked_as || '', intent: d.intent || '', outcome: d.outcome || '', blocks, reading: Array.isArray(d.reading) ? d.reading : [], reading_text: d.reading_text || '', follow: Array.isArray(d.follow) ? d.follow : [], lists: Array.isArray(d.lists) ? d.lists : [], ...(d.ctx && typeof d.ctx === 'object' ? { ctx: d.ctx } : {}) };
+  return { asked_as: d.asked_as || '', intent: d.intent || '', outcome: d.outcome || '', blocks, reading: Array.isArray(d.reading) ? d.reading : [], reading_text: d.reading_text || '', follow: Array.isArray(d.follow) ? d.follow : [], lists: Array.isArray(d.lists) ? d.lists : [], ...(d.ctx && typeof d.ctx === 'object' ? { ctx: d.ctx } : {}), ...(d.written && typeof d.written === 'object' ? { written: d.written } : {}) };
 }
 
 async function ask(request: Request, env: BrainEnv, user: { email: string; name?: string; role?: string; via?: string }, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
@@ -83,6 +83,8 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
     if (ok) d = { ...d, conv, turn: turn.n };
     else d = { ...d, conv };
     delete d.ctx;
+    // The query behind the answer stays on the stored turn for the next question; the page never sees it.
+    delete d.written;
     return { status: ok ? status : status >= 400 ? status : 500, text: JSON.stringify(d) };
   })();
   waitUntil(job.catch(() => undefined));

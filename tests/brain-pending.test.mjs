@@ -143,6 +143,29 @@ describe('pending turns', () => {
   });
 });
 
+describe('the query behind an answer', () => {
+  it('stays on the stored turn, goes back with the next question, and never reaches the page', async () => {
+    const jobs = [];
+    const written = { q: 'How many LYBUNT partners do we have?', sql: 'SELECT 1', reading: 'LYBUNT partners', spec: { status: 'lybunt', compare: false } };
+    let sentHistory = null;
+    brain = async (_u, init) => {
+      const b = JSON.parse(init.body);
+      sentHistory = b.history;
+      const res = answer(b, b.conv);
+      const body = JSON.parse(await res.text());
+      return new Response(JSON.stringify({ ...body, written }), { status: 200 });
+    };
+    const first = await proxy.onRequest({ request: call('ask', { question: 'How many LYBUNT partners do we have?', conv: 'c_wwww1111', v: 2 }), env, params: { path: ['ask'] }, waitUntil: (p) => jobs.push(p) });
+    await Promise.all(jobs);
+    assert.equal(JSON.parse(await first.text()).written, undefined, 'the page never sees the query');
+    const stored = JSON.parse(d1.db.prepare("SELECT answer_json FROM brain_turns WHERE thread_id = 'c_wwww1111' AND n = 1").get().answer_json);
+    assert.deepEqual(stored.written, written);
+    await proxy.onRequest({ request: call('ask', { question: "I didn't mean all time, I meant compared with last year", conv: 'c_wwww1111', v: 2 }), env, params: { path: ['ask'] }, waitUntil: (p) => jobs.push(p) });
+    await Promise.all(jobs);
+    assert.deepEqual(sentHistory.at(-1).written, written, 'the next question carries the stored query');
+  });
+});
+
 describe('connect popup memory', () => {
   const get = (email) => prefs.onRequestGet({ request: call('prefs', {}, email), env });
   const post = (key, email) => prefs.onRequestPost({ request: call('prefs', { key }, email), env });
