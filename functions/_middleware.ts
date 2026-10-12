@@ -6,13 +6,15 @@ import { resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
 import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
+import { decide, serveApp } from './_lib/app2';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
 const REDIRECT_HOSTS = new Set(['hub.favorintl.org', 'favor-hub-d4n.pages.dev']);
 
 // Files the sign-in page itself needs, and files with nothing private in them.
-const STATIC_PREFIXES = ['/_astro/', '/images/', '/js/', '/fonts/', '/receipts/fonts/'];
+// /_app/ holds the React app's built files (app/, served by functions/_lib/app2.ts for people who opted in).
+const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/images/', '/js/', '/fonts/', '/receipts/fonts/'];
 const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg', '/manifest.webmanifest', '/apple-touch-icon.png', '/version.json', '/sw.js', '/m/manifest.webmanifest']);
 
 // Open without sign-in: the sign-in page and its API, the approver's emailed review link (its token
@@ -105,6 +107,13 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       out.headers.append('Set-Cookie', 'hub_gc=1; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Lax');
       return out;
     }
+  }
+
+  if (user && !open && !path.startsWith('/api/')) {
+    // The React app takes a page only for an admin-enabled route and a person who opted in; any other page falls through unchanged.
+    const d = await decide(env, request, url, user).catch((err) => { console.error('[app2]', err); return { kind: 'pass' } as const; });
+    if (d.kind === 'redirect') return new Response(null, { status: 302, headers: { Location: new URL(d.to, url).toString(), 'Set-Cookie': d.cookie, 'Cache-Control': 'no-store' } });
+    if (d.kind === 'app') return serveApp(env, url);
   }
 
   if (user || open || !enforce) {

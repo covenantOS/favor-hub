@@ -1,0 +1,27 @@
+/* Copied from src/components/LearnPanel.astro (its global style block). Keep the two alike until the classic pages are retired. */
+.lp { position: fixed; inset: 0 0 0 auto; margin: 0; width: min(440px, 100vw); max-width: 100vw; height: 100dvh; max-height: none; padding: 0; border: 0; border-left: 1px solid var(--h-line); background: var(--h-surface); color: var(--h-ink); box-shadow: var(--h-shadow-2); }
+  .lp::backdrop { background: rgba(29, 33, 27, 0.25); }
+  .lp__in { box-sizing: border-box; height: 100%; overflow-y: auto; padding: 14px 20px 28px; }
+  .lp__bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font: 600 13px/1 var(--h-font); letter-spacing: 0.06em; text-transform: uppercase; color: var(--h-ink-3); }
+  .lp__x { width: 40px; height: 40px; border: 0; border-radius: 10px; background: none; color: var(--h-ink-2); font-size: 24px; line-height: 1; cursor: pointer; }
+  .lp__x:hover { background: var(--h-leaf-soft); color: var(--h-ink); }
+  .lp__x:focus-visible, .lp__go:focus-visible { outline: 2px solid var(--h-brand-ink); outline-offset: 2px; }
+  .lp h2 { margin: 0 0 8px; font: 600 20px/1.25 var(--h-font); color: var(--h-ink); }
+  .lp p { margin: 0; font: 400 15px/1.55 var(--h-font); color: var(--h-ink-2); }
+  .lp figure { margin: 18px 0 0; }
+  .lp video { display: block; width: 100%; border-radius: var(--h-radius); background: #000; }
+  .lp figcaption { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 8px; font: 600 14px/1.35 var(--h-font); color: var(--h-ink); }
+  .lp figcaption span { font-weight: 500; color: var(--h-ink-3); }
+  .lp__go { display: inline-flex; margin-top: 18px; font: 600 14px var(--h-font); color: var(--h-brand-ink); }
+  .lp__go:hover { text-decoration: underline; }
+  .lp__load { color: var(--h-ink-3); }
+  .lp__more { display: grid; gap: 8px; margin-top: 16px; }
+  .lp[open] { animation: lp-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .lp[open]::backdrop { animation: lp-fade 0.22s ease; }
+  .lp__skel { display: grid; gap: 10px; padding-top: 6px; }
+  .lp__skel i { display: block; height: 14px; border-radius: 7px; background: #efe9db; }
+  .lp__skel i:first-child { height: 24px; width: 60%; }
+  .lp__skel i:last-child { width: 80%; }
+  @keyframes lp-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes lp-fade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .lp[open], .lp[open]::backdrop { animation: none; } }
