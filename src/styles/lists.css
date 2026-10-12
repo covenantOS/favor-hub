@@ -216,3 +216,4 @@
   .cr-acts { flex-direction: row !important; gap: 24px; align-items: center !important; }
   .cr-row > .ls-st { align-self: flex-start; }
 }
+@media (max-width: 860px) { .lr-card span { white-space: normal; overflow: visible; text-overflow: clip; } }
