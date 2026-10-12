@@ -24,7 +24,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const body = (await request.json().catch(() => ({}))) as { copy?: unknown; reset?: unknown };
     const copy = body.reset === true ? DEFAULT_COPY : cleanCopy(body.copy);
     const fit = measure(copy);
-    if (!fit.fits) throw new HttpError(400, 'too_long', 'That is too long for the page. The letter has to end above the small print.');
+    if (!fit.fits) throw new HttpError(400, 'too_long', 'That is too long for the page. The receipt has to end above the small print.');
     await saveCopy(env, copy, actor);
     return json({ ok: true, copy, fit });
   } catch (err) {

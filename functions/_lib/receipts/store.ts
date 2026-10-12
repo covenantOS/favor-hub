@@ -255,7 +255,7 @@ export async function openPrintFile(env: Env): Promise<{ id: string; letter_date
 
 async function asset(env: Env, path: string): Promise<Uint8Array> {
   const res = await env.ASSETS.fetch(new Request(`https://hub.local${path}`));
-  if (!res.ok) throw new HttpError(500, 'asset', `A file the letters need is missing (${path}).`);
+  if (!res.ok) throw new HttpError(500, 'asset', `A file the receipts need is missing (${path}).`);
   return new Uint8Array(await res.arrayBuffer());
 }
 
@@ -427,11 +427,11 @@ export async function makeBatch(
   env: Env,
   opts: { letters: Letter[]; letterDate: string; kind: 'new' | 'reprint'; sourceDate?: string; actor: string }
 ): Promise<BatchRow> {
-  if (opts.letters.length === 0) throw new HttpError(400, 'empty', 'There are no letters to print.');
+  if (opts.letters.length === 0) throw new HttpError(400, 'empty', 'There are no receipts to print.');
   const letters = inPrintOrder(combineLetters(opts.letters));
   const giftIds = letters.flatMap((l) => (l.gifts && l.gifts.length ? l.gifts.map((x) => x.id) : [l.giftId]));
   const copy = await getCopy(env);
-  if (!measure(copy).fits) throw new HttpError(400, 'too_long', 'The letter wording is too long for the page. Shorten it under Letter wording.');
+  if (!measure(copy).fits) throw new HttpError(400, 'too_long', 'The receipt wording is too long for the page. Shorten it under Receipt wording.');
   const code = appealCode(opts.letterDate);
   await ensureAppealCode(env, code, opts.letterDate, opts.actor).catch(() => {});
   const pdf = await buildPdf({

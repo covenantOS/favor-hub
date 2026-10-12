@@ -554,7 +554,7 @@
       const pill = { all: '', regular: 'Regular receipts', major: '$200 and up', recurring: 'Monthly gifts' }[state.filter] || '';
       const words = [pill && `Showing: ${pill}`, state.find && `Search: ${state.find}`].filter(Boolean).join('. ');
       return window.FavorSheets.screen('Receipts waiting', [{
-        name: 'Letters waiting',
+        name: 'Receipts waiting',
         columns: [
           { key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'lookup', label: 'Lookup ID', type: 'id' }, { key: 'date', label: 'Gift date', type: 'date' },
           { key: 'amount', label: 'Amount', type: 'money' }, { key: 'fund', label: 'Fund', type: 'text' }, { key: 'kind', label: 'Receipt', type: 'text' }, { key: 'in_file', label: 'In a print file', type: 'flag' },

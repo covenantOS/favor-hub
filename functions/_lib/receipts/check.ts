@@ -71,9 +71,9 @@ function oneGift(g: Gift, greeting: 'full' | 'first'): Issue[] {
   const out: Issue[] = [];
   const name = (g.addressee || g.name || '').trim();
 
-  // Greeting. The letter prints the addressee after "Dear", and the first name from the salutation when the wording asks for it.
+  // Greeting. The receipt prints the addressee after "Dear", and the first name from the salutation when the wording asks for it.
   if (!name) {
-    out.push({ code: 'no_name', group: 'greeting', text: 'No addressee on the record, so the letter opens with a blank name.', fix: 'Fill in Primary Addressee (and Primary Salutation) on the record.' });
+    out.push({ code: 'no_name', group: 'greeting', text: 'No addressee on the record, so the receipt opens with a blank name.', fix: 'Fill in Primary Addressee (and Primary Salutation) on the record.' });
   } else if (PLACEHOLDER.test(name) || /\d{3,}/.test(name) || /@/.test(name) || (name.length > 3 && name === name.toUpperCase() && /[A-Z]{4,}/.test(name) && !g.organization)) {
     out.push({
       code: 'name_looks_wrong',
@@ -85,7 +85,7 @@ function oneGift(g: Gift, greeting: 'full' | 'first'): Issue[] {
     out.push({ code: 'no_salutation', group: 'greeting', text: 'No salutation on the record, so the greeting falls back to the full name.', fix: 'Fill in Primary Salutation on the record.' });
   }
 
-  // Address. A letter with no street or city is already held back; these are addresses that exist and still will not deliver.
+  // Address. A receipt with no street or city is already held back; these are addresses that exist and still will not deliver.
   const us = isUnitedStates(g);
   if (us) {
     const zip = g.zip.trim();
@@ -170,7 +170,7 @@ export function checkGifts(gifts: Gift[], greeting: 'full' | 'first' = 'full'): 
           code: 'duplicate',
           group: 'duplicate',
           text: `Possibly the same partner as ${otherName}${other.constituentLookup ? ` (ID ${other.constituentLookup})` : ''}: ${why}.`,
-          fix: 'Open both records. If they are one partner, merge them in Blackbaud so the partner gets one letter.',
+          fix: 'Open both records. If they are one partner, merge them in Blackbaud so the partner gets one receipt.',
           other: { lookup: other.constituentLookup, name: otherName },
         });
       }

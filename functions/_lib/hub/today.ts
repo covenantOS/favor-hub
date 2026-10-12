@@ -576,11 +576,11 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
   for (const r of made.results) out.push({ at: r.created_at, app: 'Requests', text: `${r.submitter_name} asked: ${r.title}`, href: `/requests/?r=${encodeURIComponent(r.id)}` });
   for (const r of done.results) out.push({ at: r.completed_at, app: 'Requests', text: `Done: ${r.title}`, href: `/requests/?r=${encodeURIComponent(r.id)}` });
   for (const r of files.results) {
-    const count = (r.detail.match(/^(\d[\d,]*) letters for (\d[\d,]*) gifts/) || []) as string[];
+    const count = (r.detail.match(/^(\d[\d,]*) (?:receipts|letters) for (\d[\d,]*) gifts/) || []) as string[];
     const marked = (r.detail.match(/^(\d[\d,]*) gifts/) || []) as string[];
     const text =
       r.kind === 'print_file'
-        ? `${r.actor} made a print file of ${count[1] || 'the'} letters${count[2] ? ` for ${count[2]} gifts` : ''}`
+        ? `${r.actor} made a print file of ${count[1] || 'the'} receipts${count[2] ? ` for ${count[2]} gifts` : ''}`
         : r.kind === 'marked'
           ? `${r.actor} marked ${marked[1] || 'the'} gifts thanked`
           : `${r.actor} threw a print file away`;

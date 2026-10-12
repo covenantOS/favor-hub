@@ -11,7 +11,7 @@ toolLabel: Open Receipts
 updated: 2026-10-12
 ---
 
-The page reads Blackbaud for every gift that has not been thanked yet and lays out one receipt per partner, on the receipt paper.
+The page reads Blackbaud for every gift that has not been thanked yet and lays out one receipt per partner, on the receipt paper. Every partner who gives gets one. A thank-you letter from headquarters for a gift of $5,000 or more is separate and is written in the Work Center on the HQTY letters tab.
 
 ## Steps
 

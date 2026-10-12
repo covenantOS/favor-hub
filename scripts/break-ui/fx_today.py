@@ -21,7 +21,7 @@ def today(mode, m, q, state):
     if mode == 'demo':
         return dict(base, cards=[card(0, 3, 'new requests to review', 'Oldest 2 days'), card(1, 2, 'expense reports to approve', '', amount=418.2), card(2, 12, 'gifts to thank', 'Since Monday')],
                     mine=[{'title': 'New laptop', 'status': 'Approved', 'href': '/requests/'}, {'title': 'Fix the giving form', 'status': 'In progress', 'href': '/requests/'}],
-                    activity=[{'at': stamp(30 + i * 400), 'app': ['Requests', 'Receipts', 'Meetings', 'Expenses'][i % 4], 'text': ['Done: Website fix', 'Printed 40 thank-you letters', 'Notes ready: Staff meeting', 'Approved: Travel'][i % 4]} for i in range(6)])
+                    activity=[{'at': stamp(30 + i * 400), 'app': ['Requests', 'Receipts', 'Meetings', 'Expenses'][i % 4], 'text': ['Done: Website fix', 'Printed 40 thank-you receipts', 'Notes ready: Staff meeting', 'Approved: Travel'][i % 4]} for i in range(6)])
     if mode == 'one':
         return dict(base, cards=[card(0, 1, 'new requests to review', '1 past due', warn=True, amount=1)], mine=[{'title': 'J', 'status': 'Done', 'href': '/requests/'}],
                     activity=[{'at': stamp(0), 'app': 'Requests', 'text': 'Done: x'}])

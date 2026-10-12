@@ -16,7 +16,7 @@ My partners is a tab on the Work Center for regional directors and church engage
 
 Each row shows the days since your last contact and what it was, the last gift, the last 12 months against the 12 before, lifetime giving and the next step. The next step is an open task, or a + Task button that adds a call for the next weekday. The phone button dials, and it is crossed out when no number is on file or every number is marked do not call. Prep opens the partner, and Log adds a contact.
 
-A contact is a completed call, visit or email. A printed receipt letter is not one, so a partner who only gets mail still shows as quiet.
+A contact is a completed call, visit or email. A printed receipt is not one, so a partner who only gets mail still shows as quiet.
 
 The five numbers at the top are filters. Press Quiet 90 days or more to see who needs a call. Gave this year, no contact in 30 days shows partners who gave recently and heard nothing from you. Gave last year, not this year shows partners who may have lapsed. The buttons above the list do the same, and the search box finds a name, a city or a lookup id.
 

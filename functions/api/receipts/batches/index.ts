@@ -50,9 +50,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (typeof body.reprintOf === 'string') {
       if (!ISO.test(body.reprintOf)) throw new HttpError(400, 'bad_date', 'Pick the day the gifts were marked thanked.');
       const { letters, held } = await lettersThankedOn(env, body.reprintOf);
-      if (letters.length === 0) throw new HttpError(404, 'none', 'No gifts were marked thanked that day, or none of them get a letter.');
+      if (letters.length === 0) throw new HttpError(404, 'none', 'No gifts were marked thanked that day, or none of them get a receipt.');
       const batch = await makeBatch(env, { letters, letterDate, kind: 'reprint', sourceDate: body.reprintOf, actor });
-      await logEvent(env, actor, 'reprint', batch.id, `${letters.length} letters for gifts marked ${body.reprintOf}; ${held} held back`);
+      await logEvent(env, actor, 'reprint', batch.id, `${letters.length} receipts for gifts marked ${body.reprintOf}; ${held} held back`);
       return json({ ok: true, batch: batchSummary(batch), held });
     }
 
@@ -71,7 +71,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       }
       const { letters, skipped } = await lettersFor(env, picked, added, days);
       const batch = await makeBatch(env, { letters, letterDate, kind: 'new', actor });
-      await logEvent(env, actor, 'print_file', batch.id, `${batch.count} letters for ${batch.gifts} gifts; ${skipped.length} skipped`);
+      await logEvent(env, actor, 'print_file', batch.id, `${batch.count} receipts for ${batch.gifts} gifts; ${skipped.length} skipped`);
       waitUntil(syncPrintFile(env, batch.id));
       return json({ ok: true, batch: batchSummary(batch), skipped });
     } finally {
