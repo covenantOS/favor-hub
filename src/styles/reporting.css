@@ -86,3 +86,10 @@
 .r2t-pace.is-behind > span { color: #7a3015; }
 .r2t-pace__b { border: 0; background: none; padding: 4px 0; font: 500 13px var(--h-font); color: inherit; text-decoration: underline; text-underline-offset: 0.18em; cursor: pointer; text-align: left; min-height: 32px; }
 .r2t-pace__b:focus-visible { outline: 2px solid var(--h-brand); outline-offset: 2px; }
+
+.rg-sk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; width: 100%; }
+.rg-sk { display: block; height: 190px; border-radius: 16px; background: linear-gradient(90deg, #eeeadf 25%, #f7f4ec 50%, #eeeadf 75%); background-size: 200% 100%; animation: rg-sh 1.2s linear infinite; }
+.rg-sk--lead { grid-column: 1 / -1; height: 150px; }
+@keyframes rg-sh { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .rg-sk { animation: none; } }
+.rg-wait:has(.rg-sk-grid) { display: block; padding: 0; }

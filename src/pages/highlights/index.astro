@@ -17,7 +17,9 @@ import { SPRITE } from '../brain/_icons';
       </div>
     </div>
     <section id="rg-week" role="tabpanel" aria-labelledby="rg-tab-week">
-      <div class="rg-wait" id="rg-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Reading the KPI dashboard</div>
+      <div class="rg-wait" id="rg-wait" role="status" aria-label="Loading the numbers">
+        <div class="rg-sk-grid" aria-hidden="true"><i class="rg-sk rg-sk--lead"></i><i class="rg-sk"></i><i class="rg-sk"></i><i class="rg-sk"></i><i class="rg-sk"></i></div>
+      </div>
       <div id="rg-week-body" hidden></div>
     </section>
     <section id="rg-mine" role="tabpanel" aria-labelledby="rg-tab-mine" hidden>
@@ -30,5 +32,5 @@ import { SPRITE } from '../brain/_icons';
   <div class="rg-toast" id="rg-toast" role="status" aria-live="polite"></div>
   <script is:inline src="/js/brain-blocks.js?v=12"></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/reporting.js?v=1" defer></script>
+  <script is:inline src="/js/reporting.js?v=2" defer></script>
 </App>

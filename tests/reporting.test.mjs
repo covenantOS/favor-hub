@@ -288,3 +288,36 @@ describe('My dashboard pins', () => {
     assert.equal(list.length, 1);
   });
 });
+
+describe('snapshot', () => {
+  it('serves the stored copy at once, rebuilds an old one in the background, and builds on first read', async () => {
+    const db = memoryD1();
+    db.exec('CREATE TABLE report_snapshots (key TEXT PRIMARY KEY, data TEXT NOT NULL, built_at TEXT NOT NULL, refreshing_at TEXT)');
+    const e = env(db);
+    teamsAnswer = ['rdd'];
+    const first = await (await get(routes.report, '/api/hub/reporting', staff, e)).json();
+    assert.equal(first.pace.year.raised, 6000);
+    const row = db.db.prepare('SELECT data, built_at FROM report_snapshots').get();
+    assert.equal(JSON.parse(row.data).year.raised, 6000);
+    // Make the stored copy old and different: the old copy is what comes back, and a rebuild is queued.
+    const old = JSON.parse(row.data);
+    old.year.raised = 1;
+    db.db.prepare('UPDATE report_snapshots SET data = ?, built_at = ?').run(JSON.stringify(old), '2020-01-01T00:00:00.000Z');
+    const queued = [];
+    const res = await routes.report.onRequestGet({ request: new Request('https://hub.test/api/hub/reporting', { headers: staff }), env: e, waitUntil: (p) => queued.push(p) });
+    assert.equal((await res.json()).pace.year.raised, 1);
+    assert.equal(queued.length, 1);
+    await Promise.all(queued);
+    assert.equal(JSON.parse(db.db.prepare('SELECT data FROM report_snapshots').get().data).year.raised, 6000);
+    assert.equal(db.db.prepare('SELECT refreshing_at FROM report_snapshots').get().refreshing_at, null);
+  });
+  it('explains a gap as a gift entered after the dashboard rebuilt', async () => {
+    const saved = SLICE_ROWS['rdds|2026-10'];
+    SLICE_ROWS['rdds|2026-10'] = [...saved, gift('2026-10-12', 'Late Gift', 51.75)];
+    teamsAnswer = ['rdd'];
+    const d = await (await get(routes.explain, '/api/hub/reporting/explain?key=rdd')).json();
+    SLICE_ROWS['rdds|2026-10'] = saved;
+    assert.equal(d.change.tie.ok, false);
+    assert.match(d.change.tie.note, /The \$51\.75 difference is a gift entered in Blackbaud after the dashboard last rebuilt/);
+  });
+});

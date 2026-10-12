@@ -204,7 +204,7 @@
       ? `<p class="dr-sub">Open awards</p><ul class="dr-lines">${w.change.awards.map((a) => `<li><span>${esc(a.name)}<small>${money(a.received)} received</small></span><b>${money(a.toCome)} to come</b></li>`).join('')}</ul>`
       : '';
     const tie = c.tie
-      ? `<p class="dr-tie${c.tie.ok ? '' : ' is-off'}">${c.tie.ok ? `This month's ${c.key === 'grants' ? 'awards' : 'gifts'} total ${money(c.tie.gifts)}, the same as the KPI dashboard's figure for the month.` : `This month's ${c.key === 'grants' ? 'awards' : 'gifts'} total ${money(c.tie.gifts)}. The KPI dashboard shows ${money(c.tie.kpi)} for the month, ${money(Math.abs(c.tie.gifts - c.tie.kpi))} apart.`}</p>`
+      ? `<p class="dr-tie${c.tie.ok ? '' : ' is-off'}">${c.tie.ok ? `This month's ${c.key === 'grants' ? 'awards' : 'gifts'} total ${money(c.tie.gifts)}, the same as the KPI dashboard's figure for the month.` : `This month's ${c.key === 'grants' ? 'awards' : 'gifts'} total ${money(c.tie.gifts)}. The KPI dashboard shows ${money(c.tie.kpi)} for the month, ${money(Math.abs(c.tie.gifts - c.tie.kpi))} apart. ${esc(c.tie.note || '')}`}</p>`
       : '';
     const pace = w.paceSentence
       ? `<div class="dr-pace"><p>${esc(w.paceSentence)}</p><details><summary>How this was worked out</summary>${String(w.paceMethod || '').split(/\r?\n/).map((l) => `<p>${esc(l)}</p>`).join('')}</details></div>`

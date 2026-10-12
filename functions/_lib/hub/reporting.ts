@@ -26,7 +26,6 @@ import {
   type SliceMonth,
 } from './reporting-math';
 
-const DATA_CACHE = 'https://hub-cache.favorintl.org/reporting/data-v1';
 const DATA_SECONDS = 15 * 60;
 const BRAIN_URL = 'https://mcp.favorintl.org';
 
@@ -134,16 +133,51 @@ async function brainSlice(env: BrainEnv, slice: string, label: string, month: st
   }
 }
 
-const cacheOf = (): Cache | null => {
-  const c = (globalThis as unknown as { caches?: { default?: Cache } }).caches;
-  return c && c.default ? c.default : null;
-};
+const SNAP_KEY = 'data-v1';
+const FRESH_MS = DATA_SECONDS * 1000;
+const LOCK_MS = 3 * 60 * 1000;
 
-export async function reportData(env: Env): Promise<ReportData> {
-  const cache = cacheOf();
-  const hit = cache ? await cache.match(DATA_CACHE).catch(() => undefined) : undefined;
-  if (hit) return (await hit.json()) as ReportData;
+/**
+ * The stored copy of the last full read, served at once. A copy older than fifteen minutes is rebuilt in the background
+ * (one rebuild at a time), so a page never waits on the KPI dashboard and the Favor Brain. Only the very first read, or a
+ * read before the table exists, builds in the request.
+ */
+export async function reportData(env: Env, waitUntil?: (p: Promise<unknown>) => void): Promise<ReportData> {
+  let row: { data: string; built_at: string } | null = null;
+  try {
+    row = await env.DB.prepare('SELECT data, built_at FROM report_snapshots WHERE key = ?').bind(SNAP_KEY).first<{ data: string; built_at: string }>();
+  } catch {
+    return buildReportData(env);
+  }
+  if (row) {
+    const age = Date.now() - new Date(row.built_at).getTime();
+    if (age > FRESH_MS && waitUntil) waitUntil(refreshSnapshot(env).catch(() => undefined));
+    return JSON.parse(row.data) as ReportData;
+  }
+  return refreshSnapshot(env);
+}
 
+/** Rebuilds the stored copy unless another rebuild started in the last three minutes. */
+export async function refreshSnapshot(env: Env): Promise<ReportData> {
+  const now = new Date().toISOString();
+  const lock = new Date(Date.now() - LOCK_MS).toISOString();
+  await env.DB.prepare('INSERT OR IGNORE INTO report_snapshots (key, data, built_at) VALUES (?, ?, ?)').bind(SNAP_KEY, 'null', '1970-01-01T00:00:00.000Z').run().catch(() => undefined);
+  const got = await env.DB.prepare('UPDATE report_snapshots SET refreshing_at = ? WHERE key = ? AND (refreshing_at IS NULL OR refreshing_at < ?)').bind(now, SNAP_KEY, lock).run();
+  if (!(got.meta?.changes > 0)) {
+    const cur = await env.DB.prepare('SELECT data FROM report_snapshots WHERE key = ?').bind(SNAP_KEY).first<{ data: string }>();
+    if (cur && cur.data !== 'null') return JSON.parse(cur.data) as ReportData;
+  }
+  try {
+    const data = await buildReportData(env);
+    await env.DB.prepare('UPDATE report_snapshots SET data = ?, built_at = ?, refreshing_at = NULL WHERE key = ?').bind(JSON.stringify(data), new Date().toISOString(), SNAP_KEY).run();
+    return data;
+  } catch (err) {
+    await env.DB.prepare('UPDATE report_snapshots SET refreshing_at = NULL WHERE key = ?').bind(SNAP_KEY).run().catch(() => undefined);
+    throw err;
+  }
+}
+
+export async function buildReportData(env: Env): Promise<ReportData> {
   const who = SUMMARY_READER;
   const [ytd, fresh, rdd, ce, pc, grants, mk] = await Promise.all([
     kpiGet<YtdApi>(env, '/api/cf/ytd', who),
@@ -188,11 +222,6 @@ export async function reportData(env: Env): Promise<ReportData> {
     slices,
     giftsAvailable: slices.length === SLICES.length * 2,
   };
-  if (cache) {
-    await cache
-      .put(DATA_CACHE, new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${DATA_SECONDS}` } }))
-      .catch(() => undefined);
-  }
   return data;
 }
 
@@ -265,10 +294,22 @@ export function highlights(data: ReportData, allowed: string[] | 'all'): Highlig
 }
 
 export interface Explained extends Change {
-  /** A gap between the month's gifts and the dashboard's month figure, when there is one. */
-  tie: { gifts: number; kpi: number; ok: boolean } | null;
+  /** A gap between the month's gifts and the dashboard's month figure, when there is one, with the reason in one line. */
+  tie: { gifts: number; kpi: number; ok: boolean; note?: string } | null;
   /** Grants only: the open awards, since awards are not gifts. */
   awards?: Array<{ name: string; awarded: number; received: number; toCome: number }>;
+}
+
+/** The tie line. A gift list that runs ahead of the dashboard is gifts that arrived after the dashboard's last rebuild. */
+function tieOf(data: ReportData, gifts: number, kpi: number): { gifts: number; kpi: number; ok: boolean; note?: string } {
+  const gap = Math.round((gifts - kpi) * 100) / 100;
+  if (Math.abs(gap) < 0.01) return { gifts, kpi, ok: true };
+  const at = data.lastUpdated ? new Date(data.lastUpdated).toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : '';
+  const dollars = '$' + Math.abs(gap).toFixed(2);
+  const note = gap > 0
+    ? `The ${dollars} difference is a gift entered in Blackbaud after the dashboard last rebuilt${at ? ' at ' + at + ' Eastern' : ''}. It closes at the next rebuild, 5 a.m. or 5 p.m.`
+    : `The dashboard counts ${dollars} more than the gifts listed, from a gift changed after the dashboard last rebuilt.`;
+  return { gifts, kpi, ok: false, note };
 }
 
 /** The "what is in it and why it changed" answer for the year or one team. */
@@ -284,7 +325,7 @@ export function explainKey(data: ReportData, key: string): Explained {
     const out = explain({ key, label: 'Raised so far this year', asOf: data.asOf, shown: data.year.raised, endLastMonth: endAmount, thisMonth, lastMonth: sliceOf(data, all, prevKey) });
     const kpiMonth = data.year.monthly[d.month - 1];
     const gifts = thisMonth.reduce((s, x) => s + x.total, 0);
-    return { ...out, tie: data.giftsAvailable && kpiMonth != null ? { gifts, kpi: Number(kpiMonth), ok: Math.abs(gifts - Number(kpiMonth)) < 0.01 } : null };
+    return { ...out, tie: data.giftsAvailable && kpiMonth != null ? tieOf(data, gifts, Number(kpiMonth)) : null };
   }
   const t = teamDef(key);
   const row = data.teams.find((x) => x.key === key);
@@ -324,7 +365,7 @@ export function explainKey(data: ReportData, key: string): Explained {
   const out = explain({ key, label: `${t.name}, this year`, asOf: data.asOf, shown: row.raised, endLastMonth: row.months.length ? monthsBefore : null, thisMonth, lastMonth: sliceOf(data, t.slices, prevKey), restated });
   const gifts = thisMonth.reduce((s, x) => s + x.total, 0);
   const kpi = monthNow && monthNow.now != null ? Number(monthNow.now) : null;
-  return { ...out, tie: data.giftsAvailable && kpi != null ? { gifts, kpi, ok: Math.abs(gifts - kpi) < 0.01 } : null };
+  return { ...out, tie: data.giftsAvailable && kpi != null ? tieOf(data, gifts, kpi) : null };
 }
 
 /** The KPI teams this person may open, as /auth/verify lists them; every team for the agent and script sessions. */

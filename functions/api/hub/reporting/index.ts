@@ -4,12 +4,12 @@ import { hubUserOf } from '../../../_lib/session';
 
 // Goal pacing and the weekly highlights. The year's numbers are open to every KPI user; a team's section opens for
 // the people the KPI dashboard lets into that team's tab (its own /auth/verify answer).
-export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   try {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     if (!user.kpi) return errorJson('not_allowed', 'The KPI numbers are open to leadership.', 403);
-    const [data, allowed] = await Promise.all([reportData(env), teamsOf(env, user)]);
+    const [data, allowed] = await Promise.all([reportData(env, waitUntil), teamsOf(env, user)]);
     const all = paces(data);
     const mine = TEAMS.filter((t) => allowed.includes(t.access));
     const pace: Record<string, unknown> = { year: all.year };
