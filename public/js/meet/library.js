@@ -107,7 +107,7 @@ function shell() {
     paintPartners();
     paintActs();
     paint();
-    pump(null, null);
+    if (list.some((m) => m.notesStatus === 'pending' || m.recState === 'uploading')) pump(null, null);
   } catch (e) {
     root.innerHTML = `<div class="h-card mt-card"><p>${esc(e.message)}</p></div>`;
   }

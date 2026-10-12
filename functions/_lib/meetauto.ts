@@ -674,8 +674,8 @@ export interface MeetingAnswer {
 }
 
 const ASK_PROMPT =
-  'You answer a question for a staff member from the notes and transcripts of past staff meetings at a nonprofit. Each meeting has a number. ' +
-  'Return keys: answer (one to four plain sentences; say so when the meetings do not cover it; name the meeting and its date when it matters) and sources (array of at most 6 objects {m: meeting number, t: seconds into that meeting or 0, text: the short passage or fact that supports the answer}). ' +
+  'You answer a question for a staff member from the notes and transcripts of past staff meetings at a nonprofit. Each meeting has a number. Meetings are separate: never blend facts, decisions or action items from different meetings into one list. Answer meeting by meeting, naming the meeting and its date for every item, and put each item's source meeting number in sources. ' +
+  'Return keys: answer (plain sentences, one short group per meeting that matters, each beginning with the meeting's title and date; say so when the meetings do not cover it; name the meeting and its date when it matters) and sources (array of at most 6 objects {m: meeting number, t: seconds into that meeting or 0, text: the short passage or fact that supports the answer}). ' +
   'Use only what is given. Do not invent names, numbers, dates or dollar amounts. Never repeat a partner\'s personal details. No em dashes.';
 
 /** One question across every meeting this person may read: the notes and the transcript lines that mention the question's words. */

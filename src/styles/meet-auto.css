@@ -42,3 +42,9 @@
 .aa-src a { color: var(--h-brand-ink); }
 .aa-src em { font-style: normal; color: var(--h-ink-3); display: block; }
 @media (max-width: 860px) { .pt-row { grid-template-columns: minmax(0, 1fr); } .pt-acts { justify-content: flex-start; } }
+/* Day view: a grid line never shows through a meeting */
+.dv-hr { z-index: 0; }
+.dv-ev { z-index: 2; isolation: isolate; }
+.dv-ev.is-past { opacity: 1; }
+.dv-ev.is-past > * { opacity: .62; }
+.dv-ev.is-past:hover > * { opacity: 1; }

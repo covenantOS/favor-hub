@@ -33,7 +33,7 @@
   function plain(text) { var t = String(text || ''); return window.FavorMention ? window.FavorMention.plain(t, mentions()) : t.replace(/<@([^>]+)>/g, function (_, id) { return '@' + name(id); }); }
   function mentionsMe(m) { var b = m.body || ''; return b.indexOf('<@' + D.me + '>') >= 0 || b.indexOf('<@channel>') >= 0 || b.indexOf('<@all>') >= 0; }
   function page() { return document.body ? document.body.dataset.nav || '' : ''; }
-  function eligible() { return root.classList.contains('has-chat') && desk.matches && document.body && !!document.getElementById('h-app'); }
+  function eligible() { if (/^\/meet\/(room|g)\//.test(location.pathname)) return false; return root.classList.contains('has-chat') && desk.matches && document.body && !!document.getElementById('h-app'); }
   function visible() { var p = page(); return eligible() && p !== 'chat' && p !== 'brain'; }
 
   /* ---------------------------------------------------------------- the circle */

@@ -26,7 +26,7 @@ async function load(fresh = false) {
     }
     people = new Map(c.people.map((p) => [String(p.email).toLowerCase(), p]));
     draw(c.up, c.recent, c.who, c.cal);
-    pump(null, null);
+    if ((c.recent || []).some((m) => m.notesStatus === 'pending' || m.recState === 'uploading')) pump(null, null);
   } catch (e) {
     root.innerHTML = `<div class="h-card mt-card"><p>${esc(e.message)}</p></div>`;
   }
