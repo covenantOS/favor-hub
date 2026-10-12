@@ -3,6 +3,7 @@ import { asTrimmed, errorJson, handleError, json, nowIso } from '../../_lib/http
 import { clipsCapBytes, clipsShareDefault, mayRecordClips } from '../../_lib/admin/settings';
 import { PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
 import type { ClipSegment } from '../../_lib/clipChapters';
+import { muxTidy } from '../../_lib/clipmuxjob';
 
 /** The first transcript line that holds the search words, for the library's result row. */
 function snippet(transcript: string, q: string): { at: number; text: string } | null {
@@ -11,7 +12,7 @@ function snippet(transcript: string, q: string): { at: number; text: string } | 
   return null;
 }
 
-export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, waitUntil }) => {
   try {
     const who = staffOrError(request);
     if ('res' in who) return who.res;
@@ -58,6 +59,8 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) =>
     });
     // Recordings that never finished and were never picked up: tidy them away on the way past.
     void tidy(env).catch(() => undefined);
+    // A clip whose fast-start file is not written yet gets a run, and week-old first recordings are cleared.
+    if (waitUntil) waitUntil(muxTidy(env).catch(() => undefined));
     const out: Record<string, unknown> = { ok: true, clips, scope: all ? 'all' : 'mine' };
     if (all) {
       const ppl = await env.DB.prepare(

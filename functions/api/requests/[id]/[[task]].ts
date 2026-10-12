@@ -8,8 +8,8 @@ import { onRequestGet as getOne, onRequestPatch as patchOne } from './index';
 export const onRequest: PagesFunction<Env, 'id' | 'task'> = (ctx) => {
   const rest = ([] as string[]).concat((ctx.params.task as string[] | string) || []).filter(Boolean);
   const id = String(ctx.params.id || '');
-  // /api/requests/people and /api/requests/notices can land here as well; they belong to the router.
-  if (!rest.length && (id === 'people' || id === 'notices')) {
+  // /api/requests/people, notices, search and prefs can land here as well; they belong to the router.
+  if (!rest.length && (id === 'people' || id === 'notices' || id === 'search' || id === 'prefs')) {
     return handle({ request: ctx.request, env: ctx.env, user: hubUserOf(ctx.request), path: [id], waitUntil: (p) => ctx.waitUntil(p) });
   }
   if (!rest.length) {

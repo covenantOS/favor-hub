@@ -156,9 +156,9 @@
     const hr = hourET();
     const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     const n = firstName();
-    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1><p>Ask about partners, giving, every team's numbers, iWave ratings, actions and the manuals.</p>
+    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1>
       <div class="bc-starters">${STARTERS().map(([i, q, s, g], k) => `<button type="button" class="bc-starter" data-act="ask" data-q="${esc(q)}" style="animation-delay:${80 + k * 50}ms"><span class="bc-starter__i${g ? ' g' : ''}">${ic(i)}</span><b>${esc(q)}</b><span>${esc(s)}</span></button>`).join('')}</div>
-      <div class="bc-cando">Not sure what to ask? <button type="button" data-act="ask" data-q="What can you do?">See everything you can ask about</button></div></div>`;
+      <div class="bc-cando"><button type="button" data-act="ask" data-q="What can you do?">What you can ask</button></div></div>`;
   }
 
   function renderThread(opts = {}) {
@@ -423,7 +423,7 @@
       h += `<div class="bc-grp">${esc(g)}</div>`;
       h += groups.get(g).map((c) => c.renaming
         ? `<div class="bc-conv" role="listitem"><input data-rename="${esc(c.id)}" value="${esc(c.title)}" aria-label="Rename the chat" maxlength="80" /></div>`
-        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
+        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" aria-haspopup="menu" aria-expanded="false" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
     }
     if (!h) h = `<div class="bc-norail">${q ? 'No chats match.' : 'Your chats show here for 30 days.'}</div>`;
     $('bc-convs').innerHTML = h;
@@ -599,7 +599,7 @@
         <li><div>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</div></li>
         <li><div>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</div></li>
         <li><div>In a chat, pick <b>Favor</b> from the tools menu.</div></li></ol></div>
-      <p style="margin:14px 0 0;font-size:12.5px;color:var(--h-ink-3)">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/" style="color:var(--h-brand-ink)">Step by step, with pictures</a></p>`;
+      <p style="margin:14px 0 0;font-size:13px;color:var(--h-ink-3)">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/" style="color:var(--h-brand-ink)">Step by step, with pictures</a></p>`;
   }
 
   // ---- Sheets ----------------------------------------------------------------------------------------------------

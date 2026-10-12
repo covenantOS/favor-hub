@@ -9,6 +9,9 @@
 //   POST   :id/done | :id/reopen                              for people on the request who are not admins
 //   POST   :id/follow                 { on }
 //   POST   :id/read                                           my notices on this request are read
+//   POST   :id/tell                   { email }               tell the owner or the person waited on now (the gate decides)
+//   GET    search?q=                                          requests by title, text or person, for the search palette
+//   GET    prefs   PUT prefs          { mode }                my request email: now | daily | off
 import { HttpError, errorJson, handleError, json, type Env } from '../http';
 import type { HubUser } from '../session';
 import { attachmentsFor, eventsFor, getRequest, publicShape } from '../db';
@@ -27,8 +30,13 @@ import {
   setFields,
   setFollowing,
   tasksReady,
+  tellNow,
+  mayHear,
   type Actor,
+  type TaskEnv,
 } from './tasks';
+import { emailOn, mailMode, setMailMode } from './mail';
+import { searchRequests } from './views';
 
 export interface Ctx {
   request: Request;
@@ -61,7 +69,9 @@ export async function fullRequest(env: Env, id: string, actor: Actor | null) {
 }
 
 async function route(ctx: Ctx): Promise<Response> {
-  const { request, env, path } = ctx;
+  const { request, path } = ctx;
+  // Email goes out after the answer, not before it.
+  const env: TaskEnv = Object.assign(Object.create(ctx.env) as TaskEnv, { DEFER: ctx.waitUntil });
   const method = request.method.toUpperCase();
   const actor = actorOf(request, ctx.user);
   if (!actor) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
@@ -72,6 +82,10 @@ async function route(ctx: Ctx): Promise<Response> {
     return json({ ok: true, me: actor.email, people });
   }
 
+  if (a === 'search' && !b && method === 'GET') {
+    return json({ ok: true, results: await searchRequests(env, actor, new URL(request.url).searchParams.get('q') || '') });
+  }
+
   if (!(await tasksReady(env))) return errorJson('not_ready', 'Tasks on the board are not switched on yet.', 503);
 
   if (a === 'notices' && !b) {
@@ -80,6 +94,19 @@ async function route(ctx: Ctx): Promise<Response> {
       const input = await body(request);
       await readNotices(env, actor.email, { id: Number(input.id) || null, request_id: typeof input.request_id === 'string' ? input.request_id : null });
       return json({ ok: true, ...(await noticesFor(env, actor.email)) });
+    }
+  }
+
+  if (a === 'prefs' && !b) {
+    if (method === 'PUT') {
+      try {
+        await setMailMode(env, actor.email, (await body(request)).mode);
+      } catch {
+        throw new HttpError(400, 'bad_mode', 'Pick Immediately, Daily summary or None.');
+      }
+    }
+    if (method === 'GET' || method === 'PUT') {
+      return json({ ok: true, mode: await mailMode(env, actor.email), email: actor.email, email_on: await emailOn(env), notices_on: await mayHear(env, actor.email) });
     }
   }
 
@@ -114,6 +141,10 @@ async function route(ctx: Ctx): Promise<Response> {
   }
   if (b === 'follow' && method === 'POST') {
     await setFollowing(env, row.id, actor, (await body(request)).on !== false);
+    return done();
+  }
+  if (b === 'tell' && method === 'POST') {
+    await tellNow(env, row, actor, (await body(request)).email);
     return done();
   }
   if (b === 'read' && method === 'POST') {

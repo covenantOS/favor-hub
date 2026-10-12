@@ -12,6 +12,8 @@ import { addEvent, getRequest, setStatus, type RequestRow } from '../db';
 import { staffDirectory, type Person } from '../people';
 import { cleanBody, parseMentions } from '../chat/text';
 import { copyComment, postCard, type CardKind } from '../chat/tasks';
+import { mailNotices } from './mail';
+import { plainMentions, toldFor, type Told } from './views';
 
 export interface Actor {
   email: string;
@@ -47,7 +49,8 @@ export interface CommentRow {
   deleted_at: string | null;
 }
 
-export type TaskEnv = Env;
+/** DEFER, when a route sets it, runs slow follow-up work (email) after the answer has gone out. */
+export type TaskEnv = Env & { DEFER?: (p: Promise<unknown>) => void; /** The morning pass hands its clock down so "due tomorrow" is worded from the same moment. */ CLOCK?: Date };
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const FAVOR = /^[a-z0-9._%+-]+@favorintl\.org$/;
@@ -140,15 +143,15 @@ export async function noticeGate(env: TaskEnv): Promise<(email: string) => boole
   return (email: string) => only.has(lower(email));
 }
 
-interface Notice {
+export interface Notice {
   email: string;
-  kind: 'sent' | 'mention' | 'comment' | 'waiting' | 'done';
+  kind: 'sent' | 'mention' | 'comment' | 'waiting' | 'done' | 'due';
   note: string;
   comment_id?: string | null;
 }
 
 /** Saves the notices the gate allows, never one to the person who acted. Returns who was told. */
-async function tell(env: TaskEnv, requestId: string, actor: Actor, list: Notice[]): Promise<string[]> {
+export async function tellPeople(env: TaskEnv, requestId: string, actor: Actor, list: Notice[]): Promise<string[]> {
   if (!list.length) return [];
   const gate = await noticeGate(env);
   const now = nowIso();
@@ -160,14 +163,25 @@ async function tell(env: TaskEnv, requestId: string, actor: Actor, list: Notice[
     return true;
   });
   if (!keep.length) return [];
-  await env.DB.batch(
-    keep.map((n) =>
-      env.DB.prepare(
-        'INSERT INTO request_notices (request_id, email, kind, actor_email, actor_name, note, comment_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-      ).bind(requestId, lower(n.email), n.kind, actor.email, actor.name, n.note.slice(0, 600), n.comment_id || null, now)
+  const made: Array<{ id: number; email: string; kind: Notice['kind']; note: string }> = [];
+  for (const n of keep) {
+    const r = await env.DB.prepare(
+      'INSERT INTO request_notices (request_id, email, kind, actor_email, actor_name, note, comment_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
     )
-  );
+      .bind(requestId, lower(n.email), n.kind, actor.email, actor.name, n.note.slice(0, 600), n.comment_id || null, now)
+      .run();
+    made.push({ id: Number((r.meta as { last_row_id?: number }).last_row_id), email: lower(n.email), kind: n.kind, note: n.note });
+  }
+  // Email follows the notice: one per event for people who chose that, nothing for the daily summary people until morning.
+  const mail = mailNotices(env, requestId, actor, made).catch((err) => console.error('[tasks] mail', err));
+  if (env.DEFER) env.DEFER(mail);
+  else await mail;
   return keep.map((n) => lower(n.email));
+}
+
+/** True when this person may be told about requests right now (the gate). Today and the Work Overview ask before showing anything. */
+export async function mayHear(env: TaskEnv, email: string): Promise<boolean> {
+  return (await noticeGate(env))(email);
 }
 
 export interface NoticeOut {
@@ -197,7 +211,12 @@ export async function noticesFor(env: TaskEnv, email: string, limit = 20): Promi
     )
       .bind(me, limit)
       .all<NoticeOut>();
-    return { count: Number(c?.n) || 0, requests: Number(c?.r) || 0, items: rows.results || [] };
+    const items = rows.results || [];
+    if (items.some((i) => i.note.includes('<@'))) {
+      const dir = await directoryMap(env);
+      for (const i of items) i.note = plainMentions(i.note, dir);
+    }
+    return { count: Number(c?.n) || 0, requests: Number(c?.r) || 0, items };
   } catch {
     return { count: 0, requests: 0, items: [] };
   }
@@ -302,15 +321,16 @@ export async function sendTo(env: TaskEnv, row: RequestRow, actor: Actor, toRaw:
   if (task?.owner_email && task.owner_email !== to) {
     await env.DB.prepare(`UPDATE request_followers SET why = 'sent' WHERE request_id = ? AND email = ? AND why = 'owner'`).bind(row.id, task.owner_email).run();
   }
-  await addEvent(env, row.id, 'sent', actor.name, { from: actor.email, from_name: actor.name, to, to_name: person.name, note });
   let comment: CommentRow | null = null;
   if (note) comment = await saveComment(env, row.id, actor, note, 'send', null);
   const mentioned = mentionsIn(note, dir).filter((e) => e !== to);
   for (const e of mentioned) await addFollower(env, row.id, e, 'mention');
-  const told = await tell(env, row.id, actor, [
+  const told = await tellPeople(env, row.id, actor, [
     { email: to, kind: 'sent', note, comment_id: comment?.id },
     ...mentioned.map((e) => ({ email: e, kind: 'mention' as const, note, comment_id: comment?.id })),
   ]);
+  // The history says whether the person heard about it, so nobody has to guess while notices are off.
+  await addEvent(env, row.id, 'sent', actor.name, { from: actor.email, from_name: actor.name, to, to_name: person.name, note, told: told.includes(to) });
   await chatCard(env, actor, to, row.id, 'sent', note, told);
   for (const e of mentioned) await chatCard(env, actor, e, row.id, 'mention', note, told);
   return { task: next, comment };
@@ -361,19 +381,17 @@ export async function addComment(
   if (FAVOR.test(actor.email)) await addFollower(env, row.id, actor.email, 'comment');
   const mentioned = mentionsIn(body, dir).filter((e) => e !== actor.email);
   for (const e of mentioned) await addFollower(env, row.id, e, 'mention');
-  if (mentioned.length) await addEvent(env, row.id, 'mention', actor.name, { who: mentioned.map((e) => nameOf(dir, e)), emails: mentioned });
   const others = (await audience(env, row.id, actor)).filter((e) => !mentioned.includes(e));
-  const told = await tell(env, row.id, actor, [
+  const told = await tellPeople(env, row.id, actor, [
     ...mentioned.map((e) => ({ email: e, kind: 'mention' as const, note: body, comment_id: c.id })),
     ...others.map((e) => ({ email: e, kind: 'comment' as const, note: body, comment_id: c.id })),
   ]);
-  // A copy lands under the card in each direct message the author is in (the gate decides as for any notice), then people named get a card.
+  if (mentioned.length) await addEvent(env, row.id, 'mention', actor.name, { who: mentioned.map((e) => nameOf(dir, e)), emails: mentioned, told: mentioned.filter((e) => told.includes(e)) });
+  // A copy lands under the card in each direct message the author is in (the gate decides as for any notice). Then people named get a
+  // card, unless the two already have one for this request: the copy in that thread is their notice in Chat.
   if (FAVOR.test(actor.email)) {
     const gate = await noticeGate(env);
-    // Someone named gets a fresh card below, so no copy goes to them as well.
-    const carded = new Set(mentioned.filter((e) => told.includes(e)));
-    const allowed = (e: string) => gate(e) && !carded.has(lower(e));
-    await copyComment(env, { requestId: row.id, author: actor.email, commentId: c.id, body, exceptRoot: from.chatRoot ?? null, allowed }).catch((err) => console.error('[tasks] copy', err));
+    await copyComment(env, { requestId: row.id, author: actor.email, commentId: c.id, body, exceptRoot: from.chatRoot ?? null, allowed: gate }).catch((err) => console.error('[tasks] copy', err));
   }
   for (const e of mentioned) await chatCard(env, actor, e, row.id, 'mention', body, told);
   return { ...c, told };
@@ -418,15 +436,18 @@ export async function setFields(env: TaskEnv, row: RequestRow, actor: Actor, inp
     if (w && !dir.has(w)) throw new HttpError(400, 'unknown_person', 'Pick someone from the staff list.');
     if (w !== (task?.waiting_on ?? null)) {
       fields.waiting_on = w;
-      await addEvent(env, row.id, 'waiting', actor.name, { email: w, name: w ? nameOf(dir, w) : null });
       if (w) {
         await addFollower(env, row.id, w, 'waiting');
         waitTold = w;
-      }
+      } else await addEvent(env, row.id, 'waiting', actor.name, { email: null, name: null });
     }
   }
   const next = Object.keys(fields).length ? await upsertTask(env, row.id, fields) : task || (await upsertTask(env, row.id, {}));
-  if (waitTold) await tell(env, row.id, actor, [{ email: waitTold, kind: 'waiting', note: '' }]);
+  if (waitTold) {
+    const told = await tellPeople(env, row.id, actor, [{ email: waitTold, kind: 'waiting', note: '' }]);
+    const dir = await directoryMap(env);
+    await addEvent(env, row.id, 'waiting', actor.name, { email: waitTold, name: nameOf(dir, waitTold), told: told.includes(waitTold) });
+  }
   return next;
 }
 
@@ -442,7 +463,7 @@ export async function participantStatus(env: TaskEnv, row: RequestRow, actor: Ac
   if (status === 'in_progress' && row.status !== 'done') throw new HttpError(400, 'bad_status', 'Only a done request can be reopened.');
   const next = await setStatus(env, row.id, status, actor.name);
   if (status === 'done') {
-    await tell(env, row.id, actor, (await audience(env, row.id, actor)).map((e) => ({ email: e, kind: 'done' as const, note: '' })));
+    await tellPeople(env, row.id, actor, (await audience(env, row.id, actor)).map((e) => ({ email: e, kind: 'done' as const, note: '' })));
   }
   return next;
 }
@@ -450,7 +471,7 @@ export async function participantStatus(env: TaskEnv, row: RequestRow, actor: Ac
 /** Notices for followers when an admin moves a card to Done on the board. */
 export async function toldDone(env: TaskEnv, requestId: string, actor: Actor): Promise<void> {
   if (!(await tasksReady(env))) return;
-  await tell(env, requestId, actor, (await audience(env, requestId, actor)).map((e) => ({ email: e, kind: 'done' as const, note: '' })));
+  await tellPeople(env, requestId, actor, (await audience(env, requestId, actor)).map((e) => ({ email: e, kind: 'done' as const, note: '' })));
 }
 
 /* ------------------------------------------------------------------------------------------------ shapes */
@@ -494,6 +515,8 @@ export interface DetailOut {
   comments: Array<{ id: string; email: string; name: string; body: string; source: string; created_at: string; deleted: boolean }>;
   can: { triage: boolean; send: boolean; comment: boolean; done: boolean; edit: boolean; follow: boolean };
   following: boolean;
+  /** Whether the owner and the person waited on have been told, and whether notices can reach them now. */
+  told: { owner: Told | null; waiting: Told | null };
 }
 
 export async function detailFor(env: TaskEnv, row: RequestRow, actor: Actor | null): Promise<DetailOut | null> {
@@ -525,7 +548,29 @@ export async function detailFor(env: TaskEnv, row: RequestRow, actor: Actor | nu
       follow: !!actor && FAVOR.test(actor.email),
     },
     following: st.following,
+    told: await toldFor(env, row.id, task),
   };
+}
+
+/**
+ * Tell the owner or the person waited on now, for a hand-off made while notices were off. Nothing is ever sent for an old
+ * event by itself; this is the button a person presses. The gate still decides.
+ */
+export async function tellNow(env: TaskEnv, row: RequestRow, actor: Actor, emailRaw: unknown): Promise<boolean> {
+  const task = await taskOf(env, row.id);
+  const st = standingOf(actor, task, await followersOf(env, row.id));
+  need(st.admin || st.owner, 'Only the owner or a hub admin can do that.');
+  const email = lower(emailRaw);
+  const kind = task?.owner_email === email ? 'sent' : task?.waiting_on === email ? 'waiting' : null;
+  if (!kind) throw new HttpError(400, 'not_on_it', 'That person is not the owner or the person waited on.');
+  const had = await env.DB.prepare('SELECT 1 AS ok FROM request_notices WHERE request_id = ? AND email = ? AND kind = ? LIMIT 1').bind(row.id, email, kind).first();
+  if (had) return true;
+  const first = kind === 'sent' ? (await commentsOf(env, row.id)).find((c) => c.source === 'send' && !c.deleted_at)?.body || '' : '';
+  const told = await tellPeople(env, row.id, actor, [{ email, kind, note: first }]);
+  if (!told.includes(email)) throw new HttpError(409, 'notices_off', 'Request notices are off, so nobody can be told yet.');
+  if (kind === 'sent') await chatCard(env, actor, email, row.id, 'sent', first, told);
+  await addEvent(env, row.id, 'told', actor.name, { email, name: nameOf(await directoryMap(env), email), about: kind });
+  return true;
 }
 
 /** The request when this person may see it: anyone signed in reads the board; a declined request is for admins and people on it. */

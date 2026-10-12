@@ -206,32 +206,6 @@ select.ch-input { appearance: auto; }
 .h-body .bc-root .ch-tv .tbl__find { max-width: 360px; }
 .h-body .bc-root.bc-portal--page .pop { z-index: 2100; }
 
-/* ------------------------------------------------------------ a request opened over the chat */
-.ch-view--req .ch-view__body { background: #fff; }
-.ch-req { position: absolute; inset: 0; display: flex; flex-direction: column; font: 400 14px/1.5 var(--h-font, Inter, system-ui, sans-serif); color: var(--r-ink); }
-.ch-req button { font: inherit; cursor: pointer; }
-.ch-req__scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.ch-req__in { max-width: 760px; margin: 0 auto; padding: 20px 24px 24px; }
-.ch-req__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.ch-req__chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--r-sunk); font-weight: 700; font-size: 12.5px; color: var(--r-ink-2); }
-.ch-req__chip[data-s='done'], .ch-req__chip[data-s='approved'] { background: var(--tc-leaf-tint); color: var(--tc-leaf-ink); }
-.ch-req__chip[data-s='inbox'], .ch-req__chip[data-s='in_progress'] { background: var(--tc-sun-tint); color: var(--tc-sun-ink); }
-.ch-req__chip[data-s='declined'] { background: var(--tc-terra-tint); color: var(--tc-terra-ink); }
-.ch-req h2 { margin: 12px 0 12px; font: 500 26px/1.2 var(--h-serif, 'Playfair Display', Georgia, serif); overflow-wrap: anywhere; }
-.ch-req__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 14px; }
-.ch-req__fields div { border: 1px solid var(--r-line); border-radius: 10px; padding: 8px 12px; min-width: 0; }
-.ch-req__fields dt { font: 700 11px/1.2 var(--h-font, Inter, sans-serif); letter-spacing: 0.05em; text-transform: uppercase; color: var(--r-ink-3); }
-.ch-req__fields dd { margin: 3px 0 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ch-req__body { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--r-ink-2); font-size: 14.5px; }
-.ch-req__body a { color: var(--tc-sky-ink); }
-.ch-req__atts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.ch-req__att { display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border: 1px solid var(--r-line-2); border-radius: 9px; font-weight: 600; font-size: 13px; color: var(--r-ink); text-decoration: none; }
-.ch-req__att:hover { background: var(--r-hover); }
-.ch-req__foot { flex: none; }
-.ch-req__foot .ch-comp, .ch-req__acts { max-width: 760px; margin-left: auto; margin-right: auto; }
-.ch-req__acts { display: flex; gap: 8px; padding: 0 16px 10px; }
-.ch-req__foot:empty { display: none; }
-
 /* ------------------------------------------------------------ narrower desktop */
 @media (max-width: 1279px) and (min-width: 861px) {
   .ch-fmt { gap: 8px; }
@@ -273,11 +247,6 @@ select.ch-input { appearance: auto; }
   .ch-sw__i { min-height: 52px; font-size: 16px; }
   .ch-sw__m, .ch-actv__m, .ch-actv__m time, .ch-th__when, .ch-draft__w, .ch-draft__w time, .ch-pinned__f, .ch-det__none, .ch-bm small { font-size: 13px; }
   .ch-msheet { max-height: 100%; }
-  .ch-req__in { padding: 16px 16px 20px; }
-  .ch-req h2 { font-size: 22px; }
-  .ch-req__fields { grid-template-columns: 1fr; }
-  .ch-req__acts .ch-btn { height: 44px; }
-  .ch-view--req { bottom: var(--rt-kb, 0px); }
   .ch-toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
   .h-body .bc-root .ch-tv .tbl__find { max-width: none; }
 }
@@ -288,7 +257,7 @@ select.ch-input { appearance: auto; }
 /* The search and jump boxes show focus with the line under the row; the hub's own focus ring would draw a second box. */
 body.h-body .ch .ch-search__in input:focus, body.h-body .ch .ch-search__in input:focus-visible,
 body.h-body .ch .ch-emo__find input:focus, body.h-body .ch .ch-emo__find input:focus-visible { outline: none !important; box-shadow: none !important; }
-body.h-body .ch .ch-input:focus-visible, body.h-body .ch-req textarea:focus-visible { outline: none; }
+body.h-body .ch .ch-input:focus-visible { outline: none; }
 /* Over the large viewer or a request on a phone, the notice sits above the comment box. */
 @media (max-width: 860px) { body.ch-viewing .ch-toast { bottom: calc(150px + env(safe-area-inset-bottom)); } }
 .ch .ch-msheet__rx button { font-size: 24px; }
@@ -324,5 +293,5 @@ body.h-body .ch .ch-input:focus-visible, body.h-body .ch-req textarea:focus-visi
 @media (max-width: 860px) { .ch-navs, .ch-sec { display: flex; flex-direction: column; gap: 8px; } .ch-row { min-height: 44px; } }
 
 /* Words on the orange buttons are white everywhere (a broader rule set them to the text color). */
-.ch .ch-btn--primary, .rt-ch .ch-btn--primary, .ch-req .ch-btn--primary { color: #fff; }
+.ch .ch-btn--primary, .rt-ch .ch-btn--primary { color: #fff; }
 .ch .ch-msg__deleted { font-size: 14px; }

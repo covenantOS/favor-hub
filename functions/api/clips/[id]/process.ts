@@ -3,8 +3,9 @@
 import { errorJson, handleError, json } from '../../../_lib/http';
 import { staffOrError, clipView, manageClip, type ClipsEnv } from '../../../_lib/clips';
 import { runProcess } from '../../../_lib/clipjob';
+import { muxRun } from '../../../_lib/clipmuxjob';
 
-export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
+export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
     const who = staffOrError(request);
     if ('res' in who) return who.res;
@@ -12,6 +13,8 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
     if (clip.status === 'uploading') return errorJson('uploading', 'Still uploading.', 409);
     const body = (await request.json().catch(() => ({}))) as { again?: boolean; vision?: boolean };
+    // The fast-start file is written while the words are read (this returns at once when nothing is left to do).
+    if (waitUntil) waitUntil(muxRun(env, clip.id).then(() => undefined).catch(() => undefined));
     const again = body.again === true;
     // A clip that is ready and not asked to start over has nothing to do.
     if (clip.status === 'ready' && !again && clip.summary) return json({ ok: true, clip: clipView(clip) });

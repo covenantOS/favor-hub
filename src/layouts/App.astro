@@ -21,6 +21,7 @@ import '../styles/round2.css';
 import '../styles/ux-night.css';
 import '../styles/ux-pass.css';
 import '../styles/polish.css';
+import '../styles/request-tasks.css';
 import '../styles/mobile.css';
 import '../styles/admin-fix.css';
 import '../styles/sticky-col.css';
@@ -76,8 +77,17 @@ const footAreas = AREAS.filter((a) => a.foot);
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
     <meta name="theme-color" content="#f4efe0" />
     <style is:inline>html,body{background:#f4efe0}</style>
-    <script is:inline src="/js/sheets.js?v=1"></script>
-    <script is:inline src="/js/drill.js?v=3" defer></script>
+    <script is:inline>
+      // Focus rings are for the keyboard. A browser can show one after a mouse click when a script moves focus, so the page
+      // marks keyboard use itself: Tab and arrow keys turn rings on, any pointer press turns them off.
+      (function () {
+        var r = document.documentElement;
+        addEventListener('keydown', function (e) { if (e.key === 'Tab' || e.key.indexOf('Arrow') === 0) r.classList.add('kbd'); }, true);
+        addEventListener('pointerdown', function () { r.classList.remove('kbd'); }, true);
+      })();
+    </script>
+    <script is:inline src="/js/sheets.js?v=2"></script>
+    <script is:inline src="/js/drill.js?v=5" defer></script>
     <script is:inline src="/js/thank.js?v=2" defer></script>
     <script is:inline src="/js/prep.js?v=2" defer></script>
     <script is:inline src="/js/partner.js?v=11" defer></script>
@@ -165,6 +175,8 @@ const footAreas = AREAS.filter((a) => a.foot);
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
             pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            // Work also counts request notices this person has not opened (sent to them, mentions, comments).
+            if (id === 'work') n += Number(window.__hubTasks) || 0;
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
@@ -218,6 +230,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
           var counts = d.counts || {};
+          window.__hubTasks = Number(counts.tasks) || 0;
           document.querySelectorAll('[data-count]').forEach(function (el) {
             var n = Number(counts[el.dataset.count]) || 0;
             el.hidden = !n;
@@ -273,8 +286,11 @@ const footAreas = AREAS.filter((a) => a.foot);
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=4" defer></script>
     <script is:inline src="/js/hub-swap.js?v=9" defer></script>
-    <script is:inline src="/js/clips-launch.js?v=4" defer></script>
-    <script is:inline src="/js/wc-bell.js?v=4" defer></script>
+    <script is:inline src="/js/clips-launch.js?v=5" defer></script>
+    <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
+    <script is:inline src="/js/request-tasks.js?v=2" defer></script>
+    <script is:inline src="/js/request-drawer.js?v=1" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=6" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
     <script>
       import '../scripts/hub';

@@ -1519,7 +1519,7 @@
           m._items = r.files || [];
           res.innerHTML = m._items.length ? m._items.map(function (f, i) {
             var lab = { doc: 'DOC', sheet: 'XLS', pdf: 'PDF', slides: 'PPT', photo: 'IMG', file: 'FILE' }[f.kind] || 'FILE';
-            return '<button type="button" class="ch-pick__i" data-act="drive-choose" data-i="' + i + '"><span class="ch-file__ic" data-k="' + esc(f.kind || 'file') + '" style="width:36px;height:36px;font-size:10px">' + lab + '</span><span><b>' + esc(f.name) + '</b><small>' + esc(f.path || '') + (f.indexed ? ' · Indexed ' + esc(f.indexed) : '') + '</small></span></button>';
+            return '<button type="button" class="ch-pick__i" data-act="drive-choose" data-i="' + i + '"><span class="ch-file__ic" data-k="' + esc(f.kind || 'file') + '" style="width:36px;height:36px;font-size:13px">' + lab + '</span><span><b>' + esc(f.name) + '</b><small>' + esc(f.path || '') + (f.indexed ? ' · Indexed ' + esc(f.indexed) : '') + '</small></span></button>';
           }).join('') : '<div class="ch-empty">No files match</div>';
         });
       };
@@ -1903,12 +1903,10 @@
         guard(api.makeRequest(rq.channel || S.active, { title: rt, body: $('[data-rq-body]', modal).value.trim(), surface: $('[data-rq-surface]', modal).value, from_message: rq.from || undefined, thread_id: rq.thread || undefined })).then(function (r) {
           closeModal();
           if (r.message) { S.toBottom = true; addMessage(r.message, true); }
-          toast('Request made', { href: r.request.url, label: 'Open on the board' });
+          toast('Request made');
         }).catch(function () { el.disabled = false; });
         return;
       }
-      // A request card opens here, over the chat; a Ctrl or Shift click still opens the board in a new tab.
-      if (act === 'task-open') { if (e.metaKey || e.ctrlKey || e.shiftKey || !window.FavorChatRequest) return; e.preventDefault(); window.FavorChatRequest.open(el.dataset.rid); return; }
       if (act === 'thread-full') { setFull(!S.threadFull); return; }
       if (act === 'thread-exit') { closeRight(); return; }
       if (act === 'latest') {

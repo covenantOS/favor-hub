@@ -7,7 +7,7 @@
 .dv .dv-tl span, .dv .dv-legend span, .dv .dv-lv span { font-size: 13px; }
 
 /* Day page, notes column: initials at 13 px fit inside the avatar without clipping. */
-.dv .dv-av { min-width: 26px; height: 26px; padding: 0 5px; width: auto; font-size: 11px; }
+.dv .dv-av { min-width: 26px; height: 26px; padding: 0 5px; width: auto; font-size: 13px; }
 
 /* Touch targets: 44 px on touch screens. */
 @media (pointer: coarse) {

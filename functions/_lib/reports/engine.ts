@@ -64,6 +64,8 @@ export interface RunOptions {
   kpi?: () => Promise<KpiFigures | null>;
   edits?: Record<string, string>;
   today?: string;
+  /** The caller gives an object and gets the definition's own extra back, for the mail file. */
+  keep?: { extra?: unknown };
 }
 
 function sumTotals(columns: ColumnDef[], rows: Row[]): Record<string, number> {
@@ -94,12 +96,15 @@ export async function runReport(env: Env, def: ReportDef, opt: RunOptions): Prom
     filters: values,
   };
   const loaded = await def.load(ctx, values);
+  if (opt.keep) opt.keep.extra = loaded.extra;
   const more = loaded.rows.length > MAX_ROWS;
   let rows = more ? loaded.rows.slice(0, MAX_ROWS) : loaded.rows;
   // The page needs each row's name to save a typed-in cell against it.
   if (def.editable) rows = rows.map((r) => ({ ...r, __key: def.editable!.keyOf(r) }));
   const totals = def.totals ? def.totals(rows, values) : sumTotals(def.columns, rows);
   const tie = def.tie ? await def.tie(ctx, rows, values, loaded.extra) : noTie();
+  const ties = def.ties ? await def.ties(ctx, rows, values, loaded.extra) : [];
+  const mail = def.mailFile ? { label: def.mailFile.label, name: def.mailFile.name, rows: def.mailFile.rows(rows, values, loaded.extra).length } : null;
   return {
     id: def.id,
     name: opt.name,
@@ -112,6 +117,8 @@ export async function runReport(env: Env, def: ReportDef, opt: RunOptions): Prom
     totals,
     tiles: def.tiles ? def.tiles(rows, values, loaded.extra) : [],
     tie,
+    ties,
+    mailFile: mail,
     post: def.post ? def.post(rows, values, loaded.extra) : null,
     note: def.note || null,
     editable: def.editable ? def.editable.columns : [],

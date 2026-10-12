@@ -8,14 +8,14 @@
   .h-app.is-room .rm-top .rm-bar { flex-wrap: wrap; row-gap: 6px; padding: 2px 0 0; align-content: flex-start; }
   .h-app.is-room .rm-top .rm-bar > b { flex: 1 1 100%; font-size: 18px; line-height: 1.2; }
   .h-app.is-room .rm-bar { font-size: 13px; }
-  .h-app.is-room .rm-rec { font-size: 12px; }
+  .h-app.is-room .rm-rec { font-size: 13px; }
   .rm-tools { gap: 0; }
   .rt-leave { height: 44px; min-width: 92px; padding: 0 18px; gap: 8px; background: #b4583b; border-color: #b4583b; color: #fff; font: 600 15px var(--h-font); }
   .rt-leave:active { background: #9c4a30; }
   .rt-leave .h-i { width: 20px; height: 20px; }
   .h-app.is-room .rm-grid { padding: 0 10px 8px; gap: 10px; }
   .h-app.is-room .rm-ctl { justify-content: space-around; gap: 0; padding: 8px 8px max(12px, env(safe-area-inset-bottom)); overflow: visible; }
-  .h-app.is-room .cb { flex: 1 1 0; min-width: 0; padding: 4px 0; font: 500 12px var(--h-font); gap: 5px; }
+  .h-app.is-room .cb { flex: 1 1 0; min-width: 0; padding: 4px 0; font: 500 13px var(--h-font); gap: 5px; }
   .h-app.is-room .cb span.k { width: 52px; height: 52px; }
   .h-app.is-room .cb .h-i { width: 22px; height: 22px; }
   .cb .dotc--s { width: 11px; height: 11px; padding: 0; top: 1px; right: 1px; }

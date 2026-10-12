@@ -149,7 +149,6 @@
     app = a;
     window.favorChat = a;
     if (window.FavorChatBrain) window.FavorChatBrain.attach(a);
-    if (window.FavorChatRequest) window.FavorChatRequest.attach(a);
     connect();
     // A copied link opens its conversation, its thread when it has one, and shows the message.
     var t = qs.get('t'), mid = qs.get('m');
