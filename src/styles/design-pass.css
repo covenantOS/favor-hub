@@ -442,3 +442,8 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
   html body.h-body #wc-root .wc-band .wc-stat .wc-stat__n, html body.h-body #wc-root .wc-band .wc-stat b { font-size: 20px; }
   html body.h-body #wc-root .wc-active:empty { display: none; }
 }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-band .wc-stat, html body.h-body #wc-root .wc-band .wc-stat--split { justify-content: flex-start; }
+  html body.h-body #wc-root .wc-band .wc-stat .wc-stat__n { flex: 0 0 auto; }
+  html body.h-body #wc-root .wc-band .wc-stat span { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+}
