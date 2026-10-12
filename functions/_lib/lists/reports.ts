@@ -108,8 +108,10 @@ const giving: ReportDef = {
     const count = rows.reduce((s, r) => s + n(r.gifts), 0);
     const ties: Tie[] = [];
     if (c.kpi && c.to === c.today) {
-      if (c.from === yearStart(c.today)) ties.push(tieMoney('KPI dashboard, Executive, year-to-date revenue', total, c.kpi.ytdRevenue));
-      else if (c.from === c.today.slice(0, 8) + '01') ties.push(tieMoney('KPI dashboard, all sources, this month', total, c.kpi.monthlyGiving[Number(c.today.slice(5, 7)) - 1]));
+      const todays = r2(n((await c.q(`SELECT COALESCE(SUM(amount), 0) AS t FROM lr_g1 WHERE gift_date = ?1`, [c.today]))[0]?.t));
+      const withNote = (t: Tie): Tie => (t.status === 'differs' && t.kpi != null && Math.abs(r2(t.mine - t.kpi) - todays) < 0.005 && todays > 0 ? { ...t, note: `The difference is gifts dated today (${todays.toLocaleString('en-US', { style: 'currency', currency: 'USD' })}) that the dashboard's last build did not have.` } : t);
+      if (c.from === yearStart(c.today)) ties.push(withNote(tieMoney('KPI dashboard, Executive, year-to-date revenue', total, c.kpi.ytdRevenue)));
+      else if (c.from === c.today.slice(0, 8) + '01') ties.push(withNote(tieMoney('KPI dashboard, all sources, this month', total, c.kpi.monthlyGiving[Number(c.today.slice(5, 7)) - 1])));
     }
     return {
       columns: [

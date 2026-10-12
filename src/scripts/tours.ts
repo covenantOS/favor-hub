@@ -1102,6 +1102,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'list-credit',
+    page: '/lists/credit/',
+    via: 'list-credit',
+    at: '.cr-grid',
+    title: 'Credit and assignments',
+    body: 'Look up a gift or a partner to see who has credit and who held the partner on each date. Proposed fixes follow Favor rules, and a second person approves each change. Approved changes wait until an admin turns apply on.',
+    for: (w) => w.admin,
+    added: '2026-10-12',
+    side: 'top',
+  },
+  {
     id: 'reports',
     page: '/reports/',
     via: 'reports',

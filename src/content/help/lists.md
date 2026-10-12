@@ -31,3 +31,14 @@ A list that is only a status shows a line comparing its count with the KPI dashb
 Standard reports, beside the builder, runs nine one-click reports with a period picker: giving by fund, appeal and month; credit by fundraiser with one-time and recurring; portfolio by holder; new and lost partners; LYBUNT and lapsed by how they came in; first-time givers; retention; actions by person and type; and the grants pipeline. A report that has a matching KPI dashboard figure shows whether the two agree. Press a row to open the partners or gifts behind it in Lists. Reports cover every partner, so they open for admins and for people with access to all partners.
 
 **Mail house columns** in the Columns menu sets addressee, salutation, address, city, state and ZIP and leaves out Do Not Mail partners and partners with no valid address. The page shows how many it left out. Email and phone columns appear for admins, Support and Partner Care.
+
+## Credit and assignments
+
+Credit, beside the builder, shows each gift's fundraiser credit next to every assignment on the partner with its dates, so you can see who held the partner on the gift date. Waiting for approval lists proposed changes. The scan reads recent gifts and proposes a change by Favor's rules:
+
+- A gift keeps the credit of whoever held the partner on its date, and a director who left keeps credit for gifts dated in his time.
+- Marketing appeals (Digital Newsletter, Direct Mail Appeal, Direct Mail Newsletter, Thank You Letter, Media) carry no fundraiser credit.
+- A White Mail, Portfolio, Personal Contact or Director gift with no credit gets the holder on its date.
+- A change to a gift in an earlier month is marked closed month.
+
+Anyone can propose a change with a reason. An admin, the Operations team or a person an admin names approves it, and never the person who proposed it. Every step is kept in the log. Approving does not change Blackbaud until an admin turns **Apply** on, and while a record limit is set, apply reaches only that record.
