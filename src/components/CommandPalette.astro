@@ -213,9 +213,9 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
   // sources such as Drive and runs after tier 2 settles. Every server call applies the signed-in person's access, so a
   // row this person cannot open never comes back. A denied or failed source shows no rows and the rest keep working.
   const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const KIND_ORDER = ['Partners', 'Requests', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Favor Brain', 'Help', 'External', 'Drive'];
+  const KIND_ORDER = ['Partners', 'Requests', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive'];
   const kindRank = (g) => KIND_ORDER.indexOf(g);
-  const remote = { partners: [], requests: [], reports: [], chats: [], meetings: [], messages: [], clips: [], drive: [] };
+  const remote = { partners: [], requests: [], reports: [], chats: [], meetings: [], messages: [], clips: [], learn: [], drive: [] };
   let seq = 0;
   let remoteTimer = 0;
   let partnerDenied = false;
@@ -347,9 +347,16 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
       }));
   }
 
+  // Learn: published courses and learning paths by title, summary, audience or lesson name.
+  async function learnHits(text) {
+    const r = await getJson('/api/learn/search?q=' + encodeURIComponent(text));
+    const rows = r.data && Array.isArray(r.data.results) ? r.data.results : [];
+    return rows.map((h) => ({ title: escHtml(h.title), desc: escHtml(h.desc), href: h.href, external: false, group: 'Learn' }));
+  }
+
   // Merge the local list with every server source. Groups keep KIND_ORDER, and rows inside a group keep their order.
   function merged(local) {
-    const extra = [].concat(remote.partners, remote.requests, remote.reports, remote.chats, remote.meetings, remote.messages, remote.clips, remote.drive);
+    const extra = [].concat(remote.partners, remote.requests, remote.reports, remote.chats, remote.meetings, remote.messages, remote.clips, remote.learn, remote.drive);
     return local.concat(extra)
       .map((x, i) => ({ x, i }))
       .sort((a, b) => kindRank(a.x.group) - kindRank(b.x.group) || a.i - b.i)
@@ -384,6 +391,7 @@ const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external ||
       source('meetings', text, mine, () => meetingHits(text)),
       source('clips', text, mine, () => clipHits(text)),
       source('messages', text, mine, () => messageHits(text)),
+      source('learn', text, mine, () => learnHits(text)),
     ]);
     // Tier 3: Drive files, last. Its rows join the list when they arrive; the rows above never wait for it.
     await source('drive', text, mine, () => driveHits(text));

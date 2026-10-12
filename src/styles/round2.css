@@ -34,6 +34,7 @@ body.h-body[data-area='ask'] { --a: var(--tc-dusk); --a-ink: var(--tc-dusk-ink);
 body.h-body[data-area='kpi'] { --a: var(--tc-sky); --a-ink: var(--tc-sky-ink); --a-tint: var(--tc-sky-tint); --a-soft: var(--soft-sky); --a-tile: var(--tc-sky); }
 body.h-body[data-area='admin'] { --a: var(--tc-slate); --a-ink: var(--tc-slate-ink); --a-tint: var(--tc-slate-tint); --a-soft: var(--soft-slate); --a-tile: var(--tc-slate); }
 body.h-body[data-area='help'] { --a: var(--tc-sky); --a-ink: var(--tc-sky-ink); --a-tint: var(--tc-sky-tint); --a-soft: var(--soft-sky); --a-tile: var(--tc-sky); }
+body.h-body[data-area='learn'] { --a: #8a5d0c; --a-ink: var(--tc-sun-ink); --a-tint: var(--tc-sun-tint); --a-soft: var(--soft-sun); --a-tile: var(--tc-sun); }
 body.h-body { --a-tile: var(--a); }
 body.h-body :focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
 
@@ -80,6 +81,7 @@ body.h-body .h-side__in::-webkit-scrollbar-thumb { background: rgba(255, 255, 25
 .h-area[data-area='kpi'] { --soft: var(--soft-sky); --solid: var(--tc-sky); }
 .h-area[data-area='admin'], .h-area[data-area='tools'] { --soft: var(--soft-slate); --solid: var(--tc-slate); }
 .h-area[data-area='help'] { --soft: var(--soft-sky); --solid: var(--tc-sky); }
+.h-area[data-area='learn'] { --soft: var(--soft-sun); --solid: var(--tc-sun); }
 body.h-body .h-area > .h-area__link, body.h-body .h-area[data-area] > .h-area__link .h-i { --ic: var(--soft); }
 body.h-body .h-area[data-area] > .h-area__link .h-i { color: var(--soft); }
 .h-area.is-cur > .h-area__link { background: none; color: #fff; font-weight: 700; }

@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat';
+export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'learn' | 'learnAdmin';
 
 export interface NavPage {
   id: string;
@@ -110,6 +110,20 @@ export const AREAS: NavArea[] = [
       { id: 'connect-ai', label: 'Connect an AI app', href: '/help/connect-your-ai/', desc: 'Use the same answers from Claude or ChatGPT', keywords: 'connect claude chatgpt mcp connector ai app', learn: 'connect-your-ai' },
     ],
   },
+  // learn: begin
+  {
+    id: 'learn',
+    label: 'Learn',
+    icon: 'book',
+    key: 'l',
+    barRank: 6,
+    pages: [
+      { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'learn', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn' },
+      { id: 'learn-catalog', label: 'Catalog', href: '/learn/catalog/', desc: 'Every course and learning path', keywords: 'learn catalog courses paths training all', need: 'learn', learn: 'learn' },
+      { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn manage admin author build course path assign report overdue scores hr', need: 'learnAdmin', learn: 'learn' },
+    ],
+  },
+  // learn: end
   {
     id: 'kpi',
     label: 'Reporting',

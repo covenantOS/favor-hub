@@ -21,13 +21,14 @@
     receipts: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
     feedback: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
     brain: '<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/>',
+    learn: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21a2 2 0 0 1 2-2h13v2"/><path d="M8 7h7"/><path d="M8 11h5"/>',
     foundations: '<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>',
     dot: '<circle cx="12" cy="12" r="3"/>',
     arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
   };
   const icon = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n] || ICON.dot}</svg>`;
   // Each tool keeps one color: tile tint and ink come from the shared tool tokens.
-  const TOOL = { requests: 'sky', tasks: 'sky', 'tasks-waiting': 'sun', 'tasks-news': 'sky', expenses: 'sky', receipts: 'sky', brain: 'dusk', meetings: 'teal', feedback: 'sun', foundations: 'leaf' };
+  const TOOL = { requests: 'sky', tasks: 'sky', 'tasks-waiting': 'sun', 'tasks-news': 'sky', expenses: 'sky', receipts: 'sky', brain: 'dusk', meetings: 'teal', feedback: 'sun', foundations: 'leaf', learn: 'sun' };
   const tool = (id) => TOOL[String(id || '').toLowerCase()] || 'slate';
 
   // Show what this tab last saw at once, then refresh it, so a page change never starts from empty.

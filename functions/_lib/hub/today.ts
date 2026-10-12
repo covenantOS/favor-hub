@@ -11,6 +11,9 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
+// learn: begin
+import { learnAccess, learnCards, learnCount } from '../learn/today';
+// learn: end
 
 export interface Access {
   admin: boolean;
@@ -31,6 +34,9 @@ export interface Access {
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
   bell: boolean;
+  /** Learn: open to this person (hub setting learn.enabled), and authoring (a hub admin or a person marked HR). */
+  learn: boolean;
+  learnAdmin: boolean;
 }
 
 /** True when this person is on any request (db/request-tasks.sql). False before the tables exist. */
@@ -44,6 +50,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
   const approver = user.via === 'google' && (await approverEmails(env)).has(email);
   const work = await workAccessFor(env, email, user.role === 'admin').catch(() => null);
   const tasks = user.role === 'admin' || (await onAnyRequest(env, email));
+  const learn = await learnAccess(env, user);
   return {
     admin: user.role === 'admin',
     kpi: user.kpi,
@@ -56,6 +63,8 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     chat: mayUse(await chatMode(env), user),
     tasks,
     bell: (!!work && work.ok) || tasks,
+    learn: learn.learn,
+    learnAdmin: learn.learnAdmin,
   };
 }
 
@@ -114,6 +123,8 @@ export interface Counts {
   board: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
+  /** Learn: courses and paths assigned to this person and not finished. */
+  learn: number;
 }
 
 /** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
@@ -124,7 +135,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, learn] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -135,6 +146,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
     access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
+    learnCount(env, user, access).catch(() => 0),
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -146,6 +158,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     meetingsNow: Number(meetingsNow?.n) || 0,
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
+    learn: Number(learn) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
   };
 }
@@ -305,6 +318,9 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   if (access.tasks) {
     cards.push(...(await taskCards(env, user.email).catch(() => [] as Card[])));
   }
+  // learn: begin
+  cards.push(...(await learnCards(env, user, access).catch(() => [] as Card[])));
+  // learn: end
   if (access.admin) {
     const brain = await brainPending(env);
     const n = Number(brain?.n) || 0;
