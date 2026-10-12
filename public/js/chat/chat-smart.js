@@ -50,7 +50,7 @@
   function wantTr() {
     clearTimeout(trT);
     trT = setTimeout(function () {
-      if (!S || !S.lang) return;
+      if (!S || !S.lang || !root || !root.isConnected) return;
       var ids = [];
       root.querySelectorAll('.ch-msg[data-mid]').forEach(function (el) {
         var id = el.getAttribute('data-mid'), m = app.find(id);

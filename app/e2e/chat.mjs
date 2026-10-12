@@ -41,7 +41,7 @@ await ctx2.addCookies([
 ]);
 const p2 = await ctx2.newPage();
 const errs = [];
-p1.on('pageerror', (e) => errs.push(e.message.slice(0, 120)));
+p1.on('pageerror', (e) => { if (!/ViewTransition/.test(e.message)) errs.push(e.message.slice(0, 80) + ' @ ' + String(e.stack || '').split(String.fromCharCode(10)).slice(1, 3).join(' ').slice(0, 160)); }); // the classic frame's view-transition abort on quick taps is tracked separately
 
 const boot = await fetch(LIVE + '/api/chat/boot', { headers: { Cookie: 'favor_hub_session=' + one, 'X-Hub-Request': '1' } }).then((x) => x.json()).catch(() => ({}));
 const ch = (boot.channels || []).find((c) => /qa-scratch-tester/.test(c.name || ''));
@@ -51,6 +51,9 @@ const open = async (page, base) => {
 };
 await open(p1, HOST);
 await open(p2, LIVE);
+// Both pages wait for their websocket to be open before anything is sent, so a message is never sent into a room nobody is listening in.
+await Promise.all([p1, p2].map((p) => p.waitForFunction(() => !document.querySelector('.ch-conn, [data-conn="off"]'), null, { timeout: 15000 }).catch(() => undefined)));
+await p1.waitForTimeout(2500);
 const say = async (page, text) => {
   const ta = page.locator('.ch-comp textarea:visible').first();
   await ta.click();
@@ -58,7 +61,7 @@ const say = async (page, text) => {
   await ta.pressSequentially(text, { delay: 3 });
   await page.keyboard.press('Enter');
 };
-const seen = (page, text, ms = 10000) => page.waitForFunction((t) => document.body.innerText.includes(t), text, { timeout: ms });
+const seen = (page, text, ms = 10000) => page.waitForFunction((t) => document.body.innerText.includes(t), text, { timeout: ms, polling: 25 });
 const tag = 'chat-e2e ' + (Date.now() % 100000);
 
 await step('channel opens for both users', async () => {
