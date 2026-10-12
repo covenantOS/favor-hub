@@ -136,7 +136,7 @@ const EDITABLE = ['name', 'description', 'team', 'lead_email', 'visibility', 'st
 export async function patchProject(env: Env, actor: Actor, idOrKey: string, b: Record<string, unknown>): Promise<{ project: ProjectRow; changed: string[] }> {
   const p = await projectOf(env, idOrKey);
   const st = await projectStanding(env, actor, p);
-  need(st.manage, 'Only the project lead or a hub admin can change a project.');
+  need(st.manage, 'Only the project lead or a FavorOS admin can change a project.');
   const next: Record<string, unknown> = { ...p };
   const changed: string[] = [];
   const set = (k: string, v: unknown) => {
@@ -240,7 +240,7 @@ export async function deleteSection(env: Env, actor: Actor, idOrKey: string, sid
 
 export async function changeMembers(env: Env, actor: Actor, idOrKey: string, b: Record<string, unknown>) {
   const p = await projectOf(env, idOrKey);
-  need((await projectStanding(env, actor, p)).manage, 'Only the project lead or a hub admin can change who is on a project.');
+  need((await projectStanding(env, actor, p)).manage, 'Only the project lead or a FavorOS admin can change who is on a project.');
   const dir = await directory(env);
   const role = b.role === undefined ? 'member' : oneOf(b.role, ['member', 'lead'] as const, 'role');
   const now = nowIso();

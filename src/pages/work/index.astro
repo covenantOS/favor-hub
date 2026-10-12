@@ -8,6 +8,7 @@ import '../../styles/work-addpartner.css';
 import '../../styles/work-asks.css';
 import '../../styles/work-letters.css';
 import '../../styles/work-cadence.css';
+import '../../styles/work-functions.css';
 import '../../styles/work-week.css';
 import '../../styles/qa-work.css';
 import '../../styles/fix-work.css';
@@ -15,12 +16,14 @@ import '../../styles/qa2-wcasks.css';
 import '../../styles/crit-work.css';
 import '../../styles/crit-work2.css';
 import '../../styles/q3-desk.css';
+import '../../styles/lint-fix.css';
+import '../../styles/wc-fix.css';
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
 ---
 <App full title="Work Center" crumb="Work" nav="work" description="Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place.">
   <div class="wc-root" id="wc-root" aria-live="polite">
-    <div class="wc-intro">
-      <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
-    </div>
+    <div class="wc-intro"></div>
     <div id="view">
       <section class="h-card wc-sheet" id="wc-board" aria-busy="true" aria-label="Open actions"><div class="h-skel" style="height:360px;border-radius:18px"></div></section>
     </div>
@@ -28,18 +31,21 @@ import '../../styles/q3-desk.css';
   <div class="wc-bar" id="bar" role="region" aria-label="Selected actions"></div>
   <div class="wc-toast" id="toast" role="status" aria-live="polite"></div>
   <div id="layer"></div>
-  <script is:inline src="/js/work-tabs.js?v=2" defer></script>
-  <script is:inline src="/js/work-start.js?v=1" defer></script>
-  <script is:inline src="/js/work-edit.js?v=5" defer></script>
+  <script is:inline src="/js/work-tabs.js?v=3" defer></script>
+  <script is:inline src="/js/work-start.js?v=2" defer></script>
+  <script is:inline src="/js/work-edit.js?v=6" defer></script>
   <script is:inline src="/js/work-addpartner.js?v=2" defer></script>
-  <script is:inline src="/js/work-gifts.js?v=4" defer></script>
+  <script is:inline src="/js/work-gifts.js?v=6" defer></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/work.js?v=10" defer></script>
-  <script is:inline src="/js/wc-mine.js?v=4" defer></script>
-  <script is:inline src="/js/work-asks.js?v=3" defer></script>
+  <script is:inline src="/js/work.js?v=13" defer></script>
+  <script is:inline src="/js/wc-mine.js?v=6" defer></script>
+  <script is:inline src="/js/work-asks.js?v=5" defer></script>
   <script is:inline src="/js/work-letter.js?v=2" defer></script>
-  <script is:inline src="/js/work-hqty.js?v=3" defer></script>
-  <script is:inline src="/js/work-cadence.js?v=3" defer></script>
+  <script is:inline src="/js/work-hqty.js?v=5" defer></script>
+  <script is:inline src="/js/work-cadence.js?v=4" defer></script>
+  <script is:inline src="/js/work-declines.js?v=2" defer></script>
+  <script is:inline src="/js/work-grants.js?v=2" defer></script>
+  <script is:inline src="/js/work-giftimages.js?v=2" defer></script>
   <script is:inline src="/js/work-week-report.js?v=1" defer></script>
-  <script is:inline src="/js/work-week.js?v=3" defer></script>
+  <script is:inline src="/js/work-week.js?v=4" defer></script>
 </App>

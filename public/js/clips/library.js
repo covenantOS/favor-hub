@@ -16,6 +16,7 @@ const SCOPE = ($('cl') && $('cl').dataset.scope) || 'mine';
 const ADMIN_VIEW = SCOPE === 'all';
 let rows = [];
 let people = [];
+let peopleCap = 0;
 let usage = null;
 let q = '';
 let timer = 0;
@@ -23,6 +24,9 @@ let poll = 0;
 let sort = 'new';
 let filter = 'all';
 let picking = false;
+// A long library draws 60 clips at a time.
+const PAGE = 60;
+let limit = PAGE;
 const picked = new Set();
 
 const SORTS = {
@@ -39,11 +43,11 @@ const shown = () => rows.filter((c) => (filter === 'shared' ? c.share : filter =
 function cardHtml(c) {
   const when = et(c.created_at, { month: 'short', day: 'numeric', year: 'numeric' });
   const views = Number(c.views) === 1 ? '1 view' : `${Number(c.views).toLocaleString('en-US')} views`;
-  const thumb = c.has_poster ? `<img src="/api/clips/${c.id}/media?poster=1" alt="" loading="lazy" />` : '';
+  const thumb = c.has_poster ? `<img src="/api/clips/${c.id}/media?poster=1" alt="" loading="lazy" onerror="this.remove()" />` : '';
   const dur = c.duration_ms ? `<b>${fmtTime(c.duration_ms / 1000)}</b>` : '';
   const naming = c.status === 'processing' ? '<span class="cl-badge">Writing the title</span>' : '';
   const sum = c.summary ? `<p class="cl-sum">${esc(c.summary)}</p>` : '';
-  const hit = c.match ? `<a class="cl-hit" href="/c/${c.id}?t=${Math.floor(c.match.at)}"><span>${fmtTime(c.match.at)}</span>${esc(c.match.text)}</a>` : '';
+  const hit = c.match ? `<a class="cl-hit" href="/c/${c.id}?t=${Math.floor(c.match.at)}"><span>${fmtTime(c.match.at)}</span><span class="cl-hit__t">${esc(c.match.text)}</span></a>` : '';
   const on = picked.has(c.id);
   return `<article class="h-card cl-card${picking ? ' is-picking' : ''}${on ? ' is-picked' : ''}" data-id="${c.id}">
     ${picking ? `<button type="button" class="cl-pick" data-act="pick" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(c.title || 'clip')}"><i></i></button>` : ''}
@@ -69,10 +73,10 @@ function paintUsage() {
   if (!box) return;
   if (ADMIN_VIEW) {
     box.hidden = !people.length;
-    const cap = 10 * 1024 ** 3;
+    const cap = peopleCap || 10 * 1024 ** 3;
     box.innerHTML = people.length
-      ? `<div class="cl-ppl" role="table" aria-label="Storage by person"><div class="cl-ppl__h" role="row"><span>Person</span><span>Clips</span><span>Storage</span><span>Of 10 GB</span></div>${people
-          .map((p) => `<div class="cl-ppl__r" role="row"><span><b>${esc(p.name || p.email)}</b>${p.team ? ` <em>${esc(p.team)}</em>` : ''}${p.blocked ? ' <i class="cl-tag">Blocked</i>' : ''}<small>${esc(p.email)}</small></span><span>${Number(p.clips)}</span><span>${esc(fmtBytes(p.bytes))}</span><span><i class="cl-meter${p.bytes >= cap * 0.8 ? ' is-warn' : ''}"><u style="width:${Math.min(100, Math.round((p.bytes / cap) * 100))}%"></u></i></span></div>`)
+      ? `<div class="cl-ppl" role="table" aria-label="Storage by person"><div class="cl-ppl__h" role="row"><span>Person</span><span>Clips</span><span>Storage</span><span>Of ${esc(fmtBytes(cap))}</span></div>${people
+          .map((p) => `<div class="cl-ppl__r" role="row"><span><b>${esc(p.name || p.email)}</b>${p.team ? ` <em>${esc(p.team)}</em>` : ''}${p.blocked ? ' <i class="cl-tag">Blocked</i>' : ''}<small>${esc(p.email)}</small></span><span>${Number(p.clips).toLocaleString('en-US')}</span><span>${esc(fmtBytes(p.bytes))}</span><span><i class="cl-meter${p.bytes >= cap * 0.8 ? ' is-warn' : ''}"><u style="width:${Math.min(100, Math.round((p.bytes / cap) * 100))}%"></u></i></span></div>`)
           .join('')}</div>`
       : '';
     return;
@@ -82,7 +86,7 @@ function paintUsage() {
   const old = (usage.oldestUnwatched || [])
     .map((c) => `<li data-id="${c.id}"><a href="/c/${c.id}">${esc(c.title || 'Untitled clip')}</a><span>${esc(et(c.created_at, { month: 'short', day: 'numeric', year: 'numeric' }))} · ${esc(fmtBytes(c.size_bytes))}</span><button type="button" class="h-btn h-btn--ghost h-btn--sm cl-danger" data-act="delete-old">Delete</button></li>`)
     .join('');
-  box.innerHTML = `<div class="cl-use${usage.warn ? ' is-warn' : ''}"><div class="cl-use__t"><b>${esc(fmtBytes(usage.used))}</b> of ${esc(fmtBytes(usage.cap))} used by ${usage.clips === 1 ? '1 clip' : `${usage.clips} clips`}</div><i class="cl-meter${usage.warn ? ' is-warn' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${usage.pct}"><u style="width:${usage.pct}%"></u></i>
+  box.innerHTML = `<div class="cl-use${usage.warn ? ' is-warn' : ''}"><div class="cl-use__t"><b>${esc(fmtBytes(usage.used))}</b> of ${esc(fmtBytes(usage.cap))} used</div><i class="cl-meter${usage.warn ? ' is-warn' : ''}" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${usage.pct}"><u style="width:${usage.pct}%"></u></i>
     ${usage.warn ? `<p class="cl-use__w">${usage.full ? 'Your clips use all of your space, so new recordings wait until you delete some.' : 'You are past 80% of your space.'} These are your oldest clips that nobody has watched.</p>${old ? `<ul class="cl-old">${old}</ul>` : '<p class="cl-use__w">Every clip you have was watched. Delete the ones you no longer need.</p>'}` : ''}</div>`;
 }
 
@@ -92,10 +96,11 @@ function paint() {
   box.removeAttribute('aria-busy');
   const list = shown();
   for (const id of [...picked]) if (!rows.some((c) => c.id === id)) picked.delete(id);
-  $('cl-count-label').textContent = list.length ? (list.length === 1 ? '1 clip' : `${list.length} clips`) : '';
+  $('cl-count-label').textContent = list.length ? (list.length === 1 ? '1 clip' : `${list.length.toLocaleString('en-US')} clips`) : '';
   if (list.length) {
     box.className = 'cl-grid';
-    box.innerHTML = list.map(cardHtml).join('');
+    const left = list.length - limit;
+    box.innerHTML = list.slice(0, limit).map(cardHtml).join('') + (left > 0 ? `<div class="cl-more"><button type="button" class="h-btn h-btn--ghost" data-act="more">Show ${Math.min(PAGE, left)} more</button><span>${left.toLocaleString('en-US')} not shown</span></div>` : '');
   } else {
     box.className = '';
     box.innerHTML = rows.length
@@ -162,12 +167,13 @@ async function load(quiet) {
     const d = await api(`/api/clips?${p}`);
     rows = d.clips || [];
     people = d.people || [];
+    peopleCap = Number(d.cap) || 0;
     usage = d.usage || null;
     paint();
   } catch (e) {
     $('cl-rows').removeAttribute('aria-busy');
     if (e.status === 403) {
-      $('cl-rows').innerHTML = '<div class="h-card cl-empty">This view is for hub admins.</div>';
+      $('cl-rows').innerHTML = '<div class="h-card cl-empty">This view is for FavorOS admins.</div>';
     } else if (!quiet) {
       $('cl-rows').innerHTML = '<div class="h-card cl-empty">Your clips did not load. Refresh the page to try again.</div>';
     }
@@ -207,6 +213,15 @@ function startPreview(thumb) {
 
 function wire() {
   const box = $('cl-rows');
+  // A poster that is missing leaves the plain dark tile, never a broken-picture mark.
+  box.addEventListener('error', (e) => {
+    if (e.target && e.target.tagName === 'IMG') e.target.remove();
+  }, true);
+  box.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-act=more]')) return;
+    limit += PAGE;
+    paint();
+  });
   box.addEventListener('pointerover', (e) => {
     const th = e.target.closest('[data-thumb]');
     if (th && (!current || !th.contains(current.v))) startPreview(th);
@@ -258,10 +273,12 @@ function wire() {
   const sortEl = $('cl-sort');
   if (sortEl) sortEl.addEventListener('change', () => {
     sort = sortEl.value;
+    limit = PAGE;
     paint();
   });
   document.querySelectorAll('.cl-chip[data-f]').forEach((chip) => chip.addEventListener('click', () => {
     filter = chip.dataset.f;
+    limit = PAGE;
     document.querySelectorAll('.cl-chip[data-f]').forEach((x) => {
       x.classList.toggle('is-on', x === chip);
       x.setAttribute('aria-pressed', String(x === chip));
@@ -330,6 +347,7 @@ function wire() {
     clearTimeout(timer);
     timer = setTimeout(() => {
       q = $('cl-q').value.trim();
+      limit = PAGE;
       load();
     }, 250);
   });

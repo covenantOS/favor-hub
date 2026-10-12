@@ -684,10 +684,10 @@ export async function audienceOf(env: Env, t: TaskRow): Promise<Set<string>> {
 
 export async function deleteTask(env: Env, actor: Actor, idOrCode: string, hard: boolean): Promise<{ task: TaskRow; project: ProjectRow | null; hard: boolean }> {
   const { task, project, st } = await taskAccess(env, actor, idOrCode);
-  need(st.remove, 'Only the person who made the task, the project lead or a hub admin can remove it.');
+  need(st.remove, 'Only the person who made the task, the project lead or a FavorOS admin can remove it.');
   const ids = [task.id, ...(await descendants(env, task.id))];
   if (hard) {
-    need(actor.admin, 'Only a hub admin can delete a task for good.');
+    need(actor.admin, 'Only a FavorOS admin can delete a task for good.');
     for (const id of ids) {
       const keys = await env.DB.prepare(`SELECT ref_id FROM hub_task_files WHERE task_id = ? AND kind = 'upload' AND ref_id IS NOT NULL`).bind(id).all<{ ref_id: string }>();
       for (const k of keys.results || []) await Promise.resolve(env.UPLOADS?.delete?.(k.ref_id)).catch(() => undefined);

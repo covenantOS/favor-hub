@@ -107,7 +107,7 @@
   .h-page input:not([type='checkbox']):not([type='radio']):not([type='file']), .h-page select, .h-page textarea { font-size: 16px; }
 
   /* big display type sized for a phone */
-  .ba-head h1, .hd-hero h1 { font-size: 30px; }
+  .ba-head h1, .hd-hero h1 { font-size: 28px; }
   .hd-hero p { font-size: 15px; }
   .ba-stat b { font-size: 26px; }
   .ba-stats { grid-template-columns: 1fr 1fr; gap: 10px; }

@@ -10,8 +10,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const today = () => WC().TODAY;
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(today().slice(0, 4)) ? ', ' + y : ''); };
-const money = (a) => '$' + Math.round(Number(a) || 0).toLocaleString('en-US');
-const short = (v) => (v >= 1e6 ? '$' + (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + 'M' : v >= 1000 ? '$' + (v / 1000).toFixed(v % 1000 && v < 1e5 ? 1 : 0) + 'K' : money(v));
+const money = (a) => { const n = Math.round(Number(a) || 0); return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
+const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const WDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const addDays = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const dow = (ymd) => new Date(ymd + 'T12:00:00Z').getUTCDay();
@@ -69,12 +69,12 @@ function rowHTML(r) {
   const delta = r.p12 ? (r.l12 >= r.p12 ? 'Up from ' : 'Down from ') + short(r.p12) : r.l12 ? 'New this year' : 'No gifts';
   const tel = r.phone ? 'tel:' + r.phone.replace(/[^\d+]/g, '') : '';
   const call = tel ? `<a class="wm-icon" href="${esc(tel)}" title="Call ${esc(r.phone)}" aria-label="Call ${esc(r.name)}">${ic('phone')}</a>` : `<span class="wm-icon is-off" title="${r.dnc ? 'Do not call' : 'No phone to call'}" aria-label="${r.dnc ? 'Do not call' : 'No phone to call'}">${ic('phone')}</span>`;
-  const next = r.next ? (r.next.planned ? `<span class="wc-tag wc-tag--done" title="${esc(r.next.summary)}">${esc(r.next.summary ? r.next.summary.slice(0, 26) : 'Task')} ${fd(r.next.due)}</span>` : `<span class="wc-tag" title="${esc(r.next.summary)} · due ${fd(r.next.due, true)}">${esc((r.next.summary || 'Open task').slice(0, 34))}</span>`) : `<button type="button" class="wm-addtask" data-wm-task1="${esc(r.cid)}">+ Task</button>`;
+  const next = r.next ? (r.next.planned ? `<span class="wc-tag wc-tag--done" title="${esc(r.next.summary)}"><span class="wm-next__t">${esc(r.next.summary || 'Task')}</span> ${fd(r.next.due)}</span>` : `<span class="wc-tag" title="${esc(r.next.summary)} · due ${fd(r.next.due, true)}"><span class="wm-next__t">${esc(r.next.summary || 'Open task')}</span></span>`) : `<button type="button" class="wm-addtask" data-wm-task1="${esc(r.cid)}">+ Task</button>`;
   const prep = window.WCPrep && window.WCPrep.open;
   return `<div class="wm-row wm-port${on ? ' is-picked' : ''}" data-cid="${esc(r.cid)}">
     <label class="wm-cb"><input type="checkbox" data-wm-pick="${esc(r.cid)}" ${on ? 'checked' : ''} aria-label="Select ${esc(r.name)}" /></label>
-    <div class="wm-c-who"><a class="wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wm-sub">${esc(r.place || 'No city on file')}${r.lookup ? ' · ID ' + esc(r.lookup) : ''}</span></div>
-    <div class="wm-quiet wm-c-quiet ${cls}"><b>${q === null ? 'Never' : q + (q === 1 ? ' day' : ' days')}</b><small>${r.last ? fd(r.last.date, true) + ' · ' + esc(r.last.how) : 'No contact on file'}</small></div>
+    <div class="wm-c-who"><a class="wm-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(String(r.name || '').trim() || 'No name on file')}</a><span class="wm-sub">${esc(r.place || 'No city on file')}${r.lookup ? ' · ID ' + esc(r.lookup) : ''}</span></div>
+    <div class="wm-quiet wm-c-quiet ${cls}"><b>${q === null ? 'Never' : plural(q, 'day')}</b><small>${r.last ? fd(r.last.date, true) + ' · ' + esc(r.last.how) : 'No contact on file'}</small></div>
     <div class="wm-num wm-c-last">${g ? money(g.amount) : 'None'}<small>${g ? fd(g.date, true) + (g.soft ? ' · soft credit' : '') : ''}</small></div>
     <div class="wm-num wm-c-12">${money(r.l12)}<small>${esc(delta)}</small></div>
     <div class="wm-num wm-c-life">${short(r.life)}<small>${plural(r.gifts, 'gift')}</small></div>
@@ -112,7 +112,7 @@ function paint() {
         ${list.length > shown.length ? `<div class="wm-more"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-more>Show ${Math.min(100, list.length - shown.length)} more of ${list.length - shown.length}</button></div>` : ''}
       </div>
       <div class="wm-bulk${M.sel.size ? ' is-on' : ''}" role="region" aria-label="Selected partners"><b>${M.sel.size} selected</b><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-plan>${ic('clock')}Plan calls</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-clear>Clear</button></div>
-      <div class="wm-foot"><span>${list.length.toLocaleString('en-US')} of ${st.held.toLocaleString('en-US')} partners held by ${esc(who)} as RDD, Prospect Steward or Church Engagement Director. A contact is a completed call, visit or email. A mailed letter is not one.</span><span class="copy-stamp" data-copy-stamp data-iso="${esc(WC().DATA.synced || '')}"></span></div>
+      <div class="wm-foot"><span>${list.length.toLocaleString('en-US')} of ${plural(st.held, 'partner')} held by ${esc(who)} as RDD, Prospect Steward or Church Engagement Director. A contact is a completed call, visit or email. A mailed letter is not one.</span><span class="copy-stamp" data-copy-stamp data-iso="${esc(WC().DATA.synced || '')}"></span></div>
     </section>`;
 }
 
@@ -272,7 +272,7 @@ window.WCX.push({
   const me = wc.DATA.me;
   if (!(me.role === 'admin' || me.role === 'support' || (me.role === 'director' && me.fid)) || M.data || M.loading) return;
   let owner = ''; try { owner = sessionStorage.getItem('wm.owner') || ''; } catch (_) { /* none */ }
-  load(me.role === 'director' && me.fid ? me.fid : owner).then(() => { if (wc.S.view !== 'mine') wc.render(); });
+  load(me.role === 'director' && me.fid ? me.fid : owner).then(() => { if (wc.S.view !== 'mine') wc.refresh('mine'); });
 })(0);
 window.WCMine = { reload: async () => { await load(M.owner, true); if (WC().S.view === 'mine') paint(); }, _M: M };
 })();

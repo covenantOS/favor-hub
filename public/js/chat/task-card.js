@@ -8,13 +8,15 @@
   }
   function html(a, u) {
     var esc = u.esc;
-    var kick = a.kind === 'mention' ? 'Named on a request' : 'Sent a request';
+    var kick = a.kind === 'mention' ? 'Named on a request' : a.kind === 'made' ? 'Made a request' : 'Sent a request';
     var meta = [a.status_label, a.owner ? 'Owner ' + a.owner : '', a.due_date ? 'Due ' + day(a.due_date) : ''].filter(Boolean).join(' · ');
-    var note = a.note ? String(a.note).replace(/<@([^>\s]+)>/g, function (_, id) { return '@' + id.split('@')[0]; }) : '';
+    // Mentions in the note are the same tokens the comment box makes (mention-input.js), named from the card's own list.
+    var names = a.names || {};
+    var noteHtml = !a.note ? '' : window.FavorMention ? window.FavorMention.render(a.note, names) : esc(String(a.note).replace(/<@([^>\s]+)>/g, function (_, id) { return '@' + (names[id] || id.split('@')[0]); }));
     return '<a class="ch-card rt-tcard" href="' + esc(a.url) + '" data-status="' + esc(a.status) + '">' +
       '<span class="rt-tcard__k"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg>' + esc(kick) + '</span>' +
       '<span class="ch-card__t">' + esc(a.title) + '</span>' +
-      (note ? '<span class="rt-tcard__note">' + esc(note) + '</span>' : '') +
+      (noteHtml ? '<span class="rt-tcard__note">' + noteHtml + '</span>' : '') +
       '<span class="rt-tcard__row"><span class="ch-card__m">' + esc(meta) + '</span><span class="ch-btn ch-btn--sm">Open</span></span></a>';
   }
   window.FavorTaskCard = { html: html };

@@ -87,15 +87,16 @@ export async function readNotices(env: Env, email: string, opts: { ids?: string[
 
 /**
  * Tells each owner about tasks due tomorrow or today that they have not been told about. Meant for a morning schedule; it is
- * safe to run twice in a day (one due_soon notice per task per person). Returns how many notices were saved.
+ * safe to run twice in a day (an owner hears about a task once in any 20 hours). Returns how many notices were saved.
  */
-export async function dueSoonSweep(env: Env, today: string, tomorrow: string): Promise<number> {
+export async function dueSoonSweep(env: Env, today: string, tomorrow: string, now: Date = new Date()): Promise<number> {
+  const since = new Date(now.getTime() - 20 * 3600 * 1000).toISOString();
   const rows = await env.DB.prepare(
     `SELECT t.id, t.owner_email, t.title FROM hub_tasks t
       WHERE t.due_date IN (?, ?) AND t.status NOT IN ('done', 'dropped') AND t.owner_email IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM hub_task_notices n WHERE n.task_id = t.id AND n.email = t.owner_email AND n.kind = 'due_soon' AND n.created_at >= ?)`
   )
-    .bind(today, tomorrow, today)
+    .bind(today, tomorrow, since)
     .all<{ id: string; owner_email: string; title: string }>();
   let n = 0;
   for (const r of rows.results || []) n += (await tell(env, r.id, 'system', [{ email: r.owner_email, kind: 'due_soon', body: r.title }])).length;

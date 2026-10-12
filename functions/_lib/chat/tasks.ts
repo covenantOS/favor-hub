@@ -13,7 +13,7 @@ import { staffDirectory } from '../people';
 import { getRequest } from '../db';
 import { addComment } from '../requests/tasks';
 
-export type CardKind = 'sent' | 'mention';
+export type CardKind = 'sent' | 'mention' | 'made';
 type ChatTaskEnv = Env & Partial<LiveEnv>;
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
@@ -44,6 +44,12 @@ export async function postCard(env: ChatTaskEnv, input: { from: string; to: stri
   const from = lower(input.from);
   const to = lower(input.to);
   const ch = await store.openConversation(env, from, [to]);
+  // A mention between two people who already have this request's card in their direct message adds no second card: the
+  // comment is copied into that card's thread instead.
+  if (input.kind === 'mention') {
+    const had = await env.DB.prepare(`SELECT MAX(message_id) AS id FROM request_chat_links WHERE request_id = ? AND channel_id = ? AND kind = 'card'`).bind(input.requestId, ch.id).first<{ id: number | null }>();
+    if (had?.id) return had.id;
+  }
   const posted = await store.post(env, {
     channel_id: ch.id,
     email: from,
@@ -85,6 +91,22 @@ export async function copyComment(
     made.push(posted.message.id);
   }
   return made;
+}
+
+/**
+ * A request made from Chat (/request, or "Create a request from this message"): the card is posted in the conversation it
+ * was made in, by the person who made it, and a reply under it is a comment on the request, as under any other card.
+ */
+export async function postMadeCard(env: ChatTaskEnv, input: { from: string; channelId: string; threadId?: number | null; requestId: string; note: string }): Promise<store.Posted> {
+  const posted = await store.post(env, {
+    channel_id: input.channelId,
+    email: lower(input.from),
+    body: '',
+    thread_id: input.threadId || null,
+    attachments: [{ type: 'task', id: input.requestId, kind: 'made', note: String(input.note || '').slice(0, 600) }],
+  });
+  if (!input.threadId) await link(env, { message_id: posted.message.id, request_id: input.requestId, channel_id: input.channelId, root_id: null, comment_id: null, kind: 'card' }).catch(() => undefined);
+  return posted;
 }
 
 /** The request a card belongs to, when this message is one. */
@@ -135,6 +157,16 @@ export async function taskDeleted(env: ChatTaskEnv, messageId: number): Promise<
   }
 }
 
+/** The people a note names, so the card draws each mention as a name without asking again. */
+function namesIn(note: string, dir: Map<string, { name: string }>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const m of note.matchAll(/<@([^>\s]+)>/g)) {
+    const id = lower(m[1]);
+    out[id] = dir.get(id)?.name || id.split('@')[0];
+  }
+  return out;
+}
+
 /** Fills each task card from the request as it is now: title, status, owner and due date. The note stays as it was sent. */
 export async function hydrateTaskCards(env: ChatTaskEnv, list: store.Attachment[]): Promise<store.Attachment[]> {
   const ids = [...new Set(list.filter((a) => a.type === 'task' && typeof a.id === 'string').map((a) => String(a.id)))];
@@ -152,7 +184,7 @@ export async function hydrateTaskCards(env: ChatTaskEnv, list: store.Attachment[
     const t = byTask.get(r.id);
     const owner = t?.owner_email ? dir.get(t.owner_email) : null;
     return {
-      type: 'task', id: r.id, kind: a.kind === 'mention' ? 'mention' : 'sent', note: String(a.note || ''), title: r.title, status: r.status, status_label: STATUS[r.status] || r.status,
+      type: 'task', id: r.id, kind: a.kind === 'mention' ? 'mention' : a.kind === 'made' ? 'made' : 'sent', note: String(a.note || ''), names: namesIn(String(a.note || ''), dir), title: r.title, status: r.status, status_label: STATUS[r.status] || r.status,
       owner: owner ? owner.name : t?.owner_email || '', due_date: t?.due_date || '', url: `/requests/?r=${encodeURIComponent(r.id)}`,
     };
   });

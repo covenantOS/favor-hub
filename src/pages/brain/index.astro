@@ -7,9 +7,12 @@ import App from '../../layouts/App.astro';
 import '../../styles/brain.css';
 import '../../styles/fix-brain.css';
 import '../../styles/crit-brain.css';
+import '../../styles/lint-fix.css';
 import { SPRITE } from './_icons';
 
 const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use href="#bci-${n}"/></svg>`;
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
 ---
 <App title="Favor Brain" crumb="Work" nav="brain" bare description="Ask about partners, giving, team numbers, iWave ratings, grants and the manuals, here or from Claude or ChatGPT.">
   <div class="bc-root">
@@ -33,7 +36,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
 
       <section class="bc-pane" aria-label="Chat">
         <div class="bc-connect" id="bc-connect" hidden>
-          <div class="bc-connect__t"><b>Use Favor Brain inside Claude.</b> <span>Favor has a Claude organization. Ask the technology team for a seat, then connect it once.</span></div>
+          <div class="bc-connect__t"><b>Favor Brain works inside Claude.</b> <span>Ask the technology team for a seat.</span></div>
           <div class="bc-connect__a">
             <button type="button" class="h-btn h-btn--primary h-btn--sm" data-act="connect">Connect</button>
             <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="connect-later">Not now</button>
@@ -41,13 +44,13 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
           </div>
         </div>
         <div class="bc-bar">
-          <button type="button" class="bc-pn" id="bc-hubmenu" aria-label="Hub menu" aria-controls="h-side"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>
+          <button type="button" class="bc-pn" id="bc-hubmenu" aria-label="FavorOS menu" aria-controls="h-side"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>
           <div class="bc-seg" id="bc-seg"><button type="button" data-seg="ask" aria-pressed="true">Ask</button><button type="button" data-seg="history" aria-pressed="false">History</button></div>
           <button type="button" class="ib ib--bare" id="bc-railbtn" aria-label="Show your chats" aria-expanded="true" data-tip="Your chats"><Fragment set:html={I('rail')} /></button>
           <button type="button" class="ib ib--bare" id="bc-new2" aria-label="New chat" data-tip="New chat"><Fragment set:html={I('edit')} /></button>
           <button type="button" class="bc-bar__title" id="bc-title" aria-label="Rename this chat">New chat</button>
           <div class="bc-bar__right">
-            <button type="button" class="ib ib--bare" id="bc-focus" aria-label="Hide the hub menu while chatting" aria-pressed="false" data-tip="Focus"><Fragment set:html={I('focus')} /></button>
+            <button type="button" class="ib ib--bare" id="bc-focus" aria-label="Hide the FavorOS menu while chatting" aria-pressed="false" data-tip="Focus"><Fragment set:html={I('focus')} /></button>
             <button type="button" class="ib ib--bare" id="bc-menu" aria-label="More" aria-haspopup="menu" data-tip="More"><Fragment set:html={I('more')} /><span class="dot" id="bc-menudot" hidden></span></button>
           </div>
         </div>
@@ -62,7 +65,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
               <textarea id="bc-input" rows="1" maxlength="600" placeholder="Ask about partners, giving, team numbers, iWave or the manuals" autocomplete="off"></textarea>
               <button type="submit" class="bc-send" id="bc-send" aria-label="Send" disabled><Fragment set:html={I('send')} /></button>
             </form>
-            <div class="bc-fine"><i class="h-beta">Beta</i><span class="bc-fine__l">Answers can be off. Press <b>Not right</b> under an answer and your note reaches Will.</span><span class="bc-fine__s">Answers can be off. <b>Not right</b> tells Will.</span></div>
+            <div class="bc-fine"><span class="bc-fine__l">Answers can be off. <b>Not right</b> under an answer reports it.</span><span class="bc-fine__s">Answers can be off. <b>Not right</b> reports it.</span></div>
           </div>
         </div>
       </section>
@@ -75,7 +78,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
     <div class="dlg" id="bc-dlg" role="dialog" aria-modal="true" aria-labelledby="bc-dlg-h"></div>
     <div class="toast" id="bc-toast" role="status" aria-live="polite"></div>
   </div>
-  <script is:inline src="/js/brain-blocks.js?v=8"></script>
+  <script is:inline src="/js/brain-blocks.js?v=12"></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/brain.js?v=15" defer></script>
+  <script is:inline src="/js/brain.js?v=18" defer></script>
 </App>

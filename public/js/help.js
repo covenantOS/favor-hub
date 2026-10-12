@@ -33,7 +33,6 @@
     });
     const box = $('hd-foryou');
     if (!box) return;
-    const NAMES = { rdd: 'RDDs', pc: 'Partner Care', ce: 'Church Engagement', grants: 'Grants', marketing: 'Marketing', admin: 'the hub admin', approver: 'expense approvers', leader: 'leadership', kpi: 'dashboard users' };
     const picks = [];
     document.querySelectorAll('.hd-topic li[data-for]').forEach((li) => {
       const f = li.dataset.for.split(' ');
@@ -43,8 +42,6 @@
     const starters = ['getting-started', 'ask-favor', 'feedback'].map((id) => document.querySelector(`[data-doc="${id}"]`)).filter(Boolean);
     const list = [...picks, ...starters].slice(0, 6);
     if (!list.length) { box.hidden = true; return; }
-    const mine = [...tags].filter((t) => NAMES[t] && t !== 'kpi');
-    $('hd-foryou-who').textContent = mine.length ? 'Picked for ' + mine.map((t) => NAMES[t]).slice(0, 3).join(', ') : 'Good places to start';
     $('hd-foryou-list').innerHTML = list
       .map((a) => `<a class="h-card hd-card" href="${esc(a.getAttribute('href'))}"><b>${esc(a.textContent)}</b><span>${esc(a.dataset.summary || '')}</span></a>`)
       .join('');

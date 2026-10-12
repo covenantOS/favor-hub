@@ -8,20 +8,22 @@ import '../../styles/receipts.css';
 import '../../styles/qa-work.css';
 import '../../styles/crit-forms.css';
 import '../../styles/q3-desk.css';
+import '../../styles/lint-fix.css';
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
 ---
 <App title="Receipts" crumb="Work" nav="receipts" description="Every gift Blackbaud has not receipted yet, ready to print on the receipt paper.">
   <div class="fnd-page rcp-page">
     <div class="container">
       <header class="board-intro">
         <div>
-          <p class="make-kicker">Marketing</p>
           <h1>Receipts</h1>
           
         </div>
         <div class="board-intro__actions" id="rcp-actions" hidden>
           <label class="fnd-who">
             <span>Your name</span>
-            <input id="rcp-who" list="rcp-staff" placeholder="Your name" autocomplete="off" maxlength="60" />
+            <input id="rcp-who" list="rcp-staff" autocomplete="off" maxlength="60" />
             <datalist id="rcp-staff">
               <option value="Morgan"></option>
               <option value="Megan"></option>
@@ -78,5 +80,5 @@ import '../../styles/q3-desk.css';
   </div>
 
   <div class="fnd-toast" id="rcp-toast" role="status" aria-live="polite"></div>
-  <script is:inline src="/js/receipts.js?v=13"></script>
+  <script is:inline src="/js/receipts.js?v=15"></script>
 </App>

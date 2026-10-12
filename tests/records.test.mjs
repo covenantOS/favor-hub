@@ -365,7 +365,7 @@ describe('record flags and status', () => {
     const out = await svc.createBatch(ctx, { op: 'pstatus', cid: '100', status: 'deceased', date: '2026-10-08', effects: { endPartner: false, endAssignments: false, doNotSolicit: false }, req: 'x1' });
     await runAll(out.batch.id);
     const rows = db.prepare("SELECT label FROM hub_audit WHERE area = 'records' ORDER BY id").all().map((r) => r.label);
-    assert.deepEqual(rows, ['Marked deceased: Hub copy', 'Marked deceased: GoHighLevel', 'Marked deceased: Giving portal', 'Marked deceased: Work Center']);
+    assert.deepEqual(rows, ['Marked deceased: FavorOS copy', 'Marked deceased: GoHighLevel', 'Marked deceased: Giving portal', 'Marked deceased: Work Center']);
     const back = await svc.createBatch(ctx, { op: 'pstatus', cid: '100', status: 'active', req: 'x2' });
     await runAll(back.batch.id);
     assert.equal(db.prepare("SELECT COUNT(*) AS n FROM hub_audit WHERE area = 'records' AND label LIKE 'Marked active%'").get().n, 4);

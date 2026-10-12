@@ -38,12 +38,12 @@
     var t = S.settings.token, w = t.who;
     var state = !t.saved ? 'No token saved.' : (w ? 'Connected as ' + E(w.name) + ' (' + E(w.email) + '), ' + (w.workspaces || []).map(function (x) { return E(x.name); }).join(', ') + '. Tested ' + E(A.ago(w.at)) + '.' : 'A token is saved and has not been tested.');
     return '<section class="ad-card"><h2>Asana</h2><p class="ad-card__meta">' + state + (t.saved && t.by ? ' Saved by ' + E(t.by) + '.' : '') + '</p>' +
-      (S.settings.sealing ? '' : '<p class="ad-msg ad-msg--bad">This copy of the hub has no key to seal a token with, so it cannot keep one.</p>') +
+      (S.settings.sealing ? '' : '<p class="ad-msg ad-msg--bad">This copy of FavorOS has no key to seal a token with, so it cannot keep one.</p>') +
       '<div class="ap-row"><label class="ap-grow"><span class="ap-lab">Personal access token</span><input class="ad-field" id="ap-token" type="password" autocomplete="off" spellcheck="false" placeholder="' + (t.saved ? 'Saved. Paste a new one to replace it.' : 'Paste the token') + '"></label></div>' +
       '<div class="ad-acts ap-left"><button type="button" class="ad-btn ad-btn--primary" data-act="save-token">Save token</button>' +
       '<button type="button" class="ad-btn" data-act="test"' + (t.saved ? '' : ' disabled') + '>Connect and test</button>' +
       (t.saved ? '<button type="button" class="ad-btn" data-act="remove-token">Remove token</button>' : '') + '<p class="ad-msg" data-msg="token" role="status"></p></div>' +
-      '<p class="ad-card__meta">The hub only reads from Asana. It never creates, changes or comments on anything there.</p></section>';
+      '<p class="ad-card__meta">FavorOS only reads from Asana. It never creates, changes or comments on anything there.</p></section>';
   }
 
   /* ----------------------------------------------------------------------------------------------------- the picker */
@@ -73,8 +73,8 @@
       '<details class="ap-more"><summary>Options</summary><div class="ad-form">' +
       '<label>Team label on each project<input class="ad-field" id="ap-team" value="' + E(S.opt.team) + '" placeholder="Marketing" maxlength="60"></label>' +
       '<label>Who can see the projects<select class="ad-field" id="ap-vis">' + opt('staff', 'Every staff member', S.opt.visibility) + opt('members', 'Members only', S.opt.visibility) + '</select></label>' +
-      '<label class="ad-check"><input type="checkbox" id="ap-copy"' + (S.opt.copyFiles ? ' checked' : '') + '> Copy Asana files into the hub</label>' +
-      '<label class="ad-check"><input type="checkbox" id="ap-over"' + (S.opt.overwrite ? ' checked' : '') + '> Replace tasks edited in the hub since the last import</label>' +
+      '<label class="ad-check"><input type="checkbox" id="ap-copy"' + (S.opt.copyFiles ? ' checked' : '') + '> Copy Asana files into FavorOS</label>' +
+      '<label class="ad-check"><input type="checkbox" id="ap-over"' + (S.opt.overwrite ? ' checked' : '') + '> Replace tasks edited in FavorOS since the last import</label>' +
       '<label>Asana address = hub address, one per line<textarea class="ad-field" id="ap-map" rows="3" placeholder="name@gmail.com = name@favorintl.org">' + E(S.opt.map) + '</textarea></label>' +
       '</div></details>' +
       '<div class="ad-acts ap-left"><button type="button" class="ad-btn ad-btn--primary" data-act="dry" id="ap-dry">Dry run</button>' +
@@ -128,7 +128,7 @@
     var html = '<h3 class="ap-h3">' + (dry ? 'What an import would do' : 'What the import did') + '</h3><div class="ad-scroll"><table class="ad-table ap-table"><thead><tr><th>Project</th><th class="num">' + (dry ? 'New' : 'Made') + '</th><th class="num">Updated</th><th class="num">Unchanged</th><th class="num">Subtasks</th><th class="num">Sections</th><th class="num">Comments</th><th class="num">Files</th><th class="num">' + (dry ? 'Asana says' : 'Asana says / hub has') + '</th></tr></thead><tbody>' + ps.map(function (p) { return '<tr>' + cells(p) + '</tr>'; }).join('') + '</tbody></table></div>';
     var tot = ps.reduce(function (o, p) { o.kept += p.tasks.kept; o.also += p.tasks.alsoIn; o.err += p.tasks.errors; o.tags += p.tags; o.fields += p.fields; o.deps += p.deps; return o; }, { kept: 0, also: 0, err: 0, tags: 0, fields: 0, deps: 0 });
     html += '<p class="ad-card__meta">Tags ' + num(tot.tags) + ', custom fields ' + num(tot.fields) + ', dependencies seen ' + num(tot.deps) + (rep.deps.linked ? ', linked ' + num(rep.deps.linked) : '') + (rep.deps.cycles ? ', skipped as loops ' + num(rep.deps.cycles) : '') + (rep.deps.outside ? ', pointing outside the import ' + num(rep.deps.outside) : '') +
-      (tot.kept ? '. ' + num(tot.kept) + ' tasks kept because they were edited in the hub' : '') + (tot.also ? '. ' + num(tot.also) + ' tasks sit in more than one Asana project and were made once' : '') + (tot.err ? '. ' + num(tot.err) + ' tasks could not be read (see the log)' : '') + '.</p>';
+      (tot.kept ? '. ' + num(tot.kept) + ' tasks kept because they were edited in FavorOS' : '') + (tot.also ? '. ' + num(tot.also) + ' tasks sit in more than one Asana project and were made once' : '') + (tot.err ? '. ' + num(tot.err) + ' tasks could not be read (see the log)' : '') + '.</p>';
     html += '<h3 class="ap-h3">People not matched (' + un.length + ')</h3>';
     html += un.length ? '<div class="ad-scroll"><table class="ad-table ap-table"><thead><tr><th>Person in Asana</th><th>Why</th><th class="num">Tasks</th><th class="num">Comments</th></tr></thead><tbody>' + un.map(function (u) {
       return '<tr><td>' + E(u.name || u.email) + (u.name && u.email ? '<br><span class="mute">' + E(u.email) + '</span>' : '') + '</td><td>' + E(u.reason) + '</td><td class="num">' + num(u.assigned + u.asked) + '</td><td class="num">' + num(u.comments) + '</td></tr>';
@@ -184,7 +184,7 @@
   function drawHub() {
     var q = (S.q || '').toLowerCase();
     var list = S.projects.filter(function (p) { return !q || (p.name + ' ' + p.key + ' ' + p.team).toLowerCase().indexOf(q) >= 0; });
-    return '<section class="ad-card"><h2>Projects in the hub</h2><div class="ap-row"><label class="ap-grow"><span class="ap-lab">Find</span><input class="ad-field ad-find" id="ap-find" type="search" value="' + E(S.q || '') + '" placeholder="Name, key or team"></label></div>' +
+    return '<section class="ad-card"><h2>Projects in FavorOS</h2><div class="ap-row"><label class="ap-grow"><span class="ap-lab">Find</span><input class="ad-field ad-find" id="ap-find" type="search" value="' + E(S.q || '') + '" placeholder="Name, key or team"></label></div>' +
       (list.length ? '<div class="ap-list">' + list.map(function (p) {
         return '<div class="ap-item ap-item--hub"><span class="ap-item__main"><b>' + E(p.name) + '</b><span class="mute">' + E(p.key) + (p.team ? ', ' + E(p.team) : '') + ', lead ' + E(p.lead_email) + ', ' + num(p.open) + ' open, ' + num(p.done) + ' done</span></span>' +
           (p.from_asana ? '<span class="ad-chip">From Asana</span>' : '') + (p.status !== 'active' ? '<span class="ad-chip">' + E(p.status) + '</span>' : '') +
@@ -282,7 +282,7 @@
       var box = root.querySelector('#ap-confirm');
       var rep = S.run && S.run.report;
       var tasks = rep ? Object.keys(rep.projects).reduce(function (n, k) { var t = rep.projects[k].tasks; return n + t.create + t.update; }, 0) : 0;
-      box.innerHTML = '<div class="ad-confirm"><p>Import ' + pickedList().length + ' project' + (pickedList().length === 1 ? '' : 's') + ' into the hub? The dry run found ' + num(tasks) + ' tasks to make or update. Nobody is notified. Running it again later updates and never duplicates.</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--primary" data-act="import-yes">Yes, import</button><button type="button" class="ad-btn" data-act="import-no">Not yet</button></div></div>';
+      box.innerHTML = '<div class="ad-confirm"><p>Import ' + pickedList().length + ' project' + (pickedList().length === 1 ? '' : 's') + ' into FavorOS? The dry run found ' + num(tasks) + ' tasks to make or update. Nobody is notified. Running it again later updates and never duplicates.</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--primary" data-act="import-yes">Yes, import</button><button type="button" class="ad-btn" data-act="import-no">Not yet</button></div></div>';
       box.querySelector('[data-act="import-yes"]').focus();
     } else if (act === 'import-no') {
       root.querySelector('#ap-confirm').innerHTML = '';

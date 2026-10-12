@@ -11,11 +11,11 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(TODAY.slice(0, 4)) ? ', ' + y : ''); };
-const money = (a) => (a == null ? '' : '$' + Number(a).toLocaleString('en-US', { minimumFractionDigits: Math.round(a) === Number(a) ? 0 : 2, maximumFractionDigits: 2 }));
-const short = (v) => (v >= 1e6 ? '$' + (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + 'M' : v >= 1000 ? '$' + (v / 1000).toFixed(v % 1000 && v < 1e5 ? 1 : 0) + 'K' : money(Math.round(v)));
+const money = (a) => (a == null ? '' : (Number(a) < 0 ? '-' : '') + '$' + Math.abs(Number(a)).toLocaleString('en-US', { minimumFractionDigits: Math.round(a) === Number(a) ? 0 : 2, maximumFractionDigits: 2 }));
+const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const dayn = (iso) => Math.round((Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z') - Date.parse(TODAY + 'T12:00:00Z')) / 86400000);
 const plain = (t) => String(t || '').replace(/^RESERVED \((.*)\)$/, '$1');
-const ini = (n) => String(n || '').split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+const ini = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const I = {
   phone: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>', text: '<path d="M4 5h16v11H9l-5 4z"/>',
   mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>', plus: '<path d="M12 5v14"/><path d="M5 12h14"/>', check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
@@ -182,7 +182,7 @@ function oweCards(p) {
   const L = local(p.id);
   const list = (p.toThank || []).filter((g) => !L.thanked || !L.thanked.has(g.key));
   if (!list.length || !window.FavorWG) return L.thankedNow ? `<div class="wg-owe is-done"><div><b>Thanked just now</b><span>By ${esc(L.thankedNow)}</span></div></div>` : '';
-  return list.slice(0, 3).map((g) => `<div class="wg-owe" data-wg-owe="${esc(g.key)}"><div><b>${money(g.amount)} to thank</b><span>${esc(fd(g.date))} · ${esc(g.fund || '')} · ${g.ageDays > 1 ? g.ageDays + ' days' : g.ageDays === 1 ? 'Yesterday' : 'Today'}${g.soft ? ' · Soft credit' : ''}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-thank="${esc(g.key)}">${ic('check')}Thank</button></div>`).join('') + (list.length > 3 ? `<p class="pp-empty" style="margin:6px 28px 0">${list.length - 3} more gifts to thank</p>` : '');
+  return list.slice(0, 3).map((g) => `<div class="wg-owe" data-wg-owe="${esc(g.key)}"><div><b>${money(g.amount)} to thank</b><span>${[esc(fd(g.date)), esc(g.fund || ''), g.ageDays > 1 ? Number(g.ageDays).toLocaleString('en-US') + ' days' : g.ageDays === 1 ? 'Yesterday' : 'Today', g.soft ? 'Soft credit' : ''].filter(Boolean).join(' · ')}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-thank="${esc(g.key)}">${ic('check')}Thank</button></div>`).join('') + (list.length > 3 ? `<p class="pp-empty" style="margin:6px 28px 0">${(list.length - 3).toLocaleString('en-US')} more ${list.length - 3 === 1 ? 'gift' : 'gifts'} to thank</p>` : '');
 }
 function view(p, o = {}) {
   const g = p.giving;
@@ -211,7 +211,7 @@ function view(p, o = {}) {
   const head = `
     <div class="pp-head">
       <div><span class="pp-kicker">${esc(p.kind)} · ID ${esc(p.lookup)}${g.firstDate ? ' · Giving since ' + esc(String(g.firstDate).slice(0, 4)) : ''}</span>
-        <h1>${o.full ? esc(p.name) : `<a href="${href(p.id)}" class="pp-h1link">${esc(p.name)}</a>`}</h1>
+        <h1>${o.full ? esc(String(p.name || '').trim() || 'No name on file') : `<a href="${href(p.id)}" class="pp-h1link">${esc(String(p.name || '').trim() || 'No name on file')}</a>`}</h1>
         <p class="pp-house">${esc(p.place || 'No city on file')}${p.household && p.household.length ? ' · ' + p.household.map((h) => `${esc(h.relation || 'Household')} <a href="${href(h.id)}" class="pp-link" data-partner-id="${esc(h.id)}">${esc(h.name)}</a>`).join(', ') : ''}</p></div>
       <div class="pp-meta">
         ${holders.length ? holders.slice(0, 2).map((h) => `<div class="pp-holder"><i>${esc(ini(h.name))}</i><span><b>${esc(h.name)}</b>${h.type ? ' · ' + esc(h.type) : ''}</span></div>`).join('') : '<div class="pp-holder"><span>No current holder</span></div>'}
@@ -231,20 +231,20 @@ function view(p, o = {}) {
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-link="${esc(p.id)}">${ic('link')}Copy link</button>
     </div>`;
   const giving = `<div class="pp-giving">
-      ${figure('Lifetime', money(Math.round(g.total)), g.count ? g.count.toLocaleString('en-US') + ' gifts' : 'No gifts')}
+      ${figure('Lifetime', money(Math.round(g.total)), g.count ? g.count.toLocaleString('en-US') + (g.count === 1 ? ' gift' : ' gifts') : 'No gifts')}
       ${figure('This year', money(Math.round(g.ytd)), 'Last 12 months ' + short(g.last12))}
       ${figure('Last gift', g.last ? money(g.last.amount) : 'None', g.last ? fd(g.last.date) + (g.last.fund ? ' · ' + esc(g.last.fund) : '') : '')}
       ${figure('Largest', g.largest ? money(g.largest.amount) : 'None', g.largest ? fd(g.largest.date, true) : '')}
     </div>`;
   const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? lateText(-dayn(t.due)) : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
-      <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? lateText(-n) : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>`;
+      <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? lateText(-n) : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div>${p.actions.openCount > (p.actions.open || []).length ? `<p class="pp-empty pp-openmore">Showing ${(p.actions.open || []).length} of ${Number(p.actions.openCount).toLocaleString('en-US')} open. The rest are in Blackbaud.</p>` : ''}</section>`;
   const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
   if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
   const chart = years.length ? `<section class="pp-sec"><h3>Giving by year</h3><div class="pp-chart" style="grid-template-columns:repeat(${years.length}, minmax(0, 1fr))">${years.map((y) => `<div class="pp-bar2${y.year === TODAY.slice(0, 4) ? ' is-now' : ''}" title="${esc(y.year)}: ${money(Math.round(y.total))}${y.soft ? ' plus ' + money(Math.round(y.soft)) + ' soft credit' : ''}"><em>${short(y.total)}</em><i style="height:${Math.max(4, Math.round(y.total / max * 92))}px"></i><span>${esc(y.year)}</span></div>`).join('')}</div></section>` : '';
   const opps = `<section class="pp-sec"><h3>Opportunities <button type="button" data-pp-oppnew>New opportunity</button></h3>
-      ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp"><div><b>${esc(x.name)}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
+      ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp"><div><b>${esc(String(x.name || '').trim() || 'No name')}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
       ${V.editing === 'oppnew' ? oppForm(null) : ''}</section>`;
   const c = p.contact;
   const row = (dt, dd, btn) => `<dt>${dt}</dt><dd>${dd}</dd>${btn || '<span></span>'}`;
@@ -697,7 +697,7 @@ const root = document.getElementById('pv-root');
 if (root) {
   const m = location.pathname.match(/\/work\/partner\/(\d+)/);
   if (m) {
-    show(root, m[1], 'full').then((p) => { if (p) { document.title = p.name + ' - Favor Hub'; const t = document.querySelector('.h-top__title'); if (t) t.textContent = p.name; } });
+    show(root, m[1], 'full').then((p) => { if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - FavorOS'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
   } else {
     root.innerHTML = '<div class="pp-landing"><h1>Find a partner</h1><div id="pv-search"></div><p class="pp-landing__add"><button type="button" class="h-btn h-btn--primary" data-add-partner hidden>Add partner</button></p></div>';
     if (window.FavorAddPartner) window.FavorAddPartner.mountButtons();

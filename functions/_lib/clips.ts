@@ -49,6 +49,10 @@ export interface Clip {
   views: number;
   created_at: string;
   updated_at: string;
+  /** Fast-start state, see functions/_lib/clipmuxjob.ts. Missing until db/clips-mux.sql has been run. */
+  mux?: string;
+  mux_info?: string;
+  mux_at?: string | null;
 }
 
 export interface ClipsEnv extends Env {
@@ -106,7 +110,7 @@ export function J<T>(text: unknown, fallback: T): T {
 export function adminOrError(request: Request): { user: HubUser } | { res: Response } {
   const user = hubUserOf(request);
   if (!user) return { res: json401() };
-  if (user.role !== 'admin') return { res: errorJson('forbidden', 'Recording clips is for hub admins.', 403) };
+  if (user.role !== 'admin') return { res: errorJson('forbidden', 'Recording clips is for FavorOS admins.', 403) };
   return { user };
 }
 

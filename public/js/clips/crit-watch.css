@@ -2,7 +2,7 @@
 
 /* Tabs: five labels fit the 400 px panel without clipping. */
 .cw-tabs { padding: 4px 6px 0; gap: 0; }
-.cw-tabs button { flex: 1 1 auto; padding: 0 8px; font-size: 13.5px; }
+.cw-tabs button { flex: 1 1 auto; padding: 0 8px; font-size: 14px; }
 .cw-tabs button[aria-selected='true']::after { left: 6px; right: 6px; }
 
 /* The logo link and the two header pills are real 44 px targets. */
@@ -34,3 +34,17 @@
   .cl-askback .cl-ask__btns { flex-direction: column-reverse; }
   .cl-askback .cl-ask__btns button { width: 100%; height: 52px; font-size: 16px; }
 }
+
+/* The big play button sits above the control bar, and the bar's empty gradient lets a tap through to the picture.
+   On a phone the bar reaches the middle of the player and used to swallow the tap on Play. */
+.cw-bigplay { z-index: 3; }
+.cw-ctl { pointer-events: none; z-index: 2; }
+.cw-ctl > * { pointer-events: auto; }
+.cw-player.is-idle .cw-ctl > * { pointer-events: none; }
+/* Worst-case data (scripts/break-ui): a long owner name, a pasted link in the summary, a comment with no spaces. */
+.cw-sub, .cw-sumtxt, .cw-cmeta, .cw-vlist b, .cw-mktip { overflow-wrap: anywhere; }
+.cw-mk:not(.cw-mk--many):hover .cw-mktip, .cw-mk:not(.cw-mk--many):focus-visible .cw-mktip, .cw-mk:not(.cw-mk--many).is-open .cw-mktip { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.cw-av { overflow: hidden; }
+/* Several comments at one spot on the bar share a marker that shows their count. */
+.cw-mk--many .cw-av { background: #fff; color: #14130f; font-weight: 700; }
+.cw-mk--many .cw-mktip b:not(:first-child) { margin-top: 6px; }

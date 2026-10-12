@@ -8,7 +8,10 @@ const W = () => window.WC;
 const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
-const G = { data: null, loading: false, error: '', owner: null, quick: '', q: '', sel: new Set(), gone: new Set(), leftNow: {}, shelf: [], weekAdd: 0, started: false };
+const PAGE = 60;
+// Rows come 60 at a time, with what is left, the way Foundations pages its list.
+const moreBtn = (n, shown, attr) => (n > shown ? `<div class="wc-more"><button type="button" class="h-more" ${attr}>Show ${Math.min(PAGE, n - shown)} more <span>${(n - shown).toLocaleString('en-US')} left of ${n.toLocaleString('en-US')}</span></button></div>` : '');
+const G = { shown: 60, data: null, loading: false, error: '', owner: null, quick: '', q: '', sel: new Set(), gone: new Set(), leftNow: {}, shelf: [], weekAdd: 0, started: false };
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 async function load(owner) {
@@ -24,7 +27,7 @@ async function start() {
   if (G.started) return;
   G.started = true;
   await load();
-  W().render();
+  W().refresh('gifts');
 }
 
 const rows = () => (G.data ? G.data.rows.filter((r) => !G.gone.has(r.key)) : []);
@@ -35,7 +38,7 @@ const visible = () => rows().filter((r) => quickOf(r, G.quick) && (!G.q || (r.pa
 const count = () => (G.data ? rows().length : '');
 const dot = () => !!G.data && rows().some(isLate);
 const nameOf = (r) => r.partner.name;
-const ago = (r) => (r.ageDays === 0 ? 'Today' : r.ageDays === 1 ? 'Yesterday' : r.ageDays + ' days');
+const ago = (r) => (r.ageDays === 0 ? 'Today' : r.ageDays === 1 ? 'Yesterday' : Number(r.ageDays).toLocaleString('en-US') + ' days');
 const badge = (b) => `<span class="wc-tag ${/first/i.test(b) ? 'wc-tag--done' : /largest|\$1,000/i.test(b) ? 'wc-tag--gift' : /soft/i.test(b) ? 'wc-tag--maybe' : ''}">${F().esc(b)}</span>`;
 const tel = (n) => 'tel:' + String(n).replace(/[^\d+]/g, '');
 const mayLetter = () => { const me = W().DATA.me || {}; return (me.role === 'admin' || me.role === 'support') && !!window.WCLetter; };
@@ -46,10 +49,10 @@ function rowHTML(r) {
   const ctx = [p.lifetime ? 'Lifetime ' + f.short(p.lifetime) : '', p.count > 1 ? p.count.toLocaleString('en-US') + ' gifts' : '', p.lastContact ? 'Last contact ' + f.fd(p.lastContact) : 'No contact yet'].filter(Boolean).join(' · ');
   const call = p.phone && !p.doNotCall ? `<a class="wg-icon" href="${tel(p.phone)}" title="Call ${e(p.phone)}" aria-label="Call ${e(nameOf(r))}">${f.ic('phone')}</a>` : `<span class="wg-icon is-off" title="${p.doNotCall ? 'Do not call' : 'No phone to call'}">${f.ic('phone')}</span>`;
   const left = G.leftNow[r.key] || r.left;
-  const who = G.data.owners.length > 1 && !G.owner ? `<div class="wg-who">${r.ownerNames.map((n) => `<span class="wg-ini">${e(n.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase())}</span>${e(n)}`).join(', ')}</div>` : '';
+  const who = G.data.owners.length > 1 && !G.owner ? `<div class="wg-who">${r.ownerNames.map((n) => `<span class="wg-ini">${e(String(n || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((w) => Array.from(w)[0]).join('').toUpperCase() || '?')}</span>${e(n)}`).join(', ')}</div>` : '';
   return `<div class="wg-row wg-gift${G.sel.has(r.key) ? ' is-picked' : ''}" data-key="${e(r.key)}">
     <label class="wg-cb"><input type="checkbox" data-wg-pick="${e(r.key)}" ${G.sel.has(r.key) ? 'checked' : ''} aria-label="Select ${e(nameOf(r))}" /></label>
-    <div class="wg-amt wg-c-amt">${f.money(r.amount)}<small class="${r.ageDays > 1 ? 'is-late' : ''}">${f.fd(r.date)} · ${ago(r)}</small></div>
+    <div class="wg-amt wg-c-amt${f.money(r.amount).length > 10 ? ' is-long' : ''}">${f.money(r.amount)}<small class="${r.ageDays > 1 ? 'is-late' : ''}">${f.fd(r.date)} · ${ago(r)}</small></div>
     <div class="wg-c-who">${who}<a class="wg-name" href="/work/partner/${e(r.cid)}" data-partner-id="${e(r.cid)}">${e(nameOf(r))}</a><span class="wg-sub">${p.place ? e(p.place) + ' · ' : ''}${e(ctx)}${r.soft ? ` · Given through ${e(r.soft.giver)}` : ''}</span></div>
     <div class="wg-fund wg-c-fund"><b>${e(r.fund)}</b><span class="wg-sub">${e(r.pay || '')}</span><div class="wg-badges">${r.badges.map(badge).join('')}${r.taskIds && r.taskIds.length ? '<span class="wc-tag" title="An open thank-you task for this gift closes with the thank-you">Task open</span>' : ''}${left ? `<span class="wc-tag wc-tag--queued" title="${e(left.by || '')}">Left a message ${e(f.fd(left.date))}</span>` : ''}</div></div>
     <div class="wg-acts">${call}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-prep="${e(r.cid)}" data-gift="${e(r.key)}">${f.ic('brief')}Prep</button>${mayLetter() ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-letter="${e(r.key)}">${f.ic('letter')}Letter</button>` : ''}<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wg-thank="${e(r.key)}">${f.ic('check')}Thank${f.ic('down', 'wg-caret')}</button></div></div>`;
@@ -66,20 +69,20 @@ function view() {
   const list = visible().sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.key < b.key ? -1 : 1));
   const lateL = list.filter(isLate); const newL = list.filter((r) => !isLate(r));
   const lw = d.lastWorkday; const since = lw === f.TODAY || lw === addDay(f.TODAY, -1) ? 'yesterday' : WEEKDAY[new Date(lw + 'T12:00:00Z').getUTCDay()];
-  const picker = d.owners.length > 1 ? `<select class="wc-sel${G.owner ? ' is-set' : ''}" data-wg-owner aria-label="Director"><option value="">Every director (${d.everyone})</option>${d.owners.map((o) => `<option value="${e(o.id)}"${G.owner === o.id ? ' selected' : ''}>${e(o.name)} (${o.n})</option>`).join('')}</select>` : '';
+  const picker = d.owners.length > 1 ? `<select class="wc-sel${G.owner ? ' is-set' : ''}" data-wg-owner aria-label="Director"><option value="">Every director (${Number(d.everyone).toLocaleString('en-US')})</option>${d.owners.map((o) => `<option value="${e(o.id)}"${G.owner === o.id ? ' selected' : ''}>${e(o.name)} (${Number(o.n).toLocaleString('en-US')})</option>`).join('')}</select>` : '';
   const who = d.owners.length > 1 || W().DATA.me.role === 'admin' ? "directors' partners" : 'your partners';
   el.innerHTML = `
-    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn, plain]) => (plain ? `<button type="button" class="wc-stat${warn && n ? ' is-warn' : ''}" data-wg-noop><b>${n}</b><span>${l}</span></button>` : `<div class="wc-stat wc-stat--split${k && G.quick === k ? ' is-on' : !k && !G.quick ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}"><button type="button" class="wc-stat__n" data-wg-tile="${k}" data-wg-tile-n="${n}" aria-label="${n} ${l}, open the gifts behind it"><b>${n}</b></button><button type="button" class="wc-stat__l" data-wg-quick="${k}"><span>${l}</span></button></div>`)).join('')}</div>
+    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn, plain]) => (plain ? `<button type="button" class="wc-stat${warn && n ? ' is-warn' : ''}" data-wg-noop><b>${(Number(n) || 0).toLocaleString('en-US')}</b><span>${l}</span></button>` : `<div class="wc-stat wc-stat--split${k && G.quick === k ? ' is-on' : !k && !G.quick ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}"><button type="button" class="wc-stat__n" data-wg-tile="${k}" data-wg-tile-n="${n}" aria-label="${n} ${l}, open the gifts behind it"><b>${(Number(n) || 0).toLocaleString('en-US')}</b></button><button type="button" class="wc-stat__l" data-wg-quick="${k}"><span>${l}</span></button></div>`)).join('')}</div>
     <section class="h-card wc-sheet" id="wg-sheet" aria-label="Gifts to thank">
       <div class="wg-tools"><label class="wc-find">${f.ic('search')}<input type="search" id="wg-q" placeholder="Find a partner" value="${e(G.q)}" autocomplete="off" /></label>${picker}<span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="gifts-to-thank">${f.ic('sheet')}Google Sheets</button></div>
       <div class="wg-list">
-        ${lateL.length ? `<div class="wg-group is-late"><span>Over 24 hours · ${lateL.length}</span><button type="button" data-wg-all="late">Select all</button></div>${lateL.map(rowHTML).join('')}` : ''}
-        ${newL.length ? `<div class="wg-group"><span>New since ${e(since)} · ${newL.length}</span><button type="button" data-wg-all="new">Select all</button></div>${newL.map(rowHTML).join('')}` : ''}
+        ${lateL.length ? `<div class="wg-group is-late"><span>Over 24 hours · ${lateL.length.toLocaleString('en-US')}</span><button type="button" data-wg-all="late">Select all</button></div>${lateL.slice(0, G.shown).map(rowHTML).join('')}` : ''}
+        ${newL.length ? `<div class="wg-group"><span>New since ${e(since)} · ${newL.length.toLocaleString('en-US')}</span><button type="button" data-wg-all="new">Select all</button></div>${newL.slice(0, Math.max(0, G.shown - lateL.length)).map(rowHTML).join('')}` : ''}${moreBtn(list.length, G.shown, 'data-wg-more')}
         ${!list.length ? `<div class="wg-empty"><b>${all.length ? 'Nothing matches' : 'All thanked'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New gifts show here after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>` : ''}
       </div>
       ${G.shelf.length ? `<div class="wg-done"><span>Thanked today</span>${G.shelf.map((t) => `<span class="wc-tag wc-tag--done">${e(t.name)} · ${e(t.how)}</span>`).join('')}</div>` : ''}
-      <div class="wg-foot"><span>${all.length} ${all.length === 1 ? 'gift' : 'gifts'} on ${who}, soft credits included, from the last ${d.days} days${W().DATA.me.role === 'partner_care' ? '. First gifts and gifts under $1,000 on partners Partner Care holds' : ''}</span></div>
+      <div class="wg-foot"><span>${all.length.toLocaleString('en-US')} ${all.length === 1 ? 'gift' : 'gifts'} on ${who}, soft credits included, from the last ${d.days} days${W().DATA.me.role === 'partner_care' ? '. First gifts and gifts under $1,000 on partners Partner Care holds' : ''}</span></div>
     </section>`;
   bulkBar();
   registerSheet();
@@ -128,7 +131,8 @@ document.addEventListener('click', async (e) => {
     });
     return;
   }
-  if (d.wgQuick !== undefined) { G.quick = G.quick === d.wgQuick ? '' : d.wgQuick; view(); return; }
+  if (b.hasAttribute('data-wg-more')) { G.shown += PAGE; view(); return; }
+  if (d.wgQuick !== undefined) { G.quick = G.quick === d.wgQuick ? '' : d.wgQuick; G.shown = PAGE; view(); return; }
   if (b.hasAttribute('data-wg-reload')) { G.data = null; G.error = ''; G.loading = false; G.started = false; view(); return; }
   if (d.wgAll) { const list = visible().filter((r) => (d.wgAll === 'late' ? isLate(r) : !isLate(r))); const every = list.every((r) => G.sel.has(r.key)); list.forEach((r) => (every ? G.sel.delete(r.key) : G.sel.add(r.key))); view(); return; }
   if (b.hasAttribute('data-wg-clear')) { G.sel.clear(); view(); return; }
@@ -157,14 +161,14 @@ document.addEventListener('click', (e) => {
 });
 document.addEventListener('change', async (e) => {
   const t = e.target;
-  if (t.matches && t.matches('[data-wg-owner]')) { G.sel.clear(); G.data = null; view(); await load(t.value); view(); W().render(); }
+  if (t.matches && t.matches('[data-wg-owner]')) { G.sel.clear(); G.shown = PAGE; G.data = null; view(); await load(t.value); view(); W().render(); }
 });
 let qT;
 document.addEventListener('input', (e) => {
   const t = e.target;
   if (t.id !== 'wg-q') return;
   clearTimeout(qT);
-  qT = setTimeout(() => { G.q = t.value; view(); const i = $('#wg-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
+  qT = setTimeout(() => { G.q = t.value; G.shown = PAGE; view(); const i = $('#wg-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
 });
 
 // A thank-you saved anywhere (this tab, the partner drawer, the brief) updates the rows without a reload.

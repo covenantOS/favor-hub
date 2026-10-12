@@ -85,9 +85,17 @@
     del: function (id) { return req('DELETE', 'messages/' + id); },
     react: function (id, emoji) { return req('POST', 'messages/' + id + '/reactions', { emoji: emoji }); },
     read: function (ch, upTo) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/read', { upTo: upTo }).catch(function () {}); },
-    typing: function (ch) { req('POST', 'channels/' + encodeURIComponent(ch) + '/typing', {}).catch(function () {}); },
+    typing: function (ch, thread) { req('POST', 'channels/' + encodeURIComponent(ch) + '/typing', thread ? { thread_id: thread } : {}).catch(function () {}); },
     mute: function (ch, muted) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/mute', { muted: muted }); },
-    search: function (q, o) { return req('GET', 'search?q=' + encodeURIComponent(q) + '&filter=' + encodeURIComponent((o && o.filter) || 'all') + '&channel=' + encodeURIComponent((o && o.channel) || '')); },
+    search: function (q, o) { return req('GET', 'search?q=' + encodeURIComponent(q) + '&filter=' + encodeURIComponent((o && o.filter) || 'all') + '&channel=' + encodeURIComponent((o && o.channel) || '') + (o && o.from ? '&from=' + encodeURIComponent(o.from) : '')); },
+    threads: function () { return req('GET', 'threads'); },
+    activity: function () { return req('GET', 'activity'); },
+    unread: function (ch, from) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/unread', { from: from }); },
+    pins: function (ch) { return req('GET', 'channels/' + encodeURIComponent(ch) + '/pins'); },
+    pin: function (id, on) { return req('POST', 'messages/' + id + '/pin', { on: on }); },
+    addBookmark: function (ch, p) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/bookmarks', p); },
+    removeBookmark: function (ch, id) { return req('DELETE', 'channels/' + encodeURIComponent(ch) + '/bookmarks/' + encodeURIComponent(id)); },
+    makeRequest: function (ch, p) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/request', p); },
     createChannel: function (p) { return req('POST', 'channels', p).then(function (d) { return d.channel; }); },
     openDm: function (ids) { return req('POST', 'conversations', { members: ids }).then(function (d) { return d.channel; }); },
     browse: function () { return req('GET', 'channels/browse'); },
@@ -112,23 +120,26 @@
   var app = null;
   function paintUnread(u) {
     var n = (u && u.mentions) || 0;
-    document.querySelectorAll('[data-count="chatMentions"]').forEach(function (el) { el.textContent = String(n); el.hidden = !n; });
-    document.title = (n ? '(' + n + ') ' : '') + 'Chat - Favor Hub';
+    document.querySelectorAll('[data-count="chatMentions"]').forEach(function (el) { el.textContent = n.toLocaleString('en-US'); el.hidden = !n; });
+    document.title = (n ? '(' + (n > 99 ? '99+' : n) + ') ' : '') + 'Chat - FavorOS';
     window.dispatchEvent(new CustomEvent('favor-chat:unread', { detail: u }));
   }
-  function blocks(list, m) {
-    var B = window.BrainBlocks;
-    if (!B || !B.render) return '';
-    var h = list.map(function (b, i) { try { return B.render(b, { ti: 0, bi: i, canSheets: false }); } catch (e) { return ''; } }).join('');
-    var follow = (m && m.brain && m.brain.follow) || [];
-    if (follow.length) h += '<div class="ch-ans__chips">' + follow.map(function (q) { return '<button type="button" class="ch-chip" data-act="chip" data-q="' + String(q).replace(/"/g, '&quot;') + '">' + String(q).replace(/</g, '&lt;') + '</button>'; }).join('') + '</div>';
-    return '<div class="bc-root">' + h + '</div>';
-  }
+  // A Favor Brain answer is drawn by the Brain page's own block code and pressed by it too (chat-brain.js ties the two to a message).
+  function blocks(list, m) { return window.FavorChatBrain ? window.FavorChatBrain.html(list, m) : ''; }
   window.FavorChat.mount(root, api, {
     initial: qs.get('c') || null,
     renderBlocks: blocks,
     onUnread: paintUnread,
-    onNotify: function (m, ch) { /* the rail badge and tab title carry it */ },
+    // A desktop notice for a direct message, a mention or a reply, when Chat is not in front and the person turned notices on.
+    onNotify: function (m, ch) {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted' || !app || (!document.hidden && document.hasFocus())) return;
+      var who = app.user(m.user_id).name, where = ch.kind === 'dm' ? who : ch.kind === 'group' ? 'Group conversation' : '#' + ch.name;
+      var text = String(m.body || '').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : app.user(id).name); }).replace(/<#[^>]+>/g, '').trim() || 'Shared an attachment';
+      try {
+        var n = new Notification(ch.kind === 'dm' ? who : who + ' in ' + where, { body: text.slice(0, 180), tag: 'chat-' + ch.id, icon: '/images/favor-icon.png' });
+        n.onclick = function () { window.focus(); if (m.thread_id) app.threadIn(ch.id, m.thread_id); else app.open(ch.id); n.close(); };
+      } catch (e) { /* a phone browser outside the home screen app has no notices */ }
+    },
     recordClip: function (channelId) {
       var cam = document.getElementById('clip-cam');
       if (!cam || cam.hidden) { app && app.toast('Recording is not available for your account'); return; }
@@ -137,10 +148,12 @@
   }).then(function (a) {
     app = a;
     window.favorChat = a;
+    if (window.FavorChatBrain) window.FavorChatBrain.attach(a);
     connect();
-    var t = qs.get('t');
-    if (t && qs.get('c')) setTimeout(function () { a.thread(Number(t)); }, 400);
-    else if (qs.get('m')) a.focus(Number(qs.get('m')));
+    // A copied link opens its conversation, its thread when it has one, and shows the message.
+    var t = qs.get('t'), mid = qs.get('m');
+    if (t && qs.get('c')) setTimeout(function () { a.thread(Number(t)); if (mid) a.focus(Number(mid), true); }, 400);
+    else if (mid) a.focus(Number(mid));
   }).catch(function (e) {
     var gate = e && (e.status === 403 || e.status === 401);
     root.innerHTML = '<div class="ch-gate"><div><h2>' + (gate ? 'Chat is not open to you yet' : 'Chat did not load') + '</h2><p>' + (e && e.message ? String(e.message).replace(/</g, '&lt;') : 'Reload the page to try again.') + '</p></div></div>';

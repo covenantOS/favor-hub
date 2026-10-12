@@ -3,6 +3,7 @@ import { asTrimmed, errorJson, handleError, json, nowIso } from '../../_lib/http
 import { clipsCapBytes, clipsShareDefault, mayRecordClips } from '../../_lib/admin/settings';
 import { PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
 import type { ClipSegment } from '../../_lib/clipChapters';
+import { muxTidy } from '../../_lib/clipmuxjob';
 
 /** The first transcript line that holds the search words, for the library's result row. */
 function snippet(transcript: string, q: string): { at: number; text: string } | null {
@@ -11,7 +12,7 @@ function snippet(transcript: string, q: string): { at: number; text: string } | 
   return null;
 }
 
-export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) => {
+export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, waitUntil }) => {
   try {
     const who = staffOrError(request);
     if ('res' in who) return who.res;
@@ -19,7 +20,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) =>
     const q = (url.searchParams.get('q') || '').trim().toLowerCase().slice(0, 80);
     // Everyone sees their own clips. An admin can open the admin view (?scope=all) to see every person's clips.
     const all = url.searchParams.get('scope') === 'all';
-    if (all && who.user.role !== 'admin') return errorJson('forbidden', 'The all-clips view is for hub admins.', 403);
+    if (all && who.user.role !== 'admin') return errorJson('forbidden', 'The all-clips view is for FavorOS admins.', 403);
     const where = ["status IN ('ready', 'processing')"];
     const args: unknown[] = [];
     if (!all) {
@@ -58,6 +59,8 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) =>
     });
     // Recordings that never finished and were never picked up: tidy them away on the way past.
     void tidy(env).catch(() => undefined);
+    // A clip whose fast-start file is not written yet gets a run, and week-old first recordings are cleared.
+    if (waitUntil) waitUntil(muxTidy(env).catch(() => undefined));
     const out: Record<string, unknown> = { ok: true, clips, scope: all ? 'all' : 'mine' };
     if (all) {
       const ppl = await env.DB.prepare(
@@ -92,7 +95,7 @@ export const onRequestPost: PagesFunction<ClipsEnv> = async ({ request, env }) =
     const who = staffOrError(request);
     if ('res' in who) return who.res;
     const body = (await request.json().catch(() => ({}))) as { title?: string; mime?: string; kind?: string };
-    if (!(await mayRecordClips(env, who.user.email, who.user.role === 'admin'))) return errorJson('not_allowed', 'Recording is limited to some people right now. Ask a hub admin if you need it.', 403);
+    if (!(await mayRecordClips(env, who.user.email, who.user.role === 'admin'))) return errorJson('not_allowed', 'Recording is limited to some people right now. Ask a FavorOS admin if you need it.', 403);
     const use = await usageOf(env, who.user.email);
     if (use.full) return errorJson('storage_full', `Your clips use all ${Math.round(use.cap / 1024 ** 3)} GB. Delete clips you no longer need in My clips, then record again.`, 409);
     const given = asTrimmed(body.title, 'title', 120, false);

@@ -3,7 +3,7 @@
 import { $, esc, ic, api, fmtDay, pump } from './ui.js';
 const root = $('#mt-lib');
 let list = [], acts = [], people = new Map(), team = '', q = '', seq = 0, timer = 0;
-const clip = (t, n = 220) => { t = (t || '').trim(); if (t.length <= n) return t; const c = t.slice(0, n); return c.slice(0, c.lastIndexOf(' ')) + '...'; };
+const clip = (t, n = 220) => { t = (t || '').trim(); if (t.length <= n) return t; const c = t.slice(0, n), i = c.lastIndexOf(' '); return (i > n * 0.6 ? c.slice(0, i) : c) + '...'; };
 const teamOf = (m) => people.get(String(m.hostEmail || '').toLowerCase())?.team || '';
 const mins = (m) => {
   if (!m.startedAt || !m.endedAt) return '';
@@ -12,7 +12,7 @@ const mins = (m) => {
 };
 
 function card(m) {
-  const body = clip(m.summary) || (m.notesStatus === 'pending' ? 'Notes are being made.' : 'Notes are not ready yet. Open the meeting to read the transcript.');
+  const body = clip(m.summary) || (m.notesStatus === 'pending' ? 'Notes are being made.' : 'Notes are not ready yet.');
   const n = m.actionCount || 0;
   return `<a class="libc h-card" href="/meet/notes/?m=${m.id}" style="text-decoration:none"><div class="ft"><span>${esc(teamOf(m) || m.hostName || '')}</span><span>${m.endedAt ? fmtDay(m.endedAt) : ''}${mins(m) ? ' · ' + mins(m) : ''}</span></div><h4>${esc(m.title)}</h4><p>${esc(body)}</p><div class="ft"><span>${n ? `${n} action item${n === 1 ? '' : 's'}` : ''}</span>${m.recState === 'stored' ? `<span>${ic('drive')}Saved in Drive</span>` : '<span></span>'}</div></a>`;
 }
@@ -42,7 +42,7 @@ async function search() {
 }
 
 function shell() {
-  root.innerHTML = `<div class="mt-intro"><div><h2 class="mt-h2">Meeting notes</h2><p>Every meeting you were invited to, with its notes, action items and transcript.</p></div></div>
+  root.innerHTML = `<div class="mt-intro"><div><h2 class="mt-h2">Meeting notes</h2></div></div>
     <div id="libacts"></div>
     <div class="bigsearch"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="libq" placeholder="Search what was said, titles and summaries" value="${esc(q)}" autocomplete="off" /></div>
     <div class="mt-chips" id="libchips" style="margin-bottom:14px"></div>

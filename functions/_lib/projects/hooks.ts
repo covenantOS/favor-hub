@@ -62,4 +62,8 @@ export function taskRoute(name: string): ((ctx: RouteCtx) => Promise<Response>) 
 
 // LINKS: register your hooks and routes below with onProjectEvent(...). Keep the lines between the markers; nothing else in this file changes.
 // --- links begin
+import { agentDoor, linksRoute, registerLinks } from './links/index';
+registerLinks(onProjectEvent);
+registerTaskRoute('links', linksRoute);
+registerTaskRoute('brain', (ctx) => agentDoor(ctx.env, ctx.request));
 // --- links end

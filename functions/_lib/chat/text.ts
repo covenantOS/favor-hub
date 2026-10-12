@@ -100,7 +100,8 @@ export function dmKey(emails: string[]): string {
   return [...new Set(emails.map((e) => e.trim().toLowerCase()).filter(Boolean))].sort().join(',');
 }
 
-export const EMOJI_OK = /^[\p{Extended_Pictographic}‍️⃣]{1,12}$/u;
+// One emoji: a picture character, with a skin tone, a joiner or a variation mark where it has one, or a flag (two region letters).
+export const EMOJI_OK = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F1E6}-\u{1F1FF}\u200d\ufe0f\u20e3]{1,12}$/u;
 
 /** A short plain-text line for the bell and notices: tokens turned into names, cut at a length. */
 export function plainLine(body: string, names: (id: string) => string, max = 140): string {

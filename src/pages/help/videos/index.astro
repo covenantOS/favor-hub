@@ -8,12 +8,12 @@ import videos from '../../../data/videos.json';
 const used = Object.entries(VIDEO_TOPICS).filter(([k]) => videos.some((v) => v.topic === k));
 const total = Math.round(videos.reduce((n, v) => n + v.seconds, 0) / 60);
 import '../../../styles/q3-desk.css';
+import '../../../styles/lint-fix.css';
 ---
-<App title="Training videos" crumb="Learn" nav="videos" description="Training videos for the hub, Favor Brain and Blackbaud.">
+<App title="Training videos" crumb="Learn" nav="videos" description="Training videos for FavorOS, Favor Brain and Blackbaud.">
   <div class="hd-wrap hd-wrap--wide">
     <HelpSide current="videos" />
     <div class="hd-lib">
-      <div class="hd-kicker"><a href="/help/">Help</a><span aria-hidden="true">/</span>Videos</div>
       <h1>Training videos</h1>
       <p class="hd-lede">{videos.length} videos, about {total} minutes. Names and numbers in them are made up.</p>
       <div class="hd-chips" role="tablist" aria-label="Filter by topic">
@@ -33,5 +33,5 @@ import '../../../styles/q3-desk.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/help.js?v=2" defer></script>
+  <script is:inline src="/js/help.js?v=3" defer></script>
 </App>

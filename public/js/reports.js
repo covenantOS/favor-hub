@@ -22,7 +22,7 @@
   var curTitle = 'Reports';
   function setHeader(crumb, title) {
     curTitle = title;
-    document.title = title + ' - Favor Hub';
+    document.title = title + ' - FavorOS';
   }
 
   var toastEl = $('#rp-toast');
@@ -37,7 +37,7 @@
   function get(url) {
     return fetch(url, { credentials: 'same-origin' }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { d._status = r.status; return d; });
-    }).catch(function () { return { ok: false, message: 'The hub could not be reached. Check the connection and try again.', _status: 0 }; });
+    }).catch(function () { return { ok: false, message: 'FavorOS could not be reached. Check the connection and try again.', _status: 0 }; });
   }
 
   /* ---------- the list ---------- */
@@ -59,7 +59,7 @@
     var h = '<div class="rp-top"><div class="rp-seg2" role="group" aria-label="Kind"><button type="button" class="is-on">Reports <small>' + reports.length + '</small></button><a class="rp-segl" href="' + BASE + '?r=query-map">' + esc(data.queryMap.name) + '</a></div>' +
       '<label class="rp-find"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="rp-q" placeholder="Find a report or query" value="' + esc(listQuery) + '" aria-label="Find a report or query"></label></div>' +
       '<div class="rp-groups"><div class="rp-seg2" role="group" aria-label="Group">' +
-      segs.map(function (c) { return '<button type="button" class="' + (listGroup === c[0] ? 'is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + ' <small>' + c[2] + '</small></button>'; }).join('') + '</div></div>';
+      segs.map(function (c) { return '<button type="button" class="' + (listGroup === c[0] ? 'is-on' : '') + '" data-g="' + c[0] + '">' + esc(c[1]) + (c[0] === 'all' ? '' : ' <small>' + c[2] + '</small>') + '</button>'; }).join('') + '</div></div>';
     var any = false;
     var t = '<div class="h-card rp-list" role="table" aria-label="Reports"><div class="rp-head" role="row"><span>Report</span><span>How often</span><span>Used by</span><span>Flags</span></div>';
     groups.forEach(function (g) {
@@ -67,7 +67,8 @@
       var rows = reports.filter(function (r) { return r.group === g.id && (!q || (r.name + ' ' + (r.replaces || '') + ' ' + r.who).toLowerCase().indexOf(q) >= 0); });
       if (!rows.length) return;
       any = true;
-      t += '<div class="rp-grp">' + esc(g.label) + ' <b>' + rows.length + '</b></div>';
+      // The group buttons above carry each group's count; the heading repeats it only when a search has narrowed the list.
+      t += '<div class="rp-grp">' + esc(g.label) + (q ? ' <b>' + rows.length + '</b>' : '') + '</div>';
       rows.forEach(function (r) {
         var inner = '<b class="rp-name">' + esc(r.name) + '</b><span class="rp-c" title="' + esc(r.freq) + '">' + esc(r.freq) + '</span><span class="rp-c" title="' + esc(r.who) + '">' + esc(r.who) + '</span><span class="rp-flags">' + flags(r) + '</span>';
         t += r.ready ? '<a class="rp-row" role="row" href="' + BASE + '?r=' + r.id + '">' + inner + '</a>' : '<div class="rp-row is-soon" role="row">' + inner + '</div>';
@@ -110,15 +111,17 @@
       return '<input class="cell" data-edit-key="' + esc(key) + '" data-edit-col="' + esc(c.key) + '" value="' + esc(v == null ? '' : Number(v).toFixed(c.type === 'cellint' ? 0 : 2)) + '" inputmode="' + (c.type === 'cellint' ? 'numeric' : 'decimal') + '" aria-label="' + esc(c.label) + '">';
     }
     if (v == null || v === '') return '';
-    if (c.type === 'money') return money(v);
-    if (c.type === 'int') return num(v);
-    if (c.type === 'date') return esc(dshort(String(v)));
-    if (c.type === 'pct') return (Number(v) * 100).toFixed(1) + '%';
+    if (c.type === 'money') return isFinite(Number(v)) ? money(v) : esc(v);
+    // A value that is not a number or a date prints as it came, never as NaN or Invalid Date.
+    if (c.type === 'int') return isFinite(Number(v)) ? num(v) : esc(v);
+    if (c.type === 'date') { var ds = dshort(String(v)); return esc(/Invalid/.test(ds) ? String(v) : ds); }
+    if (c.type === 'pct') return isFinite(Number(v)) ? (Number(v) * 100).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%' : esc(v);
     if (c.type === 'chip') {
       var cls = /^(Mailed|Active|Recurring|Thanked)$/.test(v) ? 'rp-tag--ok' : /^(Hold|LYBUNT|Waiting)$/.test(v) ? 'rp-tag--warn' : /^Lapsed$/.test(v) ? 'rp-tag--none' : '';
       return '<span class="rp-tag ' + cls + '">' + esc(v) + '</span>';
     }
-    return esc(v);
+    // Long text ends in an ellipsis at 420 px on a wide screen; the whole value is in the tooltip and in the export.
+    return String(v).length > 48 ? '<span class="rp-cell" title="' + esc(v) + '">' + esc(v) + '</span>' : esc(v);
   }
   var isRight = function (c) { return c.type === 'money' || c.type === 'int' || c.type === 'pct' || c.type === 'cell' || c.type === 'cellint'; };
 
@@ -132,6 +135,11 @@
   function tieHtml(t) {
     if (t.status === 'none' && !t.note) return '';
     var f = function (v) { return t.kind === 'count' ? num(v) : money(v); };
+    if (t.against) {
+      var src = esc(t.against);
+      if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches ' + src + '</b><span>' + esc(t.label) + ': ' + f(t.kpi) + (t.note ? '. ' + esc(t.note) : '') + '</span></div></div>';
+      return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from ' + src + ' by ' + f(t.diff) + '</b><span>' + esc(t.label) + ': this report ' + f(t.mine) + ', saved query ' + f(t.kpi) + (t.note ? '. ' + esc(t.note) : '') + '</span></div></div>';
+    }
     if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches the KPI dashboard</b><span>' + esc(t.label) + ': ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'differs') return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from the KPI dashboard by ' + f(t.diff) + '</b><span>This report ' + f(t.mine) + ', ' + esc(t.label) + ' ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'unavailable') return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>KPI figure not available</b><span>' + esc(t.note || '') + '</span></div></div>';
@@ -233,9 +241,10 @@
       (res.post != null ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-copy">Copy for WhatsApp</button>' : '') +
       '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-link">Copy link</button>' +
       '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>CSV</a>' +
+      (res.mailFile ? '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-mailcsv" href="' + apiUrl(res.id, res.values, 'csv') + '&file=mail" download>' + esc(res.mailFile.label) + ' CSV</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-mailsheet">' + esc(res.mailFile.label) + ' to Sheets</button>' : '') +
       '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="reports">Google Sheets</button></div></div>';
 
-    var tie = tieHtml(res.tie);
+    var tie = tieHtml(res.tie) + (res.ties || []).map(tieHtml).join('');
     if (res.tiles.length || tie) {
       h += '<div class="h-card rp-sum">';
       res.tiles.forEach(function (t, i) { h += '<div class="rp-tile' + (i === 0 ? ' is-hero' : '') + (i > 0 && i === res.tiles.length - 1 && i % 2 === 1 ? ' rp-tile--wide' : '') + '"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; });
@@ -309,6 +318,26 @@
     var pv = $('#rp-prev'), nx = $('#rp-next');
     if (pv) pv.addEventListener('click', function () { cur.page -= 1; cur.top = true; drawReport(); });
     if (nx) nx.addEventListener('click', function () { cur.page += 1; cur.top = true; drawReport(); });
+    var ms = $('#rp-mailsheet');
+    if (ms) ms.addEventListener('click', function () {
+      var label = ms.textContent;
+      ms.disabled = true;
+      ms.textContent = 'Building the sheet';
+      fetch(API + '/' + encodeURIComponent(res.id), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filters: res.values }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (d) {
+          if (!d.ok) { ms.disabled = false; ms.textContent = label; toast(d.message || 'The sheet did not build. Try again in a minute.'); return; }
+          var a = document.createElement('a');
+          a.className = 'h-btn h-btn--primary h-btn--sm';
+          a.id = 'rp-mailsheet-open';
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.href = d.url;
+          a.textContent = 'Open the sheet (' + num(d.rows) + ' rows)';
+          ms.replaceWith(a);
+        })
+        .catch(function () { ms.disabled = false; ms.textContent = label; toast('The sheet did not build. Check the connection.'); });
+    });
     var lk = $('#rp-link');
     if (lk) lk.addEventListener('click', function () {
       var fail = function () { toast('Copy did not work. Copy the address bar instead.'); };

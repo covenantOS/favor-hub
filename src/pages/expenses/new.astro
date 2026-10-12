@@ -4,20 +4,19 @@ import '../../styles/requests.css';
 import '../../styles/expenses.css';
 import '../../styles/crit-forms.css';
 import '../../styles/q3-desk.css';
+import '../../styles/lint-fix.css';
 ---
 <App title="Expense request" crumb="Work" nav="expense" description="Submit an expense request for approval and signature.">
   <div class="exp-page">
     <div class="container">
       <div class="exp-head">
         <div>
-          <p class="make-kicker">Expenses</p>
           <h1>Expense <em>Request</em></h1>
         </div>
         <img src="/images/favor-primary.png" alt="Favor International" />
       </div>
       <p class="exp-lede">
-        Submit expense requests for approval. Your approver signs electronically and everyone
-        who needs the record gets the signed copy automatically. Paycom card expenses still go through Paycom.
+        Paycom card expenses still go through Paycom.
       </p>
 
       <form class="make-sheet" id="exp-form" novalidate>
@@ -63,7 +62,7 @@ import '../../styles/q3-desk.css';
         <span class="exp-legend">Reason</span>
         <label class="req-field">
           <span>Why is this needed?</span>
-          <textarea id="exp-reason" required maxlength="4000" autocapitalize="sentences" placeholder="For a trip, state its purpose. For a purchase, state what it supports and why it is needed."></textarea>
+          <textarea id="exp-reason" required maxlength="4000" autocapitalize="sentences" placeholder="The trip's purpose, or what the purchase supports"></textarea>
         </label>
 
         </div>
@@ -80,7 +79,7 @@ import '../../styles/q3-desk.css';
         <input class="req-hp" id="exp-hp" tabindex="-1" autocomplete="off" />
         <div class="exp-foot">
           <button class="req-submit exp-green" type="submit" id="exp-submit">Submit for approval</button>
-          <p class="exp-note">Goes to the assigned approver for review and signature. You get a copy of the decision by email.</p>
+          <p class="exp-note">Goes to your approver to sign. You get the decision by email.</p>
         </div>
         <p class="req-msg" id="exp-msg" aria-live="polite"></p>
         <div class="exp-nav" id="exp-nav"><button type="button" class="h-btn h-btn--ghost" id="exp-back">Back</button><button type="button" class="h-btn h-btn--primary" id="exp-next">Next</button></div>

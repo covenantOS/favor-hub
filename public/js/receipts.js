@@ -60,7 +60,7 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   const plural = (n, w, ws) => `${Number(n).toLocaleString('en-US')} ${Number(n) === 1 ? w : ws || w + 's'}`;
-  const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const money = (n) => (Number(n) < 0 ? '-' : '') + '$' + Math.abs(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const day = (iso) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
@@ -190,7 +190,7 @@
     box.setAttribute('role', 'group');
     box.innerHTML = `
       ${question ? `<p>${esc(question)}</p>` : ''}
-      ${named ? '' : `<label class="fnd-who rcp-ask__who"><span>Your name</span><input list="rcp-staff" placeholder="Your name" autocomplete="off" maxlength="60" /></label>`}
+      ${named ? '' : `<label class="fnd-who rcp-ask__who"><span>Your name</span><input list="rcp-staff" autocomplete="off" maxlength="60" /></label>`}
       <p class="rcp-ask__msg" role="alert"></p>
       <div class="rcp-ask__row">
         <button type="button" class="req-submit${danger ? ' rcp-danger' : ''}" data-yes>${esc(yes)}</button>
@@ -484,7 +484,7 @@
       ['wording', 'Receipt wording', null],
     ];
     $('rcp-tabs').innerHTML = tabs
-      .map(([k, label, n]) => `<button type="button" role="tab" data-tab="${k}" class="${state.tab === k ? 'is-on' : ''}" aria-selected="${state.tab === k}">${label}${n == null ? '' : `<span>${n}</span>`}</button>`)
+      .map(([k, label, n]) => `<button type="button" role="tab" data-tab="${k}" class="${state.tab === k ? 'is-on' : ''}" aria-selected="${state.tab === k}">${label}${n == null ? '' : `<span>${Number(n).toLocaleString('en-US')}</span>`}</button>`)
       .join('');
     $('rcp-tabs').querySelectorAll('button').forEach((btn) =>
       btn.addEventListener('click', () => {
@@ -533,7 +533,7 @@
     const c = counts(v.letters);
     const pills = [['all', 'All', all.length], ['regular', 'Regular', c.regular], ['major', '$200 and up', c.major], ['recurring', 'Monthly', c.recurring]];
     $('rcp-filters').innerHTML = pills
-      .map(([k, label, n]) => `<button type="button" data-f="${k}" class="${state.filter === k ? 'on' : ''}">${label}<small>${n}</small></button>`)
+      .map(([k, label, n]) => `<button type="button" data-f="${k}" class="${state.filter === k ? 'on' : ''}">${label}<small>${Number(n).toLocaleString('en-US')}</small></button>`)
       .join('');
     $('rcp-filters').querySelectorAll('button').forEach((b) =>
       b.addEventListener('click', () => {
@@ -574,7 +574,7 @@
           const on = !off && !ids.some((id) => state.left.has(id));
           const funds = [...new Set(g.gifts.map((x) => x.fund).filter((f) => f && f !== 'Where Needed Most'))];
           const notes = [];
-          if (g.gifts.length > 1) notes.push(['', `One receipt for ${g.gifts.length} gifts, ${money(g.gifts.reduce((t, x) => t + x.amount, 0))} in all`]);
+          if (g.gifts.length > 1) notes.push(['', `One receipt for ${g.gifts.length.toLocaleString('en-US')} gifts, ${money(g.gifts.reduce((t, x) => t + x.amount, 0))} in all`]);
           const same = !off && l.addressKey && shared.get(l.addressKey);
           if (same) {
             const others = [...same].filter(([k]) => k !== partnerKey(l)).map(([, name]) => name);
@@ -582,7 +582,7 @@
           }
           return `<tr class="${on ? '' : 'is-off'}">
             <td class="rcp-tick"><input type="checkbox" data-ids="${esc(ids.join(','))}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} aria-label="Print a receipt for ${esc(l.addressee)}" /></td>
-            <td><span class="fnd-name">${esc(l.addressee)}</span><span class="fnd-sub">${esc(l.place)}${funds.length ? ` &middot; ${esc(funds.join(', '))}` : ''}</span>${notes
+            <td><span class="fnd-name">${esc(String(l.addressee || '').trim() || 'No addressee on file')}</span><span class="fnd-sub">${esc(l.place)}${funds.length ? ` &middot; ${esc(funds.join(', '))}` : ''}</span>${notes
               .map(([cls, text]) => `<span class="rcp-note${cls}">${esc(text)}</span>`)
               .join('')}</td>
             <td class="mono">${g.gifts.map((x) => esc(day(x.date))).join('<br>')}</td>
@@ -692,7 +692,7 @@
   function statusPill(b) {
     if (b.kind === 'reprint') return `<span class="exp-pill pending">Printed again</span>`;
     if (b.status === 'done') return `<span class="exp-pill approved">Marked thanked</span>`;
-    if (b.status === 'marking') return `<span class="exp-pill fnd-pill-work">${b.marked} of ${b.gifts || b.count} gifts marked</span>`;
+    if (b.status === 'marking') return `<span class="exp-pill fnd-pill-work">${Number(b.marked).toLocaleString('en-US')} of ${plural(b.gifts || b.count, 'gift')} marked</span>`;
     return `<span class="exp-pill fnd-pill-two">Not marked yet</span>`;
   }
 
@@ -709,8 +709,8 @@
               const base = `/api/receipts/batches/${encodeURIComponent(b.id)}/pdf`;
               return `<tr>
                 <td><span class="fnd-name">${esc(day(b.letterDate))}</span><span class="fnd-sub">${b.kind === 'reprint' ? `Gifts marked ${esc(day(b.sourceDate))}` : esc(b.appealCode)}</span></td>
-                <td class="r">${b.count}${b.gifts && b.gifts !== b.count ? `<span class="fnd-sub">${plural(b.gifts, 'gift')}</span>` : ''}</td>
-                <td class="mono">${esc(shortDay(b.firstGift))} to ${esc(shortDay(b.lastGift))}</td>
+                <td class="r">${Number(b.count).toLocaleString('en-US')}${b.gifts && b.gifts !== b.count ? `<span class="fnd-sub">${plural(b.gifts, 'gift')}</span>` : ''}</td>
+                <td class="mono">${esc([shortDay(b.firstGift), shortDay(b.lastGift)].filter(Boolean).join(' to '))}</td>
                 <td>${esc(b.createdBy)}<span class="fnd-sub">${esc(stamp(b.createdAt))}</span></td>
                 <td>${statusPill(b)}</td>
                 <td class="rcp-past__act"><a class="fnd-textbtn" href="${base}?download=1">Print file</a> <a class="fnd-textbtn is-quiet" href="${base}?proof=1" target="_blank" rel="noopener">Proof</a></td>

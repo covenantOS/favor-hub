@@ -5,7 +5,7 @@
 // when a person first presses "Open in Google Sheets", and lets the hub create and open only the sheets it
 // makes.
 import type { Env } from '../http';
-import { providerOf } from '../meetprovider';
+import { PROVIDER_LABEL, providerOf } from '../meetprovider';
 
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events.readonly',
@@ -18,6 +18,22 @@ export const DRIVE_FILE = 'https://www.googleapis.com/auth/drive.file';
 export const CAL_FREEBUSY = 'https://www.googleapis.com/auth/calendar.freebusy';
 export const CAL_EVENTS = 'https://www.googleapis.com/auth/calendar.events';
 export const MEET_SCOPES = [CAL_FREEBUSY, CAL_EVENTS];
+/** Mail in FavorOS. Reading a message, its attachments and searching need gmail.readonly; asked for the first time a person opens Mail. */
+export const GMAIL_METADATA = 'https://www.googleapis.com/auth/gmail.metadata';
+export const GMAIL_READ = 'https://www.googleapis.com/auth/gmail.readonly';
+/** Archive, delete, labels, star, read and unread, drafts and sending; plus the person's own contacts for the To box. Asked for on the first change or send. */
+export const GMAIL_MODIFY = 'https://www.googleapis.com/auth/gmail.modify';
+export const CONTACTS_READ = 'https://www.googleapis.com/auth/contacts.readonly';
+export const CONTACTS_OTHER = 'https://www.googleapis.com/auth/contacts.other.readonly';
+export const MAIL_READ_SCOPES = [GMAIL_READ];
+export const MAIL_WRITE_SCOPES = [GMAIL_MODIFY, CONTACTS_READ, CONTACTS_OTHER];
+/** What a stored grant lets Mail do. gmail.modify reads too. */
+export function mailLevel(granted: string): { read: boolean; write: boolean; contacts: boolean; headers: boolean } {
+  const g = String(granted || '').split(/\s+/);
+  const write = g.includes(GMAIL_MODIFY);
+  const read = write || g.includes(GMAIL_READ);
+  return { read, write, contacts: g.includes(CONTACTS_READ) || g.includes(CONTACTS_OTHER), headers: read || g.includes(GMAIL_METADATA) };
+}
 export const hasScopes = (granted: string, want: string[]) => want.every((w) => String(granted || '').split(/\s+/).includes(w));
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 export const tokenUrl = (env: Env) => env.GOOGLE_TOKEN_URL || TOKEN_URL;
@@ -55,23 +71,50 @@ export async function exchangeCode(env: Env, req: Request, code: string) {
   return data as { access_token: string; refresh_token?: string; scope: string; id_token?: string };
 }
 
-/** A fresh access token for this person, or null when they have not connected (or revoked it). */
+// Access tokens last an hour. Each server copy keeps the ones it made, so a page that asks Gmail several times in a row refreshes once.
+const TOKENS = new Map<string, { token: string; exp: number }>();
+
+/**
+ * A fresh access token for this person, or null when they have not connected (or revoked it).
+ * Gmail treats any token that carries gmail.metadata as headers only, even beside gmail.readonly, so once a person has granted
+ * reading the token is asked for without the metadata scope (Google allows a refresh to ask for less than the grant).
+ */
 export async function accessToken(env: Env, email: string): Promise<{ token: string; scopes: string } | null> {
   const row = await env.DB.prepare('SELECT refresh_enc, scopes FROM hub_google WHERE email = ?').bind(email).first<{ refresh_enc: string; scopes: string }>();
   if (!row) return null;
-  const res = await fetch(tokenUrl(env), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ refresh_token: await open(env, row.refresh_enc), client_id: clientId(env), client_secret: env.GOOGLE_CLIENT_SECRET || '', grant_type: 'refresh_token' }),
-  });
-  const data = (await res.json().catch(() => ({}))) as any;
+  const granted = String(row.scopes || '').split(/\s+/).filter(Boolean);
+  const drop = granted.includes(GMAIL_METADATA) && (granted.includes(GMAIL_READ) || granted.includes(GMAIL_MODIFY));
+  const scopes = drop ? granted.filter((s) => s !== GMAIL_METADATA).join(' ') : row.scopes;
+  const ck = email + '|' + row.scopes + '|' + row.refresh_enc.slice(-24);
+  const hit = TOKENS.get(ck);
+  if (hit && hit.exp > Date.now()) return { token: hit.token, scopes };
+  const refresh = await open(env, row.refresh_enc);
+  const ask = (scope?: string) => {
+    const p = new URLSearchParams({ refresh_token: refresh, client_id: clientId(env), client_secret: env.GOOGLE_CLIENT_SECRET || '', grant_type: 'refresh_token' });
+    if (scope) p.set('scope', scope);
+    return fetch(tokenUrl(env), { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: p });
+  };
+  let res = await ask(drop ? scopes : undefined);
+  let data = (await res.json().catch(() => ({}))) as any;
+  // A refresh that may not narrow the grant falls back to the whole grant (headers only for mail until the person reconnects).
+  if (drop && !res.ok && data.error === 'invalid_scope') {
+    res = await ask();
+    data = (await res.json().catch(() => ({}))) as any;
+  }
   if (data.error === 'invalid_grant') {
     await env.DB.prepare('DELETE FROM hub_google WHERE email = ?').bind(email).run();
     return null;
   }
   if (!res.ok) throw new Error(data.error_description || `refresh ${res.status}`);
   await env.DB.prepare('UPDATE hub_google SET last_used = ? WHERE email = ?').bind(new Date().toISOString(), email).run();
-  return { token: data.access_token, scopes: row.scopes };
+  if (TOKENS.size > 500) TOKENS.clear();
+  TOKENS.set(ck, { token: data.access_token, exp: Date.now() + Math.max(60, Number(data.expires_in) || 3000) * 1000 - 120000 });
+  return { token: data.access_token, scopes };
+}
+
+/** Forget the access tokens kept for this person (after a disconnect or a new grant). */
+export function forgetTokens(email: string): void {
+  for (const k of TOKENS.keys()) if (k.startsWith(email + '|')) TOKENS.delete(k);
 }
 
 export async function revoke(env: Env, email: string): Promise<void> {
@@ -81,6 +124,7 @@ export async function revoke(env: Env, email: string): Promise<void> {
     if (token) await fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(token), { method: 'POST' }).catch(() => undefined);
   }
   await env.DB.prepare('DELETE FROM hub_google WHERE email = ?').bind(email).run();
+  forgetTokens(email);
 }
 
 const g = async (token: string, url: string) => {
@@ -89,29 +133,78 @@ const g = async (token: string, url: string) => {
   return res.json() as Promise<any>;
 };
 
-export interface DayEvent { start: string; end: string; allDay: boolean; title: string; link: string; meet: string; provider: string; people: string[] }
-export interface DayFile { name: string; link: string; modified: string; by: string; icon: string }
-export interface DayMail { from: string; fromEmail: string; subject: string; date: string; link: string }
+export interface DayEvent {
+  id: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  title: string;
+  /** The event in Google Calendar. Shown only as a secondary link. */
+  link: string;
+  /** The join address of an outside meeting (Zoom, Meet, Teams, Webex); empty when there is none. */
+  meet: string;
+  /** A dial-in number when the event is a phone call. */
+  phone: string;
+  provider: string;
+  /** What the meeting is held on, in words: Zoom, Google Meet, Microsoft Teams, Webex, Favor Meetings, Phone call or No link. */
+  source: string;
+  people: string[];
+  /** The FavorOS meeting id when this event already has a room; set by the Today route. */
+  hub: string;
+  organizer: boolean;
+  /** Whether this person's calendar lets them add text to the event (they organize it, or guests may edit it). */
+  canEdit: boolean;
+  declined: boolean;
+}
+export interface DayFile { id: string; name: string; link: string; modified: string; by: string; icon: string; mime: string }
+export interface DayMail { id: string; threadId: string; from: string; fromEmail: string; subject: string; date: string; link: string }
 
-/** Today's meetings (Eastern), from the primary calendar. */
-export async function todaysEvents(token: string): Promise<DayEvent[]> {
-  const now = new Date();
+/** Today in Eastern: the date, the UTC offset and the two instants that bound the day. */
+export function easternDay(now = new Date()): { day: string; tz: string; start: string; end: string } {
   const day = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const offset = now.toLocaleString('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' }).match(/GMT([+-]\d+)/)?.[1] || '-4';
   const tz = `${offset.startsWith('-') ? '-' : '+'}${String(Math.abs(Number(offset))).padStart(2, '0')}:00`;
-  const q = new URLSearchParams({ timeMin: `${day}T00:00:00${tz}`, timeMax: `${day}T23:59:59${tz}`, singleEvents: 'true', orderBy: 'startTime', maxResults: '20' });
+  return { day, tz, start: `${day}T00:00:00${tz}`, end: `${day}T23:59:59${tz}` };
+}
+
+const phoneOf = (e: any): string => {
+  const ep = (e.conferenceData?.entryPoints || []).find((x: any) => x.entryPointType === 'phone');
+  if (ep?.uri) return String(ep.uri).replace(/^tel:/i, '').split(',')[0];
+  const m = String(e.location || '').match(/^\s*(?:tel:)?(\+?\d[\d\s().-]{6,}\d)\s*$/i);
+  return m ? m[1].trim() : '';
+};
+
+/** Every event on the person's primary calendar today (Eastern), whatever the meeting is held on. */
+export async function todaysEvents(token: string): Promise<DayEvent[]> {
+  const d = easternDay();
+  const q = new URLSearchParams({ timeMin: d.start, timeMax: d.end, singleEvents: 'true', orderBy: 'startTime', maxResults: '60' });
   const data = await g(token, `https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`);
   return (data.items || [])
     .filter((e: any) => e.status !== 'cancelled')
-    .map((e: any) => ({
-      start: e.start?.dateTime || e.start?.date || '',
-      end: e.end?.dateTime || e.end?.date || '',
-      allDay: !e.start?.dateTime,
-      title: e.summary || '(No title)',
-      link: e.htmlLink || '',
-      meet: e.hangoutLink || '',
-      people: (e.attendees || []).filter((a: any) => !a.self && !a.resource).map((a: any) => String(a.email || '').toLowerCase()),
-    }));
+    .map((e: any): DayEvent => {
+      const p = providerOf(e);
+      const phone = p.provider ? '' : phoneOf(e);
+      const provider = p.provider || (phone ? 'phone' : 'none');
+      const me = (e.attendees || []).find((a: any) => a.self);
+      const organizer = !!e.organizer?.self || !e.attendees?.length;
+      return {
+        id: String(e.id || ''),
+        start: e.start?.dateTime || e.start?.date || '',
+        end: e.end?.dateTime || e.end?.date || '',
+        allDay: !e.start?.dateTime,
+        title: e.summary || '(No title)',
+        link: e.htmlLink || '',
+        meet: p.provider && p.provider !== 'favor' ? p.url : e.hangoutLink || '',
+        phone,
+        provider,
+        source: p.provider ? PROVIDER_LABEL[p.provider] : phone ? 'Phone call' : 'No link',
+        people: (e.attendees || []).filter((a: any) => !a.self && !a.resource).map((a: any) => String(a.email || '').toLowerCase()),
+        hub: p.provider === 'favor' ? p.url.match(/[?&]m=([A-Za-z0-9]+)/)?.[1] || '' : '',
+        organizer,
+        canEdit: organizer || e.guestsCanModify === true,
+        declined: me?.responseStatus === 'declined',
+      };
+    });
 }
 
 /** Files shared with the person or changed by someone else in the last week. */
@@ -121,7 +214,7 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
     q: `(sharedWithMe = true or 'me' in owners) and modifiedTime > '${since}' and trashed = false`,
     orderBy: 'modifiedTime desc',
     pageSize: '8',
-    fields: 'files(name,webViewLink,modifiedTime,iconLink,lastModifyingUser(displayName,me))',
+    fields: 'files(id,name,mimeType,webViewLink,modifiedTime,iconLink,lastModifyingUser(displayName,me))',
     includeItemsFromAllDrives: 'true',
     supportsAllDrives: 'true',
     corpora: 'allDrives',
@@ -130,7 +223,7 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
   return (data.files || [])
     .filter((f: any) => !f.lastModifyingUser?.me)
     .slice(0, 6)
-    .map((f: any) => ({ name: f.name, link: f.webViewLink, modified: f.modifiedTime, by: f.lastModifyingUser?.displayName || '', icon: f.iconLink || '' }));
+    .map((f: any) => ({ id: String(f.id || ''), name: f.name, link: f.webViewLink, modified: f.modifiedTime, by: f.lastModifyingUser?.displayName || '', icon: f.iconLink || '', mime: f.mimeType || '' }));
 }
 
 /** Unread inbox mail from the last three days, headers only. */
@@ -146,7 +239,7 @@ export async function unreadMail(token: string): Promise<DayMail[]> {
     const h = (n: string) => (m.payload?.headers || []).find((x: any) => x.name === n)?.value || '';
     const from = h('From');
     const email = (from.match(/<([^>]+)>/)?.[1] || from).toLowerCase().trim();
-    out.push({ from: from.replace(/<[^>]+>/, '').replace(/"/g, '').trim() || email, fromEmail: email, subject: h('Subject') || '(No subject)', date: new Date(Number(m.internalDate)).toISOString(), link: `https://mail.google.com/mail/u/0/#inbox/${m.threadId}` });
+    out.push({ id: String(m.id), threadId: String(m.threadId), from: from.replace(/<[^>]+>/, '').replace(/"/g, '').trim() || email, fromEmail: email, subject: h('Subject') || '(No subject)', date: new Date(Number(m.internalDate)).toISOString(), link: `https://mail.google.com/mail/u/0/#inbox/${m.threadId}` });
   }
   return out;
 }

@@ -1,4 +1,4 @@
-import { clientId, DRIVE_FILE, MEET_SCOPES, redirectUri, SCOPES } from '../../_lib/hub/google';
+import { clientId, DRIVE_FILE, GMAIL_METADATA, MAIL_READ_SCOPES, MAIL_WRITE_SCOPES, MEET_SCOPES, redirectUri, SCOPES } from '../../_lib/hub/google';
 import type { Env } from '../../_lib/http';
 import { safeNextPath } from '../../_lib/next';
 import { hubUserOf } from '../../_lib/session';
@@ -9,13 +9,16 @@ import { hubUserOf } from '../../_lib/session';
 // Sheets export needs (create and open the sheets the hub makes, drive.file), with the grant the person
 // already gave kept (include_granted_scopes) and no forced second screen. "&force=1" asks again with the
 // consent screen, for a person whose Google grant exists but whose hub row did not receive a token.
+// "?add=mail" asks for reading mail in FavorOS (gmail.readonly), the first time a person opens Mail; "?add=mailsend" asks for
+// changing and sending (gmail.modify and the person's own contacts), the first time they archive, reply or send. A person with no
+// Google connection yet gets the base read scopes too (without mail headers, which reading mail covers).
 // Both ask for the sign-in identity (openid, email) so the callback can always check the account.
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = hubUserOf(request);
   const params = new URL(request.url).searchParams;
   const next = safeNextPath(params.get('next'));
   if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=' + encodeURIComponent(next), request.url).toString(), 302);
-  const addKind = params.get('add') === 'meetings' ? 'meetings' : params.get('add') === 'sheets' ? 'sheets' : '';
+  const addKind = (['meetings', 'sheets', 'mail', 'mailsend'] as const).find((k) => k === params.get('add')) || '';
   const add = !!addKind;
   const force = params.get('force') === '1';
   const state = crypto.randomUUID() + '|' + encodeURIComponent(next) + (add ? '|' + addKind + (force ? '+force' : '') : '');
@@ -23,7 +26,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     client_id: clientId(env),
     redirect_uri: redirectUri(request),
     response_type: 'code',
-    scope: (add ? [...(addKind === 'meetings' ? MEET_SCOPES : [DRIVE_FILE]), 'openid', 'email'] : [...SCOPES, 'openid', 'email']).join(' '),
+    scope: (add ? [...(await extraScopes(env, user.email, addKind)), 'openid', 'email'] : [...SCOPES, 'openid', 'email']).join(' '),
     access_type: 'offline',
     include_granted_scopes: 'true',
     login_hint: user.email,
@@ -40,3 +43,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     },
   });
 };
+
+async function extraScopes(env: Env, email: string, kind: string): Promise<string[]> {
+  if (kind === 'meetings') return MEET_SCOPES;
+  if (kind === 'sheets') return [DRIVE_FILE];
+  const mail = kind === 'mailsend' ? MAIL_WRITE_SCOPES : MAIL_READ_SCOPES;
+  const row = await env.DB.prepare('SELECT 1 AS ok FROM hub_google WHERE email = ?').bind(email.toLowerCase()).first().catch(() => null);
+  return row ? mail : [...SCOPES.filter((s) => s !== GMAIL_METADATA), ...mail];
+}

@@ -76,7 +76,7 @@ describe('the gate', () => {
     assert.equal((await callChecked(w, 'GET', '/api/mobile/today', { token: stranger })).status, 403);
   });
 
-  it('config answers every signed-in phone, so the hub can retire an old build', async () => {
+  it('config answers every signed-in phone, so FavorOS can retire an old build', async () => {
     const w = await world();
     const token = await signIn(w);
     const out = await callChecked(w, 'GET', '/api/mobile/config', { token });
@@ -248,7 +248,7 @@ describe('partners', () => {
     assert.deepEqual(out.body.items, []);
   });
 
-  it('is read only: it sends nothing to Blackbaud and writes nothing to the hub', async () => {
+  it('is read only: it sends nothing to Blackbaud and writes nothing to FavorOS', async () => {
     const { w, token } = await ready();
     const before = w.db.prepare('SELECT COUNT(*) AS n FROM act_outbox').get().n;
     await callChecked(w, 'GET', '/api/mobile/partners?q=ada', { token });
@@ -507,7 +507,7 @@ describe('the contract', () => {
     assert.deepEqual(missing, []);
   });
 
-  it('every error status the hub answers is one the contract documents', () => {
+  it('every error status FavorOS answers is one the contract documents', () => {
     const undocumented = contractLog.filter((l) => l.problems.some((p) => p.includes('does not list')));
     assert.deepEqual(undocumented, []);
   });

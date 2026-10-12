@@ -1,0 +1,34 @@
+/* Work Center: grouped tab rows, one toolbar row under the filters, a row highlight for ?action=. */
+body.h-body #wc-root .wc-nav { display: grid; gap: 10px; margin-bottom: 16px; justify-items: start; }
+body.h-body #wc-root .wc-groups { display: flex; gap: 4px; padding: 4px; border-radius: 999px; background: color-mix(in srgb, #f1eee7 80%, transparent); border: 1px solid var(--h-line); max-width: 100%; }
+body.h-body #wc-root .wc-grp { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 36px; padding: 0 16px; border-radius: 999px; border: 0; background: none; font: 600 13px var(--h-font); color: var(--h-ink-2); white-space: nowrap; cursor: pointer; }
+body.h-body #wc-root .wc-grp:hover { color: var(--h-ink); }
+body.h-body #wc-root .wc-grp.is-on { background: var(--h-ivory); color: var(--h-ink); box-shadow: 0 1px 2px rgba(42,39,34,.06), 0 4px 12px -6px rgba(42,39,34,.18); }
+body.h-body #wc-root .wc-grp.is-new::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--h-gold); }
+body.h-body #wc-root .wc-nav .wc-tabs { display: flex; flex-wrap: wrap; gap: 8px; width: auto; max-width: 100%; padding: 0; margin: 0; border: 0; border-radius: 0; background: none; overflow: visible; -webkit-mask-image: none; mask-image: none; }
+body.h-body #wc-root .wc-nav .wc-tab { height: 34px; padding: 0 14px; border: 1px solid var(--h-line-2); background: var(--h-ivory); cursor: pointer; }
+body.h-body #wc-root .wc-nav .wc-tab:hover { border-color: var(--h-ink-3); }
+body.h-body #wc-root .wc-nav .wc-tab.is-on { background: var(--h-leaf-soft); border-color: var(--h-brand); color: var(--h-brand-ink); box-shadow: none; }
+body.h-body #wc-root .wc-nav .wc-tab span { min-width: 22px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 860px) {
+  body.h-body #wc-root .wc-nav { justify-items: stretch; gap: 8px; }
+  body.h-body #wc-root .wc-groups { width: 100%; }
+  body.h-body #wc-root .wc-grp { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 0 4px; }
+  body.h-body #wc-root .wc-nav .wc-tabs .wc-tab { min-height: 40px; padding: 0 12px; }
+}
+
+/* The toolbar under Find a partner: one row, same height and rhythm as the filters above it. */
+body.h-body #wc-root .wc-filters { border-bottom: 0; padding: 16px 16px 10px; }
+body.h-body #wc-root .wc-tools2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 16px 14px; border-bottom: 1px solid var(--h-line); }
+body.h-body #wc-root .wc-tools2 .h-btn, body.h-body #wc-root .wc-tools2 .ep-menu > .h-btn { height: 36px; min-height: 36px; padding: 0 14px; font-size: 13px; }
+body.h-body #wc-root .wc-tools2 .ep-menu { display: inline-flex; }
+body.h-body #wc-root .wc-tools2 .ep-keysbtn { margin-left: auto; }
+@media (max-width: 860px) {
+  body.h-body #wc-root .wc-filters:not(.is-sheet) { padding: 12px 12px 8px; }
+  body.h-body #wc-root .wc-tools2 { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 8px; padding: 0 12px 12px; }
+  body.h-body #wc-root .wc-tools2 > .h-btn, body.h-body #wc-root .wc-tools2 .ep-menu, body.h-body #wc-root .wc-tools2 .ep-menu > .h-btn { width: 100%; min-height: 44px; height: 44px; justify-content: center; }
+}
+
+.wc-row.is-flash { animation: wc-flash 2.4s ease-out; }
+@keyframes wc-flash { 0%, 55% { box-shadow: inset 0 0 0 2px var(--h-brand); background: var(--h-leaf-soft); } 100% { box-shadow: inset 0 0 0 2px transparent; } }
+@media (prefers-reduced-motion: reduce) { .wc-row.is-flash { animation: none; background: var(--h-leaf-soft); } }

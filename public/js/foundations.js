@@ -25,8 +25,8 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
-  const plural = (n, w) => `${n} ${w}${Number(n) === 1 ? '' : 's'}`;
-  const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
+  const plural = (n, w) => `${Number(n).toLocaleString('en-US')} ${w}${Number(n) === 1 ? '' : 's'}`;
+  const money = (a) => { const n = Math.round(Number(a) || 0); return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US'); };
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const day = (iso) => {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
@@ -149,23 +149,9 @@
   }
 
   function render() {
-    renderStats();
     renderTabs();
     renderFilters();
     renderRows();
-  }
-
-  function renderStats() {
-    const L = state.list;
-    const stats = [
-      [L.length, 'Foundations'],
-      [L.reduce((s, f) => s + Number(f.contacts || 0), 0), 'Contacts logged'],
-      [L.filter((f) => f.bb_lookup_id).length, 'Have a Blackbaud record'],
-      [L.filter((f) => f.status === 'dead').length, 'Dead ends'],
-    ];
-    $('fnd-stats').innerHTML = stats
-      .map((s) => `<div class="ticker__stat"><div class="ticker__num">${s[0].toLocaleString('en-US')}</div><div class="ticker__caption">${s[1]}</div></div>`)
-      .join('');
   }
 
   function renderTabs() {
@@ -176,7 +162,7 @@
       ['activity', 'Sent to Blackbaud', ''],
     ];
     $('fnd-tabs').innerHTML = tabs
-      .map((t) => `<button type="button" role="tab" data-tab="${t[0]}" class="${state.tab === t[0] ? 'is-on' : ''}">${t[1]}${t[2] === '' ? '' : `<span>${t[2]}</span>`}</button>`)
+      .map((t) => `<button type="button" role="tab" data-tab="${t[0]}" class="${state.tab === t[0] ? 'is-on' : ''}">${t[1]}${t[2] === '' ? '' : `<span>${Number(t[2]).toLocaleString('en-US')}</span>`}</button>`)
       .join('');
     $('fnd-view-list').hidden = state.tab !== 'list';
     $('fnd-view-cleanup').hidden = state.tab !== 'cleanup';
@@ -204,7 +190,7 @@
   function renderFilters() {
     const count = (k) => (k === 'all' ? state.list.length : state.list.filter((f) => statusOf(f)[0] === k).length);
     $('fnd-filters').innerHTML =
-      FILTERS.map((f) => `<button type="button" data-filter="${f[0]}" class="${state.filter === f[0] ? 'on' : ''}">${f[1]}<small>${count(f[0])}</small></button>`).join('') +
+      FILTERS.map((f) => `<button type="button" data-filter="${f[0]}" class="${state.filter === f[0] ? 'on' : ''}">${f[1]}<small>${count(f[0]).toLocaleString('en-US')}</small></button>`).join('') +
       `<select id="fnd-sort" aria-label="Sort">
         <option value="contacts"${state.sort === 'contacts' ? ' selected' : ''}>Most contacts first</option>
         <option value="recent"${state.sort === 'recent' ? ' selected' : ''}>Latest contact first</option>
@@ -243,14 +229,14 @@
           .map(
             (f) => `<tr class="exp-admin-row" data-id="${esc(f.id)}" tabindex="0">
               <td><span class="fnd-name">${esc(f.name)}</span>${f.location ? `<span class="fnd-sub">${esc(f.location)}</span>` : ''}</td>
-              <td class="r mono">${Number(f.contacts) || 0}</td>
-              <td class="mono">${day(f.last_contact) || 'None yet'}</td>
+              <td class="r mono${Number(f.contacts) === 1 ? ' is-one' : ''}">${(Number(f.contacts) || 0).toLocaleString('en-US')}</td>
+              <td class="mono${firstNames(f.rdds) ? '' : ' is-end'}">${day(f.last_contact) || 'None yet'}</td>
               <td>${esc(firstNames(f.rdds)) || ''}</td>
-              <td>${pill(f)}${Number(f.waiting) ? `<span class="fnd-flag">${f.waiting} waiting</span>` : ''}</td>
+              <td>${pill(f)}${Number(f.waiting) ? `<span class="fnd-flag">${Number(f.waiting).toLocaleString('en-US')} waiting</span>` : ''}</td>
             </tr>`
           )
           .join('') + (all.length > rows.length
-            ? `<tr class="fnd-morerow"><td colspan="5"><button type="button" class="h-more" id="fnd-more">Show ${Math.min(PAGE, all.length - rows.length)} more <span>${all.length - rows.length} left of ${all.length}</span></button></td></tr>`
+            ? `<tr class="fnd-morerow"><td colspan="5"><button type="button" class="h-more" id="fnd-more">Show ${Math.min(PAGE, all.length - rows.length)} more <span>${(all.length - rows.length).toLocaleString('en-US')} left of ${all.length.toLocaleString('en-US')}</span></button></td></tr>`
             : '')
       : `<tr><td colspan="5" class="fnd-empty">Nothing here yet.</td></tr>`;
   }

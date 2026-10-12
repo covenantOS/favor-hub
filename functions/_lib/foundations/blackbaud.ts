@@ -129,7 +129,7 @@ export async function connection(env: Env): Promise<{ blackbaud: boolean; mirror
 
 export async function ops(env: Env, method: string, path: string, body?: unknown): Promise<OpsResult> {
   if (!env.BLACKBAUD_SETUP_KEY) {
-    return { ok: false, status: 0, body: null, wait: 'The Blackbaud connection is not set up on the hub yet.' };
+    return { ok: false, status: 0, body: null, wait: 'The Blackbaud connection is not set up on FavorOS yet.' };
   }
   const url = await opsUrl(env);
   const ctl = new AbortController();
@@ -190,7 +190,7 @@ export interface OpsManyResult {
  * `results` can be shorter than `calls`. Every call, a read included, counts against the day's cap.
  */
 export async function opsMany(env: Env, calls: OpsCall[]): Promise<OpsManyResult> {
-  if (!env.BLACKBAUD_SETUP_KEY) return { results: [], wait: 'The Blackbaud connection is not set up on the hub yet.' };
+  if (!env.BLACKBAUD_SETUP_KEY) return { results: [], wait: 'The Blackbaud connection is not set up on FavorOS yet.' };
   if (calls.length < 1 || calls.length > 15) throw new Error('send between 1 and 15 calls');
   const url = await opsUrl(env);
   const ctl = new AbortController();

@@ -62,7 +62,7 @@
   ],
   "minLayoutGap": 8,
   "bannedCopy": [
-    "—",
+    "\u2014",
     "donors",
     "unlock your potential",
     "seamlessly",
@@ -103,6 +103,13 @@
         "content-clipping"
       ],
       "reason": "Skip link, off screen until it takes focus."
+    },
+    {
+      "selector": ".ml-row__p, .ml-row__s, .ml-row__who, .ml-msg__l2, .ml-msg__l1 small",
+      "rules": [
+        "content-clipping"
+      ],
+      "reason": "Mail list and folded message lines: sender, subject and preview are cut to one line on purpose, as in every mail list. The whole text shows when the conversation or the message opens."
     }
   ]
 }

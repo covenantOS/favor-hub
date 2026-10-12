@@ -9,8 +9,9 @@ import { HttpError, nowIso, type Env } from '../http';
 import { getRollout, GROUPS, setRollout } from '../work/digest';
 import { setSetting as actSet } from '../work/db';
 import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
+import { DEFAULT_COPY, WORDING } from '../statements/copy';
 
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'chat' | 'projects';
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {
@@ -31,6 +32,8 @@ export interface Def {
   unit?: string;
   /** Changing it changes what the hub may write to Blackbaud, so the page shows the current value and asks to confirm. */
   bb?: boolean;
+  /** Changing it changes whether the hub contacts partners, so the page asks to confirm. */
+  contact?: boolean;
   /** Where it lives, in words for the audit log. */
   where: string;
   /** The value when nothing is saved. */
@@ -153,6 +156,9 @@ export const START_TABS: Opt[] = [
   { value: 'asks', label: 'Asks' },
   { value: 'cadence', label: 'Cadence' },
   { value: 'hqty', label: 'HQTY letters' },
+  { value: 'declines', label: 'Declines' },
+  { value: 'grants', label: 'Grants' },
+  { value: 'giftimages', label: 'Gift images' },
 ];
 export const START_ROLES: Array<{ role: string; label: string; def: string }> = [
   { role: 'admin', label: 'Admin', def: 'open' },
@@ -167,7 +173,7 @@ const upkeepCap: Def = {
   area: 'work',
   group: 'Blackbaud calls a day',
   label: 'Upkeep calls a day',
-  hint: 'Everything the hub and the sync worker send through the upkeep route. The giving form keeps the rest of the key.',
+  hint: 'Hub and sync worker calls. The giving form keeps the rest of the key.',
   kind: 'int',
   min: 1000,
   max: 3000,
@@ -183,7 +189,7 @@ const upkeepCap: Def = {
   },
   async write(env, value) {
     const kv = (env as EnvPlus).BB_KV;
-    if (!kv) throw new HttpError(503, 'no_kv', 'The upkeep cap is not connected to this copy of the hub.');
+    if (!kv) throw new HttpError(503, 'no_kv', 'The upkeep cap is not connected to this copy of FavorOS.');
     await kv.put('bb:ops:cap', value);
   },
   async check(env, value) {
@@ -194,7 +200,7 @@ const upkeepCap: Def = {
 
 const laneCap = actDef({
   id: 'wc.lane_cap', key: 'lane_cap', area: 'work', group: 'Blackbaud calls a day', label: 'Work Center lane',
-  hint: 'Calls a day the Work Center may use out of the upkeep cap. The rest stays for the sync worker.',
+  hint: 'Share of the upkeep cap. The rest stays for the sync worker.',
   kind: 'int', min: 100, max: 2900, unit: 'calls', bb: true, def: '2400', norm: (v) => String(Number(v) || 2400),
 });
 laneCap.check = async (env, value) => {
@@ -244,6 +250,8 @@ export const DEFS: Def[] = [
   hubDef({ id: 'meet.drive_folder', area: 'meetings', label: 'Recording folder', hint: 'The Google Drive folder id of the Meetings folder in US Team Files.', kind: 'text', def: '', envVar: 'MEET_DRIVE_FOLDER' }),
   hubDef({ id: 'meet.lead_min', area: 'meetings', label: 'Reminder lead time', hint: 'Minutes before the start that the second reminder email goes out. The first goes a day ahead.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '15' }),
   hubDef({ id: 'meet.max_people', area: 'meetings', label: 'People in one meeting', hint: 'The next person to join a full meeting is turned away.', kind: 'int', min: 2, max: 100, unit: 'people', def: '60' }),
+  // ---------------------------------------------------------------------------------------------------- Reports
+  hubDef({ id: 'reports.mail_folder', area: 'reports', label: 'Mail files folder', hint: 'The Google Drive folder id where the Mail file sheets go, inside US Team Files. Empty means the folder called Hub mail files.', kind: 'text', def: '' }),
   // ------------------------------------------------------------------------------------------------ Favor Brain
   hubDef({ id: 'brain.connect_prompt', area: 'brain', label: 'Connect prompt', hint: 'The one-time window that offers to connect Claude or ChatGPT.', kind: 'enum', options: ON_OFF, def: 'on' }),
   hubDef({ id: 'brain.auto_titles', area: 'brain', label: 'Automatic chat titles', hint: 'A short title written after the first answer in a chat.', kind: 'enum', options: ON_OFF, def: 'on' }),
@@ -255,14 +263,33 @@ export const DEFS: Def[] = [
   hubDef({ id: 'clips.share_default', area: 'clips', label: 'Sharing link on a new clip', hint: 'A person can still switch the link on or off for each clip.', kind: 'enum', options: ON_OFF, def: 'off' }),
   // -------------------------------------------------------------------------------------------------------- Chat
   hubDef({ id: 'chat.enabled', area: 'chat', label: 'Who can use Chat', hint: 'Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'learn.enabled', area: 'chat', group: 'Learn', label: 'Who can use Learn', hint: 'Admins and HR only, every signed-in staff member, or nobody. Courses and assignments are built by admins and HR either way.', kind: 'enum', options: [{ value: 'admins', label: 'Admins and HR only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'requests.notify', area: 'chat', group: 'Request board', label: 'Request notices', hint: 'Send to, @mentions, comments and Waiting on reach Today, the bell and a Chat card. Off records them on the request only.', kind: 'enum', options: ON_OFF, def: 'off' }),
+  hubDef({ id: 'requests.email', area: 'chat', group: 'Request board', label: 'Request email', hint: 'Each notice also goes by email, unless the person chose a daily summary or none. Only when request notices are on.', kind: 'enum', options: ON_OFF, def: 'on' }),
   hubDef({ id: 'requests.notify.only', area: 'chat', group: 'Request board', label: 'Notices while off', hint: 'Email addresses, separated by commas, that still get request notices while the setting above is off.', kind: 'text', def: '' }),
+  hubDef({ id: 'mail.enabled', area: 'chat', group: 'Mail', label: 'Who can use Mail', hint: 'Each person sees only their own Gmail. Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'mail.write', area: 'chat', group: 'Mail', label: 'Change and send from Mail', hint: 'Off keeps Mail read only. Reply, archive and the rest open Gmail.', kind: 'enum', options: ON_OFF, def: 'on' }),
   // ---------------------------------------------------------------------------------------------------- Projects
   hubDef({ id: 'projects.enabled', area: 'projects', label: 'Who can use Projects', hint: 'Admins only, every signed-in staff member, or nobody. Task notices follow the Request notices setting in Admin > Chat.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'projects.marketing_key', area: 'projects', label: 'Project for Marketing requests', hint: 'The key of the project where a Marketing request lands as a task, for example MKT. Empty leaves requests going to the form they use now.', kind: 'text', def: '' }),
   // ------------------------------------------------------------------------------------------- Thank-you receipts
   hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a receipt', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
-  hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops the hub from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
+  hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops FavorOS from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
+  // ------------------------------------------------------------------------------------------------- Giving statements
+  hubDef({
+    id: 'statements.email', area: 'statements', group: 'Sending', label: 'Emailing statements', contact: true,
+    hint: 'On lets the Statements page email a statement to a partner who has an email address. Off keeps every statement a print file. Turning it on contacts partners.',
+    kind: 'enum', options: ON_OFF, def: 'off',
+  }),
+  hubDef({ id: 'statements.batch_size', area: 'statements', group: 'Print files', label: 'Statements in one print file', hint: 'The year-end run makes files of this size, one at a time.', kind: 'int', min: 10, max: 500, unit: 'statements', def: '100' }),
+  hubDef({
+    id: 'statements.drive_folder', area: 'statements', group: 'Print files', label: 'Copy folder in US Team Files',
+    hint: 'The Google Drive folder id of a folder inside US Team Files. A single statement is saved there when this is set. Blank keeps copies in FavorOS only.',
+    kind: 'text', def: '',
+  }),
+  ...WORDING.map((w) =>
+    hubDef({ id: w.id, area: 'statements', group: 'Wording on the statement', label: w.label, hint: w.hint, kind: 'text', def: DEFAULT_COPY[w.key] })
+  ),
   // -------------------------------------------------------------------------------------------------------- Expenses
   expDef({ id: 'expenses.approver_name', label: 'Approver name', kind: 'text', def: '', hint: 'Shown on each request and in the emails.',
     get: async (e) => (await getSettings(e)).approver_name, put: async (e, v) => saveSettings(e, { ...(await getSettings(e)), approver_name: v }) }),
@@ -298,7 +325,7 @@ export function normalize(d: Def, raw: unknown): string {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v + 'T12:00:00Z'))) throw new HttpError(400, 'bad_value', `${d.label} is a date, YYYY-MM-DD.`);
     return v;
   }
-  const t = v.slice(0, 400);
+  const t = v.slice(0, WORDING.find((w) => w.id === d.id)?.max ?? 400);
   if (d.id === 'expenses.approver_name' && !t) throw new HttpError(400, 'bad_value', 'The approver needs a name.');
   if (d.id === 'expenses.approver_email' || d.id === 'expenses.distribution' || d.id === 'expenses.viewers') {
     const list = splitEmails(t);
@@ -311,7 +338,8 @@ export function normalize(d: Def, raw: unknown): string {
     if (list.some((e) => !/^[a-z0-9._-]+@favorintl\.org$/.test(e))) throw new HttpError(400, 'bad_value', 'Use favorintl.org addresses, separated by commas.');
     return list.join(', ');
   }
-  if (d.id === 'meet.drive_folder' && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
+  if (d.id === 'statements.drive_folder' && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
+  if ((d.id === 'meet.drive_folder' || d.id === 'reports.mail_folder') && t && !/^[A-Za-z0-9_-]{10,80}$/.test(t)) throw new HttpError(400, 'bad_value', 'A Drive folder id is letters, digits, dashes and underscores.');
   return t;
 }
 
@@ -337,6 +365,7 @@ export interface View {
   max?: number;
   unit: string;
   bb: boolean;
+  contact: boolean;
   value: string;
   def: string;
   saved: boolean;
@@ -350,7 +379,7 @@ async function viewOf(env: Env, d: Def): Promise<View> {
   const r = await d.read(env).catch(() => ({ value: d.def, saved: false } as { value: string; saved: boolean; by?: string; at?: string }));
   return {
     id: d.id, area: d.area, group: d.group || '', label: d.label, hint: d.hint || '', kind: d.kind, options: d.options || [], min: d.min, max: d.max,
-    unit: d.unit || '', bb: !!d.bb, value: r.value, def: d.def, saved: r.saved, by: r.by || '', at: r.at || '', where: d.where, canReset: !!d.clear && r.saved,
+    unit: d.unit || '', bb: !!d.bb, contact: !!d.contact, value: r.value, def: d.def, saved: r.saved, by: r.by || '', at: r.at || '', where: d.where, canReset: !!d.clear && r.saved,
   };
 }
 
@@ -381,7 +410,10 @@ export async function changeSetting(env: Env, actor: string, id: string, raw: un
   }
   const value = normalize(d, raw);
   if (d.bb && !opts.confirm) {
-    throw new HttpError(409, 'confirm', `${d.label} changes what the hub sends to Blackbaud. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
+    throw new HttpError(409, 'confirm', `${d.label} changes what FavorOS sends to Blackbaud. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
+  }
+  if (d.contact && !opts.confirm) {
+    throw new HttpError(409, 'confirm', `${d.label} changes whether FavorOS emails partners. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
   }
   if (d.check) await d.check(env, value);
   if (value === before) return viewOf(env, d);

@@ -133,7 +133,7 @@ async function panel(id) {
   E.panel = { id, act, orig: JSON.parse(JSON.stringify(act)), partner: d.partner, tab: 'details', box, dirty: {}, tags: null, notes: null, files: null };
   $('.h-label', box).textContent = (act.type || 'Action') + ' · ' + (act.category || '');
   $('h2', box).textContent = d.partner.name;
-  $('.ep-sub', box).innerHTML = `${a0 ? esc(a0.loc || 'No city on file') + ' · ' : ''}Action ${esc(act.id)} · <a href="/work/partner/${esc(act.cid)}">Partner page</a>`;
+  $('.ep-sub', box).innerHTML = `${a0 ? esc(a0.loc || 'No city on file') + ' · ' : ''}Action ${esc(act.id)} · <a href="/work/partner/${esc(act.cid)}">Partner page</a> · <a href="https://host.nxt.blackbaud.com/constituent/records/${esc(act.cid)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">Open in Blackbaud</a>`;
   // The partner beside the panel is the partner page's own view, so the two always agree.
   const side = $('#ep-side', box);
   side.innerHTML = '<details class="ep-ctx" open><summary>About this partner</summary><div id="ep-pv"></div></details>';
@@ -682,7 +682,7 @@ async function loadOpps(force) {
   if (E.oppLoading || (E.opps && !force)) return;
   E.oppLoading = true;
   try { const d = await wc.api('/api/work/opps'); E.opps = d.rows; E.oppNames = d.names || {}; } catch (e) { E.oppErr = e.message; } finally { E.oppLoading = false; }
-  if (wc.S.view === 'opps') wc.render();
+  wc.refresh('opps');
 }
 function oppMatches(o) {
   const f = E.oppF;

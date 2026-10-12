@@ -3,7 +3,7 @@
    data-sheets="name" on a button; this file runs the call, shows the progress, and handles the one-time
    Google step. The Favor Brain page calls FavorSheets.run() itself and draws its own cards.
 
-   The first export asks Google for one permission, to create and open only the sheets the hub makes. The
+   The first export asks Google for one permission, to create and open only the sheets FavorOS makes. The
    request is saved in this tab, the person goes to Google once, and the export runs again by itself when
    they come back (the address then carries ?google=sheets). */
 (() => {
@@ -13,7 +13,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const style = document.createElement('style');
-  style.textContent = `.fs-msg{display:block;margin:6px 0 0;font-size:12.5px;color:var(--h-ink-2,#57524a)}.fs-msg.is-err{color:var(--h-red,#a8573a)}
+  style.textContent = `.fs-msg{display:block;margin:6px 0 0;font-size:13px;color:var(--h-ink-2,#57524a)}.fs-msg.is-err{color:var(--h-red,#a8573a)}
 .fs-toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);opacity:0;z-index:300;background:#2a2722;color:#fff;padding:10px 16px;border-radius:14px;font:500 13px Inter,system-ui,sans-serif;box-shadow:0 12px 40px -10px rgba(0,0,0,.4);transition:opacity .2s,transform .25s;display:flex;gap:10px;align-items:center}
 .fs-toast.is-on{opacity:1;transform:translate(-50%,0)}.fs-toast a{color:#d7e8cc;font-weight:600}
 .fs-spin{display:inline-block;width:13px;height:13px;border-radius:50%;border:2px solid rgba(42,39,34,.18);border-top-color:#57524a;animation:fs-spin .8s linear infinite;vertical-align:-2px;margin-right:6px}
@@ -42,7 +42,7 @@
       if (res.ok && d.ok) return d;
       return { ok: false, error: d.error || 'failed', message: d.message || 'The sheet did not build. Try again in a minute.', ...d };
     } catch {
-      return { ok: false, error: 'network', message: 'The hub could not be reached. Check the connection and try again.' };
+      return { ok: false, error: 'network', message: 'FavorOS could not be reached. Check the connection and try again.' };
     }
   }
 

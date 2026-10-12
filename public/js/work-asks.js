@@ -2,7 +2,7 @@
    close date and Gave. A close-date chip on each card opens a small panel and saves at once with Undo. Reads GET /api/work/asks one page
    of 50 at a time (the D1 copy of Blackbaud, no Blackbaud calls). Every filter (status, search, director, tagged range) runs on the server
    over all asks. A column loads its next page when the sentinel at its end scrolls into view. The close date is saved with
-   PUT /api/work/asks/:id/close in the hub database.
+   PUT /api/work/asks/:id/close in FavorOS database.
    Registers through window.WCTabs. Directors see their own asks; the Support Team and admins pick a director or see everyone. */
 (() => {
 'use strict';
@@ -22,8 +22,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const today = () => (A.meta && A.meta.today) || new Date().toISOString().slice(0, 10);
 const addDay = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(today().slice(0, 4)) ? ', ' + y : ''); };
-const money = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === Number(n) ? 0 : 2, maximumFractionDigits: 2 });
-const short = (v) => (v >= 1e6 ? '$' + (v / 1e6).toFixed(v % 1e6 ? 1 : 0) + 'M' : v >= 1000 ? '$' + (v / 1000).toFixed(v % 1000 && v < 1e5 ? 1 : 0) + 'K' : money(Math.round(v)));
+const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
+const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const ic = (n, cls) => (F() ? F().ic(n, cls) : W().ic(n, cls));
 const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : many || one + 's');
 const daysFrom = (iso) => Math.max(0, Math.round((Date.parse(today() + 'T12:00:00Z') - Date.parse(iso + 'T12:00:00Z')) / 86400000));
@@ -94,7 +94,7 @@ function changed(tab) {
 }
 function start() {
   A.started = true;
-  fetchAll().then(() => W().render());
+  fetchAll().then(() => W().refresh('asks'));
 }
 // After a close date is saved or undone: refetch what is loaded, so each card sits in its new column with the same page depth.
 async function refreshLoaded() {
@@ -181,7 +181,7 @@ function view() {
   const caret = live ? live.selectionStart : 0;
   const text = live ? live.value : A.q;
   const tiles = [['Open asks', s.open], ['Closing in 90 days', s.soon], ['Past the close date', s.past, 1], ['Gifts since the ask', s.gave]];
-  const picker = m.owners.length > 1 ? `<select class="wc-sel${A.owner ? ' is-set' : ''}" data-wa-owner aria-label="Director"><option value="">Every director (${m.everyone})</option>${m.owners.map((o) => `<option value="${esc(o.id)}"${A.owner === o.id ? ' selected' : ''}>${esc(o.name)} (${o.n})</option>`).join('')}</select>` : '';
+  const picker = m.owners.length > 1 ? `<select class="wc-sel${A.owner ? ' is-set' : ''}" data-wa-owner aria-label="Director"><option value="">Every director (${Number(m.everyone).toLocaleString('en-US')})</option>${m.owners.map((o) => `<option value="${esc(o.id)}"${A.owner === o.id ? ' selected' : ''}>${esc(o.name)} (${o.n})</option>`).join('')}</select>` : '';
   // On a phone the filters sit behind one button; whatever is set shows as chips that clear it.
   const ownerName = A.owner ? ((m.owners.find((o) => o.id === A.owner) || {}).name || 'Director') : '';
   const active = [A.status !== 'open' ? ['status', (STATUS.find((x) => x[0] === A.status) || [0, A.status])[1]] : null, A.range !== '12m' ? ['range', 'All time'] : null, A.owner ? ['owner', ownerName] : null].filter(Boolean);

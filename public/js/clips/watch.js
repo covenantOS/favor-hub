@@ -65,7 +65,7 @@ const isAdmin = () => !!(S.can && S.can.edit);
 const canDelete = () => !!(S.can && S.can.delete);
 const signedIn = () => !!S.user;
 const firstName = (n) => String(n || '').split(/\s+/)[0] || 'Someone';
-const initials = (n) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const mediaUrl = () => `/api/clips/${ID}/media`;
 const shareUrl = () => `${location.origin}/c/${ID}`;
 
@@ -111,7 +111,7 @@ function schedulePoll() {
 
 function build() {
   const c = S.clip;
-  document.title = `${c.title || 'Clip'} - Favor Hub`;
+  document.title = `${c.title || 'Clip'} - FavorOS`;
   const admin = isAdmin();
   root.innerHTML = `
   <div class="cw-grid">
@@ -124,7 +124,7 @@ function build() {
       <div class="cw-player" id="cw-player" tabindex="-1">
         <video id="cw-video" playsinline preload="metadata" ${c.hasPoster ? `poster="/api/clips/${ID}/media?poster=1"` : ''} src="${mediaUrl()}"></video>
         <div class="cw-cc" id="cw-cc" hidden></div>
-        <button type="button" class="cw-bigplay" id="cw-big" aria-label="Play" hidden>${icon('play')}</button>
+        <button type="button" class="cw-bigplay" id="cw-big" aria-label="Play" data-kind="play">${icon('play')}</button>
         <div class="cw-buf" id="cw-buf" hidden><i></i>Loading</div>
         <div class="cw-pmsg" id="cw-pmsg" hidden></div>
         <div class="cw-ctl" id="cw-ctl">
@@ -167,7 +167,7 @@ function refresh() {
   const admin = isAdmin();
   const title = $('#cw-title');
   if (title && !title.querySelector('input')) title.textContent = c.title || (c.status === 'processing' ? 'Writing a title' : 'Untitled clip');
-  const views = S.info && typeof S.info.views === 'number' && signedIn() ? ` · ${S.info.views} ${S.info.views === 1 ? 'view' : 'views'}` : '';
+  const views = S.info && typeof S.info.views === 'number' && signedIn() ? ` · ${Number(S.info.views).toLocaleString('en-US')} ${S.info.views === 1 ? 'view' : 'views'}` : '';
   $('#cw-meta').innerHTML = `${esc(c.ownerName)} · ${esc(et(c.createdAt, { month: 'long', day: 'numeric', year: 'numeric' }))}${views}${c.status === 'processing' ? ' · <span class="cw-proc"><i></i>Writing the transcript and a title</span>' : ''}`;
   S.ranges = keepRanges(S.edits, duration());
   paintActs();
@@ -285,7 +285,7 @@ function wireTop() {
         const r = await api(`/api/clips/${ID}/generate`, { method: 'POST', json: { what: 'title' } });
         S.clip.title = r.title;
         $('#cw-title').textContent = r.title;
-        document.title = `${r.title} - Favor Hub`;
+        document.title = `${r.title} - FavorOS`;
       } catch (err) {
         toast(err.message, 'bad');
       }
@@ -342,7 +342,7 @@ function wireTop() {
             await api(`/api/clips/${ID}`, { method: 'PATCH', json: { title: v } });
             S.clip.title = v;
             title.textContent = v;
-            document.title = `${v} - Favor Hub`;
+            document.title = `${v} - FavorOS`;
             toast('Renamed');
           } catch (err) {
             toast(err.message, 'bad');
@@ -405,6 +405,38 @@ function wirePlayer() {
   };
   const jumpEdited = (e) => seekSource(toSrc(e));
 
+  // The big button in the middle shows exactly when the video is not playing. This one function decides, from the video
+  // itself, so every way to start or stop (the button, the bar, the space bar, a click on the picture, a chapter, a
+  // transcript word, the end) leaves it right. At the end it becomes Replay.
+  const big = $('#cw-big');
+  const first = () => (S.ranges.length ? S.ranges[0][0] : 0);
+  const atEnd = () => v.ended || (v.currentTime > 0 && S.ranges.length > 0 && skipFrom(v.currentTime, S.ranges) === null);
+  const paintBig = () => {
+    const stopped = v.paused || v.ended;
+    S.playing = !stopped;
+    big.hidden = !stopped || !!v.error || scrub !== null;
+    const kind = stopped && atEnd() ? 'replay' : 'play';
+    if (big.dataset.kind !== kind) {
+      big.dataset.kind = kind;
+      big.innerHTML = icon(kind);
+      big.setAttribute('aria-label', kind === 'replay' ? 'Replay' : 'Play');
+    }
+    setPlayIcons();
+  };
+  // "Loading" shows only while the video is meant to be playing and has stalled for a moment, never for one frame.
+  let bufTimer = 0;
+  const buffering = (on) => {
+    clearTimeout(bufTimer);
+    const el = $('#cw-buf');
+    if (!on) {
+      el.hidden = true;
+      return;
+    }
+    bufTimer = setTimeout(() => {
+      el.hidden = v.paused || v.ended || v.readyState >= 3;
+    }, 350);
+  };
+
   v.addEventListener('loadedmetadata', () => {
     // The clip's own length (what the recorder counted) is the one every edit is measured against, so a cut to the end
     // always means the end. The file's length only fills in when the clip has none.
@@ -426,14 +458,12 @@ function wirePlayer() {
     }
     if (S.startAt) v.currentTime = S.startAt;
     else if (S.ranges.length && S.ranges[0][0] > 0.05) v.currentTime = S.ranges[0][0];
-    $('#cw-big').hidden = false;
+    paintBig();
     paintClock();
     paintMarkers();
   });
   v.addEventListener('play', () => {
-    S.playing = true;
-    $('#cw-big').hidden = true;
-    setPlayIcons();
+    paintBig();
     startViewTracking();
     cancelAnimationFrame(raf);
     const loop = () => {
@@ -444,38 +474,43 @@ function wirePlayer() {
     poke();
   });
   v.addEventListener('pause', () => {
-    S.playing = false;
     cancelAnimationFrame(raf);
-    setPlayIcons();
+    buffering(false);
+    paintBig();
     wrap.classList.remove('is-idle');
-    if (!v.ended) $('#cw-big').hidden = false;
     flushView();
   });
   v.addEventListener('ended', () => {
-    $('#cw-big').innerHTML = icon('replay');
-    $('#cw-big').setAttribute('aria-label', 'Replay');
-    $('#cw-big').hidden = false;
+    cancelAnimationFrame(raf);
+    buffering(false);
+    paintBig();
+    wrap.classList.remove('is-idle');
   });
   v.addEventListener('timeupdate', enforce);
-  v.addEventListener('waiting', () => ($('#cw-buf').hidden = false));
-  v.addEventListener('seeking', () => ($('#cw-buf').hidden = false));
-  v.addEventListener('canplay', () => ($('#cw-buf').hidden = true));
-  v.addEventListener('playing', () => ($('#cw-buf').hidden = true));
+  v.addEventListener('waiting', () => buffering(true));
+  v.addEventListener('seeking', () => buffering(!v.paused));
+  v.addEventListener('canplay', () => buffering(false));
+  v.addEventListener('playing', () => {
+    buffering(false);
+    paintBig();
+  });
   v.addEventListener('seeked', () => {
-    $('#cw-buf').hidden = true;
+    buffering(false);
     S.now = v.currentTime;
+    paintBig();
     paintClock();
   });
+  v.addEventListener('emptied', paintBig);
   v.addEventListener('error', () => {
+    buffering(false);
+    paintBig();
     const m = $('#cw-pmsg');
     m.hidden = false;
     m.textContent = 'This video could not be played. Try the download in the menu.';
   });
   v.addEventListener('click', toggle);
-  $('#cw-big').addEventListener('click', () => {
-    if (v.ended) seekSource(S.ranges.length ? S.ranges[0][0] : 0);
-    $('#cw-big').innerHTML = icon('play');
-    $('#cw-big').setAttribute('aria-label', 'Play');
+  big.addEventListener('click', () => {
+    if (atEnd()) seekSource(first());
     play();
   });
   $('#cw-pp').addEventListener('click', toggle);
@@ -486,6 +521,7 @@ function wirePlayer() {
     seekEl.setPointerCapture(e.pointerId);
     scrub = atX(e.clientX);
     paintClock(scrub);
+    paintBig();
   });
   seekEl.addEventListener('pointermove', (e) => {
     if (scrub !== null) {
@@ -504,7 +540,13 @@ function wirePlayer() {
       jumpEdited(atX(e.clientX));
       scrub = null;
       paintClock();
+      paintBig();
     }
+  });
+  seekEl.addEventListener('pointercancel', () => {
+    scrub = null;
+    paintClock();
+    paintBig();
   });
   seekEl.addEventListener('pointerleave', () => ($('#cw-tip').hidden = true));
   seekEl.addEventListener('keydown', (e) => {
@@ -533,6 +575,7 @@ function wirePlayer() {
   $('#cw-ccb').addEventListener('click', () => setCc(!S.cc));
   $('#cw-fs').addEventListener('click', fullscreen);
   setCc(S.cc);
+  paintBig();
   document.addEventListener('fullscreenchange', () => wrap.classList.toggle('is-fs', !!document.fullscreenElement));
   wrap.addEventListener('pointermove', poke);
   wrap.addEventListener('pointerleave', () => S.playing && wrap.classList.add('is-idle'));
@@ -541,6 +584,10 @@ function wirePlayer() {
     const el = e.target;
     if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+    // The seek bar already moved for this key, and a dialog on top owns the keyboard.
+    if (e.defaultPrevented || document.querySelector('.cl-askback')) return;
+    // Space on a focused button presses that button (Play presses Play, Share presses Share). It is not also a play key.
+    if (e.key === ' ' && el && el.closest && el.closest('button, a[href], [role=tab], summary')) return;
     const step = (s) => jumpEdited(Math.min(Math.max(toEdited(v.currentTime, S.ranges) + s, 0), total()));
     let used = true;
     switch (e.key) {
@@ -578,8 +625,12 @@ function poke() {
 
 function setPlayIcons() {
   const pp = $('#cw-pp');
-  pp.innerHTML = icon(S.playing ? 'pause' : 'play');
+  const want = S.playing ? 'pause' : 'play';
+  if (pp.dataset.kind === want) return;
+  pp.dataset.kind = want;
+  pp.innerHTML = icon(want);
   pp.setAttribute('aria-label', S.playing ? 'Pause' : 'Play');
+  pp.title = S.playing ? 'Pause (space)' : 'Play (space)';
 }
 
 function seekSource(t) {
@@ -645,11 +696,9 @@ function enforce() {
   const t = v.currentTime;
   const skip = r.length ? skipFrom(t, r) : undefined;
   if (skip === null) {
-    v.pause();
-    v.currentTime = r[r.length - 1][1];
-    $('#cw-big').innerHTML = icon('replay');
-    $('#cw-big').setAttribute('aria-label', 'Replay');
-    $('#cw-big').hidden = false;
+    // The end of the kept part: stop there. The pause event turns the big button into Replay.
+    if (!v.paused) v.pause();
+    if (Math.abs(v.currentTime - r[r.length - 1][1]) > 0.05) v.currentTime = r[r.length - 1][1];
   } else if (skip !== undefined) v.currentTime = skip;
   S.now = v.currentTime;
   if (S.now > S.furthest) S.furthest = S.now;
@@ -708,14 +757,30 @@ function paintMarkers() {
     track.appendChild(t);
   }
   if (!signedIn()) return;
-  for (const c of S.comments) {
+  // Comments closer than one marker's width share a marker with a count, so forty comments never pile into one band.
+  const width = track.clientWidth || 600;
+  const pct = (c) => Math.min(97, Math.max(3, (edited(c.at_seconds) / tot) * 100));
+  const groups = [];
+  for (const c of [...S.comments].sort((a, b) => a.at_seconds - b.at_seconds)) {
+    const g = groups[groups.length - 1];
+    if (g && ((pct(c) - g.left) / 100) * width < 28) g.items.push(c);
+    else groups.push({ left: pct(c), items: [c] });
+  }
+  for (const g of groups) {
+    const c = g.items[0], many = g.items.length > 1;
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'cw-mk';
+    b.className = 'cw-mk' + (many ? ' cw-mk--many' : '');
     b.dataset.id = c.id;
-    b.style.left = Math.min(97, Math.max(3, (edited(c.at_seconds) / tot) * 100)) + '%';
-    b.setAttribute('aria-label', `${firstName(c.author_name)} commented at ${fmtTime(edited(c.at_seconds))}`);
-    b.innerHTML = `<span class="cw-av">${esc(initials(c.author_name))}</span><span class="cw-mktip"><b>${esc(firstName(c.author_name))} · ${fmtTime(edited(c.at_seconds))}</b>${esc(c.body)}</span>`;
+    b.style.left = g.left + '%';
+    if (many) {
+      const lines = g.items.slice(0, 3).map((x) => `<b>${esc(firstName(x.author_name))} · ${fmtTime(edited(x.at_seconds))}</b>${esc(String(x.body || '').slice(0, 90))}`).join('');
+      b.setAttribute('aria-label', `${g.items.length.toLocaleString('en-US')} comments from ${fmtTime(edited(c.at_seconds))}`);
+      b.innerHTML = `<span class="cw-av">${g.items.length > 99 ? '99+' : g.items.length}</span><span class="cw-mktip">${lines}${g.items.length > 3 ? `<b>and ${(g.items.length - 3).toLocaleString('en-US')} more in Comments</b>` : ''}</span>`;
+    } else {
+      b.setAttribute('aria-label', `${firstName(c.author_name)} commented at ${fmtTime(edited(c.at_seconds))}`);
+      b.innerHTML = `<span class="cw-av">${esc(initials(c.author_name))}</span><span class="cw-mktip"><b>${esc(firstName(c.author_name))} · ${fmtTime(edited(c.at_seconds))}</b>${esc(c.body)}</span>`;
+    }
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       seekSource(c.at_seconds);
@@ -725,6 +790,8 @@ function paintMarkers() {
     track.appendChild(b);
   }
 }
+let markT = 0;
+window.addEventListener('resize', () => { clearTimeout(markT); markT = setTimeout(() => { if (S.clip) paintMarkers(); }, 200); });
 
 /* ------------------------------------------------------------------ view tracking */
 

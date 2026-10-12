@@ -428,6 +428,10 @@ async function show(rawStep: Step, my: number) {
   const stale = () => my !== gen || !root;
   if (phone() && step.at && inSide(step.at)) await sleep(260);
   if (step.press) {
+    // A Work Center tab sits in a group row; when its group is not the one showing, switch to the tab itself.
+    const tabId = /data-view="([a-z0-9_-]+)"/.exec(step.press);
+    const wc = (window as unknown as { WC?: { goTab?: (k: string) => Promise<void> } }).WC;
+    if (tabId && wc && wc.goTab && !document.querySelector(step.press)) { await wc.goTab(tabId[1]); await sleep(120); }
     const p = await find(step.press, 2500);
     if (stale()) return;
     if (p) {
@@ -462,7 +466,7 @@ function intro() {
   const hi = who.first ? `Hi ${esc(who.first)}.` : 'Hi.';
   const preview = who.admin
     ? `<label class="tr-as"><span>Show the tour as</span><select data-tr-as>
-        <option value="">You (the hub admin)</option><option value="staff">Any staff member</option><option value="rdd">RDD team</option>
+        <option value="">You (the FavorOS admin)</option><option value="staff">Any staff member</option><option value="rdd">RDD team</option>
         <option value="pc">Partner Care</option><option value="ce">Church Engagement</option><option value="grants">Grants</option>
         <option value="marketing">Marketing</option><option value="leader">Leadership</option></select></label>`
     : '';

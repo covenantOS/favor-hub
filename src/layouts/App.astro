@@ -21,6 +21,7 @@ import '../styles/round2.css';
 import '../styles/ux-night.css';
 import '../styles/ux-pass.css';
 import '../styles/polish.css';
+import '../styles/request-tasks.css';
 import '../styles/mobile.css';
 import '../styles/admin-fix.css';
 import '../styles/sticky-col.css';
@@ -28,6 +29,7 @@ import '../styles/fix-shell.css';
 import '../styles/crit-shell.css';
 import '../styles/crit-shell2.css';
 import CommandPalette from '../components/CommandPalette.astro';
+import hubOwn from '../../public/js/hub-own.js?raw';
 
 interface Props {
   title: string;
@@ -41,11 +43,11 @@ interface Props {
   description?: string;
 }
 
-const { title, crumb = 'Favor Hub', nav = '', wide = false, full = false, bare = false, description = 'Favor International staff hub.' } = Astro.props;
+const { title, crumb = 'FavorOS', nav = '', wide = false, full = false, bare = false, description = 'FavorOS, the Favor International staff workspace.' } = Astro.props;
 
 import { icon } from '../data/icons';
 import { BUILD } from '../data/build';
-import { AREAS, SWAP_PATHS, resolveNav } from '../data/areas';
+import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
 import NavTabs from '../components/NavTabs.astro';
 import NavBar from '../components/NavBar.astro';
@@ -56,6 +58,10 @@ const curArea = found ? found.area.id : '';
 const crumbText = found ? found.area.label : crumb;
 const mainAreas = AREAS.filter((a) => !a.foot);
 const footAreas = AREAS.filter((a) => a.foot);
+// Links to pages that swap in place need nothing fetched ahead by the browser (hub-swap.js reads them itself). Links to pages that load whole
+// are fetched ahead, as HTML only: a prerendered page would run its scripts (reads, presence, polling) before anyone opened it.
+const lightPaths = SWAP_PATHS.filter((p) => !FULL_LOAD_PATHS.includes(p));
+const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-tabs a[data-astro-prefetch]' }, { not: { or: lightPaths.map((p) => ({ href_matches: p })) } }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] };
 ---
 <!doctype html>
 <html lang="en">
@@ -65,12 +71,13 @@ const footAreas = AREAS.filter((a) => a.foot);
     <meta name="robots" content="noindex" />
     <link rel="icon" type="image/png" href="/images/favor-icon.png" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="manifest" href={`/manifest.webmanifest?b=${BUILD}`} />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="Favor Hub" />
+    <meta name="apple-mobile-web-app-title" content="FavorOS" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="hub-build" content={BUILD} />
+    <script is:inline set:html={hubOwn}></script>
     <script is:inline src="/js/app-update.js?v=2" defer></script>
     <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
@@ -85,30 +92,30 @@ const footAreas = AREAS.filter((a) => a.foot);
         addEventListener('pointerdown', function () { r.classList.remove('kbd'); }, true);
       })();
     </script>
-    <script is:inline src="/js/sheets.js?v=1"></script>
-    <script is:inline src="/js/drill.js?v=3" defer></script>
-    <script is:inline src="/js/thank.js?v=2" defer></script>
+    <script is:inline src="/js/sheets.js?v=2"></script>
+    <script is:inline src="/js/drill.js?v=5" defer></script>
+    <script is:inline src="/js/thank.js?v=3" defer></script>
     <script is:inline src="/js/prep.js?v=2" defer></script>
-    <script is:inline src="/js/partner.js?v=11" defer></script>
+    <script is:inline src="/js/partner.js?v=12" defer></script>
     <script is:inline src="/js/records.js?v=2" defer></script>
     <script is:inline src="/js/add-partner.js?v=2" defer></script>
     <script is:inline src="/js/ux-pass.js?v=1" defer></script>
-    <script type="speculationrules" is:inline set:html={JSON.stringify({ prerender: [{ where: { and: [{ selector_matches: '.h-side nav a[data-astro-prefetch], .h-tabs a[data-astro-prefetch]' }, { not: { href_matches: '/dashboard/*' } }, { not: { href_matches: '/brain/admin/*' } }] }, eagerness: 'moderate' }] })}></script>
+    <script type="speculationrules" is:inline set:html={JSON.stringify(specRules)}></script>
     <script is:inline>
       // The menu opens the way this person left it (slim rail or full sidebar) before the first frame.
       try { var np = JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1') || '{}'); var nu = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); var pr = np[(nu && nu.user && nu.user.email) || '_'] || np._ || {}; if (pr.wide && matchMedia('(min-width: 1280px)').matches) document.documentElement.classList.add('nav-wide'); } catch (e) {}
     </script>
-    <title>{title} - Favor Hub</title>
+    <title>{title} - FavorOS</title>
     <meta name="description" content={description} />
   </head>
   <body class="h-body" data-nav={nav} data-area={curArea || undefined}>
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
-      <aside class="h-side" id="h-side" aria-label="Hub">
+      <aside class="h-side" id="h-side" aria-label="FavorOS">
         <button type="button" class="h-side__x" id="h-side-x" aria-label="Close the menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         <button type="button" class="h-side__tog" id="h-wide" aria-pressed="false" aria-label="Expand the menu" title="Expand the menu (press the backslash key)"><Fragment set:html={icon('chev')} /></button>
         <div class="h-side__in">
-          <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="Favor Hub home"><img class="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" /><img class="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" /><span>Hub</span></a>
+          <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="FavorOS home"><img class="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" /><img class="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" /><span>OS</span></a>
           <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} /><span class="h-search__t">Search</span><kbd>Ctrl K</kbd></button>
           <div class="h-pins" id="h-pins" hidden><div class="h-nav__label">Pinned</div><div class="h-pins__list" id="h-pins-list"></div></div>
           <nav class="h-areas" aria-label="Areas">
@@ -173,7 +180,9 @@ const footAreas = AREAS.filter((a) => a.foot);
             a.hidden = !pages.length;
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
-            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden])'); if (c && id === 'work' && c.dataset.count !== 'workOpen' && c.dataset.count !== 'projectsMine') c = null; if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
+            // Work also counts request notices this person has not opened (sent to them, mentions, comments).
+            if (id === 'work') n += Number(window.__hubTasks) || 0;
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
@@ -222,11 +231,13 @@ const footAreas = AREAS.filter((a) => a.foot);
           document.documentElement.classList.toggle('has-clips', !!access.clips);
           document.documentElement.classList.toggle('has-chat', !!access.chat);
           document.documentElement.classList.toggle('has-tasks', !!access.tasks);
+          document.documentElement.classList.toggle('has-projects', !!access.projects); // projects hook
           document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);
           document.querySelectorAll('[data-need]').forEach(function (el) { if (access[el.dataset.need]) el.hidden = false; });
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
           var counts = d.counts || {};
+          window.__hubTasks = Number(counts.tasks) || 0;
           document.querySelectorAll('[data-count]').forEach(function (el) {
             var n = Number(counts[el.dataset.count]) || 0;
             el.hidden = !n;
@@ -254,7 +265,7 @@ const footAreas = AREAS.filter((a) => a.foot);
           <div class="h-top__tabs" id="h-tabs-slot">{found && <NavTabs area={found.area} nav={nav} />}</div>
           <div class="h-top__right" data-ui-actions>
             <div class="pp-headsearch pv-find" id="pp-headsearch" hidden><label class="pv-find__box"><Fragment set:html={icon('search')} /><input type="search" placeholder="Find a partner" autocomplete="off" aria-label="Find a partner" /><kbd>Ctrl K</kbd></label><ul class="pv-find__list" role="listbox" hidden></ul></div>
-            <button type="button" class="h-top__search" data-cmdk-open aria-label="Search the hub"><Fragment set:html={icon('search')} /></button>
+            <button type="button" class="h-top__search" data-cmdk-open aria-label="Search FavorOS"><Fragment set:html={icon('search')} /></button>
             <span class="h-top__actions" id="h-actions"><slot name="actions" /></span>
             <button type="button" class="h-top__cam wm-bell" id="wm-bell" data-need="bell" hidden aria-haspopup="dialog" aria-expanded="false" aria-label="Reminders" title="Reminders"><Fragment set:html={icon('bell')} /><em></em></button>
             <a class="h-top__cam h-top__lib" id="clip-lib" href="/clips/" data-need="clips" hidden aria-label="My clips" title="My clips"><Fragment set:html={icon('clips')} /></a>
@@ -262,7 +273,7 @@ const footAreas = AREAS.filter((a) => a.foot);
             <LearnPanel />
             <button type="button" class="h-btn h-btn--ghost h-fb" id="h-fb" data-feedback="hub" title="Tell Will what's wrong, confusing or worth adding"><Fragment set:html={icon('chat')} /><span class="h-lbl">Feedback</span></button>
             {nav !== 'new' && (
-              <a class="h-btn h-btn--primary" href="/requests/new"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>
+              <a class="h-btn h-btn--primary" href="/requests/new" aria-label="Make a request"><Fragment set:html={icon('plus')} /><span class="h-lbl">Make a request</span></a>
             )}
           </div>
         </header>
@@ -278,12 +289,16 @@ const footAreas = AREAS.filter((a) => a.foot);
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=7" defer></script>
-    <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=4" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=9" defer></script>
-    <script is:inline src="/js/clips-launch.js?v=4" defer></script>
-    <script is:inline src="/js/wc-bell.js?v=4" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=12" defer></script>
+    <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
+    <script is:inline src="/js/hub-nav.js?v=6" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=20" defer></script>
+    <script is:inline src="/js/clips-launch.js?v=5" defer></script>
+    <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
+    <script is:inline src="/js/request-tasks.js?v=2" defer></script>
+    <script is:inline src="/js/request-drawer.js?v=1" defer></script>
+    <script is:inline src="/js/wc-bell.js?v=8" defer></script>
+    <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
     <script>
       import '../scripts/hub';

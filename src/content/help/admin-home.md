@@ -1,16 +1,16 @@
 ---
 title: Admin overview and settings
-summary: For hub admins. Check that the jobs behind the hub ran, and change the hub's settings with a record of every change.
+summary: For FavorOS admins. Check that the jobs behind FavorOS ran, and change FavorOS's settings with a record of every change.
 topic: help
 order: 9
 for: [admin]
 related: [work-center, meetings, clips]
 tool: /admin/
 toolLabel: Open Admin
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
-Admin opens on the Overview. It is for hub admins only.
+Admin opens on the Overview. It is for FavorOS admins only.
 
 ## Read the health strip
 
@@ -19,7 +19,7 @@ The strip has one tile for each job: the Blackbaud copy, the morning jobs, the o
 - **OK** means it ran when it should.
 - **Late** means the last run is older than it should be, or a meter is above 80 percent.
 - **Failed** means the job reported an error, or the last run is more than a day past due.
-- **No answer** means the hub could not read that job's record.
+- **No answer** means FavorOS could not read that job's record.
 
 The morning jobs tile lists assignments, gift phase, record review and credit with their own times. The SKY tile shows the upkeep route's calls against its daily cap. Press **Check again** to read everything again. The strip refreshes every two minutes while the page is open.
 
@@ -37,10 +37,18 @@ Open a tab in the Admin row. Each setting shows what it is now, where it lives a
 
 **Blackbaud users** lists everyone with a Blackbaud login: name, email, Active or Inactive, Raiser's Edge NXT access (Admin or User) and any other product they can open. Active, Inactive and All narrow the list, and the box finds a name or an email. The desktop reads Blackbaud's own users page each weekday morning after the other jobs, and **As of** shows when; it turns amber after 36 hours. The list has no sign-in date.
 
-**Add user** takes a first name, last name, email and an access choice: Normal user (Fundraising, Analysis and Marketing View Only, with the Query and View Only Everything groups), Solution admin, or a set of roles and database view groups you pick. **Change access** and **Deactivate** sit on each active row. Blackbaud has no way for the hub to change a user directly, so each press saves a request and the desktop runs it in Blackbaud. The **Requests** list shows each one as Waiting for the desktop, Running on the desktop, Checked, not applied, Done or Failed, with the result line, and **Cancel** takes back a request the desktop has not started. The list refreshes while a request is open. A request for someone who already has one open is refused, and you cannot deactivate or change your own login. Every request writes a row to the Audit log under Blackbaud users.
+**Add user** takes a first name, last name, email and an access choice: Normal user (Fundraising, Analysis and Marketing View Only, with the Query and View Only Everything groups), Solution admin, or a set of roles and database view groups you pick. **Change access** and **Deactivate** sit on each active row. Blackbaud has no way for FavorOS to change a user directly, so each press saves a request and the desktop runs it in Blackbaud. The **Requests** list shows each one as Waiting for the desktop, Running on the desktop, Checked, not applied, Done or Failed, with the result line, and **Cancel** takes back a request the desktop has not started. The list refreshes while a request is open. A request for someone who already has one open is refused, and you cannot deactivate or change your own login. Every request writes a row to the Audit log under Blackbaud users.
+
+## Appeal codes
+
+**Appeal codes** builds a code from Favor's scheme: a letter for the kind, the two-digit year, a month character (1 to 9 for January to September, then A, B and C), a dash and a suffix. Pick the kind and the date. A newsletter takes EMW and the week of the send day. The page shows the code and description, and says if Blackbaud already has the code. **Create in Blackbaud** makes the appeal and writes a row to the Audit log. Tick **Also create the online -WS code** for a letter, and both appeals are created.
+
+The giving form takes the link `?src=` with the newsletter code, or the letter code without its suffix, with no website change. Other kinds need a src key on the website. The page says so after the appeal is created. Blackbaud has no route to delete an appeal, so a wrong code is set inactive in Blackbaud.
+
+**Funds and campaigns waiting** keeps a list for the two things the Blackbaud connection cannot create yet. Add the code and description, and mark the request created after someone makes it in Blackbaud.
 
 ## Read the audit log
 
 Press **Audit log**. Each row shows when a setting changed, who changed it, and the value before and after. Pick an area to narrow the list, or type a name or a setting. **Show more** loads older rows.
 
-Every change made in Admin is a row in this log. A setting that changes what the hub sends to Blackbaud asks you to confirm and shows the current value first.
+Every change made in Admin is a row in this log. A setting that changes what FavorOS sends to Blackbaud asks you to confirm and shows the current value first.

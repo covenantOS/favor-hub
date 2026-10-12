@@ -3,7 +3,8 @@ import { $, esc, ic, av, api, fmtDay, fmtTime, pump, copy, toast } from './ui.js
 
 const MID = new URLSearchParams(location.search).get('m') || '';
 const root = $('#mt-notes');
-const stamp = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+// 75 minutes in reads 1:15:03.
+const stamp = (t) => { const s = Math.max(0, Math.floor(Number(t) || 0)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), p = (n) => String(n).padStart(2, '0'); return h ? `${h}:${p(m)}:${p(s % 60)}` : `${m}:${p(s % 60)}`; };
 let data = null, q = '';
 const ask = { q: '', busy: false, answer: null };
 
@@ -56,7 +57,8 @@ async function load() {
   root.removeAttribute('aria-busy');
 }
 
-const hi = (t) => (q ? esc(t).replace(new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'), '<mark>$1</mark>') : esc(t));
+// The match is found in the words as spoken, then each piece is escaped, so a search for "amp" never lands inside an entity.
+const hi = (t) => { if (!q) return esc(t); const rx = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'); return String(t == null ? '' : t).split(rx).map((part, i) => (i % 2 ? '<mark>' + esc(part) + '</mark>' : esc(part))).join(''); };
 const ts = (t) => `<a class="nt-ts" href="#t=${t}" data-t="${t}">${stamp(t)}</a>`;
 
 function transcriptText() {
@@ -76,7 +78,7 @@ function download() {
 
 function draw() {
   const m = data.meeting; const n = data.notes || {};
-  document.title = m.title + ' | Favor Hub';
+  document.title = m.title + ' | FavorOS';
   const crumb = document.querySelector('.h-top__crumb'); if (crumb) crumb.textContent = m.title;
   const keepFocus = document.activeElement && document.activeElement.id;
   const lines = (data.transcript || []).filter((l) => !q || ((l.who || '') + ' ' + l.text).toLowerCase().includes(q.toLowerCase()));
@@ -86,16 +88,16 @@ function draw() {
   const files = data.files || [];
   const mins = m.startedAt && m.endedAt ? Math.max(1, Math.round((Date.parse(m.endedAt) - Date.parse(m.startedAt)) / 60000)) : 0;
   const hasTr = (data.transcript || []).length > 0;
-  root.innerHTML = `<div class="nt-head"><div><div class="h-label" style="margin-bottom:6px">Meeting notes</div><h2>${esc(m.title)}</h2>
-    <div class="nt-meta"><span>${ic('cal')}${m.startedAt ? fmtDay(m.startedAt) : ''}</span>${m.startedAt && m.endedAt ? `<span>${ic('clock')}${fmtTime(m.startedAt)} to ${fmtTime(m.endedAt)}${mins ? ' (' + mins + ' min)' : ''}</span>` : ''}<span>${ic('users')}${ppl.length} ${ppl.length === 1 ? 'person' : 'people'}</span><span class="mt-avs">${ppl.slice(0, 6).map((p) => av(p.name)).join('')}</span></div></div>
+  root.innerHTML = `<div class="nt-head"><div><div class="h-label" style="margin-bottom:6px">Meeting notes</div><h2>${esc(String(m.title || '').trim() || 'Meeting')}</h2>
+    <div class="nt-meta"><span>${ic('cal')}${m.startedAt ? fmtDay(m.startedAt) : ''}</span>${m.startedAt && m.endedAt ? `<span>${ic('clock')}${fmtTime(m.startedAt)} to ${fmtTime(m.endedAt)}${mins ? ' (' + mins + ' min)' : ''}</span>` : ''}<span>${ic('users')}${ppl.length} ${ppl.length === 1 ? 'person' : 'people'}</span><span class="mt-avs">${ppl.slice(0, 6).map((p) => av(p.name)).join('')}${ppl.length > 6 ? `<span class="mt-av mt-av--more" title="${esc(ppl.slice(6).map((p) => p.name || p.email).join(', '))}">+${(ppl.length - 6).toLocaleString('en-US')}</span>` : ''}</span></div></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="h-btn h-btn--ghost h-btn--sm" id="nt-dl">${ic('download')}Transcript</button><button class="h-btn h-btn--ghost h-btn--sm" id="nt-copy">${ic('share')}Share</button><a class="h-btn h-btn--primary h-btn--sm" href="/meet/book/?follow=${encodeURIComponent(MID)}">${ic('plus')}Book the follow-up</a></div></div>
     ${pending ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px"><b>${m.status === 'live' ? 'The meeting is still going.' : 'The notes are being made.'}</b> <span id="nt-prog">${m.recState === 'uploading' ? 'Saving the recording to Google Drive.' : 'Reading the recording.'}</span></div>` : ''}
     ${failed ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span><b>The notes failed.</b> The recording is safe in Google Drive.</span><button class="h-btn h-btn--primary h-btn--sm" id="nt-retry">Try again</button></div>` : ''}
     <div class="mt-grid"><div class="mt-stack">
       <section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Summary</div>${!m.summary && pending && m.status !== 'live' ? `<p class="nt-sum nt-wait" role="status"><span class="nt-spin" aria-hidden="true"></span>Writing the summary</p>` : `<p class="nt-sum">${esc(m.summary || (pending ? 'The meeting is still going.' : failed ? 'No summary yet.' : 'No summary.'))}</p>`}</section>
       ${(n.decisions || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Decisions</div><ul class="nt-list">${n.decisions.map((d) => `<li><span class="b">${ic('check')}</span><span>${esc(d.text)} ${ts(d.t)}</span></li>`).join('')}</ul></section>` : ''}
-      ${(data.actions || []).length ? `<section class="h-card mt-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px"><div class="h-label">Action items</div><span class="mt-sub">${data.actions.filter((a) => a.done).length} of ${data.actions.length} done</span></div>${data.actions.map((a) => `<label class="act${a.done ? ' is-done' : ''}"><input type="checkbox" data-idx="${a.idx}" ${a.done ? 'checked' : ''} /><div><b>${esc(a.text)}</b><span>${[a.owner_name, a.due ? 'due ' + a.due : ''].filter(Boolean).map(esc).join(' · ') || 'No owner named'}${a.t ? ' · ' + ts(a.t) : ''}</span></div><span class="mt-pill ${a.done ? 'mt-pill--ok' : ''}">${a.done ? 'Done' : 'Open'}</span></label>`).join('')}<p class="mt-sub" style="margin:8px 0 0">Each person sees their items on Today in the hub.</p></section>` : ''}
-      <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Transcript</div><div class="nt-search">${ic('search')}<input id="trq" placeholder="Search what was said" value="${esc(q)}" /></div>
+      ${(data.actions || []).length ? `<section class="h-card mt-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px"><div class="h-label">Action items</div><span class="mt-sub">${data.actions.filter((a) => a.done).length} of ${data.actions.length} done</span></div>${data.actions.map((a) => `<label class="act${a.done ? ' is-done' : ''}"><input type="checkbox" data-idx="${a.idx}" ${a.done ? 'checked' : ''} /><div><b>${esc(a.text)}</b><span>${[String(a.owner_name || '').trim() || 'No owner named', a.due ? 'due ' + a.due : ''].filter(Boolean).map(esc).join(' · ')}${a.t ? ' · ' + ts(a.t) : ''}</span></div><span class="mt-pill ${a.done ? 'mt-pill--ok' : ''}">${a.done ? 'Done' : 'Open'}</span></label>`).join('')}<p class="mt-sub" style="margin:8px 0 0">Each person sees their items on Today in FavorOS.</p></section>` : ''}
+      <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Transcript</div><div class="nt-search">${ic('search')}<input id="trq" aria-label="Search the transcript" placeholder="Search what was said" value="${esc(q)}" /></div>
         <div class="nt-tr">${lines.length ? lines.map((l) => `<div class="nt-l" id="t${l.t}"><time>${stamp(l.t)}</time><div>${l.who ? `<b>${hi(l.who)}</b> ` : ''}${hi(l.text)}</div></div>`).join('') : `<p class="mt-sub">${hasTr ? 'Nothing matches.' : pending ? 'The transcript is on its way.' : 'No transcript. Nobody spoke, or this meeting was not recorded.'}</p>`}</div></section>
     </div><div class="mt-stack">
       ${files.length || data.doc ? `<section class="h-card mt-card" style="display:grid;gap:12px">${files.map((f, i) => `<div class="nt-slot" data-slot="${i}"></div>`).join('')}
@@ -104,8 +106,8 @@ function draw() {
         ${files.length ? `<p class="mt-sub" style="margin:0">Meetings in US Team Files${files.length > 1 ? ', ' + files.length + ' parts' : ''}</p>` : ''}</section>` : ''}
       ${(n.chapters || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Chapters</div>${n.chapters.map((c) => `<a class="chap" href="#t=${c.t}" data-t="${c.t}" style="text-decoration:none;color:inherit"><em>${stamp(c.t)}</em><span>${esc(c.title)}</span></a>`).join('')}</section>` : ''}
       ${(data.asked || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Asked during the meeting</div><div class="ans"><ul>${data.asked.map((a) => `<li>${ts(a.t)}<span>${a.by ? esc(a.by) + ' asked ' : ''}"${esc(a.q)}"</span></li>`).join('')}</ul></div></section>` : ''}
-      ${hasTr ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Ask about this meeting</div><div class="rm-input" style="border:0;padding:0"><input id="nt-ask" placeholder="Who owns the print file?" maxlength="300" value="${esc(ask.q)}" ${ask.busy ? 'disabled' : ''} /><button class="icb send" id="nt-ask-go" aria-label="Ask" ${ask.busy ? 'disabled' : ''}>${ic('send')}</button></div>
-        ${ask.busy ? '<p class="mt-sub" style="margin:8px 0 0">Reading the transcript.</p>' : ask.answer ? `<div class="ans" style="margin-top:8px"><p style="margin:0 0 6px;font-size:13.5px">${esc(ask.answer.answer)}</p>${ask.answer.points.length ? `<ul>${ask.answer.points.map((p) => `<li>${ts(p.t)}<span>${esc(p.text)}</span></li>`).join('')}</ul>` : ''}</div>` : ''}</section>` : ''}
+      ${hasTr ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Ask about this meeting</div><div class="rm-input" style="border:0;padding:0"><input id="nt-ask" aria-label="Ask about this meeting" placeholder="Who owns the print file?" maxlength="300" value="${esc(ask.q)}" ${ask.busy ? 'disabled' : ''} /><button class="icb send" id="nt-ask-go" aria-label="Ask" ${ask.busy ? 'disabled' : ''}>${ic('send')}</button></div>
+        ${ask.busy ? '<p class="mt-sub" style="margin:8px 0 0">Reading the transcript.</p>' : ask.answer ? `<div class="ans" style="margin-top:8px"><p style="margin:0 0 6px;font-size:14px">${esc(ask.answer.answer)}</p>${ask.answer.points.length ? `<ul>${ask.answer.points.map((p) => `<li>${ts(p.t)}<span>${esc(p.text)}</span></li>`).join('')}</ul>` : ''}</div>` : ''}</section>` : ''}
     </div></div>`;
   $('#nt-copy').addEventListener('click', () => copy(location.href));
   $('#nt-dl').addEventListener('click', download);

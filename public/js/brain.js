@@ -73,46 +73,9 @@
     $('bc-scrim').classList.remove('is-on');
     if (dlgFrom && dlgFrom.focus) dlgFrom.focus();
   }
-  let popEl = null;
-  function pop(anchor, html, onPick) {
-    closePop();
-    popEl = document.createElement('div');
-    popEl.className = 'pop';
-    popEl.setAttribute('role', 'menu');
-    popEl.innerHTML = html;
-    $('bc-portal').appendChild(popEl);
-    const r = anchor.getBoundingClientRect(), pw = popEl.offsetWidth, ph = popEl.offsetHeight;
-    const x = Math.min(r.left, innerWidth - pw - 10);
-    let y = r.bottom + 6;
-    if (y + ph > innerHeight - 10) y = r.top - ph - 6 >= 10 ? r.top - ph - 6 : Math.max(10, innerHeight - ph - 10);
-    popEl.style.left = Math.max(10, x) + 'px';
-    popEl.style.top = Math.max(10, y) + 'px';
-    popEl.addEventListener('click', (e) => {
-      const b = e.target.closest('button[data-v]');
-      if (!b) return;
-      const v = b.dataset.v;
-      closePop();
-      onPick(v, b);
-    });
-    popEl.addEventListener('keydown', (e) => {
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      e.preventDefault();
-      const bs = [...popEl.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
-      bs[(i + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus();
-    });
-    const first = popEl.querySelector('button.is-on') || popEl.querySelector('button');
-    if (first) first.focus();
-    popEl._anchor = anchor;
-    anchor.setAttribute('aria-expanded', 'true');
-  }
-  function closePop(refocus) {
-    if (!popEl) return;
-    const a = popEl._anchor;
-    if (a) a.setAttribute('aria-expanded', 'false');
-    popEl.remove();
-    popEl = null;
-    if (refocus && a && a.focus) a.focus();
-  }
+  // The small menu (filter values, reading options, chat options) is the shared one in brain-blocks.js.
+  const pop = B.pop;
+  const closePop = B.closePop;
 
   // ---- Turns ---------------------------------------------------------------------------------------------
   // A new chat gets its id here, so the server can save the question under it the moment it is sent.
@@ -173,9 +136,9 @@
       return `<div class="m-q" style="width:min(80%,620px)"><div class="bc-compose" style="width:100%;border-radius:20px"><textarea data-edit="${ti}" aria-label="Edit your question" style="height:auto" maxlength="600">${esc(t.q)}</textarea></div><div style="display:flex;gap:6px"><button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="edit-cancel" data-turn="${ti}">Cancel</button><button type="button" class="h-btn h-btn--primary h-btn--xs" data-act="edit-save" data-turn="${ti}">Ask</button></div></div>`;
     return `<div class="m-q"><div class="m-q__b">${esc(t.q)}</div><div class="m-q__acts"><button type="button" class="ib ib--sm ib--bare tip" data-act="qcopy" data-turn="${ti}" aria-label="Copy the question" data-tip="Copy">${ic('copy')}</button>${latest && !busy ? `<button type="button" class="ib ib--sm ib--bare tip" data-act="edit" data-turn="${ti}" aria-label="Edit the question" data-tip="Edit">${ic('edit')}</button>` : ''}</div></div>`;
   }
-  let bmN = 0;
-  const mark = (state) => { const u = 'bmj' + (++bmN); return `<svg class="bm m3" viewBox="0 0 48 48" data-state="${state}" aria-hidden="true"><defs><linearGradient id="g${u}" x1="0" y1="0" x2="1" y2="1"><stop offset=".22" style="stop-color:var(--bm-g)"/><stop offset=".5" style="stop-color:var(--bm-o)"/><stop offset=".8" style="stop-color:var(--bm-d)"/></linearGradient><clipPath id="c${u}"><circle cx="24" cy="24" r="18"/></clipPath></defs><g class="sh"><g clip-path="url(#c${u})"><rect class="gr" x="-8" y="-8" width="64" height="64" fill="url(#g${u})"/></g></g></svg>`; };
-  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div><div class="m-think__st"><i></i><i></i><i></i><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
+  // Favor Brain's mark, the ring of light (styles in src/styles/round2.css, .fbr; same markup as src/data/icons.ts brainMark).
+  const mark = (state) => `<span class="fbr" data-state="${state}" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span>`;
+  const thinkHTML = (status) => `<div class="m-think" id="bc-think"><div class="m-a__av m-a__av--bm" aria-hidden="true">${mark('thinking')}</div><div><div class="m-think__st"><span id="bc-think-st">${esc(status)}</span></div><div class="sk"><i style="width:72%"></i><i style="width:54%"></i><div class="t"><i></i><i></i><i></i></div><i class="r"></i></div></div></div>`;
 
   const STARTERS = () => {
     const s = [];
@@ -193,9 +156,9 @@
     const hr = hourET();
     const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     const n = firstName();
-    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1><p>Ask about partners, giving, every team's numbers, iWave ratings, actions and the manuals.</p>
+    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1>
       <div class="bc-starters">${STARTERS().map(([i, q, s, g], k) => `<button type="button" class="bc-starter" data-act="ask" data-q="${esc(q)}" style="animation-delay:${80 + k * 50}ms"><span class="bc-starter__i${g ? ' g' : ''}">${ic(i)}</span><b>${esc(q)}</b><span>${esc(s)}</span></button>`).join('')}</div>
-      <div class="bc-cando">Not sure what to ask? <button type="button" data-act="ask" data-q="What can you do?">See everything you can ask about</button></div></div>`;
+      <div class="bc-cando"><button type="button" data-act="ask" data-q="What can you do?">What you can ask</button></div></div>`;
   }
 
   function renderThread(opts = {}) {
@@ -460,7 +423,7 @@
       h += `<div class="bc-grp">${esc(g)}</div>`;
       h += groups.get(g).map((c) => c.renaming
         ? `<div class="bc-conv" role="listitem"><input data-rename="${esc(c.id)}" value="${esc(c.title)}" aria-label="Rename the chat" maxlength="80" /></div>`
-        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
+        : `<div class="bc-conv${cur && cur.id === c.id ? ' is-on' : ''}" role="listitem"><button type="button" class="bc-conv__go" data-act="conv" data-id="${esc(c.id)}">${c.pending || (cur && cur.id === c.id && busy && busy.conv === cur) ? '<i class="bc-conv__work" role="img" aria-label="Answering"></i>' : ''}${c.pinned ? ic('pin', 'h-i bc-conv__pin') + ' ' : ''}${esc(c.title)}</button><button type="button" class="bc-conv__more" aria-haspopup="menu" aria-expanded="false" data-act="convmore" data-id="${esc(c.id)}" aria-label="Options for ${esc(c.title)}" aria-haspopup="menu">${ic('more')}</button></div>`).join('');
     }
     if (!h) h = `<div class="bc-norail">${q ? 'No chats match.' : 'Your chats show here for 30 days.'}</div>`;
     $('bc-convs').innerHTML = h;
@@ -593,13 +556,10 @@
     panelKind = kind;
     if (kind === 'table') {
       const tb = B.TB[id];
-      inn.innerHTML = `<div class="bc-panel__h"><div style="min-width:0;flex:1"><div class="t">${esc(tb.title)}</div><div class="s" data-pcnt="${id}"></div></div><button type="button" class="ib" data-act="pclose" aria-label="Close the panel">${ic('close')}</button></div>
-        <div class="bc-panel__tools"><div class="tbl__find">${ic('search')}<input type="search" placeholder="Filter these rows" data-tfind="${id}" aria-label="Filter these rows" value="${esc(tb.q)}" /></div>${tb.expired ? '' : B.toolsHTML(tb, true, tb.canSheets)}</div>
-        ${tb.chips && tb.chips.length ? `<div style="padding:10px 18px 0">${B.chipsHTML(tb, `data-pchips="${id}" style="padding:0"`)}</div>` : ''}
-        <div class="bc-panel__body" style="margin-top:10px;border-top:1px solid var(--h-line)"><div class="tbl__scroll" data-tbbody="${id}">${B.tableInner(tb, true)}</div></div>`;
+      inn.innerHTML = B.tablePanel(tb);
       B.refreshTable(id);
       if (wide() && !app.classList.contains('no-rail')) { app.classList.add('no-rail'); app.dataset.railBack = '1'; syncRailBtn(); }
-      if (tb.partial && tb.token && !tb.expired && !tb.loaded) fullRows(tb);
+      B.loadRows(tb, host);
     } else if (kind === 'access') {
       inn.innerHTML = `<div class="bc-panel__h"><div style="flex:1"><div class="t">What you can ask about</div><div class="s">${esc((me && me.role) || '')}</div></div><button type="button" class="ib" data-act="pclose" aria-label="Close the panel">${ic('close')}</button></div><div class="bc-panel__body access">${accessHTML()}</div>`;
     } else if (kind === 'connect') {
@@ -614,26 +574,6 @@
     app.classList.remove('has-panel', 'panel-full');
     panelKind = null;
     if (app.dataset.railBack) { delete app.dataset.railBack; app.classList.remove('no-rail'); syncRailBtn(); }
-  }
-  async function fullRows(tb) {
-    const el = document.querySelector(`.bc-panel [data-tbbody="${tb.id}"]`);
-    if (el) el.insertAdjacentHTML('afterbegin', '<div class="bc-empty-note" data-loading>Loading the full list...</div>');
-    try {
-      const d = await api('list/read', { body: { tokens: [tb.token] } });
-      const l = (d.lists || [])[0];
-      if (l && l.rows) {
-        tb.rows = l.rows.map((r) => (r.place || !(r.city || r.state) ? r : { ...r, place: [r.city, r.state].filter(Boolean).join(', ') }));
-        tb.count = tb.rows.length;
-        tb.more = !!l.more;
-        tb.partial = false;
-        tb.loaded = true;
-        B.refreshTable(tb.id);
-      }
-    } catch (e) {
-      tb.expired = true;
-      toast(e.status === 410 ? 'That list expired. Ask again.' : e.message);
-    }
-    document.querySelectorAll('[data-loading]').forEach((n) => n.remove());
   }
   const PKG_ROWS = [['partners', 'user', 'Partners and giving', 'Records, lists, gifts and who holds them'], ['contacts', 'mail', 'Contact details', 'Emails, phones and addresses in lists'], ['iwave', 'gauge', 'iWave ratings', 'Capacity, propensity, coverage, screening'], ['all_teams', 'chart', 'Every team\'s numbers', 'Every team tab, not only yours'], ['sheets', 'sheet', 'Google Sheets', 'Open any list as a sheet in your Drive'], ['basics', 'book', 'The manuals and your team', 'Every procedure, definitions and your team\'s numbers']];
   function accessHTML() {
@@ -659,7 +599,7 @@
         <li><div>Turn on <b>Developer mode</b> under <b>Settings</b>, <b>Apps</b>, <b>Advanced settings</b>.</div></li>
         <li><div>Under <b>Apps</b>, press <b>Create</b>. Name it <b>Favor</b>, paste the address, choose <b>OAuth</b>, press <b>Scan Tools</b>, sign in with your Favor Google account, then <b>Create</b>.</div></li>
         <li><div>In a chat, pick <b>Favor</b> from the tools menu.</div></li></ol></div>
-      <p style="margin:14px 0 0;font-size:12.5px;color:var(--h-ink-3)">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/" style="color:var(--h-brand-ink)">Step by step, with pictures</a></p>`;
+      <p style="margin:14px 0 0;font-size:13px;color:var(--h-ink-3)">Claude's free plan allows one custom connector, which is all you need. <a href="/help/connect-your-ai/" style="color:var(--h-brand-ink)">Step by step, with pictures</a></p>`;
   }
 
   // ---- Sheets ----------------------------------------------------------------------------------------------------
@@ -667,170 +607,40 @@
     for (let i = cur.turns.length - 1; i >= 0; i--) if (document.querySelector(`[data-abody="${i}"] [data-tbwrap="${id}"]`)) return i;
     return cur.turns.length - 1;
   }
-  const sheetBtns = (id) => document.querySelectorAll(`[data-sheetbtn="${id}"]`);
-  async function doSheet(id, ti, granted) {
-    const tb = B.TB[id];
-    if (!tb || !window.FavorSheets) return;
-    sheetBtns(id).forEach((b) => { b.disabled = true; b.innerHTML = '<span class="spin d"></span><span>Creating the sheet</span>'; });
-    const filtered = Object.keys(tb.f).length || tb.q;
-    const turn = cur.turns[ti];
-    const spec = tb.token && !filtered && !tb.expired
-      ? { mode: 'brain', tokens: [tb.token], dedupe: 'brain:' + tb.token, title: tb.sheet_title || tb.title, provenance: { kind: 'brain', page: '/brain/', asked: turn ? turn.q : '' } }
-      : { mode: 'rows', tabs: [B.sheetTab(tb)], title: tb.sheet_title || tb.title, provenance: { kind: 'screen', page: '/brain/', asked: turn ? turn.q : '', filters: filtered ? 'Filtered: ' + Object.entries(tb.f).map(([k, v]) => k + ' ' + v).concat(tb.q ? ['search ' + tb.q] : []).join(', ') : '' } };
-    const r = await window.FavorSheets.run(spec, { navigate: false });
-    const restore = () => sheetBtns(id).forEach((b) => { b.disabled = false; b.innerHTML = `${ic('sheet')}<span>Open in Google Sheets</span>`; });
-    if (r.ok) {
-      restore();
-      sheetBtns(id).forEach((b) => { const a = document.createElement('a'); a.className = 'h-btn h-btn--primary h-btn--xs'; a.href = r.url; a.target = '_blank'; a.rel = 'noopener'; a.innerHTML = ic('ext') + '<span>Open the sheet</span>'; b.replaceWith(a); });
-      if (turn) {
-        turn.extras = (turn.extras || []).filter((x) => x.type !== 'consent');
-        turn.extras.push({ type: 'sheet', title: r.title, url: r.url, rows: (r.tabs || []).reduce((n, t) => n + t.rows, 0), private: r.private !== false });
-        rerenderTurn(ti, { noAnim: true });
-      }
-      SHEETS.unshift({ title: r.title, url: r.url });
-      renderRail();
-      toast('Your sheet is ready in Google Drive', { href: r.url, label: 'Open it' });
-      cue('success');
-      return;
-    }
-    restore();
-    if (r.error === 'consent' || r.error === 'not_connected') {
-      if (turn) {
-        turn.extras = (turn.extras || []).filter((x) => x.type !== 'consent');
-        turn.extras.push({ type: 'consent', consent_url: r.consentUrl || r.connectUrl, _spec: spec });
-        closePanel();
-        rerenderTurn(ti, { noAnim: true });
-        const c = document.querySelector(`[data-abody="${ti}"] [data-extra="consent"]`);
-        if (c) c.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' });
-      }
-      return;
-    }
-    toast(r.message || 'The sheet did not build. The CSV still works.');
-  }
-
   // ---- Events ----------------------------------------------------------------------------------------------------
-  const copy = async (text) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
+  const copy = B.copyText;
+  // What the answer blocks need from this page. The presses themselves (sort, filter, copy, CSV, Sheets, Show all, options,
+  // confirm cards) are handled in brain-blocks.js, the same code Favor Chat runs.
+  const turnOf = (el, tableId) => (el && el.dataset.turn != null ? cur.turns[+el.dataset.turn] : cur.turns[tableTurn(tableId || (el && el.dataset.tb))]);
+  const host = {
+    page: '/brain/',
+    toast,
+    api,
+    cue,
+    ask: (q, o = {}) => {
+      if (o.again) { const ti = +o.el.dataset.turn; return ask(q, { at: ti }); }
+      return ask(q, { intent: o.intent });
+    },
+    turn: turnOf,
+    rerender: (t) => rerenderTurn(cur.turns.indexOf(t), { noAnim: true }),
+    focusInput: () => $('bc-input').focus(),
+    openTable: (id) => openPanel('table', id),
+    closeTable: () => closePanel(),
+    sheetMade: (r) => { SHEETS.unshift({ title: r.title, url: r.url }); renderRail(); },
+    consentShown: (t) => { const c = document.querySelector(`[data-abody="${cur.turns.indexOf(t)}"] [data-extra="consent"]`); if (c) c.scrollIntoView({ block: 'nearest', behavior: reduced() ? 'auto' : 'smooth' }); },
+    accessAsked: (pkg) => { if (me) me.requests = (me.requests || []).concat([{ package: pkg, status: 'pending' }]); },
+  };
   document.addEventListener('click', async (e) => {
     const el = e.target.closest('[data-act]');
-    if (popEl && !e.target.closest('.pop') && !popEl._anchor.contains(e.target)) closePop();
     if (!el || !app.contains(el) && !el.closest('#bc-portal')) return;
+    if (B.handle(e, el, host)) return;
     const act = el.dataset.act;
     const ti = el.dataset.turn != null ? +el.dataset.turn : null;
     if (el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault();
     switch (act) {
-      case 'ask': ask(el.dataset.q, { intent: el.dataset.intent || undefined }); break;
-      case 'ask-again': { const t = cur.turns[ti]; ask(t.asked_as || t.q, { at: ti }); break; }
-      case 'choose': {
-        const b = cur.turns[ti].blocks[+el.dataset.bi];
-        if (b) b._picked = +el.dataset.k;
-        rerenderTurn(ti, { noAnim: true });
-        ask(el.dataset.q, { intent: el.dataset.intent || undefined });
-        break;
-      }
-      case 'else': $('bc-input').focus(); break;
-      case 'sort': {
-        const tb = B.TB[el.dataset.tb], k = el.dataset.k;
-        if (tb.sort === k) tb.dir = tb.dir === 'asc' ? 'desc' : 'asc';
-        else { tb.sort = k; const c = tb.cols.find((c) => c.key === k); tb.dir = c && ['name', 'text', 'date'].includes(c.type) && c.type !== 'date' ? 'asc' : 'desc'; }
-        B.refreshTable(tb.id);
-        const nb = document.querySelector(`.bc-panel [data-act="sort"][data-tb="${tb.id}"][data-k="${k}"]`) || document.querySelector(`[data-act="sort"][data-tb="${tb.id}"][data-k="${k}"]`);
-        if (nb) nb.focus();
-        break;
-      }
-      case 'fchip': {
-        const tb = B.TB[el.dataset.tb], k = el.dataset.k;
-        const label = (tb.chips.find((c) => c.key === k) || {}).label || k;
-        pop(el, `<div class="pop__h">${esc(label)}</div>` + B.chipValues(tb, k).slice(0, 40).map(([v, n]) => `<button type="button" role="menuitem" data-v="${esc(v)}">${esc(v)}<span style="margin-left:auto;color:var(--h-ink-3);font-size:12px">${n}</span></button>`).join(''), (v) => { tb.f[k] = v; B.refreshTable(tb.id); });
-        break;
-      }
-      case 'fclear': { const tb = B.TB[el.dataset.tb]; delete tb.f[el.dataset.k]; B.refreshTable(tb.id); break; }
-      case 'tclear': { const tb = B.TB[el.dataset.tb]; tb.f = {}; tb.q = ''; B.refreshTable(tb.id); break; }
-      case 'tcopy': { const tb = B.TB[el.dataset.tb]; const ok = await copy(B.tsv(tb)); toast(ok ? `Copied ${B.tableRows(tb).length} rows. Paste into any sheet.` : 'Your browser would not copy. Use CSV.'); break; }
-      case 'tcsv': {
-        const tb = B.TB[el.dataset.tb];
-        if (tb.csv && tb.partial && !Object.keys(tb.f).length && !tb.q) { const a = document.createElement('a'); a.href = tb.csv; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); toast('Downloading the CSV. The link works for 24 hours.'); break; }
-        const url = URL.createObjectURL(new Blob(['﻿' + B.csv(tb)], { type: 'text/csv;charset=utf-8' }));
-        const a = document.createElement('a');
-        a.href = url; a.download = String(tb.sheet_title || tb.title || 'list').replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') + '.csv';
-        document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-        toast('Downloading the rows you see.');
-        break;
-      }
-      case 'tsheet': doSheet(el.dataset.tb, tableTurn(el.dataset.tb)); break;
-      case 'pexport': {
-        const b = cur.turns[ti].blocks[+el.dataset.bi];
-        if (!b || !window.FavorSheets) break;
-        el.disabled = true;
-        const s = b.stats || {};
-        const rows = [{ partner: b.name, place: b.place || '', holder: b.holder ? b.holder.name : '', lifetime: s.lifetime || 0, last_gift: s.last_gift ? s.last_gift.amount : null, last_gift_date: s.last_gift ? s.last_gift.date : null, largest_gift: s.largest ? s.largest.amount : null }];
-        const spec = { mode: 'rows', title: 'Partner ' + b.name, tabs: [{ name: 'Partner', columns: [{ key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'holder', label: 'Held by', type: 'text' }, { key: 'lifetime', label: 'Lifetime giving', type: 'money' }, { key: 'last_gift', label: 'Last gift', type: 'money' }, { key: 'last_gift_date', label: 'Last gift date', type: 'date' }, { key: 'largest_gift', label: 'Largest gift', type: 'money' }].concat((b.years || []).map((y) => ({ key: 'y' + y.y, label: 'Given in ' + y.y, type: 'money' }))), rows: rows.map((r) => Object.assign(r, Object.fromEntries((b.years || []).map((y) => ['y' + y.y, y.amount])))) }], provenance: { kind: 'screen', page: '/brain/', asked: cur.turns[ti].q } };
-        const r = await window.FavorSheets.run(spec, { navigate: false });
-        el.disabled = false;
-        if (r.ok) { toast('Partner exported to a sheet in your Drive', { href: r.url, label: 'Open it' }); SHEETS.unshift({ title: r.title, url: r.url }); renderRail(); }
-        else if (r.error === 'consent' || r.error === 'not_connected') { const t = cur.turns[ti]; t.extras = (t.extras || []).filter((x) => x.type !== 'consent'); t.extras.push({ type: 'consent', consent_url: r.consentUrl || r.connectUrl, _spec: spec }); rerenderTurn(ti, { noAnim: true }); }
-        else toast(r.message || 'The sheet did not build.');
-        break;
-      }
-      case 'consent-go': {
-        const t = cur.turns[ti];
-        const x = (t.extras || []).find((x) => x.type === 'consent') || (t.blocks || [])[+el.dataset.bi];
-        if (!x) break;
-        el.disabled = true;
-        el.innerHTML = '<span class="spin"></span>Opening Google';
-        const toks = (t.lists || []).map((l) => l.token).filter(Boolean).slice(0, 3);
-        window.FavorSheets.consent(x._spec || (toks.length ? { mode: 'brain', tokens: toks, dedupe: 'brain:' + toks.join(','), title: 'Favor Brain list', provenance: { kind: 'brain', page: '/brain/', asked: t.q } } : null), x.consent_url);
-        break;
-      }
-      case 'consent-no': {
-        const t = cur.turns[ti];
-        t.extras = (t.extras || []).filter((x) => x.type !== 'consent');
-        const bi = +el.dataset.bi;
-        if (bi >= 0 && t.blocks[bi] && t.blocks[bi].type === 'consent') t.blocks.splice(bi, 1);
-        rerenderTurn(ti, { noAnim: true });
-        toast('No sheet made. The CSV still works.');
-        break;
-      }
-      case 'topen': openPanel('table', el.dataset.tb); break;
-      case 'pclose': closePanel(); break;
       case 'rchip': {
         const t = cur.turns[ti], r = t.reading[+el.dataset.k];
         pop(el, `<div class="pop__h">${esc(r.label)}</div>` + r.options.map((o) => `<button type="button" role="menuitem" data-v="${esc(o)}" class="${o === r.value ? 'is-on' : ''}">${esc(o)}</button>`).join(''), (v) => { if (v !== r.value) rerun(ti, r.key, v); });
-        break;
-      }
-      case 'cf': {
-        const t = cur.turns[ti], b = t.blocks[+el.dataset.bi];
-        if (!b || b._busy) break;
-        b._busy = el.dataset.do;
-        rerenderTurn(ti, { noAnim: true });
-        try {
-          const d = await api('confirm', { body: { id: b.id, action: el.dataset.do } });
-          const was = b.kind;
-          t.blocks.splice(+el.dataset.bi, 1, ...(d.blocks || []));
-          if (was === 'iwave_refresh' && (d.blocks || []).some((x) => x.type === 'confirm' && x.status === 'done')) {
-            const p = t.blocks.find((x) => x.type === 'partner');
-            t.follow = p ? ['Show the new rating for ' + p.name] : t.follow;
-            if (p && p.lookup) t.follow = ['Tell me about lookup ' + p.lookup];
-          }
-          cue(el.dataset.do === 'approve' ? 'success' : 'droplet');
-        } catch (err) {
-          b._busy = null;
-          toast(err.message);
-        }
-        rerenderTurn(ti, { noAnim: true });
-        break;
-      }
-      case 'access-ask': {
-        const t = cur.turns[ti], b = t.blocks[+el.dataset.bi];
-        el.disabled = true;
-        try {
-          await api('request', { body: { package: el.dataset.pkg, reason: 'Asked from an answer: ' + String(t.q).slice(0, 200), days: 30 } });
-          if (b) b._state = 'asked';
-          if (me) me.requests = (me.requests || []).concat([{ package: el.dataset.pkg, status: 'pending' }]);
-          toast('Sent to Will');
-          cue('success');
-        } catch (err) { toast(err.message); }
-        rerenderTurn(ti, { noAnim: true });
         break;
       }
       case 'access-form': {
@@ -926,10 +736,6 @@
     } finally { if (btn) btn.disabled = false; }
   });
 
-  document.addEventListener('input', (e) => {
-    const f = e.target.closest('[data-tfind]');
-    if (f) { B.TB[f.dataset.tfind].q = f.value; B.refreshTable(f.dataset.tfind); }
-  });
   document.addEventListener('keydown', (e) => {
     const ed = e.target.closest && e.target.closest('[data-edit]');
     if (ed && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(+ed.dataset.edit); return; }
@@ -937,7 +743,7 @@
     const rn = e.target.closest && e.target.closest('[data-rename]');
     if (rn && (e.key === 'Enter' || e.key === 'Escape')) { e.preventDefault(); const c = convs.find((x) => x.id === rn.dataset.rename); if (c) finishRename(c, rn.value, e.key === 'Enter'); return; }
     if (e.key === 'Escape') {
-      if (popEl) closePop(true);
+      if (B.popEl()) closePop(true);
       else if ($('bc-dlg').classList.contains('is-on')) closeDlg();
       else if (app.classList.contains('has-panel')) closePanel();
       else if (app.classList.contains('rail-over')) closeRailOver();

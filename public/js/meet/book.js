@@ -144,10 +144,10 @@ function draw() {
   if (S.step === 1) {
     body = `<div class="mt-grid"><section class="h-card mt-card" style="display:grid;gap:16px">
       <div><h3 class="mt-h3">Pick a team or a group</h3><div class="mt-chips">${teamsList().map(([t, n]) => `<button class="mt-chip${S.teams.has(t) ? ' is-on' : ''}" data-team="${esc(t)}">${esc(t)}<span>${n}</span></button>`).join('')}</div></div>
-      <div><h3 class="mt-h3">Add people</h3><div class="mt-add"><input id="addp" placeholder="Name or Favor email" list="plist" autocomplete="off" /><button class="h-btn h-btn--ghost h-btn--sm" id="addbtn">${ic('plus')}Add</button></div>
+      <div><h3 class="mt-h3">Add people</h3><div class="mt-add"><input id="addp" aria-label="Add people" placeholder="Name or Favor email" list="plist" autocomplete="off" /><button class="h-btn h-btn--ghost h-btn--sm" id="addbtn">${ic('plus')}Add</button></div>
         <datalist id="plist">${S.dir.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist></div>
       <div><h3 class="mt-h3">${S.people.size + S.guests.length} invited</h3><div class="mt-people">${invited().map(person).join('')}${S.guests.map((g, i) => `<span class="mt-person mt-person--guest">${av(g)}${esc(g)}<button data-rg="${i}" aria-label="Remove">${ic('x')}</button></span>`).join('')}</div></div>
-      ${S.guestsOn ? `<div><h3 class="mt-h3">Guests from outside Favor</h3><div class="mt-add"><input id="addg" placeholder="Email address" /><button class="h-btn h-btn--ghost h-btn--sm" id="addgbtn">${ic('plus')}Add guest</button></div></div>` : ''}
+      ${S.guestsOn ? `<div><h3 class="mt-h3">Guests from outside Favor</h3><div class="mt-add"><input id="addg" aria-label="Guest email address" placeholder="Email address" /><button class="h-btn h-btn--ghost h-btn--sm" id="addgbtn">${ic('plus')}Add guest</button></div></div>` : ''}
     </section><aside class="mt-stack"><div class="mt-note">Reads free and busy times only.</div>
       <div class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">How long</div><div class="mt-seg">${[30, 45, 60, 90].map((d) => `<button class="${S.dur === d ? 'is-on' : ''}" data-dur="${d}">${d} min</button>`).join('')}</div></div></aside></div>
       <div class="mt-foot"><button class="h-btn h-btn--ghost" id="startnow">${ic('video')}Start now</button><button class="h-btn h-btn--primary" data-step="2" ${hasWho() ? '' : 'disabled'}>Find times${ic('chev')}</button></div>`;
@@ -176,9 +176,9 @@ function draw() {
       <div class="mt-f"><label for="ttl">Title</label><input id="ttl" value="${esc(S.title)}" placeholder="Meeting title" maxlength="140" /></div>
       <div class="mt-f"><label for="ag">Agenda</label><textarea id="ag" maxlength="2000">${esc(S.agenda)}</textarea></div>
       <div><div class="h-label" style="margin-bottom:8px">Record</div><div class="mt-opt">
-        ${[['notes', 'Transcript and notes', 'Sound only. Notes, decisions and action items land in the hub after the meeting.'], ['video', 'Video recording too', 'The video goes to the Meetings folder in US Team Files, with the notes beside it.'], ['off', 'Nothing', 'No recording and no notes.']].map(([k, t, d]) => `<button class="${S.rec === k ? 'is-on' : ''}" data-rec="${k}"><i class="dot"></i><div><b>${t}</b><span>${d}</span></div></button>`).join('')}</div></div>
+        ${[['notes', 'Transcript and notes', 'Sound only. Notes, decisions and action items land in FavorOS after the meeting.'], ['video', 'Video recording too', 'The video goes to the Meetings folder in US Team Files, with the notes beside it.'], ['off', 'Nothing', 'No recording and no notes.']].map(([k, t, d]) => `<button class="${S.rec === k ? 'is-on' : ''}" data-rec="${k}"><i class="dot"></i><div><b>${t}</b><span>${d}</span></div></button>`).join('')}</div></div>
       <div><div class="h-label" style="margin-bottom:8px">Repeats</div><div class="mt-seg">${[['none', 'Once'], ['weekly', 'Weekly'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Monthly']].map(([k, l]) => `<button class="${S.repeat === k ? 'is-on' : ''}" data-repeat="${k}">${l}</button>`).join('')}</div></div>
-    </section><aside class="mt-stack"><div class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Summary</div><dl class="kv"><dt>When</dt><dd>${esc(when)}</dd>${S.repeat !== 'none' ? `<dt>Repeats</dt><dd>${esc(REPEAT[S.repeat])}</dd>` : ''}<dt>Who</dt><dd>${S.people.size + 1} staff${S.guests.length ? `, ${S.guests.length} guest${S.guests.length === 1 ? '' : 's'}` : ''}</dd><dt>Where</dt><dd>Favor meeting room in the hub</dd></dl></div>
+    </section><aside class="mt-stack"><div class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Summary</div><dl class="kv"><dt>When</dt><dd>${esc(when)}</dd>${S.repeat !== 'none' ? `<dt>Repeats</dt><dd>${esc(REPEAT[S.repeat])}</dd>` : ''}<dt>Who</dt><dd>${S.people.size + 1} staff${S.guests.length ? `, ${S.guests.length} guest${S.guests.length === 1 ? '' : 's'}` : ''}</dd><dt>Where</dt><dd>Favor meeting room in FavorOS</dd></dl></div>
       <div class="h-card mt-card"><div class="mt-toggle"><div><b>Email reminders</b><span>A day before and 15 minutes before, with the join link</span></div><button class="mt-sw${S.remind ? ' is-on' : ''}" data-sw="remind" aria-label="Email reminders"></button></div>
         <div class="mt-toggle"><div><b>Backup Google Meet link</b><span>In the invite in case the room ever fails to load</span></div><button class="mt-sw${S.backup ? ' is-on' : ''}" data-sw="backup" aria-label="Backup link"></button></div></div></aside></div>
       <div class="mt-foot"><button class="h-btn h-btn--ghost" data-step="2">${ic('back')}Back</button><button class="h-btn h-btn--primary" id="confirm" ${S.start ? '' : 'disabled'}>${ic('check')}Book it and send invites</button></div>`;
@@ -191,7 +191,7 @@ function draw() {
 
 function drawBooked() {
   const m = S.booked.meeting; const link = roomLink(m.id);
-  document.title = 'Booked - Favor Hub';
+  document.title = 'Booked - FavorOS';
   const end = new Date(Date.parse(m.startsAt) + (m.durationMin || S.dur) * 60000).toISOString();
   const repeatLine = m.repeat && m.repeat !== 'none' ? REPEAT[m.repeat] || '' : '';
   const everyone = [S.me, ...invited()].filter(Boolean).map((p) => ({ name: p.name || p.email, email: p.email }));
@@ -200,7 +200,7 @@ function drawBooked() {
     <div style="width:100%"><div class="h-label" style="margin-bottom:6px">Invited</div><div class="mt-people">${everyone.map((p) => `<span class="mt-person">${av(p.name)}${esc(p.name)}</span>`).join('')}${S.guests.map((g) => `<span class="mt-person mt-person--guest">${av(g)}${esc(g)}</span>`).join('')}</div></div>
     <div style="width:100%"><div class="h-label" style="margin-bottom:6px">Share link</div><div class="linkbox"><code>${esc(link.replace(/^https?:\/\//, ''))}</code><button class="h-btn h-btn--ghost h-btn--sm" id="cp">${ic('copy')}Copy</button></div></div>
     <ul class="nt-list"><li><span class="b">${ic('bell')}</span><span>${S.remind ? 'Reminder emails go out a day before and 15 minutes before the start, with the join link.' : 'No reminder emails. Google Calendar still shows its own reminder.'}</span></li>
-    <li><span class="b">${ic('notes')}</span><span>${S.rec === 'off' ? 'No notes for this meeting.' : S.rec === 'video' ? 'Video, transcript and notes go to the Meetings folder in US Team Files and to Meeting notes in the hub.' : 'Transcript and notes go to Meeting notes in the hub.'}</span></li>
+    <li><span class="b">${ic('notes')}</span><span>${S.rec === 'off' ? 'No notes for this meeting.' : S.rec === 'video' ? 'Video, transcript and notes go to the Meetings folder in US Team Files and to Meeting notes in FavorOS.' : 'Transcript and notes go to Meeting notes in FavorOS.'}</span></li>
     ${m.backupLink ? `<li><span class="b">${ic('link')}</span><span>The invite carries a backup Google Meet link.</span></li>` : ''}</ul>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a><a class="h-btn h-btn--ghost" href="/meet/book/">Book another</a></div></div>`;
   $('#cp').addEventListener('click', () => copy(link));

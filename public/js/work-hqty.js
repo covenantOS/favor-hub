@@ -13,7 +13,10 @@ const AS = new URLSearchParams(location.search).get('as') || '';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const DOTS = '<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>';
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const H = { data: null, loading: false, error: '', filter: '', q: '', sel: new Set(), started: false, working: new Set() };
+const PAGE = 60;
+// Rows come 60 at a time, with what is left, the way Foundations pages its list.
+const moreBtn = (n, shown, attr) => (n > shown ? `<div class="wc-more"><button type="button" class="h-more" ${attr}>Show ${Math.min(PAGE, n - shown)} more <span>${(n - shown).toLocaleString('en-US')} left of ${n.toLocaleString('en-US')}</span></button></div>` : '');
+const H = { shown: 60, data: null, loading: false, error: '', filter: '', q: '', sel: new Set(), started: false, working: new Set() };
 const STATE = { write: ['To write', 'wc-tag--gift'], printed: ['Printed', 'wc-tag--maybe'], signed: ['Signed', 'wc-tag--queued'], mailed: ['Mailed', 'wc-tag--done'], cannot: ['Cannot send', ''] };
 
 async function load() {
@@ -22,7 +25,7 @@ async function load() {
   catch (err) { H.error = err.message; }
   H.loading = false;
 }
-async function start() { if (H.started) return; H.started = true; await load(); if (W().S.view === 'hqty') view(); }
+async function start() { if (H.started) return; H.started = true; await load(); if (W().S.view === 'hqty') view(); if (W().refresh) W().refresh('hqty-count'); }
 
 const recentFrom = () => { const t = H.data.today; let y = Number(t.slice(0, 4)); let m = Number(t.slice(5, 7)) - 1; if (m === 0) { m = 12; y--; } return `${y}-${String(m).padStart(2, '0')}-01`; };
 const blocked = (r) => r.flags.includes('No mailing address') || r.flags.includes('No partner credited');
@@ -70,7 +73,7 @@ function rowHTML(r) {
   const canPick = r.state !== 'mailed';
   return `<div class="wg-row hq-row${picked ? ' is-picked' : ''}${H.working.has(r.key) ? ' is-working' : ''}" data-key="${e(r.key)}">
     <label class="wg-cb">${canPick ? `<input type="checkbox" data-hq-pick="${e(r.key)}" ${picked ? 'checked' : ''} aria-label="Select ${e(r.partner.name)}" />` : ''}</label>
-    <div class="wg-amt wg-c-amt">${f.money(r.amount)}<small>${f.fd(r.date)} · ${e(r.pay || r.type)}</small></div>
+    <div class="wg-amt wg-c-amt${f.money(r.amount).length > 10 ? ' is-long' : ''}">${f.money(r.amount)}<small>${f.fd(r.date)} · ${e(r.pay || r.type)}</small></div>
     <div class="wg-c-who"><a class="wg-name" href="/work/partner/${e(r.cid)}" data-partner-id="${e(r.cid)}">${e(r.partner.name)}</a><span class="wg-sub">${sub}</span>${flags ? `<div class="wg-badges">${flags}</div>` : ''}</div>
     <div class="hq-addr"><b>${e(r.fund || 'No fund on file')}</b>${r.address ? `<span class="wg-sub">${e(r.address)}</span>` : '<span class="wg-sub is-bad">No mailing address</span>'}${signerCtl(r)}</div>
     <div class="hq-state">${stateCell(r)}</div>
@@ -86,17 +89,18 @@ function view() {
   const stats = [['write', 'To write', s.write], ['printed', 'Printed, to sign', s.printed], ['signed', 'Signed, to mail', s.signed], ['mailed', 'Mailed this month', s.mailedMonth], ['earlier', 'Earlier gifts, no letter logged', s.earlier, 1]];
   const list = visible();
   const groups = [];
-  for (const r of list) { const g = groups[groups.length - 1]; if (g && g.m === r.month) g.rows.push(r); else groups.push({ m: r.month, rows: [r] }); }
+  const perMonth = {}; for (const r of list) perMonth[r.month] = (perMonth[r.month] || 0) + 1;
+  for (const r of list.slice(0, H.shown)) { const g = groups[groups.length - 1]; if (g && g.m === r.month) g.rows.push(r); else groups.push({ m: r.month, rows: [r] }); }
   el.innerHTML = `
-    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn]) => `<button type="button" class="wc-stat${H.filter === k ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}" data-hq-filter="${k}"><b>${n}</b><span>${l}</span></button>`).join('')}</div>
+    <div class="h-card wc-band wg-band" style="--n:5">${stats.map(([k, l, n, warn]) => `<button type="button" class="wc-stat${H.filter === k ? ' is-on' : ''}${warn && n ? ' is-warn' : ''}" data-hq-filter="${k}"><b>${(Number(n) || 0).toLocaleString('en-US')}</b><span>${l}</span></button>`).join('')}</div>
     <section class="h-card wc-sheet" id="hq-sheet" aria-label="HQTY letters">
-      <div class="wg-tools"><button type="button" class="hq-all${H.filter ? '' : ' is-on'}" data-hq-filter="">All gifts of $5,000 and up<span>${s.total}</span></button>
+      <div class="wg-tools"><button type="button" class="hq-all${H.filter ? '' : ' is-on'}" data-hq-filter="">All gifts of $5,000 and up<span>${Number(s.total).toLocaleString('en-US')}</span></button>
         <label class="wc-find">${f.ic('search')}<input type="search" id="hq-q" placeholder="Find a partner" value="${e(H.q)}" autocomplete="off" /></label><span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-text>${f.ic('letter')}${e(mo)} letter</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="hqty-letters">${f.ic('sheet')}Google Sheets</button></div>
-      <div class="wg-list">${groups.map((g) => `<div class="wg-group"><span>${e(monthLabel(g.m))} · ${g.rows.length}</span><button type="button" data-hq-grp="${e(g.m)}">Select all</button></div>${g.rows.map(rowHTML).join('')}`).join('')}
+      <div class="wg-list">${groups.map((g) => `<div class="wg-group"><span>${e(monthLabel(g.m))} · ${perMonth[g.m].toLocaleString('en-US')}</span><button type="button" data-hq-grp="${e(g.m)}">Select all</button></div>${g.rows.map(rowHTML).join('')}`).join('')}${moreBtn(list.length, H.shown, 'data-hq-more')}
         ${!list.length ? `<div class="wg-empty"><b>${H.data.rows.length ? 'Nothing matches' : 'No gifts yet'}</b>${H.data.rows.length ? 'Clear the filter above to see the rest.' : 'Gifts of $5,000 and up show here after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>` : ''}</div>
-      <div class="wg-foot"><span>${s.total} gifts of $5,000 and up since ${f.fd(d.since)}. A gift counts as written when Blackbaud holds an HQTY Letter on its partner dated on or after the gift.</span></div>
+      <div class="wg-foot"><span>${Number(s.total).toLocaleString('en-US')} ${Number(s.total) === 1 ? 'gift' : 'gifts'} of $5,000 and up since ${f.fd(d.since)}. A gift counts as written when Blackbaud holds an HQTY Letter on its partner dated on or after the gift.</span></div>
     </section>`;
   bar(); sheet();
 }
@@ -310,7 +314,8 @@ document.addEventListener('click', async (ev) => {
   const b = t.closest('button, a');
   if (!b) return;
   const d = b.dataset;
-  if (d.hqFilter !== undefined) { H.filter = H.filter === d.hqFilter ? '' : d.hqFilter; view(); return; }
+  if (b.hasAttribute('data-hq-more')) { H.shown += PAGE; view(); return; }
+  if (d.hqFilter !== undefined) { H.filter = H.filter === d.hqFilter ? '' : d.hqFilter; H.shown = PAGE; view(); return; }
   if (b.hasAttribute('data-hq-reload')) { H.data = null; H.error = ''; H.started = false; view(); return; }
   if (b.hasAttribute('data-hq-text')) { textEditor(); return; }
   if (d.hqMenu) { openMenu(b, d.hqMenu); return; }
@@ -336,7 +341,7 @@ let qT;
 document.addEventListener('input', (ev) => {
   const t = ev.target; if (t.id !== 'hq-q') return;
   clearTimeout(qT);
-  qT = setTimeout(() => { H.q = t.value; view(); const i = $('#hq-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
+  qT = setTimeout(() => { H.q = t.value; H.shown = PAGE; view(); const i = $('#hq-q'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 160);
 });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && menuEl) closeMenu(); });
 // The bar sits on the body, so leaving the tab takes it down.

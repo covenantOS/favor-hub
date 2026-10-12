@@ -200,10 +200,10 @@ export function matchPerson(ix: PeopleIndex, u: AUser | null): { email: string |
   if (!e && u.name) {
     const n = ix.byName.get(lower(u.name));
     if (n) return { email: n, reason: '' };
-    return { email: null, reason: 'Asana gave no email and the name matches no one on the hub list' };
+    return { email: null, reason: 'Asana gave no email and the name matches no one on FavorOS list' };
   }
   if (!e) return { email: null, reason: 'Asana gave no email or name' };
-  return { email: null, reason: ix.blocked.has(e) ? 'the hub account is closed' : 'not on the hub staff list' };
+  return { email: null, reason: ix.blocked.has(e) ? 'the FavorOS account is closed' : 'not on FavorOS staff list' };
 }
 
 /* ----------------------------------------------------------------------------------------------------- helpers */
@@ -762,7 +762,7 @@ export class Engine {
         else if (this.dry) {
           if (a.size != null && a.size > MAX_COPY_BYTES) fail(`Larger than ${MAX_COPY_BYTES / 1048576} MB.`);
           else outcome = 'copied';
-        } else if (!bucket) fail('This copy of the hub has no file storage bound.');
+        } else if (!bucket) fail('This copy of FavorOS has no file storage bound.');
         else {
           const got = await this.src.download(a, MAX_COPY_BYTES);
           if (!got) fail('Asana would not hand the file over.');
@@ -777,7 +777,7 @@ export class Engine {
         }
       } else if (!external) fail('Copying files was switched off for this run.');
       if (outcome === 'link' && !a.permanent_url) {
-        this.run.report.warnings.push(`File ${a.name} has no address in Asana and could not be copied; it is not in the hub.`);
+        this.run.report.warnings.push(`File ${a.name} has no address in Asana and could not be copied; it is not in FavorOS.`);
         continue;
       }
       if (outcome === 'copied') c.rep.files.copy++;

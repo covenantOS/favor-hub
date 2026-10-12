@@ -20,17 +20,17 @@ const ICON: Record<string, string> = {
   help: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
 };
 import '../../styles/q3-desk.css';
+import '../../styles/lint-fix.css';
+// Worst-case data fixes (scripts/break-ui).
+import '../../styles/break-ui.css';
 ---
-<App title="Help docs" crumb="Learn" nav="docs" description="How the Favor hub works: every tool, Favor Brain, the KPI dashboard, and training videos.">
+<App title="Help docs" crumb="Learn" nav="docs" description="How FavorOS works: every tool, Favor Brain, the KPI dashboard, and training videos.">
   <div class="hd-home">
     <section class="hd-hero">
-      <div class="hd-hero__text">
-        <h1>How can we help?</h1>
-        <p>Search every article and every word said in the training videos.</p>
-      </div>
+      <h1 class="sr-only">Help docs</h1>
       <div class="hd-search" role="search">
         <svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-        <input id="hd-q" type="search" placeholder="Try: mileage, LYBUNT, connect Claude, print file" autocomplete="off" aria-label="Search the help docs" aria-controls="hd-results" />
+        <input id="hd-q" type="search" placeholder="Search articles and videos" autocomplete="off" aria-label="Search the help docs" aria-controls="hd-results" />
         <kbd>/</kbd>
       </div>
       <div class="hd-results" id="hd-results" role="region" aria-live="polite" hidden></div>
@@ -46,19 +46,19 @@ import '../../styles/q3-desk.css';
     </section>
 
     <section class="hd-foryou" id="hd-foryou">
-      <div class="h-section"><h2>For your work</h2><p id="hd-foryou-who">&nbsp;</p></div>
+      <div class="h-section"><h2>For your work</h2></div>
       <div class="hd-cards" id="hd-foryou-list" aria-busy="true">
         {Array.from({ length: 6 }).map(() => <div class="h-card hd-card hd-card--skel h-skel" aria-hidden="true"></div>)}
       </div>
     </section>
 
-    <div class="h-section"><h2>Topics</h2><p>Every tool in the hub, step by step</p></div>
+    <div class="h-section"><h2>Topics</h2></div>
     <div class="hd-topics">
       {TOPICS.map((t) => (
         <section class="h-card hd-topic">
           <div class="hd-topic__head">
             <span class="hd-topic__icon"><Fragment set:html={I(ICON[t.id] || '')} /></span>
-            <div><h3>{t.label}</h3><p>{t.blurb}</p></div>
+            <div><h3>{t.label}</h3></div>
           </div>
           <ul>
             {docs
@@ -73,7 +73,7 @@ import '../../styles/q3-desk.css';
       ))}
     </div>
 
-    <div class="h-section"><h2>Newest videos</h2><p><a class="h-link" href="/help/videos/">All {videos.length} videos</a></p></div>
+    <div class="h-section"><h2>Newest videos</h2><p><a class="h-link" href="/help/videos/">All {videos.length} {videos.length === 1 ? 'video' : 'videos'}</a></p></div>
     <div class="hd-vids">
       {newest.map((v) => (
         <a class="h-card hd-vid" href={`/help/videos/${v.slug}/`}>
@@ -84,5 +84,5 @@ import '../../styles/q3-desk.css';
       ))}
     </div>
   </div>
-  <script is:inline src="/js/help.js?v=2" defer></script>
+  <script is:inline src="/js/help.js?v=3" defer></script>
 </App>

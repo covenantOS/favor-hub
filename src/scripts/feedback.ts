@@ -65,7 +65,7 @@ function render() {
       </fieldset>
       <label class="h-label" for="fb-text">${brain ? 'What was off, or what should it have said?' : 'What happened, or what would help?'}</label>
       <textarea id="fb-text" rows="4" maxlength="2000" placeholder="${brain ? 'For example: it counted 412 partners in Texas, but my list has about 300.' : 'A few words is enough. Say which button or number if it helps.'}"></textarea>
-      <p class="fb-where">Page: <b>${esc(document.title.replace(/ - Favor Hub$/, ''))}</b></p>
+      <p class="fb-where">Page: <b>${esc(document.title.replace(/ - FavorOS$/, ''))}</b></p>
       <p class="fb-msg" role="status"></p>
       <div class="fb-acts">
         <a class="tr-link" href="/feedback/">Your notes and answers</a>

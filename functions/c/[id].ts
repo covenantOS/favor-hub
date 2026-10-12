@@ -8,9 +8,9 @@ import { hubUserOf } from '../_lib/session';
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
 
 function page(status: number, title: string, body: string, scripts = '', head = ''): Response {
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${esc(title)} - Favor Hub</title>${head}
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${esc(title)} - FavorOS</title>${head}
 <link rel="icon" type="image/png" href="/images/favor-icon.png"><link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/js/clips/watch.css?v=3"><link rel="stylesheet" href="/js/clips/crit-watch.css?v=1"><link rel="stylesheet" href="/js/clips/launcher.css?v=5">
+<link rel="stylesheet" href="/js/clips/watch.css?v=6"><link rel="stylesheet" href="/js/clips/crit-watch.css?v=3"><link rel="stylesheet" href="/js/clips/launcher.css?v=8">
 </head><body>${body}${scripts}</body></html>`;
   return new Response(html, { status, headers: { ...PRIVATE, 'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer' } });
 }
@@ -22,7 +22,7 @@ function ogTags(p: Preview): string {
   const m = (k: string, v: string) => `<meta property="${k}" content="${esc(v)}">`;
   const n = (k: string, v: string) => `<meta name="${k}" content="${esc(v)}">`;
   return [
-    m('og:site_name', 'Favor Hub'), m('og:type', p.video ? 'video.other' : 'website'), m('og:title', p.title), m('og:description', p.desc),
+    m('og:site_name', 'FavorOS'), m('og:type', p.video ? 'video.other' : 'website'), m('og:title', p.title), m('og:description', p.desc),
     m('og:url', p.url), m('og:image', p.image), m('og:image:alt', p.title),
     ...(p.video ? [m('og:video', p.video), m('og:video:secure_url', p.video), m('og:video:type', p.videoType || 'video/webm')] : []),
     n('twitter:card', 'summary_large_image'), n('twitter:title', p.title), n('twitter:description', p.desc), n('twitter:image', p.image),
@@ -32,7 +32,7 @@ function ogTags(p: Preview): string {
 const mins = (ms: number) => { const s = Math.round((ms || 0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 const frame = (inner: string, signedIn: boolean) =>
-  `<div class="cw"><header class="cw-top"><a href="https://www.favorintl.org"><img src="/images/favor-logo-color.png" alt="Favor International"></a><span class="cw-top__r" id="cw-topr">${signedIn ? '<a class="cw-hub" href="/clips/">My clips</a><a class="cw-hub" href="/">Favor Hub</a>' : ''}</span></header>${inner}<footer class="cw-foot">Favor International</footer></div>`;
+  `<div class="cw"><header class="cw-top"><a href="https://www.favorintl.org"><img src="/images/favor-logo-color.png" alt="Favor International"></a><span class="cw-top__r" id="cw-topr">${signedIn ? '<a class="cw-hub" href="/clips/">My clips</a><a class="cw-hub" href="/">FavorOS</a>' : ''}</span></header>${inner}<footer class="cw-foot">Favor International</footer></div>`;
 
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   const id = String(params.id);
@@ -46,7 +46,7 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
       login.searchParams.set('next', '/c/' + id);
       // Link unfurlers read this card; a browser goes straight on to sign-in.
       const origin = new URL(request.url).origin;
-      const head = ogTags({ title: 'Favor Hub clip', desc: 'Sign in with your Favor Google account to watch.', image: origin + '/images/favor-logo-color.png', url: origin + '/c/' + id })
+      const head = ogTags({ title: 'FavorOS clip', desc: 'Sign in with your Favor Google account to watch.', image: origin + '/images/favor-logo-color.png', url: origin + '/c/' + id })
         + `<meta http-equiv="refresh" content="0;url=${esc(login.pathname + login.search)}">`;
       return page(200, 'Clip', `<script>location.replace(${JSON.stringify(login.pathname + login.search)})</script>`, '', head);
     }
@@ -62,7 +62,7 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
   const origin = new URL(request.url).origin;
   const media = `${origin}/api/clips/${id}/media`;
   const open = clip.share === 1;
-  const title = open ? clip.title || 'Clip' : 'Favor Hub clip';
+  const title = open ? clip.title || 'Clip' : 'FavorOS clip';
   const desc = open
     ? ((clip.summary || '').replace(/\s+/g, ' ').trim().slice(0, 200) || `${mins(clip.duration_ms)} clip${clip.owner_name ? ' from ' + clip.owner_name : ''}`)
     : 'Sign in with your Favor Google account to watch.';
@@ -71,5 +71,5 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
     image: open && clip.has_poster === 1 ? `${media}?poster=1` : origin + '/images/favor-logo-color.png',
     ...(open ? { video: media, videoType: clip.mime || 'video/webm' } : {}),
   });
-  return page(200, clip.title || 'Clip', body, `<script type="module" src="/js/clips/watch.js?v=3"></script>`, head);
+  return page(200, clip.title || 'Clip', body, `<script type="module" src="/js/clips/watch.js?v=5"></script>${user ? '<script src="/js/clips-launch.js?v=5" defer></script>' : ''}`, head);
 };

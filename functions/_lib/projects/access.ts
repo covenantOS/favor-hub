@@ -34,7 +34,7 @@ export async function projectsActor(env: Env, request: Request, user: HubUser | 
   const actor = actorOf(request, user);
   if (!actor) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
   const mode = await projectsMode(env);
-  if (!modeAllows(mode, actor)) throw new HttpError(403, 'forbidden', mode === 'off' ? 'Projects is switched off.' : 'Projects is open to hub admins for now.');
+  if (!modeAllows(mode, actor)) throw new HttpError(403, 'forbidden', mode === 'off' ? 'Projects is switched off.' : 'Projects is open to FavorOS admins for now.');
   return actor;
 }
 

@@ -125,7 +125,7 @@
     switch (c.type) {
       case 'name': {
         const q = x.lookup_id ? `Tell me about lookup ${x.lookup_id}` : `Tell me about ${v}${x.place ? ' in ' + x.place : ''}`;
-        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''}>${esc(v)}</a>`;
+        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''} title="${esc(v)}">${esc(v)}</a>`;
       }
       case 'money': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(money(v));
       case 'int': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(int(v));
@@ -167,7 +167,7 @@
     const rows = tableRows(tb);
     const show = all ? rows : rows.slice(0, tb.preview || 8);
     const cols = all ? tb.cols : tb.cols.filter((c) => !c.panel_only);
-    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${rows.length} rows</caption><thead><tr>`;
+    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${int(rows.length)} ${rows.length === 1 ? 'row' : 'rows'}</caption><thead><tr>`;
     cols.forEach((c) => {
       const s = tb.sort === c.key ? ` aria-sort="${tb.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
       h += `<th class="${isNum(c) ? 'num' : ''}"${s}><button type="button" data-act="sort" data-tb="${tb.id}" data-k="${esc(c.key)}">${esc(c.label)}${ic('sort', 'h-i ar')}</button></th>`;
@@ -201,7 +201,8 @@
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   };
-  const rowLabel = (tb, n) => `${int(n)} ${tb.noun || (n === 1 ? 'row' : 'rows')}`;
+  // The Brain names the rows in the plural ("partners"); one row reads "1 partner".
+  const rowLabel = (tb, n) => `${int(n)} ${tb.noun ? (Number(n) === 1 ? String(tb.noun).replace(/s$/, '') : tb.noun) : Number(n) === 1 ? 'row' : 'rows'}`;
   function toolsHTML(tb, inPanel, canSheets) {
     return `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcopy" data-tb="${tb.id}">${ic('copy')}<span class="lbl-l">Copy</span></button>
     <button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcsv" data-tb="${tb.id}">${ic('dl')}<span class="lbl-l">CSV</span></button>
@@ -232,7 +233,7 @@
     if (!tb) return;
     const n = tb.count || tb.rows.length;
     const f = tableRows(tb).length;
-    document.querySelectorAll(`[data-tbbody="${id}"]`).forEach((el) => (el.innerHTML = tableInner(tb, !!el.closest('.bc-panel'))));
+    document.querySelectorAll(`[data-tbbody="${id}"]`).forEach((el) => (el.innerHTML = tableInner(tb, !!(el.hasAttribute('data-tbfull') || el.closest('.bc-panel')))));
     document.querySelectorAll(`[data-tbwrap="${id}"] .tbl__chips`).forEach((el) => (el.outerHTML = chipsHTML(tb)));
     document.querySelectorAll(`[data-pchips="${id}"]`).forEach((el) => (el.outerHTML = chipsHTML(tb, `data-pchips="${id}" style="padding:0"`)));
     const filtered = Object.keys(tb.f).length || tb.q;
@@ -264,7 +265,7 @@
   });
 
   // ---- Tiles, team ----------------------------------------------------------------------------------
-  const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(d.pct))}%</span>` : '');
+  const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(Number(d.pct) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 }))}%</span>` : '');
   function spark(v) {
     if (!v || v.length < 2) return '';
     const mx = Math.max(...v), mn = Math.min(...v);
@@ -276,7 +277,7 @@
       .map((t) => {
         const num = typeof t.value === 'number' ? `<span data-count="${t.value}" data-f="${esc(t.format || 'int')}">${esc(fmt(t.value, t.format || 'int'))}</span>` : esc(t.value);
         const prog = t.progress != null ? `<div style="height:6px;border-radius:999px;background:#ece7dc;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:${Math.max(Math.min(t.progress, 100), 2)}%;background:var(--c-a);border-radius:999px;transform-origin:left;animation:bc-grow .8s var(--ease) both"></i></div>` : '';
-        return `<div class="bc-tile"><div class="bc-tile__l">${esc(t.label)}</div><div class="bc-tile__n${typeof t.value === 'string' ? ' is-txt' : ''}">${num}</div><div class="bc-tile__c">${delta(t.delta)}${t.compare ? `<span>${esc(t.compare)}</span>` : ''}</div>${spark(t.trend)}${prog}</div>`;
+        return `<div class="bc-tile"><div class="bc-tile__l">${esc(t.label)}</div><div class="bc-tile__n${typeof t.value === 'string' ? ' is-txt' : fmt(t.value, t.format || 'int').length > 10 ? ' is-long' : ''}">${num}</div><div class="bc-tile__c">${delta(t.delta)}${t.compare ? `<span>${esc(t.compare)}</span>` : ''}</div>${spark(t.trend)}${prog}</div>`;
       })
       .join('')}</div>`;
   }
@@ -309,7 +310,7 @@
     CHARTS[id] = b;
     return `<div class="card chart"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px"><div class="card__t">${esc(b.title)}</div>
       <div class="legend" style="margin-left:auto">${(b.series || []).map((s, i) => `<span><s class="${b.kind === 'line' ? 'ln' : ''}" style="background:${SERIES[i % 4]}"></s>${esc(s.label)}</span>`).join('')}</div></div>
-      <div class="chart__wrap" data-chart="${id}"></div>${b.note ? `<div style="font-size:12px;color:var(--h-ink-3);margin-top:6px">${esc(b.note)}</div>` : ''}</div>`;
+      <div class="chart__wrap" data-chart="${id}"></div>${b.note ? `<div style="font-size:13px;color:var(--h-ink-3);margin-top:6px">${esc(b.note)}</div>` : ''}</div>`;
   }
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // 2026-03 reads as Mar; the year shows on the first label and on every January.
@@ -324,6 +325,9 @@
     root.querySelectorAll('[data-chart]').forEach((el) => {
       const b = CHARTS[el.dataset.chart];
       if (!b || !el.clientWidth) return;
+      // A chart already drawn at this width stays as it is, so a redraw of the page around it never restarts its animation.
+      if (el._cw === el.clientWidth && el.firstChild) return;
+      el._cw = el.clientWidth;
       const X = b.x || [], S = b.series || [];
       const W = Math.max(el.clientWidth, 260), H = 220, L = 54, R = 10, T = 10, BT = 26;
       const all = S.flatMap((s) => s.values).filter((v) => v != null);
@@ -400,7 +404,7 @@
   new MutationObserver(() => { clearTimeout(fadeT); fadeT = setTimeout(tableFades, 60); }).observe(document.body, { childList: true, subtree: true });
 
   // ---- Partner card ---------------------------------------------------------------------------------
-  const initials = (n) => String(n || '?').replace(/[^A-Za-z\s.]/g, '').split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
   function partnerHTML(b, ctx) {
     const ys = b.years || [];
     const mx = Math.max(1, ...ys.map((y) => y.amount));
@@ -434,7 +438,7 @@
       </div>
       <div class="pc__body"><div class="pc__giving"><div class="pc__sec">Giving by year</div>
         ${ys.length ? `<div class="yb" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<button type="button" aria-label="${y.y}: ${money(y.amount)}"><i class="${y.amount ? '' : 'z'}" style="height:${(y.amount / mx) * 100}%;animation-delay:${k * 50}ms"></i><span class="tipbox"><b>${y.y}</b><br>${esc(money(y.amount))}</span></button>`).join('')}</div>
-        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y) => `<span>${y.y}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
+        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<span>${ys.length <= 10 || k % Math.ceil(ys.length / 8) === 0 ? y.y : ''}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
       ${acts ? `<div class="pc__acts">${acts}</div>` : ''}</div>`;
   }
 
@@ -530,7 +534,7 @@
       .join('')}</div>${b.other ? '<button type="button" class="else" data-act="else">Something else</button>' : ''}</div>`;
   }
   function sheetHTML(b) {
-    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} rows in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
+    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} ${Number(b.rows) === 1 ? 'row' : 'rows'} in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
   }
   /** A Sources row: one chip per manual section, opening that section. */
   function sourcesHTML(b) {
@@ -543,7 +547,8 @@
   }
 
   /** One block as HTML. ctx: { ti, bi, canSheets, canRequest(pkg), expired }. */
-  B.render = (b, ctx) => {
+  B.render = (b, ctx) => { try { return draw(b, ctx); } catch (e) { return ''; } };
+  const draw = (b, ctx) => {
     switch (b.type) {
       case 'text': return `<div class="blk-text">${md(b.md)}</div>`;
       case 'tiles': return tilesHTML(b);
@@ -592,4 +597,285 @@
       requestAnimationFrame(step);
     });
   };
+
+  // ---- What the blocks do when pressed ---------------------------------------------------------------
+  // One implementation for every page that shows answer blocks (the Brain page and Favor Chat). The page passes a host:
+  //   toast(msg, link?)            a short notice, with an optional { href, label } link
+  //   ask(q, { intent, el })       ask the Brain a question
+  //   turn(el)                     the answer the pressed element belongs to: { q, asked_as, blocks, extras, lists, follow }
+  //   rerender(turn, el)           draw that answer again after its blocks changed
+  //   api(path, { body })          a call to /api/brain/<path>, as the signed-in person
+  //   confirm(turn, block, action) optional; presses a confirm card and resolves to { blocks } (default: api('confirm'))
+  //   openTable(id) closeTable()   show one table large, and put it away
+  //   page                         the page address written into a sheet's source note
+  //   focusInput() cue(name) sheetMade(r, turn) accessAsked(pkg)   optional
+  const copyText = async (text) => { try { await navigator.clipboard.writeText(text); return true; } catch { return false; } };
+  B.copyText = copyText;
+
+  // A small menu under a button (filter values, reading options). Shared so a page needs no popover of its own.
+  let popEl = null;
+  B.popEl = () => popEl;
+  B.closePop = (refocus) => {
+    if (!popEl) return false;
+    const a = popEl._anchor;
+    if (a) a.setAttribute('aria-expanded', 'false');
+    popEl.remove();
+    popEl = null;
+    if (refocus && a && a.focus) a.focus();
+    return true;
+  };
+  B.pop = (anchor, html, onPick) => {
+    B.closePop();
+    let portal = document.getElementById('bc-portal');
+    if (!portal) {
+      portal = document.createElement('div');
+      portal.id = 'bc-portal';
+      portal.className = 'bc-root bc-portal--page';
+      document.body.appendChild(portal);
+    }
+    popEl = document.createElement('div');
+    popEl.className = 'pop';
+    popEl.setAttribute('role', 'menu');
+    popEl.innerHTML = html;
+    portal.appendChild(popEl);
+    const r = anchor.getBoundingClientRect(), pw = popEl.offsetWidth, ph = popEl.offsetHeight;
+    const x = Math.min(r.left, innerWidth - pw - 10);
+    let y = r.bottom + 6;
+    if (y + ph > innerHeight - 10) y = r.top - ph - 6 >= 10 ? r.top - ph - 6 : Math.max(10, innerHeight - ph - 10);
+    popEl.style.left = Math.max(10, x) + 'px';
+    popEl.style.top = Math.max(10, y) + 'px';
+    popEl.addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-v]');
+      if (!b) return;
+      const v = b.dataset.v;
+      B.closePop();
+      onPick(v, b);
+    });
+    popEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+      e.preventDefault();
+      const bs = [...popEl.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
+      bs[(i + (e.key === 'ArrowDown' ? 1 : -1) + bs.length) % bs.length].focus();
+    });
+    const first = popEl.querySelector('button.is-on') || popEl.querySelector('button');
+    if (first) first.focus();
+    popEl._anchor = anchor;
+    anchor.setAttribute('aria-expanded', 'true');
+  };
+
+  /** One table shown large: the filter box, Copy, CSV and Sheets, the filter chips and every row and column. */
+  B.tablePanel = (tb, opt = {}) => {
+    const id = tb.id;
+    const head = opt.head === false ? '' : `<div class="bc-panel__h"><div style="min-width:0;flex:1"><div class="t">${esc(tb.title)}</div><div class="s" data-pcnt="${id}"></div></div><button type="button" class="ib" data-act="pclose" aria-label="Close the panel">${ic('close')}</button></div>`;
+    return `${head}
+        <div class="bc-panel__tools"><div class="tbl__find">${ic('search')}<input type="search" placeholder="Filter these rows" data-tfind="${id}" aria-label="Filter these rows" value="${esc(tb.q)}" /></div>${tb.expired ? '' : toolsHTML(tb, true, tb.canSheets)}</div>
+        ${tb.chips && tb.chips.length ? `<div style="padding:10px 18px 0">${chipsHTML(tb, `data-pchips="${id}" style="padding:0"`)}</div>` : ''}
+        <div class="bc-panel__body" style="margin-top:10px;border-top:1px solid var(--h-line)"><div class="tbl__scroll" data-tbbody="${id}" data-tbfull tabindex="0" role="region" aria-label="${esc(tb.title)}">${tableInner(tb, true)}</div></div>`;
+  };
+
+  /** A table kept with only its preview rows reads the whole list again by its token (lists last 24 hours). */
+  B.loadRows = async (tb, host) => {
+    if (!tb || !tb.partial || !tb.token || tb.expired || tb.loaded || tb.loading) return;
+    tb.loading = true;
+    const el = document.querySelector(`[data-tbfull][data-tbbody="${tb.id}"]`);
+    if (el) el.insertAdjacentHTML('afterbegin', '<div class="bc-empty-note" data-loading>Loading the full list...</div>');
+    try {
+      const d = await host.api('list/read', { body: { tokens: [tb.token] } });
+      const l = (d.lists || [])[0];
+      if (l && l.rows) {
+        tb.rows = l.rows.map((r) => (r.place || !(r.city || r.state) ? r : { ...r, place: [r.city, r.state].filter(Boolean).join(', ') }));
+        tb.count = tb.rows.length;
+        tb.more = !!l.more;
+        tb.partial = false;
+        tb.loaded = true;
+        B.refreshTable(tb.id);
+      }
+    } catch (e) {
+      tb.expired = true;
+      host.toast(e.status === 410 ? 'That list expired. Ask again.' : e.message);
+    }
+    tb.loading = false;
+    document.querySelectorAll('[data-loading]').forEach((n) => n.remove());
+  };
+
+  const sheetBtns = (id) => document.querySelectorAll(`[data-sheetbtn="${id}"]`);
+  const consentCard = (turn, r, spec) => {
+    turn.extras = (turn.extras || []).filter((x) => x.type !== 'consent');
+    turn.extras.push({ type: 'consent', consent_url: r.consentUrl || r.connectUrl, _spec: spec });
+  };
+  /** Open in Google Sheets for one table: the whole list by its token, or the rows on screen when it is filtered. */
+  B.makeSheet = async (id, host, el) => {
+    const tb = TB[id];
+    if (!tb || !window.FavorSheets) return;
+    sheetBtns(id).forEach((b) => { b.disabled = true; b.innerHTML = '<span class="spin d"></span><span>Creating the sheet</span>'; });
+    const filtered = Object.keys(tb.f).length || tb.q;
+    const turn = host.turn(el, id);
+    const page = host.page || location.pathname;
+    const spec = tb.token && !filtered && !tb.expired
+      ? { mode: 'brain', tokens: [tb.token], dedupe: 'brain:' + tb.token, title: tb.sheet_title || tb.title, provenance: { kind: 'brain', page, asked: turn ? turn.q : '' } }
+      : { mode: 'rows', tabs: [B.sheetTab(tb)], title: tb.sheet_title || tb.title, provenance: { kind: 'screen', page, asked: turn ? turn.q : '', filters: filtered ? 'Filtered: ' + Object.entries(tb.f).map(([k, v]) => k + ' ' + v).concat(tb.q ? ['search ' + tb.q] : []).join(', ') : '' } };
+    const r = await window.FavorSheets.run(spec, { navigate: false });
+    const restore = () => sheetBtns(id).forEach((b) => { b.disabled = false; b.innerHTML = `${ic('sheet')}<span>Open in Google Sheets</span>`; });
+    if (r.ok) {
+      restore();
+      sheetBtns(id).forEach((b) => { const a = document.createElement('a'); a.className = 'h-btn h-btn--primary h-btn--xs'; a.href = r.url; a.target = '_blank'; a.rel = 'noopener'; a.innerHTML = ic('ext') + '<span>Open the sheet</span>'; b.replaceWith(a); });
+      if (turn) {
+        turn.extras = (turn.extras || []).filter((x) => x.type !== 'consent');
+        turn.extras.push({ type: 'sheet', title: r.title, url: r.url, rows: (r.tabs || []).reduce((n, t) => n + t.rows, 0), private: r.private !== false });
+        host.rerender(turn, el);
+      }
+      if (host.sheetMade) host.sheetMade(r, turn);
+      host.toast('Your sheet is ready in Google Drive', { href: r.url, label: 'Open it' });
+      if (host.cue) host.cue('success');
+      return;
+    }
+    restore();
+    if (r.error === 'consent' || r.error === 'not_connected') {
+      if (turn) {
+        consentCard(turn, r, spec);
+        if (host.closeTable) host.closeTable();
+        host.rerender(turn, el);
+        if (host.consentShown) host.consentShown(turn);
+      }
+      return;
+    }
+    host.toast(r.message || 'The sheet did not build. The CSV still works.');
+  };
+
+  /**
+   * A press on anything inside an answer block. Returns true when the press was one of the blocks' own actions, so the page
+   * handles only what is left (its own buttons).
+   */
+  B.handle = (e, el, host) => {
+    const act = el && el.dataset ? el.dataset.act : '';
+    const run = ACTIONS[act];
+    if (!run) return false;
+    if (el.tagName === 'A' && el.getAttribute('href') === '#') e.preventDefault();
+    Promise.resolve(run(el, host, e)).catch((err) => host.toast((err && err.message) || 'That did not work. Try again.'));
+    return true;
+  };
+  const blockOf = (turn, el) => (turn && turn.blocks ? turn.blocks[+el.dataset.bi] : null);
+  const ACTIONS = {
+    ask: (el, host) => host.ask(el.dataset.q, { intent: el.dataset.intent || undefined, el }),
+    'ask-again': (el, host) => { const t = host.turn(el); if (t) host.ask(t.asked_as || t.q, { again: true, el }); },
+    choose: (el, host) => {
+      const t = host.turn(el), b = blockOf(t, el);
+      if (b) b._picked = +el.dataset.k;
+      if (t) host.rerender(t, el);
+      host.ask(el.dataset.q, { intent: el.dataset.intent || undefined, el });
+    },
+    else: (el, host) => { if (host.focusInput) host.focusInput(el); },
+    sort: (el) => {
+      const tb = TB[el.dataset.tb], k = el.dataset.k;
+      if (!tb) return;
+      const full = !!el.closest('[data-tbfull]');
+      if (tb.sort === k) tb.dir = tb.dir === 'asc' ? 'desc' : 'asc';
+      else { tb.sort = k; const c = tb.cols.find((c) => c.key === k); tb.dir = c && ['name', 'text'].includes(c.type) ? 'asc' : 'desc'; }
+      B.refreshTable(tb.id);
+      // The header button was drawn again; the keyboard stays on the same column, in the view that was pressed.
+      const sel = `[data-act="sort"][data-tb="${tb.id}"][data-k="${k}"]`;
+      const nb = (full && document.querySelector(`[data-tbfull] ${sel}`)) || document.querySelector(`.bc-panel ${sel}`) || document.querySelector(sel);
+      if (nb) nb.focus({ preventScroll: true });
+    },
+    fchip: (el) => {
+      const tb = TB[el.dataset.tb], k = el.dataset.k;
+      if (!tb) return;
+      const label = (tb.chips.find((c) => c.key === k) || {}).label || k;
+      B.pop(el, `<div class="pop__h">${esc(label)}</div>` + B.chipValues(tb, k).slice(0, 40).map(([v, n]) => `<button type="button" role="menuitem" data-v="${esc(v)}">${esc(v)}<span style="margin-left:auto;color:var(--h-ink-3);font-size:13px">${n}</span></button>`).join(''), (v) => { tb.f[k] = v; B.refreshTable(tb.id); });
+    },
+    fclear: (el) => { const tb = TB[el.dataset.tb]; if (!tb) return; delete tb.f[el.dataset.k]; B.refreshTable(tb.id); },
+    tclear: (el) => { const tb = TB[el.dataset.tb]; if (!tb) return; tb.f = {}; tb.q = ''; document.querySelectorAll(`[data-tfind="${tb.id}"]`).forEach((i) => (i.value = '')); B.refreshTable(tb.id); },
+    tcopy: async (el, host) => { const tb = TB[el.dataset.tb]; if (!tb) return; const ok = await copyText(B.tsv(tb)); host.toast(ok ? `Copied ${tableRows(tb).length} rows. Paste into any sheet.` : 'Your browser would not copy. Use CSV.'); },
+    tcsv: (el, host) => {
+      const tb = TB[el.dataset.tb];
+      if (!tb) return;
+      if (tb.csv && tb.partial && !Object.keys(tb.f).length && !tb.q) { const a = document.createElement('a'); a.href = tb.csv; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); host.toast('Downloading the CSV. The link works for 24 hours.'); return; }
+      const url = URL.createObjectURL(new Blob(['﻿' + B.csv(tb)], { type: 'text/csv;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = String(tb.sheet_title || tb.title || 'list').replace(/[^\w -]+/g, '').trim().replace(/\s+/g, '-') + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      host.toast('Downloading the rows you see.');
+    },
+    tsheet: (el, host) => B.makeSheet(el.dataset.tb, host, el),
+    topen: (el, host) => { if (TB[el.dataset.tb]) host.openTable(el.dataset.tb, el); },
+    pclose: (el, host) => { if (host.closeTable) host.closeTable(); },
+    pexport: async (el, host) => {
+      const t = host.turn(el), b = blockOf(t, el);
+      if (!b || !window.FavorSheets) return;
+      el.disabled = true;
+      const s = b.stats || {};
+      const rows = [{ partner: b.name, place: b.place || '', holder: b.holder ? b.holder.name : '', lifetime: s.lifetime || 0, last_gift: s.last_gift ? s.last_gift.amount : null, last_gift_date: s.last_gift ? s.last_gift.date : null, largest_gift: s.largest ? s.largest.amount : null }];
+      const spec = { mode: 'rows', title: 'Partner ' + b.name, tabs: [{ name: 'Partner', columns: [{ key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'holder', label: 'Held by', type: 'text' }, { key: 'lifetime', label: 'Lifetime giving', type: 'money' }, { key: 'last_gift', label: 'Last gift', type: 'money' }, { key: 'last_gift_date', label: 'Last gift date', type: 'date' }, { key: 'largest_gift', label: 'Largest gift', type: 'money' }].concat((b.years || []).map((y) => ({ key: 'y' + y.y, label: 'Given in ' + y.y, type: 'money' }))), rows: rows.map((r) => Object.assign(r, Object.fromEntries((b.years || []).map((y) => ['y' + y.y, y.amount])))) }], provenance: { kind: 'screen', page: host.page || location.pathname, asked: t.q } };
+      const r = await window.FavorSheets.run(spec, { navigate: false });
+      el.disabled = false;
+      if (r.ok) { host.toast('Partner exported to a sheet in your Drive', { href: r.url, label: 'Open it' }); if (host.sheetMade) host.sheetMade(r, null); }
+      else if (r.error === 'consent' || r.error === 'not_connected') { consentCard(t, r, spec); host.rerender(t, el); }
+      else host.toast(r.message || 'The sheet did not build.');
+    },
+    'consent-go': (el, host) => {
+      const t = host.turn(el);
+      if (!t) return;
+      const x = (t.extras || []).find((x) => x.type === 'consent') || (t.blocks || [])[+el.dataset.bi];
+      if (!x) return;
+      el.disabled = true;
+      el.innerHTML = '<span class="spin"></span>Opening Google';
+      const toks = (t.lists || []).map((l) => l.token).filter(Boolean).slice(0, 3);
+      window.FavorSheets.consent(x._spec || (toks.length ? { mode: 'brain', tokens: toks, dedupe: 'brain:' + toks.join(','), title: 'Favor Brain list', provenance: { kind: 'brain', page: host.page || location.pathname, asked: t.q } } : null), x.consent_url);
+    },
+    'consent-no': (el, host) => {
+      const t = host.turn(el);
+      if (!t) return;
+      t.extras = (t.extras || []).filter((x) => x.type !== 'consent');
+      const bi = +el.dataset.bi;
+      if (bi >= 0 && t.blocks[bi] && t.blocks[bi].type === 'consent') t.blocks.splice(bi, 1);
+      host.rerender(t, el);
+      host.toast('No sheet made. The CSV still works.');
+    },
+    cf: async (el, host) => {
+      const t = host.turn(el), b = blockOf(t, el);
+      if (!b || b._busy) return;
+      const bi = +el.dataset.bi, action = el.dataset.do;
+      b._busy = action;
+      host.rerender(t, el);
+      try {
+        const d = host.confirm ? await host.confirm(t, b, action, bi) : await host.api('confirm', { body: { id: b.id, action } });
+        const was = b.kind;
+        t.blocks.splice(bi, 1, ...(d.blocks || []));
+        if (was === 'iwave_refresh' && (d.blocks || []).some((x) => x.type === 'confirm' && x.status === 'done')) {
+          const p = t.blocks.find((x) => x.type === 'partner');
+          t.follow = p ? ['Show the new rating for ' + p.name] : t.follow;
+          if (p && p.lookup) t.follow = ['Tell me about lookup ' + p.lookup];
+        }
+        if (host.cue) host.cue(action === 'approve' ? 'success' : 'droplet');
+      } catch (err) {
+        b._busy = null;
+        host.toast(err.message);
+      }
+      host.rerender(t, el);
+    },
+    'access-ask': async (el, host) => {
+      const t = host.turn(el), b = blockOf(t, el);
+      el.disabled = true;
+      try {
+        await host.api('request', { body: { package: el.dataset.pkg, reason: 'Asked from an answer: ' + String(t ? t.q : '').slice(0, 200), days: 30 } });
+        if (b) b._state = 'asked';
+        if (host.accessAsked) host.accessAsked(el.dataset.pkg);
+        host.toast('Sent to Will');
+        if (host.cue) host.cue('success');
+      } catch (err) { host.toast(err.message); }
+      if (t) host.rerender(t, el);
+    },
+  };
+  B.actions = Object.keys(ACTIONS);
+
+  // The filter box above a large table narrows its rows as the person types, on any page.
+  document.addEventListener('input', (e) => {
+    const f = e.target.closest && e.target.closest('[data-tfind]');
+    if (f && TB[f.dataset.tfind]) { TB[f.dataset.tfind].q = f.value; B.refreshTable(f.dataset.tfind); }
+  });
+  // A press anywhere else puts the small menu away.
+  document.addEventListener('click', (e) => {
+    if (popEl && !e.target.closest('.pop') && !(popEl._anchor && popEl._anchor.contains(e.target))) B.closePop();
+  }, true);
 })();

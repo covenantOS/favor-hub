@@ -40,13 +40,13 @@ const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct
 const dayn = (iso) => Math.round((Date.parse(iso + 'T12:00:00Z') - Date.parse(TODAY + 'T12:00:00Z')) / 86400000);
 const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = iso.slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d + (yr || y !== Number(TODAY.slice(0, 4)) ? ', ' + y : ''); };
 const addDays = (iso, n) => { const t = new Date(Date.parse(iso + 'T12:00:00Z') + n * 86400000); return t.toISOString().slice(0, 10); };
-const money = (a) => '$' + (Math.round(a) === a ? a.toLocaleString('en-US') : a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
 const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? one : (many || one + 's'));
 const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
 const clock = () => et(now(), { hour: 'numeric', minute: '2-digit' });
 const P = (fid) => (DATA.people[fid] || { n: 'Fundraiser ' + fid, team: '', active: 0, listed: 0 });
-const first = (fid) => P(fid).n.split(' ')[0];
-const ini = (name) => name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+const first = (fid) => String(P(fid).n || '').trim().split(/\s+/)[0] || '';
+const ini = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 const live = (fid) => { const p = DATA.people[fid]; return !!(p && p.active && p.listed); };
 // how a name reads when that person can no longer own work: left Favor, or never set up as a fundraiser
@@ -73,7 +73,7 @@ let ACTS = [];
 let BYID = {};
 const S = {
   view: 'open', sel: new Set(), anchor: null, list: [],
-  f: { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sort: 'due', dir: -1, shown: 100,
+  f: { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '' }, sort: 'due', dir: -1, shown: 60,
   gone: {}, ov: {}, saving: {}, queued: {}, back: {},
   batches: [], gate: null, loaded: false, error: '', running: null,
   in: { rdd: '', lane: 'wait', paste: false, data: null, loading: false, ta: {} },
@@ -94,7 +94,7 @@ function adapt(r) {
   };
 }
 function takeBoard(d) {
-  DATA = Object.assign({}, DATA, { me: d.me || DATA.me, people: d.people, today: d.today, synced: d.synced, meter: d.meter, counts: d.counts, orphans: d.orphans });
+  DATA = Object.assign({}, DATA, { total: Number(d.total) || 0, me: d.me || DATA.me, people: d.people, today: d.today, synced: d.synced, meter: d.meter, counts: d.counts, orphans: d.orphans });
   TODAY = d.today;
   ACTS = d.rows.map(adapt);
   BYID = Object.fromEntries(ACTS.map((a) => [a.id, a]));
@@ -158,7 +158,7 @@ function meterUsed() { return DATA.meter.used || 0; }
 function meterHTML() {
   const used = meterUsed();
   const pct = Math.min(100, Math.round(used / DATA.meter.cap * 100));
-  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so the hub stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
+  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so FavorOS stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
 }
 
 // ------------------------------------------------------------ page
@@ -176,7 +176,7 @@ function errorScreen(msg) {
     <p><button class="h-btn h-btn--primary" data-reload>Try again</button></p></div>`;
 }
 function entryWaiting() {
-  const d = S.in.data; if (!d) return Number(DATA.entryWaiting) || 0;
+  const d = S.in.data; if (!d) return DATA.entryWaiting == null ? '' : Number(DATA.entryWaiting) || 0;
   return d.owners.reduce((n, o) => n + o.wait + o.late, 0);
 }
 function page() {
@@ -188,17 +188,14 @@ function page() {
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
-        <span class="wc-pill" title="The hub reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
+        <span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
         ${meterHTML()}
         ${window.WCStart ? window.WCStart.pill() : ''}
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
       </div>
     </div>
     ${window.WCWeek ? window.WCWeek.strip() : ''}
-    <div class="wc-tabs" role="tablist" aria-label="Work Center">
-      ${tabsNow().map(([k, l, n]) =>
-        `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${n}</span>` : ''}</button>`).join('')}
-    </div>
+    ${navHTML()}
     <div id="view"></div>`;
   if (window.WCGifts) window.WCGifts.hideBulk();
   (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount();
@@ -245,12 +242,14 @@ function rowHTML(a) {
     ? `<span class="wc-tag wc-tag--done" title="${esc(a.later.s)}">Thanked ${fd(a.later.d)}</span>`
     : `<span class="wc-tag wc-tag--maybe" title="${esc(a.later.s)}">Contact ${fd(a.later.d)}, maybe done</span>`);
   if (a.grp) tags.push(`<span class="wc-tag" title="Another open task is about the same gift">${a.grp.length} tasks, one gift</span>`);
-  for (const t of (a.tg || [])) tags.push(`<span class="wc-tag wc-tag--tag">${esc(t)}</span>`);
+  const tg = a.tg || [];
+  for (const t of tg.slice(0, 3)) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(t)}">${esc(t)}</span>`);
+  if (tg.length > 3) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(tg.slice(3).join(', '))}">+${tg.length - 3}</span>`);
   if (a.dec) tags.push('<span class="wc-tag wc-tag--warn">Deceased</span>');
   const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}">${esc(P(x).n)}${gone(x)}</span>`).join('') : '<span class="none">No one</span>';
   const theirs = S.f.fr && S.f.theirs && !c.f.includes(S.f.fr) && a.hold.includes(S.f.fr);
   const disabled = saving === 'saving' || queued;
-  return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" role="row" tabindex="-1" data-id="${a.id}" aria-selected="${picked}">
+  return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" tabindex="-1" data-id="${a.id}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="Select ${esc(a.p)}, ${esc(a.sum || a.type)}" tabindex="-1" /></div>
     <div class="wc-due"><button type="button" class="wc-inl" data-inl="due" data-id="${a.id}" title="Change the date"><b>${fd(c.due)}</b><span class="wc-late ${lc ? 'wc-late--' + lc : ''}">${ll}</span></button></div>
     <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ID ' + esc(a.lk) : ''}</span></div>
@@ -260,17 +259,20 @@ function rowHTML(a) {
     <div class="wc-added">${fd(a.add)}</div>
   </div>`;
 }
+// Rows come 60 at a time, with what is left: "Show 60 more  1,224 left of 1,284".
+const PAGE = 60;
+function moreBtn(n) { return n > S.shown ? `<div class="wc-more"><button type="button" class="h-more" data-more>Show ${Math.min(PAGE, n - S.shown)} more <span>${(n - S.shown).toLocaleString('en-US')} left of ${n.toLocaleString('en-US')}</span></button></div>` : ''; }
 function tableHTML(list, total, idp) {
   const shown = list.slice(0, S.shown);
   const allOn = shown.length && shown.every((a) => S.sel.has(a.id));
   const sb = (k, l) => `<button type="button" class="sort${S.sort === k ? ' is-on' : ''}" data-sort="${k}">${l}${S.sort === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</button>`;
   return `<div class="wc-selbanner" id="${idp}-banner"></div>
-  <div class="wc-scroll" id="${idp}-scroll" role="grid" aria-multiselectable="true" aria-rowcount="${list.length}">
-    <div class="wc-head wc-grid" role="row"><div class="wc-cb" data-cball><input type="checkbox" ${allOn ? 'checked' : ''} aria-label="Select every action shown" /></div>${sb('due', 'Due')}${sb('partner', 'Partner')}<span>Type</span><span>Summary</span>${sb('fr', 'Fundraiser')}${sb('added', 'Added')}</div>
+  <div class="wc-scroll" id="${idp}-scroll" data-grid>
+    <div class="wc-head wc-grid"><div class="wc-cb" data-cball><input type="checkbox" ${allOn ? 'checked' : ''} aria-label="Select every action shown" /></div>${sb('due', 'Due')}${sb('partner', 'Partner')}<span>Type</span><span>Summary</span>${sb('fr', 'Fundraiser')}${sb('added', 'Added')}</div>
     <div class="wc-grid" id="${idp}-rows">${shown.length ? shown.map((a) => rowHTML(a)).join('') : `<div class="wc-empty"><b>Nothing matches</b>Change a filter or clear them all.</div>`}</div>
-    ${list.length > S.shown ? `<div class="wc-more"><button class="h-btn h-btn--ghost h-btn--sm" data-more>Show ${Math.min(100, list.length - S.shown)} more of ${list.length - S.shown}</button></div>` : ''}
+    ${moreBtn(list.length)}
   </div>
-  <div class="wc-foot"><span>${list.length === total ? plural(total, 'open action') : `${list.length.toLocaleString()} of ${plural(total, 'open action')} match`}</span>
+  <div class="wc-foot"><span>${list.length === total ? plural(total, 'open action') : `${list.length.toLocaleString()} of ${plural(total, 'open action')} match`}${DATA.total > ACTS.length ? ` · the newest ${ACTS.length.toLocaleString('en-US')} of ${DATA.total.toLocaleString('en-US')} in Blackbaud` : ''}</span>
     <span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Space</kbd>select</span><span><kbd>Ctrl</kbd><kbd>A</kbd>all that match</span><span><kbd>Esc</kbd>clear</span></span></div>`;
 }
 function afterTable(idp, list) {
@@ -374,7 +376,7 @@ function selectable(id) {
 }
 function refreshSel() {
   $$('#view .wc-row[data-id]').forEach((r) => {
-    const on = S.sel.has(r.dataset.id); r.classList.toggle('is-picked', on); r.setAttribute('aria-selected', on);
+    const on = S.sel.has(r.dataset.id); r.classList.toggle('is-picked', on); 
     const cb = $('input', r); if (cb) cb.checked = on;
   });
   if (S.view === 'open' || S.view === 'stale') { const list = S.list.map((id) => BYID[id]); afterTable(S.view === 'open' ? 'o' : 's', list); const all = $('#view [data-cball] input'); if (all) { const shown = list.slice(0, S.shown); all.checked = shown.length > 0 && shown.every((a) => S.sel.has(a.id)); all.indeterminate = !all.checked && shown.some((a) => S.sel.has(a.id)); } }
@@ -438,7 +440,7 @@ document.addEventListener('keydown', (e) => {
   if (!document.body.contains(root)) return;
   if (e.key === 'Escape') { if (closeLayer()) return; if ($('#filters.is-sheet')) { $('#filters').classList.remove('is-sheet'); return; } if (S.sel.size) { clearSel(); return; } }
   const row = e.target.closest && e.target.closest('#view .wc-row[data-id]');
-  const inGrid = e.target.closest && e.target.closest('#view [role=grid], #view .wc-grid, #view .wc-tg');
+  const inGrid = e.target.closest && e.target.closest('#view [data-grid], #view .wc-grid, #view .wc-tg');
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && inGrid && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); S.list.filter(bulkable).forEach((id) => S.sel.add(id)); refreshSel(); return; }
   if (!row || /input|textarea|select/i.test(e.target.tagName)) return;
   const rows = $$('#view .wc-row[data-id]'); const i = rows.indexOf(row);
@@ -853,7 +855,7 @@ function intakeRowHTML(r) {
   else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length === 1 ? 'One record has this name. Is it the partner?' : r.cands.length + ' records match. Pick one:'}</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
   else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>${DATA.me.canMove && window.WCAdd ? `<div class="wc-addp"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-addp="${r.id}">${ic('user')}Add partner</button></div>` : ''}`;
   const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'sheet' ? 'Tracking sheet' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
-  return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" role="row" tabindex="-1" data-id="${r.id}" aria-selected="${picked}">
+  return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" tabindex="-1" data-id="${r.id}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${locked ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(r.name)}" /></div>
     <div class="wc-pc">${partner}</div>
     <div class="wc-dc"><input class="cell" type="date" value="${r.date}" ${locked ? 'disabled' : ''} data-rdate="${r.id}" aria-label="Date of the contact" /><span class="wc-sub">${srcLabel}</span></div>
@@ -905,25 +907,25 @@ function viewIntake() {
   const span = `${fd(d.deadline.from)} to ${Number(d.deadline.to.slice(8))}`;
   $('#view').innerHTML = `
     <div class="wc-owners" role="tablist" aria-label="Whose contacts">
-      ${d.owners.map((x) => { const n = x.wait + x.late; return `<button type="button" class="wc-owner${S.in.rdd === x.fid ? ' is-on' : ''}" data-rdd="${x.fid}" title="${esc(x.type)}"><span class="wc-ini">${ini(x.name)}</span>${esc(x.name)}${n ? `<em class="warn">${n}</em>` : x.all ? '<em>Done</em>' : '<em class="none">Nothing yet</em>'}</button>`; }).join('')}
+      ${d.owners.map((x) => { const n = x.wait + x.late; return `<button type="button" class="wc-owner${S.in.rdd === x.fid ? ' is-on' : ''}" data-rdd="${x.fid}" title="${esc(x.type)}"><span class="wc-ini">${esc(ini(x.name))}</span>${esc(x.name)}${n ? `<em class="warn">${n}</em>` : x.all ? '<em>Done</em>' : '<em class="none">Nothing yet</em>'}</button>`; }).join('')}
     </div>
     <section class="h-card wc-clock" aria-label="This week's deadline">
       <div class="wc-clock__left"><span class="h-label">${esc(me.name)} · due ${esc(d.deadline.label.replace('Monday', 'Monday'))}</span><div class="wc-clock__time" id="clock">${clk(dl)}</div><div class="wc-clock__when">Contacts from ${esc(span)}. The report is pulled Wednesday at noon.</div></div>
-      <div class="wc-prog"><div class="wc-prog__nums"><span><b>${w.inBB}</b>of ${w.sub} submitted this week are in Blackbaud</span><span class="wc-prog__side">${bb.this} ${esc(me.type)}s dated this week in Blackbaud<br />Last week: ${bb.lastByMon3} of ${bb.last} in by Monday 3:00 PM</span></div>
+      <div class="wc-prog"><div class="wc-prog__nums"><span><b>${w.inBB}</b>of ${w.sub} submitted this week are in Blackbaud</span><span class="wc-prog__side">${Number(bb.this).toLocaleString('en-US')} ${esc(me.type)}${Number(bb.this) === 1 ? '' : 's'} dated this week in Blackbaud<br />Last week: ${bb.lastByMon3} of ${bb.last} in by Monday 3:00 PM</span></div>
         <div class="wc-prog__bar" role="img" aria-label="${w.inBB} of ${w.sub} entered"><i style="width:${w.sub ? w.inBB / w.sub * 100 : 0}%"></i><i style="width:${w.sub ? w.wait / w.sub * 100 : 0}%"></i></div>
-        <div class="wc-prog__legend"><span><i></i>In Blackbaud ${w.inBB}</span><span><i class="w"></i>Waiting ${w.wait}</span><span><i class="b"></i>Late from earlier weeks ${w.late}</span></div></div>
+        <div class="wc-prog__legend"><span><i></i>In Blackbaud ${Number(w.inBB).toLocaleString('en-US')}</span><span><i class="w"></i>Waiting ${Number(w.wait).toLocaleString('en-US')}</span><span><i class="b"></i>Late from earlier weeks ${Number(w.late).toLocaleString('en-US')}</span></div></div>
     </section>
     <section class="h-card wc-sheet" id="wc-intake" aria-label="Contacts to enter">
-      <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${n}</span></button>`).join('')}</div>
+      <div class="wc-filters"><div class="wc-lanes" role="tablist">${lanes.map(([k, l, n]) => `<button type="button" class="wc-lane${S.in.lane === k ? ' is-on' : ''}" data-lane="${k}">${l}<span>${Number(n).toLocaleString('en-US')}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${me.tab ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-readsheet>${ic('paste')}Read the sheet</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-paste>${ic('paste')}Paste rows</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-many>${ic('many')}One contact, many partners</button></div></div>
       <div class="wc-paste${S.in.paste ? ' is-on' : ''}" id="paste">
         <label for="pastebox" class="wc-pastelab">Paste rows from ${esc(me.name)}'s tracking sheet: Name, New?, Date, Phone, Email, Address, Ask, Action, Notes</label>
         <textarea id="pastebox" placeholder="Copy the rows in the sheet (Ctrl C) and paste them here (Ctrl V)."></textarea>
         <div class="wc-paste__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-readpaste>Read the rows</button><button type="button" class="wc-clear" data-paste>Close</button><small>Each row is matched to a partner by email, then phone, then name. Rows already here or in Blackbaud are skipped.</small></div>
       </div>
-      <div class="wc-scroll wc-scroll--in" role="grid" aria-multiselectable="true">
+      <div class="wc-scroll wc-scroll--in" data-grid>
         ${list.length ? `<div class="wc-head wc-ig"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row shown" /></div><span>Partner</span><span>Date</span><span>How</span><span>State</span></div>
-        <div class="wc-ig">${list.map(intakeRowHTML).join('')}</div>` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
+        <div class="wc-ig">${list.slice(0, S.shown).map(intakeRowHTML).join('')}</div>${moreBtn(list.length)}` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
       </div>
       <div class="wc-foot"><span>${readyAll.length} of ${list.length} rows ready${readyAll.length ? ` · entering them all uses about ${estCreate(readyAll)} Blackbaud calls` : ''}</span>
         ${readyAll.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-postall>${ic('check')}Enter ${readyAll.length} ready rows</button>` : '<span></span>'}</div>
@@ -1099,7 +1101,7 @@ function viewTy() {
     const saving = g.ids.some((id) => S.saving[id] === 'saving' || pendingOf(BYID[id])); const failed = g.ids.some((id) => S.saving[id] === 'failed');
     const evid = g.later ? `<b>${esc(g.later.s || '(no summary)')}</b><span>${g.later.k === 's' ? 'Thanked' : ({ 'Phone call': 'Call', Email: 'Email', Mailing: 'Mailing', Meeting: 'Meeting' })[g.later.cat] || 'Contact'} ${fd(g.later.d)} · ${g.later.by.map((x) => esc(P(x).n)).join(', ') || 'no fundraiser'}</span>` : `<b>${age <= 0 ? 'Owed since today' : 'Owed ' + plural(age, 'day')}</b><span>No contact logged on this partner since the task was made</span>`;
     const btn = S.ty.lane === 's' ? 'Close' : S.ty.lane === 'l' ? 'That was it' : 'Thanked';
-    return `<div class="wc-row${picked ? ' is-picked' : ''}${saving ? ' is-saving' : ''}" role="row" tabindex="-1" data-id="${g.key}" aria-selected="${picked}">
+    return `<div class="wc-row${picked ? ' is-picked' : ''}${saving ? ' is-saving' : ''}" tabindex="-1" data-id="${g.key}">
       <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${saving ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(a.p)}" /></div>
       <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')} · ${cur(a).f.map((x) => esc(P(x).n)).join(', ')}</span></div>
       <div class="wc-what wc-task"><b>${esc(a.sum || a.type)}</b><div class="wc-tags">${a.gift ? `<span class="wc-tag wc-tag--gift">${money(a.gift.a)} on ${fd(a.gift.d)}${a.gift.fund ? ' · ' + esc(a.gift.fund) : ''}</span>` : '<span class="wc-tag">Gift not named in the task</span>'}${g.ids.length > 1 ? `<span class="wc-tag" title="Blackbaud holds ${g.ids.length} open tasks for this one gift. Closing the row closes all of them.">${g.ids.length} tasks, one gift</span>` : ''}${saving ? '<span class="wc-tag wc-tag--saving">Saving</span>' : ''}${failed ? '<span class="wc-tag wc-tag--warn">Did not go through. Try again.</span>' : ''}</div></div>
@@ -1109,14 +1111,14 @@ function viewTy() {
   $('#view').innerHTML = `
     <div class="wc-owners" role="tablist" aria-label="Whose thank-yous">
       <button type="button" class="wc-owner${!S.ty.owner ? ' is-on' : ''}" data-owner=""><span class="wc-ini">All</span>Everyone<em>${tyGroups('').length}</em></button>
-      ${ownList.map((x) => `<button type="button" class="wc-owner${S.ty.owner === x ? ' is-on' : ''}" data-owner="${x}"><span class="wc-ini">${ini(P(x).n)}</span>${esc(P(x).n)}<em>${tyGroups(x).length}</em></button>`).join('')}
+      ${ownList.map((x) => `<button type="button" class="wc-owner${S.ty.owner === x ? ' is-on' : ''}" data-owner="${x}"><span class="wc-ini">${esc(ini(P(x).n))}</span>${esc(P(x).n)}<em>${tyGroups(x).length}</em></button>`).join('')}
     </div>
     <section class="h-card wc-sheet" id="wc-ty" aria-label="Thank-yous">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${['s', 'l', 'o'].map((k) => `<button type="button" class="wc-lane${S.ty.lane === k ? ' is-on' : ''}" data-tylane="${k}">${LANE[k][0]}<span>${sec[k].length}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${S.ty.lane === 's' && L.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-tycloseall="s">${ic('check')}Close all ${L.length}</button>` : ''}</div></div>
-      <div class="wc-scroll" role="grid" aria-multiselectable="true">
-        ${L.length ? `<div class="wc-head wc-tg" role="row"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
-        <div class="wc-tg">${L.map(rowT).join('')}</div>` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
+      <div class="wc-scroll" data-grid>
+        ${L.length ? `<div class="wc-head wc-tg"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
+        <div class="wc-tg">${L.slice(0, S.shown).map(rowT).join('')}</div>${moreBtn(L.length)}` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
       </div>
       <div class="wc-foot"><span>${plural(L.length, 'row')} · ${plural(L.reduce((n, g) => n + g.ids.length, 0), 'open task')} in Blackbaud</span><span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Esc</kbd>clear</span></span></div>
     </section>`;
@@ -1191,8 +1193,63 @@ async function dlgSettings() {
 
 // ------------------------------------------------------------ render + events
 function centerOn(sel) { $$(sel).forEach((c) => { const on = $('.is-on', c); if (on && c.scrollWidth > c.clientWidth) c.scrollLeft = on.offsetLeft - (c.clientWidth - on.offsetWidth) / 2; }); }
-function render() { if (!S.loaded) return; const y = window.scrollY; const sc = $('#view .wc-scroll'); const st = sc ? sc.scrollTop : 0; page(); window.scrollTo(0, y); const sc2 = $('#view .wc-scroll'); if (sc2) sc2.scrollTop = st; centerOn('.wc-tabs, .wc-owners, .wc-lanes'); }
-function countUp() { $$('[data-countup]').forEach((el) => { const n = Number(el.dataset.countup); if (S.counted) { el.textContent = n.toLocaleString(); return; } const t0 = performance.now(); const f = (t) => { const p = Math.min(1, (t - t0) / 650); el.textContent = Math.round(n * (1 - Math.pow(1 - p, 3))).toLocaleString(); if (p < 1) requestAnimationFrame(f); }; requestAnimationFrame(f); }); S.counted = true; }
+function render() { if (!S.loaded) return; const y = window.scrollY; const sc = $('#view .wc-scroll'); const st = sc ? sc.scrollTop : 0; page(); window.scrollTo(0, y); const sc2 = $('#view .wc-scroll'); if (sc2) sc2.scrollTop = st; centerOn('.wc-owners, .wc-lanes'); }
+// Data for a tab arrives after the first paint. refresh(tabId) folds every arrival of one moment into a single pass: the tab strip is
+// patched in place (counts and dots change, nothing is rebuilt unless a tab appears), and the view is drawn again only when it is the tab
+// whose data arrived. The page never redraws once per tab.
+const pendingTabs = new Set(); let refreshT = 0;
+function tabBtn([k, l, n]) {
+  return `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${typeof n === 'number' ? n.toLocaleString('en-US') : n}</span>` : ''}</button>`;
+}
+// Two short rows. The group row names the kind of work; the tab row shows the tabs of the group you are in, with their counts.
+// Every tab of every group is one tap from the group row, and neither row scrolls sideways.
+function navParts() {
+  const T = window.WCTabs, gs = T.groups(DATA.me), cur = T.groupOf(S.view);
+  const rows = tabsNow(); const byId = {}; rows.forEach((r) => { byId[r[0]] = r; });
+  const g = gs.find((x) => x.id === cur) || gs[0];
+  const sub = g && (gs.length < 2 || g.tabs.length > 1) ? g.tabs : [];
+  const grp = gs.length > 1 ? gs.map((x) => `<button class="wc-grp${x.id === (g && g.id) ? ' is-on' : ''}${x.tabs.some((t) => extraDot(t.id)) ? ' is-new' : ''}" role="tab" aria-selected="${x.id === (g && g.id)}" data-wcgroup="${x.id}">${esc(x.label)}</button>`).join('') : '';
+  const sig = gs.map((x) => x.id).join() + '|' + (g ? g.id : '') + '|' + sub.map((t) => t.id).join() + '|' + S.view;
+  return { sig, sub, byId, html: (grp ? `<div class="wc-groups" role="tablist" aria-label="Work Center sections">${grp}</div>` : '') + (sub.length ? `<div class="wc-tabs" role="tablist" aria-label="${esc(g ? g.label : 'Work Center')}">${sub.map((t) => tabBtn(byId[t.id])).join('')}</div>` : '') };
+}
+function navHTML() { const p = navParts(); return `<div class="wc-nav" id="wc-nav" data-sig="${esc(p.sig)}">${p.html}</div>`; }
+function patchTabs() {
+  const nav = $('#wc-nav'); if (!nav) return;
+  const p = navParts();
+  if (nav.dataset.sig !== p.sig) { nav.innerHTML = p.html; nav.dataset.sig = p.sig; return; }
+  $$('.wc-tab', nav).forEach((b) => {
+    const r = p.byId[b.dataset.view]; if (!r) return; const [k, l, n] = r; const want = n !== '' && (n || k !== 'recent'); let sp = b.querySelector(':scope > span');
+    b.classList.toggle('is-new', !!extraDot(k));
+    if (want) { if (!sp) { sp = document.createElement('span'); b.appendChild(sp); } if (sp.textContent !== String(n)) sp.textContent = n; } else if (sp) sp.remove();
+  });
+  const T = window.WCTabs; T.groups(DATA.me).forEach((g) => { const b = nav.querySelector(`[data-wcgroup="${g.id}"]`); if (b) b.classList.toggle('is-new', g.tabs.some((t) => extraDot(t.id))); });
+}
+// Switching tabs redraws the tab rows and the view only. The intro chips and the week strip stay where they are.
+function drawBody(from) {
+  if (from === 'week' || S.view === 'week' || !$('#wc-nav')) { render(); return; }
+  const y = window.scrollY; hideBar(); patchTabs(); if (window.WCGifts) window.WCGifts.hideBulk();
+  (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount(); window.scrollTo(0, y);
+}
+async function goTab(k) {
+  const from = S.view;
+  S.view = k; S.sel.clear(); S.anchor = null; S.shown = PAGE; window.WCTabs.remember(k);
+  if (k === 'intake' && !S.in.data) { S.in.loading = true; drawBody(from); await loadEntry(); }
+  if (k === 'intake') readSheet(S.in.rdd);
+  if (k === 'recent') await loadRecent();
+  drawBody(from);
+}
+function refresh(tab) {
+  pendingTabs.add(tab || '*');
+  if (refreshT) return;
+  refreshT = setTimeout(() => {
+    refreshT = 0; const had = [...pendingTabs]; pendingTabs.clear();
+    if (!S.loaded) return;
+    if (document.querySelector('.wc-dlg, .wc-drawer') && had.includes(S.view)) { patchTabs(); return; }
+    if (had.includes('*') || had.includes(S.view)) { render(); return; }
+    patchTabs();
+  }, 80);
+}
+function countUp() { $$('[data-countup]').forEach((el) => { el.textContent = Number(el.dataset.countup).toLocaleString(); }); S.counted = true; }
 // Re-read the lists from the hub (which lays its own pending changes over Blackbaud's copy) without disturbing what the person is doing.
 let refreshing = false;
 async function refreshBoard() {
@@ -1214,19 +1271,14 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-reload')) { init(); return; }
   if (t.hasAttribute('data-closelayer')) { closeLayer(); return; }
   if (t.hasAttribute('data-settings')) { dlgSettings(); return; }
-  if (d.view) {
-    S.view = d.view; S.sel.clear(); S.anchor = null; S.shown = 100;
-    if (d.view === 'intake' && !S.in.data) { S.in.loading = true; render(); await loadEntry(); }
-    if (d.view === 'intake') readSheet(S.in.rdd);
-    if (d.view === 'recent') await loadRecent();
-    render(); return;
-  }
-  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = 100; render(); return; }
+  if (d.view) { await goTab(d.view); return; }
+  if (d.wcgroup) { const k = window.WCTabs.entry(d.wcgroup, DATA.me); if (k && k !== S.view) await goTab(k); return; }
+  if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = PAGE; render(); return; }
   if (t.hasAttribute('data-tile')) { openTile(d.tile, Number(d.tileN)); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
   if (d.unf) { if (d.unf === 'all') S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' }; else { S.f[d.unf] = d.unf === 'theirs' ? false : ''; if (d.unf === 'fr') S.f.theirs = false; } render(); return; }
   if (d.sort) { if (S.sort === d.sort) S.dir = -S.dir; else { S.sort = d.sort; S.dir = d.sort === 'partner' || d.sort === 'fr' ? 1 : -1; } render(); return; }
-  if (t.hasAttribute('data-more')) { S.shown += 100; render(); return; }
+  if (t.closest('[data-more]')) { S.shown += PAGE; render(); return; }
   if (d.open) { drawer(d.open); return; }
   if (d.onlypartner) { S.f.cid = d.onlypartner; S.view = 'open'; closeLayer(); render(); return; }
   if (d.one) { const id = d.id; closeLayer(); setTimeout(() => ({ complete: dlgComplete, reassign: dlgReassign, reschedule: dlgReschedule })[d.one]([id]), 240); return; }
@@ -1249,8 +1301,8 @@ document.addEventListener('click', async (e) => {
   if (d.retry) { retryBatch(d.retry); return; }
   // Entry
   if (t.hasAttribute('data-reentry')) { S.in.loading = true; render(); await loadEntry(); render(); return; }
-  if (d.rdd) { S.sel.clear(); S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
-  if (d.lane) { S.in.lane = d.lane; S.sel.clear(); render(); return; }
+  if (d.rdd) { S.sel.clear(); S.shown = PAGE; S.in.rdd = d.rdd; S.in.loading = true; await loadEntry(d.rdd); const w = weekCounts(d.rdd); S.in.lane = w.wait ? 'wait' : w.late ? 'late' : 'all'; render(); readSheet(d.rdd); return; }
+  if (d.lane) { S.in.lane = d.lane; S.sel.clear(); S.shown = PAGE; render(); return; }
   if (t.hasAttribute('data-readsheet')) { t.disabled = true; await readSheet(S.in.rdd, true, true); t.disabled = false; return; }
   if (t.hasAttribute('data-paste')) { S.in.paste = !S.in.paste; render(); if (S.in.paste) $('#pastebox').focus(); return; }
   if (t.hasAttribute('data-readpaste')) {
@@ -1273,13 +1325,13 @@ document.addEventListener('click', async (e) => {
   if (d.rtag) { const r = inRow(d.rtag); const tags = r.tags.includes(d.v) ? r.tags.filter((x) => x !== d.v) : r.tags.concat([d.v]); editRow(d.rtag, { local: { tags }, server: { tags } }); t.classList.toggle('is-on'); return; }
   if (d.tapick) { closePop(); editRow(d.tapick, { local: { cid: d.cid, how: 'picked', cands: [] }, server: { constituent_id: d.cid } }); render(); return; }
   // Thank-yous
-  if (d.tylane) { S.ty.lane = d.tylane; S.sel.clear(); render(); return; }
-  if (d.owner !== undefined && t.hasAttribute('data-owner')) { S.ty.owner = d.owner; S.ty.lane = ''; S.sel.clear(); render(); return; }
+  if (d.tylane) { S.ty.lane = d.tylane; S.sel.clear(); S.shown = PAGE; render(); return; }
+  if (d.owner !== undefined && t.hasAttribute('data-owner')) { S.ty.owner = d.owner; S.ty.lane = ''; S.sel.clear(); S.shown = PAGE; render(); return; }
   if (d.tycloseall) { const keys = S.list.filter((k) => S.tyMap[k] && S.tyMap[k].later && S.tyMap[k].later.k === 's'); dlgComplete(tyIds(keys), 'close'); return; }
   if (d.tyclose) { dlgComplete(tyIds([d.tyclose]), S.ty.lane === 's' ? 'close' : undefined); return; }
   if (d.tydone) { dlgComplete(tyIds([d.tydone])); return; }
   // Stale
-  if (d.stl) { S.st.lane = d.stl; S.sel.clear(); S.shown = 100; render(); return; }
+  if (d.stl) { S.st.lane = d.stl; S.sel.clear(); S.shown = PAGE; render(); return; }
   if (d.stbulk) { const pick = S.list.filter((id) => !(BYID[id].gift && BYID[id].gift.a >= 1000)).filter(selectable); if (d.stbulk === 'holder') dlgReassign(pick); else { dlgComplete(pick); setTimeout(() => { const l = $('#line'); if (l) { l.value = 'Closed as no longer needed'; l.dispatchEvent(new Event('input', { bubbles: true })); } }, 60); } return; }
   // filters sheet (phone)
   if (t.hasAttribute('data-openfilters')) { $('#filters').classList.add('is-sheet'); return; }
@@ -1288,7 +1340,7 @@ document.addEventListener('click', async (e) => {
 document.addEventListener('change', (e) => {
   const t = e.target;
   if (!t.closest || !t.closest('#wc-root')) return;
-  if (t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === 'fr' && !t.value) S.f.theirs = false; S.sel.clear(); S.shown = 100; const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
+  if (t.dataset.f) { S.f[t.dataset.f] = t.value; if (t.dataset.f === 'fr' && !t.value) S.f.theirs = false; S.sel.clear(); S.shown = PAGE; const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
   if (t.hasAttribute('data-theirs')) { S.f.theirs = t.checked; S.sel.clear(); const sheet = !!$('#filters.is-sheet'); render(); if (sheet) $('#filters').classList.add('is-sheet'); return; }
   if (t.dataset.rdate) { if (/^\d{4}-\d{2}-\d{2}$/.test(t.value)) editRow(t.dataset.rdate, { local: { date: t.value }, server: { contact_date: t.value } }); return; }
 });
@@ -1318,7 +1370,7 @@ setInterval(() => { const c = $('#clock'); if (!c || !S.in.data) return; const d
 // ------------------------------------------------------------ shared with the edit panel (work-edit.js)
 window.WC = {
   api, post, S, esc, ic, I, fd, plural, money, addDays, dayn, lateClass, P, live, gone, cur, render, runJob, driveBatch, toast, refreshBoard, loadRecent,
-  closeLayer, dialog, reqId, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
+  closeLayer, dialog, reqId, refresh, goTab, selectAction: (id) => { if (pointAt(id)) { render(); showAction(id); } }, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
   entryReload: async () => { await loadEntry(); render(); },
   get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, mayAssign, get TODAY() { return TODAY; }, AS,
 };
@@ -1334,6 +1386,21 @@ function warmTabs() {
     } catch (_) { /* a tab reads again when it opens */ }
   }, 300);
 }
+// /work/?tab=open&action=<id> opens Open actions with that action selected and scrolled into view. The filters are cleared so it cannot be hidden.
+function pointAt(id, quiet) {
+  const a = BYID[id];
+  if (!a || !isOpenNow(a)) { if (!quiet) toast('That action is not open any more.'); else S.actMiss = true; return false; }
+  S.view = 'open'; S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' };
+  const at = sorted(ACTS.filter(isOpenNow)).findIndex((x) => x.id === id);
+  S.shown = Math.max(PAGE, at + 30); S.sel.clear(); S.sel.add(id); S.actMiss = false;
+  return true;
+}
+function showAction(id) {
+  if (S.actMiss) { toast('That action is not open any more.'); S.actMiss = false; return; }
+  const r = document.querySelector(`#view .wc-row[data-id="${CSS.escape(id)}"]`); if (!r) return;
+  r.scrollIntoView({ block: 'center' }); r.classList.add('is-flash'); setTimeout(() => r.classList.remove('is-flash'), 2400);
+  bar();
+}
 async function init() {
   document.documentElement.classList.add('wc-page');
   // The bar, the toast and the dialogs are fixed on screen, so they live on the body, outside the frame's blurred sheet.
@@ -1348,18 +1415,21 @@ async function init() {
   try {
     const [b, rc] = await Promise.all([boardP, recentP]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
-    const v = QS.get('view'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
+    const v = QS.get('view') || QS.get('tab'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
     { const qk = QS.get('quick'), fr = QS.get('fr'), dq = QS.get('due'); if (['past', 'today', 'now', 'week'].includes(dq)) S.f.due = dq; if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
     if (window.WCEdit) await window.WCEdit.start();
     if (window.WCStart) await window.WCStart.apply();
     if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
+    const wantAct = /^\d{1,12}$/.test(QS.get('action') || '') ? QS.get('action') : '';
+    if (wantAct) pointAt(wantAct, true);
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
+    if (wantAct) showAction(wantAct);
     warmTabs();
     // A batch sent from a window that closed picks up here.
     const stuck = S.batches.find((x) => x.run_when === 'now' && (x.state === 'running' || x.state === 'queued') && !x.undone);
     if (stuck && stuck.queued) { const ids = stuck.items.filter((i) => i.state === 'saving').map((i) => i.id); bar('Finishing what was sent…'); driveBatch(stuck.id, ids.length ? ids : ['x'], { keep: true }).then(async () => { await loadRecent(); refreshBoard(); }); }
-  } catch (e) { errorScreen(e.status === 403 ? e.message : 'The hub could not read Blackbaud\'s copy right now. ' + e.message); }
+  } catch (e) { errorScreen(e.status === 403 ? e.message : 'FavorOS could not read Blackbaud\'s copy right now. ' + e.message); }
 }
 init();
 })();
