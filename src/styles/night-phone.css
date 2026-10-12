@@ -138,3 +138,8 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
 
 /* Tab bar: Chat's stylesheet also loads on Projects pages and tinted the Chat icon orange there while Chat was not the open tab. */
 .h-bar__a[data-bar='chat']:not(.is-on) .h-i { color: inherit; }
+
+/* Partner sheet, Due and open: the 44 px check button sat in a 26 px column and ran under the task's name. */
+@media (max-width: 860px) {
+  body.h-body .pp-task.wm-task { grid-template-columns: 44px minmax(0, 1fr) auto 44px; }
+}
