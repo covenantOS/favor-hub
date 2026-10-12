@@ -133,7 +133,7 @@
       let n = key ? Number(counts[key] || 0) : 0;
       const nEl = el.querySelector('[data-n]');
       nEl.hidden = !(n > 0);
-      if (n > 0) { nEl.textContent = n0(n) + (key === 'workOpen' ? ' open' : ''); if (key === 'workOpen') nEl.title = plural(n, 'open action'); }
+      if (n > 0) { nEl.textContent = n0(n) + (key === 'workOpen' ? ' to do' : ''); if (key === 'workOpen') nEl.title = 'Your open actions and the gifts waiting for your thank-you'; }
     });
     document.querySelectorAll('[data-need="workCenter"]').forEach((el) => { if (!el.hasAttribute('data-wh')) el.hidden = access.workCenter === false; });
   }

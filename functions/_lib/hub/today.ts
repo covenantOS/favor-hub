@@ -8,6 +8,8 @@ import { workAccessFor } from '../work/gate';
 import { requireWork } from '../work/gate';
 import { blackbaudRepo } from '../work/repo';
 import { currentBoard, type Ctx } from '../work/service';
+import { mineRows } from '../actions/board';
+import { giftsResponse, mayGifts } from '../work/gifts-svc';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
@@ -160,7 +162,16 @@ export interface Counts {
 async function workOpenCount(env: Env, request: Request): Promise<number> {
   const wu = await requireWork(env, request);
   const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
-  return (await currentBoard(ctx)).rows.length;
+  const board = await currentBoard(ctx);
+  // A person with a book of their own sees their own number: the actions on them plus the gifts waiting for their thank-you. It is the number the
+  // Work page leads with (Mine, and Gifts to thank). Admins and people with no book keep the whole board.
+  const sc = ctx.scope;
+  if (sc && !sc.all && sc.fid) {
+    const mine = mineRows(board.rows, sc.fid).length;
+    const owed = mayGifts(sc) ? Number((await giftsResponse(ctx, '').catch(() => null))?.stats?.owed) || 0 : 0;
+    return mine + owed;
+  }
+  return board.rows.length;
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {

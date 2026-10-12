@@ -350,6 +350,7 @@ function viewOpen() {
   $('#view').innerHTML = `
     ${scopeBar(base)}
     <div class="h-card wc-band">${stats.map(([k, l, n]) => `<div class="wc-stat wc-stat--split${f.quick === k && (k || !f.quick) ? ' is-on' : ''}"><button type="button" class="wc-stat__n" data-tile="${k}" data-tile-n="${n}" aria-label="${n} ${esc(l)}, open the actions behind it"><b data-countup="${n}">${n}</b></button><button type="button" class="wc-stat__l" data-quick="${k}"><span>${l}</span></button></div>`).join('')}</div>
+    <div class="wc-line" role="group" aria-label="Counts">${stats.slice(0, 3).map(([k, l, n]) => `<button type="button" class="wc-line__i${f.quick === k && (k || !f.quick) ? ' is-on' : ''}" data-quick="${k}"><b>${n}</b> ${esc(String(l).toLowerCase().replace(/^thank-you tasks$/, 'thank-you').replace(/^past due$/, 'past due'))}</button>`).join('')}</div>
     <section class="h-card wc-sheet" id="wc-board" aria-label="Open actions">
       <div class="wc-filters" id="filters">
         <div class="wc-sheettitle"><b>Filters</b><button class="wc-dlg__x" data-closefilters aria-label="Close filters">${ic('x')}</button></div>

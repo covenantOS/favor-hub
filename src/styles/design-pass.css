@@ -445,3 +445,13 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
 @media (max-width: 860px) {
   html body.h-body #wc-root .wc-band .wc-stat span { white-space: normal; line-height: 1.15; }
 }
+
+/* Phone: the three counts as one line. Desktop keeps the tiles. */
+.wc-line { display: none; }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-band { display: none; }
+  html body.h-body #wc-root .wc-line { display: flex; gap: 6px; margin: 0 0 8px; }
+  html body.h-body #wc-root .wc-line__i { flex: 1 1 0; min-height: 40px; border: 1px solid var(--h-line, #d8d6cc); background: var(--h-card, #fff); border-radius: 999px; font: 500 13px var(--h-font, inherit); color: var(--h-ink-2, #333); white-space: nowrap; padding: 0 8px; }
+  html body.h-body #wc-root .wc-line__i b { font: 700 15px var(--h-font, inherit); color: var(--h-ink, #1b1f1a); }
+  html body.h-body #wc-root .wc-line__i.is-on { background: var(--h-leaf-soft, #e4ece1); border-color: transparent; }
+}
