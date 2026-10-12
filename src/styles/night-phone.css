@@ -93,3 +93,13 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body .la-tabs { width: auto; }
   body.h-body #h-content :is(.ln-head, .ln-head > *, #la-body, .ln-list, .la-tabs) { min-width: 0; max-width: 100%; }
 }
+
+/* Touch screens: a header button's tooltip showed after a sheet closed and handed focus back ("Search FavorOS" hanging under the
+   header). Tooltips there are for a keyboard only. */
+@media (hover: none) { html:not(.kbd) .h-tt { display: none; } }
+
+/* 320 to 360 px: the page title was cut to "Tod". The area tile steps aside so the title fits beside the four buttons. */
+@media (max-width: 360px) {
+  body.h-body .h-top .h-tile { display: none; }
+  body.h-body .h-top .h-top__right > :is(button, a):not([hidden]) { width: 40px !important; min-width: 40px; }
+}
