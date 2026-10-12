@@ -103,3 +103,11 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body .h-top .h-tile { display: none; }
   body.h-body .h-top .h-top__right > :is(button, a):not([hidden]) { width: 40px !important; min-width: 40px; }
 }
+
+/* Admin sheets (Edit a person, Add a person): Save and Cancel were two small buttons at the left of the footer. On a phone
+   they split the width, Save on the right where a thumb ends. Checkboxes take the brand green, not the browser's blue. */
+@media (max-width: 860px) {
+  body.h-body .ad-panel .ad-acts { display: flex; flex-direction: row-reverse; gap: 10px; }
+  body.h-body .ad-panel .ad-acts > .ad-btn { flex: 1 1 0; min-height: 48px; justify-content: center; }
+  body.h-body #h-content input[type='checkbox'], body.h-body dialog input[type='checkbox'], body.h-body .ad-panel input[type='checkbox'] { accent-color: var(--h-brand, #3c6b2f); }
+}
