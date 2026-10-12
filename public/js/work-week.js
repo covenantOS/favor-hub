@@ -40,7 +40,7 @@ async function start() {
   if (S.started) return;
   S.started = true;
   await load('', 0);
-  W().refresh('week');
+  W().refresh('*'); // the strip above the tabs fills in; a refresh of the Your week tab alone would leave the placeholder
 }
 const wk = () => (S.data && S.data.week) || null;
 const name = () => (S.data && S.data.ownerName) || (wk() && wk().name) || '';
