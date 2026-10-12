@@ -47,3 +47,14 @@
   /* The path chips on a course were 24 px tall and 6 px apart: three rows of small links under a thumb. */
   body.h-body a.ln-chip { min-height: 36px; display: inline-flex; align-items: center; padding-top: 0; padding-bottom: 0; margin: 2px 2px 2px 0; }
 }
+
+/* Meeting notes */
+/* "Make a task" under an action item is added by the Projects links script, which brings no styles to this page: it read as
+   loose words run into "No owner named". All sizes. */
+label.act .pjl-act { display: block; margin-top: 8px; }
+label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid #d3cdbd; border-radius: 10px; background: #fff; color: #1d211b; font: 600 13px/1 var(--h-font, Inter, sans-serif); text-decoration: none; cursor: pointer; }
+@media (max-width: 860px) {
+  label.act .pjl-act .pjl-btn { min-height: 44px; }
+  /* The initials ran past the edge of a 26 px circle. */
+  body.h-body .mt-avs .mt-av { width: 32px; height: 32px; font-size: 13px; font-weight: 600; letter-spacing: -0.3px; display: inline-grid; place-items: center; }
+}
