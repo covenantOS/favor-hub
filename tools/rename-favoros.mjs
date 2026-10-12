@@ -38,7 +38,8 @@ const EXACT = [
   ['functions/api/requests/route.ts', 'the staff hub and its tools', 'FavorOS and its tools'],
   ['src/content/help/whats-new.md', 'searches the whole hub.', 'searches all of FavorOS.'],
   ['src/layouts/App.astro', '<span>Hub</span></a>', '<span>OS</span></a>'],
-  ['src/pages/login.astro', '<p class="si-kicker">Staff hub</p>', '<p class="si-kicker">FavorOS</p>'],
+  ['src/pages/login.astro', '<p class="si-kicker">FavorOS</p>', '<p class="si-kicker" style="text-transform:none">FavorOS</p>'],
+  ['src/pages/login.astro', '<p class="si-kicker">Staff hub</p>', '<p class="si-kicker" style="text-transform:none">FavorOS</p>'],
   ['src/data/help-topics.ts', "hub: 'The hub',", "hub: 'FavorOS',"],
 ];
 const RULES = [
