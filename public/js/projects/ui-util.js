@@ -175,8 +175,16 @@ export function choose({ anchor, title, items, search, placeholder, source }) {
       pop.style.width = w + 'px';
       let left = Math.min(Math.max(8, r.left), innerWidth - w - 8);
       let top = r.bottom + 6;
-      const h = pop.offsetHeight;
-      if (top + h > innerHeight - 8) top = Math.max(8, r.top - h - 6);
+      // A list that loads (codes, people) grows after it opens, so room is kept for its full height. Where neither side has
+      // that room, it opens on the roomier side and scrolls inside.
+      const full = Math.min(380, Math.round(innerHeight * 0.6));
+      const h = source ? full : pop.offsetHeight;
+      const below = innerHeight - 8 - top;
+      const above = r.top - 14;
+      if (h > below) {
+        if (above >= h || above > below) { const hh = Math.min(h, above); top = Math.max(8, r.top - hh - 6); pop.style.maxHeight = hh + 'px'; if (source) pop.style.height = hh + 'px'; }
+        else pop.style.maxHeight = below + 'px';
+      }
       pop.style.left = left + 'px';
       pop.style.top = top + 'px';
       const close = (v) => { off(); pop.remove(); done(v); if (anchor.focus && document.contains(anchor)) { try { anchor.focus({ preventScroll: true }); } catch (_) { /* gone */ } } };

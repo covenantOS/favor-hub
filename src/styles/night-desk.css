@@ -72,3 +72,26 @@ body.h-body .ch-jump span { white-space: nowrap; overflow: hidden; text-overflow
 @media (min-width: 861px) {
   body.h-body #pp-table td:nth-child(3), body.h-body #pp-table td:nth-child(2) { overflow-wrap: normal; word-break: normal; }
 }
+
+/* ---- One rule for where a page sits on a wide screen.
+   Pages built today (Evaluations, Onboarding, Welcome, Learn, Brain requests) and the full-width tools sat hard left under
+   the 1680 px cap while the rest were centred, so the content jumped side to side between tabs on a 1920 or 2560 screen.
+   Every page column is centred beside the rail, and a page that keeps a narrower reading column centres that too. */
+@media (min-width: 1500px) {
+  body.h-body .h-page { margin-inline: auto; }
+}
+@media (min-width: 861px) {
+  body.h-body .h-page :is(#ob-root, #wl-root, .fbp, #rp-app), body.h-body .h-page .ev-page > .container { margin-inline: auto; }
+}
+
+/* ---- Projects: the New project form was taller than a 900 px window allows, so Cancel and Create were cut in half at the
+   foot of the sheet. The form sheet uses the window's height and its buttons stay in view while the fields scroll. */
+@media (min-width: 861px) {
+  body.h-body .pj-sheet.pj-sheet--form { top: 5vh; max-height: 90vh; }
+  body.h-body .pj-sheet.pj-sheet--form .pj-sheet__body { padding-bottom: 0; }
+  body.h-body .pj-sheet.pj-sheet--form .pj-sheet__foot { position: sticky; bottom: 0; z-index: 1; margin: 12px -20px 0; padding: 12px 20px 14px; background: #fff; border-top: 1px solid var(--r-line); }
+}
+
+/* Projects timeline: a short month at the left edge ran its name into the next ("September 2026October 2026"). Each month
+   name now stops 14 px short of its column's end, so the next month pushes it off to the left as the timeline scrolls. */
+body.h-body .tl-tk--top { padding-right: 14px; }

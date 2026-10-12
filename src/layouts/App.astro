@@ -121,7 +121,6 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         <button type="button" class="h-side__tog" id="h-wide" aria-pressed="false" aria-label="Expand the menu" title="Expand the menu (press the backslash key)"><Fragment set:html={icon('chev')} /></button>
         <div class="h-side__in">
           <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="FavorOS home"><img class="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" /><img class="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" /><span>OS</span></a>
-          <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} /><span class="h-search__t">Search</span><kbd>Ctrl K</kbd></button>
           <div class="h-pins" id="h-pins" hidden><div class="h-nav__label">Pinned</div><div class="h-pins__list" id="h-pins-list"></div></div>
           <nav class="h-areas" aria-label="Areas">
             {mainAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
@@ -160,6 +159,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               })();
             </script>
           </div>
+          <!-- Search sits at the foot of the rail (round2.css order: 9); it comes last in the markup too, so Tab reaches it where it is drawn. -->
+          <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} /><span class="h-search__t">Search</span><kbd>Ctrl K</kbd></button>
         </div>
       </aside>
       <div class="h-scrim" id="h-scrim" aria-hidden="true"></div>

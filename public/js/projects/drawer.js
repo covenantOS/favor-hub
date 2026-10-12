@@ -496,7 +496,7 @@ document.addEventListener('submit', async (e) => {
 
 async function more(anchor) {
   const t = st.task;
-  const v = await choose({ anchor, title: 'Task', items: [{ value: 'copy', label: 'Copy link', icon: 'copy' }, { value: 'del', label: 'Remove task', hint: 'You can undo it for a few seconds', icon: 'trash' }] });
+  const v = await choose({ anchor, title: 'Task', items: [{ value: 'copy', label: 'Copy link', icon: 'copy' }, { value: 'del', label: 'Remove task', icon: 'trash' }] });
   if (v === 'copy') copyLink();
   if (v === 'del') { const c = ctxFor(t.id); close(false); if (c === main) await main.remove([t.id]); else { try { await api.deleteTask(t.id); toast('Task removed'); } catch (err) { toast(err.message, { error: true }); } } }
 }
