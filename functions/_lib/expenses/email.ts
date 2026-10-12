@@ -81,7 +81,7 @@ function shell(kicker: string, inner: string): string {
       <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8b957b;font-weight:600;margin-bottom:10px">${kicker}</div>
       ${inner}
       <div style="margin-top:22px;padding-top:14px;border-top:1px solid #eee9dd;font-size:11.5px;color:#8f8a7c;line-height:1.6">
-        Favor International · Valrico, FL · This record is kept in the Favor Hub expense log.
+        Favor International · Valrico, FL · This record is kept in FavorOS expense log.
       </div>
     </div>
   </body></html>`;
@@ -98,7 +98,7 @@ export async function emailApprover(env: Env, row: ExpenseRow, items: ExpenseIte
   const to = splitEmails(row.approver_email);
   const subject = `Expense request ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
-    'Favor Hub · Expense request',
+    'FavorOS · Expense request',
     `<h1 style="font-size:22px;color:#0d0f0c;margin:0 0 6px">${esc(row.requester_name)} needs your approval</h1>
      <p style="font-size:14px;color:#5a5648;margin:0 0 18px">${travelLine(row)} · submitted ${fmtEt(row.submitted_at)}</p>
      ${itemsTable(row, items)}
@@ -121,7 +121,7 @@ export async function emailApproved(
   const to = dedupe([row.requester_email, ...splitEmails(row.approver_email), ...distribution]);
   const subject = `Approved: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
-    'Favor Hub · Expense request approved',
+    'FavorOS · Expense request approved',
     `<h1 style="font-size:22px;color:#0d0f0c;margin:0 0 6px">${esc(row.doc_number)} · ${esc(row.requester_name)}</h1>
      <p style="font-size:14px;color:#5a5648;margin:0 0 16px">${travelLine(row)}</p>
      <div style="background:#eef7ee;border:1px solid #cfe8cf;border-radius:10px;padding:12px 14px;font-size:13.5px;margin:0 0 16px">
@@ -145,7 +145,7 @@ export async function emailDeclined(env: Env, row: ExpenseRow, items: ExpenseIte
   const cc = splitEmails(row.approver_email).some((e) => e.toLowerCase() === row.requester_email.toLowerCase()) ? undefined : splitEmails(row.approver_email);
   const subject = `Declined: ${row.doc_number} · ${row.requester_name} · ${money(row.total_cents)}`;
   const html = shell(
-    'Favor Hub · Expense request declined',
+    'FavorOS · Expense request declined',
     `<h1 style="font-size:22px;color:#0d0f0c;margin:0 0 6px">${esc(row.doc_number)} · ${esc(row.requester_name)}</h1>
      <p style="font-size:14px;color:#5a5648;margin:0 0 16px">${travelLine(row)}</p>
      <div style="background:#faeee8;border:1px solid #ecd2c4;border-radius:10px;padding:12px 14px;font-size:13.5px;margin:0 0 16px">

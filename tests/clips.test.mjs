@@ -39,7 +39,7 @@ describe('ids and watching', () => {
     assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 0 }), false);
     assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 1 }), true);
   });
-  it('stops a shared link for outsiders when the person who made the clip is blocked from the hub', async () => {
+  it('stops a shared link for outsiders when the person who made the clip is blocked from FavorOS', async () => {
     const out = new Request('https://hub.test/');
     const signedIn = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org' } });
     assert.equal(await lib.canWatch(envWith(1), out, { owner_email: 'gone@favorintl.org', share: 1 }), false);

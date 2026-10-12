@@ -58,7 +58,7 @@ A request opens in a panel on the page you are on: from its card in Chat, from T
 
 ## Who can do what
 
-- The hub admin approves, moves and declines cards, and can do everything below.
+- The FavorOS admin approves, moves and declines cards, and can do everything below.
 - The owner can send the request on, set the due date and Waiting on, comment and mark it done.
 - Anyone sent it, named in it or waited on can comment and mark it done.
 - Everyone else reads the board as before.
@@ -69,6 +69,6 @@ Marking a request done emails the person who asked, the same email the board has
 
 The row above the board shows **All**, **Mine** (you are the owner), **Sent by me**, **Waiting on others** (yours, waiting on someone else), **Waiting on me**, and **New for you** when something new waits on a request you are on. **By person** shows the requests one person owns, sent, follows or is waited on.
 
-## For the hub admin
+## For the FavorOS admin
 
 Drag a card from one column to the next as the work moves. Moving a card to Done emails the person who asked, so move it only when the work is live. The number beside **Request board** in the menu, and the Requests card on Today, count what is still in the Inbox.

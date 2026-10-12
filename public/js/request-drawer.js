@@ -1,5 +1,5 @@
 /* The request panel: one request with its owner, due date, Waiting on, followers, history and conversation, opened as a side
-   panel on a desktop and a full sheet on a phone. It lives on every hub page, so a request opens in place from the board,
+   panel on a desktop and a full sheet on a phone. It lives on every FavorOS page, so a request opens in place from the board,
    from its card in Chat, from Today, the bell, the Work Overview and search: any link to /requests/?r=<id> opens here.
 
      FavorRequest.open(id, { preview, reply, done })   preview: a request already in hand, drawn while the full one loads
@@ -18,7 +18,7 @@
   const esc = RT.esc;
   const ic = RT.ic;
   const STATUS = { inbox: 'Inbox', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' };
-  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'Hub', app: 'App' };
+  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'FavorOS', app: 'App' };
   const ET = 'America/New_York';
   const touch = matchMedia('(hover: none)').matches;
   const first = (n) => String(n || '').split(' ')[0];

@@ -169,8 +169,8 @@ export async function buildPdf(input: PdfInput): Promise<Uint8Array> {
   doc.setTitle(title);
   doc.setAuthor('Favor International');
   doc.setSubject(`${input.letters.length} receipts, reply code ${input.appealCode}`);
-  doc.setCreator('Favor Hub');
-  doc.setProducer('Favor Hub');
+  doc.setCreator('FavorOS');
+  doc.setProducer('FavorOS');
   // Ask the print dialog for actual size, one side, and the tray that holds legal paper.
   const prefs = doc.catalog.getOrCreateViewerPreferences();
   prefs.setPrintScaling(PrintScaling.None);

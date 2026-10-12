@@ -44,7 +44,7 @@ const receiptsPeople = (w: Who) => w.admin || w.leader || w.teams.includes('mark
 const foundationPeople = (w: Who) => w.admin || w.leader || w.teams.includes('grants') || w.teams.includes('rdd');
 
 export function roleName(w: Who): string {
-  if (w.admin) return 'the hub admin';
+  if (w.admin) return 'the FavorOS admin';
   if (w.leader) return 'leadership';
   const names: Record<string, string> = { rdd: 'the RDD team', pc: 'Partner Care', ce: 'Church Engagement', grants: 'Grants', marketing: 'Marketing' };
   const mine = w.teams.map((t) => names[t]).filter(Boolean);
@@ -59,7 +59,7 @@ export const STEPS: Step[] = [
     via: 'home',
     at: '.h-head',
     title: 'Today is your home page',
-    body: 'The hub opens here every morning. It greets you, shows the date, and lists what is waiting on you.',
+    body: 'FavorOS opens here every morning. It greets you, shows the date, and lists what is waiting on you.',
     side: 'bottom',
   },
   {
@@ -104,7 +104,7 @@ export const STEPS: Step[] = [
     at: '#route-text',
     type: 'Could we add the October newsletter to the website?',
     title: 'Make a request, in your own words',
-    body: 'Say what you need the way you would tell a coworker, then press Continue. The hub suggests where it goes: the request board, the Marketing team or an expense request. Nothing is sent until you finish the form.',
+    body: 'Say what you need the way you would tell a coworker, then press Continue. FavorOS suggests where it goes: the request board, the Marketing team or an expense request. Nothing is sent until you finish the form.',
     side: 'bottom',
   },
   {
@@ -270,7 +270,7 @@ export const STEPS: Step[] = [
     page: '/brain/',
     at: '#bc-rail',
     title: 'Your chats',
-    body: 'Every conversation is kept for 30 days. Search them, rename one, pin the ones you come back to, or delete one. Ctrl Shift O starts a new chat. The icon at the top right of the chat hides the hub menu so the chat gets the whole window.',
+    body: 'Every conversation is kept for 30 days. Search them, rename one, pin the ones you come back to, or delete one. Ctrl Shift O starts a new chat. The icon at the top right of the chat hides the FavorOS menu so the chat gets the whole window.',
     added: '2026-10-10',
     side: 'right',
   },
@@ -306,7 +306,7 @@ export const STEPS: Step[] = [
     page: '/admin/',
     via: 'admin-home',
     at: '#ad-strip',
-    title: 'Check the jobs behind the hub',
+    title: 'Check the jobs behind FavorOS',
     body: 'Each tile shows when a job last ran and whether it is OK, Late or Failed: the Blackbaud copy, the morning jobs, the overnight sender, the Drive library job, SKY calls, iWave credits, Workers AI and the unsubscribe write-back. The Audit log lists every settings change.',
     for: (w) => w.admin,
     added: '2026-10-10',
@@ -592,7 +592,7 @@ export const STEPS: Step[] = [
     via: 'work',
     at: '#pv-search',
     title: 'Find any partner',
-    body: 'Type a name, an email, a phone number, a street address or a lookup id. Any partner name in the hub opens the partner beside your work: giving, what is due, one timeline of gifts, contacts and notes, and buttons to call, log a contact, add a task or a note.',
+    body: 'Type a name, an email, a phone number, a street address or a lookup id. Any partner name in FavorOS opens the partner beside your work: giving, what is due, one timeline of gifts, contacts and notes, and buttons to call, log a contact, add a task or a note.',
     for: (w) => w.admin || w.work,
     added: '2026-10-10',
     side: 'bottom',
@@ -612,7 +612,7 @@ export const STEPS: Step[] = [
     id: 'clips',
     at: '#clip-cam',
     title: 'Record a clip from any page',
-    body: 'Press the camera at the top right. A small recorder window opens, so you can go anywhere in the hub while it records. Pick the full screen, a window or a tab, turn the camera and microphone on or off, and press Start recording. When you stop, the clip gets a title, a summary and chapters on its own, and you get a link. Your clips live under Clips in the menu, and only you see them. Only signed-in Favor staff can open a link unless you turn on Anyone with the link.',
+    body: 'Press the camera at the top right. A small recorder window opens, so you can go anywhere in FavorOS while it records. Pick the full screen, a window or a tab, turn the camera and microphone on or off, and press Start recording. When you stop, the clip gets a title, a summary and chapters on its own, and you get a link. Your clips live under Clips in the menu, and only you see them. Only signed-in Favor staff can open a link unless you turn on Anyone with the link.',
     added: '2026-10-10',
     side: 'bottom',
   },
@@ -620,7 +620,7 @@ export const STEPS: Step[] = [
     id: 'clips-controls',
     at: '#clip-cam',
     title: 'Clip controls follow you',
-    body: 'While a clip records, a small window with Stop, the time, Pause, Mute, Start over and Discard floats above every app in Chrome and Edge. Drag it anywhere. In Safari and Firefox the same controls show as a pill on every hub page. Closing the floating window never ends the recording.',
+    body: 'While a clip records, a small window with Stop, the time, Pause, Mute, Start over and Discard floats above every app in Chrome and Edge. Drag it anywhere. In Safari and Firefox the same controls show as a pill on every FavorOS page. Closing the floating window never ends the recording.',
     added: '2026-10-11',
     side: 'bottom',
   },
@@ -629,7 +629,7 @@ export const STEPS: Step[] = [
     page: '/meet/',
     via: 'meet',
     at: '#mt-home',
-    title: 'Meetings, in the hub',
+    title: 'Meetings, in FavorOS',
     body: 'Start a room with one press, or book one. Everyone joins from the browser, with video, sound, chat and screen sharing. The host can mute people, spotlight one person for everyone, lock the room and hand out host rights. A meeting that records saves its video to the Meetings drive in Google Drive and writes notes with decisions and action items under Meeting notes.',
     for: (w) => w.admin,
     added: '2026-10-10',
@@ -730,7 +730,7 @@ export const STEPS: Step[] = [
     via: 'feedback',
     at: '#fb-list',
     title: 'Every note in one place',
-    body: 'Notes from the hub, Favor Brain, the help docs and this tour land here. Mark each one seen, fixed or not now, and write a reply the sender reads. New notes show on Today and beside Feedback in the menu.',
+    body: 'Notes from FavorOS, Favor Brain, the help docs and this tour land here. Mark each one seen, fixed or not now, and write a reply the sender reads. New notes show on Today and beside Feedback in the menu.',
     for: (w) => w.admin,
     added: '2026-10-09',
     side: 'top',
@@ -747,7 +747,7 @@ export const STEPS: Step[] = [
     id: 'sound',
     at: '[data-sound-switch]',
     title: 'Sounds',
-    body: 'The hub makes a soft sound when you press a main button or something finishes. Press the speaker to turn sounds off or on.',
+    body: 'FavorOS makes a soft sound when you press a main button or something finishes. Press the speaker to turn sounds off or on.',
     added: '2026-10-09',
     side: 'top',
   },

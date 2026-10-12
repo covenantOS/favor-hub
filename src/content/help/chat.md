@@ -10,7 +10,7 @@ toolLabel: Open Chat
 updated: 2026-10-11
 ---
 
-Chat is where the team talks inside the hub. It is open to hub admins for now, and Admin > Chat changes who can use it.
+Chat is where the team talks inside FavorOS. It is open to FavorOS admins for now, and Admin > Chat changes who can use it.
 
 ## Channels and messages
 
@@ -54,7 +54,7 @@ Type **@Favor Brain** and a question in a channel or a thread. Favor Brain answe
 
 ## Search
 
-Press **Ctrl K** in Chat, or the search box at the top of the channel list, to search messages. Filter to this conversation, to messages with files, or to messages that mention you. Ctrl K elsewhere in the hub lists chat messages in its Chat group.
+Press **Ctrl K** in Chat, or the search box at the top of the channel list, to search messages. Filter to this conversation, to messages with files, or to messages that mention you. Ctrl K elsewhere in FavorOS lists chat messages in its Chat group.
 
 ## On a phone
 

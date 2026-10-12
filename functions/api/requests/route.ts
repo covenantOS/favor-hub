@@ -15,7 +15,7 @@ const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const PROMPT = `You sort requests from the staff of Favor International, a Christian missions nonprofit, to the team that does the work.
 Answer with exactly one word: board, marketing, or expense.
 
-board: work for Will Hamilton, the Lead Developer. The website favorintl.org (pages, words on a page, forms, giving pages, job postings, broken links, errors), the partner portal my.favorintl.org, the staff hub and its tools, the KPI dashboard, Blackbaud and Raiser's Edge (records, lists, queries, reports pulled from Blackbaud), GoHighLevel and email automation setup, logins, integrations, spreadsheets of data, anything technical or broken.
+board: work for Will Hamilton, the Lead Developer. The website favorintl.org (pages, words on a page, forms, giving pages, job postings, broken links, errors), the partner portal my.favorintl.org, FavorOS and its tools, the KPI dashboard, Blackbaud and Raiser's Edge (records, lists, queries, reports pulled from Blackbaud), GoHighLevel and email automation setup, logins, integrations, spreadsheets of data, anything technical or broken.
 marketing: work for the Marketing team. Graphic design, printed pieces, flyers, brochures, banners, mailers, appeal letters, thank-you packets, newsletter articles and layout, social media posts, videos, photos, slide decks, event and campaign materials, merchandise.
 expense: buying something or spending money: purchases, travel costs, hotels, flights, mileage, reimbursements, payment approvals.
 

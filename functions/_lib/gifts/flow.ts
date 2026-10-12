@@ -334,7 +334,7 @@ export async function pollBatch(c: Ctx, depositId: string): Promise<Watch | null
   const gotCents = Math.round((Number(b.actual_amount) || 0) * 100);
   let mismatch: string | null = null;
   if (!b.approved && !b.is_approved && (Number(b.number_of_gifts) !== gifts.length || gotCents !== wantCents)) {
-    mismatch = `Blackbaud shows ${b.number_of_gifts} gifts and $${(gotCents / 100).toFixed(2)}. The hub sent ${gifts.length} and $${(wantCents / 100).toFixed(2)}.`;
+    mismatch = `Blackbaud shows ${b.number_of_gifts} gifts and $${(gotCents / 100).toFixed(2)}. FavorOS sent ${gifts.length} and $${(wantCents / 100).toFixed(2)}.`;
   }
   const approved = Boolean(b.approved || b.is_approved);
   const number = String(b.batch_number || d.bb_batch_number || '') || null;

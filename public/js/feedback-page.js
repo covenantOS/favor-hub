@@ -5,7 +5,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
   const when = (iso) => (iso ? et(iso, { month: 'short', day: 'numeric' }) + ', ' + et(iso, { hour: 'numeric', minute: '2-digit' }) : '');
-  const SOURCE = { hub: 'The hub', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
+  const SOURCE = { hub: 'FavorOS', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
   const RATING = {
     problem: ["Something's wrong", 'bad'], wrong: ['Answer was wrong', 'bad'], 'not-helpful': ['Not helpful', 'bad'],
     confusing: ['Confusing', 'warn'], missing: ['Something missing', 'warn'],
@@ -31,7 +31,7 @@
     shown = items;
     list.removeAttribute('aria-busy');
     if (!items.length) {
-      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in the hub or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
+      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in FavorOS or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
       return;
     }
     list.innerHTML = items
@@ -154,7 +154,7 @@
     admin = !!(d && d.access && d.access.admin);
     if (admin) {
       $('fb-tabs').hidden = false;
-      $('fb-lede').textContent = 'Every note from the hub, Favor Brain, the help docs and the tour.';
+      $('fb-lede').textContent = 'Every note from FavorOS, Favor Brain, the help docs and the tour.';
     }
     load();
   };

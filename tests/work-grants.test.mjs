@@ -69,7 +69,7 @@ describe('loadGrants against the mirror', () => {
     assert.deepEqual(rows[1].who, ['Gwen Grant']);
     assert.equal(rows[1].date, day(-5));
   });
-  it('names the file the hub attached when it knows of one', async () => {
+  it('names the file FavorOS attached when it knows of one', async () => {
     const rows = await gr.loadGrants(q, TODAY, new Map([['201', 'request-letter.pdf']]));
     assert.equal(rows.find((r) => r.id === '201').file, 'request-letter.pdf');
   });
@@ -205,7 +205,7 @@ describe('logging a grant entry', () => {
     list = await svc.grantsResponse(ctx);
     assert.equal(list.rows.filter((r) => r.summary === 'LOI for the library').length, 1);
     assert.ok(!list.rows.find((r) => r.summary === 'LOI for the library').local);
-    assert.equal(list.rows.find((r) => r.summary === 'LOI for the library').file, 'letter.pdf', 'the hub still knows the file it attached');
+    assert.equal(list.rows.find((r) => r.summary === 'LOI for the library').file, 'letter.pdf', 'FavorOS still knows the file it attached');
   });
 
   it('Undo takes the entry off the list', async () => {

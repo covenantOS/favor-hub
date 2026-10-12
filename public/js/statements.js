@@ -249,7 +249,7 @@
     const empty = !s.gifts.length && !s.refunds.length;
     if (!r) {
       return `<button type="button" class="req-submit" id="stm-make" ${state.busy || empty ? 'disabled' : ''}>${state.busy ? 'Making the PDF' : 'Make the PDF'}</button>
-        <span class="rcp-fine">${state.me.driveOn ? 'A copy is saved in US Team Files.' : 'The hub keeps a copy under Print files.'}</span>`;
+        <span class="rcp-fine">${state.me.driveOn ? 'A copy is saved in US Team Files.' : 'FavorOS keeps a copy under Print files.'}</span>`;
     }
     const base = `/api/statements/batches/${encodeURIComponent(r.id)}/pdf`;
     return `<a class="req-submit rcp-btn" href="${base}" target="_blank" rel="noopener">Open the PDF</a>
@@ -506,7 +506,7 @@
     const rows = state.me.fields.map((f) => `<tr><th scope="row">${esc(f.label)}</th><td>${esc(c[f.key]) || '<span class="rcp-fine">Blank</span>'}</td></tr>`).join('');
     $('stm-view-wording').innerHTML = `
       <div class="rcp-make__row"><div><h2>Wording on the statement</h2>
-      <p class="fnd-note">Michael Hinton and the CPA approve the final wording. ${state.me.admin ? 'Change any line in Admin.' : 'A hub admin changes these lines in Admin.'}</p></div>
+      <p class="fnd-note">Michael Hinton and the CPA approve the final wording. ${state.me.admin ? 'Change any line in Admin.' : 'A FavorOS admin changes these lines in Admin.'}</p></div>
       <div class="rcp-make__form">
         <a class="req-ghost rcp-btn" href="/api/statements/sample" target="_blank" rel="noopener">Open a sample statement</a>
         ${state.me.admin ? '<a class="req-submit rcp-btn" href="/admin/statements/">Change the wording</a>' : ''}

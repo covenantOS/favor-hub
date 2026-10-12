@@ -171,7 +171,7 @@ async function load(quiet) {
   } catch (e) {
     $('cl-rows').removeAttribute('aria-busy');
     if (e.status === 403) {
-      $('cl-rows').innerHTML = '<div class="h-card cl-empty">This view is for hub admins.</div>';
+      $('cl-rows').innerHTML = '<div class="h-card cl-empty">This view is for FavorOS admins.</div>';
     } else if (!quiet) {
       $('cl-rows').innerHTML = '<div class="h-card cl-empty">Your clips did not load. Refresh the page to try again.</div>';
     }

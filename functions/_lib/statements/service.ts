@@ -35,7 +35,7 @@ async function asset(env: Env, path: string): Promise<Uint8Array | null> {
 
 export async function pdfAssets(env: Env): Promise<{ fonts: { sans: Uint8Array }; logo?: Uint8Array }> {
   const sans = await asset(env, '/receipts/fonts/Arimo-Regular.ttf');
-  if (!sans) throw new HttpError(500, 'asset', 'A font the statements need is missing from the hub.');
+  if (!sans) throw new HttpError(500, 'asset', 'A font the statements need is missing from FavorOS.');
   const logo = await asset(env, '/images/favor-logo-color.png');
   return { fonts: { sans }, logo: logo || undefined };
 }

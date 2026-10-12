@@ -20,7 +20,7 @@ Favor Brain starts everyone with what their job needs and nothing more. Your acc
 | Every team's dashboard numbers | Every team tab, not only your own | Leadership |
 | iWave capacity | iWave capacity ratings on records and lists | Leadership, RDDs |
 | Google Sheets export | Make a private Google Sheet in your own Drive from a list you can already see | Everyone |
-| Contact details in lists | Phones, emails and addresses in lists beyond your own assigned partners | The hub admin |
+| Contact details in lists | Phones, emails and addresses in lists beyond your own assigned partners | The FavorOS admin |
 
 
 ## Asking for more

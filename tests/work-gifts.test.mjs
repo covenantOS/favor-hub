@@ -182,7 +182,7 @@ describe('gifts to thank', () => {
     assert.equal(out.thankedWeek['501'], 1);
   });
 
-  it('lays the hub thank-yous over the mirror at once, and a left message keeps the gift owed', () => {
+  it('lays FavorOS thank-yous over the mirror at once, and a left message keeps the gift owed', () => {
     const base = { gifts: [], holds: [], evidence: [], facts: [], stats: [], last: [], phones: [], monthly: [], funds: [], thanks: [], fundraisers: [{ id: '501', first: 'F', last: 'A', active: 1 }] };
     const raw = {
       ...base,

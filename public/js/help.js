@@ -33,7 +33,7 @@
     });
     const box = $('hd-foryou');
     if (!box) return;
-    const NAMES = { rdd: 'RDDs', pc: 'Partner Care', ce: 'Church Engagement', grants: 'Grants', marketing: 'Marketing', admin: 'the hub admin', approver: 'expense approvers', leader: 'leadership', kpi: 'dashboard users' };
+    const NAMES = { rdd: 'RDDs', pc: 'Partner Care', ce: 'Church Engagement', grants: 'Grants', marketing: 'Marketing', admin: 'the FavorOS admin', approver: 'expense approvers', leader: 'leadership', kpi: 'dashboard users' };
     const picks = [];
     document.querySelectorAll('.hd-topic li[data-for]').forEach((li) => {
       const f = li.dataset.for.split(' ');

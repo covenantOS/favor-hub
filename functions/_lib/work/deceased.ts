@@ -130,7 +130,7 @@ export function dndOff(c: GhlContact): { settings: Record<string, { status: stri
 
 async function ghlEffect(env: Env, input: EffectInput, emails: string[], f: typeof fetch, cap = WORKFLOW_CAP): Promise<Effect> {
   const g = ghlOf(env, f);
-  if (!g) return { effect: 'ghl', ok: false, detail: 'GoHighLevel is not connected to the hub.' };
+  if (!g) return { effect: 'ghl', ok: false, detail: 'GoHighLevel is not connected to FavorOS.' };
   let contacts: GhlContact[];
   try {
     contacts = await findContacts(g, input.cid, emails);
@@ -193,7 +193,7 @@ export const PORTAL_BLOCKS_SQL = `CREATE TABLE IF NOT EXISTS portal_blocks (
 
 async function portalEffect(env: Env, input: EffectInput, emails: string[]): Promise<Effect> {
   const db = (env as unknown as { PORTAL_DB?: D1Database }).PORTAL_DB;
-  if (!db) return { effect: 'portal', ok: false, detail: 'The giving portal database is not connected to the hub.' };
+  if (!db) return { effect: 'portal', ok: false, detail: 'The giving portal database is not connected to FavorOS.' };
   const reason = `deceased:${input.cid}`;
   try {
     await db.prepare(PORTAL_BLOCKS_SQL).run();
@@ -234,7 +234,7 @@ async function workcenterEffect(env: Env, input: EffectInput): Promise<Effect> {
 /* ----------------------------------------------------------------------------------------------------------- driver */
 
 async function record(env: Env, input: EffectInput, e: Effect): Promise<void> {
-  const label = { mirror: 'Hub copy', ghl: 'GoHighLevel', portal: 'Giving portal', workcenter: 'Work Center' }[e.effect];
+  const label = { mirror: 'FavorOS copy', ghl: 'GoHighLevel', portal: 'Giving portal', workcenter: 'Work Center' }[e.effect];
   await env.DB.prepare('INSERT INTO hub_audit (at, actor, area, key, label, before_value, after_value, note) VALUES (?,?,?,?,?,?,?,?)')
     .bind(nowIso(), input.email || input.actor, 'records', `deceased:${input.cid}`, `${input.on ? 'Marked deceased' : 'Marked active'}: ${label}`, input.on ? 'active' : 'deceased', input.on ? 'deceased' : 'active', `${e.ok ? '' : 'FAILED. '}${e.detail}`.slice(0, 900))
     .run()
@@ -252,7 +252,7 @@ export async function runDeceasedEffects(env: Env, input: EffectInput, deps: Eff
   // The hub's copy first, so the emails below are what Blackbaud holds now and every list sees the mark.
   const refresh = deps.refresh || mirrorRecordRefresh;
   const r = await refresh(env, [input.cid]).catch((e) => ({ ok: false, wait: String((e as Error).message) } as { ok: boolean; wait?: string }));
-  await push({ effect: 'mirror', ok: r.ok, detail: r.ok ? 'The hub copy of the record is re-reading now.' : `The hub copy updates at the next sync (${r.wait || 'the sync worker did not take the request'}).` });
+  await push({ effect: 'mirror', ok: r.ok, detail: r.ok ? 'The FavorOS copy of the record is re-reading now.' : `The FavorOS copy updates at the next sync (${r.wait || 'the sync worker did not take the request'}).` });
 
   const emails = await (deps.emails || recordEmails)(env, input.cid).catch(() => [] as string[]);
   await push(await ghlEffect(env, input, emails, f, deps.workflowCap ?? WORKFLOW_CAP));

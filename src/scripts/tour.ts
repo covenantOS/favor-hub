@@ -462,7 +462,7 @@ function intro() {
   const hi = who.first ? `Hi ${esc(who.first)}.` : 'Hi.';
   const preview = who.admin
     ? `<label class="tr-as"><span>Show the tour as</span><select data-tr-as>
-        <option value="">You (the hub admin)</option><option value="staff">Any staff member</option><option value="rdd">RDD team</option>
+        <option value="">You (the FavorOS admin)</option><option value="staff">Any staff member</option><option value="rdd">RDD team</option>
         <option value="pc">Partner Care</option><option value="ce">Church Engagement</option><option value="grants">Grants</option>
         <option value="marketing">Marketing</option><option value="leader">Leadership</option></select></label>`
     : '';

@@ -20,7 +20,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, wait
     const q = (url.searchParams.get('q') || '').trim().toLowerCase().slice(0, 80);
     // Everyone sees their own clips. An admin can open the admin view (?scope=all) to see every person's clips.
     const all = url.searchParams.get('scope') === 'all';
-    if (all && who.user.role !== 'admin') return errorJson('forbidden', 'The all-clips view is for hub admins.', 403);
+    if (all && who.user.role !== 'admin') return errorJson('forbidden', 'The all-clips view is for FavorOS admins.', 403);
     const where = ["status IN ('ready', 'processing')"];
     const args: unknown[] = [];
     if (!all) {
@@ -95,7 +95,7 @@ export const onRequestPost: PagesFunction<ClipsEnv> = async ({ request, env }) =
     const who = staffOrError(request);
     if ('res' in who) return who.res;
     const body = (await request.json().catch(() => ({}))) as { title?: string; mime?: string; kind?: string };
-    if (!(await mayRecordClips(env, who.user.email, who.user.role === 'admin'))) return errorJson('not_allowed', 'Recording is limited to some people right now. Ask a hub admin if you need it.', 403);
+    if (!(await mayRecordClips(env, who.user.email, who.user.role === 'admin'))) return errorJson('not_allowed', 'Recording is limited to some people right now. Ask a FavorOS admin if you need it.', 403);
     const use = await usageOf(env, who.user.email);
     if (use.full) return errorJson('storage_full', `Your clips use all ${Math.round(use.cap / 1024 ** 3)} GB. Delete clips you no longer need in My clips, then record again.`, 409);
     const given = asTrimmed(body.title, 'title', 120, false);

@@ -181,7 +181,7 @@ test('in a two person conversation the other person does not see the answer', as
   assert.equal(bo.data.messages.filter((m) => m.user_id === 'brain').length, 0);
 });
 
-test('a message another person cannot see is also gone from the bell count on the hub home', async () => {
+test('a message another person cannot see is also gone from the bell count on FavorOS home', async () => {
   const { w, mine } = await asked();
   const { unreadMentionCount } = await import('../functions/_lib/chat/db.ts');
   assert.equal(await unreadMentionCount(w.env, ADMIN2.email), 0);

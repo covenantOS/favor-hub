@@ -16,7 +16,7 @@ type Run = { run(model: string, input: unknown): Promise<unknown> };
 
 const PROMPT =
   'This is one frame from a screen recording a staff member made to show coworkers how to use a work app. Reply with one JSON object with these keys. ' +
-  'app: the application or website, such as "Favor hub", "Blackbaud", "Gmail", "Google Sheets" (empty if it is not clear). ' +
+  'app: the application or website, such as "FavorOS", "Blackbaud", "Gmail", "Google Sheets" (empty if it is not clear). ' +
   'page: the page, tab or screen inside it, such as "Request board", "Gift batch", "Today" (empty if it is not clear). ' +
   'text: the most important text you can read on the screen, headings, menu items, button and field labels, copied as written, at most 500 characters. ' +
   'step: what the person appears to be doing, one short phrase starting with a verb, such as "Open a request card". ' +

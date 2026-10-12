@@ -11,7 +11,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     const email = String(request.headers.get('X-Acting-Email') || '').trim().toLowerCase();
     if (!/^[^@\s]+@favorintl\.org$/.test(email)) return errorJson('forbidden', 'Only Favor staff can make sheets.', 403);
     const row = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(email).first<{ blocked: number }>().catch(() => null);
-    if (row && row.blocked) return errorJson('forbidden', 'That person is blocked in the hub.', 403);
+    if (row && row.blocked) return errorJson('forbidden', 'That person is blocked in FavorOS.', 403);
     let name = String(request.headers.get('X-Acting-Name') || email);
     try {
       name = decodeURIComponent(name);

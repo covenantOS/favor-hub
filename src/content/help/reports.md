@@ -1,6 +1,6 @@
 ---
 title: Reports
-summary: The reports your team ran in Blackbaud, rebuilt in the hub with filters, totals, a check against the KPI dashboard, CSV and Google Sheets.
+summary: The reports your team ran in Blackbaud, rebuilt in FavorOS with filters, totals, a check against the KPI dashboard, CSV and Google Sheets.
 topic: numbers
 order: 3
 for: [admin, leader, marketing, rdd, pc, grants]

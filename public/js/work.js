@@ -158,7 +158,7 @@ function meterUsed() { return DATA.meter.used || 0; }
 function meterHTML() {
   const used = meterUsed();
   const pct = Math.min(100, Math.round(used / DATA.meter.cap * 100));
-  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so the hub stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
+  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so FavorOS stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
 }
 
 // ------------------------------------------------------------ page
@@ -188,7 +188,7 @@ function page() {
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
-        <span class="wc-pill" title="The hub reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
+        <span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
         ${meterHTML()}
         ${window.WCStart ? window.WCStart.pill() : ''}
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
@@ -1359,7 +1359,7 @@ async function init() {
     // A batch sent from a window that closed picks up here.
     const stuck = S.batches.find((x) => x.run_when === 'now' && (x.state === 'running' || x.state === 'queued') && !x.undone);
     if (stuck && stuck.queued) { const ids = stuck.items.filter((i) => i.state === 'saving').map((i) => i.id); bar('Finishing what was sent…'); driveBatch(stuck.id, ids.length ? ids : ['x'], { keep: true }).then(async () => { await loadRecent(); refreshBoard(); }); }
-  } catch (e) { errorScreen(e.status === 403 ? e.message : 'The hub could not read Blackbaud\'s copy right now. ' + e.message); }
+  } catch (e) { errorScreen(e.status === 403 ? e.message : 'FavorOS could not read Blackbaud\'s copy right now. ' + e.message); }
 }
 init();
 })();

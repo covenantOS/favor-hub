@@ -15,8 +15,8 @@ const more = [
 ];
 const manual = [
   { title: 'Help docs', desc: 'How every tool works, with search', href: '/help/', tags: 'help guide how docs documentation article manual faq', external: false, group: 'Tools' },
-  { title: "Take the tour", desc: "A guided tour of the hub, set up for your work, and what's new", href: '/?tour=1', tags: 'tour help new welcome show me around walkthrough guide whats new', external: false, group: 'Tools' },
-  { title: 'Training videos', desc: 'The hub, Favor Brain and Blackbaud on video, with captions', href: '/help/videos/', tags: 'video videos training tutorial learn blackbaud raisers edge', external: false, group: 'Tools' },
+  { title: "Take the tour", desc: "A guided tour of FavorOS, set up for your work, and what's new", href: '/?tour=1', tags: 'tour help new welcome show me around walkthrough guide whats new', external: false, group: 'Tools' },
+  { title: 'Training videos', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', href: '/help/videos/', tags: 'video videos training tutorial learn blackbaud raisers edge', external: false, group: 'Tools' },
   { title: 'Feedback', desc: "Your notes and Will's answers", href: '/feedback/', tags: 'feedback note bug wrong idea suggestion problem report', external: false, group: 'Tools' },
   { title: 'Favor Brain (beta)', desc: 'Ask about partners, giving and the manuals, or connect Claude or ChatGPT', href: '/brain/', tags: 'brain ask favor ai claude chatgpt mcp connector question query beta', external: false, group: 'Tools' },
   { title: 'Make a request', desc: "Anything you need: goes to the request board or the Marketing team", href: '/requests/new', tags: 'website portal dashboard app request submit comment recommendation marketing design flyer social video newsletter asana project', external: false, group: 'Tools' },
@@ -51,7 +51,7 @@ const manual = [
 ];
 const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external || !hubHrefs.has(i.href)).map((i) => ({ need: '', team: '', ...i }))];
 ---
-<div class="cmdk" id="cmdk" hidden role="dialog" aria-modal="true" aria-label="Hub search">
+<div class="cmdk" id="cmdk" hidden role="dialog" aria-modal="true" aria-label="FavorOS search">
   <div class="cmdk__overlay" data-cmdk-close></div>
   <div class="cmdk__panel">
     <div class="cmdk__head">

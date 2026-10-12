@@ -56,7 +56,7 @@ async function refresh(force = false): Promise<void> {
 function notify(m: NudgeMeeting, mins: number) {
   if (!hasNotifications() || Notification.permission !== 'granted') return;
   try {
-    const n = new Notification(`${m.title}: starts in ${mins} ${mins === 1 ? 'minute' : 'minutes'}`, { body: 'Join from Favor Hub', tag: m.key });
+    const n = new Notification(`${m.title}: starts in ${mins} ${mins === 1 ? 'minute' : 'minutes'}`, { body: 'Join from FavorOS', tag: m.key });
     n.onclick = () => { window.focus(); window.open(m.join, '_blank', 'noopener'); n.close(); };
   } catch { /* some browsers refuse notifications outside a page context */ }
 }

@@ -16,8 +16,8 @@ p{max-width:30em;background:#fff;border:1px solid #e4e7eb;border-radius:12px;pad
  */
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const user = hubUserOf(request);
-  if (!user || user.via !== 'google') return page('Sign in to the hub with your Favor Google account first.', 401);
-  if (!user.kpi) return page('The KPI dashboard is open to leadership in the hub. Ask Will if you need it.', 403);
+  if (!user || user.via !== 'google') return page('Sign in to FavorOS with your Favor Google account first.', 401);
+  if (!user.kpi) return page('The KPI dashboard is open to leadership in FavorOS. Ask Will if you need it.', 403);
   const asked = new URL(request.url).searchParams.get('next') || '/';
   const next = /^\/(?![\\/])/.test(asked) ? asked : '/';
   try {
@@ -27,6 +27,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     to.searchParams.set('next', next);
     return new Response(null, { status: 302, headers: { Location: to.toString(), 'Cache-Control': 'no-store' } });
   } catch {
-    return page('The KPI dashboard is not connected to the hub yet.', 503);
+    return page('The KPI dashboard is not connected to FavorOS yet.', 503);
   }
 };

@@ -17,7 +17,7 @@
  },
  {
   "slug": "meet-the-hub",
-  "title": "Meet the new Favor Hub",
+  "title": "Meet FavorOS",
   "added": "2026-10-09",
   "topic": "hub",
   "roles": [
@@ -29,13 +29,13 @@
  },
  {
   "slug": "hub-walk-through",
-  "title": "The new Favor hub, a walk-through",
+  "title": "FavorOS, a walk-through",
   "added": "2026-10-09",
   "topic": "hub",
   "roles": [
    "all"
   ],
-  "summary": "Every tool in the hub, step by step: Today, requests, expenses, receipts, foundation prospects, the KPI dashboard, the tour, the help docs and Feedback.",
+  "summary": "Every tool in FavorOS, step by step: Today, requests, expenses, receipts, foundation prospects, the KPI dashboard, the tour, the help docs and Feedback.",
   "seconds": 200,
   "transcript": "This is a quick walk through the new Favor hub. Every name you'll see here is made up. Go to dash.favorintl.org. Click Sign in with Google, and pick your Favor account. That one sign-in opens every tool, so the old page passwords are gone. You land on Today. It's your home page. The first time, a welcome card offers you a short tour. Your day shows anything that needs you, with a button straight to the work. When nothing does, it says so. Below that is where the year stands, right from the KPI dashboard. Recent activity shows what's happened across the hub in the last two weeks. And Start something takes you into the tools you use most. Every tool lives in the menu on the left. Blackbaud, Paycom and the other outside tools are at the bottom, and they open in a new tab. To jump anywhere, press Control and K. Type a few letters, and press Enter. When you need something from someone, click Make a request. Type what you need, the way you'd say it to a coworker. Then click Continue. The hub suggests where it should go. Website, app and Blackbaud work goes on the request board. Design, print, social and video go to the Marketing team. And purchases go on an expense request. If the suggestion's wrong, click one of the other choices. For the board, answer a few short questions and send it. You'll get an email when it's done. The request board shows where every request stands. Inbox is new. Approved is next in line. In motion is being worked on. And Done is finished. Click any card to read the whole request. Use Expense request before a purchase or a trip. Your name and email are already filled in. Add a line for each expense, say why it's needed, check the box, and sign. Then click Submit for approval, and you'll get the signed copy by email. Card expenses you've already made still go through Paycom. Thank-you receipts lists every gift that's waiting on a thank-you letter. You make the print file, print it, and mark the gifts thanked. It has its own video that goes step by step. Before you call a foundation, look it up in Foundation prospects. One search covers this list and every organization in Blackbaud. So you'll know if someone's already talking to them. The KPI dashboard sits right inside the hub now. Everyone sees the Executive page, and your team's own tab shows right under it. The top corner shows when the numbers last updated. Help and what's new, at the bottom of the menu, gives you a short tour, and the help docs answer the rest. And if something ever looks wrong, press Feedback at the top, and say what you saw. That's the new hub.",
   "cut": "2026-10-09b"
@@ -129,7 +129,7 @@
    "pc",
    "admin-desk"
   ],
-  "summary": "Making the print file on the hub's Thank-you receipts page, printing, and marking the batch done.",
+  "summary": "Making the print file on FavorOS's Thank-you receipts page, printing, and marking the batch done.",
   "seconds": 96,
   "transcript": "This is how we do thank-you receipts now. It's all on one page on the hub, so you won't need Database View or InDesign anymore. From the hub, click Thank-you Receipts. Type the code, then click Unlock. The page reads Blackbaud and lists every gift that still needs a thank-you. Each row is one letter. If a partner gave more than once, those gifts go on the same letter. If a letter shouldn't go out yet, uncheck it. It'll still be here next time. The Held back tab has everything that won't get a letter. Each one shows the reason, like a missing address, or a record marked Do Not Mail. When the list looks right, check the date on the letters. Then click Make the print file. Open the proof first. It shows every letter on a picture of the receipt paper, so you can see that it all lines up. Next, download the print file and print it. Use Legal paper, at Actual size, on one side. Once the letters are printed, come back and click Mark as thanked. It'll ask if they all printed. Click OK. That updates Blackbaud, and those gifts come off the list. We print every Tuesday and Friday. If something looks off, ask Will."
  },
@@ -142,7 +142,7 @@
    "rdd",
    "grants"
   ],
-  "summary": "Checking a foundation before you call and logging the contact on the hub's Foundation prospects page.",
+  "summary": "Checking a foundation before you call and logging the contact on FavorOS's Foundation prospects page.",
   "seconds": 62,
   "transcript": "Foundation prospects is on the hub. It's one list for every foundation we call. Open it from the hub, and enter the code. Before you call a foundation, search for it. One search checks our list, and every organization in Blackbaud. If someone already has the relationship, you'll see it right here. Open a foundation, and every contact is in one place. To log a contact, pick whose it was, how it went, and what happened. Then save it. It posts to Blackbaud as an RDD action. You don't type it twice. If a foundation's a dead end, mark it. It stays on the list, so nobody calls it cold again. Foundation prospects. It's on the hub."
  },
