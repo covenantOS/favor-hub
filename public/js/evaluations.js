@@ -651,9 +651,9 @@
     var y = window.scrollY, focusId = document.activeElement && document.activeElement.id;
     if (!S.mine) return;
     var p = qs();
-    if (!p.c) { root.innerHTML = homeHtml(); document.title = 'Evaluations | FavorOS'; }
+    if (!p.c) { root.innerHTML = homeHtml(); document.title = 'Evaluations - FavorOS'; }
     else if (!S.view) { root.innerHTML = '<p class="ev-loading">Opening</p>'; }
-    else { root.innerHTML = caseHtml(); document.title = 'Evaluation | FavorOS'; }
+    else { root.innerHTML = caseHtml(); document.title = 'Evaluation - FavorOS'; }
     root.querySelectorAll('textarea[data-text]').forEach(grow);
     if (keepScroll) window.scrollTo(0, y);
     if (focusId && keepScroll) { var f = document.getElementById(focusId); if (f && f.focus) f.focus(); }

@@ -285,7 +285,7 @@
     document.querySelectorAll('[data-count="mailUnread"]').forEach(function (el) { el.hidden = !n; el.textContent = Number(n || 0).toLocaleString('en-US'); });
     try { var nav = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nav && nav.counts) { nav.counts.mailUnread = n; localStorage.setItem('favor.hub.nav.v1', JSON.stringify(nav)); } } catch (e) { /* full */ }
     if (window.hubNavLayout) window.hubNavLayout();
-    document.title = (n ? '(' + n + ') ' : '') + 'Mail - FavorOS';
+    if (document.body.dataset.nav === 'mail') document.title = (n ? '(' + n + ') ' : '') + 'Mail - FavorOS';
   }
   function loadLabels() {
     if (!S.level.headers && !S.level.read) return Promise.resolve();

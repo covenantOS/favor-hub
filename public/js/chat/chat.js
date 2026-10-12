@@ -121,7 +121,8 @@
   function paintUnread(u) {
     var n = (u && u.mentions) || 0;
     document.querySelectorAll('[data-count="chatMentions"]').forEach(function (el) { el.textContent = n.toLocaleString('en-US'); el.hidden = !n; });
-    document.title = (n ? '(' + (n > 99 ? '99+' : n) + ') ' : '') + 'Chat - FavorOS';
+    // An answer that lands after the person left Chat must not rename the page they are on now.
+    if (document.body.dataset.nav === 'chat') document.title = (n ? '(' + (n > 99 ? '99+' : n) + ') ' : '') + 'Chat - FavorOS';
     window.dispatchEvent(new CustomEvent('favor-chat:unread', { detail: u }));
   }
   // A Favor Brain answer is drawn by the Brain page's own block code and pressed by it too (chat-brain.js ties the two to a message).

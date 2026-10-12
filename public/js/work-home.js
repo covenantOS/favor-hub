@@ -103,7 +103,18 @@
     // One line under the top bar: whose work this is (when it is not the admin's own) and how fresh Blackbaud's copy is.
     // The role, the date and a second clock time used to sit here too; the menu and Today already show them.
     const who = d.name && d.name !== 'Admin' ? d.name : '';
-    $('wh-meta').innerHTML = [esc(who), w && w.synced ? `Blackbaud data · <span class="copy-stamp" data-copy-stamp data-iso="${esc(w.synced)}"></span>` : ''].filter(Boolean).join(' · ');
+    // The time is written here, so the line never ends on a bare dot when the stamp script is not on this page.
+    let stamp = '';
+    const at = w && w.synced ? new Date(w.synced) : null;
+    if (at && !isNaN(at.getTime())) {
+      const ET = { timeZone: 'America/New_York' };
+      const day = (x) => x.toLocaleDateString('en-CA', ET);
+      const time = at.toLocaleTimeString('en-US', Object.assign({ hour: 'numeric', minute: '2-digit' }, ET));
+      const when = day(at) === day(new Date()) ? time : at.toLocaleDateString('en-US', Object.assign({ month: 'short', day: 'numeric' }, ET)) + ', ' + time;
+      const old = Date.now() - at.getTime() > 26 * 60 * 60 * 1000;
+      stamp = `Blackbaud data <span class="copy-stamp${old ? ' is-old' : ''}" title="${old ? 'The Blackbaud copy has not finished a full sync in over 26 hours, so these numbers may be behind.' : 'Numbers from the Blackbaud copy, as of its last complete sync.'}">as of ${esc(when)}</span>`;
+    }
+    $('wh-meta').innerHTML = [esc(who), stamp].filter(Boolean).join(' · ');
     // With nothing to say the row would leave an empty band above the tools.
     $('wh-meta').parentElement.hidden = !$('wh-meta').innerHTML;
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }
