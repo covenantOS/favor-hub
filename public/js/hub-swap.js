@@ -5,10 +5,12 @@
   if (window.__hubSwap) return;
   const allow = new Set(window.__hubSwapPaths || []);
   if (!allow.size || !window.fetch || !window.DOMParser) return;
+  const HEAVY = new Set(window.__hubFullLoad || ['/work/', '/brain/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
   const cache = new Map();
   const pathOf = (u) => { const x = new URL(u, location.href); return x.origin === location.origin ? x.pathname.replace(/\/?$/, '/') : null; };
   const swappable = (u) => { const p = pathOf(u); return !!p && allow.has(p) && !new URL(u, location.href).search; };
-  const here = () => swappable(location.href);
+  // A page that was loaded whole and keeps global state (the Work Center, the dashboard) is left by a full load too.
+  const here = () => swappable(location.href) && !HEAVY.has(pathOf(location.href));
   // Page HTML is the same for everyone and changes only with a new build, so a copy read once is kept for the browser session
   // (keyed by the build) and a tap finds it already here. Anything the person's data fills in arrives from the API afterwards.
   const BUILD = (document.querySelector('meta[name="hub-build"]') || {}).content || '';
@@ -45,7 +47,6 @@
     return cache.get(k);
   };
   const $ = (s, r) => (r || document).querySelector(s);
-  const HEAVY = new Set(window.__hubFullLoad || ['/work/', '/brain/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
   let viaSwap = false;
 
   // Timers, listeners, observers and body nodes a page made are noted by hub-own.js (inlined in the head) and removed
@@ -150,6 +151,7 @@
   let seq = 0;
   async function go(u, push) {
     const my = ++seq;
+    const T = (window.__swapT = [['go', Math.round(performance.now())]]);
     // Pages that run a lot of their own script keep a full load: they start from a clean page.
     if (HEAVY.has(pathOf(u))) { location.href = u; return; }
     let html;
@@ -160,6 +162,7 @@
       location.href = u; return;
     }
     if (my !== seq) return;
+    T.push(['html', Math.round(performance.now())]);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newMain = doc.getElementById('h-content');
     const oldMain = document.getElementById('h-content');
@@ -170,12 +173,15 @@
     const ready = new Map();
     try { await Promise.all(scriptSrcs(newMain).map((src) => loadScript(src).then((t) => ready.set(src, t)))); } catch (e) { location.href = u; return; }
     if (my !== seq) return;
+    T.push(['scripts', Math.round(performance.now())]);
     const stamp = performance.now();
     progress(false);
     mergeHead(doc);
     await Promise.all(Array.from(document.head.querySelectorAll('link[rel=stylesheet]')).filter((l) => !l.sheet).map((l) => new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); setTimeout(r, 1500); })));
     if (my !== seq) return;
+    T.push(['css', Math.round(performance.now())]);
     const apply = () => {
+      T.push(['apply', Math.round(performance.now())]);
       own.cleanup();
       document.title = doc.title;
       const nav = doc.body.dataset.nav || '';
@@ -209,7 +215,8 @@
       document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) { /* already closed */ } });
       if (window.FavorDrill) window.FavorDrill.close();
       viaSwap = true;
-      runScripts(oldMain, ready);
+      // The new page's frame paints first; its scripts run right after, so the tap is answered before they are read and run.
+      requestAnimationFrame(() => setTimeout(() => { if (my === seq) runScripts(oldMain, ready); }, 0));
       if (push) history.pushState({ hubSwap: 1 }, '', u);
       window.scrollTo(0, 0);
       // The new tab row arrives with its gated tabs hidden: show the ones this person may open, as a full load does.
@@ -217,14 +224,12 @@
       try { saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); } catch (e) {}
       if (saved && window.hubApplyNav) window.hubApplyNav(saved); else if (window.hubNavLayout) window.hubNavLayout();
       if (window.__hubNav) window.__hubNav.init();
+      T.push(['applied', Math.round(performance.now())]);
       if (window.hubNavRefresh) window.hubNavRefresh(false);
       document.dispatchEvent(new CustomEvent('hub-swapped', { detail: { path: pathOf(u), ms: Math.round(performance.now() - stamp) } }));
     };
-    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      // A navigation that starts mid-transition aborts it. The browser then rejects these promises, and nothing else is waiting on them.
-      const vt = document.startViewTransition(apply);
-      for (const p of [vt.ready, vt.finished, vt.updateCallbackDone]) if (p && p.catch) p.catch(() => {});
-    } else apply();
+    // One frame, no cross-fade: a view transition waits a frame for its snapshot (130 ms on a slow phone) and its aborts threw on quick taps.
+    apply();
   }
 
   // The press is answered at once, before the next page arrives: the tab or menu entry lights up and the old page steps back.
@@ -254,8 +259,21 @@
   // so a tap finds them here. Skipped when the person asked their phone to save data.
   function warmArea() {
     if (navigator.connection && navigator.connection.saveData) return;
-    const links = Array.from(document.querySelectorAll('#h-bar a[data-bar]:not([hidden]), #h-tabs a.h-tab:not([hidden])'));
-    links.forEach((a, i) => setTimeout(() => { if (swappable(a.href) && !HEAVY.has(pathOf(a.href)) && pathOf(a.href) !== pathOf(location.href)) fetchPage(a.href).catch(() => {}); }, 1200 + i * 140));
+    const seen = new Set();
+    const links = Array.from(document.querySelectorAll('#h-bar a[data-bar], #h-tabs a.h-tab:not([hidden]), .h-side a.h-area__link[data-area-link]')).filter((a) => {
+      const k = pathOf(a.href);
+      if (seen.has(k) || !swappable(a.href) || HEAVY.has(k) || k === pathOf(location.href)) return false;
+      seen.add(k); return true;
+    });
+    // Three at a time, in order of likelihood, and paused while a tap is being answered.
+    let i = 0;
+    const next = () => {
+      if (i >= links.length) return;
+      if (document.getElementById('h-content').classList.contains('is-leaving')) { setTimeout(next, 600); return; }
+      const a = links[i++];
+      fetchPage(a.href).then(next, next);
+    };
+    setTimeout(() => { next(); next(); next(); }, 1200);
   }
   document.addEventListener('hub-swapped', warmArea);
   if (here()) { if (document.readyState === 'complete') warmArea(); else window.addEventListener('load', warmArea, { once: true }); }
