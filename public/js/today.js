@@ -85,6 +85,7 @@
   } catch { /* storage refused */ }
 
   function cards(list) {
+    document.dispatchEvent(new CustomEvent('hub:cards', { detail: list }));
     $('t-cards').removeAttribute('aria-busy');
     const meta = $('t-needs-meta');
     if (!list.length) {
@@ -554,7 +555,8 @@
     if (back) { ev.preventDefault(); eventSheet(Number(back.dataset.ev)); }
   });
 
-  const show = (d) => { DATA = d; draw(); };
+  const tell = (d) => { window.__hubDay = d; document.dispatchEvent(new CustomEvent('hub:day', { detail: d })); };
+  const show = (d) => { DATA = d; draw(); tell(d); };
   // What this tab last saw shows at once; the fresh answer replaces it.
   let shown = false;
   try {
@@ -575,6 +577,7 @@
       DATA = d;
       remember();
       draw();
+      tell(d);
     })
     .catch(() => {
       if (!shown) grid.innerHTML = '<div class="h-card r2t-clear r2t-span">Your day could not load. Refresh to try again.</div>';

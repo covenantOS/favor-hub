@@ -858,6 +858,15 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'today-briefing',
+    skipIfMissing: true,
+    page: '/',
+    at: '#br-root',
+    title: 'Your briefing',
+    body: 'Gifts since the last workday, the thank-yous waiting, what is late and today\'s meetings, with a line on each partner. {Tap} Focus to see only your next three things.',
+    side: 'bottom',
+  },
+  {
     id: 'today-cards',
     page: '/',
     at: '#t-cards',
@@ -1286,6 +1295,17 @@ export const STEPS: Step[] = [
     body: 'My partners lists every partner you hold, biggest givers first, with the last contact, the last gift and the next step. Pick Quiet 90 days to see who needs a call. Tick the partners you want to call and {tap} Plan calls: it adds one call task each across the days you pick, weekdays only, and can remind you at 9 AM.',
     for: (w) => w.admin || w.teams.includes('rdd') || w.teams.includes('ce'),
     added: '2026-10-10',
+    side: 'bottom',
+  },
+  {
+    id: 'work-health',
+    skipIfMissing: true,
+    page: '/work/',
+    at: '.wm-health',
+    title: 'Health, the next step and trips',
+    body: 'Every partner you hold is marked Growing, Steady, Slipping, Lapsing, At risk or New from how they give. {Tap} a group to filter, then Plan calls for it. Trip planner takes a line like Dallas on Thursday and lists the partners nearby with a route and meeting slots.',
+    for: (w) => w.admin || w.teams.includes('rdd') || w.teams.includes('ce'),
+    added: '2026-10-12',
     side: 'bottom',
   },
   {

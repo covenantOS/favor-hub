@@ -22,6 +22,16 @@ The five numbers at the top are filters. Press Quiet 90 days or more to see who 
 
 Support and admins pick any director from the list at the top. Open in Google Sheets sends the rows on the screen to a sheet only you can open.
 
+## Portfolio health and the next best action
+
+The Portfolio health bar above the list sorts every partner into Growing, Steady, Slipping, Lapsing, At risk or New. Press a group to filter the list. Under a partner's name, a line gives the next best action: thank a gift, welcome a new partner, reconnect when a regular gift is late, or check in when a partner has gone quiet for longer than their giving level calls for. Pick Slipping, Lapsing or At risk and press Plan calls for these to plan a call for every partner in the group.
+
+The phone button on a row opens Call mode, which has the script, the giving, the last notes and a Log it button.
+
+## Trip planner
+
+Press Trip planner and type where you will be, for example "I'm in Dallas Thursday". Choose how far you will drive. FavorOS lists the partners you hold within that distance, picks the ones most worth a visit, builds a route and suggests a meeting slot for each with the drive between them. Open the route in Google Maps, untick anyone you will skip and press Add visit tasks to put each visit on the day as a task. Partners are placed by the ZIP code on their address, and a ZIP that is not placed yet is placed the next time you ask.
+
 ## Plan calls
 
 Tick the partners you want to call and press Plan calls. Choose This week, Two weeks or A month. The window shows the day each call falls on, weekdays only, with the highest giving first. Tick Remind me at 9 AM each day to be reminded each morning. Press Add tasks. Each partner gets one phone call task in Blackbaud, and Undo sits on the message that appears for 24 hours.

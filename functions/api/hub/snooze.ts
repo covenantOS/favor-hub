@@ -9,7 +9,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const b = (await request.json().catch(() => ({}))) as { key?: unknown; until?: unknown };
     const key = typeof b.key === 'string' ? b.key : '';
-    if (!/^card:[a-z0-9-]{1,40}$/.test(key)) return errorJson('bad_key', 'That card cannot be snoozed.', 400);
+    if (!/^(card:[a-z0-9-]{1,40}|moment:[a-z]{3,12}:[0-9]{1,12}(:[0-9-]{4,10})?)$/.test(key)) return errorJson('bad_key', 'That cannot be snoozed.', 400);
     let until: string | null = null;
     if (b.until !== null && b.until !== undefined) {
       until = validSnoozeDate(b.until, etToday());

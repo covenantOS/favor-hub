@@ -1,0 +1,81 @@
+/* The Today briefing: Since you were away, the briefing card, Moments and Focus mode. Uses the Today tokens (r2-today.css). */
+#br-root { display: grid; gap: 18px; }
+#br-root:empty { display: none; }
+.br-skel { height: 220px; }
+.br-card, .br-away, .br-focus { padding: 20px 22px 18px; }
+.br-head { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+.br-head h2 { font: 600 17px var(--h-font); display: flex; align-items: center; gap: 8px; }
+.br-head > span { font: 500 13px var(--h-font); color: var(--r-ink-3); }
+.br-head .br-focusbtn, .br-head .br-pick, .br-head .br-x { margin-left: auto; }
+.br-head .br-pick ~ .br-focusbtn { margin-left: 0; }
+.br-x { width: 44px; height: 44px; margin: -10px -12px -10px auto; display: grid; place-items: center; border: 0; background: none; border-radius: 12px; color: var(--r-ink-2); cursor: pointer; }
+.br-x:hover { background: var(--r-hover, var(--r-sunk)); }
+.br-x svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.br-pick select { height: 36px; max-width: 240px; border: 1px solid var(--r-line-2); border-radius: 10px; background: #fff; padding: 0 10px; font: 600 13px var(--h-font); color: var(--r-ink); }
+.br-lead { font: 500 16px/1.55 var(--h-font); color: var(--r-ink); max-width: 78ch; margin: 2px 0 14px; }
+.br-lead--plain { color: var(--r-ink-2); }
+.br-clear { font: 500 15px/1.5 var(--h-font); color: var(--r-ink-2); margin: 4px 0 2px; }
+.br-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 22px; }
+.br-col h3 { display: flex; align-items: center; gap: 8px; font: 600 13px var(--h-font); color: var(--r-ink-2); margin-bottom: 6px; }
+.br-col h3 small { margin-left: auto; font: 500 13px var(--h-font); color: var(--r-ink-3); }
+.br-col h3 svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.br-list { display: grid; }
+.br-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--r-line); }
+.br-row:first-child { border-top: 0; }
+.br-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.br-t, .br-p { font: 600 14px var(--h-font); color: var(--r-ink); overflow-wrap: anywhere; }
+.br-p { text-decoration: none; }
+.br-p:hover, .br-t:hover { text-decoration: underline; }
+.br-prep { font: 500 13px/1.4 var(--h-font); color: var(--r-ink-3); overflow-wrap: anywhere; }
+.br-prep .br-p { font-weight: 600; color: var(--r-ink-2); }
+.br-dots { font-style: normal; color: var(--r-ink-3); }
+.br-when { flex: none; font: 600 13px var(--h-font); color: var(--r-ink-3); }
+.br-when.is-live { color: #fff; background: var(--live); border-radius: 999px; padding: 2px 10px; }
+.br-tag { flex: none; display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; background: var(--r-sunk); color: var(--r-ink-2); font: 600 12px var(--h-font); }
+.br-tag--late { background: var(--late-tint); color: var(--late); }
+.br-tag--ok { background: var(--ok-tint); color: var(--ok); }
+.br-more { display: inline-flex; align-items: center; min-height: 44px; font: 600 13px var(--h-font); color: var(--r-ink-2); }
+.br-more:hover { color: var(--r-ink); text-decoration: underline; }
+.br-ico { flex: none; width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--t-tint, var(--r-sunk)); color: var(--t-ink, var(--r-ink-2)); }
+.br-ico svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.br-ico--meet { --t-tint: var(--tc-teal-tint); --t-ink: var(--tc-teal-ink); }
+
+.br-chips { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.br-chip { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--r-line); border-radius: 12px; background: #fff; color: var(--r-ink); }
+.br-chip:hover { border-color: var(--r-line-2); box-shadow: 0 2px 8px -3px rgba(29, 33, 27, 0.18); }
+.br-chip b { font: 600 13px var(--h-font); color: var(--r-ink-2); }
+.br-chip span { font: 500 14px/1.4 var(--h-font); }
+
+.br-moments .br-head { margin-bottom: 10px; }
+.br-mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.br-m { display: grid; align-content: start; gap: 6px; padding: 16px 18px; }
+.br-m h3 { font: 600 16px var(--h-font); }
+.br-m p { font: 500 14px/1.5 var(--h-font); color: var(--r-ink-2); }
+.br-kind { display: inline-flex; align-items: center; gap: 6px; font: 600 12px var(--h-font); color: var(--r-ink-3); text-transform: none; }
+.br-kind svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.br-m--quiet .br-kind { color: var(--late); }
+.br-m--largest .br-kind, .br-m--first .br-kind { color: var(--ok); }
+.br-m__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.br-m__acts .h-btn { text-decoration: none; }
+
+.br-three { display: grid; counter-reset: n; }
+.br-three li { display: flex; align-items: center; gap: 14px; min-height: 68px; padding: 10px 0; border-top: 1px solid var(--r-line); }
+.br-three li:first-child { border-top: 0; }
+.br-num { flex: none; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--a-tint, var(--r-sunk)); color: var(--a-ink, var(--r-ink)); font: 700 15px var(--h-font); }
+.br-three .br-t { font-size: 16px; }
+.br-skip { flex: none; min-height: 44px; padding: 0 10px; border: 0; background: none; color: var(--r-ink-3); font: 600 13px var(--h-font); cursor: pointer; }
+.br-skip:hover { color: var(--r-ink); text-decoration: underline; }
+
+/* Focus mode: the briefing's three things alone; the rest of Today waits behind Show everything. */
+.r2t.is-focus > :not(.r2t-hello):not(#br-root):not(.h-welcome) { display: none !important; }
+
+@media (max-width: 860px) {
+  .br-card, .br-away, .br-focus { padding: 16px 16px 14px; }
+  .br-cols { gap: 18px; }
+  .br-head .br-pick { order: 3; width: 100%; margin-left: 0; }
+  .br-head .br-pick select { max-width: none; width: 100%; height: 44px; }
+  .br-head .br-focusbtn { min-height: 44px; }
+  .br-row .h-btn, .br-m__acts .h-btn, .br-focus .h-btn { min-height: 44px; }
+  .br-mgrid { grid-template-columns: 1fr; }
+  .br-lead { font-size: 15px; }
+}

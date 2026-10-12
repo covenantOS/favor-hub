@@ -30,7 +30,11 @@ Add a note, or the Note button at the top, opens one form. Pick the topic, write
 
 Due and open lists the partner's open actions. Tick one to complete it, or press its date to move it. Press its name to open it in the Work Center with every field.
 
-The timeline mixes gifts and contacts, newest first. All, Gifts and Contacts narrow it.
+The top of the page tells the story of the partner in a few sentences, with their health and the next best action. Health is Growing, Steady, Slipping, Lapsing, At risk or New. It comes from the last two years of gifts: how often they give, whether a gift is overdue, how the last 12 months compare with the 12 before and whether anyone has called. Press Call mode on the next best action, or in the buttons under the name, to open Call mode.
+
+Call mode puts the script, the giving and the last notes on one screen with a Log it button. Press Speak it, or type, to say what happened. Write it up turns that into the summary line and notes, and a follow-up task if you said you would do something later. Press Log it to save a completed phone call on the partner. Undo stays for 24 hours.
+
+The timeline mixes gifts, calls, emails, meetings, notes and events, newest first. Chat messages that name the partner, FavorOS meetings about them and your own clips appear in it too. All, Gifts, Contacts and Chat and meetings narrow it.
 
 ## Further down
 

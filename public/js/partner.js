@@ -121,11 +121,16 @@ function toast(msg, bid, bad) {
 
 /* ------------------------------------------------------------------ the view */
 const PANES = new Map(); // id:tab -> the element a record tab (records.js) draws into, kept so a repaint never loses a half-typed form
-const V = { tab: 'overview', id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host: null, mode: 'drawer', editing: null };
+const V = { tab: 'overview', id: null, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host: null, mode: 'drawer', editing: null, tl: null, story: null };
 function holderOf(p) { const cur = (p.assignments || []).filter((a) => a.current); return cur; }
 function figure(label, value, sub) { return `<div class="pp-fig"><b>${value}</b><span>${label}</span>${sub ? `<small>${sub}</small>` : ''}</div>`; }
 function eventsOf(p) {
   const L = local(p.id);
+  if (V.tl && window.FavorBrief) {
+    const all = window.FavorBrief.events(V.tl);
+    for (const e of L.events) if (!all.some((x) => x.t === e.t && x.what === e.what && x.d === e.d)) all.push(e);
+    return all.filter((e) => e.d).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
+  }
   const ev = [];
   for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment ? String(g.comment).replace(/Donor note/gi, 'Partner note') : ''].filter(Boolean).join(' · ') });
   for (const g of ((p.giving.soft && p.giving.soft.recent) || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: 'Soft credit' });
@@ -192,7 +197,7 @@ function view(p, o = {}) {
   const mobile = phones.find((x) => !x.doNotCall && /mobile|cell/i.test(x.type)) || null;
   const email = (p.contact.emails || []).find((x) => !x.doNotEmail);
   const iw = p.iwave;
-  const evs = eventsOf(p).filter((e) => V.filter === 'all' || (V.filter === 'gifts' && e.t === 'gift') || (V.filter === 'contacts' && e.t === 'act') || (V.filter === 'notes' && e.t === 'note'));
+  const evs = eventsOf(p).filter((e) => V.filter === 'all' || (V.filter === 'gifts' && e.t === 'gift') || (V.filter === 'contacts' && e.t === 'act') || (V.filter === 'notes' && e.t === 'note') || (V.filter === 'more' && e.t === 'hub'));
   const tasks = tasksOf(p);
   let month = '';
   const shown = o.compact ? 5 : V.shown;
@@ -203,7 +208,7 @@ function view(p, o = {}) {
     const when = `<span class="when">${fd(e.d)}</span>`;
     if (e.t === 'gift') return head + `<li class="pp-ev pp-ev--gift${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic('gift')}</span><div><span class="pp-amt">${money(e.a)}</span> <b>to ${esc(e.what)}</b>${e.how ? `<p class="by">${esc(e.how)}</p>` : ''}</div>${when}</li>`;
     if (e.t === 'note') return head + `<li class="pp-ev pp-ev--note${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic('note')}</span><div><b>${esc(e.what)}</b>${e.text ? `<p>${esc(e.text)}</p>` : ''}<p class="by">Note${e.by ? ' · ' + esc(e.by) : ''}</p></div>${when}</li>`;
-    return head + `<li class="pp-ev${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic(e.icon || 'task')}</span><div><b>${esc(e.what)}</b>${e.text ? `<p>${esc(String(e.text).slice(0, 400))}</p>` : ''}${e.by ? `<p class="by">${esc(e.by)}</p>` : ''}</div>${when}</li>`;
+    return head + `<li class="pp-ev${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic(e.icon || 'task')}</span><div><b>${e.href ? `<a href="${esc(e.href)}">${esc(e.what)}</a>` : esc(e.what)}</b>${e.text ? `<p>${esc(String(e.text).slice(0, 400))}</p>` : ''}${e.by ? `<p class="by">${esc(e.by)}</p>` : ''}</div>${when}</li>`;
   }).join('');
   const years = (g.years || []).slice(0, 8).reverse();
   const max = Math.max(1, ...years.map((y) => y.total));
@@ -226,6 +231,7 @@ function view(p, o = {}) {
       <span class="pp-acts__sep"></span>
       <button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-compose="contact">${ic('plus')}Log a contact</button>
       ${window.FavorPrep ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-prep="${esc(p.id)}">Call prep</button>` : ''}
+      ${window.FavorCall && callable ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-callmode="${esc(p.id)}">${ic('phone')}Call mode</button>` : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="task">Task</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="note">Note</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-link="${esc(p.id)}">${ic('link')}Copy link</button>
@@ -238,7 +244,7 @@ function view(p, o = {}) {
     </div>`;
   const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? lateText(-dayn(t.due)) : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
       <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? lateText(-n) : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div>${p.actions.openCount > (p.actions.open || []).length ? `<p class="pp-empty pp-openmore">Showing ${(p.actions.open || []).length} of ${Number(p.actions.openCount).toLocaleString('en-US')} open. The rest are in Blackbaud.</p>` : ''}</section>`;
-  const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
+  const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].concat(V.tl && V.tl.events.some((x) => x.kind === 'chat' || x.kind === 'clip' || (x.kind === 'meeting' && x.id.startsWith('meet:'))) ? [['more', 'Chat and meetings']] : []).map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
   if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
@@ -264,7 +270,7 @@ function view(p, o = {}) {
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
   const tabs = `<nav class="pp-tabs" role="tablist" aria-label="Partner sections">${[['overview', 'Overview'], ['contact', 'Contact'], ['codes', 'Codes'], ['record', 'Record']].map(([k, l]) => `<button type="button" role="tab" class="${V.tab === k ? 'is-on' : ''}" aria-selected="${V.tab === k}" data-pp-tab="${k}">${l}</button>`).join('')}</nav>`;
   if (V.tab !== 'overview' && window.FavorRecords) return `<div class="pp">${head}${instrBox()}${acts}${tabs}<div data-pp-pane></div><div class="pp-pad"></div></div>`;
-  return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
+  return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${window.FavorBrief ? window.FavorBrief.storyHTML(V) : ''}${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
 }
 /** Overdue wording: whole days up to 60, then months ("34 mo late"). */
 function lateText(d) { return d === 1 ? '1 day late' : d <= 60 ? d + ' days late' : Math.round(d / 30.4) + ' mo late'; }
@@ -325,13 +331,14 @@ function paint() {
 }
 async function show(host, id, mode) {
   PANES.clear();
-  Object.assign(V, { tab: 'overview', id, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host, mode, editing: null });
+  Object.assign(V, { tab: 'overview', id, p: null, filter: 'all', shown: 8, compose: null, notes: null, notesShown: 10, noteOpen: new Set(), host, mode, editing: null, tl: null, story: null });
   host.innerHTML = skeleton;
   codes();
   try {
     const p = await load(id);
     if (V.id !== id) return null;
     V.p = p; remember(p); paint();
+    if (window.FavorBrief && V.mode !== 'compact') window.FavorBrief.load(id).then((r) => { if (V.id === id) { V.story = r.story || false; V.tl = r.tl; paint(); } }).catch(() => {});
     api('/api/work/partners/' + encodeURIComponent(id) + '/notes').then((d) => { if (V.id === id) { V.notes = d.rows || []; paint(); } }).catch(() => {});
     return p;
   } catch (e) {
@@ -494,6 +501,7 @@ document.addEventListener('click', async (e) => {
     window.FavorWG.pop(b, { giftId: g.giftId, cid: g.cid, name: V.p.name, amount: g.amount, date: g.date, fund: g.fund, phone: ph ? ph.number : null, left: g.left, tasks: (g.taskIds || []).length });
     return;
   }
+  if (d.ppCallmode) { if (window.FavorCall) window.FavorCall.open(d.ppCallmode); return; }
   if (d.ppTab) { if (V.tab !== d.ppTab) { V.tab = d.ppTab; V.compose = null; paint(); } return; }
   if (d.ppCompose) { V.compose = d.ppCompose; V.editing = null; paint(); setTimeout(() => { const i = $('.pp-composer input[name="what"]', V.host); if (i) i.focus(); }, 30); return; }
   if (b.hasAttribute('data-pp-close-compose')) { V.compose = null; paint(); return; }
