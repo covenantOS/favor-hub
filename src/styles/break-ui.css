@@ -256,3 +256,13 @@
 :root .dv-avs .dv-av:not([data-h='x']) { width: 26px; min-width: 26px; height: 26px; padding: 0; font-size: 10px; letter-spacing: -0.02em; overflow: hidden; }
 /* Brain partner card: a long reason under a meter wraps instead of running out of the card. */
 :root .h-body .bc-root .pc__iw .meter em { white-space: normal; min-width: 0; overflow-wrap: anywhere; }
+/* Feedback on a narrow phone: tab counts in the thousands make the tab row scroll instead of overlapping;
+   the two head buttons stack when they do not fit side by side. */
+@media (max-width: 700px) {
+  :root .fbp-tabs { overflow-x: auto; scrollbar-width: none; }
+  :root .fbp-tabs button { flex: 0 0 auto; padding-inline: 10px; }
+  :root .fbp-head > div:last-child { flex-wrap: wrap; }
+  :root .fbp-head > div:last-child > * { min-width: min(100%, 150px); }
+}
+:root .hd-hero { min-width: 0; max-width: 100%; box-sizing: border-box; }
+:root .hd-hero h1, :root .hd-hero p { overflow-wrap: anywhere; }
