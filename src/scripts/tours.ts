@@ -1025,6 +1025,17 @@ export const STEPS: Step[] = [
     side: 'top',
   },
   {
+    id: 'online-gifts',
+    page: '/online-gifts/',
+    via: 'online-gifts',
+    at: '#og-app',
+    title: 'Online gifts',
+    body: "Every gift from the website, the Blackbaud donation forms and international giving, with what the partner wrote. The designation under each comment is read from the partner's words; change it if it is wrong, then press Approve, or Approve all. Batches still waiting in Blackbaud are listed at the top with a link.",
+    for: (w) => w.admin || team('pc')(w),
+    added: '2026-10-12',
+    side: 'top',
+  },
+  {
     id: 'statements',
     page: '/statements/',
     via: 'statements',

@@ -40,6 +40,7 @@ export const FEATURES: Record<string, Feature> = {
   'brain-title': { tier: 3, label: 'Favor Brain: chat titles' },
   'check-triage': { tier: 3, label: 'Gift entry: sorting photos' },
   'check-reading': { tier: 3, label: 'Gift entry: reading checks', offByDefault: true },
+  'online-gift-reading': { tier: 3, label: 'Online gifts: reading a comment the rules could not place' },
   'mail-draft': { tier: 3, label: 'Mail: drafts and summaries' },
   'request-route': { tier: 3, label: 'Requests: sorting new requests' },
   'chat-voice': { tier: 3, label: 'Chat: voice notes to text' },

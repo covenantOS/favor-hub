@@ -16,6 +16,8 @@ export interface Env {
   BLACKBAUD_OPS_URL?: string;
   MIRROR_API_KEY?: string;
   MIRROR_QUERY_URL?: string;
+  /** Fundraise Up read key (international giving), for Online gifts. A Pages secret. */
+  FUNDRAISEUP_API_KEY?: string;
   /** The giving portal's database (favor-portal, same account). Records writes portal_blocks there when a record is marked deceased. */
   PORTAL_DB?: D1Database;
   RECEIPTS_CODE?: string;
