@@ -1,0 +1,145 @@
+/* The guided tour and New in FavorOS (src/scripts/tour.ts). Loaded last in the layout, after round2 and mobile.
+   Three pieces: the step card with its frame, the New in FavorOS list, and the question asked before closing. */
+
+/* ---------- the layer */
+.tr { padding-top: env(safe-area-inset-top); box-sizing: border-box; }
+body.h-body .tr-hole {
+  border-radius: 14px;
+  box-shadow: 0 0 0 200vmax rgba(21, 28, 20, 0.56), 0 0 0 2px #c9a24b, 0 0 0 7px rgba(201, 162, 75, 0.22);
+  transition: transform 0.38s var(--r-ease), width 0.38s var(--r-ease), height 0.38s var(--r-ease);
+}
+/* No frame: the page is dimmed evenly, with no ring left in a corner. */
+body.h-body .tr-hole.is-none { transform: translate(50vw, 50vh) !important; width: 0 !important; height: 0 !important; box-shadow: 0 0 0 200vmax rgba(21, 28, 20, 0.56); transition: none; }
+.tr-spacer { flex: none; width: 100%; pointer-events: none; }
+
+/* A phone has no pointer. A press shows as a ring where a thumb would land. */
+.tr--touch .tr-cursor { width: 0; height: 0; filter: none; transition: none; }
+.tr--touch .tr-cursor svg { display: none; }
+.tr--touch .tr-cursor i { left: -26px; top: -26px; width: 52px; height: 52px; border: 3px solid #c9a24b; background: rgba(201, 162, 75, 0.22); }
+.tr--touch .tr-cursor.is-press i { animation: tr-thumb 0.55s var(--r-ease); }
+@keyframes tr-thumb { 0% { opacity: 0; transform: scale(0.5); } 35% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.25); } }
+
+/* ---------- the step card */
+body.h-body .tr-pop {
+  width: 380px; max-width: calc(100vw - 24px); padding: 16px 18px 16px; border-radius: 18px;
+  background: #fff; border: 1px solid var(--r-line); color: var(--r-ink);
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+  box-shadow: 0 24px 60px -20px rgba(13, 15, 12, 0.5), 0 2px 6px rgba(13, 15, 12, 0.1);
+  transition: left 0.38s var(--r-ease), top 0.38s var(--r-ease);
+  transform: none;
+}
+body.h-body .tr-pop.is-in > * { animation: none; }
+body.h-body .tr-meta { min-height: 32px; font: 600 12px/1 var(--h-font); letter-spacing: 0.08em; color: var(--r-ink-3); }
+body.h-body .tr-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.h-body .tr-x, .trn-x { flex: none; margin-left: auto; width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 999px; background: var(--r-sunk); color: var(--r-ink-2); cursor: pointer; }
+body.h-body .tr-x svg, .trn-x svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+body.h-body .tr-x:hover, .trn-x:hover { background: var(--r-line); color: var(--r-ink); }
+body.h-body .tr-pop h3 { margin: 6px 0 6px; font: 500 21px/1.25 var(--h-serif); letter-spacing: -0.005em; color: var(--r-ink); }
+body.h-body .tr-pop p { margin: 0 0 14px; font: 400 15px/1.5 var(--h-font); color: var(--r-ink-2); }
+body.h-body .tr-bar { height: 4px; margin: 0 0 14px; background: var(--r-sunk); }
+body.h-body .tr-bar i { background: var(--r-ink); }
+body.h-body .tr-acts { gap: 10px; }
+body.h-body .tr-acts .h-btn { height: 40px; padding: 0 18px; font-size: 14px; }
+body.h-body .tr-acts .h-btn--primary { background: var(--r-ink); color: #fff; }
+body.h-body .tr-acts .h-btn--primary:hover { background: #000; }
+body.h-body .tr-pop.is-busy [data-tr-next], body.h-body .tr-pop.is-busy [data-tr-back] { pointer-events: none; }
+body.h-body .tr-going { margin: 0 !important; font-weight: 600 !important; color: var(--r-ink) !important; }
+body.h-body .tr-rate { background: var(--r-hover); border-radius: 12px; font-weight: 600; }
+body.h-body .tr-link { font-size: 14px; font-weight: 600; color: var(--r-ink); }
+
+@media (max-width: 860px) {
+  body.h-body .tr-pop { left: 12px !important; width: calc(100vw - 24px) !important; max-width: none; padding: 16px 18px 18px; border-radius: 22px; transform: none; transition: top 0.32s var(--r-ease); }
+  body.h-body .tr-x { width: 44px; height: 44px; margin-right: -6px; }
+  body.h-body .tr-meta { min-height: 44px; font-size: 13px; }
+  body.h-body .tr-pop h3 { font-size: 22px; margin-top: 2px; }
+  body.h-body .tr-pop p { font-size: 16px; }
+  body.h-body .tr-acts .h-btn { height: 48px; min-width: 96px; padding: 0 22px; font-size: 16px; border-radius: 14px; }
+  body.h-body .tr-rate .h-btn { height: 44px; }
+}
+/* iPad upright uses the phone layout: the card and the list keep a card's width, centered. */
+@media (min-width: 600px) and (max-width: 860px) {
+  body.h-body .tr-pop { width: 520px !important; left: calc(50% - 260px) !important; }
+  dialog.trn { inset: auto 0 0 0; margin: 0 auto; width: min(560px, 100%); }
+}
+/* iPad and a narrow window: the card keeps its own width beside the thing it shows. */
+@media (min-width: 861px) { body.h-body .tr-pop { width: 380px !important; left: auto; transform: none; } }
+
+/* ---------- New in FavorOS: the list */
+dialog.trn, dialog.tra { border: 0; padding: 0; color: var(--r-ink); font-family: var(--h-font); }
+dialog.trn::backdrop, dialog.tra::backdrop { background: rgba(21, 28, 20, 0.56); }
+dialog.trn {
+  width: min(560px, calc(100vw - 32px)); max-width: none; max-height: min(720px, calc(100vh - 48px)); margin: auto; overflow: hidden;
+  border-radius: 22px; background: var(--r-canvas); box-shadow: 0 30px 80px -24px rgba(13, 15, 12, 0.55);
+}
+dialog.trn[open] { display: flex; animation: trn-in 0.24s var(--r-ease); }
+dialog.trn[open]::backdrop, dialog.tra[open]::backdrop { animation: trn-fade 0.2s ease; }
+@keyframes trn-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes trn-fade { from { opacity: 0; } to { opacity: 1; } }
+.trn-in { display: flex; flex-direction: column; min-height: 0; width: 100%; }
+.trn-head { display: flex; align-items: flex-start; gap: 12px; padding: 22px 22px 14px; }
+.trn-head > div { min-width: 0; flex: 1; }
+.trn-eye { margin: 0 0 6px; font: 600 12px/1 var(--h-font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--r-ink-3); }
+.trn-head h2 { margin: 0; font: 500 26px/1.2 var(--h-serif); letter-spacing: -0.01em; color: var(--r-ink); }
+.trn-sub { margin: 6px 0 0; font: 400 15px/1.45 var(--h-font); color: var(--r-ink-2); }
+.trn-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 2px 22px 8px; }
+.trn-h { margin: 18px 0 8px; font: 600 12px/1 var(--h-font); letter-spacing: 0.1em; text-transform: uppercase; color: var(--r-ink-3); }
+.trn-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.trn-row { background: #fff; border: 1px solid var(--r-line); border-radius: 16px; overflow: hidden; }
+.trn-go { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; min-height: 64px; padding: 12px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.trn-go:hover { background: var(--r-hover); }
+.trn-go:focus-visible, .trn-skip:focus-visible, .tra-skip:focus-visible { outline: 2px solid var(--r-ink); outline-offset: -2px; }
+.trn-ico { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--tc-sun-tint); color: var(--r-ink); }
+.trn-ico .h-i { width: 20px; height: 20px; }
+.trn-t { display: grid; gap: 2px; min-width: 0; }
+.trn-t b { font: 600 16px/1.3 var(--h-font); color: var(--r-ink); }
+.trn-t span { font: 400 14px/1.4 var(--h-font); color: var(--r-ink-2); }
+.trn-chev svg { display: block; width: 20px; height: 20px; fill: none; stroke: var(--r-ink-3); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.trn-done { font: 600 13px/1 var(--h-font); font-style: normal; padding: 6px 10px; border-radius: 999px; background: var(--tc-leaf-tint); color: #1f3a1a; }
+.trn-row.is-done .trn-ico { background: var(--r-sunk); color: var(--r-ink-3); }
+.trn-links { display: flex; flex-wrap: wrap; gap: 0 4px; padding: 0 8px 4px 60px; }
+.trn-links a, .trn-more a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 8px; font: 600 14px/1 var(--h-font); color: var(--r-ink-2); text-decoration: underline; text-decoration-color: var(--r-line-2); text-underline-offset: 4px; }
+.trn-links a:hover, .trn-more a:hover { color: var(--r-ink); text-decoration-color: var(--r-ink-3); }
+.trn-more { display: flex; flex-wrap: wrap; gap: 0 8px; margin: 10px 0 0 -8px; }
+.trn-as { display: flex; align-items: center; gap: 10px; margin: 6px 0 10px; font: 600 14px/1 var(--h-font); color: var(--r-ink-2); }
+.trn-as select { height: 44px; padding: 0 12px; border: 1px solid var(--r-line-2); border-radius: 12px; background: #fff; font: 500 15px var(--h-font); color: var(--r-ink); }
+.trn-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 22px 20px; border-top: 1px solid var(--r-line); background: var(--r-canvas); }
+body.h-body .trn-foot .h-btn--primary, body.h-body .tra-acts .h-btn--primary { height: 48px; min-width: 132px; padding: 0 26px; border-radius: 14px; background: var(--r-ink); color: #fff; font-size: 16px; justify-content: center; }
+body.h-body .trn-foot .h-btn--primary:hover, body.h-body .tra-acts .h-btn--primary:hover { background: #000; }
+.trn-skip, .tra-skip { min-height: 48px; padding: 0 14px; margin-left: -14px; border: 0; border-radius: 12px; background: none; font: 600 15px/1 var(--h-font); color: var(--r-ink-3); cursor: pointer; }
+.trn-skip:hover, .tra-skip:hover { color: var(--r-ink); background: var(--r-sunk); }
+
+@media (max-width: 860px) {
+  /* A sheet from the bottom edge, pinned with offsets (a phone browser runs viewport units under its toolbar). */
+  dialog.trn { position: fixed; inset: auto 0 0 0; top: auto; width: 100%; max-width: none; max-height: none; margin: 0; border-radius: 24px 24px 0 0; }
+  dialog.trn[open] { top: calc(env(safe-area-inset-top) + 44px); animation-name: trn-up; }
+  @keyframes trn-up { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .trn-head { padding: 20px 18px 12px; }
+  .trn-x { width: 44px; height: 44px; margin: -4px -4px 0 auto; }
+  .trn-body { padding: 2px 18px 8px; }
+  .trn-foot { padding: 12px 18px calc(14px + env(safe-area-inset-bottom)); }
+  body.h-body .trn-foot .h-btn--primary { flex: 1; max-width: 240px; }
+}
+
+/* ---------- the question before closing */
+dialog.tra { width: min(400px, calc(100vw - 32px)); margin: auto; padding: 24px 24px 20px; border-radius: 22px; background: #fff; box-shadow: 0 30px 80px -24px rgba(13, 15, 12, 0.6); }
+dialog.tra[open] { animation: trn-in 0.2s var(--r-ease); }
+.tra h3 { margin: 0 0 8px; font: 500 24px/1.2 var(--h-serif); color: var(--r-ink); }
+.tra p { margin: 0 0 6px; font: 400 16px/1.5 var(--h-font); color: var(--r-ink-2); }
+.tra .tra-when { font-size: 14px; color: var(--r-ink-3); }
+.tra-acts { display: grid; gap: 6px; margin-top: 18px; }
+body.h-body .tra-acts .h-btn--primary { width: 100%; }
+.tra-skip { margin: 0; width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.trn[open], dialog.tra[open], dialog.trn[open]::backdrop, dialog.tra[open]::backdrop { animation: none; }
+  body.h-body .tr-pop, body.h-body .tr-hole { transition: none; }
+}
+
+/* ---------- Today: the card that waits until the tours are done, and the number on Help */
+body.h-body .h-welcome { grid-template-columns: auto minmax(0, 1fr) auto; }
+@media (max-width: 860px) {
+  body.h-body .h-welcome { grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; }
+  body.h-body .h-welcome__acts { grid-column: auto; }
+  body.h-body .h-welcome__acts .h-btn { height: 44px; }
+}
+body.h-body .h-pg .h-nav__help .h-nav__count { margin-left: auto; }

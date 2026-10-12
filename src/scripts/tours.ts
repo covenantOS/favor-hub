@@ -1,7 +1,18 @@
-// The guided tours. Each step names the page it happens on, the thing to point at, and what to say.
-// A step can press something for the person (open search, switch a tab) or type an example into a
-// box; it never sends, saves or signs anything. Steps carry who they are for, so each person gets
-// the tour for their own work, and a date when the thing is new, which drives "What's new".
+// The guided tours, in three parts. This file is data: no page code, so the tests and the server read it too.
+//
+//   CORE      The tour a new person gets on their first page: 8 to 10 stops, by role.
+//   RELEASES  New features, grouped by the day they shipped. Each feature is one walkthrough of 1 to 4 steps on the real
+//             screen, with its help article and training clip, shown only to the people who can open that feature.
+//             FavorOS opens "New in FavorOS" by itself for anyone with a walkthrough they have not seen.
+//   STEPS     One or two steps for every page, run from Help as "Show me this page".
+//
+// SHIPPING A FEATURE: add a feature to the newest release below (or start a release with today's date), a step for its
+// page in STEPS, a help article in src/content/help, and a line in src/content/help/whats-new.md. A release holds at
+// most 8 features. A feature that is not worth a walkthrough gets the What's new line only.
+//
+// A step names the page it happens on, the thing to point at, and what to say. It can press something for the person
+// (open search, switch a tab) or type an example into a box; it never sends, saves or signs anything.
+// Copy: write {tap} or {Tap} where the person presses something. A phone reads "tap" and a computer reads "click".
 
 export type Who = {
   admin: boolean;
@@ -13,6 +24,28 @@ export type Who = {
   teams: string[];
   leader: boolean;
   first: string;
+  /** What /api/hub/nav says this person may open. */
+  chat: boolean;
+  projects: boolean;
+  meetings: boolean;
+  /** May record a clip. */
+  clips: boolean;
+  hr: boolean;
+};
+
+/** The parts of a step a phone or a computer may change. */
+export type StepParts = {
+  page?: string;
+  via?: string;
+  at?: string;
+  /** Point here when `at` is not on the screen (a list with no rows, a card that needs Google connected). */
+  alt?: string;
+  title?: string;
+  body?: string | ((w: Who) => string);
+  press?: string;
+  type?: string;
+  undo?: string;
+  side?: 'right' | 'left' | 'top' | 'bottom';
 };
 
 export type Step = {
@@ -21,6 +54,7 @@ export type Step = {
   page?: string;
   /** What to point at. Missing or not found: the card shows in the middle of the screen. */
   at?: string;
+  alt?: string;
   title: string;
   body: string | ((w: Who) => string);
   /** Press this before pointing (after the pointer moves to it). */
@@ -31,16 +65,48 @@ export type Step = {
   undo?: string;
   /** Who sees the step. Missing: everyone. */
   for?: (w: Who) => boolean;
-  /** The date the thing became new, YYYY-MM-DD, for What's new. */
+  /** The date the thing became new, YYYY-MM-DD. */
   added?: string;
   /** The menu item the pointer presses to get to `page`. */
   via?: string;
   side?: 'right' | 'left' | 'top' | 'bottom';
+  /** What changes on a phone. `false` leaves the step out on a phone. */
+  phone?: StepParts | false;
+  /** What changes on a computer. `false` leaves the step out on a computer. */
+  desk?: StepParts | false;
+  /** Leave the step out when neither `at` nor `alt` is on the screen. */
+  skipIfMissing?: boolean;
 };
+
+export type Feature = {
+  id: string;
+  title: string;
+  /** One line for the New in FavorOS list. */
+  blurb: string;
+  /** An icon name from src/data/icons.ts. */
+  icon: string;
+  /** Who can open the feature. Missing: everyone. */
+  for?: (w: Who) => boolean;
+  /** Help article slug (src/content/help). */
+  article: string;
+  /** Training video slug (src/data/videos.json), when there is one. */
+  clip?: string;
+  /** 1 to 4 steps. */
+  steps: Step[];
+};
+
+export type Release = {
+  /** The day it shipped, YYYY-MM-DD. */
+  id: string;
+  title: string;
+  features: Feature[];
+};
+
+export type Device = 'phone' | 'desk';
 
 const team = (t: string) => (w: Who) => w.teams.includes(t);
 const any = (...fs: Array<(w: Who) => boolean>) => (w: Who) => fs.some((f) => f(w));
-const receiptsPeople = (w: Who) => w.admin || w.leader || w.teams.includes('marketing') || w.teams.includes('pc');
+const receiptsPeople = (w: Who) => w.admin || w.leader || w.teams.includes('marketing') || w.teams.includes('pc') || w.teams.includes('support') || w.teams.includes('admin');
 const foundationPeople = (w: Who) => w.admin || w.leader || w.teams.includes('grants') || w.teams.includes('rdd');
 
 export function roleName(w: Who): string {
@@ -52,6 +118,448 @@ export function roleName(w: Who): string {
   return 'every Favor staff member';
 }
 
+/** The one stop in the core tour that differs by job. */
+function job(w: Who): string {
+  if (w.admin) return 'admin';
+  if (w.leader) return 'leader';
+  if (w.work && (w.teams.includes('rdd') || w.teams.includes('ce'))) return 'partners';
+  if (w.work && w.teams.includes('pc')) return 'cadence';
+  if (w.teams.includes('grants')) return 'grants';
+  if (w.teams.includes('marketing') || w.teams.includes('support') || w.teams.includes('admin')) return 'receipts';
+  return '';
+}
+const jobIs = (j: string) => (w: Who) => job(w) === j;
+
+/** The core tour. A new person gets it on their first page. Keep it between 8 and 10 stops for every role. */
+export const CORE: Step[] = [
+  {
+    id: 'core-today',
+    page: '/',
+    via: 'home',
+    at: '.h-hello',
+    title: 'Today is your home page',
+    body: 'FavorOS opens here. It shows the date and what is waiting on you.',
+    side: 'bottom',
+  },
+  {
+    id: 'core-needs',
+    page: '/',
+    at: '#t-cards',
+    title: 'What needs you',
+    body: 'Each card is work waiting on you. {Tap} a card to go to it. The clock on a card hides it until a day you pick.',
+    side: 'bottom',
+  },
+  {
+    id: 'core-menu',
+    page: '/',
+    at: '.h-side .h-areas',
+    title: 'The menu',
+    body: 'Each area of FavorOS opens from here, with its pages as tabs across the top. A number shows how much is waiting in that area.',
+    side: 'right',
+    phone: { at: '#h-bar', title: 'The bar at the bottom', body: 'Each area of FavorOS opens from this bar. More holds the rest, with Help and Feedback. A number shows how much is waiting in that area.' },
+  },
+  {
+    id: 'core-search',
+    page: '/',
+    at: '#cmdk .cmdk__panel',
+    press: '.h-side [data-cmdk-open]',
+    type: 'receipts',
+    undo: '[data-cmdk-close]',
+    title: 'Search finds anything',
+    body: 'Press Ctrl and K on any page (Command and K on a Mac) and type a few letters. Search finds pages, partners, help topics and videos.',
+    side: 'bottom',
+    phone: { press: '.h-top__search', body: '{Tap} the magnifier at the top of any page and type a few letters. Search finds pages, partners, help topics and videos.' },
+  },
+  {
+    id: 'core-work',
+    page: '/work-home/',
+    via: 'work-home',
+    at: '.wh-tools',
+    title: 'Work',
+    body: 'Work holds the tools for your job. Each tile opens one, and a number shows what is waiting there.',
+    side: 'bottom',
+  },
+  {
+    id: 'core-request',
+    page: '/requests/new',
+    via: 'new',
+    at: '#route-text',
+    type: 'Could we add the October newsletter to the website?',
+    title: 'Ask for something',
+    body: 'Say what you need in your own words, then {tap} Continue. FavorOS suggests where it goes: the request board, the Marketing team or an expense request. Nothing is sent until you finish the form.',
+    side: 'bottom',
+  },
+  {
+    id: 'core-board',
+    page: '/requests/',
+    via: 'board',
+    at: '.req-col.is-on',
+    title: 'Follow your request',
+    body: 'Every request moves through Inbox, Approved, In motion and Done. You get an email when yours is done.',
+    side: 'right',
+    phone: { at: '#req-tabs' },
+  },
+  {
+    id: 'core-partners',
+    page: '/work/',
+    via: 'work',
+    at: '.wc-tabs',
+    title: 'Your Work Center',
+    body: 'Open actions lists what is due. Gifts to thank and My partners sit beside it. {Tap} a partner name anywhere in FavorOS to open the partner.',
+    for: jobIs('partners'),
+    side: 'bottom',
+  },
+  {
+    id: 'core-cadence',
+    page: '/work/',
+    via: 'work',
+    at: '.wc-tabs',
+    title: 'Your Work Center',
+    body: 'Cadence lists the partners due for contact. Open actions lists what is due. {Tap} a partner name anywhere in FavorOS to open the partner.',
+    for: jobIs('cadence'),
+    side: 'bottom',
+  },
+  {
+    id: 'core-grants',
+    page: '/foundations/',
+    via: 'foundations',
+    at: '#fnd-q',
+    title: 'Check a foundation before you call',
+    body: 'One search covers this list and every organization in Blackbaud. It shows who already talked to them and when.',
+    for: jobIs('grants'),
+    side: 'bottom',
+  },
+  {
+    id: 'core-receipts',
+    page: '/receipts/',
+    via: 'receipts',
+    at: '#rcp-stats',
+    title: 'Receipts',
+    body: 'Every gift Blackbaud has not receipted yet. Make the print file, print it, then mark the gifts thanked.',
+    for: jobIs('receipts'),
+    side: 'bottom',
+  },
+  {
+    id: 'core-kpi',
+    page: '/dashboard/',
+    via: 'kpi',
+    at: '#kpi-frame',
+    title: 'The numbers',
+    body: 'Reporting opens on the year at a glance. Each team has its own tab, and Definitions says how each number is counted.',
+    for: jobIs('leader'),
+    side: 'left',
+  },
+  {
+    id: 'core-admin',
+    page: '/admin/',
+    via: 'admin-home',
+    at: '#ad-strip',
+    title: 'The jobs behind FavorOS',
+    body: 'Each tile shows when a job last ran and whether it is OK, Late or Failed. Every setting is one {tap} away.',
+    for: jobIs('admin'),
+    side: 'bottom',
+  },
+  {
+    id: 'core-brain',
+    page: '/brain/',
+    via: 'brain',
+    at: '#bc-compose',
+    title: 'Ask in plain words',
+    body: 'Type a question about partners, giving, team numbers or the manuals. Answers come back as cards and tables from the records your account can see.',
+    side: 'top',
+  },
+  {
+    id: 'core-help',
+    page: '/brain/',
+    at: '#lp-btn',
+    title: 'Help on every page',
+    body: 'The question mark opens the article and the videos for the page you are on. Help in the menu has every article, this tour and what is new.',
+    side: 'bottom',
+    phone: { body: 'The question mark opens the article and the videos for the page you are on. Help, under More, has every article, this tour and what is new.' },
+  },
+];
+
+const chatPeople = (w: Who) => w.chat;
+
+/** New features by the day they shipped, newest first. At most 8 features in a release. */
+export const RELEASES: Release[] = [
+  {
+    id: '2026-10-11',
+    title: 'October 11',
+    features: [
+      {
+        id: 'chat',
+        title: 'Chat',
+        blurb: 'Channels, direct messages and threads with the team.',
+        icon: 'chat',
+        for: chatPeople,
+        article: 'chat',
+        steps: [
+          {
+            id: 'n-chat-list',
+            page: '/chat/',
+            via: 'chat',
+            at: '.ch-side',
+            title: 'Channels and messages',
+            body: 'Channels and direct messages are listed here. Bold means unread. A number means someone mentioned you.',
+            side: 'right',
+            phone: { at: '.ch-sec[data-sec="channels"]' },
+          },
+          {
+            id: 'n-chat-write',
+            page: '/chat/',
+            at: '.ch-main .ch-comp__box',
+            title: 'Write a message',
+            body: 'Type here and send. The plus shares a Drive file, a clip or a meeting. @ brings a person in.',
+            side: 'top',
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]' },
+          },
+          {
+            id: 'n-chat-huddle',
+            page: '/chat/',
+            at: '.ch-head .ch-btn--meet',
+            title: 'Huddle',
+            body: '{Tap} Huddle to check your camera and microphone, then start a call with the channel or join one.',
+            side: 'bottom',
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]', undo: '.ch-head [data-act="back"]' },
+          },
+        ],
+      },
+      {
+        id: 'chat-brain',
+        title: 'Favor Brain in Chat',
+        blurb: 'Ask about partners and giving without leaving the conversation.',
+        icon: 'brain',
+        for: chatPeople,
+        article: 'chat',
+        clip: 'meet-the-brain',
+        steps: [
+          {
+            id: 'n-brain-ask',
+            page: '/chat/',
+            via: 'chat',
+            at: '.ch-main [data-act="ask-brain"]',
+            title: 'Ask Favor Brain',
+            body: '{Tap} the spark, or type @Favor Brain and a question, in any channel or thread. The answer comes back as cards and tables.',
+            side: 'top',
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]' },
+          },
+          {
+            id: 'n-brain-private',
+            page: '/chat/',
+            at: '.ch-main .ch-comp__box',
+            title: 'The answer is yours first',
+            body: 'Only you see the answer. Share to channel under it shows it to everyone there, and Dismiss removes it.',
+            side: 'top',
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]', undo: '.ch-head [data-act="back"]' },
+          },
+        ],
+      },
+      {
+        id: 'projects',
+        title: 'Projects',
+        blurb: 'Task lists, a board, a calendar and a timeline for shared work.',
+        icon: 'log',
+        for: (w) => w.projects,
+        article: 'projects',
+        steps: [
+          {
+            id: 'n-proj-mine',
+            page: '/projects/',
+            via: 'projects',
+            at: '.pj-tiles',
+            title: 'Your tasks',
+            body: 'My tasks counts what is assigned to you: overdue, due today and open.',
+            side: 'bottom',
+          },
+          {
+            id: 'n-proj-add',
+            page: '/projects/',
+            at: '.pj-sec[data-zone="today"]',
+            title: 'Add a task',
+            body: 'Type a task under Today, Next 7 days or Later. In Chat, /task makes one from a message.',
+            side: 'top',
+          },
+          {
+            id: 'n-proj-all',
+            page: '/projects/',
+            press: '#pj-tab-projects',
+            undo: '#pj-tab-mine',
+            at: '.pj-pane',
+            title: 'All projects',
+            body: 'Each project has a list, a board, a calendar and a timeline. A project can have its own Chat channel and a folder in US Team Files.',
+            side: 'top',
+          },
+        ],
+      },
+      {
+        id: 'requests',
+        title: 'Send a request to someone',
+        blurb: 'Hand a request to a person, and bring others in with a mention.',
+        icon: 'inbox',
+        article: 'request-board',
+        steps: [
+          {
+            id: 'n-req-filters',
+            page: '/requests/',
+            via: 'board',
+            at: '#req-filters',
+            title: 'Yours, sent and waiting',
+            body: 'Mine shows the requests you own. Sent by me and Waiting on others follow the ones you handed off.',
+            side: 'bottom',
+          },
+          {
+            id: 'n-req-send',
+            page: '/requests/',
+            press: '.req-col.is-on .req-card, .req-card',
+            at: '.rq [data-send-to]',
+            alt: '.rq .rq-fields',
+            title: 'Send to',
+            body: (w) =>
+              w.admin
+                ? 'Open a request and {tap} Send to. Pick a person and add a note. They get it on Today, the bell, in Chat and by email.'
+                : 'A request sent to you opens here with the note. Owner shows who has it now, and Waiting on shows who it is held up by.',
+            side: 'left',
+          },
+          {
+            id: 'n-req-mention',
+            page: '/requests/',
+            at: '.rq .rq-comp',
+            alt: '.rq .rq-foot__note, .rq',
+            undo: '#rq-drawer .rt-x[data-rq-close]',
+            title: 'Mention a person',
+            body: 'Type @ in a comment and pick a name. That person gets a notice and can answer here or in Chat.',
+            side: 'top',
+          },
+        ],
+      },
+      {
+        id: 'today-meetings',
+        title: "Today's meetings",
+        blurb: 'Your whole calendar on Today, with Join and Move to FavorOS.',
+        icon: 'video',
+        article: 'today',
+        steps: [
+          {
+            id: 'n-meet-card',
+            page: '/',
+            via: 'home',
+            at: '[data-card="meetings"]',
+            alt: '.r2t-connect',
+            title: "Today's meetings",
+            body: "Today lists every event on your Google Calendar for the day, with where it is held and a Join button. Connect my Google turns it on if you have not yet.",
+            side: 'top',
+          },
+          {
+            id: 'n-meet-move',
+            page: '/',
+            at: '[data-card="meetings"]',
+            title: 'Move to FavorOS',
+            body: '{Tap} a meeting held in Zoom, Meet or Teams, then Move to FavorOS. It makes a FavorOS meeting at the same time with the same people.',
+            side: 'top',
+            skipIfMissing: true,
+          },
+        ],
+      },
+      {
+        id: 'wc-groups',
+        title: 'Work Center tabs in groups',
+        blurb: 'Sixteen tabs now sit in five groups.',
+        icon: 'work',
+        for: (w) => w.work,
+        article: 'work-center',
+        clip: 'work-center',
+        steps: [
+          {
+            id: 'n-wc-groups',
+            page: '/work/',
+            via: 'work',
+            at: '.wc-groups',
+            title: 'Five groups',
+            body: 'The Work Center tabs sit in groups: My work, Gifts, Grants, Reports and Review. A dot marks a group with something new in it.',
+            side: 'bottom',
+          },
+          {
+            id: 'n-wc-tabs',
+            page: '/work/',
+            at: '.wc-tabs',
+            title: 'The tabs of a group',
+            body: 'The second row holds the tabs of the group you are in, with a count on each. The Work Center opens on the tab you used last.',
+            side: 'bottom',
+          },
+        ],
+      },
+      {
+        id: 'clips',
+        title: 'Clip recorder',
+        blurb: 'Record your screen to show someone how, with controls that follow you.',
+        icon: 'camera',
+        for: (w) => w.clips,
+        article: 'clips',
+        steps: [
+          {
+            id: 'n-clip-cam',
+            at: '#clip-cam',
+            title: 'Record a clip',
+            body: 'The camera opens a small recorder. Pick the screen, a window or a tab, then {tap} Start recording. Stop, Pause and Mute stay on top of whatever you open.',
+            side: 'bottom',
+            phone: false,
+          },
+          {
+            id: 'n-clip-lib',
+            page: '/clips/',
+            via: 'clips',
+            at: '#cl-rows .cl-card',
+            alt: '#cl-new',
+            title: 'Your clips',
+            body: 'Each clip gets a title, a summary and chapters. Only you see a clip until you share its link.',
+            side: 'right',
+            phone: { body: 'Clips play here. Recording is done on a computer, from the camera at the top right. Only you see a clip until you share its link.', side: 'bottom' },
+          },
+        ],
+      },
+      {
+        id: 'receipts-statements',
+        title: 'Receipts and giving statements',
+        blurb: 'Print receipts and make statements without opening Blackbaud.',
+        icon: 'receipt',
+        for: receiptsPeople,
+        article: 'giving-statements',
+        clip: 'thank-you-receipts',
+        steps: [
+          {
+            id: 'n-rcp-stats',
+            page: '/receipts/',
+            via: 'receipts',
+            at: '#rcp-stats',
+            title: 'Receipts waiting',
+            body: 'Every gift Blackbaud has not receipted yet, counted here.',
+            side: 'bottom',
+          },
+          {
+            id: 'n-rcp-make',
+            page: '/receipts/',
+            at: '#rcp-make',
+            title: 'One print file at a time',
+            body: 'Make the print file, print it on the receipt paper, then mark the gifts thanked so they never print twice.',
+            side: 'top',
+          },
+          {
+            id: 'n-stm-tabs',
+            page: '/statements/',
+            via: 'statements',
+            at: '#stm-tabs',
+            title: 'Giving statements',
+            body: 'One partner finds a partner and a year and shows every gift before you make the PDF. Year-end run makes the January statements.',
+            side: 'bottom',
+          },
+        ],
+      },
+    ],
+  },
+];
+
+/** Steps for every page, run from Help as "Show me this page". */
 export const STEPS: Step[] = [
   {
     id: 'today',
@@ -835,13 +1343,79 @@ export const STEPS: Step[] = [
   },
 ];
 
-export function stepsFor(w: Who, mode: 'full' | 'new', since: string): Step[] {
-  const mine = STEPS.filter((s) => !s.for || s.for(w));
-  if (mode === 'full') return mine;
-  const fresh = mine.filter((s) => s.added && s.added > since);
-  return fresh.length ? fresh : mine.filter((s) => s.added);
+/** The step as this device shows it, or null when the device leaves it out. */
+export function resolveStep(s: Step, device: Device): Step | null {
+  const part = device === 'phone' ? s.phone : s.desk;
+  if (part === false) return null;
+  return part ? { ...s, ...part } : s;
 }
 
-export function latestAdded(): string {
-  return STEPS.reduce((m, s) => (s.added && s.added > m ? s.added : m), '');
+/** {tap} and {Tap} become the word for the device. */
+export function say(text: string, device: Device): string {
+  const word = device === 'phone' ? 'tap' : 'click';
+  return text.replace(/\{tap\}/g, word).replace(/\{Tap\}/g, word[0].toUpperCase() + word.slice(1));
 }
+
+const mine = (w: Who, list: Step[], device: Device): Step[] =>
+  list.filter((s) => !s.for || s.for(w)).map((s) => resolveStep(s, device)).filter(Boolean) as Step[];
+
+export function coreFor(w: Who, device: Device): Step[] {
+  // Someone with no Work Center has no Work stop: the request stops cover their part of Work.
+  return mine(w, CORE, device).filter((s) => s.id !== 'core-work' || w.work || w.admin);
+}
+
+export type Offer = { release: Release; feature: Feature; item: string };
+
+export const coreItem = 'core';
+export const releaseItem = (releaseId: string) => `r:${releaseId}`;
+export const featureItem = (releaseId: string, featureId: string) => `f:${releaseId}.${featureId}`;
+
+/** Every walkthrough this person can see, newest release first. */
+export function offersFor(w: Who): Offer[] {
+  const out: Offer[] = [];
+  for (const release of RELEASES) {
+    for (const feature of release.features) {
+      if (!feature.for || feature.for(w)) out.push({ release, feature, item: featureItem(release.id, feature.id) });
+    }
+  }
+  return out;
+}
+
+export function featureSteps(f: Feature, w: Who, device: Device): Step[] {
+  return mine(w, f.steps, device);
+}
+
+const norm = (p: string) => p.replace(/\/+$/, '') || '/';
+
+/** The steps for one page, for "Show me this page". */
+export function pageSteps(w: Who, path: string, device: Device): Step[] {
+  return mine(w, STEPS, device).filter((s) => s.page && norm(s.page) === norm(path));
+}
+
+/** Any step by id, from the core tour, a release or the page steps. */
+export function findStep(id: string): Step | null {
+  for (const s of CORE) if (s.id === id) return s;
+  for (const r of RELEASES) for (const f of r.features) for (const s of f.steps) if (s.id === id) return s;
+  return STEPS.find((s) => s.id === id) || null;
+}
+
+/** Every item progress is kept for: the core tour, each release (its snooze) and each feature. */
+export function allItems(): string[] {
+  const out = [coreItem];
+  for (const r of RELEASES) {
+    out.push(releaseItem(r.id));
+    for (const f of r.features) out.push(featureItem(r.id, f.id));
+  }
+  return out;
+}
+
+/** The roles the admin can preview, and the tests walk. */
+export const PRESETS: Record<string, Partial<Who>> = {
+  staff: { admin: false, leader: false, work: false, teams: [], kpi: true, approver: false, expenseLog: false, hr: false },
+  rdd: { work: true, admin: false, leader: false, teams: ['rdd'], kpi: true, approver: false, expenseLog: false, hr: false },
+  pc: { work: true, admin: false, leader: false, teams: ['pc'], kpi: true, approver: false, expenseLog: false, hr: false },
+  ce: { work: true, admin: false, leader: false, teams: ['ce'], kpi: true, approver: false, expenseLog: false, hr: false },
+  grants: { work: true, admin: false, leader: false, teams: ['grants'], kpi: true, approver: false, expenseLog: false, hr: false },
+  marketing: { work: false, admin: false, leader: false, teams: ['marketing'], kpi: true, approver: false, expenseLog: false, hr: false },
+  leader: { work: true, admin: false, leader: true, teams: ['rdd', 'ce', 'pc', 'grants', 'marketing'], kpi: true, approver: true, expenseLog: true, hr: false },
+};

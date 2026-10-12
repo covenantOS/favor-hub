@@ -134,24 +134,7 @@
     } else more.hidden = true;
   }
 
-  // The welcome card shows until the person hides it or opens Help.
-  const WELCOME = 'favor.hub.welcome.v1';
-  try {
-    if (!localStorage.getItem(WELCOME)) $('t-welcome').hidden = false;
-  } catch {
-    // Private windows can refuse storage; the card stays hidden there.
-  }
-  const hideWelcome = () => {
-    $('t-welcome').hidden = true;
-    document.documentElement.classList.remove('show-welcome');
-    try {
-      localStorage.setItem(WELCOME, String(Date.now()));
-    } catch {
-      // nothing to do
-    }
-  };
-  $('t-welcome-x').addEventListener('click', hideWelcome);
-  $('t-welcome').querySelector('[data-tour-start]').addEventListener('click', hideWelcome);
+  // The tour card stays until the tour and the new walkthroughs are done (src/scripts/tour.ts shows and hides it).
 
   const SLICE_OF = { rdd: 'rdds', pc: 'pc', ce: 'ce', mk: 'marketing' };
 
@@ -249,7 +232,7 @@
   const initials = (s) => String(s || '?').replace(/[^A-Za-z ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
   const hue = (s) => { let n = 0; for (const c of String(s)) n = (n * 31 + c.charCodeAt(0)) % 8; return n; };
   const card = (title, meta, body, extra) =>
-    `<div class="h-card r2t-card"><div class="r2t-ch"><h3>${title}${extra || ''}</h3><span>${meta}</span></div>${body}</div>`;
+    `<div class="h-card r2t-card" data-card="${title === 'Today’s meetings' ? 'meetings' : title === 'Blackbaud actions' ? 'actions' : 'other'}"><div class="r2t-ch"><h3>${title}${extra || ''}</h3><span>${meta}</span></div>${body}</div>`;
   const empty = (t) => `<p class="r2t-empty">${esc(t)}</p>`;
   const ROOM = (id) => '/meet/room/?m=' + encodeURIComponent(id);
   const phoneHref = (n) => 'tel:' + String(n).replace(/[^0-9+]/g, '');
