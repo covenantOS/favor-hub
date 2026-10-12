@@ -59,7 +59,7 @@ async function byAi(env: Env, text: string): Promise<Route | null> {
     max_tokens: 5,
     temperature: 0,
   }) as Promise<{ response?: string }>;
-  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 8000));
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
   try {
     const out = await Promise.race([run, timeout]);
     const word = String((out as { response?: string } | null)?.response || '').toLowerCase().match(/board|marketing|expense/);
@@ -78,11 +78,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const body = (await request.json().catch(() => ({}))) as { text?: unknown };
     const text = asTrimmed(body.text, 'text', 4000);
     if (text.length < 2) throw new HttpError(400, 'too_short', 'Say a little about what you need.');
-    let route = await byAi(env, text);
-    let how = 'ai';
+    // Keyword rules answer at once when they are sure; the model is asked only when the words say nothing.
+    let route = byWords(text);
+    let how = 'words';
     if (!route) {
-      route = byWords(text);
-      how = route ? 'words' : 'default';
+      route = await byAi(env, text);
+      how = route ? 'ai' : 'default';
     }
     route = route || 'board';
     const user = hubUserOf(request);
@@ -90,9 +91,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // The board's form fills itself out from the words: kind, where, summary, who sees it, timing, plus an owner and a due date.
     const today = easternDay();
     let fill: (Fill & { owner: OwnerGuess | null }) | null = null;
-    if (route === 'board') {
+    {
       const f = suggestFill(text, today);
-      fill = { ...f, owner: await suggestOwner(env, f.surface, today).catch(() => null) };
+      fill = { ...f, owner: await suggestOwner(env, f.surface, today, route).catch(() => null) };
     }
     const stamp = nowIso();
     try {

@@ -9,7 +9,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 function page(status: number, title: string, body: string, scripts = '', head = ''): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${esc(title)} - FavorOS</title>${head}
-<link rel="icon" type="image/png" href="/images/favor-icon.png"><link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin>
+<script>addEventListener('pagereveal',function(e){var t=e.viewTransition;if(t){t.skipTransition();t.finished.catch(function(){});t.ready.catch(function(){});t.updateCallbackDone.catch(function(){})}})</script><link rel="icon" type="image/png" href="/images/favor-icon.png"><link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/js/clips/watch.css?v=7"><link rel="stylesheet" href="/js/clips/crit-watch.css?v=3"><link rel="stylesheet" href="/js/clips/launcher.css?v=8">
 </head><body>${body}${scripts}</body></html>`;
   return new Response(html, { status, headers: { ...PRIVATE, 'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer' } });

@@ -133,9 +133,31 @@ async function waitingGifts(env: Env, days: number, fresh: boolean, defer?: (p: 
   return read();
 }
 
-export async function waitingView(env: Env, days: number, fresh = false, defer?: (p: Promise<unknown>) => void): Promise<View> {
-  const { gifts, at } = await waitingGifts(env, days, fresh, defer);
-  const open = await openBatchGifts(env);
+/** Made-up gifts for the FavorOS test user, with one of each problem the check looks for. No Blackbaud read. */
+export function sampleGifts(): Gift[] {
+  const g = (i: number, over: Partial<Gift>): Gift => ({
+    id: `sample${i}`, lookup: `S-${i}`, date: todayEastern(), amount: 50, type: 'One-Time Gift', constituency: 'Individual', constituentLookup: `90${i}`,
+    name: `Sample Partner ${i}`, sortName: `Partner, Sample ${i}`, organization: false, deceased: false, inactive: false, addressee: `Sample Partner ${i}`, salutation: 'Sam',
+    solicitCodes: [], addressLines: ['12 Maple Street'], city: 'Tampa', state: 'FL', zip: '33601', country: 'United States', sendMail: true, funds: ['Where Needed Most'], softCredits: [], ...over,
+  });
+  return [
+    g(1, {}), g(2, { amount: 250 }),
+    g(3, { name: 'Zip Problem', addressee: 'Zip Problem', zip: '3360' }),
+    g(4, { name: 'State Problem', addressee: 'State Problem', state: 'Floridda' }),
+    g(5, { name: 'No Number', addressee: 'No Number', addressLines: ['Maple Street'] }),
+    g(6, { name: 'Unknown', addressee: 'Unknown' }),
+    g(7, { name: 'Jordan Rivers', addressee: 'Jordan Rivers', addressLines: ['5 Oak Lane'], zip: '30301' }),
+    g(8, { name: 'Jordan Rivers', addressee: 'Jordan  Rivers', addressLines: ['9 Pine Court'], zip: '30302' }),
+    g(9, { name: 'Sam Lee', addressee: 'Sam Lee', addressLines: ['1 Elm Road'], zip: '40001' }),
+    g(10, { name: 'Sam and Kim Lee', addressee: 'Sam and Kim Lee', addressLines: ['1 Elm Rd.'], zip: '40001' }),
+  ];
+}
+
+export async function waitingView(env: Env, days: number, fresh = false, defer?: (p: Promise<unknown>) => void, sample = false): Promise<View> {
+  const got = sample ? { gifts: sampleGifts(), at: nowIso() } : await waitingGifts(env, days, fresh, defer);
+  const gifts = got.gifts;
+  const at = got.at;
+  const open = sample ? new Map<string, { id: string; letterDate: string }>() : await openBatchGifts(env);
   const letters: Item[] = [];
   const held: Item[] = [];
   const printing = gifts.filter((g) => verdict(g).letter);

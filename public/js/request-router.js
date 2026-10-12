@@ -55,6 +55,10 @@
       `<h3>${esc(c.title)}</h3><p>${esc(c.body)}</p>` +
       `<div class="h-route__row"><button type="button" class="h-btn h-btn--primary" data-choose="${where}">${esc(c.button)}</button></div>` +
       `<div class="h-route__alt">Not right?${others.map((k) => `<button type="button" data-switch="${k}">${esc(OTHER[k])}</button>`).join(' or')}</div>`;
+    const f = state.fill;
+    if (f && f.owner && where !== 'board') {
+      result.querySelector('h3').insertAdjacentHTML('afterend', '<p class="h-sub" id="route-owner">Likely owner: <b>' + esc(f.owner.name) + '</b>' + (f.due_date ? ', suggested due ' + esc(dayLong(f.due_date)) : '') + '. ' + esc(f.owner.why) + '.</p>');
+    }
     result.hidden = false;
     result.querySelector('[data-choose]').addEventListener('click', () => choose(where));
     result.querySelectorAll('[data-switch]').forEach((b) => b.addEventListener('click', () => show(b.dataset.switch)));

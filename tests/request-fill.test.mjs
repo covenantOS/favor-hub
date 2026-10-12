@@ -62,7 +62,7 @@ test('timing: a named date, urgent words, no rush, and the default of this Frida
   assert.equal(urgent.due_date, '2026-10-13');
   const lazy = S.suggestFill('Add a Spanish version of the about page, no rush', TODAY);
   assert.equal(lazy.needed, 'Whenever we get to it');
-  assert.equal(lazy.due_date, '');
+  assert.equal(lazy.due_date, '2026-10-26');
   const plain = S.suggestFill('Add a new job posting for a grants writer', TODAY);
   assert.equal(plain.needed, 'This week');
   assert.equal(plain.due_date, '2026-10-16');
@@ -106,7 +106,8 @@ test('POST route keeps the suggestion with the request, and only an admin reads 
   assert.equal(made.fill.owner.email, WILL.email);
   const marketing = await ask('We need a flyer for the October banquet');
   assert.equal(marketing.route, 'marketing');
-  assert.equal(marketing.fill, null, 'only the board has a form to fill');
+  assert.ok(marketing.fill.due_date, 'every route gets a due date');
+  assert.ok(marketing.fill.owner && marketing.fill.owner.why, 'and an owner with the reason');
   // Linked to the request once it is sent.
   const id = addRequest(w, 'Fix the typo on the careers page');
   await route.onRequestPut({ request: new Request('https://dash.favorintl.org/api/requests/route', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: made.id, chosen: 'board', request_id: id }) }), env: w.env });

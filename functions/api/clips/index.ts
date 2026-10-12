@@ -68,7 +68,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, wait
     if (all) {
       const ppl = await env.DB.prepare(
         `SELECT c.owner_email AS email, MAX(c.owner_name) AS name, MAX(c.owner_team) AS team, COUNT(*) AS clips, COALESCE(SUM(c.size_bytes), 0) AS bytes, COALESCE(MAX(u.blocked), 0) AS blocked
-           FROM hub_clips c LEFT JOIN hub_users u ON u.email = c.owner_email WHERE c.status != 'failed' GROUP BY c.owner_email ORDER BY bytes DESC LIMIT 100`
+           FROM hub_clips c LEFT JOIN hub_users u ON u.email = c.owner_email WHERE c.status IN ('ready', 'processing') GROUP BY c.owner_email ORDER BY bytes DESC LIMIT 100`
       ).all();
       out.people = ppl.results || [];
       out.cap = await clipsCapBytes(env);

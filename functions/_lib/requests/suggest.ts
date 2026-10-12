@@ -214,8 +214,8 @@ export function suggestFill(textRaw: string, today: string): Fill {
     neededWhy = 'it says tomorrow';
   } else if (lazy) {
     needed = 'Whenever we get to it';
-    due_date = '';
-    neededWhy = 'it says there is no rush';
+    due_date = addBusinessDays(today, 10);
+    neededWhy = 'it says there is no rush, so two weeks out';
   } else if (named) {
     needed = 'This week';
     due_date = named.date;
@@ -262,7 +262,7 @@ export interface OwnerGuess {
  * Who usually takes this kind of request: the person who owned the most requests on the same surface in the last 90 days, else the
  * Lead Developer on the staff list. Null when the board has no history and nobody has that title.
  */
-export async function suggestOwner(env: Pick<Env, 'DB'>, surface: Surface, today: string): Promise<OwnerGuess | null> {
+export async function suggestOwner(env: Pick<Env, 'DB'>, surface: Surface, today: string, route: 'board' | 'marketing' | 'expense' = 'board'): Promise<OwnerGuess | null> {
   const since = `${addDays(today, -90)}T00:00:00.000Z`;
   let pick = '';
   let count = 0;
@@ -282,12 +282,23 @@ export async function suggestOwner(env: Pick<Env, 'DB'>, surface: Surface, today
     // the task tables are not switched on yet; the staff list answers below
   }
   const people = await staffDirectory(env).catch(() => []);
-  if (pick) {
+  if (route === 'marketing') {
+    const m = people.filter((p) => /marketing/i.test(p.team));
+    const lead = m.find((p) => /director|manager|lead/i.test(p.title)) || m[0];
+    if (lead) return { email: lead.email, name: lead.name, why: 'Leads the Marketing team, which takes design, print and video requests' };
+  }
+  if (route === 'expense') {
+    const a = people.find((p) => /operations|administrat|finance|accounting/i.test(p.title));
+    if (a) return { email: a.email, name: a.name, why: 'Handles expense approvals' };
+  }
+  if (pick && route === 'board') {
     const p = people.find((x) => x.email === pick);
     if (p) return { email: p.email, name: p.name, why: `${count === 1 ? 'Took the last' : `Took ${count} of the last`} ${surface} request${count === 1 ? '' : 's'}` };
   }
   const dev = people.find((p) => /lead developer|developer/i.test(p.title));
-  return dev ? { email: dev.email, name: dev.name, why: 'Takes the technical requests' } : null;
+  if (dev) return { email: dev.email, name: dev.name, why: 'Takes the technical requests' };
+  const any = people[0];
+  return any ? { email: any.email, name: any.name, why: 'First person on the staff list, since nobody has this kind of request yet' } : null;
 }
 
 /** Today in Eastern time, YYYY-MM-DD. */
