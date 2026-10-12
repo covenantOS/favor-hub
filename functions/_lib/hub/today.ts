@@ -11,6 +11,8 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
+import { projectsFlag } from '../projects/access';
+import { openActionsWithoutTask, projectCards, projectsMineCount } from '../projects/links/today'; // projects hook
 
 export interface Access {
   admin: boolean;
@@ -27,6 +29,8 @@ export interface Access {
   clipsRecord: boolean;
   /** Favor Chat: hub admins until Admin > Chat opens it to staff (hub setting chat.enabled). */
   chat: boolean;
+  /** Projects: hub admins until Admin > Projects opens it to staff (hub setting projects.enabled). */
+  projects: boolean;
   /** On at least one request: its owner, sent it, named on it or following it. Shows the bell for request notices. */
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
@@ -54,6 +58,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
     clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
     chat: mayUse(await chatMode(env), user),
+    projects: await projectsFlag(env, user).catch(() => false),
     tasks,
     bell: (!!work && work.ok) || tasks,
   };
@@ -114,6 +119,8 @@ export interface Counts {
   board: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
+  /** Projects hook: tasks due today or late plus unread task notices. The Projects menu entry and the phone bar show it. */
+  projectsMine: number;
 }
 
 /** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
@@ -124,7 +131,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -135,6 +142,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
     access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
+    projectsMineCount(env, user), // projects hook
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -147,6 +155,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
+    projectsMine: Number(projectsMine) || 0, // projects hook
   };
 }
 
@@ -305,6 +314,8 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   if (access.tasks) {
     cards.push(...(await taskCards(env, user.email).catch(() => [] as Card[])));
   }
+  // projects hook: tasks due, given to you and with news.
+  cards.push(...(await projectCards(env, user).catch(() => [] as Card[])));
   if (access.admin) {
     const brain = await brainPending(env);
     const n = Number(brain?.n) || 0;
@@ -325,9 +336,10 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     }
   }
   if (access.meetings) {
-    const mine = await env.DB.prepare(
+    // projects hook: items that already became tasks are counted in the task cards, not here.
+    const mine = (await openActionsWithoutTask(env, user.email)) || (await env.DB.prepare(
       `SELECT COUNT(*) AS n, (SELECT text FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0 ORDER BY meeting_id DESC, idx LIMIT 1) AS first FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0`
-    ).bind(user.email.toLowerCase()).first<{ n: number; first: string | null }>().catch(() => null);
+    ).bind(user.email.toLowerCase()).first<{ n: number; first: string | null }>().catch(() => null));
     const mn = Number(mine?.n) || 0;
     if (mn) {
       cards.push({

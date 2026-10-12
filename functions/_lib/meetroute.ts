@@ -13,6 +13,7 @@ import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp } from './clipai';
 import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
+import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
 import { meetSettings, withMeetSettings } from './admin/settings';
@@ -816,6 +817,7 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
         };
         await env.DB.prepare('DELETE FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).run();
         if (notes.actions.length) await env.DB.batch(notes.actions.map((a, i) => { const o = pick(a.owner); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, i, a.text, o ? o.name : a.owner, o ? o.email.toLowerCase() : '', a.due, a.t); }));
+        await meetActionsToTasks(env, id); // projects hook: named owners get a task
         // The files and the Google Doc take the notes title. A failure here never undoes the notes.
         const fresh = await getMeeting(env, id);
         try { if (retitle && denv.MEET_DRIVE_FOLDER) await renameRecordings(denv, fresh, notes.title); } catch (err) { console.warn('[meet] rename', id, err); }
@@ -1070,6 +1072,7 @@ async function markAction(env: MeetEnv, user: { email: string; role: string }, i
   // The owner, a host of the meeting, or a hub admin ticks an item.
   if (a.owner_email !== user.email.toLowerCase() && !isHost(m, user.email) && user.role !== 'admin') throw new HttpError(403, 'owner_only', 'Only the owner or the host can tick this one.');
   await env.DB.prepare('UPDATE hub_meeting_actions SET done = ?, done_at = ? WHERE meeting_id = ? AND idx = ?').bind(b.done === false ? 0 : 1, b.done === false ? null : nowIso(), id, idx).run();
+  await actionTicked(env, { email: user.email.toLowerCase(), name: user.email, admin: user.role === 'admin' }, id, idx, b.done !== false); // projects hook
   return { ok: true };
 }
 

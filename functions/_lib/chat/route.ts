@@ -31,6 +31,7 @@ import { unfurl } from './unfurl';
 import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } from './preview';
 import { parseRange } from '../clips';
 import { taskDeleted, taskReply } from './tasks';
+import { slashTask, taskDeleted as ptaskDeleted, taskReply as ptaskReply } from '../projects/links/chat'; // projects hook
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
 export type ChatRouteEnv = LiveEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string; GOOGLE_SA_JSON?: string };
@@ -156,6 +157,7 @@ async function route(ctx: Ctx): Promise<Response> {
     if (!c && method === 'DELETE') {
       const row = await store.remove(env, me, id);
       ctx.waitUntil(taskDeleted(env, id)); // q3-tasks hook: the matching request comment goes too.
+      ctx.waitUntil(ptaskDeleted(env, id)); // projects hook: the matching task comment goes too.
       ctx.waitUntil(publish(env, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type: 'delete', id, channel_id: row.channel_id }));
       return json({ ok: true });
     }
@@ -277,10 +279,15 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     if (card) attachments.push(card as Att);
   }
   const threadId = input.thread_id ? Number(input.thread_id) : null;
+  // projects hook: /task makes a task and posts its card instead of the typed text.
+  const slashed = await slashTask(env, user, channelId, text, threadId);
+  if (slashed) return slashed;
   const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments });
   const msg = await broadcast(ctx, posted.message, 'message');
   // q3-tasks hook: a reply under a request's card is also a comment on the request (chat/tasks.ts).
   if (threadId) ctx.waitUntil(taskReply(env, posted.message, user));
+  // projects hook: a reply under a task's card is also a comment on the task (projects/links/chat.ts).
+  if (threadId) ctx.waitUntil(ptaskReply(env, posted.message, user));
   const fresh = urls.find((u) => !classifyUrl(u, hosts) && !attachments.some((x) => x.type === 'drive' && x.url === u));
   if (fresh && !attachments.some((x) => x.type === 'link')) {
     ctx.waitUntil((async () => {
