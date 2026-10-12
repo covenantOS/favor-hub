@@ -126,7 +126,7 @@ describe('deceased effects', () => {
     assert.equal(hub.prepare("SELECT COUNT(*) AS n FROM act_events WHERE kind = 'deceased_effect'").get().n, 4);
   });
 
-  it('leaves a channel the person already blocked alone, and unmarking releases only what the hub set', async () => {
+  it('leaves a channel the person already blocked alone, and unmarking releases only what FavorOS set', async () => {
     ghl.contacts[0].dnd = true;
     ghl.contacts[0].dndSettings = { Email: { status: 'active', message: 'Unsubscribed', code: 'unsub' } };
     await dx.runDeceasedEffects(env, { ...who, on: true }, deps());
@@ -142,7 +142,7 @@ describe('deceased effects', () => {
     assert.equal(portal.prepare('SELECT COUNT(*) AS n FROM portal_blocks').get().n, 0);
   });
 
-  it('unmarking a contact the hub fully blocked turns Do Not Disturb off', async () => {
+  it('unmarking a contact FavorOS fully blocked turns Do Not Disturb off', async () => {
     await dx.runDeceasedEffects(env, { ...who, on: true }, deps());
     await dx.runDeceasedEffects(env, { ...who, on: false }, deps());
     const c = ghl.contacts[0];
@@ -179,7 +179,7 @@ describe('deceased effects', () => {
     assert.match(out[2].detail, /not connected/);
   });
 
-  it('a record change that is not a deceased mark refreshes the hub copy and runs no effects', async () => {
+  it('a record change that is not a deceased mark refreshes the FavorOS copy and runs no effects', async () => {
     const payload = JSON.stringify({ __call: { method: 'PATCH', path: '/constituent/v1/phones/10' }, do_not_call: true });
     hub.prepare("INSERT INTO act_outbox (id, batch_id, cid, op, payload, state, queued_at) VALUES ('o1', 'b1', '100', 'call', ?, 'sent', '2026-10-11T00:00:00Z')").run(payload);
     const rows = hub.prepare('SELECT id, batch_id, op, cid, payload FROM act_outbox').all();

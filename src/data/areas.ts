@@ -156,7 +156,7 @@ export const AREAS: NavArea[] = [
     foot: true,
     pages: [
       { id: 'docs', label: 'Docs', href: '/help/', desc: 'How every tool works, with search', keywords: 'help guide how docs documentation article manual faq', learn: 'getting-started', swap: true },
-      { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'The hub, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
+      { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
       { id: 'feedback', label: 'Feedback', href: '/feedback/', desc: "Your notes and Will's answers", keywords: 'feedback note bug wrong idea suggestion problem report', count: 'feedback', learn: 'feedback', swap: true },
     ],
   },

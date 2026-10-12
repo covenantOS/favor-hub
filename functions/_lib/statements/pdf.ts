@@ -85,8 +85,8 @@ export async function buildPdf(input: PdfInput): Promise<Uint8Array> {
   doc.setTitle(title);
   doc.setAuthor('Favor International');
   doc.setSubject(`${input.statements.length} statement${input.statements.length === 1 ? '' : 's'}`);
-  doc.setCreator('Favor Hub');
-  doc.setProducer('Favor Hub');
+  doc.setCreator('FavorOS');
+  doc.setProducer('FavorOS');
   const prefs = doc.catalog.getOrCreateViewerPreferences();
   prefs.setPrintScaling(PrintScaling.None);
   prefs.setDuplex(Duplex.Simplex);

@@ -6,7 +6,7 @@ import { HttpError, type Env } from '../http';
 const WORKER_URL = 'https://re-nxt-cloud-sync.super-paper-a785.workers.dev';
 
 async function call<T>(env: Env, path: string, body: unknown, timeoutMs: number): Promise<T> {
-  if (!env.RECEIPTS_KEY) throw new HttpError(503, 'not_set_up', 'The Blackbaud connection is not set up on the hub yet.');
+  if (!env.RECEIPTS_KEY) throw new HttpError(503, 'not_set_up', 'The Blackbaud connection is not set up on FavorOS yet.');
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
   try {

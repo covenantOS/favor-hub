@@ -210,7 +210,7 @@ function remindPop(anchor, id) {
   const p = openPop(anchor, `<h4><span>Remind me<small>${esc(what.slice(0, 70))}</small></span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
     <div class="wm-menu">${laterChoices().map(([k, l, t]) => `<button type="button" data-wm-set="${k}" data-id="${esc(id)}">${esc(l)}<small>${esc(t)}</small></button>`).join('')}</div>
     <div class="wm-dt"><input type="date" data-wm-date min="${todayEt()}" aria-label="Pick a day" /><input type="time" data-wm-time value="09:00" aria-label="Time" /><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-setdate data-id="${esc(id)}">Set</button></div>
-    <div class="wm-foot"><span>A bell in the hub and a line in the morning email</span>${set ? `<button type="button" data-wm-clear="${esc(set.id)}">Remove</button>` : ''}</div>`, { label: 'Remind me', alignLeft: false });
+    <div class="wm-foot"><span>A bell in FavorOS and a line in the morning email</span>${set ? `<button type="button" data-wm-clear="${esc(set.id)}">Remove</button>` : ''}</div>`, { label: 'Remind me', alignLeft: false });
   p.dataset.what = what; p.dataset.note = chip; p.dataset.cid = partnerIdHere();
 }
 

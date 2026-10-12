@@ -20,13 +20,13 @@ The note goes with the page you were on, so you don't have to explain where you 
 
 ## Attaching a picture of the page
 
-When you press **Feedback** on the hub, the hub also takes a picture of the screen you are looking at, and it shows as a thumbnail above the note. Before you send, you can blur anything private:
+When you press **Feedback** on FavorOS, FavorOS also takes a picture of the screen you are looking at, and it shows as a thumbnail above the note. Before you send, you can blur anything private:
 
 1. Press **Blur an area**.
 2. Drag a box over the name, number or gift you want hidden. It blurs when you let go. **Undo** steps back, and **Done** keeps the change.
 3. Press **Remove** under the thumbnail if you don't want a picture sent.
 
-The picture stays private. Only you and the hub admin can see it.
+The picture stays private. Only you and the FavorOS admin can see it.
 
 ## Other ways to send one
 
@@ -38,6 +38,6 @@ The picture stays private. Only you and the hub admin can see it.
 
 Every note is read. When Will answers, the answer shows on your **Feedback** page, a number appears beside Feedback in the menu, and Today shows a card until you read it. Each note also shows where it stands: waiting, read, fixed, or not now.
 
-## For the hub admin
+## For the FavorOS admin
 
 The Feedback page lists every note, newest first, with who sent it, where from, and for Favor Brain notes, the exact question and how it was read. Mark each one **Mark read**, **Fixed** or **Not now**, and write an answer when it needs one. New notes count beside Feedback in the menu and show on Today.

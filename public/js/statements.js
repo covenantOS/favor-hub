@@ -249,7 +249,7 @@
     const empty = !s.gifts.length && !s.refunds.length;
     if (!r) {
       return `<button type="button" class="req-submit" id="stm-make" ${state.busy || empty ? 'disabled' : ''}>${state.busy ? 'Making the PDF' : 'Make the PDF'}</button>
-        <span class="rcp-fine">${state.me.driveOn ? 'A copy is saved in US Team Files.' : 'The hub keeps a copy under Print files.'}</span>`;
+        <span class="rcp-fine">${state.me.driveOn ? 'A copy is saved in US Team Files.' : 'FavorOS keeps a copy under Print files.'}</span>`;
     }
     const base = `/api/statements/batches/${encodeURIComponent(r.id)}/pdf`;
     return `<a class="req-submit rcp-btn" href="${base}" target="_blank" rel="noopener">Open the PDF</a>

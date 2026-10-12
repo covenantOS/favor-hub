@@ -22,7 +22,7 @@
   var curTitle = 'Reports';
   function setHeader(crumb, title) {
     curTitle = title;
-    document.title = title + ' - Favor Hub';
+    document.title = title + ' - FavorOS';
   }
 
   var toastEl = $('#rp-toast');
@@ -37,7 +37,7 @@
   function get(url) {
     return fetch(url, { credentials: 'same-origin' }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { d._status = r.status; return d; });
-    }).catch(function () { return { ok: false, message: 'The hub could not be reached. Check the connection and try again.', _status: 0 }; });
+    }).catch(function () { return { ok: false, message: 'FavorOS could not be reached. Check the connection and try again.', _status: 0 }; });
   }
 
   /* ---------- the list ---------- */

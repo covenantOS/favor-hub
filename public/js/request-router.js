@@ -20,7 +20,7 @@
   const COPY = {
     board: {
       title: 'This goes to the request board',
-      body: 'Website, portal, hub, dashboard and Blackbaud work goes on the request board. A few quick details and it lands in the Inbox, and you get an email when it is done.',
+      body: 'Website, portal, FavorOS, dashboard and Blackbaud work goes on the request board. A few quick details and it lands in the Inbox, and you get an email when it is done.',
       button: 'Continue',
     },
     marketing: {

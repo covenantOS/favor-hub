@@ -74,7 +74,7 @@ export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN
     await live(placeholder.message.id, 'message');
     let answer: BrainAnswer | { error: string };
     if (!question) answer = { error: 'Ask the Brain a question after its name.' };
-    else if (!env.BRAIN_HUB_KEY) answer = { error: 'The Brain is not connected to the hub yet.' };
+    else if (!env.BRAIN_HUB_KEY) answer = { error: 'The Brain is not connected to FavorOS yet.' };
     else {
       try {
         const res = await fetcher(`${(env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '')}/hub/ask`, {

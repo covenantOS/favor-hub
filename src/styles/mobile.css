@@ -164,3 +164,8 @@
   .cmdk__esc { font-size: 0 !important; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 999px; }
   .cmdk__esc::before { content: '\00d7'; font-size: 24px; line-height: 1; }
 }
+
+/* FavorOS wordmark: the logo then OS in the same small caps, so the pair reads FavorOS. */
+.h-brand span, html.nav-wide .h-brand span, .h-app.is-peek .h-brand span, .h-app.is-nav .h-brand span {
+  border-left: 0; padding-left: 0; margin-left: -9px; font-size: 21px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #fff;
+}

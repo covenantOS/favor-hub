@@ -42,7 +42,7 @@
   };
   const via = (r) => {
     try {
-      return JSON.parse(r.args || '{}').via === 'hub' ? 'On the hub' : 'From their AI';
+      return JSON.parse(r.args || '{}').via === 'hub' ? 'On FavorOS' : 'From their AI';
     } catch {
       return '';
     }
@@ -251,7 +251,7 @@
     $('a-alias-msg').textContent = 'Saving...';
     try {
       await api('admin/alias', { term: $('a-term').value.trim(), kind: picked.kind, id: picked.id, name: picked.name });
-      $('a-alias-msg').textContent = 'Saved. It works in questions within two minutes, on the hub and from Claude or ChatGPT.';
+      $('a-alias-msg').textContent = 'Saved. It works in questions within two minutes, on FavorOS and from Claude or ChatGPT.';
       $('a-term').value = '';
       $('a-pick-q').value = '';
       $('a-picks').innerHTML = '';

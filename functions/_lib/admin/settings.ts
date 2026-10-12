@@ -189,7 +189,7 @@ const upkeepCap: Def = {
   },
   async write(env, value) {
     const kv = (env as EnvPlus).BB_KV;
-    if (!kv) throw new HttpError(503, 'no_kv', 'The upkeep cap is not connected to this copy of the hub.');
+    if (!kv) throw new HttpError(503, 'no_kv', 'The upkeep cap is not connected to this copy of FavorOS.');
     await kv.put('bb:ops:cap', value);
   },
   async check(env, value) {
@@ -271,7 +271,7 @@ export const DEFS: Def[] = [
   hubDef({ id: 'projects.marketing_key', area: 'projects', label: 'Project for Marketing requests', hint: 'The key of the project where a Marketing request lands as a task, for example MKT. Empty leaves requests going to the form they use now.', kind: 'text', def: '' }),
   // ------------------------------------------------------------------------------------------- Thank-you receipts
   hubDef({ id: 'receipts.days', area: 'receipts', label: 'Days a gift can wait for a receipt', hint: 'The window the waiting list and a new print file look back over.', kind: 'int', min: 7, max: 365, unit: 'days', def: '90' }),
-  hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops the hub from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
+  hubDef({ id: 'receipts.report', area: 'receipts', label: 'Open print file in the morning email', hint: 'Off stops FavorOS from telling the sync worker about an unmarked print file.', kind: 'enum', options: ON_OFF, def: 'on', envVar: 'RECEIPTS_REPORT' }),
   // ------------------------------------------------------------------------------------------------- Giving statements
   hubDef({
     id: 'statements.email', area: 'statements', group: 'Sending', label: 'Emailing statements', contact: true,
@@ -281,7 +281,7 @@ export const DEFS: Def[] = [
   hubDef({ id: 'statements.batch_size', area: 'statements', group: 'Print files', label: 'Statements in one print file', hint: 'The year-end run makes files of this size, one at a time.', kind: 'int', min: 10, max: 500, unit: 'statements', def: '100' }),
   hubDef({
     id: 'statements.drive_folder', area: 'statements', group: 'Print files', label: 'Copy folder in US Team Files',
-    hint: 'The Google Drive folder id of a folder inside US Team Files. A single statement is saved there when this is set. Blank keeps copies in the hub only.',
+    hint: 'The Google Drive folder id of a folder inside US Team Files. A single statement is saved there when this is set. Blank keeps copies in FavorOS only.',
     kind: 'text', def: '',
   }),
   ...WORDING.map((w) =>
@@ -407,10 +407,10 @@ export async function changeSetting(env: Env, actor: string, id: string, raw: un
   }
   const value = normalize(d, raw);
   if (d.bb && !opts.confirm) {
-    throw new HttpError(409, 'confirm', `${d.label} changes what the hub sends to Blackbaud. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
+    throw new HttpError(409, 'confirm', `${d.label} changes what FavorOS sends to Blackbaud. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
   }
   if (d.contact && !opts.confirm) {
-    throw new HttpError(409, 'confirm', `${d.label} changes whether the hub emails partners. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
+    throw new HttpError(409, 'confirm', `${d.label} changes whether FavorOS emails partners. It is ${display(d, before)} now. Confirm to change it to ${display(d, value)}.`);
   }
   if (d.check) await d.check(env, value);
   if (value === before) return viewOf(env, d);

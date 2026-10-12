@@ -122,7 +122,7 @@
   // The screen as it looks before the channels arrive. src/pages/chat/index.astro carries this same markup so the first paint is already
   // the right screen (tests/chat-boot.test.mjs keeps the two in step).
   function bootSide() {
-    return '<div class="ch-pnav"><button type="button" class="ch-pn" tabindex="-1" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
+    return '<div class="ch-pnav"><button type="button" class="ch-pn" tabindex="-1" aria-label="FavorOS menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
       '<div class="ch-seg"><button type="button" tabindex="-1" aria-pressed="true">Channels</button><button type="button" tabindex="-1" aria-pressed="false">Messages</button></div>' +
       '<button type="button" class="ch-pn" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
       '<div class="ch-side__head"><button type="button" class="ch-jump" tabindex="-1">' + ic('search') + '<span>Jump to or search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
@@ -567,7 +567,7 @@
           '<button type="button" class="ch-iconbtn" data-act="' + act + '" aria-label="' + label + '" title="' + label + '">' + ic('plus') + '</button></div>' + list.map(row).join('') + (folded ? '' : extra) + '</div>';
       };
       var dmNew = s.dms.filter(function (c) { return c.unread > 0 && !c.muted; }).length;
-      var html = '<div class="ch-pnav"><button type="button" class="ch-pn" data-act="hub-menu" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
+      var html = '<div class="ch-pnav"><button type="button" class="ch-pn" data-act="hub-menu" aria-label="FavorOS menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
         '<div class="ch-seg"><button type="button" data-act="seg" data-seg="channels" aria-pressed="' + (S.seg !== 'messages') + '">Channels</button><button type="button" data-act="seg" data-seg="messages" aria-pressed="' + (S.seg === 'messages') + '">Messages' + (dmNew ? '<i class="ch-seg__dot" aria-label="' + dmNew + ' unread"></i>' : '') + '</button></div>' +
         '<button type="button" class="ch-pn" data-act="new-dm" aria-label="New message">' + ic('pen') + '</button></div>' +
         '<div class="ch-side__head"><button type="button" class="ch-jump" data-act="switcher">' + ic('search') + '<span>Jump to or search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('pen') + '</button></div>' +

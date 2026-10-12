@@ -1,6 +1,6 @@
 ---
 title: Signing in and connecting Google
-summary: One Google sign-in opens every tool. Here is what the hub reads from your Google account and what to do if sign-in goes wrong.
+summary: One Google sign-in opens every tool. Here is what FavorOS reads from your Google account and what to do if sign-in goes wrong.
 topic: start
 order: 2
 related: [getting-started, today]
@@ -11,13 +11,13 @@ updated: 2026-10-09
 
 1. Go to **dash.favorintl.org**.
 2. Press **Sign in with Google** and pick your **@favorintl.org** account.
-3. Google asks to share your calendar, Drive and inbox with the hub. Allow it. No page opens until Google is connected.
+3. Google asks to share your calendar, Drive and inbox with FavorOS. Allow it. No page opens until Google is connected.
 
 The old codes for receipts, foundations and the expense log are gone. Your Google sign-in opens everything your job needs.
 
-## What the hub reads from Google
+## What FavorOS reads from Google
 
-The hub reads **today's calendar**, the **names of files shared with you**, and **who emailed you**, so Today can show your day. It never opens an email or a file, and it never sends anything as you.
+FavorOS reads **today's calendar**, the **names of files shared with you**, and **who emailed you**, so Today can show your day. It never opens an email or a file, and it never sends anything as you.
 
 ## If something goes wrong
 

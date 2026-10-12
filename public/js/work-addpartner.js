@@ -1,5 +1,5 @@
 /* Add a partner from Entry. Support opens it from a row that matched no record. The form fills from the row; the right side lists records
-   already in Blackbaud as you type (the hub's copy at once, Blackbaud's own duplicate search a moment after you stop typing). Add stays
+   already in Blackbaud as you type (FavorOS's copy at once, Blackbaud's own duplicate search a moment after you stop typing). Add stays
    locked until "None of these is the same person" is ticked, and typing in a name, phone, email or city box clears the tick.
    Loaded before work.js; it reaches the page through window.WC. ?standin=1 on the page sends the add to the stand-in route, which
    makes nothing in Blackbaud. */
@@ -91,7 +91,7 @@ function open(rowId) {
       st.matches = out.matches;
       if (live) { st.liveSig = s; st.liveCount++; }
       st.warn = false;
-      st.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These come from the hub\'s copy, which can be 12 hours old.' : live ? '' : /^Checking/.test(st.status) ? st.status : '';
+      st.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These come from FavorOS\'s copy, which can be 12 hours old.' : live ? '' : /^Checking/.test(st.status) ? st.status : '';
       st.warn = out.live === 'failed';
     } catch (e) { st.status = e.message; st.warn = true; }
     drawMatches();
@@ -129,7 +129,7 @@ function open(rowId) {
       const b = e.target.closest('button'); if (!b) return;
       if (b.dataset.kind) { st.kind = b.dataset.kind; st.notSame = false; drawForm(); changed(false); return; }
       if (b.dataset.use) {
-        if (b.dataset.copy !== '1') { wc.toast('That record is new in Blackbaud and the hub\'s copy has not read it yet. Try again after the next refresh.'); return; }
+        if (b.dataset.copy !== '1') { wc.toast('That record is new in Blackbaud and FavorOS\'s copy has not read it yet. Try again after the next refresh.'); return; }
         b.disabled = true;
         try {
           const out = await wc.api('/api/work/entry/' + row.id, { method: 'PATCH', body: JSON.stringify({ constituent_id: b.dataset.use }) });

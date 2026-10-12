@@ -93,7 +93,7 @@ export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params,
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const path = ([] as string[]).concat((params.path as string[] | string) || []).join('/');
     if (!ROUTES.has(`${request.method} ${path}`)) return errorJson('not_found', 'No such brain route.', 404);
-    if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to the hub yet.', 503);
+    if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to FavorOS yet.', 503);
     if (request.method === 'POST' && path === 'ask') return await ask(request, env, user, waitUntil);
     const res = await fetch(`${base(env)}/hub/${path}`, {
       method: request.method,

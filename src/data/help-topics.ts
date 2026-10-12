@@ -10,7 +10,7 @@ export const TOPICS: Array<{ id: string; label: string; blurb: string }> = [
 ];
 
 export const VIDEO_TOPICS: Record<string, string> = {
-  hub: 'The hub',
+  hub: 'FavorOS',
   brain: 'Favor Brain',
   blackbaud: 'Blackbaud',
   grants: 'Grants',
@@ -26,7 +26,7 @@ export const ROLE_LABELS: Record<string, string> = {
   grants: 'Grants',
   marketing: 'Marketing',
   'admin-desk': 'Front desk',
-  admin: 'Hub admin',
+  admin: 'FavorOS admin',
   approver: 'Expense approvers',
   kpi: 'Dashboard users',
   leader: 'Leadership',

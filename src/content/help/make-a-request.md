@@ -1,6 +1,6 @@
 ---
 title: Make a request
-summary: Ask for anything you need from someone else, in your own words. The hub suggests where it goes.
+summary: Ask for anything you need from someone else, in your own words. FavorOS suggests where it goes.
 topic: work
 order: 1
 related: [request-board, expense-request]
@@ -9,13 +9,13 @@ toolLabel: Open Make a request
 updated: 2026-10-09
 ---
 
-Use Make a request for anything you need from someone else: a change to the website, a list from Blackbaud, a flyer, a social post, a fix in the hub, or a purchase.
+Use Make a request for anything you need from someone else: a change to the website, a list from Blackbaud, a flyer, a social post, a fix in FavorOS, or a purchase.
 
 ## Steps
 
 1. Press **Make a request** at the top right of any page.
 2. In **What do you need?**, type it the way you'd say it to a coworker. One or two sentences is enough. The example buttons under the box fill in common requests.
-3. Press **Continue**. The hub reads it and suggests where it goes.
+3. Press **Continue**. FavorOS reads it and suggests where it goes.
 4. If the suggestion is wrong, press one of the other choices under it.
 
 ## Where a request can go

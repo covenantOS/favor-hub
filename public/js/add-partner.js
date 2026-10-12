@@ -1,6 +1,6 @@
 /* Add a partner: the full new-partner form in a slide-over, from the Work Center's tool row and from Find a partner. Individual,
    household (two people joined as spouses) or organization (a type code and a main contact joined to it), with links to partners already
-   in Blackbaud. Records already in Blackbaud show beside the form as you type (the hub's copy at once, Blackbaud's own duplicate search a
+   in Blackbaud. Records already in Blackbaud show beside the form as you type (FavorOS's copy at once, Blackbaud's own duplicate search a
    moment after you stop). Add stays locked until "None of these is the same person" is ticked, and any edit to a name, phone, email or
    city clears the tick. Support and admins only; the server checks again on save and repeats the duplicate check.
    ?standin=1 sends the add to the stand-in route, which builds the same calls and makes nothing in Blackbaud.
@@ -149,7 +149,7 @@ function draw(o) {
       if (s !== sig()) { if (live && /^Checking/.test(S.status)) { S.status = ''; drawMatches(); } return; }
       S.matches = out.matches;
       if (live) { S.liveSig = s; S.liveCount++; }
-      S.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These are from the hub\'s copy.' : '';
+      S.status = !out.ready ? '' : out.live === 'ran' ? 'Checked in Blackbaud at ' + new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) + ' ET' : out.live === 'failed' ? 'Blackbaud did not answer. These are from FavorOS\'s copy.' : '';
       S.warn = out.live === 'failed';
     } catch (e) { S.status = e.message; S.warn = true; }
     drawMatches(); drawFoot();

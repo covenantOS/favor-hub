@@ -25,6 +25,6 @@ Requests that have waited a week or more show in gold on Today.
 
 The expense log lists every request with its status, document number, requester, amount, approver and the signed PDF. Use the filter chips and the search box to find a name or an EXP number.
 
-## Log settings (hub admin)
+## Log settings (FavorOS admin)
 
 Under **Log settings**: the default approver and the distribution list, the mileage rate and the per-trip deduction, out-of-office substitutes with their dates, and who else can open the log.

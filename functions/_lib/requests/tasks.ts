@@ -124,7 +124,7 @@ export function standingOf(actor: Actor, task: TaskRow | null, followers: Follow
   return { admin: actor.admin, owner, part, following: !!f && !f.muted };
 }
 
-function need(ok: boolean, message = 'Only the person it was sent to, people named on it, or a hub admin can do that.'): void {
+function need(ok: boolean, message = 'Only the person it was sent to, people named on it, or a FavorOS admin can do that.'): void {
   if (!ok) throw new HttpError(403, 'forbidden', message);
 }
 
@@ -308,7 +308,7 @@ async function chatCard(env: TaskEnv, actor: Actor, to: string, requestId: strin
 export async function sendTo(env: TaskEnv, row: RequestRow, actor: Actor, toRaw: unknown, noteRaw: unknown): Promise<{ task: TaskRow; comment: CommentRow | null }> {
   const task = await taskOf(env, row.id);
   const st = standingOf(actor, task, await followersOf(env, row.id));
-  need(st.admin || st.owner, 'Only the owner or a hub admin can send this request on.');
+  need(st.admin || st.owner, 'Only the owner or a FavorOS admin can send this request on.');
   const dir = await directoryMap(env);
   const to = lower(toRaw);
   const person = dir.get(to);
@@ -419,7 +419,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export async function setFields(env: TaskEnv, row: RequestRow, actor: Actor, input: { due_date?: unknown; waiting_on?: unknown }): Promise<TaskRow> {
   const task = await taskOf(env, row.id);
   const st = standingOf(actor, task, await followersOf(env, row.id));
-  need(st.admin || st.owner, 'Only the owner or a hub admin can change that.');
+  need(st.admin || st.owner, 'Only the owner or a FavorOS admin can change that.');
   const fields: Partial<TaskRow> = {};
   if (input.due_date !== undefined) {
     const d = input.due_date === null || input.due_date === '' ? null : String(input.due_date);
@@ -559,7 +559,7 @@ export async function detailFor(env: TaskEnv, row: RequestRow, actor: Actor | nu
 export async function tellNow(env: TaskEnv, row: RequestRow, actor: Actor, emailRaw: unknown): Promise<boolean> {
   const task = await taskOf(env, row.id);
   const st = standingOf(actor, task, await followersOf(env, row.id));
-  need(st.admin || st.owner, 'Only the owner or a hub admin can do that.');
+  need(st.admin || st.owner, 'Only the owner or a FavorOS admin can do that.');
   const email = lower(emailRaw);
   const kind = task?.owner_email === email ? 'sent' : task?.waiting_on === email ? 'waiting' : null;
   if (!kind) throw new HttpError(400, 'not_on_it', 'That person is not the owner or the person waited on.');

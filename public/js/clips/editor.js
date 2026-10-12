@@ -117,7 +117,7 @@ async function start() {
   if (!/^[0-9a-f]{32}$/.test(ID)) return fail('That clip does not exist.');
   try {
     const d = await api(`/api/clips/${ID}/info`);
-    if (!d.can || !d.can.edit) return fail('Editing is for hub admins.');
+    if (!d.can || !d.can.edit) return fail('Editing is for FavorOS admins.');
     S.clip = d.clip;
     S.lines = d.clip.transcript || [];
     S.wordsRaw = d.clip.words || [];
@@ -132,7 +132,7 @@ async function start() {
       renderTimeline();
     });
   } catch (e) {
-    fail(e.status === 404 ? 'That clip does not exist.' : e.status === 403 ? 'Editing is for hub admins.' : e.message);
+    fail(e.status === 404 ? 'That clip does not exist.' : e.status === 403 ? 'Editing is for FavorOS admins.' : e.message);
   }
 }
 
@@ -144,7 +144,7 @@ function fail(msg) {
 function build() {
   const c = S.clip;
   root.removeAttribute('aria-busy');
-  document.title = `Edit ${c.title || 'clip'} - Favor Hub`;
+  document.title = `Edit ${c.title || 'clip'} - FavorOS`;
   root.innerHTML = `
   <header class="ce-top">
     <a class="ce-icon" href="/c/${ID}" aria-label="Back to the clip" title="Back to the clip">${icon('back')}</a>

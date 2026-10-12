@@ -13,7 +13,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const email = String(request.headers.get('X-Acting-Email') || '').trim().toLowerCase();
     if (!/^[^@\s]+@favorintl\.org$/.test(email)) return errorJson('forbidden', 'Only Favor staff have requests.', 403);
     const row = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(email).first<{ blocked: number }>().catch(() => null);
-    if (row && row.blocked) return errorJson('forbidden', 'That person is blocked in the hub.', 403);
+    if (row && row.blocked) return errorJson('forbidden', 'That person is blocked in FavorOS.', 403);
     if (!(await tasksReady(env)) || !(await mayHear(env, email))) return json({ ok: true, for: email, mine: [], waiting_on_me: [], sent_by_me: [], waiting_on_others: [], news: [], note: 'Request notices are not on for this person yet.' });
     return json(await brainView(env, email, new URL(request.url).searchParams.get('about') || ''));
   } catch (err) {

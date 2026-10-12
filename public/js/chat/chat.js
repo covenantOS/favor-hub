@@ -121,7 +121,7 @@
   function paintUnread(u) {
     var n = (u && u.mentions) || 0;
     document.querySelectorAll('[data-count="chatMentions"]').forEach(function (el) { el.textContent = String(n); el.hidden = !n; });
-    document.title = (n ? '(' + n + ') ' : '') + 'Chat - Favor Hub';
+    document.title = (n ? '(' + n + ') ' : '') + 'Chat - FavorOS';
     window.dispatchEvent(new CustomEvent('favor-chat:unread', { detail: u }));
   }
   // A Favor Brain answer is drawn by the Brain page's own block code and pressed by it too (chat-brain.js ties the two to a message).
