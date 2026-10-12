@@ -61,6 +61,10 @@ export interface MessageOut {
   reply_users: string[];
   /** Set only on a message the reader alone can see; the client labels it and offers Share and Dismiss. */
   visible_to: string | null;
+  /** Replies in this message's thread the reader has not opened yet (their own unread notices on those replies). */
+  thread_unread?: number;
+  /** True when the message is pinned in its conversation. */
+  pinned?: boolean;
 }
 
 export const DEFAULT_CHANNELS = ['ch_general', 'ch_hub_feedback'];
@@ -139,7 +143,7 @@ export async function listChannels(env: ChatEnv, email: string): Promise<Channel
   const rows = await env.DB.prepare(
     `SELECT c.id, c.kind, c.name, c.topic, c.created_by, c.created_at, c.last_at, m.muted AS muted, COALESCE(r.last_read_id, 0) AS last_read,
             (SELECT COUNT(*) FROM chat_messages x WHERE x.channel_id = c.id AND x.thread_id IS NULL AND x.deleted_at IS NULL AND (x.visible_to IS NULL OR x.visible_to = ?) AND x.email != ? AND x.id > COALESCE(r.last_read_id, 0)) AS unread,
-            (SELECT COUNT(*) FROM chat_mentions n WHERE n.channel_id = c.id AND n.email = ? AND n.read_at IS NULL) AS mentions
+            (SELECT COUNT(*) FROM chat_mentions n JOIN chat_messages y ON y.id = n.message_id WHERE n.channel_id = c.id AND n.email = ? AND n.read_at IS NULL AND y.thread_id IS NULL) AS mentions
        FROM chat_members m
        JOIN chat_channels c ON c.id = m.channel_id AND c.archived = 0
        LEFT JOIN chat_reads r ON r.channel_id = c.id AND r.email = m.email
@@ -319,7 +323,40 @@ export async function history(env: ChatEnv, channelId: string, before: number | 
   const list = rows.results || [];
   const more = list.length > PAGE;
   const page = list.slice(0, PAGE).reverse();
-  return { messages: await shape(env, page, hydrate), more };
+  return { messages: await marks(env, email, await shape(env, page, hydrate)), more };
+}
+
+/** Unread replies per thread for this person: the notices on replies they have not opened the thread to read. */
+export async function threadUnread(env: ChatEnv, email: string, rootIds: number[]): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  if (!rootIds.length) return out;
+  const r = await env.DB.prepare(
+    `SELECT x.thread_id AS root, COUNT(*) AS n FROM chat_mentions n JOIN chat_messages x ON x.id = n.message_id
+      WHERE n.email = ? AND n.read_at IS NULL AND x.deleted_at IS NULL AND x.thread_id IN (${rootIds.map(() => '?').join(',')}) GROUP BY x.thread_id`
+  ).bind(lower(email), ...rootIds).all<{ root: number; n: number }>();
+  for (const x of r.results || []) out.set(x.root, x.n);
+  return out;
+}
+
+/** Which of these messages are pinned. Empty until db/favor-chat2.sql is applied. */
+export async function pinnedAmong(env: ChatEnv, ids: number[]): Promise<Set<number>> {
+  if (!ids.length) return new Set();
+  try {
+    const r = await env.DB.prepare(`SELECT message_id FROM chat_pins WHERE message_id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all<{ message_id: number }>();
+    return new Set((r.results || []).map((x) => x.message_id));
+  } catch {
+    return new Set();
+  }
+}
+
+/** Adds what only this reader's page needs to a list of shaped messages: unread replies per thread, and the pin mark. */
+export async function marks(env: ChatEnv, email: string, list: MessageOut[]): Promise<MessageOut[]> {
+  const [unread, pins] = await Promise.all([threadUnread(env, email, list.filter((m) => m.reply_count > 0 && !m.thread_id).map((m) => m.id)), pinnedAmong(env, list.map((m) => m.id))]);
+  for (const m of list) {
+    if (unread.has(m.id)) m.thread_unread = unread.get(m.id);
+    if (pins.has(m.id)) m.pinned = true;
+  }
+  return list;
 }
 
 export async function thread(env: ChatEnv, rootId: number, hydrate: ((a: Attachment[]) => Promise<Attachment[]>) | undefined, email: string): Promise<{ root: MessageOut; replies: MessageOut[] } | null> {
@@ -327,6 +364,8 @@ export async function thread(env: ChatEnv, rootId: number, hydrate: ((a: Attachm
   if (!root || root.thread_id || !canSee(root, email)) return null;
   const rows = await env.DB.prepare(`SELECT ${COLS} FROM chat_messages WHERE thread_id = ? AND (visible_to IS NULL OR visible_to = ?) ORDER BY id LIMIT 500`).bind(rootId, lower(email)).all<MessageRow>();
   const shaped = await shape(env, [root, ...(rows.results || [])], hydrate);
+  const pins = await pinnedAmong(env, shaped.map((m) => m.id));
+  for (const m of shaped) if (pins.has(m.id)) m.pinned = true;
   return { root: shaped[0], replies: shaped.slice(1) };
 }
 
@@ -462,8 +501,31 @@ export async function markRead(env: ChatEnv, email: string, channelId: string, u
       `INSERT INTO chat_reads (channel_id, email, last_read_id, updated_at) VALUES (?, ?, ?, ?)
        ON CONFLICT (channel_id, email) DO UPDATE SET last_read_id = MAX(last_read_id, excluded.last_read_id), updated_at = excluded.updated_at`
     ).bind(channelId, me, up, now),
-    env.DB.prepare('UPDATE chat_mentions SET read_at = ? WHERE channel_id = ? AND email = ? AND read_at IS NULL AND message_id <= ?').bind(now, channelId, me, up),
+    env.DB.prepare('UPDATE chat_mentions SET read_at = ? WHERE channel_id = ? AND email = ? AND read_at IS NULL AND message_id <= ? AND message_id NOT IN (SELECT id FROM chat_messages WHERE channel_id = ? AND thread_id IS NOT NULL)').bind(now, channelId, me, up, channelId),
   ]);
+}
+
+/**
+ * Mark unread from a message on: the read pointer moves back to just before it, and the notices on it and everything after
+ * it count again. Returns the conversation's new unread and badge numbers.
+ */
+export async function markUnread(env: ChatEnv, email: string, channelId: string, fromId: number): Promise<{ last_read: number; unread: number; mentions: number }> {
+  const me = lower(email);
+  await readableChannel(env, channelId, me);
+  const from = Math.max(1, Math.floor(Number(fromId) || 0));
+  const now = nowIso();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO chat_reads (channel_id, email, last_read_id, updated_at) VALUES (?, ?, ?, ?)
+       ON CONFLICT (channel_id, email) DO UPDATE SET last_read_id = excluded.last_read_id, updated_at = excluded.updated_at`
+    ).bind(channelId, me, from - 1, now),
+    env.DB.prepare('UPDATE chat_mentions SET read_at = NULL WHERE channel_id = ? AND email = ? AND message_id >= ? AND message_id IN (SELECT id FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL)').bind(channelId, me, from, channelId),
+  ]);
+  const c = await env.DB.prepare(
+    `SELECT (SELECT COUNT(*) FROM chat_messages x WHERE x.channel_id = ? AND x.thread_id IS NULL AND x.deleted_at IS NULL AND (x.visible_to IS NULL OR x.visible_to = ?) AND x.email != ? AND x.id >= ?) AS unread,
+            (SELECT COUNT(*) FROM chat_mentions n JOIN chat_messages y ON y.id = n.message_id WHERE n.channel_id = ? AND n.email = ? AND n.read_at IS NULL AND y.thread_id IS NULL) AS mentions`
+  ).bind(channelId, me, me, from, channelId, me).first<{ unread: number; mentions: number }>();
+  return { last_read: from - 1, unread: c?.unread || 0, mentions: c?.mentions || 0 };
 }
 
 /** A thread opened: the replies in it that were addressed to this person are read. */
@@ -511,7 +573,7 @@ export async function unreadMentionCount(env: ChatEnv, email: string): Promise<n
 export type SearchFilter = 'all' | 'here' | 'files' | 'mine';
 
 /** Messages this person can read that match the words. Private channels and conversations count only when they are in them. */
-export async function search(env: ChatEnv, email: string, q: string, opts: { filter?: SearchFilter; channel?: string; limit?: number } = {}): Promise<MessageRow[]> {
+export async function search(env: ChatEnv, email: string, q: string, opts: { filter?: SearchFilter; channel?: string; limit?: number; from?: string } = {}): Promise<MessageRow[]> {
   const me = lower(email);
   const text = String(q || '').trim();
   if (text.length < 2) return [];
@@ -524,6 +586,7 @@ export async function search(env: ChatEnv, email: string, q: string, opts: { fil
   const args: unknown[] = [me, me];
   if (opts.filter === 'here' && opts.channel) { where.push('m.channel_id = ?'); args.push(opts.channel); }
   if (opts.filter === 'files') where.push(`m.attachments != '[]'`);
+  if (opts.from) { where.push('m.email = ?'); args.push(lower(opts.from)); }
   if (opts.filter === 'mine') { where.push('m.id IN (SELECT message_id FROM chat_mentions WHERE email = ?)'); args.push(me); }
   where.push(`(LOWER(m.body) LIKE ? ESCAPE '\\' OR LOWER(m.attachments) LIKE ? ESCAPE '\\')`);
   const pat = likePattern(text);

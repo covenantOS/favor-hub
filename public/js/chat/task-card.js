@@ -8,7 +8,7 @@
   }
   function html(a, u) {
     var esc = u.esc;
-    var kick = a.kind === 'mention' ? 'Named on a request' : 'Sent a request';
+    var kick = a.kind === 'mention' ? 'Named on a request' : a.kind === 'made' ? 'Made a request' : 'Sent a request';
     var meta = [a.status_label, a.owner ? 'Owner ' + a.owner : '', a.due_date ? 'Due ' + day(a.due_date) : ''].filter(Boolean).join(' · ');
     // Mentions in the note are the same tokens the comment box makes (mention-input.js), named from the card's own list.
     var names = a.names || {};

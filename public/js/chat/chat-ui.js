@@ -1,7 +1,8 @@
 /* Favor Chat client. One module draws the whole screen (channel list, channel, thread, details, search, pickers) and talks to an
    injected `api` object, so the page, the tests and the design prototype all run the same code.
    api: boot, history, thread, send, edit, del, react, read, typing, search, createChannel, openDm, browse, join, leave, setTopic,
-        addMembers, driveSearch, clips, startMeeting, upload, recordClip, onEvent. See chat.js for the real one. */
+        addMembers, driveSearch, clips, startMeeting, upload, recordClip, onEvent, threads, activity, unread, pins, pin, addBookmark,
+        removeBookmark, makeRequest. See chat.js for the real one. */
 (function () {
   'use strict';
   var TZ = 'America/New_York';
@@ -37,7 +38,26 @@
     out: '<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
     dl: '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/>',
     wave: '<path d="M4 10v4M8 7v10M12 4v16M16 8v8M20 11v2"/>',
-    ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>'
+    ext: '<path d="M14 4h6v6"/><path d="M20 4 10 14"/><path d="M19 13v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h6"/>',
+    threads: '<path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-7l-5 4v-4H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 9.5h8M8 13h5"/>',
+    pin: '<path d="M9 4h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 15v6"/>',
+    link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+    mark: '<path d="M4 7a2 2 0 0 1 2-2h8"/><path d="M20 11v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8l8 6 3-2.2"/><circle cx="19" cy="6" r="2.4" fill="currentColor" stroke="none"/>',
+    task: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/>',
+    full: '<path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>',
+    side: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M14 5v14"/>',
+    down: '<path d="M12 5v14"/><path d="m6 13 6 6 6-6"/>',
+    caret: '<path d="m6 9 6 6 6-6"/>',
+    mark2: '<path d="M6 4h12v16l-6-4-6 4z"/>',
+    bold: '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>',
+    italic: '<path d="M10 5h8M6 19h8M14 5l-4 14"/>',
+    strike: '<path d="M4 12h16"/><path d="M16 7.5C15.5 6 14 5 12 5c-2.5 0-4 1.3-4 3 0 1.2.7 2 2 2.6M8 16.5c.5 1.5 2 2.5 4 2.5 2.5 0 4-1.3 4-3 0-.6-.2-1.2-.5-1.6"/>',
+    code: '<path d="m9 8-4 4 4 4M15 8l4 4-4 4"/>',
+    block: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m9 10-2 2 2 2M15 10l2 2-2 2"/>',
+    ul: '<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.5" cy="7" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="17" r="1" fill="currentColor"/>',
+    ol: '<path d="M10 7h10M10 12h10M10 17h10"/><path d="M4 5.5 5.5 5v4M4 14.5c0-1 2.5-1 2.5.3 0 .9-2.5 1.7-2.5 3.2h2.7" stroke-width="1.4"/>',
+    quote: '<path d="M5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
+    slash: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 16 4-8"/>'
   };
   function ic(n, cls) { return '<svg viewBox="0 0 24 24" aria-hidden="true"' + (cls ? ' class="' + cls + '"' : '') + '>' + (ICON[n] || '') + '</svg>'; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -67,14 +87,35 @@
   function initials(name) { return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join(''); }
   function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b || a + 's'); }
 
+  /* What this browser remembers between visits: drafts, which list sections are folded, the thread panel's width. */
+  function lsGet(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode or full */ } }
+  var FMT = [['bold', 'Bold', 'Ctrl B'], ['italic', 'Italic', 'Ctrl I'], ['strike', 'Strikethrough', 'Ctrl Shift X'], ['link', 'Link', 'Ctrl Shift U'], ['ol', 'Numbered list', 'Ctrl Shift 7'], ['ul', 'Bulleted list', 'Ctrl Shift 8'], ['quote', 'Quote', 'Ctrl Shift 9'], ['code', 'Code', 'Ctrl Shift C'], ['block', 'Code block', 'Ctrl Alt Shift C']];
+  function fmtRow(scope) {
+    return '<div class="ch-fmt" role="toolbar" aria-label="Formatting">' + FMT.map(function (f, i) {
+      // Each button names itself in a tooltip that shows on hover and keyboard focus (role tooltip, linked by aria-describedby).
+      var tid = 'ch-tip-' + scope + '-' + f[0];
+      return (i === 3 || i === 4 || i === 6 || i === 7 ? '<i class="ch-fmt__sep" aria-hidden="true"></i>' : '') + '<button type="button" class="ch-tipped" data-act="fmt" data-f="' + f[0] + '" data-scope="' + scope + '" aria-label="' + f[1] + '" aria-describedby="' + tid + '">' + ic(f[0] === 'link' ? 'link' : f[0]) + '<span class="ch-tip" role="tooltip" id="' + tid + '">' + f[1] + ' <kbd>' + f[2] + '</kbd></span></button>';
+    }).join('') + '</div>';
+  }
   function composerHtml(scope, placeholder) {
-    return '<form class="ch-comp" data-scope="' + scope + '" autocomplete="off"><div class="ch-comp__box"><div class="ch-pend" data-pend="' + scope + '" hidden></div>' +
+    return '<form class="ch-comp" data-scope="' + scope + '" autocomplete="off">' + (scope === 'rt' ? '' : '<button type="button" class="ch-latest" data-act="latest" data-scope="' + scope + '" hidden>' + ic('down') + '<span>Latest</span></button>') +
+      '<div class="ch-comp__box">' + (scope === 'rt' ? '' : fmtRow(scope)) + '<div class="ch-pend" data-pend="' + scope + '" hidden></div>' +
       '<textarea rows="1" data-ta="' + scope + '" placeholder="' + esc(placeholder) + '" aria-label="' + esc(placeholder) + '" enterkeyhint="send"></textarea>' +
       '<div class="ch-comp__bar"><button type="button" class="ch-iconbtn" data-act="plus" data-scope="' + scope + '" aria-label="Add to the message" title="Add a file, Drive file, clip or meeting">' + ic('plus') + '</button>' +
       '<button type="button" class="ch-iconbtn" data-act="at" data-scope="' + scope + '" aria-label="Mention someone" title="Mention someone">' + ic('at') + '</button>' +
       '<button type="button" class="ch-iconbtn" data-act="emoji" data-scope="' + scope + '" aria-label="Emoji" title="Emoji">' + ic('smile') + '</button>' +
       '<button type="button" class="ch-iconbtn" data-act="ask-brain" data-scope="' + scope + '" aria-label="Ask Favor Brain" title="Ask Favor Brain">' + ic('spark') + '</button>' +
-      '<span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="' + scope + '" disabled aria-label="Send">' + ic('send') + '<span>Send</span></button></div></div></form>';
+      '<span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="' + scope + '" disabled aria-label="Send">' + ic('send') + '<span>Send</span></button></div></div>' +
+      (scope === 'thread' ? '<label class="ch-also"><input type="checkbox" data-also /><span data-also-label>Also send to the channel</span></label>' : '') + '</form>';
+  }
+  // The three rows above the channels: every thread the person is in, where they were named or reacted to, and what they left unsent.
+  function navRows(o) {
+    o = o || {};
+    var row = function (page, icon, label, n, live) {
+      return '<button type="button" class="ch-row ch-nav' + (o.page === page ? ' is-on' : '') + (n && live ? ' is-unread' : '') + '" data-act="page" data-page="' + page + '"' + (o.boot ? ' tabindex="-1"' : '') + (o.page === page ? ' aria-current="true"' : '') + '><span class="ch-row__ic">' + ic(icon) + '</span><span class="ch-row__n">' + label + '</span>' + (n ? '<span class="ch-badge' + (live ? '' : ' ch-badge--quiet') + '">' + n + '</span>' : '') + '</button>';
+    };
+    return '<div class="ch-navs">' + row('threads', 'threads', 'Threads', o.threads || 0, true) + row('activity', 'at', 'Mentions and reactions', 0, false) + row('drafts', 'pen', 'Drafts', o.drafts || 0, false) + '</div>';
   }
   var BONE = function (w, h) { return '<i class="ch-bone" style="width:' + w + ';height:' + h + '"></i>'; };
   function skelRows(ws) { return ws.map(function (w, i) { return '<div class="ch-row ch-row--skel" aria-hidden="true"><span class="ch-row__ic">' + BONE('14px', '14px') + '</span><span class="ch-row__n">' + BONE(w, '12px') + '</span></div>'; }).join(''); }
@@ -84,9 +125,9 @@
     return '<div class="ch-pnav"><button type="button" class="ch-pn" tabindex="-1" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
       '<div class="ch-seg"><button type="button" tabindex="-1" aria-pressed="true">Channels</button><button type="button" tabindex="-1" aria-pressed="false">Messages</button></div>' +
       '<button type="button" class="ch-pn" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
-      '<div class="ch-side__head"><button type="button" class="ch-jump" tabindex="-1">' + ic('search') + '<span>Search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
-      '<div class="ch-list" data-seg="channels"><div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" tabindex="-1" aria-label="New channel">' + ic('plus') + '</button></div>' + skelRows(['46%', '62%', '38%', '54%']) + '</div>' +
-      '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" tabindex="-1" aria-label="New message">' + ic('plus') + '</button></div>' + skelRows(['50%', '40%']) + '</div></div>';
+      '<div class="ch-side__head"><button type="button" class="ch-jump" tabindex="-1">' + ic('search') + '<span>Jump to or search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" tabindex="-1" aria-label="New message">' + ic('pen') + '</button></div>' +
+      '<div class="ch-list" data-seg="channels">' + navRows({ boot: true }) + '<div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><button type="button" class="ch-sec__t" tabindex="-1">' + ic('caret') + '<b>Channels</b></button><button type="button" class="ch-iconbtn" tabindex="-1" aria-label="New channel">' + ic('plus') + '</button></div>' + skelRows(['46%', '62%', '38%', '54%']) + '</div>' +
+      '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><button type="button" class="ch-sec__t" tabindex="-1">' + ic('caret') + '<b>Direct messages</b></button><button type="button" class="ch-iconbtn" tabindex="-1" aria-label="New message">' + ic('plus') + '</button></div>' + skelRows(['50%', '40%']) + '</div></div>';
   }
   function bootHtml() {
     return '<aside class="ch-side" aria-label="Channels">' + bootSide() + '</aside>' +
@@ -142,6 +183,8 @@
     if (o.hasAttribute('data-vsrc') && o.classList.contains('is-playing') && o.getAttribute('data-vsrc') === n.getAttribute('data-vsrc')) return;
     if (/^(VIDEO|AUDIO|IFRAME)$/.test(o.nodeName)) { if (o.getAttribute('src') !== n.getAttribute('src')) o.parentNode.replaceChild(n, o); return; }
     if (o.classList.contains('is-drawn') && o.getAttribute('data-thumb') === n.getAttribute('data-thumb')) return;
+    // A Favor Brain answer keeps what the person did to it (a sorted table, a drawn chart) while the message around it changes.
+    if (o.hasAttribute('data-brain') && o.getAttribute('data-brain') === n.getAttribute('data-brain') && o.getAttribute('data-rev') === n.getAttribute('data-rev')) return;
     if (o.nodeName === 'TEXTAREA' || (o.nodeName === 'INPUT' && o === document.activeElement)) return;
     var oa = o.attributes;
     for (var i = oa.length - 1; i >= 0; i--) if (!n.hasAttribute(oa[i].name)) o.removeAttribute(oa[i].name);
@@ -171,7 +214,11 @@
     var S = {
       me: null, users: {}, channels: {}, active: null, right: 'none', threadRoot: null, tab: 'about',
       msgs: {}, threads: {}, typing: {}, search: null, view: 'list', lastRead: {}, memberPick: null, editing: null, pending: { main: [], thread: [] },
-      mentionMap: { main: {}, thread: {} }, hasMore: {}, loaded: {}, warm: {}, connected: true
+      mentionMap: { main: {}, thread: {} }, hasMore: {}, loaded: {}, warm: {}, connected: true,
+      // page: what the middle column shows (a channel, or the Threads, Mentions and reactions or Drafts list).
+      page: 'channel', threadFull: false, threadsUnread: 0, threadList: null, activity: null, features: { pins: false }, keepUnread: null,
+      threadNew: {}, threadTyping: {}, newBelow: { main: 0, thread: 0 }, pins: {},
+      drafts: lsGet('favor.chat.drafts.v1', {}), folded: lsGet('favor.chat.folded.v1', {})
     };
     var pop = null, popAnchor = null, modal = null, typingSent = 0, toastT = 0, pinned = true;
     var isPhone = function () { return matchMedia('(max-width: 860px)').matches; };
@@ -203,19 +250,35 @@
         dms: all.filter(function (c) { return c.kind === 'dm' || c.kind === 'group'; }).sort(function (a, b) { return String(b.last_at || '').localeCompare(String(a.last_at || '')); })
       };
     }
-    function toast(t) {
-      var el = $('.ch-toast', root);
-      if (!el) { el = document.createElement('div'); el.className = 'ch-toast'; el.setAttribute('role', 'status'); root.appendChild(el); }
-      el.textContent = t; el.hidden = false; clearTimeout(toastT);
-      toastT = setTimeout(function () { el.hidden = true; }, 2600);
+    // The notice sits on the page itself, so it shows over the large viewer too. link: { href, label }.
+    function toast(t, link) {
+      var el = $('.ch-toast');
+      if (!el) { el = document.createElement('div'); el.className = 'ch-toast'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+      el.innerHTML = esc(t) + (link && link.href ? ' <a href="' + esc(link.href) + '" target="_blank" rel="noopener">' + esc(link.label || 'Open') + '</a>' : '');
+      el.hidden = false; clearTimeout(toastT);
+      toastT = setTimeout(function () { el.hidden = true; }, link ? 6000 : 2600);
     }
     function guard(p) { return Promise.resolve(p).catch(function (e) { toast((e && e.message) || 'That did not work. Try again.'); throw e; }); }
 
     /* ------------------------------------------------------------------ message text */
+    // Lines that start a quote ("> "), a bulleted list ("- ") or a numbered list ("1. ") become those blocks; the rest stays text.
+    function lineBlocks(t) {
+      var lines = t.split('\n'), out = [], para = [], i = 0, m;
+      var flush = function () { if (para.length) { out.push(para.join('\n')); para = []; } };
+      while (i < lines.length) {
+        var L = lines[i];
+        if (/^&gt; ?/.test(L)) { flush(); var q = []; while (i < lines.length && /^&gt; ?/.test(lines[i])) q.push(lines[i++].replace(/^&gt; ?/, '')); out.push('<blockquote>' + q.join('\n') + '</blockquote>'); }
+        else if (/^[-\u2022] \S/.test(L)) { flush(); var u = []; while (i < lines.length && /^[-\u2022] \S/.test(lines[i])) u.push('<li>' + lines[i++].slice(2) + '</li>'); out.push('<ul>' + u.join('') + '</ul>'); }
+        else if ((m = L.match(/^(\d{1,3})[.)] \S/))) { flush(); var o = [], start = m[1]; while (i < lines.length && /^\d{1,3}[.)] \S/.test(lines[i])) o.push('<li>' + lines[i++].replace(/^\d{1,3}[.)] /, '') + '</li>'); out.push('<ol start="' + start + '">' + o.join('') + '</ol>'); }
+        else { para.push(L); i++; }
+      }
+      flush();
+      return out.join('');
+    }
     function fmtBody(body, mentions) {
       var t = esc(body || '');
       var blocks = [];
-      t = t.replace(/```([\s\S]*?)```/g, function (_, c) { blocks.push(c.replace(/^\n/, '')); return '\u0000B' + (blocks.length - 1) + '\u0000'; });
+      t = t.replace(/```([\s\S]*?)```/g, function (_, c) { blocks.push(c.replace(/^\n/, '').replace(/\n$/, '')); return '\u0000B' + (blocks.length - 1) + '\u0000'; });
       var codes = [];
       t = t.replace(/`([^`\n]+)`/g, function (_, c) { codes.push(c); return '\u0000C' + (codes.length - 1) + '\u0000'; });
       t = t.replace(/&lt;@([^&\s]+?)&gt;/g, function (_, id) {
@@ -224,8 +287,13 @@
         return '<span class="ch-at' + (id === S.me.id ? ' ch-at--me' : '') + '">@' + esc(user(id).name) + '</span>';
       });
       t = t.replace(/&lt;#([^&\s]+?)&gt;/g, function (_, id) { var c = chan(id); return '<span class="ch-chan"># ' + esc(c ? c.name : 'channel') + '</span>'; });
-      t = t.replace(/(https?:\/\/[^\s<]+[^\s<).,;:!?])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-      t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/g, '$1<em>$2</em>');
+      // [words](address) is a link that reads as the words; a bare address is a link that reads as itself.
+      var links = [];
+      t = t.replace(/\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)/g, function (_, label, url) { links.push('<a href="' + url + '" target="_blank" rel="noopener">' + label + '</a>'); return '\u0000L' + (links.length - 1) + '\u0000'; });
+      t = t.replace(/(https?:\/\/[^\s<\u0000]+[^\s<).,;:!?\u0000])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+      t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/gm, '$1<em>$2</em>').replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
+      t = lineBlocks(t);
+      t = t.replace(/\u0000L(\d+)\u0000/g, function (_, i) { return links[+i]; });
       t = t.replace(/\u0000C(\d+)\u0000/g, function (_, i) { return '<code>' + codes[+i] + '</code>'; });
       t = t.replace(/\u0000B(\d+)\u0000/g, function (_, i) { return '<pre>' + blocks[+i] + '</pre>'; });
       return t;
@@ -307,7 +375,8 @@
       // projects hook: a project task card is drawn by projects/links (public/js/chat/project-card.js).
       if (a.type === 'ptask') return window.FavorProjectCard ? window.FavorProjectCard.html(a, { esc: esc, ic: ic }) : '';
       if (a.type === 'link') {
-        return '<a class="ch-card ch-link" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-card__m">' + esc(a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</a>';
+        var pic = a.image && !broken[a.image] ? '<span class="ch-link__pic"><img src="' + esc(a.image) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" /></span>' : '';
+        return '<a class="ch-card ch-link' + (pic ? ' ch-link--pic' : '') + '" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-link__t"><span class="ch-card__m">' + esc(a.site || a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</span>' + pic + '</a>';
       }
       return '';
     }
@@ -349,11 +418,21 @@
         var k = fileKind(a);
         V.open({ kind: k, url: a.url, name: a.name, sub: sizeOf(a.size), download: a.url, external: k === 'pdf' ? a.url : '', externalShort: 'Open', externalLabel: 'Open in a new tab' });
       }
-      history.pushState(Object.assign({}, history.state || {}, { chv: (history.state && history.state.chv) || S.view, chview: 1 }), '');
+      pushNav({ chview: 1 });
+    }
+    // Anything shown large over the chat (a table from a Brain answer, a request) opens in the same sheet as files, and
+    // closes the same ways: X, Escape, Back.
+    function openSheet(item, html, cls) {
+      var V = window.FavorChatView;
+      if (!V || !V.sheet) return null;
+      var had = V.isOpen() && history.state && history.state.chview;
+      var el = V.sheet(item, html, cls);
+      if (!had) pushNav({ chview: 1 });
+      return el;
     }
     if (window.FavorChatView) window.FavorChatView.onClose = function () {
-      if (viewBack) { viewBack = false; return; }
-      if (history.state && history.state.chview) { viewPop = true; history.back(); }
+      if (viewBack) return;
+      if (history.state && history.state.chview && ownsTop()) history.back();
     };
 
     function sizeOf(n) { n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
@@ -362,6 +441,7 @@
     function privateHtml(m) {
       var b = m.brain || {};
       var ready = b.status === 'done';
+      if (m.user_id !== 'brain') return '<div class="ch-private"><span class="ch-private__tag">' + ic('lock') + 'Only visible to you</span></div>';
       return '<div class="ch-private" data-private="' + m.id + '"><span class="ch-private__tag">' + ic('lock') + 'Only visible to you</span>' +
         (b.status === 'thinking' ? '' : '<span class="ch-private__acts">' + (ready ? '<button type="button" class="ch-btn ch-btn--sm ch-btn--primary" data-act="share-answer" data-id="' + m.id + '">Share to channel</button>' : '') + '<button type="button" class="ch-btn ch-btn--sm" data-act="dismiss-answer" data-id="' + m.id + '">Dismiss</button></span>') + '</div>';
     }
@@ -388,10 +468,13 @@
         return '<button type="button" class="ch-rx' + (mine ? ' is-mine' : '') + '" data-act="react" data-id="' + m.id + '" data-e="' + esc(r.emoji) + '" title="' + esc(r.users.map(function (u) { return user(u).name; }).join(', ')) + '" aria-pressed="' + mine + '"><span>' + r.emoji + '</span>' + r.users.length + '</button>';
       }).join('') + '<button type="button" class="ch-rx ch-rx--add" data-act="react-pick" data-id="' + m.id + '" aria-label="Add a reaction">' + ic('smile') + '</button></div>';
     }
+    // The thread a message belongs to: its own, or the thread a channel copy of a reply came from.
+    function threadRef(m) { return (m.attachments || []).filter(function (a) { return a.type === 'threadref'; })[0] || null; }
+    function threadIdOf(m) { var r = threadRef(m); return r ? r.root : m.thread_id || m.id; }
     function msgHtml(m, o) {
       o = o || {};
       var u = user(m.user_id), mine = m.user_id === S.me.id, brain = m.user_id === 'brain';
-      var cls = 'ch-msg' + (o.cont ? ' ch-msg--cont' : '') + (brain ? ' ch-msg--brain' : '') + (mentionsMe(m) && !mine ? ' is-mention' : '');
+      var cls = 'ch-msg' + (o.cont ? ' ch-msg--cont' : '') + (brain ? ' ch-msg--brain' : '') + (mentionsMe(m) && !mine ? ' is-mention' : '') + (m.pinned && !m.deleted ? ' is-pinned' : '');
       var gut = o.cont ? '<span class="ch-msg__time">' + esc(timeOf(m.created_at).replace(/ (AM|PM)/, '')) + '</span>' : avatar(u, '', false);
       var meta = o.cont ? '' : '<div class="ch-msg__meta"><span class="ch-msg__name">' + esc(u.name) + '</span>' + (brain ? '<span class="ch-tag">Brain</span>' + (m.brain && m.brain.shared_by ? '<span class="ch-shared">Shared by ' + esc(user(m.brain.shared_by).name) + '</span>' : '') : m.user_id === 'meetings' ? '<span class="ch-tag" style="background:var(--tc-teal-tint);color:var(--tc-teal-ink)">Meeting</span>' : '') + '<span class="ch-msg__time">' + esc(timeOf(m.created_at)) + '</span></div>';
       var text;
@@ -399,21 +482,27 @@
       else if (S.editing === m.id) text = '<div class="ch-edit"><textarea class="ch-input" data-edit="' + m.id + '" rows="2" style="height:auto;padding:8px 12px">' + esc(S.editDraft != null && S.editDraftId === m.id ? S.editDraft : m.body) + '</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="ch-btn ch-btn--sm ch-btn--primary" data-act="edit-save" data-id="' + m.id + '">Save</button><button class="ch-btn ch-btn--sm" data-act="edit-cancel">Cancel</button></div></div>';
       else text = (m.body ? '<div class="ch-msg__text">' + fmtBody(m.body) + (m.edited_at ? '<span class="ch-msg__edited">(edited)</span>' : '') + '</div>' : '');
       var cards = '';
-      if (!m.deleted && m.attachments && m.attachments.length) cards = '<div class="ch-cards">' + m.attachments.map(function (a, i) { return cardHtml(a, m, i); }).join('') + '</div>';
+      if (!m.deleted && m.attachments && m.attachments.length) { cards = m.attachments.map(function (a, i) { return cardHtml(a, m, i); }).join(''); if (cards) cards = '<div class="ch-cards">' + cards + '</div>'; }
+      var ref = m.deleted ? null : threadRef(m);
+      var refLine = ref ? '<button type="button" class="ch-tref" data-act="thread" data-id="' + ref.root + '">' + ic('reply') + '<span>Replied to a thread' + (ref.text ? ': <b>' + esc(ref.text) + '</b>' : '') + '</span></button>' : '';
+      var pinLine = m.pinned && !m.deleted ? '<div class="ch-pinline">' + ic('pin') + 'Pinned</div>' : '';
       var br = !m.deleted && brain ? brainHtml(m) : '';
       var own = !m.deleted && m.visible_to ? privateHtml(m) : '';
       var rx = m.deleted ? '' : rxHtml(m);
       var rep = '';
       if (!o.inThread && m.reply_count) {
-        rep = '<button type="button" class="ch-replies" data-act="thread" data-id="' + m.id + '"><span class="ch-stack">' + (m.reply_users || []).slice(0, 3).map(function (id) { return avatar(user(id), 'xs'); }).join('') + '</span>' + plural(m.reply_count, 'reply', 'replies') + '<small>Last reply ' + esc(ago(m.last_reply_at)) + '</small></button>';
+        // Replies the person has not read show beside the count, so a thread with something new stands out in the channel.
+        rep = '<button type="button" class="ch-replies' + (m.thread_unread ? ' has-new' : '') + '" data-act="thread" data-id="' + m.id + '"><span class="ch-stack">' + (m.reply_users || []).slice(0, 3).map(function (id) { return avatar(user(id), 'xs'); }).join('') + '</span>' + plural(m.reply_count, 'reply', 'replies') +
+          (m.thread_unread ? '<span class="ch-replies__new">' + m.thread_unread + ' new</span>' : '') + '<small>Last reply ' + esc(ago(m.last_reply_at)) + '</small></button>';
       }
       var bar = '';
-      if (!m.deleted && !m.visible_to) {
-        bar = '<div class="ch-bar" role="toolbar" aria-label="Message actions"><button type="button" data-act="react-pick" data-id="' + m.id + '" aria-label="React" title="React">' + ic('smile') + '</button>' +
-          (o.inThread ? '' : '<button type="button" data-act="thread" data-id="' + m.id + '" aria-label="Reply in thread" title="Reply in thread">' + ic('reply') + '</button>') +
-          (mine ? '<button type="button" data-act="edit" data-id="' + m.id + '" aria-label="Edit" title="Edit">' + ic('edit') + '</button><button type="button" data-act="del" data-id="' + m.id + '" aria-label="Delete" title="Delete">' + ic('trash') + '</button>' : '') + '</div>';
+      if (!m.deleted && !o.bare && (!m.visible_to || mine)) {
+        bar = '<div class="ch-bar" role="toolbar" aria-label="Message actions">' + (m.visible_to ? '' : '<button type="button" data-act="react-pick" data-id="' + m.id + '" aria-label="React" title="React">' + ic('smile') + '</button>' +
+          (o.inThread ? '' : '<button type="button" data-act="thread" data-id="' + threadIdOf(m) + '" aria-label="Reply in thread" title="Reply in thread">' + ic('reply') + '</button>')) +
+          '<button type="button" data-act="more" data-id="' + m.id + '" aria-label="More actions" title="More actions" aria-haspopup="menu">' + ic('more') + '</button></div>';
       }
-      return '<article class="' + cls + '" data-mid="' + m.id + '"><div class="ch-msg__gut">' + gut + '</div><div class="ch-msg__body">' + meta + text + cards + br + own + rx + rep + '</div>' + bar + '</article>';
+      if (o.bare) rx = rx.replace(/<button type="button" class="ch-rx ch-rx--add"[^>]*>.*?<\/button>/, '');
+      return '<article class="' + cls + '" data-mid="' + m.id + '"><div class="ch-msg__gut">' + gut + '</div><div class="ch-msg__body">' + pinLine + meta + refLine + text + cards + br + own + rx + (o.bare ? '' : rep) + '</div>' + bar + '</article>';
     }
     // One string per top-level block (day line, New line, message), so a redraw compares each block's source without reading the DOM.
     function listParts(list, o) {
@@ -422,9 +511,10 @@
       list.forEach(function (m) {
         var dk = dayKey(m.created_at);
         if (!prev || dayKey(prev.created_at) !== dk) out.push({ k: 'd' + dk, h: '<div class="ch-day"><span>' + esc(dayLabel(m.created_at)) + '</span></div>' });
-        if (!newShown && lr != null && Number(m.id) > Number(lr) && m.user_id !== S.me.id) { out.push({ k: 'new', h: '<div class="ch-new" id="ch-new">New</div>' }); newShown = true; }
-        var cont = prev && prev.user_id === m.user_id && dayKey(prev.created_at) === dk && (new Date(m.created_at) - new Date(prev.created_at)) < 5 * 60000 && !m.deleted && !prev.deleted && !(prev.reply_count && !o.inThread);
-        out.push({ k: 'm' + m.id, h: msgHtml(m, { cont: cont, inThread: o.inThread }) });
+        // A conversation never read before (a new member) has no New line: everything in it is new.
+        if (!newShown && lr != null && Number(lr) > 0 && Number(m.id) > Number(lr) && m.user_id !== S.me.id) { out.push({ k: 'new', h: '<div class="ch-new"' + (o.inThread ? '' : ' id="ch-new"') + ' data-new>New</div>' }); newShown = true; }
+        var cont = prev && prev.user_id === m.user_id && dayKey(prev.created_at) === dk && (new Date(m.created_at) - new Date(prev.created_at)) < 5 * 60000 && !m.deleted && !prev.deleted && !(prev.reply_count && !o.inThread) && !m.pinned && !threadRef(m) && !m.visible_to && !prev.visible_to;
+        out.push({ k: 'm' + m.id, h: msgHtml(m, { cont: cont, inThread: o.inThread, bare: o.bare }) });
         prev = m;
       });
       return out;
@@ -446,30 +536,54 @@
     /* ------------------------------------------------------------------ chrome */
     function frameHtml() { return bootHtml(); }
 
+    /* Desktop notices for direct messages, mentions and thread replies. Asked once, from a line the person presses; never on load. */
+    function canAsk() { return typeof Notification !== 'undefined' && Notification.permission === 'default' && !lsGet('favor.chat.notify.asked', 0); }
+    function askHtml() {
+      if (!canAsk() || !S.me) return '';
+      return '<div class="ch-ask"><b>Notices for messages and mentions</b><span>Shown when Chat is not in front</span><div class="ch-ask__acts"><button type="button" class="ch-btn ch-btn--sm ch-btn--primary" data-act="notify-on">Turn on</button><button type="button" class="ch-btn ch-btn--sm" data-act="notify-no">Not now</button></div></div>';
+    }
+    function hasDraft(key) { var d = S.drafts[key]; return !!(d && d.text && d.text.trim()); }
+    function draftCount() { return Object.keys(S.drafts).filter(hasDraft).length; }
     function renderSide() {
-      var s = sortedChannels(), side = $('.ch-side', root);
+      var s = sortedChannels(), side = $('.ch-side', root), phone = isPhone();
+      var open = function (c) { return c.id === S.active && S.page === 'channel'; };
       var row = function (c) {
-        var unread = c.unread > 0, on = c.id === S.active;
+        var unread = c.unread > 0, on = open(c);
         var icon, n = chName(c);
-        if (c.kind === 'public') icon = '<span class="ch-row__ic">#</span>';
+        // A conversation with an unsent message shows a pencil where its mark would be.
+        if (!on && hasDraft(c.id)) icon = '<span class="ch-row__ic ch-row__ic--draft" title="Draft">' + ic('pen') + '</span>';
+        else if (c.kind === 'public') icon = '<span class="ch-row__ic">#</span>';
         else if (c.kind === 'private') icon = '<span class="ch-row__ic">' + ic('lock') + '</span>';
         else if (c.kind === 'dm') { var o = (c.members || []).filter(function (m) { return m !== S.me.id; })[0] || S.me.id; icon = '<span class="ch-row__ic">' + avatar(user(o), 'xs', true) + '</span>'; }
         else icon = '<span class="ch-row__ic">' + ic('users') + '</span>';
         var self = c.kind === 'dm' && (c.members || []).every(function (m) { return m === S.me.id; });
         return '<button type="button" class="ch-row' + (on ? ' is-on' : '') + (unread && !c.muted ? ' is-unread' : '') + (c.muted ? ' is-muted' : '') + '" data-act="open" data-id="' + c.id + '"' + (on ? ' aria-current="true"' : '') + '>' + icon + '<span class="ch-row__n">' + esc(n) + (self ? ' (you)' : '') + '</span>' + (c.mentions > 0 ? '<span class="ch-badge" aria-label="' + plural(c.mentions, 'mention') + '">' + c.mentions + '</span>' : '') + '</button>';
       };
+      // A folded section still shows what needs the person: unread conversations and the one that is open. Phones show whole sections.
+      var sec = function (key, title, act, label, rows, extra) {
+        var folded = !phone && !!S.folded[key];
+        var list = folded ? rows.filter(function (c) { return (c.unread > 0 && !c.muted) || c.mentions > 0 || open(c); }) : rows;
+        return '<div class="ch-sec' + (folded ? ' is-folded' : '') + '" data-sec="' + key + '"><div class="ch-sec__h"><button type="button" class="ch-sec__t" data-act="fold" data-sec="' + key + '" aria-expanded="' + !folded + '">' + ic('caret') + '<b>' + title + '</b></button>' +
+          '<button type="button" class="ch-iconbtn" data-act="' + act + '" aria-label="' + label + '" title="' + label + '">' + ic('plus') + '</button></div>' + list.map(row).join('') + (folded ? '' : extra) + '</div>';
+      };
       var dmNew = s.dms.filter(function (c) { return c.unread > 0 && !c.muted; }).length;
       var html = '<div class="ch-pnav"><button type="button" class="ch-pn" data-act="hub-menu" aria-label="Hub menu"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>' +
         '<div class="ch-seg"><button type="button" data-act="seg" data-seg="channels" aria-pressed="' + (S.seg !== 'messages') + '">Channels</button><button type="button" data-act="seg" data-seg="messages" aria-pressed="' + (S.seg === 'messages') + '">Messages' + (dmNew ? '<i class="ch-seg__dot" aria-label="' + dmNew + ' unread"></i>' : '') + '</button></div>' +
         '<button type="button" class="ch-pn" data-act="new-dm" aria-label="New message">' + ic('pen') + '</button></div>' +
-        '<div class="ch-side__head"><button type="button" class="ch-jump" data-act="search">' + ic('search') + '<span>Search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('pen') + '</button></div>' +
-        '<div class="ch-list" data-seg="' + (S.seg === 'messages' ? 'messages' : 'channels') + '"><div class="ch-sec" data-sec="channels"><div class="ch-sec__h"><b>Channels</b><button type="button" class="ch-iconbtn" data-act="new-channel" aria-label="New channel" title="New channel">' + ic('plus') + '</button></div>' +
-        s.chans.map(row).join('') + '<button type="button" class="ch-row ch-more" data-act="browse"><span class="ch-row__ic">' + ic('search') + '</span><span class="ch-row__n">Browse channels</span></button></div>' +
-        '<div class="ch-sec" data-sec="messages"><div class="ch-sec__h"><b>Direct messages</b><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('plus') + '</button></div>' + (s.dms.length ? s.dms.map(row).join('') : '<div class="ch-empty" style="padding:8px">No messages yet</div>') + '</div></div>';
+        '<div class="ch-side__head"><button type="button" class="ch-jump" data-act="switcher">' + ic('search') + '<span>Jump to or search</span><kbd>Ctrl K</kbd></button><button type="button" class="ch-iconbtn" data-act="new-dm" aria-label="New message" title="New message">' + ic('pen') + '</button></div>' +
+        '<div class="ch-list" data-seg="' + (S.seg === 'messages' ? 'messages' : 'channels') + '">' + navRows({ page: S.page, threads: S.threadsUnread, drafts: draftCount() }) +
+        sec('channels', 'Channels', 'new-channel', 'New channel', s.chans, '<button type="button" class="ch-row ch-more" data-act="browse"><span class="ch-row__ic">' + ic('search') + '</span><span class="ch-row__n">Browse channels</span></button>') +
+        sec('messages', 'Direct messages', 'new-dm', 'New message', s.dms, s.dms.length ? '' : '<button type="button" class="ch-row ch-more" data-act="new-dm"><span class="ch-row__ic">' + ic('pen') + '</span><span class="ch-row__n">Message someone</span></button>') + '</div>' + askHtml();
       patchHtml(side, html);
     }
+    var PAGES = { threads: 'Threads', activity: 'Mentions and reactions', drafts: 'Drafts' };
     function renderHead() {
       var c = chan(S.active), h = $('.ch-head', root);
+      if (S.page !== 'channel') {
+        patchHtml(h, '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
+          '<div class="ch-head__t"><div class="ch-head__name"><span style="color:var(--r-ink);font-weight:700">' + PAGES[S.page] + '</span></div></div><div class="ch-head__acts"></div>');
+        return;
+      }
       if (!c) return;
       var name = chName(c), ms = (c.members || []).slice(0, 4);
       var lead = c.kind === 'public' ? '<span>#</span>' : c.kind === 'private' ? ic('lock') : '';
@@ -477,9 +591,93 @@
         '<div class="ch-head__t"><div class="ch-head__name">' + lead + '<span style="color:var(--r-ink);font-weight:700">' + esc(name) + '</span></div>' + (c.topic ? '<div class="ch-head__topic">' + esc(c.topic) + '</div>' : '') + '</div>' +
         '<div class="ch-head__acts"><button type="button" class="ch-members" data-act="details" aria-label="Members"><span class="ch-stack">' + ms.map(function (id) { return avatar(user(id), 'sm'); }).join('') + '</span>' + (c.members || []).length + '</button>' +
         '<button type="button" class="ch-btn ch-btn--meet' + (S.huddle && S.huddle[c.id] ? ' is-live' : '') + '" data-act="huddle" aria-label="' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '">' + ic('headset') + '<span>' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '</span></button>' +
-        '<button type="button" class="ch-iconbtn ch-hide-m" data-act="search" aria-label="Search" title="Search">' + ic('search') + '</button>' +
+        '<button type="button" class="ch-iconbtn ch-hide-m" data-act="search" aria-label="Search messages" title="Search messages">' + ic('search') + '</button>' +
         '<button type="button" class="ch-iconbtn' + (S.right === 'details' ? ' is-on' : '') + '" data-act="details" aria-label="Channel details" title="Channel details">' + ic('info') + '</button></div>');
       $('[data-ta="main"]', root).placeholder = c.kind === 'dm' || c.kind === 'group' ? 'Message ' + name : 'Message ' + (c.kind === 'public' ? '#' : '') + name;
+    }
+    // Pinned messages and bookmarks sit in one row under the channel name. The row shows only when the channel has either.
+    function renderBar() {
+      var head = $('.ch-head', root); if (!head) return;
+      var bar = $('.ch-pinbar', root);
+      if (!bar) { bar = document.createElement('div'); bar.className = 'ch-pinbar'; bar.hidden = true; ($('.ch-hud', root) || head).insertAdjacentElement('afterend', bar); }
+      var c = chan(S.active);
+      var marks = (c && c.bookmarks) || [];
+      if (S.page !== 'channel' || !c || !S.features.pins || !((c.pins || 0) > 0 || marks.length)) { bar.hidden = true; setHtml(bar, ''); return; }
+      bar.hidden = false;
+      setHtml(bar, (c.pins ? '<button type="button" class="ch-pinbar__i" data-act="pins">' + ic('pin') + '<span>' + c.pins + ' pinned</span></button>' : '') +
+        marks.map(function (b) { var here = b.url.charAt(0) === '/'; return '<a class="ch-pinbar__i" href="' + esc(b.url) + '"' + (here ? '' : ' target="_blank" rel="noopener"') + ' title="' + esc(b.url) + '">' + ic(here ? 'mark2' : 'link') + '<span>' + esc(b.title) + '</span></a>'; }).join('') +
+        '<button type="button" class="ch-pinbar__add" data-act="bm-add" aria-label="Add a bookmark" title="Add a bookmark">' + ic('plus') + '</button>');
+    }
+    function plain(body) {
+      return String(body || '').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : user(id).name); }).replace(/<#([^>]+)>/g, function (_, id) { var c = chan(id); return '#' + (c ? c.name : 'channel'); });
+    }
+    function excerptOf(m) {
+      var t = plain(m.body).trim();
+      if (t) return t;
+      var a = (m.attachments || []).filter(function (x) { return x.type !== 'threadref' && x.type !== 'sent'; })[0];
+      if (a) return a.type === 'file' ? (/^image\//.test(a.mime || '') ? 'Picture: ' : 'File: ') + (a.name || '') : a.type === 'clip' ? 'Clip: ' + (a.title || '') : a.type === 'task' ? 'Request: ' + (a.title || '') : a.type === 'meeting' ? (a.title || 'Meeting') : a.name || a.title || 'Attachment';
+      return m.user_id === 'brain' ? 'An answer from Favor Brain' : '';
+    }
+    function whereOf(id) { var c = chan(id); return c ? (c.kind === 'public' ? '#' : '') + chName(c) : 'a conversation'; }
+    var SKEL = '<div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div>';
+    // In the Threads list a Favor Brain answer shows as one line (what it found); the thread shows the whole answer.
+    function brainLine(m) {
+      var bl = (m.brain && m.brain.blocks) || [];
+      for (var i = 0; i < bl.length; i++) {
+        var x = bl[i];
+        if (x.type === 'tiles' && x.tiles && x.tiles[0]) return x.tiles[0].label + ': ' + (typeof x.tiles[0].value === 'number' ? x.tiles[0].value.toLocaleString('en-US') : x.tiles[0].value);
+        if (x.type === 'table') return (x.title || 'A list') + ', ' + (Number(x.count) || (x.rows || []).length).toLocaleString('en-US') + ' rows';
+        if (x.type === 'team') return x.team + ' ' + x.year;
+        if (x.type === 'partner') return x.name;
+        if ((x.type === 'text' || x.md) && x.md) return String(x.md).replace(/[*_#|>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 140);
+      }
+      return 'An answer';
+    }
+    function lite(m) { return m.user_id === 'brain' && m.brain && m.brain.blocks ? Object.assign({}, m, { brain: null, body: brainLine(m) }) : m; }
+    function pageHtml() {
+      if (S.page === 'threads') {
+        var l = S.threadList;
+        if (!l) return SKEL;
+        if (!l.length) return '<div class="ch-empty ch-empty--page"><b>No threads yet</b></div>';
+        return '<div class="ch-pagelist">' + l.map(function (t) {
+          var at = ' data-ch="' + esc(t.channel_id) + '" data-id="' + t.root.id + '"';
+          var more = (t.root.reply_count || 0) - t.latest.length;
+          return '<section class="ch-th' + (t.unread ? ' has-new' : '') + '"><header class="ch-th__h"><button type="button" class="ch-th__ch" data-act="open-thread"' + at + '>' + esc(whereOf(t.channel_id)) + '</button>' + (t.unread ? '<span class="ch-badge">' + t.unread + ' new</span>' : '') + '<span class="ch-th__when">' + esc(ago(t.last_reply_at || t.root.created_at)) + '</span></header>' +
+            msgHtml(lite(t.root), { inThread: true, bare: true }) + (more > 0 ? '<button type="button" class="ch-th__more" data-act="open-thread"' + at + '>' + plural(more, 'earlier reply', 'earlier replies') + '</button>' : '') +
+            t.latest.map(function (m) { return msgHtml(lite(m), { inThread: true, bare: true }); }).join('') +
+            '<div class="ch-th__f"><button type="button" class="ch-btn ch-btn--sm" data-act="open-thread"' + at + '>' + ic('reply') + 'Reply</button></div></section>';
+        }).join('') + '</div>';
+      }
+      if (S.page === 'activity') {
+        var a = S.activity;
+        if (!a) return SKEL;
+        if (!a.length) return '<div class="ch-empty ch-empty--page"><b>Nothing yet</b></div>';
+        var VERB = { mention: 'mentioned you in', reply: 'replied in a thread in', reaction: 'reacted to your message in' };
+        return '<div class="ch-pagelist">' + a.map(function (i, k) {
+          return '<button type="button" class="ch-actv' + (i.unread ? ' is-unread' : '') + '" data-act="actv" data-i="' + k + '">' + avatar(user(i.by)) + '<span class="ch-actv__t"><span class="ch-actv__m"><b>' + esc(user(i.by).name) + '</b> ' + VERB[i.kind] + ' <b>' + esc(whereOf(i.channel_id)) + '</b><time>' + esc(ago(i.at)) + '</time></span><span class="ch-actv__x">' + esc(excerptOf(i.message)) + '</span></span>' + (i.kind === 'reaction' ? '<span class="ch-actv__e">' + i.emoji + '</span>' : '') + '</button>';
+        }).join('') + '</div>';
+      }
+      var keys = Object.keys(S.drafts).filter(hasDraft).sort(function (x, y) { return (S.drafts[y].at || 0) - (S.drafts[x].at || 0); });
+      if (!keys.length) return '<div class="ch-empty ch-empty--page"><b>No drafts</b></div>';
+      return '<div class="ch-pagelist">' + keys.map(function (k) {
+        var d = S.drafts[k], parts = k.split('|');
+        return '<div class="ch-draft"><button type="button" class="ch-draft__open" data-act="draft-open" data-k="' + esc(k) + '"><span class="ch-draft__w"><b>' + esc(whereOf(parts[0])) + '</b>' + (parts[1] ? '<span class="ch-tag">Thread</span>' : '') + '<time>' + esc(ago(new Date(d.at || Date.now()).toISOString())) + '</time></span><span class="ch-draft__x">' + esc(d.text) + '</span></button>' +
+          '<button type="button" class="ch-iconbtn" data-act="draft-del" data-k="' + esc(k) + '" aria-label="Delete the draft" title="Delete the draft">' + ic('trash') + '</button></div>';
+      }).join('') + '</div>';
+    }
+    function renderPage() {
+      var box = $('.ch-msgs', root), inner = $('.ch-msgs__in', box) || box, key = '~' + S.page;
+      var fresh = inner._ch !== key;
+      if (fresh) {
+        if (inner._ch && inner._ch.charAt(0) !== '~') { var keep = document.createElement('div'); while (inner.firstChild) keep.appendChild(inner.firstChild); built[inner._ch] = keep; }
+        else inner.innerHTML = '';
+        inner._ch = key; inner._h = null;
+      }
+      setHtml(inner, pageHtml());
+      if (fresh) box.scrollTop = 0;
+      if (window.FavorChatBrain) window.FavorChatBrain.draw(inner);
+      if (window.FavorChatView) window.FavorChatView.watch(inner);
+      syncLatestSoon();
     }
     function introHtml(c) {
       var n = chName(c);
@@ -489,13 +687,14 @@
     }
     function renderMsgs(forceBottom) {
       var box = $('.ch-msgs', root), c = chan(S.active);
+      if (S.page !== 'channel') return renderPage();
       if (!c) return;
       var inner = $('.ch-msgs__in', box) || box;
       var list = S.msgs[c.id];
       var near = box.scrollHeight - box.scrollTop - box.clientHeight < 140;
       // Switching channels keeps the old channel's blocks aside for a quick return and brings in this one's, built or kept.
       if (inner._ch !== c.id) {
-        if (inner._ch) { var keep = document.createElement('div'); while (inner.firstChild) keep.appendChild(inner.firstChild); built[inner._ch] = keep; }
+        if (inner._ch && inner._ch.charAt(0) !== '~') { var keep = document.createElement('div'); while (inner.firstChild) keep.appendChild(inner.firstChild); built[inner._ch] = keep; }
         else inner.innerHTML = '';
         inner._ch = null; inner._h = null;
         if (list && built[c.id]) { var got = built[c.id]; delete built[c.id]; while (got.firstChild) inner.appendChild(got.firstChild); }
@@ -510,11 +709,20 @@
         else { box.scrollTop = box.scrollHeight; pinned = true; }
       }
       if (window.FavorChatView) window.FavorChatView.watch(inner);
+      if (window.FavorChatBrain) window.FavorChatBrain.draw(inner);
+      syncLatestSoon();
     }
+    function typingLine(t) {
+      var now = Date.now();
+      var names = Object.keys(t || {}).filter(function (id) { return id !== S.me.id && now - t[id] < 5000; }).map(function (id) { return user(id).name.split(' ')[0]; });
+      return names.length ? '<i></i><i></i><i></i><span>' + esc(names.length === 1 ? names[0] + ' is typing' : names.length === 2 ? names.join(' and ') + ' are typing' : 'Several people are typing') + '</span>' : '';
+    }
+    // Typing in the channel shows above the message box; typing in a thread shows above that thread's reply box.
     function renderTyping() {
-      var el = $('.ch-typing', root), t = S.typing[S.active] || {}, now = Date.now();
-      var names = Object.keys(t).filter(function (id) { return id !== S.me.id && now - t[id] < 5000; }).map(function (id) { return user(id).name.split(' ')[0]; });
-      setHtml(el, names.length ? '<i></i><i></i><i></i><span>' + esc(names.length === 1 ? names[0] + ' is typing' : names.length === 2 ? names.join(' and ') + ' are typing' : 'Several people are typing') + '</span>' : '');
+      var el = $('.ch-main .ch-typing', root);
+      if (el) setHtml(el, S.page === 'channel' ? typingLine(S.typing[S.active]) : '');
+      var tl = $('.ch-right .ch-typing', root);
+      if (tl) setHtml(tl, S.right === 'thread' && S.threadRoot ? typingLine(S.threadTyping[S.threadRoot]) : '');
     }
     function renderRight() {
       var el = $('.ch-right', root), c = chan(S.active);
@@ -523,18 +731,55 @@
       el.hidden = false;
       var oldTb = $('.ch-thread__body', el);
       S.threadScroll = oldTb ? { top: oldTb.scrollTop, bottom: oldTb.scrollHeight - oldTb.scrollTop - oldTb.clientHeight < 80 } : null;
+      if (S.threadFull && S.right === 'thread' && !isPhone()) root.dataset.tfull = '1'; else delete root.dataset.tfull;
       if (S.right === 'thread') {
         var t = S.threads[S.threadRoot];
-        var head = '<div class="ch-right__head"><button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to the channel">' + ic('back') + '</button><div><b>Thread</b><small>' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</small></div><button type="button" class="ch-iconbtn" data-act="close-right" aria-label="Close the thread">' + ic('x') + '</button></div>';
+        var cname = (c.kind === 'public' ? '# ' : '') + chName(c);
+        var full = S.threadFull && !isPhone();
+        // Full width: the thread takes the channel's place, and the channel's name on the left is the way back to it.
+        var head = (full ? '<button type="button" class="ch-crumb" data-act="thread-exit" aria-label="Back to ' + esc(cname) + '">' + ic('back') + '<span>' + esc(cname) + '</span></button>' : '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to the channel">' + ic('back') + '</button>') +
+          '<div><b>Thread</b>' + (full ? '' : '<small>' + esc(cname) + '</small>') + '</div>' +
+          '<button type="button" class="ch-iconbtn ch-desk" data-act="thread-full" aria-pressed="' + full + '" aria-label="' + (full ? 'Show the thread beside the channel' : 'Open the thread full width') + '" title="' + (full ? 'Show beside the channel' : 'Open full width') + '">' + ic(full ? 'side' : 'full') + '</button>' +
+          '<button type="button" class="ch-iconbtn" data-act="close-right" aria-label="Close the thread">' + ic('x') + '</button>';
         var body = !t ? '<div class="ch-skel"><i style="width:60%"></i><i style="width:85%"></i></div>' :
-          msgHtml(t.root, { inThread: true }) + (t.replies.length ? '<div class="ch-thread__n">' + plural(t.replies.length, 'reply', 'replies') + '</div>' : '') + listHtml(t.replies, { inThread: true });
+          msgHtml(t.root, { inThread: true }) + (t.replies.length ? '<div class="ch-thread__n">' + plural(t.replies.length, 'reply', 'replies') + '</div>' : '') + listHtml(t.replies, { inThread: true, lastRead: S.threadNew[S.threadRoot] });
         var keep = el.dataset.mode === 'thread' && el.dataset.root === String(S.threadRoot) && $('.ch-comp', el);
         if (keep) { var tbx = $('.ch-thread__body', el); if (tbx.querySelector('.ch-skel')) tbx.innerHTML = ''; morph(tbx, body); }
-        else { el.innerHTML = head + '<div class="ch-thread__body">' + body + '</div><div class="ch-typing"></div>' + composerHtml('thread', 'Reply'); el.dataset.mode = 'thread'; el.dataset.root = String(S.threadRoot); }
+        else {
+          el.innerHTML = '<div class="ch-rz" data-rz role="separator" aria-orientation="vertical" tabindex="0" aria-label="Width of the thread panel"></div><div class="ch-right__head"></div><div class="ch-thread__body">' + body + '</div><div class="ch-typing" aria-live="polite"></div>' + composerHtml('thread', 'Reply');
+          el.dataset.mode = 'thread'; el.dataset.root = String(S.threadRoot);
+          S.threadPlaced = null;
+        }
+        patchHtml($('.ch-right__head', el), head);
+        var lab = $('[data-also-label]', el);
+        if (lab) lab.textContent = 'Also send to ' + (c.kind === 'public' ? '#' + c.name : c.kind === 'private' ? c.name : c.kind === 'dm' ? chName(c) : 'the group');
         var tb = $('.ch-thread__body', el);
-        if (S.threadSeen === S.threadRoot && S.threadScroll != null) tb.scrollTop = S.threadScroll.bottom ? tb.scrollHeight : S.threadScroll.top; else tb.scrollTop = 0;
+        // The first time a thread's replies are on screen it opens at what is new, or at the newest reply. After that it stays where it was.
+        if (t && t.loaded && S.threadPlaced !== S.threadRoot) {
+          var nl = $('[data-new]', tb);
+          tb.scrollTop = nl ? Math.max(0, nl.offsetTop - tb.offsetTop - 48) : tb.scrollHeight;
+          S.threadPlaced = S.threadRoot;
+        } else if (S.threadSeen === S.threadRoot && S.threadScroll != null) tb.scrollTop = S.threadScroll.bottom ? tb.scrollHeight : S.threadScroll.top;
+        else if (!t || !t.loaded) tb.scrollTop = 0;
         S.threadSeen = S.threadRoot;
-        syncSend('thread'); if (!keep) renderPending('thread');
+        syncSend('thread'); if (!keep) { renderPending('thread'); restoreDraft('thread'); }
+        if (window.FavorChatBrain) window.FavorChatBrain.draw(tb);
+        if (window.FavorChatView) window.FavorChatView.watch(tb);
+        renderTyping(); syncLatestSoon();
+      } else if (S.right === 'pins') {
+        el.dataset.mode = 'pins'; el.dataset.root = '';
+        var P = S.pins[c.id];
+        var pinsHtml = !P ? '<div class="ch-skel"><i style="width:60%"></i><i style="width:85%"></i></div>' :
+          '<h4>Pinned messages</h4>' + (P.pins.length ? P.pins.map(function (m) {
+            return '<div class="ch-pinned">' + msgHtml(m, { inThread: true, bare: true }) + '<div class="ch-pinned__f"><span>Pinned by ' + esc(user(m.pinned_by).name) + '</span><button type="button" class="ch-btn ch-btn--sm" data-act="jump-msg" data-id="' + m.id + '"' + (m.thread_id ? ' data-t="' + m.thread_id + '"' : '') + '>Go to message</button><button type="button" class="ch-btn ch-btn--sm" data-act="pin" data-id="' + m.id + '" data-on="0">Unpin</button></div></div>';
+          }).join('') : '<p class="ch-det__none">No pinned messages</p>') +
+          '<h4>Bookmarks</h4>' + (P.bookmarks.length ? P.bookmarks.map(function (b) {
+            var here = b.url.charAt(0) === '/';
+            return '<div class="ch-bm"><a href="' + esc(b.url) + '"' + (here ? '' : ' target="_blank" rel="noopener"') + '>' + ic(here ? 'mark2' : 'link') + '<span><b>' + esc(b.title) + '</b><small>' + esc(b.url) + '</small></span></a><button type="button" class="ch-iconbtn" data-act="bm-del" data-id="' + esc(b.id) + '" aria-label="Remove the bookmark ' + esc(b.title) + '" title="Remove">' + ic('x') + '</button></div>';
+          }).join('') : '<p class="ch-det__none">No bookmarks</p>') +
+          '<button type="button" class="ch-btn ch-btn--sm" data-act="bm-add" style="margin-top:10px">' + ic('plus') + 'Add a bookmark</button>';
+        el.innerHTML = '<div class="ch-right__head"><button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to the channel">' + ic('back') + '</button><div><b>Pinned</b><small>' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</small></div><button type="button" class="ch-iconbtn" data-act="close-right" aria-label="Close">' + ic('x') + '</button></div><div class="ch-det ch-det--pins">' + pinsHtml + '</div>';
+        if (window.FavorChatView) window.FavorChatView.watch(el);
       } else {
         el.dataset.mode = 'details'; el.dataset.root = '';
         var members = (c.members || []).map(function (id) { return user(id); });
@@ -581,33 +826,127 @@
       if (bar && getComputedStyle(bar).display !== 'none') b = Math.round(window.innerHeight - bar.getBoundingClientRect().top);
       if (isPhone()) { root.style.setProperty('--ch-top', t + 'px'); root.style.setProperty('--ch-bot', b + 'px'); }
     }
-    function renderAll(bottom) { renderSide(); renderHead(); renderHud(); renderMsgs(bottom); renderTyping(); renderRight(); syncSend('main'); }
+    function renderAll(bottom) { root.dataset.page = S.page; renderSide(); renderHead(); renderHud(); renderBar(); renderMsgs(bottom); renderTyping(); renderRight(); syncSend('main'); }
 
     /* ------------------------------------------------------------------ actions */
+    /* ------------------------------------------------------------------ where the person is, and the browser's Back
+       Each screen the page adds to the browser's history carries what was open (nav.pos counts them). Back and Forward put
+       that screen back; an X or a back arrow on the page takes the same step, so the two never disagree. The hub's own
+       overlays (help, search, the huddle sheet) keep their own steps on top of these and are left to the hub. */
+    var nav = { pos: (history.state && history.state.chn) || 0, after: null };
+    function ownsTop() { return !!(history.state && history.state.chn && history.state.chn === nav.pos); }
+    function pushNav(extra) {
+      nav.pos += 1; nav.view = !!(extra && extra.chview);
+      var st = Object.assign({ chn: nav.pos, chv: S.view, ch: S.active, t: S.threadRoot, full: S.threadFull, right: S.right, page: S.page }, extra || {});
+      try { history.pushState(st, ''); } catch (e) { nav.pos -= 1; }
+    }
+    function applyNav(st) {
+      var phone = isPhone();
+      if (!st.chn) {
+        // The page as it first opened: the list on a phone, the channel with no full-width thread on a desktop.
+        S.threadFull = false;
+        if (phone) { saveDraft('thread'); S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('list'); renderRight(); renderSide(); }
+        else renderRight();
+        return;
+      }
+      var page = st.page || 'channel';
+      if (page !== 'channel') { if (S.page !== page || S.right !== 'none') openPage(page, { pop: true }); else setView('channel'); return; }
+      if (st.ch && chan(st.ch) && (st.ch !== S.active || S.page !== 'channel')) openChannel(st.ch, { pop: true });
+      if (st.chv === 'thread' && st.t) {
+        if (S.threadRoot !== st.t || S.right !== 'thread') openThread(st.t, { pop: true, full: !!st.full });
+        else { S.threadFull = !!st.full; setView('thread'); renderRight(); }
+        return;
+      }
+      if (st.chv === 'details') { S.right = st.right === 'pins' ? 'pins' : 'details'; S.threadRoot = null; S.threadFull = false; setView('details'); renderRight(); renderHead(); return; }
+      S.threadFull = false;
+      if (phone) { saveDraft('thread'); S.right = 'none'; S.threadRoot = null; S.threadSeen = null; }
+      setView('channel'); renderRight(); renderHead();
+    }
+
+    /* ------------------------------------------------------------------ drafts: what was typed and not sent, kept per conversation and per thread */
+    function draftKey(scope) { return scope === 'thread' ? (S.threadRoot && S.right === 'thread' ? S.active + '|' + S.threadRoot : null) : S.page === 'channel' ? S.active : null; }
+    function saveDraft(scope) {
+      var key = draftKey(scope), ta = $('[data-ta="' + scope + '"]', root);
+      if (!key || !ta) return;
+      var had = hasDraft(key);
+      if (ta.value.trim()) S.drafts[key] = { text: ta.value, map: S.mentionMap[scope], at: Date.now() };
+      else delete S.drafts[key];
+      lsSet('favor.chat.drafts.v1', S.drafts);
+      if (had !== hasDraft(key)) renderSide();
+    }
+    function restoreDraft(scope) {
+      var ta = $('[data-ta="' + scope + '"]', root), key = draftKey(scope);
+      if (!ta) return;
+      var d = key ? S.drafts[key] : null;
+      ta.value = d && d.text ? d.text : '';
+      S.mentionMap[scope] = d && d.map ? Object.assign({}, d.map) : {};
+      grow(ta); syncSend(scope);
+    }
+    function clearDraft(scope) {
+      var key = draftKey(scope);
+      if (!key || !S.drafts[key]) return;
+      delete S.drafts[key]; lsSet('favor.chat.drafts.v1', S.drafts); renderSide();
+    }
+    var draftT = 0;
+    function saveDraftSoon(scope) { clearTimeout(draftT); draftT = setTimeout(function () { saveDraft(scope); }, 350); }
+
     function openChannel(id, o) {
       o = o || {};
       if (!chan(id)) return;
-      var changed = S.active !== id;
-      S.active = id; try { localStorage.setItem('favor.chat.last', id); } catch (e) { /* private mode */ }
-      if (changed) { S.right = S.right === 'details' ? 'details' : 'none'; S.threadRoot = null; S.editing = null; }
+      clearTimeout(draftT); saveDraft('main'); if (S.right === 'thread') saveDraft('thread');
+      var changed = S.active !== id || S.page !== 'channel';
+      S.active = id; S.page = 'channel'; try { localStorage.setItem('favor.chat.last', id); } catch (e) { /* private mode */ }
+      if (changed) { S.right = S.right === 'details' ? 'details' : 'none'; if (S.threadRoot) delete S.threadNew[S.threadRoot]; S.threadRoot = null; S.threadFull = false; S.editing = null; S.newBelow.main = 0; }
+      // Opening a conversation reads it. One the person marked unread stays that way until they open it again.
+      S.keepUnread = null;
       if (opts.onOpen) opts.onOpen(id);
       var c = chan(id);
       S.lastRead[id] = c.last_read != null ? c.last_read : S.lastRead[id];
       setView('channel');
-      if (isPhone() && !o.pop) history.pushState({ chv: 'channel' }, '');
+      if (isPhone() && !o.pop) pushNav();
       renderAll('unread');
+      restoreDraft('main');
       if (!S.msgs[id]) {
         guard(api.history(id)).then(function (r) {
           S.msgs[id] = r.messages; S.hasMore[id] = !!r.more;
-          if (S.active === id) { renderMsgs('unread'); markRead(); }
+          if (S.active === id && S.page === 'channel') { renderMsgs('unread'); markRead(); }
         });
       } else {
         markRead();
         // A channel read ahead of time opens finished; a quiet refresh catches anything that arrived since.
-        if (S.warm[id]) { S.warm[id] = false; api.history(id).then(function (r) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; if (S.active === id) renderMsgs(false); }).catch(function () {}); }
+        if (S.warm[id]) { S.warm[id] = false; api.history(id).then(function (r) { S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; if (S.active === id && S.page === 'channel') renderMsgs(false); }).catch(function () {}); }
       }
       loadHuddle(id);
       if (!isPhone()) setTimeout(function () { var ta = $('[data-ta="main"]', root); if (ta) ta.focus(); }, 0);
+    }
+    // The three lists above the channels take the channel's place in the middle column.
+    function openPage(page, o) {
+      o = o || {};
+      if (!PAGES[page]) return;
+      clearTimeout(draftT); saveDraft('main'); if (S.right === 'thread') saveDraft('thread');
+      if (S.threadRoot) delete S.threadNew[S.threadRoot];
+      S.page = page; S.right = 'none'; S.threadRoot = null; S.threadFull = false; S.editing = null;
+      setView('channel');
+      if (isPhone() && !o.pop) pushNav();
+      renderAll();
+      loadPage(page);
+    }
+    function loadPage(page) {
+      if (page === 'threads' && api.threads) return guard(api.threads()).then(function (r) { takeThreads(r); if (S.page === 'threads') renderMsgs(false); });
+      if (page === 'activity' && api.activity) return guard(api.activity()).then(function (r) { S.activity = r.items || []; if (S.page === 'activity') renderMsgs(false); });
+    }
+    // The Threads list is the record of what is unread in threads: the number beside Threads and the mark on each parent message come from it.
+    function takeThreads(r) {
+      S.threadList = r.threads || []; S.threadsUnread = r.unread || 0;
+      var by = {}; S.threadList.forEach(function (t) { by[t.root.id] = t.unread; });
+      Object.keys(S.msgs).forEach(function (k) { (S.msgs[k] || []).forEach(function (m) { if (m.reply_count && by[m.id] != null && !(S.right === 'thread' && m.id === S.threadRoot)) m.thread_unread = by[m.id]; }); });
+      renderSide(); if (opts.onUnread) opts.onUnread(totalUnread());
+    }
+    var threadsT = 0;
+    function refreshThreads() {
+      if (!api.threads) return;
+      clearTimeout(threadsT);
+      threadsT = setTimeout(function () { api.threads().then(function (r) { takeThreads(r); if (S.page === 'threads' || S.page === 'channel') renderMsgs(false); }).catch(function () {}); }, 500);
     }
     // Quietly loads the messages of the channels a person is most likely to open next (unread first, then the most recent), one at a time,
     // so tapping a channel shows its messages in the same frame as the slide instead of a skeleton.
@@ -632,37 +971,175 @@
     }
     function markRead() {
       var c = chan(S.active), list = S.msgs[S.active];
-      if (!c || !list || !list.length || document.hidden) return;
+      if (!c || !list || !list.length || document.hidden || S.page !== 'channel' || S.keepUnread === S.active) return;
       var last = list[list.length - 1].id;
       if (c.unread || c.mentions || Number(c.last_read || 0) < Number(last)) {
         c.unread = 0; c.mentions = 0; c.last_read = last;
         api.read(S.active, last); renderSide(); if (opts.onUnread) opts.onUnread(totalUnread());
       }
     }
-    function totalUnread() { var n = 0, m = 0; Object.keys(S.channels).forEach(function (k) { var c = S.channels[k]; if (c.joined === false || c.muted) return; n += c.unread > 0 ? 1 : 0; m += c.mentions || 0; }); return { channels: n, mentions: m }; }
-    function openThread(id) {
+    // The hub's badge counts what is addressed to the person: mentions and direct messages, plus unread replies in their threads.
+    function totalUnread() { var n = 0, m = 0; Object.keys(S.channels).forEach(function (k) { var c = S.channels[k]; if (c.joined === false || c.muted) return; n += c.unread > 0 ? 1 : 0; m += c.mentions || 0; }); return { channels: n, mentions: m + (S.threadsUnread || 0) }; }
+    function openThread(id, o) {
+      o = o || {};
       id = Number(id);
-      S.right = 'thread'; S.threadRoot = id; S.editing = null;
+      var was = S.right === 'thread' && S.threadRoot === id;
+      if (S.right === 'thread' && S.threadRoot && !was) { saveDraft('thread'); delete S.threadNew[S.threadRoot]; }
+      S.right = 'thread'; S.threadRoot = id; S.editing = null; S.newBelow.thread = 0;
+      if (o.full != null) S.threadFull = !!o.full && !isPhone();
       var found = (S.msgs[S.active] || []).filter(function (m) { return String(m.id) === String(id); })[0];
       if (found && !S.threads[id]) S.threads[id] = { root: found, replies: [] };
       setView('thread');
-      if (isPhone()) history.pushState({ chv: 'thread' }, '');
-      renderRight();
-      guard(api.thread(id)).then(function (t) { S.threads[id] = t; if (S.threadRoot === id) { renderRight(); } });
+      if (!o.pop && !was && (isPhone() || S.threadFull)) pushNav();
+      renderRight(); renderHead();
+      guard(api.thread(id)).then(function (t) {
+        t.loaded = true;
+        // What was new to the person when the thread opened keeps a New line above it for as long as the thread stays open.
+        if (t.unread > 0) { var k = t.replies.length - t.unread; S.threadNew[id] = k > 0 ? t.replies[k - 1].id : t.root.id; }
+        S.threads[id] = t;
+        threadRead(id, t.threads_unread);
+        if (S.threadRoot === id) renderRight();
+      });
       if (!isPhone()) setTimeout(function () { var ta = $('[data-ta="thread"]', root); if (ta) ta.focus(); }, 0);
     }
-    function closeRight() { S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('channel'); renderRight(); renderHead(); }
+    // A thread from anywhere (the Threads list, a search hit, a link): its conversation opens first, then the thread.
+    function openThreadIn(channelId, id, o) {
+      if (!chan(channelId)) return;
+      // From one of the lists the thread is one step: Back goes straight back to the list, as in Slack.
+      if (S.active !== channelId || S.page !== 'channel') openChannel(channelId, { pop: S.page !== 'channel' });
+      openThread(id, o);
+    }
+    // Opening a thread reads it: the mark on its parent message goes, and the number beside Threads drops.
+    function threadRead(id, total) {
+      var m = findMsg(id), had = m && m.thread_unread;
+      if (m) m.thread_unread = 0;
+      (S.threadList || []).forEach(function (t) { if (t.root.id === id) t.unread = 0; });
+      if (total != null) S.threadsUnread = total;
+      if (had && S.page === 'channel') renderMsgs(false);
+      renderSide(); if (opts.onUnread) opts.onUnread(totalUnread());
+    }
+    // A reply that arrives while its thread is open and in view is read at once.
+    var touchT = 0;
+    function touchThread(id) {
+      clearTimeout(touchT);
+      touchT = setTimeout(function () {
+        if (S.threadRoot !== id || S.right !== 'thread' || document.hidden) return;
+        api.thread(id).then(function (t) { t.loaded = true; if (S.threadRoot !== id) return; S.threads[id] = t; threadRead(id, t.threads_unread); renderRight(); }).catch(function () {});
+      }, 900);
+    }
+    function closeRight() {
+      var done = function () {
+        if (S.right === 'thread') { saveDraft('thread'); if (S.threadRoot) delete S.threadNew[S.threadRoot]; }
+        S.right = 'none'; S.threadRoot = null; S.threadSeen = null; S.threadFull = false;
+        setView('channel'); renderRight(); renderHead();
+        if (window.FavorChatBrain) window.FavorChatBrain.draw($('.ch-msgs', root));
+        if (!isPhone()) { var ta = $('[data-ta="main"]', root); if (ta && S.page === 'channel') ta.focus(); }
+      };
+      // A screen that added a step to the browser's history (any phone screen, the full-width thread) gives the step back first.
+      if (ownsTop() && S.right !== 'none' && (isPhone() || S.threadFull)) { nav.after = done; history.back(); } else done();
+    }
+    function setFull(on) {
+      if (isPhone() || S.right !== 'thread' || on === S.threadFull) return;
+      if (on) { S.threadFull = true; pushNav(); renderRight(); }
+      else if (ownsTop() && history.state.full) history.back();
+      else { S.threadFull = false; renderRight(); }
+      if (window.FavorChatBrain) setTimeout(function () { window.FavorChatBrain.draw(root); }, 0);
+      var ta = $('[data-ta="thread"]', root); if (ta) ta.focus();
+    }
     function openDetails(tab) {
       if (S.right === 'details' && !isPhone() && !tab) return closeRight();
-      S.right = 'details'; S.tab = tab || 'about'; setView('details');
-      if (isPhone()) history.pushState({ chv: 'details' }, '');
+      if (S.right === 'thread') { saveDraft('thread'); if (S.threadRoot) delete S.threadNew[S.threadRoot]; }
+      S.right = 'details'; S.threadRoot = null; S.threadFull = false; S.tab = tab || 'about'; setView('details');
+      if (isPhone()) pushNav();
       renderRight(); renderHead();
     }
+    function loadPins(id) {
+      if (!api.pins) return Promise.resolve();
+      return guard(api.pins(id)).then(function (r) {
+        S.pins[id] = { pins: r.pins || [], bookmarks: r.bookmarks || [] };
+        var c = chan(id); if (c) { c.pins = S.pins[id].pins.length; c.bookmarks = S.pins[id].bookmarks; }
+        if (S.active === id) { renderBar(); if (S.right === 'pins') renderRight(); }
+      });
+    }
+    function openPins() {
+      if (S.right === 'pins' && !isPhone()) return closeRight();
+      if (S.right === 'thread') { saveDraft('thread'); if (S.threadRoot) delete S.threadNew[S.threadRoot]; }
+      S.right = 'pins'; S.threadRoot = null; S.threadFull = false; setView('details');
+      if (isPhone()) pushNav();
+      renderRight(); renderHead();
+      loadPins(S.active);
+    }
     function back() {
-      if (isPhone() && history.state && history.state.chv) return history.back();
+      if (ownsTop()) return history.back();
       if (S.view === 'thread' || S.view === 'details') return closeRight();
+      if (!isPhone()) { if (S.page !== 'channel' && S.active) openChannel(S.active); return; }
       setView('list');
     }
+
+    /* ------------------------------------------------------------------ the thread panel's width, dragged and remembered */
+    var RIGHT_KEY = 'favor.chat.rightw';
+    function clampRight(w) {
+      var total = root.getBoundingClientRect().width || window.innerWidth, side = ($('.ch-side', root) || {}).offsetWidth || 272;
+      return Math.round(Math.max(320, Math.min(w, 760, total - side - 380)));
+    }
+    function applyRightWidth() {
+      var w = Number(lsGet(RIGHT_KEY, 0)) || 0;
+      if (w && !isPhone()) root.style.setProperty('--ch-right', clampRight(w) + 'px'); else root.style.removeProperty('--ch-right');
+    }
+    (function () {
+      var drag = null;
+      root.addEventListener('pointerdown', function (e) {
+        var h = e.target.closest && e.target.closest('[data-rz]');
+        if (!h || isPhone() || e.button) return;
+        e.preventDefault();
+        drag = { h: h, w: $('.ch-right', root).getBoundingClientRect().width };
+        try { h.setPointerCapture(e.pointerId); } catch (x) { /* fine */ }
+        root.classList.add('is-resizing');
+      });
+      root.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        drag.w = clampRight(root.getBoundingClientRect().right - e.clientX);
+        root.style.setProperty('--ch-right', drag.w + 'px');
+      });
+      var end = function () {
+        if (!drag) return;
+        lsSet(RIGHT_KEY, drag.w); drag = null; root.classList.remove('is-resizing');
+        if (window.FavorChatBrain) window.FavorChatBrain.draw(root);
+      };
+      root.addEventListener('pointerup', end); root.addEventListener('pointercancel', end);
+      root.addEventListener('dblclick', function (e) { if (e.target.closest && e.target.closest('[data-rz]')) { lsSet(RIGHT_KEY, 0); applyRightWidth(); } });
+      root.addEventListener('keydown', function (e) {
+        var h = e.target.closest && e.target.closest('[data-rz]');
+        if (!h || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+        e.preventDefault();
+        var w = clampRight($('.ch-right', root).getBoundingClientRect().width + (e.key === 'ArrowLeft' ? 24 : -24));
+        lsSet(RIGHT_KEY, w); applyRightWidth();
+      });
+      window.addEventListener('resize', applyRightWidth);
+    })();
+
+    /* ------------------------------------------------------------------ Latest: the way back down after reading further up */
+    // Read after the browser has laid the new content out, never in the same task that drew it (a forced layout on a phone).
+    var latestSoonQ = 0;
+    function syncLatestSoon() { if (latestSoonQ) return; latestSoonQ = requestAnimationFrame(function () { latestSoonQ = 0; syncLatest('main'); syncLatest('thread'); }); }
+    function syncLatest(scope) {
+      var box = scope === 'thread' ? $('.ch-right .ch-thread__body', root) : $('.ch-msgs', root);
+      var b = $('.ch-latest[data-scope="' + scope + '"]', root);
+      if (!box || !b) return;
+      var far = box.scrollHeight - box.scrollTop - box.clientHeight > 260 && (scope === 'thread' || S.page === 'channel');
+      if (!far) S.newBelow[scope] = 0;
+      var n = S.newBelow[scope], label = n ? plural(n, 'new message') : 'Latest', sp = b.querySelector('span');
+      if (b.hidden === far) b.hidden = !far;
+      if (sp.textContent !== label) sp.textContent = label;
+      b.classList.toggle('has-new', !!n);
+    }
+    var latestQ = 0;
+    root.addEventListener('scroll', function (e) {
+      var t = e.target;
+      if (!t || !t.classList || !(t.classList.contains('ch-msgs') || t.classList.contains('ch-thread__body'))) return;
+      if (latestQ) return;
+      latestQ = requestAnimationFrame(function () { latestQ = 0; syncLatest('main'); syncLatest('thread'); });
+    }, true);
 
     function composerText(scope) { return ($('[data-ta="' + scope + '"]', root) || {}).value || ''; }
     function tokenize(scope, text) {
@@ -684,43 +1161,113 @@
       el.innerHTML = p.map(function (a, i) {
         var label = a.type === 'drive' ? a.name : a.type === 'clip' ? a.title : a.type === 'file' ? a.name : a.title || a.type;
         var iconName = a.type === 'drive' ? 'drive' : a.type === 'clip' ? 'rec' : 'file';
-        return '<span class="ch-pend__i">' + ic(iconName) + '<span>' + esc(label) + (a.uploading ? ' (uploading)' : '') + '</span><button type="button" data-act="unpend" data-scope="' + scope + '" data-i="' + i + '" aria-label="Remove">' + ic('x') + '</button></span>';
+        return '<span class="ch-pend__i' + (a.preview ? ' ch-pend__i--pic' : '') + '">' + (a.preview ? '<img src="' + esc(a.preview) + '" alt="" />' : ic(iconName)) + '<span>' + esc(label) + (a.uploading ? ' (uploading)' : '') + '</span><button type="button" data-act="unpend" data-scope="' + scope + '" data-i="' + i + '" aria-label="Remove">' + ic('x') + '</button></span>';
       }).join('');
       syncSend(scope);
     }
+    /* The hub's own things from the message box: a line that starts with one of these runs it instead of posting. */
+    var SLASH = [
+      { cmd: 'brain', args: 'question', sub: 'Ask Favor Brain', icon: 'spark' },
+      { cmd: 'request', args: 'summary', sub: 'Make a request board card', icon: 'task' },
+      { cmd: 'huddle', args: '', sub: 'Start or join a huddle here', icon: 'headset' },
+      { cmd: 'clip', args: '', sub: 'Record a clip and post it here', icon: 'rec' }
+    ];
+    function runSlash(scope, raw) {
+      var m = String(raw || '').match(/^\/([a-z]+)(?:\s+([\s\S]*))?$/i);
+      if (!m) return false;
+      var cmd = m[1].toLowerCase(), rest = (m[2] || '').trim();
+      if (!SLASH.some(function (c) { return c.cmd === cmd; })) return false;
+      var ta = $('[data-ta="' + scope + '"]', root);
+      var clear = function () { ta.value = ''; grow(ta); syncSend(scope); clearDraft(scope); closePop(); slashState = null; };
+      var thread = scope === 'thread' ? S.threadRoot : null;
+      if (cmd === 'brain') { if (!rest) { toast('Type a question after /brain'); return true; } clear(); askBrain(rest, { thread: thread }); }
+      else if (cmd === 'request') { clear(); requestDialog({ title: rest, thread: thread }); }
+      else if (cmd === 'huddle') { clear(); openHuddle(S.active); }
+      else if (cmd === 'clip') { clear(); if (opts.recordClip) opts.recordClip(S.active, function (att) { S.pending[scope].push(att); renderPending(scope); }); else toast('Recording is not available here'); }
+      return true;
+    }
+    var slashState = null;
+    function updateSlash(ta) {
+      var m = ta.value.match(/^\/([a-z]*)$/i);
+      if (!m) { if (slashState) { closePop(); slashState = null; } return false; }
+      var q = m[1].toLowerCase(), list = SLASH.filter(function (c) { return c.cmd.indexOf(q) === 0; });
+      if (!list.length) { if (slashState) { closePop(); slashState = null; } return false; }
+      slashState = { scope: ta.dataset.ta, list: list, i: 0 };
+      openPop('<div class="ch-pop__h">Commands</div>' + list.map(function (c, i) {
+        return '<button type="button" class="ch-pop__i' + (i === 0 ? ' is-on' : '') + '" role="option" data-act="slash-pick" data-i="' + i + '"><b style="background:var(--r-sunk);color:var(--r-ink-2)">' + ic(c.icon) + '</b><span>/' + c.cmd + (c.args ? ' <em>' + c.args + '</em>' : '') + '<small>' + c.sub + '</small></span></button>';
+      }).join(''), ta.closest('.ch-comp__box'), 'ch-pop--mention ch-pop--slash');
+      popAnchor = ta;
+      return true;
+    }
+    function pickSlash(i) {
+      var st = slashState; if (!st) return;
+      var c = st.list[i], ta = $('[data-ta="' + st.scope + '"]', root);
+      slashState = null; closePop();
+      if (!c.args) { ta.value = '/' + c.cmd; send(st.scope); return; }
+      ta.value = '/' + c.cmd + ' '; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); grow(ta); syncSend(st.scope);
+    }
+    // A question for Favor Brain, posted as the person's own message. opts: thread, channel, hidden (the question and its
+    // answer are the asker's alone), intent (what a pressed option or name asks for).
+    function askBrain(q, o) {
+      o = o || {};
+      var ch = o.channel && chan(o.channel) ? o.channel : S.active;
+      q = String(q || '').trim();
+      if (!q || !chan(ch)) return Promise.resolve();
+      return guard(api.send(ch, { body: '<@brain> ' + q, thread_id: o.thread || null, private: o.hidden ? true : undefined, intent: o.intent || undefined })).then(function (m) { S.toBottom = true; addMessage(m, true); });
+    }
     function send(scope) {
       var c = chan(S.active); if (!c) return;
-      var ta = $('[data-ta="' + scope + '"]', root), raw = ta.value, body = tokenize(scope, raw).trim();
-      var att = S.pending[scope].filter(function (a) { return !a.uploading; });
+      var ta = $('[data-ta="' + scope + '"]', root), raw = ta.value;
       if (S.pending[scope].some(function (a) { return a.uploading; })) { toast('Wait for the upload to finish'); return; }
+      if (!S.pending[scope].length && runSlash(scope, raw.trim())) return;
+      var body = tokenize(scope, raw).trim();
+      var att = S.pending[scope].filter(function (a) { return !a.uploading; });
       if (!body && !att.length) return;
-      ta.value = ''; grow(ta); S.pending[scope] = []; S.mentionMap[scope] = {}; renderPending(scope); closePop();
+      var map = S.mentionMap[scope];
       var thread = scope === 'thread' ? S.threadRoot : null;
-      guard(api.send(S.active, { body: body, thread_id: thread, attachments: att })).then(function (m) { addMessage(m, true); }).catch(function () { ta.value = raw; grow(ta); syncSend(scope); });
+      var alsoBox = thread ? $('[data-also]', root) : null, also = !!(alsoBox && alsoBox.checked);
+      ta.value = ''; grow(ta); S.pending[scope] = []; S.mentionMap[scope] = {}; renderPending(scope); closePop(); clearTimeout(draftT); clearDraft(scope);
+      guard(api.send(S.active, { body: body, thread_id: thread, attachments: att, also: also || undefined })).then(function (m) {
+        if (alsoBox) alsoBox.checked = false;
+        S.toBottom = true; addMessage(m, true);
+      }).catch(function () { if (!ta.value) { ta.value = raw; S.mentionMap[scope] = map; grow(ta); syncSend(scope); saveDraft(scope); } });
     }
     function addMessage(m, mine) {
       var ch = chan(m.channel_id); if (!ch) { resync(); return; }
       ch.last_at = m.created_at;
       if (m.thread_id) {
-        var root = (S.msgs[m.channel_id] || []).filter(function (x) { return String(x.id) === String(m.thread_id); })[0];
-        if (root && !m.visible_to) { root.reply_count = (root.reply_count || 0) + (hasMsg(S.threads[m.thread_id], m.id) ? 0 : 1); root.last_reply_at = m.created_at; root.reply_users = (root.reply_users || []).filter(function (u) { return u !== m.user_id; }).concat([m.user_id]).slice(-3); }
+        var par = (S.msgs[m.channel_id] || []).filter(function (x) { return String(x.id) === String(m.thread_id); })[0];
+        var isNew = !hasMsg(S.threads[m.thread_id], m.id);
+        if (par && !m.visible_to && isNew) { par.reply_count = (par.reply_count || 0) + 1; par.last_reply_at = m.created_at; par.reply_users = (par.reply_users || []).filter(function (u) { return u !== m.user_id; }).concat([m.user_id]).slice(-3); }
         var t = S.threads[m.thread_id];
-        if (t && !hasMsg(t, m.id)) t.replies.push(m);
-        if (S.active === m.channel_id) { renderMsgs(false); if (S.threadRoot === m.thread_id) { renderRight(); } }
+        if (t && isNew) t.replies.push(m);
+        if (S.threadTyping[m.thread_id]) delete S.threadTyping[m.thread_id][m.user_id];
+        var open = S.active === m.channel_id && S.right === 'thread' && S.threadRoot === m.thread_id;
+        if (open && !mine && isNew) { var tb = $('.ch-right .ch-thread__body', root); if (tb && tb.scrollHeight - tb.scrollTop - tb.clientHeight > 260) S.newBelow.thread += 1; }
+        if (S.active === m.channel_id && S.page === 'channel') { renderMsgs(false); if (open) renderRight(); }
+        if (open && mine) { var tb2 = $('.ch-right .ch-thread__body', root); if (tb2) tb2.scrollTop = tb2.scrollHeight; }
+        // Someone else's reply: read at once when its thread is open and in view, counted on Threads when it is not.
+        if (!mine && !m.visible_to) { if (open && !document.hidden) touchThread(m.thread_id); else refreshThreads(); }
         if (!m.visible_to) notifyIfNeeded(m, ch);
         return;
       }
       if (S.typing[m.channel_id] && S.typing[m.channel_id][m.user_id]) { delete S.typing[m.channel_id][m.user_id]; if (S.active === m.channel_id) renderTyping(); }
       var list = S.msgs[m.channel_id];
       if (list) { if (list.some(function (x) { return String(x.id) === String(m.id); })) return; list.push(m); }
-      if (S.active === m.channel_id && !document.hidden) { renderMsgs(mine ? true : false); if (!mine) markRead(); else { ch.last_read = m.id; api.read(m.channel_id, m.id); } renderSide(); }
+      var here = S.active === m.channel_id && S.page === 'channel';
+      if (here && !document.hidden) {
+        if (!mine && !pinned) S.newBelow.main += 1;
+        renderMsgs(mine ? true : false);
+        if (!mine) markRead(); else if (!m.visible_to) { ch.last_read = m.id; api.read(m.channel_id, m.id); }
+        renderSide();
+      }
       else { renderSide(); }
       if (!m.visible_to) notifyIfNeeded(m, ch);
     }
     function hasMsg(t, id) { return !!t && (t.replies || []).some(function (x) { return String(x.id) === String(id); }); }
     function notifyIfNeeded(m, ch) {
       if (m.user_id === S.me.id) return;
-      var viewing = S.active === m.channel_id && !document.hidden;
+      var viewing = S.active === m.channel_id && S.page === 'channel' && !document.hidden && S.keepUnread !== m.channel_id;
       if (!viewing && !m.thread_id) { ch.unread = (ch.unread || 0) + 1; if (mentionsMe(m) || ch.kind === 'dm' || ch.kind === 'group') ch.mentions = (ch.mentions || 0) + 1; renderSide(); if (opts.onUnread) opts.onUnread(totalUnread()); }
       if (!viewing && !ch.muted && (mentionsMe(m) || ch.kind === 'dm' || ch.kind === 'group') && opts.onNotify) opts.onNotify(m, ch);
     }
@@ -739,16 +1286,6 @@
       pop.style.left = left + 'px'; pop.style.top = top + 'px';
       return pop;
     }
-    // The message actions on a phone: quick reactions, then reply, copy, edit and delete as full-width rows.
-    function msgSheet(mid) {
-      var m = findMsg(mid); if (!m || m.deleted || m.visible_to) return;
-      var mine = m.user_id === S.me.id, inThread = !!m.thread_id;
-      var row = function (act, icon, label, danger) { return '<button type="button" class="ch-msheet__row' + (danger ? ' is-danger' : '') + '" data-act="' + act + '" data-id="' + m.id + '">' + ic(icon) + '<span>' + label + '</span></button>'; };
-      var quick = EMOJI;
-      openModal(user(m.user_id).name + ', ' + timeOf(m.created_at),
-        '<div class="ch-msheet"><div class="ch-msheet__rx">' + quick.map(function (q) { return '<button type="button" data-act="react" data-id="' + m.id + '" data-e="' + q + '" aria-label="React ' + q + '">' + q + '</button>'; }).join('') + '</div>' +
-        (inThread ? '' : row('thread', 'reply', 'Reply in thread')) + (m.body ? row('copy', 'file', 'Copy text') : '') + (mine ? row('edit', 'edit', 'Edit') + row('del', 'trash', 'Delete', true) : '') + '</div>', '');
-    }
     function closeModal() { if (modal) { modal.remove(); modal = null; } }
     function openModal(title, bodyHtml, footHtml) {
       closeModal(); closePop();
@@ -759,17 +1296,186 @@
       return modal;
     }
 
+    /* ------------------------------------------------------------------ what can be done with one message */
+    function linkTo(m) { return location.origin + '/chat/?c=' + encodeURIComponent(m.channel_id) + (m.thread_id ? '&t=' + m.thread_id : '') + '&m=' + m.id; }
+    function msgActions(m) {
+      var mine = m.user_id === S.me.id, out = [];
+      if (m.visible_to) { if (mine) out.push(['del', 'trash', 'Delete', true]); return out; }
+      if (mine && S.editing !== m.id) out.push(['edit', 'edit', 'Edit']);
+      if (m.body) out.push(['copy', 'file', 'Copy text']);
+      out.push(['copy-link', 'link', 'Copy link']);
+      if (S.features.pins) out.push(['pin', 'pin', m.pinned ? 'Unpin' : 'Pin', false, m.pinned ? '0' : '1']);
+      out.push(['mark-unread', 'mark', 'Mark unread from here']);
+      out.push(['make-request', 'task', 'Create a request from this message']);
+      if (mine) out.push(['del', 'trash', 'Delete', true]);
+      return out;
+    }
+    function moreMenu(mid, anchor) {
+      var m = findMsg(mid); if (!m || m.deleted) return;
+      openPop(msgActions(m).map(function (a) {
+        return '<button type="button" class="ch-pop__i ch-pop__i--line' + (a[3] ? ' is-danger' : '') + '" role="menuitem" data-act="' + a[0] + '" data-id="' + m.id + '"' + (a[4] != null ? ' data-on="' + a[4] + '"' : '') + '>' + ic(a[1]) + '<span>' + a[2] + '</span></button>';
+      }).join(''), anchor, 'ch-pop--menu ch-pop--more', { below: true });
+      var first = pop && pop.querySelector('button'); if (first) first.focus();
+    }
+    // The message actions on a phone: quick reactions, then every action as a full-width row.
+    function msgSheet(mid) {
+      var m = findMsg(mid); if (!m || m.deleted) return;
+      if (m.visible_to && m.user_id !== S.me.id) return;
+      var row = function (a) { return '<button type="button" class="ch-msheet__row' + (a[3] ? ' is-danger' : '') + '" data-act="' + a[0] + '" data-id="' + m.id + '"' + (a[4] != null ? ' data-on="' + a[4] + '"' : '') + '>' + ic(a[1]) + '<span>' + a[2] + '</span></button>'; };
+      var quick = (window.FavorChatEmoji ? window.FavorChatEmoji.quick.map(window.FavorChatEmoji.toned) : EMOJI).slice(0, 11);
+      openModal(user(m.user_id).name + ', ' + timeOf(m.created_at),
+        '<div class="ch-msheet">' + (m.visible_to ? '' : '<div class="ch-msheet__rx">' + quick.map(function (q) { return '<button type="button" data-act="react" data-id="' + m.id + '" data-e="' + q + '" aria-label="React ' + q + '">' + q + '</button>'; }).join('') +
+          '<button type="button" data-act="react-more" data-id="' + m.id + '" aria-label="More emoji">' + ic('smile') + '</button></div>' +
+          (m.thread_id ? '' : row(['thread', 'reply', 'Reply in thread']))) + msgActions(m).map(row).join('') + '</div>', '');
+    }
+    function react(id, em) {
+      return guard(api.react(id, em)).then(function (r) { var m = findMsg(id); if (m && r && r.reactions) { m.reactions = r.reactions; patchMessage(m); } });
+    }
+    function requestDialog(o) {
+      o = o || {};
+      var from = o.from ? findMsg(o.from) : null;
+      var m = openModal('New request',
+        (from ? '<div class="ch-quote"><b>' + esc(user(from.user_id).name) + '</b><span>' + esc(excerptOf(from)) + '</span></div>' : '') +
+        '<label class="ch-field"><span>Summary</span><input class="ch-input" data-rq-title maxlength="160" placeholder="One line" value="' + esc(o.title || (from ? plain(from.body).replace(/\s+/g, ' ').trim().slice(0, 90) : '')) + '" /></label>' +
+        '<label class="ch-field"><span>Details</span><textarea class="ch-input ch-input--area" data-rq-body rows="4" maxlength="8000" placeholder="What is needed, and by when"></textarea></label>' +
+        '<label class="ch-field"><span>About</span><select class="ch-input" data-rq-surface><option value="website">Website</option><option value="portal">Portal</option><option value="dashboard">Hub</option><option value="app">App</option></select></label>',
+        '<button type="button" class="ch-btn" data-act="modal-x">Cancel</button><button type="button" class="ch-btn ch-btn--primary" data-act="rq-create">Create request</button>');
+      m._rq = { from: from ? from.id : null, thread: o.thread || null, channel: S.active };
+    }
+    function bookmarkDialog() {
+      openModal('Add a bookmark', '<label class="ch-field"><span>Link</span><input class="ch-input" data-bm-url placeholder="https:// or a hub page such as /reports/" maxlength="600" inputmode="url" /></label><label class="ch-field"><span>Name</span><input class="ch-input" data-bm-title placeholder="Shown in the bar" maxlength="60" /></label>',
+        '<button type="button" class="ch-btn" data-act="modal-x">Cancel</button><button type="button" class="ch-btn ch-btn--primary" data-act="bm-save">Add</button>');
+    }
+
+    /* ------------------------------------------------------------------ the formatting row and its keys */
+    function applyFmt(scope, f) {
+      var ta = $('[data-ta="' + scope + '"]', root); if (!ta) return;
+      var a = ta.selectionStart, b = ta.selectionEnd, v = ta.value, sel = v.slice(a, b);
+      var wrap = function (l, r, ph) {
+        // Pressed again on the same words, the marks come off.
+        if (v.slice(a - l.length, a) === l && v.slice(b, b + r.length) === r) { ta.value = v.slice(0, a - l.length) + sel + v.slice(b + r.length); ta.setSelectionRange(a - l.length, b - l.length); return; }
+        var inner = sel || ph;
+        ta.value = v.slice(0, a) + l + inner + r + v.slice(b);
+        ta.setSelectionRange(a + l.length, a + l.length + inner.length);
+      };
+      var lines = function (prefix, test) {
+        var s0 = v.lastIndexOf('\n', a - 1) + 1, e0 = v.indexOf('\n', b); if (e0 < 0) e0 = v.length;
+        var block = v.slice(s0, e0).split('\n');
+        var on = block.every(function (l) { return test.test(l); });
+        var out = block.map(function (l, i) { return on ? l.replace(test, '') : (typeof prefix === 'function' ? prefix(i) : prefix) + l.replace(/^(- |\d{1,3}[.)] |> )/, ''); }).join('\n');
+        ta.value = v.slice(0, s0) + out + v.slice(e0);
+        ta.setSelectionRange(s0 + out.length, s0 + out.length);
+      };
+      if (f === 'bold') wrap('**', '**', 'bold');
+      else if (f === 'italic') wrap('_', '_', 'italic');
+      else if (f === 'strike') wrap('~~', '~~', 'text');
+      else if (f === 'code') wrap('`', '`', 'code');
+      else if (f === 'block') wrap('```\n', '\n```', 'code');
+      else if (f === 'link') {
+        if (/^https?:\/\/\S+$/.test(sel)) { ta.value = v.slice(0, a) + '[link](' + sel + ')' + v.slice(b); ta.setSelectionRange(a + 1, a + 5); }
+        else { var words = sel || 'link'; ta.value = v.slice(0, a) + '[' + words + '](https://)' + v.slice(b); var u = a + words.length + 3; ta.setSelectionRange(u, u + 8); }
+      }
+      else if (f === 'ul') lines('- ', /^- /);
+      else if (f === 'ol') lines(function (i) { return (i + 1) + '. '; }, /^\d{1,3}[.)] /);
+      else if (f === 'quote') lines('> ', /^> /);
+      ta.focus(); grow(ta); syncSend(scope); saveDraftSoon(scope);
+    }
+    var FMT_KEYS = { KeyX: 'strike', KeyC: 'code', Digit7: 'ol', Digit8: 'ul', Digit9: 'quote', KeyU: 'link' };
+    // A new line inside a list or a quote starts the next item; on an empty item it ends the list instead.
+    function continueList(ta) {
+      var a = ta.selectionStart, v = ta.value;
+      if (a !== ta.selectionEnd) return false;
+      var s0 = v.lastIndexOf('\n', a - 1) + 1, line = v.slice(s0, a);
+      var m = line.match(/^(- |> |(\d{1,3})([.)]) )(.*)$/);
+      if (!m) return false;
+      if (!m[4].trim()) { ta.value = v.slice(0, s0) + v.slice(a); ta.setSelectionRange(s0, s0); return true; }
+      var next = m[2] ? (Number(m[2]) + 1) + m[3] + ' ' : m[1];
+      ta.value = v.slice(0, a) + '\n' + next + v.slice(a);
+      ta.setSelectionRange(a + 1 + next.length, a + 1 + next.length);
+      return true;
+    }
+
+    /* ------------------------------------------------------------------ Ctrl K: jump to a channel or a person */
+    var sw = null;
+    function openSwitcher() {
+      closePop(); closeModal(); closeSearch();
+      var box = document.createElement('div'); box.className = 'ch-search ch-sw';
+      box.innerHTML = '<div class="ch-search__box" role="dialog" aria-label="Jump to a conversation"><div class="ch-search__in"><button type="button" class="ch-iconbtn ch-back" data-act="search-x" aria-label="Close">' + ic('back') + '</button>' + ic('search') + '<input data-swq placeholder="Jump to a channel or a person" aria-label="Jump to a channel or a person" autocomplete="off" role="combobox" aria-expanded="true" aria-controls="ch-sw-list" /><button type="button" class="ch-iconbtn" data-act="search-x" aria-label="Close">' + ic('x') + '</button></div>' +
+        '<div class="ch-search__res" id="ch-sw-list" data-swres role="listbox"></div><div class="ch-search__foot"><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div></div>';
+      root.appendChild(box);
+      sw = { items: [], i: 0, all: null };
+      var q = $('[data-swq]', box), res = $('[data-swres]', box);
+      var draw = function () {
+        var v = q.value.trim().toLowerCase(), s = sortedChannels(), items = [];
+        var hit = function (name) { return !v || name.toLowerCase().indexOf(v) >= 0; };
+        var mineCh = s.chans.concat(s.dms).filter(function (c) { return hit(chName(c)); });
+        // With nothing typed: what is unread first, then the most recent. With a word typed: names that start with it first.
+        mineCh.sort(function (a, b) {
+          if (v) { var x = chName(a).toLowerCase().indexOf(v) === 0 ? 0 : 1, y = chName(b).toLowerCase().indexOf(v) === 0 ? 0 : 1; if (x !== y) return x - y; }
+          return ((b.unread > 0) - (a.unread > 0)) || String(b.last_at || '').localeCompare(String(a.last_at || ''));
+        });
+        mineCh.slice(0, v ? 8 : 10).forEach(function (c) { items.push({ t: 'ch', c: c }); });
+        if (v) {
+          var inDm = {}; s.dms.forEach(function (c) { if (c.kind === 'dm') (c.members || []).forEach(function (m) { inDm[m] = 1; }); });
+          Object.keys(S.users).filter(function (id) { return id !== S.me.id && !inDm[id] && hit(S.users[id].name); }).slice(0, 6).forEach(function (id) { items.push({ t: 'user', u: S.users[id] }); });
+          (sw.all || []).filter(function (c) { return !(chan(c.id) && chan(c.id).joined !== false) && hit(c.name); }).slice(0, 4).forEach(function (c) { items.push({ t: 'join', c: c }); });
+          if (v.length >= 2) items.push({ t: 'search', q: q.value.trim() });
+        }
+        sw.items = items; sw.i = Math.min(sw.i, Math.max(0, items.length - 1));
+        res.innerHTML = items.length ? items.map(function (it, i) {
+          var on = i === sw.i ? ' is-on' : '', at = ' role="option" data-act="sw-pick" data-i="' + i + '"';
+          if (it.t === 'ch') {
+            var c = it.c, icon;
+            if (c.kind === 'public') icon = '<span class="ch-row__ic">#</span>'; else if (c.kind === 'private') icon = '<span class="ch-row__ic">' + ic('lock') + '</span>';
+            else if (c.kind === 'dm') { var o = (c.members || []).filter(function (m) { return m !== S.me.id; })[0] || S.me.id; icon = avatar(user(o), 'sm', true); } else icon = '<span class="ch-row__ic">' + ic('users') + '</span>';
+            return '<button type="button" class="ch-sw__i' + on + (c.unread > 0 ? ' is-unread' : '') + '"' + at + '>' + icon + '<span class="ch-sw__n">' + esc(chName(c)) + '</span>' + (c.mentions > 0 ? '<span class="ch-badge">' + c.mentions + '</span>' : '') + (hasDraft(c.id) ? '<span class="ch-sw__m">Draft</span>' : '') + '</button>';
+          }
+          if (it.t === 'user') return '<button type="button" class="ch-sw__i' + on + '"' + at + '>' + avatar(it.u, 'sm', true) + '<span class="ch-sw__n">' + esc(it.u.name) + '</span><span class="ch-sw__m">' + esc(it.u.title || 'New message') + '</span></button>';
+          if (it.t === 'join') return '<button type="button" class="ch-sw__i' + on + '"' + at + '><span class="ch-row__ic">#</span><span class="ch-sw__n">' + esc(it.c.name) + '</span><span class="ch-sw__m">Join</span></button>';
+          return '<button type="button" class="ch-sw__i ch-sw__i--search' + on + '"' + at + '><span class="ch-row__ic">' + ic('search') + '</span><span class="ch-sw__n">Search messages for “' + esc(it.q) + '”</span></button>';
+        }).join('') : '<div class="ch-empty">No channel or person matches</div>';
+      };
+      q.addEventListener('input', function () { sw.i = 0; draw(); });
+      q.addEventListener('keydown', function (e) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); sw.i = Math.max(0, Math.min(sw.items.length - 1, sw.i + (e.key === 'ArrowDown' ? 1 : -1))); draw(); var cur = res.children[sw.i]; if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' }); }
+        if (e.key === 'Enter' && sw.items[sw.i]) { e.preventDefault(); pickSwitch(sw.i); }
+      });
+      box.addEventListener('click', function (e) { if (e.target === box) closeSearch(); });
+      draw();
+      // Focus inside the tap itself: iOS raises the keyboard only then.
+      q.focus();
+      // Public channels the person has not joined can be found here too.
+      if (api.browse) Promise.resolve(api.browse()).then(function (r) { if (sw) { sw.all = r.channels || []; draw(); } }).catch(function () {});
+    }
+    function pickSwitch(i) {
+      var it = sw && sw.items[i]; if (!it) return;
+      if (it.t === 'search') { openSearch(it.q); return; }
+      closeSearch();
+      if (it.t === 'ch') openChannel(it.c.id);
+      else if (it.t === 'user') guard(api.openDm([it.u.id])).then(function (c) { S.channels[c.id] = Object.assign(S.channels[c.id] || {}, c, { joined: true }); openChannel(c.id); });
+      else if (it.t === 'join') guard(api.join(it.c.id)).then(function (c) { S.channels[c.id] = Object.assign(S.channels[c.id] || {}, c, { joined: true }); openChannel(c.id); });
+    }
+
     function plusMenu(scope, anchor) {
       var it = function (act, icon, tint, ink, t, sub) { return '<button type="button" class="ch-pop__i" role="menuitem" data-act="' + act + '" data-scope="' + scope + '"><b style="background:' + tint + ';color:' + ink + '">' + ic(icon) + '</b><span>' + t + '<small>' + sub + '</small></span></button>'; };
       openPop(it('upload', 'clip', 'var(--tc-slate-tint)', 'var(--tc-slate-ink)', 'Upload a file', 'From this computer') +
         it('drive-pick', 'drive', 'var(--tc-sky-tint)', 'var(--tc-sky-ink)', 'Share from Drive', 'Search the Drive library') +
         it('clip-pick', 'rec', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Share a clip', 'Pick from your clips') +
         it('clip-rec', 'play', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Record a clip', 'Posts here when you finish') +
-        it('meeting', 'video', 'var(--tc-teal-tint)', 'var(--tc-teal-ink)', 'Start a meeting', 'Posts a Join card'), anchor, 'ch-pop--menu');
+        it('meeting', 'video', 'var(--tc-teal-tint)', 'var(--tc-teal-ink)', 'Start a meeting', 'Posts a Join card') +
+        it('request-new', 'task', 'var(--tc-leaf-tint)', 'var(--tc-leaf-ink)', 'Make a request', 'Adds a card to the request board'), anchor, 'ch-pop--menu');
     }
+    // Search, groups and a skin tone that is remembered (chat-emoji.js). A phone gets it as a sheet from the bottom.
     function emojiPicker(anchor, cb) {
-      var p = openPop(EMOJI.map(function (e) { return '<button type="button" data-e="' + e + '" aria-label="' + e + '">' + e + '</button>'; }).join(''), anchor, 'ch-pop--emoji');
-      p.addEventListener('click', function (ev) { var b = ev.target.closest('button[data-e]'); if (b) { cb(b.dataset.e); closePop(); } });
+      var E = window.FavorChatEmoji;
+      if (!E) {
+        var p0 = openPop(EMOJI.map(function (e) { return '<button type="button" data-e="' + e + '" aria-label="' + e + '">' + e + '</button>'; }).join(''), anchor, 'ch-pop--emoji');
+        p0.addEventListener('click', function (ev) { var b = ev.target.closest('button[data-e]'); if (b) { cb(b.dataset.e); closePop(); } });
+        return;
+      }
+      if (isPhone()) { var m = openModal('Emoji', E.html(), ''); m.classList.add('ch-scrim--emo'); E.bind($('.ch-emo', m), function (e) { closeModal(); cb(e); }, { noFocus: true }); return; }
+      var p = openPop(E.html(), anchor, 'ch-pop--emo');
+      E.bind($('.ch-emo', p), function (e, ev) { cb(e); if (!(ev && ev.shiftKey)) closePop(); });
     }
     function mentionCandidates(q, c) {
       q = q.toLowerCase();
@@ -861,22 +1567,23 @@
     }
 
     /* ------------------------------------------------------------------ search */
-    function openSearch() {
+    function openSearch(q0) {
       closePop(); closeModal();
       var box = $('.ch-search', root); if (box) box.remove();
+      sw = null;
       box = document.createElement('div'); box.className = 'ch-search';
       box.innerHTML = '<div class="ch-search__box" role="dialog" aria-label="Search messages"><div class="ch-search__in"><button type="button" class="ch-iconbtn ch-back" data-act="search-x" aria-label="Close search">' + ic('back') + '</button>' + ic('search') + '<input data-sq placeholder="Search messages and files" aria-label="Search messages" autocomplete="off" /><button type="button" class="ch-iconbtn" data-act="search-x" aria-label="Close search">' + ic('x') + '</button></div>' +
-        '<div class="ch-search__f"><button type="button" class="is-on" data-sf="all">Everywhere</button><button type="button" data-sf="here">In this conversation</button><button type="button" data-sf="files">With files</button><button type="button" data-sf="mine">Mentions of me</button></div>' +
+        '<div class="ch-search__f"><button type="button" class="is-on" data-sf="all">Everywhere</button><button type="button" data-sf="here">In this conversation</button><button type="button" data-sf="files">With files</button><button type="button" data-sf="mine">Mentions of me</button><button type="button" data-sfrom>From anyone</button></div>' +
         '<div class="ch-search__res" data-sres><div class="ch-empty">Search every conversation you are in</div></div><div class="ch-search__foot"><span><kbd>Enter</kbd> open</span><span><kbd>Esc</kbd> close</span></div></div>';
       root.appendChild(box);
-      S.search = { filter: 'all', items: [], i: 0 };
+      S.search = { filter: 'all', items: [], i: 0, from: '' };
       var q = $('[data-sq]', box); q.focus();
       var t = 0;
       var run = function () {
         var v = q.value.trim(), res = $('[data-sres]', box);
         if (v.length < 2) { res.innerHTML = '<div class="ch-empty">Search every conversation you are in</div>'; S.search.items = []; return; }
-        guard(api.search(v, { filter: S.search.filter, channel: S.active })).then(function (r) {
-          if (q.value.trim() !== v) return;
+        guard(api.search(v, { filter: S.search.filter, channel: S.active, from: S.search.from })).then(function (r) {
+          if (q.value.trim() !== v || !S.search) return;
           S.search.items = r.results || []; S.search.i = 0;
           var rx = new RegExp('(' + v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig');
           res.innerHTML = S.search.items.length ? S.search.items.map(function (h, i) {
@@ -893,28 +1600,35 @@
       box.addEventListener('click', function (e) {
         var f = e.target.closest('[data-sf]');
         if (f) { S.search.filter = f.dataset.sf; box.querySelectorAll('[data-sf]').forEach(function (b) { b.classList.toggle('is-on', b === f); }); run(); }
+        var fr = e.target.closest('[data-sfrom]');
+        if (fr) {
+          // From: a short list of people under the button; the first row clears it.
+          var ids = Object.keys(S.users).sort(function (a, b) { return S.users[a].name.localeCompare(S.users[b].name); });
+          var p = openPop('<button type="button" class="ch-pop__i" data-from="">' + '<span>Anyone</span></button>' + ids.map(function (id) { return '<button type="button" class="ch-pop__i" data-from="' + esc(id) + '"><b style="background:transparent">' + avatar(S.users[id], 'sm') + '</b><span>' + esc(S.users[id].name) + (id === S.me.id ? ' (you)' : '') + '</span></button>'; }).join(''), fr, 'ch-pop--mention ch-pop--from', { below: true });
+          p.addEventListener('click', function (ev) { var b = ev.target.closest('[data-from]'); if (!b) return; S.search.from = b.dataset.from; fr.textContent = b.dataset.from ? 'From ' + user(b.dataset.from).name.split(' ')[0] : 'From anyone'; fr.classList.toggle('is-on', !!b.dataset.from); closePop(); run(); });
+        }
         if (e.target === box) closeSearch();
       });
+      if (q0) { q.value = q0; run(); }
       q.addEventListener('keydown', function (e) {
         var hits = box.querySelectorAll('.ch-hit');
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); S.search.i = Math.max(0, Math.min(hits.length - 1, S.search.i + (e.key === 'ArrowDown' ? 1 : -1))); hits.forEach(function (h, i) { h.classList.toggle('is-on', i === S.search.i); }); if (hits[S.search.i]) hits[S.search.i].scrollIntoView({ block: 'nearest' }); }
         if (e.key === 'Enter' && S.search.items[S.search.i]) { e.preventDefault(); jumpTo(S.search.items[S.search.i]); }
       });
     }
-    function closeSearch() { var b = $('.ch-search', root); if (b) b.remove(); S.search = null; }
+    function closeSearch() { var b = $('.ch-search', root); if (b) b.remove(); S.search = null; sw = null; closePop(); }
     function jumpTo(h) {
       closeSearch();
       var go = function () {
         var list = S.msgs[h.channel_id] || [];
-        var target = h.thread_id || h.id;
-        if (h.thread_id) openThread(h.thread_id);
+        if (h.thread_id) { openThread(h.thread_id); focusMessage(h.id, true); }
         else {
           var el = root.querySelector('.ch-msgs [data-mid="' + h.id + '"]');
-          if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('is-flash'); }
+          if (el) { el.scrollIntoView({ block: 'center' }); el.classList.remove('is-flash'); void el.offsetWidth; el.classList.add('is-flash'); }
           else if (list.length) toast('That message is further back');
         }
       };
-      if (S.active !== h.channel_id) { openChannel(h.channel_id); var w = setInterval(function () { if (S.msgs[h.channel_id]) { clearInterval(w); go(); } }, 60); setTimeout(function () { clearInterval(w); }, 4000); }
+      if (S.active !== h.channel_id || S.page !== 'channel') { openChannel(h.channel_id); var w = setInterval(function () { if (S.msgs[h.channel_id]) { clearInterval(w); go(); } }, 60); setTimeout(function () { clearInterval(w); }, 4000); }
       else go();
     }
 
@@ -995,7 +1709,25 @@
       else if (ev.type === 'delete' && ev.purge) { purgeMessage(ev.id); }
       else if (ev.type === 'delete') { patchMessage(Object.assign({}, findMsg(ev.id) || { id: ev.id }, { deleted: true, body: '', attachments: [] })); }
       else if (ev.type === 'reaction') { var m = findMsg(ev.id); if (m) { m.reactions = ev.reactions; patchMessage(m); } }
-      else if (ev.type === 'typing') { (S.typing[ev.channel_id] = S.typing[ev.channel_id] || {})[ev.user_id] = Date.now(); if (S.active === ev.channel_id) typingTick(); }
+      else if (ev.type === 'typing') {
+        // Typing in a thread shows in that thread, not in the channel above it.
+        if (ev.thread_id) (S.threadTyping[ev.thread_id] = S.threadTyping[ev.thread_id] || {})[ev.user_id] = Date.now();
+        else (S.typing[ev.channel_id] = S.typing[ev.channel_id] || {})[ev.user_id] = Date.now();
+        if (S.active === ev.channel_id) typingTick();
+      }
+      else if (ev.type === 'pin') {
+        var pm = findMsg(ev.id), pc = chan(ev.channel_id);
+        if (pm) pm.pinned = !!ev.on;
+        if (pc) pc.pins = ev.pins;
+        if (S.active === ev.channel_id) { renderBar(); renderMsgs(false); if (S.right === 'pins') loadPins(ev.channel_id); else if (S.right === 'thread') renderRight(); }
+        delete S.pins[ev.channel_id];
+      }
+      else if (ev.type === 'bar') {
+        var bc0 = chan(ev.channel_id);
+        if (bc0) bc0.bookmarks = ev.bookmarks || [];
+        if (S.pins[ev.channel_id]) S.pins[ev.channel_id].bookmarks = ev.bookmarks || [];
+        if (S.active === ev.channel_id) { renderBar(); if (S.right === 'pins') renderRight(); }
+      }
       else if (ev.type === 'presence') { if (S.users[ev.user_id]) { S.users[ev.user_id].presence = ev.presence; renderSide(); if (S.right === 'details') renderRight(); } }
       else if (ev.type === 'channel') { var prev = S.channels[ev.channel.id]; S.channels[ev.channel.id] = Object.assign(prev || {}, ev.channel); renderSide(); if (S.active === ev.channel.id) { renderHead(); if (S.right === 'details') renderRight(); } }
       else if (ev.type === 'users') { Object.assign(S.users, ev.users); renderSide(); }
@@ -1008,12 +1740,15 @@
       S.resyncing = true;
       api.boot().then(function (b) {
         S.users = Object.assign(S.users, b.users || {});
-        (b.channels || []).forEach(function (c) { var prev = S.channels[c.id]; var keep = prev && c.id === S.active ? { unread: 0, mentions: 0 } : {}; S.channels[c.id] = Object.assign(prev || {}, c, keep); });
-        renderSide(); renderHead();
+        (b.channels || []).forEach(function (c) { var prev = S.channels[c.id]; var keep = prev && c.id === S.active && S.page === 'channel' && S.keepUnread !== c.id ? { unread: 0, mentions: 0 } : {}; S.channels[c.id] = Object.assign(prev || {}, c, keep); });
+        S.features = b.features || S.features; if (b.threads_unread != null) S.threadsUnread = b.threads_unread;
+        renderSide(); renderHead(); renderBar();
         var id = S.active;
-        if (id) api.history(id).then(function (r) { if (S.active !== id) return; S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; renderMsgs(false); markRead(); });
+        if (id) api.history(id).then(function (r) { if (S.active !== id) return; S.msgs[id] = r.messages; S.hasMore[id] = !!r.more; if (S.page === 'channel') { renderMsgs(false); markRead(); } });
         if (id) loadHuddle(id);
-        if (S.right === 'thread' && S.threadRoot) api.thread(S.threadRoot).then(function (t) { S.threads[S.threadRoot] = t; renderRight(); });
+        if (S.page !== 'channel') loadPage(S.page);
+        var tr = S.threadRoot;
+        if (S.right === 'thread' && tr) api.thread(tr).then(function (t) { t.loaded = true; if (S.threadRoot !== tr) return; S.threads[tr] = t; threadRead(tr, t.threads_unread); renderRight(); });
         if (opts.onUnread) opts.onUnread(totalUnread());
       }).catch(function () {}).then(function () { S.resyncing = false; });
     }
@@ -1022,6 +1757,7 @@
     setInterval(function () {
       if (document.hidden || S.resyncing) return;
       var lists = [S.msgs[S.active] || []];
+      if (S.page !== 'channel') return;
       if (S.right === 'thread' && S.threadRoot && S.threads[S.threadRoot]) lists.push(S.threads[S.threadRoot].replies || S.threads[S.threadRoot].messages || []);
       var now = Date.now();
       var waiting = lists.some(function (l) { return l.some(function (m) { return m && m.brain && m.brain.status === 'thinking' && now - Date.parse(m.created_at || 0) > 4000 && now - Date.parse(m.created_at || 0) < 600000; }); });
@@ -1060,6 +1796,7 @@
       Object.keys(S.threads).forEach(function (k) { drop(S.threads[k].replies || []); });
       if (gone) { renderMsgs(false); if (S.right === 'thread') { renderRight(); } }
     }
+    function redraw() { renderMsgs(false); if (S.right !== 'none') renderRight(); }
     function patchMessage(nm) {
       var done = false;
       var swap = function (arr) { for (var i = 0; i < arr.length; i++) if (String(arr[i].id) === String(nm.id)) { arr[i] = Object.assign(arr[i], nm); done = true; } };
@@ -1071,7 +1808,12 @@
     /* ------------------------------------------------------------------ uploads */
     function addFiles(scope, files) {
       Array.prototype.forEach.call(files, function (f) {
-        var item = { type: 'file', name: f.name, size: f.size, mime: f.type, uploading: true };
+        var item = { type: 'file', name: f.name || 'Pasted picture', size: f.size, mime: f.type, uploading: true };
+        if (/^image\//.test(f.type || '') && window.URL && URL.createObjectURL) {
+          // The picture's width and height go with it, so the message holds its space before the picture arrives.
+          item.preview = URL.createObjectURL(f);
+          var im = new Image(); im.onload = function () { item.w = im.naturalWidth; item.h = im.naturalHeight; }; im.src = item.preview;
+        }
         S.pending[scope].push(item); renderPending(scope);
         guard(api.upload(f)).then(function (r) { Object.assign(item, r, { uploading: false }); renderPending(scope); }).catch(function () { S.pending[scope] = S.pending[scope].filter(function (x) { return x !== item; }); renderPending(scope); });
       });
@@ -1084,7 +1826,10 @@
       if (!el) {
         // On a phone a tap on a message opens its actions as a sheet from the bottom. With the keyboard up, the tap only lowers it.
         var mm = e.target.closest('.ch-msg');
-        if (mm && isPhone() && !e.target.closest('a,button,textarea,input,video,audio,.ch-vid,.ch-ans')) {
+        // In the Threads list a tap on a thread opens it.
+        var card = e.target.closest('.ch-th');
+        if (card && !e.target.closest('a,button,video,audio,.ch-vid,.ch-ans')) { var ob = card.querySelector('[data-act="open-thread"]'); if (ob) openThreadIn(ob.dataset.ch, ob.dataset.id); return; }
+        if (mm && isPhone() && !e.target.closest('a,button,textarea,input,video,audio,.ch-vid,.ch-ans,.ch-pinned')) {
           if (document.body.classList.contains('kb-open') && document.activeElement && document.activeElement.blur) { document.activeElement.blur(); return; }
           msgSheet(mm.getAttribute('data-mid'));
         }
@@ -1094,11 +1839,101 @@
       if (modal && el.closest('.ch-msheet')) closeModal();
       if (act === 'play') { playIn(el.closest('.ch-vid')); return; }
       if (act === 'view') { openViewer(el.dataset.cm, Number(el.dataset.ai) || 0); return; }
-      if (act === 'copy') { var cm = findMsg(id); var txt = cm ? String(cm.body || '').replace(/<@([^>]+)>/g, function (_, u) { return '@' + (u === 'brain' ? 'Favor Brain' : user(u).name); }).replace(/<#[^>]+>/g, '') : ''; if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Copied'); }, function () { toast('Copy did not work'); }); return; }
+      if (act === 'page') { openPage(el.dataset.page); return; }
+      if (act === 'notify-on' || act === 'notify-no') {
+        lsSet('favor.chat.notify.asked', Date.now());
+        if (act === 'notify-on' && typeof Notification !== 'undefined') Promise.resolve(Notification.requestPermission()).then(function (r) { toast(r === 'granted' ? 'Notices are on' : 'Notices are off. The browser settings can turn them on.'); renderSide(); });
+        else renderSide();
+        return;
+      }
+      if (act === 'fold') { if (isPhone()) return; S.folded[el.dataset.sec] = !S.folded[el.dataset.sec]; lsSet('favor.chat.folded.v1', S.folded); renderSide(); return; }
+      if (act === 'more') { moreMenu(id, el); return; }
+      if (act === 'react-more') { emojiPicker(el, function (em) { react(id, em); }); return; }
+      if (act === 'copy-link') { closePop(); var lm = findMsg(id); if (lm && navigator.clipboard) navigator.clipboard.writeText(linkTo(lm)).then(function () { toast('Link copied'); }, function () { toast('Copy did not work'); }); return; }
+      if (act === 'pin') {
+        closePop();
+        var pinOn = el.dataset.on !== '0';
+        guard(api.pin(id, pinOn)).then(function (r) {
+          var pm = findMsg(id), pc = chan(r.channel_id);
+          if (pm) pm.pinned = pinOn;
+          if (pc) pc.pins = r.pins;
+          delete S.pins[r.channel_id];
+          renderBar(); redraw();
+          if (S.right === 'pins') loadPins(r.channel_id);
+          toast(pinOn ? 'Pinned' : 'Unpinned');
+        });
+        return;
+      }
+      if (act === 'pins') { openPins(); return; }
+      if (act === 'bm-add') { closePop(); bookmarkDialog(); return; }
+      if (act === 'bm-save') {
+        var bu = $('[data-bm-url]', modal).value.trim();
+        if (!bu) { toast('Paste a link first'); return; }
+        el.disabled = true;
+        guard(api.addBookmark(S.active, { url: bu, title: $('[data-bm-title]', modal).value.trim() })).then(function (r) {
+          closeModal();
+          var bc1 = chan(S.active); bc1.bookmarks = r.bookmarks; if (S.pins[bc1.id]) S.pins[bc1.id].bookmarks = r.bookmarks;
+          renderBar(); if (S.right === 'pins') renderRight();
+        }).catch(function () { el.disabled = false; });
+        return;
+      }
+      if (act === 'bm-del') {
+        guard(api.removeBookmark(S.active, id)).then(function (r) {
+          var bc2 = chan(S.active); bc2.bookmarks = r.bookmarks; if (S.pins[bc2.id]) S.pins[bc2.id].bookmarks = r.bookmarks;
+          renderBar(); if (S.right === 'pins') renderRight();
+        });
+        return;
+      }
+      if (act === 'mark-unread') {
+        closePop();
+        var um = findMsg(id); if (!um) return;
+        guard(api.unread(um.channel_id, id)).then(function (r) {
+          var uc = chan(um.channel_id);
+          uc.last_read = r.last_read; uc.unread = r.unread; uc.mentions = r.mentions; S.lastRead[uc.id] = r.last_read; S.keepUnread = uc.id;
+          renderSide(); if (S.active === uc.id && S.page === 'channel') renderMsgs(false);
+          if (opts.onUnread) opts.onUnread(totalUnread());
+          toast('Marked unread');
+        });
+        return;
+      }
+      if (act === 'make-request') { closePop(); requestDialog({ from: id }); return; }
+      if (act === 'request-new') { closePop(); requestDialog({ thread: scope === 'thread' ? S.threadRoot : null }); return; }
+      if (act === 'rq-create') {
+        var rq = modal._rq || {}, rt = $('[data-rq-title]', modal).value.trim();
+        if (!rt) { toast('Give the request a one-line summary'); return; }
+        el.disabled = true;
+        guard(api.makeRequest(rq.channel || S.active, { title: rt, body: $('[data-rq-body]', modal).value.trim(), surface: $('[data-rq-surface]', modal).value, from_message: rq.from || undefined, thread_id: rq.thread || undefined })).then(function (r) {
+          closeModal();
+          if (r.message) { S.toBottom = true; addMessage(r.message, true); }
+          toast('Request made');
+        }).catch(function () { el.disabled = false; });
+        return;
+      }
+      if (act === 'thread-full') { setFull(!S.threadFull); return; }
+      if (act === 'thread-exit') { closeRight(); return; }
+      if (act === 'latest') {
+        var lb = scope === 'thread' ? $('.ch-right .ch-thread__body', root) : $('.ch-msgs', root);
+        if (lb) { lb.scrollTop = lb.scrollHeight; S.newBelow[scope] = 0; if (scope !== 'thread') pinned = true; syncLatest(scope); }
+        return;
+      }
+      if (act === 'open-thread') { openThreadIn(el.dataset.ch, id); return; }
+      if (act === 'actv') { var ai = S.activity && S.activity[+el.dataset.i]; if (ai) jumpTo({ channel_id: ai.channel_id, id: ai.message.id, thread_id: ai.message.thread_id }); return; }
+      if (act === 'draft-open') { var dk = el.dataset.k.split('|'); if (dk[1]) openThreadIn(dk[0], Number(dk[1])); else openChannel(dk[0]); return; }
+      if (act === 'draft-del') { delete S.drafts[el.dataset.k]; lsSet('favor.chat.drafts.v1', S.drafts); renderSide(); if (S.page === 'drafts') renderMsgs(false); return; }
+      if (act === 'jump-msg') {
+        var jm = { channel_id: S.active, id: Number(id), thread_id: el.dataset.t ? Number(el.dataset.t) : null };
+        if (isPhone()) { closeRight(); setTimeout(function () { jumpTo(jm); }, 360); } else jumpTo(jm);
+        return;
+      }
+      if (act === 'fmt') { applyFmt(scope, el.dataset.f); return; }
+      if (act === 'slash-pick') { pickSlash(+el.dataset.i); return; }
+      if (act === 'sw-pick') { pickSwitch(+el.dataset.i); return; }
+      if (act === 'switcher') { openSwitcher(); return; }
+      if (act === 'copy') { closePop(); var cm = findMsg(id); var txt = cm ? String(cm.body || '').replace(/<@([^>]+)>/g, function (_, u) { return '@' + (u === 'brain' ? 'Favor Brain' : user(u).name); }).replace(/<#[^>]+>/g, '') : ''; if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Copied'); }, function () { toast('Copy did not work'); }); return; }
       if (act === 'open') { closeSearch(); openChannel(id); }
       else if (act === 'back') back();
       else if (act === 'thread') openThread(id);
-      else if (act === 'close-right') { if (isPhone() && history.state && history.state.chv) history.back(); else closeRight(); }
+      else if (act === 'close-right') closeRight();
       else if (act === 'details') openDetails();
       else if (act === 'tab') { S.tab = el.dataset.tab; renderRight(); }
       else if (act === 'search') openSearch();
@@ -1106,15 +1941,30 @@
       else if (act === 'seg') { S.seg = el.dataset.seg === 'messages' ? 'messages' : 'channels'; renderSide(); }
       else if (act === 'search-x') closeSearch();
       else if (act === 'hit') jumpTo(S.search.items[+el.dataset.i]);
-      else if (act === 'react') { guard(api.react(id, el.dataset.e)).then(function (r) { var m = findMsg(id); if (m && r && r.reactions) { m.reactions = r.reactions; patchMessage(m); } }); }
-      else if (act === 'react-pick') { emojiPicker(el, function (em) { guard(api.react(id, em)).then(function (r) { var m = findMsg(id); if (m && r && r.reactions) { m.reactions = r.reactions; patchMessage(m); } }); }); }
-      else if (act === 'edit') { S.editing = Number(id) || id; S.editDraft = null; renderMsgs(false); if (S.right === 'thread') renderRight(); var ed = $('[data-edit]', root); if (ed) { ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); } }
+      else if (act === 'react') react(id, el.dataset.e);
+      else if (act === 'react-pick') emojiPicker(el, function (em) { react(id, em); });
+      else if (act === 'edit') {
+        var inR = !!el.closest('.ch-right') || (pop && popAnchor && popAnchor.closest && !!popAnchor.closest('.ch-right'));
+        closePop();
+        S.editing = Number(id) || id; S.editDraft = null; renderMsgs(false); if (S.right === 'thread') renderRight();
+        var ed = $((inR ? '.ch-right ' : '.ch-msgs ') + '[data-edit="' + id + '"]', root) || $('[data-edit]', root);
+        if (ed) { ed.focus(); ed.setSelectionRange(ed.value.length, ed.value.length); }
+      }
       else if (act === 'edit-cancel') { S.editing = null; renderMsgs(false); if (S.right === 'thread') renderRight(); }
-      else if (act === 'edit-save') { var ta2 = $('[data-edit="' + id + '"]', root); var v = tokenize('main', ta2.value).trim(); if (!v) return; S.editing = null; guard(api.edit(id, v)).then(function (m) { patchMessage(m); }); }
+      else if (act === 'edit-save') { var ta2 = el.closest('.ch-edit') ? $('[data-edit]', el.closest('.ch-edit')) : $('[data-edit="' + id + '"]', root); var v = tokenize('main', ta2.value).trim(); if (!v) return; S.editing = null; guard(api.edit(id, v)).then(function (m) { patchMessage(m); }).catch(function () { redraw(); }); }
       else if (act === 'del') {
+        closePop();
         var m0 = openModal('Delete message', '<p style="margin:4px 0 8px">This removes the message for everyone in the conversation.</p>', '<button type="button" class="ch-btn" data-act="modal-x">Cancel</button><button type="button" class="ch-btn ch-btn--primary" data-act="del-yes" data-id="' + id + '">Delete</button>');
       }
-      else if (act === 'del-yes') { closeModal(); guard(api.del(id)).then(function () { var m = findMsg(id); patchMessage(Object.assign({}, m, { deleted: true, body: '', attachments: [] })); }); }
+      else if (act === 'del-yes') {
+        closeModal();
+        guard(api.del(id)).then(function (r) {
+          var m = findMsg(id);
+          // A message only its author could see leaves no trace; any other shows as deleted. A reply also sent to the channel goes from both places.
+          if (m && m.visible_to) purgeMessage(id); else patchMessage(Object.assign({}, m, { deleted: true, body: '', attachments: [], pinned: false }));
+          if (r && r.also) { var tw = findMsg(r.also); if (tw) patchMessage(Object.assign({}, tw, { deleted: true, body: '', attachments: [], pinned: false })); }
+        });
+      }
       else if (act === 'share-answer') { el.disabled = true; guard(api.shareAnswer(id)).then(function (r) { purgeMessage(id); if (r && r.message) addMessage(r.message, true); toast('Shared to the channel'); }).catch(function () { el.disabled = false; }); }
       else if (act === 'dismiss-answer') { el.disabled = true; guard(api.dismissAnswer(id)).then(function () { purgeMessage(id); }).catch(function () { el.disabled = false; }); }
       else if (act === 'plus') plusMenu(scope, el);
@@ -1162,8 +2012,9 @@
     root.addEventListener('input', function (e) {
       var ta = e.target.closest('[data-ta]');
       if (ta) {
-        grow(ta); syncSend(ta.dataset.ta); updateMention(ta);
-        if (Date.now() - typingSent > 3000 && ta.value) { typingSent = Date.now(); api.typing(S.active); }
+        grow(ta); syncSend(ta.dataset.ta); if (!updateSlash(ta)) updateMention(ta);
+        saveDraftSoon(ta.dataset.ta);
+        if (Date.now() - typingSent > 3000 && ta.value && ta.value.charAt(0) !== '/') { typingSent = Date.now(); api.typing(S.active, ta.dataset.ta === 'thread' ? S.threadRoot : null); }
       }
       var ed = e.target.closest('[data-edit]');
       if (ed) { S.editDraft = ed.value; S.editDraftId = Number(ed.dataset.edit); }
@@ -1171,20 +2022,58 @@
       if (tp) { clearTimeout(tp._t); tp._t = setTimeout(function () { api.setTopic(S.active, tp.value.trim()).then(function () { chan(S.active).topic = tp.value.trim(); renderHead(); }); }, 700); }
     });
     root.addEventListener('keydown', function (e) {
-      var ta = e.target.closest('[data-ta]');
-      if (e.target.closest('[data-edit]') && e.key === 'Escape') { S.editing = null; renderMsgs(false); return; }
-      if (e.target.closest('[data-edit]') && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('[data-act="edit-save"]', root).click(); return; }
-      if (!ta) { if (e.key === 'Escape') { if (modal) closeModal(); else if (S.search) closeSearch(); else if (pop) closePop(); } return; }
+      var ta = e.target.closest('[data-ta]'), ed = e.target.closest('[data-edit]');
+      if (ed && e.key === 'Escape') {
+        var inRight = !!e.target.closest('.ch-right');
+        S.editing = null; renderMsgs(false); if (S.right === 'thread') renderRight();
+        var home = $('[data-ta="' + (inRight ? 'thread' : 'main') + '"]', root); if (home) home.focus();
+        return;
+      }
+      if (ed && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); var sv = $('[data-act="edit-save"][data-id="' + ed.dataset.edit + '"]', root); if (sv) sv.click(); return; }
+      if (!ta) {
+        // Escape puts away what is on top: a menu, a dialog, search, then the thread or details panel.
+        if (e.key === 'Escape' && !ed) {
+          if (pop) { closePop(); mentionState = null; slashState = null; }
+          else if (modal) closeModal();
+          else if (S.search || sw) closeSearch();
+          else if (S.right !== 'none' && !e.target.closest('input, select')) closeRight();
+        }
+        return;
+      }
       var scope = ta.dataset.ta;
+      if (slashState && pop) {
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); slashState.i = (slashState.i + (e.key === 'ArrowDown' ? 1 : slashState.list.length - 1)) % slashState.list.length; pop.querySelectorAll('.ch-pop__i').forEach(function (b, i) { b.classList.toggle('is-on', i === slashState.i); }); return; }
+        if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickSlash(slashState.i); return; }
+        if (e.key === 'Escape') { closePop(); slashState = null; return; }
+      }
       if (mentionState && pop) {
         if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); mentionState.i = (mentionState.i + (e.key === 'ArrowDown' ? 1 : mentionState.cands.length - 1)) % mentionState.cands.length; pop.querySelectorAll('.ch-pop__i').forEach(function (b, i) { b.classList.toggle('is-on', i === mentionState.i); }); return; }
         if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(mentionState.i); return; }
         if (e.key === 'Escape') { closePop(); mentionState = null; return; }
       }
-      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !isPhone()) { e.preventDefault(); send(scope); return; }
-      if (e.key === 'ArrowUp' && !ta.value && scope === 'main') {
-        var mine = (S.msgs[S.active] || []).filter(function (m) { return m.user_id === S.me.id && !m.deleted; }).pop();
-        if (mine) { e.preventDefault(); S.editing = mine.id; renderMsgs(false); var ed = $('[data-edit]', root); if (ed) ed.focus(); }
+      if (e.key === 'Escape') {
+        if (pop) { closePop(); return; }
+        if (scope === 'thread') { e.preventDefault(); closeRight(); }
+        return;
+      }
+      var mod = e.ctrlKey || e.metaKey;
+      if (mod && !e.altKey && !e.shiftKey && (e.key === 'b' || e.key === 'B')) { e.preventDefault(); applyFmt(scope, 'bold'); return; }
+      if (mod && !e.altKey && !e.shiftKey && (e.key === 'i' || e.key === 'I')) { e.preventDefault(); applyFmt(scope, 'italic'); return; }
+      if (mod && e.shiftKey && e.altKey && e.code === 'KeyC') { e.preventDefault(); applyFmt(scope, 'block'); return; }
+      if (mod && e.shiftKey && !e.altKey && FMT_KEYS[e.code]) { e.preventDefault(); applyFmt(scope, FMT_KEYS[e.code]); return; }
+      // Shift Enter (Enter on a phone) adds a line; inside a list or a quote it starts the next item.
+      if (e.key === 'Enter' && !e.isComposing && (e.shiftKey || isPhone())) { if (continueList(ta)) { e.preventDefault(); grow(ta); syncSend(scope); saveDraftSoon(scope); } return; }
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); send(scope); return; }
+      // Up arrow in an empty box edits the person's last message, in the channel or in the thread.
+      if (e.key === 'ArrowUp' && !ta.value) {
+        var pool = scope === 'thread' ? ((S.threads[S.threadRoot] || {}).replies || []) : (S.msgs[S.active] || []);
+        var mine = pool.filter(function (m) { return m.user_id === S.me.id && !m.deleted && !m.visible_to && (m.body || '').trim(); }).pop();
+        if (mine) {
+          e.preventDefault();
+          S.editing = mine.id; S.editDraft = null; renderMsgs(false); if (S.right === 'thread') renderRight();
+          var edb = $((scope === 'thread' ? '.ch-right ' : '.ch-msgs ') + '[data-edit="' + mine.id + '"]', root) || $('[data-edit="' + mine.id + '"]', root);
+          if (edb) { edb.focus(); edb.setSelectionRange(edb.value.length, edb.value.length); }
+        }
       }
     });
     root.addEventListener('paste', function (e) {
@@ -1198,8 +2087,19 @@
     root.addEventListener('dragleave', function () { dragN = Math.max(0, dragN - 1); if (!dragN) { var d = $('.ch-drop', root); if (d) d.remove(); } });
     root.addEventListener('drop', function (e) { dragN = 0; var d = $('.ch-drop', root); if (d) d.remove(); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) { e.preventDefault(); addFiles(S.right === 'thread' && e.target.closest('.ch-right') ? 'thread' : 'main', e.dataTransfer.files); } });
     document.addEventListener('keydown', function (e) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && root.isConnected) { e.preventDefault(); e.stopImmediatePropagation(); openSearch(); }
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'k' && root.isConnected) { e.preventDefault(); e.stopImmediatePropagation(); if (sw) closeSearch(); else openSwitcher(); }
     }, true);
+    // Escape from anywhere on the page (nothing focused, or focus outside Chat) still puts away Chat's menu, dialog or search.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !root.isConnected || root.contains(e.target) || (window.FavorChatView && window.FavorChatView.isOpen())) return;
+      if (pop) { closePop(); mentionState = null; slashState = null; }
+      else if (modal) closeModal();
+      else if (S.search || sw) closeSearch();
+    });
+    // Escape hides a showing tooltip and leaves focus where it is; moving the pointer or the focus brings tooltips back.
+    root.addEventListener('keydown', function (e) { if (e.key === 'Escape' && e.target.closest && e.target.closest('.ch-tipped')) root.classList.add('no-tip'); }, true);
+    root.addEventListener('pointermove', function () { root.classList.remove('no-tip'); }, { passive: true });
+    root.addEventListener('focusin', function () { root.classList.remove('no-tip'); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden) markRead(); });
     window.addEventListener('focus', markRead);
     // iOS sends many viewport events while the keyboard slides; the layout is measured once a frame, not once an event.
@@ -1230,34 +2130,47 @@
       }, { passive: true });
       if ('ResizeObserver' in window) { var ro = new ResizeObserver(function () { if (pinned && S.view !== 'list') box.scrollTop = box.scrollHeight; }); ro.observe(box); if (inner) ro.observe(inner); }
     })();
-    // The hub reloads the page on any popstate it does not own. Chat's screens (list, channel, thread) own theirs, so this listener
-    // runs first (capture, at the window) and keeps the hub out of it while a channel or thread is open.
+    // The hub reloads the page on any step of the browser's history it does not own. Chat's screens own theirs (see pushNav), so
+    // this listener runs first (capture, at the window) and keeps the hub out of those. A step that belongs to one of the hub's
+    // overlays (help, search, the huddle sheet) leaves Chat's place unchanged and is left to the hub.
     window.addEventListener('popstate', function (e) {
       if (!root.isConnected) return;
-      // The file viewer owns one history step: Back closes it and leaves the chat as it was.
-      if (viewPop) { viewPop = false; e.stopImmediatePropagation(); return; }
-      if (window.FavorChatView && window.FavorChatView.isOpen()) { e.stopImmediatePropagation(); viewBack = true; window.FavorChatView.close(); return; }
-      if (S.view === 'list') return;
-      // Back while the huddle sheet is open closes the sheet (the hub's overlay stack handles it), and the channel stays.
-      if (window.FavorPrejoin && window.FavorPrejoin.isOpen()) return;
+      var st = e.state || {};
+      if (st.hubov != null) return;
+      var to = st.chn || 0;
+      if (to === nav.pos) return;
       e.stopImmediatePropagation();
-      var v = e.state && e.state.chv;
-      if (v === 'thread' && S.threadRoot) { setView('thread'); return; }
-      if (v === 'channel') { S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('channel'); renderRight(); renderHead(); return; }
-      S.right = 'none'; S.threadRoot = null; S.threadSeen = null; setView('list'); renderRight();
+      nav.pos = to;
+      var wasView = nav.view, V = window.FavorChatView;
+      nav.view = !!st.chview;
+      // The viewer's step: Back closes the viewer and the chat under it stays as it was.
+      if (wasView && !nav.view) { if (V && V.isOpen()) { viewBack = true; V.close(); viewBack = false; } }
+      else if (!nav.view) applyNav(st);
+      var f = nav.after; nav.after = null;
+      if (f) f();
     }, true);
     // The typing line clears itself; the timer runs only while someone is typing.
     var typingT = 0;
-    function typingTick() { clearTimeout(typingT); renderTyping(); var t = S.typing[S.active] || {}, now = Date.now(); if (Object.keys(t).some(function (id) { return id !== S.me.id && now - t[id] < 5000; })) typingT = setTimeout(typingTick, 1000); }
+    function typingTick() {
+      clearTimeout(typingT); renderTyping();
+      var now = Date.now(), live = function (t) { return Object.keys(t || {}).some(function (id) { return id !== S.me.id && now - t[id] < 5000; }); };
+      if (live(S.typing[S.active]) || live(S.threadTyping[S.threadRoot])) typingT = setTimeout(typingTick, 1000);
+    }
 
-    function focusMessage(id) {
+    function focusMessage(id, inThread) {
       var tries = 0;
       var t = setInterval(function () {
-        if (!S.msgs[S.active] && ++tries < 50) return;
+        var el = root.querySelector((inThread ? '.ch-right' : '.ch-msgs') + ' [data-mid="' + id + '"]');
+        if (!el && ++tries < 50) return;
         clearInterval(t);
-        var el = root.querySelector('.ch-msgs [data-mid="' + id + '"]');
         if (el) { el.scrollIntoView({ block: 'center' }); el.classList.add('is-flash'); }
       }, 100);
+    }
+    function focusComposer(scope, prefix) {
+      var ta = $('[data-ta="' + scope + '"]', root) || $('[data-ta="main"]', root);
+      if (!ta) return;
+      if (prefix && ta.value.indexOf(prefix) !== 0) { ta.value = prefix + ta.value; if (/Favor Brain/.test(prefix)) S.mentionMap[ta.dataset.ta]['@Favor Brain'] = '<@brain>'; }
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); grow(ta); syncSend(ta.dataset.ta);
     }
 
     /* ------------------------------------------------------------------ boot */
@@ -1279,13 +2192,16 @@
       var cb = JSON.parse(sessionStorage.getItem(CACHE) || 'null');
       if (cb && cb.me && Date.now() - cb.at < 30 * 60000) {
         S.me = cb.me; S.users = cb.users || {}; (cb.channels || []).forEach(function (c) { S.channels[c.id] = c; });
+        S.features = cb.features || S.features; S.threadsUnread = cb.threads_unread || 0;
         root.removeAttribute('data-boot'); renderSide(); cachedPaint = true;
       }
     } catch (e) { /* no cache */ }
     return guard(Promise.all([api.boot(), early])).then(function (both) {
       var b = both[0], pre = both[1];
-      try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), me: b.me, users: b.users, channels: b.channels })); } catch (e) { /* full or private */ }
+      try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), me: b.me, users: b.users, channels: b.channels, features: b.features, threads_unread: b.threads_unread })); } catch (e) { /* full or private */ }
       S.me = b.me; S.users = b.users || {}; S.users[S.me.id] = Object.assign({}, S.users[S.me.id] || {}, S.me);
+      S.features = b.features || { pins: false }; S.threadsUnread = b.threads_unread || 0;
+      applyRightWidth();
       if (cachedPaint) S.channels = {};
       (b.channels || []).forEach(function (c) { S.channels[c.id] = c; });
       var saved = null;
@@ -1297,10 +2213,19 @@
       if (first && isPhone() && !opts.initial) S.active = first;
       renderSide();
       if (first) { if (isPhone() && !opts.initial) { S.active = first; renderHead(); } else openChannel(first, { pop: true }); }
+      // A reload keeps the screen the person was on (a channel, a thread, one of the lists): the browser kept that step.
+      var st0 = history.state;
+      if (st0 && st0.chn && !st0.hubov) { nav.pos = st0.chn; nav.view = !!st0.chview; applyNav(st0); }
+      // A phone that opened straight at a conversation (a link, a notice) gets the list under it, so Back goes there
+      // and Back from a thread goes to the conversation first.
+      else if (isPhone() && opts.initial && first === opts.initial && S.view === 'channel') pushNav();
       if (opts.onUnread) opts.onUnread(totalUnread());
       measure();
       readAhead();
-      return { open: openChannel, state: S, toast: toast, search: openSearch, focus: focusMessage, thread: openThread, details: openDetails, view: setView, render: renderAll, openPop: closePop };
+      return {
+        open: openChannel, state: S, toast: toast, search: openSearch, switcher: openSwitcher, focus: focusMessage, thread: openThread, threadIn: openThreadIn, details: openDetails, page: openPage,
+        view: setView, render: renderAll, redraw: redraw, openPop: closePop, askBrain: askBrain, sheet: openSheet, focusComposer: focusComposer, add: addMessage, user: user, avatar: avatar
+      };
     });
   }
 

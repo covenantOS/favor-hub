@@ -13,7 +13,7 @@ import { staffDirectory } from '../people';
 import { getRequest } from '../db';
 import { addComment } from '../requests/tasks';
 
-export type CardKind = 'sent' | 'mention';
+export type CardKind = 'sent' | 'mention' | 'made';
 type ChatTaskEnv = Env & Partial<LiveEnv>;
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
@@ -93,6 +93,22 @@ export async function copyComment(
   return made;
 }
 
+/**
+ * A request made from Chat (/request, or "Create a request from this message"): the card is posted in the conversation it
+ * was made in, by the person who made it, and a reply under it is a comment on the request, as under any other card.
+ */
+export async function postMadeCard(env: ChatTaskEnv, input: { from: string; channelId: string; threadId?: number | null; requestId: string; note: string }): Promise<store.Posted> {
+  const posted = await store.post(env, {
+    channel_id: input.channelId,
+    email: lower(input.from),
+    body: '',
+    thread_id: input.threadId || null,
+    attachments: [{ type: 'task', id: input.requestId, kind: 'made', note: String(input.note || '').slice(0, 600) }],
+  });
+  if (!input.threadId) await link(env, { message_id: posted.message.id, request_id: input.requestId, channel_id: input.channelId, root_id: null, comment_id: null, kind: 'card' }).catch(() => undefined);
+  return posted;
+}
+
 /** The request a card belongs to, when this message is one. */
 export async function cardRequest(env: ChatTaskEnv, messageId: number): Promise<string | null> {
   const r = await env.DB.prepare(`SELECT request_id FROM request_chat_links WHERE message_id = ? AND kind = 'card'`).bind(messageId).first<{ request_id: string }>().catch(() => null);
@@ -168,7 +184,7 @@ export async function hydrateTaskCards(env: ChatTaskEnv, list: store.Attachment[
     const t = byTask.get(r.id);
     const owner = t?.owner_email ? dir.get(t.owner_email) : null;
     return {
-      type: 'task', id: r.id, kind: a.kind === 'mention' ? 'mention' : 'sent', note: String(a.note || ''), names: namesIn(String(a.note || ''), dir), title: r.title, status: r.status, status_label: STATUS[r.status] || r.status,
+      type: 'task', id: r.id, kind: a.kind === 'mention' ? 'mention' : a.kind === 'made' ? 'made' : 'sent', note: String(a.note || ''), names: namesIn(String(a.note || ''), dir), title: r.title, status: r.status, status_label: STATUS[r.status] || r.status,
       owner: owner ? owner.name : t?.owner_email || '', due_date: t?.due_date || '', url: `/requests/?r=${encodeURIComponent(r.id)}`,
     };
   });

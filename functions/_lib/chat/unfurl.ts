@@ -20,7 +20,7 @@ export function mayFetch(raw: string, ownHosts: string[]): boolean {
 
 const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/\s+/g, ' ').trim();
 
-export function readMeta(html: string): { title: string; desc: string } {
+export function readMeta(html: string): { title: string; desc: string; site: string; image: string } {
   const pick = (re: RegExp) => {
     const m = html.match(re);
     return m ? decode(m[1]) : '';
@@ -30,7 +30,10 @@ export function readMeta(html: string): { title: string; desc: string } {
     pick(new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]*(?:property|name)=["']${prop}["']`, 'i'));
   const title = og('og:title') || pick(/<title[^>]*>([^<]*)<\/title>/i);
   const desc = og('og:description') || og('description');
-  return { title: title.slice(0, 160), desc: desc.slice(0, 220) };
+  // The page's own picture, when it names one at a full https address; the card shows it small beside the title.
+  const img = og('og:image:secure_url') || og('og:image');
+  const image = /^https:\/\/[^\s"'<>]{4,500}$/.test(img) ? img : '';
+  return { title: title.slice(0, 160), desc: desc.slice(0, 220), site: og('og:site_name').slice(0, 60), image };
 }
 
 export async function unfurl(raw: string, ownHosts: string[], fetcher: typeof fetch = fetch): Promise<Attachment | null> {
@@ -52,9 +55,9 @@ export async function unfurl(raw: string, ownHosts: string[], fetcher: typeof fe
       }
       await reader.cancel().catch(() => undefined);
     } else html = (await res.text()).slice(0, 80_000);
-    const { title, desc } = readMeta(html);
+    const { title, desc, site, image } = readMeta(html);
     if (!title) return null;
-    return { type: 'link', url: raw, host: new URL(raw).hostname.replace(/^www\./, ''), title, desc };
+    return { type: 'link', url: raw, host: new URL(raw).hostname.replace(/^www\./, ''), title, desc, ...(site ? { site } : {}), ...(image ? { image } : {}) };
   } catch {
     return null;
   } finally {

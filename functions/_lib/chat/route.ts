@@ -16,6 +16,14 @@
 //   POST upload  GET file/:id          shared files (byte ranges for audio and video)
 //   GET  drive-file/:mid/:i/thumb|content   preview of a Drive card in a message this person can read
 //   GET  inbox   POST inbox/read       the bell
+//   GET  threads                       every thread I am in, with unread replies counted
+//   GET  activity                      where I was named, replies to me, reactions on my messages
+//   POST channels/:id/unread           { from }  mark unread from a message on
+//   GET  channels/:id/pins             pinned messages and bookmarks
+//   POST messages/:id/pin              { on }
+//   POST channels/:id/bookmarks  DELETE channels/:id/bookmarks/:bid
+//   POST messages/:id/confirm          { bi, action }  a confirm card in a Favor Brain answer
+//   POST channels/:id/request          { title, body?, surface?, from_message?, thread_id? }  a request board card made from Chat
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import type { HubUser } from '../session';
 import { createMeeting, endMeeting } from '../meetroute';
@@ -30,7 +38,12 @@ import { huddlesOf, type HuddleState } from './huddle';
 import { unfurl } from './unfurl';
 import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } from './preview';
 import { parseRange } from '../clips';
-import { taskDeleted, taskReply } from './tasks';
+import { postMadeCard, taskDeleted, taskReply } from './tasks';
+import * as more from './more';
+import { DRAWABLE } from './brain';
+import { insertRequest } from '../db';
+import { notifyNewRequest } from '../notify';
+import { asSurface } from '../http';
 import { slashTask, taskDeleted as ptaskDeleted, taskReply as ptaskReply } from '../projects/links/chat'; // projects hook
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
@@ -41,6 +54,8 @@ export interface Ctx {
   user: HubUser | null;
   path: string[];
   waitUntil: (p: Promise<unknown>) => void;
+  /** Tests pass a stand-in for calls that leave the hub (the Brain). */
+  fetcher?: typeof fetch;
 }
 
 const MAX_FILE = 25 * 1024 * 1024;
@@ -99,7 +114,8 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     if (b && c === 'typing' && method === 'POST') {
       await store.postableChannel(env, b, me);
-      ctx.waitUntil(publish(env, (await store.membersOf(env, b)).filter((m) => m !== me), { type: 'typing', channel_id: b, user_id: me }));
+      const tid = Number((await body(request)).thread_id) || null;
+      ctx.waitUntil(publish(env, (await store.membersOf(env, b)).filter((m) => m !== me), { type: 'typing', channel_id: b, user_id: me, ...(tid ? { thread_id: tid } : {}) }));
       return json({ ok: true });
     }
     if (b && c === 'join' && method === 'POST') {
@@ -123,6 +139,25 @@ async function route(ctx: Ctx): Promise<Response> {
       return json({ ok: true, channel: ch });
     }
     if (b && c === 'meeting' && method === 'POST') return json({ ok: true, ...(await startMeeting(ctx, user, b)) });
+    if (b && c === 'unread' && method === 'POST') {
+      const from = num(String((await body(request)).from || ''));
+      const row = await store.getMessage(env, from);
+      if (!row || row.channel_id !== b || !store.canSee(row, me)) throw new HttpError(404, 'not_found', 'That message is gone.');
+      // A reply marks its thread's first message: the channel reads as unread from there.
+      return json({ ok: true, ...(await store.markUnread(env, me, b, row.thread_id || row.id)) });
+    }
+    if (b && c === 'pins' && method === 'GET') return json({ ok: true, ready: await more.pinsReady(env), ...(await more.pinsOf(env, me, b, (x) => hydrateAttachments(env, x))) });
+    if (b && c === 'bookmarks' && !path[3] && method === 'POST') {
+      const bookmarks = await more.addBookmark(env, me, b, await body(request));
+      ctx.waitUntil(publish(env, await store.membersOf(env, b), { type: 'bar', channel_id: b, bookmarks }));
+      return json({ ok: true, bookmarks });
+    }
+    if (b && c === 'bookmarks' && path[3] && method === 'DELETE') {
+      const bookmarks = await more.removeBookmark(env, me, b, path[3]);
+      ctx.waitUntil(publish(env, await store.membersOf(env, b), { type: 'bar', channel_id: b, bookmarks }));
+      return json({ ok: true, bookmarks });
+    }
+    if (b && c === 'request' && method === 'POST') return json({ ok: true, ...(await makeRequest(ctx, user, b)) });
     if (b && c === 'huddle' && method === 'GET') {
       await store.readableChannel(env, b, me);
       return json({ ok: true, huddle: await liveHuddle(env, b) });
@@ -144,23 +179,53 @@ async function route(ctx: Ctx): Promise<Response> {
     await store.readableChannel(env, rootRow.channel_id, me);
     const t = await store.thread(env, root, (x) => hydrateAttachments(env, x), me);
     if (!t) throw new HttpError(404, 'not_found', 'That thread is gone.');
+    // What was new to this person goes back with the thread (the page draws its New line there), then it is all read.
+    const unread = (await store.threadUnread(env, me, [root])).get(root) || 0;
     await store.markThreadRead(env, me, root);
-    return json({ ok: true, ...t });
+    return json({ ok: true, ...t, unread, threads_unread: await more.threadUnreadTotal(env, me) });
+  }
+  if (a === 'threads' && !b && method === 'GET') return json({ ok: true, ...(await more.threadsFor(env, me, (x) => hydrateAttachments(env, x))) });
+  if (a === 'activity' && !b && method === 'GET') {
+    const dir = await directory(env, await chatMode(env), user);
+    const items = await more.activityFor(env, me);
+    return json({ ok: true, items: items.map((i) => ({ ...i, by_name: dir[i.by]?.name || (i.by === BRAIN_ID ? 'Favor Brain' : i.by.split('@')[0]) })) });
   }
 
   if (a === 'messages' && b) {
     const id = num(b);
     if (!c && method === 'PATCH') {
-      const row = await store.edit(env, me, id, (await body(request)).body);
+      const text = (await body(request)).body;
+      const before = await store.getMessage(env, id);
+      const row = await store.edit(env, me, id, text);
+      // A reply that was also sent to the channel reads the same in both places.
+      const twin = before ? more.twinOf(before) : null;
+      if (twin) {
+        const other = await store.edit(env, me, twin, text).catch(() => null);
+        if (other) await broadcast(ctx, other, 'edit');
+      }
       return json({ ok: true, message: await broadcast(ctx, row, 'edit') });
     }
     if (!c && method === 'DELETE') {
+      const before = await store.getMessage(env, id);
       const row = await store.remove(env, me, id);
       ctx.waitUntil(taskDeleted(env, id)); // q3-tasks hook: the matching request comment goes too.
       ctx.waitUntil(ptaskDeleted(env, id)); // projects hook: the matching task comment goes too.
-      ctx.waitUntil(publish(env, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type: 'delete', id, channel_id: row.channel_id }));
-      return json({ ok: true });
+      const members = await store.membersOf(env, row.channel_id);
+      ctx.waitUntil(publish(env, store.audienceOf(row, members), { type: 'delete', id, channel_id: row.channel_id }));
+      const twin = before ? more.twinOf(before) : null;
+      if (twin) {
+        const other = await store.remove(env, me, twin).catch(() => null);
+        if (other) ctx.waitUntil(publish(env, members, { type: 'delete', id: twin, channel_id: row.channel_id }));
+      }
+      return json({ ok: true, also: twin });
     }
+    if (c === 'pin' && method === 'POST') {
+      const on = (await body(request)).on !== false;
+      const r = await more.setPin(env, me, id, on);
+      ctx.waitUntil(publish(env, await store.membersOf(env, r.channel_id), { type: 'pin', id, channel_id: r.channel_id, on, pins: r.pins, by: me }));
+      return json({ ok: true, ...r, on });
+    }
+    if (c === 'confirm' && method === 'POST') return json({ ok: true, ...(await confirm(ctx, user, id)) });
     if (c === 'share' && method === 'POST') {
       const { posted, removed } = await store.shareAnswer(env, me, id);
       const msg = await broadcast(ctx, posted.message, 'message');
@@ -184,7 +249,7 @@ async function route(ctx: Ctx): Promise<Response> {
 
   if (a === 'search' && method === 'GET') {
     const filter = (['all', 'here', 'files', 'mine'] as const).find((f) => f === url.searchParams.get('filter')) || 'all';
-    const rows = await store.search(env, me, url.searchParams.get('q') || '', { filter, channel: url.searchParams.get('channel') || undefined });
+    const rows = await store.search(env, me, url.searchParams.get('q') || '', { filter, channel: url.searchParams.get('channel') || undefined, from: url.searchParams.get('from') || undefined });
     const channels = new Map<string, string>();
     for (const r of rows) if (!channels.has(r.channel_id)) channels.set(r.channel_id, ((await store.getChannel(env, r.channel_id))?.name) || '');
     const results = (await store.shape(env, rows)).map((m) => ({ ...m, channel_name: channels.get(m.channel_id) || '' }));
@@ -224,7 +289,12 @@ async function boot(env: ChatRouteEnv, user: HubUser) {
   const mode = await chatMode(env);
   const [users, channels, here] = await Promise.all([directory(env, mode, user), store.listChannels(env, me), presence(env)]);
   const people = Object.fromEntries(Object.entries(users).map(([id, u]) => [id, { ...u, presence: here[id] || 'off' }]));
-  return { ok: true, me: people[me] || { id: me, name: user.name, picture: user.picture, title: '', presence: 'online' }, users: people, channels, mode, live: !!env.CHAT_ROOM };
+  const [bars, threads] = await Promise.all([more.barsFor(env, channels.map((c) => c.id)), more.threadUnreadTotal(env, me)]);
+  const withBars = channels.map((c) => ({ ...c, pins: bars.pins.get(c.id) || 0, bookmarks: bars.bookmarks.get(c.id) || [] }));
+  return {
+    ok: true, me: people[me] || { id: me, name: user.name, picture: user.picture, title: '', presence: 'online' }, users: people, channels: withBars, mode, live: !!env.CHAT_ROOM,
+    threads_unread: threads, features: { pins: bars.ready },
+  };
 }
 
 /* ------------------------------------------------------------------ messages */
@@ -278,12 +348,29 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     const card = await driveCardFor(env, u);
     if (card) attachments.push(card as Att);
   }
-  const threadId = input.thread_id ? Number(input.thread_id) : null;
+  let threadId = input.thread_id ? Number(input.thread_id) : null;
+  // A reply under the channel copy of a thread reply belongs to the thread the copy came from.
+  if (threadId) {
+    const under = await store.getMessage(env, threadId);
+    if (under && under.channel_id === channelId) threadId = more.threadRootOf(under);
+  }
   // projects hook: /task makes a task and posts its card instead of the typed text.
   const slashed = await slashTask(env, user, channelId, text, threadId);
   if (slashed) return slashed;
-  const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments });
-  const msg = await broadcast(ctx, posted.message, 'message');
+  const asksBrain = parseMentions(text).brain && !SYSTEM_VOICES.has(me);
+  // A follow-up pressed inside a private Brain answer stays private: the question is the asker's alone, like the answer.
+  const hidden = input.private === true && asksBrain && (await store.brainIsPrivate(env, channelId, me));
+  const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments, visible_to: hidden ? me : null });
+  let msg = await broadcast(ctx, posted.message, 'message');
+  // "Also send to the channel": the reply shows in the channel too, with a line naming the thread it answers.
+  if (threadId && input.also === true && !hidden) {
+    const dir = await directory(env, await chatMode(env), user);
+    const both = await more.alsoSend(env, posted.message, (id) => dir[id]?.name || id.split('@')[0]);
+    if (both) {
+      await broadcast(ctx, both.copy.message, 'message');
+      [msg] = await store.shape(env, [both.reply], (x) => hydrateAttachments(env, x));
+    }
+  }
   // q3-tasks hook: a reply under a request's card is also a comment on the request (chat/tasks.ts).
   if (threadId) ctx.waitUntil(taskReply(env, posted.message, user));
   // projects hook: a reply under a task's card is also a comment on the task (projects/links/chat.ts).
@@ -297,10 +384,72 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
       await broadcast(ctx, row, 'edit');
     })().catch(() => undefined));
   }
-  if (parseMentions(text).brain && !SYSTEM_VOICES.has(me)) {
-    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name }, text }));
+  if (asksBrain) {
+    const intent = typeof input.intent === 'string' && /^[a-z_]{2,40}$/.test(input.intent) ? input.intent : undefined;
+    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name }, text, intent }, ctx.fetcher || fetch));
   }
   return msg;
+}
+
+/**
+ * A confirm card pressed inside a Favor Brain answer. The press goes to the Brain as the signed-in person, so the Brain's own
+ * rules decide whether it runs; the card in the message is then replaced with what the Brain sent back, for everyone who
+ * can read the message.
+ */
+async function confirm(ctx: Ctx, user: HubUser, id: number): Promise<{ blocks: unknown[]; message: store.MessageOut }> {
+  const { env, request } = ctx;
+  const me = user.email.toLowerCase();
+  const input = await body(request);
+  const bi = Number(input.bi);
+  const action = String(input.action || '');
+  if (!Number.isInteger(bi) || bi < 0 || !/^[a-z_]{2,30}$/.test(action)) throw new HttpError(400, 'bad_action', 'That button is no longer there.');
+  const { brain, block } = await more.confirmCard(env, me, id, bi);
+  if (!env.BRAIN_HUB_KEY) throw new HttpError(503, 'not_set_up', 'The Brain is not connected to the hub yet.');
+  const res = await (ctx.fetcher || fetch)(`${(env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '')}/hub/confirm`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${env.BRAIN_HUB_KEY}`, 'X-Acting-Email': user.email, 'X-Acting-Name': encodeURIComponent(user.name || user.email).replace(/%20/g, ' '), 'Content-Type': 'application/json', 'User-Agent': 'favor-hub' },
+    body: JSON.stringify({ id: block.id, action }),
+    signal: AbortSignal.timeout(60000),
+  }).catch(() => null);
+  const d = res ? ((await res.json().catch(() => null)) as { ok?: boolean; message?: string; blocks?: unknown[] } | null) : null;
+  if (!res || !res.ok || !d || d.ok === false) throw new HttpError(res && res.status >= 400 && res.status < 500 ? res.status : 502, 'confirm', (d && d.message) || 'The Brain did not answer. Try again.');
+  const blocks = (Array.isArray(d.blocks) ? d.blocks : []).filter((x: any) => x && DRAWABLE.has(String(x.type)));
+  const next = (brain.blocks || []).slice();
+  next.splice(bi, 1, ...(blocks as Array<Record<string, unknown>>));
+  const row = await store.patch(env, id, { brain: { ...brain, blocks: next } });
+  return { blocks, message: await broadcast(ctx, row, 'edit') };
+}
+
+/**
+ * A request board card made from Chat. The request goes on the board as any other (the board's own notice for a new request
+ * follows), and its card is posted in this conversation by the person who made it.
+ */
+async function makeRequest(ctx: Ctx, user: HubUser, channelId: string): Promise<{ request: { id: string; title: string; url: string }; message: store.MessageOut }> {
+  const { env, request } = ctx;
+  const me = user.email.toLowerCase();
+  const input = await body(request);
+  await store.postableChannel(env, channelId, me);
+  let title = String(input.title || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+  let text = String(input.body || '').trim().slice(0, 8000);
+  const fromId = Number(input.from_message) || 0;
+  let threadId: number | null = null;
+  let note = text;
+  if (fromId) {
+    const src = await store.getMessage(env, fromId);
+    if (!src || src.deleted_at || src.channel_id !== channelId || !store.canSee(src, me)) throw new HttpError(404, 'not_found', 'That message is gone.');
+    const dir = await directory(env, await chatMode(env), user);
+    const said = plainLine(src.body, (id) => dir[id]?.name || id.split('@')[0], 4000);
+    const who = src.email === BRAIN_ID ? 'Favor Brain' : dir[src.email]?.name || src.email.split('@')[0];
+    const link = `${new URL(request.url).origin}/chat/?c=${encodeURIComponent(channelId)}${src.thread_id ? '&t=' + src.thread_id : ''}&m=${src.id}`;
+    if (!title) title = said.slice(0, 90) || 'Request from Chat';
+    text = [text, said ? `${who} wrote in Chat:\n${said}` : '', link].filter(Boolean).join('\n\n');
+    note = said ? `${who}: ${said}`.slice(0, 600) : '';
+  } else if (input.thread_id) threadId = Number(input.thread_id) || null;
+  if (!title) throw new HttpError(400, 'missing_title', 'Give the request a one-line summary.');
+  const row = await insertRequest(env, { title, body: text || title, surface: asSurface(input.surface || 'website'), submitter_name: user.name || me, submitter_email: me, source: 'chat' });
+  ctx.waitUntil(notifyNewRequest(env, row).catch((err) => console.error('[chat] request notify', err)));
+  const posted = await postMadeCard(env, { from: me, channelId, threadId, requestId: row.id, note });
+  return { request: { id: row.id, title: row.title, url: `/requests/?r=${encodeURIComponent(row.id)}` }, message: await broadcast(ctx, posted.message, 'message') };
 }
 
 /**
