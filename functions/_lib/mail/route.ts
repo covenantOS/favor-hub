@@ -144,6 +144,15 @@ async function route(ctx: MailCtx): Promise<Response> {
   const tester = isTester(owner);
   if (tester && !ctx.fetcher) ctx.fetcher = sampleFetcher(env, owner);
   if (tester && !ctx.partners) ctx.partners = (emails) => samplePartners(env, emails);
+  // The test users have no Google Calendar: their busy times are their own FavorOS meetings.
+  if (tester && !ctx.freeBusy) {
+    ctx.freeBusy = async (emails, from, to) => {
+      const out: Record<string, { busy: Array<{ start: string; end: string }> }> = {};
+      const rows = await env.DB.prepare("SELECT host_email, invitees, starts_at, ends_at FROM hub_meetings WHERE starts_at >= ? AND starts_at <= ? AND status IN ('scheduled', 'live')").bind(from, to).all<{ host_email: string; invitees: string; starts_at: string; ends_at: string }>().catch(() => ({ results: [] as any[] }));
+      for (const e of emails) out[e] = { busy: (rows.results || []).filter((r) => lower(r.host_email) === e || String(r.invitees).toLowerCase().includes(e)).map((r) => ({ start: r.starts_at, end: r.ends_at })) };
+      return out;
+    };
+  }
   const fetcher = ctx.fetcher || fetch;
   const [a = '', b = '', c = '', d = ''] = path;
 

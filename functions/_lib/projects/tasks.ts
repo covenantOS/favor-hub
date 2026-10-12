@@ -2,6 +2,7 @@
 // Every list query starts from an index (project, owner or due date) and reads its counts in one grouped pass, so a project with
 // 2,000 tasks lists in a few statements.
 import { HttpError, newId, nowIso, type Env } from '../http';
+import { TESTER_REFUSAL, isTester } from '../testuser';
 import { cleanBody, parseMentions } from '../chat/text';
 import type { Person } from '../people';
 import {
@@ -426,6 +427,7 @@ export async function createTask(env: Env, actor: Actor, b: Record<string, unkno
   const personal = !project;
   const section = parent ? parent.section_id : await checkSection(env, project ? project.id : null, b.section_id);
   const owner = b.owner_email === undefined ? (personal && FAVOR.test(actor.email) ? actor.email : null) : await checkPerson(env, asEmail(b.owner_email, 'owner_email'));
+  if (isTester(actor.email) && owner && !isTester(owner)) throw new HttpError(403, 'test_user', TESTER_REFUSAL);
   const status = b.status === undefined ? 'open' : oneOf(b.status, STATUSES, 'status');
   const now = nowIso();
   const t: TaskRow = {
@@ -527,7 +529,11 @@ export async function patchTask(env: Env, actor: Actor, idOrCode: string, b: Rec
   if ('start_date' in b) set('start_date', asDate(b.start_date, 'start_date'));
   if ('due_date' in b) set('due_date', asDate(b.due_date, 'due_date'));
   if ('due_time' in b) set('due_time', asTime(b.due_time));
-  if ('owner_email' in b) set('owner_email', await checkPerson(env, asEmail(b.owner_email, 'owner_email')));
+  if ('owner_email' in b) {
+    const who = await checkPerson(env, asEmail(b.owner_email, 'owner_email'));
+    if (isTester(actor.email) && who && !isTester(who)) throw new HttpError(403, 'test_user', TESTER_REFUSAL);
+    set('owner_email', who);
+  }
   for (const k of ['appeal_code', 'source_code', 'fund_code', 'campaign_code'] as const) if (k in b) set(k, asCode(b[k]));
   if ('expense_id' in b) set('expense_id', b.expense_id ? String(b.expense_id).slice(0, 80) : null);
   if ('request_id' in b) set('request_id', b.request_id ? String(b.request_id).slice(0, 80) : null);
