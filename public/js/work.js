@@ -159,7 +159,7 @@ const updatedAt = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? 
 function meterHTML() {
   const used = meterUsed();
   const pct = Math.min(100, Math.round(used / DATA.meter.cap * 100));
-  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so FavorOS stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
+  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so FavorOS stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud <b>${used.toLocaleString()}</b> / 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
 }
 
 // ------------------------------------------------------------ page
