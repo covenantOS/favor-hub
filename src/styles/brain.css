@@ -676,3 +676,5 @@ body.h-body[data-nav='brain'] .h-app.is-nav::after { z-index: 90; }
 .h-body .bc-root .bc-cardline .h-i { width: 15px; height: 15px; color: var(--h-gold-ink); flex: none; }
 .h-body .bc-root .bc-cardline > span { flex: 1 1 auto; min-width: 0; }
 .h-body .bc-root .bc-cardline .x { margin-left: auto; }
+/* The link at the foot of a finished card reads as a link. */
+.h-body .bc-root .cf__acts .who a { color: var(--h-link, var(--h-ink)); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }

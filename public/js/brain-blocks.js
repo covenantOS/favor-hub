@@ -520,7 +520,7 @@
       .join('');
     const pr = b.progress;
     return `<div class="card cf"><div class="cf__h"><div class="cf__i">${ic(b.kind === 'iwave_refresh' ? 'redo' : task ? 'check' : 'coin')}</div><div><div class="cf__t">${esc(b.title)}</div>${b.sub ? `<div class="cf__s">${esc(b.sub)}</div>` : ''}</div><span class="state ${st[0]}"><i></i>${st[1]}</span></div>
-      ${(b.facts || []).length ? `<div class="cf__rows">${b.facts.map((f) => `<div class="kv"><span>${esc(f.label)}</span><b>${esc(typeof f.value === 'number' ? int(f.value) : f.value)}</b>${f.sub ? `<small>${esc(f.sub)}</small>` : ''}</div>`).join('')}</div>` : ''}
+      ${(b.facts || []).length ? `<div class="cf__rows">${b.facts.map((f) => `<div class="kv"><span>${esc(f.label)}</span><b>${esc(typeof f.value === 'number' ? int(f.value) : f.value)}</b>${f.sub && !/^\d{4}-\d\d-\d\d$/.test(f.sub) ? `<small>${esc(f.sub)}</small>` : ''}</div>`).join('')}</div>` : ''}
       ${(b.notes || []).length ? `<ul class="cf__notes">${b.notes.map((n) => `<li>${ic(n.icon || 'info')}<span>${esc(n.text)}</span></li>`).join('')}</ul>` : ''}
       ${pr ? `<div class="prog" role="progressbar" aria-valuenow="${pr.done}" aria-valuemax="${pr.total}"><i style="width:${pr.total ? (pr.done / pr.total) * 100 : 0}%"></i></div>` : ''}
       <div class="cf__acts">${acts}${b.who ? `<span class="who">${ic(task ? 'info' : 'shield')}${who}</span>` : ''}</div></div>`;
