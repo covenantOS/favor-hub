@@ -638,6 +638,17 @@ function menu(kind, anchor) {
         closePop(); wc.render();
       });
     });
+  } else if (kind === 'more') {
+    const add = document.querySelector('[data-add-partner]:not([hidden])');
+    pop(anchor, `<div class="ep-pop__list ep-pop__list--more"><button type="button" data-cball>Select all</button><button type="button" data-more="views">${wc.ic('filter')}Views${E.views.length ? ' (' + E.views.length + ')' : ''}</button><button type="button" data-more="export">${wc.ic('ext')}Export</button>${add ? `<button type="button" data-more="add">${wc.ic('plus')}Add partner</button>` : ''}</div>`, (p) => {
+      p.addEventListener('click', (e) => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.hasAttribute('data-cball')) { closePop(); const h = document.querySelector('#view .wc-head [data-cball]'); if (h) h.click(); return; }
+        const k = b.dataset.more; if (!k) return;
+        closePop();
+        if (k === 'add' && add) add.click(); else setTimeout(() => { menu(k, anchor); E.popKind = k; }, 0);
+      });
+    });
   } else if (kind === 'cols') {
     pop(anchor, `<b class="lab">Columns</b><div class="ep-pop__list">${COLS.map(([k, l]) => `<label class="wc-toggle"><input type="checkbox" data-col="${k}" ${E.cols[k] ? 'checked' : ''} />${l}</label>`).join('')}</div>`, (p) => {
       p.addEventListener('change', (e) => { const k = e.target.dataset.col; if (!k) return; E.cols[k] = e.target.checked ? 1 : 0; try { localStorage.setItem('wc.cols', JSON.stringify(E.cols)); } catch (_) {} applyCols('o'); });

@@ -369,3 +369,26 @@ html body.h-body .wc-row > .wc-more { display: none; }
 
 /* Meetings: agenda and summary text is body text, so it reads in Inter. The serif is for titles and big numbers. */
 html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
+
+/* Work Center on a phone: search, Filters and New action on one row, the rest under More; the owner as an initials chip. */
+.wc-whoini { display: none; }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-tools2 { display: none; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) { flex-wrap: nowrap; align-items: center; gap: 8px; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-find { flex: 1 1 0; min-width: 0; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-find input { min-width: 0; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-filterbtn,
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-phnew { flex: 0 0 auto; min-height: 44px; padding: 0 12px; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-phmore { order: 9; flex: 0 0 auto; min-height: 44px; padding: 0 12px; }
+  html body.h-body #wc-root .wc-filters.is-sheet .wc-phnew, html body.h-body #wc-root .wc-filters.is-sheet .wc-phmore { display: none; }
+  html body.h-body #wc-root .wc-who .wc-whon { display: none; }
+  html body.h-body #wc-root .wc-who .wc-inl--who { display: inline-flex; align-items: center; justify-content: flex-end; }
+  html body.h-body #wc-root .wc-who .wc-inl--who > span { display: inline-flex; margin-left: -6px; }
+  html body.h-body #wc-root .wc-who .wc-inl--who > span:first-child { margin-left: 0; }
+  html body.h-body #wc-root .wc-whoini { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--h-leaf-soft, #e4ece1); color: var(--h-brand-ink, #1f4d2a); font: 700 10px/1 var(--h-font, inherit); font-style: normal; border: 2px solid var(--h-card, #fff); }
+  html body.h-body #wc-root .wc-who .left .wc-whoini { background: #f3e3d9; color: #8a3b17; }
+  html body.h-body #wc-root .wc-whoini--none { background: transparent; color: var(--h-mute, #6b6f66); border: 1.5px dashed var(--h-line, #d8d6cc); }
+}
+.ep-pop__list--more { display: grid; gap: 2px; min-width: 190px; }
+.ep-pop__list--more button { text-align: left; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 0; background: transparent; border-radius: 10px; font: 600 14px var(--h-font, inherit); }
+.ep-pop__list--more button:hover { background: var(--h-hover, #f1efe8); }

@@ -155,6 +155,7 @@ function sorted(list) {
   return list.slice().sort((x, y) => (k(x) < k(y) ? -1 : k(x) > k(y) ? 1 : x.id - y.id) * S.dir);
 }
 function meterUsed() { return DATA.meter.used || 0; }
+const updatedAt = (iso) => { const d = new Date(iso); return iso && !isNaN(d) ? d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) : 'recently'; };
 function meterHTML() {
   const used = meterUsed();
   const pct = Math.min(100, Math.round(used / DATA.meter.cap * 100));
@@ -188,8 +189,8 @@ function page() {
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
-        <span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
-        ${meterHTML()}
+        ${g.admin ? `<span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
+        ${meterHTML()}` : `<span class="wc-pill"><i class="dot"></i>Updated ${esc(updatedAt(DATA.synced))}</span>`}
         ${window.WCStart ? window.WCStart.pill() : ''}
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
       </div>
@@ -246,7 +247,9 @@ function rowHTML(a) {
   for (const t of tg.slice(0, 3)) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(t)}">${esc(t)}</span>`);
   if (tg.length > 3) tags.push(`<span class="wc-tag wc-tag--tag" title="${esc(tg.slice(3).join(', '))}">+${tg.length - 3}</span>`);
   if (a.dec) tags.push('<span class="wc-tag wc-tag--warn">Deceased</span>');
-  const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}">${esc(P(x).n)}${gone(x)}</span>`).join('') : '<span class="none">No one</span>';
+  // On a phone the name gives way to an initials chip (the full name is in the title, the row's sheet and the screen reader label).
+  const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${esc(P(x).n)}: ${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}"><i class="wc-whoini" aria-hidden="true">${esc(ini(P(x).n))}</i><span class="wc-whon">${esc(P(x).n)}${gone(x)}</span></span>`).join('') : '<span class="none" title="No one holds this action"><i class="wc-whoini wc-whoini--none" aria-hidden="true">&ndash;</i><span class="wc-whon">No one</span></span>';
+  const whoLabel = c.f.length ? c.f.map((x) => P(x).n).join(', ') : 'No one';
   const theirs = S.f.fr && S.f.theirs && !c.f.includes(S.f.fr) && a.hold.includes(S.f.fr);
   const disabled = saving === 'saving' || queued;
   return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" tabindex="-1" data-id="${a.id}">
@@ -255,7 +258,7 @@ function rowHTML(a) {
     <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ID ' + esc(a.lk) : ''}</span></div>
     <div class="wc-type"><b>${esc(a.type)}</b><span class="wc-cat">${ic(CAT_IC[a.cat] || 'task')}${esc(a.cat)}<button type="button" class="wc-inl wc-st" data-inl="status" data-id="${a.id}" title="Change the status">Open</button></span></div>
     <div class="wc-what"><button type="button" class="wc-open${a.sum ? '' : ' is-empty'}" data-open="${a.id}" title="${esc(a.desc)}">${esc(a.sum || (a.desc ? a.desc.slice(0, 80) : 'No summary'))}</button>${tags.length ? `<div class="wc-tags">${tags.join('')}</div>` : ''}</div>
-    <div class="wc-who"><button type="button" class="wc-inl wc-inl--who" data-inl="who" data-id="${a.id}" title="Change who it belongs to">${who}</button>${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
+    <div class="wc-who"><button type="button" class="wc-inl wc-inl--who" data-inl="who" data-id="${a.id}" title="Change who it belongs to" aria-label="Owner: ${esc(whoLabel)}. Change who it belongs to">${who}</button>${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
     <div class="wc-added">${fd(a.add)}</div>
     <button type="button" class="wc-more" data-open="${a.id}" aria-label="Date, owner and more for ${esc(a.p)}"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
   </div>`;
@@ -352,8 +355,9 @@ function viewOpen() {
         <select class="wc-sel${f.type ? ' is-set' : ''}" data-f="type" aria-label="Type">${typeOpts}</select>
         <select class="wc-sel${f.cat ? ' is-set' : ''}" data-f="cat" aria-label="Category">${catOpts}</select>
         <select class="wc-sel${f.due ? ' is-set' : ''}" data-f="due" aria-label="Due">${dueOpts}</select>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly wc-phmore" data-menu="more" aria-haspopup="true">More</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-filterbtn" data-openfilters>${ic('filter')}Filters${chips.filter((c) => c[0] !== 'q').length ? ' (' + chips.filter((c) => c[0] !== 'q').length + ')' : ''}</button>
+        <button type="button" class="h-btn h-btn--primary h-btn--sm wc-phonly wc-phnew" data-ep="new">${ic('plus')}New action</button>
       </div>
       <div class="wc-tools2" id="wc-tools2"></div>
       <div class="wc-active">${chips.map(([k, l]) => `<button type="button" class="wc-fchip" data-unf="${k}">${esc(l)}<i aria-label="Remove">×</i></button>`).join('')}${chips.length > 1 ? '<button type="button" class="wc-clear" data-unf="all">Clear all</button>' : ''}</div>
