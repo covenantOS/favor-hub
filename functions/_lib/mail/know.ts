@@ -195,7 +195,7 @@ export async function briefing(ctx: SmartCtx, gm: Gmail, runModel: (system: stri
   const facts = `Unread in the inbox: ${stats.unread}. Waiting on the person: ${stats.needs}. Unread from major partners (one gift of ${money(MAJOR)} or more): ${stats.major}. Sent mail with no reply: ${waiting}.\n` + items.map((i, k) => `${k + 1}. ${i.from}: ${i.subject} (${i.why})`).join('\n');
   let text = '';
   try {
-    text = tidy(await runModel('You write the first lines of a morning email briefing for a ministry executive. Two plain sentences, at most 45 words in all, first person plural is not allowed, no greeting, no dashes, never the word donor (say partner). Use only the facts given and name the one thing to do first.', facts, 110), 320);
+    if (items.length) text = tidy(await runModel('You write the first lines of a morning email briefing for a ministry executive. Speak to the reader as you. Two plain sentences, at most 45 words in all, no greeting, no dashes, never the word donor (say partner), never say executive or the person. Use only the facts given and name the one thing to do first.', facts, 110), 320);
   } catch {
     text = '';
   }

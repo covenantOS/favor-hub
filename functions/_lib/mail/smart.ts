@@ -33,7 +33,7 @@ const CLEF_MS = 6000;
 const TEXT_MS = 14000;
 /** New conversations Clef reads in one request; the rest are read on the next look. */
 const CLEF_CAP = 30;
-export const SCAN = 100;
+export const SCAN = 60;
 
 type Runner = { run(model: string, input: unknown): Promise<unknown> };
 export interface SmartCtx {
@@ -289,6 +289,7 @@ interface Scan {
 const SCANS = new Map<string, Scan>();
 export const forgetScan = (me: string) => {
   for (const k of [...SCANS.keys()]) if (k.startsWith(me + '|')) SCANS.delete(k);
+  for (const k of [...WAITS.keys()]) if (k.startsWith(me + '|')) WAITS.delete(k);
 };
 
 /** The newest conversations in the inbox (up to SCAN), read, sorted into categories. Kept thirty seconds per person and search. */
@@ -301,7 +302,7 @@ export async function scanInbox(ctx: SmartCtx, gm: Gmail, q = '', read = true): 
   const { by, pending } = await classify(ctx, rows, read);
   const scan = { at: Date.now(), rows: decorate(rows, by), pending, more: list.more };
   // A scan that lost conversations to Gmail's rate limit is shown but never kept.
-  if (rows.length >= list.threads.length * 0.95) {
+  if (rows.length >= list.threads.length * 0.8) {
     if (SCANS.size > 60) SCANS.clear();
     SCANS.set(key, scan);
   }
@@ -312,8 +313,19 @@ const DAY = 864e5;
 const daysSince = (iso: string) => Math.floor((Date.now() - Date.parse(iso)) / DAY);
 
 /** Sent mail nobody has answered: my message is the newest in the conversation and it is at least `days` old. Oldest first. */
+const WAITS = new Map<string, { at: number; rows: SmartRow[] }>();
 export async function waitingOn(ctx: SmartCtx, gm: Gmail, days = 3): Promise<SmartRow[]> {
-  const list = await idsFor(gm, { q: 'in:sent newer_than:30d -in:chats' }, 60);
+  const key = ctx.me + '|' + days;
+  const hit = WAITS.get(key);
+  if (hit && Date.now() - hit.at < 90000) return hit.rows;
+  const rows = await waitingNow(ctx, gm, days);
+  if (WAITS.size > 60) WAITS.clear();
+  WAITS.set(key, { at: Date.now(), rows });
+  return rows;
+}
+
+async function waitingNow(ctx: SmartCtx, gm: Gmail, days: number): Promise<SmartRow[]> {
+  const list = await idsFor(gm, { q: 'in:sent newer_than:21d -in:chats' }, 30);
   const rows = await rowsFor(gm, ctx.me, list.threads, 6);
   const mine = rows.filter((r) => r.fromMe && !r.draft && !(r.labelIds || []).includes('TRASH') && daysSince(r.date) >= days);
   const sent = mine.filter((r) => {
