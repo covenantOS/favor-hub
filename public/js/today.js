@@ -159,13 +159,22 @@
       const d = ((s.raised - s.raisedLastYear) / s.raisedLastYear) * 100;
       delta = `<span class="r2t-chip ${d >= 0 ? 'r2t-chip--ok' : 'r2t-chip--late'}">${d >= 0 ? '+' : ''}${d.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span><span class="r2t-sub">vs. this day last year</span>`;
     }
+    const paceLine = (k) => {
+      const p = k.pace && k.pace.year;
+      if (!p || !p.goal) return '';
+      const range = p.projectedLow === p.projectedHigh ? `about ${money0(p.projectedHigh)}` : `${money0(p.projectedLow)} to ${money0(p.projectedHigh)}`;
+      const word = p.status === 'ahead' ? 'On pace to pass the goal' : p.status === 'close' ? 'Close to goal pace' : 'Behind goal pace';
+      return `<div class="r2t-pace is-${p.status}"><span>${word}</span><button type="button" class="r2t-pace__b" data-drill="explain:year" data-drill-label="Raised so far this year" data-drill-value="${Number(k.raised) || 0}" data-drill-shown-label="Raised so far this year">Year end at this pace: ${range}</button><a class="h-link" href="/reporting/">Pace and highlights</a></div>`;
+    };
     const teams = s.teams
       .map((t) => {
         const p = t.goal ? (t.amount / t.goal) * 100 : 0;
         const slice = SLICE_OF[t.key];
         const amt = slice && t.measure !== 'awarded'
           ? `<span data-drill="slice:${slice}" data-drill-label="${esc(t.name)}, this year" data-drill-value="${Number(t.amount) || 0}" data-drill-def="Team revenue">${compact(t.amount)}</span>`
-          : compact(t.amount);
+          : t.measure === 'awarded'
+            ? `<span data-drill="explain:${t.key}" data-drill-label="${esc(t.name)}, awarded this year" data-drill-value="${Number(t.amount) || 0}" data-drill-shown-label="Awarded this year">${compact(t.amount)}</span>`
+            : compact(t.amount);
         return `<div class="r2t-team"><div><b>${esc(t.name)}</b><small>${amt} of ${compact(t.goal)}${t.measure === 'awarded' ? ' awarded' : ''}</small></div><span>${Math.round(p)}%</span>
           <div class="r2t-bar"><i style="width:${Math.min(100, p).toFixed(1)}%"></i></div></div>`;
       })
@@ -181,6 +190,7 @@
         <div class="r2t-bar r2t-bar--lg"><i style="width:${Math.min(100, pct).toFixed(1)}%"></i></div>
         <div class="r2t-goal"><span>${pct.toFixed(1)}% of the ${money0(s.goal)} goal</span>${delta ? `<span class="r2t-delta">${delta}</span>` : ''}</div>
         ${strip}
+        ${paceLine(s)}
         <div class="r2t-open"><a class="h-btn h-btn--primary h-btn--sm" href="/dashboard/">Open the KPI dashboard</a><span class="copy-stamp" data-copy-stamp></span></div>
       </div>
       <div><div class="r2t-lab">Team goals</div><div class="r2t-teams">${teams}</div></div>`;

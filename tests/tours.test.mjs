@@ -61,15 +61,15 @@ const ICONS = fs.readFileSync('src/data/icons.ts', 'utf8');
 
 test('each walkthrough shows only to the people who can open the feature', () => {
   const titles = (who) => T.offersFor(who).map((o) => o.feature.id);
-  assert.deepEqual(titles(roles.staff), ['one-app', 'request-fill', 'clips-ops', 'requests', 'today-meetings', 'clips']);
-  assert.deepEqual(titles({ ...roles.staff, clips: false }), ['one-app', 'request-fill', 'requests', 'today-meetings']);
+  assert.deepEqual(titles(roles.staff), ['one-app', 'reporting-pace', 'request-fill', 'clips-ops', 'requests', 'today-meetings', 'clips']);
+  assert.deepEqual(titles({ ...roles.staff, clips: false }), ['one-app', 'reporting-pace', 'request-fill', 'requests', 'today-meetings']);
   assert.ok(titles({ ...roles.staff, chat: true }).includes('chat'));
   assert.ok(titles({ ...roles.staff, chat: true }).includes('chat-brain'));
   assert.ok(titles({ ...roles.staff, projects: true }).includes('projects'));
   assert.ok(titles(roles.rdd).includes('wc-groups'));
   assert.ok(!titles(roles.rdd).includes('receipts-statements'));
   assert.ok(titles(roles.marketing).includes('receipts-statements'));
-  assert.equal(titles(ADMIN).length, 15);
+  assert.equal(titles(ADMIN).length, 16);
   assert.ok(titles({ ...roles.staff, chat: true }).includes('dock'));
   assert.ok(!titles(roles.staff).includes('dock'));
 });

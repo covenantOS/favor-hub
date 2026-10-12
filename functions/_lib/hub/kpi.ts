@@ -5,9 +5,10 @@
 // missing), and shows the answer. The same key lets the hub hand a person over to the dashboard
 // itself (/api/kpi/enter), so the KPI pages open inside the hub already signed in.
 import { HttpError, type Env } from '../http';
+import { pace, type Pace } from './reporting-math';
 
 const KPI_URL = 'https://kpi.favorintl.org';
-const SUMMARY_CACHE = 'https://hub-cache.favorintl.org/kpi/summary-v1';
+const SUMMARY_CACHE = 'https://hub-cache.favorintl.org/kpi/summary-v2';
 const SUMMARY_SECONDS = 15 * 60;
 
 function b64url(bytes: Uint8Array | string): string {
@@ -65,9 +66,11 @@ export interface KpiSummary {
   goal: number;
   raisedLastYear: number | null;
   teams: KpiTeam[];
+  /** Where each total ends the year at this pace (year, rdd, grants, pc, ce, mk). Missing on a copy kept before this existed. */
+  pace?: Record<string, Pace>;
 }
 
-type Goals = { goals?: { annualGoal?: number } };
+type Goals = { goals?: { annualGoal?: number }; totals?: { lastYear?: { portfolio?: { giving?: Array<number | null> } } } };
 
 /**
  * The year against goal and each team against its goal, as the KPI dashboard shows them.
@@ -76,7 +79,7 @@ type Goals = { goals?: { annualGoal?: number } };
 // Today's year card shows only team totals against goals, which every staff member may see (Will,
 // 2026-10-08). The KPI dashboard limits each team's tab by person, so the hub reads those totals under
 // a leadership account and caches one copy for everyone.
-const SUMMARY_READER = { email: 'will@favorintl.org', name: 'Staff hub' };
+export const SUMMARY_READER = { email: 'will@favorintl.org', name: 'Staff hub' };
 
 export async function kpiSummary(env: Env): Promise<KpiSummary> {
   const who = SUMMARY_READER;
@@ -85,7 +88,7 @@ export async function kpiSummary(env: Env): Promise<KpiSummary> {
   if (hit) return (await hit.json()) as KpiSummary;
 
   const [ytd, fresh, rdd, ce, pc, grants, mk] = await Promise.all([
-    kpiGet<{ annualGoal: number; teamTotals: Array<{ team: string; portfolio_amount: number }>; donorKpis?: { current?: { as_of: string; ytd_revenue: number }; lastYear?: { ytd_revenue: number } } }>(env, '/api/cf/ytd', who),
+    kpiGet<{ annualGoal: number; teamTotals: Array<{ team: string; portfolio_amount: number }>; donorKpis?: { current?: { as_of: string; ytd_revenue: number }; lastYear?: { ytd_revenue: number }; trend?: Array<{ asOf: string; ytdRevenue: number }> } }>(env, '/api/cf/ytd', who),
     kpiGet<{ lastUpdated?: string }>(env, '/api/cf/freshness', who).catch(() => ({ lastUpdated: undefined })),
     kpiGet<Goals>(env, '/api/cf/rdd', who),
     kpiGet<Goals>(env, '/api/cf/ce', who),
@@ -109,8 +112,28 @@ export async function kpiSummary(env: Env): Promise<KpiSummary> {
       { key: 'mk', name: 'Marketing', amount: team('Marketing'), goal: goal(mk), measure: 'raised' },
     ],
   };
+  summary.pace = paceFor(summary, { rdd, ce, pc, mk }, ytd.donorKpis?.trend || [], ytd.donorKpis?.lastYear ? Number(ytd.donorKpis.lastYear.ytd_revenue) || 0 : null);
   await cache
     .put(SUMMARY_CACHE, new Response(JSON.stringify(summary), { headers: { 'Content-Type': 'application/json', 'Cache-Control': `max-age=${SUMMARY_SECONDS}` } }))
     .catch(() => undefined);
   return summary;
+}
+
+/** Year and team pacing from the answers the summary already holds. Last year's pattern comes from each team's own monthly totals. */
+export function paceFor(summary: KpiSummary, teams: { rdd: Goals; ce: Goals; pc: Goals; mk: Goals }, trend: Array<{ asOf: string; ytdRevenue: number }>, lyToDate: number | null): Record<string, Pace> {
+  const asOf = summary.asOf || new Date().toISOString().slice(0, 10);
+  const lastYearEnd = trend.find((t) => t.asOf === `${Number(asOf.slice(0, 4)) - 1}-12-31`);
+  const out: Record<string, Pace> = {
+    year: pace({ key: 'year', name: 'Raised this year', raised: summary.raised, goal: summary.goal, asOf, lyToDate, lyTotal: lastYearEnd ? Number(lastYearEnd.ytdRevenue) || null : null }),
+  };
+  const monthly: Record<string, Array<number | null> | undefined> = {
+    rdd: teams.rdd.totals?.lastYear?.portfolio?.giving,
+    pc: teams.pc.totals?.lastYear?.portfolio?.giving,
+    ce: teams.ce.totals?.lastYear?.portfolio?.giving,
+    mk: teams.mk.totals?.lastYear?.portfolio?.giving,
+  };
+  for (const t of summary.teams) {
+    out[t.key] = pace({ key: t.key, name: t.name, measure: t.measure, raised: t.amount, goal: t.goal, asOf, lastYearMonthly: monthly[t.key] || null });
+  }
+  return out;
 }

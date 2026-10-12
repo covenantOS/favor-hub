@@ -4,7 +4,7 @@ summary: The year's numbers from Raiser's Edge, the Executive page everyone sees
 topic: numbers
 order: 1
 for: [kpi]
-related: [kpi-definitions, today]
+related: [kpi-definitions, reporting, today]
 tool: /dashboard/
 toolLabel: Open the KPI dashboard
 updated: 2026-10-09

@@ -125,6 +125,7 @@
     const nums = !t.error && !t.stopped && (t.blocks || []).some((b) => ['tiles', 'money', 'int', 'pct', 'score', 'chart', 'team', 'table'].includes(b.type));
     h += `<div class="m-foot"><button type="button" class="ib ib--sm ib--bare tip" data-act="acopy" data-turn="${ti}" aria-label="Copy the answer" data-tip="Copy">${ic('copy')}</button>
       <button type="button" class="ib ib--sm ib--bare tip" data-act="alink" data-turn="${ti}" aria-label="Copy link to this chat" data-tip="Copy link">${ic('link')}</button>
+      ${!t.error && !t.stopped && t.blocks && t.blocks.length && t.outcome === 'ok' ? `<button type="button" class="ib ib--sm ib--bare tip" data-act="pin" data-turn="${ti}" aria-label="Pin to My dashboard" data-tip="Pin to My dashboard">${ic('pin')}</button>` : ''}
       <button type="button" class="ib ib--sm ib--bare tip${r === 'right' ? ' is-done' : ''}" data-act="aup" data-turn="${ti}" aria-label="Right" data-tip="Right" aria-pressed="${r === 'right'}"${t.ref ? '' : ' disabled'}>${ic('up')}</button>
       <button type="button" class="ib ib--sm ib--bare tip${r === 'wrong' ? ' is-done' : ''}" data-feedback="hub-brain" data-rating="wrong" data-ref="${esc(t.ref || '')}" data-question="${esc(t.q)}" aria-label="Not right" data-tip="Not right" aria-pressed="${r === 'wrong'}"${t.ref ? '' : ' disabled'}>${ic('down')}</button>
       <button type="button" class="ib ib--sm ib--bare tip" data-act="again" data-turn="${ti}" aria-label="Ask again" data-tip="Ask again">${ic('redo')}</button>
@@ -671,6 +672,19 @@
         toast(ok ? 'Link copied. Only you can open it.' : 'Your browser would not copy.');
         break;
       }
+      case 'pin': {
+        const t = cur.turns[ti];
+        if (!t || !t.blocks) break;
+        el.disabled = true;
+        try {
+          const res = await fetch('/api/reporting/pins', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: t.asked_as || t.q, title: t.q, answer: { blocks: t.blocks, reading: t.reading, markdown: t.markdown } }) });
+          const d = await res.json().catch(() => ({}));
+          if (!res.ok || !d.ok) throw new Error(d.message || 'That did not pin. Try again.');
+          toast('Pinned to My dashboard', { href: '/reporting/?tab=mine', label: 'Open' });
+        } catch (err) { toast(err.message || 'That did not pin. Try again.'); }
+        el.disabled = false;
+        break;
+      }
       case 'qcopy': { const ok = await copy(cur.turns[ti].q); toast(ok ? 'Question copied' : 'Your browser would not copy.'); break; }
       case 'aup': {
         const t = cur.turns[ti];
@@ -878,6 +892,8 @@
     await Promise.all([loadMe(), loadHistory(), loadConnector()]);
     loadSheets();
     if (new URLSearchParams(location.search).get('connect') === '1') openPanel('connect');
+    const asked = (new URLSearchParams(location.search).get('ask') || '').slice(0, 600);
+    if (asked && !new URLSearchParams(location.search).get('c')) { history.replaceState(null, '', '/brain/'); ask(asked); return; }
     const c = new URLSearchParams(location.search).get('c');
     // /brain/?ask=text starts a new chat with that question (Ask Brain on a hover card, in Send to and in Search).
     const aq = new URLSearchParams(location.search).get('ask');

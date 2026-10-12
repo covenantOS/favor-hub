@@ -1,0 +1,34 @@
+---
+// Reporting: where each goal stands and where the year ends at this pace, a plain-language week for each team, and My
+// dashboard, the answers a person pinned from Favor Brain. Every figure comes from the KPI dashboard (the same Worker
+// Executive and the team tabs read) and ties to it; a number opens its explanation in the click-to-explain panel.
+import App from '../../layouts/App.astro';
+import '../../styles/reporting.css';
+import '../../styles/brain.css';
+import { SPRITE } from '../brain/_icons';
+---
+<App title="Highlights" crumb="Reporting" nav="reporting" wide description="Goal pacing to year end, the week in plain language for each team, and your own dashboard of pinned Favor Brain answers.">
+  <span slot="actions" class="h-kpi-fresh" id="rg-fresh" hidden></span>
+  <div class="rg h-page">
+    <div class="rg-head">
+      <div class="rg-tabs" role="tablist" aria-label="Reporting views">
+        <button type="button" role="tab" class="rg-tab is-on" id="rg-tab-week" aria-selected="true" aria-controls="rg-week" data-tab="week">This week</button>
+        <button type="button" role="tab" class="rg-tab" id="rg-tab-mine" aria-selected="false" aria-controls="rg-mine" data-tab="mine" tabindex="-1">My dashboard <span class="rg-count" id="rg-pin-count" hidden></span></button>
+      </div>
+    </div>
+    <section id="rg-week" role="tabpanel" aria-labelledby="rg-tab-week">
+      <div class="rg-wait" id="rg-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Reading the KPI dashboard</div>
+      <div id="rg-week-body" hidden></div>
+    </section>
+    <section id="rg-mine" role="tabpanel" aria-labelledby="rg-tab-mine" hidden>
+      <div class="bc-root">
+        <Fragment set:html={SPRITE} />
+        <div id="rg-mine-body"></div>
+      </div>
+    </section>
+  </div>
+  <div class="rg-toast" id="rg-toast" role="status" aria-live="polite"></div>
+  <script is:inline src="/js/brain-blocks.js?v=12"></script>
+  <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
+  <script is:inline src="/js/reporting.js?v=1" defer></script>
+</App>

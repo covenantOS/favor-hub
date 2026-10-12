@@ -4,6 +4,9 @@
      data-drill="year"            the year raised, every gift dated this year (asks /api/drill)
      data-drill="slice:rdds"      one revenue line, optionally slice:<key>:<YYYY-MM> for one month
      data-drill="def"             definition only, when there are no rows behind the number
+     data-drill="explain:<key>"   what is in the number and why it changed since last month, for key year, rdd, grants, pc,
+                                  ce or mk (asks /api/hub/reporting/explain). "year" and "slice:" numbers show the same
+                                  explanation above their rows.
    plus data-drill-label (the panel title), data-drill-value (the number on the page, so the panel can tie to it),
    data-drill-def (Favor definition sections to show, separated by |, e.g. "Which gifts count|Team revenue").
 
@@ -43,6 +46,22 @@
 .dr-def p{margin:0 0 8px}
 .dr-def ul{margin:0 0 8px;padding-left:18px}
 .dr-def li{margin:0 0 4px}
+.dr-why{margin:18px 0 0}
+.dr-why h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--h-ink-2,#48505a)}
+.dr-why .dr-lead{margin:0 0 8px;font-size:16px;font-weight:600;line-height:1.35}
+.dr-why p{margin:0 0 8px}
+.dr-why .dr-sub{margin:14px 0 4px;font-size:13px;font-weight:600;color:var(--h-ink-2,#48505a)}
+.dr-lines{margin:0;padding:0;list-style:none;display:grid;gap:0}
+.dr-lines li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--h-line,#e4e7eb)}
+.dr-lines li span:first-child{min-width:0;overflow-wrap:anywhere}
+.dr-lines small{display:block;color:var(--h-ink-2,#48505a);font-size:13px}
+.dr-lines b{font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+.dr-pace{margin:14px 0 0;padding:12px 14px;border:1px solid var(--h-line,#e4e7eb);border-radius:10px;background:var(--h-surface-2,#f8f9fa)}
+.dr-pace p{margin:0 0 6px}
+.dr-pace details{margin:6px 0 0}
+.dr-pace summary{cursor:pointer;font-weight:600;font-size:13px}
+.dr-pace summary:focus-visible{outline:2px solid var(--h-brand,#2b4d24);outline-offset:2px}
+.dr-pace details p{margin:6px 0 0;font-size:13px;color:var(--h-ink-2,#48505a)}
 .dr-rows{margin:20px 0 0}
 .dr-tbl{width:100%;border-collapse:collapse;font-size:13px}
 .dr-tbl th,.dr-tbl td{text-align:left;padding:6px 6px 6px 0;border-bottom:1px solid var(--h-line,#e4e7eb);vertical-align:top}
@@ -170,6 +189,29 @@
       : `<p class="dr-tie is-off">The gifts total ${money(s.total)}. The number on the page is ${money(s.shown)}, ${money(Math.abs(gap))} ${gap > 0 ? 'more' : 'less'} than the gifts.</p>`;
   }
 
+  /** What is in the number and why it moved: the sentences and lines come from the server, set as they came. */
+  function whyHTML(s) {
+    const w = s.why;
+    if (!w || !w.change) return '';
+    const c = w.change;
+    const lines = (c.lines || []).length
+      ? `<p class="dr-sub">${esc(c.linesLabel)}</p><ul class="dr-lines">${c.lines.map((l) => `<li><span>${esc(l.label)}${l.note ? `<small>${esc(l.note)}</small>` : ''}</span><b>${money(l.amount)}</b></li>`).join('')}</ul>`
+      : '';
+    const top = (c.top || []).length
+      ? `<p class="dr-sub">${esc(c.topLabel)}</p><ul class="dr-lines">${c.top.map((g) => `<li><span>${esc(g.partner)}<small>${esc(dshort(g.date))}</small></span><b>${money(g.amount)}</b></li>`).join('')}</ul>`
+      : '';
+    const awards = (w.change.awards || []).length
+      ? `<p class="dr-sub">Open awards</p><ul class="dr-lines">${w.change.awards.map((a) => `<li><span>${esc(a.name)}<small>${money(a.received)} received</small></span><b>${money(a.toCome)} to come</b></li>`).join('')}</ul>`
+      : '';
+    const tie = c.tie
+      ? `<p class="dr-tie${c.tie.ok ? '' : ' is-off'}">${c.tie.ok ? `This month's ${c.key === 'grants' ? 'awards' : 'gifts'} total ${money(c.tie.gifts)}, the same as the KPI dashboard's figure for the month.` : `This month's ${c.key === 'grants' ? 'awards' : 'gifts'} total ${money(c.tie.gifts)}. The KPI dashboard shows ${money(c.tie.kpi)} for the month, ${money(Math.abs(c.tie.gifts - c.tie.kpi))} apart.`}</p>`
+      : '';
+    const pace = w.paceSentence
+      ? `<div class="dr-pace"><p>${esc(w.paceSentence)}</p><details><summary>How this was worked out</summary>${String(w.paceMethod || '').split(/\r?\n/).map((l) => `<p>${esc(l)}</p>`).join('')}</details></div>`
+      : '';
+    return `<section class="dr-why"><h3>Why it changed</h3><p class="dr-lead">${esc(c.headline)}</p>${(c.story || []).map((t) => `<p>${esc(t)}</p>`).join('')}${lines}${top}${awards}${tie}${pace}</section>`;
+  }
+
   function render() {
     if (!panel || !state) return;
     panel.querySelector('.dr-title').textContent = state.title || '';
@@ -190,7 +232,7 @@
     }
     const acts = `<div class="dr-acts">${s.rows && s.rows.length ? '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="drill">Open in Google Sheets</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-dr-csv>Download CSV</button>' : ''}</div>`;
     const err = s.error ? `<div class="dr-msg" role="status">${esc(s.error)}</div>` : '';
-    panel.querySelector('#dr-body').innerHTML = `${shownBlock}${totalLine}${s.loading ? '<div class="dr-skel" role="status" aria-label="Opening the rows"><i class="dr-sk dr-sk--box"></i><i class="dr-sk dr-sk--h"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i></div>' : ''}${err}${tieLine(s)}${def}${rows}${acts}`;
+    panel.querySelector('#dr-body').innerHTML = `${shownBlock}${totalLine}${s.loading ? '<div class="dr-skel" role="status" aria-label="Opening the rows"><i class="dr-sk dr-sk--box"></i><i class="dr-sk dr-sk--h"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i></div>' : ''}${err}${tieLine(s)}${whyHTML(s)}${def}${rows}${acts}`;
     const csv = panel.querySelector('[data-dr-csv]');
     if (csv) csv.addEventListener('click', download);
   }
@@ -220,13 +262,19 @@
     const shown = value === undefined || value === '' ? null : Number(value);
     const base = { title: el.dataset.drillLabel || el.textContent.trim(), shown, shownType: el.dataset.drillType === 'int' ? 'int' : 'money', shownLabel: el.dataset.drillShownLabel || 'On the page' };
     show({ ...base, loading: kind !== 'def', definition: '', columns: null, rows: [], total: null });
+    const isExplain = kind.startsWith('explain:');
     const wantRows = kind === 'year' || kind.startsWith('slice:');
-    const [def, num] = await Promise.all([
+    const whyKey = isExplain ? kind.slice(8) : kind === 'year' ? 'year' : kind.startsWith('slice:') && !kind.split(':')[2] ? WHY_OF[kind.split(':')[1]] || '' : '';
+    if (isExplain) show({ ...base, loading: true, definition: '', columns: null, rows: [], total: null });
+    const [def, num, why] = await Promise.all([
       defs.length ? post({ kind: 'definition', sections: defs }) : Promise.resolve(null),
       wantRows ? post(rowsRequest(kind)) : Promise.resolve(null),
+      whyKey ? explainFor(whyKey) : Promise.resolve(null),
     ]);
     if (!state || state.title !== base.title) return;
     const next = { ...base, loading: false, definition: def && def.ok ? def.definition : '', columns: null, rows: [], total: null };
+    if (why && why.ok) next.why = why;
+    else if (why && isExplain) next.error = why.message || 'The explanation did not load. Try again in a minute.';
     if (def && !def.ok) next.error = def.message || 'The definition did not load.';
     if (num) {
       if (!num.ok) next.error = num.message || 'The rows did not load. Try again in a minute.';
@@ -249,6 +297,13 @@
     }
     show(next);
   }
+
+  const WHY_OF = { rdds: 'rdd', pc: 'pc', ce: 'ce', marketing: 'mk' };
+
+  const explainFor = (key) =>
+    fetch('/api/hub/reporting/explain?key=' + encodeURIComponent(key), { credentials: 'same-origin' })
+      .then((r) => r.json().catch(() => ({})))
+      .catch(() => ({ ok: false, message: 'FavorOS could not be reached. Check the connection and try again.' }));
 
   function rowsRequest(kind) {
     if (kind === 'year') return { kind: 'year' };
