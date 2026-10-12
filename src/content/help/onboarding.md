@@ -1,6 +1,6 @@
 ---
 title: Onboarding and offboarding
-summary: For hub admins and HR. Start a new hire or an exit, give every step an owner and a due date, and let FavorOS do its own part.
+summary: For FavorOS admins and HR. Start a new hire or an exit, give every step an owner and a due date, and let FavorOS do its own part.
 topic: help
 order: 10
 for: [admin]
@@ -10,7 +10,7 @@ toolLabel: Open Onboarding
 updated: 2026-10-11
 ---
 
-Onboarding is in the Admin menu for hub admins and for people an admin marked as HR in Admin, People and roles. A step owner or a supervisor sees the runs they are part of.
+Onboarding is in the Admin menu for FavorOS admins and for people an admin marked as HR in Admin, People and roles. A step owner or a supervisor sees the runs they are part of.
 
 ## Start a new hire
 

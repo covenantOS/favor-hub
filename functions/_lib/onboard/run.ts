@@ -229,7 +229,7 @@ function ownerFor(duty: string, run: { email: string; supervisor_email: string }
 }
 
 export async function startRun(env: Env, actor: Actor, input: StartInput): Promise<{ run: RunRow; steps: StepRow[]; unset: string[]; mailed: number }> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Starting onboarding is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Starting onboarding is for FavorOS admins and HR.');
   if (!(await onboardingReady(env))) throw new HttpError(503, 'not_ready', 'Onboarding is not switched on yet.');
   const kind: Kind = input.kind === 'offboard' ? 'offboard' : 'onboard';
   const email = lower(input.email);
@@ -450,7 +450,7 @@ export async function runDetail(env: Env, actor: Actor, id: string): Promise<Det
 
 async function stepAccess(env: Env, actor: Actor, run: RunRow, step: StepRow, manage: boolean): Promise<void> {
   if (manage || lower(step.owner_email) === actor.email || (step.duty === 'supervisor' && run.supervisor_email === actor.email)) return;
-  throw new HttpError(403, 'forbidden', 'Only the step’s owner, HR or a hub admin can change this step.');
+  throw new HttpError(403, 'forbidden', 'Only the step’s owner, HR or a FavorOS admin can change this step.');
 }
 
 export interface StepEdit {
@@ -473,7 +473,7 @@ export async function editStep(env: Env, actor: Actor, runId: string, stepId: st
   if (input.status !== undefined) {
     const st = String(input.status);
     if (!['open', 'done', 'skipped'].includes(st)) throw bad('Unknown status.');
-    if (st === 'skipped' && !manage) throw new HttpError(403, 'forbidden', 'Only HR or a hub admin can skip a step.');
+    if (st === 'skipped' && !manage) throw new HttpError(403, 'forbidden', 'Only HR or a FavorOS admin can skip a step.');
     if (step.kind === 'auto' && st === 'done' && !manage) throw new HttpError(403, 'forbidden', 'FavorOS does this step when an admin presses its button.');
     await env.DB.prepare('UPDATE onb_steps SET status = ?, done_by = ?, done_at = ? WHERE id = ?').bind(st, st === 'open' ? null : actor.email, st === 'open' ? null : now, stepId).run();
     if (step.task_id) {
@@ -488,7 +488,7 @@ export async function editStep(env: Env, actor: Actor, runId: string, stepId: st
   }
   if (input.note !== undefined) await env.DB.prepare('UPDATE onb_steps SET note = ? WHERE id = ?').bind(String(input.note).slice(0, 500), stepId).run();
   const needManage = input.owner_email !== undefined || input.due_date !== undefined || input.title !== undefined || input.detail !== undefined;
-  if (needManage && !manage) throw new HttpError(403, 'forbidden', 'Only HR or a hub admin can change who owns a step, its date or its words.');
+  if (needManage && !manage) throw new HttpError(403, 'forbidden', 'Only HR or a FavorOS admin can change who owns a step, its date or its words.');
   if (input.owner_email !== undefined) {
     const e = lower(input.owner_email);
     if (e && !FAVOR.test(e)) throw bad('Pick a Favor address.');
@@ -513,7 +513,7 @@ export async function editStep(env: Env, actor: Actor, runId: string, stepId: st
 }
 
 export async function addStep(env: Env, actor: Actor, runId: string, input: { title?: unknown; detail?: unknown; owner_email?: unknown; due_date?: unknown; grp?: unknown }): Promise<StepRow> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Adding a step is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Adding a step is for FavorOS admins and HR.');
   const run = await getRun(env, runId);
   if (run.status === 'cancelled') throw bad('This run was cancelled.');
   const title = String(input.title || '').trim();
@@ -554,7 +554,7 @@ export async function setDoc(env: Env, actor: Actor, runId: string, key: string,
 }
 
 export async function editRun(env: Env, actor: Actor, runId: string, input: { welcome?: unknown; supervisor_email?: unknown; status?: unknown; title?: unknown; team?: unknown }): Promise<void> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Changing a run is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Changing a run is for FavorOS admins and HR.');
   const run = await getRun(env, runId);
   const sets: string[] = [];
   const args: unknown[] = [];
@@ -611,7 +611,7 @@ async function markAuto(env: Env, run: RunRow, key: string, actor: Actor): Promi
 
 /** Adds the new hire to FavorOS: the account, the staff list, the supervisor and start date, the default Chat channels and the Learn paths. */
 export async function hubAdd(env: Env, actor: Actor, runId: string, opts: { emailWelcome?: boolean } = {}): Promise<{ items: DoneItem[]; mailed: boolean }> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Adding someone to FavorOS is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Adding someone to FavorOS is for FavorOS admins and HR.');
   const run = await getRun(env, runId);
   if (run.kind !== 'onboard') throw bad('This is an offboarding.');
   if (run.status !== 'active') throw bad('This onboarding is closed.');
@@ -684,13 +684,13 @@ const dueOf = (run: RunRow, offset: number) => dueFrom(run.date, offset);
 
 /** Closes the person's FavorOS access: blocked, sessions and the Google link ended, off the staff lists, Learn assignments closed. */
 export async function hubClose(env: Env, actor: Actor, runId: string, isEnvAdmin: (email: string) => boolean): Promise<{ items: DoneItem[] }> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Closing access is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Closing access is for FavorOS admins and HR.');
   const run = await getRun(env, runId);
   if (run.kind !== 'offboard') throw bad('This is an onboarding.');
   if (run.status !== 'active') throw bad('This offboarding is closed.');
   if (run.stays) throw bad('This person stays on as a volunteer, so their accounts stay open.');
   if (run.email === actor.email) throw bad('You cannot close your own access.');
-  if (isEnvAdmin(run.email)) throw bad('This person is listed as a hub admin in the site settings. Remove them from that list first.');
+  if (isEnvAdmin(run.email)) throw bad('This person is listed as a FavorOS admin in the site settings. Remove them from that list first.');
   const now = nowIso();
   const items: DoneItem[] = [];
   const step = async (what: string, fn: () => Promise<DoneItem | void>) => {
@@ -736,7 +736,7 @@ export interface Owned {
 }
 
 export async function ownedBy(env: Env, actor: Actor, runId: string): Promise<Owned> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'This list is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'This list is for FavorOS admins and HR.');
   const run = await getRun(env, runId);
   const dir = new Map((await staffDirectory(env)).map((p) => [p.email, p]));
   const out: Owned = { tasks: [], requests: [], reports: [], learn: await L.openAssignments(env, run.email), counts: { tasks: 0, requests: 0, reports: 0 } };
@@ -759,7 +759,7 @@ export async function ownedBy(env: Env, actor: Actor, runId: string): Promise<Ow
 
 /** Moves the person's open tasks, request cards and direct reports to someone else. Nothing is deleted. */
 export async function handOver(env: Env, actor: Actor, runId: string, toRaw: unknown, what: { tasks?: boolean; requests?: boolean; reports?: boolean } = {}): Promise<{ tasks: number; requests: number; reports: number }> {
-  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Handing over work is for hub admins and HR.');
+  if (!(await mayManage(env, actor))) throw new HttpError(403, 'forbidden', 'Handing over work is for FavorOS admins and HR.');
   const run = await getRun(env, runId);
   if (run.kind !== 'offboard') throw bad('This is an onboarding.');
   const to = lower(toRaw);

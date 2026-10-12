@@ -71,7 +71,7 @@ async function route(ctx: Ctx): Promise<Response> {
   if (a === 'owners') {
     if (method === 'GET') return json({ ok: true, owners: await ownersMap(env), duties: DUTIES, can: { manage } });
     if (method === 'PUT') {
-      if (!manage) throw new HttpError(403, 'forbidden', 'Owners are set by hub admins and HR.');
+      if (!manage) throw new HttpError(403, 'forbidden', 'Owners are set by FavorOS admins and HR.');
       const input = await body(request);
       await setOwner(env, actor, String(input.duty || ''), String(input.email || ''));
       return json({ ok: true, owners: await ownersMap(env) });
@@ -79,7 +79,7 @@ async function route(ctx: Ctx): Promise<Response> {
   }
 
   if (a === 'template') {
-    if (!manage) throw new HttpError(403, 'forbidden', 'The checklist is edited by hub admins and HR.');
+    if (!manage) throw new HttpError(403, 'forbidden', 'The checklist is edited by FavorOS admins and HR.');
     if (method === 'GET') {
       const kind = kindOf(new URL(request.url).searchParams.get('kind'));
       return json({ ok: true, kind, steps: await templateFor(env, kind, true), groups: GROUPS[kind], duties: [...DUTIES, ...RUN_DUTIES.map((k) => ({ key: k, label: ({ supervisor: 'The supervisor', hire: 'The new hire', starter: 'Whoever starts the run' } as Record<string, string>)[k], hint: '' }))] });

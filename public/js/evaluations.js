@@ -488,7 +488,7 @@
     h += '<section class="ev-panel ev-submit"><h2>Share with ' + esc(c.employee.name) + '</h2>' + (ok ? '' : '<p>' + (gp.length ? gp.length + ' summary answer' + (gp.length === 1 ? '' : 's') + ' left. ' : '') + (nGoals < S.forms.limits.goalsMin || nGoals !== GOALS.length ? 'The plan needs ' + S.forms.limits.goalsMin + ' to ' + S.forms.limits.goalsMax + ' goals with the goal, action steps and a target date.' : '') + '</p>') +
       '<label class="ev-field"><span>Meeting date</span><input type="date" id="ev-meet" value="' + esc(c.meetingOn || c.due.w3 || '') + '"></label>' +
       (rv < S.forms.limits.reviewersMin ? '<p class="ev-warn">Only ' + rv + ' of ' + S.forms.limits.reviewersMin + ' feedback forms are in. You can go ahead with what you have.</p>' : '') +
-      '<div class="ev-acts"><button type="button" class="h-btn h-btn--primary" id="ev-share"' + (ok ? '' : ' disabled') + '>Share summary and plan</button></div><p class="ev-sub">After you share, the employee reads this and the plan. The raw feedback stays with you, HR and the hub administrators.</p></section>';
+      '<div class="ev-acts"><button type="button" class="h-btn h-btn--primary" id="ev-share"' + (ok ? '' : ' disabled') + '>Share summary and plan</button></div><p class="ev-sub">After you share, the employee reads this and the plan. The raw feedback stays with you, HR and FavorOS administrators.</p></section>';
     return h;
   }
 

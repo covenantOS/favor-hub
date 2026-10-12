@@ -66,7 +66,7 @@ export const FORM_A: Form = {
     'This evaluation is intended to provide an opportunity for meaningful reflection, constructive feedback, and professional development. It is not designed primarily to evaluate compensation or advancement, but rather to help each individual recognize their strengths, identify opportunities for growth, and better understand how they contribute to Favor\'s mission.',
     'Please answer each question thoughtfully and honestly. When possible, provide specific examples that demonstrate your experiences, accomplishments, challenges, and areas where additional support or development may be beneficial.',
   ],
-  readers: 'You, your supervisor, HR and the hub administrators can read this self-assessment. Nobody else can. It is not shared in Chat, search or Favor Brain.',
+  readers: 'You, your supervisor, HR and FavorOS administrators can read this self-assessment. Nobody else can. It is not shared in Chat, search or Favor Brain.',
   sections: [
     {
       id: 'a-info',
@@ -208,7 +208,7 @@ export const FORM_B: Form = {
     'Thank you for helping a colleague grow. Please answer from what you have seen yourself, and give a specific example when you can.',
     'Comments on observable behavior and examples help most. Your supervisor and the employee will read the themes, so write what you would be willing to say face to face.',
   ],
-  readers: 'This is not anonymous. The employee\'s supervisor, HR and the hub administrators read your answers with your name on them. The employee does not see your answers word for word. Their supervisor summarizes the themes for them. Nobody else can read what you write.',
+  readers: 'This is not anonymous. The employee\'s supervisor, HR and FavorOS administrators read your answers with your name on them. The employee does not see your answers word for word. Their supervisor summarizes the themes for them. Nobody else can read what you write.',
   sections: [
     {
       id: 'b-info',
@@ -315,7 +315,7 @@ export const FORM_C: Form = {
     'Review the self-assessment and the feedback side by side. The averages compare how the employee rates each competency with how the others rate it. There is no single overall score.',
     'Write for the employee. After you share this, the employee reads it and the development plan, and it is the only account of the feedback they receive.',
   ],
-  readers: 'The employee reads this summary and the plan once you share them. HR and the hub administrators can read it. The raw feedback from each reviewer stays with you, HR and the hub administrators and is never shown to the employee.',
+  readers: 'The employee reads this summary and the plan once you share them. HR and FavorOS administrators can read it. The raw feedback from each reviewer stays with you, HR and FavorOS administrators and is never shown to the employee.',
   sections: [
     {
       id: 'c-summary',

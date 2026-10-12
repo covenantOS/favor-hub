@@ -52,7 +52,7 @@ function defaults(env: Env): Deps {
 export async function pdfFor(env: Env, caseId: string, deps: Deps = defaults(env)): Promise<{ bytes: Uint8Array; name: string }> {
   const d = await buildDocument(env, caseId);
   const font = await deps.assets('/receipts/fonts/Arimo-Regular.ttf');
-  if (!font) throw new Error('The font for the PDF is missing from the hub.');
+  if (!font) throw new Error('The font for the PDF is missing from FavorOS.');
   const logo = await deps.assets('/images/favor-logo-color.png');
   return { bytes: await evalPdf(d, font, logo || undefined), name: `${d.fileName}.pdf` };
 }

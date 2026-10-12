@@ -14,7 +14,7 @@ async function begin(w, user = WILL, extra = {}) {
   return r.data;
 }
 
-test('only hub admins and HR start a run; plain staff are refused', async () => {
+test('only FavorOS admins and HR start a run; plain staff are refused', async () => {
   const w = onboardWorld();
   assert.equal((await call(w, PLAIN, 'POST', 'runs', START)).status, 403);
   assert.equal((await call(w, HR, 'POST', 'runs', START)).status, 201, 'a person marked HR may');
@@ -261,7 +261,7 @@ test('offboarding: its own list, a volunteer who stays keeps accounts, a person 
   assert.ok(!people.some((p) => p.email === NEWBIE.email));
 });
 
-test('offboarding refuses your own access, a hub admin from the site settings, and a volunteer who stays', async () => {
+test('offboarding refuses your own access, a FavorOS admin from the site settings, and a volunteer who stays', async () => {
   const w = onboardWorld();
   assert.equal((await call(w, WILL, 'POST', 'runs', { kind: 'offboard', name: 'Will', email: WILL.email, date: '2026-10-30' })).status, 400, 'no offboarding of yourself');
   const envAdmin = { kind: 'offboard', name: 'Ada Admin', email: 'ada@favorintl.org', date: '2026-10-30' };
@@ -270,7 +270,7 @@ test('offboarding refuses your own access, a hub admin from the site settings, a
   w.env.HUB_ADMINS = 'ada@favorintl.org';
   const refused = await call(w, HR, 'POST', `runs/${a.data.run.id}/hub`, { action: 'close', confirm: true });
   assert.equal(refused.status, 400);
-  assert.match(refused.data.message, /hub admin/);
+  assert.match(refused.data.message, /FavorOS admin/);
   assert.equal(rows(w, 'SELECT blocked FROM hub_users WHERE email = ?', 'ada@favorintl.org')[0].blocked, 0);
   const v = await call(w, WILL, 'POST', 'runs', { kind: 'offboard', name: 'Vic Volunteer', email: 'vic@favorintl.org', date: '2026-10-30', stays: true });
   assert.equal(v.status, 201);

@@ -26,10 +26,10 @@ Evaluations run twice a year. The purpose is growth, accountability and encourag
 
 ## Who can read what
 
-- Your self-assessment: you, your supervisor, HR and the hub administrators.
-- A reviewer's feedback: not anonymous. The reviewer's name is on it. Your supervisor, HR and the hub administrators read it. You do not read it word for word. Your supervisor summarizes the themes for you.
+- Your self-assessment: you, your supervisor, HR and FavorOS administrators.
+- A reviewer's feedback: not anonymous. The reviewer's name is on it. Your supervisor, HR and FavorOS administrators read it. You do not read it word for word. Your supervisor summarizes the themes for you.
 - A reviewer reads only the form they wrote.
-- Your summary and plan: you, once your supervisor shares it, plus your supervisor, HR and the hub administrators.
+- Your summary and plan: you, once your supervisor shares it, plus your supervisor, HR and FavorOS administrators.
 - None of this appears in Chat, search, Favor Brain or the dashboards.
 
 ## If you are asked for feedback

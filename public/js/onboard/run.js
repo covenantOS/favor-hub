@@ -270,7 +270,7 @@
         S.banner = { title: `${S.d.run.kind === 'offboard' ? 'Offboarding' : 'Onboarding'} started for ${S.d.run.name}`, lines };
       }
     } catch (e) { /* no banner */ }
-    document.title = S.d.run.name + ' · Onboarding · Favor Hub';
+    document.title = S.d.run.name + ' · Onboarding · FavorOS';
     draw();
     if (S.d.run.kind === 'offboard' && S.d.can.manage) {
       try { S.owned = (await api(`runs/${id}/owned`)).owned; draw(); } catch (e) { /* the panel stays out */ }
