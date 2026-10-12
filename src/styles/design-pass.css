@@ -414,3 +414,8 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
   html body.h-body #wc-root .wc-intro .wc-chips { flex-wrap: wrap; overflow: visible; gap: 8px; }
   html body.h-body #wc-root .wc-intro .wc-chips .wc-pill { flex: 0 1 auto; max-width: 100%; }
 }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-intro .wc-chips { gap: 6px; }
+  html body.h-body #wc-root .wc-intro .wc-chips .wc-pill { min-height: 32px; padding: 0 10px; font-size: 12.5px; gap: 6px; }
+  html body.h-body #wc-root .wc-intro .wc-chips .wc-meter__bar { width: 28px; flex: 0 0 28px; }
+}
