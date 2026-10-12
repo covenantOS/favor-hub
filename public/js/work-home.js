@@ -301,6 +301,7 @@
       try { sessionStorage.setItem(KEY, JSON.stringify(d)); } catch (_) { /* storage refused */ }
       paint(d);
     } catch (e) {
+      root.removeAttribute('aria-busy');
       if (!D) $('wh-req-body').innerHTML = `<div class="wh-empty" style="padding:0">${esc(e.message)} <button type="button" class="wh-do" data-reload>Try again</button></div>`;
     }
     loading = false;

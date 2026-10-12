@@ -79,4 +79,17 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
 /* Work Overview: the Due card's placeholder rows match the real rows, so nothing below moves when the list arrives. */
 .wh-list > li.wh-skel.wh-skel--row { height: 56px; margin: 0 14px 12px; }
 /* Its "Blackbaud data as of" line keeps its room while it loads, so the cards under it do not drop 14 px. */
-@media (max-width: 860px) { body.h-body #wh .wh-top[hidden] { display: block; visibility: hidden; min-height: 18px; } }
+/* On a phone the cards stack, so the side cards (Requests, Quick actions, Recent activity) wait until the first copy of the page is
+   drawn: shown early, they were pushed down the screen by the Due and Gifts cards a moment later. */
+@media (max-width: 860px) {
+  body.h-body #wh[aria-busy='true'] .wh-col--side, body.h-body #wh[aria-busy='true'] #wh-team { display: none; }
+}
+
+/* Narrow phones (iPhone SE and the like, 320 to 400 px): headers wrap instead of pushing the page sideways. */
+@media (max-width: 400px) {
+  body.h-body .pj-ph { flex-wrap: wrap; }
+  body.h-body .pj-ph__act { flex: 1 1 100%; }
+  body.h-body .pj-ph__act .pj-btn { flex: 1 1 0; justify-content: center; }
+  body.h-body .la-tabs { width: auto; }
+  body.h-body #h-content :is(.ln-head, .ln-head > *, #la-body, .ln-list, .la-tabs) { min-width: 0; max-width: 100%; }
+}
