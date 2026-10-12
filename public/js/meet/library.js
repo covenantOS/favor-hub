@@ -13,9 +13,12 @@ const mins = (m) => {
 };
 
 function card(m) {
-  const body = clip(m.summary) || (m.notesStatus === 'pending' ? 'Notes are being made.' : 'Notes are not ready yet.');
+  // One sentence of the summary; a summary that only says the recording had nothing in it is left off.
+  const one = (String(m.summary || '').replace(/\s+/g, ' ').trim().match(/^.*?[.!?](?= |$)/) || [''])[0];
+  const empty = /appears to be|is unclear|unclear due|did not cover|does not seem|no specific|farewell message|was brief/i.test(one);
+  const body = m.summary ? (empty ? '' : clip(one || m.summary)) : m.notesStatus === 'pending' ? 'Notes are being made.' : 'Notes are not ready yet.';
   const n = m.actionCount || 0;
-  return `<a class="libc h-card" href="/meet/notes/?m=${m.id}" style="text-decoration:none"><div class="ft"><span>${esc(teamOf(m) || m.hostName || '')}</span><span>${m.endedAt ? fmtDay(m.endedAt) : ''}${mins(m) ? ' · ' + mins(m) : ''}</span></div><h4>${esc(m.title)}</h4><p>${esc(body)}</p><div class="ft"><span>${n ? `${n} action item${n === 1 ? '' : 's'}` : ''}</span>${m.recState === 'stored' ? `<span>${ic('drive')}Saved in Drive</span>` : '<span></span>'}</div></a>`;
+  return `<a class="libc h-card" href="/meet/notes/?m=${m.id}" style="text-decoration:none"><div class="ft"><span>${esc(teamOf(m) || m.hostName || '')}</span><span>${m.endedAt ? fmtDay(m.endedAt) : ''}${mins(m) ? ' · ' + mins(m) : ''}</span></div><h4>${esc(m.title)}</h4>${body ? `<p>${esc(body)}</p>` : ''}<div class="ft"><span>${n ? `${n} action item${n === 1 ? '' : 's'}` : ''}</span>${m.recState === 'stored' ? `<span>${ic('drive')}Saved in Drive</span>` : '<span></span>'}</div></a>`;
 }
 
 function paint() {

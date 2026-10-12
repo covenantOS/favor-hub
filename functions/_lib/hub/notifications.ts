@@ -61,7 +61,7 @@ export async function notificationsFor(env: Env, user: HubUser, access: Access):
     if (!source) continue;
     items.push({ id: 'card:' + c.id, source, head: `${c.n.toLocaleString('en-US')} ${c.what}`, txt: c.note, href: c.href, n: c.n, warn: c.warn });
   }
-  if (mailUnread) items.push({ id: 'mail', source: 'Mail', head: `${mailUnread.toLocaleString('en-US')} unread in your Inbox`, txt: 'The same number as the Inbox in Mail', href: '/mail/', n: mailUnread, warn: false });
+  if (mailUnread) items.push({ id: 'mail', source: 'Mail', head: `${mailUnread.toLocaleString('en-US')} unread in your Inbox`, txt: '', href: '/mail/', n: mailUnread, warn: false });
   const sum: Record<string, number> = {};
   for (const i of items) sum[i.source] = (sum[i.source] || 0) + i.n;
   return { items, count: items.reduce((n, i) => n + i.n, 0), counts: sum };

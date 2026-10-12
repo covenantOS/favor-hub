@@ -603,7 +603,7 @@
     if (!n || !inboxPlain() || S.v) return '';
     var wk = ET().slice(0, 8) + Math.floor(Number(ET().slice(8, 10)) / 7);
     try { if (localStorage.getItem('favor.mail.nudge') === wk) return ''; } catch (e) { /* private mode */ }
-    return '<div class="ml-clean ml-clean--nudge">' + ic('log') + '<div class="ml-clean__t"><b>' + n + ' partner email' + (n === 1 ? '' : 's') + ' from this week ' + (n === 1 ? 'is' : 'are') + ' not logged in Blackbaud</b><span>Log each one so the partner record shows the contact.</span></div><a class="ml-btn" href="#/unlogged">Review</a><button type="button" class="ml-iconbtn" data-act="nudge-hide" aria-label="Not this week">' + ic('x') + '</button></div>';
+    return '<div class="ml-clean ml-clean--nudge">' + ic('log') + '<div class="ml-clean__t"><b>' + n + ' partner email' + (n === 1 ? '' : 's') + ' not logged in Blackbaud</b><span>This week</span></div><a class="ml-btn" href="#/unlogged">Review</a><button type="button" class="ml-iconbtn" data-act="nudge-hide" aria-label="Not this week">' + ic('x') + '</button></div>';
   }
   function loadBrief(fresh) {
     if (!S.level.read || !inboxPlain() || S.v) return;

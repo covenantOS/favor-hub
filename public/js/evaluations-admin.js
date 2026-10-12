@@ -32,7 +32,7 @@
     var g = S.gaps;
     if (!g || !g.missing.length) return '';
     var names = g.missing.slice(0, 6).map(function (p) { return esc(p.name); }).join(', ');
-    return '<section class="ev-gap" role="alert"><b>' + g.missing.length + ' of ' + g.total + ' people have nobody under Reports to.</b><span>' + names + (g.missing.length > 6 ? ' and ' + (g.missing.length - 6) + ' more' : '') + '. An evaluation needs a supervisor to read the feedback and write the summary. FavorOS does not guess one. Fill in Reports to for each person in Admin, People and roles.</span><a class="h-btn h-btn--primary h-btn--sm" href="/admin/people/?filter=nosup">Fill in Reports to</a></section>';
+    return '<section class="ev-gap" role="alert"><b>' + g.missing.length + ' of ' + g.total + ' people have no supervisor set</b><span>' + names + (g.missing.length > 6 ? ' and ' + (g.missing.length - 6) + ' more' : '') + '</span><a class="h-btn h-btn--primary h-btn--sm" href="/admin/people/?filter=nosup">Set Reports to</a></section>';
   }
 
   function termsHtml() {

@@ -20,17 +20,17 @@
   const COPY = {
     board: {
       title: 'This goes to the request board',
-      body: 'Website, portal, FavorOS, dashboard and Blackbaud work goes on the request board. A few quick details and it lands in the Inbox, and you get an email when it is done.',
+      body: 'You get an email when it is done.',
       button: 'Continue',
     },
     marketing: {
       title: 'This goes to the Marketing team',
-      body: "Design, print, social, video and newsletter work runs through the Marketing team's request form. Your words are copied, so paste them into the form when it opens.",
+      body: 'Your words are copied. Paste them into the form when it opens.',
       button: 'Open the Marketing request form',
     },
     expense: {
       title: 'This looks like an expense or a purchase',
-      body: 'Purchases, travel and reimbursements go on an expense request, so the approvers can sign it and everyone who needs a copy gets one.',
+      body: 'Purchases, travel and reimbursements go on an expense request.',
       button: 'Start an expense request',
     },
   };

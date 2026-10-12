@@ -403,8 +403,8 @@
           <h2>Make the print file</h2>
           <p class="fnd-note">${
             list.length
-              ? `${plural(c.letters, 'receipt')} for ${plural(c.gifts, 'gift')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly. A partner with two or more gifts gets one receipt that lists each gift.${
-                  shared ? ` ${shared === 1 ? 'One address has receipts' : `${shared} addresses have receipts`} for two different records, marked "Same address" below. Each record gets its own receipt, and the two print back to back so they can share an envelope.` : ''
+              ? `${plural(c.letters, 'receipt')} for ${plural(c.gifts, 'gift')}: ${c.regular} regular, ${c.major} of $200 and up, ${c.recurring} monthly.${
+                  shared ? ` ${shared === 1 ? 'One address has receipts' : `${shared} addresses have receipts`} for two records, marked "Same address" below. They print back to back.` : ''
                 }`
               : 'Nothing is waiting for a receipt.'
           }</p>
@@ -416,7 +416,7 @@
         </div>
       </div>
       ${list.length ? checkCard() : ''}
-      <p class="rcp-fine">Blackbaud is read again when you press it, so the file has today's names and addresses. Nothing is marked thanked until you print and press "Mark as thanked".</p>`;
+      <p class="rcp-fine">Nothing is marked thanked until you press "Mark as thanked".</p>`;
     const show = $('rcp-check-show');
     if (show) show.addEventListener('click', () => {
       state.tab = 'letters';

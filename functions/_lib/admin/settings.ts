@@ -273,12 +273,12 @@ export const DEFS: Def[] = [
   // ---------------------------------------------------------------------------------------------------- People
   hubDef({
     id: 'signin.domains', area: 'people', group: 'Sign-in domains', label: 'Other domains that may ask for access',
-    hint: 'Google Workspace domains, separated by commas. Someone who signs in with an account on one of these waits on the People page until an admin approves them, and then has Chat, Meetings and Favor Brain only. @favorintl.org always works and needs no approval.',
+    hint: 'Google Workspace domains, separated by commas. A person on one of these waits for an admin to approve them, then has Chat, Meetings and Favor Brain only.',
     kind: 'text', def: DEFAULT_EXTRA_DOMAINS,
   }),
   hubDef({
     id: 'field.brain', area: 'people', group: 'Field staff', label: 'Favor Brain for field staff',
-    hint: 'On lets approved field staff ask Favor Brain about the manuals and the programs. Partner records, giving and the dashboards stay closed to them.',
+    hint: 'Approved field staff may ask about the manuals and the programs. Partner records, giving and the dashboards stay closed to them.',
     kind: 'enum', options: ON_OFF, def: 'off',
   }),
   // ---------------------------------------------------------------------------------------------------- Projects

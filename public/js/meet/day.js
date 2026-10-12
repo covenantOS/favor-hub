@@ -187,12 +187,20 @@
     return '<div class="dv-sel">' + pv(e.p) + '<span class="dv-sel__t"><b>' + esc(e.title) + '</b><span>' + hm(e.start) + ' to ' + hm(e.end) + ', ' + esc(PROV[e.p] || e.p) + '</span></span><span class="dv-sel__a">' + acts + '</span></div>';
   }
 
+  // A note card shows one sentence of the summary. A summary that only says the recording had nothing in it is left off.
+  function firstLine(s) {
+    var t = String(s || '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    var one = (t.match(/^.*?[.!?](?=\s|$)/) || [t])[0];
+    if (/appears to be|is unclear|unclear due|did not cover|does not seem|no specific|farewell message|was brief/i.test(one)) return '';
+    return clip(one, 110);
+  }
   function noteHtml(m) {
     var when = m.endedAt || m.startedAt || m.startsAt || m.createdAt, d = new Date(when || NaN), ok = !isNaN(d.getTime()), today = ok && dayKey(d) === dayKey(state.now);
     var label = !ok ? 'No date on file' : today ? 'Today, ' + hm(d) : d.toLocaleDateString('en-US', Object.assign({ weekday: 'short', month: 'short', day: 'numeric' }, d.getFullYear() === state.now.getFullYear() ? {} : { year: 'numeric' }));
     var names = [m.hostName].concat((m.invitees || []).map(nameOf)).filter(Boolean);
     return '<a class="dv-nt' + (state.sel === m.id ? ' is-sel' : '') + '" href="/meet/notes/?m=' + esc(m.id) + '" data-note="' + esc(m.id) + '"><div class="dv-nt__top">' + pv('favor') + '<span>' + esc(label) + '</span></div>' +
-      '<h3>' + esc(String(m.title || '').trim() || 'Meeting') + '</h3>' + (m.summary ? '<p>' + esc(clip(m.summary, 150)) + '</p>' : '') +
+      '<h3>' + esc(String(m.title || '').trim() || 'Meeting') + '</h3>' + (firstLine(m.summary) ? '<p>' + esc(firstLine(m.summary)) + '</p>' : '') +
       '<div class="dv-nt__f"><span class="dv-chip dv-chip--teal">' + ic('doc') + 'Transcript</span>' + (m.actionCount ? '<span class="dv-chip">' + m.actionCount + ' action' + (m.actionCount === 1 ? '' : 's') + '</span>' : '') + avs(names, 3) + '</div></a>';
   }
 
@@ -243,7 +251,7 @@
       (cal && cal.error ? '<div class="dv-conn"><span>' + esc(cal.error) + '</span></div>' : '') +
       (dayLive.length ? '<div class="dv-livewrap">' + dayLive.map(liveCard).join('') + '</div>' : '') +
       '<div class="dv-cols"><section class="dv-card dv-tl" aria-label="Timeline"><div class="dv-tl__head"><h2>Timeline</h2><div class="dv-legend">' +
-      ['favor', 'zoom', 'meet', 'teams'].map(function (k) { return '<span>' + pv(k) + PROV[k] + '</span>'; }).join('') + '</div></div>' + (selEv ? detailHtml(selEv) : '') + tlBody + '</section>' +
+      ['favor', 'zoom', 'meet', 'teams'].filter(function (k) { return evs.some(function (e) { return e.p === k; }); }).map(function (k) { return '<span>' + pv(k) + PROV[k] + '</span>'; }).join('') + '</div></div>' + (selEv ? detailHtml(selEv) : '') + tlBody + '</section>' +
       '<aside class="dv-notes" aria-label="Notes"><div class="dv-notes__in"><div class="dv-notes__h"><h2>Notes</h2><span class="dv-chip">' + notes.length + '</span><span class="dv-grow"></span><a class="dv-link" href="/meet/library/">Ask or search all notes ' + ic('arrow') + '</a></div>' +
       '<div class="dv-notes__list">' + (notes.length ? notes.map(noteHtml).join('') : '<p class="dv-none">No notes yet</p>') + '</div></div></aside></div></div>';
     var sc = root.querySelector('.dv-tl__scroll');

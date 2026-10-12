@@ -15,9 +15,9 @@ html body.h-body .dp-scroll::-webkit-scrollbar { display: none; }
 html body.h-body .dp-scroll > * { flex: none; }
 
 /* A quiet text control for a card header: small, muted, no box. */
-html body.h-body .wm-link, html body.h-body .dp-link { appearance: none; border: 0; background: none; padding: 0 2px; min-height: 32px; font: 600 13px var(--h-font); color: var(--h-ink-3); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; }
-html body.h-body .wm-link:hover, html body.h-body .dp-link:hover { color: var(--h-ink); }
-html body.h-body .wm-link:focus-visible, html body.h-body .dp-link:focus-visible { outline: 2px solid var(--h-gold); outline-offset: 2px; }
+html body.h-body .dp-link { appearance: none; border: 0; background: none; padding: 0 2px; min-height: 32px; font: 600 13px var(--h-font); color: var(--h-ink-3); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; }
+html body.h-body .dp-link:hover { color: var(--h-ink); }
+html body.h-body .dp-link:focus-visible { outline: 2px solid var(--h-gold); outline-offset: 2px; }
 
 /* The undo toast: a solid dark button, the one thing to press. */
 html body.h-body .pp-toast.wg-toast .wg-undo-btn { height: 44px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--h-ink); color: #fff; font: 700 15px var(--h-font); box-shadow: none; }
@@ -55,7 +55,7 @@ html body.h-body .br-li .br-act::after { content: ''; position: absolute; inset:
 html body.h-body .wm-health { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 16px; }
 html body.h-body .wm-health__h { display: contents; }
 html body.h-body .wm-health__h > b { font: 600 13px var(--h-font); color: var(--h-ink-3); margin: 0; }
-html body.h-body .wm-health__h > .wm-link { order: 9; margin-left: auto; }
+html body.h-body .wm-health__h > .dp-link { order: 9; margin-left: auto; }
 html body.h-body .wm-hrow { display: flex; flex-wrap: nowrap; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 html body.h-body .wm-hrow::-webkit-scrollbar { display: none; }
 html body.h-body .wm-hbtn { flex: none; min-height: 32px; height: 32px; padding: 0 12px; gap: 6px; font: 600 13px var(--h-font); }
@@ -64,7 +64,7 @@ html body.h-body .wm-health .wm-plango { order: 8; margin: 0; width: auto; }
 @media (max-width: 860px) {
   html body.h-body .wm-health { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 12px; }
   html body.h-body .wm-health__h > b { grid-column: 1; grid-row: 1; align-self: center; }
-  html body.h-body .wm-health__h > .wm-link { grid-column: 2; grid-row: 1; margin: 0; min-height: 32px; }
+  html body.h-body .wm-health__h > .dp-link { grid-column: 2; grid-row: 1; margin: 0; min-height: 32px; }
   html body.h-body .wm-hrow { grid-column: 1 / -1; margin: 0 -12px; padding: 0 12px; }
   html body.h-body .wm-hbtn { min-height: 40px; height: 40px; }
   html body.h-body .wm-health .wm-plango { grid-column: 1 / -1; justify-self: start; min-height: 40px; width: auto; }
@@ -100,7 +100,7 @@ html body.h-body .tp-where b { font: 600 17px var(--h-font); color: var(--h-ink)
 html body.h-body .tp-where span { font: 500 13px var(--h-font); color: var(--h-ink-3); }
 html body.h-body .tp-note { font: 500 13px/1.45 var(--h-font); color: var(--h-ink-3); margin: -6px 0 0; }
 html body.h-body .tp-route { justify-content: space-between; font: 600 13px var(--h-font); font-variant-numeric: tabular-nums; padding: 10px 14px; }
-html body.h-body .tp-route .wm-link { margin: 0; color: var(--h-brand-ink); text-decoration: underline; text-underline-offset: 3px; }
+html body.h-body .tp-route .dp-link { margin: 0; color: var(--h-brand-ink); text-decoration: underline; text-underline-offset: 3px; }
 html body.h-body .tp-row { align-items: start; }
 html body.h-body .tp-row input[type=checkbox] { margin-top: 2px; width: 18px; height: 18px; accent-color: var(--h-brand); }
 html body.h-body .tp-row small { font-variant-numeric: tabular-nums; }
@@ -183,3 +183,137 @@ html body.h-body .cm .wg-steps li, html body.h-body .cm .wg-steps li > * { min-w
 html body.h-body .cm .cm-log { min-height: 48px; height: 48px; font: 600 15px var(--h-font); border-radius: 999px; }
 html body.h-body .cm .cm-dial { min-height: 48px; font-size: 16px; border-radius: 999px; }
 html body.h-body .br-card .br-head .br-scope ~ .br-icon { margin-left: 2px; }
+
+/* ---------------------------------------------------------------- Mail */
+
+/* The banner above the list: one line of fact, one action. */
+html body.h-body .ml-clean { padding: 10px 6px 10px 12px; gap: 10px; }
+html body.h-body .ml-clean__t b { font: 600 14px/1.3 var(--h-font); }
+html body.h-body .ml-clean__t span { font-size: 12px; opacity: .85; }
+html body.h-body .ml-clean .ml-btn { min-height: 32px; height: 32px; padding: 0 12px; font-size: 13px; }
+
+/* Thread head: the summary, then a compact partner card, then the message. The card's actions are quiet links. */
+html body.h-body .ml-pcard { padding: 10px 12px; gap: 8px; }
+html body.h-body .ml-pcard__ic { width: 24px; height: 24px; }
+html body.h-body .ml-pcard__g { gap: 6px 16px; }
+html body.h-body .ml-pcard__g dt { font-weight: 500; }
+html body.h-body .ml-pcard__g dd { font: 600 13px/1.35 var(--h-font); font-variant-numeric: tabular-nums; }
+html body.h-body .ml-pcard__acts { gap: 4px 16px; border-top: 1px solid var(--r-line, var(--h-line)); padding-top: 6px; }
+html body.h-body .ml-pcard__acts .ml-btn { border: 0; background: none; box-shadow: none; padding: 0; min-height: 32px; height: 32px; font: 600 13px var(--h-font); color: var(--r-ink-2, var(--h-ink-2)); }
+html body.h-body .ml-pcard__acts .ml-btn:hover { color: var(--r-ink, var(--h-ink)); text-decoration: underline; }
+html body.h-body .ml-tl__i time { white-space: nowrap; }
+@media (max-width: 860px) {
+  html body.h-body .ml-sum { flex-direction: column; gap: 6px; }
+  html body.h-body .ml-sum p { min-width: 0; flex: none; }
+  html body.h-body .ml-pcard__g { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html body.h-body .ml-pcard__acts .ml-btn { min-height: 40px; height: 40px; }
+  /* Find a time and Ask Favor Brain are in the More menu on a phone. */
+  html body.h-body .ml-askrow { flex-wrap: nowrap; }
+  html body.h-body .ml-askrow .ml-askbox { flex: 1; min-width: 0; }
+  html body.h-body .ml-askrow [data-act="find-time"], html body.h-body .ml-askrow [data-act="ask-brain"] { display: none; }
+}
+html body.h-body .ch-iconbtn.is-on[data-act="sm-lang"] { background: none; color: var(--a-ink, var(--h-brand-ink)); }
+
+/* ---------------------------------------------------------------- top bar on a phone */
+
+/* Five controls and a title: the controls sit edge to edge so the page name is never cut ("Meetir"). */
+@media (max-width: 480px) {
+  html body.h-body .h-top .h-top__right { gap: 0 !important; padding: 8px 4px; }
+  html body.h-body .h-top .h-top__right:has(.h-top__actions > :is(button, a)) > :is(button, a):not([hidden]):not(.h-btn--primary), html body.h-body .h-top .h-top__right:has(.h-top__actions > :is(button, a)) .h-top__actions > :is(button, a) { width: 40px !important; min-width: 40px; }
+}
+
+/* ---------------------------------------------------------------- Meetings */
+
+@media (max-width: 860px) {
+  /* Not connected: one line and a small button, the same weight as the alert link above it. */
+  html body.h-body .dv-conn { flex-wrap: nowrap; padding: 8px 8px 8px 14px; }
+  html body.h-body .dv-conn .dv-btn { width: auto; flex: none; min-height: 36px; height: 36px; padding: 0 12px; font-size: 13px; }
+  html body.h-body .dv-tl__head { flex-wrap: nowrap; }
+  html body.h-body .dv-legend { width: auto; margin-left: auto; flex-wrap: nowrap; }
+}
+html body.h-body .dv-nt p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+html body.h-body .dv-ev h4 { line-height: 1.35; padding-bottom: 1px; }
+html body.h-body .dv-tl__grid { margin-top: 10px; }
+html body.h-body .dv-ev h4 { flex-shrink: 0; }
+html body.h-body .ml-tl__i { grid-template-columns: 92px 60px minmax(0, 1fr); }
+@media (max-width: 860px) {
+  /* A menu row keeps its whole label; the hint gives way first. */
+  html body.h-body .ml-menu__i span { flex: 0 0 auto; max-width: 100%; }
+  html body.h-body .ml-menu__i small { flex: 1 1 0; max-width: none; text-align: right; }
+}
+
+/* ---------------------------------------------------------------- chips on a phone */
+
+/* A chip keeps its own height on a phone. The 44 px target is space around it, and a row of chips scrolls instead of wrapping. */
+@media (max-width: 860px) {
+  html body.h-body .h-route__egs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -4px; }
+  html body.h-body .h-route__egs::-webkit-scrollbar { display: none; }
+  html body.h-body .h-route__egs > * { flex: none; }
+  html body.h-body .h-route__egs button { position: relative; min-height: 34px; height: 34px; padding: 0 12px; font-size: 13px; }
+  html body.h-body .h-route__egs button::after { content: ''; position: absolute; inset: -5px 0; }
+  html body.h-body .pj-pl .pj-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  html body.h-body .pj-pl .pj-chips::-webkit-scrollbar { display: none; }
+  html body.h-body .pj-pl .pj-chips > * { flex: none; }
+  html body.h-body .pj-fchipbtn { position: relative; min-height: 36px; height: 36px; font-size: 13px; }
+  html body.h-body .pj-fchipbtn::after { content: ''; position: absolute; inset: -4px 0; }
+}
+
+/* ---------------------------------------------------------------- Projects */
+
+@media (max-width: 860px) {
+  /* Three header actions on one line: two quiet, one primary, none full width. */
+  html body.h-body .pj-ph__act { flex-wrap: nowrap; gap: 6px; }
+  html body.h-body .pj-ph__act .pj-btn { flex: 1 1 auto; min-width: 0; padding: 0 10px; font-size: 13px; white-space: nowrap; }
+  html body.h-body .pj-ph__act .pj-btn svg { display: none; }
+  html body.h-body [id^='pj-tab-'] { white-space: nowrap; font-size: 13px; padding-inline: 8px; }
+}
+
+/* ---------------------------------------------------------------- Evaluations */
+
+html body.h-body .ev-gap b { font: 600 14px var(--h-font); }
+html body.h-body .ev-gap span { font-size: 13px; flex: 1 1 240px; }
+html body.h-body .ev-gap .h-btn { min-height: 36px; height: 36px; }
+
+/* ---------------------------------------------------------------- Learn: practice */
+
+/* Who an exercise is for: a caption, never a pill that wraps to three lines. */
+html body.h-body .pr-for { display: block; background: none; border-radius: 0; padding: 0; margin: 2px 0 8px; font: 500 13px/1.4 var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); }
+
+/* ---------------------------------------------------------------- the bell */
+
+html body.h-body .wm-foot { flex-wrap: wrap; gap: 4px 14px; }
+html body.h-body .wm-foot button { white-space: nowrap; font-size: 13px; }
+html body.h-body .wm-empty b { font: 500 14px var(--h-font); color: var(--h-ink-3); }
+
+/* ---------------------------------------------------------------- Admin: People */
+
+/* Destructive is an outline in red, never a solid red slab in every row. */
+html body.h-body .ad-table .ad-btn--warn, html body.h-body #pp-table .ad-btn--warn { background: none; border-color: color-mix(in srgb, var(--h-red) 45%, transparent); color: var(--h-red); }
+html body.h-body .ad-table .ad-btn--warn:hover, html body.h-body #pp-table .ad-btn--warn:hover { background: var(--h-red-soft); }
+@media (max-width: 860px) {
+  /* A person is one compact block: four small actions on one line. */
+  html body.h-body #pp-table td:last-child .ad-acts { display: flex; flex-wrap: nowrap; gap: 6px; }
+  html body.h-body #pp-table td:last-child .ad-acts .ad-btn { flex: 1 1 0; min-width: 0; height: 36px; min-height: 36px; padding: 0 6px; font-size: 13px; white-space: nowrap; justify-content: center; }
+}
+
+/* Moments: one line of fact and a compact action, the same weight as a briefing row. */
+html body.h-body .br-m { gap: 4px; padding: 14px 16px; }
+html body.h-body .br-m h3 { font: 600 15px var(--h-font); }
+html body.h-body .br-m p { font: 500 13px/1.45 var(--h-font); }
+html body.h-body .br-m__acts { align-items: center; gap: 14px; margin-top: 6px; }
+html body.h-body .br-m__acts .br-act { position: relative; height: 32px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: none; border: 1px solid var(--r-line-2, var(--h-line-2)); color: var(--r-ink, var(--h-ink)); font: 600 13px var(--h-font); box-shadow: none; text-decoration: none; }
+html body.h-body .br-m__acts .br-act::after { content: ''; position: absolute; inset: -6px -4px; }
+html body.h-body .br-m__acts .dp-link { min-height: 32px; }
+@media (max-width: 860px) {
+  /* Six moments stacked is six screens of scrolling: on a phone they sit in one row that scrolls sideways. */
+  html body.h-body .br-mgrid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; gap: 10px; padding: 0 0 2px; }
+  html body.h-body .br-mgrid::-webkit-scrollbar { display: none; }
+  html body.h-body .br-mgrid > .br-m { flex: 0 0 82%; scroll-snap-align: start; }
+}
+html body.h-body #br-root { grid-template-columns: minmax(0, 1fr); }
+html body.h-body .br-moments { min-width: 0; }
+
+/* Today, Needs you: the hint under a count is one line of plain text. A pill is for a status. */
+html body.h-body .r2t-tile__f .r2t-chip { background: none; padding: 0; border-radius: 0; min-height: 0; height: auto; min-width: 0; }
+html body.h-body .r2t-tile__f .r2t-chip__t { display: block; -webkit-line-clamp: unset; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 500 13px/1.4 var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); }
+html body.h-body .br-focus .br-head .br-back { margin-left: auto; }

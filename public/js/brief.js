@@ -148,7 +148,7 @@ function moments(b) {
   const KIND = { largest: 'Largest gift', first: 'First gift', quiet: 'Gone quiet', anniversary: 'Anniversary' };
   return `<section class="br-moments" aria-label="Moments"><div class="br-head"><h2>Moments</h2><span>${list.length} worth a call</span></div><div class="br-mgrid">${list.map((m) => `<article class="h-card br-m br-m--${esc(m.kind)}">
     <span class="br-kind">${ic('star')}${esc(KIND[m.kind] || m.kind)}</span><h3>${pchip(m.cid, m.name)}</h3><p>${esc(m.line)}</p>
-    <div class="br-m__acts"><a class="h-btn h-btn--primary h-btn--sm" href="${esc(m.href)}" data-br-call="${esc(m.cid)}">${esc(m.step.label)}</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-br-dismiss="${esc(m.id)}">Not now</button></div></article>`).join('')}</div></section>`;
+    <div class="br-m__acts"><a class="h-btn h-btn--ghost h-btn--sm br-act" href="${esc(m.href)}" data-br-call="${esc(m.cid)}">${esc(m.step.label)}</a><button type="button" class="dp-link" data-br-dismiss="${esc(m.id)}">Not now</button></div></article>`).join('')}</div></section>`;
 }
 
 /* ------------------------------------------------------------------ focus */
@@ -163,7 +163,7 @@ function focusItems() {
 }
 function focus() {
   const items = focusItems();
-  return `<section class="h-card br-focus" aria-label="Focus"><div class="br-head"><h2>${ic('focus')}Your next three</h2><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-br-focus="0">${ic('back')}Show everything</button></div>
+  return `<section class="h-card br-focus" aria-label="Focus"><div class="br-head"><h2>${ic('focus')}Your next three</h2><button type="button" class="dp-link br-back" data-br-focus="0">${ic('back')}Show everything</button></div>
     ${items.length ? `<ol class="br-three">${items.map((x, i) => `<li><span class="br-num">${i + 1}</span><div class="br-main"><a class="br-t" href="${esc(x.href)}">${esc(x.text)}</a><span class="br-prep">${esc(x.sub || '')}</span></div><span class="br-tag">${esc(x.tag)}</span><button type="button" class="br-skip" data-br-skip="${esc(x.id)}">Skip</button></li>`).join('')}</ol>` : '<p class="br-clear">Nothing is waiting. Take the time to call a partner.</p>'}</section>`;
 }
 

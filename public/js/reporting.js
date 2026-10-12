@@ -65,7 +65,9 @@
   function paceCard(key, p, name) {
     const scale = Math.max(p.goal, p.projectedHigh, p.raised) || 1;
     const at = (n) => Math.min(100, Math.max(0, (n / scale) * 100)).toFixed(2);
-    const range = p.projectedLow === p.projectedHigh ? `about ${money0(p.projectedHigh)}` : `${money0(p.projectedLow)} to ${money0(p.projectedHigh)}`;
+    // A projection is an estimate, so it reads to the nearest tenth of a million ($12.8M), never to the dollar.
+    const est = (n) => (window.FavorUI ? window.FavorUI.short(n) : money0(n));
+    const range = p.projectedLow === p.projectedHigh ? `about ${est(p.projectedHigh)}` : `${est(p.projectedLow)} to ${est(p.projectedHigh)}`;
     const verb = p.measure === 'awarded' ? 'awarded' : 'raised';
     const band = p.projectedLow !== p.projectedHigh ? `<i class="rg-band" style="left:${at(p.projectedLow)}%;width:${(at(p.projectedHigh) - at(p.projectedLow)).toFixed(2)}%"></i>` : '';
     return `<button type="button" class="rg-pace h-card is-${p.status}" data-drill="explain:${esc(key)}" data-drill-label="${esc(name)}${key === 'year' ? '' : p.measure === 'awarded' ? ', awarded this year' : ', this year'}" data-drill-value="${Number(p.raised) || 0}" data-drill-shown-label="${p.measure === 'awarded' ? 'Awarded this year' : 'Raised so far this year'}">
@@ -100,12 +102,12 @@
     const hl = d.highlights;
     root.innerHTML = `
       <div class="rg-sec">
-        <div class="rg-sec__h"><h2>Where each goal ends the year</h2><p>${esc(dayLong(d.asOf))}. Press a card to see what is in it and why it changed since last month.</p></div>
+        <div class="rg-sec__h"><h2>Where each goal ends the year</h2><p>${esc(dayLong(d.asOf))}</p></div>
         <div class="rg-pace-grid">${cards}</div>
         <p class="rg-key"><span><i class="rg-key__fill"></i>So far</span><span><i class="rg-key__now"></i>Where the line sits today</span><span><i class="rg-key__goal"></i>Goal</span><span><i class="rg-key__band"></i>Range for year end</span></p>
       </div>
       <div class="rg-sec">
-        <div class="rg-sec__h rg-sec__h--row"><div><h2>The week in plain language</h2><p>${esc(day(hl.week.from))} to ${esc(day(hl.week.to))}, from the same gifts the KPI dashboard counts.</p></div>
+        <div class="rg-sec__h rg-sec__h--row"><div><h2>This week</h2><p>${esc(day(hl.week.from))} to ${esc(day(hl.week.to))}</p></div>
           <button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rg-copy">Copy as text</button></div>
         <div class="rg-hl-grid">${highlightCard(hl.overall, true)}${hl.teams.map((h) => highlightCard(h, false)).join('')}</div>
         ${d.giftsAvailable ? '' : '<p class="rg-note">Gift detail did not load, so the weekly lines are short. Reload in a minute.</p>'}
@@ -187,7 +189,7 @@
     if (!pins.length) {
       mine.innerHTML = `<div class="h-card rg-empty">
         <h2>Nothing pinned yet</h2>
-        <p>Ask Favor Brain a question, then press Pin to My dashboard under the answer. It stays here, and Refresh asks it again with today's numbers.</p>
+        <p>Pin an answer from Favor Brain to keep it here. Refresh asks it again with today's numbers.</p>
         <p><a class="h-btn h-btn--primary h-btn--sm" href="/brain/">Open Favor Brain</a></p>
         <div class="rg-eg"><span>Try asking</span>
           <a href="/brain/?ask=${encodeURIComponent('How much did RDDs raise this month compared with last month?')}">How much did RDDs raise this month compared with last month?</a>
@@ -207,7 +209,7 @@
   }
 
   async function loadPins() {
-    if (pinsLoaded) return;
+    if (pinsLoaded) { if (!mine.firstElementChild) drawPins(); return; }
     mine.innerHTML = '<div class="rg-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Opening your pins</div>';
     const d = await api('/api/reporting/pins');
     if (!d.ok) {
