@@ -21,8 +21,7 @@ let M, S, R, F, A, D, db, env, sent, realFetch;
 
 function world() {
   const d1 = memoryD1();
-  for (const f of ['db/schema.sql', 'db/admin-home.sql', 'db/meetings.sql', 'db/work.sql', 'db/people-dev.sql']) d1.exec(read(f));
-  d1.exec(`CREATE TABLE hub_users (email TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', picture TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'staff', blocked INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+  for (const f of ['db/schema.sql', 'db/work.sql', 'db/expenses.sql', 'db/signin.sql', 'db/reports.sql', 'db/admin-home.sql', 'db/meetings.sql', 'db/people-dev.sql']) d1.exec(read(f));
   for (const p of PEOPLE) {
     d1.db.prepare('INSERT INTO hub_users (email, name, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?)').run(p.email, p.name, p.role, NOW, NOW);
     d1.db.prepare('INSERT INTO meet_directory (email, name, title, team, active) VALUES (?, ?, ?, ?, 1)').run(p.email, p.name, 'Staff', 'Operations');
@@ -163,6 +162,25 @@ describe('shared reporting lines and hr', () => {
     assert.equal(await F.supervisorOf(bare, 'x@favorintl.org'), '');
     assert.deepEqual(await F.reportsOf(bare, 'x@favorintl.org'), []);
     assert.equal(await F.isHr(bare, 'x@favorintl.org'), false);
+  });
+});
+
+describe('Admin > People: the reporting line and HR flag', () => {
+  it('saves a supervisor, title, start date and HR by drop-down, audits each, and refuses loops', async () => {
+    const P = await import('../functions/_lib/admin/people.ts');
+    const me = { email: ADA.email, name: ADA.name };
+    const p = await P.savePerson(env, me, { email: OZZY.email, supervisor: SAM.email, startDate: '2025-08-01', title: 'Support Assistant', hr: true });
+    assert.deepEqual([p.supervisor, p.startDate, p.title, p.hr], [SAM.email, '2025-08-01', 'Support Assistant', true]);
+    assert.equal(await F.supervisorOf(env, OZZY.email), SAM.email);
+    assert.equal(await F.isHr(env, OZZY.email), true);
+    const rows = db.db.prepare("SELECT key FROM hub_audit WHERE key LIKE 'ozzy@favorintl.org:%'").all().map((r) => r.key);
+    assert.ok(rows.includes('ozzy@favorintl.org:supervisor') && rows.includes('ozzy@favorintl.org:hr'));
+    await assert.rejects(() => P.savePerson(env, me, { email: SAM.email, supervisor: OZZY.email }), /circle/);
+    await assert.rejects(() => P.savePerson(env, me, { email: SAM.email, supervisor: SAM.email }), /themselves/);
+    await assert.rejects(() => P.savePerson(env, me, { email: SAM.email, startDate: '2025-13-40' }), /real start date/);
+    const off = await P.savePerson(env, me, { email: OZZY.email, supervisor: '', hr: false });
+    assert.deepEqual([off.supervisor, off.hr], ['', false]);
+    assert.equal(off.startDate, '2025-08-01');
   });
 });
 

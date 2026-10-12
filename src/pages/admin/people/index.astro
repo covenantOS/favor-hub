@@ -15,16 +15,16 @@ import '../../../styles/lint-fix.css';
       <div class="ad-sub">
         <input id="pp-find" class="ad-field ad-find" type="search" placeholder="Find a person" aria-label="Find a person" />
         <select id="pp-filter" class="ad-field" style="width:auto" aria-label="Show">
-          <option value="">Everyone</option><option value="admin">Admins</option><option value="blocked">Blocked</option><option value="wc">Work Center access</option><option value="nolist">Not on the Work Center list</option>
+          <option value="">Everyone</option><option value="admin">Admins</option><option value="blocked">Blocked</option><option value="wc">Work Center access</option><option value="nolist">Not on the Work Center list</option><option value="nosup">No supervisor set</option><option value="hr">HR</option>
         </select>
         <button type="button" class="ad-btn ad-btn--primary" id="pp-add">Add a person</button>
         <span class="ad-stamp" id="pp-count" role="status"></span>
       </div>
-      <div class="ad-scroll"><table class="ad-table sc-table" id="pp-table"><thead><tr><th>Person</th><th>Role</th><th>Team</th><th>Fundraiser</th><th>Work Center</th><th>Sees</th><th></th></tr></thead><tbody id="pp-body"><tr><td colspan="7" class="mute">Loading.</td></tr></tbody></table></div>
+      <div class="ad-scroll"><table class="ad-table sc-table" id="pp-table"><thead><tr><th>Person</th><th>Role</th><th>Team</th><th>Reports to</th><th>Fundraiser</th><th>Work Center</th><th>Sees</th><th></th></tr></thead><tbody id="pp-body"><tr><td colspan="8" class="mute">Loading.</td></tr></tbody></table></div>
     </section>
     <div class="ad-sheet" id="pp-sheet" hidden></div>
     <aside class="ad-panel" id="pp-panel" hidden aria-label="Person"></aside>
   </div>
   <script is:inline src="/js/admin.js?v=1" defer></script>
-  <script is:inline src="/js/admin-people.js?v=5" defer></script>
+  <script is:inline src="/js/admin-people.js?v=6" defer></script>
 </App>
