@@ -41,9 +41,7 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
 .ch-av[data-c='terra'] { background: var(--tc-terra-tint); color: var(--tc-terra-ink); }
 .ch-av[data-c='teal'] { background: var(--tc-teal-tint); color: var(--tc-teal-ink); }
 .ch-av[data-c='slate'] { background: var(--tc-slate-tint); color: var(--tc-slate-ink); }
-.ch-av--brain { background: var(--tc-dusk-tint); color: var(--tc-dusk-ink); }
 .ch-av[data-c='teal'] svg { width: 18px; height: 18px; }
-.ch-av--brain svg { width: 20px; height: 20px; stroke-width: 1.6; }
 .ch-av--sm svg, .ch-av--xs svg { width: 13px; height: 13px; }
 .ch-av--xs svg { width: 11px; height: 11px; }
 .ch-dot { position: absolute; right: -3px; bottom: -3px; width: 11px; height: 11px; border-radius: 50%; background: #a8aea0; box-shadow: 0 0 0 2px var(--ch-dot-bg, #fff); }
@@ -238,8 +236,6 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
 .ch-chip { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--r-line-2); background: #fff; font-size: 13px; font-weight: 600; color: var(--r-ink-2); display: inline-flex; align-items: center; }
 .ch-chip:hover { background: var(--tc-dusk-tint); color: var(--tc-dusk-ink); border-color: #cfc7ea; }
 .ch-ans__live { display: inline-flex; align-items: center; gap: 8px; color: var(--tc-dusk-ink); font-weight: 600; font-size: 13px; }
-.ch-ans__live i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; animation: chdot 1.2s infinite ease-in-out; }
-.ch-ans__live i:nth-child(2) { animation-delay: 0.15s; } .ch-ans__live i:nth-child(3) { animation-delay: 0.3s; }
 @keyframes chdot { 0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.15); } }
 .ch-ans .bc-root { display: block; }
 
@@ -443,7 +439,7 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
 }
 @media (prefers-reduced-motion: reduce) {
   .ch-side, .ch-main, .ch-right { transition: none; }
-  .ch-meet__live i, .ch-typing i, .ch-ans__live i, .ch-skel i { animation: none; }
+  .ch-meet__live i, .ch-typing i, .ch-skel i { animation: none; }
 }
 
 /* Phone keyboard open: the hub tab bar steps aside and the composer box keeps inside its frame. */

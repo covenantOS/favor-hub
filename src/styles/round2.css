@@ -76,7 +76,7 @@ body.h-body .h-side__in::-webkit-scrollbar-thumb { background: rgba(255, 255, 25
 .h-area[data-area='today'] { --soft: var(--soft-sun); --solid: var(--tc-sun); }
 .h-area[data-area='work'] { --soft: var(--soft-leaf); --solid: var(--tc-leaf); }
 .h-area[data-area='meet'] { --soft: var(--soft-teal); --solid: var(--tc-teal); }
-.h-area[data-area='ask'] { --soft: var(--soft-dusk); --solid: var(--tc-dusk); }
+.h-area[data-area='ask'] { --soft: var(--soft-dusk); --solid: #2e5f28; } /* the ring's own deep green behind the ring of light */
 .h-area[data-area='kpi'] { --soft: var(--soft-sky); --solid: var(--tc-sky); }
 .h-area[data-area='admin'], .h-area[data-area='tools'] { --soft: var(--soft-slate); --solid: var(--tc-slate); }
 .h-area[data-area='help'] { --soft: var(--soft-sky); --solid: var(--tc-sky); }
@@ -210,7 +210,7 @@ body.h-body .rp-toast, body.h-body .wc-toast { background: var(--r-ink); color: 
   body.h-body .h-bar__a .h-bar__i { width: 40px; height: 30px; border-radius: 10px; }
   body.h-body .h-bar__a.is-on .h-bar__i { background: var(--solid, var(--tc-leaf)); }
   .h-bar__a[data-bar='today'] { --solid: var(--tc-sun); } .h-bar__a[data-bar='work'] { --solid: var(--tc-leaf); } .h-bar__a[data-bar='meet'] { --solid: var(--tc-teal); }
-  .h-bar__a[data-bar='ask'] { --solid: var(--tc-dusk); } .h-bar__a[data-bar='kpi'] { --solid: var(--tc-sky); }
+  .h-bar__a[data-bar='ask'] { --solid: #2e5f28; } .h-bar__a[data-bar='kpi'] { --solid: var(--tc-sky); }
   .h-bar__a[data-bar='today'] .h-i { color: var(--soft-sun); } .h-bar__a[data-bar='work'] .h-i { color: var(--soft-leaf); } .h-bar__a[data-bar='meet'] .h-i { color: var(--soft-teal); }
   .h-bar__a[data-bar='ask'] .h-i { color: var(--soft-dusk); } .h-bar__a[data-bar='kpi'] .h-i { color: var(--soft-sky); }
   .h-bar__a.is-on .h-i { color: #fff !important; }
@@ -319,23 +319,54 @@ body.h-body .fnd-tabs button:hover { color: var(--r-ink); border: 0; }
 body.h-body .fnd-tabs button.is-on { background: #fff; color: var(--r-ink); border: 0; box-shadow: 0 1px 2px rgba(42, 39, 34, 0.06), 0 4px 12px -6px rgba(42, 39, 34, 0.18); }
 body.h-body .fnd-tabs button span { margin: 0; padding: 1px 7px; border-radius: 999px; background: #e9e4d9; color: var(--r-ink-2); font: 600 13px var(--h-font); letter-spacing: 0; opacity: 1; }
 body.h-body .fnd-tabs button.is-on span { background: var(--a-tint); color: var(--a-ink); }
-/* Favor Brain mark (living gradient). Still in nav and on past answers, drifts on the empty chat, turns while thinking, settles on a new answer. */
-.bm { --bm-g: #3d7a35; --bm-o: #a87410; --bm-d: #5b4f93; overflow: visible; }
-.h-side .bm, .h-bar .bm, .h-area__link .bm { --bm-g: #8fc884; --bm-o: #e6b94d; --bm-d: #b5a9e6; }
-.h-tile .bm { width: 22px; height: 22px; }
-.m3 .sh, .m3 .gr { transform-origin: 24px 24px; }
-.m3[data-state=idle] .gr { animation: bm3r 26s linear infinite; }
-.m3[data-state=thinking] .gr { animation: bm3r 2.6s linear infinite; }
-.m3[data-state=thinking] .sh { animation: bm3q 2.4s ease-in-out infinite; }
-.m3[data-state=answered] .sh { animation: bm3s .7s cubic-bezier(.2,.8,.2,1); }
-@keyframes bm3r { to { transform: rotate(360deg); } }
-@keyframes bm3q { 25% { transform: rotate(45deg) scale(1.08,.92); } 50% { transform: rotate(90deg) scale(.93,1.07); } 75% { transform: rotate(135deg) scale(1.07,.93); } }
-@keyframes bm3s { from { transform: scale(.84); } 60% { transform: scale(1.05); } }
-@media (prefers-reduced-motion: reduce) { .m3 .sh, .m3 .gr { animation: none !important; } }
-.h-body .bc-root .m-a__av--bm, .h-body .bc-root .bc-mark--bm { background: none; box-shadow: none; }
-.h-body .bc-root .m-a__av--bm .bm { width: 30px; height: 30px; }
-.h-body .bc-root .bc-mark--bm { width: 96px; height: 96px; }
-.h-body .bc-root .bc-mark--bm .bm { width: 96px; height: 96px; }
+/* Favor Brain mark: ring of light (Will picked option D, 2026-10-11). A hollow gold-to-green ring with a soft halo and a light
+   that travels round it. States: still (past answers), idle (slow), thinking (fast), answered (one settle, then idle).
+   Markup comes from src/data/icons.ts brainMark, public/js/brain.js ring() and public/js/chat/chat-ui.js ring(); keep them alike.
+   Every rule starts .fbr.fbr or deeper so no other sheet outranks it whatever order the sheets land in. */
+.fbr.fbr { --r1: #e2a936; --r2: #efc95e; --r3: #58a550; --r4: #24521f; --glow: rgba(226, 169, 54, .3); --glow0: rgba(226, 169, 54, 0); --cm: rgba(255, 244, 200, .9); --cm0: rgba(255, 244, 200, 0); --lit: rgba(255, 252, 240, .85); --lit0: rgba(255, 252, 240, 0);
+  position: relative; display: block; flex: none; width: 20px; height: 20px; line-height: 0; background: none; border: 0; box-shadow: none; opacity: 1; color: inherit; }
+/* the parts reset every generic i rule (Chat's old thinking dots were i elements) */
+.fbr.fbr.fbr i { position: absolute; display: block; margin: 0; padding: 0; width: auto; height: auto; border: 0; box-shadow: none; opacity: 1; animation: none; }
+.fbr.fbr .fbr__in { inset: 0; }
+.fbr.fbr .fbr__halo { inset: -12%; border-radius: 50%; background: radial-gradient(closest-side, var(--glow0) 46%, var(--glow) 70%, var(--glow0) 100%); }
+.fbr.fbr .fbr__lit { inset: 16%; border-radius: 50%; background: radial-gradient(closest-side, var(--lit) 0, var(--lit0) 100%); }
+.fbr.fbr .fbr__rg, .fbr.fbr .fbr__cm { inset: 3%; border-radius: 50%;
+  -webkit-mask: radial-gradient(closest-side, rgba(0, 0, 0, 0) calc(72% - .6px), #000 calc(72% + .4px), #000 calc(100% - 1px), rgba(0, 0, 0, 0) 100%);
+  mask: radial-gradient(closest-side, rgba(0, 0, 0, 0) calc(72% - .6px), #000 calc(72% + .4px), #000 calc(100% - 1px), rgba(0, 0, 0, 0) 100%); will-change: transform; }
+.fbr.fbr .fbr__rg { background: conic-gradient(from 210deg, var(--r1), var(--r2) 14%, #a9cc6c 30%, var(--r3) 44%, var(--r4) 66%, var(--r3) 82%, #b4c95e 92%, var(--r1)); }
+.fbr.fbr .fbr__cm { background: conic-gradient(from 0deg, var(--cm0) 0, var(--cm0) 72%, var(--cm) 96%, var(--cm0) 100%); transform: rotate(40deg); }
+/* on the dark green rail and tab bar: the lighter ring */
+.h-side .fbr.fbr, .h-navbar .fbr.fbr, .h-bar__a .fbr.fbr, .h-area__link .fbr.fbr { --r1: #f0c35a; --r2: #fbeab4; --r3: #9bd48f; --r4: #4f9a48; --glow: rgba(240, 195, 90, .4); --glow0: rgba(240, 195, 90, 0); --lit: rgba(240, 195, 90, .3); --lit0: rgba(240, 195, 90, 0); }
+/* motion */
+.fbr.fbr:is([data-state=idle], [data-state=answered], [data-state=thinking]) .fbr__halo { animation: fbr-breathe 5.5s ease-in-out infinite; }
+.fbr.fbr:is([data-state=idle], [data-state=answered], [data-state=thinking]) .fbr__lit { animation: fbr-breathe 5.5s ease-in-out -2.7s infinite; }
+.fbr.fbr:is([data-state=idle], [data-state=answered], [data-state=thinking]) .fbr__rg { animation: fbr-spin var(--t1, 18s) linear infinite; }
+.fbr.fbr:is([data-state=idle], [data-state=answered], [data-state=thinking]) .fbr__cm { animation: fbr-spin2 var(--t2, 7s) linear infinite; }
+.fbr.fbr[data-state=thinking] { --t1: 4s; --t2: 1.25s; }
+.fbr.fbr[data-state=thinking] .fbr__halo, .fbr.fbr[data-state=thinking] .fbr__lit { animation-duration: 1.9s; }
+.fbr.fbr[data-state=thinking] .fbr__in { animation: fbr-think 1.9s ease-in-out infinite; }
+.fbr.fbr[data-state=answered] .fbr__in { animation: fbr-settle .75s cubic-bezier(.2, .8, .2, 1) 1 both; }
+@keyframes fbr-spin { to { transform: rotate(360deg); } }
+@keyframes fbr-spin2 { from { transform: rotate(40deg); } to { transform: rotate(400deg); } }
+@keyframes fbr-breathe { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.04); } }
+@keyframes fbr-think { 50% { transform: scale(1.055); } }
+@keyframes fbr-settle { 0% { transform: scale(.84); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .fbr.fbr, .fbr.fbr * { animation: none !important; } }
+/* sizes by place */
+.h-tile .fbr.fbr { width: 26px; height: 26px; }
+.h-area__link .fbr.fbr { width: 22px; height: 22px; }
+.h-navbar .h-bar__i .fbr.fbr, .h-bar__a .h-bar__i .fbr.fbr { width: 24px; height: 24px; }
+body.h-body .bc-root .m-a__av.m-a__av--bm, body.h-body .bc-root .bc-mark.bc-mark--bm { background: none; box-shadow: none; border-radius: 0; overflow: visible; }
+body.h-body .bc-root .m-a__av.m-a__av--bm .fbr.fbr { width: 28px; height: 28px; }
+body.h-body .bc-root .bc-mark.bc-mark--bm { width: 96px; height: 96px; }
+body.h-body .bc-root .bc-mark.bc-mark--bm .fbr.fbr { width: 96px; height: 96px; }
+/* Chat: Favor Brain's avatar is the ring, no tile; its thinking line leads with the turning ring */
+.ch-av.ch-av--brain.ch-av--brain { background: none; box-shadow: none; }
+.ch-av.ch-av--brain .fbr.fbr { width: calc(100% - 4px); height: calc(100% - 4px); }
+.ch-ans__live.ch-ans__live .fbr.fbr { width: 20px; height: 20px; }
+/* Today: Brain rows carry the ring in their tile */
+.r2t-ico .fbr.fbr { width: 24px; height: 24px; }
+.r2t-ico.r2t-ico--sm .fbr.fbr { width: 19px; height: 19px; }
 
 /* 2026-10-10 polish from Will's screenshots. Rail: the hover and active block wraps the icon and its label, so a long label
    like Meetings never hangs past its tile. */

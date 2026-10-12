@@ -94,8 +94,7 @@
   body.h-body .bc-root .bc-bar__title { font: 600 16px/1.2 var(--h-font); }
   body.h-body .bc-root .bc-bar__right .ib:first-child { display: none; }
   body.h-body .bc-root .bc-empty { padding-top: 10px; }
-  body.h-body .bc-root .bc-empty .bc-mark--bm, body.h-body .bc-root .bc-empty .bc-mark--bm .bm { width: 52px; height: 52px; }
-  body.h-body .bc-root .bc-empty .bc-mark--bm { margin: 10px auto 18px; overflow: visible; }
+  body.h-body .bc-root .bc-empty .bc-mark.bc-mark--bm { margin: 14px auto 14px; overflow: visible; }
   body.h-body .bc-root .bc-empty h1 { font-size: 24px; margin-top: 10px; line-height: 1.15; }
   body.h-body .bc-root .bc-empty > p { font-size: 14px; margin: 6px auto 0; max-width: 34ch; }
   body.h-body .bc-root .bc-starters { margin-top: 14px; gap: 8px; }
