@@ -479,7 +479,7 @@ export const RELEASES: Release[] = [
             at: '#fd-p',
             undo: '#fd-p [data-x]',
             title: 'Read and reply here',
-            body: 'Pick a conversation, read it and reply. The Favor Brain tab asks questions and keeps the same chats as the Brain page. Drag the top left corner to resize, or use the arrows for a larger panel.',
+            body: 'Pick a conversation, read it and reply, with the same reactions, files, voice notes, threads and message box as the Chat page. The Favor Brain tab asks questions and keeps the same chats as the Brain page. Drag the top left corner to resize.',
             added: '2026-10-12',
             side: 'left',
             phone: false,

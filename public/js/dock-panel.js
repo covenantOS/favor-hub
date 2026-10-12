@@ -93,7 +93,8 @@
   }
   function route() {
     P.last = S.tab; destroyBox();
-    if (S.tab === 'brain') brainShow(); else chatShow();
+    // In the app the Chat tab is drawn by native Chat (window.FavorDockNative); this file keeps the Favor Brain tab.
+    if (S.tab === 'brain') brainShow(); else if (window.FavorDockNative) body.innerHTML = ''; else chatShow();
   }
   function wire() {
     body.addEventListener('click', onClick);

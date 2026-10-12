@@ -20,6 +20,8 @@
   }
   function pageFrame(f) {
     if (!f) return false;
+    // Helpers the React app loads for its native pages (marked app=1, app/src/features/chat/assets.ts) belong to the app, not a page.
+    if (/\.js\?[^\s)]*\bapp=1\b/.test(f)) return false;
     if (f.indexOf('hub-page-') >= 0) return true;
     var m = f.match(/\/js\/[^\s):@]+\.js/);
     return m ? !SHELL.test(m[0]) : false;

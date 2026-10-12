@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { dock, type DockToast } from './dockStore';
+
+// The Chat tab draws with native Chat's own message list and message box (features/chat), loaded the first time the tab opens.
+const DockChat = lazy(() => import('@/features/chat/DockChat'));
 
 /** The floating dock for people who have Chat: a circle at the bottom right with a count, toasts with Reply, and a panel with Chat and Favor Brain tabs. */
 export function Dock({ chat, page }: { chat: boolean; page: string }) {
@@ -115,8 +118,13 @@ function Panel({ s }: { s: ReturnType<typeof dock.getSnapshot> }) {
   const body = useRef<HTMLDivElement>(null);
   const [err, setErr] = useState('');
   const el = useRef<HTMLElement>(null);
+  const [chatSeen, setChatSeen] = useState(false);
+  const chatOn = s.open && s.tab === 'chat';
+  useEffect(() => {
+    if (chatOn) setChatSeen(true);
+  }, [chatOn]);
 
-  // The panel's inside belongs to public/js/dock-panel.js after first open: React renders the frame and leaves the body alone.
+  // The Favor Brain tab belongs to public/js/dock-panel.js after first open: React renders the frame and leaves that body alone.
   useEffect(() => {
     if (body.current && !body.current.firstChild) body.current.innerHTML = '<div class="fd-p__wait"><i></i><i></i><i></i></div>';
   }, []);
@@ -197,7 +205,22 @@ function Panel({ s }: { s: ReturnType<typeof dock.getSnapshot> }) {
           </svg>
         </button>
       </header>
-      <div className="fd-p__body" data-body ref={body} />
+      <div className="fd-p__body" data-body ref={body} hidden={s.tab === 'chat'} />
+      {chatSeen && (
+        <div className="fd-p__body fd-p__body--chat" hidden={s.tab !== 'chat'}>
+          <Suspense
+            fallback={
+              <div className="fd-p__wait">
+                <i />
+                <i />
+                <i />
+              </div>
+            }
+          >
+            <DockChat open={chatOn} />
+          </Suspense>
+        </div>
+      )}
       {err && (
         <div className="fd-p__err">
           {err}{' '}

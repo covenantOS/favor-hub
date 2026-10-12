@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SplatRouteImport } from './routes/$'
+import { Route as ChatRouteImport } from './routes/chat'
 import { Route as MailRouteImport } from './routes/mail'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const SplatRoute = SplatRouteImport.update({
   path: '/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MailRoute = MailRouteImport.update({
   id: '/mail',
   path: '/mail',
@@ -32,30 +38,34 @@ const MailRoute = MailRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/chat': typeof ChatRoute
   '/mail': typeof MailRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/chat': typeof ChatRoute
   '/mail': typeof MailRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/$': typeof SplatRoute
+  '/chat': typeof ChatRoute
   '/mail': typeof MailRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/$' | '/mail'
+  fullPaths: '/' | '/$' | '/chat' | '/mail'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/$' | '/mail'
-  id: '__root__' | '/' | '/$' | '/mail'
+  to: '/' | '/$' | '/chat' | '/mail'
+  id: '__root__' | '/' | '/$' | '/chat' | '/mail'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SplatRoute: typeof SplatRoute
+  ChatRoute: typeof ChatRoute
   MailRoute: typeof MailRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mail': {
       id: '/mail'
       path: '/mail'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SplatRoute: SplatRoute,
+  ChatRoute: ChatRoute,
   MailRoute: MailRoute,
 }
 export const routeTree = rootRouteImport

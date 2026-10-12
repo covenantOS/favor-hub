@@ -252,7 +252,7 @@ class DockStore {
   loadPanel(): Promise<void> {
     if (this.loaded) return this.loaded;
     loadStyle('/css/dock-panel.css?v=1');
-    this.loaded = loadScript('/js/dock-panel.js?v=1').catch((e) => {
+    this.loaded = loadScript('/js/dock-panel.js?v=2').catch((e) => {
       this.loaded = 0;
       throw e;
     });
@@ -528,6 +528,8 @@ class DockStore {
     addEventListener('load', () => setTimeout(this.dodge, 600));
     addEventListener('pagehide', () => this.save());
     (window as unknown as { FavorDock: DockApi }).FavorDock = this.D;
+    // The Chat tab is native (features/chat/DockChat.tsx); dock-panel.js draws the Favor Brain tab only.
+    (window as unknown as { FavorDockNative: boolean }).FavorDockNative = true;
   }
   eligibleWanted = false;
   setEligible(want: boolean, page: string) {

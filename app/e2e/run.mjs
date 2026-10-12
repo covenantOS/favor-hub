@@ -232,6 +232,62 @@ for (const [label, ctxOpts] of [
   await ctx2.close();
 }
 
+// Native Chat paints from invented data on a computer and an iPhone: the channel list, a conversation with a reaction and a thread, the
+// message box. The live two-user suite is app/e2e/chat.mjs.
+for (const [label, ctxOpts] of [
+  ['desktop', { viewport: { width: 1440, height: 900 } }],
+  ['iphone', { ...devices['iPhone 14'] }],
+]) {
+  const errors = [];
+  const ctx = await browser.newContext({ ...ctxOpts, serviceWorkers: 'block' });
+  const page = await ctx.newPage();
+  watch(page, errors);
+  await mockApi(page);
+  const me = nav.user.email;
+  const other = 'test.staff@favorintl.org';
+  const at = (min) => new Date(Date.now() - min * 60000).toISOString();
+  const boot = {
+    ok: true,
+    me: { id: me, name: nav.user.name },
+    users: { [me]: { id: me, name: nav.user.name, presence: 'online' }, [other]: { id: other, name: 'Test Staff', title: 'Support', presence: 'away' } },
+    channels: [
+      { id: 'c_general', kind: 'public', name: 'general', topic: 'Everyone at Favor', members: [me, other], unread: 0, mentions: 0, last_read: 2, last_at: at(5), created_at: at(9000), created_by: me },
+      { id: 'dm_test', kind: 'dm', members: [me, other], unread: 1, mentions: 1, last_read: 0, last_at: at(2) },
+    ],
+    features: { pins: true },
+    threads_unread: 0,
+    lang: '',
+    langs: [],
+  };
+  const history = {
+    ok: true,
+    more: false,
+    messages: [
+      { id: 1, channel_id: 'c_general', user_id: other, body: 'The **banner** proof is ready for review', created_at: at(30), reactions: [{ emoji: '👍', users: [me] }], attachments: [], reply_count: 1, reply_users: [me], last_reply_at: at(20) },
+      { id: 2, channel_id: 'c_general', user_id: me, body: 'Thanks, I will look this afternoon', created_at: at(5), reactions: [], attachments: [] },
+    ],
+  };
+  await page.route('**/api/chat/boot', (r) => json(r, boot));
+  await page.route('**/api/chat/channels/*/messages*', (r) => json(r, r.request().url().includes('c_general') ? history : { ok: true, more: false, messages: [] }));
+  await page.route('**/api/chat/channels/*/huddle', (r) => json(r, { ok: true, huddle: null }));
+  await page.goto(BASE + '/chat/', { waitUntil: 'domcontentloaded' });
+  await check(label + ': native Chat paints the list, a conversation and the message box', async () => {
+    await page.waitForSelector('#chat-root[data-native] .ch-side .ch-row[data-id="c_general"]', { timeout: 15000 });
+    if (label === 'iphone') await page.locator('.ch-side .ch-row[data-id="c_general"]').tap();
+    await page.waitForSelector('.ch-main .ch-msg[data-mid="2"]', { timeout: 10000 });
+    assert.equal(await page.locator('.ch-main .ch-react [data-e="👍"]').count(), 1);
+    assert.match(await page.locator('.ch-main .ch-replies').innerText(), /1 reply/);
+    assert.equal(await page.locator('.ch-main .ch-comp textarea').count(), 1);
+    assert.ok((await page.evaluate(() => document.documentElement.scrollWidth)) <= page.viewportSize().width + 1);
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: `${SHOTS}/chat-${label}.png` });
+  });
+  await check(label + ': Chat has no console errors or failed requests', async () => {
+    assert.deepEqual(errors, [], errors.join(' | '));
+  });
+  await ctx.close();
+}
+
 // Time to content: cold (nothing stored) then warm (the last answers in sessionStorage), with the API held for 400 ms.
 {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });

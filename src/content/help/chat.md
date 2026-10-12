@@ -6,7 +6,7 @@ order: 7
 related: [meetings, clips, ask-favor, whats-new]
 tool: /chat/
 toolLabel: Open Chat
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Chat is where the team talks inside FavorOS. Admin > Chat sets who can use it.
@@ -85,7 +85,7 @@ The list offers **Notices for messages and mentions** once. **Turn on** asks the
 
 ## The Chat button on every page
 
-On a computer, a round button at the bottom right of each FavorOS page opens Chat and Favor Brain in a panel over the page. The Chat tab lists your direct messages and channels with Threads first. Press a conversation to read it and reply, press a reply count to open its thread, and press the arrow at the top left to go back. The Favor Brain tab asks a question and shows the answer the way the Brain page does, with the same list of chats under **Chats**.
+On a computer, a round button at the bottom right of each FavorOS page opens Chat and Favor Brain in a panel over the page. The Chat tab lists your direct messages and channels with Threads first. Press a conversation to read it and reply, press a reply count to open its thread, and press the arrow at the top left to go back. In the new FavorOS app the panel draws the same messages and message box as the Chat page: reactions, cards, voice notes, Favor Brain answers, formatting, @ mentions, emoji and files, with Catch me up and the globe in the conversation's header. The Favor Brain tab asks a question and shows the answer the way the Brain page does, with the same list of chats under **Chats**.
 
 A number on the button counts direct messages, mentions and threads waiting for you. A direct message or a mention also shows a small notice above the button with **Reply** and **Open**. A muted channel stays quiet. The panel stays open and on the same conversation as you move between pages. Drag its top left corner to resize it, or press the arrows for a larger panel. Ctrl and a period (Command and a period on a Mac) opens and closes it, and Esc closes it. The button is not on the Chat page, the Favor Brain page or a phone, and it moves up when a page has a button in its corner.
 

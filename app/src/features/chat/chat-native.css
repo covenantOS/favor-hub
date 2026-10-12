@@ -1,0 +1,14 @@
+/* Native Chat (app/src/features/chat). The page draws the classic markup with the classic stylesheets; these rules lay out the floating
+   dock's Chat tab, which draws the same message list and message box inside the dock panel. */
+.fd-p__body--chat { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.fd-p .ch.ch--dock { display: flex; flex-direction: column; flex: 1; min-height: 0; grid-template-columns: none; position: relative; overflow: hidden; }
+.ch--dock .ch-dock__list { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.ch--dock .ch-dock__list .ch-list { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 8px 8px; }
+.ch--dock .ch-dock__head { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 6px; border-bottom: 1px solid var(--r-line); }
+.ch--dock .ch-dock__t { flex: 1; min-width: 0; font: 600 15px/1.3 var(--h-font, Inter, sans-serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch--dock a.ch-iconbtn { color: var(--r-ink-2); }
+.ch--dock .ch-msgs, .ch--dock .ch-thread__body { flex: 1; min-height: 0; overflow-y: auto; }
+.ch--dock .ch-comp { padding: 0 12px 12px; }
+.ch--dock .ch-latest { right: 16px; }
+.ch--dock .ch-sec__t { cursor: default; }
+.ch--dock .ch-pop--emo { width: min(352px, calc(100% - 16px)); }

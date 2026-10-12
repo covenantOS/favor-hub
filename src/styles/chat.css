@@ -18,7 +18,7 @@ body.h-body[data-nav='chat'] .h-bare { flex: 1; min-height: 0; display: flex; fl
   position: relative; flex: 1; min-height: 0; display: grid; grid-template-columns: var(--ch-side) minmax(0, 1fr); background: var(--r-canvas); overflow: hidden;
   font: 400 14px/1.45 var(--h-font, Inter, system-ui, sans-serif); color: var(--r-ink);
 }
-.ch[data-right='thread'], .ch[data-right='details'] { grid-template-columns: var(--ch-side) minmax(0, 1fr) var(--ch-right); }
+.ch[data-right='thread'], .ch[data-right='details'], .ch[data-right='pins'] { grid-template-columns: var(--ch-side) minmax(0, 1fr) var(--ch-right); }
 .ch button { font: inherit; color: inherit; cursor: pointer; }
 .ch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .ch [hidden] { display: none !important; }

@@ -11,6 +11,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 12, 2026
 
+- **Chat in the new FavorOS app.** With the new app on, Chat opens inside the app without a page load, keeps your place when you come back to it, and the Chat button on every page shows the same messages and message box as the Chat page, with reactions, cards, voice notes, threads and Favor Brain answers. Use classic FavorOS in the account menu goes back to the old page. See [Chat](/help/chat/).
 - **Receipts and thank-you letters are named apart.** The printed mailing every partner who gives gets is a receipt everywhere in FavorOS: the Receipts page, its messages, Learn quizzes and Today. A thank-you letter is the one from headquarters for a gift of $5,000 or more, on the HQTY letters tab of the Work Center.
 - **Credit and assignments.** Reporting, Lists, Credit shows each gift's fundraiser credit and each partner's assignments with dates, proposes fixes by Favor's rules, and takes a second person's approval with a log of every step. Nothing changes in Blackbaud until an admin turns Apply on. See [Lists](/help/lists/).
 - **Standard reports and mail-ready lists.** Reporting, Lists now has Standard reports with nine reports, a period picker, a check against the KPI dashboard and a drill to the rows. The Columns menu has a Mail house set, and the lists data refreshes itself within the hour after each Blackbaud sync. See [Lists](/help/lists/).

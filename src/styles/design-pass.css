@@ -455,3 +455,21 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
   html body.h-body #wc-root .wc-line__i b { font: 700 15px var(--h-font, inherit); color: var(--h-ink, #1b1f1a); }
   html body.h-body #wc-root .wc-line__i.is-on { background: var(--h-leaf-soft, #e4ece1); border-color: transparent; }
 }
+
+/* Chat: an empty Threads, Mentions or Drafts page is one muted line, not a serif headline. */
+html body.h-body .ch-empty--page { padding: 48px 20px; }
+html body.h-body .ch-empty--page b { font: 500 14px/1.4 var(--h-font, Inter, sans-serif); color: var(--r-ink-3); }
+/* Chat dialogs and the phone's message sheet: the title is body type, not the page serif. */
+html body.h-body .ch-dlg__h h3 { font: 600 15px/1.3 var(--h-font, Inter, sans-serif); color: var(--r-ink); }
+/* Chat on a phone: the conversation name is never cut by its header buttons. Buttons draw at 36 px with a 44 px touch area;
+   Huddle is a quiet icon until a huddle is live. */
+@media (max-width: 860px) {
+  html body.h-body .ch-head .ch-head__acts { gap: 0; }
+  html body.h-body .ch-head .ch-head__acts .ch-iconbtn, html body.h-body .ch-head .ch-head__acts .ch-btn--meet { width: 36px; height: 40px; border-radius: 10px; }
+  html body.h-body .ch-head .ch-head__acts .ch-iconbtn::after, html body.h-body .ch-head .ch-head__acts .ch-btn--meet::after { content: ''; position: absolute; inset: -2px -4px; }
+  html body.h-body .ch-head .ch-head__acts .ch-btn--meet { position: relative; }
+  html body.h-body .ch-head .ch-btn--meet:not(.is-live) { background: none; border-color: transparent; color: var(--r-ink-2); }
+}
+/* Chat pins panel: "Pinned by" stays on one line beside its two buttons. */
+html body.h-body .ch-pinned__f > span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body.h-body .ch-pinned__f { font-size: 12px; }
