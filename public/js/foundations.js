@@ -149,23 +149,9 @@
   }
 
   function render() {
-    renderStats();
     renderTabs();
     renderFilters();
     renderRows();
-  }
-
-  function renderStats() {
-    const L = state.list;
-    const stats = [
-      [L.length, 'Foundations'],
-      [L.reduce((s, f) => s + Number(f.contacts || 0), 0), 'Contacts logged'],
-      [L.filter((f) => f.bb_lookup_id).length, 'Have a Blackbaud record'],
-      [L.filter((f) => f.status === 'dead').length, 'Dead ends'],
-    ];
-    $('fnd-stats').innerHTML = stats
-      .map((s) => `<div class="ticker__stat"><div class="ticker__num">${s[0].toLocaleString('en-US')}</div><div class="ticker__caption">${s[1]}</div></div>`)
-      .join('');
   }
 
   function renderTabs() {

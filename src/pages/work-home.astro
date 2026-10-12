@@ -29,8 +29,8 @@ import '../styles/break-ui.css';
 ---
 <App title="Work" nav="work-home" description="Your work in one place: what is due, who to thank, requests and your week.">
   <div class="r2t wh" id="wh">
-    <div class="wh-top">
-      <h1 id="wh-title">Work</h1>
+    <h1 id="wh-title" class="sr-only">Work</h1>
+    <div class="wh-top" hidden>
       <span class="wh-meta" id="wh-meta"></span>
     </div>
 
@@ -98,5 +98,5 @@ import '../styles/break-ui.css';
       <div class="wh-tw"><table class="wh-table sc-table" id="wh-team-table"></table></div>
     </section>
   </div>
-  <script is:inline src="/js/work-home.js?v=6" defer></script>
+  <script is:inline src="/js/work-home.js?v=7" defer></script>
 </App>
