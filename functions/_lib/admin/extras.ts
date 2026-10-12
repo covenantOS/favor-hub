@@ -45,7 +45,7 @@ async function workExtras(env: Env) {
 
 async function brainExtras(env: Env) {
   const [pending, questions, iw] = await Promise.all([
-    env.DB.prepare("SELECT id, name, email, package, at FROM brain_requests WHERE status = 'pending' ORDER BY id LIMIT 20").all().catch(() => ({ results: [] })),
+    env.DB.prepare("SELECT id, name, email, package, at FROM brain_requests WHERE status = 'pending' ORDER BY id LIMIT 500").all().catch(() => ({ results: [] })),
     env.DB.prepare(
       `SELECT t.email AS email, u.question AS question, u.at AS at FROM brain_turns u JOIN brain_threads t ON t.id = u.thread_id
        WHERE t.source = 'person' ORDER BY u.id DESC LIMIT 100`

@@ -28,7 +28,7 @@ export async function projectCards(env: Env, user: HubUser): Promise<TodayCard[]
   try {
     const due = (await env.DB.prepare(
       `SELECT t.id, t.code, t.title, t.due_date, p.key AS pkey FROM hub_tasks t LEFT JOIN hub_projects p ON p.id = t.project_id
-        WHERE t.owner_email = ? AND t.status NOT IN ('done', 'dropped') AND t.due_date IS NOT NULL AND t.due_date <= ? ORDER BY t.due_date, t.id LIMIT 200`
+        WHERE t.owner_email = ? AND t.status NOT IN ('done', 'dropped') AND t.due_date IS NOT NULL AND t.due_date <= ? ORDER BY t.due_date, t.id LIMIT 5000`
     ).bind(me, today).all<{ id: string; code: string | null; title: string; due_date: string; pkey: string | null }>()).results || [];
     if (due.length) {
       const late = due.filter((d) => d.due_date < today).length;
@@ -46,7 +46,7 @@ export async function projectCards(env: Env, user: HubUser): Promise<TodayCard[]
     const dir = await dirMap(env);
     const notes = (await env.DB.prepare(
       `SELECT n.kind, n.actor_email, n.body, n.task_id, t.title, t.code, p.key AS pkey FROM hub_task_notices n JOIN hub_tasks t ON t.id = n.task_id LEFT JOIN hub_projects p ON p.id = t.project_id
-        WHERE n.email = ? AND n.read_at IS NULL ORDER BY n.created_at DESC, n.id DESC LIMIT 100`
+        WHERE n.email = ? AND n.read_at IS NULL ORDER BY n.created_at DESC, n.id DESC LIMIT 5000`
     ).bind(me).all<{ kind: string; actor_email: string; body: string; task_id: string; title: string; code: string | null; pkey: string | null }>()).results || [];
     const assigned = notes.filter((n) => n.kind === 'assigned');
     const ids = (list: typeof notes) => [...new Set(list.map((n) => n.task_id))];
@@ -86,14 +86,18 @@ export async function projectCards(env: Env, user: HubUser): Promise<TodayCard[]
   return cards;
 }
 
-/** The number on the Projects menu entry and the phone bar: tasks due today or late, plus notices not yet read. */
+/**
+ * The number on the Projects menu entry and the phone bar: the sum of the Projects cards on Today. Tasks due today or late (the Overdue and Due today
+ * tiles on My tasks), plus tasks given to the person and tasks with something new, each task counted once.
+ */
 export async function projectsMineCount(env: Env, user: HubUser): Promise<number> {
   try {
     if (!(await projectsFlag(env, user))) return 0;
     const me = lower(user.email);
     const r = await env.DB.prepare(
       `SELECT (SELECT COUNT(*) FROM hub_tasks WHERE owner_email = ?1 AND status NOT IN ('done', 'dropped') AND due_date IS NOT NULL AND due_date <= ?2) +
-              (SELECT COUNT(*) FROM hub_task_notices WHERE email = ?1 AND read_at IS NULL) AS n`
+              (SELECT COUNT(DISTINCT n.task_id) FROM hub_task_notices n JOIN hub_tasks t ON t.id = n.task_id WHERE n.email = ?1 AND n.read_at IS NULL AND n.kind = 'assigned') +
+              (SELECT COUNT(DISTINCT n.task_id) FROM hub_task_notices n JOIN hub_tasks t ON t.id = n.task_id WHERE n.email = ?1 AND n.read_at IS NULL AND n.kind NOT IN ('assigned', 'due_soon')) AS n`
     ).bind(me, todayEt()).first<{ n: number }>();
     return Number(r?.n) || 0;
   } catch {
@@ -105,8 +109,8 @@ export async function projectsMineCount(env: Env, user: HubUser): Promise<number
 export async function openActionsWithoutTask(env: Env, email: string): Promise<{ n: number; first: string | null } | null> {
   try {
     return await env.DB.prepare(
-      `SELECT COUNT(*) AS n, (SELECT a2.text FROM hub_meeting_actions a2 WHERE a2.owner_email = ?1 AND a2.done = 0 AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a2.meeting_id AND t.meeting_action_idx = a2.idx AND t.status <> 'dropped') ORDER BY a2.meeting_id DESC, a2.idx LIMIT 1) AS first
-         FROM hub_meeting_actions a WHERE a.owner_email = ?1 AND a.done = 0 AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a.meeting_id AND t.meeting_action_idx = a.idx AND t.status <> 'dropped')`
+      `SELECT COUNT(*) AS n, (SELECT a2.text FROM hub_meeting_actions a2 WHERE a2.owner_email = ?1 AND a2.done = 0 AND EXISTS (SELECT 1 FROM hub_meetings m2 WHERE m2.id = a2.meeting_id) AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a2.meeting_id AND t.meeting_action_idx = a2.idx AND t.status <> 'dropped') ORDER BY a2.meeting_id DESC, a2.idx LIMIT 1) AS first
+         FROM hub_meeting_actions a JOIN hub_meetings m ON m.id = a.meeting_id WHERE a.owner_email = ?1 AND a.done = 0 AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a.meeting_id AND t.meeting_action_idx = a.idx AND t.status <> 'dropped')`
     ).bind(lower(email)).first<{ n: number; first: string | null }>();
   } catch {
     return null;

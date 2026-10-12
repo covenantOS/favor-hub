@@ -12,6 +12,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 ## October 12, 2026
 
 - **Change the screen while you record.** The floating recording window, the recorder window and the pill have a new Change what I'm sharing button. It swaps to another screen, window or tab and keeps recording into the same clip. With the camera on, a new button hides or shows the round camera. Alt+Shift+P pauses and resumes, and Alt+Shift+S stops and saves. See [Clips](/help/clips/).
+- **Every number beside a menu entry matches its page.** Evaluations showed the Projects number and Projects showed the Learn number; each entry now shows its own. Requests counts requests with something new, not notices. Meetings counts live rooms you can open. Chat counts mentions you can still open. Learn counts what My learning lists. Projects adds up the Projects cards on Today. A section such as Work shows the sum of its pages. The Work Overview reads the same live numbers as the menu, and the Notes page lists the same action items as Today.
 
 ## October 11, 2026
 

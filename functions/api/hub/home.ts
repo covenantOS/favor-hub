@@ -1,5 +1,6 @@
 import { approverEmails } from '../../_lib/expenses/auth';
 import { accessOf, activityFor, mineFor, navCounts } from '../../_lib/hub/today';
+import { openActionsWithoutTask } from '../../_lib/projects/links/today';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf, type HubUser } from '../../_lib/session';
 import { mayHear } from '../../_lib/requests/tasks';
@@ -55,9 +56,10 @@ async function waitingFor(env: Env, email: string, admin: boolean, approver: boo
         `SELECT q.id, q.title, t.owner_email, t.waiting_on, t.sent_by, t.sent_at, q.created_at, COALESCE(d.name, u.name, t.sent_by) AS from_name
            FROM request_tasks t JOIN requests q ON q.id = t.request_id
            LEFT JOIN meet_directory d ON lower(d.email) = t.sent_by LEFT JOIN hub_users u ON lower(u.email) = t.sent_by
-          WHERE (t.owner_email = ?1 OR t.waiting_on = ?1) AND q.status NOT IN ('done', 'declined') AND EXISTS (SELECT 1 FROM request_notices n WHERE n.request_id = t.request_id AND n.email = ?1) ORDER BY COALESCE(t.sent_at, q.created_at) LIMIT 20`
+          WHERE (t.owner_email = ?1 OR t.waiting_on = ?1) AND q.status NOT IN ('done', 'declined') AND EXISTS (SELECT 1 FROM request_notices n WHERE n.request_id = t.request_id AND n.email = ?1) ORDER BY COALESCE(t.sent_at, q.created_at) LIMIT 500`
       ).bind(email).all<{ id: string; title: string; owner_email: string | null; waiting_on: string | null; sent_by: string | null; sent_at: string | null; created_at: string; from_name: string | null }>().catch(() => ({ results: [] as never[] }));
-      totals.tasks = r.results.length;
+      // The chip reads "sent to you" and opens the Mine filter, so it counts the requests this person owns (Today's Sent to you card), not the ones they wait on.
+      totals.tasks = r.results.filter((x) => x.owner_email === email).length;
       for (const x of r.results.slice(0, 4)) {
         const sub = x.waiting_on === email && x.owner_email !== email ? 'Waiting on you' : x.from_name ? `From ${x.from_name}` : 'Yours';
         out.push({ kind: 'request', title: clip(x.title, 80), sub, at: x.sent_at || x.created_at, href: `/requests/?r=${encodeURIComponent(x.id)}` });
@@ -66,10 +68,12 @@ async function waitingFor(env: Env, email: string, admin: boolean, approver: boo
   );
   jobs.push(
     (async () => {
-      const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_actions WHERE owner_email = ? AND done = 0').bind(email).first<{ n: number }>().catch(() => null);
+      // Items that already became tasks are counted with Projects, so this is the number on Today's Meetings card and the Notes page list.
+      const n = await openActionsWithoutTask(env, email);
       totals.meetings = Number(n?.n) || 0;
       const r = await env.DB.prepare(
-        'SELECT a.text, a.due, m.title, m.starts_at AS started_at FROM hub_meeting_actions a JOIN hub_meetings m ON m.id = a.meeting_id WHERE a.owner_email = ? AND a.done = 0 ORDER BY a.meeting_id DESC, a.idx LIMIT 4'
+        `SELECT a.text, a.due, m.title, m.starts_at AS started_at FROM hub_meeting_actions a JOIN hub_meetings m ON m.id = a.meeting_id WHERE a.owner_email = ? AND a.done = 0
+          AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a.meeting_id AND t.meeting_action_idx = a.idx AND t.status <> 'dropped') ORDER BY a.meeting_id DESC, a.idx LIMIT 4`
       ).bind(email).all<{ text: string; due: string; title: string; started_at: string }>().catch(() => ({ results: [] as { text: string; due: string; title: string; started_at: string }[] }));
       for (const x of r.results) out.push({ kind: 'meeting', title: clip(x.text, 80), sub: x.title ? `From ${clip(x.title, 40)}` : 'From a meeting', at: x.started_at || '', href: '/meet/library/' });
     })()
@@ -88,27 +92,38 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
     const admin = user.role === 'admin' && !actAs;
     const me: HubUser = actAs ? { ...user, email, name: actAs, role: 'staff', via: 'google', kpi: false } : user;
 
+    // Only the Work Center part (the slow one) is kept for a moment. Every count, the request and meeting numbers and the activity are read live, so this page
+    // never shows a number the menu and Today have already moved past.
     const cacheKey = `home:${email}`;
+    let cached: { name?: string; work?: Awaited<ReturnType<typeof workHome>> | null } | null = null;
     if (new URL(request.url).searchParams.get('fresh') !== '1') {
       const hit = await env.DB.prepare('SELECT value, at FROM act_cache WHERE key = ?').bind(cacheKey).first<{ value: string; at: string }>().catch(() => null);
-      if (hit && Date.now() - Date.parse(hit.at) < 120000) return new Response(hit.value, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
+      if (hit && Date.now() - Date.parse(hit.at) < 30000) {
+        try {
+          cached = JSON.parse(hit.value);
+        } catch {
+          cached = null;
+        }
+      }
     }
 
     const access = await accessOf(env, request, me).catch(() => null);
-    let name = me.name;
+    let name = cached && cached.name ? cached.name : me.name;
     const workP: Promise<Awaited<ReturnType<typeof workHome>> | null> =
-      access && access.workCenter
-        ? requireWork(env, request)
-            .then((wu) => {
-              const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
-              name = wu.scope && wu.scope.name ? wu.scope.name : name;
-              return workHome(ctx);
-            })
-            .catch((err) => {
-              console.error('[work-home]', err);
-              return null;
-            })
-        : Promise.resolve(null);
+      cached && 'work' in cached
+        ? Promise.resolve(cached.work ?? null)
+        : access && access.workCenter
+          ? requireWork(env, request)
+              .then((wu) => {
+                const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
+                name = wu.scope && wu.scope.name ? wu.scope.name : name;
+                return workHome(ctx);
+              })
+              .catch((err) => {
+                console.error('[work-home]', err);
+                return null;
+              })
+          : Promise.resolve(null);
     const approverP = me.via === 'google' ? approverEmails(env).then((s) => s.has(email)).catch(() => false) : Promise.resolve(false);
     const [work, counts, waiting, mine, activity] = await Promise.all([
       workP,
@@ -131,12 +146,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
       activity: activity.filter((a) => a.at > since).slice(0, 8),
       work,
     });
-    waitUntil(
-      env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at')
-        .bind(cacheKey, body, at)
-        .run()
-        .then(() => undefined, () => undefined)
-    );
+    if (!cached) {
+      waitUntil(
+        env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at')
+          .bind(cacheKey, JSON.stringify({ name, work }), at)
+          .run()
+          .then(() => undefined, () => undefined)
+      );
+    }
     return new Response(body, { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
   } catch (err) {
     return handleError(err);

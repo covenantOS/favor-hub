@@ -323,23 +323,25 @@ export async function searchFor(env: Env, q: string): Promise<Array<{ title: str
   return out.sort((a, b) => a.rank - b.rank || a.title.localeCompare(b.title)).slice(0, 6).map(({ title, desc, href }) => ({ title, desc, href }));
 }
 
-/** The assignments Today and the menu badge count: open ones for a person. */
+/**
+ * The assignments Today and the menu badge count: the ones My learning lists. An assignment whose course or path is not published (or has no lessons),
+ * or whose courses are all finished, is not on that page, so it is not in the count.
+ */
 export async function badgeFor(env: Env, email: string): Promise<{ open: number; overdue: number; due_soon: number; next: { title: string; due_date: string | null; href: string } | null }> {
-  const open = await openAssignments(env, email);
+  const [open, cat] = await Promise.all([openAssignments(env, email), catalogFor(env, email)]);
   const day = today();
   const soon = addDays(day, 7);
-  const rows = await Promise.all(
-    open.map(async (a: AssignmentRow) => {
-      const t = await env.DB.prepare(a.kind === 'path' ? 'SELECT title, slug FROM learn_paths WHERE id = ?' : 'SELECT title, slug FROM learn_courses WHERE id = ?').bind(a.target_id).first<{ title: string; slug: string }>();
-      return t ? { a, t } : null;
+  const live = open
+    .map((a: AssignmentRow) => {
+      const card = a.kind === 'path' ? cat.paths.find((p) => p.id === a.target_id) : cat.cards.get(a.target_id);
+      return card && card.state !== 'done' ? { a, card } : null;
     })
-  );
-  const live = rows.filter((x): x is { a: AssignmentRow; t: { title: string; slug: string } } => !!x);
+    .filter((x): x is { a: AssignmentRow; card: Card } => !!x);
   const first = live[0];
   return {
     open: live.length,
     overdue: live.filter((x) => x.a.due_date && x.a.due_date < day).length,
     due_soon: live.filter((x) => x.a.due_date && x.a.due_date >= day && x.a.due_date <= soon).length,
-    next: first ? { title: first.t.title, due_date: first.a.due_date, href: hrefFor(first.a.kind, first.t.slug) } : null,
+    next: first ? { title: first.card.title, due_date: first.a.due_date, href: hrefFor(first.a.kind, first.card.slug) } : null,
   };
 }

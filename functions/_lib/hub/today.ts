@@ -119,6 +119,11 @@ function fileIsMine(file: OpenFile, user: HubUser, access: Access): boolean {
   return Boolean(by) && (by === name || by === name.split(' ')[0]);
 }
 
+/** The number on the Receipts menu entry and on Today's Receipts card: gifts left to mark once marking started, otherwise receipts in the file. */
+export function receiptsFigure(file: OpenFile): number {
+  return file.status === 'marking' ? Math.max(0, file.gifts - file.marked) : file.letters;
+}
+
 export interface Counts {
   inbox: number;
   expensesWaiting: number;
@@ -155,39 +160,72 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine, evals, learn, mailUnread] = await Promise.all([
-    access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
-    access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
-    openPrintFile(env),
-    access.admin ? brainPending(env) : null,
-    feedbackWaiting(env, user, access),
-    access.workCenter && request ? workOpenCount(env, request).catch(() => 0) : 0,
-    // Meetings with someone in the room now (a heartbeat in the last 20 seconds), so the count drops when the last person goes.
-    access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
-    access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
-    access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
-    learnCount(env, user, access).catch(() => 0),
-    projectsMineCount(env, user), // projects hook
-    waitingOn(env, { email: user.email, name: user.name, role: user.role }).then((w) => w.n).catch(() => 0),
+  // Each count is named, so a count can never land under the wrong badge (the list was positional once, and Evaluations read the Projects number).
+  const jobs = {
+    inbox: access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
+    exp: access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
+    file: openPrintFile(env),
+    brain: access.admin ? brainPending(env) : null,
+    notes: feedbackWaiting(env, user, access),
+    workOpen: access.workCenter && request ? workOpenCount(env, request).catch(() => 0) : 0,
+    // Meetings with someone in the room now (a heartbeat in the last 20 seconds) that this person can open, so the count drops when the last person goes.
+    meetingsNow: access.meetings ? liveMeetingsFor(env, user.email).catch(() => 0) : 0,
+    chatMentions: access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
+    tasks: access.tasks ? mayHear(env, user.email).then((ok) => (ok ? unreadRequestCount(env, user.email, access.admin) : 0)).catch(() => 0) : 0,
+    learn: learnCount(env, user, access).catch(() => 0),
+    projectsMine: projectsMineCount(env, user), // projects hook
+    evals: evalWaitingCount(env, user),
     // Gmail answers in about 150 ms; a slow answer never holds the menu back (the badge waits for the next page).
-    access.mail ? Promise.race([mailUnreadCount(env, user.email).catch(() => 0), new Promise<number>((r) => setTimeout(() => r(0), 1200))]) : 0,
-  ]);
-  return {
-    inbox: Number(inbox?.n) || 0,
-    expensesWaiting: Number(exp?.n) || 0,
-    receiptsLeft: file && fileIsMine(file, user, access) ? Math.max(0, file.gifts - file.marked) : 0,
-    brainRequests: Number(brain?.n) || 0,
-    feedback: Number(notes?.n) || 0,
-    workOpen: Number(waiting) || 0,
-    meetingsNow: Number(meetingsNow?.n) || 0,
-    chatMentions: Number(chatMentions) || 0,
-    tasks: Number(tasks) || 0,
-    learn: Number(learn) || 0,
-    evals: Number(evals) || 0,
-    board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
-    projectsMine: Number(projectsMine) || 0, // projects hook
-    mailUnread: Number(mailUnread) || 0,
+    mailUnread: access.mail ? Promise.race([mailUnreadCount(env, user.email).catch(() => 0), new Promise<number>((r) => setTimeout(() => r(0), 1200))]) : 0,
   };
+  const keys = Object.keys(jobs) as Array<keyof typeof jobs>;
+  const got = await Promise.all(Object.values(jobs));
+  const r = Object.fromEntries(keys.map((k, i) => [k, got[i]])) as Record<keyof typeof jobs, any>;
+  const tasks = Number(r.tasks) || 0;
+  return {
+    inbox: Number(r.inbox?.n) || 0,
+    expensesWaiting: Number(r.exp?.n) || 0,
+    receiptsLeft: r.file && fileIsMine(r.file, user, access) ? receiptsFigure(r.file) : 0,
+    brainRequests: Number(r.brain?.n) || 0,
+    feedback: Number(r.notes?.n) || 0,
+    workOpen: Number(r.workOpen) || 0,
+    meetingsNow: Number(r.meetingsNow) || 0,
+    chatMentions: Number(r.chatMentions) || 0,
+    tasks,
+    learn: Number(r.learn) || 0,
+    evals: Number(r.evals) || 0,
+    board: (Number(r.inbox?.n) || 0) + tasks,
+    projectsMine: Number(r.projectsMine) || 0, // projects hook
+    mailUnread: Number(r.mailUnread) || 0,
+  };
+}
+
+/** Meetings in progress with someone in the room, among those this person can open (host, invited, co-host, or open to staff). Same rule as the Meetings list. */
+export async function liveMeetingsFor(env: Env, email: string): Promise<number> {
+  const me = email.toLowerCase();
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live'
+        AND (lower(m.host_email) = ?1 OR m.access IN ('staff','guests') OR instr(lower(m.invitees), '"' || ?1 || '"') > 0 OR instr(lower(m.cohosts), '"' || ?1 || '"') > 0)
+        AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?2)`
+  ).bind(me, Date.now() - 20_000).first<{ n: number }>();
+  return Number(row?.n) || 0;
+}
+
+/**
+ * Requests this person has unread notices on: the number the board's New filter shows. A request is counted once however many notices it has,
+ * and one the person cannot see on the board (declined, for anyone but an admin) is left out.
+ */
+export async function unreadRequestCount(env: Env, email: string, admin: boolean): Promise<number> {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(DISTINCT n.request_id) AS n FROM request_notices n JOIN requests q ON q.id = n.request_id WHERE n.email = ? AND n.read_at IS NULL${admin ? '' : " AND q.status != 'declined'"}`
+  ).bind(email.toLowerCase()).first<{ n: number }>();
+  return Number(row?.n) || 0;
+}
+
+/** Evaluation steps waiting on this person: the Evaluations menu number and Today's Evaluations card, one rule, gated like every request notice. */
+export async function evalWaitingCount(env: Env, user: HubUser): Promise<number> {
+  if (!(await mayHear(env, user.email).catch(() => false))) return 0;
+  return (await waitingOn(env, { email: user.email, name: user.name, role: user.role }).catch(() => ({ n: 0 }))).n;
 }
 
 /** Feedback notes for Will to read, or answers from him this person has not opened yet. */
@@ -470,7 +508,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     cards.push({
       id: 'receipts',
       label: 'Receipts',
-      n: marking ? left : file.letters,
+      n: receiptsFigure(file),
       what: marking ? 'printed gifts not yet marked thanked' : 'receipts in the open print file',
       note: marking ? `Marking stopped at ${file.marked} of ${file.gifts}; opening the page finishes it` : `Made by ${file.createdBy}. Print it, then mark it thanked`,
       warn: true,

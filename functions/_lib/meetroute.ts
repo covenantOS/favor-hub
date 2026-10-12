@@ -1055,11 +1055,17 @@ async function brainInMeeting(env: MeetEnv, user: { email: string }, id: string,
 
 // ---------------------------------------------------------------- action items
 
+/**
+ * Open action items for a person, the list on the Notes page. An item that already became a task shows in Projects, so it is left out here,
+ * which keeps this list the same size as the Meetings card on Today (openActionsWithoutTask in projects/links/today).
+ */
 async function myActions(env: MeetEnv, user: { email: string }) {
-  const rows = await env.DB.prepare(
+  const sql = (open: string) =>
     `SELECT a.meeting_id, a.idx, a.text, a.due, a.t, a.done, m.title, m.started_at FROM hub_meeting_actions a JOIN hub_meetings m ON m.id = a.meeting_id
-      WHERE a.owner_email = ? AND a.done = 0 ORDER BY m.started_at DESC LIMIT 60`
-  ).bind(user.email.toLowerCase()).all();
+      WHERE a.owner_email = ? AND a.done = 0${open} ORDER BY m.started_at DESC LIMIT 200`;
+  const notTask = ` AND NOT EXISTS (SELECT 1 FROM hub_tasks t WHERE t.meeting_id = a.meeting_id AND t.meeting_action_idx = a.idx AND t.status <> 'dropped')`;
+  const me = user.email.toLowerCase();
+  const rows = await env.DB.prepare(sql(notTask)).bind(me).all().catch(() => env.DB.prepare(sql('')).bind(me).all());
   return { ok: true, actions: rows.results || [] };
 }
 

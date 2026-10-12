@@ -550,12 +550,12 @@ export interface InboxItem {
 
 export async function inbox(env: ChatEnv, email: string): Promise<{ count: number; items: InboxItem[] }> {
   const me = lower(email);
-  const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id WHERE n.email = ? AND n.read_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?)').bind(me, me).first<{ n: number }>();
+  const c = await env.DB.prepare(`SELECT COUNT(*) AS n FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id WHERE n.email = ?1 AND n.read_at IS NULL AND ${MENTION_VISIBLE}`).bind(me).first<{ n: number }>();
   const rows = await env.DB.prepare(
     `SELECT m.id, m.channel_id, c.name AS channel_name, c.kind AS channel_kind, m.thread_id, m.email AS "from", COALESCE(u.name, '') AS from_name, m.body, n.kind, n.created_at AS at
        FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id LEFT JOIN hub_users u ON u.email = m.email
-      WHERE n.email = ? AND n.read_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?) ORDER BY n.created_at DESC LIMIT 20`
-  ).bind(me, me).all<InboxItem>();
+      WHERE n.email = ?1 AND n.read_at IS NULL AND ${MENTION_VISIBLE} ORDER BY n.created_at DESC LIMIT 20`
+  ).bind(me).all<InboxItem>();
   return { count: c?.n || 0, items: rows.results || [] };
 }
 
@@ -565,8 +565,14 @@ export async function clearInbox(env: ChatEnv, email: string, messageId: number 
   else await env.DB.prepare('UPDATE chat_mentions SET read_at = ? WHERE email = ? AND read_at IS NULL').bind(nowIso(), me).run();
 }
 
+/**
+ * A mention counts only while the person can still open it: the message is not deleted, the channel is not archived, a private channel still has them in it,
+ * and a message shown to one person is shown to them (bind the address as ?1).
+ */
+const MENTION_VISIBLE = `m.deleted_at IS NULL AND c.archived = 0 AND (c.kind = 'public' OR c.id IN (SELECT channel_id FROM chat_members WHERE email = ?1)) AND (m.visible_to IS NULL OR m.visible_to = ?1)`;
+
 export async function unreadMentionCount(env: ChatEnv, email: string): Promise<number> {
-  const c = await env.DB.prepare('SELECT COUNT(*) AS n FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id WHERE n.email = ? AND n.read_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?)').bind(lower(email), lower(email)).first<{ n: number }>();
+  const c = await env.DB.prepare(`SELECT COUNT(*) AS n FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id WHERE n.email = ?1 AND n.read_at IS NULL AND ${MENTION_VISIBLE}`).bind(lower(email)).first<{ n: number }>();
   return c?.n || 0;
 }
 

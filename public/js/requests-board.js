@@ -107,7 +107,8 @@
   const onIt = (i, e) => { const k = t(i); return k.owner === e || k.sent_by === e || k.waiting_on === e || (k.followers || []).includes(e); };
   const TESTS = {
     all: () => true,
-    mine: (i) => t(i).owner === meEmail,
+    // Open requests sent to this person: the number Today shows on Sent to you and the Requests badge counts. Finished ones stay in Done under All.
+    mine: (i) => t(i).owner === meEmail && i.status !== 'done' && i.status !== 'declined',
     sent: (i) => t(i).sent_by === meEmail,
     waiting: (i) => !!t(i).waiting_on && t(i).waiting_on !== meEmail && (t(i).owner === meEmail || t(i).sent_by === meEmail),
     onme: (i) => t(i).waiting_on === meEmail && i.status !== 'done' && i.status !== 'declined',
