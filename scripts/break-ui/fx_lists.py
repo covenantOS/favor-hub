@@ -270,7 +270,7 @@ def request_search(mode, m, q, state):
     return {'ok': True, 'rows': [], 'results': []}
 
 
-@route('GET', r'^/api/(tasks|projects|requests)/.*$')
+@route('GET', r'^/api/(tasks|projects|requests|learn)/.*$')
 def tasks_any(mode, m, q, state):
     # Requests and Projects belong to other lanes; pages that link to them only need a well-formed empty answer.
     return {'ok': True, 'items': [], 'rows': [], 'results': [], 'actions': [], 'links': []}
