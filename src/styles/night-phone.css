@@ -61,3 +61,13 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
 
 /* Work Center, HQTY letters: the More button on each letter was 34 px. */
 @media (max-width: 860px) { body.h-body .hq-more { width: 44px; height: 44px; } }
+
+/* Statements, Print files (and other tables in the same wrapper): the table ran off the right edge of its card with nothing to
+   scroll it. It scrolls sideways inside the card now, with the first column kept to one line. */
+@media (max-width: 860px) {
+  body.h-body .h-page .fnd-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  body.h-body .stm-page .stm-table td, body.h-body .stm-page .stm-table th { white-space: nowrap; }
+}
+
+/* Work Center: the tab chips under each group (Open actions, Gifts to thank...) were 40 px tall. */
+@media (max-width: 860px) { body.h-body #wc-root .wc-nav .wc-tabs .wc-tab { min-height: 44px; } }
