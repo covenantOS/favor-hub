@@ -551,3 +551,7 @@ textarea.ml-input { resize: vertical; }
 @media (max-width: 860px) { .ml-brief { margin: 8px; } .ml-prof { padding: 8px 10px; } }
 .ml-fk { flex-basis: 100%; padding: 0 4px 2px; }
 .ml-pick { display: flex; flex-direction: column; gap: 2px; }
+
+.ml-brief--wait { height: 176px; display: flex; flex-direction: column; gap: 12px; padding-top: 18px; }
+.ml-brief--wait i { display: block; height: 12px; border-radius: 6px; background: rgba(255, 255, 255, 0.7); animation: ml-pulse 1.2s ease-in-out infinite; }
+.ml-brief--wait i:nth-child(2) { width: 80%; } .ml-brief--wait i:nth-child(3) { width: 55%; }

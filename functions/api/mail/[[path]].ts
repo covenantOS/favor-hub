@@ -9,4 +9,5 @@ export const onRequest: PagesFunction<Env> = (ctx) =>
     env: ctx.env,
     user: hubUserOf(ctx.request),
     path: ([] as string[]).concat((ctx.params.path as string[] | string) || []),
+    waitUntil: (p) => ctx.waitUntil(p),
   });

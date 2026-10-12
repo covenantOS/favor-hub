@@ -70,7 +70,7 @@ async function call(user, method, path, body) {
 
 beforeEach(async () => {
   d1 = memoryD1();
-  for (const f of ['db/google.sql', 'db/admin-home.sql', 'db/mail.sql', 'db/mail-smart.sql', 'db/mail-boxes.sql']) d1.exec(read(f));
+  for (const f of ['db/google.sql', 'db/admin-home.sql', 'db/mail.sql', 'db/mail-smart.sql', 'db/mail-cache.sql', 'db/mail-boxes.sql']) d1.exec(read(f));
   env = { DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
   calls = [];
   revoked = [];

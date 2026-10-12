@@ -136,6 +136,9 @@
     dropCategory: function (id) { return req('DELETE', 'smart/categories/' + encodeURIComponent(id)); },
     logged: function (threadId, partnerId) { return req('POST', pathMb('smart/logged', boxOf(threadId)), { threadId: threadId, partnerId: partnerId || '' }); },
     smartSearch: function (q, mb) { return req('POST', pathMb('smart/search', mb), { q: q }); },
+    hold: function (b) { return req('POST', pathMb('hold', b.mb), b); },
+    release: function (id, mb) { return req('POST', pathMb('hold/' + encodeURIComponent(id) + '/release', mb), {}); },
+    cancelHold: function (id, mb) { return req('DELETE', pathMb('hold/' + encodeURIComponent(id), mb)); },
     check: function (b) { return req('POST', pathMb('check', b.mb), b); },
     templates: function () { return req('GET', 'templates'); },
     saveTemplate: function (name, body) { return req('POST', 'templates', { name: name, body: body }); },
@@ -254,14 +257,14 @@
 
   /* ------------------------------------------------------------------ toast */
   var toastT = 0, lastUndo = null;
-  function toast(msg, undo) {
+  function toast(msg, undo, ms) {
     var t = $('.ml-toast');
     t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button type="button" data-undo>Undo</button>' : '');
     t.hidden = false; t.classList.remove('is-in'); void t.offsetWidth; t.classList.add('is-in');
-    lastUndo = undo ? { fn: undo, at: Date.now() } : lastUndo;
+    lastUndo = undo ? { fn: undo, at: Date.now(), ms: ms || 6000 } : lastUndo;
     clearTimeout(toastT);
     t.onclick = function (e) { if (e.target.closest('[data-undo]') && undo) { undo(); t.hidden = true; } };
-    toastT = setTimeout(function () { t.hidden = true; }, undo ? 6000 : 3200);
+    toastT = setTimeout(function () { t.hidden = true; }, ms || (undo ? 6000 : 3200));
   }
 
   /* ------------------------------------------------------------------ sheets (menus and small forms) */
@@ -545,8 +548,10 @@
   var ovSeq = 0;
   function briefHtml() {
     var b = S.brief;
-    if (!b || !inboxPlain() || S.v || !S.threads.length) return '';
+    if (!inboxPlain() || S.v || !S.threads.length || S.briefFailed || !S.level.read) return '';
     try { if (sessionStorage.getItem('favor.mail.brief') === ET()) return ''; } catch (e) { /* private mode */ }
+    // While the briefing loads its place is held open, so the list below does not jump when it arrives.
+    if (!b) return '<div class="ml-brief ml-brief--wait" aria-hidden="true"><i></i><i></i><i></i></div>';
     var items = (b.items || []).map(function (i) { return '<button type="button" class="ml-brief__i" data-act="brief-open" data-id="' + esc(i.id) + '"><b>' + esc(i.from) + '</b><span>' + esc(i.subject) + '</span><em>' + esc(i.why) + '</em></button>'; }).join('');
     return '<div class="ml-brief"><div class="ml-brief__h">' + ic('bolt') + '<b>This morning</b><button type="button" class="ml-iconbtn" data-act="brief-fresh" aria-label="Refresh the briefing">' + ic('refresh') + '</button><button type="button" class="ml-iconbtn" data-act="brief-hide" aria-label="Hide until tomorrow">' + ic('x') + '</button></div><p>' + esc(b.text) + '</p>' + (items ? '<div class="ml-brief__l">' + items + '</div>' : '') + '</div>';
   }
@@ -560,7 +565,7 @@
   function loadBrief(fresh) {
     if (!S.level.read || !inboxPlain() || S.v) return;
     var a = accts()[0] || '';
-    api.briefing(!!fresh, a).then(function (d) { S.brief = d.briefing; renderCleanup(); }).catch(function () { /* the list is enough */ });
+    api.briefing(!!fresh, a).then(function (d) { S.brief = d.briefing; renderCleanup(); }).catch(function () { S.briefFailed = true; renderCleanup(); });
   }
   function cleanHtml() {
     var c = S.ov && S.ov.cleanup;
@@ -753,6 +758,18 @@
   var listSeq = 0;
   function listTitle() { return S.q ? 'Search' : inboxPlain() && S.v ? viewName(S.v) : labelName(S.label); }
   function skeleton(n) { var s = ''; for (var i = 0; i < n; i++) s += '<div class="ml-row ml-row--skel" aria-hidden="true"><span class="ml-av"></span><span class="ml-row__t"><i style="width:' + (40 + (i * 17) % 35) + '%"></i><i style="width:' + (60 + (i * 13) % 30) + '%"></i></span></div>'; return s; }
+  // The last list shown for each view is kept in this browser (subject, sender and preview, never a body) and drawn the moment Mail opens,
+  // while the fresh list loads. A change in the fresh list is drawn over it without a loading screen.
+  function listKey() { return [S.me, accts().join('+'), S.label, S.v, activeFlags().join(','), S.sort].join('|'); }
+  function readSaved() { try { var all = JSON.parse(localStorage.getItem('favor.mail.rows.v1') || '{}'); var h = all[listKey()]; return h && Date.now() - h.at < 3 * 864e5 ? h.rows : null; } catch (e) { return null; } }
+  function writeSaved(rows) {
+    try {
+      var all = JSON.parse(localStorage.getItem('favor.mail.rows.v1') || '{}'), keys = Object.keys(all);
+      if (keys.length > 12) delete all[keys.sort(function (a, b) { return all[a].at - all[b].at; })[0]];
+      all[listKey()] = { at: Date.now(), rows: rows.slice(0, 30) };
+      localStorage.setItem('favor.mail.rows.v1', JSON.stringify(all));
+    } catch (e) { /* full or private mode */ }
+  }
   function loadList(opts) {
     opts = opts || {};
     var seq = ++listSeq;
@@ -761,7 +778,9 @@
     $('[data-list-note]').textContent = MOCK ? 'Sample mail' : '';
     var input = $('[data-search] input'); if (input && document.activeElement !== input) input.value = S.q;
     var asked = S.q && S.q.charAt(0) === '?' ? S.q.slice(1).trim() : '';
-    if (!opts.more) { if (!opts.quiet || !S.threads.length) rows.innerHTML = skeleton(8); S.next = ''; if (!opts.quiet) { S.picked = {}; S.anchor = ''; } }
+    var saved = !opts.more && !opts.quiet && !S.q && !S.threads.length ? readSaved() : null;
+    if (saved && saved.length) { S.threads = saved; saved.forEach(function (t) { S.mbOf[t.id] = t.mb || ''; }); renderList(); }
+    if (!opts.more) { if ((!opts.quiet || !S.threads.length) && !(saved && saved.length)) rows.innerHTML = skeleton(8); S.next = ''; if (!opts.quiet) { S.picked = {}; S.anchor = ''; } }
     S.loading = true;
     renderTabs(); renderFilters(); renderSelBar();
     var list = accts();
@@ -796,6 +815,8 @@
       if (list.length > 1 && S.sort !== 'prio') { var asc = effSort() === 'old'; all.sort(function (x, y) { return asc ? String(x.date).localeCompare(String(y.date)) : String(y.date).localeCompare(String(x.date)); }); }
       if (S.sort === 'prio') all.sort(function (x, y) { return (y.prio || 0) - (x.prio || 0) || String(y.date).localeCompare(String(x.date)); });
       S.threads = all;
+      if (!opts.more && !S.q) writeSaved(all);
+      if (rs.some(function (r) { return r.d.stale; }) && !opts.noStale) setTimeout(function () { if (seq === listSeq) loadList({ quiet: true, noStale: true }); }, 1500);
       S.next = Object.keys(S.nexts).length ? 'more' : '';
       S.scanned = scanned;
       Object.keys(S.picked).forEach(function (id) { if (!findThread(id)) delete S.picked[id]; });
@@ -1867,19 +1888,22 @@
     c.el.classList.remove('is-in'); c.el.classList.add('is-out');
     setTimeout(function () { c.el.remove(); }, 200);
   }
+  /* Send. First the writing check; with findings it asks "Send anyway?" and counts 5 seconds before it sends by itself (a setting turns the
+     count off). Then the message is held 15 seconds with an Undo bar. Without files the hold is kept on the server, so leaving the page
+     never loses the message and never sends it twice. With files the page holds it (files are too big to keep), and a draft is kept. */
+  var HOLD_MS = 15000;
+  function countdownOn() { try { return localStorage.getItem('favor.mail.countdown') !== 'off'; } catch (e) { return true; } }
   function sendNow(skipCheck) {
     var b = collect();
     if (!b.to.length && !b.cc.length && !b.bcc.length) { toast('Add who it goes to'); var t = $('#ml-c-to', C.el); if (t) t.focus(); return; }
     var big = C.files.reduce(function (n, f) { return n + f.size; }, 0);
     if (big > 24 * 1048576) { toast('Files can add up to 24 MB. Link a big file from Drive instead.'); return; }
-    // The writing check: "donor", a greeting for someone else, an amount that differs, "attached" with no file, no subject.
     if (!skipCheck) {
       var c0 = C;
-      api.check({ to: b.to.map(function (x) { return x.email; }), subject: b.subject, html: b.html, files: C.files.length + C.forward.length, threadId: b.threadId, mb: b.mb }).then(function (d) {
+      api.check({ to: b.to.map(function (x) { return x.email; }), cc: b.cc.map(function (x) { return x.email; }), bcc: b.bcc.map(function (x) { return x.email; }), subject: b.subject, html: b.html, files: C.files.length + C.forward.length, threadId: b.threadId, mb: b.mb }).then(function (d) {
         if (C !== c0) return;
         if (!(d.warnings || []).length) return sendNow(true);
-        var el = openSheet('Before this goes', '<ul class="ml-warn">' + d.warnings.map(function (w) { return '<li>' + esc(w.text) + '</li>'; }).join('') + '</ul><div class="ml-sheet__acts"><button type="button" class="ml-btn ml-btn--primary" data-close>Go back and fix it</button><button type="button" class="ml-btn" data-sendany>Send anyway</button></div>');
-        el.addEventListener('click', function (e) { if (e.target.closest('[data-sendany]')) closeSheet(null, function () { sendNow(true); }); });
+        confirmSend(d.warnings, function () { sendNow(true); });
       }).catch(function () { sendNow(true); });
       return;
     }
@@ -1887,18 +1911,61 @@
     c.sent = true; clearTimeout(c.saveT);
     b.files = c.files.map(function (f) { return { name: f.name, mime: f.mime, data: f.data }; });
     b.forward = c.forward;
+    var restore = function () {
+      c.sent = false;
+      openCompose(Object.assign({}, c.o, { to: b.to, cc: b.cc, bcc: b.bcc, subject: b.subject, body: $('[data-ed]', c.el) ? $('[data-ed]', c.el).innerHTML : '', quote: '', draftId: c.draftId, mb: c.mb, noSig: true }));
+      C.files = c.files; C.forward = c.forward; renderFiles();
+    };
     closeCompose(false);
-    // Five seconds to take it back, as Gmail's Undo send.
-    var undone = false;
-    toast('Sending', function () { undone = true; c.sent = false; openCompose(Object.assign({}, c.o, { to: b.to, cc: b.cc, bcc: b.bcc, subject: b.subject, body: $('[data-ed]', c.el) ? $('[data-ed]', c.el).innerHTML : '', quote: '', draftId: c.draftId, noSig: true })); });
-    setTimeout(function () {
-      if (undone) return;
-      api.send(b).then(function (d) {
-        toast('Sent');
-        if (S.open && d.threadId === S.open) openThread(S.open);
-        else if (S.label === 'SENT') loadList({ quiet: true });
-      }).catch(function (e) { toast(e.message || 'Not sent. Your draft is kept.'); c.sent = false; if (e.code === 'mail_scope') askWrite('send'); });
-    }, 5000);
+    var hasFiles = b.files.length || b.forward.length;
+    var held = hasFiles ? Promise.resolve(null) : api.hold(b).then(function (d) { return d.id; }).catch(function () { return null; });
+    var undone = false, released = false;
+    var finish = function (d) {
+      toast('Sent');
+      if (S.open && d && d.threadId === S.open) openThread(S.open);
+      else if (S.label === 'SENT') loadList({ quiet: true });
+    };
+    var fail = function (e) { toast(e.message || 'Not sent. Your draft is kept.'); c.sent = false; if (e.code === 'mail_scope') askWrite('send'); };
+    var release = function () {
+      if (undone || released) return;
+      released = true;
+      held.then(function (id) { return id ? api.release(id, b.mb) : api.send(b); }).then(finish).catch(fail);
+    };
+    toast('Sending', function () {
+      if (released) return;
+      undone = true;
+      held.then(function (id) { return id ? api.cancelHold(id, b.mb) : null; }).then(function (r) { if (r && r.undone === false) { toast('It already went'); return; } restore(); }).catch(restore);
+    }, HOLD_MS);
+    setTimeout(release, HOLD_MS);
+    // Leaving the page ends the undo window: the server sends the held message now.
+    window.addEventListener('pagehide', function onHide() {
+      window.removeEventListener('pagehide', onHide);
+      if (undone || released) return;
+      held.then(function (id) { if (id && navigator.sendBeacon) navigator.sendBeacon(pathMb('/api/mail/hold/' + encodeURIComponent(id) + '/release', b.mb), new Blob(['{}'], { type: 'application/json' })); });
+    });
+  }
+  // "Send anyway?": the findings, a 5 second count that sends by itself, Fix it and Send now.
+  function confirmSend(warnings, go) {
+    var left = 5, auto = countdownOn(), timer = 0, done = false;
+    var el = openSheet('Send anyway?', '<ul class="ml-warn">' + warnings.map(function (w) { return '<li>' + esc(w.text) + '</li>'; }).join('') + '</ul>' +
+      '<label class="ml-menu__i ml-check"><input type="checkbox" data-nocount' + (auto ? '' : ' checked') + ' /><span>Wait for me to press Send</span></label>' +
+      '<div class="ml-sheet__acts"><button type="button" class="ml-btn ml-btn--primary" data-fix>Fix it</button><button type="button" class="ml-btn" data-now>' + (auto ? 'Send now (<span data-left>' + left + '</span>)' : 'Send now') + '</button></div>');
+    var tick = function () {
+      if (done || !auto) return;
+      left--; var n = el.querySelector('[data-left]'); if (n) n.textContent = left;
+      if (left <= 0) { done = true; clearInterval(timer); closeSheet(null, go); }
+    };
+    if (auto) timer = setInterval(tick, 1000);
+    var stop = function () { done = true; clearInterval(timer); };
+    el.addEventListener('change', function (e) {
+      var c = e.target.closest('[data-nocount]'); if (!c) return;
+      try { localStorage.setItem('favor.mail.countdown', c.checked ? 'off' : 'on'); } catch (e2) { /* private mode */ }
+      auto = !c.checked; if (!auto) { clearInterval(timer); var b2 = el.querySelector('[data-now]'); if (b2) b2.textContent = 'Send now'; }
+    });
+    el.addEventListener('click', function (e) {
+      if (e.target.closest('[data-fix]') || e.target.closest('[data-close]')) { stop(); closeSheet(); return; }
+      if (e.target.closest('[data-now]')) { stop(); closeSheet(null, go); }
+    });
   }
   function laterMenu() {
     if (!C) return;
@@ -2184,7 +2251,7 @@
       j: function () { stepThread(1); }, k: function () { stepThread(-1); },
       o: function () { var t = S.threads[S.sel]; if (t) go(S.label, S.q, t.id); }, Enter: function () { if (!S.open) { var t = S.threads[S.sel]; if (t) go(S.label, S.q, t.id); } },
       u: function () { if (S.open) go(S.label, S.q, ''); }, Escape: function () { if (pickedIds().length) clearPicks(); else if (S.open) go(S.label, S.q, ''); },
-      z: function () { if (lastUndo && Date.now() - lastUndo.at < 15000) { var u = lastUndo.fn; lastUndo = null; u(); } },
+      z: function () { if (lastUndo && Date.now() - lastUndo.at < (lastUndo.ms || 6000) + 1000) { var u = lastUndo.fn; lastUndo = null; u(); } },
       x: function () { if (S.open && !isPhone()) return; var t = S.threads[S.sel < 0 ? 0 : S.sel]; if (t) { if (S.sel < 0) select(0); pick(t.id, false); } },
       e: function () { if (pickedIds().length) selAct('archive'); else act('archive'); }, '#': function () { if (pickedIds().length) selAct('trash'); else act('delete'); },
       s: function () { if (pickedIds().length) selAct('star'); else act('star'); },

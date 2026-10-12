@@ -40,3 +40,23 @@ CREATE TABLE IF NOT EXISTS hub_mail_assign (
   done_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_hub_mail_assign_owner ON hub_mail_assign(owner, state);
+
+-- Where each mailbox's saved inbox stands in Gmail's history (2026-10-12).
+CREATE TABLE IF NOT EXISTS hub_mail_sync (
+  mailbox TEXT PRIMARY KEY,
+  history_id TEXT NOT NULL DEFAULT '',
+  synced_at TEXT NOT NULL,
+  next_token TEXT NOT NULL DEFAULT ''
+);
+-- Mail held before it goes (2026-10-12): the 15 second undo window, kept on the server so closing the tab loses nothing.
+CREATE TABLE IF NOT EXISTS hub_mail_held (
+  id TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  mailbox TEXT NOT NULL DEFAULT '',
+  payload TEXT NOT NULL,
+  release_at TEXT NOT NULL,
+  state TEXT NOT NULL DEFAULT 'held',
+  thread_id TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_hub_mail_held_due ON hub_mail_held(state, release_at);

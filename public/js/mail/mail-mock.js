@@ -83,6 +83,7 @@
   };
   var boxOfT = function (t) { var n = Number(String(t.id).slice(1)) % 5; return n === 0 ? 'accounting@favorintl.org' : n === 3 ? 'admin@favorintl.org' : ''; };
   var customs = [];
+  var holds = {};
   var override = {};
   var cls = function (t) {
     var real = t.messages.filter(function (x) { return !x.draft; }), last = real[real.length - 1] || t.messages[0];
@@ -98,9 +99,13 @@
   };
   var sortNew = function (a, b) { return String(row(b).date).localeCompare(String(row(a).date)); };
 
+  var FavorMailMockSend = function (b) { return window.__mailMockApi.send(b); };
   window.FavorMailMock = function (real) {
-    return Object.assign({}, real, {
+    var api = Object.assign({}, real, {
       state: function () { return wait({ ok: true, connected: true, email: ME.email, name: ME.name, level: level, write: true, signature: level.read ? '<div>Sam Rivers<br>Favor International</div>' : '', mailboxes: [{ email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a' }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8' }] }, 40); },
+      hold: function (b) { var id = 'h_' + Math.random().toString(36).slice(2, 8); holds[id] = b; return wait({ ok: true, id: id }, 60); },
+      release: function (id) { var b = holds[id]; delete holds[id]; if (!b) return wait({ ok: true, sent: false }, 40); return real.send ? FavorMailMockSend(b) : wait({ ok: true }, 40); },
+      cancelHold: function (id) { var had = !!holds[id]; delete holds[id]; return wait({ ok: true, undone: had }, 40); },
       sender: function (email, name) { var pm = partners[email]; return wait({ ok: true, profile: { email: email, name: name || email, role: pm ? 'Partner in Blackbaud, ' + pm.name : /favorintl/.test(email) ? 'Staff, Partner Care' : 'Not in Blackbaud', kind: pm ? 'partner' : /favorintl/.test(email) ? 'staff' : 'outside', partner: pm ? { id: pm.id, name: pm.name } : null, history: { n: 7, more: false, lastDate: ago(30), recent: [] }, canProspect: !pm && !/favorintl/.test(email) } }, 200); },
       briefing: function () { return wait({ ok: true, briefing: { text: 'Three partners wait on you, one of them a major partner. Start with Maya Okafor about the March visit.', items: [{ id: 't1001', from: 'Maya Okafor', subject: 'Visiting in March', why: 'major partner, waits on you' }, { id: 't1006', from: 'Daniel Ortiz', subject: 'Receipt question', why: 'partner, waits on you' }, { id: 't1004', from: 'Hope Foundation Grants', subject: 'Grant report due November 1', why: 'starred' }], stats: { needs: 3, major: 1, waiting: 2, unlogged: 4, unread: 6 }, at: new Date().toISOString() } }, 250); },
       categories: function () { return wait({ ok: true, categories: customs }, 60); },
@@ -246,5 +251,7 @@
       logAction: function () { return wait({ ok: true, created: 1, dups: 0 }, 300); },
       fileUrl: function (mid, f) { return f.url || ''; }
     });
+    window.__mailMockApi = api;
+    return api;
   };
 })();

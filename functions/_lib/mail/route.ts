@@ -31,6 +31,7 @@ import { b64ToBytes, rawOf, validEmail, type OutFile } from './mime';
 import { boxToken, listBoxes, removeBox } from './boxes';
 import { partnerMap, type PartnerLookup } from './partners';
 import { assign, assigned, defaultChat, defaultRequest, finishAssigned, mention, requestFrom, type Brief, type ChatPost, type MakeRequest } from './links';
+import { applyLabels, bootstrap, catchUp, inboxFromCache, stateOf, FRESH_MS } from './sync';
 import { idsFor, pruneRows, rowsFor, useRowStore } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
 import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
@@ -65,6 +66,8 @@ export interface MailCtx {
   /** The Blackbaud copy, read only; tests pass a stand-in. */
   mirror?: (sql: string, params?: unknown[]) => Promise<any[]>;
   giving?: SmartCtx['giving'];
+  /** Work that may finish after the answer is sent (the history catch-up). Pages Functions pass waitUntil. */
+  waitUntil?: (p: Promise<unknown>) => void;
   /** Chat notices and request cards; tests pass stand-ins so no real person is told. */
   chat?: ChatPost;
   makeRequest?: MakeRequest;
@@ -133,6 +136,7 @@ async function route(ctx: MailCtx): Promise<Response> {
   if (!sameSite(request)) return errorJson('cross_site', 'That change did not come from FavorOS. Reload the page and try again.', 403);
   useRowStore(env.DB as any);
   void pruneRows();
+  if (ctx.waitUntil && user) ctx.waitUntil(releaseDue(env, lower(user.email), ctx.fetcher || fetch).catch(() => undefined));
   const owner = lower(user.email);
   let me = owner;
   const fetcher = ctx.fetcher || fetch;
@@ -159,6 +163,7 @@ async function route(ctx: MailCtx): Promise<Response> {
       const main = (s?.sendAs || []).find((x: any) => x.isDefault) || (s?.sendAs || [])[0];
       signature = main?.signature ? sanitizeHtml(String(main.signature)) : '';
     }
+    if (tok && level.headers && ctx.waitUntil) ctx.waitUntil(stateOf(env, me).then((st) => (st ? undefined : bootstrap(env, gmail(tok!.token, fetcher), me))).catch(() => undefined));
     return json({ ok: true, connected: !!tok, email: me, name: user.name || me, level, write: writeOn, signature, mailboxes: (await listBoxes(env, owner)).map((x) => ({ email: x.mailbox, name: x.name, color: x.color })) });
   }
 
@@ -421,11 +426,15 @@ async function route(ctx: MailCtx): Promise<Response> {
       lastGift = Number((g as any)[first.id]?.lastAmount) || 0;
     }
     let quoted: number[] = [];
+    let internal = false;
     if (/^[A-Za-z0-9]{6,40}$/.test(String(body.threadId || ''))) {
-      const t = await gm.get('/threads/' + String(body.threadId), { format: 'metadata', metadataHeaders: ['Subject'] }).catch(() => null);
+      const t = await gm.get('/threads/' + String(body.threadId), { format: 'metadata', metadataHeaders: ['From', 'To', 'Cc'] }).catch(() => null);
       quoted = amountsIn((t?.messages || []).map((m: any) => m.snippet || '').join(' '));
+      const people = (t?.messages || []).flatMap((m: any) => ['from', 'to', 'cc'].flatMap((h) => parseAddrs(String((m.payload?.headers || []).find((x: any) => x.name.toLowerCase() === h)?.value || '')))).map((x: any) => x.email);
+      internal = people.length > 0 && people.every((e: string) => e.endsWith('@favorintl.org'));
     }
-    const warnings = writingCheck({ html: String(body.html || '').slice(0, 200000), subject: String(body.subject || ''), files: Math.max(0, Number(body.files) || 0), to, partnerName: first?.name || '', lastGift, quotedAmounts: quoted });
+    const everyone = [...to, ...addrs(body.cc), ...addrs(body.bcc)];
+    const warnings = writingCheck({ html: String(body.html || '').slice(0, 200000), subject: String(body.subject || ''), files: Math.max(0, Number(body.files) || 0), to, partnerName: first?.name || '', lastGift, quotedAmounts: quoted, recipients: everyone.length, threadInternal: internal, external: everyone.map((x) => x.email).filter((e) => !e.endsWith('@favorintl.org')) });
     return json({ ok: true, warnings });
   }
 
@@ -573,6 +582,30 @@ async function route(ctx: MailCtx): Promise<Response> {
       params.labelIds = label;
       params.includeSpamTrash = 'true';
     } else if (/^[A-Za-z0-9_-]+$/.test(label)) params.labelIds = label;
+    // The newest INBOX conversations come from the saved inbox in D1 (sync.ts): one read, no wait for Gmail. A saved inbox older than
+    // 20 seconds is served as it is while Gmail's history catches it up, and the answer says so, so the page asks again a moment later.
+    if (label === 'INBOX' && !q && sort !== 'old' && (!page || /^c:\d+$/.test(page)) && level.headers) {
+      let st = await stateOf(env, me);
+      let stale = false;
+      if (!st) {
+        await bootstrap(env, gm, me);
+        st = await stateOf(env, me);
+      } else if (Date.now() - st.syncedAt > FRESH_MS) {
+        const job = catchUp(env, gm, me, st).catch(() => undefined);
+        if (ctx.waitUntil) {
+          ctx.waitUntil(job);
+          stale = true;
+        } else await job;
+        if (!stale) st = await stateOf(env, me);
+      }
+      const offset = page ? Number(page.slice(2)) : 0;
+      const hit = await inboxFromCache(env, me, offset, PAGE);
+      if (hit.rows.length || offset > 0) {
+        const cut = offset + PAGE;
+        const marked = decorate(hit.rows, (await classify(smartCtx, hit.rows, false)).by);
+        return json({ ok: true, threads: mark(marked), next: cut < hit.total ? 'c:' + cut : st?.nextToken ? 'g:' + st.nextToken : '', estimate: hit.total, level, ...(stale ? { stale: true } : {}) });
+      }
+    }
     let listed: Array<{ id: string; historyId?: string }>;
     let next = '';
     let estimate = 0;
@@ -585,7 +618,7 @@ async function route(ctx: MailCtx): Promise<Response> {
       next = from + PAGE < rev.length ? 'o:' + (from + PAGE) : '';
       estimate = rev.length;
     } else {
-      const list = await gm.get('/threads', { ...params, maxResults: String(PAGE), pageToken: page || undefined });
+      const list = await gm.get('/threads', { ...params, maxResults: String(PAGE), pageToken: page.startsWith('g:') ? page.slice(2) : page || undefined });
       listed = list.threads || [];
       next = list.nextPageToken || '';
       estimate = Number(list.resultSizeEstimate) || 0;
@@ -691,6 +724,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     const remove = ids(body.remove);
     if (!add.length && !remove.length) throw new HttpError(400, 'nothing', 'Nothing to change.');
     const t = await gm.send('POST', `/threads/${tid(b)}/modify`, { addLabelIds: add, removeLabelIds: remove });
+    await applyLabels(env, me, b, add, remove);
     forgetCount(me);
     forgetCount(owner);
     // Putting a snoozed thread back in the inbox ends the snooze.
@@ -701,6 +735,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     const w = needWrite();
     if (w) return w;
     await gm.send('POST', `/threads/${tid(b)}/${c}`);
+    await applyLabels(env, me, b, c === 'trash' ? ['TRASH'] : ['INBOX'], c === 'trash' ? ['INBOX', 'UNREAD'] : ['TRASH']);
     forgetCount(me);
     forgetCount(owner);
     return json({ ok: true });
@@ -747,6 +782,30 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (!name) throw new HttpError(400, 'name', 'Give the label a name.');
     const l = await gm.send('POST', '/labels', { name, labelListVisibility: 'labelShow', messageListVisibility: 'show' });
     return json({ ok: true, label: { id: l.id, name: l.name, type: 'user', unread: 0, total: 0 } });
+  }
+
+  // Undo send: a message is held for 15 seconds. The page releases it at 15 s (or on leaving the page); any request from the person, and the
+  // five-minute pass, release a held message that is a minute old, so a closed tab never loses or sends it twice (one atomic claim sends it).
+  if (a === 'hold' && !b && method === 'POST') {
+    const w = needWrite();
+    if (w) return w;
+    const body = await readBody(request);
+    if ((Array.isArray(body.files) && body.files.length) || (Array.isArray(body.forward) && body.forward.length)) throw new HttpError(400, 'files', 'A message with files is held by the page, not the server.');
+    const bad = [...addrs(body.to), ...addrs(body.cc), ...addrs(body.bcc)].find((x) => !validEmail(x.email));
+    if (bad) throw new HttpError(400, 'bad_address', `${bad.email} is not an email address.`);
+    if (!addrs(body.to).length && !addrs(body.cc).length && !addrs(body.bcc).length) throw new HttpError(400, 'no_one', 'Add who it goes to.');
+    const id = 'h_' + crypto.randomUUID().replace(/-/g, '').slice(0, 14);
+    const keep = { to: body.to, cc: body.cc, bcc: body.bcc, subject: String(body.subject || '').slice(0, 900), html: sanitizeHtml(String(body.html || '').slice(0, 400000)), threadId: body.threadId, replyTo: body.replyTo, from: body.from, draftId: body.draftId };
+    await env.DB.prepare('INSERT INTO hub_mail_held (id, owner, mailbox, payload, release_at, state, thread_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, owner, me === owner ? '' : me, JSON.stringify(keep), new Date(Date.now() + 60000).toISOString(), 'held', String(body.threadId || '').slice(0, 40), nowIso()).run();
+    return json({ ok: true, id, releaseAt: new Date(Date.now() + 15000).toISOString() });
+  }
+  if (a === 'hold' && b && c === 'release' && method === 'POST') {
+    const out = await releaseHeld(env, owner, b, fetcher);
+    return out === 'gone' ? errorJson('not_found', 'That message is not waiting.', 404) : json({ ok: true, ...out });
+  }
+  if (a === 'hold' && b && method === 'DELETE') {
+    const r = await env.DB.prepare("UPDATE hub_mail_held SET state = 'cancelled', payload = '{}' WHERE id = ? AND owner = ? AND state = 'held'").bind(b, owner).run();
+    return Number((r.meta as any)?.changes) > 0 ? json({ ok: true, undone: true }) : json({ ok: true, undone: false });
   }
 
   if (a === 'send' && method === 'POST') {
@@ -923,6 +982,50 @@ export async function wakeDue(env: Env, gm: Gmail, me: string): Promise<number> 
  * Saved messages whose time has come go out from the mailbox they were written in. Called every few minutes by the meetings
  * pass the Cloudflare cron already runs. A message that fails stays and tries again; one that is a day late is marked missed.
  */
+/** Sends one held message if it is still held. The claim is one UPDATE, so two callers never both send it. */
+export async function releaseHeld(env: Env, owner: string, id: string, fetcher: Fetcher = fetch): Promise<{ sent: boolean; threadId?: string; state?: string } | 'gone'> {
+  const row = await env.DB.prepare('SELECT mailbox, payload, thread_id FROM hub_mail_held WHERE id = ? AND owner = ?').bind(id, owner).first<any>().catch(() => null);
+  if (!row) return 'gone';
+  const claim = await env.DB.prepare("UPDATE hub_mail_held SET state = 'sending' WHERE id = ? AND owner = ? AND state = 'held'").bind(id, owner).run();
+  if (!Number((claim.meta as any)?.changes)) {
+    const st = await env.DB.prepare('SELECT state, thread_id FROM hub_mail_held WHERE id = ?').bind(id).first<{ state: string; thread_id: string }>();
+    return { sent: st?.state === 'sent', state: st?.state || 'gone', threadId: st?.thread_id || '' };
+  }
+  try {
+    const tok = row.mailbox ? await boxToken(env, owner, row.mailbox) : await accessToken(env, owner);
+    if (!tok || !mailLevel(tok.scopes).write) throw new Error('no token');
+    const gm = gmail(tok.token, fetcher);
+    const body = safeJson(row.payload);
+    const me = row.mailbox || owner;
+    const who = { email: owner, name: '', picture: '', role: 'staff', via: 'google', kpi: true } as HubUser;
+    const mail = await outMail(gm, await fromOf(gm, me, who, body), body, true);
+    const out = await gm.send('POST', '/messages/send', { raw: rawOf(mail), threadId: body.threadId && /^[A-Za-z0-9]{6,40}$/.test(String(body.threadId)) ? String(body.threadId) : undefined });
+    if (body.draftId && /^[A-Za-z0-9_-]{4,80}$/.test(String(body.draftId))) await gm.send('DELETE', '/drafts/' + String(body.draftId)).catch(() => undefined);
+    await env.DB.prepare("UPDATE hub_mail_held SET state = 'sent', payload = '{}', thread_id = ? WHERE id = ?").bind(String(out.threadId || ''), id).run();
+    forgetCount(owner);
+    return { sent: true, threadId: String(out.threadId || ''), state: 'sent' };
+  } catch (e) {
+    await env.DB.prepare("UPDATE hub_mail_held SET state = 'failed' WHERE id = ?").bind(id).run().catch(() => undefined);
+    throw e;
+  }
+}
+
+/** Sends this person's held messages that are a minute old (the page did not release them), or every person's when owner is empty. */
+export async function releaseDue(env: Env, owner: string, fetcher: Fetcher = fetch): Promise<number> {
+  const q = owner ? env.DB.prepare("SELECT id, owner FROM hub_mail_held WHERE state = 'held' AND release_at <= ? AND owner = ? LIMIT 10").bind(nowIso(), owner) : env.DB.prepare("SELECT id, owner FROM hub_mail_held WHERE state = 'held' AND release_at <= ? LIMIT 10").bind(nowIso());
+  const due = await q.all<{ id: string; owner: string }>().catch(() => ({ results: [] as any[] }));
+  let n = 0;
+  for (const r of due.results || []) {
+    try {
+      const o = await releaseHeld(env, r.owner, r.id, fetcher);
+      if (o !== 'gone' && o.sent) n++;
+    } catch {
+      /* marked failed */
+    }
+  }
+  return n;
+}
+
 export async function sendDue(env: Env, fetcher: Fetcher = fetch): Promise<{ sent: number; failed: number }> {
   const due = await env.DB.prepare("SELECT id, email, mailbox, payload, remind_days, thread_id FROM hub_mail_later WHERE state = 'waiting' AND send_at <= ? ORDER BY send_at LIMIT 10").bind(nowIso()).all<any>().catch(() => ({ results: [] as any[] }));
   let sent = 0;
@@ -945,7 +1048,8 @@ export async function sendDue(env: Env, fetcher: Fetcher = fetch): Promise<{ sen
       if (late) await env.DB.prepare("UPDATE hub_mail_later SET state = 'missed', payload = '{}' WHERE id = ?").bind(r.id).run().catch(() => undefined);
     }
   }
-  return { sent, failed };
+  const held = await releaseDue(env, '', fetcher).catch(() => 0);
+  return { sent: sent + held, failed };
 }
 
 async function snoozedList(env: Env, gm: Gmail, me: string) {
@@ -1052,6 +1156,8 @@ export async function bulk(env: Env, gm: Gmail, me: string, canSearch: boolean, 
       )
     ).catch(() => undefined);
   }
+  const label = mod[action] || (action === 'trash' ? { add: ['TRASH'], remove: ['INBOX', 'UNREAD'] } : { add: ['INBOX'], remove: ['TRASH'] });
+  await Promise.all(list.map((id: string) => applyLabels(env, me, id, label.add, label.remove)));
   forgetCount(me);
   const c = await inboxCounts(gm, canSearch).catch(() => null);
   if (c) remember(me, c.primary);

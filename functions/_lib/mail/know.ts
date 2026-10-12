@@ -249,7 +249,7 @@ export async function fileKind(ai: { run(model: string, input: unknown): Promise
 /* ------------------------------------------------------------------ the writing check before send */
 
 export interface Warn {
-  code: 'donor' | 'name' | 'amount' | 'attachment' | 'subject';
+  code: 'donor' | 'name' | 'amount' | 'attachment' | 'subject' | 'empty' | 'bulk' | 'external' | 'typo';
   text: string;
 }
 
@@ -259,9 +259,18 @@ const plain = (html: string) => String(html || '').replace(/<(style|script)[\s\S
  * What to look at before this message goes: the word "donor", a greeting that names someone other than the partner it goes to, an
  * amount that differs from the partner's last gift or the amounts in the earlier mail, "attached" with no file, and no subject.
  */
-export function writingCheck(input: { html: string; subject: string; files: number; to: Addr[]; partnerName: string; lastGift: number; quotedAmounts: number[] }): Warn[] {
+export function writingCheck(input: { html: string; subject: string; files: number; to: Addr[]; partnerName: string; lastGift: number; quotedAmounts: number[]; recipients?: number; threadInternal?: boolean; external?: string[] }): Warn[] {
   const t = plain(input.html);
   const out: Warn[] = [];
+  if (!t.replace(/\s+/g, '').length && !input.files) out.push({ code: 'empty', text: 'The message is empty.' });
+  if ((input.recipients || 0) > 8) out.push({ code: 'bulk', text: `This goes to ${input.recipients} people. Check that you meant to reply to all of them.` });
+  if (input.threadInternal && input.external && input.external.length) out.push({ code: 'external', text: `${input.external.join(', ')} is outside Favor, and everyone else on this conversation is staff.` });
+  // A greeting name one or two letters from the partner's first name is a likely misspelling of it.
+  const g2 = t.match(/^\s*(?:[Hh]i|[Hh]ello|[Dd]ear|[Hh]ey)\s+([A-Z][a-z'’-]+)\s*[,:\n]/);
+  if (g2 && input.partnerName) {
+    const first = input.partnerName.split(/\s+/)[0] || '';
+    if (first && first.toLowerCase() !== g2[1].toLowerCase() && editDistance(first.toLowerCase(), g2[1].toLowerCase()) <= 2 && Math.min(first.length, g2[1].length) >= 4) out.push({ code: 'typo', text: `The greeting says ${g2[1]}. The partner's name is ${first}.` });
+  }
   if (/\bdonors?\b/i.test(t)) out.push({ code: 'donor', text: 'The message says "donor". Favor says "partner".' });
   const greet = t.match(/^\s*(?:[Hh]i|[Hh]ello|[Dd]ear|[Hh]ey)\s+([A-Z][a-z'’-]+(?:\s+(?:and|&)\s+[A-Z][a-z'’-]+)?)\s*[,:\n]/);
   if (greet && input.partnerName) {
@@ -277,7 +286,21 @@ export function writingCheck(input: { html: string; subject: string; files: numb
   }
   if (/\b(attached|attaching|enclosed|i have attached|see attachment)\b/i.test(t) && !input.files) out.push({ code: 'attachment', text: 'The message says a file is attached, and none is.' });
   if (!input.subject.trim()) out.push({ code: 'subject', text: 'There is no subject.' });
-  return out;
+  return out.filter((w, _i, all) => !(w.code === 'name' && all.some((x) => x.code === 'typo')));
+}
+
+function editDistance(a: string, b: string): number {
+  const d: number[] = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = d[0];
+    d[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = d[j];
+      d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return d[b.length];
 }
 
 export const amountsIn = (text: string): number[] => [...String(text || '').matchAll(/\$\s?(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d{2})?/g)].map((m) => Number(m[1].replace(/,/g, ''))).filter((x) => x >= 5).slice(0, 12);

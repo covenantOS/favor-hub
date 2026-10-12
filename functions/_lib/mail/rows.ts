@@ -49,6 +49,16 @@ async function stored(me: string, ids: string[]): Promise<Map<string, { hid: str
   return out;
 }
 
+export const readRowPublic = readRow;
+
+/** Saves rows read elsewhere (the history catch-up). */
+export async function saveRows(me: string, fresh: Array<{ id: string; hid: string; row: ThreadRow }>): Promise<void> {
+  if (!STORE || !fresh.length) return;
+  const at = new Date().toISOString();
+  await STORE.batch(fresh.map((f) => STORE!.prepare('INSERT INTO hub_mail_rows (mailbox, thread_id, hid, row_json, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(mailbox, thread_id) DO UPDATE SET hid = excluded.hid, row_json = excluded.row_json, at = excluded.at').bind(me, f.id, f.hid, JSON.stringify(f.row), at))).catch(() => undefined);
+  for (const f of fresh) ROWS.set(me + '|' + f.id + '|' + f.hid, f.row);
+}
+
 /** One row for each listed thread (id and history id), read from Gmail only when the thread changed since the last look. */
 export async function rowsFor(gm: Gmail, me: string, threads: Array<{ id: string; historyId?: string }>, width = 8): Promise<ThreadRow[]> {
   const known = await stored(me, threads.map((t) => t.id));

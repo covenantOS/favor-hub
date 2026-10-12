@@ -90,6 +90,8 @@ const fakeGoogle = async (url, init = {}) => {
   const p = u.pathname.replace('/gmail/v1/users/me', '');
   calls.push({ method, path: p, q: u.searchParams, body });
   const J = (o, status = 200) => new Response(JSON.stringify(o), { status });
+  if (p === '/profile') return J({ historyId: '10' });
+  if (p === '/history') return J({ history: (box.changed || []).map((id) => ({ messages: [{ threadId: id }] })), historyId: '11' });
   if (p === '/labels/INBOX') return J({ id: 'INBOX', threadsUnread: box.unreadAll });
   if (p === '/labels' && method === 'GET') return J({ labels: [{ id: 'INBOX', type: 'system' }, { id: 'Label_7', name: 'Trips', type: 'user' }] });
   if (p.startsWith('/labels/')) return J({ id: p.split('/')[2], threadsUnread: 0, threadsTotal: 0 });
@@ -435,22 +437,47 @@ describe('changes to many conversations', () => {
 });
 
 describe('the saved list rows', () => {
-  it('reads each conversation from Gmail once, then from D1 even on a cold server copy, and again only when its history id changes', async () => {
-    await call(ADMIN, 'GET', 'threads?label=INBOX');
+  it('the first look reads the newest conversations, the next looks read none, and a change comes in through the history list', async () => {
     const metadata = () => calls.filter((c) => /^\/threads\/t/.test(c.path) && c.q.get('format') === 'metadata').length;
-    const first = metadata();
-    assert.ok(first >= 10);
-    assert.ok(d1.db.prepare('SELECT COUNT(*) AS n FROM hub_mail_rows').get().n >= 10);
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    assert.ok(metadata() >= 10);
+    assert.equal(d1.db.prepare('SELECT history_id FROM hub_mail_sync').get().history_id, '10');
     forgetRows();
     calls = [];
     const again = await call(ADMIN, 'GET', 'threads?label=INBOX');
-    assert.equal(metadata(), 0);
+    assert.equal(calls.filter((c) => c.path.startsWith('/threads')).length, 0, 'a fresh saved inbox needs no Gmail call');
     assert.ok(again.data.threads.length >= 10);
+    // twenty seconds later Gmail's history names one changed conversation: only that one is read again
+    d1.db.prepare("UPDATE hub_mail_sync SET synced_at = '2020-01-01T00:00:00.000Z'").run();
+    box.changed = ['tpartner1'];
+    box.threads.tpartner1.messages[0].labelIds = ['INBOX', 'CATEGORY_PERSONAL'];
     box.threads.tpartner1.historyId = '2';
     forgetRows();
     calls = [];
-    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    const after = await call(ADMIN, 'GET', 'threads?label=INBOX');
     assert.equal(metadata(), 1);
+    assert.equal(after.data.threads.find((t) => t.id === 'tpartner1').unread, false);
+    assert.equal(d1.db.prepare('SELECT history_id FROM hub_mail_sync').get().history_id, '11');
+  });
+  it('serves the saved inbox as it is while the history catches up, and says so', async () => {
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    d1.db.prepare("UPDATE hub_mail_sync SET synced_at = '2020-01-01T00:00:00.000Z'").run();
+    calls = [];
+    let job;
+    const res = await handle({ request: new Request('https://dash.favorintl.org/api/mail/threads?label=INBOX', { headers: { 'X-Hub-Request': '1' } }), env, user: ADMIN, path: ['threads'], fetcher: fakeGoogle, ai, partners: async () => ({}), waitUntil: (p) => { job = p; } });
+    const j = await res.json();
+    assert.equal(j.stale, true);
+    assert.equal(calls.filter((c) => c.path.startsWith('/threads')).length, 0, 'no list call: the saved inbox answered');
+    await job;
+    assert.equal(calls.filter((c) => c.path === '/history').length, 1);
+  });
+  it('a change made through Mail edits the saved row at once', async () => {
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    await call(ADMIN, 'POST', 'threads/tpartner1/modify', { remove: ['UNREAD'] });
+    const row = JSON.parse(d1.db.prepare("SELECT row_json FROM hub_mail_rows WHERE thread_id = 'tpartner1'").get().row_json);
+    assert.equal(row.unread, false);
+    await call(ADMIN, 'POST', 'bulk', { ids: ['tpartner1'], action: 'archive' });
+    assert.ok(!JSON.parse(d1.db.prepare("SELECT row_json FROM hub_mail_rows WHERE thread_id = 'tpartner1'").get().row_json).labelIds.includes('INBOX'));
   });
   it('removing a mailbox drops its saved rows', async () => {
     d1.db.prepare("INSERT INTO hub_mail_rows (mailbox, thread_id, hid, row_json, at) VALUES ('x@favorintl.org', 't1', '1', '{}', 'x')").run();

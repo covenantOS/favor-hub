@@ -139,6 +139,7 @@ beforeEach(() => {
   d1.exec(read('db/google.sql'));
   d1.exec(read('db/admin-home.sql'));
   d1.exec(read('db/mail.sql'));
+  d1.exec(read('db/mail-cache.sql'));
   d1.exec(`CREATE TABLE meet_directory (email TEXT PRIMARY KEY, name TEXT, title TEXT, team TEXT, active INTEGER)`);
   d1.exec(`INSERT INTO meet_directory VALUES ('bo@favorintl.org', 'Bo Builder', 'Partner Care', 'pc', 1), ('cy@favorintl.org', 'Cy Writer', 'Grants', 'grants', 1)`);
   env = { DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };

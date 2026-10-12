@@ -499,3 +499,63 @@ describe('handing an email to the rest of FavorOS', () => {
     assert.equal((await withStandIns('threads/tpartner1/assign', 'POST', { to: 'bo@favorintl.org' })).status, 403);
   });
 });
+
+const { releaseDue, releaseHeld } = await import('../functions/_lib/mail/route.ts');
+describe('undo send: a message held on the server', () => {
+  const hold = (o = {}) => run('hold', 'POST', { to: ['maya@example.org'], subject: 'Dates', html: '<p>Hi Maya, Friday works.</p>', ...o });
+  beforeEach(() => { box.sent = []; });
+
+  it('holds a message and sends nothing until it is released', async () => {
+    const h = (await hold()).data;
+    assert.match(h.id, /^h_/);
+    assert.equal(box.sent.length, 0);
+    assert.equal(d1.db.prepare('SELECT state FROM hub_mail_held').get().state, 'held');
+  });
+  it('Undo cancels the held message for good: release then finds it not waiting', async () => {
+    const h = (await hold()).data;
+    assert.equal((await run('hold/' + h.id, 'DELETE')).data.undone, true);
+    assert.equal(d1.db.prepare('SELECT payload FROM hub_mail_held').get().payload, '{}');
+    const r = await run('hold/' + h.id + '/release', 'POST');
+    assert.equal(r.data.sent, false);
+    assert.equal(box.sent.length, 0);
+  });
+  it('release sends once, even when the page and the server fallback both ask at the same time', async () => {
+    const h = (await hold()).data;
+    const [a, b] = await Promise.all([releaseHeld(env, ADMIN.email, h.id, fakeGoogle), releaseHeld(env, ADMIN.email, h.id, fakeGoogle)]);
+    assert.equal(box.sent.length, 1);
+    assert.ok([a, b].some((x) => x.sent));
+    assert.equal(d1.db.prepare('SELECT state FROM hub_mail_held').get().state, 'sent');
+  });
+  it('the server fallback sends a held message a minute old and leaves a fresh one alone', async () => {
+    const old = (await hold({ subject: 'Old' })).data;
+    await hold({ subject: 'Fresh' });
+    d1.db.prepare("UPDATE hub_mail_held SET release_at = '2020-01-01T00:00:00.000Z' WHERE id = ?").run(old.id);
+    assert.equal(await releaseDue(env, ADMIN.email, fakeGoogle), 1);
+    assert.equal(box.sent.length, 1);
+    assert.equal(d1.db.prepare("SELECT COUNT(*) AS n FROM hub_mail_held WHERE state = 'held'").get().n, 1);
+  });
+  it('a held message is the person\'s own: another admin cannot release or undo it', async () => {
+    const h = (await hold()).data;
+    assert.equal((await call(BEN, 'POST', 'hold/' + h.id + '/release')).status, 403);
+  });
+  it('refuses a message with files, no recipient and a bad address', async () => {
+    assert.equal((await hold({ files: [{ name: 'a', data: 'AA' }] })).status, 400);
+    assert.equal((await hold({ to: [] })).status, 400);
+    assert.equal((await hold({ to: ['nope'] })).status, 400);
+  });
+});
+
+describe('the broader check before send', () => {
+  const check = (o) => run('check', 'POST', { to: ['maya@example.org'], subject: 'Hi', files: 0, html: '<p>Hi Maya, thank you.</p>', ...o });
+  it('flags an empty body, a long reply-all, an outsider on an internal thread and a likely misspelled first name', () => {
+    const base = { html: '<p>Hi Maia, thanks.</p>', subject: 's', files: 0, to: [], partnerName: 'Maya Okafor', lastGift: 0, quotedAmounts: [] };
+    assert.ok(know.writingCheck({ ...base, html: '<p> </p>' }).some((w) => w.code === 'empty'));
+    assert.ok(know.writingCheck({ ...base, recipients: 12 }).some((w) => w.code === 'bulk'));
+    assert.ok(know.writingCheck({ ...base, threadInternal: true, external: ['pat@example.org'] }).some((w) => w.code === 'external'));
+    const codes = know.writingCheck(base).map((w) => w.code);
+    assert.ok(codes.includes('typo') && !codes.includes('name'));
+  });
+  it('says nothing when nothing is wrong', async () => {
+    assert.deepEqual((await check({})).data.warnings, []);
+  });
+});
