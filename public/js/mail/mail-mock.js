@@ -81,6 +81,7 @@
     if (label === 'TRASH') return has(t, 'TRASH');
     return has(t, label) && !has(t, 'TRASH');
   };
+  var boxOfT = function (t) { var n = Number(String(t.id).slice(1)) % 5; return n === 0 ? 'accounting@favorintl.org' : n === 3 ? 'admin@favorintl.org' : ''; };
   var override = {};
   var cls = function (t) {
     var real = t.messages.filter(function (x) { return !x.draft; }), last = real[real.length - 1] || t.messages[0];
@@ -98,7 +99,10 @@
 
   window.FavorMailMock = function (real) {
     return Object.assign({}, real, {
-      state: function () { return wait({ ok: true, connected: true, email: ME.email, name: ME.name, level: level, write: true, signature: level.read ? '<div>Sam Rivers<br>Favor International</div>' : '' }, 40); },
+      state: function () { return wait({ ok: true, connected: true, email: ME.email, name: ME.name, level: level, write: true, signature: level.read ? '<div>Sam Rivers<br>Favor International</div>' : '', mailboxes: [{ email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a' }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8' }] }, 40); },
+      boxes: function () { return wait({ ok: true, boxes: [{ email: ME.email, name: ME.name, color: '', primary: true, unread: 3 }, { email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a', unread: 2 }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8', unread: 0 }] }, 60); },
+      from: function () { return wait({ ok: true, from: [{ mailbox: ME.email, email: ME.email, name: ME.name, default: true }, { mailbox: 'accounting@favorintl.org', email: 'accounting@favorintl.org', name: 'Favor Accounting', default: true }, { mailbox: 'admin@favorintl.org', email: 'admin@favorintl.org', name: 'Favor Admin', default: true }] }, 60); },
+      removeBox: function () { return wait({ ok: true }, 100); },
       labels: function () {
         var count = function (l) { return threads.filter(function (t) { return inLabel(t, l) && has(t, 'UNREAD'); }).length; };
         var sys = [['INBOX', 'Inbox'], ['STARRED', 'Starred'], ['SNOOZED', 'Snoozed'], ['IMPORTANT', 'Important'], ['SENT', 'Sent'], ['DRAFT', 'Drafts'], ['ALL', 'All mail'], ['SPAM', 'Spam'], ['TRASH', 'Trash']].map(function (x) { return { id: x[0], name: x[1], type: 'system', unread: x[0] === 'INBOX' ? count('INBOX') : 0, total: x[0] === 'DRAFT' ? threads.filter(function (t) { return inLabel(t, 'DRAFT'); }).length : 0 }; });
@@ -109,6 +113,7 @@
         if (query && !level.read) return deny('read');
         var list = threads.filter(function (t) { return inLabel(t, query ? 'ALL' : label); });
         var fl = o.flags || [];
+        if (o.mb != null) list = list.filter(function (t) { return boxOfT(t) === (o.mb === ME.email ? '' : o.mb); });
         if (query) {
           var words = query.toLowerCase();
           var from = (words.match(/from:(\S+)/) || [])[1], att = /has:attachment/.test(words), unread = /is:unread/.test(words);

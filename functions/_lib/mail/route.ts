@@ -27,6 +27,7 @@ import { staffDirectory } from '../people';
 import type { HubUser } from '../session';
 import { GmailError, ROW_HEADERS, gmail, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
 import { b64ToBytes, rawOf, validEmail, type OutFile } from './mime';
+import { boxToken, listBoxes, removeBox } from './boxes';
 import { partnerMap, type PartnerLookup } from './partners';
 import { idsFor, rowsFor } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
@@ -116,13 +117,24 @@ async function route(ctx: MailCtx): Promise<Response> {
   const mode = await mailMode(env);
   if (!mayUseMail(mode, user)) return errorJson('forbidden', mode === 'off' ? 'Mail is switched off.' : user.via !== 'google' ? 'Mail needs a Google sign-in.' : 'Mail is open to admins for now.', 403);
   if (!sameSite(request)) return errorJson('cross_site', 'That change did not come from FavorOS. Reload the page and try again.', 403);
-  const me = lower(user.email);
+  const owner = lower(user.email);
+  let me = owner;
   const fetcher = ctx.fetcher || fetch;
   const [a = '', b = '', c = '', d = ''] = path;
 
   const writeOn = (await effective(env, 'mail.write', undefined, 'on').catch(() => 'on')).toLowerCase() !== 'off';
-  const tok = await accessToken(env, me);
-  const level = tok ? mailLevel(tok.scopes) : { read: false, write: false, contacts: false, headers: false };
+  let tok = await accessToken(env, owner);
+  let level = tok ? mailLevel(tok.scopes) : { read: false, write: false, contacts: false, headers: false };
+  // Another of the person's own mailboxes: the same routes answer for it, with its own token. Only its owner can ask.
+  const mb = lower(url.searchParams.get('mb'));
+  const onBox = !!mb && mb !== owner && !['state', 'boxes', 'from', 'contacts', 'drive', 'clips', 'log-owners'].includes(a);
+  if (onBox) {
+    const bt = await boxToken(env, owner, mb);
+    if (!bt) return errorJson('no_mailbox', 'That mailbox is not connected.', 404);
+    tok = bt;
+    level = mailLevel(bt.scopes);
+    me = mb;
+  }
 
   if (a === 'state' && method === 'GET') {
     let signature = '';
@@ -131,9 +143,41 @@ async function route(ctx: MailCtx): Promise<Response> {
       const main = (s?.sendAs || []).find((x: any) => x.isDefault) || (s?.sendAs || [])[0];
       signature = main?.signature ? sanitizeHtml(String(main.signature)) : '';
     }
-    return json({ ok: true, connected: !!tok, email: me, name: user.name || me, level, write: writeOn, signature });
+    return json({ ok: true, connected: !!tok, email: me, name: user.name || me, level, write: writeOn, signature, mailboxes: (await listBoxes(env, owner)).map((x) => ({ email: x.mailbox, name: x.name, color: x.color })) });
   }
 
+  if (a === 'boxes' && !b && method === 'GET') {
+    const list = await listBoxes(env, owner);
+    const one = async (email: string, t: { token: string; scopes: string } | null) => {
+      if (!t) return -1;
+      const lv = mailLevel(t.scopes);
+      try {
+        return (await inboxCounts(gmail(t.token, fetcher), lv.read)).primary;
+      } catch {
+        return -1;
+      }
+    };
+    const own = await one(owner, tok);
+    const others = await Promise.all(list.map(async (x) => ({ email: x.mailbox, name: x.name, color: x.color, unread: await one(x.mailbox, await boxToken(env, owner, x.mailbox).catch(() => null)) })));
+    return json({ ok: true, boxes: [{ email: owner, name: user.name || owner, color: '', primary: true, unread: own }, ...others] });
+  }
+  if (a === 'boxes' && b && method === 'DELETE') {
+    const gone = await removeBox(env, owner, decodeURIComponent(b));
+    return gone ? json({ ok: true }) : errorJson('no_mailbox', 'That mailbox is not connected.', 404);
+  }
+  if (a === 'from' && method === 'GET') {
+    // The addresses a message can go out from: each connected mailbox and the aliases Gmail lists for it.
+    const list = await listBoxes(env, owner);
+    const accounts: Array<{ mailbox: string; t: { token: string; scopes: string } | null }> = [{ mailbox: owner, t: tok }, ...(await Promise.all(list.map(async (x) => ({ mailbox: x.mailbox, t: await boxToken(env, owner, x.mailbox).catch(() => null) }))))];
+    const out: Array<{ mailbox: string; email: string; name: string; default: boolean }> = [];
+    for (const ac of accounts) {
+      let rows: any[] = [];
+      if (ac.t && mailLevel(ac.t.scopes).read) rows = ((await gmail(ac.t.token, fetcher).get('/settings/sendAs').catch(() => null))?.sendAs || []) as any[];
+      if (!rows.length) rows = [{ sendAsEmail: ac.mailbox, displayName: ac.mailbox === owner ? user.name || '' : '', isDefault: true }];
+      for (const r of rows) out.push({ mailbox: ac.mailbox, email: lower(r.sendAsEmail), name: String(r.displayName || (lower(r.sendAsEmail) === owner ? user.name || '' : '')), default: !!r.isDefault });
+    }
+    return json({ ok: true, from: out });
+  }
   if (a === 'contacts' && method === 'GET') return json({ ok: true, ...(await contacts(ctx, tok?.token || '', level.contacts, url.searchParams.get('q') || '')) });
   if (a === 'drive' && method === 'GET') {
     const q = url.searchParams.get('q') || '';
@@ -225,7 +269,9 @@ async function route(ctx: MailCtx): Promise<Response> {
   if (a === 'bulk' && method === 'POST') {
     const w = needWrite();
     if (w) return w;
-    return json(await bulk(env, gm, me, level.read, await readBody(request)));
+    const done = await bulk(env, gm, me, level.read, await readBody(request));
+    forgetCount(owner);
+    return json(done);
   }
 
   if (a === 'threads' && !b && method === 'GET') {
@@ -361,6 +407,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (!add.length && !remove.length) throw new HttpError(400, 'nothing', 'Nothing to change.');
     const t = await gm.send('POST', `/threads/${tid(b)}/modify`, { addLabelIds: add, removeLabelIds: remove });
     forgetCount(me);
+    forgetCount(owner);
     // Putting a snoozed thread back in the inbox ends the snooze.
     if (add.includes('INBOX')) await env.DB.prepare('UPDATE hub_mail_snooze SET woke_at = ? WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(nowIso(), me, b).run().catch(() => undefined);
     return json({ ok: true, labelIds: [...new Set((t.messages || []).flatMap((m: any) => m.labelIds || []))] });
@@ -370,6 +417,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (w) return w;
     await gm.send('POST', `/threads/${tid(b)}/${c}`);
     forgetCount(me);
+    forgetCount(owner);
     return json({ ok: true });
   }
   if (a === 'threads' && b && c === 'snooze') {
@@ -406,7 +454,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     const w = needWrite();
     if (w) return w;
     const body = await readBody(request);
-    const mail = await outMail(gm, user, body, true);
+    const mail = await outMail(gm, from(await fromOf(gm, me, user, body)), body, true);
     const sent = await gm.send('POST', '/messages/send', { raw: rawOf(mail), threadId: body.threadId && /^[A-Za-z0-9]{6,40}$/.test(String(body.threadId)) ? String(body.threadId) : undefined });
     if (body.draftId && /^[A-Za-z0-9_-]{4,80}$/.test(String(body.draftId))) await gm.send('DELETE', '/drafts/' + String(body.draftId)).catch(() => undefined);
     return json({ ok: true, id: sent.id, threadId: sent.threadId });
@@ -416,7 +464,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     const w = needWrite();
     if (w) return w;
     const body = await readBody(request);
-    const mail = await outMail(gm, user, body, false);
+    const mail = await outMail(gm, from(await fromOf(gm, me, user, body)), body, false);
     const message: Record<string, string> = { raw: rawOf(mail) };
     if (body.threadId && /^[A-Za-z0-9]{6,40}$/.test(String(body.threadId))) message.threadId = String(body.threadId);
     const draftId = /^[A-Za-z0-9_-]{4,80}$/.test(String(body.draftId || '')) ? String(body.draftId) : '';
@@ -442,7 +490,28 @@ function fileUrl(mid: string, f: { id: string; name: string; mime: string }) {
 }
 
 /** The message to send or save: addresses checked, the reply headers read from Gmail, uploaded and forwarded files gathered. */
-async function outMail(gm: Gmail, user: HubUser, body: Record<string, any>, sending: boolean) {
+const from = (f: { name: string; email: string }) => f;
+
+/** Who a message goes out as: the mailbox's own address, or one of the aliases Gmail lists for it. */
+async function fromOf(gm: Gmail, me: string, user: HubUser, body: Record<string, any>): Promise<{ name: string; email: string }> {
+  const want = lower(body.from);
+  const own = me === lower(user.email);
+  const fallback = { name: own ? user.name || '' : '', email: me };
+  if (!want || want === me) {
+    if (!own) {
+      const s = await gm.get('/settings/sendAs').catch(() => null);
+      const row = (s?.sendAs || []).find((x: any) => lower(x.sendAsEmail) === me);
+      if (row?.displayName) fallback.name = String(row.displayName);
+    }
+    return fallback;
+  }
+  const s = await gm.get('/settings/sendAs').catch(() => null);
+  const row = (s?.sendAs || []).find((x: any) => lower(x.sendAsEmail) === want);
+  if (!row) throw new HttpError(400, 'bad_from', 'That address is not one this mailbox can send as.');
+  return { name: String(row.displayName || ''), email: want };
+}
+
+async function outMail(gm: Gmail, sender: { name: string; email: string }, body: Record<string, any>, sending: boolean) {
   const to = addrs(body.to);
   const cc = addrs(body.cc);
   const bcc = addrs(body.bcc);
@@ -475,7 +544,7 @@ async function outMail(gm: Gmail, user: HubUser, body: Record<string, any>, send
     files.push({ name: String(f?.name || 'file').slice(0, 160), mime: String(f?.mime || 'application/octet-stream').slice(0, 100), data });
   }
   if (size > MAX_SEND) throw new HttpError(413, 'too_big', 'Files can add up to 24 MB. Share a big file from Drive instead.');
-  return { from: { name: user.name || '', email: user.email }, to, cc, bcc, subject: String(body.subject || '').slice(0, 900), html, inReplyTo, references, files };
+  return { from: { name: sender.name, email: sender.email }, to, cc, bcc, subject: String(body.subject || '').slice(0, 900), html, inReplyTo, references, files };
 }
 
 async function partnersFor(ctx: MailCtx, msgs: Array<{ from: Addr; to: Addr[]; cc: Addr[] }>, me: string) {
@@ -561,7 +630,16 @@ export async function mailUnreadCount(env: Env, email: string, fetcher: Fetcher 
   const gm = gmail(tok.token, fetcher);
   // The menu loads on every page, Today included, so a snoozed conversation is back by the time its owner looks.
   if (lv.write) await wakeDue(env, gm, k).catch(() => undefined);
-  const n = (await inboxCounts(gm, lv.read)).primary;
+  let n = (await inboxCounts(gm, lv.read)).primary;
+  // The menu number counts every mailbox the person connected, so Today, the menu and Mail agree.
+  const rows = await listBoxes(env, k);
+  if (rows.length) {
+    const more = await Promise.all(rows.map(async (b) => {
+      const t = await boxToken(env, k, b.mailbox).catch(() => null);
+      return t ? inboxCounts(gmail(t.token, fetcher), mailLevel(t.scopes).read).then((c) => c.primary).catch(() => 0) : 0;
+    }));
+    n += more.reduce((x, y) => x + y, 0);
+  }
   remember(k, n);
   return n;
 }

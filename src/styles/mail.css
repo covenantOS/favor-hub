@@ -483,3 +483,20 @@ textarea.ml-input { resize: vertical; }
   .ml-pickall { margin-right: auto; margin-left: 0; }
   .ml-list__head .ml-iconbtn { width: 40px; height: 40px; }
 }
+
+/* ------------------------------------------------------------ more than one mailbox */
+.ml-boxes { display: flex; flex-direction: column; gap: 1px; margin-top: -4px; }
+.ml-bx { display: flex; align-items: center; gap: 10px; min-height: 32px; padding: 0 10px; border: 0; border-radius: 10px; background: none; color: var(--r-ink-2); text-align: left; font: 500 13.5px var(--h-font, Inter, sans-serif); }
+.ml-bx span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-bx:hover { background: var(--r-sunk); color: var(--r-ink); }
+.ml-bx.is-on { background: var(--tc-sky-tint); color: var(--tc-sky-ink); font-weight: 700; }
+.ml-mb { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; margin-right: 6px; vertical-align: 0; }
+.ml-bx .ml-mb { margin-right: 0; }
+.ml-row__who .ml-mb { margin-right: 6px; vertical-align: 1px; }
+.ml-addbox { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 0 10px; border: 0; background: none; color: var(--r-ink-3); font: 600 12.5px var(--h-font, Inter, sans-serif); text-align: left; }
+.ml-addbox:hover { color: var(--tc-sky-ink); }
+.ml-addbox .ml-i { width: 14px; height: 14px; }
+.ml-mrow { gap: 10px; }
+.ml-mrow span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ml-mrow .ml-btn { min-height: 30px; padding: 0 12px; }
+.ml-c__from { width: 100%; background: none; border: 0; font: 400 14px var(--h-font, Inter, sans-serif); color: var(--r-ink); }

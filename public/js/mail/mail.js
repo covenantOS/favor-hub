@@ -108,29 +108,35 @@
       });
     }, function () { var e = new Error('No connection. Try again when you are back online.'); e.code = 'offline'; throw e; });
   }
+  // Every call for a conversation names the mailbox it lives in (?mb=); the person's own mailbox is the one with none.
+  function pathMb(path, mb) { return mb ? path + (path.indexOf('?') < 0 ? '?' : '&') + 'mb=' + encodeURIComponent(mb) : path; }
+  function boxOf(id) { return (S.mbOf && S.mbOf[id]) || ''; }
   var api = {
     state: function () { return req('GET', 'state'); },
-    labels: function () { return req('GET', 'labels'); },
+    boxes: function () { return req('GET', 'boxes'); },
+    from: function () { return req('GET', 'from'); },
+    removeBox: function (email) { return req('DELETE', 'boxes/' + encodeURIComponent(email)); },
+    labels: function (mb) { return req('GET', pathMb('labels', mb)); },
     threads: function (label, q, page, o) {
       o = o || {};
       return req('GET', 'threads?label=' + encodeURIComponent(label || 'INBOX') + (q ? '&q=' + encodeURIComponent(q) : '') + (page ? '&page=' + encodeURIComponent(page) : '') +
-        (o.view ? '&view=' + encodeURIComponent(o.view) : '') + (o.flags && o.flags.length ? '&f=' + o.flags.join(',') : '') + (o.sort ? '&sort=' + o.sort : ''));
+        (o.view ? '&view=' + encodeURIComponent(o.view) : '') + (o.flags && o.flags.length ? '&f=' + o.flags.join(',') : '') + (o.sort ? '&sort=' + o.sort : '') + (o.mb ? '&mb=' + encodeURIComponent(o.mb) : ''));
     },
-    overview: function () { return req('GET', 'smart/overview'); },
-    assist: function (id) { return req('GET', 'threads/' + encodeURIComponent(id) + '/assist'); },
+    overview: function (mb) { return req('GET', pathMb('smart/overview', mb)); },
+    assist: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))); },
     partner: function (id) { return req('GET', 'partner/' + encodeURIComponent(id)); },
-    bulk: function (b) { return req('POST', 'bulk', b); },
-    moveCat: function (senders, cat) { return req('POST', 'smart/move', { senders: senders, cat: cat }); },
-    thread: function (id) { return req('GET', 'threads/' + encodeURIComponent(id)); },
-    modify: function (id, add, remove) { return req('POST', 'threads/' + encodeURIComponent(id) + '/modify', { add: add || [], remove: remove || [] }); },
-    trash: function (id) { return req('POST', 'threads/' + encodeURIComponent(id) + '/trash', {}); },
-    untrash: function (id) { return req('POST', 'threads/' + encodeURIComponent(id) + '/untrash', {}); },
-    snooze: function (id, until) { return req('POST', 'threads/' + encodeURIComponent(id) + '/snooze', { until: until }); },
-    unsnooze: function (id) { return req('DELETE', 'threads/' + encodeURIComponent(id) + '/snooze'); },
-    newLabel: function (name) { return req('POST', 'labels', { name: name }); },
-    send: function (b) { return req('POST', 'send', b); },
-    saveDraft: function (b) { return req('PUT', 'drafts', b); },
-    dropDraft: function (id) { return req('DELETE', 'drafts/' + encodeURIComponent(id)); },
+    bulk: function (b, mb) { return req('POST', pathMb('bulk', mb), b); },
+    moveCat: function (senders, cat, mb) { return req('POST', pathMb('smart/move', mb), { senders: senders, cat: cat }); },
+    thread: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id), boxOf(id))); },
+    modify: function (id, add, remove) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/modify', boxOf(id)), { add: add || [], remove: remove || [] }); },
+    trash: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/trash', boxOf(id)), {}); },
+    untrash: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/untrash', boxOf(id)), {}); },
+    snooze: function (id, until) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id)), { until: until }); },
+    unsnooze: function (id) { return req('DELETE', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id))); },
+    newLabel: function (name, mb) { return req('POST', pathMb('labels', mb), { name: name }); },
+    send: function (b) { return req('POST', pathMb('send', b.mb), b); },
+    saveDraft: function (b) { return req('PUT', pathMb('drafts', b.mb), b); },
+    dropDraft: function (id, mb) { return req('DELETE', pathMb('drafts/' + encodeURIComponent(id), mb)); },
     contacts: function (q) { return req('GET', 'contacts?q=' + encodeURIComponent(q || '')); },
     drive: function (q) { return req('GET', 'drive?q=' + encodeURIComponent(q || '')); },
     clips: function () { return req('GET', 'clips'); },
@@ -139,7 +145,7 @@
     chatBoot: function () { return req('GET', '/api/chat/boot'); },
     chatSend: function (ch, body) { return req('POST', '/api/chat/channels/' + encodeURIComponent(ch) + '/messages', { body: body }); },
     logAction: function (b) { return req('POST', '/api/work/entry/many', b); },
-    fileUrl: function (mid, f, dl) { return '/api/mail/messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + (dl ? '&dl=1' : ''); }
+    fileUrl: function (mid, f, dl) { return '/api/mail/messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + (dl ? '&dl=1' : '') + (S.threadBox ? '&mb=' + encodeURIComponent(S.threadBox) : ''); }
   };
   if (MOCK && window.FavorMailMock) api = window.FavorMailMock(api);
 
@@ -148,7 +154,8 @@
     me: '', name: '', level: { read: false, write: false, headers: false, contacts: false }, write: true, connected: false, signature: '',
     label: 'INBOX', q: '', threads: [], next: '', loading: false, labels: [], sel: -1,
     open: '', thread: null, partners: {}, drafts: {}, view: 'list', ro: false, nav: {}, exp: {},
-    v: '', flags: {}, sort: '', picked: {}, anchor: '', ov: null, ovTry: 0
+    v: '', flags: {}, sort: '', picked: {}, anchor: '', ov: null, ovTry: 0,
+    boxes: [], box: '', counts: {}, mbOf: {}, nexts: {}, threadBox: '', fromOpts: null
   };
   try { S.ro = localStorage.getItem('favor.mail.ro') === '1'; } catch (e) { /* private mode */ }
   try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); S.nav = (nv && nv.access) || {}; } catch (e) { /* none */ }
@@ -164,7 +171,7 @@
     '<div class="ml-pnav"><button type="button" class="ml-pn" data-act="hub-menu" aria-label="Open the menu">' + ic('menu') + '</button>' +
       '<button type="button" class="ml-pn ml-pn--label" data-act="labels-sheet" aria-haspopup="dialog"><span data-label-name>Inbox</span>' + ic('chevd') + '</button>' +
       '<button type="button" class="ml-pn" data-act="compose" aria-label="New message">' + ic('pen') + '</button></div>' +
-    '<aside class="ml-side" aria-label="Mailboxes"><button type="button" class="ml-compose" data-act="compose">' + ic('pen') + '<span>Compose</span></button><nav class="ml-labels" data-labels></nav></aside>' +
+    '<aside class="ml-side" aria-label="Mailboxes"><button type="button" class="ml-compose" data-act="compose">' + ic('pen') + '<span>Compose</span></button><div class="ml-boxes" data-boxes></div><nav class="ml-labels" data-labels></nav></aside>' +
     '<section class="ml-list" aria-label="Conversations">' +
       '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
       '<div class="ml-tabs" data-tabs role="navigation" aria-label="Views" hidden></div>' +
@@ -285,6 +292,73 @@
     toast(e && e.message ? e.message : 'That did not work. Try again.');
   }
 
+  /* ------------------------------------------------------------------ mailboxes */
+  var PRIMARY_DOT = '#7b8a76';
+  // The mailboxes the list reads: every one when "All mailboxes" is chosen, else the one chosen ('' is the person's own).
+  function accts() {
+    if (!S.boxes.length) return [''];
+    if (S.box === '') return [''].concat(S.boxes.map(function (b) { return b.email; }));
+    return [S.box === S.me ? '' : S.box];
+  }
+  function labelsAcct() { return S.box === '' || S.box === S.me ? '' : S.box; }
+  function boxColor(a) { var b = a && S.boxes.filter(function (x) { return x.email === a; })[0]; return b && b.color ? b.color : PRIMARY_DOT; }
+  function boxTotal() { return Object.keys(S.counts).reduce(function (n, k) { return n + Math.max(0, S.counts[k]); }, 0); }
+  function boxLabel(email) { var b = S.boxes.filter(function (x) { return x.email === email; })[0]; return b && b.name ? b.name : email.split('@')[0]; }
+  function boxesHtml() {
+    if (!S.boxes.length) return '<button type="button" class="ml-addbox" data-act="box-add">' + ic('plus') + 'Add a mailbox</button>';
+    var one = function (key, name, color, n, tip) { return '<button type="button" class="ml-bx' + (S.box === key ? ' is-on' : '') + '" data-box="' + esc(key) + '" title="' + esc(tip || name) + '"><i class="ml-mb" style="background:' + esc(color) + '"></i><span>' + esc(name) + '</span>' + (n > 0 ? '<em class="ml-count' + '">' + n + '</em>' : '') + '</button>'; };
+    return '<div class="ml-labels__h">Mailboxes</div>' + one('', 'All mailboxes', '#c9cfc2', boxTotal()) + one(S.me, S.me.split('@')[0], PRIMARY_DOT, S.counts[S.me] || 0, S.me) +
+      S.boxes.map(function (b) { return one(b.email, boxLabel(b.email), b.color || PRIMARY_DOT, S.counts[b.email] || 0, b.email); }).join('') +
+      '<button type="button" class="ml-addbox" data-act="box-manage">' + ic('plus') + 'Manage mailboxes</button>';
+  }
+  function renderBoxes() { var el = $('[data-boxes]'); if (el) el.innerHTML = boxesHtml(); }
+  function loadBoxes() {
+    if (!S.boxes.length) return Promise.resolve();
+    return api.boxes().then(function (d) {
+      S.counts = {};
+      (d.boxes || []).forEach(function (b) { S.counts[b.email] = b.unread; });
+      renderBoxes();
+      setRailCount(boxTotal());
+    }).catch(function () { /* the counts stay as they were */ });
+  }
+  function setBox(key) {
+    if (S.box === key) return;
+    S.box = key; S.ov = null; S.labels = []; S.threads = []; S.nexts = {}; S.v = '';
+    renderBoxes(); renderLabels();
+    history.replaceState(history.state, '', '#/INBOX');
+    loadLabels(); route();
+  }
+  function bulkAll(body) {
+    // Conversations in different mailboxes go out as one change for each mailbox.
+    var groups = {};
+    body.ids.forEach(function (id) { var a = boxOf(id); (groups[a] = groups[a] || []).push(id); });
+    var keys = Object.keys(groups);
+    return Promise.all(keys.map(function (a) { return api.bulk(Object.assign({}, body, { ids: groups[a] }), a); })).then(function (rs) {
+      return rs.reduce(function (m, r) { return { ok: true, done: (m.done || 0) + (r.done || 0), failed: (m.failed || 0) + (r.failed || 0), unread: r.unread, all: r.all }; }, {});
+    });
+  }
+  function manageBoxes() {
+    var rows = S.boxes.map(function (b) { return '<div class="ml-menu__i ml-mrow"><i class="ml-mb" style="background:' + esc(b.color || PRIMARY_DOT) + '"></i><span>' + esc(b.email) + '</span><button type="button" class="ml-btn" data-rmbox="' + esc(b.email) + '">Remove</button></div>'; }).join('');
+    var el = openSheet('Mailboxes', '<p class="ml-p">Only you can see a mailbox you add here. Add a Favor account (an accounting or admin inbox, or a second account of yours) and reply from it, or remove it and FavorOS forgets the connection.</p><div class="ml-menu"><div class="ml-menu__i ml-mrow"><i class="ml-mb" style="background:' + PRIMARY_DOT + '"></i><span>' + esc(S.me) + '</span><small>Signed in</small></div>' + rows + '</div>' +
+      '<div class="ml-sheet__acts"><a class="ml-btn ml-btn--primary" href="' + esc(addBoxUrl()) + '">Add a mailbox</a></div>');
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-rmbox]'); if (!b) return;
+      var email = b.dataset.rmbox;
+      if (!window.confirm('Remove ' + email + ' from FavorOS Mail? Nothing is deleted in Gmail.')) return;
+      b.disabled = true;
+      api.removeBox(email).then(function () {
+        S.boxes = S.boxes.filter(function (x) { return x.email !== email; });
+        delete S.counts[email];
+        if (S.box === email) S.box = '';
+        closeSheet(); renderBoxes(); loadBoxes(); S.threads = []; S.labels = []; loadLabels(); route();
+        toast('Mailbox removed');
+      }).catch(failed);
+    });
+  }
+  function addBoxUrl() { return '/api/google/connect?add=mailbox&next=' + encodeURIComponent('/mail/'); }
+  // The From picker: every connected mailbox and the addresses Gmail lets it send as.
+  function loadFrom() { if (!S.boxes.length) return Promise.resolve(); return api.from().then(function (d) { S.fromOpts = d.from || []; }).catch(function () { S.fromOpts = null; }); }
+
   /* ------------------------------------------------------------------ labels */
   function renderLabels() {
     var sys = S.labels.filter(function (l) { return l.type === 'system' && l.id !== 'IMPORTANT'; });
@@ -299,8 +373,8 @@
     var nav = $('[data-labels]'); if (nav) nav.innerHTML = html;
     var nm = $('[data-label-name]'); if (nm) nm.textContent = S.q ? 'Search' : labelName(S.label);
     var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
-    if (inbox) setRailCount(inbox.unread);
-    return html;
+    if (inbox) setRailCount(S.boxes.length ? boxTotal() : inbox.unread);
+    return (isPhone() && S.boxes.length ? boxesHtml() : '') + html;
   }
   function renderLabelsOnly() { if (S.labels.length) renderLabels(); }
   function setRailCount(n) {
@@ -311,16 +385,17 @@
   }
   function loadLabels() {
     if (!S.level.headers && !S.level.read) return Promise.resolve();
-    return api.labels().then(function (d) { S.labels = d.labels || []; renderLabels(); renderFilters(); }).catch(function () { /* the list still works */ });
+    return api.labels(labelsAcct()).then(function (d) { S.labels = d.labels || []; renderLabels(); renderFilters(); }).catch(function () { /* the list still works */ });
   }
   // The rail number follows what Gmail says: a change made here moves it at once, and the real number is read a moment later.
   var syncT = 0;
-  function syncSoon(ms) { clearTimeout(syncT); syncT = setTimeout(function () { loadLabels(); if (S.label === 'INBOX') loadOverview(); }, ms || 1500); }
+  function syncSoon(ms) { clearTimeout(syncT); syncT = setTimeout(function () { loadLabels(); loadBoxes(); if (S.label === 'INBOX') loadOverview(); }, ms || 1500); }
   function sync(d) {
     if (d && d.unread != null) {
       var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
       if (inbox) { inbox.unread = d.unread; if (d.all != null) inbox.unreadAll = d.all; renderLabels(); renderFilters(); }
     }
+    loadBoxes();
     syncSoon();
   }
   // A conversation counts toward the Inbox number when it is in the Inbox's Primary tab.
@@ -405,13 +480,24 @@
   }
   function loadOverview() {
     if (!S.level.read || !S.connected) return;
-    var seq = ++ovSeq;
-    api.overview().then(function (d) {
+    var seq = ++ovSeq, list = accts();
+    Promise.all(list.map(function (a) { return api.overview(a).catch(function () { return null; }); })).then(function (rs) {
       if (seq !== ovSeq) return;
+      rs = rs.filter(Boolean);
+      if (!rs.length) return;
+      var d = rs[0];
+      if (rs.length > 1) {
+        d = { counts: {}, needs: 0, unread: 0, waiting: 0, marks: {}, cleanup: { total: 0, senders: [], ids: [] }, scanned: 0, pending: 0 };
+        rs.forEach(function (r) {
+          Object.keys(r.counts).forEach(function (c) { var x = d.counts[c] || (d.counts[c] = { n: 0, unread: 0 }); x.n += r.counts[c].n; x.unread += r.counts[c].unread; });
+          d.needs += r.needs; d.unread += r.unread; d.waiting += r.waiting; d.scanned += r.scanned; d.pending += r.pending;
+          Object.assign(d.marks, r.marks);
+        });
+      }
       S.ov = d; S.ovTry = d.pending ? S.ovTry + 1 : 0;
       applyMarks(); renderTabs(); renderCleanup();
       if (d.pending && S.ovTry < 3) setTimeout(function () { if (S.label === 'INBOX') loadOverview(); }, 2500);
-    }).catch(function () { /* the tabs stay without counts */ });
+    });
   }
   var ovSeq = 0;
   function cleanHtml() {
@@ -439,9 +525,9 @@
       var ids = c.ids.slice();
       closeSheet();
       var gone = removeMany(ids);
-      api.bulk({ ids: ids, action: 'archive' }).then(function (d) {
+      bulkAll({ ids: ids, action: 'archive' }).then(function (d) {
         sync(d);
-        toast('Archived ' + ids.length + ' conversations', function () { api.bulk({ ids: ids, action: 'inbox' }).then(function (d2) { putBackMany(gone); sync(d2); loadOverview(); }).catch(failed); });
+        toast('Archived ' + ids.length + ' conversations', function () { bulkAll({ ids: ids, action: 'inbox' }).then(function (d2) { putBackMany(gone); sync(d2); loadOverview(); }).catch(failed); });
         loadOverview();
       }).catch(function (er) { putBackMany(gone); failed(er, 'archive'); });
     });
@@ -505,11 +591,11 @@
       var gone = leaves ? removeMany(ids) : [];
       if (!leaves) { rows.forEach(function (t) { t.labelIds = (t.labelIds || []).filter(function (l) { return l !== 'INBOX'; }); }); clearPicks(); }
       bumpInbox(-unreadPrimary);
-      api.bulk({ ids: ids, action: kind }).then(function (d) {
+      bulkAll({ ids: ids, action: kind }).then(function (d) {
         sync(d);
         if (d.failed) { toast(d.failed + ' did not change. Try those again.'); loadList({ quiet: true }); return; }
         toast((kind === 'archive' ? 'Archived ' : 'Moved to Trash: ') + plural, function () {
-          api.bulk({ ids: ids, action: kind === 'archive' ? 'inbox' : 'untrash' }).then(function (d2) { putBackMany(gone); bumpInbox(unreadPrimary); sync(d2); toast('Back where they were'); }).catch(failed);
+          bulkAll({ ids: ids, action: kind === 'archive' ? 'inbox' : 'untrash' }).then(function (d2) { putBackMany(gone); bumpInbox(unreadPrimary); sync(d2); toast('Back where they were'); }).catch(failed);
         });
       }).catch(function (e) { putBackMany(gone); bumpInbox(unreadPrimary); failed(e, kind); });
       return;
@@ -519,13 +605,13 @@
       rows.forEach(function (t) { if (!!t.unread !== on) { if (isPrimary(t.labelIds)) delta += on ? 1 : -1; t.unread = on; patchRow(t); } });
       renderSelBar();
       bumpInbox(delta);
-      api.bulk({ ids: ids, action: kind }).then(function (d) { sync(d); toast(on ? 'Marked as unread' : 'Marked as read'); }).catch(function (e) { rows.forEach(function (t) { t.unread = !on; patchRow(t); }); bumpInbox(-delta); failed(e, kind); });
+      bulkAll({ ids: ids, action: kind }).then(function (d) { sync(d); toast(on ? 'Marked as unread' : 'Marked as read'); }).catch(function (e) { rows.forEach(function (t) { t.unread = !on; patchRow(t); }); bumpInbox(-delta); failed(e, kind); });
       return;
     }
     if (kind === 'star') {
       var all = rows.every(function (t) { return t.starred; });
       rows.forEach(function (t) { t.starred = !all; patchRow(t); });
-      api.bulk({ ids: ids, action: all ? 'unstar' : 'star' }).catch(function (e) { rows.forEach(function (t) { t.starred = all; patchRow(t); }); failed(e, kind); });
+      bulkAll({ ids: ids, action: all ? 'unstar' : 'star' }).catch(function (e) { rows.forEach(function (t) { t.starred = all; patchRow(t); }); failed(e, kind); });
       return;
     }
     if (kind === 'label') return labelsMany(ids, rows);
@@ -548,7 +634,7 @@
       });
       closeSheet();
       if (!add.length && !remove.length) return;
-      api.bulk({ ids: ids, action: 'label', add: add, remove: remove }).then(function (d) {
+      bulkAll({ ids: ids, action: 'label', add: add, remove: remove }).then(function (d) {
         rows.forEach(function (t) { t.labelIds = (t.labelIds || []).filter(function (l) { return remove.indexOf(l) < 0; }); add.forEach(function (l) { if (t.labelIds.indexOf(l) < 0) t.labelIds.push(l); }); });
         toast('Labels saved'); sync(d);
         if (remove.indexOf(S.label) >= 0) loadList({ quiet: true });
@@ -567,9 +653,9 @@
       var unreadPrimary = rows.filter(function (t) { return t.unread && isPrimary(t.labelIds); }).length;
       var gone = S.label === 'INBOX' ? removeMany(ids) : [];
       bumpInbox(-unreadPrimary);
-      api.bulk({ ids: ids, action: 'snooze', until: until.toISOString() }).then(function (d) {
+      bulkAll({ ids: ids, action: 'snooze', until: until.toISOString() }).then(function (d) {
         sync(d);
-        toast('Snoozed until ' + until.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }), function () { api.bulk({ ids: ids, action: 'inbox' }).then(function (d2) { putBackMany(gone); bumpInbox(unreadPrimary); sync(d2); }).catch(failed); });
+        toast('Snoozed until ' + until.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' }), function () { bulkAll({ ids: ids, action: 'inbox' }).then(function (d2) { putBackMany(gone); bumpInbox(unreadPrimary); sync(d2); }).catch(failed); });
       }).catch(function (er) { putBackMany(gone); bumpInbox(unreadPrimary); failed(er, 'snooze'); });
     });
   }
@@ -583,7 +669,9 @@
       var b = e.target.closest('[data-mv]'); if (!b) return;
       var c = b.dataset.mv;
       closeSheet();
-      api.moveCat(senders, c).then(function () {
+      var perBox = {};
+      rows.forEach(function (t) { var e = t.from && t.from.email; if (e && senders.indexOf(e) >= 0) (perBox[t.mb || ''] = perBox[t.mb || ''] || []).push(e); });
+      Promise.all(Object.keys(perBox).map(function (a) { return api.moveCat(perBox[a], c, a); })).then(function () {
         S.threads.forEach(function (t) { if (t.from && senders.indexOf(t.from.email) >= 0) { t.cat = c; patchRow(t); } });
         clearPicks();
         toast('Moved to ' + CAT_NAMES[c]);
@@ -613,13 +701,30 @@
     if (!opts.more) { if (!opts.quiet || !S.threads.length) rows.innerHTML = skeleton(8); S.next = ''; if (!opts.quiet) { S.picked = {}; S.anchor = ''; } }
     S.loading = true;
     renderTabs(); renderFilters(); renderSelBar();
-    return api.threads(S.label, S.q, opts.more ? S.next : '', listOpts()).then(function (d) {
+    var list = accts();
+    var jobs = list.filter(function (a) { return !opts.more || S.nexts[a]; }).map(function (a) {
+      var o = listOpts(); o.mb = a;
+      var p = api.threads(S.label, S.q, opts.more ? S.nexts[a] : '', o).then(function (d) { return { a: a, d: d }; });
+      // A mailbox that fails never takes the others with it.
+      return a ? p.catch(function () { return { a: a, d: { threads: [], next: '' } }; }) : p;
+    });
+    return Promise.all(jobs).then(function (rs) {
+      var d = rs[0].d, merged = [], scanned = 0;
+      if (!opts.more) S.nexts = {};
+      rs.forEach(function (r) {
+        (r.d.threads || []).forEach(function (t) { t.mb = r.a; S.mbOf[t.id] = r.a; });
+        merged = merged.concat(r.d.threads || []);
+        if (r.d.next) S.nexts[r.a] = r.d.next; else delete S.nexts[r.a];
+        scanned += r.d.scanned || 0;
+      });
       if (seq !== listSeq) return;
       S.loading = false;
       if (d.level) S.level = Object.assign(S.level, d.level);
-      S.threads = opts.more ? S.threads.concat(d.threads || []) : (d.threads || []);
-      S.next = d.next || '';
-      S.scanned = d.scanned || 0;
+      var all = opts.more ? S.threads.concat(merged) : merged;
+      if (list.length > 1) { var asc = effSort() === 'old'; all.sort(function (x, y) { return asc ? String(x.date).localeCompare(String(y.date)) : String(y.date).localeCompare(String(x.date)); }); }
+      S.threads = all;
+      S.next = Object.keys(S.nexts).length ? 'more' : '';
+      S.scanned = scanned;
       Object.keys(S.picked).forEach(function (id) { if (!findThread(id)) delete S.picked[id]; });
       renderSelBar();
       var note = $('[data-list-note]'); if (note && !MOCK) note.textContent = S.v && inboxPlain() && S.v !== 'waiting' && S.scanned ? 'From your newest ' + S.scanned : '';
@@ -642,7 +747,7 @@
     return '<div class="ml-row' + (t.unread ? ' is-unread' : '') + (on ? ' is-open' : '') + (i === S.sel ? ' is-sel' : '') + (picked ? ' is-picked' : '') + '" data-i="' + i + '" data-id="' + esc(t.id) + '">' +
       '<a class="ml-row__a" href="#/' + (S.q ? 'search/' + encodeURIComponent(S.q) : encodeURIComponent(S.label)) + '/' + encodeURIComponent(t.id) + '" data-open="' + esc(t.id) + '"' + (on ? ' aria-current="true"' : '') + '>' +
         '<span class="ml-av' + (picked ? ' is-picked' : '') + '" data-h="' + hue((t.from && t.from.email) || name) + '" data-pick>' + (picked ? ic('check') + '<span class="ml-sr">Selected</span>' : esc(initials(t.from && t.from.email === S.me ? S.name : who(t.from) || name))) + '</span>' +
-        '<span class="ml-row__t"><span class="ml-row__l1"><b class="ml-row__who">' + esc(name || '(no sender)') + (t.count > 1 ? ' <small>' + t.count + '</small>' : '') + (t.draft && S.label !== 'DRAFT' ? ' <em class="ml-draftword">Draft</em>' : '') + '</b><time>' + esc(when(t.date)) + '</time></span>' +
+        '<span class="ml-row__t"><span class="ml-row__l1"><b class="ml-row__who">' + (S.boxes.length ? '<i class="ml-mb" style="background:' + esc(boxColor(t.mb)) + '" title="' + esc(t.mb || S.me) + '"></i>' : '') + esc(name || '(no sender)') + (t.count > 1 ? ' <small>' + t.count + '</small>' : '') + (t.draft && S.label !== 'DRAFT' ? ' <em class="ml-draftword">Draft</em>' : '') + '</b><time>' + esc(when(t.date)) + '</time></span>' +
         '<span class="ml-row__s">' + esc(t.subject || '(no subject)') + '</span>' +
         '<span class="ml-row__p">' + (t.ask ? '<em class="ml-chip ml-chip--sun">Needs you</em>' : '') + (t.partner && !(S.v === 'cat:partners') ? '<em class="ml-chip ml-chip--leaf">Partner</em>' : '') + (t.waitDays != null ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + 'Sent ' + (t.waitDays === 1 ? 'yesterday' : t.waitDays + ' days ago') + '</em>' : '') + (t.snoozed ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + esc(when(t.snoozed)) + '</em>' : '') + (t.files ? ic('clip', 'ml-i--sm') : '') + esc(t.snippet || '') + '</span></span>' +
       '</a>' +
@@ -696,6 +801,7 @@
     var seq = ++threadSeq;
     if (S.open !== id) S.exp = {};
     S.open = id;
+    S.threadBox = boxOf(id);
     var t = findThread(id);
     if (t) S.sel = S.threads.indexOf(t);
     $$('.ml-row.is-open').forEach(function (r) { r.classList.remove('is-open'); r.querySelector('.ml-row__a').removeAttribute('aria-current'); });
@@ -926,16 +1032,19 @@
   function parseHash() {
     var h = location.hash.replace(/^#\/?/, '');
     var parts = h.split('/').map(function (x) { try { return decodeURIComponent(x); } catch (e) { return x; } });
-    if (parts[0] === 'search') return { label: 'ALL', q: parts[1] || '', thread: parts[2] || '', v: '' };
+    var tk = function (x) { var i = String(x || '').indexOf('~'); return i < 0 ? { id: x || '', box: '' } : { id: x.slice(0, i), box: x.slice(i + 1) }; };
+    if (parts[0] === 'search') { var t0 = tk(parts[2]); return { label: 'ALL', q: parts[1] || '', thread: t0.id, box: t0.box, v: '' }; }
     var v = unslug(parts[0]);
-    if (v) return { label: 'INBOX', q: '', thread: parts[1] || '', v: v };
-    return { label: parts[0] || 'INBOX', q: '', thread: parts[1] || '', v: '' };
+    var t1 = tk(parts[1]);
+    if (v) return { label: 'INBOX', q: '', thread: t1.id, box: t1.box, v: v };
+    return { label: parts[0] || 'INBOX', q: '', thread: t1.id, box: t1.box, v: '' };
   }
   function hashFor(label, q, tid, v) {
     if (v === undefined) v = label === 'INBOX' && S.label === 'INBOX' && !q ? S.v : '';
     return '#/' + (q ? 'search/' + encodeURIComponent(q) : label === 'INBOX' && v ? slugOf(v) : encodeURIComponent(label || 'INBOX')) + (tid ? '/' + encodeURIComponent(tid) : '');
   }
   function go(label, q, tid, replace) {
+    if (tid && String(tid).indexOf('~') < 0 && S.mbOf[tid]) tid = tid + '~' + S.mbOf[tid];
     var h = hashFor(label, q, tid);
     if (location.hash === h) return route();
     if (replace) { history.replaceState(history.state, '', h); route(); }
@@ -946,6 +1055,7 @@
     var listChanged = r.label !== S.label || r.q !== S.q || r.v !== S.v || (!S.threads.length && !S.loading);
     S.label = r.label; S.q = r.q; S.v = r.v;
     if (listChanged) { S.sel = -1; renderLabels(); loadList(); }
+    if (r.thread && (r.box || S.mbOf[r.thread] == null)) S.mbOf[r.thread] = r.box || '';
     if (r.thread) { if (r.thread !== S.open || S.view !== 'thread') openThread(r.thread); }
     else { S.open = ''; S.thread = null; setView('list'); $$('.ml-row.is-open').forEach(function (x) { x.classList.remove('is-open'); }); if (!isPhone()) $('[data-read]').innerHTML = emptyRead(); }
   }
@@ -1066,7 +1176,7 @@
     el.addEventListener('click', function (e) {
       if (e.target.closest('[data-newlab]')) {
         var name = el.querySelector('#ml-newlab').value.trim(); if (!name) return;
-        api.newLabel(name).then(function (d) { S.labels.push(d.label); renderLabels(); labelsMenu(id, anchor); var cb = document.querySelector('.ml-sheet [data-lab="' + CSS.escape(d.label.id) + '"]'); if (cb) cb.checked = true; }).catch(failed);
+        api.newLabel(name, S.threadBox).then(function (d) { S.labels.push(d.label); renderLabels(); labelsMenu(id, anchor); var cb = document.querySelector('.ml-sheet [data-lab="' + CSS.escape(d.label.id) + '"]'); if (cb) cb.checked = true; }).catch(failed);
         return;
       }
       if (!e.target.closest('[data-applylab]')) return;
@@ -1233,17 +1343,28 @@
     var to = kind === 'replyall' ? all : [(m.replyTo && m.replyTo[0]) || (m.from.email === S.me ? (m.to || [])[0] : m.from)];
     var cc = [];
     if (kind === 'replyall' && all.length > 1) { to = [all[0]]; cc = all.slice(1); }
-    openCompose({ to: to.filter(Boolean), cc: cc, subject: reSubject(m.subject || t.subject, 'Re'), quote: quoteHtml(m), threadId: t.id, replyTo: m.id, title: kind === 'replyall' ? 'Reply all' : 'Reply', body: text ? replyBody(text) : undefined });
+    openCompose({ to: to.filter(Boolean), cc: cc, subject: reSubject(m.subject || t.subject, 'Re'), quote: quoteHtml(m), threadId: t.id, replyTo: m.id, mb: S.threadBox, title: kind === 'replyall' ? 'Reply all' : 'Reply', body: text ? replyBody(text) : undefined });
   }
   function editDraft(mid) {
     if (!S.level.write || !canWrite()) return askWrite('draft');
     var m = S.thread.messages.filter(function (x) { return x.id === mid; })[0]; if (!m) return;
     var real = S.thread.messages.filter(function (x) { return !x.draft; });
-    openCompose({ to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: S.drafts[m.id] || '', threadId: real.length ? S.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', title: 'Draft', noSig: true });
+    openCompose({ to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: S.drafts[m.id] || '', threadId: real.length ? S.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', title: 'Draft', mb: S.threadBox, noSig: true });
   }
   function chipHtml(a) { return '<span class="ml-to" data-email="' + esc(a.email) + '" data-name="' + esc(a.name || '') + '" title="' + esc(a.email) + '">' + esc(a.name || a.email) + '<button type="button" data-unchip aria-label="Remove ' + esc(a.name || a.email) + '">' + ic('x') + '</button></span>'; }
   function addrRow(k, label, list) {
     return '<div class="ml-c__row" data-field="' + k + '"><label for="ml-c-' + k + '">' + label + '</label><div class="ml-c__chips">' + (list || []).map(chipHtml).join('') + '<input id="ml-c-' + k + '" class="ml-c__in" type="email" multiple autocomplete="off" autocapitalize="off" spellcheck="false" data-addr="' + k + '" /></div>' + (k === 'to' ? '<button type="button" class="ml-c__ccb" data-act="show-cc">Cc Bcc</button>' : '') + '<div class="ml-sug" data-sug hidden role="listbox"></div></div>';
+  }
+  function fromRow(o) {
+    var opts = S.fromOpts;
+    if (!opts || opts.length < 2) return '';
+    var mb = o.mb != null ? o.mb : (S.box && S.box !== S.me ? S.box : '');
+    var want = mb || S.me;
+    var pick = opts.filter(function (x) { return x.mailbox === want && x.default; })[0] || opts.filter(function (x) { return x.mailbox === want; })[0] || opts[0];
+    return '<div class="ml-c__row"><label for="ml-c-from">From</label><select id="ml-c-from" class="ml-c__in ml-c__from" data-from>' + opts.map(function (x) {
+      var v = x.mailbox + '|' + x.email;
+      return '<option value="' + esc(v) + '"' + (x === pick ? ' selected' : '') + '>' + esc((x.name ? x.name + ' ' : '') + '<' + x.email + '>') + '</option>';
+    }).join('') + '</select></div>';
   }
   function openCompose(o) {
     o = o || {};
@@ -1253,7 +1374,7 @@
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', o.title || 'New message');
     var sig = !o.noSig && S.signature ? '<br><br><div class="gmail_signature">' + S.signature + '</div>' : '';
     el.innerHTML = '<div class="ml-c__box"><div class="ml-c__bar"><button type="button" class="ml-c__cancel" data-c="close">Cancel</button><b>' + esc(o.title || 'New message') + '</b><span class="ml-c__save" data-c-saved></span><button type="button" class="ml-iconbtn ml-dt" data-c="close" aria-label="Close and keep the draft" title="Close (the draft is kept)">' + ic('x') + '</button><button type="button" class="ml-btn ml-btn--primary ml-c__send" data-c="send">' + ic('send') + '<span>Send</span></button></div>' +
-      '<div class="ml-c__scroll">' + addrRow('to', 'To', o.to) +
+      '<div class="ml-c__scroll">' + fromRow(o) + addrRow('to', 'To', o.to) +
       '<div class="ml-c__cc"' + ((o.cc && o.cc.length) || (o.bcc && o.bcc.length) ? '' : ' hidden') + '>' + addrRow('cc', 'Cc', o.cc) + addrRow('bcc', 'Bcc', o.bcc) + '</div>' +
       '<div class="ml-c__row"><label for="ml-c-subj">Subject</label><input id="ml-c-subj" class="ml-c__in ml-c__subj" maxlength="900" value="' + esc(o.subject || '') + '" /></div>' +
       '<div class="ml-c__ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" data-ed>' + (o.body || '<div><br></div>' + sig) + '</div>' +
@@ -1273,7 +1394,7 @@
         '<input type="file" multiple hidden data-file />' +
       '</div></div>';
     document.body.appendChild(el);
-    C = { el: el, o: o, files: [], forward: (o.forward || []).slice(), draftId: o.draftId || '', dirty: false, saving: null, saveT: 0, pushed: false, sent: false };
+    C = { el: el, o: o, files: [], forward: (o.forward || []).slice(), draftId: o.draftId || '', mb: o.mb != null ? o.mb : (S.box && S.box !== S.me ? S.box : ''), dirty: false, saving: null, saveT: 0, pushed: false, sent: false };
     renderFiles();
     requestAnimationFrame(function () {
       el.classList.add('is-in');
@@ -1290,7 +1411,10 @@
     // Typed addresses not yet turned into chips still count.
     ['to', 'cc', 'bcc'].forEach(function (k) { var inp = $('[data-addr="' + k + '"]', C.el); if (inp && inp.value.trim()) commitTyped(inp); });
     var html = ed.innerHTML + (q ? q.innerHTML : '');
-    return { to: chips('to'), cc: chips('cc'), bcc: chips('bcc'), subject: $('#ml-c-subj', C.el).value, html: html, threadId: C.o.threadId || '', replyTo: C.o.replyTo || '', draftId: C.draftId };
+    var out = { to: chips('to'), cc: chips('cc'), bcc: chips('bcc'), subject: $('#ml-c-subj', C.el).value, html: html, threadId: C.o.threadId || '', replyTo: C.o.replyTo || '', draftId: C.draftId, mb: C.mb || '' };
+    var fr = $('[data-from]', C.el);
+    if (fr && fr.value) { var parts = fr.value.split('|'); out.mb = parts[0] === S.me ? '' : parts[0]; out.from = parts[1]; }
+    return out;
   }
   function renderFiles() {
     var box = $('[data-files]', C.el);
@@ -1349,7 +1473,7 @@
     document.body.classList.remove('ml-composing');
     if (c.pushed && !quiet) { c.pushed = false; skipPop++; history.back(); }
     if (!c.sent) {
-      if (discard) { if (c.draftId) api.dropDraft(c.draftId).catch(function () {}); else if (c.saving) c.saving.then(function () { if (c.draftId) api.dropDraft(c.draftId).catch(function () {}); }); toast('Draft discarded'); }
+      if (discard) { if (c.draftId) api.dropDraft(c.draftId, c.mb).catch(function () {}); else if (c.saving) c.saving.then(function () { if (c.draftId) api.dropDraft(c.draftId, c.mb).catch(function () {}); }); toast('Draft discarded'); }
       else if (c.dirty) { var keep = C; C = c; saveDraft().then(function () { toast('Draft saved'); }); C = keep; }
     }
     c.el.classList.remove('is-in'); c.el.classList.add('is-out');
@@ -1488,6 +1612,8 @@
   /* ------------------------------------------------------------------ clicks */
   root.addEventListener('click', function (e) {
     var a = e.target.closest('[data-act]');
+    var bx = e.target.closest('[data-box]');
+    if (bx) { setBox(bx.dataset.box); return; }
     var sel = e.target.closest('[data-sel]');
     if (sel) { selAct(sel.dataset.sel); return; }
     // The avatar circle chooses a row (a check shows); once any row is chosen, a press on a row chooses it too. Shift takes a range.
@@ -1508,9 +1634,11 @@
     var k = a.dataset.act, id = a.dataset.id || '';
     if (a.closest('.ml-row')) e.preventDefault();
     if (k === 'hub-menu') { var m = document.getElementById('h-menu') || document.getElementById('h-bar-more'); if (m) m.click(); }
-    else if (k === 'labels-sheet') { var el = openSheet('Mailboxes', '<nav class="ml-labels ml-labels--sheet">' + renderLabels() + '</nav>'); el.addEventListener('click', function (ev) { var l = ev.target.closest('[data-label]'); if (l) { ev.preventDefault(); ev.stopPropagation(); closeSheet(null, function () { var h = hashFor(l.dataset.label, '', '', l.dataset.v || ''); if (location.hash === h) route(); else { history.replaceState(history.state, '', h); route(); } }); } }); }
+    else if (k === 'labels-sheet') { var el = openSheet('Mailboxes', '<nav class="ml-labels ml-labels--sheet">' + renderLabels() + '</nav>'); el.addEventListener('click', function (ev) { var bxx = ev.target.closest('[data-box]'); if (bxx) { closeSheet(null, function () { setBox(bxx.dataset.box); }); return; } var ba = ev.target.closest('[data-act="box-add"],[data-act="box-manage"]'); if (ba) { ev.preventDefault(); closeSheet(null, function () { if (ba.dataset.act === 'box-add') location.href = addBoxUrl(); else manageBoxes(); }); return; } var l = ev.target.closest('[data-label]'); if (l) { ev.preventDefault(); ev.stopPropagation(); closeSheet(null, function () { var h = hashFor(l.dataset.label, '', '', l.dataset.v || ''); if (location.hash === h) route(); else { history.replaceState(history.state, '', h); route(); } }); } }); }
     else if (k === 'compose') { if (!S.level.write || !canWrite()) askWrite('compose'); else openCompose(); }
-    else if (k === 'refresh') { loadLabels(); loadList({ quiet: true }); }
+    else if (k === 'refresh') { loadLabels(); loadBoxes(); loadList({ quiet: true }); }
+    else if (k === 'box-add') { location.href = addBoxUrl(); }
+    else if (k === 'box-manage') manageBoxes();
     else if (k === 'pick-all') pickAll();
     else if (k === 'pick-clear') clearPicks();
     else if (k === 'filter-menu') filterMenu(a);
@@ -1548,7 +1676,7 @@
     else if (k === 'unfold') { var box = a.previousElementSibling; var f = box && box.querySelector('iframe'); if (f && f.contentDocument) { f.contentDocument.documentElement.classList.remove('fos-fold'); f.style.height = f.contentDocument.documentElement.scrollHeight + 'px'; } a.remove(); }
     else if (k === 'view-file') viewFile(a.closest('.ml-msg').dataset.mid, +a.dataset.k);
     else if (k === 'edit-draft') editDraft(a.closest('.ml-msg').dataset.mid);
-    else if (k === 'drop-draft') { var dmid = a.closest('.ml-msg').dataset.mid; var did = S.drafts[dmid]; if (!did) return; if (!S.level.write || !canWrite()) return askWrite('draft'); api.dropDraft(did).then(function () { toast('Draft discarded'); openThread(S.open); }).catch(failed); }
+    else if (k === 'drop-draft') { var dmid = a.closest('.ml-msg').dataset.mid; var did = S.drafts[dmid]; if (!did) return; if (!S.level.write || !canWrite()) return askWrite('draft'); api.dropDraft(did, S.threadBox).then(function () { toast('Draft discarded'); openThread(S.open); }).catch(failed); }
     else if (k === 'prev' || k === 'next') stepThread(k === 'next' ? 1 : -1);
   });
   function msgById(id) { return S.thread && S.thread.messages.filter(function (m) { return m.id === id; })[0]; }
@@ -1610,6 +1738,11 @@
     else if (g === 'mailsend') { toast('Changes and sending are ready'); try { localStorage.removeItem('favor.mail.ro'); } catch (e) { /* none */ } S.ro = false; }
     else if (g === 'mailsend-declined') { toast('Google did not allow it. Mail stays read only.'); try { localStorage.setItem('favor.mail.ro', '1'); } catch (e) { /* none */ } S.ro = true; }
     else if (g === 'mail-declined') toast('Google did not allow it.');
+    else if (g === 'mailbox') toast('Mailbox added');
+    else if (g === 'mailbox-domain') toast('Only favorintl.org accounts can be added');
+    else if (g === 'mailbox-same') toast('That is the account you sign in with');
+    else if (g === 'mailbox-limit') toast('Five mailboxes is the most you can add');
+    else if (g === 'mailbox-declined' || g === 'mailbox-failed') toast('The mailbox was not added. Try again.');
     p.delete('google');
     history.replaceState(history.state, '', location.pathname + (p.toString() ? '?' + p : '') + location.hash);
   }
@@ -1621,11 +1754,12 @@
     $('[data-rows]').innerHTML = skeleton(8);
     if (!isPhone() && !r.thread) $('[data-read]').innerHTML = emptyRead();
     api.state().then(function (d) {
-      S.me = d.email; S.name = d.name; S.level = d.level || S.level; S.write = d.write !== false; S.connected = d.connected; S.signature = d.signature || '';
+      S.me = d.email; S.name = d.name; S.boxes = d.mailboxes || []; S.level = d.level || S.level; S.write = d.write !== false; S.connected = d.connected; S.signature = d.signature || '';
       if (S.level.write) { S.ro = false; try { localStorage.removeItem('favor.mail.ro'); } catch (e) { /* none */ } }
       root.classList.toggle('is-ro', !canWrite() || !S.level.write);
       var bar = $('[data-allow]'); bar.hidden = !(S.level.headers && !S.level.read); $('[data-allow-link]').href = allowUrl('mail');
       if (!d.connected || (!S.level.headers && !S.level.read)) { renderConnect('read'); return; }
+      renderBoxes(); loadBoxes(); loadFrom();
       loadLabels();
       route();
     }).catch(function (e) {

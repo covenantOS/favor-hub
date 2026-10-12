@@ -1,4 +1,5 @@
 import { exchangeCode, seal } from '../../_lib/hub/google';
+import { addBox, boxClaims } from '../../_lib/mail/boxes';
 import type { Env } from '../../_lib/http';
 import { safeNextPath } from '../../_lib/next';
 import { hubUserOf } from '../../_lib/session';
@@ -18,7 +19,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const nextPath = decodeURIComponent(parts[1] || '%2F');
   const safeNext = safeNextPath(nextPath);
   const flow = parts[2] || '';
-  const kind = (['meetings', 'sheets', 'mailsend', 'mail'] as const).find((k) => flow === k || flow.startsWith(k + '+')) || '';
+  const kind = (['meetings', 'sheets', 'mailsend', 'mail', 'mailbox'] as const).find((k) => flow === k || flow.startsWith(k + '+')) || '';
   const sheets = !!kind;
   const back = (note: string) => {
     const h = new Headers({ 'Cache-Control': 'no-store' });
@@ -38,13 +39,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   // The session was lost on the way back from Google: sign in again, then return to the page they asked for.
   if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=' + encodeURIComponent(safeNext), request.url).toString(), 302);
   // Mail: a refusal goes back to Mail, which stays read only (or headers only) and says so.
-  if (url.searchParams.get('error')) return kind === 'mail' || kind === 'mailsend' ? backTo(safeNext, kind + '-declined') : back('declined');
+  if (url.searchParams.get('error')) return kind === 'mail' || kind === 'mailsend' || kind === 'mailbox' ? backTo(safeNext, kind + '-declined') : back('declined');
   const cookie = (request.headers.get('Cookie') || '').match(/(?:^|;\s*)hub_gstate=([^;]+)/)?.[1];
   if (!cookie || decodeURIComponent(cookie) !== state) return back('expired');
   try {
     const t = await exchangeCode(env, request, url.searchParams.get('code') || '');
     const claims = t.id_token ? JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(t.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)))) : null;
     if (!claims?.email) return back('failed');
+    // Add a mailbox: a verified favorintl.org account other than the person's own sign-in, stored against the person as owner.
+    if (kind === 'mailbox') {
+      const ok = boxClaims(claims, user.email);
+      if (!ok.ok) return backTo(safeNext, 'mailbox-' + ok.why);
+      if (!t.refresh_token) return backTo(safeNext, 'mailbox-failed');
+      const added = await addBox(env, user.email, ok.email, ok.name, t.refresh_token, t.scope || '');
+      return backTo(safeNext, added.ok ? 'mailbox' : 'mailbox-limit');
+    }
     if (String(claims.email).toLowerCase() !== user.email.toLowerCase()) return back('wrong-account');
     if (!t.refresh_token) {
       // Google already holds this grant, so it showed no screen and sent no refresh token: ask once more with the screen.

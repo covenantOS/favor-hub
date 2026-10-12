@@ -1,4 +1,4 @@
-import { ALL_SCOPES, clientId, redirectUri } from '../../_lib/hub/google';
+import { ALL_SCOPES, GMAIL_MODIFY, clientId, redirectUri } from '../../_lib/hub/google';
 import type { Env } from '../../_lib/http';
 import { safeNextPath } from '../../_lib/next';
 import { hubUserOf } from '../../_lib/session';
@@ -14,22 +14,27 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const params = new URL(request.url).searchParams;
   const next = safeNextPath(params.get('next'));
   if (!user || user.via !== 'google') return Response.redirect(new URL('/login/?next=' + encodeURIComponent(next), request.url).toString(), 302);
-  const addKind = (['meetings', 'sheets', 'mail', 'mailsend'] as const).find((k) => k === params.get('add')) || '';
+  const addKind = (['meetings', 'sheets', 'mail', 'mailsend', 'mailbox'] as const).find((k) => k === params.get('add')) || '';
   const add = !!addKind;
   const force = params.get('force') === '1';
   const state = crypto.randomUUID() + '|' + encodeURIComponent(next) + (add ? '|' + addKind + (force ? '+force' : '') : '');
+  // Add a mailbox: another Favor Google account, Gmail only (read, change, send), never mixed with this person's own grant.
+  const box = addKind === 'mailbox';
   const q = new URLSearchParams({
     client_id: clientId(env),
     redirect_uri: redirectUri(request),
     response_type: 'code',
-    scope: [...ALL_SCOPES, 'openid', 'email'].join(' '),
+    scope: box ? [GMAIL_MODIFY, 'openid', 'email', 'profile'].join(' ') : [...ALL_SCOPES, 'openid', 'email'].join(' '),
     access_type: 'offline',
-    include_granted_scopes: 'true',
-    login_hint: user.email,
     hd: 'favorintl.org',
     state,
   });
-  if (!add || force) q.set('prompt', 'consent');
+  if (!box) {
+    q.set('include_granted_scopes', 'true');
+    q.set('login_hint', user.email);
+  }
+  if (box) q.set('prompt', 'select_account consent');
+  else if (!add || force) q.set('prompt', 'consent');
   return new Response(null, {
     status: 302,
     headers: {

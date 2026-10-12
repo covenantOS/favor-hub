@@ -26,6 +26,12 @@ Press a conversation to read it. Earlier messages fold to one line; press one to
 
 Search takes Gmail's own words: `from:name`, `to:name`, `has:attachment`, `is:unread`, `before:2026/10/01`, `label:trips`.
 
+## More than one mailbox
+
+Under **Mailboxes** on the left, **Add a mailbox** connects another Favor Google account, such as an accounting or admin inbox or a second account of yours. Google asks you to pick the account and allows Gmail only. Only favorintl.org accounts can be added, up to five, and only you can see a mailbox you add.
+
+**All mailboxes** merges them into one list. A colored dot beside each sender shows which mailbox the conversation came to, and each mailbox has its own unread count. A reply goes out from the mailbox the conversation came to. The **From** line in a message lists each mailbox and the addresses Gmail lets it send as. **Manage mailboxes** removes one; FavorOS forgets the connection and nothing is deleted in Gmail. The number on the Mail icon counts every mailbox.
+
 ## Tabs, filters and sorting
 
 Above the inbox, tabs sort your newest 100 conversations. **Needs you** holds what asks you a question or waits on your answer, oldest first. **Partners** are senders whose address is on a partner in Blackbaud. **Staff**, **People**, **Receipts and gifts**, **Newsletters**, **Notifications** and **Calendar** hold the rest, each with a count. **Waiting on reply** lists mail you sent that has had no answer for three days.
