@@ -3,6 +3,7 @@ import type { Env } from '../http';
 import type { HubUser } from '../session';
 import type { ChatMode } from './gate';
 import { BRAIN_ID, MEETINGS_ID } from './text';
+import { isTester } from '../testuser';
 
 export interface PersonOut {
   id: string;
@@ -22,6 +23,8 @@ export async function directory(env: Env, mode: ChatMode, me: HubUser): Promise<
   for (const u of r.results || []) {
     const id = u.email.toLowerCase();
     if (id === BRAIN_ID || id === MEETINGS_ID) continue;
+    // The test user is in no real person's list, and sees only itself, so it cannot message staff.
+    if (isTester(id) !== isTester(me.email) || (isTester(me.email) && id !== me.email.toLowerCase())) continue;
     out[id] = { id, name: u.name || id.split('@')[0], picture: u.picture || '', title: u.title || '' };
   }
   const mine = me.email.toLowerCase();

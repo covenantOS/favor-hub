@@ -103,7 +103,7 @@ export async function dueSoonSweep(env: Env, today: string, tomorrow: string, no
   // Nobody hears about a due date in a tool they cannot open yet: with Projects admins only, only admins get these; off, nobody.
   const mode = await projectsMode(env);
   if (mode === 'off') return 0;
-  const adminRows = await env.DB.prepare("SELECT email FROM hub_users WHERE role = 'admin'").all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }));
+  const adminRows = await env.DB.prepare("SELECT email FROM hub_users WHERE role = 'admin' AND lower(email) <> 'tester@favorintl.org'").all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }));
   const admins = new Set((adminRows.results || []).map((r) => lower(r.email)));
   let n = 0;
   for (const r of rows.results || []) {

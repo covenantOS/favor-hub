@@ -7,6 +7,7 @@ import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
+import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -93,10 +94,15 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
     return Response.redirect(new URL('/chat/', url).toString(), 302);
   }
 
+  // The FavorOS Tester never writes to Blackbaud, sends email or notifies a person (functions/_lib/testuser.ts).
+  if (user && testerWriteBlocked(user.email, request.method, path)) {
+    return json({ ok: false, error: 'test_user', message: TESTER_REFUSAL }, 403);
+  }
+
   // Google is part of signing in: a person with no connected Google account goes to Google's consent
   // screen before any page opens, and that one screen asks for everything FavorOS uses. A cookie set
   // when they connect saves the lookup on later pages. Scripts and the admin password are exempt.
-  if (enforce && user && user.via === 'google' && user.role !== 'field' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
+  if (enforce && user && user.via === 'google' && !isTester(user.email) && user.role !== 'field' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
     const marked = /(?:^|;\s*)hub_gc=1/.test(request.headers.get('Cookie') || '');
     if (!marked) {
       const row = await env.DB.prepare('SELECT 1 AS ok FROM hub_google WHERE email = ?').bind(user.email).first().catch(() => ({ ok: 1 }));

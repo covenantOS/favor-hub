@@ -21,6 +21,7 @@
 // Who may use it: hub setting mail.enabled (admins by default, staff, off). Changes and sending also need mail.write on (the
 // default) and the person's gmail.modify grant; without it every change answers 403 mail_scope and the page asks for it.
 import { effective } from '../admin/settings';
+import { isTester } from '../testuser';
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import { accessToken, mailLevel } from '../hub/google';
 import { staffDirectory } from '../people';
@@ -126,6 +127,7 @@ async function route(ctx: MailCtx): Promise<Response> {
   const method = request.method.toUpperCase();
   const url = new URL(request.url);
   if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
+  if (isTester(user.email)) return errorJson('test_user', 'The test user has no Gmail. Mail draws the built-in sample mailbox in the browser.', 403);
   const mode = await mailMode(env);
   if (!mayUseMail(mode, user)) return errorJson('forbidden', mode === 'off' ? 'Mail is switched off.' : user.via !== 'google' ? 'Mail needs a Google sign-in.' : 'Mail is open to admins for now.', 403);
   if (!sameSite(request)) return errorJson('cross_site', 'That change did not come from FavorOS. Reload the page and try again.', 403);

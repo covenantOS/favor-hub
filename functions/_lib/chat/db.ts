@@ -1,6 +1,7 @@
 // Favor Chat's data layer. Every function takes the D1 binding and the signed-in person's email; access rules live here
 // (private channels, direct messages and groups answer only their members), so a route cannot forget them.
 import { HttpError, nowIso, type Env } from '../http';
+import { TESTER_REFUSAL, isTester } from '../testuser';
 import { BRAIN_ID, MEETINGS_ID, SYSTEM_VOICES, channelSlug, cleanBody, dmKey, likePattern, parseMentions } from './text';
 
 export type ChatEnv = Pick<Env, 'DB'>;
@@ -112,12 +113,23 @@ export async function postableChannel(env: ChatEnv, channelId: string, email: st
   const ch = await getChannel(env, String(channelId || ''));
   if (!ch) throw new HttpError(404, 'not_found', 'That conversation is gone.');
   if (!(await isMember(env, ch.id, email))) throw new HttpError(403, 'forbidden', 'Join the channel to post in it.');
+  // The FavorOS Tester posts only where no real person is a member (its own qa-scratch channel and its Brain conversations).
+  if (isTester(email)) {
+    const others = (await membersOf(env, ch.id)).filter((m) => !isTester(m) && !SYSTEM_VOICES.has(lower(m)));
+    if (others.length) throw new HttpError(403, 'test_user', TESTER_REFUSAL);
+  }
   return ch;
 }
 
 /** Everyone who signs in as an admin joins the default channels the first time they open Chat. */
 export async function joinDefaults(env: ChatEnv, email: string): Promise<void> {
   const now = nowIso();
+  if (isTester(email)) {
+    // The tester gets a private scratch channel of its own and none of the staff channels.
+    await env.DB.prepare(`INSERT OR IGNORE INTO chat_channels (id, kind, name, topic, created_by, created_at, last_at) VALUES ('ch_qa_scratch', 'private', 'qa-scratch', 'Test messages. Safe to delete.', ?, ?, ?)`).bind(lower(email), now, now).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO chat_members (channel_id, email, role, joined_at) VALUES ('ch_qa_scratch', ?, 'owner', ?)`).bind(lower(email), now).run();
+    return;
+  }
   await env.DB.batch(DEFAULT_CHANNELS.map((c) => env.DB.prepare('INSERT OR IGNORE INTO chat_members (channel_id, email, role, joined_at) VALUES (?, ?, ?, ?)').bind(c, lower(email), 'member', now)));
 }
 
