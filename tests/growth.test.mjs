@@ -112,21 +112,21 @@ test('practice checks every field, saves only to its own table and never touches
     subs: rows(w, 'SELECT COUNT(*) AS n FROM act_submissions')[0].n,
   };
   const bad = await P.savePractice(w.env, NEW.email, 'gift', { date: '2099-01-01', amount: '7.50', type: 'Card', check: '9', fund: 'Church Planting' });
-  assert.equal(bad.ok, false);
+  assert.equal(bad.passed, false);
   assert.deepEqual(bad.checks.map((c) => c.ok), [false, false, false, false, false]);
   assert.ok(bad.checks.every((c) => c.hint.length > 10));
   const near = await P.savePractice(w.env, NEW.email, 'gift', { date: today, amount: '$75', type: 'Check', check: '2041', fund: 'Church Planting' });
-  assert.equal(near.ok, false);
+  assert.equal(near.passed, false);
   assert.deepEqual(near.checks.filter((c) => !c.ok).map((c) => c.label), ['Fund']);
   const good = await P.savePractice(w.env, NEW.email, 'gift', { date: today, amount: '75.00', type: 'Check', check: '2041', fund: 'Water and Sanitation' });
-  assert.equal(good.ok, true);
+  assert.equal(good.passed, true);
   assert.equal(good.state.done.gift, true);
   assert.equal(good.state.done.all, false);
   const call = await P.savePractice(w.env, NEW.email, 'call', { channel: 'Voicemail', summary: 'short', next: 'Nothing more', due: '2020-01-01' });
-  assert.equal(call.ok, false);
+  assert.equal(call.passed, false);
   assert.equal(call.checks.filter((c) => c.ok).length, 0);
   const call2 = await P.savePractice(w.env, NEW.email, 'call', { channel: 'Phone call', summary: 'Pat called and asked for last years receipt.', next: 'Send a receipt', due: today });
-  assert.equal(call2.ok, true);
+  assert.equal(call2.passed, true);
   assert.equal(call2.state.done.all, true);
   // Everything landed in practice_entries, and nothing else changed.
   assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM practice_entries WHERE email = ?', NEW.email)[0].n, 5);
@@ -172,7 +172,8 @@ test('the routes need a signed-in person and a same-site change', async () => {
   assert.equal((await run(me, 'POST', 'practice/gift', { amount: '75' }, { Origin: 'https://evil.example' })).status, 403);
   const ok = await run(me, 'POST', 'practice/gift', { amount: '75' }, { Origin: 'https://dash.favorintl.org' });
   assert.equal(ok.status, 200);
-  assert.equal(ok.data.ok, false);
+  assert.equal(ok.data.ok, true);
+  assert.equal(ok.data.passed, false);
   const fw = await run(me, 'GET', 'first-week');
   assert.equal(fw.status, 200);
   assert.equal(fw.data.days.length, 5);

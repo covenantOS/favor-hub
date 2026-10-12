@@ -106,9 +106,9 @@
     btn.disabled = true;
     try {
       const d = await api('practice/' + kind, 'POST', draft[kind]);
-      last[kind] = { ok: d.ok, checks: d.checks };
+      last[kind] = { ok: d.passed, checks: d.checks };
       D = Object.assign({}, D, d.state);
-      if (d.ok) draft[kind] = {};
+      if (d.passed) draft[kind] = {};
       draw();
       const r = root.querySelector(`.pr-ex[data-kind="${kind}"] .pr-result`);
       if (r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });

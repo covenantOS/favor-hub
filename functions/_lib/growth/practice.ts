@@ -121,7 +121,7 @@ export async function savePractice(env: Db, email: string, kind: 'gift' | 'call'
   } catch {
     throw new HttpError(503, 'practice_off', 'Practice mode is not switched on yet.');
   }
-  return { checks: res.checks, ok: res.ok, state: await practiceState(env, email) };
+  return { checks: res.checks, passed: res.ok, state: await practiceState(env, email) };
 }
 
 export async function resetPractice(env: Db, email: string) {
