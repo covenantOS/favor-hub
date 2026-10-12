@@ -135,24 +135,7 @@
     } else more.hidden = true;
   }
 
-  // The welcome card shows until the person hides it or opens Help.
-  const WELCOME = 'favor.hub.welcome.v1';
-  try {
-    if (!localStorage.getItem(WELCOME)) $('t-welcome').hidden = false;
-  } catch {
-    // Private windows can refuse storage; the card stays hidden there.
-  }
-  const hideWelcome = () => {
-    $('t-welcome').hidden = true;
-    document.documentElement.classList.remove('show-welcome');
-    try {
-      localStorage.setItem(WELCOME, String(Date.now()));
-    } catch {
-      // nothing to do
-    }
-  };
-  $('t-welcome-x').addEventListener('click', hideWelcome);
-  $('t-welcome').querySelector('[data-tour-start]').addEventListener('click', hideWelcome);
+  // The tour card stays until the tour and the new walkthroughs are done (src/scripts/tour.ts shows and hides it).
 
   const SLICE_OF = { rdd: 'rdds', pc: 'pc', ce: 'ce', mk: 'marketing' };
 
