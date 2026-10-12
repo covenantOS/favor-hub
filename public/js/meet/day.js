@@ -249,7 +249,13 @@
     var sc = root.querySelector('.dv-tl__scroll');
     if (sc) {
       if (scrollTop != null) sc.scrollTop = scrollTop;
-      else if (isToday) sc.scrollTop = Math.max(0, (now.getTime() - t0) / 3600000 * PXH - 240);
+      else if (isToday) {
+        // Open on the present. Once the day's last meeting is over, open on that meeting instead of an empty evening.
+        var nowTop = (now.getTime() - t0) / 3600000 * PXH - 240;
+        var ahead = evs.some(function (e) { return e.end >= now.getTime(); });
+        var lastTop = Math.max.apply(null, evs.map(function (e) { return (e.start - t0) / 3600000 * PXH; })) - 160;
+        sc.scrollTop = Math.max(0, ahead ? nowTop : Math.min(nowTop, lastTop));
+      }
       else sc.scrollTop = Math.max(0, (evs[0].start - t0) / 3600000 * PXH - 40);
     }
     scrollTop = null;

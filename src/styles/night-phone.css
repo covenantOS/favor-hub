@@ -41,3 +41,9 @@
   /* A keyboard shortcut is no use on a touch screen. */
   body.h-body .bc-root .bc-new kbd { display: none; }
 }
+
+/* Learn */
+@media (max-width: 860px) {
+  /* The path chips on a course were 24 px tall and 6 px apart: three rows of small links under a thumb. */
+  body.h-body a.ln-chip { min-height: 36px; display: inline-flex; align-items: center; padding-top: 0; padding-bottom: 0; margin: 2px 2px 2px 0; }
+}
