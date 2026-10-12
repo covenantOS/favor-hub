@@ -69,7 +69,7 @@
     }).join('');
     var prim = res.columns.filter(function (c) { return c.key === res.primary; })[0] || res.columns[res.columns.length - 1];
     var nameCols = res.columns.filter(function (c) { return c.type === 'text' && c !== prim; }).slice(0, res.id === 'status' ? 2 : 1);
-    var restCols = res.columns.filter(function (c) { return c !== prim && nameCols.indexOf(c) < 0; });
+    var restCols = res.columns.filter(function (c) { return c !== prim && nameCols.indexOf(c) < 0 && c.key !== 'role'; });
     h += '<div class="lr-cards">' + res.rows.map(function (r) {
       var nm = nameCols.map(function (c) { return esc(r[c.key]); }).join(' · ');
       var sub = restCols.map(function (c) { return r[c.key] === '' || r[c.key] == null ? '' : esc(c.label) + ' ' + cell(c, r[c.key]); }).filter(Boolean).join(' · ');

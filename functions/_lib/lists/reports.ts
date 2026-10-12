@@ -414,7 +414,7 @@ const grants: ReportDef = {
   async run(c) {
     if (!c.mirror) return { columns: [], rows: [], tiles: [], ties: [] };
     const rows = await c.mirror(
-      `SELECT status AS k, COUNT(*) AS n, ROUND(COALESCE(SUM(ask_amount), 0), 2) AS ask, ROUND(COALESCE(SUM(funded_amount), 0), 2) AS funded FROM opportunities WHERE COALESCE(inactive, 0) = 0 GROUP BY status ORDER BY n DESC`,
+      `SELECT COALESCE(status, 'No stage') AS k, COUNT(*) AS n, ROUND(COALESCE(SUM(ask_amount), 0), 2) AS ask, ROUND(COALESCE(SUM(funded_amount), 0), 2) AS funded FROM opportunities WHERE COALESCE(inactive, 0) = 0 GROUP BY status ORDER BY n DESC`,
       []
     );
     return {
