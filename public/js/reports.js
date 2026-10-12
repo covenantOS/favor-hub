@@ -111,15 +111,17 @@
       return '<input class="cell" data-edit-key="' + esc(key) + '" data-edit-col="' + esc(c.key) + '" value="' + esc(v == null ? '' : Number(v).toFixed(c.type === 'cellint' ? 0 : 2)) + '" inputmode="' + (c.type === 'cellint' ? 'numeric' : 'decimal') + '" aria-label="' + esc(c.label) + '">';
     }
     if (v == null || v === '') return '';
-    if (c.type === 'money') return money(v);
-    if (c.type === 'int') return num(v);
-    if (c.type === 'date') return esc(dshort(String(v)));
-    if (c.type === 'pct') return (Number(v) * 100).toFixed(1) + '%';
+    if (c.type === 'money') return isFinite(Number(v)) ? money(v) : esc(v);
+    // A value that is not a number or a date prints as it came, never as NaN or Invalid Date.
+    if (c.type === 'int') return isFinite(Number(v)) ? num(v) : esc(v);
+    if (c.type === 'date') { var ds = dshort(String(v)); return esc(/Invalid/.test(ds) ? String(v) : ds); }
+    if (c.type === 'pct') return isFinite(Number(v)) ? (Number(v) * 100).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%' : esc(v);
     if (c.type === 'chip') {
       var cls = /^(Mailed|Active|Recurring|Thanked)$/.test(v) ? 'rp-tag--ok' : /^(Hold|LYBUNT|Waiting)$/.test(v) ? 'rp-tag--warn' : /^Lapsed$/.test(v) ? 'rp-tag--none' : '';
       return '<span class="rp-tag ' + cls + '">' + esc(v) + '</span>';
     }
-    return esc(v);
+    // Long text ends in an ellipsis at 420 px on a wide screen; the whole value is in the tooltip and in the export.
+    return String(v).length > 48 ? '<span class="rp-cell" title="' + esc(v) + '">' + esc(v) + '</span>' : esc(v);
   }
   var isRight = function (c) { return c.type === 'money' || c.type === 'int' || c.type === 'pct' || c.type === 'cell' || c.type === 'cellint'; };
 

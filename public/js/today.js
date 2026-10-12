@@ -4,9 +4,10 @@
   const $ = (id) => document.getElementById(id);
   if (!$('t-cards')) return;
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const money0 = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
-  const money2 = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const compact = (n) => (n >= 1e6 ? '$' + (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? '$' + Math.round(n / 1e3) + 'K' : '$' + Math.round(n));
+  const neg = (n) => (Number(n) < 0 ? '-' : '');
+  const money0 = (n) => neg(Math.round(Number(n) || 0)) + '$' + Math.abs(Math.round(Number(n) || 0)).toLocaleString('en-US');
+  const money2 = (n) => neg(n) + '$' + Math.abs(Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const compact = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : ''; return a >= 1e9 ? s + '$' + (a / 1e9).toFixed(2) + 'B' : a >= 999500 ? s + '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1e3 ? s + '$' + Math.round(a / 1e3) + 'K' : s + '$' + Math.round(a); };
   const et = (iso, opts) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, opts));
   const clock = (iso) => et(iso, { hour: 'numeric', minute: '2-digit' });
   const dayKey = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -85,7 +86,7 @@
         const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
         return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
-          <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
+          <span class="r2t-tile__n${String(Math.round(Number(c.n) || 0)).length > 5 ? ' is-long' : ''}"><span data-countup>${(Number(c.n) || 0).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
           <span class="r2t-tile__w">${esc(c.what)}</span>
           <span class="r2t-tile__f">${note}<span class="r2t-go">${icon('arrow')}</span></span>
         </a>${window.hubSnoozeButton ? window.hubSnoozeButton('hub', 'card:' + c.id, c.label) : ''}</div>`;
@@ -97,7 +98,7 @@
     if (!list.length) return;
     const cls = (s) => (/Done|Approved/.test(s) ? 'r2t-chip--ok' : /Declined/.test(s) ? 'r2t-chip--late' : 'r2t-chip--due');
     $('t-mine').innerHTML = list
-      .map((m) => `<li><a class="r2t-lr" href="${esc(m.href)}" title="${esc(m.title)}"><span class="r2t-lr__t"><b>${esc(m.title)}</b></span><span class="r2t-chip ${cls(m.status)}">${esc(m.status)}</span></a></li>`)
+      .map((m) => `<li><a class="r2t-lr" href="${esc(m.href)}" title="${esc(m.title)}"><span class="r2t-lr__t"><b>${esc(String(m.title || '').trim() || 'Untitled')}</b></span><span class="r2t-chip ${cls(m.status)}" title="${esc(m.status)}"><span class="r2t-chip__t">${esc(m.status)}</span></span></a></li>`)
       .join('');
     $('t-mine-card').hidden = false;
   }
@@ -160,7 +161,7 @@
     let delta = '';
     if (s.raisedLastYear) {
       const d = ((s.raised - s.raisedLastYear) / s.raisedLastYear) * 100;
-      delta = `<span class="r2t-chip ${d >= 0 ? 'r2t-chip--ok' : 'r2t-chip--late'}">${d >= 0 ? '+' : ''}${d.toFixed(1)}%</span><span class="r2t-sub">vs. this day last year</span>`;
+      delta = `<span class="r2t-chip ${d >= 0 ? 'r2t-chip--ok' : 'r2t-chip--late'}">${d >= 0 ? '+' : ''}${d.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%</span><span class="r2t-sub">vs. this day last year</span>`;
     }
     const teams = s.teams
       .map((t) => {
@@ -204,7 +205,7 @@
 
   let kpiAsked = false;
   swr('favor.hub.today.v1', '/api/hub/today', (d) => {
-      const first = String((d.user && d.user.name) || '').split(' ')[0];
+      const first = String((d.user && d.user.name) || '').trim().split(/\s+/)[0];
       const shownName = first && d.user.via === 'google' ? first : '';
       $('t-hello').textContent = shownName ? `${part}, ${shownName}` : part;
       try { shownName ? localStorage.setItem(NAME_KEY, shownName) : localStorage.removeItem(NAME_KEY); localStorage.setItem(CARDS_KEY, String((d.cards || []).length || 1)); } catch { /* storage refused */ }
@@ -246,7 +247,7 @@
     return h < 1 ? 'just now' : h < 24 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago';
   };
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  const initials = (s) => String(s || '?').replace(/[^A-Za-z ]/g, '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
+  const initials = (s) => { const w = String(s || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const pick = w.length > 1 ? [w[0], w[w.length - 1]] : w; return pick.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
   const hue = (s) => { let n = 0; for (const c of String(s)) n = (n * 31 + c.charCodeAt(0)) % 8; return n; };
   const card = (title, meta, body, extra) =>
     `<div class="h-card r2t-card"><div class="r2t-ch"><h3>${title}${extra || ''}</h3><span>${meta}</span></div>${body}</div>`;

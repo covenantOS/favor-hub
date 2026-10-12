@@ -4,7 +4,10 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
-  const when = (iso) => (iso ? et(iso, { month: 'short', day: 'numeric' }) + ', ' + et(iso, { hour: 'numeric', minute: '2-digit' }) : '');
+  // A stamp that is not a date shows nothing, never "Invalid Date".
+  const when = (iso) => (iso && !isNaN(new Date(iso).getTime()) ? et(iso, { month: 'short', day: 'numeric' }) + ', ' + et(iso, { hour: 'numeric', minute: '2-digit' }) : '');
+  // The page a note came from is typed by the sender's browser. Only a hub path or an https address becomes a link.
+  const safeHref = (p) => { const u = String(p || '').split(' ')[0]; return /^\/(?!\/)/.test(u) || /^https:\/\//i.test(u) ? u : ''; };
   const SOURCE = { hub: 'FavorOS', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
   const RATING = {
     problem: ["Something's wrong", 'bad'], wrong: ['Answer was wrong', 'bad'], 'not-helpful': ['Not helpful', 'bad'],
@@ -35,8 +38,8 @@
   };
   // The picture the sender attached, from the private route (the sender and the hub admin only).
   const shotOf = (f) =>
-    f.has_shot ? `<a class="fbp-shotlink" href="/api/feedback/${f.id}/shot" target="_blank" rel="noopener"><img class="fbp-shot" loading="lazy" src="/api/feedback/${f.id}/shot" alt="Picture of the page this note was sent from" /></a>` : '';
-  const initials = (n) => String(n || '').split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+    f.has_shot ? `<a class="fbp-shotlink" href="/api/feedback/${f.id}/shot" target="_blank" rel="noopener"><img class="fbp-shot" loading="lazy" src="/api/feedback/${f.id}/shot" alt="Picture of the page this note was sent from" onerror="this.parentNode.remove()" /></a>` : '';
+  const initials = (n) => { const w = String(n || '').split('@')[0].replace(/[^\p{L}\p{N}\s.]/gu, ' ').split(/[\s.]+/).filter(Boolean); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
 
   function mine(items) {
     shown = items;
@@ -62,7 +65,7 @@
   function all(d) {
     list.removeAttribute('aria-busy');
     const counts = d.counts || {};
-    document.querySelectorAll('[data-n]').forEach((s) => (s.textContent = counts[s.dataset.n] ? String(counts[s.dataset.n]) : ''));
+    document.querySelectorAll('[data-n]').forEach((s) => (s.textContent = counts[s.dataset.n] ? Number(counts[s.dataset.n]).toLocaleString('en-US') : ''));
     const items = d.items || [];
     shown = items;
     if (!items.length) {
@@ -78,7 +81,7 @@
           ${f.reading ? `<p class="fbp-q fbp-q--read"><span>How it read the question</span>${esc(f.reading)}</p>` : ''}
           ${f.comment ? `<p class="fbp-text">${esc(f.comment)}</p>` : '<p class="fbp-text fbp-text--none">No words, only the rating.</p>'}
           ${shotOf(f)}
-          ${f.page ? `<p class="fbp-page">From <a href="${esc(f.page.split(' ')[0])}">${esc(f.page)}</a></p>` : ''}
+          ${f.page ? `<p class="fbp-page">From ${safeHref(f.page) ? `<a href="${esc(safeHref(f.page))}">${esc(f.page)}</a>` : `<span>${esc(f.page)}</span>`}</p>` : ''}
           <form class="fbp-act" data-act="${f.id}">
             <label class="h-label" for="fb-r-${f.id}">Your answer</label>
             <textarea id="fb-r-${f.id}" rows="2" maxlength="2000" placeholder="Write an answer">${esc(f.reply || '')}</textarea>

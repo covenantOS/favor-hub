@@ -86,7 +86,7 @@
     return fmtShort.format(new Date(iso));
   }
   function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
-  function initials(name) { return String(name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(function (w) { return w[0].toUpperCase(); }).join(''); }
+  var initials = function (n) { var w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(function (x) { return x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x); }); var p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map(function (x) { return Array.from(x)[0]; }).join('').toUpperCase() || '?'; };
   function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b || a + 's'); }
 
   /* What this browser remembers between visits: drafts, which list sections are folded, the thread panel's width. */
@@ -235,7 +235,7 @@
       if (u.sys) return '<span class="ch-av" data-c="teal' + '"' + (size ? ' data-s="' + size + '"' : '') + '>' + ic(u.sys) + '</span>';
       if (u.brain) return '<span class="ch-av ch-av--brain' + (size ? ' ch-av--' + size : '') + '">' + ring('still') + '</span>';
       var c = u.color || COLORS[hash(u.id || u.name || '') % 7];
-      var inner = u.picture ? '<img src="' + esc(u.picture) + '" alt="" referrerpolicy="no-referrer" />' : esc(initials(u.name));
+      var inner = u.picture && !broken[u.picture] ? '<img src="' + esc(u.picture) + '" alt="" referrerpolicy="no-referrer" data-ini="' + esc(initials(u.name)) + '" />' : esc(initials(u.name));
       return '<span class="ch-av' + (size ? ' ch-av--' + size : '') + '" data-c="' + c + '">' + inner + (dot ? '<i class="ch-dot" data-p="' + esc(u.presence || 'off') + '"></i>' : '') + '</span>';
     }
     function chan(id) { return S.channels[id]; }
@@ -292,7 +292,15 @@
       // [words](address) is a link that reads as the words; a bare address is a link that reads as itself.
       var links = [];
       t = t.replace(/\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)/g, function (_, label, url) { links.push('<a href="' + url + '" target="_blank" rel="noopener">' + label + '</a>'); return '\u0000L' + (links.length - 1) + '\u0000'; });
-      t = t.replace(/(https?:\/\/[^\s<\u0000]+[^\s<).,;:!?\u0000])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+      // A link keeps a closing bracket that pairs with one inside it (a Wikipedia address), and drops the sentence's own punctuation.
+      t = t.replace(/https?:\/\/[^\s<\u0000]+/g, function (u) {
+        var tail = '';
+        while (u.length > 8) {
+          var ch = u[u.length - 1];
+          if (/[.,;:!?]/.test(ch) || (ch === ')' && u.split(')').length > u.split('(').length)) { tail = ch + tail; u = u.slice(0, -1); } else break;
+        }
+        return '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>' + tail;
+      });
       t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>').replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;:!?]|$)/gm, '$1<em>$2</em>').replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
       t = lineBlocks(t);
       t = t.replace(/\u0000L(\d+)\u0000/g, function (_, i) { return links[+i]; });
@@ -360,15 +368,16 @@
         if (fk === 'image') {
           // The picture's own shape is reserved before it arrives, so nothing below it moves when it loads.
           var w = Number(a.w) || 0, h = Number(a.h) || 0;
-          var shape = w && h ? ' style="aspect-ratio:' + w + ' / ' + h + ';width:min(100%,' + Math.round(Math.min(360, 280 * w / h)) + 'px)"' : '';
-          return '<button type="button" class="ch-media ch-photo" data-act="view"' + at + shape + ' aria-label="View ' + esc(a.name) + '"><img class="ch-img" src="' + esc(a.url) + '" alt="' + esc(a.name) + '"' + (w && h ? ' width="' + w + '" height="' + h + '"' : '') + ' loading="lazy" decoding="async" /></button>';
+          var ratio = w && h ? Math.max(1 / 3, Math.min(3, w / h)) : 0;
+          var shape = ratio ? ' style="aspect-ratio:' + ratio.toFixed(4) + ';width:min(100%,' + Math.round(Math.min(360, 280 * ratio)) + 'px)"' : '';
+          return '<button type="button" class="ch-media ch-photo" data-act="view"' + at + shape + ' aria-label="View ' + esc(a.name || 'picture') + '"><img class="ch-img" src="' + esc(a.url) + '" alt="' + esc(a.name || 'Picture') + '"' + (w && h ? ' width="' + w + '" height="' + h + '"' : '') + ' loading="lazy" decoding="async" /></button>';
         }
         if (fk === 'video') return '<div class="ch-card ch-clip ch-clip--file"' + at + '>' + vidHtml(a.url + '#t=0.1', '', a.name, '', '16 / 9') + '<span class="ch-clip__info"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span><a class="ch-clip__open" href="' + esc(a.url) + '" download>Download' + ic('dl') + '</a></span></div>';
         if (fk === 'audio') return '<div class="ch-card ch-audio"' + at + '><span class="ch-file__ic" data-k="audio">' + ic('wave') + '</span><span class="ch-audio__t"><span class="ch-card__t">' + esc(a.name) + '</span><audio controls preload="none" src="' + esc(a.url) + '"></audio></span><a class="ch-prev__ext" href="' + esc(a.url) + '" download aria-label="Download ' + esc(a.name) + '" title="Download">' + ic('dl') + '</a></div>';
         var canView = fk === 'pdf' || fk === 'docx' || fk === 'xlsx';
         var lab2 = LAB[fk] || 'FILE';
         var picf = canView && a.id ? thumbBox('f' + a.id, a.url, fk, lab2) : '<span class="ch-prev__pic"><span class="ch-file__ic" data-k="' + fk + '">' + lab2 + '</span></span>';
-        var inner = picf + '<span class="ch-prev__t"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span></span>';
+        var inner = picf + '<span class="ch-prev__t"><span class="ch-card__t" title="' + esc(a.name || '') + '">' + midName(a.name || 'Untitled file') + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span></span>';
         return '<div class="ch-card ch-prev' + (canView ? '' : ' ch-prev--plain') + '"' + at + '>' + (canView ? '<button type="button" class="ch-prev__open" data-act="view"' + at + ' aria-label="Preview ' + esc(a.name) + '">' + inner + '</button>' : '<a class="ch-prev__open" href="' + esc(a.url) + '" download>' + inner + '</a>') +
           '<a class="ch-prev__ext" href="' + esc(a.url) + '" download aria-label="Download ' + esc(a.name) + '" title="Download">' + ic('dl') + '</a></div>';
       }
@@ -437,7 +446,9 @@
       if (history.state && history.state.chview && ownsTop()) history.back();
     };
 
-    function sizeOf(n) { n = Number(n) || 0; return n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB'; }
+    // A long file name keeps its end (version and extension) and gives up its middle.
+    function midName(n) { var c = Array.from(String(n)); if (c.length < 30) return esc(n); return '<span class="ch-mid"><span class="ch-mid__a">' + esc(c.slice(0, c.length - 12).join('')) + '</span><span class="ch-mid__b">' + esc(c.slice(-12).join('')) + '</span></span>'; }
+    function sizeOf(n) { n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : n >= 1024 ? Math.round(n / 1024) + ' KB' : n + (n === 1 ? ' byte' : ' bytes'); }
 
     /* A Favor Brain answer only its asker can read: a label, and Share to channel / Dismiss once the answer is in. */
     function privateHtml(m) {
@@ -467,7 +478,7 @@
       if (!rs.length) return '';
       return '<div class="ch-react">' + rs.map(function (r) {
         var mine = r.users.indexOf(S.me.id) >= 0;
-        return '<button type="button" class="ch-rx' + (mine ? ' is-mine' : '') + '" data-act="react" data-id="' + m.id + '" data-e="' + esc(r.emoji) + '" title="' + esc(r.users.map(function (u) { return user(u).name; }).join(', ')) + '" aria-pressed="' + mine + '"><span>' + r.emoji + '</span>' + r.users.length + '</button>';
+        return '<button type="button" class="ch-rx' + (mine ? ' is-mine' : '') + '" data-act="react" data-id="' + m.id + '" data-e="' + esc(r.emoji) + '" title="' + esc(r.users.slice(0, 20).map(function (u) { return user(u).name; }).join(', ') + (r.users.length > 20 ? ' and ' + (r.users.length - 20).toLocaleString('en-US') + ' more' : '')) + '" aria-pressed="' + mine + '"><span>' + esc(r.emoji) + '</span>' + r.users.length.toLocaleString('en-US') + '</button>';
       }).join('') + '<button type="button" class="ch-rx ch-rx--add" data-act="react-pick" data-id="' + m.id + '" aria-label="Add a reaction">' + ic('smile') + '</button></div>';
     }
     // The thread a message belongs to: its own, or the thread a channel copy of a reply came from.
@@ -559,7 +570,7 @@
         else if (c.kind === 'dm') { var o = (c.members || []).filter(function (m) { return m !== S.me.id; })[0] || S.me.id; icon = '<span class="ch-row__ic">' + avatar(user(o), 'xs', true) + '</span>'; }
         else icon = '<span class="ch-row__ic">' + ic('users') + '</span>';
         var self = c.kind === 'dm' && (c.members || []).every(function (m) { return m === S.me.id; });
-        return '<button type="button" class="ch-row' + (on ? ' is-on' : '') + (unread && !c.muted ? ' is-unread' : '') + (c.muted ? ' is-muted' : '') + '" data-act="open" data-id="' + c.id + '"' + (on ? ' aria-current="true"' : '') + '>' + icon + '<span class="ch-row__n">' + esc(n) + (self ? ' (you)' : '') + '</span>' + (c.mentions > 0 ? '<span class="ch-badge" aria-label="' + plural(c.mentions, 'mention') + '">' + c.mentions + '</span>' : '') + '</button>';
+        return '<button type="button" class="ch-row' + (on ? ' is-on' : '') + (unread && !c.muted ? ' is-unread' : '') + (c.muted ? ' is-muted' : '') + '" data-act="open" data-id="' + c.id + '"' + (on ? ' aria-current="true"' : '') + '>' + icon + '<span class="ch-row__n">' + esc(n) + (self ? ' (you)' : '') + '</span>' + (c.mentions > 0 ? '<span class="ch-badge" aria-label="' + plural(c.mentions, 'mention') + '">' + (c.mentions > 99 ? '99+' : c.mentions) + '</span>' : '') + '</button>';
       };
       // A folded section still shows what needs the person: unread conversations and the one that is open. Phones show whole sections.
       var sec = function (key, title, act, label, rows, extra) {
@@ -1675,7 +1686,7 @@
       var ppl = h.people || [];
       bar.hidden = false;
       setHtml(bar, '<span class="ch-hud__dot" aria-hidden="true"></span><span class="ch-stack">' + ppl.slice(0, 4).map(function (p) { return avatar(user(p.email), 'sm'); }).join('') + '</span>' +
-        '<span class="ch-hud__t"><b>Huddle</b><span><span data-hud-dur>' + (h.startedAt ? hudDur(h.startedAt) : 'Starting') + '</span>' + (ppl.length ? ' · ' + esc(ppl.length === 1 ? user(ppl[0].email).name.split(' ')[0] : plural(ppl.length, 'person', 'people')) : '') + '</span></span>' +
+        '<span class="ch-hud__t"><b>Huddle</b><span><span data-hud-dur>' + (h.startedAt > 1e11 ? hudDur(h.startedAt) : 'Starting') + '</span>' + (ppl.length ? ' · ' + esc(ppl.length === 1 ? user(ppl[0].email).name.split(' ')[0] : plural(ppl.length, 'person', 'people')) : '') + '</span></span>' +
         '<button type="button" class="ch-hud__join" data-act="huddle">Join</button>');
     }
     function hudDur(t) { var s = Math.max(0, Math.floor((Date.now() - t) / 1000)), m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); }
@@ -1696,7 +1707,7 @@
     setInterval(function () {
       if (document.hidden || !S.active || !S.huddle || !S.huddle[S.active]) return;
       var d = $('[data-hud-dur]', root), h = S.huddle[S.active];
-      if (d && h.startedAt) d.textContent = hudDur(h.startedAt);
+      if (d && h.startedAt > 1e11) d.textContent = hudDur(h.startedAt);
     }, 1000);
     setInterval(function () {
       if (document.hidden || !S.active || !S.huddle || !S.huddle[S.active]) return;
@@ -2003,6 +2014,11 @@
     // A clip poster or a Drive picture that will not load is remembered, so every later draw shows the placeholder instead.
     root.addEventListener('error', function (e) {
       var im = e.target; if (!im || im.tagName !== 'IMG') return;
+      var avBox = im.closest('.ch-av');
+      if (avBox) { broken[im.getAttribute('src')] = 1; im.replaceWith(document.createTextNode(im.dataset.ini || '?')); return; }
+      // A picture that will not load becomes a plain file row with its name, never a broken-image icon.
+      var photo = im.closest('.ch-photo');
+      if (photo) { photo.classList.add('is-broken'); photo.removeAttribute('style'); photo.innerHTML = '<span class="ch-file__ic" data-k="image">IMG</span><span class="ch-photo__n">' + esc(im.getAttribute('alt') || 'Picture') + '</span>'; return; }
       if (!im.closest('.ch-vid') && !im.closest('.ch-prev__pic')) return;
       broken[im.getAttribute('src')] = 1;
       im.hidden = true;

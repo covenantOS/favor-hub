@@ -12,7 +12,7 @@
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const n0 = (n) => Number(n || 0).toLocaleString('en-US');
   const plural = (n, one, many) => n0(n) + ' ' + (n === 1 ? one : many || one + 's');
-  const money = (a) => '$' + Number(a || 0).toLocaleString('en-US', { minimumFractionDigits: Math.round(a) === Number(a) ? 0 : 2, maximumFractionDigits: 2 });
+  const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
   const fd = (iso) => { const [, m, d] = String(iso).slice(0, 10).split('-').map(Number); return MON[m - 1] + ' ' + d; };
   const addDays = (ymd, n) => new Date(Date.parse(ymd + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
   const TODAY = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -202,7 +202,7 @@
       const owners = e && e.owners ? e.owners.filter((o) => o.wait) : [];
       const top = Math.max(1, ...owners.map((o) => o.wait));
       body.innerHTML = `<div data-tool="leaf"><a class="wh-big" href="/work/?view=intake"><b>${n0(e ? e.wait : 0)}</b><span>to enter${e && e.late ? `, ${n0(e.late)} older` : ''}</span></a></div>`
-        + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span>${esc(o.name)}</span><span class="wh-mini" role="presentation"><i style="width:${Math.max(4, Math.round((o.wait / top) * 100))}%"></i></span><span class="wh-lc">${o.late ? `<span class="r2t-chip r2t-chip--late">${n0(o.late)} late</span>` : ''}</span><b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
+        + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span title="${esc(o.name)}">${esc(o.name)}</span><span class="wh-mini" role="presentation"><i style="width:${Math.max(4, Math.round((o.wait / top) * 100))}%"></i></span><span class="wh-lc">${o.late ? `<span class="r2t-chip r2t-chip--late">${n0(o.late)} late</span>` : ''}</span><b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
         + (k.sending > 0 ? `<div class="wh-send"><span>${n0(k.sending)} ${k.sending === 1 ? 'change' : 'changes'} waiting to send</span><a class="h-btn h-btn--sm" href="/work/?view=recent">View</a></div>` : '');
     } else if (k.kind === 'pc') {
       $('wh-week-h').textContent = 'Cadence';

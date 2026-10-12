@@ -125,7 +125,7 @@
     switch (c.type) {
       case 'name': {
         const q = x.lookup_id ? `Tell me about lookup ${x.lookup_id}` : `Tell me about ${v}${x.place ? ' in ' + x.place : ''}`;
-        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''}>${esc(v)}</a>`;
+        return v == null || v === '' ? '<span class="ns">None</span>' : `<a href="#" class="lk" data-act="ask" data-q="${esc(q)}" data-intent="partner_lookup"${x.lookup_id ? ` data-partner-lookup="${esc(x.lookup_id)}"` : ''} title="${esc(v)}">${esc(v)}</a>`;
       }
       case 'money': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(money(v));
       case 'int': return v == null || v === '' ? '<span class="ns">&mdash;</span>' : esc(int(v));
@@ -167,7 +167,7 @@
     const rows = tableRows(tb);
     const show = all ? rows : rows.slice(0, tb.preview || 8);
     const cols = all ? tb.cols : tb.cols.filter((c) => !c.panel_only);
-    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${rows.length} rows</caption><thead><tr>`;
+    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${int(rows.length)} ${rows.length === 1 ? 'row' : 'rows'}</caption><thead><tr>`;
     cols.forEach((c) => {
       const s = tb.sort === c.key ? ` aria-sort="${tb.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
       h += `<th class="${isNum(c) ? 'num' : ''}"${s}><button type="button" data-act="sort" data-tb="${tb.id}" data-k="${esc(c.key)}">${esc(c.label)}${ic('sort', 'h-i ar')}</button></th>`;
@@ -201,7 +201,8 @@
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   };
-  const rowLabel = (tb, n) => `${int(n)} ${tb.noun || (n === 1 ? 'row' : 'rows')}`;
+  // The Brain names the rows in the plural ("partners"); one row reads "1 partner".
+  const rowLabel = (tb, n) => `${int(n)} ${tb.noun ? (Number(n) === 1 ? String(tb.noun).replace(/s$/, '') : tb.noun) : Number(n) === 1 ? 'row' : 'rows'}`;
   function toolsHTML(tb, inPanel, canSheets) {
     return `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcopy" data-tb="${tb.id}">${ic('copy')}<span class="lbl-l">Copy</span></button>
     <button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcsv" data-tb="${tb.id}">${ic('dl')}<span class="lbl-l">CSV</span></button>
@@ -264,7 +265,7 @@
   });
 
   // ---- Tiles, team ----------------------------------------------------------------------------------
-  const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(d.pct))}%</span>` : '');
+  const delta = (d) => (d ? `<span class="delta ${d.dir === 'up' ? 'up' : d.dir === 'down' ? 'down' : 'flat'}">${d.dir === 'up' ? '&uarr;' : d.dir === 'down' ? '&darr;' : '&rarr;'} ${esc(Math.abs(Number(d.pct) || 0).toLocaleString('en-US', { maximumFractionDigits: 1 }))}%</span>` : '');
   function spark(v) {
     if (!v || v.length < 2) return '';
     const mx = Math.max(...v), mn = Math.min(...v);
@@ -276,7 +277,7 @@
       .map((t) => {
         const num = typeof t.value === 'number' ? `<span data-count="${t.value}" data-f="${esc(t.format || 'int')}">${esc(fmt(t.value, t.format || 'int'))}</span>` : esc(t.value);
         const prog = t.progress != null ? `<div style="height:6px;border-radius:999px;background:#ece7dc;margin-top:8px;overflow:hidden"><i style="display:block;height:100%;width:${Math.max(Math.min(t.progress, 100), 2)}%;background:var(--c-a);border-radius:999px;transform-origin:left;animation:bc-grow .8s var(--ease) both"></i></div>` : '';
-        return `<div class="bc-tile"><div class="bc-tile__l">${esc(t.label)}</div><div class="bc-tile__n${typeof t.value === 'string' ? ' is-txt' : ''}">${num}</div><div class="bc-tile__c">${delta(t.delta)}${t.compare ? `<span>${esc(t.compare)}</span>` : ''}</div>${spark(t.trend)}${prog}</div>`;
+        return `<div class="bc-tile"><div class="bc-tile__l">${esc(t.label)}</div><div class="bc-tile__n${typeof t.value === 'string' ? ' is-txt' : fmt(t.value, t.format || 'int').length > 10 ? ' is-long' : ''}">${num}</div><div class="bc-tile__c">${delta(t.delta)}${t.compare ? `<span>${esc(t.compare)}</span>` : ''}</div>${spark(t.trend)}${prog}</div>`;
       })
       .join('')}</div>`;
   }
@@ -403,7 +404,7 @@
   new MutationObserver(() => { clearTimeout(fadeT); fadeT = setTimeout(tableFades, 60); }).observe(document.body, { childList: true, subtree: true });
 
   // ---- Partner card ---------------------------------------------------------------------------------
-  const initials = (n) => String(n || '?').replace(/[^A-Za-z\s.]/g, '').split(/[\s.]+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?';
+  const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
   function partnerHTML(b, ctx) {
     const ys = b.years || [];
     const mx = Math.max(1, ...ys.map((y) => y.amount));
@@ -437,7 +438,7 @@
       </div>
       <div class="pc__body"><div class="pc__giving"><div class="pc__sec">Giving by year</div>
         ${ys.length ? `<div class="yb" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<button type="button" aria-label="${y.y}: ${money(y.amount)}"><i class="${y.amount ? '' : 'z'}" style="height:${(y.amount / mx) * 100}%;animation-delay:${k * 50}ms"></i><span class="tipbox"><b>${y.y}</b><br>${esc(money(y.amount))}</span></button>`).join('')}</div>
-        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y) => `<span>${y.y}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
+        <div class="yl" style="grid-template-columns:repeat(${ys.length},minmax(0,1fr))">${ys.map((y, k) => `<span>${ys.length <= 10 || k % Math.ceil(ys.length / 8) === 0 ? y.y : ''}</span>`).join('')}</div>` : '<p style="margin:0;font-size:13px;color:var(--h-ink-3)">No gifts on file.</p>'}</div>${iw}</div>
       ${acts ? `<div class="pc__acts">${acts}</div>` : ''}</div>`;
   }
 
@@ -533,7 +534,7 @@
       .join('')}</div>${b.other ? '<button type="button" class="else" data-act="else">Something else</button>' : ''}</div>`;
   }
   function sheetHTML(b) {
-    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} rows in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
+    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} ${Number(b.rows) === 1 ? 'row' : 'rows'} in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
   }
   /** A Sources row: one chip per manual section, opening that section. */
   function sourcesHTML(b) {
@@ -546,7 +547,8 @@
   }
 
   /** One block as HTML. ctx: { ti, bi, canSheets, canRequest(pkg), expired }. */
-  B.render = (b, ctx) => {
+  B.render = (b, ctx) => { try { return draw(b, ctx); } catch (e) { return ''; } };
+  const draw = (b, ctx) => {
     switch (b.type) {
       case 'text': return `<div class="blk-text">${md(b.md)}</div>`;
       case 'tiles': return tilesHTML(b);
