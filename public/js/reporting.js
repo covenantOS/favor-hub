@@ -41,7 +41,7 @@
     });
     $('rg-week').hidden = tab !== 'week';
     $('rg-mine').hidden = tab !== 'mine';
-    if (push) history.replaceState(null, '', tab === 'mine' ? '/reporting/?tab=mine' : '/reporting/');
+    if (push) history.replaceState(null, '', tab === 'mine' ? '/highlights/?tab=mine' : '/highlights/');
     if (tab === 'mine') loadPins();
     else if (!weekLoaded) loadWeek();
     else drawCharts();
@@ -150,7 +150,7 @@
 
   const host = {
     toast,
-    page: '/reporting/',
+    page: '/highlights/',
     turn: () => null,
     rerender: () => {},
     ask: () => {},

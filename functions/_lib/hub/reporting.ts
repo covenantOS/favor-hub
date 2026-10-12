@@ -11,6 +11,7 @@ import { HttpError, type Env } from '../http';
 import { kpiGet, SUMMARY_READER } from './kpi';
 import {
   dayInfo,
+  dayLabel,
   explain,
   lastDayOf,
   monthKey,
@@ -226,9 +227,9 @@ function grantsLines(data: ReportData): string[] {
   const m = (g.months || []).find((x) => x.month === monthKey(data.asOf));
   const last = (g.months || []).find((x) => x.month === prevMonthKey(data.asOf));
   lines.push(`${money0(Number(g.awarded) || 0)} awarded this year from ${Number(g.count) || 0} awards, ${money0(Number(g.received) || 0)} of it received.`);
-  if (m && last) lines.push(`${m.awards} ${m.awards === 1 ? 'award' : 'awards'} entered this month for ${money0(m.awarded)}. Last month had ${last.awards} for ${money0(last.awarded)}.`);
+  if (m && last) lines.push(m.awards ? `${m.awards} ${m.awards === 1 ? 'award' : 'awards'} entered this month for ${money0(m.awarded)}. Last month had ${last.awards} for ${money0(last.awarded)}.` : `No awards are entered this month yet. Last month had ${last.awards} for ${money0(last.awarded)}.`);
   if (g.toCome) lines.push(`${money0(Number(g.toCome))} is still to come from ${(g.open || []).length} open ${(g.open || []).length === 1 ? 'award' : 'awards'}.`);
-  if (g.enteredThrough) lines.push(`Awards are entered through ${g.enteredThrough}.`);
+  if (g.enteredThrough) lines.push(`Awards are entered through ${dayLabel(g.enteredThrough)}.`);
   return lines;
 }
 
@@ -254,9 +255,10 @@ export function highlights(data: ReportData, allowed: string[] | 'all'): Highlig
       asOf: data.asOf,
       rows: rowsOf(t.slices),
       pace: p[t.key] || null,
-      monthSoFar: monthTotal(t.slices, thisKey),
-      lastMonthTotal: monthTotal(t.slices, prevKey),
+      monthSoFar: t.key === 'grants' ? null : monthTotal(t.slices, thisKey),
+      lastMonthTotal: t.key === 'grants' ? null : monthTotal(t.slices, prevKey),
       extra: t.key === 'grants' ? grantsLines(data) : [],
+      noun: t.key === 'grants' ? 'grant payment' : 'gift',
     }),
   );
   return { week: { from: overall.from, to: overall.to }, overall, teams };

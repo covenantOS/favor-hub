@@ -5,7 +5,7 @@ topic: numbers
 order: 2
 for: [kpi]
 related: [kpi-dashboard, kpi-definitions, ask-favor]
-tool: /reporting/
+tool: /highlights/
 toolLabel: Open Highlights
 updated: 2026-10-12
 ---

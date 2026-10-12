@@ -328,6 +328,8 @@ export interface HighlightInput {
   lastMonthTotal?: number | null;
   /** Extra sentences the team has that gifts do not give (Grants awards). */
   extra?: string[];
+  /** What a row is called: "gift" by default, "grant payment" for Grants. */
+  noun?: string;
 }
 
 export interface Highlight {
@@ -346,6 +348,7 @@ export interface Highlight {
 
 export function weeklyHighlight(i: HighlightInput): Highlight {
   const to = i.asOf.slice(0, 10);
+  const noun = i.noun || 'gift';
   const from = addDays(to, -6);
   const prevTo = addDays(to, -7);
   const prevFrom = addDays(to, -13);
@@ -356,23 +359,23 @@ export function weeklyHighlight(i: HighlightInput): Highlight {
   const lines: string[] = [];
   let headline: string;
   if (!now.length) {
-    headline = `No gifts landed ${dayLabel(from)} to ${dayLabel(to)}.`;
+    headline = `No ${noun}s landed ${dayLabel(from)} to ${dayLabel(to)}.`;
   } else {
     const diff = amount - prevAmount;
-    headline = `${plural(now.length, 'gift')} for ${money0(amount)} in the last 7 days.`;
+    headline = `${plural(now.length, noun)} for ${money0(amount)} in the last 7 days.`;
     if (before.length || prevAmount > 0) {
       lines.push(
         Math.abs(diff) < 1
           ? `That matches the week before, ${money0(prevAmount)} from ${plural(before.length, 'gift')}.`
-          : `That is ${money0(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'} than the week before, which had ${plural(before.length, 'gift')} for ${money0(prevAmount)}.`,
+          : `That is ${money0(Math.abs(diff))} ${diff > 0 ? 'more' : 'less'} than the week before, which had ${plural(before.length, noun)} for ${money0(prevAmount)}.`,
       );
     } else {
-      lines.push('The week before had no gifts.');
+      lines.push(`The week before had no ${noun}s.`);
     }
     const big = topGifts(now, 1)[0];
     if (big) lines.push(`The largest was ${money0(big.amount)} from ${big.partner} on ${dayLabel(big.date)}.`);
   }
-  if (!now.length && (before.length || prevAmount > 0)) lines.push(`The week before had ${plural(before.length, 'gift')} for ${money0(prevAmount)}.`);
+  if (!now.length && (before.length || prevAmount > 0)) lines.push(`The week before had ${plural(before.length, noun)} for ${money0(prevAmount)}.`);
   if (i.monthSoFar != null && i.lastMonthTotal != null) {
     lines.push(`${monthName(monthKey(to))} is at ${money0(i.monthSoFar)} so far. ${monthName(prevMonthKey(to))} closed at ${money0(i.lastMonthTotal)}.`);
   }

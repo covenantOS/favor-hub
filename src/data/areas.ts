@@ -147,7 +147,7 @@ export const AREAS: NavArea[] = [
     barRank: 5,
     pages: [
       { id: 'kpi', label: 'Executive', href: '/dashboard/', desc: "The year's numbers", keywords: 'kpi dashboard revenue goals executive year', need: 'kpi', kpiPage: '/', learn: 'kpi-dashboard', swap: true },
-      { id: 'reporting', label: 'Highlights', href: '/reporting/', desc: 'Where each goal ends the year, the week in plain language for each team, and your pinned Favor Brain answers', keywords: 'highlights pace pacing projection year end goal weekly week summary my dashboard pinned pins brain explain', need: 'kpi', learn: 'reporting' },
+      { id: 'reporting', label: 'Highlights', href: '/highlights/', desc: 'Where each goal ends the year, the week in plain language for each team, and your pinned Favor Brain answers', keywords: 'highlights pace pacing projection year end goal weekly week summary my dashboard pinned pins brain explain', need: 'kpi', learn: 'reporting' },
       { id: 'reports', label: 'Reports', href: '/reports/', desc: 'Daily revenue, lists and yearly reports, with CSV and Google Sheets', keywords: 'reports report blackbaud query queries daily revenue ytd income lybunt lapsed mailing list export csv sheets tax receipts prayer', learn: 'reports', swap: true },
       { id: 'kpi-rdds', label: 'RDD team', href: '/dashboard/?page=%2Frdds', desc: 'Regional directors', keywords: 'rdd regional directors team kpi', need: 'kpi', team: 'rdd', kpiPage: '/rdds' },
       { id: 'kpi-pc', label: 'Partner Care', href: '/dashboard/?page=%2Fpc', desc: 'Partner Care team numbers', keywords: 'partner care pc kpi', need: 'kpi', team: 'pc', kpiPage: '/pc' },

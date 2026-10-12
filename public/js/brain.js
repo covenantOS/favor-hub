@@ -680,7 +680,7 @@
           const res = await fetch('/api/reporting/pins', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: t.asked_as || t.q, title: t.q, answer: { blocks: t.blocks, reading: t.reading, markdown: t.markdown } }) });
           const d = await res.json().catch(() => ({}));
           if (!res.ok || !d.ok) throw new Error(d.message || 'That did not pin. Try again.');
-          toast('Pinned to My dashboard', { href: '/reporting/?tab=mine', label: 'Open' });
+          toast('Pinned to My dashboard', { href: '/highlights/?tab=mine', label: 'Open' });
         } catch (err) { toast(err.message || 'That did not pin. Try again.'); }
         el.disabled = false;
         break;

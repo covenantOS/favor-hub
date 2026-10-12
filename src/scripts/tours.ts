@@ -416,7 +416,7 @@ export const RELEASES: Release[] = [
           {
             id: 'n-rep-pace',
             skipIfMissing: true,
-            page: '/reporting/',
+            page: '/highlights/',
             via: 'reporting',
             at: '.rg-pace-grid',
             alt: '#rg-week',
@@ -428,7 +428,7 @@ export const RELEASES: Release[] = [
           {
             id: 'n-rep-week',
             skipIfMissing: true,
-            page: '/reporting/',
+            page: '/highlights/',
             at: '.rg-hl-grid',
             alt: '#rg-week',
             title: 'The week in plain words',
@@ -439,7 +439,7 @@ export const RELEASES: Release[] = [
           {
             id: 'n-rep-mine',
             skipIfMissing: true,
-            page: '/reporting/',
+            page: '/highlights/',
             press: '#rg-tab-mine',
             at: '#rg-mine',
             undo: '#rg-tab-week',
@@ -1107,7 +1107,7 @@ export const STEPS: Step[] = [
   },
   {
     id: 'reporting',
-    page: '/reporting/',
+    page: '/highlights/',
     via: 'reporting',
     at: '.rg-pace-grid',
     alt: '#rg-week',
