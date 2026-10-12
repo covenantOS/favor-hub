@@ -319,7 +319,7 @@ export const RELEASES: Release[] = [
             at: '.wl-fwk',
             alt: '#wl-root',
             title: 'Five days built for the role',
-            body: 'A new hire sees five days of courses, the practice record and two check-ins with the supervisor, chosen for their team and title. A course finished in Learn ticks here. Add to FavorOS assigns the role path with a due date.',
+            body: 'A new hire sees five days of courses, the practice record and two check-ins with the supervisor, chosen for their team and title. A course finished in Learn ticks here. Add to FavorOS assigns the role path with a due date. The new hire also sees the part of the week for today at the top of Today.',
             added: '2026-10-12',
             side: 'top',
           },

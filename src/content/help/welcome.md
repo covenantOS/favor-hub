@@ -26,3 +26,7 @@ Your supervisor comes first, then the people who set up your accounts and traini
 ## The tour
 
 Press **Take the FavorOS tour** for a guided walk through Today, requests, Chat, meetings and search. You can run it again from Help at any time.
+
+## Your first week on Today
+
+For your first three weeks, Today opens with **Your first week** above the briefing. It shows how much of the week is done and today's day of the plan: the courses, the practice record, the tour and the check-in with your supervisor, each with an Open button. A finished item reads Done, and a course started in Learn reads Continue. **All 5 days** opens the Welcome page. The card leaves Today once every item is done.

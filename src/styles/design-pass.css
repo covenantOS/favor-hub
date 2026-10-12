@@ -564,3 +564,24 @@ html body.h-body .br-item > .br-fold + .br-more { margin-left: 16px; }
 html body.h-body #wc-root .wgr-award { display: block; margin-top: 4px; font: 600 13px var(--h-font); color: var(--h-brand-ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 html body.h-body #wc-root .wgr-award:hover { text-decoration: underline; }
 html body.h-body .pp-opp.is-focus { background: var(--h-leaf-soft, #e4ece1); border-radius: 10px; box-shadow: 0 0 0 6px var(--h-leaf-soft, #e4ece1); }
+
+/* Today: a new hire's first week (2026-10-12). Built like the briefing card: a title, one fact, then rows of name, fact and one action. */
+html body.h-body #fw-root:empty { display: none; }
+html body.h-body .fw-card { padding: 20px; margin-bottom: 16px; }
+html body.h-body .fw-head { display: flex; align-items: baseline; gap: 12px; }
+html body.h-body .fw-head h2 { margin: 0; font: 600 15px var(--h-font); color: var(--r-ink, var(--h-ink)); }
+html body.h-body .fw-count { font: 500 13px var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); }
+html body.h-body .fw-head .dp-link { margin-left: auto; white-space: nowrap; }
+html body.h-body .fw-bar { display: block; height: 4px; border-radius: 4px; background: var(--r-line, var(--h-line)); margin: 12px 0; overflow: hidden; }
+html body.h-body .fw-bar i { display: block; height: 100%; background: var(--h-brand, #2b4d24); border-radius: 4px; }
+html body.h-body .fw-day { font: 600 13px var(--h-font); color: var(--r-ink-2, var(--h-ink-2)); margin-bottom: 4px; }
+html body.h-body .fw-list { list-style: none; margin: 0; padding: 0; }
+html body.h-body .fw-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 0; border-top: 1px solid var(--r-line, var(--h-line)); }
+html body.h-body .fw-row:first-child { border-top: 0; }
+html body.h-body .fw-main { flex: 1; min-width: 0; display: grid; gap: 2px; }
+html body.h-body .fw-t { font: 600 15px var(--h-font); color: var(--r-ink, var(--h-ink)); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body.h-body .fw-f { font: 500 13px var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body.h-body .fw-row.is-done .fw-t { color: var(--r-ink-3, var(--h-ink-3)); }
+html body.h-body .fw-done { display: inline-flex; align-items: center; gap: 4px; font: 600 13px var(--h-font); color: var(--ok, var(--h-brand-ink)); }
+html body.h-body .fw-done .h-i { width: 14px; height: 14px; }
+@media (max-width: 860px) { html body.h-body .fw-card { padding: 16px; } }
