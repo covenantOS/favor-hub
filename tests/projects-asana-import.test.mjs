@@ -62,7 +62,7 @@ test('the dry run names the people it cannot match and the files it cannot copy'
   const un = Object.values(run.report.people.unmatched);
   const zed = un.find((u) => u.email === 'zed@outside.example');
   assert.ok(zed, 'the outside contractor is listed');
-  assert.match(zed.reason, /not on the hub staff list/);
+  assert.match(zed.reason, /not on FavorOS staff list/);
   assert.ok(zed.assigned >= 1 && zed.comments === 1);
   const names = run.report.files.problems.map((f) => f.name);
   assert.deepEqual(names, ['raw-footage.mov']);
@@ -150,7 +150,7 @@ test('a change in Asana is picked up; a hub edit made after the import is kept',
   fake.tasks[1].name = 'Task number 2, renamed in Asana';
   fake.tasks[1].modified_at = '2026-10-01T00:00:00.000Z';
   // someone edits task 2 in the hub after the import
-  w.d1.db.prepare("UPDATE hub_tasks SET description = 'edited in the hub', updated_at = '2999-01-01T00:00:00.000Z' WHERE title = 'Task number 2'").run();
+  w.d1.db.prepare("UPDATE hub_tasks SET description = 'edited in FavorOS', updated_at = '2999-01-01T00:00:00.000Z' WHERE title = 'Task number 2'").run();
   const run = await drive(w, fake);
   assert.equal(run.report.projects.P1.tasks.update, 1);
   assert.equal(run.report.projects.P1.tasks.kept, 1);

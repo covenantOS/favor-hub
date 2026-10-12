@@ -171,7 +171,7 @@ test('replies mirror both ways: a reply under a card is a comment, a hub comment
   assert.equal(rows(w, 'SELECT deleted_at FROM hub_task_comments WHERE id = ?', cm[0].id)[0].deleted_at !== null, true);
 });
 
-test('an assignment in the hub posts a card in a direct message and tells the owner once', async () => {
+test('an assignment in FavorOS posts a card in a direct message and tells the owner once', async () => {
   const w = world();
   await import('../functions/_lib/projects/hooks.ts');
   const r = await core(w, ADA, 'POST', 'tasks', { title: 'Order Partner Care cards', owner_email: DAN.email });

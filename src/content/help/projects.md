@@ -10,7 +10,7 @@ toolLabel: Open Projects
 updated: 2026-10-11
 ---
 
-Projects is where FavorOS keeps work that has an owner and a date. It is open to hub admins for now, and Admin > Projects changes who can use it.
+Projects is where FavorOS keeps work that has an owner and a date. It is open to FavorOS admins for now, and Admin > Projects changes who can use it.
 
 ## Projects and tasks
 
@@ -18,7 +18,7 @@ A project has a lead, members, sections, and tasks with an owner, dates, a prior
 
 ## Chat
 
-Press **Open the project channel** on a project to make its Chat channel. The lead and members join it. Type `/task Send the report @Dana due friday` in any conversation to make a task and post its card. Add a project key first, for example `/task FALL Cut the video`, to file it in that project. Hover a message and press **Make a task from this message** (on a phone, open the message and press the same row). A task card opens the task right in Chat. A reply under the card is a comment on the task, and a comment written in the hub is copied under the card.
+Press **Open the project channel** on a project to make its Chat channel. The lead and members join it. Type `/task Send the report @Dana due friday` in any conversation to make a task and post its card. Add a project key first, for example `/task FALL Cut the video`, to file it in that project. Hover a message and press **Make a task from this message** (on a phone, open the message and press the same row). A task card opens the task right in Chat. A reply under the card is a comment on the task, and a comment written in FavorOS is copied under the card.
 
 ## Meetings
 

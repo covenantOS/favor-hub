@@ -28,17 +28,17 @@ const addMinutes = (date: string, time: string, min: number) => {
 
 export function eventBody(t: { title: string; code: string | null; due_date: string; due_time: string | null; description?: string }, url: string, project: string) {
   const summary = `${t.code ? t.code + ' ' : ''}${t.title}`.slice(0, 200);
-  const description = `Due in the Favor hub${project ? ` (${project})` : ''}: ${url}${t.description ? '\n\n' + t.description.slice(0, 800) : ''}`;
+  const description = `Due in FavorOS${project ? ` (${project})` : ''}: ${url}${t.description ? '\n\n' + t.description.slice(0, 800) : ''}`;
   if (!t.due_time) {
     const next = new Date(Date.parse(t.due_date + 'T12:00:00Z') + 86400000).toISOString().slice(0, 10);
-    return { summary, description, start: { date: t.due_date }, end: { date: next }, transparency: 'transparent', reminders: { useDefault: true }, source: { title: 'Favor hub', url } };
+    return { summary, description, start: { date: t.due_date }, end: { date: next }, transparency: 'transparent', reminders: { useDefault: true }, source: { title: 'FavorOS', url } };
   }
   const end = addMinutes(t.due_date, t.due_time, 30);
   return {
     summary, description,
     start: { dateTime: `${t.due_date}T${t.due_time}:00`, timeZone: TZ },
     end: { dateTime: `${end.date}T${end.time}:00`, timeZone: TZ },
-    reminders: { useDefault: true }, source: { title: 'Favor hub', url },
+    reminders: { useDefault: true }, source: { title: 'FavorOS', url },
   };
 }
 

@@ -9,7 +9,7 @@ toolLabel: Open Chat
 updated: 2026-10-11
 ---
 
-Chat is where the team talks inside the hub. Admin > Chat sets who can use it.
+Chat is where the team talks inside FavorOS. Admin > Chat sets who can use it.
 
 ## Channels and messages
 
@@ -29,7 +29,7 @@ What you type and do not send stays with that conversation as a draft, marked wi
 
 A thread with replies you have not read shows a red count beside its replies. **Threads**, above the channels, lists every thread you started, replied in or were named in, newest first, with the same counts. **Mentions and reactions** lists where you were named, replies in your threads and the reactions people left on your messages.
 
-A pinned message shows on a yellow band, and the row under the channel name counts the pins and holds bookmarks: press **+** to add a web address or a hub page. **Latest** appears at the bottom when you have scrolled up, with a count of new messages. Type @ and a name to mention someone. They see it on the bell and on the Chat badge in the menu. @channel notifies everyone in the channel.
+A pinned message shows on a yellow band, and the row under the channel name counts the pins and holds bookmarks: press **+** to add a web address or a FavorOS page. **Latest** appears at the bottom when you have scrolled up, with a count of new messages. Type @ and a name to mention someone. They see it on the bell and on the Chat badge in the menu. @channel notifies everyone in the channel.
 
 Paste or drag a file into the box to upload it, up to 25 MB. A pasted web address becomes a card with the page title, and a pasted Google Docs, Sheets, Slides or Drive address becomes a Drive card.
 
@@ -65,11 +65,11 @@ Press **Ctrl K** in Chat, or **Jump to or search** at the top of the list, to ju
 
 ## Slash commands and requests
 
-Start a message with **/** for the hub's own commands: **/brain** and a question, **/request** and a summary for a request board card, **/huddle**, and **/clip** to record a clip. **Make a request** in the plus menu and **Create a request from this message** in a message's menu do the same. The card posts in the conversation, a reply under it is a comment on the request, and pressing the card opens the request on top of the chat with its comments.
+Start a message with **/** for FavorOS's own commands: **/brain** and a question, **/request** and a summary for a request board card, **/huddle**, and **/clip** to record a clip. **Make a request** in the plus menu and **Create a request from this message** in a message's menu do the same. The card posts in the conversation, a reply under it is a comment on the request, and pressing the card opens the request on top of the chat with its comments.
 
 ## Notices
 
-The list offers **Notices for messages and mentions** once. **Turn on** asks the browser, and Chat then shows a notice for a direct message or a mention when it is not in front. Ctrl K elsewhere in the hub lists chat messages in its Chat group.
+The list offers **Notices for messages and mentions** once. **Turn on** asks the browser, and Chat then shows a notice for a direct message or a mention when it is not in front. Ctrl K elsewhere in FavorOS lists chat messages in its Chat group.
 
 ## On a phone
 

@@ -124,7 +124,7 @@ export function buildNotice(m: NoticeMail): { subject: string; html: string; tex
     `<tr><td style="padding:14px 28px 0;font-size:0">${chips.map(chip).join('')}</td></tr>` +
     (note ? `<tr><td style="padding:12px 28px 0"><div style="background:${C.bg};border-radius:14px;padding:14px 16px;font:400 14px/1.55 Arial,sans-serif;color:${C.ink};white-space:pre-line">${esc(short(note, 700))}</div></td></tr>` : '') +
     `<tr><td style="padding:16px 28px 0">${btn(t.url, 'Open the task', true)}</td></tr>` +
-    `<tr><td style="padding:20px 28px 24px"><div style="border-top:1px solid ${C.line};padding-top:14px;font:400 12.5px/1.6 Arial,sans-serif;color:${C.ink3}">Change how you get project email from the bell in the hub.</div></td></tr>`;
+    `<tr><td style="padding:20px 28px 24px"><div style="border-top:1px solid ${C.line};padding-top:14px;font:400 12.5px/1.6 Arial,sans-serif;color:${C.ink3}">Change how you get project email from the bell in FavorOS.</div></td></tr>`;
   const text = [h.line, t.title, chips.join(' · '), ...(note ? ['', short(note, 700)] : []), '', `Open the task: ${t.url}`].join('\n');
   return { subject: h.subject(short(t.title, 70)), html: shell(inner, 'Favor Projects', { t: h.pill, bg: h.bg, fg: h.fg }), text };
 }

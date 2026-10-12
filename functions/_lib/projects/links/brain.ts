@@ -35,7 +35,7 @@ async function actingActor(env: Env, emailRaw: string): Promise<Actor> {
   const email = lower(emailRaw);
   if (!FAVOR.test(email)) throw new HttpError(403, 'forbidden', 'Only Favor staff can use tasks.');
   const row = await env.DB.prepare('SELECT name, role, blocked FROM hub_users WHERE lower(email) = ?').bind(email).first<{ name: string; role: string; blocked: number }>().catch(() => null);
-  if (row?.blocked) throw new HttpError(403, 'forbidden', 'That person is blocked in the hub.');
+  if (row?.blocked) throw new HttpError(403, 'forbidden', 'That person is blocked in FavorOS.');
   const dir = await dirMap(env);
   const admin = row?.role === 'admin';
   const actor: Actor = { email, name: row?.name || nameOf(dir, email), admin };

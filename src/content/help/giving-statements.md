@@ -47,4 +47,4 @@ Emailing a statement to a partner is built and switched off. An admin turns it o
 
 ## The wording
 
-The **Wording** tab shows every line that prints. **Open a sample statement** shows it on a made-up partner. A hub admin changes any line in Admin, Giving statements.
+The **Wording** tab shows every line that prints. **Open a sample statement** shows it on a made-up partner. A FavorOS admin changes any line in Admin, Giving statements.

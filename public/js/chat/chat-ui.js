@@ -831,8 +831,8 @@
     /* ------------------------------------------------------------------ actions */
     /* ------------------------------------------------------------------ where the person is, and the browser's Back
        Each screen the page adds to the browser's history carries what was open (nav.pos counts them). Back and Forward put
-       that screen back; an X or a back arrow on the page takes the same step, so the two never disagree. The hub's own
-       overlays (help, search, the huddle sheet) keep their own steps on top of these and are left to the hub. */
+       that screen back; an X or a back arrow on the page takes the same step, so the two never disagree. FavorOS's own
+       overlays (help, search, the huddle sheet) keep their own steps on top of these and are left to FavorOS. */
     var nav = { pos: (history.state && history.state.chn) || 0, after: null };
     function ownsTop() { return !!(history.state && history.state.chn && history.state.chn === nav.pos); }
     function pushNav(extra) {
@@ -1343,7 +1343,7 @@
       m._rq = { from: from ? from.id : null, thread: o.thread || null, channel: S.active };
     }
     function bookmarkDialog() {
-      openModal('Add a bookmark', '<label class="ch-field"><span>Link</span><input class="ch-input" data-bm-url placeholder="https:// or a hub page such as /reports/" maxlength="600" inputmode="url" /></label><label class="ch-field"><span>Name</span><input class="ch-input" data-bm-title placeholder="Shown in the bar" maxlength="60" /></label>',
+      openModal('Add a bookmark', '<label class="ch-field"><span>Link</span><input class="ch-input" data-bm-url placeholder="https:// or a FavorOS page such as /reports/" maxlength="600" inputmode="url" /></label><label class="ch-field"><span>Name</span><input class="ch-input" data-bm-title placeholder="Shown in the bar" maxlength="60" /></label>',
         '<button type="button" class="ch-btn" data-act="modal-x">Cancel</button><button type="button" class="ch-btn ch-btn--primary" data-act="bm-save">Add</button>');
     }
 

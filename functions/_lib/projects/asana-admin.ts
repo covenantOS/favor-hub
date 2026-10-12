@@ -33,7 +33,7 @@ export async function readToken(env: Env): Promise<string | null> {
 export async function saveToken(env: Env, actor: string, token: string): Promise<void> {
   const t = token.trim();
   if (t.length < 20 || /\s/.test(t)) throw new HttpError(400, 'bad_token', 'That does not look like an Asana personal access token.');
-  if (!env.GOOGLE_TOKEN_KEY) throw new HttpError(503, 'no_key', 'This copy of the hub has no key to seal secrets with (GOOGLE_TOKEN_KEY), so it cannot keep a token.');
+  if (!env.GOOGLE_TOKEN_KEY) throw new HttpError(503, 'no_key', 'This copy of FavorOS has no key to seal secrets with (GOOGLE_TOKEN_KEY), so it cannot keep a token.');
   const had = !!(await hubGet(env, TOKEN_KEY));
   await hubPut(env, TOKEN_KEY, await seal(env, t), actor);
   await hubDel(env, WHO_KEY);
@@ -91,7 +91,7 @@ export async function saveSettings(env: Env, actor: string, b: { enabled?: unkno
     const v = String(b.marketing_project || '').trim().toUpperCase();
     if (v) {
       const p = await env.DB.prepare('SELECT key, status FROM hub_projects WHERE key = ?').bind(v).first<{ key: string; status: string }>().catch(() => null);
-      if (!p) throw new HttpError(400, 'no_project', 'Pick one of the hub projects.');
+      if (!p) throw new HttpError(400, 'no_project', 'Pick one of FavorOS projects.');
       if (p.status === 'archived') throw new HttpError(400, 'archived', 'That project is archived. Restore it first.');
     }
     await changeSetting(env, actor, REQUEST_KEY, v);

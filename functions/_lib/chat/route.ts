@@ -404,7 +404,7 @@ async function confirm(ctx: Ctx, user: HubUser, id: number): Promise<{ blocks: u
   const action = String(input.action || '');
   if (!Number.isInteger(bi) || bi < 0 || !/^[a-z_]{2,30}$/.test(action)) throw new HttpError(400, 'bad_action', 'That button is no longer there.');
   const { brain, block } = await more.confirmCard(env, me, id, bi);
-  if (!env.BRAIN_HUB_KEY) throw new HttpError(503, 'not_set_up', 'The Brain is not connected to the hub yet.');
+  if (!env.BRAIN_HUB_KEY) throw new HttpError(503, 'not_set_up', 'The Brain is not connected to FavorOS yet.');
   const res = await (ctx.fetcher || fetch)(`${(env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '')}/hub/confirm`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.BRAIN_HUB_KEY}`, 'X-Acting-Email': user.email, 'X-Acting-Name': encodeURIComponent(user.name || user.email).replace(/%20/g, ' '), 'Content-Type': 'application/json', 'User-Agent': 'favor-hub' },

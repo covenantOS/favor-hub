@@ -212,7 +212,7 @@ test('pins: only a member of the conversation, and never a private Brain answer'
   assert.equal((await call(w, ADMIN, 'POST', `messages/${hidden.lastInsertRowid}/pin`, { on: true })).status, 404);
 });
 
-test('bookmarks: a web address or a hub page, cleaned, listed on boot, removed by a member', async () => {
+test('bookmarks: a web address or a FavorOS page, cleaned, listed on boot, removed by a member', async () => {
   const w = world();
   await boot(w, ADMIN, ADMIN2);
   const add = await call(w, ADMIN, 'POST', `channels/${GEN}/bookmarks`, { url: 'docs.google.com/document/d/abc', title: '  Staff   handbook ' });
@@ -222,7 +222,7 @@ test('bookmarks: a web address or a hub page, cleaned, listed on boot, removed b
   const page = await call(w, ADMIN2, 'POST', `channels/${GEN}/bookmarks`, { url: '/reports/' });
   assert.equal(page.data.bookmarks[1].title, '/reports/');
   assert.equal((await call(w, ADMIN, 'POST', `channels/${GEN}/bookmarks`, { url: 'javascript:alert(1)' })).status, 400);
-  assert.equal((await call(w, ADMIN, 'POST', `channels/${GEN}/bookmarks`, { url: '//evil.example/x' })).data.bookmarks.at(-1).url, 'https://evil.example/x', 'a protocol-relative address is read as a web address, never as a hub page');
+  assert.equal((await call(w, ADMIN, 'POST', `channels/${GEN}/bookmarks`, { url: '//evil.example/x' })).data.bookmarks.at(-1).url, 'https://evil.example/x', 'a protocol-relative address is read as a web address, never as a FavorOS page');
   const b = (await call(w, ADMIN, 'GET', 'boot')).data.channels.find((c) => c.id === GEN);
   assert.equal(b.bookmarks.length, 3);
   const rm = await call(w, ADMIN2, 'DELETE', `channels/${GEN}/bookmarks/${add.data.bookmarks[0].id}`);

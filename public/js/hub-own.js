@@ -1,7 +1,7 @@
 /* Page ownership. Inlined in the head of every hub page by src/layouts/App.astro, before any other script runs.
    A page's scripts leave timers, listeners, observers and nodes on the body behind. When hub-swap.js changes pages in place, that
    debris used to pile up (about 280 detached nodes and 5 listeners per page change). This file notes what page code created, so
-   hub-swap.js can remove it before the next page arrives. The hub's own scripts (the shell list below) are never touched.
+   hub-swap.js can remove it before the next page arrives. FavorOS's own scripts (the shell list below) are never touched.
    The creator is read from the call stack: the nearest frame is a page script when its file is under /js/ and not in the shell
    list, or when it comes from code hub-swap.js evaluated (named hub-page-N.js). */
 (function () {
