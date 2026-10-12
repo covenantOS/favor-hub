@@ -1,5 +1,6 @@
 // Online gifts. Admins and the people an admin gave Gift entry access (the admin desk, Partner Care).
-//   GET  /?days=1|3|7|14       the gifts with comment and designation, the Blackbaud batches waiting, the write setting
+//   GET  /?days=1|3|7|14&gift=  the gifts (gift= adds one gift by its ID, whatever its date)
+//                              with comment and designation, the Blackbaud batches waiting, the write setting
 //   GET  /log?key=             the audit trail of one gift's review
 //   POST /approve              { from, items: [{ key, fundId }] } record who approved which designation; queue a change when writes are on
 //   POST /setting              admins: { apply: 'on' | 'off', testLimit }
@@ -61,7 +62,8 @@ export const onRequestGet = gift(async ({ env, user, params, url }) => {
   if (a) throw new HttpError(404, 'no_action', 'There is no such page.');
   const viewer = viewerOf(user);
   const from = fromOf(url.searchParams.get('days'));
-  const ov = await overview(deps(env), viewer, from, { showTest: url.searchParams.get('test') === '1' });
+  const one = url.searchParams.get('gift') || '';
+  const ov = await overview(deps(env), viewer, from, { showTest: url.searchParams.get('test') === '1', giftId: /^\d{1,12}$/.test(one) ? one : '' });
   return { ...ov, me: viewer.email, admin: viewer.admin, blackbaud: BLACKBAUD_HOME, testRecord: TEST_RECORD };
 });
 
@@ -83,7 +85,7 @@ export const onRequestPost = gift(async ({ request, env, user, params }) => {
     const items = Array.isArray(b.items) ? b.items.slice(0, 200).map((x: any) => ({ key: String(x?.key || ''), fundId: String(x?.fundId || '') })) : [];
     if (!items.length) throw new HttpError(400, 'nothing', 'Pick a gift to approve.');
     const from = /^\d{4}-\d{2}-\d{2}$/.test(String(b.from || '')) ? String(b.from) : fromOf(14);
-    return { results: await approve(deps(env), viewer, items, from) };
+    return { results: await approve(deps(env), viewer, items, from, /^\d{1,12}$/.test(String(b.gift || '')) ? String(b.gift) : '') };
   }
   if (a === 'setting') {
     if (!viewer.admin) throw new HttpError(403, 'admin_only', 'Only an admin changes this.');

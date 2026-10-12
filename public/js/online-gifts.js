@@ -51,7 +51,7 @@
     var to = chosen(r);
     var bits = [];
     if (r.read.by === 'comment' || r.read.by === 'model') bits.push('From the comment');
-    else if (r.source === 'website') bits.push('From the form');
+    else if (r.read.by === 'form' && r.source !== 'form') bits.push('From the form');
     if (r.inBlackbaud && r.currentFund && to && to !== r.currentFund) bits.push('In Blackbaud: ' + fundName(r.currentFund));
     return bits.length ? '<span class="og-why">' + esc(bits.join(' · ')) + '</span>' : '';
   }
@@ -101,7 +101,7 @@
   function approve(items) {
     if (S.busy || !items.length) return;
     S.busy = true;
-    call('/approve', { from: S.ov.from, items: items }).then(function (r) {
+    call('/approve', { from: S.ov.from, items: items, gift: qs.get('gift') || '' }).then(function (r) {
       S.busy = false;
       if (r.ok === false) { toast(r.message || 'Not saved.'); return; }
       var res = r.results || [];
@@ -146,7 +146,7 @@
   }
 
   function load() {
-    var extra = qs.get('test') === '1' ? '&test=1' : '';
+    var extra = (qs.get('test') === '1' ? '&test=1' : '') + (/^\d+$/.test(qs.get('gift') || '') ? '&gift=' + qs.get('gift') : '');
     call('?days=' + encodeURIComponent(S.days) + extra).then(function (o) {
       if (o.ok === false) { root.innerHTML = '<p class="rp-note">' + esc(o.message || 'The online gifts did not load.') + '</p>'; return; }
       S.ov = o;

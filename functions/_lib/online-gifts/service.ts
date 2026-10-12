@@ -156,14 +156,17 @@ const splitsOf = (s: unknown): Row[] => {
 };
 
 /** Mirror gifts that came in online since `from`: the giving form, its same-minute copies, and Blackbaud donation form batches. */
-export async function onlineGifts(mirror: Q, from: string, formBatches: string[]): Promise<Row[]> {
-  return mirror(
+export async function onlineGifts(mirror: Q, from: string, formBatches: string[], giftId = ''): Promise<Row[]> {
+  // One gift opened by its ID (?gift=) is listed whatever its date.
+  const one = giftId ? await mirror(`${MIRROR_SQL} WHERE g.id = ?1 AND g.gift_amount > 0 AND g.gift_type IN ('Donation', 'RecurringGiftPayment')`, [giftId]) : [];
+  const rows = await mirror(
     `${MIRROR_SQL} WHERE DATE(g.gift_date) >= ?1 AND g.gift_amount > 0 AND g.gift_type IN ('Donation', 'RecurringGiftPayment')
        AND (g.gift_comments LIKE '%via favorintl.org%' OR json_extract(g.raw_json, '$.source') = 'realtime-web' OR json_extract(g.raw_json, '$.batch_number') IN (SELECT value FROM json_each(?2)))
        AND COALESCE(g.gift_comments, '') NOT LIKE 'DIAGNOSTIC%'
      ORDER BY g.date_added DESC LIMIT 300`,
     [from, JSON.stringify(formBatches)]
   );
+  return [...one.filter((o) => !rows.some((r) => String(r.id) === String(o.id))), ...rows];
 }
 
 /** Gifts entered by hand without a batch (payment Other or PayPal), the way the admins enter Fundraise Up payouts. */
@@ -221,11 +224,11 @@ export interface Overview {
   fruOk: boolean;
 }
 
-export async function overview(d: Deps, viewer: Viewer, from: string, opts: { showTest?: boolean } = {}): Promise<Overview> {
+export async function overview(d: Deps, viewer: Viewer, from: string, opts: { showTest?: boolean; giftId?: string } = {}): Promise<Overview> {
   const [funds, batches] = await Promise.all([fundsOf(d.mirror), batchInfo(d)]);
   const fundIds = new Set(funds.map((f) => f.id));
   const formSet = new Set(batches.formBatches);
-  const re = await onlineGifts(d.mirror, from, batches.formBatches);
+  const re = await onlineGifts(d.mirror, from, batches.formBatches, opts.giftId);
   let fru: FruDonation[] = [];
   let fruOk = true;
   if (d.fru) {
@@ -269,7 +272,7 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
   }
   // A Fundraise Up gift matched to a Blackbaud gift replaces nothing on the giving form side; drop exact duplicates by key.
   const byKey = new Map(items.map((i) => [i.key, i]));
-  const list = [...byKey.values()].filter((i) => !i.base.test || opts.showTest || viewer.tester);
+  const list = [...byKey.values()].filter((i) => !i.base.test || opts.showTest || viewer.tester || (!!opts.giftId && i.base.giftId === opts.giftId));
 
   // Comments the mirror does not hold yet (a gift the giving form wrote in the last hours): read each once from Blackbaud.
   const seen = await seenOf(d.db, list.map((i) => i.key));
@@ -342,10 +345,10 @@ export function decideState(f: { inBlackbaud: boolean; from: string; to: string;
   return { state: 'queued', result: 'Waiting for the Blackbaud web view' };
 }
 
-export async function approve(d: Deps, viewer: Viewer, items: ApproveItem[], from: string): Promise<ApproveResult[]> {
+export async function approve(d: Deps, viewer: Viewer, items: ApproveItem[], from: string, giftId = ''): Promise<ApproveResult[]> {
   if (!items.length) return [];
   if (items.length > 200) throw new Error('too many');
-  const ov = await overview(d, viewer, from, { showTest: true });
+  const ov = await overview(d, viewer, from, { showTest: true, giftId });
   const rows = new Map(ov.rows.map((r) => [r.key, r]));
   const fundIds = new Set(ov.funds.map((f) => f.id));
   const applyOn = ov.apply;
