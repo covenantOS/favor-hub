@@ -173,6 +173,16 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'evaluations',
+    page: '/evaluations/',
+    via: 'evals',
+    at: '#ev-root',
+    title: 'Evaluations',
+    body: 'Your evaluation, the feedback you owe a colleague and, for a supervisor, your team reviews. In week 1 you complete the self-assessment and name 3 to 5 people who work with you. Answers save as you go. The page says who can read what before you write.',
+    added: '2026-10-11',
+    side: 'bottom',
+  },
+  {
     id: 'reports',
     page: '/reports/',
     via: 'reports',
