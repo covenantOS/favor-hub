@@ -71,3 +71,7 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
 
 /* Work Center: the tab chips under each group (Open actions, Gifts to thank...) were 40 px tall. */
 @media (max-width: 860px) { body.h-body #wc-root .wc-nav .wc-tabs .wc-tab { min-height: 44px; } }
+
+/* Chat: a picture posted before sizes were recorded sat at the left of a full-width beige box. The box now fits the picture.
+   All sizes. */
+.ch-photo:not([style]):not(.is-broken) { width: fit-content; }
