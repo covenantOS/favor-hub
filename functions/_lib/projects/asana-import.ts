@@ -304,6 +304,7 @@ export class Engine {
   private deadline: number;
   private sectionIds = new Map<string, string | null>();
   private lead = '';
+  private memberSeen = new Set<string>();
   private ts: string;
 
   constructor(env: Env, run: RunRow, src: Source, deps: StepDeps, deadline: number) {
@@ -561,7 +562,14 @@ export class Engine {
     if (!t.section) return null;
     if (this.sectionIds.has(t.section.gid)) return this.sectionIds.get(t.section.gid) ?? null;
     if (lower(t.section.name) === UNTITLED) return null;
-    // A section the project listing did not show (it was added while the run was going): make it.
+    // Every step starts with an empty section table, so look the section up in the map first. Only a section the project listing
+    // never showed (added while the run was going) is made here; a dry run just notes it.
+    const have = await this.mapGet('section', t.section.gid);
+    if (have) {
+      this.sectionIds.set(t.section.gid, have.hub_id);
+      return have.hub_id;
+    }
+    if (this.dry) return `dry_${t.section.gid}`;
     const id = await this.section({ gid: c.ref } as AProject, t.section, c.hubProject, 9999, c.rep);
     return id;
   }
@@ -575,6 +583,11 @@ export class Engine {
     const opts = this.run.options;
     const section = await this.resolveSection(c, t);
     const assignee = this.person(c.acc, t.assignee, 'assigned', c.rep.name);
+    // Everyone a task is assigned to belongs to the project, so a members-only project shows them their own work.
+    if (assignee && !this.memberSeen.has(assignee) && c.hubProject && !this.dry) {
+      this.memberSeen.add(assignee);
+      await this.batch([{ sql: 'INSERT OR IGNORE INTO hub_project_members (project_id, email, role, added_at) VALUES (?, ?, ?, ?)', a: [c.hubProject, assignee, 'member', this.ts] }]);
+    }
     const doneBy = t.completed ? matchPerson(this.people, t.completed_by).email : null;
     const followers = new Set<string>();
     for (const f of t.followers) {

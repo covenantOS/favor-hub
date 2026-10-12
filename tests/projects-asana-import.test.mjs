@@ -6,6 +6,8 @@ import { makeAsana } from './support/asana-fake.mjs';
 import './support/resolve-ts.mjs';
 
 import { world } from './support/asana-world.mjs';
+import { readFileSync } from 'node:fs';
+const read2 = (p) => readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 
 const rows = (w, sql, ...a) => w.d1.db.prepare(sql).all(...a);
 const one = (w, sql, ...a) => w.d1.db.prepare(sql).get(...a);
@@ -274,4 +276,48 @@ test('an expired page marker restarts the list and skips what is done, so a dry 
   const p = run.report.projects.P1;
   assert.equal(p.tasks.create, 47);
   assert.equal(p.comments.create, 2);
+});
+
+test('sections are counted once and never re-sorted, however many steps the run takes', async () => {
+  const dryW = world();
+  const dry = await drive(dryW, makeAsana(), { mode: 'dry', budget: { maxCalls: 12 }, steps: 400 });
+  assert.deepEqual(dry.report.projects.P1.sections, { create: 4, update: 0, same: 0 });
+  const w = world();
+  await drive(w, makeAsana(), { budget: { maxCalls: 12 }, steps: 400 });
+  assert.deepEqual(rows(w, 'SELECT name, sort FROM hub_project_sections ORDER BY sort').map((s) => [s.name, s.sort]), [
+    ['Needs To Be Assigned', 1024], ['Open Projects', 2048], ['Closed Projects', 3072], ['Vacation', 4096],
+  ]);
+});
+
+test('an import is silent: no notice, hook, Chat card, email or calendar call, even with notices switched on', async () => {
+  const w = world();
+  w.d1.exec(read2('db/favor-chat.sql'));
+  w.d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('requests.notify', 'on', 't', 'x')").run();
+  const channelsBefore = rows(w, 'SELECT id FROM chat_channels').length;
+  const hooks = await import('../functions/_lib/projects/hooks.ts');
+  const seen = [];
+  hooks.onProjectEvent((_e, ev) => { seen.push(ev.kind); });
+  const realFetch = globalThis.fetch;
+  const outside = [];
+  globalThis.fetch = (u) => { outside.push(String(u)); throw new Error('no network call is allowed during an import'); };
+  try {
+    const run = await drive(w, makeAsana(), { picks: [{ ref: 'P1', name: 'Marketing Daily' }, { ref: 'P2', name: 'Site Work' }], options: { visibility: 'members' } });
+    assert.equal(run.status, 'done');
+    assert.ok(rows(w, 'SELECT id FROM hub_tasks WHERE owner_email IS NOT NULL').length > 20, 'tasks were assigned');
+    assert.ok(rows(w, 'SELECT id FROM hub_task_comments').length > 0);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(rows(w, 'SELECT id FROM hub_task_notices').length, 0);
+  assert.deepEqual(seen, []);
+  assert.deepEqual(outside, []);
+  assert.equal(rows(w, 'SELECT id FROM chat_messages').length, 0);
+  assert.equal(rows(w, 'SELECT id FROM chat_channels').length, channelsBefore, 'no channel was made');
+  assert.deepEqual([...new Set(rows(w, 'SELECT kind FROM hub_task_events').map((e) => e.kind))], ['imported']);
+  // the project: members only, the Asana owner leads, the assignees are members
+  const p = one(w, "SELECT * FROM hub_projects WHERE name = 'Marketing Daily'");
+  assert.equal(p.visibility, 'members');
+  assert.equal(p.lead_email, 'dan@favorintl.org');
+  const mem = rows(w, 'SELECT email FROM hub_project_members WHERE project_id = ?', p.id).map((m) => m.email).sort();
+  assert.deepEqual(mem, ['dan@favorintl.org', 'vic@favorintl.org']);
 });
