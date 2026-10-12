@@ -328,3 +328,4 @@
 }
 
 .cr-pip.is-camoff .cr-pipcircle { visibility: hidden; }
+.cr-count__wait { max-width: 340px; text-align: center; font-size: 17px !important; line-height: 1.4; }

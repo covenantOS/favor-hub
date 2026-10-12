@@ -92,8 +92,9 @@ function fitWindow(w, h) {
   }
 }
 
-// Arc has the Document Picture-in-Picture API but never shows its window (the recorder reports a floating window that nobody
-// can see), so there it counts as missing and the video player window is used instead.
+// Arc creates a Document Picture-in-Picture window requested during the screen picker but never shows it. A window requested
+// by a plain click, with no picker open, shows (ServiceLine Flow's Float button does exactly that), so in Arc the floating
+// window opens from the click that ends the countdown wait.
 const isArc = () => {
   try {
     return !!getComputedStyle(document.documentElement).getPropertyValue('--arc-palette-title').trim();
@@ -101,7 +102,7 @@ const isArc = () => {
     return false;
   }
 };
-const docPip = () => (typeof window !== 'undefined' && !isArc() && window.documentPictureInPicture) || null;
+const docPip = () => (typeof window !== 'undefined' && window.documentPictureInPicture) || null;
 const videoPipOk = () => typeof document !== 'undefined' && !!document.pictureInPictureEnabled && typeof HTMLCanvasElement !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream;
 const isPhone = () => !STANDALONE && (matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 1023px)').matches));
 const hubTarget = STANDALONE ? ' target="favor-hub-main"' : '';
@@ -651,8 +652,9 @@ function startRecording() {
   const wantFloat = !isPhone() && p.float !== false;
   S.pipWanted = (!!docPip() && (wantBubble || wantFloat)) || (!docPip() && videoPipOk() && wantFloat && STANDALONE);
   S.pipVideo = S.pipWanted && !docPip();
+  S.floatLater = S.pipWanted && isArc();
   S.pipError = '';
-  const winP = S.pipWanted
+  const winP = S.pipWanted && !S.floatLater
     ? (S.pipVideo ? openVideoPip() : openPip(wantBubble ? 'bubble' : 'controls')).catch((e) => {
         // Said out loud (and retried on the next click) so a browser that refuses is never silent.
         S.pipError = (e && (e.name || e.message)) || 'refused';
@@ -668,7 +670,7 @@ function startRecording() {
     async () => {
       if (winP) await winP;
       if (S.rec !== rec) return;
-      if (S.pipWanted && !S.pip && !S.vpip) armFloat(rec);
+      if (S.pipWanted && !S.floatLater && !S.pip && !S.vpip) armFloat(rec);
       if (S.pip && S.pip.attach && rec.camStream) S.pip.attach(rec.camStream);
       if (S.pip && S.pip.showCorners) S.pip.showCorners();
       if (wantBubble && !(S.pip && S.pip.kind === 'bubble') && !STANDALONE) mountPageBubble(rec);
@@ -694,7 +696,10 @@ function countdown(rec) {
   el.className = 'cr-count';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-label', 'Recording starts soon');
-  el.innerHTML = `<div class="cr-count__n" id="cr-count-n" aria-live="assertive">3</div><p>Recording starts</p><div class="cr-count__btns"><button type="button" data-act="skip" class="cr-pill">Start now</button><button type="button" data-act="cancel" class="cr-pill is-ghost">Cancel</button></div>`;
+  const wait = !!S.floatLater && !S.pip && !S.vpip;
+  el.innerHTML = wait
+    ? `<p class="cr-count__wait">The screen is ready. The recording controls open in a floating window when you press Start.</p><div class="cr-count__btns"><button type="button" data-act="skip" class="cr-pill">Start recording</button><button type="button" data-act="cancel" class="cr-pill is-ghost">Cancel</button></div>`
+    : `<div class="cr-count__n" id="cr-count-n" aria-live="assertive">3</div><p>Recording starts</p><div class="cr-count__btns"><button type="button" data-act="skip" class="cr-pill">Start now</button><button type="button" data-act="cancel" class="cr-pill is-ghost">Cancel</button></div>`;
   document.body.appendChild(el);
   S.countEl = el;
   S.countN = n;
@@ -726,10 +731,14 @@ function countdown(rec) {
   el.addEventListener('click', (ev) => {
     const a = ev.target.closest('[data-act]');
     if (!a) return;
-    if (a.dataset.act === 'skip') go();
+    if (a.dataset.act === 'skip') {
+      // Opened by this click, with no screen picker open, so the browser shows the window.
+      if (wait) floatControls();
+      go();
+    }
     if (a.dataset.act === 'cancel') cancelCountdown(rec);
   });
-  S.countTimer = setTimeout(tick, 1000);
+  if (!wait) S.countTimer = setTimeout(tick, 1000);
 }
 
 function cancelCountdown(rec) {
