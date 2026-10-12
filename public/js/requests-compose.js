@@ -19,6 +19,7 @@
   if (!form) return;
 
   const STEPS = 4;
+  let trackRun = null;
   let step = 1;
   let files = [];
 
@@ -324,9 +325,19 @@
       document.getElementById('req-body').value = composeBody();
       const fd = new FormData(form);
       files.forEach((f) => fd.append('files', f));
-      await api('/api/requests', { method: 'POST', body: fd });
+      const sent = await api('/api/requests', { method: 'POST', body: fd });
+      const made = sent && sent.request && sent.request.id;
+      // The form's suggested owner and due date stay with the request for the board's panel; the status shows below.
+      if (made && form.dataset.routeId) {
+        fetch('/api/requests/route', { method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: form.dataset.routeId, chosen: 'board', request_id: made }) }).catch(() => {});
+      }
       form.hidden = true;
       done.hidden = false;
+      const track = document.getElementById('req-track');
+      if (track && made && window.FavorReqTrack) {
+        if (trackRun) trackRun.stop();
+        trackRun = window.FavorReqTrack.mount(track, { only: made });
+      }
       files = [];
       previews.innerHTML = '';
       form.reset();

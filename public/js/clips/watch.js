@@ -42,7 +42,7 @@ const S = {
   info: null, clip: null, user: null, can: { edit: false }, comments: [], reactions: [], viewers: [],
   lines: [], wordsRaw: [], words: [], edits: normEdits({}), ranges: [], srcDur: 0, now: 0, playing: false,
   lang: 'orig', translations: {}, speed: 1, muted: false, cc: localStorage.getItem('favor.clips.cc') === '1', tab: 'transcript', q: '', fixing: false, viewId: null, furthest: 0,
-  commentAt: 0, pinned: false, helpDraft: '',
+  commentAt: 0, pinned: false, helpDraft: '', highlights: [],
 };
 let video = null;
 let raf = 0;
@@ -82,6 +82,7 @@ async function load(first) {
     S.reactions = d.reactions || [];
     S.viewers = d.viewers || [];
     S.helpDraft = d.helpDraft || '';
+    S.highlights = d.highlights || [];
     S.seen = d.seen || [];
     S.lines = d.clip.transcript || [];
     S.wordsRaw = d.clip.words || [];
@@ -147,6 +148,8 @@ function build() {
       <div id="cw-react"></div>
       <div id="cw-composer"></div>
       <section class="cw-block" aria-label="Summary"><div class="cw-bhead"><h2>Summary</h2><span class="cw-bacts" id="cw-sumacts"></span></div><div id="cw-sum"></div></section>
+      <section class="cw-block" aria-label="Highlights" id="cw-hlblock" hidden><div class="cw-bhead"><h2>Highlights</h2></div><div id="cw-hl"></div></section>
+      <section class="cw-block" aria-label="Use this clip" id="cw-useblock" hidden><div class="cw-bhead"><h2>Use this clip</h2></div><div class="cw-editb"><button type="button" class="cw-btn cw-btn--ghost" data-make="article">Make a help article</button><button type="button" class="cw-btn cw-btn--ghost" data-make="lesson">Make a Learn lesson</button></div><p class="cw-sub" id="cw-usemsg" role="status"></p></section>
       <section class="cw-block" aria-label="Chapters"><div class="cw-bhead"><h2>Chapters</h2><span class="cw-bacts" id="cw-chacts"></span></div><div id="cw-chap"></div></section>
     </section>
     <aside class="cw-right" aria-label="Transcript and discussion"><div class="cw-tabs" id="cw-tabs" role="tablist"></div><div class="cw-panel" id="cw-panel"></div></aside>
@@ -980,7 +983,20 @@ function activeChapterIndex() {
   return a;
 }
 
+/** The few moments worth jumping to, picked on the server from what was stressed, the chapters and the reactions. */
+function paintHighlights() {
+  const blk = $('#cw-hlblock');
+  const box = $('#cw-hl');
+  const use = $('#cw-useblock');
+  if (use) use.hidden = !(isAdmin() && S.clip.status === 'ready' && S.lines.length);
+  if (!blk || !box) return;
+  const list = S.highlights || [];
+  blk.hidden = !list.length;
+  box.innerHTML = list.length ? `<ol class="cw-chlist cw-hllist">${list.map((h) => `<li><button type="button" class="cw-ch" data-seek="${h.at}"><span class="cw-t">${fmtTime(edited(h.at))}</span><span class="cw-ct">${esc(h.text)}<small class="cw-hlwhy">${esc(h.why)}</small></span></button></li>`).join('')}</ol>` : '';
+}
+
 function paintChapters() {
+  paintHighlights();
   const box = $('#cw-chap');
   const acts = $('#cw-chacts');
   if (!box) return;
@@ -1343,6 +1359,35 @@ function paintActivity(box) {
   </div>`;
 }
 
+/* ---- make a help article or a Learn lesson from this clip ---- */
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-make]');
+  if (!b) return;
+  const msg = $('#cw-usemsg');
+  const say = (t) => { if (msg) msg.innerHTML = t; };
+  b.disabled = true;
+  try {
+    if (b.dataset.make === 'article') {
+      say('Writing the article');
+      const r = await api(`/api/clips/${ID}/article`, { method: 'POST', json: {} });
+      S.helpDraft = r.markdown;
+      S.tab = 'article';
+      paintTabs();
+      paintPanel();
+      say('The draft is in the Article tab. Edit it, then copy it or download it.');
+    } else {
+      say('Making the lesson');
+      const r = await api(`/api/clips/${ID}/lesson`, { method: 'POST', json: {} });
+      say(`Draft course made with ${r.lessons} ${r.lessons === 1 ? 'lesson' : 'lessons'}. <a href="${esc(r.url)}">Open it in Learn</a>`);
+    }
+  } catch (err) {
+    say('');
+    toast(err.message, 'bad');
+  } finally {
+    b.disabled = false;
+  }
+});
+
 /* ---- help article tab ---- */
 
 function paintArticle(box) {
@@ -1393,4 +1438,7 @@ function paintArticle(box) {
   }
 }
 
-load(true);
+load(true).then(() => {
+  // /c/<id>?make=article, from the library, writes the help article draft as the page opens.
+  if (new URLSearchParams(location.search).get('make') === 'article' && isAdmin()) $('[data-make="article"]')?.click();
+});

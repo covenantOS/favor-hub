@@ -100,7 +100,14 @@
     const fol = list.slice(0, 6).map((e) => `<span class="rq-fol" title="${esc(RT.person(e).name)}">${RT.avatar(e, 'sm')}</span>`).join('');
     const more = list.length > 6 ? `<span class="rq-more">+${list.length - 6}</span>` : '';
     const follow = can.follow ? `<button type="button" class="rt-btn rt-btn--sm${r.following ? ' is-on' : ''}" data-follow aria-pressed="${r.following ? 'true' : 'false'}">${r.following ? 'Following' : 'Follow'}</button>` : '';
-    return `<dl class="rq-fields">
+    const sg = r.suggest;
+    const dayLong = (d) => (d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }) : '');
+    const useOwner = sg && sg.owner && !k.owner && can.send;
+    const useDue = sg && sg.due_date && !k.due_date && can.edit;
+    const suggest = useOwner || useDue
+      ? `<div class="of-suggest"><span>Suggested from the request: ${useOwner ? `<b>${esc(sg.owner.name)}</b>` : ''}${useOwner && useDue ? ', ' : ''}${useDue ? `due <b>${esc(dayLong(sg.due_date))}</b>` : ''}</span><button type="button" class="rt-btn rt-btn--primary rt-btn--sm" data-use-suggest>Use ${useOwner && useDue ? 'these' : 'this'}</button><small>${esc([useOwner ? sg.owner.why : '', useDue && sg.why ? 'Date: ' + sg.why : ''].filter(Boolean).join('. '))}</small></div>`
+      : '';
+    return `${suggest}<dl class="rq-fields">
       <div class="rq-field"><dt>Owner</dt><dd><div class="rq-row">${owner}${send}</div>${toldLine(told.owner, me, can.send)}</dd></div>
       <div class="rq-field"><dt>Due</dt><dd><div class="rq-row">${due}</div></dd></div>
       <div class="rq-field"><dt>Waiting on</dt><dd><div class="rq-row">${wait}</div>${toldLine(told.waiting, me, can.edit)}</dd></div>
@@ -382,6 +389,16 @@
       if (mine) { await act(mine.dataset.mine); toast(mine.dataset.mine === 'done' ? 'Marked done. The person who asked gets an email.' : 'Reopened'); return; }
       if (t.closest('[data-ask-done]')) { ask = ''; await act(r.can.triage ? '' : 'done', r.can.triage ? { status: 'done' } : {}, r.can.triage ? 'PATCH' : 'POST'); toast('Marked done. The person who asked gets an email.'); return; }
       if (t.closest('[data-ask-no]')) { ask = ''; paint(r); return; }
+      if (t.closest('[data-use-suggest]')) {
+        const sg = r.suggest;
+        if (sg && sg.due_date && !(r.task && r.task.due_date)) await act('task', { due_date: sg.due_date }, 'PATCH');
+        if (sg && sg.owner && !(r.task && r.task.owner)) {
+          const next = await act('send', { to: sg.owner.email, note: '' }, 'POST', { toEnd: true });
+          const told = next && next.told && next.told.owner;
+          toast(told && !told.told && sg.owner.email !== RT.me() ? `Sent to ${RT.person(sg.owner.email).name}. ${first(RT.person(sg.owner.email).name)} has not been told: notices are off.` : `Sent to ${RT.person(sg.owner.email).name}`);
+        } else toast('Due date set');
+        return;
+      }
       if (t.closest('[data-send-to]')) {
         const owner = r.task && r.task.owner;
         const p = await RT.pick({ title: owner ? 'Send on to' : 'Send to', note: true, noteLabel: 'Context', action: 'Send', exclude: owner ? [owner] : [] });

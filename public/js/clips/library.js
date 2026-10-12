@@ -61,7 +61,8 @@ function cardHtml(c) {
       ${c.mine ? `<label class="cl-switch"><input type="checkbox" data-act="share" ${c.share ? 'checked' : ''} /><i></i><span>Anyone with the link</span></label>` : ''}
       <span class="cl-btns">
         ${c.mine ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="copy">Copy link</button>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rename">Rename</button>` : `<a class="h-btn h-btn--ghost h-btn--sm" href="/c/${c.id}">Open</a>`}
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rename">Rename</button>
+        ${c.status === 'ready' ? `<a class="h-btn h-btn--ghost h-btn--sm" href="/c/${c.id}?make=article" title="Draft a help article from this clip">Help article</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="lesson" title="Make a draft Learn course from this clip">Learn lesson</button>` : ''}` : `<a class="h-btn h-btn--ghost h-btn--sm" href="/c/${c.id}">Open</a>`}
         <button type="button" class="h-btn h-btn--ghost h-btn--sm cl-danger" data-act="delete">Delete</button>
       </span>
     </div>
@@ -293,6 +294,17 @@ function wire() {
     const clip = rows.find((c) => c.id === card.dataset.id);
     if (!clip) return;
     if (btn.dataset.act === 'copy') toast((await copyText(linkFor(clip.id))) ? 'Link copied' : 'Could not copy the link');
+    if (btn.dataset.act === 'lesson') {
+      btn.disabled = true;
+      try {
+        const r = await api(`/api/clips/${clip.id}/lesson`, { method: 'POST', json: {} });
+        toast(`Draft course made. It opens in Learn.`);
+        setTimeout(() => { location.href = r.url; }, 700);
+      } catch (err) {
+        toast(err.message, 'bad');
+        btn.disabled = false;
+      }
+    }
     if (btn.dataset.act === 'rename') {
       const slot = card.querySelector('.cl-name');
       slot.innerHTML = `<input class="cl-rename" type="text" maxlength="120" value="${esc(clip.title)}" aria-label="Clip title" /><button type="button" class="h-btn h-btn--primary h-btn--sm" data-act="save">Save</button>`;

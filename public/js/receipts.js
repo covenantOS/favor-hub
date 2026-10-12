@@ -372,6 +372,21 @@
       stat(c.recurring, 'Monthly partners');
   }
 
+  const FLAG_WORD = { address: 'Address.', greeting: 'Greeting.', duplicate: 'Duplicate.' };
+  /** A link to the partner's record. Work Center staff get the side panel; the href is the partner search for everyone else. */
+  const recordLink = (lookup, label) => (lookup ? `<a class="rcp-fixlink" href="/work/partner/" data-partner-lookup="${esc(lookup)}">${esc(label)}</a>` : '');
+
+  /** The check before printing, above the Make button: counts by kind, with a way to see only the flagged receipts. */
+  function checkCard() {
+    const v = state.view;
+    const c = v.check || { partners: 0, address: 0, greeting: 0, duplicate: 0 };
+    const going = new Set(printable().map((x) => x.constituentLookup || x.id));
+    const left = letters(v.letters).filter((g) => !g.batch && issuesOf(g).length && going.has(g.first.constituentLookup || g.first.id)).length;
+    if (!c.partners) return `<p class="rcp-check is-clear" id="rcp-check">Checked before printing: no address, greeting or duplicate problems.</p>`;
+    const parts = [c.address && plural(c.address, 'address'), c.greeting && plural(c.greeting, 'greeting'), c.duplicate && plural(c.duplicate, 'possible duplicate')].filter(Boolean);
+    return `<div class="rcp-check" id="rcp-check"><p><b>${plural(left, 'receipt')} to look at before printing.</b> ${esc(parts.join(', '))}.</p><button type="button" class="fnd-textbtn" id="rcp-check-show">Show them</button></div>`;
+  }
+
   function renderMake() {
     const b = openBatch();
     if (b) {
@@ -400,7 +415,18 @@
           <button type="button" class="req-submit" id="rcp-make-go" ${list.length && !state.busy ? '' : 'disabled'}>${state.busy ? 'Making the file' : `Make the print file`}</button>
         </div>
       </div>
+      ${list.length ? checkCard() : ''}
       <p class="rcp-fine">Blackbaud is read again when you press it, so the file has today's names and addresses. Nothing is marked thanked until you print and press "Mark as thanked".</p>`;
+    const show = $('rcp-check-show');
+    if (show) show.addEventListener('click', () => {
+      state.tab = 'letters';
+      state.filter = 'check';
+      state.page = 1;
+      renderTabs();
+      showTab();
+      renderLetters();
+      $('rcp-tabs').scrollIntoView({ block: 'start' });
+    });
     $('rcp-date').addEventListener('change', (e) => {
       state.letterDate = e.target.value || today();
       $('rcp-code-out').textContent = codeFor(state.letterDate);
@@ -501,10 +527,21 @@
   }
 
   // The receipts the filter pills and the search box leave, all pages.
+  /** The flags on a receipt: every gift of the partner carries the same ones, so the first gift's list is the partner's. */
+  const issuesOf = (g) => {
+    const seen = new Set();
+    const out = [];
+    for (const x of g.gifts) for (const i of x.issues || []) {
+      const k = i.code + '|' + ((i.other && i.other.lookup) || '');
+      if (!seen.has(k)) { seen.add(k); out.push(i); }
+    }
+    return out;
+  };
+
   function filteredLetters() {
     const q = state.find.toLowerCase();
     return letters(state.view.letters).filter(
-      (g) => (state.filter === 'all' || g.segment === state.filter) && (!q || g.gifts.some((l) => `${l.addressee} ${l.place} ${l.lookup} ${l.constituentLookup}`.toLowerCase().includes(q)))
+      (g) => (state.filter === 'all' || (state.filter === 'check' ? issuesOf(g).length > 0 && !g.batch : g.segment === state.filter)) && (!q || g.gifts.some((l) => `${l.addressee} ${l.place} ${l.lookup} ${l.constituentLookup}`.toLowerCase().includes(q)))
     );
   }
 
@@ -531,7 +568,9 @@
     const v = state.view;
     const all = letters(v.letters);
     const c = counts(v.letters);
+    const flagged = all.filter((g) => !g.batch && issuesOf(g).length).length;
     const pills = [['all', 'All', all.length], ['regular', 'Regular', c.regular], ['major', '$200 and up', c.major], ['recurring', 'Monthly', c.recurring]];
+    if (flagged || state.filter === 'check') pills.push(['check', 'Needs a look', flagged]);
     $('rcp-filters').innerHTML = pills
       .map(([k, label, n]) => `<button type="button" data-f="${k}" class="${state.filter === k ? 'on' : ''}">${label}<small>${Number(n).toLocaleString('en-US')}</small></button>`)
       .join('');
@@ -580,11 +619,13 @@
             const others = [...same].filter(([k]) => k !== partnerKey(l)).map(([, name]) => name);
             if (others.length) notes.push([' is-warn', `Same address as ${others.join(' and ')}`]);
           }
-          return `<tr class="${on ? '' : 'is-off'}">
+          const flags = off ? [] : issuesOf(g);
+          const flagHtml = flags.map((i) => `<span class="rcp-flag" data-code="${esc(i.code)}"><b>${esc(FLAG_WORD[i.group])}</b> ${esc(i.text)} <span class="rcp-flag__fix">${esc(i.fix)}</span> ${recordLink(l.constituentLookup, 'Open the record')}${i.other && i.other.lookup ? ` ${recordLink(i.other.lookup, 'Open the other record')}` : ''}</span>`).join('');
+          return `<tr class="${on ? '' : 'is-off'}${flags.length ? ' has-flag' : ''}">
             <td class="rcp-tick"><input type="checkbox" data-ids="${esc(ids.join(','))}" ${on ? 'checked' : ''} ${off ? 'disabled' : ''} aria-label="Print a receipt for ${esc(l.addressee)}" /></td>
             <td><span class="fnd-name">${esc(String(l.addressee || '').trim() || 'No addressee on file')}</span><span class="fnd-sub">${esc(l.place)}${funds.length ? ` &middot; ${esc(funds.join(', '))}` : ''}</span>${notes
               .map(([cls, text]) => `<span class="rcp-note${cls}">${esc(text)}</span>`)
-              .join('')}</td>
+              .join('')}${flagHtml}</td>
             <td class="mono">${g.gifts.map((x) => esc(day(x.date))).join('<br>')}</td>
             <td class="r">${g.gifts.map((x) => esc(money(x.amount))).join('<br>')}</td>
             <td>${off ? `<span class="exp-pill pending">In the ${esc(shortDay(g.batch.letterDate))} print file</span>` : `<span class="exp-pill rcp-pill-${g.segment}">${KINDS[g.segment]}</span>`}</td>
@@ -737,6 +778,8 @@
     if (needWho() || state.busy) return;
     const list = printable();
     if (!list.length) return;
+    const flaggedNow = letters(list).filter((g) => issuesOf(g).length).length;
+    if (flaggedNow && !(await askFirst($('rcp-make-go'), `${plural(flaggedNow, 'receipt')} still ${flaggedNow === 1 ? 'has' : 'have'} a flag from the check. Make the print file anyway?`, 'Make the file', 'Look at them first'))) return;
     state.busy = true;
     renderMake();
     const added = list.filter((l) => state.added.has(l.id)).map((l) => l.id);

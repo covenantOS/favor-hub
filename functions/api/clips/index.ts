@@ -4,6 +4,7 @@ import { clipsCapBytes, clipsShareDefault, mayRecordClips } from '../../_lib/adm
 import { PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
 import type { ClipSegment } from '../../_lib/clipChapters';
 import { muxTidy } from '../../_lib/clipmuxjob';
+import { ensureChapters } from '../../_lib/clipMake';
 
 /** The first transcript line that holds the search words, for the library's result row. */
 function snippet(transcript: string, q: string): { at: number; text: string } | null {
@@ -61,6 +62,8 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, wait
     void tidy(env).catch(() => undefined);
     // A clip whose fast-start file is not written yet gets a run, and week-old first recordings are cleared.
     if (waitUntil) waitUntil(muxTidy(env).catch(() => undefined));
+    // Up to two of this person's ready clips with words and no chapters get them on the way past.
+    if (waitUntil && !all) waitUntil(chaptersCatchUp(env, who.user.email));
     const out: Record<string, unknown> = { ok: true, clips, scope: all ? 'all' : 'mine' };
     if (all) {
       const ppl = await env.DB.prepare(
@@ -77,6 +80,15 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, wait
     return handleError(err);
   }
 };
+
+async function chaptersCatchUp(env: ClipsEnv, email: string) {
+  try {
+    const r = await env.DB.prepare("SELECT * FROM hub_clips WHERE owner_email = ? AND status = 'ready' AND chapters = '[]' AND transcript <> '[]' AND duration_ms >= 20000 ORDER BY created_at DESC LIMIT 2").bind(email).all<Clip>();
+    for (const c of r.results || []) await ensureChapters(env, c);
+  } catch (err) {
+    console.warn('[clips] chapters catch-up', err);
+  }
+}
 
 async function tidy(env: ClipsEnv) {
   const cutoff = new Date(Date.now() - STALE_UPLOAD_MS).toISOString();

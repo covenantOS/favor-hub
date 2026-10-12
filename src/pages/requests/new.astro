@@ -3,6 +3,7 @@ import App from '../../layouts/App.astro';
 import '../../styles/requests.css';
 import '../../styles/crit-forms.css';
 import '../../styles/q3-desk.css';
+import '../../styles/ops-smart.css';
 ---
 <App title="Make a request" crumb="Work" nav="new" description="One place to ask for anything: FavorOS sends it to the request board or to the Marketing team.">
   <section class="h-route-wrap" id="route">
@@ -29,7 +30,7 @@ import '../../styles/q3-desk.css';
     <aside class="h-route__side">
       <div class="h-card" id="mine-card" hidden>
         <div class="h-card__head"><div class="h-card__title">Your recent requests</div><div class="h-card__meta"><a class="h-link" href="/requests/">The board</a></div></div>
-        <div class="h-card__body"><ul class="h-mine" id="mine-list"></ul></div>
+        <div class="h-card__body"><div class="ot-list" id="mine-list"></div></div>
       </div>
     </aside>
   </section>
@@ -48,6 +49,7 @@ import '../../styles/q3-desk.css';
           <li data-step="3">Who and when</li>
           <li data-step="4">Files and send</li>
         </ol>
+        <div class="of-card" id="of-card" hidden></div>
         <a class="make-board-link" href="/requests">See the board</a>
         <button type="button" class="make-aside h-route-restart" id="route-restart">Start over</button>
       </aside>
@@ -204,7 +206,8 @@ import '../../styles/q3-desk.css';
         <div class="make-done" id="req-done" hidden>
           <p class="make-kicker">On the board</p>
           <h2>Will will review it.</h2>
-          <p>It landed in Inbox. You can send another, or watch it on the board.</p>
+          <p>It landed in Inbox. This updates as it moves.</p>
+          <div class="ot-list" id="req-track" aria-live="polite" hidden></div>
           <div class="make-done__actions">
             <a class="req-submit" href="/requests">See the board</a>
             <button type="button" class="req-ghost" id="req-again">Send another</button>
@@ -213,6 +216,7 @@ import '../../styles/q3-desk.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/requests-compose.js?v=8"></script>
-  <script is:inline src="/js/request-router.js?v=6"></script>
+  <script is:inline src="/js/request-track.js?v=1"></script>
+  <script is:inline src="/js/requests-compose.js?v=9"></script>
+  <script is:inline src="/js/request-router.js?v=7"></script>
 </App>

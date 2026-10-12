@@ -3,6 +3,7 @@ import { receiptsReportOn } from '../admin/settings';
 
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { parseCsv } from './csv';
+import { checkGifts, summarize, type CheckSummary, type Issue } from './check';
 import { cleanCopy, DEFAULT_COPY, type LetterCopy } from './letter';
 import { buildPdf, measure, type Fonts } from './pdf';
 import {
@@ -39,6 +40,8 @@ export interface Item {
   reason: string;
   key: string;
   canAdd: boolean;
+  /** What the check before printing found on this gift's record. Empty or missing when nothing. */
+  issues?: Issue[];
   /** Set when the gift is already in a printing that has not been marked thanked. */
   batch?: { id: string; letterDate: string };
 }
@@ -49,6 +52,8 @@ export interface View {
   appealCode: string;
   letters: Item[];
   held: Item[];
+  /** The check before printing: partners with a flag, by kind. */
+  check: CheckSummary;
 }
 
 /** Today in Eastern time, YYYY-MM-DD. */
@@ -121,18 +126,24 @@ export async function waitingView(env: Env, days: number, fresh = false): Promis
   const open = await openBatchGifts(env);
   const letters: Item[] = [];
   const held: Item[] = [];
+  const printing = gifts.filter((g) => verdict(g).letter);
+  const greeting = (await getCopy(env).catch(() => DEFAULT_COPY)).greeting;
+  const flags = checkGifts(printing, greeting);
   for (const g of gifts) {
     const v = verdict(g);
     const item = itemOf(g, v);
     const inBatch = open.get(g.id);
     if (inBatch) item.batch = inBatch;
+    const issues = v.letter ? flags.get(g.id) : undefined;
+    if (issues && issues.length) item.issues = issues;
     (v.letter ? letters : held).push(item);
   }
   const order = (a: Item, b: Item) => a.sortName.localeCompare(b.sortName, 'en', { sensitivity: 'base' }) || a.date.localeCompare(b.date);
   letters.sort(order);
   held.sort((a, b) => a.key.localeCompare(b.key) || order(a, b));
   const today = todayEastern();
-  return { asOf: nowIso(), days, appealCode: appealCode(today), letters, held };
+  const check = summarize(printing.filter((g) => !open.has(g.id)), flags);
+  return { asOf: nowIso(), days, appealCode: appealCode(today), letters, held, check };
 }
 
 /* ------------------------------------------------------------ wording */

@@ -247,3 +247,8 @@ html.rq-open .rt-toast { bottom: calc(132px + env(safe-area-inset-bottom)); }
   .rt-toast { transition: none; }
 }
 .rq__panel:focus { outline: none; }
+
+/* ---- Board panel: the suggested owner and date ---- */
+.of-suggest { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--h-line); border-radius: 10px; background: var(--h-surface-2); font-size: 14px; }
+.of-suggest b { font-weight: 700; }
+.of-suggest small { flex-basis: 100%; color: var(--h-ink-3); font-size: 13px; }

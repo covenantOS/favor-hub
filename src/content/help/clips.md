@@ -60,6 +60,14 @@ Edit the clip in the menu opens the editor. The original file never changes. Edi
 
 Drag a handle on the timeline to trim, click a part and press Delete selection to cut it, or press S to split at the playhead. Select words in the transcript and press Delete to cut them. Remove filler words takes out the ums and uhs. Remove silences takes out long pauses, at Gentle, Normal or Tight. Undo, Redo and the history list step back, and every change saves by itself. Finish returns to the clip.
 
+## Highlights and chapters
+
+A clip with a transcript always gets chapters. If one has none when it is opened, or shows in My clips, FavorOS writes them. **Highlights** under the summary lists up to four moments worth jumping to: lines where the speaker stressed something, chapter starts and spots people reacted to. Each shows why it was picked.
+
+## Make a help article or a Learn lesson
+
+On your own clip, **Make a help article** writes the draft and opens the Article tab. **Make a Learn lesson** makes a draft course in Learn with the clip and a written page of its steps, and opens it in Learn, Manage. The course stays a draft until you publish it. Making a lesson is for FavorOS admins and HR. In My clips, **Help article** and **Learn lesson** do the same from the card.
+
 ## Draft a help article
 
 On the watch page, the Help article tab writes a draft in the shape FavorOS's help articles use, from what you said. Nothing is published. Copy it or download it as a Markdown file, change it, and send it to the team that keeps the help docs.

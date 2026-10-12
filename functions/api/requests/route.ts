@@ -7,6 +7,7 @@
 import { hitRateLimit } from '../../_lib/auth';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, newId, nowIso, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
+import { easternDay, suggestFill, suggestOwner, type Fill, type OwnerGuess } from '../../_lib/requests/suggest';
 
 type Route = 'board' | 'marketing' | 'expense';
 const ROUTES: Route[] = ['board', 'marketing', 'expense'];
@@ -86,10 +87,25 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     route = route || 'board';
     const user = hubUserOf(request);
     const id = newId('rte');
-    await env.DB.prepare('INSERT INTO request_routes (id, at, email, name, text, suggested, how) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(id, nowIso(), user?.email || '', user?.name || '', text, route, how)
-      .run();
-    return json({ ok: true, id, route, how });
+    // The board's form fills itself out from the words: kind, where, summary, who sees it, timing, plus an owner and a due date.
+    const today = easternDay();
+    let fill: (Fill & { owner: OwnerGuess | null }) | null = null;
+    if (route === 'board') {
+      const f = suggestFill(text, today);
+      fill = { ...f, owner: await suggestOwner(env, f.surface, today).catch(() => null) };
+    }
+    const stamp = nowIso();
+    try {
+      await env.DB.prepare('INSERT INTO request_routes (id, at, email, name, text, suggested, how, fill) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, stamp, user?.email || '', user?.name || '', text, route, how, fill ? JSON.stringify(fill) : '')
+        .run();
+    } catch {
+      // db/requests-fill.sql has not run yet: keep the route without the stored suggestion.
+      await env.DB.prepare('INSERT INTO request_routes (id, at, email, name, text, suggested, how) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, stamp, user?.email || '', user?.name || '', text, route, how)
+        .run();
+    }
+    return json({ ok: true, id, route, how, fill });
   } catch (err) {
     return handleError(err);
   }

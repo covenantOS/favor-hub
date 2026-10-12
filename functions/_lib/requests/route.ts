@@ -37,6 +37,7 @@ import {
 } from './tasks';
 import { emailOn, mailMode, setMailMode } from './mail';
 import { searchRequests } from './views';
+import { suggestionFor } from './suggest';
 
 export interface Ctx {
   request: Request;
@@ -65,7 +66,9 @@ export async function fullRequest(env: Env, id: string, actor: Actor | null) {
   if (!row) throw new HttpError(404, 'not_found', 'Request not found');
   const admin = !!actor?.admin;
   const [atts, events, detail] = await Promise.all([attachmentsFor(env, [id]), eventsFor(env, id), detailFor(env, row, actor)]);
-  return { ...publicShape(row, atts.get(id) || [], events, admin), ...(detail || {}) };
+  // A hub admin sees the owner and due date the form suggested, with one button to use them.
+  const suggest = admin ? await suggestionFor(env, id) : null;
+  return { ...publicShape(row, atts.get(id) || [], events, admin), ...(detail || {}), ...(suggest ? { suggest } : {}) };
 }
 
 async function route(ctx: Ctx): Promise<Response> {

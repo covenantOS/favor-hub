@@ -193,3 +193,14 @@
 @media (prefers-reduced-motion: reduce) {
   .rcp-spin { animation: none; }
 }
+
+/* ---- The check before printing ---- */
+.rcp-check { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 14px; padding: 10px 14px; border: 1px solid #ecd9a8; border-radius: 10px; background: #fbf2dc; font-size: 14px; color: #5c4306; }
+.rcp-check p { margin: 0; }
+.rcp-check.is-clear { border-color: var(--rule); background: var(--paper-warm); color: var(--ink-soft); }
+.rcp-flag { display: block; margin-top: 6px; padding-left: 10px; border-left: 3px solid var(--ochre); font-size: 14px; line-height: 1.45; color: var(--ink); }
+.rcp-flag b { font-weight: 700; }
+.rcp-flag__fix { color: var(--ink-soft); }
+.rcp-fixlink { color: var(--green-deep); font-weight: 600; text-decoration: underline; white-space: nowrap; }
+.rcp-table tr.has-flag td:not(.rcp-tick) { background: #fffaf0; }
+@media (max-width: 640px) { .rcp-check { padding: 12px; } }

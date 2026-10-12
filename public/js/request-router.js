@@ -15,7 +15,7 @@
   const form = $('req-form');
   if (!text || !go) return;
 
-  let state = { id: '', words: '', suggested: '' };
+  let state = { id: '', words: '', suggested: '', fill: null };
 
   const COPY = {
     board: {
@@ -71,6 +71,47 @@
     }).catch(() => {});
   }
 
+  const radio = (name, value) => {
+    const nodes = [...form.querySelectorAll('input[name="' + name + '"]')];
+    const hit = nodes.find((n) => n.value === value);
+    if (!hit) return;
+    nodes.forEach((n) => { n.checked = n === hit; });
+    hit.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  const KIND = { change: 'Change something', add: 'Add something new', other: 'Other' };
+  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'FavorOS', app: 'App' };
+  const dayLong = (d) => (d ? new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' }) : '');
+
+  /** Puts the suggested answers into the form and lists them beside it. The person changes anything that is wrong. */
+  function applyFill(f) {
+    const card = $('of-card');
+    if (!f || !form) { if (card) card.hidden = true; return; }
+    const set = (name, value) => {
+      const el = form.elements.namedItem(name);
+      if (el && !el.length && value) el.value = value;
+    };
+    radio('kind', f.kind);
+    radio('surface', f.surface);
+    set('title', f.title);
+    set('page_url', f.page_url);
+    set('now', f.now);
+    if (f.should) set('should', f.should);
+    set('details', f.details);
+    radio('audience', f.audience);
+    radio('needed', f.needed);
+    if (f.needed === 'By a date') set('needed_date', f.needed_date);
+    if (!card) return;
+    const row = (k, v, small) => '<div><dt>' + esc(k) + '</dt><dd>' + esc(v) + (small ? '<small>' + esc(small) + '</small>' : '') + '</dd></div>';
+    card.innerHTML =
+      '<h3>Filled in from your words</h3><dl>' +
+      row('Kind', KIND[f.kind] || f.kind, f.why && f.why.kind ? 'Because ' + f.why.kind : '') +
+      row('Where', SURFACE[f.surface] || f.surface, f.why && f.why.surface ? 'Because ' + f.why.surface : '') +
+      row('Needed', f.needed === 'By a date' ? 'By ' + dayLong(f.needed_date) : f.needed, f.why && f.why.needed ? 'Because ' + f.why.needed : '') +
+      (f.owner ? row('Likely owner', f.owner.name, (f.due_date ? 'Due ' + dayLong(f.due_date) + '. ' : '') + f.owner.why) : f.due_date ? row('Due', dayLong(f.due_date)) : '') +
+      '</dl>';
+    card.hidden = false;
+  }
+
   function fillBoardForm() {
     const words = state.words;
     const firstLine = words.split(/\n/)[0].slice(0, 160);
@@ -80,6 +121,8 @@
     };
     set('title', firstLine);
     if (words.length > firstLine.length || words.length > 60) set('should', words);
+    applyFill(state.fill);
+    if (form) form.dataset.routeId = state.id || '';
     const hub = window.FAVOR_HUB;
     const user = hub && hub.user;
     if (user && user.via === 'google') {
@@ -137,7 +180,7 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) throw new Error(data.message || 'Something went wrong. Try again.');
-      state = { id: data.id, words, suggested: data.route };
+      state = { id: data.id, words, suggested: data.route, fill: data.fill || null };
       show(data.route);
       go.hidden = true;
     } catch (err) {
@@ -172,7 +215,8 @@
     result.hidden = true;
     text.value = '';
     go.hidden = false;
-    state = { id: '', words: '', suggested: '' };
+    state = { id: '', words: '', suggested: '', fill: null };
+    if ($('of-card')) $('of-card').hidden = true;
     text.focus();
   }
   const restartBtn = $('route-restart');
@@ -188,22 +232,11 @@
     })
   );
 
-  // The person's own recent requests, beside the box.
-  fetch('/api/hub/today', { credentials: 'same-origin' })
-    .then((r) => r.json())
-    .then((d) => {
-      const list = (d && d.mine) || [];
-      const card = $('mine-card');
-      if (!list.length || !card) return;
-      const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-      const cls = (st) => (/Done|Approved/.test(st) ? 'h-status--done' : /Declined/.test(st) ? 'h-status--declined' : 'h-status--wait');
-      $('mine-list').innerHTML = list
-        .slice(0, 6)
-        .map((m) => `<li><a href="${esc(m.href)}" title="${esc(m.title)}">${esc(m.title)}</a><span class="h-status ${cls(m.status)}">${esc(m.status)}</span></li>`)
-        .join('');
-      card.hidden = false;
-    })
-    .catch(() => {});
+  // The person's own requests, beside the box, with where each one is. It refreshes while the page is open.
+  const mineList = $('mine-list');
+  if (mineList && window.FavorReqTrack) {
+    window.FavorReqTrack.mount(mineList, { limit: 6, onload: (list) => { const card = $('mine-card'); if (card) card.hidden = !list.length; } });
+  }
 
   // A link can carry the words: /requests/new?text=...
   const preset = new URLSearchParams(location.search).get('text');

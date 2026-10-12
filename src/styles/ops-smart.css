@@ -1,0 +1,38 @@
+/* Requests that fill themselves out, request status, the receipts check and Clip highlights (2026-10-12). */
+
+/* ---- Where a request is ---- */
+.ot-list { display: grid; gap: 12px; min-width: 0; }
+.h-route__side, .h-route__side .h-card { min-width: 0; }
+.ot-req { min-width: 0; box-sizing: border-box; border: 1px solid var(--h-line); border-radius: 12px; background: #fff; padding: 14px 16px; }
+.ot-req > header { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.ot-req > header a { color: var(--h-ink); font-weight: 700; font-size: 15px; text-decoration: none; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ot-req > header a:hover { text-decoration: underline; }
+.ot-steps { list-style: none; margin: 14px 0 6px; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); position: relative; }
+.ot-step { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding-top: 18px; font-size: 13px; color: var(--h-ink-3); min-width: 0; }
+.ot-step::before { content: ''; position: absolute; top: 5px; left: 12px; right: -12px; height: 2px; background: var(--h-line-2); }
+.ot-step:last-child::before { display: none; }
+.ot-step.is-done::before { background: var(--h-leaf); }
+.ot-dot { position: absolute; top: 0; left: 0; width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--h-line-2); background: #fff; box-sizing: border-box; }
+.ot-step.is-done .ot-dot { background: var(--h-leaf); border-color: var(--h-leaf); }
+.ot-step.is-now .ot-dot { border-color: var(--h-leaf); box-shadow: 0 0 0 4px var(--h-leaf-soft); }
+.ot-step.is-now, .ot-step.is-done { color: var(--h-ink); }
+.ot-lab { font-weight: 700; }
+.ot-step small { font-size: 13px; color: var(--h-ink-3); min-height: 1em; }
+.ot-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 8px 0 0; font-size: 14px; color: var(--h-ink-2); }
+.ot-facts .is-late { color: var(--h-red); font-weight: 700; }
+.ot-move { margin: 6px 0 0; font-size: 13px; color: var(--h-ink-3); }
+.ot-declined { margin: 10px 0 0; font-size: 14px; color: var(--h-red); }
+
+/* ---- Fill-in summary beside the request form ---- */
+.of-card { margin-top: 18px; border: 1px solid var(--h-line); border-radius: 12px; background: #fff; padding: 14px 16px; }
+.of-card h3 { margin: 0 0 8px; font-size: 14px; letter-spacing: 0; }
+.of-card dl { margin: 0; display: grid; gap: 6px; }
+.of-card dl div { display: grid; grid-template-columns: 92px 1fr; gap: 8px; font-size: 14px; }
+.of-card dt { color: var(--h-ink-3); }
+.of-card dd { margin: 0; color: var(--h-ink); overflow-wrap: anywhere; }
+.of-card dd small { display: block; color: var(--h-ink-3); font-size: 13px; }
+
+@media (max-width: 640px) {
+  .ot-step { padding-right: 2px; overflow-wrap: anywhere; }
+  .of-card dl div { grid-template-columns: 1fr; gap: 0; }
+}

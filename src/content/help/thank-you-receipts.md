@@ -8,7 +8,7 @@ videos: [thank-you-receipts]
 related: [whats-new]
 tool: /receipts/
 toolLabel: Open Receipts
-updated: 2026-10-09
+updated: 2026-10-12
 ---
 
 The page reads Blackbaud for every gift that has not been thanked yet and lays out one receipt per partner, on the receipt paper.
@@ -21,6 +21,8 @@ The page reads Blackbaud for every gift that has not been thanked yet and lays o
 4. Check the date for the receipts and press **Make the print file**.
 5. Open the proof first: every page drawn on a picture of the receipt paper. Look at the first few and the last few. Then print the file on the receipt paper.
 6. Come back and press **Mark as thanked in Blackbaud**, then **Yes, mark them thanked**. Do this only after the receipts are printed.
+
+Before you make the file, a check reads every receipt about to print. It flags a ZIP that is not five digits, a state that is not a state, a street line with no number, a city with digits in it, a blank or placeholder name after "Dear", and two records that look like one partner. **Show them** lists only those receipts under **Needs a look**. Each flag says what to change and has **Open the record** to fix it in Blackbaud. The check never changes a record or marks a gift. A fixed record comes off the list the next time the page loads, and **Make the print file** asks once if flags remain.
 
 Only one print file can be open at a time. If you made the file, it shows on your Today page until it is marked.
 

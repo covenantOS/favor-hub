@@ -3,6 +3,9 @@
 import { errorJson, handleError, json } from '../../../_lib/http';
 import { ID_RE, J, PRIVATE, clipView, isWatchable, canWatch, type Clip, type ClipsEnv } from '../../../_lib/clips';
 import { hubUserOf } from '../../../_lib/session';
+import { ensureChapters } from '../../../_lib/clipMake';
+import { clipHighlights } from '../../../_lib/clipHighlights';
+import type { ClipChapter, ClipSegment } from '../../../_lib/clipChapters';
 
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
@@ -12,7 +15,11 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
     if (!clip || !isWatchable(clip) || !(await canWatch(env, request, clip))) {
       return user ? errorJson('not_found', 'That clip is gone.', 404) : new Response(JSON.stringify({ ok: false, error: 'signin' }), { status: 401, headers: { ...PRIVATE, 'Content-Type': 'application/json' } });
     }
+    // A ready clip with words and no chapters gets them the first time anyone opens it.
+    const chapters = await ensureChapters(env, clip).catch(() => J<ClipChapter[]>(clip.chapters, []));
+    clip.chapters = JSON.stringify(chapters);
     const out: Record<string, unknown> = { ok: true, clip: clipView(clip), user: user ? { email: user.email, name: user.name, admin: user.role === 'admin' } : null };
+    out.highlights = clipHighlights(J<ClipSegment[]>(clip.transcript, []), chapters, clip.duration_ms / 1000);
     if (user) {
       const [comments, reactions, views] = await Promise.all([
         env.DB.prepare('SELECT id, at_seconds, author_email, author_name, body, created_at FROM hub_clip_comments WHERE clip_id = ? ORDER BY at_seconds, created_at LIMIT 500').bind(id).all(),
@@ -29,6 +36,7 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
           cur.plays++;
         }
       }
+      out.highlights = clipHighlights(J<ClipSegment[]>(clip.transcript, []), chapters, clip.duration_ms / 1000, ((reactions.results || []) as Array<{ at_seconds: number }>).map((r) => Number(r.at_seconds)));
       out.comments = comments.results || [];
       out.reactions = reactions.results || [];
       out.viewers = [...seen.values()];
