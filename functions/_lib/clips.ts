@@ -106,6 +106,13 @@ export function J<T>(text: unknown, fallback: T): T {
   }
 }
 
+/** A saved clip any signed-in person may watch, for steps that read it and change nothing of the clip. */
+export async function readableClip(env: ClipsEnv, user: HubUser, id: string): Promise<Clip | null> {
+  if (!ID_RE.test(id)) return null;
+  const clip = await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
+  return clip && (clip.owner_email === user.email || isWatchable(clip)) ? clip : null;
+}
+
 /** The signed-in admin, or the response that says why not. */
 export function adminOrError(request: Request): { user: HubUser } | { res: Response } {
   const user = hubUserOf(request);

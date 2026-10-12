@@ -383,7 +383,7 @@
     const going = new Set(printable().map((x) => x.constituentLookup || x.id));
     const left = letters(v.letters).filter((g) => !g.batch && issuesOf(g).length && going.has(g.first.constituentLookup || g.first.id)).length;
     if (!c.partners) return `<p class="rcp-check is-clear" id="rcp-check">Checked before printing: no address, greeting or duplicate problems.</p>`;
-    const parts = [c.address && plural(c.address, 'address'), c.greeting && plural(c.greeting, 'greeting'), c.duplicate && plural(c.duplicate, 'possible duplicate')].filter(Boolean);
+    const parts = [c.address && plural(c.address, 'address', 'addresses'), c.greeting && plural(c.greeting, 'greeting'), c.duplicate && plural(c.duplicate, 'possible duplicate')].filter(Boolean);
     return `<div class="rcp-check" id="rcp-check"><p><b>${plural(left, 'receipt')} to look at before printing.</b> ${esc(parts.join(', '))}.</p><button type="button" class="fnd-textbtn" id="rcp-check-show">Show them</button></div>`;
   }
 

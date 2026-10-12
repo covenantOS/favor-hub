@@ -988,7 +988,7 @@ function paintHighlights() {
   const blk = $('#cw-hlblock');
   const box = $('#cw-hl');
   const use = $('#cw-useblock');
-  if (use) use.hidden = !(isAdmin() && S.clip.status === 'ready' && S.lines.length);
+  if (use) use.hidden = !(signedIn() && S.clip.status === 'ready' && S.lines.length);
   if (!blk || !box) return;
   const list = S.highlights || [];
   blk.hidden = !list.length;
@@ -1082,7 +1082,7 @@ function tabsFor() {
   if (signedIn()) t.push({ id: 'comments', label: S.comments.length ? `Comments (${S.comments.length})` : 'Comments' });
   if (signedIn()) t.push({ id: 'activity', label: 'Activity' });
   if (isAdmin() && S.seen && S.seen.length) t.push({ id: 'screen', label: 'On screen' });
-  if (isAdmin()) t.push({ id: 'article', label: 'Article' });
+  if (signedIn()) t.push({ id: 'article', label: 'Article' });
   return t;
 }
 
