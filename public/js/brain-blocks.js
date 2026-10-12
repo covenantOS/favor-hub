@@ -201,7 +201,8 @@
     });
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   };
-  const rowLabel = (tb, n) => `${int(n)} ${tb.noun || (n === 1 ? 'row' : 'rows')}`;
+  // The Brain names the rows in the plural ("partners"); one row reads "1 partner".
+  const rowLabel = (tb, n) => `${int(n)} ${tb.noun ? (Number(n) === 1 ? String(tb.noun).replace(/s$/, '') : tb.noun) : Number(n) === 1 ? 'row' : 'rows'}`;
   function toolsHTML(tb, inPanel, canSheets) {
     return `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcopy" data-tb="${tb.id}">${ic('copy')}<span class="lbl-l">Copy</span></button>
     <button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="tcsv" data-tb="${tb.id}">${ic('dl')}<span class="lbl-l">CSV</span></button>

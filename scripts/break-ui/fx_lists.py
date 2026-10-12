@@ -262,3 +262,9 @@ def sheets_recent(mode, m, q, state):
         return {'ok': True, 'sheets': []}
     w = W(mode)
     return {'ok': True, 'sheets': [{'title': ('Favor lists ' + pick(TITLES_WORST, i)) if w else 'Favor lists ' + day(), 'url': 'https://docs.google.com/spreadsheets/d/x', 'at': stamp(i * 60), 'rows': 12847 if w else 40} for i in range(n_for(mode, 2, 5, 5))]}
+
+
+@route('GET', r'^/api/requests/search$')
+def request_search(mode, m, q, state):
+    # The request board belongs to another lane; the palette only needs an answer.
+    return {'ok': True, 'rows': [], 'results': []}
