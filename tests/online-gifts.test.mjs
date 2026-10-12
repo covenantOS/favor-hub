@@ -160,6 +160,12 @@ describe('the list and the approval flow', () => {
     await queueDone(deps, 're:9003', true, 'Saved and read back');
     await assert.rejects(() => queueDone(deps, 're:9003', true, 'again'));
     assert.deepEqual((await history(deps.db, 're:9003')).map((h) => h.event), ['approved', 'queued', 'applied']);
+    // The mirror still holds the old fund; the applied change is the gift's fund, so changing it back queues again.
+    const after = (await overview(deps, TESTER, '2026-10-12')).rows.find((r) => r.giftId === '9003');
+    assert.equal(after.currentFund, '170');
+    const back = await approve(deps, TESTER, [{ key: 're:9003', fundId: '79' }], '2026-10-12');
+    assert.deepEqual(back.map((r) => r.state), ['queued']);
+    assert.deepEqual((await queued(deps.db)).map((x) => [x.from_fund, x.to_fund]), [['170', '79']]);
   });
 
   it('an unknown fund or a gift outside the list is refused', async () => {

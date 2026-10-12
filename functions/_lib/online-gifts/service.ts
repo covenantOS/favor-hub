@@ -301,7 +301,11 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
   const reviews = await reviewsOf(d.db, list.map((i) => i.key));
   let calls = 0;
   const rows: GiftRow[] = [];
+  const nowMs = Date.parse(nowIso(d));
   for (const i of list) {
+    // The runner read the new fund back from Blackbaud. Until the mirror's next sync shows it, that reading is the gift's fund.
+    const rv = reviews.get(i.key);
+    if (rv && rv.state === 'applied' && rv.applied_at && nowMs - Date.parse(String(rv.applied_at)) < 36 * 3600000) i.base.currentFund = String(rv.chosen_fund);
     let read = readDesignation(i.parsed, i.base.currentFund, funds);
     if (read.by !== 'comment' && i.parsed.note && wantsModel(i.parsed.note)) {
       const s = seen.get(i.key);
