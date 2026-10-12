@@ -112,7 +112,7 @@
     const body = kind === 'gift'
       ? (giftOpen ? giftForm() : `<div class="pr-ex__go"><button type="button" class="h-btn h-btn--primary" data-open-gift>+ Add gift</button></div>${result('gift')}`)
       : contactForm() + taskForm();
-    return `<section class="pr-card pr-ex" data-kind="${kind}"><div class="pr-ex__h"><h2>${esc(s.title)}</h2>${done ? '<span class="pr-done">Done</span>' : ''}</div>
+    return `<section class="pr-card pr-ex" data-ex="${kind}"><div class="pr-ex__h"><h2>${esc(s.title)}</h2>${done ? '<span class="pr-done">Done</span>' : ''}</div>
       <p class="pr-story">${esc(s.story)}</p>
       <ol class="pr-steps">${s.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>${body}</section>`;
   }
@@ -159,7 +159,7 @@
       D = Object.assign({}, D, d.state);
       if (d.passed) { draft[kind] = {}; if (kind === 'gift') giftOpen = false; }
       draw();
-      const r = root.querySelector(`.pr-ex[data-kind="${kind === 'gift' ? 'gift' : 'call'}"] .pr-result`);
+      const r = root.querySelector(`.pr-ex[data-ex="${kind === 'gift' ? 'gift' : 'call'}"] .pr-result`);
       if (r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } catch (err) { btn.disabled = false; alert(err.message); }
   });
