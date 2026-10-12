@@ -17,6 +17,8 @@ export interface Candidate {
   name: string;
   place: string;
   exact: boolean;
+  /** The city and state on the partner's record appear in the address printed on the check. */
+  addr?: boolean;
 }
 
 export interface FundOpt {
@@ -52,7 +54,16 @@ export function nameQueries(payer: string): string[] {
   return [...new Set(out)].slice(0, 4);
 }
 
-export function rankCandidates(payer: string, hits: PartnerHit[]): Candidate[] {
+/** The partner's "City, ST" against the address line the readers took from the check. */
+export function addressMatches(address: string | null | undefined, place: string | null | undefined): boolean {
+  const a = ` ${String(address || '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ')} `;
+  const [city, state] = String(place || '').split(',').map((x) => x.trim().toUpperCase().replace(/[^A-Z0-9 ]+/g, ''));
+  if (!city || a.trim().length < 6) return false;
+  if (!a.includes(` ${city} `)) return false;
+  return !state || a.includes(` ${state} `);
+}
+
+export function rankCandidates(payer: string, hits: PartnerHit[], address?: string | null): Candidate[] {
   const want = norm(payer);
   const seen = new Set<string>();
   const out: Candidate[] = [];
@@ -60,13 +71,13 @@ export function rankCandidates(payer: string, hits: PartnerHit[]): Candidate[] {
     if (seen.has(h.cid) || h.deceased) continue;
     seen.add(h.cid);
     const n = norm(h.name);
-    out.push({ cid: h.cid, lookup: h.lookup, name: h.name, place: h.place, exact: !!want && (n === want || want.includes(n) || n.includes(want)) });
+    out.push({ cid: h.cid, lookup: h.lookup, name: h.name, place: h.place, exact: !!want && (n === want || want.includes(n) || n.includes(want)), addr: addressMatches(address, h.place) });
   }
-  out.sort((a, b) => Number(b.exact) - Number(a.exact));
+  out.sort((a, b) => Number(b.exact) - Number(a.exact) || Number(!!b.addr) - Number(!!a.addr));
   return out.slice(0, 6);
 }
 
-export async function candidatesFor(repo: ActionsRepo, q: Q, payer: string): Promise<Candidate[]> {
+export async function candidatesFor(repo: ActionsRepo, q: Q, payer: string, address?: string | null): Promise<Candidate[]> {
   const hits: PartnerHit[] = [];
   for (const query of nameQueries(payer)) {
     try {
@@ -76,7 +87,7 @@ export async function candidatesFor(repo: ActionsRepo, q: Q, payer: string): Pro
     }
     if (hits.length >= 6) break;
   }
-  return rankCandidates(payer, hits);
+  return rankCandidates(payer, hits, address);
 }
 
 // ---------------------------------------------------------------- catalogs
@@ -114,6 +125,23 @@ export async function lastGiftCoding(q: Q, partnerId: string): Promise<{ fundId:
     if (s && s.appeal_id) return { fundId: String(s.fund_id || WHERE_NEEDED_MOST), appealId: String(s.appeal_id), date: r.d };
   }
   return null;
+}
+
+/** One donation per row in the twelve months before the gift date, not counting the gift itself. A partner with three or more is a frequent giver. */
+export async function recentGiftCount(q: Q, partnerId: string, onDate: string): Promise<number> {
+  const from = new Date(Date.parse(onDate + 'T12:00:00Z') - 365 * 86400000).toISOString().slice(0, 10);
+  try {
+    const rows = await q<{ n: number }>(
+      readOnly(
+        `SELECT COUNT(*) AS n FROM gifts WHERE constituent_record_id = ?1 AND gift_type = 'Donation' AND gift_amount > 0
+            AND substr(gift_date, 1, 10) >= ?2 AND substr(gift_date, 1, 10) < ?3`
+      ),
+      [partnerId, from, onDate]
+    );
+    return Number(rows[0] && rows[0].n) || 0;
+  } catch {
+    return 0;
+  }
 }
 
 // ---------------------------------------------------------------- duplicates

@@ -13,7 +13,9 @@
 //   - an approved batch cannot be deleted, so the hub never approves and never deletes a batch it did not just make.
 import { newId, nowIso, type Env } from '../http';
 import { sayWhy, type BbAnswer, type BbCall, type BbSend } from './bb';
+import { etParts } from '../actions/intake';
 import { blockers, getDeposit, giftBody, giftsOf, logEvent, tapeOf, updateGift, type DepositRow, type GiftRow } from './store';
+import { secondCents } from './perm';
 
 export const CHUNK = 20;
 /** Minutes to wait after the first, second, third and fourth failure. The fifth stops and asks a person. */
@@ -52,16 +54,18 @@ export interface SendCheck {
   why: string[];
 }
 
-export function canSend(d: DepositRow, gifts: GiftRow[]): SendCheck {
+export function canSend(d: DepositRow, gifts: GiftRow[], second = 0): SendCheck {
   const why: string[] = [];
   if (d.status !== 'open') why.push('This deposit was already sent.');
   const live = gifts.filter((g) => g.status !== 'removed');
   if (!live.length) why.push('Photograph at least one gift.');
-  const t = tapeOf(d, live);
+  const t = tapeOf(d, live, second);
   if (t.diffCount !== 0) why.push(`The count is ${t.count} and the tape says ${t.tapeCount}.`);
   if (t.diffCents !== 0) why.push(`The total is off the tape by $${(Math.abs(t.diffCents) / 100).toFixed(2)}.`);
-  const open = live.filter((g) => blockers(g).length > 0).length;
-  if (open) why.push(`${open} ${open === 1 ? 'row still needs' : 'rows still need'} a look.`);
+  const held = live.filter((g) => g.status === 'held').length;
+  if (held) why.push(`${held} ${held === 1 ? 'row is' : 'rows are'} on hold.`);
+  const open = live.filter((g) => g.status !== 'held' && blockers(g, second).length > 0).length;
+  if (open) why.push(`${open} ${open === 1 ? 'row is' : 'rows are'} not approved yet.`);
   if (!live.some((g) => g.status !== 'by_hand')) why.push('Every row is marked for hand entry. Nothing to send.');
   return { ok: why.length === 0, why };
 }
@@ -70,7 +74,7 @@ export async function queueSend(c: Ctx, depositId: string): Promise<{ queued: nu
   const d = await getDeposit(c.env, depositId);
   if (!d) throw new Error('deposit not found');
   const gifts = await giftsOf(c.env, depositId);
-  const chk = canSend(d, gifts);
+  const chk = canSend(d, gifts, await secondCents(c.env));
   if (!chk.ok) throw new Error(chk.why.join(' '));
   const toSend = gifts.filter((g) => g.status !== 'by_hand');
   const stamp = iso(c);
@@ -368,4 +372,56 @@ export async function settleDeposit(env: Env, depositId: string): Promise<void> 
   if (rows.length && rows.every((r) => r.status === 'done') && !gifts.some((g) => g.status === 'failed')) {
     await env.DB.prepare("UPDATE ge_deposit SET status = 'created', note = NULL WHERE id = ?").bind(depositId).run();
   }
+}
+
+// ---------------------------------------------------------------- taking a batch back the same day
+
+export interface Undo {
+  ok: boolean;
+  /** Why it could not be done, in words for the screen. */
+  why?: string;
+  batch?: string | null;
+  gifts?: number;
+}
+
+/**
+ * Take back a batch the hub made, the day it made it, while Blackbaud still shows it unapproved. Blackbaud refuses to delete an approved
+ * batch and has no route that removes one gift from a batch, so the whole batch goes (the route allows a delete only for a batch it made).
+ * The deposit reopens with its rows as they were: approvals stay, so a person fixes the one gift and sends again. Once Jennifer approved
+ * the batch, the void happens in Blackbaud.
+ */
+export async function undoDeposit(c: Ctx, depositId: string, reason: string): Promise<Undo> {
+  const d = await getDeposit(c.env, depositId);
+  if (!d) return { ok: false, why: 'That deposit is not here.' };
+  if (d.status === 'committed') return { ok: false, why: 'Blackbaud approved this batch. A gift in an approved batch is voided in Blackbaud.' };
+  if (!['created', 'needs_person', 'sending'].includes(d.status) || !d.bb_batch_id) return { ok: false, why: 'This deposit has no batch in Blackbaud to take back.' };
+  const sent = d.sent_at ? etParts(new Date(d.sent_at)).date : '';
+  if (sent !== etParts(clock(c)).date) return { ok: false, why: 'Undo works the day the batch was made. After that, remove it in Blackbaud.' };
+
+  // One look at the batch first: if it turned approved a moment ago, nothing is deleted.
+  const look = await c.send([{ method: 'GET', path: '/gift-batch/v1/giftbatches?limit=25' }]);
+  await recordLane(c.env, look);
+  const lr = look.results[0];
+  if (!lr || !lr.ok) return { ok: false, why: look.wait || 'Blackbaud did not answer. Try again in a minute.' };
+  const mine = ((lr.body && lr.body.giftbatches) || []).find((x: any) => String(x.id) === String(d.bb_batch_id));
+  if (mine && (mine.approved || mine.is_approved)) {
+    await c.env.DB.prepare("UPDATE ge_deposit SET status = 'committed', committed_at = ? WHERE id = ?").bind(iso(c), depositId).run();
+    return { ok: false, why: 'Blackbaud approved this batch a moment ago. Void the gift in Blackbaud.' };
+  }
+  if (mine) {
+    const del = await c.send([{ method: 'DELETE', path: `/gift-batch/v1/giftbatches/${d.bb_batch_id}` }]);
+    await recordLane(c.env, del);
+    const r = del.results[0];
+    if (!r) return { ok: false, why: del.wait || 'Blackbaud did not answer. Try again in a minute.' };
+    if (!r.ok && r.status !== 404) return { ok: false, why: r.refused || sayWhy(r.body) };
+  }
+  const stamp = iso(c);
+  const sentGifts = (await giftsOf(c.env, depositId)).filter((g) => ['sent', 'ready', 'failed'].includes(g.status));
+  await c.env.DB.prepare("UPDATE ge_gift SET status = 'review', bb_batch_gift_id = NULL, error = NULL, updated_at = ? WHERE deposit_id = ? AND status IN ('sent', 'ready', 'failed')").bind(stamp, depositId).run();
+  await c.env.DB.prepare('DELETE FROM ge_outbox WHERE deposit_id = ?').bind(depositId).run();
+  await c.env.DB.prepare("UPDATE ge_deposit SET status = 'open', bb_batch_id = NULL, bb_batch_number = NULL, sent_by = NULL, sent_at = NULL, note = NULL, last_polled_at = NULL, undone_at = ?, undone_by = ?, undone_reason = ? WHERE id = ?")
+    .bind(stamp, c.actor, reason.slice(0, 200), depositId)
+    .run();
+  await logEvent(c.env, { deposit_id: depositId, kind: 'batch_taken_back', actor: c.actor, detail: { batch: d.bb_batch_number || d.bb_batch_id, gifts: sentGifts.length, reason: reason.slice(0, 200) } });
+  return { ok: true, batch: d.bb_batch_number || d.bb_batch_id, gifts: sentGifts.length };
 }

@@ -5,6 +5,14 @@ import type { FieldName } from '../../../_lib/gifts/read';
 import { HttpError, nowIso } from '../../../_lib/http';
 import { depositView } from '../../../_lib/gifts/view';
 import { settleDeposit } from '../../../_lib/gifts/flow';
+import { secondCents } from '../../../_lib/gifts/perm';
+
+const CLEAR_APPROVALS = { confirmed_by: null, confirmed_at: null, approved2_by: null, approved2_at: null };
+const reasonOf = (v: unknown, what: string): string => {
+  const t = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+  if (!t) throw new HttpError(400, 'reason_needed', `Say why before you ${what}.`);
+  return t.slice(0, 200);
+};
 
 const CONFIRM_LINE = 'Look it over and press Looks right.';
 
@@ -36,7 +44,7 @@ export const onRequestPatch = gift(async ({ request, env, params, user, actor, d
 
   if (Object.keys(edit).length) {
     // Choosing a different partner drops a duplicate decision and the proposed candidates, and a new fund or amount re-checks the rule.
-    await updateGift(env, id, { ...edit, confirmed_by: null, confirmed_at: null });
+    await updateGift(env, id, { ...edit, ...CLEAR_APPROVALS });
     await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_edited', actor, detail: Object.keys(edit) });
     g = await recompute(env, deps, id);
     // Editing a flagged reader field resolves its flag. The person who edits it confirms the row when nothing else is missing.
@@ -53,13 +61,35 @@ export const onRequestPatch = gift(async ({ request, env, params, user, actor, d
     }
   }
 
-  if (action === 'confirm') {
+  if (action === 'confirm' || action === 'approve') {
     const left = blockers(g).filter((x) => x !== CONFIRM_LINE);
     if (left.length) throw new HttpError(409, 'not_ready', left[0]);
-    await updateGift(env, id, { confirmed_by: user.email, confirmed_at: nowIso(), fields_json: withFlagsCleared(g) });
-    await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_confirmed', actor });
+    await updateGift(env, id, { confirmed_by: user.email, confirmed_at: nowIso(), approved2_by: null, approved2_at: null, fields_json: withFlagsCleared(g) });
+    await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_confirmed', actor, detail: { cents: g.amount_cents } });
+  } else if (action === 'approve2') {
+    // The second person: someone other than the first approver, and only when the amount reaches the setting.
+    const limit = await secondCents(env);
+    if (!g.confirmed_by) throw new HttpError(409, 'not_first', 'The first approval comes first.');
+    if (!(limit > 0 && (g.amount_cents || 0) >= limit)) throw new HttpError(409, 'no_second', 'This amount does not need a second approval.');
+    if (g.confirmed_by.toLowerCase() === user.email.toLowerCase()) throw new HttpError(409, 'same_person', 'A different person gives the second approval.');
+    await updateGift(env, id, { approved2_by: user.email, approved2_at: nowIso() });
+    await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_second_approved', actor, detail: { first: g.confirmed_by, cents: g.amount_cents } });
+  } else if (action === 'hold') {
+    if (g.status === 'sent' || g.status === 'by_hand') throw new HttpError(409, 'locked', 'This row cannot be held now.');
+    const why = reasonOf(b.reason, 'hold a gift');
+    await updateGift(env, id, { status: 'held', hold_reason: why, hold_by: actor, hold_at: nowIso(), ...CLEAR_APPROVALS });
+    await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_held', actor, detail: why });
+  } else if (action === 'release') {
+    if (g.status !== 'held') throw new HttpError(409, 'not_held', 'This row is not on hold.');
+    await updateGift(env, id, { status: 'review', hold_reason: null, hold_by: null, hold_at: null });
+    await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_released', actor });
+  } else if (action === 'reject') {
+    if (g.status === 'sent') throw new HttpError(409, 'locked', 'This gift is in the batch. Take the batch back first.');
+    const why = reasonOf(b.reason, 'reject a gift');
+    await updateGift(env, id, { status: 'removed', reject_reason: why, rejected_by: actor, rejected_at: nowIso(), ...CLEAR_APPROVALS });
+    await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_rejected', actor, detail: why });
   } else if (action === 'unconfirm') {
-    await updateGift(env, id, { confirmed_by: null, confirmed_at: null });
+    await updateGift(env, id, { ...CLEAR_APPROVALS });
   } else if (action === 'dup_keep' || action === 'dup_remove') {
     const dup = parseJson<Dup | null>(g.dup_json, null);
     if (!dup) throw new HttpError(409, 'no_dup', 'There is no duplicate to decide.');
@@ -67,7 +97,7 @@ export const onRequestPatch = gift(async ({ request, env, params, user, actor, d
       await updateGift(env, id, { status: 'removed' });
       await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'row_removed_duplicate', actor, detail: dup.message });
     } else {
-      await updateGift(env, id, { dup_json: JSON.stringify({ ...dup, decision: 'keep' }), confirmed_by: null, confirmed_at: null });
+      await updateGift(env, id, { dup_json: JSON.stringify({ ...dup, decision: 'keep' }), ...CLEAR_APPROVALS });
       await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'duplicate_kept', actor, detail: dup.message });
     }
   } else if (action === 'by_hand') {
@@ -76,7 +106,7 @@ export const onRequestPatch = gift(async ({ request, env, params, user, actor, d
     await logEvent(env, { deposit_id: g.deposit_id, gift_id: id, kind: 'entered_by_hand', actor });
     await settleDeposit(env, g.deposit_id);
   } else if (action === 'back_to_review') {
-    await updateGift(env, id, { status: 'review', confirmed_by: null, confirmed_at: null });
+    await updateGift(env, id, { status: 'review', ...CLEAR_APPROVALS });
   } else if (action) {
     throw new HttpError(400, 'bad_action', 'That is not something this row does.');
   }

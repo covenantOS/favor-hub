@@ -30,7 +30,7 @@ export function withoutTester<T extends { email?: string; id?: string }>(rows: T
 }
 
 /** Paths whose writes reach Blackbaud, send email or notify a person. */
-const WRITE_FAMILIES = [/^\/api\/work\//, /^\/api\/gift-entry/, /^\/api\/foundations/, /^\/api\/statements/, /^\/api\/receipts\//, /^\/api\/expenses/, /^\/api\/requests/, /^\/api\/meet\/(meetings\/([^/]+\/(invite|guestlink|partners)|remind|calendar\/switch))/, /^\/api\/push/, /^\/api\/onboarding/, /^\/api\/mobile\//];
+const WRITE_FAMILIES = [/^\/api\/work\//, /^\/api\/gift-entry\/(deposits\/[^/]+\/(send|retry|undo|run)|drain|settings|gifts\/[^/]+\/comments)/, /^\/api\/foundations/, /^\/api\/statements/, /^\/api\/receipts\//, /^\/api\/expenses/, /^\/api\/requests/, /^\/api\/meet\/(meetings\/([^/]+\/(invite|guestlink|partners)|remind|calendar\/switch))/, /^\/api\/push/, /^\/api\/onboarding/, /^\/api\/mobile\//];
 /** Steps that only read, compute or draft, so the tester may run them to reach a review screen. */
 const READ_STEPS = /\/(preview|plan|check|validate|dry|review|prep|trip|suggest|autofill|fill|draft|explain|search|ask|brief|call-mode|script|rank|find-time|freebusy)(\/|$)/;
 

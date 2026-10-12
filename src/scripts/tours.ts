@@ -1014,6 +1014,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'gift-entry',
+    page: '/gift-entry/',
+    via: 'gift-entry',
+    at: '#ge-root',
+    title: 'Gift entry from a photo',
+    body: 'Start a deposit with the tape total and count, then photograph each check with its reply slip or drop scans. Each gift shows beside its photo with the partner, amount, check number, fund and appeal filled in. Press Approve, Hold or Reject, or use A, H and R. The batch goes to Blackbaud only for people an admin switched on.',
+    for: (w) => w.admin,
+    added: '2026-10-12',
+    side: 'top',
+  },
+  {
     id: 'statements',
     page: '/statements/',
     via: 'statements',

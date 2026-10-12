@@ -18,7 +18,7 @@ const capture = await import('../functions/_lib/gifts/capture.ts');
 const match = await import('../functions/_lib/gifts/match.ts');
 const runner = await import('../functions/_lib/gifts/runner.ts');
 
-const SCHEMA = readFileSync(new URL('../db/gift-entry.sql', import.meta.url), 'utf8');
+const SCHEMA = ['gift-entry.sql', 'gift-photo.sql'].map((f) => readFileSync(new URL('../db/' + f, import.meta.url), 'utf8')).join(';\n');
 
 describe('card guard and amounts', () => {
   it('finds a Luhn-valid card number with spaces and dashes, and ignores check numbers', () => {
@@ -173,7 +173,7 @@ describe('tape and readiness', () => {
     assert.equal(t.matches, true);
     assert.equal(t.needLook, 1);
     assert.equal(flow.canSend(d, gifts).ok, false);
-    assert.match(flow.canSend(d, gifts).why.join(' '), /1 row still needs a look/);
+    assert.match(flow.canSend(d, gifts).why.join(' '), /1 row is not approved yet/);
     await env.DB.prepare("UPDATE ge_gift SET confirmed_by = 'M' WHERE id = 'gg_3'").run();
     gifts = await store.giftsOf(env, d.id);
     assert.equal(flow.canSend(d, gifts).ok, true);

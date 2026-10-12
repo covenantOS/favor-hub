@@ -138,9 +138,11 @@ export async function world({ board = [], people = {}, staff = [], settings = {}
   d1.exec(read('db/mobile.sql'));
   d1.exec(read('db/gift-entry.sql'));
   d1.exec(read('db/gift-entry-comments.sql'));
+  d1.exec(read('db/gift-photo.sql'));
   const now = new Date().toISOString();
   const u = d1.db.prepare('INSERT OR IGNORE INTO hub_users (email, name, role, blocked, created_at, updated_at) VALUES (?,?,?,?,?,?)');
   u.run('will@favorintl.org', 'Will Hamilton', 'admin', 0, now, now);
+  d1.db.prepare('INSERT OR IGNORE INTO ge_person (email, access, posting, set_by, set_at) VALUES (?,?,?,?,?)').run('will@favorintl.org', 1, 1, 'test', now);
   const st = d1.db.prepare('INSERT INTO act_staff (email, name, team, bb_fundraiser_id, work_center, entry_owner, entry_type, active, updated_at) VALUES (?,?,?,?,?,?,?,?,?)');
   for (const s of staff) st.run(s.email, s.name, s.team || 'rdd', s.fid ?? null, s.work_center ?? 0, s.entry_owner ?? 0, s.entry_type ?? 'RDD Action', s.active ?? 1, now);
   for (const [k, v] of Object.entries(settings)) d1.db.prepare('INSERT INTO act_settings (key, value, updated_at) VALUES (?,?,?)').run(k, v, now);

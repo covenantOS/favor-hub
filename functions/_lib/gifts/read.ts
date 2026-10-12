@@ -19,7 +19,9 @@ export const PROMPT =
   'doc_type (check, reply_slip, letter, other), amount_numeric (number from the box beside the dollar sign, no symbols), amount_words (the written-out amount), ' +
   'check_date (YYYY-MM-DD or null), payer_name (name printed at top left of the check, the account holder), payee (pay to the order of), ' +
   'check_number (the number at the top right of the check, not the bank routing line), memo (text on the memo or for line, or null), ' +
-  'slip_appeal (an appeal or campaign code printed on a reply slip, or null). ' +
+  'payer_address (street, city, state and ZIP printed under the name at top left of the check, or null), ' +
+  'slip_appeal (an appeal or campaign code printed on a reply slip, or null), ' +
+  'slip_designation (the fund or purpose the giver ticked or wrote on a reply slip, or null). ' +
   'Use null for anything you cannot read. Do not read or return the routing or account numbers.';
 
 export interface ReaderFields {
@@ -31,6 +33,8 @@ export interface ReaderFields {
   checkNumber: string | null;
   memo: string | null;
   slipAppeal: string | null;
+  address: string | null;
+  slipDesignation: string | null;
 }
 
 export interface ReaderResult {
@@ -175,6 +179,8 @@ export function normalizeFields(o: Record<string, unknown>): ReaderFields {
     checkNumber: num ? num.replace(/[^0-9A-Za-z]/g, '').slice(0, 12) || null : null,
     memo: str(o.memo) ? String(o.memo).slice(0, 200) : null,
     slipAppeal: str(o.slip_appeal) ? String(o.slip_appeal).slice(0, 40) : null,
+    address: str(o.payer_address) ? String(o.payer_address).replace(/\s+/g, ' ').slice(0, 160) : null,
+    slipDesignation: str(o.slip_designation) ? String(o.slip_designation).slice(0, 80) : null,
   };
 }
 
@@ -233,6 +239,9 @@ export async function readPhoto(env: Pick<Env, 'AI'>, dataUrl: string): Promise<
 // ---------------------------------------------------------------- comparing the two readers
 
 export type FieldName = 'amount' | 'number' | 'date' | 'payer' | 'memo';
+/** How sure the page is of a field: high when both readers agree and the checks pass, low when they disagree or nothing was read. */
+export type Confidence = 'high' | 'medium' | 'low';
+export type ConfKey = FieldName | 'address' | 'appeal' | 'designation';
 
 export interface Merged {
   amountCents: number | null;
@@ -241,7 +250,11 @@ export interface Merged {
   payer: string | null;
   memo: string | null;
   slipAppeal: string | null;
+  address: string | null;
+  slipDesignation: string | null;
   docType: string | null;
+  /** Confidence per field, from the two readers and the rules below. */
+  conf: Record<ConfKey, Confidence>;
   /** Fields where the readers disagree, or where a rule says look again. The page highlights each one. */
   flags: FieldName[];
   /** Why each field is flagged, in words a person reads. */
@@ -314,13 +327,37 @@ export function mergeReads(results: ReaderResult[], depositDate: string): Merged
   const memo = pick((x) => x.memo);
   if (!unreadable && ok.length >= 2 && !sameText(memos[0], memos[1]) && (memos[0] || memos[1])) flag('memo', 'The readers disagree on the memo line.');
 
+  const addrs = f.map((x) => x.address);
+  const address = pick((x) => x.address);
+  const appeal = pick((x) => x.slipAppeal);
+  const designation = pick((x) => x.slipDesignation);
+  const two = ok.length >= 2;
+  const agree = (a: unknown, b: unknown) => (typeof a === 'string' || typeof b === 'string' ? sameText(a as string | null, b as string | null) : a === b);
+  const grade = (v: unknown, a: unknown, b: unknown, extraOk = true): Confidence => (v == null || unreadable ? 'low' : two ? (agree(a, b) && extraOk ? 'high' : agree(a, b) ? 'medium' : 'low') : 'medium');
+  const wordsOk = f.every((x) => x.wordsCents == null || x.amountCents == null || x.wordsCents === x.amountCents);
+  const wordsSeen = f.some((x) => x.wordsCents != null);
+  const dateOk = !flags.has('date');
+  const conf: Record<ConfKey, Confidence> = {
+    amount: flags.has('amount') ? 'low' : grade(amount, amounts[0], amounts[1], wordsOk && wordsSeen),
+    number: flags.has('number') ? 'low' : grade(number, nums[0], nums[1]),
+    date: flags.has('date') ? (date && two && agree(dates[0], dates[1]) ? 'medium' : 'low') : grade(date, dates[0], dates[1], dateOk),
+    payer: grade(payer, payers[0], payers[1]),
+    memo: memo == null ? (unreadable ? 'low' : 'high') : two && sameText(memos[0], memos[1]) ? 'high' : 'medium',
+    address: address == null ? 'low' : two && sameText(addrs[0], addrs[1]) ? 'high' : 'medium',
+    appeal: appeal == null ? 'low' : two && sameText(f[0].slipAppeal, f[1].slipAppeal) ? 'high' : 'medium',
+    designation: designation == null ? 'low' : two && sameText(f[0].slipDesignation, f[1].slipDesignation) ? 'high' : 'medium',
+  };
+
   return {
     amountCents: amount,
     checkNumber: number,
     checkDate: date,
     payer,
     memo,
-    slipAppeal: pick((x) => x.slipAppeal),
+    slipAppeal: appeal,
+    address,
+    slipDesignation: designation,
+    conf,
     docType: pick((x) => x.docType),
     flags: [...flags],
     why,

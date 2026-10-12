@@ -19,6 +19,7 @@ import { projectsFlag } from '../projects/access';
 import { openActionsWithoutTask, projectCards, projectsMineCount } from '../projects/links/today'; // projects hook
 import { waitingOn } from '../evals/service';
 import { mailMode, mailUnreadCount, mayUseMail } from '../mail/route';
+import { mayOpen as mayOpenGiftEntry } from '../gifts/perm';
 
 export interface Access {
   admin: boolean;
@@ -46,6 +47,8 @@ export interface Access {
   learnAdmin: boolean;
   /** People tools (Onboarding, and the other people areas): hub admins and people an admin marked HR in Admin > People. */
   hr: boolean;
+  /** Gift entry from a photo: admins, and the people an admin gave access (the admin desk and Partner Care). */
+  giftEntry: boolean;
   /** Mail in FavorOS (the person's own Gmail): hub admins until Admin > Chat > Mail opens it to staff (hub setting mail.enabled). */
   mail: boolean;
 }
@@ -78,6 +81,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     learn: learn.learn,
     learnAdmin: learn.learnAdmin,
     hr: user.role === 'admin' || (await isHr(env, email)),
+    giftEntry: await mayOpenGiftEntry(env, user),
     mail: mayUseMail(await mailMode(env), user),
   };
 }

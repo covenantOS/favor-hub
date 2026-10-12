@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail';
+export type Need = 'admin' | 'giftEntry' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail';
 
 export interface NavPage {
   id: string;
@@ -71,6 +71,8 @@ export const AREAS: NavArea[] = [
       { id: 'projects', label: 'Projects', href: '/projects/', desc: 'Projects, task lists, boards, calendar and timeline', keywords: 'projects project tasks task list board calendar timeline gantt assign due asana todo my tasks', need: 'projects', count: 'projectsMine', also: ['project'], learn: 'projects' },
       { id: 'expense', label: 'Expenses', href: '/expenses/new', desc: 'Expense request, signed online', keywords: 'expense request travel pre-travel approval signature purchase', learn: 'expense-request' },
       { id: 'receipts', label: 'Receipts', href: '/receipts/', desc: 'Thank-you receipts Blackbaud has waiting', keywords: 'thank you receipt receipts ty acknowledgement print mail', count: 'receiptsLeft', learn: 'thank-you-receipts', swap: true },
+      { id: 'receipts', label: 'Receipts', href: '/receipts/', desc: 'Thank-you receipts Blackbaud has waiting', keywords: 'thank you receipt receipts letter letters ty acknowledgement print mail', count: 'receiptsLeft', learn: 'thank-you-receipts', swap: true },
+      { id: 'gift-entry', label: 'Gift entry', href: '/gift-entry/', desc: 'Photograph checks and reply slips, review each gift, approve, and send the batch to Blackbaud', keywords: 'gift entry check checks photo photograph reply slip deposit tape batch approve mail day white mail', need: 'giftEntry', learn: 'gift-entry' },
       { id: 'statements', label: 'Statements', href: '/statements/', desc: 'Giving statements on request and the January year-end statements', keywords: 'giving statement statements year-end tax january annual receipt pdf print mail partner', learn: 'giving-statements', swap: true },
       { id: 'evals', label: 'Evaluations', href: '/evaluations/', need: 'hr', desc: 'Your evaluation, the feedback you owe a colleague and your team’s reviews', keywords: 'evaluation evaluations review reviews self assessment feedback 360 performance development plan goals rre supervisor hr', count: 'evals', also: ['evals-admin'], learn: 'evaluations' },
       { id: 'foundations', label: 'Foundations', href: '/foundations/', desc: 'Check a foundation, log a contact', keywords: 'foundation foundations prospect grant rdd blackbaud unsolicited contact call', learn: 'foundation-prospects', swap: true },

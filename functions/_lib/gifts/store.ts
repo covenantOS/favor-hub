@@ -1,6 +1,7 @@
 // Gift entry's own tables (db/gift-entry.sql) and the rules that decide when a row is ready, which rows copy their photo to
 // Blackbaud, and what the Blackbaud gift looks like. Nothing here talks to Blackbaud.
 import { newId, nowIso, type Env } from '../http';
+import { notTesterSql } from '../testuser';
 
 export const WHERE_NEEDED_MOST = '79';
 export const CHECK_STATUSES_COUNTED = ['reading', 'review', 'ready', 'sent', 'failed', 'by_hand'];
@@ -24,6 +25,9 @@ export interface DepositRow {
   committed_by: string | null;
   last_polled_at: string | null;
   note: string | null;
+  undone_at: string | null;
+  undone_by: string | null;
+  undone_reason: string | null;
 }
 
 export interface GiftRow {
@@ -59,6 +63,14 @@ export interface GiftRow {
   bb_batch_gift_id: string | null;
   bb_gift_id: string | null;
   error: string | null;
+  approved2_by: string | null;
+  approved2_at: string | null;
+  hold_reason: string | null;
+  hold_by: string | null;
+  hold_at: string | null;
+  reject_reason: string | null;
+  rejected_by: string | null;
+  rejected_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -117,11 +129,12 @@ export async function createDeposit(env: Env, who: { name: string; email: string
 
 export const getDeposit = (env: Env, id: string) => env.DB.prepare('SELECT * FROM ge_deposit WHERE id = ? LIMIT 1').bind(id).first<DepositRow>();
 
-export async function listDeposits(env: Env, limit = 30): Promise<(DepositRow & { gifts: number; cents: number })[]> {
+/** `withTesters` is for the test users themselves; real staff never see a deposit a test user made. */
+export async function listDeposits(env: Env, limit = 30, withTesters = false): Promise<(DepositRow & { gifts: number; cents: number })[]> {
   const r = await env.DB.prepare(
     `SELECT d.*, (SELECT COUNT(*) FROM ge_gift g WHERE g.deposit_id = d.id AND g.status <> 'removed') AS gifts,
             (SELECT COALESCE(SUM(g.amount_cents), 0) FROM ge_gift g WHERE g.deposit_id = d.id AND g.status <> 'removed') AS cents
-       FROM ge_deposit d WHERE d.status <> 'removed' ORDER BY d.created_at DESC LIMIT ?`
+       FROM ge_deposit d WHERE d.status <> 'removed' ${withTesters ? '' : `AND ${notTesterSql('d.created_by_email')}`} ORDER BY d.created_at DESC LIMIT ?`
   )
     .bind(limit)
     .all<DepositRow & { gifts: number; cents: number }>();
@@ -230,11 +243,20 @@ export const RULE_LABEL: Record<string, string> = {
 const PRAYER_WORDS = /(pray|prayer|healing|surgery|cancer|hospital|passed away|grieving|struggl)/i;
 export const prayerIn = (memo: string | null | undefined) => PRAYER_WORDS.test(memo || '');
 
-/** What still stops a row from going to Blackbaud. Empty means ready. */
-export function blockers(g: GiftRow): string[] {
+/** True when this row needs a second person's approval: the setting is on, the amount reaches it, and nobody has given it yet. */
+export function needsSecond(g: Pick<GiftRow, 'amount_cents' | 'approved2_by'>, secondCents: number): boolean {
+  return secondCents > 0 && (g.amount_cents || 0) >= secondCents && !g.approved2_by;
+}
+
+export const SECOND_LINE = 'A second person must approve this amount.';
+export const HOLD_LINE = 'On hold.';
+
+/** What still stops a row from going to Blackbaud. Empty means ready. `secondCents` is the hub setting ge.second_cents (0 is off). */
+export function blockers(g: GiftRow, secondCents = 0): string[] {
   if (g.status === 'removed') return [];
   const out: string[] = [];
   if (g.status === 'reading') out.push('Still being read.');
+  if (g.status === 'held') out.push(HOLD_LINE);
   if (g.status === 'by_hand') return out;
   if (!g.partner_id) out.push('Pick the partner.');
   if (!g.amount_cents) out.push('Enter the amount.');
@@ -248,6 +270,7 @@ export function blockers(g: GiftRow): string[] {
   const f = parseJson<{ card?: boolean }>(g.fields_json, {});
   if (f.card) out.push('A card number showed in the photo. Use Phone gift.');
   if (!g.confirmed_by) out.push('Look it over and press Looks right.');
+  else if (needsSecond(g, secondCents)) out.push(SECOND_LINE);
   return out;
 }
 
@@ -262,10 +285,10 @@ export interface Tape {
   matches: boolean;
 }
 
-export function tapeOf(d: Pick<DepositRow, 'tape_cents' | 'tape_count'>, gifts: GiftRow[]): Tape {
+export function tapeOf(d: Pick<DepositRow, 'tape_cents' | 'tape_count'>, gifts: GiftRow[], secondCents = 0): Tape {
   const live = gifts.filter((g) => g.status !== 'removed');
   const cents = live.reduce((s, g) => s + (g.amount_cents || 0), 0);
-  const needLook = live.filter((g) => blockers(g).length > 0).length;
+  const needLook = live.filter((g) => blockers(g, secondCents).length > 0).length;
   const diffCents = cents - d.tape_cents;
   const diffCount = live.length - d.tape_count;
   return { tapeCents: d.tape_cents, tapeCount: d.tape_count, cents, count: live.length, diffCents, diffCount, needLook, matches: diffCents === 0 && diffCount === 0 };

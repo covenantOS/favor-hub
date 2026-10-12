@@ -33,6 +33,7 @@ export const access = z
     learn: z.boolean().optional(),
     learnAdmin: z.boolean().optional(),
     hr: z.boolean().optional(),
+    giftEntry: z.boolean().optional(),
     mail: z.boolean().optional(),
   })
   .passthrough();

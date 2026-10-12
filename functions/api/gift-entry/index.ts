@@ -5,12 +5,15 @@ import { HttpError } from '../../_lib/http';
 import { etParts } from '../../_lib/actions/intake';
 import { STAGE } from '../../_lib/gifts/stage';
 import { needsFixByDeposit } from '../../_lib/gifts/comments';
+import { secondCents } from '../../_lib/gifts/perm';
+import { isTester } from '../../_lib/testuser';
 
-export const onRequestGet = gift(async ({ env, user }) => {
-  const [deposits, needsFix] = await Promise.all([listDeposits(env), needsFixByDeposit(env)]);
+export const onRequestGet = gift(async ({ env, user, canPost }) => {
+  const [deposits, needsFix] = await Promise.all([listDeposits(env, 30, isTester(user.email)), needsFixByDeposit(env)]);
   return {
     deposits: deposits.map((d) => ({ ...d, needsFix: needsFix[d.id] || 0 })),
-    lane: await laneRow(env), me: { name: user.name, email: user.email }, stage: STAGE, today: etParts(new Date()).date,
+    lane: await laneRow(env), me: { name: user.name, email: user.email, admin: user.role === 'admin', canPost }, stage: STAGE, today: etParts(new Date()).date,
+    second: await secondCents(env),
   };
 });
 
