@@ -1390,7 +1390,7 @@ window.WC = {
 // ------------------------------------------------------------ start
 // Each tab reads its own data the first time it opens. Reading it now, right after the first paint, means a tab opens on rows.
 function warmTabs() {
-  // One read at a time, each when the browser is idle, so the open tab never waits behind a queue of reads for tabs nobody has opened.
+  // Reads for tabs nobody has opened wait until the browser is idle, so the open tab never queues behind them.
   // The tab that is showing reads itself when it mounts. Counts on the other tabs fill in behind it.
   const idle = (fn) => (window.requestIdleCallback ? window.requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 400));
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1400,12 +1400,17 @@ function warmTabs() {
   if (window.WCEdit && window.WCEdit.warmOpps) jobs.push(() => window.WCEdit.warmOpps());
   window.WCTabs.list(DATA.me).forEach((t) => { if (t.warm) jobs.push(() => t.warm()); });
   setTimeout(() => idle(async () => {
-    for (const job of jobs) {
-      try { await Promise.race([Promise.resolve(job()), wait(8000)]); } catch (_) { /* a tab reads again when it opens */ }
-      await wait(120);
-    }
+    // Three at a time: fast enough that tab counts fill in within a few seconds, few enough that a click never queues behind them.
+    let next = 0;
+    const lane = async () => {
+      while (next < jobs.length) {
+        const job = jobs[next++];
+        try { await Promise.race([Promise.resolve(job()), wait(8000)]); } catch (_) { /* a tab reads again when it opens */ }
+      }
+    };
+    await Promise.all([lane(), lane(), lane()]);
     S.warmed = true;
-  }), 600);
+  }), 500);
 }
 // /work/?tab=open&action=<id> opens Open actions with that action selected and scrolled into view. The filters are cleared so it cannot be hidden.
 function pointAt(id, quiet) {
