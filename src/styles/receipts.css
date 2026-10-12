@@ -90,7 +90,7 @@
   border-left: 4px solid var(--ochre);
   border-radius: 12px;
   background: #fbf2dc;
-  font-size: 14.5px;
+  font-size: 15px;
   line-height: 1.5;
   color: var(--ink);
 }
@@ -123,7 +123,7 @@
   outline: none;
 }
 .rcp-find:focus { border-color: var(--green); background: #fff; }
-.rcp-table td { padding: 12px 8px; font-size: 14.5px; vertical-align: middle; }
+.rcp-table td { padding: 12px 8px; font-size: 15px; vertical-align: middle; }
 .rcp-table th:first-child, .rcp-table td:first-child { padding-left: 4px; }
 .rcp-table td.mono { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
 .rcp-tick { width: 34px; }

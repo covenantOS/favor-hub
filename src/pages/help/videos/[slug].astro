@@ -15,6 +15,7 @@ const articles = docs.filter((d) => d.data.videos.includes(v.slug));
 const more = videos.filter((x) => x.slug !== v.slug && x.topic === v.topic).slice(0, 3);
 const added = new Date(v.added + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 import '../../../styles/q3-desk.css';
+import '../../../styles/lint-fix.css';
 ---
 <App title={v.title} crumb="Training videos" nav="videos" description={v.summary}>
   <div class="hd-wrap">

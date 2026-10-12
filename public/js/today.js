@@ -15,6 +15,8 @@
     meetings: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/>',
     requests: '<path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 5h14l2 8v6H3v-6z"/>',
     tasks: '<path d="M4 12 20 4l-4 16-4-6z"/><path d="m12 14 8-10"/>',
+    'tasks-waiting': '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    'tasks-news': '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>',
     expenses: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
     receipts: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
     feedback: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
@@ -25,7 +27,7 @@
   };
   const icon = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n] || ICON.dot}</svg>`;
   // Each tool keeps one color: tile tint and ink come from the shared tool tokens.
-  const TOOL = { requests: 'sky', tasks: 'sky', expenses: 'sky', receipts: 'sky', brain: 'dusk', meetings: 'teal', feedback: 'sun', foundations: 'leaf' };
+  const TOOL = { requests: 'sky', tasks: 'sky', 'tasks-waiting': 'sun', 'tasks-news': 'sky', expenses: 'sky', receipts: 'sky', brain: 'dusk', meetings: 'teal', feedback: 'sun', foundations: 'leaf' };
   const tool = (id) => TOOL[String(id || '').toLowerCase()] || 'slate';
 
   // Show what this tab last saw at once, then refresh it, so a page change never starts from empty.
@@ -80,7 +82,7 @@
     $('t-cards').innerHTML = list
       .map((c) => {
         const note = c.note ? `<span class="r2t-chip ${c.warn ? 'r2t-chip--due' : /past due|overdue|late/i.test(c.note) ? 'r2t-chip--late' : ''}" title="${esc(c.note)}"><i></i><span class="r2t-chip__t">${esc(c.note)}</span></span>` : '';
-        return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}" aria-label="${esc(c.label)}: ${esc(c.cta)}">
+        return `<div class="r2t-snzwrap"><a class="r2t-tile${c.warn ? ' r2t-tile--urgent' : ''}" data-tool="${tool(c.id)}" href="${esc(c.href)}">
           <span class="r2t-tile__h"><span class="r2t-ico">${icon(c.id)}</span>${esc(c.label)}</span>
           <span class="r2t-tile__n"><span data-countup>${Number(c.n).toLocaleString('en-US')}</span>${c.amount != null ? `<small>${money2(c.amount)}</small>` : ''}</span>
           <span class="r2t-tile__w">${esc(c.what)}</span>

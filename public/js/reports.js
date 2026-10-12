@@ -132,6 +132,11 @@
   function tieHtml(t) {
     if (t.status === 'none' && !t.note) return '';
     var f = function (v) { return t.kind === 'count' ? num(v) : money(v); };
+    if (t.against) {
+      var src = esc(t.against);
+      if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches ' + src + '</b><span>' + esc(t.label) + ': ' + f(t.kpi) + (t.note ? '. ' + esc(t.note) : '') + '</span></div></div>';
+      return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from ' + src + ' by ' + f(t.diff) + '</b><span>' + esc(t.label) + ': this report ' + f(t.mine) + ', saved query ' + f(t.kpi) + (t.note ? '. ' + esc(t.note) : '') + '</span></div></div>';
+    }
     if (t.status === 'match') return '<div class="rp-tie is-ok"><span class="rp-tie__i">' + CHECK + '</span><div><b>Matches the KPI dashboard</b><span>' + esc(t.label) + ': ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'differs') return '<div class="rp-tie is-warn"><span class="rp-tie__i">!</span><div><b>Differs from the KPI dashboard by ' + f(t.diff) + '</b><span>This report ' + f(t.mine) + ', ' + esc(t.label) + ' ' + f(t.kpi) + '</span></div></div>';
     if (t.status === 'unavailable') return '<div class="rp-tie is-off"><span class="rp-tie__i" aria-hidden="true">i</span><div><b>KPI figure not available</b><span>' + esc(t.note || '') + '</span></div></div>';
@@ -233,9 +238,10 @@
       (res.post != null ? '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-copy">Copy for WhatsApp</button>' : '') +
       '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-link">Copy link</button>' +
       '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>CSV</a>' +
+      (res.mailFile ? '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-mailcsv" href="' + apiUrl(res.id, res.values, 'csv') + '&file=mail" download>' + esc(res.mailFile.label) + ' CSV</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-mailsheet">' + esc(res.mailFile.label) + ' to Sheets</button>' : '') +
       '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="reports">Google Sheets</button></div></div>';
 
-    var tie = tieHtml(res.tie);
+    var tie = tieHtml(res.tie) + (res.ties || []).map(tieHtml).join('');
     if (res.tiles.length || tie) {
       h += '<div class="h-card rp-sum">';
       res.tiles.forEach(function (t, i) { h += '<div class="rp-tile' + (i === 0 ? ' is-hero' : '') + (i > 0 && i === res.tiles.length - 1 && i % 2 === 1 ? ' rp-tile--wide' : '') + '"><div class="k">' + esc(t.label) + '</div><div class="n">' + esc(tileValue(t)) + '</div><div class="s">' + esc(t.sub || '') + '</div></div>'; });
@@ -309,6 +315,26 @@
     var pv = $('#rp-prev'), nx = $('#rp-next');
     if (pv) pv.addEventListener('click', function () { cur.page -= 1; cur.top = true; drawReport(); });
     if (nx) nx.addEventListener('click', function () { cur.page += 1; cur.top = true; drawReport(); });
+    var ms = $('#rp-mailsheet');
+    if (ms) ms.addEventListener('click', function () {
+      var label = ms.textContent;
+      ms.disabled = true;
+      ms.textContent = 'Building the sheet';
+      fetch(API + '/' + encodeURIComponent(res.id), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filters: res.values }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (d) {
+          if (!d.ok) { ms.disabled = false; ms.textContent = label; toast(d.message || 'The sheet did not build. Try again in a minute.'); return; }
+          var a = document.createElement('a');
+          a.className = 'h-btn h-btn--primary h-btn--sm';
+          a.id = 'rp-mailsheet-open';
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.href = d.url;
+          a.textContent = 'Open the sheet (' + num(d.rows) + ' rows)';
+          ms.replaceWith(a);
+        })
+        .catch(function () { ms.disabled = false; ms.textContent = label; toast('The sheet did not build. Check the connection.'); });
+    });
     var lk = $('#rp-link');
     if (lk) lk.addEventListener('click', function () {
       var fail = function () { toast('Copy did not work. Copy the address bar instead.'); };
