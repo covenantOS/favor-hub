@@ -78,10 +78,10 @@ function itemsTable(row: ExpenseRow, items: ExpenseItemRow[]): string {
 function shell(kicker: string, inner: string): string {
   return `<!DOCTYPE html><html><body style="margin:0;background:#efece4;font-family:-apple-system,'Segoe UI',sans-serif;padding:24px">
     <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;border-top:4px solid #0c7a26;padding:28px">
-      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8b957b;font-weight:600;margin-bottom:10px">${kicker}</div>
+      <div style="font-size:11px;letter-spacing:.14em;color:#8b957b;font-weight:600;margin-bottom:10px">${kicker}</div>
       ${inner}
       <div style="margin-top:22px;padding-top:14px;border-top:1px solid #eee9dd;font-size:11.5px;color:#8f8a7c;line-height:1.6">
-        Favor International · Valrico, FL · This record is kept in FavorOS expense log.
+        Favor International · Valrico, FL · This record is kept in the FavorOS expense log.
       </div>
     </div>
   </body></html>`;

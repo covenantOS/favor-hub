@@ -18,6 +18,8 @@ const NOUNS = 'sign-in|search|menu|pages?|copy|links?|screens?|admins?|tab|bar|h
 
 // Exact, file-specific replacements (first), then generic rules.
 const EXACT = [
+  ['functions/_lib/expenses/email.ts', 'is kept in FavorOS expense log', 'is kept in the FavorOS expense log'],
+  ['functions/_lib/expenses/email.ts', 'letter-spacing:.14em;text-transform:uppercase;color:#8b957b', 'letter-spacing:.14em;color:#8b957b'],
   ['tests/records.test.mjs', 'Hub copy', 'FavorOS copy'],
   ['src/components/CommandPalette.astro', 'aria-label="Hub search"', 'aria-label="FavorOS search"'],
   ['src/layouts/App.astro', 'aria-label="Hub">', 'aria-label="FavorOS">'],
@@ -40,6 +42,7 @@ const EXACT = [
   ['src/data/help-topics.ts', "hub: 'The hub',", "hub: 'FavorOS',"],
 ];
 const RULES = [
+  [/\b([Tt]he) Favor [Hh]ub (expense|clip|home|admin|page|link|menu)\b/g, '$1 FavorOS $2'],
   [/\b(?:[Tt]he )?(?:new )?Favor [Hh]ub\b/g, 'FavorOS'],
   [new RegExp(String.raw`\b([Tt]he) hub (${NOUNS})\b`, 'g'), '$1 FavorOS $2'],
   [new RegExp(String.raw`\b(a|any|every|this|another|your|A|Any|Every|This|Another|Your) hub (${NOUNS})\b`, 'g'), '$1 FavorOS $2'],
