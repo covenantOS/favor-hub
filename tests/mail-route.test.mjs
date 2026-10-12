@@ -294,15 +294,15 @@ describe('reading', () => {
 
   it('lists mailboxes with unread counts and the person labels', async () => {
     const l = (await call(ADMIN, 'GET', 'labels')).data.labels;
-    assert.equal(l.find((x) => x.id === 'INBOX').unread, 1);
-    assert.equal(l.find((x) => x.id === 'INBOX').unreadAll, 3);
+    assert.equal(l.find((x) => x.id === 'INBOX').unread, 3);
+    assert.equal(l.find((x) => x.id === 'INBOX').unreadPrimary, 1);
     assert.deepEqual(l.filter((x) => x.type === 'user').map((x) => x.name), ['Trips']);
     assert.ok(l.some((x) => x.id === 'SNOOZED'));
   });
 
   it('gives the signature without its script', async () => {
-    const s = (await call(ADMIN, 'GET', 'state')).data;
-    assert.equal(s.signature, '<div>Ada</div>');
+    assert.equal((await call(ADMIN, 'GET', 'state')).data.signature, '');
+    assert.equal((await call(ADMIN, 'GET', 'signature')).data.signature, '<div>Ada</div>');
   });
 });
 

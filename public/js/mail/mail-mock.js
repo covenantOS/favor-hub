@@ -135,6 +135,7 @@
       assigned: function () { return wait({ ok: true, assigned: [{ id: 'a_1', threadId: 't1001', assignee: 'grace@favorintl.org', name: 'Grace Lin', subject: 'Visiting in March', note: 'Call her Friday', state: 'open', at: new Date().toISOString() }] }, 100); },
       assignedDone: function () { return wait({ ok: true }, 60); },
       meetCreate: function () { return wait({ ok: true }, 200); },
+      signature: function () { return wait({ ok: true, signature: '<div>Sam Rivers<br>Favor International</div>' }, 40); },
       boxes: function () { return wait({ ok: true, boxes: [{ email: ME.email, name: ME.name, color: '', primary: true, unread: 3 }, { email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a', unread: 2 }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8', unread: 0 }] }, 60); },
       from: function () { return wait({ ok: true, from: [{ mailbox: ME.email, email: ME.email, name: ME.name, default: true }, { mailbox: 'accounting@favorintl.org', email: 'accounting@favorintl.org', name: 'Favor Accounting', default: true }, { mailbox: 'admin@favorintl.org', email: 'admin@favorintl.org', name: 'Favor Admin', default: true }] }, 60); },
       removeBox: function () { return wait({ ok: true }, 100); },

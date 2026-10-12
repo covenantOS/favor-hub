@@ -20,7 +20,7 @@ If you signed in before that screen covered Mail, Google asks one more time when
 
 ## Reading
 
-Mailboxes are on the left: Inbox, Starred, Snoozed, Sent, Drafts, All mail, Spam, Trash, then your labels. The number beside Inbox is unread conversations in your Primary tab, the number Gmail shows beside Inbox and the same number as on the Mail icon in the menu. Hover it to see the count across every tab. It changes the moment you read or archive here, and a minute after you read somewhere else.
+Mailboxes are on the left: Inbox, Starred, Snoozed, Sent, Drafts, All mail, Spam, Trash, then your labels. The number beside Inbox is every unread conversation in your inbox, the same number as on the Mail icon in the menu and on Today. Hover it to see how many are in Primary and how many in the other tabs. It changes the moment you read or archive here, and within a minute of reading somewhere else.
 
 Press a conversation to read it. Earlier messages fold to one line; press one to open it. The three dots under a message show the quoted text. A file opens in the viewer without leaving the page, and the arrow beside it downloads it.
 

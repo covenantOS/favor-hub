@@ -168,6 +168,19 @@ const why = (r: SmartRow): string => {
 };
 
 /** The few conversations to start with, in order, and two plain sentences about the morning. Kept for three hours. */
+/** The two lines at the top of the inbox, from counts only: what is unread, what waits, and where to start. Says nothing is there only when nothing is. */
+export function briefLine(stats: { needs: number; major: number; waiting: number; unread: number }, items: Array<{ from: string; subject: string }>, shown: number): string {
+  if (!shown) return '';
+  const n = (x: number) => x.toLocaleString('en-US');
+  const parts: string[] = [];
+  if (stats.unread) parts.push(`${n(stats.unread)} unread`);
+  if (stats.needs) parts.push(`${n(stats.needs)} waiting on you`);
+  if (stats.major) parts.push(`${n(stats.major)} from major ${stats.major === 1 ? 'partner' : 'partners'}`);
+  if (stats.waiting) parts.push(`${n(stats.waiting)} sent with no reply`);
+  const first = items[0] ? `Start with ${items[0].from || 'the first one'}: ${items[0].subject}.` : '';
+  return [parts.length ? parts.join(', ') + '.' : '', first].filter(Boolean).join(' ');
+}
+
 export async function briefing(ctx: SmartCtx, gm: Gmail, runModel: (system: string, user: string, max: number) => Promise<string>, waiting: number, force = false): Promise<Briefing> {
   const day = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const saved = await ctx.env.DB.prepare('SELECT body, at FROM hub_mail_brief WHERE email = ? AND day = ?').bind(ctx.me, day).first<{ body: string; at: string }>().catch(() => null);
@@ -182,16 +195,9 @@ export async function briefing(ctx: SmartCtx, gm: Gmail, runModel: (system: stri
   const unread = scan.rows.filter((r) => r.unread);
   const human = scan.rows.filter((r) => r.unread && (r.ask || r.partner || r.starred) && r.cat !== 'newsletters' && r.cat !== 'notifications');
   const ranked = [...human].sort((a, b) => (b.prio || 0) - (a.prio || 0) || a.date.localeCompare(b.date));
-  const items = ranked.slice(0, 5).map((r) => ({ id: r.id, mb: '', from: r.partner?.name || r.from?.name || r.from?.email || '', subject: r.subject || '(no subject)', why: why(r) }));
+  const items = (ranked.length ? ranked : unread).slice(0, 5).map((r) => ({ id: r.id, mb: '', from: r.partner?.name || r.from?.name || r.from?.email || '', subject: r.subject || '(no subject)', why: why(r) }));
   const stats = { needs: scan.rows.filter((r) => r.ask).length, major: scan.rows.filter((r) => r.major && r.unread).length, waiting, unlogged: 0, unread: unread.length };
-  const facts = `Unread in the inbox: ${stats.unread}. Waiting on the person: ${stats.needs}. Unread from major partners (one gift of ${money(MAJOR)} or more): ${stats.major}. Sent mail with no reply: ${waiting}.\n` + items.map((i, k) => `${k + 1}. ${i.from}: ${i.subject} (${i.why})`).join('\n');
-  let text = '';
-  try {
-    if (items.length) text = tidy(await runModel('You write the first lines of a morning email briefing for a ministry executive. Speak to the reader as you. Two plain sentences, at most 45 words in all, no greeting, no dashes, never the word donor (say partner), never say executive or the person. Use only the facts given and name the one thing to do first.', facts, 110), 320);
-  } catch {
-    text = '';
-  }
-  if (!text) text = items.length ? `${stats.unread} unread. Start with ${items[0].from}: ${items[0].subject}.` : stats.unread ? `${stats.unread} unread, none that ask you something.` : 'Nothing unread.';
+  const text = briefLine(stats, items, scan.rows.length);
   const out: Briefing = { text, items, stats, at: nowIso() };
   await ctx.env.DB.prepare('INSERT INTO hub_mail_brief (email, day, body, at) VALUES (?, ?, ?, ?) ON CONFLICT(email, day) DO UPDATE SET body = excluded.body, at = excluded.at').bind(ctx.me, day, JSON.stringify(out), out.at).run().catch(() => undefined);
   return out;

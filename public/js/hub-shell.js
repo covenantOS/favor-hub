@@ -105,6 +105,7 @@
       try {
         localStorage.removeItem('favor.hub.nav.v1');
         localStorage.removeItem('favor.mail.rows.v1');
+        localStorage.removeItem('favor.mail.boot.v1');
         if (window.indexedDB) indexedDB.deleteDatabase('favor-mail');
         sessionStorage.clear();
       } catch {

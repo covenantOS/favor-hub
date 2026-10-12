@@ -162,12 +162,8 @@ async function route(ctx: MailCtx): Promise<Response> {
   }
 
   if (a === 'state' && method === 'GET') {
-    let signature = '';
-    if (tok && level.read) {
-      const s = await gmail(tok.token, fetcher).get('/settings/sendAs').catch(() => null);
-      const main = (s?.sendAs || []).find((x: any) => x.isDefault) || (s?.sendAs || [])[0];
-      signature = main?.signature ? sanitizeHtml(String(main.signature)) : '';
-    }
+    // The signature is read apart (GET signature), so the page does not wait for a second Gmail call before it draws.
+    const signature = '';
     if (tok && level.headers && ctx.waitUntil) ctx.waitUntil(stateOf(env, me).then((st) => (st ? undefined : bootstrap(env, gmail(tok!.token, fetcher), me))).catch(() => undefined));
     return json({ ok: true, connected: !!tok, email: me, name: user.name || me, level, write: writeOn, signature, mailboxes: (await listBoxes(env, owner)).map((x) => ({ email: x.mailbox, name: x.name, color: x.color })) });
   }
@@ -178,7 +174,7 @@ async function route(ctx: MailCtx): Promise<Response> {
       if (!t) return -1;
       const lv = mailLevel(t.scopes);
       try {
-        return (await inboxCounts(gmail(t.token, fetcher), lv.read)).primary;
+        return (await inboxCounts(gmail(t.token, fetcher), lv.read)).all;
       } catch {
         return -1;
       }
@@ -203,6 +199,15 @@ async function route(ctx: MailCtx): Promise<Response> {
       for (const r of rows) out.push({ mailbox: ac.mailbox, email: lower(r.sendAsEmail), name: String(r.displayName || (lower(r.sendAsEmail) === owner ? user.name || '' : '')), default: !!r.isDefault });
     }
     return json({ ok: true, from: out });
+  }
+  if (a === 'signature' && method === 'GET') {
+    let signature = '';
+    if (tok && level.read) {
+      const s = await gmail(tok.token, fetcher).get('/settings/sendAs').catch(() => null);
+      const main = (s?.sendAs || []).find((x: any) => x.isDefault) || (s?.sendAs || [])[0];
+      signature = main?.signature ? sanitizeHtml(String(main.signature)) : '';
+    }
+    return json({ ok: true, signature }, 200, { 'Cache-Control': 'private, max-age=3600' });
   }
   if (a === 'contacts' && method === 'GET') return json({ ok: true, ...(await contacts(ctx, tok?.token || '', level.contacts, url.searchParams.get('q') || '')) });
   if (a === 'drive' && method === 'GET') {
@@ -249,29 +254,45 @@ async function route(ctx: MailCtx): Promise<Response> {
   if (a === 'count' && method === 'GET') {
     if (level.write) await wakeDue(env, gm, me).catch(() => undefined);
     const c = await inboxCounts(gm, level.read);
-    remember(me, c.primary);
-    return json({ ok: true, unread: c.primary, all: c.all });
+    remember(me, c.all);
+    return json({ ok: true, unread: c.all, all: c.all });
   }
 
   if (a === 'labels' && method === 'GET') {
-    const list = await gm.get('/labels');
-    const mine = (list.labels || []).filter((l: any) => l.type === 'user' && l.labelListVisibility !== 'labelHide');
-    const want = ['INBOX', 'DRAFT', 'SPAM', ...mine.map((l: any) => l.id)].slice(0, 60);
-    const [got, inbox] = await Promise.all([pool(want, 8, (id) => gm.get('/labels/' + encodeURIComponent(id)).catch(() => null)), inboxCounts(gm, level.read)]);
-    remember(me, inbox.primary);
-    const by = new Map(got.filter(Boolean).map((l: any) => [l.id, l]));
-    const sys = SYSTEM.map((id) => ({
-      id,
-      name: SYSTEM_NAME[id],
-      type: 'system',
-      unread: id === 'INBOX' ? inbox.primary : id === 'SPAM' ? Number(by.get(id)?.threadsUnread) || 0 : 0,
-      ...(id === 'INBOX' ? { unreadAll: inbox.all } : {}),
-      total: id === 'DRAFT' ? Number(by.get(id)?.threadsTotal) || 0 : 0,
-    }));
-    const own = mine
-      .map((l: any) => ({ id: l.id, name: l.name, type: 'user', unread: Number(by.get(l.id)?.threadsUnread) || 0, total: Number(by.get(l.id)?.threadsTotal) || 0, color: l.color?.backgroundColor || '' }))
-      .sort((x: any, y: any) => x.name.localeCompare(y.name));
-    return json({ ok: true, labels: [...sys, ...own] });
+    const hit = LABELS.get(me);
+    if (hit && Date.now() - hit.at < 45000 && !url.searchParams.get('fresh')) return json({ ok: true, labels: hit.labels, cached: true });
+    try {
+      const list = await gm.get('/labels');
+      const mine = (list.labels || []).filter((l: any) => l.type === 'user' && l.labelListVisibility !== 'labelHide');
+      const want = ['INBOX', 'DRAFT', 'SPAM', ...mine.map((l: any) => l.id)].slice(0, 40);
+      const [got, inbox] = await Promise.all([pool(want, 4, (id) => gm.get('/labels/' + encodeURIComponent(id)).catch(() => null)), inboxCounts(gm, level.read, true)]);
+      remember(me, inbox.all);
+      const by = new Map(got.filter(Boolean).map((l: any) => [l.id, l]));
+      const sys = SYSTEM.map((id) => ({
+        id,
+        name: SYSTEM_NAME[id],
+        type: 'system',
+        unread: id === 'INBOX' ? inbox.all : id === 'SPAM' ? Number(by.get(id)?.threadsUnread) || 0 : 0,
+        ...(id === 'INBOX' ? { unreadAll: inbox.all, unreadPrimary: inbox.primary } : {}),
+        total: id === 'DRAFT' ? Number(by.get(id)?.threadsTotal) || 0 : 0,
+      }));
+      const own = mine
+        .map((l: any) => ({ id: l.id, name: l.name, type: 'user', unread: Number(by.get(l.id)?.threadsUnread) || 0, total: Number(by.get(l.id)?.threadsTotal) || 0, color: l.color?.backgroundColor || '' }))
+        .sort((x: any, y: any) => x.name.localeCompare(y.name));
+      const labels = [...sys, ...own];
+      if (LABELS.size > 200) LABELS.clear();
+      LABELS.set(me, { at: Date.now(), labels });
+      return json({ ok: true, labels });
+    } catch (err) {
+      if (!(err instanceof GmailError)) throw err;
+      console.error('[mail] labels', err.status, err.reason);
+      // Gmail did not answer: the saved inbox gives the unread count, and the labels it last knew stand.
+      const saved = LABELS.get(me)?.labels;
+      if (saved) return json({ ok: true, labels: saved, cached: true });
+      const cache = await inboxFromCache(env, me, 0, 200).catch(() => ({ rows: [] as any[], total: 0 }));
+      const unread = cache.rows.filter((r: any) => r.unread).length;
+      return json({ ok: true, cached: true, labels: SYSTEM.map((id) => ({ id, name: SYSTEM_NAME[id], type: 'system', unread: id === 'INBOX' ? unread : 0, total: 0, ...(id === 'INBOX' ? { unreadAll: unread, unreadPrimary: unread } : {}) })) });
+    }
   }
 
   if (a === 'smart' && b === 'overview' && method === 'GET') {
@@ -611,6 +632,7 @@ async function route(ctx: MailCtx): Promise<Response> {
         return json({ ok: true, threads: mark(marked), next: cut < hit.total ? 'c:' + cut : st?.nextToken ? 'g:' + st.nextToken : '', estimate: hit.total, level, ...(stale ? { stale: true } : {}) });
       }
     }
+    try {
     let listed: Array<{ id: string; historyId?: string }>;
     let next = '';
     let estimate = 0;
@@ -631,6 +653,13 @@ async function route(ctx: MailCtx): Promise<Response> {
     const rows = await rowsFor(gm, me, listed, 5);
     const marked = label === 'INBOX' ? decorate(rows, (await classify(smartCtx, rows, false)).by) : rows;
     return json({ ok: true, threads: mark(marked), next, estimate, level });
+    } catch (err) {
+      if (!(err instanceof GmailError) || label !== 'INBOX' || q) throw err;
+      console.error('[mail] list', err.status, err.reason, err.message.slice(0, 120));
+      const hit = await inboxFromCache(env, me, 0, PAGE).catch(() => ({ rows: [] as any[], total: 0 }));
+      if (!hit.rows.length) throw err;
+      return json({ ok: true, threads: mark(decorate(hit.rows, (await classify(smartCtx, hit.rows, false)).by)), next: '', estimate: hit.total, level, offline: true });
+    }
   }
 
   if (a === 'threads' && b && c === 'ask' && method === 'POST') {
@@ -1128,11 +1157,11 @@ async function snoozedList(env: Env, gm: Gmail, me: string) {
  * The inbox's unread conversations. `primary` is what Gmail's own Inbox number shows (the Primary tab, as Gmail counts it when
  * the tabs are on); `all` counts every tab. A grant that cannot search (headers only) answers `all` for both.
  */
-export async function inboxCounts(gm: Gmail, canSearch: boolean): Promise<{ primary: number; all: number }> {
+export async function inboxCounts(gm: Gmail, canSearch: boolean, withPrimary = false): Promise<{ primary: number; all: number }> {
   const l = await gm.get('/labels/INBOX');
   const all = Number(l.threadsUnread) || 0;
-  if (!canSearch || !all) return { primary: all, all };
-  // One list call of ids is the live truth for the tab (Gmail's label counts can trail a read by a few seconds).
+  if (!withPrimary || !canSearch || !all) return { primary: all, all };
+  // The Primary tab's share, for the breakdown shown on hover. One list of ids; never the number that is shown.
   const list = await gm.get('/threads', { q: 'in:inbox is:unread category:primary', maxResults: '500', fields: 'threads/id,nextPageToken' }).catch(() => null);
   if (!list) return { primary: all, all };
   return { primary: Math.min(all, (list.threads || []).length), all };
@@ -1140,6 +1169,7 @@ export async function inboxCounts(gm: Gmail, canSearch: boolean): Promise<{ prim
 
 /** The rail badge: the person's Primary inbox unread, kept 15 seconds per person; zero until they connect. */
 const COUNTS = new Map<string, { n: number; at: number }>();
+const LABELS = new Map<string, { at: number; labels: any[] }>();
 const remember = (email: string, n: number) => {
   if (COUNTS.size > 500) COUNTS.clear();
   COUNTS.set(lower(email), { n, at: Date.now() });
@@ -1155,13 +1185,13 @@ export async function mailUnreadCount(env: Env, email: string, fetcher: Fetcher 
   const gm = gmail(tok.token, sample ? sampleFetcher(env, k) : fetcher);
   // The menu loads on every page, Today included, so a snoozed conversation is back by the time its owner looks.
   if (lv.write) await wakeDue(env, gm, k).catch(() => undefined);
-  let n = (await inboxCounts(gm, lv.read)).primary;
+  let n = (await inboxCounts(gm, lv.read)).all;
   // The menu number counts every mailbox the person connected, so Today, the menu and Mail agree.
   const rows = await listBoxes(env, k);
   if (rows.length) {
     const more = await Promise.all(rows.map(async (b) => {
       const t = await boxToken(env, k, b.mailbox).catch(() => null);
-      return t ? inboxCounts(gmail(t.token, fetcher), mailLevel(t.scopes).read).then((c) => c.primary).catch(() => 0) : 0;
+      return t ? inboxCounts(gmail(t.token, fetcher), mailLevel(t.scopes).read).then((c) => c.all).catch(() => 0) : 0;
     }));
     n += more.reduce((x, y) => x + y, 0);
   }
@@ -1169,6 +1199,7 @@ export async function mailUnreadCount(env: Env, email: string, fetcher: Fetcher 
   return n;
 }
 export const forgetCount = (email: string) => {
+  LABELS.delete(lower(email));
   forgetScan(lower(email));
   return COUNTS.delete(lower(email));
 };
@@ -1224,6 +1255,6 @@ export async function bulk(env: Env, gm: Gmail, me: string, canSearch: boolean, 
   await Promise.all(list.map((id: string) => applyLabels(env, me, id, label.add, label.remove)));
   forgetCount(me);
   const c = await inboxCounts(gm, canSearch).catch(() => null);
-  if (c) remember(me, c.primary);
-  return { ok: true, done, failed, unread: c ? c.primary : null, all: c ? c.all : null, ...(until ? { until } : {}) };
+  if (c) remember(me, c.all);
+  return { ok: true, done, failed, unread: c ? c.all : null, all: c ? c.all : null, ...(until ? { until } : {}) };
 }

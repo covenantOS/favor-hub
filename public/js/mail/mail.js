@@ -155,6 +155,7 @@
   var PRE = {};
   var api = {
     state: function () { return req('GET', 'state'); },
+    signature: function () { return req('GET', 'signature'); },
     boxes: function () { return req('GET', 'boxes'); },
     from: function () { return req('GET', 'from'); },
     removeBox: function (email) { return req('DELETE', 'boxes/' + encodeURIComponent(email)); },
@@ -449,7 +450,7 @@
     var row = function (l) {
       var n = l.id === 'DRAFT' ? l.total : l.unread;
       var dot = l.color ? '<i class="ml-dot" style="background:' + esc(l.color) + '"></i>' : ic(SYS_ICON[l.id] || 'tag');
-      var tip = l.id === 'INBOX' && l.unreadAll != null && l.unreadAll !== l.unread ? ' title="Unread in the Primary tab, as Gmail counts it. ' + l.unreadAll + ' unread across all tabs."' : '';
+      var tip = l.id === 'INBOX' && l.unreadPrimary != null && l.unread ? ' title="' + l.unread + ' unread: ' + l.unreadPrimary + ' in Primary, ' + Math.max(0, l.unread - l.unreadPrimary) + ' in the other tabs."' : '';
       return '<a class="ml-lab' + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + tip + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
     };
     var html = sys.map(function (l) { return row(l) + (l.id === 'INBOX' ? viewsHtml() : '') + (l.id === 'DRAFT' ? '<button type="button" class="ml-lab ml-lab--btn" data-act="later-list">' + ic('clock') + '<span>Scheduled</span></button><button type="button" class="ml-lab ml-lab--btn" data-act="assigned-list">' + ic('person') + '<span>Assigned</span></button>' : ''); }).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
@@ -477,7 +478,7 @@
   function sync(d) {
     if (d && d.unread != null) {
       var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
-      if (inbox) { inbox.unread = d.unread; if (d.all != null) inbox.unreadAll = d.all; renderLabels(); renderFilters(); }
+      if (inbox) { inbox.unread = d.unread; inbox.unreadAll = d.unread; renderLabels(); renderFilters(); }
     }
     loadBoxes();
     syncSoon();
@@ -485,8 +486,7 @@
   // A conversation counts toward the Inbox number when it is in the Inbox's Primary tab.
   function isPrimary(labelIds) {
     var l = labelIds || [];
-    if (l.indexOf('INBOX') < 0) return false;
-    return !l.some(function (x) { return /^CATEGORY_(PROMOTIONS|SOCIAL|FORUMS|UPDATES)$/.test(x); });
+    return l.indexOf('INBOX') >= 0;
   }
 
   /* ------------------------------------------------------------------ views, filters and sorting */
@@ -932,7 +932,7 @@
         '<span class="ml-av' + (picked ? ' is-picked' : '') + '" data-h="' + hue((t.from && t.from.email) || name) + '" data-pick>' + (picked ? ic('check') + '<span class="ml-sr">Selected</span>' : esc(initials(t.from && t.from.email === S.me ? S.name : who(t.from) || name))) + '</span>' +
         '<span class="ml-row__t"><span class="ml-row__l1"><b class="ml-row__who">' + (S.boxes.length ? '<i class="ml-mb" style="background:' + esc(boxColor(t.mb)) + '" title="' + esc(t.mb || S.me) + '"></i>' : '') + esc(name || '(no sender)') + (t.count > 1 ? ' <small>' + t.count + '</small>' : '') + (t.draft && S.label !== 'DRAFT' ? ' <em class="ml-draftword">Draft</em>' : '') + '</b><time>' + esc(when(t.date)) + '</time></span>' +
         '<span class="ml-row__s">' + esc(t.subject || '(no subject)') + '</span>' +
-        '<span class="ml-row__p">' + (t.ask ? '<em class="ml-chip ml-chip--sun">Needs you</em>' : '') + (t.partner && !(S.v === 'cat:partners') ? '<em class="ml-chip ml-chip--leaf">Partner</em>' : '') + (t.waitDays != null ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + 'Sent ' + (t.waitDays === 1 ? 'yesterday' : t.waitDays + ' days ago') + '</em>' : '') + (t.snoozed ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + esc(when(t.snoozed)) + '</em>' : '') + (t.files ? ic('clip', 'ml-i--sm') : '') + esc(t.snippet || '') + '</span></span>' +
+        '<span class="ml-row__p">' + (t.ask ? '<em class="ml-chip ml-chip--sun">Needs you</em> ' : '') + (t.partner && !(S.v === 'cat:partners') ? '<em class="ml-chip ml-chip--leaf">Partner</em> ' : '') + (t.waitDays != null ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + 'Sent ' + (t.waitDays === 1 ? 'yesterday' : t.waitDays + ' days ago') + '</em>' : '') + (t.snoozed ? '<em class="ml-chip ml-chip--sun">' + ic('clock') + esc(when(t.snoozed)) + '</em>' : '') + (t.files ? ic('clip', 'ml-i--sm') : '') + esc(t.snippet || '') + '</span></span>' +
       '</a>' +
       '<button type="button" class="ml-star' + (t.starred ? ' is-on' : '') + '" data-act="star" data-id="' + esc(t.id) + '" aria-pressed="' + (t.starred ? 'true' : 'false') + '" aria-label="' + (t.starred ? 'Remove star' : 'Star') + '">' + ic('star') + '</button>' +
       '<span class="ml-row__hover" aria-hidden="false">' +
@@ -2380,17 +2380,28 @@
     setView(parseHash().thread ? 'thread' : 'list');
     var r = parseHash(); S.label = r.label; S.q = r.q; S.v = r.v;
     $('[data-list-title]').textContent = listTitle();
-    $('[data-rows]').innerHTML = skeleton(8);
-    if (!isPhone() && !r.thread) $('[data-read]').innerHTML = emptyRead();
+    var routed = false;
+    // The last visit is remembered on this device: who, what the grant allowed and the mailboxes. With that the saved list draws at once and
+    // the list is asked for in the same moment as the state, instead of after it.
+    try {
+      var known = JSON.parse(localStorage.getItem('favor.mail.boot.v1') || 'null');
+      if (known && known.me && known.level && known.level.read) { S.me = known.me; S.name = known.name || ''; S.level = known.level; S.boxes = known.boxes || []; S.write = known.write !== false; S.connected = true; renderBoxes(); routed = true; if (!isPhone() && !r.thread) $('[data-read]').innerHTML = emptyRead(); route(); }
+    } catch (e) { /* first visit */ }
+    if (!routed) { $('[data-rows]').innerHTML = skeleton(8); if (!isPhone() && !r.thread) $('[data-read]').innerHTML = emptyRead(); }
     api.state().then(function (d) {
-      S.me = d.email; S.name = d.name; S.boxes = d.mailboxes || []; S.level = d.level || S.level; S.write = d.write !== false; S.connected = d.connected; S.signature = d.signature || '';
+      S.me = d.email; S.name = d.name; S.boxes = d.mailboxes || []; S.level = d.level || S.level; S.write = d.write !== false; S.connected = d.connected;
+      try { localStorage.setItem('favor.mail.boot.v1', JSON.stringify({ me: d.email, name: d.name, level: d.level, boxes: S.boxes, write: d.write !== false })); } catch (e) { /* private mode */ }
       if (S.level.write) { S.ro = false; try { localStorage.removeItem('favor.mail.ro'); } catch (e) { /* none */ } }
       root.classList.toggle('is-ro', !canWrite() || !S.level.write);
       var bar = $('[data-allow]'); bar.hidden = !(S.level.headers && !S.level.read); $('[data-allow-link]').href = allowUrl('mail');
-      if (!d.connected || (!S.level.headers && !S.level.read)) { renderConnect('read'); return; }
-      DEV.sweep(); renderBoxes(); loadBoxes(); loadFrom(); loadNames();
-      loadLabels();
-      route();
+      if (!d.connected || (!S.level.headers && !S.level.read)) { try { localStorage.removeItem('favor.mail.boot.v1'); } catch (e) { /* none */ } renderConnect('read'); return; }
+      DEV.sweep(); renderBoxes();
+      if (!routed) route();
+      // The rest waits for the list: counts, mailboxes, the From list, fund names and the signature are not on the way to the first rows.
+      setTimeout(function () { loadLabels(); loadBoxes(); }, 350);
+      setTimeout(function () { loadFrom(); loadNames(); }, 1500);
+      try { var sg = localStorage.getItem('favor.mail.sig.' + S.me); if (sg != null) S.signature = sg; } catch (e) { /* none */ }
+      setTimeout(function () { api.signature().then(function (x) { S.signature = x.signature || ''; try { localStorage.setItem('favor.mail.sig.' + S.me, S.signature); } catch (e) { /* none */ } }).catch(function () { /* the message window opens without it */ }); }, 900);
     }).catch(function (e) {
       $('[data-rows]').innerHTML = '<div class="ml-empty"><b>' + esc(e.status === 403 ? 'Mail is not open to you yet' : 'Mail did not load') + '</b><span>' + esc(e.message) + '</span></div>';
     });

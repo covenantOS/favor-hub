@@ -9,7 +9,7 @@ const YES = 6 * 3600e3;
 const NO = 3600e3;
 
 export async function partnerMap(env: Env, emails: string[], stand?: PartnerLookup): Promise<PartnerMap> {
-  const list = [...new Set(emails.map((e) => String(e || '').toLowerCase()))].filter(Boolean).slice(0, 200);
+  const list = [...new Set(emails.map((e) => String(e || '').toLowerCase()))].filter((e) => e && !e.endsWith('@favorintl.org')).slice(0, 200);
   if (!list.length) return {};
   if (stand) return stand(list).catch(() => ({}));
   const out: PartnerMap = {};

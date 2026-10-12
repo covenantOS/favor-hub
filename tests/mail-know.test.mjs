@@ -255,22 +255,22 @@ describe('categories in words', () => {
 });
 
 describe('the morning briefing', () => {
-  it('lists where to start with the reason, writes two sentences, and keeps them for the day', async () => {
+  it('is built from counts: unread, waiting, major partners, and where to start, with no model asked', async () => {
+    const n = aiCalls.filter((c) => !/clef/.test(c.model)).length;
     const b = (await run('smart/briefing')).data.briefing;
     assert.ok(b.items.length >= 1);
     assert.ok(b.items[0].why.length > 0);
-    assert.ok(b.text.length > 10);
-    assert.ok(!/[—–]/.test(b.text));
-    const n = aiCalls.length;
-    const again = (await run('smart/briefing')).data.briefing;
-    assert.equal(again.at, b.at);
-    assert.equal(aiCalls.length, n);
+    assert.match(b.text, /^\d+ unread/);
+    assert.match(b.text, /Start with /);
+    assert.ok(!/[—–]/.test(b.text) && !/executive|empty/i.test(b.text));
+    assert.equal(aiCalls.filter((c) => !/clef/.test(c.model)).length, n, 'no text model is used');
+    assert.equal((await run('smart/briefing')).data.briefing.at, b.at, 'kept for the day');
   });
-  it('falls back to a plain sentence when the model is down', async () => {
-    ai.run = async () => { throw new Error('down'); };
-    forgetCount(ADMIN.email);
-    const b = (await run('smart/briefing')).data.briefing;
-    assert.ok(b.text.length > 5);
+  it('never calls the inbox empty while messages show, and says nothing for a list that is empty', () => {
+    assert.equal(know.briefLine({ needs: 0, major: 0, waiting: 0, unread: 0 }, [], 0), '');
+    const t = know.briefLine({ needs: 0, major: 0, waiting: 0, unread: 0 }, [], 12);
+    assert.ok(!/empty|nothing|none/i.test(t));
+    assert.equal(know.briefLine({ needs: 3, major: 1, waiting: 14, unread: 1300 }, [{ from: 'Maya Okafor', subject: 'Visiting in March' }], 20), '1,300 unread, 3 waiting on you, 1 from major partner, 14 sent with no reply. Start with Maya Okafor: Visiting in March.');
   });
 });
 

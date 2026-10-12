@@ -175,40 +175,63 @@ beforeEach(async () => {
 });
 
 describe('the unread count', () => {
-  it('counts Gmail Primary tab for the badge and reports every tab beside it', async () => {
+  it('counts every unread inbox conversation for the badge, Primary or not', async () => {
     const c = await call(ADMIN, 'GET', 'count');
-    assert.equal(c.data.unread, 2);
+    assert.equal(c.data.unread, 7);
     assert.equal(c.data.all, 7);
-    const q = calls.find((x) => x.path === '/threads').q;
-    assert.equal(q.get('q'), 'in:inbox is:unread category:primary');
+    assert.ok(!calls.some((x) => x.path === '/threads'), 'the number is one label read, no search');
   });
 
-  it('shows the same number in the Inbox label, with the all-tabs number beside it', async () => {
+  it('shows the same number in the Inbox label, with the Primary share beside it for the hover', async () => {
     const l = (await call(ADMIN, 'GET', 'labels')).data.labels.find((x) => x.id === 'INBOX');
-    assert.equal(l.unread, 2);
+    assert.equal(l.unread, 7);
     assert.equal(l.unreadAll, 7);
+    assert.equal(l.unreadPrimary, 2);
   });
 
   it('drops after a read in Gmail the next time it is asked, never staying at the old number', async () => {
-    assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 2);
-    box.primaryIds = ['tpartner1'];
+    assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 7);
     box.unreadAll = 6;
     forgetCount(ADMIN.email);
-    assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 1);
+    assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 6);
   });
 
   it('a change here clears the saved count so the badge follows at once', async () => {
     await mailUnreadCount(env, ADMIN.email, fakeGoogle);
-    box.primaryIds = [];
+    box.unreadAll = 5;
     const r = await call(ADMIN, 'POST', 'bulk', { ids: ['tpartner1', 'tperson01'], action: 'read' });
-    assert.equal(r.data.unread, 0);
-    assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 0);
+    assert.equal(r.data.unread, 5);
+    assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 5);
   });
 
-  it('a headers-only grant uses the label count, which cannot search', async () => {
+  it('a headers-only grant uses the label count too', async () => {
     await grant(ADMIN.email, META);
     forgetCount(ADMIN.email);
     assert.equal(await mailUnreadCount(env, ADMIN.email, fakeGoogle), 7);
+  });
+
+  it('when Gmail refuses the labels, the saved inbox answers with its own unread count', async () => {
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    forgetCount(ADMIN.email);
+    const real = globalThis.fetch;
+    const refuse = async (u, i) => (String(u).includes('/labels') ? new Response(JSON.stringify({ error: { code: 503, message: 'down' } }), { status: 503 }) : fakeGoogle(u, i));
+    const res = await handle({ request: new Request('https://dash.favorintl.org/api/mail/labels', { headers: { 'X-Hub-Request': '1' } }), env, user: ADMIN, path: ['labels'], fetcher: refuse, ai, partners: async () => ({}) });
+    const j = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(j.cached, true);
+    assert.ok(j.labels.find((x) => x.id === 'INBOX').unread >= 1);
+    globalThis.fetch = real;
+  });
+
+  it('when Gmail refuses the list, the saved inbox is served and says it is offline', async () => {
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    d1.db.prepare("UPDATE hub_mail_sync SET synced_at = '2020-01-01T00:00:00.000Z'").run();
+    const refuse = async () => new Response(JSON.stringify({ error: { code: 500, message: 'down' } }), { status: 500 });
+    const res = await handle({ request: new Request('https://dash.favorintl.org/api/mail/threads?label=INBOX&q=x', { headers: { 'X-Hub-Request': '1' } }), env, user: ADMIN, path: ['threads'], fetcher: refuse, ai, partners: async () => ({}) });
+    assert.equal(res.status, 502);
+    const ok = await handle({ request: new Request('https://dash.favorintl.org/api/mail/threads?label=INBOX', { headers: { 'X-Hub-Request': '1' } }), env, user: ADMIN, path: ['threads'], fetcher: refuse, ai, partners: async () => ({}) });
+    assert.equal(ok.status, 200);
+    assert.ok((await ok.json()).threads.length >= 10);
   });
 });
 
