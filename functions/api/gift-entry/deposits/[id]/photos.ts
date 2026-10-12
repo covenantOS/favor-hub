@@ -11,7 +11,7 @@ export async function photoHandler({ request, env, params, user, actor, deps, ur
   const buf = new Uint8Array(await request.arrayBuffer());
   if (!buf.length) throw new HttpError(400, 'empty', 'The photo was empty.');
   if (buf.length > MAX_PHOTO_BYTES) throw new HttpError(413, 'too_big', 'The photo is too large. Take it again.');
-  const kind = ['check_front', 'slip', 'letter'].includes(url.searchParams.get('kind') || '') ? (url.searchParams.get('kind') as 'check_front' | 'slip' | 'letter') : 'check_front';
+  const kind = ['check_front', 'slip', 'letter', 'envelope'].includes(url.searchParams.get('kind') || '') ? (url.searchParams.get('kind') as 'check_front' | 'slip' | 'letter' | 'envelope') : 'check_front';
   try {
     const out = await addPhoto(env, deps, pid(params), { name: actor, email: user.email }, { bytes: buf, mime, kind, giftId: url.searchParams.get('gift') || undefined });
     return { giftId: out.gift ? out.gift.id : null, status: out.status, photoKind: out.photoKind, duplicatePhoto: out.duplicatePhoto };

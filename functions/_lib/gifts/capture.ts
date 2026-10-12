@@ -3,7 +3,7 @@
 import { newId, nowIso, type Env } from '../http';
 import type { Q } from '../work/partner';
 import type { ActionsRepo } from '../work/repo';
-import { candidatesFor, findDuplicate, lastGiftCoding, loadCatalog, recentGiftCount } from './match';
+import { candidatesFor, expectedFor, findDuplicate, lastGiftCoding, loadCatalog, recentGiftCount } from './match';
 import { proposeCoding } from './code';
 import { mergeReads, readPhoto, toDataUrl, type Merged, type ReaderResult } from './read';
 import { triagePhoto, type PhotoKind, type Triage } from './triage';
@@ -36,7 +36,7 @@ export async function addPhoto(
   deps: CaptureDeps,
   depositId: string,
   who: { name: string; email: string },
-  input: { bytes: Uint8Array; mime: string; kind?: 'check_front' | 'slip' | 'letter'; giftId?: string }
+  input: { bytes: Uint8Array; mime: string; kind?: 'check_front' | 'slip' | 'letter' | 'envelope'; giftId?: string }
 ): Promise<PhotoOutcome> {
   const dep = await getDeposit(env, depositId);
   if (!dep || dep.status !== 'open') throw new Error('This deposit is not open for photos.');
@@ -89,8 +89,8 @@ export async function addPhoto(
 
   try {
     // A slip or second photo for a row already read adds the appeal and memo. It never rewrites the check's own fields.
-    const slipOnly = existing && (kind === 'slip' || kind === 'letter');
-    await readAndMatch(env, deps, depositId, giftId, imageId, input.bytes, mime, sha, who.name, slipOnly, tri.kind);
+    const slipOnly = existing && (kind === 'slip' || kind === 'letter' || kind === 'envelope');
+    await readAndMatch(env, deps, depositId, giftId, imageId, input.bytes, mime, sha, who.name, slipOnly, tri.kind, kind);
   } catch (e: any) {
     // The photo is kept and the row waits for a person to type it. A failed read never blocks the deposit.
     await updateGift(env, giftId, { status: 'review', error: 'The photo could not be read. Type the gift in.' });
@@ -101,7 +101,7 @@ export async function addPhoto(
   return { gift, duplicatePhoto: !!dup && dup.kind === 'photo', photoKind: tri.kind, status: gift.status };
 }
 
-export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: string, giftId: string, imageId: string, bytes: Uint8Array, mime: string, sha: string, actor: string, slipOnly = false, photoKind: PhotoKind = 'other'): Promise<void> {
+export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: string, giftId: string, imageId: string, bytes: Uint8Array, mime: string, sha: string, actor: string, slipOnly = false, photoKind: PhotoKind = 'other', imageKind = 'check_front'): Promise<void> {
   const dep = (await getDeposit(env, depositId))!;
   const dataUrl = toDataUrl(bytes, mime);
   const results = await (deps.read ? deps.read(dataUrl) : readPhoto(env, dataUrl));
@@ -126,32 +126,17 @@ export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: strin
   }
 
   if (slipOnly) {
+    // An enclosure (reply slip, business reply envelope or letter) adds evidence to the row. It never rewrites the check's own fields.
     const g0 = (await getGift(env, giftId))!;
-    const add: Record<string, string | number | null> = {};
-    const cat0 = await loadCatalog(deps.q).catch(() => null);
     const f0 = parseJson<any>(g0.fields_json, {});
-    if (cat0 && (merged.slipAppeal || merged.slipDesignation)) {
-      const c = proposeCoding({ slipAppeal: merged.slipAppeal, slipDesignation: merged.slipDesignation, memo: g0.memo || merged.memo, lastGift: null, funds: cat0.funds, appeals: cat0.appeals, partnerName: g0.partner_name, payer: g0.payer, amountCents: g0.amount_cents, recentGifts: 0 });
-      let changed = false;
-      if (c.appeal && c.appealSource === 'slip') {
-        if (g0.appeal_id !== c.appeal.id) changed = true;
-        Object.assign(add, { appeal_id: c.appeal.id, appeal_name: c.appeal.name });
-        f0.defaults = { ...(f0.defaults || {}), slip: true, appealSource: 'slip' };
-      }
-      if (c.fund && c.fundSource === 'slip') {
-        if (g0.fund_id !== c.fund.id) changed = true;
-        Object.assign(add, { fund_id: c.fund.id, fund_name: c.fund.name });
-        f0.defaults = { ...(f0.defaults || {}), fundSource: 'slip' };
-      }
-      f0.conf = { ...(f0.conf || {}), appeal: merged.conf.appeal, designation: merged.conf.designation };
-      add.fields_json = JSON.stringify(f0);
-      if (changed) Object.assign(add, { confirmed_by: null, confirmed_at: null, approved2_by: null, approved2_at: null });
-    }
+    f0.enclosures = { ...(f0.enclosures || {}), [imageKind]: { appeal: merged.slipAppeal, designation: merged.slipDesignation, purpose: merged.purpose, memo: merged.memo } };
+    const add: Record<string, string | number | null> = { fields_json: JSON.stringify(f0) };
     if (!g0.memo && merged.memo) Object.assign(add, { memo: merged.memo, prayer: prayerIn(merged.memo) ? 1 : g0.prayer });
     await updateGift(env, giftId, add);
+    await codeGift(env, deps, giftId, 'enclosure');
     const g1 = (await getGift(env, giftId))!;
-    await env.DB.prepare('UPDATE ge_image SET copy_to_bb = ? WHERE gift_id = ?').bind(ruleFor(g1) ? 1 : 0, giftId).run();
     await updateGift(env, giftId, { rule: ruleFor(g1) });
+    await env.DB.prepare('UPDATE ge_image SET copy_to_bb = ? WHERE gift_id = ?').bind(ruleFor(g1) ? 1 : 0, giftId).run();
     return;
   }
 
@@ -172,42 +157,70 @@ export async function readAndMatch(env: Env, deps: CaptureDeps, depositId: strin
   const exact = cands.filter((c) => c.exact);
   const byAddr = (list: typeof cands) => (list.filter((c) => c.addr).length === 1 ? list.find((c) => c.addr)! : null);
   const pick = cands.length === 1 ? cands[0] : exact.length === 1 ? exact[0] : byAddr(exact.length > 1 ? exact : cands);
-  const defaults: Record<string, boolean | string> = {};
   if (pick) {
     Object.assign(set, { partner_id: pick.cid, partner_lookup: pick.lookup, partner_name: pick.name, partner_place: pick.place });
   }
   set.candidates_json = JSON.stringify(cands);
 
-  // Appeal and fund: the reply slip first, the memo second, the partner's history third, then the White Mail table; the fund is
-  // the slip's designation, a fund named in the memo, or Where Needed Most.
-  const cat = await loadCatalog(deps.q).catch(() => null);
-  const last = pick ? await lastGiftCoding(deps.q, pick.cid).catch(() => null) : null;
-  const recent = pick ? await recentGiftCount(deps.q, pick.cid, dep.deposit_date).catch(() => 0) : 0;
-  const coding = proposeCoding({
-    slipAppeal: merged.slipAppeal, slipDesignation: merged.slipDesignation, memo: merged.memo,
-    lastGift: last ? { fundId: last.fundId, appealId: last.appealId } : null,
-    funds: cat ? cat.funds : [], appeals: cat ? cat.appeals : [],
-    partnerName: pick ? pick.name : null, payer: merged.payer, amountCents: merged.amountCents, recentGifts: recent,
-  });
-  set.fund_id = coding.fund ? coding.fund.id : WHERE_NEEDED_MOST;
-  set.fund_name = coding.fund ? coding.fund.name : 'Where Needed Most';
-  if (coding.appeal) {
-    set.appeal_id = coding.appeal.id;
-    set.appeal_name = coding.appeal.name;
-  }
-  defaults.appealSource = coding.appealSource;
-  defaults.fundSource = coding.fundSource;
-  if (coding.appealSource === 'slip') defaults.slip = true;
-  if (coding.appealSource === 'history') defaults.lastGift = true;
-  set.fields_json = JSON.stringify({ photo: photoKind, flags: merged.flags, why: merged.why, conf: merged.conf, address: merged.address, readers: merged.readers, unreadable: merged.unreadable, defaults });
+  const defaults: Record<string, boolean | string> = {};
+  set.fund_id = WHERE_NEEDED_MOST;
+  set.fund_name = 'Where Needed Most';
+  const prevF = parseJson<any>(((await getGift(env, giftId)) as GiftRow).fields_json, {});
+  set.fields_json = JSON.stringify({ photo: photoKind, enclosures: prevF.enclosures, flags: merged.flags, why: merged.why, conf: merged.conf, address: merged.address, readers: merged.readers, unreadable: merged.unreadable, defaults });
   await updateGift(env, giftId, set);
 
+  await codeGift(env, deps, giftId, 'initial', pick ? pick.cid : null, merged.slipAppeal, merged.slipDesignation);
   const g = (await getGift(env, giftId))!;
   const key = await dedupeKeyOf(g);
   const dup = await findDuplicate(env, deps.q, { ...g, dedupe_key: key }, sha);
   const rule = ruleFor(g);
   await updateGift(env, giftId, { dedupe_key: key, rule, dup_json: dup ? JSON.stringify(dup) : null });
   await env.DB.prepare('UPDATE ge_image SET copy_to_bb = ? WHERE gift_id = ?').bind(rule ? 1 : 0, giftId).run();
+}
+
+/**
+ * Work out the appeal and fund for a row from the evidence it holds: enclosures, the memo, expected gifts and the partner's history.
+ * 'initial' sets both. 'enclosure' sets the appeal and fund only when a slip or letter decides them, so a new photo never undoes a
+ * person's choice. A row a person coded (appealSource person) keeps the person's appeal in either mode.
+ */
+export async function codeGift(env: Env, deps: CaptureDeps, giftId: string, mode: 'initial' | 'enclosure', partnerId: string | null = null, checkSlip: string | null = null, checkDesignation: string | null = null): Promise<void> {
+  const g = (await getGift(env, giftId))!;
+  const dep = (await getDeposit(env, g.deposit_id))!;
+  const f = parseJson<any>(g.fields_json, {});
+  const enc = f.enclosures || {};
+  const cat = await loadCatalog(deps.q).catch(() => null);
+  const pid = partnerId || g.partner_id;
+  const date = g.gift_date || dep.deposit_date;
+  const last = pid ? await lastGiftCoding(deps.q, pid).catch(() => null) : null;
+  const recent = pid ? await recentGiftCount(deps.q, pid, date).catch(() => 0) : 0;
+  const expected = pid ? await expectedFor(deps.q, pid, date, g.amount_cents).catch(() => []) : [];
+  const c = proposeCoding({
+    slipAppeal: (enc.slip && enc.slip.appeal) || (enc.envelope && enc.envelope.appeal) || checkSlip,
+    slipDesignation: (enc.slip && enc.slip.designation) || checkDesignation,
+    letterAppeal: enc.letter ? enc.letter.appeal : null,
+    letterPurpose: enc.letter ? enc.letter.purpose : null,
+    memo: g.memo, lastGift: last ? { fundId: last.fundId, appealId: last.appealId } : null, expected,
+    funds: cat ? cat.funds : [], appeals: cat ? cat.appeals : [],
+    partnerName: g.partner_name, payer: g.payer, amountCents: g.amount_cents, recentGifts: recent,
+  });
+  const person = f.defaults && f.defaults.appealSource === 'person';
+  const decides = c.appealSource === 'slip' || c.appealSource === 'letter';
+  const set: Record<string, string | number | null> = {};
+  const applyAppeal = !person && (mode === 'initial' || decides);
+  if (applyAppeal && c.appeal) {
+    if (g.appeal_id !== c.appeal.id) Object.assign(set, { confirmed_by: null, confirmed_at: null, approved2_by: null, approved2_at: null });
+    Object.assign(set, { appeal_id: c.appeal.id, appeal_name: c.appeal.name });
+  }
+  const fundDecides = c.fundSource === 'slip' || c.fundSource === 'letter';
+  if ((mode === 'initial' || fundDecides) && c.fund && (!g.fund_id || mode === 'initial' || fundDecides)) {
+    if (g.fund_id !== c.fund.id) Object.assign(set, { confirmed_by: null, confirmed_at: null, approved2_by: null, approved2_at: null });
+    Object.assign(set, { fund_id: c.fund.id, fund_name: c.fund.name });
+  }
+  f.defaults = { ...(f.defaults || {}), appealSource: person ? 'person' : c.appealSource, fundSource: c.fundSource };
+  set.fields_json = JSON.stringify(f);
+  set.needs_coding = person ? 0 : c.needsCoding ? 1 : 0;
+  set.coding_json = JSON.stringify({ source: person ? 'person' : c.appealSource, reason: person ? 'Chosen by a person' : c.reason, fundSource: c.fundSource, fundReason: c.fundReason, suggestions: c.suggestions });
+  await updateGift(env, giftId, set);
 }
 
 /** After a person edits a row, the things that follow from its fields are worked out again. */

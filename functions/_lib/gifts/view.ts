@@ -39,6 +39,7 @@ export async function depositView(env: Env, id: string) {
       why: f.why || {},
       conf: f.conf || {},
       address: f.address || null,
+      coding: { needs: !!g.needs_coding, ...parseJson<any>(g.coding_json, { source: '', reason: '', suggestions: [] }) },
       readers: f.readers || [],
       defaults: f.defaults || {},
       card: !!f.card,

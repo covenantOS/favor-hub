@@ -18,7 +18,7 @@ const capture = await import('../functions/_lib/gifts/capture.ts');
 const match = await import('../functions/_lib/gifts/match.ts');
 const runner = await import('../functions/_lib/gifts/runner.ts');
 
-const SCHEMA = ['gift-entry.sql', 'gift-photo.sql'].map((f) => readFileSync(new URL('../db/' + f, import.meta.url), 'utf8')).join(';\n');
+const SCHEMA = ['gift-entry.sql', 'gift-photo.sql', 'gift-photo-coding.sql'].map((f) => readFileSync(new URL('../db/' + f, import.meta.url), 'utf8')).join(';\n');
 
 describe('card guard and amounts', () => {
   it('finds a Luhn-valid card number with spaces and dashes, and ignores check numbers', () => {
@@ -458,7 +458,7 @@ describe('capture: photo in, review row out', () => {
   const fakeQ = async (sql, params) => {
     calls.push(sql);
     if (/FROM funds/.test(sql)) return [{ id: '79', code: 'Where Needed Most', name: 'Where Needed Most' }];
-    if (/FROM appeals/.test(sql)) return [{ id: '2298', code: 'P200-RDAD', name: 'Portfolio', category: 'Portfolio' }];
+    if (/FROM appeals/.test(sql)) return [{ id: '2298', code: 'P200-RDAD', name: 'Portfolio', category: 'Portfolio' }, { id: '2185', code: 'W200-UNID', name: 'White Mail, Unidentified Motivation', category: 'White Mail' }];
     if (/gift_splits AS splits/.test(sql)) return [{ splits: JSON.stringify([{ fund_id: '79', appeal_id: '2298' }]), d: '2026-08-01' }];
     return [];
   };
@@ -468,7 +468,7 @@ describe('capture: photo in, review row out', () => {
     res('gemma', fields({ amountCents: 10000, wordsCents: 10000, checkDate: '2026-10-05', checkNumber: '4410', payer: 'Harold Whitcomb' })),
   ];
 
-  it('proposes the partner, the last-gift appeal and a rule, and leaves the glance to a person', async () => {
+  it('proposes the partner, codes White Mail with no slip or note, keeps the last gift as a suggestion, and leaves the glance to a person', async () => {
     const d = await store.createDeposit(env, { name: 'Morgan', email: 'm@example.org' }, { kind: 'regular', date: '2026-10-09', tapeCents: 10000, tapeCount: 1 });
     const out = await capture.addPhoto(env, { repo: fakeRepo, q: fakeQ, read: goodRead, bucket }, d.id, { name: 'Morgan', email: 'm@example.org' }, { bytes: new Uint8Array([9, 9, 9]), mime: 'image/jpeg' });
     const g = out.gift;
@@ -477,7 +477,11 @@ describe('capture: photo in, review row out', () => {
     assert.equal(g.amount_cents, 10000);
     assert.equal(g.check_number, '4410');
     assert.equal(g.fund_id, '79');
-    assert.equal(g.appeal_id, '2298');
+    assert.equal(g.appeal_id, '2185');
+    assert.equal(g.needs_coding, 1);
+    const cj = JSON.parse(g.coding_json);
+    assert.equal(cj.reason, 'No slip or note: White Mail');
+    assert.deepEqual(cj.suggestions.map((x) => [x.appealId, x.source]), [['2298', 'history']]);
     assert.equal(g.confirmed_by, null);
     assert.deepEqual(store.blockers(g), ['Look it over and press Looks right.']);
     assert.equal(bucket.store.size, 1);

@@ -51,6 +51,7 @@ async function home() {
   const d = await api('/api/gift-entry');
   S.list = d.deposits; S.me = d.me; S.second = d.second || 0; S.today = d.today;
   await loadSummary(S.sumDate || '');
+  S.needs = (await api('/api/gift-entry/needs-coding').catch(() => ({ items: [] }))).items;
   paintHome();
 }
 async function loadSummary(date) {
@@ -64,7 +65,13 @@ function paintHome() {
   root.innerHTML = `<section class="h-card ge-card"><div class="ge-hd"><h2>Mail deposits</h2><span class="sp"></span>
       ${S.me && S.me.admin ? '<button class="ge-link" data-people>People</button>' : ''}<button class="ge-btn ge-btn--primary" data-new>${ic(I.plus)}New deposit</button></div>
       <div>${rows || '<div class="ge-empty">No deposits yet.</div>'}</div></section>
-    ${summaryCard()}`;
+    ${needsCard()}${summaryCard()}`;
+}
+function needsCard() {
+  const n = S.needs || [];
+  if (!n.length) return '';
+  return `<section class="h-card ge-card"><div class="ge-hd"><h2>Needs coding</h2><span class="sp"></span><span class="ge-muted">${n.length} coded White Mail</span></div>
+    ${n.slice(0, 20).map((x) => `<div class="ge-sumrow"><b>${esc(x.partner || 'Gift ' + x.seq)}</b><span class="f">${esc(x.deposit.name)} · ${esc(x.reason)}${x.suggestions.length ? ' · ' + esc(x.suggestions.map((y) => y.code + ' (' + y.reason + ')').join('; ')) : ''}</span><span class="a ge-money">${money(x.amountCents)}</span></div>`).join('')}</section>`;
 }
 function summaryCard() {
   const s = S.summary;
@@ -147,8 +154,13 @@ function dotFor(r, key) {
 }
 const flagged = (r, n) => (r.flags.includes(n) && !r.confirmed ? ' is-flag' : '');
 const whyOf = (r, n) => (r.flags.includes(n) && !r.confirmed && r.why[n] ? `<span class="ge-why">${esc(r.why[n])}</span>` : '');
-const SRC = { slip: 'Reply slip code', memo: 'Memo', history: 'Last gift', white_mail: 'White mail table' };
-const FSRC = { slip: 'Reply slip', memo: 'Memo' };
+function appealReason(r) {
+  const c = r.coding || {};
+  if (!c.reason) return '';
+  const sug = (c.suggestions || []).map((x) => `<button class="ge-cand" data-sug="${esc(x.appealId)}" data-n="${esc(x.name)}" data-why="${esc(x.reason)}" ${open() ? '' : 'disabled'}>${esc(x.code)}<small>${esc(x.reason)}</small></button>`).join('');
+  return `<span class="ge-src">${esc(c.reason)}</span>${c.needs && sug ? `<div class="ge-cands" aria-label="Suggestions, not decided">${sug}</div>` : ''}`;
+}
+const FSRC = { slip: 'Reply slip', letter: 'Letter', expected: 'Expected gift', memo: 'Memo' };
 
 function pane(r, v) {
   const lock = open() ? '' : 'disabled';
@@ -186,7 +198,7 @@ function pane(r, v) {
     ${r.kind === 'check' ? `<div class="ge-field${flagged(r, 'payer')}"><label for="gf-payer">Name on the check ${dotFor(r, 'payer')}</label><input id="gf-payer" value="${esc(r.payer || '')}" ${lock}>${whyOf(r, 'payer')}</div>` : ''}
     <div class="ge-row2">
       <div class="ge-field"><label for="gf-fund">Fund ${dotFor(r, 'designation')}</label><input id="gf-fund" list="ge-funds" value="${esc(r.fund ? r.fund.name : '')}" autocomplete="off" ${lock}><datalist id="ge-funds">${fundList}</datalist>${d.fundSource && FSRC[d.fundSource] ? `<span class="ge-src">From the ${esc(FSRC[d.fundSource].toLowerCase())}</span>` : ''}</div>
-      <div class="ge-field"><label for="gf-appeal">Appeal ${dotFor(r, 'appeal')}</label><input id="gf-appeal" list="ge-appeals" value="${esc(r.appeal ? r.appeal.name : '')}" placeholder="Search appeals" autocomplete="off" ${lock}><datalist id="ge-appeals">${appealList}</datalist>${d.appealSource && SRC[d.appealSource] ? `<span class="ge-src">${esc(SRC[d.appealSource])}</span>` : ''}</div></div>
+      <div class="ge-field"><label for="gf-appeal">Appeal ${dotFor(r, 'appeal')}</label><input id="gf-appeal" list="ge-appeals" value="${esc(r.appeal ? r.appeal.name : '')}" placeholder="Search appeals" autocomplete="off" ${lock}><datalist id="ge-appeals">${appealList}</datalist>${appealReason(r)}</div></div>
     <div class="ge-field${flagged(r, 'memo')}"><label for="gf-memo">Memo ${dotFor(r, 'memo')}</label><textarea id="gf-memo" ${lock}>${esc(r.memo || '')}</textarea>${whyOf(r, 'memo')}</div>
     ${r.rule === 'giving_fund' || r.soft ? `<div class="ge-field"><label>Recommended by (soft credit)</label>${r.soft ? `<div class="ge-who"><b>${esc(r.soft.name)}</b></div>` : '<div class="ge-note">Name who recommended this gift, or choose No partner named.</div>'}
         <input class="ge-input" id="ge-sp" placeholder="Search for the recommending partner" autocomplete="off" ${lock}><div class="ge-opts" id="ge-sr" hidden></div><div><button class="ge-btn" data-nosoft ${lock}>No partner named</button></div></div>` : ''}
@@ -194,7 +206,7 @@ function pane(r, v) {
     ${open() ? actionBar(r, second) : ''}
     ${approval ? `<span class="ge-src">${approval}</span>` : ''}
     <details class="ge-details"><summary>What each reader saw</summary><div class="ge-read" style="margin-top:8px">${readers || '<span class="ge-muted">Nothing was read.</span>'}</div>
-      <div class="ge-acts">${open() && r.images[0] ? '<button class="ge-btn" data-reread>Read the photo again</button>' : ''}${open() && r.kind === 'check' ? '<label class="ge-btn" style="cursor:pointer">Add the reply slip<input type="file" accept="image/*" hidden data-slip></label>' : ''}</div></details>
+      <div class="ge-acts">${open() && r.images[0] ? '<button class="ge-btn" data-reread>Read the photo again</button>' : ''}${open() && r.kind === 'check' ? [['slip', 'Reply slip'], ['envelope', 'Reply envelope'], ['letter', 'Letter']].map(([k, l]) => `<label class="ge-btn" style="cursor:pointer">${l}<input type="file" accept="image/*" hidden data-enc="${k}"></label>`).join('') : ''}</div></details>
   </div>`;
 }
 function actionBar(r, second) {
@@ -439,6 +451,7 @@ root.addEventListener('click', async (e) => {
   if (t.matches('[data-ask]')) { S.ask = t.dataset.ask; paintReview(); return; }
   if (t.matches('[data-reason-no]')) { S.ask = ''; paintReview(); return; }
   if (t.matches('[data-reason-go]')) { const v = ($('#ge-reason') || {}).value || ''; if (!v.trim()) { toast('Say why first.'); return; } await act(r.id, t.dataset.reasonGo, { reason: v }); return; }
+  if (t.matches('[data-sug]')) { await save(r.id, { appeal_id: t.dataset.sug, appeal_name: t.dataset.n }); repaint(); return; }
   if (t.matches('[data-pickp]')) { await pickPartner(r, t.dataset.pickp, t.dataset.n, t.dataset.p, t.dataset.l); return; }
   if (t.matches('[data-nosoft]')) { await save(r.id, { soft_partner_id: null, soft_partner_name: 'No partner named' }); repaint(); return; }
   if (t.matches('[data-reread]')) { toast('Reading the photo again'); try { const out = await post('/api/gift-entry/gifts/' + encodeURIComponent(r.id) + '/reread'); S.view = Object.assign({}, S.view, out.view); repaint(); } catch (er) { toast(er.message); } return; }
@@ -453,7 +466,7 @@ async function pickPartner(r, cid, name, place, lookup) {
 root.addEventListener('change', async (e) => {
   const t = e.target;
   if (t.matches('[data-pick]')) { const files = Array.from(t.files || []); t.value = ''; await addFiles(files); return; }
-  if (t.matches('[data-slip]')) { const r = cur(); const f = (t.files || [])[0]; t.value = ''; if (r && f) { try { const j = await fileToJpeg(f); enqueue(j.blob, 'Reply slip', 'slip', r.id); } catch (er) { toast('Could not open that photo.'); } } return; }
+  if (t.matches('[data-enc]')) { const r = cur(); const kind = t.dataset.enc; const files = Array.from(t.files || []); t.value = ''; for (const f of files) { if (r) { try { const j = await fileToJpeg(f); enqueue(j.blob, { slip: 'Reply slip', envelope: 'Reply envelope', letter: 'Letter' }[kind], kind, r.id); } catch (er) { toast('Could not open that photo.'); } } } return; }
   if (t.matches('[data-sumdate]')) { await loadSummary(t.value); paintHome(); return; }
   const r = cur(); if (!r || !t.id) return;
   const num = (v) => Math.round(Number(String(v).replace(/[$,\s]/g, '')) * 100);

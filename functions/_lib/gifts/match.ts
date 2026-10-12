@@ -10,6 +10,7 @@ import { searchPartners, mirrorQ, type Q } from '../work/partner';
 import { blackbaudRepo, readOnly, type ActionsRepo, type PartnerHit } from '../work/repo';
 import { newId } from '../http';
 import { WHERE_NEEDED_MOST, parseJson, sha256Hex, type Dup, type GiftRow } from './store';
+import { expectedFits, type Expected } from './code';
 
 export interface Candidate {
   cid: string;
@@ -142,6 +143,49 @@ export async function recentGiftCount(q: Q, partnerId: string, onDate: string): 
   } catch {
     return 0;
   }
+}
+
+/**
+ * Gifts someone logged as coming for this partner: an opportunity with an expected date near the gift, or an action in the last two
+ * months whose words say a gift or pledge was expected. Only the ones that fit the amount and the timing are returned.
+ */
+export async function expectedFor(q: Q, partnerId: string, giftDate: string, amountCents: number | null): Promise<Expected[]> {
+  const day = 86400000;
+  const from = new Date(Date.parse(giftDate + 'T12:00:00Z') - 60 * day).toISOString().slice(0, 10);
+  const to = new Date(Date.parse(giftDate + 'T12:00:00Z') + 42 * day).toISOString().slice(0, 10);
+  const out: Expected[] = [];
+  try {
+    const opps = await q<{ id: string; amt: number | null; d: string; purpose: string | null; name: string | null }>(
+      readOnly(
+        `SELECT id AS id, expected_amount AS amt, substr(expected_date, 1, 10) AS d, purpose AS purpose, name AS name FROM opportunities
+          WHERE constituent_record_id = ?1 AND COALESCE(inactive, 0) = 0 AND expected_date IS NOT NULL AND substr(expected_date, 1, 10) >= ?2 AND substr(expected_date, 1, 10) <= ?3 LIMIT 5`
+      ),
+      [partnerId, from, to]
+    );
+    for (const o of opps) out.push({ id: o.id, kind: 'opportunity', date: o.d, amountCents: o.amt != null ? Math.round(Number(o.amt) * 100) : null, purpose: o.purpose || o.name || null, text: o.name || '' });
+  } catch {
+    /* the mirror has no opportunities yet; the other evidence still counts */
+  }
+  try {
+    const acts = await q<{ id: string; d: string; s: string | null; t: string | null }>(
+      readOnly(
+        `SELECT id AS id, substr(COALESCE(date_added, action_date_due), 1, 10) AS d, action_summary AS s, action_description AS t FROM actions
+          WHERE constituent_record_id = ?1 AND substr(COALESCE(date_added, action_date_due), 1, 10) >= ?2 AND substr(COALESCE(date_added, action_date_due), 1, 10) <= ?3
+            AND (lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%expect%' OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%pledge%'
+              OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%promis%' OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%gift is coming%'
+              OR lower(COALESCE(action_summary, '') || ' ' || COALESCE(action_description, '')) LIKE '%will be sending%') LIMIT 5`
+      ),
+      [partnerId, from, giftDate]
+    );
+    for (const a of acts) {
+      const text = `${a.s || ''} ${a.t || ''}`.replace(/\s+/g, ' ').trim().slice(0, 300);
+      const m = text.match(/\$\s?([\d,]+(?:\.\d{2})?)/);
+      out.push({ id: a.id, kind: 'action', date: a.d, amountCents: m ? Math.round(Number(m[1].replace(/,/g, '')) * 100) : null, purpose: null, text });
+    }
+  } catch {
+    /* no actions to read */
+  }
+  return out.filter((e) => expectedFits(e, amountCents, giftDate));
 }
 
 // ---------------------------------------------------------------- duplicates

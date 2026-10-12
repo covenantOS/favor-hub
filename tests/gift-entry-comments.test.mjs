@@ -19,6 +19,7 @@ const SCHEMA = [
   readFileSync(new URL('../db/work-reminders.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../db/gift-entry-comments.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../db/gift-photo.sql', import.meta.url), 'utf8'),
+  readFileSync(new URL('../db/gift-photo-coding.sql', import.meta.url), 'utf8'),
 ].join('\n');
 
 const SUBMITTER = { email: 'ada@example.org', name: 'Ada Tester' };

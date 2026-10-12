@@ -71,6 +71,10 @@ export interface GiftRow {
   reject_reason: string | null;
   rejected_by: string | null;
   rejected_at: string | null;
+  needs_coding: number;
+  coding_json: string | null;
+  coded_by: string | null;
+  coded_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;

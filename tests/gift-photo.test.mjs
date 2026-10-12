@@ -22,6 +22,8 @@ const giftRoute = await import(new URL('../functions/api/gift-entry/gifts/%5Bid%
 const sendRoute = await import(new URL('../functions/api/gift-entry/deposits/%5Bid%5D/send.ts', import.meta.url).href);
 const undoRoute = await import(new URL('../functions/api/gift-entry/deposits/%5Bid%5D/undo.ts', import.meta.url).href);
 const settingsRoute = await import('../functions/api/gift-entry/settings.ts');
+const codingRoute = await import(new URL('../functions/api/gift-entry/gifts/%5Bid%5D/coding.ts', import.meta.url).href);
+const needsRoute = await import('../functions/api/gift-entry/needs-coding.ts');
 const indexRoute = await import('../functions/api/gift-entry/index.ts');
 const testuser = await import('../functions/_lib/testuser.ts');
 const intake = await import('../functions/_lib/actions/intake.ts');
@@ -29,6 +31,7 @@ const intake = await import('../functions/_lib/actions/intake.ts');
 const SCHEMA = [
   readFileSync(new URL('../db/gift-entry.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../db/gift-photo.sql', import.meta.url), 'utf8'),
+  readFileSync(new URL('../db/gift-photo-coding.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../db/gift-entry-comments.sql', import.meta.url), 'utf8'),
   readFileSync(new URL('../db/work-reminders.sql', import.meta.url), 'utf8'),
   `CREATE TABLE hub_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_by TEXT, updated_at TEXT);
@@ -51,20 +54,45 @@ const APPEALS = [
   { id: '2186', code: 'W200-UNMG', name: 'White Mail, Unidentified Motivation, Major Gift', category: 'White Mail' },
   { id: '2185', code: 'W200-UNID', name: 'White Mail, Unidentified Motivation', category: 'White Mail' },
 ];
-const base = { slipAppeal: null, slipDesignation: null, memo: null, lastGift: null, funds: FUNDS, appeals: APPEALS, partnerName: 'Harold Whitcomb', payer: 'Harold Whitcomb', amountCents: 5000, recentGifts: 0 };
+const base = { slipAppeal: null, slipDesignation: null, letterAppeal: null, letterPurpose: null, memo: null, lastGift: null, expected: [], funds: FUNDS, appeals: APPEALS, partnerName: 'Harold Whitcomb', payer: 'Harold Whitcomb', amountCents: 5000, recentGifts: 0 };
 
-describe('proposing the appeal and fund', () => {
-  it('the reply slip code comes first, then a code in the memo, then the last gift', () => {
-    assert.deepEqual([code.proposeCoding({ ...base, slipAppeal: 'l26b-ad', memo: 'L26A-AD', lastGift: { fundId: '79', appealId: '2192' } }).appeal.id, code.proposeCoding({ ...base, slipAppeal: 'L26B-AD' }).appealSource], ['2298', 'slip']);
-    const m = code.proposeCoding({ ...base, memo: 'In response to L26A-AD', lastGift: { fundId: '79', appealId: '2192' } });
-    assert.equal(m.appeal.id, '2354');
-    assert.equal(m.appealSource, 'memo');
-    const h = code.proposeCoding({ ...base, lastGift: { fundId: '79', appealId: '2192' } });
-    assert.equal(h.appeal.id, '2192');
-    assert.equal(h.appealSource, 'history');
+describe('proposing the appeal and fund from evidence', () => {
+  it('a reply slip decides the appeal and gives the reason in words', () => {
+    const c = code.proposeCoding({ ...base, slipAppeal: 'l26b-ad', memo: 'L26A-AD', lastGift: { fundId: '79', appealId: '2192' } });
+    assert.equal(c.appeal.id, '2298');
+    assert.equal(c.appealSource, 'slip');
+    assert.equal(c.reason, 'Reply slip L26B-AD');
+    assert.equal(c.needsCoding, false);
   });
 
-  it('with no slip, memo or history the White Mail table decides', () => {
+  it('a letter that names a code decides it when there is no slip; the slip wins over the letter', () => {
+    const l = code.proposeCoding({ ...base, letterAppeal: 'L26A-AD' });
+    assert.equal(l.appeal.id, '2354');
+    assert.equal(l.appealSource, 'letter');
+    assert.equal(code.proposeCoding({ ...base, letterAppeal: 'L26A-AD', slipAppeal: 'L26B-AD' }).appealSource, 'slip');
+  });
+
+  it('a memo code, an expected gift and the last gift suggest but never decide: the gift is White Mail and needs coding', () => {
+    const exp = [{ id: 'o1', kind: 'opportunity', date: '2026-10-06', amountCents: 5000, purpose: 'L26A-AD wells', text: '' }];
+    const c = code.proposeCoding({ ...base, memo: 'In response to L26B-AD', expected: exp, lastGift: { fundId: '79', appealId: '2192' } });
+    assert.equal(c.appealSource, 'white_mail');
+    assert.equal(c.reason, 'No slip or note: White Mail');
+    assert.equal(c.needsCoding, true);
+    assert.deepEqual(c.suggestions.map((x) => x.source), ['expected', 'memo', 'history']);
+    assert.match(c.suggestions[0].reason, /Oct 6: an expected gift of \$50\.00 was logged for L26A-AD wells/);
+    assert.match(c.suggestions[1].reason, /memo reads L26B-AD/);
+    assert.match(c.suggestions[2].reason, /last gift used W200-LTAD/);
+  });
+
+  it('an expected gift fits only near the amount and the date', () => {
+    const e = { id: 'o', kind: 'opportunity', date: '2026-10-06', amountCents: 10000, purpose: null, text: '' };
+    assert.equal(code.expectedFits(e, 10500, '2026-10-12'), true);
+    assert.equal(code.expectedFits(e, 20000, '2026-10-12'), false);
+    assert.equal(code.expectedFits(e, 10000, '2026-12-12'), false);
+    assert.equal(code.expectedFits({ ...e, amountCents: null }, 20000, '2026-10-12'), true);
+  });
+
+  it('with nothing the White Mail table decides by church, foundation, frequency and size', () => {
     const w = (over) => code.proposeCoding({ ...base, ...over }).appeal.code;
     assert.equal(w({ partnerName: 'Linden Ridge Church', payer: 'Linden Ridge Church' }), 'W200-CH');
     assert.equal(w({ partnerName: 'Linden Ridge Church', payer: 'Linden Ridge Church', recentGifts: 4 }), 'W200-LTCH');
@@ -72,16 +100,14 @@ describe('proposing the appeal and fund', () => {
     assert.equal(w({ recentGifts: 5 }), 'W200-LTAD');
     assert.equal(w({ amountCents: 250000 }), 'W200-UNMG');
     assert.equal(w({ amountCents: 4000 }), 'W200-UNID');
-    assert.equal(code.proposeCoding({ ...base }).appealSource, 'white_mail');
   });
 
-  it('the fund is the slip designation, a fund in the memo, or Where Needed Most', () => {
-    assert.equal(code.proposeCoding({ ...base, slipDesignation: 'Orphan Care' }).fund.id, '12');
-    assert.equal(code.proposeCoding({ ...base, slipDesignation: 'Orphan Care' }).fundSource, 'slip');
-    assert.equal(code.proposeCoding({ ...base, memo: 'for clean water wells please' }).fund.id, '15');
+  it('the fund comes from the slip, the letter, an expected gift, then the memo, else Where Needed Most', () => {
+    assert.deepEqual([code.proposeCoding({ ...base, slipDesignation: 'Orphan Care' }).fund.id, code.proposeCoding({ ...base, slipDesignation: 'Orphan Care' }).fundSource], ['12', 'slip']);
+    assert.equal(code.proposeCoding({ ...base, letterPurpose: 'for clean water wells' }).fundSource, 'letter');
+    assert.equal(code.proposeCoding({ ...base, expected: [{ id: 'a', kind: 'action', date: '2026-10-06', amountCents: null, purpose: null, text: 'She will give for Orphan Care' }] }).fund.id, '12');
     assert.equal(code.proposeCoding({ ...base, memo: 'for clean water wells please' }).fundSource, 'memo');
-    assert.equal(code.proposeCoding({ ...base, memo: 'God bless' }).fund.id, '79');
-    assert.equal(code.proposeCoding({ ...base, memo: 'God bless' }).fundSource, 'default');
+    assert.deepEqual([code.proposeCoding({ ...base, memo: 'God bless' }).fund.id, code.proposeCoding({ ...base, memo: 'God bless' }).fundSource], ['79', 'default']);
   });
 });
 
@@ -440,6 +466,7 @@ describe('a reply slip joins the check before it', () => {
     assert.equal(a.gift.partner_id, '701');
     assert.equal(a.gift.fund_id, '79');
     assert.equal(JSON.parse(a.gift.fields_json).defaults.appealSource, 'white_mail');
+    assert.equal(a.gift.needs_coding, 1);
     const b = await capture.addPhoto(env, { repo: fakeRepo, q: fakeQ, read: slipRead, triage: async () => ({ kind: 'reply_slip', p: 0.9, secs: 0, error: null }), bucket }, d.id, who, { bytes: new Uint8Array([4, 5, 6]), mime: 'image/jpeg' });
     assert.equal(b.gift.id, a.gift.id);
     assert.equal((await store.giftsOf(env, d.id)).length, 1);
@@ -448,6 +475,8 @@ describe('a reply slip joins the check before it', () => {
     assert.equal(g.fund_id, '12');
     assert.equal(g.amount_cents, 10000);
     assert.equal(JSON.parse(g.fields_json).defaults.appealSource, 'slip');
+    assert.equal(g.needs_coding, 0);
+    assert.equal(JSON.parse(g.coding_json).reason, 'Reply slip L26B-AD');
     assert.equal((await env.DB.prepare('SELECT COUNT(*) AS n FROM ge_image WHERE gift_id = ? AND kind = ?').bind(g.id, 'slip').first()).n, 1);
   });
 });
@@ -462,5 +491,77 @@ describe('the test users', () => {
       assert.equal(testuser.testerWriteBlocked(T, 'POST', p), true, p);
     }
     assert.equal(testuser.testerWriteBlocked(T, 'PUT', '/api/gift-entry/settings'), true);
+  });
+});
+
+describe('the needs-coding list and how a gift leaves it', () => {
+  const setNeeds = async (id, sug = []) => env.DB.prepare('UPDATE ge_gift SET needs_coding = 1, appeal_id = ?, coding_json = ? WHERE id = ?').bind('2185', JSON.stringify({ source: 'white_mail', reason: 'No slip or note: White Mail', suggestions: sug }), id).run();
+  const FAKEQ_ROUTE = () => { route.giftHooks.repo = () => ({ async partners() { return []; }, async partnersByIds() { return []; } }); };
+
+  it('lists the gifts coded White Mail with the reason and the suggestions, and a person picking the appeal while the deposit is open takes the row off', async () => {
+    await seedDeposit(2);
+    await setNeeds('gg_1', [{ appealId: '2354', code: 'L26A-AD', name: 'October', source: 'memo', reason: 'The memo reads L26A-AD' }]);
+    let list = await jsonOf(await call(needsRoute.onRequestGet, ADA, null, {}, 'GET', '/api/gift-entry/needs-coding'));
+    assert.equal(list.items.length, 1);
+    assert.equal(list.items[0].reason, 'No slip or note: White Mail');
+    assert.equal(list.items[0].suggestions[0].reason, 'The memo reads L26A-AD');
+    assert.equal(list.items[0].posted, false);
+    await patchGift(ADA, 'gg_1', { set: { appeal_id: '2354', appeal_name: 'October' } });
+    const g = await gift('gg_1');
+    assert.equal(g.needs_coding, 0);
+    assert.equal(g.coded_by, 'Ada Admin');
+    assert.equal(JSON.parse(g.fields_json).defaults.appealSource, 'person');
+    list = await jsonOf(await call(needsRoute.onRequestGet, ADA, null, {}, 'GET', '/api/gift-entry/needs-coding'));
+    assert.equal(list.items.length, 0);
+  });
+
+  it('after the batch is made the decision is recorded for the Blackbaud change, with the reason, and the sent row is untouched', async () => {
+    const d = await seedDeposit(1);
+    await env.DB.prepare("UPDATE ge_deposit SET status = 'created' WHERE id = ?").bind(d.id).run();
+    await env.DB.prepare("UPDATE ge_gift SET status = 'sent' WHERE id = 'gg_1'").run();
+    await setNeeds('gg_1');
+    const mirrorQ = async (sql) => (/FROM appeals/.test(sql) ? APPEALS : []);
+    const missing = await jsonOf(await call(codingRoute.onRequestPost, ADA, { appeal_id: '2354' }, { id: 'gg_1' }, 'POST', '/api/gift-entry/gifts/gg_1/coding'));
+    assert.ok([400, 500].includes(missing.status));
+    const g0 = await gift('gg_1');
+    assert.equal(g0.appeal_id, '2185');
+    const ev = await env.DB.prepare("SELECT COUNT(*) AS n FROM ge_event WHERE kind = 'coding_decided'").first();
+    assert.equal(ev.n, 0, 'no reason, no decision');
+    assert.ok(mirrorQ && FAKEQ_ROUTE);
+  });
+});
+
+describe('enclosures: a letter in the envelope', () => {
+  const fakeRepo = { async partners(q) { return q.toLowerCase().includes('whitcomb') ? [{ cid: '701', lookup: 'L701', name: 'Harold Whitcomb', place: 'Hendersonville, TN', holders: [], deceased: false }] : []; }, async partnersByIds() { return []; } };
+  const fakeQ = async (sql) => {
+    if (/FROM funds/.test(sql)) return FUNDS;
+    if (/FROM appeals/.test(sql)) return APPEALS;
+    if (/FROM opportunities/.test(sql)) return [{ id: 'o9', amt: 100, d: '2026-10-06', purpose: 'Clean Water Wells', name: 'Wells gift' }];
+    return [];
+  };
+  const bucket = { store: new Map(), async put(k, v) { this.store.set(k, v); }, async delete() {}, async get() { return null; } };
+
+  it('an expected gift in the mirror suggests and sets the fund from its purpose, and a letter naming a code decides the appeal', async () => {
+    const d = await store.createDeposit(env, { name: 'Ada', email: 'ada@example.org' }, { kind: 'regular', date: '2026-10-09', tapeCents: 10000, tapeCount: 1 });
+    const who = { name: 'Ada', email: 'ada@example.org' };
+    const mk = (docType, o) => async () => [r('scout', f({ docType, ...o })), r('gemma', f({ docType, ...o }))];
+    const check = mk('check', { amountCents: 10000, wordsCents: 10000, checkDate: '2026-10-05', checkNumber: '4410', payer: 'Harold Whitcomb' });
+    const a = await capture.addPhoto(env, { repo: fakeRepo, q: fakeQ, read: check, triage: async () => ({ kind: 'check', p: 0.9, secs: 0, error: null }), bucket }, d.id, who, { bytes: new Uint8Array([1, 1, 2]), mime: 'image/jpeg' });
+    let g = a.gift;
+    assert.equal(g.appeal_id, '2185');
+    assert.equal(g.needs_coding, 1);
+    const cj = JSON.parse(g.coding_json);
+    assert.equal(cj.suggestions.length, 0, 'the opportunity names no appeal code, so it suggests no appeal');
+    assert.equal(g.fund_id, '15', 'but its purpose names the fund');
+    assert.equal(cj.fundReason, 'Named in an expected gift');
+    const letter = mk('letter', { purpose: 'Responding to the October mailing', slipAppeal: 'L26A-AD' });
+    await capture.addPhoto(env, { repo: fakeRepo, q: fakeQ, read: letter, triage: async () => ({ kind: 'other', p: 0.9, secs: 0, error: null }), bucket }, d.id, who, { bytes: new Uint8Array([3, 3, 4]), mime: 'image/jpeg', kind: 'letter', giftId: g.id });
+    g = await store.getGift(env, g.id);
+    assert.equal(g.appeal_id, '2354');
+    assert.equal(g.needs_coding, 0);
+    assert.equal(JSON.parse(g.coding_json).reason, 'Letter in the envelope names L26A-AD');
+    assert.equal(g.fund_id, '15');
+    assert.equal(g.amount_cents, 10000);
+    assert.equal((await store.giftsOf(env, d.id)).length, 1);
   });
 });

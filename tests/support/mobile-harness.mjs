@@ -139,6 +139,7 @@ export async function world({ board = [], people = {}, staff = [], settings = {}
   d1.exec(read('db/gift-entry.sql'));
   d1.exec(read('db/gift-entry-comments.sql'));
   d1.exec(read('db/gift-photo.sql'));
+  d1.exec(read('db/gift-photo-coding.sql'));
   const now = new Date().toISOString();
   const u = d1.db.prepare('INSERT OR IGNORE INTO hub_users (email, name, role, blocked, created_at, updated_at) VALUES (?,?,?,?,?,?)');
   u.run('will@favorintl.org', 'Will Hamilton', 'admin', 0, now, now);

@@ -21,7 +21,8 @@ export const PROMPT =
   'check_number (the number at the top right of the check, not the bank routing line), memo (text on the memo or for line, or null), ' +
   'payer_address (street, city, state and ZIP printed under the name at top left of the check, or null), ' +
   'slip_appeal (an appeal or campaign code printed on a reply slip, or null), ' +
-  'slip_designation (the fund or purpose the giver ticked or wrote on a reply slip, or null). ' +
+  'slip_designation (the fund or purpose the giver ticked or wrote on a reply slip, or null), ' +
+  'purpose (on a letter or note: what the giver says the gift is for or which mailing it answers, as one short phrase, or null). ' +
   'Use null for anything you cannot read. Do not read or return the routing or account numbers.';
 
 export interface ReaderFields {
@@ -35,6 +36,7 @@ export interface ReaderFields {
   slipAppeal: string | null;
   address: string | null;
   slipDesignation: string | null;
+  purpose: string | null;
 }
 
 export interface ReaderResult {
@@ -181,6 +183,7 @@ export function normalizeFields(o: Record<string, unknown>): ReaderFields {
     slipAppeal: str(o.slip_appeal) ? String(o.slip_appeal).slice(0, 40) : null,
     address: str(o.payer_address) ? String(o.payer_address).replace(/\s+/g, ' ').slice(0, 160) : null,
     slipDesignation: str(o.slip_designation) ? String(o.slip_designation).slice(0, 80) : null,
+    purpose: str(o.purpose) ? String(o.purpose).slice(0, 120) : null,
   };
 }
 
@@ -252,6 +255,7 @@ export interface Merged {
   slipAppeal: string | null;
   address: string | null;
   slipDesignation: string | null;
+  purpose: string | null;
   docType: string | null;
   /** Confidence per field, from the two readers and the rules below. */
   conf: Record<ConfKey, Confidence>;
@@ -357,6 +361,7 @@ export function mergeReads(results: ReaderResult[], depositDate: string): Merged
     slipAppeal: appeal,
     address,
     slipDesignation: designation,
+    purpose: pick((x) => x.purpose),
     conf,
     docType: pick((x) => x.docType),
     flags: [...flags],
