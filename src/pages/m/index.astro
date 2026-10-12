@@ -53,11 +53,11 @@ import '../../styles/phone-app.css';
       </section>
 
       <section class="pa-card" aria-labelledby="pa-h-data">
-        <h2 id="pa-h-data">Data saver</h2>
+        <div class="pa-cardh">
+          <h2 id="pa-h-data">Data saver</h2>
+          <select id="pa-data" class="pa-pick" aria-labelledby="pa-h-data"><option value="auto">Automatic</option><option value="on">On</option><option value="off">Off</option></select>
+        </div>
         <p>Pictures upload smaller, calls open audio only and messages written offline wait until the connection returns.</p>
-        <label class="pa-sel"><span>Data saver</span>
-          <select id="pa-data"><option value="auto">Automatic</option><option value="on">On</option><option value="off">Off</option></select>
-        </label>
         <p class="pa-msg" id="pa-data-state" role="status"></p>
       </section>
 

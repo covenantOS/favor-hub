@@ -4,7 +4,7 @@
    written as `html body.h-body ...` so they win wherever the bundler
    places this file. One section per screen. No new colors or sizes:
    everything reads the tokens in elevate.css and the Today tokens.
-   The rules this pass follows are in docs/DESIGN-RULES.md.
+   The rules this pass follows are the Design rules section of the hub agent rules.
    ==================================================================== */
 
 /* ---------------------------------------------------------------- shared */
@@ -45,7 +45,7 @@ html body.h-body .br-sub .fe-chip { font-weight: 600; color: var(--r-ink-2, var(
 html body.h-body .br-main .fe-chip:hover, html body.h-body .br-sub .fe-chip:hover { text-decoration: underline; }
 html body.h-body .br-li .br-prep { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 html body.h-body .br-li .br-main { gap: 1px; }
-html body.h-body .br-li .br-act { flex: none; position: relative; height: 32px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: none; border: 1px solid var(--r-line-2, var(--h-line-2)); color: var(--r-ink, var(--h-ink)); font: 600 13px var(--h-font); box-shadow: none; }
+html body.h-body .br-li .br-act { flex: none; position: relative; height: 32px !important; min-height: 32px !important; padding: 0 12px; border-radius: 999px; background: none; border: 1px solid var(--r-line-2, var(--h-line-2)); color: var(--r-ink, var(--h-ink)); font: 600 13px var(--h-font); box-shadow: none; }
 html body.h-body .br-li .br-act:hover { border-color: var(--r-ink-3, var(--h-ink-3)); }
 html body.h-body .br-li .br-act::after { content: ''; position: absolute; inset: -6px -4px; }
 
@@ -301,9 +301,9 @@ html body.h-body .br-m { gap: 4px; padding: 14px 16px; }
 html body.h-body .br-m h3 { font: 600 15px var(--h-font); }
 html body.h-body .br-m p { font: 500 13px/1.45 var(--h-font); }
 html body.h-body .br-m__acts { align-items: center; gap: 14px; margin-top: 6px; }
-html body.h-body .br-m__acts .br-act { position: relative; height: 32px; min-height: 32px; padding: 0 12px; border-radius: 999px; background: none; border: 1px solid var(--r-line-2, var(--h-line-2)); color: var(--r-ink, var(--h-ink)); font: 600 13px var(--h-font); box-shadow: none; text-decoration: none; }
+html body.h-body .br-m__acts .br-act { position: relative; height: 32px !important; min-height: 32px !important; padding: 0 12px; border-radius: 999px; background: none; border: 1px solid var(--r-line-2, var(--h-line-2)); color: var(--r-ink, var(--h-ink)); font: 600 13px var(--h-font); box-shadow: none; text-decoration: none; }
 html body.h-body .br-m__acts .br-act::after { content: ''; position: absolute; inset: -6px -4px; }
-html body.h-body .br-m__acts .dp-link { min-height: 32px; }
+html body.h-body .br-m__acts .dp-link { min-height: 32px !important; }
 @media (max-width: 860px) {
   /* Six moments stacked is six screens of scrolling: on a phone they sit in one row that scrolls sideways. */
   html body.h-body .br-mgrid { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; gap: 10px; padding: 0 0 2px; }
@@ -317,3 +317,9 @@ html body.h-body .br-moments { min-width: 0; }
 html body.h-body .r2t-tile__f .r2t-chip { background: none; padding: 0; border-radius: 0; min-height: 0; height: auto; min-width: 0; }
 html body.h-body .r2t-tile__f .r2t-chip__t { display: block; -webkit-line-clamp: unset; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: 500 13px/1.4 var(--h-font); color: var(--r-ink-3, var(--h-ink-3)); }
 html body.h-body .br-focus .br-head .br-back { margin-left: auto; }
+
+/* ---------------------------------------------------------------- Receipts */
+
+/* The window picker in the card header: plain weight, no box. */
+html body.h-body .h-page .rcp-days { font-weight: 500; border-color: transparent; background-color: transparent; box-shadow: none; padding-left: 2px; color: var(--h-ink-2); }
+html body.h-body .h-page .rcp-days:hover { color: var(--h-ink); }

@@ -202,7 +202,7 @@
     if (tabs.length > 1) {
       h += '<nav class="ev-tabs" aria-label="Sections of this evaluation">' + tabs.map(function (t) { return '<a href="?c=' + esc(c.id) + '&v=' + t[0] + '" data-go="' + esc(c.id) + '&v=' + t[0] + '"' + (t[0] === tab ? ' aria-current="page"' : '') + '>' + esc(t[1]) + '</a>'; }).join('') + '</nav>';
     }
-    if (v.reportsToMissing) h += '<div class="ev-gap" role="alert"><b>Nobody is set under Reports to for ' + esc(c.employee.name) + '.</b><span>The summary and plan need a supervisor. Set one in Admin, People and roles, or choose one on the term page.</span><a class="h-btn h-btn--ghost h-btn--sm" href="/admin/people/?filter=nosup">Open People and roles</a></div>';
+    if (v.reportsToMissing) h += '<div class="ev-gap" role="alert"><b>No supervisor set for ' + esc(c.employee.name) + '</b><span>The summary and plan need one.</span><a class="h-btn h-btn--ghost h-btn--sm" href="/admin/people/?filter=nosup">Open People and roles</a></div>';
     h += '<div class="ev-body">';
     if (tab === 'overview') h += overviewHtml();
     else if (tab === 'self') h += v.role.employee ? formHtml('A', v.self, !v.self.submitted && c.termOpen) : formReadHtml(S.forms.forms.A, v.self.answers, 'Self-assessment');
@@ -402,9 +402,8 @@
   function evidenceHtml() {
     var e = S.view.evidence, emp = S.view.role.employee;
     if (!e) return '<section class="ev-panel"><h2>' + (emp ? 'My year' : 'Evidence') + '</h2><p class="ev-sub">No records to show.</p></section>';
-    var who = emp ? 'you' : S.view.case.employee.name;
     var tile = function (n, label, sub) { return '<div class="ev-ev"><b>' + n + '</b><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; };
-    var h = '<section class="ev-panel"><h2>' + (emp ? 'My year' : 'Evidence') + '</h2><p class="ev-sub">Records show what ' + esc(who) + ' finished from ' + esc(dateWord(e.from, true)) + ' to ' + esc(dateWord(e.to, true)) + (e.startedWithinYear ? ', counted from the start date' : '') + '. The counts come from Projects, the Work Center and Learn. Work done anywhere else is not counted.</p>';
+    var h = '<section class="ev-panel"><h2>' + (emp ? 'My year' : 'Evidence') + '</h2><p class="ev-sub">' + esc(dateWord(e.from, true)) + ' to ' + esc(dateWord(e.to, true)) + (e.startedWithinYear ? ', from the start date' : '') + '. Counted from Projects, the Work Center and Learn.</p>';
     h += '<div class="ev-evs">' + tile(e.tasks.done, 'Tasks finished', e.tasks.late ? e.tasks.late + ' after the due date' : '') + tile(e.partners.contacted, 'Partners contacted', e.partners.actions + ' action' + (e.partners.actions === 1 ? '' : 's') + ' in the Work Center') + tile(e.courses.done, 'Courses finished', '') + '</div></section>';
     h += '<section class="ev-panel"><h3 class="ev-h3">Recent finished tasks</h3>' + (e.tasks.recent.length ? '<ul class="ev-bul">' + e.tasks.recent.map(function (t) { return '<li>' + esc(t.title) + ' <small>' + esc(dateWord(t.doneAt)) + '</small></li>'; }).join('') + '</ul>' : '<p class="ev-sub">No finished tasks in Projects in this window.</p>') + '</section>';
     h += '<section class="ev-panel"><h3 class="ev-h3">Work Center actions</h3>' + (e.partners.byKind.length ? '<ul class="ev-bul">' + e.partners.byKind.map(function (k) { return '<li>' + esc(k.kind) + ' <small>' + k.n + '</small></li>'; }).join('') + '</ul>' : '<p class="ev-sub">No Work Center actions in this window.</p>') + '</section>';

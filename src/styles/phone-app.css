@@ -26,3 +26,7 @@ body.pa { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif
 .pa-msg { min-height: 18px; }
 .pa-foot { text-align: center; padding-top: 6px; }
 .pa-link { background: none; border: 0; font: inherit; font-size: 14px; color: var(--pa-ink-2); text-decoration: underline; min-height: 44px; padding: 0 12px; }
+
+/* Design pass: a setting's choice sits small in the card header, never a full-width dropdown in the card. */
+.pa-cardh { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pa-pick { min-height: 44px; border: 0; background: none; padding: 0 2px; font: inherit; font-size: 16px; font-weight: 600; color: var(--pa-green); text-align: right; text-align-last: right; }

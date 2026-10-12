@@ -21,5 +21,6 @@ import '../../../src/styles/night-desk.css';
 import '../../../src/styles/night-phone.css';
 import '../../../src/styles/dock.css';
 import '../../../src/styles/entity.css';
+import '../../../src/styles/design-pass.css';
 import './cmdk.css';
 import './learn-panel.css';
