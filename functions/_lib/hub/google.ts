@@ -242,9 +242,10 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
     .map((f: any) => ({ id: String(f.id || ''), name: f.name, link: f.webViewLink, modified: f.modifiedTime, by: f.lastModifyingUser?.displayName || '', icon: f.iconLink || '', mime: f.mimeType || '' }));
 }
 
-/** Unread inbox mail from the last three days, headers only. */
+/** Unread mail in the Primary tab of the inbox from the last three days, headers only: the same mail the Inbox number counts. */
 export async function unreadMail(token: string): Promise<DayMail[]> {
-  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15');
+  // A headers-only grant cannot search, so it lists the inbox's unread label instead.
+  const list = await g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent('in:inbox is:unread category:primary newer_than:3d') + '&maxResults=15').catch(() => g(token, 'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&labelIds=UNREAD&maxResults=15'));
   const ids: string[] = (list.messages || []).map((m: any) => m.id);
   const cutoff = Date.now() - 3 * 864e5;
   // One request per message, all at once (they ran one after another and took about 3 s).
