@@ -20,12 +20,12 @@
     expenses: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>',
     receipts: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
     feedback: '<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8"/><path d="M8 12h5"/>',
-    brain: '<path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z"/>',
     foundations: '<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>',
     dot: '<circle cx="12" cy="12" r="3"/>',
     arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
   };
-  const icon = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n] || ICON.dot}</svg>`;
+  // Favor Brain shows its own mark, the ring of light (styles in src/styles/round2.css, .fbr).
+  const icon = (n) => n === 'brain' ? '<span class="fbr" data-state="still" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span>' : `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${ICON[n] || ICON.dot}</svg>`;
   // Each tool keeps one color: tile tint and ink come from the shared tool tokens.
   const TOOL = { requests: 'sky', tasks: 'sky', 'tasks-waiting': 'sun', 'tasks-news': 'sky', expenses: 'sky', receipts: 'sky', brain: 'dusk', meetings: 'teal', feedback: 'sun', foundations: 'leaf' };
   const tool = (id) => TOOL[String(id || '').toLowerCase()] || 'slate';
