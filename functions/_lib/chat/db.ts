@@ -126,7 +126,7 @@ export async function joinDefaults(env: ChatEnv, email: string): Promise<void> {
   const now = nowIso();
   if (isTester(email)) {
     // The tester gets a private scratch channel of its own and none of the staff channels.
-    await env.DB.prepare(`INSERT OR IGNORE INTO chat_channels (id, kind, name, topic, created_by, created_at, last_at) VALUES ('ch_qa_scratch', 'private', 'qa-scratch', 'Test messages. Safe to delete.', ?, ?, ?)`).bind(lower(email), now, now).run();
+    await env.DB.prepare(`INSERT OR IGNORE INTO chat_channels (id, kind, name, topic, created_by, created_at, last_at) VALUES ('ch_qa_scratch', 'private', 'qa-scratch-tester', 'The test user''s own scratch channel. Safe to delete.', ?, ?, ?)`).bind(lower(email), now, now).run();
     await env.DB.prepare(`INSERT OR IGNORE INTO chat_members (channel_id, email, role, joined_at) VALUES ('ch_qa_scratch', ?, 'owner', ?)`).bind(lower(email), now).run();
     return;
   }

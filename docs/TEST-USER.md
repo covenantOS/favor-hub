@@ -10,7 +10,7 @@ A hub account for agents and scripts: tester@favorintl.org, name "FavorOS Tester
 
 - Admin and HR. Work Center scope is every fundraiser (admins see all). Chat, Projects, Learn, Meetings, Clips, Reporting and Brain open as for any admin.
 - Mail draws the built-in sample mailbox in the browser (`/js/mail/mail-mock.js`), switched on by the `hub_tester` cookie. The mail API answers 403 `test_user` for it, so no Gmail is ever read.
-- Chat: it joins only a private `qa-scratch` channel. It sees only itself in the directory and can post only where no real person is a member.
+- Chat: it joins only a private `qa-scratch-tester` channel (Will's own qa-scratch is his alone). It sees only itself in the directory and can post only where no real person is a member.
 
 ## What it cannot do
 
