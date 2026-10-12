@@ -73,4 +73,16 @@ describe('a completed action never comes back from a stale copy', () => {
     Snap.rememberGone([2], 'batch-a', T0);
     assert.deepEqual(ids(Snap.withoutGone([{ id: 2 }, { id: 3 }], (r) => r.id, T0 + 1)), [3]);
   });
+
+  it('a thank-you press that saved two batches stays off the copy, and undoing either batch brings the gift back', () => {
+    Snap.rememberGone(['g501', 'g502'], 'batch-a,batch-b', T0);
+    assert.deepEqual(ids(Snap.withoutGone([{ id: 'g501' }, { id: 'g502' }, { id: 'g503' }], (r) => r.id, T0 + 1)), ['g503']);
+    Snap.forgetBatch('batch-b', T0 + 2);
+    assert.deepEqual(ids(Snap.withoutGone([{ id: 'g501' }, { id: 'g502' }], (r) => r.id, T0 + 3)), ['g501', 'g502']);
+  });
+
+  it('gift ids and action ids never collide', () => {
+    Snap.rememberGone(['g7'], 'batch-a', T0);
+    assert.deepEqual(ids(Snap.withoutGone([{ id: '7' }], (r) => r.id, T0 + 1)), ['7']);
+  });
 });

@@ -31,14 +31,25 @@ import '../../styles/break-ui.css';
   <div class="wc-bar" id="bar" role="region" aria-label="Selected actions"></div>
   <div class="wc-toast" id="toast" role="status" aria-live="polite"></div>
   <div id="layer"></div>
-  <script is:inline src="/js/wc-snap.js?v=1" defer></script>
+  <script is:inline>
+    // The board, the recent changes and the sign-in check start now, while the page's scripts download, so the first rows draw as soon as work.js runs.
+    (function () {
+      if (/[?&]as=/.test(location.search)) return;
+      var h = { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } };
+      var get = function (u) { return fetch(u, h).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) { var e = new Error(j.message || 'Something went wrong. Try again.'); e.data = j; e.status = r.status; throw e; } return j; }); }); };
+      window.__wcEarly = { board: get('/api/work/board?limit=3000'), recent: get('/api/work/recent') };
+      window.__wcEarly.board.catch(function () {}); window.__wcEarly.recent.catch(function () {});
+      if (window.hubGate) window.hubGate().catch(function () {});
+    })();
+  </script>
+  <script is:inline src="/js/wc-snap.js?v=2" defer></script>
   <script is:inline src="/js/work-tabs.js?v=3" defer></script>
   <script is:inline src="/js/work-start.js?v=2" defer></script>
   <script is:inline src="/js/work-edit.js?v=7" defer></script>
   <script is:inline src="/js/work-addpartner.js?v=2" defer></script>
   <script is:inline src="/js/work-gifts.js?v=6" defer></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/work.js?v=15" defer></script>
+  <script is:inline src="/js/work.js?v=16" defer></script>
   <script is:inline src="/js/wc-mine.js?v=8" defer></script>
   <script is:inline src="/js/work-asks.js?v=5" defer></script>
   <script is:inline src="/js/work-letter.js?v=2" defer></script>

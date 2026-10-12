@@ -7,6 +7,7 @@
 import { HttpError, nowIso, type Env } from '../http';
 import { mirror } from '../foundations/blackbaud';
 import { readOnly } from './repo';
+import { listMirrorQ } from './partner';
 import { addMeter, getMeter, getSetting, listStaff, setSetting } from './db';
 import { DAILY_CAP } from '../actions/batch';
 import type { Step } from '../actions/completion';
@@ -228,7 +229,7 @@ export async function oppsFor(ctx: Ctx, cids: string[] | null, opts: { fr?: stri
   const limit = Math.min(opts.limit || 600, 1500);
   const rows = cids
     ? await q<{ raw: string }>(env, `SELECT raw_json AS raw FROM opportunities WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) ORDER BY date_modified DESC LIMIT ${limit}`, [JSON.stringify(cids)])
-    : await q<{ raw: string }>(env, `SELECT raw_json AS raw FROM opportunities ORDER BY date_modified DESC LIMIT ${limit}`);
+    : await listMirrorQ(env)<{ raw: string }>(`SELECT raw_json AS raw FROM opportunities ORDER BY date_modified DESC LIMIT ${limit}`);
   const byId = new Map<string, OppView>();
   for (const r of rows) {
     const v = oppView(parse(r.raw));

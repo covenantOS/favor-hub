@@ -152,27 +152,72 @@ export function mirrorQ(env: Env): Q {
   return (sql, params = []) => mirror(env, readOnly(sql), params) as Promise<any[]>;
 }
 
+const SNAP_MAX_BYTES = 1_700_000; // a D1 row holds 2 MB
+export const SNAP_FRESH_MS = 4 * 60_000;
+export const SNAP_KEEP_MS = 36 * 3600_000;
+
+async function hashOf(sql: string, params: unknown[]): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([sql, params])));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Run a statement against the mirror and keep the answer in the hub database. */
+export async function snapStore(env: Env, sql: string, params: unknown[]): Promise<any[]> {
+  const rows = (await mirror(env, readOnly(sql), params)) as any[];
+  const value = JSON.stringify(rows);
+  if (value.length < SNAP_MAX_BYTES) {
+    const now = new Date().toISOString();
+    await env.DB.prepare(
+      'INSERT INTO mirror_snap (h, sql, params, value, at, last_used) VALUES (?1, ?2, ?3, ?4, ?5, ?5) ON CONFLICT(h) DO UPDATE SET value = excluded.value, at = excluded.at'
+    )
+      .bind(await hashOf(sql, params), sql, JSON.stringify(params), value, now)
+      .run()
+      .catch(() => undefined);
+  }
+  return rows;
+}
+
 /**
- * The mirror's reader for lists. Answers repeat for 60 seconds from the edge cache (one entry per statement and its values), so a
- * second screen or the next tab does not wait again on the sync worker. The mirror is itself a copy that Blackbaud's sync refreshes
- * on a schedule, and every list lays the hub's own pending changes over it after reading, so 60 seconds of age changes nothing a
- * person can see. A write that has to read its own result back never uses this reader.
+ * The mirror's reader for lists. The answer to each statement is kept in the hub database and served from there for as long as a day
+ * and a half, in a few milliseconds. The scheduled job re-runs the statements people used in the last day every five minutes of the
+ * working day (refreshSnapshots), so a copy is rarely more than five minutes old. A statement nobody has run yet is read from the
+ * mirror once and kept. The mirror is itself a copy that Blackbaud's sync refreshes on a schedule, and every list lays the hub's own
+ * pending changes over it after reading (those come from the hub database, live), so the age changes nothing a person can see.
+ * A write that has to read its own result back never uses this reader.
  */
-export function listMirrorQ(env: Env, ttl = 60): Q {
+export function listMirrorQ(env: Env): Q {
   const live = mirrorQ(env);
-  const store = (globalThis as { caches?: { default?: Cache } }).caches?.default;
-  if (!store) return live;
+  if (!env.DB) return live;
   return async (sql, params = []) => {
-    const text = JSON.stringify([sql, params]);
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-    const key = new Request('https://mirror-cache.favor.invalid/' + [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join(''));
-    const hit = await store.match(key).catch(() => undefined);
-    if (hit) return (await hit.json()) as any[];
-    const rows = await live(sql, params);
-    const body = JSON.stringify(rows);
-    if (body.length < 4_000_000) await store.put(key, new Response(body, { headers: { 'Cache-Control': `max-age=${ttl}`, 'Content-Type': 'application/json' } })).catch(() => undefined);
-    return rows;
+    const h = await hashOf(sql, params);
+    const row = await env.DB.prepare('SELECT value, at, last_used FROM mirror_snap WHERE h = ?').bind(h).first<{ value: string; at: string; last_used: string }>().catch(() => null);
+    if (row && Date.now() - Date.parse(row.at) < SNAP_KEEP_MS) {
+      // Noting use costs a write, so it is done at most once an hour per statement.
+      if (Date.now() - Date.parse(row.last_used) > 3600_000) await env.DB.prepare('UPDATE mirror_snap SET last_used = ? WHERE h = ?').bind(new Date().toISOString(), h).run().catch(() => undefined);
+      return JSON.parse(row.value) as any[];
+    }
+    return snapStore(env, sql, params).catch(() => live(sql, params));
   };
+}
+
+/** The scheduled pass: re-read the statements used in the last day whose copy is older than four minutes, newest use first. */
+export async function refreshSnapshots(env: Env, budgetMs = 22000): Promise<{ refreshed: number; left: number }> {
+  const started = Date.now();
+  const stale = new Date(Date.now() - SNAP_FRESH_MS).toISOString();
+  const recent = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const list = (await env.DB.prepare('SELECT sql, params FROM mirror_snap WHERE last_used >= ? AND at < ? ORDER BY last_used DESC LIMIT 60').bind(recent, stale).all<{ sql: string; params: string }>()).results;
+  let refreshed = 0;
+  for (const r of list) {
+    if (Date.now() - started > budgetMs) break;
+    try {
+      await snapStore(env, r.sql, JSON.parse(r.params));
+      refreshed++;
+    } catch {
+      // The next pass tries again; the old copy keeps serving.
+    }
+  }
+  await env.DB.prepare('DELETE FROM mirror_snap WHERE last_used < ?').bind(new Date(Date.now() - 3 * 86400_000).toISOString()).run().catch(() => undefined);
+  return { refreshed, left: list.length - refreshed };
 }
 
 export async function loadPartner(q: Q, id: string, today: string = etParts(new Date()).date): Promise<PartnerView | null> {

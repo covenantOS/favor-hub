@@ -4,6 +4,8 @@
 //   */10 11-14 * * 1-5  POST /api/work/digest  the morning email: the hub sends nothing before a person's 7:30 or 8:00 Eastern, nothing after 10:30, never twice a day
 //   */5 * * * *     POST /api/meet/meetings/remind and /pump  meeting reminders, repeats, recordings to Drive, notes
 //   */5 * * * *     POST /api/projects/status/run  Friday 3 PM Eastern: posts each project's update where the owner turned it on
+//   */5 * * * *     POST /api/work/snapshots  re-reads the Blackbaud answers the Work lists keep (6 AM to 9 PM Eastern)
+//   */10 * * * *    POST /api/receipts/warm  reads the Receipts waiting list from Blackbaud so the page never waits on it (10:00 to 02:00 UTC)
 //   10 * * * *      POST /api/work/fresh   asks Blackbaud which actions changed and has them re-read into the mirror
 // The hub records what each pass did (act_settings drain:last and fresh:last, shown on /api/work/health). A failed call throws, so a
 // stopped job shows as a failed run in Cloudflare and, a day later, as a stale line in health.
@@ -41,6 +43,17 @@ async function drainAll(env) {
 }
 
 // Meetings: reminders and repeats, then up to a few units of saving and note-making for finished meetings.
+async function warm(env, at) {
+  const out = await call(env, '/api/work/snapshots').catch((err) => ({ error: String(err).slice(0, 160) }));
+  if (out.refreshed || out.error) console.log('snapshots:', JSON.stringify(out));
+  const d = new Date(at);
+  const hour = d.getUTCHours();
+  if (d.getUTCMinutes() % 10 === 0 && (hour >= 10 || hour < 2)) {
+    const r = await call(env, '/api/receipts/warm').catch((err) => ({ error: String(err).slice(0, 160) }));
+    console.log('receipts warm:', JSON.stringify(r));
+  }
+}
+
 async function meetings(env) {
   const r = await call(env, '/api/meet/meetings/remind');
   let work = 0;
@@ -58,7 +71,7 @@ async function meetings(env) {
 export default {
   async scheduled(event, env, ctx) {
     if (!env.AGENT_API_KEY) throw new Error('AGENT_API_KEY is not set');
-    if (event.cron === '*/5 * * * *') ctx.waitUntil(meetings(env));
+    if (event.cron === '*/5 * * * *') { ctx.waitUntil(meetings(env)); ctx.waitUntil(warm(env, event.scheduledTime)); }
     else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(call(env, '/api/work/digest').then((r) => console.log('digest:', JSON.stringify(r))));
     else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(call(env, '/api/gift-entry/drain').then((r) => console.log('gift-entry:', JSON.stringify(r))));
     else if (event.cron === '10 * * * *') ctx.waitUntil(call(env, '/api/work/fresh').then((r) => console.log('fresh:', JSON.stringify(r))));

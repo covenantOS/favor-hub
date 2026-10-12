@@ -1435,7 +1435,8 @@ async function init() {
   const bar0 = $('#bar'); new MutationObserver(() => document.body.classList.toggle('has-bar', bar0.classList.contains('is-on'))).observe(bar0, { attributes: true, attributeFilter: ['class'] });
   skeleton();
   // The lists are read while the gate answers, not after it. A closed gate throws the reads away.
-  const boardP = api('/api/work/board?limit=3000'); const recentP = api('/api/work/recent');
+  const early = window.__wcEarly; window.__wcEarly = null;
+  const boardP = early ? early.board : api('/api/work/board?limit=3000'); const recentP = early ? early.recent : api('/api/work/recent');
   boardP.catch(() => undefined); recentP.catch(() => undefined);
   try { S.gate = window.hubGate && !AS ? await window.hubGate().catch(() => api('/api/work/gate')) : await api('/api/work/gate'); } catch (e) { errorScreen(e.message); return; }
   if (!S.gate.open) { gateScreen(S.gate); return; }

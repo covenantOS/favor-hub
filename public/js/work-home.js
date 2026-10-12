@@ -310,7 +310,8 @@
     if (loading) { if (fresh) setTimeout(() => load(true), 600); return; }
     loading = true;
     try {
-      const d = await api('/api/hub/home' + (fresh ? '?fresh=1' : ''));
+      const early = !fresh && window.__whEarly; window.__whEarly = null;
+      const d = early ? await early.catch(() => api('/api/hub/home')) : await api('/api/hub/home' + (fresh ? '?fresh=1' : ''));
       await gateP;
       if (window.WCSnap && who) window.WCSnap.save('home', who, d);
       paint(d);
@@ -329,6 +330,7 @@
     const copy = who && window.WCSnap ? window.WCSnap.load('home', who) : null;
     if (copy && copy.ok && !D) {
       if (copy.work && copy.work.due) copy.work = Object.assign({}, copy.work, { due: Object.assign({}, copy.work.due, { rows: window.WCSnap.withoutGone(copy.work.due.rows, (r) => r.id) }) });
+      if (copy.work && copy.work.gifts) copy.work = Object.assign({}, copy.work, { gifts: Object.assign({}, copy.work.gifts, { rows: window.WCSnap.withoutGone(copy.work.gifts.rows, (r) => 'g' + r.giftId) }) });
       paint(copy);
     }
   });
@@ -427,10 +429,12 @@
   // A thank-you saved here or in the drawer takes its row off at once and refreshes the list.
   document.addEventListener('favor:thanked', (e) => {
     const ids = new Set(((e.detail && e.detail.items) || []).map((i) => String(i.giftId)));
+    // A thank-you takes the gift off the list. A left message keeps it owed, so it is not recorded as finished.
+    if (window.WCSnap && e.detail && !e.detail.left && ids.size) window.WCSnap.rememberGone([...ids].map((g) => 'g' + g), (e.detail.batches || []).join(','));
     document.querySelectorAll('#wh-gifts-list .wh-gift').forEach((li) => { if (ids.has(li.dataset.gift)) li.classList.add('is-gone'); });
     setTimeout(() => load(true), 1800);
   });
-  document.addEventListener('favor:thanked-failed', () => load(true));
+  document.addEventListener('favor:thanked-failed', (e) => { if (window.WCSnap && e.detail) (e.detail.batches || []).forEach((b) => window.WCSnap.forgetBatch(b)); load(true); });
   document.addEventListener('favor:thanked-undone', () => load(true));
 
   /* ------------------------------------------------------------------ quick actions and search */

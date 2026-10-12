@@ -25,7 +25,8 @@
   /* The ledger: action id -> { b: batch id, at }. */
   const ledger = (now) => { const l = read('wcsnap:gone') || {}; const t = now || Date.now(); for (const id of Object.keys(l)) if (t - l[id].at > GONE_AGE) delete l[id]; return l; };
   function rememberGone(ids, batch, now) { const l = ledger(now); for (const id of ids) l[String(id)] = { b: batch || '', at: now || Date.now() }; write('wcsnap:gone', l); }
-  function forgetBatch(batch, now) { const l = ledger(now); for (const id of Object.keys(l)) if (l[id].b === batch) delete l[id]; write('wcsnap:gone', l); }
+  // An entry may name several batches, joined by commas (one press can save more than one).
+  function forgetBatch(batch, now) { const l = ledger(now); for (const id of Object.keys(l)) if (String(l[id].b).split(',').includes(batch)) delete l[id]; write('wcsnap:gone', l); }
   const goneIds = (now) => new Set(Object.keys(ledger(now)));
   /** The rows of a copy without the ones this person has since finished. idOf names the id of a row. */
   function withoutGone(rows, idOf, now) { const g = goneIds(now); return g.size ? rows.filter((r) => !g.has(String(idOf(r)))) : rows; }

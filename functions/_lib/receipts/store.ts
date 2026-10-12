@@ -104,7 +104,7 @@ const WAIT_STALE_MS = 24 * 3600_000;
  * A page open reads a copy up to five minutes old. Making a print file and marking read Blackbaud fresh, and the
  * page asks for a fresh read after either, so the copy never decides what is printed or marked.
  */
-async function waitingGifts(env: Env, days: number, fresh: boolean, defer?: (p: Promise<unknown>) => void): Promise<{ gifts: Gift[]; cached: boolean; at: string }> {
+export async function waitingGifts(env: Env, days: number, fresh: boolean, defer?: (p: Promise<unknown>) => void): Promise<{ gifts: Gift[]; cached: boolean; at: string }> {
   const key = `cache:waiting:${days}`;
   const read = async () => {
     const csv = await queryWaiting(env, days);
