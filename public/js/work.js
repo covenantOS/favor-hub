@@ -340,7 +340,7 @@ function viewOpen() {
   const dueOpts = DUES.map(([v, l]) => opt(v, l, f.due === v)).join('');
   const chips = [];
   if (f.cid) { const a = ACTS.find((x) => x.cid === f.cid); chips.push(['cid', 'Partner: ' + (a ? a.p : f.cid)]); }
-  if (f.fr) chips.push(['fr', f.fr === '_none' ? 'No fundraiser' : 'Fundraiser: ' + P(f.fr).n + (f.theirs ? ', with their partners' : '')]);
+  if (f.fr && !(f.fr === DATA.me.fid && !f.theirs)) chips.push(['fr', f.fr === '_none' ? 'No fundraiser' : 'Fundraiser: ' + P(f.fr).n + (f.theirs ? ', with their partners' : '')]);
   if (f.type) chips.push(['type', 'Type: ' + f.type]);
   if (f.cat) chips.push(['cat', 'Category: ' + f.cat]);
   if (f.due) chips.push(['due', DUES.find((d) => d[0] === f.due)[1]]);

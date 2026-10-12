@@ -434,3 +434,11 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
   html body.h-body #wc-root .wc-band .wc-stat--split { min-height: 0; }
   html body.h-body #wc-root .wc-intro { margin-bottom: 6px; }
 }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wwk-strip { display: none; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-toggle { display: none; }
+  html body.h-body #wc-root .wc-band { margin-bottom: 8px; }
+  html body.h-body #wc-root .wc-band .wc-stat { padding: 4px 10px; display: flex; align-items: baseline; gap: 6px; }
+  html body.h-body #wc-root .wc-band .wc-stat .wc-stat__n, html body.h-body #wc-root .wc-band .wc-stat b { font-size: 20px; }
+  html body.h-body #wc-root .wc-active:empty { display: none; }
+}
