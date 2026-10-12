@@ -639,7 +639,15 @@ function startRecording() {
   // The floating window and the screen picker both need this click, so both start before anything is awaited.
   const wantBubble = settings.source === 'screen+camera';
   const wantFloat = !isPhone() && p.float !== false;
-  const winP = docPip() && (wantBubble || wantFloat) ? openPip(wantBubble ? 'bubble' : 'controls').catch(() => null) : null;
+  S.pipWanted = !!docPip() && (wantBubble || wantFloat);
+  S.pipError = '';
+  const winP = S.pipWanted
+    ? openPip(wantBubble ? 'bubble' : 'controls').catch((e) => {
+        // Said out loud (and retried on the next click) so a browser that refuses is never silent.
+        S.pipError = (e && (e.name || e.message)) || 'refused';
+        return null;
+      })
+    : null;
   // A picker that was dismissed before the floating window opened leaves no window behind.
   if (winP) winP.then(() => S.rec !== rec && !S.rec && closePip());
   const prep = rec.prepare();
@@ -649,6 +657,7 @@ function startRecording() {
     async () => {
       if (winP) await winP;
       if (S.rec !== rec) return;
+      if (S.pipWanted && !S.pip) armFloat(rec);
       if (S.pip && S.pip.attach && rec.camStream) S.pip.attach(rec.camStream);
       if (S.pip && S.pip.showCorners) S.pip.showCorners();
       if (wantBubble && !(S.pip && S.pip.kind === 'bubble') && !STANDALONE) mountPageBubble(rec);
@@ -830,6 +839,26 @@ function onCtl(cmd, extra) {
       break;
     default:
   }
+}
+
+/**
+ * The floating window did not open from the Start click (a browser can refuse when the picker used the click up). Say so,
+ * and open it from the next click or key press in this window, which is a fresh gesture.
+ */
+function armFloat(rec) {
+  toast(`The floating controls did not open${S.pipError ? ' (' + S.pipError + ')' : ''}. Click anywhere in this window and they open.`, 'bad');
+  const again = () => {
+    if (S.rec !== rec || S.pip) return off();
+    floatControls().then(() => {
+      if (S.pip) off();
+    });
+  };
+  const off = () => {
+    document.removeEventListener('pointerdown', again, true);
+    document.removeEventListener('keydown', again, true);
+  };
+  document.addEventListener('pointerdown', again, true);
+  document.addEventListener('keydown', again, true);
 }
 
 /** Change what is being recorded without ending the clip. `nav` is the navigator of the window that was clicked. */
@@ -1142,9 +1171,10 @@ async function openPip(kind) {
 
 /** The Float button in the recorder window: bring the controls back above every window after the floating one was closed. */
 async function floatControls() {
-  if (!S.rec || !docPip() || S.pip) return;
+  if (!S.rec || !docPip() || S.pip || S.pipOpening) return;
   const rec = S.rec;
   const bubble = rec.settings.source === 'screen+camera' && !!rec.camStream;
+  S.pipOpening = true;
   try {
     await openPip(bubble ? 'bubble' : 'controls');
     if (S.pip && S.pip.showCorners) S.pip.showCorners();
@@ -1153,6 +1183,8 @@ async function floatControls() {
     paintControls();
   } catch (e) {
     toast('The browser did not open the floating controls.', 'bad');
+  } finally {
+    S.pipOpening = false;
   }
 }
 
