@@ -31,7 +31,9 @@ import { boxToken, listBoxes, removeBox } from './boxes';
 import { partnerMap, type PartnerLookup } from './partners';
 import { idsFor, rowsFor } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
-import { assist, cardOf, classify, decorate, forgetScan, isCat, overview, saveSummary, savedSummary, smartView, type SmartCtx } from './smart';
+import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
+import { freshText } from './smart';
+import { assist, cardOf, classify, customsOf, decorate, forgetScan, isCat, isCustom, overview, saveSummary, savedSummary, smartView, tidy, TEXT_MODEL, waitingOn, type SmartCtx } from './smart';
 
 export type MailMode = 'admins' | 'staff' | 'off';
 
@@ -58,6 +60,11 @@ export interface MailCtx {
   ai?: { run(model: string, input: unknown): Promise<unknown> };
   /** One partner's card (giving, holders); tests pass a stand-in. */
   partnerCard?: (id: string) => Promise<any>;
+  /** The Blackbaud copy, read only; tests pass a stand-in. */
+  mirror?: (sql: string, params?: unknown[]) => Promise<any[]>;
+  giving?: SmartCtx['giving'];
+  /** Free and busy times by address; tests pass a stand-in. */
+  freeBusy?: (emails: string[], from: string, to: string) => Promise<Record<string, any>>;
   /** Clip and Drive pickers; tests pass stand-ins. */
   drive?: (q: string) => Promise<unknown[]>;
   workOwners?: () => Promise<{ owners: Array<{ fid: string; name: string }>; mine: string }>;
@@ -207,7 +214,18 @@ async function route(ctx: MailCtx): Promise<Response> {
   const needRead = () => (level.read ? null : scopeError('read'));
   const needWrite = () => (!writeOn ? errorJson('mail_readonly', 'Changing and sending mail from FavorOS is switched off. Open the message in Gmail.', 403) : level.write ? null : scopeError('write'));
 
-  const smartCtx: SmartCtx = { env, me, name: user.name || me, ai: ctx.ai || (env.AI as any), partners: ctx.partners };
+  const smartCtx: SmartCtx = { env, me, name: user.name || me, ai: ctx.ai || (env.AI as any), partners: ctx.partners, giving: ctx.giving };
+  const runModel = async (system: string, userText: string, max: number): Promise<string> => {
+    const ai = smartCtx.ai;
+    if (!ai) return '';
+    const out: any = await ai.run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
+    return String(out?.response ?? out?.result?.response ?? '').trim();
+  };
+  const mq = async (sql: string, params: unknown[] = []): Promise<any[]> => {
+    if (ctx.mirror) return ctx.mirror(sql, params);
+    const { mirror } = await import('../foundations/blackbaud');
+    return mirror<any>(env, sql, params);
+  };
 
   if (a === 'count' && method === 'GET') {
     if (level.write) await wakeDue(env, gm, me).catch(() => undefined);
@@ -254,7 +272,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     return json({ ok: true, moved: senders.length });
   }
 
-  if (a === 'partner' && b && method === 'GET') {
+  if (a === 'partner' && b && !c && method === 'GET') {
     if (!/^\d{1,12}$/.test(b)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
     if (ctx.partnerCard) return json({ ok: true, partner: cardOf(await ctx.partnerCard(b)) });
     const { requireWork } = await import('../work/gate');
@@ -264,6 +282,215 @@ async function route(ctx: MailCtx): Promise<Response> {
     const p = await loadPartner(mirrorQ(env), b);
     if (!p) throw new HttpError(404, 'no_partner', 'No partner has that number.');
     return json({ ok: true, partner: cardOf(p) });
+  }
+
+  if (a === 'entity' && b === 'names' && method === 'GET') return json({ ok: true, funds: await fundNames(mq).catch(() => []) });
+  if (a === 'entity' && !b && method === 'GET') {
+    const card = await entityCard(env, mq, String(url.searchParams.get('kind') || ''), String(url.searchParams.get('q') || '')).catch(() => null);
+    return card ? json({ ok: true, card }) : errorJson('not_found', 'Nothing in Favor matches that.', 404);
+  }
+
+  if (a === 'smart' && b === 'sender' && method === 'GET') {
+    const r = needRead();
+    if (r) return r;
+    const e = lower(url.searchParams.get('email'));
+    if (!/^[^@\s]+@[^@\s]+$/.test(e)) throw new HttpError(400, 'bad_email', 'That is not an email address.');
+    return json({ ok: true, profile: await senderProfile(smartCtx, gm, e, String(url.searchParams.get('name') || '').slice(0, 120)) });
+  }
+
+  if (a === 'smart' && b === 'briefing' && method === 'GET') {
+    const r = needRead();
+    if (r) return r;
+    const w = await waitingOn(smartCtx, gm, 3).catch(() => []);
+    return json({ ok: true, briefing: await briefing(smartCtx, gm, runModel, w.length, url.searchParams.get('fresh') === '1') });
+  }
+
+  if (a === 'smart' && b === 'categories') {
+    if (method === 'GET') return json({ ok: true, categories: await customsOf(env, me) });
+    if (method === 'POST') {
+      const body = await readBody(request);
+      const name = String(body.name || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+      const description = String(body.description || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+      if (name.length < 2 || description.length < 8) throw new HttpError(400, 'describe', 'Give the category a name and say in a sentence what belongs in it.');
+      if ((await customsOf(env, me)).length >= 8) throw new HttpError(400, 'limit', 'Eight categories of your own is the most.');
+      const id = 'c_' + crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+      await env.DB.prepare('INSERT INTO hub_mail_custom (email, id, name, description, created_at) VALUES (?, ?, ?, ?, ?)').bind(me, id, name, description, nowIso()).run();
+      // Answers saved before this category existed do not know it, so the next look reads the mail again.
+      await env.DB.prepare("UPDATE hub_mail_class SET last_mid = '' WHERE email = ?").bind(me).run().catch(() => undefined);
+      forgetScan(me);
+      return json({ ok: true, category: { id, name, description } });
+    }
+    if (method === 'DELETE' && isCustom(c)) {
+      const id = String(c);
+      await env.DB.batch([env.DB.prepare('DELETE FROM hub_mail_custom WHERE email = ? AND id = ?').bind(me, id), env.DB.prepare('DELETE FROM hub_mail_cat WHERE email = ? AND cat = ?').bind(me, id)]);
+      forgetScan(me);
+      return json({ ok: true });
+    }
+  }
+
+  if (a === 'smart' && b === 'logged' && method === 'POST') {
+    const body = await readBody(request);
+    const t = tid(String(body.threadId || ''));
+    await env.DB.prepare('INSERT INTO hub_mail_logged (email, thread_id, partner_id, at) VALUES (?, ?, ?, ?) ON CONFLICT(email, thread_id) DO UPDATE SET at = excluded.at').bind(me, t, String(body.partnerId || '').slice(0, 20), nowIso()).run();
+    forgetScan(me);
+    return json({ ok: true });
+  }
+
+  if (a === 'smart' && b === 'search' && method === 'POST') {
+    const r = needRead();
+    if (r) return r;
+    const question = String((await readBody(request)).q || '').slice(0, 300);
+    const read = await readSearch(runModel, question);
+    if (!read) return json({ ok: true, understood: false, threads: [] });
+    const list = await idsFor(gm, { q: read.q }, 60);
+    let rows: any[] = await rowsFor(gm, me, list.threads, 6);
+    const cls = await classify(smartCtx, rows, false);
+    rows = decorate(rows, cls.by);
+    if (read.partners) rows = rows.filter((x: any) => x.partner);
+    if (read.major) rows = rows.filter((x: any) => x.major);
+    return json({ ok: true, understood: true, q: read.q, partners: read.partners, major: read.major, threads: rows.slice(0, 40) });
+  }
+
+  if (a === 'smart' && b === 'times' && method === 'POST') {
+    const body = await readBody(request);
+    const guests = addrs(body.guests).map((x) => x.email).filter((e) => e.endsWith('@favorintl.org')).slice(0, 8);
+    const minutes = Math.max(15, Math.min(240, Number(body.minutes) || 30));
+    const days = Math.max(1, Math.min(21, Number(body.days) || 7));
+    const from = new Date();
+    const to = new Date(from.getTime() + days * 864e5);
+    const who = [...new Set([owner, ...guests])];
+    let busy: Array<Array<{ start: string; end: string }>> = [];
+    let note = '';
+    try {
+      const { freeBusy } = await import('../meetcal');
+      const cals = ctx.freeBusy ? await ctx.freeBusy(who, from.toISOString(), to.toISOString()) : await freeBusy(env as any, owner, who, from.toISOString(), to.toISOString());
+      busy = who.map((e) => (cals as any)[e]?.busy || []);
+      const blind = who.filter((e) => (cals as any)[e]?.error);
+      if (blind.length) note = 'Calendars not shared: ' + blind.join(', ');
+    } catch (e) {
+      return errorJson('calendar', e instanceof HttpError ? e.message : 'Google Calendar did not answer.', 502);
+    }
+    return json({ ok: true, slots: freeSlots(busy, from, days, minutes), minutes, guests, note });
+  }
+
+  if (a === 'check' && method === 'POST') {
+    const body = await readBody(request);
+    const to = addrs(body.to);
+    const pm = await partnerMap(env, to.map((x) => x.email), ctx.partners);
+    const first = to.map((x) => pm[x.email]).find(Boolean) || null;
+    let lastGift = 0;
+    if (first) {
+      const g = await (smartCtx.giving ? smartCtx.giving([first.id]) : Promise.resolve({} as Record<string, any>)).catch(() => ({}) as Record<string, any>);
+      lastGift = Number((g as any)[first.id]?.lastAmount) || 0;
+    }
+    let quoted: number[] = [];
+    if (/^[A-Za-z0-9]{6,40}$/.test(String(body.threadId || ''))) {
+      const t = await gm.get('/threads/' + String(body.threadId), { format: 'metadata', metadataHeaders: ['Subject'] }).catch(() => null);
+      quoted = amountsIn((t?.messages || []).map((m: any) => m.snippet || '').join(' '));
+    }
+    const warnings = writingCheck({ html: String(body.html || '').slice(0, 200000), subject: String(body.subject || ''), files: Math.max(0, Number(body.files) || 0), to, partnerName: first?.name || '', lastGift, quotedAmounts: quoted });
+    return json({ ok: true, warnings });
+  }
+
+  if (a === 'templates') {
+    if (method === 'GET') {
+      const r = await env.DB.prepare('SELECT id, name, body FROM hub_mail_tpl WHERE email = ? ORDER BY name').bind(owner).all<{ id: string; name: string; body: string }>().catch(() => ({ results: [] as any[] }));
+      return json({ ok: true, templates: r.results || [] });
+    }
+    if (method === 'POST' && !b) {
+      const body = await readBody(request);
+      const name = String(body.name || '').trim().slice(0, 60);
+      const text = String(body.body || '').slice(0, 8000);
+      if (!name || !text.trim()) throw new HttpError(400, 'empty', 'Give the template a name and some text.');
+      const id = String(body.id || '').match(/^t_[a-z0-9]{8}$/) ? String(body.id) : 't_' + crypto.randomUUID().replace(/-/g, '').slice(0, 8);
+      await env.DB.prepare('INSERT INTO hub_mail_tpl (email, id, name, body) VALUES (?, ?, ?, ?) ON CONFLICT(email, id) DO UPDATE SET name = excluded.name, body = excluded.body').bind(owner, id, name, text).run();
+      return json({ ok: true, id });
+    }
+    if (method === 'POST' && b === 'fill') {
+      const body = await readBody(request);
+      const to = addrs(body.to);
+      const pm = await partnerMap(env, to.map((x) => x.email), ctx.partners);
+      const first = to.map((x) => pm[x.email]).find(Boolean) || null;
+      let d: any = { name: first?.name || to[0]?.name || '', me: user.name || '' };
+      if (first) {
+        const g = await (smartCtx.giving ? smartCtx.giving([first.id]) : Promise.resolve({} as Record<string, any>)).catch(() => ({}) as Record<string, any>);
+        const x = (g as any)[first.id];
+        if (x) d = { ...d, lastGift: x.lastAmount || 0, lastGiftDate: x.last || '', total: x.total || 0 };
+      }
+      return json({ ok: true, text: fillTemplate(String(body.body || ''), d) });
+    }
+    if (method === 'DELETE' && b) {
+      await env.DB.prepare('DELETE FROM hub_mail_tpl WHERE email = ? AND id = ?').bind(owner, b).run();
+      return json({ ok: true });
+    }
+  }
+
+  if (a === 'later') {
+    if (method === 'GET') {
+      const r = await env.DB.prepare("SELECT id, mailbox, send_at, remind_days, state, payload FROM hub_mail_later WHERE email = ? AND state = 'waiting' ORDER BY send_at LIMIT 50").bind(owner).all<any>().catch(() => ({ results: [] as any[] }));
+      return json({ ok: true, later: (r.results || []).map((x: any) => { const p = safeJson(x.payload); return { id: x.id, mailbox: x.mailbox, sendAt: x.send_at, remindDays: x.remind_days, to: p.to || [], subject: p.subject || '' }; }) });
+    }
+    const w = needWrite();
+    if (w) return w;
+    if (method === 'POST') {
+      const body = await readBody(request);
+      const at = new Date(String(body.sendAt || ''));
+      if (!Number.isFinite(at.getTime()) || at.getTime() < Date.now() + 60000 || at.getTime() > Date.now() + 90 * 864e5) throw new HttpError(400, 'bad_time', 'Pick a time later than now.');
+      const to = addrs(body.to);
+      const bad = [...to, ...addrs(body.cc), ...addrs(body.bcc)].find((x) => !validEmail(x.email));
+      if (bad) throw new HttpError(400, 'bad_address', `${bad.email} is not an email address.`);
+      if (!to.length && !addrs(body.cc).length && !addrs(body.bcc).length) throw new HttpError(400, 'no_one', 'Add who it goes to.');
+      // Files are not kept for later; a message with files goes now or from Gmail.
+      if ((Array.isArray(body.files) && body.files.length) || (Array.isArray(body.forward) && body.forward.length)) throw new HttpError(400, 'files', 'A message with files cannot wait. Send it now.');
+      const id = 'l_' + crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+      const keep = { to: body.to, cc: body.cc, bcc: body.bcc, subject: String(body.subject || '').slice(0, 900), html: sanitizeHtml(String(body.html || '').slice(0, 400000)), threadId: body.threadId, replyTo: body.replyTo, from: body.from };
+      await env.DB.prepare('INSERT INTO hub_mail_later (id, email, mailbox, send_at, payload, remind_days, thread_id, state, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(id, owner, me === owner ? '' : me, at.toISOString(), JSON.stringify(keep), Math.max(0, Math.min(14, Number(body.remindDays) || 0)), String(body.threadId || '').slice(0, 40), 'waiting', nowIso()).run();
+      return json({ ok: true, id, sendAt: at.toISOString() });
+    }
+    if (method === 'DELETE' && b) {
+      await env.DB.prepare("UPDATE hub_mail_later SET state = 'cancelled' WHERE id = ? AND email = ? AND state = 'waiting'").bind(b, owner).run();
+      return json({ ok: true });
+    }
+  }
+
+  if (a === 'partner' && b && c === 'timeline' && method === 'GET') {
+    if (!/^\d{1,12}$/.test(b)) throw new HttpError(404, 'no_partner', 'No partner has that number.');
+    const email = lower(url.searchParams.get('email'));
+    let p: any = null;
+    if (ctx.partnerCard) p = await ctx.partnerCard(b);
+    else {
+      const { requireWork } = await import('../work/gate');
+      const wu = await requireWork(env, request).catch(() => null);
+      if (!wu) return errorJson('forbidden', 'The Work Center is not open to you.', 403);
+      const { loadPartner, mirrorQ } = await import('../work/partner');
+      p = await loadPartner(mirrorQ(env), b);
+    }
+    if (!p) throw new HttpError(404, 'no_partner', 'No partner has that number.');
+    const items: Array<{ at: string; kind: string; text: string; id?: string }> = [];
+    for (const g of (p.giving?.recent || []).slice(0, 10)) items.push({ at: String(g.date), kind: 'gift', text: `Gift ${'$' + Math.round(g.amount).toLocaleString('en-US')}${g.fund ? ', ' + g.fund : ''}` });
+    for (const x of [...(p.actions?.recent || []), ...(p.actions?.open || [])].slice(0, 12)) items.push({ at: String(x.done || x.due || x.added), kind: /meet/i.test(x.category) ? 'meeting' : /call|phone/i.test(x.category) ? 'call' : 'action', text: `${x.category || x.type}: ${x.summary || ''}`.slice(0, 140) });
+    if (email && /^[^@\s]+@[^@\s]+$/.test(email)) {
+      const list = await idsFor(gm, { q: `from:${email} OR to:${email}` }, 12).catch(() => ({ threads: [] as any[], more: false }));
+      for (const r of await rowsFor(gm, me, list.threads, 6)) items.push({ at: r.date.slice(0, 10), kind: 'mail', text: r.subject || '(no subject)', id: r.id });
+    }
+    items.sort((x, y) => y.at.localeCompare(x.at));
+    return json({ ok: true, items: items.slice(0, 30) });
+  }
+
+  if (a === 'messages' && b && c === 'attachments' && d && path[4] === 'read' && method === 'GET') {
+    const r = needRead();
+    if (r) return r;
+    if (!/^[A-Za-z0-9]{6,40}$/.test(b) || !/^[A-Za-z0-9_-]{8,2000}$/.test(d)) return errorJson('bad_id', 'That file was not found.', 404);
+    const name = (url.searchParams.get('name') || 'file').slice(0, 160);
+    const mime = (url.searchParams.get('mime') || '').toLowerCase().slice(0, 100);
+    const subject = (url.searchParams.get('subject') || '').slice(0, 200);
+    let dataUrl = '';
+    if (/^image\/(png|jpeg|webp)$/.test(mime) && Number(url.searchParams.get('size') || 0) < 3_000_000) {
+      const at = await gm.get(`/messages/${b}/attachments/${d}`);
+      dataUrl = `data:${mime};base64,${String(at.data || '').replace(/-/g, '+').replace(/_/g, '/')}`;
+    }
+    const k = await fileKind(smartCtx.ai, name, mime, subject, dataUrl);
+    return json({ ok: true, kind: k.kind, confidence: k.p, next: NEXT_STEP[k.kind] || null });
   }
 
   if (a === 'bulk' && method === 'POST') {
@@ -288,7 +515,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     const sz = new Map((snoozed.results || []).map((r: any) => [r.thread_id, r.until]));
     const mark = (rows: any[]) => rows.map((r: any) => (sz.has(r.id) ? { ...r, snoozed: sz.get(r.id) } : r));
     // The smart views read the newest hundred conversations of the inbox (or the sent mail waiting on a reply).
-    const smart = (view === 'needs' || view === 'waiting' || /^cat:/.test(view) || flags.includes('partner')) && !q && (label === 'INBOX' || view === 'waiting');
+    const smart = (view === 'needs' || view === 'waiting' || view === 'unlogged' || /^cat:/.test(view) || flags.includes('partner')) && !q && (label === 'INBOX' || view === 'waiting');
     if (smart) {
       if (!level.read) return scopeError('read');
       const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days')) || 3));
@@ -331,6 +558,17 @@ async function route(ctx: MailCtx): Promise<Response> {
     return json({ ok: true, threads: mark(marked), next, estimate, level });
   }
 
+  if (a === 'threads' && b && c === 'ask' && method === 'POST') {
+    const r = needRead();
+    if (r) return r;
+    const id = tid(b);
+    const q = String((await readBody(request)).q || '');
+    const t = await gm.get('/threads/' + id, { format: 'full' });
+    const text = (t.messages || []).map((m: any) => shapeMessage(m)).filter((m: any) => !m.draft).slice(-8).map((m: any) => `From ${m.from.name || m.from.email}, ${m.date.slice(0, 10)}:\n${freshText(m).slice(0, 1800)}`).join('\n\n---\n\n');
+    const answer = await askThread(runModel, text, q).catch(() => '');
+    return json({ ok: true, answer: answer || 'The model did not answer. Try again.' });
+  }
+
   if (a === 'threads' && b && c === 'assist' && method === 'GET') {
     const r = needRead();
     if (r) return r;
@@ -343,11 +581,21 @@ async function route(ctx: MailCtx): Promise<Response> {
     const pm = await partnerMap(env, emails, ctx.partners);
     const partner = real.length ? pm[real[real.length - 1].from.email] || null : null;
     const old = await savedSummary(env, me, id, lastMid);
-    const out = await assist(smartCtx, msgs, partner);
+    let facts = '';
+    if (partner) {
+      const g = await (smartCtx.giving ? smartCtx.giving([partner.id]) : Promise.resolve({} as Record<string, any>)).catch(() => ({}) as Record<string, any>);
+      const x = (g as any)[partner.id];
+      if (x) facts = `${partner.name} has given ${'$' + Math.round(x.total).toLocaleString('en-US')} in all, the largest gift ${'$' + Math.round(x.max).toLocaleString('en-US')}, last gift ${x.last || 'unknown'}${x.lastAmount ? ' of ' + '$' + Math.round(x.lastAmount).toLocaleString('en-US') : ''}.`;
+    }
+    const out = await assist(smartCtx, msgs, partner, facts);
     // A saved summary stands in for the model on a second look; replies are written fresh each time.
     const summary = old || out.summary;
     if (out.summary && !old) await saveSummary(env, me, id, lastMid, out.summary);
-    return json({ ok: true, summary, replies: out.replies, ask: out.ask, partner });
+    const lastIn = [...real].reverse().find((m: any) => m.from.email !== me);
+    const lastMine = [...real].reverse().find((m: any) => m.from.email === me);
+    const gift = partner && lastIn ? giftMention(lastIn.text || lastIn.snippet || '') : null;
+    const promises = lastMine ? commitments(lastMine.text || lastMine.snippet || '', lastMine.date) : [];
+    return json({ ok: true, summary, replies: out.replies, ask: out.ask, partner, gift, commitments: promises, facts });
   }
 
   if (a === 'threads' && b && !c && method === 'GET') {
@@ -430,7 +678,21 @@ async function route(ctx: MailCtx): Promise<Response> {
       return json({ ok: true });
     }
     if (method === 'POST') {
-      const until = new Date(String((await readBody(request)).until || ''));
+      const sb = await readBody(request);
+      if (sb.until === 'reply' || sb.until === 'gift') {
+        const t = await gm.get('/threads/' + id, { format: 'metadata', metadataHeaders: ['From'] });
+        const last = (t.messages || []).slice(-1)[0];
+        const far = new Date(Date.now() + 365 * 864e5).toISOString();
+        await gm.send('POST', `/threads/${id}/modify`, { addLabelIds: [], removeLabelIds: ['INBOX'] });
+        await env.DB.batch([
+          env.DB.prepare(`INSERT INTO hub_mail_snooze (email, thread_id, until, created_at, woke_at) VALUES (?, ?, ?, ?, NULL) ON CONFLICT(email, thread_id) DO UPDATE SET until = excluded.until, created_at = excluded.created_at, woke_at = NULL`).bind(me, id, far, nowIso()),
+          env.DB.prepare(`INSERT INTO hub_mail_waits (email, thread_id, kind, until, last_mid, created_at, woke_at) VALUES (?, ?, ?, ?, ?, ?, NULL) ON CONFLICT(email, thread_id, kind) DO UPDATE SET last_mid = excluded.last_mid, created_at = excluded.created_at, woke_at = NULL`).bind(me, id, String(sb.until), String(sb.partnerId || '').slice(0, 20), String(last?.id || ''), nowIso()),
+        ]);
+        forgetCount(me);
+        forgetCount(owner);
+        return json({ ok: true, until: far, wait: sb.until });
+      }
+      const until = new Date(String(sb.until || ''));
       if (!Number.isFinite(until.getTime()) || until.getTime() < Date.now() + 60000 || until.getTime() > Date.now() + 400 * 864e5) throw new HttpError(400, 'bad_time', 'Pick a time later than now.');
       await gm.send('POST', `/threads/${id}/modify`, { addLabelIds: [], removeLabelIds: ['INBOX'] });
       await env.DB.prepare(
@@ -482,6 +744,14 @@ async function route(ctx: MailCtx): Promise<Response> {
 
   return errorJson('not_found', 'No such mail route.', 404);
 }
+
+const safeJson = (t: string): Record<string, any> => {
+  try {
+    return JSON.parse(t) as Record<string, any>;
+  } catch {
+    return {};
+  }
+};
 
 const SAFE_INLINE = /^(image\/(png|jpeg|gif|webp)|application\/pdf|audio\/(mpeg|mp4|wav|webm|ogg)|video\/(mp4|webm))$/;
 
@@ -579,16 +849,66 @@ async function contacts(ctx: MailCtx, token: string, google: boolean, qRaw: stri
   return { people: out.slice(0, 14), google };
 }
 
-/** Snoozed threads whose time has come go back to the inbox, unread, as Gmail's own snooze does. */
+/**
+ * Snoozed threads whose time has come go back to the inbox, unread, as Gmail's own snooze does. A conversation snoozed until a
+ * reply comes back when someone else writes in it; one snoozed until the next gift comes back when the partner gives again.
+ */
 export async function wakeDue(env: Env, gm: Gmail, me: string): Promise<number> {
   const due = await env.DB.prepare('SELECT thread_id FROM hub_mail_snooze WHERE email = ? AND woke_at IS NULL AND until <= ? LIMIT 20').bind(me, nowIso()).all<{ thread_id: string }>();
   let n = 0;
   for (const r of due.results || []) {
     await gm.send('POST', `/threads/${r.thread_id}/modify`, { addLabelIds: ['INBOX', 'UNREAD'], removeLabelIds: [] }).catch(() => undefined);
     await env.DB.prepare('UPDATE hub_mail_snooze SET woke_at = ? WHERE email = ? AND thread_id = ?').bind(nowIso(), me, r.thread_id).run();
+    await env.DB.prepare('UPDATE hub_mail_waits SET woke_at = ? WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(nowIso(), me, r.thread_id).run().catch(() => undefined);
+    n++;
+  }
+  const waits = await env.DB.prepare('SELECT thread_id, kind, until, last_mid FROM hub_mail_waits WHERE email = ? AND woke_at IS NULL LIMIT 20').bind(me).all<{ thread_id: string; kind: string; until: string; last_mid: string }>().catch(() => ({ results: [] as any[] }));
+  for (const w of waits.results || []) {
+    let wake = false;
+    if (w.kind === 'reply') {
+      const t = await gm.get('/threads/' + w.thread_id, { format: 'metadata', metadataHeaders: ['From'] }).catch(() => null);
+      const last = (t?.messages || []).slice(-1)[0];
+      const from = String((last?.payload?.headers || []).find((h: any) => h.name.toLowerCase() === 'from')?.value || '').toLowerCase();
+      wake = !!last && String(last.id) !== w.last_mid && !from.includes(me);
+    }
+    if (!wake) continue;
+    await gm.send('POST', `/threads/${w.thread_id}/modify`, { addLabelIds: ['INBOX', 'UNREAD'], removeLabelIds: [] }).catch(() => undefined);
+    await env.DB.batch([
+      env.DB.prepare('UPDATE hub_mail_waits SET woke_at = ? WHERE email = ? AND thread_id = ? AND kind = ?').bind(nowIso(), me, w.thread_id, w.kind),
+      env.DB.prepare('UPDATE hub_mail_snooze SET woke_at = ? WHERE email = ? AND thread_id = ? AND woke_at IS NULL').bind(nowIso(), me, w.thread_id),
+    ]).catch(() => undefined);
     n++;
   }
   return n;
+}
+
+/**
+ * Saved messages whose time has come go out from the mailbox they were written in. Called every few minutes by the meetings
+ * pass the Cloudflare cron already runs. A message that fails stays and tries again; one that is a day late is marked missed.
+ */
+export async function sendDue(env: Env, fetcher: Fetcher = fetch): Promise<{ sent: number; failed: number }> {
+  const due = await env.DB.prepare("SELECT id, email, mailbox, payload, remind_days, thread_id FROM hub_mail_later WHERE state = 'waiting' AND send_at <= ? ORDER BY send_at LIMIT 10").bind(nowIso()).all<any>().catch(() => ({ results: [] as any[] }));
+  let sent = 0;
+  let failed = 0;
+  for (const r of due.results || []) {
+    try {
+      const tok = r.mailbox ? await boxToken(env, r.email, r.mailbox) : await accessToken(env, r.email);
+      if (!tok || !mailLevel(tok.scopes).write) throw new Error('no token');
+      const gm = gmail(tok.token, fetcher);
+      const body = safeJson(r.payload);
+      const me = r.mailbox || r.email;
+      const who: HubUser = { email: r.email, name: '', picture: '', role: 'staff', via: 'google', kpi: true } as HubUser;
+      const mail = await outMail(gm, await fromOf(gm, me, who, body), body, true);
+      const out = await gm.send('POST', '/messages/send', { raw: rawOf(mail), threadId: body.threadId && /^[A-Za-z0-9]{6,40}$/.test(String(body.threadId)) ? String(body.threadId) : undefined });
+      await env.DB.prepare("UPDATE hub_mail_later SET state = 'sent', sent_at = ?, payload = '{}', thread_id = ? WHERE id = ?").bind(nowIso(), String(out.threadId || r.thread_id || ''), r.id).run();
+      sent++;
+    } catch {
+      failed++;
+      const late = Date.now() - Date.parse(String((await env.DB.prepare('SELECT send_at FROM hub_mail_later WHERE id = ?').bind(r.id).first<{ send_at: string }>().catch(() => null))?.send_at || nowIso())) > 864e5;
+      if (late) await env.DB.prepare("UPDATE hub_mail_later SET state = 'missed', payload = '{}' WHERE id = ?").bind(r.id).run().catch(() => undefined);
+    }
+  }
+  return { sent, failed };
 }
 
 async function snoozedList(env: Env, gm: Gmail, me: string) {

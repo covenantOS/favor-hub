@@ -50,7 +50,11 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids))) });
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
-    if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') return json(await remind(env, new URL(request.url).origin));
+    if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') {
+      // The same five-minute pass sends the Mail messages whose time has come.
+      const later = await import('./mail/route').then((x) => x.sendDue(env)).catch(() => ({ sent: 0, failed: 0 }));
+      return json({ ...(await remind(env, new URL(request.url).origin)), mailSent: later.sent });
+    }
     if (parts.length === 1) {
       if (m === 'GET') { const sp = new URL(request.url).searchParams; return json(await listMeetings(env, user, sp.get('scope') || 'upcoming', (sp.get('q') || '').trim().slice(0, 200).toLowerCase())); }
       if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => null), new URL(request.url).origin));

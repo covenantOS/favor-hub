@@ -35,7 +35,7 @@
   T('Visiting in March', [
     [people[0], [ME], 30, '<p>Hi Sam,</p><p>Our family would love to visit the school in March. Is the second week still open?</p><p>Maya</p>'],
     [ME, [people[0]], 26, '<p>Hi Maya, yes, the second week is open. I will send the itinerary.</p>' + q('Maya Okafor', 'Our family would love to visit the school in March.'), { labels: ['SENT'] }],
-    [people[0], [ME], 1.2, '<p>Wonderful. Here are two photos from our last visit, and the draft itinerary we talked about.</p><p>Could you confirm the dates by Friday?</p><p>Maya</p>' + q('Sam Rivers', 'Yes, the second week is open. I will send the itinerary.'), { unread: true, files: ['f1', 'f2', 'f3'] }]
+    [people[0], [ME], 1.2, '<p>Wonderful. Here are two photos from our last visit, and the draft itinerary we talked about.</p><p>Could you confirm the dates by Friday? Our last gift went to appeal N26A-EMW2 (Lookup ID 8841), for the Clean Water Fund.</p><p>Maya</p>' + q('Sam Rivers', 'Yes, the second week is open. I will send the itinerary.'), { unread: true, files: ['f1', 'f2', 'f3'] }]
   ]);
   T('Thank you for the update letter', [[people[1], [ME], 3, '<p>Sam, the update letter arrived yesterday. We read it at dinner and the kids had questions about the new well.</p><p>We would like to help with the next one. What does one cost?</p><p>Tom</p>', { unread: true }]]);
   T('Sunday missions moment', [
@@ -82,6 +82,7 @@
     return has(t, label) && !has(t, 'TRASH');
   };
   var boxOfT = function (t) { var n = Number(String(t.id).slice(1)) % 5; return n === 0 ? 'accounting@favorintl.org' : n === 3 ? 'admin@favorintl.org' : ''; };
+  var customs = [];
   var override = {};
   var cls = function (t) {
     var real = t.messages.filter(function (x) { return !x.draft; }), last = real[real.length - 1] || t.messages[0];
@@ -93,13 +94,36 @@
     else if (/receipt|invoice|gift/i.test(t.subject)) cat = 'receipts';
     else if (/news|digest|mailer/i.test(e + t.subject)) cat = 'newsletters';
     var ask = e !== ME.email && /\?/.test(last.snippet) && ['partners', 'staff', 'people'].indexOf(cat) >= 0;
-    return { cat: cat, ask: ask, partner: pm ? { id: pm.id, name: pm.name } : null };
+    return { cat: cat, ask: ask, partner: pm ? { id: pm.id, name: pm.name } : null, major: !!pm && pm.name.indexOf('Okafor') >= 0, prio: (pm ? 1 : 0) + (ask ? 1 : 0) };
   };
   var sortNew = function (a, b) { return String(row(b).date).localeCompare(String(row(a).date)); };
 
   window.FavorMailMock = function (real) {
     return Object.assign({}, real, {
       state: function () { return wait({ ok: true, connected: true, email: ME.email, name: ME.name, level: level, write: true, signature: level.read ? '<div>Sam Rivers<br>Favor International</div>' : '', mailboxes: [{ email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a' }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8' }] }, 40); },
+      sender: function (email, name) { var pm = partners[email]; return wait({ ok: true, profile: { email: email, name: name || email, role: pm ? 'Partner in Blackbaud, ' + pm.name : /favorintl/.test(email) ? 'Staff, Partner Care' : 'Not in Blackbaud', kind: pm ? 'partner' : /favorintl/.test(email) ? 'staff' : 'outside', partner: pm ? { id: pm.id, name: pm.name } : null, history: { n: 7, more: false, lastDate: ago(30), recent: [] }, canProspect: !pm && !/favorintl/.test(email) } }, 200); },
+      briefing: function () { return wait({ ok: true, briefing: { text: 'Three partners wait on you, one of them a major partner. Start with Maya Okafor about the March visit.', items: [{ id: 't1001', from: 'Maya Okafor', subject: 'Visiting in March', why: 'major partner, waits on you' }, { id: 't1006', from: 'Daniel Ortiz', subject: 'Receipt question', why: 'partner, waits on you' }, { id: 't1004', from: 'Hope Foundation Grants', subject: 'Grant report due November 1', why: 'starred' }], stats: { needs: 3, major: 1, waiting: 2, unlogged: 4, unread: 6 }, at: new Date().toISOString() } }, 250); },
+      categories: function () { return wait({ ok: true, categories: customs }, 60); },
+      newCategory: function (name, description) { var c = { id: 'c_' + Math.random().toString(36).slice(2, 10), name: name, description: description }; customs.push(c); return wait({ ok: true, category: c }, 100); },
+      dropCategory: function (id) { customs = customs.filter(function (c) { return c.id !== id; }); return wait({ ok: true }, 60); },
+      logged: function () { return wait({ ok: true }, 60); },
+      smartSearch: function () { return wait({ ok: true, understood: true, q: 'from:maya newer_than:30d', partners: true, major: false, threads: threads.slice(0, 3).map(row) }, 300); },
+      check: function (b) { var w = []; if (/donor/i.test(b.html)) w.push({ code: 'donor', text: 'The message says "donor". Favor says "partner".' }); if (/attached/i.test(b.html) && !b.files) w.push({ code: 'attachment', text: 'The message says a file is attached, and none is.' }); return wait({ ok: true, warnings: w }, 80); },
+      templates: function () { return wait({ ok: true, templates: [{ id: 't_1', name: 'Thank you for your gift', body: 'Hi {first_name},\n\nThank you for your gift of {last_gift}. It matters.' }] }, 60); },
+      saveTemplate: function () { return wait({ ok: true, id: 't_2' }, 60); },
+      dropTemplate: function () { return wait({ ok: true }, 60); },
+      fillTemplate: function (body) { return wait({ ok: true, text: body.replace('{first_name}', 'Maya').replace('{last_gift}', '$100') }, 100); },
+      later: function () { return wait({ ok: true, later: [] }, 60); },
+      makeLater: function () { return wait({ ok: true, id: 'l_1' }, 100); },
+      dropLater: function () { return wait({ ok: true }, 60); },
+      snoozeWait: function (id) { var t = find(id); if (t) { t.snoozed = new Date(Date.now() + 864e5 * 300).toISOString(); t.messages.forEach(function (x) { x.labelIds = x.labelIds.filter(function (l) { return l !== 'INBOX'; }); }); } return wait({ ok: true }, 100); },
+      timeline: function () { return wait({ ok: true, items: [{ at: '2026-10-02', kind: 'gift', text: 'Gift $100, General' }, { at: '2026-09-30', kind: 'mail', text: 'Visiting in March' }, { at: '2026-09-12', kind: 'call', text: 'Phone call: Thanked for the September gift' }, { at: '2026-08-01', kind: 'meeting', text: 'Meeting: Lunch with the Okafors' }] }, 200); },
+      readFile: function (mid, f) { return wait({ ok: true, kind: /pdf/i.test(f.mime) ? 'other' : 'photo', next: /pdf/i.test(f.mime) ? null : { text: 'Save to the Drive photo library', href: '' } }, 300); },
+      ask: function () { return wait({ ok: true, answer: 'Maya asks you to confirm the March dates by Friday.' }, 500); },
+      times: function () { var d = new Date(Date.now() + 864e5); d.setHours(14, 0, 0, 0); var slots = [0, 1, 2, 3].map(function (i) { return new Date(d.getTime() + i * 864e5).toISOString(); }); return wait({ ok: true, slots: slots, minutes: 30, guests: ['grace@favorintl.org'], note: '' }, 300); },
+      entity: function (kind, q) { var c = kind === 'appeal' ? { kind: kind, key: q, title: q, sub: 'Newsletter October week 2', lines: [{ k: 'Kind', v: 'Digital Newsletter' }, { k: 'Status', v: 'Active' }], href: '' } : kind === 'lookup' ? { kind: kind, key: q, title: 'Maya and Chidi Okafor', sub: 'Lookup ID ' + q, lines: [{ k: 'Giving', v: '$4,300 in 12 gifts' }], href: '/work/partner/27202' } : { kind: kind, key: q, title: q, sub: 'Fund', lines: [{ k: 'Status', v: 'Active' }], href: '' }; return wait({ ok: true, card: c }, 100); },
+      entityNames: function () { return wait({ ok: true, funds: ['Clean Water Fund'] }, 60); },
+      meetCreate: function () { return wait({ ok: true }, 200); },
       boxes: function () { return wait({ ok: true, boxes: [{ email: ME.email, name: ME.name, color: '', primary: true, unread: 3 }, { email: 'accounting@favorintl.org', name: 'Accounting', color: '#a8741a', unread: 2 }, { email: 'admin@favorintl.org', name: 'Admin', color: '#7a4aa8', unread: 0 }] }, 60); },
       from: function () { return wait({ ok: true, from: [{ mailbox: ME.email, email: ME.email, name: ME.name, default: true }, { mailbox: 'accounting@favorintl.org', email: 'accounting@favorintl.org', name: 'Favor Accounting', default: true }, { mailbox: 'admin@favorintl.org', email: 'admin@favorintl.org', name: 'Favor Admin', default: true }] }, 60); },
       removeBox: function () { return wait({ ok: true }, 100); },
@@ -124,11 +148,12 @@
         if (fl.indexOf('starred') >= 0) list = list.filter(function (t) { return has(t, 'STARRED'); });
         if (fl.indexOf('files') >= 0) list = list.filter(function (t) { return row(t).files; });
         var smart = !query && label === 'INBOX' && (o.view || fl.indexOf('partner') >= 0);
-        var mk = function (t) { var r = row(t), c = cls(t); return Object.assign(r, { cat: c.cat, ask: c.ask }, c.partner ? { partner: c.partner } : {}); };
+        var mk = function (t) { var r = row(t), c = cls(t); return Object.assign(r, { cat: c.cat, ask: c.ask, major: c.major, prio: c.prio }, c.partner ? { partner: c.partner } : {}); };
         if (smart) {
           var v = o.view || '';
           var rows = list.map(mk);
           if (v === 'waiting') rows = threads.filter(function (t) { return has(t, 'SENT') && !has(t, 'TRASH'); }).map(function (t) { return Object.assign(row(t), { waitDays: 4 }); });
+          else if (v === 'unlogged') rows = rows.filter(function (r) { return r.cat === 'partners'; });
           else if (v === 'needs') rows = rows.filter(function (r) { return r.ask; });
           else if (v.indexOf('cat:') === 0) rows = rows.filter(function (r) { return r.cat === v.slice(4); });
           if (fl.indexOf('partner') >= 0) rows = rows.filter(function (r) { return r.partner; });
@@ -147,7 +172,7 @@
         ['partners', 'staff', 'receipts', 'newsletters', 'notifications', 'calendar', 'people'].forEach(function (c) { counts[c] = { n: 0, unread: 0 }; });
         inbox.forEach(function (t) { var c = cls(t); counts[c.cat].n++; if (has(t, 'UNREAD')) { counts[c.cat].unread++; unread++; } if (c.ask) needs++; marks[t.id] = { cat: c.cat, ask: c.ask }; });
         var quiet = inbox.filter(function (t) { var c = cls(t); return (c.cat === 'newsletters' || c.cat === 'notifications') && has(t, 'UNREAD'); });
-        return wait({ ok: true, counts: counts, needs: needs, unread: unread, waiting: 2, marks: marks, cleanup: { total: quiet.length, senders: quiet.length ? [{ email: 'news@example.org', name: 'Weekly Digest', n: quiet.length }] : [], ids: quiet.map(function (t) { return t.id; }) }, scanned: inbox.length, pending: 0 }, 200);
+        return wait({ ok: true, counts: counts, customs: customs, unlogged: 4, major: 1, needs: needs, unread: unread, waiting: 2, marks: marks, cleanup: { total: quiet.length, senders: quiet.length ? [{ email: 'news@example.org', name: 'Weekly Digest', n: quiet.length }] : [], ids: quiet.map(function (t) { return t.id; }) }, scanned: inbox.length, pending: 0 }, 200);
       },
       assist: function (id) {
         var t = find(id); if (!t) return wait({ ok: true, summary: '', replies: [], ask: false });

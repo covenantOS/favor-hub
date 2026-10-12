@@ -32,6 +32,22 @@ Under **Mailboxes** on the left, **Add a mailbox** connects another Favor Google
 
 **All mailboxes** merges them into one list. A colored dot beside each sender shows which mailbox the conversation came to, and each mailbox has its own unread count. A reply goes out from the mailbox the conversation came to. The **From** line in a message lists each mailbox and the addresses Gmail lets it send as. **Manage mailboxes** removes one; FavorOS forgets the connection and nothing is deleted in Gmail. The number on the Mail icon counts every mailbox.
 
+## Mail knows Favor
+
+**This morning** at the top of the inbox names the few conversations to start with and why: a major partner (one gift of $1,000 or more), a partner, mail that waits on you, or a star. **Most important first** in Sort puts partner and major partner mail on top.
+
+A card above each message says who the sender is to Favor: staff, a partner in Blackbaud, or someone outside, with how many conversations you have had. For someone outside, **Add as prospect** makes a task for Support. For a partner, the card shows giving, who holds them and the last contact, **Log as an action** logs the email in one press, and **Timeline** lists their gifts, calls, meetings and mail together.
+
+An appeal code, a Lookup ID or a fund name in a message is underlined. Hover for a card, press for the details. A partner who writes about a gift shows a card with two buttons, one that notes the expected gift in Blackbaud and one that tells Partner Care in Chat. Each asks you first. Promises in mail you sent ("I will send the itinerary by Friday") show under **You promised** with a Make a task button.
+
+**Not logged** lists partner email from the last 7 days that is not logged in Blackbaud, and a note at the top of the inbox reminds you once a week.
+
+**New category** under the inbox views takes a name and a sentence ("Anything about a mission trip"). Mail reads your email against your words. **Move to category** still teaches it by sender.
+
+**Ask about this email** answers a question from the conversation alone. **Find a time** lists free times for you and the staff on the thread, puts them in a reply or books a FavorOS meeting after you confirm. A file shows what it is (a check, receipt, W-9, grant letter or photo) and the next step. Start a search with **?** to ask in plain words, like "?major partners who wrote this month".
+
+**Before this goes** checks a message for the word "donor", a greeting for someone other than the partner, an amount that differs from the earlier mail, "attached" with no file, and no subject. **Send later** (the clock beside Send) holds a message until the time you pick, with a reminder if nobody replies in 3 days, and **Scheduled** in the sidebar lists and cancels them. **Templates** fill {first_name}, {last_gift} and the other details from the partner on the To line. **Snooze** can wait until they reply or until a partner's next gift. **Z** undoes the last archive, delete or snooze. **Unsubscribe** is in More on a newsletter.
+
 ## Tabs, filters and sorting
 
 Above the inbox, tabs sort your newest 100 conversations. **Needs you** holds what asks you a question or waits on your answer, oldest first. **Partners** are senders whose address is on a partner in Blackbaud. **Staff**, **People**, **Receipts and gifts**, **Newsletters**, **Notifications** and **Calendar** hold the rest, each with a count. **Waiting on reply** lists mail you sent that has had no answer for three days.

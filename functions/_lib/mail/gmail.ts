@@ -130,6 +130,8 @@ export interface MessageOut {
   unread: boolean;
   starred: boolean;
   draft: boolean;
+  /** List-Unsubscribe: an https address or a mailto address, as the sender gave it. */
+  unsubscribe: { url: string; mailto: string };
 }
 
 const hdr = (headers: Part['headers'], name: string) => (headers || []).find((h) => h.name.toLowerCase() === name.toLowerCase())?.value || '';
@@ -179,7 +181,14 @@ export function shapeMessage(m: any): MessageOut {
     unread: labelIds.includes('UNREAD'),
     starred: labelIds.includes('STARRED'),
     draft: labelIds.includes('DRAFT'),
+    unsubscribe: unsub(H('List-Unsubscribe')),
   };
+}
+
+/** The addresses in a List-Unsubscribe header. Only https and mailto are kept. */
+export function unsub(h: string): { url: string; mailto: string } {
+  const list = [...String(h || '').matchAll(/<([^>]+)>/g)].map((m) => m[1].trim());
+  return { url: list.find((x) => /^https:\/\//i.test(x)) || '', mailto: list.find((x) => /^mailto:/i.test(x)) || '' };
 }
 
 export function decodeEntities(s: string): string {

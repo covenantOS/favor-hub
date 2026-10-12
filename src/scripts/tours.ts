@@ -901,6 +901,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'mail-knows',
+    page: '/mail/',
+    via: 'mail',
+    at: '[data-boxes]',
+    title: 'Add your other mailboxes',
+    body: 'Add a mailbox brings in another Favor account, like accounting or admin. All mailboxes shows them together with a colored dot, and a reply goes out from the mailbox it came to. This morning at the top of the inbox says where to start.',
+    for: (w) => w.admin,
+    added: '2026-10-12',
+    side: 'right',
+  },
+  {
     id: 'mail-smart',
     page: '/mail/',
     via: 'mail',

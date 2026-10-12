@@ -59,7 +59,11 @@
     sort: '<path d="M7 5v14"/><path d="m3.5 15.5 3.5 3.5 3.5-3.5"/><path d="M17 19V5"/><path d="m13.5 8.5 3.5-3.5 3.5 3.5"/>',
     bolt: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
     hourglass: '<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5 8 9s-8 4-8 9"/><path d="M16 3c0 5-8 5-8 9s8 4 8 9"/>',
+    wand: '<path d="m5 19 10-10"/><path d="m14 5 1-2 1 2 2 1-2 1-1 2-1-2-2-1z"/><path d="M19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/>',
+    cal: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    q: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
     filter: '<path d="M4 5h16l-6 8v6l-4-2v-4z"/>',
+    refresh: '<path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/>',
     broom: '<path d="M14 4l6 6"/><path d="m12.5 7.5 4 4L9 19H4v-5z"/><path d="M8 15l3 3"/>'
   };
   function ic(n, cls) { return '<svg class="ml-i' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true">' + (ICON[n] || '') + '</svg>'; }
@@ -122,6 +126,29 @@
       return req('GET', 'threads?label=' + encodeURIComponent(label || 'INBOX') + (q ? '&q=' + encodeURIComponent(q) : '') + (page ? '&page=' + encodeURIComponent(page) : '') +
         (o.view ? '&view=' + encodeURIComponent(o.view) : '') + (o.flags && o.flags.length ? '&f=' + o.flags.join(',') : '') + (o.sort ? '&sort=' + o.sort : '') + (o.mb ? '&mb=' + encodeURIComponent(o.mb) : ''));
     },
+    sender: function (email, name, mb) { return req('GET', pathMb('smart/sender?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name || ''), mb)); },
+    briefing: function (fresh, mb) { return req('GET', pathMb('smart/briefing' + (fresh ? '?fresh=1' : ''), mb)); },
+    categories: function () { return req('GET', 'smart/categories'); },
+    newCategory: function (name, description) { return req('POST', 'smart/categories', { name: name, description: description }); },
+    dropCategory: function (id) { return req('DELETE', 'smart/categories/' + encodeURIComponent(id)); },
+    logged: function (threadId, partnerId) { return req('POST', pathMb('smart/logged', boxOf(threadId)), { threadId: threadId, partnerId: partnerId || '' }); },
+    smartSearch: function (q, mb) { return req('POST', pathMb('smart/search', mb), { q: q }); },
+    check: function (b) { return req('POST', pathMb('check', b.mb), b); },
+    templates: function () { return req('GET', 'templates'); },
+    saveTemplate: function (name, body) { return req('POST', 'templates', { name: name, body: body }); },
+    dropTemplate: function (id) { return req('DELETE', 'templates/' + encodeURIComponent(id)); },
+    fillTemplate: function (body, to) { return req('POST', 'templates/fill', { body: body, to: to }); },
+    later: function () { return req('GET', 'later'); },
+    makeLater: function (b) { return req('POST', pathMb('later', b.mb), b); },
+    dropLater: function (id) { return req('DELETE', 'later/' + encodeURIComponent(id)); },
+    snoozeWait: function (id, kind, partnerId) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id)), { until: kind, partnerId: partnerId || '' }); },
+    timeline: function (pid, email, id) { return req('GET', pathMb('partner/' + encodeURIComponent(pid) + '/timeline?email=' + encodeURIComponent(email || ''), boxOf(id))); },
+    readFile: function (mid, f, subject, id) { return req('GET', pathMb('messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '/read?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + '&size=' + (f.size || 0) + '&subject=' + encodeURIComponent(subject || ''), boxOf(id))); },
+    ask: function (id, q) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/ask', boxOf(id)), { q: q }); },
+    times: function (b) { return req('POST', 'smart/times', b); },
+    entity: function (kind, q) { return req('GET', 'entity?kind=' + encodeURIComponent(kind) + '&q=' + encodeURIComponent(q)); },
+    entityNames: function () { return req('GET', 'entity/names'); },
+    meetCreate: function (b) { return req('POST', '/api/meet/meetings', b); },
     overview: function (mb) { return req('GET', pathMb('smart/overview', mb)); },
     assist: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))); },
     partner: function (id) { return req('GET', 'partner/' + encodeURIComponent(id)); },
@@ -155,7 +182,8 @@
     label: 'INBOX', q: '', threads: [], next: '', loading: false, labels: [], sel: -1,
     open: '', thread: null, partners: {}, drafts: {}, view: 'list', ro: false, nav: {}, exp: {},
     v: '', flags: {}, sort: '', picked: {}, anchor: '', ov: null, ovTry: 0,
-    boxes: [], box: '', counts: {}, mbOf: {}, nexts: {}, threadBox: '', fromOpts: null
+    boxes: [], box: '', counts: {}, mbOf: {}, nexts: {}, threadBox: '', fromOpts: null,
+    brief: null, customs: [], names: null, assist: null, profile: null, later: []
   };
   try { S.ro = localStorage.getItem('favor.mail.ro') === '1'; } catch (e) { /* private mode */ }
   try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); S.nav = (nv && nv.access) || {}; } catch (e) { /* none */ }
@@ -173,7 +201,7 @@
       '<button type="button" class="ml-pn" data-act="compose" aria-label="New message">' + ic('pen') + '</button></div>' +
     '<aside class="ml-side" aria-label="Mailboxes"><button type="button" class="ml-compose" data-act="compose">' + ic('pen') + '<span>Compose</span></button><div class="ml-boxes" data-boxes></div><nav class="ml-labels" data-labels></nav></aside>' +
     '<section class="ml-list" aria-label="Conversations">' +
-      '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
+      '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail, or start with ? to ask" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
       '<div class="ml-tabs" data-tabs role="navigation" aria-label="Views" hidden></div>' +
       '<div class="ml-list__head"><button type="button" class="ml-iconbtn ml-pickall" data-act="pick-all" aria-label="Select all">' + ic('box') + '</button><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-fon" data-act="flags-clear" data-fstate hidden></button><button type="button" class="ml-iconbtn" data-act="filter-menu" data-filterbtn aria-label="Filter" aria-haspopup="dialog">' + ic('filter') + '</button><button type="button" class="ml-iconbtn" data-act="sort-menu" aria-label="Sort" aria-haspopup="dialog">' + ic('sort') + '</button><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
       '<div class="ml-selbar" data-selbar hidden></div><div class="ml-allow" data-allow hidden><span>Senders and subjects only. Allow Mail adds the full message, files and search.</span><a class="ml-btn ml-btn--primary" data-allow-link href="#">Allow Mail</a></div>' +
@@ -217,11 +245,12 @@
   document.addEventListener('focusin', function (e) { var b = e.target.closest && e.target.closest('[data-ui-tooltip]'); if (b && document.documentElement.classList.contains('kbd') && b.closest('.ml, .ml-sheet, .ml-c')) tipShow(b); else tipHide(); });
 
   /* ------------------------------------------------------------------ toast */
-  var toastT = 0;
+  var toastT = 0, lastUndo = null;
   function toast(msg, undo) {
     var t = $('.ml-toast');
     t.innerHTML = '<span>' + esc(msg) + '</span>' + (undo ? '<button type="button" data-undo>Undo</button>' : '');
     t.hidden = false; t.classList.remove('is-in'); void t.offsetWidth; t.classList.add('is-in');
+    lastUndo = undo ? { fn: undo, at: Date.now() } : lastUndo;
     clearTimeout(toastT);
     t.onclick = function (e) { if (e.target.closest('[data-undo]') && undo) { undo(); t.hidden = true; } };
     toastT = setTimeout(function () { t.hidden = true; }, undo ? 6000 : 3200);
@@ -369,7 +398,7 @@
       var tip = l.id === 'INBOX' && l.unreadAll != null && l.unreadAll !== l.unread ? ' title="Unread in the Primary tab, as Gmail counts it. ' + l.unreadAll + ' unread across all tabs."' : '';
       return '<a class="ml-lab' + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + tip + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
     };
-    var html = sys.map(function (l) { return row(l) + (l.id === 'INBOX' ? viewsHtml() : ''); }).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
+    var html = sys.map(function (l) { return row(l) + (l.id === 'INBOX' ? viewsHtml() : '') + (l.id === 'DRAFT' ? '<button type="button" class="ml-lab ml-lab--btn" data-act="later-list">' + ic('clock') + '<span>Scheduled</span></button>' : ''); }).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
     var nav = $('[data-labels]'); if (nav) nav.innerHTML = html;
     var nm = $('[data-label-name]'); if (nm) nm.textContent = S.q ? 'Search' : labelName(S.label);
     var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
@@ -383,6 +412,7 @@
     if (window.hubNavLayout) window.hubNavLayout();
     if (document.body.dataset.nav === 'mail') document.title = (n ? '(' + n + ') ' : '') + 'Mail - FavorOS';
   }
+  function loadNames() { if (S.names || !S.level.read) return; S.names = []; api.entityNames().then(function (d) { S.names = d.funds || []; }).catch(function () { /* funds are not marked */ }); }
   function loadLabels() {
     if (!S.level.headers && !S.level.read) return Promise.resolve();
     return api.labels(labelsAcct()).then(function (d) { S.labels = d.labels || []; renderLabels(); renderFilters(); }).catch(function () { /* the list still works */ });
@@ -406,15 +436,18 @@
   }
 
   /* ------------------------------------------------------------------ views, filters and sorting */
-  var VIEWS = [['', 'Inbox'], ['needs', 'Needs you'], ['cat:partners', 'Partners'], ['cat:staff', 'Staff'], ['cat:people', 'People'], ['cat:receipts', 'Receipts and gifts'], ['cat:newsletters', 'Newsletters'], ['cat:notifications', 'Notifications'], ['cat:calendar', 'Calendar'], ['waiting', 'Waiting on reply']];
+  var BASE_VIEWS = [['', 'Inbox'], ['needs', 'Needs you'], ['cat:partners', 'Partners'], ['cat:staff', 'Staff'], ['cat:people', 'People'], ['cat:receipts', 'Receipts and gifts'], ['cat:newsletters', 'Newsletters'], ['cat:notifications', 'Notifications'], ['cat:calendar', 'Calendar']];
+  // The views: the built-in ones, then each category the person described in words, then the two lists that need no model.
+  function allViews() { return BASE_VIEWS.concat(S.customs.map(function (c) { return ['cat:' + c.id, c.name]; }), [['waiting', 'Waiting on reply'], ['unlogged', 'Not logged']]); }
   var CAT_NAMES = { partners: 'Partners', staff: 'Staff', people: 'People', receipts: 'Receipts and gifts', newsletters: 'Newsletters', notifications: 'Notifications', calendar: 'Calendar' };
-  function slugOf(v) { return v === 'needs' || v === 'waiting' ? v : v ? v.slice(4) : ''; }
-  function unslug(x) { if (x === 'needs' || x === 'waiting') return x; return CAT_NAMES[x] ? 'cat:' + x : null; }
-  function viewName(v) { var r = VIEWS.filter(function (x) { return x[0] === v; })[0]; return r ? r[1] : 'Inbox'; }
+  function slugOf(v) { return v === 'needs' || v === 'waiting' || v === 'unlogged' ? v : v ? v.slice(4) : ''; }
+  function unslug(x) { if (x === 'needs' || x === 'waiting' || x === 'unlogged') return x; if (CAT_NAMES[x] || S.customs.some(function (c) { return c.id === x; }) || /^c_[a-z0-9]{4,12}$/.test(x)) return 'cat:' + x; return null; }
+  function viewName(v) { var r = allViews().filter(function (x) { return x[0] === v; })[0]; return r ? r[1] : 'Inbox'; }
   function viewCount(v) {
     if (!S.ov) return null;
     if (v === 'needs') return S.ov.needs;
     if (v === 'waiting') return S.ov.waiting;
+    if (v === 'unlogged') return S.ov.unlogged || 0;
     if (v.indexOf('cat:') === 0) return (S.ov.counts[v.slice(4)] || {}).n || 0;
     return null;
   }
@@ -425,15 +458,15 @@
   var FLAG_NAMES = { unread: 'Unread', starred: 'Starred', files: 'Has attachments', partner: 'From a partner' };
   // Views with something in them (the one you are in always shows). The sidebar lists them under Inbox; a phone gets one scrolling row.
   function liveViews() {
-    return VIEWS.filter(function (x) { if (x[0] === '') return true; var n = viewCount(x[0]); return S.v === x[0] || (n != null && n > 0); });
+    return allViews().filter(function (x) { if (x[0] === '') return true; var n = viewCount(x[0]); return S.v === x[0] || (n != null && n > 0); });
   }
   function viewsHtml() {
     if (!S.ov || !(S.level.read || MOCK)) return '';
     return liveViews().filter(function (x) { return x[0] !== ''; }).map(function (x) {
-      var n = viewCount(x[0]), unread = x[0] === 'needs' ? n : x[0] === 'waiting' ? 0 : (S.ov.counts[x[0].slice(4)] || {}).unread;
+      var n = viewCount(x[0]), unread = x[0] === 'needs' || x[0] === 'unlogged' ? n : x[0] === 'waiting' ? 0 : (S.ov.counts[x[0].slice(4)] || {}).unread;
       var on = inboxPlain() && S.v === x[0];
       return '<a class="ml-lab ml-lab--sub' + (on ? ' is-on' : '') + '" href="#/' + slugOf(x[0]) + '" data-label="INBOX" data-v="' + esc(x[0]) + '"' + (on ? ' aria-current="page"' : '') + '><span>' + esc(x[1]) + '</span>' + (n ? '<em class="ml-count ml-count--sub' + (unread ? ' is-bold' : '') + '">' + n + '</em>' : '') + '</a>';
-    }).join('');
+    }).join('') + '<button type="button" class="ml-addbox ml-addbox--sub" data-act="cats">' + ic('wand') + 'New category</button>';
   }
   function renderTabs() {
     var box = $('[data-tabs]'); if (!box) return;
@@ -465,7 +498,7 @@
   }
   function sortMenu(anchor) {
     var cur = effSort();
-    var el = openSheet('Sort', '<div class="ml-menu">' + [['new', 'Newest first'], ['old', 'Oldest first']].map(function (x) { return '<button type="button" class="ml-menu__i" data-sort="' + x[0] + '"><span>' + x[1] + '</span>' + (cur === x[0] ? ic('check') : '') + '</button>'; }).join('') + '</div>', { anchor: anchor });
+    var el = openSheet('Sort', '<div class="ml-menu">' + [['new', 'Newest first'], ['old', 'Oldest first'], ['prio', 'Most important first']].map(function (x) { return '<button type="button" class="ml-menu__i" data-sort="' + x[0] + '"><span>' + x[1] + '</span>' + (cur === x[0] ? ic('check') : '') + '</button>'; }).join('') + '</div>', { anchor: anchor });
     el.addEventListener('click', function (e) {
       var b = e.target.closest('[data-sort]'); if (!b) return;
       S.sort = b.dataset.sort; closeSheet(); loadList();
@@ -487,19 +520,40 @@
       if (!rs.length) return;
       var d = rs[0];
       if (rs.length > 1) {
-        d = { counts: {}, needs: 0, unread: 0, waiting: 0, marks: {}, cleanup: { total: 0, senders: [], ids: [] }, scanned: 0, pending: 0 };
+        d = { counts: {}, customs: rs[0].customs, unlogged: 0, major: 0, needs: 0, unread: 0, waiting: 0, marks: {}, cleanup: { total: 0, senders: [], ids: [] }, scanned: 0, pending: 0 };
         rs.forEach(function (r) {
           Object.keys(r.counts).forEach(function (c) { var x = d.counts[c] || (d.counts[c] = { n: 0, unread: 0 }); x.n += r.counts[c].n; x.unread += r.counts[c].unread; });
+          d.unlogged += r.unlogged || 0; d.major += r.major || 0;
           d.needs += r.needs; d.unread += r.unread; d.waiting += r.waiting; d.scanned += r.scanned; d.pending += r.pending;
           Object.assign(d.marks, r.marks);
         });
       }
       S.ov = d; S.ovTry = d.pending ? S.ovTry + 1 : 0;
+      S.customs = d.customs || S.customs;
       applyMarks(); renderTabs(); renderCleanup();
       if (d.pending && S.ovTry < 3) setTimeout(function () { if (S.label === 'INBOX') loadOverview(); }, 2500);
     });
   }
   var ovSeq = 0;
+  function briefHtml() {
+    var b = S.brief;
+    if (!b || !inboxPlain() || S.v || !S.threads.length) return '';
+    try { if (sessionStorage.getItem('favor.mail.brief') === ET()) return ''; } catch (e) { /* private mode */ }
+    var items = (b.items || []).map(function (i) { return '<button type="button" class="ml-brief__i" data-act="brief-open" data-id="' + esc(i.id) + '"><b>' + esc(i.from) + '</b><span>' + esc(i.subject) + '</span><em>' + esc(i.why) + '</em></button>'; }).join('');
+    return '<div class="ml-brief"><div class="ml-brief__h">' + ic('bolt') + '<b>This morning</b><button type="button" class="ml-iconbtn" data-act="brief-fresh" aria-label="Refresh the briefing">' + ic('refresh') + '</button><button type="button" class="ml-iconbtn" data-act="brief-hide" aria-label="Hide until tomorrow">' + ic('x') + '</button></div><p>' + esc(b.text) + '</p>' + (items ? '<div class="ml-brief__l">' + items + '</div>' : '') + '</div>';
+  }
+  function nudgeHtml() {
+    var n = S.ov && S.ov.unlogged;
+    if (!n || !inboxPlain() || S.v) return '';
+    var wk = ET().slice(0, 8) + Math.floor(Number(ET().slice(8, 10)) / 7);
+    try { if (localStorage.getItem('favor.mail.nudge') === wk) return ''; } catch (e) { /* private mode */ }
+    return '<div class="ml-clean ml-clean--nudge">' + ic('log') + '<div class="ml-clean__t"><b>' + n + ' partner email' + (n === 1 ? '' : 's') + ' from this week ' + (n === 1 ? 'is' : 'are') + ' not logged in Blackbaud</b><span>Log each one so the partner record shows the contact.</span></div><a class="ml-btn" href="#/unlogged">Review</a><button type="button" class="ml-iconbtn" data-act="nudge-hide" aria-label="Not this week">' + ic('x') + '</button></div>';
+  }
+  function loadBrief(fresh) {
+    if (!S.level.read || !inboxPlain() || S.v) return;
+    var a = accts()[0] || '';
+    api.briefing(!!fresh, a).then(function (d) { S.brief = d.briefing; renderCleanup(); }).catch(function () { /* the list is enough */ });
+  }
   function cleanHtml() {
     var c = S.ov && S.ov.cleanup;
     if (!c || !c.total || !inboxPlain() || S.v) return '';
@@ -510,8 +564,8 @@
   }
   function renderCleanup() {
     var rows = $('[data-rows]'); if (!rows) return;
-    var old = rows.querySelector('.ml-clean'); if (old) old.remove();
-    var h = cleanHtml();
+    rows.querySelectorAll('.ml-clean, .ml-brief').forEach(function (x) { x.remove(); });
+    var h = briefHtml() + nudgeHtml() + cleanHtml();
     if (h && S.threads.length) rows.insertAdjacentHTML('afterbegin', h);
   }
   function cleanReview() {
@@ -662,9 +716,9 @@
   function moveMany(rows) {
     var senders = []; rows.forEach(function (t) { var e = t.from && t.from.email; if (e && e !== S.me && senders.indexOf(e) < 0) senders.push(e); });
     if (!senders.length) { toast('These are your own messages'); return; }
-    var cats = ['partners', 'staff', 'people', 'receipts', 'newsletters', 'notifications', 'calendar'];
+    var cats = ['partners', 'staff', 'people', 'receipts', 'newsletters', 'notifications', 'calendar'].concat(S.customs.map(function (c) { return c.id; }));
     var el = openSheet('Move to category', '<p class="ml-p">All mail from ' + (senders.length === 1 ? esc(senders[0]) : senders.length + ' senders') + ' goes there from now on.</p><div class="ml-menu">' +
-      cats.map(function (c) { return '<button type="button" class="ml-menu__i" data-mv="' + c + '">' + ic('folder') + '<span>' + esc(CAT_NAMES[c]) + '</span></button>'; }).join('') + '</div>');
+      cats.map(function (c) { return '<button type="button" class="ml-menu__i" data-mv="' + c + '">' + ic('folder') + '<span>' + esc(CAT_NAMES[c] || (S.customs.filter(function (x) { return x.id === c; })[0] || {}).name || c) + '</span></button>'; }).join('') + '</div>');
     el.addEventListener('click', function (e) {
       var b = e.target.closest('[data-mv]'); if (!b) return;
       var c = b.dataset.mv;
@@ -674,7 +728,7 @@
       Promise.all(Object.keys(perBox).map(function (a) { return api.moveCat(perBox[a], c, a); })).then(function () {
         S.threads.forEach(function (t) { if (t.from && senders.indexOf(t.from.email) >= 0) { t.cat = c; patchRow(t); } });
         clearPicks();
-        toast('Moved to ' + CAT_NAMES[c]);
+        toast('Moved to ' + (CAT_NAMES[c] || (S.customs.filter(function (x) { return x.id === c; })[0] || {}).name || 'the category'));
         loadOverview();
         if (S.v) loadList({ quiet: true });
       }).catch(failed);
@@ -698,10 +752,20 @@
     $('[data-list-title]').textContent = listTitle();
     $('[data-list-note]').textContent = MOCK ? 'Sample mail' : '';
     var input = $('[data-search] input'); if (input && document.activeElement !== input) input.value = S.q;
+    var asked = S.q && S.q.charAt(0) === '?' ? S.q.slice(1).trim() : '';
     if (!opts.more) { if (!opts.quiet || !S.threads.length) rows.innerHTML = skeleton(8); S.next = ''; if (!opts.quiet) { S.picked = {}; S.anchor = ''; } }
     S.loading = true;
     renderTabs(); renderFilters(); renderSelBar();
     var list = accts();
+    if (asked) {
+      return api.smartSearch(asked, list[0] || '').then(function (d) {
+        if (seq !== listSeq) return;
+        S.loading = false; (d.threads || []).forEach(function (t) { t.mb = list[0] || ''; S.mbOf[t.id] = t.mb; });
+        S.threads = d.threads || []; S.next = ''; S.nexts = {};
+        var note = $('[data-list-note]'); if (note) note.textContent = d.understood ? 'Searched ' + d.q + (d.major ? ', major partners' : d.partners ? ', partners' : '') : 'Could not read that question';
+        renderList();
+      }).catch(function (e) { if (seq !== listSeq) return; S.loading = false; rows.innerHTML = '<div class="ml-empty"><b>Search did not run</b><span>' + esc(e.message) + '</span></div>'; });
+    }
     var jobs = list.filter(function (a) { return !opts.more || S.nexts[a]; }).map(function (a) {
       var o = listOpts(); o.mb = a;
       var p = api.threads(S.label, S.q, opts.more ? S.nexts[a] : '', o).then(function (d) { return { a: a, d: d }; });
@@ -721,14 +785,15 @@
       S.loading = false;
       if (d.level) S.level = Object.assign(S.level, d.level);
       var all = opts.more ? S.threads.concat(merged) : merged;
-      if (list.length > 1) { var asc = effSort() === 'old'; all.sort(function (x, y) { return asc ? String(x.date).localeCompare(String(y.date)) : String(y.date).localeCompare(String(x.date)); }); }
+      if (list.length > 1 && S.sort !== 'prio') { var asc = effSort() === 'old'; all.sort(function (x, y) { return asc ? String(x.date).localeCompare(String(y.date)) : String(y.date).localeCompare(String(x.date)); }); }
+      if (S.sort === 'prio') all.sort(function (x, y) { return (y.prio || 0) - (x.prio || 0) || String(y.date).localeCompare(String(x.date)); });
       S.threads = all;
       S.next = Object.keys(S.nexts).length ? 'more' : '';
       S.scanned = scanned;
       Object.keys(S.picked).forEach(function (id) { if (!findThread(id)) delete S.picked[id]; });
       renderSelBar();
       var note = $('[data-list-note]'); if (note && !MOCK) note.textContent = S.v && inboxPlain() && S.v !== 'waiting' && S.scanned ? 'From your newest ' + S.scanned : '';
-      if (inboxPlain() && !opts.more) loadOverview();
+      if (inboxPlain() && !opts.more) { loadOverview(); loadBrief(); }
       if (S.sel >= S.threads.length) S.sel = S.threads.length - 1;
       renderList();
     }).catch(function (e) {
@@ -767,7 +832,7 @@
       rows.innerHTML = '<div class="ml-empty"><b>' + none + '</b>' + (S.q ? '<span>Gmail search words work here, like from:, has:attachment and before:2026/10/01.</span>' : activeFlags().length ? '<button type="button" class="ml-btn" data-act="flags-clear">Clear filters</button>' : '') + '</div>';
       return;
     }
-    rows.innerHTML = cleanHtml() + S.threads.map(rowHtml).join('') + (S.next ? '<div class="ml-more"><button type="button" class="ml-btn" data-act="more">Show more</button></div>' : '');
+    rows.innerHTML = briefHtml() + nudgeHtml() + cleanHtml() + S.threads.map(rowHtml).join('') + (S.next ? '<div class="ml-more"><button type="button" class="ml-btn" data-act="more">Show more</button></div>' : '');
   }
   function patchRow(t) {
     var i = S.threads.indexOf(t);
@@ -886,26 +951,62 @@
   var money = function (n) { return '$' + Math.round(Number(n) || 0).toLocaleString('en-US'); };
   var shortDay = function (iso) { return iso ? new Date(String(iso).slice(0, 10) + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
   function loadAssist(id, seq) {
-    S.assist = { id: id, summary: '', replies: [], ask: false, card: null, loading: true };
+    S.assist = { id: id, summary: '', replies: [], ask: false, card: null, loading: true, gift: null, commitments: [], profile: null, files: {}, answer: '', times: null, major: !!(findThread(id) && findThread(id).major) };
     drawAssist();
     api.assist(id).then(function (a) {
       if (seq !== threadSeq || !S.assist) return;
-      S.assist.summary = a.summary || ''; S.assist.replies = a.replies || []; S.assist.ask = !!a.ask; S.assist.loading = false; drawAssist();
+      S.assist.summary = a.summary || ''; S.assist.replies = a.replies || []; S.assist.ask = !!a.ask; S.assist.loading = false;
+      S.assist.gift = a.gift || null; S.assist.commitments = a.commitments || [];
+      drawAssist();
     }).catch(function () { if (seq === threadSeq && S.assist) { S.assist.loading = false; drawAssist(); } });
     var p = partnerOf(S.thread);
     if (p && hubAccess().workCenter) api.partner(p.id).then(function (d) { if (seq === threadSeq && S.assist) { S.assist.card = d.partner; drawAssist(); } }).catch(function () { /* the chip above still opens the partner */ });
+    var m = (S.thread.messages || []).filter(function (x) { return !x.draft && x.from && x.from.email !== S.me; }).slice(-1)[0];
+    if (m) api.sender(m.from.email, m.from.name, boxOf(id)).then(function (d) { if (seq === threadSeq && S.assist) { S.assist.profile = d.profile; drawAssist(); } }).catch(function () { /* no profile line */ });
+    // What each file is (Clef reads a picture; a name and the email decide the rest), at most three, quietly.
+    var files = []; (S.thread.messages || []).forEach(function (x) { (x.attachments || []).forEach(function (f) { if (!f.inline || !/^image\//.test(f.mime)) files.push({ m: x, f: f }); }); });
+    files.slice(0, 3).forEach(function (x) { api.readFile(x.m.id, x.f, S.thread.subject, id).then(function (r) { if (seq === threadSeq && S.assist) { S.assist.files[x.m.id + '|' + x.f.id] = r; drawFileKinds(); } }).catch(function () { /* none */ }); });
+  }
+  var KIND_NAME = { check: 'Check', receipt: 'Receipt', w9: 'W-9', grant_letter: 'Grant letter', photo: 'Photo', other: '' };
+  function drawFileKinds() {
+    var a = S.assist; if (!a || !S.thread) return;
+    $$('.ml-file').forEach(function (el) {
+      var btn = el.querySelector('[data-act="view-file"]'); if (!btn) return;
+      var art = el.closest('.ml-msg'); var mid = art && art.dataset.mid;
+      var m = msgById(mid); if (!m) return;
+      var files = (m.attachments || []).filter(function (f) { return !f.inline || !/^image\//.test(f.mime); });
+      var f = files[+btn.dataset.k]; if (!f) return;
+      var r = a.files[mid + '|' + f.id]; if (!r || !KIND_NAME[r.kind]) return;
+      var old = el.querySelector('.ml-fk'); if (old) old.remove();
+      el.insertAdjacentHTML('beforeend', '<span class="ml-fk"><em class="ml-chip">' + esc(KIND_NAME[r.kind]) + '</em>' + (r.next ? (r.next.href ? '<a class="ml-linkbtn" href="' + esc(r.next.href) + '">' + esc(r.next.text) + '</a>' : '<span>' + esc(r.next.text) + '</span>') : '') + '</span>');
+    });
+  }
+  function profileHtml(p, hasCard) {
+    if (!p || (hasCard && p.kind === 'partner')) return '';
+    var hist = p.history && p.history.n ? p.history.n + (p.history.more ? '+' : '') + ' conversation' + (p.history.n === 1 ? '' : 's') + (p.history.lastDate ? ', last ' + esc(shortDay(p.history.lastDate)) : '') : 'First email';
+    return '<div class="ml-prof"><span class="ml-prof__t"><b>' + esc(p.name || p.email) + '</b><span>' + esc(p.role) + '. ' + hist + '.</span></span>' +
+      (p.partner ? '<a class="ml-btn" href="/work/partner/' + encodeURIComponent(p.partner.id) + '">Open partner</a>' : '') +
+      (p.canProspect ? '<button type="button" class="ml-btn" data-act="prospect">Add as prospect</button>' : '') + '</div>';
+  }
+  function giftHtml(a, p) {
+    if (!a.gift || !p) return '';
+    return '<div class="ml-gift"><b>' + esc(p.name || 'The partner') + ' mentions a ' + money(a.gift.amount) + ' gift</b><span>Nothing is saved until you confirm each step.</span><div class="ml-gift__b"><button type="button" class="ml-btn" data-act="gift-note">Note the expected gift in Blackbaud</button><button type="button" class="ml-btn" data-act="gift-chat">Tell Partner Care in Chat</button></div></div>';
+  }
+  function commitHtml(a) {
+    if (!a.commitments || !a.commitments.length) return '';
+    return '<div class="ml-commit"><b>You promised</b>' + a.commitments.map(function (c, i) { return '<div class="ml-commit__i"><span>' + esc(c.text) + (c.due ? ' <em>' + esc(shortDay(c.due)) + '</em>' : '') + '</span><button type="button" class="ml-btn" data-act="commit-task" data-i="' + i + '">Make a task</button></div>'; }).join('') + '</div>';
   }
   function partnerCardHtml(c, p) {
     var holders = (c.holders || []).map(function (h) { return esc(h.name) + (h.type ? ' (' + esc(h.type) + ')' : ''); }).join(', ');
     var cell = function (k, v) { return v ? '<div><dt>' + k + '</dt><dd>' + v + '</dd></div>' : ''; };
     return '<div class="ml-pcard"><div class="ml-pcard__h"><span class="ml-pcard__ic">' + ic('person') + '</span><a href="/work/partner/' + encodeURIComponent(c.id) + '"><b>' + esc(c.name || p.name || 'Partner') + '</b></a>' +
-      (c.doNotEmail ? '<em class="ml-chip ml-chip--sun">Do not email</em>' : '') + '</div><dl class="ml-pcard__g">' +
+      (c.doNotEmail ? '<em class="ml-chip ml-chip--sun">Do not email</em>' : '') + (S.assist && S.assist.major ? '<em class="ml-chip ml-chip--leaf">Major partner</em>' : '') + '</div><dl class="ml-pcard__g">' +
       cell('Lifetime giving', c.count ? money(c.total) + ' in ' + c.count + (c.count === 1 ? ' gift' : ' gifts') : 'No gifts yet') +
       cell('Last gift', c.last ? money(c.last.amount) + ' on ' + esc(shortDay(c.last.date)) + (c.last.fund ? ', ' + esc(c.last.fund) : '') : '') +
       cell('This year', c.count ? money(c.ytd) : '') + cell('Held by', holders || 'No one assigned') +
       cell('Last contact', c.lastContact ? esc(shortDay(c.lastContact.date)) + (c.lastContact.category ? ', ' + esc(c.lastContact.category) : '') : 'None on record') +
       cell('Open actions', c.openActions ? String(c.openActions) : '') + '</dl>' +
-      '<div class="ml-pcard__acts"><a class="ml-btn" href="/work/partner/' + encodeURIComponent(c.id) + '">Open partner</a><button type="button" class="ml-btn" data-act="log-partner">' + ic('log') + 'Log as an action</button></div></div>';
+      '<div class="ml-pcard__acts"><a class="ml-btn" href="/work/partner/' + encodeURIComponent(c.id) + '">Open partner</a><button type="button" class="ml-btn" data-act="log-one">' + ic('log') + (S.assist && S.assist.logged ? 'Logged' : 'Log as an action') + '</button><button type="button" class="ml-btn" data-act="timeline">Timeline</button></div><div class="ml-tl" data-tl hidden></div></div>';
   }
   function drawAssist() {
     var a = S.assist, box = $('[data-assist]'), sg = $('[data-sugg]');
@@ -914,11 +1015,111 @@
     var html = '';
     if (a.ask || a.summary) html += '<div class="ml-sum">' + (a.ask ? '<em class="ml-chip ml-chip--sun">' + ic('bolt') + 'Waiting on you</em>' : '') + (a.summary ? '<p><b>In short</b> ' + esc(a.summary) + '</p>' : '') + '</div>';
     if (a.card && p) html += partnerCardHtml(a.card, p);
+    html += profileHtml(a.profile, !!(a.card && p)) + giftHtml(a, p) + commitHtml(a);
+    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button></div>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
+    var keep = box.querySelector('[data-ask]') ? box.querySelector('[data-ask]').value : '';
     box.innerHTML = html; box.hidden = !html;
+    var ai2 = box.querySelector('[data-ask]'); if (ai2 && keep) ai2.value = keep;
     if (sg) {
       sg.hidden = !a.replies.length;
       sg.innerHTML = a.replies.length ? '<b>Suggested replies</b><div class="ml-sugg__l">' + a.replies.map(function (r, i) { return '<button type="button" class="ml-sugg__b" data-act="sugg" data-i="' + i + '">' + esc(r).replace(/\n/g, '<br>') + '</button>'; }).join('') + '</div>' : '';
     }
+  }
+  function logOne() {
+    var p = partnerOf(S.thread), t = S.thread; if (!p || !t || (S.assist && S.assist.logged)) return;
+    api.owners().then(function (d) {
+      var mine = (d.owners || []).filter(function (o) { return o.fid === d.mine; })[0];
+      if (!mine) return logAction(p);
+      var m = lastMsg(), date = ET(m && m.date);
+      return api.logAction({ owner: mine.fid, date: date, channel: 'email', summary: ('Email: ' + (t.subject || '')).slice(0, 255), tags: [], constituent_ids: [String(p.id)], req: 'mail-' + t.id + '-' + p.id + '-' + date }).then(function (r) {
+        api.logged(t.id, p.id).catch(function () { /* the log is in Blackbaud already */ });
+        if (S.assist) S.assist.logged = true;
+        drawAssist(); toast(r.dups && !r.created ? 'Already logged' : 'Logged on ' + (p.name || 'the partner')); loadOverview();
+      });
+    }).catch(function (e) { toast(e.message || 'That did not log. Try again.'); });
+  }
+  function showTimeline() {
+    var p = partnerOf(S.thread), box = $('[data-tl]'); if (!p || !box) return;
+    if (!box.hidden) { box.hidden = true; return; }
+    box.hidden = false; box.innerHTML = '<div class="ml-empty"><span>Loading the timeline</span></div>';
+    api.timeline(p.id, p.email, S.open).then(function (d) {
+      box.innerHTML = (d.items || []).length ? d.items.map(function (x) { return '<div class="ml-tl__i" data-k="' + esc(x.kind) + '"><time>' + esc(shortDay(x.at)) + '</time><em>' + esc(x.kind) + '</em><span>' + esc(x.text) + '</span></div>'; }).join('') : '<div class="ml-empty"><span>Nothing on record</span></div>';
+    }).catch(function (e) { box.innerHTML = '<div class="ml-empty"><span>' + esc(e.message) + '</span></div>'; });
+  }
+  function giftNote() {
+    var p = partnerOf(S.thread), a = S.assist; if (!p || !a || !a.gift) return;
+    if (!confirm('Add an action to ' + (p.name || 'the partner') + ' in Blackbaud: expected gift of ' + money(a.gift.amount) + '?')) return;
+    api.owners().then(function (d) {
+      var mine = (d.owners || []).filter(function (o) { return o.fid === d.mine; })[0] || (d.owners || [])[0];
+      if (!mine) throw new Error('Action entry is not open to you.');
+      var date = ET();
+      return api.logAction({ owner: mine.fid, date: date, channel: 'email', summary: ('Expected gift ' + money(a.gift.amount) + ' (email)').slice(0, 255), tags: [], constituent_ids: [String(p.id)], req: 'mail-gift-' + S.thread.id + '-' + p.id + '-' + date });
+    }).then(function () { toast('Expected gift noted on ' + (p.name || 'the partner')); }).catch(function (e) { toast(e.message || 'That did not save.'); });
+  }
+  function giftChat() {
+    var p = partnerOf(S.thread), a = S.assist; if (!p || !a || !a.gift) return;
+    api.chatBoot().then(function (d) {
+      var chans = (d.channels || []).filter(function (c) { return /partner.?care/i.test(c.name || ''); });
+      if (!chans.length) { toast('No Partner Care channel to post in. Use Send to Chat.'); return; }
+      var ch = chans[0];
+      if (!confirm('Post in #' + ch.name + ': ' + (p.name || 'A partner') + ' mentions a ' + money(a.gift.amount) + ' gift?')) return;
+      return api.chatSend(ch.id, (p.name || 'A partner') + ' emailed about a ' + money(a.gift.amount) + ' gift. Expect it. I have it from here.').then(function () { toast('Partner Care told'); });
+    }).catch(function (e) { toast(e.message || 'That did not post.'); });
+  }
+  function commitTask(i) {
+    var a = S.assist, c = a && a.commitments[i], t = S.thread; if (!c) return;
+    var b = { title: c.text.slice(0, 200), description: 'From my email "' + (t.subject || '') + '"\n\n' + location.origin + '/mail/' + hashFor(S.label, S.q, t.id), owner_email: S.me };
+    if (c.due) b.due_date = c.due;
+    api.task(b).then(function (d) { toast('Task made' + (d.task && d.task.code ? ' ' + d.task.code : '')); a.commitments.splice(i, 1); drawAssist(); }).catch(function (er) { toast(er.status === 404 || er.status === 403 ? 'Projects is not open to you yet' : er.message); });
+  }
+  function askAbout() {
+    var inp = $('[data-ask]'), a = S.assist; if (!inp || !a || inp.value.trim().length < 3) return;
+    a.answer = 'Reading the conversation'; drawAssist();
+    api.ask(S.open, inp.value.trim()).then(function (d) { a.answer = d.answer; drawAssist(); }).catch(function (e) { a.answer = e.message; drawAssist(); });
+  }
+  function addProspect() {
+    var pr = S.assist && S.assist.profile, t = S.thread; if (!pr) return;
+    if (!confirm('Make a task for Support to add ' + (pr.name || pr.email) + ' as a prospect in Blackbaud?')) return;
+    api.task({ title: 'Add ' + (pr.name || pr.email) + ' as a prospect in Blackbaud', description: 'Email ' + pr.email + '. From my email "' + (t.subject || '') + '"\n\n' + location.origin + '/mail/' + hashFor(S.label, S.q, t.id), owner_email: S.me }).then(function () { toast('Task made'); }).catch(function (er) { toast(er.status === 404 || er.status === 403 ? 'Projects is not open to you yet' : er.message); });
+  }
+  function categoriesSheet() {
+    var body = function () { return '<p class="ml-p">Describe what belongs in a category. Mail reads each new email against your words, and Move to category teaches it by sender.</p><div class="ml-menu">' + (S.customs.length ? S.customs.map(function (c) { return '<div class="ml-menu__i ml-mrow"><span><b>' + esc(c.name) + '</b><br><small>' + esc(c.description) + '</small></span><button type="button" class="ml-btn" data-delcat="' + esc(c.id) + '">Remove</button></div>'; }).join('') : '<p class="ml-p">None yet.</p>') + '</div><form class="ml-form" data-catf><label>Name<input class="ml-input" name="name" maxlength="40" required placeholder="Trips" /></label><label>What belongs in it<textarea class="ml-input" name="description" rows="3" maxlength="300" required placeholder="Anything about a mission trip, a visit or travel plans"></textarea></label><div class="ml-sheet__acts"><button type="submit" class="ml-btn ml-btn--primary">Add category</button></div></form>'; };
+    var el = openSheet('Categories in your words', body());
+    var redraw = function () { el.querySelector('.ml-sheet__body').innerHTML = body(); };
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-delcat]'); if (!b) return;
+      api.dropCategory(b.dataset.delcat).then(function () { S.customs = S.customs.filter(function (c) { return c.id !== b.dataset.delcat; }); redraw(); renderTabs(); loadOverview(); if (S.v === 'cat:' + b.dataset.delcat) go('INBOX', '', ''); }).catch(failed);
+    });
+    el.addEventListener('submit', function (e) {
+      e.preventDefault(); var f = e.target;
+      api.newCategory(f.name.value.trim(), f.description.value.trim()).then(function (d) { S.customs.push(d.category); redraw(); renderTabs(); toast('Category added. Mail reads your inbox against it now.'); loadOverview(); }).catch(function (er) { toast(er.message); });
+    });
+  }
+  function slotLabel(iso) { return new Date(iso).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET'; }
+  function findTime() {
+    var t = S.thread; if (!t) return;
+    var guests = []; (t.messages || []).forEach(function (m) { [m.from].concat(m.to || [], m.cc || []).forEach(function (x) { if (x && /@favorintl\.org$/.test(x.email) && x.email !== S.me && guests.indexOf(x.email) < 0) guests.push(x.email); }); });
+    var el = openSheet('Find a time', '<div class="ml-empty"><span>Reading calendars</span></div>');
+    var draw = function (d) {
+      var slots = d.slots || [];
+      el.querySelector('.ml-sheet__body').innerHTML = (slots.length ? '<p class="ml-p">Free for you' + (d.guests.length ? ' and ' + d.guests.length + ' on staff' : '') + ', weekdays 9 to 5 Eastern.' + (d.note ? ' ' + esc(d.note) + '.' : '') + '</p><div class="ml-menu">' + slots.map(function (x, i) { return '<label class="ml-menu__i ml-check"><input type="checkbox" data-slot="' + i + '" /><span>' + esc(slotLabel(x)) + '</span></label>'; }).join('') + '</div><div class="ml-sheet__acts"><button type="button" class="ml-btn" data-slots-reply>Put in my reply</button>' + (guests.length === 0 || true ? '<button type="button" class="ml-btn ml-btn--primary" data-slots-book>Book the first one checked</button>' : '') + '</div>' : '<p class="ml-p">No free time in the next week.</p>');
+      el._slots = slots;
+    };
+    api.times({ guests: guests, minutes: 30, days: 10 }).then(draw).catch(function (e) { el.querySelector('.ml-sheet__body').innerHTML = '<p class="ml-p">' + esc(e.message) + '</p>'; });
+    el.addEventListener('click', function (e) {
+      var picked = $$('[data-slot]', el).filter(function (c) { return c.checked; }).map(function (c) { return el._slots[+c.dataset.slot]; });
+      if (e.target.closest('[data-slots-reply]')) {
+        if (!picked.length) return toast('Check at least one time');
+        var text = 'Here are times that work for me (Eastern):\n' + picked.map(function (x) { return slotLabel(x).replace(' ET', ''); }).join('\n') + '\n\nTell me which one suits you.';
+        closeSheet(null, function () { startReply('reply', null, text); });
+      }
+      if (e.target.closest('[data-slots-book]')) {
+        if (!picked.length) return toast('Check a time');
+        if (!guests.length) return toast('Book needs staff on the email. Put the times in your reply.');
+        if (!confirm('Book a FavorOS meeting "' + (t.subject || 'Meeting') + '" at ' + slotLabel(picked[0]) + ' and invite ' + guests.join(', ') + '?')) return;
+        api.meetCreate({ title: (t.subject || 'Meeting').slice(0, 140), startsAt: picked[0], durationMin: 30, invitees: guests.map(function (g) { return { email: g }; }), access: 'invited' }).then(function () { closeSheet(); toast('Meeting booked and invited'); }).catch(function (er) { toast(er.message); });
+      }
+    });
   }
   function partnerOf(t) {
     var msgs = (t && t.messages) || [];
@@ -985,6 +1186,72 @@
       f.addEventListener('load', function () { fitFrame(f, box, t.messages.indexOf(m) > 0); });
     });
   }
+  /* Hover cards for what a message mentions: appeal codes, Lookup IDs and fund names. A shared module (window.FavorEntity) takes
+     over when the app has one; until then this adapter asks /api/mail/entity. */
+  var ENT_RE = /\b[A-Z]\d{2}[0-9A-C]-[A-Z0-9]{1,14}\b|\b(?:Lookup ID|lookup id|Constituent ID|ID)\s*[:#]?\s*(\d{3,7})\b/g;
+  var entCache = {};
+  var Entity = {
+    card: function (kind, key) {
+      if (window.FavorEntity && window.FavorEntity.card) return window.FavorEntity.card(kind, key);
+      var k = kind + '|' + key;
+      if (!entCache[k]) entCache[k] = api.entity(kind, key).then(function (d) { return d.card; }).catch(function () { return null; });
+      return entCache[k];
+    }
+  };
+  function markEntities(d) {
+    if (!d || !d.body || d.body.dataset.fosEnt) return;
+    d.body.dataset.fosEnt = '1';
+    var fundRe = S.names && S.names.length ? new RegExp('\\b(' + S.names.slice(0, 200).map(function (n) { return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')\\b', 'g') : null;
+    var walker = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT, { acceptNode: function (n) { return n.parentElement && !n.parentElement.closest('a,script,style,.fos-ent') && /\S/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+    var nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.slice(0, 400).forEach(function (n) {
+      var text = n.nodeValue, hits = [], m;
+      ENT_RE.lastIndex = 0;
+      while ((m = ENT_RE.exec(text))) hits.push({ i: m.index, t: m[0], k: m[1] ? 'lookup' : 'appeal', q: m[1] || m[0] });
+      if (fundRe) { fundRe.lastIndex = 0; while ((m = fundRe.exec(text))) hits.push({ i: m.index, t: m[0], k: 'fund', q: m[0] }); }
+      if (!hits.length) return;
+      hits.sort(function (a, b) { return a.i - b.i; });
+      var frag = d.createDocumentFragment(), at = 0;
+      hits.forEach(function (h) {
+        if (h.i < at) return;
+        frag.appendChild(d.createTextNode(text.slice(at, h.i)));
+        var sp = d.createElement('span'); sp.className = 'fos-ent'; sp.dataset.k = h.k; sp.dataset.q = h.q; sp.textContent = h.t; frag.appendChild(sp);
+        at = h.i + h.t.length;
+      });
+      frag.appendChild(d.createTextNode(text.slice(at)));
+      n.parentNode.replaceChild(frag, n);
+    });
+    var st = d.createElement('style'); st.textContent = '.fos-ent{border-bottom:1px dotted #235578;cursor:help}'; d.head.appendChild(st);
+  }
+  var tipCard = null, tipT = 0;
+  function entCardHtml(c) { return '<b>' + esc(c.title) + '</b><span>' + esc(c.sub || '') + '</span>' + (c.lines || []).map(function (l) { return '<div><small>' + esc(l.k) + '</small> ' + esc(l.v) + '</div>'; }).join(''); }
+  function bindEntities(f, d) {
+    d.addEventListener('mouseover', function (e) {
+      var el = e.target.closest && e.target.closest('.fos-ent'); if (!el) return;
+      clearTimeout(tipT);
+      tipT = setTimeout(function () {
+        Entity.card(el.dataset.k, el.dataset.q).then(function (c) {
+          if (!c) return;
+          if (!tipCard) { tipCard = document.createElement('div'); tipCard.className = 'ml-ent'; document.body.appendChild(tipCard); }
+          tipCard.innerHTML = entCardHtml(c) + '<small class="ml-ent__more">Press for details</small>';
+          var fr = f.getBoundingClientRect(), r = el.getBoundingClientRect();
+          tipCard.hidden = false;
+          tipCard.style.left = Math.max(8, Math.min(innerWidth - 300, fr.left + r.left)) + 'px';
+          tipCard.style.top = Math.min(innerHeight - 170, fr.top + r.bottom + 6) + 'px';
+        });
+      }, 250);
+    });
+    d.addEventListener('mouseout', function (e) { if (e.target.closest && e.target.closest('.fos-ent')) { clearTimeout(tipT); if (tipCard) tipCard.hidden = true; } });
+    d.addEventListener('click', function (e) {
+      var el = e.target.closest && e.target.closest('.fos-ent'); if (!el) return;
+      e.preventDefault();
+      Entity.card(el.dataset.k, el.dataset.q).then(function (c) {
+        if (!c) return;
+        if (tipCard) tipCard.hidden = true;
+        openSheet(c.title, '<div class="ml-ent-side">' + entCardHtml(c) + (c.href ? '<div class="ml-sheet__acts"><a class="ml-btn ml-btn--primary" href="' + esc(c.href) + '">Open</a></div>' : '') + '</div>', { wide: false });
+      });
+    });
+  }
   function fitFrame(f, box, fold) {
     var d; try { d = f.contentDocument; } catch (e) { return; }
     if (!d || !d.body) return;
@@ -1008,6 +1275,7 @@
       }
     }
     fit();
+    if (S.level.read && !S.headersOnly) { markEntities(d); bindEntities(f, d); }
     d.querySelectorAll('img').forEach(function (im) { if (!im.complete) im.addEventListener('load', fit); });
     if (window.ResizeObserver) { var ro = new ResizeObserver(function () { f.style.height = d.documentElement.scrollHeight + 'px'; }); ro.observe(d.body); }
     d.addEventListener('keydown', function (e) { if (e.key === 'Escape' || (!e.metaKey && !e.ctrlKey && /^[jkeuarf#/c]$/.test(e.key))) document.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, shiftKey: e.shiftKey })); });
@@ -1145,9 +1413,21 @@
     id = curIds(id);
     if (!S.level.write || !canWrite()) return askWrite('snooze');
     var opts = snoozeTimes();
-    var el = openSheet('Snooze until', '<div class="ml-menu">' + opts.map(function (o, k) { return '<button type="button" class="ml-menu__i" data-snz="' + k + '">' + ic('clock') + '<span>' + esc(o[0]) + '</span><small>' + esc(o[1].toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })) + '</small></button>'; }).join('') +
+    var pp = partnerOf(S.thread);
+    var waits = '<button type="button" class="ml-menu__i" data-snzw="reply">' + ic('reply') + '<span>Until they reply</span></button>' + (pp ? '<button type="button" class="ml-menu__i" data-snzw="gift">' + ic('person') + '<span>Until their next gift</span><small>' + esc(pp.name) + '</small></button>' : '');
+    var el = openSheet('Snooze until', waits + '<div class="ml-menu">' + opts.map(function (o, k) { return '<button type="button" class="ml-menu__i" data-snz="' + k + '">' + ic('clock') + '<span>' + esc(o[0]) + '</span><small>' + esc(o[1].toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })) + '</small></button>'; }).join('') +
       '<div class="ml-menu__pick"><label for="ml-snz-at">Pick a date and time</label><input id="ml-snz-at" type="datetime-local" class="ml-input" /><button type="button" class="ml-btn ml-btn--primary" data-snz="pick">Snooze</button></div></div>', { anchor: anchor });
     el.addEventListener('click', function (e) {
+      var w = e.target.closest('[data-snzw]');
+      if (w) {
+        closeSheet();
+        var tw = findThread(id), wu = tw && tw.unread && isPrimary(tw.labelIds);
+        var goneW = S.label === 'INBOX' ? removeFromList(id) : null;
+        afterLeave(id);
+        if (wu) bumpInbox(-1);
+        api.snoozeWait(id, w.dataset.snzw, pp ? pp.id : '').then(function () { toast(w.dataset.snzw === 'reply' ? 'Back in your inbox when they reply' : 'Back in your inbox at their next gift', function () { api.unsnooze(id).then(function () { putBack(goneW); if (wu) bumpInbox(1); }).catch(failed); }); }).catch(function (er) { putBack(goneW); if (wu) bumpInbox(1); failed(er, 'snooze'); });
+        return;
+      }
       var b = e.target.closest('[data-snz]'); if (!b) return;
       var until = b.dataset.snz === 'pick' ? new Date(el.querySelector('#ml-snz-at').value) : opts[+b.dataset.snz][1];
       if (!until || !isFinite(until.getTime()) || until < new Date()) { toast('Pick a time later than now'); return; }
@@ -1210,6 +1490,9 @@
       items.push(['snooze', 'clock', 'Snooze', '']);
       items.push(['star', 'star', st.starred ? 'Remove star' : 'Star', '']);
     }
+    var us = ((t.messages || []).filter(function (m) { return m.unsubscribe && (m.unsubscribe.url || m.unsubscribe.mailto); }).slice(-1)[0] || {}).unsubscribe;
+    if (us) items.push(['unsub', 'x', 'Unsubscribe', us.url ? 'Opens the sender\'s page' : 'Sends the sender an email']);
+    items.push(['find-time', 'cal', 'Find a time', 'From your calendar']);
     items.push(['gmail', 'ext', 'Open in Gmail', '']);
     var el = openSheet('More', '<div class="ml-menu">' + items.map(function (x) { return '<button type="button" class="ml-menu__i" data-more="' + x[0] + '">' + ic(x[1]) + '<span>' + esc(x[2]) + '</span>' + (x[3] ? '<small>' + esc(x[3]) + '</small>' : '') + '</button>'; }).join('') + '</div>', { anchor: anchor });
     el.addEventListener('click', function (e) {
@@ -1220,11 +1503,26 @@
       if (k === 'to-chat') return toChat();
       if (k === 'log-action') return logAction(p);
       if (k === 'snooze') return snoozeMenu();
+      if (k === 'unsub') return closeSheet(null, unsubscribe);
+      if (k === 'find-time') return closeSheet(null, findTime);
       closeSheet(null, function () {
         if (k === 'open-partner') location.href = '/work/partner/' + encodeURIComponent(p.id);
         else if (k !== 'gmail') act(k);
       });
     });
+  }
+  function unsubscribe() {
+    var t = S.thread; if (!t) return;
+    var m = (t.messages || []).filter(function (x) { return x.unsubscribe && (x.unsubscribe.url || x.unsubscribe.mailto); }).slice(-1)[0];
+    if (!m) return toast('This sender gave no unsubscribe address');
+    var u = m.unsubscribe;
+    if (u.url) { window.open(u.url, '_blank', 'noopener'); }
+    else {
+      var addr = u.mailto.replace(/^mailto:/i, '').split('?')[0];
+      if (!confirm('Send an unsubscribe email to ' + addr + '?')) return;
+      api.send({ to: [{ email: addr, name: '' }], subject: 'unsubscribe', html: '<p>unsubscribe</p>', mb: S.threadBox }).then(function () { toast('Unsubscribe sent'); }).catch(failed);
+    }
+    act('archive');
   }
   function lastMsg() { var t = S.thread; return t ? t.messages.filter(function (m) { return !m.draft; }).slice(-1)[0] : null; }
   function plainOf(m) { var d = document.createElement('div'); d.innerHTML = m && m.html ? m.html : ''; d.querySelectorAll('style,script,.gmail_quote,blockquote').forEach(function (x) { x.remove(); }); return (d.textContent || (m && m.snippet) || '').replace(/\s+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim(); }
@@ -1280,7 +1578,7 @@
       if (!f.owner) return;
       btn.disabled = true; btn.textContent = 'Logging';
       api.logAction({ owner: f.owner.value, date: f.date.value, channel: f.how.value, summary: f.summary.value.trim(), tags: [], constituent_ids: [String(p.id)], req: 'mail-' + t.id + '-' + p.id + '-' + f.date.value })
-        .then(function (d) { closeSheet(); toast(d.dups && !d.created ? 'Already logged' : 'Logged on ' + (p.name || 'the partner')); })
+        .then(function (d) { closeSheet(); api.logged(t.id, p.id).catch(function () {}); if (S.assist) { S.assist.logged = true; drawAssist(); } loadOverview(); toast(d.dups && !d.created ? 'Already logged' : 'Logged on ' + (p.name || 'the partner')); })
         .catch(function (er) { btn.disabled = false; btn.textContent = 'Log in Blackbaud'; toast(er.message); });
     });
   }
@@ -1373,7 +1671,7 @@
     el.className = 'ml-c';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', o.title || 'New message');
     var sig = !o.noSig && S.signature ? '<br><br><div class="gmail_signature">' + S.signature + '</div>' : '';
-    el.innerHTML = '<div class="ml-c__box"><div class="ml-c__bar"><button type="button" class="ml-c__cancel" data-c="close">Cancel</button><b>' + esc(o.title || 'New message') + '</b><span class="ml-c__save" data-c-saved></span><button type="button" class="ml-iconbtn ml-dt" data-c="close" aria-label="Close and keep the draft" title="Close (the draft is kept)">' + ic('x') + '</button><button type="button" class="ml-btn ml-btn--primary ml-c__send" data-c="send">' + ic('send') + '<span>Send</span></button></div>' +
+    el.innerHTML = '<div class="ml-c__box"><div class="ml-c__bar"><button type="button" class="ml-c__cancel" data-c="close">Cancel</button><b>' + esc(o.title || 'New message') + '</b><span class="ml-c__save" data-c-saved></span><button type="button" class="ml-iconbtn ml-dt" data-c="close" aria-label="Close and keep the draft" title="Close (the draft is kept)">' + ic('x') + '</button><button type="button" class="ml-iconbtn ml-c__later" data-act="later-menu" aria-label="Send later" title="Send later">' + ic('clock') + '</button><button type="button" class="ml-btn ml-btn--primary ml-c__send" data-c="send">' + ic('send') + '<span>Send</span></button></div>' +
       '<div class="ml-c__scroll">' + fromRow(o) + addrRow('to', 'To', o.to) +
       '<div class="ml-c__cc"' + ((o.cc && o.cc.length) || (o.bcc && o.bcc.length) ? '' : ' hidden') + '>' + addrRow('cc', 'Cc', o.cc) + addrRow('bcc', 'Bcc', o.bcc) + '</div>' +
       '<div class="ml-c__row"><label for="ml-c-subj">Subject</label><input id="ml-c-subj" class="ml-c__in ml-c__subj" maxlength="900" value="' + esc(o.subject || '') + '" /></div>' +
@@ -1384,6 +1682,7 @@
         '<button type="button" class="ml-iconbtn" data-c="attach" aria-label="Attach a file" title="Attach a file">' + ic('clip') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-c="drive" aria-label="Link a Drive file" title="Link a Drive file">' + ic('drive') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-c="clip" aria-label="Link a clip" title="Link a clip">' + ic('rec') + '</button>' +
+        '<button type="button" class="ml-iconbtn" data-act="templates" aria-label="Templates" title="Templates with the partner\'s details">' + ic('draft') + '</button>' +
         '<span class="ml-c__sep"></span>' +
         '<button type="button" class="ml-iconbtn" data-fmt="bold" aria-label="Bold" title="Bold (Ctrl B)">' + ic('bold') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-fmt="italic" aria-label="Italic" title="Italic (Ctrl I)">' + ic('ital') + '</button>' +
@@ -1479,12 +1778,22 @@
     c.el.classList.remove('is-in'); c.el.classList.add('is-out');
     setTimeout(function () { c.el.remove(); }, 200);
   }
-  function sendNow() {
+  function sendNow(skipCheck) {
     var b = collect();
     if (!b.to.length && !b.cc.length && !b.bcc.length) { toast('Add who it goes to'); var t = $('#ml-c-to', C.el); if (t) t.focus(); return; }
-    if (!b.subject.trim() && !confirm('Send without a subject?')) return;
     var big = C.files.reduce(function (n, f) { return n + f.size; }, 0);
     if (big > 24 * 1048576) { toast('Files can add up to 24 MB. Link a big file from Drive instead.'); return; }
+    // The writing check: "donor", a greeting for someone else, an amount that differs, "attached" with no file, no subject.
+    if (!skipCheck) {
+      var c0 = C;
+      api.check({ to: b.to.map(function (x) { return x.email; }), subject: b.subject, html: b.html, files: C.files.length + C.forward.length, threadId: b.threadId, mb: b.mb }).then(function (d) {
+        if (C !== c0) return;
+        if (!(d.warnings || []).length) return sendNow(true);
+        var el = openSheet('Before this goes', '<ul class="ml-warn">' + d.warnings.map(function (w) { return '<li>' + esc(w.text) + '</li>'; }).join('') + '</ul><div class="ml-sheet__acts"><button type="button" class="ml-btn ml-btn--primary" data-close>Go back and fix it</button><button type="button" class="ml-btn" data-sendany>Send anyway</button></div>');
+        el.addEventListener('click', function (e) { if (e.target.closest('[data-sendany]')) closeSheet(null, function () { sendNow(true); }); });
+      }).catch(function () { sendNow(true); });
+      return;
+    }
     var c = C;
     c.sent = true; clearTimeout(c.saveT);
     b.files = c.files.map(function (f) { return { name: f.name, mime: f.mime, data: f.data }; });
@@ -1492,7 +1801,7 @@
     closeCompose(false);
     // Five seconds to take it back, as Gmail's Undo send.
     var undone = false;
-    toast('Sending', function () { undone = true; c.sent = false; openCompose(Object.assign({}, c.o, { to: b.to, cc: b.cc, bcc: b.bcc, subject: b.subject, body: $('[data-ed]', c.el) ? $('[data-ed]', c.el).innerHTML : '', quote: '', draftId: c.draftId, noSig: true })); if (C) { C.files = c.files; C.forward = c.forward; renderFiles(); if (c.o.quote) { var qd = document.createElement('div'); qd.className = 'ml-c__q'; qd.setAttribute('data-q', ''); qd.setAttribute('contenteditable', 'true'); qd.innerHTML = $('[data-q]', c.el) ? $('[data-q]', c.el).innerHTML : ''; $('[data-ed]', C.el).after(qd); } } });
+    toast('Sending', function () { undone = true; c.sent = false; openCompose(Object.assign({}, c.o, { to: b.to, cc: b.cc, bcc: b.bcc, subject: b.subject, body: $('[data-ed]', c.el) ? $('[data-ed]', c.el).innerHTML : '', quote: '', draftId: c.draftId, noSig: true })); });
     setTimeout(function () {
       if (undone) return;
       api.send(b).then(function (d) {
@@ -1501,6 +1810,52 @@
         else if (S.label === 'SENT') loadList({ quiet: true });
       }).catch(function (e) { toast(e.message || 'Not sent. Your draft is kept.'); c.sent = false; if (e.code === 'mail_scope') askWrite('send'); });
     }, 5000);
+  }
+  function laterMenu() {
+    if (!C) return;
+    var opts = snoozeTimes();
+    var el = openSheet('Send later', '<div class="ml-menu">' + opts.map(function (o, k) { return '<button type="button" class="ml-menu__i" data-lt="' + k + '">' + ic('clock') + '<span>' + esc(o[0]) + '</span><small>' + esc(o[1].toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })) + '</small></button>'; }).join('') +
+      '<div class="ml-menu__pick"><label for="ml-lt-at">Pick a date and time</label><input id="ml-lt-at" type="datetime-local" class="ml-input" /><button type="button" class="ml-btn ml-btn--primary" data-lt="pick">Schedule</button></div>' +
+      '<label class="ml-menu__i ml-check"><input type="checkbox" data-remind checked /><span>Remind me if there is no reply in 3 days</span></label></div>');
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-lt]'); if (!b || !C) return;
+      var at = b.dataset.lt === 'pick' ? new Date(el.querySelector('#ml-lt-at').value) : opts[+b.dataset.lt][1];
+      if (!at || !isFinite(at.getTime()) || at < new Date()) { toast('Pick a time later than now'); return; }
+      var body = collect();
+      if (C.files.length || C.forward.length) { toast('A message with files cannot wait. Send it now.'); return; }
+      body.sendAt = at.toISOString(); body.remindDays = el.querySelector('[data-remind]').checked ? 3 : 0;
+      closeSheet();
+      api.makeLater(body).then(function () { var c = C; if (c) { c.sent = true; closeCompose(false, true); } toast('Scheduled for ' + at.toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })); S.later = []; }).catch(failed);
+    });
+  }
+  function laterList() {
+    var el = openSheet('Scheduled messages', '<div class="ml-empty"><span>Loading</span></div>');
+    api.later().then(function (d) {
+      var l = d.later || [];
+      el.querySelector('.ml-sheet__body').innerHTML = l.length ? '<div class="ml-menu">' + l.map(function (x) { return '<div class="ml-menu__i ml-mrow"><span><b>' + esc(x.subject || '(no subject)') + '</b><br><small>To ' + esc((x.to || []).map(function (a2) { return a2.email || a2; }).join(', ')) + ', ' + esc(new Date(x.sendAt).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })) + '</small></span><button type="button" class="ml-btn" data-dellater="' + esc(x.id) + '">Cancel</button></div>'; }).join('') + '</div>' : '<p class="ml-p">Nothing is waiting to send.</p>';
+    }).catch(failed);
+    el.addEventListener('click', function (e) { var b = e.target.closest('[data-dellater]'); if (!b) return; api.dropLater(b.dataset.dellater).then(function () { b.closest('.ml-menu__i').remove(); toast('Cancelled'); }).catch(failed); });
+  }
+  function templatesMenu() {
+    var el = openSheet('Templates', '<div class="ml-empty"><span>Loading</span></div>');
+    var draw = function (list) {
+      el.querySelector('.ml-sheet__body').innerHTML = '<p class="ml-p">Fields fill from the partner on the To line: {first_name}, {name}, {last_gift}, {last_gift_date}, {total_giving}, {my_name}.</p><div class="ml-menu">' + (list.length ? list.map(function (t) { return '<div class="ml-menu__i ml-mrow"><button type="button" class="ml-linkbtn" data-tpl="' + esc(t.id) + '">' + esc(t.name) + '</button><button type="button" class="ml-btn" data-deltpl="' + esc(t.id) + '">Remove</button></div>'; }).join('') : '<p class="ml-p">No templates yet.</p>') + '</div>' + (C ? '<form class="ml-form" data-tplf><label>Save this message as a template<input class="ml-input" name="name" maxlength="60" placeholder="Thank you for your gift" required /></label><div class="ml-sheet__acts"><button type="submit" class="ml-btn">Save template</button></div></form>' : '');
+      el._list = list;
+    };
+    api.templates().then(function (d) { draw(d.templates || []); }).catch(failed);
+    el.addEventListener('click', function (e) {
+      var d1 = e.target.closest('[data-deltpl]');
+      if (d1) { api.dropTemplate(d1.dataset.deltpl).then(function () { el._list = el._list.filter(function (t) { return t.id !== d1.dataset.deltpl; }); draw(el._list); }).catch(failed); return; }
+      var u = e.target.closest('[data-tpl]'); if (!u || !C) return;
+      var t = el._list.filter(function (x) { return x.id === u.dataset.tpl; })[0]; if (!t) return;
+      var to = chips('to').map(function (x) { return x.email; });
+      api.fillTemplate(t.body, to).then(function (r) { closeSheet(null, function () { insertHtml('<div>' + esc(r.text).replace(/\n/g, '<br>') + '</div>'); }); }).catch(failed);
+    });
+    el.addEventListener('submit', function (e) {
+      e.preventDefault(); if (!C) return;
+      var ed = $('[data-ed]', C.el), text = (ed.innerText || '').trim();
+      api.saveTemplate(e.target.name.value.trim(), text).then(function () { toast('Template saved'); closeSheet(); }).catch(function (er) { toast(er.message); });
+    });
   }
   function readFile(file) {
     return new Promise(function (ok, no) {
@@ -1554,6 +1909,8 @@
   }
   function wireCompose(el) {
     el.addEventListener('click', function (e) {
+      var ta = e.target.closest('[data-act="templates"],[data-act="later-menu"]');
+      if (ta) { if (ta.dataset.act === 'templates') templatesMenu(); else laterMenu(); return; }
       var b = e.target.closest('[data-c],[data-fmt],[data-unchip],[data-unfile],[data-act="show-cc"],[data-sugi]');
       if (!b) { var chipsBox = e.target.closest('.ml-c__chips'); if (chipsBox) $('.ml-c__in', chipsBox).focus(); return; }
       if (b.dataset.sugi != null) return pickSug(b.closest('.ml-c__row'), +b.dataset.sugi);
@@ -1569,7 +1926,7 @@
       var c = b.dataset.c;
       if (c === 'close') closeCompose(false);
       else if (c === 'discard') closeCompose(false, true);
-      else if (c === 'send') sendNow();
+      else if (c === 'send') sendNow(false);
       else if (c === 'attach') $('[data-file]', el).click();
       else if (c === 'drive') drivePick();
       else if (c === 'clip') clipPick();
@@ -1588,7 +1945,7 @@
       changed();
     });
     el.addEventListener('keydown', function (e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); sendNow(); return; }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); sendNow(false); return; }
       if (e.key === 'Escape') { var s = e.target.closest('.ml-c__row') && $('[data-sug]', e.target.closest('.ml-c__row')); if (s && !s.hidden) { s.hidden = true; e.stopPropagation(); return; } e.stopPropagation(); closeCompose(false); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && e.target.closest('[data-ed]')) { e.preventDefault(); e.stopPropagation(); var u = prompt('Link address'); if (u) document.execCommand('createLink', false, /^(https?:|mailto:)/i.test(u) ? u : 'https://' + u); return; }
       if (!e.target.matches('[data-addr]')) return;
@@ -1645,6 +2002,24 @@
     else if (k === 'sort-menu') sortMenu(a);
     else if (k === 'flags-clear') { S.flags = {}; renderFilters(); loadList(); }
     else if (k === 'clean-review') cleanReview();
+    else if (k === 'brief-open') go('INBOX', '', id);
+    else if (k === 'brief-fresh') loadBrief(true);
+    else if (k === 'brief-hide') { try { sessionStorage.setItem('favor.mail.brief', ET()); } catch (e2) { /* private mode */ } var bh = $('.ml-brief'); if (bh) bh.remove(); }
+    else if (k === 'nudge-hide') { try { localStorage.setItem('favor.mail.nudge', ET().slice(0, 8) + Math.floor(Number(ET().slice(8, 10)) / 7)); } catch (e3) { /* private mode */ } var nh = $('.ml-clean--nudge'); if (nh) nh.remove(); }
+    else if (k === 'cats') categoriesSheet();
+    else if (k === 'prospect') addProspect();
+    else if (k === 'find-time') findTime();
+    else if (k === 'log-one') logOne();
+    else if (k === 'timeline') showTimeline();
+    else if (k === 'gift-note') giftNote();
+    else if (k === 'gift-chat') giftChat();
+    else if (k === 'ask-go') askAbout();
+    else if (k === 'commit-task') commitTask(+a.dataset.i);
+    else if (k === 'read-file') readFileKind(a);
+    else if (k === 'later-list') laterList();
+    else if (k === 'templates') templatesMenu();
+    else if (k === 'later-menu') laterMenu();
+    else if (k === 'unsub') unsubscribe();
     else if (k === 'clean-dismiss') { try { sessionStorage.setItem('favor.mail.clean', ET()); } catch (e2) { /* private mode */ } var cl = $('.ml-clean'); if (cl) cl.remove(); }
     else if (k === 'followup') followUp(id);
     else if (k === 'sugg') { var sg = S.assist && S.assist.replies[+a.dataset.i]; if (sg) startReply('reply', null, sg); }
@@ -1709,6 +2084,7 @@
       j: function () { stepThread(1); }, k: function () { stepThread(-1); },
       o: function () { var t = S.threads[S.sel]; if (t) go(S.label, S.q, t.id); }, Enter: function () { if (!S.open) { var t = S.threads[S.sel]; if (t) go(S.label, S.q, t.id); } },
       u: function () { if (S.open) go(S.label, S.q, ''); }, Escape: function () { if (pickedIds().length) clearPicks(); else if (S.open) go(S.label, S.q, ''); },
+      z: function () { if (lastUndo && Date.now() - lastUndo.at < 15000) { var u = lastUndo.fn; lastUndo = null; u(); } },
       x: function () { if (S.open && !isPhone()) return; var t = S.threads[S.sel < 0 ? 0 : S.sel]; if (t) { if (S.sel < 0) select(0); pick(t.id, false); } },
       e: function () { if (pickedIds().length) selAct('archive'); else act('archive'); }, '#': function () { if (pickedIds().length) selAct('trash'); else act('delete'); },
       s: function () { if (pickedIds().length) selAct('star'); else act('star'); },
@@ -1726,7 +2102,7 @@
     fn();
   });
   function keysHelp() {
-    var rows = [['j / k', 'Older / newer conversation'], ['o or Enter', 'Open'], ['u or Esc', 'Back to the list'], ['e', 'Archive'], ['#', 'Delete'], ['s', 'Star'], ['x', 'Select the highlighted conversation'], ['Shift click', 'Select a range'], ['Shift U / Shift I', 'Mark unread / read'], ['b', 'Snooze'], ['l', 'Labels'], ['r', 'Reply'], ['a', 'Reply all'], ['f', 'Forward'], ['c', 'Compose'], ['/', 'Search'], ['Ctrl Enter', 'Send']];
+    var rows = [['j / k', 'Older / newer conversation'], ['o or Enter', 'Open'], ['u or Esc', 'Back to the list'], ['e', 'Archive'], ['#', 'Delete'], ['s', 'Star'], ['x', 'Select the highlighted conversation'], ['z', 'Undo the last archive, delete or snooze'], ['Shift click', 'Select a range'], ['Shift U / Shift I', 'Mark unread / read'], ['b', 'Snooze'], ['l', 'Labels'], ['r', 'Reply'], ['a', 'Reply all'], ['f', 'Forward'], ['c', 'Compose'], ['/', 'Search'], ['Ctrl Enter', 'Send']];
     openSheet('Keyboard shortcuts', '<dl class="ml-keys">' + rows.map(function (r) { return '<dt><kbd>' + esc(r[0]) + '</kbd></dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>');
   }
 
@@ -1759,7 +2135,7 @@
       root.classList.toggle('is-ro', !canWrite() || !S.level.write);
       var bar = $('[data-allow]'); bar.hidden = !(S.level.headers && !S.level.read); $('[data-allow-link]').href = allowUrl('mail');
       if (!d.connected || (!S.level.headers && !S.level.read)) { renderConnect('read'); return; }
-      renderBoxes(); loadBoxes(); loadFrom();
+      renderBoxes(); loadBoxes(); loadFrom(); loadNames();
       loadLabels();
       route();
     }).catch(function (e) {

@@ -12,8 +12,10 @@ import { partnerMap, type PartnerLookup, type PartnerMap } from './partners';
 import { idsFor, rowsFor } from './rows';
 
 export const CATS = ['partners', 'staff', 'receipts', 'newsletters', 'notifications', 'calendar', 'people'] as const;
-export type Cat = (typeof CATS)[number];
-export const CAT_NAME: Record<Cat, string> = {
+export type Base = (typeof CATS)[number];
+/** A built-in category, or a custom one the person described in words (c_ and a short id). */
+export type Cat = string;
+export const CAT_NAME: Record<string, string> = {
   partners: 'Partners',
   staff: 'Staff',
   receipts: 'Receipts and gifts',
@@ -22,7 +24,8 @@ export const CAT_NAME: Record<Cat, string> = {
   calendar: 'Calendar',
   people: 'People',
 };
-export const isCat = (v: unknown): v is Cat => (CATS as readonly string[]).includes(String(v));
+export const isCustom = (v: unknown) => /^c_[a-z0-9]{4,12}$/.test(String(v));
+export const isCat = (v: unknown): v is Cat => (CATS as readonly string[]).includes(String(v)) || isCustom(v);
 
 export const CLEF_MODEL = '@cf/cloudflare/clef-flash';
 export const TEXT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
@@ -40,6 +43,8 @@ export interface SmartCtx {
   /** Stand-ins for tests. */
   ai?: Runner;
   partners?: PartnerLookup;
+  /** Biggest and total giving by partner id; tests pass a stand-in. */
+  giving?: (ids: string[]) => Promise<Record<string, { max: number; total: number; last: string; lastAmount?: number }>>;
 }
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
@@ -107,11 +112,12 @@ export interface Read {
 }
 
 /** Clef's read of one conversation from its sender, subject and preview. Null when the model is not there or did not answer. */
-export async function clefRead(ai: Runner | undefined, r: ThreadRow): Promise<Read | null> {
+export async function clefRead(ai: Runner | undefined, r: ThreadRow, customs: Custom[] = []): Promise<Read | null> {
   if (!ai) return null;
+  const questions = customs.length ? { ...QUESTIONS, kind: { ...QUESTIONS.kind, criteria: { ...QUESTIONS.kind.criteria, ...Object.fromEntries(customs.map((c) => [c.id, c.name + ': ' + c.description])) } } } : QUESTIONS;
   const state = `From: ${r.from?.name || ''} <${r.from?.email || ''}>\nSent to the recipient directly: ${r.toMe ? 'yes' : 'no, copied'}\nSubject: ${String(r.subject || '').slice(0, 200)}\nPreview: ${String(r.snippet || '').slice(0, 300)}`;
   try {
-    const out: any = await timeout(ai.run(CLEF_MODEL, { model: CLEF_MODEL.split('/').pop(), state, questions: QUESTIONS }), CLEF_MS, 'Clef');
+    const out: any = await timeout(ai.run(CLEF_MODEL, { model: CLEF_MODEL.split('/').pop(), state, questions }), CLEF_MS, 'Clef');
     const answers = out?.answers || out?.result?.answers;
     if (!answers) return null;
     const kind = String(answers.kind?.choice || '');
@@ -126,10 +132,55 @@ export async function clefRead(ai: Runner | undefined, r: ThreadRow): Promise<Re
 
 /* ------------------------------------------------------------------ classifying rows */
 
+export interface Custom {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export async function customsOf(env: Env, me: string): Promise<Custom[]> {
+  const r = await env.DB.prepare('SELECT id, name, description FROM hub_mail_custom WHERE email = ? ORDER BY created_at').bind(me).all<Custom>().catch(() => ({ results: [] as Custom[] }));
+  return r.results || [];
+}
+
+/** Largest gift, total and last gift date for each partner id, from the Blackbaud copy. One query for the whole list. */
+export async function givingOf(ctx: SmartCtx, ids: string[]): Promise<Record<string, { max: number; total: number; last: string; lastAmount?: number }>> {
+  const list = [...new Set(ids)].filter((x) => /^\d{1,12}$/.test(x)).slice(0, 150);
+  if (!list.length) return {};
+  if (ctx.giving) return ctx.giving(list).catch(() => ({}));
+  try {
+    const { mirror } = await import('../foundations/blackbaud');
+    const rows = await mirror<any>(
+      ctx.env,
+      `SELECT constituent_record_id AS id, MAX(gift_amount) AS mx, SUM(gift_amount) AS total, MAX(substr(gift_date, 1, 10)) AS last, (SELECT g2.gift_amount FROM gifts g2 WHERE g2.constituent_record_id = gifts.constituent_record_id AND g2.gift_amount > 0 ORDER BY g2.gift_date DESC LIMIT 1) AS lastamt FROM gifts
+        WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other') GROUP BY 1`,
+      [JSON.stringify(list)]
+    );
+    return Object.fromEntries(rows.map((r: any) => [String(r.id), { max: Number(r.mx) || 0, total: Number(r.total) || 0, last: String(r.last || ''), lastAmount: Number(r.lastamt) || 0 }]));
+  } catch {
+    return {};
+  }
+}
+
+/** A partner with one gift of $1,000 or more is a major partner (Favor's rule), and their mail comes first. */
+export const MAJOR = 1000;
+
+export async function loggedIds(env: Env, me: string, ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (let i = 0; i < ids.length; i += 80) {
+    const part = ids.slice(i, i + 80);
+    const r = await env.DB.prepare(`SELECT thread_id FROM hub_mail_logged WHERE email = ? AND thread_id IN (${part.map(() => '?').join(',')})`).bind(me, ...part).all<{ thread_id: string }>().catch(() => ({ results: [] as any[] }));
+    for (const x of r.results || []) out.add(x.thread_id);
+  }
+  return out;
+}
+
 export interface Cls {
   cat: Cat;
   ask: boolean;
   partner?: { id: string; name: string };
+  major?: boolean;
+  prio?: number;
 }
 
 const staffEmail = (e: string) => e.endsWith('@favorintl.org');
@@ -159,7 +210,9 @@ async function cached(env: Env, me: string, ids: string[]): Promise<Map<string, 
 export async function classify(ctx: SmartCtx, rows: ThreadRow[], read: boolean): Promise<{ by: Map<string, Cls>; pending: number }> {
   const { env, me } = ctx;
   const senders = rows.map((r) => lower(r.from?.email)).filter((e) => e && e !== me && !staffEmail(e));
-  const [partners, over, saved] = await Promise.all([partnerMap(env, senders, ctx.partners), overrides(env, me), cached(env, me, rows.map((r) => r.id))]);
+  const [partners, over, saved, customs] = await Promise.all([partnerMap(env, senders, ctx.partners), overrides(env, me), cached(env, me, rows.map((r) => r.id)), customsOf(env, me)]);
+  const giving = await givingOf(ctx, Object.values(partners).map((p) => p.id));
+  const custom = new Map(customs.map((c) => [c.id, c]));
   const by = new Map<string, Cls>();
   const todo: ThreadRow[] = [];
   const base = new Map<string, { cat: Cat; sure: boolean }>();
@@ -174,7 +227,7 @@ export async function classify(ctx: SmartCtx, rows: ThreadRow[], read: boolean):
   const fresh = new Map<string, Read>();
   if (read && ctx.ai) {
     const batch = todo.slice(0, CLEF_CAP);
-    const got = await pool(batch, 6, (r) => clefRead(ctx.ai, r));
+    const got = await pool(batch, 6, (r) => clefRead(ctx.ai, r, customs));
     const stmts: any[] = [];
     batch.forEach((r, i) => {
       const g = got[i];
@@ -197,6 +250,8 @@ export async function classify(ctx: SmartCtx, rows: ThreadRow[], read: boolean):
     const hit = saved.get(r.id);
     const rd: Read | null = fresh.get(r.id) || (hit && hit.last === r.lastId ? { kind: hit.kind, ask: !!hit.ask, p: 1 } : null);
     if (!b.sure && rd && KIND_OF[rd.kind] && rd.p >= 0.5) b = { cat: KIND_OF[rd.kind], sure: true };
+    // A category the person described in words wins for staff and people mail, never over a partner.
+    if (rd && custom.has(rd.kind) && rd.p >= 0.6 && (b.cat === 'people' || b.cat === 'staff')) b = { cat: rd.kind, sure: true };
     const o = over.get(from);
     const cat: Cat = o || b.cat;
     const human = !r.fromMe && !r.draft && !r.bulk && (cat === 'partners' || cat === 'staff' || cat === 'people');
@@ -209,13 +264,18 @@ export async function classify(ctx: SmartCtx, rows: ThreadRow[], read: boolean):
       }
     }
     const cls: Cls = { cat, ask };
-    if (partners[from]) cls.partner = partners[from];
+    if (partners[from]) {
+      cls.partner = partners[from];
+      const gv = giving[partners[from].id];
+      if (gv && gv.max >= MAJOR) cls.major = true;
+    }
+    cls.prio = (cls.major ? 2 : 0) + (partners[from] ? 1 : 0) + (ask ? 1 : 0) + (r.starred ? 1 : 0);
     by.set(r.id, cls);
   }
   return { by, pending: read ? Math.max(0, todo.length - CLEF_CAP) + todo.slice(0, CLEF_CAP).filter((r) => !fresh.has(r.id)).length : pending };
 }
 
-export type SmartRow = ThreadRow & { cat?: Cat; ask?: boolean; partner?: { id: string; name: string }; waitDays?: number };
+export type SmartRow = ThreadRow & { cat?: Cat; ask?: boolean; partner?: { id: string; name: string }; major?: boolean; prio?: number; waitDays?: number; logged?: boolean };
 export const decorate = (rows: ThreadRow[], by: Map<string, Cls>): SmartRow[] => rows.map((r) => ({ ...r, ...(by.get(r.id) || {}) }));
 
 /* ------------------------------------------------------------------ scans */
@@ -269,6 +329,9 @@ export async function waitingOn(ctx: SmartCtx, gm: Gmail, days = 3): Promise<Sma
 
 export interface Overview {
   counts: Record<string, { n: number; unread: number }>;
+  customs: Custom[];
+  unlogged: number;
+  major: number;
   needs: number;
   unread: number;
   waiting: number;
@@ -282,14 +345,20 @@ export interface Overview {
 export async function overview(ctx: SmartCtx, gm: Gmail, days = 3): Promise<Overview> {
   const [scan, wait] = await Promise.all([scanInbox(ctx, gm, '', true), waitingOn(ctx, gm, days).catch(() => [] as SmartRow[])]);
   const counts: Overview['counts'] = {};
-  for (const c of CATS) counts[c] = { n: 0, unread: 0 };
+  const customs = await customsOf(ctx.env, ctx.me);
+  for (const c of [...CATS, ...customs.map((x) => x.id)]) counts[c] = { n: 0, unread: 0 };
+  const done = await loggedIds(ctx.env, ctx.me, scan.rows.filter((r) => r.cat === 'partners').map((r) => r.id));
+  let unlogged = 0;
+  let major = 0;
   const marks: Overview['marks'] = {};
   const quiet = new Map<string, { name: string; ids: string[]; unread: number; all: number }>();
   let needs = 0;
   let unread = 0;
   for (const r of scan.rows) {
-    const c = r.cat || 'people';
+    const c = counts[r.cat || 'people'] ? r.cat || 'people' : 'people';
     counts[c].n++;
+    if (r.major) major++;
+    if (r.cat === 'partners' && !done.has(r.id) && daysSince(r.date) <= 7) unlogged++;
     if (r.unread) {
       counts[c].unread++;
       unread++;
@@ -312,6 +381,9 @@ export async function overview(ctx: SmartCtx, gm: Gmail, days = 3): Promise<Over
   const ids = senders.flatMap(([, g]) => g.ids);
   return {
     counts,
+    customs,
+    unlogged,
+    major,
     needs,
     unread,
     waiting: wait.length,
@@ -325,9 +397,9 @@ export async function overview(ctx: SmartCtx, gm: Gmail, days = 3): Promise<Over
 /* ------------------------------------------------------------------ views */
 
 export interface ViewOpts {
-  view: string; // 'needs' | 'waiting' | 'cat:<name>' | ''
+  view: string; // 'needs' | 'waiting' | 'unlogged' | 'cat:<name>' | ''
   flags: string[]; // unread starred files partner
-  sort: 'new' | 'old' | '';
+  sort: 'new' | 'old' | 'prio' | '';
   days: number;
 }
 
@@ -344,13 +416,17 @@ export async function smartView(ctx: SmartCtx, gm: Gmail, o: ViewOpts): Promise<
   const scan = await scanInbox(ctx, gm, terms.join(' '), true);
   let rows = scan.rows;
   if (o.view === 'needs') rows = rows.filter((r) => r.ask);
+  else if (o.view === 'unlogged') {
+    const done = await loggedIds(ctx.env, ctx.me, rows.map((r) => r.id));
+    rows = rows.filter((r) => r.cat === 'partners' && !done.has(r.id) && daysSince(r.date) <= 7);
+  }
   else if (o.view.startsWith('cat:')) {
     const c = o.view.slice(4);
     rows = rows.filter((r) => r.cat === c);
   }
   if (o.flags.includes('partner')) rows = rows.filter((r) => r.partner);
   const oldest = o.sort === 'old' || (o.sort === '' && o.view === 'needs');
-  rows = [...rows].sort((a, b) => (oldest ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)));
+  rows = [...rows].sort((a, b) => (o.sort === 'prio' ? (b.prio || 0) - (a.prio || 0) || b.date.localeCompare(a.date) : oldest ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date)));
   return { threads: rows, scanned: scan.rows.length, pending: scan.pending };
 }
 
@@ -436,7 +512,7 @@ export function parseReplies(raw: string): string[] {
 }
 
 /** The one-line summary of a long conversation and up to three short replies to the newest message, in the person's voice. */
-export async function assist(ctx: SmartCtx, msgs: AssistMsg[], partner: { name: string } | null): Promise<Assist> {
+export async function assist(ctx: SmartCtx, msgs: AssistMsg[], partner: { name: string } | null, facts = ''): Promise<Assist> {
   const real = msgs.filter((m) => !m.draft);
   const last = real[real.length - 1];
   if (!last) return { summary: '', replies: [], ask: false };
@@ -452,7 +528,7 @@ export async function assist(ctx: SmartCtx, msgs: AssistMsg[], partner: { name: 
   const rep = incoming
     ? llm(
         ctx.ai,
-        `You draft email replies for ${first} at Favor International, a ministry. Write in first person, short, plain and direct, warm without gushing. Each reply is under 45 words and starts with "Hi ${firstName(last.from) || 'there'}," on its own line. Never use dashes as breaks, never the words just, simply or actually, never "donor" (say partner). Do not invent facts, dates, amounts or promises the email does not settle. Give three options that differ in stance: say yes or agree, say not yet or no, and ask one clarifying question. When the email only informs, give three ways to acknowledge it. Return JSON only: {"replies":["...","...","..."]}.${partner ? ` The sender, ${partner.name}, is a Favor partner.` : ''}`,
+        `You draft email replies for ${first} at Favor International, a ministry. Write in first person, short, plain and direct, warm without gushing. Each reply is under 45 words and starts with "Hi ${firstName(last.from) || 'there'}," on its own line. Never use dashes as breaks, never the words just, simply or actually, never "donor" (say partner). Do not invent facts, dates, amounts or promises the email does not settle. Give three options that differ in stance: say yes or agree, say not yet or no, and ask one clarifying question. When the email only informs, give three ways to acknowledge it. Return JSON only: {"replies":["...","...","..."]}.${partner ? ` The sender, ${partner.name}, is a Favor partner.` : ''}${facts ? ` Real giving data you may use, and nothing beyond it: ${facts}` : ''}`,
         thread,
         420
       ).then(parseReplies).catch(() => [] as string[])
