@@ -126,6 +126,56 @@ for (const route of routes) {
   }
   await ctx.close();
 }
+
+// The main action of three classic pages, run once inside the frame. Chat sends to the tester's own scratch channel, Brain answers from a stub,
+// Work Center completes a task and undoes it when the sample data has one.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, serviceWorkers: 'block' });
+  await ctx.addCookies([{ name: 'hub_tester', value: '1', url: BASE }]);
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', (e) => errs.push(e.message.slice(0, 120)));
+  const report = (name, ok, note = '') => { console.log(`action ${name}: ${ok ? 'ok' : 'FAIL'} ${note}`); if (!ok) bad++; };
+  try {
+    await page.goto(BASE + '/chat/', { waitUntil: 'domcontentloaded' });
+    const ta = page.locator('.ch-comp textarea:visible').first();
+    await ta.waitFor({ timeout: 20000 });
+    const text = 'islands test ' + Date.now();
+    await ta.click();
+    await ta.pressSequentially(text, { delay: 5 });
+    const t0 = Date.now();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction((t) => document.body.innerText.includes(t), text, { timeout: 8000 });
+    report('chat send', true, `${Date.now() - t0} ms to the message on screen`);
+  } catch (e) { report('chat send', false, e.message.split('\n')[0]); }
+  try {
+    await page.route('**/api/brain/ask', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, outcome: 'ok', ref: 'stub', title: 'Stub', blocks: [{ type: 'text', md: 'Stubbed answer for the islands test.' }] }) }));
+    await page.goto(BASE + '/brain/', { waitUntil: 'domcontentloaded' });
+    await page.locator('.bc-starter').first().waitFor({ timeout: 20000 });
+    await page.locator('#bc-input').click();
+    await page.locator('#bc-input').pressSequentially('How many partners gave this month?', { delay: 5 });
+    const t0 = Date.now();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => document.body.innerText.includes('Stubbed answer'), null, { timeout: 8000 });
+    report('brain ask', true, `${Date.now() - t0} ms to the answer`);
+  } catch (e) { await page.screenshot({ path: OUT + '/fail-brain.png' }).catch(() => {}); report('brain ask', false, e.message.split('\n')[0]); }
+  try {
+    await page.goto(BASE + '/work/', { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#h-content .app-legacy > *', { state: 'attached', timeout: 20000 });
+    await page.waitForTimeout(3000);
+    const done = page.locator('#h-content button:visible', { hasText: /^(Done|Mark done|Complete)$/ }).first();
+    if (!(await done.count())) report('work center complete/undo', true, 'SKIPPED: no task with a Done button in the sample data');
+    else {
+      await done.click();
+      const undo = page.locator('button:visible', { hasText: /^Undo$/ }).first();
+      await undo.waitFor({ timeout: 5000 });
+      await undo.click();
+      report('work center complete/undo', true);
+    }
+  } catch (e) { report('work center complete/undo', false, e.message.split('\n')[0]); }
+  if (errs.length) report('page errors during actions', false, errs.slice(0, 2).join(' | '));
+  await ctx.close();
+}
 await browser.close();
 server.close();
 console.log(bad ? `${bad} problems` : 'ALL ISLANDS OK');
