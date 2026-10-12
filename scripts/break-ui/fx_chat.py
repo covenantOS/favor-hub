@@ -150,3 +150,23 @@ def chat_file(mode, m, q, state):
 @route('GET', r'^/api/chat/drive-file/.*$')
 def drive_thumb(mode, m, q, state):
     return (404, 'text/plain', 'gone')
+
+
+@route('GET', r'^/api/chat/threads$')
+def threads_list(mode, m, q, state):
+    if mode == 'empty':
+        return {'ok': True, 'threads': [], 'unread': 0}
+    us = list(users(mode).keys())
+    n = {'demo': 2, 'worst': 12, 'one': 1, 'huge': 60}[mode]
+    w = W(mode)
+    out = []
+    for i in range(n):
+        root = msg(3000 + i, us[i % len(us)], [LONG_TEXT[:600], URL_LONG, 'Thread'][i % 3] if w else 'Can we move the 2:00?', mode, reply_count=[300, 1, 12847][i % 3] if w else 2, last_reply_at=stamp(2), reply_users=us[:3])
+        latest = [msg(3100 + i * 3 + j, us[(i + j) % len(us)], [URL_LONG, 'ok', CODE][j % 3] if w else 'Works for me.', mode, thread_id=root['id']) for j in range(3 if w else 1)]
+        out.append({'channel_id': 'ch_general' if i % 2 == 0 else 'ch_%d' % (i + 1), 'root': root, 'latest': latest, 'unread': [12847, 0, 1][i % 3] if w else (1 if mode == 'one' else 0)})
+    return {'ok': True, 'threads': out, 'unread': 12847 if w else (1 if mode == 'one' else 0)}
+
+
+@route('GET', r'^/api/chat/(activity|drafts|saved|pins).*$')
+def chat_lists(mode, m, q, state):
+    return {'ok': True, 'items': [], 'drafts': []}

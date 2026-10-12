@@ -268,3 +268,9 @@ def sheets_recent(mode, m, q, state):
 def request_search(mode, m, q, state):
     # The request board belongs to another lane; the palette only needs an answer.
     return {'ok': True, 'rows': [], 'results': []}
+
+
+@route('GET', r'^/api/(tasks|projects|requests)/.*$')
+def tasks_any(mode, m, q, state):
+    # Requests and Projects belong to other lanes; pages that link to them only need a well-formed empty answer.
+    return {'ok': True, 'items': [], 'rows': [], 'results': [], 'actions': [], 'links': []}
