@@ -108,6 +108,22 @@ for (const route of routes) {
   console.log('route changes (first, then repeat):', rows.join(', '));
   console.log(mark === 'kept' && !errs.length ? 'shell kept across routes' : 'SHELL RELOADED or errors: ' + errs.join(' | '));
   if (mark !== 'kept' || errs.length) bad++;
+  // Leak check: leave a page 20 times and the listeners, timers, observers and sockets it made return to where they were after the first visit.
+  for (const pair of [['/chat/', '/requests/'], ['/mail/', '/requests/']]) {
+    const go = async (href) => {
+      await page.locator(`.h-side a[href="${href}"]`).first().evaluate((a) => a.click());
+      await page.waitForFunction((h) => location.pathname === h, href, { timeout: 10000 });
+      await page.waitForFunction(() => !document.querySelector('.app-legacy[aria-busy="true"]'), null, { timeout: 15000 });
+      await page.waitForTimeout(250);
+    };
+    await go(pair[0]); await go(pair[1]);
+    const base = await page.evaluate(() => window.__hubOwn.counts());
+    for (let i = 0; i < 20; i++) { await go(pair[0]); await go(pair[1]); }
+    const end = await page.evaluate(() => window.__hubOwn.counts());
+    const grew = Object.keys(base).filter((k) => end[k] > base[k] + 1);
+    console.log(`leak check ${pair[0]} x20: base ${JSON.stringify(base)} end ${JSON.stringify(end)} ${grew.length ? 'LEAK ' + grew.join(',') : 'ok'}`);
+    if (grew.length) bad++;
+  }
   await ctx.close();
 }
 await browser.close();

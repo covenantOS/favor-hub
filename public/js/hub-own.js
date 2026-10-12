@@ -74,7 +74,7 @@
   var CLASSES = { html: ['wc-page', 'pp-locked', 'wg-locked', 'wg-printing', 'req-drawer-open'], body: ['has-bar', 'is-dragging-card', 'wc-dragging', 'wcd-printing'] };
   window.__hubOwn = {
     state: st,
-    counts: function () { return { iv: own.iv.length, to: own.to.length, ls: own.ls.length, ob: own.ob.length }; },
+    counts: function () { return { iv: own.iv.length, to: own.to.length, ls: own.ls.length, ob: own.ob.length, ws: own.ws.filter(function (s) { return s.readyState < 2; }).length }; },
     /** Remove everything page code made since the last cleanup. */
     cleanup: function () {
       own.iv.splice(0).forEach(function (id) { oCI.call(window, id); });
