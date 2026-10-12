@@ -67,7 +67,7 @@ describe('feedback picture route', () => {
     assert.deepEqual(puts, ['feedback/27.jpg']);
     assert.equal(rows.get(27).shot_key, 'feedback/27.jpg');
   });
-  it('serves the picture to the sender and the hub admin, never cached', async () => {
+  it('serves the picture to the sender and the FavorOS admin, never cached', async () => {
     for (const h of [owner, admin]) {
       const res = await call('GET', h);
       assert.equal(res.status, 200);

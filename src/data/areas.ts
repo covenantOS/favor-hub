@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'learn' | 'learnAdmin';
+export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr';
 
 export interface NavPage {
   id: string;
@@ -68,9 +68,11 @@ export const AREAS: NavArea[] = [
       { id: 'work-home', label: 'Overview', href: '/work-home/', desc: 'Every work tool and what is waiting in each', keywords: 'work home overview tools', learn: 'work-center', swap: true },
       { id: 'work', label: 'Work Center', href: '/work/', desc: 'Finish many Blackbaud actions together, enter the week, thank gifts', keywords: 'work center bulk select complete actions thank you entry tracking stale reassign reschedule support partner', need: 'workCenter', count: 'workOpen', learn: 'work-center', swap: true },
       { id: 'board', label: 'Requests', href: '/requests/', desc: 'Request board: inbox, approved, in motion, done', keywords: 'request board kanban review approve website portal app marketing', count: 'board', also: ['new'], learn: 'request-board', swap: true },
+      { id: 'projects', label: 'Projects', href: '/projects/', desc: 'Projects, task lists, boards, calendar and timeline', keywords: 'projects project tasks task list board calendar timeline gantt assign due asana todo my tasks', need: 'projects', count: 'projectsMine', also: ['project'] },
       { id: 'expense', label: 'Expenses', href: '/expenses/new', desc: 'Expense request, signed online', keywords: 'expense request travel pre-travel approval signature purchase', learn: 'expense-request' },
       { id: 'receipts', label: 'Receipts', href: '/receipts/', desc: 'Thank-you receipts Blackbaud has waiting', keywords: 'thank you receipt receipts letter letters ty acknowledgement print mail', count: 'receiptsLeft', learn: 'thank-you-receipts', swap: true },
       { id: 'statements', label: 'Statements', href: '/statements/', desc: 'Giving statements on request and the January year-end statements', keywords: 'giving statement statements year-end tax january annual receipt pdf print mail partner', learn: 'giving-statements', swap: true },
+      { id: 'evals', label: 'Evaluations', href: '/evaluations/', need: 'hr', desc: 'Your evaluation, the feedback you owe a colleague and your team’s reviews', keywords: 'evaluation evaluations review reviews self assessment feedback 360 performance development plan goals rre supervisor hr', count: 'evals', also: ['evals-admin'], learn: 'evaluations' },
       { id: 'foundations', label: 'Foundations', href: '/foundations/', desc: 'Check a foundation, log a contact', keywords: 'foundation foundations prospect grant rdd blackbaud unsolicited contact call', learn: 'foundation-prospects', swap: true },
     ],
   },
@@ -94,7 +96,7 @@ export const AREAS: NavArea[] = [
     key: 'c',
     barRank: 2.4,
     pages: [
-      { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat' },
+      { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat', swap: true },
     ],
   },
   {
@@ -118,9 +120,9 @@ export const AREAS: NavArea[] = [
     key: 'l',
     barRank: 6,
     pages: [
-      { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'learn', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn' },
-      { id: 'learn-catalog', label: 'Catalog', href: '/learn/catalog/', desc: 'Every course and learning path', keywords: 'learn catalog courses paths training all', need: 'learn', learn: 'learn' },
-      { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn manage admin author build course path assign report overdue scores hr', need: 'learnAdmin', learn: 'learn' },
+      { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'hr', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn' },
+      { id: 'learn-catalog', label: 'Catalog', href: '/learn/catalog/', desc: 'Every course and learning path', keywords: 'learn catalog courses paths training all', need: 'hr', learn: 'learn' },
+      { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn manage admin author build course path assign report overdue scores hr', need: 'hr', learn: 'learn' },
     ],
   },
   // learn: end
@@ -152,8 +154,9 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'admin-home', label: 'Overview', href: '/admin/', desc: 'Health of the Blackbaud copy, the morning jobs, the sender and the call meter, with every setting one click away', keywords: 'admin overview health status settings jobs sync meter iwave', need: 'admin', learn: 'admin-home' },
       { id: 'admin-people', label: 'People and roles', href: '/admin/people/', desc: 'Who can sign in, their role, team, fundraiser link and Work Center access, with an act as preview', keywords: 'people users roles admin block team fundraiser work center access act as preview staff', need: 'admin', learn: 'admin-home' },
-      { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat'], learn: 'admin-home' },
+      { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements and Projects settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat', 'admin-projects'], learn: 'admin-home' },
       { id: 'admin-bbusers', label: 'Blackbaud users', href: '/admin/blackbaud-users/', desc: 'Everyone with a Blackbaud login, their status and what each product lets them do', keywords: 'blackbaud users logins access roles inactive admin raisers edge security', need: 'admin', learn: 'admin-home' },
+      { id: 'onboarding', label: 'Onboarding', href: '/onboarding/', desc: 'Start a new hire or an exit: the checklist, who owns each step, and what FavorOS sets up', keywords: 'onboarding offboarding new hire start staff exit leaving checklist welcome orientation hr', need: 'hr', also: ['onboarding-run'], learn: 'onboarding' },
       { id: 'admin-appeals', label: 'Appeal codes', href: '/admin/appeal-codes/', desc: 'Build an appeal code from the scheme and create it in Blackbaud, and keep the funds and campaigns waiting to be created', keywords: 'appeal codes campaign fund lookup newsletter letter mailing create blackbaud scheme', need: 'admin', learn: 'admin-home' },
       { id: 'admin-audit', label: 'Audit log', href: '/admin/audit/', desc: 'Every settings change with who made it, when, and the before and after values', keywords: 'audit log history changes who changed settings', need: 'admin', learn: 'admin-home' },
       { id: 'brain-admin', label: 'Brain requests', href: '/brain/admin/', desc: 'Access requests, who can ask about what, every question asked', keywords: 'brain admin access requests iwave approvals names', need: 'admin', count: 'brainRequests' },
@@ -169,7 +172,8 @@ export const AREAS: NavArea[] = [
     foot: true,
     pages: [
       { id: 'docs', label: 'Docs', href: '/help/', desc: 'How every tool works, with search', keywords: 'help guide how docs documentation article manual faq', learn: 'getting-started', swap: true },
-      { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'The hub, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
+      { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
+      { id: 'welcome', label: 'Welcome', href: '/welcome/', need: 'hr', desc: 'Your first week: who to meet, what is due, the FavorOS tour', keywords: 'welcome first day first week new hire onboarding orientation meet team', learn: 'welcome' },
       { id: 'feedback', label: 'Feedback', href: '/feedback/', desc: "Your notes and Will's answers", keywords: 'feedback note bug wrong idea suggestion problem report', count: 'feedback', learn: 'feedback', swap: true },
     ],
   },
@@ -213,6 +217,9 @@ export const EXTRA_NAV: Record<string, string> = {
 
 /** Paths that swap in place (the page body only). */
 export const SWAP_PATHS = Array.from(new Set(AREAS.flatMap((a) => a.pages.filter((p) => p.swap && !p.ext).map((p) => p.href.split('?')[0].replace(/\/?$/, '/')))));
+
+/** Pages that always load whole, from any page: the Work Center keeps its state in globals other Work scripts read, and the dashboard keeps its own frame. */
+export const FULL_LOAD_PATHS = ['/work/', '/dashboard/'];
 
 export const NAV_IDS = new Map<string, { area: NavArea; page: NavPage }>();
 for (const area of AREAS) {

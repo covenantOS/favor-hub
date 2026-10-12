@@ -77,7 +77,7 @@ export async function handle(ctx: Ctx): Promise<Response> {
 }
 
 const needAuthor = (st: Standing) => {
-  if (!st.author) throw new HttpError(403, 'forbidden', 'Building and assigning courses is for hub admins and HR.');
+  if (!st.author) throw new HttpError(403, 'forbidden', 'Building and assigning courses is for FavorOS admins and HR.');
 };
 
 async function route(ctx: Ctx): Promise<Response> {
@@ -90,7 +90,7 @@ async function route(ctx: Ctx): Promise<Response> {
   const st = await standing(env, actor);
   if (!st.may) {
     const mode = await learnMode(env);
-    return errorJson('forbidden', mode === 'off' ? 'Learn is switched off.' : 'Learn is open to hub admins and HR for now.', 403);
+    return errorJson('forbidden', mode === 'off' ? 'Learn is switched off.' : 'Learn is open to FavorOS admins and HR for now.', 403);
   }
   await ensureSeed(env).catch((err) => console.error('[learn] seed', err));
   const url = new URL(request.url);

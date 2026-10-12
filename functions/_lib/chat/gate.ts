@@ -26,6 +26,6 @@ export function mayUse(mode: ChatMode, user: Pick<HubUser, 'role' | 'via' | 'ema
 export async function chatUser(env: Env, user: HubUser | null): Promise<HubUser> {
   if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
   const mode = await chatMode(env);
-  if (!mayUse(mode, user)) throw new HttpError(403, 'forbidden', mode === 'off' ? 'Chat is switched off.' : 'Chat is open to hub admins for now.');
+  if (!mayUse(mode, user)) throw new HttpError(403, 'forbidden', mode === 'off' ? 'Chat is switched off.' : 'Chat is open to FavorOS admins for now.');
   return user;
 }

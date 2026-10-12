@@ -395,8 +395,8 @@ test('@Favor Brain in a conversation with only the asker posts a thinking messag
   const done = w.events[1].event.message;
   assert.equal(done.user_id, 'brain');
   assert.equal(done.thread_id, root.id);
-  assert.deepEqual(done.brain.blocks.map((b) => b.type), ['tiles', 'table'], 'blocks the chat cannot answer a click for are left out');
-  assert.equal(done.brain.blocks[1].rows.length, 3);
+  assert.deepEqual(done.brain.blocks.map((b) => b.type), ['tiles', 'choice', 'table'], 'every block the Brain page draws is kept');
+  assert.equal(done.brain.blocks[2].rows.length, 3);
   assert.deepEqual(done.brain.follow, ['Show more']);
   const t = (await call(w, ADMIN2, 'GET', `threads/${root.id}`)).data;
   assert.equal(t.replies.length, 1);

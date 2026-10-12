@@ -316,7 +316,7 @@ describe('a single statement', () => {
       const off = hubEnv({ GOOGLE_SA_JSON: key });
       const none = await svc.makeSingle(off, w.sql, 'Desk Person', { cid: '1', year: Y, from: '', to: '', includeSoft: true });
       assert.equal(none.batch.drive_file, '');
-      assert.equal(calls.length, 0, 'no folder set: nothing leaves the hub');
+      assert.equal(calls.length, 0, 'no folder set: nothing leaves FavorOS');
       const on = hubEnv({ GOOGLE_SA_JSON: key });
       await on.DB.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('statements.drive_folder', 'folderid12345', 'a', 'now')").run();
       const made = await svc.makeSingle(on, w.sql, 'Desk Person', { cid: '1', year: Y, from: '', to: '', includeSoft: true });
@@ -488,7 +488,7 @@ describe('the year-end run', () => {
 /* -------------------------------------------------------------- email stays off */
 
 describe('emailing a statement', () => {
-  it('is off until Admin turns it on, and the hub asks to confirm because it contacts partners', async () => {
+  it('is off until Admin turns it on, and FavorOS asks to confirm because it contacts partners', async () => {
     const env = hubEnv();
     assert.equal(await store.emailOn(env), false);
     await assert.rejects(settings.changeSetting(env, 'admin@example.org', 'statements.email', 'on'), (e) => e.code === 'confirm' && /emails partners/.test(e.message));
@@ -580,7 +580,7 @@ describe('who may open the routes', () => {
     assert.equal((await call(me, env, 'https://hub.test/api/statements/me', null)).status, 401);
     assert.equal((await call(me, env, 'https://hub.test/api/statements/me', { email: 's@example.org', name: 'S', role: 'staff' })).status, 403);
   });
-  it('lets a hub admin and the admin desk in', async () => {
+  it('lets a FavorOS admin and the admin desk in', async () => {
     const env = hubEnv();
     const ok = await call(me, env, 'https://hub.test/api/statements/me', { email: 'a@example.org', name: 'A', role: 'admin' });
     assert.equal(ok.status, 200);
@@ -591,7 +591,7 @@ describe('who may open the routes', () => {
     await env.DB.prepare("INSERT INTO rpt_people (email, audience) VALUES ('desk@example.org', 'admin_desk')").run();
     assert.equal((await call(me, env, 'https://hub.test/api/statements/me', { email: 'desk@example.org', name: 'D', role: 'staff' })).status, 200);
   });
-  it('refuses a change that did not come from the hub page', async () => {
+  it('refuses a change that did not come from the FavorOS page', async () => {
     const env = hubEnv();
     const res = await yearend.onRequestPost({
       request: asUser('https://hub.test/api/statements/yearend', { email: 'a@example.org', name: 'A', role: 'admin' }, { method: 'POST', headers: { Origin: 'https://evil.test' }, body: '{}' }),

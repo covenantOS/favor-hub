@@ -198,11 +198,9 @@ test('assign a course to a person: a row, a notice, a task in Projects with a li
   assert.equal(t.due_date, '2099-01-15');
   assert.equal(t.project_id, null, 'a personal task');
   assert.match(t.description, /\/learn\/c\/\?c=quiz-course/);
-  assert.equal(rows(w, 'SELECT url FROM hub_task_files WHERE task_id = ?', t.id)[0].url, `/learn/c/?c=${c.slug}`);
-  assert.equal(w.mail.length, 1, 'one email, to the person');
-  assert.equal(w.mail[0].to, VIDEO.email);
-  assert.match(w.mail[0].subject, /Ada Admin assigned you: Quiz course/);
-  assert.doesNotMatch(w.mail[0].html, /—/, 'no em dashes in email');
+  assert.equal(rows(w, 'SELECT url FROM hub_task_files WHERE task_id = ?', t.id)[0].url, `https://dash.favorintl.org/learn/c/?c=${c.slug}`);
+  // The task in Projects tells the person, so Learn sends no second email for the same assignment.
+  assert.equal(w.mail.filter((m) => /Learn|assigned you/.test(m.subject)).length, 0);
   // The same assignment again with the same date changes nothing and tells nobody twice.
   const again = await call(w, WILL, 'POST', 'admin/assign', { kind: 'course', target: c.slug, emails: [VIDEO.email], due_date: '2099-01-15', note: 'Please finish this week.' });
   assert.deepEqual([again.data.created, again.data.updated, again.data.told], [0, 0, 0]);
@@ -308,8 +306,27 @@ test('notices obey the gate: off tells nobody; the test list still reaches one a
   w.d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('requests.notify.only', ?, 'test', '2026-10-11T12:00:00Z')").run(GRANTS.email);
   await call(w, WILL, 'POST', 'admin/assign', { kind: 'course', target: c.id, emails: [GRANTS.email] });
   assert.deepEqual(rows(w, 'SELECT email FROM learn_notices').map((x) => x.email), [GRANTS.email]);
+  assert.equal(rows(w, 'SELECT * FROM learn_notices').length, 1, 'the notice for Today and the bell');
+});
+
+test('with no Projects the assignment email goes out once, in the Learn design', async () => {
+  const w = learnWorld({ learn: 'staff', projects: false });
+  const { c } = await quizCourse(w);
+  await call(w, WILL, 'POST', 'admin/assign', { kind: 'course', target: c.slug, emails: [VIDEO.email], note: 'Please finish this week.' });
   assert.equal(w.mail.length, 1);
-  assert.equal(w.mail[0].to, GRANTS.email);
+  assert.equal(w.mail[0].to, VIDEO.email);
+  assert.match(w.mail[0].subject, /Ada Admin assigned you: Quiz course/);
+  assert.equal(w.mail[0].html.includes(String.fromCharCode(0x2014)), false);
+});
+
+test('a person with an assignment opens Learn while it is admins and HR only; a person without one does not', async () => {
+  const w = learnWorld({ learn: 'admins' });
+  const { c } = await quizCourse(w);
+  assert.equal((await call(w, VIDEO, 'GET', 'home')).status, 403);
+  await call(w, WILL, 'POST', 'admin/assign', { kind: 'course', target: c.id, emails: [VIDEO.email] });
+  assert.equal((await call(w, VIDEO, 'GET', 'home')).status, 200);
+  assert.equal((await call(w, VIDEO, 'GET', 'admin/overview')).status, 403);
+  assert.equal((await call(w, OUTSIDER, 'GET', 'home')).status, 403);
 });
 
 test('Today card and the menu number count assigned learning, and a late one warns', async () => {

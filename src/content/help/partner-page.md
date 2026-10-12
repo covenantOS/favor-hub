@@ -12,7 +12,7 @@ updated: 2026-10-10
 
 ## Open a partner
 
-Press any partner's name in the hub: a Work Center row, a Favor Brain table, a household member. The partner opens beside your work. Hover a name for a quick look first. Find a partner at the top of every page searches by name, email, phone, street address or lookup id; press Enter to open the first match. Open full page shows the same view at full width, at its own address you can bookmark or send.
+Press any partner's name in FavorOS: a Work Center row, a Favor Brain table, a household member. The partner opens beside your work. Hover a name for a quick look first. Find a partner at the top of every page searches by name, email, phone, street address or lookup id; press Enter to open the first match. Open full page shows the same view at full width, at its own address you can bookmark or send.
 
 ## The top
 
@@ -46,7 +46,7 @@ Four tabs sit under the Call, Text and Email buttons: Overview, Contact, Codes a
 
 **Record** marks a partner Active, Inactive or Deceased. Deceased and Inactive show what goes with it: set the flag (always), end the Partner code and the assignments on that date, add the Do Not Solicit solicit code, and cancel open actions you pick. A household shows Who, and the other person stays active; a note can go on their record. An organization is marked inactive only. Mark active reverses the flag and reopens the codes that ended with it. The assignments stay ended for the morning run to settle the next day.
 
-Marking deceased also reaches the places outside Blackbaud that would still contact the person. The hub copy of the record updates at once. The GoHighLevel contact, found by the record's emails, gets Do Not Disturb on every channel, the tag deceased and a removal from the published workflows. The giving portal stops emailing the record and refuses its sign-in. Reminders the hub holds for the partner close, and the partner's open asks leave Asks. Mark active turns off the Do Not Disturb the hub set, removes the tag and lifts the portal block; an unsubscribe the person made earlier stays. Each of these writes a row to the Audit log under Records.
+Marking deceased also reaches the places outside Blackbaud that would still contact the person. The FavorOS copy of the record updates at once. The GoHighLevel contact, found by the record's emails, gets Do Not Disturb on every channel, the tag deceased and a removal from the published workflows. The giving portal stops emailing the record and refuses its sign-in. Reminders FavorOS holds for the partner close, and the partner's open asks leave Asks. Mark active turns off the Do Not Disturb FavorOS set, removes the tag and lifts the portal block; an unsubscribe the person made earlier stays. Each of these writes a row to the Audit log under Records.
 
 Admins change contact details, codes and record status. The Support Team changes codes and record status, and contact details for any partner. Directors and Partner Care change contact details for partners their team holds. Everyone else reads.
 
@@ -56,7 +56,7 @@ Add partner sits in the Work Center's tool row, and on Find a partner. It is for
 
 **Individual** takes a title, first, middle and last name, a suffix, a phone with its type, an email and an address. **Household** adds a second person with their own title, names, phone and email, and joins the two as spouses; both get the address. **Organization** takes the name, a type (Church, DAF Provider, Foundation and the like), and a main contact. The contact is a person with their own record, joined to the organization with what they are to it (Employee, Staff Member, Pastor, Board Member or Member) and their position.
 
-Records already in Blackbaud show beside the form as you type: the hub's copy at once, then Blackbaud's own search a moment after you stop. Each shows why it matches, such as the same phone, the same email, the same name and city. An organization never matches on its name alone. Open this record opens it in a new tab. Add as new partner stays locked until you tick **None of these is the same person**, and changing a name, phone, email or city clears the tick. The server checks again when you press Add.
+Records already in Blackbaud show beside the form as you type: FavorOS's copy at once, then Blackbaud's own search a moment after you stop. Each shows why it matches, such as the same phone, the same email, the same name and city. An organization never matches on its name alone. Open this record opens it in a new tab. Add as new partner stays locked until you tick **None of these is the same person**, and changing a name, phone, email or city clears the tick. The server checks again when you press Add.
 
 Add a relationship links the new partner to someone already in Blackbaud: pick the partner, then what they are to the new one (Parent, Child, Sibling, Friend, Grandparent, Grandchild, Mentor or Mentee). Code is Prospect or Partner. Held by comes from the state on the address through the Regions table; with no state, or a state no region lists, it shows Partner Care, and you can pick anyone. The source code, addressee and salutation come from the record review the next weekday, as they do now. A step that does not save, such as a link, comes back by name so you can finish it in Blackbaud.
 

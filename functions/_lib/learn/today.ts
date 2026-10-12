@@ -4,7 +4,7 @@ import type { Env } from '../http';
 import type { HubUser } from '../session';
 import { mayHear } from '../requests/tasks';
 import { isHrOrAdmin } from '../people-dev';
-import { learnMode, learnReady, lower } from './db';
+import { hasAssignment, learnMode, learnReady, lower } from './db';
 import { badgeFor } from './views';
 
 export interface LearnCard {
@@ -25,7 +25,7 @@ export async function learnAccess(env: Env, user: HubUser): Promise<{ learn: boo
     const [mode, ready] = await Promise.all([learnMode(env), learnReady(env)]);
     if (!ready || mode === 'off') return { learn: false, learnAdmin: false };
     const author = await isHrOrAdmin(env, user);
-    return { learn: mode === 'staff' || author, learnAdmin: author };
+    return { learn: mode === 'staff' || author || (await hasAssignment(env, user.email)), learnAdmin: author };
   } catch {
     return { learn: false, learnAdmin: false };
   }

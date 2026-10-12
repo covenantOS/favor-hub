@@ -210,7 +210,7 @@
   const post = (body) =>
     fetch('/api/drill', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then((r) => r.json().catch(() => ({})).then((d) => Object.assign(d, { _status: r.status })))
-      .catch(() => ({ ok: false, message: 'The hub could not be reached. Check the connection and try again.' }));
+      .catch(() => ({ ok: false, message: 'FavorOS could not be reached. Check the connection and try again.' }));
 
   /** Opens from a marked element: definition first, then the rows, both from the Brain. */
   async function fromElement(el) {

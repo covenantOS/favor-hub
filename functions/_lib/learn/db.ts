@@ -103,6 +103,11 @@ export async function isAuthor(env: Env, actor: Pick<Actor, 'email' | 'admin'>):
   return isHr(env, actor.email);
 }
 
+export async function hasAssignment(env: Env, email: string): Promise<boolean> {
+  const r = await env.DB.prepare('SELECT 1 AS ok FROM learn_assignments WHERE email = ? LIMIT 1').bind(lower(email)).first().catch(() => null);
+  return !!r;
+}
+
 export interface Standing {
   author: boolean;
   mode: LearnMode;
@@ -112,7 +117,9 @@ export interface Standing {
 
 export async function standing(env: Env, actor: Actor): Promise<Standing> {
   const [mode, author] = await Promise.all([learnMode(env), isAuthor(env, actor)]);
-  const may = mode === 'off' ? false : mode === 'staff' ? true : author;
+  // A person who was given a course reaches it from Today even while the menu entry is for admins and HR only.
+  const given = mode === 'admins' && !author ? await hasAssignment(env, actor.email) : false;
+  const may = mode === 'off' ? false : mode === 'staff' ? true : author || given;
   return { author, mode, may };
 }
 

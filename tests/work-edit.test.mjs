@@ -462,7 +462,7 @@ describe('notes, attachments, opportunities', () => {
     const a = sent().find((c) => c.path === '/constituent/v1/actions/attachments');
     assert.deepEqual([a.body.type, a.body.name, a.body.parent_id], ['Link', 'Proposal', '500']);
   });
-  it('a new opportunity links the action it was made from, and the hub keeps its copy until the mirror has it', async () => {
+  it('a new opportunity links the action it was made from, and FavorOS keeps its copy until the mirror has it', async () => {
     const out = await svc.createBatch(ctx, { op: 'opp_new', cid: '100', ids: ['500'], opp: { name: 'Year-end ask', status: 'Planned', ask_amount: '5000', fundraisers: ['10'] }, req: 'r17' });
     await runAll(out.batch.id);
     const post = sent().find((c) => c.path === '/opportunity/v1/opportunities');

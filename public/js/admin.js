@@ -7,7 +7,7 @@
     var opt = { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } };
     if (body !== undefined) { opt.method = 'POST'; opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
     return fetch(path, opt).then(function (r) {
-      return r.json().catch(function () { return { ok: false, message: 'The hub answered with something unexpected.' }; }).then(function (d) {
+      return r.json().catch(function () { return { ok: false, message: 'FavorOS answered with something unexpected.' }; }).then(function (d) {
         if (!r.ok || d.ok === false) { var e = new Error(d.message || 'That did not work.'); e.code = d.error || ''; e.status = r.status; throw e; }
         return d;
       });
@@ -44,7 +44,7 @@
     return Math.round(h / 24) + ' days ago';
   };
   A.denied = function (root) {
-    root.innerHTML = '<div class="ad-card ad-denied"><p>Settings are for hub admins.</p><p><a href="/">Back to Today</a></p></div>';
+    root.innerHTML = '<div class="ad-card ad-denied"><p>Settings are for FavorOS admins.</p><p><a href="/">Back to Today</a></p></div>';
   };
   A.fail = function (root, err) {
     if (err && (err.status === 403 || err.status === 401)) return A.denied(root);

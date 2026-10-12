@@ -66,10 +66,10 @@ const RRULE: Record<string, string> = { weekly: 'RRULE:FREQ=WEEKLY', biweekly: '
 
 export async function createEvent(env: MeetEnv, booker: string, ev: EventInput): Promise<{ id: string; meetLink: string }> {
   const tok = await token(env, booker, [CAL_EVENTS]);
-  const recLine = ev.recording === 'video' ? 'This meeting is recorded on video and written up in the hub.' : ev.recording === 'notes' ? 'The sound of this meeting is recorded to make notes.' : 'This meeting is not recorded.';
+  const recLine = ev.recording === 'video' ? 'This meeting is recorded on video and written up in FavorOS.' : ev.recording === 'notes' ? 'The sound of this meeting is recorded to make notes.' : 'This meeting is not recorded.';
   const body: Record<string, unknown> = {
     summary: ev.title,
-    description: `Join in the Favor hub: ${ev.roomUrl}\n${ev.guestUrl ? `Guests from outside Favor, join here: ${ev.guestUrl}\n` : ''}\n${ev.agenda ? ev.agenda + '\n\n' : ''}${recLine}`,
+    description: `Join in FavorOS: ${ev.roomUrl}\n${ev.guestUrl ? `Guests from outside Favor, join here: ${ev.guestUrl}\n` : ''}\n${ev.agenda ? ev.agenda + '\n\n' : ''}${recLine}`,
     start: { dateTime: ev.startsAt, timeZone: TZ },
     end: { dateTime: ev.endsAt, timeZone: TZ },
     attendees: ev.attendees.map((email) => ({ email })),
@@ -148,7 +148,7 @@ export function buildReminder(m: ReminderInput): { subject: string; html: string
   const day = fmt(m.startsAt, TZ, { weekday: 'short', month: 'short', day: 'numeric' });
   const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : m.kind === 'now' ? `Join now: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
   const pill = m.kind === 'day' ? { t: 'Tomorrow', bg: C.sun, fg: '#7a5410' } : m.kind === 'now' ? { t: 'Live now', bg: '#f7dcd5', fg: C.red } : { t: 'In 15 minutes', bg: C.leaf, fg: C.green };
-  const rec = m.rec === 'video' ? 'Recorded on video, with notes written up in the hub.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
+  const rec = m.rec === 'video' ? 'Recorded on video, with notes written up in FavorOS.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
   const when = `${fmt(m.startsAt, TZ, { weekday: 'long', month: 'long', day: 'numeric' })}, ${timeOf(m.startsAt)} to ${timeOf(endIso)} Eastern`;
   const zones = ZONES.map(([label, z]) => ({ label, t: `${fmt(m.startsAt, z, { weekday: 'short' })} ${timeOf(m.startsAt, z)}` }));
   const people = (m.people || []).filter(Boolean);

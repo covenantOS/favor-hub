@@ -483,7 +483,7 @@ export async function planBatch(ctx: Ctx, input: BatchInput, board: Board): Prom
     await askRefresh(ctx, changedRows.map((r) => r.id), 'guard').catch(() => undefined);
   }
   let changed = changedRows.length;
-  if (!rows.length) throw new HttpError(409, 'changed_in_blackbaud', 'Blackbaud has newer changes on those actions than your list shows. The hub is reading them now. Reload the list in a few minutes and try again.');
+  if (!rows.length) throw new HttpError(409, 'changed_in_blackbaud', 'Blackbaud has newer changes on those actions than your list shows. FavorOS is reading them now. Reload the list in a few minutes and try again.');
   const params: Record<string, unknown> = {};
   const thankMode = ((await getSetting(ctx.env, 'thank_mode', 'one')) === 'two' ? 'two' : 'one') as ThankMode;
   const items: PlannedItem[] = [];

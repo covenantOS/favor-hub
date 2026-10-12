@@ -6,7 +6,7 @@
     { id: 'done', label: 'Done' },
   ];
   const STATUS = { inbox: 'Inbox', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' };
-  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'Hub', app: 'App' };
+  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'FavorOS', app: 'App' };
   // The filters over the board. Each reads the task fields the server sends with every request.
   const VIEWS = [
     { id: 'all', label: 'All' },

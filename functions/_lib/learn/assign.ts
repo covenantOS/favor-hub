@@ -114,7 +114,8 @@ export async function assignLearning(env: TaskEnv, actor: Actor, input: AssignIn
   for (const email of who.people) {
     const prev = await env.DB.prepare(`SELECT ${COLS} FROM learn_assignments WHERE email = ? AND kind = ? AND target_id = ?`).bind(email, input.kind, target.id).first<AssignmentRow>();
     const done = await allDone(env, email, target.courses);
-    const facts = (aid: string): AssignmentFacts => ({ id: aid, email, kind: input.kind, title: target.title, due_date: due, note, href, minutes, lessons });
+    let madeTask = false;
+    const facts = (aid: string): AssignmentFacts => ({ id: aid, email, kind: input.kind, title: target.title, due_date: due, note, href, minutes, lessons, quiet: madeTask });
     if (prev && !prev.closed_at) {
       // Already open: the new due date and note replace the old ones; nobody is told again unless the date moved.
       if ((prev.due_date || null) !== due || note !== prev.note) {
@@ -143,16 +144,16 @@ export async function assignLearning(env: TaskEnv, actor: Actor, input: AssignIn
       await env.DB.prepare('UPDATE learn_assignments SET due_date = ?, note = ?, source = ?, group_label = ?, assigned_by = ?, assigned_at = ?, closed_at = NULL, closed_why = NULL WHERE id = ?')
         .bind(due, note, source, who.label, lower(actor.email), now, aid)
         .run();
-      if (prev.task_id) await reopenTask(env, prev.task_id, due);
+      if (prev.task_id) { await reopenTask(env, prev.task_id, due); madeTask = true; }
       else {
         const tid = await makeTask(env, { email, title: taskTitle, due, by: lower(actor.email), href, note });
-        if (tid) await env.DB.prepare('UPDATE learn_assignments SET task_id = ? WHERE id = ?').bind(tid, aid).run();
+        if (tid) { madeTask = true; await env.DB.prepare('UPDATE learn_assignments SET task_id = ? WHERE id = ?').bind(tid, aid).run(); }
       }
       out.reopened++;
     } else {
       aid = id('asg');
       const tid = await makeTask(env, { email, title: taskTitle, due, by: lower(actor.email), href, note });
-      if (tid) out.tasks++;
+      if (tid) { out.tasks++; madeTask = true; }
       await env.DB.prepare(`INSERT INTO learn_assignments (${COLS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)`)
         .bind(aid, email, input.kind, target.id, due, source, who.label, note, lower(actor.email), now, tid)
         .run();

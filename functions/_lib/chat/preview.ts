@@ -71,7 +71,7 @@ async function token(env: PreviewEnv, fetchFn: typeof fetch): Promise<string> {
 async function meta(env: PreviewEnv, id: string, fetchFn: typeof fetch): Promise<{ name: string; mimeType: string; thumbnailLink?: string; size?: string }> {
   const t = await token(env, fetchFn);
   const res = await fetchFn(`${DRIVE}${id}?fields=name,mimeType,thumbnailLink,size&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${t}` } });
-  if (!res.ok) throw new HttpError(res.status === 404 || res.status === 403 ? 404 : 502, 'no_preview', 'The hub cannot open this file. Open it in Drive.');
+  if (!res.ok) throw new HttpError(res.status === 404 || res.status === 403 ? 404 : 502, 'no_preview', 'FavorOS cannot open this file. Open it in Drive.');
   return (await res.json()) as { name: string; mimeType: string; thumbnailLink?: string; size?: string };
 }
 

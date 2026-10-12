@@ -1,5 +1,5 @@
 /* Settings tabs. A container with data-ad-area="work|meetings|brain|clips" is filled from /api/admin/settings. Each setting saves on
-   its own and asks to confirm when it changes what the hub sends to Blackbaud. */
+   its own and asks to confirm when it changes what FavorOS sends to Blackbaud. */
 (function () {
   'use strict';
   var A = window.Admin, E = A.esc;
@@ -126,7 +126,7 @@
     var shown = function (v) { var o = s.options.filter(function (x) { return x.value === v; })[0]; return o ? o.label : (v === '' ? 'blank' : v + (s.unit ? ' ' + s.unit : '')); };
     var box = document.createElement('div');
     box.className = 'ad-confirm';
-    box.innerHTML = '<p>' + E(s.label) + (s.contact ? ' changes whether the hub emails partners. It is <b>' : ' changes what the hub sends to Blackbaud. It is <b>') + E(shown(s.value)) + '</b> now. Change it to <b>' + E(shown(next)) + '</b>?</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--warn" data-yes>Confirm the change</button><button type="button" class="ad-btn" data-no>Keep ' + E(shown(s.value)) + '</button></div>';
+    box.innerHTML = '<p>' + E(s.label) + (s.contact ? ' changes whether FavorOS emails partners. It is <b>' : ' changes what FavorOS sends to Blackbaud. It is <b>') + E(shown(s.value)) + '</b> now. Change it to <b>' + E(shown(next)) + '</b>?</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--warn" data-yes>Confirm the change</button><button type="button" class="ad-btn" data-no>Keep ' + E(shown(s.value)) + '</button></div>';
     rowEl.appendChild(box);
     box.querySelector('[data-yes]').onclick = function () { send(s.id, { value: next, confirm: true }); };
     box.querySelector('[data-no]').onclick = function () { box.remove(); };

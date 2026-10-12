@@ -398,7 +398,7 @@
 
   function drawEditor() {
     const c = E.course;
-    document.title = `${c.title} - Edit course - Favor Hub`;
+    document.title = `${c.title} - Edit course - FavorOS`;
     root.innerHTML = `<nav class="ln-crumb" aria-label="Where you are">${link('/learn/admin/', 'Manage learning')}<i>/</i><span>${esc(c.title)}</span></nav>
       <div class="ln-head"><div><h1>${esc(c.title)}</h1><p>${statusChip(c.status)} ${plural(c.lessons.length, 'lesson')}${c.completions ? ' · ' + plural(c.completions, 'completion') : ''}${c.open_assignments ? ' · ' + plural(c.open_assignments, 'open assignment') : ''}</p></div>
         <div class="ln-head__acts">${link('/learn/c/?c=' + encodeURIComponent(c.slug), 'Preview', 'h-btn h-btn--ghost', ' target="_blank" rel="noopener"')}${link('/learn/admin/?tab=assign&course=' + encodeURIComponent(c.id), 'Assign', 'h-btn h-btn--ghost')}</div></div>

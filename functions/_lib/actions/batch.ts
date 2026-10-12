@@ -40,7 +40,7 @@ export function refreshCalls(items: { actionId?: string; steps: { op: string; ac
 
 export interface LaneInput {
   planned: number;
-  used: number; // the larger of the route's last calls_today and the hub's own count for this UTC day
+  used: number; // the larger of the route's last calls_today and FavorOS's own count for this UTC day
   laneCap?: number;
 }
 

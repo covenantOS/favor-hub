@@ -28,14 +28,14 @@ const memos = new Map<string, { token: string; exp: number }>();
 export async function saToken(env: Env, fetchFn: typeof fetch = fetch, scope: string = SCOPE): Promise<string> {
   const memo = memos.get(scope);
   if (memo && memo.exp > Date.now() + 120000) return memo.token;
-  if (!env.GOOGLE_SA_JSON) throw new SheetReadError('no_key', 'The hub cannot open the tracking sheet yet. Tell the technology team through Feedback.');
+  if (!env.GOOGLE_SA_JSON) throw new SheetReadError('no_key', 'FavorOS cannot open the tracking sheet yet. Tell the technology team through Feedback.');
   let acct: { client_email?: string; private_key?: string; private_key_id?: string };
   try {
     acct = JSON.parse(env.GOOGLE_SA_JSON);
   } catch {
-    throw new SheetReadError('bad_key', 'The hub cannot open the tracking sheet yet. Tell the technology team through Feedback.');
+    throw new SheetReadError('bad_key', 'FavorOS cannot open the tracking sheet yet. Tell the technology team through Feedback.');
   }
-  if (!acct.client_email || !acct.private_key) throw new SheetReadError('bad_key', 'The hub cannot open the tracking sheet yet. Tell the technology team through Feedback.');
+  if (!acct.client_email || !acct.private_key) throw new SheetReadError('bad_key', 'FavorOS cannot open the tracking sheet yet. Tell the technology team through Feedback.');
   const pem = acct.private_key.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
   const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
@@ -49,7 +49,7 @@ export async function saToken(env: Env, fetchFn: typeof fetch = fetch, scope: st
     body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${head}.${claim}.${sig}` }),
   });
   const data = (await res.json().catch(() => null)) as { access_token?: string; expires_in?: number } | null;
-  if (!res.ok || !data?.access_token) throw new SheetReadError('token', 'Google did not let the hub in to the tracking sheet. Try again in a minute.');
+  if (!res.ok || !data?.access_token) throw new SheetReadError('token', 'Google did not let FavorOS in to the tracking sheet. Try again in a minute.');
   memos.set(scope, { token: data.access_token, exp: Date.now() + (data.expires_in || 3600) * 1000 });
   return data.access_token;
 }
@@ -99,11 +99,11 @@ export interface TabText {
 
 /** Read the named person's tabs for the given months from the tracking sheet. Two or three Google calls. */
 export async function readOwnerTabs(env: Env, sheetId: string, prefix: string, months: number[], fetchFn: typeof fetch = fetch): Promise<TabText[]> {
-  if (!/^[A-Za-z0-9_-]{20,}$/.test(sheetId)) throw new SheetReadError('no_sheet', 'The tracking sheet is not set up in the hub yet. Tell the technology team through Feedback.');
+  if (!/^[A-Za-z0-9_-]{20,}$/.test(sheetId)) throw new SheetReadError('no_sheet', 'The tracking sheet is not set up in FavorOS yet. Tell the technology team through Feedback.');
   const token = await saToken(env, fetchFn);
   const auth = { Authorization: `Bearer ${token}` };
   const meta = await fetchFn(`${SHEETS}/${sheetId}?fields=sheets.properties.title`, { headers: auth });
-  if (meta.status === 403 || meta.status === 404) throw new SheetReadError('no_access', 'The hub cannot see the tracking sheet. Tell the technology team through Feedback.');
+  if (meta.status === 403 || meta.status === 404) throw new SheetReadError('no_access', 'FavorOS cannot see the tracking sheet. Tell the technology team through Feedback.');
   if (!meta.ok) throw new SheetReadError('google', 'Google did not answer. Try again in a minute.');
   const titles = (((await meta.json()) as { sheets?: { properties?: { title?: string } }[] }).sheets || []).map((s) => String(s.properties?.title || ''));
   const tabs = tabsFor(titles, prefix, months);

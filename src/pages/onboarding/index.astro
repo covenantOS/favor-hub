@@ -1,0 +1,11 @@
+---
+// Onboarding: new hires and exits in progress, the start sheet, the checklist template and who owns each duty.
+// For hub admins and people an admin marked HR; the step owners and supervisors see the runs they are part of.
+import App from '../../layouts/App.astro';
+import '../../styles/onboard.css';
+---
+<App title="Onboarding" crumb="Admin" nav="onboarding" description="Start a new hire or an exit, with a checklist, an owner and a due date for each step.">
+  <div class="ob" id="ob-root" aria-busy="true"><div class="ob-skel"></div><div class="ob-skel"></div></div>
+  <script is:inline src="/js/onboard/common.js?v=1" defer></script>
+  <script is:inline src="/js/onboard/index.js?v=1" defer></script>
+</App>

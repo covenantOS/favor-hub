@@ -143,7 +143,8 @@ async function skyProbe(env: Ext, now: number): Promise<Item> {
   const cap = Number(capRaw) || 3000;
   const pct = used / cap;
   const status: Status = stop ? 'failed' : pct >= 0.95 ? 'failed' : pct >= 0.8 ? 'late' : 'ok';
-  const detail = stop ? 'Blackbaud stopped the key for today' : `Upkeep route used ${used.toLocaleString('en-US')} of its ${cap.toLocaleString('en-US')}`;
+  // The meter already reads "Upkeep <used> of <cap>"; the line under it only speaks when Blackbaud stopped the key.
+  const detail = stop ? 'Blackbaud stopped the key for today' : '';
   return { id: 'sky', label: 'SKY calls today', status, at: new Date(now).toISOString(), detail, meter: { used, of: 25000, share: used, shareLabel: `Upkeep ${used.toLocaleString('en-US')} of ${cap.toLocaleString('en-US')}` } };
 }
 

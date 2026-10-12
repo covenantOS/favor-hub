@@ -264,7 +264,7 @@ export const COURSES: SeedCourse[] = [
       article('my-partners-and-reminders', 'My partners, reminders and the morning email'),
       article('partner-page', 'Partner'),
       quiz('Check what you learned', [
-        { text: 'Who lands on their own list when they open the Work Center?', options: ['Regional directors and Partner Care', 'Only hub admins', 'Everyone sees every list at once', 'The Support Team'], answer: 0, explain: 'Support picks a director from the list at the top.' },
+        { text: 'Who lands on their own list when they open the Work Center?', options: ['Regional directors and Partner Care', 'Only FavorOS admins', 'Everyone sees every list at once', 'The Support Team'], answer: 0, explain: 'Support picks a director from the list at the top.' },
         { text: 'A row from the tracking sheet is already in Blackbaud. What does Entry do with it?', options: ['It locks the row, so nothing goes in twice', 'It adds it again', 'It deletes it from the sheet', 'It moves it to another director'], answer: 0, explain: 'A row that is already in Blackbaud is locked.' },
         { text: 'What does Save thank-you record?', options: ['One completed contact in your name, and it closes the thank-you task if there is one', 'A draft you finish later', 'A letter sent to the partner', 'A gift'], answer: 0, explain: 'Nothing goes in twice.' },
         { text: 'How long does Undo work after a change?', options: ['24 hours', '10 minutes', 'Until you sign out', 'One week'], answer: 0, explain: 'The message at the bottom has Undo, and it works for 24 hours.' },
@@ -342,7 +342,7 @@ export const COURSES: SeedCourse[] = [
     key: 'marketing-receipts',
     slug: 'marketing-receipts',
     title: 'Marketing: requests, receipts and reports',
-    summary: 'How work reaches Marketing, how thank-you receipts print, and how to get a list from the hub as a CSV or a Google Sheet.',
+    summary: 'How work reaches Marketing, how thank-you receipts print, and how to get a list from FavorOS as a CSV or a Google Sheet.',
     audience: 'Marketing',
     color: 'slate',
     lessons: [
@@ -354,7 +354,7 @@ export const COURSES: SeedCourse[] = [
       quiz('Check what you learned', [
         { text: 'Which kinds of request go to the Marketing team?', options: ['Design, print, social and video work', 'Website and app changes', 'Blackbaud lists', 'Purchases'], answer: 0, explain: 'Website, app and Blackbaud work goes on the request board. Purchases go on an expense request.' },
         { text: 'Receipts print on which days?', options: ['Tuesday and Friday', 'Monday and Thursday', 'Every day', 'The first Monday of the month'], answer: 0, explain: 'Make the print file, print it, then mark the gifts thanked.' },
-        { text: 'You need a long list from the hub in a spreadsheet. What can you do?', options: ['Download it as a CSV or open it as a private Google Sheet in your own Drive', 'Ask the technology team for a file', 'Copy it by hand', 'Print it'], answer: 0, explain: 'Long answers come back as a table you can sort, filter and copy.' },
+        { text: 'You need a long list from FavorOS in a spreadsheet. What can you do?', options: ['Download it as a CSV or open it as a private Google Sheet in your own Drive', 'Ask the technology team for a file', 'Copy it by hand', 'Print it'], answer: 0, explain: 'Long answers come back as a table you can sort, filter and copy.' },
         tf('A letter you uncheck on the receipts page is gone for good.', false, 'It stays on the list next time.'),
       ]),
     ],

@@ -191,9 +191,6 @@ body.h-body[data-nav='brain'] .h-app.is-nav::after { z-index: 90; }
 /* thinking */
 .h-body .bc-root .m-think { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 14px; animation: bc-rise .3s var(--ease) both; }
 .h-body .bc-root .m-think__st { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--h-ink-3); height: 30px; }
-.h-body .bc-root .m-think__st i { width: 7px; height: 7px; border-radius: 50%; background: var(--h-leaf); animation: bc-dot 1s ease-in-out infinite; }
-.h-body .bc-root .m-think__st i:nth-child(2) { animation-delay: .15s; }
-.h-body .bc-root .m-think__st i:nth-child(3) { animation-delay: .3s; margin-right: 4px; }
 .h-body .bc-root .sk { display: grid; gap: 10px; margin-top: 10px; }
 .h-body .bc-root .sk i { display: block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #eeeae1 0%, #f8f6f1 50%, #eeeae1 100%); background-size: 200% 100%; animation: bc-shim 1.2s linear infinite; }
 .h-body .bc-root .sk .t { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }

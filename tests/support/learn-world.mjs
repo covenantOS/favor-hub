@@ -8,14 +8,6 @@ import './resolve-ts.mjs';
 export { WILL, VIDEO, DESIGN, FOUNDER, OUTSIDER, NOW };
 const read = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8');
 
-// The columns of Projects' hub_tasks that Learn writes and reads (db/projects.sql on the proj-core branch has the whole table).
-const TASKS_SQL = `
-CREATE TABLE IF NOT EXISTS hub_tasks (id TEXT PRIMARY KEY, project_id TEXT, section_id TEXT, code TEXT, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'open', priority TEXT NOT NULL DEFAULT 'normal', owner_email TEXT, start_date TEXT, due_date TEXT, due_time TEXT, done_at TEXT, done_by TEXT,
-  parent_id TEXT, sort REAL NOT NULL DEFAULT 0, created_by TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS hub_task_files (id TEXT PRIMARY KEY, task_id TEXT NOT NULL, kind TEXT NOT NULL, name TEXT NOT NULL, url TEXT NOT NULL DEFAULT '', ref_id TEXT, mime TEXT, size INTEGER, added_by TEXT NOT NULL, added_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS hub_task_events (id TEXT PRIMARY KEY, task_id TEXT, project_id TEXT, actor_email TEXT NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
-`;
 
 export const HR = { email: 'hana@favorintl.org', name: 'Hana Resources', picture: '', role: 'staff', via: 'google', kpi: true };
 export const GRANTS = { email: 'gus@favorintl.org', name: 'Gus Grants', picture: '', role: 'staff', via: 'google', kpi: true };
@@ -24,7 +16,7 @@ export function learnWorld({ notify = 'on', projects = true, learn = 'admins' } 
   const w = requestWorld({ notify });
   w.d1.exec(read('db/people-dev.sql'));
   w.d1.exec(read('db/learn.sql'));
-  if (projects) w.d1.exec(TASKS_SQL);
+  if (projects) { w.d1.exec(read('db/projects.sql')); w.d1.exec(read('db/projects-links.sql')); }
   const ins = (sql, ...a) => w.d1.db.prepare(sql).run(...a);
   for (const u of [HR, GRANTS]) {
     ins('INSERT INTO hub_users (email, name, picture, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', u.email, u.name, '', u.role, NOW, NOW);

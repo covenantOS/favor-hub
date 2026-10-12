@@ -16,7 +16,7 @@ export function adminRoute(handler: (a: AdminArgs) => Promise<Response | Record<
     try {
       const user = hubUserOf(request);
       if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
-      if (user.role !== 'admin') throw new HttpError(403, 'admin_only', 'Settings are for hub admins.');
+      if (user.role !== 'admin') throw new HttpError(403, 'admin_only', 'Settings are for FavorOS admins.');
       if (!sameSite(request)) throw new HttpError(403, 'cross_site', 'That change did not come from the Admin page. Reload the page and try again.');
       const out = await handler({ request, env, user, url: new URL(request.url), waitUntil });
       if (out instanceof Response) return out;

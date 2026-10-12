@@ -1,8 +1,10 @@
 import { HttpError } from '../../_lib/http';
 import { adminAddresses, dryRun, run } from '../../_lib/work/digest';
 import { body, work } from '../../_lib/work/route';
+import { dailyPass as projectsDailyPass } from '../../_lib/projects/links/email'; // projects hook
 import { dailyPass } from '../../_lib/requests/mail';
 import { learnDailyPass } from '../../_lib/learn/notices';
+import { reminderPass } from '../../_lib/onboard/mail';
 
 // The morning email run. The small drain Worker calls POST with {} several times each weekday morning (the run sends nothing before a
 // person's 7:30 or 8:00 Eastern, nothing after 10:30, and never twice a day to one person). An admin may send a dry run:
@@ -20,9 +22,13 @@ export const onRequestPost = work(
     void ctx;
     // The same weekday morning cron carries the request board's pass: due notices and the daily summary email.
     const requests = await dailyPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
+    // projects hook: due-soon notices, the daily summary email and the calendar upkeep for tasks.
+    const projects = await projectsDailyPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
+    // Onboarding steps that are due or late go to their owners in the same pass.
+    const onboarding = await reminderPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
     // Learn reminders (due soon, due today, overdue) ride the same morning pass.
     const learn = await learnDailyPass(env).catch((err) => ({ notes: [String(err).slice(0, 120)] }));
-    return { ...(await run(env)), requests, learn } as any;
+    return { ...(await run(env)), requests, projects, onboarding, learn } as any;
   },
   { adminOnly: true }
 );

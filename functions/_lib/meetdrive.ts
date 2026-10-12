@@ -282,7 +282,7 @@ export interface DocInput {
 export function notesDocHtml(d: DocInput): string {
   const when = new Date(d.startedAt).toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   const list = (items: string[]) => (items.length ? `<ul>${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '');
-  const links = [`<a href="${h(d.notesUrl)}">Notes in Favor Hub</a>`, ...d.recordingUrls.map((u, i) => `<a href="${h(u)}">${d.recordingUrls.length > 1 ? `Recording, part ${i + 1}` : 'Recording'}</a>`)];
+  const links = [`<a href="${h(d.notesUrl)}">Notes in FavorOS</a>`, ...d.recordingUrls.map((u, i) => `<a href="${h(u)}">${d.recordingUrls.length > 1 ? `Recording, part ${i + 1}` : 'Recording'}</a>`)];
   return `<html><body><h1>${h(d.title)}</h1><p>${h(when)} Eastern</p><p>${links.join(' &nbsp;|&nbsp; ')}</p>
 <h2>Summary</h2><p>${h(d.summary || 'No summary.')}</p>
 ${d.decisions.length ? `<h2>Decisions</h2>${list(d.decisions.map((x) => `${h(x.text)} (${stamp(x.t)})`))}` : ''}

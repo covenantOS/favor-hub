@@ -27,7 +27,7 @@ export function route(handler: (a: StmArgs) => Promise<Response | Record<string,
       const user = hubUserOf(request);
       if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
       if (!sameSite(request)) throw new HttpError(403, 'cross_site', 'That change did not come from the Statements page. Reload the page and try again.');
-      if (opts.adminOnly && user.role !== 'admin') throw new HttpError(403, 'admin_only', 'That is for hub admins.');
+      if (opts.adminOnly && user.role !== 'admin') throw new HttpError(403, 'admin_only', 'That is for FavorOS admins.');
       if (!(await mayUseStatements(env, user))) {
         throw new HttpError(403, 'not_allowed', 'Giving statements are for the admin desk, operations and leadership. Ask the technology team if yours should open them.');
       }

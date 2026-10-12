@@ -1,0 +1,15 @@
+---
+// Admin > Projects: who can use Projects, the Asana token, the Asana import, and the hub's projects.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+import '../../../styles/admin-projects.css';
+---
+<App title="Projects settings" crumb="Admin" nav="admin-projects" description="Who can use Projects, the Asana import and FavorOS's projects.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="projects" title="Projects" lede="Who can use Projects, the Asana import and FavorOS's projects." />
+    <div class="ad" id="ap-root" aria-busy="true"><div class="ad-tile h-skel" style="min-height:140px"></div></div>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-projects.js?v=1" defer></script>
+</App>

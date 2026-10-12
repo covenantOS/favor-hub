@@ -5,7 +5,7 @@
 // when a person first presses "Open in Google Sheets", and lets the hub create and open only the sheets it
 // makes.
 import type { Env } from '../http';
-import { providerOf } from '../meetprovider';
+import { PROVIDER_LABEL, providerOf } from '../meetprovider';
 
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.events.readonly',
@@ -39,7 +39,7 @@ export async function seal(env: Env, text: string): Promise<string> {
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await key(env), enc.encode(text)));
   return b64(iv) + '.' + b64(ct);
 }
-async function open(env: Env, sealed: string): Promise<string> {
+export async function open(env: Env, sealed: string): Promise<string> {
   const [iv, ct] = sealed.split('.');
   return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await key(env), unb64(ct)));
 }
@@ -89,29 +89,78 @@ const g = async (token: string, url: string) => {
   return res.json() as Promise<any>;
 };
 
-export interface DayEvent { start: string; end: string; allDay: boolean; title: string; link: string; meet: string; provider: string; people: string[] }
-export interface DayFile { name: string; link: string; modified: string; by: string; icon: string }
+export interface DayEvent {
+  id: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  title: string;
+  /** The event in Google Calendar. Shown only as a secondary link. */
+  link: string;
+  /** The join address of an outside meeting (Zoom, Meet, Teams, Webex); empty when there is none. */
+  meet: string;
+  /** A dial-in number when the event is a phone call. */
+  phone: string;
+  provider: string;
+  /** What the meeting is held on, in words: Zoom, Google Meet, Microsoft Teams, Webex, Favor Meetings, Phone call or No link. */
+  source: string;
+  people: string[];
+  /** The FavorOS meeting id when this event already has a room; set by the Today route. */
+  hub: string;
+  organizer: boolean;
+  /** Whether this person's calendar lets them add text to the event (they organize it, or guests may edit it). */
+  canEdit: boolean;
+  declined: boolean;
+}
+export interface DayFile { id: string; name: string; link: string; modified: string; by: string; icon: string; mime: string }
 export interface DayMail { from: string; fromEmail: string; subject: string; date: string; link: string }
 
-/** Today's meetings (Eastern), from the primary calendar. */
-export async function todaysEvents(token: string): Promise<DayEvent[]> {
-  const now = new Date();
+/** Today in Eastern: the date, the UTC offset and the two instants that bound the day. */
+export function easternDay(now = new Date()): { day: string; tz: string; start: string; end: string } {
   const day = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
   const offset = now.toLocaleString('en-US', { timeZone: 'America/New_York', timeZoneName: 'shortOffset' }).match(/GMT([+-]\d+)/)?.[1] || '-4';
   const tz = `${offset.startsWith('-') ? '-' : '+'}${String(Math.abs(Number(offset))).padStart(2, '0')}:00`;
-  const q = new URLSearchParams({ timeMin: `${day}T00:00:00${tz}`, timeMax: `${day}T23:59:59${tz}`, singleEvents: 'true', orderBy: 'startTime', maxResults: '20' });
+  return { day, tz, start: `${day}T00:00:00${tz}`, end: `${day}T23:59:59${tz}` };
+}
+
+const phoneOf = (e: any): string => {
+  const ep = (e.conferenceData?.entryPoints || []).find((x: any) => x.entryPointType === 'phone');
+  if (ep?.uri) return String(ep.uri).replace(/^tel:/i, '').split(',')[0];
+  const m = String(e.location || '').match(/^\s*(?:tel:)?(\+?\d[\d\s().-]{6,}\d)\s*$/i);
+  return m ? m[1].trim() : '';
+};
+
+/** Every event on the person's primary calendar today (Eastern), whatever the meeting is held on. */
+export async function todaysEvents(token: string): Promise<DayEvent[]> {
+  const d = easternDay();
+  const q = new URLSearchParams({ timeMin: d.start, timeMax: d.end, singleEvents: 'true', orderBy: 'startTime', maxResults: '60' });
   const data = await g(token, `https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`);
   return (data.items || [])
     .filter((e: any) => e.status !== 'cancelled')
-    .map((e: any) => ({
-      start: e.start?.dateTime || e.start?.date || '',
-      end: e.end?.dateTime || e.end?.date || '',
-      allDay: !e.start?.dateTime,
-      title: e.summary || '(No title)',
-      link: e.htmlLink || '',
-      meet: e.hangoutLink || '',
-      people: (e.attendees || []).filter((a: any) => !a.self && !a.resource).map((a: any) => String(a.email || '').toLowerCase()),
-    }));
+    .map((e: any): DayEvent => {
+      const p = providerOf(e);
+      const phone = p.provider ? '' : phoneOf(e);
+      const provider = p.provider || (phone ? 'phone' : 'none');
+      const me = (e.attendees || []).find((a: any) => a.self);
+      const organizer = !!e.organizer?.self || !e.attendees?.length;
+      return {
+        id: String(e.id || ''),
+        start: e.start?.dateTime || e.start?.date || '',
+        end: e.end?.dateTime || e.end?.date || '',
+        allDay: !e.start?.dateTime,
+        title: e.summary || '(No title)',
+        link: e.htmlLink || '',
+        meet: p.provider && p.provider !== 'favor' ? p.url : e.hangoutLink || '',
+        phone,
+        provider,
+        source: p.provider ? PROVIDER_LABEL[p.provider] : phone ? 'Phone call' : 'No link',
+        people: (e.attendees || []).filter((a: any) => !a.self && !a.resource).map((a: any) => String(a.email || '').toLowerCase()),
+        hub: p.provider === 'favor' ? p.url.match(/[?&]m=([A-Za-z0-9]+)/)?.[1] || '' : '',
+        organizer,
+        canEdit: organizer || e.guestsCanModify === true,
+        declined: me?.responseStatus === 'declined',
+      };
+    });
 }
 
 /** Files shared with the person or changed by someone else in the last week. */
@@ -121,7 +170,7 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
     q: `(sharedWithMe = true or 'me' in owners) and modifiedTime > '${since}' and trashed = false`,
     orderBy: 'modifiedTime desc',
     pageSize: '8',
-    fields: 'files(name,webViewLink,modifiedTime,iconLink,lastModifyingUser(displayName,me))',
+    fields: 'files(id,name,mimeType,webViewLink,modifiedTime,iconLink,lastModifyingUser(displayName,me))',
     includeItemsFromAllDrives: 'true',
     supportsAllDrives: 'true',
     corpora: 'allDrives',
@@ -130,7 +179,7 @@ export async function recentFiles(token: string): Promise<DayFile[]> {
   return (data.files || [])
     .filter((f: any) => !f.lastModifyingUser?.me)
     .slice(0, 6)
-    .map((f: any) => ({ name: f.name, link: f.webViewLink, modified: f.modifiedTime, by: f.lastModifyingUser?.displayName || '', icon: f.iconLink || '' }));
+    .map((f: any) => ({ id: String(f.id || ''), name: f.name, link: f.webViewLink, modified: f.modifiedTime, by: f.lastModifyingUser?.displayName || '', icon: f.iconLink || '', mime: f.mimeType || '' }));
 }
 
 /** Unread inbox mail from the last three days, headers only. */

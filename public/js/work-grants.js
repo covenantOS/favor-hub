@@ -22,7 +22,7 @@ async function start() {
   if (G.started) return;
   G.started = true;
   await load();
-  W().render();
+  W().refresh('grants');
 }
 const rows = () => (G.data ? G.data.rows : []);
 const inKind = (r, k) => !k || (k === 'other' ? r.kind === 'task' || r.kind === 'cultivation' || !r.kind : r.kind === k);

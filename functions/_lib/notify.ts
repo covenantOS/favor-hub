@@ -63,7 +63,7 @@ export async function notifyNewRequest(env: Env, row: RequestRow): Promise<void>
   const bodyPreview = row.body.length > 800 ? `${row.body.slice(0, 800)}...` : row.body;
   const html = `<!DOCTYPE html><html><body style="margin:0;background:#faf8f4;font-family:-apple-system,'Segoe UI',sans-serif;padding:24px">
     <div style="max-width:560px;margin:0 auto;background:#fffdf9;border-radius:12px;border-top:4px solid #5a7250;padding:24px">
-      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8b957b">Favor Hub · New request</div>
+      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8b957b">FavorOS · New request</div>
       <h1 style="font-size:20px;color:#2a2722;margin:8px 0 12px">${esc(row.title)}</h1>
       <p style="font-size:14px;color:#5a5648;margin:0 0 16px">${esc(row.submitter_name)}${row.submitter_email ? ` · ${esc(row.submitter_email)}` : ''} · ${esc(row.surface)}${row.page_url ? ` · ${esc(row.page_url)}` : ''}</p>
       <pre style="white-space:pre-wrap;font-size:13px;line-height:1.5;color:#2a2722;background:#f4efe4;padding:14px;border-radius:8px;margin:0 0 18px">${esc(bodyPreview)}</pre>
@@ -91,7 +91,7 @@ export async function notifyRequestDone(
   const html = `<!DOCTYPE html><html><body style="margin:0;background:#faf8f4;font-family:-apple-system,'Segoe UI',sans-serif;padding:24px">
     <div style="max-width:560px;margin:0 auto;background:#fffdf9;border-radius:12px;border-top:4px solid #5a7250;padding:24px">
       <div style="width:48px;height:48px;border-radius:24px;background:#5a7250;color:#fffdf9;font-size:28px;line-height:48px;text-align:center;margin:0 0 16px">✓</div>
-      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8b957b">Favor Hub · Done</div>
+      <div style="font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8b957b">FavorOS · Done</div>
       <h1 style="font-size:20px;color:#2a2722;margin:8px 0 12px">${esc(row.title)}</h1>
       <p style="font-size:14px;color:#5a5648;margin:0 0 16px">This request is done.${row.submitter_name ? ` ${esc(row.submitter_name)} asked for it.` : ''}</p>
       ${pageBlock}

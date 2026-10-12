@@ -1,6 +1,6 @@
 /* Snooze on Today. Each Needs you card and each Blackbaud action has a clock button that opens a small menu:
    Tomorrow, Next week, or Pick a date. A Blackbaud action moves its due date in Blackbaud through the Work Center's
-   own write path (one batch, sent and checked, Undo open for 24 hours). A Needs you card is hidden on the hub until its
+   own write path (one batch, sent and checked, Undo open for 24 hours). A Needs you card is hidden on FavorOS until its
    day (hub_snoozes). The page listens for hub:snoozed to refresh the cards. */
 (() => {
   const TZ = 'America/New_York';

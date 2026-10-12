@@ -39,7 +39,7 @@ export async function giftEntryUrl(env: Env): Promise<string> {
 
 export function bbSender(env: Env): BbSend {
   return async (calls) => {
-    if (!env.BLACKBAUD_SETUP_KEY) return { results: [], wait: 'The Blackbaud connection is not set up on the hub yet.' };
+    if (!env.BLACKBAUD_SETUP_KEY) return { results: [], wait: 'The Blackbaud connection is not set up on FavorOS yet.' };
     if (calls.length < 1 || calls.length > 5) throw new Error('send between 1 and 5 calls');
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), 28000);

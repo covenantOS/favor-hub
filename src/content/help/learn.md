@@ -48,7 +48,7 @@ When someone assigns you a course or path, it shows on Today under **Learning**,
 
 ## For admins and HR
 
-**Manage** (in the Learn tabs) is open to hub admins and to people marked HR in Admin > People.
+**Manage** (in the Learn tabs) is open to FavorOS admins and to people marked HR in Admin > People.
 
 1. **Courses**: **New course**, then add lessons. The add box searches the help library, your clips and Drive together, and also adds a written page, a quiz or a link. **Record a clip** opens the recorder, and the clip becomes a lesson when you stop. Drag lessons into order or use the arrows. A course is a draft until its status is **Published**. A draft previews for authors and records nothing.
 2. **Paths**: put published courses in order and name who the path is for.

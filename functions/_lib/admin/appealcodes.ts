@@ -120,7 +120,7 @@ async function appealsUrl(env: Env): Promise<string> {
 }
 
 async function callRoute(env: Env, method: 'GET' | 'POST', query: string, body: unknown, f: Fetcher): Promise<{ status: number; data: any }> {
-  if (!env.BLACKBAUD_SETUP_KEY) throw new HttpError(503, 'not_set_up', 'The Blackbaud connection is not set up on the hub yet.');
+  if (!env.BLACKBAUD_SETUP_KEY) throw new HttpError(503, 'not_set_up', 'The Blackbaud connection is not set up on FavorOS yet.');
   const base = await appealsUrl(env);
   const res = await f(base + query, { method, headers: { 'X-Setup-Key': env.BLACKBAUD_SETUP_KEY, 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 favor-hub-appeals' }, body: method === 'POST' ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => null);

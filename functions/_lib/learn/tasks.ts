@@ -1,16 +1,16 @@
-// Learn in Projects. When Projects is on (the hub_tasks table exists and the setting projects.enabled is not off), an assignment also
-// becomes a personal task for the person, with a link back to the course, so it shows on their Today and in My tasks. Finishing or
-// removing the assignment closes the task. Without Projects nothing here does anything.
-import { nowIso, type Env } from '../http';
+// Learn in Projects. When Projects is on (setting projects.enabled not off, tables applied), an assignment becomes a personal task for
+// the person through Projects' own task code (createTask, patchTask, deleteTask), so it shows on their Today and in My tasks, with a
+// link back to the course. Finishing or removing the assignment closes the task. Without Projects nothing here does anything.
+import type { Env } from '../http';
 import { effective } from '../admin/settings';
-import { id } from './db';
+import type { Actor } from '../requests/tasks';
 
 export async function projectsOn(env: Env): Promise<boolean> {
   const mode = String(await effective(env, 'projects.enabled', undefined, 'admins').catch(() => 'admins')).toLowerCase();
   if (mode === 'off') return false;
   try {
-    await env.DB.prepare('SELECT id FROM hub_tasks LIMIT 1').first();
-    return true;
+    const { projectsReady } = await import('../projects/db');
+    return await projectsReady(env);
   } catch {
     return false;
   }
@@ -25,27 +25,22 @@ export interface TaskInput {
   note: string;
 }
 
-/** Makes the person's task and returns its id, or null when Projects is off or the task could not be written. */
+const system = (email: string): Actor => ({ email: email || 'learn', name: 'Learn', admin: true });
+
+/** Makes the person's task and returns its id, or null when Projects is off or refuses. */
 export async function makeTask(env: Env, t: TaskInput): Promise<string | null> {
   if (!(await projectsOn(env))) return null;
-  const now = nowIso();
-  const tid = id('tsk');
   try {
-    await env.DB.prepare(
-      `INSERT INTO hub_tasks (id, project_id, title, description, status, priority, owner_email, due_date, created_by, created_at, updated_at)
-       VALUES (?, NULL, ?, ?, 'open', 'normal', ?, ?, ?, ?, ?)`
-    )
-      .bind(tid, t.title.slice(0, 200), (t.note ? t.note + '\n\n' : '') + `Open it in Learn: ${t.href}`, t.email, t.due, t.by || t.email, now, now)
-      .run();
-    await env.DB.prepare(`INSERT INTO hub_task_files (id, task_id, kind, name, url, added_by, added_at) VALUES (?, ?, 'link', 'Open in Learn', ?, ?, ?)`)
-      .bind(id('tfl'), tid, t.href, t.by || t.email, now)
-      .run()
-      .catch(() => undefined);
-    await env.DB.prepare(`INSERT INTO hub_task_events (id, task_id, project_id, actor_email, kind, detail, created_at) VALUES (?, ?, NULL, ?, 'created', ?, ?)`)
-      .bind(id('tev'), tid, t.by || t.email, JSON.stringify({ from: 'learn' }), now)
-      .run()
-      .catch(() => undefined);
-    return tid;
+    const { createTask, addFile } = await import('../projects/tasks');
+    const actor = system(t.by);
+    const made = await createTask(env, actor, {
+      title: t.title,
+      owner_email: t.email,
+      due_date: t.due,
+      description: (t.note ? t.note + '\n\n' : '') + `Open it in Learn: ${t.href}`,
+    });
+    await addFile(env, actor, made.task.id, { kind: 'link', name: 'Open in Learn', url: (/^https?:/.test(t.href) ? '' : 'https://dash.favorintl.org') + t.href }).catch(() => undefined);
+    return made.task.id;
   } catch {
     return null;
   }
@@ -53,22 +48,20 @@ export async function makeTask(env: Env, t: TaskInput): Promise<string | null> {
 
 export async function closeTask(env: Env, taskId: string | null, how: 'done' | 'dropped', by: string): Promise<void> {
   if (!taskId) return;
-  const now = nowIso();
   try {
-    if (how === 'done') {
-      await env.DB.prepare("UPDATE hub_tasks SET status = 'done', done_at = ?, done_by = ?, updated_at = ? WHERE id = ? AND status NOT IN ('done', 'dropped')").bind(now, by, now, taskId).run();
-    } else {
-      await env.DB.prepare("UPDATE hub_tasks SET status = 'dropped', updated_at = ? WHERE id = ? AND status NOT IN ('done', 'dropped')").bind(now, taskId).run();
-    }
+    const { patchTask, deleteTask } = await import('../projects/tasks');
+    if (how === 'done') await patchTask(env, system(by), taskId, { done: true });
+    else await deleteTask(env, system(by), taskId, false);
   } catch {
-    // Projects went away or the row is gone; the assignment still closes.
+    // Projects went away or the task is gone; the assignment still closes.
   }
 }
 
 export async function moveTask(env: Env, taskId: string | null, due: string | null): Promise<void> {
   if (!taskId) return;
   try {
-    await env.DB.prepare("UPDATE hub_tasks SET due_date = ?, updated_at = ? WHERE id = ? AND status NOT IN ('done', 'dropped')").bind(due, nowIso(), taskId).run();
+    const { patchTask } = await import('../projects/tasks');
+    await patchTask(env, system('learn'), taskId, { due_date: due });
   } catch {
     // see closeTask
   }
@@ -78,7 +71,9 @@ export async function moveTask(env: Env, taskId: string | null, due: string | nu
 export async function reopenTask(env: Env, taskId: string | null, due: string | null): Promise<void> {
   if (!taskId) return;
   try {
-    await env.DB.prepare("UPDATE hub_tasks SET status = 'open', done_at = NULL, done_by = NULL, due_date = ?, updated_at = ? WHERE id = ?").bind(due, nowIso(), taskId).run();
+    const { patchTask } = await import('../projects/tasks');
+    await env.DB.prepare("UPDATE hub_tasks SET status = 'open', done_at = NULL, done_by = NULL WHERE id = ?").bind(taskId).run();
+    await patchTask(env, system('learn'), taskId, { due_date: due });
   } catch {
     // see closeTask
   }

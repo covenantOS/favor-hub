@@ -140,7 +140,7 @@ describe('the three lists', () => {
   });
 });
 
-describe('overlay: a step saved in the hub clears at once', () => {
+describe('overlay: a step saved in FavorOS clears at once', () => {
   const row = (extra = {}) => ({ cid: '1', name: 'A', rule: 'monthly', need: 'all', holders: ['600'], over: 3, steps: [{ k: 'call', state: 'next', off: null }, { k: 'card', state: 'todo', off: null }], ...extra });
   it('drops the step done and moves the green to the next one; the last step takes the row away', () => {
     const one = csvc.overlay([row()], [{ cid: '1', step: 'call', outcome: 'done' }]);

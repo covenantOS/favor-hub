@@ -112,7 +112,7 @@ describe('My partners', () => {
     assert.equal(p.rows.find((r) => r.cid === '1').next, null);
   });
 
-  it('lays a task the hub saved but the mirror lacks over the row', async () => {
+  it('lays a task FavorOS saved but the mirror lacks over the row', async () => {
     const p = await loadPortfolio(q, '501', TODAY, [{ cid: '1', id: 'wco_x', due: '2026-10-15', summary: 'Call to check in' }]);
     assert.deepEqual(p.rows.find((r) => r.cid === '1').next, { id: 'wco_x', due: '2026-10-15', summary: 'Call to check in', planned: true });
   });

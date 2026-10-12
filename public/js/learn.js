@@ -147,7 +147,7 @@
   }
   function setPage(view, title, navId) {
     root.dataset.view = view;
-    document.title = title + ' - Favor Hub';
+    document.title = title + ' - FavorOS';
     markNav(navId || 'learn');
   }
   function paint(html, focusH1) {
@@ -342,7 +342,7 @@
     if (!slug) { location.href = '/learn/catalog/'; return; }
     setPage('course', 'Course', 'learn-course');
     const open = (justDone) => {
-      document.title = C.title + ' - Favor Hub';
+      document.title = C.title + ' - FavorOS';
       if (lessonId && C.lesson_list.some((l) => l.id === lessonId)) return drawPlayer(lessonId, my);
       drawCourse(justDone);
     };
@@ -455,7 +455,7 @@
     const prev = C.lesson_list[i - 1];
     const next = C.lesson_list[i + 1];
     setPage('player', C.title, 'learn-course');
-    document.title = `${l.title} - ${C.title} - Favor Hub`;
+    document.title = `${l.title} - ${C.title} - FavorOS`;
     const colorCls = `ln-c--${esc(C.color)}`;
     const done = l.state === 'done';
     const body = `<div id="ln-body" class="ln-lesson ln-card">${lessonBody(l)}</div>`;
@@ -659,7 +659,7 @@
     const d = await api('/api/learn/path/' + encodeURIComponent(slug));
     if (my !== navToken) return;
     const p = d.path;
-    document.title = p.title + ' - Favor Hub';
+    document.title = p.title + ' - FavorOS';
     const nextSlug = p.next_course && p.next_course.slug;
     const a = p.assignment;
     const banner = a ? `<div class="ln-banner${a.overdue ? ' ln-banner--late' : ''}">${svg('clock')}Assigned to you${a.assigned_by ? ' by ' + esc(a.assigned_by) : ''}${a.due_date ? (a.overdue ? ', was due ' : ', due ') + dayWord(a.due_date) : ''}${a.note ? `<small>${esc(a.note)}</small>` : ''}</div>` : '';
@@ -684,7 +684,7 @@
     const d = await api('/api/learn/certificate/' + encodeURIComponent(slug) + (email ? '?email=' + encodeURIComponent(email) : ''));
     if (my !== navToken) return;
     const c = d.certificate;
-    document.title = `Certificate - ${c.course} - Favor Hub`;
+    document.title = `Certificate - ${c.course} - FavorOS`;
     paint(`<nav class="ln-crumb ln-noprint" aria-label="Where you are">${link('/learn/', 'My learning')}<i>/</i>${link(courseHref(slug), esc(c.course))}</nav>
       <div class="ln-cert-wrap"><article class="ln-cert" aria-label="Certificate of completion">
         <img src="/images/favor-logo-color.png" alt="Favor International" />

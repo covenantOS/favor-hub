@@ -23,6 +23,8 @@ export interface AssignmentFacts {
   href: string;
   minutes: number;
   lessons: number;
+  /** A task in Projects tells the person already, so no second email goes out. */
+  quiet?: boolean;
 }
 
 const itemOf = (kind: LearnKind, a: AssignmentFacts, actor: string, at: string): LearnItem => ({
@@ -51,7 +53,7 @@ export async function tell(env: TaskEnv, kind: LearnKind, a: AssignmentFacts, ac
     .run();
   const nid = Number((r.meta as { last_row_id?: number }).last_row_id) || 0;
   // One email for each event goes out now for a person who chose that; the morning pass carries the rest.
-  if (kind === 'assigned' && nid) {
+  if (kind === 'assigned' && nid && !a.quiet) {
     const mail = mailOne(env, nid, to, itemOf(kind, a, actor?.name || '', now)).catch((err) => console.error('[learn] mail', err));
     if (env.DEFER) env.DEFER(mail);
     else await mail;

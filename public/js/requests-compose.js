@@ -28,25 +28,25 @@
     other: 'Other',
   };
 
-  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'This hub', app: 'App' };
+  const SURFACE = { website: 'Website', portal: 'Portal', dashboard: 'FavorOS', app: 'App' };
 
   const LOC = {
     change: {
       website: { label: 'Page or URL (optional)', placeholder: 'The page or link, if you know it' },
       portal: { label: 'Portal page (optional)', placeholder: 'Giving, or skip' },
-      dashboard: { label: 'Hub screen (optional)', placeholder: 'Tools grid, or skip' },
+      dashboard: { label: 'FavorOS screen (optional)', placeholder: 'Tools grid, or skip' },
       app: { label: 'Which screen (optional)', placeholder: 'Name the screen, or skip' },
     },
     add: {
       website: { label: 'Where should it live (optional)', placeholder: 'Careers page, or skip' },
       portal: { label: 'Where should it live (optional)', placeholder: 'A portal page, or skip' },
-      dashboard: { label: 'Where should it live (optional)', placeholder: 'A hub screen, or skip' },
+      dashboard: { label: 'Where should it live (optional)', placeholder: 'A FavorOS screen, or skip' },
       app: { label: 'Where should it live (optional)', placeholder: 'Name the screen, or skip' },
     },
     other: {
       website: { label: 'Where, if you know (optional)', placeholder: 'A page, or skip' },
       portal: { label: 'Where, if you know (optional)', placeholder: 'A portal screen, or skip' },
-      dashboard: { label: 'Where, if you know (optional)', placeholder: 'A hub screen, or skip' },
+      dashboard: { label: 'Where, if you know (optional)', placeholder: 'A FavorOS screen, or skip' },
       app: { label: 'Where, if you know (optional)', placeholder: 'Name the screen, or skip' },
     },
   };
