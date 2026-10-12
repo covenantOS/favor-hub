@@ -1,0 +1,23 @@
+/* Phone pass, night of 2026-10-11. Phone-only rules (max-width media), loaded last from the App layout.
+   Each block names the page and what a person saw before the rule. */
+
+/* Projects */
+@media (max-width: 860px) {
+  /* Calendar, Timeline and Workload carry their own add buttons; the toolbar there held one lone button on its own row. */
+  body.h-body .pj-tools:not(:has(.pj-search--bar)) { display: none; }
+  /* Timeline: a long task name stops at two lines instead of being cut through the third. */
+  body.h-body .tl-lrow .tl-title { display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; max-height: 2.5em !important; min-height: 0 !important; height: auto !important; padding: 0 !important; overflow: hidden; }
+}
+/* The row cursor is for the J and K keys. On a touch screen it stayed as a dark box around the last task opened. */
+@media (hover: none) {
+  body.h-body .pj-row.is-cur { background: transparent; box-shadow: none; border-radius: 0; }
+}
+
+/* Chat */
+@media (max-width: 860px) {
+  /* Buttons in Chat's sheets and the details page were 36 px tall. */
+  body.h-body .ch-btn { min-height: 44px; }
+  body.h-body .ch [data-act='tab'] { min-height: 44px; }
+  /* The lock sat against the channel name in the header. */
+  body.h-body .ch-head__name > svg:first-child, body.h-body .ch-head__name > span:first-child:not(:only-child) { margin-right: 4px; }
+}
