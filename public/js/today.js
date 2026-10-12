@@ -163,7 +163,8 @@
     const paceLine = (k) => {
       const p = k.pace && k.pace.year;
       if (!p || !p.goal) return '';
-      const range = p.projectedLow === p.projectedHigh ? `about ${money0(p.projectedHigh)}` : `${money0(p.projectedLow)} to ${money0(p.projectedHigh)}`;
+      const est = (n) => (window.FavorUI ? window.FavorUI.short(n) : money0(n));
+      const range = p.projectedLow === p.projectedHigh ? `about ${est(p.projectedHigh)}` : `${est(p.projectedLow)} to ${est(p.projectedHigh)}`;
       const word = p.status === 'ahead' ? 'On pace to pass the goal' : p.status === 'close' ? 'Close to goal pace' : 'Behind goal pace';
       return `<div class="r2t-pace is-${p.status}"><span>${word}</span><button type="button" class="r2t-pace__b" data-drill="explain:year" data-drill-label="Raised so far this year" data-drill-value="${Number(k.raised) || 0}" data-drill-shown-label="Raised so far this year">Year end at this pace: ${range}</button><a class="h-link" href="/highlights/">Pace and highlights</a></div>`;
     };
