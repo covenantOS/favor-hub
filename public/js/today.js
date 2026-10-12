@@ -474,7 +474,8 @@
     else body = `<ul class="r2t-list">${list.map(evRow).join('')}</ul>`;
     const outside = (list || []).filter(canMove).length;
     const nudge = outside ? `<p class="t2-nudge">${outside} ${outside === 1 ? 'meeting is' : 'meetings are'} held outside FavorOS.</p>` : '';
-    return card('Today’s meetings', '<a class="h-link" href="/meet/">Day view</a>', body + nudge);
+    // data-td marks this card for the walkthrough step about meetings.
+    return card('Today’s meetings', '<a class="h-link" href="/meet/">Day view</a>', body + nudge).replace('class="h-card r2t-card"', 'class="h-card r2t-card" data-td="meetings"');
   };
 
   const draw = () => {
