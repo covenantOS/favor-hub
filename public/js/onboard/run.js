@@ -111,7 +111,7 @@
     const closed = r.status !== 'active';
     const state = r.status === 'done' ? '<span class="ob-chip ob-chip--leaf">Finished</span>' : r.status === 'cancelled' ? '<span class="ob-chip">Cancelled</span>' : '';
     const banner = S.banner ? `<div class="ob-banner" role="status"><b>${esc(S.banner.title)}</b>${S.banner.lines.map((l) => `<p>${esc(l)}</p>`).join('')}<button type="button" class="ob-x" data-act="banner" aria-label="Dismiss">${ic('x')}</button></div>` : '';
-    root.innerHTML = `<a class="ob-backlink" href="/onboarding/">${ic('back')}Onboarding</a>
+    root.removeAttribute('aria-busy'); root.innerHTML = `<a class="ob-backlink" href="/onboarding/">${ic('back')}Onboarding</a>
       <header class="ob-rhead"><span class="rq-av ob-rhead__av" data-c="${hue(r.email)}">${esc(initials(r.name))}</span>
         <div class="ob-rhead__t"><h1>${esc(r.name)}</h1><p>${esc([r.title, r.team].filter(Boolean).join(' · ') || r.email)}</p>
           <div class="ob-rhead__chips"><span class="ob-chip ob-chip--${r.kind === 'offboard' ? 'sun' : 'sky'}">${O.kindWord(r.kind)}</span><span class="ob-chip">${esc(O.dateWord(r))}</span>${r.stays ? '<span class="ob-chip">Stays as a volunteer</span>' : ''}${state}</div></div>
@@ -253,12 +253,12 @@
 
   /* ------------------------------------------------------------------ load */
   async function load() {
-    if (!id) { root.innerHTML = '<div class="ob-empty"><p>Pick a run from the Onboarding page.</p><a class="h-btn h-btn--primary" href="/onboarding/">Open Onboarding</a></div>'; return; }
+    if (!id) { root.removeAttribute('aria-busy'); root.innerHTML = '<div class="ob-empty"><p>Pick a run from the Onboarding page.</p><a class="h-btn h-btn--primary" href="/onboarding/">Open Onboarding</a></div>'; return; }
     try {
       await window.ReqTasks.people();
       S.d = await api('runs/' + encodeURIComponent(id));
     } catch (e) {
-      root.innerHTML = `<div class="ob-empty"><p>${esc(e.status === 403 ? 'This onboarding is for HR, the supervisor and the people who own its steps.' : e.status === 404 ? 'No such onboarding.' : e.message)}</p><a class="h-btn h-btn--primary" href="/onboarding/">Open Onboarding</a></div>`;
+      root.removeAttribute('aria-busy'); root.innerHTML = `<div class="ob-empty"><p>${esc(e.status === 403 ? 'This onboarding is for HR, the supervisor and the people who own its steps.' : e.status === 404 ? 'No such onboarding.' : e.message)}</p><a class="h-btn h-btn--primary" href="/onboarding/">Open Onboarding</a></div>`;
       return;
     }
     try {

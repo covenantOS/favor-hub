@@ -74,7 +74,7 @@
     const c = counts();
     const lede = S.loading ? '' : `${c.on} onboarding and ${c.off} offboarding in progress.`;
     const tabs = [['active', `In progress <span>${S.runs.length}</span>`], ['done', 'Finished']].concat(S.can.manage ? [['checklist', 'Checklist'], ['owners', 'Owners']] : []);
-    root.innerHTML = `<header class="ob-head"><div><h1>Onboarding</h1><p class="h-lede">${lede}</p></div>
+    root.removeAttribute('aria-busy'); root.innerHTML = `<header class="ob-head"><div><h1>Onboarding</h1><p class="h-lede">${lede}</p></div>
       ${S.can.manage ? `<div class="ob-head__acts"><button type="button" class="h-btn h-btn--primary" id="ob-start" data-ob-start="onboard">${ic('plus')}Start onboarding</button><button type="button" class="h-btn h-btn--ghost" data-ob-start="offboard">${ic('door')}Start offboarding</button></div>` : ''}</header>
       <div class="ob-tabs" role="tablist" aria-label="Onboarding">${tabs.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${S.tab === k}" class="${S.tab === k ? 'is-on' : ''}">${l}</button>`).join('')}</div>
       <div id="ob-panel" aria-live="polite">${S.loading ? '<div class="ob-skel"></div><div class="ob-skel"></div>' : S.tab === 'active' ? listPanel(S.runs, 'No onboarding or offboarding in progress.') : S.tab === 'done' ? listPanel(S.done || [], S.done ? 'Nothing finished yet.' : 'Loading.') : S.tab === 'checklist' ? tplPanel() : ownersPanel()}</div>`;
@@ -98,7 +98,7 @@
       const d = await api('');
       S.can = d.can; S.runs = d.runs; S.owners = d.owners; S.duties = d.duties;
     } catch (e) {
-      root.innerHTML = `<div class="ob-empty"><p>${esc(e.status === 503 ? 'Onboarding is not switched on yet.' : e.message)}</p></div>`;
+      root.removeAttribute('aria-busy'); root.innerHTML = `<div class="ob-empty"><p>${esc(e.status === 503 ? 'Onboarding is not switched on yet.' : e.message)}</p></div>`;
       return;
     }
     S.loading = false;

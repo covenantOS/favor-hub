@@ -58,7 +58,7 @@
   }
 
   function draw() {
-    root.innerHTML = hero() + `<div class="wl-body">${stepsBlock()}${weekBlock()}${peopleBlock()}${aroundBlock()}</div>`;
+    root.removeAttribute('aria-busy'); root.innerHTML = hero() + `<div class="wl-body">${stepsBlock()}${weekBlock()}${peopleBlock()}${aroundBlock()}</div>`;
   }
 
   root.addEventListener('click', async (e) => {
@@ -80,7 +80,7 @@
     try {
       await window.ReqTasks.people();
       D = await api('welcome');
-    } catch (e) { root.innerHTML = `<div class="ob-empty"><p>${esc(e.message)}</p></div>`; return; }
+    } catch (e) { root.removeAttribute('aria-busy'); root.innerHTML = `<div class="ob-empty"><p>${esc(e.message)}</p></div>`; return; }
     draw();
   });
 })();
