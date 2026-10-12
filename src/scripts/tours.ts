@@ -559,6 +559,10 @@ export const RELEASES: Release[] = [
             added: '2026-10-12',
             side: 'top',
             phone: { at: '#cl-rows .cl-card', side: 'bottom' },
+          },
+        ],
+      },
+      {
         id: 'chat-smart',
         title: 'Read Chat in your language',
         short: 'Chat languages',
