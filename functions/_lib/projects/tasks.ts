@@ -373,6 +373,7 @@ async function checkSection(env: Env, projectId: string | null, section: unknown
 
 async function checkPerson(env: Env, email: string | null): Promise<string | null> {
   if (!email) return null;
+  if (isTester(email)) return email;
   if (!(await directory(env)).has(email)) throw new HttpError(400, 'unknown_person', `${email} is not on the staff list.`);
   return email;
 }
