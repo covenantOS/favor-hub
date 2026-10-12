@@ -129,7 +129,8 @@ function place(link: HTMLElement): void {
 function askLink() {
   if (!hasNotifications() || Notification.permission !== 'default') return;
   const path = location.pathname;
-  if (!path.startsWith('/meet') || path.startsWith('/meet/room') || path.startsWith('/meet/g')) return;
+  // Only on the Meetings day page. On Book and Notes it sat above work it has nothing to do with.
+  if (path !== '/meet/' && path !== '/meet') return;
   if (localStorage.getItem(ASKED)) return;
   if (document.getElementById('nudge-ask')) return;
   const p = document.createElement('p');
@@ -151,8 +152,11 @@ function askLink() {
   const obs: MutationObserver | null = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => {
+    // A microtask runs before the next paint, so the link never appears a frame after the card it sits above.
+    queueMicrotask(() => {
       queued = false;
+      // The page changed in place to one outside Meetings: the link goes with it.
+      if (!location.pathname.startsWith('/meet')) { p.remove(); obs?.disconnect(); return; }
       if (!document.body.contains(p) || (anchorOf() ? anchorOf()!.previousElementSibling !== p : p.parentElement?.id !== 'h-content' && !p.parentElement?.matches('.h-top'))) place(p);
     });
   });

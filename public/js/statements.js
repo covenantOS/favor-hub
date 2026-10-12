@@ -506,7 +506,7 @@
     const rows = state.me.fields.map((f) => `<tr><th scope="row">${esc(f.label)}</th><td>${esc(c[f.key]) || '<span class="rcp-fine">Blank</span>'}</td></tr>`).join('');
     $('stm-view-wording').innerHTML = `
       <div class="rcp-make__row"><div><h2>Wording on the statement</h2>
-      <p class="fnd-note">Michael Hinton and the CPA approve the final wording. ${state.me.admin ? 'Change any line in Admin.' : 'A hub admin changes these lines in Admin.'}</p></div>
+      <p class="fnd-note">${state.me.admin ? 'Change any line in Admin.' : 'A hub admin changes these lines in Admin.'}</p></div>
       <div class="rcp-make__form">
         <a class="req-ghost rcp-btn" href="/api/statements/sample" target="_blank" rel="noopener">Open a sample statement</a>
         ${state.me.admin ? '<a class="req-submit rcp-btn" href="/admin/statements/">Change the wording</a>' : ''}

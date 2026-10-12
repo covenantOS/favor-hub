@@ -193,9 +193,9 @@
     const hr = hourET();
     const greet = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening';
     const n = firstName();
-    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1><p>Ask about partners, giving, every team's numbers, iWave ratings, actions and the manuals.</p>
+    return `<div class="bc-empty"><div class="bc-mark bc-mark--bm">${mark('idle')}</div><h1>${greet}${n ? ', ' + esc(n) : ''}</h1>
       <div class="bc-starters">${STARTERS().map(([i, q, s, g], k) => `<button type="button" class="bc-starter" data-act="ask" data-q="${esc(q)}" style="animation-delay:${80 + k * 50}ms"><span class="bc-starter__i${g ? ' g' : ''}">${ic(i)}</span><b>${esc(q)}</b><span>${esc(s)}</span></button>`).join('')}</div>
-      <div class="bc-cando">Not sure what to ask? <button type="button" data-act="ask" data-q="What can you do?">See everything you can ask about</button></div></div>`;
+      <div class="bc-cando"><button type="button" data-act="ask" data-q="What can you do?">What you can ask</button></div></div>`;
   }
 
   function renderThread(opts = {}) {

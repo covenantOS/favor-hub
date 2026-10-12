@@ -34,7 +34,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
 
       <section class="bc-pane" aria-label="Chat">
         <div class="bc-connect" id="bc-connect" hidden>
-          <div class="bc-connect__t"><b>Use Favor Brain inside Claude.</b> <span>Favor has a Claude organization. Ask the technology team for a seat, then connect it once.</span></div>
+          <div class="bc-connect__t"><b>Favor Brain works inside Claude.</b> <span>Ask the technology team for a seat.</span></div>
           <div class="bc-connect__a">
             <button type="button" class="h-btn h-btn--primary h-btn--sm" data-act="connect">Connect</button>
             <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="connect-later">Not now</button>
@@ -63,7 +63,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
               <textarea id="bc-input" rows="1" maxlength="600" placeholder="Ask about partners, giving, team numbers, iWave or the manuals" autocomplete="off"></textarea>
               <button type="submit" class="bc-send" id="bc-send" aria-label="Send" disabled><Fragment set:html={I('send')} /></button>
             </form>
-            <div class="bc-fine"><i class="h-beta">Beta</i><span class="bc-fine__l">Answers can be off. Press <b>Not right</b> under an answer and your note reaches Will.</span><span class="bc-fine__s">Answers can be off. <b>Not right</b> tells Will.</span></div>
+            <div class="bc-fine"><span class="bc-fine__l">Answers can be off. <b>Not right</b> under an answer reports it.</span><span class="bc-fine__s">Answers can be off. <b>Not right</b> reports it.</span></div>
           </div>
         </div>
       </section>
@@ -78,5 +78,5 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
   </div>
   <script is:inline src="/js/brain-blocks.js?v=10"></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/brain.js?v=17" defer></script>
+  <script is:inline src="/js/brain.js?v=18" defer></script>
 </App>

@@ -8,8 +8,7 @@ import '../../styles/q3-desk.css';
   <section class="h-route-wrap" id="route">
     <div class="h-route">
       <div class="h-card h-route__ask">
-        <h2>What do you need?</h2>
-        <p>Say it in a sentence or two, the way you'd say it to a coworker. The hub suggests where it goes, and you can change that.</p>
+        <h2 style="margin-bottom:12px">What do you need?</h2>
         <label class="sr-only" for="route-text">What do you need?</label>
         <textarea id="route-text" maxlength="4000" rows="3" placeholder="Type your request here" autocapitalize="sentences" enterkeyhint="go"></textarea>
         <div class="h-route__egs" aria-label="Examples">
@@ -22,21 +21,12 @@ import '../../styles/q3-desk.css';
         <div class="h-route__row">
           <button type="button" class="h-btn h-btn--primary" id="route-go">Continue</button>
           <span class="h-route__eg" id="route-wait" hidden><span class="h-spin" aria-hidden="true"></span> Reading it&hellip;</span>
-          <span class="h-route__eg h-route__keys">Ctrl + Enter also works</span>
         </div>
         <p class="h-route__msg" id="route-msg" hidden></p>
       </div>
       <div class="h-card h-route__result" id="route-result" hidden></div>
     </div>
     <aside class="h-route__side">
-      <div class="h-card">
-        <div class="h-card__head"><div class="h-card__title">Where requests go</div></div>
-        <div class="h-card__body h-where">
-          <div><span class="h-where__dot" style="background:var(--h-brand)"></span><b>Request board</b><small>Website, portal, the hub, dashboards and Blackbaud</small></div>
-          <div><span class="h-where__dot" style="background:#6b46c1"></span><b>Marketing team</b><small>Design, print, social, video and newsletters</small></div>
-          <div><span class="h-where__dot" style="background:var(--h-gold)"></span><b>Expense request</b><small>Purchases, travel and reimbursements</small></div>
-        </div>
-      </div>
       <div class="h-card" id="mine-card" hidden>
         <div class="h-card__head"><div class="h-card__title">Your recent requests</div><div class="h-card__meta"><a class="h-link" href="/requests/">The board</a></div></div>
         <div class="h-card__body"><ul class="h-mine" id="mine-list"></ul></div>
