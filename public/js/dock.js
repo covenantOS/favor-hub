@@ -306,6 +306,9 @@
     }
   });
   document.addEventListener('favor-hub', sync);
+  // The menu script sets has-chat on the page once it knows who is signed in, after the favor-hub event fires.
+  var hadChat = root.classList.contains('has-chat');
+  new MutationObserver(function () { var now = root.classList.contains('has-chat'); if (now !== hadChat) { hadChat = now; sync(); } }).observe(root, { attributes: true, attributeFilter: ['class'] });
   document.addEventListener('hub-swapped', function () { sync(); dodge(); });
   desk.addEventListener('change', sync);
   addEventListener('resize', dodge);
