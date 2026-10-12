@@ -67,7 +67,7 @@
     var who = (v.approved_name || v.approved_by || '') + ', ' + day(v.approved_at) + (time(v.approved_at) ? ' ' + time(v.approved_at) : '');
     return '<div class="og-row og-row--done" data-key="' + esc(r.key) + '"><div class="og-main"><b>' + partner(r) + '</b><span class="og-f">' + esc(facts(r)) + '</span>' +
       (r.comment ? '<q class="og-c">' + esc(r.comment) + '</q>' : '') +
-      '<span class="og-f">' + esc(fundName(v.chosen_fund) + ' · ' + who) + '</span>' + (v.result && v.state !== 'approved' ? '<span class="og-why">' + esc(v.result) + '</span>' : '') + '</div>' +
+      '<span class="og-f">' + esc(fundName(v.chosen_fund) + ' · ' + who) + '</span>' + (v.result && v.state !== 'approved' && v.state !== 'applied' ? '<span class="og-why">' + esc(v.result) + '</span>' : '') + '</div>' +
       '<div class="og-acts og-acts--done"><span class="ls-st ls-st--' + (PILL[v.state] || 'approved') + '">' + esc(STATE[v.state] || v.state) + '</span><button type="button" class="ls-link og-again" data-act="reopen">Change</button></div></div>';
   }
 
