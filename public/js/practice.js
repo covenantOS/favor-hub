@@ -113,7 +113,7 @@
       ? (giftOpen ? giftForm() : `<div class="pr-ex__go"><button type="button" class="h-btn h-btn--primary" data-open-gift>+ Add gift</button></div>${result('gift')}`)
       : contactForm() + taskForm();
     return `<section class="pr-card pr-ex" data-ex="${kind}"><div class="pr-ex__h"><h2>${esc(s.title)}</h2>${done ? '<span class="pr-done">Done</span>' : ''}</div>
-      <p class="pr-story">${esc(s.story)}</p>
+      <p class="pr-for">${esc(s.forWho)}</p><p class="pr-story">${esc(s.story)}</p>
       <ol class="pr-steps">${s.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>${body}</section>`;
   }
 

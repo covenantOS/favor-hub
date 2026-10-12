@@ -29,7 +29,7 @@ export const ROLES: Role[] = [
   { key: 'grants', label: 'Grants', match: /grant/, path: 'grants', courses: ['grants-records', 'blackbaud-queries'], practice: ['call'], work: 'Learn how a grant action, a letter of intent and an award are recorded.' },
   { key: 'marketing', label: 'Marketing', match: /market|communicat|media/, path: 'marketing', courses: ['blackbaud-queries', 'marketing-receipts'], practice: [], work: 'Learn the request board, thank-you receipts and the reports your team pulls.' },
   { key: 'admin-desk', label: 'Admin desk', match: /admin|operations|front desk|office|hr\b|human resources|bookkeep|finance|account/, path: 'admin-desk', courses: ['admin-desk'], practice: ['gift'], work: 'Learn gift batches, receipts and giving statements, then enter a gift by hand.' },
-  { key: 'support', label: 'Support Team', match: /support/, path: 'support-team', courses: ['work-center', 'blackbaud-queries'], practice: ['call'], work: 'Open the Work Center and the queries your team uses, and log a contact.' },
+  { key: 'support', label: 'Support Team', match: /support/, path: 'support-team', courses: ['work-center', 'blackbaud-queries'], practice: ['gift', 'call'], work: 'Open the Work Center and the queries your team uses, add a gift and log a contact.' },
 ];
 
 export const GENERAL: Role = { key: 'general', label: 'New hire', match: /$^/, path: 'new-hire-favor', courses: ['work-center'], practice: ['call'], work: 'Open the Work Center and see which tools your supervisor wants you in first.' };
@@ -112,7 +112,7 @@ export async function firstWeekFor(env: Db, p: { email: string; team?: string; t
   const known = role.key !== 'general';
   const slugs = [...new Set(['favoros-basics', 'favor-who-we-are', 'requests-and-clips', 'blackbaud-first-week', 'favor-brain', ...role.courses])];
   const facts = await courseFacts(env, email, slugs);
-  const practiced = await practiceDone(env, email);
+  const practiced = await practiceDone(env, email, role.practice);
 
   const course = (slug: string): Item => {
     const f = facts.get(slug);
@@ -151,7 +151,7 @@ export async function firstWeekFor(env: Db, p: { email: string; team?: string; t
     },
     { day: 2, title: 'Learn Favor', items: [course('favor-who-we-are'), course('requests-and-clips')] },
     { day: 3, title: 'Blackbaud', items: [course('blackbaud-first-week'), { kind: 'read', title: 'Partner page', detail: 'How a partner record reads in FavorOS: gifts, contacts and notes in one place.', href: '/help/partner-page/', done: false }] },
-    { day: 4, title: `Your work as ${role.label === 'New hire' ? 'a new hire' : role.label}`, items: [...role.courses.map(course), practiceItem()] },
+    { day: 4, title: `Your work as ${role.label === 'New hire' ? 'a new hire' : role.label}`, items: [...role.courses.map(course), ...(role.practice.length ? [practiceItem()] : [])] },
     {
       day: 5,
       title: 'Ask and check in',

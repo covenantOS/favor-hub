@@ -284,3 +284,12 @@ test('no new text names an assistant, says donor, uses an em dash or names a per
   const help = ['learn', 'onboarding', 'evaluations'].map((n) => read(`src/content/help/${n}.md`)).join('\n');
   assert.doesNotMatch(help, /—/);
 });
+
+test('only roles that enter gifts get the gift exercise; everyone else gets call logging or their own work', async () => {
+  const w = world();
+  const { firstWeekFor } = await import('../functions/_lib/growth/firstweek.ts');
+  const day4 = async (team) => (await firstWeekFor(w.env, { email: NEW.email, team, title: '' })).days[3].items.find((i) => i.kind === 'practice');
+  for (const t of ['Partner Care', 'Operations', 'Support Team']) assert.match((await day4(t)).title, /add a gift/, t);
+  for (const t of ['Development (RDD)', 'Church Engagement', 'Grants']) { const p = await day4(t); assert.doesNotMatch(p.title, /gift/, t); assert.match(p.title, /log a contact/, t); }
+  assert.equal(await day4('Marketing'), undefined);
+});

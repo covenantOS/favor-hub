@@ -103,3 +103,5 @@
   .pr-two, .pr-compose__row { grid-template-columns: minmax(0, 1fr); }
   .pr-gift, .pr-compose { padding: 12px; }
 }
+
+.pr-for { margin: 8px 0 0; display: inline-block; padding: 4px 10px; border-radius: 999px; background: var(--r-sunk); font: 600 13px/1.4 var(--h-font); color: var(--r-ink-2); }

@@ -45,11 +45,13 @@ export const CONTACT_TAGS = ['Thanked', 'Stewardship', 'Scheduling'];
 export const SCENARIOS = {
   gift: {
     title: 'Add a gift',
+    forWho: 'For Admin desk, Partner Care and the Support Team, who enter gifts.',
     story: 'A check came in the mail from Pat and Robin Sample, in the reply envelope for the October 2026 appeal (L26A-AD). It is for $75.00, check number 2041, dated today, and the memo line says "wells". Press Add gift on the record and fill in the form.',
     steps: ['Enter the amount and the gift date.', 'Leave the gift type as One-time gift and set the payment method to Check.', 'Enter the check number and the check date.', 'Pick the appeal and the fund the memo names.'],
   },
   call: {
     title: 'Log a contact',
+    forWho: 'For everyone who works with partners: Regional Development Directors, Partner Care, Church Engagement, Grants and the Support Team.',
     story: "Pat called. Pat and Robin plan to give again in November and asked for a copy of last year's receipt. Press Log a contact, then Add a task so the receipt does not get lost.",
     steps: ['Log a contact: pick Call, write what happened and set the date.', 'Add a task: pick Task, write what to do and set when it is due, within two weeks.'],
   },
@@ -175,9 +177,10 @@ export async function resetPractice(env: Db, email: string) {
   return practiceState(env, email);
 }
 
-export async function practiceDone(env: Db, email: string): Promise<boolean> {
+export async function practiceDone(env: Db, email: string, kinds: Array<'gift' | 'call'> = ['gift', 'call']): Promise<boolean> {
   try {
-    return (await practiceState(env, email)).done.all;
+    const d = (await practiceState(env, email)).done;
+    return kinds.length > 0 && kinds.every((k) => (k === 'gift' ? d.gift : d.call && d.task));
   } catch {
     return false;
   }
