@@ -134,6 +134,17 @@
   /* The composer floats above the home bar as a card. */
   body.h-body .bc-root .bc-dock { padding: 0 12px calc(10px + env(safe-area-inset-bottom)); }
   body.h-body .bc-root .bc-compose { border-radius: 26px; box-shadow: 0 8px 28px -12px rgba(42, 39, 34, .35); }
+  /* Typing: the keyboard covers the home bar, so the message box drops its home-bar clearance and the fine print steps aside.
+     The greeting tightens so whole prompt cards fit above the box, and the list fades out instead of cutting a card in half. */
+  body.h-body.kb-open .bc-root .bc-dock { padding-bottom: 6px; }
+  body.h-body.kb-open .bc-root .bc-fine { display: none; }
+  body.h-body.kb-open .bc-root .bc-col:has(> .bc-empty) { justify-content: flex-start; }
+  body.h-body.kb-open .bc-root .bc-empty { padding-top: 0; }
+  body.h-body.kb-open .bc-root .bc-empty .bc-mark.bc-mark--bm { transform: scale(.5); transform-origin: center; margin: -20px auto -22px; }
+  body.h-body.kb-open .bc-root .bc-empty h1 { font-size: 20px; margin-top: 0; }
+  body.h-body.kb-open .bc-root .bc-empty > p { display: none; }
+  body.h-body.kb-open .bc-root .bc-starters { margin-top: 10px; }
+  body.h-body.kb-open .bc-root .bc-scroll { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent); }
 }
 
 /* Phone tab bar: four areas and More, each a full-height tap area. Built for a thumb, not a cursor. */
