@@ -107,11 +107,11 @@
 .ch-latest[hidden] { display: none; }
 
 /* ------------------------------------------------------------ the message box: formatting row, Also send, pictures on their way */
-.ch-fmt { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; }
+.ch-fmt { display: flex; align-items: center; gap: 8px; padding: 6px 8px 0; }
 .ch-fmt button { width: 28px; height: 28px; border: 0; border-radius: 7px; background: none; display: grid; place-items: center; color: var(--r-ink-3); }
 .ch-fmt button:hover { background: var(--r-sunk); color: var(--r-ink); }
 .ch-fmt svg { width: 16px; height: 16px; }
-.ch-fmt__sep { width: 1px; height: 16px; margin: 0 4px; background: var(--r-line); }
+.ch-fmt__sep { width: 1px; height: 16px; background: var(--r-line); }
 .ch-also { display: flex; align-items: center; gap: 8px; padding: 8px 4px 0; font-size: 13px; color: var(--r-ink-2); cursor: pointer; }
 .ch-also input { width: 16px; height: 16px; margin: 0; accent-color: var(--a); }
 .ch-also span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -234,8 +234,7 @@ select.ch-input { appearance: auto; }
 
 /* ------------------------------------------------------------ narrower desktop */
 @media (max-width: 1279px) and (min-width: 861px) {
-  .ch-fmt button { width: 26px; }
-  .ch-fmt__sep { margin: 0 2px; }
+  .ch-fmt { gap: 8px; }
 }
 
 /* ------------------------------------------------------------ phone */
@@ -298,3 +297,32 @@ body.h-body .ch .ch-input:focus-visible, body.h-body .ch-req textarea:focus-visi
 .ch-ask span { font-size: 12.5px; color: var(--r-ink-3); }
 .ch-ask__acts { display: flex; gap: 6px; margin-top: 8px; }
 @media (max-width: 860px) { .ch-ask span { font-size: 13px; } .ch-ask__acts .ch-btn { height: 44px; } }
+
+/* A Brain answer lays itself out for the width it has (a thread panel is narrower than the Brain page). */
+.ch-ans { container-type: inline-size; container-name: chans; }
+@container chans (max-width: 560px) {
+  .h-body .bc-root .qs, .h-body .bc-root .pc__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .h-body .bc-root .pc__body { grid-template-columns: minmax(0, 1fr); }
+  .h-body .bc-root .months { gap: 3px; }
+  .h-body .bc-root .blk-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+}
+
+/* Tooltips for the formatting row. */
+.ch-tipped { position: relative; }
+.ch-tip { position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); z-index: 30; padding: 6px 9px; border-radius: 8px; background: var(--r-ink); color: #fff; font: 600 13px/1.2 var(--h-font, Inter, sans-serif); white-space: nowrap; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity 0.12s ease 0.25s; }
+.ch-tip kbd { margin-left: 6px; font: 500 13px var(--h-font, Inter, sans-serif); color: #c8cec2; }
+.ch-tipped:hover .ch-tip, .ch-tipped:focus-visible .ch-tip { opacity: 1; visibility: visible; }
+.ch.no-tip .ch-tip { opacity: 0 !important; visibility: hidden !important; transition: none; }
+.ch-fmt button:first-child .ch-tip { left: 0; transform: none; }
+
+/* The channel list keeps 8 px between rows. */
+@media (min-width: 861px) {
+  .ch-navs, .ch-sec { display: flex; flex-direction: column; gap: 8px; }
+  .ch-sec__h { margin-bottom: -4px; }
+  .ch-row { min-height: 30px; padding-top: 2px; padding-bottom: 2px; }
+}
+@media (max-width: 860px) { .ch-navs, .ch-sec { display: flex; flex-direction: column; gap: 8px; } .ch-row { min-height: 44px; } }
+
+/* Words on the orange buttons are white everywhere (a broader rule set them to the text color). */
+.ch .ch-btn--primary, .rt-ch .ch-btn--primary, .ch-req .ch-btn--primary { color: #fff; }
+.ch .ch-msg__deleted { font-size: 14px; }

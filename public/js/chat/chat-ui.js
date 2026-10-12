@@ -93,7 +93,9 @@
   var FMT = [['bold', 'Bold', 'Ctrl B'], ['italic', 'Italic', 'Ctrl I'], ['strike', 'Strikethrough', 'Ctrl Shift X'], ['link', 'Link', 'Ctrl Shift U'], ['ol', 'Numbered list', 'Ctrl Shift 7'], ['ul', 'Bulleted list', 'Ctrl Shift 8'], ['quote', 'Quote', 'Ctrl Shift 9'], ['code', 'Code', 'Ctrl Shift C'], ['block', 'Code block', 'Ctrl Alt Shift C']];
   function fmtRow(scope) {
     return '<div class="ch-fmt" role="toolbar" aria-label="Formatting">' + FMT.map(function (f, i) {
-      return (i === 3 || i === 4 || i === 6 || i === 7 ? '<i class="ch-fmt__sep" aria-hidden="true"></i>' : '') + '<button type="button" tabindex="-1" data-act="fmt" data-f="' + f[0] + '" data-scope="' + scope + '" aria-label="' + f[1] + '" title="' + f[1] + ' (' + f[2] + ')">' + ic(f[0] === 'link' ? 'link' : f[0]) + '</button>';
+      // Each button names itself in a tooltip that shows on hover and keyboard focus (role tooltip, linked by aria-describedby).
+      var tid = 'ch-tip-' + scope + '-' + f[0];
+      return (i === 3 || i === 4 || i === 6 || i === 7 ? '<i class="ch-fmt__sep" aria-hidden="true"></i>' : '') + '<button type="button" class="ch-tipped" data-act="fmt" data-f="' + f[0] + '" data-scope="' + scope + '" aria-label="' + f[1] + '" aria-describedby="' + tid + '">' + ic(f[0] === 'link' ? 'link' : f[0]) + '<span class="ch-tip" role="tooltip" id="' + tid + '">' + f[1] + ' <kbd>' + f[2] + '</kbd></span></button>';
     }).join('') + '</div>';
   }
   function composerHtml(scope, placeholder) {
@@ -616,6 +618,20 @@
     }
     function whereOf(id) { var c = chan(id); return c ? (c.kind === 'public' ? '#' : '') + chName(c) : 'a conversation'; }
     var SKEL = '<div class="ch-skel"><i style="width:30%"></i><i style="width:80%"></i><i style="width:55%"></i><i style="width:70%"></i></div>';
+    // In the Threads list a Favor Brain answer shows as one line (what it found); the thread shows the whole answer.
+    function brainLine(m) {
+      var bl = (m.brain && m.brain.blocks) || [];
+      for (var i = 0; i < bl.length; i++) {
+        var x = bl[i];
+        if (x.type === 'tiles' && x.tiles && x.tiles[0]) return x.tiles[0].label + ': ' + (typeof x.tiles[0].value === 'number' ? x.tiles[0].value.toLocaleString('en-US') : x.tiles[0].value);
+        if (x.type === 'table') return (x.title || 'A list') + ', ' + (Number(x.count) || (x.rows || []).length).toLocaleString('en-US') + ' rows';
+        if (x.type === 'team') return x.team + ' ' + x.year;
+        if (x.type === 'partner') return x.name;
+        if ((x.type === 'text' || x.md) && x.md) return String(x.md).replace(/[*_#|>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 140);
+      }
+      return 'An answer';
+    }
+    function lite(m) { return m.user_id === 'brain' && m.brain && m.brain.blocks ? Object.assign({}, m, { brain: null, body: brainLine(m) }) : m; }
     function pageHtml() {
       if (S.page === 'threads') {
         var l = S.threadList;
@@ -625,8 +641,8 @@
           var at = ' data-ch="' + esc(t.channel_id) + '" data-id="' + t.root.id + '"';
           var more = (t.root.reply_count || 0) - t.latest.length;
           return '<section class="ch-th' + (t.unread ? ' has-new' : '') + '"><header class="ch-th__h"><button type="button" class="ch-th__ch" data-act="open-thread"' + at + '>' + esc(whereOf(t.channel_id)) + '</button>' + (t.unread ? '<span class="ch-badge">' + t.unread + ' new</span>' : '') + '<span class="ch-th__when">' + esc(ago(t.last_reply_at || t.root.created_at)) + '</span></header>' +
-            msgHtml(t.root, { inThread: true, bare: true }) + (more > 0 ? '<button type="button" class="ch-th__more" data-act="open-thread"' + at + '>' + plural(more, 'earlier reply', 'earlier replies') + '</button>' : '') +
-            t.latest.map(function (m) { return msgHtml(m, { inThread: true, bare: true }); }).join('') +
+            msgHtml(lite(t.root), { inThread: true, bare: true }) + (more > 0 ? '<button type="button" class="ch-th__more" data-act="open-thread"' + at + '>' + plural(more, 'earlier reply', 'earlier replies') + '</button>' : '') +
+            t.latest.map(function (m) { return msgHtml(lite(m), { inThread: true, bare: true }); }).join('') +
             '<div class="ch-th__f"><button type="button" class="ch-btn ch-btn--sm" data-act="open-thread"' + at + '>' + ic('reply') + 'Reply</button></div></section>';
         }).join('') + '</div>';
       }
@@ -659,7 +675,7 @@
       if (fresh) box.scrollTop = 0;
       if (window.FavorChatBrain) window.FavorChatBrain.draw(inner);
       if (window.FavorChatView) window.FavorChatView.watch(inner);
-      syncLatest('main');
+      syncLatestSoon();
     }
     function introHtml(c) {
       var n = chName(c);
@@ -692,7 +708,7 @@
       }
       if (window.FavorChatView) window.FavorChatView.watch(inner);
       if (window.FavorChatBrain) window.FavorChatBrain.draw(inner);
-      syncLatest('main');
+      syncLatestSoon();
     }
     function typingLine(t) {
       var now = Date.now();
@@ -747,7 +763,7 @@
         syncSend('thread'); if (!keep) { renderPending('thread'); restoreDraft('thread'); }
         if (window.FavorChatBrain) window.FavorChatBrain.draw(tb);
         if (window.FavorChatView) window.FavorChatView.watch(tb);
-        renderTyping(); syncLatest('thread');
+        renderTyping(); syncLatestSoon();
       } else if (S.right === 'pins') {
         el.dataset.mode = 'pins'; el.dataset.root = '';
         var P = S.pins[c.id];
@@ -977,7 +993,7 @@
       guard(api.thread(id)).then(function (t) {
         t.loaded = true;
         // What was new to the person when the thread opened keeps a New line above it for as long as the thread stays open.
-        if (t.unread > 0) { var k = t.replies.length - t.unread; S.threadNew[id] = k > 0 ? t.replies[k - 1].id : 0; }
+        if (t.unread > 0) { var k = t.replies.length - t.unread; S.threadNew[id] = k > 0 ? t.replies[k - 1].id : t.root.id; }
         S.threads[id] = t;
         threadRead(id, t.threads_unread);
         if (S.threadRoot === id) renderRight();
@@ -1101,6 +1117,9 @@
     })();
 
     /* ------------------------------------------------------------------ Latest: the way back down after reading further up */
+    // Read after the browser has laid the new content out, never in the same task that drew it (a forced layout on a phone).
+    var latestSoonQ = 0;
+    function syncLatestSoon() { if (latestSoonQ) return; latestSoonQ = requestAnimationFrame(function () { latestSoonQ = 0; syncLatest('main'); syncLatest('thread'); }); }
     function syncLatest(scope) {
       var box = scope === 'thread' ? $('.ch-right .ch-thread__body', root) : $('.ch-msgs', root);
       var b = $('.ch-latest[data-scope="' + scope + '"]', root);
@@ -2077,6 +2096,10 @@
       else if (modal) closeModal();
       else if (S.search || sw) closeSearch();
     });
+    // Escape hides a showing tooltip and leaves focus where it is; moving the pointer or the focus brings tooltips back.
+    root.addEventListener('keydown', function (e) { if (e.key === 'Escape' && e.target.closest && e.target.closest('.ch-tipped')) root.classList.add('no-tip'); }, true);
+    root.addEventListener('pointermove', function () { root.classList.remove('no-tip'); }, { passive: true });
+    root.addEventListener('focusin', function () { root.classList.remove('no-tip'); });
     document.addEventListener('visibilitychange', function () { if (!document.hidden) markRead(); });
     window.addEventListener('focus', markRead);
     // iOS sends many viewport events while the keyboard slides; the layout is measured once a frame, not once an event.
