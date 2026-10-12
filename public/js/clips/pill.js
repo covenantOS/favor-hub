@@ -3,11 +3,11 @@
 // place on the next page. The buttons send a command to the recorder window, which holds the recording.
 // In Chrome and Edge the floating window does this job above every app; the pill shows when that window is closed,
 // and in Safari and Firefox, which have no floating window.
-import { controlsHtml, makeDraggable, wireControls } from './controls.js';
+import { controlsHtml, makeDraggable, wireControls, wireShortcuts } from './controls.js';
 import { copyText } from './core.js';
 
 const PILL_KEY = 'favor.clips.pill';
-const CSS_URL = '/js/clips/launcher.css?v=8';
+const CSS_URL = '/js/clips/launcher.css?v=9';
 const LIVE = ['preparing', 'countdown', 'recording', 'paused', 'finishing'];
 
 let el = null;
@@ -19,6 +19,7 @@ let at = 0;
 let send = () => undefined;
 let savedTimer = 0;
 let savedId = '';
+let offKeys = null;
 
 function ensureCss() {
   if (document.getElementById('cr-css') || document.querySelector('link[href*="/js/clips/launcher.css"]')) return;
@@ -59,6 +60,7 @@ function onCmd(cmd, extra) {
   if (st && cmd === 'pause' && st.phase === 'recording') st = { ...now(), phase: 'paused' };
   else if (st && cmd === 'resume' && st.phase === 'paused') st = { ...st, phase: 'recording' };
   else if (st && cmd === 'mute') st = { ...now(), muted: !st.muted };
+  else if (st && (cmd === 'camon' || cmd === 'camoff')) st = { ...now(), camOn: cmd === 'camon' };
   else if (st && cmd === 'stop') st = { ...now(), phase: 'finishing' };
   at = Date.now();
   if (st && ctl) ctl.update(now());
@@ -78,11 +80,14 @@ function mount() {
   ctl = wireControls(el, onCmd);
   drag = makeDraggable(el, PILL_KEY);
   timer = setInterval(paint, 250);
+  offKeys = wireShortcuts(document, () => (st ? st.phase : ''), onCmd);
 }
 
 export function hide() {
   clearInterval(timer);
   clearTimeout(savedTimer);
+  if (offKeys) offKeys();
+  offKeys = null;
   if (drag) drag.destroy();
   if (el) el.remove();
   el = null;

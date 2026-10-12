@@ -13,7 +13,7 @@
   var pillMod = null;
   function pill() {
     if (!pillMod) {
-      pillMod = import('/js/clips/pill.js?v=1').then(function (m) {
+      pillMod = import('/js/clips/pill.js?v=2').then(function (m) {
         m.init(function (msg) { if (ch) ch.postMessage(msg); });
         return m;
       });
@@ -32,7 +32,7 @@
   var winAlive = false;
 
   function load() {
-    if (!mod) mod = import('/js/clips/launcher.js?v=6');
+    if (!mod) mod = import('/js/clips/launcher.js?v=7');
     return mod;
   }
   function isPhone() {

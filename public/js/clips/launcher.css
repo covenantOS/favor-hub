@@ -326,3 +326,5 @@
   .cr-saved--solo { width: 100%; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
   .cr-solo #cr-root:has(.cr-live) { place-items: center; }
 }
+
+.cr-pip.is-camoff .cr-pipcircle { visibility: hidden; }

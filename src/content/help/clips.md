@@ -7,7 +7,7 @@ for: [all]
 related: [getting-started, whats-new]
 tool: /clips/
 toolLabel: Open Clips
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Clips records your screen, a window, a browser tab or your camera and gives you a link. It suits a short walkthrough of something you do every week, or a question you want to show instead of type. Every staff member with a FavorOS sign-in can record. Your clips are your own: other people see a clip only when you send them its link.
@@ -20,9 +20,11 @@ The card shows what will be recorded. Pick Full screen, Window, Tab or Camera on
 
 ## The controls follow you
 
-In Chrome and Edge a small window with the controls floats above everything on your computer, other apps included. Drag it anywhere by its title bar. It holds Stop and save, the time, Pause, Mute, Start over and Discard, and the round camera when the camera is on. Closing that window never ends the recording. The Float button in the recorder window brings it back. A full screen recording shows the floating window in the video. Turn Floating controls off on the card to leave it out. With the camera on, the round camera still floats.
+In Chrome and Edge a small window with the controls floats above everything on your computer, other apps included. Drag it anywhere by its title bar. It holds Stop and save, the time, Pause, Mute, Change what I'm sharing, the camera switch, Start over and Discard, and the round camera when the camera is on. Closing that window never ends the recording. The Float button in the recorder window brings it back. A full screen recording shows the floating window in the video. Turn Floating controls off on the card to leave it out. With the camera on, the round camera still floats.
 
 In Safari and Firefox, and in Chrome or Edge with the floating window closed, the same controls show as a pill on every FavorOS page. Drag it by the dots at its left end, or move it with the arrow keys. It stays where you put it as you go from page to page.
+
+While you record, Change what I'm sharing in the floating window, the recorder window or the pill opens the browser's picker again. Pick another screen, window or tab and the recording carries on in the same clip, with one steady picture. In the pill the picker opens in the recorder window, so the pill asks you to press the button there. With the camera on, the camera button hides or shows the round camera in the video. Alt+Shift+P pauses and resumes, and Alt+Shift+S stops and saves. A browser passes these keys to FavorOS only while the recorder window, the floating window or a FavorOS page has the focus.
 
 Start over deletes what you recorded so far and begins again after a new countdown, with the same screen, camera and microphone. Discard deletes the recording. Both ask first.
 

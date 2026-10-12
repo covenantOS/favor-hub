@@ -79,6 +79,9 @@ export class ClipRecorder {
     this.bubble = { size: 'M', cx: 0.12, cy: 0.78 };
     /** True while a real floating camera window shows the camera over the whole screen: it is already in the capture, so it is not drawn twice. */
     this.bubbleNative = false;
+    /** True while the person has switched the camera off during the recording: nothing is drawn, the file keeps one picture. */
+    this.camOff = false;
+    this.sysSrc = null;
     this.display = null;
     this.cam = null;
     this.mic = null;
@@ -278,7 +281,10 @@ export class ClipRecorder {
       this.micGain.connect(this.dest);
       this.micGain.connect(this.analyser);
     }
-    if (sysTracks.length) this.actx.createMediaStreamSource(new MediaStream(sysTracks)).connect(this.dest);
+    if (sysTracks.length) {
+      this.sysSrc = this.actx.createMediaStreamSource(new MediaStream(sysTracks));
+      this.sysSrc.connect(this.dest);
+    }
     const audioTrack = (this.mic && this.mic.getAudioTracks().length) || sysTracks.length ? this.dest.stream.getAudioTracks()[0] : null;
 
     // picture
@@ -343,7 +349,7 @@ export class ClipRecorder {
     }
     g.drawImage(v, Math.round((canvas.width - w) / 2), Math.round((canvas.height - h) / 2), w, h);
     const native = this.nativeCheck ? this.nativeCheck() : this.bubbleNative;
-    const c = native ? null : this.camVideo;
+    const c = native || this.camOff ? null : this.camVideo;
     if (!c || c.readyState < 2 || !c.videoWidth) return;
     const r = Math.round((canvas.height * (BUBBLE_FRACTION[this.bubble.size] || BUBBLE_FRACTION.M)) / 2);
     const m = Math.round(r * 0.2);
@@ -433,6 +439,60 @@ export class ClipRecorder {
     this.pausedTotal += Date.now() - this.pausedAt;
     this.pausedAt = 0;
     this.set({ phase: 'recording' });
+  }
+
+  /** Show or hide the round camera in the picture while recording. */
+  setCamera(on) {
+    this.camOff = !on;
+    this.set({ camOn: on });
+  }
+
+  /**
+   * Swap the shared screen, window or tab while the recording runs. The picture always goes through the one canvas, so the
+   * recorder keeps writing the same stream and the result is one clip. Needs a click in the window whose `nav` is passed.
+   */
+  async changeShare(nav) {
+    const ph = this.state.phase;
+    if ((ph !== 'recording' && ph !== 'paused') || this.settings.source === 'camera' || !this.display) return false;
+    const s = this.settings;
+    const next = await (nav || navigator).mediaDevices.getDisplayMedia({
+      video: { frameRate: { ideal: 30, max: 30 }, width: { max: 1920 }, height: { max: 1080 } },
+      audio: s.systemAudio ? { echoCancellation: false, noiseSuppression: false } : false,
+    });
+    const vt = next.getVideoTracks()[0];
+    if (!vt) {
+      next.getTracks().forEach((t) => t.stop());
+      return false;
+    }
+    const old = this.display;
+    this.display = next;
+    this.monitor = vt.getSettings().displaySurface === 'monitor';
+    if (this.mainVideo) {
+      this.mainVideo.srcObject = next;
+      this.mainVideo.play().catch(() => undefined);
+    }
+    this.sceneSig = null;
+    vt.addEventListener('ended', () => {
+      if (this.display === next && (this.state.phase === 'recording' || this.state.phase === 'paused')) this.stop();
+    });
+    if (this.actx && this.dest) {
+      if (this.sysSrc) {
+        try {
+          this.sysSrc.disconnect();
+        } catch (e) {
+          // already disconnected
+        }
+        this.sysSrc = null;
+      }
+      const at = next.getAudioTracks();
+      if (at.length) {
+        this.sysSrc = this.actx.createMediaStreamSource(new MediaStream(at));
+        this.sysSrc.connect(this.dest);
+      }
+    }
+    old.getTracks().forEach((t) => t.stop());
+    this.set({ shares: (this.state.shares || 0) + 1 });
+    return true;
   }
 
   setMuted(muted) {

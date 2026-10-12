@@ -11,6 +11,9 @@ const I = {
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   restart: '<path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/>',
   trash: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+  share: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8"/><path d="M12 16v4"/><path d="M9.5 10.5 12 8l2.5 2.5"/><path d="M12 8v5"/>',
+  cam: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  camOff: '<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/><path d="M3 3l18 18"/>',
   float: '<rect x="3" y="4" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="5" rx="1"/>',
   close: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
   check: '<path d="m5 12 5 5 9-10"/>',
@@ -35,6 +38,8 @@ export function controlsHtml({ grip = false, float = false, level = true } = {})
     ${level ? `<span class="cr-bars" data-bars aria-hidden="true">${[0.2, 0.4, 0.6, 0.8, 1].map((b) => `<i data-bar="${b}"></i>`).join('')}</span>` : ''}
     <button type="button" class="cr-ic" data-ctl="pause" aria-label="Pause" title="Pause">${svg('pause')}</button>
     <button type="button" class="cr-ic" data-ctl="mute" aria-pressed="false" aria-label="Mute microphone" title="Mute microphone">${svg('mic')}</button>
+    <button type="button" class="cr-ic" data-ctl="share" aria-label="Change what I'm sharing" title="Change what I'm sharing">${svg('share')}</button>
+    <button type="button" class="cr-ic" data-ctl="cam" aria-pressed="false" aria-label="Turn the camera off" title="Turn the camera off" hidden>${svg('cam')}</button>
     <button type="button" class="cr-ic" data-ctl="ask-restart" aria-label="Start over" title="Start over">${svg('restart')}</button>
     <button type="button" class="cr-ic cr-ic--x" data-ctl="ask-discard" aria-label="Discard recording" title="Discard">${svg('trash')}</button>
     ${float ? `<button type="button" class="cr-ic cr-ic--float" data-ctl="float" aria-label="Float the controls above other windows" title="Float above other windows" hidden>${svg('float')}</button>` : ''}
@@ -98,6 +103,7 @@ export function wireControls(host, on) {
       if (back) back.focus();
       return;
     }
+    if (c === 'cam') return on(last.camOn === false ? 'camon' : 'camoff');
     if (c === 'pause') return on(last.phase === 'paused' ? 'resume' : 'pause');
     if (c === 'open') {
       ev.preventDefault();
@@ -138,6 +144,20 @@ export function wireControls(host, on) {
         m.innerHTML = svg(st.muted ? 'micOff' : 'mic');
       }
     }
+    const sh = $('[data-ctl=share]');
+    if (sh) sh.hidden = !!st.cameraOnly;
+    const cm = $('[data-ctl=cam]');
+    if (cm) {
+      cm.hidden = !st.hasCam;
+      const off = st.camOn === false;
+      if (cm.getAttribute('aria-pressed') !== String(off)) {
+        cm.setAttribute('aria-pressed', String(off));
+        cm.setAttribute('aria-label', off ? 'Turn the camera on' : 'Turn the camera off');
+        cm.title = off ? 'Turn the camera on' : 'Turn the camera off';
+        cm.classList.toggle('is-on', off);
+        cm.innerHTML = svg(off ? 'camOff' : 'cam');
+      }
+    }
     const p = $('[data-ctl=pause]');
     if (p && p.dataset.paused !== String(paused)) {
       p.dataset.paused = String(paused);
@@ -166,6 +186,29 @@ export function wireControls(host, on) {
 
   host.querySelectorAll('[data-v]').forEach((el) => (el.hidden = true));
   return { update, saved, view: () => host.dataset.view || '' };
+}
+
+/**
+ * Keyboard shortcuts for a window that shows the controls: Alt+Shift+P pauses or resumes, Alt+Shift+S stops and saves.
+ * A browser gives a page keys only while one of its windows has the focus, so each window that shows controls calls this.
+ * `get()` returns the current phase; `on(cmd)` runs a command. Returns a function that removes the listener.
+ */
+export function wireShortcuts(doc, get, on) {
+  const h = (e) => {
+    if (!e.altKey || !e.shiftKey || e.ctrlKey || e.metaKey) return;
+    const k = (e.code || '').replace('Key', '');
+    const phase = get();
+    if (phase !== 'recording' && phase !== 'paused') return;
+    if (k === 'P') {
+      e.preventDefault();
+      on(phase === 'paused' ? 'resume' : 'pause');
+    } else if (k === 'S') {
+      e.preventDefault();
+      on('stop');
+    }
+  };
+  doc.addEventListener('keydown', h, true);
+  return () => doc.removeEventListener('keydown', h, true);
 }
 
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));

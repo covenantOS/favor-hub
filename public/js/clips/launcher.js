@@ -6,14 +6,14 @@
 import { api, copyText, esc, toast } from './core.js';
 import { BUBBLE_FRACTION, ClipRecorder, canRecordCamera, canRecordScreen, setMaxSeconds } from './recorder.js';
 import { MAX_UPLOAD_BYTES, uploadVideoFile } from './upload.js';
-import { controlsHtml, makeDraggable, wireControls } from './controls.js';
+import { controlsHtml, makeDraggable, wireControls, wireShortcuts } from './controls.js';
 
-const CSS_URL = '/js/clips/launcher.css?v=8';
+const CSS_URL = '/js/clips/launcher.css?v=9';
 const PREFS_KEY = 'favor.clips.prefs';
 const PILL_KEY = 'favor.clips.pill';
 const DEFAULTS = { source: 'screen', camOn: false, camId: '', micOn: true, micId: '', systemAudio: true, size: 'M', float: true, bx: 0.12, by: 0.78 };
 const BUBBLE_PX = { S: 140, M: 200, L: 280 };
-const PIP_BAR = { width: 420, height: 68 };
+const PIP_BAR = { width: 500, height: 68 };
 const SOURCES = {
   screen: { label: 'Full screen', icon: 'screen', note: 'Chosen in the browser prompt' },
   window: { label: 'Window', icon: 'window', note: 'Chosen in the browser prompt' },
@@ -765,6 +765,8 @@ function viewState() {
     count: S.countN,
     canFloat: !!docPip() && !S.pip,
     cameraOnly: !!rec && rec.settings.source === 'camera',
+    hasCam: !!rec && rec.settings.source === 'screen+camera' && !!rec.camStream,
+    camOn: !(rec && rec.camOff),
   };
 }
 
@@ -773,6 +775,9 @@ function paintControls() {
   if (S.bar) S.bar.ctl.update(st);
   if (S.pip && S.pip.ctl && S.rec) S.pip.ctl.update(st);
   if (S.panel) S.panel.classList.toggle('has-pip', !!S.pip);
+  const camHidden = !!S.rec && S.rec.camOff;
+  if (S.pip && S.pip.wrap) S.pip.wrap.classList.toggle('is-camoff', camHidden);
+  if (S.bubbleEl) S.bubbleEl.hidden = camHidden;
   if (STANDALONE) announce(st);
 }
 
@@ -801,6 +806,15 @@ function onCtl(cmd, extra) {
     case 'float':
       floatControls();
       break;
+    case 'share':
+      changeShare(extra && extra.navigator ? extra.navigator : null, extra === 'remote');
+      break;
+    case 'camoff':
+      if (rec) rec.setCamera(false);
+      break;
+    case 'camon':
+      if (rec) rec.setCamera(true);
+      break;
     case 'skip':
       if (S.countGo) S.countGo();
       break;
@@ -815,6 +829,30 @@ function onCtl(cmd, extra) {
       closePip();
       break;
     default:
+  }
+}
+
+/** Change what is being recorded without ending the clip. `nav` is the navigator of the window that was clicked. */
+async function changeShare(nav, remote) {
+  const rec = S.rec;
+  if (!rec) return;
+  try {
+    const ok = await rec.changeShare(nav);
+    if (ok) toast('Sharing the new screen. The clip keeps going.');
+  } catch (e) {
+    const noClick = e && (e.name === 'NotAllowedError' || e.name === 'InvalidStateError');
+    if (remote && noClick) {
+      // A browser only opens its picker for a click in the window that asks. Bring this window forward and say so.
+      try {
+        window.focus();
+      } catch (err) {
+        /* the browser decides */
+      }
+      toast("Press Change what I'm sharing in the recorder window.", 'bad');
+      pulseBar();
+    } else if (!(e && e.name === 'NotAllowedError')) {
+      toast(e && e.message ? e.message : 'Could not change the screen.', 'bad');
+    }
   }
 }
 
@@ -894,11 +932,11 @@ function announce(st) {
   const rs = S.rs;
   if (!rs) return;
   const now = Date.now();
-  const sig = [st.phase, st.muted, !!S.pip, st.count, st.retrying].join('|');
+  const sig = [st.phase, st.muted, !!S.pip, st.count, st.retrying, st.hasCam, st.camOn].join('|');
   if (sig === lastSig && now - lastPost < 1000) return;
   lastPost = now;
   lastSig = sig;
-  post({ t: 'state', phase: st.phase, id: rs.id || '', elapsed: st.elapsed, muted: st.muted, hasMic: st.hasMic, pip: !!S.pip, count: st.count, retrying: st.retrying, cameraOnly: st.cameraOnly });
+  post({ t: 'state', phase: st.phase, id: rs.id || '', elapsed: st.elapsed, muted: st.muted, hasMic: st.hasMic, pip: !!S.pip, count: st.count, retrying: st.retrying, cameraOnly: st.cameraOnly, hasCam: st.hasCam, camOn: st.camOn });
 }
 
 function onRecState(rs) {
@@ -1053,7 +1091,12 @@ async function openPip(kind) {
     ${kind === 'bubble' ? `<div class="cr-corners" hidden>${cornersHtml()}</div>` : ''}`;
   doc.body.appendChild(wrap);
   const ctlEl = wrap.querySelector('.cr-pip__ctl');
+  pip.wrap = wrap;
+  const offKeys = wireShortcuts(doc, () => S.rs && S.rs.phase, onCtl);
+  win.addEventListener('pagehide', offKeys);
   pip.ctl = wireControls(ctlEl, async (cmd, extra) => {
+    // The picker opens only for a click in the window that asks, so the floating window asks for itself.
+    if (cmd === 'share') return onCtl('share', win);
     if (cmd === 'copy') {
       const ok = await copyFrom(win, `${location.origin}/c/${extra}`);
       const b = ctlEl.querySelector('[data-ctl=copy]');
@@ -1321,6 +1364,9 @@ export async function resumeUnfinished() {
   }
 }
 
+// Shortcuts in whichever window shows the controls (the recorder window, or a hub page that records inside itself).
+if (typeof document !== 'undefined') wireShortcuts(document, () => S.rs && S.rs.phase, onCtl);
+
 export const isRecording = recordingNow;
 // For tests: the recorder in progress.
 export const _state = S;
@@ -1346,7 +1392,8 @@ if (STANDALONE && CHANNEL) {
       return;
     }
     // The pill on a hub page: pause, resume, mute, stop, start over, discard.
-    if (m.t === 'cmd' && typeof m.c === 'string' && ['pause', 'resume', 'mute', 'stop', 'restart', 'discard', 'skip', 'cancel'].includes(m.c)) onCtl(m.c);
+    if (m.t === 'cmd' && typeof m.c === 'string' && ['pause', 'resume', 'mute', 'stop', 'restart', 'discard', 'skip', 'cancel', 'camon', 'camoff'].includes(m.c)) onCtl(m.c);
+    if (m.t === 'cmd' && m.c === 'share') onCtl('share', 'remote');
   });
   // Closing the window mid-recording: ask the server to finish the clip from what it already holds (whole parts and the
   // tail). The footage up to the last few seconds is kept and the clip lands in My clips.

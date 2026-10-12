@@ -1222,6 +1222,14 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'clips-share',
+    at: '#clip-cam',
+    title: 'Change the screen mid-recording',
+    body: 'The floating recording window now has a share button, Change what I am sharing, which swaps to another screen, window or tab and keeps the same clip. Pause, Resume, the camera on or off and Mute sit beside it. Press Alt+Shift+P to pause or resume and Alt+Shift+S to stop and save, in the recorder, the floating window or the pill.',
+    added: '2026-10-12',
+    side: 'bottom',
+  },
+  {
     id: 'meetings',
     alt: '#mt-day, #mt-home',
     page: '/meet/',

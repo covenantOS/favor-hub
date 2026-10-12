@@ -4,10 +4,14 @@ summary: Changes to FavorOS, newest first.
 topic: start
 order: 5
 related: [guided-tour, feedback]
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **What's new and tour**, plays any of them again. Every change is listed here.
+
+## October 12, 2026
+
+- **Change the screen while you record.** The floating recording window, the recorder window and the pill have a new Change what I'm sharing button. It swaps to another screen, window or tab and keeps recording into the same clip. With the camera on, a new button hides or shows the round camera. Alt+Shift+P pauses and resumes, and Alt+Shift+S stops and saves. See [Clips](/help/clips/).
 
 ## October 11, 2026
 
