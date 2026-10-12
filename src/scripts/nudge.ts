@@ -107,7 +107,7 @@ function check() {
   if (due.length && !toastEl) show(due[0], minutesLeft(due[0].startMs, now));
 }
 
-/** On the Meetings pages only: one quiet link that asks for system notifications. It sits above the page content, outside every card, or at the top of the page while it has none, and goes away after any answer. */
+/** On the Meetings pages only: one quiet link that asks for system notifications. It sits above the page content, outside every card, once the page has drawn one, and goes away after any answer. */
 const CARD = '#h-content .mt-card, #h-content .h-card:not(.h-skel), #h-content .dv-card:not(.dv-skel)';
 function anchorOf(): HTMLElement | null {
   const card = document.querySelector<HTMLElement>(CARD);
@@ -121,11 +121,8 @@ function place(link: HTMLElement): void {
     anchor.before(link);
     return;
   }
-  // Before the page has drawn a card, the link waits at the top of the page. In the header it widened the header on a phone, and
-  // the whole page dropped 64 px and jumped back when the first card arrived.
-  const main = document.getElementById('h-content');
-  if (!main || main.firstElementChild === link) return;
-  main.prepend(link);
+  // Until the page has drawn a card the link waits off screen: placed in the header first, it squeezed the title and tabs for
+  // half a second and then jumped into the page. The observer below places it when the first card arrives.
 }
 
 function askLink() {

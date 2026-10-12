@@ -40,7 +40,15 @@ const shell = {
 };
 setDrawerHooks({
   open: (t) => setUrl((p) => p.set('t', t.code || t.id)),
-  close: () => { setUrl((p) => p.delete('t')); if (PJ.refreshView) PJ.refreshView(); },
+  // Closing steps back out of the drawer's history entry. A drawer opened from a task link (Chat, email, a mention) steps back
+  // to an address that still names the task, so the task is cleared again once that step lands; a reload then shows the list.
+  close: () => {
+    const clear = () => setUrl((p) => p.delete('t'));
+    clear();
+    addEventListener('popstate', clear, { once: true });
+    setTimeout(() => removeEventListener('popstate', clear), 800);
+    if (PJ.refreshView) PJ.refreshView();
+  },
 });
 
 /* ---------------------------------------------------------------- the project page */

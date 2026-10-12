@@ -93,10 +93,13 @@
   // Shown until the first answer arrives: the same four lanes and card shapes, so nothing jumps when the cards land.
   function skeleton() {
     tabsEl.innerHTML = COLS.map(() => `<span class="req-skel req-skel--tab" aria-hidden="true"></span>`).join('');
-    boardEl.innerHTML = `<section class="req-col is-on" aria-busy="true" aria-label="Loading requests">
-      <div class="req-col__stack">${[0, 1, 2, 3]
-        .map(() => `<div class="req-skel-card" aria-hidden="true"><span class="req-skel"></span><span class="req-skel req-skel--title"></span><span class="req-skel req-skel--line"></span></div>`)
-        .join('')}</div></section>`;
+    // The filter row keeps its height while it waits, so the board does not drop when the chips arrive.
+    if (filtersEl && filtersEl.hidden && !filtersEl.children.length) { filtersEl.innerHTML = '<span class="req-skel req-skel--chip" aria-hidden="true"></span>'.repeat(5); filtersEl.hidden = false; }
+    const card = `<div class="req-skel-card" aria-hidden="true"><span class="req-skel"></span><span class="req-skel req-skel--title"></span><span class="req-skel req-skel--line"></span></div>`;
+    // All four lanes with their headings, as the board draws them on a computer (a phone shows the first lane only).
+    boardEl.innerHTML = COLS.map((c, i) => `<section class="req-col${i === 0 ? ' is-on' : ''}" aria-busy="true" aria-label="Loading requests">
+      <div class="req-col__head"><h2>${c.label}</h2><span></span></div>
+      <div class="req-col__stack">${card.repeat(i === 0 ? 4 : 2)}</div></section>`).join('');
   }
 
   /* ------------------------------------------------------------------ filters */

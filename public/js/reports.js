@@ -242,7 +242,7 @@
       '<button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-link">Copy link</button>' +
       '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-csv" href="' + apiUrl(res.id, res.values, 'csv') + '" download>CSV</a>' +
       (res.mailFile ? '<a class="h-btn h-btn--ghost h-btn--sm" id="rp-mailcsv" href="' + apiUrl(res.id, res.values, 'csv') + '&file=mail" download>' + esc(res.mailFile.label) + ' CSV</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" id="rp-mailsheet">' + esc(res.mailFile.label) + ' to Sheets</button>' : '') +
-      '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="reports">Google Sheets</button></div></div>';
+      '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="reports">Open in Google Sheets</button></div></div>';
 
     var tie = tieHtml(res.tie) + (res.ties || []).map(tieHtml).join('');
     if (res.tiles.length || tie) {

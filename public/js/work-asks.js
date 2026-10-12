@@ -198,7 +198,7 @@ function view() {
         <select class="wc-sel wa-range${A.range === 'all' ? ' is-set' : ''}" data-wa-range aria-label="Tagged"><option value="12m"${A.range === '12m' ? ' selected' : ''}>Tagged in the last 12 months</option><option value="all"${A.range === 'all' ? ' selected' : ''}>All time</option></select></div>
       <div class="wa-tools"><div class="wa-seg" role="group" aria-label="View"><button type="button" class="${A.mode === 'board' ? 'is-on' : ''}" data-wa-mode="board" aria-pressed="${A.mode === 'board'}">Board</button><button type="button" class="${A.mode === 'list' ? 'is-on' : ''}" data-wa-mode="list" aria-pressed="${A.mode === 'list'}">List</button></div>
         <label class="wc-find">${W().ic('search')}<input type="search" id="wa-q" placeholder="Find a partner" value="${esc(text)}" autocomplete="off" /></label><button type="button" class="h-btn h-btn--ghost h-btn--sm wa-fbtn" data-wa-ftoggle aria-expanded="${A.fopen}">Filters${active.length ? ' ' + active.length : ''}</button>${picker}<span class="wa-spacer"></span>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Google Sheets</button></div>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="asks">${ic('sheet')}Open in Google Sheets</button></div>
       ${activeHTML}
       <div class="wa-count" aria-live="polite">Showing ${shownN.toLocaleString('en-US')} of ${M.toLocaleString('en-US')} ${M === 1 ? 'ask' : 'asks'}</div>
       ${body}

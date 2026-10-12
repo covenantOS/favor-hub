@@ -86,7 +86,7 @@ function view() {
     <section class="h-card wc-sheet" aria-label="Cadence">
       <div class="wg-tools">${seg}<label class="wc-find">${f.ic('search')}<input type="search" id="wcd-q" placeholder="Find a partner" value="${esc(C.q)}" autocomplete="off" /></label>${C.quick ? `<button type="button" class="wcd-chip" data-wcd-quick="">${f.ic('x')}${esc(QUICK[C.quick])}</button>` : ''}<span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wcd-print>${f.ic('print')}Print the three lists</button>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence">${f.ic('sheet')}Google Sheets</button></div>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence">${f.ic('sheet')}Open in Google Sheets</button></div>
       <div class="wg-list">${list.slice(0, C.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>${all.length ? 'Nothing matches' : 'Queue clear'}</b>${all.length ? 'Clear the filter above to see the rest.' : 'New partners come due after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>`}
         ${list.length > C.shown ? `<div class="wg-group"><span>${list.length - C.shown} more</span><button type="button" data-wcd-more>Show ${Math.min(100, list.length - C.shown)} more</button></div>` : ''}</div>
       <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'partner' : 'partners'}. Each step you press logs an action on the partner.${d.unreachable ? ` ${d.unreachable.toLocaleString('en-US')} more ${d.unreachable === 1 ? 'partner is' : 'partners are'} due with no phone, email or mailing address for the step they need.` : ''}</span></div>
@@ -109,7 +109,7 @@ function printDialog() {
   L.innerHTML = `<div class="wg-scrim" data-wcd-close></div><div class="wg-dlg wg-dlg--wide" role="dialog" aria-modal="true" aria-label="The three lists">
     <div class="wg-dlg__head"><div><h2>The three lists</h2><p>Friday, Saturday and Sunday, from the queue as it stands. The partners who have waited longest are on Friday.</p></div><button type="button" class="pp-iconbtn" data-wcd-close aria-label="Close">${f.ic('x')}</button></div>
     <div class="wg-dlg__body"><div class="wcd-lists3">${lists.map(([day, l]) => `<div class="wcd-list3"><h3>${day}<span>${l.length}</span></h3>${l.map((r) => `<div class="wcd-l3row"><b>${e(r.name)}</b><span>${e(r.ruleLabel)} · ${e(needText(r))}${r.phone ? ' · ' + e(r.phone) : ''}</span></div>`).join('') || '<div class="wg-sub">None</div>'}</div>`).join('')}</div></div>
-    <div class="wg-dlg__foot"><small>Ordered by how long each partner has waited</small><span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence-lists">${f.ic('sheet')}Google Sheets</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wcd-doprint>${f.ic('print')}Print</button></span></div></div>`;
+    <div class="wg-dlg__foot"><small>Ordered by how long each partner has waited</small><span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="cadence-lists">${f.ic('sheet')}Open in Google Sheets</button><button type="button" class="h-btn h-btn--primary h-btn--sm" data-wcd-doprint>${f.ic('print')}Print</button></span></div></div>`;
   document.body.appendChild(L);
 }
 function closeDialog() { const L = $('.wcd-printlayer'); if (L) L.remove(); }
