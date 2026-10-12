@@ -682,7 +682,7 @@ async function loadOpps(force) {
   if (E.oppLoading || (E.opps && !force)) return;
   E.oppLoading = true;
   try { const d = await wc.api('/api/work/opps'); E.opps = d.rows; E.oppNames = d.names || {}; } catch (e) { E.oppErr = e.message; } finally { E.oppLoading = false; }
-  if (wc.S.view === 'opps') wc.render();
+  wc.refresh('opps');
 }
 function oppMatches(o) {
   const f = E.oppF;

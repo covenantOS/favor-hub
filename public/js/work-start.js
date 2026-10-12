@@ -34,10 +34,10 @@
     const wc = W();
     if (document.readyState === 'loading') await new Promise((r) => document.addEventListener('DOMContentLoaded', r, { once: true }));
     await load();
-    if (new URLSearchParams(location.search).get('view')) return;
+    { const qs = new URLSearchParams(location.search); if (qs.get('view') || qs.get('tab')) return; }
     const savedFirst = !!(window.WCEdit && window.WCEdit._E && (window.WCEdit._E.views || []).some((v) => v.default));
     if (ST.pref || !savedFirst) {
-      wc.S.view = startTab();
+      wc.S.view = (!ST.pref && window.WCTabs.last(wc.DATA.me)) || startTab();
       if (ST.pref && ST.pref.scope) applyScope(ST.pref.scope);
     }
   }
