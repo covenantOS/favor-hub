@@ -7,7 +7,7 @@ for: [all]
 related: [getting-started, today, guided-tour, whats-new]
 tool: /learn/
 toolLabel: Open My learning
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Learn is where courses live in FavorOS. A course is a short list of lessons. A learning path puts courses in order for a role or a purpose, such as New hire: Favor, New hire: FavorOS, RDD, Partner Care, Support Team, Grants, Marketing and Admin desk.
@@ -33,6 +33,12 @@ A lesson is one of these:
 - **Quiz**: multiple choice and true or false questions with a pass mark.
 
 Press **Mark complete and continue** on a lesson to move on. On a phone, **Lessons** at the top opens the outline, and Back returns to the course.
+
+## Practice
+
+**Practice** in the Learn menu opens a pretend partner record, Pat Sample, with a few gifts and notes. Two exercises sit beside it. **Enter a gift** gives you a check to enter: the date, the amount, the type, the check number and the fund. **Log a call** gives you a phone call to log: how you were in contact, what was said, the next step and its due date. Press **Enter the gift** or **Log the call** and the page checks each field and says what to fix. A correct entry shows on the pretend record in green. **Start over** clears everything you entered.
+
+Nothing entered in Practice goes to Blackbaud, the Work Center or a real partner. The record is made up, and your entries stay in FavorOS.
 
 ## Quizzes
 

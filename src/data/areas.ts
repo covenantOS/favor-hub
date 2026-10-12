@@ -133,6 +133,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'hr', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn' },
       { id: 'learn-catalog', label: 'Catalog', href: '/learn/catalog/', desc: 'Every course and learning path', keywords: 'learn catalog courses paths training all', need: 'hr', learn: 'learn' },
+      { id: 'practice', label: 'Practice', href: '/learn/practice/', desc: 'A pretend partner record for practicing gift entry and logging a call', keywords: 'practice pretend sample training gift entry log call new hire first week sandbox', need: 'hr', learn: 'learn' },
       { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn manage admin author build course path assign report overdue scores hr', need: 'hr', learn: 'learn' },
     ],
   },

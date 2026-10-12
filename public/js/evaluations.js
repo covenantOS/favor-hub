@@ -177,9 +177,10 @@
   function tabsFor(v) {
     var t = [], r = v.role;
     t.push(['overview', 'Overview']);
-    if (r.employee) { t.push(['self', 'Self-assessment']); t.push(['reviewers', 'Reviewers']); if (v.summary) t.push(['summary', 'Summary and plan']); }
+    if (r.employee) { t.push(['self', 'Self-assessment']); if (v.evidence) t.push(['evidence', 'My year']); t.push(['reviewers', 'Reviewers']); if (v.summary) t.push(['summary', 'Summary and plan']); }
     else if (r.raw) {
       if (v.self) t.push(['self', 'Self-assessment']);
+      if (v.evidence) t.push(['evidence', 'Evidence']);
       t.push(['feedback', 'Feedback']);
       t.push(['compare', 'Compare']);
       t.push(['summary', 'Summary and plan']);
@@ -201,11 +202,13 @@
     if (tabs.length > 1) {
       h += '<nav class="ev-tabs" aria-label="Sections of this evaluation">' + tabs.map(function (t) { return '<a href="?c=' + esc(c.id) + '&v=' + t[0] + '" data-go="' + esc(c.id) + '&v=' + t[0] + '"' + (t[0] === tab ? ' aria-current="page"' : '') + '>' + esc(t[1]) + '</a>'; }).join('') + '</nav>';
     }
+    if (v.reportsToMissing) h += '<div class="ev-gap" role="alert"><b>Nobody is set under Reports to for ' + esc(c.employee.name) + '.</b><span>The summary and plan need a supervisor. Set one in Admin, People and roles, or choose one on the term page.</span><a class="h-btn h-btn--ghost h-btn--sm" href="/admin/people/?filter=nosup">Open People and roles</a></div>';
     h += '<div class="ev-body">';
     if (tab === 'overview') h += overviewHtml();
     else if (tab === 'self') h += v.role.employee ? formHtml('A', v.self, !v.self.submitted && c.termOpen) : formReadHtml(S.forms.forms.A, v.self.answers, 'Self-assessment');
     else if (tab === 'mine') h += formHtml('B', v.mineB, !v.mineB.submitted && c.termOpen);
     else if (tab === 'reviewers') h += reviewersHtml();
+    else if (tab === 'evidence') h += evidenceHtml();
     else if (tab === 'feedback') h += feedbackHtml();
     else if (tab === 'compare') h += compareHtml();
     else if (tab === 'summary') h += summaryHtml();
@@ -392,6 +395,21 @@
     var q = S.reviewerQ.trim().toLowerCase(), me = S.view.case.employee.email;
     var list = (S.staff || []).filter(function (p) { return p.email !== me && S.pick.indexOf(p.email) < 0 && (!q || (p.name + ' ' + p.team + ' ' + p.title).toLowerCase().indexOf(q) >= 0); }).slice(0, 12);
     return list.length ? list.map(function (p) { return '<li><button type="button" data-pick="' + esc(p.email) + '"><b>' + esc(p.name) + '</b><span>' + esc([p.title, p.team].filter(Boolean).join(' · ')) + '</span></button></li>'; }).join('') : '<li class="ev-sub">' + (q ? 'Nobody matches.' : 'Everyone is chosen.') + '</li>';
+  }
+
+  /* ------------------------------------------------------------------------------------ evidence from the year's records */
+
+  function evidenceHtml() {
+    var e = S.view.evidence, emp = S.view.role.employee;
+    if (!e) return '<section class="ev-panel"><h2>' + (emp ? 'My year' : 'Evidence') + '</h2><p class="ev-sub">No records to show.</p></section>';
+    var who = emp ? 'you' : S.view.case.employee.name;
+    var tile = function (n, label, sub) { return '<div class="ev-ev"><b>' + n + '</b><span>' + label + '</span>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; };
+    var h = '<section class="ev-panel"><h2>' + (emp ? 'My year' : 'Evidence') + '</h2><p class="ev-sub">Records show what ' + esc(who) + ' finished from ' + esc(dateWord(e.from, true)) + ' to ' + esc(dateWord(e.to, true)) + (e.startedWithinYear ? ', counted from the start date' : '') + '. The counts come from Projects, the Work Center and Learn. Work done anywhere else is not counted.</p>';
+    h += '<div class="ev-evs">' + tile(e.tasks.done, 'Tasks finished', e.tasks.late ? e.tasks.late + ' after the due date' : '') + tile(e.partners.contacted, 'Partners contacted', e.partners.actions + ' action' + (e.partners.actions === 1 ? '' : 's') + ' in the Work Center') + tile(e.courses.done, 'Courses finished', '') + '</div></section>';
+    h += '<section class="ev-panel"><h3 class="ev-h3">Recent finished tasks</h3>' + (e.tasks.recent.length ? '<ul class="ev-bul">' + e.tasks.recent.map(function (t) { return '<li>' + esc(t.title) + ' <small>' + esc(dateWord(t.doneAt)) + '</small></li>'; }).join('') + '</ul>' : '<p class="ev-sub">No finished tasks in Projects in this window.</p>') + '</section>';
+    h += '<section class="ev-panel"><h3 class="ev-h3">Work Center actions</h3>' + (e.partners.byKind.length ? '<ul class="ev-bul">' + e.partners.byKind.map(function (k) { return '<li>' + esc(k.kind) + ' <small>' + k.n + '</small></li>'; }).join('') + '</ul>' : '<p class="ev-sub">No Work Center actions in this window.</p>') + '</section>';
+    h += '<section class="ev-panel"><h3 class="ev-h3">Courses finished</h3>' + (e.courses.list.length ? '<ul class="ev-bul">' + e.courses.list.map(function (c) { return '<li>' + esc(c.title) + ' <small>' + esc(dateWord(c.completedAt)) + '</small></li>'; }).join('') + '</ul>' : '<p class="ev-sub">No courses finished in this window.</p>') + '</section>';
+    return h;
   }
 
   /* --------------------------------------------------------------------------------- supervisor: feedback, compare */

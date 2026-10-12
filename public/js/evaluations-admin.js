@@ -28,8 +28,16 @@
   }
   var GROUPS = [['first', 'Started January to June'], ['second', 'Started July to December'], ['unknown', 'No start date recorded']];
 
+  function gapHtml() {
+    var g = S.gaps;
+    if (!g || !g.missing.length) return '';
+    var names = g.missing.slice(0, 6).map(function (p) { return esc(p.name); }).join(', ');
+    return '<section class="ev-gap" role="alert"><b>' + g.missing.length + ' of ' + g.total + ' people have nobody under Reports to.</b><span>' + names + (g.missing.length > 6 ? ' and ' + (g.missing.length - 6) + ' more' : '') + '. An evaluation needs a supervisor to read the feedback and write the summary. FavorOS does not guess one. Fill in Reports to for each person in Admin, People and roles.</span><a class="h-btn h-btn--primary h-btn--sm" href="/admin/people/?filter=nosup">Fill in Reports to</a></section>';
+  }
+
   function termsHtml() {
     var h = '<header class="ev-head"><div><p class="ev-kicker">Evaluations</p><h1>Terms</h1></div><div class="ev-acts" style="margin:0"><a class="h-btn h-btn--ghost" href="/evaluations/">My evaluations</a><button type="button" class="h-btn h-btn--primary" id="eva-new">Open a term</button></div></header>';
+    h += gapHtml();
     if (S.setup) h += setupHtml();
     if (!S.terms.length && !S.setup) h += '<section class="ev-empty"><h2>No term yet</h2><p>A term is one semiannual round. Pick the people, set the date week 1 starts, and everyone is asked to complete their self-assessment. People who started January to June go first.</p><p><button type="button" class="h-btn h-btn--primary" id="eva-new2">Open the first term</button></p></section>';
     if (S.terms.length) {
@@ -60,7 +68,7 @@
     var n = Object.keys(S.sel).filter(function (k) { return S.sel[k]; }).length;
     var nosup = P.filter(function (p) { return S.sel[p.email] && !p.hasSupervisor; }).length;
     h += '<div class="ev-people">' + (groups || '<p class="ev-sub" style="padding:14px">Nobody matches.</p>') + '</div>';
-    if (nosup) h += '<p class="ev-warn">' + nosup + ' picked ' + (nosup === 1 ? 'person has' : 'people have') + ' no supervisor. Set one under Admin, People and roles, or by drop-down after the term opens.</p>';
+    if (nosup) h += '<p class="ev-warn">' + nosup + ' picked ' + (nosup === 1 ? 'person has' : 'people have') + ' no supervisor. Set Reports to under Admin, People and roles first, or choose one by drop-down after the term opens.</p>';
     h += '<div class="ev-acts"><button type="button" class="h-btn h-btn--primary" id="eva-open"' + (n ? '' : ' disabled') + '>Open the term for ' + n + ' ' + (n === 1 ? 'person' : 'people') + '</button><button type="button" class="h-btn h-btn--ghost" id="eva-cancel">Cancel</button></div></section>';
     return h;
   }
@@ -87,7 +95,7 @@
 
   function route() {
     var id = qs();
-    if (!id) { S.detail = null; return Promise.all([api('GET', 'admin/terms')]).then(function (r) { S.terms = r[0].terms; S.folder = r[0].folder; render(); }).catch(fail); }
+    if (!id) { S.detail = null; return Promise.all([api('GET', 'admin/terms'), api('GET', 'admin/gaps').catch(function () { return null; })]).then(function (r) { S.terms = r[0].terms; S.folder = r[0].folder; S.gaps = r[1]; render(); }).catch(fail); }
     S.detail = null; render();
     return Promise.all([api('GET', 'admin/term/' + id), S.staff.length ? null : api('GET', 'people')]).then(function (r) { S.detail = r[0]; if (r[1]) S.staff = r[1].people; render(); }).catch(fail);
   }

@@ -7,7 +7,7 @@ for: [all]
 related: [today, whats-new]
 tool: /evaluations/
 toolLabel: Open Evaluations
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Evaluations run twice a year. The purpose is growth, accountability and encouragement. The form says so in its introduction: it is not designed primarily to decide compensation or advancement.
@@ -36,10 +36,18 @@ Evaluations run twice a year. The purpose is growth, accountability and encourag
 
 Open Evaluations, then **Feedback I owe**. Write about what you have seen yourself, with an example when you can. Choose **Not Observed** for anything you have not seen. If you cannot give feedback, tell the employee or their supervisor so they can ask someone else.
 
+## The year's records
+
+Evaluations adds a tab with the records for the year before week 1: **My year** for you and **Evidence** for your supervisor, HR and FavorOS administrators. It shows the tasks finished in Projects (and how many were finished after their due date), the partners contacted and the actions logged in the Work Center, and the courses finished in Learn, each with its dates. A person who started inside the year is counted from the start date.
+
+The counts come from the records. Work done outside Projects, the Work Center and Learn does not appear, and no partner name, gift or note is shown. Use the tab to remember what happened and to ask questions in the meeting. It is evidence and carries no score.
+
 ## For supervisors
 
 My team lists each person who reports to you with the next step and its due date. Open a person to see Feedback, Compare and Summary and plan. Compare shows self against others for each competency and flags the ones that differ by a point or more. If fewer than three feedback forms arrive, you can go ahead with what you have after you confirm.
 
 ## For HR and administrators
+
+Every evaluation needs a supervisor, and that comes from **Reports to** in Admin, People and roles. When people have nobody there, the Terms page and the person's evaluation say so and link to People and roles, filtered to the people with no Reports to. FavorOS never picks a manager for you.
 
 Evaluations, then **Manage terms** opens a term: the date week 1 starts, and the people. People who started January to June are picked first. Each person's supervisor and start date come from Admin, People and roles. The same page shows who is behind, lets you change a supervisor by drop-down, and names the folder where signed evaluations are filed.

@@ -37,9 +37,22 @@
     return `<section class="wl-sec"><h2>Your steps <span>${open} open</span></h2><ul class="ob-steps">${rows}</ul></section>`;
   }
 
+  const FW_ICON = { course: 'list', practice: 'spark', tour: 'spark', meet: 'user', read: 'link' };
+  function firstWeekBlock() {
+    const f = D.firstWeek;
+    if (!f) return '';
+    const items = (d) => d.items.map((i) => {
+      const prog = i.kind === 'course' && i.lessons ? `<small>${i.lessonsDone} of ${i.lessons} lessons${i.minutes ? ` · about ${i.minutes} min` : ''}</small>` : '';
+      return `<li class="wl-fw${i.done ? ' is-done' : ''}"><span class="wl-fw__ic" aria-hidden="true">${i.done ? ic('check') : ic(FW_ICON[i.kind] || 'list')}</span><a href="${esc(i.href)}"><b>${esc(i.title)}</b>${i.detail ? `<span>${esc(i.detail)}</span>` : ''}${prog}</a></li>`;
+    }).join('');
+    const pct = f.total ? Math.round((f.done / f.total) * 100) : 0;
+    return `<section class="wl-sec wl-fwk"><h2>Your first week${f.role.known ? ` as ${esc(f.role.label)}` : ''} <span>${f.done} of ${f.total} done</span></h2><span class="ob-bar ob-bar--lg" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="First week progress"><i style="width:${pct}%"></i></span>
+      <ol class="wl-days">${f.days.map((d) => `<li class="wl-day"><h3><span class="wl-day__n">Day ${d.day}</span>${esc(d.title)}</h3><ul>${items(d)}</ul></li>`).join('')}</ol></section>`;
+  }
+
   function weekBlock() {
     if (!D.week.length) return '';
-    return `<section class="wl-sec"><h2>Your first week</h2><ol class="wl-week">${D.week.map((d) => `<li><h3>${esc(d.label)}</h3><ul>${d.items.map((i) => `<li class="${i.done ? 'is-done' : ''}"><span class="wl-who">${esc(i.who)}</span>${esc(i.title)}</li>`).join('')}</ul></li>`).join('')}</ol></section>`;
+    return `<section class="wl-sec"><h2>Due this week</h2><ol class="wl-week">${D.week.map((d) => `<li><h3>${esc(d.label)}</h3><ul>${d.items.map((i) => `<li class="${i.done ? 'is-done' : ''}"><span class="wl-who">${esc(i.who)}</span>${esc(i.title)}</li>`).join('')}</ul></li>`).join('')}</ol></section>`;
   }
 
   function peopleBlock() {
@@ -58,7 +71,7 @@
   }
 
   function draw() {
-    root.removeAttribute('aria-busy'); root.innerHTML = hero() + `<div class="wl-body">${stepsBlock()}${weekBlock()}${peopleBlock()}${aroundBlock()}</div>`;
+    root.removeAttribute('aria-busy'); root.innerHTML = hero() + `<div class="wl-body">${firstWeekBlock()}${stepsBlock()}${weekBlock()}${peopleBlock()}${aroundBlock()}</div>`;
   }
 
   root.addEventListener('click', async (e) => {

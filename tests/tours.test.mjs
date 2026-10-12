@@ -69,7 +69,7 @@ test('each walkthrough shows only to the people who can open the feature', () =>
   assert.ok(titles(roles.rdd).includes('wc-groups'));
   assert.ok(!titles(roles.rdd).includes('receipts-statements'));
   assert.ok(titles(roles.marketing).includes('receipts-statements'));
-  assert.equal(titles(ADMIN).length, 9);
+  assert.equal(titles(ADMIN).length, 10);
   assert.ok(titles({ ...roles.staff, chat: true }).includes('dock'));
   assert.ok(!titles(roles.staff).includes('dock'));
 });

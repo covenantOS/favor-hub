@@ -11,6 +11,7 @@ import { joinDefaults } from '../chat/db';
 import { DEFAULTS, DUTIES, GROUPS, RUN_DUTIES, dueFrom, type Kind, type TemplateStep } from './template';
 import * as T from './tasks';
 import * as L from './learn';
+import { assignRolePath } from '../growth/firstweek';
 import { buildMail, runUrl, sendMail, welcomeUrl, type Line } from './mail';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
@@ -659,6 +660,14 @@ export async function hubAdd(env: Env, actor: Actor, runId: string, opts: { emai
       what: g.title,
       state: g.state === 'given' || g.state === 'already' ? 'done' : 'skipped',
       note: g.state === 'already' ? 'Already assigned.' : g.state === 'missing' ? 'This path is not written in Learn yet.' : g.state === 'off' ? 'Learn is not switched on yet.' : undefined,
+    });
+  }
+  const rolePath = await assignRolePath(env, run.email, actor.email, dueOf(run, 7), run.team, run.title);
+  if (rolePath.state !== 'none') {
+    items.push({
+      what: rolePath.title,
+      state: rolePath.state === 'given' || rolePath.state === 'already' ? 'done' : 'skipped',
+      note: rolePath.state === 'already' ? 'Already assigned.' : rolePath.state === 'missing' ? 'This path is not written in Learn yet.' : rolePath.state === 'off' ? 'Learn is not switched on yet.' : undefined,
     });
   }
   let mailed = false;

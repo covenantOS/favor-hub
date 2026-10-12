@@ -13,6 +13,7 @@ import {
   REVIEWERS_MAX, REVIEWERS_MIN, stageAtLeast, STAGE_WORD, themesOf, todayEt, weekDue, formOf, type Ans, type FormId, type Gaps, type Viewer,
 } from './rules';
 import { tell, tellOnce } from './mail';
+import { evidenceFor, type Evidence } from './evidence';
 
 export interface Actor {
   email: string;
@@ -374,6 +375,10 @@ export interface CaseView {
   summary?: { answers: Ans[]; goals: GoalRow[]; submitted: boolean; gaps: Gaps; progress: { done: number; total: number; optional: number }; editable: boolean };
   priorGoals?: Array<GoalRow & { period: string }>;
   learning?: Array<{ title: string; completedAt: string }>;
+  /** What the records show for the year before week 1. Employee and reviewers of the case (supervisor, HR, admins) only. */
+  evidence?: Evidence;
+  /** True when nobody is set under Reports to for the employee. Shown to HR and admins as a prompt; the app never picks a manager. */
+  reportsToMissing?: boolean;
   scale: typeof SCALE;
 }
 
@@ -448,6 +453,11 @@ export async function viewCase(env: Db, actor: Actor, caseId: string): Promise<C
     }
     view.learning = await (await import('./learning')).completedLearning(env, c.employee_email);
   }
+  if (isEmp || raw) {
+    const start = (await reportingOf(env, c.employee_email)).startDate;
+    view.evidence = await evidenceFor(env, c.employee_email, c.starts_on, start);
+  }
+  if (!c.supervisor_email && (v.admin || v.hr)) view.reportsToMissing = true;
   const goals = await goalsOf(env, c.id);
   const shared = !!c.summary_submitted_at;
   if (raw || (isEmp && shared)) {

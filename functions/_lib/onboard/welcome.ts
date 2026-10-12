@@ -6,6 +6,7 @@ import { reportingOf } from '../people-dev';
 import { addDays, DUTIES } from './template';
 import { ownersMap, type Actor } from './run';
 import { pathsFinished } from './learn';
+import { firstWeekFor, type Week } from '../growth/firstweek';
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 
@@ -59,7 +60,9 @@ export async function welcomeFor(env: Env, actor: Actor) {
   const steps: Array<{ id: string; title: string; detail: string; kind: string; due_date: string | null; status: string; link_url: string; link_label: string; grp: string; duty: string; owner_email: string; key: string }> = [];
   const week: Array<{ day: string; label: string; items: WeekItem[] }> = [];
   let learn: Record<string, boolean> = {};
+  let firstWeek: Week | null = null;
   if (run) {
+    firstWeek = await firstWeekFor(env, { email: me, team, title: run.title || mineRow?.title || rep.title, start: run.date });
     learn = await pathsFinished(env, me);
     const all = (await env.DB.prepare(`SELECT id, title, detail, kind, due_date, status, link_url, link_label, grp, duty, owner_email, key FROM onb_steps WHERE run_id = ? ORDER BY sort`).bind(run.id).all<(typeof steps)[number]>()).results || [];
     for (const s of all) if (lower(s.owner_email) === me && s.status !== 'skipped') steps.push(s);
@@ -84,5 +87,6 @@ export async function welcomeFor(env: Env, actor: Actor) {
     meet,
     week,
     learn,
+    firstWeek,
   };
 }

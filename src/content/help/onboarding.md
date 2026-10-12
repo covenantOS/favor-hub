@@ -7,7 +7,7 @@ for: [admin]
 related: [welcome, admin-home, getting-started]
 tool: /onboarding/
 toolLabel: Open Onboarding
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Onboarding is in the Admin menu for FavorOS admins and for people an admin marked as HR in Admin, People and roles. A step owner or a supervisor sees the runs they are part of.
@@ -31,6 +31,14 @@ The employee file stays where HR keeps it. The step **Start the employee file** 
 ## Add to FavorOS
 
 On the step **Add to FavorOS**, press the button and read what it will do before you confirm. It creates the FavorOS account, puts the person on the staff list, sets the supervisor and start date, joins the default Chat channels, assigns the two New hire paths in Learn with due dates, and emails the person a link to their first-day page. Each line of the result says done, skipped or failed.
+
+## The first week, by role
+
+The first-day page shows five days built for the new hire's role. FavorOS reads the role from the team and title on the run (Regional Development Director, Partner Care, Church Engagement, Grants, Marketing, Admin desk or Support Team) and falls back to a general first week when the team matches none of them.
+
+Day 1 is the FavorOS tour, FavorOS basics and a first conversation with the supervisor. Day 2 is Favor: who we are and requests, expenses and Clips. Day 3 is Blackbaud: your first week and the partner page. Day 4 is the role's own courses and the practice record. Day 5 is Favor Brain and a check-in with the supervisor. Each course ticks when the new hire finishes it in Learn, and the page shows how many of the courses and exercises are done.
+
+**Add to FavorOS** also assigns the Learn path for the role, with a due date seven days after the start date. It adds it to the two New hire paths, and a role with no path of its own gets only those.
 
 ## Offboarding
 

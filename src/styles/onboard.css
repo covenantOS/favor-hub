@@ -259,3 +259,21 @@ button.ob-due:hover { border-color: var(--r-line-2); }
   .ob-sheet .ob-sheet__body { padding-bottom: 8px; }
 }
 @media (prefers-reduced-motion: reduce) { .ob-bar i, .ob-toast, .ob-tick svg { transition: none; } .ob-skel { animation: none; } }
+
+/* First week by role (2026-10-12) */
+.wl-fwk > .ob-bar { margin: 0 0 14px; max-width: 420px; }
+.wl-days { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.wl-day { padding: 14px 16px; background: #fff; border: 1px solid var(--r-line); border-radius: 14px; }
+.wl-day h3 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.wl-day__n { font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; color: var(--r-ink-3); }
+.wl-day ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.wl-fw { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 10px; align-items: start; }
+.wl-fw__ic { width: 32px; height: 32px; border-radius: 10px; background: var(--r-sunk); display: grid; place-items: center; color: var(--r-ink-2); }
+.wl-fw__ic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.wl-fw.is-done .wl-fw__ic { background: var(--tc-leaf-tint); color: var(--tc-leaf-ink); }
+.wl-fw a { display: grid; gap: 2px; padding: 4px 0; min-height: 44px; align-content: center; color: inherit; text-decoration: none; }
+.wl-fw a:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.wl-fw b { font-size: 15px; }
+.wl-fw a span { font-size: 14px; line-height: 1.45; color: var(--r-ink-2); }
+.wl-fw small { font-size: 13px; color: var(--r-ink-3); }
+.wl-fw.is-done b { color: var(--r-ink-3); }

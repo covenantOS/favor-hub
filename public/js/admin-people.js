@@ -65,7 +65,7 @@
   }
 
   function load() {
-    return A.api('/api/admin/people').then(function (d) { D = d; draw(); }).catch(function (e) { A.fail($('ad-root'), e); });
+    return A.api('/api/admin/people').then(function (d) { D = d; var f0 = new URLSearchParams(location.search).get('filter'); if (f0 && !load.once) { load.once = true; var sel = $('pp-filter'); if (sel && Array.prototype.some.call(sel.options, function (o) { return o.value === f0; })) sel.value = f0; } draw(); }).catch(function (e) { A.fail($('ad-root'), e); });
   }
 
   // The panel and its backdrop live on the body. Inside the page they were positioned against the page wrapper, so the panel

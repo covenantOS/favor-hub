@@ -96,6 +96,11 @@ export async function handle(env: Env, actor: Actor, method: string, path: strin
     if (b1 === 'terms' && get) return { terms: await listTerms(env, actor), folder: await evalFolder(env), hr: v.hr, admin: v.admin };
     if (b1 === 'terms' && method === 'POST') return { ...(await startTerm(env, actor, b)) };
     if (b1 === 'pick' && get) return { people: await pickList(env, actor) };
+    if (b1 === 'gaps' && get) {
+      // Who has nobody under Reports to in Admin > People. The page asks an admin to fill it in; no manager is ever guessed.
+      const all = await pickList(env, actor);
+      return { total: all.length, missing: all.filter((p) => !p.hasSupervisor).map((p) => ({ email: p.email, name: p.name, title: p.title, team: p.team })) };
+    }
     if (b1 === 'term' && b2 && get) return { ...(await termReport(env, actor, b2)) };
     if (b1 === 'term' && b2 && b3 === 'close' && method === 'POST') {
       await closeTerm(env, actor, b2);
