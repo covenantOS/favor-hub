@@ -71,6 +71,12 @@ Start a message with **/** for FavorOS's own commands: **/brain** and a question
 
 The list offers **Notices for messages and mentions** once. **Turn on** asks the browser, and Chat then shows a notice for a direct message or a mention when it is not in front. Ctrl K elsewhere in FavorOS lists chat messages in its Chat group.
 
+## The Chat button on every page
+
+On a computer, a round button at the bottom right of each FavorOS page opens Chat and Favor Brain in a panel over the page. The Chat tab lists your direct messages and channels with Threads first. Press a conversation to read it and reply, press a reply count to open its thread, and press the arrow at the top left to go back. The Favor Brain tab asks a question and shows the answer the way the Brain page does, with the same list of chats under **Chats**.
+
+A number on the button counts direct messages, mentions and threads waiting for you. A direct message or a mention also shows a small notice above the button with **Reply** and **Open**. A muted channel stays quiet. The panel stays open and on the same conversation as you move between pages. Drag its top left corner to resize it, or press the arrows for a larger panel. Ctrl and a period (Command and a period on a Mac) opens and closes it, and Esc closes it. The button is not on the Chat page, the Favor Brain page or a phone, and it moves up when a page has a button in its corner.
+
 ## On a phone
 
 The channel list, a channel and a thread are three screens. The back arrow at the top left goes up one. The message box sits above the tab bar. Tap a message for its actions: reactions, reply in thread and the same menu as on a computer. Threads, Mentions and reactions and Drafts sit at the top of the Channels list.

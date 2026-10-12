@@ -88,6 +88,8 @@ async function route(ctx: Ctx): Promise<Response> {
   const [a, b, c] = path;
 
   if (a === 'boot' && method === 'GET') return json(await boot(env, user));
+  // The floating dock on every other page: the conversations with their unread numbers and the names, no joining and no presence.
+  if (a === 'dock' && method === 'GET') return json(await dockState(env, user));
 
   if (a === 'channels') {
     if (!b && method === 'POST') {
@@ -282,6 +284,13 @@ async function route(ctx: Ctx): Promise<Response> {
 }
 
 /* ------------------------------------------------------------------ boot */
+
+async function dockState(env: ChatRouteEnv, user: HubUser) {
+  const me = user.email.toLowerCase();
+  const mode = await chatMode(env);
+  const [users, channels, threads] = await Promise.all([directory(env, mode, user), store.listChannels(env, me), more.threadUnreadTotal(env, me)]);
+  return { ok: true, me, users, channels: channels.map((c) => ({ id: c.id, kind: c.kind, name: c.name, members: c.members, last_at: c.last_at, muted: c.muted, unread: c.unread, mentions: c.mentions })), threads_unread: threads };
+}
 
 async function boot(env: ChatRouteEnv, user: HubUser) {
   const me = user.email.toLowerCase();

@@ -1,0 +1,61 @@
+/* The floating dock (public/js/dock.js): the circle, its toasts and the panel's frame. The panel's inside is public/css/dock-panel.css,
+   loaded the first time it opens. Desktop only: below 861px nothing here shows. */
+.fd, .fd-p { display: none; }
+@media (min-width: 861px) {
+  .fd { display: block; position: fixed; right: 20px; bottom: calc(20px + var(--fd-lift, 0px)); z-index: 90; width: 0; height: 0; transition: bottom .18s ease; view-transition-name: favor-dock; }
+  .fd[hidden] { display: none; }
+  .fd__btn { position: absolute; right: 0; bottom: 0; width: 52px; height: 52px; border-radius: 50%; border: 0; padding: 0; display: grid; place-items: center; cursor: pointer; background: var(--h-brand); color: #fff; box-shadow: 0 6px 18px -6px rgba(17, 24, 39, .45), 0 0 0 1px rgba(255, 255, 255, .12) inset; transition: transform .15s ease, box-shadow .15s ease; }
+  .fd__btn:hover { transform: translateY(-1px); box-shadow: 0 10px 22px -8px rgba(17, 24, 39, .5), 0 0 0 1px rgba(255, 255, 255, .16) inset; }
+  .fd__btn:focus-visible { outline: 3px solid var(--h-gold); outline-offset: 2px; }
+  .fd__btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .fd__n { position: absolute; top: -4px; right: -4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--h-gold); color: #2a1e04; font: 800 12px/20px var(--h-font); text-align: center; box-shadow: 0 0 0 2px #f4efe0; }
+  .fd.is-off .fd__btn, .fd-open .fd__btn { display: none; }
+  .fd__tray { position: absolute; right: 0; bottom: 64px; width: 340px; display: grid; gap: 8px; justify-items: end; }
+  .fd.is-off .fd__tray { bottom: 0; }
+  .fd-open .fd__tray { display: none; }
+
+  .fd-t { width: 100%; background: #fff; border: 1px solid var(--h-line); border-radius: 16px; box-shadow: var(--h-shadow-2); padding: 12px 12px 10px; font: 400 13px/1.4 var(--h-font); color: var(--h-ink); animation: fd-in .18s ease-out; }
+  .fd-t.is-out { opacity: 0; transform: translateY(6px); transition: opacity .16s, transform .16s; }
+  .fd-t__top { display: flex; align-items: center; gap: 8px; }
+  .fd-t__av { width: 26px; height: 26px; border-radius: 50%; background: var(--h-leaf-soft); color: var(--h-brand-ink); display: grid; place-items: center; font: 700 11px var(--h-font); overflow: hidden; flex: none; }
+  .fd-t__av img { width: 100%; height: 100%; object-fit: cover; }
+  .fd-t__w { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--h-ink-3); }
+  .fd-t__w b { color: var(--h-ink); font-weight: 650; }
+  .fd-t__x { border: 0; background: none; font-size: 20px; line-height: 1; color: var(--h-ink-3); cursor: pointer; padding: 0 4px; }
+  .fd-t__b { margin: 6px 0 8px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .fd-t__a { display: flex; gap: 6px; }
+  .fd-t__a[hidden] { display: none; }
+  .fd-t__a button, .fd-t__f button { border: 1px solid var(--h-line); background: #fff; border-radius: 999px; padding: 4px 12px; font: 600 12px var(--h-font); color: var(--h-brand-ink); cursor: pointer; }
+  .fd-t__a button:first-child, .fd-t__f button { background: var(--h-brand); color: #fff; border-color: var(--h-brand); }
+  .fd-t__f { display: flex; gap: 6px; margin-top: 2px; }
+  .fd-t__f[hidden] { display: none; }
+  .fd-t__f input { flex: 1; min-width: 0; border: 1px solid var(--h-line); border-radius: 999px; padding: 6px 12px; font: 400 13px var(--h-font); }
+  .fd-t button:focus-visible, .fd-t input:focus-visible { outline: 2px solid var(--h-gold); outline-offset: 1px; }
+  @keyframes fd-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .fd-p { position: fixed; right: 20px; bottom: calc(20px + var(--fd-lift, 0px)); z-index: 91; width: min(var(--fd-w, 400px), calc(100vw - 40px)); height: min(var(--fd-h, 600px), calc(100dvh - 110px - var(--fd-lift, 0px))); display: none; flex-direction: column; background: var(--h-ivory, #fbf8f0); border: 1px solid var(--h-line); border-radius: 20px; box-shadow: 0 24px 60px -20px rgba(17, 24, 39, .45), 0 2px 8px rgba(17, 24, 39, .08); overflow: hidden; view-transition-name: favor-dock-panel; animation: fd-pop .16s ease-out; }
+  .fd-open .fd-p:not([hidden]) { display: flex; }
+  .fd-p.is-big { --fd-w: 760px; --fd-h: 900px; }
+  .fd-p.is-sizing { animation: none; user-select: none; }
+  .fd-p__grip { position: absolute; left: 0; top: 0; width: 22px; height: 22px; cursor: nwse-resize; z-index: 3; }
+  .fd-p__grip::after { content: ''; position: absolute; left: 6px; top: 6px; width: 8px; height: 8px; border-left: 2px solid var(--h-line); border-top: 2px solid var(--h-line); border-radius: 3px 0 0 0; }
+  .fd-p__h { display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--h-line); background: #fff; flex: none; }
+  .fd-p__tabs { display: flex; gap: 2px; flex: 1; }
+  .fd-p__tabs button { border: 0; background: none; padding: 7px 12px; border-radius: 999px; font: 600 14px var(--h-font); color: var(--h-ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .fd-p__tabs button[aria-selected="true"] { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
+  .fd-p__n { min-width: 18px; height: 18px; border-radius: 9px; background: var(--h-gold); color: #2a1e04; font: 800 11px/18px var(--h-font); text-align: center; padding: 0 4px; }
+  .fd-p__n[hidden] { display: none; }
+  .fd-p__ib { width: 32px; height: 32px; border: 0; border-radius: 50%; background: none; display: grid; place-items: center; cursor: pointer; color: var(--h-ink-3); }
+  .fd-p__ib:hover { background: #f1eee7; color: var(--h-ink); }
+  .fd-p__ib svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .fd-p button:focus-visible, .fd-p a:focus-visible { outline: 2px solid var(--h-gold); outline-offset: 1px; }
+  .fd-p__body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+  .fd-p__wait, .fp-wait { display: flex; gap: 6px; justify-content: center; padding: 40px 0; }
+  .fd-p__wait i, .fp-wait i { width: 8px; height: 8px; border-radius: 50%; background: var(--h-brand); opacity: .3; animation: fd-dot 1s ease-in-out infinite; }
+  .fd-p__wait i:nth-child(2), .fp-wait i:nth-child(2) { animation-delay: .15s; }
+  .fd-p__wait i:nth-child(3), .fp-wait i:nth-child(3) { animation-delay: .3s; }
+  .fd-p__err { padding: 24px; font: 400 14px var(--h-font); color: var(--h-ink-3); text-align: center; }
+  @keyframes fd-dot { 0%, 100% { opacity: .3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+  @keyframes fd-pop { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .fd, .fd__btn, .fd-p, .fd-t { animation: none; transition: none; } .fd-p__wait i, .fp-wait i { animation: none; } }
+}

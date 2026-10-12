@@ -286,6 +286,48 @@ const chatPeople = (w: Who) => w.chat;
 /** New features by the day they shipped, newest first. At most 8 features in a release. */
 export const RELEASES: Release[] = [
   {
+    id: '2026-10-12',
+    title: 'October 12',
+    features: [
+      {
+        id: 'dock',
+        title: 'Chat and Favor Brain on every page',
+        short: 'Chat dock',
+        blurb: 'A round button at the bottom right opens Chat and Favor Brain without leaving the page.',
+        icon: 'chat',
+        for: chatPeople,
+        article: 'chat',
+        steps: [
+          {
+            id: 'n-dock-open',
+            skipIfMissing: true,
+            page: '/',
+            via: 'home',
+            at: '#fd .fd__btn',
+            title: 'Chat on every page',
+            body: 'This button opens your conversations and Favor Brain over the page you are on. A number on it counts direct messages and mentions waiting for you.',
+            added: '2026-10-12',
+            side: 'left',
+            phone: { at: '#h-bar', body: 'Chat is in this bar. On a computer, a round Chat button on every page also opens Chat and Favor Brain over the page you are on.', side: 'top' },
+          },
+          {
+            id: 'n-dock-panel',
+            skipIfMissing: true,
+            page: '/',
+            press: '#fd .fd__btn',
+            at: '#fd-p',
+            undo: '#fd-p [data-x]',
+            title: 'Read and reply here',
+            body: 'Pick a conversation, read it and reply. The Favor Brain tab asks questions and keeps the same chats as the Brain page. Drag the top left corner to resize, or use the arrows for a larger panel.',
+            added: '2026-10-12',
+            side: 'left',
+            phone: false,
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: '2026-10-11',
     title: 'October 11',
     features: [
