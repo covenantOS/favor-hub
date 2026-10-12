@@ -17,6 +17,13 @@
       .catch(function () { return { ok: false, message: 'FavorOS could not be reached. Check the connection and try again.' }; });
   }
   function b64(o) { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  // A partner's name on a report row opens the same partner card as everywhere else.
+  function nameCell(r, c) {
+    var v = r[c.key];
+    if (c.key !== 'partner' || !r._cid || !v) return cell(c, v);
+    if (window.FavorEntity) return window.FavorEntity.chip('partner', String(r._cid), String(v));
+    return '<a href="/work/partner/' + esc(r._cid) + '" data-partner-id="' + esc(r._cid) + '">' + esc(v) + '</a>';
+  }
   function cell(c, v) {
     if (v == null || v === '') return '';
     if (c.type === 'money') return esc(money(v));
@@ -64,14 +71,14 @@
       return '<div class="ls-tie ' + (t.status === 'match' ? 'is-ok' : t.status === 'differs' ? 'is-warn' : 'is-off') + '"><span class="ls-tie__i" aria-hidden="true">' + (t.status === 'match' ? '✓' : '≠') + '</span><div><b>' + (t.status === 'match' ? 'Ties to the KPI dashboard' : t.status === 'differs' ? 'Differs from the KPI dashboard' : 'KPI dashboard not answering') + '</b><span>' + esc(t.label) + ': ' + (t.kpi == null ? '—' : (typeof t.kpi === 'number' && Math.abs(t.kpi) >= 1000 && t.mine % 1 !== 0 ? esc(money(t.kpi)) : esc(num(t.kpi)))) + (t.status === 'differs' ? ' · here ' + esc(t.mine % 1 !== 0 ? money(t.mine) : num(t.mine)) + (t.note ? ' · ' + esc(t.note) : '') : '') + '</span></div></div>';
     }).join('') + '</div>';
     var rows = res.rows.map(function (r) {
-      var tds = res.columns.map(function (c) { return '<td class="' + (c.type === 'money' || c.type === 'int' ? 'r' : '') + '">' + cell(c, r[c.key]) + '</td>'; }).join('');
+      var tds = res.columns.map(function (c) { return '<td class="' + (c.type === 'money' || c.type === 'int' ? 'r' : '') + '">' + nameCell(r, c) + '</td>'; }).join('');
       return '<tr' + (r._drill ? ' class="lr-row" tabindex="0" data-drill="' + esc(b64(r._drill)) + '"' : '') + '>' + tds + '</tr>';
     }).join('');
     var prim = res.columns.filter(function (c) { return c.key === res.primary; })[0] || res.columns[res.columns.length - 1];
     var nameCols = res.columns.filter(function (c) { return c.type === 'text' && c !== prim; }).slice(0, res.id === 'status' ? 2 : 1);
     var restCols = res.columns.filter(function (c) { return c !== prim && nameCols.indexOf(c) < 0 && c.key !== 'role'; });
     h += '<div class="lr-cards">' + res.rows.map(function (r) {
-      var nm = nameCols.map(function (c) { return esc(r[c.key]); }).join(' · ');
+      var nm = nameCols.map(function (c) { return nameCell(r, c); }).join(' · ');
       var sub = restCols.map(function (c) { return r[c.key] === '' || r[c.key] == null ? '' : esc(c.label) + ' ' + cell(c, r[c.key]); }).filter(Boolean).join(' · ');
       return '<div class="lr-card' + (r._drill ? ' lr-row' : '') + '"' + (r._drill ? ' tabindex="0" data-drill="' + esc(b64(r._drill)) + '"' : '') + '><div><b>' + nm + '</b>' + (sub ? '<span>' + sub + '</span>' : '') + '</div><strong>' + cell(prim, r[prim.key]) + '</strong></div>';
     }).join('') + '</div>';

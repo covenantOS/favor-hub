@@ -7,6 +7,7 @@
 // partners a card and a call twice a year; annual partners a call, card, email and text. Order of contact: call, text, email, card.
 //
 // The mirror holds no schedule field for a recurring gift, so the pattern is read from the gift dates of the last 24 months (see classify).
+import { foundVia, type FoundVia } from './found-via';
 import type { Env } from '../http';
 import { readOnly } from './repo';
 import type { Q } from './partner';
@@ -117,6 +118,8 @@ export interface CadenceRow {
   need: 'any' | 'all';
   /** Every step the row needs is switched off (no phone, email or address, or a do-not flag), so nobody can do it. */
   blocked: boolean;
+  /** First-time partners: how they found Favor, from the first gift's appeal, website form and source code (found-via.ts). */
+  found?: { label: string; code: string; category: string; source: string; form: string } | null;
 }
 
 const CONTACT_WORDS: Record<StepKey, string> = { call: 'Call', text: 'Text', email: 'Email', card: 'Card' };
@@ -377,6 +380,14 @@ export async function loadCadence(env: Env, q: Q, o: { today: string; names: Rec
     };
     const row = finish(c, { cid: c.cid, name: String(f.name), kind: String(f.kind || ''), place: [f.city, f.st].filter(Boolean).join(', ') }, info, contacts[c.cid] || {}, [...new Set((holdBy.get(c.cid) || []).map((h) => String(h.fid)))], o.names, today);
     if (row) rows.push(row);
+  }
+  const firstIds = rows.filter((r) => r.rule === 'first').map((r) => r.cid);
+  if (firstIds.length) {
+    const via = await foundVia(q, firstIds).catch(() => new Map<string, FoundVia>());
+    for (const r of rows) {
+      const v = r.rule === 'first' ? via.get(r.cid) : undefined;
+      if (v && v.label) r.found = { label: v.label, code: v.appealCode, category: v.category, source: v.source, form: v.form };
+    }
   }
   rows.sort((a, b) => (a.over < b.over ? 1 : a.over > b.over ? -1 : a.name < b.name ? -1 : 1));
   return rows;

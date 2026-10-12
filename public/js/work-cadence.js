@@ -63,7 +63,7 @@ function rowHTML(r) {
   const last = r.last ? `Last: ${esc(r.last.what)} ${esc(f.fd(r.last.date))}` : 'Last: No contact on record';
   const who = C.data.owners.length > 1 && !C.owner ? r.holderNames.join(', ') : '';
   return `<div class="wg-row wcd-row" data-cid="${esc(r.cid)}">
-    <div class="wcd-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wg-sub">${r.place ? esc(r.place) + ' · ' : ''}${esc(r.pattern)}</span></div>
+    <div class="wcd-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wg-sub">${r.place ? esc(r.place) + ' · ' : ''}${esc(r.pattern)}</span>${r.found ? `<span class="wg-sub wcd-found" title="${esc(r.found.code)}">Came in through ${esc(r.found.label)}</span>` : ''}</div>
     <div class="wcd-why"><span class="wc-tag${r.rule === 'first' ? ' wc-tag--done' : ''}">${esc(r.ruleLabel)}</span>${left ? `<span class="wc-tag wc-tag--queued">Left a message today</span>` : ''}<span class="wg-sub">${esc(r.line)}</span><span class="wg-sub">${last}</span></div>
     <div class="wcd-due">${dueLabel(r)}<span class="wg-sub">${esc(who)}</span></div>
     <div class="wcd-steps">${steps.map((s) => stepBtn(r, s, nextK)).join('')}</div>
@@ -117,9 +117,9 @@ function closeDialog() { const L = $('.wcd-printlayer'); if (L) L.remove(); }
 function registerSheet() {
   if (!window.FavorSheets || C.sheetOn) return;
   C.sheetOn = true;
-  const cols = [{ key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'rule', label: 'Rule', type: 'text' }, { key: 'pattern', label: 'Giving', type: 'text' }, { key: 'steps', label: 'Steps', type: 'text' },
+  const cols = [{ key: 'partner', label: 'Partner', type: 'text' }, { key: 'place', label: 'Place', type: 'text' }, { key: 'rule', label: 'Rule', type: 'text' }, { key: 'pattern', label: 'Giving', type: 'text' }, { key: 'found', label: 'Came in through', type: 'text' }, { key: 'steps', label: 'Steps', type: 'text' },
     { key: 'phone', label: 'Phone', type: 'text' }, { key: 'last', label: 'Last contact', type: 'date' }, { key: 'over', label: 'Days over', type: 'number' }, { key: 'holder', label: 'Held by', type: 'text' }];
-  const rowOf = (r) => ({ partner: r.name, place: r.place, rule: r.ruleLabel, pattern: r.pattern, steps: needText(r), phone: r.phone || '', last: r.last ? r.last.date : null, over: r.over, holder: r.holderNames.join(', ') });
+  const rowOf = (r) => ({ partner: r.name, place: r.place, rule: r.ruleLabel, pattern: r.pattern, found: r.found ? r.found.label : '', steps: needText(r), phone: r.phone || '', last: r.last ? r.last.date : null, over: r.over, holder: r.holderNames.join(', ') });
   window.FavorSheets.register('cadence', () => window.FavorSheets.screen('Cadence', [{ name: 'Cadence', columns: cols, rows: visible().map(rowOf) }], { filters: C.quick ? 'Filter: ' + QUICK[C.quick] : '', classes: ['partner'] }));
   window.FavorSheets.register('cadence-lists', () => window.FavorSheets.screen('Cadence, the three lists', splitLists(visible()).map(([day, l]) => ({ name: day, columns: cols, rows: l.map(rowOf) })), { classes: ['partner'] }));
 }

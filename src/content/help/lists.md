@@ -42,3 +42,7 @@ Credit, beside the builder, shows each gift's fundraiser credit next to every as
 - A change to a gift in an earlier month is marked closed month.
 
 Anyone can propose a change with a reason. An admin, the Operations team or a person an admin names approves it, and never the person who proposed it. Every step is kept in the log. Approving does not change Blackbaud until an admin turns **Apply** on, and while a record limit is set, apply reaches only that record.
+
+## First-time givers
+
+The First-time givers report counts the partners whose first gift fell in the period, by the category of that first appeal. Press a row to open those partners in Lists with the first gift, first appeal and its category as columns. Set **Show** to **Each partner** for one row per partner, newest first: the first gift and its amount, **Came in through** (the category and title of the first appeal, and the giving form for a website gift), the appeal code, the source code once Blackbaud's copy carries it, and giving so far. Press a name to open the partner card.

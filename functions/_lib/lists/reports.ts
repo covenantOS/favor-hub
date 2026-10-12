@@ -1,6 +1,7 @@
 // The standard reports. Each one reads the lr_* snapshot (counts in milliseconds), takes a period, ties to the KPI dashboard where a matching
 // figure exists, and gives every row a drill spec the Lists page opens to show the partners or gifts behind it.
 import { addMonthsSql, emptySpec, normalizeSpec, type ListSpec } from './criteria.ts';
+import type { FoundVia } from '../work/found-via.ts';
 import type { Q, Tie } from './run.ts';
 
 type Row = Record<string, any>;
@@ -319,13 +320,23 @@ const firstTime: ReportDef = {
   id: 'first-time',
   name: 'First-time givers',
   group: 'Partners',
-  about: 'Partners whose first gift fell in the period, by the category of that first appeal.',
-  params: [{ id: 'period', label: 'Period', type: 'period', def: 'ytd' }],
+  about: 'Partners whose first gift fell in the period: by the category of that first appeal, or each partner with the first gift and how they found Favor.',
+  params: [
+    { id: 'period', label: 'Period', type: 'period', def: 'ytd' },
+    { id: 'show', label: 'Show', type: 'select', def: 'cat', options: [['cat', 'By appeal category'], ['each', 'Each partner']] },
+  ],
   async run(c) {
+    if (c.p.show === 'each') return firstTimeEach(c);
     const rows = await c.q(
       `SELECT COALESCE(first_cat, 'No appeal') AS k, COUNT(*) AS n, ROUND(SUM(lifetime), 2) AS t, ROUND(AVG(lifetime), 2) AS avg FROM lr_hh WHERE alive = 1 AND first_gift >= ?1 AND first_gift <= ?2 GROUP BY 1 ORDER BY n DESC`,
       [c.from, c.to]
     );
+    const drill = (r: Row): ListSpec => {
+      const s = partners({ firstGift: { from: c.from, to: c.to }, firstCats: r.k === 'No appeal' ? [] : [String(r.k)] });
+      s.columns = ['partner', 'first_gift', 'first_appeal', 'first_cat', 'lifetime', 'state'];
+      s.sort = { key: 'first_gift', dir: 'desc' };
+      return s;
+    };
     return {
       primary: 'n',
       columns: [
@@ -334,12 +345,57 @@ const firstTime: ReportDef = {
         { key: 't', label: 'Giving so far', type: 'money' },
         { key: 'avg', label: 'Average', type: 'money' },
       ],
-      rows: rows.map((r) => ({ ...r, _drill: partners({ firstGift: { from: c.from, to: c.to }, firstCats: r.k === 'No appeal' ? [] : [String(r.k)] }) })),
+      rows: rows.map((r) => ({ ...r, _drill: drill(r) })),
       tiles: [{ label: 'First-time givers', value: rows.reduce((s, r) => s + n(r.n), 0), kind: 'int' }, { label: 'Giving so far', value: r2(rows.reduce((s, r) => s + n(r.t), 0)), kind: 'money' }],
       ties: [],
     };
   },
 };
+
+/** First-time givers, one row each, newest first: the first gift, its appeal and category, and the source code once the mirror has one. */
+async function firstTimeEach(c: Ctx): Promise<ReportResult> {
+  const hh = await c.q(
+    `SELECT record_id AS cid, name AS name, state AS state, first_gift AS d, first_code AS code, first_cat AS cat, lifetime AS life FROM lr_hh
+      WHERE alive = 1 AND first_gift >= ?1 AND first_gift <= ?2 ORDER BY first_gift DESC, name LIMIT 500`,
+    [c.from, c.to]
+  );
+  const total = await c.q(`SELECT COUNT(*) AS n, ROUND(SUM(lifetime), 2) AS t FROM lr_hh WHERE alive = 1 AND first_gift >= ?1 AND first_gift <= ?2`, [c.from, c.to]);
+  // Loaded here, not at the top: the rest of the reports run in tests that do not load the Work Center modules.
+  const { foundVia } = await import('../work/found-via.ts');
+  const via = c.mirror ? await foundVia(c.mirror as any, hh.map((r) => String(r.cid))).catch(() => new Map<string, FoundVia>()) : new Map<string, FoundVia>();
+  const anySource = [...via.values()].some((v) => v.source);
+  const rows = hh.map((r) => {
+    const v = via.get(String(r.cid));
+    return {
+      partner: r.name || '',
+      _cid: String(r.cid),
+      d: r.d,
+      amount: v ? v.amount : null,
+      found: v ? v.label : [r.cat, r.code].filter(Boolean).join(' · '),
+      code: v ? v.appealCode : r.code || '',
+      source: v ? v.source : '',
+      life: r.life,
+    };
+  });
+  const cols: ReportCol[] = [
+    { key: 'partner', label: 'Partner', type: 'text' },
+    { key: 'd', label: 'First gift', type: 'date' },
+    { key: 'amount', label: 'Amount', type: 'money' },
+    { key: 'found', label: 'Came in through', type: 'text' },
+    { key: 'code', label: 'Appeal', type: 'text' },
+  ];
+  if (anySource) cols.push({ key: 'source', label: 'Source code', type: 'text' });
+  cols.push({ key: 'life', label: 'Giving so far', type: 'money' });
+  const t = total[0] || {};
+  return {
+    primary: 'amount',
+    columns: cols,
+    rows,
+    tiles: [{ label: 'First-time givers', value: n(t.n), kind: 'int' }, { label: 'Giving so far', value: r2(n(t.t)), kind: 'money' }],
+    ties: [],
+    note: n(t.n) > rows.length ? `The newest ${rows.length} of ${n(t.n).toLocaleString('en-US')}.` : undefined,
+  };
+}
 
 const retention: ReportDef = {
   id: 'retention',

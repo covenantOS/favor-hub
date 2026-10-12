@@ -1583,9 +1583,9 @@ export const STEPS: Step[] = [
     press: '.wc-tab[data-view="cadence"]',
     at: '.wcd-row',
     title: 'Cadence',
-    body: 'Partners due for contact under the Partner Care manual: first-time partners, monthly, quarterly, twice a year and annual. The next step is green. {Tap} a step, say what was said and save, and the contact is logged on the partner. A step with no phone, email or address is switched off and says why. Print the three lists splits the work into Friday, Saturday and Sunday.',
+    body: 'Partners due for contact under the Partner Care manual: first-time partners, monthly, quarterly, twice a year and annual. A first-time partner shows the appeal they came in through. The next step is green. {Tap} a step, say what was said and save, and the contact is logged on the partner. A step with no phone, email or address is switched off and says why. Print the three lists splits the work into Friday, Saturday and Sunday.',
     for: (w) => w.admin || team('pc')(w),
-    added: '2026-10-10',
+    added: '2026-10-12',
     side: 'top',
   },
   {

@@ -524,3 +524,6 @@ html body.h-body #wc-root .wg-group .wg-fold { display: inline-flex; align-items
 html body.h-body #wc-root .wg-group .wg-fold .wg-caret { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform .15s; }
 html body.h-body #wc-root .wg-group--older.is-open .wg-fold .wg-caret { transform: none; }
 html body.h-body .br-item > .br-more + .br-fold { margin-left: 16px; }
+
+/* First-time partners (2026-10-12): Came in through, one line under the giving line. */
+html body.h-body #wc-root .wcd-who .wcd-found { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
