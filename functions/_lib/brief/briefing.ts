@@ -14,7 +14,7 @@ import { scopeFor } from '../work/role';
 import { todayEt, type Ctx } from '../work/service';
 import { bookFor, momentFacts, nbaOf, readBook, type Director, type PartnerRead } from './facts';
 import { momentsFor, type Moment } from './signals';
-import { dayDiff, money, plural } from './text';
+import { cacheGet, cachePut, dayDiff, money, plural } from './text';
 
 const weekdayOf = (iso: string): string => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
 
@@ -211,6 +211,28 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
     if (book.portfolio && book.portfolio.rows.length) {
       reads = await readBook(mirrorQ(env), book.portfolio.rows, today).catch(() => []);
       moments = momentsFor(reads.map(momentFacts), today, 10).map((m) => ({ ...m, href: `/work/partner/${encodeURIComponent(m.cid)}` }));
+    } else if (!book.owner && book.directors.length) {
+      // No portfolio of their own (an admin, or Support): the moments of every director they cover, kept for half an hour.
+      const key = `moments:${email}:${today}`;
+      const hit = await cacheGet<Briefing['moments']>(env, key, 30 * 60000);
+      if (hit) moments = hit;
+      else {
+        const all: Moment[] = [];
+        for (const d of book.directors.slice(0, 14)) {
+          const b = await bookFor(ctx, d.fid, today).catch(() => null);
+          if (!b || !b.portfolio || !b.portfolio.rows.length) continue;
+          const r = await readBook(mirrorQ(env), b.portfolio.rows, today).catch(() => []);
+          all.push(...momentsFor(r.map(momentFacts), today, 4));
+        }
+        const seen = new Set<string>();
+        const KIND: Record<string, number> = { largest: 0, first: 1, quiet: 2, anniversary: 3 };
+        moments = all
+          .filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)))
+          .sort((a, b) => KIND[a.kind] - KIND[b.kind] || (b.amount || 0) - (a.amount || 0))
+          .slice(0, 10)
+          .map((m) => ({ ...m, href: `/work/partner/${encodeURIComponent(m.cid)}` }));
+        await cachePut(env, key, moments);
+      }
     }
   }
 

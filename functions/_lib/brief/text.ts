@@ -31,7 +31,7 @@ export function scrub(s: string): string {
 type Run = { run(model: string, input: unknown): Promise<unknown> };
 
 const PADDING = /\b(tackle|notable|notably|contributions?|fortunately|unfortunately|a number of|important|importantly|gratitude|grateful|express(?:ing)? (?:our|your)|generous|dedicated|remarkable|significant(?:ly)?|valuable|crucial|vital|ensure|journey|testament|indeed|additionally|furthermore|moreover|overall|ultimately|in conclusion|it is worth|it's worth|reach out|touch base|delve|leverage|streamline|robust|seamless|heartwarming|wonderful|amazing|great news)\b/i;
-const ZERO = /\b(there (?:are|is) (?:no|none)|none at this time|nothing (?:is |to )?(?:late|waiting|overdue|due)|no (?:late|overdue|waiting)|zero|0 (?:late|overdue|waiting))\b/i;
+const ZERO = /\b(no record of|not on record|nothing on record|there (?:are|is) (?:no|none)|none at this time|nothing (?:is |to )?(?:late|waiting|overdue|due)|no (?:late|overdue|waiting)|zero|0 (?:late|overdue|waiting))\b/i;
 
 /** True when model text is short and plain: at most two sentences, no padding words, no statement that something is absent. */
 export function acceptable(text: string): boolean {

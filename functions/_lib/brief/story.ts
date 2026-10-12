@@ -146,8 +146,9 @@ export async function timelineFor(ctx: Ctx, cid: string, partner?: PartnerView |
   for (const a of p.assignments) fname.set(a.fid, a.name);
   for (const a of acts) {
     const open = !(String(a.completed) === 'true' || Number(a.completed) === 1 || a.done);
-    const at = String(a.done || a.due || a.added || '');
-    if (!at) continue;
+    // Blackbaud stores 1900-01-01 where no date was ever set; such a note has no place in a dated list.
+    const at = [a.done, a.due, a.added].map((x) => String(x || '')).find((x) => x && !x.startsWith('1900')) || '';
+    if (!at || /^tags from ctg/i.test(oneLine(a.summary))) continue;
     const category = String(a.category || '');
     const by = parse<any[]>(a.frs, []).map((f) => fname.get(String(f)) || '').filter(Boolean).join(', ');
     const desc = oneLine(a.description);
@@ -212,7 +213,7 @@ export async function factsOf(ctx: Ctx, cid: string, p: PartnerView, today: stri
     name: p.name,
     place: p.place,
     kind: p.kind,
-    since: (p.giving.firstDate || p.addedOn || '').slice(0, 4),
+    since: p.giving.count ? (p.giving.firstDate || '').slice(0, 4) : '',
     life: p.giving.total,
     count: p.giving.count,
     ytd: p.giving.ytd,
@@ -285,6 +286,16 @@ export interface Story {
 
 const STORY_SYSTEM = `${HOUSE} You summarize one ministry partner for a staff member who is about to talk with them. Write exactly two short sentences. The first says how long and how much they have given and what they give to. The second gives the one thing to keep in mind from the last contact or notes, such as a prayer request. Use dollar amounts with commas.`;
 
+/** True when no sentence contradicts the records: no absence claimed for a partner who has gifts, no year or dollar figure the records do not hold. */
+export function agrees(text: string, f: StoryFacts, today: string): boolean {
+  if (f.count > 0 && /\b(no (record|gifts?|giving)|not (on record|given)|never (given|gave)|has not given)\b/i.test(text)) return false;
+  const years = new Set<string>([today.slice(0, 4), String(Number(today.slice(0, 4)) - 1), f.since, f.last ? f.last.date.slice(0, 4) : '', f.largest ? f.largest.date.slice(0, 4) : '']);
+  for (const y of text.match(/\b(?:19|20)\d\d\b/g) || []) if (!years.has(y)) return false;
+  const amounts = new Set<number>([f.life, f.ytd, f.l12, f.p12, f.last ? f.last.amount : -1, f.largest ? f.largest.amount : -1, f.monthly ? f.monthly.amount : -1].map((n) => Math.round(n)));
+  for (const m of text.match(/\$[\d,]+(?:\.\d\d)?/g) || []) if (!amounts.has(Math.round(Number(m.replace(/[$,]/g, ''))))) return false;
+  return true;
+}
+
 export async function storyFor(ctx: Ctx, cid: string, p: PartnerView, today: string, fresh = false): Promise<{ story: Story; facts: StoryFacts; nba: Nba }> {
   const facts = await factsOf(ctx, cid, p, today);
   const nba = nbaFromFacts(facts, p, today);
@@ -322,7 +333,10 @@ export async function storyFor(ctx: Ctx, cid: string, p: PartnerView, today: str
     null,
     0
   );
-  const text = (await writeText(ctx.env, { system: STORY_SYSTEM, user: brief, max: 260, timeoutMs: 14000 })) || plainStory(facts, today);
+  // The templated story comes first. A model sentence replaces it only when it agrees with the facts.
+  const plain = plainStory(facts, today);
+  const drafted = facts.count ? await writeText(ctx.env, { system: STORY_SYSTEM, user: brief, max: 200, timeoutMs: 14000 }) : null;
+  const text = drafted && agrees(drafted, facts, today) ? drafted : plain;
   const story: Story = { text, at: new Date().toISOString(), health: facts.health, why: facts.healthWhy };
   await cachePut(ctx.env, key, { sig: s, story });
   return { story, facts, nba };

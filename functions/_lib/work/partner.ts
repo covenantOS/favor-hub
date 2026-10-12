@@ -434,7 +434,8 @@ export async function loadPartner(q: Q, id: string, today: string = etParts(new 
     actions: { openCount: num(openN[0]?.n), open: openRows.map((a: any) => actionOf(a, true)), recent: doneRows.map((a: any) => actionOf(a, false)) },
     notes: noteRows.map((a: any) => ({
       id: String(a.id),
-      date: text(a.done) || text(a.due) || text(a.added),
+      // 1900-01-01 is Blackbaud's empty date: such a note shows no date.
+      date: [text(a.done), text(a.due), text(a.added)].find((d) => d && !d.startsWith('1900')) || '',
       type: text(a.type),
       category: text(a.category),
       summary: text(a.summary),

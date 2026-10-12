@@ -178,3 +178,24 @@ describe('briefing line', () => {
     assert.equal(typeof b.buildBriefing, 'function');
   });
 });
+
+describe('names, stories and trips', () => {
+  it('names a person by first name and an organization in full', () => {
+    assert.equal(sig.shortName('Mr. John Smith', false), 'John');
+    assert.equal(sig.shortName('Ben and Cora Sample', false), 'Ben and Cora');
+    assert.equal(sig.shortName('New Life Church', true), 'New Life Church');
+  });
+  it('rejects a story that contradicts the records', async () => {
+    const s = await import('../functions/_lib/brief/story.ts');
+    const f = { count: 0, since: '', life: 0, ytd: 0, l12: 0, p12: 0, last: null, largest: null, monthly: null };
+    assert.equal(s.agrees('Giving since 2023, no record of any gifts.', { ...f, count: 3, since: '2021' }, TODAY), false);
+    assert.equal(s.agrees('Gave $500 since 2021.', { ...f, count: 3, since: '2021', life: 500 }, TODAY), true);
+    assert.equal(s.agrees('Gave $900 since 2021.', { ...f, count: 3, since: '2021', life: 500 }, TODAY), false);
+  });
+  it('places a ZIP from the bundled table', async () => {
+    const t = await trip.zipTable();
+    const p = t.get('75201');
+    assert.ok(p && Math.abs(p.lat - 32.79) < 0.1 && Math.abs(p.lon + 96.8) < 0.2);
+    assert.ok(t.size > 40000);
+  });
+});

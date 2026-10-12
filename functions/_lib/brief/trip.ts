@@ -141,6 +141,21 @@ async function fetchJson(url: string, ms = 5000): Promise<any | null> {
 
 const FOREVER = 400 * 86400000;
 
+let ZIPS: Map<string, Pt> | null = null;
+/** The bundled ZIP centroid table (functions/_lib/brief/zips.ts), parsed once per isolate. */
+export async function zipTable(): Promise<Map<string, Pt>> {
+  if (ZIPS) return ZIPS;
+  const { ZIP_DATA } = await import('./zips');
+  const m = new Map<string, Pt>();
+  for (const e of ZIP_DATA.split(';')) {
+    const u = e.indexOf('_');
+    if (e.length < 8 || u < 0) continue;
+    m.set(e.slice(0, 5), { lat: Number(e.slice(5, u)) / 100, lon: Number(e.slice(u + 1)) / 100 });
+  }
+  ZIPS = m;
+  return m;
+}
+
 export async function geocodeCity(env: Pick<Env, 'DB'>, city: string, state: string): Promise<(Pt & { name: string; state: string }) | null> {
   const key = `geo:city:${city.toLowerCase()},${state}`;
   const hit = await cacheGet<(Pt & { name: string; state: string }) | { none: true }>(env, key, FOREVER);
@@ -254,13 +269,19 @@ export async function planTrip(env: Env, ask: TripAsk, rows: PortfolioRow[], opt
   const at = new Map<string, Pt>();
   let looked = 0;
   const todo: string[] = [];
+  const table = await zipTable();
   for (const z of zips) {
+    const own = table.get(z);
+    if (own) {
+      at.set(z, own);
+      continue;
+    }
     const hit = await cacheGet<Pt | { none: true }>(env, `geo:zip:${z}`, FOREVER);
     if (hit) {
       if (!('none' in hit)) at.set(z, hit);
     } else todo.push(z);
   }
-  for (const part of chunks(todo.slice(0, 36), 6)) {
+  for (const part of chunks(todo.slice(0, 12), 6)) {
     const got = await Promise.all(part.map((z) => geocodeZip(env, z)));
     part.forEach((z, i) => {
       looked++;
@@ -323,6 +344,8 @@ export async function planTrip(env: Env, ask: TripAsk, rows: PortfolioRow[], opt
     prev = s;
     kept.push(s);
   }
+  // The list reads in the order of the day: the route in time order first, then the other partners nearby.
+  stops.sort((a, b) => (a.slot && b.slot ? (a.slot.start < b.slot.start ? -1 : 1) : a.slot ? -1 : b.slot ? 1 : b.score - a.score || a.miles - b.miles));
   const way = kept.slice(0, -1).map((s) => s.address);
   const last = kept[kept.length - 1];
   const mapsUrl = kept.length

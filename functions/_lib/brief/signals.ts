@@ -148,11 +148,22 @@ function channelFor(f: Pick<NbaFacts, 'hasPhone' | 'doNotCall' | 'hasEmail' | 'd
 
 const VERB: Record<Channel, string> = { call: 'Call', visit: 'Visit or call', email: 'Email', card: 'Send a card to', none: 'Check on' };
 
+const TITLES = /^(mr|mrs|ms|miss|dr|rev|pastor|fr|sr|prof|hon)\.?$/i;
+/** How a partner is named in a sentence: an organization by its full name, a person by first name, a couple as "Ben and Cora". */
+export function shortName(name: string, org: boolean): string {
+  const n = name.replace(/\s+/g, ' ').trim();
+  if (!n) return 'them';
+  if (org) return n;
+  const w = n.split(' ').filter((x) => !TITLES.test(x));
+  if (w.length >= 4 && /^and$|^&$/i.test(w[1])) return `${w[0]} and ${w[2]}`;
+  return w[0] || 'them';
+}
+
 /** The one thing to do for a partner next, from what they owe us (a thank-you), how they give, and when anyone last spoke to them. */
 export function nextAction(f: NbaFacts, today: string): Nba {
   // A church, a company or a foundation has no first name: "Call The to reconnect" read wrong, so an organization is "them".
   const org = /^(the|a)\s/i.test(f.name) || /\b(church|chapel|ministr\w*|foundation|fund|trust|inc|llc|corp|company|fellowship|assembly|association|society|school|university|college|center|centre|international|charit\w*|engines|eglise|église|iglesia)\b/i.test(f.name) || /[&\d]/.test(f.name);
-  const first = (!org && f.name.split(/\s+/)[0]) || 'them';
+  const first = shortName(f.name, org);
   if (f.owed && f.owed.n > 0) {
     const what = f.owed.n === 1 ? `the ${money(f.owed.total)} gift` : `${f.owed.n} gifts, ${money(f.owed.total)}`;
     return {
