@@ -40,6 +40,12 @@ const out = {
   css: [...css].filter(([, n]) => n >= need).map(([h]) => h),
   js: [...js].filter(([, v]) => v.n >= need).sort((a, b) => a[1].at - b[1].at).map(([s]) => s),
 };
+// Today's briefing is its own script (brief.js) that the app mounts into Today; its address, with the version the classic page carries.
+try {
+  const home = readFileSync(join(dist, 'index.html'), 'utf8');
+  const m = /src="(\/js\/brief\.js[^"]*)"/.exec(home);
+  if (m) out.brief = m[1].replace(/[?&]b=\d+/, '');
+} catch { /* no home page in this build */ }
 mkdirSync(join(dist, '_app'), { recursive: true });
 writeFileSync(join(dist, '_app', 'layout-assets.json'), JSON.stringify(out));
 console.log(`layout-assets: ${out.css.length} shared sheets, ${out.js.length} shared scripts across ${hub.length} hub pages`);

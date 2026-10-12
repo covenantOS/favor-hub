@@ -316,3 +316,14 @@ export function leavePage() {
   });
   (window as unknown as { FavorDrill?: { close(): void } }).FavorDrill?.close();
 }
+
+/**
+ * Run one classic script that mounts into the page the app drew (Today's briefing). It runs again on every visit, because it finds its root
+ * when it starts, and what it made goes away through leavePage() when the page is left.
+ */
+export async function runClassicScript(src: string): Promise<void> {
+  await ensureClassicShell();
+  const text = await loadText(src);
+  (0, eval)(`// ${src}`+String.fromCharCode(10)+text+String.fromCharCode(10)+`//# sourceURL=hub-island-${++epoch}.js`);
+
+}

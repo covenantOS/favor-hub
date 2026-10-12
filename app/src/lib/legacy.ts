@@ -32,6 +32,7 @@ export function loadStyle(href: string) {
 export interface LayoutAssets {
   css: string[];
   js: string[];
+  brief?: string;
 }
 
 let assets: Promise<LayoutAssets> | null = null;

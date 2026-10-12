@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDay, useKpi, useToday } from '@/data/hooks';
 import { greeting, et } from '@/lib/format';
-import { loadScript } from '@/lib/legacy';
+import { layoutAssets, loadScript } from '@/lib/legacy';
+import { leavePage, runClassicScript } from '@/legacy/page';
 import { keys } from '@/lib/query';
 import { KEYS, readString, writeString } from '@/lib/storage';
 import { ErrorBoundary } from '@/shell/ErrorBoundary';
@@ -70,6 +71,32 @@ export function TodayPage() {
     return () => document.removeEventListener('hub:snoozed', onSnoozed);
   }, [qc]);
 
+  // The morning briefing (Since you were away, the briefing rows, Moments, Focus) is the classic script, mounted here. It draws from
+  // /api/brief/today and reads today's meetings and the Needs you cards from the events the classic Today sent.
+  useEffect(() => {
+    let live = true;
+    void layoutAssets().then(async (a) => {
+      if (!live || !a.brief) return;
+      try {
+        await runClassicScript(a.brief);
+      } catch (e) {
+        console.warn('[today] briefing did not start', e);
+      }
+    });
+    return () => {
+      live = false;
+      leavePage();
+    };
+  }, []);
+  useEffect(() => {
+    if (!day.data) return;
+    (window as unknown as { __hubDay?: unknown }).__hubDay = day.data;
+    document.dispatchEvent(new CustomEvent('hub:day', { detail: day.data }));
+  }, [day.data]);
+  useEffect(() => {
+    if (t) document.dispatchEvent(new CustomEvent('hub:cards', { detail: t.cards }));
+  }, [t]);
+
   const hasKpi = !!t?.access.kpi;
   return (
     <div className="r2t">
@@ -95,6 +122,8 @@ export function TodayPage() {
           </button>
         </div>
       </div>
+
+      <div id="br-root" aria-live="polite" />
 
       <section>
         <div className="r2t-sec">

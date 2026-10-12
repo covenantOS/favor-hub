@@ -1,0 +1,399 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useRef, useState } from 'react';
+import { MI, hue, initials, kindOf, size, when, who } from './util';
+import { getApi } from './mailApi';
+
+export interface ThreadTools {
+  inInbox: boolean;
+  unread: boolean;
+  starred: boolean;
+  inTrash: boolean;
+  labels: Record<string, 1>;
+}
+export function toolsOf(t: any): ThreadTools {
+  const msgs: any[] = (t && t.messages) || [];
+  const labels: Record<string, 1> = {};
+  msgs.forEach((m) => (m.labelIds || []).forEach((l: string) => (labels[l] = 1)));
+  return { inInbox: !!labels.INBOX, unread: msgs.some((m) => m.unread), starred: msgs.some((m) => m.starred), inTrash: !!labels.TRASH, labels };
+}
+
+const frameDoc = (html: string) => {
+  const o = location.origin;
+  return (
+    '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data: ${o}; style-src 'unsafe-inline' https:; font-src https: data:; media-src https: ${o}">` +
+    '<base target="_blank"><style>html,body{margin:0;padding:0;background:transparent}body{font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;color:#1d211b;overflow-wrap:anywhere;word-break:break-word}' +
+    'img{max-width:100%;height:auto}pre{white-space:pre-wrap}a{color:#235578}blockquote{margin:6px 0 6px 2px;padding-left:12px;border-left:3px solid #e4e0d4;color:#464c42}' +
+    'html.fos-fold .fos-q{display:none!important}table{max-width:100%}</style></head><body>' +
+    html +
+    '</body></html>'
+  );
+};
+
+/** A message body in a sandboxed frame (no scripts) sized to its content, with quoted text folded away as in Gmail. */
+function MessageFrame({ html, title, fold }: { html: string; title: string; fold: boolean }) {
+  const box = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
+  const [hasQuote, setHasQuote] = useState(false);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const f = frame.current;
+    const b = box.current;
+    if (!f || !b) return;
+    let ro: ResizeObserver | null = null;
+    const onload = () => {
+      let d: Document | null = null;
+      try {
+        d = f.contentDocument;
+      } catch {
+        return;
+      }
+      if (!d || !d.body) return;
+      const doc = d;
+      const fit = () => {
+        doc.body.style.zoom = '';
+        const sw = doc.documentElement.scrollWidth;
+        const w = b.clientWidth;
+        if (sw > w + 4 && w > 0) doc.body.style.zoom = String(Math.max(0.4, w / sw));
+        f.style.height = Math.ceil(doc.documentElement.scrollHeight) + 'px';
+      };
+      if (fold) {
+        const q = doc.querySelector('.gmail_quote, blockquote[type="cite"], #appendonsend, .yahoo_quoted, #divRplyFwdMsg');
+        if (q) {
+          let top: Element = q;
+          while (top.parentElement && top.parentElement !== doc.body && top.parentElement.children.length === 1) top = top.parentElement;
+          top.classList.add('fos-q');
+          if (top.id === 'divRplyFwdMsg' || top.id === 'appendonsend') {
+            let n = top.nextElementSibling;
+            while (n) {
+              n.classList.add('fos-q');
+              n = n.nextElementSibling;
+            }
+          }
+          doc.documentElement.classList.add('fos-fold');
+          setHasQuote(true);
+        }
+      }
+      fit();
+      doc.querySelectorAll('img').forEach((im) => {
+        if (!im.complete) im.addEventListener('load', fit);
+      });
+      if (window.ResizeObserver) {
+        ro = new ResizeObserver(() => (f.style.height = doc.documentElement.scrollHeight + 'px'));
+        ro.observe(doc.body);
+      }
+      // Keys pressed inside the message reach the page's shortcuts.
+      doc.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || (!e.metaKey && !e.ctrlKey && /^[jkeuarf#/c]$/.test(e.key))) document.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, shiftKey: e.shiftKey }));
+      });
+    };
+    f.addEventListener('load', onload);
+    return () => {
+      f.removeEventListener('load', onload);
+      ro?.disconnect();
+    };
+  }, [html, fold]);
+  const unfold = () => {
+    const d = frame.current?.contentDocument;
+    if (!d) return;
+    d.documentElement.classList.toggle('fos-fold');
+    setOpen((v) => !v);
+    requestAnimationFrame(() => {
+      if (frame.current && d.documentElement) frame.current.style.height = d.documentElement.scrollHeight + 'px';
+    });
+  };
+  return (
+    <>
+      <div className="ml-frame" ref={box}>
+        <iframe ref={frame} className="ml-iframe" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox" title={title} scrolling="no" srcDoc={frameDoc(html || '<p style="color:#666b60">(no text)</p>')} />
+      </div>
+      {hasQuote && (
+        <button type="button" className="ml-fold" onClick={unfold} aria-label={open ? 'Hide quoted text' : 'Show quoted text'} title="Show quoted text">
+          <MI n="more" />
+        </button>
+      )}
+    </>
+  );
+}
+
+export const recipLine = (m: any, me: string) => {
+  const to: any[] = (m.to || []).concat(m.cc || []);
+  const first = (a: any) => (a && a.email === me ? 'me' : a && a.name ? String(a.name).split(/\s+/)[0] : who(a));
+  return 'to ' + (to.length ? to.slice(0, 3).map(first).join(', ') + (to.length > 3 ? ' and ' + (to.length - 3) + ' more' : '') : 'undisclosed recipients');
+};
+
+export function replyAllList(m: any, me: string): any[] {
+  if (!m) return [];
+  const out: any[] = [];
+  const seen: Record<string, 1> = {};
+  const add = (a: any) => {
+    if (a && a.email && !seen[a.email] && a.email !== me) {
+      seen[a.email] = 1;
+      out.push(a);
+    }
+  };
+  (m.replyTo && m.replyTo.length ? m.replyTo : [m.from]).forEach(add);
+  (m.to || []).forEach(add);
+  (m.cc || []).forEach(add);
+  if (!out.length && m.from && m.from.email === me)
+    (m.to || []).forEach((a: any) => {
+      if (!seen[a.email]) {
+        seen[a.email] = 1;
+        out.push(a);
+      }
+    });
+  return out;
+}
+
+function Msg({ m, i, all, c }: { m: any; i: number; all: any[]; c: ReaderProps }) {
+  const lastReal = all.filter((x) => !x.draft).slice(-1)[0];
+  const dflt = !!m.unread || m === lastReal || !!m.draft || all.length === 1;
+  const open = c.exp[m.id] != null ? c.exp[m.id] : dflt;
+  const p = c.partners[(m.from || {}).email];
+  const files = (m.attachments || []).filter((f: any) => !f.inline || !/^image\//.test(f.mime));
+  const api = getApi();
+  return (
+    <article className={'ml-msg' + (open ? ' is-open' : '') + (m.draft ? ' is-draft' : '')} data-mid={m.id}>
+      <button type="button" className="ml-msg__head" aria-expanded={open} onClick={() => c.onToggle(m.id, !open)}>
+        <span className="ml-av" data-h={hue((m.from || {}).email || '')}>
+          {initials(m.from && m.from.email === c.me ? c.name : who(m.from))}
+        </span>
+        <span className="ml-msg__who">
+          <span className="ml-msg__l1">
+            <b>{m.draft ? 'Draft' : who(m.from) || '(no sender)'}</b>
+            {open && m.from && m.from.name ? <small>{m.from.email}</small> : null}
+          </span>
+          <span className="ml-msg__l2">{open ? recipLine(m, c.me) : m.snippet || ''}</span>
+        </span>
+        <time dateTime={m.date} title={when(m.date, true)}>
+          {when(m.date)}
+        </time>
+      </button>
+      {open && (
+        <div className="ml-msg__body">
+          {p && (
+            <a className="ml-partner" href={'/work/partner/' + encodeURIComponent(p.id)}>
+              <MI n="person" />
+              <span>{p.name || 'Partner'}</span>
+              <em>Partner in Blackbaud</em>
+            </a>
+          )}
+          {c.headersOnly ? <div className="ml-hdronly">{m.snippet || ''}</div> : <MessageFrame html={m.html} title={'Message from ' + who(m.from)} fold={i > 0} />}
+          {files.length > 0 && (
+            <div className="ml-files">
+              {files.map((f: any, k: number) => {
+                const kind = kindOf(f.mime, f.name);
+                const url = api.fileUrl(m.id, f, false, c.box);
+                return (
+                  <div className="ml-file" key={f.id || k}>
+                    <a className="ml-file__open" href={url} target="_blank" rel="noreferrer">
+                      {kind === 'image' ? <img src={url} alt="" loading="lazy" decoding="async" /> : <span className="ml-fic" data-k={kind}>{(String(f.name).split('.').pop() || 'file').slice(0, 4).toUpperCase()}</span>}
+                      <span className="ml-file__t">
+                        <b>{f.name}</b>
+                        <small>{size(f.size)}</small>
+                      </span>
+                    </a>
+                    <a className="ml-iconbtn" href={api.fileUrl(m.id, f, true, c.box)} download={f.name} aria-label={'Download ' + f.name} title="Download">
+                      <MI n="dl" />
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="ml-msg__acts">
+            {m.draft ? (
+              <>
+                <button type="button" className="ml-btn ml-btn--primary" onClick={() => c.onEditDraft(m.id)}>
+                  <MI n="pen" />
+                  Edit draft
+                </button>
+                <button type="button" className="ml-btn" onClick={() => c.onDropDraft(m.id)}>
+                  <MI n="trash" />
+                  Discard
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="ml-iconbtn" onClick={() => c.onReply('reply', m)} aria-label="Reply" title="Reply">
+                  <MI n="reply" />
+                </button>
+                <button type="button" className="ml-iconbtn" onClick={() => c.onReply('forward', m)} aria-label="Forward" title="Forward">
+                  <MI n="fwd" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </article>
+  );
+}
+
+export interface ReaderProps {
+  thread: any;
+  loading: boolean;
+  listTitle: string;
+  me: string;
+  name: string;
+  box: string;
+  partners: Record<string, any>;
+  headersOnly: boolean;
+  labels: any[];
+  exp: Record<string, boolean>;
+  snoozedNote?: string;
+  onToggle: (mid: string, open: boolean) => void;
+  onAct: (kind: string, anchor?: HTMLElement) => void;
+  onReply: (kind: 'reply' | 'replyall' | 'forward', m?: any) => void;
+  onEditDraft: (mid: string) => void;
+  onDropDraft: (mid: string) => void;
+  extra?: React.ReactNode;
+}
+
+export function Reader(c: ReaderProps) {
+  const t = c.thread || { id: '', subject: '', messages: [] };
+  const msgs: any[] = t.messages || [];
+  const st = toolsOf(t);
+  const own = Object.keys(st.labels).filter((l) => c.labels.some((x) => x.id === l && x.type === 'user'));
+  const labelName = (id: string) => (c.labels.find((x) => x.id === id) || {}).name || id;
+  const partner = (() => {
+    for (const m of msgs) {
+      const p = c.partners[(m.from || {}).email];
+      if (p) return p;
+    }
+    const k = Object.keys(c.partners)[0];
+    return k ? c.partners[k] : null;
+  })();
+  const last = msgs.filter((m) => !m.draft).slice(-1)[0];
+  const act = (k: string) => (e: React.MouseEvent) => c.onAct(k, e.currentTarget as HTMLElement);
+  return (
+    <div className="ml-thread" data-thread={t.id}>
+      <div className="ml-thread__bar">
+        <button type="button" className="ml-iconbtn ml-back" onClick={act('back')} aria-label={'Back to ' + c.listTitle}>
+          <MI n="back" />
+          <span>{c.listTitle}</span>
+        </button>
+        <span className="ml-tools">
+          {st.inTrash ? (
+            <button type="button" className="ml-iconbtn" onClick={act('untrash')} aria-label="Move to Inbox" title="Move to Inbox">
+              <MI n="inbox" />
+            </button>
+          ) : st.inInbox ? (
+            <button type="button" className="ml-iconbtn" onClick={act('archive')} aria-label="Archive" title="Archive (e)">
+              <MI n="archive" />
+            </button>
+          ) : (
+            <button type="button" className="ml-iconbtn" onClick={act('to-inbox')} aria-label="Move to Inbox" title="Move to Inbox">
+              <MI n="inbox" />
+            </button>
+          )}
+          <button type="button" className="ml-iconbtn" onClick={act('delete')} aria-label="Delete" title="Delete (#)">
+            <MI n="trash" />
+          </button>
+          <button type="button" className="ml-iconbtn ml-dt" onClick={act('toggle-read')} aria-label="Mark as unread" title="Mark as unread (Shift U)">
+            <MI n="unread" />
+          </button>
+          <button type="button" className="ml-iconbtn ml-dt" onClick={act('snooze')} aria-label="Snooze" title="Snooze">
+            <MI n="clock" />
+          </button>
+          <button type="button" className="ml-iconbtn ml-dt" onClick={act('labels')} aria-label="Labels" title="Labels">
+            <MI n="tag" />
+          </button>
+        </span>
+        <span className="ml-nav">
+          <button type="button" className="ml-iconbtn ml-dt" onClick={act('prev')} aria-label="Newer conversation" title="Newer (k)">
+            <MI n="up" />
+          </button>
+          <button type="button" className="ml-iconbtn ml-dt" onClick={act('next')} aria-label="Older conversation" title="Older (j)">
+            <MI n="down" />
+          </button>
+        </span>
+      </div>
+      <div className="ml-thread__scroll">
+        <div className="ml-thread__top">
+          <h2 className="ml-thread__h" tabIndex={-1}>
+            {t.subject || (c.loading ? '' : '(no subject)')}
+          </h2>
+          <div className="ml-thread__chips">
+            {own.map((l) => (
+              <span className="ml-chip" key={l}>
+                {labelName(l)}
+              </span>
+            ))}
+            {t.snoozed ? (
+              <span className="ml-chip ml-chip--sun">
+                <MI n="clock" />
+                Snoozed until {when(t.snoozed, true)}
+              </span>
+            ) : null}
+            {partner && (
+              <a className="ml-chip ml-chip--leaf" href={'/work/partner/' + encodeURIComponent(partner.id)}>
+                <MI n="person" />
+                {partner.name || 'Partner'}
+              </a>
+            )}
+            <button type="button" className={'ml-star ml-star--h' + (st.starred ? ' is-on' : '')} onClick={act('star')} aria-pressed={st.starred} aria-label={st.starred ? 'Remove star' : 'Star'}>
+              <MI n="star" />
+            </button>
+          </div>
+        </div>
+        {c.extra}
+        <div className="ml-thread__msgs">
+          {c.loading ? (
+            <div className="ml-msg ml-msg--skel">
+              <span className="ml-av" />
+              <span className="ml-row__t">
+                <i style={{ width: '40%' }} />
+                <i style={{ width: '85%' }} />
+                <i style={{ width: '70%' }} />
+              </span>
+            </div>
+          ) : (
+            msgs.map((m, i) => <Msg key={m.id} m={m} i={i} all={msgs} c={c} />)
+          )}
+        </div>
+        {!c.loading && last && (
+          <div className="ml-thread__foot">
+            <button type="button" className="ml-btn" onClick={() => c.onReply('reply')}>
+              <MI n="reply" />
+              Reply
+            </button>
+            {replyAllList(last, c.me).length > 1 && (
+              <button type="button" className="ml-btn" onClick={() => c.onReply('replyall')}>
+                <MI n="replyall" />
+                Reply all
+              </button>
+            )}
+            <button type="button" className="ml-btn" onClick={() => c.onReply('forward')}>
+              <MI n="fwd" />
+              Forward
+            </button>
+          </div>
+        )}
+      </div>
+      <div className="ml-pbar">
+        {st.inInbox ? (
+          <button type="button" onClick={act('archive')} aria-label="Archive">
+            <MI n="archive" />
+          </button>
+        ) : (
+          <button type="button" onClick={act('to-inbox')} aria-label="Move to Inbox">
+            <MI n="inbox" />
+          </button>
+        )}
+        <button type="button" onClick={act('delete')} aria-label="Delete">
+          <MI n="trash" />
+        </button>
+        <button type="button" onClick={act('labels')} aria-label="Labels">
+          <MI n="tag" />
+        </button>
+        <button type="button" onClick={() => c.onReply('reply')} aria-label="Reply">
+          <MI n="reply" />
+        </button>
+        <button type="button" onClick={act('compose')} aria-label="New message">
+          <MI n="pen" />
+        </button>
+      </div>
+    </div>
+  );
+}
