@@ -10,12 +10,8 @@ import { currentBoard, type Ctx } from '../work/service';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
-<<<<<<< HEAD
-import { noticesFor } from '../requests/tasks';
-import { projectsFlag } from '../projects/access';
-=======
 import { mayHear, noticesFor } from '../requests/tasks';
->>>>>>> origin/main
+import { projectsFlag } from '../projects/access';
 
 export interface Access {
   admin: boolean;

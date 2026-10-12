@@ -34,6 +34,11 @@
       button: 'Start an expense request',
     },
   };
+  const PROJECT_COPY = (p) => ({
+    title: 'This goes to the Marketing team',
+    body: `Your words become a task in ${p.name}, and the team sees it right away.`,
+    button: 'Send to Marketing',
+  });
   const OTHER = { board: "It's for the request board", marketing: "It's for the Marketing team", expense: "It's an expense" };
 
   function say(text) {

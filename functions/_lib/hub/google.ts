@@ -39,7 +39,7 @@ export async function seal(env: Env, text: string): Promise<string> {
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await key(env), enc.encode(text)));
   return b64(iv) + '.' + b64(ct);
 }
-async function open(env: Env, sealed: string): Promise<string> {
+export async function open(env: Env, sealed: string): Promise<string> {
   const [iv, ct] = sealed.split('.');
   return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(iv) }, await key(env), unb64(ct)));
 }

@@ -11,11 +11,7 @@ import { setSetting as actSet } from '../work/db';
 import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
 import { DEFAULT_COPY, WORDING } from '../statements/copy';
 
-<<<<<<< HEAD
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'chat' | 'projects';
-=======
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat';
->>>>>>> origin/main
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {

@@ -24,6 +24,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { id: 'reports', href: '/admin/reports/', label: 'Reports', desc: 'Which roles see each report.', live: true, card: true, tab: true },
   { id: 'expenses', href: '/admin/expenses/', label: 'Expenses', desc: 'Approvers, substitutes, who can open the log and the mileage rate.', count: 'expensesWaiting', live: true, card: true, tab: true },
   { id: 'chat', href: '/admin/chat/', label: 'Chat', desc: 'Who can use Favor Chat: admins, all staff or nobody.', live: true, card: true, tab: true },
+  { id: 'projects', href: '/admin/projects/', label: 'Projects', desc: 'Who can use Projects, the Asana import, Marketing requests and the projects in the hub.', live: true, card: true, tab: true },
   { id: 'receipts', href: '/admin/receipts/', label: 'Receipts', desc: 'The receipt window and the morning email line.', live: true, card: true, tab: true },
   { id: 'statements', href: '/admin/statements/', label: 'Giving statements', desc: 'The wording on every statement, the print file size, the copy folder and the email switch.', live: true, card: true, tab: true },
   { id: 'feedback', href: '/feedback/', label: 'Feedback triage', desc: 'Notes from staff and the answers.', count: 'feedback', live: true, card: true, tab: true },
