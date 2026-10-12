@@ -122,7 +122,7 @@
     app.hidden = true;
     actions.hidden = true;
     login.hidden = false;
-    setTimeout(() => $('rcp-code').focus(), 50);
+    setTimeout(() => { const code = $('rcp-code'); if (code) code.focus(); }, 50);
   }
 
   login.addEventListener('submit', async (e) => {
