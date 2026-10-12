@@ -1471,7 +1471,7 @@
 
     function plusMenu(scope, anchor) {
       var it = function (act, icon, tint, ink, t, sub) { return '<button type="button" class="ch-pop__i" role="menuitem" data-act="' + act + '" data-scope="' + scope + '"><b style="background:' + tint + ';color:' + ink + '">' + ic(icon) + '</b><span>' + t + '<small>' + sub + '</small></span></button>'; };
-      openPop(it('upload', 'clip', 'var(--tc-slate-tint)', 'var(--tc-slate-ink)', 'Upload a file', 'From this computer') +
+      openPop(it('upload', 'clip', 'var(--tc-slate-tint)', 'var(--tc-slate-ink)', 'Upload a file', 'From your files') +
         it('drive-pick', 'drive', 'var(--tc-sky-tint)', 'var(--tc-sky-ink)', 'Share from Drive', 'Search the Drive library') +
         it('clip-pick', 'rec', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Share a clip', 'Pick from your clips') +
         it('clip-rec', 'play', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Record a clip', 'Posts here when you finish') +

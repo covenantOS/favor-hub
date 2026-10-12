@@ -1,0 +1,63 @@
+/* Phone pass, night of 2026-10-11. Phone-only rules (max-width media), loaded last from the App layout.
+   Each block names the page and what a person saw before the rule. */
+
+/* Projects */
+@media (max-width: 860px) {
+  /* Calendar, Timeline and Workload carry their own add buttons; the toolbar there held one lone button on its own row. */
+  body.h-body .pj-tools:not(:has(.pj-search--bar)) { display: none; }
+  /* Timeline: a long task name stops at two lines instead of being cut through the third. */
+  body.h-body .tl-lrow .tl-title { display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; max-height: 2.5em !important; min-height: 0 !important; height: auto !important; padding: 0 !important; overflow: hidden; }
+}
+/* The row cursor is for the J and K keys. On a touch screen it stayed as a dark box around the last task opened. */
+@media (hover: none) {
+  body.h-body .pj-row.is-cur { background: transparent; box-shadow: none; border-radius: 0; }
+}
+
+/* Chat */
+@media (max-width: 860px) {
+  /* Buttons in Chat's sheets and the details page were 36 px tall. */
+  body.h-body .ch-btn { min-height: 44px; }
+  body.h-body .ch [data-act='tab'] { min-height: 44px; }
+  /* The lock sat against the channel name in the header. */
+  body.h-body .ch-head__name > svg:first-child, body.h-body .ch-head__name > span:first-child:not(:only-child) { margin-right: 4px; }
+}
+
+/* Requests board */
+@media (max-width: 860px) {
+  /* The filter row ran 2 px past both screen edges (the page scrolled sideways) and gave no sign that more chips sit to the right. */
+  body.h-body #req-filters.rt-filters { margin-left: -14px; margin-right: -14px; padding-left: 14px; padding-right: 28px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+  /* Inbox, Approved, In motion and Done sit on one row as four equal parts; Done used to wrap to a row of its own. */
+  body.h-body #req-tabs.req-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #e9e4d6; }
+  body.h-body #req-tabs.req-tabs > button { min-width: 0; min-height: 44px; padding: 0 2px; border: 0; border-radius: 10px; background: transparent; color: #4a4f45; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: none; text-align: center; justify-content: center; }
+  body.h-body #req-tabs.req-tabs > button.is-on { background: #fff; color: #1d211b; box-shadow: 0 1px 3px rgba(42, 39, 34, 0.14); }
+}
+
+/* Favor Brain */
+@media (max-width: 860px) {
+  /* "Show all" under a table was squeezed into a 44 px square with its words running under the arrow. */
+  body.h-body .bc-root .h-btn--xs[data-act='topen'] { width: auto; min-width: 44px; height: 44px; padding: 0 12px; white-space: nowrap; flex: none; }
+}
+@media (hover: none) {
+  /* A keyboard shortcut is no use on a touch screen. */
+  body.h-body .bc-root .bc-new kbd { display: none; }
+}
+
+/* Learn */
+@media (max-width: 860px) {
+  /* The path chips on a course were 24 px tall and 6 px apart: three rows of small links under a thumb. */
+  body.h-body a.ln-chip { min-height: 36px; display: inline-flex; align-items: center; padding-top: 0; padding-bottom: 0; margin: 2px 2px 2px 0; }
+}
+
+/* Meeting notes */
+/* "Make a task" under an action item is added by the Projects links script, which brings no styles to this page: it read as
+   loose words run into "No owner named". All sizes. */
+label.act .pjl-act { display: block; margin-top: 8px; }
+label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid #d3cdbd; border-radius: 10px; background: #fff; color: #1d211b; font: 600 13px/1 var(--h-font, Inter, sans-serif); text-decoration: none; cursor: pointer; }
+@media (max-width: 860px) {
+  label.act .pjl-act .pjl-btn { min-height: 44px; }
+  /* The initials ran past the edge of a 26 px circle. */
+  body.h-body .mt-avs .mt-av { width: 32px; height: 32px; font-size: 13px; font-weight: 600; letter-spacing: -0.3px; display: inline-grid; place-items: center; }
+}
+
+/* Work Center, HQTY letters: the More button on each letter was 34 px. */
+@media (max-width: 860px) { body.h-body .hq-more { width: 44px; height: 44px; } }

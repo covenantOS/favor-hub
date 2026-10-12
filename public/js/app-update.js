@@ -63,6 +63,21 @@
     window.dispatchEvent(new Event('hub-kb'));
   }
   var off = 0;
+  // Once the keyboard is up, the box being typed in must be in sight. iOS usually scrolls it there itself; when the page shrank
+  // under it instead (the home screen app), the box can sit behind the keyboard, so it is brought up once.
+  var reveal = 0;
+  function show() {
+    clearTimeout(reveal);
+    reveal = setTimeout(function () {
+      var a = document.activeElement;
+      if (!typing(a) || !a.getBoundingClientRect) return;
+      var r = a.getBoundingClientRect();
+      var h = vv ? vv.height : window.innerHeight;
+      var top = vv ? vv.offsetTop : 0;
+      if (r.bottom > top + h - 8 || r.top < top) a.scrollIntoView({ block: 'center' });
+    }, 350);
+  }
+  window.addEventListener('hub-kb', function () { if (document.body && document.body.classList.contains('kb-open')) show(); });
   document.addEventListener('focusin', function (e) { if (typing(e.target)) { clearTimeout(off); set(true); } });
   document.addEventListener('focusout', function () { clearTimeout(off); off = setTimeout(function () { set(typing(document.activeElement)); }, 120); });
   if (vv) { vv.addEventListener('resize', function () { frame(); window.dispatchEvent(new Event('hub-kb')); }); vv.addEventListener('scroll', function () { frame(); window.dispatchEvent(new Event('hub-kb')); }); }
