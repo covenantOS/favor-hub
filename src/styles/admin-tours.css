@@ -1,0 +1,26 @@
+/* Admin > Tours. */
+.tu-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 0 0 14px; }
+.tu-tiles:empty { display: none; }
+.tu-tile { display: grid; gap: 2px; padding: 16px 18px; border: 1px solid var(--r-line); border-radius: 14px; background: #fff; }
+.tu-tile b { font: 500 26px/1.15 var(--h-serif); color: var(--r-ink); }
+.tu-tile span { font: 400 14px/1.4 var(--h-font); color: var(--r-ink-2); }
+.tu-sel { width: auto; }
+.tu-send { padding-top: 4px; }
+.tu-send .h-label { margin: 0; }
+.tu-cell { white-space: nowrap; }
+.tu-cell small { display: block; margin-top: 3px; font-size: 13px; color: var(--r-ink-3); }
+.tu-pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font: 600 13px/1.2 var(--h-font); }
+.tu-pill--done { background: var(--tc-leaf-tint); color: #1f3a1a; }
+.tu-pill--wait { background: var(--tc-sun-tint); color: #5b3d06; }
+.tu-pill--sent { background: var(--tc-sky-tint); color: #17405c; }
+.tu-act { text-align: right; white-space: nowrap; }
+.tu-as { display: grid; gap: 8px; }
+.tu-as__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tu-as__row b { flex: 0 0 170px; font: 600 14px var(--h-font); }
+.tu-as__row .ad-btn { display: inline-flex; align-items: center; text-decoration: none; color: var(--r-ink); }
+@media (max-width: 860px) {
+  .tu-sel, .tu-send .ad-btn { min-height: 44px; }
+  .tu-as__row b { flex-basis: 100%; }
+  .tu-as__row .ad-btn { min-height: 44px; }
+  .tu-act { text-align: left; }
+}

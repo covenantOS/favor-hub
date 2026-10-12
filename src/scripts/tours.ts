@@ -81,6 +81,8 @@ export type Step = {
 export type Feature = {
   id: string;
   title: string;
+  /** A word or two for the top of the step card and the Next button. */
+  short: string;
   /** One line for the New in FavorOS list. */
   blurb: string;
   /** An icon name from src/data/icons.ts. */
@@ -200,6 +202,15 @@ export const CORE: Step[] = [
     phone: { at: '#req-tabs' },
   },
   {
+    id: 'core-help',
+    page: '/requests/',
+    at: '#lp-btn',
+    title: 'Help on every page',
+    body: 'The question mark opens the article and the videos for the page you are on. Help in the menu has every article, this tour and what is new.',
+    side: 'bottom',
+    phone: { body: 'The question mark opens the article and the videos for the page you are on. Help, under More, has every article, this tour and what is new.' },
+  },
+  {
     id: 'core-partners',
     page: '/work/',
     via: 'work',
@@ -268,15 +279,6 @@ export const CORE: Step[] = [
     body: 'Type a question about partners, giving, team numbers or the manuals. Answers come back as cards and tables from the records your account can see.',
     side: 'top',
   },
-  {
-    id: 'core-help',
-    page: '/brain/',
-    at: '#lp-btn',
-    title: 'Help on every page',
-    body: 'The question mark opens the article and the videos for the page you are on. Help in the menu has every article, this tour and what is new.',
-    side: 'bottom',
-    phone: { body: 'The question mark opens the article and the videos for the page you are on. Help, under More, has every article, this tour and what is new.' },
-  },
 ];
 
 const chatPeople = (w: Who) => w.chat;
@@ -290,6 +292,7 @@ export const RELEASES: Release[] = [
       {
         id: 'chat',
         title: 'Chat',
+        short: 'Chat',
         blurb: 'Channels, direct messages and threads with the team.',
         icon: 'chat',
         for: chatPeople,
@@ -321,13 +324,14 @@ export const RELEASES: Release[] = [
             title: 'Huddle',
             body: '{Tap} Huddle to check your camera and microphone, then start a call with the channel or join one.',
             side: 'bottom',
-            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]', undo: '.ch-head [data-act="back"]' },
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]' },
           },
         ],
       },
       {
         id: 'chat-brain',
         title: 'Favor Brain in Chat',
+        short: 'Favor Brain',
         blurb: 'Ask about partners and giving without leaving the conversation.',
         icon: 'brain',
         for: chatPeople,
@@ -351,13 +355,14 @@ export const RELEASES: Release[] = [
             title: 'The answer is yours first',
             body: 'Only you see the answer. Share to channel under it shows it to everyone there, and Dismiss removes it.',
             side: 'top',
-            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]', undo: '.ch-head [data-act="back"]' },
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]' },
           },
         ],
       },
       {
         id: 'projects',
         title: 'Projects',
+        short: 'Projects',
         blurb: 'Task lists, a board, a calendar and a timeline for shared work.',
         icon: 'log',
         for: (w) => w.projects,
@@ -385,7 +390,8 @@ export const RELEASES: Release[] = [
             page: '/projects/',
             press: '#pj-tab-projects',
             undo: '#pj-tab-mine',
-            at: '.pj-pane',
+            at: '.pj-pgrid',
+            alt: '.pj-pane',
             title: 'All projects',
             body: 'Each project has a list, a board, a calendar and a timeline. A project can have its own Chat channel and a folder in US Team Files.',
             side: 'top',
@@ -395,6 +401,7 @@ export const RELEASES: Release[] = [
       {
         id: 'requests',
         title: 'Send a request to someone',
+        short: 'Requests',
         blurb: 'Hand a request to a person, and bring others in with a mention.',
         icon: 'inbox',
         article: 'request-board',
@@ -436,6 +443,7 @@ export const RELEASES: Release[] = [
       {
         id: 'today-meetings',
         title: "Today's meetings",
+        short: 'Today',
         blurb: 'Your whole calendar on Today, with Join and Move to FavorOS.',
         icon: 'video',
         article: 'today',
@@ -464,6 +472,7 @@ export const RELEASES: Release[] = [
       {
         id: 'wc-groups',
         title: 'Work Center tabs in groups',
+        short: 'Work Center',
         blurb: 'Sixteen tabs now sit in five groups.',
         icon: 'work',
         for: (w) => w.work,
@@ -492,6 +501,7 @@ export const RELEASES: Release[] = [
       {
         id: 'clips',
         title: 'Clip recorder',
+        short: 'Clips',
         blurb: 'Record your screen to show someone how, with controls that follow you.',
         icon: 'camera',
         for: (w) => w.clips,
@@ -521,6 +531,7 @@ export const RELEASES: Release[] = [
       {
         id: 'receipts-statements',
         title: 'Receipts and giving statements',
+        short: 'Receipts',
         blurb: 'Print receipts and make statements without opening Blackbaud.',
         icon: 'receipt',
         for: receiptsPeople,
@@ -881,6 +892,17 @@ export const STEPS: Step[] = [
     body: 'New hires land here: your steps with due dates, the first week by day, and the people to meet with their faces. Anyone can open it from Help to see what a new hire sees.',
     added: '2026-10-11',
     side: 'bottom',
+  },
+  {
+    id: 'admin-tours',
+    page: '/admin/tours/',
+    via: 'admin-tours',
+    at: '#tu-table',
+    title: 'Who has finished the tours',
+    body: 'Each person shows where they stand on the tour of FavorOS and on each release. Send again opens it once more for a person, or for a whole team picked above the list.',
+    for: (w) => w.admin,
+    added: '2026-10-11',
+    side: 'top',
   },
   {
     id: 'brain-admin',

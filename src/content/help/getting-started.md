@@ -12,7 +12,7 @@ FavorOS at **dash.favorintl.org** is where Favor staff do their everyday work ou
 
 ## The fastest way to learn it
 
-Press **Help and what's new** at the bottom of the menu. A short tour, set up for your work, moves the pointer across the screen, opens each tool and explains it. Nothing gets sent or changed. It takes about two minutes, and you can stop it any time with Esc.
+The tour of FavorOS opens on your first page. It has 8 to 10 stops set up for your work, shows each one on the real screen, and takes about two minutes. Nothing gets sent or changed. To see it again, press **Help**, then **What's new and tour**.
 
 ## Help for the page you are on
 

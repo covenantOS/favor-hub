@@ -70,7 +70,7 @@ export async function recordLearn(env: Env, email: string): Promise<boolean> {
   try {
     const lesson = await env.DB.prepare(
       `SELECT l.id FROM learn_lessons l JOIN learn_courses c ON c.id = l.course_id
-        WHERE c.seed_key = 'favoros-basics' AND c.status = 'published' AND l.kind = 'article' AND l.ref = 'guided-tour' LIMIT 1`
+        WHERE c.seed_key = 'course:favoros-basics' AND c.status = 'published' AND l.kind = 'article' AND l.ref = 'guided-tour' LIMIT 1`
     ).first<{ id: string }>();
     if (!lesson) return false;
     const { setProgress } = await import('../learn/progress');

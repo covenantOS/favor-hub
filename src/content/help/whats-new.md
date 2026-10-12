@@ -7,10 +7,11 @@ related: [guided-tour, feedback]
 updated: 2026-10-11
 ---
 
-Press **Help and what's new**, then **Only what's new**, and the tour shows you each new thing where it lives.
+The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **What's new and tour**, plays any of them again. Every change is listed here.
 
 ## October 11, 2026
 
+- **A shorter tour, and New in FavorOS.** The tour of FavorOS is now 8 to 10 stops for your role and opens on a new person's first page. New features come with a walkthrough of one to four steps on the real screen, grouped by the day they shipped, with the help article and the training video beside each. Closing asks once, and Skip for now brings it back the next working day. Admins see who has finished under Admin, then Tours. See [The tour and New in FavorOS](/help/guided-tour/).
 - **Mail, for admins.** Mail in the menu opens your own Gmail inside FavorOS: inbox, labels, conversations, files in the viewer, search with Gmail words, drafts that save and Gmail's keyboard keys. Reply, reply all, forward, archive, delete, star, label and snooze. **More** on a conversation makes a task, sends it to Chat, opens the partner and logs an action in Blackbaud. Google asks once before FavorOS reads your mail and once more before it changes or sends anything. An email on Today's Unread mail card now opens here.
 - **Learn, for admins and HR.** Learn in the menu holds courses and learning paths built from the help videos, the help articles, Google Docs, clips and written pages, with quizzes that have a pass mark and retakes. My learning shows what is assigned to you with due dates, where you left off and a certificate for each course you finish. Assigned learning shows on Today, on the bell, in Projects as a task and by email. Starter courses cover FavorOS basics, Favor Brain, Blackbaud by role and Favor: who we are. Manage builds courses and paths, assigns them to people, a team or everyone, and reports who is done, late and how they scored.
 - **Today opens FavorOS, not outside sites.** A Blackbaud action opens in the Work Center, with Open in Blackbaud inside the panel. Every event on your Google Calendar shows in Today's meetings, with its source, Join, and Move to FavorOS for meetings held in Zoom, Meet, Teams, by phone or with no link. Shared with you files open in the FavorOS file viewer. A feedback card opens the note, and a request opens its panel.

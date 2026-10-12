@@ -254,11 +254,15 @@ function build() {
   addEventListener('resize', onResize);
   document.documentElement.classList.add('tr-on');
   // Back closes the tour the way the X does (it asks first), instead of leaving the page under it.
-  const ov = hubOv();
-  if (ov) ovTok = ov.on(() => { ovTok = null; askClose(); });
+  takeBack();
   wire();
   follow();
 }
+
+// The step card holds no history entry of its own: pages such as Chat step their own history while the tour opens and
+// closes things on them, and the two would be confused. Back leaves the tour's page, and the tour asks before it goes
+// (leftPage below). The list and the question are short-lived and do hold an entry, so Back closes them in place.
+function takeBack() {}
 
 function dropOv() {
   const ov = hubOv();
@@ -338,6 +342,19 @@ async function pointAt(el: Element, press = false) {
     cue('press');
     await sleep(touch() ? 380 : 220);
   }
+}
+
+/** Press something the way a finger or a mouse does: some lists open a row on pointer up, the rest on click. */
+function pressEl(el: HTMLElement) {
+  const r = el.getBoundingClientRect();
+  const at = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button: 0, pointerId: 1, isPrimary: true, pointerType: touch() ? 'touch' : 'mouse' };
+  try {
+    el.dispatchEvent(new PointerEvent('pointerdown', at));
+    el.dispatchEvent(new PointerEvent('pointerup', at));
+  } catch {
+    // No pointer events here: the click below does it.
+  }
+  el.click();
 }
 
 // ---- Finding things ----------------------------------------------------------------------------
@@ -479,7 +496,8 @@ async function settle(el: Element, side: string | undefined, my: number) {
       const above = r.top;
       if (below >= ph + 24) at = 'bottom';
       else if (above >= ph + 24) at = 'top';
-      else at = r.top + r.height / 2 < innerHeight / 2 ? 'bottom' : 'top';
+      // Something that fills the screen (search, a sheet) starts at its top: the card takes the bottom.
+      else at = r.height > innerHeight * 0.6 || r.top + r.height / 2 < innerHeight / 2 ? 'bottom' : 'top';
     } else {
       // The page gets room at its end, so anything can scroll up clear of the card.
       if (!spacer) {
@@ -729,7 +747,7 @@ async function show(step: Step, my: number) {
       if (stale()) return;
       await pointAt(p, true);
       if (stale()) return;
-      (p as HTMLElement).click();
+      pressEl(p as HTMLElement);
       target = null;
       await sleep(320);
     }
@@ -860,8 +878,7 @@ function askClose(resume?: () => void) {
       }
       if (root) {
         // Back closed the question's own history entry and the tour's: the tour takes its entry again.
-        const o = hubOv();
-        if (o && !ovTok) ovTok = o.on(() => { ovTok = null; askClose(); });
+        if (!ovTok) takeBack();
         return pop.querySelector<HTMLElement>('[data-tr-next],[data-tr-more],[data-tr-done]')?.focus();
       }
       return openSheet(false);
@@ -887,7 +904,7 @@ function askClose(resume?: () => void) {
 let sheet: HTMLDialogElement | null = null;
 let sheetTok: unknown = null;
 const sheetOpen = () => !!sheet && sheet.open;
-const short = (o: Offer) => o.feature.title;
+const short = (o: Offer) => o.feature.short;
 
 function closeSheet() {
   if (!sheet) return;
@@ -972,7 +989,7 @@ function runFor(item: string): Run | null {
   if (item === coreItem) return { item, label: 'Tour', ids: coreFor(who, device()).map((s) => s.id) };
   if (item === 'page') return { item, label: 'This page', ids: pageSteps(who, location.pathname, device()).map((s) => s.id) };
   const o = offers().find((x) => x.item === item);
-  return o ? { item, label: o.feature.title, ids: featureSteps(o.feature, who, device()).map((s) => s.id) } : null;
+  return o ? { item, label: o.feature.short, ids: featureSteps(o.feature, who, device()).map((s) => s.id) } : null;
 }
 
 function start(list: Run[], isAuto: boolean) {
@@ -1112,11 +1129,9 @@ async function resume(): Promise<boolean> {
   const step = steps[index];
   if (!step) { store.clear(); return false; }
   if (step.page && !samePage(step.page)) {
-    // The person left the tour's page on their own (Back, a link). A walkthrough still waiting asks before it goes.
-    store.clear();
-    if (!runPending() || as) return false;
-    askClose(() => { leaving = false; build(); void go(index); });
-    return true;
+    const waiting = runPending() && !as;
+    leftPage();
+    return waiting;
   }
   leaving = false;
   build();
@@ -1127,6 +1142,16 @@ async function resume(): Promise<boolean> {
 // Someone who opened a help article or a video from the list is reading it: the list waits ten minutes in this tab.
 const READING = 'favor.hub.tours.reading';
 const reading = () => { try { return Date.now() - Number(sessionStorage.getItem(READING) || 0) < 10 * 60 * 1000; } catch { return false; } };
+
+/** The person left the tour's page on their own (Back, a link). A walkthrough still waiting asks before it goes. */
+function leftPage() {
+  const waiting = runPending() && !as;
+  const at = index;
+  gen++;
+  store.clear();
+  teardown();
+  if (waiting) askClose(() => { leaving = false; build(); void go(at); });
+}
 
 let autoTimer = 0;
 /** A quiet page with something waiting: open it. Anything else: wait for the next page. */
@@ -1158,7 +1183,14 @@ export function initTour() {
     e.preventDefault();
     void startTour();
   });
-  document.addEventListener('hub-swapped', () => { typedHere = false; paint(); if (!root) maybeAuto(); });
+  document.addEventListener('hub-swapped', () => {
+    typedHere = false;
+    paint();
+    if (!root) return maybeAuto();
+    // Back changed the page in place under a running tour.
+    const step = steps[index];
+    if (step?.page && !samePage(step.page) && !leaving) leftPage();
+  });
   void load();
   const q = new URLSearchParams(location.search);
   if (q.has('tour')) {
