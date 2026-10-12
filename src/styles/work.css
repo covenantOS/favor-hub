@@ -70,7 +70,7 @@
 .wc-selbanner.is-on { display: flex; }
 .wc-selbanner button { border: 0; background: none; font: 700 13px var(--h-font); color: var(--h-brand-ink); text-decoration: underline; text-underline-offset: 3px; padding: 0; }
 
-.wc-grid { --cols: 44px 112px minmax(190px, 1.7fr) 150px minmax(180px, 1.8fr) 150px 88px; }
+.wc-grid { --cols: 44px 112px minmax(170px, 1.25fr) 196px minmax(200px, 2fr) 150px 88px; }
 .wc-head, .wc-row { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 12px; padding: 0 16px 0 6px; }
 .wc-head { position: sticky; top: 0; z-index: 3; height: 40px; background: color-mix(in srgb, var(--h-ivory) 94%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); border-bottom: 1px solid var(--h-line); }
 .wc-head > * { font: 500 13px var(--h-font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--h-ink-3); white-space: nowrap; }

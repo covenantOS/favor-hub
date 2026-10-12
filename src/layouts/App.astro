@@ -28,6 +28,7 @@ import '../styles/sticky-col.css';
 import '../styles/fix-shell.css';
 import '../styles/crit-shell.css';
 import '../styles/crit-shell2.css';
+import '../styles/night-desk.css';
 import '../styles/night-phone.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
@@ -92,6 +93,10 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         addEventListener('keydown', function (e) { if (e.key === 'Tab' || e.key.indexOf('Arrow') === 0) r.classList.add('kbd'); }, true);
         addEventListener('pointerdown', function () { r.classList.remove('kbd'); }, true);
       })();
+    </script>
+    <script is:inline>
+      // The width a scrollbar takes on this computer (0 on a Mac or a tablet), for pages that fill the window (night-desk.css).
+      (function () { try { var d = document.createElement('div'); d.style.cssText = 'position:absolute;top:-99px;width:50px;height:50px;overflow:scroll'; document.documentElement.appendChild(d); var w = d.offsetWidth - d.clientWidth; d.remove(); document.documentElement.style.setProperty('--sbw', w + 'px'); } catch (e) {} })();
     </script>
     <script is:inline src="/js/sheets.js?v=2"></script>
     <script is:inline src="/js/drill.js?v=5" defer></script>

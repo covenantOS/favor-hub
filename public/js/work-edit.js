@@ -12,7 +12,7 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const CATS = [['Phone call', 'Call', 'phone'], ['Email', 'Email', 'mail'], ['Meeting', 'Meeting', 'meet'], ['Mailing', 'Mailing', 'letter'], ['Task/Other', 'Task', 'task']];
 const DUE_OUT = { 'Task/Other': 7, 'Phone call': 2, Email: 2, Mailing: 7, Meeting: 14 };
 const COLS = [['type', 'Type', 4], ['what', 'Summary', 5], ['who', 'Fundraiser', 6], ['added', 'Added', 7]];
-const BASE_COLS = ['44px', '112px', 'minmax(170px, 1.25fr)', '150px', 'minmax(200px, 2fr)', '150px', '88px'];
+const BASE_COLS = ['44px', '112px', 'minmax(170px, 1.25fr)', '196px', 'minmax(200px, 2fr)', '150px', '88px'];
 const E = {
   codes: null, me: { fid: null, type: null, name: null }, types: {}, views: [], opps: null, oppNames: {}, oppLoading: false,
   oppF: { fr: '', status: '', purpose: '', q: '', inactive: false }, cols: readCols(), panel: null,

@@ -78,7 +78,7 @@ function download() {
 
 function draw() {
   const m = data.meeting; const n = data.notes || {};
-  document.title = m.title + ' | FavorOS';
+  document.title = m.title + ' - FavorOS';
   const crumb = document.querySelector('.h-top__crumb'); if (crumb) crumb.textContent = m.title;
   const keepFocus = document.activeElement && document.activeElement.id;
   const lines = (data.transcript || []).filter((l) => !q || ((l.who || '') + ' ' + l.text).toLowerCase().includes(q.toLowerCase()));
