@@ -8,7 +8,7 @@
 //  3. Credit stays with the holder at the gift date. A director who left keeps credit for gifts dated in his time, so a credit on a former holder is
 //     never proposed for removal when his assignment covered the gift date.
 //  4. Past numbers do not change except as a closed-month correction (Will, 2026-10-09). A proposal on a gift dated before this month says so.
-//  5. A gift with no credit and a holder on its date, in an eligible category, gets that holder's credit.
+//  5. A gift with no credit at all and a holder on its date, in an eligible category, gets that holder's credit.
 
 export const MARKETING_CATEGORIES = ['Digital Newsletter', 'Direct Mail Appeal', 'Direct Mail Newsletter', 'Thank You Letter', 'Media'];
 export const ELIGIBLE_CATEGORIES = ['White Mail', 'Portfolio', 'Personal Contact'];
@@ -74,6 +74,9 @@ export function proposeForGift(g: GiftFacts, assignments: Assignment[], today: s
     return out;
   }
   if (!isEligible(g.category)) return out;
+  // Only a gift with no credit at all is filled in. A gift that already carries credit was set by the gift phase or by hand, and a second holder
+  // (Partner Care has two) or a director who has since left is not added to it.
+  if (g.credits.length) return out;
   const holders = holdersOn(assignments, g.partners, g.date);
   const have = new Set(g.credits.map((c) => c.fid));
   const seen = new Set<string>();

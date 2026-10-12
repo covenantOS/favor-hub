@@ -44,6 +44,11 @@ describe('the rules', () => {
     assert.deepEqual(proposeForGift(G({ credits: [{ fid: '5001', amount: 100 }] }), [A({})], TODAY), []);
   });
 
+  it('a gift that already has credit is not given a second or a former holder', () => {
+    const g = G({ credits: [{ fid: '5001', amount: 100 }] });
+    assert.deepEqual(proposeForGift(g, [A({}), A({ id: 'z', fid: '5002', type: 'Partner Care' })], TODAY), []);
+  });
+
   it('a soft-credited gift follows the soft-credited partner', () => {
     const g = G({ partners: ['2'] });
     assert.deepEqual(proposeForGift(g, [A({ cid: '1' })], TODAY), []);
