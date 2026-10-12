@@ -313,14 +313,16 @@ export function fillTemplate(body: string, d: { name?: string; lastGift?: number
 /** Turns "partners who emailed this month about a trip" into a Gmail search and filters; null when the model is not there. */
 export async function readSearch(runModel: (system: string, user: string, max: number) => Promise<string>, question: string): Promise<{ q: string; partners: boolean; major: boolean } | null> {
   const raw = await runModel('Turn a question about email into a Gmail search. Return JSON only: {"q":"gmail search words","partners":true or false,"major":true or false}. Use Gmail operators (from:, to:, subject:, has:attachment, is:unread, newer_than:7d, after:2026/01/01). partners is true when the question limits to partners or donors or givers. major is true when it limits to major or large partners. Do not invent names.', question.slice(0, 300), 120).catch(() => '');
+  const plainWords = question.replace(/[^\w@.\-\s]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
   const m = raw.match(/\{[\s\S]*\}/);
-  if (!m) return null;
+  // When the model gives no usable search, Gmail searches the words as typed.
+  if (!m) return plainWords ? { q: plainWords, partners: /partners?/i.test(question), major: /major/i.test(question) } : null;
   try {
     const j = JSON.parse(m[0]);
     const q = String(j.q || '').replace(/[^\w@:.\-"\s/+]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
-    return q ? { q, partners: !!j.partners || !!j.major, major: !!j.major } : null;
+    return q ? { q, partners: !!j.partners || !!j.major, major: !!j.major } : plainWords ? { q: plainWords, partners: false, major: false } : null;
   } catch {
-    return null;
+    return plainWords ? { q: plainWords, partners: false, major: false } : null;
   }
 }
 
