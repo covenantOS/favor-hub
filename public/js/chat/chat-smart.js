@@ -107,6 +107,7 @@
     if (st.st === 'idle' && u.count >= 5) { st.st = 'offer'; st.from = u.from; st.n = u.count; st.people = u.people; }
     var el = root.querySelector('#sm-catch');
     if (st.st === 'idle' || st.st === 'off') { if (el) el.remove(); return; }
+    if (st.st === 'none') { el = stripEl(); if (!el) return; var hn = '<div class="sm-catch__r"><span class="sm-catch__ic">' + icon('spark') + '</span><span>Nothing new since you last read.</span><button type="button" class="ch-iconbtn" data-act="sm-catch-x" aria-label="Dismiss">' + icon('x') + '</button></div>'; if (el._h !== hn) { el._h = hn; el.innerHTML = hn; } return; }
     el = stripEl(); if (!el) return;
     var h;
     if (st.st === 'offer') h = '<div class="sm-catch__r"><span class="sm-catch__ic">' + icon('spark') + '</span><span><b>' + st.n + ' new messages</b> from ' + st.people + (st.people === 1 ? ' person' : ' people') + '</span><button type="button" class="ch-btn ch-btn--sm ch-btn--primary" data-act="sm-catch-go">Catch me up</button><button type="button" class="ch-iconbtn" data-act="sm-catch-x" aria-label="Dismiss">' + icon('x') + '</button></div>';
@@ -125,6 +126,7 @@
     var c = S.channels[S.active]; if (!c) return;
     var st = cu[c.id] || (cu[c.id] = { st: 'idle' });
     var u = unreadFrom(c), from = st.from != null && st.st !== 'idle' ? st.from : u.from;
+    if (manual && !(S.msgs[c.id] || []).some(function (m) { return m.user_id !== S.me.id && !m.deleted && m.user_id !== 'brain'; })) { st.st = 'none'; paintCatch(); return; }
     if (manual && !(u.count >= 3)) {
       // Nothing unread: summarize the last thirty messages from others.
       var list = (S.msgs[c.id] || []).filter(function (m) { return m.user_id !== S.me.id && !m.deleted && m.user_id !== 'brain'; }).slice(-30);
@@ -132,7 +134,7 @@
     }
     st.st = 'work'; paintCatch();
     chat('POST', 'channels/' + encodeURIComponent(c.id) + '/catchup', { from: from }).then(function (d) {
-      if (d.empty) { st.st = 'off'; paintCatch(); toast('Nothing new to catch up on here.'); return; }
+      if (d.empty) { st.st = 'none'; paintCatch(); return; }
       st.st = 'done'; st.data = d; paintCatch();
     }).catch(function (e) { st.st = manual ? 'off' : 'offer'; paintCatch(); fail(e); });
   }

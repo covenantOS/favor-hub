@@ -47,6 +47,20 @@
     tray = el.querySelector('.fd__tray');
     el.querySelector('.fd__btn').addEventListener('click', function () { toggle(); });
   }
+  // The menu's Chat number is the server's unread mention count. It follows the same socket events as the circle: a short wait after each
+  // change, then one read of the count, written to the menu and to its group total.
+  var railT = 0, railAt = 0;
+  function syncRail() {
+    if (!document.querySelector('.h-nav__count[data-count="chatMentions"]')) return;
+    clearTimeout(railT);
+    railT = setTimeout(function () {
+      railAt = Date.now();
+      req('GET', 'inbox').then(function (d) {
+        document.querySelectorAll('.h-nav__count[data-count="chatMentions"]').forEach(function (e) { var n = Number(d.count) || 0; e.hidden = !n; e.textContent = n.toLocaleString('en-US'); });
+        if (window.hubNavLayout) window.hubNavLayout();
+      }).catch(function () { /* the next change tries again */ });
+    }, Date.now() - railAt < 1500 ? 1200 : 250);
+  }
   function paint() {
     if (!el) return;
     var n = 0;
@@ -57,6 +71,7 @@
     el.classList.toggle('has-n', !!n);
     el.querySelector('.fd__btn').setAttribute('aria-label', 'Chat and Favor Brain' + (n ? ', ' + n + ' to read' : ''));
     emit({ type: 'dock:paint' });
+    syncRail();
   }
 
   /* ---------------------------------------------------------------- never cover the page's own buttons */

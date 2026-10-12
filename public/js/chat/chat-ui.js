@@ -1535,10 +1535,13 @@
     var mentionState = null;
     function updateMention(ta) {
       var scope = ta.dataset.ta, pos = ta.selectionStart, before = ta.value.slice(0, pos);
-      var m = before.match(/(^|\s)@([\w .'-]{0,24})$/);
+      var m = before.match(/(^|\s)([@~])([\w .'-]{0,24})$/);
       if (!m) { if (mentionState) { closePop(); mentionState = null; } return; }
-      var c = chan(S.active), cands = mentionCandidates(m[2], c);
-      if (window.FavorChatSmart && m[2].length >= 3) window.FavorChatSmart.find(m[2], function () { if (mentionState && mentionState.scope === scope) updateMention(ta); });
+      var onlyEnt = m[2] === '~';
+      m = [m[0], m[1], m[3]];
+      var c = chan(S.active), cands = onlyEnt ? ((window.FavorChatSmart && window.FavorChatSmart.hits(m[2])) || []) : mentionCandidates(m[2], c);
+      // Partners and funds arrive a moment after the typing; the list opens (or fills in) when they do.
+      if (window.FavorChatSmart && m[2].length >= 3) window.FavorChatSmart.find(m[2], function () { if (document.activeElement === ta && ta.value.slice(0, ta.selectionStart).match(/(^|\s)[@~][\w .'-]{0,24}$/)) updateMention(ta); });
       if (!cands.length) { closePop(); mentionState = null; return; }
       mentionState = { scope: scope, start: pos - m[2].length - 1, end: pos, cands: cands, i: 0 };
       var p = openPop('<div class="ch-pop__h">People</div>' + cands.map(function (o, i) { return '<button type="button" class="ch-pop__i' + (i === 0 ? ' is-on' : '') + '" role="option" data-act="mention-pick" data-i="' + i + '"><b style="background:transparent">' + (o.ent ? '<span class="ch-av ch-av--sm" data-c="' + (o.kind === 'f' ? 'leaf' : 'sky') + '">' + (o.kind === 'f' ? 'F' : 'P') + '</span>' : o.brain ? '<span class="ch-av ch-av--sm ch-av--brain">' + ring('still') + '</span>' : o.special ? '<span class="ch-av ch-av--sm" data-c="sun">@</span>' : avatar(o.u, 'sm')) + '</b><span>' + esc(o.name) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span></button>'; }).join(''), ta.closest('.ch-comp__box'), 'ch-pop--mention');
@@ -1547,7 +1550,7 @@
     function pickMention(i) {
       var st = mentionState; if (!st) return;
       var o = st.cands[i], ta = $('[data-ta="' + st.scope + '"]', root);
-      var label = '@' + o.name;
+      var label = (o.ent ? '' : '@') + o.name;
       S.mentionMap[st.scope][label] = o.ent ? '<~' + o.kind + ':' + o.id + '|' + String(o.name).replace(/[<>|\n]+/g, ' ').trim() + '>' : '<@' + o.id + '>';
       ta.value = ta.value.slice(0, st.start) + label + ' ' + ta.value.slice(st.end);
       var p = st.start + label.length + 1; ta.setSelectionRange(p, p); ta.focus();
