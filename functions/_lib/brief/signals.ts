@@ -1,6 +1,6 @@
 // What a partner's giving and contact history says: rhythm, health, the next best action and the moments worth a call.
 // Pure functions over plain facts, so the Today briefing, the partner page, My partners and Call mode all read a partner the same way.
-import { addDays, dayDiff, money, plural, shortDay } from './text';
+import { addDays, dayDiff, longDay, money, plural, shortDay } from './text';
 
 export interface GiftPt {
   /** Gift date, YYYY-MM-DD. */
@@ -293,14 +293,14 @@ export function momentsFor(list: MomentFacts[], today: string, max = 12): Moment
         step: { label: 'Call to welcome them', channel: 'call' },
       });
     }
-    if ((p.health === 'lapsing' || p.health === 'atrisk') && p.rhythm.lastDate && p.l12 >= 100) {
+    if ((p.health === 'lapsing' || p.health === 'atrisk') && p.rhythm.lastDate && p.l12 >= 100 && p.rhythm.n >= 4 && (p.rhythm.daysSince || 0) <= 540) {
       const word = p.rhythm.cadence === 'new' || p.rhythm.cadence === 'none' || p.rhythm.cadence === 'occasional' ? '' : `${p.rhythm.cadence} `;
       out.push({
         id: `quiet:${p.cid}`,
         kind: 'quiet',
         cid: p.cid,
         name: p.name,
-        line: `Gave ${money(p.l12)} in the last 12 months and has not given since ${shortDay(p.rhythm.lastDate)}. A ${word}gift was due ${plural(p.rhythm.lateDays, 'day')} ago.`,
+        line: `Gave ${money(p.l12)} in the last 12 months and has not given since ${longDay(p.rhythm.lastDate, today)}. A ${word}gift was due ${plural(p.rhythm.lateDays, 'day')} ago.`,
         when: p.rhythm.lastDate,
         amount: p.l12,
         step: { label: 'Call to reconnect', channel: 'call' },
