@@ -167,7 +167,7 @@
     const rows = tableRows(tb);
     const show = all ? rows : rows.slice(0, tb.preview || 8);
     const cols = all ? tb.cols : tb.cols.filter((c) => !c.panel_only);
-    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${rows.length} rows</caption><thead><tr>`;
+    let h = `<table class="t sc-table"><caption class="bc-sr">${esc(tb.title)}, ${int(rows.length)} ${rows.length === 1 ? 'row' : 'rows'}</caption><thead><tr>`;
     cols.forEach((c) => {
       const s = tb.sort === c.key ? ` aria-sort="${tb.dir === 'asc' ? 'ascending' : 'descending'}"` : '';
       h += `<th class="${isNum(c) ? 'num' : ''}"${s}><button type="button" data-act="sort" data-tb="${tb.id}" data-k="${esc(c.key)}">${esc(c.label)}${ic('sort', 'h-i ar')}</button></th>`;
@@ -531,7 +531,7 @@
       .join('')}</div>${b.other ? '<button type="button" class="else" data-act="else">Something else</button>' : ''}</div>`;
   }
   function sheetHTML(b) {
-    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} rows in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
+    return `<div class="card sheet"><div class="sheet__i"><svg class="h-i" style="width:26px;height:26px"><use href="#bci-sheet"/></svg></div><div style="min-width:0"><b>${esc(b.title)}</b><small>${int(b.rows)} ${Number(b.rows) === 1 ? 'row' : 'rows'} in your Drive. ${b.private ? 'Only you can open it. ' : ''}Keep it inside Favor.</small></div><a class="h-btn h-btn--primary h-btn--sm" href="${esc(href(b.url))}" target="_blank" rel="noopener">${ic('ext')}Open the sheet</a></div>`;
   }
   /** A Sources row: one chip per manual section, opening that section. */
   function sourcesHTML(b) {
