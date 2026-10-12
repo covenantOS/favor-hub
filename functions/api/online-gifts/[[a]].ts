@@ -3,16 +3,17 @@
 //                              with comment and designation, the Blackbaud batches waiting, the write setting
 //   GET  /log?key=             the audit trail of one gift's review
 //   POST /approve              { from, items: [{ key, fundId }] } record who approved which designation; queue a change when writes are on
+//   POST /keep                 { key } a person keeps the fund a flag questioned; the sync worker closes the flag
 //   POST /setting              admins: { apply: 'on' | 'off', testLimit }
 //   GET  /queue, POST /queue/done   the desktop web view runner (agent key only)
 import { gift, jsonBody } from '../../_lib/gifts/route';
 import { HttpError, nowIso, type Env } from '../../_lib/http';
-import { mirror, ops } from '../../_lib/foundations/blackbaud';
+import { mirror, mirrorResolveFlag, ops } from '../../_lib/foundations/blackbaud';
 import { aiFor } from '../../_lib/ai/guard';
-import { isTester } from '../../_lib/testuser';
+import { isTester, TESTER_REFUSAL } from '../../_lib/testuser';
 import { etParts } from '../../_lib/actions/intake';
 import {
-  approve, BLACKBAUD_HOME, fetchFru, history, overview, putSetting, queueDone, queued, setting, SETTING_APPLY, SETTING_TEST_ONLY, TEST_RECORD,
+  approve, BLACKBAUD_HOME, fetchFru, history, keepFund, overview, putSetting, queueDone, queued, setting, SETTING_APPLY, SETTING_TEST_ONLY, TEST_RECORD,
   type Deps, type FruDonation, type Viewer,
 } from '../../_lib/online-gifts/service';
 
@@ -86,6 +87,14 @@ export const onRequestPost = gift(async ({ request, env, user, params }) => {
     if (!items.length) throw new HttpError(400, 'nothing', 'Pick a gift to approve.');
     const from = /^\d{4}-\d{2}-\d{2}$/.test(String(b.from || '')) ? String(b.from) : fromOf(14);
     return { results: await approve(deps(env), viewer, items, from, /^\d{1,12}$/.test(String(b.gift || '')) ? String(b.gift) : '') };
+  }
+  if (a === 'keep') {
+    if (viewer.tester) throw new HttpError(403, 'test_user', TESTER_REFUSAL);
+    const r = await keepFund(deps(env), viewer, String(b.key || '').slice(0, 200), (key, by, note) => mirrorResolveFlag(env, key, by, note));
+    if (!r.ok && r.code === 'test_user') throw new HttpError(403, 'test_user', TESTER_REFUSAL);
+    if (!r.ok && r.code === 'no_flag') throw new HttpError(404, 'no_flag', 'The sync worker has no open flag for this gift.');
+    if (!r.ok) throw new HttpError(502, 'worker', 'The sync worker did not answer. Try again in a minute.');
+    return {};
   }
   if (a === 'setting') {
     if (!viewer.admin) throw new HttpError(403, 'admin_only', 'Only an admin changes this.');

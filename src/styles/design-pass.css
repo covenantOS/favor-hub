@@ -499,6 +499,18 @@ html body.h-body .og-sel { appearance: none; -webkit-appearance: none; min-width
 html body.h-body .og-why { font: 400 12px var(--h-font); color: var(--r-ink-3); }
 html body.h-body .og-acts { flex: none; display: flex; align-items: center; gap: 16px; }
 html body.h-body .og-acts--done { gap: 12px; }
+/* Online gifts checks (2026-10-12): Keep fund sits on the fact line, flagged batches are quiet rows under the Blackbaud line, health is one muted line. */
+html body.h-body .og-why--keep { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+html body.h-body .og-why--keep > span { min-width: 0; overflow-wrap: anywhere; }
+html body.h-body .og-bb .ls-link { min-height: 0; }
+html body.h-body .og-why--keep .ls-link { flex: none; font: 500 13px var(--h-font); }
+html body.h-body .og-bb--row { padding-top: 8px; padding-bottom: 8px; }
+html body.h-body .og-bb--row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html body.h-body .og-bb--row b { font-weight: 600; }
+html body.h-body .og-health { display: flex; flex-wrap: nowrap; gap: 4px 16px; margin: 0; padding: 0 4px; overflow-x: auto; scrollbar-width: none; font: 400 13px var(--h-font); color: var(--r-ink-3); }
+html body.h-body .og-health::-webkit-scrollbar { display: none; }
+html body.h-body .og-health > span { flex: none; white-space: nowrap; }
+html body.h-body .og-health > .is-warn { color: var(--due); font-weight: 500; }
 @media (max-width: 700px) {
   html body.h-body .og-sum, html body.h-body .og-bb, html body.h-body .og-row { padding-left: 16px; padding-right: 16px; }
   html body.h-body .og-wide { display: none; }

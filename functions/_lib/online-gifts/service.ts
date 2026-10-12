@@ -58,6 +58,12 @@ export const TESTER_REFUSAL = 'This is the FavorOS test user. It cannot write to
 export const BLACKBAUD_HOME = 'https://host.nxt.blackbaud.com/?envid=p-5_k5FlbubEyEQnUJw7C9Rw';
 export const giftLink = (id: string) => `https://host.nxt.blackbaud.com/gift/page/${id}?envid=p-5_k5FlbubEyEQnUJw7C9Rw&svcid=renxt`;
 
+/** Fundraise Up sends amounts as strings with thousands commas ("1,987.15"). */
+export function num(v: unknown): number {
+  const n = typeof v === 'number' ? v : Number(String(v ?? '').replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
 const nowIso = (d: Deps) => (d.now ? d.now() : new Date()).toISOString();
 
 export async function setting(db: D1Like, key: string, fallback = ''): Promise<string> {
@@ -138,6 +144,85 @@ export interface GiftRow {
   inBlackbaud: boolean;
   test: boolean;
   review: Row | null;
+  /** The sync worker's open finding on this gift (og_flags), or null. */
+  flag: RowFlag | null;
+}
+
+export interface RowFlag {
+  key: string;
+  kind: 'note' | 'fru-fund' | 'fru-missing';
+  /** The Blackbaud fund system id the partner or Fundraise Up asked for. */
+  wantedFund: string;
+  words: string;
+  /** Days since the gift came in. */
+  days: number;
+}
+
+export interface BatchFlag {
+  key: string;
+  batchId: string;
+  number: string;
+  gifts: number;
+  amount: number;
+  by: string;
+  days: number;
+  link: string;
+}
+
+export interface CheckHealth {
+  name: string;
+  label: string;
+  lastOk: string;
+  lastError: string;
+  /** ok: ran well in the last two days. stale: last good run is older. failing: the last run failed after the last good one. none: never ran. */
+  state: 'ok' | 'stale' | 'failing' | 'none';
+}
+
+export const CHECKS: Array<[string, string]> = [['notes', 'Website notes'], ['fundraise', 'Fundraise Up'], ['batches', 'Batches']];
+export const batchLink = (id: string) => `https://host.nxt.blackbaud.com/gift-batch/batch-review/${id}?envid=p-5_k5FlbubEyEQnUJw7C9Rw`;
+const ET = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' });
+const etDay = (d: Date) => ET.format(d);
+const daysBetween = (from: string, to: string) => Math.max(0, Math.round((Date.parse(to.slice(0, 10) + 'T12:00:00Z') - Date.parse(from.slice(0, 10) + 'T12:00:00Z')) / 86400000));
+
+/** Open findings from the sync worker's online gift checks. The tables may not exist before the worker's first run. */
+export async function openFlags(mirror: Q): Promise<Row[]> {
+  try {
+    return await mirror(`SELECT * FROM og_flags WHERE resolved_at IS NULL ORDER BY first_seen`, []);
+  } catch {
+    return [];
+  }
+}
+
+/** The worker's record of each Fundraise Up donation and the Blackbaud gift it matched. */
+async function fruMatchesOf(mirror: Q, since: string, ids: string[]): Promise<Map<string, Row>> {
+  try {
+    const rows = await mirror(`SELECT fru_id, gift_id, comment, designation_name, recurring, amount, currency FROM fru_matches WHERE created_at >= ?1 OR fru_id IN (SELECT value FROM json_each(?2))`, [since, JSON.stringify(ids)]);
+    return new Map(rows.map((r) => [String(r.fru_id), r]));
+  } catch {
+    return new Map();
+  }
+}
+
+/** The three checks' last runs. A check is stale when its last good run is over two days old or a failure came after it. */
+export async function checkHealth(mirror: Q, now: Date): Promise<CheckHealth[]> {
+  let rows: Row[] = [];
+  try {
+    rows = await mirror(`SELECT check_name, last_run, last_ok, last_error, last_error_at FROM og_check_status`, []);
+  } catch {
+    rows = [];
+  }
+  return CHECKS.map(([name, label]) => {
+    const r = rows.find((x) => String(x.check_name) === name);
+    const lastOk = r?.last_ok ? String(r.last_ok) : '';
+    const lastError = r?.last_error_at ? String(r.last_error_at) : '';
+    let state: CheckHealth['state'] = 'none';
+    if (r) {
+      if (lastError && (!lastOk || Date.parse(lastError) > Date.parse(lastOk))) state = 'failing';
+      else if (!lastOk) state = 'none';
+      else state = now.getTime() - Date.parse(lastOk) > 2 * 86400000 ? 'stale' : 'ok';
+    }
+    return { name, label, lastOk, lastError, state };
+  });
 }
 
 const MIRROR_SQL = `SELECT g.id AS id, DATE(g.gift_date) AS d, g.date_added AS added, g.gift_amount AS amt, g.gift_type AS type, g.gift_payment_method AS pm,
@@ -176,10 +261,22 @@ async function handEntered(mirror: Q, from: string): Promise<Row[]> {
 
 const addDays = (day: string, n: number) => new Date(Date.parse(day + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 
-/** The Blackbaud gift an admin entered for a Fundraise Up donation: the payout amount to the cent, dated from the day before to ten days after. */
-export function matchFru(f: FruDonation, candidates: Row[], used: Set<string>): Row | null {
+/**
+ * The Blackbaud gift an admin entered for a Fundraise Up donation. The worker's match (fru_matches.gift_id) is the record when it
+ * has one. Otherwise: the payout or the gross USD amount to the cent (the admin desk entered most at the gross), dated from three
+ * days before to 21 days after, the partner's last name preferred.
+ */
+export function matchFru(f: FruDonation, candidates: Row[], used: Set<string>, mappedGiftId = ''): Row | null {
+  if (mappedGiftId) {
+    const m = candidates.find((g) => String(g.id) === mappedGiftId);
+    if (m && !used.has(mappedGiftId)) {
+      used.add(mappedGiftId);
+      return m;
+    }
+  }
   const day = f.created.slice(0, 10);
-  const hits = candidates.filter((g) => !used.has(String(g.id)) && Math.abs(Number(g.amt) - f.payout) < 0.005 && g.d >= addDays(day, -1) && g.d <= addDays(day, 10));
+  const same = (g: Row, amt: number) => amt > 0 && Math.abs(Number(g.amt) - amt) < 0.005;
+  const hits = candidates.filter((g) => !used.has(String(g.id)) && (same(g, f.payout) || same(g, f.usd)) && g.d >= addDays(day, -3) && g.d <= addDays(day, 21));
   if (!hits.length) return null;
   const last = f.last.trim().toLowerCase();
   const named = hits.find((g) => last && String(g.name || '').toLowerCase().includes(last));
@@ -222,6 +319,9 @@ export interface Overview {
   apply: boolean;
   testLimit: string;
   fruOk: boolean;
+  flags: { count: number; changes: number; differs: number; missing: number; batches: number };
+  batchFlags: BatchFlag[];
+  health: CheckHealth[];
 }
 
 export async function overview(d: Deps, viewer: Viewer, from: string, opts: { showTest?: boolean; giftId?: string } = {}): Promise<Overview> {
@@ -229,6 +329,19 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
   const fundIds = new Set(funds.map((f) => f.id));
   const formSet = new Set(batches.formBatches);
   const re = await onlineGifts(d.mirror, from, batches.formBatches, opts.giftId);
+  const allFlags = await openFlags(d.mirror);
+  const giftFlags = new Map<string, Row>();
+  const missingFlags = new Map<string, Row>();
+  for (const fl of allFlags) {
+    if ((fl.kind === 'note' || fl.kind === 'fru-fund') && fl.gift_id) giftFlags.set(String(fl.gift_id), fl);
+    else if (fl.kind === 'fru-missing' && fl.fru_id) missingFlags.set(String(fl.fru_id), fl);
+  }
+  // A flagged gift shows whatever its date, like ?gift= does for one gift.
+  const wantIds = [...giftFlags.keys()].filter((id) => !re.some((r) => String(r.id) === id));
+  if (wantIds.length) {
+    const extra = await d.mirror(`${MIRROR_SQL} WHERE g.id IN (SELECT value FROM json_each(?1))`, [JSON.stringify(wantIds)]).catch(() => [] as Row[]);
+    re.push(...extra);
+  }
   let fru: FruDonation[] = [];
   let fruOk = true;
   if (d.fru) {
@@ -238,17 +351,22 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
       fruOk = false;
     }
   } else fruOk = false;
-  const hand = fru.length ? await handEntered(d.mirror, addDays(from, -1)) : [];
+  const matches = await fruMatchesOf(d.mirror, addDays(from, -5), [...missingFlags.keys()]);
+  const hand = fru.length ? await handEntered(d.mirror, addDays(from, -4)) : [];
+  // The worker's match is the record: bring in any matched gift the date window above did not reach.
+  const mappedIds = fru.map((x) => String(matches.get(x.id)?.gift_id || '')).filter((id) => id && !hand.some((h) => String(h.id) === id));
+  if (mappedIds.length) hand.push(...(await d.mirror(`${MIRROR_SQL} WHERE g.id IN (SELECT value FROM json_each(?1))`, [JSON.stringify(mappedIds)]).catch(() => [] as Row[])));
 
-  const items: Array<{ key: string; base: Omit<GiftRow, 'read' | 'review' | 'key'>; parsed: Parsed }> = [];
+  const items: Array<{ key: string; base: Omit<GiftRow, 'read' | 'review' | 'key' | 'flag'>; parsed: Parsed; flag?: Row }> = [];
   for (const g of re) {
     const splits = splitsOf(g.splits);
     const fromForm = !!g.batch && formSet.has(String(g.batch));
     const parsed = parseReference(g.ref, { fromForm });
+    const fl = giftFlags.get(String(g.id));
     items.push({
-      key: `re:${g.id}`, parsed,
+      key: `re:${g.id}`, parsed, flag: fl,
       base: {
-        source: parsed.source === 'website' || g.src === 'realtime-web' ? 'website' : 'form', giftId: String(g.id), recordId: g.cid ? String(g.cid) : null, lookup: g.lookup ? String(g.lookup) : null,
+        source: fl?.kind === 'fru-fund' ? 'fundraise up' : parsed.source === 'website' || g.src === 'realtime-web' ? 'website' : 'form', giftId: String(g.id), recordId: g.cid ? String(g.cid) : null, lookup: g.lookup ? String(g.lookup) : null,
         name: String(g.name || 'Partner'), amount: Number(g.amt) || 0, original: '', date: String(g.d), addedAt: String(g.added || ''), monthly: g.type === 'RecurringGiftPayment' || parsed.monthly,
         tribute: parsed.tribute, comment: parsed.note, currentFund: String(splits[0]?.fund_id ?? ''), splits: splits.length, inBlackbaud: true, test: String(g.cid) === TEST_RECORD,
       },
@@ -256,17 +374,35 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
   }
   const used = new Set<string>();
   for (const f of fru) {
-    const m = matchFru(f, hand, used);
+    const m = matchFru(f, hand, used, String(matches.get(f.id)?.gift_id || ''));
     const des = fundByCode(funds, f.designation);
     const splits = m ? splitsOf(m.splits) : [];
     items.push({
       key: m ? `re:${m.id}` : `fru:${f.id}`,
+      flag: m ? giftFlags.get(String(m.id)) : missingFlags.get(f.id),
       parsed: { source: 'other', formDesignation: f.designation, note: f.comment, monthly: f.recurring, tribute: false },
       base: {
         source: 'fundraise up', giftId: m ? String(m.id) : null, recordId: m?.cid ? String(m.cid) : null, lookup: m?.lookup ? String(m.lookup) : null,
         name: m ? String(m.name || '') : `${f.first} ${f.last}`.trim() || 'Partner', amount: m ? Number(m.amt) : f.payout, original: f.currency.toLowerCase() === 'usd' ? '' : `${f.amount} ${f.currency.toUpperCase()}`,
         date: f.created.slice(0, 10), addedAt: f.created, monthly: f.recurring, tribute: false, comment: f.comment, currentFund: m ? String(splits[0]?.fund_id ?? '') : des?.id || '',
         splits: m ? splits.length : 1, inBlackbaud: !!m, test: !!m && String(m.cid) === TEST_RECORD,
+      },
+    });
+  }
+  // A Fundraise Up gift the worker found no Blackbaud entry for, older than the list's dates: listed from the flag.
+  for (const [id, fl] of missingFlags) {
+    if (items.some((i) => i.key === `fru:${id}`)) continue;
+    const mt = matches.get(id);
+    const words = String(fl.words || mt?.designation_name || '');
+    const des = fundByCode(funds, words);
+    const day = String(fl.gift_date || '').slice(0, 10);
+    items.push({
+      key: `fru:${id}`, flag: fl,
+      parsed: { source: 'other', formDesignation: words, note: String(mt?.comment || ''), monthly: !!mt?.recurring, tribute: false },
+      base: {
+        source: 'fundraise up', giftId: null, recordId: null, lookup: null, name: String(fl.partner || 'Partner'), amount: Number(fl.amount) || 0,
+        original: mt && String(mt.currency || 'usd').toLowerCase() !== 'usd' ? `${mt.amount} ${String(mt.currency).toUpperCase()}` : '', date: day, addedAt: day, monthly: !!mt?.recurring, tribute: false,
+        comment: String(mt?.comment || ''), currentFund: des?.id || '', splits: 1, inBlackbaud: false, test: false,
       },
     });
   }
@@ -307,7 +443,8 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
     const rv = reviews.get(i.key);
     if (rv && rv.state === 'applied' && rv.applied_at && nowMs - Date.parse(String(rv.applied_at)) < 36 * 3600000) i.base.currentFund = String(rv.chosen_fund);
     let read = readDesignation(i.parsed, i.base.currentFund, funds);
-    if (read.by !== 'comment' && i.parsed.note && wantsModel(i.parsed.note)) {
+    const wanted = i.flag && i.flag.kind !== 'fru-missing' ? String(i.flag.wanted_fund || '') : '';
+    if (!wanted && read.by !== 'comment' && i.parsed.note && wantsModel(i.parsed.note)) {
       const s = seen.get(i.key);
       if (s?.model_state === 'done') read = readDesignation(i.parsed, i.base.currentFund, funds, s.model_fund ? { fundId: String(s.model_fund) } : null);
       else if (!reviews.has(i.key) && calls < MODEL_CALLS_PER_LOAD) {
@@ -316,12 +453,27 @@ export async function overview(d: Deps, viewer: Viewer, from: string, opts: { sh
         if (m !== 'held') read = readDesignation(i.parsed, i.base.currentFund, funds, m);
       }
     }
+    // A flag names the fund the partner or Fundraise Up asked for; it is the preselected designation.
+    if (wanted && fundIds.has(wanted)) read = { fundId: wanted, by: i.flag!.kind === 'note' ? 'comment' : 'form', word: String(i.flag!.words || ''), also: [] };
     if (read.fundId && !fundIds.has(read.fundId)) read = { ...read, by: 'none' };
-    rows.push({ key: i.key, ...i.base, read, review: reviews.get(i.key) || null });
+    const fl = i.flag;
+    const flag: RowFlag | null = fl ? { key: String(fl.flag_key), kind: fl.kind, wantedFund: String(fl.wanted_fund || ''), words: String(fl.words || ''), days: daysBetween(String(fl.gift_date || i.base.date), etDay(new Date(nowMs))) } : null;
+    rows.push({ key: i.key, ...i.base, read, review: reviews.get(i.key) || null, flag });
   }
   rows.sort((a, b) => (a.addedAt < b.addedAt ? 1 : -1));
+  const today = etDay(new Date(nowMs));
+  const batchFlags: BatchFlag[] = allFlags
+    .filter((fl) => fl.kind === 'batch')
+    .map((fl) => {
+      const m = /(\d+)\s+gifts?(?:,\s*created by\s+(.+))?/i.exec(String(fl.detail || ''));
+      return { key: String(fl.flag_key), batchId: String(fl.batch_id || ''), number: String(fl.batch_number || ''), gifts: m ? Number(m[1]) : 0, amount: Number(fl.amount) || 0, by: m?.[2] ? m[2].trim() : '', days: daysBetween(String(fl.gift_date || today), today), link: batchLink(String(fl.batch_id || '')) };
+    })
+    .sort((a, b) => b.days - a.days);
+  const kindCount = (k: string) => rows.filter((r) => r.flag?.kind === k).length;
+  const flags = { changes: kindCount('note'), differs: kindCount('fru-fund'), missing: kindCount('fru-missing'), batches: batchFlags.length, count: 0 };
+  flags.count = flags.changes + flags.differs + flags.missing + flags.batches;
   return {
-    from, rows, funds, batches, fruOk,
+    from, rows, funds, batches, fruOk, flags, batchFlags, health: await checkHealth(d.mirror, new Date(nowMs)),
     apply: (await setting(d.db, SETTING_APPLY, 'off')) === 'on',
     testLimit: await setting(d.db, SETTING_TEST_ONLY, TEST_RECORD),
   };
@@ -388,6 +540,20 @@ export async function approve(d: Deps, viewer: Viewer, items: ApproveItem[], fro
   return out;
 }
 
+/** A person keeps the fund a flag questioned. The worker closes the flag; the log keeps who did it. */
+export async function keepFund(
+  d: Deps, viewer: Viewer, key: string, resolve: (key: string, by: string, note: string) => Promise<{ ok: boolean; status: number }>
+): Promise<{ ok: boolean; code?: 'test_user' | 'no_flag' | 'worker' }> {
+  if (viewer.tester) return { ok: false, code: 'test_user' };
+  const fl = (await openFlags(d.mirror)).find((x) => String(x.flag_key) === key && (x.kind === 'note' || x.kind === 'fru-fund'));
+  if (!fl) return { ok: false, code: 'no_flag' };
+  const r = await resolve(key, viewer.email, '');
+  if (r.status === 404) return { ok: false, code: 'no_flag' };
+  if (!r.ok) return { ok: false, code: 'worker' };
+  await log(d, fl.gift_id ? `re:${fl.gift_id}` : key, viewer.email, 'kept', `Kept the fund on ${fl.kind === 'note' ? 'a website note' : 'a Fundraise Up gift'} flag`);
+  return { ok: true };
+}
+
 const fundName = (funds: Fund[], id: string) => funds.find((f) => f.id === id)?.name || (id ? `fund ${id}` : 'no fund');
 
 // ---- the desktop runner's queue (agent key only) ----
@@ -418,10 +584,10 @@ export async function fetchFru(key: string, from: string, fetcher: typeof fetch 
     const data = (await res.json()) as { data?: Row[]; has_more?: boolean };
     const rows = data.data || [];
     for (const r of rows) {
-      const usd = Number(r.amount_in_default_currency) || 0;
-      const fee = (Number(r.processing_fee?.amount_in_default_currency) || 0) + (Number(r.platform_fee?.amount_in_default_currency) || 0);
+      const usd = num(r.amount_in_default_currency);
+      const fee = num(r.processing_fee?.amount_in_default_currency) + num(r.platform_fee?.amount_in_default_currency);
       out.push({
-        id: String(r.id), created: String(r.created_at || ''), status: String(r.status || ''), usd, payout: Number(r.payout?.amount_in_default_currency) || Math.round((usd - fee) * 100) / 100,
+        id: String(r.id), created: String(r.created_at || ''), status: String(r.status || ''), usd, payout: num(r.payout?.amount_in_default_currency) || Math.round((usd - fee) * 100) / 100,
         amount: String(r.amount || ''), currency: String(r.currency || 'usd'), first: String(r.supporter?.first_name || ''), last: String(r.supporter?.last_name || ''),
         comment: String(r.comment || '').trim(), designation: String(r.designation?.name || ''), recurring: !!r.recurring_plan,
       });

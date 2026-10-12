@@ -97,12 +97,21 @@ function tidy(value: string): string {
   return value.replace(/[ 	]+/g, ' ').trim();
 }
 
+/**
+ * Blackbaud writes a gift of type Amendment (receipt amount $0) whenever a recurring gift is amended. It changes the schedule and
+ * is never a payment, so every list and count on the Receipts page leaves it out.
+ */
+export function isAmendment(type: string): boolean {
+  return /\bamendment\b/i.test(type);
+}
+
 /** Query rows to gifts. A gift with two solicit codes or two funds comes back as several rows. */
 export function giftsFromRows(rows: Record<string, string>[]): Gift[] {
   const byId = new Map<string, Gift>();
   for (const r of rows) {
     const id = (r['QRECID'] || '').trim();
     if (!id) continue;
+    if (isAmendment(r['Gift Type'] || '')) continue;
     let g = byId.get(id);
     if (!g) {
       g = {

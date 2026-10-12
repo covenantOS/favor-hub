@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { describe, it } from 'node:test';
 import { DatabaseSync } from 'node:sqlite';
 import { fundFromAnswer, parseReference, readDesignation, rulesRead, wantsModel } from '../functions/_lib/online-gifts/read.ts';
-import { approve, decideState, history, matchFru, overview, putSetting, queueDone, queued, SETTING_APPLY, SETTING_TEST_ONLY, TEST_RECORD } from '../functions/_lib/online-gifts/service.ts';
+import { approve, checkHealth, decideState, fetchFru, history, keepFund, matchFru, num, overview, putSetting, queueDone, queued, SETTING_APPLY, SETTING_TEST_ONLY, TEST_RECORD } from '../functions/_lib/online-gifts/service.ts';
 import { AiPaused } from '../functions/_lib/ai/guard.ts';
 import { d1Of } from './support/lists-fixture.mjs';
 
@@ -79,11 +79,14 @@ describe('what approval does', () => {
   });
 });
 
-function world({ ai } = {}) {
+function world({ ai, fruList } = {}) {
   const m = new DatabaseSync(':memory:');
   m.exec(`CREATE TABLE funds (id TEXT PRIMARY KEY, fund_id TEXT, fund_description TEXT, fund_inactive INTEGER DEFAULT 0);
     CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, first_name TEXT, last_name TEXT, organization_name TEXT);
-    CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_date TEXT, date_added TEXT, gift_amount REAL, gift_type TEXT, gift_payment_method TEXT, gift_comments TEXT, constituent_record_id TEXT, gift_splits TEXT, raw_json TEXT);`);
+    CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_date TEXT, date_added TEXT, gift_amount REAL, gift_type TEXT, gift_payment_method TEXT, gift_comments TEXT, constituent_record_id TEXT, gift_splits TEXT, raw_json TEXT);
+    CREATE TABLE og_flags (flag_key TEXT PRIMARY KEY, kind TEXT, gift_id TEXT, fru_id TEXT, batch_id TEXT, batch_number TEXT, constituent_id TEXT, partner TEXT, amount REAL, gift_date TEXT, current_fund TEXT, wanted_fund TEXT, words TEXT, detail TEXT, first_seen TEXT, last_seen TEXT, resolved_at TEXT, resolved_by TEXT, resolution TEXT);
+    CREATE TABLE fru_matches (fru_id TEXT PRIMARY KEY, created_at TEXT, supporter TEXT, amount_usd REAL, payout REAL, currency TEXT, amount REAL, designation_id TEXT, designation_name TEXT, recurring INTEGER, comment TEXT, gift_id TEXT, match_how TEXT, matched_at TEXT, checked_at TEXT);
+    CREATE TABLE og_check_status (check_name TEXT PRIMARY KEY, last_run TEXT, last_ok TEXT, last_error TEXT, last_error_at TEXT, detail TEXT);`);
   for (const f of FUNDS) m.prepare('INSERT INTO funds (id, fund_id, fund_description) VALUES (?, ?, ?)').run(f.id, f.code, f.name);
   m.prepare("INSERT INTO constituents VALUES ('500', '9500', 'Pat', 'Sample', NULL), (?, '14907', 'Test', 'Record', NULL)").run(TEST_RECORD);
   const gift = (id, cid, ref, fund, type = 'Donation', raw = '{}') =>
@@ -109,9 +112,10 @@ function world({ ai } = {}) {
       return { ok: true, body: path.includes('approved=false') ? { giftbatches: [{ batch_number: 'GFT-1', batch_description: 'Installment payment transactions', number_of_gifts: 4, actual_amount: 120 }] } : { count: 0, giftbatches: [] } };
     },
     ai,
+    fru: fruList ? async () => fruList : undefined,
     now: () => new Date('2026-10-12T14:00:00Z'),
   };
-  return { deps, hub, used };
+  return { deps, hub, used, m };
 }
 const ME = { email: 'pam@favorintl.org', name: 'Pam Care', admin: false, tester: false };
 const TESTER = { email: 'tester@favorintl.org', name: 'FavorOS Tester', admin: true, tester: true };
@@ -172,5 +176,114 @@ describe('the list and the approval flow', () => {
     const { deps } = world();
     const res = await approve(deps, ME, [{ key: 're:9001', fundId: '999' }, { key: 're:1', fundId: '79' }], '2026-10-12');
     assert.deepEqual(res.map((r) => r.state), ['missing', 'missing']);
+  });
+});
+
+describe('Fundraise Up amounts and matching', () => {
+  it('reads amounts that carry thousands commas', async () => {
+    assert.equal(num('1,987.15'), 1987.15);
+    assert.equal(num('12'), 12);
+    assert.equal(num(undefined), 0);
+    assert.equal(num('n/a'), 0);
+    const body = { data: [{ id: 'd1', created_at: '2026-10-08T10:00:00Z', status: 'succeeded', amount: '2,000.00', currency: 'usd', amount_in_default_currency: '1,987.15', payout: { amount_in_default_currency: '1,950.10' }, supporter: { first_name: 'Ann', last_name: 'Tester' }, designation: { name: 'Wells' } }], has_more: false };
+    const list = await fetchFru('key', '2026-10-01', async () => ({ ok: true, json: async () => body }));
+    assert.deepEqual([list[0].usd, list[0].payout], [1987.15, 1950.1]);
+  });
+
+  it('matches the gross USD amount or the payout, three days before to 21 days after, last name preferred', () => {
+    const f = { id: 'D2', created: '2026-10-05T05:00:00Z', usd: 1987.15, payout: 1950.1, last: 'Tester' };
+    assert.equal(matchFru(f, [{ id: '1', amt: 1987.15, d: '2026-10-12', name: 'Ann Tester' }], new Set()).id, '1', 'gross');
+    assert.equal(matchFru(f, [{ id: '2', amt: 1950.1, d: '2026-10-12', name: 'Ann Tester' }], new Set()).id, '2', 'payout');
+    assert.equal(matchFru(f, [{ id: '3', amt: 1987.15, d: '2026-10-02', name: 'Ann Tester' }], new Set()).id, '3', 'three days before');
+    assert.equal(matchFru(f, [{ id: '4', amt: 1987.15, d: '2026-10-01', name: 'Ann Tester' }], new Set()), null);
+    assert.equal(matchFru(f, [{ id: '5', amt: 1987.15, d: '2026-10-26', name: 'Ann Tester' }], new Set()).id, '5', '21 days after');
+    assert.equal(matchFru(f, [{ id: '6', amt: 1987.15, d: '2026-10-27', name: 'Ann Tester' }], new Set()), null);
+    assert.equal(matchFru(f, [{ id: '7', amt: 1987.15, d: '2026-10-06', name: 'Bob Other' }, { id: '8', amt: 1987.15, d: '2026-10-06', name: 'Ann Tester' }], new Set()).id, '8', 'last name');
+  });
+
+  it('uses the worker match (fru_matches.gift_id) over any amount guess', async () => {
+    const donation = (id, usd, payout) => ({ id, created: '2026-10-12T09:00:00Z', status: 'succeeded', usd, payout, amount: String(usd), currency: 'usd', first: 'Gus', last: 'Gross', comment: '', designation: 'Wells', recurring: false });
+    const { deps, m } = world({ fruList: [donation('F1', 77.77, 70.1), donation('F2', 10, 9)] });
+    const put = (id, amt) => m.prepare("INSERT INTO gifts VALUES (?, '2026-10-12T00:00:00', '2026-10-12T08:00:00', ?, 'Donation', 'Other', 'wire', '500', ?, '{}')").run(id, amt, JSON.stringify([{ fund_id: '79' }]));
+    put('9101', 77.77);
+    put('9102', 33.33);
+    m.prepare("INSERT INTO fru_matches (fru_id, created_at, gift_id, match_how) VALUES ('F2', '2026-10-12T09:00:00Z', '9102', 'name')").run();
+    const ov = await overview(deps, ME, '2026-10-12');
+    const fr = ov.rows.filter((r) => r.source === 'fundraise up');
+    assert.deepEqual(fr.map((r) => [r.giftId, r.inBlackbaud]).sort(), [['9101', true], ['9102', true]]);
+  });
+});
+
+describe('open flags on the screen', () => {
+  const flag = (m, o) => m.prepare(`INSERT INTO og_flags (flag_key, kind, gift_id, fru_id, batch_id, batch_number, partner, amount, gift_date, current_fund, wanted_fund, words, detail, first_seen, last_seen, resolved_at)
+    VALUES (@flag_key, @kind, @gift_id, @fru_id, @batch_id, @batch_number, @partner, @amount, @gift_date, @current_fund, @wanted_fund, @words, @detail, '2026-10-09', '2026-10-12', @resolved_at)`)
+    .run({ gift_id: null, fru_id: null, batch_id: null, batch_number: null, partner: null, amount: 0, gift_date: null, current_fund: null, wanted_fund: null, words: null, detail: null, resolved_at: null, ...o });
+
+  function flagged() {
+    const w = world();
+    w.m.prepare("INSERT INTO gifts VALUES ('9006', '2026-08-01T00:00:00', '2026-08-01T08:00:00', 25, 'Donation', 'Other', 'wire', '500', ?, '{}')").run(JSON.stringify([{ fund_id: '79' }]));
+    flag(w.m, { flag_key: 'note:9002', kind: 'note', gift_id: '9002', current_fund: '79', wanted_fund: '136', words: 'trauma' });
+    flag(w.m, { flag_key: 'fru-fund:9006', kind: 'fru-fund', gift_id: '9006', current_fund: '79', wanted_fund: '157', words: 'PBS Chad' });
+    flag(w.m, { flag_key: 'fru-missing:dX', kind: 'fru-missing', fru_id: 'dX', partner: 'Sam Invented', amount: 50, gift_date: '2026-10-08', words: 'Wells' });
+    flag(w.m, { flag_key: 'batch:777', kind: 'batch', batch_id: '777', batch_number: 'GFT-2026-1', amount: 12.5, gift_date: '2026-10-07', detail: '2 gifts, created by Pat Sample' });
+    flag(w.m, { flag_key: 'note:9001', kind: 'note', gift_id: '9001', wanted_fund: '198', resolved_at: '2026-10-11' });
+    return w;
+  }
+
+  it('merges open flags into rows whatever their date, preselects the wanted fund and counts them; a resolved flag is gone', async () => {
+    const { deps } = flagged();
+    const ov = await overview(deps, ME, '2026-10-12');
+    const by = (id) => ov.rows.find((r) => r.giftId === id);
+    assert.deepEqual([by('9002').flag.kind, by('9002').read.fundId, by('9002').read.by], ['note', '136', 'comment']);
+    assert.equal(by('9001').flag, null);
+    assert.equal(by('9001').read.fundId, '136', 'a resolved flag changes nothing');
+    assert.deepEqual([by('9006').flag.kind, by('9006').source, by('9006').date, by('9006').read.fundId], ['fru-fund', 'fundraise up', '2026-08-01', '157']);
+    const miss = ov.rows.find((r) => r.key === 'fru:dX');
+    assert.deepEqual([miss.flag.kind, miss.flag.days, miss.inBlackbaud, miss.name, miss.amount], ['fru-missing', 4, false, 'Sam Invented', 50]);
+    assert.deepEqual(ov.flags, { changes: 1, differs: 1, missing: 1, batches: 1, count: 4 });
+    assert.deepEqual(ov.batchFlags.map((b) => [b.number, b.gifts, b.days, b.by]), [['GFT-2026-1', 2, 5, 'Pat Sample']]);
+    assert.ok(ov.batchFlags[0].link.startsWith('https://host.nxt.blackbaud.com/gift-batch/batch-review/777?envid='));
+  });
+
+  it('works before the worker has made its tables', async () => {
+    const { deps, m } = world();
+    m.exec('DROP TABLE og_flags; DROP TABLE fru_matches; DROP TABLE og_check_status;');
+    const ov = await overview(deps, ME, '2026-10-12');
+    assert.equal(ov.flags.count, 0);
+    assert.deepEqual(ov.health.map((h) => h.state), ['none', 'none', 'none']);
+  });
+
+  it('Keep fund refuses the tester, asks the worker with the viewer, logs it, and reports a flag the worker no longer holds', async () => {
+    const { deps } = flagged();
+    const calls = [];
+    const ok = async (key, by, note) => (calls.push([key, by, note]), { ok: true, status: 200 });
+    assert.deepEqual(await keepFund(deps, TESTER, 'note:9002', ok), { ok: false, code: 'test_user' });
+    assert.equal(calls.length, 0);
+    assert.deepEqual(await keepFund(deps, ME, 'batch:777', ok), { ok: false, code: 'no_flag' }, 'only a fund flag is kept');
+    assert.deepEqual(await keepFund(deps, ME, 'note:9002', ok), { ok: true });
+    assert.deepEqual(calls, [['note:9002', 'pam@favorintl.org', '']]);
+    assert.deepEqual((await history(deps.db, 're:9002')).map((h) => [h.actor, h.event]), [['pam@favorintl.org', 'kept']]);
+    assert.deepEqual(await keepFund(deps, ME, 'note:9002', async () => ({ ok: false, status: 404 })), { ok: false, code: 'no_flag' });
+    assert.deepEqual(await keepFund(deps, ME, 'note:9002', async () => ({ ok: false, status: 500 })), { ok: false, code: 'worker' });
+    const route = fs.readFileSync(new URL('../functions/api/online-gifts/[[a]].ts', import.meta.url), 'utf8');
+    const at = route.indexOf("a === 'keep'");
+    assert.ok(at > 0 && route.indexOf('viewer.tester', at) < route.indexOf('keepFund(deps', at), 'the route refuses the tester before it calls the worker');
+  });
+});
+
+describe('check health line', () => {
+  const NOW = new Date('2026-10-12T14:00:00Z');
+  it('marks a check stale after two days and failing when an error is newer than the last good run', async () => {
+    const { deps, m } = world();
+    const put = (n, ok, err, errAt) => m.prepare('INSERT INTO og_check_status (check_name, last_run, last_ok, last_error, last_error_at) VALUES (?, ?, ?, ?, ?)').run(n, ok || errAt, ok, err, errAt);
+    put('notes', '2026-10-12T12:00:00Z', null, null);
+    put('fundraise', '2026-10-09T12:00:00Z', null, null);
+    put('batches', '2026-10-12T12:00:00Z', 'SKY 429', '2026-10-12T13:00:00Z');
+    const h = await checkHealth(deps.mirror, NOW);
+    assert.deepEqual(h.map((x) => [x.label, x.state]), [['Website notes', 'ok'], ['Fundraise Up', 'stale'], ['Batches', 'failing']]);
+    const edge = await checkHealth(async () => [{ check_name: 'notes', last_ok: '2026-10-10T14:00:01Z' }, { check_name: 'fundraise', last_ok: '2026-10-10T13:59:59Z' }], NOW);
+    assert.deepEqual(edge.map((x) => x.state).slice(0, 2), ['ok', 'stale']);
+    const ov = await overview(deps, ME, '2026-10-12');
+    assert.deepEqual(ov.health.map((x) => x.state), ['ok', 'stale', 'failing']);
   });
 });

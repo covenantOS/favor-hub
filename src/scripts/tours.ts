@@ -1032,7 +1032,7 @@ export const STEPS: Step[] = [
     via: 'online-gifts',
     at: '#og-app',
     title: 'Online gifts',
-    body: "Every gift from the website, the Blackbaud donation forms and international giving, with what the partner wrote. The designation under each comment is read from the partner's words; change it if it is wrong, then press Approve, or Approve all. Batches still waiting in Blackbaud are listed at the top with a link.",
+    body: "Every gift from the website, the Blackbaud donation forms and international giving, with what the partner wrote. The designation under each comment is read from the partner's words; change it if it is wrong, then press Approve, or Approve all. Rows flagged by the nightly checks lead the list: Changes fund, Fund differs and Not in Blackbaud. Keep fund closes a flag you have looked at. Batches waiting in Blackbaud are listed at the top with a link, and the line at the bottom shows when each check last ran.",
     for: (w) => w.admin || team('pc')(w),
     added: '2026-10-12',
     side: 'top',

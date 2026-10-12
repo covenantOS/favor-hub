@@ -273,6 +273,27 @@ export async function mirrorRecordRefresh(env: Env, ids: string[]): Promise<{ ok
   }
 }
 
+/** Close an open Online gifts flag in the sync worker's mirror (a person kept the fund). 404 means no open flag, or the route is not deployed yet. */
+export async function mirrorResolveFlag(env: Env, key: string, by: string, note: string): Promise<{ ok: boolean; status: number; wait?: string }> {
+  if (!env.MIRROR_API_KEY) return { ok: false, status: 0, wait: 'no key' };
+  const base = (env.MIRROR_QUERY_URL || MIRROR_URL).replace(/\/d1\/query$/, '');
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 10000);
+  try {
+    const res = await fetch(`${base}/online-gifts/resolve`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.MIRROR_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, by, resolution: 'kept', note: note.slice(0, 200) }),
+      signal: ctl.signal,
+    });
+    return { ok: res.status === 200, status: res.status };
+  } catch {
+    return { ok: false, status: 0, wait: 'the sync worker did not answer' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function sayWhy(body: any): string {
   if (!body) return 'Blackbaud turned it down.';
   if (typeof body === 'string') return body.slice(0, 240);

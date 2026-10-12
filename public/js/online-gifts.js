@@ -35,6 +35,7 @@
     if (r.original) b.push(r.original);
     b.push(SRC[r.source] || r.source);
     b.push(day(r.date));
+    if (r.flag && r.flag.kind === 'fru-missing') b.push(r.flag.days + 'd');
     if (r.monthly) b.push('Monthly');
     if (r.tribute) b.push('Tribute');
     if (r.test) b.push('Test record');
@@ -49,15 +50,21 @@
   }
   function readLine(r) {
     var to = chosen(r);
-    var bits = [];
-    if (r.read.by === 'comment' || r.read.by === 'model') bits.push('From the comment');
+    var bits = [], fl = r.flag, keep = fl && (fl.kind === 'note' || fl.kind === 'fru-fund') && !r.review;
+    if (fl && fl.kind === 'fru-fund') bits.push('Fundraise Up: ' + (fl.words || fundName(fl.wantedFund)));
+    else if (fl && fl.kind === 'note') { /* the pill already says the note names another fund */ }
+    else if (r.read.by === 'comment' || r.read.by === 'model') bits.push('From the comment');
     else if (r.read.by === 'form' && r.source !== 'form') bits.push('From the form');
     if (r.inBlackbaud && r.currentFund && to && to !== r.currentFund) bits.push('In Blackbaud: ' + fundName(r.currentFund));
-    return bits.length ? '<span class="og-why">' + esc(bits.join(' · ')) + '</span>' : '';
+    else if (keep) bits.push('In Blackbaud: ' + fundName(r.currentFund));
+    if (!bits.length) return '';
+    return '<span class="og-why' + (keep ? ' og-why--keep' : '') + '"><span>' + esc(bits.join(' · ')) + '</span>' + (keep ? '<button type="button" class="ls-link" data-act="keep">Keep fund</button>' : '') + '</span>';
   }
   function row(r) {
     var changes = r.inBlackbaud && r.currentFund && chosen(r) !== r.currentFund;
-    var pill = changes ? '<span class="ls-st ls-st--queued og-pill">Changes fund</span>' : !r.inBlackbaud ? '<span class="ls-st og-pill">Not in Blackbaud yet</span>' : '';
+    var k = r.flag && r.flag.kind;
+    var pill = k === 'fru-fund' ? '<span class="ls-st ls-st--queued og-pill">Fund differs</span>' : k === 'note' || changes ? '<span class="ls-st ls-st--queued og-pill">Changes fund</span>' :
+      k === 'fru-missing' ? '<span class="ls-st ls-st--queued og-pill">Not in Blackbaud</span>' : !r.inBlackbaud ? '<span class="ls-st og-pill">Not in Blackbaud yet</span>' : '';
     return '<div class="og-row" data-key="' + esc(r.key) + '"><div class="og-main"><b>' + partner(r) + pill + '</b><span class="og-f">' + esc(facts(r)) + '</span>' +
       (r.comment ? '<q class="og-c">' + esc(r.comment) + '</q>' : '') + readLine(r) + '</div>' +
       '<div class="og-acts">' + select(r) + '<button type="button" class="ls-link" data-act="approve">Approve</button></div></div>';
@@ -73,7 +80,7 @@
 
   function draw() {
     var o = S.ov;
-    var rank = function (r) { return r.inBlackbaud && r.currentFund && chosen(r) !== r.currentFund ? 0 : r.comment ? 1 : 2; };
+    var rank = function (r) { return r.flag ? 0 : r.inBlackbaud && r.currentFund && chosen(r) !== r.currentFund ? 1 : r.comment ? 2 : 3; };
     var todo = o.rows.filter(function (r) { return !r.review || r.reopen; }).map(function (r, i) { return [r, i]; }).sort(function (a, b) { return rank(a[0]) - rank(b[0]) || a[1] - b[1]; }).map(function (x) { return x[0]; });
     var done = o.rows.filter(function (r) { return r.review && !r.reopen; });
     var total = o.rows.reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
@@ -81,14 +88,19 @@
     var h = '<div class="og-wrap">';
     h += '<div class="h-card cr-card og-card"><div class="cr-h"><b>Online gifts <small>' + o.rows.length + '</small></b>' +
       '<label class="og-period"><span class="sr-only">Period</span><select id="og-days" aria-label="Period">' + Object.keys(DAYS).map(function (k) { return '<option value="' + k + '"' + (k === S.days ? ' selected' : '') + '>' + DAYS[k] + '</option>'; }).join('') + '</select></label></div>' +
-      '<div class="og-sum"><span>' + esc(money(total)) + '<i class="og-wide"> · ' + withC + (withC === 1 ? ' comment' : ' comments') + '</i> · ' + todo.length + ' to approve</span>' +
+      '<div class="og-sum"><span>' + esc(money(total)) + '<i class="og-wide"> · ' + withC + (withC === 1 ? ' comment' : ' comments') + '</i>' + '<i class="og-wide"> · ' + todo.length + ' to approve</i>' + (o.flags && o.flags.count ? ' · ' + o.flags.count + ' flagged' : '') + '</span>' +
       (todo.length ? '<button type="button" class="h-btn h-btn--primary h-btn--sm" id="og-all">Approve all ' + todo.length + '</button>' : '') + '</div>';
-    if (o.batches && o.batches.waiting && o.batches.waiting.length) {
-      var w = o.batches.waiting, g = w.reduce(function (s, b) { return s + b.gifts; }, 0), amt = w.reduce(function (s, b) { return s + b.amount; }, 0);
+    var bf = o.batchFlags || [];
+    if ((o.batches && o.batches.waiting && o.batches.waiting.length) || bf.length) {
+      var w = (o.batches && o.batches.waiting) || [], g = w.reduce(function (s, b) { return s + b.gifts; }, 0), amt = w.reduce(function (s, b) { return s + b.amount; }, 0);
       h += '<div class="og-bb"><span><b>Approve in Blackbaud</b> · ' + w.length + (w.length === 1 ? ' batch' : ' batches') + ' · ' + g + (g === 1 ? ' gift' : ' gifts') + ' · ' + esc(money(amt)) + '</span><a class="ls-link" href="' + esc(o.blackbaud) + '" target="_blank" rel="noopener">Open Blackbaud</a></div>';
+      h += bf.map(function (b) {
+        return '<div class="og-bb og-bb--row"><span><b>' + esc(b.number || 'Batch') + '</b> · ' + b.gifts + (b.gifts === 1 ? ' gift' : ' gifts') + ' · ' + esc(money(b.amount)) + ' · ' + b.days + 'd' + (b.by ? ' · ' + esc(b.by) : '') + '</span><a class="ls-link" href="' + esc(b.link) + '" target="_blank" rel="noopener">Open</a></div>';
+      }).join('');
     }
     h += (todo.length ? todo.map(row).join('') : '<p class="cr-none">Every gift here is approved</p>') + '</div>';
     if (done.length) h += '<div class="h-card cr-card og-card"><div class="cr-h"><b>Approved <small>' + done.length + '</small></b></div>' + done.map(doneRow).join('') + '</div>';
+    h += health(o.health || []);
     if (o.admin) {
       h += '<div class="h-card cr-card og-card"><div class="cr-h"><b>Writes to Blackbaud</b><span class="ls-st ls-st--' + (o.apply ? 'applied' : 'rejected') + '">' + (o.apply ? 'On' : 'Off') + '</span></div>' +
         '<div class="og-sum"><span>' + esc(o.testLimit ? 'Only record ' + o.testLimit : 'Every record') + '</span><button type="button" class="ls-quiet" id="og-flip">Turn ' + (o.apply ? 'off' : 'on') + '</button></div></div>';
@@ -96,6 +108,30 @@
     h += '</div>';
     root.innerHTML = h;
     bind();
+  }
+
+  function health(list) {
+    if (!list.length) return '';
+    var today = U.todayEt ? U.todayEt() : '';
+    var at = function (iso) { if (!iso) return ''; return (String(iso).slice(0, 10) === today ? '' : day(iso) + ', ') + time(iso); };
+    return '<p class="og-health" aria-label="Checks">' + list.map(function (c) {
+      var bad = c.state === 'stale' || c.state === 'failing';
+      var tail = c.state === 'none' ? 'not run yet' : at(c.lastOk) || 'no good run';
+      if (c.state === 'failing') tail += ' · failed ' + at(c.lastError);
+      else if (c.state === 'stale') tail += ' · behind';
+      return '<span class="' + (bad ? 'is-warn' : '') + '">' + esc(c.label) + ' ' + esc(tail) + '</span>';
+    }).join('') + '</p>';
+  }
+
+  function keep(key, flagKey) {
+    if (S.busy) return;
+    S.busy = true;
+    call('/keep', { key: flagKey }).then(function (r) {
+      S.busy = false;
+      if (r.ok === false) { toast(r.message || 'Not saved.'); return; }
+      toast('Fund kept');
+      load();
+    });
   }
 
   function approve(items) {
@@ -128,6 +164,7 @@
         var r = S.ov.rows.find(function (x) { return x.key === key; });
         if (!r) return;
         if (b.dataset.act === 'reopen') { r.reopen = true; draw(); return; }
+        if (b.dataset.act === 'keep') { keep(key, r.flag && r.flag.key); return; }
         var f = chosen(r);
         if (!f) { toast('Pick a designation first'); return; }
         approve([{ key: key, fundId: f }]);
