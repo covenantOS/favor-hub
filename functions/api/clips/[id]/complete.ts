@@ -5,6 +5,7 @@ import { clipsMaxMs } from '../../../_lib/admin/settings';
 import { J, MAX_MS, purgeClip, staffOrError, ownClip, videoKey, type ClipsEnv, type PartRec } from '../../../_lib/clips';
 import { runProcess } from '../../../_lib/clipjob';
 import { clearTail, contiguous, foldTail } from '../../../_lib/clipTail';
+import { muxRun, muxStep } from '../../../_lib/clipmuxjob';
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
@@ -57,6 +58,13 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     const title = given || clip.title || hint;
     await env.DB.prepare("UPDATE hub_clips SET status = 'processing', upload_id = NULL, parts = '[]', size_bytes = ?, duration_ms = ?, title = ?, title_auto = ?, updated_at = ? WHERE id = ?")
       .bind(size, duration, title, given || (clip.title && clip.title_auto === 0) ? 0 : 1, nowIso(), clip.id).run();
+    // The recording is read once for its fast-start index before the answer goes back (a second or two), so the clip
+    // already starts at once when the recorder opens it. Writing the new file carries on behind the answer.
+    const indexed = muxStep(env, clip.id, { stage: 'plan', budgetMs: 12_000 }).catch(() => null);
+    waitUntil(indexed.then(() => muxRun(env, clip.id)).then(() => undefined).catch((err) => console.warn('[clips] mux', err)));
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([indexed, new Promise((r) => (timer = setTimeout(r, 12_000)))]);
+    clearTimeout(timer);
     // The browser also asks for processing and waits on it; this one is the backup if the tab closes.
     waitUntil(runProcess(env, clip.id).then(() => undefined).catch((err) => console.warn('[clips] job', err)));
     return json({ ok: true, id: clip.id, size, status: 'processing' }, 200, { 'Cache-Control': 'private, no-store' });

@@ -144,10 +144,10 @@ function draw() {
   if (S.step === 1) {
     body = `<div class="mt-grid"><section class="h-card mt-card" style="display:grid;gap:16px">
       <div><h3 class="mt-h3">Pick a team or a group</h3><div class="mt-chips">${teamsList().map(([t, n]) => `<button class="mt-chip${S.teams.has(t) ? ' is-on' : ''}" data-team="${esc(t)}">${esc(t)}<span>${n}</span></button>`).join('')}</div></div>
-      <div><h3 class="mt-h3">Add people</h3><div class="mt-add"><input id="addp" placeholder="Name or Favor email" list="plist" autocomplete="off" /><button class="h-btn h-btn--ghost h-btn--sm" id="addbtn">${ic('plus')}Add</button></div>
+      <div><h3 class="mt-h3">Add people</h3><div class="mt-add"><input id="addp" aria-label="Add people" placeholder="Name or Favor email" list="plist" autocomplete="off" /><button class="h-btn h-btn--ghost h-btn--sm" id="addbtn">${ic('plus')}Add</button></div>
         <datalist id="plist">${S.dir.map((p) => `<option value="${esc(p.name)}">`).join('')}</datalist></div>
       <div><h3 class="mt-h3">${S.people.size + S.guests.length} invited</h3><div class="mt-people">${invited().map(person).join('')}${S.guests.map((g, i) => `<span class="mt-person mt-person--guest">${av(g)}${esc(g)}<button data-rg="${i}" aria-label="Remove">${ic('x')}</button></span>`).join('')}</div></div>
-      ${S.guestsOn ? `<div><h3 class="mt-h3">Guests from outside Favor</h3><div class="mt-add"><input id="addg" placeholder="Email address" /><button class="h-btn h-btn--ghost h-btn--sm" id="addgbtn">${ic('plus')}Add guest</button></div></div>` : ''}
+      ${S.guestsOn ? `<div><h3 class="mt-h3">Guests from outside Favor</h3><div class="mt-add"><input id="addg" aria-label="Guest email address" placeholder="Email address" /><button class="h-btn h-btn--ghost h-btn--sm" id="addgbtn">${ic('plus')}Add guest</button></div></div>` : ''}
     </section><aside class="mt-stack"><div class="mt-note">Reads free and busy times only.</div>
       <div class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">How long</div><div class="mt-seg">${[30, 45, 60, 90].map((d) => `<button class="${S.dur === d ? 'is-on' : ''}" data-dur="${d}">${d} min</button>`).join('')}</div></div></aside></div>
       <div class="mt-foot"><button class="h-btn h-btn--ghost" id="startnow">${ic('video')}Start now</button><button class="h-btn h-btn--primary" data-step="2" ${hasWho() ? '' : 'disabled'}>Find times${ic('chev')}</button></div>`;
@@ -191,7 +191,7 @@ function draw() {
 
 function drawBooked() {
   const m = S.booked.meeting; const link = roomLink(m.id);
-  const head = document.querySelector('.h-top__title'); if (head) head.textContent = 'Booked'; document.title = 'Booked';
+  document.title = 'Booked - Favor Hub';
   const end = new Date(Date.parse(m.startsAt) + (m.durationMin || S.dur) * 60000).toISOString();
   const repeatLine = m.repeat && m.repeat !== 'none' ? REPEAT[m.repeat] || '' : '';
   const everyone = [S.me, ...invited()].filter(Boolean).map((p) => ({ name: p.name || p.email, email: p.email }));

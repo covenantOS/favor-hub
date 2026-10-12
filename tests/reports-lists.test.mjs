@@ -189,7 +189,8 @@ describe('appeal mailing list', () => {
     assert.match(q.sql, /Donor Advised Fund/);
     assert.match(q.sql, /International Entity/);
     assert.match(q.sql, /inactive, 0\) = 0 AND COALESCE\(c\.deceased/);
-    assert.deepEqual(q.params, ['2026-01-01', '2026-09-30', 25, 'OK', '%dir%', 'S24A-X']);
+    assert.deepEqual(q.params, ['2026-01-01', '2026-09-30', 25, 'OK', '%dir%', 'S24A-X', 'Asbury Foundation for Theological Education']);
+    assert.match(q.sql, /COALESCE\(c\.no_valid_address, 0\) = 0/);
     assert.equal(r.count, 1);
   });
   it('shows organizations too when asked, with no code exclusion', async () => {
@@ -213,7 +214,30 @@ describe('appeal mailing list', () => {
   it('leaves the filter out of the query when it is blank', async () => {
     seen.length = 0;
     await run(mailing, {}, { sql: mirror({ mailing: async () => [] }) });
-    assert.deepEqual(seen.find((s) => s.mark === 'mailing').params, []);
+    assert.deepEqual(seen.find((s) => s.mark === 'mailing').params, ['Asbury Foundation for Theological Education']);
+  });
+  it('prints the names Blackbaud stores, and builds them from the record only when none is stored', async () => {
+    const r = await run(mailing, {}, { sql: mirror({ mailing: async () => [row({ storedSal: 'Hal & Ivy', storedAddr: 'Mr. Hal Dunn and Ivy' }), row({ id: '2', lookup: '2002' })] }) });
+    assert.equal(r.rows[0].salutation, 'Hal & Ivy');
+    assert.equal(r.rows[0].addressee, 'Mr. Hal Dunn and Ivy');
+    assert.equal(r.rows[1].addressee, 'Hal & Ivy Dunn');
+  });
+  it('writes the mail file with the saved export columns and values', async () => {
+    const r = await run(mailing, {}, { sql: mirror({ mailing: async () => [row({ storedSal: 'Hal and Ivy', storedAddr: 'Hal and Ivy Dunn', zip: '04101' })] }) });
+    assert.deepEqual(r.mailFile, { label: 'Mail file', name: 'Appeal mailing list', rows: 1 });
+    assert.deepEqual(mailing.mailFile.columns.map((c) => c.label), ['Primary Salutation', 'Primary Addressee', 'Organization Name', 'Preferred Send Mail To This Address', 'Preferred Address Line 1', 'Preferred Address Line 2', 'Preferred City', 'Preferred State', 'Preferred ZIP', 'Last Gift Date', 'Last Gift Amount', 'QRECID']);
+    const out = mailing.mailFile.rows(r.rows, r.values, undefined)[0];
+    assert.deepEqual(out, { sal: 'Hal and Ivy', addr: 'Hal and Ivy Dunn', org: '', send: 'Yes', block: '12 Oak St', unit: 'Unit 4', city: 'Tulsa', state: 'Oklahoma', zip: '04101', date: '5/1/2026 12:00:00 AM', amt: '40', qrecid: '1' });
+  });
+  it('ties to saved query 795 when the inputs are the ones it was run with', async () => {
+    const a = await run(mailing, { from: '2025-01-01', min: '$0.01' }, { sql: mirror({ mailing: async () => [row()] }) });
+    assert.equal(a.ties.length, 2);
+    assert.equal(a.ties[0].against, 'Saved query 795, Appeal List Format, run 2026-10-11');
+    assert.equal(a.ties[0].kpi, 2352);
+    assert.equal(a.ties[0].status, 'differs');
+    assert.match(a.ties[0].note, /2364 rows for 2352 partners/);
+    const b = await run(mailing, { from: '2026-01-01' }, { sql: mirror({ mailing: async () => [row()] }) });
+    assert.deepEqual(b.ties, []);
   });
 });
 
@@ -268,7 +292,7 @@ describe('portfolio export', () => {
 describe('the registry', () => {
   it('turns the four lists from coming soon to live, for the roles that use them', () => {
     for (const id of ['status', 'portfolio', 'prayer']) assert.equal(reg.isReady(id), true, id);
-    assert.equal(reg.isReady('mailing'), false);
+    assert.equal(reg.isReady('mailing'), true);
     const mine = (...a) => new Set(a);
     assert.ok(reg.listFor(mine('rdd'), false).some((r) => r.id === 'status' && r.ready));
     assert.ok(reg.listFor(mine('rdd'), false).some((r) => r.id === 'portfolio' && r.ready));

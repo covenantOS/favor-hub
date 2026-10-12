@@ -250,7 +250,7 @@ function rowHTML(a) {
   const who = c.f.length ? c.f.map((x) => `<span class="${live(x) ? '' : 'left'}" title="${live(x) ? esc(P(x).team) : 'Left Favor or not set up as a fundraiser'}">${esc(P(x).n)}${gone(x)}</span>`).join('') : '<span class="none">No one</span>';
   const theirs = S.f.fr && S.f.theirs && !c.f.includes(S.f.fr) && a.hold.includes(S.f.fr);
   const disabled = saving === 'saving' || queued;
-  return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" role="row" tabindex="-1" data-id="${a.id}" aria-selected="${picked}">
+  return `<div class="wc-row${picked ? ' is-picked' : ''}${saving === 'saving' ? ' is-saving' : ''}${back ? ' is-back' : ''}" tabindex="-1" data-id="${a.id}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="Select ${esc(a.p)}, ${esc(a.sum || a.type)}" tabindex="-1" /></div>
     <div class="wc-due"><button type="button" class="wc-inl" data-inl="due" data-id="${a.id}" title="Change the date"><b>${fd(c.due)}</b><span class="wc-late ${lc ? 'wc-late--' + lc : ''}">${ll}</span></button></div>
     <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')}${a.lk ? ' · ID ' + esc(a.lk) : ''}</span></div>
@@ -265,8 +265,8 @@ function tableHTML(list, total, idp) {
   const allOn = shown.length && shown.every((a) => S.sel.has(a.id));
   const sb = (k, l) => `<button type="button" class="sort${S.sort === k ? ' is-on' : ''}" data-sort="${k}">${l}${S.sort === k ? (S.dir < 0 ? ' ↓' : ' ↑') : ''}</button>`;
   return `<div class="wc-selbanner" id="${idp}-banner"></div>
-  <div class="wc-scroll" id="${idp}-scroll" role="grid" aria-multiselectable="true" aria-rowcount="${list.length}">
-    <div class="wc-head wc-grid" role="row"><div class="wc-cb" data-cball><input type="checkbox" ${allOn ? 'checked' : ''} aria-label="Select every action shown" /></div>${sb('due', 'Due')}${sb('partner', 'Partner')}<span>Type</span><span>Summary</span>${sb('fr', 'Fundraiser')}${sb('added', 'Added')}</div>
+  <div class="wc-scroll" id="${idp}-scroll" data-grid>
+    <div class="wc-head wc-grid"><div class="wc-cb" data-cball><input type="checkbox" ${allOn ? 'checked' : ''} aria-label="Select every action shown" /></div>${sb('due', 'Due')}${sb('partner', 'Partner')}<span>Type</span><span>Summary</span>${sb('fr', 'Fundraiser')}${sb('added', 'Added')}</div>
     <div class="wc-grid" id="${idp}-rows">${shown.length ? shown.map((a) => rowHTML(a)).join('') : `<div class="wc-empty"><b>Nothing matches</b>Change a filter or clear them all.</div>`}</div>
     ${list.length > S.shown ? `<div class="wc-more"><button class="h-btn h-btn--ghost h-btn--sm" data-more>Show ${Math.min(100, list.length - S.shown)} more of ${list.length - S.shown}</button></div>` : ''}
   </div>
@@ -374,7 +374,7 @@ function selectable(id) {
 }
 function refreshSel() {
   $$('#view .wc-row[data-id]').forEach((r) => {
-    const on = S.sel.has(r.dataset.id); r.classList.toggle('is-picked', on); r.setAttribute('aria-selected', on);
+    const on = S.sel.has(r.dataset.id); r.classList.toggle('is-picked', on); 
     const cb = $('input', r); if (cb) cb.checked = on;
   });
   if (S.view === 'open' || S.view === 'stale') { const list = S.list.map((id) => BYID[id]); afterTable(S.view === 'open' ? 'o' : 's', list); const all = $('#view [data-cball] input'); if (all) { const shown = list.slice(0, S.shown); all.checked = shown.length > 0 && shown.every((a) => S.sel.has(a.id)); all.indeterminate = !all.checked && shown.some((a) => S.sel.has(a.id)); } }
@@ -438,7 +438,7 @@ document.addEventListener('keydown', (e) => {
   if (!document.body.contains(root)) return;
   if (e.key === 'Escape') { if (closeLayer()) return; if ($('#filters.is-sheet')) { $('#filters').classList.remove('is-sheet'); return; } if (S.sel.size) { clearSel(); return; } }
   const row = e.target.closest && e.target.closest('#view .wc-row[data-id]');
-  const inGrid = e.target.closest && e.target.closest('#view [role=grid], #view .wc-grid, #view .wc-tg');
+  const inGrid = e.target.closest && e.target.closest('#view [data-grid], #view .wc-grid, #view .wc-tg');
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && inGrid && !/input|textarea/i.test(e.target.tagName)) { e.preventDefault(); S.list.filter(bulkable).forEach((id) => S.sel.add(id)); refreshSel(); return; }
   if (!row || /input|textarea|select/i.test(e.target.tagName)) return;
   const rows = $$('#view .wc-row[data-id]'); const i = rows.indexOf(row);
@@ -853,7 +853,7 @@ function intakeRowHTML(r) {
   else if (r.cands.length) partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.cands.length === 1 ? 'One record has this name. Is it the partner?' : r.cands.length + ' records match. Pick one:'}</span><div class="wc-pickp">${r.cands.map((c) => { const x = partnerOf(c) || { n: 'Record ' + c, loc: '', lk: '', hold: [] }; return `<button type="button" data-pick="${r.id}" data-cid="${c}">${esc(x.n)}<span>${esc(x.loc || 'no city')} · ${esc(x.lk)}${x.hold.length ? ' · ' + esc(P(x.hold[0]).n) : ''}</span></button>`; }).join('')}</div>`;
   else partner = `<b class="wc-pname">${esc(r.name)}</b><span class="wc-match">${r.isNew && /y/i.test(r.isNew) ? 'Marked new on the sheet. ' : ''}No record found by ${r.email ? 'email or ' : ''}name.</span><div class="wc-ta"><input type="search" placeholder="Find the partner" data-ta="${r.id}" value="${esc((r.name.split(' - ')[0] || '').replace(/^(.+?),\s*(.+)$/, '$2 $1'))}" aria-label="Find the partner for ${esc(r.name)}" autocomplete="off" /></div>${DATA.me.canMove && window.WCAdd ? `<div class="wc-addp"><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-addp="${r.id}">${ic('user')}Add partner</button></div>` : ''}`;
   const srcLabel = r.source === 'many' ? 'One contact, many partners' : r.source === 'sheet' ? 'Tracking sheet' : r.source === 'paste' ? (r.row ? 'Sheet row ' + r.row : 'Pasted') : 'Typed';
-  return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" role="row" tabindex="-1" data-id="${r.id}" aria-selected="${picked}">
+  return `<div class="wc-row${picked ? ' is-picked' : ''}${st.k === 'dup' ? ' is-dup' : ''}${st.k === 'posted' ? ' is-posted' : ''}" tabindex="-1" data-id="${r.id}">
     <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${locked ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(r.name)}" /></div>
     <div class="wc-pc">${partner}</div>
     <div class="wc-dc"><input class="cell" type="date" value="${r.date}" ${locked ? 'disabled' : ''} data-rdate="${r.id}" aria-label="Date of the contact" /><span class="wc-sub">${srcLabel}</span></div>
@@ -921,7 +921,7 @@ function viewIntake() {
         <textarea id="pastebox" placeholder="Copy the rows in the sheet (Ctrl C) and paste them here (Ctrl V)."></textarea>
         <div class="wc-paste__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-readpaste>Read the rows</button><button type="button" class="wc-clear" data-paste>Close</button><small>Each row is matched to a partner by email, then phone, then name. Rows already here or in Blackbaud are skipped.</small></div>
       </div>
-      <div class="wc-scroll wc-scroll--in" role="grid" aria-multiselectable="true">
+      <div class="wc-scroll wc-scroll--in" data-grid>
         ${list.length ? `<div class="wc-head wc-ig"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row shown" /></div><span>Partner</span><span>Date</span><span>How</span><span>State</span></div>
         <div class="wc-ig">${list.map(intakeRowHTML).join('')}</div>` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
       </div>
@@ -1099,7 +1099,7 @@ function viewTy() {
     const saving = g.ids.some((id) => S.saving[id] === 'saving' || pendingOf(BYID[id])); const failed = g.ids.some((id) => S.saving[id] === 'failed');
     const evid = g.later ? `<b>${esc(g.later.s || '(no summary)')}</b><span>${g.later.k === 's' ? 'Thanked' : ({ 'Phone call': 'Call', Email: 'Email', Mailing: 'Mailing', Meeting: 'Meeting' })[g.later.cat] || 'Contact'} ${fd(g.later.d)} · ${g.later.by.map((x) => esc(P(x).n)).join(', ') || 'no fundraiser'}</span>` : `<b>${age <= 0 ? 'Owed since today' : 'Owed ' + plural(age, 'day')}</b><span>No contact logged on this partner since the task was made</span>`;
     const btn = S.ty.lane === 's' ? 'Close' : S.ty.lane === 'l' ? 'That was it' : 'Thanked';
-    return `<div class="wc-row${picked ? ' is-picked' : ''}${saving ? ' is-saving' : ''}" role="row" tabindex="-1" data-id="${g.key}" aria-selected="${picked}">
+    return `<div class="wc-row${picked ? ' is-picked' : ''}${saving ? ' is-saving' : ''}" tabindex="-1" data-id="${g.key}">
       <div class="wc-cb" data-cb><input type="checkbox" ${picked ? 'checked' : ''} ${saving ? 'disabled' : ''} tabindex="-1" aria-label="Select ${esc(a.p)}" /></div>
       <div class="wc-partner"><a class="wc-plink" href="/work/partner/${esc(a.cid)}" data-partner-id="${esc(a.cid)}">${esc(a.p)}</a><span class="wc-sub">${esc(a.loc || 'No city on file')} · ${cur(a).f.map((x) => esc(P(x).n)).join(', ')}</span></div>
       <div class="wc-what wc-task"><b>${esc(a.sum || a.type)}</b><div class="wc-tags">${a.gift ? `<span class="wc-tag wc-tag--gift">${money(a.gift.a)} on ${fd(a.gift.d)}${a.gift.fund ? ' · ' + esc(a.gift.fund) : ''}</span>` : '<span class="wc-tag">Gift not named in the task</span>'}${g.ids.length > 1 ? `<span class="wc-tag" title="Blackbaud holds ${g.ids.length} open tasks for this one gift. Closing the row closes all of them.">${g.ids.length} tasks, one gift</span>` : ''}${saving ? '<span class="wc-tag wc-tag--saving">Saving</span>' : ''}${failed ? '<span class="wc-tag wc-tag--warn">Did not go through. Try again.</span>' : ''}</div></div>
@@ -1114,8 +1114,8 @@ function viewTy() {
     <section class="h-card wc-sheet" id="wc-ty" aria-label="Thank-yous">
       <div class="wc-filters"><div class="wc-lanes" role="tablist">${['s', 'l', 'o'].map((k) => `<button type="button" class="wc-lane${S.ty.lane === k ? ' is-on' : ''}" data-tylane="${k}">${LANE[k][0]}<span>${sec[k].length}</span></button>`).join('')}</div>
         <div class="wc-tools"><button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly" data-cball>Select all</button>${S.ty.lane === 's' && L.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-tycloseall="s">${ic('check')}Close all ${L.length}</button>` : ''}</div></div>
-      <div class="wc-scroll" role="grid" aria-multiselectable="true">
-        ${L.length ? `<div class="wc-head wc-tg" role="row"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
+      <div class="wc-scroll" data-grid>
+        ${L.length ? `<div class="wc-head wc-tg"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row" /></div><span>Partner</span><span>Task</span><span>${S.ty.lane === 'o' ? 'Owed' : 'Logged after the task'}</span><span></span></div>
         <div class="wc-tg">${L.map(rowT).join('')}</div>` : `<div class="wc-empty"><b>Nothing here</b>${gs.length ? 'Pick another lane above.' : 'Every thank-you task for this person is closed.'}</div>`}
       </div>
       <div class="wc-foot"><span>${plural(L.length, 'row')} · ${plural(L.reduce((n, g) => n + g.ids.length, 0), 'open task')} in Blackbaud</span><span class="wc-keys"><span><kbd>Shift</kbd>click a range</span><span><kbd>Esc</kbd>clear</span></span></div>

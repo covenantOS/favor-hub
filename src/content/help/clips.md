@@ -7,7 +7,7 @@ for: [all]
 related: [getting-started, whats-new]
 tool: /clips/
 toolLabel: Open Clips
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 Clips records your screen, a window, a browser tab or your camera and gives you a link. It suits a short walkthrough of something you do every week, or a question you want to show instead of type. Every staff member with a hub sign-in can record. Your clips are your own: other people see a clip only when you send them its link.
@@ -16,9 +16,17 @@ Clips records your screen, a window, a browser tab or your camera and gives you 
 
 Press the camera at the top right of any page, or choose **Record a clip** from the menu under your name. A small recorder window opens next to the hub.
 
-Pick Full screen, Window, Tab or Camera only. Turn the camera and the microphone on or off. With the camera on, a round bubble of your face shows up, and S, M and L set its size. Tick Include computer sound to record the sound a tab or the computer plays. Press Start recording. Your browser asks which screen, window or tab to share, a 3, 2, 1 countdown runs, and then the timer starts.
+The card shows what will be recorded. Pick Full screen, Window, Tab or Camera only. Turn the camera, the microphone and computer sound on or off. With the camera on, your face shows as a round bubble on the preview: S, M and L set its size, and dragging it sets where it sits in the video. The bars next to Microphone move when it hears you. Press Start recording. Your browser asks which screen, window or tab to share, a 3, 2, 1 countdown runs, and then the timer starts.
 
-The recorder window holds the recording, so you can go to any page in the hub, reload a page, or switch to another app, and the recording keeps going. Leave the recorder window open. Its small bar holds the timer, a microphone meter, Mute, Pause, Stop and save, and Discard. The camera button in the hub shows a red dot while a recording runs, and pressing it brings the recorder window forward.
+## The controls follow you
+
+In Chrome and Edge a small window with the controls floats above everything on your computer, other apps included. Drag it anywhere by its title bar. It holds Stop and save, the time, Pause, Mute, Start over and Discard, and the round camera when the camera is on. Closing that window never ends the recording. The Float button in the recorder window brings it back. A full screen recording shows the floating window in the video. Turn Floating controls off on the card to leave it out. With the camera on, the round camera still floats.
+
+In Safari and Firefox, and in Chrome or Edge with the floating window closed, the same controls show as a pill on every hub page. Drag it by the dots at its left end, or move it with the arrow keys. It stays where you put it as you go from page to page.
+
+Start over deletes what you recorded so far and begins again after a new countdown, with the same screen, camera and microphone. Discard deletes the recording. Both ask first.
+
+The recorder window holds the recording, so you can go to any page in the hub, reload a page, or switch to another app, and the recording keeps going. Leave the recorder window open. The camera button in the hub shows a red dot while a recording runs, and pressing it brings the recorder window forward. When you stop, the controls say Clip saved and link to the clip.
 
 If your browser blocks pop-up windows, the hub says so and records in the page instead. In that case keep the tab open.
 

@@ -49,6 +49,10 @@ export interface Clip {
   views: number;
   created_at: string;
   updated_at: string;
+  /** Fast-start state, see functions/_lib/clipmuxjob.ts. Missing until db/clips-mux.sql has been run. */
+  mux?: string;
+  mux_info?: string;
+  mux_at?: string | null;
 }
 
 export interface ClipsEnv extends Env {

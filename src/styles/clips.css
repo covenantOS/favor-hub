@@ -53,7 +53,7 @@
 .cl-adminlink[hidden] { display: none; }
 .cl-use { padding: 14px 16px; border-radius: 16px; background: var(--h-surface-2); border: 1px solid var(--h-line); }
 .cl-use.is-warn { background: var(--h-gold-soft); border-color: #e4d3a3; }
-.cl-use__t { font-size: 13.5px; color: var(--h-ink-2); margin-bottom: 8px; }
+.cl-use__t { font-size: 14px; color: var(--h-ink-2); margin-bottom: 8px; }
 .cl-use__t b { color: var(--h-ink); }
 .cl-use__w { margin: 10px 0 0; font-size: 13px; color: #5e4812; }
 .cl-meter { display: block; height: 8px; border-radius: 999px; background: #e8e4dc; overflow: hidden; }

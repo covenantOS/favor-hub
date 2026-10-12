@@ -7,6 +7,7 @@ import App from '../../layouts/App.astro';
 import '../../styles/brain.css';
 import '../../styles/fix-brain.css';
 import '../../styles/crit-brain.css';
+import '../../styles/lint-fix.css';
 import { SPRITE } from './_icons';
 
 const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use href="#bci-${n}"/></svg>`;
@@ -75,7 +76,7 @@ const I = (n: string, c = 'h-i') => `<svg class="${c}" aria-hidden="true"><use h
     <div class="dlg" id="bc-dlg" role="dialog" aria-modal="true" aria-labelledby="bc-dlg-h"></div>
     <div class="toast" id="bc-toast" role="status" aria-live="polite"></div>
   </div>
-  <script is:inline src="/js/brain-blocks.js?v=8"></script>
+  <script is:inline src="/js/brain-blocks.js?v=10"></script>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
-  <script is:inline src="/js/brain.js?v=16" defer></script>
+  <script is:inline src="/js/brain.js?v=18" defer></script>
 </App>

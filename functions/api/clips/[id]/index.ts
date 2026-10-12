@@ -4,6 +4,7 @@ import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/h
 import { J, staffOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
 import { cleanEdits, respread } from '../../../_lib/clipEdits';
 import { cleanChapters, type ClipSegment, type ClipWord } from '../../../_lib/clipChapters';
+import { fastKey, muxInfo } from '../../../_lib/clipmuxjob';
 
 export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
@@ -65,6 +66,9 @@ export const onRequestDelete: PagesFunction<ClipsEnv, 'id'> = async ({ request, 
     if (clip.status === 'uploading' && clip.upload_id) {
       await env.CLIPS.resumeMultipartUpload(videoKey(clip.id), clip.upload_id).abort().catch(() => undefined);
     }
+    // A fast-start file still being written is an open upload of its own.
+    const writing = muxInfo(clip).upload;
+    if (writing) await env.CLIPS.resumeMultipartUpload(fastKey(clip.id), writing.id).abort().catch(() => undefined);
     // Rows first, so a transcript or processing run still in flight finds no clip and stops writing. Then the files, twice:
     // the second pass catches anything a run in flight wrote while the first was listing.
     await env.DB.batch([

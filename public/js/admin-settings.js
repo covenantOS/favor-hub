@@ -13,13 +13,14 @@
     if (s.kind === 'enum') return '<select class="ad-field" id="' + id + '" data-id="' + E(s.id) + '">' + s.options.map(function (o) { return '<option value="' + E(o.value) + '"' + (o.value === s.value ? ' selected' : '') + '>' + E(o.label) + '</option>'; }).join('') + '</select>';
     if (s.kind === 'int') return '<span style="display:flex;gap:8px;align-items:center"><input class="ad-field ad-field--num" id="' + id + '" data-id="' + E(s.id) + '" type="number" inputmode="numeric" min="' + s.min + '" max="' + s.max + '" value="' + E(s.value) + '"><span class="ad-set__who">' + E(s.unit) + '</span></span>';
     if (s.kind === 'date') return '<input class="ad-field" id="' + id + '" data-id="' + E(s.id) + '" type="date" value="' + E(s.value) + '">';
+    if (s.kind === 'text' && s.id.indexOf('statements.w.') === 0) return '<textarea class="ad-field" id="' + id + '" data-id="' + E(s.id) + '" rows="' + (s.value.length > 160 ? 4 : 2) + '">' + E(s.value) + '</textarea>';
     return '<input class="ad-field" id="' + id + '" data-id="' + E(s.id) + '" type="text" value="' + E(s.value) + '"' + (s.id === 'clips.list' ? ' placeholder="name@favorintl.org, name@favorintl.org"' : '') + '>';
   }
 
   function row(s) {
     var id = 'f-' + s.id.replace(/\W/g, '-');
     var who = s.saved && s.at ? 'Changed ' + new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', timeZone: 'America/New_York' }).format(new Date(s.at)) + (s.by ? ' by ' + s.by : '') : '';
-    return '<div class="ad-set" data-row="' + E(s.id) + '"><div><label class="ad-set__name" for="' + id + '">' + E(s.label) + (s.bb ? '<span class="ad-bbtag">Blackbaud</span>' : '') + '</label>' +
+    return '<div class="ad-set" data-row="' + E(s.id) + '"><div><label class="ad-set__name" for="' + id + '">' + E(s.label) + (s.bb ? '<span class="ad-bbtag">Blackbaud</span>' : '') + (s.contact ? '<span class="ad-bbtag">Contacts partners</span>' : '') + '</label>' +
       (s.hint ? '<div class="ad-set__hint">' + E(s.hint) + '</div>' : '') + (who ? '<div class="ad-set__where">' + E(who) + '</div>' : '') + '</div>' +
       '<div>' + control(s) + '</div><div class="ad-acts"><button type="button" class="ad-btn ad-btn--primary" data-save="' + E(s.id) + '" disabled>Save</button>' +
       (s.canReset ? '<button type="button" class="ad-btn" data-reset="' + E(s.id) + '">Use ' + (s.id.indexOf('meet.') === 0 || s.id === 'receipts.report' ? 'the Pages value' : 'the default') + '</button>' : '') + '</div>' +
@@ -125,7 +126,7 @@
     var shown = function (v) { var o = s.options.filter(function (x) { return x.value === v; })[0]; return o ? o.label : (v === '' ? 'blank' : v + (s.unit ? ' ' + s.unit : '')); };
     var box = document.createElement('div');
     box.className = 'ad-confirm';
-    box.innerHTML = '<p>' + E(s.label) + ' changes what the hub sends to Blackbaud. It is <b>' + E(shown(s.value)) + '</b> now. Change it to <b>' + E(shown(next)) + '</b>?</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--warn" data-yes>Confirm the change</button><button type="button" class="ad-btn" data-no>Keep ' + E(shown(s.value)) + '</button></div>';
+    box.innerHTML = '<p>' + E(s.label) + (s.contact ? ' changes whether the hub emails partners. It is <b>' : ' changes what the hub sends to Blackbaud. It is <b>') + E(shown(s.value)) + '</b> now. Change it to <b>' + E(shown(next)) + '</b>?</p><div class="ad-acts" style="justify-content:flex-start"><button type="button" class="ad-btn ad-btn--warn" data-yes>Confirm the change</button><button type="button" class="ad-btn" data-no>Keep ' + E(shown(s.value)) + '</button></div>';
     rowEl.appendChild(box);
     box.querySelector('[data-yes]').onclick = function () { send(s.id, { value: next, confirm: true }); };
     box.querySelector('[data-no]').onclick = function () { box.remove(); };
@@ -149,7 +150,7 @@
     var sv = e.target.closest('[data-save]'), rs = e.target.closest('[data-reset]');
     if (sv) {
       var s = current(sv.dataset.save), next = valueOf(s.id);
-      if (s.bb) confirmBox(s, next); else send(s.id, { value: next });
+      if (s.bb || s.contact) confirmBox(s, next); else send(s.id, { value: next });
     } else if (rs) {
       send(rs.dataset.reset, { reset: true });
     }

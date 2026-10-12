@@ -1,0 +1,56 @@
+---
+import App from '../../layouts/App.astro';
+import SheetsButton from '../../components/SheetsButton.astro';
+import '../../styles/requests.css';
+import '../../styles/expenses.css';
+import '../../styles/foundations.css';
+import '../../styles/receipts.css';
+import '../../styles/qa-work.css';
+import '../../styles/crit-forms.css';
+import '../../styles/q3-desk.css';
+import '../../styles/statements.css';
+---
+<App title="Giving statements" crumb="Work" nav="statements" description="One partner's giving statement on request, and the January year-end statements for every partner on the tax receipt lists.">
+  <div class="fnd-page rcp-page stm-page">
+    <div class="container">
+      <header class="board-intro">
+        <div>
+          <p class="make-kicker">Admin desk</p>
+          <h1>Giving statements</h1>
+        </div>
+      </header>
+
+      <div id="stm-app" hidden>
+        <div class="fnd-tabs" id="stm-tabs" role="tablist"></div>
+
+        <section class="make-sheet fnd-sheet" id="stm-view-one">
+          <div class="stm-find">
+            <label class="req-field"><span>Find a partner</span><input type="search" id="stm-q" placeholder="Name or Blackbaud ID" autocomplete="off" maxlength="80" /></label>
+            <div class="stm-hits" id="stm-hits" role="listbox" aria-label="Partners found"></div>
+          </div>
+          <div id="stm-one" hidden>
+            <div class="stm-who" id="stm-who"></div>
+            <div class="stm-controls">
+              <label class="req-field"><span>Period</span>
+                <select id="stm-period"></select>
+              </label>
+              <label class="req-field" id="stm-from-wrap" hidden><span>From</span><input type="date" id="stm-from" /></label>
+              <label class="req-field" id="stm-to-wrap" hidden><span>To</span><input type="date" id="stm-to" /></label>
+              <label class="stm-check"><input type="checkbox" id="stm-soft" checked /> List gifts made through a fund or foundation</label>
+            </div>
+            <div class="stm-sheet" id="stm-sheet" hidden><SheetsButton name="statement" /></div>
+            <div id="stm-preview" aria-live="polite"></div>
+          </div>
+        </section>
+
+        <section class="make-sheet fnd-sheet" id="stm-view-year" hidden></section>
+        <section class="make-sheet fnd-sheet" id="stm-view-files" hidden></section>
+        <section class="make-sheet fnd-sheet" id="stm-view-wording" hidden></section>
+      </div>
+      <p class="rcp-loading" id="stm-loading"><span class="rcp-spin"></span>Opening</p>
+    </div>
+  </div>
+
+  <div class="fnd-toast" id="stm-toast" role="status" aria-live="polite"></div>
+  <script is:inline src="/js/statements.js?v=1"></script>
+</App>

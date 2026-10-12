@@ -309,7 +309,7 @@
     CHARTS[id] = b;
     return `<div class="card chart"><div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px"><div class="card__t">${esc(b.title)}</div>
       <div class="legend" style="margin-left:auto">${(b.series || []).map((s, i) => `<span><s class="${b.kind === 'line' ? 'ln' : ''}" style="background:${SERIES[i % 4]}"></s>${esc(s.label)}</span>`).join('')}</div></div>
-      <div class="chart__wrap" data-chart="${id}"></div>${b.note ? `<div style="font-size:12px;color:var(--h-ink-3);margin-top:6px">${esc(b.note)}</div>` : ''}</div>`;
+      <div class="chart__wrap" data-chart="${id}"></div>${b.note ? `<div style="font-size:13px;color:var(--h-ink-3);margin-top:6px">${esc(b.note)}</div>` : ''}</div>`;
   }
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // 2026-03 reads as Mar; the year shows on the first label and on every January.

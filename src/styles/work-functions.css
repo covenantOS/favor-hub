@@ -1,0 +1,58 @@
+/* The Declines, Grants and Gift images tabs of the Work Center, and the Appeal codes page. Built on the Gifts to thank rows and the hub tokens. */
+.wfn-row { grid-template-columns: minmax(180px, 1.1fr) minmax(220px, 1.3fr) 112px minmax(170px, 1fr) 120px; align-items: start; }
+.wfn-who, .wfn-why, .wfn-due, .wfn-last { display: grid; gap: 3px; align-content: start; justify-items: start; }
+.wfn-why .wg-sub, .wfn-last .wg-sub { margin: 0; }
+.wfn-due b { font: 600 13.5px var(--h-font); color: var(--h-ink); display: block; }
+.wfn-due b.is-late { color: var(--h-red); }
+.wfn-status { display: grid; gap: 4px; margin-top: 8px; }
+.wfn-status span { font: 600 12px var(--h-font); color: var(--h-ink-3); }
+.wfn-status select { height: 36px; border: 1px solid var(--h-line-2); border-radius: 10px; padding: 0 10px; background: #fff; font: 500 13.5px var(--h-font); color: var(--h-ink); }
+
+.wgr-row { grid-template-columns: minmax(180px, 1.1fr) minmax(260px, 1.8fr) 112px minmax(100px, 0.6fr) 170px; align-items: start; }
+.wgr-who, .wgr-what, .wgr-date, .wgr-by { display: grid; gap: 3px; align-content: start; justify-items: start; }
+.wgr-what .wg-sub, .wgr-by .wg-sub { margin: 0; }
+.wgr-sum { font: 500 13.5px var(--h-font); color: var(--h-ink); }
+.wgr-date b { font: 600 13.5px var(--h-font); color: var(--h-ink); }
+
+.wgi-row { grid-template-columns: 112px minmax(180px, 1.2fr) minmax(220px, 1.3fr) 190px; align-items: start; }
+.wgi-who, .wgi-why { display: grid; gap: 3px; align-content: start; justify-items: start; }
+.wgi-why .wg-sub { margin: 0; }
+.wgi-toggle { display: inline-flex; align-items: center; gap: 8px; font: 500 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+
+.ap-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 12px 0; align-items: start; }
+.ap-grid .bu-f { align-content: start; }
+.ap-wide { grid-column: 1 / -1; }
+.ap-hint { color: var(--h-ink-3); font-size: 12px; }
+.ap-opt { color: var(--h-ink-3); font-style: normal; font-weight: 400; }
+.ap-twin { align-self: end; }
+.ap-preview { display: grid; gap: 6px; margin: 8px 0; }
+.ap-preview code { font: 600 14px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--h-ink); background: var(--h-surface-2); padding: 2px 8px; border-radius: 8px; }
+.ap-preview .is-bad { color: var(--h-red); }
+
+@media (max-width: 1180px) {
+  .wfn-row { grid-template-columns: minmax(160px, 1fr) minmax(200px, 1fr) 104px minmax(150px, 1fr); }
+  .wfn-row .wg-acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .wgr-row { grid-template-columns: minmax(160px, 1fr) minmax(220px, 1.5fr) 104px; }
+  .wgr-row .wgr-by { display: none; }
+  .wgr-row .wg-acts { grid-column: 1 / -1; justify-content: flex-start; }
+  .wgi-row { grid-template-columns: 104px minmax(160px, 1fr) minmax(200px, 1fr); }
+  .wgi-row .wg-acts { grid-column: 1 / -1; justify-content: flex-start; }
+}
+@media (max-width: 720px) {
+  .wfn-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'who due' 'why why' 'last last' 'acts acts'; }
+  .wfn-row .wfn-who { grid-area: who; }
+  .wfn-row .wfn-due { grid-area: due; text-align: right; justify-items: end; }
+  .wfn-row .wfn-why { grid-area: why; }
+  .wfn-row .wfn-last { grid-area: last; }
+  .wfn-row .wg-acts { grid-area: acts; }
+  .wgr-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'who date' 'what what' 'acts acts'; }
+  .wgr-row .wgr-who { grid-area: who; }
+  .wgr-row .wgr-date { grid-area: date; text-align: right; justify-items: end; }
+  .wgr-row .wgr-what { grid-area: what; }
+  .wgr-row .wg-acts { grid-area: acts; }
+  .wgi-row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'who amt' 'why why' 'acts acts'; }
+  .wgi-row .wg-amt { grid-area: amt; text-align: right; }
+  .wgi-row .wgi-who { grid-area: who; }
+  .wgi-row .wgi-why { grid-area: why; }
+  .wgi-row .wg-acts { grid-area: acts; }
+}
