@@ -312,7 +312,7 @@ describe('the outbox creates an unapproved batch', () => {
     p = await flow.advance(c(), d.id);
     assert.equal(p.status, 'created');
     const created = sent.filter((s) => s[0].method === 'POST' && s[0].path === '/gift-batch/v1/giftbatches');
-    assert.equal(created.length, 1, 'the batch was made once; the retry found it by the hub id');
+    assert.equal(created.length, 1, 'the batch was made once; the retry found it by FavorOS id');
     assert.equal((await store.getDeposit(env, d.id)).bb_batch_number, 'GFT-2026-1200');
   });
 
@@ -389,11 +389,11 @@ describe('watching for the commit', () => {
     assert.equal(dep.bb_batch_number, 'GFT-2026-1300');
   });
 
-  it('says so when the batch holds different gifts or dollars than the hub sent', async () => {
+  it('says so when the batch holds different gifts or dollars than FavorOS sent', async () => {
     const d = await created();
     script = () => ({ results: [ok({ giftbatches: [{ id: '9005', number_of_gifts: 3, actual_amount: 250, approved: false }] })] });
     const w = await flow.pollBatch(ctx(), d.id);
-    assert.match(w.mismatch, /shows 3 gifts and \$250\.00\. The hub sent 2 and \$200\.00/);
+    assert.match(w.mismatch, /shows 3 gifts and \$250\.00\. FavorOS sent 2 and \$200\.00/);
   });
 });
 

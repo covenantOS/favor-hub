@@ -1,0 +1,68 @@
+/* today2: every Today row opens a place inside FavorOS. Meeting rows with their actions, the outside-meeting sheets, the shared-file
+   viewer's buttons, and the outline for the feedback note Today opened. Loaded after the other Today styles. */
+
+/* rows that are buttons look like the row links beside them */
+.t2-rowbtn { width: 100%; text-align: left; background: none; border: 0; font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+a.r2t-fr { color: inherit; text-decoration: none; }
+a.r2t-more-n { display: flex; align-items: center; min-height: 44px; color: var(--r-ink-2); text-decoration: none; }
+a.r2t-more-n:hover { color: var(--r-ink); }
+
+/* a meeting: the row on top, its actions under it */
+.r2t-ev { display: flex; flex-direction: column; }
+.r2t-ev.is-over > .r2t-lr { opacity: 0.55; }
+.r2t-ev.is-declined .r2t-lr__t b { text-decoration: line-through; }
+.r2t-ev__a { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 10px 10px 10px; }
+.r2t-ev__a .h-btn { text-decoration: none; }
+.r2t-ev__a a.r2t-chip { height: 30px; text-decoration: none; }
+.r2t-ev__a a.r2t-chip:hover { background: var(--r-line); }
+.t2-nudge { margin: 0; padding: 4px 16px 12px; font: 500 13px var(--h-font); color: var(--r-ink-3); }
+@media (max-width: 860px) {
+  .r2t-ev__a { gap: 8px; padding: 0 10px 12px; }
+  .r2t-ev__a .h-btn, .r2t-ev__a a.r2t-chip { min-height: 44px; }
+  .r2t-ev__a a.r2t-chip { display: inline-flex; padding: 0 14px; }
+}
+
+/* the sheets: a card from the bottom on a phone, a dialog on a desktop */
+.t2-layer { position: fixed; inset: 0; z-index: 1900; display: flex; align-items: flex-end; justify-content: center; opacity: 0; transition: opacity 0.16s; }
+.t2-layer.is-in { opacity: 1; }
+.t2-scrim { position: absolute; inset: 0; background: rgba(29, 33, 27, 0.42); }
+.t2-sheet { position: relative; width: 100%; max-width: 480px; max-height: calc(100% - 56px); overflow-y: auto; overscroll-behavior: contain; background: #fff; border-radius: 22px 22px 0 0; padding: 8px 20px calc(20px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(29, 33, 27, 0.22); transform: translateY(16px); transition: transform 0.2s var(--r-ease, ease); }
+.t2-layer.is-in .t2-sheet { transform: none; }
+.t2-grab { width: 40px; height: 4px; border-radius: 2px; background: var(--r-line-2, #d9d4c4); margin: 0 auto 6px; }
+.t2-h { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0 12px; }
+.t2-h > div { flex: 1; min-width: 0; }
+.t2-h h3 { font: 600 18px/1.3 var(--h-font); margin: 0; overflow-wrap: anywhere; }
+.t2-h p { margin: 2px 0 0; font: 500 14px/1.4 var(--h-font); color: var(--r-ink-3); }
+.t2-x { flex: none; width: 44px; height: 44px; margin: -6px -10px 0 0; display: grid; place-items: center; border: 0; border-radius: 12px; background: none; color: var(--r-ink-2); cursor: pointer; }
+.t2-x:hover { background: var(--r-hover); }
+.t2-x svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.t2-facts { margin: 0; display: grid; gap: 0; border-top: 1px solid var(--r-line); }
+.t2-facts > div { display: flex; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--r-line); }
+.t2-facts dt { flex: none; width: 76px; font: 600 13px var(--h-font); color: var(--r-ink-3); }
+.t2-facts dd { margin: 0; flex: 1; min-width: 0; font: 500 15px/1.4 var(--h-font); }
+.t2-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.t2-chips a.r2t-chip { height: 30px; text-decoration: none; }
+.t2-list { margin: 0; padding: 0 0 0 18px; display: grid; gap: 8px; font: 500 15px/1.45 var(--h-font); color: var(--r-ink); }
+.t2-note { margin: 12px 0 0; font: 500 14px/1.45 var(--h-font); color: var(--r-ink-2); }
+.t2-check { display: flex; align-items: flex-start; gap: 12px; margin-top: 16px; min-height: 44px; font: 600 15px/1.4 var(--h-font); cursor: pointer; }
+.t2-check input { flex: none; width: 22px; height: 22px; margin: 1px 0 0; accent-color: var(--a, #2b4d24); }
+.t2-err { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--tc-clay-tint, #f7dcd5); color: var(--tc-clay-ink, #8a2f1b); font: 600 14px/1.4 var(--h-font); }
+.t2-acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.t2-acts .h-btn { flex: 1 1 160px; min-height: 48px; justify-content: center; text-decoration: none; }
+.t2-sec { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 6px; font: 600 14px var(--h-font); color: var(--r-ink-2); text-decoration: none; }
+.t2-sec:hover { color: var(--r-ink); text-decoration: underline; }
+@media (min-width: 861px) {
+  .t2-layer { align-items: center; }
+  .t2-sheet { border-radius: 22px; padding: 12px 24px 24px; transform: translateY(8px); }
+  .t2-grab { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .t2-layer, .t2-sheet { transition: none; }
+}
+
+/* the file viewer's own buttons (Chat styles these in its own page) */
+.ch-btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--r-line-2); background: #fff; color: var(--r-ink); display: inline-flex; align-items: center; justify-content: center; font: 600 14px var(--h-font); cursor: pointer; }
+.ch-btn--primary { background: var(--a, #2b4d24); border-color: var(--a, #2b4d24); color: #fff; }
+
+/* the feedback note Today opened */
+.fbp-item.is-focus { box-shadow: 0 0 0 2px var(--a, #2b4d24); }

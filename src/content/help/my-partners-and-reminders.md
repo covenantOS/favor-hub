@@ -28,9 +28,9 @@ Tick the partners you want to call and press Plan calls. Choose This week, Two w
 
 ## Reminders
 
-The bell at the top of the hub shows how many reminders are due. Press it to see them. Prep opens the partner. Done clears a reminder. Later moves it to in an hour, this afternoon, tomorrow morning or next week.
+The bell at the top of FavorOS shows how many reminders are due. Press it to see them. Prep opens the partner. Done clears a reminder. Later moves it to in an hour, this afternoon, tomorrow morning or next week.
 
-Open a partner and press the small bell on any open task to set a reminder for it. Pick a quick choice or a day and time. Press the bell again to change or remove it. Reminders are yours alone and stay in the hub, so nothing about them goes to Blackbaud.
+Open a partner and press the small bell on any open task to set a reminder for it. Pick a quick choice or a day and time. Press the bell again to change or remove it. Reminders are yours alone and stay in FavorOS, so nothing about them goes to Blackbaud.
 
 ## The morning email
 

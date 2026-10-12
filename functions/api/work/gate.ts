@@ -1,6 +1,7 @@
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { workAccessFor } from '../../_lib/work/gate';
+import { modeAllows, projectsMode } from '../../_lib/projects/access';
 
 // Whether this person may open the Work Center, and why not. The page asks first so it can show the right gate screen.
 // Admins may add ?as=<email> to see another person's answer.
@@ -14,7 +15,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const admin = user.role === 'admin' && !as && !actAs;
     const email = actAs || (as && user.role === 'admin' ? as.trim().toLowerCase() : user.email);
     const a = await workAccessFor(env, email, admin, { ignoreRelease: !!actAs });
-    return json({ ok: true, open: a.ok, admin: a.admin, reason: a.reason, release: a.release, name: actAs ? a.staff?.name || actAs : user.name });
+    const projects = modeAllows(await projectsMode(env).catch(() => 'admins'), { admin: user.role === 'admin' && !actAs });
+    return json({ ok: true, open: a.ok, admin: a.admin, reason: a.reason, release: a.release, name: actAs ? a.staff?.name || actAs : user.name, access: { projects } });
   } catch (err) {
     return handleError(err);
   }

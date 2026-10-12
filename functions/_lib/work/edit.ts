@@ -150,7 +150,7 @@ function tagsFromMirror(t: Record<string, any> | null): { category: string; valu
 
 export async function actionDetail(ctx: Ctx, id: string) {
   const got = await actionRaw(ctx.env, id);
-  if (!got) throw new HttpError(404, 'not_found', 'That action is not in the hub’s copy of Blackbaud yet. If it was added in the last few minutes, try again shortly.');
+  if (!got) throw new HttpError(404, 'not_found', 'That action is not in FavorOS’s copy of Blackbaud yet. If it was added in the last few minutes, try again shortly.');
   const pend = await pendingFor(ctx.env, id, got.synced);
   const view = { ...got.raw, ...pend.body };
   const partner = await partnerContext(ctx, String(got.raw.constituent_id));
@@ -561,7 +561,7 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     if (over.errors.length) throw new HttpError(400, 'bad_field', over.errors[0]);
     for (const cid of targets) {
       const partner = await partnerName(ctx.env, cid);
-      if (!partner) throw new HttpError(404, 'no_partner', 'That partner is not in the hub’s copy of Blackbaud.');
+      if (!partner) throw new HttpError(404, 'no_partner', 'That partner is not in FavorOS’s copy of Blackbaud.');
       const body = { ...copyBody(current, cid), ...over.body, constituent_id: cid };
       const steps: Step[] = [{ op: 'create', body, label: input.op === 'move' ? 'move copy' : 'duplicate' }];
       if (input.op === 'move') {
@@ -585,7 +585,7 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
       // Undo puts a copy back (a new action with the same fields). Notes and attachments on it do not come back.
       items.push({ actionId: id, cid: String(raw.constituent_id), label: labelFor(raw.__partner, raw.summary || raw.type), steps: [{ op: 'delete', actionId: id, body: {}, before: { __restore: copyBody(raw, String(raw.constituent_id)) }, label: 'delete' }] });
     }
-    if (!items.length) throw new HttpError(404, 'not_found', 'Those actions are not in the hub’s copy of Blackbaud.');
+    if (!items.length) throw new HttpError(404, 'not_found', 'Those actions are not in FavorOS’s copy of Blackbaud.');
     Object.assign(params, { n: items.length });
     return { items, params, reads, skipped: ids.length - items.length, changed: 0 };
   }
@@ -669,7 +669,7 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
       const oid = String(input.opp_id || '');
       if (!ID.test(oid)) throw new HttpError(400, 'bad_opp', 'Pick the opportunity.');
       const cur = await oppRaw(ctx, oid);
-      if (!cur) throw new HttpError(404, 'not_found', 'That opportunity is not in the hub’s copy of Blackbaud.');
+      if (!cur) throw new HttpError(404, 'not_found', 'That opportunity is not in FavorOS’s copy of Blackbaud.');
       if (!Object.keys(body).length) throw new HttpError(400, 'nothing_to_do', 'Nothing changed.');
       const cid = String(cur.constituent_id || '');
       const partner = await partnerName(ctx.env, cid);
@@ -718,7 +718,7 @@ export async function planEdit(ctx: Ctx, input: EditInput, board: { today: strin
     if (f.id) {
       if (!ID.test(String(f.id))) throw new HttpError(400, 'bad_field', 'Pick what to change.');
       const rows = await q<{ raw: string; cid: string }>(ctx.env, `SELECT raw_json AS raw, constituent_record_id AS cid FROM ${table} WHERE id = ?1 LIMIT 1`, [String(f.id)]).catch(() => []);
-      if (!rows[0] || String(rows[0].cid) !== cid) throw new HttpError(404, 'not_found', 'That is not on this partner in the hub copy of Blackbaud.');
+      if (!rows[0] || String(rows[0].cid) !== cid) throw new HttpError(404, 'not_found', 'That is not on this partner in the FavorOS copy of Blackbaud.');
       const raw = parse(rows[0].raw) || {};
       const before: Record<string, unknown> = {};
       for (const k of Object.keys(set)) before[k] = raw[k] === undefined ? (typeof set[k] === 'boolean' ? false : null) : raw[k];

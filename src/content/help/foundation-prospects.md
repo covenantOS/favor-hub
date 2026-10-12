@@ -25,7 +25,7 @@ If someone on the team already has the relationship, talk to them first.
 3. Pick the **Outcome**, write **What happened** (who you reached and what they said), and tick anything under **Mark what applies**.
 4. Press **Save and post**. The contact posts to Blackbaud as an action on the foundation's record, so the whole team sees it.
 
-Put your name in **Entered by** at the top of the page; the hub keeps it for next time.
+Put your name in **Entered by** at the top of the page; FavorOS keeps it for next time.
 
 ## New foundation
 

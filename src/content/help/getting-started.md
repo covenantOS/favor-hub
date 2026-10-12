@@ -1,6 +1,6 @@
 ---
 title: Start here
-summary: What the hub is, how to get around it, and where to go when you need something.
+summary: What FavorOS is, how to get around it, and where to go when you need something.
 topic: start
 order: 1
 videos: [meet-the-hub, hub-walk-through]
@@ -8,7 +8,7 @@ related: [signing-in, today, search, guided-tour]
 updated: 2026-10-09
 ---
 
-The hub at **dash.favorintl.org** is where Favor staff do their everyday work outside Blackbaud: asking for work, expense requests, receipts, foundation prospects, the KPI dashboard and Favor Brain. You sign in once with your Favor Google account and every tool is one press away.
+FavorOS at **dash.favorintl.org** is where Favor staff do their everyday work outside Blackbaud: asking for work, expense requests, receipts, foundation prospects, the KPI dashboard and Favor Brain. You sign in once with your Favor Google account and every tool is one press away.
 
 ## The fastest way to learn it
 

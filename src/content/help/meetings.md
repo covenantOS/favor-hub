@@ -1,6 +1,6 @@
 ---
 title: Meetings
-summary: Start or join a meeting in the hub, run it with host controls, record it, and find the notes afterward.
+summary: Start or join a meeting in FavorOS, run it with host controls, record it, and find the notes afterward.
 topic: work
 order: 6
 for: [admin]
@@ -10,11 +10,11 @@ toolLabel: Open Meetings
 updated: 2026-10-10
 ---
 
-Meetings runs video calls inside the hub. Nobody installs anything. You join from the browser on a computer or a phone, and a call can hold the whole staff.
+Meetings runs video calls inside FavorOS. Nobody installs anything. You join from the browser on a computer or a phone, and a call can hold the whole staff.
 
 ## Start or join
 
-Press **Start now** on the Meetings page for a room you can use at once, then **Copy meeting link** in the People tab and send it to the people you want. Anyone signed in to the hub can open the link. **Join** and **Start now** open a sheet first: who is in the room now, a preview of your camera, a microphone level, buttons for the microphone, the camera and your devices, and the Join button. The room opens with those choices. A link opened on its own shows the same preview on the room page, where you can also change the name people see.
+Press **Start now** on the Meetings page for a room you can use at once, then **Copy meeting link** in the People tab and send it to the people you want. Anyone signed in to FavorOS can open the link. **Join** and **Start now** open a sheet first: who is in the room now, a preview of your camera, a microphone level, buttons for the microphone, the camera and your devices, and the Join button. The room opens with those choices. A link opened on its own shows the same preview on the room page, where you can also change the name people see.
 
 Live and the count of people in the room mean people whose browser checked in during the last 20 seconds. A person who closes the tab, locks an iPhone or loses the connection drops off on their own.
 
@@ -34,11 +34,11 @@ Open **People** and use the Invite box at the bottom. Type a Favor name, an emai
 
 ## Recording and notes
 
-A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, the hub saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. The notes start the moment the last person leaves and appear under **Meeting notes** a few minutes later. The recording plays on that page. A Google Doc of the notes, with the summary, action items, chapters and the transcript with speaker names, is saved next to the recording and linked as Notes in Google Docs. The transcript is searchable on the notes page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
+A meeting set to record shows a Recording or Notes on badge to everyone. If the host's browser closes, another person in the room takes over the recording within a few seconds, and the meeting keeps one recording. When the room empties, FavorOS saves the video to the Meetings folder in US Team Files, reads the sound, and writes a summary, decisions and action items. The notes start the moment the last person leaves and appear under **Meeting notes** a few minutes later. The recording plays on that page. A Google Doc of the notes, with the summary, action items, chapters and the transcript with speaker names, is saved next to the recording and linked as Notes in Google Docs. The transcript is searchable on the notes page. The notes are open to the people invited, to the leader of each invited person's team, and to all staff when the meeting was open to all staff.
 
 ## Two minutes before
 
-Two minutes before a meeting on your calendar starts, a box opens in the corner of any hub page with the meeting's name and a **Join** button. It opens once for each meeting in each browser session. If you allow system notifications, your computer shows the same alert too. On the Meetings page, a small line at the bottom asks for that permission once. Nothing pops up on its own to ask.
+Two minutes before a meeting on your calendar starts, a box opens in the corner of any FavorOS page with the meeting's name and a **Join** button. It opens once for each meeting in each browser session. If you allow system notifications, your computer shows the same alert too. On the Meetings page, a small line at the bottom asks for that permission once. Nothing pops up on its own to ask.
 
 ## Book the follow-up
 
@@ -46,4 +46,4 @@ Open a meeting's notes and press **Book the follow-up**. The booking opens with 
 
 ## Limits while it is tested
 
-Only hub admins see Meetings. Guests from outside Favor, booking from Google Calendar and Favor Brain inside the call arrive in later updates. If a room fails to load, tell the technology team through Feedback.
+Only FavorOS admins see Meetings. Guests from outside Favor, booking from Google Calendar and Favor Brain inside the call arrive in later updates. If a room fails to load, tell the technology team through Feedback.

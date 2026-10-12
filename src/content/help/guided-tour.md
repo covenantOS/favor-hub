@@ -1,6 +1,6 @@
 ---
 title: The guided tour
-summary: A two-minute tour of the hub, set up for your work, and a quick way to see what's new.
+summary: A two-minute tour of FavorOS, set up for your work, and a quick way to see what's new.
 topic: help
 order: 2
 related: [getting-started, whats-new]
@@ -22,4 +22,4 @@ Shows only what changed since you last looked. A green dot on **Help and what's 
 
 ## Seeing another role's tour
 
-The hub admin can pick **Show the tour as** on the first card to walk through what an RDD, Partner Care, Grants or any other role sees.
+The FavorOS admin can pick **Show the tour as** on the first card to walk through what an RDD, Partner Care, Grants or any other role sees.

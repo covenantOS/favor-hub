@@ -21,7 +21,7 @@ import type { Scope } from './role';
 export const HQTY_MIN = 5000;
 export const STATES = ['write', 'printed', 'signed', 'mailed', 'cannot'] as const;
 export type HqtyState = (typeof STATES)[number];
-export const WHYS = ['Pass-through for another ministry', 'No partner credited', 'Returned mail', 'Sent outside the hub'] as const;
+export const WHYS = ['Pass-through for another ministry', 'No partner credited', 'Returned mail', 'Sent outside FavorOS'] as const;
 /** The first day the desk looks at. Older gifts belong to earlier years. */
 export const DESK_SINCE = '2026-01-01';
 

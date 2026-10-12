@@ -85,7 +85,7 @@ function paintUsage() {
   const old = (usage.oldestUnwatched || [])
     .map((c) => `<li data-id="${c.id}"><a href="/c/${c.id}">${esc(c.title || 'Untitled clip')}</a><span>${esc(et(c.created_at, { month: 'short', day: 'numeric', year: 'numeric' }))} · ${esc(fmtBytes(c.size_bytes))}</span><button type="button" class="h-btn h-btn--ghost h-btn--sm cl-danger" data-act="delete-old">Delete</button></li>`)
     .join('');
-  box.innerHTML = `<div class="cl-use${usage.warn ? ' is-warn' : ''}"><div class="cl-use__t"><b>${esc(fmtBytes(usage.used))}</b> of ${esc(fmtBytes(usage.cap))} used by ${usage.clips === 1 ? '1 clip' : `${usage.clips} clips`}</div><i class="cl-meter${usage.warn ? ' is-warn' : ''}" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${usage.pct}"><u style="width:${usage.pct}%"></u></i>
+  box.innerHTML = `<div class="cl-use${usage.warn ? ' is-warn' : ''}"><div class="cl-use__t"><b>${esc(fmtBytes(usage.used))}</b> of ${esc(fmtBytes(usage.cap))} used</div><i class="cl-meter${usage.warn ? ' is-warn' : ''}" role="progressbar" aria-label="Storage used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${usage.pct}"><u style="width:${usage.pct}%"></u></i>
     ${usage.warn ? `<p class="cl-use__w">${usage.full ? 'Your clips use all of your space, so new recordings wait until you delete some.' : 'You are past 80% of your space.'} These are your oldest clips that nobody has watched.</p>${old ? `<ul class="cl-old">${old}</ul>` : '<p class="cl-use__w">Every clip you have was watched. Delete the ones you no longer need.</p>'}` : ''}</div>`;
 }
 
@@ -171,7 +171,7 @@ async function load(quiet) {
   } catch (e) {
     $('cl-rows').removeAttribute('aria-busy');
     if (e.status === 403) {
-      $('cl-rows').innerHTML = '<div class="h-card cl-empty">This view is for hub admins.</div>';
+      $('cl-rows').innerHTML = '<div class="h-card cl-empty">This view is for FavorOS admins.</div>';
     } else if (!quiet) {
       $('cl-rows').innerHTML = '<div class="h-card cl-empty">Your clips did not load. Refresh the page to try again.</div>';
     }

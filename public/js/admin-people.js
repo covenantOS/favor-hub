@@ -17,6 +17,15 @@
     return E(out.join(', ') || 'Today, Reporting, Favor Brain');
   }
 
+  // The Reports to drop-down: pick a supervisor and it saves at once. Evaluations, Learn and Onboarding read this line.
+  function supSelect(p) {
+    if (p.blocked) return '<span class="mute">None</span>';
+    var others = D.people.filter(function (x) { return !x.blocked && x.email !== p.email; });
+    return '<select class="ad-field ad-sup" data-sup="' + E(p.email) + '" aria-label="Reports to, ' + E(p.name) + '"><option value="">Not set</option>' + others.map(function (x) {
+      return '<option value="' + E(x.email) + '"' + (x.email === p.supervisor ? ' selected' : '') + '>' + E(x.name) + '</option>';
+    }).join('') + '</select>';
+  }
+
   function quick(p) {
     if (p.email === me) return '';
     var out = '';
@@ -39,17 +48,20 @@
       if (f === 'blocked') return p.blocked;
       if (f === 'wc') return p.workCenter;
       if (f === 'nolist') return !p.listed && !p.blocked;
+      if (f === 'nosup') return !p.supervisor && !p.blocked;
+      if (f === 'hr') return p.hr && !p.blocked;
       return true;
     });
     $('pp-count').textContent = list.length + ' of ' + D.people.length;
     $('pp-body').innerHTML = list.length ? list.map(function (p) {
-      var role = p.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : '<span class="ad-chip' + (p.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (p.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
+      var role0 = p.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : '<span class="ad-chip' + (p.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (p.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
+      var role = role0 + (p.hr && !p.blocked ? ' <span class="ad-chip">HR</span>' : '');
       return '<tr data-email="' + E(p.email) + '"><td><b>' + E(p.name) + '</b>' + (p.name === p.email ? '' : '<br><span class="mute">' + E(p.email) + '</span>') + '</td>' +
         '<td data-label="Role">' + role + (p.envAdmin ? '<br><span class="mute">Set in Pages</span>' : '') + '</td>' +
-        '<td data-label="Team">' + E(teamLabel(p.team)) + '</td><td class="mute" data-label="Fundraiser">' + E(p.fundraiser) + '</td>' +
+        '<td data-label="Team">' + E(teamLabel(p.team)) + '</td><td data-label="Reports to">' + supSelect(p) + '</td><td class="mute" data-label="Fundraiser">' + E(p.fundraiser) + '</td>' +
         '<td data-label="Work Center">' + (p.workCenter ? '<span class="ad-yes">Yes</span>' : '<span class="ad-no">No</span>') + '</td><td data-label="Sees">' + sees(p) + '</td>' +
         '<td><div class="ad-acts"><button type="button" class="ad-btn" data-edit="' + E(p.email) + '">Edit</button><button type="button" class="ad-btn" data-as="' + E(p.email) + '">Act as</button>' + quick(p) + '</div></td></tr>';
-    }).join('') : '<tr><td colspan="7" class="mute">Nobody matches.</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="mute">Nobody matches.</td></tr>';
   }
 
   function load() {
@@ -93,12 +105,18 @@
       '<label>Entry action type<select class="ad-field" name="entryType">' + opts(D.entryTypes, p.entryType, 'None') + '</select></label>' +
       '<label>Tracking sheet tab<input class="ad-field" name="sheetTab" value="' + E(p.sheetTab) + '"></label>' +
       '<label>Note<input class="ad-field" name="note" value="' + E(p.note) + '"></label>' +
+      '<h3 class="ad-set__hint" style="margin:10px 0 0;font-weight:700">Reporting line</h3>' +
+      '<label>Reports to<select class="ad-field" name="supervisor"><option value="">Not set</option>' + D.people.filter(function (x) { return !x.blocked && x.email !== p.email; }).map(function (x) { return '<option value="' + E(x.email) + '"' + (x.email === p.supervisor ? ' selected' : '') + '>' + E(x.name) + '</option>'; }).join('') + '</select></label>' +
+      '<label>Job title<input class="ad-field" name="title" value="' + E(p.title) + '"></label>' +
+      '<label>Department<input class="ad-field" name="department" value="' + E(p.department) + '"></label>' +
+      '<label>Start date<input class="ad-field" type="date" name="startDate" value="' + E(p.startDate) + '"></label>' +
+      '<label class="ad-check"><input type="checkbox" name="hr"' + (p.hr ? ' checked' : '') + '> HR: runs Evaluations, builds Learn courses and starts Onboarding</label>' +
       '<div class="ad-acts" style="justify-content:flex-start"><button class="ad-btn ad-btn--primary" type="submit">Save</button><button class="ad-btn" type="button" id="pp-cancel">Cancel</button></div><p class="ad-msg" id="pp-msg" role="status"></p></form>');
     $('pp-cancel').onclick = close;
     $('pp-form').onsubmit = function (ev) {
       ev.preventDefault();
       var f = ev.target, v = function (n) { return f.elements[n]; };
-      var body = { email: v('email').value.trim(), name: v('name').value, note: v('note').value };
+      var body = { email: v('email').value.trim(), name: v('name').value, note: v('note').value, supervisor: v('supervisor').value, title: v('title').value, department: v('department').value, startDate: v('startDate').value, hr: v('hr').checked };
       if (!self) { body.role = v('role').value; body.blocked = v('blocked').checked; }
       if (v('team').value) {
         body.team = v('team').value; body.fundraiser = v('fundraiser').value; body.workCenter = v('workCenter').checked;
@@ -141,6 +159,12 @@
     var b = e.target.closest('[data-edit],[data-as]');
     if (!b) return;
     if (b.dataset.edit) editor(b.dataset.edit); else preview(b.dataset.as);
+  });
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest('[data-sup]');
+    if (!sel) return;
+    sel.disabled = true;
+    A.api('/api/admin/people', { email: sel.dataset.sup, supervisor: sel.value }).then(load).catch(function (er) { sel.disabled = false; window.alert(er.message); load(); });
   });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('pp-panel').hidden) close(); });
   $('pp-sheet').addEventListener('click', close);

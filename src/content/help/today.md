@@ -6,14 +6,14 @@ order: 3
 related: [getting-started, signing-in, kpi-dashboard]
 tool: /
 toolLabel: Open Today
-updated: 2026-10-09
+updated: 2026-10-11
 ---
 
 Today opens every time you sign in. It greets you and lays out your day.
 
 ## What needs you
 
-The cards on the left are things waiting on you in the hub. Each card has a number, a line about the oldest item, and a button that takes you straight to the work. You only see cards that apply to you, for example:
+The cards on the left are things waiting on you in FavorOS. Each card has a number, a line about the oldest item, and a button that takes you straight to the work. You only see cards that apply to you, for example:
 
 - **Expenses**: expense requests waiting for your signature, if you approve expenses.
 - **Receipts**: a print file you made that still needs printing or marking.
@@ -30,8 +30,14 @@ Each card under What needs you and each Blackbaud action has a clock button. Pre
 
 ## Your day
 
-- **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. The overdue number and the "more in Blackbaud" line cover the whole list, including the rows past the first twelve. Press one to open the partner in Raiser's Edge. If your hub account is not linked to a fundraiser record in Blackbaud, the card says so.
-- **Meetings, files and mail**: today's calendar, Drive files changed recently that you own or that were shared with you, and unread mail from the last three days (sender and subject only), from your Google account.
+- **Blackbaud actions**: your open actions due in the next seven days, with overdue ones marked. The overdue number and the "more in Blackbaud" line cover the whole list, including the rows past the first twelve. Press one to open it in the Work Center, where the panel has **Open in Blackbaud** if you want the record there. If your FavorOS account is not linked to a fundraiser record in Blackbaud, the card says so.
+- **Today's meetings**: every event on your Google Calendar today, whether it is held in FavorOS, Zoom, Google Meet, Teams, on the phone or has no link. A FavorOS meeting opens its room. Any other meeting opens a sheet with **Join**, **Move to FavorOS** and **Open in Google Calendar**.
+- **Shared with you**: Drive files shared with you or changed this week. A file opens in the FavorOS file viewer, the same one Chat uses, with **Open in Google Drive** inside it.
+- **Unread mail**: unread mail from the last three days (sender and subject only), from your Google account.
+
+## Move to FavorOS
+
+Press **Move to FavorOS** on a meeting held somewhere else. FavorOS makes a meeting at the same time with the same people, not recorded, and sends no email. Your calendar event stays as it is. A box in the sheet adds one line with the FavorOS link to the notes of that event on your own Google Calendar. It shows only when you organize the event or guests may edit it, and the first time Google asks you to allow calendar edits.
 
 ## Where the year stands
 
@@ -39,4 +45,4 @@ If you can see the KPI dashboard, Today shows money raised against the year's go
 
 ## Recent activity and your requests
 
-The activity list shows the last two weeks across the hub: requests made and finished, print files, foundation contacts. **Your requests** lists what you asked for and where each one stands.
+The activity list shows the last two weeks across FavorOS: requests made and finished, print files, foundation contacts. **Your requests** lists what you asked for and where each one stands.

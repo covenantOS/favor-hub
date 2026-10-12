@@ -46,8 +46,8 @@ export async function lettersPdf(letters: LetterDoc[], title: string): Promise<U
   const has = new Set(body.getCharacterSet());
   doc.setTitle(title);
   doc.setAuthor('Favor International');
-  doc.setCreator('Favor Hub');
-  doc.setProducer('Favor Hub');
+  doc.setCreator('FavorOS');
+  doc.setProducer('FavorOS');
   const prefs = doc.catalog.getOrCreateViewerPreferences();
   prefs.setPrintScaling(PrintScaling.None);
   prefs.setDisplayDocTitle(true);

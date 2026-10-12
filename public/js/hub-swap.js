@@ -5,58 +5,84 @@
   if (window.__hubSwap) return;
   const allow = new Set(window.__hubSwapPaths || []);
   if (!allow.size || !window.fetch || !window.DOMParser) return;
+  const HEAVY = new Set(window.__hubFullLoad || ['/work/', '/brain/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
   const cache = new Map();
   const pathOf = (u) => { const x = new URL(u, location.href); return x.origin === location.origin ? x.pathname.replace(/\/?$/, '/') : null; };
   const swappable = (u) => { const p = pathOf(u); return !!p && allow.has(p) && !new URL(u, location.href).search; };
-  const here = () => swappable(location.href);
+  // A page that was loaded whole and keeps global state (the Work Center, the dashboard) is left by a full load too.
+  const here = () => swappable(location.href) && !HEAVY.has(pathOf(location.href));
+  // Page HTML is the same for everyone and changes only with a new build, so a copy read once is kept for the browser session
+  // (keyed by the build) and a tap finds it already here. Anything the person's data fills in arrives from the API afterwards.
+  const BUILD = (document.querySelector('meta[name="hub-build"]') || {}).content || '';
+  const SKEY = 'hub.pg.' + BUILD + ':';
+  const keep = (k, h) => { try { sessionStorage.setItem(SKEY + k, h); } catch (e) { /* storage full or refused; the memory copy still serves this visit */ } };
+  const kept = (k) => { try { return sessionStorage.getItem(SKEY + k); } catch (e) { return null; } };
+  try { Object.keys(sessionStorage).forEach((x) => { if (x.indexOf('hub.pg.') === 0 && x.indexOf(SKEY) !== 0) sessionStorage.removeItem(x); }); } catch (e) { /* no storage */ }
+  const warmAssets = (h) => {
+    const d = new DOMParser().parseFromString(h, 'text/html');
+    const m = d.getElementById('h-content');
+    if (m) { scriptSrcs(m).forEach((x) => loadScript(x).catch(() => {})); moduleSrcs(m).forEach((x) => fetch(x, { credentials: 'same-origin' }).catch(() => {})); }
+    d.head.querySelectorAll('link[rel=stylesheet]').forEach((l) => {
+      const ref = l.getAttribute('href');
+      if (!ref || document.head.querySelector('link[href="' + ref + '"]')) return;
+      const pl = document.createElement('link'); pl.rel = 'preload'; pl.as = 'style'; pl.href = ref;
+      document.head.appendChild(pl);
+    });
+  };
   const fetchPage = (u) => {
     const k = pathOf(u);
     if (!cache.has(k)) {
-      cache.set(k, fetch(u, { credentials: 'same-origin' }).then((r) => {
-        if (!r.ok || !/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('not a page');
-        return r.text();
-      }).catch((e) => { cache.delete(k); throw e; }));
-      setTimeout(() => cache.delete(k), 60000);
+      const copy = BUILD ? kept(k) : null;
+      if (copy) {
+        cache.set(k, Promise.resolve(copy));
+      } else {
+        cache.set(k, fetch(u, { credentials: 'same-origin' }).then((r) => {
+          if (!r.ok || r.redirected || !/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('not a page');
+          return r.text();
+        }).then((h) => { if (BUILD && h.length < 600000 && h.indexOf('id="h-content"') > 0) keep(k, h); return h; }).catch((e) => { cache.delete(k); throw e; }));
+      }
+      setTimeout(() => cache.delete(k), 300000);
+      cache.get(k).then(warmAssets).catch(() => {});
     }
     return cache.get(k);
   };
   const $ = (s, r) => (r || document).querySelector(s);
-  const HEAVY = new Set(['/work/', '/brain/', '/meet/', '/meet/book/', '/meet/library/', '/meet/notes/', '/dashboard/']);
   let viaSwap = false;
 
-  // Listeners a swapped-in page adds to document or window are removed when the next swap starts.
-  const mine = [];
-  let tracking = false;
-  const held = [];
-  const origDoc = document.addEventListener.bind(document);
-  const origWin = window.addEventListener.bind(window);
-  const wrap = (target, orig) => function (type, fn, opts) {
-    if (tracking && (type === 'DOMContentLoaded' || type === 'load') && target !== window.__none) { held.push([type, fn]); return; }
-    if (tracking) mine.push([target, type, fn, opts]);
-    return orig(type, fn, opts);
+  // Timers, listeners, observers and body nodes a page made are noted by hub-own.js (inlined in the head) and removed
+  // before the next page arrives, for a page that loaded normally and for one swapped in.
+  const own = window.__hubOwn || { state: { sync: false, held: [] }, cleanup() {} };
+  let epoch = 0;
+  const scripts = new Map();
+  const loadScript = (src) => {
+    if (!scripts.has(src)) scripts.set(src, fetch(src, { credentials: 'same-origin' }).then((r) => { if (!r.ok) throw new Error('script'); return r.text(); }).catch((e) => { scripts.delete(src); throw e; }));
+    return scripts.get(src);
   };
-  document.addEventListener = wrap(document, origDoc);
-  window.addEventListener = wrap(window, origWin);
-  const cleanup = () => { while (mine.length) { const [t, ty, fn, o] = mine.pop(); t.removeEventListener(ty, fn, o); } };
+  const scriptSrcs = (root) => Array.from(root.querySelectorAll('script[src]')).filter((s) => !s.getAttribute('type') || s.getAttribute('type') === 'text/javascript').map((s) => s.src);
+  const moduleSrcs = (root) => Array.from(root.querySelectorAll('script[type="module"][src]')).map((s) => s.src);
 
-  async function runScripts(root) {
+  async function runScripts(root, ready) {
     const list = Array.from(root.querySelectorAll('script'));
     const parts = [];
+    const mods = [];
     for (const s of list) {
       const type = s.getAttribute('type') || '';
+      if (type === 'module' && s.src) { mods.push(s.src); s.remove(); continue; }
       if (type && type !== 'text/javascript') continue;
       if (s.src) {
-        try { parts.push('// ' + s.src + '\n' + await (await fetch(s.src, { credentials: 'same-origin' })).text()); } catch (e) { /* the page shows its own error */ }
+        try { parts.push('// ' + s.src + '\n' + await (ready ? ready.get(s.src) : loadScript(s.src))); } catch (e) { /* the page shows its own error */ }
       } else if (s.textContent.trim()) parts.push(s.textContent);
       s.remove();
     }
-    held.length = 0;
-    tracking = true;
-    setTimeout(() => { tracking = false; }, 2500);
-    try { (0, eval)(parts.join('\n;\n')); } catch (e) { console.error('page script', e); }
+    own.state.held.length = 0;
+    own.state.sync = true;
+    try { (0, eval)(parts.join('\n;\n') + '\n//# sourceURL=hub-page-' + (++epoch) + '.js'); } catch (e) { console.error('page script', e); }
+    own.state.sync = false;
     // the document is already loaded, so the load and DOMContentLoaded handlers the page asked for run now
-    const run = held.splice(0);
+    const run = own.state.held.splice(0);
     run.forEach(([ty, fn]) => { try { fn.call(ty === 'load' ? window : document, new Event(ty)); } catch (e) { console.error(e); } });
+    // Module scripts run once per address, so each visit asks for a fresh copy of the page's own module (what it imports stays shared).
+    for (const m of mods) { try { await import(m + (m.indexOf('?') < 0 ? '?' : '&') + 'sw=' + epoch); } catch (e) { console.error('page module', e); } }
   }
 
   // Page stylesheets come and go with their page. Styles a script added at run time are left alone; only the
@@ -80,6 +106,14 @@
       if (next) document.head.insertBefore(copy, next); else document.head.appendChild(copy);
       cur.set(k, copy);
     });
+    // Sheets both pages share sit in the order the new page has them (a shared sheet can come before the layout's sheet on one page and after it on another).
+    const els = list.map((el) => cur.get(keyOf(el))).filter(Boolean);
+    const slots = els.slice().sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+    if (slots.some((s, i) => s !== els[i])) {
+      const marks = slots.map((s) => { const m = document.createComment(''); s.parentNode.insertBefore(m, s); return m; });
+      els.forEach((el, i) => marks[i].parentNode.insertBefore(el, marks[i]));
+      marks.forEach((m) => m.remove());
+    }
   }
   function dropOldCss(doc) {
     const want = new Set(Array.from(doc.head.querySelectorAll('link[rel=stylesheet], style')).map(keyOf));
@@ -107,22 +141,48 @@
     }, 140);
   };
 
+  let noticeT = 0;
+  function notice(text) {
+    let el = document.getElementById('h-notice');
+    if (!el) { el = document.createElement('div'); el.id = 'h-notice'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    el.textContent = text; el.classList.add('is-on');
+    clearTimeout(noticeT); noticeT = setTimeout(() => el.classList.remove('is-on'), 4000);
+  }
+  let seq = 0;
   async function go(u, push) {
+    const my = ++seq;
+    const T = (window.__swapT = [['go', Math.round(performance.now())]]);
+    // Pages that run a lot of their own script keep a full load: they start from a clean page.
+    if (HEAVY.has(pathOf(u))) { location.href = u; return; }
     let html;
     progress(true);
-    try { html = await fetchPage(u); } catch (e) { location.href = u; return; }
+    try { html = await fetchPage(u); } catch (e) {
+      // No connection: the page stays where it is and says so, instead of handing the screen to the browser's error page.
+      if (navigator.onLine === false) { progress(false); const m = document.getElementById('h-content'); if (m) m.classList.remove('is-leaving'); notice('No connection. Try again when you are back online.'); return; }
+      location.href = u; return;
+    }
+    if (my !== seq) return;
+    T.push(['html', Math.round(performance.now())]);
     const doc = new DOMParser().parseFromString(html, 'text/html');
     const newMain = doc.getElementById('h-content');
     const oldMain = document.getElementById('h-content');
     if (!newMain || !oldMain || !doc.body.classList.contains('h-body')) { location.href = u; return; }
     // A page built on module scripts starts itself only on a real load, so it gets one. Swapped in, it would sit on its placeholder.
-    if (newMain.querySelector('script[type="module"]')) { location.href = u; return; }
+    if (Array.from(newMain.querySelectorAll('script[type="module"]')).some((x) => !x.src)) { location.href = u; return; }
+    // The page's scripts are read before the change, so the new page and its code arrive together.
+    const ready = new Map();
+    try { await Promise.all(scriptSrcs(newMain).map((src) => loadScript(src).then((t) => ready.set(src, t)))); } catch (e) { location.href = u; return; }
+    if (my !== seq) return;
+    T.push(['scripts', Math.round(performance.now())]);
     const stamp = performance.now();
     progress(false);
-    cleanup();
     mergeHead(doc);
     await Promise.all(Array.from(document.head.querySelectorAll('link[rel=stylesheet]')).filter((l) => !l.sheet).map((l) => new Promise((r) => { l.addEventListener('load', r, { once: true }); l.addEventListener('error', r, { once: true }); setTimeout(r, 1500); })));
+    if (my !== seq) return;
+    T.push(['css', Math.round(performance.now())]);
     const apply = () => {
+      T.push(['apply', Math.round(performance.now())]);
+      own.cleanup();
       document.title = doc.title;
       const nav = doc.body.dataset.nav || '';
       document.body.dataset.nav = nav;
@@ -155,7 +215,8 @@
       document.querySelectorAll('dialog[open]').forEach((d) => { try { d.close(); } catch (e) { /* already closed */ } });
       if (window.FavorDrill) window.FavorDrill.close();
       viaSwap = true;
-      runScripts(oldMain);
+      // The new page's frame paints first; its scripts run right after, so the tap is answered before they are read and run.
+      requestAnimationFrame(() => setTimeout(() => { if (my === seq) runScripts(oldMain, ready); }, 0));
       if (push) history.pushState({ hubSwap: 1 }, '', u);
       window.scrollTo(0, 0);
       // The new tab row arrives with its gated tabs hidden: show the ones this person may open, as a full load does.
@@ -163,15 +224,21 @@
       try { saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); } catch (e) {}
       if (saved && window.hubApplyNav) window.hubApplyNav(saved); else if (window.hubNavLayout) window.hubNavLayout();
       if (window.__hubNav) window.__hubNav.init();
+      T.push(['applied', Math.round(performance.now())]);
+      if (window.hubNavRefresh) window.hubNavRefresh(false);
       document.dispatchEvent(new CustomEvent('hub-swapped', { detail: { path: pathOf(u), ms: Math.round(performance.now() - stamp) } }));
     };
-    if (document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      // A navigation that starts mid-transition aborts it. The browser then rejects these promises, and nothing else is waiting on them.
-      const vt = document.startViewTransition(apply);
-      for (const p of [vt.ready, vt.finished, vt.updateCallbackDone]) if (p && p.catch) p.catch(() => {});
-    } else apply();
+    // One frame, no cross-fade: a view transition waits a frame for its snapshot (130 ms on a slow phone) and its aborts threw on quick taps.
+    apply();
   }
 
+  // The press is answered at once, before the next page arrives: the tab or menu entry lights up and the old page steps back.
+  function answer(a) {
+    const tab = a.closest('.h-tab');
+    if (tab) { tab.parentElement.querySelectorAll('.h-tab').forEach((x) => x.classList.toggle('is-on', x === tab)); }
+    const m = document.getElementById('h-content');
+    if (m) m.classList.add('is-leaving');
+  }
   const warm = (e) => { const a = e.target instanceof Element && e.target.closest('a[href]'); if (a && !a.target && swappable(a.href)) fetchPage(a.href).catch(() => {}); };
   document.addEventListener('pointerover', warm, { passive: true });
   document.addEventListener('touchstart', warm, { passive: true });
@@ -179,13 +246,37 @@
     if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     const a = e.target instanceof Element && e.target.closest('a[href]');
     if (!a || a.target || a.hasAttribute('download') || !here() || !swappable(a.href)) return;
-    if (!viaSwap && HEAVY.has(pathOf(location.href))) return;
     if (pathOf(a.href) === pathOf(location.href)) return;
+    answer(a);
+    if (HEAVY.has(pathOf(a.href))) return;
     e.preventDefault();
     const href = a.href;
     if (window.hubOv && window.hubOv.depth()) window.hubOv.unwind(() => go(href, true));
     else go(href, true);
   });
-  origWin('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap) go(location.href, false); else location.reload(); });
-  window.__hubSwap = { go, cache };
+  window.addEventListener('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap && !HEAVY.has(pathOf(location.href))) go(location.href, false); else location.reload(); });
+  // Soon after a page is up, the phone bar's pages and this area's other tabs are read ahead (page and scripts), bar first,
+  // so a tap finds them here. Skipped when the person asked their phone to save data.
+  function warmArea() {
+    if (navigator.connection && navigator.connection.saveData) return;
+    const seen = new Set();
+    const links = Array.from(document.querySelectorAll('#h-bar a[data-bar], #h-tabs a.h-tab:not([hidden]), .h-side a.h-area__link[data-area-link]')).filter((a) => {
+      const k = pathOf(a.href);
+      if (seen.has(k) || !swappable(a.href) || HEAVY.has(k) || k === pathOf(location.href)) return false;
+      seen.add(k); return true;
+    });
+    // Three at a time, in order of likelihood, and paused while a tap is being answered.
+    let i = 0;
+    const next = () => {
+      if (i >= links.length) return;
+      if (document.getElementById('h-content').classList.contains('is-leaving')) { setTimeout(next, 600); return; }
+      const a = links[i++];
+      fetchPage(a.href).then(next, next);
+    };
+    setTimeout(() => { next(); next(); next(); }, 1200);
+  }
+  document.addEventListener('hub-swapped', warmArea);
+  if (here()) { if (document.readyState === 'complete') warmArea(); else window.addEventListener('load', warmArea, { once: true }); }
+  window.addEventListener('pageshow', (e) => { if (e.persisted) { const m = document.getElementById('h-content'); if (m) m.classList.remove('is-leaving'); } });
+  window.__hubSwap = { go, cache, fetchPage };
 })();

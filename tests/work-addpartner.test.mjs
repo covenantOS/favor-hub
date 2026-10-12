@@ -186,7 +186,7 @@ describe('adding a partner', () => {
     assert.equal(out.calls[0].body.phone.type, 'Business Phone');
     assert.equal(out.calls.find((c) => c.path.includes('assignments')).body.type, 'Church Engagement Director');
   });
-  it('a real add records the partner for the hub, takes the claim, and a second press is refused', async () => {
+  it('a real add records the partner for FavorOS, takes the claim, and a second press is refused', async () => {
     const { ctx, db } = world();
     const out = await ap.addPartner(ctx, form(), { standin: false, send: async (calls) => ({ results: calls.map((c) => (c.method === 'POST' ? { ok: true, status: 200, body: { id: '601' } } : { ok: true, status: 200, body: { lookup_id: '777' } })) }) });
     assert.equal(out.standin, false);

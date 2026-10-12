@@ -79,6 +79,9 @@ a.ml-chip--leaf:hover { text-decoration: underline; }
 .ml-list__head { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 8px 0 16px; border-bottom: 1px solid var(--r-line); }
 .ml-list__head b { font: 600 15px var(--h-font, Inter, sans-serif); }
 .ml-list__head span { flex: 1; color: var(--r-ink-3); font-size: 13px; }
+.ml-allow { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--tc-sky-tint); color: var(--tc-sky-ink); font-size: 14px; border-bottom: 1px solid var(--r-line); }
+.ml-allow span { flex: 1; min-width: 0; }
+.ml-allow .ml-btn { flex: none; min-height: 44px; }
 .ml-rows { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .ml-row { position: relative; display: flex; align-items: stretch; border-bottom: 1px solid var(--r-line); transition: opacity 0.16s, transform 0.16s; }
 .ml-row.is-leaving { opacity: 0; transform: translateX(-24px); }

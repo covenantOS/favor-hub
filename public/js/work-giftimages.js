@@ -21,7 +21,7 @@ async function start() {
   if (I.started) return;
   I.started = true;
   await load();
-  W().render();
+  W().refresh('giftimages');
 }
 const rows = () => (I.data ? I.data.rows : []);
 const visible = () => rows().filter((r) => (I.why ? r.why === I.why : I.designated || r.why !== 'designated') && (!I.q || (r.name + ' ' + r.fund + ' ' + r.batch).toLowerCase().includes(I.q.toLowerCase())));

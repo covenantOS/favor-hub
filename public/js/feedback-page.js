@@ -5,7 +5,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const et = (iso, o) => new Date(iso).toLocaleString('en-US', Object.assign({ timeZone: 'America/New_York' }, o));
   const when = (iso) => (iso ? et(iso, { month: 'short', day: 'numeric' }) + ', ' + et(iso, { hour: 'numeric', minute: '2-digit' }) : '');
-  const SOURCE = { hub: 'The hub', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
+  const SOURCE = { hub: 'FavorOS', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
   const RATING = {
     problem: ["Something's wrong", 'bad'], wrong: ['Answer was wrong', 'bad'], 'not-helpful': ['Not helpful', 'bad'],
     confusing: ['Confusing', 'warn'], missing: ['Something missing', 'warn'],
@@ -16,6 +16,17 @@
   let admin = false;
   let status = 'new';
   let shown = [];
+  // today2: Today opens one note with /feedback/?item=<id>; it scrolls into view and is outlined.
+  const WANT = new URLSearchParams(location.search).get('item') || '';
+  let focused = false;
+  const focusItem = () => {
+    if (!WANT || focused) return;
+    const el = list.querySelector('[data-id="' + WANT.replace(/[^0-9A-Za-z_-]/g, '') + '"]');
+    if (!el) return;
+    focused = true;
+    el.classList.add('is-focus');
+    el.scrollIntoView({ block: 'center' });
+  };
 
   const chip = (r) => (RATING[r] ? `<span class="fbp-chip fbp-chip--${RATING[r][1]}">${esc(RATING[r][0])}</span>` : '');
   const pill = (s) => {
@@ -31,12 +42,12 @@
     shown = items;
     list.removeAttribute('aria-busy');
     if (!items.length) {
-      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in the hub or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
+      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in FavorOS or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
       return;
     }
     list.innerHTML = items
       .map(
-        (f) => `<li class="h-card fbp-item${f.unread ? ' is-unread' : ''}">
+        (f) => `<li class="h-card fbp-item${f.unread ? ' is-unread' : ''}" data-id="${f.id}">
           <div class="fbp-meta">${chip(f.rating)}<span class="fbp-src">${esc(SOURCE[f.source] || f.source)}</span><time>${esc(when(f.at))}</time>${pill(f.status)}</div>
           ${f.question ? `<p class="fbp-q"><span>Your question</span>${esc(f.question)}</p>` : ''}
           ${f.comment ? `<p class="fbp-text">${esc(f.comment)}</p>` : ''}
@@ -45,6 +56,7 @@
         </li>`
       )
       .join('');
+    focusItem();
   }
 
   function all(d) {
@@ -81,6 +93,7 @@
         </li>`
       )
       .join('');
+    focusItem();
   }
 
   // Open in Google Sheets: the notes on this page (a person's own, or every note for Will, in the tab chosen).
@@ -152,10 +165,7 @@
 
   const start = (d) => {
     admin = !!(d && d.access && d.access.admin);
-    if (admin) {
-      $('fb-tabs').hidden = false;
-      $('fb-lede').textContent = 'Every note from the hub, Favor Brain, the help docs and the tour.';
-    }
+    if (admin) $('fb-tabs').hidden = false;
     load();
   };
   if (window.FAVOR_HUB) start(window.FAVOR_HUB);

@@ -11,6 +11,7 @@ import { ALL_AUDIENCES, CATALOG } from '../reports/registry';
 import { applyReportRoles, AUDIENCE_LABEL } from './reportRoles';
 import { effective, audit } from './settings';
 import { isAdminEmail } from '../session';
+import { isDate } from '../evals/rules';
 
 export const TEAMS = ['support', 'rdd', 'partner_care', 'church', 'grants', 'admin', 'exec'];
 export const TEAM_LABEL: Record<string, string> = {
@@ -38,6 +39,13 @@ export interface Person {
   active: boolean;
   /** In the Work Center staff list (act_staff). */
   listed: boolean;
+  /** Who this person reports to (hub_reporting), their title and department as Admin > People records them, and the date they started. */
+  supervisor: string;
+  title: string;
+  department: string;
+  startDate: string;
+  /** Marked HR: admin rights in Evaluations, Learn authoring and Onboarding, nothing else. */
+  hr: boolean;
   sees: { workCenter: boolean; meetings: boolean; clips: boolean; reports: number; expenseLog: boolean; admin: boolean };
 }
 
@@ -84,11 +92,15 @@ function seesFor(s: Sets, email: string, admin: boolean, st: StaffRow | undefine
 
 export async function listPeople(env: Env): Promise<Person[]> {
   await applyReportRoles(env);
-  const [users, staff, s] = await Promise.all([
+  const [users, staff, s, rep, hrRows] = await Promise.all([
     env.DB.prepare('SELECT email, name, picture, role, blocked, note, sign_ins, last_seen FROM hub_users ORDER BY lower(name), email').all<UserRow>(),
     env.DB.prepare('SELECT email, name, team, bb_fundraiser_id, work_center, entry_owner, entry_type, sheet_tab, active FROM act_staff').all<StaffRow>().catch(() => ({ results: [] as StaffRow[] })),
     sets(env),
+    env.DB.prepare('SELECT email, supervisor_email, department, title, start_date FROM hub_reporting').all<{ email: string; supervisor_email: string | null; department: string | null; title: string | null; start_date: string | null }>().catch(() => ({ results: [] as { email: string; supervisor_email: string | null; department: string | null; title: string | null; start_date: string | null }[] })),
+    env.DB.prepare('SELECT email FROM hub_hr').all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] })),
   ]);
+  const repBy = new Map((rep.results || []).map((r) => [r.email.toLowerCase(), r]));
+  const hrSet = new Set((hrRows.results || []).map((r) => r.email.toLowerCase()));
   const staffBy = new Map((staff.results || []).map((r) => [r.email.toLowerCase(), r]));
   const seen = new Set<string>();
   const out: Person[] = [];
@@ -113,6 +125,11 @@ export async function listPeople(env: Env): Promise<Person[]> {
       sheetTab: st?.sheet_tab || '',
       active: st ? st.active === 1 : true,
       listed: !!st,
+      supervisor: (repBy.get(email)?.supervisor_email || '').toLowerCase(),
+      title: repBy.get(email)?.title || '',
+      department: repBy.get(email)?.department || '',
+      startDate: repBy.get(email)?.start_date || '',
+      hr: hrSet.has(email),
       sees: u?.blocked ? { workCenter: false, meetings: false, clips: false, reports: 0, expenseLog: false, admin: false } : seesFor(s, email, admin, st),
     };
   };
@@ -138,6 +155,11 @@ export interface SaveInput {
   entryType?: string;
   sheetTab?: string;
   active?: boolean;
+  supervisor?: string;
+  title?: string;
+  department?: string;
+  startDate?: string;
+  hr?: boolean;
 }
 
 const EMAIL = /^[a-z0-9._%+-]+@favorintl\.org$/;
@@ -175,6 +197,35 @@ export async function savePerson(env: Env, actor: { email: string; name: string 
     if (blocked) await env.DB.prepare('DELETE FROM hub_sessions WHERE email = ?').bind(email).run();
   }
 
+  // hub_reporting: who this person reports to, their title and department, and when they started. hub_hr: the HR flag.
+  const repTouched = ['supervisor', 'title', 'department', 'startDate'].some((k) => has(k as keyof SaveInput));
+  if (repTouched) {
+    const sup = has('supervisor') ? String(b.supervisor || '').trim().toLowerCase() : before?.supervisor || '';
+    if (sup) {
+      if (sup === email) throw new HttpError(400, 'self_supervisor', 'Nobody reports to themselves.');
+      if (!EMAIL.test(sup)) throw new HttpError(400, 'bad_supervisor', 'Pick the supervisor from the list.');
+      // Nobody may end up supervising their own supervisor, however far up the line.
+      let up = sup;
+      for (let i = 0; i < 12 && up; i++) {
+        const row = await env.DB.prepare('SELECT supervisor_email AS s FROM hub_reporting WHERE email = ?').bind(up).first<{ s: string | null }>();
+        up = (row?.s || '').toLowerCase();
+        if (up === email) throw new HttpError(400, 'loop', 'That would make the reporting line a circle.');
+      }
+    }
+    const start = has('startDate') ? String(b.startDate || '').trim() : before?.startDate || '';
+    if (start && !isDate(start)) throw new HttpError(400, 'bad_date', 'Use a real start date.');
+    await env.DB.prepare(
+      `INSERT INTO hub_reporting (email, supervisor_email, department, title, start_date, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(email) DO UPDATE SET supervisor_email = excluded.supervisor_email, department = excluded.department, title = excluded.title, start_date = excluded.start_date, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
+    )
+      .bind(email, sup || null, (has('department') ? String(b.department || '').trim().slice(0, 80) : before?.department || '') || null, (has('title') ? String(b.title || '').trim().slice(0, 80) : before?.title || '') || null, start || null, actor.email, now)
+      .run();
+  }
+  if (has('hr')) {
+    if (b.hr) await env.DB.prepare('INSERT INTO hub_hr (email, set_by, set_at) VALUES (?, ?, ?) ON CONFLICT(email) DO UPDATE SET set_by = excluded.set_by, set_at = excluded.set_at').bind(email, actor.email, now).run();
+    else await env.DB.prepare('DELETE FROM hub_hr WHERE email = ?').bind(email).run();
+  }
+
   // act_staff: the Work Center roster row. Written when any of its fields is sent.
   const staffTouched = ['team', 'fundraiser', 'workCenter', 'entryOwner', 'entryType', 'sheetTab', 'active'].some((k) => has(k as keyof SaveInput));
   if (staffTouched) {
@@ -202,7 +253,7 @@ export async function savePerson(env: Env, actor: { email: string; name: string 
   }
 
   const after = (await listPeople(env)).find((p) => p.email === email)!;
-  const keys: Array<keyof Person> = ['name', 'role', 'blocked', 'note', 'team', 'fundraiser', 'workCenter', 'entryOwner', 'entryType', 'sheetTab', 'active'];
+  const keys: Array<keyof Person> = ['name', 'role', 'blocked', 'note', 'team', 'fundraiser', 'workCenter', 'entryOwner', 'entryType', 'sheetTab', 'active', 'supervisor', 'title', 'department', 'startDate', 'hr'];
   const diff = keys.filter((k) => !before || before[k] !== after[k]);
   for (const k of diff) {
     await audit(env, { actor: actor.email, area: 'people', key: `${email}:${String(k)}`, label: `${after.name}, ${String(k)}`, before: before ? String(before[k]) : '(new person)', after: String(after[k]) });

@@ -1,5 +1,6 @@
 // What the Today page and the sidebar show the person signed in: what is waiting on them, their own
 // requests, and recent activity they are allowed to see. Read from the hub's own tables only.
+import { isHr } from '../people-dev';
 import { approverEmails, isExpenseAdmin } from '../expenses/auth';
 import type { Env } from '../http';
 import type { HubUser } from '../session';
@@ -11,6 +12,12 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
+// learn: begin
+import { learnAccess, learnCards, learnCount } from '../learn/today';
+// learn: end
+import { projectsFlag } from '../projects/access';
+import { openActionsWithoutTask, projectCards, projectsMineCount } from '../projects/links/today'; // projects hook
+import { waitingOn } from '../evals/service';
 import { mailMode, mailUnreadCount, mayUseMail } from '../mail/route';
 
 export interface Access {
@@ -28,10 +35,17 @@ export interface Access {
   clipsRecord: boolean;
   /** Favor Chat: hub admins until Admin > Chat opens it to staff (hub setting chat.enabled). */
   chat: boolean;
+  /** Projects: hub admins until Admin > Projects opens it to staff (hub setting projects.enabled). */
+  projects: boolean;
   /** On at least one request: its owner, sent it, named on it or following it. Shows the bell for request notices. */
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
   bell: boolean;
+  /** Learn: open to this person (hub setting learn.enabled), and authoring (a hub admin or a person marked HR). */
+  learn: boolean;
+  learnAdmin: boolean;
+  /** People tools (Onboarding, and the other people areas): hub admins and people an admin marked HR in Admin > People. */
+  hr: boolean;
   /** Mail in FavorOS (the person's own Gmail): hub admins until Admin > Chat > Mail opens it to staff (hub setting mail.enabled). */
   mail: boolean;
 }
@@ -47,6 +61,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
   const approver = user.via === 'google' && (await approverEmails(env)).has(email);
   const work = await workAccessFor(env, email, user.role === 'admin').catch(() => null);
   const tasks = user.role === 'admin' || (await onAnyRequest(env, email));
+  const learn = await learnAccess(env, user);
   return {
     admin: user.role === 'admin',
     kpi: user.kpi,
@@ -57,8 +72,12 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
     clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
     chat: mayUse(await chatMode(env), user),
+    projects: await projectsFlag(env, user).catch(() => false),
     tasks,
     bell: (!!work && work.ok) || tasks,
+    learn: learn.learn,
+    learnAdmin: learn.learnAdmin,
+    hr: user.role === 'admin' || (await isHr(env, email)),
     mail: mayUseMail(await mailMode(env), user),
   };
 }
@@ -116,8 +135,14 @@ export interface Counts {
   chatMentions: number;
   /** The Requests page in the menu: the inbox for an admin, plus this person's unread request notices. */
   board: number;
+  /** Evaluations: things waiting on this person (their own forms, feedback they owe, summaries to write, signatures). */
+  evals: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
+  /** Learn: courses and paths assigned to this person and not finished. */
+  learn: number;
+  /** Projects hook: tasks due today or late plus unread task notices. The Projects menu entry and the phone bar show it. */
+  projectsMine: number;
   /** Mail: unread conversations in the person's Gmail inbox (0 until they connect Google). */
   mailUnread: number;
 }
@@ -130,7 +155,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, mailUnread] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, projectsMine, evals, learn, mailUnread] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -141,6 +166,9 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
     access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
+    learnCount(env, user, access).catch(() => 0),
+    projectsMineCount(env, user), // projects hook
+    waitingOn(env, { email: user.email, name: user.name, role: user.role }).then((w) => w.n).catch(() => 0),
     // Gmail answers in about 150 ms; a slow answer never holds the menu back (the badge waits for the next page).
     access.mail ? Promise.race([mailUnreadCount(env, user.email).catch(() => 0), new Promise<number>((r) => setTimeout(() => r(0), 1200))]) : 0,
   ]);
@@ -154,7 +182,10 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     meetingsNow: Number(meetingsNow?.n) || 0,
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
+    learn: Number(learn) || 0,
+    evals: Number(evals) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
+    projectsMine: Number(projectsMine) || 0, // projects hook
     mailUnread: Number(mailUnread) || 0,
   };
 }
@@ -198,6 +229,8 @@ export interface Activity {
   at: string;
   app: 'Requests' | 'Expenses' | 'Receipts' | 'Foundations';
   text: string;
+  /** Where the row opens inside FavorOS. */
+  href: string;
 }
 
 const DAY = 86400000;
@@ -288,6 +321,27 @@ function plural(n: number, one: string, many = one + 's'): string {
   return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 }
 
+/** Evaluation steps waiting on this person, one card. Gated like every other notice. */
+export async function evalCards(env: Env, user: HubUser): Promise<Card[]> {
+  if (!(await mayHear(env, user.email).catch(() => false))) return [];
+  const w = await waitingOn(env, { email: user.email, name: user.name, role: user.role }).catch(() => ({ n: 0, items: [] as Array<{ text: string; href: string; due: string }> }));
+  if (!w.n) return [];
+  const top = w.items[0];
+  const late = w.items.filter((i) => i.due && i.due < new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })).length;
+  return [
+    {
+      id: 'evals',
+      label: 'Evaluations',
+      n: w.n,
+      what: w.n === 1 ? 'evaluation step waiting on you' : 'evaluation steps waiting on you',
+      note: late ? `${late} past the due date` : top.text,
+      warn: late > 0,
+      href: w.n === 1 ? top.href : '/evaluations/',
+      cta: w.n === 1 ? 'Open it' : 'Open Evaluations',
+    },
+  ];
+}
+
 export async function waitingCards(env: Env, user: HubUser, access: Access): Promise<Card[]> {
   const cards: Card[] = [];
   if (access.admin) {
@@ -314,6 +368,11 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   if (access.tasks) {
     cards.push(...(await taskCards(env, user.email).catch(() => [] as Card[])));
   }
+  // learn: begin
+  cards.push(...(await learnCards(env, user, access).catch(() => [] as Card[])));
+  // learn: end
+  // projects hook: tasks due, given to you and with news.
+  cards.push(...(await projectCards(env, user).catch(() => [] as Card[])));
   if (access.admin) {
     const brain = await brainPending(env);
     const n = Number(brain?.n) || 0;
@@ -334,9 +393,10 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     }
   }
   if (access.meetings) {
-    const mine = await env.DB.prepare(
+    // projects hook: items that already became tasks are counted in the task cards, not here.
+    const mine = (await openActionsWithoutTask(env, user.email)) || (await env.DB.prepare(
       `SELECT COUNT(*) AS n, (SELECT text FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0 ORDER BY meeting_id DESC, idx LIMIT 1) AS first FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0`
-    ).bind(user.email.toLowerCase()).first<{ n: number; first: string | null }>().catch(() => null);
+    ).bind(user.email.toLowerCase()).first<{ n: number; first: string | null }>().catch(() => null));
     const mn = Number(mine?.n) || 0;
     if (mn) {
       cards.push({
@@ -354,8 +414,8 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   const notes = await feedbackWaiting(env, user, access);
   const nn = Number(notes?.n) || 0;
   if (nn && access.admin) {
-    const first = await env.DB.prepare("SELECT name, email, source, comment FROM brain_feedback WHERE status = 'new' ORDER BY id LIMIT 1")
-      .first<{ name: string; email: string; source: string; comment: string | null }>()
+    const first = await env.DB.prepare("SELECT id, name, email, source, comment FROM brain_feedback WHERE status = 'new' ORDER BY id LIMIT 1")
+      .first<{ id: number; name: string; email: string; source: string; comment: string | null }>()
       .catch(() => null);
     const from = first ? first.name || first.email : '';
     const said = first?.comment ? `: "${first.comment.length > 70 ? first.comment.slice(0, 68) + '...' : first.comment}"` : '';
@@ -366,10 +426,11 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       what: nn === 1 ? 'note from staff to read' : 'notes from staff to read',
       note: first ? `Oldest from ${from}${said}` : '',
       warn: false,
-      href: '/feedback/',
+      href: first ? `/feedback/?item=${first.id}` : '/feedback/',
       cta: 'Read them',
     });
   } else if (nn) {
+    const mineFb = await env.DB.prepare('SELECT id FROM brain_feedback WHERE email = ? AND reply IS NOT NULL AND reply_seen_at IS NULL ORDER BY id LIMIT 1').bind(user.email.toLowerCase()).first<{ id: number }>().catch(() => null);
     cards.push({
       id: 'feedback',
       label: 'Feedback',
@@ -377,7 +438,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       what: nn === 1 ? 'answer to your feedback' : 'answers to your feedback',
       note: 'Will answered a note you sent',
       warn: false,
-      href: '/feedback/',
+      href: mineFb ? `/feedback/?item=${mineFb.id}` : '/feedback/',
       cta: 'Read the answer',
     });
   }
@@ -401,6 +462,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       });
     }
   }
+  cards.push(...(await evalCards(env, user)));
   const file = await openPrintFile(env);
   if (file && fileIsMine(file, user, access)) {
     const left = Math.max(0, file.gifts - file.marked);
@@ -442,7 +504,7 @@ export async function mineFor(env: Env, user: HubUser): Promise<Mine[]> {
   const status = { inbox: 'Waiting for review', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' } as Record<string, string>;
   const money = (c: number) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return [
-    ...reqs.results.map((r) => ({ kind: 'request' as const, title: r.title, status: status[r.status] || r.status, at: r.completed_at || r.created_at, href: '/requests/' })),
+    ...reqs.results.map((r) => ({ kind: 'request' as const, title: r.title, status: status[r.status] || r.status, at: r.completed_at || r.created_at, href: `/requests/?r=${encodeURIComponent(r.id)}` })),
     ...exps.results.map((e) => ({
       kind: 'expense' as const,
       title: `${e.doc_number}, ${money(e.total_cents)}`,
@@ -457,12 +519,12 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
   const since = new Date(Date.now() - 14 * DAY).toISOString();
   const out: Activity[] = [];
   const [made, done, files, contacts] = await Promise.all([
-    env.DB.prepare('SELECT title, submitter_name, created_at FROM requests WHERE created_at > ? ORDER BY created_at DESC LIMIT 8')
+    env.DB.prepare('SELECT id, title, submitter_name, created_at FROM requests WHERE created_at > ? ORDER BY created_at DESC LIMIT 8')
       .bind(since)
-      .all<{ title: string; submitter_name: string; created_at: string }>(),
-    env.DB.prepare("SELECT title, submitter_name, completed_at FROM requests WHERE status = 'done' AND completed_at > ? ORDER BY completed_at DESC LIMIT 8")
+      .all<{ id: string; title: string; submitter_name: string; created_at: string }>(),
+    env.DB.prepare("SELECT id, title, submitter_name, completed_at FROM requests WHERE status = 'done' AND completed_at > ? ORDER BY completed_at DESC LIMIT 8")
       .bind(since)
-      .all<{ title: string; submitter_name: string; completed_at: string }>(),
+      .all<{ id: string; title: string; submitter_name: string; completed_at: string }>(),
     env.DB.prepare("SELECT at, actor, kind, detail FROM rcp_log WHERE at > ? AND kind IN ('print_file', 'marked', 'cancel') ORDER BY at DESC LIMIT 6")
       .bind(since)
       .all<{ at: string; actor: string; kind: string; detail: string }>(),
@@ -473,8 +535,8 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
       .bind(since)
       .all<{ created_at: string; created_by: string; how: string; name: string }>(),
   ]);
-  for (const r of made.results) out.push({ at: r.created_at, app: 'Requests', text: `${r.submitter_name} asked: ${r.title}` });
-  for (const r of done.results) out.push({ at: r.completed_at, app: 'Requests', text: `Done: ${r.title}` });
+  for (const r of made.results) out.push({ at: r.created_at, app: 'Requests', text: `${r.submitter_name} asked: ${r.title}`, href: `/requests/?r=${encodeURIComponent(r.id)}` });
+  for (const r of done.results) out.push({ at: r.completed_at, app: 'Requests', text: `Done: ${r.title}`, href: `/requests/?r=${encodeURIComponent(r.id)}` });
   for (const r of files.results) {
     const count = (r.detail.match(/^(\d[\d,]*) letters for (\d[\d,]*) gifts/) || []) as string[];
     const marked = (r.detail.match(/^(\d[\d,]*) gifts/) || []) as string[];
@@ -484,9 +546,9 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
         : r.kind === 'marked'
           ? `${r.actor} marked ${marked[1] || 'the'} gifts thanked`
           : `${r.actor} threw a print file away`;
-    out.push({ at: r.at, app: 'Receipts', text });
+    out.push({ at: r.at, app: 'Receipts', text, href: '/receipts/' });
   }
-  for (const r of contacts.results) out.push({ at: r.created_at, app: 'Foundations', text: `${r.created_by} logged a ${String(r.how || 'contact').toLowerCase()} with ${r.name}` });
+  for (const r of contacts.results) out.push({ at: r.created_at, app: 'Foundations', text: `${r.created_by} logged a ${String(r.how || 'contact').toLowerCase()} with ${r.name}`, href: '/foundations/' });
   if (access.expenseLog) {
     const exps = await env.DB.prepare(
       `SELECT doc_number, requester_name, total_cents, status, submitted_at, decided_at, approver_name FROM expense_requests
@@ -496,8 +558,8 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
       .all<{ doc_number: string; requester_name: string; total_cents: number; status: string; submitted_at: string; decided_at: string | null; approver_name: string }>();
     for (const e of exps.results) {
       const amount = '$' + (e.total_cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      if (e.submitted_at > since) out.push({ at: e.submitted_at, app: 'Expenses', text: `${e.requester_name} sent ${e.doc_number} for ${amount}` });
-      if (e.decided_at && e.decided_at > since && e.status !== 'pending') out.push({ at: e.decided_at, app: 'Expenses', text: `${e.approver_name} ${e.status} ${e.doc_number}` });
+      if (e.submitted_at > since) out.push({ at: e.submitted_at, app: 'Expenses', text: `${e.requester_name} sent ${e.doc_number} for ${amount}`, href: '/expenses/' });
+      if (e.decided_at && e.decided_at > since && e.status !== 'pending') out.push({ at: e.decided_at, app: 'Expenses', text: `${e.approver_name} ${e.status} ${e.doc_number}`, href: '/expenses/' });
     }
   }
   return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12);

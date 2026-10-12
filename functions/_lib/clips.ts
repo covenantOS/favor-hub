@@ -110,7 +110,7 @@ export function J<T>(text: unknown, fallback: T): T {
 export function adminOrError(request: Request): { user: HubUser } | { res: Response } {
   const user = hubUserOf(request);
   if (!user) return { res: json401() };
-  if (user.role !== 'admin') return { res: errorJson('forbidden', 'Recording clips is for hub admins.', 403) };
+  if (user.role !== 'admin') return { res: errorJson('forbidden', 'Recording clips is for FavorOS admins.', 403) };
   return { user };
 }
 

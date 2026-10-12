@@ -149,6 +149,7 @@
     '<section class="ml-list" aria-label="Conversations">' +
       '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
       '<div class="ml-list__head"><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
+      '<div class="ml-allow" data-allow hidden><span>Senders and subjects only. Allow Mail adds the full message, files and search.</span><a class="ml-btn ml-btn--primary" data-allow-link href="#">Allow Mail</a></div>' +
       '<div class="ml-rows" data-rows></div>' +
     '</section>' +
     '<section class="ml-read" aria-label="Conversation" data-read></section>' +
@@ -245,12 +246,16 @@
   /* ------------------------------------------------------------------ asking for the Google permission */
   function allowUrl(kind) { return '/api/google/connect?add=' + kind + '&next=' + encodeURIComponent('/mail/' + location.hash); }
   function askWrite(what) {
+    if (S.level.headers && !S.level.read) {
+      openSheet('Allow Mail', '<p class="ml-p">FavorOS can show who wrote and the subject today. Allow Mail adds the full message, its files and search. Google asks once. Replying and archiving ask one more time.</p><div class="ml-sheet__acts"><a class="ml-btn ml-btn--primary" href="' + esc(allowUrl('mail')) + '">Allow Mail</a><a class="ml-btn" href="' + esc(gmailLink(S.open)) + '" target="_blank" rel="noopener">Open in Gmail</a></div>');
+      return;
+    }
     if (!S.write || S.ro) {
       openSheet('Open in Gmail', '<p class="ml-p">Changing and sending mail from FavorOS is not available yet.</p><div class="ml-sheet__acts"><a class="ml-btn ml-btn--primary" href="' + esc(gmailLink(S.open)) + '" target="_blank" rel="noopener">' + ic('ext') + 'Open in Gmail</a></div>');
       return;
     }
     openSheet('Allow changes and sending', '<p class="ml-p">Google asks once. This lets FavorOS archive, delete, label, star, snooze, save drafts and send from your Gmail, and look up your Google contacts when you address a message.</p>' +
-      '<div class="ml-sheet__acts"><a class="ml-btn ml-btn--primary" href="' + esc(allowUrl('mailsend')) + '">Allow</a><button type="button" class="ml-btn" data-close>Not now</button></div>');
+      '<div class="ml-sheet__acts"><a class="ml-btn ml-btn--primary" href="' + esc(allowUrl('mailsend')) + '">Allow changes</a><button type="button" class="ml-btn" data-close>Not now</button></div>');
     void what;
   }
   function failed(e, what) {
@@ -362,8 +367,8 @@
   function renderConnect(need) {
     var rows = $('[data-rows]');
     var html = '<div class="ml-connect"><span class="ml-connect__ic">' + ic('unread') + '</span><b>Your mail in FavorOS</b><p>' +
-      (need === 'read' && S.level.headers ? 'Google asks once. This lets FavorOS open your messages and their files and search your Gmail.' : 'Google asks once. This lets FavorOS show your Gmail here: messages, files and search.') +
-      '</p><a class="ml-btn ml-btn--primary" href="' + esc(allowUrl('mail')) + '">Allow</a><a class="ml-link" href="' + esc(gmailLink('')) + '" target="_blank" rel="noopener">Open Gmail instead</a></div>';
+      (need === 'read' && S.level.headers ? 'FavorOS can show who wrote and the subject today. Allow Mail adds the full message, its files and search. Google asks once.' : 'Allow Mail shows your Gmail here: messages, files and search. Google asks once.') +
+      '</p><a class="ml-btn ml-btn--primary" href="' + esc(allowUrl('mail')) + '">Allow Mail</a><a class="ml-link" href="' + esc(gmailLink('')) + '" target="_blank" rel="noopener">Open Gmail instead</a></div>';
     if (!S.level.headers) { rows.innerHTML = html; $('[data-read]').innerHTML = ''; }
     else if (S.view === 'thread') { var body = $('[data-read] .ml-thread__msgs'); if (body && !body.querySelector('.ml-connect')) body.insertAdjacentHTML('beforeend', html); }
   }
@@ -1174,7 +1179,7 @@
     var f = e.target.closest('[data-search]'); if (!f) return;
     e.preventDefault();
     var q = f.q.value.trim();
-    if (q && !S.level.read) { renderConnect('read'); return; }
+    if (q && !S.level.read) { askWrite('search'); return; }
     f.q.blur();
     go(S.label, q, '');
   });
@@ -1233,6 +1238,7 @@
       S.me = d.email; S.name = d.name; S.level = d.level || S.level; S.write = d.write !== false; S.connected = d.connected; S.signature = d.signature || '';
       if (S.level.write) { S.ro = false; try { localStorage.removeItem('favor.mail.ro'); } catch (e) { /* none */ } }
       root.classList.toggle('is-ro', !canWrite() || !S.level.write);
+      var bar = $('[data-allow]'); bar.hidden = !(S.level.headers && !S.level.read); $('[data-allow-link]').href = allowUrl('mail');
       if (!d.connected || (!S.level.headers && !S.level.read)) { renderConnect('read'); return; }
       loadLabels();
       route();
