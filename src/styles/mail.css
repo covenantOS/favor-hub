@@ -550,3 +550,4 @@ textarea.ml-input { resize: vertical; }
 .ml-c__later { width: 36px; }
 @media (max-width: 860px) { .ml-brief { margin: 8px; } .ml-prof { padding: 8px 10px; } }
 .ml-fk { flex-basis: 100%; padding: 0 4px 2px; }
+.ml-pick { display: flex; flex-direction: column; gap: 2px; }

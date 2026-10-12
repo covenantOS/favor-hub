@@ -26,3 +26,17 @@ CREATE TABLE IF NOT EXISTS hub_mail_giving (
   last_amount REAL NOT NULL DEFAULT 0,
   at TEXT NOT NULL
 );
+
+-- Mail to teammates (2026-10-12): conversations a person handed to a teammate. The subject and the person's note only; the teammate got a Chat notice.
+CREATE TABLE IF NOT EXISTS hub_mail_assign (
+  id TEXT PRIMARY KEY,
+  owner TEXT NOT NULL,
+  thread_id TEXT NOT NULL,
+  assignee TEXT NOT NULL,
+  subject TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL DEFAULT 'open',
+  created_at TEXT NOT NULL,
+  done_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_hub_mail_assign_owner ON hub_mail_assign(owner, state);

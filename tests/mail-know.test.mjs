@@ -436,3 +436,66 @@ describe('finding a time from an email', () => {
     assert.ok(r.data.slots.length >= 3);
   });
 });
+
+describe('handing an email to the rest of FavorOS', () => {
+  let told, requests;
+  const withStandIns = (path, method, body) =>
+    handle({
+      request: new Request('https://dash.favorintl.org/api/mail/' + path, { method, headers: { 'X-Hub-Request': '1', 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }),
+      env, user: ADMIN, path: path.split('?')[0].split('/').filter(Boolean), fetcher: fakeGoogle, ai, partners: async () => ({}),
+      chat: async (from, to, text) => { told.push({ from, to, text }); },
+      makeRequest: async (r) => { requests.push(r); return { id: 'req_test1' }; },
+    }).then(async (res) => ({ status: res.status, data: await res.json() }));
+  beforeEach(() => {
+    told = [];
+    requests = [];
+    d1.exec(read('db/mail-cache.sql'));
+    d1.exec("CREATE TABLE IF NOT EXISTS meet_directory (email TEXT PRIMARY KEY, name TEXT, title TEXT, team TEXT, active INTEGER)");
+    d1.exec("INSERT OR REPLACE INTO meet_directory VALUES ('bo@favorintl.org', 'Bo Builder', 'Partner Care', 'pc', 1)");
+  });
+
+  it('assigns a conversation: a Chat notice with the subject, sender, preview and note, and a row the person can follow', async () => {
+    const r = await withStandIns('threads/tpartner1/assign', 'POST', { to: 'bo@favorintl.org', note: 'Please call her Friday.' });
+    assert.equal(r.status, 200);
+    assert.equal(told.length, 1);
+    assert.equal(told[0].to, 'bo@favorintl.org');
+    assert.equal(told[0].from, ADMIN.email);
+    assert.match(told[0].text, /Visiting in March/);
+    assert.match(told[0].text, /Please call her Friday/);
+    assert.ok(!/dash\.favorintl\.org\/mail/.test(told[0].text), 'a teammate cannot open another person\'s Gmail, so no link goes');
+    const list = (await withStandIns('assigned', 'GET')).data.assigned;
+    assert.equal(list[0].name, 'Bo Builder');
+    assert.equal(list[0].state, 'open');
+    assert.equal((await withStandIns('assigned/' + list[0].id + '/done', 'POST')).status, 200);
+    assert.equal((await withStandIns('assigned', 'GET')).data.assigned[0].state, 'done');
+  });
+
+  it('turns away an address that is not on the staff list, and the person themself', async () => {
+    assert.equal((await withStandIns('threads/tpartner1/assign', 'POST', { to: 'pat@example.org' })).status, 400);
+    assert.equal((await withStandIns('threads/tpartner1/assign', 'POST', { to: ADMIN.email })).status, 400);
+    assert.equal(told.length, 0);
+  });
+
+  it('mentions a coworker on an email with the note', async () => {
+    const r = await withStandIns('threads/tpartner1/mention', 'POST', { to: ['bo@favorintl.org', 'pat@example.org'], note: 'Thoughts?' });
+    assert.deepEqual(r.data.told, ['bo@favorintl.org']);
+    assert.match(told[0].text, /want your eyes/);
+    assert.equal((await withStandIns('threads/tpartner1/mention', 'POST', { to: ['pat@example.org'] })).status, 400);
+  });
+
+  it('makes a request card filed as the person, with the preview and the link back to the email', async () => {
+    const r = await withStandIns('threads/tpartner1/request', 'POST', { note: 'Update the trip page.', surface: 'website' });
+    assert.equal(r.data.id, 'req_test1');
+    assert.match(r.data.url, /^\/requests\/\?r=req_test1$/);
+    assert.equal(requests[0].email, ADMIN.email);
+    assert.equal(requests[0].title, 'Visiting in March');
+    assert.match(requests[0].body, /Update the trip page/);
+    assert.match(requests[0].body, /\/mail\/#\/INBOX\/tpartner1/);
+  });
+
+  it('refuses all three without read access to the mail', async () => {
+    d1.exec("UPDATE hub_google SET scopes = 'https://www.googleapis.com/auth/gmail.metadata' WHERE email = '" + ADMIN.email + "'");
+    forgetCount(ADMIN.email);
+    assert.equal((await withStandIns('threads/tpartner1/assign', 'POST', { to: 'bo@favorintl.org' })).status, 403);
+  });
+});

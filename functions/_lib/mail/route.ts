@@ -25,10 +25,11 @@ import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../ht
 import { accessToken, mailLevel } from '../hub/google';
 import { staffDirectory } from '../people';
 import type { HubUser } from '../session';
-import { GmailError, ROW_HEADERS, gmail, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
+import { GmailError, ROW_HEADERS, decodeEntities, gmail, parseAddrs, pool, shapeMessage, shapeThreadRow, type Addr, type Fetcher, type Gmail } from './gmail';
 import { b64ToBytes, rawOf, validEmail, type OutFile } from './mime';
 import { boxToken, listBoxes, removeBox } from './boxes';
 import { partnerMap, type PartnerLookup } from './partners';
+import { assign, assigned, defaultChat, defaultRequest, finishAssigned, mention, requestFrom, type Brief, type ChatPost, type MakeRequest } from './links';
 import { idsFor, pruneRows, rowsFor, useRowStore } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
 import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
@@ -63,6 +64,9 @@ export interface MailCtx {
   /** The Blackbaud copy, read only; tests pass a stand-in. */
   mirror?: (sql: string, params?: unknown[]) => Promise<any[]>;
   giving?: SmartCtx['giving'];
+  /** Chat notices and request cards; tests pass stand-ins so no real person is told. */
+  chat?: ChatPost;
+  makeRequest?: MakeRequest;
   /** Free and busy times by address; tests pass a stand-in. */
   freeBusy?: (emails: string[], from: string, to: string) => Promise<Record<string, any>>;
   /** Clip and Drive pickers; tests pass stand-ins. */
@@ -376,6 +380,34 @@ async function route(ctx: MailCtx): Promise<Response> {
     return json({ ok: true, slots: freeSlots(busy, from, days, minutes), minutes, guests, note });
   }
 
+  if (a === 'assigned' && !b && method === 'GET') return json({ ok: true, assigned: await assigned(env, owner) });
+  if (a === 'assigned' && b && c === 'done' && method === 'POST') return (await finishAssigned(env, owner, b)) ? json({ ok: true }) : errorJson('not_found', 'That one is not open.', 404);
+
+  if (a === 'threads' && b && ['assign', 'mention', 'request'].includes(c) && method === 'POST') {
+    const r = needRead();
+    if (r) return r;
+    const id = tid(b);
+    const body = await readBody(request);
+    const t = await gm.get('/threads/' + id, { format: 'metadata', metadataHeaders: ['From', 'Subject'] });
+    const msgs = (t.messages || []).filter((m: any) => !(m.labelIds || []).includes('DRAFT'));
+    const lastM = msgs[msgs.length - 1] || {};
+    const hdrOf = (m: any, n: string) => String((m?.payload?.headers || []).find((h: any) => h.name.toLowerCase() === n)?.value || '');
+    const from = parseAddrs(hdrOf(lastM, 'from'))[0];
+    const brief: Brief = {
+      threadId: id,
+      subject: hdrOf(msgs[0], 'subject') || '(no subject)',
+      from: from ? from.name || from.email : '',
+      snippet: decodeEntities(String(lastM.snippet || '')),
+      link: `${url.origin}/mail/#/INBOX/${id}`,
+    };
+    const chat = ctx.chat || (await defaultChat(env));
+    const note = String(body.note || '');
+    if (c === 'assign') return json({ ok: true, ...(await assign(env, chat, owner, user.name || '', String(body.to || ''), brief, note)) });
+    if (c === 'mention') return json({ ok: true, told: await mention(env, chat, owner, user.name || '', (Array.isArray(body.to) ? body.to : [body.to]).map(String), brief, note) });
+    const made = await requestFrom(ctx.makeRequest || (await defaultRequest(env)), owner, user.name || '', brief, note, String(body.surface || 'dashboard'));
+    return json({ ok: true, ...made });
+  }
+
   if (a === 'check' && method === 'POST') {
     const body = await readBody(request);
     const to = addrs(body.to);
@@ -556,7 +588,7 @@ async function route(ctx: MailCtx): Promise<Response> {
       next = list.nextPageToken || '';
       estimate = Number(list.resultSizeEstimate) || 0;
     }
-    const rows = await rowsFor(gm, me, listed);
+    const rows = await rowsFor(gm, me, listed, 5);
     const marked = label === 'INBOX' ? decorate(rows, (await classify(smartCtx, rows, false)).by) : rows;
     return json({ ok: true, threads: mark(marked), next, estimate, level });
   }

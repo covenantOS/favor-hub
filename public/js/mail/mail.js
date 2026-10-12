@@ -59,6 +59,7 @@
     sort: '<path d="M7 5v14"/><path d="m3.5 15.5 3.5 3.5 3.5-3.5"/><path d="M17 19V5"/><path d="m13.5 8.5 3.5-3.5 3.5 3.5"/>',
     bolt: '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
     hourglass: '<path d="M7 3h10M7 21h10"/><path d="M8 3c0 5 8 5 8 9s-8 4-8 9"/><path d="M16 3c0 5-8 5-8 9s8 4 8 9"/>',
+    image: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3 3-2.5 4 3.5"/>',
     wand: '<path d="m5 19 10-10"/><path d="m14 5 1-2 1 2 2 1-2 1-1 2-1-2-2-1z"/><path d="M19 12l.7 1.3L21 14l-1.3.7L19 16l-.7-1.3L17 14l1.3-.7z"/>',
     cal: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     q: '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01"/>',
@@ -150,6 +151,11 @@
     times: function (b) { return req('POST', 'smart/times', b); },
     entity: function (kind, q) { return req('GET', 'entity?kind=' + encodeURIComponent(kind) + '&q=' + encodeURIComponent(q)); },
     entityNames: function () { return req('GET', 'entity/names'); },
+    assign: function (id, to, note) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/assign', boxOf(id)), { to: to, note: note }); },
+    mention: function (id, to, note) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/mention', boxOf(id)), { to: to, note: note }); },
+    makeRequest: function (id, note, surface) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/request', boxOf(id)), { note: note, surface: surface }); },
+    assigned: function () { return req('GET', 'assigned'); },
+    assignedDone: function (id) { return req('POST', 'assigned/' + encodeURIComponent(id) + '/done', {}); },
     meetCreate: function (b) { return req('POST', '/api/meet/meetings', b); },
     overview: function (mb) { return req('GET', pathMb('smart/overview', mb)); },
     assist: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))); },
@@ -400,7 +406,7 @@
       var tip = l.id === 'INBOX' && l.unreadAll != null && l.unreadAll !== l.unread ? ' title="Unread in the Primary tab, as Gmail counts it. ' + l.unreadAll + ' unread across all tabs."' : '';
       return '<a class="ml-lab' + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' is-on' : '') + '" href="#/' + encodeURIComponent(l.id) + '" data-label="' + esc(l.id) + '"' + tip + (S.label === l.id && !S.q && !(l.id === 'INBOX' && S.v) ? ' aria-current="page"' : '') + '>' + dot + '<span>' + esc(l.name) + '</span>' + (n ? '<em class="ml-count' + (l.id === 'INBOX' ? ' ml-count--strong' : '') + '">' + n.toLocaleString('en-US') + '</em>' : '') + '</a>';
     };
-    var html = sys.map(function (l) { return row(l) + (l.id === 'INBOX' ? viewsHtml() : '') + (l.id === 'DRAFT' ? '<button type="button" class="ml-lab ml-lab--btn" data-act="later-list">' + ic('clock') + '<span>Scheduled</span></button>' : ''); }).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
+    var html = sys.map(function (l) { return row(l) + (l.id === 'INBOX' ? viewsHtml() : '') + (l.id === 'DRAFT' ? '<button type="button" class="ml-lab ml-lab--btn" data-act="later-list">' + ic('clock') + '<span>Scheduled</span></button><button type="button" class="ml-lab ml-lab--btn" data-act="assigned-list">' + ic('person') + '<span>Assigned</span></button>' : ''); }).join('') + (own.length ? '<div class="ml-labels__h">Labels</div>' + own.map(row).join('') : '');
     var nav = $('[data-labels]'); if (nav) nav.innerHTML = html;
     var nm = $('[data-label-name]'); if (nm) nm.textContent = S.q ? 'Search' : labelName(S.label);
     var inbox = S.labels.filter(function (l) { return l.id === 'INBOX'; })[0];
@@ -1031,7 +1037,7 @@
     if (a.ask || a.summary) html += '<div class="ml-sum">' + (a.ask ? '<em class="ml-chip ml-chip--sun">' + ic('bolt') + 'Waiting on you</em>' : '') + (a.summary ? '<p><b>In short</b> ' + esc(a.summary) + '</p>' : '') + '</div>';
     if (a.card && p) html += partnerCardHtml(a.card, p);
     html += profileHtml(a.profile, !!(a.card && p)) + giftHtml(a, p) + commitHtml(a);
-    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button></div>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
+    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button><button type="button" class="ml-btn" data-act="ask-brain">' + ic('q') + 'Ask Favor Brain</button></div>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
     var keep = box.querySelector('[data-ask]') ? box.querySelector('[data-ask]').value : '';
     box.innerHTML = html; box.hidden = !html;
     var ai2 = box.querySelector('[data-ask]'); if (ai2 && keep) ai2.value = keep;
@@ -1517,6 +1523,10 @@
     var us = ((t.messages || []).filter(function (m) { return m.unsubscribe && (m.unsubscribe.url || m.unsubscribe.mailto); }).slice(-1)[0] || {}).unsubscribe;
     if (us) items.push(['unsub', 'x', 'Unsubscribe', us.url ? 'Opens the sender\'s page' : 'Sends the sender an email']);
     items.push(['find-time', 'cal', 'Find a time', 'From your calendar']);
+    items.push(['assign', 'person', 'Assign to a teammate', 'Chat notice with a note']);
+    items.push(['mention', 'chat', 'Mention a coworker', 'Chat notice with a note']);
+    items.push(['request', 'task', 'Make a request', 'On the request board']);
+    items.push(['ask-brain', 'q', 'Ask Favor Brain', 'About this email']);
     items.push(['gmail', 'ext', 'Open in Gmail', '']);
     var el = openSheet('More', '<div class="ml-menu">' + items.map(function (x) { return '<button type="button" class="ml-menu__i" data-more="' + x[0] + '">' + ic(x[1]) + '<span>' + esc(x[2]) + '</span>' + (x[3] ? '<small>' + esc(x[3]) + '</small>' : '') + '</button>'; }).join('') + '</div>', { anchor: anchor });
     el.addEventListener('click', function (e) {
@@ -1529,11 +1539,65 @@
       if (k === 'snooze') return snoozeMenu();
       if (k === 'unsub') return closeSheet(null, unsubscribe);
       if (k === 'find-time') return closeSheet(null, findTime);
+      if (k === 'assign' || k === 'mention' || k === 'request') return closeSheet(null, function () { handOff(k); });
+      if (k === 'ask-brain') return askBrain();
       closeSheet(null, function () {
         if (k === 'open-partner') location.href = '/work/partner/' + encodeURIComponent(p.id);
         else if (k !== 'gmail') act(k);
       });
     });
+  }
+  // Assign, mention and request: pick a person (assign, mention) and write a note; nothing goes until the button is pressed.
+  function handOff(kind) {
+    var t = S.thread; if (!t) return;
+    var title = kind === 'assign' ? 'Assign to a teammate' : kind === 'mention' ? 'Mention a coworker' : 'Make a request';
+    var who = '';
+    var pickBox = kind === 'request' ? '<label>Where it lands<select class="ml-input" name="surface"><option value="dashboard">FavorOS</option><option value="website">Website</option><option value="portal">Portal</option><option value="app">App</option></select></label>' : '<label>Who<input class="ml-input" name="who" autocomplete="off" placeholder="Start typing a name" /></label><div class="ml-pick" data-who-res></div><p class="ml-p" data-who-sel></p>';
+    var go2 = kind === 'assign' ? 'Assign' : kind === 'mention' ? 'Tell them' : 'Make the request';
+    var el = openSheet(title, '<form class="ml-form" data-hof>' + pickBox + '<label>Note<textarea class="ml-input" name="note" rows="3" maxlength="600" placeholder="' + (kind === 'request' ? 'What needs to change' : 'What you need from them') + '"></textarea></label><p class="ml-p">' + (kind === 'request' ? 'The request goes on the board as you, with the email\'s subject, sender and preview.' : 'They get a Chat message with the subject, sender, a one line preview and your note. They cannot open your mailbox.') + '</p><div class="ml-sheet__acts"><button type="submit" class="ml-btn ml-btn--primary">' + go2 + '</button></div></form>');
+    var res = el.querySelector('[data-who-res]'), sel = el.querySelector('[data-who-sel]'), inp = el.querySelector('[name="who"]'), tt = 0;
+    var chosen = [];
+    if (inp) inp.addEventListener('input', function () {
+      clearTimeout(tt); var q = inp.value.trim(); if (q.length < 2) { res.innerHTML = ''; return; }
+      tt = setTimeout(function () {
+        api.contacts(q).then(function (d) {
+          var list = (d.people || []).filter(function (x) { return x.kind === 'staff' && x.email !== S.me; }).slice(0, 6);
+          res.innerHTML = list.map(function (x, i) { return '<button type="button" class="ml-menu__i" data-staff="' + esc(x.email) + '"><span>' + esc(x.name || x.email) + '</span><small>' + esc(x.title || '') + '</small></button>'; }).join('') || '<div class="ml-empty"><span>No one on staff by that name</span></div>';
+        }).catch(function () { res.innerHTML = ''; });
+      }, 160);
+    });
+    el.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-staff]'); if (!b) return;
+      if (kind === 'assign') chosen = [b.dataset.staff]; else if (chosen.indexOf(b.dataset.staff) < 0) chosen.push(b.dataset.staff);
+      sel.textContent = (kind === 'assign' ? 'To ' : 'Telling ') + chosen.join(', ');
+      inp.value = ''; res.innerHTML = '';
+    });
+    el.addEventListener('submit', function (e) {
+      e.preventDefault(); var f = e.target, note = f.note.value.trim(), btn = f.querySelector('[type=submit]');
+      if (kind !== 'request' && !chosen.length) return toast('Pick someone first');
+      btn.disabled = true;
+      var job = kind === 'assign' ? api.assign(t.id, chosen[0], note) : kind === 'mention' ? api.mention(t.id, chosen, note) : api.makeRequest(t.id, note, f.surface.value);
+      job.then(function (d) {
+        closeSheet();
+        toast(kind === 'assign' ? 'Assigned to ' + (d.name || chosen[0]) : kind === 'mention' ? 'Told ' + (d.told || []).length + (((d.told || []).length === 1) ? ' person' : ' people') : 'Request made', kind === 'request' ? null : null);
+        if (kind === 'request' && d.url) setTimeout(function () { toast('Request on the board: ' + d.url); }, 0);
+      }).catch(function (er) { btn.disabled = false; toast(er.message); });
+    });
+  }
+  function assignedList() {
+    var el = openSheet('Assigned to teammates', '<div class="ml-empty"><span>Loading</span></div>');
+    api.assigned().then(function (d) {
+      var l = d.assigned || [];
+      el.querySelector('.ml-sheet__body').innerHTML = l.length ? '<div class="ml-menu">' + l.map(function (x) { return '<div class="ml-menu__i ml-mrow"><span><b>' + esc(x.subject || '(no subject)') + '</b><br><small>' + esc(x.name) + (x.note ? ': ' + esc(x.note) : '') + ', ' + esc(shortDay(x.at)) + '</small></span>' + (x.state === 'open' ? '<button type="button" class="ml-btn" data-adone="' + esc(x.id) + '">Done</button>' : '<small>Done</small>') + '</div>'; }).join('') + '</div>' : '<p class="ml-p">Nothing assigned yet.</p>';
+    }).catch(failed);
+    el.addEventListener('click', function (e) { var b = e.target.closest('[data-adone]'); if (!b) return; api.assignedDone(b.dataset.adone).then(function () { b.replaceWith(document.createTextNode('Done')); }).catch(failed); });
+  }
+  // Favor Brain with this email as the question's background, opened as a new chat.
+  function askBrain(q) {
+    var t = S.thread, m = lastMsg(); if (!t) return;
+    var inp = $('[data-ask]');
+    var text = (q || (inp && inp.value.trim()) || 'What should I do about this email?') + '\n\nThe email: "' + (t.subject || '') + '" from ' + who(m && m.from) + ' on ' + when(m && m.date, true) + '. ' + String((m && m.snippet) || '').slice(0, 300);
+    window.open('/brain/?ask=' + encodeURIComponent(text.slice(0, 590)), '_blank', 'noopener');
   }
   function unsubscribe() {
     var t = S.thread; if (!t) return;
@@ -1706,6 +1770,7 @@
         '<button type="button" class="ml-iconbtn" data-c="attach" aria-label="Attach a file" title="Attach a file">' + ic('clip') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-c="drive" aria-label="Link a Drive file" title="Link a Drive file">' + ic('drive') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-c="clip" aria-label="Link a clip" title="Link a clip">' + ic('rec') + '</button>' +
+        '<button type="button" class="ml-iconbtn" data-c="photos" aria-label="Photos from Drive" title="Photos from the Drive library">' + ic('image') + '</button>' +
         '<button type="button" class="ml-iconbtn" data-act="templates" aria-label="Templates" title="Templates with the partner\'s details">' + ic('draft') + '</button>' +
         '<span class="ml-c__sep"></span>' +
         '<button type="button" class="ml-iconbtn" data-fmt="bold" aria-label="Bold" title="Bold (Ctrl B)">' + ic('bold') + '</button>' +
@@ -1897,9 +1962,10 @@
     if (!document.execCommand('insertHTML', false, html)) ed.insertAdjacentHTML('afterbegin', html);
     changed();
   }
-  function drivePick() {
-    var el = openSheet('Link a Drive file', '<input class="ml-input" data-dq placeholder="Search the Drive library" aria-label="Search the Drive library" autocomplete="off" /><div class="ml-pick" data-dres><div class="ml-empty"><span>Type to search</span></div></div>');
+  function drivePick(first) {
+    var el = openSheet(first ? 'Photos from the Drive library' : 'Link a Drive file', '<input class="ml-input" data-dq placeholder="Search the Drive library" aria-label="Search the Drive library" autocomplete="off" /><div class="ml-pick" data-dres><div class="ml-empty"><span>Type to search</span></div></div>');
     var t = 0, q = el.querySelector('[data-dq]'), res = el.querySelector('[data-dres]'), items = [];
+    if (first) { q.value = first; q.dispatchEvent(new Event('input')); }
     q.addEventListener('input', function () {
       clearTimeout(t);
       var v = q.value.trim();
@@ -1917,6 +1983,12 @@
       var f = items[+b.dataset.dpick]; closeSheet();
       insertHtml('<a href="' + esc(f.url) + '">' + esc(f.name) + '</a>&nbsp;');
     });
+  }
+  // Photos for a reply: the Drive library searched with the words of the subject, so a reply about a trip finds the trip's pictures.
+  function photoPick() {
+    var subj = C ? ($('#ml-c-subj', C.el).value || '') : '';
+    var words = subj.replace(/^(re|fwd?):\s*/ig, '').replace(/[^\w\s]/g, ' ').split(/\s+/).filter(function (w) { return w.length > 3; }).slice(0, 4).join(' ');
+    drivePick((words || 'photos') + ' photo');
   }
   function clipPick() {
     var el = openSheet('Link a clip', '<div class="ml-pick" data-cres><div class="ml-empty"><span>Loading your clips</span></div></div>');
@@ -1954,6 +2026,7 @@
       else if (c === 'attach') $('[data-file]', el).click();
       else if (c === 'drive') drivePick();
       else if (c === 'clip') clipPick();
+      else if (c === 'photos') photoPick();
       else if (c === 'quote') { $('[data-q]', el).hidden = false; b.remove(); }
     });
     el.addEventListener('mousedown', function (e) { if (e.target.closest('[data-fmt]')) e.preventDefault(); });
@@ -2041,6 +2114,9 @@
     else if (k === 'commit-task') commitTask(+a.dataset.i);
     else if (k === 'read-file') readFileKind(a);
     else if (k === 'later-list') laterList();
+    else if (k === 'assigned-list') assignedList();
+    else if (k === 'ask-brain') askBrain();
+    else if (k === 'photos') photoPick();
     else if (k === 'templates') templatesMenu();
     else if (k === 'later-menu') laterMenu();
     else if (k === 'unsub') unsubscribe();
