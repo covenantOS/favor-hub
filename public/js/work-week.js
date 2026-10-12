@@ -40,7 +40,7 @@ async function start() {
   if (S.started) return;
   S.started = true;
   await load('', 0);
-  W().render();
+  W().refresh('week');
 }
 const wk = () => (S.data && S.data.week) || null;
 const name = () => (S.data && S.data.ownerName) || (wk() && wk().name) || '';

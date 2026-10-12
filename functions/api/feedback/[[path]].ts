@@ -70,7 +70,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       if (!row) return errorJson('not_found', 'That note is gone.', 404);
       const mineNote = row.email.toLowerCase() === user.email.toLowerCase();
       if (request.method === 'GET') {
-        if (!mineNote && !admin) return errorJson('admin_only', 'Only the hub admin sees every note.', 403);
+        if (!mineNote && !admin) return errorJson('admin_only', 'Only the FavorOS admin sees every note.', 403);
         const obj = row.shot_key ? await env.UPLOADS.get(row.shot_key) : null;
         if (!obj) return new Response('Not found', { status: 404, headers: PRIVATE_HEADERS });
         return new Response(obj.body, { headers: { ...PRIVATE_HEADERS, 'Content-Type': 'image/jpeg' } });
@@ -111,7 +111,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
     }
 
     if (request.method === 'GET' && path === 'all') {
-      if (!admin) return errorJson('admin_only', 'Only the hub admin sees every note.', 403);
+      if (!admin) return errorJson('admin_only', 'Only the FavorOS admin sees every note.', 403);
       const status = new URL(request.url).searchParams.get('status') || '';
       const where = STATUSES.has(status) ? 'WHERE status = ?' : '';
       const r = await env.DB.prepare(
@@ -127,7 +127,7 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
 
     const id = Number(path);
     if (request.method === 'POST' && Number.isInteger(id) && id > 0) {
-      if (!admin) return errorJson('admin_only', 'Only the hub admin answers notes.', 403);
+      if (!admin) return errorJson('admin_only', 'Only the FavorOS admin answers notes.', 403);
       const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
       const status = STATUSES.has(String(b.status)) ? String(b.status) : null;
       const reply = b.reply === undefined ? undefined : String(b.reply || '').trim().slice(0, 2000);

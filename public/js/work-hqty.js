@@ -25,7 +25,7 @@ async function load() {
   catch (err) { H.error = err.message; }
   H.loading = false;
 }
-async function start() { if (H.started) return; H.started = true; await load(); if (W().S.view === 'hqty') view(); }
+async function start() { if (H.started) return; H.started = true; await load(); if (W().S.view === 'hqty') view(); if (W().refresh) W().refresh('hqty-count'); }
 
 const recentFrom = () => { const t = H.data.today; let y = Number(t.slice(0, 4)); let m = Number(t.slice(5, 7)) - 1; if (m === 0) { m = 12; y--; } return `${y}-${String(m).padStart(2, '0')}-01`; };
 const blocked = (r) => r.flags.includes('No mailing address') || r.flags.includes('No partner credited');

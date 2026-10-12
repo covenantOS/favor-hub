@@ -2,7 +2,7 @@
    close date and Gave. A close-date chip on each card opens a small panel and saves at once with Undo. Reads GET /api/work/asks one page
    of 50 at a time (the D1 copy of Blackbaud, no Blackbaud calls). Every filter (status, search, director, tagged range) runs on the server
    over all asks. A column loads its next page when the sentinel at its end scrolls into view. The close date is saved with
-   PUT /api/work/asks/:id/close in the hub database.
+   PUT /api/work/asks/:id/close in FavorOS database.
    Registers through window.WCTabs. Directors see their own asks; the Support Team and admins pick a director or see everyone. */
 (() => {
 'use strict';
@@ -94,7 +94,7 @@ function changed(tab) {
 }
 function start() {
   A.started = true;
-  fetchAll().then(() => W().render());
+  fetchAll().then(() => W().refresh('asks'));
 }
 // After a close date is saved or undone: refetch what is loaded, so each card sits in its new column with the same page depth.
 async function refreshLoaded() {

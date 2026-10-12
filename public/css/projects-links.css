@@ -1,0 +1,101 @@
+/* Projects links: the task card in Chat, the quick task sheet that opens in place, Make a task from a message, the Links panel on a
+   task, the project email and calendar choices, and the notes page buttons. Loaded by public/js/projects/links.js and the Chat page.
+   Colors and radii come from the round 2 tokens (src/styles/round2.css). Text is 13 px or larger; every control is 44 px on touch. */
+
+/* ---------------------------------------------------------------- the task card in Chat */
+.ch-card.pjl-tcard { flex-direction: column; align-items: stretch; gap: 6px; padding: 12px 14px; max-width: 460px; width: 100%; cursor: pointer; }
+.pjl-tcard__k { display: flex; align-items: center; gap: 6px; font: 700 13px/1.2 var(--h-font, Inter, sans-serif); color: var(--a-ink, #1f3a1a); }
+.pjl-tcard__k svg { width: 15px; height: 15px; flex: none; }
+.pjl-tcard__proj { margin-left: auto; padding: 2px 8px; border-radius: 999px; background: var(--r-sunk, #f1ede1); color: var(--r-ink-2, #57534a); font: 600 13px/1.3 var(--h-font, Inter, sans-serif); }
+.pjl-tcard .ch-card__t { font-weight: 700; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.pjl-tcard__note { display: block; padding: 8px 10px; border-radius: 9px; background: var(--r-hover, #f6f3ea); color: var(--r-ink-2, #57534a); font-size: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pjl-tcard__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pjl-tcard__row .ch-btn { flex: none; }
+.pjl-tcard[data-status='done'] .pjl-tcard__k { color: var(--r-ink-3, #8a8578); }
+.pjl-tcard[data-status='done'] .ch-card__t { text-decoration: line-through; color: var(--r-ink-3, #8a8578); }
+.pjl-late { color: #b3412b; font-weight: 600; }
+
+/* ---------------------------------------------------------------- sheets and dialogs */
+.pjl-ov { position: fixed; inset: 0; z-index: 2400; display: flex; justify-content: flex-end; }
+.pjl-ov[hidden] { display: none; }
+.pjl-ov__bg { position: absolute; inset: 0; background: rgba(29, 33, 27, 0.38); }
+.pjl-sheet { position: relative; display: flex; flex-direction: column; width: min(480px, 100%); height: 100%; background: var(--r-surface, #fffdf8); box-shadow: -18px 0 40px -20px rgba(29, 33, 27, 0.4); }
+.pjl-ov--dlg { justify-content: center; align-items: center; padding: 16px; }
+.pjl-ov--dlg .pjl-sheet { width: min(460px, 100%); height: auto; max-height: calc(100% - 32px); border-radius: 18px; }
+.pjl-sheet__h { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--r-line, #e7e0cf); }
+.pjl-sheet__h h3 { margin: 0; flex: 1; min-width: 0; font: 600 16px/1.3 var(--h-font, Inter, sans-serif); overflow-wrap: anywhere; }
+.pjl-sheet__b { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; display: grid; gap: 14px; align-content: start; }
+.pjl-sheet__f { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--r-line, #e7e0cf); }
+@media (max-width: 860px) {
+  .pjl-ov, .pjl-ov--dlg { align-items: flex-end; justify-content: stretch; padding: 0; }
+  .pjl-sheet, .pjl-ov--dlg .pjl-sheet { width: 100%; height: auto; max-height: calc(100% - 48px); border-radius: 18px 18px 0 0; box-shadow: 0 -18px 40px -20px rgba(29, 33, 27, 0.4); }
+  .pjl-ov--full .pjl-sheet { height: calc(100% - 48px); }
+}
+
+/* ---------------------------------------------------------------- controls */
+.pjl-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 14px; border: 1px solid var(--r-line-2, #d8d0bb); border-radius: 10px; background: #fff; color: var(--r-ink, #1d211b); font: 600 14px/1 var(--h-font, Inter, sans-serif); cursor: pointer; text-decoration: none; }
+.pjl-btn:hover { background: var(--r-hover, #f6f3ea); }
+.pjl-btn--primary { background: var(--a-ink, #2b4d24); border-color: var(--a-ink, #2b4d24); color: #fff; }
+.pjl-btn--primary:hover { background: #24401e; }
+.pjl-btn--quiet { border-color: transparent; background: none; }
+.pjl-btn[disabled] { opacity: 0.55; cursor: default; }
+.pjl-btn svg { width: 16px; height: 16px; }
+.pjl-x { display: grid; place-items: center; width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; color: var(--r-ink-2, #57534a); cursor: pointer; }
+.pjl-x:hover { background: var(--r-sunk, #f1ede1); }
+.pjl-x svg { width: 18px; height: 18px; }
+.pjl-field { display: grid; gap: 6px; }
+.pjl-field > span, .pjl-lab { font: 600 13px/1.2 var(--h-font, Inter, sans-serif); color: var(--r-ink-2, #57534a); }
+.pjl-input, .pjl-select, .pjl-text { width: 100%; box-sizing: border-box; min-height: 40px; padding: 8px 12px; border: 1px solid var(--r-line-2, #d8d0bb); border-radius: 10px; background: #fff; color: var(--r-ink, #1d211b); font: 400 15px/1.35 var(--h-font, Inter, sans-serif); }
+.pjl-text { min-height: 84px; resize: vertical; }
+.pjl-input:focus, .pjl-select:focus, .pjl-text:focus { outline: 2px solid var(--a-ink, #2b4d24); outline-offset: 1px; }
+.pjl-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.pjl-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 520px) { .pjl-two { grid-template-columns: 1fr; } }
+.pjl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: var(--r-sunk, #f1ede1); color: var(--r-ink-2, #57534a); font: 600 13px/1.3 var(--h-font, Inter, sans-serif); }
+.pjl-chip--ok { background: #e6efdc; color: #2b4d24; }
+.pjl-chip--warn { background: #fbe9c6; color: #7a5410; }
+.pjl-chip--bad { background: #f7dcd5; color: #b3412b; }
+.pjl-muted { color: var(--r-ink-3, #8a8578); font-size: 13px; line-height: 1.45; }
+.pjl-err { color: #b3412b; font-size: 14px; }
+.pjl-seg { display: grid; gap: 8px; }
+.pjl-opt { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--r-line-2, #d8d0bb); border-radius: 12px; cursor: pointer; background: #fff; }
+.pjl-opt:has(input:checked) { border-color: var(--a-ink, #2b4d24); background: #f1f6ec; }
+.pjl-opt input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--a-ink, #2b4d24); }
+.pjl-opt b { display: block; font: 600 15px/1.3 var(--h-font, Inter, sans-serif); }
+.pjl-opt small { display: block; color: var(--r-ink-3, #8a8578); font-size: 13px; line-height: 1.4; }
+
+/* ---------------------------------------------------------------- the quick task sheet */
+.pjl-task__meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.pjl-task__desc { font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--r-ink, #1d211b); }
+.pjl-cm { display: grid; grid-template-columns: 32px 1fr; gap: 10px; }
+.pjl-av { width: 32px; height: 32px; border-radius: 50%; background: #e6efdc; color: #2b4d24; display: grid; place-items: center; font: 700 13px/1 var(--h-font, Inter, sans-serif); overflow: hidden; }
+.pjl-av img { width: 100%; height: 100%; object-fit: cover; }
+.pjl-cm__h { font: 600 14px/1.3 var(--h-font, Inter, sans-serif); }
+.pjl-cm__h small { font-weight: 400; color: var(--r-ink-3, #8a8578); font-size: 13px; margin-left: 6px; }
+.pjl-cm__b { font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.pjl-list { display: grid; gap: 14px; }
+
+/* ---------------------------------------------------------------- the Links panel on a task */
+.pjl-links { display: grid; gap: 12px; }
+.pjl-sec { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--r-line, #e7e0cf); border-radius: 14px; background: #fff; }
+.pjl-sec__h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font: 700 14px/1.3 var(--h-font, Inter, sans-serif); }
+.pjl-sec__h svg { width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; }
+.pjl-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--r-hover, #f6f3ea); }
+.pjl-item a, .pjl-item span.t { min-width: 0; overflow-wrap: anywhere; font-size: 14px; color: var(--r-ink, #1d211b); }
+.pjl-item small { color: var(--r-ink-3, #8a8578); font-size: 13px; }
+.pjl-pick { display: grid; gap: 6px; max-height: 260px; overflow: auto; }
+.pjl-pick button { text-align: left; display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--r-line, #e7e0cf); border-radius: 10px; background: #fff; cursor: pointer; font: 400 14px/1.3 var(--h-font, Inter, sans-serif); color: inherit; }
+.pjl-pick button:hover { background: var(--r-hover, #f6f3ea); }
+.pjl-pick small { color: var(--r-ink-3, #8a8578); font-size: 13px; }
+
+/* ---------------------------------------------------------------- the meeting notes page */
+.pjl-act { display: inline-flex; margin-top: 6px; }
+
+/* ---------------------------------------------------------------- touch */
+@media (pointer: coarse) {
+  .pjl-btn, .pjl-x, .pjl-input, .pjl-select { min-height: 44px; }
+  .pjl-x { width: 44px; height: 44px; }
+  .pjl-opt { min-height: 44px; }
+  .pjl-pick button { min-height: 44px; }
+  .ch-bar .pjl-barbtn { width: 44px; height: 44px; }
+}

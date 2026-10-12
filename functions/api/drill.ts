@@ -22,7 +22,7 @@ export const onRequestPost: PagesFunction<DrillEnv> = async ({ request, env }) =
       return errorJson('bad_body', 'Send the request as JSON.', 400);
     }
     if (body.kind !== 'definition' && !user.kpi) return errorJson('not_allowed', 'The KPI numbers are open to leadership.', 403);
-    if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Favor Brain is not connected to the hub yet.', 503);
+    if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Favor Brain is not connected to FavorOS yet.', 503);
     const base = (env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '');
     const res = await fetch(`${base}/hub/drill`, {
       method: 'POST',

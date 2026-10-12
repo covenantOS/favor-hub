@@ -158,7 +158,7 @@ function meterUsed() { return DATA.meter.used || 0; }
 function meterHTML() {
   const used = meterUsed();
   const pct = Math.min(100, Math.round(used / DATA.meter.cap * 100));
-  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so the hub stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
+  return `<span class="wc-pill wc-meter${used >= 2200 ? ' is-high' : ''}" title="Favor's upkeep may make 3,000 Blackbaud calls a day, and the Work Center uses up to 2,400 of them. The giving form shares the same Blackbaud account, so FavorOS stays well under the limit. The count starts again at ${esc(DATA.meter.resets)}.">Blackbaud today <b>${used.toLocaleString()}</b> of 3,000<span class="wc-meter__bar"><i style="width:${Math.max(2, pct)}%"></i></span></span>`;
 }
 
 // ------------------------------------------------------------ page
@@ -176,7 +176,7 @@ function errorScreen(msg) {
     <p><button class="h-btn h-btn--primary" data-reload>Try again</button></p></div>`;
 }
 function entryWaiting() {
-  const d = S.in.data; if (!d) return Number(DATA.entryWaiting) || 0;
+  const d = S.in.data; if (!d) return DATA.entryWaiting == null ? '' : Number(DATA.entryWaiting) || 0;
   return d.owners.reduce((n, o) => n + o.wait + o.late, 0);
 }
 function page() {
@@ -188,17 +188,14 @@ function page() {
       <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
-        <span class="wc-pill" title="The hub reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
+        <span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
         ${meterHTML()}
         ${window.WCStart ? window.WCStart.pill() : ''}
         ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
       </div>
     </div>
     ${window.WCWeek ? window.WCWeek.strip() : ''}
-    <div class="wc-tabs" role="tablist" aria-label="Work Center">
-      ${tabsNow().map(([k, l, n]) =>
-        `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${typeof n === 'number' ? n.toLocaleString('en-US') : n}</span>` : ''}</button>`).join('')}
-    </div>
+    ${navHTML()}
     <div id="view"></div>`;
   if (window.WCGifts) window.WCGifts.hideBulk();
   (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount();
@@ -1196,8 +1193,63 @@ async function dlgSettings() {
 
 // ------------------------------------------------------------ render + events
 function centerOn(sel) { $$(sel).forEach((c) => { const on = $('.is-on', c); if (on && c.scrollWidth > c.clientWidth) c.scrollLeft = on.offsetLeft - (c.clientWidth - on.offsetWidth) / 2; }); }
-function render() { if (!S.loaded) return; const y = window.scrollY; const sc = $('#view .wc-scroll'); const st = sc ? sc.scrollTop : 0; page(); window.scrollTo(0, y); const sc2 = $('#view .wc-scroll'); if (sc2) sc2.scrollTop = st; centerOn('.wc-tabs, .wc-owners, .wc-lanes'); }
-function countUp() { $$('[data-countup]').forEach((el) => { const n = Number(el.dataset.countup); if (S.counted) { el.textContent = n.toLocaleString(); return; } const t0 = performance.now(); const f = (t) => { const p = Math.min(1, (t - t0) / 650); el.textContent = Math.round(n * (1 - Math.pow(1 - p, 3))).toLocaleString(); if (p < 1) requestAnimationFrame(f); }; requestAnimationFrame(f); }); S.counted = true; }
+function render() { if (!S.loaded) return; const y = window.scrollY; const sc = $('#view .wc-scroll'); const st = sc ? sc.scrollTop : 0; page(); window.scrollTo(0, y); const sc2 = $('#view .wc-scroll'); if (sc2) sc2.scrollTop = st; centerOn('.wc-owners, .wc-lanes'); }
+// Data for a tab arrives after the first paint. refresh(tabId) folds every arrival of one moment into a single pass: the tab strip is
+// patched in place (counts and dots change, nothing is rebuilt unless a tab appears), and the view is drawn again only when it is the tab
+// whose data arrived. The page never redraws once per tab.
+const pendingTabs = new Set(); let refreshT = 0;
+function tabBtn([k, l, n]) {
+  return `<button class="wc-tab${S.view === k ? ' is-on' : ''}${extraDot(k) ? ' is-new' : ''}" role="tab" aria-selected="${S.view === k}" data-view="${k}">${l}${n !== '' && (n || k !== 'recent') ? `<span>${typeof n === 'number' ? n.toLocaleString('en-US') : n}</span>` : ''}</button>`;
+}
+// Two short rows. The group row names the kind of work; the tab row shows the tabs of the group you are in, with their counts.
+// Every tab of every group is one tap from the group row, and neither row scrolls sideways.
+function navParts() {
+  const T = window.WCTabs, gs = T.groups(DATA.me), cur = T.groupOf(S.view);
+  const rows = tabsNow(); const byId = {}; rows.forEach((r) => { byId[r[0]] = r; });
+  const g = gs.find((x) => x.id === cur) || gs[0];
+  const sub = g && (gs.length < 2 || g.tabs.length > 1) ? g.tabs : [];
+  const grp = gs.length > 1 ? gs.map((x) => `<button class="wc-grp${x.id === (g && g.id) ? ' is-on' : ''}${x.tabs.some((t) => extraDot(t.id)) ? ' is-new' : ''}" role="tab" aria-selected="${x.id === (g && g.id)}" data-wcgroup="${x.id}">${esc(x.label)}</button>`).join('') : '';
+  const sig = gs.map((x) => x.id).join() + '|' + (g ? g.id : '') + '|' + sub.map((t) => t.id).join() + '|' + S.view;
+  return { sig, sub, byId, html: (grp ? `<div class="wc-groups" role="tablist" aria-label="Work Center sections">${grp}</div>` : '') + (sub.length ? `<div class="wc-tabs" role="tablist" aria-label="${esc(g ? g.label : 'Work Center')}">${sub.map((t) => tabBtn(byId[t.id])).join('')}</div>` : '') };
+}
+function navHTML() { const p = navParts(); return `<div class="wc-nav" id="wc-nav" data-sig="${esc(p.sig)}">${p.html}</div>`; }
+function patchTabs() {
+  const nav = $('#wc-nav'); if (!nav) return;
+  const p = navParts();
+  if (nav.dataset.sig !== p.sig) { nav.innerHTML = p.html; nav.dataset.sig = p.sig; return; }
+  $$('.wc-tab', nav).forEach((b) => {
+    const r = p.byId[b.dataset.view]; if (!r) return; const [k, l, n] = r; const want = n !== '' && (n || k !== 'recent'); let sp = b.querySelector(':scope > span');
+    b.classList.toggle('is-new', !!extraDot(k));
+    if (want) { if (!sp) { sp = document.createElement('span'); b.appendChild(sp); } if (sp.textContent !== String(n)) sp.textContent = n; } else if (sp) sp.remove();
+  });
+  const T = window.WCTabs; T.groups(DATA.me).forEach((g) => { const b = nav.querySelector(`[data-wcgroup="${g.id}"]`); if (b) b.classList.toggle('is-new', g.tabs.some((t) => extraDot(t.id))); });
+}
+// Switching tabs redraws the tab rows and the view only. The intro chips and the week strip stay where they are.
+function drawBody(from) {
+  if (from === 'week' || S.view === 'week' || !$('#wc-nav')) { render(); return; }
+  const y = window.scrollY; hideBar(); patchTabs(); if (window.WCGifts) window.WCGifts.hideBulk();
+  (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount(); window.scrollTo(0, y);
+}
+async function goTab(k) {
+  const from = S.view;
+  S.view = k; S.sel.clear(); S.anchor = null; S.shown = PAGE; window.WCTabs.remember(k);
+  if (k === 'intake' && !S.in.data) { S.in.loading = true; drawBody(from); await loadEntry(); }
+  if (k === 'intake') readSheet(S.in.rdd);
+  if (k === 'recent') await loadRecent();
+  drawBody(from);
+}
+function refresh(tab) {
+  pendingTabs.add(tab || '*');
+  if (refreshT) return;
+  refreshT = setTimeout(() => {
+    refreshT = 0; const had = [...pendingTabs]; pendingTabs.clear();
+    if (!S.loaded) return;
+    if (document.querySelector('.wc-dlg, .wc-drawer') && had.includes(S.view)) { patchTabs(); return; }
+    if (had.includes('*') || had.includes(S.view)) { render(); return; }
+    patchTabs();
+  }, 80);
+}
+function countUp() { $$('[data-countup]').forEach((el) => { el.textContent = Number(el.dataset.countup).toLocaleString(); }); S.counted = true; }
 // Re-read the lists from the hub (which lays its own pending changes over Blackbaud's copy) without disturbing what the person is doing.
 let refreshing = false;
 async function refreshBoard() {
@@ -1219,13 +1271,8 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-reload')) { init(); return; }
   if (t.hasAttribute('data-closelayer')) { closeLayer(); return; }
   if (t.hasAttribute('data-settings')) { dlgSettings(); return; }
-  if (d.view) {
-    S.view = d.view; S.sel.clear(); S.anchor = null; S.shown = PAGE;
-    if (d.view === 'intake' && !S.in.data) { S.in.loading = true; render(); await loadEntry(); }
-    if (d.view === 'intake') readSheet(S.in.rdd);
-    if (d.view === 'recent') await loadRecent();
-    render(); return;
-  }
+  if (d.view) { await goTab(d.view); return; }
+  if (d.wcgroup) { const k = window.WCTabs.entry(d.wcgroup, DATA.me); if (k && k !== S.view) await goTab(k); return; }
   if (d.scope) { if (window.WCStart) window.WCStart.applyScope(d.scope); S.sel.clear(); S.shown = PAGE; render(); return; }
   if (t.hasAttribute('data-tile')) { openTile(d.tile, Number(d.tileN)); return; }
   if (d.quick !== undefined && t.hasAttribute('data-quick')) { S.f.quick = S.f.quick === d.quick ? '' : d.quick; S.sel.clear(); render(); return; }
@@ -1323,7 +1370,7 @@ setInterval(() => { const c = $('#clock'); if (!c || !S.in.data) return; const d
 // ------------------------------------------------------------ shared with the edit panel (work-edit.js)
 window.WC = {
   api, post, S, esc, ic, I, fd, plural, money, addDays, dayn, lateClass, P, live, gone, cur, render, runJob, driveBatch, toast, refreshBoard, loadRecent,
-  closeLayer, dialog, reqId, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
+  closeLayer, dialog, reqId, refresh, goTab, selectAction: (id) => { if (pointAt(id)) { render(); showAction(id); } }, selIds, dlgComplete, dlgReassign, dlgReschedule, sorted, clearSel, bar, undoBatch, guardTab, matches, isOpenNow, refreshSel, meterHTML, CAT_IC,
   entryReload: async () => { await loadEntry(); render(); },
   get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, mayAssign, get TODAY() { return TODAY; }, AS,
 };
@@ -1339,6 +1386,21 @@ function warmTabs() {
     } catch (_) { /* a tab reads again when it opens */ }
   }, 300);
 }
+// /work/?tab=open&action=<id> opens Open actions with that action selected and scrolled into view. The filters are cleared so it cannot be hidden.
+function pointAt(id, quiet) {
+  const a = BYID[id];
+  if (!a || !isOpenNow(a)) { if (!quiet) toast('That action is not open any more.'); else S.actMiss = true; return false; }
+  S.view = 'open'; S.f = { fr: '', type: '', cat: '', due: '', q: '', cid: '', theirs: false, quick: '', scope: '' };
+  const at = sorted(ACTS.filter(isOpenNow)).findIndex((x) => x.id === id);
+  S.shown = Math.max(PAGE, at + 30); S.sel.clear(); S.sel.add(id); S.actMiss = false;
+  return true;
+}
+function showAction(id) {
+  if (S.actMiss) { toast('That action is not open any more.'); S.actMiss = false; return; }
+  const r = document.querySelector(`#view .wc-row[data-id="${CSS.escape(id)}"]`); if (!r) return;
+  r.scrollIntoView({ block: 'center' }); r.classList.add('is-flash'); setTimeout(() => r.classList.remove('is-flash'), 2400);
+  bar();
+}
 async function init() {
   document.documentElement.classList.add('wc-page');
   // The bar, the toast and the dialogs are fixed on screen, so they live on the body, outside the frame's blurred sheet.
@@ -1353,18 +1415,21 @@ async function init() {
   try {
     const [b, rc] = await Promise.all([boardP, recentP]);
     takeBoard(b); S.batches = rc.batches; S.loaded = true;
-    const v = QS.get('view'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
+    const v = QS.get('view') || QS.get('tab'); if (v && window.WCTabs.has(v, DATA.me)) S.view = v;
     { const qk = QS.get('quick'), fr = QS.get('fr'), dq = QS.get('due'); if (['past', 'today', 'now', 'week'].includes(dq)) S.f.due = dq; if (['past', 'ty', 'done', 'ctg'].includes(qk)) S.f.quick = qk; if (/^\d{1,12}$/.test(fr || '')) S.f.fr = fr; }
     if (window.WCEdit) await window.WCEdit.start();
     if (window.WCStart) await window.WCStart.apply();
     if (window.WCGifts && DATA.me.canGifts) window.WCGifts.start();
+    const wantAct = /^\d{1,12}$/.test(QS.get('action') || '') ? QS.get('action') : '';
+    if (wantAct) pointAt(wantAct, true);
     if (S.view === 'intake') { S.in.loading = true; render(); await loadEntry(); readSheet(S.in.rdd); }
     render();
+    if (wantAct) showAction(wantAct);
     warmTabs();
     // A batch sent from a window that closed picks up here.
     const stuck = S.batches.find((x) => x.run_when === 'now' && (x.state === 'running' || x.state === 'queued') && !x.undone);
     if (stuck && stuck.queued) { const ids = stuck.items.filter((i) => i.state === 'saving').map((i) => i.id); bar('Finishing what was sent…'); driveBatch(stuck.id, ids.length ? ids : ['x'], { keep: true }).then(async () => { await loadRecent(); refreshBoard(); }); }
-  } catch (e) { errorScreen(e.status === 403 ? e.message : 'The hub could not read Blackbaud\'s copy right now. ' + e.message); }
+  } catch (e) { errorScreen(e.status === 403 ? e.message : 'FavorOS could not read Blackbaud\'s copy right now. ' + e.message); }
 }
 init();
 })();

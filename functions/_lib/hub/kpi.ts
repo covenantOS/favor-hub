@@ -19,7 +19,7 @@ function b64url(bytes: Uint8Array | string): string {
 
 /** An HS256 token in the KPI dashboard's own session format, signed with its key. */
 export async function kpiToken(env: Env, claims: Record<string, unknown>, seconds: number): Promise<string> {
-  if (!env.KPI_JWT_SECRET) throw new HttpError(503, 'kpi_not_set_up', 'The KPI dashboard is not connected to the hub yet.');
+  if (!env.KPI_JWT_SECRET) throw new HttpError(503, 'kpi_not_set_up', 'The KPI dashboard is not connected to FavorOS yet.');
   const now = Math.floor(Date.now() / 1000);
   const head = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = b64url(JSON.stringify({ ...claims, iat: now, exp: now + seconds }));

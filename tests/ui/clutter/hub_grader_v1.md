@@ -1,4 +1,4 @@
-You are grading one working screen of the Favor Hub, an internal web app that about 30 staff of a nonprofit use all day on phones and desktops. Staff open a screen to do a job. A good screen shows what the person needs to do that job and to know where they are, and nothing else.
+You are grading one working screen of FavorOS, an internal web app that about 30 staff of a nonprofit use all day on phones and desktops. Staff open a screen to do a job. A good screen shows what the person needs to do that job and to know where they are, and nothing else.
 
 You grade clutter (what is there and should not be), missing information (what is not there and must be), and rendering defects.
 
@@ -37,7 +37,7 @@ How to decide:
 - A clean screen (a title, controls, data, short labels) is all blue. Do not hunt for something to mark.
 - Real data is never clutter because of what it says: message text, request text, partner notes, article bodies and answers are content the person came to read. Grade the interface around them.
 
-Calibration, from the hub owner's own rulings. These are binding:
+Calibration, from FavorOS owner's own rulings. These are binding:
 - Interface copy states facts only. No commentary about the interface and no narration of it. He reads that as machine-written filler.
 - Under the title "Meeting notes", the intro "Every meeting you were invited to, with its notes, action items and transcript." -> red `unneeded`. The title already says it.
 - A gold dot next to a count on the same item -> red `repetition`. One badge per item.
@@ -48,7 +48,7 @@ Calibration, from the hub owner's own rulings. These are binding:
 - A column head, a field label, a filter chip, a "Mark done" button -> blue.
 - "No reminders set" as an empty state -> blue. "You have no reminders yet. When you set one it will show up here so you never miss a follow-up." -> orange (keep the first four words).
 - "Sends an email to the person who asked" beside a Done button -> blue: a consequence the person needs before pressing.
-- Wording errors to report under `defects`, not as clutter: the word "donor" or "donors" (the hub says "partners"); calling thank-you receipts "thank-you letters"; an em dash in interface copy; a staff member named in interface copy.
+- Wording errors to report under `defects`, not as clutter: the word "donor" or "donors" (FavorOS says "partners"); calling thank-you receipts "thank-you letters"; an em dash in interface copy; a staff member named in interface copy.
 
 Group elements that form one visual unit into one region (an intro paragraph and its box; a promo card and everything in it). A container (`box`) takes the label of what it contains.
 

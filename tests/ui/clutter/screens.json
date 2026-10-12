@@ -1,7 +1,7 @@
 {
   "pageRoot": "#h-content",
   "screens": [
-    { "id": "shell", "name": "Hub menu and top bar (on Today)", "area": "today", "href": "/", "root": "#h-side, .h-top, #h-bar", "job": "Move between the hub's areas, search, open reminders and help. Graded here once; the page body is graded as its own screen." },
+    { "id": "shell", "name": "Hub menu and top bar (on Today)", "area": "today", "href": "/", "root": "#h-side, .h-top, #h-bar", "job": "Move between FavorOS's areas, search, open reminders and help. Graded here once; the page body is graded as its own screen." },
     { "id": "today", "name": "Today", "area": "today", "href": "/", "job": "See what is waiting on me today and open it." },
     { "id": "work-home", "name": "Work overview", "area": "work", "href": "/work-home/", "job": "Pick a work tool and see how much is waiting in each." },
     { "id": "work-center", "name": "Work Center", "area": "work", "href": "/work/", "job": "Work through my Blackbaud actions for partners: finish, reschedule, thank gifts, enter the week." },

@@ -134,7 +134,7 @@ describe('thank-you lanes', () => {
   });
 });
 
-describe('the hub remembers what it did until the mirror catches up', () => {
+describe('FavorOS remembers what it did until the mirror catches up', () => {
   const rows = shape([openRow({ id: '1' }), openRow({ id: '2' }), openRow({ id: '3' }), openRow({ id: '4' })]);
   const SYNC = '2026-10-09T17:04:00Z';
   it('a completed action leaves the list, a tonight batch shows as saved for tonight', () => {

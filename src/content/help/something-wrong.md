@@ -1,6 +1,6 @@
 ---
 title: When something looks wrong
-summary: What to do when a page won't load, a number looks off, or the hub asks you to sign in again.
+summary: What to do when a page won't load, a number looks off, or FavorOS asks you to sign in again.
 topic: help
 order: 3
 related: [feedback, signing-in, kpi-definitions]
@@ -12,7 +12,7 @@ updated: 2026-10-09
 1. Reload the page.
 2. If it still fails, press **Feedback**, pick **Something's wrong**, and say what you pressed and what happened. The page comes along with the note.
 
-## The hub asks you to sign in again
+## FavorOS asks you to sign in again
 
 Sign in with your Favor Google account. You land back where you were.
 

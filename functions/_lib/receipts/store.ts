@@ -225,7 +225,7 @@ export async function fonts(env: Env): Promise<Fonts> {
 
 export async function signature(env: Env): Promise<Uint8Array> {
   const obj = await env.UPLOADS.get('receipts/signature.png');
-  if (!obj) throw new HttpError(500, 'signature', "Carole's signature is missing from the hub's storage.");
+  if (!obj) throw new HttpError(500, 'signature', "Carole's signature is missing from FavorOS's storage.");
   return new Uint8Array(await new Response(obj.body).arrayBuffer());
 }
 

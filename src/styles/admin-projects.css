@@ -1,0 +1,29 @@
+/* Admin > Projects. Classes start with ap-; the rest comes from admin.css. */
+.ap-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.ap-grow { flex: 1 1 260px; display: grid; gap: 4px; min-width: 0; }
+.ap-lab { font-size: 13px; font-weight: 600; color: var(--h-ink-2, #48505a); }
+.ap-left { justify-content: flex-start; }
+.ap-check { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; min-height: 44px; }
+.ap-check input, .ap-item input { width: 20px; height: 20px; flex: 0 0 auto; }
+.ap-tabs { display: inline-flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--h-surface-2, #f8f9fa); border: 1px solid var(--h-line, #e4e7eb); width: fit-content; max-width: 100%; }
+.ap-tab { min-height: 40px; padding: 6px 16px; border-radius: 999px; border: 0; background: transparent; font: inherit; font-size: 14px; font-weight: 600; color: var(--h-ink-2, #48505a); cursor: pointer; }
+.ap-tab.is-on { background: var(--h-brand, #2b4d24); color: #fff; }
+.ap-tab:focus-visible { outline: 3px solid #1d5fd6; outline-offset: 2px; }
+.ap-list { display: grid; border: 1px solid var(--h-line, #e4e7eb); border-radius: 12px; max-height: 420px; overflow: auto; }
+.ap-item { display: flex; gap: 12px; align-items: center; padding: 10px 12px; min-height: 52px; border-top: 1px solid var(--h-line, #e4e7eb); cursor: pointer; }
+.ap-item:first-child { border-top: 0; }
+.ap-item--hub { cursor: default; flex-wrap: wrap; }
+.ap-item__main { flex: 1 1 200px; min-width: 0; display: grid; gap: 2px; font-size: 14px; overflow-wrap: anywhere; }
+.ap-item__main .mute { color: var(--h-ink-3, #5f6770); font-size: 13px; }
+.ap-more { border: 1px solid var(--h-line, #e4e7eb); border-radius: 12px; padding: 4px 14px; }
+.ap-more summary { min-height: 44px; display: flex; align-items: center; font-weight: 600; font-size: 14px; cursor: pointer; }
+.ap-more .ad-form { padding-bottom: 12px; }
+.ap-h3 { margin: 8px 0 0; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--h-ink-2, #48505a); }
+.ap-table th.num, .ap-table td.num { text-align: right; }
+.ap-log { margin: 0; padding: 8px 12px; list-style: none; max-height: 280px; overflow: auto; border: 1px solid var(--h-line, #e4e7eb); border-radius: 12px; font-size: 13px; display: grid; gap: 4px; background: var(--h-surface-2, #f8f9fa); }
+.ap-log li { overflow-wrap: anywhere; }
+.ap-log--warn { color: var(--ad-late-ink); }
+.ap-log--error { color: var(--ad-bad-ink); }
+.ad-ctr .ad-btn { min-height: 44px; }
+.ap-item .ad-btn { min-height: 44px; }
+@media (max-width: 700px) { .ap-tabs { width: 100%; } .ap-tab { flex: 1; } .ap-table { min-width: 560px; } }

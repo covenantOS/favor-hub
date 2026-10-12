@@ -77,7 +77,7 @@ export function checkInput(i: Partial<ReminderInput>): ReminderInput {
   if (!title) throw new HttpError(400, 'missing_field', 'Say what the reminder is for.');
   const ref = i.ref_id ? String(i.ref_id) : null;
   const cid = i.cid ? String(i.cid) : null;
-  if (ref && !/^[A-Za-z0-9_-]{1,40}$/.test(ref)) throw new HttpError(400, 'bad_ref', 'That reminder points at something the hub does not know.');
+  if (ref && !/^[A-Za-z0-9_-]{1,40}$/.test(ref)) throw new HttpError(400, 'bad_ref', 'That reminder points at something FavorOS does not know.');
   if (cid && !IDN.test(cid)) throw new HttpError(400, 'bad_partner', 'That partner number is not valid.');
   if (!i.due_at || Number.isNaN(Date.parse(i.due_at))) throw new HttpError(400, 'bad_when', 'Pick when to be reminded.');
   return { kind, ref_id: ref, cid, title, note: i.note ? clip(i.note, 200) : null, due_at: new Date(i.due_at).toISOString(), source: ['manual', 'plan_calls', 'message'].includes(String(i.source)) ? String(i.source) : 'manual' };

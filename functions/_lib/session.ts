@@ -241,7 +241,7 @@ export async function recordSignIn(env: Env, claims: GoogleClaims, email: string
     .bind(email)
     .first<{ email: string; name: string; picture: string; role: string; blocked: number; kpi: number }>();
   if (!row || row.blocked) {
-    throw new HttpError(403, 'blocked', 'This account no longer has access to the Favor hub.');
+    throw new HttpError(403, 'blocked', 'This account no longer has access to FavorOS.');
   }
   await env.DB.prepare(
     'UPDATE hub_users SET sign_ins = sign_ins + 1, first_seen = COALESCE(first_seen, ?), last_seen = ? WHERE email = ?'

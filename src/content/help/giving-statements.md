@@ -10,7 +10,7 @@ toolLabel: Open Giving statements
 updated: 2026-10-11
 ---
 
-Giving statements replace Gifts, then Giving statements, in Blackbaud. The page reads the Blackbaud copy the hub keeps, so a gift entered this morning shows after the next sync. Every statement is a PDF on Favor's letterhead layout, ready to print or save.
+Giving statements replace Gifts, then Giving statements, in Blackbaud. The page reads the Blackbaud copy FavorOS keeps, so a gift entered this morning shows after the next sync. Every statement is a PDF on Favor's letterhead layout, ready to print or save.
 
 ## One statement, on request
 
@@ -18,7 +18,7 @@ Giving statements replace Gifts, then Giving statements, in Blackbaud. The page 
 2. Choose a year, or **Between two dates**. The page lists every gift that belongs on the statement and what it left off, with the reason.
 3. Check the totals and any note in the yellow box. Press **Make the PDF**, then **Open the PDF** or **Download**.
 
-The hub keeps a copy under **Print files**. If an admin has set a copy folder in US Team Files, the PDF is saved there too.
+FavorOS keeps a copy under **Print files**. If an admin has set a copy folder in US Team Files, the PDF is saved there too.
 
 ## What counts
 
@@ -43,8 +43,8 @@ The hub keeps a copy under **Print files**. If an admin has set a copy folder in
 
 ## Emailing
 
-Emailing a statement to a partner is built and switched off. An admin turns it on under Admin, Giving statements, and the hub asks to confirm because it contacts partners.
+Emailing a statement to a partner is built and switched off. An admin turns it on under Admin, Giving statements, and FavorOS asks to confirm because it contacts partners.
 
 ## The wording
 
-The **Wording** tab shows every line that prints. **Open a sample statement** shows it on a made-up partner. A hub admin changes any line in Admin, Giving statements.
+The **Wording** tab shows every line that prints. **Open a sample statement** shows it on a made-up partner. A FavorOS admin changes any line in Admin, Giving statements.

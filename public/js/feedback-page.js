@@ -8,7 +8,7 @@
   const when = (iso) => (iso && !isNaN(new Date(iso).getTime()) ? et(iso, { month: 'short', day: 'numeric' }) + ', ' + et(iso, { hour: 'numeric', minute: '2-digit' }) : '');
   // The page a note came from is typed by the sender's browser. Only a hub path or an https address becomes a link.
   const safeHref = (p) => { const u = String(p || '').split(' ')[0]; return /^\/(?!\/)/.test(u) || /^https:\/\//i.test(u) ? u : ''; };
-  const SOURCE = { hub: 'The hub', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
+  const SOURCE = { hub: 'FavorOS', brain: 'Favor Brain', 'hub-brain': 'Favor Brain', help: 'Help docs', tour: 'The tour', video: 'A video' };
   const RATING = {
     problem: ["Something's wrong", 'bad'], wrong: ['Answer was wrong', 'bad'], 'not-helpful': ['Not helpful', 'bad'],
     confusing: ['Confusing', 'warn'], missing: ['Something missing', 'warn'],
@@ -34,7 +34,7 @@
     shown = items;
     list.removeAttribute('aria-busy');
     if (!items.length) {
-      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in the hub or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
+      list.innerHTML = `<li class="h-card fbp-empty"><b>No notes yet.</b><span>When something in FavorOS or Favor Brain is wrong, confusing, or could be better, press <b>Feedback</b> at the top of any page.</span></li>`;
       return;
     }
     list.innerHTML = items

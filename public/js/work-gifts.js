@@ -27,7 +27,7 @@ async function start() {
   if (G.started) return;
   G.started = true;
   await load();
-  W().render();
+  W().refresh('gifts');
 }
 
 const rows = () => (G.data ? G.data.rows.filter((r) => !G.gone.has(r.key)) : []);

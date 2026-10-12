@@ -111,7 +111,7 @@ function schedulePoll() {
 
 function build() {
   const c = S.clip;
-  document.title = `${c.title || 'Clip'} - Favor Hub`;
+  document.title = `${c.title || 'Clip'} - FavorOS`;
   const admin = isAdmin();
   root.innerHTML = `
   <div class="cw-grid">
@@ -285,7 +285,7 @@ function wireTop() {
         const r = await api(`/api/clips/${ID}/generate`, { method: 'POST', json: { what: 'title' } });
         S.clip.title = r.title;
         $('#cw-title').textContent = r.title;
-        document.title = `${r.title} - Favor Hub`;
+        document.title = `${r.title} - FavorOS`;
       } catch (err) {
         toast(err.message, 'bad');
       }
@@ -342,7 +342,7 @@ function wireTop() {
             await api(`/api/clips/${ID}`, { method: 'PATCH', json: { title: v } });
             S.clip.title = v;
             title.textContent = v;
-            document.title = `${v} - Favor Hub`;
+            document.title = `${v} - FavorOS`;
             toast('Renamed');
           } catch (err) {
             toast(err.message, 'bad');

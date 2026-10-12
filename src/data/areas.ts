@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat';
+export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects';
 
 export interface NavPage {
   id: string;
@@ -68,6 +68,7 @@ export const AREAS: NavArea[] = [
       { id: 'work-home', label: 'Overview', href: '/work-home/', desc: 'Every work tool and what is waiting in each', keywords: 'work home overview tools', learn: 'work-center', swap: true },
       { id: 'work', label: 'Work Center', href: '/work/', desc: 'Finish many Blackbaud actions together, enter the week, thank gifts', keywords: 'work center bulk select complete actions thank you entry tracking stale reassign reschedule support partner', need: 'workCenter', count: 'workOpen', learn: 'work-center', swap: true },
       { id: 'board', label: 'Requests', href: '/requests/', desc: 'Request board: inbox, approved, in motion, done', keywords: 'request board kanban review approve website portal app marketing', count: 'board', also: ['new'], learn: 'request-board', swap: true },
+      { id: 'projects', label: 'Projects', href: '/projects/', desc: 'Projects, task lists, boards, calendar and timeline', keywords: 'projects project tasks task list board calendar timeline gantt assign due asana todo my tasks', need: 'projects', count: 'projectsMine', also: ['project'] },
       { id: 'expense', label: 'Expenses', href: '/expenses/new', desc: 'Expense request, signed online', keywords: 'expense request travel pre-travel approval signature purchase', learn: 'expense-request' },
       { id: 'receipts', label: 'Receipts', href: '/receipts/', desc: 'Thank-you receipts Blackbaud has waiting', keywords: 'thank you receipt receipts letter letters ty acknowledgement print mail', count: 'receiptsLeft', learn: 'thank-you-receipts', swap: true },
       { id: 'statements', label: 'Statements', href: '/statements/', desc: 'Giving statements on request and the January year-end statements', keywords: 'giving statement statements year-end tax january annual receipt pdf print mail partner', learn: 'giving-statements', swap: true },
@@ -138,7 +139,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'admin-home', label: 'Overview', href: '/admin/', desc: 'Health of the Blackbaud copy, the morning jobs, the sender and the call meter, with every setting one click away', keywords: 'admin overview health status settings jobs sync meter iwave', need: 'admin', learn: 'admin-home' },
       { id: 'admin-people', label: 'People and roles', href: '/admin/people/', desc: 'Who can sign in, their role, team, fundraiser link and Work Center access, with an act as preview', keywords: 'people users roles admin block team fundraiser work center access act as preview staff', need: 'admin', learn: 'admin-home' },
-      { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat'], learn: 'admin-home' },
+      { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements and Projects settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat', 'admin-projects'], learn: 'admin-home' },
       { id: 'admin-bbusers', label: 'Blackbaud users', href: '/admin/blackbaud-users/', desc: 'Everyone with a Blackbaud login, their status and what each product lets them do', keywords: 'blackbaud users logins access roles inactive admin raisers edge security', need: 'admin', learn: 'admin-home' },
       { id: 'admin-appeals', label: 'Appeal codes', href: '/admin/appeal-codes/', desc: 'Build an appeal code from the scheme and create it in Blackbaud, and keep the funds and campaigns waiting to be created', keywords: 'appeal codes campaign fund lookup newsletter letter mailing create blackbaud scheme', need: 'admin', learn: 'admin-home' },
       { id: 'admin-audit', label: 'Audit log', href: '/admin/audit/', desc: 'Every settings change with who made it, when, and the before and after values', keywords: 'audit log history changes who changed settings', need: 'admin', learn: 'admin-home' },
@@ -155,7 +156,7 @@ export const AREAS: NavArea[] = [
     foot: true,
     pages: [
       { id: 'docs', label: 'Docs', href: '/help/', desc: 'How every tool works, with search', keywords: 'help guide how docs documentation article manual faq', learn: 'getting-started', swap: true },
-      { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'The hub, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
+      { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
       { id: 'feedback', label: 'Feedback', href: '/feedback/', desc: "Your notes and Will's answers", keywords: 'feedback note bug wrong idea suggestion problem report', count: 'feedback', learn: 'feedback', swap: true },
     ],
   },

@@ -17,7 +17,7 @@ export const CHAPTER_MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/
 // The filler words keep "um" and "uh" in the transcript; the names teach the spelling of Favor's own words, which
 // Whisper heard as "Favorite Brain" and "Team Cloud" before they were here.
 export const VERBATIM_PROMPT =
-  'Umm, let me think like, hmm... Okay, uh, so, you know, I mean, uh, yeah. Favor International, the Favor hub, Favor Brain, Favor Chat, Claude, ChatGPT, Blackbaud, Raiser\'s Edge NXT, Work Center, RDD, Partner Care, GoHighLevel, iWave.';
+  'Umm, let me think like, hmm... Okay, uh, so, you know, I mean, uh, yeah. Favor International, FavorOS, Favor Brain, Favor Chat, Claude, ChatGPT, Blackbaud, Raiser\'s Edge NXT, Work Center, RDD, Partner Care, GoHighLevel, iWave.';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 type WW = { word?: string; start?: number; end?: number };
@@ -156,7 +156,7 @@ const VOICE =
   'Write plainly and specifically. Never invent facts, names, dates or numbers; if something is not in the transcript, leave it out. ' +
   'Leave out personal details of any partner or donor (names, addresses, phone numbers, emails) and any gift amount tied to a person. ' +
   'Do not use em dashes. Do not mention artificial intelligence or that this was written from a transcript. ' +
-  'You may also be given a list of what the screen showed (the application and page at each moment). Use it to name the tool or page and the steps the person took, for example "Favor hub, Request board". ' +
+  'You may also be given a list of what the screen showed (the application and page at each moment). Use it to name the tool or page and the steps the person took, for example "FavorOS, Request board". ' +
   'Never copy a person\'s name, address, phone number, email address or dollar amount from the screen into your answer.';
 
 /** Who is presenting, for the prompt. The agent key stands in for no one, so it names nobody. */

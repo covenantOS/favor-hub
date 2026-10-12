@@ -697,7 +697,7 @@ const root = document.getElementById('pv-root');
 if (root) {
   const m = location.pathname.match(/\/work\/partner\/(\d+)/);
   if (m) {
-    show(root, m[1], 'full').then((p) => { if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - Favor Hub'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
+    show(root, m[1], 'full').then((p) => { if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - FavorOS'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
   } else {
     root.innerHTML = '<div class="pp-landing"><h1>Find a partner</h1><div id="pv-search"></div><p class="pp-landing__add"><button type="button" class="h-btn h-btn--primary" data-add-partner hidden>Add partner</button></p></div>';
     if (window.FavorAddPartner) window.FavorAddPartner.mountButtons();

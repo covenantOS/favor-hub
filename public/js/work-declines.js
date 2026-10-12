@@ -25,7 +25,7 @@ async function start() {
   if (D.started) return;
   D.started = true;
   await load();
-  W().render();
+  W().refresh('declines');
 }
 
 const stateOf = (r) => (D.local[r.key] ? D.local[r.key] : r.state);

@@ -272,7 +272,7 @@ window.WCX.push({
   const me = wc.DATA.me;
   if (!(me.role === 'admin' || me.role === 'support' || (me.role === 'director' && me.fid)) || M.data || M.loading) return;
   let owner = ''; try { owner = sessionStorage.getItem('wm.owner') || ''; } catch (_) { /* none */ }
-  load(me.role === 'director' && me.fid ? me.fid : owner).then(() => { if (wc.S.view !== 'mine') wc.render(); });
+  load(me.role === 'director' && me.fid ? me.fid : owner).then(() => { if (wc.S.view !== 'mine') wc.refresh('mine'); });
 })(0);
 window.WCMine = { reload: async () => { await load(M.owner, true); if (WC().S.view === 'mine') paint(); }, _M: M };
 })();

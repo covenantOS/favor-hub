@@ -3,7 +3,7 @@
    data-sheets="name" on a button; this file runs the call, shows the progress, and handles the one-time
    Google step. The Favor Brain page calls FavorSheets.run() itself and draws its own cards.
 
-   The first export asks Google for one permission, to create and open only the sheets the hub makes. The
+   The first export asks Google for one permission, to create and open only the sheets FavorOS makes. The
    request is saved in this tab, the person goes to Google once, and the export runs again by itself when
    they come back (the address then carries ?google=sheets). */
 (() => {
@@ -42,7 +42,7 @@
       if (res.ok && d.ok) return d;
       return { ok: false, error: d.error || 'failed', message: d.message || 'The sheet did not build. Try again in a minute.', ...d };
     } catch {
-      return { ok: false, error: 'network', message: 'The hub could not be reached. Check the connection and try again.' };
+      return { ok: false, error: 'network', message: 'FavorOS could not be reached. Check the connection and try again.' };
     }
   }
 

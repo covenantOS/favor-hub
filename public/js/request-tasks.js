@@ -1,5 +1,5 @@
 /* Request board tasks: the staff list and the people picker (Send to, Waiting on, the @ button, filter by person), as a sheet on a
-   phone and a dialog on a desktop. Loaded on every hub page with request-drawer.js, so a request opens in place from Chat,
+   phone and a dialog on a desktop. Loaded on every FavorOS page with request-drawer.js, so a request opens in place from Chat,
    Today, the bell and search. The comment box is the shared mention composer (public/js/chat/mention-input.js). */
 (() => {
   'use strict';

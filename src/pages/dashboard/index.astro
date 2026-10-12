@@ -9,7 +9,7 @@ import '../../styles/qa-reporting.css';
 import '../../styles/q3-desk.css';
 import '../../styles/lint-fix.css';
 ---
-<App title="Reporting" crumb="Reporting" nav="kpi" wide description="The KPI dashboard inside the hub.">
+<App title="Reporting" crumb="Reporting" nav="kpi" wide description="The KPI dashboard inside FavorOS.">
   <span slot="actions" class="h-kpi-fresh" id="kpi-fresh" hidden></span>
   <div class="h-frame-wrap">
     <div class="h-frame-wait" id="kpi-wait" role="status"><span class="h-spin" aria-hidden="true"></span>Opening the KPI dashboard</div>
@@ -53,7 +53,7 @@ import '../../styles/lint-fix.css';
         if (e.origin !== KPI || !e.data || e.data.source !== 'kpi-dashboard') return;
         if (e.data.type === 'page') {
           // the header keeps the area name; the tab names the page
-          document.title = (e.data.title || 'KPI dashboard') + ' - Reporting - Favor Hub';
+          document.title = (e.data.title || 'KPI dashboard') + ' - Reporting - FavorOS';
           mark(e.data.path);
           const want = e.data.path === '/' ? '/dashboard/' : '/dashboard/?page=' + encodeURIComponent(e.data.path);
           if (location.pathname + location.search !== want) history.replaceState(null, '', want);

@@ -28,7 +28,7 @@ async function start() {
   if (C.started) return;
   C.started = true;
   await load();
-  W().render();
+  W().refresh('cadence');
 }
 
 const stepsOf = (r) => (C.local[r.cid] ? r.steps.filter((s) => !C.local[r.cid].has(s.k)) : r.steps);

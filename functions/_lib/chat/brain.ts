@@ -7,15 +7,19 @@ import { BRAIN_ID, brainQuestion } from './text';
 import { publish, type LiveEnv } from './live';
 
 const BRAIN_URL = 'https://mcp.favorintl.org';
-// Blocks that need a click handler the chat does not have (choices, confirmations, consent, sheet exports) are left out;
-// the follow-up questions come back as buttons that ask the Brain again.
-const DRAWABLE = new Set(['text', 'tiles', 'table', 'team', 'chart', 'partner', 'coverage', 'steps', 'note', 'sources', 'files']);
+// Every block the Brain page draws is kept: Chat runs the same block code (public/js/brain-blocks.js), presses included, so
+// option buttons, confirm cards and sheet cards work in a message as they do on the Brain page.
+export const DRAWABLE = new Set(['text', 'tiles', 'table', 'team', 'chart', 'partner', 'coverage', 'steps', 'note', 'sources', 'files', 'choice', 'confirm', 'sheet']);
 
 export interface BrainAnswer {
   status: 'done';
   blocks: unknown[];
   follow: string[];
   asked_as: string;
+  /** The question as the person typed it, for "Ask again" and the note a sheet carries. */
+  q?: string;
+  /** The lists behind the answer ({ token, title }), read again by token for Show all and Open in Google Sheets. */
+  lists?: unknown[];
   error?: undefined;
 }
 
@@ -24,16 +28,17 @@ export function readAnswer(d: any): BrainAnswer | { error: string } {
   const raw: any[] = Array.isArray(d.blocks) ? d.blocks : [];
   let blocks = raw
     .filter((b) => b && DRAWABLE.has(String(b.type)))
-    // A long table keeps its preview rows, like the stored form on the Brain page.
-    .map((b) => (b.type === 'table' && Array.isArray(b.rows) ? { ...b, rows: b.rows.slice(0, b.preview || 8) } : b));
+    // A long table keeps its preview rows, like the stored form on the Brain page, and how many rows the whole list has,
+    // so Show all knows there is more to read.
+    .map((b) => (b.type === 'table' && Array.isArray(b.rows) ? { ...b, count: Number(b.count) > 0 ? Number(b.count) : b.rows.length, rows: b.rows.slice(0, b.preview || 8) } : b));
   if (!blocks.length) {
-    const asked = raw.find((b) => b && b.type === 'choice');
-    const md = String(d.markdown || d.text || (asked && (asked.q || asked.md || asked.question)) || '').trim();
+    const md = String(d.markdown || d.text || '').trim();
     if (md) blocks = [{ type: 'text', md }];
   }
   if (!blocks.length) return { error: 'The Brain had no answer to that. Try asking it another way.' };
   const follow = (Array.isArray(d.follow) ? d.follow : []).filter((x: unknown) => typeof x === 'string' && x.trim()).slice(0, 4) as string[];
-  return { status: 'done', blocks, follow, asked_as: String(d.asked_as || '') };
+  const lists = (Array.isArray(d.lists) ? d.lists : []).filter((l: any) => l && typeof l.token === 'string').slice(0, 6).map((l: any) => ({ token: String(l.token), title: String(l.title || l.label || '').slice(0, 160) }));
+  return { status: 'done', blocks, follow, asked_as: String(d.asked_as || ''), ...(lists.length ? { lists } : {}) };
 }
 
 export interface AskInput {
@@ -43,6 +48,8 @@ export interface AskInput {
   thread_id?: number | null;
   asker: { email: string; name: string };
   text: string;
+  /** What kind of answer a pressed option or a name in a list asks for (the Brain page sends the same word). */
+  intent?: string;
 }
 
 /**
@@ -67,7 +74,7 @@ export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN
     await live(placeholder.message.id, 'message');
     let answer: BrainAnswer | { error: string };
     if (!question) answer = { error: 'Ask the Brain a question after its name.' };
-    else if (!env.BRAIN_HUB_KEY) answer = { error: 'The Brain is not connected to the hub yet.' };
+    else if (!env.BRAIN_HUB_KEY) answer = { error: 'The Brain is not connected to FavorOS yet.' };
     else {
       try {
         const res = await fetcher(`${(env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '')}/hub/ask`, {
@@ -79,10 +86,11 @@ export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN
             'Content-Type': 'application/json',
             'User-Agent': 'favor-hub',
           },
-          body: JSON.stringify({ question, v: 2, conv: 'chat_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20) }),
+          body: JSON.stringify({ question, v: 2, conv: 'chat_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20), ...(input.intent ? { intent: input.intent } : {}) }),
           signal: AbortSignal.timeout(90000),
         });
         answer = readAnswer(await res.json().catch(() => null));
+        if (!('error' in answer && answer.error)) (answer as BrainAnswer).q = question;
       } catch {
         answer = { error: 'The Brain did not answer. Ask again.' };
       }

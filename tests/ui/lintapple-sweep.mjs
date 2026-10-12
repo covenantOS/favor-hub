@@ -83,7 +83,7 @@ async function sweepProfile(name, browser, cookies) {
     // The KPI dashboard draws its pages inside a frame. Check the frame's own document too.
     const kpi = await page.locator('iframe#kpi-frame').count() ? await (await page.locator('iframe#kpi-frame').elementHandle()).contentFrame() : null;
     // The KPI frame needs a Google sign-in on its own origin path, so the saved admin cookie gets its sign-in page. Skip it then.
-    if (kpi && !/Sign in to the hub/.test(await kpi.evaluate(() => document.body.innerText).catch(() => ''))) {
+    if (kpi && !/Sign in to FavorOS/.test(await kpi.evaluate(() => document.body.innerText).catch(() => ''))) {
       await kpi.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
       await page.waitForTimeout(1500);
       await record(id, how, kpi, ' (frame)').catch((e) => notes.push(`${name} ${id} frame: ${e.message.split('\n')[0]}`));

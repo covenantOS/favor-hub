@@ -170,7 +170,7 @@ export interface Meta {
 /** Row 1 of a data tab. */
 export function sourceLine(m: Meta, t: Tab): string {
   const p = m.provenance;
-  const where = p.kind === 'brain' ? `Favor Brain${p.asked ? `, asked by ${m.name}` : ''}` : p.kind === 'server' ? 'Favor Hub' : `Copied from your screen${p.page ? `: ${p.page}` : ''}${m.via === 'service' ? ', Favor Brain' : ''}`;
+  const where = p.kind === 'brain' ? `Favor Brain${p.asked ? `, asked by ${m.name}` : ''}` : p.kind === 'server' ? 'FavorOS' : `Copied from your screen${p.page ? `: ${p.page}` : ''}${m.via === 'service' ? ', Favor Brain' : ''}`;
   const bits = [`Source: ${where} on ${etText(m.now)}.`];
   if (p.dataAsOf) bits.push(`Blackbaud data as of ${etText(new Date(p.dataAsOf))}.`);
   if (p.filters) bits.push(p.filters.replace(/\.?$/, '.'));
@@ -185,7 +185,7 @@ export function aboutRows(m: Meta, tabs: Tab[]): string[][] {
   const p = m.provenance;
   const rows: string[][] = [
     ['Created', `${etText(m.now)} by ${m.name} (${m.who})`],
-    ['Made from', p.kind === 'brain' ? 'A list in Favor Brain' : p.kind === 'server' ? 'A list in Favor Hub' : `The rows on screen${p.page ? ` at ${p.page}` : ''}`],
+    ['Made from', p.kind === 'brain' ? 'A list in Favor Brain' : p.kind === 'server' ? 'A list in FavorOS' : `The rows on screen${p.page ? ` at ${p.page}` : ''}`],
   ];
   if (p.asked) rows.push(['Question asked', p.asked]);
   if (p.reading) rows.push(['How it was read', p.reading]);
@@ -400,7 +400,7 @@ export interface Result extends Made { ok: true; reused: boolean }
 
 /** Brain list tokens, read through the Brain's own route (owner, expiry and packages checked there). */
 export async function readBrainLists(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string }, d: Deps, c: Caller, tokens: string[]): Promise<{ tabs: Tab[]; prov: Provenance; contacts: boolean }> {
-  if (!env.BRAIN_HUB_KEY) throw new SheetError(503, 'not_set_up', 'The Brain is not connected to the hub yet.');
+  if (!env.BRAIN_HUB_KEY) throw new SheetError(503, 'not_set_up', 'The Brain is not connected to FavorOS yet.');
   const res = await d.fetch(`${(env.BRAIN_URL || 'https://mcp.favorintl.org').replace(/\/$/, '')}/hub/list/read`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${env.BRAIN_HUB_KEY}`, 'X-Acting-Email': c.email, 'X-Acting-Name': encodeURIComponent(c.name), 'Content-Type': 'application/json', 'User-Agent': 'favor-hub' },
@@ -433,7 +433,7 @@ export async function createSheet(env: Env & { BRAIN_HUB_KEY?: string; BRAIN_URL
   if (spec.mode !== 'rows' && spec.mode !== 'brain') throw new SheetError(400, 'bad_rows', 'Unknown way to build a sheet.');
   if (c.via === 'service' && spec.mode !== 'rows') throw new SheetError(400, 'bad_rows', 'The connector sends rows.');
   const g = await accessToken(env, email);
-  if (!g) throw new SheetError(409, 'not_connected', 'Connect your Google account to the hub first.', { connectUrl: '/api/google/connect?next=' + encodeURIComponent('/brain/') });
+  if (!g) throw new SheetError(409, 'not_connected', 'Connect your Google account to FavorOS first.', { connectUrl: '/api/google/connect?next=' + encodeURIComponent('/brain/') });
   if (!hasDriveFile(g.scopes)) throw new SheetError(409, 'consent', 'Allow Favor to make Google Sheets for you. Google asks once.', { consentUrl: '/api/google/connect?add=sheets&next=' + encodeURIComponent('/brain/') });
   if (!(await rateOk(env, email))) throw new SheetError(429, 'rate', 'That is a lot of sheets in a few minutes. Try again shortly.', { retryAfter: 120 });
 
