@@ -4,7 +4,7 @@ import {
   checkNonce,
   clearNonceCookie,
   createHubSession,
-  favorEmailOf,
+  accountOf,
   hubSessionCookie,
   logAuth,
   recordSignIn,
@@ -22,8 +22,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const claims = await verifyGoogleIdToken(env, credential);
     email = String(claims.email || '').toLowerCase();
     checkNonce(request, claims);
-    email = favorEmailOf(env, claims);
-    const user = await recordSignIn(env, claims, email);
+    const account = await accountOf(env, claims);
+    email = account.email;
+    const user = await recordSignIn(env, claims, email, account.primary);
     const token = await createHubSession(env, request, email);
     await logAuth(env, request, email, 'signed_in');
     const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });

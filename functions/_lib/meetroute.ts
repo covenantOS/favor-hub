@@ -18,6 +18,7 @@ import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook
 import { mayMove } from './meetprovider';
 import { afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
+import { fieldMeetRoute } from './field';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
@@ -38,6 +39,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     // A join or a leave in a huddle started from Chat updates the channel's huddle bar for everyone in the channel.
     const huddleNews = (mid: string) => { const p = chatHuddleChanged(env, mid).catch((err) => console.warn('[chat] huddle news', err)); if (waitUntil) waitUntil(p); };
     if (parts[0] !== 'meetings') return errorJson('not_found', 'Not found.', 404);
+    if (user.role === 'field' && !fieldMeetRoute(m, parts)) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
     const sub0 = parts[2] || '';
     if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
 
@@ -57,7 +59,11 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     }
     if (parts.length === 1) {
       if (m === 'GET') { const sp = new URL(request.url).searchParams; return json(await listMeetings(env, user, sp.get('scope') || 'upcoming', (sp.get('q') || '').trim().slice(0, 200).toLowerCase())); }
-      if (m === 'POST') return json(await createMeeting(env, user, await request.json().catch(() => null), new URL(request.url).origin));
+      if (m === 'POST') {
+        let body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+        if (user.role === 'field' && body && typeof body === 'object') body = await fieldMeetingBody(env, body);
+        return json(await createMeeting(env, user, body, new URL(request.url).origin));
+      }
     }
     const id = parts[1];
     if (!ID_RE.test(id)) return errorJson('not_found', 'That meeting does not exist.', 404);
@@ -99,6 +105,19 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
   } catch (err) {
     return handleError(err);
   }
+}
+
+/** A field person books no Google Calendar event and invites only people FavorOS already knows (never a loose outside address). */
+async function fieldMeetingBody(env: MeetEnv, b: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const asked = Array.isArray(b.invitees) ? (b.invitees as Array<Record<string, unknown>>).slice(0, 50) : [];
+  const known: Array<Record<string, unknown>> = [];
+  for (const i of asked) {
+    const email = String(i && i.email || '').trim().toLowerCase();
+    if (!email) continue;
+    const row = await env.DB.prepare('SELECT 1 AS ok FROM hub_users WHERE email = ? AND blocked = 0').bind(email).first();
+    if (row) known.push({ email, name: clean(i.name, 120) });
+  }
+  return { ...b, calendar: false, backup: false, access: 'invited', invitees: known };
 }
 
 // ---------------------------------------------------------------- ending a meeting
@@ -175,7 +194,8 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
   await endStaleMeetings(env);
   const me = user.email.toLowerCase();
   // An address matches only as a whole quoted address in the JSON, so ann@ never finds a meeting that invited joann@.
-  const mine = `(lower(host_email) = ?1 OR access IN ('staff','guests') OR instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
+  const open = user.role === 'field' ? '' : `access IN ('staff','guests') OR `;
+  const mine = `(lower(host_email) = ?1 OR ${open}instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
   let sql: string;
   if (scope === 'recent') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 60`;
   else if (scope === 'notes') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' AND notes_status != 'none'${q ? ` AND ${notesHit('?2')}` : ''} ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 100`;

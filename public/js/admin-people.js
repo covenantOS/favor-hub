@@ -6,7 +6,9 @@
 
   function teamLabel(v) { var t = D.teams.filter(function (x) { return x.value === v; })[0]; return t ? t.label : ''; }
   function sees(p) {
+    if (p.pending) return '<span class="mute">Nothing until approved</span>';
     if (p.blocked) return '<span class="mute">Nothing</span>';
+    if (p.role === 'field') return 'Chat, Meetings, Favor Brain (manuals and programs)';
     var s = p.sees, out = [];
     if (s.admin) out.push('Admin');
     if (s.workCenter) out.push('Work Center');
@@ -29,6 +31,7 @@
   function quick(p) {
     if (p.email === me) return '';
     var out = '';
+    if (p.pending) return '<button type="button" class="ad-btn ad-btn--primary" data-decide="' + E(p.email) + '" data-to="approve">Approve</button><button type="button" class="ad-btn ad-btn--warn" data-decide="' + E(p.email) + '" data-to="decline">Decline</button>';
     if (!p.blocked && !p.envAdmin) out += '<button type="button" class="ad-btn" data-role="' + E(p.email) + '" data-to="' + (p.role === 'admin' ? 'staff' : 'admin') + '">' + (p.role === 'admin' ? 'Make staff' : 'Make admin') + '</button>';
     out += '<button type="button" class="ad-btn' + (p.blocked ? '' : ' ad-btn--warn') + '" data-block="' + E(p.email) + '" data-to="' + (p.blocked ? '0' : '1') + '">' + (p.blocked ? 'Unblock' : 'Block') + '</button>';
     return out;
@@ -45,7 +48,9 @@
     var list = D.people.filter(function (p) {
       if (q && (p.name + ' ' + p.email + ' ' + teamLabel(p.team)).toLowerCase().indexOf(q) < 0) return false;
       if (f === 'admin') return p.role === 'admin' && !p.blocked;
-      if (f === 'blocked') return p.blocked;
+      if (f === 'blocked') return p.blocked && !p.pending;
+      if (f === 'pending') return p.pending;
+      if (f === 'field') return p.role === 'field' && !p.blocked;
       if (f === 'wc') return p.workCenter;
       if (f === 'nolist') return !p.listed && !p.blocked;
       if (f === 'nosup') return !p.supervisor && !p.blocked;
@@ -54,7 +59,7 @@
     });
     $('pp-count').textContent = list.length + ' of ' + D.people.length;
     $('pp-body').innerHTML = list.length ? list.map(function (p) {
-      var role0 = p.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : '<span class="ad-chip' + (p.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (p.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
+      var role0 = p.pending ? '<span class="ad-chip ad-chip--admin">Waiting for approval</span>' : p.blocked ? '<span class="ad-chip ad-chip--block">Blocked</span>' : p.role === 'field' ? '<span class="ad-chip">Field staff</span>' : '<span class="ad-chip' + (p.role === 'admin' ? ' ad-chip--admin' : '') + '">' + (p.role === 'admin' ? 'Admin' : 'Staff') + '</span>';
       var role = role0 + (p.hr && !p.blocked ? ' <span class="ad-chip">HR</span>' : '');
       return '<tr data-email="' + E(p.email) + '"><td><b>' + E(p.name) + '</b>' + (p.name === p.email ? '' : '<br><span class="mute">' + E(p.email) + '</span>') + '</td>' +
         '<td data-label="Role">' + role + (p.envAdmin ? '<br><span class="mute">Set in Pages</span>' : '') + '</td>' +
@@ -95,7 +100,7 @@
     open('<h2>' + (isNew ? 'Add a person' : E(p.name)) + '</h2><form class="ad-form" id="pp-form" autocomplete="off">' +
       '<label>Email<input class="ad-field" name="email" value="' + E(p.email) + '"' + (isNew ? ' placeholder="name@favorintl.org"' : ' readonly') + ' required></label>' +
       '<label>Name<input class="ad-field" name="name" value="' + E(p.name) + '"></label>' +
-      '<label>Role<select class="ad-field" name="role"' + (self ? ' disabled' : '') + '>' + opts([{ value: 'staff', label: 'Staff' }, { value: 'admin', label: 'Admin' }], p.role) + '</select></label>' +
+      '<label>Role<select class="ad-field" name="role"' + (self ? ' disabled' : '') + '>' + opts([{ value: 'staff', label: 'Staff' }, { value: 'field', label: 'Field staff (Chat, Meetings, Favor Brain)' }, { value: 'admin', label: 'Admin' }], p.role) + '</select></label>' +
       (p.envAdmin ? '<p class="ad-set__hint">This address is also listed in the HUB_ADMINS Pages variable, so it stays an admin.</p>' : '') +
       '<label class="ad-check"><input type="checkbox" name="blocked"' + (p.blocked ? ' checked' : '') + (self ? ' disabled' : '') + '> Blocked from signing in</label>' +
       '<label>Team<select class="ad-field" name="team">' + opts(D.teams, p.team, 'No team') + '</select></label>' +
@@ -149,6 +154,12 @@
   }
 
   document.addEventListener('click', function (e) {
+    var dec = e.target.closest('[data-decide]');
+    if (dec) {
+      var dn = (D.people.filter(function (x) { return x.email === dec.dataset.decide; })[0] || {}).name || dec.dataset.decide, yes = dec.dataset.to === 'approve';
+      quickSave(dec, { email: dec.dataset.decide, decide: dec.dataset.to }, yes ? 'Approve ' + dn + '? They get Chat, Meetings and Favor Brain (manuals and programs). No partner records, giving numbers or dashboards.' : 'Decline ' + dn + '? They cannot sign in.');
+      return;
+    }
     var q = e.target.closest('[data-role],[data-block]');
     if (q) {
       var em = q.dataset.role || q.dataset.block, who = (D.people.filter(function (x) { return x.email === em; })[0] || {}).name || em;

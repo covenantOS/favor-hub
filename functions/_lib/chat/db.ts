@@ -579,13 +579,13 @@ export async function unreadMentionCount(env: ChatEnv, email: string): Promise<n
 export type SearchFilter = 'all' | 'here' | 'files' | 'mine';
 
 /** Messages this person can read that match the words. Private channels and conversations count only when they are in them. */
-export async function search(env: ChatEnv, email: string, q: string, opts: { filter?: SearchFilter; channel?: string; limit?: number; from?: string } = {}): Promise<MessageRow[]> {
+export async function search(env: ChatEnv, email: string, q: string, opts: { filter?: SearchFilter; channel?: string; limit?: number; from?: string; membersOnly?: boolean } = {}): Promise<MessageRow[]> {
   const me = lower(email);
   const text = String(q || '').trim();
   if (text.length < 2) return [];
   const where = [
     'm.deleted_at IS NULL',
-    `(c.kind = 'public' OR c.id IN (SELECT channel_id FROM chat_members WHERE email = ?))`,
+    opts.membersOnly ? `c.id IN (SELECT channel_id FROM chat_members WHERE email = ?)` : `(c.kind = 'public' OR c.id IN (SELECT channel_id FROM chat_members WHERE email = ?))`,
     'c.archived = 0',
     '(m.visible_to IS NULL OR m.visible_to = ?)',
   ];

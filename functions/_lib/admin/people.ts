@@ -10,7 +10,7 @@ import { FROM_TEAM } from '../reports/audience';
 import { ALL_AUDIENCES, CATALOG } from '../reports/registry';
 import { applyReportRoles, AUDIENCE_LABEL } from './reportRoles';
 import { effective, audit } from './settings';
-import { isAdminEmail } from '../session';
+import { allowedDomains, isAdminEmail } from '../session';
 import { isDate } from '../evals/rules';
 
 export const TEAMS = ['support', 'rdd', 'partner_care', 'church', 'grants', 'admin', 'exec'];
@@ -23,7 +23,9 @@ export interface Person {
   email: string;
   name: string;
   picture: string;
-  role: 'admin' | 'staff';
+  role: 'admin' | 'staff' | 'field';
+  /** Signed in from an allowed partner domain and waiting for an admin to approve or decline. */
+  pending: boolean;
   /** The address is also listed in the HUB_ADMINS Pages variable, so it stays admin whatever is saved here. */
   envAdmin: boolean;
   blocked: boolean;
@@ -100,6 +102,7 @@ export async function listPeople(env: Env): Promise<Person[]> {
     env.DB.prepare('SELECT email FROM hub_hr').all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] })),
   ]);
   const repBy = new Map((rep.results || []).map((r) => [r.email.toLowerCase(), r]));
+  const pendingSet = new Set(((await env.DB.prepare('SELECT email FROM hub_users WHERE pending = 1').all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }))).results || []).map((r) => r.email.toLowerCase()));
   const hrSet = new Set((hrRows.results || []).map((r) => r.email.toLowerCase()));
   const staffBy = new Map((staff.results || []).map((r) => [r.email.toLowerCase(), r]));
   const seen = new Set<string>();
@@ -111,7 +114,8 @@ export async function listPeople(env: Env): Promise<Person[]> {
       email,
       name: u?.name || st?.name || email,
       picture: u?.picture || '',
-      role: u?.role === 'admin' || envAdmin ? 'admin' : 'staff',
+      role: u?.role === 'admin' || envAdmin ? 'admin' : u?.role === 'field' ? 'field' : 'staff',
+      pending: pendingSet.has(email),
       envAdmin,
       blocked: !!u?.blocked,
       note: u?.note || '',
@@ -130,7 +134,7 @@ export async function listPeople(env: Env): Promise<Person[]> {
       department: repBy.get(email)?.department || '',
       startDate: repBy.get(email)?.start_date || '',
       hr: hrSet.has(email),
-      sees: u?.blocked ? { workCenter: false, meetings: false, clips: false, reports: 0, expenseLog: false, admin: false } : seesFor(s, email, admin, st),
+      sees: u?.role === 'field' && !envAdmin && !u.blocked ? { workCenter: false, meetings: true, clips: false, reports: 0, expenseLog: false, admin: false } : u?.blocked ? { workCenter: false, meetings: false, clips: false, reports: 0, expenseLog: false, admin: false } : seesFor(s, email, admin, st),
     };
   };
   for (const u of users.results || []) {
@@ -160,20 +164,26 @@ export interface SaveInput {
   department?: string;
   startDate?: string;
   hr?: boolean;
+  /** Approve or decline a person who signed in from an allowed partner domain and is waiting. */
+  decide?: 'approve' | 'decline';
 }
 
-const EMAIL = /^[a-z0-9._%+-]+@favorintl\.org$/;
+const EMAIL = /^[a-z0-9._%+-]+@([a-z0-9-]+\.)+[a-z]{2,24}$/;
 
 /** Add a person or change one. Only the fields present change. Returns the saved person. */
 export async function savePerson(env: Env, actor: { email: string; name: string }, b: SaveInput): Promise<Person> {
   const email = String(b.email || '').trim().toLowerCase();
-  if (!EMAIL.test(email)) throw new HttpError(400, 'bad_email', 'Use a favorintl.org address.');
+  const domain = email.split('@')[1] || '';
+  if (!EMAIL.test(email) || (domain !== 'favorintl.org' && !(await allowedDomains(env)).includes(domain))) throw new HttpError(400, 'bad_email', 'Use a favorintl.org address, or one on a domain listed under Sign-in domains.');
   const before = (await listPeople(env)).find((p) => p.email === email) || null;
   const self = email === actor.email.toLowerCase();
   const now = nowIso();
   const has = (k: keyof SaveInput) => b[k] !== undefined;
 
-  if (has('role') && b.role !== 'admin' && b.role !== 'staff') throw new HttpError(400, 'bad_role', 'The role is admin or staff.');
+  if (has('role') && b.role !== 'admin' && b.role !== 'staff' && b.role !== 'field') throw new HttpError(400, 'bad_role', 'The role is admin, staff or field staff.');
+  if (b.decide !== undefined && b.decide !== 'approve' && b.decide !== 'decline') throw new HttpError(400, 'bad_decision', 'Approve or decline.');
+  if (b.decide && !before?.pending) throw new HttpError(400, 'not_waiting', 'That person is not waiting for approval.');
+  if (b.decide && self) throw new HttpError(400, 'self_decide', 'You cannot decide your own request.');
   if (self && has('role') && b.role !== 'admin') throw new HttpError(400, 'self_demote', 'You cannot take admin from your own account.');
   if (self && b.blocked) throw new HttpError(400, 'self_block', 'You cannot block your own account.');
   if (has('team') && b.team && !TEAMS.includes(String(b.team))) throw new HttpError(400, 'bad_team', 'Pick a team from the list.');
@@ -181,7 +191,7 @@ export async function savePerson(env: Env, actor: { email: string; name: string 
   const fid = has('fundraiser') ? String(b.fundraiser || '').replace(/\D/g, '').slice(0, 12) : undefined;
 
   // hub_users: the sign-in row.
-  const hubTouched = has('name') || has('role') || has('blocked') || has('note');
+  const hubTouched = !b.decide && (has('name') || has('role') || has('blocked') || has('note'));
   if (hubTouched || !before) {
     const name = has('name') ? String(b.name || '').trim().slice(0, 80) : before?.name || '';
     const role = has('role') ? String(b.role) : before?.role || 'staff';
@@ -195,6 +205,18 @@ export async function savePerson(env: Env, actor: { email: string; name: string 
       .run();
     // A block ends open sessions at once.
     if (blocked) await env.DB.prepare('DELETE FROM hub_sessions WHERE email = ?').bind(email).run();
+    if (role === 'field' && !blocked && !before?.pending) await joinFieldChannel(env, email, now);
+  }
+
+  // A person waiting for approval: approve opens Chat, Meetings and Favor Brain (role field unless one is chosen); decline keeps them out.
+  if (b.decide) {
+    const approve = b.decide === 'approve';
+    const role = approve ? (has('role') ? String(b.role) : 'field') : 'field';
+    await env.DB.prepare('UPDATE hub_users SET pending = 0, blocked = ?, role = ?, note = ?, updated_at = ? WHERE email = ?')
+      .bind(approve ? 0 : 1, role, approve ? '' : 'Declined ' + now.slice(0, 10), now, email)
+      .run();
+    if (approve && role === 'field') await joinFieldChannel(env, email, now);
+    await audit(env, { actor: actor.email, area: 'people', key: `${email}:access`, label: `${before?.name || email}, access request`, before: 'waiting', after: approve ? 'approved' : 'declined' });
   }
 
   // hub_reporting: who this person reports to, their title and department, and when they started. hub_hr: the HR flag.
@@ -259,6 +281,20 @@ export async function savePerson(env: Env, actor: { email: string; name: string 
     await audit(env, { actor: actor.email, area: 'people', key: `${email}:${String(k)}`, label: `${after.name}, ${String(k)}`, before: before ? String(before[k]) : '(new person)', after: String(after[k]) });
   }
   return after;
+}
+
+/** The channel field staff start in. Created the first time someone is approved; the approved person joins it. */
+async function joinFieldChannel(env: Env, email: string, now: string): Promise<void> {
+  try {
+    let ch = await env.DB.prepare(`SELECT id FROM chat_channels WHERE name = 'field-staff' AND kind IN ('public', 'private')`).first<{ id: string }>();
+    if (!ch) {
+      await env.DB.prepare(`INSERT OR IGNORE INTO chat_channels (id, kind, name, topic, created_by, created_at, last_at) VALUES ('ch_field_staff', 'public', 'field-staff', 'Chat for Favor field staff and the US team', 'system', ?, ?)`).bind(now, now).run();
+      ch = await env.DB.prepare(`SELECT id FROM chat_channels WHERE name = 'field-staff'`).first<{ id: string }>();
+    }
+    if (ch) await env.DB.prepare(`INSERT OR IGNORE INTO chat_members (channel_id, email, role, joined_at) VALUES (?, ?, 'member', ?)`).bind(ch.id, email, now).run();
+  } catch (err) {
+    console.warn('[people] field channel', err);
+  }
 }
 
 /** What a person would see, from the same rules the hub applies. */

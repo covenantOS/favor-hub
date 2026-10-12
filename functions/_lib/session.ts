@@ -22,7 +22,8 @@ const GOOGLE_JWKS = 'https://www.googleapis.com/oauth2/v3/certs';
 const GOOGLE_ISSUERS = new Set(['accounts.google.com', 'https://accounts.google.com']);
 const HUB_HEADERS = ['X-Hub-Email', 'X-Hub-Name', 'X-Hub-Role', 'X-Hub-Via', 'X-Hub-Picture', 'X-Hub-Kpi'];
 
-export type HubRole = 'staff' | 'admin';
+/** field: Favor field staff on an allowed partner domain. Chat, Meetings and Favor Brain only (functions/_lib/field.ts). */
+export type HubRole = 'staff' | 'admin' | 'field';
 export type HubVia = 'google' | 'password' | 'agent' | 'device';
 
 export interface HubUser {
@@ -173,6 +174,60 @@ export function favorEmailOf(env: Env, claims: GoogleClaims): string {
   return email;
 }
 
+export const DEFAULT_EXTRA_DOMAINS = 'favourafrica.org';
+const CONSUMER = new Set(['gmail.com', 'googlemail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'live.com', 'icloud.com', 'me.com', 'aol.com', 'proton.me', 'protonmail.com']);
+const DOMAIN_RE = /^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$/;
+
+/** Reads a saved list of extra sign-in domains: lowercase host names, no duplicates, never the main domain or a consumer mail service. */
+export function parseDomains(raw: string, main = DEFAULT_DOMAIN): string[] {
+  const out: string[] = [];
+  for (const d of String(raw || '').toLowerCase().split(/[\s,;]+/)) {
+    if (!DOMAIN_RE.test(d) || d === main || CONSUMER.has(d) || out.includes(d)) continue;
+    out.push(d);
+  }
+  return out;
+}
+
+/** The extra domains an admin allows (Admin, People, sign-in domains). A read that fails allows none. */
+export async function allowedDomains(env: Env): Promise<string[]> {
+  try {
+    const row = await env.DB.prepare(`SELECT value FROM hub_settings WHERE key = 'signin.domains' LIMIT 1`).first<{ value: string }>();
+    return parseDomains(row ? row.value : DEFAULT_EXTRA_DOMAINS, hubDomain(env));
+  } catch {
+    return [];
+  }
+}
+
+export interface Account {
+  email: string;
+  domain: string;
+  /** On Favor's own Workspace domain. Anyone else is on an allowed partner domain and needs an admin's approval. */
+  primary: boolean;
+}
+
+/**
+ * Who Google says this is, and whether the address may ask for access: Favor's own domain, or a domain an admin listed. Both need
+ * a verified address and a Google Workspace account (hd) on that same domain, so a personal account that merely uses the address
+ * is refused.
+ */
+export async function accountOf(env: Env, claims: GoogleClaims): Promise<Account> {
+  const email = String(claims.email || '').trim().toLowerCase();
+  if (!email || claims.email_verified !== true) throw new HttpError(403, 'unverified', 'Google has not verified that email address.');
+  const main = hubDomain(env);
+  const parts = email.split('@');
+  const domain = parts.length === 2 && parts[0] ? parts[1] : '';
+  const hd = String(claims.hd || '').toLowerCase();
+  if (domain === main) {
+    favorEmailOf(env, claims);
+    return { email, domain, primary: true };
+  }
+  const allowed = domain ? await allowedDomains(env) : [];
+  if (!domain || !allowed.includes(domain) || hd !== domain) {
+    throw new HttpError(403, 'wrong_domain', `Use your @${main} Google account, or the Google account your administrator gave you. You signed in as ${email}.`);
+  }
+  return { email, domain, primary: false };
+}
+
 /* ----------------------------------------------------------------- nonce */
 
 export function newNonce(): string {
@@ -222,11 +277,28 @@ export async function endHubSession(env: Env, request: Request): Promise<void> {
   await env.DB.prepare('DELETE FROM hub_sessions WHERE token_hash = ? OR expires_at < ?').bind(await sha256Hex(token), nowIso()).run();
 }
 
-/** Records the sign-in and returns the user, or refuses an account an admin has blocked. */
-export async function recordSignIn(env: Env, claims: GoogleClaims, email: string): Promise<HubUser> {
+/** Records the sign-in and returns the user, or refuses an account an admin has blocked or has not approved yet. */
+export async function recordSignIn(env: Env, claims: GoogleClaims, email: string, primary = true): Promise<HubUser> {
   const now = nowIso();
   const name = String(claims.name || '').slice(0, 120);
   const picture = String(claims.picture || '').slice(0, 500);
+  if (!primary) {
+    // A partner-domain person is held until an admin approves them. Nothing about them opens before that.
+    const known = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(email).first<{ blocked: number }>();
+    const waiting = 'Your request is waiting for a FavorOS admin to approve it. You can sign in once they do.';
+    if (!known) {
+      await env.DB.prepare(
+        `INSERT INTO hub_users (email, name, picture, role, blocked, pending, note, sign_ins, first_seen, last_seen, created_at, updated_at)
+         VALUES (?, ?, ?, 'field', 1, 1, 'Waiting for approval', 0, ?, ?, ?, ?)`
+      ).bind(email, name, picture, now, now, now, now).run();
+      throw new HttpError(403, 'pending', waiting);
+    }
+    const p = await env.DB.prepare('SELECT pending FROM hub_users WHERE email = ?').bind(email).first<{ pending: number }>();
+    if (p && p.pending) {
+      await env.DB.prepare(`UPDATE hub_users SET last_seen = ?, name = CASE WHEN ? <> '' THEN ? ELSE name END WHERE email = ?`).bind(now, name, name, email).run();
+      throw new HttpError(403, 'pending', waiting);
+    }
+  }
   await env.DB.prepare(
     `INSERT INTO hub_users (email, name, picture, role, blocked, note, sign_ins, first_seen, last_seen, created_at, updated_at)
      VALUES (?, ?, ?, 'staff', 0, '', 0, ?, ?, ?, ?)
@@ -248,8 +320,14 @@ export async function recordSignIn(env: Env, claims: GoogleClaims, email: string
   )
     .bind(now, now, email)
     .run();
-  const admin = row.role === 'admin' || isAdminEmail(env, row.email);
-  return { email: row.email, name: row.name || email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: true };
+  const role = roleOf(env, row.email, row.role);
+  return { email: row.email, name: row.name || email, picture: row.picture, role, via: 'google', kpi: role !== 'field' };
+}
+
+/** The role a stored row gives: admin, field staff or staff. The HUB_ADMINS variable keeps an address admin whatever is stored. */
+export function roleOf(env: Env, email: string, stored: string): HubRole {
+  if (stored === 'admin' || isAdminEmail(env, email)) return 'admin';
+  return stored === 'field' ? 'field' : 'staff';
 }
 
 export async function logAuth(env: Env, request: Request, email: string, event: string, detail = ''): Promise<void> {
@@ -297,8 +375,10 @@ export async function resolveUser(env: Env, request: Request): Promise<HubUser |
       if (Date.now() - Date.parse(row.last_seen) > TOUCH_MS) {
         await env.DB.prepare('UPDATE hub_sessions SET last_seen = ? WHERE token_hash = ?').bind(nowIso(), hash).run().catch(() => undefined);
       }
-      const admin = row.role === 'admin' || isAdminEmail(env, row.email);
-      return { email: row.email, name: row.name || row.email, picture: row.picture, role: admin ? 'admin' : 'staff', via: 'google', kpi: true };
+      const role = roleOf(env, row.email, row.role);
+      // Field staff keep access only while their domain is still on the allowed list.
+      if (role === 'field' && !(await allowedDomains(env)).includes(row.email.split('@')[1] || '')) return null;
+      return { email: row.email, name: row.name || row.email, picture: row.picture, role, via: 'google', kpi: role !== 'field' };
     }
   }
 
@@ -350,7 +430,7 @@ export function hubUserOf(request: Request): HubUser | null {
     email,
     name: decoded(request.headers.get('X-Hub-Name')) || email,
     picture: decoded(request.headers.get('X-Hub-Picture')),
-    role: request.headers.get('X-Hub-Role') === 'admin' ? 'admin' : 'staff',
+    role: request.headers.get('X-Hub-Role') === 'admin' ? 'admin' : request.headers.get('X-Hub-Role') === 'field' ? 'field' : 'staff',
     via: via === 'agent' || via === 'password' || via === 'device' ? via : 'google',
     kpi: request.headers.get('X-Hub-Kpi') === '1',
   };

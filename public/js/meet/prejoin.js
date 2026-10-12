@@ -30,6 +30,15 @@
   function hue(n) { var h = 0; String(n || '').split('').forEach(function (c) { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return h % 6; }
   function face(p) { return '<span class="pj-av" data-h="' + hue(p.email || p.name) + '" title="' + esc(p.name) + '">' + esc(initials(p.name)) + '</span>'; }
   function dur(ms) { var s = Math.max(0, Math.floor(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60); s = s % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0'); }
+  // Data saver (the phone app's Me tab, or the phone's own Data Saver on a slow connection): the room opens as an audio-only call.
+  function saveData() {
+    try {
+      var s = localStorage.getItem('favor.lowdata');
+      if (s === 'on' || s === 'off') return s === 'on';
+      var c = navigator.connection;
+      return !!(c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || '')));
+    } catch (e) { return false; }
+  }
   function pref() { try { return Object.assign({ mic: true, cam: false, micId: '', camId: '' }, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) { return { mic: true, cam: false, micId: '', camId: '' }; } }
 
   var cur = null;
@@ -215,7 +224,7 @@
       if (!r || !r.url) throw new Error('The room did not open. Try again.');
       try { sessionStorage.setItem(KEY, JSON.stringify({ mid: r.id, mic: S.mic, cam: S.cam, micId: S.micId, camId: S.camId, at: Date.now() })); } catch (e) { /* private mode */ }
       var back = location.pathname + location.search;
-      var url = r.url + (r.url.indexOf('?') < 0 ? '?' : '&') + 'pj=1&back=' + encodeURIComponent(back);
+      var url = r.url + (r.url.indexOf('?') < 0 ? '?' : '&') + 'pj=1&back=' + encodeURIComponent(back) + (saveData() ? '&audio=1' : '');
       // Stop the preview first so the room page can open the same camera and microphone.
       stopMedia(S); clearInterval(S.meter);
       window.removeEventListener('popstate', onPop);

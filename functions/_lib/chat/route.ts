@@ -30,6 +30,8 @@ import { createMeeting, endMeeting } from '../meetroute';
 import type { MeetEnv } from '../meet';
 import * as store from './db';
 import { chatMode, chatUser } from './gate';
+import { fieldBrainOn, fieldChatGuard } from '../field';
+import { pushForPost, type PushEnv } from '../push';
 import { directory, onlyKnown } from './users';
 import { hydrateAttachments } from './hydrate';
 import { presence, publish, type LiveEnv } from './live';
@@ -52,7 +54,7 @@ import { accessOf, type Access } from '../hub/today';
 import { slashTask, taskDeleted as ptaskDeleted, taskReply as ptaskReply } from '../projects/links/chat'; // projects hook
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
-export type ChatRouteEnv = LiveEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string; GOOGLE_SA_JSON?: string };
+export type ChatRouteEnv = LiveEnv & PushEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string; GOOGLE_SA_JSON?: string };
 export interface Ctx {
   request: Request;
   env: ChatRouteEnv;
@@ -93,6 +95,7 @@ async function route(ctx: Ctx): Promise<Response> {
   const me = user.email.toLowerCase();
   const url = new URL(request.url);
   const [a, b, c] = path;
+  await fieldChatGuard(env, user, method, path);
 
   if (a === 'boot' && method === 'GET') return json(await boot(env, user));
   // The floating dock on every other page: the conversations with their unread numbers and the names, no joining and no presence.
@@ -119,7 +122,7 @@ async function route(ctx: Ctx): Promise<Response> {
       const before = Number(url.searchParams.get('before')) || null;
       return json({ ok: true, ...(await store.history(env, b, before, (x) => hydrateAttachments(env, x), me)) });
     }
-    if (b && c === 'messages' && method === 'POST') return json({ ok: true, message: await send(ctx, user, b) });
+    if (b && c === 'messages' && method === 'POST') return json({ ok: true, message: await sendOnce(ctx, user, b) });
     if (b && c === 'read' && method === 'POST') {
       await store.markRead(env, me, b, Number((await body(request)).upTo) || 0);
       return json({ ok: true });
@@ -261,7 +264,7 @@ async function route(ctx: Ctx): Promise<Response> {
 
   if (a === 'search' && method === 'GET') {
     const filter = (['all', 'here', 'files', 'mine'] as const).find((f) => f === url.searchParams.get('filter')) || 'all';
-    const rows = await store.search(env, me, url.searchParams.get('q') || '', { filter, channel: url.searchParams.get('channel') || undefined, from: url.searchParams.get('from') || undefined });
+    const rows = await store.search(env, me, url.searchParams.get('q') || '', { filter, channel: url.searchParams.get('channel') || undefined, from: url.searchParams.get('from') || undefined, membersOnly: user.role === 'field' });
     const channels = new Map<string, string>();
     for (const r of rows) if (!channels.has(r.channel_id)) channels.set(r.channel_id, ((await store.getChannel(env, r.channel_id))?.name) || '');
     const results = (await store.shape(env, rows)).map((m) => ({ ...m, channel_name: channels.get(m.channel_id) || '' }));
@@ -304,7 +307,8 @@ async function dockState(env: ChatRouteEnv, user: HubUser) {
 
 async function boot(env: ChatRouteEnv, user: HubUser) {
   const me = user.email.toLowerCase();
-  await store.joinDefaults(env, me);
+  // Field staff are not put in the team channels; an admin or a member adds them to the conversations they need.
+  if (user.role !== 'field') await store.joinDefaults(env, me);
   const mode = await chatMode(env);
   const [users, channels, here] = await Promise.all([directory(env, mode, user), store.listChannels(env, me), presence(env)]);
   const people = Object.fromEntries(Object.entries(users).map(([id, u]) => [id, { ...u, presence: here[id] || 'off' }]));
@@ -363,6 +367,27 @@ async function cleanAttachments(env: ChatRouteEnv, raw: unknown, me: string, ent
   return out;
 }
 
+/**
+ * A send with a client id (the header X-Client-Id) is safe to repeat: the phone's offline queue resends after a dropped connection,
+ * and a second try gets the stored message back instead of posting twice.
+ */
+async function sendOnce(ctx: Ctx, user: HubUser, channelId: string): Promise<store.MessageOut> {
+  const cid = (ctx.request.headers.get('X-Client-Id') || '').trim();
+  if (!/^[A-Za-z0-9_-]{8,64}$/.test(cid)) return send(ctx, user, channelId);
+  const me = user.email.toLowerCase();
+  const done = await ctx.env.DB.prepare('SELECT result FROM phone_sends WHERE email = ? AND client_id = ?').bind(me, cid).first<{ result: string }>().catch(() => null);
+  if (done) {
+    try {
+      return JSON.parse(done.result) as store.MessageOut;
+    } catch {
+      // fall through and send again
+    }
+  }
+  const msg = await send(ctx, user, channelId);
+  await ctx.env.DB.prepare('INSERT OR IGNORE INTO phone_sends (email, client_id, result, created_at) VALUES (?, ?, ?, ?)').bind(me, cid, JSON.stringify(msg), nowIso()).run().catch(() => undefined);
+  return msg;
+}
+
 async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.MessageOut> {
   const { env, request } = ctx;
   const me = user.email.toLowerCase();
@@ -390,13 +415,15 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     if (under && under.channel_id === channelId) threadId = more.threadRootOf(under);
   }
   // projects hook: /task makes a task and posts its card instead of the typed text.
-  const slashed = await slashTask(env, user, channelId, text, threadId);
+  const slashed = user.role === 'field' ? null : await slashTask(env, user, channelId, text, threadId);
   if (slashed) return slashed;
-  const asksBrain = parseMentions(text).brain && !SYSTEM_VOICES.has(me);
+  const asksBrain = parseMentions(text).brain && !SYSTEM_VOICES.has(me) && (user.role !== 'field' || (await fieldBrainOn(env)));
   // A follow-up pressed inside a private Brain answer stays private: the question is the asker's alone, like the answer.
   const hidden = input.private === true && asksBrain && (await store.brainIsPrivate(env, channelId, me));
   const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments, visible_to: hidden ? me : null });
   let msg = await broadcast(ctx, posted.message, 'message');
+  // A direct message or a mention reaches a locked phone (web push). Muted conversations were left out of notify already.
+  ctx.waitUntil(pushForPost(env, { notify: posted.notify, channel: posted.channel, senderName: user.name || me, text: text, messageId: posted.message.id, threadId }, ctx.fetcher || fetch).catch((err) => console.warn('[chat] push', err)));
   // "Also send to the channel": the reply shows in the channel too, with a line naming the thread it answers.
   if (threadId && input.also === true && !hidden) {
     const dir = await directory(env, await chatMode(env), user);
@@ -433,7 +460,7 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     const intent = typeof input.intent === 'string' && /^[a-z_]{2,40}$/.test(input.intent) ? input.intent : undefined;
     // The Brain reads the thread it was asked in (or the last messages above a question that points at "this"), so "summarize this" works.
     const context = await brainContext(env, user, channelId, threadId, posted.message.id, text).catch(() => '');
-    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name }, text, intent, context }, ctx.fetcher || fetch));
+    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name, role: user.role }, text, intent, context }, ctx.fetcher || fetch));
   }
   return msg;
 }

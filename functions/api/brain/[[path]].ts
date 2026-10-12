@@ -6,6 +6,7 @@
 // and fills the answer in when it lands.
 import { errorJson, handleError, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
+import { fieldBrainOn } from '../../_lib/field';
 import { dropScratch, finishTurn, newConvId, recentHistory, startTurn, validConv } from '../../_lib/hub/chat';
 import { retitle } from '../../_lib/hub/chat-title';
 
@@ -13,7 +14,9 @@ const BRAIN_URL = 'https://mcp.favorintl.org';
 const ROUTES = new Set(['GET me', 'GET connector','POST request', 'POST ask', 'POST confirm', 'POST list/read', 'POST drive/search','GET admin/iwave', 'POST admin/iwave/decide', 'GET admin/names', 'POST admin/name-search', 'POST admin/alias', 'POST admin/alias-delete', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
 type BrainEnv = Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string };
 
-const headersFor = (env: BrainEnv, user: { email: string; name?: string }) => ({
+const headersFor = (env: BrainEnv, user: { email: string; name?: string; role?: string }) => ({
+  // Field staff ask with the field scope: the Brain answers from the manuals and program descriptions only.
+  ...(user.role === 'field' ? { 'X-Acting-Scope': 'field' } : {}),
   Authorization: `Bearer ${env.BRAIN_HUB_KEY}`,
   'X-Acting-Email': user.email,
   'X-Acting-Name': encodeURIComponent(user.name || user.email).replace(/%20/g, ' '),
@@ -29,7 +32,7 @@ function stored(d: any) {
   return { asked_as: d.asked_as || '', intent: d.intent || '', outcome: d.outcome || '', blocks, reading: Array.isArray(d.reading) ? d.reading : [], reading_text: d.reading_text || '', follow: Array.isArray(d.follow) ? d.follow : [], lists: Array.isArray(d.lists) ? d.lists : [], ...(d.ctx && typeof d.ctx === 'object' ? { ctx: d.ctx } : {}) };
 }
 
-async function ask(request: Request, env: BrainEnv, user: { email: string; name?: string }, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
+async function ask(request: Request, env: BrainEnv, user: { email: string; name?: string; role?: string; via?: string }, waitUntil: (p: Promise<unknown>) => void): Promise<Response> {
   const raw = await request.text();
   let body: any = {};
   try {
@@ -93,6 +96,9 @@ export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params,
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const path = ([] as string[]).concat((params.path as string[] | string) || []).join('/');
     if (!ROUTES.has(`${request.method} ${path}`)) return errorJson('not_found', 'No such brain route.', 404);
+    // Field staff may only ask a question, and only after an admin turned the field Brain on (the Brain must honor the field scope first).
+    if (user.role === 'field' && (request.method !== 'POST' || path !== 'ask')) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
+    if (user.role === 'field' && !(await fieldBrainOn(env))) return errorJson('not_ready', 'Favor Brain is not open to field staff yet.', 403);
     if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to FavorOS yet.', 503);
     if (request.method === 'POST' && path === 'ask') return await ask(request, env, user, waitUntil);
     const res = await fetch(`${base(env)}/hub/${path}`, {

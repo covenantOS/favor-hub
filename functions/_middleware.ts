@@ -5,6 +5,7 @@ import { json, type Env } from './_lib/http';
 import { resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
 import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls } from './_lib/admin/aiuse';
+import { fieldMayOpen } from './_lib/field';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -12,7 +13,7 @@ const REDIRECT_HOSTS = new Set(['hub.favorintl.org', 'favor-hub-d4n.pages.dev'])
 
 // Files the sign-in page itself needs, and files with nothing private in them.
 const STATIC_PREFIXES = ['/_astro/', '/images/', '/js/', '/fonts/', '/receipts/fonts/'];
-const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg', '/manifest.webmanifest', '/apple-touch-icon.png', '/version.json']);
+const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg', '/manifest.webmanifest', '/apple-touch-icon.png', '/version.json', '/sw.js', '/m/manifest.webmanifest']);
 
 // Open without sign-in: the sign-in page and its API, the approver's emailed review link (its token
 // is the key), the agent queue (it checks the agent key itself), and the admin password sign-in
@@ -84,10 +85,16 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
   const forwarded = withUserHeaders(request, user);
   const open = OPEN_PATHS.has(path) || CLIP_OPEN.test(path) || OPEN_PREFIXES.some((p) => path.startsWith(p));
 
+  // Field staff (a partner domain an admin allowed, approved one by one) reach Chat, Meetings and Favor Brain and nothing else.
+  if (enforce && user && user.role === 'field' && !open && !fieldMayOpen(path)) {
+    if (path.startsWith('/api/')) return json({ ok: false, error: 'forbidden', message: 'That is not part of the field staff app.' }, 403);
+    return Response.redirect(new URL('/chat/', url).toString(), 302);
+  }
+
   // Google is part of signing in: a person with no connected Google account goes to Google's consent
   // screen before any page opens, and that one screen asks for everything FavorOS uses. A cookie set
   // when they connect saves the lookup on later pages. Scripts and the admin password are exempt.
-  if (enforce && user && user.via === 'google' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
+  if (enforce && user && user.via === 'google' && user.role !== 'field' && !path.startsWith('/api/') && !open && !path.startsWith('/connect')) {
     const marked = /(?:^|;\s*)hub_gc=1/.test(request.headers.get('Cookie') || '');
     if (!marked) {
       const row = await env.DB.prepare('SELECT 1 AS ok FROM hub_google WHERE email = ?').bind(user.email).first().catch(() => ({ ok: 1 }));

@@ -103,7 +103,8 @@ export function meetUser(request: Request, env: MeetEnv): HubUser {
   const user = hubUserOf(request);
   if (!user) throw new HttpError(401, 'signin', 'Sign in with your Favor Google account first.');
   const open = (env.MEET_RELEASE || 'admin').toLowerCase() === 'staff';
-  if (!open && user.role !== 'admin') throw new HttpError(404, 'not_found', 'Not found.');
+  // Field staff always have Meetings, but only the ones they host or are invited to (mayJoin, listMeetings).
+  if (!open && user.role !== 'admin' && user.role !== 'field') throw new HttpError(404, 'not_found', 'Not found.');
   return user;
 }
 
@@ -125,6 +126,7 @@ export function mayJoin(m: Meeting, user: Pick<HubUser, 'email' | 'role'>): bool
   if (m.status === 'cancelled') return false;
   if (user.role === 'admin') return true;
   if (isHost(m, user.email)) return true;
+  if (user.role === 'field') return emailsOf(m.invitees).includes(user.email.toLowerCase());
   if (m.access === 'staff' || m.access === 'guests') return true;
   return emailsOf(m.invitees).includes(user.email.toLowerCase());
 }

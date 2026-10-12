@@ -10,8 +10,9 @@ import { getRollout, GROUPS, setRollout } from '../work/digest';
 import { setSetting as actSet } from '../work/db';
 import { getMileageSettings, getSettings, saveMileageSettings, saveSettings, splitEmails } from '../expenses/db';
 import { DEFAULT_COPY, WORDING } from '../statements/copy';
+import { DEFAULT_EXTRA_DOMAINS, parseDomains } from '../session';
 
-export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects';
+export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects' | 'people';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
 
 export interface Opt {
@@ -269,6 +270,17 @@ export const DEFS: Def[] = [
   hubDef({ id: 'requests.notify.only', area: 'chat', group: 'Request board', label: 'Notices while off', hint: 'Email addresses, separated by commas, that still get request notices while the setting above is off.', kind: 'text', def: '' }),
   hubDef({ id: 'mail.enabled', area: 'chat', group: 'Mail', label: 'Who can use Mail', hint: 'Each person sees only their own Gmail. Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'mail.write', area: 'chat', group: 'Mail', label: 'Change and send from Mail', hint: 'Off keeps Mail read only. Reply, archive and the rest open Gmail.', kind: 'enum', options: ON_OFF, def: 'on' }),
+  // ---------------------------------------------------------------------------------------------------- People
+  hubDef({
+    id: 'signin.domains', area: 'people', group: 'Sign-in domains', label: 'Other domains that may ask for access',
+    hint: 'Google Workspace domains, separated by commas. Someone who signs in with an account on one of these waits on the People page until an admin approves them, and then has Chat, Meetings and Favor Brain only. @favorintl.org always works and needs no approval.',
+    kind: 'text', def: DEFAULT_EXTRA_DOMAINS,
+  }),
+  hubDef({
+    id: 'field.brain', area: 'people', group: 'Field staff', label: 'Favor Brain for field staff',
+    hint: 'On lets approved field staff ask Favor Brain about the manuals and the programs. Partner records, giving and the dashboards stay closed to them.',
+    kind: 'enum', options: ON_OFF, def: 'off',
+  }),
   // ---------------------------------------------------------------------------------------------------- Projects
   hubDef({ id: 'projects.enabled', area: 'projects', label: 'Who can use Projects', hint: 'Admins only, every signed-in staff member, or nobody. Task notices follow the Request notices setting in Admin > Chat.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'projects.marketing_key', area: 'projects', label: 'Project for Marketing requests', hint: 'The key of the project where a Marketing request lands as a task, for example MKT. Empty leaves requests going to the form they use now.', kind: 'text', def: '' }),
@@ -332,6 +344,13 @@ export function normalize(d: Def, raw: unknown): string {
     if (d.id === 'expenses.approver_email' && !list.length) throw new HttpError(400, 'bad_value', 'Add at least one approver address.');
     if (list.some((e) => !/^[^\s@,]+@[^\s@,]+\.[^\s@,]+$/.test(e))) throw new HttpError(400, 'bad_value', `${d.label}: use full email addresses, separated by commas.`);
     return list.join(', ');
+  }
+  if (d.id === 'signin.domains') {
+    const tokens = t.toLowerCase().split(/[\s,;]+/).filter(Boolean);
+    const good = parseDomains(t);
+    const bad = tokens.filter((x) => !good.includes(x));
+    if (bad.length) throw new HttpError(400, 'bad_value', `${d.label}: ${bad.join(', ')} is not a company domain. Use names like favourafrica.org. Favor's own domain and public mail services (Gmail, Outlook, Yahoo) are not listed here.`);
+    return good.join(', ');
   }
   if (d.id === 'clips.list') {
     const list = t.split(/[,\s]+/).map((e) => e.toLowerCase()).filter(Boolean);

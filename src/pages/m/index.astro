@@ -1,0 +1,75 @@
+---
+// The phone app's start page: the address the installed app opens (manifest id /m/). It is thin on purpose. Chat, Meetings and Favor
+// Brain open from here, and this page holds the settings that belong to the phone itself: notifications and Data saver. The screens
+// move to the React app; public/js/phone-core.js, public/sw.js and the API stay as they are.
+import '../../styles/phone-app.css';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <title>FavorOS</title>
+    <link rel="icon" type="image/png" href="/images/favor-icon.png" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <link rel="manifest" href="/m/manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="FavorOS" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="theme-color" content="#f4efe0" />
+  </head>
+  <body class="pa">
+    <main class="pa-main">
+      <header class="pa-head">
+        <img src="/images/favor-logo-color.png" alt="Favor International" class="pa-logo" />
+        <p class="pa-who" id="pa-who" aria-live="polite"></p>
+      </header>
+
+      <nav class="pa-tiles" aria-label="FavorOS">
+        <a class="pa-tile" href="/chat/" id="pa-chat">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg>
+          <span><b>Chat</b><small>Direct messages and channels</small></span>
+        </a>
+        <a class="pa-tile" href="/meet/" id="pa-meet">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="3"/><path d="m16 10.5 5-3v9l-5-3z"/></svg>
+          <span><b>Meetings</b><small>Join or start a call</small></span>
+        </a>
+        <a class="pa-tile" href="/brain/" id="pa-brain" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M9 10h6M9 14h4"/></svg>
+          <span><b>Favor Brain</b><small>Ask about the manuals and programs</small></span>
+        </a>
+      </nav>
+
+      <section class="pa-card" aria-labelledby="pa-h-note">
+        <h2 id="pa-h-note">Notifications</h2>
+        <p id="pa-note-text">A direct message or a mention reaches this phone when FavorOS is closed.</p>
+        <div class="pa-row">
+          <button type="button" class="pa-btn pa-btn--on" id="pa-note" disabled>Checking</button>
+          <button type="button" class="pa-btn" id="pa-test" hidden>Send me a test</button>
+        </div>
+        <p class="pa-msg" id="pa-note-msg" role="status"></p>
+      </section>
+
+      <section class="pa-card" aria-labelledby="pa-h-data">
+        <h2 id="pa-h-data">Data saver</h2>
+        <p>Pictures upload smaller, calls open audio only and messages written offline wait until the connection returns.</p>
+        <label class="pa-sel"><span>Data saver</span>
+          <select id="pa-data"><option value="auto">Automatic</option><option value="on">On</option><option value="off">Off</option></select>
+        </label>
+        <p class="pa-msg" id="pa-data-state" role="status"></p>
+      </section>
+
+      <section class="pa-card" id="pa-queue" hidden aria-labelledby="pa-h-queue">
+        <h2 id="pa-h-queue">Waiting to send</h2>
+        <p id="pa-queue-text"></p>
+        <button type="button" class="pa-btn" id="pa-send-now">Send now</button>
+      </section>
+
+      <p class="pa-foot"><button type="button" class="pa-link" id="pa-out">Sign out</button></p>
+    </main>
+    <script is:inline src="/js/phone-core.js?v=1"></script>
+    <script is:inline src="/js/m/start.js?v=1"></script>
+  </body>
+</html>

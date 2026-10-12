@@ -46,7 +46,7 @@ export interface AskInput {
   root_id: number;
   /** The thread the question was asked in, or null for a top level question. */
   thread_id?: number | null;
-  asker: { email: string; name: string };
+  asker: { email: string; name: string; role?: string };
   text: string;
   /** What kind of answer a pressed option or a name in a list asks for (the Brain page sends the same word). */
   intent?: string;
@@ -84,6 +84,7 @@ export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN
           headers: {
             Authorization: `Bearer ${env.BRAIN_HUB_KEY}`,
             'X-Acting-Email': input.asker.email,
+            ...(input.asker.role === 'field' ? { 'X-Acting-Scope': 'field' } : {}),
             'X-Acting-Name': encodeURIComponent(input.asker.name || input.asker.email).replace(/%20/g, ' '),
             'Content-Type': 'application/json',
             'User-Agent': 'favor-hub',

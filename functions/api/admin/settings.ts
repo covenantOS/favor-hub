@@ -3,7 +3,7 @@ import { adminRoute, readBody } from '../../_lib/admin/route';
 import { changeSetting, readArea, type Area } from '../../_lib/admin/settings';
 import { areaExtras } from '../../_lib/admin/extras';
 
-const AREAS = new Set(['work', 'meetings', 'brain', 'clips', 'reports', 'expenses', 'receipts', 'statements', 'chat', 'projects']);
+const AREAS = new Set(['work', 'meetings', 'brain', 'clips', 'reports', 'expenses', 'receipts', 'statements', 'chat', 'projects', 'people']);
 
 // One tab of settings: GET ?area=work|meetings|brain|clips|reports returns each setting with its value, default and where it lives,
 // plus read-only facts for the tab. POST {id, value, confirm?, reset?} saves one and records it in the audit log.

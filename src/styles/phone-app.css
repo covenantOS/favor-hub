@@ -1,0 +1,28 @@
+/* The phone app's start page (src/pages/m/index.astro). */
+@font-face { font-family: 'Inter'; src: url('/fonts/inter-var.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+:root { --pa-green: #2b4d24; --pa-ink: #15181a; --pa-ink-2: #4b5157; --pa-line: #e3dfd0; --pa-card: #fffdf6; --pa-bg: #f4efe0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+body.pa { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--pa-ink); background: var(--pa-bg); -webkit-font-smoothing: antialiased; min-height: 100vh; }
+.pa-main { max-width: 520px; margin: 0 auto; padding: calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+.pa-head { display: grid; gap: 6px; padding: 4px 2px 6px; }
+.pa-logo { height: 34px; width: auto; justify-self: start; }
+.pa-who { font-size: 14px; color: var(--pa-ink-2); }
+.pa-tiles { display: grid; gap: 10px; }
+.pa-tile { display: flex; align-items: center; gap: 14px; padding: 16px; min-height: 72px; background: var(--pa-card); border: 1px solid var(--pa-line); border-radius: 16px; color: inherit; text-decoration: none; }
+.pa-tile:active { background: #f3eedb; }
+.pa-tile svg { width: 28px; height: 28px; flex: none; fill: none; stroke: var(--pa-green); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.pa-tile b { display: block; font-size: 17px; }
+.pa-tile small { display: block; font-size: 14px; color: var(--pa-ink-2); margin-top: 2px; }
+.pa-card { background: var(--pa-card); border: 1px solid var(--pa-line); border-radius: 16px; padding: 16px; display: grid; gap: 10px; }
+.pa-card h2 { font-size: 16px; }
+.pa-card p { font-size: 14px; color: var(--pa-ink-2); line-height: 1.45; }
+.pa-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pa-btn { min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--pa-line); background: #fff; font: inherit; font-weight: 600; color: var(--pa-ink); }
+.pa-btn--on { background: var(--pa-green); border-color: var(--pa-green); color: #fff; }
+.pa-btn:disabled { opacity: .55; }
+.pa-sel { display: grid; gap: 4px; font-size: 14px; font-weight: 600; }
+.pa-sel select { min-height: 44px; border-radius: 12px; border: 1px solid var(--pa-line); background: #fff; padding: 0 10px; font: inherit; font-weight: 400; }
+.pa-msg { min-height: 18px; }
+.pa-foot { text-align: center; padding-top: 6px; }
+.pa-link { background: none; border: 0; font: inherit; font-size: 14px; color: var(--pa-ink-2); text-decoration: underline; min-height: 44px; padding: 0 12px; }

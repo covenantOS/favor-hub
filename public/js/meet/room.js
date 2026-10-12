@@ -5,6 +5,8 @@ import { Rtc, linkLevel } from './rtc.js';
 import { Recorder, confirmStopRecording } from './rec.js';
 
 const params = new URLSearchParams(location.search);
+// ?audio=1: an audio-only call for a weak or expensive connection. No camera is asked for or sent, and no one's video or screen share is pulled.
+const AUDIO_ONLY = params.get('audio') === '1';
 const MID = params.get('m') || '';
 const root = $('#meet-root');
 const isPhone = () => matchMedia('(max-width: 860px)').matches;
@@ -30,8 +32,8 @@ const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform 
 
 const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
-  mic: true, cam: true, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
-  recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: true }, removed: false, level: 'good', speakers: new Map(),
+  mic: true, cam: !AUDIO_ONLY, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
+  recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: !AUDIO_ONLY }, removed: false, level: 'good', speakers: new Map(),
   inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, live: [], liveSig: '', liveKind: 'action', liveText: '', layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
@@ -115,8 +117,8 @@ async function lobby() {
   $('#lb-cam').addEventListener('click', () => { S.cam = !S.cam; lobbyButtons(); lobbyVideo(); });
   let denied = null;
   try {
-    preview = await navigator.mediaDevices.getUserMedia({ audio: true, video: { width: 1280, height: 720 } });
-    $('#lb-dev').textContent = 'Camera and microphone ready.';
+    preview = await navigator.mediaDevices.getUserMedia({ audio: true, video: AUDIO_ONLY ? false : { width: 1280, height: 720 } });
+    $('#lb-dev').textContent = AUDIO_ONLY ? 'Audio call. Your microphone is ready and no video is sent or received.' : 'Camera and microphone ready.';
   } catch (e1) {
     denied = e1;
     try { preview = await navigator.mediaDevices.getUserMedia({ audio: true }); S.devices.cam = false; S.cam = false; $('#lb-dev').textContent = 'No camera found or allowed. You can still join with sound.'; }
@@ -148,7 +150,7 @@ function watchHere() {
 }
 // From the pre-join sheet: the choices are made, so the room opens with them and no second preview.
 async function quickEnter(pre) {
-  S.mic = pre.mic !== false; S.cam = !!pre.cam; S.micId = pre.micId || ''; S.camId = pre.camId || '';
+  S.mic = pre.mic !== false; S.cam = !!pre.cam && !AUDIO_ONLY; S.micId = pre.micId || ''; S.camId = pre.camId || '';
   const name = (await whoami()).name || '';
   root.innerHTML = `<div class="h-card mt-card" style="max-width:520px;margin:12vh auto 20px;display:grid;gap:10px;justify-items:start" role="status"><h2 class="mt-h2"><span class="spin"></span>Joining ${esc(S.meeting.title)}</h2><p class="mt-sub" id="lb-dev" style="margin:0;font-size:14px">Connecting to the room.</p><input type="hidden" id="lb-name" value="${esc(name)}" /><button class="h-btn h-btn--primary" id="lb-join" hidden>Join now</button></div>`;
   const audio = S.micId ? { deviceId: { ideal: S.micId } } : true;
@@ -913,6 +915,7 @@ function toggleMic() {
   S.mic = !S.mic; local.mic.enabled = S.mic; paintCtl(); paintGrid(); syncNow();
 }
 async function toggleCam() {
+  if (AUDIO_ONLY) { toast('This is an audio call. Leave and join again for video.'); return; }
   if (S.cam) {
     S.cam = false;
     if (local.cam) { try { await rtc.replace('v', null); } catch {} local.cam.stop(); local.cam = null; }
@@ -1067,7 +1070,7 @@ function wanted() {
   const { model } = layoutModel();
   const level = S.level;
   model.forEach(({ key, p, kind, share }) => {
-    if (p.me) return;
+    if (p.me || AUDIO_ONLY) return;
     const tr = (p.tracks || []).find((t) => (share ? t.name === 's' : t.name === 'v'));
     if (!tr) return;
     if (!share && !p.cam) return;
