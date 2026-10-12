@@ -28,7 +28,7 @@
   function fundName(id) { var f = (S.ov.funds || []).find(function (x) { return x.id === id; }); return f ? f.name : 'No fund'; }
   function partner(r) {
     var nm = esc(r.name || 'Partner');
-    return r.recordId ? '<a href="/work/partner/' + esc(r.recordId) + '" data-partner-id="' + esc(r.recordId) + '">' + nm + '</a>' : nm;
+    return r.recordId ? '<a class="og-n" href="/work/partner/' + esc(r.recordId) + '" data-partner-id="' + esc(r.recordId) + '">' + nm + '</a>' : '<span class="og-n">' + nm + '</span>';
   }
   function facts(r) {
     var b = [money(r.amount)];
@@ -37,7 +37,6 @@
     b.push(day(r.date));
     if (r.monthly) b.push('Monthly');
     if (r.tribute) b.push('Tribute');
-    if (!r.inBlackbaud) b.push('Not in Blackbaud yet');
     if (r.test) b.push('Test record');
     return b.join(' · ');
   }
@@ -46,22 +45,22 @@
     var cur = chosen(r);
     var opts = (S.ov.funds || []).map(function (f) { return '<option value="' + esc(f.id) + '"' + (f.id === cur ? ' selected' : '') + '>' + esc(f.name) + '</option>'; }).join('');
     if (!cur) opts = '<option value="" selected>Pick a designation</option>' + opts;
-    return '<label class="og-des"><span class="og-des-l">Designation</span><select class="og-sel" data-key="' + esc(r.key) + '" aria-label="Designation for ' + esc(r.name) + '">' + opts + '</select></label>';
+    return '<label class="og-des"><select class="og-sel" data-key="' + esc(r.key) + '" aria-label="Designation for ' + esc(r.name) + '">' + opts + '</select></label>';
   }
   function readLine(r) {
     var to = chosen(r);
     var bits = [];
     if (r.read.by === 'comment' || r.read.by === 'model') bits.push('From the comment');
     else if (r.source === 'website') bits.push('From the form');
-    if (r.inBlackbaud && r.currentFund && to && to !== r.currentFund) bits.push('Now ' + fundName(r.currentFund));
+    if (r.inBlackbaud && r.currentFund && to && to !== r.currentFund) bits.push('In Blackbaud: ' + fundName(r.currentFund));
     return bits.length ? '<span class="og-why">' + esc(bits.join(' · ')) + '</span>' : '';
   }
   function row(r) {
     var changes = r.inBlackbaud && r.currentFund && chosen(r) !== r.currentFund;
-    return '<div class="og-row" data-key="' + esc(r.key) + '"><div class="og-main"><b>' + partner(r) + (changes ? ' <span class="ls-st ls-st--queued og-pill">Changes fund</span>' : '') + '</b><span class="og-f">' + esc(facts(r)) + '</span>' +
-      (r.comment ? '<q class="og-c">' + esc(r.comment) + '</q>' : '') +
-      '<div class="og-dl">' + select(r) + readLine(r) + '</div></div>' +
-      '<div class="og-acts"><button type="button" class="ls-link" data-act="approve">Approve</button></div></div>';
+    var pill = changes ? '<span class="ls-st ls-st--queued og-pill">Changes fund</span>' : !r.inBlackbaud ? '<span class="ls-st og-pill">Not in Blackbaud yet</span>' : '';
+    return '<div class="og-row" data-key="' + esc(r.key) + '"><div class="og-main"><b>' + partner(r) + pill + '</b><span class="og-f">' + esc(facts(r)) + '</span>' +
+      (r.comment ? '<q class="og-c">' + esc(r.comment) + '</q>' : '') + readLine(r) + '</div>' +
+      '<div class="og-acts">' + select(r) + '<button type="button" class="ls-link" data-act="approve">Approve</button></div></div>';
   }
   function doneRow(r) {
     var v = r.review;
@@ -74,14 +73,15 @@
 
   function draw() {
     var o = S.ov;
-    var todo = o.rows.filter(function (r) { return !r.review || r.reopen; });
+    var rank = function (r) { return r.inBlackbaud && r.currentFund && chosen(r) !== r.currentFund ? 0 : r.comment ? 1 : 2; };
+    var todo = o.rows.filter(function (r) { return !r.review || r.reopen; }).map(function (r, i) { return [r, i]; }).sort(function (a, b) { return rank(a[0]) - rank(b[0]) || a[1] - b[1]; }).map(function (x) { return x[0]; });
     var done = o.rows.filter(function (r) { return r.review && !r.reopen; });
     var total = o.rows.reduce(function (s, r) { return s + (Number(r.amount) || 0); }, 0);
     var withC = o.rows.filter(function (r) { return r.comment; }).length;
     var h = '<div class="og-wrap">';
     h += '<div class="h-card cr-card og-card"><div class="cr-h"><b>Online gifts <small>' + o.rows.length + '</small></b>' +
       '<label class="og-period"><span class="sr-only">Period</span><select id="og-days" aria-label="Period">' + Object.keys(DAYS).map(function (k) { return '<option value="' + k + '"' + (k === S.days ? ' selected' : '') + '>' + DAYS[k] + '</option>'; }).join('') + '</select></label></div>' +
-      '<div class="og-sum"><span>' + esc([money(total), withC + (withC === 1 ? ' comment' : ' comments'), todo.length + ' to approve'].join(' · ')) + '</span>' +
+      '<div class="og-sum"><span>' + esc(money(total)) + '<i class="og-wide"> · ' + withC + (withC === 1 ? ' comment' : ' comments') + '</i> · ' + todo.length + ' to approve</span>' +
       (todo.length ? '<button type="button" class="h-btn h-btn--primary h-btn--sm" id="og-all">Approve all ' + todo.length + '</button>' : '') + '</div>';
     if (o.batches && o.batches.waiting && o.batches.waiting.length) {
       var w = o.batches.waiting, g = w.reduce(function (s, b) { return s + b.gifts; }, 0), amt = w.reduce(function (s, b) { return s + b.amount; }, 0);
