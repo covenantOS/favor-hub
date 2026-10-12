@@ -40,6 +40,18 @@ Files open where they were posted:
 - A PDF, a Word file, an Excel file and a Drive file show their first page on the card and open in a viewer with every page. **Download** and **Open in Google Drive** sit at the top right. When Drive will not hand over a file, the viewer shows its first page and the Drive button.
 - A voice note or other audio file plays in its card.
 
+## Your language, Catch me up and voice notes
+
+The globe in a channel's header sets the language you read Chat in. Pick French, Arabic, Spanish, Portuguese, Swahili or Luganda and every message written in another language shows in yours, with a line under it that names the original language. **Show original** brings back what was typed, and the same row in a message's menu does it too. What you type is never changed: each person reads the conversation in their own language. Choose **Original, no translation** to turn it off. The setting follows you to every page, including the Chat button.
+
+The spark in the header is **Catch me up**. It summarizes the messages you have not read in four to six lines, adds a **For you** list when someone asked you something or gave you work, and each line has a **See it** link to the message. A channel with five or more unread messages offers it at the top when you open it.
+
+A message's menu has **Turn into a task, reminder or action**. A task goes on your Projects list, a request goes on the request board, and a reminder shows in the bell at the time you pick. **A Blackbaud action** asks for the partner (one named in the message is filled in), whose contact it is, how it happened, the date and one line about what happened. The next step shows exactly what will be saved. Nothing goes to Blackbaud until you press **Save to Blackbaud**. It is for people who have the Work Center.
+
+Type @ and at least three letters of a partner's or a fund's name to mention them. The mention shows as a chip, and holding the pointer over it, or tapping it, shows a card with giving to date and the last gift. Partner cards are for people who have the Work Center.
+
+The microphone beside the message box records a voice note of up to five minutes. **Stop and attach** adds it to the message, and Send posts it. A line under the note reads Writing the transcript, then shows the words, and they translate like any message. **Ask Favor Brain about this** in a message's menu opens the thread with Favor Brain addressed. When you ask Favor Brain inside a thread, it reads that thread first, so "summarize this" works.
+
 ## Clips, Drive and meetings
 
 Press the **plus** in the message box.

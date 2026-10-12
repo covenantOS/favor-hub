@@ -112,6 +112,13 @@
     upload: function (file) {
       return req('POST', 'upload', null, { body: file, headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name) } }).then(function (d) { return { id: d.id, name: d.name, size: d.size, mime: d.mime, url: d.url }; });
     },
+    // Chat's smarter side (chat-smart.js): every rule lives in the API, the page only asks and draws.
+    setLang: function (lang) { return req('POST', 'prefs', { lang: lang }); },
+    translate: function (ids, force) { return req('POST', 'translate', { ids: ids, force: force || undefined }); },
+    catchup: function (ch, from, thread) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/catchup', { from: from, thread: thread || undefined }); },
+    remind: function (id, when) { return req('POST', 'messages/' + id + '/remind', { when: when }); },
+    entities: function (q) { return req('GET', 'entities?q=' + encodeURIComponent(q)); },
+    workOwners: function () { return req('GET', 'owners'); },
     onEvent: function (h) { handlers.push(h); }
   };
 
@@ -150,6 +157,7 @@
     app = a;
     window.favorChat = a;
     if (window.FavorChatBrain) window.FavorChatBrain.attach(a);
+    if (window.FavorChatSmart) window.FavorChatSmart.attach(a);
     connect();
     // A copied link opens its conversation, its thread when it has one, and shows the message.
     var t = qs.get('t'), mid = qs.get('m');

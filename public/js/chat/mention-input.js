@@ -119,12 +119,16 @@
       id = id.toLowerCase();
       return '<span class="mi-chip' + (me && id === me ? ' mi-chip--me' : '') + '" data-mi-id="' + esc(id) + '">@' + esc(nameFrom(names, id)) + '</span>';
     });
+    t = t.replace(/&lt;~([pf]):(\d{1,12})\|(.{1,160}?)&gt;/g, function (_, k, id, name) {
+      var un = function (x) { return x.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'); };
+      return window.FavorEntity ? window.FavorEntity.chip(k === 'f' ? 'fund' : 'partner', id, un(name)) : '<span class="ch-ent ch-ent--' + k + '">' + name + '</span>';
+    });
     t = t.replace(/(https?:\/\/[^\s<]+[^\s<).,;:!?])/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     return t;
   }
   function plain(text, names) {
-    return String(text || '').replace(TOKEN, function (_, id) { return '@' + nameFrom(names, id.toLowerCase()); });
+    return String(text || '').replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(TOKEN, function (_, id) { return '@' + nameFrom(names, id.toLowerCase()); });
   }
 
   /* ------------------------------------------------------------------ the box */

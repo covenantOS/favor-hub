@@ -7,7 +7,7 @@ import './support/resolve-ts.mjs';
 
 const ui = fs.readFileSync('public/js/chat/chat-ui.js', 'utf8');
 const real = fs.readFileSync('public/js/chat/chat.js', 'utf8');
-const router = fs.readFileSync('functions/_lib/chat/route.ts', 'utf8');
+const router = fs.readFileSync('functions/_lib/chat/route.ts', 'utf8') + fs.readFileSync('functions/_lib/chat/smart-route.ts', 'utf8');
 
 test('every api method the screen calls is defined by the real transport', () => {
   const used = new Set([...ui.matchAll(/\bapi\.([a-zA-Z]+)\(/g)].map((m) => m[1]));

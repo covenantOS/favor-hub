@@ -41,7 +41,7 @@ export function world({ mode } = {}) {
   const files = new Map();
   const UPLOADS = {
     async put(key, buf, opts) { files.set(key, { buf, type: opts?.httpMetadata?.contentType }); },
-    async get(key) { const f = files.get(key); return f ? { body: new Response(f.buf).body, httpMetadata: { contentType: f.type } } : null; },
+    async get(key) { const f = files.get(key); return f ? { body: new Response(f.buf).body, size: f.buf.byteLength ?? f.buf.length, arrayBuffer: async () => (typeof f.buf === 'string' ? new TextEncoder().encode(f.buf).buffer : f.buf.buffer ? f.buf.buffer.slice(f.buf.byteOffset, f.buf.byteOffset + f.buf.byteLength) : f.buf), httpMetadata: { contentType: f.type } } : null; },
   };
   const env = { DB: d1, UPLOADS, CHAT_ROOM: room, BRAIN_HUB_KEY: 'test-key' };
   const pending = [];
@@ -60,6 +60,7 @@ export async function call(w, user, method, path, body, extra = {}) {
     user,
     path: path.split('?')[0].split('/'),
     waitUntil: (p) => w.pending.push(p),
+    fetcher: extra.fetcher,
   });
   await Promise.allSettled(w.pending.splice(0));
   const ct = res.headers.get('Content-Type') || '';

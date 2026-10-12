@@ -30,6 +30,17 @@ export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<
   if (list.some((a) => a.type === 'task')) list = await hydrateTaskCards(env, list);
   // projects hook: project task cards ({type: 'ptask'}) are filled in by projects/links/chat.ts.
   if (list.some((a) => a.type === 'ptask')) list = await hydratePTaskCards(env, list);
+  // Voice notes carry their transcript: working while Whisper reads it, then the words (or none heard).
+  const voiceIds = list.filter((a) => a.type === 'file' && a.voice === true && typeof a.id === 'string').map((a) => String(a.id));
+  if (voiceIds.length) {
+    const v = await env.DB.prepare(`SELECT file_id, status, transcript FROM chat_voice WHERE file_id IN (${voiceIds.map(() => '?').join(',')})`).bind(...voiceIds).all<{ file_id: string; status: string; transcript: string }>().catch(() => ({ results: [] as Array<{ file_id: string; status: string; transcript: string }> }));
+    const by = new Map((v.results || []).map((x) => [x.file_id, x]));
+    list = list.map((a) => {
+      if (a.type !== 'file' || a.voice !== true) return a;
+      const t = by.get(String(a.id));
+      return t ? { ...a, transcript_status: t.status, transcript: t.transcript } : a;
+    });
+  }
   const clipIds = [...new Set(list.filter((a) => a.type === 'clip' && typeof a.id === 'string').map((a) => String(a.id)))];
   const meetIds = [...new Set(list.filter((a) => a.type === 'meeting' && typeof a.id === 'string').map((a) => String(a.id)))];
   const clips = new Map<string, ClipRow>();

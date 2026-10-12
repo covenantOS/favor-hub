@@ -8,6 +8,10 @@ export const SYSTEM_VOICES = new Set([BRAIN_ID, MEETINGS_ID]);
 
 const EMAIL = '[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}';
 const TOKEN = new RegExp(`<@(${EMAIL}|channel|all|brain)>`, 'gi');
+/** A partner or a fund named in a message: <~p:12345|Name> or <~f:77|Name>. The name is what the sender saw when they picked it. */
+export const ENTITY = /<~([pf]):(\d{1,12})\|([^<>|\n]{1,80})>/g;
+/** The name a person typed is cleaned so it can sit inside a token. */
+export const entityName = (s: unknown): string => String(s || '').replace(/[<>|\n]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
 
 /** Trim, drop control characters except newlines and tabs, cap the length. */
 export function cleanBody(raw: unknown): string {
@@ -52,6 +56,7 @@ export function brainQuestion(body: string): string {
     .replace(/(^|[\s(])@favor[\s-]?brain\b[,:]?/gi, '$1 ')
     .replace(/(^|\s)@brain\b[,:]?/gi, '$1 ')
     .replace(TOKEN, (_all, v: string) => '@' + String(v).split('@')[0])
+    .replace(ENTITY, (_all, _k: string, _id: string, name: string) => name)
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, 600);
@@ -107,6 +112,7 @@ export const EMOJI_OK = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F1E6}
 export function plainLine(body: string, names: (id: string) => string, max = 140): string {
   const t = String(body || '')
     .replace(TOKEN, (_a, v: string) => '@' + (v.toLowerCase() === 'brain' ? 'Favor Brain' : v.toLowerCase() === 'channel' || v.toLowerCase() === 'all' ? 'channel' : names(v.toLowerCase())))
+    .replace(ENTITY, (_a, _k: string, _id: string, name: string) => name)
     .replace(/<#[^>]+>/g, '')
     .replace(/\s+/g, ' ')
     .trim();

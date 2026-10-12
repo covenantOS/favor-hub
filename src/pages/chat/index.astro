@@ -25,8 +25,8 @@ const bootHtml: string = ctx.window.FavorChat.bootHtml();
 <App title="Chat" crumb="Chat" nav="chat" bare description="Channels, direct messages and threads for the Favor team, with clips, meetings, Drive files and Favor Brain in the conversation.">
   <Fragment set:html={SPRITE} />
   <div id="chat-root" class="ch" data-view="list" data-boot set:html={bootHtml}></div>
-  <link rel="preload" href="/js/chat/chat-ui.js?v=25" as="script" />
-  <link rel="preload" href="/js/chat/chat.js?v=8" as="script" />
+  <link rel="preload" href="/js/chat/chat-ui.js?v=26" as="script" />
+  <link rel="preload" href="/js/chat/chat.js?v=9" as="script" />
   <link rel="preload" href="/js/brain-blocks.js?v=13" as="script" />
   <script is:inline src="/js/brain-blocks.js?v=13"></script>
   <script is:inline src="/js/meet/prejoin.js?v=5" defer></script>
@@ -36,8 +36,10 @@ const bootHtml: string = ctx.window.FavorChat.bootHtml();
   <script is:inline src="/js/chat/chat-brain.js?v=1" defer></script>
   <!-- projects hook: project task cards, Make a task from a message, open in place -->
   <link rel="stylesheet" href="/css/projects-links.css?v=1" />
+  <link rel="stylesheet" href="/css/chat-smart.css?v=1" />
   <script is:inline src="/js/projects/links.js?v=1" defer></script>
   <script is:inline src="/js/chat/project-card.js?v=1" defer></script>
-  <script is:inline src="/js/chat/chat-ui.js?v=25" defer></script>
-  <script is:inline src="/js/chat/chat.js?v=8" defer></script>
+  <script is:inline src="/js/chat/chat-smart.js?v=1" defer></script>
+  <script is:inline src="/js/chat/chat-ui.js?v=26" defer></script>
+  <script is:inline src="/js/chat/chat.js?v=9" defer></script>
 </App>

@@ -136,8 +136,9 @@
   }
   function loadPanel() {
     if (loaded) return loaded;
-    var v = '1';
+    var v = '2';
     var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/css/dock-panel.css?v=' + v; document.head.appendChild(css);
+    var css2 = document.createElement('link'); css2.rel = 'stylesheet'; css2.href = '/css/chat-smart.css?v=1'; document.head.appendChild(css2);
     loaded = new Promise(function (ok, bad) {
       var s = document.createElement('script'); s.src = '/js/dock-panel.js?v=' + v; s.onload = ok; s.onerror = function () { loaded = 0; bad(new Error('The panel did not load.')); };
       document.head.appendChild(s);
@@ -217,15 +218,15 @@
     if (refreshing) return refreshing;
     if (!force && ready && Date.now() - (D.at || 0) < 20000) return Promise.resolve();
     refreshing = (window.FavorData ? window.FavorData.get('dock', '/api/chat/dock', { stale: force ? 0 : 20000, persist: false }) : req('GET', 'dock')).then(function (d) {
-      D.me = d.me; D.users = d.users || {}; D.threads = d.threads_unread || 0; D.at = Date.now();
+      D.me = d.me; D.lang = d.lang || ''; D.langs = d.langs || []; D.users = d.users || {}; D.threads = d.threads_unread || 0; D.at = Date.now();
       var next = {}; (d.channels || []).forEach(function (c) { next[c.id] = c; }); D.ch = next; ready = true;
-      try { sessionStorage.setItem(DATA, JSON.stringify({ at: D.at, me: D.me, users: D.users, ch: D.ch, threads: D.threads })); } catch (e) { /* full */ }
+      try { sessionStorage.setItem(DATA, JSON.stringify({ at: D.at, me: D.me, lang: D.lang, langs: D.langs, users: D.users, ch: D.ch, threads: D.threads })); } catch (e) { /* full */ }
       paint();
     }).catch(function () { /* the next resync tries again */ }).then(function () { refreshing = null; });
     return refreshing;
   }
   function fromCache() {
-    try { var c = JSON.parse(sessionStorage.getItem(DATA) || 'null'); if (c && c.me && Date.now() - c.at < 30 * 60000) { D.me = c.me; D.users = c.users || {}; D.ch = c.ch || {}; D.threads = c.threads || 0; D.at = c.at; ready = true; paint(); } } catch (e) { /* no cache */ }
+    try { var c = JSON.parse(sessionStorage.getItem(DATA) || 'null'); if (c && c.me && Date.now() - c.at < 30 * 60000) { D.me = c.me; D.lang = c.lang || ''; D.langs = c.langs || []; D.users = c.users || {}; D.ch = c.ch || {}; D.threads = c.threads || 0; D.at = c.at; ready = true; paint(); } } catch (e) { /* no cache */ }
   }
   D.ready = function () { return ready ? Promise.resolve() : refresh(true); };
   D.refresh = refresh;

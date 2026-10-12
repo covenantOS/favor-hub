@@ -40,6 +40,9 @@ import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } fr
 import { parseRange } from '../clips';
 import { postMadeCard, taskDeleted, taskReply } from './tasks';
 import * as more from './more';
+import { smartRoute } from './smart-route';
+import { brainContext, getLang, startVoice, transcribe } from './smart';
+import { LANGS } from './translate';
 import { DRAWABLE } from './brain';
 import { insertRequest } from '../db';
 import { notifyNewRequest } from '../notify';
@@ -58,6 +61,8 @@ export interface Ctx {
   waitUntil: (p: Promise<unknown>) => void;
   /** Tests pass a stand-in for calls that leave the hub (the Brain). */
   fetcher?: typeof fetch;
+  /** Tests pass a stand-in for Workers AI. */
+  ai?: { run(model: string, input: unknown): Promise<unknown> };
 }
 
 const MAX_FILE = 25 * 1024 * 1024;
@@ -92,6 +97,9 @@ async function route(ctx: Ctx): Promise<Response> {
   if (a === 'boot' && method === 'GET') return json(await boot(env, user));
   // The floating dock on every other page: the conversations with their unread numbers and the names, no joining and no presence.
   if (a === 'dock' && method === 'GET') return json(await dockState(env, user));
+  // Translation, Catch me up, reminders, partner and fund chips: chat/smart-route.ts.
+  const smart = await smartRoute(ctx, user, method, url);
+  if (smart) return smart;
 
   if (a === 'channels') {
     if (!b && method === 'POST') {
@@ -291,7 +299,7 @@ async function dockState(env: ChatRouteEnv, user: HubUser) {
   const me = user.email.toLowerCase();
   const mode = await chatMode(env);
   const [users, channels, threads] = await Promise.all([directory(env, mode, user), store.listChannels(env, me), more.threadUnreadTotal(env, me)]);
-  return { ok: true, me, users, channels: channels.map((c) => ({ id: c.id, kind: c.kind, name: c.name, members: c.members, last_at: c.last_at, muted: c.muted, unread: c.unread, mentions: c.mentions })), threads_unread: threads };
+  return { ok: true, me, lang: await getLang(env, me), langs: LANGS, users, channels: channels.map((c) => ({ id: c.id, kind: c.kind, name: c.name, members: c.members, last_at: c.last_at, muted: c.muted, unread: c.unread, mentions: c.mentions })), threads_unread: threads };
 }
 
 async function boot(env: ChatRouteEnv, user: HubUser) {
@@ -304,7 +312,7 @@ async function boot(env: ChatRouteEnv, user: HubUser) {
   const withBars = channels.map((c) => ({ ...c, pins: bars.pins.get(c.id) || 0, bookmarks: bars.bookmarks.get(c.id) || [] }));
   return {
     ok: true, me: people[me] || { id: me, name: user.name, picture: user.picture, title: '', presence: 'online' }, users: people, channels: withBars, mode, live: !!env.CHAT_ROOM,
-    threads_unread: threads, features: { pins: bars.ready },
+    threads_unread: threads, features: { pins: bars.ready }, lang: await getLang(env, me), langs: LANGS,
   };
 }
 
@@ -347,7 +355,9 @@ async function cleanAttachments(env: ChatRouteEnv, raw: unknown, me: string, ent
       // A picture keeps its width and height so the message reserves its space before the picture arrives.
       const w = Number(x.w), h = Number(x.h);
       const dims = f && /^image\//.test(f.mime) && Number.isInteger(w) && Number.isInteger(h) && w > 0 && h > 0 && w <= 20000 && h <= 20000 ? { w, h } : {};
-      if (f) out.push({ type: 'file', id: f.id, name: f.name, mime: f.mime, size: f.size, url: `/api/chat/file/${f.id}`, ...dims });
+      // A voice note is an audio file the recorder marked; the server transcribes it after the message posts.
+      const voice = f && /^audio\//.test(f.mime) && x.voice === true ? { voice: true, secs: Math.min(600, Math.max(0, Math.round(Number(x.secs) || 0))) } : {};
+      if (f) out.push({ type: 'file', id: f.id, name: f.name, mime: f.mime, size: f.size, url: `/api/chat/file/${f.id}`, ...dims, ...voice });
     }
   }
   return out;
@@ -409,9 +419,21 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
       await broadcast(ctx, row, 'edit');
     })().catch(() => undefined));
   }
+  // A voice note is transcribed after the message posts; the card fills in for everyone when the words are ready.
+  const voices = attachments.filter((x) => x.type === 'file' && x.voice === true) as Array<Att & { id: string; secs?: number }>;
+  if (voices.length && !hidden) {
+    for (const v of voices) await startVoice(env, String(v.id), posted.message.id, Number(v.secs) || 0).catch(() => undefined);
+    ctx.waitUntil((async () => {
+      for (const v of voices) await transcribe(env, String(v.id), (ctx.ai || env.AI) as any);
+      const row = await store.getMessage(env, posted.message.id);
+      if (row && !row.deleted_at) await broadcast(ctx, row, 'edit');
+    })().catch(() => undefined));
+  }
   if (asksBrain) {
     const intent = typeof input.intent === 'string' && /^[a-z_]{2,40}$/.test(input.intent) ? input.intent : undefined;
-    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name }, text, intent }, ctx.fetcher || fetch));
+    // The Brain reads the thread it was asked in (or the last messages above a question that points at "this"), so "summarize this" works.
+    const context = await brainContext(env, user, channelId, threadId, posted.message.id, text).catch(() => '');
+    ctx.waitUntil(askInThread(env, { channel_id: channelId, root_id: threadId || posted.message.id, thread_id: threadId, asker: { email: me, name: user.name }, text, intent, context }, ctx.fetcher || fetch));
   }
   return msg;
 }

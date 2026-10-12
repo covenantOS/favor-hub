@@ -50,6 +50,8 @@ export interface AskInput {
   text: string;
   /** What kind of answer a pressed option or a name in a list asks for (the Brain page sends the same word). */
   intent?: string;
+  /** The messages above the question in its thread, as plain lines, so the Brain can read what "this" is. */
+  context?: string;
 }
 
 /**
@@ -86,7 +88,10 @@ export async function askInThread(env: LiveEnv & { BRAIN_HUB_KEY?: string; BRAIN
             'Content-Type': 'application/json',
             'User-Agent': 'favor-hub',
           },
-          body: JSON.stringify({ question, v: 2, conv: 'chat_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20), ...(input.intent ? { intent: input.intent } : {}) }),
+          body: JSON.stringify({ question: input.context ? `Messages in this Chat conversation, oldest first:
+${input.context}
+
+Question from ${input.asker.name || 'the asker'}: ${question}` : question, v: 2, conv: 'chat_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20), ...(input.intent ? { intent: input.intent } : {}) }),
           signal: AbortSignal.timeout(90000),
         });
         answer = readAnswer(await res.json().catch(() => null));

@@ -57,7 +57,10 @@
     ul: '<path d="M9 7h11M9 12h11M9 17h11"/><circle cx="4.5" cy="7" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="17" r="1" fill="currentColor"/>',
     ol: '<path d="M10 7h10M10 12h10M10 17h10"/><path d="M4 5.5 5.5 5v4M4 14.5c0-1 2.5-1 2.5.3 0 .9-2.5 1.7-2.5 3.2h2.7" stroke-width="1.4"/>',
     quote: '<path d="M5 5v14"/><path d="M10 8h9M10 12h9M10 16h6"/>',
-    slash: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 16 4-8"/>'
+    slash: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m10 16 4-8"/>',
+    globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+    mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+    stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>'
   };
   function ic(n, cls) { return '<svg viewBox="0 0 24 24" aria-hidden="true"' + (cls ? ' class="' + cls + '"' : '') + '>' + (ICON[n] || '') + '</svg>'; }
   // Favor Brain's mark, the ring of light (styles in src/styles/round2.css, .fbr; same markup as src/data/icons.ts brainMark).
@@ -108,6 +111,7 @@
       '<button type="button" class="ch-iconbtn" data-act="at" data-scope="' + scope + '" aria-label="Mention someone" title="Mention someone">' + ic('at') + '</button>' +
       '<button type="button" class="ch-iconbtn" data-act="emoji" data-scope="' + scope + '" aria-label="Emoji" title="Emoji">' + ic('smile') + '</button>' +
       '<button type="button" class="ch-iconbtn" data-act="ask-brain" data-scope="' + scope + '" aria-label="Ask Favor Brain" title="Ask Favor Brain">' + ic('spark') + '</button>' +
+      (scope === 'rt' ? '' : '<button type="button" class="ch-iconbtn" data-act="sm-mic" data-scope="' + scope + '" aria-label="Record a voice note" title="Record a voice note">' + ic('mic') + '</button>') +
       '<span class="ch-comp__sp"></span><button type="submit" class="ch-send" data-send="' + scope + '" disabled aria-label="Send">' + ic('send') + '<span>Send</span></button></div></div>' +
       (scope === 'thread' ? '<label class="ch-also"><input type="checkbox" data-also /><span data-also-label>Also send to the channel</span></label>' : '') + '</form>';
   }
@@ -220,7 +224,8 @@
       // page: what the middle column shows (a channel, or the Threads, Mentions and reactions or Drafts list).
       page: 'channel', threadFull: false, threadsUnread: 0, threadList: null, activity: null, features: { pins: false }, keepUnread: null,
       threadNew: {}, threadTyping: {}, newBelow: { main: 0, thread: 0 }, pins: {},
-      drafts: lsGet('favor.chat.drafts.v1', {}), folded: lsGet('favor.chat.folded.v1', {})
+      drafts: lsGet('favor.chat.drafts.v1', {}), folded: lsGet('favor.chat.folded.v1', {}),
+      lang: '', langs: [], tr: {}, trOrig: {}
     };
     var pop = null, popAnchor = null, modal = null, typingSent = 0, toastT = 0, pinned = true;
     var isPhone = function () { return matchMedia('(max-width: 860px)').matches; };
@@ -287,6 +292,11 @@
         if (id === 'brain') return '<span class="ch-at ch-at--brain">@Favor Brain</span>';
         if (id === 'all' || id === 'channel') return '<span class="ch-at ch-at--me">@channel</span>';
         return '<span class="ch-at' + (id === S.me.id ? ' ch-at--me' : '') + '" data-entity="person:' + esc(id) + '" data-label="' + esc(user(id).name) + '" tabindex="0">@' + esc(user(id).name) + '</span>';
+      });
+      t = t.replace(/&lt;~([pf]):(\d{1,12})\|(.{1,160}?)&gt;/g, function (_, k, id, name) {
+        // The shared entity layer (favor-entity.js) draws the chip and opens its card; the plain span is only for a page without it.
+        var un = function (x) { return x.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&'); };
+        return window.FavorEntity ? window.FavorEntity.chip(k === 'f' ? 'fund' : 'partner', id, un(name)) : '<span class="ch-ent ch-ent--' + k + '">' + name + '</span>';
       });
       t = t.replace(/&lt;#([^&\s]+?)&gt;/g, function (_, id) { var c = chan(id); return '<span class="ch-chan"># ' + esc(c ? c.name : 'channel') + '</span>'; });
       // [words](address) is a link that reads as the words; a bare address is a link that reads as itself.
@@ -373,6 +383,7 @@
           return '<button type="button" class="ch-media ch-photo" data-act="view"' + at + shape + ' aria-label="View ' + esc(a.name || 'picture') + '"><img class="ch-img" src="' + esc(a.url) + '" alt="' + esc(a.name || 'Picture') + '"' + (w && h ? ' width="' + w + '" height="' + h + '"' : '') + ' loading="lazy" decoding="async" /></button>';
         }
         if (fk === 'video') return '<div class="ch-card ch-clip ch-clip--file"' + at + '>' + vidHtml(a.url + '#t=0.1', '', a.name, '', '16 / 9') + '<span class="ch-clip__info"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span><a class="ch-clip__open" href="' + esc(a.url) + '" download>Download' + ic('dl') + '</a></span></div>';
+        if (fk === 'audio' && a.voice) return voiceHtml(a, m);
         if (fk === 'audio') return '<div class="ch-card ch-audio"' + at + '><span class="ch-file__ic" data-k="audio">' + ic('wave') + '</span><span class="ch-audio__t"><span class="ch-card__t">' + esc(a.name) + '</span><audio controls preload="none" src="' + esc(a.url) + '"></audio></span><a class="ch-prev__ext" href="' + esc(a.url) + '" download aria-label="Download ' + esc(a.name) + '" title="Download">' + ic('dl') + '</a></div>';
         var canView = fk === 'pdf' || fk === 'docx' || fk === 'xlsx';
         var lab2 = LAB[fk] || 'FILE';
@@ -486,6 +497,20 @@
     // The thread a message belongs to: its own, or the thread a channel copy of a reply came from.
     function threadRef(m) { return (m.attachments || []).filter(function (a) { return a.type === 'threadref'; })[0] || null; }
     function threadIdOf(m) { var r = threadRef(m); return r ? r.root : m.thread_id || m.id; }
+    // Translation: the reader's language, set once. A message in another language shows translated with its original a tap away.
+    function langName(code) { var l = S.langs.filter(function (x) { return x.code === code; })[0]; return l ? l.name : code; }
+    function trFor(m) { var t = S.lang && S.tr[m.id]; return t && t.text && t.body === m.body && !S.trOrig[m.id] && m.user_id !== S.me.id ? t : null; }
+    function trNote(m, tx) {
+      var t = S.lang && S.tr[m.id];
+      if (!t || !t.text || t.body !== m.body || m.user_id === S.me.id) return '';
+      return '<div class="ch-tr"><span>' + (tx ? 'Translated from ' + esc(langName(t.src)) : 'Original, ' + esc(langName(t.src))) + '</span><button type="button" data-act="sm-orig" data-id="' + m.id + '">' + (tx ? 'Show original' : 'Show translation') + '</button></div>';
+    }
+    function voiceHtml(a, m) {
+      var t = S.lang && m && S.tr[m.id] && S.tr[m.id].voice && S.tr[m.id].voice[a.id];
+      var words = a.transcript_status === 'ready' ? (a.transcript ? '<div class="ch-voice__w">' + esc(a.transcript) + '</div>' : '<div class="ch-voice__s">No speech heard</div>') : a.transcript_status === 'failed' ? '<div class="ch-voice__s">Transcript not available</div>' : '<div class="ch-voice__s">Writing the transcript</div>';
+      var tr = t && !S.trOrig[m.id] && a.transcript ? '<div class="ch-voice__w ch-voice__w--tr">' + esc(t.text) + '</div><div class="ch-tr"><span>Translated from ' + esc(langName(t.src)) + '</span><button type="button" data-act="sm-orig" data-id="' + m.id + '">Show original</button></div>' : '';
+      return '<div class="ch-card ch-voice" data-cm="' + (m ? m.id : '') + '"><div class="ch-voice__row"><span class="ch-file__ic" data-k="audio">' + ic('mic') + '</span><audio controls preload="none" src="' + esc(a.url) + '"></audio></div>' + (tr || words) + '</div>';
+    }
     function msgHtml(m, o) {
       o = o || {};
       var u = user(m.user_id), mine = m.user_id === S.me.id, brain = m.user_id === 'brain';
@@ -495,7 +520,7 @@
       var text;
       if (m.deleted) text = '<div class="ch-msg__text ch-msg__deleted">This message was deleted.</div>';
       else if (S.editing === m.id) text = '<div class="ch-edit"><textarea class="ch-input" data-edit="' + m.id + '" rows="2" style="height:auto;padding:8px 12px">' + esc(S.editDraft != null && S.editDraftId === m.id ? S.editDraft : m.body) + '</textarea><div style="display:flex;gap:8px;margin-top:6px"><button class="ch-btn ch-btn--sm ch-btn--primary" data-act="edit-save" data-id="' + m.id + '">Save</button><button class="ch-btn ch-btn--sm" data-act="edit-cancel">Cancel</button></div></div>';
-      else text = (m.body ? '<div class="ch-msg__text">' + fmtBody(m.body) + (m.edited_at ? '<span class="ch-msg__edited">(edited)</span>' : '') + '</div>' : '');
+      else { var tx = trFor(m); text = (m.body ? '<div class="ch-msg__text">' + fmtBody(tx ? tx.text : m.body) + (m.edited_at ? '<span class="ch-msg__edited">(edited)</span>' : '') + '</div>' + trNote(m, tx) : ''); }
       var cards = '';
       if (!m.deleted && m.attachments && m.attachments.length) { cards = m.attachments.map(function (a, i) { return cardHtml(a, m, i); }).join(''); if (cards) cards = '<div class="ch-cards">' + cards + '</div>'; }
       var ref = m.deleted ? null : threadRef(m);
@@ -606,6 +631,8 @@
         '<div class="ch-head__t"><div class="ch-head__name">' + lead + '<span style="color:var(--r-ink);font-weight:700">' + esc(name) + '</span></div>' + (c.topic ? '<div class="ch-head__topic">' + esc(c.topic) + '</div>' : '') + '</div>' +
         '<div class="ch-head__acts"><button type="button" class="ch-members" data-act="details" aria-label="Members"><span class="ch-stack">' + ms.map(function (id) { return avatar(user(id), 'sm'); }).join('') + '</span>' + (c.members || []).length + '</button>' +
         '<button type="button" class="ch-btn ch-btn--meet' + (S.huddle && S.huddle[c.id] ? ' is-live' : '') + '" data-act="huddle" aria-label="' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '">' + ic('headset') + '<span>' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '</span></button>' +
+        '<button type="button" class="ch-iconbtn" data-act="sm-catch" aria-label="Catch me up" title="Catch me up">' + ic('spark') + '</button>' +
+        '<button type="button" class="ch-iconbtn' + (S.lang ? ' is-on' : '') + '" data-act="sm-lang" aria-label="Language" title="' + (S.lang ? 'Reading in ' + esc(langName(S.lang)) : 'Choose the language you read in') + '">' + ic('globe') + '</button>' +
         '<button type="button" class="ch-iconbtn ch-hide-m" data-act="search" aria-label="Search messages" title="Search messages">' + ic('search') + '</button>' +
         '<button type="button" class="ch-iconbtn' + (S.right === 'details' ? ' is-on' : '') + '" data-act="details" aria-label="Channel details" title="Channel details">' + ic('info') + '</button></div>');
       $('[data-ta="main"]', root).placeholder = c.kind === 'dm' || c.kind === 'group' ? 'Message ' + name : 'Message ' + (c.kind === 'public' ? '#' : '') + name;
@@ -624,7 +651,7 @@
         '<button type="button" class="ch-pinbar__add" data-act="bm-add" aria-label="Add a bookmark" title="Add a bookmark">' + ic('plus') + '</button>');
     }
     function plain(body) {
-      return String(body || '').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : user(id).name); }).replace(/<#([^>]+)>/g, function (_, id) { var c = chan(id); return '#' + (c ? c.name : 'channel'); });
+      return String(body || '').replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : user(id).name); }).replace(/<#([^>]+)>/g, function (_, id) { var c = chan(id); return '#' + (c ? c.name : 'channel'); });
     }
     function excerptOf(m) {
       var t = plain(m.body).trim();
@@ -1323,6 +1350,9 @@
       if (S.features.pins) out.push(['pin', 'pin', m.pinned ? 'Unpin' : 'Pin', false, m.pinned ? '0' : '1']);
       out.push(['mark-unread', 'mark', 'Mark unread from here']);
       out.push(['make-request', 'task', 'Create a request from this message']);
+      out.push(['sm-turn', 'bell', 'Turn into a task, reminder or action']);
+      if (S.lang && !mine && (m.body || (m.attachments || []).some(function (a) { return a.voice; }))) out.push(['sm-orig', 'globe', S.trOrig[m.id] ? 'Show translation' : 'Show original']);
+      if (m.body) out.push(['sm-ask', 'spark', 'Ask Favor Brain about this']);
       if (mine) out.push(['del', 'trash', 'Delete', true]);
       return out;
     }
@@ -1499,7 +1529,8 @@
       var out = [{ id: 'brain', name: 'Favor Brain', sub: 'Ask a question about Favor records', brain: true }];
       if (c.kind === 'public' || c.kind === 'private' || c.kind === 'group') out.push({ id: 'channel', name: 'channel', sub: 'Notify everyone here', special: true });
       ids.forEach(function (id) { var u = user(id); out.push({ id: id, name: u.name, sub: u.title || '', u: u }); });
-      return out.filter(function (o) { return !q || o.name.toLowerCase().indexOf(q) >= 0; }).slice(0, 7);
+      var people = out.filter(function (o) { return !q || o.name.toLowerCase().indexOf(q) >= 0; }).slice(0, 7);
+      return people.concat((window.FavorChatSmart && window.FavorChatSmart.hits(q)) || []);
     }
     var mentionState = null;
     function updateMention(ta) {
@@ -1507,16 +1538,17 @@
       var m = before.match(/(^|\s)@([\w .'-]{0,24})$/);
       if (!m) { if (mentionState) { closePop(); mentionState = null; } return; }
       var c = chan(S.active), cands = mentionCandidates(m[2], c);
+      if (window.FavorChatSmart && m[2].length >= 3) window.FavorChatSmart.find(m[2], function () { if (mentionState && mentionState.scope === scope) updateMention(ta); });
       if (!cands.length) { closePop(); mentionState = null; return; }
       mentionState = { scope: scope, start: pos - m[2].length - 1, end: pos, cands: cands, i: 0 };
-      var p = openPop('<div class="ch-pop__h">People</div>' + cands.map(function (o, i) { return '<button type="button" class="ch-pop__i' + (i === 0 ? ' is-on' : '') + '" role="option" data-act="mention-pick" data-i="' + i + '"><b style="background:transparent">' + (o.brain ? '<span class="ch-av ch-av--sm ch-av--brain">' + ring('still') + '</span>' : o.special ? '<span class="ch-av ch-av--sm" data-c="sun">@</span>' : avatar(o.u, 'sm')) + '</b><span>' + esc(o.name) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span></button>'; }).join(''), ta.closest('.ch-comp__box'), 'ch-pop--mention');
+      var p = openPop('<div class="ch-pop__h">People</div>' + cands.map(function (o, i) { return '<button type="button" class="ch-pop__i' + (i === 0 ? ' is-on' : '') + '" role="option" data-act="mention-pick" data-i="' + i + '"><b style="background:transparent">' + (o.ent ? '<span class="ch-av ch-av--sm" data-c="' + (o.kind === 'f' ? 'leaf' : 'sky') + '">' + (o.kind === 'f' ? 'F' : 'P') + '</span>' : o.brain ? '<span class="ch-av ch-av--sm ch-av--brain">' + ring('still') + '</span>' : o.special ? '<span class="ch-av ch-av--sm" data-c="sun">@</span>' : avatar(o.u, 'sm')) + '</b><span>' + esc(o.name) + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span></button>'; }).join(''), ta.closest('.ch-comp__box'), 'ch-pop--mention');
       popAnchor = ta;
     }
     function pickMention(i) {
       var st = mentionState; if (!st) return;
       var o = st.cands[i], ta = $('[data-ta="' + st.scope + '"]', root);
       var label = '@' + o.name;
-      S.mentionMap[st.scope][label] = '<@' + o.id + '>';
+      S.mentionMap[st.scope][label] = o.ent ? '<~' + o.kind + ':' + o.id + '|' + String(o.name).replace(/[<>|\n]+/g, ' ').trim() + '>' : '<@' + o.id + '>';
       ta.value = ta.value.slice(0, st.start) + label + ' ' + ta.value.slice(st.end);
       var p = st.start + label.length + 1; ta.setSelectionRange(p, p); ta.focus();
       mentionState = null; closePop(); grow(ta); syncSend(st.scope);
@@ -2221,7 +2253,7 @@
       var b = both[0], pre = both[1];
       try { sessionStorage.setItem(CACHE, JSON.stringify({ at: Date.now(), me: b.me, users: b.users, channels: b.channels, features: b.features, threads_unread: b.threads_unread })); } catch (e) { /* full or private */ }
       S.me = b.me; S.users = b.users || {}; S.users[S.me.id] = Object.assign({}, S.users[S.me.id] || {}, S.me);
-      S.features = b.features || { pins: false }; S.threadsUnread = b.threads_unread || 0;
+      S.features = b.features || { pins: false }; S.threadsUnread = b.threads_unread || 0; S.lang = b.lang || ''; S.langs = b.langs || [];
       applyRightWidth();
       if (cachedPaint) S.channels = {};
       (b.channels || []).forEach(function (c) { S.channels[c.id] = c; });
@@ -2245,7 +2277,7 @@
       readAhead();
       return {
         open: openChannel, state: S, toast: toast, search: openSearch, switcher: openSwitcher, focus: focusMessage, thread: openThread, threadIn: openThreadIn, details: openDetails, page: openPage,
-        view: setView, render: renderAll, redraw: redraw, openPop: closePop, askBrain: askBrain, sheet: openSheet, focusComposer: focusComposer, add: addMessage, user: user, avatar: avatar
+        view: setView, render: renderAll, redraw: redraw, openPop: closePop, modal: openModal, closeModal: closeModal, pop: openPop, closePop: closePop, find: findMsg, patch: patchMessage, request: requestDialog, toBottom: function () { S.toBottom = true; }, scopeBox: function (sc) { return $('[data-ta="' + sc + '"]', root); }, pend: function (sc, att) { if (att && S.pending[sc].indexOf(att) < 0) S.pending[sc].push(att); renderPending(sc); }, dropPend: function (sc, att) { S.pending[sc] = S.pending[sc].filter(function (x) { return x !== att; }); renderPending(sc); }, icon: ic, grow: grow, sync: syncSend, askBrainIn: function (sc) { var ta = $('[data-ta="' + sc + '"]', root); S.mentionMap[sc]['@Favor Brain'] = '<@brain>'; if (ta.value.indexOf('@Favor Brain') < 0) ta.value = '@Favor Brain ' + ta.value; ta.focus(); grow(ta); syncSend(sc); }, askBrain: askBrain, sheet: openSheet, focusComposer: focusComposer, add: addMessage, user: user, avatar: avatar
       };
     });
   }

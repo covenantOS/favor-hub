@@ -12,6 +12,47 @@
   var panel = null, body = null, msgs = {}, hasMore = {}, thread = null, box = null, threadsList = null, listQ = '';
   var brain = { convs: null, cur: null, busy: null, view: 'chat', loading: null, ready: null };
   var bodyHost = null;
+  // Translation, voice transcripts and Catch me up (chat-smart.css styles them; every rule is in /api/chat).
+  var TR = {}, trOrig = {}, trAsked = {}, trT = 0;
+  function langName(code) { var l = (D.langs || []).filter(function (x) { return x.code === code; })[0]; return l ? l.name : code; }
+  function trOf(m) { var t = D.lang && TR[m.id]; return t && t.text && t.body === m.body && m.user_id !== D.me ? t : null; }
+  function trSeen() {
+    clearTimeout(trT);
+    trT = setTimeout(function () {
+      if (!D.lang) return;
+      var list = thread ? [thread.root].concat(thread.replies) : msgs[S.ch] || [], ids = [];
+      list.forEach(function (m) {
+        if (m.deleted || m.user_id === D.me || m.user_id === 'brain' || m.user_id === 'meetings') return;
+        var voice = (m.attachments || []).filter(function (a) { return a.voice && a.transcript_status === 'ready' && a.transcript; }).length;
+        if (!m.body && !voice) return;
+        var key = D.lang + '|' + m.id + '|' + m.body + '|' + voice;
+        if (trAsked[key] || ids.length >= 24) return;
+        trAsked[key] = 1; ids.push(m.id);
+      });
+      if (!ids.length) return;
+      D.req('POST', 'translate', { ids: ids }).then(function (d) {
+        ids.forEach(function (id) { var it = d.items && d.items[id], m = find(id); if (it && m) TR[id] = { text: it.text || '', src: it.src || '', body: m.body, voice: it.voice || null }; });
+        if (S.tab === 'chat' && $('[data-msgs]', body)) { var keep = nearEnd(); if (S.th) drawThread(); else drawMsgs(); if (keep) scrollEnd(); }
+      }).catch(function () { /* the original stays */ });
+    }, 250);
+  }
+  function langSelect() {
+    return '<select class="fp-lang" data-langsel aria-label="Language I read Chat in" title="Language I read Chat in"><option value="">Original</option>' + (D.langs || []).map(function (l) { return '<option value="' + l.code + '"' + (D.lang === l.code ? ' selected' : '') + '>' + esc(l.native) + '</option>'; }).join('') + '</select>';
+  }
+  function catchUp() {
+    var host = $('[data-msgs]', body); if (!host || S.th) return;
+    var list = (msgs[S.ch] || []).filter(function (m) { return m.user_id !== D.me && !m.deleted && m.user_id !== 'brain'; }).slice(-30);
+    if (list.length < 3) { toast('Nothing to catch up on here.'); return; }
+    var box = $('[data-catch]', host);
+    if (!box) { box = document.createElement('div'); box.setAttribute('data-catch', ''); box.className = 'sm-catch'; host.insertBefore(box, host.firstChild); }
+    box.innerHTML = '<div class="sm-catch__r"><span>Reading the new messages</span></div>';
+    D.req('POST', 'channels/' + encodeURIComponent(S.ch) + '/catchup', { from: Number(list[0].id) - 1 }).then(function (d) {
+      if (d.empty) { box.remove(); toast('Nothing to catch up on here.'); return; }
+      var pts = function (l) { return l.map(function (p) { return '<li>' + esc(p.text) + '</li>'; }).join(''); };
+      box.innerHTML = '<div class="sm-catch__c"><div class="sm-catch__h"><b>' + esc(d.headline || 'Caught up') + '</b><button type="button" class="fp-mact" data-catchx aria-label="Close the summary">&times;</button></div><ul>' + pts(d.points) + '</ul>' +
+        (d.for_you.length ? '<div class="sm-catch__f"><b>For you</b><ul>' + pts(d.for_you) + '</ul></div>' : '') + '<small>' + d.count + ' messages from ' + d.people + (d.people === 1 ? ' person' : ' people') + '</small></div>';
+    }).catch(function (e) { box.remove(); toast(e.message); });
+  }
 
   function ic(n) {
     var p = { back: 'M15 5l-7 7 7 7', send: 'M4 12l16-8-6 16-2-7z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', plus: 'M12 5v14M5 12h14', thread: 'M5 6h14v9H9l-4 4z', hash: 'M9 4 7 20M17 4l-2 16M4 9h16M3 15h16' };
@@ -57,6 +98,11 @@
   function wire() {
     body.addEventListener('click', onClick);
     body.addEventListener('submit', onSubmit);
+    body.addEventListener('change', function (e) {
+      if (!e.target.matches('[data-langsel]')) return;
+      var code = e.target.value;
+      D.req('POST', 'prefs', { lang: code }).then(function (d) { D.lang = d.lang || ''; TR = {}; trOrig = {}; trAsked = {}; if (S.th) drawThread(); else drawMsgs(); }).catch(function (er) { toast(er.message); });
+    });
     body.addEventListener('input', function (e) { if (e.target.matches('[data-q]')) { listQ = e.target.value; paintList(); } });
   }
 
@@ -135,15 +181,22 @@
   function paintConv(c) {
     var o = c.kind === 'dm' ? (c.members || []).filter(function (m) { return m !== D.me; })[0] : null;
     body.innerHTML = '<div class="fp-conv"><header class="fp-head"><button type="button" class="fp-back" data-back aria-label="Back to conversations">' + ic('back') + '</button>' + (o ? avatar(o) : '') +
-      '<b class="fp-head__t">' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b><a class="fp-ext" href="/chat/?c=' + encodeURIComponent(c.id) + '" title="Open in Chat" aria-label="Open in Chat">' + ic('ext') + '</a></header>' +
+      '<b class="fp-head__t">' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b>' + langSelect() + '<button type="button" class="fp-catch" data-catch-go title="Catch me up">Catch up</button><a class="fp-ext" href="/chat/?c=' + encodeURIComponent(c.id) + '" title="Open in Chat" aria-label="Open in Chat">' + ic('ext') + '</a></header>' +
       '<div class="fp-scroll fp-msgs" data-msgs><div class="fp-wait"><i></i><i></i><i></i></div></div><div class="fp-comp" data-comp></div></div>';
     mountBox();
   }
   function bodyHtml(m) {
     if (m.deleted) return '<span class="fp-del">This message was deleted</span>';
-    var t = window.FavorMention ? window.FavorMention.render(m.body, D.mentions(), D.me) : esc(m.body);
+    var tr = trOf(m), shown = tr && !trOrig[m.id] ? tr.text : m.body;
+    var t = window.FavorMention ? window.FavorMention.render(shown, D.mentions(), D.me) : esc(shown);
+    var trLine = tr ? '<div class="ch-tr"><span>' + (trOrig[m.id] ? 'Original, ' : 'Translated from ') + esc(langName(tr.src)) + '</span><button type="button" data-orig="' + m.id + '">' + (trOrig[m.id] ? 'Show translation' : 'Show original') + '</button></div>' : '';
     var a = (m.attachments || []).map(function (x) {
       var href = '/chat/?c=' + encodeURIComponent(m.channel_id) + '&m=' + m.id;
+      if (x.type === 'file' && x.voice) {
+        var vt = TR[m.id] && TR[m.id].voice && TR[m.id].voice[x.id];
+        var words = x.transcript_status === 'ready' ? (x.transcript ? '<div class="ch-voice__w">' + esc(vt && D.lang && !trOrig[m.id] ? vt.text : x.transcript) + '</div>' : '<div class="ch-voice__s">No speech heard</div>') : x.transcript_status === 'failed' ? '<div class="ch-voice__s">Transcript not available</div>' : '<div class="ch-voice__s">Writing the transcript</div>';
+        return '<div class="ch-card ch-voice"><div class="ch-voice__row"><audio controls preload="none" src="' + esc(x.url) + '"></audio></div>' + words + '</div>';
+      }
       if (x.type === 'file') return /^image\//.test(x.mime || '') ? '<a class="fp-img" href="' + esc(x.url) + '" target="_blank" rel="noopener"><img alt="' + esc(x.name) + '" src="' + esc(x.url) + '" loading="lazy"></a>' : '<a class="fp-att" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name || 'File') + '</a>';
       if (x.type === 'clip') return '<a class="fp-att" href="' + href + '">Clip</a>';
       if (x.type === 'meeting') return '<a class="fp-att" href="' + href + '">Meeting</a>';
@@ -152,7 +205,7 @@
       return '<a class="fp-att" href="' + href + '">Open in Chat</a>';
     }).join('');
     if (m.brain) a += '<a class="fp-att fp-att--brain" href="/chat/?c=' + encodeURIComponent(m.channel_id) + '&m=' + m.id + (m.thread_id ? '&t=' + m.thread_id : '') + '">Favor Brain answer. Open in Chat</a>';
-    return (t ? '<div class="fp-txt">' + t + '</div>' : '') + a + (m.edited_at ? ' <span class="fp-ed">edited</span>' : '');
+    return (t ? '<div class="fp-txt">' + t + '</div>' + trLine : '') + a + (m.edited_at ? ' <span class="fp-ed">edited</span>' : '');
   }
   function msgHtml(m, prev, inThread) {
     var same = prev && prev.user_id === m.user_id && !prev.deleted && Date.parse(m.created_at) - Date.parse(prev.created_at) < 5 * 60000;
@@ -168,6 +221,7 @@
     if (hasMore[S.ch]) h += '<button type="button" class="fp-more" data-older>Show older messages</button>';
     list.forEach(function (m) { h += msgHtml(m, prev); prev = m; });
     host.innerHTML = h || '<div class="fp-none">No messages yet. Say hello.</div>';
+    trSeen();
   }
   function scrollEnd() { var h = $('[data-msgs]', body); if (h) h.scrollTop = h.scrollHeight; }
   function nearEnd() { var h = $('[data-msgs]', body); return !h || h.scrollHeight - h.scrollTop - h.clientHeight < 140; }
@@ -206,6 +260,7 @@
     var all = [thread.root].concat(thread.replies), prev = null, h = '';
     all.forEach(function (m, i) { h += msgHtml(m, prev, true); if (i === 0) h += '<div class="fp-sep">' + thread.replies.length + (thread.replies.length === 1 ? ' reply' : ' replies') + '</div>'; prev = i === 0 ? null : m; });
     host.innerHTML = h;
+    trSeen();
   }
 
   /* ================================================================ the composer */
@@ -280,6 +335,9 @@
   /* ================================================================ clicks */
   function onClick(e) {
     var t = e.target.closest('button, a'); if (!t || !body.contains(t)) return;
+    if (t.hasAttribute('data-orig')) { var oid = Number(t.getAttribute('data-orig')); trOrig[oid] = !trOrig[oid]; var kp = nearEnd(); if (S.th) drawThread(); else drawMsgs(); if (kp) scrollEnd(); return; }
+    if (t.hasAttribute('data-catch-go')) { catchUp(); return; }
+    if (t.hasAttribute('data-catchx')) { var cb = t.closest('[data-catch]'); if (cb) cb.remove(); return; }
     if (t.hasAttribute('data-open')) { listQ = ''; openConv(t.getAttribute('data-open')); }
     else if (t.hasAttribute('data-back')) {
       if (S.th) { var cid = S.ch; D.save({ th: null }); thread = null; if (S.from === 'threads') { D.save({ ch: null }); S.from = null; openThreadsList(); } else openConv(cid); }

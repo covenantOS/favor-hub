@@ -93,3 +93,8 @@
 .fp-a .blk-follow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
 .fp-comp [contenteditable]:focus, .fp-comp [contenteditable]:focus-visible, .fp-comp textarea:focus-visible, .fp-comp input:focus-visible { outline: 0; box-shadow: none; }
+
+/* Language choice and Catch me up in a conversation header (chat-smart.js, chat-smart.css). */
+.fp-lang { max-width: 104px; min-height: 32px; border: 1px solid var(--r-line-2, #d3cdbd); border-radius: 8px; background: #fff; font: inherit; font-size: 13px; color: inherit; padding: 0 4px; }
+.fp-catch { min-height: 32px; padding: 0 10px; border: 1px solid var(--r-line-2, #d3cdbd); border-radius: 8px; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+.fp-catch:hover { background: var(--r-hover, #f7f5ef); }
