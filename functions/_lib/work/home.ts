@@ -1,6 +1,7 @@
 // The Work Overview page's one read: everything the signed-in person needs on the Work home, cut to their role, in a single answer.
 // Each part reads from the hub's own tables or the D1 copy of Blackbaud, so the page costs no Blackbaud calls. A part that fails
 // comes back null and the page leaves that card out, so one slow source never blanks the page.
+import { byClock } from './thank-clock';
 import { dayDiff, isLive, mineRows, type BoardRow } from '../actions/board';
 import type { Env } from '../http';
 import { cadenceResponse, mayCadence } from './cadence-svc';
@@ -67,7 +68,7 @@ export async function homeDrill(ctx: Ctx, key: HomeDrill) {
   if (key === 'gifts' || key === 'over24' || key === 'first') {
     if (!mayGifts(ctx.scope)) return null;
     const g = await giftsResponse(ctx, '');
-    const pick = key === 'gifts' ? g.rows : key === 'over24' ? g.rows.filter((r) => r.hours >= 24) : g.rows.filter((r) => r.badges.includes('First gift') || r.badges.includes('First monthly gift'));
+    const pick = key === 'gifts' ? g.rows : key === 'over24' ? g.rows.filter((r) => r.clock.state !== 'due') : g.rows.filter((r) => r.badges.includes('First gift') || r.badges.includes('First monthly gift'));
     const rows = pick.map((r) => ({ id: r.giftId, date: r.date, partner: r.partner.name, place: r.partner.place, amount: r.amount, fund: r.fund, waiting: r.ageDays, badges: r.badges.join(', ') }));
     return { kind: 'gifts' as const, today: g.today, rows, total: key === 'gifts' ? g.stats.owed : key === 'over24' ? g.stats.over24 : g.stats.first, owner: g.owner };
   }
@@ -82,13 +83,13 @@ async function giftsBlock(ctx: Ctx) {
   const g = await giftsResponse(ctx, '');
   const rows = [...g.rows]
     .filter((r) => !r.left)
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : b.amount - a.amount))
+    .sort(byClock)
     .slice(0, 5)
     .map((r) => ({
-      giftId: r.giftId, cid: r.cid, name: r.partner.name, place: r.partner.place, amount: r.amount, date: r.date, age: r.ageDays, fund: r.fund,
+      giftId: r.giftId, cid: r.cid, name: r.partner.name, place: r.partner.place, amount: r.amount, date: r.date, age: r.ageDays, fund: r.fund, due: r.clock.due, state: r.clock.state,
       phone: r.partner.doNotCall ? null : r.partner.phone, team: r.team, tasks: r.taskIds.length, badges: r.badges.slice(0, 2), owner: r.ownerNames[0] || '',
     }));
-  return { total: g.stats.owed, over24: g.stats.over24, first: g.stats.first, week: g.stats.week, rows };
+  return { total: g.stats.owed, over24: g.stats.over24, older: g.stats.older, first: g.stats.first, week: g.stats.week, rows };
 }
 
 async function entryBlock(ctx: Ctx) {

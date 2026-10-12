@@ -898,7 +898,8 @@ export const STEPS: Step[] = [
     page: '/',
     at: '#br-root',
     title: 'Your briefing',
-    body: 'Gifts since the last workday, the thank-yous waiting, what is late and today\'s meetings, with a line on each partner. {Tap} Focus to see only your next three things.',
+    body: 'Gifts since the last workday, the thank-yous waiting, what is late and today\'s meetings, with a line on each partner. To thank lists the gifts on the 24-hour clock with the time left, soonest due first; gifts past it by more than a day fold under Older. {Tap} Focus to see only your next three things.',
+    added: '2026-10-12',
     side: 'bottom',
   },
   {
@@ -1532,9 +1533,9 @@ export const STEPS: Step[] = [
     press: '.wc-tab[data-view="gifts"]',
     at: '#wg-sheet',
     title: 'Gifts to thank',
-    body: 'Every gift on the partners you hold that nobody has thanked yet, soft credits included, oldest first. {Tap} Thank, pick how it went out and say what was said, and the gift leaves the list and counts as your contact in Blackbaud. Left a message keeps the gift here and reminds you tomorrow. Tick several and thank them by letter or email in one step. Every thank-you can be undone from the message that appears.',
+    body: 'Every gift on the partners you hold that nobody has thanked yet, soft credits included. Each gift is thanked within 24 hours of entry, weekdays counted: the row shows the time left, red once it runs out, and gifts past it by more than a day fold under Older. {Tap} Thank, pick how it went out and say what was said, and the gift leaves the list and counts as your contact in Blackbaud. Left a message keeps the gift here and reminds you tomorrow. Tick several and thank them by letter or email in one step. Every thank-you can be undone from the message that appears.',
     for: (w) => w.admin || w.work,
-    added: '2026-10-10',
+    added: '2026-10-12',
     side: 'top',
   },
   {

@@ -91,24 +91,35 @@ const plural = (n, one, many) => n.toLocaleString('en-US') + ' ' + (n === 1 ? on
 const FIRST = 3;
 
 /* One row: a count, a label and what stands out. Tapping it opens its list in place; the first three items show, Show all for the rest. */
-function row(key, icon, label, count, sub, items, all) {
+function row(key, icon, label, count, sub, items, all, extra) {
   const open = S.open.has(key);
   const more = items.length > FIRST && !S.all.has(key);
   const shown = open ? (more ? items.slice(0, FIRST) : items) : [];
   return `<div class="br-item${open ? ' is-open' : ''}">
     <button type="button" class="br-tog" data-br-tog="${key}" aria-expanded="${open}"><span class="br-ico br-ico--${key}">${ic(icon)}</span><span class="br-lab">${label}</span><span class="br-n">${count}</span>${CHEV}</button>
     ${sub ? `<div class="br-sub">${sub}</div>` : ''}
-    ${open ? `<ul class="br-list">${shown.join('')}</ul>${more ? `<button type="button" class="br-more" data-br-all="${key}">Show all ${items.length}</button>` : ''}${all ? `<a class="br-more" href="${esc(all.href)}">${esc(all.text)}</a>` : ''}` : ''}
+    ${open ? `${shown.length ? `<ul class="br-list">${shown.join('')}</ul>` : ''}${more ? `<button type="button" class="br-more" data-br-all="${key}">Show all ${items.length}</button>` : ''}${extra || ''}${all ? `<a class="br-more" href="${esc(all.href)}">${esc(all.text)}</a>` : ''}` : ''}
   </div>`;
 }
 
+const clockOf = (due) => (window.FavorWG && window.FavorWG.clock ? window.FavorWG.clock(due) : { label: '', late: false });
+function thankLi(g, list, i) {
+  const c = clockOf(g.due);
+  const facts = [money(g.amount), esc(g.fund || '')].filter(Boolean).join(' · ');
+  return `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${c.label ? `<b class="br-clock${c.late ? ' is-late' : c.soon ? ' is-soon' : ''}">${esc(c.label)}</b> · ` : ''}${facts}</span></div><button type="button" class="h-btn h-btn--ghost h-btn--sm br-act" data-br-thank="${i}" data-br-list="${list}" aria-label="Thank ${esc(g.name || '')}">Thank</button></li>`;
+}
+/* To thank: the gifts on the 24-hour clock, least time left first. Gifts whose clock ran out more than a day ago fold under Older. */
 function thankRow(b) {
   const t = b.thanks;
   if (!t || !t.total) return '';
-  const oldest = t.rows[0];
-  const sub = oldest && oldest.ageDays >= 1 ? `Oldest ${plural(oldest.ageDays, 'day')}, ${pchip(oldest.cid, oldest.name)}` : '';
-  const items = t.rows.map((g, i) => `<li class="br-li"><div class="br-main">${pchip(g.cid, g.name)}<span class="br-prep">${[money(g.amount), esc(g.fund || ''), g.ageDays >= 1 ? g.ageDays + 'd' : 'today'].filter(Boolean).join(' · ')}</span></div><button type="button" class="h-btn h-btn--ghost h-btn--sm br-act" data-br-thank="${i}" aria-label="Thank ${esc(g.name || '')}">Thank</button></li>`);
-  return row('thank', 'phone', 'To thank', t.total.toLocaleString('en-US'), sub, items, t.total > t.rows.length ? { href: '/work/?view=gifts', text: 'All gifts to thank' } : null);
+  const cur = t.rows || [];
+  const older = t.older || [];
+  const olderN = Number(t.olderN) || 0;
+  const late = cur.filter((g) => clockOf(g.due).late).length;
+  const sub = [t.onClock ? plural(t.onClock, 'gift') + ' on the 24-hour clock' : '', late ? late + ' overdue' : '', olderN ? olderN.toLocaleString('en-US') + ' older' : ''].filter(Boolean).join(' · ');
+  const items = cur.map((g, i) => thankLi(g, 'rows', i));
+  const fold = olderN ? `<button type="button" class="br-fold" data-br-older aria-expanded="${S.older ? 'true' : 'false'}">Older<span>${olderN.toLocaleString('en-US')}</span>${CHEV}</button>${S.older ? `<ul class="br-list br-list--older">${older.map((g, i) => thankLi(g, 'older', i)).join('')}</ul>` : ''}` : '';
+  return row('thank', 'phone', 'To thank', t.total.toLocaleString('en-US'), sub, items, t.total > cur.length + (S.older ? older.length : 0) ? { href: '/work/?view=gifts', text: 'All gifts to thank' } : null, fold);
 }
 
 function giftRow(b) {
@@ -215,8 +226,9 @@ root.addEventListener('click', (e) => {
     fetch('/api/hub/snooze', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: 'moment:' + id, until }) }).catch(() => {});
     return;
   }
+  if (t.hasAttribute('data-br-older')) { S.older = !S.older; draw(); return; }
   if (t.dataset.brThank != null) {
-    const g = S.data.thanks.rows[Number(t.dataset.brThank)];
+    const g = (S.data.thanks[t.dataset.brList === 'older' ? 'older' : 'rows'] || [])[Number(t.dataset.brThank)];
     if (g && window.FavorWG) window.FavorWG.pop(t, { giftId: g.giftId, cid: g.cid, name: g.name, amount: g.amount, date: g.date, fund: g.fund, phone: g.phone, left: g.left, tasks: g.tasks, team: g.team }, { owner: g.owner, done: () => load(true) });
   }
 });

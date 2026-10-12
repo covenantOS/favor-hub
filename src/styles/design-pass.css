@@ -506,3 +506,21 @@ html body.h-body .og-acts--done { gap: 12px; }
   html body.h-body .og-acts { justify-content: space-between; }
   html body.h-body .og-sel { font-size: 16px; height: 36px; width: auto; max-width: calc(100vw - 150px); }
 }
+/* Thank-you clock (2026-10-12): Today's To thank, the Work Overview and Gifts to thank. The clock is the first fact on the row; red once it runs out. */
+html body.h-body .br-li .br-prep { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: block; }
+html body.h-body .br-clock { font-weight: 600; color: var(--r-ink-2, var(--h-ink-2)); }
+html body.h-body .br-clock.is-soon { color: var(--due, var(--h-ink-2)); }
+html body.h-body .br-clock.is-late { color: var(--late, var(--h-red)); }
+html body.h-body .br-item > .br-fold { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; margin: 0 0 2px 46px; padding: 0; border: 0; background: none; cursor: pointer; font: 600 13px var(--h-font); color: var(--r-ink-2, var(--h-ink-2)); }
+html body.h-body .br-item > .br-fold span { font-weight: 500; color: var(--r-ink-3, var(--h-ink-3)); }
+html body.h-body .br-item > .br-fold .br-chev { width: 14px; height: 14px; transition: transform .15s; }
+html body.h-body .br-item > .br-fold[aria-expanded="true"] .br-chev { transform: rotate(90deg); }
+html body.h-body .br-item > .br-list--older { opacity: .86; }
+@media (max-width: 860px) { html body.h-body .br-item > .br-fold { margin-left: 0; } }
+html body.h-body #wc-root .wg-amt small.wg-clock { font-weight: 600; color: var(--h-ink-2); white-space: nowrap; }
+html body.h-body #wc-root .wg-amt small.wg-clock.is-soon { color: var(--h-brand-ink); }
+html body.h-body #wc-root .wg-amt small.wg-clock.is-late { color: var(--h-red); }
+html body.h-body #wc-root .wg-group .wg-fold { display: inline-flex; align-items: center; gap: 6px; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+html body.h-body #wc-root .wg-group .wg-fold .wg-caret { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform .15s; }
+html body.h-body #wc-root .wg-group--older.is-open .wg-fold .wg-caret { transform: none; }
+html body.h-body .br-item > .br-more + .br-fold { margin-left: 16px; }

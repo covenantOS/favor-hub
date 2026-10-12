@@ -8,7 +8,7 @@ related: [today, getting-started]
 videos: [work-center]
 tool: /work/
 toolLabel: Open Work Center
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Work Center lists every open action in Blackbaud, the week's contacts to enter and the thank-yous still owed. Blackbaud finishes one action at a time. Work Center finishes as many as you pick in one pass.
@@ -17,7 +17,7 @@ Work Center lists every open action in Blackbaud, the week's contacts to enter a
 
 The Work area opens on the Overview page. Today's work lists your actions due today and overdue, oldest first. Press the circle to complete one, Snooze to move it to tomorrow, in three days, next week or a date you pick, or the partner name to open the partner. Each change is saved, sent to Blackbaud and undone from the message at the bottom for 24 hours.
 
-Gifts to thank lists the oldest five gifts waiting for your role. Thank opens the same form as the Gifts to thank tab. Your week shows a director's goals, the Support Team's entry backlog, or Partner Care's cadence counts. Quick actions starts a task or logs a contact on any partner you find. Admins also see a team table with open and overdue actions per person. Every number opens the Work Center page it comes from.
+Gifts to thank lists five gifts waiting for your role, the soonest due on the 24-hour clock first. Thank opens the same form as the Gifts to thank tab. Your week shows a director's goals, the Support Team's entry backlog, or Partner Care's cadence counts. Quick actions starts a task or logs a contact on any partner you find. Admins also see a team table with open and overdue actions per person. Every number opens the Work Center page it comes from.
 
 ## What each number counts
 
@@ -69,7 +69,7 @@ Marking a gift thanked closes the fundraiser's task and records one contact for 
 
 ## Gifts to thank
 
-Gifts to thank lists every gift on the partners you hold that nobody has thanked yet, soft credits included, oldest first. Gifts older than a day sit under Over 24 hours. The row shows the amount and how long ago, the partner with lifetime giving and last contact, the fund, how it was paid, and notes such as First gift, First monthly gift, Largest gift, $1,000 and up, Soft credit and Task open. Directors see their own partners. Partner Care sees the gifts on partners it holds under a Partner Care assignment that are first gifts or under $1,000, and thanks them by call, card, letter or email. A partner a director also holds stays on the director's list. The Support Team picks a director from the list at the top.
+Gifts to thank lists every gift on the partners you hold that nobody has thanked yet, soft credits included. Every gift is thanked within 24 hours of the time it was entered in Blackbaud, counting weekdays only. The gifts on that clock come first under **On the 24-hour clock**, the soonest due first and the largest gift first within a day, and each row shows the time left (Due in 6 h, Due today, Due Mon) or Overdue in red. Gifts more than a day past it fold under **Older**; press Older to open them. The Overdue tile counts every gift past its 24 hours. The row shows the amount, the partner with lifetime giving and last contact, the fund, how it was paid, and notes such as First gift, First monthly gift, Largest gift, $1,000 and up, Soft credit and Task open. Directors see their own partners. Partner Care sees the gifts on partners it holds under a Partner Care assignment that are first gifts or under $1,000, and thanks them by call, card, letter or email. A partner a director also holds stays on the director's list. The Support Team picks a director from the list at the top.
 
 Press Call to ring the partner, Prep to open the call brief, or Thank. Thank opens a short form. Pick how the thank-you went out (call, text, email, letter, card or visit). For a call, choose Talked or Left a message. Write what was said and press Save thank-you. Tick Follow up in 2 weeks and a follow-up task goes on the partner.
 

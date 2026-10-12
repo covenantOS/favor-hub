@@ -56,7 +56,7 @@
     overdue: { title: 'Overdue actions', defs: ['Open and overdue actions'], rows: true, type: 'int' },
     today: { title: 'Actions due today', defs: ['Open and overdue actions'], rows: true, type: 'int' },
     gifts: { title: 'Gifts to thank', defs: ['Gifts to thank'], rows: true, type: 'int' },
-    over24: { title: 'Gifts waiting over 24 hours', defs: ['Gifts to thank'], rows: true, type: 'int' },
+    over24: { title: 'Gifts past the 24-hour clock', defs: ['Gifts to thank'], rows: true, type: 'int' },
     first: { title: 'First gifts to thank', defs: ['Gifts to thank'], rows: true, type: 'int' },
     teamopen: { title: 'Open actions', defs: ['Open and overdue actions'], type: 'int' },
     teamlate: { title: 'Overdue actions', defs: ['Open and overdue actions'], type: 'int' },
@@ -176,17 +176,19 @@
     card.hidden = !g;
     if (!g) return;
     const chips = [];
-    if (g.over24) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=gifts">${dn('over24', n0(g.over24), g.over24)} waiting over 24 hours</a>`);
+    if (g.over24) chips.push(`<a class="r2t-chip r2t-chip--late" href="/work/?view=gifts">${dn('over24', n0(g.over24), g.over24)} overdue</a>`);
     if (g.first) chips.push(`<a class="r2t-chip r2t-chip--plain" href="/work/?view=gifts">${dn('first', n0(g.first), g.first)} first gifts</a>`);
     $('wh-gifts-chips').innerHTML = chips.join('');
     $('wh-gifts-all').innerHTML = `Open all ${dn('gifts', n0(g.total), g.total)}`;
     const list = $('wh-gifts-list');
     if (!g.rows.length) { list.innerHTML = `<li class="wh-empty">No gifts waiting for a thank-you.${g.week ? ' ' + plural(g.week, 'partner') + ' thanked this week.' : ''}</li>`; return; }
     list.innerHTML = g.rows.map((r) => {
-      const late = r.age >= 3;
+      const c = r.due && F() && F().clock ? F().clock(r.due) : null;
+      const older = r.state === 'older' || !c || !c.label;
+      const late = older ? r.age >= 3 : c.late;
       return `<li class="wh-row wh-gift" data-gift="${esc(r.giftId)}" data-cid="${esc(r.cid)}">
       <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span>${fd(r.date)}${r.fund ? ' · ' + esc(r.fund) : ''}${r.owner && D && D.work && D.work.role !== 'director' ? ' · ' + esc(r.owner) : ''}${r.badges.length ? ' · ' + esc(r.badges.join(', ')) : ''}</span></div>
-      <span class="wh-amt">${money(r.amount)} <span class="r2t-chip ${late ? 'r2t-chip--late' : 'r2t-chip--plain'}">${r.age <= 0 ? 'Today' : plural(r.age, 'day')}</span></span>
+      <span class="wh-amt">${money(r.amount)} <span class="r2t-chip ${late ? 'r2t-chip--late' : 'r2t-chip--plain'}">${older ? (r.age <= 0 ? 'Today' : plural(r.age, 'day')) : esc(c.label)}</span></span>
       <div class="wh-acts"><button type="button" class="wh-do wh-do--go" data-thank="${esc(r.giftId)}">Thank</button></div>
     </li>`;
     }).join('') + (g.total > g.rows.length ? `<li class="wh-more"><a href="/work/?view=gifts">${n0(g.total - g.rows.length)} more in Gifts to thank</a></li>` : '');

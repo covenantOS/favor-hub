@@ -14,6 +14,25 @@ const fd = (iso, yr) => { if (!iso) return ''; const [y, m, d] = String(iso).sli
 const money = (a) => { const n = Number(a) || 0; return (n < 0 ? '-' : '') + '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: Math.round(n) === n ? 0 : 2, maximumFractionDigits: 2 }); };
 const short = (v) => { const n = Number(v) || 0, a = Math.abs(n), s = n < 0 ? '-' : '', f = (x) => String(+x.toFixed(1)); return a >= 999950000 ? s + '$' + f(a / 1e9) + 'B' : a >= 999500 ? s + '$' + f(a / 1e6) + 'M' : a >= 1000 ? s + '$' + (a < 1e5 ? f(a / 1000) : Math.round(a / 1000)) + 'K' : money(Math.round(n)); };
 const dayn = (iso) => Math.round((Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z') - Date.parse(TODAY + 'T12:00:00Z')) / 86400000);
+// The 24-hour thank-you clock, drawn from the due time the server sends (functions/_lib/work/thank-clock.ts has the same words).
+// { label: 'Due in 6 h' | 'Due today' | 'Overdue 5 h' ..., late: true once the time is past }.
+const etDay = (ms) => new Date(ms).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+function clock(due) {
+  const t = Date.parse(due || '');
+  if (!t) return { label: '', late: false };
+  const mins = Math.round((t - Date.now()) / 60000);
+  if (mins <= 0) { const h = Math.floor(-mins / 60); return { label: h < 1 ? 'Overdue' : h < 24 ? 'Overdue ' + h + ' h' : 'Overdue ' + Math.floor(h / 24) + 'd', late: true }; }
+  const dd = etDay(t); const td = etDay(Date.now());
+  const days = Math.round((Date.parse(dd + 'T12:00:00Z') - Date.parse(td + 'T12:00:00Z')) / 86400000);
+  let label;
+  if (mins < 60) label = 'Due in ' + mins + ' min';
+  else if (days === 0) label = mins <= 720 ? 'Due in ' + Math.round(mins / 60) + ' h' : 'Due today';
+  else if (mins <= 480) label = 'Due in ' + Math.round(mins / 60) + ' h';
+  else if (days === 1) label = 'Due tomorrow';
+  else label = days < 7 ? 'Due ' + WD[new Date(dd + 'T12:00:00Z').getUTCDay()] : 'Due ' + fd(dd);
+  return { label, late: false, soon: mins <= 360 };
+}
 const AS = new URLSearchParams(location.search).get('as') || '';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const reqId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2));
@@ -227,5 +246,5 @@ function bulk(gifts, how, o = {}) {
   setTimeout(() => { const i = $('#wg-bline', L); if (i) i.focus(); }, 40);
 }
 
-window.FavorWG = { api, post, esc, ic, I, fd, money, short, dayn, TODAY, thank, pop, bulk, toast, closePop, reqId, HOWS };
+window.FavorWG = { api, post, esc, ic, I, fd, money, short, dayn, TODAY, clock, thank, pop, bulk, toast, closePop, reqId, HOWS };
 })();

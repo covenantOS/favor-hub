@@ -8,6 +8,7 @@ import type { HubUser } from '../session';
 import { blackbaudRepo, readOnly, FUNDS_SQL } from '../work/repo';
 import { workAccessFor } from '../work/gate';
 import { GIVEN } from '../work/gifts';
+import { byClock, clockLabel, type ClockState } from '../work/thank-clock';
 import { giftsResponse, lastWorkday, mayGifts } from '../work/gifts-svc';
 import { mirrorQ } from '../work/partner';
 import { scopeFor } from '../work/role';
@@ -47,6 +48,9 @@ export interface ThankRow {
   amount: number;
   date: string;
   ageDays: number;
+  /** When the 24-hour thank-you is due, and whether it is on the clock, late or Older. */
+  due: string;
+  state: ClockState;
   fund: string;
   badges: string[];
   phone: string | null;
@@ -67,7 +71,8 @@ export interface Briefing {
   directors: Director[];
   since: string;
   overnight: { count: number; total: number; rows: OvernightGift[] } | null;
-  thanks: { total: number; over24: number; rows: ThankRow[] } | null;
+  /** rows: the gifts on the 24-hour clock, least time left first. older: the first few whose clock ran out more than a day ago. */
+  thanks: { total: number; over24: number; onClock: number; olderN: number; rows: ThankRow[]; older: ThankRow[] } | null;
   late: { count: number; rows: Line[]; dueToday: Line[] } | null;
   moments: (Moment & { href: string })[];
   /** The next things to do, in order: late actions, thank-yous waiting longest, actions due today, then the top moment. Focus mode shows three. */
@@ -138,11 +143,11 @@ export interface BriefInput {
   today?: string;
 }
 
-/** The thank-you rows the briefing lists: oldest first, then largest. */
+/** The thank-you rows the briefing lists, in clock order: least time left first, then the ones that ran out, then Older. */
 function thankRows(g: Awaited<ReturnType<typeof giftsResponse>>): ThankRow[] {
   return [...g.rows]
     .filter((r) => !r.left || r.ageDays >= 2)
-    .sort((a, b) => b.ageDays - a.ageDays || b.amount - a.amount)
+    .sort(byClock)
     .map((r) => ({
       key: r.key,
       giftId: r.giftId,
@@ -152,6 +157,8 @@ function thankRows(g: Awaited<ReturnType<typeof giftsResponse>>): ThankRow[] {
       amount: r.amount,
       date: r.date,
       ageDays: r.ageDays,
+      due: r.clock.due,
+      state: r.clock.state,
       fund: r.fund,
       badges: r.badges.slice(0, 2),
       phone: r.partner.doNotCall ? null : r.partner.phone,
@@ -207,7 +214,10 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
     const owed = gifts ? thankRows(gifts) : [];
     const owedIds = new Set(gifts ? gifts.rows.map((r) => r.giftId) : []);
     if (night) overnight = { count: night.count, total: night.total, rows: night.rows.slice(0, 8).map((g) => ({ ...g, thanked: !!gifts && !owedIds.has(g.giftId) })) };
-    if (gifts) thanks = { total: gifts.stats.owed, over24: gifts.stats.over24, rows: owed.slice(0, 6) };
+    if (gifts) {
+      const cur = owed.filter((r) => r.state !== 'older');
+      thanks = { total: gifts.stats.owed, over24: gifts.stats.over24, onClock: cur.length, olderN: owed.length - cur.length, rows: cur.slice(0, 6), older: owed.filter((r) => r.state === 'older').slice(0, 6) };
+    }
     if (book.portfolio && book.portfolio.rows.length) {
       reads = await readBook(mirrorQ(env), book.portfolio.rows, today).catch(() => []);
       moments = momentsFor(reads.map(momentFacts), today, 10).map((m) => ({ ...m, href: `/work/partner/${encodeURIComponent(m.cid)}` }));
@@ -239,12 +249,12 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
   const late = await lateP;
   const focus: Line[] = [
     ...(late ? late.rows.map((l) => ({ ...l, sub: l.sub })) : []),
-    ...(thanks ? thanks.rows.slice(0, 4).map((t): Line => ({ id: `thank:${t.giftId}`, text: `Thank ${t.name} for ${money(t.amount)}`, sub: t.ageDays >= 1 ? `Waiting ${plural(t.ageDays, 'day')}` : 'Gave today', href: `/work/partner/${encodeURIComponent(t.cid)}`, urgency: t.ageDays >= 3 ? 3 : 2 })) : []),
+    ...(thanks ? thanks.rows.slice(0, 4).map((t): Line => ({ id: `thank:${t.giftId}`, text: `Thank ${t.name} for ${money(t.amount)}`, sub: clockLabel(t.due, Date.now()), href: `/work/partner/${encodeURIComponent(t.cid)}`, urgency: t.state === 'due' ? 2 : 3 })) : []),
     ...(late ? late.dueToday : []),
     ...moments.slice(0, 2).map((m): Line => ({ id: `moment:${m.id}`, text: `${m.step.label}: ${m.name}`, sub: m.line, href: m.href, urgency: 1 })),
   ].slice(0, 8);
   const lines: string[] = [];
-  if (thanks && thanks.total) lines.push(`${plural(thanks.total, 'thank-you')} waiting${thanks.over24 ? `, ${thanks.over24} for more than a day` : ''}`);
+  if (thanks && thanks.total) lines.push(`${plural(thanks.total, 'thank-you')} waiting${thanks.onClock ? `, ${thanks.onClock} on the 24-hour clock` : ''}`);
   if (late && late.count) lines.push(`${plural(late.count, 'late action')}`);
   if (overnight && overnight.count) lines.push(`${plural(overnight.count, 'gift')} since ${weekdayOf(since)}, ${money(overnight.total)}`);
   const headline = lines.length ? lines.join('. ') + '.' : '';

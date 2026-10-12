@@ -7,6 +7,7 @@ import { mirrorQ, listMirrorQ } from './partner';
 import { getSetting } from './db';
 import { currentBoard, createBatch, authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from './service';
 import { planEdit, typesByFundraiser } from './edit';
+import { clockOf } from './thank-clock';
 import { loadGifts, DEFAULT_DAYS, weekStart, type GiftRow, type Shaped } from './gifts';
 import { THANK_HOWS, addDays, clean } from '../actions/completion';
 import type { Scope } from './role';
@@ -34,7 +35,7 @@ export interface GiftsOut {
   everyone: number;
   owners: { id: string; name: string; n: number }[];
   rows: (GiftRow & { ownerNames: string[] })[];
-  stats: { owed: number; over24: number; first: number; big: number; week: number };
+  stats: { owed: number; over24: number; first: number; big: number; week: number; onClock: number; older: number };
   shelf: Shaped['today'];
   weekStart: string;
   lastWorkday: string;
@@ -87,7 +88,9 @@ export async function giftsResponse(ctx: Ctx, ownerIn: string): Promise<GiftsOut
     rows: rows.map((r) => ({ ...r, ownerNames: r.owners.map((o) => names[o] || `Fundraiser ${o}`) })),
     stats: {
       owed: rows.length,
-      over24: rows.filter((r) => r.hours >= 24).length,
+      over24: rows.filter((r) => r.clock.state !== 'due').length,
+      onClock: rows.filter((r) => r.clock.state !== 'older').length,
+      older: rows.filter((r) => r.clock.state === 'older').length,
       first: rows.filter((r) => r.badges.includes('First gift') || r.badges.includes('First monthly gift')).length,
       big: rows.filter((r) => r.amount >= 1000).length,
       week,
@@ -103,7 +106,7 @@ async function testRow(ctx: Ctx, giftId: string, cid: string, fid: string): Prom
   if (!g) return null;
   const owner = fid || ctx.scope?.fid || '27611';
   return {
-    key: `${giftId}:${cid}`, giftId, cid, amount: Number(g.amount) || 0, date: String(g.d), added: '', ageDays: 0, hours: 0, type: 'Donation', pay: '', fund: 'Test gift', comment: '', soft: null,
+    key: `${giftId}:${cid}`, giftId, cid, amount: Number(g.amount) || 0, date: String(g.d), added: '', ageDays: 0, hours: 0, clock: clockOf(Date.now(), Date.now()), type: 'Donation', pay: '', fund: 'Test gift', comment: '', soft: null,
     partner: { name: 'Test partner', kind: '', place: '', lifetime: 0, count: 0, lastContact: '', phone: null, doNotCall: false, deceased: false },
     badges: [], team: ctx.scope?.role === 'partner_care' ? 'pc' : 'dir', owners: [owner], taskIds: [], thanked: null, left: null,
   };

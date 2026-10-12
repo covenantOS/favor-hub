@@ -6,7 +6,7 @@ order: 3
 related: [getting-started, signing-in, kpi-dashboard]
 tool: /
 toolLabel: Open Today
-updated: 2026-10-11
+updated: 2026-10-12
 ---
 
 Today opens every time you sign in. It greets you and lays out your day.
@@ -16,11 +16,11 @@ Today opens every time you sign in. It greets you and lays out your day.
 The briefing at the top of Today is written for you each time you open it.
 
 - **New gifts** lists gifts dated since the last workday from the partners you hold. An admin sees every partner, and a Support person sees the directors they cover. Thanked marks a gift that already has a thank-you.
-- **To thank** lists the gifts still waiting, oldest first. Press Thank to choose how you said it. The same list is under Gifts to thank in the Work Center.
+- **To thank** lists the gifts on the 24-hour clock. Every gift is thanked within 24 hours of the time it was entered in Blackbaud (the admin desk enters the mail on Monday, Wednesday and Friday), counting weekdays only, so a gift entered at 2 PM on a Friday is due at 2 PM on Monday. Each row shows the time left (Due in 6 h, Due today, Due tomorrow), the soonest due first and the largest gift first within a day. Once the time runs out the row turns red and reads Overdue. Gifts more than a day past it fold under **Older**. Press Thank to choose how you said it. The same list is under Gifts to thank in the Work Center.
 - **Late** lists your Blackbaud actions past their due date. **Today's meetings** lists your calendar with one line on each partner in the room: what they give, when anyone last spoke to them and how many gifts are not thanked.
 - **Since you were away** shows after a day or more off. It counts what changed in your partners, requests, projects and Chat. Close it with the X.
 - **Moments** suggests a call for a first gift, the largest gift a partner has given, a giving anniversary this week, or a partner who gave steadily and has gone quiet. Not now hides a moment for two weeks.
-- **Focus** hides the rest of Today and shows your next three things: a meeting starting within the hour, late actions, thank-yous waiting longest, then actions due today. Skip moves to the next one. Show everything brings Today back.
+- **Focus** hides the rest of Today and shows your next three things: a meeting starting within the hour, late actions, the thank-yous due soonest, then actions due today. Skip moves to the next one. Show everything brings Today back.
 
 People who do not work with partners see the late actions and their meetings, and no partner information.
 

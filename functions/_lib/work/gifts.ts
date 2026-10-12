@@ -8,6 +8,7 @@ import type { Env } from '../http';
 import { readOnly, FUNDRAISERS_SQL, FUNDS_SQL } from './repo';
 import type { Q } from './partner';
 import { addDays } from '../actions/completion';
+import { clockOf, type Clock } from './thank-clock';
 
 /** The gift types that count as money received. A RecurringGift row is the pledge; its payments are the gifts. */
 export const GIVEN = "('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other')";
@@ -68,6 +69,8 @@ export interface GiftRow {
   ageDays: number;
   /** Hours since Blackbaud had the gift. */
   hours: number;
+  /** The 24-hour thank-you clock (thank-clock.ts): when it is due and whether it is on the clock, late or Older. */
+  clock: Clock;
   type: string;
   pay: string;
   fund: string;
@@ -221,6 +224,7 @@ export function shapeGifts(raw: RawGifts, o: { today: string; nowMs: number }): 
         added: text(g.added),
         ageDays: Math.max(0, daysBetween(date, o.today)),
         hours: Math.max(0, Math.round((o.nowMs - addedMs) / 3600000)),
+        clock: clockOf(addedMs, o.nowMs),
         type: text(g.gtype),
         pay: isPayment ? 'Monthly, ' + (PAY[g.pm] || g.pm || 'gift').toLowerCase() : PAY[g.pm] || text(g.pm),
         fund: fundOf(g.splits) || 'No fund on file',
