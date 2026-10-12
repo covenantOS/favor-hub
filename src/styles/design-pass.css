@@ -392,3 +392,15 @@ html body.h-body .nt-sum { font: 400 15px/1.55 var(--h-font); }
 .ep-pop__list--more { display: grid; gap: 2px; min-width: 190px; }
 .ep-pop__list--more button { text-align: left; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 12px; border: 0; background: transparent; border-radius: 10px; font: 600 14px var(--h-font, inherit); }
 .ep-pop__list--more button:hover { background: var(--h-hover, #f1efe8); }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-filterbtn .wc-flbl { display: none; }
+  html body.h-body #wc-root .wc-filters:not(.is-sheet) .wc-filterbtn { min-width: 44px; }
+  html body.h-body #wc-root .wc-who, html body.h-body #wc-root .wc-who .wc-inl--who { overflow: visible; min-width: 30px; max-width: none; }
+}
+.ep-pop__list--more button { justify-content: flex-start; width: 100%; }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wc-grid .wc-row .wc-inl--who { overflow: visible !important; text-overflow: clip; line-height: 1; padding: 2px 0 !important; max-width: none; }
+  html body.h-body #wc-root .wc-grid .wc-row > .wc-who { max-width: none; }
+  html body.h-body #wc-root .wc-grid .wc-row .wc-inl--who span + span { display: inline-flex; }
+  html body.h-body #wc-root .wc-whoini { flex: 0 0 26px; }
+}

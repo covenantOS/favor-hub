@@ -356,7 +356,7 @@ function viewOpen() {
         <select class="wc-sel${f.cat ? ' is-set' : ''}" data-f="cat" aria-label="Category">${catOpts}</select>
         <select class="wc-sel${f.due ? ' is-set' : ''}" data-f="due" aria-label="Due">${dueOpts}</select>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-phonly wc-phmore" data-menu="more" aria-haspopup="true">More</button>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-filterbtn" data-openfilters>${ic('filter')}Filters${chips.filter((c) => c[0] !== 'q').length ? ' (' + chips.filter((c) => c[0] !== 'q').length + ')' : ''}</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm wc-filterbtn" data-openfilters aria-label="Filters">${ic('filter')}<span class="wc-flbl">Filters</span>${chips.filter((c) => c[0] !== 'q').length ? ' (' + chips.filter((c) => c[0] !== 'q').length + ')' : ''}</button>
         <button type="button" class="h-btn h-btn--primary h-btn--sm wc-phonly wc-phnew" data-ep="new">${ic('plus')}New action</button>
       </div>
       <div class="wc-tools2" id="wc-tools2"></div>
