@@ -6,6 +6,7 @@ import SheetsButton from '../../components/SheetsButton.astro';
 import '../../styles/crit-reportadmin.css';
 import '../../styles/q3-desk.css';
 import '../../styles/lint-fix.css';
+import '../../styles/today2.css'; // today2: outline for the note Today opened
 ---
 <App title="Feedback" crumb="Learn" nav="feedback" description="Notes about the hub and Favor Brain, and the answers.">
   <div class="fbp">
@@ -30,5 +31,5 @@ import '../../styles/lint-fix.css';
 
     <ul class="fbp-list" id="fb-list" aria-busy="true" aria-live="polite"><li class="h-card h-skel" style="min-height:120px"></li></ul>
   </div>
-  <script is:inline src="/js/feedback-page.js?v=2" defer></script>
+  <script is:inline src="/js/feedback-page.js?v=3" defer></script>
 </App>

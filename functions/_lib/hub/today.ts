@@ -189,6 +189,8 @@ export interface Activity {
   at: string;
   app: 'Requests' | 'Expenses' | 'Receipts' | 'Foundations';
   text: string;
+  /** Where the row opens inside FavorOS. */
+  href: string;
 }
 
 const DAY = 86400000;
@@ -345,8 +347,8 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
   const notes = await feedbackWaiting(env, user, access);
   const nn = Number(notes?.n) || 0;
   if (nn && access.admin) {
-    const first = await env.DB.prepare("SELECT name, email, source, comment FROM brain_feedback WHERE status = 'new' ORDER BY id LIMIT 1")
-      .first<{ name: string; email: string; source: string; comment: string | null }>()
+    const first = await env.DB.prepare("SELECT id, name, email, source, comment FROM brain_feedback WHERE status = 'new' ORDER BY id LIMIT 1")
+      .first<{ id: number; name: string; email: string; source: string; comment: string | null }>()
       .catch(() => null);
     const from = first ? first.name || first.email : '';
     const said = first?.comment ? `: "${first.comment.length > 70 ? first.comment.slice(0, 68) + '...' : first.comment}"` : '';
@@ -357,10 +359,11 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       what: nn === 1 ? 'note from staff to read' : 'notes from staff to read',
       note: first ? `Oldest from ${from}${said}` : '',
       warn: false,
-      href: '/feedback/',
+      href: first ? `/feedback/?item=${first.id}` : '/feedback/',
       cta: 'Read them',
     });
   } else if (nn) {
+    const mineFb = await env.DB.prepare('SELECT id FROM brain_feedback WHERE email = ? AND reply IS NOT NULL AND reply_seen_at IS NULL ORDER BY id LIMIT 1').bind(user.email.toLowerCase()).first<{ id: number }>().catch(() => null);
     cards.push({
       id: 'feedback',
       label: 'Feedback',
@@ -368,7 +371,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       what: nn === 1 ? 'answer to your feedback' : 'answers to your feedback',
       note: 'Will answered a note you sent',
       warn: false,
-      href: '/feedback/',
+      href: mineFb ? `/feedback/?item=${mineFb.id}` : '/feedback/',
       cta: 'Read the answer',
     });
   }
@@ -433,7 +436,7 @@ export async function mineFor(env: Env, user: HubUser): Promise<Mine[]> {
   const status = { inbox: 'Waiting for review', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' } as Record<string, string>;
   const money = (c: number) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return [
-    ...reqs.results.map((r) => ({ kind: 'request' as const, title: r.title, status: status[r.status] || r.status, at: r.completed_at || r.created_at, href: '/requests/' })),
+    ...reqs.results.map((r) => ({ kind: 'request' as const, title: r.title, status: status[r.status] || r.status, at: r.completed_at || r.created_at, href: `/requests/?r=${encodeURIComponent(r.id)}` })),
     ...exps.results.map((e) => ({
       kind: 'expense' as const,
       title: `${e.doc_number}, ${money(e.total_cents)}`,
@@ -448,12 +451,12 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
   const since = new Date(Date.now() - 14 * DAY).toISOString();
   const out: Activity[] = [];
   const [made, done, files, contacts] = await Promise.all([
-    env.DB.prepare('SELECT title, submitter_name, created_at FROM requests WHERE created_at > ? ORDER BY created_at DESC LIMIT 8')
+    env.DB.prepare('SELECT id, title, submitter_name, created_at FROM requests WHERE created_at > ? ORDER BY created_at DESC LIMIT 8')
       .bind(since)
-      .all<{ title: string; submitter_name: string; created_at: string }>(),
-    env.DB.prepare("SELECT title, submitter_name, completed_at FROM requests WHERE status = 'done' AND completed_at > ? ORDER BY completed_at DESC LIMIT 8")
+      .all<{ id: string; title: string; submitter_name: string; created_at: string }>(),
+    env.DB.prepare("SELECT id, title, submitter_name, completed_at FROM requests WHERE status = 'done' AND completed_at > ? ORDER BY completed_at DESC LIMIT 8")
       .bind(since)
-      .all<{ title: string; submitter_name: string; completed_at: string }>(),
+      .all<{ id: string; title: string; submitter_name: string; completed_at: string }>(),
     env.DB.prepare("SELECT at, actor, kind, detail FROM rcp_log WHERE at > ? AND kind IN ('print_file', 'marked', 'cancel') ORDER BY at DESC LIMIT 6")
       .bind(since)
       .all<{ at: string; actor: string; kind: string; detail: string }>(),
@@ -464,8 +467,8 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
       .bind(since)
       .all<{ created_at: string; created_by: string; how: string; name: string }>(),
   ]);
-  for (const r of made.results) out.push({ at: r.created_at, app: 'Requests', text: `${r.submitter_name} asked: ${r.title}` });
-  for (const r of done.results) out.push({ at: r.completed_at, app: 'Requests', text: `Done: ${r.title}` });
+  for (const r of made.results) out.push({ at: r.created_at, app: 'Requests', text: `${r.submitter_name} asked: ${r.title}`, href: `/requests/?r=${encodeURIComponent(r.id)}` });
+  for (const r of done.results) out.push({ at: r.completed_at, app: 'Requests', text: `Done: ${r.title}`, href: `/requests/?r=${encodeURIComponent(r.id)}` });
   for (const r of files.results) {
     const count = (r.detail.match(/^(\d[\d,]*) letters for (\d[\d,]*) gifts/) || []) as string[];
     const marked = (r.detail.match(/^(\d[\d,]*) gifts/) || []) as string[];
@@ -475,9 +478,9 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
         : r.kind === 'marked'
           ? `${r.actor} marked ${marked[1] || 'the'} gifts thanked`
           : `${r.actor} threw a print file away`;
-    out.push({ at: r.at, app: 'Receipts', text });
+    out.push({ at: r.at, app: 'Receipts', text, href: '/receipts/' });
   }
-  for (const r of contacts.results) out.push({ at: r.created_at, app: 'Foundations', text: `${r.created_by} logged a ${String(r.how || 'contact').toLowerCase()} with ${r.name}` });
+  for (const r of contacts.results) out.push({ at: r.created_at, app: 'Foundations', text: `${r.created_by} logged a ${String(r.how || 'contact').toLowerCase()} with ${r.name}`, href: '/foundations/' });
   if (access.expenseLog) {
     const exps = await env.DB.prepare(
       `SELECT doc_number, requester_name, total_cents, status, submitted_at, decided_at, approver_name FROM expense_requests
@@ -487,8 +490,8 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
       .all<{ doc_number: string; requester_name: string; total_cents: number; status: string; submitted_at: string; decided_at: string | null; approver_name: string }>();
     for (const e of exps.results) {
       const amount = '$' + (e.total_cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      if (e.submitted_at > since) out.push({ at: e.submitted_at, app: 'Expenses', text: `${e.requester_name} sent ${e.doc_number} for ${amount}` });
-      if (e.decided_at && e.decided_at > since && e.status !== 'pending') out.push({ at: e.decided_at, app: 'Expenses', text: `${e.approver_name} ${e.status} ${e.doc_number}` });
+      if (e.submitted_at > since) out.push({ at: e.submitted_at, app: 'Expenses', text: `${e.requester_name} sent ${e.doc_number} for ${amount}`, href: '/expenses/' });
+      if (e.decided_at && e.decided_at > since && e.status !== 'pending') out.push({ at: e.decided_at, app: 'Expenses', text: `${e.approver_name} ${e.status} ${e.doc_number}`, href: '/expenses/' });
     }
   }
   return out.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12);

@@ -80,7 +80,7 @@ describe('GET /api/hub/day', () => {
     assert.deepEqual(body.blackbaud.actions.map((a) => a.id), ['a1', 'a2', 'a3']);
     assert.equal(body.blackbaud.total, 3);
     assert.equal(body.blackbaud.overdue, 1); // a2 is due today in New York; the UTC date would have made it overdue
-    assert.deepEqual(body.google, { connected: false });
+    assert.deepEqual(body.google, { connected: false, events: [] });
   });
 
   it('sends today\'s Eastern date first and the fundraiser id second, with the mirror key', async () => {
