@@ -72,16 +72,22 @@ The buttons above a conversation archive it, delete it, mark it unread, snooze i
 
 Snooze takes the conversation out of the inbox until the time you pick. It comes back unread the next time you open Mail or Today after that time. Snoozed lists what is waiting.
 
-**More** has four links to the rest of FavorOS:
+**More** links a conversation to the rest of FavorOS:
 
 - **Make a task** adds a task for you with the subject as its title.
 - **Send to Chat** posts the subject, the sender and the text to a channel or a person.
+- **Assign to a teammate** hands the email to one person on staff. Type a name, pick the person, write what you need from them and press Assign. They get a notice in Chat with your note and the email's subject. **Assigned to teammates** in the same menu lists what you handed off and to whom, with Done on each.
+- **Mention a coworker** tells one or more people about the email without handing it off. Pick the names, write a note and press Tell them. Each gets a notice in Chat.
+- **Make a request** puts a request on the request board in your name, with the email's subject, sender and first lines. Pick where the change lands (FavorOS, Website, Portal or App) and write what needs to change.
+- **Ask Favor Brain** opens Favor Brain in a new tab with a question about this email: the subject, who sent it and when. Type your own question in the Ask box first, or press it empty to ask what to do about the email.
 - **Open partner** shows when the sender's address is on a partner in Blackbaud.
 - **Log as an action in Blackbaud** enters the email as a contact on that partner through the Work Center's entry, with the date and a one line summary you can edit.
 
+Nothing goes to anyone until you press the button in the sheet.
+
 ## Writing
 
-**Compose**, **Reply**, **Reply all** and **Forward** open the message window. Type a name in To and pick from staff first, then your Google contacts. The paper clip attaches files up to 24 MB together; the Drive and clip buttons put a link in the message. A draft saves a few seconds after you stop typing and shows under Drafts in Gmail too. **Send** waits five seconds with **Undo**.
+**Compose**, **Reply**, **Reply all** and **Forward** open the message window. Type a name in To and pick from staff first, then your Google contacts. The paper clip attaches files up to 24 MB together. Three buttons beside it add things without a download: **Link a Drive file** searches your Drive and puts a link to the file in the message, **Link a clip** adds a link to one of your Clips, and **Photos from the Drive library** searches Favor's photos by what is in them and puts the ones you pick in the message. A draft saves a few seconds after you stop typing and shows under Drafts in Gmail too. **Send** waits five seconds with **Undo**.
 
 ## Keys
 
