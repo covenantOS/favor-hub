@@ -92,7 +92,17 @@ function fitWindow(w, h) {
   }
 }
 
-const docPip = () => (typeof window !== 'undefined' && window.documentPictureInPicture) || null;
+// Arc has the Document Picture-in-Picture API but never shows its window (the recorder reports a floating window that nobody
+// can see), so there it counts as missing and the video player window is used instead.
+const isArc = () => {
+  try {
+    return !!getComputedStyle(document.documentElement).getPropertyValue('--arc-palette-title').trim();
+  } catch (e) {
+    return false;
+  }
+};
+const docPip = () => (typeof window !== 'undefined' && !isArc() && window.documentPictureInPicture) || null;
+const videoPipOk = () => typeof document !== 'undefined' && !!document.pictureInPictureEnabled && typeof HTMLCanvasElement !== 'undefined' && !!HTMLCanvasElement.prototype.captureStream;
 const isPhone = () => !STANDALONE && (matchMedia('(max-width: 700px)').matches || (matchMedia('(pointer: coarse)').matches && matchMedia('(max-width: 1023px)').matches));
 const hubTarget = STANDALONE ? ' target="favor-hub-main"' : '';
 
@@ -639,10 +649,11 @@ function startRecording() {
   // The floating window and the screen picker both need this click, so both start before anything is awaited.
   const wantBubble = settings.source === 'screen+camera';
   const wantFloat = !isPhone() && p.float !== false;
-  S.pipWanted = !!docPip() && (wantBubble || wantFloat);
+  S.pipWanted = (!!docPip() && (wantBubble || wantFloat)) || (!docPip() && videoPipOk() && wantFloat && STANDALONE);
+  S.pipVideo = S.pipWanted && !docPip();
   S.pipError = '';
   const winP = S.pipWanted
-    ? openPip(wantBubble ? 'bubble' : 'controls').catch((e) => {
+    ? (S.pipVideo ? openVideoPip() : openPip(wantBubble ? 'bubble' : 'controls')).catch((e) => {
         // Said out loud (and retried on the next click) so a browser that refuses is never silent.
         S.pipError = (e && (e.name || e.message)) || 'refused';
         return null;
@@ -657,7 +668,7 @@ function startRecording() {
     async () => {
       if (winP) await winP;
       if (S.rec !== rec) return;
-      if (S.pipWanted && !S.pip) armFloat(rec);
+      if (S.pipWanted && !S.pip && !S.vpip) armFloat(rec);
       if (S.pip && S.pip.attach && rec.camStream) S.pip.attach(rec.camStream);
       if (S.pip && S.pip.showCorners) S.pip.showCorners();
       if (wantBubble && !(S.pip && S.pip.kind === 'bubble') && !STANDALONE) mountPageBubble(rec);
@@ -751,7 +762,10 @@ function teardown(keepClosed, keepPip) {
   if (S.panel) S.panel.remove();
   S.panel = null;
   removeBubble();
-  if (!keepPip) closePip();
+  if (!keepPip) {
+    closePip();
+    closeVideoPip();
+  }
   if (STANDALONE && !keepClosed && !S.leaving) {
     post({ t: 'state', phase: 'idle' });
     if (S.card) closeLauncher();
@@ -1171,6 +1185,17 @@ async function openPip(kind) {
 
 /** The Float button in the recorder window: bring the controls back above every window after the floating one was closed. */
 async function floatControls() {
+  if (S.pipVideo && !S.vpip && S.rec && !S.pipOpening) {
+    S.pipOpening = true;
+    try {
+      await openVideoPip();
+    } catch (e) {
+      toast('The browser did not open the floating player.', 'bad');
+    } finally {
+      S.pipOpening = false;
+    }
+    return;
+  }
   if (!S.rec || !docPip() || S.pip || S.pipOpening) return;
   const rec = S.rec;
   const bubble = rec.settings.source === 'screen+camera' && !!rec.camStream;
@@ -1185,6 +1210,112 @@ async function floatControls() {
     toast('The browser did not open the floating controls.', 'bad');
   } finally {
     S.pipOpening = false;
+  }
+}
+
+/**
+ * A browser with no usable floating window (Arc, Safari): the picture-in-picture video player. It shows the time and state
+ * drawn on a small canvas, and the player's own buttons (play and pause, hang up, microphone) drive the recording through
+ * the media session. Needs the Start click, like the floating window.
+ */
+async function openVideoPip() {
+  if (S.vpip) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = 480;
+  canvas.height = 270;
+  const g = canvas.getContext('2d');
+  const draw = () => {
+    const st = viewState();
+    const paused = st.phase === 'paused';
+    g.fillStyle = '#26211c';
+    g.fillRect(0, 0, 480, 270);
+    g.fillStyle = paused ? '#c9a24a' : '#d4452f';
+    g.beginPath();
+    g.arc(60, 70, 14, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#fff';
+    g.font = '600 22px Inter, system-ui, sans-serif';
+    g.fillText(paused ? 'Paused' : st.phase === 'recording' ? 'Recording' : st.phase === 'finishing' ? 'Saving' : 'Starting', 90, 78);
+    g.font = '700 84px Inter, system-ui, sans-serif';
+    const t = Math.floor(st.elapsed || 0);
+    g.fillText(`${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`, 50, 175);
+    g.font = '500 18px Inter, system-ui, sans-serif';
+    g.fillStyle = '#d9d2c6';
+    g.fillText(st.muted ? 'Microphone muted' : 'Pause and hang up are in this player', 50, 225);
+  };
+  draw();
+  let timer = 0;
+  try {
+    const url = URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),250)'], { type: 'text/javascript' }));
+    const w = new Worker(url);
+    w.onmessage = draw;
+    timer = () => {
+      w.terminate();
+      URL.revokeObjectURL(url);
+    };
+  } catch (e) {
+    const id = window.setInterval(draw, 250);
+    timer = () => window.clearInterval(id);
+  }
+  const v = document.createElement('video');
+  v.muted = true;
+  v.playsInline = true;
+  v.srcObject = canvas.captureStream(10);
+  v.style.cssText = 'position:fixed;width:2px;height:2px;opacity:0;pointer-events:none';
+  document.body.appendChild(v);
+  const vp = { video: v, stop: timer };
+  S.vpip = vp;
+  try {
+    await v.play();
+    await v.requestPictureInPicture();
+  } catch (e) {
+    closeVideoPip();
+    throw e;
+  }
+  const ms = navigator.mediaSession;
+  const act = (name, fn) => {
+    try {
+      ms.setActionHandler(name, fn);
+    } catch (e) {
+      // this browser has no such button
+    }
+  };
+  if (ms) {
+    ms.metadata = new MediaMetadata({ title: 'Recording a clip', artist: 'FavorOS' });
+    ms.playbackState = 'playing';
+    act('pause', () => {
+      onCtl('pause');
+      v.play().catch(() => undefined);
+    });
+    act('play', () => {
+      onCtl('resume');
+      v.play().catch(() => undefined);
+    });
+    act('hangup', () => onCtl('stop'));
+    act('togglemicrophone', () => onCtl('mute'));
+  }
+  v.addEventListener('leavepictureinpicture', () => {
+    if (S.vpip === vp) closeVideoPip();
+  });
+  paintControls();
+}
+
+function closeVideoPip() {
+  const vp = S.vpip;
+  S.vpip = null;
+  if (!vp) return;
+  vp.stop();
+  try {
+    if (document.pictureInPictureElement === vp.video) void document.exitPictureInPicture().catch(() => undefined);
+  } catch (e) {
+    // already closed
+  }
+  vp.video.srcObject = null;
+  vp.video.remove();
+  try {
+    for (const a of ['pause', 'play', 'hangup', 'togglemicrophone']) navigator.mediaSession.setActionHandler(a, null);
+  } catch (e) {
+    // nothing to clear
   }
 }
 
@@ -1209,6 +1340,7 @@ async function finishRecording(rec) {
   if (!r) return; // an error already told the person
   const pip = S.pip;
   teardown(true, true);
+  closeVideoPip();
   // The floating window says the clip is saved and links to it, then closes by itself.
   if (pip && pip.ctl) {
     if (pip.hideCam) pip.hideCam();
