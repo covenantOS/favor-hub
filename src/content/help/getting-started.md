@@ -38,7 +38,7 @@ Press the **three lines** at the top left to open the menu. Everything works the
 | Ask someone for work, a list or a design | Make a request |
 | Get approval for a purchase or a trip | Expense request |
 | Print receipts | Receipts |
-| Check a foundation before you call | Foundation prospects |
-| See how the year is going | KPI dashboard |
+| Check a foundation before you call | Foundations, under Work |
+| See how the year is going | Reporting |
 | Ask a question about partners, giving or the manuals | Favor Brain |
 | Learn how something works | Help docs and Training videos |
