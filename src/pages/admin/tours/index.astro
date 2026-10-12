@@ -15,15 +15,15 @@ import '../../../styles/admin-tours.css';
     <section class="ad-card">
       <div class="ad-sub">
         <input id="tu-find" class="ad-field ad-find" type="search" placeholder="Find a person" aria-label="Find a person" />
-        <select id="tu-team" class="ad-field tu-sel" aria-label="Team"><option value="">Every team</option></select>
-        <select id="tu-show" class="ad-field tu-sel" aria-label="Show">
+        <span class="tu-selw"><select id="tu-team" class="ad-field tu-sel" aria-label="Team"><option value="">Every team</option></select></span>
+        <span class="tu-selw"><select id="tu-show" class="ad-field tu-sel" aria-label="Show">
           <option value="">Everyone</option><option value="open">Not finished</option><option value="done">Finished everything</option><option value="never">Not shown yet</option>
-        </select>
+        </select></span>
         <span class="ad-stamp" id="tu-count" role="status"></span>
       </div>
       <div class="ad-sub tu-send">
         <label class="h-label" for="tu-what">Send again</label>
-        <select id="tu-what" class="ad-field tu-sel"></select>
+        <span class="tu-selw"><select id="tu-what" class="ad-field tu-sel"></select></span>
         <button type="button" class="ad-btn" id="tu-send-team" disabled>Send to the team</button>
         <span class="ad-stamp" id="tu-msg" role="status"></span>
       </div>

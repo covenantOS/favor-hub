@@ -5,7 +5,9 @@
 .tu-tile b { font: 500 26px/1.15 var(--h-serif); color: var(--r-ink); }
 .tu-tile span { font: 400 14px/1.4 var(--h-font); color: var(--r-ink-2); }
 .tu-note { margin: 0; font: 400 15px/1.5 var(--h-font); color: var(--r-ink-2); }
-.tu-sel { width: auto; background-image: none; -webkit-appearance: menulist; appearance: auto; padding-right: 8px; }
+.tu-selw { position: relative; display: inline-flex; }
+.tu-selw::after { content: ''; position: absolute; right: 12px; top: 50%; width: 7px; height: 7px; margin-top: -6px; border-right: 2px solid var(--r-ink-2); border-bottom: 2px solid var(--r-ink-2); transform: rotate(45deg); pointer-events: none; }
+select.ad-field.tu-sel { width: auto; background-image: none !important; -webkit-appearance: none; appearance: none; padding-right: 32px; }
 .tu-send { padding-top: 4px; }
 .tu-send .h-label { margin: 0; }
 .tu-cell { white-space: nowrap; }
