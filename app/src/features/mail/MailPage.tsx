@@ -614,6 +614,13 @@ export function MailPage() {
     else set({ sel: n });
   };
 
+  const followUp = (id: string) => {
+    const t = findThread(id);
+    const p = t && t.people && t.people[0];
+    const first = ((p && p.name) || '').replace(/^To: /, '').split(/\s+/)[0] || 'there';
+    pendingReply.current = { id, text: 'Hi ' + first + ',' + String.fromCharCode(10, 10) + 'I am following up on my last note. Where does this stand on your side?' };
+    go(S.current.label, S.current.q, id);
+  };
   const pickedIds = () => Object.keys(S.current.picked);
   const setPick = (id: string, on: boolean) => {
     if (on) S.current.picked[id] = 1;
@@ -1629,6 +1636,11 @@ export function MailPage() {
                           <MI n="star" />
                         </button>
                         <span className="ml-row__hover">
+                          {t.waitDays != null ? (
+                            <button type="button" className="ml-iconbtn" onClick={() => followUp(t.id)} aria-label="Follow up" title="Follow up">
+                              <MI n="reply" />
+                            </button>
+                          ) : null}
                           <button type="button" className="ml-iconbtn" onClick={() => act('archive', t.id)} aria-label="Archive" title="Archive (e)">
                             <MI n="archive" />
                           </button>

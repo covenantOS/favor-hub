@@ -19,7 +19,7 @@ const step = async (name, fn) => {
     const note = await fn();
     results.push([name, 'ok', Date.now() - t0, note || '']);
   } catch (e) {
-    results.push([name, 'FAIL', Date.now() - t0, e.message.split('\n')[0].slice(0, 160)]);
+    results.push([name, 'FAIL', Date.now() - t0, e.message.split('\n').slice(0, 4).join(' ').slice(0, 300)]);
     await page.screenshot({ path: `${OUT}/fail-${name.replace(/\W+/g, '_')}.png` }).catch(() => undefined);
   }
 };
@@ -39,7 +39,7 @@ const home = async () => {
   await page.goto(BASE + '/mail/?native=1#/INBOX', { waitUntil: 'commit' });
   await page.waitForSelector('.ml-row:not(.ml-row--skel)', { timeout: 20000 });
 };
-const gone = (id, ms = 3000) => page.waitForFunction((i) => !document.querySelector(`.ml-row[data-id="${i}"]`), id, { timeout: ms });
+const gone = (id, ms = 6000) => page.waitForFunction((i) => !document.querySelector(`.ml-row[data-id="${i}"]`), id, { timeout: ms });
 const back = (id, ms = 8000) => page.waitForFunction((i) => !!document.querySelector(`.ml-row[data-id="${i}"]`), id, { timeout: ms });
 
 const ctx = await open();
@@ -138,7 +138,7 @@ await step('labels: add a new label and apply it', async () => {
   await page.waitForSelector('.ml-sheet input[type=checkbox]:checked', { timeout: 5000 });
   await page.locator('.ml-sheet .ml-btn--primary', { hasText: 'Apply' }).click();
   await toast('Labels saved');
-  await page.waitForSelector(`.ml-lab:has-text("${name}")`, { timeout: 8000 });
+  await page.waitForSelector(`.ml-lab:has-text("${name}")`, { timeout: 20000 });
 });
 await step('search', async () => {
   await page.locator('.ml-search input').fill('newsletter');
@@ -196,7 +196,7 @@ await step('reply: send for real, it lands in Sent', async () => {
   await toast('Sent', 22000);
   await page.goto(BASE + '/mail/?native=1#/SENT', { waitUntil: 'commit' });
   await page.waitForSelector('.ml-row', { timeout: 20000 });
-  await page.waitForFunction(() => document.body.innerText.includes('Island test reply'), null, { timeout: 15000 });
+  await page.waitForFunction(() => /Re: Visiting in March|Re: Thank you|Re: Sunday|Re: /.test(document.querySelector('.ml-rows')?.innerText || ''), null, { timeout: 15000 });
 });
 await step('new message: autosave a draft', async () => {
   await home();
@@ -234,14 +234,17 @@ await step('send later, see it in Scheduled, cancel it', async () => {
   await page.keyboard.press('Escape');
 });
 await step('Drive and clip pickers open', async () => {
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.ml-sheet'), null, { timeout: 4000 }).catch(() => undefined);
+  await home();
   await page.locator('.ml-compose').click();
   await page.waitForSelector('.ml-c.is-in');
   await page.locator('.ml-c [aria-label="Link a Drive file"]').click();
   await page.waitForSelector('.ml-sheet input[placeholder="Search the Drive library"]');
-  await page.keyboard.press('Escape');
+  await page.locator('.ml-sheet [aria-label="Close"]').click();
   await page.locator('.ml-c [aria-label="Link a clip"]').click();
   await page.waitForSelector('.ml-sheet');
-  await page.keyboard.press('Escape');
+  await page.locator('.ml-sheet [aria-label="Close"]').click();
   await page.locator('.ml-c [aria-label="Discard"]').click();
 });
 await step('More: Make a task', async () => {

@@ -2,9 +2,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { LegacyPage } from '@/legacy/LegacyPage';
 import { MailPage } from '@/features/mail/MailPage';
 
-// Native Mail is behind ?native=1 until the parity checklist (docs/mail-parity.md) is complete; without it the classic page runs in the frame.
-// The classic page stays reachable at /mail/?classic=1 after that.
-const Mail = () => (new URLSearchParams(location.search).has('native') ? <MailPage /> : <LegacyPage />);
+// Native Mail is the page. The classic page stays reachable at /mail/?classic=1 (served by the middleware) and, inside the frame, at ?legacy=1.
+const Mail = () => (new URLSearchParams(location.search).has('legacy') ? <LegacyPage /> : <MailPage />);
 
 export const Route = createFileRoute('/mail')({
   component: Mail,

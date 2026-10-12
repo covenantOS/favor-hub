@@ -44,8 +44,13 @@ function Chips({ k, label, list, setList, extra }: { k: string; label: string; l
   const [sug, setSug] = useState<any[]>([]);
   const [hi, setHi] = useState(0);
   const timer = useRef(0);
+  const seq = useRef(0);
   const input = useRef<HTMLInputElement>(null);
   const commit = (text: string) => {
+    // An answer still on its way for what was typed must not open the list again.
+    seq.current++;
+    clearTimeout(timer.current);
+    setSug([]);
     const parts = text.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
     const left: string[] = [];
     const add: any[] = [];
@@ -55,11 +60,13 @@ function Chips({ k, label, list, setList, extra }: { k: string; label: string; l
   };
   const find = (q: string) => {
     clearTimeout(timer.current);
+    const mine = ++seq.current;
     if (q.trim().length < 1) return setSug([]);
     timer.current = window.setTimeout(() => {
       getApi()
         .contacts(q.trim())
         .then((d: any) => {
+          if (mine !== seq.current) return;
           const have = list.map((a) => a.email);
           setSug((d.people || []).filter((p: any) => have.indexOf(p.email) < 0).slice(0, 8));
           setHi(0);
@@ -68,6 +75,7 @@ function Chips({ k, label, list, setList, extra }: { k: string; label: string; l
     }, 140);
   };
   const pick = (p: any) => {
+    seq.current++;
     setList(list.concat([{ email: p.email, name: p.name }]));
     setVal('');
     setSug([]);
