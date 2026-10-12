@@ -53,3 +53,7 @@ The Day summary on the front page lists each deposit for a day: the tape, what w
 ## After the batch is approved
 
 Once Jennifer approves the batch in Blackbaud, each gift joins the thank-you receipts queue on the Receipts page, which prints a receipt for every partner who gives. A gift at the level that earns a handwritten thank-you letter appears on the HQ thank-you letters list in the Work Center when the Work Center rule says so. The receipts run never prints those letters.
+
+## The daily revenue report
+
+When the batch is in Blackbaud, the deposit page shows **Daily revenue report**, built from the gifts in this batch: the total for the day, the number of gifts, the gifts of $1,000 and up, and the totals by post block. It does not wait for Blackbaud's copy to refresh. **Copy for WhatsApp** puts the post on the clipboard, and **The post** shows it. Held and rejected gifts are left out. A gift with no partner picked is left out and counted under the totals. The same report for any day is under Reports, Daily Revenue Report.

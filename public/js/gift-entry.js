@@ -338,9 +338,44 @@ function status() {
       <div class="ge-steps" style="margin-top:8px">${tl.map((x, i) => `<div class="ge-step is-${x.k}"><span class="d">${x.k === 'done' ? ic(I.check) : i + 1}</span><div><b>${x.t}</b><span>${x.s}</span></div></div>`).join('')}</div></section>
     <section class="h-card ge-card"><div class="ge-hd"><h2>Gifts</h2><span class="sp"></span><span class="ge-muted">${v.rows.length} · ${money(v.tape.cents)}</span></div>
       ${v.rows.map((r) => `<div class="ge-sumrow"><b>${esc(r.payer || 'Gift ' + r.seq)}</b><span class="f">${esc(r.partner ? r.partner.name : 'No partner')} · ${esc(r.status === 'sent' ? 'In the batch' : r.status === 'failed' ? 'Needs a person' : r.status === 'by_hand' ? 'Enter by hand' : r.status)}${r.confirmedBy ? ' · approved by ' + esc(nameOf(r.confirmedBy)) : ''}${r.error ? ' · ' + esc(r.error) : ''}</span><span class="a ge-money">${money(r.amountCents)}</span></div>`).join('')}</section>
+    <div id="ge-revenue">${revenueCard(d)}</div>
     ${rejectedLine(v)}`;
+  if (['created', 'committed', 'needs_person'].includes(d.status)) loadRevenue(d);
   if (['sending', 'created', 'committed'].includes(d.status)) startPoll(); else stopPoll();
 }
+
+// ---------------------------------------------------------------- the day's revenue report, from this deposit
+// Once the batch is in Blackbaud the Daily Revenue Report is built from the deposit's own gifts (GET .../revenue), so it is ready when
+// the batch is done. Copy puts the post on the clipboard for WhatsApp.
+S.revenue = S.revenue || {};
+function revenueCard(d) {
+  if (!['created', 'committed', 'needs_person'].includes(d.status)) return '';
+  const r = S.revenue[d.id];
+  if (!r) return `<section class="h-card ge-card"><div class="ge-hd"><h2>Daily revenue report</h2></div><div class="ge-muted">Building from this batch</div></section>`;
+  if (r.error) return `<section class="h-card ge-card"><div class="ge-hd"><h2>Daily revenue report</h2></div><div class="ge-note ge-note--red">${esc(r.error)}</div></section>`;
+  const blocks = r.blocks.filter((b) => b.total).map((b) => `<div class="ge-sumrow"><b>${esc(b.name)}</b><span class="f">${b.entries ? b.entries + ' highlighted' : ''}</span><span class="a ge-money">${money(Math.round(b.total * 100))}</span></div>`).join('');
+  return `<section class="h-card ge-card ge-rev"><div class="ge-hd"><h2>Daily revenue report</h2><span class="sp"></span><button class="ge-btn ge-btn--primary" data-rev-copy>Copy for WhatsApp</button></div>
+    <div class="ge-tape"><div class="ge-tile"><span class="n ge-money">${money(Math.round(r.total * 100))}</span><span class="l">${esc(r.dateLabel)}</span></div><div class="ge-tile"><span class="n">${Number(r.count).toLocaleString('en-US')}</span><span class="l">Gifts in this batch</span></div><div class="ge-tile"><span class="n">${Number(r.highlights).toLocaleString('en-US')}</span><span class="l">$1,000 and up</span></div></div>
+    ${blocks}
+    ${r.noPartner ? `<div class="ge-note" style="margin-top:8px">${r.noPartner} ${r.noPartner === 1 ? 'gift has' : 'gifts have'} no partner and ${r.noPartner === 1 ? 'is' : 'are'} not in the report.</div>` : ''}
+    <details class="ge-revtext"><summary>The post</summary><pre>${esc(r.text)}</pre></details></section>`;
+}
+async function loadRevenue(d) {
+  const key = d.id + ':' + d.status;
+  if (S.revenueKey === key) return;
+  S.revenueKey = key;
+  try { const out = await api('/api/gift-entry/deposits/' + encodeURIComponent(d.id) + '/revenue'); S.revenue[d.id] = out.revenue; }
+  catch (e) { S.revenue[d.id] = { error: e.message || 'The report did not build. Try Check now.' }; }
+  const box = document.getElementById('ge-revenue');
+  if (box && S.view && S.view.deposit && S.view.deposit.id === d.id) box.innerHTML = revenueCard(S.view.deposit);
+}
+root.addEventListener('click', async (e) => {
+  const b = e.target.closest && e.target.closest('[data-rev-copy]');
+  if (!b || !S.view || !S.view.deposit) return;
+  const r = S.revenue[S.view.deposit.id];
+  if (!r || !r.text) return;
+  try { await navigator.clipboard.writeText(r.text); toast('Copied. Paste it in WhatsApp.'); } catch (_) { toast('Copy did not work. Open The post and copy it.'); }
+});
 
 // ---------------------------------------------------------------- camera and the upload queue
 async function sharp(canvas) {

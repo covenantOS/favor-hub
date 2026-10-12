@@ -129,7 +129,9 @@ export interface GridGift {
   rows: GridRow[];
 }
 
-interface RawGift {
+export interface RawGift {
+  /** A gift not in the mirror yet carries the partner's name, for a record the mirror does not have. */
+  pname?: string;
   id: string;
   lid: string | null;
   cid: string;
@@ -156,15 +158,22 @@ const EXCLUDED_FUNDRAISERS = ['32148', '32295', '33656'];
 
 const COUNTRY: Record<string, string> = { 'United States': 'US', Australia: 'AU', 'New Zealand': 'NZ' };
 
-/** Every gift from `from` to `to` (inclusive, YYYY-MM-DD) except Recurring Gift setups and zero or negative amounts, shaped as the query grid. */
-export async function loadGrid(ctx: ReportContext, from: string, to: string, limit = 5000): Promise<GridGift[]> {
-  const gifts = await ctx.sql<RawGift>(
-    `SELECT id AS id, json_extract(raw_json, '$.lookup_id') AS lid, constituent_record_id AS cid, gift_amount AS amount, substr(gift_date, 1, 10) AS d, gift_type AS gtype, gift_payment_method AS pm,
-            gift_splits AS splits, soft_credits AS soft
-       FROM gifts WHERE substr(gift_date, 1, 10) >= ?1 AND substr(gift_date, 1, 10) <= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift'
-      ORDER BY gift_date, id LIMIT ${limit}`,
-    [from, to]
-  );
+/**
+ * Every gift from `from` to `to` (inclusive, YYYY-MM-DD) except Recurring Gift setups and zero or negative amounts, shaped as the query grid.
+ * `given` replaces the mirror's gifts with gifts that are not in the mirror yet (a gift entry batch just sent): the partners, appeals,
+ * funds and assignments still come from the mirror, and each given gift counts toward its partner's lifetime giving, so a partner with
+ * nothing in the mirror reads as a new partner.
+ */
+export async function loadGrid(ctx: ReportContext, from: string, to: string, limit = 5000, given?: RawGift[]): Promise<GridGift[]> {
+  const gifts = given
+    ? given.filter((g) => num(g.amount) > 0)
+    : await ctx.sql<RawGift>(
+        `SELECT id AS id, json_extract(raw_json, '$.lookup_id') AS lid, constituent_record_id AS cid, gift_amount AS amount, substr(gift_date, 1, 10) AS d, gift_type AS gtype, gift_payment_method AS pm,
+                gift_splits AS splits, soft_credits AS soft
+           FROM gifts WHERE substr(gift_date, 1, 10) >= ?1 AND substr(gift_date, 1, 10) <= ?2 AND gift_amount > 0 AND gift_type <> 'RecurringGift'
+          ORDER BY gift_date, id LIMIT ${limit}`,
+        [from, to]
+      );
   if (!gifts.length) return [];
   const people = new Set<string>();
   const appeals = new Set<string>();
@@ -241,6 +250,15 @@ export async function loadGrid(ctx: ReportContext, from: string, to: string, lim
     return names.length ? [...new Set(names)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)) : [''];
   };
 
+  // Given gifts are not in the mirror yet: they add to their partner's lifetime giving, and the first of them is the partner's first gift
+  // when the mirror has none.
+  const freshOf = new Map<string, { total: number; first: string; name: string }>();
+  if (given) for (const { g } of parsed) {
+    const k = String(g.cid);
+    const f = freshOf.get(k);
+    if (f) f.total += num(g.amount);
+    else freshOf.set(k, { total: num(g.amount), first: txt(g.lid) || String(g.id), name: txt(g.pname) });
+  }
   return parsed.map(({ g, splits, soft }) => {
     const giftID = txt(g.lid) || String(g.id);
     const recordId = String(g.id);
@@ -250,7 +268,8 @@ export async function loadGrid(ctx: ReportContext, from: string, to: string, lim
       const country = n?.country ? COUNTRY[n.country] || n.country : n?.st ? 'US' : '';
       const sf = softOf.get(cid);
       const keys = [st?.fk, sf?.fk].filter((k): k is string => !!k).sort();
-      return { name: txt(n?.name), state: txt(n?.st), country, first: keys.length ? keys[0].slice(keys[0].indexOf('|') + 1) : '', life: round2(num(st?.life) + num(sf?.s)) };
+      const fresh = freshOf.get(cid);
+      return { name: txt(n?.name) || (fresh ? fresh.name : ''), state: txt(n?.st), country, first: keys.length ? keys[0].slice(keys[0].indexOf('|') + 1) : fresh ? fresh.first : '', life: round2(num(st?.life) + num(sf?.s) + (fresh ? fresh.total : 0)) };
     };
     const entries: Array<{ soft: string; sk: string; fr: string; row: GridRow }> = [];
     const base = (cid: string, softName: string, fundraiser: string, sp: { amount?: { value?: number }; appeal_id?: string; fund_id?: string }): GridRow => {

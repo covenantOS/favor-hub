@@ -213,11 +213,8 @@
   }
   const chipFor = (id, name) => (window.FavorEntity && id ? window.FavorEntity.chip('partner', String(id), String(name || 'Partner')) : id ? `<a href="/work/partner/${esc(id)}" data-partner-id="${esc(id)}">${esc(name)}</a>` : esc(name));
   const giftLink = (r) => (r.record_id && r.gift_id ? `<a class="dr-gift" href="/work/partner/${esc(r.record_id)}?gift=${esc(r.gift_id)}">${money(r.amount)}</a>` : `<b>${money(r.amount)}</b>`);
-  const delta = (a, b, fmt) => {
-    if (!b) return a ? 'none last week' : '';
-    const d = a - b;
-    return `${d >= 0 ? '+' : '-'}${fmt(Math.abs(d))} on last week`;
-  };
+  const delta = (b, fmt) => `Last week ${fmt(b)}`;
+  const dday = (iso) => esc(dshort(iso).replace(/, \d{4}$/, ''));
   function weekHTML(s) {
     const w = s.week;
     if (!w) return '';
@@ -225,13 +222,13 @@
     const newRows = fresh ? w.now.filter((r) => fresh[String(r.record_id)]).sort((a, b) => b.amount - a.amount) : [];
     const seen = new Set();
     const newList = newRows.filter((r) => (seen.has(r.record_id) ? false : seen.add(r.record_id)));
-    const line = (r) => `<li><span>${chipFor(r.record_id, r.partner)}<small>${esc(dshort(r.date))}${r.appeal_code ? ' · ' + esc(r.appeal_code) : ''}</small></span>${giftLink(r)}</li>`;
-    const span = w.start === w.today ? esc(dshort(w.today)) : `${esc(dshort(w.start).replace(/, \d{4}$/, ''))} to ${esc(dshort(w.today))}`;
+    const line = (r) => `<li><span>${chipFor(r.record_id, r.partner)}<small>${dday(r.date)}${r.appeal_code ? ' · ' + esc(r.appeal_code) : ''}</small></span>${giftLink(r)}</li>`;
+    const span = w.start === w.today ? dday(w.today) : `${dday(w.start)} to ${dday(w.today)}`;
     return `<section class="dr-week" aria-label="This week"><h3>This week <span>${span}</span></h3>
       <div class="dr-wk">
-        <div><b>${count(w.gifts)}</b><span>Gifts</span><small>${esc(delta(w.gifts, w.lastGifts, count))}</small></div>
-        <div><b>${money(w.total)}</b><span>Given</span><small>${esc(delta(w.total, w.lastTotal, money))}</small></div>
-        <div><b>${fresh ? count(newList.length) : '…'}</b><span>New partners</span><small>First gift this week</small></div>
+        <div><b>${count(w.gifts)}</b><span>Gifts</span><small>${esc(delta(w.lastGifts, count))}</small></div>
+        <div><b>${money(w.total)}</b><span>Given</span><small>${esc(delta(w.lastTotal, money))}</small></div>
+        <div><b>${fresh ? count(newList.length) : '…'}</b><span>New partners</span><small>First gift ever</small></div>
       </div>
       ${w.largest.length ? `<p class="dr-sub">Largest gifts this week</p><ul class="dr-lines dr-wkl">${w.largest.map(line).join('')}</ul>` : '<p class="dr-note">No gifts dated this week yet.</p>'}
       ${newList.length ? `<p class="dr-sub">New partners</p><ul class="dr-lines dr-wkl">${newList.slice(0, 8).map(line).join('')}</ul>${newList.length > 8 ? `<p class="dr-note">${count(newList.length - 8)} more in the rows below.</p>` : ''}` : ''}

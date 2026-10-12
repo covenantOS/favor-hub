@@ -533,3 +533,8 @@ html body.h-body #wc-root .wcd-who .wcd-found { display: block; white-space: now
 
 /* A gift opened from another page (?gift=): the timeline row is marked. */
 html body.h-body .pp-tl .pp-ev.is-focus { background: var(--h-leaf-soft, #e4ece1); border-radius: 10px; box-shadow: 0 0 0 6px var(--h-leaf-soft, #e4ece1); }
+
+/* Gift entry: the day's revenue report from the batch (2026-10-12). */
+html body.h-body .ge-rev .ge-tape { margin: 4px 0 8px; }
+html body.h-body .ge-revtext summary { cursor: pointer; font: 600 13px var(--h-font); color: var(--h-ink-2); padding: 8px 0; }
+html body.h-body .ge-revtext pre { white-space: pre-wrap; font: 500 13px/1.45 var(--h-font); color: var(--h-ink-2); background: var(--h-surface-2); border-radius: 10px; padding: 12px; margin: 0; max-height: 360px; overflow: auto; }
