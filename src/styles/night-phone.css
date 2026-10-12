@@ -21,3 +21,23 @@
   /* The lock sat against the channel name in the header. */
   body.h-body .ch-head__name > svg:first-child, body.h-body .ch-head__name > span:first-child:not(:only-child) { margin-right: 4px; }
 }
+
+/* Requests board */
+@media (max-width: 860px) {
+  /* The filter row ran 2 px past both screen edges (the page scrolled sideways) and gave no sign that more chips sit to the right. */
+  body.h-body #req-filters.rt-filters { margin-left: -14px; margin-right: -14px; padding-left: 14px; padding-right: 28px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+  /* Inbox, Approved, In motion and Done sit on one row as four equal parts; Done used to wrap to a row of its own. */
+  body.h-body #req-tabs.req-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: #e9e4d6; }
+  body.h-body #req-tabs.req-tabs > button { min-width: 0; min-height: 44px; padding: 0 2px; border: 0; border-radius: 10px; background: transparent; color: #4a4f45; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: none; text-align: center; justify-content: center; }
+  body.h-body #req-tabs.req-tabs > button.is-on { background: #fff; color: #1d211b; box-shadow: 0 1px 3px rgba(42, 39, 34, 0.14); }
+}
+
+/* Favor Brain */
+@media (max-width: 860px) {
+  /* "Show all" under a table was squeezed into a 44 px square with its words running under the arrow. */
+  body.h-body .bc-root .h-btn--xs[data-act='topen'] { width: auto; min-width: 44px; height: 44px; padding: 0 12px; white-space: nowrap; flex: none; }
+}
+@media (hover: none) {
+  /* A keyboard shortcut is no use on a touch screen. */
+  body.h-body .bc-root .bc-new kbd { display: none; }
+}

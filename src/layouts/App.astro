@@ -239,7 +239,9 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
           var counts = d.counts || {};
           window.__hubTasks = Number(counts.tasks) || 0;
-          document.querySelectorAll('[data-count]').forEach(function (el) {
+          // Only the menu's own counts. Pages use data-count for other things (the Brain's stat tiles, the Projects timeline), and this
+          // used to set those to 0 and hide them each time the menu refreshed.
+          document.querySelectorAll('.h-nav__count[data-count]').forEach(function (el) {
             var n = Number(counts[el.dataset.count]) || 0;
             el.hidden = !n;
             el.textContent = n.toLocaleString('en-US');
