@@ -47,7 +47,7 @@ function build() {
       <section class="pj-dr__sec" data-files></section>
       <section class="pj-dr__sec"><h3 class="rt-h">Activity</h3><div class="rt-activity rt-ch" data-activity aria-live="polite"></div></section>
     </div>
-    <footer class="rt-dfoot rt-ch" data-comp></footer>
+    <footer class="rt-dfoot" data-comp></footer>
   </aside>`;
   document.body.appendChild(el);
   el.addEventListener('click', onClick);
@@ -311,7 +311,7 @@ function paintComposer() {
   const box = el.querySelector('[data-comp]');
   if (box._for === st.id) return;
   box._for = st.id;
-  box.innerHTML = M.composerHtml('Write a comment. Type @ to mention someone.');
+  box.innerHTML = M.composerHtml();
   M.bindComposer(box, async (text) => {
     const id = st.id;
     const tmp = { id: 'tmp-' + Math.random().toString(36).slice(2), task_id: id, author_email: Staff.me, body: text, mentions: M.mentionsIn(text), source: 'hub', created_at: new Date().toISOString() };

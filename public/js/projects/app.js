@@ -40,7 +40,7 @@ const shell = {
 };
 setDrawerHooks({
   open: (t) => setUrl((p) => p.set('t', t.code || t.id)),
-  close: () => setUrl((p) => p.delete('t')),
+  close: () => { setUrl((p) => p.delete('t')); if (PJ.refreshView) PJ.refreshView(); },
 });
 
 /* ---------------------------------------------------------------- the project page */
@@ -62,7 +62,7 @@ async function mountProject(root, key) {
       <div class="pj-pheader__act" data-pact></div>
     </header>
     <div class="pj-tabsrow">
-      <nav class="pj-views" role="tablist" aria-label="View">${VIEWS.map(([id, label, ic]) => `<button type="button" role="tab" class="pj-view" data-view="${id}" aria-selected="false">${icon(ic)}<span>${label}</span></button>`).join('')}</nav>
+      <nav class="pj-views" role="tablist" aria-label="View">${VIEWS.map(([id, label, ic]) => `<button type="button" role="tab" data-ui-tooltip="pj-tip" aria-label="${label}" class="pj-view" data-view="${id}" aria-selected="false">${icon(ic)}<span>${label}</span></button>`).join('')}</nav>
       <div class="pj-tools" data-tools></div>
     </div>
     <div class="pj-stage" data-stage></div>
@@ -77,10 +77,10 @@ async function mountProject(root, key) {
     const taskView = list || board;
     const n = filterCount();
     tools.innerHTML = `${taskView ? `<label class="pj-search pj-search--bar">${icon('search')}<input type="search" data-q placeholder="Search tasks" aria-label="Search tasks" autocomplete="off" value="${esc(ctx.filter.q)}" /></label>` : ''}
-      ${taskView ? `<button type="button" class="pj-tool${n ? ' is-on' : ''}" data-t="filter" aria-label="Filter and sort">${icon('filter')}<span>Filter</span>${n ? `<em>${n}</em>` : ''}</button>` : ''}
-      ${board ? `<button type="button" class="pj-tool" data-t="group" aria-label="${ctx.boardBy === 'status' ? 'By status' : 'By section'}">${icon('board')}<span>${ctx.boardBy === 'status' ? 'By status' : 'By section'}</span></button>` : ''}
-      ${list ? `<button type="button" class="pj-tool${ctx.selecting ? ' is-on' : ''}" data-t="select" aria-label="Select" aria-pressed="${!!ctx.selecting}">${icon('check')}<span>Select</span></button>` : ''}
-      <button type="button" class="pj-btn pj-btn--primary pj-tool--add" data-t="add" title="Add task (Tab, then Q)">${icon('plus')}<span>Add task</span></button>`;
+      ${taskView ? `<button type="button" data-ui-tooltip="pj-tip" class="pj-tool${n ? ' is-on' : ''}" data-t="filter" aria-label="Filter and sort">${icon('filter')}<span>Filter</span>${n ? `<em>${n}</em>` : ''}</button>` : ''}
+      ${board ? `<button type="button" data-ui-tooltip="pj-tip" class="pj-tool" data-t="group" aria-label="${ctx.boardBy === 'status' ? 'By status' : 'By section'}">${icon('board')}<span>${ctx.boardBy === 'status' ? 'By status' : 'By section'}</span></button>` : ''}
+      ${list ? `<button type="button" data-ui-tooltip="pj-tip" class="pj-tool${ctx.selecting ? ' is-on' : ''}" data-t="select" aria-label="Select" aria-pressed="${!!ctx.selecting}">${icon('check')}<span>Select</span></button>` : ''}
+      <button type="button" data-ui-tooltip="pj-tip" aria-label="Add task" class="pj-btn pj-btn--primary pj-tool--add" data-t="add" title="Add task (Tab, then Q)">${icon('plus')}<span>Add task</span></button>`;
     const q = tools.querySelector('[data-q]');
     if (q) q.addEventListener('input', debounce(() => { ctx.filter.q = q.value.trim(); ctx.emit('filter'); }, 120));
   }
@@ -131,7 +131,9 @@ async function mountProject(root, key) {
   }
 
   /* ----- views */
+  let viewSeq = 0;
   function clearStage() {
+    viewSeq++;
     if (current && current.destroy) current.destroy();
     if (extHandle && extHandle.destroy) { try { extHandle.destroy(); } catch (_) { /* a view that fails to clean up must not block the next */ } }
     current = null; extHandle = null; PJ.current = null;
@@ -142,15 +144,17 @@ async function mountProject(root, key) {
     view = v;
     if (!fromUrl) { setPref('view', v); setUrl((p) => p.set('view', v)); }
     root.querySelectorAll('[data-view]').forEach((b) => { const on = b.dataset.view === v; b.setAttribute('aria-selected', String(on)); b.classList.toggle('is-on', on); b.tabIndex = on ? 0 : -1; });
+    const wasExt = stage.classList.contains('pj-stage--ext');
     clearStage();
+    if (wasExt && (v === 'list' || v === 'board')) ctx.reloadTasks();
     ctx.sel.clear(); ctx.selecting = false;
     paintTools();
     const opts = { key, open: (t) => shell.open(ctx, t), quickAdd: () => shell.quickAdd(ctx, { section_id: current && current.currentGroupId ? current.currentGroupId() || null : null }) };
     if (v === 'list') { const el = document.createElement('div'); stage.appendChild(el); stage.classList.add('pj-stage--list'); current = mountList(el, ctx, { ...opts, mode: 'project' }); }
     else if (v === 'board') { const el = document.createElement('div'); stage.appendChild(el); stage.classList.add('pj-stage--board'); current = mountBoard(el, ctx, opts); }
-    else mountExternal(v);
+    else { PJ.refreshView = () => { if (extHandle && extHandle.refresh) extHandle.refresh(); }; mountExternal(v); }
   }
-  function mountExternal(v) {
+  async function mountExternal(v) {
     const el = document.createElement('div');
     el.id = 'pj-view-' + v;
     el.className = 'pj-ext';
@@ -161,11 +165,26 @@ async function mountProject(root, key) {
     stage.classList.add('pj-stage--ext');
     const detail = { view: v, el, ctx, project: ctx.project, sections: ctx.sections, members: ctx.members, openTask: (ref) => openDrawer(ctx, ref), quickAdd: (d) => shell.quickAdd(ctx, d), api };
     PJ.current = detail;
-    const plug = PJ.views[v];
-    if (plug && plug.mount) { try { extHandle = plug.mount(el, detail) || null; } catch (e) { el.innerHTML = '<div class="pj-empty pj-empty--err"><p>This view did not open.</p></div>'; } }
-    else {
-      el.innerHTML = '<div class="pj-skel" aria-busy="true"><i></i><i></i><i></i></div>';
-      setTimeout(() => { if (PJ.current === detail && !PJ.views[v] && !extHandle && el.querySelector('.pj-skel')) el.innerHTML = `<div class="pj-empty"><b>${esc(VIEWS.find((x) => x[0] === v)[1])} is not available yet</b><span>Use the List or the Board for now.</span></div>`; }, 2500);
+    el.innerHTML = '<div class="pj-skel" aria-busy="true"><i></i><i></i><i></i></div>';
+    const mySeq = ++viewSeq;
+    try {
+      // Lane VIEWS: each module registers itself on window.FavorProjects.views and mounts as mount(el, { api, project, sections, members, user }).
+      const fp = (window.FavorProjects = window.FavorProjects || {});
+      fp.openTask = (ref) => openDrawer(ctx, ref);
+      await import('./' + v + '.js');
+      if (mySeq !== viewSeq) return;
+      const plug = (fp.views || {})[v] || PJ.views[v];
+      if (!plug || !plug.mount) throw new Error('missing');
+      await ctx.loadedP;
+      if (mySeq !== viewSeq) return;
+      const { api: core } = await import('./api.js');
+      el.innerHTML = '';
+      const h = await plug.mount(el, { api: core, project: ctx.project, sections: ctx.sections, members: ctx.members, user: { email: Staff.me } });
+      if (mySeq !== viewSeq) { if (h && h.destroy) h.destroy(); return; }
+      extHandle = h || null;
+    } catch (e) {
+      if (mySeq === viewSeq) el.innerHTML = '<div class="pj-empty pj-empty--err"><b>This view did not open</b><span>Use the List or the Board for now.</span><button type="button" class="pj-btn" data-retry>Try again</button></div>';
+      const r = el.querySelector('[data-retry]'); if (r) r.addEventListener('click', () => setView(v, true));
     }
     window.dispatchEvent(new CustomEvent('pj:view', { detail }));
   }
@@ -196,8 +215,9 @@ async function mountProject(root, key) {
 
   ctx.on((w) => { if (w === 'load') { if (ctx.project) paintHeader(); } });
   await loadStaff();
+  ctx.loadedP = ctx.load(key);
   setView(view, true);
-  const loaded = ctx.load(key).then(() => {
+  const loaded = ctx.loadedP.then(() => {
     if (ctx.error) {
       const gone = ctx.status === 404 || ctx.status === 403;
       stage.innerHTML = `<div class="pj-empty pj-empty--err"><b>${gone ? 'This project is not available to you' : 'This project did not load'}</b><span>${esc(ctx.error)}</span>${gone ? '<a class="pj-btn" href="/projects/">All projects</a>' : '<button type="button" class="pj-btn" data-retry>Try again</button>'}</div>`;

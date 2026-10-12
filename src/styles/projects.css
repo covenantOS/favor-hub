@@ -536,3 +536,75 @@ body.h-body .pj-qa__title:focus-visible, body.h-body .pj-add__in:focus-visible, 
 .pj-fields .rt-field dd { gap: 8px; }
 .pj-dr .rt-activity .ch-msg .ch-av { font-size: 13px; }
 .pj-dr .rt-event time, .pj-dr .rt-activity time { font-size: 13px; }
+
+/* Drawer building blocks (the request board drew these before round 2; they now live here) */
+/* Chat's base rules (.ch) lay out the whole Chat screen, so the board's pieces carry their own copy of the few they need. */
+.rt-ch { font: 400 14px/1.45 var(--h-font, Inter, system-ui, sans-serif); color: var(--r-ink); }
+.rt-ch button { font: inherit; color: inherit; cursor: pointer; }
+.rt-ch svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.rt-ch [hidden] { display: none !important; }
+body.h-body .rt-ch .ch-comp textarea:focus, body.h-body .rt-ch .ch-comp textarea:focus-visible { outline: none !important; box-shadow: none !important; }
+@media (max-width: 860px) { .rt-ch textarea { font-size: 16px !important; } }
+
+/* ---------------------------------------------------------------- the drawer: a header, the request and its conversation, the comment box */
+
+.rt-fields { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 0; margin: 0 0 18px; border-top: 1px solid var(--r-line); }
+.rt-field { display: contents; }
+.rt-field dt, .rt-field dd { border-bottom: 1px solid var(--r-line); min-height: 52px; display: flex; align-items: center; }
+.rt-field dt { font: 600 13px/1.2 var(--h-font, Inter, sans-serif); color: var(--r-ink-3); }
+.rt-field dd { margin: 0; gap: 8px; flex-wrap: wrap; padding: 6px 0; font-size: 14px; }
+.rt-none-inline { color: var(--r-ink-3); }
+.rt-pchip, .rt-pstatic { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 10px 4px 6px; border-radius: 10px; border: 1px solid transparent; background: none; text-align: left; font: inherit; color: inherit; }
+.rt-pchip { cursor: pointer; border-color: var(--r-line); }
+.rt-pchip:hover { border-color: var(--r-ink-3); background: var(--r-hover); }
+.rt-pchip__t { display: flex; flex-direction: column; min-width: 0; }
+.rt-pchip__t b { font-weight: 700; font-size: 14px; line-height: 1.2; }
+.rt-pchip__t small { color: var(--r-ink-3); font-size: 12px; line-height: 1.2; }
+.rt-stack { display: inline-flex; align-items: center; }
+.rt-stack > span { margin-left: -6px; border-radius: 8px; box-shadow: 0 0 0 2px #fff; display: inline-flex; }
+.rt-stack > span:first-child { margin-left: 0; }
+.rt-more { margin-left: 6px; font: 600 12.5px var(--h-font, Inter, sans-serif); color: var(--r-ink-3); box-shadow: none !important; }
+.rt-date { height: 40px; padding: 0 10px; border: 1px solid var(--r-line-2); border-radius: 10px; background: #fff; font: 500 14px var(--h-font, Inter, sans-serif); color: var(--r-ink); }
+
+.rt-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--r-line-2); background: #fff; color: var(--r-ink); font: 700 14px/1 var(--h-font, Inter, sans-serif); cursor: pointer; }
+.rt-btn:hover { border-color: var(--r-ink-3); }
+.rt-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.rt-btn--primary { background: var(--a, #2b4d24); border-color: var(--a, #2b4d24); color: #fff; }
+.rt-btn--primary:hover { background: var(--a-ink, #1f3a1a); border-color: var(--a-ink, #1f3a1a); }
+.rt-btn--sm { min-height: 36px; padding: 0 12px; font-size: 13px; border-radius: 10px; }
+.rt-btn--ghost { background: none; }
+.rt-btn.is-on { background: var(--a-tint); border-color: #c9dcc2; color: var(--a-ink); }
+.rt-field dd .rt-btn--primary { margin-left: auto; }
+
+.rt-h { margin: 22px 0 6px; font: 700 13px/1 var(--h-font, Inter, sans-serif); color: var(--r-ink-3); }
+.rt-activity.rt-ch { margin: 0 -24px; }
+.rt-activity .ch-msg { padding-left: 24px; padding-right: 24px; }
+.rt-activity .ch-msg .ch-av { width: 32px; height: 32px; font-size: 12px; }
+.rt-activity .ch-msg { grid-template-columns: 32px minmax(0, 1fr); }
+.rt-activity .ch-bar { right: 24px; }
+.rt-tag { background: var(--r-sunk); color: var(--r-ink-3); }
+.rt-event { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 8px 24px; font-size: 13px; color: var(--r-ink-3); }
+.rt-event b { color: var(--r-ink-2); font-weight: 700; }
+.rt-event time { flex: none; font-size: 12px; }
+
+.rt-dfoot.rt-ch { background: #fff; border-top: 1px solid var(--r-line); padding-top: 12px; }
+.rt-dfoot .ch-comp { padding: 0 16px 14px; }
+/* The board's comment box has no attachments or Favor Brain; those live in Chat. */
+.rt-dfoot [data-act='plus'], .rt-dfoot [data-act='ask-brain'], .rt-dfoot [data-act='emoji'] { display: none; }
+.rt-dfoot--note { padding: 14px 24px calc(14px + env(safe-area-inset-bottom)); border-top: 1px solid var(--r-line); background: var(--r-hover); color: var(--r-ink-3); font-size: 13.5px; }
+.rt-dfoot .ch-comp__box { position: relative; }
+.rt-mention { bottom: calc(100% + 6px); left: 0; right: auto; max-width: 100%; }
+
+
+.pj-dr .rt-btn { display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 16px;border-radius:12px;border:1px solid var(--r-line-2);background:#fff;font:700 14px/1 var(--h-font,Inter,sans-serif); }
+.rt-date { height: 40px; padding: 0 10px; border: 1px solid var(--r-line-2); border-radius: 10px; background: #fff; font: 500 14px var(--h-font, Inter, sans-serif); color: var(--r-ink); }
+.rt-tag { background: var(--r-sunk); color: var(--r-ink-3); }
+.pj-dr .rt-dfoot { background: #fff; border-top: 1px solid var(--r-line); padding: 12px 16px 14px; }
+.pj-dr .rt-dfoot .rq-comp { padding: 0; }
+@media (max-width: 860px) { .pj-dr .rt-dfoot { padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); } }
+@media (pointer: coarse) {
+  .rt-pchip, .pj-fbtn { min-height: 44px; }
+  .pj-pribtn { min-width: 44px; }
+  .pj-pri--normal { opacity: 0; }
+}
+@media (max-width: 860px) { .pj-pribtn { width: 44px; height: 44px; } .pj-pribtn:has(.pj-pri--normal) { display: none; } }
