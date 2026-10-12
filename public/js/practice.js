@@ -152,8 +152,8 @@
     try {
       const body = Object.assign({}, draft[kind]);
       if (kind === 'gift') { if (body.date === undefined) body.date = us(today()); if (!body.type) body.type = 'One-time gift'; if (!body.method) body.method = 'Cash'; }
-      if (kind === 'call' && body.date === undefined) body.date = today();
-      if (kind === 'task' && body.due === undefined) body.due = plus(today(), 7);
+      if (kind === 'call') { if (body.date === undefined) body.date = today(); if (!body.kind) body.kind = 'Phone call'; }
+      if (kind === 'task') { if (body.due === undefined) body.due = plus(today(), 7); if (!body.kind) body.kind = 'Task/Other'; }
       const d = await api('practice/' + kind, 'POST', body);
       last[kind] = { ok: d.passed, checks: d.checks };
       D = Object.assign({}, D, d.state);
