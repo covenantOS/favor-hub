@@ -124,3 +124,14 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body #tu-table td:first-child { min-width: 0; }
   body.h-body #tu-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+/* Admin, People and roles: the filter menu was squeezed to one letter ("E") beside Add a person. */
+@media (max-width: 860px) {
+  body.h-body .ad-sub #pp-filter.ad-field { flex: 1 1 150px !important; min-width: 150px !important; width: auto !important; }
+}
+/* Brain requests: five tabs wrapped onto a second row inside one rounded box. They stay on one row and scroll. */
+@media (max-width: 860px) {
+  body.h-body .b-tabs.b-atabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  body.h-body .b-tabs.b-atabs::-webkit-scrollbar { display: none; }
+  body.h-body .b-tabs.b-atabs > * { flex: none; white-space: nowrap; }
+}
