@@ -115,6 +115,8 @@
       stamp = `Blackbaud data <span class="copy-stamp${old ? ' is-old' : ''}" title="${old ? 'The Blackbaud copy has not finished a full sync in over 26 hours, so these numbers may be behind.' : 'Numbers from the Blackbaud copy, as of its last complete sync.'}">as of ${esc(when)}</span>`;
     }
     $('wh-meta').innerHTML = [esc(who), stamp].filter(Boolean).join(' · ');
+    // The columns draw together once the data is in (night-desk.css shows placeholders until then).
+    const whRoot = document.getElementById('wh'); if (whRoot) whRoot.classList.add('is-in');
     // With nothing to say the row would leave an empty band above the tools.
     $('wh-meta').parentElement.hidden = !$('wh-meta').innerHTML;
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }
@@ -301,6 +303,7 @@
       try { sessionStorage.setItem(KEY, JSON.stringify(d)); } catch (_) { /* storage refused */ }
       paint(d);
     } catch (e) {
+      if (!D) { const whRoot = document.getElementById('wh'); if (whRoot) whRoot.classList.add('is-in'); }
       if (!D) $('wh-req-body').innerHTML = `<div class="wh-empty" style="padding:0">${esc(e.message)} <button type="button" class="wh-do" data-reload>Try again</button></div>`;
     }
     loading = false;
