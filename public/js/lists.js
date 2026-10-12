@@ -447,7 +447,7 @@
     }
     var gifts = S.spec.kind === 'gifts';
     root.innerHTML =
-      '<div class="ls-top" id="ls-bar"><div class="rp-seg2" role="group" aria-label="List of"><button type="button" data-kind="partners" class="' + (!gifts ? 'is-on' : '') + '">Partners</button><button type="button" data-kind="gifts" class="' + (gifts ? 'is-on' : '') + '">Gifts</button></div><a class="ls-quiet" href="/lists/reports/">Standard reports</a><a class="ls-quiet" href="/lists/credit/">Credit</a><span class="ls-curwrap"></span>' +
+      '<div class="ls-top" id="ls-bar"><div class="rp-seg2" role="group" aria-label="List of"><button type="button" data-kind="partners" class="' + (!gifts ? 'is-on' : '') + '">Partners</button><button type="button" data-kind="gifts" class="' + (gifts ? 'is-on' : '') + '">Gifts</button></div><span class="ls-curwrap"></span>' +
       '<span class="ls-grow"></span><span class="ls-stamp">' + esc(stamp()) + '</span>' +
       '<button type="button" class="ls-quiet" id="ls-saved">Saved lists <span class="ls-caret" aria-hidden="true"></span></button></div>' +
       '<div class="ls-grid"><details class="h-card ls-crit" id="ls-critc" open><summary class="ls-crit__h"><span>Criteria <b id="ls-critn"></b></span><button type="button" class="ls-link" id="ls-clear" hidden>Clear</button></summary><div id="ls-critbody"></div><div class="ls-show"><button type="button" class="h-btn h-btn--primary h-btn--sm" id="ls-show">Show results</button></div></details>' +

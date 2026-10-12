@@ -198,3 +198,21 @@
 @media (max-width: 1000px) { .cr-grid { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 860px) { .cr-row { padding: 10px 16px; } .cr-find input, .cr-man input, .cr-man select, .cr-set input { font-size: 16px; } .cr-acts { flex-direction: column; gap: 0; align-items: flex-end; } }
 #cr-app { --ok: #2a5a24; --ok-tint: #e1efdc; --due: #7a5300; --due-tint: #fbedc8; }
+
+/* phone: the number a report is about stays on screen */
+.lr-cards { display: none; }
+.cr-fact2 { color: var(--r-ink-2) !important; }
+@media (max-width: 860px) {
+  .lr-cards { display: grid; background: #fff; border-radius: 14px; border: 1px solid var(--r-line); overflow: hidden; }
+  .lr-wide { display: none; }
+  .lr-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--r-line); min-height: 56px; }
+  .lr-card:last-child { border-bottom: 0; }
+  .lr-card > div { display: grid; gap: 2px; min-width: 0; }
+  .lr-card b { font: 600 14px var(--h-font); color: var(--r-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lr-card span { font: 400 12px var(--h-font); color: var(--r-ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lr-card strong { font: 600 15px var(--h-font); color: var(--r-ink); flex: none; }
+  .cr-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .cr-main span, .cr-main b { white-space: normal; overflow: visible; text-overflow: clip; }
+  .cr-acts { flex-direction: row !important; gap: 24px; align-items: center !important; }
+  .cr-row > .ls-st { align-self: flex-start; }
+}

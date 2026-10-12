@@ -22,6 +22,8 @@ export interface Tile {
   kind: 'int' | 'money' | 'text';
 }
 export interface ReportResult {
+  /** The column the report is about. A phone shows it beside each row's name. */
+  primary?: string;
   columns: ReportCol[];
   rows: Row[];
   tiles: Tile[];
@@ -114,6 +116,7 @@ const giving: ReportDef = {
       else if (c.from === c.today.slice(0, 8) + '01') ties.push(withNote(tieMoney('KPI dashboard, all sources, this month', total, c.kpi.monthlyGiving[Number(c.today.slice(5, 7)) - 1])));
     }
     return {
+      primary: 'total',
       columns: [
         { key: 'k', label: d.label, type: 'text' },
         { key: 'gifts', label: 'Gifts', type: 'int' },
@@ -158,6 +161,7 @@ const credit: ReportDef = {
     const out = rows.map((r) => ({ ...r, _drill: gifts({ from: c.from, to: c.to, creditedTo: [String(r.fid)] }) }));
     const sum = (k: string) => r2(rows.reduce((s, r) => s + n(r[k]), 0));
     return {
+      primary: 'total',
       columns: [
         { key: 'name', label: 'Fundraiser', type: 'text' },
         { key: 'role', label: 'Role', type: 'text' },
@@ -197,6 +201,7 @@ const portfolio: ReportDef = {
       [c.p.role, t12, t24]
     );
     return {
+      primary: 'held',
       columns: [
         { key: 'name', label: 'Holder', type: 'text' },
         { key: 'held', label: 'Partners', type: 'int' },
@@ -236,6 +241,7 @@ const newLost: ReportDef = {
     const newTotal = months.reduce((s, r) => s + n(r.n), 0);
     const lostTotal = lost.reduce((s, r) => s + n(r.n), 0);
     return {
+      primary: 'newN',
       columns: [
         { key: 'k', label: 'Month of first gift', type: 'text' },
         { key: 'newN', label: 'New partners', type: 'int' },
@@ -290,6 +296,7 @@ const status: ReportDef = {
       if (c.kpi?.status && s !== 'active') ties.push({ label: `KPI dashboard, ${label} partners`, mine: now, kpi: c.kpi.status[s], status: now === c.kpi.status[s] ? 'match' : 'differs' });
     }
     return {
+      primary: 'now',
       columns: [
         { key: 'k', label: 'Status', type: 'text' },
         { key: 'group', label: 'Came in through', type: 'text' },
@@ -320,6 +327,7 @@ const firstTime: ReportDef = {
       [c.from, c.to]
     );
     return {
+      primary: 'n',
       columns: [
         { key: 'k', label: 'First appeal category', type: 'text' },
         { key: 'n', label: 'Partners', type: 'int' },
@@ -351,6 +359,7 @@ const retention: ReportDef = {
     const baseN = n(r?.base);
     const kept = n(r?.kept);
     return {
+      primary: 'v',
       columns: [
         { key: 'k', label: 'Measure', type: 'text' },
         { key: 'v', label: 'Partners', type: 'int' },
@@ -383,6 +392,7 @@ const actions: ReportDef = {
     );
     const total = rows.reduce((s, r) => s + n(r.n), 0);
     return {
+      primary: 'n',
       columns: [
         { key: 'name', label: 'Person', type: 'text' },
         { key: 'atype', label: 'Action type', type: 'text' },
@@ -408,6 +418,7 @@ const grants: ReportDef = {
       []
     );
     return {
+      primary: 'n',
       columns: [
         { key: 'k', label: 'Stage', type: 'text' },
         { key: 'n', label: 'Opportunities', type: 'int' },

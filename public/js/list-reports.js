@@ -29,9 +29,7 @@
     Object.keys(S.values).forEach(function (k) { if (S.values[k] !== '' && S.values[k] != null) q.push(encodeURIComponent(k) + '=' + encodeURIComponent(S.values[k])); });
     return q.join('&');
   }
-  function tabs() {
-    return '<div class="ls-top"><div class="rp-seg2" role="group" aria-label="Lists"><a class="rp-segl" href="/lists/">Builder</a><button type="button" class="is-on">Standard reports</button><a class="rp-segl" href="/lists/credit/">Credit</a></div></div>';
-  }
+  function tabs() { return ''; }
 
   function drawMenu() {
     var groups = ['Giving', 'Partners', 'Team'];
@@ -69,7 +67,15 @@
       var tds = res.columns.map(function (c) { return '<td class="' + (c.type === 'money' || c.type === 'int' ? 'r' : '') + '">' + cell(c, r[c.key]) + '</td>'; }).join('');
       return '<tr' + (r._drill ? ' class="lr-row" tabindex="0" data-drill="' + esc(b64(r._drill)) + '"' : '') + '>' + tds + '</tr>';
     }).join('');
-    h += '<div class="h-card ls-tcard"><div class="ls-scroll rp-scroll"><table class="rp-table ls-t"><thead><tr>' + res.columns.map(function (c) { return '<th class="' + (c.type === 'money' || c.type === 'int' ? 'r' : '') + '">' + esc(c.label) + '</th>'; }).join('') + '</tr></thead><tbody>' + (rows || '<tr><td class="rp-empty" colspan="' + res.columns.length + '">No rows</td></tr>') + '</tbody></table></div>' + (res.rows.some(function (r) { return r._drill; }) ? '<div class="rp-pager"><span>Press a row to see the rows behind it</span></div>' : '') + '</div>';
+    var prim = res.columns.filter(function (c) { return c.key === res.primary; })[0] || res.columns[res.columns.length - 1];
+    var nameCols = res.columns.filter(function (c) { return c.type === 'text' && c !== prim; }).slice(0, res.id === 'status' ? 2 : 1);
+    var restCols = res.columns.filter(function (c) { return c !== prim && nameCols.indexOf(c) < 0; });
+    h += '<div class="lr-cards">' + res.rows.map(function (r) {
+      var nm = nameCols.map(function (c) { return esc(r[c.key]); }).join(' · ');
+      var sub = restCols.map(function (c) { return r[c.key] === '' || r[c.key] == null ? '' : esc(c.label) + ' ' + cell(c, r[c.key]); }).filter(Boolean).join(' · ');
+      return '<div class="lr-card' + (r._drill ? ' lr-row' : '') + '"' + (r._drill ? ' tabindex="0" data-drill="' + esc(b64(r._drill)) + '"' : '') + '><div><b>' + nm + '</b>' + (sub ? '<span>' + sub + '</span>' : '') + '</div><strong>' + cell(prim, r[prim.key]) + '</strong></div>';
+    }).join('') + '</div>';
+    h += '<div class="h-card ls-tcard lr-wide"><div class="ls-scroll rp-scroll"><table class="rp-table ls-t"><thead><tr>' + res.columns.map(function (c) { return '<th class="' + (c.type === 'money' || c.type === 'int' ? 'r' : '') + '">' + esc(c.label) + '</th>'; }).join('') + '</tr></thead><tbody>' + (rows || '<tr><td class="rp-empty" colspan="' + res.columns.length + '">No rows</td></tr>') + '</tbody></table></div>' + (res.rows.some(function (r) { return r._drill; }) ? '<div class="rp-pager"><span>Press a row to see the rows behind it</span></div>' : '') + '</div>';
     if (res.note) h += '<p class="rp-note lr-note">' + esc(res.note) + '</p>';
     root.innerHTML = h;
     root.querySelector('#lr-back').addEventListener('click', function () { S.id = ''; S.res = null; history.replaceState(null, '', '/lists/reports/'); drawMenu(); });

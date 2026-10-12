@@ -22,24 +22,28 @@
   var STATE = { proposed: 'Waiting', approved: 'Approved', queued: 'Queued', applied: 'Applied', failed: 'Failed', rejected: 'Rejected', cancelled: 'Taken back' };
   var who = function (e) { return e === 'scan' ? 'Scan' : String(e || '').split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); };
 
-  function line(c) {
+  function head(c) {
     var ch = c.change || {};
     var what = c.kind === 'credit' ? (ch.op === 'add' ? 'Add credit' : 'Remove credit') : (ch.op === 'add' ? 'Add assignment' : 'End assignment');
-    var bits = [what, c.fundraiser];
+    return what + ' · ' + c.fundraiser;
+  }
+  function facts(c) {
+    var ch = c.change || {};
+    var bits = [];
     if (c.kind === 'credit') { bits.push(money(ch.amount)); bits.push('gift ' + c.giftId); if (ch.closedMonth) bits.push('closed month'); }
     else if (ch.type) bits.push(String(ch.type).replace(' (RDD)', ''));
-    return bits.filter(Boolean).join(' · ');
+    return bits.join(' · ');
   }
   function row(c, act) {
     var meta = [c.reason, who(c.proposedBy) + ', ' + day(c.proposedAt)];
     if (c.decidedBy && c.state !== 'proposed') meta.push(who(c.decidedBy) + ' ' + String(STATE[c.state] || c.state).toLowerCase());
-    return '<div class="cr-row" data-id="' + esc(c.id) + '"><div class="cr-main"><b>' + esc(line(c)) + '</b><span>' + esc(meta.filter(Boolean).join(' · ')) + '</span>' + (c.result ? '<span class="cr-res">' + esc(c.result) + '</span>' : '') + '</div>' +
+    return '<div class="cr-row" data-id="' + esc(c.id) + '"><div class="cr-main"><b>' + esc(head(c)) + '</b><span class="cr-fact2">' + esc(facts(c)) + '</span><span>' + esc(meta.filter(Boolean).join(' · ')) + '</span>' + (c.result ? '<span class="cr-res">' + esc(c.result) + '</span>' : '') + '</div>' +
       (act ? '<div class="cr-acts"><button type="button" class="ls-link" data-act="approve">Approve</button><button type="button" class="ls-link cr-no" data-act="reject">Reject</button></div>' : '<span class="ls-st ls-st--' + esc(c.state) + '">' + esc(STATE[c.state] || c.state) + '</span>') + '</div>';
   }
 
   function draw() {
     var o = S.ov;
-    var h = '<div class="ls-top"><div class="rp-seg2"><a class="rp-segl" href="/lists/">Builder</a><a class="rp-segl" href="/lists/reports/">Standard reports</a><button type="button" class="is-on">Credit</button></div></div>';
+    var h = '';
     h += '<div class="cr-grid"><div class="cr-col"><div class="h-card cr-card"><div class="cr-h"><b>Waiting for approval <small>' + o.waiting.length + '</small></b>' + (o.mayApprove ? '<button type="button" class="ls-quiet" id="cr-scan">Scan the last 45 days</button>' : '') + '</div>' +
       (o.waiting.length ? o.waiting.map(function (c) { return row(c, o.mayApprove && c.proposedBy !== o.me); }).join('') : '<p class="cr-none">Nothing waiting</p>') + '</div>';
     h += '<div class="h-card cr-card"><div class="cr-h"><b>Recent changes</b></div>' + (o.recent.length ? o.recent.slice(0, 15).map(function (c) { return row(c, false); }).join('') : '<p class="cr-none">None yet</p>') + '</div></div>';
