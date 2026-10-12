@@ -4,6 +4,7 @@
 //   a step's owner                    marks that step done or open again
 //   the supervisor                    reads the run and marks their steps
 // FavorOS does its own steps (add the person, close access, hand over open work) only when an admin presses the button.
+import { isTester } from '../testuser';
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { staffDirectory, type Person } from '../people';
 import { allReporting, isHr, reportingOf, supervisorOf } from '../people-dev';
@@ -331,6 +332,7 @@ export async function listRuns(env: Env, actor: Actor, status: 'active' | 'done'
   for (const s of steps) by.set(s.run_id, [...(by.get(s.run_id) || []), s]);
   const out: RunSummary[] = [];
   for (const r of rows) {
+    if (isTester(r.email) && !isTester(actor.email)) continue;
     const mine = by.get(r.id) || [];
     const involved = manage || lower(r.supervisor_email) === actor.email || mine.some((s) => lower(s.owner_email) === actor.email);
     if (!involved || (!manage && lower(r.email) === actor.email)) continue;

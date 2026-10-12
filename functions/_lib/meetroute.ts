@@ -984,7 +984,7 @@ async function directory(env: MeetEnv) {
        CASE s.team WHEN 'exec' THEN 'Leadership' WHEN 'rdd' THEN 'Development (RDD)' WHEN 'church' THEN 'Church Engagement' WHEN 'support' THEN 'Support Team'
          WHEN 'partner_care' THEN 'Partner Care' WHEN 'grants' THEN 'Grants' WHEN 'admin' THEN 'Operations' ELSE 'Other staff' END AS team
        FROM hub_users h LEFT JOIN act_staff s ON lower(s.email) = lower(h.email) AND s.active = 1
-       WHERE h.blocked = 0 AND lower(h.email) <> 'tester@favorintl.org' AND lower(h.email) NOT IN (SELECT lower(email) FROM meet_directory)
+       WHERE h.blocked = 0 AND lower(h.email) NOT IN ('tester@favorintl.org', 'tester2@favorintl.org') AND lower(h.email) NOT IN (SELECT lower(email) FROM meet_directory)
      ORDER BY name`
   ).all<{ email: string; name: string; title: string; team: string }>();
   return { ok: true, people: rows.results || [] };

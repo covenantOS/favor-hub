@@ -95,7 +95,7 @@ function seesFor(s: Sets, email: string, admin: boolean, st: StaffRow | undefine
 export async function listPeople(env: Env): Promise<Person[]> {
   await applyReportRoles(env);
   const [users, staff, s, rep, hrRows] = await Promise.all([
-    env.DB.prepare("SELECT email, name, picture, role, blocked, note, sign_ins, last_seen FROM hub_users WHERE lower(email) <> 'tester@favorintl.org' ORDER BY lower(name), email").all<UserRow>(),
+    env.DB.prepare("SELECT email, name, picture, role, blocked, note, sign_ins, last_seen FROM hub_users WHERE lower(email) NOT IN ('tester@favorintl.org', 'tester2@favorintl.org') ORDER BY lower(name), email").all<UserRow>(),
     env.DB.prepare('SELECT email, name, team, bb_fundraiser_id, work_center, entry_owner, entry_type, sheet_tab, active FROM act_staff').all<StaffRow>().catch(() => ({ results: [] as StaffRow[] })),
     sets(env),
     env.DB.prepare('SELECT email, supervisor_email, department, title, start_date FROM hub_reporting').all<{ email: string; supervisor_email: string | null; department: string | null; title: string | null; start_date: string | null }>().catch(() => ({ results: [] as { email: string; supervisor_email: string | null; department: string | null; title: string | null; start_date: string | null }[] })),

@@ -22,6 +22,7 @@
 // default) and the person's gmail.modify grant; without it every change answers 403 mail_scope and the page asks for it.
 import { effective } from '../admin/settings';
 import { isTester } from '../testuser';
+import { SAMPLE_TOKEN, sampleFetcher, samplePartners } from './sample';
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import { accessToken, mailLevel } from '../hub/google';
 import { staffDirectory } from '../people';
@@ -131,7 +132,6 @@ async function route(ctx: MailCtx): Promise<Response> {
   const method = request.method.toUpperCase();
   const url = new URL(request.url);
   if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
-  if (isTester(user.email)) return errorJson('test_user', 'The test user has no Gmail. Mail draws the built-in sample mailbox in the browser.', 403);
   const mode = await mailMode(env);
   if (!mayUseMail(mode, user)) return errorJson('forbidden', mode === 'off' ? 'Mail is switched off.' : user.via !== 'google' ? 'Mail needs a Google sign-in.' : 'Mail is open to admins for now.', 403);
   if (!sameSite(request)) return errorJson('cross_site', 'That change did not come from FavorOS. Reload the page and try again.', 403);
@@ -140,11 +140,15 @@ async function route(ctx: MailCtx): Promise<Response> {
   if (ctx.waitUntil && user) ctx.waitUntil(releaseDue(env, lower(user.email), ctx.fetcher || fetch).catch(() => undefined));
   const owner = lower(user.email);
   let me = owner;
+  // The test users read a stored sample mailbox, never Gmail.
+  const tester = isTester(owner);
+  if (tester && !ctx.fetcher) ctx.fetcher = sampleFetcher(env, owner);
+  if (tester && !ctx.partners) ctx.partners = (emails) => samplePartners(env, emails);
   const fetcher = ctx.fetcher || fetch;
   const [a = '', b = '', c = '', d = ''] = path;
 
   const writeOn = (await effective(env, 'mail.write', undefined, 'on').catch(() => 'on')).toLowerCase() !== 'off';
-  let tok = await accessToken(env, owner);
+  let tok = tester ? SAMPLE_TOKEN : await accessToken(env, owner);
   let level = tok ? mailLevel(tok.scopes) : { read: false, write: false, contacts: false, headers: false };
   // Another of the person's own mailboxes: the same routes answer for it, with its own token. Only its owner can ask.
   const mb = lower(url.searchParams.get('mb'));
@@ -1144,10 +1148,11 @@ export async function mailUnreadCount(env: Env, email: string, fetcher: Fetcher 
   const k = lower(email);
   const hit = COUNTS.get(k);
   if (hit && Date.now() - hit.at < 15000) return hit.n;
-  const tok = await accessToken(env, k);
+  const sample = isTester(k);
+  const tok = sample ? SAMPLE_TOKEN : await accessToken(env, k);
   const lv = tok ? mailLevel(tok.scopes) : null;
   if (!tok || !lv || !lv.headers) return 0;
-  const gm = gmail(tok.token, fetcher);
+  const gm = gmail(tok.token, sample ? sampleFetcher(env, k) : fetcher);
   // The menu loads on every page, Today included, so a snoozed conversation is back by the time its owner looks.
   if (lv.write) await wakeDue(env, gm, k).catch(() => undefined);
   let n = (await inboxCounts(gm, lv.read)).primary;

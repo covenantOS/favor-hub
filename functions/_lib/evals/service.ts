@@ -5,6 +5,7 @@
 //   the supervisor, HR (hub_hr) and hub admins read every answer with the reviewer's name. Not about themselves.
 // Nothing here feeds search, Favor Brain, dashboards or Chat.
 import { HttpError, newId, nowIso, type Env } from '../http';
+import { isTester } from '../testuser';
 import { staffDirectory, type Person } from '../people';
 import { allReporting, isHr, reportingOf, supervisorOf } from '../people-dev';
 import { FORM_A, FORM_B, FORM_C, PLAN_AREAS, SCALE, type Form } from '../../../src/data/evaluation-forms';
@@ -233,7 +234,7 @@ export async function listTerms(env: Db, actor: Actor): Promise<Array<{ id: stri
   if (!mayRunEvals(await viewerOf(env, actor))) throw new HttpError(403, 'forbidden', 'That is for HR and hub administrators.');
   const r = await env.DB.prepare(
     `SELECT t.id, t.name, t.period_label, t.starts_on, t.status, COUNT(c.id) AS people, SUM(CASE WHEN c.stage IN ('signed','done') THEN 1 ELSE 0 END) AS done
-       FROM eval_terms t LEFT JOIN eval_cases c ON c.term_id = t.id GROUP BY t.id ORDER BY t.starts_on DESC, t.created_at DESC`
+       FROM eval_terms t LEFT JOIN eval_cases c ON c.term_id = t.id ${isTester(actor.email) ? '' : "WHERE lower(t.created_by) NOT IN ('tester@favorintl.org', 'tester2@favorintl.org')"} GROUP BY t.id ORDER BY t.starts_on DESC, t.created_at DESC`
   ).all<{ id: string; name: string; period_label: string; starts_on: string; status: string; people: number; done: number | null }>();
   return (r.results || []).map((t) => ({ id: t.id, name: t.name, periodLabel: t.period_label, startsOn: t.starts_on, status: t.status, people: Number(t.people) || 0, done: Number(t.done) || 0 }));
 }

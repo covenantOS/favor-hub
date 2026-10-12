@@ -27,7 +27,7 @@ function recipients(env: Env, row: RequestRow): string[] {
     const email = raw.trim();
     if (!isEmail(email)) return;
     const key = email.toLowerCase();
-    if (key === 'tester@favorintl.org') return;
+    if (key === 'tester@favorintl.org' || key === 'tester2@favorintl.org') return;
     if (seen.has(key)) return;
     seen.add(key);
     to.push(email);

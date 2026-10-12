@@ -100,7 +100,7 @@ export async function adoption(env: Pick<Env, 'DB'>) {
   const [dir, rowsRes, users] = await Promise.all([
     staffDirectory(env),
     env.DB.prepare('SELECT email, item, state, snoozes, snooze_until, updated_at, first_at, done_at FROM hub_tours').all<Row>(),
-    env.DB.prepare("SELECT email, last_seen FROM hub_users WHERE lower(email) <> 'tester@favorintl.org'").all<{ email: string; last_seen: string | null }>().catch(() => ({ results: [] as { email: string; last_seen: string | null }[] })),
+    env.DB.prepare("SELECT email, last_seen FROM hub_users WHERE lower(email) NOT IN ('tester@favorintl.org', 'tester2@favorintl.org')").all<{ email: string; last_seen: string | null }>().catch(() => ({ results: [] as { email: string; last_seen: string | null }[] })),
   ]);
   const seen = new Map((users.results || []).map((u) => [lower(u.email), u.last_seen || '']));
   const by = new Map<string, Row[]>();

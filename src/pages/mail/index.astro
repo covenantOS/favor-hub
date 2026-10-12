@@ -12,7 +12,7 @@ const mock = '/js/mail/mail-mock.js?v=7';
   <script is:inline src="/js/chat/chat-view.js?v=1" defer></script>
   <script is:inline define:vars={{ mock }}>
     // ?mock=1 draws invented mail for this browser tab (screenshots and tests); ?mock=0 goes back to the real mailbox.
-    var mq = location.search, on = /[?&]mock=1/.test(mq) || /(?:^|;\s*)hub_tester=1/.test(document.cookie);
+    var mq = location.search, on = /[?&]mock=1/.test(mq);
     try { if (on) sessionStorage.setItem('favor.mail.mock', '1'); if (/[?&]mock=0/.test(mq)) sessionStorage.removeItem('favor.mail.mock'); on = sessionStorage.getItem('favor.mail.mock') === '1'; } catch (e) { /* private mode */ }
     window.__mailMock = on;
     if (on) document.write('<script src="' + mock + '"><\/script>');

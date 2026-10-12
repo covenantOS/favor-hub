@@ -23,8 +23,8 @@ export async function directory(env: Env, mode: ChatMode, me: HubUser): Promise<
   for (const u of r.results || []) {
     const id = u.email.toLowerCase();
     if (id === BRAIN_ID || id === MEETINGS_ID) continue;
-    // The test user is in no real person's list, and sees only itself, so it cannot message staff.
-    if (isTester(id) !== isTester(me.email) || (isTester(me.email) && id !== me.email.toLowerCase())) continue;
+    // The test users are in no real person's list and see only each other, so they cannot message staff.
+    if (isTester(id) !== isTester(me.email)) continue;
     out[id] = { id, name: u.name || id.split('@')[0], picture: u.picture || '', title: u.title || '' };
   }
   const mine = me.email.toLowerCase();
