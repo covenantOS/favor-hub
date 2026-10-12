@@ -80,3 +80,12 @@ The notification list (`shell/notices.ts`, `Bell.tsx`) merges /api/hub/notificat
 - Work the first screen does not need (bell lists, dock socket, search index) waits for `useIdleReady()`.
 - Styles: the shell imports only what the frame needs (`styles/shell.ts`). A route's styles go in its feature folder (`features/<name>/styles.ts`), so they load with the route's chunk. Styles for drawers and popups that open later go in `styles/lazy.ts`.
 - Built files under `/_app/assets/` are cached for a year (`public/_headers`) and kept by the service worker (`public/sw.js`). Account data under `/api/` is never cached.
+
+## Classic pages inside the frame (LegacyPage)
+
+Every route in `MIGRATED_ROUTES` that has no native file under `app/src/routes/` is the catch-all `routes/$.tsx`, which runs the classic Astro page of that address inside the frame (`app/src/legacy/`). `fetchPage` reads the page's HTML once per build (sessionStorage), `applyHead` adds its page-only stylesheets, `runScripts` evaluates its scripts the way hub-swap.js does, and `leavePage` removes everything the page made (timers, listeners, sockets, observers, body nodes) through `public/js/hub-own.js`. The page's nav id, title, width and top-bar buttons go to `shell/meta.ts`, which the shell reads.
+
+- Which stylesheets and layout scripts to skip or load is read from `dist/_app/layout-assets.json`, built from the pages by `scripts/app-layout-css.mjs`. Do not hard-code versions.
+- A page that cannot live in the frame (no `h-body`, or an inline module script) loads whole with `?classic=1`. Full-load pages are listed in `FULL_LOAD` in `shared/app2.ts`.
+- To replace a classic page with a native route: add `app/src/routes/<path>.tsx` (it wins over the catch-all), build it from the page's API, and keep the classic page until the native one has a Playwright test.
+- `npm run app:e2e:islands [route ...]` loads every migrated page against the live API as the FavorOS Tester and fails on console errors, an empty page or a fallback. It also moves through six routes and checks the shell stayed mounted, with timings.
