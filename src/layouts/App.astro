@@ -200,6 +200,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
             // An area shows the sum of the numbers beside its pages, so the area and its pages always read the same.
             pages.forEach(function (pg) { var c = pg.querySelector('[data-count]:not([hidden]):not([data-count="tours"])'); if (c) { n += Number(String(c.textContent).replace(/,/g, '')) || 0; if (c.classList.contains('h-nav__count--warn')) warn = true; } });
             // Unfinished tours show beside Help's tour item only. In the area sum they turned More into a red 12 that asked nothing of anyone.
+            // Help's own number is nothing: the Feedback count beside its item belongs to Feedback, and the bell and Today carry it.
+            if (id === 'help') { n = 0; warn = false; }
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;

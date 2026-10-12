@@ -91,6 +91,11 @@
       var v = d.getAttribute('data-entity') || '', i = v.indexOf(':');
       if (i > 0 && (KINDS.indexOf(v.slice(0, i)) >= 0)) return { kind: v.slice(0, i), id: v.slice(i + 1), el: d, label: d.getAttribute('data-label') || '' };
     }
+    var pid = el.closest('[data-partner-id], [data-partner-lookup]');
+    if (pid && !pid.closest(SKIP)) {
+      var v2 = pid.getAttribute('data-partner-id') || ('L' + pid.getAttribute('data-partner-lookup'));
+      return { kind: 'partner', id: v2, el: pid, label: pid.textContent.trim().slice(0, 80), link: true };
+    }
     var mi = el.closest('.mi-chip[data-mi-id], .ch-at[data-mi-id]');
     if (mi) { var id = mi.getAttribute('data-mi-id'); if (id && id.indexOf('@') > 0) return { kind: 'person', id: id, el: mi, label: mi.textContent.replace(/^@/, '') }; }
     var a = el.closest('a[href], a[data-href]');

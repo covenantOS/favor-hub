@@ -453,7 +453,8 @@ const NAME_SEL = 'a[href^="/work/partner/"]:not([data-pp-full]):not([data-i]), [
 async function idForLookup(lk) {
   try { const d = await api('/api/work/partners?wide=1&q=' + encodeURIComponent(lk)); const hit = (d.rows || []).find((h) => String(h.lookup) === String(lk)) || (d.rows || [])[0]; return hit ? hit.cid : null; } catch (_) { return null; }
 }
-if (window.matchMedia('(hover: hover)').matches) {
+// The hover card is the shared one (favor-entity.js). This older preview stays off so two cards never draw.
+if (false) {
   document.addEventListener('mouseover', (e) => {
     const el = e.target.closest && e.target.closest(NAME_SEL);
     if (!el || el.closest('.pp-drawer, .pp-peek')) return;
