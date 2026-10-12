@@ -3,6 +3,8 @@
 import { newId, nowIso, type Env } from '../http';
 import { noticeGate } from '../requests/tasks';
 import { chunk, lower, placeholders } from './db';
+import { modeAllows, projectsMode } from './access';
+import { isAdminEmail } from '../session';
 
 export type NoticeKind = 'assigned' | 'mentioned' | 'comment' | 'waiting' | 'due_soon' | 'done';
 
@@ -98,7 +100,15 @@ export async function dueSoonSweep(env: Env, today: string, tomorrow: string, no
   )
     .bind(today, tomorrow, since)
     .all<{ id: string; owner_email: string; title: string }>();
+  // Nobody hears about a due date in a tool they cannot open yet: with Projects admins only, only admins get these; off, nobody.
+  const mode = await projectsMode(env);
+  if (mode === 'off') return 0;
+  const adminRows = await env.DB.prepare("SELECT email FROM hub_users WHERE role = 'admin'").all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }));
+  const admins = new Set((adminRows.results || []).map((r) => lower(r.email)));
   let n = 0;
-  for (const r of rows.results || []) n += (await tell(env, r.id, 'system', [{ email: r.owner_email, kind: 'due_soon', body: r.title }])).length;
+  for (const r of rows.results || []) {
+    if (!modeAllows(mode, { admin: admins.has(lower(r.owner_email)) || isAdminEmail(env, r.owner_email) })) continue;
+    n += (await tell(env, r.id, 'system', [{ email: r.owner_email, kind: 'due_soon', body: r.title }])).length;
+  }
   return n;
 }

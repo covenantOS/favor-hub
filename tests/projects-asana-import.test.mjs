@@ -321,3 +321,19 @@ test('an import is silent: no notice, hook, Chat card, email or calendar call, e
   const mem = rows(w, 'SELECT email FROM hub_project_members WHERE project_id = ?', p.id).map((m) => m.email).sort();
   assert.deepEqual(mem, ['dan@favorintl.org', 'vic@favorintl.org']);
 });
+
+test('the morning due-soon pass does not reach imported tasks owned by people who cannot open Projects yet', async () => {
+  const w = world();
+  w.d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('requests.notify', 'on', 't', 'x')").run();
+  await drive(w, makeAsana());
+  const { dueSoonSweep } = await import('../functions/_lib/projects/notices.ts');
+  const day = (d) => new Date(Date.parse('2026-10-' + d + 'T12:00:00Z'));
+  // Projects admins only (the default): only an admin owner could be told
+  for (const d of ['02', '03', '05', '06', '07', '09', '10', '11']) await dueSoonSweep(w.env, '2026-10-' + d, '2026-10-' + String(Number(d) + 1).padStart(2, '0'), day(d));
+  const to = new Set(rows(w, 'SELECT email FROM hub_task_notices').map((r) => r.email));
+  assert.ok(!to.has('dan@favorintl.org') && !to.has('vic@favorintl.org'), 'staff owners hear nothing while Projects is admin only');
+  // open to staff: the same pass now tells them
+  w.d1.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('projects.enabled', 'staff', 't', 'x')").run();
+  await dueSoonSweep(w.env, '2026-10-02', '2026-10-03', day('02'));
+  assert.ok(rows(w, 'SELECT email FROM hub_task_notices').length > 0);
+});
