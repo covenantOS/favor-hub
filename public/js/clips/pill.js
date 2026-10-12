@@ -75,7 +75,7 @@ function mount() {
   el.id = 'cr-remote';
   el.setAttribute('role', 'region');
   el.setAttribute('aria-label', 'Recording controls');
-  el.innerHTML = controlsHtml({ grip: true, level: false });
+  el.innerHTML = controlsHtml({ grip: true, float: true, level: false });
   document.body.appendChild(el);
   ctl = wireControls(el, onCmd);
   drag = makeDraggable(el, PILL_KEY);

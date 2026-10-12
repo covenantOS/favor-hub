@@ -652,7 +652,7 @@ function startRecording() {
   const wantFloat = !isPhone() && p.float !== false;
   S.pipWanted = (!!docPip() && (wantBubble || wantFloat)) || (!docPip() && videoPipOk() && wantFloat && STANDALONE);
   S.pipVideo = S.pipWanted && !docPip();
-  S.floatLater = S.pipWanted && isArc();
+  S.floatLater = false; // Arc may hide the auto-opened window, so the Float button stays available in every browser
   S.pipError = '';
   const winP = S.pipWanted && !S.floatLater
     ? (S.pipVideo ? openVideoPip() : openPip(wantBubble ? 'bubble' : 'controls')).catch((e) => {
@@ -795,7 +795,7 @@ function viewState() {
     hasMic: rec ? (rec.hasMic || (rs.phase === 'preparing' && rec.settings.micId !== null)) : false,
     retrying: !!rs.retrying,
     count: S.countN,
-    canFloat: !!docPip() && !S.pip,
+    canFloat: !!docPip(),
     cameraOnly: !!rec && rec.settings.source === 'camera',
     hasCam: !!rec && rec.settings.source === 'screen+camera' && !!rec.camStream,
     camOn: !(rec && rec.camOff),
@@ -988,7 +988,7 @@ function announce(st) {
   if (sig === lastSig && now - lastPost < 1000) return;
   lastPost = now;
   lastSig = sig;
-  post({ t: 'state', phase: st.phase, id: rs.id || '', elapsed: st.elapsed, muted: st.muted, hasMic: st.hasMic, pip: !!S.pip, count: st.count, retrying: st.retrying, cameraOnly: st.cameraOnly, hasCam: st.hasCam, camOn: st.camOn });
+  post({ t: 'state', phase: st.phase, id: rs.id || '', elapsed: st.elapsed, muted: st.muted, hasMic: st.hasMic, pip: !!S.pip, canFloat: st.canFloat, count: st.count, retrying: st.retrying, cameraOnly: st.cameraOnly, hasCam: st.hasCam, camOn: st.camOn });
 }
 
 function onRecState(rs) {
@@ -1205,7 +1205,7 @@ async function floatControls() {
     }
     return;
   }
-  if (!S.rec || !docPip() || S.pip || S.pipOpening) return;
+  if (!S.rec || !docPip() || S.pipOpening) return;
   const rec = S.rec;
   const bubble = rec.settings.source === 'screen+camera' && !!rec.camStream;
   S.pipOpening = true;
@@ -1565,7 +1565,7 @@ if (STANDALONE && CHANNEL) {
       return;
     }
     // The pill on a hub page: pause, resume, mute, stop, start over, discard.
-    if (m.t === 'cmd' && typeof m.c === 'string' && ['pause', 'resume', 'mute', 'stop', 'restart', 'discard', 'skip', 'cancel', 'camon', 'camoff'].includes(m.c)) onCtl(m.c);
+    if (m.t === 'cmd' && typeof m.c === 'string' && ['pause', 'resume', 'mute', 'stop', 'restart', 'discard', 'skip', 'cancel', 'camon', 'camoff', 'float'].includes(m.c)) onCtl(m.c);
     if (m.t === 'cmd' && m.c === 'share') onCtl('share', 'remote');
   });
   // Closing the window mid-recording: ask the server to finish the clip from what it already holds (whole parts and the
