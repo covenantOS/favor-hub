@@ -51,7 +51,7 @@ function view() {
     <section class="h-card wc-sheet" aria-label="Gift images">
       <div class="wg-tools"><label class="wc-find">${f.ic('search')}<input type="search" id="wgi-q" placeholder="Find a partner or batch number" value="${esc(I.q)}" autocomplete="off" /></label>
         <label class="wgi-toggle"><input type="checkbox" data-wgi-designated ${I.designated ? 'checked' : ''} />Include designated funds</label>${I.why ? `<button type="button" class="wcd-chip" data-wgi-why="">${f.ic('x')}${esc(WHYS[I.why])}</button>` : ''}<span class="wg-spacer"></span>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="giftimages">${f.ic('sheet')}Google Sheets</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="giftimages">${f.ic('sheet')}Open in Google Sheets</button>
         <button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgi-checkmany ${unchecked.length && (!lane || lane.left >= unchecked.length) ? '' : 'disabled'}>${f.ic('search')}Check ${unchecked.length} in Blackbaud</button></div>
       <div class="wg-list">${list.slice(0, I.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>Every image is in</b>Gifts that need a check or letter image show here until one is attached.</div>`}
         ${list.length > I.shown ? `<div class="wg-group"><span>${list.length - I.shown} more</span><button type="button" data-wgi-more>Show ${Math.min(100, list.length - I.shown)} more</button></div>` : ''}</div>

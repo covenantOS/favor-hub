@@ -54,7 +54,7 @@ function view() {
     <section class="h-card wc-sheet" aria-label="Grants">
       <div class="wg-tools"><div class="pp-seg" role="group" aria-label="Which list"><button type="button" class="${!G.done ? 'is-on' : ''}" data-wgr-done="0">Open</button><button type="button" class="${G.done ? 'is-on' : ''}" data-wgr-done="1">Done</button></div>
         <label class="wc-find">${f.ic('search')}<input type="search" id="wgr-q" placeholder="Find a foundation" value="${esc(G.q)}" autocomplete="off" /></label>${G.kind ? `<button type="button" class="wcd-chip" data-wgr-kind="">${f.ic('x')}${esc(KIND_TABS[G.kind] || G.kind)}</button>` : ''}<span class="wg-spacer"></span>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="grants">${f.ic('sheet')}Google Sheets</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="grants">${f.ic('sheet')}Open in Google Sheets</button>
         <button type="button" class="h-btn h-btn--primary h-btn--sm" data-wgr-log>${f.ic('plus')}Log</button></div>
       <div class="wg-list">${list.slice(0, G.shown).map(rowHTML).join('') || `<div class="wg-empty"><b>${G.done ? 'Nothing logged yet' : 'No open grant tasks'}</b>${G.done ? 'Requests, LOIs and reports you log show here.' : 'A to-do you log with a due date shows here until it is done.'}</div>`}
         ${list.length > G.shown ? `<div class="wg-group"><span>${list.length - G.shown} more</span><button type="button" data-wgr-more>Show ${Math.min(100, list.length - G.shown)} more</button></div>` : ''}</div>

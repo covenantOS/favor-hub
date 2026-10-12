@@ -104,7 +104,7 @@ function paint() {
         <label class="wm-sortsel"><span class="sr-only">Sort by</span><select class="wc-sel" data-wm-sortsel aria-label="Sort by">${[['quiet', 'Last contact'], ['l12', '12 months'], ['life', 'Lifetime'], ['name', 'Name']].map(([k, l]) => `<option value="${k}"${M.sort === k ? ' selected' : ''}>Sort: ${l}</option>`).join('')}</select><button type="button" class="wm-dir" data-wm-sort="${M.sort}" aria-label="Reverse the order">${M.dir < 0 ? '↓' : '↑'}</button></label>
         <div class="wm-seg" role="group" aria-label="Show">${FILTERS.map(([k, l]) => `<button type="button" class="${M.f === k ? 'is-on' : ''}" data-wm-f="${k}" aria-pressed="${M.f === k}">${l}</button>`).join('')}${M.f === 'nophone' ? '<button type="button" class="is-on" data-wm-f="nophone" aria-pressed="true">No phone</button>' : ''}</div>
         <span class="wm-spacer"></span>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="work-partners">${SHEET}Google Sheets</button>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="work-partners">${SHEET}Open in Google Sheets</button>
       </div>
       <div class="wm-list">
         <div class="wm-row wm-port wm-head" role="row"><label class="wm-cb"><input type="checkbox" data-wm-pickall ${allOn ? 'checked' : ''} aria-label="Select every partner shown" /></label><span>Partner</span>${sb('quiet', 'Last contact')}<span>Last gift</span>${sb('l12', '12 months')}<span class="wm-c-life">${sb('life', 'Lifetime')}</span><span>Next step</span><span></span></div>

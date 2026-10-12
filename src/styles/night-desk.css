@@ -119,3 +119,9 @@ body.h-body .h-page .board-hint { display: none !important; }
 body.h-body .req-board.is-reviewing .req-card { cursor: grab; }
 /* Admin overview: the "All clear as of" stamp filled in after load and pushed Check again sideways. */
 @media (min-width: 861px) { body.h-body #ad-stamp { display: inline-block; min-width: 220px; text-align: right; } }
+
+/* ---- Mail with senders and subjects only: an open conversation asked to Allow Mail three times (the list banner, the card in
+   the message and its button) and showed an empty message box with its own small reply and forward buttons above the big ones.
+   The empty box closes up and only the big Reply and Forward stay. (The list banner stays: hiding it moved the list under the pointer.) */
+body.h-body .ml-thread__msgs:has(.ml-connect) .ml-msg__acts { display: none; }
+body.h-body .ml-hdronly:empty { display: none; }

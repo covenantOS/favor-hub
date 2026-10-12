@@ -97,7 +97,7 @@ function view() {
       <div class="wg-tools"><button type="button" class="hq-all${H.filter ? '' : ' is-on'}" data-hq-filter="">All gifts of $5,000 and up<span>${Number(s.total).toLocaleString('en-US')}</span></button>
         <label class="wc-find">${f.ic('search')}<input type="search" id="hq-q" placeholder="Find a partner" value="${e(H.q)}" autocomplete="off" /></label><span class="wg-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-hq-text>${f.ic('letter')}${e(mo)} letter</button>
-        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="hqty-letters">${f.ic('sheet')}Google Sheets</button></div>
+        <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="hqty-letters">${f.ic('sheet')}Open in Google Sheets</button></div>
       <div class="wg-list">${groups.map((g) => `<div class="wg-group"><span>${e(monthLabel(g.m))} · ${perMonth[g.m].toLocaleString('en-US')}</span><button type="button" data-hq-grp="${e(g.m)}">Select all</button></div>${g.rows.map(rowHTML).join('')}`).join('')}${moreBtn(list.length, H.shown, 'data-hq-more')}
         ${!list.length ? `<div class="wg-empty"><b>${H.data.rows.length ? 'Nothing matches' : 'No gifts yet'}</b>${H.data.rows.length ? 'Clear the filter above to see the rest.' : 'Gifts of $5,000 and up show here after the Blackbaud copy refreshes at 5 AM and 5 PM.'}</div>` : ''}</div>
       <div class="wg-foot"><span>${Number(s.total).toLocaleString('en-US')} ${Number(s.total) === 1 ? 'gift' : 'gifts'} of $5,000 and up since ${f.fd(d.since)}. A gift counts as written when Blackbaud holds an HQTY Letter on its partner dated on or after the gift.</span></div>
