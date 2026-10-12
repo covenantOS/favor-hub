@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat';
+export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'mail';
 
 export interface NavPage {
   id: string;
@@ -95,6 +95,17 @@ export const AREAS: NavArea[] = [
     barRank: 2.4,
     pages: [
       { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat' },
+    ],
+  },
+  {
+    id: 'mail',
+    label: 'Mail',
+    icon: 'mail',
+    key: 'e',
+    // Behind More on the phone bar (four areas and More stay five).
+    barRank: 4,
+    pages: [
+      { id: 'mail', label: 'Mail', href: '/mail/', desc: 'Your Gmail inside FavorOS: read, reply, archive, labels, drafts and search', keywords: 'mail email gmail inbox reply forward compose send draft archive label star snooze', need: 'mail', count: 'mailUnread', learn: 'mail' },
     ],
   },
   {

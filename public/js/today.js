@@ -322,9 +322,12 @@
               .join('')}</ul>`
           : empty('Nothing on your calendar today.')
         : empty('Your calendar could not be read just now.');
+      // With Mail open to this person, a message opens in FavorOS; otherwise in Gmail.
+      let inMail = false;
+      try { inMail = !!((JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null') || {}).access || {}).mail; } catch (e) { /* private mode */ }
       const mail = g.mail
         ? g.mail.length
-          ? `<ul class="r2t-list">${g.mail.slice(0, 6).map((m) => `<li><a class="r2t-lr" href="${esc(m.link)}" target="_blank" rel="noopener" title="${esc(m.subject)}"><span class="r2t-av" data-h="${hue(m.from)}">${esc(initials(m.from))}</span><span class="r2t-lr__t"><b>${esc(m.from)}</b><span>${esc(m.subject)}</span></span>${partnerTag(m.fromEmail)}${m.date ? `<time class="r2t-when">${esc(time(m.date))}</time>` : ''}</a></li>`).join('')}</ul>`
+          ? `<ul class="r2t-list">${g.mail.slice(0, 6).map((m) => `<li><a class="r2t-lr" ${inMail && m.threadId ? `href="/mail/#/INBOX/${esc(m.threadId)}"` : `href="${esc(m.link)}" target="_blank" rel="noopener"`} title="${esc(m.subject)}"><span class="r2t-av" data-h="${hue(m.from)}">${esc(initials(m.from))}</span><span class="r2t-lr__t"><b>${esc(m.from)}</b><span>${esc(m.subject)}</span></span>${partnerTag(m.fromEmail)}${m.date ? `<time class="r2t-when">${esc(time(m.date))}</time>` : ''}</a></li>`).join('')}</ul>`
           : empty('No unread mail from the last three days.')
         : empty('Your inbox could not be read just now.');
       const files = g.files && g.files.length
@@ -334,7 +337,7 @@
       grid.innerHTML =
         actions +
         card('Today’s meetings', '<a class="h-link" href="/meet/">Day view</a>', events) +
-        card('Unread mail', '<a class="h-link" href="https://mail.google.com" target="_blank" rel="noopener">Gmail</a>', mail, nMail ? `<span class="r2t-count">${nMail}</span>` : '') +
+        card('Unread mail', inMail ? '<a class="h-link" href="/mail/">Mail</a>' : '<a class="h-link" href="https://mail.google.com" target="_blank" rel="noopener">Gmail</a>', mail, nMail ? `<span class="r2t-count">${nMail}</span>` : '') +
         files;
   };
   // What this tab last saw shows at once; the fresh answer replaces it.

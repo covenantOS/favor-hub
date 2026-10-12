@@ -11,6 +11,7 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
+import { mailMode, mailUnreadCount, mayUseMail } from '../mail/route';
 
 export interface Access {
   admin: boolean;
@@ -31,6 +32,8 @@ export interface Access {
   tasks: boolean;
   /** The bell in the top bar: Work Center reminders, Chat and request notices. */
   bell: boolean;
+  /** Mail in FavorOS (the person's own Gmail): hub admins until Admin > Chat > Mail opens it to staff (hub setting mail.enabled). */
+  mail: boolean;
 }
 
 /** True when this person is on any request (db/request-tasks.sql). False before the tables exist. */
@@ -56,6 +59,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     chat: mayUse(await chatMode(env), user),
     tasks,
     bell: (!!work && work.ok) || tasks,
+    mail: mayUseMail(await mailMode(env), user),
   };
 }
 
@@ -114,6 +118,8 @@ export interface Counts {
   board: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
+  /** Mail: unread conversations in the person's Gmail inbox (0 until they connect Google). */
+  mailUnread: number;
 }
 
 /** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
@@ -124,7 +130,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, mailUnread] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -135,6 +141,8 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
     access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
+    // Gmail answers in about 150 ms; a slow answer never holds the menu back (the badge waits for the next page).
+    access.mail ? Promise.race([mailUnreadCount(env, user.email).catch(() => 0), new Promise<number>((r) => setTimeout(() => r(0), 1200))]) : 0,
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -147,6 +155,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
+    mailUnread: Number(mailUnread) || 0,
   };
 }
 

@@ -53,7 +53,7 @@ export async function entryOwners(env: Env): Promise<StaffRow[]> {
 }
 
 /** Entry belongs to Support (every director they support) and to a director for their own contacts. Everyone else is turned away. */
-function mayEnter(ctx: Ctx, fid: string): boolean {
+export function mayEnter(ctx: Ctx, fid: string): boolean {
   const s = ctx.scope;
   if (!s || s.all) return true;
   if (!can(s, 'entry')) return false;

@@ -658,6 +658,17 @@ export const STEPS: Step[] = [
     side: 'bottom',
   },
   {
+    id: 'mail',
+    page: '/mail/',
+    via: 'mail',
+    at: '.ml-list',
+    title: 'Your Gmail, inside FavorOS',
+    body: 'Mail shows your own Gmail: inbox, labels, conversations and files. Reply, archive, delete, star, label and snooze here, and search with Gmail words like from: and has:attachment. Google asks once before FavorOS reads your mail and once more before it changes or sends anything. More on a conversation makes a task, sends it to Chat, opens the partner or logs an action in Blackbaud.',
+    for: (w) => w.admin,
+    added: '2026-10-11',
+    side: 'right',
+  },
+  {
     id: 'chat',
     page: '/chat/',
     via: 'chat',
