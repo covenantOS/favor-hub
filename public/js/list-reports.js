@@ -60,7 +60,7 @@
   function draw() {
     var res = S.res;
     var h = tabs() + '<div class="lr-head"><button type="button" class="ls-link" id="lr-back">All reports</button><h2>' + esc(res.name) + '</h2></div>';
-    h += '<div class="h-card lr-bar">' + params(res) + '<span class="lr-range">' + esc(day(res.from)) + ' to ' + esc(day(res.to)) + '</span></div>';
+    if (res.params.length) h += '<div class="h-card lr-bar">' + params(res) + '<span class="lr-range">' + esc(day(res.from)) + ' to ' + esc(day(res.to)) + '</span></div>';
     h += '<div class="h-card ls-sumc"><div class="lr-tiles">' + res.tiles.map(function (t) { return '<div class="lr-tile"><b>' + (t.kind === 'money' ? esc(money(t.value)) : t.kind === 'int' ? esc(num(t.value)) : esc(t.value)) + '</b><span>' + esc(t.label) + '</span></div>'; }).join('') + '</div>';
     h += res.ties.map(function (t) {
       return '<div class="ls-tie ' + (t.status === 'match' ? 'is-ok' : t.status === 'differs' ? 'is-warn' : 'is-off') + '"><span class="ls-tie__i" aria-hidden="true">' + (t.status === 'match' ? '✓' : '≠') + '</span><div><b>' + (t.status === 'match' ? 'Ties to the KPI dashboard' : t.status === 'differs' ? 'Differs from the KPI dashboard' : 'KPI dashboard not answering') + '</b><span>' + esc(t.label) + ': ' + (t.kpi == null ? '—' : (typeof t.kpi === 'number' && Math.abs(t.kpi) >= 1000 && t.mine % 1 !== 0 ? esc(money(t.kpi)) : esc(num(t.kpi)))) + (t.status === 'differs' ? ' · here ' + esc(t.mine % 1 !== 0 ? money(t.mine) : num(t.mine)) + (t.note ? ' · ' + esc(t.note) : '') : '') + '</span></div></div>';

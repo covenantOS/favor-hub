@@ -303,7 +303,7 @@ const status: ReportDef = {
         { label: 'Lapsed', value: get(rows, 'lapsed', 'Acquisition') + get(rows, 'lapsed', 'Other'), kind: 'int' },
       ],
       ties,
-      note: 'Acquisition means the appeal of the partner\'s first gift is in the Acquisition category. A year ago counts gifts dated up to that day. Favor\'s source code is a record attribute that is not in this copy, so it is not a split here.',
+      note: 'Acquisition: the first gift came through an Acquisition appeal.',
     };
   },
 };
