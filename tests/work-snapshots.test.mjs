@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => { globalThis.fetch = realFetch; });
 
 describe('saved Blackbaud answers', () => {
-  it('the first read goes to the mirror and is kept; the second is served from the hub database', async () => {
+  it('the first read goes to the mirror and is kept; the second is served from FavorOS database', async () => {
     const q = listMirrorQ(env);
     assert.deepEqual(await q(SQL, ['a']), [{ id: 'g1' }]);
     assert.equal(calls, 1);
@@ -102,6 +102,6 @@ describe('a finished row never comes back from a saved answer', () => {
     assert.equal(shapeGifts({ ...stale, thanks: [] }, o).rows.length, 1);
     const thanked = { gift_id: 'x1', cid: '1', how: 'letter', outcome: 'sent', created_at: '2026-10-10T15:00:00Z', actor: 'Fay Alpha', remind_on: null };
     assert.equal(shapeGifts({ ...stale, thanks: [thanked] }, o).rows.length, 0);
-    assert.equal(shapeGifts({ ...stale, thanks: [] }, o).rows.length, 1, 'the undone batch is no longer in the thanks the hub reads');
+    assert.equal(shapeGifts({ ...stale, thanks: [] }, o).rows.length, 1, 'the undone batch is no longer in the thanks FavorOS reads');
   });
 });

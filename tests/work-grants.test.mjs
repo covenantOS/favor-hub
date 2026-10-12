@@ -202,6 +202,7 @@ describe('logging a grant entry', () => {
     assert.equal(mine.file, 'letter.pdf');
     assert.equal(list.stats.local, 1);
     mirror.prepare('INSERT INTO actions VALUES (?,?,?,?,?,?,?,?,?,?)').run('9000', '11', 'RESERVED (Grant LOI)', 'Mailing', TODAY + 'T00:00:00', TODAY + 'T00:00:00', 'LOI for the library', '', TODAY + 'T09:00:00', JSON.stringify({ completed: 1, fundraisers: ['700'] }));
+    hub.exec('DELETE FROM mirror_snap'); // the scheduled pass re-reads the mirror's answer
     list = await svc.grantsResponse(ctx);
     assert.equal(list.rows.filter((r) => r.summary === 'LOI for the library').length, 1);
     assert.ok(!list.rows.find((r) => r.summary === 'LOI for the library').local);

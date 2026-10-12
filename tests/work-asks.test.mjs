@@ -250,7 +250,7 @@ describe('a partner marked deceased', () => {
     ask('41', '4', 2500, '2026-09-05');
     ask('42', '4', 900, '2026-05-05');
     gift('g4', '4', 900, '2026-06-01');
-    asks.clearAskCache();
+    asks.clearAskCache(); hub.exec('DELETE FROM mirror_snap');
     try {
       const out = await asks.asksResponse(ctx({ ...dirScope('501'), role: 'admin', all: true }), '');
       const ids = out.rows.map((r) => r.id);
@@ -270,14 +270,14 @@ describe('the mirror read kept in KV', () => {
     const kv = { get: async (k) => (store.has(k) ? JSON.parse(store.get(k)) : null), put: async (k, v) => { store.set(k, v); } };
     let reads = 0;
     const q = async () => { reads++; return []; };
-    asks.clearAskCache();
+    asks.clearAskCache(); hub.exec('DELETE FROM mirror_snap');
     await asks.mirrorAsks(q, '2026-10-11', false, kv);
     const after = reads;
     assert.ok(after > 0, 'the first request reads the mirror');
     assert.equal(store.size, 1, 'and keeps the read in KV');
-    asks.clearAskCache();
+    asks.clearAskCache(); hub.exec('DELETE FROM mirror_snap');
     await asks.mirrorAsks(q, '2026-10-11', false, kv);
     assert.equal(reads, after, 'a second isolate (no memory cache) is served from KV without reading the mirror');
-    asks.clearAskCache();
+    asks.clearAskCache(); hub.exec('DELETE FROM mirror_snap');
   });
 });
