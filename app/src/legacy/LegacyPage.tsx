@@ -9,7 +9,10 @@ import { leavePage, loadPage, dropPageCss } from './page';
  * here (it needs a full load) is handed to the browser as a normal navigation, which the middleware serves as the classic page.
  */
 export function LegacyPage() {
-  const loc = useLocation({ select: (l) => l.pathname + l.searchStr });
+  // Keyed on the path only. A classic page that rewrites its own query with history.replaceState (Brain's ?c=, Chat's ?c=, Work's ?action=)
+  // must not be torn down and drawn again by that; the query is read once, when the page loads.
+  const path = useLocation({ select: (l) => l.pathname });
+  const loc = path + (typeof location !== 'undefined' ? location.search : '');
   const host = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(true);
@@ -40,7 +43,8 @@ export function LegacyPage() {
       live = false;
       leavePage();
     };
-  }, [loc]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path]);
 
   useEffect(
     () => () => {

@@ -53,7 +53,7 @@ const FRAME_HELPERS = ['mention-input', 'drill'] as const;
 export async function mountShellScripts(): Promise<void> {
   const { js } = await layoutAssets();
   const list = ['/js/clips-launch.js?v=5', '/js/copy-stamp.js?v=1', ...FRAME_HELPERS.map((n) => js.find((s) => s.includes('/' + n + '.js'))).filter((x): x is string => !!x)];
-  await list.reduce<Promise<unknown>>((chain, src) => chain.then(() => loadScript(src)).catch((e) => console.warn('[legacy]', (e as Error).message)), Promise.resolve());
+  await Promise.all(list.map((src) => loadScript(src).catch((e) => console.warn('[legacy]', (e as Error).message))));
 }
 
 /** A frame after paint, so scripts never sit between the first render and what people see. */

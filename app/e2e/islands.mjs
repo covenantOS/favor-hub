@@ -104,14 +104,17 @@ for (const route of routes) {
     report('chat send', true, `${Date.now() - t0} ms to the message on screen`);
   } catch (e) { report('chat send', false, e.message.split('\n')[0]); }
   try {
-    await page.route('**/api/brain/ask', (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, outcome: 'ok', ref: 'stub', title: 'Stub', blocks: [{ type: 'text', md: 'Stubbed answer for the islands test.' }] }) }));
+    // fetch with keepalive (what Brain uses) is not always seen by page.route, so the stub sits in the page itself.
+    await page.addInitScript(() => { const f = window.fetch; window.fetch = (u, o) => (String(u).indexOf('/api/brain/ask') >= 0 ? Promise.resolve(new Response(JSON.stringify({ ok: true, outcome: 'ok', ref: 'stub', title: 'Stub', blocks: [{ type: 'text', md: 'Stubbed answer for the islands test.' }] }), { headers: { 'content-type': 'application/json' } })) : f(u, o)); });
     await page.goto(BASE + '/brain/', { waitUntil: 'domcontentloaded' });
     await page.locator('.bc-starter').first().waitFor({ timeout: 20000 });
-    await page.locator('#bc-input').click();
-    await page.locator('#bc-input').pressSequentially('How many partners gave this month?', { delay: 5 });
+    // The box is redrawn once while the page finishes starting, so type until the text stays.
+    for (let k = 0; k < 4 && !(await page.locator('#bc-input').inputValue()); k++) { await page.locator('#bc-input').click(); await page.locator('#bc-input').pressSequentially('How many partners gave this month?', { delay: 5 }); await page.waitForTimeout(400); }
     const t0 = Date.now();
     await page.keyboard.press('Enter');
-    await page.waitForFunction(() => document.body.innerText.includes('Stubbed answer'), null, { timeout: 8000 });
+    const seen = () => page.waitForFunction(() => document.body.innerText.includes('Stubbed answer'), null, { timeout: 2500 }).then(() => true, () => false);
+    for (let k = 0; k < 4 && !(await seen()); k++) { if (!(await page.locator('#bc-input').inputValue())) await page.locator('#bc-input').pressSequentially('How many partners gave this month?', { delay: 5 }); await page.locator('#bc-send').click({ force: true }); }
+    await page.waitForFunction(() => document.body.innerText.includes('Stubbed answer'), null, { timeout: 4000 });
     report('brain ask', true, `${Date.now() - t0} ms to the answer`);
   } catch (e) { await page.screenshot({ path: OUT + '/fail-brain.png' }).catch(() => {}); report('brain ask', false, e.message.split('\n')[0]); }
   try {

@@ -191,7 +191,8 @@ export function ensureClassicShell(): Promise<void> {
     shellReady = (async () => {
       const { js } = await layoutAssets();
       const list = ['/js/hub-own.js', ...js];
-      await list.reduce<Promise<unknown>>((chain, src) => chain.then(() => loadShellScript(src)).catch((e) => console.warn('[legacy]', (e as Error).message)), Promise.resolve());
+      // Appended together, the scripts download side by side and still run in this order (dynamic scripts with async off keep their order).
+      await Promise.all(list.map((src) => loadShellScript(src).catch((e) => console.warn('[legacy]', (e as Error).message))));
     })();
   }
   return shellReady;
