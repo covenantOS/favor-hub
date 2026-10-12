@@ -29,6 +29,8 @@ const ic = (n) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true">${I[n
 const CAT_IC = { 'Phone call': 'phone', Email: 'mail', Mailing: 'letter', Meeting: 'meet', 'Task/Other': 'task' };
 const href = (id) => '/work/partner/' + encodeURIComponent(id);
 const AS = new URLSearchParams(location.search).get('as') || '';
+// /work/partner/<id>?gift=<gift id> opens on that gift: the timeline marks it and scrolls to it.
+const FOCUS_GIFT = (/^\d{1,12}$/.test(new URLSearchParams(location.search).get('gift') || '') ? new URLSearchParams(location.search).get('gift') : '') || '';
 
 async function api(path, opts = {}) {
   const url = AS ? path + (path.includes('?') ? '&' : '?') + 'as=' + encodeURIComponent(AS) : path;
@@ -132,7 +134,7 @@ function eventsOf(p) {
     return all.filter((e) => e.d).sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0));
   }
   const ev = [];
-  for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment ? String(g.comment).replace(/Donor note/gi, 'Partner note') : ''].filter(Boolean).join(' · ') });
+  for (const g of (p.giving.recent || [])) ev.push({ t: 'gift', gid: g.id, d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: [g.type === 'RecurringGiftPayment' ? 'Monthly gift' : g.type, g.comment ? String(g.comment).replace(/Donor note/gi, 'Partner note') : ''].filter(Boolean).join(' · ') });
   for (const g of ((p.giving.soft && p.giving.soft.recent) || [])) ev.push({ t: 'gift', d: g.date, a: g.amount, what: g.fund || 'No fund on file', how: 'Soft credit' });
   for (const a of (p.actions.recent || [])) ev.push({ t: 'act', id: a.id, d: a.done || a.due, icon: CAT_IC[a.category] || 'task', what: a.summary || plain(a.type), text: a.description, by: (a.fundraisers || []).map((f) => f.name).join(', ') + (a.outcome ? ' · ' + a.outcome : '') });
   for (const e of L.events) if (!ev.some((x) => x.t === e.t && x.what === e.what && x.d === e.d)) ev.push(e);
@@ -206,7 +208,7 @@ function view(p, o = {}) {
     const head = m !== month ? `<li class="pp-month">${MON[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}</li>` : '';
     month = m;
     const when = `<span class="when">${fd(e.d)}</span>`;
-    if (e.t === 'gift') return head + `<li class="pp-ev pp-ev--gift${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic('gift')}</span><div><span class="pp-amt">${money(e.a)}</span> <b>to ${esc(e.what)}</b>${e.how ? `<p class="by">${esc(e.how)}</p>` : ''}</div>${when}</li>`;
+    if (e.t === 'gift') return head + `<li class="pp-ev pp-ev--gift${e.fresh ? ' pp-ev--new' : ''}${e.gid && e.gid === FOCUS_GIFT ? ' is-focus' : ''}"${e.gid ? ` data-gift="${esc(e.gid)}"` : ''}><span class="pp-ev__dot">${ic('gift')}</span><div><span class="pp-amt">${money(e.a)}</span> <b>to ${esc(e.what)}</b>${e.how ? `<p class="by">${esc(e.how)}</p>` : ''}</div>${when}</li>`;
     if (e.t === 'note') return head + `<li class="pp-ev pp-ev--note${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic('note')}</span><div><b>${esc(e.what)}</b>${e.text ? `<p>${esc(e.text)}</p>` : ''}<p class="by">Note${e.by ? ' · ' + esc(e.by) : ''}</p></div>${when}</li>`;
     return head + `<li class="pp-ev${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic(e.icon || 'task')}</span><div><b>${e.href ? `<a href="${esc(e.href)}">${esc(e.what)}</a>` : esc(e.what)}</b>${e.text ? `<p>${esc(String(e.text).slice(0, 400))}</p>` : ''}${e.by ? `<p class="by">${esc(e.by)}</p>` : ''}</div>${when}</li>`;
   }).join('');
@@ -706,7 +708,7 @@ const root = document.getElementById('pv-root');
 if (root) {
   const m = location.pathname.match(/\/work\/partner\/(\d+)/);
   if (m) {
-    show(root, m[1], 'full').then((p) => { if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - FavorOS'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
+    show(root, m[1], 'full').then((p) => { if (p && FOCUS_GIFT) setTimeout(() => { const li = root.querySelector(`.pp-ev[data-gift="${FOCUS_GIFT}"]`); if (li) li.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 300); if (p) { const nm = String(p.name || '').trim() || 'Partner'; document.title = nm + ' - FavorOS'; const t = document.querySelector('.h-top__title'); if (t) { t.textContent = nm; t.title = nm; } } });
   } else {
     root.innerHTML = '<div class="pp-landing"><h1>Find a partner</h1><div id="pv-search"></div><p class="pp-landing__add"><button type="button" class="h-btn h-btn--primary" data-add-partner hidden>Add partner</button></p></div>';
     if (window.FavorAddPartner) window.FavorAddPartner.mountButtons();

@@ -11,6 +11,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 12, 2026
 
+- **What changed this week.** Pressing the year's raised number opens This week first: gifts and dollars against last week, the largest gifts and the new partners. A name opens the partner card, and an amount opens the gift on the partner page. See [Your Today page](/help/today/).
 - **How a first-time partner found Favor.** Cadence shows Came in through on each first-time partner: the first gift's appeal, the website form for an online gift, and the source code once Blackbaud's copy has it. The First-time givers report has a Show: Each partner view with the same column. See [Lists](/help/lists/).
 - **What a gift is for, from the record.** In Gift entry, a check that matches a partner is checked against that partner's calls, meetings, notes and opportunities for a gift someone said was coming. The fund the note describes and the caller's personal contact appeal are suggested with the reason, for example "Sep 28 call: She said a gift for the Chad wells is on its way". A person still confirms both. See [Gift entry](/help/gift-entry/).
 - **Chat in the new FavorOS app.** With the new app on, Chat opens inside the app without a page load, keeps your place when you come back to it, and the Chat button on every page shows the same messages and message box as the Chat page, with reactions, cards, voice notes, threads and Favor Brain answers. Use classic FavorOS in the account menu goes back to the old page. See [Chat](/help/chat/).

@@ -38,6 +38,10 @@
 .dr-shown{margin:16px 0 0;padding:14px 16px;border:1px solid var(--h-line,#e4e7eb);border-radius:10px;background:var(--h-surface-2,#f8f9fa)}
 .dr-shown b{font-size:22px;font-weight:700;display:block}
 .dr-shown span{color:var(--h-ink-2,#48505a);font-size:13px}
+.dr-week{margin:16px 0 0}.dr-week h3{display:flex;gap:8px;align-items:baseline;margin:0 0 8px;font-size:15px;font-weight:600}.dr-week h3 span{font-size:13px;font-weight:500;color:var(--h-ink-2,#48505a)}
+.dr-wk{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.dr-wk>div{padding:12px;border:1px solid var(--h-line,#e4e7eb);border-radius:10px;background:var(--h-surface-2,#f8f9fa);min-width:0}
+.dr-wk b{display:block;font-size:18px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dr-wk span{display:block;font-size:13px;color:var(--h-ink,#12161a)}.dr-wk small{display:block;font-size:12px;color:var(--h-ink-2,#48505a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr-wkl li>span{min-width:0}.dr-wkl .fe-chip{max-width:100%}.dr-gift{font-weight:600;color:var(--h-ink,#12161a);white-space:nowrap}.dr-gift:hover{text-decoration:underline}
 .dr-tie{margin:8px 0 0;font-size:13px;color:var(--h-ink-2,#48505a)}
 .dr-tie.is-off{color:var(--h-red,#b4432a)}
 .dr-def{margin:18px 0 0}
@@ -189,6 +193,51 @@
       : `<p class="dr-tie is-off">The gifts total ${money(s.total)}. The number on the page is ${money(s.shown)}, ${money(Math.abs(gap))} ${gap > 0 ? 'more' : 'less'} than the gifts.</p>`;
   }
 
+  /* This week, from the year's own rows: the gifts dated Monday to today against the same days last week, the largest gifts and the
+     partners whose first gift ever came this week. Each row opens the partner card (the name) or the gift on the partner page. */
+  const etToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+  function weekOf(rows) {
+    const today = etToday();
+    const dow = new Date(today + 'T12:00:00Z').getUTCDay();
+    const start = addDays(today, -((dow + 6) % 7));
+    const lastStart = addDays(start, -7);
+    const lastEnd = addDays(today, -7);
+    const sum = (l) => l.reduce((n, r) => n + (Number(r.amount) || 0), 0);
+    const now = rows.filter((r) => r.date >= start && r.date <= today);
+    const before = rows.filter((r) => r.date >= lastStart && r.date <= lastEnd);
+    const byGift = new Map();
+    for (const r of now) { const k = r.gift_id || r.date + r.record_id + r.amount; const g = byGift.get(k); if (g) g.amount += Number(r.amount) || 0; else byGift.set(k, { ...r, amount: Number(r.amount) || 0 }); }
+    const largest = [...byGift.values()].sort((a, b) => b.amount - a.amount).slice(0, 6);
+    return { start, today, now, before, total: sum(now), lastTotal: sum(before), gifts: byGift.size, lastGifts: new Set(before.map((r) => r.gift_id || r.date + r.record_id + r.amount)).size, largest, givers: [...new Set(now.map((r) => String(r.record_id || '')).filter(Boolean))] };
+  }
+  const chipFor = (id, name) => (window.FavorEntity && id ? window.FavorEntity.chip('partner', String(id), String(name || 'Partner')) : id ? `<a href="/work/partner/${esc(id)}" data-partner-id="${esc(id)}">${esc(name)}</a>` : esc(name));
+  const giftLink = (r) => (r.record_id && r.gift_id ? `<a class="dr-gift" href="/work/partner/${esc(r.record_id)}?gift=${esc(r.gift_id)}">${money(r.amount)}</a>` : `<b>${money(r.amount)}</b>`);
+  const delta = (a, b, fmt) => {
+    if (!b) return a ? 'none last week' : '';
+    const d = a - b;
+    return `${d >= 0 ? '+' : '-'}${fmt(Math.abs(d))} on last week`;
+  };
+  function weekHTML(s) {
+    const w = s.week;
+    if (!w) return '';
+    const fresh = s.newPartners;
+    const newRows = fresh ? w.now.filter((r) => fresh[String(r.record_id)]).sort((a, b) => b.amount - a.amount) : [];
+    const seen = new Set();
+    const newList = newRows.filter((r) => (seen.has(r.record_id) ? false : seen.add(r.record_id)));
+    const line = (r) => `<li><span>${chipFor(r.record_id, r.partner)}<small>${esc(dshort(r.date))}${r.appeal_code ? ' · ' + esc(r.appeal_code) : ''}</small></span>${giftLink(r)}</li>`;
+    const span = w.start === w.today ? esc(dshort(w.today)) : `${esc(dshort(w.start).replace(/, \d{4}$/, ''))} to ${esc(dshort(w.today))}`;
+    return `<section class="dr-week" aria-label="This week"><h3>This week <span>${span}</span></h3>
+      <div class="dr-wk">
+        <div><b>${count(w.gifts)}</b><span>Gifts</span><small>${esc(delta(w.gifts, w.lastGifts, count))}</small></div>
+        <div><b>${money(w.total)}</b><span>Given</span><small>${esc(delta(w.total, w.lastTotal, money))}</small></div>
+        <div><b>${fresh ? count(newList.length) : '…'}</b><span>New partners</span><small>First gift this week</small></div>
+      </div>
+      ${w.largest.length ? `<p class="dr-sub">Largest gifts this week</p><ul class="dr-lines dr-wkl">${w.largest.map(line).join('')}</ul>` : '<p class="dr-note">No gifts dated this week yet.</p>'}
+      ${newList.length ? `<p class="dr-sub">New partners</p><ul class="dr-lines dr-wkl">${newList.slice(0, 8).map(line).join('')}</ul>${newList.length > 8 ? `<p class="dr-note">${count(newList.length - 8)} more in the rows below.</p>` : ''}` : ''}
+    </section>`;
+  }
+
   /** What is in the number and why it moved: the sentences and lines come from the server, set as they came. */
   function whyHTML(s) {
     const w = s.why;
@@ -232,7 +281,7 @@
     }
     const acts = `<div class="dr-acts">${s.rows && s.rows.length ? '<button type="button" class="h-btn h-btn--primary h-btn--sm" data-sheets="drill">Open in Google Sheets</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-dr-csv>Download CSV</button>' : ''}</div>`;
     const err = s.error ? `<div class="dr-msg" role="status">${esc(s.error)}</div>` : '';
-    panel.querySelector('#dr-body').innerHTML = `${shownBlock}${totalLine}${s.loading ? '<div class="dr-skel" role="status" aria-label="Opening the rows"><i class="dr-sk dr-sk--box"></i><i class="dr-sk dr-sk--h"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i></div>' : ''}${err}${tieLine(s)}${whyHTML(s)}${def}${rows}${acts}`;
+    panel.querySelector('#dr-body').innerHTML = `${shownBlock}${totalLine}${s.loading ? '<div class="dr-skel" role="status" aria-label="Opening the rows"><i class="dr-sk dr-sk--box"></i><i class="dr-sk dr-sk--h"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i><i class="dr-sk dr-sk--s"></i><i class="dr-sk"></i></div>' : ''}${err}${tieLine(s)}${weekHTML(s)}${whyHTML(s)}${def}${rows}${acts}`;
     const csv = panel.querySelector('[data-dr-csv]');
     if (csv) csv.addEventListener('click', download);
   }
@@ -292,6 +341,15 @@
         ];
         next.sheetTitle = `${base.title} rows`;
         next.totalLabel = `Gifts behind it, ${count(num.count)}`;
+        if (kind === 'year') {
+          next.week = weekOf(next.rows);
+          const ids = next.week.givers;
+          if (ids.length) {
+            fetch('/api/hub/new-partners', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ ids, since: next.week.start }) })
+              .then((r) => r.json()).then((d) => { if (state && state.week === next.week) { state.newPartners = d && d.ok ? d.first || {} : {}; render(); } })
+              .catch(() => { if (state && state.week === next.week) { state.newPartners = {}; render(); } });
+          } else next.newPartners = {};
+        }
         if (num.label && kind.startsWith('slice:')) next.rowsLabel = `${num.label}, gifts`;
       }
     }

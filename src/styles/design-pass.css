@@ -527,3 +527,9 @@ html body.h-body .br-item > .br-more + .br-fold { margin-left: 16px; }
 
 /* First-time partners (2026-10-12): Came in through, one line under the giving line. */
 html body.h-body #wc-root .wcd-who .wcd-found { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 860px) {
+  html body.h-body #wc-root .wcd-who .wcd-found { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+}
+
+/* A gift opened from another page (?gift=): the timeline row is marked. */
+html body.h-body .pp-tl .pp-ev.is-focus { background: var(--h-leaf-soft, #e4ece1); border-radius: 10px; box-shadow: 0 0 0 6px var(--h-leaf-soft, #e4ece1); }

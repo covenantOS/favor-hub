@@ -59,3 +59,7 @@ If you can see the KPI dashboard, Today shows money raised against the year's go
 ## Recent activity and your requests
 
 The activity list shows the last two weeks across FavorOS: requests made and finished, print files, foundation contacts. **Your requests** lists what you asked for and where each one stands.
+
+## What changed this week
+
+Press **Raised so far this year** on the year card. The panel opens on **This week**: the gifts dated Monday through today against the same days last week (how many and how much), the largest gifts this week and the new partners, whose first gift ever came this week. Press a name for the partner card, or the amount to open that gift on the partner page. The same panel opens from the year number in Reporting. Below it are the reasons the number moved this month, the Favor definition and every gift behind the year.
