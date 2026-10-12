@@ -8,6 +8,7 @@ import { Sheet, Toast, type ToastState } from './Sheet';
 import { AssistPanel, BriefCards, SuggestedReplies, shortDay, type AssistState } from './Assist';
 import { SmartSheets, type SmartCtx } from './SmartSheets';
 import { BASE_VIEWS, CAT_NAMES, FLAG_NAMES, MI, SYS_ICON, hue, initials, isPhone, isPrimary, when, who } from './util';
+import { installTips } from './tips';
 import { MailError, PRE, boxOf, device, getApi, mailApi, mbOf, setMe, sigOf } from './mailApi';
 
 const HOLD_MS = 15000;
@@ -1277,6 +1278,8 @@ export function MailPage() {
     document.addEventListener('keydown', key);
     return () => document.removeEventListener('keydown', key);
   });
+
+  useEffect(() => installTips(), []);
 
   // The phone's Back closes compose and sheets before leaving the page.
   useEffect(() => {

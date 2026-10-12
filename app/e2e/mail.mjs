@@ -61,6 +61,12 @@ await step('open a conversation (timing)', async () => {
   await page.waitForSelector('.ml-thread .ml-msg.is-open', { timeout: 10000 });
   return `reader in ${Date.now() - t0} ms`;
 });
+await step('icon buttons show the hub tooltip', async () => {
+  await page.locator('.ml-thread__bar [aria-label="Archive"]').hover();
+  await page.waitForFunction(() => { const t = document.querySelector('.ml-tip'); return t && !t.hidden && /Archive/.test(t.textContent || ''); }, null, { timeout: 3000 });
+  
+  await page.mouse.move(700, 600);
+});
 await step('assist panel draws', async () => {
   await page.waitForSelector('.ml-assist .ml-askrow', { timeout: 15000 });
 });
@@ -246,6 +252,24 @@ await step('Drive and clip pickers open', async () => {
   await page.waitForSelector('.ml-sheet');
   await page.locator('.ml-sheet [aria-label="Close"]').click();
   await page.locator('.ml-c [aria-label="Discard"]').click();
+});
+await step('Escape closes a picker and leaves the compose open (each picker, twice)', async () => {
+  await home();
+  await page.locator('.ml-compose').click();
+  await page.waitForSelector('.ml-c.is-in');
+  for (const pass of [1, 2]) {
+    for (const [label, sel] of [['Link a Drive file', '.ml-sheet'], ['Link a clip', '.ml-sheet'], ['Photos from Drive', '.ml-sheet'], ['Templates', '.ml-sheet'], ['Send later', '.ml-sheet']]) {
+      await page.locator(`.ml-c [aria-label="${label}"], .ml-c [title="${label}"]`).first().click();
+      await page.waitForSelector(sel, { timeout: 5000 });
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !document.querySelector('.ml-sheet'), null, { timeout: 3000 });
+      if (!(await page.locator('.ml-c.is-in').count())) throw new Error(`the compose closed with Escape on ${label}, pass ${pass}`);
+    }
+  }
+  // Escape with nothing else open does close it and keeps the draft.
+  await page.locator('.ml-c__ed').click();
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.ml-c'), null, { timeout: 3000 });
 });
 await step('More: Make a task', async () => {
   await home();

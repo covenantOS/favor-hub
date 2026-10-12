@@ -338,7 +338,7 @@ export function Compose({ init, me, signature, fromOpts, canWrite, defaultBox, o
         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
           e.preventDefault();
           trySend();
-        } else if (e.key === 'Escape' && !(e.target as HTMLElement).closest('[data-addr]')) {
+        } else if (e.key === 'Escape' && !sheet && !(e.target as HTMLElement).closest('[data-addr]')) {
           e.preventDefault();
           close();
         } else if ((e.metaKey || e.ctrlKey) && /^[bik]$/i.test(e.key) && (e.target as HTMLElement).closest('[data-ed]')) {

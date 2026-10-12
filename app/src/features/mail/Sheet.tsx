@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MI, isPhone } from './util';
 
@@ -14,6 +14,10 @@ export function Sheet({ title, anchor, wide, onClose, children }: { title: strin
       if (f && !isPhone()) f.focus({ preventScroll: true });
       else box.current?.focus({ preventScroll: true });
     });
+    return () => cancelAnimationFrame(id);
+  }, []);
+  // Registered before the browser paints, so an Escape pressed the moment the sheet appears already belongs to it.
+  useLayoutEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -22,10 +26,7 @@ export function Sheet({ title, anchor, wide, onClose, children }: { title: strin
       }
     };
     document.addEventListener('keydown', key, true);
-    return () => {
-      cancelAnimationFrame(id);
-      document.removeEventListener('keydown', key, true);
-    };
+    return () => document.removeEventListener('keydown', key, true);
   }, [onClose]);
   let style: React.CSSProperties | undefined;
   if (pop && anchor) {
