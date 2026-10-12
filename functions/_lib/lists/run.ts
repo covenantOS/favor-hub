@@ -33,18 +33,63 @@ export interface Page {
   pageSize: number;
 }
 
-export async function pageOf(q: Q, spec: ListSpec, today: string, scope: Scope, page: number, pageSize: number): Promise<Page> {
+export interface Live {
+  /** Read-only SQL against the Blackbaud mirror. */
+  mirror: Q;
+  /** May this person see email addresses and phone numbers. */
+  contacts: boolean;
+}
+
+const MAIL_SQL = `SELECT c.id AS rid, c.primary_addressee AS addressee, c.primary_salutation AS salutation, a.address_lines AS address FROM constituents c
+  LEFT JOIN addresses a ON a.id = CASE WHEN EXISTS (SELECT 1 FROM addresses p WHERE p.id = c.primary_address_id AND COALESCE(p.is_inactive, 0) = 0) THEN c.primary_address_id
+    ELSE (SELECT x.id FROM addresses x WHERE x.constituent_record_id = c.id AND COALESCE(x.is_inactive, 0) = 0 ORDER BY COALESCE(x.is_primary, 0) DESC, x.date_modified DESC LIMIT 1) END
+  WHERE c.id IN (SELECT value FROM json_each(?1))`;
+const EMAIL_SQL = `SELECT constituent_record_id AS rid, email_address AS v FROM emails WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND COALESCE(is_inactive, 0) = 0 AND COALESCE(do_not_email, 0) = 0 AND email_address IS NOT NULL ORDER BY COALESCE(is_primary, 0) DESC`;
+const PHONE_SQL = `SELECT constituent_record_id AS rid, phone_number AS v FROM phones WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND COALESCE(is_inactive, 0) = 0 AND COALESCE(do_not_call, 0) = 0 AND phone_number IS NOT NULL ORDER BY COALESCE(is_primary, 0) DESC`;
+
+/** Fill the mailing and contact columns from the mirror for the rows in hand, in chunks. The snapshot never holds them. */
+export async function fillLive(rows: Row[], cols: Array<{ key: string; live?: string }>, live?: Live): Promise<void> {
+  const need = cols.filter((c) => c.live);
+  if (!need.length || !live || !rows.length) return;
+  const rids = [...new Set(rows.map((r) => String(r._rid || '')).filter(Boolean))];
+  const by = new Map<string, Row>();
+  const get = (rid: string) => by.get(rid) || by.set(rid, {}).get(rid)!;
+  for (let i = 0; i < rids.length; i += 2500) {
+    const json = JSON.stringify(rids.slice(i, i + 2500));
+    const [mail, email, phone] = await Promise.all([
+      need.some((c) => c.live === 'mail') ? live.mirror(MAIL_SQL, [json]) : Promise.resolve([]),
+      need.some((c) => c.key === 'email') ? live.mirror(EMAIL_SQL, [json]) : Promise.resolve([]),
+      need.some((c) => c.key === 'phone') ? live.mirror(PHONE_SQL, [json]) : Promise.resolve([]),
+    ]);
+    for (const m of mail) Object.assign(get(String(m.rid)), { addressee: m.addressee, salutation: m.salutation, address: m.address ? String(m.address).split(/[\r\n]+/).map((x) => x.trim()).filter(Boolean).join(', ') : '' });
+    for (const e of email) if (get(String(e.rid)).email === undefined) get(String(e.rid)).email = e.v;
+    for (const p of phone) if (get(String(p.rid)).phone === undefined) get(String(p.rid)).phone = p.v;
+  }
+  for (const r of rows) Object.assign(r, by.get(String(r._rid)) || {});
+}
+
+/** How many partners the mail-ready rule leaves out of this list. */
+export async function mailLeftOut(q: Q, spec: ListSpec, today: string, scope: Scope): Promise<number> {
+  if (!spec.partner.mailReady || spec.kind !== 'partners') return 0;
+  const all = await countList(q, { ...spec, partner: { ...spec.partner, mailReady: false } }, today, scope);
+  const kept = await countList(q, spec, today, scope);
+  return all.n - kept.n;
+}
+
+export async function pageOf(q: Q, spec: ListSpec, today: string, scope: Scope, page: number, pageSize: number, live?: Live): Promise<Page> {
   const count = await countList(q, spec, today, scope);
-  const pl = plan(spec, today, scope, { limit: pageSize, offset: Math.max(0, page - 1) * pageSize });
+  const pl = plan(spec, today, scope, { limit: pageSize, offset: Math.max(0, page - 1) * pageSize, contacts: live?.contacts });
   const rows = await exec(q, pl.listSql, pl.params);
+  await fillLive(rows, pl.columns, live);
   return { columns: pl.columns.map((c) => ({ key: c.key, label: c.label, type: c.type })), rows, count, page, pageSize };
 }
 
 /** Every matching row, capped at MAX_ROWS, for CSV and Sheets. */
-export async function allRows(q: Q, spec: ListSpec, today: string, scope: Scope): Promise<Pick<Page, 'columns' | 'rows'> & { capped: boolean; count: Counted }> {
+export async function allRows(q: Q, spec: ListSpec, today: string, scope: Scope, live?: Live): Promise<Pick<Page, 'columns' | 'rows'> & { capped: boolean; count: Counted }> {
   const count = await countList(q, spec, today, scope);
-  const pl = plan(spec, today, scope, { limit: MAX_ROWS, offset: 0 });
+  const pl = plan(spec, today, scope, { limit: MAX_ROWS, offset: 0, contacts: live?.contacts });
   const rows = await exec(q, pl.listSql, pl.params);
+  await fillLive(rows, pl.columns, live);
   return { columns: pl.columns.map((c) => ({ key: c.key, label: c.label, type: c.type })), rows, capped: count.n > MAX_ROWS, count };
 }
 
@@ -135,7 +180,11 @@ export async function tieOut(q: Q, spec: ListSpec, today: string, kpi: { active:
   const label = `KPI dashboard, Executive, ${s === 'lybunt' ? 'LYBUNT' : s} partners`;
   if (!kpi) return { label, mine, kpi: null, status: 'unavailable' };
   const theirs = kpi[s];
-  return { label, mine, kpi: theirs, status: mine === theirs ? 'match' : 'differs', note: mine === theirs ? undefined : 'The dashboard figure is its last nightly build; gifts entered since then are in this list.' };
+  if (mine === theirs) return { label, mine, kpi: theirs, status: 'match' };
+  // Whole days of difference come from gifts dated today that the dashboard's last build did not yet have.
+  const fresh = Number((await q(`SELECT COUNT(*) AS n FROM lr_hh WHERE last_gift = ?1 AND gifts = 1`, [today]))[0]?.n || 0);
+  const note = mine - theirs === fresh && fresh > 0 ? `${fresh === 1 ? 'One partner' : fresh + ' partners'} whose first gift is dated today; the dashboard was built before ${fresh === 1 ? 'it' : 'them'} synced.` : 'The dashboard figure is its last build.';
+  return { label, mine, kpi: theirs, status: 'differs', note };
 }
 
 export { compile };

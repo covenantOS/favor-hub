@@ -48,6 +48,8 @@ export interface PartnerCrit {
   lastGift: Span;
   contactBefore: string;
   neverContacted: boolean;
+  /** Leave out Do Not Mail partners and partners marked no valid address. */
+  mailReady: boolean;
   solicitHas: string[];
   solicitNot: string[];
   codesHas: string[];
@@ -85,7 +87,7 @@ export function emptySpec(kind: Kind = 'partners'): ListSpec {
     kind,
     partner: {
       status: [], deceased: 'exclude', major: 'any', type: 'any', cameIn: 'any', firstCats: [], holders: [], holderTypes: [], teams: [], holder: 'any', states: [], cities: [], zips: [],
-      lifetime: emptyRange(), largest: emptyRange(), gifts: emptyRange(), giving: [], firstGift: emptySpan(), lastGift: emptySpan(), contactBefore: '', neverContacted: false,
+      lifetime: emptyRange(), largest: emptyRange(), gifts: emptyRange(), giving: [], firstGift: emptySpan(), lastGift: emptySpan(), contactBefore: '', neverContacted: false, mailReady: false,
       solicitHas: [], solicitNot: [], codesHas: [], codesNot: [], attrsHas: [], attrsNot: [], relsHas: [], eventsHas: [],
     },
     gift: { from: '', to: '', min: null, max: null, funds: [], fundCats: [], appeals: [], appealCats: [], kinds: [], methods: [], creditedTo: [], soft: 'any' },
@@ -107,6 +109,8 @@ export interface ColumnDef {
   def?: boolean;
   /** A real value the column sorts on, when the shown text differs. */
   sort?: string;
+  /** Read from the Blackbaud mirror when rows are shown or exported, never kept in the snapshot. contact needs contact access. */
+  live?: 'mail' | 'contact';
 }
 
 const STATUS_SQL = (t12: string, t24: string) => `CASE WHEN h.last_gift > '${t12}' THEN 'Active' WHEN h.last_gift > '${t24}' THEN 'LYBUNT' ELSE 'Lapsed' END`;
@@ -146,6 +150,11 @@ export function columns(p: { t12: string; t24: string; t36: string }): ColumnDef
     { key: 'last_contact', label: 'Last contact', type: 'date', sql: 'h.last_contact', only: 'partners' },
     { key: 'solicit', label: 'Solicit codes', type: 'text', sql: TAGS_SQL('solicit') },
     { key: 'codes', label: 'Constituent codes', type: 'text', sql: TAGS_SQL('code') },
+    { key: 'addressee', label: 'Addressee', type: 'text', sql: '', live: 'mail', only: 'partners' },
+    { key: 'salutation', label: 'Salutation', type: 'text', sql: '', live: 'mail', only: 'partners' },
+    { key: 'address', label: 'Address lines', type: 'text', sql: '', live: 'mail', only: 'partners' },
+    { key: 'email', label: 'Email', type: 'text', sql: '', live: 'contact', only: 'partners' },
+    { key: 'phone', label: 'Phone', type: 'text', sql: '', live: 'contact', only: 'partners' },
     { key: 'period_total', label: 'Giving in the period', type: 'money', sql: '', only: 'partners' },
     // Gift columns.
     { key: 'gift_id', label: 'Gift ID', type: 'id', sql: 'g.gift_id', only: 'gifts', def: true },
@@ -213,6 +222,7 @@ export function normalizeSpec(input: unknown): ListSpec {
     lastGift: span(p.lastGift),
     contactBefore: date(p.contactBefore),
     neverContacted: p.neverContacted === true,
+    mailReady: p.mailReady === true,
     solicitHas: strs(p.solicitHas, 20),
     solicitNot: strs(p.solicitNot, 20),
     codesHas: strs(p.codesHas, 20),
@@ -356,6 +366,7 @@ export function partnerConditions(c: PartnerCrit, w: Windows, p: P, scope: Scope
   tag('attr', c.attrsHas, c.attrsNot);
   tag('rel', c.relsHas, []);
   tag('event', c.eventsHas, []);
+  if (c.mailReady) out.push(`h.no_addr = 0`, `NOT EXISTS (SELECT 1 FROM lr_tag t WHERE t.household_id = h.household_id AND t.kind = 'solicit' AND t.value IN ('Do Not Mail', 'Do Not Contact', 'Do Not Mail Solicitation'))`);
   if (!scope.all) out.push(scope.fids.length ? `h.household_id IN (SELECT household_id FROM lr_holder WHERE fundraiser_id IN ${p.list(scope.fids)})` : '0 = 1');
   return out;
 }
@@ -410,20 +421,20 @@ export interface Plan {
 }
 
 /** Compile the spec into a count statement and a list statement. limit and offset are bound, never inlined. */
-export function plan(spec: ListSpec, today: string, scope: Scope, opts: { limit: number; offset: number }): Plan {
+export function plan(spec: ListSpec, today: string, scope: Scope, opts: { limit: number; offset: number; contacts?: boolean }): Plan {
   const c = compile(spec, today, scope);
   const wh = c.where.length ? `WHERE ${c.where.join(' AND ')}` : '';
-  const avail = c.cols.filter((x) => !x.only || x.only === spec.kind);
+  const avail = c.cols.filter((x) => (!x.only || x.only === spec.kind) && (x.live !== 'contact' || opts.contacts));
   const wanted = spec.columns.length ? spec.columns.map((k) => avail.find((x) => x.key === k)).filter((x): x is ColumnDef => Boolean(x)) : avail.filter((x) => x.def);
   const shown = wanted.length ? wanted : avail.filter((x) => x.def);
   const sqlOf = (x: ColumnDef) => (x.key === 'period_total' ? c.periodSql : x.sql);
-  const select = shown.map((x) => `${sqlOf(x)} AS ${x.key}`);
+  const select = shown.filter((x) => !x.live).map((x) => `${sqlOf(x)} AS ${x.key}`);
   // The row id the page needs to open a partner or a gift.
   select.push('h.household_id AS _hid', 'h.record_id AS _rid');
   if (spec.kind === 'gifts') select.push('g.gift_id AS _gid');
   const sortCol = avail.find((x) => x.key === (spec.sort.key || (spec.kind === 'gifts' ? 'gift_date' : 'last_gift'))) ?? shown[0];
   const dir = spec.sort.dir === 'asc' ? 'ASC' : 'DESC';
-  const orderBy = sortCol ? `${sortCol.sort ?? sqlOf(sortCol)} ${dir}, ${spec.kind === 'gifts' ? 'g.gift_id' : 'h.household_id'}` : 'h.household_id';
+  const orderBy = sortCol && !sortCol.live ? `${sortCol.sort ?? sqlOf(sortCol)} ${dir}, ${spec.kind === 'gifts' ? 'g.gift_id' : 'h.household_id'}` : 'h.household_id';
   const params = c.params;
   const lim = `LIMIT ${c.p.v(Math.min(Math.max(1, opts.limit), MAX_ROWS))} OFFSET ${c.p.v(Math.max(0, opts.offset))}`;
   const count = spec.kind === 'gifts' ? 'COUNT(*) AS n, ROUND(COALESCE(SUM(g.credited), 0), 2) AS total, COUNT(DISTINCT h.household_id) AS partners' : 'COUNT(*) AS n, ROUND(COALESCE(SUM(h.lifetime), 0), 2) AS total, COUNT(*) AS partners';
@@ -462,6 +473,7 @@ export function summarize(spec: ListSpec, names: { fund?: (id: string) => string
   for (const gv of c.giving) out.push(`Gave ${gv.from || 'ever'} to ${gv.to || 'today'}${gv.min !== null || gv.max !== null ? `: ${gv.min ?? 0} to ${gv.max ?? 'any'}` : ''}`);
   if (c.firstGift.from || c.firstGift.to) out.push(`First gift ${c.firstGift.from || 'any'} to ${c.firstGift.to || 'today'}`);
   if (c.lastGift.from || c.lastGift.to) out.push(`Last gift ${c.lastGift.from || 'any'} to ${c.lastGift.to || 'today'}`);
+  if (c.mailReady) out.push('Mail-ready only');
   if (c.neverContacted) out.push('Never contacted');
   else if (c.contactBefore) out.push('No contact since ' + c.contactBefore);
   for (const [l, xs] of [['Solicit code', c.solicitHas], ['No solicit code', c.solicitNot], ['Code', c.codesHas], ['Not code', c.codesNot], ['Attribute', c.attrsHas], ['No attribute', c.attrsNot], ['Relationship', c.relsHas], ['Event', c.eventsHas]] as const) {

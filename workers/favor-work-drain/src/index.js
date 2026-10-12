@@ -74,6 +74,7 @@ export default {
     if (event.cron === '*/5 * * * *') { ctx.waitUntil(meetings(env)); ctx.waitUntil(warm(env, event.scheduledTime)); }
     else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(call(env, '/api/work/digest').then((r) => console.log('digest:', JSON.stringify(r))));
     else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(call(env, '/api/gift-entry/drain').then((r) => console.log('gift-entry:', JSON.stringify(r))));
+    else if (event.cron === '35 * * * *') ctx.waitUntil(call(env, '/api/lists/refresh?ifnewer=1').then((r) => console.log('lists:', JSON.stringify(r))));
     else if (event.cron === '10 * * * *') ctx.waitUntil(call(env, '/api/work/fresh').then((r) => console.log('fresh:', JSON.stringify(r))));
     else ctx.waitUntil(drainAll(env));
   },

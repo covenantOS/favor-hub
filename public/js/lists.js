@@ -26,7 +26,7 @@
   function blank(kind) {
     return {
       kind: kind || 'partners',
-      partner: { status: [], deceased: 'exclude', major: 'any', type: 'any', cameIn: 'any', firstCats: [], holders: [], holderTypes: [], teams: [], holder: 'any', states: [], cities: [], zips: [], lifetime: {}, largest: {}, gifts: {}, giving: [], firstGift: {}, lastGift: {}, contactBefore: '', neverContacted: false, solicitHas: [], solicitNot: [], codesHas: [], codesNot: [], attrsHas: [], attrsNot: [], relsHas: [], eventsHas: [] },
+      partner: { status: [], deceased: 'exclude', major: 'any', type: 'any', cameIn: 'any', firstCats: [], holders: [], holderTypes: [], teams: [], holder: 'any', states: [], cities: [], zips: [], lifetime: {}, largest: {}, gifts: {}, giving: [], firstGift: {}, lastGift: {}, contactBefore: '', neverContacted: false, mailReady: false, solicitHas: [], solicitNot: [], codesHas: [], codesNot: [], attrsHas: [], attrsNot: [], relsHas: [], eventsHas: [] },
       gift: { from: '', to: '', min: null, max: null, funds: [], fundCats: [], appeals: [], appealCats: [], kinds: [], methods: [], creditedTo: [], soft: 'any' },
       columns: [], sort: { key: '', dir: 'desc' }
     };
@@ -250,7 +250,8 @@
       field('Relationship', multi('partner.relsHas', 'Pick relationships', function () { return plain(m.rels); })),
       field('Event', multi('partner.eventsHas', 'Pick events', function () { return plain(m.events); })),
       field('No contact since', dateIn('partner.contactBefore', 'No contact since')),
-      check('partner.neverContacted', 'Never contacted')
+      check('partner.neverContacted', 'Never contacted'),
+      check('partner.mailReady', 'Mail-ready only')
     ], 'records'));
     return out;
   }
@@ -266,7 +267,7 @@
       place: p.states.length + p.cities.length + p.zips.length,
       giving: rg(p.lifetime) + rg(p.largest) + rg(p.gifts) + p.giving.length + sp(p.firstGift) + sp(p.lastGift),
       gifts: sp(g) + rg(g) + g.funds.length + g.fundCats.length + g.appeals.length + g.appealCats.length + g.kinds.length + g.methods.length + g.creditedTo.length + (g.soft !== 'any'),
-      records: p.solicitHas.length + p.solicitNot.length + p.codesHas.length + p.codesNot.length + p.attrsHas.length + p.relsHas.length + p.eventsHas.length + (p.contactBefore ? 1 : 0) + (p.neverContacted ? 1 : 0)
+      records: p.solicitHas.length + p.solicitNot.length + p.codesHas.length + p.codesNot.length + p.attrsHas.length + p.relsHas.length + p.eventsHas.length + (p.contactBefore ? 1 : 0) + (p.neverContacted ? 1 : 0) + (p.mailReady ? 1 : 0)
     };
     var total = 0;
     Object.keys(c).forEach(function (k) { c[k] = Number(c[k]); total += c[k]; var n = root.querySelector('[data-n="' + k + '"]'); if (n) n.textContent = c[k] ? String(c[k]) : ''; });
@@ -284,7 +285,7 @@
     call('/count', { spec: S.spec }).then(function (d) {
       if (my !== seq) return;
       if (d.ok === false) { drawSum(null, d.message); return; }
-      S.count = d.count; S.tie = d.tie; S.ms = d.ms; drawSum();
+      S.count = d.count; S.tie = d.tie; S.ms = d.ms; S.left = d.leftOut || 0; drawSum();
     });
   }
   function refreshRows() {
@@ -312,9 +313,10 @@
     if (c) {
       facts.push(gifts ? money(c.total) + ' credited' : money(c.total) + ' lifetime');
       if (gifts) facts.push(num(c.partners) + (c.partners === 1 ? ' partner' : ' partners'));
+      if (S.spec.partner.mailReady && S.left) facts.push(num(S.left) + ' left out (Do Not Mail or no valid address)');
     }
     var tie = S.tie
-      ? '<div class="ls-tie ' + (S.tie.status === 'match' ? 'is-ok' : S.tie.status === 'differs' ? 'is-warn' : 'is-off') + '"><span class="ls-tie__i" aria-hidden="true">' + (S.tie.status === 'match' ? '✓' : '≠') + '</span><div><b>' + (S.tie.status === 'match' ? 'Ties to the KPI dashboard' : S.tie.status === 'differs' ? 'Differs from the KPI dashboard' : 'KPI dashboard not answering') + '</b><span>' + esc(S.tie.label) + ': ' + (S.tie.kpi == null ? '—' : num(S.tie.kpi)) + (S.tie.status === 'differs' ? ' · this list ' + num(S.tie.mine) : '') + '</span></div></div>'
+      ? '<div class="ls-tie ' + (S.tie.status === 'match' ? 'is-ok' : S.tie.status === 'differs' ? 'is-warn' : 'is-off') + '"><span class="ls-tie__i" aria-hidden="true">' + (S.tie.status === 'match' ? '✓' : '≠') + '</span><div><b>' + (S.tie.status === 'match' ? 'Ties to the KPI dashboard' : S.tie.status === 'differs' ? 'Differs from the KPI dashboard' : 'KPI dashboard not answering') + '</b><span>' + esc(S.tie.label) + ': ' + (S.tie.kpi == null ? '—' : num(S.tie.kpi)) + (S.tie.status === 'differs' ? ' · this list ' + num(S.tie.mine) + (S.tie.note ? ' · ' + esc(S.tie.note) : '') : '') + '</span></div></div>'
       : '';
     host.innerHTML = '<div class="ls-big"><b>' + w[0] + '</b><span>' + w[1] + '</span></div><div class="ls-facts">' + (err ? esc(err) : esc(facts.join(' · '))) + '</div>' + tie;
   }
@@ -351,7 +353,7 @@
   }
 
   /* ---------- columns, saved lists, exports ---------- */
-  function availableColumns() { return (S.meta.columns || []).filter(function (c) { return !c.only || c.only === S.spec.kind; }); }
+  function availableColumns() { return (S.meta.columns || []).filter(function (c) { return (!c.only || c.only === S.spec.kind) && (c.live !== 'contact' || S.meta.contacts); }); }
   function columnsPop(anchor) {
     openPop(anchor, function (p) {
       var avail = availableColumns();
@@ -369,6 +371,10 @@
         list.appendChild(el('label', { class: 'ls-copt', for: id }, [box, c.label]));
       });
       p.appendChild(list);
+      if (S.spec.kind === 'partners') p.appendChild(el('button', { type: 'button', class: 'ls-link', text: 'Mail house columns', onclick: function () {
+        S.spec.columns = ['addressee', 'salutation', 'address', 'city', 'state', 'zip', 'lookup'].filter(function (k) { return avail.some(function (c) { return c.key === k; }); });
+        S.spec.partner.mailReady = true; closePop(); draw(); changed();
+      } }));
       p.appendChild(el('button', { type: 'button', class: 'ls-link', text: 'Reset to the usual columns', onclick: function () { S.spec.columns = []; closePop(); refreshRows(); } }));
     });
   }
@@ -441,7 +447,7 @@
     }
     var gifts = S.spec.kind === 'gifts';
     root.innerHTML =
-      '<div class="ls-top" id="ls-bar"><div class="rp-seg2" role="group" aria-label="List of"><button type="button" data-kind="partners" class="' + (!gifts ? 'is-on' : '') + '">Partners</button><button type="button" data-kind="gifts" class="' + (gifts ? 'is-on' : '') + '">Gifts</button></div><span class="ls-curwrap"></span>' +
+      '<div class="ls-top" id="ls-bar"><div class="rp-seg2" role="group" aria-label="List of"><button type="button" data-kind="partners" class="' + (!gifts ? 'is-on' : '') + '">Partners</button><button type="button" data-kind="gifts" class="' + (gifts ? 'is-on' : '') + '">Gifts</button></div><a class="ls-quiet" href="/lists/reports/">Standard reports</a><span class="ls-curwrap"></span>' +
       '<span class="ls-grow"></span><span class="ls-stamp">' + esc(stamp()) + '</span>' +
       '<button type="button" class="ls-quiet" id="ls-saved">Saved lists <span class="ls-caret" aria-hidden="true"></span></button></div>' +
       '<div class="ls-grid"><details class="h-card ls-crit" id="ls-critc" open><summary class="ls-crit__h"><span>Criteria <b id="ls-critn"></b></span><button type="button" class="ls-link" id="ls-clear" hidden>Clear</button></summary><div id="ls-critbody"></div><div class="ls-show"><button type="button" class="h-btn h-btn--primary h-btn--sm" id="ls-show">Show results</button></div></details>' +

@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS lr_hh (
   last_code TEXT,
   last_cat TEXT,
   last_contact TEXT,
-  members TEXT
+  members TEXT,
+  no_addr INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS lr_hh_last ON lr_hh (last_gift);
 CREATE INDEX IF NOT EXISTS lr_hh_state ON lr_hh (state);
@@ -136,3 +137,28 @@ CREATE TABLE IF NOT EXISTS lr_credit_log (
   note TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS lr_credit_log_change ON lr_credit_log (change_id);
+
+-- 2026-10-12 slice 2: one row per fundraiser credit on a gift (distinct gifts), for Credit by fundraiser.
+CREATE TABLE IF NOT EXISTS lr_cr (
+  gift_id TEXT NOT NULL,
+  fundraiser_id TEXT NOT NULL,
+  amount REAL NOT NULL,
+  gift_amount REAL NOT NULL,
+  gift_date TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  PRIMARY KEY (gift_id, fundraiser_id)
+);
+CREATE INDEX IF NOT EXISTS lr_cr_fr ON lr_cr (fundraiser_id, gift_date);
+-- Distinct gifts (one row per gift, whoever it is credited to), for totals that tie to the KPI dashboard.
+CREATE TABLE IF NOT EXISTS lr_g1 (
+  gift_id TEXT PRIMARY KEY,
+  gift_date TEXT NOT NULL,
+  amount REAL NOT NULL,
+  kind TEXT NOT NULL,
+  funds TEXT,
+  fund_names TEXT,
+  appeals TEXT,
+  appeal_codes TEXT,
+  appeal_cats TEXT
+);
+CREATE INDEX IF NOT EXISTS lr_g1_date ON lr_g1 (gift_date);

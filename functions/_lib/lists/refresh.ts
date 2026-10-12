@@ -2,12 +2,28 @@
 import type { Env } from '../http.ts';
 import { mirror } from '../foundations/blackbaud';
 import { buildSnapshot, type SnapshotResult } from './snapshot.ts';
-import { hubQ, todayET, type SnapMeta } from './service.ts';
+import { hubQ, snapshotMeta, todayET, type SnapMeta } from './service.ts';
 
 const LOCK_MS = 4 * 60 * 1000;
 export const STALE_MS = 6 * 60 * 60 * 1000;
 
 /** Rebuild the snapshot from the Blackbaud mirror. One run at a time; a second caller inside four minutes gets `busy`. */
+export async function mirrorStamp(env: Env): Promise<string> {
+  const r = await mirror<{ m: string }>(env, 'SELECT MAX(synced_at) AS m FROM constituents').catch(() => []);
+  return String(r[0]?.m ?? '');
+}
+
+/** The hourly pass: rebuild only when the mirror has synced since the last copy (or the copy is a day old), so the copy follows each sync within the hour. */
+export async function refreshIfMirrorNewer(env: Env, now = new Date()): Promise<{ ok: boolean; skipped?: string; busy?: boolean; result?: SnapshotResult }> {
+  const meta = (await snapshotMeta(env)) as (SnapMeta & { mirrorAt?: string }) | null;
+  const stamp = await mirrorStamp(env);
+  const old = !meta || now.getTime() - Date.parse(meta.builtAt) > 24 * 3600 * 1000;
+  if (!old && stamp && meta?.mirrorAt === stamp) return { ok: true, skipped: 'the mirror has not synced since the last copy' };
+  const r = await refreshSnapshot(env, now);
+  if (r.ok && stamp) await env.DB.prepare(`UPDATE lr_meta SET value = json_set(value, '$.mirrorAt', ?1) WHERE key = 'snapshot'`).bind(stamp).run().catch(() => undefined);
+  return r;
+}
+
 export async function refreshSnapshot(env: Env, now = new Date()): Promise<{ ok: boolean; busy?: boolean; result?: SnapshotResult }> {
   const lock = await env.DB.prepare(`SELECT value FROM lr_meta WHERE key = 'refreshing'`).first<{ value: string }>().catch(() => null);
   if (lock && now.getTime() - Date.parse(lock.value) < LOCK_MS) return { ok: false, busy: true };

@@ -73,7 +73,7 @@ export async function buildSnapshot(io: SnapshotIO, asOf: string): Promise<Snaps
   const hhq = householdsSnapshotSql(asOf);
   const gq = giftRowsSnapshotSql(asOf);
 
-  const [households, giftRows, funds, appeals, fundraisers, holders, solicit, codes, attrs, rels, events, contacts, members] = await Promise.all([
+  const [households, giftRows, funds, appeals, fundraisers, holders, solicit, codes, attrs, rels, events, contacts, members, noAddr] = await Promise.all([
     io.read(hhq.sql, hhq.params),
     io.read(gq.sql, gq.params),
     io.read(`SELECT id, fund_id AS code, fund_description AS name, fund_category AS category, COALESCE(fund_inactive, 0) AS inactive FROM funds`),
@@ -98,6 +98,7 @@ export async function buildSnapshot(io: SnapshotIO, asOf: string): Promise<Snaps
         WHERE json_extract(raw_json, '$.completed') = 1 AND action_category IN ('Phone call', 'Email', 'Meeting') GROUP BY constituent_record_id`
     ),
     io.read(`SELECT id AS cid, spouse_id AS sid FROM constituents WHERE spouse_id IS NOT NULL`),
+    io.read(`SELECT id AS cid FROM constituents WHERE COALESCE(no_valid_address, 0) = 1`),
   ]);
 
   // Every record id to its household. A spouse that never gave maps through the household's other member.
@@ -126,12 +127,13 @@ export async function buildSnapshot(io: SnapshotIO, asOf: string): Promise<Snaps
   const appealBy = new Map(appeals.map((a) => [String(a.id), a]));
   const frName = new Map(fundraisers.map((f) => [String(f.id), String(f.name)]));
 
+  const noAddrHh = new Set(noAddr.map((r) => hh(r.cid)).filter(Boolean) as string[]);
   const hhRows = households.map((h) => {
     const ids = [...new Set([String(h.record_id), ...(h.spouse_record_id ? [String(h.spouse_record_id)] : [])])];
     return [
       String(h.household_id), String(h.record_id), text(h.spouse_record_id), text(h.lookup_id), text(h.name), text(h.constituent_type), text(h.city), text(h.state), text(h.zip), text(h.country),
       num(h.alive), day(h.first_gift), day(h.last_gift), num(h.last_gift_amount), num(h.largest_gift), num(h.lifetime), num(h.gifts), num(h.major), day(h.last_gift_ly),
-      text(h.first_appeal_code), text(h.first_appeal_category), text(h.last_appeal_code), text(h.last_appeal_category), lastContact.get(String(h.household_id)) ?? null, JSON.stringify(ids),
+      text(h.first_appeal_code), text(h.first_appeal_category), text(h.last_appeal_code), text(h.last_appeal_category), lastContact.get(String(h.household_id)) ?? null, JSON.stringify(ids), noAddrHh.has(String(h.household_id)) ? 1 : 0,
     ];
   });
 
@@ -185,16 +187,35 @@ export async function buildSnapshot(io: SnapshotIO, asOf: string): Promise<Snaps
     ];
   });
 
+  const seen = new Set<string>();
+  const crRows: unknown[][] = [];
+  const g1Rows: unknown[][] = [];
+  for (let i = 0; i < giftRows.length; i++) {
+    const g = giftRows[i];
+    const id = String(g.gift_id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const o = giftOut[i];
+    const kind = o[5];
+    for (const c of parse<Row[]>(g.credits, [])) {
+      if (!c || !c.constituent_id) continue;
+      crRows.push([id, String(c.constituent_id), num(c.amount?.value), num(g.amount), String(g.gift_date), kind]);
+    }
+    g1Rows.push([id, String(g.gift_date), num(g.amount), kind, o[7], o[8], o[10], o[11], o[12]]);
+  }
+
   const stmts = (table: string, cols: string[], rows: unknown[][]): Stmt[] => [{ sql: `DELETE FROM ${table}`, params: [] }, ...bulkInsert(table, cols, rows)];
   // One transaction per table, so a failed read above never empties a table, and a reader sees an old or a new copy.
   await io.write(
-    stmts('lr_hh', ['household_id', 'record_id', 'spouse_record_id', 'lookup_id', 'name', 'ctype', 'city', 'state', 'zip', 'country', 'alive', 'first_gift', 'last_gift', 'last_amt', 'largest', 'lifetime', 'gifts', 'major', 'last_gift_ly', 'first_code', 'first_cat', 'last_code', 'last_cat', 'last_contact', 'members'], hhRows)
+    stmts('lr_hh', ['household_id', 'record_id', 'spouse_record_id', 'lookup_id', 'name', 'ctype', 'city', 'state', 'zip', 'country', 'alive', 'first_gift', 'last_gift', 'last_amt', 'largest', 'lifetime', 'gifts', 'major', 'last_gift_ly', 'first_code', 'first_cat', 'last_code', 'last_cat', 'last_contact', 'members', 'no_addr'], hhRows)
   );
   await io.write(stmts('lr_holder', ['household_id', 'fundraiser_id', 'atype'], holderRows));
   await io.write(stmts('lr_tag', ['household_id', 'kind', 'value'], tagRows));
   await io.write(
     stmts('lr_gift', ['gift_id', 'household_id', 'gift_date', 'credited', 'amount', 'kind', 'method', 'funds', 'fund_names', 'fund_cats', 'appeals', 'appeal_codes', 'appeal_cats', 'creds', 'cred_names', 'soft', 'giver'], giftOut)
   );
+  await io.write(stmts('lr_cr', ['gift_id', 'fundraiser_id', 'amount', 'gift_amount', 'gift_date', 'kind'], crRows));
+  await io.write(stmts('lr_g1', ['gift_id', 'gift_date', 'amount', 'kind', 'funds', 'fund_names', 'appeals', 'appeal_codes', 'appeal_cats'], g1Rows));
   await io.write(stmts('lr_fund', ['id', 'code', 'name', 'category', 'inactive'], funds.map((f) => [String(f.id), text(f.code), text(f.name), text(f.category), num(f.inactive)])));
   await io.write(stmts('lr_appeal', ['id', 'code', 'name', 'category', 'start'], appeals.map((a) => [String(a.id), text(a.code), text(a.name), text(a.category), text(a.start)])));
   await io.write(stmts('lr_fr', ['id', 'name', 'ftype', 'active'], fundraisers.map((f) => [String(f.id), text(f.name), text(f.ftype), num(f.active)])));

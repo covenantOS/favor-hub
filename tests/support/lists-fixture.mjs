@@ -9,8 +9,10 @@ export function makeMirror() {
   const db = new DatabaseSync(':memory:');
   db.exec(`
     CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_lookup_id TEXT, constituent_type TEXT, first_name TEXT, last_name TEXT, organization_name TEXT, spouse_id TEXT,
-      spouse_is_head_of_household INTEGER, deceased INTEGER DEFAULT 0, inactive INTEGER DEFAULT 0, primary_address_id TEXT, raw_json TEXT);
-    CREATE TABLE addresses (id TEXT PRIMARY KEY, constituent_record_id TEXT, address_city TEXT, address_state TEXT, address_postal_code TEXT, address_country TEXT, is_primary INTEGER, is_inactive INTEGER DEFAULT 0, date_modified TEXT);
+      spouse_is_head_of_household INTEGER, deceased INTEGER DEFAULT 0, inactive INTEGER DEFAULT 0, primary_address_id TEXT, raw_json TEXT, no_valid_address INTEGER DEFAULT 0, primary_addressee TEXT, primary_salutation TEXT);
+    CREATE TABLE emails (constituent_record_id TEXT, email_address TEXT, is_primary INTEGER, is_inactive INTEGER DEFAULT 0, do_not_email INTEGER DEFAULT 0);
+    CREATE TABLE phones (constituent_record_id TEXT, phone_number TEXT, is_primary INTEGER, is_inactive INTEGER DEFAULT 0, do_not_call INTEGER DEFAULT 0);
+    CREATE TABLE addresses (id TEXT PRIMARY KEY, constituent_record_id TEXT, address_lines TEXT, address_city TEXT, address_state TEXT, address_postal_code TEXT, address_country TEXT, is_primary INTEGER, is_inactive INTEGER DEFAULT 0, date_modified TEXT);
     CREATE TABLE gifts (id TEXT PRIMARY KEY, constituent_record_id TEXT, gift_date TEXT, gift_amount REAL, gift_type TEXT, gift_payment_method TEXT, gift_splits TEXT, fundraiser_credits TEXT, soft_credits TEXT,
       acknowledgment_status TEXT, receipt_status TEXT);
     CREATE TABLE appeals (id TEXT PRIMARY KEY, appeal_id TEXT, appeal_description TEXT, appeal_category TEXT, appeal_start_date TEXT);
@@ -31,7 +33,7 @@ export function makeMirror() {
       db.prepare(`INSERT INTO ${t} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...cols.map((c) => r[c]));
     }
   };
-  const person = (id, first, last, extra = {}) => ({ id, constituent_lookup_id: String(id - 100), constituent_type: 'Individual', first_name: first, last_name: last, primary_address_id: 'a' + id, raw_json: '{}', ...extra });
+  const person = (id, first, last, extra = {}) => ({ id, constituent_lookup_id: String(id - 100), constituent_type: 'Individual', first_name: first, last_name: last, primary_address_id: 'a' + id, raw_json: '{}', primary_addressee: first + ' ' + last, primary_salutation: 'Dear ' + first, ...extra });
   ins('constituents', [
     person('101', 'Alice', 'Tester', { spouse_id: '102', spouse_is_head_of_household: 0 }),
     person('102', 'Bob', 'Tester', { spouse_id: '101', spouse_is_head_of_household: 0 }),
@@ -47,8 +49,11 @@ export function makeMirror() {
     person('112', 'Jon', 'Alsoalive', { spouse_id: '113' }),
     person('113', 'Kay', 'Alsoalive', { spouse_id: '112', deceased: 1 }),
   ]);
-  const addr = (id, city, state, zip) => ({ id: 'a' + id, constituent_record_id: String(id), address_city: city, address_state: state, address_postal_code: zip, address_country: null, is_primary: 1, date_modified: '2026-01-01' });
+  const addr = (id, city, state, zip) => ({ id: 'a' + id, constituent_record_id: String(id), address_lines: id + ' Test Street', address_city: city, address_state: state, address_postal_code: zip, address_country: null, is_primary: 1, date_modified: '2026-01-01' });
   ins('addresses', [addr(101, 'Tampa', 'FL', '33601'), addr(103, 'Austin', 'TX', '78701'), addr(104, 'Tampa', 'FL', '33602'), addr(105, 'Denver', 'CO', '80201'), addr(106, 'Tampa', 'FL', '33603'), addr(107, 'Macon', 'GA', '31201'), addr(109, 'Reno', 'NV', '89501'), addr(110, 'Austin', 'TX', '78702'), addr(112, 'Boise', 'ID', '83701')]);
+  db.prepare("UPDATE constituents SET no_valid_address = 1 WHERE id = '105'").run();
+  ins('emails', [{ constituent_record_id: '101', email_address: 'alice@example.test', is_primary: 1 }, { constituent_record_id: '103', email_address: 'carol@example.test', is_primary: 1, do_not_email: 1 }]);
+  ins('phones', [{ constituent_record_id: '101', phone_number: '555-0101', is_primary: 1 }]);
   ins('appeals', [
     { id: '1', appeal_id: 'K24A-TEST', appeal_description: 'Acquisition test', appeal_category: 'Acquisition', appeal_start_date: '2024-09-01' },
     { id: '2', appeal_id: 'L26A-WS', appeal_description: 'Monthly letter', appeal_category: 'Direct Mail Appeal', appeal_start_date: '2026-01-01' },

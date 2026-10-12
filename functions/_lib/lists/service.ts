@@ -127,3 +127,18 @@ export async function deleteSaved(env: Env, email: string, id: string): Promise<
   const r = await env.DB.prepare(`DELETE FROM lr_saved WHERE id = ?1 AND owner = ?2`).bind(id, email.toLowerCase()).run();
   if (!r.meta?.changes) throw new HttpError(404, 'not_found', 'That list is not yours to delete, or it is already gone.');
 }
+
+/**
+ * Who may add email and phone columns. Admins always. Everyone else only when the staff list puts them on Support or Partner Care (the teams
+ * that call and write to partners), unless Admin set act_settings lists:contacts to "*" (every Work Center user) or a comma list of emails.
+ */
+export async function contactAccess(env: Env, email: string, admin: boolean): Promise<boolean> {
+  if (admin) return true;
+  const e = email.toLowerCase();
+  const row = await env.DB.prepare(`SELECT value FROM act_settings WHERE key = 'lists:contacts'`).first<{ value: string }>().catch(() => null);
+  const v = (row?.value || '').trim();
+  if (v === '*') return true;
+  if (v) return v.toLowerCase().split(',').map((x) => x.trim()).includes(e);
+  const team = await teamOf(env, e);
+  return team === 'support' || team === 'partner_care';
+}

@@ -210,3 +210,52 @@ describe('menus', () => {
     assert.deepEqual(m.solicit, ['Do Not Mail']);
   });
 });
+
+describe('mail house and contact columns', () => {
+  it('mail-ready leaves out Do Not Mail and no valid address, and says how many', async () => {
+    const { mailLeftOut } = await import('../functions/_lib/lists/run.ts');
+    assert.equal(await n({ partner: { mailReady: true } }), 6);
+    assert.equal(await mailLeftOut(q, spec({ partner: { mailReady: true } }), AS_OF, ALL), 2);
+    assert.equal(await mailLeftOut(q, spec({}), AS_OF, ALL), 0);
+  });
+
+  it('fills addressee, salutation and address from the mirror, never from the snapshot', async () => {
+    const mirror = qOf(makeMirror());
+    const s = spec({ partner: { mailReady: true }, columns: ['addressee', 'salutation', 'address', 'city', 'state', 'zip'] });
+    const page = await pageOf(q, s, AS_OF, ALL, 1, 50, { mirror, contacts: false });
+    const alice = page.rows.find((r) => r._hid === '101');
+    assert.equal(alice.addressee, 'Alice Tester');
+    assert.equal(alice.salutation, 'Dear Alice');
+    assert.equal(alice.address, '101 Test Street');
+    assert.equal(alice.zip, '33601');
+    assert.ok(!page.rows.some((r) => r._hid === '103' || r._hid === '105'));
+    const cols = (await q("SELECT sql FROM sqlite_master WHERE name='lr_hh'", []))[0].sql;
+    assert.ok(!/address_lines|email|phone/.test(cols));
+  });
+
+  it('email and phone need contact access, skip do-not-email and do-not-call addresses', async () => {
+    const mirror = qOf(makeMirror());
+    const s = spec({ columns: ['partner', 'email', 'phone'] });
+    const denied = await pageOf(q, s, AS_OF, ALL, 1, 50, { mirror, contacts: false });
+    assert.deepEqual(denied.columns.map((c) => c.key), ['partner']);
+    const ok = await pageOf(q, s, AS_OF, ALL, 1, 50, { mirror, contacts: true });
+    assert.deepEqual(ok.columns.map((c) => c.key), ['partner', 'email', 'phone']);
+    assert.equal(ok.rows.find((r) => r._hid === '101').email, 'alice@example.test');
+    assert.equal(ok.rows.find((r) => r._hid === '101').phone, '555-0101');
+    assert.equal(ok.rows.find((r) => r._hid === '103').email, undefined);
+  });
+
+  it('contact access defaults to admins, Support and Partner Care, and follows the setting', async () => {
+    const { contactAccess } = await import('../functions/_lib/lists/service.ts');
+    const { d1Of } = await import('./support/lists-fixture.mjs');
+    const h = makeHub();
+    h.exec("CREATE TABLE act_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT); INSERT INTO act_staff (email, name, team, work_center) VALUES ('sue@favorintl.org', 'Sue Support', 'support', 1)");
+    const env = { DB: d1Of(h) };
+    assert.equal(await contactAccess(env, 'x@favorintl.org', true), true);
+    assert.equal(await contactAccess(env, 'sue@favorintl.org', false), true);
+    assert.equal(await contactAccess(env, 'rita@favorintl.org', false), false);
+    h.exec("INSERT INTO act_settings VALUES ('lists:contacts', 'rita@favorintl.org', 'x')");
+    assert.equal(await contactAccess(env, 'rita@favorintl.org', false), true);
+    assert.equal(await contactAccess(env, 'sue@favorintl.org', false), false);
+  });
+});

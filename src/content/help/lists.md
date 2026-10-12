@@ -25,3 +25,9 @@ Lists is under Reporting. Choose **Partners** or **Gifts**, then set criteria fr
 Save list keeps the criteria. Share it with only you, your team or everyone. A shared list always shows each person only the partners their Work Center access allows. **CSV** downloads the rows and **Open in Google Sheets** builds a sheet in your Drive.
 
 A list that is only a status shows a line comparing its count with the KPI dashboard. The data is copied from Blackbaud several times a day, and the page shows when.
+
+## Standard reports
+
+Standard reports, beside the builder, runs nine one-click reports with a period picker: giving by fund, appeal and month; credit by fundraiser with one-time and recurring; portfolio by holder; new and lost partners; LYBUNT and lapsed by how they came in; first-time givers; retention; actions by person and type; and the grants pipeline. A report that has a matching KPI dashboard figure shows whether the two agree. Press a row to open the partners or gifts behind it in Lists. Reports cover every partner, so they open for admins and for people with access to all partners.
+
+**Mail house columns** in the Columns menu sets addressee, salutation, address, city, state and ZIP and leaves out Do Not Mail partners and partners with no valid address. The page shows how many it left out. Email and phone columns appear for admins, Support and Partner Care.

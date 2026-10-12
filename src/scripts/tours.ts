@@ -1091,6 +1091,17 @@ export const STEPS: Step[] = [
     side: 'right',
   },
   {
+    id: 'list-reports',
+    page: '/lists/reports/',
+    via: 'list-reports',
+    at: '.lr-grid',
+    title: 'Standard reports',
+    body: 'Giving by fund, appeal and month, credit by fundraiser, portfolio by holder, new and lost partners, LYBUNT and lapsed by how they came in, first-time givers, retention, actions and grants. Set the period, read the tie to the KPI dashboard, and press a row to see the partners or gifts behind it.',
+    for: (w) => w.admin,
+    added: '2026-10-12',
+    side: 'top',
+  },
+  {
     id: 'reports',
     page: '/reports/',
     via: 'reports',

@@ -1,7 +1,8 @@
 import { HttpError, handleError, json, type Env } from '../../_lib/http';
 import { normalizeSpec, summarize } from '../../_lib/lists/criteria.ts';
 import { allRows } from '../../_lib/lists/run.ts';
-import { hubQ, scopeOf, snapshotMeta, todayET } from '../../_lib/lists/service.ts';
+import { contactAccess, hubQ, scopeOf, snapshotMeta, todayET } from '../../_lib/lists/service.ts';
+import { mirror } from '../../_lib/foundations/blackbaud';
 import { csvFileName, toCsv } from '../../_lib/reports/csv';
 import { MAX_COLS, MAX_ROWS, type ColType as SheetType, type Spec } from '../../_lib/hub/sheets';
 import { requireWork } from '../../_lib/work/gate';
@@ -17,7 +18,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const b = await body(request);
     const spec = normalizeSpec(b.spec);
     const today = todayET();
-    const out = await allRows(hubQ(env), spec, today, scopeOf(wu));
+    const contacts = await contactAccess(env, wu.email, wu.scope.all);
+    const out = await allRows(hubQ(env), spec, today, scopeOf(wu), { contacts, mirror: (sql, p) => mirror(env, sql, p) as Promise<any[]> });
     const title = String(b.title || (spec.kind === 'gifts' ? 'Gift list' : 'Partner list')).slice(0, 80);
     const cols = out.columns.slice(0, MAX_COLS);
     if (String(b.format) === 'csv') {
