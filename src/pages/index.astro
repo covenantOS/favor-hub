@@ -13,6 +13,8 @@ const starts = [
 ];
 import '../styles/q3-desk.css';
 import '../styles/lint-fix.css';
+import '../styles/q3-chat.css'; // today2: the file viewer Chat uses opens Shared with you
+import '../styles/today2.css';
 ---
 <App title="Today" nav="home" description="What is waiting on you across FavorOS.">
   <div class="r2t">
@@ -77,5 +79,6 @@ import '../styles/lint-fix.css';
   </div>
   <script is:inline src="/js/copy-stamp.js?v=1" defer></script>
   <script is:inline src="/js/today-snooze.js?v=2" defer></script>
+  <script is:inline src="/js/chat/chat-view.js?v=1" defer></script>
   <script is:inline src="/js/today.js?v=15" defer></script>
 </App>

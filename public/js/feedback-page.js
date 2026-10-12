@@ -16,6 +16,17 @@
   let admin = false;
   let status = 'new';
   let shown = [];
+  // today2: Today opens one note with /feedback/?item=<id>; it scrolls into view and is outlined.
+  const WANT = new URLSearchParams(location.search).get('item') || '';
+  let focused = false;
+  const focusItem = () => {
+    if (!WANT || focused) return;
+    const el = list.querySelector('[data-id="' + WANT.replace(/[^0-9A-Za-z_-]/g, '') + '"]');
+    if (!el) return;
+    focused = true;
+    el.classList.add('is-focus');
+    el.scrollIntoView({ block: 'center' });
+  };
 
   const chip = (r) => (RATING[r] ? `<span class="fbp-chip fbp-chip--${RATING[r][1]}">${esc(RATING[r][0])}</span>` : '');
   const pill = (s) => {
@@ -36,7 +47,7 @@
     }
     list.innerHTML = items
       .map(
-        (f) => `<li class="h-card fbp-item${f.unread ? ' is-unread' : ''}">
+        (f) => `<li class="h-card fbp-item${f.unread ? ' is-unread' : ''}" data-id="${f.id}">
           <div class="fbp-meta">${chip(f.rating)}<span class="fbp-src">${esc(SOURCE[f.source] || f.source)}</span><time>${esc(when(f.at))}</time>${pill(f.status)}</div>
           ${f.question ? `<p class="fbp-q"><span>Your question</span>${esc(f.question)}</p>` : ''}
           ${f.comment ? `<p class="fbp-text">${esc(f.comment)}</p>` : ''}
@@ -45,6 +56,7 @@
         </li>`
       )
       .join('');
+    focusItem();
   }
 
   function all(d) {
@@ -81,6 +93,7 @@
         </li>`
       )
       .join('');
+    focusItem();
   }
 
   // Open in Google Sheets: the notes on this page (a person's own, or every note for Will, in the tab chosen).
