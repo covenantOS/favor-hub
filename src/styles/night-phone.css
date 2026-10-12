@@ -135,3 +135,6 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body .b-tabs.b-atabs::-webkit-scrollbar { display: none; }
   body.h-body .b-tabs.b-atabs > * { flex: none; white-space: nowrap; }
 }
+
+/* Tab bar: Chat's stylesheet also loads on Projects pages and tinted the Chat icon orange there while Chat was not the open tab. */
+.h-bar__a[data-bar='chat']:not(.is-on) .h-i { color: inherit; }
