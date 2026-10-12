@@ -507,19 +507,23 @@
   function confirmHTML(b, ctx) {
     const st = STATUS[b.status] || STATUS.ready;
     const busy = b._busy;
+    const task = b.kind === 'task_create';
+    // A made task ends its line with the task's address; show it as a link.
+    const wm = String(b.who || '').match(/^(.*?)\s*Open it: (https:\/\/\S+)$/);
+    const who = wm ? `${esc(wm[1])} <a href="${esc(wm[2])}">Open the task</a>` : esc(b.who || '');
     const acts = (b.actions || [])
       .map((a) => {
         if (a.ask) return `<button type="button" class="h-btn h-btn--ghost" data-act="ask" data-q="${esc(a.ask)}">${ic('list')}${esc(a.label)}</button>`;
         const cls = a.tone === 'gold' ? 'h-btn--gold' : a.id === 'approve' ? 'h-btn--primary' : 'h-btn--ghost';
-        return `<button type="button" class="h-btn ${cls}" data-act="cf" data-turn="${ctx.ti}" data-bi="${ctx.bi}" data-do="${esc(a.id)}"${a.enabled === false || busy ? ' disabled' : ''}>${busy === a.id ? '<span class="spin d"></span>' : a.id === 'approve' ? ic('coin') : ''}${esc(a.label)}</button>`;
+        return `<button type="button" class="h-btn ${cls}" data-act="cf" data-turn="${ctx.ti}" data-bi="${ctx.bi}" data-do="${esc(a.id)}"${a.enabled === false || busy ? ' disabled' : ''}>${busy === a.id ? '<span class="spin d"></span>' : a.id === 'approve' ? ic(task ? 'check' : 'coin') : ''}${esc(a.label)}</button>`;
       })
       .join('');
     const pr = b.progress;
-    return `<div class="card cf"><div class="cf__h"><div class="cf__i">${ic(b.kind === 'iwave_refresh' ? 'redo' : 'coin')}</div><div><div class="cf__t">${esc(b.title)}</div>${b.sub ? `<div class="cf__s">${esc(b.sub)}</div>` : ''}</div><span class="state ${st[0]}"><i></i>${st[1]}</span></div>
+    return `<div class="card cf"><div class="cf__h"><div class="cf__i">${ic(b.kind === 'iwave_refresh' ? 'redo' : task ? 'check' : 'coin')}</div><div><div class="cf__t">${esc(b.title)}</div>${b.sub ? `<div class="cf__s">${esc(b.sub)}</div>` : ''}</div><span class="state ${st[0]}"><i></i>${st[1]}</span></div>
       ${(b.facts || []).length ? `<div class="cf__rows">${b.facts.map((f) => `<div class="kv"><span>${esc(f.label)}</span><b>${esc(typeof f.value === 'number' ? int(f.value) : f.value)}</b>${f.sub ? `<small>${esc(f.sub)}</small>` : ''}</div>`).join('')}</div>` : ''}
       ${(b.notes || []).length ? `<ul class="cf__notes">${b.notes.map((n) => `<li>${ic(n.icon || 'info')}<span>${esc(n.text)}</span></li>`).join('')}</ul>` : ''}
       ${pr ? `<div class="prog" role="progressbar" aria-valuenow="${pr.done}" aria-valuemax="${pr.total}"><i style="width:${pr.total ? (pr.done / pr.total) * 100 : 0}%"></i></div>` : ''}
-      <div class="cf__acts">${acts}${b.who ? `<span class="who">${ic('shield')}${esc(b.who)}</span>` : ''}</div></div>`;
+      <div class="cf__acts">${acts}${b.who ? `<span class="who">${ic(task ? 'info' : 'shield')}${who}</span>` : ''}</div></div>`;
   }
   function noteHTML(b, ctx) {
     let acts = '';
