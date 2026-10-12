@@ -452,7 +452,7 @@ function dlgBulk(ids) {
 `,
     `<span class="wc-cost" data-bcost></span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go disabled>Change ${ids.length}</button>`,
     (box) => {
-      const sync = () => { const n = Object.values(st.on).filter(Boolean).length; $('[data-go]', box).disabled = !n; $('[data-bcost]', box).textContent = n ? `About ${ids.length * 2 + Math.ceil(ids.length / 15) + 1} Blackbaud calls` : ''; };
+      const sync = () => { const n = Object.values(st.on).filter(Boolean).length; $('[data-go]', box).disabled = !n; $('[data-bcost]', box).textContent = ''; };
       box.addEventListener('change', (e) => {
         const t = e.target;
         if (t.dataset.bon) st.on[t.dataset.bon] = t.checked;

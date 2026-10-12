@@ -12,8 +12,9 @@
     fade(el);
     var on = el.querySelector('.is-on, [aria-selected="true"]');
     if (on && el.scrollWidth > el.clientWidth + 2) {
-      var want = on.offsetLeft - (el.clientWidth - on.offsetWidth) / 2;
-      el.scrollLeft = Math.max(0, want);
+      // Start at the first chip when the chosen one fits. Otherwise the chosen chip sits whole, clear of the left fade. No chip is cut mid-word.
+      var left = on.offsetLeft - (el.firstElementChild ? el.firstElementChild.offsetLeft : 0);
+      el.scrollLeft = left + on.offsetWidth <= el.clientWidth - 8 ? 0 : Math.max(0, left - 38);
       fade(el);
     }
   }

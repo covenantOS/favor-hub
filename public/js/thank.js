@@ -210,7 +210,7 @@ function bulk(gifts, how, o = {}) {
     <div class="wg-dlg__body"><ul class="wg-bulklist">${gifts.slice(0, 8).map((g) => `<li><b>${esc(g.name)}</b><span>${money(g.amount)} · ${fd(g.date)}</span></li>`).join('')}${gifts.length > 8 ? `<li class="is-more">and ${gifts.length - 8} more</li>` : ''}</ul>
       <label class="wg-lab">One line for every record (optional)<input type="text" id="wg-bline" maxlength="200" placeholder="For example: Sent the September thank-you letter" /></label>
       <label class="wg-check"><input type="checkbox" id="wg-bfu" /> Follow up in 2 weeks</label></div>
-    <div class="wg-dlg__foot"><small>Uses about ${gifts.length * 2} Blackbaud calls. Undo stays for 24 hours.</small><span><button type="button" class="h-btn h-btn--ghost" data-wg-close>Cancel</button><button type="button" class="h-btn h-btn--primary" data-wg-go>${ic('check')}Thank ${gifts.length}</button></span></div></div>`;
+    <div class="wg-dlg__foot"><small>Undo stays for 24 hours.</small><span><button type="button" class="h-btn h-btn--ghost" data-wg-close>Cancel</button><button type="button" class="h-btn h-btn--primary" data-wg-go>${ic('check')}Thank ${gifts.length}</button></span></div></div>`;
   document.body.appendChild(L);
   const close = () => L.remove();
   L.addEventListener('click', async (e) => {

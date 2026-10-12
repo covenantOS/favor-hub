@@ -105,7 +105,7 @@ function paint() {
       <div class="wm-tools">
         ${M.directors.length > 1 ? `<select class="wc-sel" data-wm-owner aria-label="Whose partners">${M.directors.map((d) => `<option value="${esc(d.fid)}"${d.fid === M.owner ? ' selected' : ''}>${esc(d.name)}</option>`).join('')}</select>` : ''}
         <label class="wc-find wm-find">${ic('search')}<span class="sr-only">Find a partner</span><input id="wm-q" type="search" placeholder="Find a partner" value="${esc(M.q)}" autocomplete="off" /></label>
-        <label class="wm-sortsel"><span class="sr-only">Sort by</span><select class="wc-sel" data-wm-sortsel aria-label="Sort by">${[['quiet', 'Last contact'], ['l12', '12 months'], ['life', 'Lifetime'], ['name', 'Name']].map(([k, l]) => `<option value="${k}"${M.sort === k ? ' selected' : ''}>Sort: ${l}</option>`).join('')}</select><button type="button" class="wm-dir" data-wm-sort="${M.sort}" aria-label="Reverse the order">${M.dir < 0 ? '↓' : '↑'}</button></label>
+        <label class="wm-sortsel"><span class="sr-only">Sort by</span><select class="wc-sel" data-wm-sortsel aria-label="Sort by">${[['quiet', 'Last contact'], ['l12', '12 months'], ['life', 'Lifetime'], ['name', 'Name']].map(([k, l]) => `<option value="${k}"${M.sort === k ? ' selected' : ''}>${l}</option>`).join('')}</select><button type="button" class="wm-dir" data-wm-sort="${M.sort}" aria-label="Reverse the order">${M.dir < 0 ? '↓' : '↑'}</button></label>
         <div class="wm-seg" role="group" aria-label="Show">${FILTERS.map(([k, l]) => `<button type="button" class="${M.f === k ? 'is-on' : ''}" data-wm-f="${k}" aria-pressed="${M.f === k}">${l}</button>`).join('')}${M.f === 'nophone' ? '<button type="button" class="is-on" data-wm-f="nophone" aria-pressed="true">No phone</button>' : ''}</div>
         <span class="wm-spacer"></span>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-sheets="work-partners">${SHEET}Open in Google Sheets</button>
@@ -186,7 +186,7 @@ function planDialog() {
         ${withTask && withTask < all.length ? `<label class="wm-check2"><input type="checkbox" data-wm-skip ${st.skip ? 'checked' : ''} /> Leave out the ${withTask} that already have a task</label>` : ''}
         ${isMine() ? `<label class="wm-check2"><input type="checkbox" data-wm-remind ${st.remind ? 'checked' : ''} /> Remind me at 9 AM each day</label>` : ''}
       </div>
-      <div class="wc-dlg__foot"><span class="wc-cost">About ${plural(ps.length * 2, 'Blackbaud call')}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-wm-plango ${ps.length ? '' : 'disabled'}>Add ${plural(ps.length, 'task')}</button></div>`;
+      <div class="wc-dlg__foot"><span class="wc-cost"></span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-wm-plango ${ps.length ? '' : 'disabled'}>Add ${plural(ps.length, 'task')}</button></div>`;
   };
   wc.dialog('', (el) => {
     draw(el);
@@ -259,7 +259,7 @@ function tripDialog() {
           ${p.route ? `<div class="tp-route"><span>${plural(p.route.order.length, 'visit')} · ${p.route.miles} mi · ${driveLabel(p.route.driveMin)} driving</span><a class="dp-link" href="${esc(p.route.mapsUrl)}" target="_blank" rel="noopener">Google Maps</a></div>` : ''}
           <ul class="tp-list">${stops.map((s) => `<li class="tp-row"><input type="checkbox" data-tp-pick="${esc(s.cid)}" ${st.pick.has(s.cid) ? 'checked' : ''} aria-label="Visit ${esc(s.name)}" /><div><b><a href="/work/partner/${esc(s.cid)}" data-partner-id="${esc(s.cid)}">${esc(s.name)}</a></b><small>${esc(s.place)} · ${Math.round(s.miles)} mi${s.slot ? ' · ' + s.slot.driveMin + ' min drive' : ''}</small><small>${money(s.l12)} in 12 mo · ${s.quiet === null ? 'no contact yet' : 'contact ' + s.quiet + 'd ago'}</small></div><div class="tp-slot">${s.slot ? esc(clock12(s.slot.start)) : '<small>Not in the route</small>'}</div></li>`).join('')}</ul>` : ''}
         </div>
-        <div class="wc-dlg__foot"><span class="wc-cost">${p ? 'About ' + plural(st.pick.size * 2, 'Blackbaud call') : ''}</span><button class="h-btn h-btn--ghost" data-closelayer>Close</button><button class="h-btn h-btn--primary" data-tp-add ${p && st.pick.size ? '' : 'disabled'}>Add ${st.pick.size || ''} visit ${st.pick.size === 1 ? 'task' : 'tasks'}</button></div>`;
+        <div class="wc-dlg__foot"><span class="wc-cost"></span><button class="h-btn h-btn--ghost" data-closelayer>Close</button><button class="h-btn h-btn--primary" data-tp-add ${p && st.pick.size ? '' : 'disabled'}>Add ${st.pick.size || ''} visit ${st.pick.size === 1 ? 'task' : 'tasks'}</button></div>`;
     };
     draw();
     const go = async () => {

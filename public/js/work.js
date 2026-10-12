@@ -257,6 +257,7 @@ function rowHTML(a) {
     <div class="wc-what"><button type="button" class="wc-open${a.sum ? '' : ' is-empty'}" data-open="${a.id}" title="${esc(a.desc)}">${esc(a.sum || (a.desc ? a.desc.slice(0, 80) : 'No summary'))}</button>${tags.length ? `<div class="wc-tags">${tags.join('')}</div>` : ''}</div>
     <div class="wc-who"><button type="button" class="wc-inl wc-inl--who" data-inl="who" data-id="${a.id}" title="Change who it belongs to">${who}</button>${theirs ? '<span class="wc-sub">On ' + esc(first(S.f.fr)) + '\'s partner</span>' : ''}</div>
     <div class="wc-added">${fd(a.add)}</div>
+    <button type="button" class="wc-more" data-open="${a.id}" aria-label="Date, owner and more for ${esc(a.p)}"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></button>
   </div>`;
 }
 // Rows come 60 at a time, with what is left: "Show 60 more  1,224 left of 1,284".
@@ -492,7 +493,7 @@ function introBar() {
     <button class="h-btn h-btn--ghost h-btn--sm" data-do="setdate">${ic('cal')}Set date</button>
     <button class="h-btn h-btn--ghost h-btn--sm" data-do="skip">${ic('x')}Skip</button></span>
     <button class="wc-bar__x" data-do="clear" aria-label="Clear the selection">${ic('x')}</button>`;
-  b.title = `About ${calls} Blackbaud calls`;
+  b.title = '';
 }
 
 // ------------------------------------------------------------ layers (dialogs, drawer)
@@ -583,7 +584,7 @@ function dlgComplete(ids, mode) {
           <div class="who">${whoCounts(ids)}</div></div>
         ${bl.html}
       </div>
-      <div class="wc-dlg__foot"><span class="wc-cost">Uses ${plural(calls, 'Blackbaud call')} of today's 3,000</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button>
+      <div class="wc-dlg__foot"><span class="wc-cost"></span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button>
         <button class="h-btn h-btn--primary" data-go>${ic('check')}${closeAsThanked ? 'Close ' + ids.length : 'Mark ' + ids.length + ' complete'}</button></div>`;
   };
   dialog('', (el) => {
@@ -642,7 +643,7 @@ function dlgReassign(ids) {
         <div class="wc-plan"><b>${p.n ? plural(p.n, 'action') + ' change' : 'Nothing changes yet'}</b>${Object.keys(p.m).length ? `<div class="who">${Object.entries(p.m).map(([k, n]) => `<span class="wc-tag wc-tag--done">${esc(P(k).n)} gets ${n}</span>`).join('')}</div>` : ''}<span class="wc-note"></span></div>
         ${budgetLine(costOf(p.n)).html}
       </div>
-      <div class="wc-dlg__foot"><span class="wc-cost">Uses ${plural(costOf(p.n), 'Blackbaud call')}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go ${p.n ? '' : 'disabled'}>${ic('user')}Reassign ${p.n || ''}</button></div>`;
+      <div class="wc-dlg__foot"><span class="wc-cost"></span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go ${p.n ? '' : 'disabled'}>${ic('user')}Reassign ${p.n || ''}</button></div>`;
   };
   const drawR = (el) => { draw(el); if (noOne) { const r = el.querySelector('input[value="replace"]'); if (r) r.closest('label').remove(); } };
   dialog('', (el) => {
@@ -670,7 +671,7 @@ function dlgReschedule(ids) {
         <div class="wc-field"><span class="lab">Or move each one from today</span><div class="wc-choices">${[7, 14, 30].map((n) => `<button type="button" class="wc-choice${st.mode === 'by' && st.by === n ? ' is-on' : ''}" data-by="${n}">+${n} days</button>`).join('')}</div></div>
         <div class="wc-plan"><b>${plural(ids.length, 'action')} due ${st.mode === 'date' ? fd(st.date, true) : 'on ' + fd(addDays(TODAY, st.by), true)}</b><span class="wc-note">Blackbaud shows the new date at once.</span></div>
         ${budgetLine(costOf(ids.length)).html}</div>
-      <div class="wc-dlg__foot"><span class="wc-cost">Uses ${plural(costOf(ids.length), 'Blackbaud call')}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go>${ic('cal')}Reschedule ${ids.length}</button></div>`;
+      <div class="wc-dlg__foot"><span class="wc-cost"></span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button><button class="h-btn h-btn--primary" data-go>${ic('cal')}Reschedule ${ids.length}</button></div>`;
   };
   dialog('', (el) => {
     draw(el);
@@ -938,7 +939,7 @@ function viewIntake() {
         ${list.length ? `<div class="wc-head wc-ig"><div class="wc-cb" data-cball><input type="checkbox" aria-label="Select every row shown" /></div><span>Partner</span><span>Date</span><span>How</span><span>State</span></div>
         <div class="wc-ig">${list.slice(0, S.shown).map(intakeRowHTML).join('')}</div>${moreBtn(list.length)}` : `<div class="wc-empty"><b>${S.in.lane === 'wait' && w.all ? 'Everything submitted this week is in Blackbaud' : w.all ? 'Nothing in this lane' : 'Nothing pasted for ' + esc(me.name) + ' yet'}</b>${w.all ? '' : 'Paste rows from the tracking sheet, or use One contact, many partners.'}</div>`}
       </div>
-      <div class="wc-foot"><span>${readyAll.length} of ${list.length} rows ready${readyAll.length ? ` · entering them all uses about ${estCreate(readyAll)} Blackbaud calls` : ''}</span>
+      <div class="wc-foot"><span>${readyAll.length} of ${list.length} rows ready</span>
         ${readyAll.length ? `<button class="h-btn h-btn--primary h-btn--sm" data-postall>${ic('check')}Enter ${readyAll.length} ready rows</button>` : '<span></span>'}</div>
     </section>`;
   const all = $('#view .wc-head [data-cball] input');
@@ -1015,7 +1016,7 @@ function dlgMany() {
           <small>Pasting several names at once picks every one that matches a single record.</small></div>
         ${budgetLine(calls).html}
       </div>
-      <div class="wc-dlg__foot"><span class="wc-cost">${st.picks.length ? `${plural(st.picks.length, 'action')}, about ${plural(calls, 'Blackbaud call')}` : 'Pick at least one partner'}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button>
+      <div class="wc-dlg__foot"><span class="wc-cost">${st.picks.length ? plural(st.picks.length, 'action') : 'Pick at least one partner'}</span><button class="h-btn h-btn--ghost" data-closelayer>Cancel</button>
         <button class="h-btn h-btn--primary" data-go ${st.picks.length && st.sum.trim() ? '' : 'disabled'}>${ic('check')}Enter for ${plural(st.picks.length, 'partner')}</button></div>`;
     if (keepFocus) { const q = $('#m-q', el); q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
   };
@@ -1161,7 +1162,7 @@ function viewRecent() {
     const status = b.undone ? 'Undone' : b.tonight ? `${b.tonight} go to Blackbaud tonight` : b.failed ? `${b.posted} in Blackbaud · ${b.failed} did not go through` : b.queued ? `${b.posted} in Blackbaud · ${b.queued} sending` : `${b.posted} in Blackbaud`;
     const tomorrow = et(b.undo_until, { hour: 'numeric', minute: '2-digit' });
     return `<article class="h-card wc-batch${S.openB === b.id ? ' is-open' : ''}"><div class="wc-batch__head"><span class="wc-batch__icon${b.undone ? ' undone' : b.failed ? ' fail' : ''}">${ic(b.undone ? 'undo' : b.failed ? 'alert' : b.op === 'reassign' ? 'user' : b.op === 'reschedule' ? 'cal' : 'check')}</span>
-      <div><b>${esc(b.label)}</b><span>${esc(b.actor)} · ${esc(et(b.at, { hour: 'numeric', minute: '2-digit' }))} ${et(b.at, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'on ' + esc(et(b.at, { month: 'short', day: 'numeric' }))} · ${status} · ${plural(b.calls, 'Blackbaud call')}</span></div>
+      <div><b>${esc(b.label)}</b><span>${esc(b.actor)} · ${esc(et(b.at, { hour: 'numeric', minute: '2-digit' }))} ${et(b.at, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'on ' + esc(et(b.at, { month: 'short', day: 'numeric' }))} · ${status}</span></div>
       <div class="wc-batch__acts">${b.failed && !b.undone ? `<button class="h-btn h-btn--primary h-btn--sm" data-retry="${b.id}">Try ${b.failed} again</button>` : ''}
         ${b.undone ? '' : `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${b.id}"${b.undoing || UNDOING.has(b.id) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}${b.undoing || UNDOING.has(b.id) ? 'Undoing…' : 'Undo'}</button><small>until ${esc(tomorrow)} ${et(b.undo_until, { month: 'numeric', day: 'numeric' }) === et(now(), { month: 'numeric', day: 'numeric' }) ? 'today' : 'tomorrow'}</small>`}
         <button class="wc-clear" data-openb="${b.id}">${S.openB === b.id ? 'Hide' : 'Show'} ${b.items.length}</button></div></div>
@@ -1203,8 +1204,9 @@ async function dlgSettings() {
 }
 
 // ------------------------------------------------------------ render + events
-function centerOn(sel) { $$(sel).forEach((c) => { const on = $('.is-on', c); if (on && c.scrollWidth > c.clientWidth) c.scrollLeft = on.offsetLeft - (c.clientWidth - on.offsetWidth) / 2; }); }
-function render() { if (!S.loaded) return; const y = window.scrollY; const sc = $('#view .wc-scroll'); const st = sc ? sc.scrollTop : 0; page(); window.scrollTo(0, y); const sc2 = $('#view .wc-scroll'); if (sc2) sc2.scrollTop = st; centerOn('.wc-owners, .wc-lanes'); }
+// A row that scrolls starts at its first chip when the chosen one fits; otherwise the chosen chip sits at the left edge, whole. No chip is cut mid-word.
+function centerOn(sel) { $$(sel).forEach((c) => { const on = $('.is-on', c); if (!on || c.scrollWidth <= c.clientWidth) return; const left = on.offsetLeft - (c.firstElementChild ? c.firstElementChild.offsetLeft : 0); c.scrollLeft = left + on.offsetWidth <= c.clientWidth - 8 ? 0 : Math.max(0, left - 38); }); }
+function render() { if (!S.loaded) return; const y = window.scrollY; const sc = $('#view .wc-scroll'); const st = sc ? sc.scrollTop : 0; page(); window.scrollTo(0, y); const sc2 = $('#view .wc-scroll'); if (sc2) sc2.scrollTop = st; centerOn('.wc-owners, .wc-lanes, .wc-nav .wc-tabs'); }
 // Data for a tab arrives after the first paint. refresh(tabId) folds every arrival of one moment into a single pass: the tab strip is
 // patched in place (counts and dots change, nothing is rebuilt unless a tab appears), and the view is drawn again only when it is the tab
 // whose data arrived. The page never redraws once per tab.
