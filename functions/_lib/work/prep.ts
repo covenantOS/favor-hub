@@ -97,7 +97,7 @@ export function stepsOf(b: Pick<Brief, 'owed' | 'giving' | 'gives' | 'monthly' |
     const total = b.owed.reduce((n, g) => n + g.amount, 0);
     steps.push({ n: 1, title: 'Thank', strong: `${b.owed.length} gifts, ${money(total)}`, post: ` since ${shortDay(b.owed[0].date)}. None thanked yet. The largest is ${money(Math.max(...b.owed.map((g) => g.amount)))} to ${b.owed.slice().sort((a, c) => c.amount - a.amount)[0].fund}.` });
   } else if (b.giving.last) {
-    steps.push({ n: 1, title: 'Thank', pre: 'Last gift ', strong: money(b.giving.last.amount), post: ` to ${b.giving.last.fund || 'no fund on file'} on ${longDay(b.giving.last.date, today)}. No gift is waiting for a thank-you.` });
+    steps.push({ n: 1, title: 'Thank', pre: 'Last gift ', strong: money(b.giving.last.amount), post: ` to ${b.giving.last.fund || 'no fund on file'} on ${longDay(b.giving.last.date, today)}.` });
   } else steps.push({ n: 1, title: 'Thank', post: 'No gift on record yet. Thank them for their time.' });
   steps.push(
     b.prayer
