@@ -23,10 +23,22 @@
       // Focus rings are for the keyboard.
       (function () { var r = document.documentElement; addEventListener('keydown', function (e) { if (e.key === 'Tab' || e.key.indexOf('Arrow') === 0) r.classList.add('kbd'); }, true); addEventListener('pointerdown', function () { r.classList.remove('kbd'); }, true); })();
     </script>
+    <script>
+      // Ask for the first screen's answers now, in parallel with the bundle (lib/early.ts takes them). One request each, same headers as the app's own.
+      (function () {
+        var E = (window.__early = {});
+        function go(path) { try { E[path] = { at: Date.now(), p: fetch(path, { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }) }; } catch (e) {} }
+        if (location.pathname === '/') {
+          go('/api/hub/nav'); go('/api/hub/today'); go('/api/hub/day');
+          try { var n = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (n && n.access && n.access.kpi) go('/api/hub/kpi'); } catch (e) {}
+        } else go('/api/hub/nav');
+      })();
+    </script>
     <title>FavorOS</title>
   </head>
   <body class="h-body">
-    <div id="root"></div>
+    <div id="root"><div class="h-app" id="h-app"><aside class="h-side" aria-hidden="true"></aside><div class="h-main"><header class="h-top"><div class="h-top__head"><div class="h-top__title">Today</div></div></header><main id="h-content" class="h-page"><div class="r2t"><div class="r2t-hello"><section class="h-hello"><h1 id="t-hello">Good day</h1><p>&nbsp;</p></section></div><section><div class="r2t-sec"><h2>Needs you</h2></div><div class="r2t-needs"><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div></div></section></div></main></div></div></div>
+    <script>try{var h=+new Date().toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false})%24,p=h<12?'Good morning':h<17?'Good afternoon':'Good evening',n=localStorage.getItem('favor.hub.first.v1')||'';document.getElementById('t-hello').textContent=n?p+', '+n:p;}catch(e){}</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

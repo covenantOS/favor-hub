@@ -7,6 +7,7 @@ import { afterPaint, mountShellScripts } from '@/lib/legacy';
 import { clearStored, keys } from '@/lib/query';
 import { KEYS, readString, writeString } from '@/lib/storage';
 import { Dock } from './Dock';
+import { useIdleReady } from '@/lib/idle';
 import { EntityHost } from '@/features/entity/EntityHost';
 import { ErrorBoundary } from './ErrorBoundary';
 import { NavLink, ServedRoutes } from './NavLink';
@@ -47,6 +48,7 @@ export function Shell({ children }: { children: ReactNode }) {
     () => buildNav({ access, kpiTeams, counts: d?.counts ?? {}, navId, tours }),
     [access, kpiTeams, d?.counts, navId, tours]
   );
+  const idleReady = useIdleReady();
   const rail = useRail(user.email, view.curArea);
 
   // Routes the app serves for this person: a link to one stays inside the app.
@@ -144,7 +146,7 @@ export function Shell({ children }: { children: ReactNode }) {
       <ErrorBoundary label="" className="h-card">
         <EntityHost />
       </ErrorBoundary>
-      <Dock chat={!!access.chat} page={navId} />
+      <Dock chat={!!access.chat && idleReady} page={navId} />
     </ServedRoutes.Provider>
   );
 }

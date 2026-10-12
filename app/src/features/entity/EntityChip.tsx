@@ -47,9 +47,6 @@ export function EntityChip({ kind, id, label, href }: Props) {
       timer.current = setTimeout(() => show(el), 420);
     },
     onPointerLeave: () => clearTimeout(timer.current),
-    onFocus: (e: React.FocusEvent<HTMLElement>) => {
-      if (e.currentTarget.matches(':focus-visible')) show(e.currentTarget);
-    },
   };
   const inner = (
     <>

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, send } from '@/lib/api';
 import { hubOv } from '@/lib/hubOv';
+import { useIdleReady } from '@/lib/idle';
 import { count as fmtCount } from '@/lib/format';
 import { hubNotifications, chatInboxResponse, projectNoticesResponse, remindersResponse, requestNoticesResponse, type Access } from '@shared/schemas';
 import { Icon } from './Icon';
@@ -16,7 +17,8 @@ const opts = { staleTime: 30_000, refetchInterval: POLL, retry: false } as const
 
 /** Every source the bell reads, behind one list and one number. A source the person has no access to is never asked. */
 export function useNotices(access: A) {
-  const on = !!access.bell;
+  const idle = useIdleReady();
+  const on = !!access.bell && idle;
   const hub = useQuery({ queryKey: ['notices', 'hub'], queryFn: () => api('/api/hub/notifications', hubNotifications), enabled: on, ...opts });
   const rem = useQuery({ queryKey: ['notices', 'reminders'], queryFn: () => api('/api/work/reminders', remindersResponse), enabled: on && !!access.workCenter, ...opts });
   const req = useQuery({ queryKey: ['notices', 'requests'], queryFn: () => api('/api/requests/notices', requestNoticesResponse), enabled: on && !!access.tasks, ...opts });

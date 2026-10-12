@@ -8,7 +8,7 @@
 const VERSION = 'favoros-sw-1';
 const STATIC = `${VERSION}-static`;
 const SHELL = `${VERSION}-shell`;
-const STATIC_PREFIXES = ['/_astro/', '/js/', '/css/', '/fonts/', '/images/'];
+const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/js/', '/css/', '/fonts/', '/images/'];
 const SHELL_PATHS = ['/m/'];
 const ICON = '/images/app-icon-192.png';
 

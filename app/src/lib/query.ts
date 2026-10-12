@@ -1,7 +1,6 @@
 // TanStack Query with this tab's answers kept in sessionStorage, so a reload or a visit to a classic page and back paints the
 // last answers at once and refreshes them behind. Refetch on focus, a short staleness window, and invalidation helpers.
-import { QueryClient } from '@tanstack/react-query';
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { dehydrate, hydrate, QueryClient } from '@tanstack/react-query';
 import { onApiWrite } from './api';
 
 export const PERSIST_KEY = 'favor.app.rq.v1';
@@ -22,8 +21,37 @@ export function makeQueryClient(): QueryClient {
   });
 }
 
-export function makePersister() {
-  return createSyncStoragePersister({ storage: typeof sessionStorage === 'undefined' ? undefined : sessionStorage, key: PERSIST_KEY, throttleTime: 800 });
+const PERSISTED = ['nav', 'today', 'kpi', 'day'];
+const MAX_AGE = 24 * 60 * 60 * 1000;
+
+/** Put the last answers into the cache before the first render, so the page paints with them at once and refreshes behind. */
+export function restoreCache(qc: QueryClient): void {
+  try {
+    const raw = sessionStorage.getItem(PERSIST_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw) as { buster?: string; timestamp?: number; clientState?: Parameters<typeof hydrate>[1] };
+    if (saved.buster !== CACHE_BUSTER || !saved.clientState || Date.now() - (saved.timestamp || 0) > MAX_AGE) return;
+    hydrate(qc, saved.clientState);
+  } catch {
+    // an unreadable copy is dropped; the page fetches as usual
+  }
+}
+
+/** Save the answers of the first-screen queries a moment after they change. */
+export function persistCache(qc: QueryClient): void {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const save = () => {
+    try {
+      const clientState = dehydrate(qc, { shouldDehydrateQuery: (q) => q.state.status === 'success' && PERSISTED.includes(String(q.queryKey[0])) });
+      sessionStorage.setItem(PERSIST_KEY, JSON.stringify({ buster: CACHE_BUSTER, timestamp: Date.now(), clientState }));
+    } catch {
+      // storage refused or full
+    }
+  };
+  qc.getQueryCache().subscribe(() => {
+    clearTimeout(t);
+    t = setTimeout(save, 800);
+  });
 }
 
 export const keys = {

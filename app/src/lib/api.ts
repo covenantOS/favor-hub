@@ -1,6 +1,7 @@
 // The typed API client. Every call names the zod schema its answer must match (shared/schemas), so a server change that drops or
 // renames a field fails here with the route's name, not as a blank card.
 import type { ZodType } from 'zod';
+import { takeEarly } from './early';
 
 export class ApiError extends Error {
   status: number;
@@ -55,7 +56,13 @@ async function request(path: string, init: ApiInit = {}): Promise<unknown> {
 
 /** Fetch a route and check its answer against the schema. */
 export async function api<T>(path: string, schema: ZodType<T>, init?: ApiInit): Promise<T> {
-  const data = await request(path, init);
+  let data: unknown = null;
+  // The answer the page asked for before its scripts arrived, if there is one and it was good.
+  if (!init || !init.method || init.method === 'GET') {
+    const e = await takeEarly(path);
+    if (e && (e as { ok?: boolean }).ok === true) data = e;
+  }
+  if (data === null) data = await request(path, init);
   const parsed = schema.safeParse(data);
   if (!parsed.success) {
     console.error('[api] ' + path + ' did not match its schema', parsed.error.issues);

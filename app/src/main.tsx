@@ -2,15 +2,21 @@ import './styles/shell';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { RouterProvider } from '@tanstack/react-router';
-import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { installHubOv } from './lib/hubOv';
-import { CACHE_BUSTER, makePersister, makeQueryClient, watchWrites } from './lib/query';
+import { makeQueryClient, persistCache, restoreCache, watchWrites } from './lib/query';
+import { afterPaint } from './lib/legacy';
 import { makeRouter } from './router';
 
 installHubOv();
 const queryClient = makeQueryClient();
+restoreCache(queryClient);
+persistCache(queryClient);
 const router = makeRouter(queryClient);
 watchWrites(queryClient);
+
+// Styles the first screen does not need (partner drawer, request tasks, tour, gifts, records) load after it has painted.
+afterPaint(() => void import('./styles/lazy'));
 
 // A write from any helper script (a request approved, a note read) moves a menu count: read the counts a moment after it, as the classic pages do.
 const realFetch = window.fetch;
@@ -35,16 +41,8 @@ window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{
-        persister: makePersister(),
-        buster: CACHE_BUSTER,
-        maxAge: 24 * 60 * 60 * 1000,
-        dehydrateOptions: { shouldDehydrateQuery: (q) => q.state.status === 'success' && ['nav', 'today', 'kpi', 'day'].includes(String(q.queryKey[0])) },
-      }}
-    >
+    <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </PersistQueryClientProvider>
+    </QueryClientProvider>
   </StrictMode>
 );

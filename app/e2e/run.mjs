@@ -147,7 +147,7 @@ for (const [label, ctxOpts] of [
     await page.keyboard.press('Control+k');
     await page.waitForSelector('#cmdk:not([hidden])');
     await page.fill('#cmdk-input', 'test');
-    await page.waitForSelector('#cmdk-list li:has-text("Test Staff")', { timeout: 8000 });
+    await page.waitForSelector('#cmdk-list li:has-text("Test Staff")', { timeout: 8000 }).catch(async (e) => { throw new Error(e.message.split(" ")[0] + ' | input=' + (await page.inputValue('#cmdk-input')) + ' | rows=' + (await page.locator('#cmdk-list').innerText()).replace(/\s+/g, ' ').slice(0, 200)); });
     const rows = await page.locator('#cmdk-list li[role=option] .cmdk__row-title').allInnerTexts();
     assert.equal(rows.at(-1), 'Ask Brain: test');
     await page.screenshot({ path: `${SHOTS}/search-${label}.png` });
@@ -159,9 +159,10 @@ for (const [label, ctxOpts] of [
     await page.locator('.r2t-ev__a .fe-chip').first().hover().catch(() => undefined);
     if (label === 'iphone') await page.locator('.r2t-ev__a .fe-chip').first().click();
     await page.waitForSelector('.fe-card', { timeout: 8000 });
-    assert.match(await page.locator('.fe-card').innerText(), /Test Staff/);
+    await page.waitForFunction(() => /Test Staff/.test(document.querySelector('.fe-card')?.textContent || ''), null, { timeout: 8000 });
     await page.screenshot({ path: `${SHOTS}/entity-${label}.png` });
     await page.keyboard.press('Escape');
+    await page.waitForSelector('.fe-card', { state: 'detached', timeout: 5000 });
   });
 
   await check(label + ': the Help panel opens for this page', async () => {

@@ -1,7 +1,7 @@
 {
   "name": "favor-hub",
   "version": "1.0.0",
-  "description": "Favor International \u2014 Hub. Editorial mission-control dashboard.",
+  "description": "Favor International — Hub. Editorial mission-control dashboard.",
   "type": "module",
   "scripts": {
     "dev": "astro dev",
@@ -21,14 +21,13 @@
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
-    "@tanstack/query-sync-storage-persister": "^5.104.2",
     "@tanstack/react-query": "^5.104.2",
-    "@tanstack/react-query-persist-client": "^5.104.2",
     "@tanstack/react-router": "^1.170.42",
     "astro": "^6.1.10",
     "cuelume": "^0.1.2",
     "html2canvas-pro": "^1.6.7",
     "pdf-lib": "^1.17.1",
+    "preact": "^11.0.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "sharp": "^0.34.5",
@@ -42,6 +41,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "jsdom": "^29.1.1",
+    "lightningcss": "^1.33.0",
     "lintapple": "^0.1.19",
     "playwright": "^1.63.0",
     "typescript": "^5.9.3",

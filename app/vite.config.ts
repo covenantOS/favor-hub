@@ -3,6 +3,17 @@ import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 
+// Preact's React-compatible layer: the same React API in about a fifth of the bytes (React and react-dom were 69 KB gzipped, this is 10).
+// Types stay @types/react. Unit tests run on real React (testing-library needs it); the Playwright run covers the built Preact bundle.
+const PREACT = {
+  'react-dom/client': 'preact/compat/client',
+  'react-dom/test-utils': 'preact/test-utils',
+  'react/jsx-runtime': 'preact/jsx-runtime',
+  'react/jsx-dev-runtime': 'preact/jsx-runtime',
+  'react-dom': 'preact/compat',
+  react: 'preact/compat',
+};
+
 const here = fileURLToPath(new URL('.', import.meta.url));
 
 // The React front end. Built into dist/_app after the Astro build (npm run build runs both), served by the Pages middleware
@@ -15,8 +26,29 @@ export default defineConfig({
     tanstackRouter({ target: 'react', autoCodeSplitting: true, routesDirectory: './src/routes', generatedRouteTree: './src/routeTree.gen.ts' }),
     react(),
   ],
-  resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)), '@shared': fileURLToPath(new URL('../shared', import.meta.url)), '@hub': fileURLToPath(new URL('../src', import.meta.url)) } },
-  build: { outDir: '../dist/_app', emptyOutDir: true, target: 'es2022', sourcemap: false, chunkSizeWarningLimit: 400 },
+  resolve: { alias: {
+    ...(process.env.VITEST ? {} : PREACT), '@': fileURLToPath(new URL('./src', import.meta.url)), '@shared': fileURLToPath(new URL('../shared', import.meta.url)), '@hub': fileURLToPath(new URL('../src', import.meta.url)) } },
+  build: {
+    outDir: '../dist/_app',
+    emptyOutDir: true,
+    target: 'es2022',
+    sourcemap: false,
+    chunkSizeWarningLimit: 400,
+    cssMinify: 'lightningcss',
+    rollupOptions: {
+      output: {
+        // Vendor code in its own long-lived files, so a release of our own code does not refetch React.
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (/node_modules\/(react|react-dom|scheduler|preact)\//.test(id)) return 'react';
+          if (id.includes('@tanstack/react-router') || id.includes('@tanstack/router-core') || id.includes('@tanstack/history')) return 'router';
+          if (id.includes('@tanstack/') ) return 'query';
+          if (id.includes('/zod/')) return 'zod';
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: 5180,
     // npm run app:dev against the live site's API: pass HUB_ORIGIN and COOKIE in the environment (see docs/porting-to-react.md).

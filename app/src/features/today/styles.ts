@@ -4,6 +4,5 @@ import '../../../../src/styles/qa-today.css';
 import '../../../../src/styles/crit-today.css';
 import '../../../../src/styles/q3-desk.css';
 import '../../../../src/styles/lint-fix.css';
-import '../../../../src/styles/q3-chat.css';
 import '../../../../src/styles/today2.css';
 import '../../../../src/styles/break-ui.css';

@@ -28,6 +28,7 @@ export function Palette({ access, kpiTeams }: Props) {
 
   const items = useQuery({
     queryKey: ['palette'],
+    enabled: open,
     staleTime: 60 * 60_000,
     queryFn: async () => ((await (await fetch('/palette.json', { credentials: 'same-origin' })).json()) as { items: Hit[] }).items,
   });
@@ -79,10 +80,13 @@ export function Palette({ access, kpiTeams }: Props) {
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
-    setText('');
-    setRemote({});
-    setSel(0);
+    // Clear on close, not on open: typing can land between the open and this effect.
+    if (!open) {
+      setText('');
+      setRemote({});
+      setSel(0);
+      return;
+    }
     requestAnimationFrame(() => input.current?.focus());
     document.body.style.overflow = 'hidden';
     const tok = hubOv.on(close);
