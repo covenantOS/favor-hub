@@ -322,6 +322,10 @@ export const RELEASES: Release[] = [
             body: 'A new hire sees five days of courses, the practice record and two check-ins with the supervisor, chosen for their team and title. A course finished in Learn ticks here. Add to FavorOS assigns the role path with a due date.',
             added: '2026-10-12',
             side: 'top',
+          },
+        ],
+      },
+      {
         id: 'one-app',
         title: 'Names open cards, and Send to works everywhere',
         short: 'Cards, Send to',
