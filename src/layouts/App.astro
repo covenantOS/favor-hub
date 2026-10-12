@@ -28,6 +28,7 @@ import '../styles/sticky-col.css';
 import '../styles/fix-shell.css';
 import '../styles/crit-shell.css';
 import '../styles/crit-shell2.css';
+import '../styles/tour.css';
 import '../styles/night-desk.css';
 import '../styles/night-phone.css';
 import CommandPalette from '../components/CommandPalette.astro';
@@ -243,6 +244,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           var teams = d.kpiTeams || [];
           document.querySelectorAll('[data-kpi-team]').forEach(function (el) { el.hidden = !access.kpi || teams.indexOf(el.dataset.kpiTeam) < 0; });
           var counts = d.counts || {};
+          // Tours and walkthroughs this person has not finished (src/scripts/tour.ts keeps the number), shown on Help.
+          try { counts.tours = Number(localStorage.getItem('favor.hub.tours.pending')) || 0; } catch (e) {}
           window.__hubTasks = Number(counts.tasks) || 0;
           // Only the menu's own counts. Pages use data-count for other things (the Brain's stat tiles, the Projects timeline), and this
           // used to set those to 0 and hide them each time the menu refreshed.
@@ -258,7 +261,9 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           var saved = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null');
           if (saved) window.hubApplyNav(saved);
           if (localStorage.getItem('favor.hub.gate.v1') === '1') document.documentElement.classList.add('has-gate');
-          if (!localStorage.getItem('favor.hub.welcome.v1')) document.documentElement.classList.add('show-welcome');
+          // Today's tour card shows while a tour or a walkthrough is waiting. A browser that has never been asked has the core tour waiting.
+          var tp = localStorage.getItem('favor.hub.tours.pending');
+          if (tp === null || Number(tp) > 0) document.documentElement.classList.add('show-welcome');
         } catch (e) {}
       </script>
 

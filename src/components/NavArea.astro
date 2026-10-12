@@ -45,7 +45,7 @@ const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also
     ))}
     {area.id === 'help' && (
       <div class="h-pg h-pg--tour">
-        <button type="button" class="h-nav__item h-pg__a h-nav__help" id="h-help" data-tour-start title="A guided tour of FavorOS, set up for your work"><span>What's new and tour</span></button>
+        <button type="button" class="h-nav__item h-pg__a h-nav__help" id="h-help" data-tour-start title="The tour of FavorOS and the walkthroughs of what is new"><span>What's new and tour</span><span class="h-nav__count" data-count="tours" hidden></span></button>
       </div>
     )}
   </div>

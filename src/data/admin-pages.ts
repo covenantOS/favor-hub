@@ -30,5 +30,6 @@ export const ADMIN_PAGES: AdminPage[] = [
   { id: 'feedback', href: '/feedback/', label: 'Feedback triage', desc: 'Staff notes and answers.', count: 'feedback', live: true, card: true, tab: true },
   { id: 'appeals', href: '/admin/appeal-codes/', label: 'Appeal codes', desc: 'Build appeal codes and create them in Blackbaud.', live: true, card: true },
   { id: 'bbusers', href: '/admin/blackbaud-users/', label: 'Blackbaud users', desc: 'Blackbaud logins, status, product access.', live: true, card: true },
+  { id: 'tours', href: '/admin/tours/', label: 'Tours', desc: 'Who finished the tour and each release. Send again.', live: true, card: true },
   { id: 'audit', href: '/admin/audit/', label: 'Audit log', desc: 'Settings changes: who, when, before, after.', live: true, card: true },
 ];
