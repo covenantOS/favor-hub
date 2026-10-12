@@ -22,7 +22,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const email = user.email.toLowerCase();
     const seen = await touchSeen(env, email);
     const ctx = await workCtxFor(env, user);
-    const key = `brief:${email}:${owner}:${today}`;
+    const key = `brief2:${email}:${owner}:${today}`;
     let briefing = url.searchParams.get('fresh') === '1' ? null : await cacheGet<Briefing>(env, key, 5 * 60000);
     if (!briefing) {
       briefing = await buildBriefing({ env, user, ctx, ownerIn: owner, today });

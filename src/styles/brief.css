@@ -119,3 +119,8 @@
   .br-icon { width: 44px; height: 44px; margin: -4px -8px -4px 0; }
   .br-scope select { height: 44px; }
 }
+.br-card .br-scope select { border: 0 !important; background: none !important; box-shadow: none !important; padding: 0 2px !important; height: 32px !important; min-height: 0 !important; width: auto !important; border-radius: 8px; }
+.br-main { justify-items: start; }
+.br-main .fe-chip, .br-sub .fe-chip { width: auto; max-width: 100%; display: inline-flex; border: 0; background: none; padding: 0; height: auto; }
+.br-main .fe-chip { font-weight: 600; font-size: 15px; }
+.br-sub .fe-chip { font-weight: 600; color: var(--r-ink-2); }
