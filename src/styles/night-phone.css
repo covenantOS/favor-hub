@@ -116,3 +116,25 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body .wh > .wh-top[hidden] { display: block !important; visibility: hidden; }
   body.h-body .wh > .wh-top[hidden] .wh-meta::before { content: '\00a0'; }
 }
+
+/* Admin, Tours: on a phone the Team column broke a word into five lines ("Deve / lopm / ent"). Cells keep their words whole and
+   the table scrolls sideways inside its box. */
+@media (max-width: 860px) {
+  body.h-body #tu-table td, body.h-body #tu-table th { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+  body.h-body #tu-table td:first-child { min-width: 0; }
+  body.h-body #tu-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* Admin, People and roles: the filter menu was squeezed to one letter ("E") beside Add a person. */
+@media (max-width: 860px) {
+  body.h-body .ad-sub #pp-filter.ad-field { flex: 1 1 150px !important; min-width: 150px !important; width: auto !important; }
+}
+/* Brain requests: five tabs wrapped onto a second row inside one rounded box. They stay on one row and scroll. */
+@media (max-width: 860px) {
+  body.h-body .b-tabs.b-atabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; max-width: 100%; }
+  body.h-body .b-tabs.b-atabs::-webkit-scrollbar { display: none; }
+  body.h-body .b-tabs.b-atabs > * { flex: none; white-space: nowrap; }
+}
+
+/* Tab bar: Chat's stylesheet also loads on Projects pages and tinted the Chat icon orange there while Chat was not the open tab. */
+.h-bar__a[data-bar='chat']:not(.is-on) .h-i { color: inherit; }
