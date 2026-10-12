@@ -101,6 +101,9 @@ export async function runReport(env: Env, def: ReportDef, opt: RunOptions): Prom
   let rows = more ? loaded.rows.slice(0, MAX_ROWS) : loaded.rows;
   // The page needs each row's name to save a typed-in cell against it.
   if (def.editable) rows = rows.map((r) => ({ ...r, __key: def.editable!.keyOf(r) }));
+  // Every partner name on a report opens the partner card: each row gets the partner's record id as __cid (never a column, so exports
+  // are unchanged). The page draws the name as the shared partner chip.
+  rows = await withPartnerIds(ctx, def, rows).catch(() => rows);
   const totals = def.totals ? def.totals(rows, values) : sumTotals(def.columns, rows);
   const tie = def.tie ? await def.tie(ctx, rows, values, loaded.extra) : noTie();
   const ties = def.ties ? await def.ties(ctx, rows, values, loaded.extra) : [];
@@ -125,6 +128,37 @@ export async function runReport(env: Env, def: ReportDef, opt: RunOptions): Prom
     asOf: loaded.asOf || ctx.today,
     pageSize: def.pageSize || DEFAULT_PAGE,
   };
+}
+
+const ID = /^\d{1,12}$/;
+/** The columns that name a partner. */
+export const PARTNER_KEYS = ['partner', 'name'];
+
+/**
+ * Sets __cid on each row from a record id the row already carries (cid, rid, record_id, giver, donorId), or from its Partner ID (the
+ * lookup id) read from the mirror in one statement per 400 rows. Rows of a report with no partner column are left as they are.
+ */
+export async function withPartnerIds(ctx: Pick<ReportContext, 'sql'>, def: Pick<ReportDef, 'columns'>, rows: Row[]): Promise<Row[]> {
+  if (!def.columns.some((c) => PARTNER_KEYS.includes(c.key))) return rows;
+  const need = new Set<string>();
+  for (const r of rows) {
+    if (r.__cid && ID.test(String(r.__cid))) continue;
+    const direct = [r.cid, r.rid, r.record_id, r.recordId, r.giver, r.donorId, r.partnerId].find((v) => v != null && ID.test(String(v)));
+    if (direct != null) r.__cid = String(direct);
+    else if (r.lookup != null && String(r.lookup).trim()) need.add(String(r.lookup).trim());
+  }
+  if (!need.size) return rows;
+  const list = [...need];
+  const by = new Map<string, string>();
+  for (let i = 0; i < list.length; i += 400) {
+    const part = await ctx.sql<{ id: string; lk: string }>(
+      'SELECT id AS id, constituent_lookup_id AS lk FROM constituents WHERE constituent_lookup_id IN (SELECT value FROM json_each(?1))',
+      [JSON.stringify(list.slice(i, i + 400))]
+    );
+    for (const x of part) by.set(String(x.lk), String(x.id));
+  }
+  for (const r of rows) if (!r.__cid && r.lookup != null && by.has(String(r.lookup).trim())) r.__cid = by.get(String(r.lookup).trim());
+  return rows;
 }
 
 /** The filters in words, for the Sheets provenance line and the CSV name. */

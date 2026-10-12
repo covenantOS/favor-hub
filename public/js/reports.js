@@ -111,6 +111,10 @@
       return '<input class="cell" data-edit-key="' + esc(key) + '" data-edit-col="' + esc(c.key) + '" value="' + esc(v == null ? '' : Number(v).toFixed(c.type === 'cellint' ? 0 : 2)) + '" inputmode="' + (c.type === 'cellint' ? 'numeric' : 'decimal') + '" aria-label="' + esc(c.label) + '">';
     }
     if (v == null || v === '') return '';
+    // A partner's name opens the same partner card as everywhere else in FavorOS.
+    if ((c.key === 'partner' || c.key === 'name') && row && row.__cid && /^\d{1,12}$/.test(String(row.__cid))) {
+      return window.FavorEntity ? window.FavorEntity.chip('partner', String(row.__cid), String(v)) : '<a href="/work/partner/' + esc(row.__cid) + '" data-partner-id="' + esc(row.__cid) + '">' + esc(v) + '</a>';
+    }
     if (c.type === 'money') return isFinite(Number(v)) ? money(v) : esc(v);
     // A value that is not a number or a date prints as it came, never as NaN or Invalid Date.
     if (c.type === 'int') return isFinite(Number(v)) ? num(v) : esc(v);

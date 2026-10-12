@@ -176,7 +176,7 @@ function pane(r, v) {
   if (r.prayer) tags.push('<span class="ge-pill ge-pill--warn">Prayer request</span>');
   if (r.kind === 'cash') tags.push('<span class="ge-pill">Cash</span>');
   const who = r.partner
-    ? `<div class="ge-who"><b>${esc(r.partner.name)}</b><span>${esc(r.partner.place || '')}${r.partner.lookup ? ' · ' + esc(r.partner.lookup) : ''}</span></div>`
+    ? `<div class="ge-who"><b>${r.partner.id ? `<a href="/work/partner/${esc(r.partner.id)}" data-partner-id="${esc(r.partner.id)}">${esc(r.partner.name)}</a>` : esc(r.partner.name)}</b><span>${esc(r.partner.place || '')}${r.partner.lookup ? ' · ' + esc(r.partner.lookup) : ''}</span></div>`
     : `<div class="ge-note ge-note--red">No partner matched yet.</div>`;
   const approval = r.confirmed
     ? `Approved by ${esc(nameOf(r.confirmedBy))}${r.confirmedAt ? ', ' + esc(when(r.confirmedAt)) : ''}${r.secondDone ? ' · second by ' + esc(nameOf(r.secondBy)) : ''}`
@@ -337,7 +337,7 @@ function status() {
       ${d.note ? `<div class="ge-note ge-note--red" style="margin-top:12px">${esc(d.note)}</div>` : ''}${wm ? `<div class="ge-note" style="margin-top:12px">${esc(wm)}</div>` : ''}
       <div class="ge-steps" style="margin-top:8px">${tl.map((x, i) => `<div class="ge-step is-${x.k}"><span class="d">${x.k === 'done' ? ic(I.check) : i + 1}</span><div><b>${x.t}</b><span>${x.s}</span></div></div>`).join('')}</div></section>
     <section class="h-card ge-card"><div class="ge-hd"><h2>Gifts</h2><span class="sp"></span><span class="ge-muted">${v.rows.length} · ${money(v.tape.cents)}</span></div>
-      ${v.rows.map((r) => `<div class="ge-sumrow"><b>${esc(r.payer || 'Gift ' + r.seq)}</b><span class="f">${esc(r.partner ? r.partner.name : 'No partner')} · ${esc(r.status === 'sent' ? 'In the batch' : r.status === 'failed' ? 'Needs a person' : r.status === 'by_hand' ? 'Enter by hand' : r.status)}${r.confirmedBy ? ' · approved by ' + esc(nameOf(r.confirmedBy)) : ''}${r.error ? ' · ' + esc(r.error) : ''}</span><span class="a ge-money">${money(r.amountCents)}</span></div>`).join('')}</section>
+      ${v.rows.map((r) => `<div class="ge-sumrow"><b>${esc(r.payer || 'Gift ' + r.seq)}</b><span class="f">${r.partner && r.partner.id ? `<a href="/work/partner/${esc(r.partner.id)}" data-partner-id="${esc(r.partner.id)}">${esc(r.partner.name)}</a>` : esc(r.partner ? r.partner.name : 'No partner')} · ${esc(r.status === 'sent' ? 'In the batch' : r.status === 'failed' ? 'Needs a person' : r.status === 'by_hand' ? 'Enter by hand' : r.status)}${r.confirmedBy ? ' · approved by ' + esc(nameOf(r.confirmedBy)) : ''}${r.error ? ' · ' + esc(r.error) : ''}</span><span class="a ge-money">${money(r.amountCents)}</span></div>`).join('')}</section>
     <div id="ge-revenue">${revenueCard(d)}</div>
     ${rejectedLine(v)}`;
   if (['created', 'committed', 'needs_person'].includes(d.status)) loadRevenue(d);

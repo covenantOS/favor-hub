@@ -80,6 +80,7 @@ const def: ReportDef = {
       return {
         date: g.date,
         gift: g.lookup,
+        __cid: g.donorId,
         partner: shorten(hard.partner + (soft.length ? ` | ${soft.join(' & ')}` : '')),
         amount,
         fund: shorten(funds.join(' & ')),

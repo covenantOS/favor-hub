@@ -152,8 +152,10 @@
     return out.join('');
   }
 
-  function cell(col, v) {
+  function cell(col, v, row) {
     if (v == null || v === '') return '';
+    // A partner's name opens the same partner card as everywhere else.
+    if (col.key === 'partner' && row && /^\d{1,12}$/.test(String(row.record_id || row.cid || ''))) return chipFor(String(row.record_id || row.cid), v);
     if (col.type === 'money') return money(v);
     if (col.type === 'int') return count(v);
     return esc(v);
@@ -271,7 +273,7 @@
     if (s.columns && s.columns.length) {
       const shown = s.rows.slice(0, PAGE);
       const head = s.columns.map((c) => `<th class="${c.type === 'money' || c.type === 'int' ? 'r' : ''}">${esc(c.label)}</th>`).join('');
-      const body = shown.map((r) => `<tr>${s.columns.map((c) => `<td class="${c.type === 'money' || c.type === 'int' ? 'r' : ''}">${cell(c, r[c.key])}</td>`).join('')}</tr>`).join('');
+      const body = shown.map((r) => `<tr>${s.columns.map((c) => `<td class="${c.type === 'money' || c.type === 'int' ? 'r' : ''}">${cell(c, r[c.key], r)}</td>`).join('')}</tr>`).join('');
       const more = s.rows.length > PAGE ? `<p class="dr-note">Showing ${count(PAGE)} of ${count(s.rows.length)} rows. The sheet and the CSV have every row.</p>` : '';
       const trunc = s.truncated ? `<p class="dr-note">${esc(s.truncated)}</p>` : '';
       rows = `<section class="dr-rows"><h3>${esc(s.rowsLabel || 'Rows behind it')} <span>${count(s.rows.length)}</span></h3>${s.rows.length ? `<div style="overflow-x:auto"><table class="dr-tbl sc-table"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>${more}` : '<p class="dr-note">No rows.</p>'}${trunc}</section>`;
