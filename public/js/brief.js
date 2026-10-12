@@ -129,6 +129,28 @@ function giftRow(b) {
   return row('gifts', 'gift', 'New gifts', o.count.toLocaleString('en-US'), `${money(o.total)} since ${esc(fd(b.since))}`, items, o.count > o.rows.length ? { href: '/work/?view=gifts', text: 'All gifts' } : null);
 }
 
+const whenShort = (iso) => {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const wd = day === today ? 'Today' : d.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' });
+  return wd + ' ' + clock(iso);
+};
+/* Next meeting: the next FavorOS meeting on the person's list, opening its prep sheet (last time's decisions, what is open, who is coming). */
+function nextMeetRow() {
+  const m = S.next;
+  if (!m) return '';
+  return `<div class="br-item"><a class="br-tog br-tog--link" href="/meet/prep/?m=${encodeURIComponent(m.id)}"><span class="br-ico br-ico--meet">${ic('meet')}</span><span class="br-lab">Next meeting</span><span class="br-n br-n--sm">${esc(m.startsAt ? whenShort(m.startsAt) : 'Open room')}</span>${CHEV}</a><div class="br-sub">${esc(m.title)} · <a href="/meet/prep/?m=${encodeURIComponent(m.id)}">Prep sheet</a></div></div>`;
+}
+function loadNext() {
+  fetch('/api/meet/meetings?scope=upcoming', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).then((d) => {
+    const now = Date.now();
+    const list = ((d && d.meetings) || []).filter((m) => m.status !== 'cancelled' && m.status !== 'ended' && m.startsAt && Date.parse(m.endsAt || m.startsAt) > now && Date.parse(m.startsAt) - now < 8 * 864e5);
+    list.sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
+    S.next = list[0] || null;
+    if (S.data && S.next) draw();
+  }).catch(() => {});
+}
+
 function meetRow() {
   const ms = meetings();
   if (!ms.length) return '';
@@ -184,7 +206,7 @@ function draw() {
   document.querySelector('.r2t')?.classList.toggle('is-focus', S.focus);
   if (!b) { root.innerHTML = S.error ? '' : '<div class="r2t-skel br-skel"></div>'; return; }
   if (S.focus) { root.innerHTML = focus(); return; }
-  const rows = [thankRow(b), giftRow(b), lateRow(b), meetRow()].filter(Boolean);
+  const rows = [thankRow(b), giftRow(b), lateRow(b), meetRow(), nextMeetRow()].filter(Boolean);
   const card = rows.length || b.headline ? `<section class="h-card br-card" aria-label="Briefing">
     <div class="br-head"><h2>Briefing</h2>${scope(b)}<button type="button" class="br-icon" data-br-focus="1" aria-label="Focus: show only the next three things" title="Focus">${ic('focus')}</button></div>
     ${b.headline ? `<p class="br-line">${esc(b.headline)}</p>` : ''}
@@ -241,4 +263,5 @@ document.addEventListener('hub:cards', (e) => { S.cards = e.detail; if (S.data &
 if (window.__hubDay) S.day = window.__hubDay;
 draw();
 load(false);
+loadNext();
 })();

@@ -40,6 +40,8 @@ A meeting set to record shows a Recording or Notes on badge to everyone. If the 
 
 On the Meetings page, a meeting that has not started has a **Prep** button, and the lobby has a **Prep sheet** link. The sheet lists who is coming, with their team and title. A partner on the invite shows their giving, last gift, last contact and who holds them. Under each person you work with, it lists the open tasks between you in both directions. It also shows what is still open from past meetings with these people, and the last meeting with the same group, with its decisions. Partner giving shows only to people who have the Work Center.
 
+To open the sheet for your next meeting, use **Next meeting** in the briefing on Today, or open Prep from the Meetings menu: with no meeting picked, it opens the next one on your list. A task made from a meeting's action item shows the meeting's name on its row and card in Projects, and the name opens that meeting's notes.
+
 ## Live notes
 
 In a room, the **Notes** tab lists action items and decisions as people say them, a few seconds behind the talk. Each shows who owns it when someone was named, and the time in the meeting. Anyone in the room can add an item by hand. The host can dismiss an item or pick its owner from the people in the meeting. When the meeting ends, the final notes keep what stays on the list.
@@ -64,4 +66,4 @@ Open a meeting's notes and press **Book the follow-up**. The booking opens with 
 
 ## Limits while it is tested
 
-Only FavorOS admins see Meetings. Guests from outside Favor, booking from Google Calendar and Favor Brain inside the call arrive in later updates. If a room fails to load, tell the technology team through Feedback.
+Only FavorOS admins see Meetings. Guests from outside Favor join from an invite link (see Invite above). If a room fails to load, tell the technology team through Feedback.

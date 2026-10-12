@@ -11,6 +11,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 12, 2026
 
+- **Prep for the next meeting.** Today's briefing shows Next meeting with a link to its prep sheet, and Prep with no meeting picked opens the next one. A task made from a meeting shows the meeting's name in Projects. See [Meetings](/help/meetings/).
 - **Partner names open the card on more pages.** Report tables in Reports and Standard reports, the rows behind a number, and the gifts in Gift entry now open the same partner card as the rest of FavorOS, with Send to and Ask.
 - **The daily revenue report when the batch is done.** A gift entry deposit whose batch is in Blackbaud shows the Daily Revenue Report built from the batch itself, with Copy for WhatsApp. See [Gift entry](/help/gift-entry/).
 - **What changed this week.** Pressing the year's raised number opens This week first: gifts and dollars against last week, the largest gifts and the new partners. A name opens the partner card, and an amount opens the gift on the partner page. See [Your Today page](/help/today/).

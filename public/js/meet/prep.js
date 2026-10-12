@@ -47,7 +47,25 @@ function draw(d) {
     </div></div>`;
 }
 
+async function nextMeetingId() {
+  const d = await api('meetings?scope=upcoming');
+  const now = Date.now();
+  const list = (d.meetings || []).filter((m) => m.status !== 'cancelled' && m.status !== 'ended' && (!m.startsAt || Date.parse(m.endsAt || m.startsAt) > now));
+  list.sort((a, b) => (Date.parse(a.startsAt || 0) || now) - (Date.parse(b.startsAt || 0) || now));
+  return list.length ? list[0].id : '';
+}
+
 (async () => {
-  try { draw(await api('meetings/' + MID + '/prep')); } catch (e) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px"><h2 class="mt-h2">Prep not available</h2><p class="mt-sub" style="font-size:14px">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/">Meetings</a></div>`; }
+  let id = MID;
+  if (!id) {
+    id = await nextMeetingId().catch(() => '');
+    if (!id) {
+      root.innerHTML = `<div class="h-card mt-card" style="max-width:560px"><h2 class="mt-h2">Prep</h2><p class="mt-sub" style="font-size:14px;margin:0 0 12px">No meetings coming up.</p><a class="h-btn h-btn--ghost h-btn--sm" href="/meet/">Meetings</a></div>`;
+      root.removeAttribute('aria-busy');
+      return;
+    }
+    history.replaceState(null, '', '/meet/prep/?m=' + encodeURIComponent(id));
+  }
+  try { draw(await api('meetings/' + id + '/prep')); } catch (e) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px"><h2 class="mt-h2">Prep not available</h2><p class="mt-sub" style="font-size:14px">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/">Meetings</a></div>`; }
   root.removeAttribute('aria-busy');
 })();

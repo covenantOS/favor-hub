@@ -48,3 +48,6 @@ export const stateTag = (t) => {
 export const priorityIcon = (t) => (t.priority && t.priority !== 'normal' ? `<span class="pj-pri pj-pri--${t.priority}" title="${PRIORITY[t.priority]} priority">${icon('flag')}</span>` : '');
 export { STATUS };
 export const ownerBtn = (t, size) => `<button type="button" class="pj-owner" data-act="owner" data-ui-tooltip="pj-tip" aria-label="${t.owner ? 'Owner ' + esc(t.owner.name) : 'No owner. Assign'}">${avatar(t.owner, size)}</button>`;
+
+// A task made from a meeting's action item names the meeting, and opens its notes.
+export const fromMeeting = (t) => (t && t.meeting ? `<a class="pj-from" href="/meet/notes/?m=${esc(t.meeting.id)}" title="Made from this meeting">${icon('cal')}${esc(t.meeting.title)}</a>` : '');

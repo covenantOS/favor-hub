@@ -1,7 +1,7 @@
 /* The Board view: columns by section or by status, cards you drag between them, an add field at the foot of each column. */
 import { esc, icon, phone, choose, askText } from './ui-util.js';
 import { dnd } from './ui-dnd.js';
-import { checkBtn, codeChips, dueHtml, counts, stateTag, priorityIcon, ownerBtn } from './ui-rows.js';
+import { checkBtn, codeChips, dueHtml, counts, stateTag, priorityIcon, ownerBtn, fromMeeting } from './ui-rows.js';
 import { pickOwner } from './ui-pickers.js';
 import { STATUS } from './ui-util.js';
 
@@ -18,7 +18,7 @@ export function mountBoard(root, ctx, o) {
 
   const cardHtml = (t) => {
     const done = t.status === 'done';
-    return `<article class="pj-card${done ? ' is-done' : ''}${t.pending ? ' is-pending' : ''}${t.overdue ? ' is-late' : ''}" data-id="${esc(t.id)}" tabindex="-1"><div class="pj-card__top">${checkBtn(t)}<span class="pj-title" data-act="open">${esc(t.title)}</span></div>${t.appeal_code || t.source_code || t.fund_code || t.campaign_code ? `<div class="pj-card__chips">${codeChips(t, 4)}</div>` : ''}${stateTag(t) ? `<div class="pj-card__tags">${stateTag(t)}</div>` : ''}<div class="pj-card__foot">${t.code ? `<span class="pj-code-id">${esc(t.code)}</span>` : ''}<span class="pj-card__counts">${counts(t)}</span><span class="pj-sp"></span>${priorityIcon(t)}${dueHtml(t)}${ownerBtn(t)}</div></article>`;
+    return `<article class="pj-card${done ? ' is-done' : ''}${t.pending ? ' is-pending' : ''}${t.overdue ? ' is-late' : ''}" data-id="${esc(t.id)}" tabindex="-1"><div class="pj-card__top">${checkBtn(t)}<span class="pj-title" data-act="open">${esc(t.title)}</span></div>${t.appeal_code || t.source_code || t.fund_code || t.campaign_code ? `<div class="pj-card__chips">${codeChips(t, 4)}</div>` : ''}${stateTag(t) ? `<div class="pj-card__tags">${stateTag(t)}</div>` : ''}${t.meeting ? `<div class="pj-card__tags">${fromMeeting(t)}</div>` : ''}<div class="pj-card__foot">${t.code ? `<span class="pj-code-id">${esc(t.code)}</span>` : ''}<span class="pj-card__counts">${counts(t)}</span><span class="pj-sp"></span>${priorityIcon(t)}${dueHtml(t)}${ownerBtn(t)}</div></article>`;
   };
   const cardCached = (t) => {
     const key = [t.title, t.status, t.due_date, t.due_time, t.priority, t.owner_email, t.code, t.appeal_code, t.source_code, t.fund_code, t.campaign_code, t.subtasks && t.subtasks.done, t.subtasks && t.subtasks.total, t.comments, t.files, t.blocked, t.overdue, t.pending].join('|');

@@ -538,3 +538,11 @@ html body.h-body .pp-tl .pp-ev.is-focus { background: var(--h-leaf-soft, #e4ece1
 html body.h-body .ge-rev .ge-tape { margin: 4px 0 8px; }
 html body.h-body .ge-revtext summary { cursor: pointer; font: 600 13px var(--h-font); color: var(--h-ink-2); padding: 8px 0; }
 html body.h-body .ge-revtext pre { white-space: pre-wrap; font: 500 13px/1.45 var(--h-font); color: var(--h-ink-2); background: var(--h-surface-2); border-radius: 10px; padding: 12px; margin: 0; max-height: 360px; overflow: auto; }
+
+/* Next meeting on Today and the meeting a task came from (2026-10-12). */
+html body.h-body .br-tog--link { text-decoration: none; color: inherit; }
+html body.h-body .br-n--sm { font: 600 14px var(--h-font); }
+html body.h-body .br-item .br-sub a { color: var(--r-ink-2, var(--h-ink-2)); font-weight: 600; }
+html body.h-body .pj-from { display: inline-flex; align-items: center; gap: 4px; max-width: 220px; font: 500 12px var(--h-font); color: var(--h-ink-2); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html body.h-body .pj-from .h-i, html body.h-body .pj-from svg { width: 12px; height: 12px; flex: none; }
+html body.h-body .pj-from:hover { text-decoration: underline; }

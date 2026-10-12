@@ -46,6 +46,8 @@ export interface TaskOut extends TaskRow {
   owner: Brief | null;
   project: { id: string; key: string; name: string; color: string } | null;
   section: string | null;
+  /** The meeting a task came from (an action item made into a task), with its date. */
+  meeting: { id: string; title: string; date: string } | null;
   subtasks: { done: number; total: number };
   comments: number;
   files: number;
@@ -121,9 +123,19 @@ export async function decorate(env: Env, rows: TaskRow[], dir: Map<string, Perso
       );
     }
   }
+  const meetIds = [...new Set(rows.map((r) => r.meeting_id).filter(Boolean) as string[])];
+  const meetings = new Map<string, { id: string; title: string; date: string }>();
+  for (const part of chunk(meetIds, 80)) {
+    jobs.push(
+      env.DB.prepare(`SELECT id, title, COALESCE(started_at, starts_at, created_at) AS at FROM hub_meetings WHERE id IN (${placeholders(part.length)})`).bind(...part).all<{ id: string; title: string; at: string }>().then((r) => {
+        for (const m of r.results || []) meetings.set(m.id, { id: m.id, title: m.title || 'Meeting', date: String(m.at || '').slice(0, 10) });
+      }).catch(() => undefined)
+    );
+  }
   await Promise.all(jobs);
   return rows.map((t) => ({
     ...t,
+    meeting: t.meeting_id ? meetings.get(t.meeting_id) || null : null,
     owner: brief(dir, t.owner_email),
     project: t.project_id ? projects.get(t.project_id) || null : null,
     section: t.section_id ? sections.get(t.section_id) || null : null,
