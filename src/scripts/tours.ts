@@ -306,7 +306,7 @@ export const RELEASES: Release[] = [
             at: '.pr-partner',
             alt: '#pr',
             title: 'A pretend partner to practice on',
-            body: 'Enter a gift from a check and log a call on a made-up partner. Each field is checked and the page says what to fix. Nothing here reaches Blackbaud or a real partner, and Start over clears it.',
+            body: 'Add a gift from a check in a form laid out like the one in Blackbaud, then log a contact and add a task, all on a made-up partner. Each field is checked and the page says what to fix. Nothing here reaches Blackbaud or a real partner, and Start over clears it.',
             added: '2026-10-12',
             side: 'right',
             phone: { at: '#pr', side: 'top' },

@@ -63,10 +63,12 @@ test('the first week has five days, ticks courses from Learn and counts practice
   const practice = () => fw.days[3].items.find((i) => i.kind === 'practice');
   assert.equal(practice().done, false);
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-  await savePractice(w.env, NEW.email, 'gift', { date: today, amount: '75.00', type: 'Check', check: '2041', fund: 'Water and Sanitation' });
+  const usToday = today.slice(5, 7) + '/' + today.slice(8, 10) + '/' + today.slice(0, 4);
+  await savePractice(w.env, NEW.email, 'gift', { amount: '75.00', date: usToday, type: 'One-time gift', method: 'Check', check: '2041', checkDate: usToday, appeal: 'L26A-AD', fund: 'Wells' });
   fw = await firstWeekFor(w.env, { email: NEW.email, team: 'Partner Care', title: 'Associate' });
   assert.equal(practice().done, false, 'one exercise of two');
-  await savePractice(w.env, NEW.email, 'call', { channel: 'Phone call', summary: 'Pat called and asked for last year receipt.', next: 'Send a receipt', due: today });
+  await savePractice(w.env, NEW.email, 'call', { kind: 'Phone call', what: 'Pat called and asked for last year receipt.', date: today });
+  await savePractice(w.env, NEW.email, 'task', { kind: 'Task/Other', what: 'Send the 2025 receipt', due: today });
   fw = await firstWeekFor(w.env, { email: NEW.email, team: 'Partner Care', title: 'Associate' });
   assert.equal(practice().done, true);
   // Another person's progress is their own.
@@ -105,38 +107,44 @@ test('practice checks every field, saves only to its own table and never touches
   const w = world();
   const P = await import('../functions/_lib/growth/practice.ts');
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const usToday = today.slice(5, 7) + '/' + today.slice(8, 10) + '/' + today.slice(0, 4);
   const before = {
     outbox: rows(w, 'SELECT COUNT(*) AS n FROM act_outbox')[0].n,
     batches: rows(w, 'SELECT COUNT(*) AS n FROM act_batches')[0].n,
     events: rows(w, 'SELECT COUNT(*) AS n FROM act_events')[0].n,
     subs: rows(w, 'SELECT COUNT(*) AS n FROM act_submissions')[0].n,
   };
-  const bad = await P.savePractice(w.env, NEW.email, 'gift', { date: '2099-01-01', amount: '7.50', type: 'Card', check: '9', fund: 'Church Planting' });
+  const bad = await P.savePractice(w.env, NEW.email, 'gift', { date: '01/01/2099', amount: '7.50', type: 'Recurring gift', method: 'Cash', check: '9', checkDate: '', appeal: 'L269-AD', fund: 'Bibles' });
   assert.equal(bad.passed, false);
-  assert.deepEqual(bad.checks.map((c) => c.ok), [false, false, false, false, false]);
+  assert.deepEqual(bad.checks.map((c) => c.ok), [false, false, false, false, false, false, false, false]);
   assert.ok(bad.checks.every((c) => c.hint.length > 10));
-  const near = await P.savePractice(w.env, NEW.email, 'gift', { date: today, amount: '$75', type: 'Check', check: '2041', fund: 'Church Planting' });
+  const near = await P.savePractice(w.env, NEW.email, 'gift', { amount: '$75', date: usToday, type: 'One-time gift', method: 'Check', check: '2041', checkDate: usToday, appeal: 'L26A-AD', fund: 'Bibles' });
   assert.equal(near.passed, false);
   assert.deepEqual(near.checks.filter((c) => !c.ok).map((c) => c.label), ['Fund']);
-  const good = await P.savePractice(w.env, NEW.email, 'gift', { date: today, amount: '75.00', type: 'Check', check: '2041', fund: 'Water and Sanitation' });
+  const good = await P.savePractice(w.env, NEW.email, 'gift', { amount: '75.00', date: usToday, type: 'One-time gift', method: 'Check', check: '2041', checkDate: usToday, appeal: 'L26A-AD', fund: 'Wells' });
   assert.equal(good.passed, true);
   assert.equal(good.state.done.gift, true);
   assert.equal(good.state.done.all, false);
-  const call = await P.savePractice(w.env, NEW.email, 'call', { channel: 'Voicemail', summary: 'short', next: 'Nothing more', due: '2020-01-01' });
+  const call = await P.savePractice(w.env, NEW.email, 'call', { kind: 'Email', what: 'short', date: '2020-01-01' });
   assert.equal(call.passed, false);
   assert.equal(call.checks.filter((c) => c.ok).length, 0);
-  const call2 = await P.savePractice(w.env, NEW.email, 'call', { channel: 'Phone call', summary: 'Pat called and asked for last years receipt.', next: 'Send a receipt', due: today });
+  const call2 = await P.savePractice(w.env, NEW.email, 'call', { kind: 'Phone call', what: 'Pat called and asked for last years receipt.', date: today, tags: ['Stewardship'] });
   assert.equal(call2.passed, true);
-  assert.equal(call2.state.done.all, true);
+  assert.equal(call2.state.done.all, false, 'the task is still to do');
+  const badTask = await P.savePractice(w.env, NEW.email, 'task', { kind: 'Email', what: 'Call back', due: '2020-01-01' });
+  assert.equal(badTask.checks.filter((c) => c.ok).length, 0);
+  const task = await P.savePractice(w.env, NEW.email, 'task', { kind: 'Task/Other', what: 'Send last year receipt to Pat', due: today });
+  assert.equal(task.passed, true);
+  assert.equal(task.state.done.all, true);
   // Everything landed in practice_entries, and nothing else changed.
-  assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM practice_entries WHERE email = ?', NEW.email)[0].n, 5);
+  assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM practice_entries WHERE email = ?', NEW.email)[0].n, 7);
   assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM act_outbox')[0].n, before.outbox);
   assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM act_batches')[0].n, before.batches);
   assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM act_events')[0].n, before.events);
   assert.equal(rows(w, 'SELECT COUNT(*) AS n FROM act_submissions')[0].n, before.subs);
   // Each person has their own record, and Start over clears only theirs.
   assert.equal((await P.practiceState(w.env, PEER.email)).entries.length, 0);
-  await P.savePractice(w.env, PEER.email, 'gift', { date: today, amount: '75', type: 'Check', check: '2041', fund: 'Water and Sanitation' });
+  await P.savePractice(w.env, PEER.email, 'gift', { amount: '75.00', date: usToday, type: 'One-time gift', method: 'Check', check: '2041', checkDate: usToday, appeal: 'L26A-AD', fund: 'Wells' });
   const reset = await P.resetPractice(w.env, NEW.email);
   assert.equal(reset.entries.length, 0);
   assert.equal(reset.done.all, false);

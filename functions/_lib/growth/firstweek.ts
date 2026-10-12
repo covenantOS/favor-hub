@@ -133,7 +133,7 @@ export async function firstWeekFor(env: Db, p: { email: string; team?: string; t
   };
   const practiceItem = (): Item => ({
     kind: 'practice',
-    title: role.practice.length ? `Practice: ${role.practice.map((k) => (k === 'gift' ? 'enter a gift' : 'log a call')).join(' and ')}` : 'Practice record',
+    title: role.practice.length ? `Practice: ${role.practice.map((k) => (k === 'gift' ? 'add a gift' : 'log a contact')).join(' and ')}` : 'Practice record',
     detail: 'A pretend partner record. Nothing you enter here goes to Blackbaud or to a real partner.',
     href: '/learn/practice/',
     done: practiced,

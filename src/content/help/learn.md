@@ -36,7 +36,7 @@ Press **Mark complete and continue** on a lesson to move on. On a phone, **Lesso
 
 ## Practice
 
-**Practice** in the Learn menu opens a pretend partner record, Pat Sample, with a few gifts and notes. Two exercises sit beside it. **Enter a gift** gives you a check to enter: the date, the amount, the type, the check number and the fund. **Log a call** gives you a phone call to log: how you were in contact, what was said, the next step and its due date. Press **Enter the gift** or **Log the call** and the page checks each field and says what to fix. A correct entry shows on the pretend record in green. **Start over** clears everything you entered.
+**Practice** in the Learn menu opens a pretend partner record, Pat Sample, with a few gifts and notes. Two exercises sit beside it. **Add a gift** opens a form laid out like Blackbaud's Add gift form: Amount, Gift date, Gift type, Payment method, the check number and date, the appeal and the fund, then Save. You enter a $75 check using Favor's real fund and appeal names. **Log a contact** works like the Work Center's: pick Call, write what happened and set the date, then **Add a task** to send the receipt the partner asked for. Press Save and the page checks each field and says what to fix. A correct entry shows on the pretend record in green. **Start over** clears everything you entered.
 
 Nothing entered in Practice goes to Blackbaud, the Work Center or a real partner. The record is made up, and your entries stay in FavorOS.
 

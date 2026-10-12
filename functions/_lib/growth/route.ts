@@ -59,7 +59,7 @@ export async function handle(ctx: Ctx): Promise<Response> {
     if (a === 'practice') {
       if (!b && m === 'GET') return json({ ok: true, ...(await practiceState(env, me)) });
       if (!b && m === 'DELETE') return json({ ok: true, ...(await resetPractice(env, me)) });
-      if ((b === 'gift' || b === 'call') && m === 'POST') return json({ ok: true, ...(await savePractice(env, me, b, await body(request))) });
+      if ((b === 'gift' || b === 'call' || b === 'task') && m === 'POST') return json({ ok: true, ...(await savePractice(env, me, b, await body(request))) });
     }
     throw new HttpError(404, 'not_found', 'There is nothing at that address.');
   } catch (err) {

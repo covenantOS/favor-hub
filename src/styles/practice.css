@@ -59,3 +59,46 @@
   .pr-rows li span:nth-child(3), .pr-rows li span:nth-child(4) { grid-column: 1 / -1; }
   .pr-form button { justify-self: stretch; }
 }
+
+/* Add gift form in Raiser's Edge NXT's order, Log a contact and Add a task as the Work Center has them (2026-10-12) */
+.pr-sech { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 18px 0 8px; }
+.pr-sech h3 { margin: 0; }
+.pr-table { display: grid; gap: 4px; }
+.pr-tr { display: grid; grid-template-columns: 100px 90px 110px minmax(0, 1fr); gap: 4px 12px; align-items: baseline; padding: 9px 12px; border-radius: 10px; background: var(--r-canvas); font-size: 14px; }
+.pr-tr--h { background: none; font-size: 12px; font-weight: 700; color: var(--r-ink-3); text-transform: uppercase; letter-spacing: 0.04em; padding-block: 2px; }
+.pr-tr b { font-variant-numeric: tabular-nums; }
+.pr-tr.is-mine { background: var(--tc-leaf-tint); }
+.pr-ex__go { margin: 4px 0 0; }
+.pr-gift { display: grid; gap: 12px; border: 1px solid var(--r-line); border-radius: 12px; padding: 14px 16px; background: #fff; }
+.pr-gift__bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pr-x { width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; font-size: 24px; line-height: 1; color: var(--r-ink-2); cursor: pointer; }
+.pr-gtabs { display: flex; gap: 4px; border-bottom: 1px solid var(--r-line); overflow-x: auto; scrollbar-width: none; }
+.pr-gtabs span { padding: 10px 12px; font: 700 14px/1 var(--h-font); color: var(--r-ink-3); white-space: nowrap; }
+.pr-gtabs span.is-on { color: var(--r-ink); box-shadow: inset 0 -2px 0 var(--tc-sky); }
+.pr-gift label, .pr-field { display: grid; gap: 5px; font: 700 13px/1.3 var(--h-font); color: var(--r-ink-2); }
+.pr-req > :first-child::after { content: ""; }
+.pr-gift small { font: 500 12px/1.4 var(--h-font); color: var(--r-ink-3); }
+.pr-gift h4 { margin: 6px 0 0; font: 700 15px/1.3 var(--h-font); }
+.pr-gift input, .pr-gift select { min-height: 44px; padding: 8px 12px; border: 1px solid var(--r-line); border-radius: 10px; background: #fff; font: 500 16px/1.4 var(--h-font); color: var(--r-ink); width: 100%; box-sizing: border-box; }
+.pr-gift select:disabled { background: var(--r-canvas); color: var(--r-ink-3); }
+.pr-gift input:focus-visible, .pr-gift select:focus-visible, .pr-compose input:focus-visible { outline: 2px solid var(--tc-sky); outline-offset: 1px; }
+.pr-ro { margin: 0; font-size: 13px; line-height: 1.5; color: var(--r-ink-3); }
+.pr-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pr-pay, .pr-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.pr-pay button, .pr-seg button { min-height: 44px; padding: 0 14px; border: 1px solid var(--r-line); border-radius: 999px; background: #fff; font: 700 14px/1 var(--h-font); color: var(--r-ink-2); cursor: pointer; }
+.pr-pay button.is-on, .pr-seg button.is-on { background: var(--tc-sky-tint); border-color: var(--tc-sky); color: var(--tc-sky-ink); }
+.pr-gift__foot { display: flex; gap: 10px; flex-wrap: wrap; }
+.pr-compose { display: grid; gap: 12px; border: 1px solid var(--r-line); border-radius: 12px; padding: 14px 16px; background: #fff; margin-top: 12px; }
+.pr-compose__top b { font-size: 15px; }
+.pr-compose label { display: grid; gap: 5px; font: 700 13px/1.3 var(--h-font); color: var(--r-ink-2); }
+.pr-compose input[type=text], .pr-compose input[type=date] { min-height: 44px; padding: 8px 12px; border: 1px solid var(--r-line); border-radius: 10px; background: #fff; font: 500 16px/1.4 var(--h-font); color: var(--r-ink); width: 100%; box-sizing: border-box; }
+.pr-compose__row { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr); gap: 12px; align-items: end; }
+.pr-compose__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pr-compose__foot small { color: var(--r-ink-3); font-size: 13px; }
+@media (max-width: 520px) {
+  .pr-tr { grid-template-columns: minmax(0, 1fr) auto; }
+  .pr-tr--h { display: none; }
+  .pr-tr span:nth-child(3), .pr-tr span:nth-child(4) { grid-column: 1 / -1; }
+  .pr-two, .pr-compose__row { grid-template-columns: minmax(0, 1fr); }
+  .pr-gift, .pr-compose { padding: 12px; }
+}
