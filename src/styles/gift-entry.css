@@ -180,6 +180,8 @@
   .ge-form input, .ge-field input, .ge-field textarea, .ge-input { font-size: 16px; }
   .ge-keys { display: none; }
   .ge-row2 { gap: 8px; }
+  .ge-row2--stack { grid-template-columns: 1fr; gap: 12px; }
+  .ge-sumrow .f, .ge-dep .f { white-space: normal; }
 }
 @media (min-width: 861px) {
   .ge-card { padding: 20px; }

@@ -149,7 +149,7 @@ function counts(v) {
 function dotFor(r, key) {
   const c = r.conf && r.conf[key];
   if (!c) return '';
-  if ((key === 'appeal' || key === 'designation') && !(r.coding && (r.coding.source === 'slip' || r.coding.source === 'letter'))) return '';
+  if (key === 'appeal' || key === 'designation') return '';
   const t = { high: 'The two readers agree', medium: 'One reader, or no second check', low: 'The readers disagree or nothing was read' }[c];
   return `<i class="ge-dot is-${c}" title="${esc(t)}"></i>`;
 }
@@ -197,7 +197,7 @@ function pane(r, v) {
       ${r.kind === 'check' ? `<div class="ge-field${flagged(r, 'date')}"><label for="gf-cdate">Check date ${dotFor(r, 'date')}</label><input id="gf-cdate" type="date" value="${esc(r.checkDate || '')}" ${lock}>${whyOf(r, 'date')}</div>` : '<div></div>'}
       <div class="ge-field"><label for="gf-gdate">Gift date</label><input id="gf-gdate" type="date" value="${esc(r.giftDate || '')}" ${lock}></div></div>
     ${r.kind === 'check' ? `<div class="ge-field${flagged(r, 'payer')}"><label for="gf-payer">Name on the check ${dotFor(r, 'payer')}</label><input id="gf-payer" value="${esc(r.payer || '')}" ${lock}>${whyOf(r, 'payer')}</div>` : ''}
-    <div class="ge-row2">
+    <div class="ge-row2 ge-row2--stack">
       <div class="ge-field"><label for="gf-fund">Fund ${dotFor(r, 'designation')}</label><input id="gf-fund" list="ge-funds" value="${esc(r.fund ? r.fund.name : '')}" autocomplete="off" ${lock}><datalist id="ge-funds">${fundList}</datalist>${d.fundSource && FSRC[d.fundSource] ? `<span class="ge-src">From the ${esc(FSRC[d.fundSource].toLowerCase())}</span>` : ''}</div>
       <div class="ge-field"><label for="gf-appeal">Appeal ${dotFor(r, 'appeal')}</label><input id="gf-appeal" list="ge-appeals" value="${esc(r.appeal ? r.appeal.name : '')}" placeholder="Search appeals" autocomplete="off" ${lock}><datalist id="ge-appeals">${appealList}</datalist>${appealReason(r)}</div></div>
     <div class="ge-field${flagged(r, 'memo')}"><label for="gf-memo">Memo ${dotFor(r, 'memo')}</label><textarea id="gf-memo" ${lock}>${esc(r.memo || '')}</textarea>${whyOf(r, 'memo')}</div>
