@@ -467,7 +467,10 @@ export async function mailUnreadCount(env: Env, email: string, fetcher: Fetcher 
   if (hit && Date.now() - hit.at < 60000) return hit.n;
   const tok = await accessToken(env, k);
   if (!tok || !mailLevel(tok.scopes).headers) return 0;
-  const l = await gmail(tok.token, fetcher).get('/labels/INBOX');
+  const gm = gmail(tok.token, fetcher);
+  // The menu loads on every page, Today included, so a snoozed conversation is back by the time its owner looks.
+  if (mailLevel(tok.scopes).write) await wakeDue(env, gm, k).catch(() => undefined);
+  const l = await gm.get('/labels/INBOX');
   const n = Number(l.threadsUnread) || 0;
   if (COUNTS.size > 500) COUNTS.clear();
   COUNTS.set(k, { n, at: Date.now() });
