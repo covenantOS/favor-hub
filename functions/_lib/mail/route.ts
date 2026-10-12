@@ -29,7 +29,7 @@ import { GmailError, ROW_HEADERS, gmail, pool, shapeMessage, shapeThreadRow, typ
 import { b64ToBytes, rawOf, validEmail, type OutFile } from './mime';
 import { boxToken, listBoxes, removeBox } from './boxes';
 import { partnerMap, type PartnerLookup } from './partners';
-import { idsFor, rowsFor } from './rows';
+import { idsFor, pruneRows, rowsFor, useRowStore } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
 import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
 import { freshText } from './smart';
@@ -125,6 +125,8 @@ async function route(ctx: MailCtx): Promise<Response> {
   const mode = await mailMode(env);
   if (!mayUseMail(mode, user)) return errorJson('forbidden', mode === 'off' ? 'Mail is switched off.' : user.via !== 'google' ? 'Mail needs a Google sign-in.' : 'Mail is open to admins for now.', 403);
   if (!sameSite(request)) return errorJson('cross_site', 'That change did not come from FavorOS. Reload the page and try again.', 403);
+  useRowStore(env.DB as any);
+  void pruneRows();
   const owner = lower(user.email);
   let me = owner;
   const fetcher = ctx.fetcher || fetch;

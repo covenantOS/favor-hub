@@ -66,19 +66,11 @@ export interface EntityCard {
 
 export type MirrorQ = <T = any>(sql: string, params?: unknown[]) => Promise<T[]>;
 
-const APPEAL = /^[A-Z][0-9]{2}[0-9A-C]-[A-Z0-9]{1,14}$/;
-
 /** One card for what a message mentions. `q` is the appeal code, fund name, Lookup ID or staff email as written in the message. */
 export async function entityCard(env: Env, mq: MirrorQ, kind: string, qRaw: string): Promise<EntityCard | null> {
   const q = String(qRaw || '').trim().slice(0, 120);
   if (!q) return null;
-  if (kind === 'appeal') {
-    const code = q.toUpperCase();
-    if (!APPEAL.test(code)) return null;
-    const r = (await mq<any>("SELECT appeal_id AS code, appeal_description AS d, appeal_category AS cat, COALESCE(appeal_inactive, 0) AS off, substr(date_added, 1, 10) AS added FROM appeals WHERE upper(appeal_id) = ?1 LIMIT 1", [code]))[0];
-    if (!r) return null;
-    return { kind, key: code, title: String(r.code), sub: String(r.d || ''), lines: [{ k: 'Kind', v: String(r.cat || 'Appeal') }, { k: 'Status', v: Number(r.off) ? 'Inactive' : 'Active' }, ...(r.added ? [{ k: 'Added', v: String(r.added) }] : [])], href: '/admin/appeals/' };
-  }
+  // Appeal codes are answered by the shared /api/hub/entity route. Mail answers fund names and Lookup IDs.
   if (kind === 'fund') {
     const r = (await mq<any>("SELECT fund_id AS code, fund_description AS d, COALESCE(fund_inactive, 0) AS off FROM funds WHERE lower(fund_description) = lower(?1) OR upper(fund_id) = upper(?1) LIMIT 1", [q]))[0];
     if (!r) return null;

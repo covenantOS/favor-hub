@@ -148,18 +148,37 @@ export async function givingOf(ctx: SmartCtx, ids: string[]): Promise<Record<str
   const list = [...new Set(ids)].filter((x) => /^\d{1,12}$/.test(x)).slice(0, 150);
   if (!list.length) return {};
   if (ctx.giving) return ctx.giving(list).catch(() => ({}));
+  const out: Record<string, { max: number; total: number; last: string; lastAmount?: number }> = {};
+  const have = new Set<string>();
+  try {
+    const r = await ctx.env.DB.prepare('SELECT partner_id, max_gift, total, last_date, last_amount, at FROM hub_mail_giving WHERE partner_id IN (SELECT value FROM json_each(?))').bind(JSON.stringify(list)).all<any>();
+    for (const x of r.results || []) {
+      if (Date.now() - Date.parse(x.at) > 6 * 3600e3) continue;
+      have.add(String(x.partner_id));
+      out[String(x.partner_id)] = { max: Number(x.max_gift) || 0, total: Number(x.total) || 0, last: String(x.last_date || ''), lastAmount: Number(x.last_amount) || 0 };
+    }
+  } catch {
+    /* the table is not there yet */
+  }
+  const need = list.filter((x) => !have.has(x));
+  if (!need.length) return out;
   try {
     const { mirror } = await import('../foundations/blackbaud');
     const rows = await mirror<any>(
       ctx.env,
       `SELECT constituent_record_id AS id, MAX(gift_amount) AS mx, SUM(gift_amount) AS total, MAX(substr(gift_date, 1, 10)) AS last, (SELECT g2.gift_amount FROM gifts g2 WHERE g2.constituent_record_id = gifts.constituent_record_id AND g2.gift_amount > 0 ORDER BY g2.gift_date DESC LIMIT 1) AS lastamt FROM gifts
         WHERE constituent_record_id IN (SELECT value FROM json_each(?1)) AND gift_amount > 0 AND gift_type IN ('Donation', 'RecurringGiftPayment', 'GiftInKind', 'Stock/Property', 'Other') GROUP BY 1`,
-      [JSON.stringify(list)]
+      [JSON.stringify(need)]
     );
-    return Object.fromEntries(rows.map((r: any) => [String(r.id), { max: Number(r.mx) || 0, total: Number(r.total) || 0, last: String(r.last || ''), lastAmount: Number(r.lastamt) || 0 }]));
+    const at = new Date().toISOString();
+    const got = new Map<string, { max: number; total: number; last: string; lastAmount: number }>(rows.map((r: any) => [String(r.id), { max: Number(r.mx) || 0, total: Number(r.total) || 0, last: String(r.last || ''), lastAmount: Number(r.lastamt) || 0 }]));
+    const blank = { max: 0, total: 0, last: '', lastAmount: 0 };
+    for (const id of need) out[id] = got.get(id) || blank;
+    await ctx.env.DB.batch(need.map((id) => { const v = got.get(id) || blank; return ctx.env.DB.prepare('INSERT INTO hub_mail_giving (partner_id, max_gift, total, last_date, last_amount, at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(partner_id) DO UPDATE SET max_gift = excluded.max_gift, total = excluded.total, last_date = excluded.last_date, last_amount = excluded.last_amount, at = excluded.at').bind(id, v.max, v.total, v.last, v.lastAmount, at); })).catch(() => undefined);
   } catch {
-    return {};
+    /* the copy did not answer: no giving facts this time */
   }
+  return out;
 }
 
 /** A partner with one gift of $1,000 or more is a major partner (Favor's rule), and their mail comes first. */

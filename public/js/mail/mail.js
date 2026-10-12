@@ -115,6 +115,8 @@
   // Every call for a conversation names the mailbox it lives in (?mb=); the person's own mailbox is the one with none.
   function pathMb(path, mb) { return mb ? path + (path.indexOf('?') < 0 ? '?' : '&') + 'mb=' + encodeURIComponent(mb) : path; }
   function boxOf(id) { return (S.mbOf && S.mbOf[id]) || ''; }
+  // The first conversations of a list are read ahead, so opening one shows it at once. Any change to a conversation drops its copy.
+  var PRE = {};
   var api = {
     state: function () { return req('GET', 'state'); },
     boxes: function () { return req('GET', 'boxes'); },
@@ -152,11 +154,11 @@
     overview: function (mb) { return req('GET', pathMb('smart/overview', mb)); },
     assist: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))); },
     partner: function (id) { return req('GET', 'partner/' + encodeURIComponent(id)); },
-    bulk: function (b, mb) { return req('POST', pathMb('bulk', mb), b); },
+    bulk: function (b, mb) { (b.ids || []).forEach(function (i) { delete PRE[i]; }); return req('POST', pathMb('bulk', mb), b); },
     moveCat: function (senders, cat, mb) { return req('POST', pathMb('smart/move', mb), { senders: senders, cat: cat }); },
-    thread: function (id) { return req('GET', pathMb('threads/' + encodeURIComponent(id), boxOf(id))); },
-    modify: function (id, add, remove) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/modify', boxOf(id)), { add: add || [], remove: remove || [] }); },
-    trash: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/trash', boxOf(id)), {}); },
+    thread: function (id) { var h = PRE[id]; if (h && Date.now() - h.at < 90000) return h.p; return req('GET', pathMb('threads/' + encodeURIComponent(id), boxOf(id))); },
+    modify: function (id, add, remove) { delete PRE[id]; return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/modify', boxOf(id)), { add: add || [], remove: remove || [] }); },
+    trash: function (id) { delete PRE[id]; return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/trash', boxOf(id)), {}); },
     untrash: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/untrash', boxOf(id)), {}); },
     snooze: function (id, until) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id)), { until: until }); },
     unsnooze: function (id) { return req('DELETE', pathMb('threads/' + encodeURIComponent(id) + '/snooze', boxOf(id))); },
@@ -793,14 +795,27 @@
       Object.keys(S.picked).forEach(function (id) { if (!findThread(id)) delete S.picked[id]; });
       renderSelBar();
       var note = $('[data-list-note]'); if (note && !MOCK) note.textContent = S.v && inboxPlain() && S.v !== 'waiting' && S.scanned ? 'From your newest ' + S.scanned : '';
-      if (inboxPlain() && !opts.more) { loadOverview(); loadBrief(); }
+      if (inboxPlain() && !opts.more) { loadOverview(); setTimeout(loadBrief, 1200); }
       if (S.sel >= S.threads.length) S.sel = S.threads.length - 1;
       renderList();
+      if (!opts.more && S.level.read && !S.q) prefetch();
     }).catch(function (e) {
       if (seq !== listSeq) return;
       S.loading = false;
       if (e.code === 'mail_scope' || e.code === 'mail_connect') return renderConnect('read');
       rows.innerHTML = '<div class="ml-empty"><b>Mail did not load</b><span>' + esc(e.message) + '</span><button type="button" class="ml-btn" data-act="refresh">Try again</button></div>';
+    });
+  }
+  function prefetch() {
+    var ids = S.threads.slice(0, 5).map(function (t) { return t.id; }).filter(function (id) { return !PRE[id] || Date.now() - PRE[id].at > 90000; });
+    var seq = listSeq;
+    ids.forEach(function (id, k) {
+      setTimeout(function () {
+        if (seq !== listSeq || document.hidden) return;
+        var p = req('GET', pathMb('threads/' + encodeURIComponent(id), boxOf(id)));
+        PRE[id] = { at: Date.now(), p: p };
+        p.catch(function () { delete PRE[id]; });
+      }, 250 * k);
     });
   }
   function rowHtml(t, i) {
@@ -1192,9 +1207,18 @@
   var entCache = {};
   var Entity = {
     card: function (kind, key) {
-      if (window.FavorEntity && window.FavorEntity.card) return window.FavorEntity.card(kind, key);
       var k = kind + '|' + key;
-      if (!entCache[k]) entCache[k] = api.entity(kind, key).then(function (d) { return d.card; }).catch(function () { return null; });
+      if (entCache[k]) return entCache[k];
+      // Appeal codes, and partners by system id, come from the shared FavorEntity module (/api/hub/entity). Lookup IDs and fund names
+      // are still looked up by Mail, because the shared module takes system ids.
+      if (kind === 'appeal' && !MOCK && window.FavorEntity && window.FavorEntity.load) {
+        entCache[k] = window.FavorEntity.load('appeal', key).then(function (it) {
+          if (!it || it.restricted) return null;
+          return { kind: kind, key: key, title: it.title, sub: it.sub, lines: (it.facts || []).map(function (f) { return { k: f.k, v: f.v }; }), href: it.url || '' };
+        }).catch(function () { return null; });
+        return entCache[k];
+      }
+      entCache[k] = api.entity(kind, key).then(function (d) { return d.card; }).catch(function () { return null; });
       return entCache[k];
     }
   };

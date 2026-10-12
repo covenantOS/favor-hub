@@ -149,6 +149,7 @@ beforeEach(async () => {
   d1.exec(read('db/admin-home.sql'));
   d1.exec(read('db/mail.sql'));
   d1.exec(read('db/mail-smart.sql'));
+  d1.exec(read('db/mail-cache.sql'));
   env = { DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
   calls = [];
   box = mailbox();
@@ -198,8 +199,8 @@ describe('who a sender is to Favor', () => {
 });
 
 describe('what a message mentions', () => {
-  it('opens a card for an appeal code, a fund and a Lookup ID, and 404s on nothing', async () => {
-    assert.equal((await run('entity?kind=appeal&q=n26a-emw2')).data.card.title, 'N26A-EMW2');
+  it('opens a card for a fund and a Lookup ID, sends appeals to the shared module, and 404s on nothing', async () => {
+    assert.equal((await run('entity?kind=appeal&q=n26a-emw2')).status, 404, 'appeals come from the shared module');
     assert.equal((await run('entity?kind=fund&q=General%20Fund')).data.card.title, 'General Fund');
     const l = (await run('entity?kind=lookup&q=8841')).data.card;
     assert.equal(l.id, '27202');

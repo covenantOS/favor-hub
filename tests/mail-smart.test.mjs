@@ -145,6 +145,7 @@ beforeEach(async () => {
   d1.exec(read('db/admin-home.sql'));
   d1.exec(read('db/mail.sql'));
   d1.exec(read('db/mail-smart.sql'));
+  d1.exec(read('db/mail-cache.sql'));
   env = { DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
   calls = [];
   box = mailbox();
@@ -430,5 +431,33 @@ describe('changes to many conversations', () => {
     const r = await call(ADMIN, 'POST', 'bulk', { ids: ['tpartner1'], action: 'archive' });
     assert.equal(r.status, 403);
     assert.equal(box.modified.length, 0);
+  });
+});
+
+describe('the saved list rows', () => {
+  it('reads each conversation from Gmail once, then from D1 even on a cold server copy, and again only when its history id changes', async () => {
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    const metadata = () => calls.filter((c) => /^\/threads\/t/.test(c.path) && c.q.get('format') === 'metadata').length;
+    const first = metadata();
+    assert.ok(first >= 10);
+    assert.ok(d1.db.prepare('SELECT COUNT(*) AS n FROM hub_mail_rows').get().n >= 10);
+    forgetRows();
+    calls = [];
+    const again = await call(ADMIN, 'GET', 'threads?label=INBOX');
+    assert.equal(metadata(), 0);
+    assert.ok(again.data.threads.length >= 10);
+    box.threads.tpartner1.historyId = '2';
+    forgetRows();
+    calls = [];
+    await call(ADMIN, 'GET', 'threads?label=INBOX');
+    assert.equal(metadata(), 1);
+  });
+  it('removing a mailbox drops its saved rows', async () => {
+    d1.db.prepare("INSERT INTO hub_mail_rows (mailbox, thread_id, hid, row_json, at) VALUES ('x@favorintl.org', 't1', '1', '{}', 'x')").run();
+    const { removeBox, addBox } = await import('../functions/_lib/mail/boxes.ts');
+    d1.exec(read('db/mail-boxes.sql'));
+    await addBox(env, ADMIN.email, 'x@favorintl.org', 'X', 'refresh-x', 'scope');
+    await removeBox(env, ADMIN.email, 'x@favorintl.org');
+    assert.equal(d1.db.prepare("SELECT COUNT(*) AS n FROM hub_mail_rows WHERE mailbox = 'x@favorintl.org'").get().n, 0);
   });
 });

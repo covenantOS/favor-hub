@@ -81,6 +81,7 @@ export async function removeBox(env: Env, owner: string, mailbox: string): Promi
     env.DB.prepare('DELETE FROM hub_mail_snooze WHERE email = ?').bind(lower(mailbox)),
     env.DB.prepare('DELETE FROM hub_mail_class WHERE email = ?').bind(lower(mailbox)),
     env.DB.prepare('DELETE FROM hub_mail_cat WHERE email = ?').bind(lower(mailbox)),
+    env.DB.prepare('DELETE FROM hub_mail_rows WHERE mailbox = ?').bind(lower(mailbox)),
   ]).catch(() => undefined);
   for (const k of [...TOKENS.keys()]) if (k.startsWith(lower(owner) + '|' + lower(mailbox) + '|')) TOKENS.delete(k);
   return true;
