@@ -520,6 +520,12 @@ export async function saveAnswers(env: Db, actor: Actor, caseId: string, formId:
     ).bind(c.id, formId, author, a.qid, a.rating, a.text, a.example, now).run();
     saved++;
   }
+  if (formId === 'B') {
+    // The two choices on Form B say how the reviewer knows the employee. They also label the reviewer on the supervisor's page.
+    const rel = await env.DB.prepare("SELECT text FROM eval_answers WHERE case_id = ? AND form = 'B' AND author_email = ? AND qid = 'b3'").bind(c.id, author).first<{ text: string }>();
+    const fr = await env.DB.prepare("SELECT text FROM eval_answers WHERE case_id = ? AND form = 'B' AND author_email = ? AND qid = 'b4'").bind(c.id, author).first<{ text: string }>();
+    await env.DB.prepare("UPDATE eval_reviewers SET relationship = COALESCE(NULLIF(?, ''), relationship), frequency = COALESCE(NULLIF(?, ''), frequency) WHERE case_id = ? AND reviewer_email = ?").bind(rel?.text || '', fr?.text || '', c.id, author).run();
+  }
   if (formId === 'B' && (opts.relationship || opts.frequency)) {
     await env.DB.prepare('UPDATE eval_reviewers SET relationship = COALESCE(?, relationship), frequency = COALESCE(?, frequency) WHERE case_id = ? AND reviewer_email = ?').bind(opts.relationship || null, opts.frequency || null, c.id, author).run();
   }

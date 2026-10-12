@@ -11,6 +11,7 @@ import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
+import { waitingOn } from '../evals/service';
 
 export interface Access {
   admin: boolean;
@@ -112,6 +113,8 @@ export interface Counts {
   chatMentions: number;
   /** The Requests page in the menu: the inbox for an admin, plus this person's unread request notices. */
   board: number;
+  /** Evaluations: things waiting on this person (their own forms, feedback they owe, summaries to write, signatures). */
+  evals: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
 }
@@ -124,7 +127,7 @@ async function workOpenCount(env: Env, request: Request): Promise<number> {
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
-  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks] = await Promise.all([
+  const [inbox, exp, file, brain, notes, waiting, meetingsNow, chatMentions, tasks, evals] = await Promise.all([
     access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
     access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
     openPrintFile(env),
@@ -135,6 +138,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
     access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
+    waitingOn(env, { email: user.email, name: user.name, role: user.role }).then((w) => w.n).catch(() => 0),
   ]);
   return {
     inbox: Number(inbox?.n) || 0,
@@ -146,6 +150,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     meetingsNow: Number(meetingsNow?.n) || 0,
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
+    evals: Number(evals) || 0,
     board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
   };
 }
@@ -279,6 +284,27 @@ function plural(n: number, one: string, many = one + 's'): string {
   return `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
 }
 
+/** Evaluation steps waiting on this person, one card. Gated like every other notice. */
+export async function evalCards(env: Env, user: HubUser): Promise<Card[]> {
+  if (!(await mayHear(env, user.email).catch(() => false))) return [];
+  const w = await waitingOn(env, { email: user.email, name: user.name, role: user.role }).catch(() => ({ n: 0, items: [] as Array<{ text: string; href: string; due: string }> }));
+  if (!w.n) return [];
+  const top = w.items[0];
+  const late = w.items.filter((i) => i.due && i.due < new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })).length;
+  return [
+    {
+      id: 'evals',
+      label: 'Evaluations',
+      n: w.n,
+      what: w.n === 1 ? 'evaluation step waiting on you' : 'evaluation steps waiting on you',
+      note: late ? `${late} past the due date` : top.text,
+      warn: late > 0,
+      href: w.n === 1 ? top.href : '/evaluations/',
+      cta: w.n === 1 ? 'Open it' : 'Open Evaluations',
+    },
+  ];
+}
+
 export async function waitingCards(env: Env, user: HubUser, access: Access): Promise<Card[]> {
   const cards: Card[] = [];
   if (access.admin) {
@@ -392,6 +418,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       });
     }
   }
+  cards.push(...(await evalCards(env, user)));
   const file = await openPrintFile(env);
   if (file && fileIsMine(file, user, access)) {
     const left = Math.max(0, file.gifts - file.marked);
