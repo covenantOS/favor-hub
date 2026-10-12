@@ -428,6 +428,10 @@ async function show(rawStep: Step, my: number) {
   const stale = () => my !== gen || !root;
   if (phone() && step.at && inSide(step.at)) await sleep(260);
   if (step.press) {
+    // A Work Center tab sits in a group row; when its group is not the one showing, switch to the tab itself.
+    const tabId = /data-view="([a-z0-9_-]+)"/.exec(step.press);
+    const wc = (window as unknown as { WC?: { goTab?: (k: string) => Promise<void> } }).WC;
+    if (tabId && wc && wc.goTab && !document.querySelector(step.press)) { await wc.goTab(tabId[1]); await sleep(120); }
     const p = await find(step.press, 2500);
     if (stale()) return;
     if (p) {

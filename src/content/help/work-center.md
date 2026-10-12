@@ -197,6 +197,8 @@ Only admins and the Support Team delete an action or move it to another partner.
 
 ## Where the Work Center opens
 
+The tabs sit in groups: **My work** (Open actions, Gifts to thank, My partners, Asks, Cadence), **Gifts** (Entry, Thank-yous, Gift images, Declines), **Grants** (Grants, Opportunities), **Reports** (Weekly reports, HQTY letters) and **Review** (Stale, Recent). Press a group and its tabs show on the row below, each with its count. You see only the tabs your role uses. The Work Center opens on the tab you used last, unless you set one with **Opens on**.
+
 The **Opens on** button in the top row sets the tab you land on. Pick a tab, pick what Open actions shows (Mine, On my partners or Everyone) and press Save. **Use the default** puts it back. Until you pick one, directors open on Gifts to thank, the Support Team on HQTY letters and Partner Care on Cadence, and a tab that is not open for you yet falls back to Open actions.
 
 Open actions has the same three chips with a count on each. Mine lists actions you work. On my partners lists other people's open actions on partners you hold. Everyone lists all of them. **Start here** on a chip saves it as the scope that opens first.

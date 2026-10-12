@@ -94,7 +94,7 @@ function changed(tab) {
 }
 function start() {
   A.started = true;
-  fetchAll().then(() => W().render());
+  fetchAll().then(() => W().refresh('asks'));
 }
 // After a close date is saved or undone: refetch what is loaded, so each card sits in its new column with the same page depth.
 async function refreshLoaded() {
