@@ -84,6 +84,12 @@ describe('proposing the appeal and fund from evidence', () => {
     assert.match(c.suggestions[2].reason, /last gift used W200-LTAD/);
   });
 
+  it('a slip code missing from the appeal list is said so, not dropped', () => {
+    const c = code.proposeCoding({ ...base, slipAppeal: 'L2699-AD' });
+    assert.equal(c.reason, 'Slip reads L2699-AD, not in the appeal list: White Mail');
+    assert.equal(c.needsCoding, true);
+  });
+
   it('an expected gift fits only near the amount and the date', () => {
     const e = { id: 'o', kind: 'opportunity', date: '2026-10-06', amountCents: 10000, purpose: null, text: '' };
     assert.equal(code.expectedFits(e, 10500, '2026-10-12'), true);

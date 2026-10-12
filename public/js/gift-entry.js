@@ -149,6 +149,7 @@ function counts(v) {
 function dotFor(r, key) {
   const c = r.conf && r.conf[key];
   if (!c) return '';
+  if ((key === 'appeal' || key === 'designation') && !(r.coding && (r.coding.source === 'slip' || r.coding.source === 'letter'))) return '';
   const t = { high: 'The two readers agree', medium: 'One reader, or no second check', low: 'The readers disagree or nothing was read' }[c];
   return `<i class="ge-dot is-${c}" title="${esc(t)}"></i>`;
 }

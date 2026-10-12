@@ -158,7 +158,11 @@ export function proposeCoding(i: CodingInput): Coding {
 
   if (!appeal) {
     const w = findAppealByCode(i.appeals, whiteMailCode(i));
-    if (w) { appeal = w; appealSource = 'white_mail'; reason = 'No slip or note: White Mail'; }
+    if (w) {
+      appeal = w; appealSource = 'white_mail';
+      const unread = (i.slipAppeal || '').trim() ? `Slip reads ${i.slipAppeal!.trim()}, not in the appeal list` : (i.letterAppeal || '').trim() ? `Letter names ${i.letterAppeal!.trim()}, not in the appeal list` : '';
+      reason = unread ? `${unread}: White Mail` : 'No slip or note: White Mail';
+    }
   }
 
   // The fund: the slip, the letter, an expected gift, then the memo.
