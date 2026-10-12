@@ -116,3 +116,11 @@ label.act .pjl-act .pjl-btn { display: inline-flex; align-items: center; min-hei
   body.h-body .wh > .wh-top[hidden] { display: block !important; visibility: hidden; }
   body.h-body .wh > .wh-top[hidden] .wh-meta::before { content: '\00a0'; }
 }
+
+/* Admin, Tours: on a phone the Team column broke a word into five lines ("Deve / lopm / ent"). Cells keep their words whole and
+   the table scrolls sideways inside its box. */
+@media (max-width: 860px) {
+  body.h-body #tu-table td, body.h-body #tu-table th { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+  body.h-body #tu-table td:first-child { min-width: 0; }
+  body.h-body #tu-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
