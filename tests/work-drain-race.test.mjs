@@ -182,10 +182,12 @@ describe('the row claim', () => {
     assertEachSentOnce();
   });
 
-  it('Undo waits while a row is being sent', async () => {
+  it('Undo is saved, not refused, while a row is being sent', async () => {
     const b = await stuckBatch();
     db.prepare("UPDATE act_outbox SET state = 'sending', claimed_at = ? WHERE batch_id = ?").run(agoIso(0), b.id);
-    await assert.rejects(svc.undoBatch(ctx, b.id), /still taking this batch/);
+    const out = await svc.undoBatch(ctx, b.id);
+    assert.equal(out.queued, true);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM act_undo_wait').get().n, 1);
   });
 
   it('a row being sent still shows on the board as saving', async () => {
