@@ -14,8 +14,8 @@ export async function partnerMap(env: Env, emails: string[], stand?: PartnerLook
     `SELECT lower(e.email_address) AS email, e.constituent_record_id AS id,
             COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name,'') || ' ' || COALESCE(c.last_name,''))) AS name
        FROM emails e JOIN constituents c ON c.id = e.constituent_record_id
-      WHERE lower(e.email_address) IN (${list.map(() => '?').join(',')})`,
-    list
+      WHERE lower(e.email_address) IN (SELECT value FROM json_each(?1))`,
+    [JSON.stringify(list)]
   ).catch(() => []);
   return Object.fromEntries(rows.map((r: any) => [r.email, { id: String(r.id), name: String(r.name || '') }]));
 }

@@ -1,6 +1,6 @@
 // The rows of the list, kept per thread and history id, so a second look at a page reads only the conversations that changed.
 // Shared by the list route and the smart views, which scan the same conversations.
-import { ROW_HEADERS, pool, shapeThreadRow, type Gmail, type ThreadRow } from './gmail';
+import { GmailError, ROW_HEADERS, pool, shapeThreadRow, type Gmail, type ThreadRow } from './gmail';
 
 const ROWS = new Map<string, ThreadRow>();
 const remember = (k: string, v: ThreadRow) => {
@@ -8,13 +8,27 @@ const remember = (k: string, v: ThreadRow) => {
   ROWS.set(k, v);
 };
 
+/** One conversation's headers. Gmail answers 429 when a person's calls bunch up, so a refusal waits a moment and tries again. */
+async function readRow(gm: Gmail, id: string): Promise<any> {
+  for (let i = 0; i < 4; i++) {
+    try {
+      return await gm.get('/threads/' + id, { format: 'metadata', metadataHeaders: ROW_HEADERS });
+    } catch (e) {
+      const busy = e instanceof GmailError && (e.status === 429 || (e.status === 403 && /rate|quota/i.test(e.reason + e.message)) || e.status >= 500);
+      if (!busy || i === 3) return null;
+      await new Promise((r) => setTimeout(r, 350 * (i + 1)));
+    }
+  }
+  return null;
+}
+
 /** One row for each listed thread (id and history id), read from Gmail only when the thread changed since the last look. */
 export async function rowsFor(gm: Gmail, me: string, threads: Array<{ id: string; historyId?: string }>, width = 8): Promise<ThreadRow[]> {
   const rows = await pool(threads, width, async (t) => {
     const key = me + '|' + t.id + '|' + t.historyId;
     const hit = ROWS.get(key);
     if (hit) return hit;
-    const full = await gm.get('/threads/' + t.id, { format: 'metadata', metadataHeaders: ROW_HEADERS }).catch(() => null);
+    const full = await readRow(gm, t.id);
     if (!full) return null;
     const row = shapeThreadRow(full, me);
     remember(key, row);

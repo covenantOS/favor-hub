@@ -237,11 +237,14 @@ export async function scanInbox(ctx: SmartCtx, gm: Gmail, q = '', read = true): 
   const hit = SCANS.get(key);
   if (hit && Date.now() - hit.at < 30000 && (!read || hit.pending === 0)) return hit;
   const list = await idsFor(gm, { labelIds: 'INBOX', q: q || undefined }, SCAN);
-  const rows = await rowsFor(gm, ctx.me, list.threads, 10);
+  const rows = await rowsFor(gm, ctx.me, list.threads, 6);
   const { by, pending } = await classify(ctx, rows, read);
   const scan = { at: Date.now(), rows: decorate(rows, by), pending, more: list.more };
-  if (SCANS.size > 60) SCANS.clear();
-  SCANS.set(key, scan);
+  // A scan that lost conversations to Gmail's rate limit is shown but never kept.
+  if (rows.length >= list.threads.length * 0.95) {
+    if (SCANS.size > 60) SCANS.clear();
+    SCANS.set(key, scan);
+  }
   return scan;
 }
 
@@ -251,7 +254,7 @@ const daysSince = (iso: string) => Math.floor((Date.now() - Date.parse(iso)) / D
 /** Sent mail nobody has answered: my message is the newest in the conversation and it is at least `days` old. Oldest first. */
 export async function waitingOn(ctx: SmartCtx, gm: Gmail, days = 3): Promise<SmartRow[]> {
   const list = await idsFor(gm, { q: 'in:sent newer_than:30d -in:chats' }, 60);
-  const rows = await rowsFor(gm, ctx.me, list.threads, 10);
+  const rows = await rowsFor(gm, ctx.me, list.threads, 6);
   const mine = rows.filter((r) => r.fromMe && !r.draft && !(r.labelIds || []).includes('TRASH') && daysSince(r.date) >= days);
   const sent = mine.filter((r) => {
     const to = r.people?.[0]?.email || '';
