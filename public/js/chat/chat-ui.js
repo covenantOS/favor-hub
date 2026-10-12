@@ -815,7 +815,7 @@
           m._items = r.files || [];
           res.innerHTML = m._items.length ? m._items.map(function (f, i) {
             var lab = { doc: 'DOC', sheet: 'XLS', pdf: 'PDF', slides: 'PPT', photo: 'IMG', file: 'FILE' }[f.kind] || 'FILE';
-            return '<button type="button" class="ch-pick__i" data-act="drive-choose" data-i="' + i + '"><span class="ch-file__ic" data-k="' + esc(f.kind || 'file') + '" style="width:36px;height:36px;font-size:10px">' + lab + '</span><span><b>' + esc(f.name) + '</b><small>' + esc(f.path || '') + (f.indexed ? ' · Indexed ' + esc(f.indexed) : '') + '</small></span></button>';
+            return '<button type="button" class="ch-pick__i" data-act="drive-choose" data-i="' + i + '"><span class="ch-file__ic" data-k="' + esc(f.kind || 'file') + '" style="width:36px;height:36px;font-size:13px">' + lab + '</span><span><b>' + esc(f.name) + '</b><small>' + esc(f.path || '') + (f.indexed ? ' · Indexed ' + esc(f.indexed) : '') + '</small></span></button>';
           }).join('') : '<div class="ch-empty">No files match</div>';
         });
       };

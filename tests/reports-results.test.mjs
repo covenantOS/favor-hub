@@ -41,7 +41,7 @@ describe('registry', () => {
     }
     assert.deepEqual(reg.entryOf('appeal-results').audience, ['marketing']);
     assert.deepEqual([...reg.entryOf('tax').audience].sort(), ['admin_desk', 'operations']);
-    assert.equal(reg.isReady('tax'), false, 'tax is held until the mail list ties to saved query 1066');
+    assert.equal(reg.isReady('tax'), true, 'tax is live once the mail list ties to saved query 1066');
   });
 });
 
@@ -54,26 +54,29 @@ describe('annual tax receipt lists', () => {
     { cid: '5', lookup: '105', org: null, first: 'Ed', last: 'Fox', total: 100, excluded: 0, line: '3 Elm', city: 'Town', state: 'FL', zip: '32000', country: 'United States', dnm: 0, email: null },
     { cid: '6', lookup: '106', org: null, first: 'Flo', last: 'Gray', total: 600, excluded: 0, line: '4 Pine', city: 'Paris', state: '', zip: '75000', country: 'France', dnm: 0, email: null },
     { cid: '7', lookup: '107', org: null, first: 'Gus', last: 'Hill', total: 250, excluded: 0, line: '5 Ash', city: 'Town', state: 'FL', zip: '32000', country: 'United States', dnm: 1, email: null },
+    { cid: '8', lookup: '108', org: null, first: 'Ivy', last: 'Jones', total: 400, excluded: 0, line: '6 Fir', city: 'Town', state: 'FL', zip: '32000', country: 'United States', dnm: 0, nva: 1, email: 'i@example.org' },
   ];
   const sql = async (text) => (/constituent_record_id IS NULL/.test(text) ? [{ total: 50 }] : people);
   const total = people.reduce((s, p) => s + p.total, 0) + 50;
   it('splits partners into mail, email, other and no receipt by the saved rules', async () => {
     const all = await run({}, tax, { list: 'all', year: String(year) }, { sql, kpi: kpi([total]) });
     const by = Object.fromEntries(all.rows.map((r) => [r.lookup, r.list]));
-    assert.deepEqual(by, { 101: 'Mail', 102: 'Email', 103: 'Other', 104: 'No receipt', 105: 'No receipt', 106: 'No receipt', 107: 'No receipt' });
+    assert.deepEqual(by, { 101: 'Mail', 102: 'Email', 103: 'Other', 104: 'No receipt', 105: 'No receipt', 106: 'No receipt', 107: 'Mail', 108: 'No receipt' });
     assert.equal(all.rows.find((r) => r.lookup === '101').addressee, 'Ann and Bo Lee');
     assert.equal(all.rows.find((r) => r.lookup === '104').why, 'Church, foundation or DAF');
     assert.equal(all.rows.find((r) => r.lookup === '105').why, 'Under $250');
     assert.equal(all.rows.find((r) => r.lookup === '106').why, 'Address outside the United States');
-    assert.equal(all.rows.find((r) => r.lookup === '107').why, 'Address marked do not mail');
+    // A tax receipt is not a solicitation: a do-not-mail address stays on the mail list. Blackbaud's own no valid address mark keeps a partner off it.
+    assert.equal(all.rows.find((r) => r.lookup === '107').list, 'Mail');
+    assert.equal(all.rows.find((r) => r.lookup === '108').why, 'Blackbaud marks no valid address');
   });
   it('shows one list, and every list plus no receipt equals the KPI year to date', async () => {
     const mail = await run({}, tax, { list: 'mail', year: String(year) }, { sql, kpi: kpi([total]) });
-    assert.equal(mail.rows.length, 1);
-    assert.equal(mail.totals.total, 1000);
+    assert.equal(mail.rows.length, 2);
+    assert.equal(mail.totals.total, 1250);
     assert.equal(mail.tie.status, 'match');
     assert.equal(mail.tie.mine, total);
-    assert.equal(mail.tiles[0].value, 1);
+    assert.equal(mail.tiles[0].value, 2);
   });
   it('compares a through-month cut with the KPI months up to it, and says so for another year', async () => {
     const cut = await run({}, tax, { list: 'all', year: String(year), through: `${year}-02` }, { sql, kpi: kpi([total - 10, 10, 999]) });
@@ -85,6 +88,89 @@ describe('annual tax receipt lists', () => {
   it('shows Differs when the lists do not add up to the KPI figure', async () => {
     const r = await run({}, tax, { list: 'all', year: String(year) }, { sql, kpi: kpi([total + 5]) });
     assert.equal(r.tie.status, 'differs');
+  });
+});
+
+describe('annual tax receipt lists: valid addresses, names and the mail file', () => {
+  const person = (o) => ({ cid: '1', lookup: '101', org: null, first: 'Ann', last: 'Lee', total: 600, excluded: 0, line: '1 Main St', city: 'Town', state: 'TX', zip: '75001-1234', country: 'United States', dnm: 0, nva: 0, nva_read: 5, etr: 0, email: null, pa_name: null, raw_lines: '1 Main St', ...o });
+  const rows = [
+    person({ cid: '3', lookup: '103', first: 'Cy', last: 'Day', pa_name: 'Cy and Di Day', raw_lines: '9 Elm Ct\r\nSuite 2', total: 257.5, state: 'FL' }),
+    person({ cid: '1', lookup: '101', first: 'Ann', last: 'Lee', pa_name: 'Ann Lee' }),
+    person({ cid: '2', lookup: '102', first: 'Bo', last: 'Fox', dnm: 1 }),
+    person({ cid: '4', lookup: '104', first: 'Eve', last: 'Poe', nva: 1 }),
+    person({ cid: '5', lookup: '105', first: 'Gil', last: 'Roe', raw_lines: '4 Oak Way ', zip: '07030', state: 'NJ' }),
+  ];
+  const sql = async (text) => (/constituent_record_id IS NULL/.test(text) ? [{ total: 0 }] : rows);
+  it('asks for the stored name and the no valid address mark, and does not filter on the address do-not-mail mark', async () => {
+    let seen = '';
+    await run({}, tax, { year: String(year) }, { sql: async (t) => ((seen ||= t), []), kpi: kpi([]) });
+    assert.match(seen, /c\.primary_addressee/);
+    assert.match(seen, /no_valid_address/);
+    assert.doesNotMatch(seen, /do_not_mail\s*=\s*0/);
+  });
+  it('mails to a do-not-mail address and holds back only the partner Blackbaud marks as having no valid address', async () => {
+    const all = await run({}, tax, { list: 'all', year: String(year) }, { sql, kpi: kpi([9999]) });
+    const by = Object.fromEntries(all.rows.map((r) => [r.lookup, r.list]));
+    assert.deepEqual(by, { 103: 'Mail', 101: 'Mail', 102: 'Mail', 104: 'No receipt', 105: 'Mail' });
+  });
+  it('names the partner the way Blackbaud prints the addressee, and builds one from the record only when none is stored', async () => {
+    const all = await run({}, tax, { list: 'all', year: String(year) }, { sql, kpi: kpi([9999]) });
+    assert.equal(all.rows.find((r) => r.lookup === '103').addressee, 'Cy and Di Day');
+    assert.equal(all.rows.find((r) => r.lookup === '101').addressee, 'Ann Lee');
+    assert.equal(all.rows.find((r) => r.lookup === '102').addressee, 'Bo Fox');
+  });
+  it('writes the mail file with the saved export columns, state spelled out, amounts without trailing zeros and the record id', async () => {
+    const kept = {};
+    const r = await run({}, tax, { list: 'email', year: String(year) }, { sql, kpi: kpi([9999]), keep: kept });
+    assert.deepEqual(r.mailFile, { label: 'Mail file', name: 'Annual tax receipts mail', rows: 4 });
+    const out = tax.mailFile.rows(r.rows, r.values, kept.extra);
+    assert.deepEqual(tax.mailFile.columns.map((c) => c.label), ['Primary Addressee', "Last Year's Giving", 'Address Block', 'Unit #', 'City', 'State', 'ZIP Code', 'QRECID']);
+    assert.deepEqual(out.map((o) => o.addressee), ['Ann Lee', 'Bo Fox', 'Cy and Di Day', 'Gil Roe']);
+    assert.deepEqual(out[2], { addressee: 'Cy and Di Day', giving: '257.5', block: '9 Elm Ct', unit: 'Suite 2', city: 'Town', state: 'Florida', zip: '75001-1234', qrecid: '3' });
+    assert.equal(out[3].block, '4 Oak Way ', 'the line is printed as typed');
+    assert.equal(out[3].zip, '07030');
+    assert.equal(out[3].state, 'New Jersey');
+    assert.equal(out[0].giving, '600');
+    const text = (await import('../functions/_lib/reports/mailfile.ts')).mailCsv(tax.mailFile.columns, out);
+    assert.ok(text.startsWith('Primary Addressee,Last Year\'s Giving,Address Block,Unit #,City,State,ZIP Code,QRECID\r\n"Ann Lee","600","1 Main St","","Town","Texas","75001-1234","1"'));
+  });
+  it('ties the mail list to saved query 1066 for 2025 and names a difference', async () => {
+    const r = await run({}, tax, { list: 'mail', year: '2025' }, { sql, kpi: kpi([9999]) });
+    assert.equal(r.ties.length, 2);
+    assert.equal(r.ties[0].against, 'Saved query 1066, Annual Tax Receipts - MAIL, run 2026-10-11');
+    assert.equal(r.ties[0].kpi, 649);
+    assert.equal(r.ties[0].mine, 4);
+    assert.equal(r.ties[0].status, 'differs');
+    assert.equal(r.ties[0].diff, 645);
+    assert.equal(r.ties[1].kpi, 2135763.12);
+    const other = await run({}, tax, { list: 'mail', year: '2024' }, { sql, kpi: kpi([9999]) });
+    assert.deepEqual(other.ties, [], 'no stored run for another year, so no line');
+  });
+  it('ties the Email and Other lists too, and leaves partners with no address of any kind out of the Other comparison with a note', async () => {
+    const more = [
+      ...rows,
+      person({ cid: '6', lookup: '106', first: 'Hal', last: 'Ives', line: '', city: '', state: '', zip: '', country: null, raw_lines: '', email: null }),
+      person({ cid: '7', lookup: '107', first: 'Ida', last: 'Jay', line: '', city: '', state: '', zip: '', country: 'United States', raw_lines: '', email: null }),
+    ];
+    const r = await run({}, tax, { list: 'all', year: '2025' }, { sql: async (t) => (/constituent_record_id IS NULL/.test(t) ? [{ total: 0 }] : more), kpi: kpi([9999]) });
+    assert.deepEqual(r.ties.map((t) => [t.against.slice(0, 18), t.label]), [
+      ['Saved query 1066, ', 'Partners'], ['Saved query 1066, ', "Last Year's Giving"],
+      ['Saved query 1069, ', 'Partners'], ['Saved query 1069, ', 'Total gifts'],
+      ['Saved query 1070, ', 'Partners'], ['Saved query 1070, ', 'Total gifts'],
+    ]);
+    const other = r.ties.find((t) => t.against.includes('1070') && t.label === 'Partners');
+    assert.equal(other.mine, 1, 'the partner with a United States country and no street stays in the comparison');
+    assert.match(other.note, /1 more partner on this list has no address of any kind/);
+    const one = await run({}, tax, { list: 'email', year: '2025' }, { sql: async (t) => (/constituent_record_id IS NULL/.test(t) ? [{ total: 0 }] : more), kpi: kpi([9999]) });
+    assert.equal(one.ties.length, 2);
+    assert.ok(one.ties.every((t) => t.against.includes('1069')));
+  });
+  it('shows a tile when the sync worker has not read the no valid address mark yet', async () => {
+    const unread = rows.map((o) => ({ ...o, nva_read: 0 }));
+    const r = await run({}, tax, { list: 'mail', year: String(year) }, { sql: async (t) => (/constituent_record_id IS NULL/.test(t) ? [{ total: 0 }] : unread), kpi: kpi([9999]) });
+    assert.ok(r.tiles.some((t) => t.label === 'Valid-address flag' && t.value === 'Not read yet'));
+    const read = await run({}, tax, { list: 'mail', year: String(year) }, { sql, kpi: kpi([9999]) });
+    assert.ok(!read.tiles.some((t) => t.label === 'Valid-address flag'));
   });
 });
 

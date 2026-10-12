@@ -10,7 +10,7 @@ import { currentBoard, type Ctx } from '../work/service';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
 import { unreadMentionCount } from '../chat/db';
-import { noticesFor } from '../requests/tasks';
+import { mayHear, noticesFor } from '../requests/tasks';
 import { projectsFlag } from '../projects/access';
 import { openActionsWithoutTask, projectCards, projectsMineCount } from '../projects/links/today'; // projects hook
 
@@ -115,6 +115,8 @@ export interface Counts {
   meetingsNow: number;
   /** Chat: messages that mention this person, direct messages and thread replies they have not read. */
   chatMentions: number;
+  /** The Requests page in the menu: the inbox for an admin, plus this person's unread request notices. */
+  board: number;
   /** Request board: unread notices (sent to them, named, comments, Waiting on, done) on requests they are on. */
   tasks: number;
   /** Projects hook: tasks due today or late plus unread task notices. The Projects menu entry and the phone bar show it. */
@@ -139,7 +141,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     // Meetings with someone in the room now (a heartbeat in the last 20 seconds), so the count drops when the last person goes.
     access.meetings ? env.DB.prepare("SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live' AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?)").bind(Date.now() - 20_000).first<{ n: number }>().catch(() => null) : null,
     access.chat ? unreadMentionCount(env, user.email).catch(() => 0) : 0,
-    access.tasks ? noticesFor(env, user.email, 1).then((n) => n.count).catch(() => 0) : 0,
+    access.tasks ? mayHear(env, user.email).then((ok) => (ok ? noticesFor(env, user.email, 1).then((n) => n.count) : 0)).catch(() => 0) : 0,
     projectsMineCount(env, user), // projects hook
   ]);
   return {
@@ -152,6 +154,7 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
     meetingsNow: Number(meetingsNow?.n) || 0,
     chatMentions: Number(chatMentions) || 0,
     tasks: Number(tasks) || 0,
+    board: (Number(inbox?.n) || 0) + (Number(tasks) || 0),
     projectsMine: Number(projectsMine) || 0, // projects hook
   };
 }
@@ -199,26 +202,86 @@ export interface Activity {
 
 const DAY = 86400000;
 
-const KIND_WORD: Record<string, string> = { sent: 'Sent you', mention: 'Named you on', comment: 'Commented on', waiting: 'Waiting on you for', done: 'Finished' };
+const KIND_WORD: Record<string, string> = { sent: 'sent you', mention: 'mentioned you on', comment: 'commented on', waiting: 'is waiting on you for', done: 'finished', due: 'due' };
+const short = (t: string, n = 60) => (t.length > n ? t.slice(0, n - 2) + '...' : t);
 
-/** Requests sent to this person, or that name them, with something they have not opened yet. */
+/**
+ * The request board on Today, for a person notices can reach:
+ *   Sent to you      the open requests they own
+ *   Waiting on you   open requests someone marked as waiting on them
+ *   Mentions         requests with a mention, comment or finish they have not opened
+ * Each number is a count of requests and opens exactly those requests. A hand-off the person was never told about (made while
+ * notices were off) stays off Today until someone presses Tell, so the panel and Today always agree.
+ */
+export async function taskCards(env: Env, emailRaw: string): Promise<Card[]> {
+  const email = emailRaw.toLowerCase();
+  if (!(await mayHear(env, email).catch(() => false))) return [];
+  const rows =
+    (
+      await env.DB.prepare(
+        `SELECT q.id, q.title, t.owner_email, t.waiting_on, t.due_date, COALESCE(d.name, u.name, t.sent_by, '') AS from_name
+           FROM request_tasks t JOIN requests q ON q.id = t.request_id
+           LEFT JOIN meet_directory d ON lower(d.email) = t.sent_by LEFT JOIN hub_users u ON lower(u.email) = t.sent_by
+          WHERE (t.owner_email = ?1 OR t.waiting_on = ?1) AND q.status NOT IN ('done', 'declined')
+            AND EXISTS (SELECT 1 FROM request_notices n WHERE n.request_id = t.request_id AND n.email = ?1) ORDER BY COALESCE(t.sent_at, q.updated_at) DESC`
+      )
+        .bind(email)
+        .all<{ id: string; title: string; owner_email: string | null; waiting_on: string | null; due_date: string | null; from_name: string }>()
+        .catch(() => ({ results: [] as never[] }))
+    ).results || [];
+  const mine = rows.filter((r) => r.owner_email === email);
+  const waiting = rows.filter((r) => r.waiting_on === email);
+  const cards: Card[] = [];
+  const link = (list: Array<{ id: string }>, view: string) => (list.length === 1 ? `/requests/?r=${encodeURIComponent(list[0].id)}` : `/requests/?view=${view}`);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  if (mine.length) {
+    const late = mine.filter((r) => r.due_date && r.due_date < today).length;
+    cards.push({
+      id: 'tasks',
+      label: 'Sent to you',
+      n: mine.length,
+      what: mine.length === 1 ? 'request sent to you' : 'requests sent to you',
+      note: late ? `${late} past the due date` : `${mine[0].from_name ? mine[0].from_name + ': ' : ''}${short(mine[0].title)}`,
+      warn: late > 0,
+      href: link(mine, 'mine'),
+      cta: mine.length === 1 ? 'Open the request' : 'Open them',
+    });
+  }
+  if (waiting.length) {
+    cards.push({
+      id: 'tasks-waiting',
+      label: 'Waiting on you',
+      n: waiting.length,
+      what: waiting.length === 1 ? 'request waiting on you' : 'requests waiting on you',
+      note: short(waiting[0].title),
+      warn: false,
+      href: link(waiting, 'onme'),
+      cta: waiting.length === 1 ? 'Open the request' : 'Open them',
+    });
+  }
+  const n = await noticesFor(env, email, 30);
+  const news = n.items.filter((i) => i.kind === 'mention' || i.kind === 'comment' || i.kind === 'done');
+  const ids = [...new Set(news.map((i) => i.request_id))];
+  if (ids.length) {
+    const top = news[0];
+    const mentions = news.every((i) => i.kind === 'mention');
+    cards.push({
+      id: 'tasks-news',
+      label: mentions ? 'Mentions' : 'Request news',
+      n: ids.length,
+      what: mentions ? (ids.length === 1 ? 'request that mentions you' : 'requests that mention you') : ids.length === 1 ? 'request with something new' : 'requests with something new',
+      note: `${top.actor_name || 'Someone'} ${KIND_WORD[top.kind] || 'updated'} ${short(top.title, 48)}`,
+      warn: false,
+      href: ids.length === 1 ? `/requests/?r=${encodeURIComponent(ids[0])}` : '/requests/?view=new',
+      cta: ids.length === 1 ? 'Open the request' : 'Open them',
+    });
+  }
+  return cards;
+}
+
+/** The Sent to you card alone (the open requests this person owns). */
 export async function sentToYouCard(env: Env, email: string): Promise<Card | null> {
-  const n = await noticesFor(env, email, 20);
-  if (!n.requests) return null;
-  const top = n.items[0];
-  const allSent = n.items.every((i) => i.kind === 'sent');
-  const ids = [...new Set(n.items.map((i) => i.request_id))];
-  const title = top.title.length > 60 ? top.title.slice(0, 58) + '...' : top.title;
-  return {
-    id: 'tasks',
-    label: 'Sent to you',
-    n: n.requests,
-    what: allSent ? (n.requests === 1 ? 'request sent to you' : 'requests sent to you') : n.requests === 1 ? 'request with news for you' : 'requests with news for you',
-    note: `${top.actor_name || 'Someone'}: ${KIND_WORD[top.kind] || 'Updated'} ${title}`,
-    warn: false,
-    href: ids.length === 1 ? `/requests/?r=${encodeURIComponent(ids[0])}` : '/requests/?view=new',
-    cta: ids.length === 1 ? 'Open the request' : 'Open them',
-  };
+  return (await taskCards(env, email)).find((c) => c.id === 'tasks') || null;
 }
 
 function plural(n: number, one: string, many = one + 's'): string {
@@ -249,8 +312,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     }
   }
   if (access.tasks) {
-    const card = await sentToYouCard(env, user.email).catch(() => null);
-    if (card) cards.push(card);
+    cards.push(...(await taskCards(env, user.email).catch(() => [] as Card[])));
   }
   // projects hook: tasks due, given to you and with news.
   cards.push(...(await projectCards(env, user).catch(() => [] as Card[])));

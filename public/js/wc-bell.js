@@ -141,10 +141,11 @@ const chatLine = (it) => {
 };
 
 const TK_WORD = { sent: 'sent you', mention: 'named you on', comment: 'commented on', waiting: 'is waiting on you for', done: 'finished' };
+const dueWord = (d) => { const t = todayEt(); return d === t ? 'today' : d === addDays(t, 1) ? 'tomorrow' : d < t ? 'and late' : 'soon'; };
 const taskLine = (it) => ({
-  head: (it.actor_name || 'Someone') + ' ' + (TK_WORD[it.kind] || 'updated'),
+  head: it.kind === 'due' ? 'Due ' + dueWord(it.note) + ':' : (it.actor_name || 'Someone') + ' ' + (TK_WORD[it.kind] || 'updated'),
   title: it.title,
-  txt: String(it.note || '').replace(/<@([^>]+)>/g, (_a, id) => '@' + id.split('@')[0]).replace(/\s+/g, ' ').slice(0, 110),
+  txt: it.kind === 'due' ? '' : String(it.note || '').replace(/<@([^>]+)>/g, (_a, id) => '@' + id.split('@')[0]).replace(/\s+/g, ' ').slice(0, 110),
   href: '/requests/?r=' + encodeURIComponent(it.request_id),
 });
 
@@ -160,7 +161,7 @@ function bellHTML() {
   const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time>${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
   const wc = wcOn() || !tasksOn();
   return `<h4><span>${wc ? 'Reminders' : 'Notifications'}${wc && R.count ? `<small>${R.count} due today</small>` : ''}</span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
-    <div>${projList}${taskList}${chatList}${wc ? list : !TK.items.length && !CH.items.length && !PJ.items.length ? '<div class="wm-empty"><b>Nothing new</b>Requests sent to you and mentions show here.</div>' : ''}</div>${wc ? '<div class="wm-foot"><span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button></div>' : ''}${projectsOn() ? '<div class="wm-foot"><span>Task email and calendar</span><button type="button" data-wm-pjprefs>Project notices</button></div>' : ''}`;
+    <div>${projList}${taskList}${chatList}${wc ? list : !TK.items.length && !CH.items.length && !PJ.items.length ? '<div class="wm-empty"><b>Nothing new</b>Requests sent to you and mentions show here.</div>' : ''}</div><div class="wm-foot">${wc ? '<span>Also in the morning email</span><button type="button" data-wm-mail>Morning email</button>' : '<span></span>'}${tasksOn() ? '<button type="button" data-wm-reqmail>Request email</button>' : ''}${projectsOn() ? '<button type="button" data-wm-pjprefs>Project notices</button>' : ''}</div>`;
 }
 function paintBell() { if (popEl) popEl.innerHTML = bellHTML(); }
 
@@ -331,7 +332,8 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-wm-closepop')) { const f = popFor; closePop(); if (f && f.focus) f.focus(); return; }
   if (t.hasAttribute('data-wm-closedlg')) { closeDlg(); return; }
   if (t.hasAttribute('data-wm-mail') || t.hasAttribute('data-wm-mailchip')) { openMail(); return; }
-  if (t.hasAttribute('data-wm-task')) { send('POST', '/api/requests/notices', { id: Number(d.wmTask) }).catch(() => {}); return; }
+  if (t.hasAttribute('data-wm-reqmail')) { closePop(); if (window.FavorRequest) window.FavorRequest.prefs(); return; }
+  if (t.hasAttribute('data-wm-task')) { send('POST', '/api/requests/notices', { id: Number(d.wmTask) }).then(refresh).catch(() => {}); closePop(); return; }
   if (t.hasAttribute('data-wm-pj')) { send('POST', '/api/tasks/notices/read', { ids: [d.wmPj] }).catch(() => {}); return; }
   if (t.hasAttribute('data-wm-pjprefs')) { closePop(); if (window.PJLinks) window.PJLinks.prefs(); return; }
   if (t.hasAttribute('data-wm-chat')) { send('POST', '/api/chat/inbox/read', { message_id: Number(d.wmChat) }).catch(() => {}); return; }

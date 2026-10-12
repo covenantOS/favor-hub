@@ -2,6 +2,7 @@ import { approverEmails } from '../../_lib/expenses/auth';
 import { accessOf, activityFor, mineFor, navCounts } from '../../_lib/hub/today';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf, type HubUser } from '../../_lib/session';
+import { mayHear } from '../../_lib/requests/tasks';
 import { blackbaudRepo } from '../../_lib/work/repo';
 import { requireWork } from '../../_lib/work/gate';
 import { workHome } from '../../_lib/work/home';
@@ -48,11 +49,13 @@ async function waitingFor(env: Env, email: string, admin: boolean, approver: boo
   // Requests sent to this person, or waiting on them (db/request-tasks.sql; nothing before it is applied).
   jobs.push(
     (async () => {
+      // Nothing shows until request notices reach this person (the same gate as Today and the bell).
+      if (!(await mayHear(env, email).catch(() => false))) return;
       const r = await env.DB.prepare(
         `SELECT q.id, q.title, t.owner_email, t.waiting_on, t.sent_by, t.sent_at, q.created_at, COALESCE(d.name, u.name, t.sent_by) AS from_name
            FROM request_tasks t JOIN requests q ON q.id = t.request_id
            LEFT JOIN meet_directory d ON lower(d.email) = t.sent_by LEFT JOIN hub_users u ON lower(u.email) = t.sent_by
-          WHERE (t.owner_email = ?1 OR t.waiting_on = ?1) AND q.status NOT IN ('done', 'declined') ORDER BY COALESCE(t.sent_at, q.created_at) LIMIT 20`
+          WHERE (t.owner_email = ?1 OR t.waiting_on = ?1) AND q.status NOT IN ('done', 'declined') AND EXISTS (SELECT 1 FROM request_notices n WHERE n.request_id = t.request_id AND n.email = ?1) ORDER BY COALESCE(t.sent_at, q.created_at) LIMIT 20`
       ).bind(email).all<{ id: string; title: string; owner_email: string | null; waiting_on: string | null; sent_by: string | null; sent_at: string | null; created_at: string; from_name: string | null }>().catch(() => ({ results: [] as never[] }));
       totals.tasks = r.results.length;
       for (const x of r.results.slice(0, 4)) {

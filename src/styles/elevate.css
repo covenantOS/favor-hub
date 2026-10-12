@@ -124,7 +124,7 @@ body.h-body {
 }
 .h-nav__item {
   gap: 12px; padding: 8px 12px; border-radius: 999px; margin: 1px 0;
-  font: 500 13.5px var(--h-font); color: var(--h-ink-2);
+  font: 500 14px var(--h-font); color: var(--h-ink-2);
 }
 .h-nav__item .h-i { opacity: 1; color: var(--h-ink-3); stroke-width: 1.6; }
 .h-nav__item:hover { background: color-mix(in srgb, var(--h-leaf-soft) 70%, transparent); color: var(--h-ink); }
@@ -218,7 +218,7 @@ body.h-body {
 .h-todo__n, .h-big, .h-mission .n, .h-page .ticker__num, .h-page .fnd-band__num, .h-team > span {
   font-family: var(--h-serif); font-weight: 500; letter-spacing: -0.01em; font-variant-numeric: lining-nums tabular-nums;
 }
-.h-todo__n { font-size: 46px; line-height: 1; color: var(--h-ink); }
+.h-todo__n { font-size: 44px; line-height: 1; color: var(--h-ink); }
 .h-todo__n small { font: 500 14px var(--h-font); color: var(--h-ink-3); }
 .h-big { font-size: 44px; line-height: 1; color: var(--h-ink); }
 
@@ -230,7 +230,7 @@ body.h-body {
 .h-todo { padding: 18px 20px; }
 .h-todo__app { font: 500 13px var(--h-font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--h-ink-3); }
 .h-todo__icon { width: 32px; height: 32px; border-radius: 999px; background: var(--h-leaf-soft); color: var(--h-brand-ink); }
-.h-todo__what { font: 500 13.5px var(--h-font); color: var(--h-ink-2); }
+.h-todo__what { font: 500 14px var(--h-font); color: var(--h-ink-2); }
 .h-todo--warn { border-color: #ecdcb4; box-shadow: var(--h-shadow); background: linear-gradient(180deg, #fffaf0, var(--h-ivory) 60%); }
 .h-todo__note--warn { color: #7a5a17; background: var(--h-gold-soft); border-radius: 10px; }
 .h-bar { background: #efebe2; height: 8px; }
@@ -244,7 +244,7 @@ body.h-body {
 .h-mission { background: var(--h-brand-ink); border: 0; }
 .h-mission::after { background: linear-gradient(180deg, rgba(31, 42, 25, 0) 15%, rgba(31, 42, 25, 0.9) 100%); }
 .h-mission .k { font: 500 13px var(--h-font); letter-spacing: 0.18em; }
-.h-mission .n { font-size: 46px; }
+.h-mission .n { font-size: 44px; }
 .h-mission p { font: italic 400 15px/1.45 var(--h-serif); color: rgba(255, 253, 249, 0.9); }
 .h-feed li { border-top-color: var(--h-line); }
 .h-feed time, .h-mine li { color: var(--h-ink-3); }
@@ -302,7 +302,7 @@ body.h-body {
 .h-page .ticker__label { font: 500 13px var(--h-font); letter-spacing: 0.16em; text-transform: uppercase; color: var(--h-ink-3); }
 .h-page .ticker__num { color: var(--h-ink); font-size: clamp(30px, 3vw, 40px); }
 .h-page .ticker__caption { font-weight: 400; }
-.h-page .exp-legend { font: 500 19px var(--h-serif); letter-spacing: -0.005em; }
+.h-page .exp-legend { font: 500 20px var(--h-serif); letter-spacing: -0.005em; }
 .h-page .make-kicker { color: var(--h-brand); font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; font-size: 13px; }
 .h-page .exp-filter__chips button, .h-page .exp-filter input { font-family: var(--h-font); }
 .h-page .exp-filter__chips button { background: var(--h-ivory); border-color: var(--h-line); font-weight: 600; }
@@ -373,9 +373,9 @@ body.h-body {
   .h-top { padding: 0 14px; height: 60px; }
   .h-top__menu { display: grid; margin-left: 0; }
   .h-top__title { font-size: 19px; }
-  .h-hello h1 { font-size: 30px; }
-  .hd-hero h1 { font-size: 30px; }
-  .h-todo__n { font-size: 38px; }
+  .h-hello h1 { font-size: 28px; }
+  .hd-hero h1 { font-size: 28px; }
+  .h-todo__n { font-size: 40px; }
 }
 @media (max-width: 860px) {
   .h-app.is-nav::after { background: rgba(42, 39, 34, 0.35); }
@@ -401,7 +401,7 @@ body.h-body {
 
 /* Brain admin (its own page) */
 .ba-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 6px 4px 0; }
-.ba-head h1 { font: 500 42px/1.05 var(--h-serif); letter-spacing: -0.015em; margin: 8px 0 8px; }
+.ba-head h1 { font: 500 40px/1.05 var(--h-serif); letter-spacing: -0.015em; margin: 8px 0 8px; }
 .ba-head .h-lede { margin: 0; max-width: 60ch; }
 .ba-back { display: inline-flex; align-items: center; gap: 6px; font: 600 13px var(--h-font); color: var(--h-ink-3); text-decoration: none; }
 .ba-back:hover { color: var(--h-ink); }

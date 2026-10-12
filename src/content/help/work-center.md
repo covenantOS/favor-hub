@@ -8,7 +8,7 @@ related: [today, getting-started]
 videos: [work-center]
 tool: /work/
 toolLabel: Open Work Center
-updated: 2026-10-10
+updated: 2026-10-11
 ---
 
 Work Center lists every open action in Blackbaud, the week's contacts to enter and the thank-yous still owed. Blackbaud finishes one action at a time. Work Center finishes as many as you pick in one pass.
@@ -107,6 +107,26 @@ Cadence is the Partner Care tab. It applies the contact rules from the Partner C
 Each row shows the partner, the giving pattern, the rule, the last contact, how many days over the partner is, who holds the partner and the steps in the manual's order: call, text, email, card. The next step is green. A step with no phone number, no email or mailing address, or a do-not flag is switched off and says why. Press a step, pick Talked or Left a message for a call, write a line and save. The step becomes one completed contact in your name, and a text carries the Texted tag. Left a message logs the call as unsuccessful, keeps the step due and puts a reminder in your bell for the next workday. A row leaves when every step it needs is done. Undo on the message at the bottom puts the row back.
 
 The five numbers across the top filter the list: Due now, First-time partners, Monthly, twice a year and annual, Quarterly gifts to thank, and Done this week. Mine and All of Partner Care show when the two lists differ. **Print the three lists** splits the partners who are due into Friday, Saturday and Sunday, longest wait first, with Print and Open in Google Sheets. The pattern comes from the partner's gifts in the last 24 months, because Blackbaud's copy holds no schedule for a recurring gift.
+
+## Declines
+
+The admin desk, the Support Team and Partner Care see a **Declines** tab. It lists every declined monthly payment and every gift set to zero in the last 90 days, newest first. Blackbaud records a failed charge as a $0 payment with the processor's reason, so a **Hard reject** (the card or account will not work again) sits apart from a **Soft reject** (the bank said try again). **Recorded at full amount** and **Zeroed gift** hold the gifts a person has to look at one by one, such as a returned check.
+
+Each row shows the partner, the card or bank, the amount that failed, the reason, how many times the same schedule has declined, who holds the partner and the last follow-up. Press **Log**, choose Call, Text, Email, Card or Note, say what happened and pick where it stands: Still open, Card or bank fixed, Partner ended the gift, Cannot reach or Nothing to do. The hub saves one Information Update action on the partner in Blackbaud. That type counts as no portfolio contact, so a billing call never changes who is credited. Left a message keeps the row open and sets a reminder for the next workday.
+
+A decline clears by itself when a later payment on the same schedule goes through, and moves to **Closed or paid** when the schedule has ended. Nothing on this tab charges a card or changes a schedule. Updating a card and changing a monthly amount stay in Blackbaud.
+
+## Grants
+
+The grants team, the Support Team and admins see a **Grants** tab. It lists the Grant Request, Grant LOI, Grant Report, General Task and Cultivation actions on foundations from the last 24 months. **Log** records one of them and attaches the PDF in the same pass: pick the foundation, what it is, Sent or To do, the date, how it went (funder portal, email or mail), a short summary, notes such as the amount asked, and the file. The file can be a PDF, Word, Excel or image file up to 10 MB. If the file does not reach Blackbaud, nothing is logged. Undo in Recent takes back the action and its attachment together.
+
+**File** on a row adds a document to an action that is already there, and **Open** opens the action in the usual panel. The Blackbaud copy holds no attachments, so a row shows a file name only when the hub attached it. Nothing here contacts a funder.
+
+## Gift images
+
+The Support Team and admins see a **Gift images** tab. It lists gifts from the last 45 days that need a check or letter image in Blackbaud: gifts of $5,000 or more, gifts from a giving fund, foundation or donor advised fund, and, when you tick **Include designated funds**, gifts to a designated fund. Gifts paid online are left out.
+
+The Blackbaud copy holds no attachments, so a gift reads **Not checked** until you ask. **Check** asks Blackbaud whether that gift has an attachment (one call), and **Check 20 in Blackbaud** does the oldest twenty. A gift that already has one leaves the list. **Attach** puts a photo or PDF on the gift (three calls) and keeps the original in the hub's private storage. The footer shows how many calls are left in the day's allowance for gift entry, so checking never uses up the room the mail-day deposit needs.
 
 ## Call prep
 

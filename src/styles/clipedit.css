@@ -20,7 +20,7 @@
 .ce-menu { position: absolute; right: 0; top: 46px; z-index: 40; width: 280px; max-width: calc(100vw - 24px); padding: 8px; background: #fffdf9; border: 1px solid var(--h-line); border-radius: 16px; box-shadow: 0 18px 44px -12px rgba(42, 39, 34, .4); }
 .ce-menu[hidden] { display: none; }
 .ce-menu ul { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; }
-.ce-menu button { display: flex; width: 100%; align-items: center; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font: 500 13.5px var(--h-font); color: var(--h-ink); cursor: pointer; text-align: left; }
+.ce-menu button { display: flex; width: 100%; align-items: center; min-height: 40px; padding: 0 12px; border: 0; border-radius: 10px; background: none; font: 500 14px var(--h-font); color: var(--h-ink); cursor: pointer; text-align: left; }
 .ce-menu button:hover { background: var(--h-surface-2); }
 .ce-menu button span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ce-menu button em { font-style: normal; color: var(--h-ink-3); font-size: 13px; }
@@ -40,7 +40,7 @@
 .ce-trbody ul { list-style: none; margin: 0; padding: 0; }
 .ce-trbody li { display: flex; gap: 10px; padding: 8px 8px; border-radius: 10px; }
 .ce-trbody li.is-on { background: var(--h-leaf-soft); }
-.ce-trbody p { margin: 0; flex: 1; min-width: 0; font-size: 14.5px; line-height: 1.65; overflow-wrap: anywhere; user-select: text; }
+.ce-trbody p { margin: 0; flex: 1; min-width: 0; font-size: 15px; line-height: 1.65; overflow-wrap: anywhere; user-select: text; }
 .ce-t { flex: none; min-width: 40px; align-self: flex-start; padding: 3px 0 0; border: 0; background: none; font: 600 13px var(--h-font); font-variant-numeric: tabular-nums; color: var(--h-brand-ink); cursor: pointer; }
 .ce-trbody [data-w] { cursor: pointer; border-radius: 4px; padding: 0 1px; }
 .ce-trbody [data-w]:hover { background: rgba(90, 114, 80, .14); }
@@ -67,7 +67,7 @@
 
 .ce-tl { background: #fffdf9; border: 1px solid var(--h-line); border-radius: 16px; }
 .ce-tlbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
-.ce-tb { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border: 0; border-radius: 999px; background: none; font: 500 13.5px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.ce-tb { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; border: 0; border-radius: 999px; background: none; font: 500 14px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
 .ce-tb:hover { background: var(--h-surface-2); color: var(--h-ink); }
 .ce-tb[disabled] { opacity: .4; cursor: default; }
 .ce-tb[aria-pressed='false'] { opacity: .65; }
