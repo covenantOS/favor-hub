@@ -94,7 +94,7 @@ export const AREAS: NavArea[] = [
     key: 'c',
     barRank: 2.4,
     pages: [
-      { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat' },
+      { id: 'chat', label: 'Chat', href: '/chat/', desc: 'Channels, direct messages and threads, with clips, meetings, Drive files and Favor Brain', keywords: 'chat message messages channel channels dm direct thread slack team talk mention', need: 'chat', count: 'chatMentions', learn: 'chat', swap: true },
     ],
   },
   {
@@ -199,6 +199,9 @@ export const EXTRA_NAV: Record<string, string> = {
 
 /** Paths that swap in place (the page body only). */
 export const SWAP_PATHS = Array.from(new Set(AREAS.flatMap((a) => a.pages.filter((p) => p.swap && !p.ext).map((p) => p.href.split('?')[0].replace(/\/?$/, '/')))));
+
+/** Pages that always load whole, from any page: the Work Center keeps its state in globals other Work scripts read, and the dashboard keeps its own frame. */
+export const FULL_LOAD_PATHS = ['/work/', '/dashboard/'];
 
 export const NAV_IDS = new Map<string, { area: NavArea; page: NavPage }>();
 for (const area of AREAS) {

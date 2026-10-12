@@ -4,7 +4,7 @@
 // Pages with no article, or a help index that cannot load, get the help home.
 import { icon } from '../data/icons';
 ---
-<button type="button" class="h-top__cam lp-btn" id="lp-btn" aria-haspopup="dialog" aria-controls="lp-dlg" aria-label="Help for this page" title="Help for this page"><Fragment set:html={icon('help')} /></button>
+<button type="button" class="h-top__cam lp-btn" id="lp-btn" aria-haspopup="dialog" aria-label="Help for this page" title="Help for this page"><Fragment set:html={icon('help')} /></button>
 <dialog class="lp" id="lp-dlg" aria-labelledby="lp-title">
   <div class="lp__in">
     <div class="lp__bar"><span>Help</span><button type="button" class="lp__x" data-lp-close aria-label="Close help">&times;</button></div>
