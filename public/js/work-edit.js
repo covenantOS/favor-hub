@@ -770,7 +770,7 @@ function dlgOpp(o, pre = {}) {
 /* ------------------------------------------------------------------ keyboard */
 function keysDialog() {
   const k = (keys, what) => `<li><span>${keys.map((x) => `<kbd>${x}</kbd>`).join(' ')}</span>${what}</li>`;
-  dlg('Keyboard shortcuts', '', `<ul class="ep-keys">${k(['j'], 'Next row')}${k(['k'], 'Previous row')}${k(['e'], 'Edit the row (or Enter)')}${k(['c'], 'Complete the row, or the selected ones')}${k(['n'], 'New action')}${k(['/'], 'Search the list')}${k(['x'], 'Select the row (or Space)')}${k(['Shift', 'click'], 'Select a range')}${k(['Ctrl', 'A'], 'Select everything that matches')}${k(['u'], 'Undo your last change')}${k(['Ctrl', 'Enter'], 'Save the edit panel')}${k(['Esc'], 'Close, or clear the selection')}${k(['?'], 'This list')}</ul>`, '<button class="h-btn h-btn--primary" data-closelayer autofocus>Got it</button>');
+  dlg('Keyboard shortcuts', '', `<ul class="ep-keys">${k(['j'], 'Next row')}${k(['k'], 'Previous row')}${k(['e'], 'Edit the row (or Enter)')}${k(['c'], 'Complete the row, or the selected ones')}${k(['n'], 'New action')}${k(['/'], 'Search the list')}${k(['x'], 'Select the row (or Space)')}${k(['Shift', 'click'], 'Select a range')}${k(['Ctrl', 'A'], 'Select everything that matches')}${k(['u'], 'Undo your last change')}${k(['z'], 'Undo your last change')}${k(['Ctrl', 'Enter'], 'Save the edit panel')}${k(['Esc'], 'Close, or clear the selection')}${k(['?'], 'This list')}</ul>`, '<button class="h-btn h-btn--primary" data-closelayer autofocus>Got it</button>');
 }
 function focusedRow() { const r = document.activeElement && document.activeElement.closest && document.activeElement.closest('#view .wc-row[data-id]'); return r ? r.dataset.id : null; }
 window.addEventListener('keydown', (e) => {
@@ -786,11 +786,13 @@ window.addEventListener('keydown', (e) => {
   if (k === '/' && wc.S.view === 'opps' && $('[data-oq]')) { e.preventDefault(); e.stopPropagation(); $('[data-oq]').focus(); return; }
   if (k === 'n') { e.preventDefault(); dlgNew(); return; }
   if (k === '?') { e.preventDefault(); keysDialog(); return; }
-  if (k === 'u' || (e.ctrlKey && k.toLowerCase() === 'z')) {
+  if (k === 'u' || k === 'z' || (e.ctrlKey && k.toLowerCase() === 'z')) {
     // A held key is one press. A change whose Undo was already pressed is skipped, so a second press takes back the change before it.
     if (e.repeat) { e.preventDefault(); return; }
     const pressed = window.favorUndoing || new Set();
-    const b = wc.S.batches.find((x) => !x.undone && !x.undoing && !pressed.has(x.id) && x.posted && Date.parse(x.undo_until) > Date.now());
+    const tb = $('#toast.is-on [data-undo]');
+    if (tb && !tb.disabled) { e.preventDefault(); wc.undoBatch(tb.dataset.undo); return; }
+    const b = wc.S.batches.find((x) => !x.undone && !x.undoing && !pressed.has(x.id) && Date.parse(x.undo_until) > Date.now());
     if (b) { e.preventDefault(); wc.undoBatch(b.id); } return;
   }
   if ((k === 'j' || k === 'k') && !focusedRow()) { const r = $('#view .wc-row[data-id]'); if (r) { e.preventDefault(); r.focus(); } return; }

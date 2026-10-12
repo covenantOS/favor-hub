@@ -45,6 +45,8 @@ Every batch appears under Recent with an Undo button. Undo works for 24 hours. A
 
 Press Undo once. The button turns off while the change goes back, and a second press is refused with a note that the change is already being undone. An undo cannot be undone, so make the change again if you want it back.
 
+Undo is never refused. If you press it while the change is still on its way to Blackbaud, FavorOS saves your press, the row returns to the list at once, and the reversal goes to Blackbaud as soon as the first change lands. The message at the bottom stays for 10 seconds with a large Undo, and **Z** presses it. If the message is gone, **Recent changes** on the Overview page and the Recent tab list every change from the last 24 hours with an Undo button on each.
+
 ## Entry
 
 Entry shows the week's contacts for each regional director, how many are already in Blackbaud and how many are still waiting. Rows already in Blackbaud are blocked so nothing enters twice.

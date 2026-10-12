@@ -46,9 +46,10 @@ const UNDOING = (window.favorUndoing = window.favorUndoing || new Set());
 let toastEl = null;
 function toast(msg, bids, bad) {
   if (!toastEl) { toastEl = document.createElement('div'); toastEl.id = 'wg-toast'; toastEl.className = 'pp-toast wg-toast'; toastEl.setAttribute('role', 'status'); document.body.appendChild(toastEl); }
-  toastEl.innerHTML = `<span class="${bad ? 'is-bad' : ''}">${esc(msg)}</span>${bids && bids.length ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-undo="${esc(bids.join(','))}"${bids.every((x) => UNDOING.has(x)) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}Undo</button>` : ''}`;
+  toastEl.classList.toggle('wg-toast--undo', !!(bids && bids.length));
+  toastEl.innerHTML = `<span class="${bad ? 'is-bad' : ''}">${esc(msg)}</span>${bids && bids.length ? `<button type="button" class="h-btn h-btn--ghost wg-undo-btn" title="Undo (Z)" aria-keyshortcuts="Z" data-wg-undo="${esc(bids.join(','))}"${bids.every((x) => UNDOING.has(x)) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}Undo<kbd>Z</kbd></button>` : ''}`;
   toastEl.classList.add('is-on'); clearTimeout(toastEl._h);
-  toastEl._h = setTimeout(() => toastEl.classList.remove('is-on'), bids && bids.length ? 9000 : msg.endsWith('…') ? 30000 : 4800);
+  toastEl._h = setTimeout(() => toastEl.classList.remove('is-on'), bids && bids.length ? 10000 : msg.endsWith('…') ? 30000 : 4800);
 }
 
 /* ------------------------------------------------------------------ sending */
@@ -106,25 +107,37 @@ async function undo(csv) {
   ids.forEach((bid) => UNDOING.add(bid));
   toast('Undoing…');
   let at = '';
+  let queued = false;
   try {
     for (const bid of ids) {
       at = bid;
       try {
         const r = await post(`/api/work/batches/${bid}/undo`);
         if (r.batch && r.batch.id) await drive(r.batch.id);
+        if (r.queued) queued = true;
       } catch (e) {
         // Already undone, or being undone: it is on its way back and the button stays off.
         if (!(e.data && e.data.error === 'already_undone')) throw e;
       }
     }
     await settleUndo(ids);
-    toast('Undone.');
+    toast(queued ? 'Undone. Blackbaud gets the reversal as soon as it finishes the first change.' : 'Undone.');
     document.dispatchEvent(new CustomEvent('favor:thanked-undone', { detail: { batches: ids } }));
+    // Reading Recent applies a saved press once the first write has landed, so a short wait here finishes it even if no other page is open.
+    if (queued) for (let i = 0; i < 6; i++) { await new Promise((r) => setTimeout(r, 2500)); try { const rc = (await api('/api/work/recent')).batches || []; if (ids.every((bid) => { const b = rc.find((x) => x.id === bid); return !b || b.undone; })) { UNDOING.delete(ids[0]); break; } } catch (_) { /* try again */ } }
   } catch (e) {
     ids.slice(ids.indexOf(at)).forEach((bid) => UNDOING.delete(bid)); // the one that failed and the ones not tried
     toast(e.message, null, true);
   }
 }
+// Z presses the Undo on the toast while it shows. The Work Center has its own handler for the same key.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'z' && e.key !== 'Z') return;
+  if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || document.getElementById('wc-root')) return;
+  if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+  const b = toastEl && toastEl.classList.contains('is-on') && toastEl.querySelector('[data-wg-undo]');
+  if (b && !b.disabled) { e.preventDefault(); b.disabled = true; undo(b.dataset.wgUndo); }
+});
 document.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('[data-wg-undo]'); if (b && !b.disabled) { e.preventDefault(); b.disabled = true; undo(b.dataset.wgUndo); } });
 
 /* ------------------------------------------------------------------ popover */

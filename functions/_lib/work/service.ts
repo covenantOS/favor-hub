@@ -82,7 +82,7 @@ export async function loadPending(env: Env): Promise<PendingChange[]> {
   const r = await env.DB.prepare(
     `SELECT o.action_id, o.op AS op, CASE WHEN o.state = 'sending' THEN 'queued' ELSE o.state END AS state, o.payload, o.queued_at, o.sent_at, b.op AS bop, b.run_when
        FROM act_outbox o JOIN act_batches b ON b.id = o.batch_id
-      WHERE o.state IN ('queued', 'sending', 'sent', 'verified') AND o.action_id IS NOT NULL AND o.op IN ('patch', 'delete') AND b.state <> 'undone' AND b.op <> 'undo' AND o.queued_at >= ?`
+      WHERE o.state IN ('queued', 'sending', 'sent', 'verified') AND o.action_id IS NOT NULL AND o.op IN ('patch', 'delete') AND b.state <> 'undone' AND b.op <> 'undo' AND o.queued_at >= ? AND NOT EXISTS (SELECT 1 FROM act_undo_wait w WHERE w.batch_id = b.id)`
   )
     .bind(since)
     .all<PendingDb>()
@@ -939,6 +939,7 @@ export async function runBatch(ctx: Ctx, batchId: string, opts: { drain?: boolea
   if (!batch) throw new HttpError(404, 'not_found', 'That batch is not here.');
   const items: RunResult['items'] = [];
   const finish = async (held?: RunResult['held']): Promise<RunResult> => {
+    if (batch.op !== 'undo') await settleWaitingUndos(ctx, batchId).catch(() => 0);
     const left = await runnableLeft(ctx, batchId);
     const tagsWaiting = (await env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND op = 'tag' AND state IN ('queued', 'sending')").bind(batchId).first<{ n: number }>())?.n || 0;
     return { ok: true, done: items.filter((i) => i.state === 'posted').length, left, held, tagsWaiting: Number(tagsWaiting), items, meter: await meterView(env) };
@@ -1312,7 +1313,18 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   if (standing) throw new HttpError(409, 'already_undone', standing.state === 'done' ? 'That change was already undone.' : 'That change is already being undone.');
   // A row in flight may already be at Blackbaud, so Undo waits for the send to finish rather than guessing which rows went.
   const inFlight = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state = 'sending'").bind(batchId).first<{ n: number }>();
-  if (Number(inFlight?.n)) throw new HttpError(409, 'busy', 'Blackbaud is still taking this batch. Undo it when it finishes.');
+  if (Number(inFlight?.n)) {
+    // Undo is never refused. The press is saved, rows not yet sent are cancelled so they never go, and the rows on their way are put
+    // back the moment their send finishes (settleWaitingUndos, called when a run ends and whenever Recent is read).
+    const queuedRows = (await ctx.env.DB.prepare("SELECT * FROM act_outbox WHERE batch_id = ? AND state = 'queued'").bind(batchId).all<OutboxRow>()).results;
+    for (const r of queuedRows) {
+      await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'undone', idem_key = NULL WHERE id = ? AND state = 'queued'").bind(r.id).run();
+      if (r.submission_id) await markSubmission(ctx, r, 'waiting');
+    }
+    await ctx.env.DB.prepare('INSERT OR IGNORE INTO act_undo_wait (batch_id, actor, actor_email, requested_at) VALUES (?, ?, ?, ?)').bind(batchId, ctx.actor, ctx.email, nowIso()).run();
+    await logEvent(ctx.env, { actor: ctx.actor, actor_email: ctx.email, batch_id: batchId, kind: 'undo_waiting', detail: 'undo saved while the change was being sent' });
+    return { batch: null, queued: true, cancelled: queuedRows.length, unresolved: 0, tagsStay: 0 };
+  }
   const rows0 = (await ctx.env.DB.prepare('SELECT * FROM act_outbox WHERE batch_id = ? ORDER BY rowid').bind(batchId).all<OutboxRow>()).results;
   // A change that must come back before its batch-mates (the old preferred address is marked again before the new one is removed) says so
   // in its before-call; those rows are undone first, the rest keep their order.
@@ -1365,6 +1377,38 @@ export async function undoBatch(ctx: Ctx, batchId: string) {
   return { batch: saved, cancelled, unresolved, tagsStay };
 }
 
+/**
+ * Applies the Undo presses that were saved while a change was still going to Blackbaud. A press is applied once the change has no row
+ * in flight. A claim older than ten minutes belongs to a run that stopped, so its row counts as sent and its reverse is sent too (a
+ * reverse that finds nothing to change is harmless). Safe to call from anywhere, any number of times.
+ */
+export async function settleWaitingUndos(ctx: Ctx, onlyBatch?: string): Promise<number> {
+  const waits = (
+    onlyBatch
+      ? await ctx.env.DB.prepare('SELECT * FROM act_undo_wait WHERE batch_id = ?').bind(onlyBatch).all<{ batch_id: string; actor: string; actor_email: string }>()
+      : await ctx.env.DB.prepare('SELECT * FROM act_undo_wait ORDER BY requested_at LIMIT 20').all<{ batch_id: string; actor: string; actor_email: string }>()
+  ).results;
+  let applied = 0;
+  for (const w of waits) {
+    const stale = new Date(Date.now() - CLAIM_STALE_MS).toISOString();
+    await ctx.env.DB.prepare("UPDATE act_outbox SET state = 'sent', sent_at = COALESCE(sent_at, ?) WHERE batch_id = ? AND state = 'sending' AND (claimed_at IS NULL OR claimed_at < ?)").bind(nowIso(), w.batch_id, stale).run();
+    const still = await ctx.env.DB.prepare("SELECT COUNT(*) AS n FROM act_outbox WHERE batch_id = ? AND state = 'sending'").bind(w.batch_id).first<{ n: number }>();
+    if (Number(still?.n)) continue;
+    const claim = await ctx.env.DB.prepare('DELETE FROM act_undo_wait WHERE batch_id = ?').bind(w.batch_id).run();
+    if (!((claim.meta?.changes ?? 0) > 0)) continue;
+    const who: Ctx = { ...ctx, actor: w.actor, email: w.actor_email };
+    try {
+      const out = await undoBatch(who, w.batch_id);
+      applied++;
+      if (out.batch && out.batch.id) await runBatch(who, out.batch.id).catch(() => undefined);
+    } catch (e) {
+      // Already undone by another press or past 24 hours: nothing is left to wait for.
+      if (!(e instanceof HttpError)) await ctx.env.DB.prepare('INSERT OR IGNORE INTO act_undo_wait (batch_id, actor, actor_email, requested_at) VALUES (?, ?, ?, ?)').bind(w.batch_id, w.actor, w.actor_email, nowIso()).run();
+    }
+  }
+  return applied;
+}
+
 export async function retryBatch(ctx: Ctx, batchId: string) {
   const batch = await ctx.env.DB.prepare('SELECT * FROM act_batches WHERE id = ? LIMIT 1').bind(batchId).first<BatchRow>();
   if (!batch) throw new HttpError(404, 'not_found', 'That batch is not here.');
@@ -1385,6 +1429,8 @@ export async function recentBatches(env: Env, hours = 36, email?: string) {
   if (bs.length) {
     const going = await env.DB.prepare("SELECT undo_of FROM act_batches WHERE created_at >= ? AND op = 'undo' AND state IN ('queued', 'running')").bind(since).all<{ undo_of: string }>();
     going.results.forEach((u) => undoing.add(u.undo_of));
+    const waiting = await env.DB.prepare('SELECT batch_id FROM act_undo_wait').all<{ batch_id: string }>().catch(() => ({ results: [] as { batch_id: string }[] }));
+    waiting.results.forEach((u) => undoing.add(u.batch_id));
   }
   const out = [];
   for (const b of bs) {
@@ -1486,6 +1532,7 @@ export async function noteCall(ctx: Ctx, key: string, what: string): Promise<voi
 
 /** Pages open: pick up any batch that was sent from a window that closed. */
 export async function resumeStuck(ctx: Ctx): Promise<void> {
+  await settleWaitingUndos(ctx).catch(() => 0);
   const old = new Date(Date.now() - 2 * 60000).toISOString();
   const b = await ctx.env.DB.prepare("SELECT id FROM act_batches WHERE state IN ('queued', 'running') AND run_when = 'now' AND created_at < ? ORDER BY created_at LIMIT 1").bind(old).first<{ id: string }>();
   if (b) await runBatch(ctx, b.id);

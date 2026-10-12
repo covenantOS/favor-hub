@@ -186,7 +186,7 @@ async function recentBlock(ctx: Ctx) {
   return all
     .filter((b) => !b.undone)
     .slice(0, 8)
-    .map((b) => ({ id: b.id, label: b.label, actor: b.actor, at: b.at, n: b.n, posted: b.posted, failed: b.failed, queued: b.queued }));
+    .map((b) => ({ id: b.id, label: b.label, actor: b.actor, at: b.at, n: b.n, posted: b.posted, failed: b.failed, queued: b.queued, undo_until: b.undo_until, undoing: b.undoing }));
 }
 
 /** Every Work Center part of the page. Any part that fails is null. */

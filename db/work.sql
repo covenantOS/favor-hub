@@ -112,3 +112,10 @@ CREATE TABLE IF NOT EXISTS act_new_partners (
   cid TEXT PRIMARY KEY, lookup TEXT, name TEXT NOT NULL, place TEXT, holder TEXT,
   created_by TEXT NOT NULL, created_at TEXT NOT NULL
 );
+-- An Undo pressed while the change is still going to Blackbaud is saved here and applied the moment the send finishes.
+CREATE TABLE IF NOT EXISTS act_undo_wait (
+  batch_id TEXT PRIMARY KEY,
+  actor TEXT NOT NULL,
+  actor_email TEXT NOT NULL,
+  requested_at TEXT NOT NULL
+);

@@ -772,7 +772,7 @@ async function runJob(job) {
   refreshBoard();
 }
 const isDoneId = (id, job) => (job.entry ? !!(inRow(id) && inRow(id).state === 'posted') : !!S.gone[id] || !!(S.ov[id]));
-const undoButtons = (bid, off) => $$(`[data-undo="${CSS.escape(bid)}"]`).forEach((el) => { el.disabled = off; el.setAttribute('aria-busy', off ? 'true' : 'false'); el.innerHTML = ic('undo') + (off ? 'Undoing…' : 'Undo'); });
+const undoButtons = (bid, off) => $$(`[data-undo="${CSS.escape(bid)}"]`).forEach((el) => { el.disabled = off; el.setAttribute('aria-busy', off ? 'true' : 'false'); el.innerHTML = ic('undo') + (off ? 'Undoing…' : 'Undo') + (el.classList.contains('wc-undo-btn') && !off ? '<kbd>Z</kbd>' : ''); });
 // After Recent is read again: a change that is undone, or whose undo is still being sent, keeps its button off. When some rows did not go
 // back, Undo opens again for those.
 function settleUndo(bid) { const b = S.batches.find((x) => x.id === bid); if (!b || (!b.undone && !b.undoing)) UNDOING.delete(bid); }
@@ -790,6 +790,14 @@ async function undoBatch(bid) {
     return;
   }
   const b = out.batch;
+  if (out.queued) {
+    // The first write was still on its way. Undo is saved, the row is back in the list, and the server sends the reversal when the first write lands.
+    await refreshBoard(); await loadRecent(); render();
+    toast('Undone. Blackbaud gets the reversal as soon as it finishes the first change.');
+    for (let i = 0; i < 8; i++) { await sleep(2500); await loadRecent(); const r = S.batches.find((x) => x.id === bid); if (!r || r.undone) break; }
+    await refreshBoard(); settleUndo(bid); render();
+    return;
+  }
   if (b && b.id) {
     bar('Undoing…');
     const items = (S.batches.find((x) => x.id === bid) || { items: [] }).items.filter((i) => i.state === 'posted').map((i) => i.id);
@@ -812,8 +820,9 @@ async function retryBatch(bid) {
 }
 function toast(msg, bid) {
   const t = $('#toast');
-  t.innerHTML = `<span class="ok">${ic('check')}</span><span>${esc(msg)}</span>${bid ? `<button class="h-btn h-btn--ghost h-btn--sm" data-undo="${bid}"${UNDOING.has(bid) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}Undo</button>` : ''}`;
-  t.classList.add('is-on'); clearTimeout(S.tt); S.tt = setTimeout(() => t.classList.remove('is-on'), bid ? 9000 : 5200);
+  t.innerHTML = `<span class="ok">${ic('check')}</span><span>${esc(msg)}</span>${bid ? `<button class="h-btn h-btn--ghost wc-undo-btn" title="Undo (Z)" aria-keyshortcuts="Z" data-undo="${bid}"${UNDOING.has(bid) ? ' disabled aria-busy="true"' : ''}>${ic('undo')}Undo<kbd>Z</kbd></button>` : ''}`;
+  t.classList.toggle('wc-toast--undo', !!bid);
+  t.classList.add('is-on'); clearTimeout(S.tt); S.tt = setTimeout(() => t.classList.remove('is-on'), bid ? 10000 : 5200);
 }
 
 // ------------------------------------------------------------ Entry (Support intake)

@@ -1307,6 +1307,18 @@ export const STEPS: Step[] = [
     side: 'right',
   },
   {
+    id: 'work-undo',
+    page: '/work-home/',
+    via: 'work-home',
+    at: '#wh-changes',
+    skipIfMissing: true,
+    title: 'Undo any change from the last 24 hours',
+    body: 'Recent changes lists what you finished, with an Undo on each. The message after a change stays for 10 seconds, and {tap} Undo on it, or press Z, takes it back. Undo works even while Blackbaud is still receiving the change.',
+    for: (w) => w.admin || w.work,
+    added: '2026-10-12',
+    side: 'top',
+  },
+  {
     id: 'work-center',
     press: '.wc-tab[data-view="open"]',
     alt: '#wc-board',

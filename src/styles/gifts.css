@@ -186,3 +186,11 @@ html.wg-locked { overflow: hidden; }
 .pp-toast:not(.is-on) { pointer-events: none; }
 body:has(.wg-bulk.is-on) .pp-toast { bottom: 84px; }
 .pp-toast.wg-toast { z-index: 260; }
+
+/* The toast that carries Undo: a large target for a thumb, and the Z key for a keyboard. */
+.wg-toast--undo { padding: 8px 8px 8px 18px; }
+.wg-undo-btn { min-height: 44px; padding: 0 18px; font-size: 15px; font-weight: 700; gap: 8px; border-radius: 999px; background: var(--h-ink, #1b1f1a); color: #fff; border: 0; }
+.wg-undo-btn:hover { background: #000; color: #fff; }
+.wg-undo-btn kbd, .wc-undo-btn kbd { font: 600 11px var(--h-font, inherit); padding: 1px 6px; border-radius: 5px; background: rgba(255, 255, 255, .22); margin-left: 2px; }
+.wg-undo-btn[disabled] { opacity: .55; }
+@media (hover: none) { .wg-undo-btn kbd, .wc-undo-btn kbd { display: none; } }

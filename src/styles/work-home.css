@@ -198,3 +198,10 @@
 @media (max-width: 860px) { .wh-tool__l { white-space: normal; line-height: 1.2; } }
 
 @media (max-width: 420px) { .wh-mini { width: 48px; } .wh-lc { width: 58px; } }
+
+/* Recent changes: one row per change, Undo on the right. */
+.wh-list--changes { list-style: none; margin: 0; padding: 0; }
+.wh-chg { display: flex; align-items: center; gap: 10px; padding: 6px 10px; min-height: 48px; }
+.wh-chg p { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wh-chg time { color: var(--r-mute, #6b6f66); font-size: 12px; white-space: nowrap; }
+.wh-chg .h-btn { min-height: 36px; }

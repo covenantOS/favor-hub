@@ -92,3 +92,9 @@
 }
 /* The Added column is hidden below 1280 px; its header goes with it. */
 @media (max-width: 1280px) and (min-width: 861px) { html body.h-body #wc-root .wc-head.wc-grid > :last-child { display: none; } }
+
+/* The toast that carries Undo: a large target for a thumb, and the Z key for a keyboard. */
+body.h-body .wc-toast.wc-toast--undo { padding: 8px 8px 8px 18px; }
+body.h-body .wc-undo-btn { min-height: 44px; padding: 0 18px; font-size: 15px; font-weight: 700; gap: 8px; border-radius: 999px; background: #fff; color: var(--r-ink, #1b1f1a); border: 0; }
+body.h-body .wc-undo-btn:hover { background: #f1efe8; }
+body.h-body .wc-undo-btn kbd { background: rgba(0, 0, 0, .12); }

@@ -262,6 +262,16 @@
       : '<li class="wh-empty">No activity in the last 7 days.</li>';
   }
 
+  /* ------------------------------------------------------------------ recent changes, each with Undo */
+  function paintChanges(w) {
+    const card = $('wh-changes');
+    const list = ((w && w.recent) || []).filter((b) => Date.parse(b.undo_until) > Date.now());
+    card.hidden = !list.length;
+    if (card.hidden) return;
+    const off = (b) => b.undoing || (window.favorUndoing && window.favorUndoing.has(b.id));
+    $('wh-changes-list').innerHTML = list.map((b) => `<li class="wh-chg"><p>${esc(b.label)}${b.failed ? ` (${n0(b.failed)} not sent)` : ''}</p><time datetime="${esc(b.at)}">${esc(ago(b.at))}</time><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wg-undo="${esc(b.id)}"${off(b) ? ' disabled aria-busy="true"' : ''}>${off(b) ? 'Undoing' : 'Undo'}</button></li>`).join('');
+  }
+
   /* ------------------------------------------------------------------ team (admins) */
   let teamW = null;
   function paintTeam(w) {
@@ -290,6 +300,7 @@
     paintGifts(d.work);
     paintWeek(d.work);
     paintReq(d);
+    paintChanges(d.work);
     paintFeed(d);
     paintTeam(d.work);
     root.removeAttribute('aria-busy');
