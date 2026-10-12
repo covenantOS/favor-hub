@@ -14,7 +14,7 @@ A hub account for agents and scripts: tester@favorintl.org, name "FavorOS Tester
 
 ## What it cannot do
 
-Writes under `/api/work`, `/api/gift-entry`, `/api/foundations`, `/api/statements`, `/api/receipts`, `/api/expenses`, `/api/requests`, `/api/mail`, `/api/meet`, `/api/push`, `/api/onboarding` and `/api/mobile` answer 403 `test_user` ("This is the FavorOS test user. It cannot write to Blackbaud, send email or notify staff."). Paths ending in a read step (preview, plan, check, suggest, autofill, draft, prep, trip, ask and similar) pass so a flow can reach its review screen. The block lives in `functions/_middleware.ts` through `testerWriteBlocked` in `functions/_lib/testuser.ts`.
+Writes under `/api/work`, `/api/gift-entry`, `/api/foundations`, `/api/statements`, `/api/receipts`, `/api/expenses`, `/api/requests`, `/api/mail`, `/api/meet` invites, guest links and reminders (a start-now meeting alone works), `/api/push`, `/api/onboarding` and `/api/mobile` answer 403 `test_user` ("This is the FavorOS test user. It cannot write to Blackbaud, send email or notify staff."). Paths ending in a read step (preview, plan, check, suggest, autofill, draft, prep, trip, ask and similar) pass so a flow can reach its review screen. The block lives in `functions/_middleware.ts` through `testerWriteBlocked` in `functions/_lib/testuser.ts`.
 
 ## Left out for real staff
 

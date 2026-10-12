@@ -47,6 +47,8 @@ test('writes to Blackbaud, mail, requests and meetings are refused for the teste
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/requests/route'), true);
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/work/calls/preview'), false);
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'GET', '/api/work/actions'), false);
+  assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/meet/meetings'), false, 'a start-now meeting alone is allowed');
+  assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/meet/meetings/abc/invite'), true);
   assert.equal(testerWriteBlocked(TESTER_EMAIL, 'POST', '/api/chat/post'), false);
   assert.equal(testerWriteBlocked('will@favorintl.org', 'POST', '/api/work/actions'), false);
 });
