@@ -87,7 +87,7 @@
   }
   function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
   var initials = function (n) { var w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(function (x) { return x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x); }); var p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map(function (x) { return Array.from(x)[0]; }).join('').toUpperCase() || '?'; };
-  function plural(n, a, b) { return n + ' ' + (n === 1 ? a : b || a + 's'); }
+  function plural(n, a, b) { return Number(n).toLocaleString('en-US') + ' ' + (n === 1 ? a : b || a + 's'); }
 
   /* What this browser remembers between visits: drafts, which list sections are folded, the thread panel's width. */
   function lsGet(k, d) { try { var v = JSON.parse(localStorage.getItem(k) || 'null'); return v == null ? d : v; } catch (e) { return d; } }
@@ -655,7 +655,7 @@
         return '<div class="ch-pagelist">' + l.map(function (t) {
           var at = ' data-ch="' + esc(t.channel_id) + '" data-id="' + t.root.id + '"';
           var more = (t.root.reply_count || 0) - t.latest.length;
-          return '<section class="ch-th' + (t.unread ? ' has-new' : '') + '"><header class="ch-th__h"><button type="button" class="ch-th__ch" data-act="open-thread"' + at + '>' + esc(whereOf(t.channel_id)) + '</button>' + (t.unread ? '<span class="ch-badge">' + t.unread + ' new</span>' : '') + '<span class="ch-th__when">' + esc(ago(t.last_reply_at || t.root.created_at)) + '</span></header>' +
+          return '<section class="ch-th' + (t.unread ? ' has-new' : '') + '"><header class="ch-th__h"><button type="button" class="ch-th__ch" data-act="open-thread"' + at + '>' + esc(whereOf(t.channel_id)) + '</button>' + (t.unread ? '<span class="ch-badge">' + (t.unread > 99 ? '99+' : t.unread) + ' new</span>' : '') + '<span class="ch-th__when">' + esc(ago(t.last_reply_at || t.root.created_at)) + '</span></header>' +
             msgHtml(lite(t.root), { inThread: true, bare: true }) + (more > 0 ? '<button type="button" class="ch-th__more" data-act="open-thread"' + at + '>' + plural(more, 'earlier reply', 'earlier replies') + '</button>' : '') +
             t.latest.map(function (m) { return msgHtml(lite(m), { inThread: true, bare: true }); }).join('') +
             '<div class="ch-th__f"><button type="button" class="ch-btn ch-btn--sm" data-act="open-thread"' + at + '>' + ic('reply') + 'Reply</button></div></section>';

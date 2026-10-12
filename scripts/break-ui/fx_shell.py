@@ -4,7 +4,7 @@ from atoms import PEOPLE_WORST, TITLES_WORST, LONG_TEXT, URL_LONG, stamp, at, pi
 
 ME_KIND = {'email': 'jane@example.org', 'name': 'Jane Cooper', 'picture': '', 'role': 'admin', 'via': 'google', 'kpi': True}
 ME_WORST = {'email': 'bartholomew.fitzgerald@northwind-industries-holdings.example.com', 'name': 'Christopher Alexander Montgomery III', 'picture': '/api/broken/avatar-404.jpg', 'role': 'admin', 'via': 'google', 'kpi': True}
-ACCESS = {'admin': True, 'kpi': True, 'approver': True, 'expenseLog': True, 'workCenter': True, 'clips': True, 'meetings': True, 'clipsRecord': True, 'chat': True}
+ACCESS = {'admin': True, 'kpi': True, 'approver': True, 'expenseLog': True, 'workCenter': True, 'clips': True, 'meetings': True, 'clipsRecord': True, 'chat': True, 'bell': True, 'projects': True, 'tasks': True}
 
 
 def me(mode):

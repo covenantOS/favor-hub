@@ -1220,7 +1220,7 @@ function patchTabs() {
   $$('.wc-tab', nav).forEach((b) => {
     const r = p.byId[b.dataset.view]; if (!r) return; const [k, l, n] = r; const want = n !== '' && (n || k !== 'recent'); let sp = b.querySelector(':scope > span');
     b.classList.toggle('is-new', !!extraDot(k));
-    if (want) { if (!sp) { sp = document.createElement('span'); b.appendChild(sp); } if (sp.textContent !== String(n)) sp.textContent = n; } else if (sp) sp.remove();
+    if (want) { if (!sp) { sp = document.createElement('span'); b.appendChild(sp); } const txt = typeof n === 'number' ? n.toLocaleString('en-US') : String(n); if (sp.textContent !== txt) sp.textContent = txt; } else if (sp) sp.remove();
   });
   const T = window.WCTabs; T.groups(DATA.me).forEach((g) => { const b = nav.querySelector(`[data-wcgroup="${g.id}"]`); if (b) b.classList.toggle('is-new', g.tabs.some((t) => extraDot(t.id))); });
 }

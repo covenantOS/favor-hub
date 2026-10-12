@@ -101,3 +101,7 @@
 .wm-rem--chat:hover b { text-decoration: underline; }
 .wm-rem--chat span { display: block; font-size: 13px; color: var(--h-ink-2); overflow-wrap: anywhere; }
 .wm-rem--chat time { overflow-wrap: anywhere; color: var(--tc-terra-ink, #8f3d1f); }
+
+/* A chat line in the bell: a long channel name holds one line and ends in an ellipsis (its full name is in the tooltip); the text beside it wraps inside the panel. */
+.wm-rem--chat time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wm-rem b, .wm-rem span { overflow-wrap: anywhere; }
