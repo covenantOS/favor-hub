@@ -146,7 +146,7 @@ export async function firstWeekFor(env: Db, p: { email: string; team?: string; t
       items: [
         { kind: 'tour', title: 'Take the FavorOS tour', detail: 'Eight to ten stops on the real screens, set up for your role.', href: '/?tour=1', done: false },
         course('favoros-basics'),
-        { kind: 'meet', title: `Meet your supervisor`, detail: `Agree what a good first week looks like for a ${role.label === 'New hire' ? 'new hire' : role.label}.`, href: '/welcome/', done: false },
+        { kind: 'meet', title: 'Meet your supervisor', detail: "Agree what a good first week looks like in your role.", href: '/welcome/', done: false },
       ],
     },
     { day: 2, title: 'Learn Favor', items: [course('favor-who-we-are'), course('requests-and-clips')] },
