@@ -7,6 +7,7 @@
 //   a reply     typed under a card in Chat becomes a comment on the task; a comment written in the hub is copied under the latest
 //               card in each conversation its author is part of (the way the request board does it in chat/tasks.ts).
 // hub_task_chat_links ties each Chat message to its task. Nothing here notifies anyone the notice gate does not allow.
+import { isTester } from '../../testuser';
 import { HttpError, nowIso, type Env } from '../../http';
 import * as store from '../../chat/db';
 import { hydrateAttachments } from '../../chat/hydrate';
@@ -426,7 +427,8 @@ export async function taskFromMessage(
   const made = await createTask(env, actor, {
     title,
     project_id: project?.id,
-    owner_email: input.owner || actor.email,
+    // A test user's task always stays with the test user, whoever the picker preselected.
+    owner_email: isTester(actor.email) ? actor.email : input.owner || actor.email,
     due_date: input.due || undefined,
     description: `${text}\n\nFrom ${who} in Chat: ${base}`,
     chat_message_id: String(msg.id),
