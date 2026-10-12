@@ -1,0 +1,10 @@
+---
+// The first-day page: a welcome, the new hire's own steps, the first week, the people to meet and the FavorOS tour.
+import App from '../../layouts/App.astro';
+import '../../styles/onboard.css';
+---
+<App title="Welcome" crumb="Help" nav="welcome" description="Your first week at Favor: who to meet, what is due and the FavorOS tour.">
+  <div class="ob wl" id="wl-root" aria-busy="true"><div class="ob-skel"></div><div class="ob-skel"></div></div>
+  <script is:inline src="/js/onboard/common.js?v=1" defer></script>
+  <script is:inline src="/js/onboard/welcome.js?v=1" defer></script>
+</App>

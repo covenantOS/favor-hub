@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects';
+export type Need = 'admin' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr';
 
 export interface NavPage {
   id: string;
@@ -142,6 +142,7 @@ export const AREAS: NavArea[] = [
       { id: 'admin-people', label: 'People and roles', href: '/admin/people/', desc: 'Who can sign in, their role, team, fundraiser link and Work Center access, with an act as preview', keywords: 'people users roles admin block team fundraiser work center access act as preview staff', need: 'admin', learn: 'admin-home' },
       { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements and Projects settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat', 'admin-projects'], learn: 'admin-home' },
       { id: 'admin-bbusers', label: 'Blackbaud users', href: '/admin/blackbaud-users/', desc: 'Everyone with a Blackbaud login, their status and what each product lets them do', keywords: 'blackbaud users logins access roles inactive admin raisers edge security', need: 'admin', learn: 'admin-home' },
+      { id: 'onboarding', label: 'Onboarding', href: '/onboarding/', desc: 'Start a new hire or an exit: the checklist, who owns each step, and what FavorOS sets up', keywords: 'onboarding offboarding new hire start staff exit leaving checklist welcome orientation hr', need: 'hr', also: ['onboarding-run'], learn: 'onboarding' },
       { id: 'admin-appeals', label: 'Appeal codes', href: '/admin/appeal-codes/', desc: 'Build an appeal code from the scheme and create it in Blackbaud, and keep the funds and campaigns waiting to be created', keywords: 'appeal codes campaign fund lookup newsletter letter mailing create blackbaud scheme', need: 'admin', learn: 'admin-home' },
       { id: 'admin-audit', label: 'Audit log', href: '/admin/audit/', desc: 'Every settings change with who made it, when, and the before and after values', keywords: 'audit log history changes who changed settings', need: 'admin', learn: 'admin-home' },
       { id: 'brain-admin', label: 'Brain requests', href: '/brain/admin/', desc: 'Access requests, who can ask about what, every question asked', keywords: 'brain admin access requests iwave approvals names', need: 'admin', count: 'brainRequests' },
@@ -158,6 +159,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'docs', label: 'Docs', href: '/help/', desc: 'How every tool works, with search', keywords: 'help guide how docs documentation article manual faq', learn: 'getting-started', swap: true },
       { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
+      { id: 'welcome', label: 'Welcome', href: '/welcome/', desc: 'Your first week: who to meet, what is due, the FavorOS tour', keywords: 'welcome first day first week new hire onboarding orientation meet team', learn: 'welcome' },
       { id: 'feedback', label: 'Feedback', href: '/feedback/', desc: "Your notes and Will's answers", keywords: 'feedback note bug wrong idea suggestion problem report', count: 'feedback', learn: 'feedback', swap: true },
     ],
   },
