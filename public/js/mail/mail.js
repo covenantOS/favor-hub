@@ -1865,12 +1865,12 @@
     var el = document.createElement('div');
     el.className = 'ml-c';
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', o.title || 'New message');
-    var sig = !o.noSig && S.signature ? '<br><br><div class="gmail_signature">' + S.signature + '</div>' : '';
+    var sig = !o.noSig && S.signature ? '<div class="gmail_signature">' + S.signature + '</div>' : '';
     el.innerHTML = '<div class="ml-c__box"><div class="ml-c__bar"><button type="button" class="ml-c__cancel" data-c="close">Cancel</button><b>' + esc(o.title || 'New message') + '</b><span class="ml-c__save" data-c-saved></span><button type="button" class="ml-iconbtn ml-dt" data-c="close" aria-label="Close and keep the draft" title="Close (the draft is kept)">' + ic('x') + '</button><button type="button" class="ml-iconbtn ml-c__later" data-act="later-menu" aria-label="Send later" title="Send later">' + ic('clock') + '</button><button type="button" class="ml-btn ml-btn--primary ml-c__send" data-c="send">' + ic('send') + '<span>Send</span></button></div>' +
       '<div class="ml-c__scroll">' + fromRow(o) + addrRow('to', 'To', o.to) +
       '<div class="ml-c__cc"' + ((o.cc && o.cc.length) || (o.bcc && o.bcc.length) ? '' : ' hidden') + '>' + addrRow('cc', 'Cc', o.cc) + addrRow('bcc', 'Bcc', o.bcc) + '</div>' +
       '<div class="ml-c__row"><label for="ml-c-subj">Subject</label><input id="ml-c-subj" class="ml-c__in ml-c__subj" maxlength="900" value="' + esc(o.subject || '') + '" /></div>' +
-      '<div class="ml-c__ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" data-ed>' + (o.body || '<div><br></div>' + sig) + '</div>' +
+      '<div class="ml-c__ed" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Message" data-ed>' + (o.body || '<div><br></div>' + (sig ? '<div><br></div>' + sig : '')) + '</div>' +
       (o.quote ? '<button type="button" class="ml-fold ml-fold--c" data-c="quote" aria-label="Show the earlier message" title="Show the earlier message">' + ic('more') + '</button><div class="ml-c__q" hidden data-q contenteditable="true">' + o.quote + '</div>' : '') +
       '<div class="ml-c__files" data-files></div></div>' +
       '<div class="ml-c__tools">' +
@@ -1894,7 +1894,7 @@
     requestAnimationFrame(function () {
       el.classList.add('is-in');
       var first = (o.to && o.to.length) ? $('[data-ed]', el) : $('#ml-c-to', el);
-      if (first) { first.focus({ preventScroll: true }); if (first.hasAttribute('contenteditable')) { var r = document.createRange(); r.setStart(first, 0); r.collapse(true); var s = getSelection(); s.removeAllRanges(); s.addRange(r); } }
+      if (first) { first.focus({ preventScroll: true }); if (first.hasAttribute('contenteditable')) { var r = document.createRange(); r.setStart(first.firstElementChild || first, 0); r.collapse(true); var s = getSelection(); s.removeAllRanges(); s.addRange(r); } }
     });
     document.body.classList.add('ml-composing');
     if (isPhone()) { history.pushState({ mlCompose: 1 }, ''); C.pushed = true; }

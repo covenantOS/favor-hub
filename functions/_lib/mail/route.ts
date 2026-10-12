@@ -475,7 +475,12 @@ async function route(ctx: MailCtx): Promise<Response> {
 
   if (a === 'templates') {
     if (method === 'GET') {
-      const r = await env.DB.prepare('SELECT id, name, body FROM hub_mail_tpl WHERE email = ? ORDER BY name').bind(owner).all<{ id: string; name: string; body: string }>().catch(() => ({ results: [] as any[] }));
+      // The first time, three starting templates are saved for the person (a marker row keeps them from coming back after they delete them).
+      const seeded = await env.DB.prepare("SELECT 1 AS ok FROM hub_mail_tpl WHERE email = ? AND id = '_seeded'").bind(owner).first().catch(() => null);
+      if (!seeded) {
+        await env.DB.batch([...DEFAULT_TEMPLATES.map((t) => env.DB.prepare('INSERT OR IGNORE INTO hub_mail_tpl (email, id, name, body) VALUES (?, ?, ?, ?)').bind(owner, t.id, t.name, t.body)), env.DB.prepare("INSERT OR IGNORE INTO hub_mail_tpl (email, id, name, body) VALUES (?, '_seeded', '', '')").bind(owner)]).catch(() => undefined);
+      }
+      const r = await env.DB.prepare("SELECT id, name, body FROM hub_mail_tpl WHERE email = ? AND id != '_seeded' ORDER BY name").bind(owner).all<{ id: string; name: string; body: string }>().catch(() => ({ results: [] as any[] }));
       return json({ ok: true, templates: r.results || [] });
     }
     if (method === 'POST' && !b) {
@@ -895,6 +900,12 @@ async function route(ctx: MailCtx): Promise<Response> {
 
   return errorJson('not_found', 'No such mail route.', 404);
 }
+
+const DEFAULT_TEMPLATES = [
+  { id: 't_def_gift', name: 'Thank you for a gift', body: 'Hi {first_name},\n\nThank you for your gift of {last_gift} on {last_gift_date}. It goes to work this week, and I am glad you are with us.\n\n{my_name}' },
+  { id: 't_def_meet', name: 'Meeting follow-up', body: 'Hi {first_name},\n\nThank you for meeting with me. Here is what we agreed:\n\n- \n- \n\nI will follow up by [date]. Tell me if I missed anything.\n\n{my_name}' },
+  { id: 't_def_receipt', name: 'Receipt question', body: 'Hi {first_name},\n\nYou asked about your receipt for {last_gift} on {last_gift_date}. [What I found in the record.] I will resend it today.\n\n{my_name}' },
+];
 
 const safeJson = (t: string): Record<string, any> => {
   try {

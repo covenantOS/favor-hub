@@ -8,7 +8,7 @@ const mock = '/js/mail/mail-mock.js?v=8';
 ---
 <App title="Mail" crumb="Mail" nav="mail" bare description="Your Gmail inside FavorOS: read, reply, archive, labels, drafts and search.">
   <div id="mail-root" class="ml" data-view="list"></div>
-  <link rel="preload" href="/js/mail/mail.js?v=13" as="script" />
+  <link rel="preload" href="/js/mail/mail.js?v=14" as="script" />
   <script is:inline src="/js/chat/chat-view.js?v=1" defer></script>
   <script is:inline define:vars={{ mock }}>
     // ?mock=1 draws invented mail for this browser tab (screenshots and tests); ?mock=0 goes back to the real mailbox.
@@ -17,5 +17,5 @@ const mock = '/js/mail/mail-mock.js?v=8';
     window.__mailMock = on;
     if (on) document.write('<script src="' + mock + '"><\/script>');
   </script>
-  <script is:inline src="/js/mail/mail.js?v=13" defer></script>
+  <script is:inline src="/js/mail/mail.js?v=14" defer></script>
 </App>

@@ -4,6 +4,7 @@ import { mailUnreadCount } from '../../_lib/mail/route';
 import { accessToken, CAL_EVENTS, easternDay, hasScopes, recentFiles, todaysEvents, unreadMail, type DayEvent } from '../../_lib/hub/google';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
+import { isTester } from '../../_lib/testuser';
 
 /** Which FavorOS room an event already has: a link to a room in the event, a room made from it, or a room moved from it without touching the event. */
 async function withRooms(env: Env, email: string, events: DayEvent[] | null): Promise<DayEvent[] | null> {
@@ -56,6 +57,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
     const google = mark('google', (async () => {
       if (user.via !== 'google') return { connected: false, events: await withRooms(env, email, []) };
+      // A test user has no Google account: Today shows the sample mailbox's unread mail so the card and the menu count agree.
+      if (isTester(email)) {
+        const [sample, count, sampleP] = await Promise.all([import('../../_lib/mail/sample').then((m) => m.sampleUnread(env, email)).catch(() => null), mailUnreadCount(env, email).catch(() => null), import('../../_lib/mail/sample').then((m) => m.samplePartners(env, ['maya.okafor@example.org', 'tom@whitfieldfamily.example', 'dortiz@example.com'])).catch(() => ({}))]);
+        return { connected: true, events: await withRooms(env, email, []), mayWrite: false, files: null, mail: sample, mailUnread: count, partners: Object.fromEntries(Object.entries(sampleP as Record<string, { id: string; name: string }>).map(([k, v]) => [k, { id: v.id, name: v.name }])) };
+      }
       const t = await accessToken(env, email);
       if (!t) return { connected: false, events: await withRooms(env, email, []) };
       const [events, files, mail, mailUnread] = await Promise.all([

@@ -297,3 +297,19 @@ export async function samplePartners(env: Env, emails: string[]): Promise<Record
     return {};
   }
 }
+
+/** The unread inbox mail of a test user for Today's card, read from the sample mailbox the same way Mail reads it. */
+export async function sampleUnread(env: Env, owner: string): Promise<Array<{ id: string; threadId: string; from: string; fromEmail: string; subject: string; date: string; link: string }>> {
+  const { gmail, shapeThreadRow } = await import('./gmail');
+  const gm = gmail(SAMPLE_TOKEN.token, sampleFetcher(env, owner));
+  const l = await gm.get('/threads', { labelIds: 'INBOX', q: 'is:unread', maxResults: '15' });
+  const out = [];
+  for (const t of (l.threads || []).slice(0, 15)) {
+    const full = await gm.get('/threads/' + t.id, { format: 'metadata' }).catch(() => null);
+    if (!full) continue;
+    const r = shapeThreadRow(full, owner);
+    if (!r.unread) continue;
+    out.push({ id: r.lastId || r.id, threadId: r.id, from: r.from?.name || r.from?.email || '', fromEmail: r.from?.email || '', subject: r.subject || '(No subject)', date: r.date, link: `/mail/#/INBOX/${r.id}` });
+  }
+  return out;
+}

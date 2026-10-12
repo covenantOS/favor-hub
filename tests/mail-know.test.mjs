@@ -336,7 +336,16 @@ describe('templates with data fields', () => {
   it('fills first name, last gift and the writer, and leaves a field with no data for the person', () => {
     assert.equal(know.fillTemplate('Hi {first_name}, your {last_gift} on {last_gift_date}. {my_name} {total_giving}', { name: 'Maya and Chidi Okafor', lastGift: 100, lastGiftDate: '2026-10-02', me: 'Ada' }), 'Hi Maya, your $100 on October 2, 2026. Ada {total_giving}');
   });
+  it('seeds three starting templates once, with the data fields, and does not bring them back after they are deleted', async () => {
+    const first = (await run('templates')).data.templates;
+    assert.deepEqual(first.map((t) => t.name).sort(), ['Meeting follow-up', 'Receipt question', 'Thank you for a gift']);
+    assert.ok(first.find((t) => t.name === 'Thank you for a gift').body.includes('{last_gift}'));
+    for (const t of first) await run('templates/' + t.id, 'DELETE');
+    assert.equal((await run('templates')).data.templates.length, 0);
+  });
   it('saves, lists, fills from the partner on the To line, and removes', async () => {
+    await run('templates');
+    for (const t of (await run('templates')).data.templates) await run('templates/' + t.id, 'DELETE');
     const id = (await run('templates', 'POST', { name: 'Thanks', body: 'Hi {first_name}, thank you for {last_gift}.' })).data.id;
     assert.equal((await run('templates')).data.templates.length, 1);
     const f = (await run('templates/fill', 'POST', { body: 'Hi {first_name}, thank you for {last_gift}.', to: ['maya@example.org'] })).data.text;
