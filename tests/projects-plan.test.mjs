@@ -96,10 +96,12 @@ test('every template builds a dated plan whose roles resolve, and a sentence tha
   } finally { restore(); }
 });
 
-test('the model reshapes the plan; owners and dates are checked, and bad output falls back to the template', async () => {
+test('the model refines the instant draft in a second call; owners and dates are checked, bad output keeps the draft', async () => {
   const restore = pin();
   try {
     const w = world();
+    const d = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Banquet in Houston on Dec 6' });
+    assert.equal(d.data.source, 'template', 'the draft never waits for a model');
     w.env.AI = aiReturning({
       name: 'Fall banquet',
       description: 'A dinner for partners in Houston.',
@@ -108,23 +110,53 @@ test('the model reshapes the plan; owners and dates are checked, and bad output 
         { name: 'Invitations', tasks: [{ title: 'Send the invitations', owner_email: DAN.email, due_date: '2099-01-01' }, { title: 'Count RSVPs — daily', owner_email: DAN.email, due_date: '2026-11-20' }] },
       ],
     });
-    const r = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Banquet in Houston on Dec 6' });
-    assert.equal(r.data.source, 'drafted');
+    const r = await call(w, ADA, 'POST', 'projects/plan/refine', { prompt: 'Banquet in Houston on Dec 6', plan: d.data.plan });
+    assert.equal(r.data.refined, true);
     const { plan } = r.data;
     assert.equal(plan.name, 'Fall banquet');
     const t = plan.sections.flatMap((s) => s.tasks);
     assert.equal(t.find((x) => x.title === 'Pick the menu').owner_email, ADA.email, 'a stranger becomes the lead');
     assert.equal(t.find((x) => x.title === 'Pick the menu').due_date, TODAY, 'a past date moves to today');
-    assert.equal(t.find((x) => x.title === 'Send the invitations').due_date, '2027-01-20', 'a date far past the project date is capped at six weeks after it');
+    assert.equal(t.find((x) => x.title === 'Send the invitations').due_date, '2027-01-20', 'a far date is capped at six weeks after the project date');
     assert.ok(t.some((x) => x.title === 'Count RSVPs, daily'), 'dashes are removed');
-
     w.env.AI = aiReturning('I cannot do that.');
-    const bad = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Banquet in Houston on Dec 6' });
-    assert.equal(bad.data.source, 'template');
-    assert.equal(bad.data.plan.template, 'banquet');
+    assert.equal((await call(w, ADA, 'POST', 'projects/plan/refine', { prompt: 'Banquet in Houston on Dec 6', plan: d.data.plan })).data.refined, false);
     w.env.AI = { run: async () => { throw new Error('model down'); } };
-    const down = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Banquet in Houston on Dec 6' });
-    assert.equal(down.data.source, 'template');
+    assert.equal((await call(w, ADA, 'POST', 'projects/plan/refine', { prompt: 'Banquet in Houston on Dec 6', plan: d.data.plan })).data.refined, false);
+    w.env.AI = { run: () => new Promise(() => {}) };
+    const t0 = realDate.now();
+    const slow = await call(w, ADA, 'POST', 'projects/plan/refine', { prompt: 'Banquet in Houston on Dec 6', plan: d.data.plan });
+    assert.equal(slow.data.refined, false);
+    void t0;
+  } finally { restore(); }
+});
+
+test('the sentence states facts and the draft honors them with no model: date, owner me, named people, name, template only on a match', async () => {
+  const restore = pin();
+  try {
+    const w = world();
+    const all = (r) => r.data.plan.sections.flatMap((s) => s.tasks);
+    let r = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Move the storage room, due Jan 20, owner me' });
+    assert.equal(r.data.plan.template, 'generic', 'no template matches');
+    assert.equal(r.data.plan.due_date, '2027-01-20');
+    assert.ok(all(r).every((t) => t.owner_email === ADA.email && t.due_date <= '2027-01-27'));
+    assert.equal(r.data.plan.lead_email, ADA.email);
+    r = await call(w, VIC, 'POST', 'projects/plan/draft', { prompt: 'Reorganize the closet by Friday, owner me' });
+    assert.equal(r.data.plan.due_date, '2026-10-16', 'Friday after Monday Oct 12');
+    assert.ok(all(r).every((t) => t.owner_email === VIC.email), 'me is the asker');
+    r = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Paint the lobby with Dan and Flo' });
+    const owners = new Set(all(r).map((t) => t.owner_email));
+    assert.deepEqual([...owners].sort(), [DAN.email, FLO.email].sort());
+    r = await call(w, ADA, 'POST', 'projects/plan/draft', { prompt: 'Weekly newsletter due Nov 6, called "Fall issue"' });
+    assert.equal(r.data.plan.template, 'newsletter');
+    assert.equal(r.data.plan.name, 'Fall issue');
+    assert.equal(r.data.plan.anchor, '2026-11-06', 'a stated date is not moved to a Saturday');
+    const { dateIn, weekdayIn, factsIn } = await import('../functions/_lib/projects/plan/draft.ts');
+    assert.equal(dateIn('due Jan 20', TODAY), '2027-01-20');
+    assert.equal(weekdayIn('by Friday', TODAY), '2026-10-16');
+    assert.equal(weekdayIn('next Monday', TODAY), '2026-10-19');
+    assert.equal(factsIn('ship it, owner me', TODAY, []).owner_me, true);
+    assert.equal(factsIn('plan the thing', TODAY, []).owner_me, false);
   } finally { restore(); }
 });
 
@@ -278,6 +310,7 @@ test('the Friday update is built from what moved and is off until the lead turns
     assert.match(t, /Pushed back\n- Schedule the send \(Ada Admin, 2026-10-08 to 2026-10-10\)/);
     assert.match(t, /Late\n/);
     assert.match(t, /Due in the next 7 days\n/);
+    assert.ok(!t.includes('\n\n\n'), 'no stray blank lines');
     assert.ok(!/[–—]/.test(t), 'no dashes');
     assert.ok(!/\bAI\b/.test(t));
     assert.equal(w.rows('SELECT id FROM chat_messages').length, 0, 'a draft posts nothing');

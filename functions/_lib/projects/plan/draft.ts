@@ -139,12 +139,12 @@ const defaultName = (t: Template, anchor: string) => (t.id === 'generic' ? 'New 
 /* ---------------------------------------------------------------- the model */
 
 const MODELS = ['@cf/meta/llama-3.3-70b-instruct-fp8-fast', '@cf/meta/llama-4-scout-17b-16e-instruct'];
-const TIMEOUT_MS = 28000;
+const TIMEOUT_MS = 8000;
 
 async function askModel(env: Env, system: string, user: string): Promise<unknown | null> {
   const ai = env.AI;
   if (!ai) return null;
-  for (const model of MODELS) {
+  for (const model of MODELS.slice(0, 1)) {
     try {
       const run = ai.run(model, { messages: [{ role: 'system', content: system }, { role: 'user', content: user }], max_tokens: 3000, temperature: 0.2 }) as Promise<{ response?: string }>;
       const res = await Promise.race([run, new Promise<null>((r) => setTimeout(() => r(null), TIMEOUT_MS))]);
@@ -208,42 +208,122 @@ export function sanitize(raw: unknown, base: Plan, dir: Person[], today: string)
 
 /* ---------------------------------------------------------------- the entry point */
 
+/* ---------------------------------------------------------------- facts stated in the sentence */
+
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const rx = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+export interface Facts {
+  date: string | null;
+  owner_me: boolean;
+  people: string[];
+  name: string;
+}
+
+/** "by Friday", "due next Tuesday", "Friday": the first such weekday on or after today ("next" adds a week). */
+export function weekdayIn(text: string, today: string): string | null {
+  const m = text.match(/\b(next\s+|this\s+)?(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
+  if (!m) return null;
+  const target = WEEKDAYS.indexOf(m[2].toLowerCase());
+  const dow = (dn(today) + 4) % 7;
+  const ahead = (target - dow + 7) % 7;
+  return addDays(today, /^next/i.test(m[1] || '') ? ahead + 7 : ahead);
+}
+
+/** Every fact the sentence states, read without a model: the date, "owner me", named staff, a name. */
+export function factsIn(text: string, today: string, dir: Person[]): Facts {
+  const date = dateIn(text, today) || weekdayIn(text, today);
+  const owner_me =
+    /\b(?:owner|owned by|assign(?:ed)?(?: to)?|lead|run by)\s*[:,-]?\s*(?:is\s+)?(?:me|myself|i)\b/i.test(text) || /\bfor me\b|\bi(?:'ll| will) (?:own|run|do)\b/i.test(text);
+  const people: string[] = [];
+  if (!owner_me) {
+    const hay = (text.match(/\b(?:with|owner|owners|assign(?:ed)? to|lead|and)\s+[A-Z][\w'. ,-]*/g) || []).join(' ');
+    for (const p of dir) {
+      const first = p.name.split(/\s+/)[0];
+      const full = new RegExp(`\\b${rx(p.name)}\\b`, 'i').test(text);
+      const one = first.length > 2 && new RegExp(`\\b${rx(first)}\\b`).test(hay);
+      if ((full || one) && !people.includes(p.email)) people.push(p.email);
+    }
+  }
+  const nm = text.match(/\b(?:called|named|name it)\s+["“]?([^"”,.;]{3,70})/i) || text.match(/["“]([^"”]{3,70})["”]/);
+  return { date, owner_me, people, name: nm ? plainText(nm[1], 70) : '' };
+}
+
+/** Puts the stated facts back onto a plan, whatever made the plan. */
+export function enforce(plan: Plan, f: Facts, actor: string): Plan {
+  const out: Plan = JSON.parse(JSON.stringify(plan));
+  if (f.name) out.name = f.name;
+  if (f.owner_me) {
+    out.lead_email = actor;
+    for (const sec of out.sections) for (const t of sec.tasks) t.owner_email = actor;
+  } else if (f.people.length) {
+    out.lead_email = f.people[0];
+    let i = 0;
+    for (const sec of out.sections) for (const t of sec.tasks) t.owner_email = f.people[i++ % f.people.length];
+  }
+  if (f.date) {
+    out.anchor = f.date;
+    out.due_date = f.date;
+  }
+  const dues = out.sections.flatMap((s) => s.tasks.map((k) => k.due_date || '')).filter(Boolean).sort();
+  out.start_date = dues[0] || out.start_date;
+  return out;
+}
+
+async function loadMap(env: Env, now: string) {
+  const r = await env.DB.prepare(`SELECT owner_email, COUNT(*) AS n FROM hub_tasks WHERE owner_email IS NOT NULL AND status NOT IN ('done', 'dropped') AND due_date >= ? AND due_date <= ? GROUP BY owner_email`)
+    .bind(now, addDays(now, 42))
+    .all<{ owner_email: string; n: number }>()
+    .catch(() => ({ results: [] as { owner_email: string; n: number }[] }));
+  return new Map((r.results || []).map((x) => [lower(x.owner_email), Number(x.n) || 0]));
+}
+
+async function warn(env: Env, plan: Plan, now: string) {
+  const adds = plan.sections.flatMap((s) => s.tasks.filter((k) => k.owner_email && k.due_date).map((k) => ({ email: k.owner_email as string, due: k.due_date as string, priority: k.priority })));
+  return assess(env, adds, now).catch(() => []);
+}
+
+/** The instant draft: no model. A template only when the sentence matches one, every stated fact applied. */
 export async function draftPlan(
   env: Env,
   actor: { email: string; name: string },
   input: { prompt: string; template?: string; date?: string | null; lead_email?: string },
   now: string = todayEastern()
-): Promise<Draft> {
+): Promise<Draft & { facts: Facts }> {
   const prompt = plainText(input.prompt, 600);
   const dir = await staffDirectory(env);
   const lead = dir.some((p) => p.email === lower(input.lead_email)) ? lower(input.lead_email) : actor.email;
   const picked = (input.template && templateById(input.template)) || matchTemplate(prompt) || GENERIC;
-  const given = (input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? input.date : null) || dateIn(prompt, now);
-  const anchor = anchorFor(picked, given, now);
-  // How many open tasks each person has in the next six weeks, so the first pick of a role goes to the lighter desk.
-  const loadRows = await env.DB.prepare(`SELECT owner_email, COUNT(*) AS n FROM hub_tasks WHERE owner_email IS NOT NULL AND status NOT IN ('done', 'dropped') AND due_date >= ? AND due_date <= ? GROUP BY owner_email`)
-    .bind(now, addDays(now, 42))
-    .all<{ owner_email: string; n: number }>()
-    .catch(() => ({ results: [] as { owner_email: string; n: number }[] }));
-  const load = new Map((loadRows.results || []).map((r) => [lower(r.owner_email), Number(r.n) || 0]));
+  const facts = factsIn(prompt, now, dir);
+  if (input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date)) facts.date = input.date;
+  if (facts.date && facts.date < now) facts.date = null;
+  const anchor = facts.date || anchorFor(picked, null, now);
+  const load = await loadMap(env, now);
   const base = scaffold(picked, { today: now, anchor, lead, dir, load, name: defaultName(picked, anchor), description: prompt.slice(0, 400) });
-  const firstLine = plainText(prompt.split(/[.\n]/)[0], 70);
+  const firstLine = plainText(prompt.split(/[.\n,]/)[0], 70);
   if (picked.id === 'generic' && firstLine) base.name = firstLine;
+  const plan = enforce(base, facts, actor.email);
+  return { plan, source: 'template', warnings: await warn(env, plan, now), templates: TEMPLATES.map((t) => ({ id: t.id, name: t.name, blurb: t.blurb, anchor: t.anchor })), facts };
+}
 
-  let plan = base;
-  let source: Draft['source'] = 'template';
-  if (prompt.length >= 8) {
-    const usual = await usualWeeks(env, now).catch(() => new Map());
-    const staff = dir.map((p) => ({ email: p.email, name: p.name, title: p.title, team: p.team, open_next_6_weeks: load.get(p.email) || 0, usual_tasks_per_week: usual.get(p.email)?.usual ?? 4 }));
-    const user = JSON.stringify({ today: now, week_of_today: weekStart(now), sentence: prompt, project_date: anchor, project_lead: lead, starting_plan: { template: picked.name, sections: base.sections }, staff });
-    const raw = await askModel(env, SYSTEM, user);
-    const made = sanitize(raw, base, dir, now);
-    if (made) {
-      plan = made;
-      source = 'drafted';
-    }
-  }
-  const adds = plan.sections.flatMap((s) => s.tasks.filter((k) => k.owner_email && k.due_date).map((k) => ({ email: k.owner_email as string, due: k.due_date as string, priority: k.priority })));
-  const warnings = await assess(env, adds, now).catch(() => []);
-  return { plan, source, warnings, templates: TEMPLATES.map((t) => ({ id: t.id, name: t.name, blurb: t.blurb, anchor: t.anchor })) };
+/** The slow pass: the model reshapes the draft inside 8 seconds, then every stated fact is put back. Null when it adds nothing. */
+export async function refinePlan(
+  env: Env,
+  actor: { email: string; name: string },
+  input: { prompt: string; plan: Plan },
+  now: string = todayEastern()
+): Promise<{ plan: Plan; warnings: Warning[] } | null> {
+  const prompt = plainText(input.prompt, 600);
+  const base = input.plan;
+  if (!base || !Array.isArray(base.sections) || prompt.length < 8) return null;
+  const dir = await staffDirectory(env);
+  const facts = factsIn(prompt, now, dir);
+  const load = await loadMap(env, now);
+  const usual = await usualWeeks(env, now).catch(() => new Map());
+  const staff = dir.map((p) => ({ email: p.email, name: p.name, title: p.title, team: p.team, open_next_6_weeks: load.get(p.email) || 0, usual_tasks_per_week: usual.get(p.email)?.usual ?? 4 }));
+  const user = JSON.stringify({ today: now, week_of_today: weekStart(now), sentence: prompt, project_date: base.anchor, project_lead: base.lead_email, stated_facts: facts, starting_plan: { template: base.template, sections: base.sections }, staff });
+  const made = sanitize(await askModel(env, SYSTEM, user), base, dir, now);
+  if (!made) return null;
+  const plan = enforce(made, facts, actor.email);
+  return { plan, warnings: await warn(env, plan, now) };
 }

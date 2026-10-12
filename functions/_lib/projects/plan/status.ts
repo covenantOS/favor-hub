@@ -162,7 +162,7 @@ function list(title: string, rows: Line[], extra = 0): string {
 
 export async function textFor(env: Env, f: Facts): Promise<string> {
   const head = `Friday update, ${f.project.name}. Week of ${short(f.week)}.`;
-  const body = [
+  const parts = [
     await opening(env, f),
     list('Done', f.done, f.counts.done),
     list('Started', f.started),
@@ -170,8 +170,8 @@ export async function textFor(env: Env, f: Facts): Promise<string> {
     list('Late', f.late, f.counts.late),
     list('Waiting', f.waiting),
     list('Due in the next 7 days', f.next),
-  ].join('\n');
-  return cleanBody(`${head}\n\n${body}`);
+  ].map((x) => x.trim()).filter(Boolean);
+  return cleanBody([head, ...parts].join('\n\n'));
 }
 
 /* ---------------------------------------------------------------- the switch and the post */

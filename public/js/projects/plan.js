@@ -60,7 +60,9 @@ export async function openPlanner({ prompt = '' } = {}) {
         const d = await api.planDraft({ prompt: st.prompt || TEMPLATE_HINTS.find((x) => x[0] === st.template)[1], template: st.template || undefined, date: st.date || undefined });
         st.plan = d.plan;
         st.warnings = d.warnings || [];
+        st.dirty = false;
         planView();
+        refine();
       } catch (ex) {
         err(ex.message || 'The draft did not come back. Try again.');
         go.disabled = false;
@@ -68,6 +70,19 @@ export async function openPlanner({ prompt = '' } = {}) {
       }
     });
 
+    /* The draft shows at once from the template. The model reshapes it in the background and the result replaces it only while the person has not edited. */
+    async function refine() {
+      const seq = (st.seq = (st.seq || 0) + 1);
+      const note = (t) => { const n = body.querySelector('[data-refine]'); if (n) { n.textContent = t; n.hidden = !t; } };
+      note('Refining the draft');
+      try {
+        const r = await api.planRefine({ prompt: st.prompt, plan: st.plan });
+        if (seq !== st.seq || !st.plan) return;
+        if (r.refined && !st.dirty) { st.plan = r.plan; st.warnings = r.warnings || []; const y = body.scrollTop; planView(); body.scrollTop = y; }
+        else note(r.refined ? 'A refined draft is ready, but you changed this one first.' : '');
+        if (!(r.refined && !st.dirty)) setTimeout(() => note(''), 4000);
+      } catch (_) { note(''); }
+    }
     /* ---------------------------------------------------------------- step 2: the plan */
     const taskRow = (t, si, ki) => {
       const o = t.owner_email ? personOf(t.owner_email) : null;
@@ -85,6 +100,7 @@ export async function openPlanner({ prompt = '' } = {}) {
       const total = p.sections.reduce((n, x) => n + x.tasks.length, 0);
       const lead = personOf(p.lead_email);
       body.innerHTML = `<form class="pj-pl" data-plan autocomplete="off">
+        <p class="pj-pl__refine" data-refine role="status" hidden></p>
         <label class="pj-label" for="pp-name">Name</label>
         <input id="pp-name" class="pj-field" data-p="name" type="text" maxlength="120" value="${esc(p.name)}" />
         <div class="pj-pf__row">
@@ -133,6 +149,7 @@ export async function openPlanner({ prompt = '' } = {}) {
     };
 
     body.addEventListener('input', (e) => {
+      if (st.plan && e.target.closest('[data-plan]')) st.dirty = true;
       const i = e.target.closest('[data-f]');
       if (!i || !st.plan) return;
       const li = i.closest('.pj-pl__task');
@@ -145,6 +162,7 @@ export async function openPlanner({ prompt = '' } = {}) {
       const b = e.target.closest('[data-a]');
       if (!b || !st.plan) return;
       const a = b.dataset.a;
+      if (a !== 'back') st.dirty = true; else st.seq = (st.seq || 0) + 1;
       const li = b.closest('.pj-pl__task');
       const y = body.scrollTop;
       const redraw = () => { readTop(); planView(); body.scrollTop = y; };

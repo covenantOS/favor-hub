@@ -100,6 +100,7 @@ export const api = {
 
   /* planning, team workload and the Friday update (always the network; the mock fixture has no plans) */
   planDraft: (b) => call('POST', '/api/projects/plan/draft', b),
+  planRefine: (b) => call('POST', '/api/projects/plan/refine', b),
   planCheck: (tasks) => call('POST', '/api/projects/plan/check', { tasks }),
   planCreate: (plan) => call('POST', '/api/projects/plan/create', { plan }),
   workload: (q) => call('GET', '/api/projects/workload' + qs(q)),

@@ -17,7 +17,7 @@ import { fire } from '../hooks';
 import { shapeProject } from '../projects';
 import { directory } from '../db';
 import { createFromPlan } from './create';
-import { draftPlan } from './draft';
+import { draftPlan, refinePlan } from './draft';
 import { TEMPLATES } from './templates';
 import { assess, teamWorkload } from './workload';
 import { channelOf, factsFor, postUpdate, runDue, setEnabled, statusOf, textFor } from './status';
@@ -55,6 +55,11 @@ export async function planRoutes(ctx: Ctx, path: string[], actor: Actor): Promis
       if (prompt.length < 3) throw new HttpError(400, 'missing_field', 'Describe the project in a sentence.');
       const d = await draftPlan(env, actor, { prompt, template: typeof x.template === 'string' ? x.template : undefined, date: typeof x.date === 'string' ? x.date : null, lead_email: typeof x.lead_email === 'string' ? x.lead_email : undefined });
       return json({ ok: true, ...d });
+    }
+    if (a === 'refine' && method === 'POST') {
+      const x = await body(request);
+      const r = await refinePlan(env, actor, { prompt: String(x.prompt || ''), plan: x.plan as never });
+      return json({ ok: true, refined: !!r, ...(r || {}) });
     }
     if (a === 'check' && method === 'POST') {
       const x = await body(request);

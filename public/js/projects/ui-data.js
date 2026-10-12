@@ -30,6 +30,7 @@ export const api = {
   codes: (kind, q) => core.codes(kind, q),
   staff: () => core.directory(),
   planDraft: (b) => core.planDraft(b),
+  planRefine: (b) => core.planRefine(b),
   planCheck: (t) => core.planCheck(t),
   planCreate: (p) => core.planCreate(p),
   workload: (q) => core.workload(q),
