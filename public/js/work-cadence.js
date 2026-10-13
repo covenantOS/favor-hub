@@ -31,7 +31,13 @@ async function start() {
   W().refresh('cadence');
 }
 
-const stepsOf = (r) => (C.local[r.cid] ? r.steps.filter((s) => !C.local[r.cid].has(s.k)) : r.steps);
+const stepsOf = (r) => {
+  const got = C.local[r.cid];
+  if (!got) return r.steps;
+  const reached = r.steps.some((s) => s.group === 'reach' && got.has(s.k));
+  return r.steps.filter((s) => !got.has(s.k) && !(reached && s.group === 'reach'));
+};
+const stepName = (s) => (s.group === 'reach' ? 'Reach out' : s.label);
 const finished = (r) => !!C.local[r.cid] && (r.need === 'any' ? r.steps.some((s) => C.local[r.cid].has(s.k)) : stepsOf(r).length === 0);
 const rows = () => (C.data ? C.data.rows.filter((r) => !finished(r)) : []);
 const isDue = (r) => r.over >= 0;
@@ -42,9 +48,19 @@ const dot = () => !!C.data && rows().some((r) => r.over >= 7);
 
 function dueLabel(r) {
   const f = F();
-  if (r.over > 0) return `<b class="is-late">${r.over} ${r.over === 1 ? 'day' : 'days'} over</b>`;
+  const os = r.overStep ? r.steps.find((x) => x.k === r.overStep) : null;
+  const step = os ? stepName(os) : '';
+  if (r.over > 0) return `<b class="is-late">${step ? esc(step) + ' ' : ''}${r.over} ${r.over === 1 ? 'day' : 'days'} over</b>`;
   if (r.over === 0) return '<b>Due today</b>';
   return `<b>Due ${esc(f.fd(r.due))}</b>`;
+}
+
+/* The other late steps, oldest first, so a card never logged does not read as a partner nobody has called. */
+function lateLine(r) {
+  const os = r.steps.find((x) => x.k === r.overStep);
+  const late = r.steps.filter((s) => typeof s.late === 'number' && s.late > 0 && stepName(s) !== (os ? stepName(os) : '')).sort((a, b) => b.late - a.late);
+  const seen = new Set();
+  return late.filter((s) => !seen.has(stepName(s)) && seen.add(stepName(s))).map((s) => `${stepName(s)} ${s.late} ${s.late === 1 ? 'day' : 'days'} late`).join(' · ');
 }
 
 function stepBtn(r, s, nextK) {
@@ -60,12 +76,12 @@ function rowHTML(r) {
   const nextK = (steps.find((s) => !s.off) || {}).k;
   const left = C.leftNow[r.cid];
   const call = r.phone ? `<a class="wg-icon" href="${tel(r.phone)}" title="Call ${esc(r.phone)}" aria-label="Call ${esc(r.name)}">${f.ic('phone')}</a>` : `<span class="wg-icon is-off" title="No phone to call">${f.ic('phone')}</span>`;
-  const last = r.last ? `Last: ${esc(r.last.what)} ${esc(f.fd(r.last.date))}` : 'Last: No contact on record';
+  const last = r.last ? `Last contact ${esc(f.fd(r.last.date))} (${esc(r.last.what.toLowerCase())})` : 'No contact on record';
   const who = C.data.owners.length > 1 && !C.owner ? r.holderNames.join(', ') : '';
   return `<div class="wg-row wcd-row" data-cid="${esc(r.cid)}">
     <div class="wcd-who"><a class="wg-name" href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.name)}</a><span class="wg-sub">${r.place ? esc(r.place) + ' · ' : ''}${esc(r.pattern)}</span>${r.found ? `<span class="wg-sub wcd-found" title="${esc(r.found.code)}">Came in through ${esc(r.found.label)}</span>` : ''}</div>
     <div class="wcd-why"><span class="wc-tag${r.rule === 'first' ? ' wc-tag--done' : ''}">${esc(r.ruleLabel)}</span>${left ? `<span class="wc-tag wc-tag--queued">Left a message today</span>` : ''}<span class="wg-sub">${esc(r.line)}</span><span class="wg-sub">${last}</span></div>
-    <div class="wcd-due">${dueLabel(r)}<span class="wg-sub">${esc(who)}</span></div>
+    <div class="wcd-due">${dueLabel(r)}<span class="wg-sub">${esc(lateLine(r))}</span><span class="wg-sub">${esc(who)}</span></div>
     <div class="wcd-steps">${steps.map((s) => stepBtn(r, s, nextK)).join('')}</div>
     <div class="wg-acts">${call}</div></div>`;
 }
@@ -96,7 +112,7 @@ function view() {
 
 /* ------------------------------------------------------------------ the three lists */
 const splitLists = (list) => {
-  const sorted = list.filter(isDue).sort((a, b) => b.over - a.over);
+  const sorted = list.filter(isDue).sort((a, b) => (b.overMax ?? b.over) - (a.overMax ?? a.over));
   const n = Math.ceil(sorted.length / 3);
   return [['Friday', sorted.slice(0, n)], ['Saturday', sorted.slice(n, 2 * n)], ['Sunday', sorted.slice(2 * n)]];
 };

@@ -286,6 +286,7 @@ export const DEFS: Def[] = [
     })
   ),
   // -------------------------------------------------------------------------------------------------- Meetings
+  hubDef({ id: 'cadence.monthly_cards_per_year', area: 'work', group: 'Cadence', label: 'Handwritten cards a year for monthly partners', hint: 'Cadence asks for a text, email or call every three months. Cards are on their own count.', kind: 'enum', options: [{ value: '0', label: 'None' }, { value: '2', label: 'Two a year' }, { value: '4', label: 'Four a year' }], def: '2' }),
   hubDef({ id: 'meet.release', area: 'meetings', label: 'Who can use Meetings', hint: 'Admins only, or every signed-in staff member.', kind: 'enum', options: [{ value: 'admin', label: 'Admins only' }, { value: 'staff', label: 'All staff' }], def: 'admin', envVar: 'MEET_RELEASE' }),
   hubDef({ id: 'meet.guests', area: 'meetings', label: 'Guests from outside Favor', hint: 'Guests join a meeting from an invitation link without a sign-in.', kind: 'enum', options: ON_OFF, def: 'off', envVar: 'MEET_GUESTS' }),
   hubDef({ id: 'meet.drive_folder', area: 'meetings', label: 'Recording folder', hint: 'The Google Drive folder id of the Meetings folder in US Team Files.', kind: 'text', def: '', envVar: 'MEET_DRIVE_FOLDER' }),

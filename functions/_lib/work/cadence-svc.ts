@@ -9,7 +9,7 @@ import { authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from '
 import { planEdit, typesByFundraiser } from './edit';
 import { THANK_HOWS, addDays, clean } from '../actions/completion';
 import { weekStart } from './gifts';
-import { loadCadence, splitLists, STEP_LABEL, RULE_LABEL, STEP_ORDER, type CadenceRow, type StepKey } from './cadence';
+import { loadCadence, overOf, splitLists, STEP_LABEL, RULE_LABEL, STEP_ORDER, type CadenceRow, type StepKey } from './cadence';
 
 const ID = /^\d{1,12}$/;
 // The version is part of the key, so a deploy that changes a row's shape never reads rows built by the one before.
@@ -67,10 +67,13 @@ export function overlay(rows: CadenceRow[], done: DoneRow[]): CadenceRow[] {
     const got = by.get(r.cid);
     if (!got) { out.push(r); continue; }
     if (r.need === 'any' && r.steps.some((s) => got.has(s.k))) continue;
-    const left = r.steps.filter((s) => !got.has(s.k));
+    // Any one of text, email or call meets a monthly partner's reach-out, so it takes the other two with it.
+    const reached = r.steps.some((s) => s.group === 'reach' && got.has(s.k));
+    const left = r.steps.filter((s) => !got.has(s.k) && !(reached && s.group === 'reach'));
     if (!left.length) continue;
     const next = left.find((s) => !s.off && s.state === 'next') || left.find((s) => !s.off) || left[0];
-    out.push({ ...r, steps: left.map((s) => ({ ...s, state: s === next ? 'next' : 'todo' })) });
+    const steps = left.map((s) => ({ ...s, state: s === next ? 'next' as const : 'todo' as const }));
+    out.push({ ...r, steps, ...(steps.some((s) => typeof s.late === 'number') ? overOf(steps, r.over) : {}) });
   }
   return out;
 }

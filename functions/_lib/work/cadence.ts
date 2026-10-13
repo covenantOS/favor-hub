@@ -19,7 +19,14 @@ export const STEP_ORDER: StepKey[] = ['call', 'text', 'email', 'card'];
 export const STEP_LABEL: Record<StepKey, string> = { call: 'Call', text: 'Text', email: 'Email', card: 'Card' };
 
 /** Steps each repeating rule asks for, and how many days a completed step lasts. */
-export const RULE_STEPS: Record<'monthly' | 'semi' | 'annual', StepKey[]> = { monthly: ['call', 'card'], semi: ['call', 'card'], annual: ['call', 'text', 'email', 'card'] };
+export const RULE_STEPS: Record<'monthly' | 'semi' | 'annual', StepKey[]> = { monthly: ['text', 'email', 'call', 'card'], semi: ['call', 'card'], annual: ['call', 'text', 'email', 'card'] };
+/** Monthly partners: text, email and call are one "reach out" step, any one of them meets it; the card is its own step. Suggestion order. */
+export const MONTHLY_ORDER: StepKey[] = ['text', 'email', 'call', 'card'];
+export const REACH: StepKey[] = ['text', 'email', 'call'];
+/** Handwritten cards a year for monthly partners. Leadership sets it in the admin settings (key CARDS_KEY); 0 turns the card step off. */
+export const CARDS_KEY = 'cadence.monthly_cards_per_year';
+export const CARDS_DEFAULT = 2;
+export const cardDays = (perYear: number): number => (perYear > 0 ? Math.round(365 / perYear) : 0);
 export const PERIOD: Record<'monthly' | 'semi' | 'annual', number> = { monthly: 90, semi: 182, annual: 365 };
 /** Partner Care thanks first gifts and gifts under this amount (Who Does What). Matches PC_LIMIT in gifts.ts. */
 export const LIMIT = 1000;
@@ -96,7 +103,24 @@ export interface Candidate {
   gift: { date: string; amount: number } | null;
 }
 
-export interface Step { k: StepKey; label: string; state: 'next' | 'todo'; off: string | null }
+/** late: days past the step's own due date (0 due today), null for a first-time or quarterly row, which has no schedule per step. */
+export interface Step { k: StepKey; label: string; state: 'next' | 'todo'; off: string | null; late?: number | null; group?: 'reach' }
+
+/** A call whose summary or description says text, texted, texting or txt also counts as the text step on that date. */
+export const textWord = (s: unknown): boolean => /\b(text|texted|texting|txt)\b/i.test(String(s || ''));
+
+/**
+ * The row's numbers from its steps. over: days since the row's most recent late step went due. overMax: days since the oldest late step
+ * went due, which orders the list and the print lists. overStep: the step that over names. With no late step both fall back to the row's
+ * own number (negative for a row coming up).
+ */
+export function overOf(steps: Step[], fallback: number): { over: number; overMax: number; overStep: StepKey | null } {
+  const late = steps.filter((s) => typeof s.late === 'number' && (s.late as number) >= 0);
+  if (!late.length) return { over: fallback, overMax: fallback, overStep: null };
+  const recent = late.reduce((a, b) => ((b.late as number) < (a.late as number) ? b : a));
+  const oldest = Math.max(...late.map((s) => s.late as number));
+  return { over: recent.late as number, overMax: oldest, overStep: recent.k };
+}
 export interface CadenceRow {
   cid: string;
   name: string;
@@ -108,8 +132,11 @@ export interface CadenceRow {
   line: string;
   last: { date: string; what: string } | null;
   due: string;
-  /** Days past due, 0 when due today, negative for a row coming up. */
+  /** Days since the most recent late step went due (overStep names it), 0 when due today, negative for a row coming up. */
   over: number;
+  /** Days since the oldest late step went due. The list and the print lists sort on this. */
+  overMax: number;
+  overStep: StepKey | null;
   holders: string[];
   holderNames: string[];
   phone: string | null;
@@ -134,7 +161,7 @@ function lastWhat(c: Contacts): { date: string; what: string } | null {
 
 const RULE_LINE: Record<Rule, string> = {
   first: 'Gave a number. Call at once.',
-  monthly: 'A call and a handwritten card every three months.',
+  monthly: 'A text, email or call every three months, and a handwritten card on the yearly count set in settings.',
   quarterly: 'Thank them each time they give.',
   semi: 'A card and a call twice a year.',
   annual: 'A call, card, email and text.',
@@ -152,7 +179,7 @@ function describe(c: Candidate): string {
 }
 
 /** First pass on the mirror's rows: who has a rule and when it first called for contact. No phones or emails needed yet. */
-export function candidate(cid: string, gifts: RawGiftRef[], firstEver: { date: string; amount: number; n: number } | null, contacts: Contacts, today: string): Candidate | null {
+export function candidate(cid: string, gifts: RawGiftRef[], firstEver: { date: string; amount: number; n: number } | null, contacts: Contacts, today: string, cards: number = CARDS_DEFAULT): Candidate | null {
   // First-time partner: the first gift ever is recent and the call (or card) it calls for has not been made.
   if (firstEver && daysBetween(firstEver.date, today) <= FIRST_DAYS && daysBetween(firstEver.date, today) >= 0) {
     return { cid, rule: 'first', pattern: null, firstGift: { date: firstEver.date, amount: firstEver.amount }, due: firstEver.date, stepDue: {}, gift: null };
@@ -172,7 +199,16 @@ export function candidate(cid: string, gifts: RawGiftRef[], firstEver: { date: s
   const stepDue: Partial<Record<StepKey, string>> = {};
   // A step with no contact on record counts from the start of the pattern, at most two periods back, so the oldest backlog reads as one period over.
   const origin = p.first > addDays(today, -2 * period) ? p.first : addDays(today, -2 * period);
-  for (const k of RULE_STEPS[rule]) stepDue[k] = addDays(contacts[k] || origin, period);
+  if (rule === 'monthly') {
+    // Any completed call, text or email meets the every-three-months contact. The card runs on its own clock, cards a year from the admin setting.
+    const reach = REACH.map((k) => contacts[k] || '').sort().pop() || origin;
+    for (const k of REACH) stepDue[k] = addDays(reach, period);
+    const cd = cardDays(cards);
+    if (cd) {
+      const cardOrigin = p.first > addDays(today, -2 * cd) ? p.first : addDays(today, -2 * cd);
+      stepDue.card = addDays(contacts.card || cardOrigin, cd);
+    }
+  } else for (const k of RULE_STEPS[rule]) stepDue[k] = addDays(contacts[k] || origin, period);
   const soonest = Object.values(stepDue).sort()[0] as string;
   if (daysBetween(today, soonest) > AHEAD_DAYS) return null;
   return { cid, rule, pattern: p, firstGift: null, due: soonest, stepDue, gift: null };
@@ -187,7 +223,7 @@ export function finish(c: Candidate, facts: PartnerFacts, info: ContactInfo, con
   let need: 'any' | 'all' = 'all';
   if (c.rule === 'first') keys = [info.callOk ? 'call' : 'card'];
   else if (c.rule === 'quarterly') { keys = ['call', 'email', 'card']; need = 'any'; }
-  else keys = RULE_STEPS[c.rule];
+  else keys = (c.rule === 'monthly' ? MONTHLY_ORDER : RULE_STEPS[c.rule]).filter((k) => c.stepDue[k] !== undefined);
   const pending = keys.filter((k) => {
     if (c.rule === 'first') return !contacts[k] || contacts[k]! < (c.firstGift as { date: string }).date;
     if (c.rule === 'quarterly') return true;
@@ -201,15 +237,16 @@ export function finish(c: Candidate, facts: PartnerFacts, info: ContactInfo, con
     if (k === 'email') return !info.email ? 'No email address' : !info.emailOk ? 'Do not email' : null;
     return !info.hasAddress ? 'No mailing address' : !info.mailOk ? 'Do not mail' : null;
   };
-  const ordered = STEP_ORDER.filter((k) => show.includes(k));
+  const ordered = (c.rule === 'monthly' ? MONTHLY_ORDER : STEP_ORDER).filter((k) => show.includes(k));
   const nextKey = ordered.find((k) => !off(k) && pending.includes(k)) || ordered.find((k) => pending.includes(k)) || ordered[0];
-  const steps: Step[] = ordered.map((k) => ({ k, label: STEP_LABEL[k], state: k === nextKey ? 'next' : 'todo', off: off(k) }));
+  const repeating = c.rule !== 'first' && c.rule !== 'quarterly';
+  const steps: Step[] = ordered.map((k) => ({ k, label: STEP_LABEL[k], state: k === nextKey ? 'next' : 'todo', off: off(k), late: repeating ? daysBetween(c.stepDue[k] as string, today) : null, ...(c.rule === 'monthly' && k !== 'card' ? { group: 'reach' as const } : {}) }));
   let line = RULE_LINE[c.rule];
   if (c.rule === 'first' && !info.callOk) line = 'No number given. Send a card.';
-  const over = daysBetween(c.due, today);
+  const o = overOf(steps, daysBetween(c.due, today));
   return {
     cid: c.cid, name: facts.name, kind: facts.kind, place: facts.place, rule: c.rule, ruleLabel: RULE_LABEL[c.rule], pattern: describe(c), line,
-    last: lastWhat(contacts), due: c.due, over, holders, holderNames: holders.map((h) => names[h] || `Fundraiser ${h}`), phone: info.hasPhone && info.callOk ? info.phone : null,
+    last: lastWhat(contacts), due: c.due, over: o.over, overMax: o.overMax, overStep: o.overStep, holders, holderNames: holders.map((h) => names[h] || `Fundraiser ${h}`), phone: info.hasPhone && info.callOk ? info.phone : null,
     steps, need, blocked: steps.every((s) => !!s.off),
   };
 }
@@ -242,12 +279,14 @@ export const HOLDS_SQL = readOnly(`SELECT constituent_record_id AS cid, assignme
  WHERE assignment_type = 'Partner Care' AND ${CURRENT} AND constituent_record_id IN (SELECT value FROM json_each(?2))`);
 
 /** The latest completed contact per partner and kind. A call logged as unsuccessful (a left message) does not count. */
-export const CONTACTS_SQL = readOnly(`SELECT a.constituent_record_id AS cid, a.action_category AS cat, COALESCE(t.texted, 0) AS tx, MAX(substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10)) AS d
+export const CONTACTS_SQL = readOnly(`SELECT a.constituent_record_id AS cid, a.action_category AS cat, COALESCE(t.texted, 0) AS tx,
+  CASE WHEN a.action_category = 'Phone call' AND (lower(COALESCE(a.action_summary, '') || ' ' || COALESCE(a.action_description, '')) LIKE '%text%' OR lower(COALESCE(a.action_summary, '') || ' ' || COALESCE(a.action_description, '')) LIKE '%txt%')
+       THEN substr(COALESCE(a.action_summary, '') || ' ' || COALESCE(a.action_description, ''), 1, 400) ELSE '' END AS sm, MAX(substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10)) AS d
   FROM actions a LEFT JOIN action_tags t ON t.id = a.id
  WHERE a.constituent_record_id IN (SELECT value FROM json_each(?1)) AND json_extract(a.raw_json, '$.completed') = 1
    AND a.action_category IN ('Phone call', 'Mailing', 'Email') AND COALESCE(json_extract(a.raw_json, '$.outcome'), '') <> 'Unsuccessful'
    AND substr(COALESCE(a.action_completed_date, a.action_date_due), 1, 10) >= ?2
- GROUP BY 1, 2, 3`);
+ GROUP BY 1, 2, 3, 4`);
 
 export const FACTS_SQL = readOnly(`SELECT c.id AS id, COALESCE(json_extract(c.raw_json, '$.name'), trim(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, ''))) AS name,
        c.constituent_type AS kind, json_extract(c.raw_json, '$.address.city') AS city, json_extract(c.raw_json, '$.address.state') AS st
@@ -303,8 +342,16 @@ export async function hubContacts(env: Env, cids: string[], since: string): Prom
 }
 
 /** Everything the tab needs from the mirror: the rule for every Partner Care partner who has one and is due within two weeks. */
-export async function loadCadence(env: Env, q: Q, o: { today: string; names: Record<string, string> }): Promise<CadenceRow[]> {
+/** Cards a year for monthly partners: 0, 2 or 4 from hub_settings, 2 when nothing is saved. */
+export async function monthlyCards(env: Env): Promise<number> {
+  const row = env.DB ? await env.DB.prepare('SELECT value FROM hub_settings WHERE key = ? LIMIT 1').bind(CARDS_KEY).first<{ value: string }>().catch(() => null) : null;
+  const n = row ? Number(row.value) : CARDS_DEFAULT;
+  return n === 0 || n === 2 || n === 4 ? n : CARDS_DEFAULT;
+}
+
+export async function loadCadence(env: Env, q: Q, o: { today: string; names: Record<string, string>; cards?: number }): Promise<CadenceRow[]> {
   const today = o.today;
+  const cards = o.cards ?? (await monthlyCards(env));
   const since24 = addDays(today, -730);
   const firstSince = addDays(today, -FIRST_DAYS);
   const gifts = await q<{ cid: string; gifts: string }>(GIFTS_SQL, [today, since24]);
@@ -316,13 +363,15 @@ export async function loadCadence(env: Env, q: Q, o: { today: string; names: Rec
     return out;
   };
   const firstAmt = firsts.length ? await each<{ cid: string; amount: number }>(FIRST_AMOUNT_SQL, firsts.map((f) => String(f.cid))) : [];
-  const contactRows = await each<{ cid: string; cat: string; tx: number; d: string }>(CONTACTS_SQL, all, [addDays(today, -420)]);
+  const contactRows = await each<{ cid: string; cat: string; tx: number; sm: string; d: string }>(CONTACTS_SQL, all, [addDays(today, -420)]);
   const contacts: Record<string, Contacts> = {};
   for (const r of contactRows) {
     const k: StepKey | null = r.cat === 'Phone call' ? (num(r.tx) === 1 ? 'text' : 'call') : r.cat === 'Mailing' ? 'card' : r.cat === 'Email' ? 'email' : null;
     if (!k) continue;
     const c = contacts[String(r.cid)] || (contacts[String(r.cid)] = {});
     if (!c[k] || c[k]! < r.d) c[k] = r.d;
+    // A call that says it was a text (or a voicemail and a text) is also the text step on that date.
+    if (r.cat === 'Phone call' && k === 'call' && textWord(r.sm) && (!c.text || c.text < r.d)) c.text = r.d;
   }
   const hub = await hubContacts(env, all, addDays(today, -420));
   for (const [cid, h] of Object.entries(hub)) {
@@ -332,7 +381,7 @@ export async function loadCadence(env: Env, q: Q, o: { today: string; names: Rec
   const firstBy = new Map(firsts.map((f) => [String(f.cid), { date: String(f.d), n: num(f.n), amount: num(firstAmt.find((a) => String(a.cid) === String(f.cid))?.amount) }]));
   const cands: Candidate[] = [];
   for (const g of gifts) {
-    const c = candidate(String(g.cid), parseGifts(g.gifts), firstBy.get(String(g.cid)) || null, contacts[String(g.cid)] || {}, today);
+    const c = candidate(String(g.cid), parseGifts(g.gifts), firstBy.get(String(g.cid)) || null, contacts[String(g.cid)] || {}, today, cards);
     if (c) cands.push(c);
   }
   for (const f of firsts) {
@@ -389,13 +438,13 @@ export async function loadCadence(env: Env, q: Q, o: { today: string; names: Rec
       if (v && v.label) r.found = { label: v.label, code: v.appealCode, category: v.category, source: v.source, form: v.form };
     }
   }
-  rows.sort((a, b) => (a.over < b.over ? 1 : a.over > b.over ? -1 : a.name < b.name ? -1 : 1));
+  rows.sort((a, b) => (a.overMax < b.overMax ? 1 : a.overMax > b.overMax ? -1 : a.name < b.name ? -1 : 1));
   return rows;
 }
 
 /** The three print lists: Friday, Saturday, Sunday. The partners who have waited longest go first. Even thirds. */
-export function splitLists<T extends { over: number }>(rows: T[]): { friday: T[]; saturday: T[]; sunday: T[] } {
-  const sorted = rows.filter((r) => r.over >= 0).sort((a, b) => b.over - a.over);
+export function splitLists<T extends { over: number; overMax?: number }>(rows: T[]): { friday: T[]; saturday: T[]; sunday: T[] } {
+  const sorted = rows.filter((r) => r.over >= 0).sort((a, b) => (b.overMax ?? b.over) - (a.overMax ?? a.over));
   const n = Math.ceil(sorted.length / 3);
   return { friday: sorted.slice(0, n), saturday: sorted.slice(n, 2 * n), sunday: sorted.slice(2 * n) };
 }

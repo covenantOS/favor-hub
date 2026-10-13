@@ -65,20 +65,42 @@ describe('candidate and finish: each rule as the manual states it', () => {
   it('a first gift older than 30 days is no longer a first-time call', () => {
     assert.equal(cad.candidate('1', [], { date: '2026-08-01', amount: 50, n: 1 }, {}, TODAY), null);
   });
-  it('monthly under $1,000: a call and a card every three months', () => {
+  it('monthly under $1,000: any text, email or call every three months, a card twice a year', () => {
     const gifts = [g('2026-07-15'), g('2026-08-15'), g('2026-09-15')];
     const contacts = { call: '2026-06-01', card: '2026-09-20' };
     const c = cad.candidate('1', gifts, null, contacts, TODAY);
     assert.equal(c.rule, 'monthly');
     const row = cad.finish(c, person, full, contacts, ['600'], names, TODAY);
-    assert.deepEqual(row.steps.map((s) => s.k), ['call']);
+    assert.deepEqual(row.steps.map((s) => s.k), ['text', 'email', 'call']);
+    assert.ok(row.steps.every((s) => s.group === 'reach'));
+    assert.equal(row.steps[0].state, 'next');
     assert.equal(row.due, '2026-08-30');
     assert.equal(row.over, 41);
     assert.equal(row.pattern, '$40 a month since 2026');
     const both = cad.candidate('1', gifts, null, { call: '2026-06-01', card: '2026-06-01' }, TODAY);
     const row2 = cad.finish(both, person, full, { call: '2026-06-01', card: '2026-06-01' }, ['600'], names, TODAY);
-    assert.deepEqual(row2.steps.map((s) => s.k), ['call', 'card']);
+    assert.deepEqual(row2.steps.map((s) => s.k), ['text', 'email', 'call']);
     assert.equal(row2.steps[0].state, 'next');
+    // The card runs on the admin count: four a year makes a card due every 91 days, none turns it off.
+    const four = cad.candidate('1', gifts, null, { call: '2026-06-01', card: '2026-06-01' }, TODAY, 4);
+    assert.deepEqual(cad.finish(four, person, full, { call: '2026-06-01', card: '2026-06-01' }, ['600'], names, TODAY).steps.map((s) => s.k), ['text', 'email', 'call', 'card']);
+    const none = cad.candidate('1', gifts, null, { call: '2026-06-01' }, TODAY, 0);
+    assert.deepEqual(cad.finish(none, person, full, { call: '2026-06-01' }, ['600'], names, TODAY).steps.map((s) => s.k), ['text', 'email', 'call']);
+  });
+  it('a monthly partner reached by a text or an email inside three months needs no call; a card gap alone keeps the row', () => {
+    const gifts = [g('2026-07-15'), g('2026-08-15'), g('2026-09-15')];
+    for (const k of ['call', 'text', 'email']) assert.equal(cad.candidate('1', gifts, null, { [k]: '2026-09-01', card: '2026-09-01' }, TODAY), null, k);
+    const c = cad.candidate('1', gifts, null, { text: '2026-09-01', card: '2026-03-01' }, TODAY);
+    const row = cad.finish(c, person, full, { text: '2026-09-01', card: '2026-03-01' }, ['600'], names, TODAY);
+    assert.deepEqual(row.steps.map((s) => s.k), ['card']);
+    assert.equal(row.steps[0].late, 40);
+  });
+  it('one reach-out step done in FavorOS clears the other two', () => {
+    const gifts = [g('2026-07-15'), g('2026-08-15'), g('2026-09-15')];
+    const c = cad.candidate('1', gifts, null, { call: '2026-06-01', card: '2026-06-01' }, TODAY, 4);
+    const row = cad.finish(c, person, full, { call: '2026-06-01', card: '2026-06-01' }, ['600'], names, TODAY);
+    const after = csvc.overlay([row], [{ cid: '1', step: 'email', outcome: 'done' }])[0];
+    assert.deepEqual(after.steps.map((s) => s.k), ['card']);
   });
   it('a monthly partner at $1,000 or more is not on the list', () => {
     assert.equal(cad.candidate('1', [g('2026-07-15', 1000), g('2026-08-15', 1000), g('2026-09-15', 1000)], null, {}, TODAY), null);
@@ -188,7 +210,7 @@ function buildMirror() {
   mirror.exec(`
     CREATE TABLE constituents (id TEXT PRIMARY KEY, constituent_type TEXT, first_name TEXT, last_name TEXT, deceased INTEGER DEFAULT 0, inactive INTEGER DEFAULT 0, raw_json TEXT);
     CREATE TABLE gifts (id TEXT PRIMARY KEY, gift_amount REAL, gift_date TEXT, gift_type TEXT, gift_status TEXT, constituent_record_id TEXT);
-    CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due TEXT, action_completed_date TEXT, action_category TEXT, constituent_record_id TEXT, raw_json TEXT);
+    CREATE TABLE actions (id TEXT PRIMARY KEY, action_date_due TEXT, action_completed_date TEXT, action_category TEXT, constituent_record_id TEXT, raw_json TEXT, action_summary TEXT, action_description TEXT);
     CREATE TABLE action_tags (id TEXT PRIMARY KEY, texted INTEGER DEFAULT 0);
     CREATE TABLE assignments (id TEXT PRIMARY KEY, constituent_record_id TEXT, assignment_fundraiser_id TEXT, assignment_type TEXT, assignment_to_date TEXT);
     CREATE TABLE phones (id TEXT PRIMARY KEY, constituent_record_id TEXT, phone_number TEXT, is_primary INTEGER DEFAULT 1, do_not_call INTEGER DEFAULT 0, is_inactive INTEGER DEFAULT 0);
@@ -234,12 +256,12 @@ describe('loadCadence against the mirror', () => {
     assert.deepEqual(by['Fran First'].steps.map((s) => s.k), ['call']);
     assert.deepEqual(by['Fran First'].holders.sort(), ['600', '601']);
     assert.deepEqual(by['Noah NoPhone'].steps.map((s) => s.k), ['card']);
-    assert.deepEqual(by['Mo Monthly'].steps.map((s) => s.k), ['call']);
+    assert.deepEqual(by['Mo Monthly'].steps.map((s) => s.k), ['text', 'email', 'call']);
     assert.equal(by['Quinn Quarterly'].rule, 'quarterly');
     assert.equal(by['Sam Semi'].rule, 'semi');
     assert.equal(by['Ann Annual'].rule, 'annual');
     assert.equal(by['Dee DoNotCall'].steps.find((s) => s.k === 'call').off, 'Do not call');
-    for (let i = 1; i < rows.length; i++) assert.ok(rows[i - 1].over >= rows[i].over, 'longest wait first');
+    for (let i = 1; i < rows.length; i++) assert.ok(rows[i - 1].overMax >= rows[i].overMax, 'longest wait first');
   });
   it('a partner a director holds, a deceased partner, a $1,500 monthly partner and a lapsed one are not listed', async () => {
     const rows = await cad.loadCadence({ DB: null }, q, { today: TODAY, names });
@@ -326,7 +348,7 @@ describe('pressing a step', () => {
 
   it('lists the due partners and clears a row the moment its last step is saved', async () => {
     const first = await csvc.cadenceResponse(ctx, 'all');
-    assert.equal(first.rows.find((r) => r.name === 'Mo Monthly').steps.length, 1);
+    assert.equal(first.rows.find((r) => r.name === 'Mo Monthly').steps.length, 3);
     assert.equal(first.stats.first, 2);
     assert.equal(first.unreachable, 1);
     assert.ok(!first.rows.some((r) => r.name === 'Gus Unreachable'), 'a partner nobody can reach is left off the list');
@@ -374,7 +396,7 @@ describe('pressing a step', () => {
     assert.equal(tag.body.category, 'Texted');
   });
   it('refuses a step the rule does not list, a step that is switched off, a partner not due and a message left on a card', async () => {
-    await assert.rejects(csvc.stepCadence(ctx, { cid: '1', step: 'email', req: 'r4' }), /not a step/);
+    await assert.rejects(csvc.stepCadence(ctx, { cid: '5', step: 'email', req: 'r4' }), /not a step/);
     await assert.rejects(csvc.stepCadence(ctx, { cid: '10', step: 'call', req: 'r5' }), /Do not call/);
     await assert.rejects(csvc.stepCadence(ctx, { cid: '9', step: 'call', req: 'r6' }), /not due/);
     await assert.rejects(csvc.stepCadence(ctx, { cid: '6', step: 'card', outcome: 'left', req: 'r7' }), /call/);
@@ -413,5 +435,68 @@ describe('pressing a step', () => {
     assert.deepEqual([...new Set(mine.rows.flatMap((r) => r.holders))].sort(), ['600', '601']);
     assert.ok(mine.rows.every((r) => r.holders.includes('601')));
     assert.ok(mine.rows.length < (await csvc.cadenceResponse(pc, 'all')).rows.length);
+  });
+});
+
+describe('a partner contacted recently is not read as a year without contact', () => {
+  const annual = [g('2024-11-05', 40, false), g('2025-11-05', 40, false)];
+  const lastWhat = (rows, n) => rows.find((r) => r.name === n);
+  before(() => {
+    buildMirror();
+    const add = (id, name) => {
+      mirror.prepare('INSERT INTO constituents (id, constituent_type, first_name, last_name, raw_json) VALUES (?,?,?,?,?)').run(id, 'Individual', name.split(' ')[0], name.split(' ')[1], '{}');
+      mirror.prepare('INSERT INTO assignments VALUES (?,?,?,?,?)').run('pc' + id, id, '600', 'Partner Care', null);
+      mirror.prepare('INSERT INTO phones (id, constituent_record_id, phone_number) VALUES (?,?,?)').run('ph' + id, id, '(555) 010-0099');
+      mirror.prepare('INSERT INTO emails (id, constituent_record_id, email_address) VALUES (?,?,?)').run('em' + id, id, 'p' + id + '@example.org');
+      mirror.prepare('INSERT INTO addresses (id, constituent_record_id, address_lines) VALUES (?,?,?)').run('ad' + id, id, '1 Test Way');
+      gift('x' + id + 'a', id, 40, '2024-11-05'); gift('x' + id + 'b', id, 40, '2025-11-05');
+    };
+    add('21', 'Gail Rowe'); add('22', 'Jon Holt');
+    const said = (id, cid, d, cat, summary) => {
+      touch(id, cid, d, cat);
+      mirror.prepare('UPDATE actions SET action_summary = ? WHERE id = ?').run(summary, id);
+    };
+    said('g1', '21', '2026-06-17', 'Phone call', 'TY vmb and text June 2026'); said('g2', '21', '2026-06-17', 'Email', 'TY email June 2026');
+    said('j1', '22', '2026-06-22', 'Phone call', 'Called to say thank you'); said('j2', '22', '2026-05-21', 'Email', 'TY email May 2026');
+  });
+  it('a call whose summary says text or texted also counts as the text step', () => {
+    for (const t of ['TY vmb and text June 2026', 'texted him', 'Sent a txt', 'Text']) assert.ok(cad.textWord(t), t);
+    for (const t of ['context for the gift', 'textured card', 'Called to say thank you', '']) assert.ok(!cad.textWord(t), t);
+  });
+  it('Gail: call, text and email are current, only the card is late, and the row says so', async () => {
+    const row = lastWhat(await cad.loadCadence({ DB: null }, q, { today: TODAY, names }), 'Gail Rowe');
+    assert.deepEqual(row.steps.map((s) => s.k), ['card']);
+    assert.equal(row.steps[0].late, 339);
+    assert.equal(row.over, 339);
+    assert.equal(row.overStep, 'card');
+    assert.deepEqual(row.last, { date: '2026-06-17', what: 'Call, text and email' });
+  });
+  it('John: the text and the card are late by their own dates and the headline names the most recent one', async () => {
+    const row = lastWhat(await cad.loadCadence({ DB: null }, q, { today: TODAY, names }), 'Jon Holt');
+    const late = Object.fromEntries(row.steps.map((s) => [s.k, s.late]));
+    assert.deepEqual(Object.keys(late).sort(), ['card', 'text']);
+    assert.equal(late.card, 339);
+    assert.equal(late.text, 339);
+    assert.deepEqual(row.last, { date: '2026-06-22', what: 'Call' });
+  });
+  it('per step lateness: the headline is the most recent late step, the sort key the oldest', () => {
+    const contacts = { call: '2026-06-17', text: '2026-06-17', email: '2025-09-01' };
+    const c = cad.candidate('1', annual, null, contacts, TODAY);
+    const row = cad.finish(c, person, full, contacts, ['600'], names, TODAY);
+    const late = Object.fromEntries(row.steps.map((s) => [s.k, s.late]));
+    assert.deepEqual(late, { email: 39, card: 339 });
+    assert.equal(row.over, 39);
+    assert.equal(row.overStep, 'email');
+    assert.equal(row.overMax, 339);
+  });
+  it('the lists sort on the oldest late step, and a step saved in FavorOS recomputes the headline', () => {
+    const l = cad.splitLists([{ over: 5, overMax: 5, name: 'a' }, { over: 2, overMax: 300, name: 'b' }, { over: 9, overMax: 9, name: 'c' }]);
+    assert.deepEqual(l.friday.map((r) => r.name), ['b']);
+    const contacts = { call: '2026-06-17', text: '2026-06-17', email: '2025-09-01' };
+    const c = cad.candidate('1', annual, null, contacts, TODAY);
+    const row = cad.finish(c, person, full, contacts, ['600'], names, TODAY);
+    const after = csvc.overlay([row], [{ cid: '1', step: 'email', outcome: 'done' }])[0];
+    assert.equal(after.over, 339);
+    assert.equal(after.overStep, 'card');
   });
 });

@@ -11,6 +11,8 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 13, 2026
 
+- **Cadence counts each step on its own.** A partner called last month no longer reads as a year over because the card is late. The red headline names the most recent late step, other late steps are listed under it, and a call that says text in its summary counts as the text. See [Work Center](/help/work-center/).
+- **Monthly partners: reach out, fewer cards.** Cadence asks monthly partners for one text, email or call every three months (any one meets it) and a card twice a year. Admins can change the cards a year in settings.
 - **Drag and edit meetings on the calendar.** In Day and Week, drag a meeting you organize to a new time or day (15-minute steps), drag its bottom edge to change the length, or drag over empty space to start one. In Month, drag a meeting to another day. The meeting panel edits the title, date, times and agenda in place. See [Meetings](/help/meetings/).
 
 - **A cleaner bell, grouped by type.** The bell groups what waits on you into Requests, Approvals, Chat, Meetings, Mail, Tasks, Feedback, Receipts and Reminders. Each group has an icon and a count, shows three rows, and Show all opens the rest. Tap a row to open it and mark it read. Reminders carry Done and Later on the right of the row. The number on the bell counts unread rows (9+ past nine). Mark all read is at the top, and the gear opens Morning email, Request email, Chat email and Project notices. Meetings show 15 minutes before they start. Receipts show only for the person who made the print file.
