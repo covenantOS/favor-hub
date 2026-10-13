@@ -23,7 +23,7 @@ async function api(path, opts) {
 
 function html(c, o) {
   const t = c.tally;
-  const segs = Array.from({ length: t.target }, (_, i) => `<i class="${i < t.count ? 'on' : ''}"></i>`).join('');
+  const segs = Array.from({ length: t.target }, (_, i) => `<span class="${i < t.count ? 'on' : ''}"></span>`).join('');
   const kinds = t.byKind.map((k) => `${k.n} ${PLURAL[k.kind][k.n === 1 ? 0 : 1]}`).join(' · ');
   const shown = o.all ? c.touches : c.touches.slice(0, 8);
   const flag = c.noText
@@ -33,7 +33,7 @@ function html(c, o) {
   return `<div class="cm" data-cm="${esc(c.cid)}">
     <div class="cm-head"><div class="cm-count"><b>${t.count} of ${t.target}</b><span>thank-yous in ${esc(t.year)}</span></div>${flag}</div>
     <div class="cm-bar" role="img" aria-label="${t.count} of ${t.target} thank-yous">${segs}</div>
-    <div class="cm-sub">${esc(kinds || 'No thank-yous yet')}${kinds ? ' · ' : ''}${t.last12} in the last 12 months</div>
+    <div class="cm-sub">${esc([kinds, t.last12 + ' in the last 12 months'].filter(Boolean).join(' · '))}</div>
     <ul class="cm-list">${rows || '<li class="cm-empty">No contact in the last 12 months.</li>'}</ul>
     ${c.touches.length > 8 && !o.all ? `<button type="button" class="cm-more" data-cm-more>Show ${c.touches.length - 8} older</button>` : ''}
     <div class="cm-foot">Not listed: monthly appeal mailings and GoHighLevel emails</div></div>`;
