@@ -254,7 +254,7 @@
     if (window.hubOv && window.hubOv.depth()) window.hubOv.unwind(() => go(href, true));
     else go(href, true);
   });
-  window.addEventListener('popstate', () => { if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap && !HEAVY.has(pathOf(location.href))) go(location.href, false); else location.reload(); });
+  window.addEventListener('popstate', () => { if (window.__hubPopOwn && window.__hubPopOwn()) return; if (window.__hubOvHandled) { window.__hubOvHandled = false; return; } if (here() && viaSwap && !HEAVY.has(pathOf(location.href))) go(location.href, false); else location.reload(); });
   // Soon after a page is up, the phone bar's pages and this area's other tabs are read ahead (page and scripts), bar first,
   // so a tap finds them here. Skipped when the person asked their phone to save data.
   function warmArea() {

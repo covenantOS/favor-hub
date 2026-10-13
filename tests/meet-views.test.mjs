@@ -143,3 +143,15 @@ test('the calendar window: explicit dates are capped at 130 days, span=month kee
   assert.equal(calWindow(new URLSearchParams()), undefined);
   assert.ok(calWindow(new URLSearchParams({ span: 'month' })).to - calWindow(new URLSearchParams({ span: 'month' })).from > 70 * D);
 });
+
+// Opening or closing the meeting panel must not reload the page or draw the grid again (2026-10-13 flicker fix).
+test('the shell leaves the Meetings page its own history moves', () => {
+  const swap = readFileSync(new URL('../public/js/hub-swap.js', import.meta.url), 'utf8');
+  const day = readFileSync(new URL('../public/js/meet/day.js', import.meta.url), 'utf8');
+  assert.match(swap, /__hubPopOwn && window\.__hubPopOwn\(\)\) return/);
+  assert.match(day, /window\.__hubPopOwn = function/);
+  const open = day.slice(day.indexOf('function openEv'), day.indexOf('function closePanel'));
+  assert.ok(!/\bdraw\(\)/.test(open), 'openEv must not draw the grid');
+  const close = day.slice(day.indexOf('function closePanel'), day.indexOf('function onPop'));
+  assert.ok(!/\bdraw\(\)/.test(close), 'closePanel must not draw the grid');
+});

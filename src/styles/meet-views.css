@@ -80,9 +80,9 @@
 /* the meeting panel: a side sheet on a desktop, a full sheet on a phone */
 .mp { position: fixed; inset: 0; z-index: 1950; pointer-events: none; }
 .mp.is-open { pointer-events: auto; }
-.mp-scrim { position: absolute; inset: 0; background: rgba(29, 33, 27, .34); animation: mp-fade .16s ease-out; }
-.mp-sheet { position: absolute; top: 0; right: 0; bottom: 0; width: min(460px, 100%); display: flex; flex-direction: column; background: #fff; box-shadow: -12px 0 40px rgba(29, 33, 27, .2); animation: mp-in .2s var(--r-ease, ease); }
-@keyframes mp-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.mp-scrim { position: absolute; inset: 0; background: rgba(29, 33, 27, .34); animation: mp-fade .1s ease-out; }
+.mp-sheet { position: absolute; top: 0; right: 0; bottom: 0; width: min(460px, 100%); display: flex; flex-direction: column; background: #fff; box-shadow: -12px 0 40px rgba(29, 33, 27, .2); animation: mp-in .12s var(--r-ease, ease); }
+@keyframes mp-in { from { transform: translateX(14px); opacity: .4; } to { transform: none; opacity: 1; } }
 @keyframes mp-fade { from { opacity: 0; } }
 .mp-h { display: flex; align-items: flex-start; gap: 12px; padding: 18px 20px 14px; border-bottom: 1px solid var(--r-line); flex: none; }
 .mp-h > .dv-pv { margin-top: 2px; }

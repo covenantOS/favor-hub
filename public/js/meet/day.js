@@ -107,6 +107,20 @@
     flush();
   }
 
+  // The calendar windows already loaded survive a page change (a link out and Back, a reload), so the Google, Zoom, Meet and Teams
+  // events are on screen in the first paint and only replaced by a newer successful load.
+  var CAL_KEY = 'meet.cal.v1';
+  function saveCal() { try { var j = JSON.stringify({ at: Date.now(), calMap: state.calMap, covered: state.covered, calInfo: state.calInfo }); if (j.length < 2500000) sessionStorage.setItem(CAL_KEY, j); } catch (e) { /* storage full or off */ } }
+  function hydrate() {
+    try {
+      var c = JSON.parse(sessionStorage.getItem(CAL_KEY) || 'null'), h = JSON.parse(sessionStorage.getItem(KEY) || 'null');
+      if (c && c.calInfo && c.calInfo.connected && Date.now() - c.at < 6 * 3600000) { state.calMap = c.calMap || {}; state.covered = c.covered || []; state.calInfo = c.calInfo; }
+      if (h && h.up) {
+        state.people = {}; (h.people || []).forEach(function (q) { state.people[String(q.email).toLowerCase()] = q.name; });
+        state.data = h; rebuildCal(); state.now = new Date();
+      }
+    } catch (e) { /* unreadable copy: start empty */ }
+  }
   function readCache() { try { var c = JSON.parse(sessionStorage.getItem(KEY) || 'null'); return c && Date.now() - c.at < TTL ? c : null; } catch (e) { return null; } }
   function api(path, opts) {
     opts = opts || {};
@@ -136,7 +150,7 @@
         (r.meetings || []).forEach(function (m) { state.calMap[m.eventId] = m; });
         state.covered.push({ from: r.from, to: r.to, at: Date.now() });
       }
-      rebuildCal(); if (state.data && calSig() !== was) draw();
+      saveCal(); rebuildCal(); if (state.data && calSig() !== was) draw();
     }).catch(function () { if (stopped) return; var was2 = calSig(); state.calInfo = Object.assign({}, state.calInfo || { connected: true }, { error: 'Google Calendar did not answer.' }); rebuildCal(); if (state.data && calSig() !== was2) draw(); });
   }
   // The days on screen, plus a week either side, must sit inside a loaded window. Otherwise that stretch is fetched.
@@ -331,9 +345,39 @@
     return '<section class="dv-card mo" aria-label="Month"><div class="dv-tl__head"><h2>Month</h2><div class="dv-legend">' + legend(all) + '</div></div>' + head + '<div class="mo-grid">' + body + '</div>' + below + '</section>';
   }
 
+  // Keyed patch: nodes that did not change stay as they are, so events, icons and scroll positions never leave the screen.
+  var keyOf = function (n) { if (n.nodeType !== 1) return ''; return n.getAttribute('data-ev') ? 'e:' + n.getAttribute('data-ev') : n.getAttribute('data-note') ? 'n:' + n.getAttribute('data-note') : n.hasAttribute('data-day') ? 'd:' + n.getAttribute('data-day') : ''; };
+  function patchEl(a, b) {
+    var i, at;
+    for (i = a.attributes.length - 1; i >= 0; i--) { at = a.attributes[i]; if (!b.hasAttribute(at.name)) a.removeAttribute(at.name); }
+    for (i = 0; i < b.attributes.length; i++) { at = b.attributes[i]; if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value); }
+    patchKids(a, b);
+  }
+  function patchKids(a, b) {
+    var oldK = {}, oldU = [], i, n;
+    for (n = a.firstChild; n; n = n.nextSibling) { var k0 = keyOf(n); if (k0) oldK[k0] = n; else oldU.push(n); }
+    var nb = Array.prototype.slice.call(b.childNodes), used = [];
+    for (i = 0; i < nb.length; i++) {
+      var nw = nb[i], k = keyOf(nw), cur = null;
+      if (k) { cur = oldK[k] || null; if (cur) delete oldK[k]; }
+      else { while (oldU.length && !cur) { var c0 = oldU.shift(); if (c0.nodeType === nw.nodeType && c0.nodeName === nw.nodeName) cur = c0; } }
+      if (cur && cur.nodeName === nw.nodeName) {
+        if (cur.nodeType === 1) patchEl(cur, nw); else if (cur.nodeValue !== nw.nodeValue) cur.nodeValue = nw.nodeValue;
+      } else cur = nw;
+      used.push(cur);
+      if (a.childNodes[i] !== cur) a.insertBefore(cur, a.childNodes[i] || null);
+    }
+    while (a.childNodes.length > used.length) a.removeChild(a.lastChild);
+  }
+  var shownView = '';
+  function paint(html, view) {
+    var t = document.createElement('template'); t.innerHTML = html;
+    if (!root.firstElementChild || shownView !== view) root.innerHTML = html; else patchKids(root, t.content);
+    shownView = view;
+  }
+
   function draw() {
     var keep = root.querySelector('.dv-tl__scroll'); if (keep && !resetScroll) scrollTop = keep.scrollTop;
-    resetScroll = false;
     var nl = root.querySelector('.dv-notes__list'), nTop = nl && state.noteView === state.view ? nl.scrollTop : 0;
     var d = state.data, now = state.now, today = dayKey(now), all = derived().all, view = state.view;
     var byDay = memo.by;
@@ -394,12 +438,14 @@
         notesAside + '</div>';
     }
     var showToday = !(inView.indexOf(today) >= 0);
-    root.innerHTML = '<div class="dv dv--' + view + '">' +
+    var html = '<div class="dv dv--' + view + '">' +
       '<div class="dv-bar"><div class="dv-date"><h2>' + esc(MV.title(view, state.day)) + '</h2><p>' + sub + '</p></div>' +
       '<div class="dv-nav"><button type="button" class="dv-ib" data-step="-1" aria-label="Previous ' + unit + '">' + ic('left') + '</button><button type="button" class="dv-ib" data-step="1" aria-label="Next ' + unit + '">' + ic('right') + '</button>' + (showToday ? '<button type="button" class="dv-btn dv-btn--line" data-today="1">Today</button>' : '') + '</div>' + seg +
       '<div class="dv-grow"></div>' + (view === 'day' ? '<div class="dv-days" role="tablist" aria-label="Day">' + strip + '</div>' : '') + '</div>' +
       (needConnect ? '<div class="dv-conn"><span>Google Calendar meetings are not connected.</span><a class="dv-btn dv-btn--primary" href="/api/google/connect?next=' + encodeURIComponent('/meet/') + '">Connect my Google</a></div>' : '') +
       (cal && cal.error ? '<div class="dv-conn"><span>' + esc(cal.error) + '</span></div>' : '') + main + '</div>';
+    paint(html, view);
+    resetScroll = false;
     var sc = view === 'month' ? null : root.querySelector('.dv-tl__scroll');
     if (sc) {
       var inRange = inView.indexOf(today) >= 0;
@@ -466,24 +512,38 @@
     else toast(text);
   }
 
+  // The chosen event is marked in place. The grid is not drawn again.
+  function syncSel() {
+    var on = root.querySelectorAll('[data-ev]');
+    for (var i = 0; i < on.length; i++) {
+      var is = on[i].getAttribute('data-ev') === state.open;
+      if (on[i].classList.contains('is-sel') !== is) on[i].classList.toggle('is-sel', is);
+      if (on[i].hasAttribute('aria-pressed') && on[i].getAttribute('aria-pressed') !== String(is)) on[i].setAttribute('aria-pressed', String(is));
+    }
+  }
   function openEv(id) {
     state.open = id; state.panel = 'detail'; state.confirm = null; state.move = null; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; state.moveBusy = false; focusOnce = true;
     var u = '/meet/?m=' + encodeURIComponent(urlId(id));
     try { history.pushState({ mp: 1 }, '', u); } catch (e) { /* sandboxed frame */ }
-    draw(); wantInfo(id);
+    syncSel(); renderPanel(); wantInfo(id);
   }
   function closePanel(fromPop) {
     if (!state.open) return;
     state.open = ''; state.panel = 'detail'; state.move = null;
     if (!fromPop && history.state && history.state.mp) history.back();
     else if (!fromPop && /[?&]m=/.test(location.search)) { try { history.replaceState(null, '', '/meet/'); } catch (e) { /* ignore */ } }
-    renderPanel(); draw();
+    renderPanel(); syncSel();
   }
   function onPop() {
     var m = new URLSearchParams(location.search).get('m') || '';
     if (!m) { if (state.open) closePanel(true); return; }
     var id = fromUrlId(m);
-    if (id !== state.open) { state.open = id; state.panel = 'detail'; focusOnce = true; ensureLoaded(id); draw(); }
+    if (id !== state.open) {
+      state.open = id; state.panel = 'detail'; focusOnce = true;
+      var pe = findEv(id);
+      if (pe && state.view === 'day' && dayKey(pe.start) !== state.day) { state.day = dayKey(pe.start); resetScroll = true; draw(); } else { syncSel(); renderPanel(); }
+      ensureLoaded(id);
+    }
   }
   // A shared link can name a meeting that is not on the lists (an older Favor room). Ask for that one.
   function ensureLoaded(id) {
@@ -611,7 +671,9 @@
     else if (!e) inner = '<header class="mp-h"><div class="mp-h__t"><h3>Meeting</h3></div>' + closeBtn() + '</header><div class="mp-b"><p class="dv-none">' + (state.missing === state.open || state.open.indexOf('c:') === 0 ? 'That meeting is not on your list.' : 'Loading') + '</p></div>';
     else inner = state.panel === 'move' && e.cal ? movePanel(e) : detailPanel(e);
     var old = layer.querySelector('.mp-b'), keep = old ? old.scrollTop : 0, was = layer.classList.contains('is-open');
-    layer.innerHTML = '<div class="mp-scrim" data-mp="close"></div><aside class="mp-sheet" role="dialog" aria-modal="true" aria-label="' + esc(e ? e.title : 'Meeting') + '">' + inner + '</aside>';
+    var sheet = was ? layer.querySelector('.mp-sheet') : null;
+    if (sheet) { sheet.setAttribute('aria-label', e ? e.title : 'Meeting'); sheet.innerHTML = inner; }
+    else layer.innerHTML = '<div class="mp-scrim" data-mp="close"></div><aside class="mp-sheet" role="dialog" aria-modal="true" aria-label="' + esc(e ? e.title : 'Meeting') + '">' + inner + '</aside>';
     layer.classList.add('is-open'); document.documentElement.classList.add('mp-lock');
     var nb = layer.querySelector('.mp-b'); if (nb && was) nb.scrollTop = keep;
     if (focusOnce) { focusOnce = false; var f = layer.querySelector('.mp-first') || layer.querySelector('.mp-x'); if (f) f.focus({ preventScroll: true }); }
@@ -666,6 +728,8 @@
   function onKey(ev) { if (ev.key === 'Escape' && state.open) { ev.preventDefault(); if (state.panel === 'move') { state.panel = 'detail'; renderPanel(); } else closePanel(); } }
   document.addEventListener('keydown', onKey);
   window.addEventListener('popstate', onPop);
+  // The shell reloads the page on a popstate it does not know. Opening and closing the panel is this page's own history.
+  window.__hubPopOwn = function () { return !stopped && location.pathname.replace(/\/?$/, '/') === '/meet/'; };
   window.addEventListener('resize', (function () { var was = mobile(); return function () { var now = mobile(); if (now !== was) { was = now; if (state.data && !stopped) draw(); } }; })());
 
   function titleOf(id) {
@@ -736,13 +800,15 @@
   window.__mtDay = { root: root, stop: function () {
     stopped = true; timers.forEach(clearInterval); clearTimeout(tt);
     root.removeEventListener('click', onClick);
-    document.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop);
+    document.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop); window.__hubPopOwn = null;
     if (layer.parentNode) layer.parentNode.removeChild(layer); document.documentElement.classList.remove('mp-lock');
     if (nowBtn) nowBtn.removeEventListener('click', startNow);
   } };
   // A page drawn from the 20 second cache checks who is in each room right away.
   var m0 = new URLSearchParams(location.search).get('m');
   if (m0) { state.open = fromUrlId(m0); focusOnce = true; }
+  hydrate();
+  if (state.data) { draw(); root.removeAttribute('aria-busy'); }
   load().then(function () {
     if (state.data && state.open) { var e0 = findEv(state.open); if (e0) { state.day = dayKey(e0.start); draw(); wantInfo(state.open); } else ensureLoaded(state.open); }
     if (state.data && Date.now() - (state.data.at || 0) > 3000) refreshLive();
