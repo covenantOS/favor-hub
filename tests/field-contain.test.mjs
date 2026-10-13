@@ -228,8 +228,8 @@ describe('Meetings show field staff only the meetings they host or are invited t
     const list = await call(w, 'GET', '/api/meet/meetings', { cookie: kofi });
     assert.equal(list.status, 200, JSON.stringify(list.data));
     assert.deepEqual(list.data.meetings.map((m) => m.id), [invited]);
-    assert.equal((await call(w, 'GET', `/api/meet/meetings/${open}`, { cookie: kofi })).status, 404);
-    assert.equal((await call(w, 'GET', `/api/meet/meetings/${other}`, { cookie: kofi })).status, 404);
+    assert.equal((await call(w, 'GET', `/api/meet/meetings/${open}`, { cookie: kofi })).status, 403);
+    assert.equal((await call(w, 'GET', `/api/meet/meetings/${other}`, { cookie: kofi })).status, 403);
     assert.equal((await call(w, 'GET', `/api/meet/meetings/${invited}`, { cookie: kofi })).status, 200);
     // Staff still see the open one (Meetings open to staff).
     w.db.prepare("INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('meet.release', 'staff', 't', 'x')").run();

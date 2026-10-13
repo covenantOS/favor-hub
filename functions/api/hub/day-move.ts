@@ -5,6 +5,7 @@ import { providerOf, PROVIDER_LABEL } from '../../_lib/meetprovider';
 import { sendMoveInvites, sourceLabel } from '../../_lib/moveinvite';
 import { ensureGuestUrl } from '../../_lib/meetroute';
 import { getMeeting, guestsOn } from '../../_lib/meet';
+import { withMeetSettings } from '../../_lib/admin/settings';
 
 // Move to FavorOS, from Today. An outside meeting on the person's calendar (Zoom, Google Meet, Teams, a phone call or no link at all)
 // becomes a FavorOS meeting at the same time with the same people. The calendar event is left as it is, except when the person
@@ -83,7 +84,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
     let emailed = 0;
     let emailFailed = 0;
-    if (b.emailInvitees === true && invitees.length) {
+    // Until Meetings is released to staff, only admins can open a room. Say so instead of emailing a link that answers not found.
+    const released = String((await withMeetSettings(env as any)).MEET_RELEASE || 'admin').toLowerCase() === 'staff';
+    if (b.emailInvitees === true && invitees.length && released) {
       const origin = new URL(request.url).origin;
       const nice = (i: { email: string; name: string }) => i.name || i.email.split('@')[0].replace(/[._]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       const r = await sendMoveInvites(env, {
@@ -101,7 +104,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       emailed = r.sent.length;
       emailFailed = r.failed.length + r.skipped.length;
     }
-    return json({ ok: true, id, room: `/meet/room/?m=${id}`, linked, linkError, emailed, emailFailed });
+    return json({ ok: true, released, id, room: `/meet/room/?m=${id}`, linked, linkError, emailed, emailFailed });
   } catch (err) {
     return handleError(err);
   }

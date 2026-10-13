@@ -38,7 +38,7 @@ beforeEach(async () => {
   d1 = memoryD1();
   d1.exec(readFileSync(new URL('../db/google.sql', import.meta.url), 'utf8'));
   d1.exec(readFileSync(new URL('../db/meetings.sql', import.meta.url), 'utf8'));
-  env = { DB: d1, GOOGLE_TOKEN_KEY: KEY, GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
+  env = { DB: d1, GOOGLE_TOKEN_KEY: KEY, MEET_RELEASE: 'staff', GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
   const scopes = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/drive.metadata.readonly';
   await d1.prepare('INSERT INTO hub_google (email, refresh_enc, scopes, connected_at, last_used) VALUES (?, ?, ?, ?, ?)').bind('ada@favorintl.org', await google.seal(env, 'refresh'), scopes, 'x', 'x').run();
   calls = [];
@@ -99,31 +99,33 @@ const post = (body) => move.onRequestPost({ request: asUser('/api/hub/day-move',
 const patches = () => calls.filter((c) => c.method === 'PATCH');
 
 describe('Move to FavorOS', () => {
-  it('makes the meeting with the same people and leaves the calendar event alone', async () => {
+  it('makes the meeting with the same people and puts the FavorOS link on the organizer event', async () => {
     const res = await post({ eventId: 'ev1' });
     const d = await res.json();
     assert.equal(res.status, 200);
-    assert.equal(d.linked, false);
-    assert.equal(patches().length, 0);
+    assert.equal(d.linked, true);
+    assert.equal(patches().length, 1);
     const row = d1.db.prepare('SELECT * FROM hub_meetings WHERE id = ?').get(d.id);
     assert.equal(row.title, 'Partner call');
     assert.equal(row.host_email, 'ada@favorintl.org');
     assert.equal(row.rec_mode, 'off');
     assert.equal(row.remind, 0);
-    assert.equal(row.calendar_event_id, 'ext:ev1');
+    assert.equal(row.calendar_event_id, 'ev1');
+    assert.equal(row.access, 'guests');
     assert.deepEqual(JSON.parse(row.invitees).map((i) => i.email), ['bo@example.org', 'cy@favorintl.org']);
     assert.equal(Date.parse(row.starts_at), Date.parse(events[0].start.dateTime));
   });
 
-  it('adds one line to the notes only when the person confirmed it, and sends no email', async () => {
+  it('puts the link in the location and at the top of the notes, and sends no email', async () => {
     const d = await (await post({ eventId: 'ev1', writeLink: true })).json();
     assert.equal(d.linked, true);
     assert.equal(patches().length, 1);
     const p = patches()[0];
     assert.match(p.url, /sendUpdates=none/);
     const body = JSON.parse(p.body);
-    assert.deepEqual(Object.keys(body), ['description']);
-    assert.ok(body.description.startsWith('Agenda here\n\nJoin in FavorOS: https://dash.test/meet/room/?m=' + d.id));
+    assert.deepEqual(Object.keys(body), ['location', 'description']);
+    assert.ok(body.description.startsWith('Join in FavorOS: https://dash.test/meet/room/?m=' + d.id));
+    assert.ok(body.description.endsWith('Agenda here'));
     assert.equal(d1.db.prepare('SELECT calendar_event_id AS c FROM hub_meetings WHERE id = ?').get(d.id).c, 'ev1');
   });
 
@@ -216,5 +218,15 @@ describe('the Today route', () => {
     assert.equal(list.find((e) => e.id === 'ev1').hub, 'm1');
     assert.ok(list.some((e) => e.hub === 'm2' && e.provider === 'favor' && e.source === 'Favor Meetings'));
     assert.equal(d.google.mayWrite, true);
+  });
+});
+
+describe('Move to FavorOS before Meetings is released', () => {
+  it('sends no email and says so', async () => {
+    env.MEET_RELEASE = 'admin';
+    const d = await (await post({ eventId: 'ev1', emailInvitees: true })).json();
+    env.MEET_RELEASE = 'staff';
+    assert.equal(d.released, false);
+    assert.equal(d.emailed, 0);
   });
 });

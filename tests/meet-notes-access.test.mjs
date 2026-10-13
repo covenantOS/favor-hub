@@ -119,8 +119,8 @@ describe('the notes page', () => {
 
   it('gives a leader the notes and nothing else about the room', async () => {
     const env = await world();
-    assert.equal((await call(env, 'lead@favorintl.org', ['meetings', id(1)])).status, 404, 'the meeting itself');
-    assert.equal((await call(env, 'lead@favorintl.org', ['meetings', id(1), 'join'], { method: 'POST' })).status, 404, 'joining it');
+    assert.equal((await call(env, 'lead@favorintl.org', ['meetings', id(1)])).status, 403, 'the meeting itself');
+    assert.equal((await call(env, 'lead@favorintl.org', ['meetings', id(1), 'join'], { method: 'POST' })).status, 403, 'joining it');
     assert.equal((await call(env, 'lead@favorintl.org', ['meetings', id(1), 'action'], { method: 'POST' })).status, 404, 'ticking an action');
   });
 });

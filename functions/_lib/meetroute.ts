@@ -138,7 +138,7 @@ async function fieldMeetingBody(env: MeetEnv, b: Record<string, unknown>): Promi
 /** A meeting opened early and then left still has its booked time ahead; it stays joinable and listed until that time is over. */
 const aheadOf = (m: { ends_at?: string | null; starts_at?: string | null }): boolean => {
   const end = m.ends_at || m.starts_at;
-  return !!end && Date.now() < Date.parse(end);
+  return !!end && Date.now() < Date.parse(end) + 30 * 60_000;
 };
 
 export async function endMeeting(env: MeetEnv, id: string) {
@@ -1205,7 +1205,7 @@ async function guestInfo(env: MeetEnv, id: string, key: string) {
   if (!guestsOn(env)) throw new HttpError(404, 'not_found', 'Not found.');
   const m = await getMeeting(env, id);
   if (m.access !== 'guests' || !sameKey(await keyOf(env, id), key) || m.status === 'cancelled') throw new HttpError(404, 'not_found', 'That link does not work. Ask the host for a new one.');
-  return { ok: true, title: m.title, host: m.host_name, rec: m.rec_mode, status: m.status, startsAt: m.starts_at, locked: !!m.locked };
+  return { ok: true, title: m.title, host: m.host_name, rec: m.rec_mode, status: m.status, startsAt: m.starts_at, locked: !!m.locked, reopen: m.status === 'ended' && aheadOf(m) };
 }
 
 /** The host asks for the link guests use. It also turns guest access on for the meeting. */
@@ -1257,6 +1257,8 @@ async function joinGuest(env: MeetEnv, id: string, b: Record<string, unknown>, i
   // A guest waits until a host lets them in, and cannot share a screen unless the host allows it.
   await env.DB.prepare(`INSERT INTO hub_meeting_presence (meeting_id, pid, email, name, role, session_id, tracks, mic, cam, can_share, waiting, joined_at, seen) VALUES (?, ?, ?, ?, 'guest', ?, '[]', ?, ?, 0, 1, ?, ?)`)
     .bind(id, pid, email, name, session.sessionId, b.mic === false ? 0 : 1, b.cam === false ? 0 : 1, now, now).run();
+  // A room that closed by itself inside its booked time (plus 30 minutes) opens again for a guest, as it does for staff.
+  if (m.status !== 'live') await env.DB.prepare(`UPDATE hub_meetings SET status = 'live', started_at = COALESCE(started_at, ?), ended_at = NULL WHERE id = ?`).bind(nowIso(), id).run();
   await addEvent(env, id, 'notice', pid, '', { a: 'waiting', name });
   const last = await env.DB.prepare('SELECT COALESCE(MAX(seq), 0) AS s FROM hub_meeting_events WHERE meeting_id = ?').bind(id).first<{ s: number }>();
   return {

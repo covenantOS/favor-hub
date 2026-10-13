@@ -151,7 +151,7 @@ describe('the prep sheet', () => {
   it('is a 404 for someone not invited', async () => {
     const env = await world(fakeAI([]));
     meeting(env, 1, { invitees: ['bob@favorintl.org'], status: 'scheduled', starts: '2026-10-16T15:00:00.000Z', notes: 'none' });
-    assert.equal((await call(env, 'lee@favorintl.org', ['meetings', id(1), 'prep'])).status, 404);
+    assert.equal((await call(env, 'lee@favorintl.org', ['meetings', id(1), 'prep'])).status, 403);
   });
 });
 
