@@ -1622,7 +1622,7 @@ export const STEPS: Step[] = [
     press: '.wc-tab[data-view="cadence"]',
     at: '[data-wcd-comm]',
     title: 'Every contact with a partner',
-    body: 'Communication on a row lists every call, text, email, card, receipt and letter from the last 12 months, newest first, with where each came from. The count shows thank-yous this year against the target of seven. Mark no texts stops the text step for a partner who replied STOP.',
+    body: 'Communication on a row lists every call, text, email, card and printed receipt from the last 12 months, newest first, with where each came from. The count shows thank-yous this year against the target of seven. Mark no texts stops the text step for a partner who replied STOP.',
     for: (w) => w.admin || team('pc')(w),
     added: '2026-10-13',
     side: 'top',
