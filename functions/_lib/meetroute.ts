@@ -53,7 +53,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
     if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env) });
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
-    if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids), new URL(request.url).searchParams.get('span') === 'month')) });
+    if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids), calWindow(new URL(request.url).searchParams))) });
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') {
       // The same five-minute pass sends the Mail messages whose time has come.
@@ -298,6 +298,14 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
 }
 
 /** Which of these calendar event ids already belong to a Favor Meetings room. */
+/** The calendar window a page asked for: from and to as dates (at most 130 days wide), or the old span=month (35 days back, 45 ahead). */
+export function calWindow(q: URLSearchParams): { from: number; to: number } | undefined {
+  const day = 86400_000, f = Date.parse(q.get('from') || ''), t = Date.parse(q.get('to') || '');
+  if (!isNaN(f) && !isNaN(t) && t > f) return { from: Math.max(f, Date.now() - 400 * day), to: Math.min(t, f + 130 * day) };
+  if (q.get('span') === 'month') return { from: Date.now() - 35 * day, to: Date.now() + 45 * day };
+  return undefined;
+}
+
 async function hubEventIds(env: MeetEnv, ids: string[]): Promise<Set<string>> {
   const found = new Set<string>();
   for (let i = 0; i < ids.length; i += 50) {

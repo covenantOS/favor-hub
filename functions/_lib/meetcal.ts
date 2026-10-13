@@ -239,14 +239,26 @@ const READ_SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly',
 const canRead = (granted: string) => READ_SCOPES.some((s) => hasScopes(granted, [s]));
 
 /** Meetings with a video link on this person's calendar for the next two weeks, from every provider. Meetings already made in Favor Meetings are left out; they show from the hub's own list. */
-export async function calendarMeetings(env: MeetEnv, email: string, ours: (ids: string[]) => Promise<Set<string>>, wide = false): Promise<{ connected: boolean; canWrite: boolean; meetings: CalMeeting[]; error?: string }> {
+export async function calendarMeetings(env: MeetEnv, email: string, ours: (ids: string[]) => Promise<Set<string>>, win?: { from: number; to: number }): Promise<{ connected: boolean; canWrite: boolean; meetings: CalMeeting[]; error?: string; from: number; to: number }> {
+  const from = win ? win.from : Date.now();
+  const to = win ? win.to : Date.now() + 14 * 86400_000;
   const t = await accessToken(env, email).catch(() => null);
-  if (!t || !canRead(t.scopes)) return { connected: false, canWrite: false, meetings: [] };
+  if (!t || !canRead(t.scopes)) return { connected: false, canWrite: false, meetings: [], from, to };
   const canWrite = hasScopes(t.scopes, [CAL_EVENTS]);
-  const q = new URLSearchParams({ timeMin: new Date(Date.now() - (wide ? 40 : 0) * 86400_000).toISOString(), timeMax: new Date(Date.now() + (wide ? 62 : 14) * 86400_000).toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: wide ? '250' : '100', timeZone: TZ });
-  const r = await fetch(`${cal(env)}/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${t.token}` } });
-  if (!r.ok) return { connected: true, canWrite, meetings: [], error: 'Google Calendar did not answer.' };
-  const j = (await r.json().catch(() => ({}))) as { items?: CalEvent[] };
+  // A wide window can hold more than one page of events. Page until Google has no more (six pages at most), so later events are never cut off.
+  const raw: CalEvent[] = [];
+  let pageToken = '';
+  for (let page = 0; page < (win ? 6 : 1); page++) {
+    const q = new URLSearchParams({ timeMin: new Date(from).toISOString(), timeMax: new Date(to).toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: win ? '250' : '100', timeZone: TZ });
+    if (pageToken) q.set('pageToken', pageToken);
+    const r = await fetch(`${cal(env)}/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${t.token}` } });
+    if (!r.ok) return { connected: true, canWrite, meetings: [], error: 'Google Calendar did not answer.', from, to };
+    const j = (await r.json().catch(() => ({}))) as { items?: CalEvent[]; nextPageToken?: string };
+    raw.push(...(j.items || []));
+    pageToken = j.nextPageToken || '';
+    if (!pageToken) break;
+  }
+  const j = { items: raw };
   const items = (j.items || []).filter((e) => e.status !== 'cancelled');
   const mine = await ours([...new Set(items.flatMap((e) => [e.id, e.recurringEventId || e.id]))]);
   const out: CalMeeting[] = [];

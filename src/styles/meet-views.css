@@ -6,7 +6,8 @@
 .mv-seg button { height: 32px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--r-ink-2); font: 600 13px var(--h-font); cursor: pointer; }
 .mv-seg button:hover { color: var(--r-ink); }
 .mv-seg button.is-on { background: #fff; color: var(--r-ink); box-shadow: 0 1px 2px rgba(29, 33, 27, .14); }
-.dv-cols.dv-cols--one { grid-template-columns: minmax(0, 1fr); }
+.dv--week .dv-cols, .dv--month .dv-cols { grid-template-columns: minmax(0, 1fr) 300px; }
+.dv--month .dv-notes__in { max-height: 100%; }
 .dv--week .dv-tl, .dv--month .dv-tl { height: clamp(460px, calc(100dvh - 220px), 860px); }
 .dv--month .mo { height: auto; }
 .dv-btn--danger { background: #fff; border-color: var(--tc-clay-ink, #8a2f1b); color: var(--tc-clay-ink, #8a2f1b); }
@@ -123,6 +124,9 @@
 .mp-err { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; background: var(--tc-clay-tint, #f7dcd5); color: var(--tc-clay-ink, #8a2f1b); font: 600 14px/1.4 var(--h-font); }
 html.mp-lock, html.mp-lock body { overflow: hidden; }
 
+@media (max-width: 1180px) {
+  .dv--week .dv-cols, .dv--month .dv-cols { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 860px) {
   .mp-sheet { width: 100%; top: 0; animation: mp-up .22s var(--r-ease, ease); }
   @keyframes mp-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }

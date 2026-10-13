@@ -130,3 +130,16 @@ test('host actions use the existing meeting routes and the URL is shareable', ()
   assert.ok(day.includes("'ext:' + id.slice(2)"));
   assert.ok(day.includes("window.addEventListener('popstate', onPop)"));
 });
+
+test('the calendar window: explicit dates are capped at 130 days, span=month keeps the old reach, nothing asked keeps 14 days', async () => {
+  const { calWindow } = await import('../functions/_lib/meetroute.ts');
+  const D = 86400000;
+  const w = calWindow(new URLSearchParams({ from: '2026-10-01T04:00:00Z', to: '2027-06-01T04:00:00Z' }));
+  assert.equal(w.from, Date.parse('2026-10-01T04:00:00Z'));
+  assert.equal(w.to - w.from, 130 * D);
+  const n = calWindow(new URLSearchParams({ from: '2026-10-01T04:00:00Z', to: '2026-11-01T04:00:00Z' }));
+  assert.equal(n.to, Date.parse('2026-11-01T04:00:00Z'));
+  assert.equal(calWindow(new URLSearchParams({ from: 'x', to: 'y' })), undefined);
+  assert.equal(calWindow(new URLSearchParams()), undefined);
+  assert.ok(calWindow(new URLSearchParams({ span: 'month' })).to - calWindow(new URLSearchParams({ span: 'month' })).from > 70 * D);
+});

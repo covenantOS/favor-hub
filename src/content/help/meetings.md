@@ -38,7 +38,7 @@ A meeting set to record shows a Recording or Notes on badge to everyone. If the 
 
 ## Day, Week and Month
 
-The Meetings page opens on today. **Day**, **Week** and **Month** sit beside the date, the arrows move by a day, a week or a month, and FavorOS remembers the view you used last. A week starts on Sunday and a month shows its whole weeks. Times are Eastern. On a phone the week is a list by day and the month is a small grid with a dot for each meeting; tap a day to see its list, then **Open day** for the timeline.
+The Meetings page opens on today. **Day**, **Week** and **Month** sit beside the date, the arrows move by a day, a week or a month, and FavorOS remembers the view you used last. A week starts on Sunday and a month shows its whole weeks. Times are Eastern. On a phone the week is a list by day and the month is a small grid with a dot for each meeting; tap a day to see its list, then **Open day** for the timeline. The Notes column stays beside the calendar in every view and lists the notes for the days on screen; on a phone it sits below the calendar. Google Calendar meetings load by date range and stay on screen while a range loads or if Google is slow.
 
 Tap any meeting in any view to open its panel. It shows when and where the meeting runs, the organizer, everyone invited, the agenda, prep or notes, and the actions. For a FavorOS meeting the host can set recording, copy the guest link, **Edit** the time, people and agenda, or cancel. For a meeting held in Zoom, Google Meet or Teams the panel has **Join** on that service and **Move to FavorOS**, the same sheet as on Today. The address of an open panel can be copied and sent, and Back closes it.
 

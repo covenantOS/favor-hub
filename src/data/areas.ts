@@ -85,7 +85,7 @@ export const AREAS: NavArea[] = [
     key: 'm',
     barRank: 3,
     pages: [
-      { id: 'meet', label: 'Day', href: '/meet/', desc: 'Start and join meetings', keywords: 'meeting meetings join start room video call', need: 'meetings', count: 'meetingsNow', learn: 'meetings', swap: true },
+      { id: 'meet', label: 'Calendar', href: '/meet/', desc: 'Start and join meetings', keywords: 'meeting meetings join start room video call', need: 'meetings', count: 'meetingsNow', learn: 'meetings', swap: true },
       { id: 'meet-book', label: 'Book', href: '/meet/book/', desc: 'Book a meeting from everyone’s calendars', keywords: 'book meeting schedule calendar invite', need: 'meetings', learn: 'meetings', swap: true },
       { id: 'meet-notes', label: 'Notes', href: '/meet/library/', desc: 'Notes, action items and transcripts from meetings', keywords: 'meeting notes transcript action items recording', need: 'meetings', learn: 'meetings', swap: true },
       { id: 'clips', label: 'Clips', href: '/clips/', desc: 'Your recorded clips, searchable by what was said', keywords: 'clips clip loom screen record recording video walkthrough share link transcript', need: 'clips', learn: 'clips' },

@@ -6,11 +6,12 @@
   if (!root) return;
 
   var MV = window.MeetViews;
-  var PXH = 80, KEY = 'meet.day.v2', TTL = 20000, VIEW_KEY = 'meet.view.v1';
+  var PXH = 80, KEY = 'meet.day.v3', TTL = 20000, VIEW_KEY = 'meet.view.v1';
   var PROV = { favor: 'Favor', zoom: 'Zoom', meet: 'Google Meet', teams: 'Microsoft Teams', webex: 'Webex' };
   var savedView = (function () { try { var v = localStorage.getItem(VIEW_KEY); return v === 'week' || v === 'month' ? v : 'day'; } catch (e) { return 'day'; } })();
-  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveBusy: false, moveErr: '' };
-  var timers = [], stopped = false, nowBtn = null, tt = 0, scrollTop = null, pumping = false;
+  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveBusy: false, moveErr: '', rev: 0, calMap: {}, calInfo: null, covered: [], calBusy: false };
+  var memo = { k: '', all: null, by: null };
+  var timers = [], stopped = false, nowBtn = null, tt = 0, scrollTop = null, resetScroll = false, pumping = false;
 
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   function dayKey(d) { return MV.etKey(new Date(d).getTime()); }
@@ -74,9 +75,17 @@
     return out;
   }
 
+  // normalize and bucket run once per data change or clock tick, not on every switch of view.
+  function derived() {
+    var k = state.rev + ':' + state.now.getTime();
+    if (memo.k !== k) { memo.all = normalize(state.data); memo.by = MV.bucket(memo.all); memo.k = k; }
+    return memo;
+  }
+
   // Side by side lanes for events that overlap.
   function lanes(evs, noStack) {
     var cluster = [], end = 0;
+    evs.forEach(function (e) { e.stack = undefined; });
     // Draw every event at least 45 minutes tall so a short or empty meeting never sits on top of its neighbours.
     evs.forEach(function (e) { e.vend = e.capEnd ? Math.max(e.capEnd, e.start + 30 * 60000) : Math.max(e.end, e.start + 45 * 60000); });
     var flush = function () { var n = 0; cluster.forEach(function (e) { n = Math.max(n, e.lane + 1); }); cluster.forEach(function (e) { e.lanes = n; });
@@ -105,23 +114,72 @@
       return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.message || 'Something went wrong. Try again.'); e.code = j.error; throw e; } return j; });
     });
   }
+  // Google Calendar events are fetched by date window and kept by event id. A window that fails or is slow leaves what the page already has.
+  var DAY = 86400000;
+  function calWin(from, to) { return { from: MV.etStart(from), to: MV.etStart(addDays(to, 1)) }; }
+  function rebuildCal() {
+    if (!state.data) return;
+    var info = state.calInfo || {};
+    state.data.cal = info.connected === false ? { connected: false, canWrite: false, meetings: [] } : { connected: true, canWrite: !!info.canWrite, meetings: Object.keys(state.calMap).map(function (k) { return state.calMap[k]; }), error: info.error };
+    state.rev++;
+  }
+  function calSig() { return Object.keys(state.calMap).sort().map(function (k) { var m = state.calMap[k]; return m.eventId + m.startsAt + m.endsAt + m.title + (m.people || []).length; }).join('|') + JSON.stringify(state.calInfo); }
+  function fetchCal(from, to) {
+    var w = calWin(from, to), was = calSig();
+    return api('meetings/calendar?from=' + encodeURIComponent(new Date(w.from).toISOString()) + '&to=' + encodeURIComponent(new Date(w.to).toISOString())).then(function (r) {
+      if (stopped) return;
+      if (!r.connected) { state.calInfo = { connected: false }; state.calMap = {}; }
+      else if (r.error) state.calInfo = { connected: true, canWrite: r.canWrite, error: r.error };
+      else {
+        state.calInfo = { connected: true, canWrite: r.canWrite };
+        Object.keys(state.calMap).forEach(function (k) { var st = Date.parse(state.calMap[k].startsAt); if (st >= r.from && st < r.to) delete state.calMap[k]; });
+        (r.meetings || []).forEach(function (m) { state.calMap[m.eventId] = m; });
+        state.covered.push({ from: r.from, to: r.to, at: Date.now() });
+      }
+      rebuildCal(); if (state.data && calSig() !== was) draw();
+    }).catch(function () { if (stopped) return; var was2 = calSig(); state.calInfo = Object.assign({}, state.calInfo || { connected: true }, { error: 'Google Calendar did not answer.' }); rebuildCal(); if (state.data && calSig() !== was2) draw(); });
+  }
+  // The days on screen, plus a week either side, must sit inside a loaded window. Otherwise that stretch is fetched.
+  function ensureCal() {
+    if (!state.data || state.calBusy || (state.calInfo && state.calInfo.connected === false)) return Promise.resolve();
+    var ks = MV.range(state.view, state.day), lo = MV.etStart(addDays(ks[0], -7)), hi = MV.etStart(addDays(ks[ks.length - 1], 8));
+    var ok = state.covered.some(function (c) { return c.from <= lo && c.to >= hi; });
+    if (ok) return Promise.resolve();
+    state.calBusy = true;
+    return fetchCal(addDays(ks[0], -35), addDays(ks[ks.length - 1], 45)).then(function () { state.calBusy = false; }, function () { state.calBusy = false; });
+  }
   function load(fresh) {
     var c = fresh ? null : readCache();
-    var p = c ? Promise.resolve(c) : Promise.all([
-      api('meetings?scope=upcoming'), api('meetings?scope=recent'), api('meetings?scope=notes'),
-      api('meetings/calendar?span=month').catch(function () { return null; }), api('meetings/directory').catch(function () { return { people: [] }; })
+    var hub = c ? Promise.resolve(c) : Promise.all([
+      api('meetings?scope=upcoming'), api('meetings?scope=recent'), api('meetings?scope=notes'), api('meetings/directory').catch(function () { return { people: [] }; })
     ]).then(function (r) {
-      var v = { at: Date.now(), up: r[0].meetings, recent: r[1].meetings, notes: r[2].meetings, cal: r[3], people: r[4].people || [] };
+      var v = { at: Date.now(), up: r[0].meetings, recent: r[1].meetings, notes: r[2].meetings, people: r[3].people || [] };
       try { sessionStorage.setItem(KEY, JSON.stringify(v)); } catch (e) { /* storage full or off */ }
       return v;
     });
-    return p.then(function (v) {
+    var today = dayKey(new Date());
+    // The calendar goes in parallel and does not hold the page back. The window is every day on screen plus the weeks around today.
+    var ks = MV.range(state.view, state.day);
+    var calP = !fresh || !state.covered.length ? fetchCal(addDays(today < ks[0] ? today : ks[0], -35), addDays(today > ks[ks.length - 1] ? today : ks[ks.length - 1], 45)) : refetchCal();
+    var shown = hub.then(function (v) {
       if (stopped) return;
       state.people = {}; (v.people || []).forEach(function (q) { state.people[String(q.email).toLowerCase()] = q.name; });
-      state.data = v; state.now = new Date(); draw(); root.removeAttribute('aria-busy');
+      var changed = !state.data || sig(state.data) !== sig(v);
+      state.data = v; rebuildCal(); state.now = new Date();
+      if (changed) draw();
+      root.removeAttribute('aria-busy');
       pump();
-    }).catch(function (e) { if (stopped) return; root.innerHTML = '<div class="dv-card dv-err">' + esc(e.message) + '</div>'; root.removeAttribute('aria-busy'); });
+    }).catch(function (e) { if (stopped) return; if (!state.data) { root.innerHTML = '<div class="dv-card dv-err">' + esc(e.message) + '</div>'; } root.removeAttribute('aria-busy'); });
+    return Promise.all([shown, calP]);
   }
+  // A refresh re-reads the windows already loaded, oldest data first, one call.
+  function refetchCal() {
+    var w = state.covered.length ? state.covered[state.covered.length - 1] : null;
+    if (!w) return Promise.resolve();
+    var nw = state.covered.slice(); state.covered = [];
+    return fetchCal(MV.etKey(Math.min.apply(null, nw.map(function (c) { return c.from; })) + 3600000), MV.etKey(Math.max.apply(null, nw.map(function (c) { return c.to; })) - 3600000));
+  }
+  function sig(v) { return JSON.stringify([v.up, v.recent, v.notes, (v.people || []).length]); }
   // Finished meetings need work (recording to Drive, transcript, notes). This drives whichever is next.
   function pump() {
     if (pumping) return; pumping = true;
@@ -274,9 +332,11 @@
   }
 
   function draw() {
-    var keep = root.querySelector('.dv-tl__scroll'); if (keep) scrollTop = keep.scrollTop;
-    var d = state.data, now = state.now, today = dayKey(now), all = normalize(d), view = state.view;
-    var byDay = MV.bucket(all);
+    var keep = root.querySelector('.dv-tl__scroll'); if (keep && !resetScroll) scrollTop = keep.scrollTop;
+    resetScroll = false;
+    var nl = root.querySelector('.dv-notes__list'), nTop = nl && state.noteView === state.view ? nl.scrollTop : 0;
+    var d = state.data, now = state.now, today = dayKey(now), all = derived().all, view = state.view;
+    var byDay = memo.by;
     var evs = byDay[state.day] || [];
     // The seven day strip starts today and moves only when the chosen day leaves it.
     if (!state.winStart) state.winStart = today;
@@ -296,12 +356,19 @@
     }
     var seg = '<div class="mv-seg" role="tablist" aria-label="View">' + ['day', 'week', 'month'].map(function (v) { return '<button type="button" role="tab" aria-selected="' + (v === view) + '" class="' + (v === view ? 'is-on' : '') + '" data-view="' + v + '">' + v.charAt(0).toUpperCase() + v.slice(1) + '</button>'; }).join('') + '</div>';
 
+    var notesAll = d.notes || [], notes = notesAll;
+    if (view !== 'day') {
+      var rk = {}; inView.forEach(function (k) { if (view !== 'month' || k.slice(0, 7) === state.day.slice(0, 7)) rk[k] = 1; });
+      notes = notesAll.filter(function (m) { var t = Date.parse(m.endedAt || m.startedAt || m.startsAt || m.createdAt || ''); return !isNaN(t) && rk[dayKey(t)]; });
+    }
+    var notesAside = '<aside class="dv-notes" aria-label="Notes"><div class="dv-notes__in"><div class="dv-notes__h"><h2>Notes</h2><span class="dv-chip">' + notes.length + '</span><span class="dv-grow"></span><a class="dv-link" href="/meet/library/">Ask or search all notes ' + ic('arrow') + '</a></div>' +
+      '<div class="dv-notes__list">' + (notes.length ? notes.map(noteHtml).join('') : '<p class="dv-none">No notes yet</p>') + '</div></div></aside>';
     var main = '', t0 = 0, listForScroll = evs;
     if (view === 'week') {
-      main = '<div class="dv-cols dv-cols--one">' + weekHtml(byDay, today, all) + '</div>';
+      main = '<div class="dv-cols">' + weekHtml(byDay, today, all) + notesAside + '</div>';
       var wd = MV.weekDays(state.day); listForScroll = [];
       wd.forEach(function (k2) { listForScroll = listForScroll.concat(byDay[k2] || []); });
-    } else if (view === 'month') main = '<div class="dv-cols dv-cols--one">' + monthHtml(byDay, today, all) + '</div>';
+    } else if (view === 'month') main = '<div class="dv-cols">' + monthHtml(byDay, today, all) + notesAside + '</div>';
     else {
       // A phone starts the timeline at the first meeting's hour and ends after the last, so no empty hours sit above the day.
       var phone = mobile();
@@ -322,11 +389,9 @@
       var tlBody = evs.length
         ? '<div class="dv-tl__scroll"><div class="dv-tl__grid" style="height:' + gridH + 'px">' + hrs + evs.map(function (e) { return eventHtml(e, geo); }).join('') + nowLine + '</div></div>'
         : '<div class="dv-empty"><span class="dv-tile">' + ic('cal') + '</span><b>' + (isToday ? 'No meetings today' : 'No meetings on ' + esc(wk(state.day))) + '</b><a class="dv-btn dv-btn--primary" href="/meet/book/">' + ic('plus') + 'Book a meeting</a></div>';
-      var notes = d.notes || [];
       main = (dayLive.length ? '<div class="dv-livewrap">' + dayLive.map(liveCard).join('') + '</div>' : '') +
         '<div class="dv-cols"><section class="dv-card dv-tl" aria-label="Timeline"><div class="dv-tl__head"><h2>Timeline</h2><div class="dv-legend">' + legend(evs) + '</div></div>' + tlBody + '</section>' +
-        '<aside class="dv-notes" aria-label="Notes"><div class="dv-notes__in"><div class="dv-notes__h"><h2>Notes</h2><span class="dv-chip">' + notes.length + '</span><span class="dv-grow"></span><a class="dv-link" href="/meet/library/">Ask or search all notes ' + ic('arrow') + '</a></div>' +
-        '<div class="dv-notes__list">' + (notes.length ? notes.map(noteHtml).join('') : '<p class="dv-none">No notes yet</p>') + '</div></div></aside></div>';
+        notesAside + '</div>';
     }
     var showToday = !(inView.indexOf(today) >= 0);
     root.innerHTML = '<div class="dv dv--' + view + '">' +
@@ -350,15 +415,17 @@
       } else if (listForScroll.length) sc.scrollTop = Math.max(0, Math.min.apply(null, listForScroll.map(function (e) { return off(e.start); })) * PXH - 40);
     }
     scrollTop = null;
+    var nl2 = root.querySelector('.dv-notes__list'); if (nl2 && nTop) nl2.scrollTop = nTop;
+    state.noteView = view;
     renderPanel();
   }
 
-  function setDay(k) { state.day = k; state.sel = null; state.confirm = null; state.pick = ''; scrollTop = null; draw(); }
+  function setDay(k) { state.day = k; state.sel = null; state.confirm = null; state.pick = ''; scrollTop = null; resetScroll = true; draw(); ensureCal(); }
   function setView(v) {
     if (v === state.view) return;
-    state.view = v; state.pick = ''; scrollTop = null;
+    state.view = v; state.pick = ''; scrollTop = null; resetScroll = true;
     try { localStorage.setItem(VIEW_KEY, v); } catch (e) { /* private mode */ }
-    draw();
+    draw(); ensureCal();
   }
 
   function toast(msg) {
@@ -388,7 +455,7 @@
 
   var urlId = function (id) { return id.indexOf('c:') === 0 ? 'ext:' + id.slice(2) : id; };
   var fromUrlId = function (u) { return u.indexOf('ext:') === 0 ? 'c:' + u.slice(4) : u; };
-  function findEv(id) { var all = state.data ? normalize(state.data) : []; for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
+  function findEv(id) { var all = state.data ? derived().all : []; for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i]; return null; }
   // Same wording as the Today sheet: "Tuesday, Oct 13, 2:00 PM to 3:00 PM ET".
   function whenLine(e) {
     return new Date(e.start).toLocaleDateString('en-US', { timeZone: MV.TZ, weekday: 'long', month: 'short', day: 'numeric' }) + ', ' + hm(e.start) + ' to ' + hm(e.end) + ' ET';
@@ -423,7 +490,7 @@
     if (!state.data || findEv(id) || id.indexOf('c:') === 0 || !/^[0-9a-f]{24}$/.test(id)) { wantInfo(id); return; }
     api('meetings/' + id).then(function (r) {
       if (stopped || !r.meeting) return;
-      state.extra = [r.meeting]; var e = findEv(id);
+      state.extra = [r.meeting]; state.rev++; var e = findEv(id);
       if (e) state.day = dayKey(e.start);
       draw();
     }).catch(function () { state.missing = id; renderPanel(); });
@@ -657,7 +724,7 @@
       var before = JSON.stringify((state.data.up || []).map(function (m) { return [m.id, m.status, m.inRoom]; }));
       var after = JSON.stringify((r.meetings || []).map(function (m) { return [m.id, m.status, m.inRoom]; }));
       state.data.up = r.meetings || [];
-      if (before !== after) { state.now = new Date(); draw(); }
+      if (before !== after) { state.rev++; state.now = new Date(); draw(); }
     }).catch(function () {});
   }
   timers.push(setInterval(function () {
