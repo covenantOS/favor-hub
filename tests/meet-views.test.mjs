@@ -113,10 +113,10 @@ test('the detail panel gets the agenda text, organizer and move rights from the 
 const day = readFileSync(new URL('../public/js/meet/day.js', import.meta.url), 'utf8');
 test('Move to FavorOS posts the same route and fields as Today', () => {
   assert.ok(day.includes("api('../hub/day-move', { method: 'POST', body: body })"));
-  assert.ok(day.includes('var body = { eventId: e.cal.eventId, writeLink: state.moveWrite }'));
+  assert.ok(day.includes('var body = { eventId: e.cal.eventId, writeLink: state.moveWrite, emailInvitees: invited(e).length > 0 && state.moveMail }'));
   const today = readFileSync(new URL('../app/src/features/today/day.tsx', import.meta.url), 'utf8');
-  assert.ok(today.includes("send('/api/hub/day-move', { eventId: e.id, writeLink: write })"));
-  for (const line of ['Add the FavorOS link to this event on my Google Calendar', 'FavorOS sends no email.', 'It is not recorded. The host can change that in the meeting.', 'Your calendar event is not changed.', 'Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.']) {
+  assert.ok(today.includes("send('/api/hub/day-move', { eventId: e.id, writeLink: write, emailInvitees: n > 0 && mail })"));
+  for (const line of ['Add the FavorOS link to this event on my Google Calendar', 'FavorOS sends no email.', 'FavorOS emails them the link.', 'Emailed the link to', 'Share the room link with them.', 'Email the ', 'It is not recorded. The host can change that in the meeting.', 'Your calendar event is not changed.', 'Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.']) {
     assert.ok(day.includes(line) && today.includes(line), line);
   }
 });
