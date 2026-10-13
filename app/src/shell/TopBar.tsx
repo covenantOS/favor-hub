@@ -6,6 +6,8 @@ import { NavLink } from './NavLink';
 import type { NavView } from './model';
 import { pageVisible } from './model';
 import { resolveNav } from '@hub/data/areas';
+import { useEffect } from 'react';
+import { loadScript } from '@/lib/legacy';
 
 interface Props {
   /** Markup a classic page put in the actions slot. */
@@ -24,6 +26,10 @@ interface Props {
 
 /** The top bar: menu button (phone), the area's tile and title, its tabs, then search, bell, Clips, help, Feedback and Make a request. */
 export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', access, kpiTeams, menuOpen, onMenu, onRemember }: Props) {
+  // Groups the tabs and moves any that do not fit under More (public/js/tab-org.js).
+  useEffect(() => {
+    loadScript('/js/tab-org.js?v=1').catch(() => {});
+  }, []);
   const found = resolveNav(navId);
   const area = found?.area;
   const tabs = area ? area.pages.filter((p) => !p.ext && pageVisible(p, access, kpiTeams)) : [];
