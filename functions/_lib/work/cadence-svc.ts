@@ -14,7 +14,7 @@ import { loadCadence, overOf, splitLists, STEP_LABEL, RULE_LABEL, STEP_ORDER, ty
 
 const ID = /^\d{1,12}$/;
 // The version is part of the key, so a deploy that changes a row's shape never reads rows built by the one before.
-const CACHE_KEY = 'cadence:rows:v3'; // v3: first-time rows carry found (how they found Favor)
+const CACHE_KEY = 'cadence:rows:v4'; // v4: steps counted on their own, monthly reach-out rule (2026-10-13); v3: first-time rows carry found
 const MAX_CACHE = 900_000;
 
 export const mayCadence = (s: Ctx['scope']): boolean => !s || s.role === 'admin' || s.role === 'partner_care';
