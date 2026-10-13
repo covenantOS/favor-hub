@@ -5,7 +5,7 @@
 import { saToken } from './work/sheetsa';
 import { aiFor } from './ai/guard';
 import type { MeetEnv, Meeting } from './meet';
-import { chatJson, plain, stamp, VERBATIM_PROMPT, WHISPER } from './clipai';
+import { chatJson, plain, stamp, TEXT_MODELS, VERBATIM_PROMPT, WHISPER } from './clipai';
 
 export const PART = 8 * 1024 * 1024;
 const FILES = 'https://www.googleapis.com/drive/v3/files';
@@ -233,7 +233,10 @@ export async function makeNotes(env: MeetEnv, m: Meeting, names: string[]): Prom
     `You write the notes of a staff meeting at a nonprofit. Each transcript line has a time in minutes and seconds and, when the system could tell, the name of the person who was talking for most of that stretch (the label can be wrong when people talk over each other). People who were invited: ${names.slice(0, 30).join(', ') || 'unknown'}.
 Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period); summary (3 to 5 sentences of what was covered and decided); decisions (array of up to 8 objects {t: seconds from the start, text}, only things the group agreed); actions (array of up to 12 objects {text, owner, due, t}, where owner is a person named in the talk or empty, due is a date or phrase said aloud or empty, t is seconds); chapters (array of 4 to 10 objects {t: seconds, title of at most 6 words}). Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details, address or phone number into the notes. No em dashes.`,
     `Meeting title: ${m.title}\n\nTranscript:\n${body}`,
-    1800
+    1800,
+    TEXT_MODELS,
+    // Meeting notes keep people's names and owners; the Clips voice (a screen recording, names stripped) does not fit a call.
+    { feature: 'meet-notes', voice: 'You work for Favor International, a Christian nonprofit, and write the notes of a staff meeting from its transcript. Name the staff member who owns each action item when the transcript names them. Leave out partner addresses, phone numbers, emails and gift amounts. Never invent facts, names, dates or numbers. Do not use em dashes. Do not mention artificial intelligence.' }
   );
   let out = await ask();
   // A reply with a title and no summary is a miss; one more try before the notes go out empty.

@@ -835,6 +835,15 @@ async function pump(env: MeetEnv, user: { email: string; role: string }, id: str
     await env.DB.prepare(`DELETE FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%pump-error%'`).bind(id).run();
     m.notes_status = 'pending';
   }
+  // The host or an admin writes the notes of a finished meeting again from its transcript (2026-10-13: notes written with the
+  // Clips voice had lost people's names). The transcript and recording stay; only the notes step runs again.
+  if (b.redo && m.status === 'ended' && (isHost(m, user.email) || user.role === 'admin') && ['ready', 'failed', 'none'].includes(String(m.notes_status))) {
+    // 'redo' runs the notes step like 'pending' but posts nothing to Chat and makes no tasks a second time.
+    // The Google Doc is written again too; the earlier one stays in Drive.
+    await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'redo', notes_doc_id = '' WHERE id = ?`).bind(id).run();
+    m.notes_doc_id = '' as never;
+    m.notes_status = 'redo' as never;
+  }
   return pumpStep(env, m);
 }
 
@@ -884,7 +893,8 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
       if (r.done) await env.DB.prepare(`UPDATE hub_meetings SET rec_state = 'stored' WHERE id = ?`).bind(id).run();
       return { ok: true, done: false, state: 'uploading', progress: r.progress };
     }
-    if (m.notes_status === 'pending') {
+    if (m.notes_status === 'pending' || (m.notes_status as string) === 'redo') {
+      const redo = (m.notes_status as string) === 'redo';
       const t = await timed(env, id, 'whisper', () => pumpTranscript(env, m));
       if (!t.done) return { ok: true, done: false, state: 'transcribing', progress: t.progress };
       const invitees = safeJson<Array<{ name?: string; email?: string }>>(m.invitees, []).map((i) => i.name || i.email || '');
@@ -899,15 +909,15 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
         notes.actions = folded.actions;
         await env.DB.prepare(`UPDATE hub_meetings SET notes_status = 'ready', summary = ?, notes_json = ?, title = CASE WHEN title IN ('Meeting', '') OR title LIKE '% meeting' THEN ? ELSE title END WHERE id = ?`)
           .bind(notes.summary, JSON.stringify({ decisions: notes.decisions, actions: notes.actions, chapters: notes.chapters } satisfies Omit<NotesOut, 'title' | 'summary'>), notes.title || m.title, id).run();
-        await chatNotesReady(env, id).catch((err) => console.warn('[chat] notes', err));
+        if (!redo) await chatNotesReady(env, id).catch((err) => console.warn('[chat] notes', err));
         // Each action item goes to its owner's Today when the talk named someone who was
         // in the room or invited, by first name when that is unambiguous.
         const roster = await rosterOf(env, m);
         const pick = (who: string) => pickPerson(roster, who);
         await env.DB.prepare('DELETE FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).run();
         if (notes.actions.length) await env.DB.batch(notes.actions.map((a, i) => { const o = pick(a.owner); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, i, a.text, o ? o.name : a.owner, o ? o.email.toLowerCase() : '', a.due, a.t); }));
-        await meetActionsToTasks(env, id); // projects hook: named owners get a task
-        await afterNotes(env, id); // partners to confirm, summary to the chosen channel
+        if (!redo) await meetActionsToTasks(env, id); // projects hook: named owners get a task
+        if (!redo) await afterNotes(env, id); // partners to confirm, summary to the chosen channel
         // The files and the Google Doc take the notes title. A failure here never undoes the notes.
         const fresh = await getMeeting(env, id);
         try { if (retitle && denv.MEET_DRIVE_FOLDER) await renameRecordings(denv, fresh, notes.title); } catch (err) { console.warn('[meet] rename', id, err); }
