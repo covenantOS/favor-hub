@@ -381,6 +381,17 @@ export const RELEASES: Release[] = [
             side: 'bottom',
           },
           {
+            id: 'n-meet-views',
+            skipIfMissing: true,
+            page: '/meet/',
+            via: 'meet',
+            at: '.mv-seg',
+            title: 'Day, Week and Month',
+            body: 'Switch the Meetings page between a day, a week and a month. The arrows move by that unit and FavorOS remembers your choice. {Tap} any meeting to open its panel with the people, agenda, prep, settings and Join. A meeting held in Zoom, Meet or Teams has Move to FavorOS there.',
+            added: '2026-10-13',
+            side: 'bottom',
+          },
+          {
             id: 'n-meet-live',
             skipIfMissing: true,
             page: '/meet/',

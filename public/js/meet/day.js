@@ -9,7 +9,7 @@
   var PXH = 80, KEY = 'meet.day.v2', TTL = 20000, VIEW_KEY = 'meet.view.v1';
   var PROV = { favor: 'Favor', zoom: 'Zoom', meet: 'Google Meet', teams: 'Microsoft Teams', webex: 'Webex' };
   var savedView = (function () { try { var v = localStorage.getItem(VIEW_KEY); return v === 'week' || v === 'month' ? v : 'day'; } catch (e) { return 'day'; } })();
-  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveBusy: false, moveErr: '' };
+  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveBusy: false, moveErr: '' };
   var timers = [], stopped = false, nowBtn = null, tt = 0, scrollTop = null, pumping = false;
 
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
@@ -203,6 +203,10 @@
   }
 
   function weekEv(e, t0) {
+    if (e.stack !== undefined) {
+      var rt = (e.stackTop - t0) / 3600000 * PXH + 1 + e.stack * e.pitch;
+      return '<button type="button" class="dv-ev is-row is-wk' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.open === e.id ? ' is-sel' : '') + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + provName(e.p)) + '" style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:2px;width:calc(100% - 4px)"><span class="dv-ev__t">' + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
+    }
     var h = ((e.vend || e.end) - e.start) / 3600000 * PXH - 3, top = (e.start - t0) / 3600000 * PXH + 1;
     var c = 'dv-ev is-wk' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (h < 50 ? ' is-compact' : '') + (state.open === e.id ? ' is-sel' : '');
     return '<button type="button" class="' + c + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ' to ' + hm(e.end) + ', ' + provName(e.p)) + '" style="top:' + top + 'px;height:' + h + 'px;left:calc(100% * ' + (e.lane / e.lanes) + ' + 2px);width:calc(100% / ' + e.lanes + ' - 4px)">' +
@@ -223,11 +227,16 @@
     });
     if (h1 <= h0) h1 = h0 + 1;
     state.wkH0 = h0;
-    var gridH = (h1 - h0) * PXH + 8, hrs = '';
+    var gridH = (h1 - h0) * PXH + 8, hrs = '', lists = {};
+    // Many meetings in the same stretch stack as one-line rows (see lanes), so the grid grows to hold them.
+    days.forEach(function (k) {
+      var list = (byDay[k] || []).slice(), tk0 = MV.etStart(k) + h0 * 3600000;
+      lanes(list); lists[k] = list;
+      list.forEach(function (e) { if (e.stack !== undefined) gridH = Math.max(gridH, (e.stackTop - tk0) / 3600000 * PXH + e.stack * e.pitch + e.pitch + 8); });
+    });
     for (var h = h0; h <= h1; h++) hrs += '<div class="dv-hr" style="top:' + (h - h0) * PXH + 'px"><span>' + hourLabel(h) + '</span></div>';
     var cols = days.map(function (k) {
-      var list = (byDay[k] || []).slice(), tk = MV.etStart(k) + h0 * 3600000;
-      lanes(list, true);
+      var list = lists[k], tk = MV.etStart(k) + h0 * 3600000;
       var now = k === today && state.now.getTime() >= tk ? '<div class="dv-now" style="top:' + (state.now.getTime() - tk) / 3600000 * PXH + 'px"></div>' : '';
       return '<div class="wk-col' + (k === today ? ' is-today' : '') + '">' + list.map(function (e) { return weekEv(e, tk); }).join('') + now + '</div>';
     }).join('');
@@ -391,7 +400,7 @@
   }
 
   function openEv(id) {
-    state.open = id; state.panel = 'detail'; state.confirm = null; state.move = null; state.moveErr = ''; state.moveWrite = false; state.moveBusy = false; focusOnce = true;
+    state.open = id; state.panel = 'detail'; state.confirm = null; state.move = null; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; state.moveBusy = false; focusOnce = true;
     var u = '/meet/?m=' + encodeURIComponent(urlId(id));
     try { history.pushState({ mp: 1 }, '', u); } catch (e) { /* sandboxed frame */ }
     draw(); wantInfo(id);
@@ -434,10 +443,10 @@
   function personRow(p) { return '<li class="mp-pp">' + av(p.name) + '<span><b>' + esc(p.name) + '</b>' + (p.sub ? '<small>' + esc(p.sub) + '</small>' : '') + '</span></li>'; }
   function invited(e) {
     var out = [];
-    if (e.cal) (e.cal.people || []).forEach(function (p) { out.push({ name: p.name || p.email, sub: p.name ? p.email : '' }); });
+    if (e.cal) (e.cal.people || []).forEach(function (p) { out.push({ name: p.name || p.email, email: p.email, sub: p.name ? p.email : '' }); });
     else {
       var m = e.hub, hostE = String(m.hostEmail || '').toLowerCase();
-      (m.invitees || []).forEach(function (i) { if (String(i.email || '').toLowerCase() !== hostE) out.push({ name: nameOf(i), sub: i.guest ? 'Guest' : '' }); });
+      (m.invitees || []).forEach(function (i) { if (String(i.email || '').toLowerCase() !== hostE) out.push({ name: nameOf(i), email: i.email || '', sub: i.guest ? 'Guest' : '' }); });
     }
     return out;
   }
@@ -493,13 +502,18 @@
     return head(e) + '<div class="mp-b"><div class="mp-acts">' + acts + '</div><dl class="mp-rows">' + rows + '</dl></div>' + (foot ? '<footer class="mp-f">' + foot + '</footer>' : '');
   }
 
+  // "katharine@favorintl.org" becomes Katharine; an address that does not read as a first name becomes "them". Same rule as Today.
+  function firstOf(email) {
+    var w = String(email || '').split('@')[0].split(/[._-]/)[0];
+    return /^[a-z]{3,}$/i.test(w) ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : 'them';
+  }
   // The Move to FavorOS sheet, word for word as on Today. It posts to the same route with the same fields.
   function movePanel(e) {
     var s = state.move || e, n = invited(s).length, c = s.cal, may = !!(state.data.cal && state.data.cal.canWrite), write = state.moveWrite;
     var held = 'Zoom';
     held = provName(s.p);
     var body = '<ul class="mp-list"><li>Makes a FavorOS meeting on ' + esc(whenLine(s)) + '.</li>' +
-      '<li>' + (n ? 'Invites the same ' + n + (n === 1 ? ' person' : ' people') + ' in FavorOS. FavorOS sends no email.' : 'Only you are on it.') + '</li>' +
+      '<li>' + (n ? 'Invites the same ' + n + (n === 1 ? ' person' : ' people') + ' in FavorOS. ' + (state.moveMail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.') : 'Only you are on it.') + '</li>' +
       '<li>It is not recorded. The host can change that in the meeting.</li>' +
       '<li id="mp-stays">' + (write ? 'Your calendar event gets one new line in its notes.' : 'Your calendar event is not changed.') + '</li></ul>';
     if (!c.canEdit) body += '<p class="mp-note">Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.</p>';
@@ -508,13 +522,16 @@
       body += '<label class="mp-check"><input type="checkbox" data-mp="write"' + (write ? ' checked' : '') + '><span>Add the FavorOS link to this event on my Google Calendar</span></label>';
       if (write) body += '<p class="mp-note">Adds one line, Join in FavorOS and the link, to the end of the notes of this event on your calendar. Guests see it on their copy of the event. Google sends no email. Nothing else on the event changes, and the ' + esc(held) + ' details stay.</p>';
     }
+    if (n > 0) body += '<label class="mp-check"><input type="checkbox" data-mp="mail"' + (state.moveMail ? ' checked' : '') + '><span>' + (n === 1 ? 'Email ' + esc(firstOf(invited(s)[0].email)) + ' the FavorOS link' : 'Email the ' + n + ' people the FavorOS link') + '</span></label>';
     if (state.moveErr) body += '<p class="mp-err" role="alert">' + esc(state.moveErr) + '</p>';
     return '<header class="mp-h"><div class="mp-h__t"><h3>Move to FavorOS</h3><p>' + esc(s.title) + '</p></div>' + closeBtn() + '</header><div class="mp-b">' + body +
       '<div class="mp-acts mp-acts--end"><button type="button" class="dv-btn dv-btn--primary mp-first" data-mp="domove"' + (state.moveBusy ? ' disabled' : '') + '>' + (state.moveBusy ? 'Moving' : 'Move to FavorOS') + '</button><button type="button" class="dv-btn dv-btn--ghost" data-mp="back">Back</button></div></div>';
   }
   function movedPanel() {
     var s = state.moved;
-    return '<header class="mp-h"><div class="mp-h__t"><h3>Moved to FavorOS</h3><p>' + esc(s.title) + '</p></div>' + closeBtn() + '</header><div class="mp-b"><ul class="mp-list"><li>' + esc(s.when) + '.</li><li>' + (s.linked ? 'The FavorOS link is on your calendar event.' : 'Your calendar event is not changed.') + '</li></ul>' +
+    return '<header class="mp-h"><div class="mp-h__t"><h3>Moved to FavorOS</h3><p>' + esc(s.title) + '</p></div>' + closeBtn() + '</header><div class="mp-b"><ul class="mp-list"><li>' + esc(s.when) + '.</li><li>' + (s.linked ? 'The FavorOS link is on your calendar event.' : 'Your calendar event is not changed.') + '</li>' +
+      (s.emailed ? '<li>Emailed the link to ' + s.emailed + (s.emailed === 1 ? ' person' : ' people') + '.</li>' : '') +
+      (s.emailFailed ? '<li>' + s.emailFailed + (s.emailFailed === 1 ? ' email' : ' emails') + ' did not go out. Share the room link with them.</li>' : '') + '</ul>' +
       (s.linkError ? '<p class="mp-note">' + esc(s.linkError) + '</p>' : '') +
       '<div class="mp-acts mp-acts--end"><a class="dv-btn dv-btn--primary mp-first" href="' + esc(s.room) + '">Open the meeting</a><button type="button" class="dv-btn dv-btn--ghost" data-mp="close">Done</button></div></div>';
   }
@@ -537,9 +554,9 @@
     var e = findEv(state.open); if (!e || !e.cal || state.moveBusy) return;
     state.move = e; state.moveBusy = true; state.moveErr = ''; renderPanel();
     // Same route and fields as Today.
-    var body = { eventId: e.cal.eventId, writeLink: state.moveWrite };
+    var body = { eventId: e.cal.eventId, writeLink: state.moveWrite, emailInvitees: invited(e).length > 0 && state.moveMail };
     api('../hub/day-move', { method: 'POST', body: body }).then(function (r) {
-      state.moved = { title: e.title, when: whenLine(e), room: r.room || '/meet/room/?m=' + r.id, linked: !!r.linked, linkError: r.linkError || '' };
+      state.moved = { title: e.title, when: whenLine(e), room: r.room || '/meet/room/?m=' + r.id, linked: !!r.linked, linkError: r.linkError || '', emailed: r.emailed || 0, emailFailed: r.emailFailed || 0 };
       state.panel = 'moved'; state.moveBusy = false; renderPanel(); load(true);
     }).catch(function (x) {
       state.moveBusy = false;
@@ -556,9 +573,8 @@
     if (jm && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey) { ev.preventDefault(); return prejoin(jm[1], titleOf(jm[1])); }
     var a = t.dataset.mp, id = state.open, e = findEv(id);
     if (a === 'close') return closePanel();
-    if (a === 'move' && e) { state.panel = 'move'; state.move = e; state.moveErr = ''; state.moveWrite = false; focusOnce = true; return renderPanel(); }
+    if (a === 'move' && e) { state.panel = 'move'; state.move = e; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; focusOnce = true; return renderPanel(); }
     if (a === 'back') { state.panel = 'detail'; state.moveErr = ''; return renderPanel(); }
-    if (a === 'write') { state.moveWrite = t.checked; return renderPanel(); }
     if (a === 'domove') return moveNow();
     if (a === 'copy' && e && e.hub) return copy(location.origin + '/meet/room/?m=' + e.hub.id, 'Link copied');
     if (a === 'guest' && e && e.hub) { api('meetings/' + e.hub.id + '/guestlink', { method: 'POST', body: {} }).then(function (r) { copy(r.url, 'Guest link copied'); }).catch(function (x) { toast(x.message); }); return; }
@@ -575,7 +591,11 @@
     }
   }
   layer.addEventListener('click', onPanelClick);
-  layer.addEventListener('change', function (ev) { if (ev.target && ev.target.dataset && ev.target.dataset.mp === 'write') { state.moveWrite = ev.target.checked; renderPanel(); } });
+  layer.addEventListener('change', function (ev) {
+    var a = ev.target && ev.target.dataset && ev.target.dataset.mp;
+    if (a === 'write') { state.moveWrite = ev.target.checked; renderPanel(); }
+    if (a === 'mail') { state.moveMail = ev.target.checked; renderPanel(); }
+  });
   function onKey(ev) { if (ev.key === 'Escape' && state.open) { ev.preventDefault(); if (state.panel === 'move') { state.panel = 'detail'; renderPanel(); } else closePanel(); } }
   document.addEventListener('keydown', onKey);
   window.addEventListener('popstate', onPop);
