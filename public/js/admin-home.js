@@ -48,7 +48,7 @@
       box.innerHTML = '<ul class="ad-feed">' + d.entries.map(function (e) {
         return '<li><b>' + A.esc(e.label) + '</b><span class="ad-feed__chg"><span class="mute">' + A.esc(e.before == null ? '' : e.before) + '</span> to ' + A.esc(e.after == null ? '' : e.after) + '</span><span class="ad-feed__who">' + A.esc(e.actor) + ', ' + A.esc(A.full(e.at)) + '</span></li>';
       }).join('') + '</ul><p><a href="/admin/audit/">Open the audit log</a></p>';
-    }).catch(function () { $('ad-recent').innerHTML = '<p class="ad-empty">The log did not load.</p>'; });
+    }).catch(function () { var r = $('ad-recent'); if (r) r.innerHTML = '<p class="ad-empty">The log did not load.</p>'; });
   }
 
   $('ad-refresh').addEventListener('click', load);
