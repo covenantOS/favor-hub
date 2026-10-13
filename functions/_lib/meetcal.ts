@@ -239,11 +239,11 @@ const READ_SCOPES = ['https://www.googleapis.com/auth/calendar.events.readonly',
 const canRead = (granted: string) => READ_SCOPES.some((s) => hasScopes(granted, [s]));
 
 /** Meetings with a video link on this person's calendar for the next two weeks, from every provider. Meetings already made in Favor Meetings are left out; they show from the hub's own list. */
-export async function calendarMeetings(env: MeetEnv, email: string, ours: (ids: string[]) => Promise<Set<string>>): Promise<{ connected: boolean; canWrite: boolean; meetings: CalMeeting[]; error?: string }> {
+export async function calendarMeetings(env: MeetEnv, email: string, ours: (ids: string[]) => Promise<Set<string>>, wide = false): Promise<{ connected: boolean; canWrite: boolean; meetings: CalMeeting[]; error?: string }> {
   const t = await accessToken(env, email).catch(() => null);
   if (!t || !canRead(t.scopes)) return { connected: false, canWrite: false, meetings: [] };
   const canWrite = hasScopes(t.scopes, [CAL_EVENTS]);
-  const q = new URLSearchParams({ timeMin: new Date().toISOString(), timeMax: new Date(Date.now() + 14 * 86400_000).toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: '100', timeZone: TZ });
+  const q = new URLSearchParams({ timeMin: new Date(Date.now() - (wide ? 40 : 0) * 86400_000).toISOString(), timeMax: new Date(Date.now() + (wide ? 62 : 14) * 86400_000).toISOString(), singleEvents: 'true', orderBy: 'startTime', maxResults: wide ? '250' : '100', timeZone: TZ });
   const r = await fetch(`${cal(env)}/calendars/primary/events?${q}`, { headers: { Authorization: `Bearer ${t.token}` } });
   if (!r.ok) return { connected: true, canWrite, meetings: [], error: 'Google Calendar did not answer.' };
   const j = (await r.json().catch(() => ({}))) as { items?: CalEvent[] };
