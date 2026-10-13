@@ -7,9 +7,9 @@
 .cm-flag { border: 0; background: none; padding: 6px 0; font: 600 13px var(--h-font); color: var(--h-ink-3); cursor: pointer; text-align: right; }
 .cm-flag.is-on { color: var(--h-red); }
 .cm-flag:hover { color: var(--h-brand-ink); }
-.cm-bar { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
-.cm-bar span { display: block; height: 6px; border-radius: 3px; background: var(--h-line-2); }
-.cm-bar span.on { background: var(--h-brand); }
+.cm-tally { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cm-tally span { display: block; height: 6px; border-radius: 3px; background: var(--h-line-2); }
+.cm-tally span.on { background: var(--h-brand); }
 .cm-sub { font-size: 13px; color: var(--h-ink-2); }
 .cm-list { list-style: none; margin: 4px 0 0; padding: 0; display: grid; }
 .cm-row { display: grid; grid-template-columns: 76px 128px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 9px 0; border-top: 1px solid #efebe3; font-size: 14px; }

@@ -32,7 +32,7 @@ function html(c, o) {
   const rows = shown.map((x) => `<li class="cm-row${x.left ? ' is-left' : ''}"><span class="cm-d">${esc(day(x.date, c.today))}</span><span class="cm-k">${esc(x.kind === 'text' ? 'Text' : x.kind === 'call' ? 'Call' : x.kind === 'email' ? 'Email' : x.kind === 'card' ? 'Card or mailing' : x.kind === 'meeting' ? 'Meeting' : x.kind === 'letter' ? 'HQ letter' : 'Receipt')}${x.left ? ' · left a message' : ''}</span><span class="cm-w">${esc(x.what)}</span><span class="cm-s">${x.thanks ? '<em>Thank-you</em> · ' : ''}${esc(x.source)}</span></li>`).join('');
   return `<div class="cm" data-cm="${esc(c.cid)}">
     <div class="cm-head"><div class="cm-count"><b>${t.count} of ${t.target}</b><span>thank-yous in ${esc(t.year)}</span></div>${flag}</div>
-    <div class="cm-bar" role="img" aria-label="${t.count} of ${t.target} thank-yous">${segs}</div>
+    <div class="cm-tally" role="img" aria-label="${t.count} of ${t.target} thank-yous">${segs}</div>
     <div class="cm-sub">${esc([kinds, t.last12 + ' in the last 12 months'].filter(Boolean).join(' · '))}</div>
     <ul class="cm-list">${rows || '<li class="cm-empty">No contact in the last 12 months.</li>'}</ul>
     ${c.touches.length > 8 && !o.all ? `<button type="button" class="cm-more" data-cm-more>Show ${c.touches.length - 8} older</button>` : ''}
