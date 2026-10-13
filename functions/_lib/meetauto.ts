@@ -7,7 +7,10 @@
 //   Always   askMeetings: one question across every meeting the person may read.
 // Partner reads and the Blackbaud write go through `source` and `writer`, which tests replace so nothing real is touched.
 import { HttpError, nowIso } from './http';
-import { chatJson, plain, stamp } from './clipai';
+import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
+
+// Meetings charge their own budget line and do not take the Clips voice, which describes a screen recording and strips names.
+const MEET_AI = { feature: 'meet-notes', voice: 'You work for Favor International, a Christian nonprofit, and read the transcript of a live staff meeting. Write plainly. Never invent facts, names, dates or numbers. Do not use em dashes. Do not mention artificial intelligence.' };
 import { clean, emailsOf, getMeeting, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, type Meeting, type MeetEnv } from './meet';
 import * as chat from './chat/db';
 import { MEETINGS_ID } from './chat/text';
@@ -429,7 +432,9 @@ export async function extractLive(env: MeetEnv, mt: Meeting, opts: { force?: boo
       env as never,
       LIVE_PROMPT,
       `Meeting: ${mt.title}\nPeople: ${people.map((p) => p.name).join(', ') || 'unknown'}\nAlready noted:\n${have.slice(-25).map((h) => `- (${h.kind}) ${h.text}`).join('\n') || '- nothing yet'}\n\nNewest lines:\n${lines.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n').slice(-9000)}`,
-      700
+      700,
+      TEXT_MODELS,
+      MEET_AI
     );
   } catch (err) {
     // The lines go back to be read on the next pass.
@@ -731,7 +736,7 @@ export async function askMeetings(env: MeetEnv, user: User, qRaw: unknown): Prom
     budget -= block.length;
     blocks.push(block);
   });
-  const out = await chatJson<{ answer?: unknown; sources?: unknown }>(env as never, ASK_PROMPT, `Question: ${q}\n\n${blocks.join('\n\n')}`, 800);
+  const out = await chatJson<{ answer?: unknown; sources?: unknown }>(env as never, ASK_PROMPT, `Question: ${q}\n\n${blocks.join('\n\n')}`, 800, TEXT_MODELS, MEET_AI);
   const sources = (Array.isArray(out.sources) ? (out.sources as Array<Record<string, unknown>>) : []).slice(0, 6).flatMap((s) => {
     const m = picked[Number(s.m) - 1];
     const text = plain(s.text, 240);

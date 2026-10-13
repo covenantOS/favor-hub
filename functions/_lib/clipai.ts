@@ -128,15 +128,17 @@ export async function transcribeAll(env: ClipsEnv, clip: Clip): Promise<{ segmen
 /* ------------------------------------------------------------------ text model */
 
 /** One JSON answer from the small model, falling back to the larger one. */
-export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900, models: string[] = TEXT_MODELS): Promise<T> {
-  const ai = aiFor(env.AI, 'clip-text') as Run | undefined;
+/** opts.feature: the budget line the call is charged to (default clip-text). opts.voice: the standing instructions in place of
+ *  the Clips voice, for callers that are not describing a recording (Meetings reads a live call and needs people's names). */
+export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900, models: string[] = TEXT_MODELS, opts: { feature?: string; voice?: string } = {}): Promise<T> {
+  const ai = aiFor(env.AI, opts.feature || 'clip-text') as Run | undefined;
   if (!ai) throw new Error('no ai binding');
   let last: unknown = null;
   for (const model of models) {
     try {
       const res = (await ai.run(model, {
         messages: [
-          { role: 'system', content: `${VOICE}\n\n${system}\n\nReply with one JSON object only.` },
+          { role: 'system', content: `${opts.voice ?? VOICE}\n\n${system}\n\nReply with one JSON object only.` },
           { role: 'user', content: user },
         ],
         max_tokens: maxTokens,
