@@ -192,6 +192,11 @@ function oweCards(p) {
   if (!list.length || !window.FavorWG) return L.thankedNow ? `<div class="wg-owe is-done"><div><b>Thanked just now</b><span>By ${esc(L.thankedNow)}</span></div></div>` : '';
   return list.slice(0, 3).map((g) => `<div class="wg-owe" data-wg-owe="${esc(g.key)}"><div><b>${money(g.amount)} to thank</b><span>${[esc(fd(g.date)), esc(g.fund || ''), (g.clock && g.clock.state !== 'older' && window.FavorWG && window.FavorWG.clock ? esc(window.FavorWG.clock(g.clock.due).label) : g.ageDays > 1 ? Number(g.ageDays).toLocaleString('en-US') + ' days' : g.ageDays === 1 ? 'Yesterday' : 'Today'), g.soft ? 'Soft credit' : ''].filter(Boolean).join(' · ')}</span></div><button type="button" class="h-btn h-btn--primary h-btn--sm" data-pp-thank="${esc(g.key)}">${ic('check')}Thank</button></div>`).join('') + (list.length > 3 ? `<p class="pp-empty" style="margin:6px 28px 0">${(list.length - 3).toLocaleString('en-US')} more ${list.length - 3 === 1 ? 'gift' : 'gifts'} to thank</p>` : '');
 }
+const commSec = () => (window.FavorComm ? '<section class="pp-sec" data-pp-comm><h3>Communication</h3><div data-pp-commbody></div></section>' : '');
+function commFill(root, p) {
+  const b = root && root.querySelector('[data-pp-commbody]');
+  if (b && window.FavorComm) window.FavorComm.mount(b, p.id, { canFlag: p.canEdit !== false });
+}
 function view(p, o = {}) {
   const g = p.giving;
   const holders = holderOf(p);
@@ -250,7 +255,7 @@ function view(p, o = {}) {
   const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].concat(V.tl && V.tl.events.some((x) => x.kind === 'chat' || x.kind === 'clip' || (x.kind === 'meeting' && x.id.startsWith('meet:'))) ? [['more', 'Chat and meetings']] : []).map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
-  if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
+  if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${commSec()}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
   const chart = years.length ? `<section class="pp-sec"><h3>Giving by year</h3><div class="pp-chart" style="grid-template-columns:repeat(${years.length}, minmax(0, 1fr))">${years.map((y) => `<div class="pp-bar2${y.year === TODAY.slice(0, 4) ? ' is-now' : ''}" title="${esc(y.year)}: ${money(Math.round(y.total))}${y.soft ? ' plus ' + money(Math.round(y.soft)) + ' soft credit' : ''}"><em>${short(y.total)}</em><i style="height:${Math.max(4, Math.round(y.total / max * 92))}px"></i><span>${esc(y.year)}</span></div>`).join('')}</div></section>` : '';
   const opps = `<section class="pp-sec"><h3>Opportunities <button type="button" data-pp-oppnew>New opportunity</button></h3>
       ${(p.opportunities || []).length ? p.opportunities.map((x) => V.editing === 'opp' + x.id ? oppForm(x) : `<div class="pp-opp${x.id && String(x.id) === FOCUS_OPP ? ' is-focus' : ''}" data-opp="${esc(x.id || '')}"><div><b>${esc(String(x.name || '').trim() || 'No name')}</b><span class="sub">${[x.ask ? 'Ask ' + money(x.ask) : '', x.expected ? 'Expected ' + money(x.expected) : '', x.funded ? 'Funded ' + money(x.funded) : '', x.deadline || x.expectedDate ? 'By ' + fd(x.deadline || x.expectedDate, true) : ''].filter(Boolean).join(' · ') || esc(x.purpose)}</span></div><span class="pp-stage${/awarded|application|submitted/i.test(x.status) ? ' pp-stage--warm' : ''}">${esc(x.status || 'No status')}</span><button type="button" class="pp-iconbtn" aria-label="Edit ${esc(x.name)}" data-pp-opp="${esc(x.id)}">${ic('edit')}</button></div>`).join('') : '<p class="pp-empty">None.</p>'}
@@ -273,7 +278,7 @@ function view(p, o = {}) {
       <p class="pp-links"><a class="h-btn h-btn--ghost h-btn--sm" href="https://host.nxt.blackbaud.com/constituent/records/${esc(p.id)}?envid=p-5_k5FlbubEyEQnUJw7C9Rw" target="_blank" rel="noopener">${ic('ext')}Open in Blackbaud</a></p></details>`;
   const tabs = `<nav class="pp-tabs" role="tablist" aria-label="Partner sections">${[['overview', 'Overview'], ['contact', 'Contact'], ['codes', 'Codes'], ['record', 'Record']].map(([k, l]) => `<button type="button" role="tab" class="${V.tab === k ? 'is-on' : ''}" aria-selected="${V.tab === k}" data-pp-tab="${k}">${l}</button>`).join('')}</nav>`;
   if (V.tab !== 'overview' && window.FavorRecords) return `<div class="pp">${head}${instrBox()}${acts}${tabs}<div data-pp-pane></div><div class="pp-pad"></div></div>`;
-  return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${window.FavorBrief ? window.FavorBrief.storyHTML(V) : ''}${giving}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
+  return `<div class="pp">${head}${instrBox()}${acts}${tabs}${oweCards(p)}<div class="pp-composer">${V.compose ? composer(V.compose, p) : ''}</div>${window.FavorBrief ? window.FavorBrief.storyHTML(V) : ''}${giving}${commSec()}${due}${notesSection({})}${timeline}${chart}${opps}${details}<div class="pp-pad"></div></div>`;
 }
 /** Overdue wording: whole days up to 60, then months ("34 mo late"). */
 function lateText(d) { return d === 1 ? '1 day late' : d <= 60 ? d + ' days late' : Math.round(d / 30.4) + ' mo late'; }
@@ -328,6 +333,7 @@ function paint() {
   const y = sc.scrollTop;
   sc.classList.toggle('pp-ro', V.p.canEdit === false);
   sc.innerHTML = view(V.p, { full: V.mode === 'full' });
+  commFill(sc, V.p);
   const slot = $('[data-pp-pane]', sc);
   if (slot && window.FavorRecords) slot.replaceWith(paneFor(V.id, V.tab));
   sc.scrollTop = y;
@@ -360,6 +366,7 @@ async function mount(el, id, o = {}) {
   try {
     const p = await load(id);
     el.innerHTML = view(p, { compact: !!o.compact });
+    commFill(el, p);
     if (o.onLoad) o.onLoad(p);
     return p;
   } catch (e) {

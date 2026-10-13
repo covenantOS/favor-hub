@@ -10,7 +10,7 @@ const F = () => window.FavorWG;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const C = { data: null, loading: false, error: '', started: false, owner: '', q: '', quick: '', shown: 100, local: {}, leftNow: {}, weekAdd: 0, sheetOn: false };
+const C = { data: null, loading: false, error: '', started: false, owner: '', q: '', quick: '', shown: 100, local: {}, leftNow: {}, weekAdd: 0, sheetOn: false, cm: new Set() };
 const WORD = { call: 'Called', text: 'Texted', email: 'Emailed', card: 'Card' };
 const ICON = { call: 'phone', text: 'text', email: 'mail', card: 'card' };
 const QUICK = { due: 'Due now', first: 'First-time partners', repeat: 'Monthly, twice a year, annual', quarterly: 'Quarterly gifts to thank' };
@@ -83,7 +83,8 @@ function rowHTML(r) {
     <div class="wcd-why"><span class="wc-tag${r.rule === 'first' ? ' wc-tag--done' : ''}">${esc(r.ruleLabel)}</span>${left ? `<span class="wc-tag wc-tag--queued">Left a message today</span>` : ''}<span class="wg-sub">${esc(r.line)}</span><span class="wg-sub">${last}</span></div>
     <div class="wcd-due">${dueLabel(r)}<span class="wg-sub">${esc(lateLine(r))}</span><span class="wg-sub">${esc(who)}</span></div>
     <div class="wcd-steps">${steps.map((s) => stepBtn(r, s, nextK)).join('')}</div>
-    <div class="wg-acts">${call}</div></div>`;
+    <div class="wg-acts">${call}</div>
+    <div class="wcd-cmrow" style="grid-column:1/-1"><button type="button" class="wcd-comm" data-wcd-comm="${esc(r.cid)}" aria-expanded="${C.cm.has(r.cid)}">Communication${C.data.noText && C.data.noText[r.cid] ? ' · No texts' : ''}</button></div>${C.cm.has(r.cid) ? `<div class="cm-expand" data-wcd-cm="${esc(r.cid)}"></div>` : ''}</div>`;
 }
 
 function view() {
@@ -108,6 +109,12 @@ function view() {
       <div class="wg-foot"><span>${list.length.toLocaleString('en-US')} ${list.length === 1 ? 'partner' : 'partners'}. Each step you press logs an action on the partner.${d.unreachable ? ` ${d.unreachable.toLocaleString('en-US')} more ${d.unreachable === 1 ? 'partner is' : 'partners are'} due with no phone, email or mailing address for the step they need.` : ''}</span></div>
     </section>`;
   registerSheet();
+  mountComm();
+}
+
+function mountComm() {
+  if (!window.FavorComm) return;
+  document.querySelectorAll('[data-wcd-cm]').forEach((el) => window.FavorComm.mount(el, el.dataset.wcdCm, { canFlag: true, onFlag: async () => { await load(C.owner || 'all'); view(); W().render(); } }));
 }
 
 /* ------------------------------------------------------------------ the three lists */
@@ -240,6 +247,7 @@ document.addEventListener('click', async (e) => {
   const b = t.closest('button');
   if (!b) return;
   const d = b.dataset;
+  if (d.wcdComm) { if (C.cm.has(d.wcdComm)) C.cm.delete(d.wcdComm); else C.cm.add(d.wcdComm); view(); return; }
   if (d.wcdQuick !== undefined) { C.quick = C.quick === d.wcdQuick ? '' : d.wcdQuick; C.shown = 100; view(); return; }
   if (b.hasAttribute('data-wcd-reload')) { C.data = null; C.error = ''; C.loading = false; C.started = false; view(); return; }
   if (b.hasAttribute('data-wcd-more')) { C.shown += 100; view(); return; }

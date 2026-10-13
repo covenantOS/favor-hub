@@ -9,6 +9,7 @@ import { authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from '
 import { planEdit, typesByFundraiser } from './edit';
 import { THANK_HOWS, addDays, clean } from '../actions/completion';
 import { weekStart } from './gifts';
+import { applyNoText, noTextSet } from './comm';
 import { loadCadence, overOf, splitLists, STEP_LABEL, RULE_LABEL, STEP_ORDER, type CadenceRow, type StepKey } from './cadence';
 
 const ID = /^\d{1,12}$/;
@@ -89,6 +90,8 @@ export interface CadenceOut {
   /** Partners who are due but have no phone, email or mailing address for any step they need. They are left off the list. */
   unreachable: number;
   rows: CadenceRow[];
+  /** Partners flagged No texts: partner id to the reason. */
+  noText: Record<string, string>;
   stats: { due: number; first: number; repeat: number; quarterly: number; week: number };
   lists: { friday: CadenceRow[]; saturday: CadenceRow[]; sunday: CadenceRow[] };
   weekStart: string;
@@ -100,7 +103,8 @@ export async function cadenceResponse(ctx: Ctx, ownerIn: string): Promise<Cadenc
   const built = await cadenceRows(ctx, today);
   const wk = weekStart(today);
   const done = await doneSince(ctx, built.at < wk ? built.at : wk);
-  const all = overlay(built.rows, done.filter((d) => d.done_at >= built.at));
+  const flags = await noTextSet(ctx.env);
+  const all = applyNoText(overlay(built.rows, done.filter((d) => d.done_at >= built.at)), flags);
   const live = all.filter((r) => !r.blocked);
   const count = new Map<string, number>();
   for (const r of live) for (const h of r.holders) count.set(h, (count.get(h) || 0) + 1);
@@ -117,6 +121,7 @@ export async function cadenceResponse(ctx: Ctx, ownerIn: string): Promise<Cadenc
     everyone: live.length,
     unreachable: all.length - live.length,
     rows,
+    noText: Object.fromEntries(flags),
     stats: {
       due: due.length,
       first: due.filter((r) => r.rule === 'first').length,
@@ -151,7 +156,7 @@ export async function stepCadence(ctx: Ctx, input: StepInput) {
   const line = clean(input.line, 200);
   const built = await cadenceRows(ctx, today);
   const done = await doneSince(ctx, built.at);
-  const row = overlay(built.rows, done.filter((d) => d.done_at >= built.at)).find((r) => r.cid === cid);
+  const row = applyNoText(overlay(built.rows, done.filter((d) => d.done_at >= built.at)), await noTextSet(ctx.env)).find((r) => r.cid === cid);
   const isTest = !!ctx.testCid && cid === ctx.testCid;
   // A role test may press a step on its one test record even though no rule lists it: the write path is the same.
   const rule = row ? row.rule : isTest ? 'monthly' : null;
