@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
-import { afterEach, before, beforeEach, describe, it } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, it, mock } from 'node:test';
 import './support/resolve-ts.mjs';
 
 const cad = await import('../functions/_lib/work/cadence.ts');
@@ -294,6 +294,9 @@ function newCtx() {
 }
 
 describe('pressing a step', () => {
+  // The step write reads today's Eastern date; pin the clock to the fixtures' day so the due windows hold on any real date.
+  before(() => mock.timers.enable({ apis: ['Date'], now: Date.parse(TODAY + 'T16:00:00Z') }));
+  after(() => mock.timers.reset());
   beforeEach(() => {
     buildMirror();
     hub = new DatabaseSync(':memory:');
@@ -353,9 +356,7 @@ describe('pressing a step', () => {
     const rem = hub.prepare("SELECT kind, cid, state FROM act_reminders").all();
     assert.deepEqual(rem.map((r) => [r.kind, r.cid, r.state]), [['cadence', '2', 'open']]);
     const done = hub.prepare('SELECT outcome, remind_on FROM act_cadence_done').all();
-    const { nextWorkday } = await import('../functions/_lib/work/remind.ts');
-    const etToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-    assert.deepEqual(done.map((d) => [d.outcome, d.remind_on]), [['left', nextWorkday(etToday)]]);
+    assert.deepEqual(done.map((d) => [d.outcome, d.remind_on]), [['left', day(1)]]);
   });
   it('undoing a left message takes its reminder out of the bell', async () => {
     const rem = await import('../functions/_lib/work/remind.ts');
