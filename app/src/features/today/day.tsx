@@ -90,7 +90,7 @@ export function LivePill({ events }: { events: DayEvent[] | null | undefined }) 
 
 /* ------------------------------------------------------------------ a sheet: one at a time, over the page */
 
-type Sheet = { type: 'event'; id: string } | { type: 'move'; id: string } | { type: 'moved'; id: string; room: string; linked: boolean; linkError?: string } | null;
+type Sheet = { type: 'event'; id: string } | { type: 'move'; id: string } | { type: 'moved'; id: string; room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number } | null;
 
 function SheetLayer({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const [on, setOn] = useState(false);
@@ -208,8 +208,15 @@ function EventSheet({ e, partners, onClose, onMove }: { e: DayEvent; partners: P
   );
 }
 
-function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; room: string; linked: boolean; linkError?: string; already?: boolean }) => void }) {
+/** "katharine@favorintl.org" becomes Katharine; an address that does not read as a first name becomes "them". */
+const firstOf = (email: string) => {
+  const w = email.split('@')[0]!.split(/[._-]/)[0]!;
+  return /^[a-z]{3,}$/i.test(w) ? w[0]!.toUpperCase() + w.slice(1).toLowerCase() : 'them';
+};
+
+function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; room: string; linked: boolean; linkError?: string; already?: boolean; emailed?: number; emailFailed?: number }) => void }) {
   const [write, setWrite] = useState(false);
+  const [mail, setMail] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const n = e.people.length;
@@ -217,9 +224,9 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
     setBusy(true);
     setErr('');
     try {
-      const res = await send('/api/hub/day-move', { eventId: e.id, writeLink: write });
+      const res = await send('/api/hub/day-move', { eventId: e.id, writeLink: write, emailInvitees: n > 0 && mail });
       const d = dayMoveResponse.parse(res);
-      onDone({ id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError });
+      onDone({ id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError, emailed: d.emailed, emailFailed: d.emailFailed });
     } catch (x) {
       const er = x as Error & { status?: number; code?: string };
       if (er.status === 409 && er.code === 'already') {
@@ -241,10 +248,16 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
       </div>
       <ul className="t2-list">
         <li>Makes a FavorOS meeting on {whenLine(e)}.</li>
-        <li>{n ? `Invites the same ${n} ${n === 1 ? 'person' : 'people'} in FavorOS. FavorOS sends no email.` : 'Only you are on it.'}</li>
+        <li>{n ? `Invites the same ${n} ${n === 1 ? 'person' : 'people'} in FavorOS. ${mail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.'}` : 'Only you are on it.'}</li>
         <li>It is not recorded. The host can change that in the meeting.</li>
         <li id="t2-stays">{write ? 'Your calendar event gets one new line in its notes.' : 'Your calendar event is not changed.'}</li>
       </ul>
+      {n > 0 && (
+        <label className="t2-check">
+          <input type="checkbox" checked={mail} onChange={(ev) => setMail(ev.target.checked)} />
+          <span>{n === 1 ? `Email ${firstOf(e.people[0] || '')} the FavorOS link` : `Email the ${n} people the FavorOS link`}</span>
+        </label>
+      )}
       {!e.canEdit ? (
         <p className="t2-note">Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.</p>
       ) : !mayWrite ? (
@@ -284,7 +297,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
   );
 }
 
-function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked: boolean; linkError?: string }; onClose: () => void }) {
+function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number }; onClose: () => void }) {
   return (
     <SheetLayer label="Moved to FavorOS" onClose={onClose}>
       <div className="t2-h">
@@ -297,6 +310,8 @@ function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked:
       <ul className="t2-list">
         <li>{whenLine(e)}.</li>
         <li>{s.linked ? 'The FavorOS link is on your calendar event.' : 'Your calendar event is not changed.'}</li>
+        {!!s.emailed && <li>{`Emailed the link to ${s.emailed} ${s.emailed === 1 ? 'person' : 'people'}.`}</li>}
+        {!!s.emailFailed && <li>{`${s.emailFailed} ${s.emailFailed === 1 ? 'email' : 'emails'} did not go out. Share the room link with them.`}</li>}
       </ul>
       {s.linkError && <p className="t2-note">{s.linkError}</p>}
       <div className="t2-acts">
@@ -596,7 +611,7 @@ export function DayGrid({ day }: { day: Day }) {
               return;
             }
             patchEvent(sheetEvent.id, { hub: r.id, source: 'FavorOS', provider: 'favor' });
-            setSheet({ type: 'moved', id: sheetEvent.id, room: r.room, linked: r.linked, linkError: r.linkError });
+            setSheet({ type: 'moved', id: sheetEvent.id, room: r.room, linked: r.linked, linkError: r.linkError, emailed: r.emailed, emailFailed: r.emailFailed });
           }}
         />
       )}

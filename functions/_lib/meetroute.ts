@@ -917,7 +917,7 @@ async function mediaOf(env: MeetEnv, user: { email: string; role: string }, id: 
 }
 
 /** The guest link for a meeting, made once and turned on. Used by the Guest link button and by invitations. */
-async function ensureGuestUrl(env: MeetEnv, m: Meeting, origin: string): Promise<string> {
+export async function ensureGuestUrl(env: MeetEnv, m: Meeting, origin: string): Promise<string> {
   let key = await keyOf(env, m.id);
   if (!key) { key = hex(16); await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(m.id, key).run(); }
   if (m.access !== 'guests') await env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(m.id).run();

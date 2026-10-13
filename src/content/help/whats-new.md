@@ -11,6 +11,7 @@ The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you
 
 ## October 13, 2026
 
+- **Move to FavorOS emails the invitees.** The Move to FavorOS sheet on Today has a box, checked at the start, that emails everyone on the meeting except you the join link, the day and time in Eastern, and a file that adds the meeting to their calendar. Staff open the room and guests get a guest link. Uncheck it to send nothing.
 - **Email about chat.** FavorOS emails a welcome the first time Chat has something for you, then one email per conversation when a message for you is still unread after 10 minutes. [Chat](/help/chat/) says how to turn it off.
 
 ## October 12, 2026

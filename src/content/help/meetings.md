@@ -64,6 +64,10 @@ Two minutes before a meeting on your calendar starts, a box opens in the corner 
 
 Open a meeting's notes and press **Book the follow-up**. The booking opens with the same people already added and the title Follow-up, so you only pick a time.
 
+## Moving a meeting from Zoom, Meet or Teams
+
+On Today, **Move to FavorOS** makes a FavorOS meeting at the same time with the same people. The sheet has a box, checked at the start, that emails each invitee the join link, the time in Eastern and a calendar file, with a line telling them to use it instead of the Zoom, Google Meet, Teams or phone link on the calendar invite. You are not emailed, and no one gets it twice.
+
 ## Limits while it is tested
 
 Only FavorOS admins see Meetings. Guests from outside Favor join from an invite link (see Invite above). If a room fails to load, tell the technology team through Feedback.

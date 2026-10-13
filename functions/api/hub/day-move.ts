@@ -1,12 +1,16 @@
 import { accessToken, CAL_EVENTS, hasScopes } from '../../_lib/hub/google';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
-import { providerOf } from '../../_lib/meetprovider';
+import { providerOf, PROVIDER_LABEL } from '../../_lib/meetprovider';
+import { sendMoveInvites, sourceLabel } from '../../_lib/moveinvite';
+import { ensureGuestUrl } from '../../_lib/meetroute';
+import { getMeeting, guestsOn } from '../../_lib/meet';
 
 // Move to FavorOS, from Today. An outside meeting on the person's calendar (Zoom, Google Meet, Teams, a phone call or no link at all)
 // becomes a FavorOS meeting at the same time with the same people. The calendar event is left as it is, except when the person
 // confirmed the sheet that says so: then one line with the FavorOS link is added to the event's notes, with no email to anyone
-// (sendUpdates=none). The meeting is made without recording and without reminders, so moving never emails or records anyone.
+// (sendUpdates=none). The meeting is made without recording and without reminders. With emailInvitees the sheet's box was checked:
+// each invitee except the mover gets one FavorOS email with the join link and a calendar file (see moveinvite.ts).
 const CAL = 'https://www.googleapis.com/calendar/v3/calendars/primary/events/';
 const hex = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => b.toString(16).padStart(2, '0')).join('');
 const clean = (v: unknown, n: number) => String(v == null ? '' : v).replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, n);
@@ -16,7 +20,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const user = hubUserOf(request);
     if (!user || user.via !== 'google') return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const me = user.email.toLowerCase();
-    const b = (await request.json().catch(() => ({}))) as { eventId?: string; writeLink?: boolean };
+    const b = (await request.json().catch(() => ({}))) as { eventId?: string; writeLink?: boolean; emailInvitees?: boolean };
     const eventId = clean(b.eventId, 200);
     if (!eventId) return errorJson('event', 'Pick a meeting to move.', 400);
 
@@ -70,7 +74,27 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         linkError = res.status === 403 ? 'Google lets only the organizer change this event. The FavorOS meeting is made; the calendar event is untouched.' : 'Google Calendar did not accept the change. The FavorOS meeting is made; the calendar event is untouched.';
       }
     }
-    return json({ ok: true, id, room: `/meet/room/?m=${id}`, linked, linkError });
+    let emailed = 0;
+    let emailFailed = 0;
+    if (b.emailInvitees === true && invitees.length) {
+      const origin = new URL(request.url).origin;
+      const nice = (i: { email: string; name: string }) => i.name || i.email.split('@')[0].replace(/[._]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const r = await sendMoveInvites(env, {
+        mover: { name: user.name || me, email: me },
+        title: clean(ev.summary, 140) || 'Meeting',
+        startsAt,
+        endsAt,
+        people: [user.name || me, ...invitees.map(nice)],
+        source: sourceLabel(ev, providerOf(ev).provider, (p) => PROVIDER_LABEL[p as keyof typeof PROVIDER_LABEL] || p),
+        meetingId: id,
+        origin,
+        invitees,
+        guestUrl: async () => (guestsOn(env as any) ? ensureGuestUrl(env as any, await getMeeting(env as any, id), origin) : null),
+      });
+      emailed = r.sent.length;
+      emailFailed = r.failed.length + r.skipped.length;
+    }
+    return json({ ok: true, id, room: `/meet/room/?m=${id}`, linked, linkError, emailed, emailFailed });
   } catch (err) {
     return handleError(err);
   }

@@ -50,7 +50,7 @@ Each card under What needs you and each Blackbaud action has a clock button. Pre
 
 ## Move to FavorOS
 
-Press **Move to FavorOS** on a meeting held somewhere else. FavorOS makes a meeting at the same time with the same people, not recorded, and sends no email. Your calendar event stays as it is. A box in the sheet adds one line with the FavorOS link to the notes of that event on your own Google Calendar. It shows only when you organize the event or guests may edit it, and the first time Google asks you to allow calendar edits.
+Press **Move to FavorOS** on a meeting held somewhere else. FavorOS makes a meeting at the same time with the same people, not recorded. A box in the sheet, checked at the start, emails each person on the meeting (never you) the FavorOS link, the day and time in Eastern, and a file that adds it to their calendar. Staff open the room; people outside Favor get a guest link. Replies go to you, and nobody is emailed twice for one meeting. Uncheck the box and FavorOS sends no email. Your calendar event stays as it is. A box in the sheet adds one line with the FavorOS link to the notes of that event on your own Google Calendar. It shows only when you organize the event or guests may edit it, and the first time Google asks you to allow calendar edits.
 
 ## Where the year stands
 

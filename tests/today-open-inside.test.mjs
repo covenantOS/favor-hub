@@ -137,6 +137,30 @@ describe('Move to FavorOS', () => {
     assert.equal(d1.db.prepare('SELECT calendar_event_id AS c FROM hub_meetings WHERE id = ?').get(d.id).c, 'ext:ev1');
   });
 
+  it('emails each invitee but the mover once when the box was checked, staff the room and others the guest link', async () => {
+    d1.exec(readFileSync(new URL('../db/move-invite.sql', import.meta.url), 'utf8'));
+    d1.exec(`CREATE TABLE IF NOT EXISTS hub_users (email TEXT PRIMARY KEY, name TEXT, blocked INTEGER NOT NULL DEFAULT 0)`);
+    d1.db.prepare(`INSERT OR IGNORE INTO hub_users (email, name) VALUES ('cy@favorintl.org', 'Cy')`).run();
+    const sent = [];
+    env.MAIL_HOOK = (m) => (sent.push(m), true);
+    env.MEET_GUESTS = 'on';
+    const d = await (await post({ eventId: 'ev1', emailInvitees: true })).json();
+    assert.equal(d.emailed, 2);
+    assert.deepEqual(sent.map((m) => m.to).sort(), ['bo@example.org', 'cy@favorintl.org']);
+    assert.ok(sent.find((m) => m.to === 'cy@favorintl.org').html.includes('/meet/room/?m=' + d.id));
+    assert.ok(sent.find((m) => m.to === 'bo@example.org').html.includes('/meet/g/?m=' + d.id));
+    assert.ok(sent.every((m) => m.replyTo === 'ada@favorintl.org'));
+    assert.equal(d1.db.prepare('SELECT COUNT(*) AS n FROM hub_meeting_invite_log').get().n, 2);
+  });
+
+  it('sends no email when the box was not checked', async () => {
+    const sent = [];
+    env.MAIL_HOOK = (m) => (sent.push(m), true);
+    const d = await (await post({ eventId: 'ev1' })).json();
+    assert.equal(d.emailed, 0);
+    assert.equal(sent.length, 0);
+  });
+
   it('moves an event only once', async () => {
     const first = await (await post({ eventId: 'ev1' })).json();
     const again = await post({ eventId: 'ev1' });
