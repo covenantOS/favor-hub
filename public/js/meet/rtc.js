@@ -19,6 +19,8 @@ export class Rtc {
     this._lastRx = 0;
     this._lastAt = 0;
     this._audioLevels = new Map();
+    this._audioPkts = new Map(); // mid -> packetsReceived
+    this._pairRx = 0;
   }
 
   mutate(fn) {
@@ -86,7 +88,9 @@ export class Rtc {
           ...(t.kind === 'video' && t.rid ? { simulcast: { preferredRid: t.rid } } : {}),
         })),
       });
-      if (r.errorCode) throw new Error(r.errorDescription || 'pull failed');
+      if (r.errorCode) { this.lastPull = list.map((w) => ({ pid: w.pid, name: w.trackName, ok: false, err: String(r.errorCode) })); throw new Error(r.errorDescription || 'pull failed'); }
+      // Each track's own answer, kept for the room's connection report.
+      this.lastPull = list.map((w, i) => { const t = (r.tracks || [])[i] || {}; return { pid: w.pid, name: w.trackName, ok: !t.errorCode && !!t.mid, err: t.errorCode ? String(t.errorCode) : '' }; });
       (r.tracks || []).forEach((t, i) => {
         if (t.errorCode) return;
         const w = list[i];
@@ -98,6 +102,11 @@ export class Rtc {
         const rr = await this.call('renegotiate', { sessionDescription: { sdp: this.pc.localDescription.sdp, type: 'answer' } });
         if (rr.errorCode) throw new Error(rr.errorDescription || 'renegotiate failed');
       }
+      // The SFU reuses a closed subscription's transceiver (same mid) for the next pull, and the browser does not always fire
+      // ontrack again for a reused one. Hand every new subscription's receiver track to the room directly, so a person who
+      // reconnected is heard again by everyone already in the call.
+      const fresh = new Set((r.tracks || []).filter((t) => !t.errorCode && t.mid).map((t) => String(t.mid)));
+      for (const tr of this.pc.getTransceivers()) if (tr.mid != null && fresh.has(String(tr.mid)) && tr.receiver && tr.receiver.track) this.onTrack(tr.mid, tr.receiver.track);
     });
   }
 
@@ -127,32 +136,38 @@ export class Rtc {
     } catch {
       return this.stats;
     }
-    let rx = 0, tx = 0, avail = 0, lost = 0, recv = 0, rtt = 0;
+    let rx = 0, tx = 0, avail = 0, lost = 0, recv = 0, rtt = 0, pairRx = 0, local = '', remoteType = '';
     const widths = new Map();
     this._audioLevels = new Map();
     rep.forEach((s) => {
       if (s.type === 'inbound-rtp') {
         rx += s.bytesReceived || 0; lost += s.packetsLost || 0; recv += s.packetsReceived || 0;
         if (s.kind === 'video' && s.mid != null) widths.set(s.mid, { w: s.frameWidth || 0, h: s.frameHeight || 0, fps: s.framesPerSecond || 0 });
-        if (s.kind === 'audio' && s.mid != null) this._audioLevels.set(s.mid, s.audioLevel || 0);
+        if (s.kind === 'audio' && s.mid != null) { this._audioLevels.set(s.mid, s.audioLevel || 0); this._audioPkts.set(s.mid, s.packetsReceived || 0); }
       }
       if (s.type === 'outbound-rtp') tx += s.bytesSent || 0;
       if (s.type === 'candidate-pair' && s.state === 'succeeded' && s.nominated) {
-        avail = s.availableIncomingBitrate || avail; rtt = s.currentRoundTripTime || rtt;
+        avail = s.availableIncomingBitrate || avail; rtt = s.currentRoundTripTime || rtt; pairRx += s.bytesReceived || 0;
         const lc = rep.get(s.localCandidateId);
-        if (lc) { this.stats.pair = lc.candidateType + '/' + (lc.relayProtocol || lc.protocol || ''); this.stats.relay = lc.candidateType === 'relay'; }
+        if (lc) { this.stats.pair = lc.candidateType + '/' + (lc.relayProtocol || lc.protocol || ''); this.stats.relay = lc.candidateType === 'relay'; local = lc.candidateType; }
+        const rc = rep.get(s.remoteCandidateId); if (rc) remoteType = rc.candidateType;
       }
     });
     const now = Date.now();
     const dt = this._lastAt ? (now - this._lastAt) / 1000 : 0;
     const bps = dt ? ((rx - this._lastRx) * 8) / dt : 0;
     this._lastRx = rx; this._lastAt = now;
-    Object.assign(this.stats, { rx, tx, bps, availIn: avail, loss: recv ? lost / (lost + recv) : 0, rtt, t: now, widths });
+    // The selected path's own byte count includes the SFU's keepalives, so it climbs while the path is alive even when nobody
+    // sends any media. Zero growth here means the path is dead; a quiet room does not.
+    if (pairRx > this._pairRx) this.stats.pathAt = now;
+    this._pairRx = pairRx;
+    Object.assign(this.stats, { rx, tx, bps, availIn: avail, loss: recv ? lost / (lost + recv) : 0, rtt, t: now, widths, state: this.pc.connectionState, ice: this.pc.iceConnectionState, local, remoteType });
     if (bps > 2000) this.stats.lastMediaAt = now;
     return this.stats;
   }
 
   audioLevel(mid) { return this._audioLevels.get(mid) || 0; }
+  audioPackets(mid) { return this._audioPkts.get(mid) || 0; }
 
   close() {
     this.closed = true;
