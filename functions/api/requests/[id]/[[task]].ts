@@ -6,6 +6,7 @@ import { hubUserOf } from '../../../_lib/session';
 import { onRequestGet as getOne, onRequestPatch as patchOne } from './index';
 import * as routeFile from '../route';
 import * as marketingFile from '../marketing';
+import * as mineFile from '../mine';
 import * as attachmentsFile from './attachments';
 
 // Pages also hands this catch-all the addresses that have a file of their own beside it (/api/requests/route, /marketing and
@@ -22,6 +23,7 @@ export const onRequest: PagesFunction<Env, 'id' | 'task'> = (ctx) => {
   const id = String(ctx.params.id || '');
   if (!rest.length && id === 'route') return own(routeFile, ctx);
   if (!rest.length && id === 'marketing') return own(marketingFile, ctx);
+  if (!rest.length && id === 'mine') return own(mineFile, ctx);
   if (rest.length === 1 && rest[0] === 'attachments') return own(attachmentsFile, ctx);
   // /api/requests/people, notices, search and prefs can land here as well; they belong to the router.
   if (!rest.length && (id === 'people' || id === 'notices' || id === 'search' || id === 'prefs')) {
