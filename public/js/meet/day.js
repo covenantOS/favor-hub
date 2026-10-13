@@ -459,7 +459,7 @@
       var hrs = '';
       for (var h = h0; h <= h1; h++) hrs += '<div class="dv-hr" style="top:' + (h - h0) * PXH + 'px"><span>' + hourLabel(h) + '</span></div>';
       var nowLine = isToday && now.getTime() >= t0 ? '<div class="dv-now" style="top:' + (now.getTime() - t0) / 3600000 * PXH + 'px"><span>' + hm(now) + '</span></div>' : '';
-      var tlBody = evs.length
+      var tlBody = evs.length || !mobile()
         ? '<div class="dv-tl__scroll"><div class="dv-tl__grid" style="height:' + gridH + 'px">' + hrs + evs.map(function (e) { return eventHtml(e, geo); }).join('') + (state.draft && state.draft.key === state.day ? draftHtml('70px', 'calc(100% - 76px)', (state.draft.start - t0) / 3600000 * PXH + 1) : '') + nowLine + '</div></div>'
         : '<div class="dv-empty"><span class="dv-tile">' + ic('cal') + '</span><b>' + (isToday ? 'No meetings today' : 'No meetings on ' + esc(wk(state.day))) + '</b><a class="dv-btn dv-btn--primary" href="/meet/book/">' + ic('plus') + 'Book a meeting</a></div>';
       main = (dayLive.length ? '<div class="dv-livewrap">' + dayLive.map(liveCard).join('') + '</div>' : '') +
