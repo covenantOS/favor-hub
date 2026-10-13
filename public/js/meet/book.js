@@ -9,7 +9,7 @@ const FOLLOW = params.get('follow') || '';
 const TZ = 'America/New_York';
 const HOURS = []; for (let h = 9; h < 17; h++) { HOURS.push([h, 0]); HOURS.push([h, 30]); }
 
-const S = { post: '', channels: [], step: 1, dir: [], teams: new Set(), chipAdded: new Map(), people: new Map(), guests: [], dur: 60, start: '', title: '', autoTitle: false, agenda: '', rec: 'notes', repeat: 'none', remind: true, week: 0, busy: {}, fb: 'idle', me: null, booked: null, can: { ok: false, connected: false }, guestsOn: false, busyKey: '' };
+const S = { post: '', channels: [], step: 1, dir: [], teams: new Set(), chipAdded: new Map(), people: new Map(), guests: [], dur: 60, start: '', title: '', autoTitle: false, agenda: '', rec: 'video', repeat: 'none', remind: true, week: 0, busy: {}, fb: 'idle', me: null, booked: null, can: { ok: false, connected: false }, guestsOn: false, busyKey: '' };
 
 // ---- Eastern time helpers
 const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });

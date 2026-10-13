@@ -575,7 +575,7 @@ async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise
   const title = ch.kind === 'public' || ch.kind === 'private' ? `Huddle in #${ch.name}` : others.length ? `Huddle with ${others.join(', ')}` : 'Huddle';
   const isOpen = ch.kind === 'public';
   const made = (await createMeeting(env as unknown as MeetEnv, { email: me, name: user.name }, {
-    title, access: isOpen ? 'staff' : 'invited', rec: 'notes', notify: false,
+    title, access: isOpen ? 'staff' : 'invited', rec: 'video', notify: false,
     invitees: isOpen ? [] : members.filter((m) => m !== me).map((m) => ({ email: m, name: dir[m]?.name || m })),
   }, new URL(request.url).origin)) as { meeting: { id: string } };
   const mid = made.meeting.id;
