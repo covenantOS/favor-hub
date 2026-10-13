@@ -215,7 +215,6 @@ const firstOf = (email: string) => {
 };
 
 function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; room: string; linked: boolean; linkError?: string; already?: boolean; emailed?: number; emailFailed?: number }) => void }) {
-  const [write, setWrite] = useState(false);
   const [mail, setMail] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -224,7 +223,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
     setBusy(true);
     setErr('');
     try {
-      const res = await send('/api/hub/day-move', { eventId: e.id, writeLink: write, emailInvitees: n > 0 && mail });
+      const res = await send('/api/hub/day-move', { eventId: e.id, emailInvitees: n > 0 && mail });
       const d = dayMoveResponse.parse(res);
       onDone({ id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError, emailed: d.emailed, emailFailed: d.emailFailed });
     } catch (x) {
@@ -250,7 +249,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
         <li>Makes a FavorOS meeting on {whenLine(e)}.</li>
         <li>{n ? `Invites the same ${n} ${n === 1 ? 'person' : 'people'} in FavorOS. ${mail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.'}` : 'Only you are on it.'}</li>
         <li>It is not recorded. The host can change that in the meeting.</li>
-        <li id="t2-stays">{write ? 'Your calendar event gets one new line in its notes.' : 'Your calendar event is not changed.'}</li>
+        <li id="t2-stays">{e.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the old video link comes off.' : 'Your calendar event is not changed.'}</li>
       </ul>
       {n > 0 && (
         <label className="t2-check">
@@ -259,7 +258,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
         </label>
       )}
       {!e.canEdit ? (
-        <p className="t2-note">Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.</p>
+        <p className="t2-note">Someone else organizes this event, so Google does not let you change it. The FavorOS meeting is made and the calendar event keeps its video link. The organizer has to add the FavorOS link.</p>
       ) : !mayWrite ? (
         <>
           <p className="t2-note">To put the FavorOS link on the calendar event, FavorOS needs your permission to edit your calendar events.</p>
@@ -267,19 +266,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
             Allow calendar edits
           </a>
         </>
-      ) : (
-        <>
-          <label className="t2-check">
-            <input type="checkbox" checked={write} onChange={(ev) => setWrite(ev.target.checked)} />
-            <span>Add the FavorOS link to this event on my Google Calendar</span>
-          </label>
-          {write && (
-            <p className="t2-note">
-              Adds one line, Join in FavorOS and the link, to the end of the notes of this event on your calendar. Guests see it on their copy of the event. Google sends no email. Nothing else on the event changes, and the {e.source || 'meeting'} details stay.
-            </p>
-          )}
-        </>
-      )}
+      ) : null}
       {err && (
         <p className="t2-err" role="alert">
           {err}

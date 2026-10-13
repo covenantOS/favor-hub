@@ -7,7 +7,7 @@ for: [admin]
 related: [clips, whats-new]
 tool: /meet/
 toolLabel: Open Meetings
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 Meetings runs video calls inside FavorOS. Nobody installs anything. You join from the browser on a computer or a phone, and a call can hold the whole staff.
@@ -19,6 +19,14 @@ Press **Start now** on the Meetings page for a room you can use at once, then **
 Live and the count of people in the room mean people whose browser checked in during the last 20 seconds. A person who closes the tab, locks an iPhone or loses the connection drops off on their own.
 
 A meeting booked in FavorOS puts an event on your Google Calendar with the FavorOS link in the location and notes (and the guest link when guests are on). FavorOS adds no Google Meet link to the event.
+
+## Change a meeting on the calendar
+
+On a computer, drag a meeting you organize to another time or day. Times snap to 15 minutes. Drag its bottom edge to change the length. In Month, drag a meeting to another day and it keeps its time. A meeting someone else organizes shows a not-allowed pointer and does not move.
+
+Drag over an empty stretch of Day or Week to start a meeting, then type its title and press Enter. The meeting is a FavorOS room with an event on your Google Calendar, no Meet link and no recording.
+
+Open a meeting you organize and change its title, date, start and end times and agenda in the panel. Each field saves when you press Enter or leave it. A change Google Calendar refuses puts the meeting back where it was and says so. Changing the time of a meeting with guests updates the event on their calendars. FavorOS adds no email of its own for this.
 
 ## In the room
 

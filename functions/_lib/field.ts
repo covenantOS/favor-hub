@@ -68,5 +68,5 @@ export function fieldMeetRoute(method: string, parts: string[]): boolean {
   if (id === 'directory') return method === 'GET';
   if (!/^[0-9a-f]{24}$/.test(id)) return false;
   if (!sub) return method === 'GET';
-  return ['join', 'sync', 'event', 'leave', 'tracks', 'sfu', 'update', 'notes', 'media'].includes(sub);
+  return ['join', 'sync', 'event', 'leave', 'tracks', 'sfu', 'update', 'notes', 'media', 'request-access'].includes(sub);
 }

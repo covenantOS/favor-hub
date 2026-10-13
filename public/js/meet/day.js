@@ -9,7 +9,7 @@
   var PXH = 80, KEY = 'meet.day.v3', TTL = 20000, VIEW_KEY = 'meet.view.v1';
   var PROV = { favor: 'Favor', zoom: 'Zoom', meet: 'Google Meet', teams: 'Microsoft Teams', webex: 'Webex' };
   var savedView = (function () { try { var v = localStorage.getItem(VIEW_KEY); return v === 'week' || v === 'month' ? v : 'day'; } catch (e) { return 'day'; } })();
-  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveBusy: false, moveErr: '', rev: 0, calMap: {}, calInfo: null, covered: [], calBusy: false };
+  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveBusy: false, moveErr: '', rev: 0, calMap: {}, calInfo: null, covered: [], calBusy: false, ov: {}, pend: {}, draft: null, t0: 0 };
   var memo = { k: '', all: null, by: null };
   var timers = [], stopped = false, nowBtn = null, tt = 0, scrollTop = null, resetScroll = false, pumping = false;
 
@@ -54,22 +54,30 @@
       var start = Date.parse(m.startsAt || m.startedAt || m.createdAt);
       if (isNaN(start)) return;
       var end = Date.parse(m.endsAt || m.endedAt || '') || start + (m.durationMin || 30) * 60000;
+      var ov = state.ov[m.id];
+      if (ov && ov.start) { start = ov.start; end = ov.end; }
       // Live only while someone is in the room (a heartbeat in the last 20 seconds). A room everyone left is not live, even
       // before the server closes it.
       var live = m.status === 'live' && (m.inRoom || 0) > 0;
       if (live && end < now + 10 * 60000) end = now + 10 * 60000;
       var host = m.hostName || nameOf({ email: m.hostEmail });
       var names = [host].concat((m.invitees || []).map(nameOf)).filter(Boolean);
-      out.push({ id: m.id, hub: m, p: 'favor', title: String(m.title || '').trim() || 'Meeting', start: start, end: end, live: live, past: !live && (m.status === 'ended' || end <= now), who: names, count: names.length || 1,
-        rec: m.rec, inRoom: m.inRoom || 0, open: !m.startsAt, noteId: m.notesStatus && m.notesStatus !== 'none' ? m.id : '' });
+      var past = !live && (m.status === 'ended' || end <= now);
+      out.push({ id: m.id, hub: m, p: 'favor', title: (ov && ov.title != null ? ov.title : String(m.title || '').trim()) || 'Meeting', start: start, end: end, live: live, past: past, who: names, count: names.length || 1,
+        rec: m.rec, inRoom: m.inRoom || 0, open: !m.startsAt, noteId: m.notesStatus && m.notesStatus !== 'none' ? m.id : '',
+        desc: ov && ov.desc != null ? ov.desc : m.agenda || '', edit: !!(m.mine && m.startsAt && m.status === 'scheduled' && (!m.repeat || m.repeat === 'none') && !live && !past) });
     };
     (d.up || []).forEach(add); (d.recent || []).forEach(add); (state.extra || []).forEach(add);
     var cal = d.cal && d.cal.connected ? d.cal.meetings : [];
     cal.forEach(function (c) {
       var s = Date.parse(c.startsAt), e = Date.parse(c.endsAt) || s + 30 * 60000;
       if (isNaN(s)) return;
+      var ov = state.ov['c:' + c.eventId];
+      if (ov && ov.start) { s = ov.start; e = ov.end; }
       var names = (c.people || []).map(function (p) { return p.name || p.email; });
-      out.push({ id: 'c:' + c.eventId, cal: c, p: c.provider || 'meet', title: String(c.title || '').trim() || '(No title)', start: s, end: e, live: s <= now && e > now, past: e <= now, who: names, count: names.length || 1, rec: 'none', inRoom: 0, noteId: '' });
+      var clive = s <= now && e > now, cpast = e <= now;
+      out.push({ id: 'c:' + c.eventId, cal: c, p: c.provider || 'meet', title: (ov && ov.title != null ? ov.title : String(c.title || '').trim()) || '(No title)', start: s, end: e, live: clive, past: cpast, who: names, count: names.length || 1, rec: 'none', inRoom: 0, noteId: '',
+        desc: ov && ov.desc != null ? ov.desc : c.description || '', edit: !!(c.canEdit && d.cal && d.cal.canWrite && !clive && !cpast) });
     });
     out.sort(function (a, b) { return a.start - b.start || a.end - b.end; });
     return out;
@@ -110,7 +118,9 @@
   // The calendar windows already loaded survive a page change (a link out and Back, a reload), so the Google, Zoom, Meet and Teams
   // events are on screen in the first paint and only replaced by a newer successful load.
   var CAL_KEY = 'meet.cal.v1';
-  function saveCal() { try { var j = JSON.stringify({ at: Date.now(), calMap: state.calMap, covered: state.covered, calInfo: state.calInfo }); if (j.length < 2500000) sessionStorage.setItem(CAL_KEY, j); } catch (e) { /* storage full or off */ } }
+  var saveT = 0;
+  function saveCal() { clearTimeout(saveT); saveT = setTimeout(saveCalNow, 900); }
+  function saveCalNow() { try { var j = JSON.stringify({ at: Date.now(), calMap: state.calMap, covered: state.covered, calInfo: state.calInfo }); if (j.length < 2500000) sessionStorage.setItem(CAL_KEY, j); } catch (e) { /* storage full or off */ } }
   function hydrate() {
     try {
       var c = JSON.parse(sessionStorage.getItem(CAL_KEY) || 'null'), h = JSON.parse(sessionStorage.getItem(KEY) || 'null');
@@ -149,18 +159,21 @@
         Object.keys(state.calMap).forEach(function (k) { var st = Date.parse(state.calMap[k].startsAt); if (st >= r.from && st < r.to) delete state.calMap[k]; });
         (r.meetings || []).forEach(function (m) { state.calMap[m.eventId] = m; });
         state.covered.push({ from: r.from, to: r.to, at: Date.now() });
+        state.covered = state.covered.filter(function (c) { return !state.covered.some(function (o) { return o !== c && o.at >= c.at && o.from <= c.from && o.to >= c.to; }); }).slice(-12);
       }
       saveCal(); rebuildCal(); if (state.data && calSig() !== was) draw();
     }).catch(function () { if (stopped) return; var was2 = calSig(); state.calInfo = Object.assign({}, state.calInfo || { connected: true }, { error: 'Google Calendar did not answer.' }); rebuildCal(); if (state.data && calSig() !== was2) draw(); });
   }
   // The days on screen, plus a week either side, must sit inside a loaded window. Otherwise that stretch is fetched.
+  var STALE = 150000;
+  function coverAt(lo, hi) { var best = 0; state.covered.forEach(function (c) { if (c.from <= lo && c.to >= hi && c.at > best) best = c.at; }); return best; }
   function ensureCal() {
     if (!state.data || state.calBusy || (state.calInfo && state.calInfo.connected === false)) return Promise.resolve();
-    var ks = MV.range(state.view, state.day), lo = MV.etStart(addDays(ks[0], -7)), hi = MV.etStart(addDays(ks[ks.length - 1], 8));
-    var ok = state.covered.some(function (c) { return c.from <= lo && c.to >= hi; });
-    if (ok) return Promise.resolve();
+    var ks = MV.range(state.view, state.day), last = ks[ks.length - 1], lo = MV.etStart(addDays(ks[0], -14)), hi = MV.etStart(addDays(last, 15));
+    var at = coverAt(lo, hi), idle = function () { state.calBusy = false; };
+    if (at && Date.now() - at < STALE) return Promise.resolve();
     state.calBusy = true;
-    return fetchCal(addDays(ks[0], -35), addDays(ks[ks.length - 1], 45)).then(function () { state.calBusy = false; }, function () { state.calBusy = false; });
+    return (at ? fetchCal(addDays(ks[0], -14), addDays(last, 14)) : fetchCal(addDays(ks[0], -35), addDays(last, 45))).then(idle, idle);
   }
   function load(fresh) {
     var c = fresh ? null : readCache();
@@ -174,7 +187,9 @@
     var today = dayKey(new Date());
     // The calendar goes in parallel and does not hold the page back. The window is every day on screen plus the weeks around today.
     var ks = MV.range(state.view, state.day);
-    var calP = !fresh || !state.covered.length ? fetchCal(addDays(today < ks[0] ? today : ks[0], -35), addDays(today > ks[ks.length - 1] ? today : ks[ks.length - 1], 45)) : refetchCal();
+    var calP;
+    if (state.covered.length) calP = refetchCal();
+    else calP = fetchCal(addDays(ks[0], -3), addDays(ks[ks.length - 1], 3)).then(function () { return fetchCal(addDays(today < ks[0] ? today : ks[0], -35), addDays(today > ks[ks.length - 1] ? today : ks[ks.length - 1], 45)); });
     var shown = hub.then(function (v) {
       if (stopped) return;
       state.people = {}; (v.people || []).forEach(function (q) { state.people[String(q.email).toLowerCase()] = q.name; });
@@ -188,10 +203,8 @@
   }
   // A refresh re-reads the windows already loaded, oldest data first, one call.
   function refetchCal() {
-    var w = state.covered.length ? state.covered[state.covered.length - 1] : null;
-    if (!w) return Promise.resolve();
-    var nw = state.covered.slice(); state.covered = [];
-    return fetchCal(MV.etKey(Math.min.apply(null, nw.map(function (c) { return c.from; })) + 3600000), MV.etKey(Math.max.apply(null, nw.map(function (c) { return c.to; })) - 3600000));
+    var ks = MV.range(state.view, state.day);
+    return fetchCal(addDays(ks[0], -14), addDays(ks[ks.length - 1], 14));
   }
   function sig(v) { return JSON.stringify([v.up, v.recent, v.notes, (v.people || []).length]); }
   // Finished meetings need work (recording to Drive, transcript, notes). This drives whichever is next.
@@ -208,21 +221,30 @@
     })();
   }
 
+  // Editable events can be dragged and resized; the others show a not-allowed cursor.
+  var edc = function (e) { return e.edit ? ' is-edit' : ' is-lock'; };
+  var rsh = function (e) { return e.edit ? '<i class="dv-rs" aria-hidden="true"></i>' : ''; };
+  function draftHtml(left, width, top) {
+    var d = state.draft; if (!d) return '';
+    var h = Math.max(20, (d.end - d.start) / 3600000 * PXH - 3);
+    return '<div class="dv-ev dv-new" data-p="favor" data-ev="draft" style="top:' + top + 'px;height:' + h + 'px;left:' + left + ';width:' + width + '"><span class="dv-ev__t">' + hm(d.start) + ' to ' + hm(d.end) + '</span>' +
+      (d.editing ? '<input class="dv-new__in" type="text" maxlength="140" placeholder="Add title" aria-label="Title of the new meeting" autocomplete="off"' + (d.busy ? ' disabled' : '') + '>' : '') + '</div>';
+  }
   function eventHtml(e, geo) {
     var h = ((e.vend || e.end) - e.start) / 3600000 * PXH - 3, compact = h < 50, tall = h >= 76;
     var top = (e.start - geo.t0) / 3600000 * PXH + 1;
     if (e.stack !== undefined) {
       var rt = (e.stackTop - geo.t0) / 3600000 * PXH + 1 + e.stack * e.pitch;
-      var rc = 'dv-ev is-row' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.open === e.id ? ' is-sel' : '');
+      var rc = 'dv-ev is-row' + edc(e) + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.open === e.id ? ' is-sel' : '');
       return '<button type="button" class="' + rc + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.open === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + (PROV[e.p] || e.p)) + '"' +
         ' style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:70px;width:calc(100% - 76px)"><span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + (e.capEnd ? '<span class="dv-cont">continues</span>' : '') + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
     }
-    var c = 'dv-ev' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (compact ? ' is-compact' : '') + (state.open === e.id ? ' is-sel' : '');
+    var c = 'dv-ev' + edc(e) + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (compact ? ' is-compact' : '') + (state.open === e.id ? ' is-sel' : '');
     var chip = (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + (e.capEnd ? '<span class="dv-cont" title="Ends ' + esc(hm(e.end)) + ' the next day">continues</span>' : '');
     var foot = tall ? '<span class="dv-ev__f"><span>' + (e.live && e.inRoom ? Number(e.inRoom).toLocaleString('en-US') + ' in the room' : people(e.count)) + '</span>' + (e.noteId ? '<span class="dv-chip dv-chip--plain">' + ic('doc') + 'Notes</span>' : '') + '</span>' : '';
     return '<button type="button" class="' + c + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-pressed="' + (state.open === e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ' to ' + hm(e.end) + ', ' + (PROV[e.p] || e.p)) + '"' +
       ' style="top:' + top + 'px;height:' + h + 'px;left:calc(70px + (100% - 76px) * ' + (e.lane / e.lanes) + ');width:calc((100% - 76px) / ' + e.lanes + ' - 6px)">' +
-      '<span class="dv-ev__t">' + pv(e.p) + chip + (compact ? '' : avs(e.who, e.lanes > 1 ? 2 : 4)) + '</span><h4>' + esc(e.title) + '</h4>' + foot + '</button>';
+      '<span class="dv-ev__t">' + pv(e.p) + chip + (compact ? '' : avs(e.who, e.lanes > 1 ? 2 : 4)) + '</span><h4>' + esc(e.title) + '</h4>' + foot + rsh(e) + '</button>';
   }
 
   // "1 person", "41 people".
@@ -277,12 +299,12 @@
   function weekEv(e, t0) {
     if (e.stack !== undefined) {
       var rt = (e.stackTop - t0) / 3600000 * PXH + 1 + e.stack * e.pitch;
-      return '<button type="button" class="dv-ev is-row is-wk' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.open === e.id ? ' is-sel' : '') + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + provName(e.p)) + '" style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:2px;width:calc(100% - 4px)"><span class="dv-ev__t">' + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
+      return '<button type="button" class="dv-ev is-row is-wk' + edc(e) + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (state.open === e.id ? ' is-sel' : '') + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ', ' + provName(e.p)) + '" style="top:' + rt + 'px;height:' + (e.pitch - 4) + 'px;left:2px;width:calc(100% - 4px)"><span class="dv-ev__t">' + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
     }
     var h = ((e.vend || e.end) - e.start) / 3600000 * PXH - 3, top = (e.start - t0) / 3600000 * PXH + 1;
-    var c = 'dv-ev is-wk' + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (h < 50 ? ' is-compact' : '') + (state.open === e.id ? ' is-sel' : '');
+    var c = 'dv-ev is-wk' + edc(e) + (e.live ? ' is-live' : '') + (e.past ? ' is-past' : '') + (h < 50 ? ' is-compact' : '') + (state.open === e.id ? ' is-sel' : '');
     return '<button type="button" class="' + c + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" aria-label="' + esc(e.title + ', ' + hm(e.start) + ' to ' + hm(e.end) + ', ' + provName(e.p)) + '" style="top:' + top + 'px;height:' + h + 'px;left:calc(100% * ' + (e.lane / e.lanes) + ' + 2px);width:calc(100% / ' + e.lanes + ' - 4px)">' +
-      '<span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4></button>';
+      '<span class="dv-ev__t">' + pv(e.p) + (e.live ? '<span class="dv-live"><i></i>Live</span>' : hm(e.start)) + '</span><h4 title="' + esc(e.title) + '">' + esc(e.title) + '</h4>' + rsh(e) + '</button>';
   }
   function weekHtml(byDay, today, all) {
     var days = MV.weekDays(state.day);
@@ -310,7 +332,8 @@
     var cols = days.map(function (k) {
       var list = lists[k], tk = MV.etStart(k) + h0 * 3600000;
       var now = k === today && state.now.getTime() >= tk ? '<div class="dv-now" style="top:' + (state.now.getTime() - tk) / 3600000 * PXH + 'px"></div>' : '';
-      return '<div class="wk-col' + (k === today ? ' is-today' : '') + '">' + list.map(function (e) { return weekEv(e, tk); }).join('') + now + '</div>';
+      var dr = state.draft && state.draft.key === k ? draftHtml('2px', 'calc(100% - 4px)', (state.draft.start - tk) / 3600000 * PXH + 1) : '';
+      return '<div class="wk-col' + (k === today ? ' is-today' : '') + '" data-col="' + k + '">' + list.map(function (e) { return weekEv(e, tk); }).join('') + dr + now + '</div>';
     }).join('');
     var head = '<div class="wk-head"><span class="wk-gut"></span>' + days.map(function (k) {
       return '<button type="button" class="wk-hd' + (k === today ? ' is-today' : '') + '" data-goday="' + k + '" aria-label="' + esc(longDay(k) + ', ' + count((byDay[k] || []).length)) + '"><small>' + MV.dayName(k, false) + '</small><b>' + MV.dayNum(k) + '</b></button>';
@@ -332,8 +355,8 @@
           return '<button type="button" class="' + cls + (c.key === pick ? ' is-pick' : '') + '" data-pick="' + c.key + '" aria-label="' + esc(longDay(c.key) + ', ' + count(list.length)) + '"><b>' + MV.dayNum(c.key) + '</b><span class="mo-dots">' + dots + '</span></button>';
         }
         var ch = MV.chips(list, 3);
-        return '<div class="' + cls + '"><button type="button" class="mo-num" data-goday="' + c.key + '" aria-label="' + esc(longDay(c.key)) + '">' + MV.dayNum(c.key) + '</button>' +
-          ch.shown.map(function (e) { return '<button type="button" class="mo-chip' + (e.past ? ' is-past' : '') + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" title="' + esc(e.title) + '"><b>' + hm(e.start).replace(' ', '').toLowerCase() + '</b><span>' + esc(e.title) + '</span></button>'; }).join('') +
+        return '<div class="' + cls + '" data-cell="' + c.key + '"><button type="button" class="mo-num" data-goday="' + c.key + '" aria-label="' + esc(longDay(c.key)) + '">' + MV.dayNum(c.key) + '</button>' +
+          ch.shown.map(function (e) { return '<button type="button" class="mo-chip' + edc(e) + (e.past ? ' is-past' : '') + '" data-p="' + e.p + '" data-ev="' + esc(e.id) + '" title="' + esc(e.title) + '"><b>' + hm(e.start).replace(' ', '').toLowerCase() + '</b><span>' + esc(e.title) + '</span></button>'; }).join('') +
           (ch.more ? '<button type="button" class="mo-more" data-goday="' + c.key + '">+' + ch.more + ' more</button>' : '') + '</div>';
       }).join('') + '</div>';
     });
@@ -359,6 +382,10 @@
     var nb = Array.prototype.slice.call(b.childNodes), used = [];
     for (i = 0; i < nb.length; i++) {
       var nw = nb[i], k = keyOf(nw), cur = null;
+      if (nw.nodeType === 1 && nw.hasAttribute('data-same')) {
+        for (var q = 0; q < oldU.length; q++) if (oldU[q].nodeName === nw.nodeName) { cur = oldU.splice(q, 1)[0]; break; }
+        if (cur) { used.push(cur); if (a.childNodes[i] !== cur) a.insertBefore(cur, a.childNodes[i] || null); continue; }
+      }
       if (k) { cur = oldK[k] || null; if (cur) delete oldK[k]; }
       else { while (oldU.length && !cur) { var c0 = oldU.shift(); if (c0.nodeType === nw.nodeType && c0.nodeName === nw.nodeName) cur = c0; } }
       if (cur && cur.nodeName === nw.nodeName) {
@@ -369,7 +396,7 @@
     }
     while (a.childNodes.length > used.length) a.removeChild(a.lastChild);
   }
-  var shownView = '';
+  var shownView = '', lastNotes = '';
   function paint(html, view) {
     var t = document.createElement('template'); t.innerHTML = html;
     if (!root.firstElementChild || shownView !== view) root.innerHTML = html; else patchKids(root, t.content);
@@ -377,6 +404,7 @@
   }
 
   function draw() {
+    if (drag && drag.on && drag.kind !== 'create') { drag.redraw = true; return; }
     var keep = root.querySelector('.dv-tl__scroll'); if (keep && !resetScroll) scrollTop = keep.scrollTop;
     var nl = root.querySelector('.dv-notes__list'), nTop = nl && state.noteView === state.view ? nl.scrollTop : 0;
     var d = state.data, now = state.now, today = dayKey(now), all = derived().all, view = state.view;
@@ -407,6 +435,7 @@
     }
     var notesAside = '<aside class="dv-notes" aria-label="Notes"><div class="dv-notes__in"><div class="dv-notes__h"><h2>Notes</h2><span class="dv-chip">' + notes.length + '</span><span class="dv-grow"></span><a class="dv-link" href="/meet/library/">Ask or search all notes ' + ic('arrow') + '</a></div>' +
       '<div class="dv-notes__list">' + (notes.length ? notes.map(noteHtml).join('') : '<p class="dv-none">No notes yet</p>') + '</div></div></aside>';
+    if (shownView === view && notesAside === lastNotes && root.querySelector('.dv-notes')) notesAside = '<aside class="dv-notes" data-same="1"></aside>'; else lastNotes = notesAside;
     var main = '', t0 = 0, listForScroll = evs;
     if (view === 'week') {
       main = '<div class="dv-cols">' + weekHtml(byDay, today, all) + notesAside + '</div>';
@@ -423,7 +452,7 @@
       evs.forEach(function (e) { h0 = Math.min(h0, MV.etHM(e.start).h); if (e.capEnd) { h1 = 24; return; } var ed = Math.min(dayEnd, Math.max(e.end, e.start + 45 * 60000)), hh = MV.etHM(ed); h1 = Math.max(h1, ed >= dayEnd ? 24 : hh.h + (hh.m ? 1 : 0)); });
       if (h1 <= h0) h1 = h0 + 1;
       t0 = MV.etStart(state.day) + h0 * 3600000;
-      var geo = { t0: t0 };
+      var geo = { t0: t0 }; state.t0 = t0;
       lanes(evs);
       var gridH = (h1 - h0) * PXH + 8;
       evs.forEach(function (e) { if (e.stack !== undefined) gridH = Math.max(gridH, (e.stackTop - t0) / 3600000 * PXH + e.stack * e.pitch + e.pitch + 8); });
@@ -431,7 +460,7 @@
       for (var h = h0; h <= h1; h++) hrs += '<div class="dv-hr" style="top:' + (h - h0) * PXH + 'px"><span>' + hourLabel(h) + '</span></div>';
       var nowLine = isToday && now.getTime() >= t0 ? '<div class="dv-now" style="top:' + (now.getTime() - t0) / 3600000 * PXH + 'px"><span>' + hm(now) + '</span></div>' : '';
       var tlBody = evs.length
-        ? '<div class="dv-tl__scroll"><div class="dv-tl__grid" style="height:' + gridH + 'px">' + hrs + evs.map(function (e) { return eventHtml(e, geo); }).join('') + nowLine + '</div></div>'
+        ? '<div class="dv-tl__scroll"><div class="dv-tl__grid" style="height:' + gridH + 'px">' + hrs + evs.map(function (e) { return eventHtml(e, geo); }).join('') + (state.draft && state.draft.key === state.day ? draftHtml('70px', 'calc(100% - 76px)', (state.draft.start - t0) / 3600000 * PXH + 1) : '') + nowLine + '</div></div>'
         : '<div class="dv-empty"><span class="dv-tile">' + ic('cal') + '</span><b>' + (isToday ? 'No meetings today' : 'No meetings on ' + esc(wk(state.day))) + '</b><a class="dv-btn dv-btn--primary" href="/meet/book/">' + ic('plus') + 'Book a meeting</a></div>';
       main = (dayLive.length ? '<div class="dv-livewrap">' + dayLive.map(liveCard).join('') + '</div>' : '') +
         '<div class="dv-cols"><section class="dv-card dv-tl" aria-label="Timeline"><div class="dv-tl__head"><h2>Timeline</h2><div class="dv-legend">' + legend(evs) + '</div></div>' + tlBody + '</section>' +
@@ -466,9 +495,10 @@
     renderPanel();
   }
 
-  function setDay(k) { state.day = k; state.sel = null; state.confirm = null; state.pick = ''; scrollTop = null; resetScroll = true; draw(); ensureCal(); }
+  function setDay(k) { if (state.draft && !state.draft.busy) state.draft = null; state.day = k; state.sel = null; state.confirm = null; state.pick = ''; scrollTop = null; resetScroll = true; draw(); ensureCal(); }
   function setView(v) {
     if (v === state.view) return;
+    if (state.draft && !state.draft.busy) state.draft = null;
     state.view = v; state.pick = ''; scrollTop = null; resetScroll = true;
     try { localStorage.setItem(VIEW_KEY, v); } catch (e) { /* private mode */ }
     draw(); ensureCal();
@@ -580,7 +610,11 @@
   function recLabel(r) { return r === 'video' ? 'Notes and video' : r === 'notes' ? 'Notes' : 'Not recorded'; }
 
   function closeBtn() { return '<button type="button" class="mp-x" data-mp="close" aria-label="Close">' + ic('x') + '</button>'; }
+  function headEdit(e, kicker) {
+    return '<header class="mp-h">' + pv(e.p) + '<div class="mp-h__t"><small>' + esc(kicker || provName(e.p)) + '</small><input class="mp-ed mp-ti" type="text" data-f="title" maxlength="140" value="' + esc(e.title) + '" aria-label="Title" autocomplete="off"></div>' + closeBtn() + '</header>';
+  }
   function head(e, kicker) {
+    if (e.edit) return headEdit(e, kicker);
     return '<header class="mp-h">' + pv(e.p) + '<div class="mp-h__t"><small>' + esc(kicker || provName(e.p)) + (e.live ? ' · Live now' : e.past ? ' · Ended' : '') + '</small><h3>' + esc(e.title) + '</h3><p>' + esc(whenLine(e)) + '</p></div>' + closeBtn() + '</header>';
   }
 
@@ -612,10 +646,14 @@
         else foot += '<button type="button" class="dv-btn dv-btn--danger" data-cancel="' + esc(m.id) + '">Cancel meeting</button>';
       }
     }
+    if (e.edit) {
+      rows += row('Date', '<input class="mp-ed" type="date" data-f="date" value="' + dayKey(e.start) + '" aria-label="Date">');
+      rows += row('Time', '<span class="mp-time"><input class="mp-ed" type="time" step="300" data-f="start" value="' + hhmm(e.start) + '" aria-label="Start time"><span>to</span><input class="mp-ed" type="time" step="300" data-f="end" value="' + hhmm(e.end) + '" aria-label="End time"><small>ET</small></span>');
+    }
     var inv = invited(e);
     rows += row('Invited', inv.length ? '<ul class="mp-pl">' + inv.map(personRow).join('') + '</ul>' : 'Just the organizer');
-    var desc = e.cal ? e.cal.description : e.hub.agenda;
-    if (desc) rows += row('Agenda', '<p class="mp-text">' + esc(desc) + '</p>');
+    if (e.edit) rows += row('Agenda', '<textarea class="mp-ed mp-ed--area" data-f="desc" rows="3" maxlength="2000" placeholder="Add an agenda" aria-label="Agenda">' + esc(e.desc || '') + '</textarea>');
+    else if (e.desc) rows += row('Agenda', '<p class="mp-text">' + esc(e.desc) + '</p>');
     if (!e.cal) {
       var m2 = e.hub, pr = state.prep[m2.id], nt = '';
       if (m2.status === 'ended') {
@@ -642,17 +680,13 @@
     var body = '<ul class="mp-list"><li>Makes a FavorOS meeting on ' + esc(whenLine(s)) + '.</li>' +
       '<li>' + (n ? 'Invites the same ' + n + (n === 1 ? ' person' : ' people') + ' in FavorOS. ' + (state.moveMail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.') : 'Only you are on it.') + '</li>' +
       '<li>It is not recorded. The host can change that in the meeting.</li>' +
-      '<li id="mp-stays">' + (write ? 'Your calendar event gets one new line in its notes.' : 'Your calendar event is not changed.') + '</li></ul>';
-    if (!c.canEdit) body += '<p class="mp-note">Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.</p>';
+      '<li id="mp-stays">' + (c.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the ' + esc(held) + ' link comes off.' : 'Your calendar event is not changed.') + '</li></ul>';
+    if (!c.canEdit) body += '<p class="mp-note">Someone else organizes this event, so Google does not let you change it. The FavorOS meeting is made, and the calendar event keeps its ' + esc(held) + ' link. The organizer has to add the FavorOS link.</p>';
     else if (!may) body += '<p class="mp-note">To put the FavorOS link on the calendar event, FavorOS needs your permission to edit your calendar events.</p><a class="dv-btn dv-btn--line" href="/api/google/connect?add=meetings&amp;next=%2Fmeet%2F">Allow calendar edits</a>';
-    else {
-      body += '<label class="mp-check"><input type="checkbox" data-mp="write"' + (write ? ' checked' : '') + '><span>Add the FavorOS link to this event on my Google Calendar</span></label>';
-      if (write) body += '<p class="mp-note">Adds one line, Join in FavorOS and the link, to the end of the notes of this event on your calendar. Guests see it on their copy of the event. Google sends no email. Nothing else on the event changes, and the ' + esc(held) + ' details stay.</p>';
-    }
     if (n > 0) body += '<label class="mp-check"><input type="checkbox" data-mp="mail"' + (state.moveMail ? ' checked' : '') + '><span>' + (n === 1 ? 'Email ' + esc(firstOf(invited(s)[0].email)) + ' the FavorOS link' : 'Email the ' + n + ' people the FavorOS link') + '</span></label>';
     if (state.moveErr) body += '<p class="mp-err" role="alert">' + esc(state.moveErr) + '</p>';
     return '<header class="mp-h"><div class="mp-h__t"><h3>Move to FavorOS</h3><p>' + esc(s.title) + '</p></div>' + closeBtn() + '</header><div class="mp-b">' + body +
-      '<div class="mp-acts mp-acts--end"><button type="button" class="dv-btn dv-btn--primary mp-first" data-mp="domove"' + (state.moveBusy ? ' disabled' : '') + '>' + (state.moveBusy ? 'Moving' : 'Move to FavorOS') + '</button><button type="button" class="dv-btn dv-btn--ghost" data-mp="back">Back</button></div></div>';
+      '<div class="mp-acts mp-acts--end"><button type="button" class="dv-btn dv-btn--primary mp-first" data-mp="domove"' + (state.moveBusy || (s.cal.canEdit && !may) ? ' disabled' : '') + '>' + (state.moveBusy ? 'Moving' : 'Move to FavorOS') + '</button><button type="button" class="dv-btn dv-btn--ghost" data-mp="back">Back</button></div></div>';
   }
   function movedPanel() {
     var s = state.moved;
@@ -672,10 +706,11 @@
     else inner = state.panel === 'move' && e.cal ? movePanel(e) : detailPanel(e);
     var old = layer.querySelector('.mp-b'), keep = old ? old.scrollTop : 0, was = layer.classList.contains('is-open');
     var sheet = was ? layer.querySelector('.mp-sheet') : null;
-    if (sheet) { sheet.setAttribute('aria-label', e ? e.title : 'Meeting'); sheet.innerHTML = inner; }
+    if (sheet) { sheet.setAttribute('aria-label', e ? e.title : 'Meeting'); var tp = document.createElement('template'); tp.innerHTML = inner; patchKids(sheet, tp.content); }
     else layer.innerHTML = '<div class="mp-scrim" data-mp="close"></div><aside class="mp-sheet" role="dialog" aria-modal="true" aria-label="' + esc(e ? e.title : 'Meeting') + '">' + inner + '</aside>';
     layer.classList.add('is-open'); document.documentElement.classList.add('mp-lock');
     var nb = layer.querySelector('.mp-b'); if (nb && was) nb.scrollTop = keep;
+    if (e && e.edit) syncFields(e);
     if (focusOnce) { focusOnce = false; var f = layer.querySelector('.mp-first') || layer.querySelector('.mp-x'); if (f) f.focus({ preventScroll: true }); }
   }
 
@@ -683,7 +718,7 @@
     var e = findEv(state.open); if (!e || !e.cal || state.moveBusy) return;
     state.move = e; state.moveBusy = true; state.moveErr = ''; renderPanel();
     // Same route and fields as Today.
-    var body = { eventId: e.cal.eventId, writeLink: state.moveWrite, emailInvitees: invited(e).length > 0 && state.moveMail };
+    var body = { eventId: e.cal.eventId, emailInvitees: invited(e).length > 0 && state.moveMail };
     api('../hub/day-move', { method: 'POST', body: body }).then(function (r) {
       state.moved = { title: e.title, when: whenLine(e), room: r.room || '/meet/room/?m=' + r.id, linked: !!r.linked, linkError: r.linkError || '', emailed: r.emailed || 0, emailFailed: r.emailFailed || 0 };
       state.panel = 'moved'; state.moveBusy = false; renderPanel(); load(true);
@@ -732,6 +767,291 @@
   window.__hubPopOwn = function () { return !stopped && location.pathname.replace(/\/?$/, '/') === '/meet/'; };
   window.addEventListener('resize', (function () { var was = mobile(); return function () { var now = mobile(); if (now !== was) { was = now; if (state.data && !stopped) draw(); } }; })());
 
+  // ---------------------------------------------------------------- editing in place: drag, resize, create, save
+  // Every change is shown at once (an override on top of the loaded data) and sent to Google Calendar or the meeting route.
+  // When the save fails the override is dropped and the event is drawn where it was.
+  var SNAP = 15, drag = null, noClickUntil = 0, tipEl = null;
+  var shortMsg = function (m) { m = String(m || ''); return m && m.length <= 80 ? m : 'Could not save. Nothing changed.'; };
+  var minOfDay = function (ms) { var h = MV.etHM(ms); return h.h * 60 + h.m; };
+  function atDay(key, minutes) { var extra = Math.floor(minutes / 1440), m = ((minutes % 1440) + 1440) % 1440; return MV.etStart(addDays(key, extra)) + m * 60000; }
+  var snapMin = function (v) { return Math.round(v / SNAP) * SNAP; };
+  var pad2 = function (n) { return (n < 10 ? '0' : '') + n; };
+  var hhmm = function (ms) { var h = MV.etHM(ms); return pad2(h.h) + ':' + pad2(h.m); };
+  var toMin = function (v) { var p = String(v).split(':'); return (+p[0]) * 60 + (+p[1]); };
+
+  function saveHub() {
+    try { var v = state.data; sessionStorage.setItem(KEY, JSON.stringify({ at: Date.now(), up: v.up, recent: v.recent, notes: v.notes, people: v.people })); } catch (e) { /* storage full or off */ }
+  }
+  // The saved values go into the loaded data, then the override is dropped.
+  function commitLocal(e, o) {
+    if (e.cal) {
+      var c = e.cal;
+      if (o.start) { c.startsAt = new Date(o.start).toISOString(); c.endsAt = new Date(o.end).toISOString(); }
+      if (o.title != null) c.title = o.title;
+      if (o.desc != null) c.description = o.desc;
+      saveCal();
+    } else {
+      var m = e.hub;
+      if (o.start) { m.startsAt = new Date(o.start).toISOString(); m.endsAt = new Date(o.end).toISOString(); m.durationMin = Math.round((o.end - o.start) / 60000); }
+      if (o.title != null) m.title = o.title;
+      if (o.desc != null) m.agenda = o.desc;
+      saveHub();
+    }
+  }
+  function applyEdit(e, patch) {
+    if (state.pend[e.id]) { toast('Still saving the last change.'); return false; }
+    var next = {};
+    if (patch.start != null) { next.start = patch.start; next.end = patch.end; }
+    if (patch.title != null) next.title = patch.title;
+    if (patch.desc != null) next.desc = patch.desc;
+    state.ov[e.id] = next; state.pend[e.id] = 1; state.rev++; draw();
+    var path, body;
+    if (e.cal) {
+      path = 'meetings/calendar/update'; body = { eventId: e.cal.eventId };
+      if (next.start) { body.startsAt = new Date(next.start).toISOString(); body.endsAt = new Date(next.end).toISOString(); }
+      if (next.title != null) body.title = next.title;
+      if (next.desc != null) body.description = next.desc;
+    } else {
+      path = 'meetings/' + e.hub.id + '/update'; body = {};
+      if (next.start) { body.startsAt = new Date(next.start).toISOString(); body.endsAt = new Date(next.end).toISOString(); }
+      if (next.title != null) body.title = next.title;
+      if (next.desc != null) body.agenda = next.desc;
+    }
+    api(path, { method: 'POST', body: body }).then(function () {
+      if (stopped) return;
+      commitLocal(e, next);
+      delete state.ov[e.id]; delete state.pend[e.id]; state.rev++; draw();
+      toast(next.start ? 'Moved' : 'Saved');
+    }).catch(function (x) {
+      if (stopped) return;
+      delete state.ov[e.id]; delete state.pend[e.id]; state.rev++; draw();
+      toast(shortMsg(x && x.message));
+    });
+    return true;
+  }
+
+  function colsInfo() {
+    var out = [], cs = root.querySelectorAll('.wk-col');
+    for (var i = 0; i < cs.length; i++) { var r = cs[i].getBoundingClientRect(); out.push({ key: cs[i].getAttribute('data-col'), left: r.left, right: r.right }); }
+    return out;
+  }
+  function tip(text, x, y) {
+    if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'dv-tip'; tipEl.setAttribute('aria-hidden', 'true'); document.body.appendChild(tipEl); }
+    if (tipEl.textContent !== text) tipEl.textContent = text;
+    tipEl.style.transform = 'translate(' + Math.round(x + 14) + 'px,' + Math.round(y + 14) + 'px)';
+  }
+  function dropTip() { if (tipEl && tipEl.parentNode) tipEl.parentNode.removeChild(tipEl); tipEl = null; }
+
+  function onDown(ev) {
+    if (drag || stopped || (ev.pointerType === 'mouse' && ev.button !== 0)) return;
+    var b = ev.target.closest('.dv-ev, .mo-chip');
+    if (b && !root.contains(b)) b = null;
+    if (b && b.classList.contains('dv-new')) return;
+    if (!b) return startCreate(ev);
+    var e = findEv(b.getAttribute('data-ev'));
+    if (!e || !e.edit || state.pend[e.id] || state.draft) return;
+    var month = b.classList.contains('mo-chip'), touch = ev.pointerType !== 'mouse', sc = root.querySelector('.dv-tl__scroll');
+    drag = { kind: month ? 'month' : ev.target.closest('.dv-rs') ? 'resize' : 'move', e: e, el: b, x0: ev.clientX, y0: ev.clientY, lx: ev.clientX, ly: ev.clientY, sc: sc, st0: sc ? sc.scrollTop : 0, pid: ev.pointerId, touch: touch, armed: !touch, on: false, s0: e.start, e0: e.end, style0: b.getAttribute('style'), cols: null, idx0: 0, key0: dayKey(e.start), ns: null, ne: null, target: '', vel: 0, raf: 0, timer: 0 };
+    if (state.view === 'week' && !month) {
+      drag.cols = colsInfo();
+      var col = b.closest('.wk-col'), k0 = col ? col.getAttribute('data-col') : drag.key0;
+      drag.key0 = k0; for (var i = 0; i < drag.cols.length; i++) if (drag.cols[i].key === k0) drag.idx0 = i;
+    }
+    if (touch) drag.timer = setTimeout(function () { if (drag && !drag.on) { drag.armed = true; b.classList.add('is-arm'); try { if (navigator.vibrate) navigator.vibrate(8); } catch (x) { /* none */ } } }, 320);
+    listen(true);
+  }
+  function listen(on) {
+    var f = on ? 'addEventListener' : 'removeEventListener';
+    document[f]('pointermove', onMove); document[f]('pointerup', onUp); document[f]('pointercancel', onCancel); document[f]('keydown', onDragKey, true);
+    document[f]('touchmove', onTouchMove, { passive: false });
+  }
+  function onTouchMove(ev) { if (drag && (drag.on || drag.armed) && ev.cancelable) ev.preventDefault(); }
+  function onDragKey(ev) { if (ev.key === 'Escape' && drag) { ev.preventDefault(); ev.stopPropagation(); endDrag(false); } }
+  function onCancel() { endDrag(false); }
+  function onUp(ev) { if (drag && ev.pointerId === drag.pid) endDrag(true); }
+  function onMove(ev) {
+    var d = drag; if (!d || ev.pointerId !== d.pid) return;
+    var dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+    d.lx = ev.clientX; d.ly = ev.clientY;
+    if (!d.on) {
+      if (d.touch && !d.armed) { if (Math.abs(dx) + Math.abs(dy) > 8) endDrag(false); return; }
+      if (Math.abs(dx) + Math.abs(dy) < 5) return;
+      begin(d);
+    }
+    if (d.kind === 'create') return moveCreate(d);
+    updateDrag();
+  }
+  function begin(d) {
+    d.on = true; root.classList.add('is-dragging');
+    if (d.kind === 'create') { state.draft = { key: d.key, start: d.a, end: d.a + SNAP * 60000, editing: false }; draw(); d.el = root.querySelector('.dv-new'); d.base = { top: d.el ? parseFloat(d.el.style.top) : 0, s: state.draft.start }; return; }
+    d.el.classList.add('is-drag'); d.el.classList.remove('is-arm');
+    try { d.el.setPointerCapture(d.pid); } catch (x) { /* none */ }
+    if (d.kind === 'month') { d.ghost = d.el.cloneNode(true); d.ghost.className += ' mo-ghost'; d.ghost.style.width = d.el.offsetWidth + 'px'; document.body.appendChild(d.ghost); }
+  }
+  function updateDrag() {
+    var d = drag, e = d.e, el = d.el;
+    if (d.kind === 'month') {
+      d.ghost.style.transform = 'translate(' + Math.round(d.lx - 20) + 'px,' + Math.round(d.ly - 11) + 'px)';
+      var under = document.elementsFromPoint(d.lx, d.ly), cell = null;
+      for (var i = 0; i < under.length; i++) { var c = under[i].closest && under[i].closest('.mo-cell[data-cell]'); if (c && root.contains(c)) { cell = c; break; } }
+      var key = cell ? cell.getAttribute('data-cell') : '';
+      if (key !== d.target) {
+        var old = root.querySelector('.mo-cell.is-drop'); if (old) old.classList.remove('is-drop');
+        if (cell) cell.classList.add('is-drop');
+        d.target = key;
+      }
+      d.ns = key ? atDay(key, minOfDay(d.s0)) : null; d.ne = key ? d.ns + (d.e0 - d.s0) : null;
+      if (d.ns != null) tip(new Date(d.ns).toLocaleDateString('en-US', { timeZone: MV.TZ, weekday: 'short', month: 'short', day: 'numeric' }), d.lx, d.ly); else dropTip();
+      return;
+    }
+    var dyy = d.ly - d.y0 + (d.sc ? d.sc.scrollTop - d.st0 : 0), dMin = snapMin(dyy / PXH * 60), label;
+    if (d.kind === 'resize') {
+      var end = Math.max(d.e0 + dMin * 60000, d.s0 + SNAP * 60000);
+      d.ns = d.s0; d.ne = end;
+      el.style.height = Math.max(20, (end - d.s0) / 3600000 * PXH - 3) + 'px';
+      label = hm(d.s0) + ' to ' + hm(end);
+    } else {
+      var k = d.key0, shift = 0;
+      if (d.cols && d.cols.length) {
+        var idx = d.idx0;
+        for (var j = 0; j < d.cols.length; j++) if (d.lx >= d.cols[j].left && d.lx < d.cols[j].right) idx = j;
+        if (d.lx < d.cols[0].left) idx = 0; if (d.lx >= d.cols[d.cols.length - 1].right) idx = d.cols.length - 1;
+        k = d.cols[idx].key; shift = d.cols[idx].left - d.cols[d.idx0].left;
+      }
+      d.ns = atDay(k, minOfDay(d.s0) + dMin); d.ne = d.ns + (d.e0 - d.s0);
+      el.style.transform = 'translate(' + Math.round(shift) + 'px,' + (dMin / 60 * PXH) + 'px)';
+      label = (dayKey(d.ns) !== dayKey(d.s0) ? MV.dayName(dayKey(d.ns), false) + ' ' : '') + hm(d.ns) + ' to ' + hm(d.ne);
+    }
+    tip(label, d.lx, d.ly);
+    // Near the top or bottom of the grid the grid scrolls.
+    if (d.sc) {
+      var r = d.sc.getBoundingClientRect();
+      d.vel = d.ly < r.top + 36 ? -10 : d.ly > r.bottom - 36 ? 10 : 0;
+      if (d.vel && !d.raf) d.raf = requestAnimationFrame(autoScroll);
+    }
+  }
+  function autoScroll() {
+    var d = drag; if (!d || !d.on || !d.vel) { if (d) d.raf = 0; return; }
+    d.sc.scrollTop += d.vel; updateDrag(); d.raf = requestAnimationFrame(autoScroll);
+  }
+  function endDrag(commit) {
+    var d = drag; if (!d) return;
+    drag = null; listen(false); clearTimeout(d.timer); if (d.raf) cancelAnimationFrame(d.raf);
+    dropTip(); root.classList.remove('is-dragging');
+    if (d.ghost && d.ghost.parentNode) d.ghost.parentNode.removeChild(d.ghost);
+    var hot = root.querySelector('.mo-cell.is-drop'); if (hot) hot.classList.remove('is-drop');
+    if (d.kind === 'create') return endCreate(d, commit);
+    if (d.el) { d.el.classList.remove('is-drag'); d.el.classList.remove('is-arm'); try { d.el.releasePointerCapture(d.pid); } catch (x) { /* none */ } }
+    if (!d.on) return;
+    noClickUntil = Date.now() + 400;
+    var changed = commit && d.ns != null && (d.ns !== d.s0 || d.ne !== d.e0);
+    if (!changed) {
+      if (d.style0 == null) d.el.removeAttribute('style'); else d.el.setAttribute('style', d.style0);
+      if (d.redraw) draw();
+      return;
+    }
+    applyEdit(d.e, { start: d.ns, end: d.ne });
+  }
+  // A click right after a drag is the drag ending, not a request to open the meeting.
+  root.addEventListener('click', function (ev) { if (Date.now() < noClickUntil) { ev.stopPropagation(); ev.preventDefault(); } }, true);
+
+  // ---- a new meeting: drag over empty space in Day or Week, then type the title
+  function startCreate(ev) {
+    if (ev.pointerType !== 'mouse' || mobile() || (state.view !== 'day' && state.view !== 'week')) return;
+    if (state.draft) { if (state.draft.busy) return; if (ev.target.closest('.dv-new')) return; cancelDraft(); }
+    var grid = ev.target.closest('.dv-tl__grid'); if (!grid || !root.contains(grid)) return;
+    var key, t0, top;
+    if (state.view === 'week') {
+      var col = ev.target.closest('.wk-col'); if (!col) return;
+      key = col.getAttribute('data-col'); t0 = MV.etStart(key) + state.wkH0 * 3600000; top = col.getBoundingClientRect().top;
+    } else { key = state.day; t0 = state.t0; top = grid.getBoundingClientRect().top; }
+    var step = SNAP * 60000, at = function (y) { return t0 + (y - top) / PXH * 3600000; };
+    drag = { kind: 'create', pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, lx: ev.clientX, ly: ev.clientY, on: false, touch: false, armed: true, key: key, at: at, a: Math.floor(at(ev.clientY) / step) * step, el: null, ns: null, ne: null, timer: 0, raf: 0 };
+    listen(true);
+  }
+  function moveCreate(d) {
+    var step = SNAP * 60000, cur = d.at(d.ly), s, e;
+    if (cur >= d.a) { s = d.a; e = Math.max(d.a + step, Math.ceil(cur / step) * step); } else { s = Math.floor(cur / step) * step; e = d.a + step; }
+    var dr = state.draft; if (!dr) return;
+    dr.start = s; dr.end = e;
+    var el = root.querySelector('.dv-new');
+    if (el) {
+      var span = el.querySelector('.dv-ev__t'), base = d.base;
+      el.style.top = (base.top + (s - base.s) / 3600000 * PXH) + 'px';
+      el.style.height = Math.max(20, (e - s) / 3600000 * PXH - 3) + 'px';
+      if (span) span.textContent = hm(s) + ' to ' + hm(e);
+    }
+    d.ns = s; d.ne = e;
+    tip(hm(s) + ' to ' + hm(e), d.lx, d.ly);
+  }
+  function endCreate(d, commit) {
+    if (!d.on) return;
+    noClickUntil = Date.now() + 400;
+    var dr = state.draft;
+    if (!dr) return;
+    if (!commit) { state.draft = null; draw(); return; }
+    if (dr.start < Date.now() - 4 * 60000) { state.draft = null; draw(); toast('That time has passed. Pick a later time.'); return; }
+    dr.editing = true; draw();
+    var inp = root.querySelector('.dv-new__in'); if (inp) inp.focus({ preventScroll: true });
+  }
+  function cancelDraft() { if (!state.draft || state.draft.busy) return; state.draft = null; draw(); }
+  function submitDraft() {
+    var dr = state.draft; if (!dr || dr.busy) return;
+    var inp = root.querySelector('.dv-new__in'), title = (inp && inp.value || '').replace(/\s+/g, ' ').trim();
+    if (!title) return cancelDraft();
+    dr.busy = true; dr.title = title; draw();
+    var inp2 = root.querySelector('.dv-new__in'); if (inp2) inp2.value = title;
+    // A new meeting is a FavorOS room with a Google Calendar event. The event has no Meet link and no guests; recording is off until the host changes it.
+    api('meetings', { method: 'POST', body: { title: title, startsAt: new Date(dr.start).toISOString(), durationMin: Math.round((dr.end - dr.start) / 60000), rec: 'off', invitees: [] } }).then(function (r) {
+      if (stopped) return;
+      state.draft = null;
+      if (r.meeting && state.data) { state.data.up = (state.data.up || []).filter(function (m) { return m.id !== r.meeting.id; }).concat([r.meeting]); saveHub(); }
+      state.rev++; draw(); toast('Meeting added');
+    }).catch(function (x) { if (stopped) return; state.draft = null; draw(); toast(shortMsg(x && x.message)); });
+  }
+  root.addEventListener('keydown', function (ev) {
+    if (!ev.target.classList || !ev.target.classList.contains('dv-new__in')) return;
+    if (ev.key === 'Enter') { ev.preventDefault(); submitDraft(); } else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cancelDraft(); }
+  });
+  root.addEventListener('focusout', function (ev) {
+    if (!ev.target.classList || !ev.target.classList.contains('dv-new__in') || !state.draft || state.draft.busy) return;
+    if (ev.target.value.trim()) submitDraft(); else cancelDraft();
+  });
+  root.addEventListener('pointerdown', onDown);
+  root.addEventListener('dragstart', function (ev) { ev.preventDefault(); });
+
+  // ---- the panel's own fields: title, date, times, agenda. They save when the field loses focus or on Enter.
+  function syncFields(e) {
+    if (!e || !e.edit) return;
+    var set = function (n, v) { var el = layer.querySelector('[data-f="' + n + '"]'); if (el && el !== document.activeElement && el.value !== v) el.value = v; };
+    set('title', e.title); set('date', dayKey(e.start)); set('start', hhmm(e.start)); set('end', hhmm(e.end)); set('desc', e.desc || '');
+  }
+  function saveField(f) {
+    var e = state.open ? findEv(state.open) : null; if (!e || !e.edit) return;
+    var q = function (n) { return layer.querySelector('[data-f="' + n + '"]'); }, el = q(f); if (!el) return;
+    if (f === 'title') {
+      var v = el.value.replace(/\s+/g, ' ').trim();
+      if (!v) { el.value = e.title; return; }
+      if (v !== e.title) applyEdit(e, { title: v });
+      return;
+    }
+    if (f === 'desc') { var dv = el.value.trim(); if (dv !== String(e.desc || '').trim()) applyEdit(e, { desc: dv }); return; }
+    var dur = e.end - e.start, ns = e.start, ne = e.end, day = dayKey(e.start);
+    if (!el.value) { syncFields(e); return; }
+    if (f === 'date') { ns = atDay(el.value, minOfDay(e.start)); ne = ns + dur; }
+    else if (f === 'start') { ns = atDay(day, toMin(el.value)); ne = ns + dur; }
+    else if (f === 'end') { ne = atDay(day, toMin(el.value)); if (ne <= ns) { toast('The end must be after the start.'); el.value = hhmm(e.end); return; } }
+    if (ns === e.start && ne === e.end) return;
+    applyEdit(e, { start: ns, end: ne });
+  }
+  layer.addEventListener('focusout', function (ev) { var f = ev.target && ev.target.dataset && ev.target.dataset.f; if (f && f !== 'date') saveField(f); });
+  layer.addEventListener('change', function (ev) { var f = ev.target && ev.target.dataset && ev.target.dataset.f; if (f === 'date') saveField(f); });
+  layer.addEventListener('keydown', function (ev) {
+    var t = ev.target; if (!t || !t.dataset || !t.dataset.f) return;
+    if (ev.key === 'Enter' && (t.tagName === 'INPUT' || ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); t.blur(); }
+    else if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); var e = findEv(state.open); t.blur(); if (e) { var keep = e; t.value = ({ title: keep.title, date: dayKey(keep.start), start: hhmm(keep.start), end: hhmm(keep.end), desc: keep.desc || '' })[t.dataset.f]; } }
+  });
+
   function titleOf(id) {
     var all = state.data ? (state.data.up || []).concat(state.data.recent || []) : [];
     for (var i = 0; i < all.length; i++) if (all[i].id === id) return all[i].title;
@@ -778,7 +1098,7 @@
   if (nowBtn) nowBtn.addEventListener('click', startNow);
 
   // The now line and the lists refresh on their own.
-  timers.push(setInterval(function () { if (!stopped && state.data && !document.hidden) { state.now = new Date(); draw(); } }, 30000));
+  timers.push(setInterval(function () { if (!stopped && state.data && !document.hidden && !state.draft && !(drag && drag.on)) { state.now = new Date(); draw(); } }, 30000));
   timers.push(setInterval(function () { if (!stopped && !document.hidden) load(true); }, 60000));
   // While a Favor room shows as live (or open), who is in it is re-read every 10 seconds, so a room everyone left stops reading
   // Live within about 30 seconds.
@@ -799,7 +1119,7 @@
 
   window.__mtDay = { root: root, stop: function () {
     stopped = true; timers.forEach(clearInterval); clearTimeout(tt);
-    root.removeEventListener('click', onClick);
+    root.removeEventListener('click', onClick); root.removeEventListener('pointerdown', onDown); listen(false); dropTip();
     document.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop); window.__hubPopOwn = null;
     if (layer.parentNode) layer.parentNode.removeChild(layer); document.documentElement.classList.remove('mp-lock');
     if (nowBtn) nowBtn.removeEventListener('click', startNow);

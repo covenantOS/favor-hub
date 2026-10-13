@@ -402,25 +402,20 @@
     const g = (DATA && DATA.google) || {};
     const n = guests(e);
     let write;
-    if (!e.canEdit) write = '<p class="t2-note">Only the organizer can add the FavorOS link to this calendar event, so the event stays as it is.</p>';
+    if (!e.canEdit) write = '<p class="t2-note">Someone else organizes this event, so Google does not let you change it. The FavorOS meeting is made and the calendar event keeps its video link. The organizer has to add the FavorOS link.</p>';
     else if (!g.mayWrite) write = '<p class="t2-note">To put the FavorOS link on the calendar event, FavorOS needs your permission to edit your calendar events.</p><a class="h-btn h-btn--ghost h-btn--sm" href="/api/google/connect?add=meetings&amp;next=%2F">Allow calendar edits</a>';
-    else write = '<label class="t2-check"><input type="checkbox" id="t2-write" /><span>Add the FavorOS link to this event on my Google Calendar</span></label><p class="t2-note" id="t2-write-note" hidden>Adds one line, Join in FavorOS and the link, to the end of the notes of this event on your calendar. Guests see it on their copy of the event. Google sends no email. Nothing else on the event changes, and the ' + esc(e.source || 'meeting') + ' details stay.</p>';
+    else write = '';
     const body =
       `<div class="t2-h"><div><h3>Move to FavorOS</h3><p>${esc(e.title)}</p></div>${closeBtn}</div>` +
       '<ul class="t2-list">' +
       `<li>Makes a FavorOS meeting on ${esc(whenLine(e))}.</li>` +
       `<li>${n ? `Invites the same ${n} ${n === 1 ? 'person' : 'people'} in FavorOS. FavorOS sends no email.` : 'Only you are on it.'}</li>` +
       '<li>It is not recorded. The host can change that in the meeting.</li>' +
-      '<li id="t2-stays">Your calendar event is not changed.</li></ul>' +
+      '<li id="t2-stays">' + (e.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the old video link comes off.' : 'Your calendar event is not changed.') + '</li></ul>' +
       write +
       '<p class="t2-err" id="t2-err" role="alert" hidden></p>' +
       `<div class="t2-acts"><button type="button" class="h-btn h-btn--primary" id="t2-go" data-t2-first>Move to FavorOS</button><button type="button" class="h-btn h-btn--ghost" data-ev="${i}">Back</button></div>`;
     const l = openLayer('Move to FavorOS', body);
-    const box = l.querySelector('#t2-write');
-    if (box) box.addEventListener('change', () => {
-      l.querySelector('#t2-write-note').hidden = !box.checked;
-      l.querySelector('#t2-stays').textContent = box.checked ? 'Your calendar event gets one new line in its notes.' : 'Your calendar event is not changed.';
-    });
     l.querySelector('#t2-go').addEventListener('click', async (ev) => {
       const btn = ev.currentTarget;
       const err = l.querySelector('#t2-err');
@@ -428,7 +423,7 @@
       btn.textContent = 'Moving';
       err.hidden = true;
       try {
-        const res = await fetch('/api/hub/day-move', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ eventId: e.id, writeLink: !!(box && box.checked) }) });
+        const res = await fetch('/api/hub/day-move', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ eventId: e.id }) });
         const d = await res.json().catch(() => ({}));
         if (res.status === 409 && d.error === 'already' && d.id) { e.hub = d.id; remember(); draw(); closeLayer(); return; }
         if (!res.ok || d.ok === false) throw new Error(d.message || 'Could not move it. Try again.');

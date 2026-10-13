@@ -387,7 +387,7 @@ export const RELEASES: Release[] = [
             via: 'meet',
             at: '.mv-seg',
             title: 'Day, Week and Month',
-            body: 'Switch the Meetings page between a day, a week and a month. The arrows move by that unit and FavorOS remembers your choice. {Tap} any meeting to open its panel with the people, agenda, prep, settings and Join. A meeting held in Zoom, Meet or Teams has Move to FavorOS there.',
+            body: 'Switch the Meetings page between a day, a week and a month. The arrows move by that unit and FavorOS remembers your choice. {Tap} any meeting to open its panel with the people, agenda, prep, settings and Join. A meeting held in Zoom, Meet or Teams has Move to FavorOS there. On a computer, drag a meeting you organize to a new time or day and drag its bottom edge to change the length.',
             added: '2026-10-13',
             side: 'bottom',
           },
