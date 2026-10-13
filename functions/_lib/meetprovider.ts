@@ -30,9 +30,6 @@ export interface CalMeeting {
   internal: boolean;
   canSwitch: boolean;
   needsConsent: boolean;
-  organizerName: string;
-  description: string;
-  canEdit: boolean;
 }
 
 export const PROVIDER_LABEL: Record<Provider, string> = { favor: 'Favor Meetings', meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', webex: 'Webex' };
@@ -68,23 +65,6 @@ export function providerOf(ev: Pick<CalEvent, 'hangoutLink' | 'location' | 'desc
 
 const nameOf = (a: { email?: string; displayName?: string }) => (a.displayName || String(a.email || '').split('@')[0].replace(/[._]+/g, ' ')).trim();
 
-/** Notes text of an event without markup or links. */
-export function plain(s: string): string {
-  return s
-    .replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/https?:\/\/\S+/g, '')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-}
-
 /** The event as the pages show it, or null when it is not a timed meeting with a video link. */
 export function summarize(ev: CalEvent, self: string, canWrite: boolean): CalMeeting | null {
   if (!ev.start?.dateTime || !ev.end?.dateTime) return null;
@@ -107,9 +87,6 @@ export function summarize(ev: CalEvent, self: string, canWrite: boolean): CalMee
     people: others.slice(0, 30).map((a) => ({ email: String(a.email).toLowerCase(), name: nameOf(a) })),
     organizer,
     internal,
-    organizerName: organizer ? 'You' : ev.organizer?.email ? nameOf(ev.organizer as { email?: string }) : '',
-    description: plain(ev.description || '').slice(0, 1500),
-    canEdit: organizer,
     canSwitch: switchable && canWrite,
     needsConsent: switchable && !canWrite,
   };
