@@ -10,13 +10,13 @@
 //   POST meetings/:id/leave
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
-import { chatJson, plain, stamp } from './clipai';
+import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
 import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchCalendarEvent, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
-import { afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
+import { MEET_AI, afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
@@ -821,7 +821,7 @@ async function askAboutMeeting(env: MeetEnv, user: { email: string; role: string
   const rows = (await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n LIMIT 1500').bind(id).all<{ t: number; who: string; text: string }>()).results || [];
   if (!rows.length) return { ok: true, answer: 'This meeting has no transcript to read.', points: [] };
   const text = rows.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n').slice(-24000);
-  const out = await chatJson<{ answer?: unknown; points?: unknown }>(env as never, 'You answer a question about one staff meeting from its transcript only. Return keys: answer (one to three plain sentences; say so when the transcript does not cover it) and points (array of at most 4 objects {t: seconds, text} citing where it was said). Do not invent names, numbers or dollar amounts. No em dashes.', `Meeting: ${m.title}\nQuestion: ${q}\n\nTranscript:\n${text}`, 700);
+  const out = await chatJson<{ answer?: unknown; points?: unknown }>(env as never, 'You answer a question about one staff meeting from its transcript only. Return keys: answer (one to three plain sentences; say so when the transcript does not cover it) and points (array of at most 4 objects {t: seconds, text} citing where it was said). Do not invent names, numbers or dollar amounts. No em dashes.', `Meeting: ${m.title}\nQuestion: ${q}\n\nTranscript:\n${text}`, 700, TEXT_MODELS, MEET_AI);
   const points = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 4).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 240) })).filter((p) => p.text);
   return { ok: true, answer: plain(out.answer, 600), points };
 }
@@ -1160,7 +1160,7 @@ async function brainInMeeting(env: MeetEnv, user: { email: string }, id: string,
     open: 'You list what a staff meeting has left open so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each: questions raised with no answer yet, and items with no decision). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
     owners: 'You list who owns each task a staff meeting has named so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each in the form "Name: task", using only names the transcript says). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
   };
-  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, PROMPTS[kind], `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900);
+  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, PROMPTS[kind], `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900, TEXT_MODELS, MEET_AI);
   const pts = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 10).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 300) })).filter((p) => p.text);
   const lead = plain(out.lead, 200);
   const heading = kind === 'missed'

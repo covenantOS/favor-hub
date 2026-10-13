@@ -111,3 +111,10 @@ test('final notes use the meeting voice; a redo rewrites the notes without posti
   const day = readFileSync(new URL('../public/js/meet/day.js', import.meta.url), 'utf8');
   assert.doesNotMatch(day, /rec: '(off|notes)'/);
 });
+
+test('in-meeting asks (agreed, open, owners, missed, ask a meeting) charge the tier 1 meetings line', () => {
+  const route = readFileSync(new URL('../functions/_lib/meetroute.ts', import.meta.url), 'utf8');
+  const calls = route.match(/chatJson<[^>]+>\([\s\S]*?\);/g) || [];
+  assert.ok(calls.length >= 2);
+  for (const c of calls) assert.match(c, /MEET_AI\)/);
+});

@@ -10,7 +10,7 @@ import { HttpError, nowIso } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
 
 // Meetings charge their own budget line and do not take the Clips voice, which describes a screen recording and strips names.
-const MEET_AI = { feature: 'meet-notes', voice: 'You work for Favor International, a Christian nonprofit, and read the transcript of a live staff meeting. Write plainly. Never invent facts, names, dates or numbers. Do not use em dashes. Do not mention artificial intelligence.' };
+export const MEET_AI = { feature: 'meet-notes', voice: 'You work for Favor International, a Christian nonprofit, and read the transcript of a live staff meeting. Write plainly. Never invent facts, names, dates or numbers. Do not use em dashes. Do not mention artificial intelligence.' };
 import { clean, emailsOf, getMeeting, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, type Meeting, type MeetEnv } from './meet';
 import * as chat from './chat/db';
 import { MEETINGS_ID } from './chat/text';
