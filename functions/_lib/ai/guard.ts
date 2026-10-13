@@ -157,14 +157,22 @@ function audioBytes(input: Record<string, unknown>): number {
   return 0;
 }
 
+/** What a caller knows about a call that the model input does not say. audioSec: the length of the sound sent to a speech model. */
+export interface CallMeta { audioSec?: number }
+
+/** Sound is charged by its length. Five percent over the rate keeps the estimate above Cloudflare's own count. */
+const audioNeurons = (seconds: number, perMinute: number) => Math.ceil((seconds / 60) * perMinute * 1.05) + 1;
+
 /** The neurons a call will cost, erring high: three characters a token for text and code, two for Clef's labelled input. */
-export function estimateNeurons(model: string, input: unknown): number {
+export function estimateNeurons(model: string, input: unknown, meta: CallMeta = {}): number {
   const rate = RATES[model] || UNKNOWN;
   const inp = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   if (rate.perAudioMinute) {
-    // Compressed speech runs about 2,000 bytes a second at the low end, so bytes / 2,000 overstates the length.
-    const seconds = Math.max(5, audioBytes(inp) / 2_000);
-    return Math.ceil((seconds / 60) * rate.perAudioMinute) + 1;
+    // The caller's own length when it has one (a meeting slice knows its start and end). Without it, compressed speech runs
+    // about 2,000 bytes a second at the low end, so bytes / 2,000 overstates the length; that tripled a meeting's estimate.
+    const known = Number(meta.audioSec);
+    const seconds = Number.isFinite(known) && known > 0 ? known : Math.max(5, audioBytes(inp) / 2_000);
+    return audioNeurons(seconds, rate.perAudioMinute);
   }
   const images = { n: 0 };
   const chars = textLength(inp, images);
@@ -178,6 +186,12 @@ export function estimateNeurons(model: string, input: unknown): number {
 /** The neurons a finished call cost, from the token counts the model reported. Null when it reported none. */
 export function actualNeurons(model: string, output: unknown): number | null {
   const rate = RATES[model] || UNKNOWN;
+  if (rate.perAudioMinute) {
+    // Whisper reports the length it heard (transcription_info.duration); that is what Cloudflare bills.
+    const info = output && typeof output === 'object' ? (output as Record<string, any>).transcription_info : null;
+    const d = Number(info && info.duration);
+    return Number.isFinite(d) && d > 0 ? audioNeurons(d, rate.perAudioMinute) : null;
+  }
   const u = (output && typeof output === 'object' ? (output as Record<string, any>).usage : null) as Record<string, number> | null;
   if (!u) return null;
   const pin = Number(u.prompt_tokens ?? u.input_tokens);
@@ -262,6 +276,8 @@ export interface GuardOpts {
   day?: string;
   /** The clock for the overnight-only check (tests). */
   now?: Date;
+  /** The length of the sound in a speech call, from the caller (CallMeta.audioSec). */
+  audioSec?: number;
 }
 
 async function bump(store: GuardStore, day: string, feature: string, model: string, neurons: number, refused: boolean) {
@@ -305,7 +321,7 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
     await bump(store, day, feature, model, 0, true);
     throw new AiPaused('off', feature);
   }
-  const est = estimateNeurons(model, input);
+  const est = estimateNeurons(model, input, { audioSec: opts.audioSec });
   let cap = TIER_CAP[f.tier] ?? TIER_CAP[3];
   let test = false;
   if (opts.test) {
@@ -372,13 +388,13 @@ export async function guardedRun(store: GuardStore, run: (model: string, input: 
 /** A Workers AI binding whose every call goes through the budget under one feature name. */
 export interface GuardedAi {
   run(model: string, input: unknown): Promise<any>;
-  runFor(feature: string, model: string, input: unknown): Promise<any>;
+  runFor(feature: string, model: string, input: unknown, meta?: CallMeta): Promise<any>;
   guarded: true;
 }
 
 export function guardBinding(store: GuardStore, ai: { run(model: string, input: unknown, opts?: unknown): Promise<unknown> }, base: Omit<GuardOpts, 'feature'> & { closedFor?: () => boolean; testFor?: () => boolean } = {}): GuardedAi {
-  const call = (feature: string, model: string, input: unknown) =>
-    guardedRun(store, (m, i) => ai.run(m, i), { ...base, feature, closed: base.closed || base.closedFor?.() || false, test: base.test || base.testFor?.() || false }, model, input);
+  const call = (feature: string, model: string, input: unknown, meta: CallMeta = {}) =>
+    guardedRun(store, (m, i) => ai.run(m, i), { ...base, feature, closed: base.closed || base.closedFor?.() || false, test: base.test || base.testFor?.() || false, audioSec: meta.audioSec }, model, input);
   return { guarded: true, run: (model, input) => call('other', model, input), runFor: call };
 }
 
@@ -387,7 +403,8 @@ export function aiFor<T extends { run(model: string, input: unknown): Promise<un
   if (!ai) return ai;
   const g = ai as unknown as Partial<GuardedAi>;
   if (typeof g.runFor !== 'function') return ai;
-  return { run: (model: string, input: unknown) => g.runFor!(feature, model, input) } as unknown as T;
+  // meta (CallMeta) rides beside the input and never reaches the model.
+  return { run: (model: string, input: unknown, meta?: CallMeta) => g.runFor!(feature, model, input, meta) } as unknown as T;
 }
 
 // ---- Reconciler -------------------------------------------------------------------------------------------------------

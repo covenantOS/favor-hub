@@ -179,9 +179,9 @@ export async function transcribeRow(env: MeetEnv, m: Pick<Meeting, 'id' | 'start
   const obj = await env.CLIPS.get(key);
   const lines: Line[] = [];
   if (obj && next.bytes < 24 * 1024 * 1024) {
-    const ai = aiFor(env.AI, 'meet-notes') as { run(model: string, input: unknown): Promise<unknown> } | undefined;
+    const ai = aiFor(env.AI, 'meet-notes') as { run(model: string, input: unknown, meta?: { audioSec?: number }): Promise<unknown> } | undefined;
     if (!ai) throw new Error('no ai binding');
-    const res = (await ai.run(WHISPER, { audio: b64(new Uint8Array(await obj.arrayBuffer())), initial_prompt: VERBATIM_PROMPT, condition_on_previous_text: false })) as { text?: string; segments?: Array<{ start?: number; text?: string; no_speech_prob?: number }> };
+    const res = (await ai.run(WHISPER, { audio: b64(new Uint8Array(await obj.arrayBuffer())), initial_prompt: VERBATIM_PROMPT, condition_on_previous_text: false }, { audioSec: Math.max(1, ((next.end_ms || next.start_ms + 11_000) - next.start_ms) / 1000) })) as { text?: string; segments?: Array<{ start?: number; text?: string; no_speech_prob?: number }> };
     const t0 = Date.parse(m.started_at || m.created_at);
     const base = (next.start_ms - t0) / 1000;
     const ghost = /^(thanks for watching|thank you for watching|thank you\.?|you\.?|bye\.?|\.+)$/i;

@@ -195,3 +195,37 @@ describe('meetings and the overnight index (2026-10-13)', () => {
     assert.equal(kv.m.get(`ai:budget:${DAY}`), String(3354 + G.RECONCILE_SLACK));
   });
 });
+
+describe('speech is charged by its length (2026-10-13)', () => {
+  const W = '@cf/openai/whisper-large-v3-turbo';
+  it('a ten-second meeting slice reserves its length, not its bytes, and settles on the length Whisper heard', async () => {
+    const audio = 'A'.repeat(76_000); // a 57 KB slice as base64: bytes / 2,000 read it as 29 seconds
+    assert.ok(G.estimateNeurons(W, { audio }) >= 23);
+    assert.equal(G.estimateNeurons(W, { audio }, { audioSec: 10 }), Math.ceil((10 / 60) * 46.63 * 1.05) + 1);
+    assert.equal(G.actualNeurons(W, { text: 'hi', transcription_info: { duration: 9.6 } }), Math.ceil((9.6 / 60) * 46.63 * 1.05) + 1);
+    assert.equal(G.actualNeurons(W, { text: 'hi' }), null);
+    const ai = G.guardBinding(store(), model({ text: 'hello', transcription_info: { duration: 10 } }), { day: DAY });
+    await G.aiFor(ai, 'meet-notes').run(W, { audio }, { audioSec: 10 });
+    assert.equal(Math.round((await dayRow()).est), Math.ceil((10 / 60) * 46.63 * 1.05) + 1);
+  });
+  it('a one-hour meeting (360 slices, live notes every 40 seconds, final notes) fits under the tier 1 cap beside a normal day', async () => {
+    await d1.prepare('INSERT OR IGNORE INTO ai_budget_day (day) VALUES (?)').bind(DAY).run();
+    // Today's use outside meetings and the overnight index, from ai_budget_use on 2026-10-13: about 1,500.
+    await d1.prepare('UPDATE ai_budget_day SET est = 1500 WHERE day = ?').bind(DAY).run();
+    const speech = G.guardBinding(store(), model({ text: 'words', transcription_info: { duration: 10 } }), { day: DAY });
+    const text = G.guardBinding(store(), model({ response: '{"items":[]}', usage: { prompt_tokens: 2_400, completion_tokens: 150 } }), { day: DAY });
+    let refused = 0;
+    const tryRun = async (p) => { try { await p; } catch (e) { if (G.isAiPaused(e)) refused++; else throw e; } };
+    for (let i = 0; i < 360; i++) {
+      await tryRun(G.aiFor(speech, 'meet-notes').run(W, { audio: 'A'.repeat(76_000) }, { audioSec: 10 }));
+      if (i % 4 === 3) await tryRun(G.aiFor(text, 'meet-notes').run('@cf/meta/llama-3.1-8b-instruct-fast', { messages: [{ role: 'user', content: 'x'.repeat(7_000) }], max_tokens: 700 }));
+    }
+    const notes = G.guardBinding(store(), model({ response: '{}', usage: { prompt_tokens: 9_500, completion_tokens: 1_200 } }), { day: DAY });
+    await tryRun(G.aiFor(notes, 'meet-notes').run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', { messages: [{ role: 'user', content: 'x'.repeat(28_000) }], max_tokens: 1_800 }));
+    const est = (await dayRow()).est;
+    assert.equal(refused, 0);
+    assert.ok(est < G.TIER_CAP[1], `estimate after the hour ${est}`);
+    // Measured: about 3,600 for the sound, 1,600 for live notes, 550 for the final notes.
+    assert.ok(est - 1500 < 6_000, `the meeting alone ${est - 1500}`);
+  });
+});

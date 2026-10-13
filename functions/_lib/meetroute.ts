@@ -739,7 +739,7 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     // Read the slice now, so captions and "what did I miss" are only seconds behind. A failure leaves the slice for the end-of-meeting pass.
     let lines = 0;
     try {
-      lines = await transcribeRow(env, mt, { epoch, n, start_ms: start, ext, bytes: data.byteLength }, decodeURIComponent(request.headers.get('x-who') || ''));
+      lines = await transcribeRow(env, mt, { epoch, n, start_ms: start, end_ms: end, ext, bytes: data.byteLength }, decodeURIComponent(request.headers.get('x-who') || ''));
     } catch (err) {
       console.warn('[meet] live read', id, err);
       // The budget held the transcript: tell the room once a minute, so captions and notes say paused instead of going quiet.
