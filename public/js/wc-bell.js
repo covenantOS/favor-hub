@@ -65,6 +65,7 @@ function openPop(anchor, html, opts = {}) {
   popEl.className = 'wm-pop';
   popEl.setAttribute('role', 'dialog');
   popEl.setAttribute('aria-label', opts.label || 'Reminders');
+  if (opts.cls) popEl.className += ' ' + opts.cls;
   popEl.innerHTML = html;
   document.body.appendChild(popEl);
   const r = anchor.getBoundingClientRect();
@@ -162,7 +163,10 @@ const KIND_ICON = {
 };
 Object.assign(I, KIND_ICON);
 const XN_KIND = { Meetings: 'meeting', Learning: 'task', Evaluations: 'task', Mail: 'mail', Expenses: 'approval', Receipts: 'receipts', Feedback: 'feedback', 'Favor Brain': 'approval', Requests: 'request' };
-const BN = { view: 'list', chatOn: null, last: '', rows: new Map() };
+const BN = { view: 'list', chatOn: null, last: '', rows: new Map(), open: new Set() };
+const BN_ORDER = [['request', 'Requests'], ['approval', 'Approvals'], ['chat', 'Chat'], ['meeting', 'Meetings'], ['mail', 'Mail'], ['task', 'Tasks'], ['feedback', 'Feedback'], ['receipts', 'Receipts'], ['reminder', 'Reminders']];
+const BN_ICON = { reminder: 'bell' };
+const grpOf = (r) => (r.rem ? 'reminder' : r.kind);
 const HIST = 'fos_bell_read';
 const histGet = () => { try { return JSON.parse(localStorage.getItem(HIST) || '{}'); } catch (_) { return {}; } };
 const histPut = (h) => { try { localStorage.setItem(HIST, JSON.stringify(h)); } catch (_) { /* private mode */ } };
@@ -219,7 +223,7 @@ function rowHTML(r) {
   if (r.rem) {
     const has = window.WCPrep && window.WCPrep.open;
     const inner = `<b>${esc(r.title)}</b><span>${esc(r.sub)}</span>`;
-    return `<div class="${cls}" data-rid="${esc(r.rem.id)}">${ic1}<span class="bn-main">${inner}<span class="bn-acts">${r.rem.cid ? `<button type="button" data-wm-open="${esc(r.rem.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" data-wm-done="${esc(r.rem.id)}">Done</button><button type="button" data-wm-later="${esc(r.rem.id)}" aria-haspopup="menu">Later${ic('down')}</button></span></span>${side}</div>`;
+    return `<div class="${cls} bn-row--rem" data-rid="${esc(r.rem.id)}">${ic1}<span class="bn-main">${inner}</span><span class="bn-acts">${r.rem.cid ? `<button type="button" data-wm-open="${esc(r.rem.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" data-wm-done="${esc(r.rem.id)}">Done</button><button type="button" data-wm-later="${esc(r.rem.id)}" aria-haspopup="menu">Later</button></span></div>`;
   }
   return `<a class="${cls}" href="${esc(r.href)}" data-wm-row="${esc(r.id)}" ${r.attr || ''}>${ic1}<span class="bn-main"><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></span>${side}</a>`;
 }
@@ -234,8 +238,14 @@ function bellHTML() {
   if (BN.view === 'settings') return settingsHTML();
   const { fresh, earlier } = bellRows();
   const head = `<header class="bn-head"><h4>Notifications</h4><span class="bn-tools">${fresh.length ? '<button type="button" class="bn-all" data-wm-readall>Mark all read</button>' : ''}<button type="button" class="bn-btn" data-wm-settings aria-label="Notification settings" title="Notification settings">${ic('gear')}</button><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header>`;
-  const group = (name, rows) => (rows.length ? `<section><h5>${name}</h5>${rows.map(rowHTML).join('')}</section>` : '');
-  const list = fresh.length || earlier.length ? group('New', fresh) + group('Earlier', earlier) : '<p class="bn-empty">You are all caught up.</p>';
+  const all = fresh.concat(earlier), secs = [];
+  BN_ORDER.forEach(([key, name]) => { const rows = all.filter((r) => grpOf(r) === key); if (rows.length) secs.push([key, name, rows]); });
+  const section = ([key, name, rows]) => {
+    const open = BN.open.has(key), shown = open ? rows : rows.slice(0, 3);
+    const more = rows.length > 3 ? `<button type="button" class="bn-more" data-wm-more="${key}" aria-expanded="${open}">${open ? 'Show fewer' : 'Show all ' + rows.length}</button>` : '';
+    return `<section class="bn-sec"><h5><span class="bn-sic">${ic(BN_ICON[key] || key)}</span>${name}<span class="bn-pill">${rows.length}</span></h5>${shown.map(rowHTML).join('')}${more}</section>`;
+  };
+  const list = secs.length ? secs.map(section).join('') : '<p class="bn-empty">You are all caught up.</p>';
   return head + `<div class="bn-list">${list}</div>`;
 }
 function settingsHTML() {
@@ -416,12 +426,13 @@ document.addEventListener('click', async (e) => {
   if (!t) return;
   if (t.id === 'wm-bell') {
     if (popEl && popFor === t) { closePop(); return; }
-    BN.view = 'list'; BN.last = ''; const p = openPop(t, '', { label: 'Notifications' }); p.classList.add('wm-pop--bn'); paintBell(); refresh();
+    BN.view = 'list'; BN.last = ''; BN.open.clear(); const p = openPop(t, '', { label: 'Notifications', cls: 'wm-pop--bn' }); paintBell(); refresh();
     return;
   }
   const d = t.dataset;
   if (t.dataset.wmRow) { noteRead(t.dataset.wmRow); closePop(); setTimeout(paintBadge, 0); }
   if (t.hasAttribute('data-wm-settings')) { BN.view = 'settings'; paintBell(); if (chatOn() && BN.chatOn == null) api('/api/chat/email-pref').then((v) => { BN.chatOn = v.on; paintBell(); }).catch(() => {}); if (wcOn() && !M.v) api('/api/work/mail').then((v) => { M.v = v; paintBell(); }).catch(() => {}); return; }
+  if (t.hasAttribute('data-wm-more')) { const k = d.wmMore; if (BN.open.has(k)) BN.open.delete(k); else BN.open.add(k); paintBell(); return; }
   if (t.hasAttribute('data-wm-back')) { BN.view = 'list'; paintBell(); return; }
   if (t.hasAttribute('data-wm-closepop')) { const f = popFor; closePop(); if (f && f.focus) f.focus(); return; }
   if (t.hasAttribute('data-wm-closedlg')) { closeDlg(); return; }

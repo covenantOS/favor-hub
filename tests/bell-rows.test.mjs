@@ -10,10 +10,11 @@ test('the badge counts unread rows and caps at 9+', () => {
   assert.match(js, /n > 9 \? '9\+'/);
   assert.match(js, /bellRows\(\)\.fresh\.length/);
 });
-test('rows group only as New and Earlier, with one empty state', () => {
-  assert.match(js, /group\('New'/);
-  assert.match(js, /group\('Earlier'/);
-  assert.match(js, /You are all caught up\./);
+test('rows group by type in a fixed order, three per section, with Show all', () => {
+  assert.ok(js.includes("['request', 'Requests'], ['approval', 'Approvals'], ['chat', 'Chat']"));
+  assert.ok(js.includes('rows.slice(0, 3)'));
+  assert.ok(js.includes("'Show all ' + rows.length"));
+  assert.match(js, /You are all caught up./);
 });
 test('the print file belongs to its maker, not to every admin', () => {
   const fn = today.slice(today.indexOf('function fileIsMine'), today.indexOf('export function receiptsFigure'));

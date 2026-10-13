@@ -340,7 +340,7 @@ export const RELEASES: Release[] = [
             via: 'home',
             at: '#wm-bell',
             title: 'One bell for everything waiting on you',
-            body: 'One list, newest first. Each row is a mention, message, request, meeting starting in 15 minutes, approval, task or mail count. {Tap} a row to open it and mark it read. Mark all read clears the list, and the gear holds your email settings. The number on the bell counts unread rows.',
+            body: 'Rows group by type: Requests, Approvals, Chat, Meetings, Mail, Tasks, Feedback, Receipts and Reminders. Each group shows three rows, and Show all opens the rest. {Tap} a row to open it and mark it read. Mark all read clears the list, and the gear holds your email settings. The number on the bell counts unread rows.',
             added: '2026-10-13',
             side: 'bottom',
             phone: { at: '#wm-bell', side: 'bottom' },
