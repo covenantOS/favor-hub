@@ -4,10 +4,14 @@ summary: Changes to FavorOS, newest first.
 topic: start
 order: 5
 related: [guided-tour, feedback]
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **What's new and tour**, plays any of them again. Every change is listed here.
+
+## October 13, 2026
+
+- **Email about chat.** FavorOS emails a welcome the first time Chat has something for you, then one email per conversation when a message for you is still unread after 10 minutes. [Chat](/help/chat/) says how to turn it off.
 
 ## October 12, 2026
 

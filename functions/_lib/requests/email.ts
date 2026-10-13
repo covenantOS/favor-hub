@@ -44,17 +44,17 @@ export interface NoticeMail {
   now?: Date;
 }
 
-const LOGO = 'https://dash.favorintl.org/images/favor-icon.png';
-const C = { bg: '#f4efe0', card: '#fffdf8', ink: '#1d211b', ink2: '#57534a', ink3: '#8a8578', line: '#e7e0cf', green: '#2b4d24', leaf: '#e6efdc', sun: '#fbe9c6', sky: '#e1edf5', red: '#b3412b' };
+export const LOGO = 'https://dash.favorintl.org/images/favor-icon.png';
+export const C = { bg: '#f4efe0', card: '#fffdf8', ink: '#1d211b', ink2: '#57534a', ink3: '#8a8578', line: '#e7e0cf', green: '#2b4d24', leaf: '#e6efdc', sun: '#fbe9c6', sky: '#e1edf5', red: '#b3412b' };
 const TZ = 'America/New_York';
 const STATUS: Record<string, string> = { inbox: 'Inbox', approved: 'Approved', in_progress: 'In motion', done: 'Done', declined: 'Declined' };
 
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
-const first = (n: string) => String(n || '').trim().split(/\s+/)[0] || 'Someone';
+export const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+export const first = (n: string) => String(n || '').trim().split(/\s+/)[0] || 'Someone';
 const initials = (n: string) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
-const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '...' : s);
+export const clip = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1).trimEnd() + '...' : s);
 const dayWord = (d: string) => new Date(d + 'T12:00:00Z').toLocaleDateString('en-US', { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' });
-const timeWord = (iso: string) => {
+export const timeWord = (iso: string) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleString('en-US', { timeZone: TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
@@ -66,7 +66,7 @@ export function linksFor(origin: string, id: string) {
   return { open: base, done: `${base}&do=done`, reply: `${base}&reply=1`, prefs: `${origin.replace(/\/$/, '')}/requests/?notices=1` };
 }
 
-function face(p: MailPerson, size = 40): string {
+export function face(p: MailPerson, size = 40): string {
   const r = Math.round(size / 2);
   if (p.picture && /^https:\/\//.test(p.picture)) {
     return `<img src="${esc(p.picture)}" width="${size}" height="${size}" alt="" style="display:block;width:${size}px;height:${size}px;border-radius:${r}px;border:0" />`;
@@ -109,7 +109,7 @@ const DARK = `<style>
 @media (max-width:480px){.fv-pad{padding-left:20px!important;padding-right:20px!important}.fv-title{font-size:21px!important}}
 </style>`;
 
-function shell(inner: string, preheader: string): string {
+export function shell(inner: string, preheader: string): string {
   return (
     `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${DARK}</head>` +
     `<body class="fv-bg" style="margin:0;padding:0;background:${C.bg}"><div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${esc(preheader)}</div>` +
@@ -119,8 +119,8 @@ function shell(inner: string, preheader: string): string {
   );
 }
 
-const brandRow = (pill: string, cls = 'fv-leaf', bg = C.leaf, fg = C.green) =>
-  `<tr><td class="fv-pad" style="padding:20px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="fv-ink3" style="font:600 13px/1 Arial,sans-serif;color:${C.ink3}"><img src="${LOGO}" alt="" width="28" height="24" style="vertical-align:middle;border:0" />&nbsp; Favor Requests</td>` +
+export const brandRow = (pill: string, cls = 'fv-leaf', bg = C.leaf, fg = C.green, label = 'Favor Requests') =>
+  `<tr><td class="fv-pad" style="padding:20px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td class="fv-ink3" style="font:600 13px/1 Arial,sans-serif;color:${C.ink3}"><img src="${LOGO}" alt="" width="28" height="24" style="vertical-align:middle;border:0" />&nbsp; ${esc(label)}</td>` +
   `<td align="right"><span class="${cls}" style="display:inline-block;padding:6px 12px;border-radius:999px;background:${bg};color:${fg};font:700 12px/1 Arial,sans-serif">${esc(pill)}</span></td></tr></table></td></tr>`;
 
 const footRow = (text: string, prefs: string) =>

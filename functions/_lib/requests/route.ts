@@ -36,6 +36,7 @@ import {
   type TaskEnv,
 } from './tasks';
 import { emailOn, mailMode, setMailMode } from './mail';
+import { chatEmailOn, setChatEmail } from '../chat/mail';
 import { searchRequests } from './views';
 import { suggestionFor } from './suggest';
 
@@ -102,14 +103,18 @@ async function route(ctx: Ctx): Promise<Response> {
 
   if (a === 'prefs' && !b) {
     if (method === 'PUT') {
-      try {
-        await setMailMode(env, actor.email, (await body(request)).mode);
-      } catch {
-        throw new HttpError(400, 'bad_mode', 'Pick Immediately, Daily summary or None.');
+      const input = await body(request);
+      if (typeof input.chat_email === 'boolean') await setChatEmail(env, actor.email, input.chat_email);
+      if (input.mode !== undefined || typeof input.chat_email !== 'boolean') {
+        try {
+          await setMailMode(env, actor.email, input.mode);
+        } catch {
+          throw new HttpError(400, 'bad_mode', 'Pick Immediately, Daily summary or None.');
+        }
       }
     }
     if (method === 'GET' || method === 'PUT') {
-      return json({ ok: true, mode: await mailMode(env, actor.email), email: actor.email, email_on: await emailOn(env), notices_on: await mayHear(env, actor.email) });
+      return json({ ok: true, mode: await mailMode(env, actor.email), chat_email: await chatEmailOn(env, actor.email), email: actor.email, email_on: await emailOn(env), notices_on: await mayHear(env, actor.email) });
     }
   }
 

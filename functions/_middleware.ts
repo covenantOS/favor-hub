@@ -34,6 +34,7 @@ const OPEN_PATHS = new Set([
   '/meet/g/',
   '/expenses/review',
   '/expenses/review/',
+  '/chat-email/off',
   '/api/expenses/review',
   '/api/admin/login',
   '/api/admin/logout',

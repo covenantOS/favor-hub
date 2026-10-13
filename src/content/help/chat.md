@@ -6,7 +6,7 @@ order: 7
 related: [meetings, clips, ask-favor, whats-new]
 tool: /chat/
 toolLabel: Open Chat
-updated: 2026-10-12
+updated: 2026-10-13
 ---
 
 Chat is where the team talks inside FavorOS. Admin > Chat sets who can use it.
@@ -82,6 +82,12 @@ Start a message with **/** for FavorOS's own commands: **/brain** and a question
 ## Notices
 
 The list offers **Notices for messages and mentions** once. **Turn on** asks the browser, and Chat then shows a notice for a direct message or a mention when it is not in front. Ctrl K elsewhere in FavorOS lists chat messages in its Chat group.
+
+## Email about chat
+
+The first time Chat has something for you, FavorOS emails a welcome with the message and an **Open the chat** button. After that, a direct message, group message, @mention or thread reply you have not read 10 minutes later arrives as one email per conversation with the last three messages. FavorOS sends nothing more for that conversation until you read it. A muted conversation, and one you read or wrote in during those 10 minutes, sends nothing.
+
+To stop it, use **Turn off email about chat** at the bottom of any of these emails, or open **Request email** on the request board and switch off **Email me about chat**.
 
 ## The Chat button on every page
 

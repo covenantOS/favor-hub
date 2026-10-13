@@ -52,6 +52,8 @@ export interface Outbox {
   subject: string;
   html: string;
   text: string;
+  /** The display name on the From line. Request email when empty. */
+  fromName?: string;
 }
 
 /** Sends through Resend, the sender the hub already uses. Returns false when there is no key or the send failed. */
@@ -63,7 +65,7 @@ export async function send(env: Env, m: Outbox): Promise<boolean> {
     console.warn('[requests] RESEND_API_KEY missing; request email skipped');
     return false;
   }
-  const from = (env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>').replace(/^[^<]*</, 'Favor Requests <');
+  const from = (env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>').replace(/^[^<]*</, (m.fromName || 'Favor Requests') + ' <');
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },

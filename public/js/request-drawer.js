@@ -460,10 +460,22 @@
     const state = !p.notices_on ? 'Request notices are off for you right now. Your choice is kept for when they are on.' : !p.email_on ? 'Request email is switched off for everyone right now.' : `Email goes to ${p.email}.`;
     const done = RT.openSheet(`<div class="rt-sheet__head"><h2>Request email</h2><button type="button" class="rt-x" data-rt-close aria-label="Close">${ic('x')}</button></div>
       <div class="rq-prefs" role="radiogroup" aria-label="Request email">${rows.map(([v, l, s]) => `<button type="button" role="radio" class="rq-pref${p.mode === v ? ' is-on' : ''}" aria-checked="${p.mode === v}" data-mode="${v}"><span class="rq-pref__dot"></span><span><b>${l}</b><small>${s}</small></span></button>`).join('')}</div>
+      <button type="button" role="switch" class="rq-pref rq-pref--chat${p.chat_email !== false ? ' is-on' : ''}" aria-checked="${p.chat_email !== false}" data-chat-email><span class="rq-pref__dot"></span><span><b>Email me about chat</b><small>Messages and mentions still unread after 10 minutes</small></span></button>
       <p class="rq-prefs__note">${esc(state)}</p>`, 'Request email');
     const el = document.querySelector('.rt-sheet');
     el.addEventListener('click', async (e) => {
       if (e.target.closest('[data-rt-close]')) { RT.closeSheet(null); return; }
+      const sw = e.target.closest('[data-chat-email]');
+      if (sw) {
+        const on = sw.getAttribute('aria-checked') !== 'true';
+        try {
+          await api('/api/requests/prefs', { method: 'PUT', json: { chat_email: on } });
+          sw.setAttribute('aria-checked', String(on));
+          sw.classList.toggle('is-on', on);
+          toast(on ? 'Email about chat: on' : 'Email about chat: off');
+        } catch (err) { toast(err.message); }
+        return;
+      }
       const b = e.target.closest('[data-mode]');
       if (!b) return;
       try {

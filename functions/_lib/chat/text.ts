@@ -118,3 +118,14 @@ export function plainLine(body: string, names: (id: string) => string, max = 140
     .trim();
   return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t;
 }
+
+/** The message as plain text for an email: tokens turned into names, line breaks kept. */
+export function plainBody(body: string, names: (id: string) => string): string {
+  return String(body || '')
+    .replace(TOKEN, (_a, v: string) => '@' + (v.toLowerCase() === 'brain' ? 'Favor Brain' : v.toLowerCase() === 'channel' || v.toLowerCase() === 'all' ? 'channel' : names(v.toLowerCase())))
+    .replace(ENTITY, (_a, _k: string, _id: string, name: string) => name)
+    .replace(/<#[^>]+>/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
