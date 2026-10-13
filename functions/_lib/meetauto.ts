@@ -8,7 +8,7 @@
 // Partner reads and the Blackbaud write go through `source` and `writer`, which tests replace so nothing real is touched.
 import { HttpError, nowIso } from './http';
 import { chatJson, plain, stamp } from './clipai';
-import { clean, emailsOf, getMeeting, isHost, ledPeople, mayJoin, mayReadNotes, type Meeting, type MeetEnv } from './meet';
+import { clean, emailsOf, getMeeting, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, type Meeting, type MeetEnv } from './meet';
 import * as chat from './chat/db';
 import { MEETINGS_ID } from './chat/text';
 import { hydrateAttachments } from './chat/hydrate';
@@ -245,7 +245,7 @@ async function workOk(env: MeetEnv, user: User): Promise<boolean> {
 
 export async function prepSheet(env: MeetEnv, user: User, id: string, origin = ''): Promise<PrepSheet> {
   const m = await getMeeting(env, id);
-  if (!mayJoin(m, user as never)) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  if (!mayJoin(m, user as never)) throw refuseJoin(m);
   const me = lower(user.email);
   const invitees = safeJson<Invitee[]>(m.invitees, []);
   const roster = new Map<string, { email: string; name: string; role: 'host' | 'invited'; guest: boolean }>();

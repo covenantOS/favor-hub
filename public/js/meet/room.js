@@ -58,8 +58,22 @@ async function boot() {
     if (PRE && S.meeting.status !== 'cancelled') return quickEnter(PRE);
     lobby();
   } catch (e) {
+    // Signed out: go through login and come back to this room.
+    if (!GUEST && e.status === 401) { location.href = '/login/?next=' + encodeURIComponent(location.pathname + location.search); return; }
+    if (!GUEST && e.code === 'not_invited') return notInvited(e);
     root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto"><h2 class="mt-h2">${e.status === 404 ? 'That meeting is not available' : 'Could not open the meeting'}</h2><p class="mt-sub" style="font-size:14px">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a></div>`;
   }
+}
+
+// A signed-in person who is not on the list: one tap tells the host.
+function notInvited(e) {
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">You are not on the invite list</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(e.message)}</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="h-btn h-btn--primary" id="ask-in">Ask to be added</button><a class="h-btn h-btn--ghost" href="/meet/">Back to meetings</a></div></div>`;
+  const b = $('#ask-in');
+  b.addEventListener('click', async () => {
+    b.disabled = true; b.textContent = 'Asking';
+    try { await api('meetings/' + MID + '/request-access', { method: 'POST', body: JSON.stringify({}) }); b.textContent = 'Host notified'; }
+    catch (x) { b.disabled = false; b.textContent = 'Ask to be added'; toast(x.message); }
+  });
 }
 
 function ended(msg, sub, opts = {}) {

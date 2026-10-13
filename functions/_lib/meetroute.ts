@@ -14,14 +14,14 @@ import { chatJson, plain, stamp } from './clipai';
 import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
-import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
+import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchCalendarEvent, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
 import { afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
-  GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, mayReadNotes, meetUser, sfuCall, sha,
+  GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
 } from './meet';
 
@@ -54,6 +54,14 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env) });
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids), calWindow(new URL(request.url).searchParams))) });
+    if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'update' && m === 'POST') {
+      const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+      const eid = String(b.eventId || '').slice(0, 200);
+      if (!eid) return errorJson('event', 'Pick an event to change.', 400);
+      const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
+      await patchCalendarEvent(env, user.email, eid, { startsAt: str(b.startsAt), endsAt: str(b.endsAt), title: str(b.title), description: str(b.description) });
+      return json({ ok: true });
+    }
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') {
       // The same five-minute pass sends the Mail messages whose time has come.
@@ -74,7 +82,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
 
     if (!sub && m === 'GET') {
       const mt = await getMeeting(env, id);
-      if (!mayJoin(mt, user)) return errorJson('not_found', 'That meeting does not exist.', 404);
+      if (!mayJoin(mt, user)) throw refuseJoin(mt);
       // Who is in the room now (a heartbeat in the last 20 seconds), for the lobby and the pre-join sheet. The pid lets a page
       // leave out its own earlier visit.
       const here = await env.DB.prepare('SELECT pid, name, lower(email) AS email FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? ORDER BY joined_at LIMIT 24').bind(id, Date.now() - GONE_MS).all<{ pid: string; name: string; email: string }>();
@@ -82,6 +90,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
       return json({ ok: true, meeting: publicMeeting(mt, user), guestsEnabled: guestsOn(env), present: rows.map((r) => r.name), people: rows.map((r) => ({ pid: r.pid, name: r.name, email: r.email })) });
     }
     if (sub === 'guestinfo' && m === 'GET') return json(await guestInfo(env, id, new URL(request.url).searchParams.get('k') || ''));
+    if (sub === 'request-access' && m === 'POST') return json(await requestAccess(env, user, id, new URL(request.url).origin));
     if (sub === 'guestlink' && m === 'POST') return json(await guestLink(env, user, id, new URL(request.url).origin));
     if (sub === 'join' && m === 'POST' && guestMode) return json(await joinGuest(env, id, await request.json().catch(() => ({})), clientIpOf(request), request.headers.get('X-Guest-Token') || ''));
     if (sub === 'join' && m === 'POST') { const r = await join(env, user, id, await request.json().catch(() => ({}))); huddleNews(id); return json(r); }
@@ -256,7 +265,7 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   const seenInv = new Set<string>([user.email.toLowerCase()]);
   const invitees = rawInvitees.filter((i) => (seenInv.has(i.email) ? false : (seenInv.add(i.email), true)));
   const repeat = ['weekly', 'biweekly', 'monthly'].includes(String(b.repeat)) ? String(b.repeat) : 'none';
-  const withGuests = guestsOn(env) && invitees.some((i) => i.guest);
+  const withGuests = guestsOn(env) && (invitees.some((i) => i.guest) || (!!startsAt && b.access == null));
   const gkey = withGuests ? hex(16) : '';
   const endsAt = startsAt ? new Date(Date.parse(startsAt) + dur * 60000).toISOString() : null;
   // A booked meeting goes on the booker's Google Calendar first, so a refusal from Google leaves nothing half made.
@@ -333,6 +342,7 @@ async function switchToFavor(env: MeetEnv, user: { email: string; name: string }
     `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
      VALUES (?, ?, '', ?, ?, ?, ?, ?, 'notes', 'invited', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
   ).bind(id, clean(ev.summary, 140) || 'Meeting', me, user.name, startsAt, endsAt, dur, JSON.stringify(invitees), nowIso(), ev.id).run();
+  if (guestsOn(env)) await ensureGuestUrl(env, await getMeeting(env, id), origin);
   try {
     await swapConferencing(env, user.email, ev, `${origin}/meet/room/?m=${id}`);
   } catch (e) {
@@ -363,13 +373,21 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
       } catch (e) { if (user.email.toLowerCase() === mt.host_email.toLowerCase()) throw e; }
     }
   }
-  if (typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) && mt.starts_at) {
-    const s0 = new Date(b.startsAt).toISOString();
-    const e0 = new Date(Date.parse(s0) + mt.duration_min * 60000).toISOString();
+  const wantStart = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt));
+  const wantEnd = typeof b.endsAt === 'string' && !Number.isNaN(Date.parse(b.endsAt));
+  const newTitle = typeof b.title === 'string' ? clean(b.title, 140) : '';
+  if ((wantStart || wantEnd) && mt.starts_at) {
+    // A new start keeps the length unless the end comes too; a new end alone changes the length.
+    const s0 = new Date(wantStart ? (b.startsAt as string) : mt.starts_at).toISOString();
+    const e0 = wantEnd ? new Date(b.endsAt as string).toISOString() : new Date(Date.parse(s0) + mt.duration_min * 60000).toISOString();
+    const dur = Math.round((Date.parse(e0) - Date.parse(s0)) / 60000);
+    if (dur < 5 || dur > 480) throw new HttpError(400, 'bad_time', 'A meeting runs from 5 minutes to 8 hours.');
     if (mt.series_id) throw new HttpError(400, 'series', 'A repeating meeting changes from Google Calendar, or cancel it and book it again.');
-    if (mt.calendar_event_id) await patchEvent(env, mt.host_email, mt.calendar_event_id, { startsAt: s0, endsAt: e0 });
-    sets.push('starts_at = ?', 'ends_at = ?');
-    vals.push(s0, e0);
+    if (mt.calendar_event_id) await patchEvent(env, mt.host_email, mt.calendar_event_id, { startsAt: s0, endsAt: e0, title: newTitle || undefined });
+    sets.push('starts_at = ?', 'ends_at = ?', 'duration_min = ?');
+    vals.push(s0, e0, dur);
+  } else if (newTitle && mt.calendar_event_id && !mt.series_id) {
+    await patchEvent(env, mt.host_email, mt.calendar_event_id, { title: newTitle });
   }
   if (!sets.length) return { ok: true };
   await env.DB.prepare(`UPDATE hub_meetings SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, id).run();
@@ -380,7 +398,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
 
 async function join(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
   const mt = await getMeeting(env, id);
-  if (!mayJoin(mt, user as never)) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  if (!mayJoin(mt, user as never)) throw refuseJoin(mt);
   if (mt.status === 'ended' && !aheadOf(mt) && mt.ended_at && Date.now() - Date.parse(mt.ended_at) > 6 * 3600_000) throw new HttpError(410, 'ended', 'This meeting has ended.');
   const now = Date.now();
   const hostNow = isHost(mt, user.email);
@@ -925,6 +943,25 @@ async function mediaOf(env: MeetEnv, user: { email: string; role: string }, id: 
 }
 
 /** The guest link for a meeting, made once and turned on. Used by the Guest link button and by invitations. */
+/** A signed-in person who is not on the list taps once; the host gets one email with the person's name and the room link. */
+async function requestAccess(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, origin: string) {
+  const mt = await getMeeting(env, id);
+  if (mayJoin(mt, user as never)) return { ok: true, already: true };
+  if (mt.status === 'cancelled') throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  const who = user.name || user.email;
+  const room = `${origin}/meet/room/?m=${id}`;
+  const html = `<p>${escHtml(who)} (${escHtml(user.email)}) asked to join <b>${escHtml(mt.title)}</b> and is not on the invite list.</p><p>Add them from the meeting in FavorOS, then they can open the link: <a href="${room}">${room}</a></p>`;
+  const key = env.RESEND_API_KEY;
+  if (!key) throw new HttpError(502, 'mail', 'Could not reach the host. Ask them directly.');
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>', to: [mt.host_email], subject: `${who} asked to join ${mt.title}`, html, text: `${who} (${user.email}) asked to join ${mt.title}. Add them in FavorOS: ${room}` }),
+  });
+  if (!r.ok) throw new HttpError(502, 'mail', 'Could not reach the host. Ask them directly.');
+  return { ok: true };
+}
+const escHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+
 export async function ensureGuestUrl(env: MeetEnv, m: Meeting, origin: string): Promise<string> {
   let key = await keyOf(env, m.id);
   if (!key) { key = hex(16); await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(m.id, key).run(); }

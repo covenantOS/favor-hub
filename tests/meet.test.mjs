@@ -35,3 +35,21 @@ test('a staff meeting opens to any signed-in staff, a cancelled one to nobody', 
   assert.ok(mayJoin(m({ access: 'staff' }), u('zed@favorintl.org')));
   assert.ok(!mayJoin(m({ access: 'staff', status: 'cancelled' }), u('zed@favorintl.org', 'admin')));
 });
+
+test('a person not on the list is refused with not_invited, never "does not exist"', async () => {
+  const { refuseJoin } = await import('../functions/_lib/meet.ts');
+  const e = refuseJoin({ status: 'scheduled', host_name: 'Pat Host', host_email: 'pat@favorintl.org' });
+  assert.equal(e.status, 403);
+  assert.equal(e.code, 'not_invited');
+  assert.match(e.message, /Ask Pat Host to add you/);
+  assert.equal(refuseJoin({ status: 'cancelled', host_name: '', host_email: 'x@favorintl.org' }).status, 404);
+});
+
+test('a moved meeting is open to signed-in staff and has a guest key', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../functions/api/hub/day-move.ts', import.meta.url), 'utf8');
+  assert.match(src, /'off', 'guests', \?, 'scheduled'/);
+  assert.match(src, /ensureGuestUrl\(env as any, await getMeeting\(env as any, id\)/);
+  const { mayJoin } = await import('../functions/_lib/meet.ts');
+  assert.ok(mayJoin({ status: 'scheduled', access: 'guests', host_email: 'h@favorintl.org', invitees: '[]', cohosts: '[]' }, { email: 'zed@favorintl.org', role: 'staff' }));
+});

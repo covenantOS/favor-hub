@@ -122,6 +122,12 @@ export function isHost(m: Meeting, email: string): boolean {
   return m.host_email.toLowerCase() === e || emailsOf(m.cohosts).includes(e);
 }
 
+/** The refusal for a person who may not join. A cancelled meeting does not exist; any other is a meeting they are not on the list for. */
+export function refuseJoin(m: Meeting): HttpError {
+  if (m.status === 'cancelled') return new HttpError(404, 'not_found', 'That meeting does not exist.');
+  return new HttpError(403, 'not_invited', `You're not on the invite list for this meeting. Ask ${m.host_name || m.host_email} to add you.`);
+}
+
 export function mayJoin(m: Meeting, user: Pick<HubUser, 'email' | 'role'>): boolean {
   if (m.status === 'cancelled') return false;
   if (user.role === 'admin') return true;

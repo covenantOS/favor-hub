@@ -96,8 +96,9 @@ export async function patchEvent(env: MeetEnv, booker: string, eventId: string, 
   const tok = await token(env, booker, [CAL_EVENTS]);
   const body: Record<string, unknown> = {};
   if (patch.title) body.summary = patch.title;
+  if (!patch.title && !(patch.startsAt && patch.endsAt)) return;
   if (patch.startsAt && patch.endsAt) { body.start = { dateTime: patch.startsAt, timeZone: TZ }; body.end = { dateTime: patch.endsAt, timeZone: TZ }; }
-  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`, {
+  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId.replace(/^ext:/, ''))}?sendUpdates=all`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
     body: JSON.stringify(body),
@@ -107,7 +108,7 @@ export async function patchEvent(env: MeetEnv, booker: string, eventId: string, 
 
 export async function deleteEvent(env: MeetEnv, booker: string, eventId: string): Promise<void> {
   const tok = await token(env, booker, [CAL_EVENTS]);
-  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=all`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } });
+  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId.replace(/^ext:/, ''))}?sendUpdates=all`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } });
   if (!r.ok && r.status !== 404 && r.status !== 410) throw new HttpError(502, 'calendar', 'Google Calendar did not cancel the meeting.');
 }
 
@@ -295,4 +296,37 @@ export async function swapConferencing(env: MeetEnv, booker: string, ev: CalEven
     method: 'PATCH', headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
   });
   if (!r.ok) throw new HttpError(502, 'calendar', 'Google Calendar did not accept the change.');
+}
+
+/** Change the title, time or notes of an event on the person's own calendar (a Zoom, Meet or Teams meeting they organize).
+ * Only the organizer may. Google sends no email for this change (sendUpdates=none); the guests' copies update on their own.
+ * The video link is never touched: an edited description keeps the join links the original held. */
+export async function patchCalendarEvent(env: MeetEnv, email: string, eventId: string, patch: { startsAt?: string; endsAt?: string; title?: string; description?: string }): Promise<void> {
+  const tok = await token(env, email, [CAL_EVENTS]);
+  const ev = await getEvent(env, email, eventId);
+  if (ev.status === 'cancelled') throw new HttpError(404, 'calendar', 'That event is no longer on your calendar.');
+  if (!ev.start?.dateTime || !ev.end?.dateTime) throw new HttpError(400, 'all_day', 'An all-day event has no time to change.');
+  const organizer = !!ev.organizer?.self || String(ev.organizer?.email || '').toLowerCase() === email.toLowerCase();
+  if (!organizer) throw new HttpError(403, 'not_organizer', 'Only the organizer can change this event.');
+  const body: Record<string, unknown> = {};
+  if (typeof patch.title === 'string') {
+    const t = patch.title.replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, 300);
+    if (t) body.summary = t;
+  }
+  if (patch.startsAt && patch.endsAt) {
+    const s = Date.parse(patch.startsAt), e = Date.parse(patch.endsAt);
+    if (Number.isNaN(s) || Number.isNaN(e) || e <= s) throw new HttpError(400, 'bad_time', 'The end must be after the start.');
+    body.start = { dateTime: new Date(s).toISOString(), timeZone: TZ };
+    body.end = { dateTime: new Date(e).toISOString(), timeZone: TZ };
+  }
+  if (typeof patch.description === 'string') {
+    const text = patch.description.replace(/\r/g, '').trim().slice(0, 4000);
+    const links = providerOf({ description: ev.description || '' }).urls.filter((u) => !text.includes(u));
+    body.description = [text, links.join('\n')].filter(Boolean).join('\n\n');
+  }
+  if (!Object.keys(body).length) return;
+  const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId)}?sendUpdates=none`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new HttpError(r.status === 403 ? 403 : 502, 'calendar', r.status === 403 ? 'Google lets only the organizer change this event.' : 'Google Calendar did not accept the change.');
 }

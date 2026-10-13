@@ -40,7 +40,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (have) return json({ ok: false, error: 'already', message: 'This meeting is already in FavorOS.', id: have.id }, 409);
     if (providerOf(ev).provider === 'favor') return errorJson('already', 'This meeting is already in FavorOS.', 409);
 
-    const writeLink = b.writeLink === true;
+    // The organizer's calendar event always gets the FavorOS link and loses the old video link. Someone else's event cannot be edited.
+    const organizer = !!ev.organizer?.self || String(ev.organizer?.email || '').toLowerCase() === me;
+    const writeLink = organizer;
     if (writeLink && !hasScopes(t.scopes, [CAL_EVENTS])) return errorJson('consent', 'Allow FavorOS to add to your calendar events. Google asks once.', 409);
 
     const id = hex(12);
@@ -52,9 +54,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const stamp = new Date().toISOString();
     await env.DB.prepare(
       `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
-       VALUES (?, ?, '', ?, ?, ?, ?, ?, 'off', 'invited', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
+       VALUES (?, ?, '', ?, ?, ?, ?, ?, 'off', 'guests', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
     ).bind(id, clean(ev.summary, 140) || 'Meeting', me, user.name, startsAt, endsAt, dur, JSON.stringify(invitees), stamp, 'ext:' + ev.id).run();
 
+    // Every signed-in staff member with the link may join, and the guest link works from the first minute.
+    if (guestsOn(env as any)) await ensureGuestUrl(env as any, await getMeeting(env as any, id), new URL(request.url).origin);
     const room = `${new URL(request.url).origin}/meet/room/?m=${id}`;
     let linked = false;
     let linkError = '';
@@ -62,10 +66,13 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const desc = String(ev.description || '');
       const gap = /<[a-z][^>]*>/i.test(desc) ? '<br><br>' : '\n\n';
       const line = `Join in FavorOS: ${room}`;
-      const res = await fetch(`${CAL}${encodeURIComponent(ev.id)}?sendUpdates=none`, {
+      // Link at the top of the notes and in the location; the old video link is removed. Time and guests stay.
+      const patch: Record<string, unknown> = { location: room, description: desc ? line + gap + desc : line };
+      if (ev.conferenceData) patch.conferenceData = null;
+      const res = await fetch(`${CAL}${encodeURIComponent(ev.id)}?conferenceDataVersion=1&sendUpdates=${b.emailInvitees === true ? 'all' : 'none'}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${t.token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ description: desc ? desc + gap + line : line }),
+        body: JSON.stringify(patch),
       });
       if (res.ok) {
         linked = true;
