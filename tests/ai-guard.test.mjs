@@ -178,3 +178,20 @@ describe('a held call nobody caught', () => {
     assert.doesNotMatch(body.message, /\bAI\b|model|neuron|\$/);
   });
 });
+
+describe('meetings and the overnight index (2026-10-13)', () => {
+  it('meeting captions and notes are tier 1; the Drive index runs only overnight Eastern', async () => {
+    assert.equal(G.FEATURES['meet-notes'].tier, 1);
+    assert.equal(G.nightNow(new Date('2026-10-13T18:30:00Z')), false); // 2:30 PM Eastern
+    assert.equal(G.nightNow(new Date('2026-10-14T03:00:00Z')), true); // 11 PM Eastern
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'drive-index', day: DAY, now: new Date('2026-10-13T18:30:00Z') }, '@cf/baai/bge-m3', { text: ['x'] }), (e) => G.isAiPaused(e) && e.why === 'off');
+    await G.guardedRun(store(), model().run, { feature: 'drive-index', day: DAY, now: new Date('2026-10-14T03:00:00Z') }, '@cf/baai/bge-m3', { text: ['x'] });
+  });
+  it('the reconciler brings a high estimate back to the true total plus the slack', async () => {
+    await d1.prepare('INSERT OR IGNORE INTO ai_budget_day (day) VALUES (?)').bind(DAY).run();
+    await d1.prepare('UPDATE ai_budget_day SET est = 5044 WHERE day = ?').bind(DAY).run();
+    const r = await G.reconcile(store(), { [DAY]: 3354 }, DAY);
+    assert.equal(r.est, 3354 + G.RECONCILE_SLACK);
+    assert.equal(kv.m.get(`ai:budget:${DAY}`), String(3354 + G.RECONCILE_SLACK));
+  });
+});

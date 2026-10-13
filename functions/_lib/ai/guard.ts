@@ -25,6 +25,8 @@ export interface Feature {
   label: string;
   /** Off until an admin turns it on in Admin > Settings (the spend it brings needs Will's yes). */
   offByDefault?: boolean;
+  /** Runs only overnight, 9 PM to 6 AM Eastern, so a daytime run never takes the units meetings and Brain need. */
+  nightOnly?: boolean;
 }
 
 /** Every feature that calls a model. A call with a name not listed here runs as tier 3 under "other". */
@@ -50,12 +52,22 @@ export const FEATURES: Record<string, Feature> = {
   'plan-status': { tier: 3, label: 'Projects: status lines' },
   'clip-text': { tier: 3, label: 'Clips: titles, summaries, chapters' },
   'clip-vision': { tier: 3, label: 'Clips: reading the screen' },
-  'meet-notes': { tier: 3, label: 'Meetings: notes' },
+  // Tier 1: captions, live action items and the notes of a call that is going on now (2026-10-13, after a meeting lost its notes to the tier 3 cap).
+  'meet-notes': { tier: 1, label: 'Meetings: captions and notes' },
   other: { tier: 3, label: 'Other' },
-  'drive-index': { tier: 4, label: 'Drive index (overnight)' },
+  'drive-index': { tier: 4, label: 'Drive index (overnight)', nightOnly: true },
 };
 
 export const featureOf = (name: string): Feature => FEATURES[name] || FEATURES.other;
+
+/** True from 9 PM to 6 AM Eastern. */
+export function nightNow(now = new Date()): boolean {
+  const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', hourCycle: 'h23' }).format(now));
+  return h >= 21 || h < 6;
+}
+
+/** How far above Cloudflare's own total the running estimate may stay after a reconcile (calls in flight since the last count). */
+export const RECONCILE_SLACK = 300;
 
 /** Thrown instead of running a call. `why`: budget (today's cap), off (feature switched off), kill (true total passed KILL_AT), closed (test override). */
 export class AiPaused extends Error {
@@ -248,6 +260,8 @@ export interface GuardOpts {
   /** Refuse every call (the FavorOS Tester's forced-closed switch). */
   closed?: boolean;
   day?: string;
+  /** The clock for the overnight-only check (tests). */
+  now?: Date;
 }
 
 async function bump(store: GuardStore, day: string, feature: string, model: string, neurons: number, refused: boolean) {
@@ -286,6 +300,10 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
   if (state.off[day]) {
     await bump(store, day, feature, model, 0, true);
     throw new AiPaused('kill', feature);
+  }
+  if (f.nightOnly && !nightNow(opts.now)) {
+    await bump(store, day, feature, model, 0, true);
+    throw new AiPaused('off', feature);
   }
   const est = estimateNeurons(model, input);
   let cap = TIER_CAP[f.tier] ?? TIER_CAP[3];
@@ -401,6 +419,12 @@ export async function reconcile(store: GuardStore, totals: Record<string, number
     const truth = Math.round((totals[day] || 0) * 100) / 100;
     await store.db.prepare('INSERT OR IGNORE INTO ai_budget_day (day) VALUES (?)').bind(day).run();
     await store.db.prepare('UPDATE ai_budget_day SET truth = MAX(truth, ?), reconciled_at = ? WHERE day = ?').bind(truth, stamp, day).run();
+  }
+  // The estimate errs high on purpose, and the error builds up through the day (2026-10-13: an estimate of 5,044 against a true
+  // 3,354 held a meeting's notes). Today's estimate comes back down to the true total plus the calls since the count.
+  if (totals[today] != null) {
+    const t = Math.round((totals[today] || 0) * 100) / 100;
+    await store.db.prepare('UPDATE ai_budget_day SET est = ?2 WHERE day = ?1 AND est > ?2').bind(today, t + RECONCILE_SLACK).run();
   }
   const row = (await store.db.prepare('SELECT est, truth, off, test_over FROM ai_budget_day WHERE day = ?').bind(today).first<{ est: number; truth: number; off: number; test_over: number }>()) || { est: 0, truth: 0, off: 0, test_over: 0 };
   const used = Math.ceil(Math.max(Number(row.est) || 0, Number(row.truth) || 0));
