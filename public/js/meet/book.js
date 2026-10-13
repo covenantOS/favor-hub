@@ -9,7 +9,7 @@ const FOLLOW = params.get('follow') || '';
 const TZ = 'America/New_York';
 const HOURS = []; for (let h = 9; h < 17; h++) { HOURS.push([h, 0]); HOURS.push([h, 30]); }
 
-const S = { post: '', channels: [], step: 1, dir: [], teams: new Set(), chipAdded: new Map(), people: new Map(), guests: [], dur: 60, start: '', title: '', autoTitle: false, agenda: '', rec: 'notes', repeat: 'none', remind: true, backup: true, week: 0, busy: {}, fb: 'idle', me: null, booked: null, can: { ok: false, connected: false }, guestsOn: false, busyKey: '' };
+const S = { post: '', channels: [], step: 1, dir: [], teams: new Set(), chipAdded: new Map(), people: new Map(), guests: [], dur: 60, start: '', title: '', autoTitle: false, agenda: '', rec: 'notes', repeat: 'none', remind: true, week: 0, busy: {}, fb: 'idle', me: null, booked: null, can: { ok: false, connected: false }, guestsOn: false, busyKey: '' };
 
 // ---- Eastern time helpers
 const fmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -66,7 +66,7 @@ async function load() {
   const [who, dir, can] = await Promise.all([whoami(), api('meetings/directory'), api('meetings/bookstatus')]);
   S.me = who; S.dir = dir.people; S.can = can; S.guestsOn = !!can.guestsEnabled;
   api('meetings/channels').then((r) => { S.channels = r.channels || []; if (S.step === 3) draw(); }).catch(() => {});
-  try { const saved = JSON.parse(sessionStorage.getItem('meet.book') || 'null'); if (saved && params.get('google') === 'meetings') { S.step = saved.step || 3; S.teams = new Set(saved.teams); S.chipAdded = new Map(saved.chipAdded || []); S.autoTitle = !!saved.autoTitle; S.people = new Map(saved.people); S.guests = saved.guests; S.dur = saved.dur; S.start = saved.start; S.title = saved.title; S.agenda = saved.agenda; S.rec = saved.rec; S.repeat = saved.repeat; S.remind = saved.remind; S.backup = saved.backup; } } catch {}
+  try { const saved = JSON.parse(sessionStorage.getItem('meet.book') || 'null'); if (saved && params.get('google') === 'meetings') { S.step = saved.step || 3; S.teams = new Set(saved.teams); S.chipAdded = new Map(saved.chipAdded || []); S.autoTitle = !!saved.autoTitle; S.people = new Map(saved.people); S.guests = saved.guests; S.dur = saved.dur; S.start = saved.start; S.title = saved.title; S.agenda = saved.agenda; S.rec = saved.rec; S.repeat = saved.repeat; S.remind = saved.remind; } } catch {}
   if (EDIT) {
     const m = (await api('meetings/' + EDIT)).meeting;
     S.title = m.title; S.agenda = m.agenda; S.dur = m.durationMin; S.rec = m.rec; S.editing = m;
@@ -89,7 +89,7 @@ async function load() {
   if (S.step === 2) loadBusy();
 }
 
-function save() { sessionStorage.setItem('meet.book', JSON.stringify({ step: S.step, teams: [...S.teams], chipAdded: [...S.chipAdded], people: [...S.people], guests: S.guests, dur: S.dur, start: S.start, title: S.title, autoTitle: S.autoTitle, agenda: S.agenda, rec: S.rec, repeat: S.repeat, remind: S.remind, backup: S.backup })); }
+function save() { sessionStorage.setItem('meet.book', JSON.stringify({ step: S.step, teams: [...S.teams], chipAdded: [...S.chipAdded], people: [...S.people], guests: S.guests, dur: S.dur, start: S.start, title: S.title, autoTitle: S.autoTitle, agenda: S.agenda, rec: S.rec, repeat: S.repeat, remind: S.remind})); }
 
 // ---- availability
 async function loadBusy() {
@@ -182,7 +182,7 @@ function draw() {
       <div><div class="h-label" style="margin-bottom:8px">Repeats</div><div class="mt-seg">${[['none', 'Once'], ['weekly', 'Weekly'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Monthly']].map(([k, l]) => `<button class="${S.repeat === k ? 'is-on' : ''}" data-repeat="${k}">${l}</button>`).join('')}</div></div>
     </section><aside class="mt-stack"><div class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Summary</div><dl class="kv"><dt>When</dt><dd>${esc(when)}</dd>${S.repeat !== 'none' ? `<dt>Repeats</dt><dd>${esc(REPEAT[S.repeat])}</dd>` : ''}<dt>Who</dt><dd>${S.people.size + 1} staff${S.guests.length ? `, ${S.guests.length} guest${S.guests.length === 1 ? '' : 's'}` : ''}</dd><dt>Where</dt><dd>Favor meeting room in FavorOS</dd></dl></div>
       <div class="h-card mt-card"><div class="mt-toggle"><div><b>Email reminders</b><span>A day before and 15 minutes before, with the join link</span></div><button class="mt-sw${S.remind ? ' is-on' : ''}" data-sw="remind" aria-label="Email reminders"></button></div>
-        <div class="mt-toggle"><div><b>Backup Google Meet link</b><span>In the invite in case the room ever fails to load</span></div><button class="mt-sw${S.backup ? ' is-on' : ''}" data-sw="backup" aria-label="Backup link"></button></div></div></aside></div>
+        </div></aside></div>
       <div class="mt-foot"><button class="h-btn h-btn--ghost" data-step="2">${ic('back')}Back</button><button class="h-btn h-btn--primary" id="confirm" ${S.start ? '' : 'disabled'}>${ic('check')}Book it and send invites</button></div>`;
   }
   const keep = { id: document.activeElement && document.activeElement.id, v: document.activeElement && document.activeElement.value, p: document.activeElement && document.activeElement.selectionStart, at: document.activeElement && document.activeElement.matches && document.activeElement.matches('td.c') ? document.activeElement.dataset.at : '' };
@@ -203,7 +203,6 @@ function drawBooked() {
     <div style="width:100%"><div class="h-label" style="margin-bottom:6px">Share link</div><div class="linkbox"><code>${esc(link.replace(/^https?:\/\//, ''))}</code><button class="h-btn h-btn--ghost h-btn--sm" id="cp">${ic('copy')}Copy</button></div></div>
     <ul class="nt-list"><li><span class="b">${ic('bell')}</span><span>${S.remind ? 'Reminder emails go out a day before and 15 minutes before the start, with the join link.' : 'No reminder emails. Google Calendar still shows its own reminder.'}</span></li>
     <li><span class="b">${ic('notes')}</span><span>${S.rec === 'off' ? 'No notes for this meeting.' : S.rec === 'video' ? 'Video, transcript and notes go to the Meetings folder in US Team Files and to Meeting notes in FavorOS.' : 'Transcript and notes go to Meeting notes in FavorOS.'}</span></li>
-    ${m.backupLink ? `<li><span class="b">${ic('link')}</span><span>The invite carries a backup Google Meet link.</span></li>` : ''}</ul>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a><a class="h-btn h-btn--ghost" href="/meet/book/">Book another</a></div></div>`;
   $('#cp').addEventListener('click', () => copy(link));
 }
@@ -274,7 +273,7 @@ async function confirm_() {
   try {
     const guests = S.guestsOn ? S.guests : [];
     const r = await api('meetings', { method: 'POST', body: {
-      title: S.title.trim() || defaultTitle() || 'Meeting', agenda: S.agenda, startsAt: S.start, durationMin: S.dur, rec: S.rec, access: 'invited', repeat: S.repeat, remind: S.remind, backup: S.backup, postChannel: S.post,
+      title: S.title.trim() || defaultTitle() || 'Meeting', agenda: S.agenda, startsAt: S.start, durationMin: S.dur, rec: S.rec, access: 'invited', repeat: S.repeat, remind: S.remind, postChannel: S.post,
       invitees: [...invited().map((p) => ({ email: p.email, name: p.name, team: p.team })), ...guests.map((g) => ({ email: g, name: g, guest: true }))],
     } });
     sessionStorage.removeItem('meet.book'); S.booked = r; draw();

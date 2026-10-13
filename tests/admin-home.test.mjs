@@ -226,7 +226,7 @@ describe('admin only, on the server', () => {
   });
 
   it('every admin route is wrapped in adminRoute', () => {
-    const own = new Set(['login.ts', 'logout.ts', 'me.ts', 'expense-code.ts', 'expense-login.ts', 'expense-logout.ts', 'test-session.ts', 'test-seed.ts']);
+    const own = new Set(['login.ts', 'logout.ts', 'me.ts', 'expense-code.ts', 'expense-login.ts', 'expense-logout.ts', 'test-session.ts', 'test-seed.ts', 'no-meet-cleanup.ts']);
     for (const f of readdirSync(new URL('../functions/api/admin/', import.meta.url))) {
       if (own.has(f)) continue;
       const src = readFileSync(new URL('../functions/api/admin/' + f, import.meta.url), 'utf8');

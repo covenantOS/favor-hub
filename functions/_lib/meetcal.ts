@@ -58,28 +58,31 @@ export interface EventInput {
   endsAt: string;
   attendees: string[];
   recording: string;
-  backupMeet: boolean;
   repeat: string;
 }
 
 const RRULE: Record<string, string> = { weekly: 'RRULE:FREQ=WEEKLY', biweekly: 'RRULE:FREQ=WEEKLY;INTERVAL=2', monthly: 'RRULE:FREQ=MONTHLY' };
 
-export async function createEvent(env: MeetEnv, booker: string, ev: EventInput): Promise<{ id: string; meetLink: string }> {
-  const tok = await token(env, booker, [CAL_EVENTS]);
+/** The insert body. It never carries conferenceData, so Google makes no Meet link. */
+export function eventBody(ev: EventInput, requestTz = TZ): Record<string, unknown> {
   const recLine = ev.recording === 'video' ? 'This meeting is recorded on video and written up in FavorOS.' : ev.recording === 'notes' ? 'The sound of this meeting is recorded to make notes.' : 'This meeting is not recorded.';
-  const body: Record<string, unknown> = {
+  return {
     summary: ev.title,
     description: `Join in FavorOS: ${ev.roomUrl}\n${ev.guestUrl ? `Guests from outside Favor, join here: ${ev.guestUrl}\n` : ''}\n${ev.agenda ? ev.agenda + '\n\n' : ''}${recLine}`,
-    start: { dateTime: ev.startsAt, timeZone: TZ },
-    end: { dateTime: ev.endsAt, timeZone: TZ },
+    start: { dateTime: ev.startsAt, timeZone: requestTz },
+    end: { dateTime: ev.endsAt, timeZone: requestTz },
     attendees: ev.attendees.map((email) => ({ email })),
     reminders: { useDefault: true },
     location: ev.roomUrl,
     guestsCanModify: false,
     ...(RRULE[ev.repeat] ? { recurrence: [RRULE[ev.repeat]] } : {}),
-    ...(ev.backupMeet ? { conferenceData: { createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } } } } : {}),
   };
-  const r = await fetch(`${cal(env)}/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all`, {
+}
+
+export async function createEvent(env: MeetEnv, booker: string, ev: EventInput): Promise<{ id: string; meetLink: string }> {
+  const tok = await token(env, booker, [CAL_EVENTS]);
+  const body = eventBody(ev);
+  const r = await fetch(`${cal(env)}/calendars/primary/events?sendUpdates=all`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
     body: JSON.stringify(body),

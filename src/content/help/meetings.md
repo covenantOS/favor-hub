@@ -18,6 +18,8 @@ Press **Start now** on the Meetings page for a room you can use at once, then **
 
 Live and the count of people in the room mean people whose browser checked in during the last 20 seconds. A person who closes the tab, locks an iPhone or loses the connection drops off on their own.
 
+A meeting booked in FavorOS puts an event on your Google Calendar with the FavorOS link in the location and notes (and the guest link when guests are on). FavorOS adds no Google Meet link to the event.
+
 ## In the room
 
 The bar at the bottom holds Mute, Camera, Share, Record (hosts), Raise hand, Chat, People and Leave. Press **M** to mute and **V** to turn the camera off. Double-click a person's picture to pin them for yourself. When someone shares a screen it takes the big space and everyone else moves to the side. With more than nine people the pictures page, with arrows under the grid.

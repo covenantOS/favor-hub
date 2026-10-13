@@ -266,7 +266,7 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   if (startsAt && b.calendar !== false) {
     const ev = await createEvent(env, user.email, {
       title, agenda: clean(b.agenda, 2000), roomUrl: `${origin}/meet/room/?m=${id}`, guestUrl: withGuests ? `${origin}/meet/g/?m=${id}&k=${gkey}` : '', startsAt, endsAt: endsAt as string,
-      attendees: invitees.map((i) => i.email).filter((e) => e !== user.email.toLowerCase()), recording: rec, backupMeet: b.backup !== false, repeat,
+      attendees: invitees.map((i) => i.email).filter((e) => e !== user.email.toLowerCase()), recording: rec, repeat,
     });
     eventId = ev.id;
     backup = ev.meetLink;
