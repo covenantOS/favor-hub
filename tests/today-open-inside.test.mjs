@@ -108,7 +108,7 @@ describe('Move to FavorOS', () => {
     const row = d1.db.prepare('SELECT * FROM hub_meetings WHERE id = ?').get(d.id);
     assert.equal(row.title, 'Partner call');
     assert.equal(row.host_email, 'ada@favorintl.org');
-    assert.equal(row.rec_mode, 'off');
+    assert.equal(row.rec_mode, 'video'); // Will, 2026-10-13: every meeting records notes and video by default
     assert.equal(row.remind, 0);
     assert.equal(row.calendar_event_id, 'ev1');
     assert.equal(row.access, 'guests');

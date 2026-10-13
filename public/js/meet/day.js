@@ -1002,7 +1002,7 @@
     dr.busy = true; dr.title = title; draw();
     var inp2 = root.querySelector('.dv-new__in'); if (inp2) inp2.value = title;
     // A new meeting is a FavorOS room with a Google Calendar event. The event has no Meet link and no guests; recording is off until the host changes it.
-    api('meetings', { method: 'POST', body: { title: title, startsAt: new Date(dr.start).toISOString(), durationMin: Math.round((dr.end - dr.start) / 60000), rec: 'off', invitees: [] } }).then(function (r) {
+    api('meetings', { method: 'POST', body: { title: title, startsAt: new Date(dr.start).toISOString(), durationMin: Math.round((dr.end - dr.start) / 60000), rec: 'video', invitees: [] } }).then(function (r) {
       if (stopped) return;
       state.draft = null;
       if (r.meeting && state.data) { state.data.up = (state.data.up || []).filter(function (m) { return m.id !== r.meeting.id; }).concat([r.meeting]); saveHub(); }
@@ -1082,7 +1082,7 @@
 
   // Start now opens the same pre-join sheet; the room is made when the person presses Start.
   function startNow() {
-    var create = function () { return api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'notes', access: 'staff' } }).then(function (r) { return { id: r.meeting.id, url: '/meet/room/?m=' + r.meeting.id }; }); };
+    var create = function () { return api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'video', access: 'staff' } }).then(function (r) { return { id: r.meeting.id, url: '/meet/room/?m=' + r.meeting.id }; }); };
     if (!window.FavorPrejoin) { create().then(function (r) { location.href = r.url; }).catch(function (err) { toast(err.message); }); return; }
     window.FavorPrejoin.open({
       title: 'New meeting',

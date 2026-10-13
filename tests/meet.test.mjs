@@ -48,7 +48,7 @@ test('a person not on the list is refused with not_invited, never "does not exis
 test('a moved meeting is open to signed-in staff and has a guest key', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../functions/api/hub/day-move.ts', import.meta.url), 'utf8');
-  assert.match(src, /'off', 'guests', \?, 'scheduled'/);
+  assert.match(src, /'video', 'guests', \?, 'scheduled'/);
   assert.match(src, /ensureGuestUrl\(env as any, await getMeeting\(env as any, id\)/);
   const { mayJoin } = await import('../functions/_lib/meet.ts');
   assert.ok(mayJoin({ status: 'scheduled', access: 'guests', host_email: 'h@favorintl.org', invitees: '[]', cohosts: '[]' }, { email: 'zed@favorintl.org', role: 'staff' }));

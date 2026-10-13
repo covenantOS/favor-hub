@@ -55,7 +55,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const stamp = new Date().toISOString();
     await env.DB.prepare(
       `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
-       VALUES (?, ?, '', ?, ?, ?, ?, ?, 'off', 'guests', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
+       VALUES (?, ?, '', ?, ?, ?, ?, ?, 'video', 'guests', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
     ).bind(id, clean(ev.summary, 140) || 'Meeting', me, user.name, startsAt, endsAt, dur, JSON.stringify(invitees), stamp, 'ext:' + ev.id).run();
 
     // Every signed-in staff member with the link may join, and the guest link works from the first minute.
