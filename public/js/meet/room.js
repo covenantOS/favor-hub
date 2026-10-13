@@ -99,7 +99,17 @@ const tiles = new Map(); // pid or 'share:pid' -> { el, video, audio }
 if (!MID) root.innerHTML = '<div class="h-card mt-card"><p>That link is missing the meeting. Open it from Meetings.</p></div>';
 else boot();
 
+// A FavorOS user who opens the guest link joins as themselves: the staff room opens when their session may enter this meeting.
+async function staffInstead() {
+  try {
+    const r = await fetch('/api/meet/meetings/' + MID, { credentials: 'same-origin' });
+    if (!r.ok) return false;
+    location.replace('/meet/room/?m=' + encodeURIComponent(MID));
+    return true;
+  } catch { return false; }
+}
 async function boot() {
+  if (GUEST && (await staffInstead())) return;
   try {
     const r = GUEST ? await api('meetings/' + MID + '/guestinfo?k=' + encodeURIComponent(GKEY)) : await api('meetings/' + MID);
     S.meeting = GUEST ? { id: MID, title: r.title, hostName: r.host, rec: r.rec, status: r.status, startsAt: r.startsAt, backupLink: '', notesStatus: 'none', locked: r.locked } : r.meeting;
@@ -181,7 +191,7 @@ async function lobby() {
       <p class="mt-sub" style="font-size:14px;margin:0" id="lb-who">${esc(recLine)}</p>
       <div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" ${GUEST ? 'placeholder="First and last name"' : ''} /></div>${consent}
       <div class="lb-dev" id="lb-devs" hidden></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? '' : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a><a class="h-btn h-btn--ghost" href="/meet/prep/?m=' + encodeURIComponent(MID) + '" target="_blank" rel="noopener">Prep sheet</a>'}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? `<a class="h-btn h-btn--ghost" href="/login/?next=${encodeURIComponent('/meet/room/?m=' + MID)}">Sign in to join as yourself</a>` : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a><a class="h-btn h-btn--ghost" href="/meet/prep/?m=' + encodeURIComponent(MID) + '" target="_blank" rel="noopener">Prep sheet</a>'}</div>
       <p class="mt-sub" style="margin:0" id="lb-dev">Checking your camera and microphone.</p><p class="lb-help" id="lb-help" hidden></p></div></div>`;
   $('#lb-join').addEventListener('click', enter);
   $('#lb-mic').addEventListener('click', () => { S.mic = !S.mic; lobbyButtons(); });
@@ -998,7 +1008,8 @@ function paintSideBody(full) {
     const rec = S.recording && S.recording.active;
     const last = S.lines.length ? S.lines[S.lines.length - 1] : null;
     const heard = S.lines.slice(-6).reverse();
-    const status = rec ? `<div class="ln-st is-on"><i></i><span>Taking notes</span><span class="ln-sub">${S.lines.length ? S.lines.length + ' lines heard' + (last && last.at ? ' · last ' + Math.max(1, Math.round((Date.now() - last.at) / 1000)) + 's ago' : '') : 'Listening'}</span></div>`
+    const held = S.notesHeldAt && Date.now() - S.notesHeldAt < 90000;
+    const status = rec && held ? `<div class="ln-st is-held"><i></i><span>Notes paused</span><span class="ln-sub">The missed part is written up after the call</span></div>` : rec ? `<div class="ln-st is-on"><i></i><span>Taking notes</span><span class="ln-sub">${S.lines.length ? S.lines.length + ' lines heard' + (last && last.at ? ' · last ' + Math.max(1, Math.round((Date.now() - last.at) / 1000)) + 's ago' : '') : 'Listening'}</span></div>`
       : `<div class="ln-st"><i></i><span>${S.meeting.rec === 'off' ? 'Notes are off for this meeting' : 'Notes start when the recording starts'}</span></div>`;
     body.innerHTML = `${status}
       <div class="h-label">Action items, ${acts.length}</div>${acts.map(row).join('') || '<p class="mt-sub" style="margin:0 0 10px">None yet.</p>'}
@@ -1284,7 +1295,7 @@ function applySync(r) {
   S.meeting.status = r.meeting.status;
   S.recording = r.recording;
   // Lines are stamped when they arrive. The first sync brings the transcript so far, which is history, not a caption.
-  for (const l of r.lines || []) { l.at = S.capPrimed ? Date.now() : 0; S.lines.push(l); S.tx = l.n; }
+  for (const l of r.lines || []) { l.at = S.capPrimed ? Date.now() : 0; S.lines.push(l); S.tx = l.n; if (S.capPrimed) S.notesHeldAt = 0; }
   S.capPrimed = true;
   if ((r.lines || []).length) { paintCap(); const a = document.activeElement; if (S.panel === 'notes' && !(a && a.matches && a.matches('#livein, select[data-a="live-owner"]'))) paintSideBody(false); }
   for (const e of r.events) handleEvent(e);
@@ -1349,6 +1360,7 @@ function handleEvent(e) {
     else if (b.a === 'rec-takeover') toast(b.name + ' took over the recording');
     else if (b.a === 'joined' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' joined');
     else if (b.a === 'acting' && b.pid === S.me.pid) toast('You are now a host because no host is in the room');
+    else if (b.a === 'notes-held') { S.notesHeldAt = e.ts || Date.now(); paintCap(); if (S.panel === 'notes') paintSideBody(false); }
   }
 }
 
@@ -1591,9 +1603,10 @@ function paintCap() {
   // Fresh means arrived in the last 20 seconds by this browser's own clock, so a slow transcript or a skewed clock still shows.
   const fresh = S.lines.filter((l) => l.at && Date.now() - l.at < 20000).slice(-3);
   const listening = S.recording && S.recording.active;
+  const held = S.notesHeldAt && Date.now() - S.notesHeldAt < 90000;
   el.hidden = false; el.classList.toggle('is-quiet', !fresh.length);
   el.innerHTML = fresh.length ? fresh.map((l, i) => `<span class="cl${i < fresh.length - 1 ? ' old' : ''}">${l.who ? `<b>${esc(l.who)}:</b> ` : ''}${esc(l.text)}</span>`).join('')
-    : listening ? 'Captions on. They run about 15 seconds behind.' : S.meeting.rec === 'off' ? 'Captions need recording or notes, and this meeting has both off.' : 'Captions start when the recording starts.';
+    : held ? 'Captions paused. The notes catch up after the call.' : listening ? 'Captions on. They run about 15 seconds behind.' : S.meeting.rec === 'off' ? 'Captions need recording or notes, and this meeting has both off.' : 'Captions start when the recording starts.';
 }
 setInterval(() => { if (S.cc) paintCap(); }, 2000);
 

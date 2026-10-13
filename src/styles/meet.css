@@ -635,3 +635,4 @@ body.meet-guest .h-btn--primary:hover { background: #165a58; }
 .rd-bg[data-v="blur"] { background: linear-gradient(135deg, #c9d4c0, #8fa486); }
 .rd-bg[data-v="none"] span, .rd-bg[data-v="blur"] span, .rd-up span { background: none; padding: 0; }
 .rd-tg input:disabled { opacity: .45; cursor: default; }
+.ln-st.is-held i { background: var(--h-gold); }

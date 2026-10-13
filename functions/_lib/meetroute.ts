@@ -255,7 +255,7 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   const startsAt = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) ? new Date(b.startsAt).toISOString() : null;
   if (startsAt && Date.parse(startsAt) < Date.now() - 5 * 60000) throw new HttpError(400, 'past', 'That start time has passed. Pick a later time.');
   const dur = Math.min(480, Math.max(10, Number(b.durationMin) || 60));
-  const rec = ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : 'notes';
+  const rec = ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : 'video'; // Will, 2026-10-13: every meeting records notes and video unless the host turns it off
   const access = ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : startsAt ? 'invited' : 'staff';
   const rawInvitees = Array.isArray(b.invitees)
     ? (b.invitees as Array<Record<string, unknown>>).slice(0, 200).map((i) => ({ email: clean(i.email, 200).toLowerCase(), name: clean(i.name, 120), team: clean(i.team, 80), guest: !!i.guest })).filter((i) => i.email)
@@ -340,7 +340,7 @@ async function switchToFavor(env: MeetEnv, user: { email: string; name: string }
   const invitees = (ev.attendees || []).filter((a) => !a.self && !a.resource && a.email && String(a.email).toLowerCase() !== me).slice(0, 200).map((a) => ({ email: String(a.email).toLowerCase(), name: clean(a.displayName, 120), team: '', guest: false }));
   await env.DB.prepare(
     `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind)
-     VALUES (?, ?, '', ?, ?, ?, ?, ?, 'notes', 'invited', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
+     VALUES (?, ?, '', ?, ?, ?, ?, ?, 'video', 'invited', ?, 'scheduled', ?, 'none', '', ?, '', 0)`
   ).bind(id, clean(ev.summary, 140) || 'Meeting', me, user.name, startsAt, endsAt, dur, JSON.stringify(invitees), nowIso(), ev.id).run();
   if (guestsOn(env)) await ensureGuestUrl(env, await getMeeting(env, id), origin);
   try {
@@ -742,6 +742,12 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
       lines = await transcribeRow(env, mt, { epoch, n, start_ms: start, ext, bytes: data.byteLength }, decodeURIComponent(request.headers.get('x-who') || ''));
     } catch (err) {
       console.warn('[meet] live read', id, err);
+      // The budget held the transcript: tell the room once a minute, so captions and notes say paused instead of going quiet.
+      // The held slices stay stored and the end-of-meeting pass writes them up.
+      if ((err as { code?: string })?.code === 'ai_paused') {
+        const last = await env.DB.prepare(`SELECT MAX(ts) AS t FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%notes-held%'`).bind(id).first<{ t: number }>();
+        if (!last?.t || now - last.t > 60_000) await addEvent(env, id, 'notice', '', '', { a: 'notes-held' });
+      }
     }
     // The decisions and action items in what was just said, noted while the call goes on.
     if (lines > 0 && mt.status === 'live') {
