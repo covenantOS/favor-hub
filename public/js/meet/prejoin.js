@@ -39,7 +39,18 @@
       return !!(c && (c.saveData || /^(slow-2g|2g|3g)$/.test(c.effectiveType || '')));
     } catch (e) { return false; }
   }
-  function pref() { try { return Object.assign({ mic: true, cam: false, micId: '', camId: '' }, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) { return { mic: true, cam: false, micId: '', camId: '' }; } }
+  // The devices each person picked live under favor.meet.devices.<email>, shared with the room (meet/devices.js), so a pick here,
+  // in the lobby or in the call is the one used everywhere next time.
+  function devKey(email) { return 'favor.meet.devices.' + String(email || 'me').toLowerCase(); }
+  function pref(email) {
+    var base = { mic: true, cam: false, micId: '', camId: '' };
+    try { Object.assign(base, JSON.parse(localStorage.getItem(PREF) || '{}')); } catch (e) { /* ignore */ }
+    try { var d = JSON.parse(localStorage.getItem(devKey(email)) || '{}'); if (d.micId) base.micId = d.micId; if (d.camId) base.camId = d.camId; } catch (e) { /* ignore */ }
+    return base;
+  }
+  function saveDev(email, S) {
+    try { var k = devKey(email), d = JSON.parse(localStorage.getItem(k) || '{}'); if (S.micId) d.micId = S.micId; if (S.camId) d.camId = S.camId; localStorage.setItem(k, JSON.stringify(d)); } catch (e) { /* private mode */ }
+  }
 
   var cur = null;
 
@@ -48,7 +59,7 @@
     o.me = o.me || {};
     // A page that does not know the person's name reads it from the hub menu's saved copy.
     if (!o.me.name) { try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nv && nv.user) { o.me.name = nv.user.name || ''; o.me.email = o.me.email || String(nv.user.email || '').toLowerCase(); } } catch (e) { /* ignore */ } }
-    var p = pref();
+    var p = pref(o.me.email);
     var S = cur = { o: o, mic: p.mic, cam: p.cam, micId: p.micId, camId: p.camId, stream: null, state: null, timer: 0, tick: 0, meter: 0, actx: null, busy: false, devs: false, denied: '', prevFocus: document.activeElement, pushed: false };
     var wrap = document.createElement('div');
     wrap.className = 'pj';
@@ -115,10 +126,16 @@
     clearInterval(S.meter);
     stopMedia(S);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { S.denied = 'This browser cannot use a microphone here. You can still join to listen.'; paintNote(); return; }
-    var want = { audio: S.micId ? { deviceId: { ideal: S.micId } } : true, video: S.cam ? Object.assign({ width: 640, height: 360 }, S.camId ? { deviceId: { ideal: S.camId } } : {}) : false };
+    // The exact saved device; when it is gone, the default, and the saved pick is kept for when it comes back.
+    var want = { audio: S.micId ? { deviceId: { exact: S.micId } } : true, video: S.cam ? Object.assign({ width: 640, height: 360 }, S.camId ? { deviceId: { exact: S.camId } } : {}) : false };
+    var gone = function (e) { return e && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError' || e.constraint === 'deviceId'); };
+    var loose = { audio: true, video: S.cam ? { width: 640, height: 360 } : false };
     var mine = S;
     navigator.mediaDevices.getUserMedia(want).catch(function (e) {
-      if (want.video) { mine.cam = false; paintToggles(); return navigator.mediaDevices.getUserMedia({ audio: want.audio }).catch(function (e2) { throw e2; }); }
+      if (gone(e) && (S.micId || S.camId)) return navigator.mediaDevices.getUserMedia(loose);
+      throw e;
+    }).catch(function (e) {
+      if (want.video) { mine.cam = false; paintToggles(); return navigator.mediaDevices.getUserMedia({ audio: want.audio }).catch(function () { return navigator.mediaDevices.getUserMedia({ audio: true }); }); }
       throw e;
     }).then(function (st) {
       if (cur !== mine) { st.getTracks().forEach(function (t) { t.stop(); }); return; }
@@ -220,6 +237,7 @@
     S.busy = true;
     var go = $('pj-go'); go.disabled = true; go.innerHTML = '<span class="pj-spin" aria-hidden="true"></span>Joining';
     try { localStorage.setItem(PREF, JSON.stringify({ mic: S.mic, cam: S.cam, micId: S.micId, camId: S.camId })); } catch (e) { /* private mode */ }
+    saveDev((S.o.me || {}).email, S);
     Promise.resolve(S.o.join()).then(function (r) {
       if (!r || !r.url) throw new Error('The room did not open. Try again.');
       try { sessionStorage.setItem(KEY, JSON.stringify({ mid: r.id, mic: S.mic, cam: S.cam, micId: S.micId, camId: S.camId, at: Date.now() })); } catch (e) { /* private mode */ }
