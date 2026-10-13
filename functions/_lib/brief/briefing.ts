@@ -209,7 +209,7 @@ export async function buildBriefing(i: BriefInput): Promise<Briefing> {
     const fids = book.owner ? [book.owner] : s.all ? [] : [...s.fids];
     const [night, gifts] = await Promise.all([
       overnightGifts(env, fids, today, since).catch(() => null),
-      mayGifts(s) ? giftsResponse(ctx, book.owner).catch(() => null) : Promise.resolve(null),
+      mayGifts(s) ? giftsResponse(ctx, book.owner, { mine: !i.ownerIn && !book.owner }).catch(() => null) : Promise.resolve(null),
     ]);
     const owed = gifts ? thankRows(gifts) : [];
     const owedIds = new Set(gifts ? gifts.rows.map((r) => r.giftId) : []);

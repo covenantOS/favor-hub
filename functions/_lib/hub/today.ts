@@ -8,7 +8,7 @@ import { workAccessFor } from '../work/gate';
 import { requireWork } from '../work/gate';
 import { blackbaudRepo } from '../work/repo';
 import { currentBoard, type Ctx } from '../work/service';
-import { mineRows } from '../actions/board';
+import { badgeRows, ownerIds } from '../work/mine';
 import { giftsResponse, mayGifts } from '../work/gifts-svc';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
@@ -117,12 +117,11 @@ export async function openPrintFile(env: Env): Promise<OpenFile | null> {
   };
 }
 
-/** True when the print file is this person's to finish: they made it, or they run the hub. */
-function fileIsMine(file: OpenFile, user: HubUser, access: Access): boolean {
-  // The print file belongs to the person who made it. Being an admin does not make it yours.
+/** True when the print file is this person's to finish: the person who made it. An admin who did not make it is not asked to print it. */
+function fileIsMine(file: OpenFile, user: HubUser, _access: Access): boolean {
   const by = file.createdBy.trim().toLowerCase();
   const name = user.name.trim().toLowerCase();
-  return Boolean(by) && (by === name || by === name.split(' ')[0]);
+  return Boolean(by) && Boolean(name) && (by === name || by === name.split(' ')[0]);
 }
 
 /** The number on the Receipts menu entry and on Today's Receipts card: gifts left to mark once marking started, otherwise receipts in the file. */
@@ -158,27 +157,45 @@ export interface Counts {
   mailUnread: number;
 }
 
-/** The Work Center's open actions, counted from the same board its Open actions tab reads, so every badge that links there agrees with it. */
+/**
+ * The Work badge: the open actions assigned to this person plus the gifts owed a thank-you on their own partners (mine.ts has the rule).
+ * An admin who holds no book of their own sees 0; the Work Center's Everyone filter still lists the whole board for them.
+ */
 async function workOpenCount(env: Env, request: Request): Promise<number> {
   const wu = await requireWork(env, request);
   const ctx: Ctx = { env, repo: blackbaudRepo(env), actor: wu.actor, email: wu.email, scope: wu.scope, testCid: wu.testCid };
-  const board = await currentBoard(ctx);
-  // A person with a book of their own sees their own number: the actions on them plus the gifts waiting for their thank-you. It is the number the
-  // Work page leads with (Mine, and Gifts to thank). Admins and people with no book keep the whole board.
   const sc = ctx.scope;
-  if (sc && !sc.all && sc.fid) {
-    const mine = mineRows(board.rows, sc.fid).length;
-    const owed = mayGifts(sc) ? Number((await giftsResponse(ctx, '').catch(() => null))?.stats?.owed) || 0 : 0;
-    return mine + owed;
+  if (!sc || (!sc.fid && sc.role !== 'support' && sc.role !== 'partner_care')) return 0;
+  const board = await currentBoard(ctx);
+  const mine = badgeRows(sc, board.rows).length;
+  const owed = mayGifts(sc) && ownerIds(sc).size ? Number((await giftsResponse(ctx, '', { mine: true }).catch(() => null))?.stats?.owed) || 0 : 0;
+  return mine + owed;
+}
+
+/** Pending expense requests that name this person as an approver (or a substitute whose dates cover today), with their total and the oldest. */
+export async function expensesWaitingFor(env: Env, email: string): Promise<{ n: number; cents: number; oldest: string | null }> {
+  const me = email.toLowerCase();
+  const rows = (await env.DB.prepare("SELECT approver_email, total_cents, submitted_at FROM expense_requests WHERE status = 'pending'").all<{ approver_email: string; total_cents: number; submitted_at: string }>().catch(() => ({ results: [] as { approver_email: string; total_cents: number; submitted_at: string }[] }))).results || [];
+  const memo = new Map<string, boolean>();
+  let n = 0;
+  let cents = 0;
+  let oldest: string | null = null;
+  for (const r of rows) {
+    const k = r.approver_email || '';
+    if (!memo.has(k)) memo.set(k, (await approverEmails(env, k).catch(() => new Set<string>())).has(me));
+    if (!memo.get(k)) continue;
+    n++;
+    cents += Number(r.total_cents) || 0;
+    if (!oldest || r.submitted_at < oldest) oldest = r.submitted_at;
   }
-  return board.rows.length;
+  return { n, cents, oldest };
 }
 
 export async function navCounts(env: Env, user: HubUser, access: Access, request?: Request): Promise<Counts> {
   // Each count is named, so a count can never land under the wrong badge (the list was positional once, and Evaluations read the Projects number).
   const jobs = {
     inbox: access.admin ? env.DB.prepare("SELECT COUNT(*) AS n FROM requests WHERE status = 'inbox'").first<{ n: number }>() : null,
-    exp: access.approver ? env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>() : null,
+    exp: access.approver ? expensesWaitingFor(env, user.email) : null,
     file: openPrintFile(env),
     brain: access.admin ? brainPending(env) : null,
     notes: feedbackWaiting(env, user, access),
@@ -215,12 +232,12 @@ export async function navCounts(env: Env, user: HubUser, access: Access, request
   };
 }
 
-/** Meetings in progress with someone in the room, among those this person can open (host, invited, co-host, or open to staff). Same rule as the Meetings list. */
+/** Meetings in progress with someone in the room that this person hosts, co-hosts or is invited to. A room open to all staff is on the Meetings page but is not counted for everyone. */
 export async function liveMeetingsFor(env: Env, email: string): Promise<number> {
   const me = email.toLowerCase();
   const row = await env.DB.prepare(
     `SELECT COUNT(*) AS n FROM hub_meetings m WHERE m.status = 'live'
-        AND (lower(m.host_email) = ?1 OR m.access IN ('staff','guests') OR instr(lower(m.invitees), '"' || ?1 || '"') > 0 OR instr(lower(m.cohosts), '"' || ?1 || '"') > 0)
+        AND (lower(m.host_email) = ?1 OR instr(lower(m.invitees), '"' || ?1 || '"') > 0 OR instr(lower(m.cohosts), '"' || ?1 || '"') > 0)
         AND EXISTS (SELECT 1 FROM hub_meeting_presence p WHERE p.meeting_id = m.id AND p.left_at = 0 AND p.removed = 0 AND p.waiting = 0 AND p.seen > ?2)`
   ).bind(me, Date.now() - 20_000).first<{ n: number }>();
   return Number(row?.n) || 0;
@@ -496,9 +513,7 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
     });
   }
   if (access.approver) {
-    const exp = await env.DB.prepare(
-      "SELECT COUNT(*) AS n, COALESCE(SUM(total_cents), 0) AS cents, MIN(submitted_at) AS oldest FROM expense_requests WHERE status = 'pending'"
-    ).first<{ n: number; cents: number; oldest: string | null }>();
+    const exp = await expensesWaitingFor(env, user.email);
     const n = Number(exp?.n) || 0;
     if (n) {
       const days = exp?.oldest ? Math.floor((Date.now() - Date.parse(exp.oldest)) / DAY) : 0;

@@ -5,6 +5,7 @@
 import { HttpError, newId, nowIso } from '../http';
 import { mirrorQ, listMirrorQ } from './partner';
 import { getSetting } from './db';
+import { ownerIds } from './mine';
 import { currentBoard, createBatch, authorizeBatch, saveBatch, todayEt, type Ctx, type PlannedItem } from './service';
 import { planEdit, typesByFundraiser } from './edit';
 import { clockOf } from './thank-clock';
@@ -57,12 +58,13 @@ export function lastWorkday(today: string): string {
   return d;
 }
 
-export async function giftsResponse(ctx: Ctx, ownerIn: string): Promise<GiftsOut> {
+/** opts.mine narrows the answer to this person's own pool (see mine.ts), for badges and the briefing. The Work page asks without it and keeps its picker. */
+export async function giftsResponse(ctx: Ctx, ownerIn: string, opts: { mine?: boolean } = {}): Promise<GiftsOut> {
   if (!mayGifts(ctx.scope)) throw new HttpError(403, 'not_yours', 'Gifts to thank is for directors, Partner Care and the Support Team.');
   const today = todayEt();
   const days = await daysSetting(ctx);
   const [shaped, board, names] = await Promise.all([loadGifts(ctx.env, listMirrorQ(ctx.env), { today, days }), currentBoard({ ...ctx, scope: undefined }).catch(() => null), ownerNames(ctx)]);
-  const vis = visibleOwners(ctx.scope);
+  const vis = opts.mine ? ownerIds(ctx.scope) : visibleOwners(ctx.scope);
   const taskBy = new Map<string, string[]>();
   if (board) for (const r of board.rows) if (r.ty && r.gift) (taskBy.get(r.gift.id) || taskBy.set(r.gift.id, []).get(r.gift.id)!).push(r.id);
   const rowsAll = shaped.rows

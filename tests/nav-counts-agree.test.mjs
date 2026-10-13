@@ -82,8 +82,8 @@ describe('menu numbers sit under the right entry', () => {
     ins('open', 'staff', []);
     ins('closed', 'invited', [{ email: 'someone@favorintl.org' }]);
     ins('mine', 'invited', [{ email: VIDEO.email }]);
-    assert.equal(await T.liveMeetingsFor(w.env, VIDEO.email), 2, 'the staff room and the one she is invited to, not the invite-only room');
-    assert.equal(await T.liveMeetingsFor(w.env, WILL.email), 3, 'the host can open all three');
+    assert.equal(await T.liveMeetingsFor(w.env, VIDEO.email), 1, 'only the room she is invited to: a staff-open room is not hers, and the invite-only room is closed to her');
+    assert.equal(await T.liveMeetingsFor(w.env, WILL.email), 3, 'the host of all three');
   });
 
   it('Chat counts only mentions the person can still open', async () => {
@@ -120,7 +120,7 @@ describe('menu numbers sit under the right entry', () => {
   it('Receipts shows the same number on the menu and on Today', async () => {
     const w = world();
     run(w, "INSERT INTO rcp_batches (id, kind, letter_date, appeal_code, count, gifts, pdf_key, letters, copy, marked, status, created_by, created_at) VALUES ('b1', 'new', '2026-10-12', 'X', 4, 9, 'k', '[]', '{}', 0, 'printing', 'Ada Admin', ?)", NOW);
-    const admin = { ...WILL };
+    const admin = { ...WILL, name: 'Ada Admin' };
     const c = await T.navCounts(w.env, admin, access({ admin: true }));
     const cards = await T.waitingCards(w.env, admin, access({ admin: true }));
     assert.equal(c.receiptsLeft, cards.find((x) => x.id === 'receipts').n);

@@ -42,12 +42,13 @@ describe('Mine: one definition', () => {
     assert.equal(due.pool.length, mine, 'the due card lists the same rows when the person holds actions');
   });
 
-  it('a person with no actions sees Mine 0, and the card falls back to the portfolio only for its own list', () => {
+  it('a person with no actions sees Mine 0, and the card stays empty instead of falling back to the portfolio', () => {
     const b = { rows, people: {}, synced: '', orphans: 0, today: TODAY };
     assert.equal(board.countsOf(rows, TODAY, '999').mine, 0);
     const due = home.duePool(ctx('999'), b);
     assert.equal(due.mine, 0);
-    assert.equal(due.portfolio, true);
+    assert.equal(due.portfolio, false);
+    assert.equal(due.pool.length, 0);
   });
 
   it('counts Mine as 0 when no fundraiser id is known', () => {

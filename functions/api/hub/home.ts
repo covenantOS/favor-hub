@@ -1,5 +1,5 @@
 import { approverEmails } from '../../_lib/expenses/auth';
-import { accessOf, activityFor, mineFor, navCounts } from '../../_lib/hub/today';
+import { accessOf, activityFor, expensesWaitingFor, mineFor, navCounts } from '../../_lib/hub/today';
 import { openActionsWithoutTask } from '../../_lib/projects/links/today';
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf, type HubUser } from '../../_lib/session';
@@ -40,9 +40,11 @@ async function waitingFor(env: Env, email: string, admin: boolean, approver: boo
   if (approver) {
     jobs.push(
       (async () => {
-        const n = await env.DB.prepare("SELECT COUNT(*) AS n FROM expense_requests WHERE status = 'pending'").first<{ n: number }>();
-        totals.expenses = Number(n?.n) || 0;
-        const r = await env.DB.prepare("SELECT doc_number, requester_name, total_cents, submitted_at FROM expense_requests WHERE status = 'pending' ORDER BY submitted_at LIMIT 4").all<{ doc_number: string; requester_name: string; total_cents: number; submitted_at: string }>();
+        totals.expenses = (await expensesWaitingFor(env, email)).n;
+        const r = await env.DB.prepare("SELECT doc_number, requester_name, total_cents, submitted_at, approver_email FROM expense_requests WHERE status = 'pending' ORDER BY submitted_at").all<{ doc_number: string; requester_name: string; total_cents: number; submitted_at: string; approver_email: string }>();
+        const memo = new Map<string, boolean>();
+        for (const x of r.results) if (!memo.has(x.approver_email)) memo.set(x.approver_email, (await approverEmails(env, x.approver_email).catch(() => new Set<string>())).has(email));
+        r.results = r.results.filter((x) => memo.get(x.approver_email)).slice(0, 4);
         for (const x of r.results) out.push({ kind: 'expense', title: `${x.doc_number}, $${(x.total_cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, sub: `From ${x.requester_name}`, at: x.submitted_at, href: '/expenses/' });
       })()
     );

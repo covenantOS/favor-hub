@@ -1,6 +1,7 @@
 // The Work Overview page's one read: everything the signed-in person needs on the Work home, cut to their role, in a single answer.
 // Each part reads from the hub's own tables or the D1 copy of Blackbaud, so the page costs no Blackbaud calls. A part that fails
 // comes back null and the page leaves that card out, so one slow source never blanks the page.
+import { badgeRows, ownerIds } from './mine';
 import { byClock } from './thank-clock';
 import { dayDiff, isLive, mineRows, type BoardRow } from '../actions/board';
 import type { Env } from '../http';
@@ -28,28 +29,26 @@ export interface DueRow {
   summary: string;
 }
 
-/** The actions the Work Overview's due card counts: the person's own, or the portfolio when they hold none. One place, so the card and its rows never differ. */
+/**
+ * The actions the Work Overview's due card counts: the person's own (mine.ts). Nobody sees other people's actions here; an admin or a
+ * Support Team member with none of their own sees an empty card, and the Work Center's Everyone filter lists the whole board.
+ */
 export function duePool(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
   const s = ctx.scope;
   const fid = s && s.fid ? s.fid : '';
-  // Every count here is a count of open actions on the Work Center board, the same rows its Open actions tab counts, so each number
-  // equals what its link opens. Someone who holds actions of their own sees those (the link adds their fundraiser id). Support,
-  // Partner Care and admins who hold none see every open action in their scope.
-  const own = mineRows(board.rows, fid);
-  const portfolio = !own.length;
-  const pool = portfolio ? board.rows : own;
+  const pool = badgeRows(s, board.rows);
   const dueAll = pool.filter((r) => r.due && dayDiff(r.due, board.today) <= 0);
   // The short list leaves out thank-you tasks (Gifts to thank lists those), pending changes and deceased partners.
   const due = dueAll.filter((r) => !r.pending && !r.deceased && !r.ty).sort((a, b) => (a.due < b.due ? -1 : a.due > b.due ? 1 : 0));
   const row = (r: BoardRow): DueRow => ({ id: r.id, cid: r.cid, partner: r.partner, place: r.place, due: r.due, late: Math.max(0, -dayDiff(r.due, board.today)), type: r.type, summary: clip(r.summary || '', 90) });
-  return { portfolio, fid, pool, dueAll, due, row, today: board.today, mine: own.length };
+  return { portfolio: false, fid, pool, dueAll, due, row, today: board.today, mine: mineRows(board.rows, fid).length };
 }
 
 async function dueBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
   const { portfolio, fid, pool, dueAll, due, row, mine } = duePool(ctx, board);
   return {
-    scope: portfolio ? 'portfolio' : 'mine',
-    fr: portfolio ? '' : fid,
+    scope: 'mine',
+    fr: fid,
     // Mine: the signed-in person's open actions (mineRows), the same number the Work Center's Mine chip shows.
     mine,
     open: pool.length,
@@ -66,8 +65,8 @@ export type HomeDrill = (typeof HOME_DRILLS)[number];
 /** The rows behind one Work Overview count, from the same pool and the same tests the card used. */
 export async function homeDrill(ctx: Ctx, key: HomeDrill) {
   if (key === 'gifts' || key === 'over24' || key === 'first') {
-    if (!mayGifts(ctx.scope)) return null;
-    const g = await giftsResponse(ctx, '');
+    if (!mayGifts(ctx.scope) || !ownerIds(ctx.scope).size) return null;
+    const g = await giftsResponse(ctx, '', { mine: true });
     const pick = key === 'gifts' ? g.rows : key === 'over24' ? g.rows.filter((r) => r.clock.state !== 'due') : g.rows.filter((r) => r.badges.includes('First gift') || r.badges.includes('First monthly gift'));
     const rows = pick.map((r) => ({ id: r.giftId, date: r.date, partner: r.partner.name, place: r.partner.place, amount: r.amount, fund: r.fund, waiting: r.ageDays, badges: r.badges.join(', ') }));
     return { kind: 'gifts' as const, today: g.today, rows, total: key === 'gifts' ? g.stats.owed : key === 'over24' ? g.stats.over24 : g.stats.first, owner: g.owner };
@@ -79,8 +78,8 @@ export async function homeDrill(ctx: Ctx, key: HomeDrill) {
 }
 
 async function giftsBlock(ctx: Ctx) {
-  if (!mayGifts(ctx.scope)) return null;
-  const g = await giftsResponse(ctx, '');
+  if (!mayGifts(ctx.scope) || !ownerIds(ctx.scope).size) return null;
+  const g = await giftsResponse(ctx, '', { mine: true });
   const rows = [...g.rows]
     .filter((r) => !r.left)
     .sort(byClock)

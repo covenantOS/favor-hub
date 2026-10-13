@@ -21,15 +21,15 @@ Gifts to thank lists five gifts waiting for your role, the soonest due on the 24
 
 ## What each number counts
 
-Open actions is every open Blackbaud action you may see: all of them for an admin, your own and your partners' for a director. The Work Center badge in the menu, the Work Center tile on the Overview, the Open actions tab and the Open tile on that tab show this same number.
+Open actions lists every open Blackbaud action you may see: all of them for an admin, your own and your partners' for a director. The tile and the Open actions tab count that whole list. The badge on Work in the left rail and the Work Center tile on the Overview count only your own work (see below).
 
-On the Overview, Today's work counts the open actions due today or earlier. Overdue counts those due before today and Due today counts those due today. Open all shows the open actions the link opens. If you hold actions of your own, these counts cover yours and the links add your name as the fundraiser. Otherwise they cover everything you may see.
+On the Overview, Today's work counts your own open actions due today or earlier. Overdue counts those due before today and Due today counts those due today. Open all shows the open actions the link opens, filtered to your name. An admin or a Support Team member with none of their own sees an empty card; the Everyone chip on Open actions lists the whole board.
 
 Mine is the open actions that list you as a fundraiser. The Mine chip on Open actions and Mine on the Overview show the same number.
 
 Press the number on the Overview counts, the Open actions tiles or the Gifts to thank tiles to open a side panel with that number's Favor definition and the actions or gifts it counts. The panel says whether the rows add up to the number on the page, and exports them to Google Sheets or CSV. On the tiles, the label under the number still filters the list.
 
-The badge on Work in the left rail shows the same open actions number. Requests and Receipts keep their own badges on their own tabs. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
+The badge on Work in the left rail counts the open actions that list you as a fundraiser, plus the gifts waiting for your thank-you on your own partners. Partner Care counts the gifts on its team's partners. The Support Team also counts actions that have no owner. Being an admin adds nothing to it, so it can read 0 even though the board holds hundreds of open actions. The other badges follow the same rule: Receipts counts for the person who made the print file, Expenses for the approvers named on the request, and Meetings for the live rooms you host or are invited to. Requests keeps its own badge on its own tab. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
 
 ## Finish many actions at once
 
