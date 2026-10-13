@@ -93,7 +93,7 @@ export const onRequestPost = gift(async ({ request, env, user, params }) => {
     const r = await keepFund(deps(env), viewer, String(b.key || '').slice(0, 200), (key, by, note) => mirrorResolveFlag(env, key, by, note));
     if (!r.ok && r.code === 'test_user') throw new HttpError(403, 'test_user', TESTER_REFUSAL);
     if (!r.ok && r.code === 'no_flag') throw new HttpError(404, 'no_flag', 'The sync worker has no open flag for this gift.');
-    if (!r.ok) throw new HttpError(502, 'worker', 'The sync worker did not answer. Try again in a minute.');
+    if (!r.ok) throw new HttpError(503, 'worker', 'The sync worker did not answer. Try again in a minute.');
     return {};
   }
   if (a === 'setting') {

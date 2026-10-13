@@ -547,7 +547,9 @@ export async function keepFund(
   if (viewer.tester) return { ok: false, code: 'test_user' };
   const fl = (await openFlags(d.mirror)).find((x) => String(x.flag_key) === key && (x.kind === 'note' || x.kind === 'fru-fund'));
   if (!fl) return { ok: false, code: 'no_flag' };
-  const r = await resolve(key, viewer.email, '');
+  // The worker only takes a favorintl.org address; the agent key and the password sign-in act as tech@.
+  const by = /^[^\s@]+@favorintl\.org$/i.test(viewer.email) ? viewer.email : 'tech@favorintl.org';
+  const r = await resolve(key, by, '');
   if (r.status === 404) return { ok: false, code: 'no_flag' };
   if (!r.ok) return { ok: false, code: 'worker' };
   await log(d, fl.gift_id ? `re:${fl.gift_id}` : key, viewer.email, 'kept', `Kept the fund on ${fl.kind === 'note' ? 'a website note' : 'a Fundraise Up gift'} flag`);

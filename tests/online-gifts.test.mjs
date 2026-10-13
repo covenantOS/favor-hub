@@ -265,6 +265,9 @@ describe('open flags on the screen', () => {
     assert.deepEqual((await history(deps.db, 're:9002')).map((h) => [h.actor, h.event]), [['pam@favorintl.org', 'kept']]);
     assert.deepEqual(await keepFund(deps, ME, 'note:9002', async () => ({ ok: false, status: 404 })), { ok: false, code: 'no_flag' });
     assert.deepEqual(await keepFund(deps, ME, 'note:9002', async () => ({ ok: false, status: 500 })), { ok: false, code: 'worker' });
+    calls.length = 0;
+    await keepFund(deps, { email: 'agent', name: 'Agent', admin: true, tester: false }, 'note:9002', ok);
+    assert.deepEqual(calls, [['note:9002', 'tech@favorintl.org', '']], 'the agent key closes a flag as tech@, the only kind of address the worker takes');
     const route = fs.readFileSync(new URL('../functions/api/online-gifts/[[a]].ts', import.meta.url), 'utf8');
     const at = route.indexOf("a === 'keep'");
     assert.ok(at > 0 && route.indexOf('viewer.tester', at) < route.indexOf('keepFund(deps', at), 'the route refuses the tester before it calls the worker');
