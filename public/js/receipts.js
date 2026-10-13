@@ -1004,6 +1004,7 @@
     try {
       const me = await api('/api/receipts/me');
       if (me.name) useSignedInName(me.name);
+      if (me.restricted) { app.hidden = true; actions.hidden = true; login.hidden = true; const note = document.createElement('p'); note.className = 'h-empty'; note.textContent = 'Receipts are open to the admin desk and Partner Care.'; app.parentNode.insertBefore(note, app); return; }
       if (me.unlocked) await load();
       else showLocked();
     } catch {

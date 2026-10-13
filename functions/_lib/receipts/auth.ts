@@ -1,5 +1,6 @@
 import { HttpError, newId, nowIso, timingSafeEqualStr, type Env } from '../http';
 import { hubUserOf, signinEnforced } from '../session';
+import { mayOpen as mayOpenGiftEntry } from '../gifts/perm';
 
 const COOKIE = 'favor_hub_receipts';
 const SESSION_DAYS = 14;
@@ -50,9 +51,19 @@ export async function isReceiptsUser(env: Env, request: Request): Promise<boolea
   return Boolean(row);
 }
 
+/** Printing and marking receipts belong to the admin desk and Partner Care: an admin, or a person an admin gave Gift entry access. */
+export async function mayPrintReceipts(env: Env, request: Request): Promise<boolean> {
+  const user = hubUserOf(request);
+  if (!user || user.via === 'agent') return true;
+  return mayOpenGiftEntry(env, user);
+}
+
 export async function requireReceiptsUser(env: Env, request: Request): Promise<void> {
   if (!(await isReceiptsUser(env, request))) {
     throw new HttpError(401, 'unauthorized', 'Enter the code to open receipts.');
+  }
+  if (!(await mayPrintReceipts(env, request))) {
+    throw new HttpError(403, 'forbidden', 'Receipts are open to the admin desk and Partner Care.');
   }
 }
 

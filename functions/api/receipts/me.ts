@@ -1,4 +1,4 @@
-import { isReceiptsUser } from '../../_lib/receipts/auth';
+import { isReceiptsUser, mayPrintReceipts } from '../../_lib/receipts/auth';
 import { json, type Env } from '../../_lib/http';
 import { hubUserOf, signinEnforced } from '../../_lib/session';
 
@@ -8,6 +8,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   return json({
     ok: true,
     unlocked: await isReceiptsUser(env, request),
+    restricted: !(await mayPrintReceipts(env, request)),
     name: user && user.via === 'google' ? user.name : '',
     signin: signinEnforced(env),
   });
