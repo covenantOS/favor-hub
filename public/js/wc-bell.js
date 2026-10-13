@@ -118,13 +118,6 @@ const projectsOn = () => document.documentElement.classList.contains('has-projec
 const XN = { count: 0, items: [] };
 const wcOn = () => document.documentElement.classList.contains('has-wc');
 const bellBtn = () => document.getElementById('wm-bell');
-function paintBadge() {
-  const b = bellBtn(); if (!b) return;
-  const total = R.count + CH.count + TK.count + PJ.count + XN.count;
-  // The dot holds two digits; past that it reads 99+ and the label carries the exact count.
-  const em = $('em', b); em.textContent = total ? (total > 99 ? '99+' : String(total)) : '';
-  b.setAttribute('aria-label', total ? 'Notifications, ' + total.toLocaleString('en-US') + ' waiting' : 'Notifications');
-}
 function take(d) {
   R.rows = d.rows || []; R.count = d.count || 0; R.now = d.now || 0; R.loaded = true;
   R.by = new Map(R.rows.filter((r) => r.ref_id && r.kind === 'task').map((r) => [String(r.ref_id), r]));
@@ -154,26 +147,114 @@ const taskLine = (it) => ({
   href: '/requests/?r=' + encodeURIComponent(it.request_id),
 });
 
-function bellHTML() {
-  const rows = R.rows;
-  const has = window.WCPrep && window.WCPrep.open;
-  const list = rows.length ? rows.map((r) => `<div class="wm-rem" data-rid="${esc(r.id)}"><time class="${r.bucket === 'now' ? 'is-now' : ''}">${r.bucket === 'now' ? 'Now' : r.bucket === 'tomorrow' ? 'Tomorrow' : esc(label(r.at))}</time>
-      <div><b>${esc(r.title)}</b>${r.note ? `<span>${esc(r.note)}</span>` : ''}
-        <div class="wm-remacts">${r.cid ? `<button type="button" class="h-btn h-btn--primary h-btn--sm" data-wm-open="${esc(r.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-done="${esc(r.id)}">Done</button><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-wm-later="${esc(r.id)}" aria-haspopup="menu">Later${ic('down')}</button></div></div></div>`).join('')
-    : `<div class="wm-empty"><b>No reminders</b></div>`;
-  const taskList = TK.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Requests</div>${TK.items.map((it) => { const c = taskLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-task="${it.id}"><time>${esc(label(it.created_at))}</time><div><b>${esc(c.head)} ${esc(c.title)}</b>${c.txt ? `<span>${esc(c.txt)}</span>` : ''}</div></a>`; }).join('')}</div>` : '';
-  const projList = PJ.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Projects</div>${PJ.items.map((it) => `<a class="wm-rem wm-rem--chat" href="${esc(it.url)}" data-wm-pj="${esc(it.id)}"><time>${esc(label(it.created_at))}</time><div><b>${esc(it.head)} ${esc(it.title)}</b>${it.txt ? `<span>${esc(it.txt)}</span>` : ''}</div></a>`).join('')}</div>` : '';
-  const chatList = CH.items.length ? `<div class="wm-chat"><div class="wm-chat__h">Chat</div>${CH.items.map((it) => { const c = chatLine(it); return `<a class="wm-rem wm-rem--chat" href="${esc(c.href)}" data-wm-chat="${it.id}"><time title="${esc(c.where)}">${esc(c.where)}</time><div><b>${esc(c.head)}</b><span>${esc(c.txt)}</span></div></a>`; }).join('')}</div>` : '';
-  const groups = {};
-  XN.items.forEach((it) => { (groups[it.source] = groups[it.source] || []).push(it); });
-  const extraList = Object.keys(groups).map((g) => `<div class="wm-chat"><div class="wm-chat__h">${esc(g)}</div>${groups[g].map((it) => `<a class="wm-rem wm-rem--chat" href="${esc(it.href)}"><time${it.warn ? ' class="is-now"' : ''}>${it.at ? esc(label(it.at)) : esc(it.n.toLocaleString('en-US'))}</time><div><b>${esc(it.head)}</b>${it.txt ? `<span>${esc(it.txt)}</span>` : ''}</div></a>`).join('')}</div>`).join('');
-  const wc = wcOn();
-  const none = !TK.items.length && !CH.items.length && !PJ.items.length && !XN.items.length;
-  const readable = TK.items.length || CH.items.length || PJ.items.length;
-  return `<h4><span>Notifications${wc && R.count ? `<small>${Number(R.count).toLocaleString('en-US')} due today</small>` : ''}</span><button type="button" class="wm-x" data-wm-closepop aria-label="Close">${ic('x')}</button></h4>
-    <div>${extraList}${projList}${taskList}${chatList}${wc ? `<div class="wm-chat__h">Reminders</div>${list}` : none ? '<div class="wm-empty"><b>Nothing new</b></div>' : ''}</div><div class="wm-foot">${readable ? '<button type="button" data-wm-readall>Mark all read</button>' : wc ? '<span>Also in the morning email</span>' : '<span></span>'}${wc ? '<button type="button" data-wm-mail>Morning email</button>' : ''}${tasksOn() ? '<button type="button" data-wm-reqmail>Request email</button>' : ''}${projectsOn() ? '<button type="button" data-wm-pjprefs>Project notices</button>' : ''}</div>`;
+/* ------------------------------------------------------------------ the bell: one list of rows */
+const KIND_ICON = {
+  request: '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M9 12h6M9 16h4"/>',
+  chat: '<path d="M4 5h16v11H9l-5 4z"/>',
+  meeting: '<rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-3v10l-6-3z"/>',
+  mail: I.mail,
+  receipts: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  feedback: '<path d="m12 4 2.4 5 5.6.7-4.1 3.8 1.1 5.5L12 16.3 7 19l1.1-5.5L4 9.7 9.6 9z"/>',
+  approval: '<circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/>',
+  task: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>', back: '<path d="m15 6-6 6 6 6"/>',
+};
+Object.assign(I, KIND_ICON);
+const XN_KIND = { Meetings: 'meeting', Learning: 'task', Evaluations: 'task', Mail: 'mail', Expenses: 'approval', Receipts: 'receipts', Feedback: 'feedback', 'Favor Brain': 'approval', Requests: 'request' };
+const BN = { view: 'list', chatOn: null, last: '', rows: new Map() };
+const HIST = 'fos_bell_read';
+const histGet = () => { try { return JSON.parse(localStorage.getItem(HIST) || '{}'); } catch (_) { return {}; } };
+const histPut = (h) => { try { localStorage.setItem(HIST, JSON.stringify(h)); } catch (_) { /* private mode */ } };
+function rel(ts) {
+  if (!ts) return '';
+  const d = Date.now() - ts;
+  if (d < -45000) { const m = Math.round(-d / 60000); return m < 60 ? 'in ' + m + ' min' : 'in ' + Math.round(m / 60) + ' h'; }
+  if (d < 60000) return 'Now';
+  const m = Math.floor(d / 60000);
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + ' h';
+  const days = Math.floor(h / 24);
+  return days === 1 ? 'Yesterday' : days < 7 ? WD[dow(dayOf(new Date(ts).toISOString()))] : new Date(ts).toLocaleDateString('en-US', { timeZone: ET, month: 'short', day: 'numeric' });
 }
-function paintBell() { if (popEl) popEl.innerHTML = bellHTML(); }
+/** Every source, shaped the same: { id, kind, title, sub, ts, href, unread, warn, attr, rem }. A rollup carries its count in the title and weighs one in the badge. */
+function bellRows() {
+  const out = [], now = Date.now(), hist = histGet();
+  let k = 0;
+  const live = (ts) => (ts && ts < now + 1000 ? ts : now - (k++));
+  TK.items.forEach((it) => { const c = taskLine(it); out.push({ id: 'tk:' + it.id, kind: it.kind === 'due' ? 'task' : 'request', title: (c.head + ' ' + c.title).trim(), sub: c.txt || 'Request', ts: live(Date.parse(it.created_at)), href: c.href, unread: true, attr: `data-wm-task="${it.id}"` }); });
+  PJ.items.forEach((it) => out.push({ id: 'pj:' + it.id, kind: 'task', title: (it.head + ' ' + it.title).trim(), sub: it.txt || 'Project task', ts: live(Date.parse(it.created_at)), href: it.url, unread: true, attr: `data-wm-pj="${esc(it.id)}"` }));
+  CH.items.forEach((it) => { const c = chatLine(it); out.push({ id: 'ch:' + it.id, kind: 'chat', title: c.head, sub: c.where + (c.txt ? ' · ' + c.txt : ''), ts: live(Date.parse(it.at)), href: c.href, unread: true, attr: `data-wm-chat="${it.id}"` }); });
+  XN.items.forEach((it) => {
+    const soon = it.source === 'Meetings' && it.at;
+    const row = { id: 'xn:' + it.id, kind: XN_KIND[it.source] || 'request', title: soon ? it.txt : it.head, sub: soon ? it.head : it.txt || it.source, ts: soon ? Date.parse(it.at) : null, sort: now - (k++), href: it.href, warn: it.warn, sig: it.id + ':' + it.n };
+    row.unread = !(hist[row.id] && hist[row.id].sig === row.sig);
+    out.push(row);
+  });
+  if (wcOn()) R.rows.forEach((r) => {
+    if (r.bucket !== 'now' && r.bucket !== 'today') return;
+    out.push({ id: 'rm:' + r.id, kind: 'task', title: r.title, sub: r.note || 'Reminder', ts: Date.parse(r.at), sort: now - (k++), href: '', unread: true, rem: r });
+  });
+  out.forEach((r) => { if (r.sort == null) r.sort = r.ts; });
+  const liveIds = new Set(out.map((r) => r.id));
+  const earlier = out.filter((r) => !r.unread);
+  Object.keys(hist).forEach((id) => { const h = hist[id]; if (!liveIds.has(id) && h.row && now - h.at < 3 * 86400000) earlier.push(Object.assign({}, h.row, { unread: false })); });
+  const fresh = out.filter((r) => r.unread).sort((a, b) => b.sort - a.sort);
+  earlier.sort((a, b) => (b.sort || b.ts || 0) - (a.sort || a.ts || 0));
+  return { fresh, earlier: earlier.slice(0, 8) };
+}
+function noteRead(id, row) {
+  const r = row || BN.rows.get(id); if (!r) return;
+  const h = histGet(), now = Date.now();
+  h[id] = { at: now, sig: r.sig || '', row: { id: r.id, kind: r.kind, title: r.title, sub: r.sub, ts: r.ts || now, sort: r.ts || now, href: r.href, warn: r.warn, attr: '' } };
+  Object.keys(h).forEach((x) => { if (now - h[x].at > 3 * 86400000) delete h[x]; });
+  histPut(h);
+}
+function rowHTML(r) {
+  BN.rows.set(r.id, r);
+  const ic1 = `<span class="bn-ic${r.warn ? ' is-warn' : ''}">${ic(r.kind)}</span>`;
+  const side = `<span class="bn-side"><time>${esc(rel(r.ts))}</time>${r.unread ? '<i class="bn-dot" role="img" aria-label="Unread"></i>' : '<i class="bn-dot is-off"></i>'}</span>`;
+  const cls = 'bn-row' + (r.unread ? ' is-unread' : '');
+  if (r.rem) {
+    const has = window.WCPrep && window.WCPrep.open;
+    const inner = `<b>${esc(r.title)}</b><span>${esc(r.sub)}</span>`;
+    return `<div class="${cls}" data-rid="${esc(r.rem.id)}">${ic1}<span class="bn-main">${inner}<span class="bn-acts">${r.rem.cid ? `<button type="button" data-wm-open="${esc(r.rem.cid)}">${has ? 'Prep' : 'Open'}</button>` : ''}<button type="button" data-wm-done="${esc(r.rem.id)}">Done</button><button type="button" data-wm-later="${esc(r.rem.id)}" aria-haspopup="menu">Later${ic('down')}</button></span></span>${side}</div>`;
+  }
+  return `<a class="${cls}" href="${esc(r.href)}" data-wm-row="${esc(r.id)}" ${r.attr || ''}>${ic1}<span class="bn-main"><b>${esc(r.title)}</b><span>${esc(r.sub)}</span></span>${side}</a>`;
+}
+function paintBadge() {
+  const b = bellBtn(); if (!b) return;
+  const n = bellRows().fresh.length;
+  const em = $('em', b); em.textContent = n ? (n > 9 ? '9+' : String(n)) : '';
+  b.setAttribute('aria-label', n ? 'Notifications, ' + n + ' unread' : 'Notifications');
+}
+function bellHTML() {
+  BN.rows.clear();
+  if (BN.view === 'settings') return settingsHTML();
+  const { fresh, earlier } = bellRows();
+  const head = `<header class="bn-head"><h4>Notifications</h4><span class="bn-tools">${fresh.length ? '<button type="button" class="bn-all" data-wm-readall>Mark all read</button>' : ''}<button type="button" class="bn-btn" data-wm-settings aria-label="Notification settings" title="Notification settings">${ic('gear')}</button><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header>`;
+  const group = (name, rows) => (rows.length ? `<section><h5>${name}</h5>${rows.map(rowHTML).join('')}</section>` : '');
+  const list = fresh.length || earlier.length ? group('New', fresh) + group('Earlier', earlier) : '<p class="bn-empty">You are all caught up.</p>';
+  return head + `<div class="bn-list">${list}</div>`;
+}
+function settingsHTML() {
+  const row = (icn, title, sub, attr, end) => `<${end ? 'div' : 'button type="button"'} class="bn-row bn-row--set" ${attr}><span class="bn-ic">${ic(icn)}</span><span class="bn-main"><b>${title}</b><span>${sub}</span></span>${end || `<span class="bn-side">${ic('chev')}</span>`}</${end ? 'div' : 'button'}>`;
+  const rows = [];
+  if (wcOn()) rows.push(row('mail', 'Morning email', M.v ? esc(chipText()) : 'Weekdays', 'data-wm-mail'));
+  if (tasksOn()) rows.push(row('request', 'Request email', 'Updates on your requests', 'data-wm-reqmail'));
+  if (chatOn()) rows.push(row('chat', 'Chat email', 'Unread messages and mentions', '', `<label class="bn-side"><input type="checkbox" class="wm-switch" data-wm-chatemail ${BN.chatOn === false ? '' : 'checked'} aria-label="Chat email" /></label>`));
+  if (projectsOn()) rows.push(row('task', 'Project notices', 'Tasks given to you and due soon', 'data-wm-pjprefs'));
+  return `<header class="bn-head"><span class="bn-tools bn-tools--l"><button type="button" class="bn-btn" data-wm-back aria-label="Back">${ic('back')}</button></span><h4>Settings</h4><span class="bn-tools"><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header><div class="bn-list">${rows.join('') || '<p class="bn-empty">Nothing to set.</p>'}</div>`;
+}
+function paintBell() {
+  if (!popEl || !popEl.classList.contains('wm-pop--bn')) return;
+  const html = bellHTML();
+  if (html === BN.last && popEl.innerHTML) return;
+  const sc = $('.bn-list', popEl), top = sc ? sc.scrollTop : 0;
+  popEl.innerHTML = html; BN.last = html;
+  const n = $('.bn-list', popEl); if (n) n.scrollTop = top;
+}
 
 async function laterMenu(anchor, id) {
   $$('.wm-menu--float', popEl || document).forEach((m) => m.remove());
@@ -335,10 +416,13 @@ document.addEventListener('click', async (e) => {
   if (!t) return;
   if (t.id === 'wm-bell') {
     if (popEl && popFor === t) { closePop(); return; }
-    openPop(t, bellHTML()); if (!R.loaded) refresh(); else refresh();
+    BN.view = 'list'; BN.last = ''; const p = openPop(t, '', { label: 'Notifications' }); p.classList.add('wm-pop--bn'); paintBell(); refresh();
     return;
   }
   const d = t.dataset;
+  if (t.dataset.wmRow) { noteRead(t.dataset.wmRow); closePop(); setTimeout(paintBadge, 0); }
+  if (t.hasAttribute('data-wm-settings')) { BN.view = 'settings'; paintBell(); if (chatOn() && BN.chatOn == null) api('/api/chat/email-pref').then((v) => { BN.chatOn = v.on; paintBell(); }).catch(() => {}); if (wcOn() && !M.v) api('/api/work/mail').then((v) => { M.v = v; paintBell(); }).catch(() => {}); return; }
+  if (t.hasAttribute('data-wm-back')) { BN.view = 'list'; paintBell(); return; }
   if (t.hasAttribute('data-wm-closepop')) { const f = popFor; closePop(); if (f && f.focus) f.focus(); return; }
   if (t.hasAttribute('data-wm-closedlg')) { closeDlg(); return; }
   if (t.hasAttribute('data-wm-mail') || t.hasAttribute('data-wm-mailchip')) { openMail(); return; }
@@ -346,6 +430,7 @@ document.addEventListener('click', async (e) => {
   if (t.hasAttribute('data-wm-task')) { send('POST', '/api/requests/notices', { id: Number(d.wmTask) }).then(refresh).catch(() => {}); closePop(); return; }
   if (t.hasAttribute('data-wm-readall')) {
     const jobs = [];
+    XN.items.forEach((i) => noteRead('xn:' + i.id, { id: 'xn:' + i.id, kind: XN_KIND[i.source] || 'request', title: i.head, sub: i.txt || i.source, ts: i.at ? Date.parse(i.at) : null, href: i.href, sig: i.id + ':' + i.n }));
     if (TK.items.length) jobs.push(send('POST', '/api/requests/notices', {}));
     if (PJ.items.length) jobs.push(send('POST', '/api/tasks/notices/read', { ids: PJ.items.map((i) => i.id) }));
     CH.items.forEach((i) => jobs.push(send('POST', '/api/chat/inbox/read', { message_id: Number(i.id) })));
@@ -373,6 +458,7 @@ document.addEventListener('click', async (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset && t.dataset.wmChatemail !== undefined) { BN.chatOn = t.checked; send('POST', '/api/chat/email-pref', { on: t.checked }).catch((err) => { toast(err.message); }); return; }
   if (t.dataset && t.dataset.wmSec) savePrefs({ sections: { [t.dataset.wmSec]: t.checked } });
   if (t.id === 'wm-skip') savePrefs({ skip_empty: t.checked });
 });

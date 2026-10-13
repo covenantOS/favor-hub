@@ -42,6 +42,7 @@ import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } fr
 import { parseRange } from '../clips';
 import { postMadeCard, taskDeleted, taskReply } from './tasks';
 import * as more from './more';
+import { chatEmailOn, setChatEmail } from './mail';
 import { smartRoute } from './smart-route';
 import { brainContext, getLang, startVoice, transcribe } from './smart';
 import { LANGS } from './translate';
@@ -292,6 +293,9 @@ async function route(ctx: Ctx): Promise<Response> {
     await store.clearInbox(env, me, id);
     return json({ ok: true, count: await store.unreadMentionCount(env, me) });
   }
+
+  if (a === 'email-pref' && !b && method === 'GET') return json({ ok: true, on: await chatEmailOn(env, me) });
+  if (a === 'email-pref' && !b && method === 'POST') return json({ ok: true, on: await setChatEmail(env, me, Boolean((await body(request)).on)) });
 
   return errorJson('not_found', 'No such chat route.', 404);
 }

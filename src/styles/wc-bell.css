@@ -105,3 +105,53 @@
 /* A chat line in the bell: a long channel name holds one line and ends in an ellipsis (its full name is in the tooltip); the text beside it wraps inside the panel. */
 .wm-rem--chat time { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wm-rem b, .wm-rem span { overflow-wrap: anywhere; }
+
+/* The notifications panel: one list of rows. Desktop is a popover under the bell; a phone gets a full-height sheet. */
+html body.h-body .wm-pop.wm-pop--bn { width: 400px; padding: 0; gap: 0; display: flex; flex-direction: column; max-height: min(640px, calc(100vh - 90px)); overflow: hidden; border-radius: 20px; }
+.wm-pop--bn .bn-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 20px 12px; flex: none; }
+.wm-pop--bn .bn-head h4 { font: 600 16px var(--h-font); margin: 0; }
+.wm-pop--bn .bn-tools { display: flex; align-items: center; gap: 4px; }
+.wm-pop--bn .bn-tools--l { margin-left: -8px; }
+.wm-pop--bn .bn-all { border: 0; background: none; font: 600 13px var(--h-font); color: var(--h-brand-ink); padding: 6px 8px; border-radius: 8px; cursor: pointer; position: relative; }
+.wm-pop--bn .bn-all::after, .wm-pop--bn .bn-btn::after { content: ''; position: absolute; inset: -6px; }
+.wm-pop--bn .bn-btn { position: relative; width: 32px; height: 32px; border: 0; background: none; border-radius: 50%; display: grid; place-items: center; color: var(--h-ink-2); cursor: pointer; padding: 0; }
+.wm-pop--bn .bn-btn:hover, .wm-pop--bn .bn-all:hover { background: var(--h-leaf-soft); }
+.wm-pop--bn .bn-btn .h-i { width: 18px; height: 18px; }
+.wm-pop--bn .bn-x { display: none; }
+.wm-pop--bn .bn-list { overflow-y: auto; overscroll-behavior: contain; padding: 0 8px 12px; min-height: 120px; }
+.wm-pop--bn h5 { margin: 8px 12px 4px; font: 600 13px var(--h-font); color: var(--h-ink-3); }
+.wm-pop--bn .bn-row { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 10px 12px; border: 0; border-radius: 14px; background: none; text-align: left; text-decoration: none; color: inherit; font: inherit; cursor: pointer; min-height: 56px; box-sizing: border-box; }
+.wm-pop--bn .bn-row:hover { background: var(--h-leaf-soft); }
+.wm-pop--bn .bn-row.is-unread { background: color-mix(in srgb, var(--h-leaf-soft) 55%, transparent); }
+.wm-pop--bn .bn-row.is-unread:hover { background: var(--h-leaf-soft); }
+.wm-pop--bn .bn-row[data-rid] { cursor: default; align-items: start; }
+.wm-pop--bn .bn-ic { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--h-leaf-soft); color: var(--h-brand-ink); }
+.wm-pop--bn .bn-ic.is-warn { background: var(--h-gold-soft); color: #7a5a17; }
+.wm-pop--bn .bn-ic .h-i { width: 18px; height: 18px; }
+.wm-pop--bn .bn-main { min-width: 0; display: grid; gap: 2px; }
+.wm-pop--bn .bn-main b { font: 600 14px/1.35 var(--h-font); color: var(--h-ink); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+.wm-pop--bn .bn-main > span:not(.bn-acts) { font: 500 13px/1.35 var(--h-font); color: var(--h-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+.wm-pop--bn .bn-row:not(.is-unread) .bn-main b { font-weight: 500; }
+.wm-pop--bn .bn-side { display: flex; align-items: center; gap: 8px; justify-self: end; font: 500 13px var(--h-font); color: var(--h-ink-3); }
+.wm-pop--bn .bn-side time { white-space: nowrap; font: 500 13px var(--h-font); color: var(--h-ink-3); }
+.wm-pop--bn .bn-side .h-i { width: 16px; height: 16px; }
+.wm-pop--bn .bn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--h-brand); flex: none; }
+.wm-pop--bn .bn-dot.is-off { background: none; }
+.wm-pop--bn .bn-acts { display: flex; gap: 12px; margin-top: 4px; }
+.wm-pop--bn .bn-acts button { position: relative; border: 0; background: none; padding: 0; font: 600 13px var(--h-font); color: var(--h-brand-ink); cursor: pointer; display: inline-flex; align-items: center; gap: 2px; }
+.wm-pop--bn .bn-acts button::after { content: ''; position: absolute; inset: -8px -4px; }
+.wm-pop--bn .bn-acts .h-i { width: 12px; height: 12px; }
+.wm-pop--bn .bn-acts { position: relative; }
+.wm-pop--bn .bn-empty { margin: 0; padding: 32px 12px 36px; text-align: center; font: 500 14px var(--h-font); color: var(--h-ink-3); }
+@media (max-width: 860px) {
+  html body.h-body .wm-pop.wm-pop--bn { left: 0 !important; right: 0 !important; top: 0 !important; bottom: 0 !important; width: auto; max-width: none; max-height: none; border-radius: 0; border: 0; animation: wm-sheet .22s cubic-bezier(.2,.9,.3,1); }
+  @keyframes wm-sheet { from { transform: translateY(24px); opacity: 0; } }
+  .wm-pop--bn .bn-head { padding: calc(12px + env(safe-area-inset-top)) 16px 8px; }
+  .wm-pop--bn .bn-head h4 { font-size: 20px; font-family: var(--h-serif); }
+  .wm-pop--bn .bn-x { display: grid; }
+  .wm-pop--bn .bn-btn { width: 40px; height: 40px; }
+  .wm-pop--bn .bn-list { padding: 0 8px calc(16px + env(safe-area-inset-bottom)); flex: 1; }
+  .wm-pop--bn .bn-row { min-height: 64px; padding: 12px; }
+  .wm-pop--bn .bn-main b, .wm-pop--bn .bn-main > span:not(.bn-acts) { font-size: 15px; }
+  .wm-pop--bn .bn-main > span:not(.bn-acts) { font-size: 13px; }
+}

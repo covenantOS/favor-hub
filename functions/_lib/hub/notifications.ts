@@ -22,11 +22,11 @@ export interface Notice {
 
 const SOURCE_OF: Record<string, Notice['source']> = { meetings: 'Meetings', learn: 'Learning', evals: 'Evaluations', expenses: 'Expenses', receipts: 'Receipts', feedback: 'Feedback', brain: 'Favor Brain', requests: 'Requests' };
 
-/** Meetings this person can open that start in the next half hour, or began in the last ten minutes and are still on. */
+/** Meetings this person can open that start in the next 15 minutes, or began in the last ten minutes and are still on. */
 async function startingSoon(env: Env, email: string): Promise<Notice[]> {
   const me = email.toLowerCase();
   const from = new Date(Date.now() - 10 * 60_000).toISOString();
-  const to = new Date(Date.now() + 30 * 60_000).toISOString();
+  const to = new Date(Date.now() + 15 * 60_000).toISOString();
   const rows = (await env.DB.prepare(
     `SELECT id, title, starts_at, status FROM hub_meetings m
       WHERE m.status IN ('scheduled', 'live') AND m.starts_at IS NOT NULL AND m.starts_at >= ?1 AND m.starts_at <= ?2

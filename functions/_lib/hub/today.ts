@@ -119,7 +119,7 @@ export async function openPrintFile(env: Env): Promise<OpenFile | null> {
 
 /** True when the print file is this person's to finish: they made it, or they run the hub. */
 function fileIsMine(file: OpenFile, user: HubUser, access: Access): boolean {
-  if (access.admin) return true;
+  // The print file belongs to the person who made it. Being an admin does not make it yours.
   const by = file.createdBy.trim().toLowerCase();
   const name = user.name.trim().toLowerCase();
   return Boolean(by) && (by === name || by === name.split(' ')[0]);
