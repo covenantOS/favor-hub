@@ -542,3 +542,96 @@ body.meet-guest .h-btn--primary:hover { background: #165a58; }
 @media (max-width: 860px) { body.meet-guest .h-app.is-room .h-top { display: none; } }
 /* Lobby, ended and error cards keep a margin from the screen edge on a phone (the room page has no side padding). */
 @media (max-width: 860px) { body:not(.meet-guest) .meet-room > .h-card.mt-card { margin-left: 12px !important; margin-right: 12px !important; } body:not(.meet-guest) .meet-room > .h-card.mt-ended { margin-top: 8vh !important; } }
+
+/* ---- Room settings (2026-10-13): camera, microphone and speaker in the call. Dialog on a desktop, bottom sheet on a phone. */
+.cb-g { position: relative; display: inline-flex; }
+.cb-chev { position: absolute; top: 0; left: calc(50% + 12px); width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--stage-line); background: var(--stage); color: #dfe4d6; display: grid; place-items: center; padding: 0; cursor: pointer; z-index: 1; }
+.cb-chev::after { content: ''; position: absolute; inset: -6px; }
+.cb-chev:hover, .cb-chev:focus-visible { background: #36412f; }
+.cb-chev .h-i { width: 13px; height: 13px; }
+.rm-net.is-fair .h-i { color: var(--h-gold); } .rm-net.is-weak .h-i { color: #e08a6a; }
+.rd-scrim { position: fixed; inset: 0; z-index: 180; background: rgba(20, 24, 18, .5); }
+.rd { position: fixed; z-index: 181; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; background: var(--h-ivory); border-radius: 18px; box-shadow: var(--h-shadow-2); display: grid; grid-template-rows: auto 1fr auto; outline: none; }
+.rd-h { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 8px; }
+.rd-h h2 { margin: 0; font: 500 22px var(--h-serif); color: var(--h-ink); }
+.rd-b { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; padding: 8px 20px 4px; align-items: start; }
+.rd-prev { position: relative; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: var(--stage, #1f261d); display: grid; place-items: center; }
+.rd-prev video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); display: none; }
+.rd-prev.has-video video { display: block; }
+.rd-off { font: 500 14px var(--h-font); color: #cfd6c6; }
+.rd-f { display: grid; gap: 16px; }
+.rd-s { display: grid; gap: 6px; }
+.rd-s > label { font: 600 13px var(--h-font); color: var(--h-ink-2); }
+.rd-s select { height: 38px; border-radius: 10px; border: 1px solid var(--h-line-2); background: #fff; padding: 0 10px; font: 500 14px var(--h-font); min-width: 0; width: 100%; }
+.rd-row { display: flex; gap: 8px; align-items: center; } .rd-row select { flex: 1; }
+.rd-row .h-btn { flex: none; }
+.rd-sys { flex: 1; font-size: 14px; color: var(--h-ink-2); }
+.rd-meter { height: 6px; border-radius: 999px; background: #e7e3d8; overflow: hidden; }
+.rd-meter i { display: block; height: 100%; width: 0; background: var(--h-brand); transition: width .2s; }
+.rd-tgs { gap: 4px; border-top: 1px solid var(--h-line); padding-top: 12px; }
+.rd-tg { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; font: 500 14px var(--h-font); color: var(--h-ink); cursor: pointer; }
+.rd-tg input { appearance: none; width: 38px; height: 22px; border-radius: 999px; background: var(--h-line-2); position: relative; cursor: pointer; transition: background .15s; margin: 0; flex: none; }
+.rd-tg input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.rd-tg input:checked { background: var(--h-brand); } .rd-tg input:checked::after { transform: translateX(16px); }
+.rd-tg input:focus-visible { outline: 2px solid var(--h-brand); outline-offset: 2px; }
+.rd-foot { display: flex; justify-content: flex-end; padding: 12px 20px 16px; }
+.rm-muted { position: absolute; left: 50%; bottom: calc(var(--ctl-h, 76px) + 14px); transform: translateX(-50%); z-index: 9; display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 14px; border-radius: 999px; background: rgba(20, 24, 18, .88); color: #f4f2ea; font: 600 14px var(--h-font); white-space: nowrap; }
+.rm-muted > .h-i { width: 16px; height: 16px; color: #e08a6a; }
+.rm-muted .h-btn { height: 30px; }
+@media (max-width: 860px) {
+  .rd { left: 0; right: 0; top: auto; bottom: 0; transform: none; width: auto; max-height: 88dvh; border-radius: 22px 22px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+  .rd .rm-grab { display: block; }
+  .rd-h { padding: 0 16px 8px; }
+  .rd-b { grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 4px 16px; }
+  .rd-prev { max-height: 30dvh; aspect-ratio: auto; height: min(30dvh, 200px); }
+  .rd-s select { height: 44px; font-size: 16px; }
+  .rd-foot { padding: 12px 16px 16px; } .rd-foot .h-btn { width: 100%; justify-content: center; }
+  .h-app.is-room .cb-g { flex: 1 1 0; min-width: 0; }
+  .h-app.is-room .cb-g .cb { flex: 1 1 0; width: 100%; }
+  .cb-chev { left: calc(50% + 14px); width: 20px; height: 20px; }
+}
+/* Room banners stack (sound paused, microphone, reconnecting) instead of covering each other. */
+#rm-banner:not(:empty) { position: absolute; left: 50%; top: 56px; transform: translateX(-50%); z-index: 5; display: grid; gap: 8px; justify-items: center; width: max-content; max-width: calc(100% - 24px); }
+#rm-banner .banner { position: static; transform: none; }
+.banner.warn { background: #fbe9e1; color: #6e2f18; padding: 6px 6px 6px 14px; }
+.banner.warn > .h-i { width: 16px; height: 16px; flex: none; }
+.banner .h-btn { height: 30px; flex: none; }
+.mt-tile .tag.is-warn { background: #b4583b; color: #fff; }
+.pp-warn { font-weight: 600; color: #8a3f24; }
+@media (max-width: 860px) {
+  #rm-banner:not(:empty) { top: 50px; width: calc(100% - 24px); }
+  #rm-banner .banner { width: 100%; white-space: normal; justify-content: space-between; border-radius: 14px; }
+}
+/* Gallery (2026-10-13): equal tiles sized by room.js (--tw, --th), last row centred, no reflow while people talk. */
+.rm-grid.is-fit { display: flex !important; flex-wrap: wrap; justify-content: center; align-content: center; }
+.rm-grid.is-fit > .mt-tile { flex: none; width: var(--tw, 320px); height: var(--th, 180px); transition: width .2s ease, height .2s ease; }
+@media (prefers-reduced-motion: reduce) { .rm-grid.is-fit > .mt-tile { transition: none; } }
+.ln-st { display: flex; align-items: center; gap: 8px; font: 600 13px var(--h-font); color: var(--h-ink-2); padding: 8px 10px; border-radius: 10px; background: var(--h-paper, #f4f1e8); margin-bottom: 10px; }
+.ln-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--h-line-2); flex: none; }
+.ln-st.is-on i { background: #c0392b; animation: ln-pulse 1.6s ease-in-out infinite; }
+.ln-st .ln-sub { margin-left: auto; font-weight: 500; color: var(--h-ink-3); }
+@keyframes ln-pulse { 50% { opacity: .35; } }
+.ln-tx { font-size: 13px; color: var(--h-ink-2); padding: 4px 0; border-bottom: 1px solid var(--h-line); }
+.ln-tx b { font-weight: 600; color: var(--h-ink); }
+/* Raised hand (2026-10-13): blue, apart from the gold Guest and Spotlight tags, with the raise order. */
+.mt-tile.is-hand { border-color: #4f9dff; box-shadow: 0 0 0 2px #4f9dff inset; }
+.mt-tile .hb { position: absolute; top: 8px; right: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; height: 30px; padding: 0 10px 0 8px; border-radius: 999px; background: #4f9dff; color: #fff; font: 600 14px var(--h-font); box-shadow: 0 2px 8px rgba(0, 0, 0, .35); animation: hb-pulse 1.8s ease-in-out infinite; }
+.mt-tile .hb .h-i { width: 17px; height: 17px; }
+.mt-tile.is-hand .pin { top: 46px; }
+@keyframes hb-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(79, 157, 255, .55); } 50% { box-shadow: 0 0 0 7px rgba(79, 157, 255, 0); } }
+@media (prefers-reduced-motion: reduce) { .mt-tile .hb { animation: none; } }
+.cb .dotc--hand { background: #4f9dff; color: #fff; }
+.pp.is-hand { background: rgba(79, 157, 255, .1); border-radius: 12px; }
+.pp-hand { display: inline-flex; align-items: center; gap: 3px; height: 26px; padding: 0 8px; border-radius: 999px; background: #4f9dff; color: #fff; font: 600 13px var(--h-font); }
+.pp-hand .h-i { width: 14px; height: 14px; }
+.pp .ctl .h-btn--sm { height: 28px; }
+/* Room settings: background picker. */
+.rd-lab { font: 600 13px var(--h-font); color: var(--h-ink-2); }
+.rd-bgs { display: flex; gap: 8px; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
+.rd-bg { flex: none; width: 64px; height: 40px; border-radius: 10px; border: 2px solid var(--h-line-2); background: var(--sw, #fff); display: grid; place-items: end start; padding: 0; cursor: pointer; position: relative; overflow: hidden; }
+.rd-bg span { font: 600 12px var(--h-font); color: var(--h-ink); background: rgba(255, 255, 255, .85); padding: 1px 5px; border-top-right-radius: 6px; }
+.rd-bg.is-on { border-color: var(--h-brand); box-shadow: 0 0 0 2px var(--h-brand); }
+.rd-bg[data-v="none"], .rd-bg[data-v="blur"], .rd-up { place-items: center; background: #fff; }
+.rd-bg[data-v="blur"] { background: linear-gradient(135deg, #c9d4c0, #8fa486); }
+.rd-bg[data-v="none"] span, .rd-bg[data-v="blur"] span, .rd-up span { background: none; padding: 0; }
+.rd-tg input:disabled { opacity: .45; cursor: default; }

@@ -3,6 +3,8 @@
 import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, whoami, pump, MODE, confirmCard, fmtDay, fmtTime } from './ui.js';
 import { Rtc, linkLevel } from './rtc.js';
 import { Recorder, confirmStopRecording } from './rec.js';
+import { loadPrefs, savePrefs, acquire, acquireBoth, trackDevice } from './devices.js';
+import { VoiceFx, CamFx, BACKGROUNDS } from './effects.js';
 
 const params = new URLSearchParams(location.search);
 // ?audio=1: an audio-only call for a weak or expensive connection. No camera is asked for or sent, and no one's video or screen share is pulled.
@@ -34,10 +36,63 @@ const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
   mic: true, cam: !AUDIO_ONLY, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: !AUDIO_ONLY }, removed: false, level: 'good', speakers: new Map(),
+  ah: new Map(), soundBlocked: false, micIssue: '', noConnect: 0,
   inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, live: [], liveSig: '', liveKind: 'action', liveText: '', layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
 let recorder = null, barTimer = null, capTimer = null;
+// The devices this person picked (devices.js). WHO is their email, or 'guest' on a guest link.
+let WHO = GUEST ? 'guest' : 'me', P = loadPrefs(WHO);
+// The sent tracks: local.mic and local.cam may be the processed versions (effects.js); local.micRaw and local.camRaw are the devices.
+let vfx = null, cfx = null;
+async function setMic(raw) {
+  if (vfx) { vfx.stop(); vfx = null; }
+  local.micRaw = raw; if (raw) watchMic(raw);
+  let out = raw;
+  if (raw && P.voice !== false) {
+    const v = new VoiceFx({ gate: !!P.gate }); const t = await v.start(raw).catch(() => null);
+    if (t) { vfx = v; out = t; } else voiceOnTap();
+  }
+  if (out) out.enabled = S.mic;
+  local.mic = out; resetLevel();
+  return out;
+}
+// The sound engine waits for a tap when the page opened without one. The raw microphone goes out meanwhile, then the clean-up joins in.
+function voiceOnTap() {
+  if (voiceOnTap.armed) return; voiceOnTap.armed = true;
+  document.addEventListener('pointerdown', async () => {
+    voiceOnTap.armed = false;
+    if (!local.micRaw || vfx || P.voice === false || S.left) return;
+    const t = await setMic(local.micRaw); if (rtc && t) await rtc.replace('a', t).catch(() => {});
+  }, { once: true, capture: true });
+}
+async function setCam(raw) {
+  if (cfx) { cfx.stop(); cfx = null; }
+  local.camRaw = raw; let out = raw;
+  if (raw && !AUDIO_ONLY && CamFx.wanted(P)) {
+    const c = new CamFx({ bg: P.bg, image: P.bgImg, light: P.light, onSlow: camSlow });
+    try { out = await c.start(raw); cfx = c; } catch { toast('The background effect did not load. Your camera is on without it.'); }
+  }
+  local.cam = out; return out;
+}
+function stopCam() { if (cfx) { cfx.stop(); cfx = null; } if (local.camRaw) local.camRaw.stop(); local.camRaw = null; local.cam = null; }
+function stopFx() { if (vfx) { vfx.stop(); vfx = null; } if (cfx) { cfx.stop(); cfx = null; } if (prevFx) { prevFx.stop(); prevFx = null; } [local.micRaw, local.camRaw].forEach((t) => t && t.stop()); }
+function camSlow() { remember({ bg: 'none', light: false }); toast('Background effects are off. This device could not keep up.'); diag('fx-slow'); reapplyCam(); }
+async function reapplyCam() {
+  if (!(S.cam && local.camRaw)) { await devPreview(); paintDevSheet(); return; }
+  const t = await setCam(local.camRaw); if (rtc) await rtc.replace('v', t).catch(() => {});
+  paintGrid(); paintDevSheet();
+}
+
+function remember(patch) { P = savePrefs(WHO, patch); if ('micId' in patch) S.micId = P.micId; if ('camId' in patch) S.camId = P.camId; if ('spkId' in patch) S.spkId = P.spkId; }
+// The line shown when a saved device is missing and the default opened in its place.
+function fallbackLine(fb, tracks) {
+  const lab = (t) => (t && t.label ? t.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)$/i, '') : 'the default');
+  const out = [];
+  if (fb.cam) out.push('Your saved camera is not connected. Using ' + lab(tracks.cam) + '.');
+  if (fb.mic) out.push('Your saved microphone is not connected. Using ' + lab(tracks.mic) + '.');
+  return out.join(' ');
+}
 const tiles = new Map(); // pid or 'share:pid' -> { el, video, audio }
 
 // ---------------------------------------------------------------- boot
@@ -53,6 +108,8 @@ async function boot() {
     S.here = r.people || null;
     document.title = S.meeting.title + ' - FavorOS';
     const t = $('.h-top__title'); if (t) t.textContent = S.meeting.title;
+    if (!GUEST) { WHO = String((await whoami()).email || 'me').toLowerCase(); P = loadPrefs(WHO); }
+    S.micId = P.micId; S.camId = P.camId; S.spkId = P.spkId;
     if (GUEST && S.meeting.status === 'ended' && !r.reopen && !(S.meeting.startsAt && Date.parse(S.meeting.startsAt) > Date.now())) return ended('This meeting has ended');
     if (S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000) return ended();
     if (PRE && S.meeting.status !== 'cancelled') return quickEnter(PRE);
@@ -93,7 +150,7 @@ function ended(msg, sub, opts = {}) {
 // Back to the lobby after leaving or after the meeting ended, with the room state cleared.
 function rejoinAfterLeave() {
   Object.assign(S, { left: false, joined: false, removed: false, conn: 'ok', gridSig: null, ctlSig: null, sideSig: null, spot: '', pin: '', page: 0, sharing: false, hand: false, show: null, recording: null, pop: '', menu: null, syncFails: 0, unread: 0, level: 'good', levelVotes: 0, levelCand: '', autoRec: false, people: [] });
-  local = { mic: null, cam: null, screen: null, screenAudio: null }; rtc = null; recorder = null; rejoining = false; syncing = false; analyser = null;
+  resetLevel(); closeDevSheet(); stopFx(); local = { mic: null, cam: null, screen: null, screenAudio: null }; rtc = null; recorder = null; rejoining = false; syncing = false;
   remote.clear(); tiles.clear();
   S.devices = { mic: true, cam: true }; S.mic = true; S.cam = true;
   lobby();
@@ -131,13 +188,14 @@ async function lobby() {
   $('#lb-cam').addEventListener('click', () => { S.cam = !S.cam; lobbyButtons(); lobbyVideo(); });
   let denied = null;
   try {
-    preview = await navigator.mediaDevices.getUserMedia({ audio: true, video: AUDIO_ONLY ? false : { width: 1280, height: 720 } });
-    $('#lb-dev').textContent = AUDIO_ONLY ? 'Audio call. Your microphone is ready and no video is sent or received.' : 'Camera and microphone ready.';
-  } catch (e1) {
-    denied = e1;
-    try { preview = await navigator.mediaDevices.getUserMedia({ audio: true }); S.devices.cam = false; S.cam = false; $('#lb-dev').textContent = 'No camera found or allowed. You can still join with sound.'; }
-    catch (e2) { denied = e2; preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; $('#lb-dev').textContent = 'No camera or microphone is available. You can join to watch and listen, and chat.'; }
-  }
+    // The saved camera and microphone, exactly; the default only when a saved one is missing.
+    const r = await acquireBoth(P, !AUDIO_ONLY);
+    preview = r.stream;
+    if (r.camError) { denied = r.camError; S.devices.cam = false; S.cam = false; $('#lb-dev').textContent = 'No camera found or allowed. You can still join with sound.'; }
+    else $('#lb-dev').textContent = AUDIO_ONLY ? 'Audio call. Your microphone is ready and no video is sent or received.' : 'Camera and microphone ready.';
+    const fb = fallbackLine(r.fellBack, { mic: preview.getAudioTracks()[0], cam: preview.getVideoTracks()[0] });
+    if (fb) $('#lb-dev').textContent = fb;
+  } catch (e2) { denied = e2; S.micDenied = !!permHelp(e2); preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; $('#lb-dev').textContent = 'No camera or microphone is available. You can join to watch and listen, and chat.'; }
   const help = permHelp(denied); if (help) { const h = $('#lb-help'); if (h) { h.textContent = help; h.hidden = false; } }
   lobbyButtons(); lobbyVideo(); lobbyDevices(); lobbyMeter();
   watchHere();
@@ -164,16 +222,17 @@ function watchHere() {
 }
 // From the pre-join sheet: the choices are made, so the room opens with them and no second preview.
 async function quickEnter(pre) {
-  S.mic = pre.mic !== false; S.cam = !!pre.cam && !AUDIO_ONLY; S.micId = pre.micId || ''; S.camId = pre.camId || '';
+  S.mic = pre.mic !== false; S.cam = !!pre.cam && !AUDIO_ONLY;
+  // The sheet's picks become this person's saved devices.
+  const pick = {}; if (pre.micId) pick.micId = pre.micId; if (pre.camId) pick.camId = pre.camId; if (Object.keys(pick).length) remember(pick);
   const name = (await whoami()).name || '';
   root.innerHTML = `<div class="h-card mt-card" style="max-width:520px;margin:12vh auto 20px;display:grid;gap:10px;justify-items:start" role="status"><h2 class="mt-h2"><span class="spin"></span>Joining ${esc(S.meeting.title)}</h2><p class="mt-sub" id="lb-dev" style="margin:0;font-size:14px">Connecting to the room.</p><input type="hidden" id="lb-name" value="${esc(name)}" /><button class="h-btn h-btn--primary" id="lb-join" hidden>Join now</button></div>`;
-  const audio = S.micId ? { deviceId: { ideal: S.micId } } : true;
-  const video = S.cam ? { width: 1280, height: 720, ...(S.camId ? { deviceId: { ideal: S.camId } } : {}) } : false;
-  try { preview = await navigator.mediaDevices.getUserMedia({ audio, video }); }
-  catch {
-    try { preview = await navigator.mediaDevices.getUserMedia({ audio }); S.cam = false; }
-    catch { preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; }
-  }
+  try {
+    const r = await acquireBoth(P, S.cam);
+    preview = r.stream; if (r.camError) S.cam = false;
+    const fb = fallbackLine(r.fellBack, { mic: preview.getAudioTracks()[0], cam: preview.getVideoTracks()[0] });
+    if (fb) setTimeout(() => toast(fb), 1500);
+  } catch (e) { S.micDenied = !!permHelp(e); preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; }
   enter();
 }
 async function deviceList() {
@@ -191,11 +250,14 @@ async function lobbyDevices() {
   box.hidden = false;
   const swap = async (kind, id) => {
     try {
-      const ns = await navigator.mediaDevices.getUserMedia(kind === 'audio' ? { audio: { deviceId: { exact: id } } } : { video: { deviceId: { exact: id }, width: 1280, height: 720 } });
       const old = kind === 'audio' ? preview.getAudioTracks()[0] : preview.getVideoTracks()[0];
-      if (old) { preview.removeTrack(old); old.stop(); }
-      preview.addTrack(ns.getTracks()[0]);
-      if (kind === 'audio') { S.micId = id; lbCtx = null; lobbyMeter(true); } else { S.camId = id; lobbyVideo(true); }
+      // A camera can be open in one place at a time on some machines: let go of the old one first.
+      if (old && kind === 'video') { preview.removeTrack(old); old.stop(); }
+      const { track } = await acquire(kind, { ...P, [kind === 'audio' ? 'micId' : 'camId']: id });
+      if (old && kind === 'audio') { preview.removeTrack(old); old.stop(); }
+      preview.addTrack(track);
+      remember(kind === 'audio' ? { micId: id } : { camId: id });
+      if (kind === 'audio') { lbCtx = null; lobbyMeter(true); } else lobbyVideo(true);
     } catch { toast('That device did not open.'); }
   };
   $('#lb-micsel') && $('#lb-micsel').addEventListener('change', (e) => swap('audio', e.target.value));
@@ -233,8 +295,14 @@ async function enter() {
   $('#lb-join').disabled = true; $('#lb-join').innerHTML = '<span class="spin"></span>Connecting to the room';
   const slow = setTimeout(() => { const d = $('#lb-dev'); if (d) d.textContent = 'Still connecting. This can take up to 20 seconds.'; }, 6000);
   S.me.name = name;
-  if (preview) { local.mic = preview.getAudioTracks()[0] || null; local.cam = preview.getVideoTracks()[0] || null; }
+  if (preview) {
+    await setMic(preview.getAudioTracks()[0] || null);
+    const vt = preview.getVideoTracks()[0] || null;
+    if (vt && !S.cam) { vt.stop(); preview.removeTrack(vt); }
+    await setCam(S.cam ? vt : null);
+  }
   if (local.mic) local.mic.enabled = S.mic;
+  S.micIssue = local.mic ? '' : S.micDenied ? 'denied' : 'nodev'; watchMic(local.mic);
   try {
     const j = await withTimeout(joinCall(false), 20000);
     if (j.waiting) await waitAdmit();
@@ -254,7 +322,7 @@ async function enter() {
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('The room did not load in time.')), ms))]);
 
 async function joinCall(isRejoin) {
-  const body = { pid: S.me.pid || undefined, name: S.me.name, mic: S.mic, cam: S.cam };
+  const body = { pid: S.me.pid || undefined, name: S.me.name, mic: S.mic, cam: S.cam, rejoin: !!isRejoin };
   if (GUEST) { body.k = GKEY; body.accepted = !!($('#lb-consent') ? $('#lb-consent').checked : true) || isRejoin; }
   const j = await api('meetings/' + MID + '/join', { method: 'POST', body });
   if (GUEST && j.token) { MODE.token = j.token; sessionStorage.setItem('meet.gtoken.' + MID, j.token); }
@@ -289,10 +357,15 @@ async function connect(isRejoin) {
 
 async function openRtc(j, isRejoin) {
   if (rtc) rtc.close();
-  rtc = new Rtc({ call: (op, body) => api('meetings/' + MID + '/sfu/' + op, { method: 'POST', body: { pid: S.me.pid, ...body } }), iceServers: j.iceServers, relay: new URLSearchParams(location.search).get('relay') === '1' });
+  // After two connections that never came up, the next one goes through Cloudflare's TURN relay only (TCP and TLS on 443 get
+  // through networks that block the direct UDP path).
+  const relay = new URLSearchParams(location.search).get('relay') === '1' || S.noConnect >= 2;
+  rtc = new Rtc({ call: (op, body) => api('meetings/' + MID + '/sfu/' + op, { method: 'POST', body: { pid: S.me.pid, ...body } }), iceServers: j.iceServers, relay });
   rtc.onTrack = onTrack;
   rtc.onState = onRtcState;
   rtc.open();
+  S.rtcAt = Date.now(); S.everUp = false; rtc.stats.pathAt = Date.now();
+  if (!(j.iceServers || []).some((x) => [].concat(x.urls || []).some((u) => /^turns?:/.test(u)))) diag('no-turn');
   const items = [];
   if (S.devices.mic || local.mic) items.push({ name: 'a', kind: 'audio', track: local.mic });
   items.push({
@@ -330,7 +403,7 @@ function buildRoom() {
   if (!GUEST && S.me.role !== 'guest') maybeStartRecording();
 }
 
-const mePerson = () => ({ pid: S.me.pid, name: S.me.name, role: S.me.role, mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, speaking: S.lvl > 12 && S.mic, me: true });
+const mePerson = () => ({ joinedAt: (S.people.find((p) => p.pid === S.me.pid) || {}).joinedAt || S.joinedAt || 0, pid: S.me.pid, name: S.me.name, role: S.me.role, mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, speaking: S.lvl > 12 && S.mic, me: true });
 const hostish = () => S.me.role === 'host' || S.me.role === 'cohost';
 const others = () => S.people.filter((p) => p.pid !== S.me.pid && !p.waiting);
 const nameOf = (pid) => (pid === S.me.pid ? S.me.name : (S.people.find((p) => p.pid === pid) || {}).name || 'Someone');
@@ -376,7 +449,7 @@ function paintTools() {
       <button class="rt" data-a="layout" aria-label="${S.layout === 'grid' ? 'Switch to speaker view' : 'Switch to gallery view'}" title="${S.layout === 'grid' ? 'Speaker view' : 'Gallery view'}">${ic(S.layout === 'grid' ? 'speaker' : 'grid')}</button>
       ${document.fullscreenEnabled ? `<button class="rt" data-a="fullscreen" aria-label="Full screen" title="Full screen">${ic('expand')}</button>` : ''}
       ${GUEST ? '' : `<button class="rt" data-a="copylink" aria-label="Copy meeting link">${ic('link')}<span class="lb-t">Copy link</span></button>`}
-      <button class="rt${S.pop === 'dev' ? ' is-on' : ''}" data-a="pop" data-p="dev" aria-label="Camera, microphone and speaker" aria-haspopup="dialog" aria-expanded="${S.pop === 'dev'}">${ic('gear')}</button>`;
+      <button class="rt" data-a="devmenu" aria-label="Settings: camera, microphone and speaker" title="Settings" aria-haspopup="dialog">${ic('gear')}</button>`;
   });
 }
 
@@ -385,32 +458,165 @@ async function paintPop() {
   const el = $('#rm-pop-wrap'); if (!el) return;
   if (!S.pop) { el.innerHTML = ''; return; }
   if (S.pop === 'react') { el.innerHTML = `<div class="rm-pop" role="dialog" aria-label="Reactions"><div class="emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div></div>`; const b = el.querySelector('button'); b && b.focus(); return; }
-  const { mics, cams, spks } = await deviceList();
-  if (S.pop !== 'dev') return;
-  const curMic = local.mic && local.mic.getSettings().deviceId, curCam = (local.cam && local.cam.getSettings().deviceId) || S.camId;
-  el.innerHTML = `<div class="rm-pop" role="dialog" aria-label="Devices">
-    ${mics.length ? `<label>Microphone<select data-dev="mic">${optList(mics, curMic, 'Microphone')}</select></label>` : ''}
-    ${cams.length ? `<label>Camera<select data-dev="cam">${optList(cams, curCam, 'Camera')}</select></label>` : ''}
-    ${spks.length && 'setSinkId' in HTMLMediaElement.prototype ? `<label>Speaker<select data-dev="spk">${optList(spks, S.spkId, 'Speaker')}</select></label>` : ''}
-    ${!mics.length && !cams.length ? '<p class="mt-sub" style="margin:0">No devices were found. Check that the browser may use the camera and microphone.</p>' : ''}</div>`;
-  const s = el.querySelector('select'); s && s.focus();
-  el.querySelectorAll('select[data-dev]').forEach((sel) => sel.addEventListener('change', () => switchDevice(sel.dataset.dev, sel.value)));
 }
+// A new camera, microphone or speaker in the call. The new track goes onto the same sender (replaceTrack), so nobody else
+// notices anything but the picture or sound changing. The pick is saved for this person.
 async function switchDevice(kind, id) {
   try {
-    if (kind === 'spk') { S.spkId = id; $$('audio[id^="a-"]').forEach((a) => a.setSinkId && a.setSinkId(id).catch(() => {})); return; }
+    if (kind === 'spk') { remember({ spkId: id }); $$('audio[id^="a-"]').forEach((a) => a.setSinkId && a.setSinkId(id).catch(() => {})); return true; }
     if (kind === 'mic') {
-      const ns = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: id } } }); const t = ns.getAudioTracks()[0]; t.enabled = S.mic;
-      if (local.mic) local.mic.stop(); local.mic = t; S.micId = id; analyser = null; try { actx && actx.close(); } catch {} actx = null;
-      await rtc.replace('a', t); return;
+      const { track: t } = await acquire('audio', { ...P, micId: id });
+      t.enabled = S.mic;
+      const oldRaw = local.micRaw; const out = await setMic(t); if (S.micIssue) { S.micIssue = ''; paintBar(); }
+      if (rtc) await rtc.replace('a', out);
+      if (oldRaw && oldRaw !== t) oldRaw.stop();
+      if (id) remember({ micId: id });
+      paintDevSheet(); return true;
     }
-    S.camId = id;
-    if (S.cam) {
-      const ns = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: id }, width: 1280, height: 720 } }); const t = ns.getVideoTracks()[0];
-      if (local.cam) local.cam.stop(); local.cam = t; await rtc.replace('v', t); paintGrid();
-    }
-  } catch { toast('That device did not open.'); }
+    remember({ camId: id });
+    if (S.cam && !AUDIO_ONLY) {
+      // Some cameras open in one place at a time: stop the old one first, then put the new one on the sender.
+      stopCam();
+      const { track: t } = await acquire('video', P);
+      await setCam(t); if (rtc) await rtc.replace('v', local.cam); paintGrid();
+    } else await devPreview();
+    paintDevSheet(); return true;
+  } catch { toast('That device did not open.'); paintDevSheet(); return false; }
 }
+
+// ---- Settings: camera, microphone and speaker in the call, with a live preview, a level meter and a speaker test.
+// A dialog on a desktop, a bottom sheet on a phone. Opened from the gear in the top bar, the chevrons beside Mute and Camera,
+// and the More sheet on a phone.
+let devOpen = '', devPrev = null, devFocus = null, prevFx = null, prevOut = null;
+async function openDevSheet(section) {
+  devFocus = document.activeElement;
+  devOpen = section || 'all';
+  S.pop = ''; paintTools(); paintPop();
+  if (S.more) closeMore();
+  let wrap = $('#rm-dev-wrap');
+  if (!wrap) { wrap = document.createElement('div'); wrap.id = 'rm-dev-wrap'; ($('#rm') || document.body).appendChild(wrap); }
+  wrap.innerHTML = `<div class="rd-scrim" data-a="dev-close"></div><section class="rd" role="dialog" aria-modal="true" aria-labelledby="rd-t" tabindex="-1">
+    <div class="rm-grab" aria-hidden="true"></div>
+    <header class="rd-h"><h2 id="rd-t">Settings</h2><button class="icon-b" data-a="dev-close" aria-label="Close settings">${ic('x')}</button></header>
+    <div class="rd-b"><div class="rd-prev" id="rd-prev"><video id="rd-video" muted playsinline autoplay></video><span class="rd-off" id="rd-off">${AUDIO_ONLY ? 'Audio call' : 'Camera off'}</span></div><div class="rd-f" id="rd-f"></div></div>
+    <footer class="rd-foot"><button class="h-btn h-btn--primary" data-a="dev-close">Done</button></footer></section>`;
+  const sh = wrap.querySelector('.rd');
+  wrap.addEventListener('change', onDevChange);
+  dragSheet(sh, closeDevSheet);
+  await paintDevSheet();
+  if (!(S.cam && local.cam)) await devPreview();
+  const target = section === 'mic' ? '#rd-mic' : section === 'cam' ? '#rd-cam' : section === 'spk' ? '#rd-spk' : null;
+  const f = (target && $(target)) || sh; f.focus({ preventScroll: true });
+}
+function closeDevSheet() {
+  if (!devOpen) return;
+  devOpen = ''; stopDevPreview();
+  const w = $('#rm-dev-wrap'); if (w) w.remove();
+  if (devFocus && devFocus.isConnected) try { devFocus.focus({ preventScroll: true }); } catch {}
+}
+function stopDevPreview() { if (prevFx) { prevFx.stop(); prevFx = null; } prevOut = null; if (devPrev) { devPrev.stop(); devPrev = null; } }
+// With the camera off, the preview opens the saved camera on its own and closes it with the sheet. Nothing is sent.
+async function devPreview() {
+  if (!devOpen || AUDIO_ONLY || (S.cam && local.cam)) { stopDevPreview(); paintDevVideo(); return; }
+  stopDevPreview();
+  try {
+    const { track } = await acquire('video', P); if (!devOpen || (S.cam && local.cam)) { track.stop(); return; } devPrev = track;
+    if (CamFx.wanted(P)) { const c = new CamFx({ bg: P.bg, image: P.bgImg, light: P.light }); try { prevOut = await c.start(track); prevFx = c; } catch { prevOut = null; } }
+  } catch { devPrev = null; }
+  paintDevVideo();
+}
+function paintDevVideo() {
+  const v = $('#rd-video'), off = $('#rd-off'), box = $('#rd-prev'); if (!v) return;
+  const t = S.cam && local.cam ? local.cam : prevOut || devPrev;
+  box.classList.toggle('has-video', !!t);
+  if (off) off.textContent = AUDIO_ONLY ? 'Audio call' : t ? '' : 'Camera off';
+  box.classList.toggle('is-preview', !!t && !(S.cam && local.cam));
+  const cur = v.srcObject && v.srcObject.getVideoTracks()[0];
+  if (t && cur !== t) { v.srcObject = new MediaStream([t]); v.play().catch(() => {}); } else if (!t) v.srcObject = null;
+}
+async function paintDevSheet() {
+  const box = $('#rd-f'); if (!box || !devOpen) return;
+  const { mics, cams, spks } = await deviceList();
+  if (!devOpen) return;
+  const curMic = trackDevice(local.micRaw) || P.micId, curCam = trackDevice(S.cam && local.camRaw) || trackDevice(devPrev) || P.camId;
+  const canSink = 'setSinkId' in HTMLMediaElement.prototype;
+  const sel = (id, kind, list, cur, lab) => `<select id="${id}" data-dev="${kind}">${list.length ? optList(list, cur, lab) : `<option value="">No ${lab.toLowerCase()} found</option>`}</select>`;
+  const spkCur = spks.some((d) => d.deviceId === P.spkId) ? P.spkId : 'default';
+  const html = `${AUDIO_ONLY ? '' : `<div class="rd-s"><label for="rd-cam">Camera</label>${sel('rd-cam', 'cam', cams, curCam, 'Camera')}</div>`}
+    <div class="rd-s"><label for="rd-mic">Microphone</label>${sel('rd-mic', 'mic', mics, curMic, 'Microphone')}<div class="rd-meter" aria-hidden="true"><i id="rd-lvl"></i></div></div>
+    <div class="rd-s"><label for="rd-spk">Speaker</label><div class="rd-row">${canSink && spks.length ? sel('rd-spk', 'spk', spks, spkCur, 'Speaker') : '<span class="rd-sys">System speaker</span>'}<button class="h-btn h-btn--ghost h-btn--sm" data-a="dev-test">${ic('play')}Test</button></div></div>
+    ${AUDIO_ONLY ? '' : `<div class="rd-s"><span class="rd-lab">Background</span><div class="rd-bgs" role="group" aria-label="Background">${bgChips()}</div><label class="rd-tg"><span>Brighten a dark room</span><input type="checkbox" role="switch" data-pref="light" ${P.light ? 'checked' : ''} /></label></div>`}
+    <div class="rd-s rd-tgs"><label class="rd-tg"><span>Voice clarity</span><input type="checkbox" role="switch" data-pref="voice" ${P.voice !== false ? 'checked' : ''} /></label><label class="rd-tg"><span>Strong noise reduction</span><input type="checkbox" role="switch" data-pref="gate" ${P.gate ? 'checked' : ''} ${P.voice === false ? 'disabled' : ''} /></label><label class="rd-tg"><span>Noise suppression</span><input type="checkbox" role="switch" data-pref="ns" ${P.ns !== false ? 'checked' : ''} /></label><label class="rd-tg"><span>Echo cancellation</span><input type="checkbox" role="switch" data-pref="ec" ${P.ec !== false ? 'checked' : ''} /></label></div>`;
+  if (box.dataset.h !== html) {
+    const ae = document.activeElement, keep = ae && box.contains(ae) ? ae.id || (ae.dataset && ae.dataset.pref) : '';
+    box.innerHTML = html; box.dataset.h = html;
+    if (keep) { const n = $('#' + keep) || box.querySelector('[data-pref="' + keep + '"]'); n && n.focus({ preventScroll: true }); }
+  }
+  paintDevVideo();
+}
+async function onDevChange(e) {
+  const t = e.target;
+  if (t.dataset.bgup !== undefined) { uploadBg(t.files && t.files[0]); return; }
+  if (t.dataset.dev) { t.disabled = true; await switchDevice(t.dataset.dev, t.value); t.disabled = false; return; }
+  if (t.dataset.pref) {
+    remember({ [t.dataset.pref]: t.checked });
+    // Noise suppression and echo cancellation are set when the microphone opens: open it again on the same device.
+    if (t.dataset.pref === 'light') { await reapplyCam(); return; }
+    if (t.dataset.pref === 'voice' || t.dataset.pref === 'gate') { if (local.micRaw) { const out = await setMic(local.micRaw); if (rtc && out) await rtc.replace('a', out); } paintDevSheet(); return; }
+    if (local.micRaw) await switchDevice('mic', trackDevice(local.micRaw) || P.micId);
+  }
+}
+function bgChips() {
+  const cur = !P.bg || P.bg === 'none' ? 'none' : P.bg === 'blur' ? 'blur' : P.bgImg && P.bgImg.startsWith('data:') ? 'custom' : P.bgImg || BACKGROUNDS[0].id;
+  const chip = (v, label, style = '') => `<button type="button" class="rd-bg${cur === v ? ' is-on' : ''}" data-a="dev-bg" data-v="${v}" aria-pressed="${cur === v}"${style}><span>${label}</span></button>`;
+  const sw = { leaf: 'linear-gradient(135deg,#2f4a2a,#6f8a5a)', ivory: 'radial-gradient(#fbf8f0,#d9d1bd)', gold: 'linear-gradient(45deg,#7a5a22,#d6b46a)', office: 'linear-gradient(#e9e4d8 70%,#d4ccb9 70%)' };
+  return chip('none', 'None') + chip('blur', 'Blur') + BACKGROUNDS.map((b) => chip(b.id, b.label, ` style="--sw:${sw[b.id]}"`)).join('') +
+    (P.bgCustom ? chip('custom', 'Yours', ` style="--sw:url('${P.bgCustom}') center/cover"`) : '') +
+    `<label class="rd-bg rd-up"><span>Upload</span><input type="file" accept="image/*" data-bgup hidden /></label>`;
+}
+function pickBg(v) {
+  if (v === 'none' || v === 'blur') remember({ bg: v });
+  else if (v === 'custom') remember({ bg: 'image', bgImg: P.bgCustom });
+  else remember({ bg: 'image', bgImg: v });
+  reapplyCam();
+}
+// An uploaded picture is scaled to 1280 by 720 and kept on this device only.
+function uploadBg(file) {
+  if (!file || !/^image\//.test(file.type)) return;
+  const im = new Image(); const url = URL.createObjectURL(file);
+  im.onload = () => {
+    const c = document.createElement('canvas'); c.width = 1280; c.height = 720; const x = c.getContext('2d');
+    const s = Math.max(1280 / im.width, 720 / im.height); x.drawImage(im, (1280 - im.width * s) / 2, (720 - im.height * s) / 2, im.width * s, im.height * s);
+    URL.revokeObjectURL(url);
+    const data = c.toDataURL('image/jpeg', 0.8);
+    remember({ bg: 'image', bgImg: data, bgCustom: data }); reapplyCam();
+  };
+  im.onerror = () => toast('That picture did not open.');
+  im.src = url;
+}
+
+// A short three-note chime through the chosen speaker.
+function testSpeaker(btn) {
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)();
+    const dest = c.createMediaStreamDestination();
+    [523.25, 659.25, 783.99].forEach((fq, i) => { const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + i * 0.22; o.frequency.value = fq; g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4); o.connect(g); g.connect(dest); o.start(t); o.stop(t + 0.42); });
+    const a = new Audio(); a.srcObject = dest.stream;
+    const go = () => a.play().catch(() => {});
+    if (P.spkId && a.setSinkId) a.setSinkId(P.spkId).then(go, go); else go();
+    if (btn) { btn.disabled = true; btn.lastChild.textContent = 'Playing'; }
+    setTimeout(() => { a.pause(); c.close(); if (btn && btn.isConnected) { btn.disabled = false; btn.lastChild.textContent = 'Test'; } }, 1300);
+  } catch { toast('The test sound did not play.'); }
+}
+function dragSheet(sheet, onClose) {
+  if (!sheet) return;
+  let d = null;
+  sheet.addEventListener('touchstart', (e) => { if (!e.target.closest('.rm-grab, .rd-h')) return; d = { y: e.touches[0].clientY, dy: 0 }; }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => { if (!d) return; d.dy = Math.max(0, e.touches[0].clientY - d.y); sheet.style.transform = 'translateY(' + d.dy + 'px)'; }, { passive: true });
+  const end = () => { if (!d) return; const close = d.dy > 80; d = null; sheet.style.transform = ''; if (close) onClose(); };
+  sheet.addEventListener('touchend', end); sheet.addEventListener('touchcancel', end);
+}
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', () => { if (devOpen) paintDevSheet(); });
 
 function floatEmoji(e, name) {
   const st = $('.rm-stage'); if (!st || !e) return;
@@ -440,15 +646,20 @@ function paintBar() {
   const secs = Math.floor(((Date.now() - S.started) / 1000) % 60);
   const rec = r && r.active ? (r.mode === 'video' ? `<span class="rm-rec"><i></i>Recording</span>` : `<span class="rm-rec is-notes"><i></i>Notes on</span>`) : (m.rec !== 'off' ? `<span class="rm-rec is-notes"><i></i>${!r && Date.now() - S.started < 10000 ? 'Starting' : m.rec === 'video' ? 'Recording off' : 'Notes off'}</span>` : '');
   const lv = S.level === 'good' ? 'Connection good' : S.level === 'fair' ? 'Connection fair' : 'Connection weak';
-  el.innerHTML = `<b>${esc(m.title)}</b>${rec}<span id="rm-clock">${mins}:${String(secs).padStart(2, '0')}</span>${S.locked ? `<span class="mt-pill mt-pill--gold" style="height:22px">${ic('lock')}Locked</span>` : ''}<span class="rm-net" style="margin-left:auto">${ic('wifi')}${lv}${rtc && rtc.stats.relay ? ' (relay)' : ''}</span>`;
+  el.innerHTML = `<b>${esc(m.title)}</b>${rec}<span id="rm-clock">${mins}:${String(secs).padStart(2, '0')}</span>${S.locked ? `<span class="mt-pill mt-pill--gold" style="height:22px">${ic('lock')}Locked</span>` : ''}<span class="rm-net is-${S.level}" style="margin-left:auto" title="${esc(netDetail())}">${ic('wifi')}${lv}${rtc && rtc.stats.relay ? ' (relay)' : ''}</span>`;
   const b = $('#rm-banner');
-  if (b) b.innerHTML = S.conn === 'drop' ? `<div class="banner">${ic('wifi')}Your connection dropped. Reconnecting.${S.recording && S.recording.active ? ' The recording keeps going.' : ''}</div>` : S.conn === 'back' ? `<div class="banner ok">${ic('check')}You are back.${S.missedSec > 3 ? ` You missed ${Math.round(S.missedSec)} seconds.` : ''}</div>` : '';
+  if (b) b.innerHTML = (S.soundBlocked ? `<div class="banner warn">${ic('speaker')}<span>The browser paused the sound of this call.</span><button class="h-btn h-btn--primary h-btn--sm" data-a="sound-on">Turn on sound</button></div>` : '') + micIssueHTML() + (S.conn === 'drop' ? `<div class="banner">${ic('wifi')}Your connection dropped. Reconnecting.${S.recording && S.recording.active ? ' The recording keeps going.' : ''}</div>` : S.conn === 'back' ? `<div class="banner ok">${ic('check')}You are back.${S.missedSec > 3 ? ` You missed ${Math.round(S.missedSec)} seconds.` : ''}</div>` : '');
+}
+
+function netDetail() {
+  const st = rtc && rtc.stats; if (!st || !st.t) return '';
+  return [st.rtt ? 'Round trip ' + Math.round(st.rtt * 1000) + ' ms' : '', 'Packet loss ' + (st.loss * 100).toFixed(1) + '%', st.bps ? 'Receiving ' + (st.bps / 1e6).toFixed(1) + ' Mbps' : ''].filter(Boolean).join(' · ');
 }
 
 // ---- tiles
 function makeTile(key, p, share) {
   const el = document.createElement('div'); el.className = 'mt-tile'; el.dataset.key = key;
-  el.innerHTML = `<video muted playsinline autoplay></video><span class="face"></span><span class="tag" hidden></span><button class="pin" hidden></button><span class="nm"><span class="mi"></span><span class="nt"></span></span>`;
+  el.innerHTML = `<video muted playsinline autoplay></video><span class="face"></span><span class="tag" hidden></span><span class="hb" hidden></span><button class="pin" hidden></button><span class="nm"><span class="mi"></span><span class="nt"></span></span>`;
   const t = { el, video: el.querySelector('video'), key, share, pid: p.pid, audio: null };
   ['playing', 'loadeddata'].forEach((ev) => t.video.addEventListener(ev, () => el.classList.add('is-live')));
   ['emptied', 'abort'].forEach((ev) => t.video.addEventListener(ev, () => el.classList.remove('is-live')));
@@ -466,8 +677,11 @@ function order() {
   const sharer = everyone.find((p) => p.sharing && (p.me ? !!local.screen : true));
   let big = S.pin || S.spot;
   if (!big && S.layout === 'speaker' && everyone.length > 1) big = speakerPid(everyone);
+  // Gallery order never changes while people talk: the pinned or spotlit person, then the host, then everyone by the time they
+  // joined. Only speaker view and the strip beside a share follow whoever spoke last.
   const rank = (p) => (p.pid === big ? -1 : p.role === 'host' ? 0 : 1);
-  const sorted = everyone.slice().sort((a, b) => rank(a) - rank(b) || (b.speakAt || 0) - (a.speakAt || 0) || (a.joinedAt || 0) - (b.joinedAt || 0));
+  const bySpeech = S.layout === 'speaker' || !!sharer || !!S.show;
+  const sorted = everyone.slice().sort((a, b) => rank(a) - rank(b) || (bySpeech ? (b.speakAt || 0) - (a.speakAt || 0) : 0) || (a.joinedAt || 0) - (b.joinedAt || 0) || String(a.pid).localeCompare(String(b.pid)));
   return { sharer, big, sorted };
 }
 
@@ -507,9 +721,10 @@ function paintGrid() {
   const grid = $('#rm-grid'); if (!grid) return;
   const { model, spot } = layoutModel();
   const n = model.length;
-  grid.className = 'rm-grid' + (spot ? ' is-spot' : '') + (spot && n === 1 ? ' is-alone' : '') + (!spot && n === 1 ? ' is-one' : '');
-  grid.style.gridTemplateColumns = spot ? (isPhone() && n > 1 ? `repeat(${n - 1}, minmax(0, 1fr))` : '') : `repeat(${n <= 1 ? 1 : n <= 4 ? 2 : 3}, minmax(0, 1fr))`;
+  grid.className = 'rm-grid' + (spot ? ' is-spot' : ' is-fit') + (spot && n === 1 ? ' is-alone' : '');
+  grid.style.gridTemplateColumns = spot ? (isPhone() && n > 1 ? `repeat(${n - 1}, minmax(0, 1fr))` : '') : '';
   if (spot && !isPhone()) grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.min(4, n - 1))}, minmax(0, 1fr))`; else grid.style.gridTemplateRows = '';
+  if (!spot) fitGrid(grid, n);
   const keep = new Set(model.map((x) => x.key));
   for (const [k, t] of tiles) if (!keep.has(k)) t.el.remove();
   if (!model.some((x) => x.brain)) { const bt = document.getElementById('rm-brain-tile'); if (bt) bt.remove(); }
@@ -540,7 +755,12 @@ function paintGrid() {
     if (p.me && !share) { if (t.video.srcObject !== (local.cam && new MediaStream([local.cam]))) {} attachLocal(t); }
     if (p.me && share) attachLocalShare(t);
     const tag = t.el.querySelector('.tag');
-    const label = share ? '' : S.spot === p.pid ? 'Spotlight' : p.hand ? 'Hand raised' : p.role === 'guest' ? 'Guest' : '';
+    const ss = !share && !p.me ? soundState(p.pid) : '';
+    const label = share ? '' : ss === 'nosound' ? 'No sound' : ss === 'connecting' && p.mic ? 'Connecting' : S.spot === p.pid ? 'Spotlight' : p.role === 'guest' ? 'Guest' : '';
+    const hn = !share && (p.me ? S.hand : p.hand) ? handNo(p.pid) || 1 : 0;
+    const hb = t.el.querySelector('.hb'); hb.hidden = !hn; t.el.classList.toggle('is-hand', !!hn);
+    if (hn) { hb.innerHTML = `${ic('hand')}<b>${hn}</b>`; hb.setAttribute('aria-label', `Hand raised, number ${hn}`); }
+    tag.classList.toggle('is-warn', ss === 'nosound');
     tag.hidden = !label; tag.textContent = label;
     const pin = t.el.querySelector('.pin');
     pin.hidden = share || !!p.me;
@@ -549,6 +769,32 @@ function paintGrid() {
     t.el.querySelector('.nt').textContent = share ? `${p.me ? 'You are' : p.name + ' is'} presenting` : p.me ? `You${p.role === 'host' ? ' (host)' : ''}` : p.name;
   });
   paintPager();
+}
+
+// Gallery sizing: the column count that gives the biggest tiles for this many people in this space, every tile the same size,
+// the last row centred. Recomputed only when the count or the space changes, so nothing moves while people talk.
+export function bestFit(n, W, H, gap, aspect) {
+  let best = { cols: 1, w: 0, h: 0 };
+  for (let cols = 1; cols <= Math.max(1, n); cols++) {
+    const rows = Math.ceil(n / cols);
+    const cw = (W - gap * (cols - 1)) / cols, ch = (H - gap * (rows - 1)) / rows;
+    const w = Math.min(cw, ch * aspect), h = w / aspect;
+    if (w * h > best.w * best.h + 1) best = { cols, w, h };
+  }
+  return { cols: best.cols, w: Math.floor(best.w), h: Math.floor(best.h) };
+}
+let fitObs = null;
+function fitGrid(grid, n) {
+  const cs = getComputedStyle(grid);
+  const W = grid.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = grid.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  if (W <= 0 || H <= 0) return;
+  const gap = parseFloat(cs.columnGap) || 8;
+  const aspect = isPhone() && W / H < 0.9 && n > 1 ? 4 / 5 : 16 / 9;
+  const f = bestFit(Math.max(1, n), W, H, gap, aspect);
+  const sig = [n, f.cols, f.w, f.h].join(',');
+  if (grid.dataset.fit !== sig) { grid.dataset.fit = sig; grid.style.setProperty('--tw', f.w + 'px'); grid.style.setProperty('--th', f.h + 'px'); }
+  if (!fitObs && window.ResizeObserver) { fitObs = new ResizeObserver(() => { const g = $('#rm-grid'); if (g && g.classList.contains('is-fit')) fitGrid(g, g.querySelectorAll(':scope > .mt-tile').length); }); fitObs.observe(grid); }
 }
 
 function paintPager() {
@@ -575,6 +821,9 @@ const remote = new Map(); // `${pid}|${trackName}` -> { video?: MediaStream, aud
 function onTrack(mid, track) {
   const entry = [...rtc.subs.entries()].find(([, s]) => s.mid === mid);
   const attach = (key, s) => {
+    // The same track can arrive twice (ontrack and the direct hand-off after a pull): keep what is already playing.
+    const had = remote.get(key);
+    if (had && had.stream && had.stream.getTracks()[0] === track && (s.kind === 'video' || (had.el && had.el.isConnected))) return;
     const stream = new MediaStream([track]);
     if (s.kind === 'video') {
       const tkey = s.trackName.startsWith('s') ? 'share:' + s.pid : s.pid;
@@ -584,8 +833,8 @@ function onTrack(mid, track) {
     } else {
       let el = document.getElementById('a-' + mid);
       if (!el) { el = document.createElement('audio'); el.id = 'a-' + mid; el.autoplay = true; document.body.appendChild(el); }
-      if (S.spkId && el.setSinkId) el.setSinkId(S.spkId).catch(() => {});
-      el.srcObject = stream; el.play().catch(() => {});
+      if (S.spkId && el.setSinkId) el.setSinkId(S.spkId).catch(() => { if (!S.spkGone) { S.spkGone = true; toast('Your saved speaker is not connected. Sound plays on the default speaker.'); diag('speaker-missing'); } });
+      el.srcObject = stream; playAudio(el);
       remote.set(key, { stream, el, mid });
     }
   };
@@ -607,10 +856,10 @@ function paintCtl() {
   if (sheetMode()) {
     keepFocus(el, () => {
       el.innerHTML = `
-      <button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button>
-      <button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button>
+      <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
+      <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
       <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
-      <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
+      <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : handCount() ? `<span class="dotc dotc--hand" aria-label="${handCount()} raised">${handCount()}</span>` : ''}</span>People</button>
       <button class="cb${S.more ? ' is-on' : ''}" data-a="more" aria-expanded="${S.more}" aria-haspopup="dialog"><span class="k badge">${ic('more')}${S.hand || S.cc ? '<span class="dotc dotc--s"></span>' : ''}</span>More</button>`;
     });
     const hint0 = $('#rm-hint'); if (hint0) hint0.hidden = true;
@@ -618,15 +867,15 @@ function paintCtl() {
   }
   keepFocus(el, () => {
     el.innerHTML = `
-    <button class="cb${S.mic ? '' : ' is-off'}" data-a="mic"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button>
-    <button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button>
+    <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
+    <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
     ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
     ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc" aria-pressed="${S.cc}"><span class="k">${ic('cc')}</span>${lab('Captions', 'CC')}</button>` : ''}
     ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? lab('Stop rec', 'Stop') : lab('Record', 'Rec')}</button>` : ''}
     <button class="cb${S.hand ? ' is-on' : ''}" data-a="hand"><span class="k">${ic('hand')}</span><span class="l-full">${S.hand ? 'Lower hand' : 'Raise hand'}</span><span class="l-short">${S.hand ? 'Lower' : 'Hand'}</span></button>
     <span class="rm-sep"></span>
     <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
-    <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : ''}</span>People</button>
+    <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : handCount() ? `<span class="dotc dotc--hand" aria-label="${handCount()} raised">${handCount()}</span>` : ''}</span>People</button>
     ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain" aria-pressed="${S.panel === 'brain'}"><span class="k">${ic('brain')}</span>Brain</button>` : ''}
     ${FEATURES.notes ? `<button class="cb${S.panel === 'notes' ? ' is-on' : ''}" data-a="panel" data-p="notes" aria-pressed="${S.panel === 'notes'}"><span class="k badge">${ic('notes')}${liveCount() ? `<span class="dotc">${liveCount()}</span>` : ''}</span>Notes</button>` : ''}
     <button class="cb leave" data-a="leave"><span class="k">${ic('leave')}</span>Leave</button>`;
@@ -651,16 +900,10 @@ async function paintMore() {
     row('layout', S.layout === 'grid' ? 'speaker' : 'grid', S.layout === 'grid' ? 'Speaker view' : 'Gallery view', ''),
     document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
-    row('moredev', 'gear', 'Camera, microphone and speaker', S.moreDev ? 'Hide' : ''),
+    row('devmenu', 'gear', 'Camera, microphone and speaker', ''),
   ].join('');
-  wrap.innerHTML = `<div class="mr-scrim" data-a="more-close"></div><div class="mr-sheet" id="rm-more" role="dialog" aria-label="More"><div class="rm-grab" aria-hidden="true"></div><div class="mr-emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div><div class="mr-list">${rows}</div><div class="mr-dev" id="mr-dev"></div></div>`;
+  wrap.innerHTML = `<div class="mr-scrim" data-a="more-close"></div><div class="mr-sheet" id="rm-more" role="dialog" aria-label="More"><div class="rm-grab" aria-hidden="true"></div><div class="mr-emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div><div class="mr-list">${rows}</div></div>`;
   dragToCloseMore($('#rm-more'));
-  if (!S.moreDev) return;
-  const { mics, cams, spks } = await deviceList();
-  const box = $('#mr-dev'); if (!box || !S.moreDev) return;
-  const curMic = local.mic && local.mic.getSettings().deviceId, curCam = (local.cam && local.cam.getSettings().deviceId) || S.camId;
-  box.innerHTML = `${mics.length ? `<label>Microphone<select data-dev="mic">${optList(mics, curMic, 'Microphone')}</select></label>` : ''}${cams.length ? `<label>Camera<select data-dev="cam">${optList(cams, curCam, 'Camera')}</select></label>` : ''}${spks.length && 'setSinkId' in HTMLMediaElement.prototype ? `<label>Speaker<select data-dev="spk">${optList(spks, S.spkId, 'Speaker')}</select></label>` : ''}${!mics.length && !cams.length ? '<p class="mt-sub" style="margin:0">No devices were found. Check that the browser may use the camera and microphone.</p>' : ''}`;
-  box.querySelectorAll('select[data-dev]').forEach((sel) => sel.addEventListener('change', () => switchDevice(sel.dataset.dev, sel.value)));
 }
 function closeMore() { if (!S.more) return; S.more = false; S.moreDev = false; paintMore(); paintCtl(); }
 function dragToCloseMore(sheet) {
@@ -752,21 +995,27 @@ function paintSideBody(full) {
     const live = S.live.filter((i) => !i.dismissed || h);
     const acts = live.filter((i) => i.kind === 'action'), decs = live.filter((i) => i.kind === 'decision');
     const row = (i) => `<div class="ln${i.dismissed ? ' is-off' : ''}"><div><b>${esc(i.text)}</b><span>${[i.owner ? esc(i.owner) : 'No owner yet', i.due ? 'due ' + esc(i.due) : '', stampOf(i.t)].filter(Boolean).join(' · ')}</span></div>${h ? `<div class="ln-a">${i.kind === 'action' ? `<select data-a="live-owner" data-idx="${i.idx}" aria-label="Owner">${ownerOptions(i.owner)}</select>` : ''}<button class="icon-b" data-a="live-dismiss" data-idx="${i.idx}" data-v="${i.dismissed ? 'false' : 'true'}" aria-label="${i.dismissed ? 'Keep this one' : 'Dismiss this one'}" title="${i.dismissed ? 'Keep' : 'Dismiss'}">${ic(i.dismissed ? 'plus' : 'x')}</button></div>` : ''}</div>`;
-    body.innerHTML = `<div class="priv">${ic('notes')}Action items and decisions appear here as they are said. The final notes keep what stays on this list.</div>
+    const rec = S.recording && S.recording.active;
+    const last = S.lines.length ? S.lines[S.lines.length - 1] : null;
+    const heard = S.lines.slice(-6).reverse();
+    const status = rec ? `<div class="ln-st is-on"><i></i><span>Taking notes</span><span class="ln-sub">${S.lines.length ? S.lines.length + ' lines heard' + (last && last.at ? ' · last ' + Math.max(1, Math.round((Date.now() - last.at) / 1000)) + 's ago' : '') : 'Listening'}</span></div>`
+      : `<div class="ln-st"><i></i><span>${S.meeting.rec === 'off' ? 'Notes are off for this meeting' : 'Notes start when the recording starts'}</span></div>`;
+    body.innerHTML = `${status}
       <div class="h-label">Action items, ${acts.length}</div>${acts.map(row).join('') || '<p class="mt-sub" style="margin:0 0 10px">None yet.</p>'}
-      <div class="h-label" style="margin-top:12px">Decisions, ${decs.length}</div>${decs.map(row).join('') || '<p class="mt-sub" style="margin:0 0 10px">None yet.</p>'}`;
+      <div class="h-label" style="margin-top:12px">Decisions, ${decs.length}</div>${decs.map(row).join('') || '<p class="mt-sub" style="margin:0 0 10px">None yet.</p>'}
+      ${heard.length ? `<div class="h-label" style="margin-top:12px">Heard just now</div>${heard.map((l) => `<div class="ln-tx">${l.who ? `<b>${esc(l.who)}</b> ` : ''}${esc(l.text)}</div>`).join('')}` : ''}`;
     if (full) $('#rm-input').dataset.k = 'notes';
     if (full) $('#rm-input').innerHTML = `<div class="ln-add"><div class="ln-kind" role="group" aria-label="Kind"><button data-a="live-kind" data-k="action" aria-pressed="${S.liveKind === 'action'}" class="${S.liveKind === 'action' ? 'is-on' : ''}">Action item</button><button data-a="live-kind" data-k="decision" aria-pressed="${S.liveKind === 'decision'}" class="${S.liveKind === 'decision' ? 'is-on' : ''}">Decision</button></div><div class="rm-input"><input id="livein" placeholder="Add one by hand" maxlength="300" autocomplete="off" value="${esc(S.liveText)}" /><button class="icb send" data-a="live-add" aria-label="Add">${ic('send')}</button></div></div>`;
   } else if (S.panel === 'people') {
     const h = hostish();
-    const all = [mePerson(), ...others()];
+    const all = [mePerson(), ...others()].map((p, i) => ({ p, i, n: handNo(p.pid) })).sort((a, b) => (a.n ? a.n : 1e9) - (b.n ? b.n : 1e9) || a.i - b.i).map((x) => x.p);
     const wait = h ? S.people.filter((p) => p.waiting) : [];
     paintFoot();
     body.innerHTML = `${wait.map((p) => `<div class="wait"><b>Waiting to join</b><div class="pp" style="padding:0">${av(p.name)}<div><b>${esc(p.name)}</b><span>Guest</span></div><div class="ctl"><button class="h-btn h-btn--primary h-btn--sm" data-a="cmd" data-c="letin" data-pid="${p.pid}">Let in</button></div></div></div>`).join('')}
       ${h ? `<div class="hostbar"><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="muteall">${ic('micOff')}Mute everyone</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="${S.locked ? 'unlock' : 'lock'}">${ic('lock')}${S.locked ? 'Unlock room' : 'Lock room'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="sharepolicy">${ic('screen')}${S.sharePolicy === 'hosts' ? 'Anyone can share' : 'Only hosts share'}</button></div>` : ''}
       <div class="h-label">In the meeting, ${all.length}</div>
-      ${all.map((p) => `<div class="pp" style="position:relative">${av(p.name)}<div><b>${esc(p.name)}${p.me ? ' (you)' : ''}</b><span>${p.role === 'host' || p.role === 'cohost' ? 'Host' + (p.title || p.team ? ' · ' : '') : ''}${p.role === 'guest' ? 'Guest' : esc(p.title || p.team || (p.role === 'host' || p.role === 'cohost' ? '' : 'Staff'))}${p.hand ? ' · hand raised' : ''}${p.sharing ? ' · sharing' : ''}</span></div>
-        <div class="ctl"><span class="icon-b ${p.mic ? 'is-on' : 'is-off'}" title="${p.mic ? 'Mic on' : 'Muted'}">${ic(p.mic ? 'mic' : 'micOff')}</span>${h && !p.me ? `<button class="icon-b" data-a="pmenu" data-pid="${p.pid}" aria-label="Host controls for ${esc(p.name)}" aria-haspopup="menu" aria-expanded="${S.menu === p.pid}">${ic('more')}</button>` : ''}</div>
+      ${all.map((p) => `<div class="pp${handNo(p.pid) ? ' is-hand' : ''}" style="position:relative">${av(p.name)}<div><b>${esc(p.name)}${p.me ? ' (you)' : ''}</b><span>${p.role === 'host' || p.role === 'cohost' ? 'Host' + (p.title || p.team ? ' · ' : '') : ''}${p.role === 'guest' ? 'Guest' : esc(p.title || p.team || (p.role === 'host' || p.role === 'cohost' ? '' : 'Staff'))}${p.sharing ? ' · sharing' : ''}${!p.me && soundState(p.pid) === 'nosound' ? ' · <b class="pp-warn">no sound arriving</b>' : ''}</span></div>
+        <div class="ctl">${handNo(p.pid) ? `<span class="pp-hand">${ic('hand')}${handNo(p.pid)}</span>${h && !p.me ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">Lower</button>` : ''}` : ''}<span class="icon-b ${p.mic ? 'is-on' : 'is-off'}" title="${p.mic ? 'Mic on' : 'Muted'}">${ic(p.mic ? 'mic' : 'micOff')}</span>${h && !p.me ? `<button class="icon-b" data-a="pmenu" data-pid="${p.pid}" aria-label="Host controls for ${esc(p.name)}" aria-haspopup="menu" aria-expanded="${S.menu === p.pid}">${ic('more')}</button>` : ''}</div>
         ${S.menu === p.pid ? `<div class="menu" role="menu"><button role="menuitem" data-a="cmd" data-c="mute" data-pid="${p.pid}">${ic('micOff')}Mute</button><button role="menuitem" data-a="cmd" data-c="${S.spot === p.pid ? 'unspot' : 'spot'}" data-pid="${p.pid}">${ic('pin')}${S.spot === p.pid ? 'End spotlight' : 'Spotlight for everyone'}</button><button role="menuitem" data-a="cmd" data-c="camoff" data-pid="${p.pid}">${ic('videoOff')}Turn camera off</button>${p.hand ? `<button role="menuitem" data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">${ic('hand')}Lower hand</button>` : ''}<button role="menuitem" data-a="cmd" data-c="allowshare" data-v="${p.canShare === false ? 'true' : 'false'}" data-pid="${p.pid}">${ic('screen')}${p.canShare === false ? 'Allow screen sharing' : 'Block screen sharing'}</button>${p.role === 'cohost' ? `<button role="menuitem" data-a="cmd" data-c="unhost" data-pid="${p.pid}">${ic('users')}Remove host rights</button>` : `<button role="menuitem" data-a="cmd" data-c="makehost" data-pid="${p.pid}">${ic('users')}Make a host</button>`}<button role="menuitem" class="danger" data-a="cmd" data-c="remove" data-pid="${p.pid}">${ic('remove')}Remove from meeting</button></div>` : ''}</div>`).join('')}`;
   }
 }
@@ -783,10 +1032,15 @@ function onDocClick(e) {
     case 'share': toggleShare(); break;
     case 'cc': S.cc = !S.cc; paintCtl(); paintCap(); break;
     case 'rec': toggleRecording(); break;
-    case 'hand': S.hand = !S.hand; paintCtl(); paintGrid(); syncNow(); break;
+    case 'hand': S.hand = !S.hand; if (!S.handAt) S.handAt = new Map(); if (S.hand) S.handAt.set(S.me.pid, Date.now()); else S.handAt.delete(S.me.pid); paintCtl(); paintGrid(); if (S.panel === 'people') paintSideBody(false); syncNow(); break;
     case 'panel': S.more = false; S.moreDev = false; S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') S.unread = 0; paintCtl(); paintSide(); paintMore(); break;
     case 'more': S.more = !S.more; S.moreDev = false; if (S.more && S.panel && sheetMode()) { S.panel = ''; paintSide(); } paintCtl(); paintMore(); break;
-    case 'moredev': S.moreDev = !S.moreDev; paintMore(); return;
+    case 'devmenu': openDevSheet(a.dataset.p || ''); return;
+    case 'sound-on': soundOn(); return;
+    case 'mic-help': confirmCard({ title: 'Allow the microphone', body: permHelp({ name: 'NotAllowedError' }), ok: 'OK' }); return;
+    case 'dev-close': closeDevSheet(); return;
+    case 'dev-test': testSpeaker(a); return;
+    case 'dev-bg': pickBg(a.dataset.v); return;
     case 'panel-close': S.panel = ''; paintCtl(); paintSide(); break;
     case 'leave': leaveClick(); break;
     case 'pop': S.pop = S.pop === a.dataset.p ? '' : a.dataset.p; paintTools(); paintPop(); break;
@@ -818,11 +1072,12 @@ function onDocClick(e) {
     default: break;
   }
   // A choice in the More sheet closes it, except the one that opens the device list.
-  if (S.more && act !== 'more' && act !== 'moredev' && a.closest('#rm-more-wrap')) closeMore();
+  if (S.more && act !== 'more' && a.closest('#rm-more-wrap')) closeMore();
 }
 function onKey(e) {
   if (document.querySelector('.cf')) return;
   if (e.key === 'Escape') {
+    if (devOpen) { closeDevSheet(); e.preventDefault(); return; }
     if (S.more) { closeMore(); const o = $('#rm-ctl [data-a="more"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.pop) { const p = S.pop; S.pop = ''; paintTools(); paintPop(); const o = $('[data-a="pop"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.menu) { const pid = S.menu; S.menu = null; paintSideBody(false); const o = $('[data-a="pmenu"][data-pid="' + pid + '"]'); o && o.focus(); e.preventDefault(); return; }
@@ -837,7 +1092,10 @@ function onKey(e) {
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
   if (e.target.id === 'livein' && e.key === 'Enter') { e.preventDefault(); addLive(); return; }
   if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, brainKindOf(q)); } return; }
-  if (e.target.matches && e.target.matches('input, textarea')) return;
+  // Ctrl+D and Ctrl+E, as in Google Meet, work from anywhere in the room.
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === 'd' || e.key === 'e')) { e.preventDefault(); if (e.key === 'd') toggleMic(); else toggleCam(); return; }
+  if (devOpen && e.key === 'Tab') { const f = $$('#rm-dev-wrap .rd button:not([disabled]), #rm-dev-wrap .rd select, #rm-dev-wrap .rd input'); if (f.length) { const first = f[0], last = f[f.length - 1]; if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); } else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); } } return; }
+  if (e.target.matches && e.target.matches('input, textarea, select')) return;
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
 }
@@ -903,7 +1161,7 @@ window.addEventListener('pagehide', onUnload);
 window.addEventListener('pageshow', (e) => {
   if (!e.persisted || !S.beaconed || S.left) return;
   S.left = true; clearIntervals();
-  [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());
+  stopFx(); [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());
   if (rtc) rtc.close();
   document.getElementById('h-app').classList.remove('is-room');
   ended('You left the meeting');
@@ -932,15 +1190,18 @@ async function toggleCam() {
   if (AUDIO_ONLY) { toast('This is an audio call. Leave and join again for video.'); return; }
   if (S.cam) {
     S.cam = false;
-    if (local.cam) { try { await rtc.replace('v', null); } catch {} local.cam.stop(); local.cam = null; }
+    if (local.cam) { try { await rtc.replace('v', null); } catch {} stopCam(); }
   } else {
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, ...(S.camId ? { deviceId: { ideal: S.camId } } : {}) } });
-      local.cam = s.getVideoTracks()[0]; S.cam = true;
+      // The settings preview holds the camera: hand it over rather than opening it twice.
+      stopDevPreview();
+      const { track, fellBack } = await acquire('video', P);
+      await setCam(track); S.cam = true;
       await rtc.replace('v', local.cam);
+      if (fellBack) toast(fallbackLine({ cam: true }, { cam: track }));
     } catch { toast('The camera is not available.'); S.cam = false; }
   }
-  paintCtl(); paintGrid(); syncNow();
+  paintCtl(); paintGrid(); paintDevSheet(); syncNow();
 }
 async function toggleShare() {
   if (S.sharing) return stopShare();
@@ -976,6 +1237,7 @@ async function leaveRoom(msg) {
   if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.', { noRejoin: true, saving: true }); }
   try { if (recorder) await recorder.stopIfOwner(); } catch {}
   try { await api('meetings/' + MID + '/leave', { method: 'POST', body: { pid: S.me.pid } }); } catch {}
+  closeDevSheet(); hideMutedHint(); resetLevel(); stopFx();
   [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());
   if (rtc) rtc.close();
   for (const [, t] of tiles) t.el.remove(); tiles.clear();
@@ -1021,20 +1283,34 @@ function applySync(r) {
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
   S.recording = r.recording;
-  for (const l of r.lines || []) { S.lines.push(l); S.tx = l.n; }
-  if ((r.lines || []).length) paintCap();
+  // Lines are stamped when they arrive. The first sync brings the transcript so far, which is history, not a caption.
+  for (const l of r.lines || []) { l.at = S.capPrimed ? Date.now() : 0; S.lines.push(l); S.tx = l.n; }
+  S.capPrimed = true;
+  if ((r.lines || []).length) { paintCap(); const a = document.activeElement; if (S.panel === 'notes' && !(a && a.matches && a.matches('#livein, select[data-a="live-owner"]'))) paintSideBody(false); }
   for (const e of r.events) handleEvent(e);
   if (r.events.length) S.events = r.events[r.events.length - 1].seq;
   if (r.meeting.status === 'ended') return leaveRoom('The meeting ended');
   // Repaint only what changed, so a button is never replaced under a click.
   const base = (p) => [p.pid, p.name, p.sessionId, p.mic, p.cam, p.hand, p.sharing, p.role, p.waiting, p.canShare];
   const gridSig = JSON.stringify([S.people.map((p) => [...base(p), p.speaking]), S.spot, S.pin]);
-  const ctlSig = JSON.stringify([S.people.filter((p) => p.waiting).length, (S.people.find((p) => p.pid === S.me.pid) || {}).canShare, S.locked, S.sharePolicy, S.recording && [S.recording.active, S.recording.owner], S.me.role]);
+  const ctlSig = JSON.stringify([handCount(), S.people.filter((p) => p.waiting).length, (S.people.find((p) => p.pid === S.me.pid) || {}).canShare, S.locked, S.sharePolicy, S.recording && [S.recording.active, S.recording.owner], S.me.role]);
   const sideSig = JSON.stringify([S.people.map(base), S.spot, S.locked, S.sharePolicy]);
   if (hostish()) {
     const waiting = S.people.filter((p) => p.waiting); const wsig = waiting.map((p) => p.pid).join(',');
     if (wsig !== S.waitSig) { S.waitSig = wsig; paintWait(waiting); for (const p of waiting) if (!S.seenWait.has(p.pid)) { S.seenWait.add(p.pid); toast(p.name + ' is waiting to join.'); chime(); } }
   } else if (S.waitSig) { S.waitSig = ''; paintWait([]); }
+  // A hand going up tells the hosts, as Zoom and Meet do.
+  // Raise order: the time this browser first saw each hand go up. Hosts get a toast and a soft chime for each new one.
+  if (!S.handAt) S.handAt = new Map();
+  const up = new Set(S.people.filter((p) => p.hand && !p.waiting).map((p) => p.pid));
+  if (S.hand) up.add(S.me.pid);
+  const fresh = [];
+  for (const pid of up) if (!S.handAt.has(pid)) { S.handAt.set(pid, Date.now()); if (pid !== S.me.pid) fresh.push(pid); }
+  for (const pid of [...S.handAt.keys()]) if (!up.has(pid)) S.handAt.delete(pid);
+  if (S.handsPrimed && hostish() && fresh.length) { toast(fresh.map(nameOf).join(', ') + (fresh.length > 1 ? ' raised hands' : ' raised a hand')); chime(); }
+  S.handsPrimed = true;
+  const handSig = [...S.handAt.keys()].join(',');
+  if (handSig !== S.handSig) { S.handSig = handSig; S.ctlSig = null; S.sideSig = null; S.gridSig = null; }
   if (gridSig !== S.gridSig) { S.gridSig = gridSig; paintGrid(); }
   if (ctlSig !== S.ctlSig) { S.ctlSig = ctlSig; paintCtl(); }
   if (sideSig !== S.sideSig) { S.sideSig = sideSig; if (S.panel === 'people' && !S.menu) paintSideBody(false); }
@@ -1049,7 +1325,7 @@ function handleEvent(e) {
   if (e.kind === 'chat') {
     if (e.body.ai && e.from !== S.me.pid && false) return;
     S.chat.push({ ...e.body, from: e.from, to: e.to, ts: e.ts });
-    if (S.panel !== 'chat' && e.from !== S.me.pid) { S.unread++; paintCtl(); }
+    if (S.panel !== 'chat' && e.from !== S.me.pid) { S.unread++; paintCtl(); if (e.body.text && Date.now() - (S.joinedAt || 0) > 4000) toast((e.body.name || nameOf(e.from)) + ': ' + String(e.body.text).slice(0, 80)); }
     if (S.panel === 'chat') paintSideBody(false);
   } else if (e.kind === 'cmd') {
     const b = e.body; const toMe = e.to === S.me.pid || e.to === '';
@@ -1112,7 +1388,13 @@ async function reconcile() {
     }
     for (const [k, want] of w) { const s = rtc.subs.get(k); if (!s || s.sessionId !== want.sessionId) add.push(want); }
     if (drop.length) { await rtc.drop(drop); drop.forEach((k) => { const r = remote.get(k); if (r && r.el) r.el.remove(); remote.delete(k); }); }
-    for (let i = 0; i < add.length; i += 16) await rtc.pull(add.slice(i, i + 16));
+    for (let i = 0; i < add.length; i += 16) {
+      const batch = add.slice(i, i + 16);
+      try { await rtc.pull(batch); } catch (e) { diag('pull', { tracks: (rtc.lastPull || batch.map((w) => ({ pid: w.pid, name: w.trackName, ok: false }))), err: String(e.message || e).slice(0, 120) }); throw e; }
+      // Every audio subscription is reported once, so a person who heard nobody can be read afterwards.
+      const audio = (rtc.lastPull || []).filter((x) => x.name === 'a' || !x.ok);
+      if (audio.length) diag('pull', { tracks: audio });
+    }
     for (const [k, rid] of retune) await rtc.setLayer(k, rid);
     // Videos whose element was rebuilt need their stream again.
     for (const [k, r] of remote) if (r.tkey) { const t = tiles.get(r.tkey); if (t && t.video.srcObject !== r.stream) { t.video.srcObject = r.stream; t.video.play().catch(() => {}); } }
@@ -1129,9 +1411,16 @@ async function onStats() {
   S.levelVotes = lvl === S.levelCand ? (S.levelVotes || 0) + 1 : 1; S.levelCand = lvl;
   const worse = ['good', 'fair', 'weak'].indexOf(lvl) > ['good', 'fair', 'weak'].indexOf(S.level);
   if (lvl !== S.level && S.levelVotes >= (worse ? 6 : 3)) { S.level = lvl; paintAll(); scheduleReconcile(); }
-  // Nothing arriving for a while while others are present: the path is dead.
-  const anyone = others().length > 0 && rtc.subs.size > 0;
-  if (anyone && st.t && st.bps < 1000) { if (!silentSince) silentSince = Date.now(); if (Date.now() - silentSince > 9000) { silentSince = 0; rejoin('no media for 9 seconds'); } } else silentSince = 0;
+  // Reconnect only when the connection itself is gone. One person sending nothing (a dead microphone, a blocked network on their
+  // side) is shown on their tile and retried on its own; it used to make everyone else reconnect every 13 seconds.
+  const now = Date.now();
+  if (st.state === 'connected') { if (!S.everUp) { S.everUp = true; S.noConnect = 0; diag('connected'); } S.downSince = 0; }
+  const down = st.state === 'disconnected' || st.state === 'failed';
+  if (down) S.downSince = S.downSince || now; else S.downSince = 0;
+  if (down && now - S.downSince > 8000) rejoinSoon('connection down');
+  else if (!S.everUp && now - (S.rtcAt || now) > 20000) { S.noConnect = (S.noConnect || 0) + 1; diag('never-connected'); rejoinSoon('never connected'); }
+  else if (st.state === 'connected' && st.pathAt && now - st.pathAt > 12000) rejoinSoon('nothing on the path for 12 seconds');
+  if (st.state === 'connected') audioHealth();
   if (S.conn === 'back' && Date.now() - (S.backAt || 0) > 5000) { S.conn = 'ok'; paintBar(); }
   // Speaking rings from the sound the SFU delivers, for people the sync has not flagged yet.
 }
@@ -1139,15 +1428,25 @@ function onRtcState(s) {
   S.rtcDown = s === 'disconnected' || s === 'failed';
   if (s === 'disconnected' && S.conn === 'ok') { S.conn = 'drop'; S.dropAt = Date.now(); S.dropRel = Math.max(0, Math.round((Date.now() - (Date.parse(S.meeting.startedAt || '') || S.started)) / 1000)); paintBar(); }
   if (s === 'connected' && S.conn === 'drop') { S.conn = 'back'; S.backAt = Date.now(); S.missedSec = (Date.now() - S.dropAt) / 1000; paintBar(); scheduleReconcile(); }
-  if (s === 'failed' && !S.left) rejoin('connection failed');
+  if (s === 'failed' && !S.left) rejoinSoon('connection failed');
+}
+// Reconnects back off (2, 4, 8 up to 30 seconds apart) so a bad network does not hammer the room.
+function rejoinSoon(why) {
+  if (rejoining || S.left) return;
+  const now = Date.now();
+  if (now < (S.nextRejoinAt || 0)) return;
+  S.rejoinN = now - (S.lastRejoinAt || 0) < 120000 ? (S.rejoinN || 0) + 1 : 0;
+  S.lastRejoinAt = now; S.nextRejoinAt = now + Math.min(30000, 2000 * 2 ** S.rejoinN);
+  rejoin(why);
 }
 async function rejoin(why) {
   if (rejoining || S.left) return;
+  diag('rejoin', { why });
   rejoining = true; S.conn = 'drop'; S.dropAt = S.dropAt || Date.now(); paintBar();
   console.warn('[meet] rejoin:', why);
   for (let i = 0; i < 30 && !S.left; i++) {
     try {
-      remote.clear(); $$('audio[id^="a-"]').forEach((a) => a.remove());
+      remote.clear(); $$('audio[id^="a-"]').forEach((a) => a.remove()); S.ah.clear();
       await connect(true);
       if (S.sharing && local.screen) { await rtc.publish([{ name: 's', kind: 'video', track: local.screen }]); const all = [...rtc.out.entries()].map(([name, o]) => ({ name, kind: o.kind, mid: o.mid })); await api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: all } }); }
       rejoining = false; S.conn = 'back'; S.backAt = Date.now(); S.missedSec = (Date.now() - S.dropAt) / 1000; paintBar(); scheduleReconcile();
@@ -1161,20 +1460,114 @@ async function rejoin(why) {
   if (!S.left) failScreen(new Error('The connection did not come back.'));
 }
 
+// ---------------------------------------------------------------- audio health
+// Playback the browser refused (autoplay rules): a bar with one button, since a click is what the browser waits for.
+function playAudio(el) {
+  el.play().then(() => { if (S.soundBlocked && !$$('audio[id^="a-"]').some((a) => a.paused && a.srcObject)) { S.soundBlocked = false; paintBar(); } }).catch((e) => {
+    if (e && e.name === 'NotAllowedError' && !S.soundBlocked) { S.soundBlocked = true; paintBar(); diag('autoplay-blocked'); }
+  });
+}
+function soundOn() {
+  try { if (actx && actx.state === 'suspended') actx.resume(); } catch {}
+  const els = $$('audio[id^="a-"]').filter((a) => a.srcObject);
+  Promise.all(els.map((a) => a.play())).then(() => { S.soundBlocked = false; paintBar(); }).catch(() => toast('The browser still blocks sound. Click anywhere on the page, then try again.'));
+}
+
+// Per person: is their sound reaching this browser? Packets for their audio track are counted every 1.5 seconds. A person whose
+// microphone is on but whose packets stop gets "No sound" on their tile and their subscription is pulled again, at most every 15 seconds.
+function audioHealth() {
+  if (!rtc) return;
+  const now = Date.now(); let changed = false;
+  const seen = new Set();
+  for (const p of others()) {
+    if (!(p.tracks || []).some((t) => t.name === 'a')) continue;
+    seen.add(p.pid);
+    const key = p.pid + '|a', sub = rtc.subs.get(key);
+    let h = S.ah.get(p.pid);
+    if (!h || h.sid !== p.sessionId) { h = { sid: p.sessionId, pk: 0, at: now, state: 'connecting', retryAt: 0, tries: 0 }; S.ah.set(p.pid, h); changed = true; }
+    const pk = sub ? rtc.audioPackets(sub.mid) : 0;
+    if (pk > h.pk) { h.pk = pk; h.at = now; }
+    const quiet = now - h.at;
+    const next = !p.mic ? (sub ? 'ok' : 'connecting') : sub && pk && quiet < 6000 ? 'ok' : quiet > 6000 ? 'nosound' : 'connecting';
+    let st = next;
+    // Packets arriving is half of it: the sound also needs its audio element, playing, on a speaker that exists.
+    if (st === 'ok' && sub && p.mic) {
+      const r = remote.get(key);
+      if (!r || !r.el) { if (now - h.at < 4000 && now - (h.elAt || (h.elAt = now)) > 4000) st = 'nosound'; }
+      else { h.elAt = 0; if (r.el.paused) playAudio(r.el); }
+    }
+    if (st !== h.state) { h.state = st; changed = true; if (st === 'nosound') diag('no-sound-from', { from: p.pid, sub: !!sub, pk, el: !!(remote.get(key) || {}).el }); }
+    const next2 = st;
+    if (next2 === 'nosound' && now - h.retryAt > 15000) {
+      h.retryAt = now; h.tries++;
+      (sub ? rtc.drop([key]).then(() => { const r = remote.get(key); if (r && r.el) r.el.remove(); remote.delete(key); }) : Promise.resolve()).catch(() => {}).then(() => reconcile());
+    }
+  }
+  for (const pid of [...S.ah.keys()]) if (!seen.has(pid)) { S.ah.delete(pid); changed = true; }
+  if (changed) { S.gridSig = null; paintGrid(); if (S.panel === 'people' && !S.menu) paintSideBody(false); }
+}
+const handNo = (pid) => { if (!S.handAt || !S.handAt.has(pid)) return 0; return [...S.handAt.entries()].sort((a, b) => a[1] - b[1]).findIndex(([k]) => k === pid) + 1; };
+const handCount = () => (S.handAt ? S.handAt.size : 0);
+const soundState = (pid) => { const h = S.ah.get(pid); return h ? h.state : ''; };
+
+// This person's own microphone: blocked, missing, or open but silenced by the system (another app took it).
+function watchMic(t) {
+  if (!t || t._watched) return; t._watched = true;
+  t.addEventListener('mute', () => { if (local.mic === t) { S.micIssue = 'silent'; paintBar(); diag('mic-muted-by-system'); } });
+  t.addEventListener('unmute', () => { if (local.mic === t && S.micIssue === 'silent') { S.micIssue = ''; paintBar(); } });
+}
+function micIssueHTML() {
+  if (S.micIssue === 'denied') return `<div class="banner warn">${ic('micOff')}<span>Your microphone is blocked, so nobody can hear you.</span><button class="h-btn h-btn--ghost h-btn--sm" data-a="mic-help">How to fix</button></div>`;
+  if (S.micIssue === 'nodev') return `<div class="banner warn">${ic('micOff')}<span>No microphone found. Nobody can hear you.</span><button class="h-btn h-btn--ghost h-btn--sm" data-a="devmenu" data-p="mic">Settings</button></div>`;
+  if (S.micIssue === 'silent') return `<div class="banner warn">${ic('micOff')}<span>Your microphone stopped sending sound. Another app may be using it.</span><button class="h-btn h-btn--ghost h-btn--sm" data-a="devmenu" data-p="mic">Settings</button></div>`;
+  return '';
+}
+
+// A short connection report to the server, for reading a call that went wrong. At most one of each kind every 20 seconds.
+const diagAt = new Map();
+function diag(ev, extra) {
+  if (!S.me.pid || S.left) return;
+  const k = ev + (extra && extra.from ? ':' + extra.from : '') + (extra && extra.tracks ? ':' + extra.tracks.map((x) => x.pid + x.name + x.ok).join(',') : '');
+  if (Date.now() - (diagAt.get(k) || 0) < 20000) return; diagAt.set(k, Date.now());
+  const st = (rtc && rtc.stats) || {};
+  const ua = navigator.userAgent; const br = /Edg\//.test(ua) ? 'edge' : /CriOS|Chrome\//.test(ua) ? 'chrome' : /Firefox|FxiOS/.test(ua) ? 'firefox' : /Safari\//.test(ua) ? 'safari' : 'other';
+  const body = { ev, ...(extra || {}), state: st.state || '', ice: st.ice || '', pair: st.pair || '', relay: !!st.relay, rtt: st.rtt ? Math.round(st.rtt * 1000) : 0, loss: st.loss ? Math.round(st.loss * 1000) / 10 : 0, br, ios: IOS, mic: !!local.mic, micOn: S.mic, people: others().length };
+  api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind: 'diag', body, to: S.me.pid } }).catch(() => {});
+}
+
 // ---------------------------------------------------------------- sound level (speaking ring, sent in the sync)
-let analyser = null, analyserBuf = null, actx = null;
+// The meter reads a copy of the microphone that stays on while the person is muted, so the settings meter moves and a person
+// talking while muted is told so. The copy never leaves this browser; what is sent is the muted original.
+let analyser = null, analyserBuf = null, actx = null, levelTrack = null, mutedTalk = 0, mutedHintAt = 0;
+function resetLevel() { analyser = null; try { actx && actx.close(); } catch {} actx = null; if (levelTrack) { levelTrack.stop(); levelTrack = null; } }
 function measureLevel() {
-  if (!local.mic || !S.mic) { S.lvl = 0; return; }
+  if (!local.mic || local.mic.readyState === 'ended') { S.lvl = 0; S.rawLvl = 0; return; }
   try {
     if (!analyser) {
-      actx = new (window.AudioContext || window.webkitAudioContext)(); const src = actx.createMediaStreamSource(new MediaStream([local.mic]));
+      levelTrack = local.mic.clone(); levelTrack.enabled = true;
+      actx = new (window.AudioContext || window.webkitAudioContext)(); const src = actx.createMediaStreamSource(new MediaStream([levelTrack]));
       analyser = actx.createAnalyser(); analyser.fftSize = 512; src.connect(analyser); analyserBuf = new Uint8Array(analyser.fftSize);
     }
+    if (actx.state === 'suspended') actx.resume().catch(() => {});
     analyser.getByteTimeDomainData(analyserBuf);
     let sum = 0; for (const v of analyserBuf) { const d = (v - 128) / 128; sum += d * d; }
-    S.lvl = Math.min(100, Math.round(Math.sqrt(sum / analyserBuf.length) * 400));
-  } catch { S.lvl = 0; }
+    S.rawLvl = Math.min(100, Math.round(Math.sqrt(sum / analyserBuf.length) * 400));
+    S.lvl = S.mic ? S.rawLvl : 0;
+    const i = $('#rd-lvl'); if (i) i.style.width = S.rawLvl + '%';
+    // Four readings in a row (one second) of speech while muted: a note above the controls, at most every 20 seconds.
+    mutedTalk = !S.mic && S.rawLvl > 22 ? mutedTalk + 1 : 0;
+    if (mutedTalk >= 4 && Date.now() - mutedHintAt > 20000 && !devOpen) { mutedHintAt = Date.now(); showMutedHint(); }
+    if (S.mic) hideMutedHint();
+  } catch { S.lvl = 0; S.rawLvl = 0; }
 }
+function showMutedHint() {
+  const st = $('.rm-stage'); if (!st) return;
+  let el = $('#rm-muted');
+  if (!el) { el = document.createElement('div'); el.id = 'rm-muted'; el.className = 'rm-muted'; el.setAttribute('role', 'status'); st.appendChild(el); }
+  el.innerHTML = `${ic('micOff')}<span>You are muted</span><button class="h-btn h-btn--primary h-btn--sm" data-a="mic">Unmute</button>`;
+  clearTimeout(showMutedHint.t); showMutedHint.t = setTimeout(hideMutedHint, 5000);
+}
+function hideMutedHint() { const el = $('#rm-muted'); if (el) el.remove(); }
 
 // ---------------------------------------------------------------- recording
 function getRecInput() {
@@ -1189,16 +1582,18 @@ async function toggleRecording() {
   else await recorder.start();
 }
 
-window.__meet = { S, tiles, get rtc() { return rtc; }, reconcile, rejoin };
+window.__meet = { S, tiles, get rtc() { return rtc; }, get fx() { return cfx; }, get vfx() { return vfx; }, reconcile, rejoin };
 
 // ---------------------------------------------------------------- captions
 function paintCap() {
   const el = $('#rm-cap'); if (!el) return;
   if (!S.cc) { el.hidden = true; return; }
-  const meetingStart = Date.parse(S.meeting.startedAt || '') || S.started;
-  const fresh = S.lines.filter((l) => Date.now() - (meetingStart + l.t * 1000) < 45000).slice(-3);
+  // Fresh means arrived in the last 20 seconds by this browser's own clock, so a slow transcript or a skewed clock still shows.
+  const fresh = S.lines.filter((l) => l.at && Date.now() - l.at < 20000).slice(-3);
+  const listening = S.recording && S.recording.active;
   el.hidden = false; el.classList.toggle('is-quiet', !fresh.length);
-  el.innerHTML = fresh.length ? fresh.map((l, i) => `<span class="cl${i < fresh.length - 1 ? ' old' : ''}">${l.who ? `<b>${esc(l.who)}:</b> ` : ''}${esc(l.text)}</span>`).join('') : 'Captions on, waiting for speech.';
+  el.innerHTML = fresh.length ? fresh.map((l, i) => `<span class="cl${i < fresh.length - 1 ? ' old' : ''}">${l.who ? `<b>${esc(l.who)}:</b> ` : ''}${esc(l.text)}</span>`).join('')
+    : listening ? 'Captions on. They run about 15 seconds behind.' : S.meeting.rec === 'off' ? 'Captions need recording or notes, and this meeting has both off.' : 'Captions start when the recording starts.';
 }
 setInterval(() => { if (S.cc) paintCap(); }, 2000);
 
@@ -1288,14 +1683,20 @@ async function revive() {
   if (reviving || !rtc || !S.me || !S.me.pid) return;
   reviving = true;
   try {
-    $$('audio[id^="a-"]').forEach((a) => { if (a.paused && a.srcObject) a.play().catch(() => {}); });
+    $$('audio[id^="a-"]').forEach((a) => { if (a.paused && a.srcObject) playAudio(a); });
     $$('#rm-grid video').forEach((v) => { if (v.paused && v.srcObject) v.play().catch(() => {}); });
     if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
-    if (local.mic && local.mic.readyState === 'ended') {
-      const ns = await navigator.mediaDevices.getUserMedia({ audio: S.micId ? { deviceId: { ideal: S.micId } } : true });
-      const t = ns.getAudioTracks()[0];
-      t.enabled = S.mic; local.mic = t; analyser = null; try { actx && actx.close(); } catch {} actx = null;
-      await rtc.replace('a', t);
+    // A microphone or camera that ended (unplugged, or the phone took it back): the saved device again, or the default and a note.
+    if (local.micRaw && local.micRaw.readyState === 'ended') {
+      const { track: t, fellBack } = await acquire('audio', P);
+      await setMic(t);
+      await rtc.replace('a', local.mic);
+      if (fellBack) toast(fallbackLine({ mic: true }, { mic: t }));
+    }
+    if (S.cam && local.camRaw && local.camRaw.readyState === 'ended' && !AUDIO_ONLY) {
+      const { track: t, fellBack } = await acquire('video', P);
+      await setCam(t); await rtc.replace('v', local.cam); paintGrid();
+      toast(fellBack ? fallbackLine({ cam: true }, { cam: t }) : 'Your camera is back.');
     }
   } catch {} finally { reviving = false; }
 }
@@ -1303,4 +1704,5 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 window.addEventListener('pageshow', revive);
 window.addEventListener('focus', revive);
 document.addEventListener('touchend', revive, { passive: true });
+document.addEventListener('click', revive);
 setInterval(revive, 3000);

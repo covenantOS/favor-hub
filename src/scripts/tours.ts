@@ -398,8 +398,8 @@ export const RELEASES: Release[] = [
             via: 'meet',
             at: '#mt-day',
             title: 'Action items while people talk',
-            body: 'In a room, the Notes tab lists action items and decisions as they are said, with the owner when someone was named. Anyone can add one by hand. The host can dismiss one or change its owner. The final notes keep what stays on the list.',
-            added: '2026-10-12',
+            body: 'In a room, the Notes tab lists action items and decisions as they are said, with the owner when someone was named. Anyone can add one by hand. The host can dismiss one or change its owner. The arrow beside Mute or Camera opens Settings, with a live preview, background blur and voice clarity; your camera, microphone and speaker are remembered for every call.',
+            added: '2026-10-13',
             side: 'bottom',
           },
           {

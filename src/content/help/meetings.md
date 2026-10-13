@@ -32,7 +32,17 @@ Open a meeting you organize and change its title, date, start and end times and 
 
 The bar at the bottom holds Mute, Camera, Share, Record (hosts), Raise hand, Chat, People and Leave. Press **M** to mute and **V** to turn the camera off. Double-click a person's picture to pin them for yourself. When someone shares a screen it takes the big space and everyone else moves to the side. With more than nine people the pictures page, with arrows under the grid.
 
-If your connection is weak the room shows fewer pictures at lower quality and says Connection weak. If it drops, the top of the room says it is reconnecting, and you rejoin on your own when it is back.
+If your connection is weak the room shows fewer pictures at lower quality and says Connection weak. If it drops, the top of the room says it is reconnecting, and you rejoin on your own when it is back. A person whose sound is not reaching you shows **No sound** on their picture, and the room pulls their sound again on its own. If the browser paused the sound, a bar at the top says so with **Turn on sound**.
+
+## Camera, microphone and speaker
+
+Press the small arrow beside **Mute** or **Camera**, or the gear at the top right, to open **Settings**. It shows your camera live, a meter for your microphone and a **Test** button for the speaker. A change takes effect at once without leaving the call. FavorOS remembers your choices on this computer or phone for every call, through camera off and on, a screen share and a reload. If a saved camera or microphone is unplugged, the room uses the default one and says so.
+
+Settings also holds **Background** (None, Blur, four Favor backgrounds or a picture you upload), **Brighten a dark room**, **Voice clarity** (evens out loud and quiet voices and cuts rumble), **Strong noise reduction** for a loud room, **Noise suppression** and **Echo cancellation**. Background effects switch themselves off if your computer cannot keep up. If you talk while muted, a note above the controls says **You are muted**. Ctrl D mutes and Ctrl E turns the camera off, as in Google Meet.
+
+## Raised hands
+
+A raised hand shows a blue badge with its number in the order hands went up. That person moves to the top of **People**, the People button shows how many hands are up, and hosts hear a soft chime. A host lowers a hand with **Lower** beside the name.
 
 ## Host controls
 
