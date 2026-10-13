@@ -1,8 +1,9 @@
 // How a partner found Favor: the appeal on their first gift ever (its description and category), the website form and referring page
 // when the first gift came in online, and the gift's source code once the mirror carries one. Read only from the D1 mirror.
 //
-// Source codes: another job is adding them to the mirror. Until a column whose name holds "source" exists on gifts, the lookup leaves
-// the source empty; once it exists the lookup reads it with no change here.
+// Source codes: the partner's Source Code custom field (custom_fields, category 'Source Code', one code table entry such as
+// "S2211-TGSE (Waup Book Club, WI)"). The earliest one added is the code the partner came in by. A gift column whose name holds "source"
+// is the fallback when a partner has no such field.
 //
 // Mirror rule: no statement text may contain insert, update, replace, upsert, delete, drop, alter or create.
 import { readOnly } from './repo';
@@ -32,6 +33,7 @@ const FIRST_GIFT_SQL = readOnly(`SELECT g.constituent_record_id AS cid, g.id AS 
 
 const APPEALS_SQL = readOnly(`SELECT id AS id, appeal_id AS code, appeal_description AS name, appeal_category AS cat FROM appeals WHERE id IN (SELECT value FROM json_each(?1))`);
 const FIELDS_SQL = readOnly(`SELECT gift_id AS gid, category AS k, value AS v FROM gift_custom_fields WHERE gift_id IN (SELECT value FROM json_each(?1)) AND category IN ('Donation Form Name', 'Donation Referral URL', 'Original Appeal ID')`);
+const SOURCE_FIELD_SQL = readOnly(`SELECT constituent_record_id AS cid, value AS v FROM custom_fields WHERE category = 'Source Code' AND value IS NOT NULL AND value <> '' AND constituent_record_id IN (SELECT value FROM json_each(?1)) ORDER BY date_added DESC, id DESC`);
 const SOURCE_COLS_SQL = readOnly(`SELECT name AS name FROM pragma_table_info('gifts') WHERE lower(name) LIKE '%source%' AND lower(name) <> 'source_json'`);
 
 const sourceCols = new WeakMap<Q, string[]>();
@@ -105,7 +107,7 @@ export async function foundVia(q: Q, cids: string[]): Promise<Map<string, FoundV
   const gids = firsts.map((f) => f.gid);
   const aids = [...new Set(firsts.map((f) => f.aid).filter(Boolean))];
   const cols = await sourceColumns(q);
-  const [appeals, fields, sources] = await Promise.all([
+  const [appeals, fields, sources, partnerSources] = await Promise.all([
     aids.length ? q<{ id: string; code: string; name: string; cat: string }>(APPEALS_SQL, [JSON.stringify(aids)]).catch(() => []) : Promise.resolve([]),
     (async () => {
       const all: { gid: string; k: string; v: string }[] = [];
@@ -120,7 +122,14 @@ export async function foundVia(q: Q, cids: string[]): Promise<Map<string, FoundV
       for (const part of chunk(gids, 300)) all.push(...(await q<{ gid: string; s: string }>(sql, [JSON.stringify(part)]).catch(() => [])));
       return all;
     })(),
+    (async () => {
+      const all: { cid: string; v: string }[] = [];
+      for (const part of chunk(ids, 300)) all.push(...(await q<{ cid: string; v: string }>(SOURCE_FIELD_SQL, [JSON.stringify(part)]).catch(() => [])));
+      return all;
+    })(),
   ]);
+  // Rows come newest first, so the last write per partner is the earliest code added.
+  const partnerSourceBy = new Map(partnerSources.map((s) => [String(s.cid), String(s.v || '').trim()]));
   const appealBy = new Map(appeals.map((a) => [String(a.id), a]));
   const fieldBy = new Map<string, Record<string, string>>();
   for (const f of fields) (fieldBy.get(String(f.gid)) || fieldBy.set(String(f.gid), {}).get(String(f.gid))!)[String(f.k)] = String(f.v || '');
@@ -137,7 +146,7 @@ export async function foundVia(q: Q, cids: string[]): Promise<Map<string, FoundV
       category: a ? String(a.cat || '') : '',
       form: String(fl['Donation Form Name'] || '').trim().slice(0, 60),
       referral: fl['Donation Referral URL'] ? hostPath(fl['Donation Referral URL']) : '',
-      source: sourceBy.get(f.gid) || '',
+      source: partnerSourceBy.get(f.cid) || sourceBy.get(f.gid) || '',
       label: '',
     };
     v.label = foundLabel(v);
