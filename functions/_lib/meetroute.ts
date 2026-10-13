@@ -426,6 +426,8 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
   if (!session.sessionId) throw new HttpError(502, 'sfu_error', 'The meeting service did not answer. Try again.');
   const role = hostNow ? (mt.host_email.toLowerCase() === user.email.toLowerCase() ? 'host' : 'cohost') : 'staff';
   const name = clean(b.name, 80) || user.name;
+  // A browser reconnecting on its own (the person never left) tells nobody: a "joined" toast every reconnect was noise.
+  const quiet = b.rejoin === true && !!existing && !existing.left_at;
   if (existing) {
     await env.DB.prepare('UPDATE hub_meeting_presence SET session_id = ?, tracks = ?, role = ?, seen = ?, left_at = 0, name = ? WHERE meeting_id = ? AND pid = ?')
       .bind(session.sessionId, '[]', existing.role === 'cohost' && role === 'staff' ? 'cohost' : role, now, name, id, pid).run();
@@ -436,7 +438,7 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
   }
   if (mt.status !== 'live') await env.DB.prepare(`UPDATE hub_meetings SET status = 'live', started_at = COALESCE(started_at, ?), ended_at = NULL WHERE id = ?`).bind(nowIso(), id).run();
   const [ice, last] = await Promise.all([iceServers(env), env.DB.prepare('SELECT COALESCE(MAX(seq), 0) AS s FROM hub_meeting_events WHERE meeting_id = ?').bind(id).first<{ s: number }>()]);
-  await addEvent(env, id, 'notice', pid, '', { a: 'joined', name });
+  if (!quiet) await addEvent(env, id, 'notice', pid, '', { a: 'joined', name });
   return { ok: true, pid, role, sessionId: session.sessionId, iceServers: ice, meeting: publicMeeting(await getMeeting(env, id), user), since: last?.s || 0, guestsEnabled: guestsOn(env) };
 }
 
@@ -552,6 +554,15 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
   const me = await getPresence(env, id, clean(b.pid, 12), user.email);
   const kind = String(b.kind);
   const to = clean(b.to, 12);
+  if (kind === 'diag') {
+    // A connection report from this person's browser (ICE state, relay, audio arriving, playback blocked), kept so a call that
+    // went wrong can be read afterwards. Addressed to the sender alone, so nobody else's sync carries it.
+    const raw = JSON.stringify((b.body || {}) as Record<string, unknown>).slice(0, 1500);
+    let body: Record<string, unknown> = {};
+    try { body = JSON.parse(raw); } catch { body = { cut: true }; }
+    await addEvent(env, id, 'diag', me.pid, me.pid, { ...body, name: me.name });
+    return { ok: true };
+  }
   if (kind === 'chat') {
     const body = (b.body || {}) as Record<string, unknown>;
     const text = clean(body.text, 2000);
