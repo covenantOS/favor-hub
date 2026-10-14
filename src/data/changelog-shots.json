@@ -94,5 +94,9 @@
   "everywhere": {
     "desk": "/changelog/now/everywhere-desk.webp",
     "phone": "/changelog/now/everywhere-phone.webp"
+  },
+  "staff": {
+    "desk": "/changelog/now/staff-desk.webp",
+    "phone": "/changelog/now/staff-phone.webp"
   }
 }

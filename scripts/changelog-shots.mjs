@@ -25,7 +25,7 @@ const MAX = 150 * 1024;
 
 /** The page that shows each changelog area. */
 export const AREA_URL = {
-  today: '/', partners: '/work/', 'work-center': '/work/', requests: '/requests/', projects: '/projects/', expenses: '/expenses/new',
+  today: '/', partners: '/work/', 'work-center': '/work/', requests: '/requests/', projects: '/projects/', expenses: '/expenses/new/', staff: '/expenses/new/',
   receipts: '/receipts/', gifts: '/gift-entry/', statements: '/statements/', evaluations: '/evaluations/', learn: '/learn/',
   onboarding: '/onboarding/', foundations: '/foundations/', meetings: '/meet/', clips: '/clips/', chat: '/chat/', mail: '/mail/',
   brain: '/brain/', reporting: '/highlights/', lists: '/lists/', admin: '/admin/', help: '/help/', phone: '/', everywhere: '/',

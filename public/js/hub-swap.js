@@ -251,6 +251,7 @@
       if (done) return;
       done = true; clearTimeout(quietT); clearTimeout(capT); mo.disconnect();
       if (window.fetch === wrapped) window.fetch = of;
+      if (RP) Object.keys(body).forEach((k) => { RP[k] = body[k]; });
       main.classList.remove('is-settling');
       settling = null;
       document.dispatchEvent(new CustomEvent('hub-settled'));
@@ -264,6 +265,17 @@
       return p;
     };
     window.fetch = wrapped;
+    // A read counts until its body has been read: a long answer (the expense log) arrives in pieces after its headers.
+    const RP = window.Response && Response.prototype;
+    const body = {};
+    if (RP) ['json', 'text'].forEach((k) => {
+      body[k] = RP[k];
+      RP[k] = function () {
+        const q = body[k].apply(this, arguments);
+        if (!done) { pending++; clearTimeout(quietT); const end = () => { pending = Math.max(0, pending - 1); quiet(); }; q.then(end, end); }
+        return q;
+      };
+    });
     const mo = new MutationObserver(() => { if (!pending) quiet(); });
     mo.observe(main, { childList: true, subtree: true, attributes: true, characterData: true });
     const capT = setTimeout(finish, 1500);

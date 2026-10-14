@@ -3,7 +3,7 @@ import shots from './changelog-shots.json';
 
 export const AREA_LABEL: Record<string, string> = {
   today: 'Today', partners: 'Partners', 'work-center': 'Work Center', requests: 'Requests', projects: 'Projects', expenses: 'Expenses',
-  receipts: 'Receipts', gifts: 'Gifts', statements: 'Statements', evaluations: 'Evaluations', learn: 'Learn', onboarding: 'Onboarding',
+  receipts: 'Receipts', gifts: 'Gifts', statements: 'Statements', evaluations: 'Evaluations', learn: 'Learn', onboarding: 'Onboarding', staff: 'Staff',
   foundations: 'Foundations', meetings: 'Meetings', clips: 'Clips', chat: 'Chat', mail: 'Mail', brain: 'Favor Brain', reporting: 'Reporting',
   lists: 'Lists', admin: 'Admin', help: 'Help', phone: 'Phone and Lite', everywhere: 'All of FavorOS',
 };

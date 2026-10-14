@@ -24,7 +24,7 @@ const help = defineCollection({
 
 // The changelog: one file per day in src/content/changelog (YYYY-MM-DD.md, frontmatter only). Entries newest first,
 // written for staff. `behind` counts internal-only commits that day. scripts/changelog-draft.mjs drafts a new day.
-export const CHANGE_AREAS = ['today', 'partners', 'work-center', 'requests', 'projects', 'expenses', 'receipts', 'gifts', 'statements', 'evaluations', 'learn', 'onboarding', 'foundations', 'meetings', 'clips', 'chat', 'mail', 'brain', 'reporting', 'lists', 'admin', 'help', 'phone', 'everywhere'] as const;
+export const CHANGE_AREAS = ['today', 'partners', 'work-center', 'requests', 'projects', 'expenses', 'receipts', 'gifts', 'statements', 'evaluations', 'learn', 'onboarding', 'staff', 'foundations', 'meetings', 'clips', 'chat', 'mail', 'brain', 'reporting', 'lists', 'admin', 'help', 'phone', 'everywhere'] as const;
 const changelog = defineCollection({
   loader: glob({ pattern: ['**/*.md', '!**/*.draft.md'], base: './src/content/changelog' }),
   schema: z.object({

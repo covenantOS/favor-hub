@@ -116,3 +116,7 @@ body.h-body #h-content.is-settling::before { content: ''; position: absolute; z-
   body.h-body .h-app.is-nav .h-area--more .h-pg--area .h-pg__a { color: rgba(255, 255, 255, 0.86); padding-left: 14px; min-height: 48px; font-size: 13px; }
   body.h-body .h-app.is-nav .h-area--more .h-pg--area .h-i { color: var(--soft-slate); }
 }
+
+/* Full sidebar: an area's name never gives way to its badge and count ("Proje..." beside Alpha and 11). */
+html.nav-wide body.h-body .h-area__link .h-area__label, body.h-body .h-app.is-peek .h-area__link .h-area__label, body.h-body .h-app.is-nav .h-area__link .h-area__label { flex: 0 0 auto; overflow: visible; }
+html.nav-wide body.h-body .h-area__link .h-rel, body.h-body .h-app.is-peek .h-area__link .h-rel { padding: 0 5px; font-size: 10px; margin-left: 4px; }

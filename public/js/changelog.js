@@ -51,6 +51,8 @@
     img.src = phone || b.dataset.src;
     img.alt = '';
     img.decoding = 'async';
+    // The pictures are 1200 by 750 (desktop) and 600 by 1200 (phone); the space is held before they arrive, so nothing below moves.
+    if (phone) { img.width = 600; img.height = 1200; } else { img.width = 1200; img.height = 750; }
     fig.appendChild(img);
     if (b.dataset.now) { var c = document.createElement('figcaption'); c.textContent = "Today's view"; fig.appendChild(c); }
     b.replaceWith(fig);

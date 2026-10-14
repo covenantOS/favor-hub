@@ -8,7 +8,7 @@ import yaml from 'js-yaml';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const DIR = path.join(ROOT, 'src/content/changelog');
-const AREAS = ['today', 'partners', 'work-center', 'requests', 'projects', 'expenses', 'receipts', 'gifts', 'statements', 'evaluations', 'learn', 'onboarding', 'foundations', 'meetings', 'clips', 'chat', 'mail', 'brain', 'reporting', 'lists', 'admin', 'help', 'phone', 'everywhere'];
+const AREAS = ['today', 'partners', 'work-center', 'requests', 'projects', 'expenses', 'receipts', 'gifts', 'statements', 'evaluations', 'learn', 'onboarding', 'staff', 'foundations', 'meetings', 'clips', 'chat', 'mail', 'brain', 'reporting', 'lists', 'admin', 'help', 'phone', 'everywhere'];
 const files = fs.readdirSync(DIR).filter((f) => /^\d{4}-\d{2}-\d{2}\.md$/.test(f));
 const days = files.map((f) => ({ f, d: yaml.load(fs.readFileSync(path.join(DIR, f), 'utf8').split(/^---\s*$/m)[1]) }));
 const entries = days.flatMap(({ f, d }) => (d.entries || []).map((e) => ({ f, e })));
