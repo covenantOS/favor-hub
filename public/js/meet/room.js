@@ -5,6 +5,7 @@ import { Rtc, linkLevel } from './rtc.js';
 import { Recorder, confirmStopRecording } from './rec.js';
 import { loadPrefs, savePrefs, acquire, acquireBoth, trackDevice } from './devices.js';
 import { VoiceFx, CamFx, BACKGROUNDS, FaceCount, lowEnd } from './effects.js';
+import './stage.js';
 
 const params = new URLSearchParams(location.search);
 // ?audio=1: an audio-only call for a weak or expensive connection. No camera is asked for or sent, and no one's video or screen share is pulled.
@@ -418,6 +419,14 @@ function buildRoom() {
   document.addEventListener('focusin', (e) => { if (e.target && e.target.id === 'invin') loadDirectory(); });
   window.addEventListener('beforeunload', onUnload);
   document.addEventListener('click', onDocClick);
+  // The room's single-letter shortcuts win over the hub's (G then a letter opens another page); hub-nav.js skips a key whose
+  // default is already prevented.
+  document.addEventListener('keydown', (e) => {
+    if (S.left || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('.cf')) return;
+    if (e.target && e.target.matches && e.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+    if (/^[asglwhxyfpbmv?[\]]$/i.test(e.key)) e.preventDefault();
+  }, true);
+  watchStage();
   if (!GUEST && S.me.role !== 'guest') maybeStartRecording();
 }
 
@@ -465,7 +474,7 @@ function paintTools() {
   if (lastMode) { keepFocus(el, () => { el.innerHTML = `<button class="rt rt-leave" data-a="leave" aria-label="Leave the meeting">${ic('leave')}<span>Leave</span></button>`; }); return; }
   keepFocus(el, () => {
     el.innerHTML = `<button class="rt${S.pop === 'react' ? ' is-on' : ''}" data-a="pop" data-p="react" aria-label="Reactions" aria-haspopup="dialog" aria-expanded="${S.pop === 'react'}">${ic('smile')}</button>
-      <button class="rt" data-a="layout" aria-label="${S.layout === 'grid' ? 'Switch to speaker view' : 'Switch to gallery view'}" title="${S.layout === 'grid' ? 'Speaker view' : 'Gallery view'}">${ic(S.layout === 'grid' ? 'speaker' : 'grid')}</button>
+      <button class="rt${S.pop === 'view' ? ' is-on' : ''}" data-a="pop" data-p="view" aria-label="Your view: ${MODE_NAME[V.mode]}" title="Your view" aria-haspopup="dialog" aria-expanded="${S.pop === 'view'}">${ic(V.mode === 'gallery' ? 'grid' : V.mode === 'auto' ? 'auto' : V.mode === 'spotlight' ? 'spot' : 'speaker')}<span class="lb-t">View</span></button>
       ${document.fullscreenEnabled ? `<button class="rt" data-a="fullscreen" aria-label="Full screen" title="Full screen">${ic('expand')}</button>` : ''}
       ${GUEST ? '' : `<button class="rt" data-a="copylink" aria-label="Copy meeting link">${ic('link')}<span class="lb-t">Copy link</span></button>`}
       <button class="rt" data-a="devmenu" aria-label="Settings: camera, microphone and speaker" title="Settings" aria-haspopup="dialog">${ic('gear')}</button>`;
@@ -476,6 +485,7 @@ const EMOJI = ['\u{1F44D}', '\u{1F44F}', '\u2764\uFE0F', '\u{1F602}', '\u{1F62E}
 async function paintPop() {
   const el = $('#rm-pop-wrap'); if (!el) return;
   if (!S.pop) { el.innerHTML = ''; return; }
+  if (S.pop === 'view' || S.pop === 'keys') { const sig = S.pop === 'view' ? viewPopHTML() : keysPopHTML(); const had = el.firstElementChild && el.firstElementChild.classList.contains('rm-view') && el.dataset.pop === S.pop; keepFocus(el, () => { el.innerHTML = sig; }); el.dataset.pop = S.pop; if (!had) { const f = el.querySelector('[aria-checked="true"], button'); f && f.focus({ preventScroll: true }); el.firstElementChild.animate && !matchMedia('(prefers-reduced-motion: reduce)').matches && el.firstElementChild.animate([{ opacity: 0, transform: 'translateY(-6px) scale(.98)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2,.8,.2,1)' }); } return; }
   if (S.pop === 'react') { el.innerHTML = `<div class="rm-pop" role="dialog" aria-label="Reactions"><div class="emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div></div>`; const b = el.querySelector('button'); b && b.focus(); return; }
 }
 // A new camera, microphone or speaker in the call. The new track goes onto the same sender (replaceTrack), so nobody else
@@ -683,9 +693,9 @@ function makeTile(key, p, share) {
   const t = { el, video: el.querySelector('video'), key, share, pid: p.pid, audio: null };
   ['playing', 'loadeddata'].forEach((ev) => t.video.addEventListener(ev, () => el.classList.add('is-live')));
   ['emptied', 'abort'].forEach((ev) => t.video.addEventListener(ev, () => el.classList.remove('is-live')));
-  if (share) { el.addEventListener('click', () => el.classList.toggle('is-zoom')); el.addEventListener('mousemove', (e) => { if (!el.classList.contains('is-zoom')) return; const r = el.getBoundingClientRect(); t.video.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%'; }); }
-  el.querySelector('.pin').addEventListener('click', (e) => { e.stopPropagation(); const pid = key; hostish() ? send('cmd', { a: S.spot === pid ? 'unspot' : 'spot' }, pid) : (S.pin = S.pin === pid ? '' : pid, paintGrid(), reconcile()); });
-  el.addEventListener('dblclick', () => { S.pin = S.pin === p.pid ? '' : p.pid; paintGrid(); reconcile(); });
+  if (share) { el.addEventListener('click', (e) => { if (el.classList.contains('is-float') || e.target.closest('button')) return; el.classList.toggle('is-zoom'); }); el.addEventListener('mousemove', (e) => { if (!el.classList.contains('is-zoom')) return; const r = el.getBoundingClientRect(); t.video.style.transformOrigin = ((e.clientX - r.left) / r.width * 100) + '% ' + ((e.clientY - r.top) / r.height * 100) + '%'; }); }
+  // Double-click: a share goes full screen; a face is pinned for me (or unpinned).
+  el.addEventListener('dblclick', (e) => { if (e.target.closest('button')) return; if (share) { fullStage(key); return; } viewAct(S.pin === t.pid ? 'unpin' : 'pin', t.pid); });
   tiles.set(key, t);
   return t;
 }
@@ -695,12 +705,14 @@ function order() {
   const me = mePerson();
   const everyone = [me, ...others()];
   const sharer = everyone.find((p) => p.sharing && (p.me ? !!local.screen : true));
-  let big = S.pin || S.spot;
-  if (!big && S.layout === 'speaker' && everyone.length > 1) big = speakerPid(everyone);
+  // A pin is this person's own choice and beats the host's spotlight on their screen only.
+  let big = (S.pin && everyone.some((p) => p.pid === S.pin) ? S.pin : '') || S.spot;
+  const hasContent = !!sharer || !!S.show || !!document.getElementById('rm-play');
+  if (!big && (V.mode === 'speaker' || V.mode === 'spotlight' || (hasContent && R.swap)) && everyone.length > 1) big = speakerPid(everyone);
   // Gallery order never changes while people talk: the pinned or spotlit person, then the host, then everyone by the time they
   // joined. Only speaker view and the strip beside a share follow whoever spoke last.
   const rank = (p) => (p.pid === big ? -1 : p.role === 'host' ? 0 : 1);
-  const bySpeech = S.layout === 'speaker' || !!sharer || !!S.show;
+  const bySpeech = V.mode === 'speaker' || V.mode === 'spotlight' || hasContent;
   const sorted = everyone.slice().sort((a, b) => rank(a) - rank(b) || (bySpeech ? (b.speakAt || 0) - (a.speakAt || 0) : 0) || (a.joinedAt || 0) - (b.joinedAt || 0) || String(a.pid).localeCompare(String(b.pid)));
   return { sharer, big, sorted };
 }
@@ -714,52 +726,75 @@ function speakerPid(everyone) {
   return cand.pid;
 }
 // A weak link gets lower layers (wanted() below), never fewer people: paging someone off the screen also stopped their video.
-const perPage = () => (isPhone() ? 4 : 9);
+const perPage = () => (isPhone() ? 6 : 9);
 
+// ---- views: each person's own layout (stage.js). Nothing here is sent to the room.
+// V is saved in this browser (mode, strip side and size, hide self view, the small window's place); R is this meeting only.
+const MS = window.MeetStage;
+let V = MS.load();
+const R = { stage: 'normal', swap: false, ckey: '', pip: '', phPage: 0, drag: false };
+function setView(patch) { V = MS.clean(Object.assign({}, V, patch)); MS.save(V); }
+const stripSide = () => (isPhone() ? 'bottom' : V.strip);
+function stripCapNow() {
+  if (isPhone()) return 4;
+  const g = $('#rm-grid'); if (!g || !g.clientWidth) return 4;
+  return MS.stripCap(V.strip, V.strip === 'bottom' ? V.bottom : V.side, g.clientWidth - 24, g.clientHeight, 8);
+}
+// The shared things that can hold the stage: a clip played for everyone, a screen share, a Favor Brain answer.
+function contents(sharer) {
+  const list = [];
+  if (document.getElementById('rm-play')) list.push({ key: 'play', kind: 'play', p: { pid: 'play', name: (S.play && S.play.title) || 'Video' } });
+  if (sharer) list.push({ key: 'share:' + sharer.pid, kind: 'share', p: sharer });
+  if (S.show) list.push({ key: 'brain', kind: 'brain', p: { pid: 'brain', name: 'Favor Brain' } });
+  return list;
+}
+let lastLayout = null;
 function layoutModel() {
   const { sharer, big, sorted } = order();
-  const model = []; // { key, p, kind: 'big' | 'tile' | 'strip' }
-  const spotMode = sharer || S.show || (big && sorted.find((p) => p.pid === big));
-  if (spotMode) {
-    if (sharer) model.push({ key: 'share:' + sharer.pid, p: sharer, kind: 'big', share: true });
-    else if (S.show) model.push({ key: 'brain', p: { pid: 'brain', name: 'Favor Brain' }, kind: 'big', brain: true });
-    else model.push({ key: big, p: sorted.find((p) => p.pid === big), kind: 'big' });
-    const rest = sorted.filter((p) => !(model[0].key === p.pid));
-    const cap = isPhone() ? 3 : 4;
-    if (rest.length > cap) { rest.slice(0, cap - 1).forEach((p) => model.push({ key: p.pid, p, kind: 'strip' })); model.push({ key: 'more', kind: 'more', n: rest.length - (cap - 1) }); }
-    else rest.forEach((p) => model.push({ key: p.pid, p, kind: 'strip' }));
-    S.pages = 1;
-    return { model, spot: true };
-  }
-  const pp = perPage();
-  S.pages = Math.max(1, Math.ceil(sorted.length / pp));
-  if (S.page >= S.pages) S.page = S.pages - 1;
-  sorted.slice(S.page * pp, S.page * pp + pp).forEach((p) => model.push({ key: p.pid, p, kind: 'tile' }));
-  return { model, spot: false };
+  const cs = contents(sharer);
+  // A new share or clip comes back to the stage, even if the last one was hidden or shrunk.
+  const ck = cs.length ? cs[0].key : '';
+  if (ck !== R.ckey) { if (R.ckey && ck) { R.stage = 'normal'; R.swap = false; } if (!ck) { R.stage = 'normal'; R.swap = false; } R.ckey = ck; R.phPage = 0; }
+  const r = MS.arrange({ faces: sorted, content: cs[0] || null, extra: cs[1] || null, big: (S.pin && sorted.some((p) => p.pid === S.pin) ? S.pin : '') || S.spot || big || '', view: V, room: R, cap: stripCapNow(), perPage: perPage(), page: S.page });
+  S.pages = r.pages; S.page = r.page;
+  const model = r.model.map((x) => (x.content ? { ...x, share: x.content === 'share', brain: x.content === 'brain', play: x.content === 'play' } : x));
+  lastLayout = { ...r, model };
+  return lastLayout;
 }
 
 function paintGrid() {
   const grid = $('#rm-grid'); if (!grid) return;
-  const { model, spot } = layoutModel();
-  const n = model.length;
+  const L = layoutModel(); const { model, spot } = L;
+  const n = model.filter((x) => x.kind !== 'float').length;
+  const side = stripSide();
   // Layout changes glide (FLIP): the tiles' places are read before a change of who is shown or how, and each tile slides from
   // its old place to its new one. Only when the set or the mode changes, so talking never moves anything.
-  const keySig = (spot ? 's:' : 'g:') + model.map((x) => x.key + x.kind).join(',');
-  const flip = grid.dataset.keys !== undefined && grid.dataset.keys !== keySig && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const keySig = (spot ? 's' + side + ':' : 'g:') + model.map((x) => x.key + x.kind).join(',');
+  const flip = !R.drag && grid.dataset.keys !== undefined && grid.dataset.keys !== keySig && !matchMedia('(prefers-reduced-motion: reduce)').matches;
   const before = new Map();
-  if (flip) for (const [k, t] of tiles) if (t.el.parentNode === grid) before.set(k, t.el.getBoundingClientRect());
+  if (flip) {
+    for (const [k, t] of tiles) if (t.el.parentNode === grid) before.set(k, t.el.getBoundingClientRect());
+    ['rm-play', 'rm-brain-tile'].forEach((id) => { const e = document.getElementById(id); if (e && e.offsetWidth) before.set('#' + id, e.getBoundingClientRect()); });
+  }
   const fresh = [];
   grid.dataset.keys = keySig;
-  grid.className = 'rm-grid' + (spot ? ' is-spot' : ' is-fit') + (spot && n === 1 ? ' is-alone' : '');
-  grid.style.gridTemplateColumns = spot ? (isPhone() && n > 1 ? `repeat(${n - 1}, minmax(0, 1fr))` : '') : '';
-  if (spot && !isPhone()) grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.min(4, n - 1))}, minmax(0, 1fr))`; else grid.style.gridTemplateRows = '';
-  if (!spot) fitGrid(grid, n);
+  grid.className = 'rm-grid' + (spot ? ' is-spot is-' + side : ' is-fit') + (spot && n === 1 ? ' is-alone' : '');
   const keep = new Set(model.map((x) => x.key));
   for (const [k, t] of tiles) if (!keep.has(k)) t.el.remove();
   if (!model.some((x) => x.brain)) { const bt = document.getElementById('rm-brain-tile'); if (bt) bt.remove(); }
+  if (!model.some((x) => x.play)) { const ps = document.getElementById('rm-play-slot'); if (ps) ps.remove(); }
   const mt0 = document.getElementById('rm-more-tile'); if (mt0 && !model.some((x) => x.kind === 'more')) mt0.remove();
-  model.forEach(({ key, p, kind, share, brain, n: moreN }, i) => {
-    if (brain) { paintBrainTile(grid, i); return; }
+  model.forEach(({ key, p, kind, share, brain, play, n: moreN }, i) => {
+    if (brain) { paintBrainTile(grid, i); const be = document.getElementById('rm-brain-tile'); if (be) be.classList.toggle('is-big', kind === 'big'); return; }
+    if (play) {
+      // The clip's player lives outside the grid (moving an iframe reloads it); this empty tile holds its place, and syncPlay()
+      // lays the player over it.
+      let el = document.getElementById('rm-play-slot');
+      if (!el) { el = document.createElement('div'); el.id = 'rm-play-slot'; el.className = 'mt-tile mt-slot'; el.setAttribute('aria-hidden', 'true'); fresh.push(el); }
+      el.classList.toggle('is-big', kind === 'big');
+      if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
+      return;
+    }
     if (kind === 'more') {
       let el = document.getElementById('rm-more-tile');
       if (!el) { el = document.createElement('div'); el.id = 'rm-more-tile'; el.className = 'mt-tile mt-more'; el.setAttribute('role', 'button'); el.tabIndex = 0; el.dataset.a = 'panel'; el.dataset.p = 'people'; }
@@ -791,16 +826,29 @@ function paintGrid() {
     if (hn) { hb.innerHTML = `${ic('hand')}<b>${hn}</b>`; hb.setAttribute('aria-label', `Hand raised, number ${hn}`); }
     tag.classList.toggle('is-warn', ss === 'nosound');
     tag.hidden = !label; tag.textContent = label;
+    // The tile's options button: pin for me, spotlight for everyone (hosts), swap, picture in picture, full screen, hide self view.
     const pin = t.el.querySelector('.pin');
-    pin.hidden = share || !!p.me;
-    pin.innerHTML = ic('pin'); pin.setAttribute('aria-label', hostish() ? 'Spotlight for everyone' : 'Pin');
+    pin.hidden = false; pin.dataset.a = 'tmenu'; pin.dataset.k = key;
+    const pinned = !share && S.pin === p.pid;
+    t.el.classList.toggle('is-pinned', pinned);
+    if (pin.dataset.ic !== (pinned ? 'pin' : 'more')) { pin.dataset.ic = pinned ? 'pin' : 'more'; pin.innerHTML = ic(pinned ? 'pin' : 'more'); }
+    pin.setAttribute('aria-label', (share ? 'Options for the shared screen' : 'Options for ' + (p.me ? 'your video' : p.name)) + (pinned ? ', pinned for you' : ''));
+    pin.setAttribute('aria-haspopup', 'menu'); pin.setAttribute('aria-expanded', String(R.menu === key));
     t.el.querySelector('.mi').innerHTML = share ? ic('screen') : p.mic ? '' : `<span class="off">${ic('micOff')}</span>`;
     t.el.querySelector('.nt').textContent = share ? `${p.me ? 'You are' : p.name + ' is'} presenting` : p.me ? 'You' + paren([p.role === 'host' ? 'host' : '', withWords(p.with)]) : p.name + paren([withWords(p.with)]);
   });
+  placeTiles(grid, model, spot, side);
+  if (!spot) fitGrid(grid, n);
   paintPager();
+  syncPlay();
+  paintViewUi(L);
+  // The player and stage buttons follow the slot again once the glide and any page slide have finished.
+  clearTimeout(R.settle); requestAnimationFrame(syncPlay); R.settle = setTimeout(() => { syncPlay(); placeFui(); positionSui(L.model.find((x) => x.kind === 'big')); }, 360);
   if (flip) {
     for (const [k, r0] of before) {
-      const t = tiles.get(k); if (!t || t.el.parentNode !== grid) continue;
+      const el = k[0] === '#' ? document.getElementById(k.slice(1)) : (tiles.get(k) || {}).el;
+      if (!el || !el.isConnected || !el.offsetWidth) continue;
+      const t = { el };
       const r1 = t.el.getBoundingClientRect(); if (!r1.width || !r0.width) continue;
       const dx = r0.left - r1.left, dy = r0.top - r1.top, sx = r0.width / r1.width, sy = r0.height / r1.height;
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) continue;
@@ -808,6 +856,373 @@ function paintGrid() {
     }
     for (const el of fresh) el.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 280, delay: 60, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
   }
+}
+
+const elOf = (x) => (x.play ? document.getElementById('rm-play-slot') : x.brain ? document.getElementById('rm-brain-tile') : x.kind === 'more' ? document.getElementById('rm-more-tile') : (tiles.get(x.key) || {}).el);
+// Desktop stage and strip: the strip's tiles keep a 16:9 shape and sit in the middle of the strip; the split is draggable,
+// and its size sets how many faces fit. The phone keeps its stage over a row of faces (meet.css).
+function placeTiles(grid, model, spot, side) {
+  const flow = model.filter((x) => x.kind !== 'float');
+  const desk = spot && !isPhone();
+  const k = flow.length - 1;
+  let lanes = 1, off = 0;
+  if (desk && k > 0) { lanes = Math.max(k, stripCapNow()); off = Math.floor((lanes - k) / 2); }
+  if (!desk) {
+    grid.style.gridTemplateColumns = spot && isPhone() && flow.length > 1 ? `repeat(${flow.length - 1}, minmax(0, 1fr))` : '';
+    grid.style.gridTemplateRows = '';
+  } else if (k <= 0) { grid.style.gridTemplateColumns = 'minmax(0, 1fr)'; grid.style.gridTemplateRows = 'minmax(0, 1fr)'; }
+  else if (side === 'bottom') { grid.style.gridTemplateColumns = `repeat(${lanes}, minmax(0, 1fr))`; grid.style.gridTemplateRows = `minmax(0, 1fr) ${V.bottom}px`; }
+  else { grid.style.gridTemplateColumns = `minmax(0, 1fr) ${V.side}px`; grid.style.gridTemplateRows = `repeat(${lanes}, minmax(0, 1fr))`; }
+  flow.forEach((x, j) => {
+    const el = elOf(x); if (!el) return;
+    if (!desk) { el.style.gridColumn = ''; el.style.gridRow = ''; return; }
+    if (j === 0) { el.style.gridColumn = side === 'bottom' && k > 0 ? `1 / span ${lanes}` : '1'; el.style.gridRow = side === 'bottom' || k <= 0 ? '1' : `1 / span ${lanes}`; }
+    else if (side === 'bottom') { el.style.gridRow = '2'; el.style.gridColumn = String(off + j); }
+    else { el.style.gridColumn = '2'; el.style.gridRow = String(off + j); }
+  });
+  // The small window floats over the faces, inside the grid's box.
+  const fl = model.find((x) => x.kind === 'float');
+  for (const el of grid.querySelectorAll(':scope > .is-float')) if (!fl || el !== elOf(fl)) { el.classList.remove('is-float'); ['left', 'top', 'width', 'height'].forEach((p) => (el.style[p] = '')); }
+  if (fl) {
+    const el = elOf(fl); if (!el) return;
+    el.classList.add('is-float'); el.style.gridColumn = ''; el.style.gridRow = '';
+    const b = floatRect(grid);
+    el.style.left = b.x + 'px'; el.style.top = b.y + 'px'; el.style.width = b.w + 'px'; el.style.height = b.h + 'px';
+  }
+}
+// The small window's box in stage coordinates.
+function floatRect(grid) {
+  grid = grid || $('#rm-grid');
+  const st = grid.parentNode.getBoundingClientRect(), g = grid.getBoundingClientRect();
+  const pad = 10, W = g.width - pad * 2, H = g.height - pad * 2;
+  const b = MS.floatBox(V.float, W, H, 16 / 9);
+  return { x: b.x + g.left - st.left + pad, y: b.y + g.top - st.top + pad, w: b.w, h: b.h, W, H, gx: g.left - st.left + pad, gy: g.top - st.top + pad };
+}
+// The clip player sits on top of its slot, wherever the slot is: the stage, the strip, a gallery tile or the small window.
+// Hidden, it keeps playing (sound and sync) out of sight.
+function syncPlay() {
+  const pl = document.getElementById('rm-play'), slot = document.getElementById('rm-play-slot');
+  if (!pl) return;
+  if (!slot || !slot.isConnected || !slot.offsetWidth) { pl.classList.add('is-away'); return; }
+  const st = pl.parentNode.getBoundingClientRect(), r = slot.getBoundingClientRect();
+  pl.classList.remove('is-away');
+  pl.classList.toggle('is-small', r.width < 420);
+  pl.classList.toggle('is-float', slot.classList.contains('is-float'));
+  Object.assign(pl.style, { inset: 'auto', left: r.left - st.left + 'px', top: r.top - st.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+}
+
+// ---- the view controls drawn over the stage: stage buttons, the small window's frame, the hidden-share chip, the split
+// handle and, on a phone, the page dots.
+const CONTENT_NAME = (c) => (!c ? '' : c.kind === 'play' ? 'The video' : c.kind === 'brain' ? 'The Favor Brain answer' : c.p && c.p.me ? 'Your screen' : (c.p ? c.p.name + '’s screen' : 'The shared screen'));
+const pipOK = () => !!(document.pictureInPictureEnabled && HTMLVideoElement.prototype.requestPictureInPicture);
+function vbtn(k, icon, label, extra = '') { return `<button type="button" class="vb" data-a="v" data-k="${k}"${extra} title="${label}"><span class="vb-i">${ic(icon)}</span><span class="vb-l">${label}</span></button>`; }
+function uiEl(id, cls) {
+  let el = document.getElementById(id);
+  if (!el) { el = document.createElement('div'); el.id = id; el.className = cls; const st = $('.rm-stage'); st && st.insertBefore(el, $('#rm-pop-wrap')); }
+  return el;
+}
+function setHTML(el, html) { if (el.dataset.sig !== html) { el.dataset.sig = html; el.innerHTML = html; } }
+function paintViewUi(L) {
+  const st = $('.rm-stage'); if (!st) return;
+  const big = L.model.find((x) => x.kind === 'big');
+  const content = L.content || (L.float && { key: L.float.key, kind: L.float.content, p: L.float.p }) || L.hidden;
+  // Stage buttons
+  const sui = uiEl('rm-sui', 'rm-sui');
+  let html = '';
+  if (big && big.content) {
+    html = vbtn('mini', 'mini', 'Small window') + vbtn('hide', 'eyeOff', 'Hide') + (V.mode !== 'spotlight' && L.model.some((x) => x.kind === 'strip' && !x.content) ? vbtn('swap', 'swap', 'Swap') : '') + (pipOK() && big.content !== 'brain' ? vbtn('pip', 'pip', 'Pop out', ` data-v="${esc(big.key)}"`) : '') + (document.fullscreenEnabled ? vbtn('full', 'expand', 'Full screen') : '');
+  } else if (big) {
+    html = (R.swap && content ? vbtn('swap', 'swap', 'Swap back') : '') + (S.pin === big.key ? vbtn('unpin', 'pin', 'Unpin') : '') + (pipOK() && !big.p.me ? vbtn('pip', 'pip', 'Pop out', ` data-v="${esc(big.key)}"`) : '') + (document.fullscreenEnabled ? vbtn('full', 'expand', 'Full screen') : '');
+  }
+  setHTML(sui, html ? `<div class="vbar" role="toolbar" aria-label="Stage">${html}</div>` : '');
+  sui.hidden = !html;
+  // The small window's frame: drag it by its bar, resize it from the corner.
+  const fui = uiEl('rm-fui', 'rm-fui');
+  fui.hidden = !L.float;
+  if (L.float) {
+    setHTML(fui, `<div class="fui-bar" data-drag="float"><span class="fui-t">${esc(CONTENT_NAME(content))}</span>${vbtn('stage', 'expand', 'Back to the stage')}${vbtn('hide', 'eyeOff', 'Hide')}</div><span class="fui-rs" data-drag="resize" aria-hidden="true"></span>`);
+    placeFui();
+  }
+  // Hidden share chip
+  const hid = uiEl('rm-hid', 'rm-hid');
+  hid.hidden = !L.hidden;
+  if (L.hidden) setHTML(hid, `<span>${esc(CONTENT_NAME(L.hidden))} is hidden for you</span><button type="button" class="h-btn h-btn--sm" data-a="v" data-k="stage">Show</button><button type="button" class="h-btn h-btn--sm h-btn--ghost" data-a="v" data-k="mini">Small window</button>`);
+  // Split handle between the stage and the strip (desktop)
+  const sp = uiEl('rm-split', 'rm-split');
+  const strip = L.spot && !isPhone() && L.model.some((x) => x.kind === 'strip' || x.kind === 'more');
+  sp.hidden = !strip;
+  if (strip) {
+    const be = big && (big.play ? document.getElementById('rm-play-slot') : elOf(big));
+    const g = $('#rm-grid');
+    if (be && g) {
+      const s = st.getBoundingClientRect(), b = be.getBoundingClientRect(), gr = g.getBoundingClientRect();
+      sp.classList.toggle('is-bottom', stripSide() === 'bottom');
+      sp.setAttribute('role', 'separator'); sp.setAttribute('aria-orientation', stripSide() === 'bottom' ? 'horizontal' : 'vertical'); sp.setAttribute('aria-label', 'Drag to resize the faces'); sp.tabIndex = 0;
+      if (stripSide() === 'bottom') Object.assign(sp.style, { left: b.left - s.left + 'px', width: b.width + 'px', top: b.bottom - s.top + 'px', height: '8px' });
+      else Object.assign(sp.style, { left: b.right - s.left + 'px', width: '8px', top: gr.top - s.top + 'px', height: gr.height + 'px' });
+    }
+  }
+  // Phone: two pages when something is shared, the stage and the faces; swipe or tap a dot.
+  const dots = uiEl('rm-dots', 'rm-dots');
+  const two = isPhone() && !!content && !L.float;
+  dots.hidden = !two;
+  if (two) { const pg = L.hidden ? 1 : 0; setHTML(dots, `<button type="button" data-a="v" data-k="stage" aria-label="Show ${esc(CONTENT_NAME(content))}" aria-current="${pg === 0}" class="${pg === 0 ? 'is-on' : ''}"></button><button type="button" data-a="v" data-k="hide" aria-label="Show everyone's faces" aria-current="${pg === 1}" class="${pg === 1 ? 'is-on' : ''}"></button>`); }
+  positionSui(big);
+  updatePip();
+}
+function positionSui(big) {
+  const sui = document.getElementById('rm-sui'); if (!sui || sui.hidden || !big) return;
+  const el = big.play ? document.getElementById('rm-play') : elOf(big); const st = $('.rm-stage');
+  if (!el || !st) return;
+  const s = st.getBoundingClientRect(), r = el.getBoundingClientRect();
+  Object.assign(sui.style, { left: r.left - s.left + r.width / 2 + 'px', top: r.top - s.top + 10 + 'px', maxWidth: Math.max(160, r.width - 20) + 'px' });
+}
+function placeFui() {
+  const fui = document.getElementById('rm-fui'), g = $('#rm-grid'); if (!fui || fui.hidden || !g) return;
+  const b = floatRect(g);
+  Object.assign(fui.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' });
+}
+
+// Dragging: the small window (move and resize), the split, and the phone swipe between the stage and the faces.
+function floatEl() { const fl = lastLayout && lastLayout.float; return fl ? elOf(fl) : null; }
+function onViewPointer(e) {
+  const h = e.target.closest('[data-drag], #rm-split');
+  if (!h || e.button > 0 || e.target.closest('button')) return;
+  const g = $('#rm-grid'); if (!g) return;
+  e.preventDefault();
+  const kind = h.id === 'rm-split' ? 'split' : h.dataset.drag;
+  const b0 = floatRect(g), x0 = e.clientX, y0 = e.clientY, gr = g.getBoundingClientRect();
+  R.drag = true; document.documentElement.classList.add('is-vdrag');
+  let raf = 0, last = null;
+  const move = (ev) => {
+    last = ev; if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0; const dx = last.clientX - x0, dy = last.clientY - y0;
+      if (kind === 'split') {
+        if (stripSide() === 'bottom') setView({ bottom: Math.round(Math.min(gr.height * 0.45, gr.bottom - last.clientY - 4)) });
+        else setView({ side: Math.round(Math.min(gr.width * 0.55, gr.right - 12 - last.clientX - 4)) });
+        paintGrid(); return;
+      }
+      let x = b0.x - b0.gx, y = b0.y - b0.gy, w = b0.w;
+      if (kind === 'float') { x += dx; y += dy; }
+      else { const right = x + w, bottom = y + w * 9 / 16; w = Math.max(160, Math.min(b0.W * 0.7, w - dx)); x = right - w; y = bottom - w * 9 / 16; }
+      x = Math.max(0, Math.min(b0.W - w, x)); y = Math.max(0, Math.min(b0.H - w * 9 / 16, y));
+      V.float = MS.floatFrac(x, y, w, b0.W, b0.H);
+      const fe = floatEl(); if (fe) { const b = floatRect(g); Object.assign(fe.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' }); }
+      placeFui(); syncPlay();
+    });
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    cancelAnimationFrame(raf); R.drag = false; document.documentElement.classList.remove('is-vdrag');
+    if (kind !== 'split') {
+      // Near an edge, the window settles against it.
+      const f = { ...V.float }; if (f.x < 0.06) f.x = 0; if (f.x > 0.94) f.x = 1; if (f.y < 0.06) f.y = 0; if (f.y > 0.94) f.y = 1;
+      const fe = floatEl(), r0 = fe && fe.getBoundingClientRect();
+      setView({ float: f });
+      if (fe) { const b = floatRect(g); Object.assign(fe.style, { left: b.x + 'px', top: b.y + 'px', width: b.w + 'px', height: b.h + 'px' }); const r1 = fe.getBoundingClientRect(); if (r0 && (Math.abs(r0.left - r1.left) > 1 || Math.abs(r0.top - r1.top) > 1)) glide(fe, r0, r1); }
+      placeFui(); syncPlay(); const pl = document.getElementById('rm-play'); if (pl && fe && fe.id === 'rm-play-slot' && r0) glide(pl, r0, fe.getBoundingClientRect());
+    } else { setView({}); paintGrid(); scheduleReconcile(); }
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+}
+function glide(el, r0, r1) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.animate([{ transform: `translate(${r0.left - r1.left}px, ${r0.top - r1.top}px)` }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
+let swipe = null;
+function onSwipeStart(e) { if (!isPhone() || e.touches.length !== 1 || e.target.closest('button, [data-drag], .rm-play-bar, iframe')) { swipe = null; return; } swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() }; }
+function onSwipeEnd(e) {
+  if (!swipe) return; const t = e.changedTouches[0]; const dx = t.clientX - swipe.x, dy = t.clientY - swipe.y; const quick = Date.now() - swipe.t < 700; swipe = null;
+  if (!quick || Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * 0.7) return;
+  const L = lastLayout || {};
+  const has = L.content || L.hidden;
+  if (has) { const toFaces = dx < 0; if (toFaces === !!L.hidden) return; R.stage = toFaces ? 'hidden' : 'normal'; slide(dx < 0 ? 1 : -1); return; }
+  if ((S.pages || 1) > 1) { const np = Math.max(0, Math.min(S.pages - 1, S.page + (dx < 0 ? 1 : -1))); if (np !== S.page) { S.page = np; slide(dx < 0 ? 1 : -1); } }
+}
+// A page turn: the new view slides in from the side the finger went.
+function slide(dir) {
+  const g = $('#rm-grid');
+  paintGrid(); scheduleReconcile();
+  if (g && !matchMedia('(prefers-reduced-motion: reduce)').matches) g.animate([{ transform: `translateX(${dir * 18}%)`, opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' });
+}
+
+// The clip player comes and goes outside this file's paint calls; the stage repaints when it does, and when the stage resizes.
+function watchStage() {
+  const st = $('.rm-stage'); if (!st) return;
+  let had = !!document.getElementById('rm-play'), raf = 0;
+  new MutationObserver(() => { const has = !!document.getElementById('rm-play'); if (has !== had) { had = has; paintGrid(); scheduleReconcile(); } }).observe(st, { childList: true });
+  if (window.ResizeObserver) new ResizeObserver(() => { if (raf || R.drag) return; raf = requestAnimationFrame(() => { raf = 0; paintGrid(); }); }).observe(st);
+  st.addEventListener('pointerdown', onViewPointer);
+  st.addEventListener('touchstart', onSwipeStart, { passive: true });
+  st.addEventListener('touchend', onSwipeEnd, { passive: true });
+  st.addEventListener('keydown', (e) => {
+    if (e.target.id !== 'rm-split' || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    e.preventDefault(); e.stopPropagation();
+    const grow = stripSide() === 'bottom' ? e.key === 'ArrowUp' : e.key === 'ArrowLeft';
+    viewAct('stripsize', grow ? '+' : '-'); const sp = document.getElementById('rm-split'); sp && sp.focus();
+  });
+  document.addEventListener('fullscreenchange', () => requestAnimationFrame(() => paintGrid()));
+}
+
+// ---- the options menu on a tile
+function tmenuItems(key) {
+  const L = lastLayout || { model: [] };
+  const x = L.model.find((m) => m.key === key); if (!x) return [];
+  const it = (k, icon, label) => ({ k, icon, label });
+  const out = [];
+  if (x.content) {
+    if (x.kind !== 'big') out.push(it('stage', 'expand', 'Put it on the stage'));
+    if (x.kind !== 'float') out.push(it('mini', 'mini', 'Small window'));
+    out.push(it('hide', 'eyeOff', 'Hide it for me'));
+    if (pipOK() && x.content !== 'brain') out.push(it('pip', 'pip', 'Picture in picture'));
+  } else {
+    const p = x.p, pinned = S.pin === p.pid;
+    out.push(it(pinned ? 'unpin' : 'pin', 'pin', pinned ? 'Unpin' : 'Pin for me'));
+    if (hostish() && !p.me) out.push(it('spot', 'spot', S.spot === p.pid ? 'End spotlight' : 'Spotlight for everyone'));
+    if (L.content && x.kind !== 'big') out.push(it('faceup', 'swap', 'Put on the stage'));
+    if (!p.me && pipOK() && p.cam) out.push(it('pip', 'pip', 'Picture in picture'));
+    if (p.me) out.push(it('hideself', 'eyeOff', 'Hide my video for me'));
+  }
+  if (document.fullscreenEnabled) out.push(it('full', 'expand', 'Full screen'));
+  return out;
+}
+function openTmenu(btn) {
+  const key = btn.dataset.k;
+  if (R.menu === key) { closeTmenu(); return; }
+  closeTmenu(); R.menu = key;
+  const items = tmenuItems(key); if (!items.length) return;
+  const st = $('.rm-stage'); const m = document.createElement('div'); m.id = 'rm-tmenu'; m.className = 'rm-tmenu'; m.setAttribute('role', 'menu');
+  m.innerHTML = items.map((i) => `<button type="button" role="menuitem" data-a="v" data-k="${i.k}" data-v="${esc(key)}">${ic(i.icon)}${i.label}</button>`).join('');
+  st.appendChild(m);
+  const s = st.getBoundingClientRect(), b = btn.getBoundingClientRect();
+  const left = Math.min(Math.max(8, b.right - s.left - m.offsetWidth), s.width - m.offsetWidth - 8);
+  const top = b.bottom - s.top + 6 + m.offsetHeight > s.height - 8 ? Math.max(8, b.top - s.top - m.offsetHeight - 6) : b.bottom - s.top + 6;
+  Object.assign(m.style, { left: left + 'px', top: top + 'px' });
+  btn.setAttribute('aria-expanded', 'true');
+  const f = m.querySelector('button'); f && f.focus({ preventScroll: true });
+}
+function closeTmenu(refocus) {
+  const m = document.getElementById('rm-tmenu'); if (m) m.remove();
+  const key = R.menu; R.menu = null;
+  const b = key && document.querySelector(`.mt-tile [data-a="tmenu"][data-k="${CSS.escape(key)}"]`);
+  if (b) { b.setAttribute('aria-expanded', 'false'); if (refocus) b.focus({ preventScroll: true }); }
+}
+
+// ---- one place for every view change: the View menu, the stage buttons, tile menus, keyboard shortcuts, phone dots.
+const MODE_NAME = { auto: 'Auto', gallery: 'Gallery', speaker: 'Speaker', spotlight: 'Spotlight' };
+function viewAct(k, v, from) {
+  const L = lastLayout || { model: [] };
+  const content = L.content || (L.float && { key: L.float.key, kind: L.float.content }) || L.hidden;
+  const say = (t) => { if (from === 'key') toast(t); };
+  const was = { stage: R.stage, swap: R.swap };
+  switch (k) {
+    case 'mode': if (MS.MODES.includes(v)) { setView({ mode: v }); if (v === 'gallery') R.swap = false; say(MODE_NAME[v] + ' view'); } break;
+    case 'strip': setView({ strip: v === 'bottom' ? 'bottom' : 'side' }); say(v === 'bottom' ? 'Faces below' : 'Faces beside'); break;
+    case 'stripsize': { if (stripSide() === 'bottom') setView({ bottom: V.bottom + (v === '+' ? 30 : -30) }); else setView({ side: V.side + (v === '+' ? 40 : -40) }); break; }
+    case 'stage': if (!content) return say('Nothing is shared'); R.stage = 'normal'; if (V.mode === 'gallery') setView({ mode: 'auto' }); say('Back on the stage'); break;
+    case 'mini': if (!content) return say('Nothing is shared'); R.stage = R.stage === 'mini' && from === 'key' ? 'normal' : 'mini'; R.swap = false; say(R.stage === 'mini' ? 'Small window' : 'Back on the stage'); break;
+    case 'hide': if (!content) return say('Nothing is shared'); R.stage = R.stage === 'hidden' && from === 'key' ? 'normal' : 'hidden'; say(R.stage === 'hidden' ? 'Shared screen hidden for you' : 'Shared screen shown'); break;
+    case 'swap': if (!content) return say('Nothing is shared'); R.stage = 'normal'; R.swap = !R.swap; if (!R.swap && S.pin) S.pin = ''; if (V.mode === 'gallery') setView({ mode: 'auto' }); say(R.swap ? 'A face on the stage' : 'Shared screen on the stage'); break;
+    case 'faceup': S.pin = v; R.swap = true; R.stage = 'normal'; if (V.mode === 'gallery') setView({ mode: 'auto' }); break;
+    case 'pin': S.pin = v; if (content && R.stage === 'normal') R.swap = true; break;
+    case 'unpin': S.pin = ''; if (R.swap) R.swap = false; break;
+    case 'spot': send('cmd', { a: S.spot === v ? 'unspot' : 'spot' }, v); break;
+    case 'hideself': setView({ hideSelf: !V.hideSelf }); say(V.hideSelf ? 'Your video is hidden for you. Others still see it.' : 'Your video is shown'); if (V.hideSelf && from !== 'key') toast('Your video is hidden for you. Others still see it.'); break;
+    case 'pip': startPip(v || (content ? content.key : 'speaker')); break;
+    case 'full': fullStage(v); break;
+    case 'keys': S.pop = 'keys'; paintTools(); paintPop(); return;
+    case 'open': S.pop = 'view'; paintTools(); paintPop(); return;
+    default: return;
+  }
+  closeTmenu();
+  paintGrid(); scheduleReconcile();
+  if (S.pop === 'view') paintPop();
+  if (was.stage !== R.stage && isPhone() && content) { const g = $('#rm-grid'); if (g && !matchMedia('(prefers-reduced-motion: reduce)').matches && (was.stage === 'hidden' || R.stage === 'hidden')) g.animate([{ transform: `translateX(${R.stage === 'hidden' ? 18 : -18}%)`, opacity: 0.2 }, { transform: 'none', opacity: 1 }], { duration: 300, easing: 'cubic-bezier(.2,.8,.2,1)' }); }
+}
+
+// Full screen of one thing: the stage, a tile, the clip, or the whole stage when nothing is big.
+function fullStage(key) {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  const L = lastLayout || { model: [] };
+  const x = key ? L.model.find((m) => m.key === key) : L.model.find((m) => m.kind === 'big') || L.float;
+  const el = !x ? $('.rm-stage') : x.play ? document.getElementById('rm-play') : elOf(x);
+  if (!el || !el.requestFullscreen) return;
+  el.requestFullscreen().catch(() => toast('Full screen is not available here.'));
+}
+
+// Picture in picture: a share, a person, or "speaker", which follows whoever is talking. Uses one hidden video element so the
+// window survives layout changes; the clip pops out its own player.
+let pipVid = null;
+function pipStream(target) {
+  if (!target) return null;
+  if (target === 'speaker') { const ev = [mePerson(), ...others()]; if (ev.length < 2) return null; target = speakerPid(ev); }
+  if (target.startsWith('share:')) { const pid = target.slice(6); if (pid === S.me.pid) return local.screen ? new MediaStream([local.screen]) : null; const r = remote.get(pid + '|s'); return r && r.stream; }
+  const r = remote.get(target + '|v'); return r && r.stream;
+}
+async function startPip(target) {
+  if (!pipOK()) { toast('Picture in picture is not available in this browser.'); return; }
+  if (document.pictureInPictureElement && R.pip === target) { document.exitPictureInPicture().catch(() => {}); return; }
+  if (target === 'play') {
+    const v = document.querySelector('#rm-play video');
+    if (!v) { toast('A YouTube video cannot pop out. Use Small window instead.'); return; }
+    try { await v.requestPictureInPicture(); R.pip = 'play'; v.addEventListener('leavepictureinpicture', () => { R.pip = ''; }, { once: true }); } catch { toast('Picture in picture did not open.'); }
+    return;
+  }
+  if (!pipVid) {
+    pipVid = document.createElement('video'); pipVid.id = 'rm-pipv'; pipVid.muted = true; pipVid.playsInline = true; pipVid.autoplay = true; pipVid.className = 'rm-pipv';
+    document.body.appendChild(pipVid);
+    pipVid.addEventListener('leavepictureinpicture', () => { R.pip = ''; scheduleReconcile(); });
+  }
+  R.pip = target; scheduleReconcile();
+  // The stream may need a moment to be pulled (a person who is not on screen).
+  for (let i = 0; i < 20 && !pipStream(target); i++) { await reconcile(); await new Promise((r) => setTimeout(r, 150)); }
+  const s = pipStream(target);
+  if (!s) { R.pip = ''; toast('That video is not available yet.'); return; }
+  if (pipVid.srcObject !== s) pipVid.srcObject = s;
+  try { await pipVid.play(); await pipVid.requestPictureInPicture(); }
+  catch { R.pip = ''; toast('Picture in picture did not open. Try again.'); }
+}
+function updatePip() {
+  if (!pipVid || !R.pip || R.pip === 'play' || document.pictureInPictureElement !== pipVid) return;
+  const s = pipStream(R.pip);
+  if (s && pipVid.srcObject !== s) { pipVid.srcObject = s; pipVid.play().catch(() => {}); }
+}
+// Chrome opens picture in picture by itself when this tab is left during a call, if the person allowed it.
+try { navigator.mediaSession && navigator.mediaSession.setActionHandler('enterpictureinpicture', () => { const L = lastLayout || {}; const c = L.content || L.float && { key: L.float.key } || L.hidden; startPip(c && c.key !== 'brain' ? c.key : 'speaker'); }); } catch {}
+
+// The View menu and the keyboard shortcut list (drawn in the pop-over spot by paintPop()).
+function viewPopHTML() {
+  const L = lastLayout || { model: [] };
+  const content = L.content || (L.float && { key: L.float.key, kind: L.float.content, p: L.float.p }) || L.hidden;
+  const seg = (k, opts, cur, label) => `<div class="vw-seg" role="radiogroup" aria-label="${label}">${opts.map(([v, icon, t]) => `<button type="button" role="radio" aria-checked="${cur === v}" class="${cur === v ? 'is-on' : ''}" data-a="v" data-k="${k}" data-v="${v}">${icon ? ic(icon) : ''}<span>${t}</span></button>`).join('')}</div>`;
+  const tog = (k, on, t) => `<button type="button" class="vw-tog" role="switch" aria-checked="${on}" data-a="v" data-k="${k}"><span>${t}</span><i class="${on ? 'is-on' : ''}"></i></button>`;
+  const stageNow = R.stage === 'mini' ? 'mini' : R.stage === 'hidden' ? 'hide' : 'stage';
+  return `<div class="rm-pop rm-view" role="dialog" aria-label="Your view">
+    <div class="vw-h"><b>Your view</b><small>Only you see these changes.</small></div>
+    <div class="vw-l">Layout</div>
+    ${seg('mode', [['auto', 'auto', 'Auto'], ['gallery', 'grid', 'Gallery'], ['speaker', 'speaker', 'Speaker'], ['spotlight', 'spot', 'Spotlight']], V.mode, 'Layout')}
+    ${isPhone() ? '' : `<div class="vw-l">Faces</div>${seg('strip', [['side', 'side', 'Beside'], ['bottom', 'below', 'Below']], V.strip, 'Faces')}`}
+    ${content ? `<div class="vw-l">${esc(CONTENT_NAME(content))}</div>${seg('stagepick', [['stage', 'expand', 'On the stage'], ['mini', 'mini', 'Small window'], ['hide', 'eyeOff', 'Hidden']], stageNow, 'Shared screen or video')}
+      ${R.stage === 'normal' && V.mode !== 'gallery' ? tog('swap', R.swap, 'A face on the stage, the share beside it') : ''}` : ''}
+    ${tog('hideself', V.hideSelf, 'Hide my video for me')}
+    <div class="vw-acts">${pipOK() ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-a="v" data-k="pip" data-v="speaker">${ic('pip')}Pop out the speaker</button>` : ''}${pipOK() && content && content.kind !== 'brain' ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-a="v" data-k="pip" data-v="${esc(content.key)}">${ic('pip')}Pop out the share</button>` : ''}${document.fullscreenEnabled ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-a="v" data-k="full">${ic('expand')}Full screen</button>` : ''}</div>
+    ${isPhone() ? '' : `<button type="button" class="vw-keys" data-a="v" data-k="keys">${ic('kbd')}Keyboard shortcuts <kbd>?</kbd></button>`}
+  </div>`;
+}
+const KEYS = [['M', 'Mute or unmute'], ['V', 'Camera on or off'], ['A', 'Auto view'], ['G', 'Gallery view'], ['S', 'Speaker view'], ['L', 'Spotlight view'], ['W', 'Small window for the share'], ['H', 'Hide or show the share'], ['X', 'Swap the stage and a face'], ['B', 'Faces beside or below'], ['[ ]', 'Narrower or wider faces'], ['Y', 'Hide or show my video'], ['F', 'Full screen of the stage'], ['P', 'Picture in picture'], ['← →', 'Gallery pages'], ['?', 'This list']];
+const keysPopHTML = () => `<div class="rm-pop rm-view rm-keys" role="dialog" aria-label="Keyboard shortcuts"><div class="vw-h"><b>Keyboard shortcuts</b><small>View changes are yours alone.</small></div><dl>${KEYS.map(([k, t]) => `<div><dt><kbd>${k}</kbd></dt><dd>${t}</dd></div>`).join('')}</dl></div>`;
+function viewKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return false;
+  const k = e.key;
+  const map = { a: ['mode', 'auto'], g: ['mode', 'gallery'], s: ['mode', 'speaker'], l: ['mode', 'spotlight'], w: ['mini'], h: ['hide'], x: ['swap'], y: ['hideself'], f: ['full'], p: ['pip'], '[': ['stripsize', '-'], ']': ['stripsize', '+'] };
+  if (k === '?') { S.pop = S.pop === 'keys' ? '' : 'keys'; paintTools(); paintPop(); return true; }
+  if (k === 'b' || k === 'B') { if (!isPhone()) viewAct('strip', V.strip === 'side' ? 'bottom' : 'side', 'key'); return true; }
+  if ((k === 'ArrowLeft' || k === 'ArrowRight') && (S.pages || 1) > 1) { S.page = Math.max(0, Math.min(S.pages - 1, S.page + (k === 'ArrowRight' ? 1 : -1))); paintGrid(); scheduleReconcile(); return true; }
+  const m = map[k.toLowerCase()]; if (!m) return false;
+  if (m[0] === 'pip') { const L = lastLayout || {}; const c = L.content || (L.float && { key: L.float.key }); viewAct('pip', c && c.key !== 'brain' ? c.key : 'speaker', 'key'); return true; }
+  viewAct(m[0], m[1], 'key');
+  return true;
 }
 
 // Gallery sizing: the column count that gives the biggest tiles for this many people in this space, every tile the same size,
@@ -833,7 +1248,7 @@ function fitGrid(grid, n) {
   const f = bestFit(Math.max(1, n), W, H, gap, aspect);
   const sig = [n, f.cols, f.w, f.h].join(',');
   if (grid.dataset.fit !== sig) { grid.dataset.fit = sig; grid.style.setProperty('--tw', f.w + 'px'); grid.style.setProperty('--th', f.h + 'px'); }
-  if (!fitObs && window.ResizeObserver) { fitObs = new ResizeObserver(() => { const g = $('#rm-grid'); if (g && g.classList.contains('is-fit')) fitGrid(g, g.querySelectorAll(':scope > .mt-tile').length); }); fitObs.observe(grid); }
+  if (!fitObs && window.ResizeObserver) { fitObs = new ResizeObserver(() => { const g = $('#rm-grid'); if (g && g.classList.contains('is-fit')) fitGrid(g, g.querySelectorAll(':scope > .mt-tile:not(.is-float)').length); }); fitObs.observe(grid); }
 }
 
 function paintPager() {
@@ -869,6 +1284,7 @@ function onTrack(mid, track) {
       remote.set(key, { stream, tkey });
       const t = tiles.get(tkey);
       if (t) { t.video.srcObject = stream; t.video.play().catch(() => {}); }
+      updatePip();
     } else {
       let el = document.getElementById('a-' + mid);
       if (!el) { el = document.createElement('audio'); el.id = 'a-' + mid; el.autoplay = true; document.body.appendChild(el); }
@@ -937,7 +1353,7 @@ async function paintMore() {
     h && S.meeting.rec !== 'off' ? row('rec', 'rec', recOn ? 'Stop recording' : 'Start recording', recOn ? 'On' : '') : '',
     FEATURES.brain ? row('panel', 'brain', 'Ask Favor Brain', '', ' data-p="brain"') : '',
     FEATURES.notes ? row('panel', 'notes', 'Live notes', liveCount() ? String(liveCount()) : '', ' data-p="notes"') : '',
-    row('layout', S.layout === 'grid' ? 'speaker' : 'grid', S.layout === 'grid' ? 'Speaker view' : 'Gallery view', ''),
+    row('v', 'grid', 'Your view', MODE_NAME[V.mode] + (V.hideSelf ? ', my video hidden' : ''), ' data-k="open"'),
     document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
     mayPlay() ? row('playclip', 'screen', 'Play a video for everyone', S.play ? 'On' : '') : '',
@@ -1153,6 +1569,7 @@ async function faceTick() {
 // ---------------------------------------------------------------- actions
 function onDocClick(e) {
   if (S.pop && !e.target.closest('.rm-pop') && !e.target.closest('[data-a="pop"]')) { S.pop = ''; paintTools(); paintPop(); }
+  if (R.menu && !e.target.closest('#rm-tmenu') && !e.target.closest('[data-a="tmenu"]')) closeTmenu();
   const a = e.target.closest('[data-a]');
   if (!a) { if (S.menu && !e.target.closest('.menu')) { S.menu = null; paintSideBody(false); } return; }
   const act = a.dataset.a;
@@ -1193,7 +1610,9 @@ function onDocClick(e) {
     case 'leave': leaveClick(); break;
     case 'pop': S.pop = S.pop === a.dataset.p ? '' : a.dataset.p; paintTools(); paintPop(); break;
     case 'emoji': S.pop = ''; paintTools(); paintPop(); send('react', { e: a.dataset.e }); break;
-    case 'layout': S.layout = S.layout === 'grid' ? 'speaker' : 'grid'; paintTools(); paintGrid(); scheduleReconcile(); break;
+    case 'layout': viewAct('mode', V.mode === 'gallery' ? 'speaker' : 'gallery'); paintTools(); break;
+    case 'v': { const k = a.dataset.k; if (k === 'stagepick') viewAct(a.dataset.v); else viewAct(k, a.dataset.v); if (k === 'mode') paintTools(); break; }
+    case 'tmenu': openTmenu(a); break;
     case 'fullscreen': if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); else (document.getElementById('h-app') || document.documentElement).requestFullscreen().catch(() => toast('Full screen is not available here.')); break;
     case 'chat-send': sendChat(); break;
     case 'live-add': addLive(); break;
@@ -1227,11 +1646,16 @@ function onKey(e) {
   if (document.querySelector('.cf')) return;
   if (e.key === 'Escape') {
     if (S.withPick) { closeWith(); e.preventDefault(); return; }
+    if (R.menu) { closeTmenu(true); e.preventDefault(); return; }
     if (devOpen) { closeDevSheet(); e.preventDefault(); return; }
     if (S.more) { closeMore(); const o = $('#rm-ctl [data-a="more"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.pop) { const p = S.pop; S.pop = ''; paintTools(); paintPop(); const o = $('[data-a="pop"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.menu) { const pid = S.menu; S.menu = null; paintSideBody(false); const o = $('[data-a="pmenu"][data-pid="' + pid + '"]'); o && o.focus(); e.preventDefault(); return; }
     if (sheetMode() && S.panel) { const p = S.panel; S.panel = ''; paintCtl(); paintSide(); const o = $('#rm-ctl [data-a="panel"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
+    return;
+  }
+  if (R.menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    const items = $$('#rm-tmenu button'); if (items.length) { const i = items.indexOf(document.activeElement); items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus(); e.preventDefault(); }
     return;
   }
   if (S.menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -1250,6 +1674,7 @@ function onKey(e) {
   if (e.target.matches && e.target.matches('input, textarea, select')) return;
   if (e.key === 'm' || e.key === 'M') { toggleMic(); }
   else if (e.key === 'v' || e.key === 'V') { toggleCam(); }
+  else if (viewKey(e)) e.preventDefault();
 }
 // ---- live notes: action items and decisions caught as they are said, plus the ones people add by hand
 const liveCount = () => S.live.filter((i) => !i.dismissed && i.kind === 'action').length;
@@ -1576,14 +2001,25 @@ function wanted() {
   const w = new Map();
   const { model } = layoutModel();
   const level = S.level;
-  model.forEach(({ key, p, kind, share }) => {
-    if (p.me || AUDIO_ONLY) return;
+  // A wide strip (dragged wider, or faces below at a tall size) gets the middle layer instead of the smallest.
+  const bigStrip = !isPhone() && (V.strip === 'bottom' ? V.bottom > 170 : V.side > 300);
+  model.forEach(({ key, p, kind, share, play, brain }) => {
+    if (!p || play || brain || kind === 'more' || p.me || AUDIO_ONLY) return;
     const tr = (p.tracks || []).find((t) => (share ? t.name === 's' : t.name === 'v'));
     if (!tr) return;
     if (!share && !p.cam) return;
-    let rid = share ? (level === 'weak' ? 'h' : 'f') : kind === 'big' ? (level === 'weak' ? 'h' : 'f') : kind === 'strip' ? 'q' : level === 'weak' ? 'q' : level === 'fair' ? (model.length > 4 ? 'q' : 'h') : model.length <= 2 ? 'f' : 'h';
+    let rid = share ? (level === 'weak' || kind === 'strip' || kind === 'float' ? 'h' : 'f') : kind === 'big' ? (level === 'weak' ? 'h' : 'f') : kind === 'strip' ? (bigStrip && level !== 'weak' ? 'h' : 'q') : level === 'weak' ? 'q' : level === 'fair' ? (model.length > 4 ? 'q' : 'h') : model.length <= 2 ? 'f' : 'h';
     w.set(p.pid + '|' + tr.name, { pid: p.pid, sessionId: p.sessionId, trackName: tr.name, kind: 'video', rid });
   });
+  // Picture in picture: the person or share in the window is pulled even when it is not on screen.
+  if (R.pip && R.pip !== 'play' && !AUDIO_ONLY) {
+    let pid = R.pip, name = 'v';
+    if (pid === 'speaker') { const ev = [mePerson(), ...others()]; pid = ev.length > 1 ? speakerPid(ev) : ''; }
+    else if (pid.startsWith('share:')) { pid = pid.slice(6); name = 's'; }
+    const p = others().find((x) => x.pid === pid);
+    const tr = p && (p.tracks || []).find((t) => t.name === name);
+    if (tr && !w.has(pid + '|' + name)) w.set(pid + '|' + name, { pid, sessionId: p.sessionId, trackName: name, kind: 'video', rid: 'h' });
+  }
   // Sound: everyone while the link is good (a muted person sends almost nothing); only the last few speakers on a weak link.
   const audible = others().filter((p) => (p.tracks || []).some((t) => t.name === 'a'));
   const picked = level === 'weak' ? audible.slice().sort((a, b) => (b.speakAt || 0) - (a.speakAt || 0)).slice(0, 4) : audible.slice(0, 40);
@@ -1809,7 +2245,7 @@ async function toggleRecording() {
   else await recorder.start();
 }
 
-window.__meet = { S, tiles, get rtc() { return rtc; }, get fx() { return cfx; }, get vfx() { return vfx; }, reconcile, rejoin };
+window.__meet = { S, tiles, get view() { return { V, R, L: lastLayout }; }, get rtc() { return rtc; }, get fx() { return cfx; }, get vfx() { return vfx; }, reconcile, rejoin };
 
 // ---------------------------------------------------------------- captions
 // ---- private moment: a host pauses the notes and the recording, for prayer or anything personal. The server keeps nothing said

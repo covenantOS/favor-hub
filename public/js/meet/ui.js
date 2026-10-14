@@ -4,6 +4,11 @@ export const $$ = (s, el = document) => Array.from(el.querySelectorAll(s));
 export const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const I = {
+  mini: '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="12" y="12" width="7" height="6" rx="1" fill="currentColor"/>', pip: '<rect x="3" y="4" width="18" height="16" rx="2"/><rect x="11" y="11" width="8" height="7" rx="1"/><path d="M7 8l3 3"/><path d="M7 11V8h3"/>',
+  eyeOff: '<path d="M3 3l18 18"/><path d="M10.6 6.1A9.8 9.8 0 0 1 12 6c5 0 9 6 9 6a16 16 0 0 1-3 3.5"/><path d="M6.6 7.6C4.3 9.2 3 12 3 12s4 6 9 6a8.6 8.6 0 0 0 4.2-1.1"/><path d="M9.9 10a3 3 0 0 0 4.1 4.1"/>', swap: '<path d="M7 4 3 8l4 4"/><path d="M3 8h14"/><path d="m17 20 4-4-4-4"/><path d="M21 16H7"/>',
+  spot: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="10.5" r="2.5"/><path d="M8 16.5c.8-1.6 2.3-2.5 4-2.5s3.2.9 4 2.5"/>', auto: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="m12 7.5 1.3 3.2 3.2 1.3-3.2 1.3-1.3 3.2-1.3-3.2-3.2-1.3 3.2-1.3z"/>',
+  side: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/><path d="M15 9.5h6"/><path d="M15 14.5h6"/>', below: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 15h18"/><path d="M9 15v5"/><path d="M15 15v5"/>',
+  kbd: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/>',
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>', plus: '<path d="M12 5v14"/><path d="M5 12h14"/>', check: '<path d="m5 12.5 4.5 4.5L19 7.5"/>', x: '<path d="M6 6l12 12"/><path d="M18 6 6 18"/>',
   video: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/>', videoOff: '<path d="M3 3l18 18"/><path d="M16 16H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h1"/><path d="M10 6h4a2 2 0 0 1 2 2v3l5-3v10"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/>', micOff: '<path d="M3 3l18 18"/><path d="M9 9v2a3 3 0 0 0 5 2"/><path d="M15 10V6a3 3 0 0 0-6 0"/><path d="M5 11a7 7 0 0 0 11 5"/><path d="M19 11a7 7 0 0 1-.6 2.8"/><path d="M12 18v3"/>',
