@@ -170,3 +170,28 @@
 .exp-pdf-link { display: inline-block; white-space: nowrap; padding: 5px 10px; margin-right: 6px; border-radius: 8px; border: 1px solid var(--rule, #d6d2c4); color: inherit !important; font-size: 13px; font-weight: 600; text-decoration: none !important; }
 .exp-pdf-link:hover { background: rgba(0, 0, 0, 0.05); }
 .exp-pdf-btn { margin: 4px 0 12px; min-height: 40px; line-height: 28px; }
+
+/* My requests */
+.exp-mine { margin-bottom: 22px; }
+.exp-mine__h { font: 600 22px/1.2 var(--display); margin: 0 0 14px; }
+.exp-logh { margin-top: 30px; }
+.exp-mine__dim { opacity: .6; }
+.exp-mine-item { display: grid; grid-template-columns: 1fr auto; align-items: center; border-top: 1px solid var(--rule); padding: 4px 0; }
+.exp-mine-item:first-child { border-top: none; }
+.exp-mine-row {
+  display: grid; grid-template-columns: 110px 120px 110px 120px 1fr; gap: 12px; align-items: center; text-align: left;
+  background: none; border: none; color: inherit; font: inherit; font-size: 14px; padding: 12px 6px; cursor: pointer; border-radius: 10px; min-height: 44px;
+}
+.exp-mine-row:hover { background: var(--cream); }
+.exp-mine-row:focus-visible { outline: 2px solid var(--green-deep); outline-offset: 2px; }
+.exp-mine-doc { font-family: var(--mono); font-weight: 600; }
+.exp-mine-tot { font-family: var(--mono); text-align: right; }
+.exp-mine-pdf { margin: 0 0 0 8px; }
+.exp-mine-detail { grid-column: 1 / -1; padding: 4px 0 14px; }
+@media (max-width: 720px) {
+  .exp-mine-item { grid-template-columns: 1fr; padding: 8px 0; }
+  .exp-mine-row { grid-template-columns: 1fr auto; grid-template-areas: "doc tot" "date st" "appr appr"; row-gap: 6px; padding: 10px 4px; }
+  .exp-mine-doc { grid-area: doc; } .exp-mine-tot { grid-area: tot; } .exp-mine-date { grid-area: date; opacity: .7; }
+  .exp-mine-st { grid-area: st; justify-self: end; } .exp-mine-appr { grid-area: appr; opacity: .7; }
+  .exp-mine-pdf { margin: 4px 4px 0; justify-self: start; min-height: 44px; line-height: 34px; }
+}

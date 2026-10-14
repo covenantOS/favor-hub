@@ -15,6 +15,7 @@ import {
   sha256Hex,
   splitEmails,
   eitherApprover,
+  getExpense,
 } from '../../_lib/expenses/db';
 import { emailApprover } from '../../_lib/expenses/email';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, type Env } from '../../_lib/http';
@@ -95,8 +96,34 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 };
 
+/** Every signed-in staff member sees their own requests, matched on the Google email, and nothing else. */
+async function myRequests(env: Env, request: Request) {
+  const user = hubUserOf(request);
+  if (!user || user.via !== 'google') throw new HttpError(401, 'signin', 'Sign in with your Favor Google account.');
+  const { results } = await env.DB.prepare(
+    `SELECT id FROM expense_requests WHERE lower(trim(requester_email)) = ? ORDER BY created_at DESC LIMIT 200`
+  )
+    .bind(user.email.trim().toLowerCase())
+    .all<{ id: string }>();
+  const out = [];
+  for (const { id } of results) {
+    const row = await getExpense(env, id);
+    if (!row) continue;
+    const shape = expenseShape(row, await itemsFor(env, row.id), { admin: true, signatures: true });
+    // The timeline carries kind, actor and time only. Event payloads hold approver emails and review links.
+    const events = (await listEventsFor(env, row.id))
+      .filter((ev) => ['submitted', 'approved', 'declined', 'approver_reassigned'].includes(ev.kind))
+      .map((ev) => ({ kind: ev.kind, actor: ev.actor, created_at: ev.created_at }));
+    out.push({ ...shape, approver_email: undefined, events });
+  }
+  return out;
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
+    if (new URL(request.url).searchParams.get('mine') === '1') {
+      return json({ ok: true, requests: await myRequests(env, request) });
+    }
     await requireExpenseAdmin(env, request);
     const rows = await listExpenses(env);
     const settings = await getSettings(env);

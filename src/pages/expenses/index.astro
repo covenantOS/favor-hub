@@ -7,12 +7,12 @@ import '../../styles/qa-work.css';
 import '../../styles/q3-desk.css';
 import '../../styles/lint-fix.css';
 ---
-<App full title="Expense log" crumb="Work" nav="expenses" description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too.">
+<App full title="Expenses" crumb="Work" nav="expenses" description="Every expense request, its status, and the signed PDFs. Approver schedule lives here too.">
   <div class="exp-page">
     <div class="container">
       <div class="exp-head">
         <div>
-          <h1>The expense <em>log</em></h1>
+          <h1>Your <em>expenses</em></h1>
         </div>
         <div style="display:flex;gap:10px;align-items:center">
           <a class="h-btn h-btn--primary" href="/expenses/new">New expense request</a>
@@ -20,6 +20,12 @@ import '../../styles/lint-fix.css';
         </div>
       </div>
 
+      <section class="make-sheet exp-mine" id="exp-mine" aria-labelledby="exp-mine-h">
+        <h2 class="exp-mine__h" id="exp-mine-h">My requests</h2>
+        <div id="exp-mine-list" aria-live="polite"><p class="exp-empty">Loading your requests.</p></div>
+      </section>
+
+      <h2 class="exp-mine__h exp-logh" id="exp-logh" hidden>The expense log</h2>
       <div class="h-card h-skel" id="exp-skel" aria-hidden="true" style="min-height:420px"></div>
       <div class="board-login" id="exp-denied" hidden>
         <p id="exp-denied-msg">The expense log is open to the approvers and the people they add.</p>
@@ -102,5 +108,6 @@ import '../../styles/lint-fix.css';
       </div>
     </div>
   </div>
-  <script is:inline src="/js/expenses-admin.js?v=7"></script>
+  <script is:inline src="/js/expenses-mine.js?v=1"></script>
+  <script is:inline src="/js/expenses-admin.js?v=8"></script>
 </App>

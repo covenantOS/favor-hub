@@ -269,6 +269,8 @@
       $("exp-locked").hidden = true;
       $("exp-denied").hidden = true;
       $("exp-admin").hidden = false;
+      $("exp-skel").hidden = true;
+      $("exp-logh").hidden = false;
       // Signed in with Google: no code to manage and nothing to lock (sign out is in the header).
       $("exp-lock").hidden = viaGoogle;
       $("exp-code-section").hidden = viaGoogle || signinOn;
@@ -372,10 +374,11 @@
         return;
       }
       if (err.code === "not_on_list") {
-        $("exp-denied-msg").textContent = err.message;
-        $("exp-denied").hidden = false;
+        // A plain requester sees My requests only; the full log is for approvers.
+        $("exp-skel").hidden = true;
         return;
       }
+      $("exp-skel").hidden = true;
       $("exp-locked").hidden = false;
     });
 })();
