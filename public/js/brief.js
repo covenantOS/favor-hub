@@ -266,6 +266,10 @@ document.addEventListener('hub:day', (e) => { S.day = e.detail; if (S.data) { dr
 document.addEventListener('hub:cards', (e) => { S.cards = e.detail; if (S.data && S.focus) draw(); });
 if (window.__hubDay) S.day = window.__hubDay;
 draw();
-load(false);
+// Hold the briefing's last height while it loads, so the page below it does not jump when it draws.
+const H_KEY = 'favor.hub.brief.h';
+const lastH = Number(store.get(H_KEY, 0)) || 0;
+if (lastH > 40) { root.style.minHeight = lastH + 'px'; root.innerHTML = '<div class="r2t-skel br-skel"></div>'; }
+load(false).finally(() => { if (root.innerHTML && !root.hidden) store.set(H_KEY, String(root.offsetHeight)); else store.set(H_KEY, '0'); root.style.minHeight = ''; });
 loadNext();
 })();
