@@ -219,6 +219,8 @@ export function openShare(id, { onChange } = {}) {
       if (!e.target.matches('[data-add]')) return;
       const input = e.target;
       S.q = input.value;
+      // Results from an earlier keystroke never answer Enter for this one.
+      S.hits = [];
       clearTimeout(timer);
       timer = setTimeout(async () => {
         const q = S.q.trim();
