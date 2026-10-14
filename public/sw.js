@@ -5,6 +5,9 @@
      3. shows web push notices (a direct message or a mention) and opens the right conversation when one is tapped,
      4. forgets everything it kept when the person signs out, so a shared phone leaves nothing behind.
    Account data (/api/...) is never stored here. The pages keep what they need for offline reading in their own store. */
+// The outbox code, shared with the pages, for background sending.
+try { importScripts('/js/phone-core.js?v=2'); } catch { /* sends from the page instead */ }
+
 const VERSION = 'favoros-sw-1';
 const STATIC = `${VERSION}-static`;
 const SHELL = `${VERSION}-shell`;
@@ -92,6 +95,18 @@ async function keptFirst(request) {
   return refresh();
 }
 
+const LITE_PAGES = ['/', '/chat/'];
+async function litePage(request) {
+  const cache = await caches.open(SHELL);
+  try {
+    const res = await fetch(request);
+    if (res.ok && !res.redirected && new URL(res.url).pathname === new URL(request.url).pathname) cache.put(new URL(request.url).pathname, res.clone());
+    return res;
+  } catch {
+    return (await cache.match(new URL(request.url).pathname)) || Response.error();
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
@@ -107,7 +122,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(code ? (url.searchParams.has('v') ? lite().then((on) => (on ? keptFirst(req) : networkFirst(req))) : networkFirst(req)) : cacheFirst(req));
     return;
   }
-  if (req.mode === 'navigate' && SHELL_PATHS.includes(url.pathname)) event.respondWith(shellFirstFromNetwork(req));
+  if (req.mode === 'navigate' && SHELL_PATHS.includes(url.pathname)) { event.respondWith(shellFirstFromNetwork(req)); return; }
+  // Lite mode: Today and Chat are kept too, so they open with no signal (Chat then reads its kept messages, chat.js).
+  if (req.mode === 'navigate' && LITE_PAGES.includes(url.pathname)) event.respondWith(lite().then((on) => (on ? litePage(req) : fetch(req))));
 });
 
 self.addEventListener('message', (event) => {
@@ -166,6 +183,9 @@ self.addEventListener('notificationclick', (event) => {
 // Chromium can wake the app to send queued messages once the connection returns.
 self.addEventListener('sync', (event) => {
   if (event.tag === 'favor-outbox') {
-    event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => wins.forEach((w) => w.postMessage({ type: 'flush-outbox' }))));
+    // The worker sends the waiting messages itself, so they go even when FavorOS is closed (phone-core.js, loaded at the top).
+    const P = self.FavorPhone;
+    event.waitUntil((P ? P.createOutbox(P.idbStore(), P.chatTransport()).flush().catch(() => undefined) : Promise.resolve()).then(() =>
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => wins.forEach((w) => w.postMessage({ type: 'flush-outbox' })))));
   }
 });

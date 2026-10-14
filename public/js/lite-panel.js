@@ -19,9 +19,18 @@
     '.dsv-bar{height:8px;border-radius:4px;background:#e8dfc9;overflow:hidden;margin:6px 0 4px}.dsv-bar i{display:block;height:100%;background:#1f3a2e}.dsv-bar.is-over i{background:#b3402a}' +
     '.dsv-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0}.dsv-row select{min-height:40px;font:inherit;border-radius:8px;border:1px solid #d9cfb8;padding:0 8px;background:#fff}' +
     '.dsv-small{font-size:13px;color:#5b5240}.dsv-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}' +
+    '.dsv-btn{min-height:40px;padding:0 14px;border-radius:10px;border:1px solid #d9cfb8;background:#fff;font:inherit;font-weight:600}' +
     '.dsv-acts button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #d9cfb8;background:#fff;font:inherit;font-weight:600}';
 
   var el = null;
+  function pushOn() { try { return localStorage.getItem('favor.push.on') === '1' && window.Notification && Notification.permission === 'granted'; } catch (e) { return false; } }
+  function turnOnPush(btn) {
+    btn.disabled = true; btn.textContent = 'Turning on';
+    var go = function () { return window.FavorPhone.enablePush(); };
+    (window.FavorPhone ? Promise.resolve() : new Promise(function (res, rej) { var s = document.createElement('script'); s.src = '/js/phone-core.js?v=2'; s.onload = res; s.onerror = rej; document.head.appendChild(s); }))
+      .then(go).then(function () { try { localStorage.setItem('favor.push.on', '1'); } catch (e) { /* private */ } paint(); })
+      .catch(function (e) { btn.disabled = false; btn.textContent = 'Turn on'; var w = el && el.querySelector('.dsv-why'); if (w) w.textContent = (e && e.message) || 'Notifications could not be turned on.'; });
+  }
   function why() {
     if (L.mode === 'on') return 'On for this phone. Pictures wait for a tap, meetings start as audio calls and the app checks for news less often.';
     if (L.mode === 'off') return 'Off for this phone. Everything loads as usual.';
@@ -41,6 +50,8 @@
       (s.cap ? '<div class="dsv-bar' + (over ? ' is-over' : '') + '"><i style="width:' + pct + '%"></i></div><div class="dsv-small">' + (over ? 'Over the monthly limit of ' + mb(s.cap) + '.' : pct + '% of the ' + mb(s.cap) + ' monthly limit.') + '</div>' : '') +
       '<div class="dsv-row"><label for="dsv-cap">Monthly limit</label><select id="dsv-cap">' + caps.map(function (c) { return '<option value="' + c + '"' + (c === s.capMb ? ' selected' : '') + '>' + (c ? (c >= 1024 ? c / 1024 + ' GB' : c + ' MB') : 'No limit') + '</option>'; }).join('') + '</select></div>' +
       '<div class="dsv-small">Counted on this phone in this browser: pages ' + mb(s.kinds.page) + ', meetings ' + mb(s.kinds.meet) + ' this month. The phone company\'s own count can be a little higher.</div>' +
+      '<div class="dsv-row"><span>Notifications on this phone</span><button type="button" class="dsv-btn" data-dsv-push>' + (pushOn() ? 'On' : 'Turn on') + '</button></div>' +
+      '<div class="dsv-small">With notifications on, messages arrive as a notice and the app checks for news every 15 minutes instead of 5.</div>' +
       '<div class="dsv-acts"><button type="button" data-dsv-close>Done</button></div>';
   }
   function close() { if (el) { el.remove(); el = null; document.removeEventListener('keydown', onKey); } }
@@ -55,6 +66,7 @@
     paint();
     el.addEventListener('click', function (e) {
       if (e.target === el || e.target.closest('[data-dsv-close]')) { close(); return; }
+      var pb = e.target.closest('[data-dsv-push]'); if (pb && !pushOn()) { turnOnPush(pb); return; }
       var b = e.target.closest('[data-dsv-mode]');
       if (b) {
         var changed = L.set(b.getAttribute('data-dsv-mode'));

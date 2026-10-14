@@ -29,7 +29,8 @@
   }
   function offline(on) {
     var e = el('ng-offline', 'ng-bar');
-    e.textContent = 'You are offline. Changes will not save until the connection is back.';
+    // Lite mode keeps chat messages in the phone's outbox (lite.js), so the banner says so.
+    e.textContent = window.FavorLite && window.FavorLite.on ? 'You are offline. Messages you send are saved and go out when the signal returns.' : 'You are offline. Changes will not save until the connection is back.';
     e.classList.toggle('is-on', on);
     document.documentElement.classList.toggle('ng-is-offline', on);
   }

@@ -7,7 +7,29 @@
   var handlers = [];
   var emit = function (ev) { handlers.forEach(function (h) { try { h(ev); } catch (e) { console.error(e); } }); };
 
+  // Lite mode keeps the channel list and each opened channel's latest messages on the phone, so Chat opens with no signal.
+  var KEEP = /^(boot|channels\/[^/?]+\/messages)$/;
+  function kept() {
+    if (!window.indexedDB || !(window.FavorLite && window.FavorLite.on)) return null;
+    if (!kept.p) kept.p = new Promise(function (res) {
+      var o = indexedDB.open('favor-chat-keep', 1);
+      o.onupgradeneeded = function () { o.result.createObjectStore('r'); };
+      o.onsuccess = function () { res(o.result); }; o.onerror = function () { res(null); };
+    });
+    return kept.p;
+  }
+  function keepPut(k, d) { var p = kept(); if (p) p.then(function (db) { if (db) try { db.transaction('r', 'readwrite').objectStore('r').put(JSON.stringify(d).length < 2e6 ? d : null, k); } catch (e) { /* full */ } }); }
+  function keepGet(k) { var p = kept(); return p ? p.then(function (db) { return db ? new Promise(function (res) { try { var r = db.transaction('r').objectStore('r').get(k); r.onsuccess = function () { res(r.result || null); }; r.onerror = function () { res(null); }; } catch (e) { res(null); } }) : null; }) : Promise.resolve(null); }
   function req(method, path, body, raw) {
+    if (method === 'GET' && KEEP.test(path) && kept()) {
+      return req2(method, path, body, raw).then(function (d) { keepPut(path, d); return d; }, function (e) {
+        if (e && e.status) throw e;
+        return keepGet(path).then(function (d) { if (!d) throw e; d.offline = true; return d; });
+      });
+    }
+    return req2(method, path, body, raw);
+  }
+  function req2(method, path, body, raw) {
     var headers = { 'X-Hub-Request': '1' };
     if (body && !raw) headers['Content-Type'] = 'application/json';
     return fetch('/api/chat/' + path, { method: method, credentials: 'same-origin', headers: Object.assign(headers, raw ? raw.headers : {}), body: raw ? raw.body : body ? JSON.stringify(body) : undefined })

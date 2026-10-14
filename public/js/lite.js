@@ -210,13 +210,68 @@
   /** Sends a chat message through the outbox. Resolves { message } when it went now, { queued: true } when it waits for signal. */
   function chatSend(channel, payload) {
     return outbox().then(function (b) {
-      return b.send({ channel: channel, thread_id: payload.thread_id || null, body: payload.body || '', attachments: payload.attachments || [], also: payload.also });
+      return b.send({ channel: channel, thread_id: payload.thread_id || null, body: payload.body || '', attachments: payload.attachments || [], also: payload.also }).then(function (r) {
+        // Chromium wakes the service worker to send it when the signal returns, even with FavorOS closed (sw.js 'sync').
+        if (r.queued && navigator.serviceWorker) navigator.serviceWorker.ready.then(function (reg) { if (reg.sync) reg.sync.register('favor-outbox').catch(function () {}); }).catch(function () {});
+        return r;
+      });
     });
   }
   function flushOutbox() { if (box || Number(get('favor.lite.outbox')) > 0) outbox().then(function (b) { return b.flush(); }).catch(function () {}); }
   addEventListener('online', flushOutbox);
   document.addEventListener('visibilitychange', function () { if (!document.hidden && navigator.onLine) flushOutbox(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', function (e) { if (e.data && e.data.type === 'flush-outbox') flushOutbox(); });
+
+  /* ---------------------------------------------------------------- one sync for the polls */
+  // In Lite, the reads FavorOS polls for (bell, reminders, notices, chat inbox, meetings) come from one request every five minutes
+  // (/api/hub/sync, functions/_middleware.ts). A poll between syncs is answered from the last one; an answer that has not changed
+  // comes back as 304 with no body. Any change the person makes (a POST, PATCH or DELETE) makes the next read fetch fresh.
+  var SYNCED = /^\/api\/(work\/reminders|work\/gate|tasks\/links\/bell|hub\/notifications|hub\/nav|chat\/inbox|requests\/notices|meet\/meetings(\/calendar|\/directory)?)$/;
+  var SY = { seen: {}, last: null, at: 0, etag: '', run: null, every: 300000 };
+  // With notices on, a direct message or a mention arrives as a push, so the sync can wait three times longer.
+  try { if (window.Notification && Notification.permission === 'granted' && localStorage.getItem('favor.push.on') === '1') SY.every = 900000; } catch (e) { /* ignore */ }
+  function syncNow() {
+    if (SY.run) return SY.run;
+    var now = Date.now(), keys = Object.keys(SY.seen).filter(function (k) { return now - SY.seen[k] < 30 * 60000; }).slice(0, 12);
+    if (!keys.length) return Promise.resolve(null);
+    var q = keys.map(function (k) { return 'p=' + encodeURIComponent(k); }).join('&');
+    var h = { 'X-Hub-Request': '1' };
+    if (SY.etag && SY.last && keys.every(function (k) { return SY.last.parts[k]; })) h['If-None-Match'] = SY.etag;
+    SY.run = origFetch('/api/hub/sync?' + q, { credentials: 'same-origin', headers: h }).then(function (r) {
+      if (r.status === 304 && SY.last) { SY.at = Date.now(); return SY.last; }
+      if (!r.ok) throw new Error('sync ' + r.status);
+      SY.etag = r.headers.get('ETag') || '';
+      return r.json().then(function (d) { SY.last = d; SY.at = Date.now(); return d; });
+    }).then(function (d) { SY.run = null; return d; }, function (e) { SY.run = null; throw e; });
+    return SY.run;
+  }
+  function answer(part) { return new Response(typeof part.body === 'string' ? part.body : JSON.stringify(part.body), { status: part.status, headers: { 'Content-Type': 'application/json' } }); }
+  var origFetch = window.fetch.bind(window);
+  if (on && window.fetch) {
+    window.fetch = function (input, init) {
+      try {
+        var method = String((init && init.method) || (input && input.method) || 'GET').toUpperCase();
+        var u = new URL(typeof input === 'string' ? input : input.url, location.href);
+        if (u.origin === location.origin && u.pathname.indexOf('/api/') === 0) {
+          if (method !== 'GET' && method !== 'HEAD') { if (u.pathname !== '/api/hub/sync') { SY.at = 0; SY.etag = ''; } }
+          else if (SYNCED.test(u.pathname)) {
+            var key = u.pathname + u.search, fresh = SY.last && Date.now() - SY.at < SY.every + 60000;
+            var had = !!SY.seen[key];
+            SY.seen[key] = Date.now();
+            if (fresh && had && SY.last.parts[key] && SY.last.parts[key].status === 200) return Promise.resolve(answer(SY.last.parts[key]));
+            return syncNow().then(function (d) {
+              var part = d && d.parts && d.parts[key];
+              return part && part.status === 200 ? answer(part) : origFetch(input, init);
+            }).catch(function () { return origFetch(input, init); });
+          }
+        }
+      } catch (e) { /* fall through */ }
+      return origFetch(input, init);
+    };
+    // A timeout chain, so hub-own.js does not stretch the sync's own five minutes.
+    (function tick() { setTimeout(function () { if (!document.hidden) syncNow().catch(function () {}); tick(); }, SY.every); })();
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - SY.at > SY.every) syncNow().catch(function () {}); });
+  }
 
   /* ---------------------------------------------------------------- the switch */
   function set(v) {
@@ -228,7 +283,7 @@
     swFlag();
     return on !== was;
   }
-  function openPanel() { loadScript('/js/lite-panel.js?v=1').then(function () { if (window.FavorLitePanel) window.FavorLitePanel.open(); }).catch(function () {}); }
+  function openPanel() { loadScript('/js/lite-panel.js?v=2').then(function () { if (window.FavorLitePanel) window.FavorLitePanel.open(); }).catch(function () {}); }
   document.addEventListener('click', function (e) { var t = e.target && e.target.closest && e.target.closest('[data-lite-open]'); if (t) { e.preventDefault(); openPanel(); } });
 
   window.FavorLite = { on: on, mode: mode, why: why, set: set, reasons: reasons, add: add, summary: summary, compressPhoto: compressPhoto, PHOTO: PHOTO, shown: shown, kb: kbText, chatSend: chatSend, outbox: outbox, fontsLast: fontsLast, flushOutbox: flushOutbox, open: openPanel };

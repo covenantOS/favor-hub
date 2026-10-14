@@ -247,7 +247,8 @@
     if (!navigator.mediaDevices || !window.MediaRecorder) { toast('This browser cannot record a voice note.'); return; }
     var type = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].filter(function (t) { return MediaRecorder.isTypeSupported(t); })[0] || '';
     navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } }).then(function (stream) {
-      var mr = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 }), chunks = [], t0 = Date.now(), cancelled = false;
+      var bps = window.FavorLite && window.FavorLite.on ? 16000 : 32000; // Lite mode: half the data per minute of voice
+      var mr = new MediaRecorder(stream, type ? { mimeType: type, audioBitsPerSecond: bps } : { audioBitsPerSecond: bps }), chunks = [], t0 = Date.now(), cancelled = false;
       var box = root.querySelector('.ch-comp[data-scope="' + scope + '"] .ch-comp__box') || root.querySelector('.ch-comp__box');
       var bar = document.createElement('div'); bar.className = 'sm-rec';
       bar.innerHTML = '<i class="sm-rec__dot"></i><b data-t>0:00</b><span>Recording a voice note</span><button type="button" class="ch-btn ch-btn--sm" data-act="sm-rec-x">Cancel</button><button type="button" class="ch-btn ch-btn--sm ch-btn--primary" data-act="sm-rec-go">Stop and attach</button>';
