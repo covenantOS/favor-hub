@@ -54,6 +54,13 @@ async function call(method, path, body, opts) {
   return data;
 }
 
+function localViews(set) {
+  try {
+    if (set) localStorage.setItem('favor.hub.projects.mockviews', JSON.stringify(set));
+    return JSON.parse(localStorage.getItem('favor.hub.projects.mockviews') || '[]');
+  } catch (_) { return []; }
+}
+
 /** In mock mode a route is served by mock.js under the same name; otherwise by the network. */
 function route(name, real) {
   return async (...a) => {
@@ -95,6 +102,27 @@ export const api = {
   people: route('people', (id, b) => call('PUT', `/api/tasks/${enc(id)}/people`, b)),
   deps: route('deps', (id, b) => call('PUT', `/api/tasks/${enc(id)}/deps`, b)),
   codes: route('codes', (kind, q) => call('GET', '/api/tasks/codes' + qs({ kind, q }))),
+  /* saved views, kept per person (a mock-mode page keeps them in this browser) */
+  views: async (project) => {
+    if (MOCK) return { ok: true, views: localViews().filter((v) => (v.project_id || '') === (project || '')) };
+    return call('GET', '/api/tasks/views' + qs({ project }));
+  },
+  saveView: async (b) => {
+    if (MOCK) {
+      const all = localViews();
+      const same = all.find((v) => v.name === b.name && (v.project_id || '') === (b.project_id || ''));
+      const v = same || { id: 'vw_' + Math.random().toString(36).slice(2, 9), project_id: b.project_id || null, name: b.name, created_at: new Date().toISOString() };
+      v.query = b.query || {};
+      if (!same) all.push(v);
+      localViews(all);
+      return { ok: true, view: v };
+    }
+    return call('POST', '/api/tasks/views', b);
+  },
+  deleteView: async (id) => {
+    if (MOCK) { localViews(localViews().filter((v) => v.id !== id)); return { ok: true }; }
+    return call('DELETE', '/api/tasks/views/' + enc(id));
+  },
   notices: route('notices', () => call('GET', '/api/tasks/notices')),
   readNotices: route('readNotices', (b) => call('POST', '/api/tasks/notices/read', b || { all: true })),
 

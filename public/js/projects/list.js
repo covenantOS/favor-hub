@@ -47,7 +47,13 @@ function sectionGroups(ctx) {
   return filtering ? out.filter((g) => g.tasks.length) : out;
 }
 
+const PAGE = 60;
+const STEP = 120;
+
 export function mountList(root, ctx, o) {
+  const shown = new Map();
+  const foldKey = (g) => (o.mode === 'mine' ? 'mine:' : (ctx.project ? ctx.project.id : '') + ':') + g.id;
+  const limitOf = (g) => shown.get(foldKey(g)) || PAGE;
   const mine = o.mode === 'mine';
   let cur = null;
   let editing = null;
@@ -84,7 +90,7 @@ export function mountList(root, ctx, o) {
       const f = !!fm[fk(g)];
       const head = g.plain ? '' : `<header class="pj-sec__h${g.tone ? ' is-' + g.tone : ''}"><button type="button" class="pj-sec__tog" data-act="fold" aria-expanded="${!f}" aria-label="${f ? 'Open' : 'Close'} ${esc(g.name)}">${icon('right')}</button><h3 class="pj-sec__name" ${g.section ? 'data-act="rename" title="Double-click to rename"' : ''}>${esc(g.name)}</h3><span class="pj-sec__n" data-n></span><span class="pj-sec__sp"></span>${g.section ? `<button type="button" class="pj-sec__more" data-act="secmenu" aria-label="Section menu for ${esc(g.name)}">${icon('more')}</button>` : ''}</header>`;
       const add = g.noAdd ? '' : `<form class="pj-add" data-gid="${esc(g.id)}" autocomplete="off"><span class="pj-add__plus">${icon('plus')}</span><input class="pj-add__in" type="text" maxlength="300" placeholder="${mine && g.id !== 'none' ? 'Add a task for ' + esc(g.name.toLowerCase()) : 'Add a task'}" aria-label="Add a task to ${esc(g.name)}" enterkeyhint="done" /></form>`;
-      return `<section class="pj-sec${f ? ' is-folded' : ''}" data-zone="${esc(g.id)}" data-fold="${esc(fk(g))}" role="group" aria-label="${esc(g.name)}">${head}<div class="pj-sec__b"><div class="pj-sec__rows" data-rows role="list"></div>${add}</div></section>`;
+      return `<section class="pj-sec${f ? ' is-folded' : ''}" data-zone="${esc(g.id)}" data-fold="${esc(fk(g))}" role="group" aria-label="${esc(g.name)}">${head}<div class="pj-sec__b"><div class="pj-sec__rows" data-rows role="list"></div><button type="button" class="pj-more" data-act="more" hidden></button>${add}</div></section>`;
     }).join('') + (!mine && ctx.project && !ctx.filter.q ? `<button type="button" class="pj-addsec" data-act="addsec">${icon('plus')}Add section</button>` : '');
   }
 
@@ -107,11 +113,17 @@ export function mountList(root, ctx, o) {
       const z = zones[i];
       if (!z) return;
       const n = z.querySelector('[data-n]');
-      if (n) n.textContent = g.tasks.length;
+      const sc = !mine && ctx.counts && !ctx.showDone && !ctx.filter.q ? (ctx.counts.by_section[g.id || ''] || {}).done : 0;
+      if (n) n.textContent = g.tasks.length + (sc ? ' · ' + sc + ' completed' : '');
       const rows = z.querySelector('[data-rows]');
+      const more = z.querySelector('[data-act="more"]');
+      const lim = limitOf(g);
+      const left = Math.max(0, g.tasks.length - lim);
+      if (more) { more.hidden = !left; more.textContent = left ? 'Show ' + Math.min(left, STEP) + ' more of ' + left : ''; }
       if (z.classList.contains('is-folded')) { if (rows.firstChild) rows.textContent = ''; rows._ids = []; rows._html = []; return; }
-      const ids = g.tasks.map((t) => t.id);
-      const htmls = g.tasks.map((t) => (t.id === editing && rows._html ? (rows._html[rows._ids.indexOf(t.id)] || rowCached(t)) : rowCached(t)));
+      const part = left ? g.tasks.slice(0, lim) : g.tasks;
+      const ids = part.map((t) => t.id);
+      const htmls = part.map((t) => (t.id === editing && rows._html ? (rows._html[rows._ids.indexOf(t.id)] || rowCached(t)) : rowCached(t)));
       const oldIds = rows._ids || [];
       const oldHtml = rows._html || [];
       const sameOrder = oldIds.length === ids.length && oldIds.every((v, k) => v === ids[k]);
@@ -201,6 +213,7 @@ export function mountList(root, ctx, o) {
     if (a === 'fold') { toggleFold(e.target.closest('.pj-sec')); return; }
     if (a === 'secmenu') { sectionMenu(e.target.closest('.pj-sec'), act); return; }
     if (a === 'addsec') { addSection(); return; }
+    if (a === 'more') { const z = e.target.closest('.pj-sec'); const g = groupsNow().find((x) => String(x.id) === z.dataset.zone); if (g) { shown.set(foldKey(g), limitOf(g) + STEP); render(); } return; }
     const hdr = e.target.closest('.pj-sec__h');
     if (hdr && !a) { toggleFold(hdr.closest('.pj-sec')); return; }
     const row = e.target.closest('.pj-row');
@@ -244,6 +257,8 @@ export function mountList(root, ctx, o) {
   });
 
   function addTask(gid, title) {
+    const gg = groupsNow().find((x) => String(x.id) === String(gid));
+    if (gg) shown.set(foldKey(gg), Infinity);
     const f = { title };
     if (mine) {
       const g = groupsNow().find((x) => x.id === gid);
@@ -373,9 +388,11 @@ export function mountList(root, ctx, o) {
     } else if (k === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const t = cur && ctx.by.get(cur);
-      focusAdd(t && !mine ? t.section_id || '' : undefined);
+      if (t && !String(t.id).startsWith('tmp-')) o.open(t); else focusAdd(undefined);
     } else if ((k === 'o' || k === 'ArrowRight') && cur) {
       const t = ctx.by.get(cur); if (t && !String(t.id).startsWith('tmp-')) { e.preventDefault(); o.open(t); }
+    } else if (k === 'n' || k === 'c') {
+      e.preventDefault(); const t = cur && ctx.by.get(cur); focusAdd(t && !mine ? t.section_id || '' : undefined);
     } else if (k === 'x' && cur) {
       e.preventDefault(); setSel(cur, !ctx.sel.has(cur)); lastSel = cur; ctx.emit('select');
     } else if (k === 'a' && (e.ctrlKey || e.metaKey)) {

@@ -7,7 +7,13 @@ import { STATUS } from './ui-util.js';
 
 const STATUSES = ['open', 'doing', 'waiting', 'done'];
 
+const PAGE = 40;
+const STEP = 80;
+
 export function mountBoard(root, ctx, o) {
+  const shown = new Map();
+  const colKey = (id) => mode() + ':' + id;
+  const limitOf = (id) => shown.get(colKey(id)) || PAGE;
   let skeleton = '';
   let destroyed = false;
   let cache = new Map();
@@ -53,17 +59,23 @@ export function mountBoard(root, ctx, o) {
     if (sk !== skeleton) {
       const a = document.activeElement;
       if (a && a.classList && a.classList.contains('pj-add__in') && root.contains(a)) focused = { gid: a.closest('.pj-add').dataset.gid, v: a.value };
-      root.innerHTML = cols.map((c) => `<section class="pj-col" data-zone="${esc(c.id)}" data-status="${c.status ? esc(c.id) : ''}" role="group" aria-label="${esc(c.name)}"><header class="pj-col__h">${c.status ? `<i class="pj-sdot" data-s="${esc(c.id)}"></i>` : ''}<h3>${esc(c.name)}</h3><span class="pj-sec__n" data-n></span><span class="pj-sec__sp"></span>${c.section ? `<button type="button" class="pj-sec__more" data-act="secmenu" aria-label="Section menu for ${esc(c.name)}">${icon('more')}</button>` : ''}</header><div class="pj-col__cards" data-cards></div>${c.status && c.id === 'done' ? '' : `<form class="pj-add" data-gid="${esc(c.id)}" autocomplete="off"><span class="pj-add__plus">${icon('plus')}</span><input class="pj-add__in" type="text" maxlength="300" placeholder="Add a task" aria-label="Add a task to ${esc(c.name)}" enterkeyhint="done" /></form>`}</section>`).join('') + (mode() === 'section' && ctx.project ? `<div class="pj-col pj-col--new"><button type="button" class="pj-addsec" data-act="addsec">${icon('plus')}Add section</button></div>` : '');
+      root.innerHTML = cols.map((c) => `<section class="pj-col" data-zone="${esc(c.id)}" data-status="${c.status ? esc(c.id) : ''}" role="group" aria-label="${esc(c.name)}"><header class="pj-col__h">${c.status ? `<i class="pj-sdot" data-s="${esc(c.id)}"></i>` : ''}<h3>${esc(c.name)}</h3><span class="pj-sec__n" data-n></span><span class="pj-sec__sp"></span>${c.section ? `<button type="button" class="pj-sec__more" data-act="secmenu" aria-label="Section menu for ${esc(c.name)}">${icon('more')}</button>` : ''}</header><div class="pj-col__cards" data-cards></div><button type="button" class="pj-more" data-act="more" hidden></button>${c.status && c.id === 'done' ? '' : `<form class="pj-add" data-gid="${esc(c.id)}" autocomplete="off"><span class="pj-add__plus">${icon('plus')}</span><input class="pj-add__in" type="text" maxlength="300" placeholder="Add a task" aria-label="Add a task to ${esc(c.name)}" enterkeyhint="done" /></form>`}</section>`).join('') + (mode() === 'section' && ctx.project ? `<div class="pj-col pj-col--new"><button type="button" class="pj-addsec" data-act="addsec">${icon('plus')}Add section</button></div>` : '');
       skeleton = sk;
     }
     const zones = [...root.querySelectorAll('.pj-col:not(.pj-col--new)')];
     cols.forEach((c, i) => {
       const z = zones[i];
       const n = z.querySelector('[data-n]');
-      n.textContent = c.tasks.length;
+      const sc = mode() === 'section' && ctx.counts && !ctx.showDone && !ctx.filter.q ? (ctx.counts.by_section[c.id || ''] || {}).done : 0;
+      n.textContent = c.tasks.length + (sc ? ' · ' + sc + ' completed' : '');
       const box = z.querySelector('[data-cards]');
-      const ids = c.tasks.map((t) => t.id);
-      const htmls = c.tasks.map(cardCached);
+      const lim = limitOf(c.id);
+      const left = Math.max(0, c.tasks.length - lim);
+      const more = z.querySelector('[data-act="more"]');
+      if (more) { more.hidden = !left; more.textContent = left ? 'Show ' + Math.min(left, STEP) + ' more of ' + left : ''; }
+      const part = left ? c.tasks.slice(0, lim) : c.tasks;
+      const ids = part.map((t) => t.id);
+      const htmls = part.map(cardCached);
       const same = box._ids && box._ids.length === ids.length && box._ids.every((v, k) => v === ids[k]);
       if (same) {
         for (let k = 0; k < ids.length; k++) if (box._html[k] !== htmls[k]) { const tpl = document.createElement('template'); tpl.innerHTML = htmls[k]; box.children[k].replaceWith(tpl.content.firstElementChild); }
@@ -77,6 +89,7 @@ export function mountBoard(root, ctx, o) {
     const act = e.target.closest('[data-act]');
     const a = act ? act.dataset.act : '';
     if (a === 'retry') { ctx.load(o.key); return; }
+    if (a === 'more') { const z = e.target.closest('.pj-col'); shown.set(colKey(z.dataset.zone), limitOf(z.dataset.zone) + STEP); render(); return; }
     if (a === 'addsec') { const s = await ctx.addSection('New section'); if (s) { skeleton = ''; render(); const sc = root; sc.scrollLeft = sc.scrollWidth; } return; }
     if (a === 'secmenu') {
       const z = e.target.closest('.pj-col');
@@ -111,6 +124,7 @@ export function mountBoard(root, ctx, o) {
     if (!title) return;
     inp.value = '';
     const gid = f.dataset.gid;
+    shown.set(colKey(gid), Infinity);
     const body = { title };
     if (mode() === 'status') { body.section_id = null; } else body.section_id = gid || null;
     const ow = ctx.filter.owner;

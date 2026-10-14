@@ -1,6 +1,6 @@
 /* Data layer for the projects UI. One Ctx holds a project's tasks (or the signed-in person's tasks) and every change goes through it:
    the screen updates first, the request follows, and a failure puts the row back and says why. */
-import { toast, todayStr, uid } from './ui-util.js';
+import { toast, todayStr, addDays, uid } from './ui-util.js';
 
 import { api as core } from './api.js';
 
@@ -38,6 +38,9 @@ export const api = {
   statusSet: (id, on) => core.statusSet(id, on),
   statusDraft: (id) => core.statusDraft(id),
   statusPost: (id) => core.statusPost(id),
+  views: (project) => core.views(project),
+  saveView: (b) => core.saveView(b),
+  deleteView: (id) => core.deleteView(id),
 };
 
 /* ---------------------------------------------------------------- staff */
@@ -86,7 +89,11 @@ export class Ctx {
     this.tasks = [];
     this.by = new Map();
     this.sel = new Set();
-    this.filter = { q: '', owner: '', hideDone: false, priority: '' };
+    this.filter = { q: '', owner: '', priority: '', due: '', status: '', code: '' };
+    this.showDone = kind === 'solo';
+    this.doneLoaded = false;
+    this.keep = new Set();
+    this.counts = null;
     this.sort = { by: 'manual', dir: 1 };
     this.listeners = new Set();
     this.pending = new Map();
@@ -109,9 +116,9 @@ export class Ctx {
     try {
       await loadStaff();
       if (this.kind === 'project') {
-        const d = await api.project(key);
-        this.project = d.project; this.sections = d.sections || []; this.members = d.members || []; this.counts = d.counts || {};
-        await this.loadTasks({ project: this.project.id, status: 'all' });
+        const [d] = await Promise.all([api.project(key), this.loadTasks({ project: key, status: this.showDone ? 'all' : 'open' })]);
+        this.project = d.project; this.sections = d.sections || []; this.members = d.members || []; this.projectCounts = d.counts || {};
+        this.doneLoaded = this.showDone;
       } else {
         await this.loadTasks({ owner: 'me', status: this.showDone ? 'all' : 'open' });
       }
@@ -122,25 +129,54 @@ export class Ctx {
     this.loading = false;
     this.emit('load');
   }
-  async loadTasks(q) {
+  /** Reads every page of a task query (500 a page, following next_offset). Returns the tasks, the total and the first page's counts. */
+  async fetchAll(q) {
     const out = [];
     let total = 0;
-    for (let off = 0; off < 5000; off += 500) {
+    let counts = null;
+    let off = 0;
+    for (let i = 0; i < 40; i++) {
       const d = await api.tasks({ ...q, limit: 500, offset: off });
       out.push(...(d.tasks || []));
       total = d.total != null ? d.total : out.length;
-      if (!d.tasks || d.tasks.length < 500 || out.length >= total) break;
+      if (i === 0 && d.counts) counts = d.counts;
+      const next = d.next_offset != null ? d.next_offset : d.has_more === undefined && d.tasks && d.tasks.length >= 500 && out.length < total ? out.length : null;
+      if (next == null || !d.tasks || !d.tasks.length) break;
+      off = next;
     }
-    this.tasks = out.filter((t) => !t.parent_id);
+    return { tasks: out.filter((t) => !t.parent_id), total, counts };
+  }
+  async loadTasks(q) {
+    const r = await this.fetchAll(q);
+    this.tasks = r.tasks;
     this.by = new Map(this.tasks.map((t) => [t.id, t]));
-    this.total = total;
+    this.total = r.total;
+    if (r.counts) this.counts = r.counts;
+  }
+  /** What the screen reads from the server: open tasks, or all of them once Show completed is on. */
+  baseQuery() {
+    if (this.kind === 'project') return { project: this.project ? this.project.id : '', status: this.showDone ? 'all' : 'open' };
+    return { owner: 'me', status: this.showDone ? 'all' : 'open' };
+  }
+  /** Show or hide completed tasks. Turning it on reads them from the server the first time. */
+  async setShowDone(on) {
+    this.showDone = !!on;
+    if (on && !this.doneLoaded) {
+      this.loading = true; this.emit('load');
+      try {
+        const r = await this.fetchAll({ ...this.baseQuery(), status: 'done' });
+        for (const t of r.tasks) if (!this.by.has(t.id)) { this.tasks.push(t); this.by.set(t.id, t); }
+        this.doneLoaded = true;
+      } catch (e) { this.showDone = false; toast(e.message || 'Completed tasks did not load.', { error: true }); }
+      this.loading = false;
+    }
+    this.emit('filter');
   }
   /** The server renumbered a list: take every task's order and section from it, quietly. */
   async resyncOrder() {
     try {
       const keep = this.tasks.slice();
-      const q = this.kind === 'project' ? { project: this.project.id, status: 'all' } : { owner: 'me', status: this.showDone ? 'all' : 'open' };
-      await this.loadTasks(q);
+      await this.loadTasks(this.baseQuery());
       const fresh = new Map(this.tasks.map((t) => [t.id, t]));
       this.tasks = keep.filter((t) => String(t.id).startsWith('tmp-') || fresh.has(t.id));
       for (const t of this.tasks) { const f = fresh.get(t.id); if (f && !this.pending.has(t.id)) { t.sort = f.sort; t.section_id = f.section_id; t.section = f.section; } }
@@ -151,8 +187,8 @@ export class Ctx {
   async reloadTasks() {
     const keep = this.sel;
     try {
-      if (this.kind === 'project') await this.loadTasks({ project: this.project.id, status: 'all' });
-      else await this.loadTasks({ owner: 'me', status: this.showDone ? 'all' : 'open' });
+      await this.loadTasks(this.baseQuery());
+      this.doneLoaded = this.showDone;
     } catch (e) { toast(e.message, { error: true }); }
     this.sel = new Set([...keep].filter((id) => this.by.has(id)));
     this.emit('load');
@@ -162,7 +198,17 @@ export class Ctx {
   sectionName(id) { const s = this.sections.find((x) => x.id === id); return s ? s.name : null; }
   matches(t) {
     const f = this.filter;
-    if (f.hideDone && t.status === 'done') return false;
+    if (t.status === 'done' && !this.showDone && !this.keep.has(t.id)) return false;
+    if (f.status && t.status !== f.status) return false;
+    if (f.due) {
+      const today = todayStr();
+      if (f.due === 'none') { if (t.due_date) return false; }
+      else if (!t.due_date) return false;
+      else if (f.due === 'overdue') { if (t.due_date >= today || t.status === 'done') return false; }
+      else if (f.due === 'today') { if (t.due_date !== today) return false; }
+      else if (f.due === 'week') { if (t.due_date < today || t.due_date > addDays(today, 7)) return false; }
+    }
+    if (f.code) { const c = f.code.toLowerCase(); if (![t.appeal_code, t.source_code, t.fund_code, t.campaign_code].some((x) => x && String(x).toLowerCase() === c)) return false; }
     if (f.owner === 'none') { if (t.owner_email) return false; } else if (f.owner) { if (t.owner_email !== (f.owner === 'me' ? this.me : f.owner)) return false; }
     if (f.priority && t.priority !== f.priority) return false;
     if (f.q) { const h = (t.title + ' ' + (t.code || '') + ' ' + (t.appeal_code || '') + ' ' + (t.source_code || '') + ' ' + (t.fund_code || '') + ' ' + (t.campaign_code || '')).toLowerCase(); for (const w of f.q.toLowerCase().split(/\s+/).filter(Boolean)) if (!h.includes(w)) return false; }
@@ -215,6 +261,7 @@ export class Ctx {
     if (!t || String(id).startsWith('tmp-')) return false;
     const snap = clone(t);
     this.applyLocal(t, body);
+    if (body.done && !this.showDone) this.keep.add(id);
     this.begin(id);
     this.emit('patch');
     try {

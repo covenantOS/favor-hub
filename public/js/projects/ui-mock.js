@@ -172,6 +172,19 @@ function handle(method, url, body) {
       const k = q.get('kind') || 'appeal', s = (q.get('q') || '').toLowerCase();
       return { ok: true, codes: (CODES[k] || []).filter(([c, d]) => !s || (c + ' ' + d).toLowerCase().includes(s)).map(([code, description]) => ({ code, description })) };
     }
+    if (parts[1] === 'views') {
+      db.views = db.views || [];
+      if (method === 'GET') return { ok: true, views: db.views.filter((v) => (v.project_id || '') === (q.get('project') ? (findProject(q.get('project')) || {}).id || '' : '')) };
+      if (method === 'POST') {
+        const p = body.project_id ? findProject(body.project_id) : null;
+        const same = db.views.find((v) => v.name === body.name && (v.project_id || null) === (p ? p.id : null));
+        const v = same || { id: id('vw_'), project_id: p ? p.id : null, name: String(body.name || '').slice(0, 60), created_at: new Date().toISOString() };
+        v.query = body.query || {};
+        if (!same) db.views.push(v);
+        return { ok: true, view: v };
+      }
+      if (method === 'DELETE') { db.views = db.views.filter((v) => v.id !== parts[2]); return { ok: true }; }
+    }
     if (parts[1] === 'notices') return { ok: true, notices: [], unread: 0 };
     if (parts.length === 1) {
       if (method === 'GET') {
@@ -185,7 +198,15 @@ function handle(method, url, body) {
         ts = ts.filter((t) => t.status !== 'dropped');
         ts.sort((a, b) => (a.section_id || '').localeCompare(b.section_id || '') || a.sort - b.sort);
         const off = Number(q.get('offset') || 0), lim = Number(q.get('limit') || 500);
-        return { ok: true, tasks: ts.slice(off, off + lim).map(shapeTask), total: ts.length };
+        const out = { ok: true, tasks: ts.slice(off, off + lim).map(shapeTask), total: ts.length, limit: lim, offset: off, has_more: off + lim < ts.length, next_offset: off + lim < ts.length ? off + lim : null };
+        if (pj && off === 0 && !q.get('parent')) {
+          const p = findProject(pj);
+          const all = db.tasks.filter((t) => p && t.project_id === p.id && !t.parent_id && t.status !== 'dropped');
+          const by = {};
+          for (const t of all) { const k = t.section_id || ''; by[k] = by[k] || { open: 0, done: 0 }; by[k][t.status === 'done' ? 'done' : 'open']++; }
+          out.counts = { open: all.filter((t) => t.status !== 'done').length, done: all.filter((t) => t.status === 'done').length, by_section: by };
+        }
+        return out;
       }
       if (method === 'POST') {
         const title = String(body.title || '').trim();
