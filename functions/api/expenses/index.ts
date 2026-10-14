@@ -87,7 +87,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     const saved = await itemsFor(env, row.id);
     waitUntil(
       emailApprover(env, row, saved, reviewUrl)
-        .then((result) => addExpenseEvent(env, row.id, 'approver_notified', 'system', result))
+        // The email body holds the private review link, so only who it went to is kept.
+        .then((result) => addExpenseEvent(env, row.id, 'approver_notified', 'system', { sent: result.sent, to: result.to, subject: result.subject }))
         .catch((err) => console.error('[expenses] approver email', err))
     );
     return json({ ok: true, doc_number: row.doc_number, approver_name: eitherApprover(approver.name) }, 201);
@@ -119,6 +120,16 @@ async function myRequests(env: Env, request: Request) {
   return out;
 }
 
+/** The addresses a logged email went to, or null when the event has none. */
+function eventTo(payload: string | null): string[] | null {
+  try {
+    const to = payload ? (JSON.parse(payload) as { to?: unknown }).to : null;
+    return Array.isArray(to) && to.length ? to.map(String) : null;
+  } catch {
+    return null;
+  }
+}
+
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (new URL(request.url).searchParams.get('mine') === '1') {
@@ -135,7 +146,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     for (const row of rows) {
       const shape = expenseShape(row, await itemsFor(env, row.id), { admin: true, signatures: true });
       const mine = Boolean(me) && (approvers.has(me) || splitEmails(row.approver_email).some((e) => e.toLowerCase() === me));
-      shaped.push({ ...shape, can_review: row.status === 'pending' && mine, events: await listEventsFor(env, row.id) });
+      // Event payloads can hold approver emails and decline notes. The log gets kind, actor, time and who a mail went to.
+      const events = (await listEventsFor(env, row.id)).map((ev) => {
+        const to = eventTo(ev.payload);
+        return { kind: ev.kind, actor: ev.actor, created_at: ev.created_at, ...(to ? { payload: JSON.stringify({ to }) } : {}) };
+      });
+      shaped.push({ ...shape, can_review: row.status === 'pending' && mine, events });
     }
     return json({ ok: true, requests: shaped, settings });
   } catch (err) {

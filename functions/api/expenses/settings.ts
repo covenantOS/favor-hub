@@ -1,4 +1,4 @@
-import { requireExpenseAdmin } from '../../_lib/expenses/auth';
+import { requireExpenseAdmin, requireExpenseSettingsWriter } from '../../_lib/expenses/auth';
 import { addOverride, getMileageSettings, getSettings, listOverrides, removeOverride, saveMileageSettings, saveSettings, splitEmails } from '../../_lib/expenses/db';
 import { HttpError, asTrimmed, handleError, json, type Env } from '../../_lib/http';
 import { isEmail } from '../../_lib/notify';
@@ -21,7 +21,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireExpenseAdmin(env, request);
+    await requireExpenseSettingsWriter(env, request);
     const data = (await request.json()) as Record<string, unknown>;
     const approver_name = asTrimmed(data.approver_name, 'approver_name', 80);
     const approver_email = asTrimmed(data.approver_email, 'approver_email', 200);
@@ -60,7 +60,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireExpenseAdmin(env, request);
+    await requireExpenseSettingsWriter(env, request);
     const data = (await request.json()) as Record<string, unknown>;
     const start_date = asTrimmed(data.start_date, 'start_date', 10);
     const end_date = asTrimmed(data.end_date, 'end_date', 10);
@@ -78,7 +78,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
 export const onRequestDelete: PagesFunction<Env> = async ({ request, env }) => {
   try {
-    await requireExpenseAdmin(env, request);
+    await requireExpenseSettingsWriter(env, request);
     const id = new URL(request.url).searchParams.get('id') || '';
     if (!id.startsWith('ovr_')) throw new HttpError(400, 'bad_id', 'Unknown override.');
     await removeOverride(env, id);

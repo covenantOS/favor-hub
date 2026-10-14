@@ -204,7 +204,12 @@ export async function savePerson(env: Env, actor: { email: string; name: string 
       .bind(email, name, role, blocked, note, now, now)
       .run();
     // A block ends open sessions at once.
-    if (blocked) await env.DB.prepare('DELETE FROM hub_sessions WHERE email = ?').bind(email).run();
+    if (blocked) {
+      await env.DB.prepare('DELETE FROM hub_sessions WHERE email = ?').bind(email).run();
+      // Phones that turned on push and notices held for quiet hours stop too. Either table may not exist yet.
+      await env.DB.prepare('DELETE FROM push_subs WHERE lower(email) = ?').bind(email).run().catch(() => undefined);
+      await env.DB.prepare('DELETE FROM hub_quiet_held WHERE lower(email) = ?').bind(email).run().catch(() => undefined);
+    }
     if (role === 'field' && !blocked && !before?.pending) await joinFieldChannel(env, email, now);
   }
 

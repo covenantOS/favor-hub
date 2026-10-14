@@ -53,7 +53,8 @@ export async function evidenceFor(env: Db, email: string, endsOn: string, startD
     out.tasks.done = Number(t?.n) || 0;
     out.tasks.late = Number(t?.late) || 0;
     const r = await env.DB.prepare(
-      `SELECT title, done_at FROM hub_tasks WHERE status = 'done' AND (COALESCE(done_by, owner_email) = ?) AND done_at >= ? AND done_at < ? ORDER BY done_at DESC LIMIT 12`
+      `SELECT title, done_at FROM hub_tasks WHERE status = 'done' AND (COALESCE(done_by, owner_email) = ?) AND done_at >= ? AND done_at < ?
+          AND project_id IN (SELECT id FROM hub_projects WHERE visibility = 'staff') ORDER BY done_at DESC LIMIT 12`
     ).bind(e, fromIso, toIso).all<{ title: string; done_at: string }>();
     out.tasks.recent = (r.results || []).map((x) => ({ title: String(x.title).slice(0, 120), doneAt: String(x.done_at).slice(0, 10) }));
   } catch {

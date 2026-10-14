@@ -159,6 +159,10 @@ export async function patchProject(env: Env, actor: Actor, idOrKey: string, b: R
   if ('color' in b) set('color', oneOf(b.color, COLORS, 'color'));
   if ('start_date' in b) set('start_date', asDate(b.start_date, 'start_date'));
   if ('due_date' in b) set('due_date', asDate(b.due_date, 'due_date'));
+  // The project's channel and Drive folder are made by FavorOS (links/chat.ts, links/drive.ts). A lead may unlink them; pointing them
+  // at another channel or folder is an admin's job, since the project's people are then added to that channel and the folder is listed
+  // with the hub's Drive reader (privacy pass 2026-10-14).
+  if ((b.chat_channel_id || b.drive_folder_id) && !actor.admin) throw new HttpError(403, 'forbidden', 'Only a FavorOS admin can link a project to a different channel or folder.');
   if ('chat_channel_id' in b) set('chat_channel_id', b.chat_channel_id ? String(b.chat_channel_id).slice(0, 80) : null);
   if ('drive_folder_id' in b) set('drive_folder_id', b.drive_folder_id ? String(b.drive_folder_id).slice(0, 120) : null);
   if (!changed.length) return { project: p, changed };

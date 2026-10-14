@@ -14,15 +14,23 @@ export const TESTER2_EMAIL = 'tester2@favorintl.org';
 export const TESTER2_NAME = 'FavorOS Tester Two';
 export const TESTERS = [TESTER_EMAIL, TESTER2_EMAIL];
 export const TESTER_COOKIE = 'hub_tester';
+/** The made-up people the privacy check reads as (functions/_lib/privacy/canaries.ts). Never real accounts: hidden from lists and Chat email like the testers. */
+export const PROBE_EMAILS = ['privacy-probe@favorintl.org', 'privacy-probe@favourafrica.org'];
 export const TESTER_REFUSAL = 'This is the FavorOS test user. It cannot write to Blackbaud, send email or notify staff.';
 
 export function isTester(email: string | null | undefined): boolean {
   return TESTERS.includes(String(email || '').trim().toLowerCase());
 }
 
-/** SQL for a query over hub_users (or any table with an email column) that leaves both testers out. */
+/** A test account or a privacy probe: left out of every people list, count and email. */
+export function isHiddenAccount(email: string | null | undefined): boolean {
+  const e = String(email || '').trim().toLowerCase();
+  return TESTERS.includes(e) || PROBE_EMAILS.includes(e);
+}
+
+/** SQL for a query over hub_users (or any table with an email column) that leaves both testers and the privacy probes out. */
 export function notTesterSql(column = 'email'): string {
-  return `lower(${column}) NOT IN (${TESTERS.map((e) => `'${e}'`).join(', ')})`;
+  return `lower(${column}) NOT IN (${[...TESTERS, ...PROBE_EMAILS].map((e) => `'${e}'`).join(', ')})`;
 }
 
 export function withoutTester<T extends { email?: string; id?: string }>(rows: T[]): T[] {

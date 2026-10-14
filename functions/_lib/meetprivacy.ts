@@ -149,6 +149,7 @@ async function logCut(env: MeetEnv, id: string, user: User, kind: 'cut' | 'recor
 // ---------------------------------------------------------------- cut a section
 
 /** The text the Chat posts carry after a cut, in the same shape as when the notes were first posted. */
+/** The notes post in Chat. Rewritten only where the first post carried the summary (one-line posts stay one line, chat/meet.ts). */
 export function chatBody(title: string, summary: string, actions: Array<{ owner_name?: string; owner?: string; text: string }>): string {
   const lines = [`Notes are ready for ${title || 'the meeting'}.`, '', String(summary || '').slice(0, 700)];
   const a = actions.filter((x) => x && x.text).slice(0, 6);
@@ -227,7 +228,7 @@ export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<st
   // 4. The Chat posts made from the notes are rewritten.
   const left = (await env.DB.prepare('SELECT text, owner_name, owner_email, due FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all<{ text: string; owner_name: string; owner_email: string; due: string }>()).results || [];
   const body = chatBody(m.title, summary, left);
-  const posts = await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes are ready%'`).bind(body, nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
+  const posts = await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes are ready%' AND instr(body, char(10)) > 0`).bind(body, nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
   const body2 = summaryBody({ ...m, summary }, kept2, left);
   const posts2 = await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes from %'`).bind(body2, nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
 
@@ -319,7 +320,7 @@ export async function fixSpeaker(env: PEnv, user: User, m: Meeting, b: Record<st
 
   // The Chat posts and the Google Doc.
   const left = (await env.DB.prepare('SELECT text, owner_name, owner_email, due FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all<{ text: string; owner_name: string; owner_email: string; due: string }>()).results || [];
-  await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes are ready%'`).bind(chatBody(m.title, fresh.summary, left), nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
+  await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes are ready%' AND instr(body, char(10)) > 0`).bind(chatBody(m.title, fresh.summary, left), nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
   await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes from %'`).bind(summaryBody({ ...m, summary: fresh.summary }, notes, left), nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
   await notice(env, id, { a: 'speaker', who, was, from, to, by: user.email.toLowerCase(), rewritten: true });
   const doc = await redoDoc(env, user, await getMeeting(env, id), opts.doc);

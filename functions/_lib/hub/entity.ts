@@ -12,6 +12,7 @@ import { dueLabel, STATUS_WORD, taskUrl } from '../projects/links/shared';
 import { requestHit } from '../requests/views';
 import { hrefFor } from '../learn/assign';
 import type { Access } from './today';
+import { emailsOf, isHost, ledPeople, mayJoin, mayReadNotes, wasPresent } from '../meet';
 
 export const KINDS = ['person', 'partner', 'fund', 'appeal', 'task', 'request', 'meeting', 'clip', 'file', 'course'] as const;
 export type Kind = (typeof KINDS)[number];
@@ -155,15 +156,17 @@ async function requestOf(env: Env, request: Request, user: HubUser, id: string):
 }
 
 async function meeting(env: Env, user: HubUser, id: string): Promise<EntityOut | null> {
-  const me = lower(user.email);
+  // The same rule as the meeting and its notes: whoever may join it or read its notes. A guest link (access = guests) opens the
+  // room to outside guests only, so it never shows the meeting to staff who are not on it (privacy pass 2026-10-14).
   const m = await env.DB.prepare(
-    `SELECT id, title, status, host_name, starts_at, started_at, ended_at, notes_status FROM hub_meetings
-      WHERE id = ?1 AND (lower(host_email) = ?2 OR access IN ('staff','guests') OR instr(lower(invitees), '"' || ?2 || '"') > 0 OR instr(lower(cohosts), '"' || ?2 || '"') > 0) LIMIT 1`
+    `SELECT id, title, status, host_email, host_name, cohosts, invitees, access, starts_at, started_at, ended_at, notes_status FROM hub_meetings WHERE id = ?1 LIMIT 1`
   )
-    .bind(id, me)
+    .bind(id)
     .first<any>()
     .catch(() => null);
   if (!m) return null;
+  const onIt = user.role === 'admin' || isHost(m, user.email) || emailsOf(m.invitees).includes(lower(user.email));
+  if (!onIt && !mayJoin(m, user) && !mayReadNotes(m, user, await ledPeople(env as never, user.email), await wasPresent(env as never, m.id, user.email))) return null;
   const ended = m.status === 'ended' || m.status === 'cancelled';
   const facts: Fact[] = [{ k: 'Status', v: m.status === 'live' ? 'Live now' : m.status === 'cancelled' ? 'Cancelled' : ended ? 'Ended' : 'Scheduled' }];
   const at = m.starts_at || m.started_at;

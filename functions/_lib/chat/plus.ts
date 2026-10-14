@@ -34,7 +34,7 @@ export async function plusReady(env: Env): Promise<boolean> {
 }
 
 async function shaped(env: Env, row: store.MessageRow): Promise<store.MessageOut> {
-  const [m] = await store.shape(env, [row], (x) => hydrateAttachments(env, x));
+  const [m] = await store.shape(env, [row], (x, ch) => hydrateAttachments(env, x, ch));
   return m;
 }
 

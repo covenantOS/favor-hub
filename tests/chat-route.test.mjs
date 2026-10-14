@@ -352,8 +352,9 @@ test('a meeting started from a channel posts a Join card; ending it and its note
   const m = posted[0].event.message;
   assert.equal(m.user_id, 'meetings');
   assert.equal(m.thread_id, started.data.message.id);
-  assert.match(m.body, /We agreed the date\./);
-  assert.match(m.body, /- Bo: Book the room/);
+  // A public channel is readable by all staff, so the notes themselves stay on the notes page (privacy pass 2026-10-14).
+  assert.equal(m.body, 'Notes are ready for Huddle in #general.');
+  assert.doesNotMatch(m.body, /We agreed the date|Book the room/);
   assert.equal((await call(w, ADMIN, 'GET', 'inbox')).data.items.filter((i) => i.kind === 'reply').length, 1, 'the person who started it is told');
   const t = (await call(w, ADMIN, 'GET', `threads/${started.data.message.id}`)).data;
   assert.equal(t.root.attachments[0].notes, true);

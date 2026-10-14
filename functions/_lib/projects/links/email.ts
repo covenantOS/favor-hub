@@ -6,6 +6,7 @@
 // hub_task_mail_log takes a row per notice before the send, so one notice is never emailed twice. Only notices made in the last
 // 15 minutes go out as "now" mail and only the last day's go into a summary: nothing older than the change that made it is mailed.
 import { holdIfQuiet } from '../../quiet';
+import { isBlocked } from '../../blocked';
 import { nowIso, type Env } from '../../http';
 import { effective } from '../../admin/settings';
 import { staffDirectory, type Person } from '../../people';
@@ -179,6 +180,7 @@ export function buildSummary(m: { to: { name: string; email: string }; items: Su
 /* ------------------------------------------------------------------------------------------------ sending */
 
 export async function send(env: Env, m: Outbox & { fromName?: string; replyTo?: string }): Promise<boolean> {
+  if (await isBlocked(env, m.to)) return false; // sendMail checks too; this keeps the rule visible at the call site
   return sendMail(env, { ...m, fromName: m.fromName || 'Favor Projects' });
 }
 

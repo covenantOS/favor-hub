@@ -63,6 +63,8 @@ test('create rules: a title, real dates, a section of this project, only members
 
 test('the same request, meeting action item or Chat message never makes a second task', async () => {
   const w = await setup();
+  // A task names only a meeting its writer may see (privacy pass 2026-10-14): Vic hosts this one.
+  w.ins("INSERT INTO hub_meetings (id, title, host_email, created_at) VALUES ('mtg_1', 'Weekly', ?, '2026-10-01T00:00:00Z')", VIC.email);
   const a = await call(w, VIC, 'POST', 'tasks', { title: 'From a meeting', project_id: 'MKT', meeting_id: 'mtg_1', meeting_action_idx: 2 });
   const b = await call(w, VIC, 'POST', 'tasks', { title: 'From a meeting again', project_id: 'MKT', meeting_id: 'mtg_1', meeting_action_idx: 2 });
   assert.equal(a.status, 201);

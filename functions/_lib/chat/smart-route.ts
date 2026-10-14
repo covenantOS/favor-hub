@@ -43,7 +43,7 @@ export async function smartRoute(ctx: Ctx, user: HubUser, method: string, url: U
     const lang = langOk(input.lang) ? input.lang : await getLang(env, me);
     if (!lang) throw new HttpError(400, 'no_lang', 'Pick the language you read Chat in first.');
     const ids = (Array.isArray(input.ids) ? input.ids : []).map(Number).filter((n: number) => Number.isInteger(n) && n > 0);
-    return json({ ok: true, lang, items: await translateMessages(env, me, { lang, ids, force: input.force === true }, ai) });
+    return json({ ok: true, lang, items: await translateMessages(env, me, { lang, ids, force: input.force === true, membersOnly: user.role === 'field' }, ai) });
   }
 
   if (a === 'channels' && b && c === 'catchup' && method === 'POST') {

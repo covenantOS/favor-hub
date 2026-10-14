@@ -82,7 +82,7 @@ function voicesOf(row: store.MessageRow): string[] {
  * Translates up to 24 messages into the reader's language. Each translation is kept per message and language, so a message the
  * whole channel reads in French is translated once. An edited message translates again (the kept row carries a hash of its text).
  */
-export async function translateMessages(env: SmartEnv, me: string, input: { lang: string; ids: number[]; force?: boolean }, ai: Ai | undefined): Promise<Record<string, Translated>> {
+export async function translateMessages(env: SmartEnv, me: string, input: { lang: string; ids: number[]; force?: boolean; membersOnly?: boolean }, ai: Ai | undefined): Promise<Record<string, Translated>> {
   if (!ai) throw new HttpError(503, 'not_set_up', 'Translation is not set up here.');
   const lang = input.lang;
   const rows: store.MessageRow[] = [];
@@ -90,7 +90,8 @@ export async function translateMessages(env: SmartEnv, me: string, input: { lang
   for (const id of [...new Set(input.ids)].slice(0, 24)) {
     const row = await store.getMessage(env, id);
     if (!row || row.deleted_at || !store.canSee(row, me)) continue;
-    if (!okChannel.has(row.channel_id)) okChannel.set(row.channel_id, await store.readableChannel(env, row.channel_id, me).then(() => true, () => false));
+    // Field staff read only conversations they are in, never a public channel by message number (functions/_lib/field.ts).
+    if (!okChannel.has(row.channel_id)) okChannel.set(row.channel_id, input.membersOnly ? await store.isMember(env, row.channel_id, me) : await store.readableChannel(env, row.channel_id, me).then(() => true, () => false));
     if (okChannel.get(row.channel_id)) rows.push(row);
   }
   const voiceText = new Map<string, string>();

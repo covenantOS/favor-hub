@@ -3,6 +3,7 @@
 // accounts so nobody else can be reached, and clears it after.
 import type { Env } from '../http';
 import { effective } from '../admin/settings';
+import { isBlocked } from '../blocked';
 
 export interface Mail {
   to: string;
@@ -39,6 +40,8 @@ export async function mayMail(env: Env, to: string): Promise<boolean> {
 
 export async function sendMail(env: Env, m: Mail): Promise<boolean> {
   if (!(await mayMail(env, m.to))) return false;
+  // A blocked or offboarded person gets no mail, whatever still points at them.
+  if (await isBlocked(env, m.to)) return false;
   const hook = (env as unknown as { MAIL_HOOK?: (m: Mail) => Promise<boolean> | boolean }).MAIL_HOOK;
   if (hook) return !!(await hook(m));
   const key = env.RESEND_API_KEY;

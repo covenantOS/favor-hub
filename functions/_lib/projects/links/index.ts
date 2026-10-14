@@ -19,6 +19,7 @@ import { ensureProjectFolder, folderFiles, myClips } from './drive';
 import { bellFor, searchFor } from './today';
 import { agentDoor } from './brain';
 import { FAVOR, taskUrl } from './shared';
+import { ledPeople, mayReadNotes, wasPresent, type Meeting } from '../../meet';
 
 type Waiter = (p: Promise<unknown>) => void;
 
@@ -35,7 +36,7 @@ export async function onProjectEvent(env: Env, ev: ProjectEvent): Promise<void> 
     steps.push(run('calendar', syncTask(env, t.id, prev)));
   }
   if (t && (ev.kind === 'task.done' || ev.kind === 'task.reopened') && ev.detail?.from !== 'meeting') steps.push(run('meeting', taskTicked(env, t)));
-  if (ev.project?.chat_channel_id && ev.kind === 'project.updated' && ev.detail?.members) steps.push(run('channel', chat.ensureProjectChannel(env, ev.project, ev.actor)));
+  if (ev.project?.chat_channel_id && ev.kind === 'project.updated' && (ev.detail?.members || (Array.isArray(ev.detail?.fields) && (ev.detail?.fields as string[]).includes('visibility')))) steps.push(run('channel', chat.ensureProjectChannel(env, ev.project, ev.actor)));
   await Promise.all(steps);
   if (ev.told?.length) await run('mail', mailFresh(env));
 }
@@ -166,12 +167,18 @@ export async function linksRoute(ctx: RouteCtx): Promise<Response> {
     }
 
     if (a === 'meet') {
+      // A meeting's action items and their tasks are part of its notes: only the people who may read the notes (privacy pass 2026-10-14).
+      const mid = b === 'actions' ? url.searchParams.get('meeting_id') || '' : '';
       if (b === 'action-task' && method === 'POST') {
         const d = await bodyOf(request);
+        await notesGate(env, actor, String(d.meeting_id || ''));
         const r = await makeActionTask(env, actor, { meeting_id: String(d.meeting_id || ''), idx: Number(d.idx), owner: d.owner ? String(d.owner) : null, project: d.project ? String(d.project) : null });
         return json({ ok: true, existing: r.existing, task: { id: r.task.id, code: r.task.code, title: r.task.title, url: taskUrl(r.task, r.project) } }, r.existing ? 200 : 201);
       }
-      if (b === 'actions' && method === 'GET') return json({ ok: true, tasks: await actionTasks(env, url.searchParams.get('meeting_id') || '') });
+      if (b === 'actions' && method === 'GET') {
+        await notesGate(env, actor, mid);
+        return json({ ok: true, tasks: await actionTasks(env, mid) });
+      }
     }
 
     if (a === 'drive' && method === 'GET') {
@@ -188,3 +195,11 @@ export async function linksRoute(ctx: RouteCtx): Promise<Response> {
 }
 
 export { agentDoor, dailyPass, actionTicked, FAVOR };
+
+/** 404 unless this person may read the meeting's notes (functions/_lib/meet.ts mayReadNotes). */
+async function notesGate(env: Env, actor: { email: string; admin: boolean }, meetingId: string): Promise<void> {
+  if (actor.admin) return;
+  const me = String(actor.email || '').toLowerCase();
+  const m = /^[0-9a-f]{24}$/.test(meetingId) ? await env.DB.prepare('SELECT * FROM hub_meetings WHERE id = ?').bind(meetingId).first<Meeting>().catch(() => null) : null;
+  if (!m || !mayReadNotes(m, { email: me, role: 'staff' }, await ledPeople(env as never, me), await wasPresent(env as never, m.id, me))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+}

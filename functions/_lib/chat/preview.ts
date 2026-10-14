@@ -7,6 +7,7 @@
 import { HttpError, type Env } from '../http';
 import { saToken } from '../work/sheetsa';
 import * as store from './db';
+import { accessToken } from '../hub/google';
 
 const DRIVE = 'https://www.googleapis.com/drive/v3/files/';
 const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
@@ -44,7 +45,18 @@ export function driveKindOfUrl(raw: string): 'doc' | 'sheet' | 'slides' | 'file'
 
 type PreviewEnv = Env & { GOOGLE_SA_JSON?: string };
 
-/** The Drive card at position `index` in message `mid`, when this person can read that message. */
+/**
+ * True when Google lets this person open the file with their own account. The hub reads Drive as its service account, which sees
+ * more than any one person, so every preview and every new card is first checked as the person (privacy pass 2026-10-14).
+ */
+export async function personSeesDriveFile(env: PreviewEnv, email: string, id: string, fetchFn: typeof fetch = fetch): Promise<boolean> {
+  const t = await accessToken(env as never, String(email || '').trim().toLowerCase()).catch(() => null);
+  if (!t) return false;
+  const r = await fetchFn(`${DRIVE}${id}?fields=id&supportsAllDrives=true`, { headers: { Authorization: `Bearer ${t.token}` } }).catch(() => null);
+  return !!r && r.ok;
+}
+
+/** The Drive card at position `index` in message `mid`, when this person can read that message and open the file in Drive. */
 export async function sharedDriveFile(env: PreviewEnv, me: string, mid: number, index: number): Promise<{ id: string; url: string }> {
   const row = await store.getMessage(env as never, mid);
   if (!row || row.deleted_at || !store.canSee(row, me)) throw new HttpError(404, 'not_found', 'That file is gone.');
@@ -58,6 +70,7 @@ export async function sharedDriveFile(env: PreviewEnv, me: string, mid: number, 
   const a = list[index];
   const id = a && a.type === 'drive' ? driveIdOf(String(a.url || '')) : null;
   if (!id) throw new HttpError(404, 'not_found', 'That file is gone.');
+  if (!(await personSeesDriveFile(env, me, id))) throw new HttpError(404, 'not_found', 'Open this file in Drive. Your Google account does not have access to it.');
   return { id, url: String(a.url) };
 }
 

@@ -7,6 +7,7 @@
 // Before db/quiet-hours.sql is applied, nobody is ever quiet.
 import { nowIso, type Env } from './http';
 import { isTester } from './testuser';
+import { blockedSet } from './blocked';
 
 export type QuietEnv = Pick<Env, 'DB'> & Partial<Env>;
 
@@ -194,7 +195,13 @@ export async function deliverHeld(env: QuietEnv, deps: DeliverDeps, now = new Da
   const who = ((await env.DB.prepare('SELECT DISTINCT email FROM hub_quiet_held WHERE sent_at IS NULL LIMIT 200').all<{ email: string }>()).results || []).map((r) => lower(r.email));
   if (!who.length) return out;
   const quiet = await quietNow(env, who, now);
+  const blocked = await blockedSet(env, who);
   for (const email of who) {
+    if (blocked.has(email)) {
+      // A blocked or offboarded person gets no summary. Their held items are dropped.
+      await env.DB.prepare('DELETE FROM hub_quiet_held WHERE email = ?').bind(email).run().catch(() => undefined);
+      continue;
+    }
     if (quiet.has(email)) continue;
     // Take the rows first, so two passes at once never send the summary twice.
     const tag = `taking:${now.toISOString()}:${crypto.randomUUID().slice(0, 8)}`;

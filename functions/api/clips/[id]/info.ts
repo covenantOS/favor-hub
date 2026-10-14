@@ -39,11 +39,12 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
       out.highlights = clipHighlights(J<ClipSegment[]>(clip.transcript, []), chapters, clip.duration_ms / 1000, ((reactions.results || []) as Array<{ at_seconds: number }>).map((r) => Number(r.at_seconds)));
       out.comments = comments.results || [];
       out.reactions = reactions.results || [];
-      out.viewers = [...seen.values()];
       out.views = clip.views;
       // The person who made the clip edits it. An admin may delete any clip to clear space, and nothing else.
       const mine = clip.owner_email === user.email;
       const admin = user.role === 'admin';
+      // Who watched, and for how long, goes to the owner and admins. Other staff with the link do not see it.
+      if (mine || admin) out.viewers = [...seen.values()];
       out.can = { edit: mine, delete: mine || admin, share: mine };
       out.mine = mine;
       if (mine) {

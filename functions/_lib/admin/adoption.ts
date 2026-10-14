@@ -3,13 +3,13 @@
 // Testers and blocked accounts are left out. The admin's own row is shown and marked, and left out of the totals.
 import type { Env } from '../http';
 import { staffDirectory } from '../people';
-import { TESTERS } from '../testuser';
+import { notTesterSql } from '../testuser';
 import { easternDay } from '../hub/usage';
 
 type Db = Pick<Env, 'DB'>;
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();
 const DAY = 86400000;
-const notTester = (c: string) => `lower(${c}) NOT IN (${TESTERS.map((e) => `'${e}'`).join(', ')})`;
+const notTester = (c: string) => notTesterSql(c);
 const ACT_KINDS = `kind NOT IN ('call', 'verified', 'failed')`;
 
 async function rows<T>(db: Db, sql: string, ...bind: unknown[]): Promise<T[]> {

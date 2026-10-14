@@ -126,21 +126,24 @@ describe('watch data for each kind of viewer', () => {
     assert.equal(d.can, undefined);
     assert.equal(d.helpDraft, undefined);
   });
-  it('gives staff comments, reactions and viewers (the owner is not a viewer) but no manage rights', async () => {
+  it('gives staff comments and reactions but no viewer list and no manage rights', async () => {
     const d = await (await call(0, staff)).json();
-    assert.deepEqual(d.viewers.map((v) => v.email), ['ada@favorintl.org']);
+    assert.ok(Array.isArray(d.comments));
+    assert.equal(d.viewers, undefined);
     assert.equal(d.can.edit, false);
     assert.equal(d.helpDraft, undefined);
   });
   const owner = { 'X-Hub-Email': 'owner@favorintl.org', 'X-Hub-Name': 'Owner', 'X-Hub-Role': 'staff' };
-  it('gives the person who made the clip the manage rights and the help article draft', async () => {
+  it('gives the person who made the clip the manage rights, the help article draft and the viewer list (the owner is not a viewer)', async () => {
     const d = await (await call(0, owner)).json();
+    assert.deepEqual(d.viewers.map((v) => v.email), ['ada@favorintl.org']);
     assert.equal(d.can.edit, true);
     assert.equal(d.can.delete, true);
     assert.equal(d.helpDraft, 'draft');
   });
-  it('gives an admin who did not make the clip a delete button and nothing else', async () => {
+  it('gives an admin who did not make the clip a delete button and the viewer list, nothing else', async () => {
     const d = await (await call(0, admin)).json();
+    assert.deepEqual(d.viewers.map((v) => v.email), ['ada@favorintl.org']);
     assert.equal(d.can.edit, false);
     assert.equal(d.can.delete, true);
     assert.equal(d.helpDraft, undefined);

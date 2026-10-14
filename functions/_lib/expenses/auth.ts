@@ -92,6 +92,20 @@ export async function requireExpenseAdmin(env: Env, request: Request): Promise<v
   throw new HttpError(401, 'unauthorized', 'Unlock the expense log to do that.');
 }
 
+/**
+ * Changing the approvers, distribution list, viewers, mileage rate or substitutes: a hub admin or someone in the approver
+ * list in the settings. A log viewer or a substitute reads the settings and cannot change them, so nobody can name
+ * themselves an approver. A person with only the log code (no Google sign-in) keeps the access the code gave.
+ */
+export async function requireExpenseSettingsWriter(env: Env, request: Request): Promise<void> {
+  await requireExpenseAdmin(env, request);
+  const user = hubUserOf(request);
+  if (!user || user.role === 'admin') return;
+  const approvers = splitEmails((await getSettings(env)).approver_email).map((e) => e.trim().toLowerCase());
+  if (approvers.includes(user.email.trim().toLowerCase())) return;
+  throw new HttpError(403, 'not_approver', 'Only the approvers and FavorOS admins can change the expense settings.');
+}
+
 export async function getExpenseCodeHash(env: Env): Promise<string> {
   try {
     const row = await env.DB.prepare('SELECT code_hash FROM expense_admin_settings WHERE id = 1 LIMIT 1')

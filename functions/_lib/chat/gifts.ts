@@ -102,8 +102,12 @@ export async function giftMembers(env: Pick<Env, 'DB'> & Partial<Env>): Promise<
 
 /** Finds #leadership-gifts, or makes it (private) with its members. Members added later by hand stay. Returns the channel id. */
 export async function ensureGiftChannel(env: Pick<Env, 'DB'> & Partial<Env>, now = new Date()): Promise<string> {
-  const have = await env.DB.prepare(`SELECT id FROM chat_channels WHERE name = ? AND kind IN ('public', 'private') AND archived = 0 LIMIT 1`).bind(GIFT_CHANNEL_NAME).first<{ id: string }>();
-  if (have) return have.id;
+  // Found by its fixed id, never by name: a channel someone else named leadership-gifts must never receive gift notices. It stays private.
+  const have = await env.DB.prepare(`SELECT id, kind FROM chat_channels WHERE id = ? LIMIT 1`).bind(GIFT_CHANNEL_ID).first<{ id: string; kind: string }>();
+  if (have) {
+    if (have.kind !== 'private') await env.DB.prepare(`UPDATE chat_channels SET kind = 'private' WHERE id = ?`).bind(GIFT_CHANNEL_ID).run();
+    return have.id;
+  }
   const at = now.toISOString();
   const owner = 'will@favorintl.org';
   const members = await giftMembers(env);

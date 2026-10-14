@@ -35,7 +35,7 @@ async function quietMentions(env: ChatTaskEnv, messageId: number, emails?: strin
 
 async function live(env: ChatTaskEnv, row: store.MessageRow): Promise<void> {
   if (!env.CHAT_ROOM) return;
-  const [msg] = await store.shape(env, [row], (x) => hydrateAttachments(env, x));
+  const [msg] = await store.shape(env, [row], (x, ch) => hydrateAttachments(env, x, ch));
   await publish(env as LiveEnv, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type: 'message', message: msg });
 }
 

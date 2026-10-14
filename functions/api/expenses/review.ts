@@ -45,7 +45,10 @@ async function find(env: Env, request: Request, token: string, id: string): Prom
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const params = new URL(request.url).searchParams;
-    const { row, signer } = await find(env, request, params.get('token') || '', params.get('id') || '');
+    const token = params.get('token') || '';
+    const { row, signer } = await find(env, request, token, params.get('id') || '');
+    // The emailed link stops working once the request is decided, so a forwarded link no longer shows the signed request.
+    if (token && row.status !== 'pending') throw new HttpError(410, 'link_used', 'This link is no longer active. The request was already decided.');
     const items = await itemsFor(env, row.id);
     return json({ ok: true, request: expenseShape(row, items, { signatures: true }), signer });
   } catch (err) {
@@ -101,7 +104,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       } catch (err) {
         console.error('[expenses] pdf/email on approve', err);
       }
-      await addExpenseEvent(env, row.id, 'distributed', 'system', result);
+      await addExpenseEvent(env, row.id, 'distributed', 'system', { sent: result.sent, to: result.to, subject: result.subject });
       return json({ ok: true, status: 'approved', emailed: result.sent });
     }
 
@@ -116,7 +119,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       } catch (err) {
         console.error('[expenses] decline email', err);
       }
-      await addExpenseEvent(env, row.id, 'decline_notified', 'system', result);
+      await addExpenseEvent(env, row.id, 'decline_notified', 'system', { sent: result.sent, to: result.to, subject: result.subject });
       return json({ ok: true, status: 'declined', emailed: result.sent });
     }
 

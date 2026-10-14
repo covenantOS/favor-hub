@@ -49,7 +49,7 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
   const turn = question ? await startTurn(env, email, conv, question, source) : null;
   if (!turn) {
     // The tables are not there yet, or the chat is someone else's: answer the old way, nothing is saved here.
-    const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: headersFor(env, user), body: raw });
+    const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: headersFor(env, user), body: JSON.stringify({ ...body, history: [] }) });
     return reply(res.status, await res.text());
   }
   const scratch = newConvId();
@@ -101,6 +101,8 @@ export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params,
     // Field staff may only ask a question, and only after an admin turned the field Brain on (the Brain must honor the field scope first).
     if (user.role === 'field' && (request.method !== 'POST' || path !== 'ask')) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
     if (user.role === 'field' && !(await fieldBrainOn(env))) return errorJson('not_ready', 'Favor Brain is not open to field staff yet.', 403);
+    // The Brain's admin screens (grants, names, resets, iWave decisions) are for hub admins. The Brain checks its own list as well.
+    if (path.startsWith('admin/') && user.role !== 'admin') return errorJson('forbidden', 'Only an admin can use that.', 403);
     if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to FavorOS yet.', 503);
     if (request.method === 'POST' && path === 'ask') return await ask(request, env, user, waitUntil);
     // A photo card's picture comes through as bytes. The Brain checks the person's own Google access to the file first.

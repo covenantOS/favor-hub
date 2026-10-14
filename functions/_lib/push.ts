@@ -6,6 +6,7 @@
 // iPhone delivers web push only to an app added to the Home Screen (iOS 16.4 and later).
 import { nowIso, type Env } from './http';
 import { hold, quietNow } from './quiet';
+import { blockedSet } from './blocked';
 
 export type PushEnv = Env & { VAPID_JWK?: string; VAPID_SUBJECT?: string };
 
@@ -134,6 +135,10 @@ export async function sendPush(env: PushEnv, sub: PushSub, payload: PushPayload,
 export async function pushToPeople(env: PushEnv, emails: string[], payload: PushPayload, fetcher: typeof fetch = fetch, opts: { loud?: boolean; messageId?: number | null; now?: Date } = {}): Promise<number> {
   let list = [...new Set(emails.map((e) => e.toLowerCase()))].slice(0, 40);
   if (!list.length || !env.VAPID_JWK) return 0;
+  // A blocked or offboarded person gets no push, even from a phone that is still subscribed.
+  const blocked = await blockedSet(env, list);
+  if (blocked.size) list = list.filter((e) => !blocked.has(e));
+  if (!list.length) return 0;
   if (!opts.loud) {
     // Quiet hours (quiet.ts): the push waits for the morning summary instead.
     const now = opts.now || new Date();

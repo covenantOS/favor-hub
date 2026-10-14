@@ -610,7 +610,8 @@ export async function activityFor(env: Env, access: Access): Promise<Activity[]>
   const since = new Date(Date.now() - 14 * DAY).toISOString();
   const out: Activity[] = [];
   const [made, done, files, contacts] = await Promise.all([
-    env.DB.prepare('SELECT id, title, submitter_name, created_at FROM requests WHERE created_at > ? ORDER BY created_at DESC LIMIT 8')
+    // Declined requests are hidden from non-admins on the board, so the feed leaves them out too.
+    env.DB.prepare(`SELECT id, title, submitter_name, created_at FROM requests WHERE created_at > ?${access.admin ? '' : " AND status != 'declined'"} ORDER BY created_at DESC LIMIT 8`)
       .bind(since)
       .all<{ id: string; title: string; submitter_name: string; created_at: string }>(),
     env.DB.prepare("SELECT id, title, submitter_name, completed_at FROM requests WHERE status = 'done' AND completed_at > ? ORDER BY completed_at DESC LIMIT 8")

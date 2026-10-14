@@ -11,6 +11,7 @@ import { isTester } from '../../testuser';
 import { HttpError, nowIso, type Env } from '../../http';
 import * as store from '../../chat/db';
 import { hydrateAttachments } from '../../chat/hydrate';
+import { taskOpenHere, type Member } from '../../chat/cardaccess';
 import { publish, type LiveEnv } from '../../chat/live';
 import { channelSlug, cleanBody, parseMentions, plainLine } from '../../chat/text';
 import { modeAllows, projectsMode, type Actor } from '../access';
@@ -39,7 +40,7 @@ async function quiet(env: ChatEnv, messageId: number, emails?: string[]): Promis
 
 async function live(env: ChatEnv, row: store.MessageRow, type: 'message' | 'edit' = 'message'): Promise<void> {
   if (!env.CHAT_ROOM) return;
-  const [msg] = await store.shape(env, [row], (x) => hydrateAttachments(env, x));
+  const [msg] = await store.shape(env, [row], (x, ch) => hydrateAttachments(env, x, ch));
   await publish(env as LiveEnv, store.audienceOf(row, await store.membersOf(env, row.channel_id)), { type, message: msg });
 }
 
@@ -70,6 +71,13 @@ export async function ensureProjectChannel(env: ChatEnv, project: ProjectRow, ac
     await env.DB.prepare('UPDATE hub_projects SET chat_channel_id = ?, updated_at = ? WHERE id = ?').bind(made.id, now, project.id).run();
     ch = (await store.getChannel(env, made.id))!;
     created = true;
+  }
+  // Only a channel: the project's people are never added to a direct message or a group (privacy pass 2026-10-14).
+  if (ch.kind !== 'public' && ch.kind !== 'private') throw new HttpError(400, 'not_channel', 'A project links only to a channel.');
+  // A project made members-only closes its channel too. A private channel never opens by itself: its history was written for its members.
+  if (project.visibility === 'members' && ch.kind === 'public') {
+    await env.DB.prepare(`UPDATE chat_channels SET kind = 'private' WHERE id = ?`).bind(ch.id).run();
+    ch = { ...ch, kind: 'private' };
   }
   const have = new Set(await store.membersOf(env, ch.id));
   const add = [...members].filter((e) => FAVOR.test(e) && !have.has(e));
@@ -115,19 +123,23 @@ export async function postDirectCard(env: ChatEnv, input: { taskId: string; from
 const KICK: Record<string, string> = { created: 'Made a task', assigned: 'Gave you a task', mention: 'Named you on a task', shared: 'Shared a task' };
 
 /** Fills each task card from the task as it is now. A task that is gone reads as a link card. */
-export async function hydratePTaskCards(env: Env, list: store.Attachment[]): Promise<store.Attachment[]> {
+export async function hydratePTaskCards(env: Env, list: store.Attachment[], channelId?: string, members?: Member[] | null): Promise<store.Attachment[]> {
   const ids = [...new Set(list.filter((a) => a.type === 'ptask' && typeof a.id === 'string').map((a) => String(a.id)))];
   if (!ids.length) return list;
   const lines = new Map<string, TaskLine>();
+  const hidden = new Set<string>();
   for (const id of ids) {
     const t = await taskLine(env, id);
     if (t) lines.set(id, t);
+    // A members-only project's task is named only where every member of the conversation may open it (chat/cardaccess.ts).
+    if (t && !(await taskOpenHere(env, { id: t.id, project_id: t.project_id, owner_email: t.owner_email }, members ?? null, channelId))) hidden.add(id);
   }
   const dir = await dirMap(env);
   return list.map((a) => {
     if (a.type !== 'ptask') return a;
     const t = lines.get(String(a.id));
     if (!t || t.status === 'dropped') return { type: 'link', url: '#', host: 'Task', title: 'This task is no longer on the board' };
+    if (hidden.has(String(a.id))) return { type: 'link', url: taskUrl(t, t.project_key ? { key: t.project_key } : null), host: 'Task', title: 'Private task' };
     const kind = String(a.kind || 'created');
     return {
       type: 'ptask',
@@ -407,7 +419,7 @@ export async function slashTask(
   if (!made.existing) await fire(env, { kind: 'task.created', actor: actor.email, actorName: actor.name, task: made.task, project: made.project, detail: { from: 'chat' }, told: made.told });
   const id = await postCard(env, { taskId: made.task.id, channelId: ch.id, from: actor.email, kind: 'created', thread: threadId, quietFor: 'all' });
   const row = (await store.getMessage(env, id))!;
-  const [msg] = await store.shape(env, [row], (x) => hydrateAttachments(env, x));
+  const [msg] = await store.shape(env, [row], (x, ch) => hydrateAttachments(env, x, ch));
   return msg;
 }
 

@@ -56,6 +56,8 @@ export async function fieldChatGuard(env: Env, user: Pick<HubUser, 'role' | 'ema
     if (!(await member(b))) throw new HttpError(403, 'forbidden', 'You are not in that conversation.');
     return;
   }
+  // Checklist lines are Projects tasks, and Projects is not part of the field staff app.
+  if (a === 'messages' && (c === 'check' || c === 'check-add')) throw NOPE();
   if (a === 'messages' || a === 'threads') return viaMessage(b);
   if (a === 'drive-file') return viaMessage(b);
 }

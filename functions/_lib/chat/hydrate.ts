@@ -7,6 +7,7 @@ import { isLive } from './huddle';
 import { hydrateTaskCards } from './tasks';
 import { hydratePTaskCards } from '../projects/links/chat'; // projects hook
 import { hydratePlusCards } from './plus-cards';
+import { meetingOpenHere, membersOf, type Member } from './cardaccess';
 
 const mins = (ms: number) => {
   const s = Math.round((ms || 0) / 1000);
@@ -24,13 +25,16 @@ function whenLabel(iso: string): string {
 }
 
 interface ClipRow { id: string; title: string; summary: string; status: string; owner_name: string; duration_ms: number; has_poster: number; created_at: string }
-interface MeetRow { id: string; title: string; status: string; started_at: string | null; ended_at: string | null; notes_status: string; summary: string; created_at: string }
+interface MeetRow { id: string; title: string; status: string; started_at: string | null; ended_at: string | null; notes_status: string; summary: string; created_at: string; host_email: string; cohosts: string; invitees: string; access: string; post_channel: string }
 
-export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<Attachment[]> {
+/** channelId is the conversation the message sits in: a meeting or task card names its subject only where every member may open it (cardaccess.ts). */
+export async function hydrateAttachments(env: Env, list: Attachment[], channelId?: string): Promise<Attachment[]> {
+  let members: Member[] | null | undefined;
+  const audience = async (): Promise<Member[] | null> => (members === undefined ? (members = await membersOf(env, channelId)) : members);
   // q3-tasks hook: request board cards ({type: 'task'}) are filled in by chat/tasks.ts.
   if (list.some((a) => a.type === 'task')) list = await hydrateTaskCards(env, list);
   // projects hook: project task cards ({type: 'ptask'}) are filled in by projects/links/chat.ts.
-  if (list.some((a) => a.type === 'ptask')) list = await hydratePTaskCards(env, list);
+  if (list.some((a) => a.type === 'ptask')) list = await hydratePTaskCards(env, list, channelId, await audience());
   // Checklists, polls and the private scheduled and reminder notes (chat/plus-cards.ts).
   if (list.some((a) => a.type === 'checklist' || a.type === 'poll' || a.type === 'note')) list = await hydratePlusCards(env, list);
   // Voice notes carry their transcript: working while Whisper reads it, then the words (or none heard).
@@ -49,16 +53,29 @@ export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<
   const clips = new Map<string, ClipRow>();
   const meets = new Map<string, MeetRow>();
   const live = new Map<string, number>();
+  const linked = new Set<string>();
+  const named = new Set<string>();
   if (clipIds.length) {
     const r = await env.DB.prepare(`SELECT id, title, summary, status, owner_name, duration_ms, has_poster, created_at FROM hub_clips WHERE id IN (${clipIds.map(() => '?').join(',')})`).bind(...clipIds).all<ClipRow>().catch(() => ({ results: [] as ClipRow[] }));
     for (const c of r.results || []) clips.set(c.id, c);
   }
   if (meetIds.length) {
-    const r = await env.DB.prepare(`SELECT id, title, status, started_at, ended_at, notes_status, summary, created_at FROM hub_meetings WHERE id IN (${meetIds.map(() => '?').join(',')})`).bind(...meetIds).all<MeetRow>().catch(() => ({ results: [] as MeetRow[] }));
+    const cols = 'id, title, status, started_at, ended_at, notes_status, summary, created_at, host_email, cohosts, invitees, access';
+    const inList = meetIds.map(() => '?').join(',');
+    // post_channel came with the notes post; an older table without it reads as no chosen channel.
+    const r = await env.DB.prepare(`SELECT ${cols}, post_channel FROM hub_meetings WHERE id IN (${inList})`).bind(...meetIds).all<MeetRow>()
+      .catch(() => env.DB.prepare(`SELECT ${cols}, '' AS post_channel FROM hub_meetings WHERE id IN (${inList})`).bind(...meetIds).all<MeetRow>())
+      .catch(() => ({ results: [] as MeetRow[] }));
     for (const m of r.results || []) meets.set(m.id, m);
     const cutoff = Date.now() - GONE_MS;
     const p = await env.DB.prepare(`SELECT meeting_id, COUNT(DISTINCT lower(email)) AS n FROM hub_meeting_presence WHERE meeting_id IN (${meetIds.map(() => '?').join(',')}) AND left_at = 0 AND seen > ? AND removed = 0 AND waiting = 0 GROUP BY meeting_id`).bind(...meetIds, cutoff).all<{ meeting_id: string; n: number }>().catch(() => ({ results: [] as Array<{ meeting_id: string; n: number }> }));
     for (const x of p.results || []) live.set(x.meeting_id, x.n);
+    if (channelId) {
+      const l = await env.DB.prepare(`SELECT meeting_id FROM chat_meetings WHERE channel_id = ? AND meeting_id IN (${meetIds.map(() => '?').join(',')})`).bind(channelId, ...meetIds).all<{ meeting_id: string }>().catch(() => ({ results: [] as Array<{ meeting_id: string }> }));
+      for (const x of l.results || []) linked.add(x.meeting_id);
+    }
+    const mem = await audience();
+    for (const m of meets.values()) if (meetingOpenHere(m, mem, channelId, linked.has(m.id))) named.add(m.id);
   }
   return list.map((a) => {
     if (a.type === 'clip') {
@@ -76,6 +93,8 @@ export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<
       // before anyone has joined. A room everyone left reads as ended at once, even before the meeting row is closed.
       const inRoom = live.get(m.id) || 0;
       const ended = !isLive(m, inRoom);
+      // Someone in the conversation is not on this meeting: no title, no count of people, no notes flag.
+      if (!named.has(m.id)) return { type: 'meeting', id: m.id, title: 'Private meeting', private: true, status: ended ? 'ended' : 'live', count: 0, url: `/meet/room/?m=${m.id}`, notes: false, notes_url: '', duration: '' };
       return {
         type: 'meeting', id: m.id, title: m.title || 'Meeting', status: ended ? 'ended' : 'live', count: ended ? 0 : inRoom,
         url: `/meet/room/?m=${m.id}`, notes: m.notes_status === 'ready', notes_url: `/meet/notes/?m=${m.id}`,

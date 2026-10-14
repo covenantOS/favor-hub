@@ -655,7 +655,7 @@ export async function postSummary(env: MeetEnv, id: string): Promise<boolean> {
     const posted = await chat.post(env, {
       channel_id: m.post_channel, email: MEETINGS_ID, body: summaryBody(m, safeJson(m.notes_json, {}), acts), attachments: [{ type: 'meeting', id }],
     });
-    const [msg] = await chat.shape(env, [posted.message], (a) => hydrateAttachments(env, a));
+    const [msg] = await chat.shape(env, [posted.message], (a, ch) => hydrateAttachments(env, a, ch));
     await publish(env as LiveEnv, posted.members, { type: 'message', message: msg });
     return true;
   } catch (err) {

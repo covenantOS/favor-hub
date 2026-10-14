@@ -16,6 +16,7 @@ import { asanaUrlFor, syncedProject } from './sync';
 import { HttpError, errorJson, handleError, json, type Env } from '../http';
 import type { HubUser } from '../session';
 import { staffDirectory } from '../people';
+import { ledPeople, mayJoin, mayReadNotes, wasPresent, type Meeting } from '../meet';
 import { projectsActor } from './access';
 import { KINDS, codesFor, type CodeKind } from './codes';
 import { directory, projectOf, projectsReady, type ProjectRow, type TaskRow } from './db';
@@ -165,7 +166,7 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
       return json({ ok: true, ...r });
     }
     if (method === 'POST') {
-      const made = await createTask(env, actor, await body(request));
+      const made = await createTask(env, actor, await linksChecked(env, actor, await body(request)));
       if (!made.existing) await ev('task.created', made.task, made.project, {}, made.told);
       return json({ ok: true, task: await shaped(env, made.task), existing: made.existing }, made.existing ? 200 : 201);
     }
@@ -217,7 +218,7 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
       return json({ ok: true, ...d, task: { ...(d as any).task, asana_url: asanaUrl } });
     }
     if (method === 'PATCH') {
-      const r = await patchTask(env, actor, id, await body(request));
+      const r = await patchTask(env, actor, id, await linksChecked(env, actor, await body(request)));
       if (r.changed.length) {
         const kind = r.kinds.includes('done') ? 'task.done' : r.kinds.includes('reopened') ? 'task.reopened' : r.kinds.includes('moved') ? 'task.moved' : 'task.updated';
         await ev(kind, r.task, r.project, { fields: r.changed, before: r.before }, r.told);
@@ -287,4 +288,25 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
   void tail;
   void projectOf;
   return errorJson('not_found', 'No such route.', 404);
+}
+
+/**
+ * A task names a meeting or an expense request only when the person linking it may see that meeting or request. Task lists show the
+ * linked meeting's title and the expense card to every reader of the task, so a hand-typed id must never pull either in (privacy
+ * pass 2026-10-14). Server-side links (meeting action items, Link expense) do not come through here.
+ */
+async function linksChecked(env: Env, actor: { email: string; admin: boolean }, b: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (actor.admin) return b;
+  const me = String(actor.email || '').toLowerCase();
+  if (b && b.meeting_id) {
+    const m = await env.DB.prepare('SELECT * FROM hub_meetings WHERE id = ?').bind(String(b.meeting_id)).first<Meeting>().catch(() => null);
+    const user = { email: me, role: 'staff' };
+    const ok = !!m && (mayJoin(m, user) || mayReadNotes(m, user, await ledPeople(env as never, me), await wasPresent(env as never, m.id, me)));
+    if (!ok) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  }
+  if (b && b.expense_id) {
+    const e = await env.DB.prepare('SELECT requester_email FROM expense_requests WHERE id = ?').bind(String(b.expense_id)).first<{ requester_email: string }>().catch(() => null);
+    if (!e || String(e.requester_email || '').trim().toLowerCase() !== me) throw new HttpError(404, 'not_found', 'That expense request is not yours.');
+  }
+  return b;
 }

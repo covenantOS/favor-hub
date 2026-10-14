@@ -27,7 +27,7 @@
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import type { HubUser } from '../session';
 import { createMeeting, endMeeting } from '../meetroute';
-import type { MeetEnv } from '../meet';
+import { ledPeople, mayJoin, mayReadNotes, wasPresent, type Meeting, type MeetEnv } from '../meet';
 import * as store from './db';
 import { chatMode, chatUser } from './gate';
 import { fieldBrainOn, fieldChatGuard } from '../field';
@@ -38,7 +38,7 @@ import { presence, publish, type LiveEnv } from './live';
 import { askInThread } from './brain';
 import { huddlesOf, type HuddleState } from './huddle';
 import { unfurl } from './unfurl';
-import { driveCardFor, driveContent, driveIdOf, driveThumb, sharedDriveFile } from './preview';
+import { driveCardFor, driveContent, driveIdOf, driveThumb, personSeesDriveFile, sharedDriveFile } from './preview';
 import { parseRange } from '../clips';
 import { postMadeCard, taskDeleted, taskReply } from './tasks';
 import * as more from './more';
@@ -132,7 +132,7 @@ async function route(ctx: Ctx): Promise<Response> {
     if (b && c === 'messages' && method === 'GET') {
       await store.readableChannel(env, b, me);
       const before = Number(url.searchParams.get('before')) || null;
-      return json({ ok: true, ...(await store.history(env, b, before, (x) => hydrateAttachments(env, x), me)) });
+      return json({ ok: true, ...(await store.history(env, b, before, (x, ch) => hydrateAttachments(env, x, ch), me)) });
     }
     if (b && c === 'messages' && method === 'POST') return json({ ok: true, message: await sendOnce(ctx, user, b) });
     if (b && c === 'read' && method === 'POST') {
@@ -173,7 +173,7 @@ async function route(ctx: Ctx): Promise<Response> {
       // A reply marks its thread's first message: the channel reads as unread from there.
       return json({ ok: true, ...(await store.markUnread(env, me, b, row.thread_id || row.id)) });
     }
-    if (b && c === 'pins' && method === 'GET') return json({ ok: true, ready: await more.pinsReady(env), ...(await more.pinsOf(env, me, b, (x) => hydrateAttachments(env, x))) });
+    if (b && c === 'pins' && method === 'GET') return json({ ok: true, ready: await more.pinsReady(env), ...(await more.pinsOf(env, me, b, (x, ch) => hydrateAttachments(env, x, ch))) });
     if (b && c === 'bookmarks' && !path[3] && method === 'POST') {
       const bookmarks = await more.addBookmark(env, me, b, await body(request));
       ctx.waitUntil(publish(env, await store.membersOf(env, b), { type: 'bar', channel_id: b, bookmarks }));
@@ -204,14 +204,14 @@ async function route(ctx: Ctx): Promise<Response> {
     const rootRow = await store.getMessage(env, root);
     if (!rootRow || !store.canSee(rootRow, me)) throw new HttpError(404, 'not_found', 'That thread is gone.');
     await store.readableChannel(env, rootRow.channel_id, me);
-    const t = await store.thread(env, root, (x) => hydrateAttachments(env, x), me);
+    const t = await store.thread(env, root, (x, ch) => hydrateAttachments(env, x, ch), me);
     if (!t) throw new HttpError(404, 'not_found', 'That thread is gone.');
     // What was new to this person goes back with the thread (the page draws its New line there), then it is all read.
     const unread = (await store.threadUnread(env, me, [root])).get(root) || 0;
     await store.markThreadRead(env, me, root);
     return json({ ok: true, ...t, unread, threads_unread: await more.threadUnreadTotal(env, me) });
   }
-  if (a === 'threads' && !b && method === 'GET') return json({ ok: true, ...(await more.threadsFor(env, me, (x) => hydrateAttachments(env, x))) });
+  if (a === 'threads' && !b && method === 'GET') return json({ ok: true, ...(await more.threadsFor(env, me, (x, ch) => hydrateAttachments(env, x, ch))) });
   if (a === 'activity' && !b && method === 'GET') {
     const dir = await directory(env, await chatMode(env), user);
     const items = await more.activityFor(env, me);
@@ -338,7 +338,7 @@ async function boot(env: ChatRouteEnv, user: HubUser) {
 /* ------------------------------------------------------------------ messages */
 
 async function broadcast(ctx: Ctx, row: store.MessageRow, type: 'message' | 'edit'): Promise<store.MessageOut> {
-  const [msg] = await store.shape(ctx.env, [row], (x) => hydrateAttachments(ctx.env, x));
+  const [msg] = await store.shape(ctx.env, [row], (x, ch) => hydrateAttachments(ctx.env, x, ch));
   const members = store.audienceOf(row, await store.membersOf(ctx.env, row.channel_id));
   ctx.waitUntil(publish(ctx.env, members, { type, message: msg }));
   return msg;
@@ -350,6 +350,14 @@ type Att = store.Attachment;
 const FALLBACK_ACCESS = { admin: false, chat: true, workCenter: false, projects: false } as unknown as Access;
 
 /** What a client may attach: references the server fills in, never a URL or a title the client invented. */
+/** The writer may join the meeting or read its notes (the meeting's own rule, functions/_lib/meet.ts). */
+async function writerSeesMeeting(env: ChatRouteEnv, user: { email: string; role: string }, id: string): Promise<boolean> {
+  const m = await env.DB.prepare('SELECT * FROM hub_meetings WHERE id = ?').bind(id).first<Meeting>().catch(() => null);
+  if (!m) return false;
+  if (mayJoin(m, user as never)) return true;
+  return mayReadNotes(m, user as never, await ledPeople(env as never, user.email), await wasPresent(env as never, id, user.email));
+}
+
 async function cleanAttachments(env: ChatRouteEnv, raw: unknown, me: string, ent?: (kind: string, id: string) => Promise<EntityOut | null>): Promise<Att[]> {
   const out: Att[] = [];
   for (const a of (Array.isArray(raw) ? raw : []).slice(0, 6)) {
@@ -435,10 +443,17 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     const ref = classifyUrl(u, hosts);
     if (ref && !attachments.some((x) => x.type === ref.type && x.id === ref.id)) attachments.push(ref);
   }
+  // A meeting card only for a meeting the writer may open: a made-up or guessed id never turns into a card that names it.
+  for (let i = attachments.length - 1; i >= 0; i--) {
+    const x = attachments[i];
+    if (x.type === 'meeting' && !(await writerSeesMeeting(env, user, String(x.id)))) attachments.splice(i, 1);
+  }
   // A pasted Google Docs, Sheets, Slides or Drive address becomes a Drive card the page can preview.
   for (const u of urls) {
     if (attachments.length >= 6 || !driveIdOf(u) || attachments.some((x) => x.type === 'drive' && x.url === u)) continue;
-    const card = await driveCardFor(env, u);
+    // The card's name comes from the service account, so it is made only for a file the writer can open themselves.
+    const id = driveIdOf(u);
+    const card = id && (await personSeesDriveFile(env, me, id)) ? await driveCardFor(env, u) : null;
     if (card) attachments.push(card as Att);
   }
   let threadId = input.thread_id ? Number(input.thread_id) : null;
@@ -468,7 +483,7 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     const both = await more.alsoSend(env, posted.message, (id) => dir[id]?.name || id.split('@')[0]);
     if (both) {
       await broadcast(ctx, both.copy.message, 'message');
-      [msg] = await store.shape(env, [both.reply], (x) => hydrateAttachments(env, x));
+      [msg] = await store.shape(env, [both.reply], (x, ch) => hydrateAttachments(env, x, ch));
     }
   }
   // q3-tasks hook: a reply under a request's card is also a comment on the request (chat/tasks.ts).

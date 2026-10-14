@@ -6,6 +6,7 @@
 // request_email_log takes a row per notice before the send, so one notice is never emailed twice. The person who acted gets no
 // notice, so they get no email. Before db/request-email.sql is applied nothing is sent.
 import { holdIfQuiet } from '../quiet';
+import { isBlocked } from '../blocked';
 import { nowIso, type Env } from '../http';
 import { effective } from '../admin/settings';
 import { getRequest } from '../db';
@@ -59,6 +60,7 @@ export interface Outbox {
 
 /** Sends through Resend, the sender the hub already uses. Returns false when there is no key or the send failed. */
 export async function send(env: Env, m: Outbox): Promise<boolean> {
+  if (await isBlocked(env, m.to)) return false; // a blocked or offboarded person gets no mail
   const hook = (env as unknown as { MAIL_HOOK?: (m: Outbox) => Promise<boolean> | boolean }).MAIL_HOOK;
   if (hook) return !!(await hook(m)); // tests collect the mail here; nothing leaves the process
   const key = env.RESEND_API_KEY;

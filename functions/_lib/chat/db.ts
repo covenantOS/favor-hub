@@ -2,6 +2,7 @@
 // (private channels, direct messages and groups answer only their members), so a route cannot forget them.
 import { HttpError, nowIso, type Env } from '../http';
 import { TESTER_REFUSAL, isTester } from '../testuser';
+import { isAdminEmail } from '../session';
 import { BRAIN_ID, MEETINGS_ID, SYSTEM_VOICES, channelSlug, cleanBody, dmKey, likePattern, parseMentions } from './text';
 
 export type ChatEnv = Pick<Env, 'DB'>;
@@ -170,9 +171,15 @@ export async function listChannels(env: ChatEnv, email: string): Promise<Channel
   return list.map((c) => ({ ...c, members: by.get(c.id) || [], muted: !!c.muted, joined: true }));
 }
 
+const RESERVED_NAMES = new Set(['leadership-gifts', 'field-staff']);
+/** Channels whose members only a hub admin adds: gift notices carry partner names and amounts. */
+const ADMIN_ADDS = new Set(['ch_leadership_gifts']);
+
 export async function createChannel(env: ChatEnv, email: string, input: { name: unknown; topic?: unknown; private?: unknown }): Promise<ChannelOut> {
   const name = channelSlug(input.name);
   if (!name) throw new HttpError(400, 'name', 'Give the channel a name.');
+  // Names the hub uses for its own private channels are never available (functions/_lib/chat/gifts.ts).
+  if (RESERVED_NAMES.has(name)) throw new HttpError(409, 'name_taken', `There is already a channel named ${name}.`);
   const taken = await env.DB.prepare(`SELECT 1 AS ok FROM chat_channels WHERE name = ? AND kind IN ('public', 'private')`).bind(name).first();
   if (taken) throw new HttpError(409, 'name_taken', `There is already a channel named ${name}.`);
   const id = 'ch_' + id12();
@@ -234,6 +241,10 @@ export async function leaveChannel(env: ChatEnv, email: string, channelId: strin
 export async function addMembers(env: ChatEnv, actor: string, channelId: string, emails: string[]): Promise<ChannelOut> {
   const ch = await postableChannel(env, channelId, actor);
   if (ch.kind === 'dm') throw new HttpError(400, 'dm', 'Start a group to add people to a conversation.');
+  if (ADMIN_ADDS.has(ch.id)) {
+    const r = await env.DB.prepare(`SELECT role FROM hub_users WHERE lower(email) = ?`).bind(lower(actor)).first<{ role: string }>().catch(() => null);
+    if (r?.role !== 'admin' && !isAdminEmail(env as never, actor)) throw new HttpError(403, 'admin_only', 'Only a FavorOS admin adds people to this channel.');
+  }
   const now = nowIso();
   const add = [...new Set(emails.map(lower))].filter((e) => /^[^@\s]+@[^@\s]+$/.test(e)).slice(0, 50);
   if (add.length) await env.DB.batch(add.map((e) => env.DB.prepare(`INSERT OR IGNORE INTO chat_members (channel_id, email, role, joined_at) VALUES (?, ?, 'member', ?)`).bind(ch.id, e, now)));
@@ -281,14 +292,14 @@ async function replyUsers(env: ChatEnv, rootIds: number[]): Promise<Map<number, 
 }
 
 /** Rows as the client reads them. `hydrate` fills in clip and meeting cards from their own tables. */
-export async function shape(env: ChatEnv, rows: MessageRow[], hydrate?: (a: Attachment[]) => Promise<Attachment[]>): Promise<MessageOut[]> {
+export async function shape(env: ChatEnv, rows: MessageRow[], hydrate?: (a: Attachment[], channelId?: string) => Promise<Attachment[]>): Promise<MessageOut[]> {
   const ids = rows.map((r) => r.id);
   const [rx, ru] = await Promise.all([reactionsFor(env, ids), replyUsers(env, rows.filter((r) => r.reply_count > 0).map((r) => r.id))]);
   const out: MessageOut[] = [];
   for (const r of rows) {
     const deleted = !!r.deleted_at;
     let att = deleted ? [] : parseJson<Attachment[]>(r.attachments, []);
-    if (att.length && hydrate) att = await hydrate(att);
+    if (att.length && hydrate) att = await hydrate(att, r.channel_id);
     out.push({
       id: r.id,
       channel_id: r.channel_id,
@@ -328,7 +339,7 @@ export async function getMessage(env: ChatEnv, id: number): Promise<MessageRow |
   return env.DB.prepare(`SELECT ${COLS} FROM chat_messages WHERE id = ?`).bind(id).first<MessageRow>();
 }
 
-export async function history(env: ChatEnv, channelId: string, before: number | null, hydrate: ((a: Attachment[]) => Promise<Attachment[]>) | undefined, email: string): Promise<{ messages: MessageOut[]; more: boolean }> {
+export async function history(env: ChatEnv, channelId: string, before: number | null, hydrate: ((a: Attachment[], channelId?: string) => Promise<Attachment[]>) | undefined, email: string): Promise<{ messages: MessageOut[]; more: boolean }> {
   const rows = await env.DB.prepare(
     `SELECT ${COLS} FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND (visible_to IS NULL OR visible_to = ?) ${before ? 'AND id < ?' : ''} ORDER BY id DESC LIMIT ?`
   ).bind(...(before ? [channelId, lower(email), before, PAGE + 1] : [channelId, lower(email), PAGE + 1])).all<MessageRow>();
@@ -371,7 +382,7 @@ export async function marks(env: ChatEnv, email: string, list: MessageOut[]): Pr
   return list;
 }
 
-export async function thread(env: ChatEnv, rootId: number, hydrate: ((a: Attachment[]) => Promise<Attachment[]>) | undefined, email: string): Promise<{ root: MessageOut; replies: MessageOut[] } | null> {
+export async function thread(env: ChatEnv, rootId: number, hydrate: ((a: Attachment[], channelId?: string) => Promise<Attachment[]>) | undefined, email: string): Promise<{ root: MessageOut; replies: MessageOut[] } | null> {
   const root = await getMessage(env, rootId);
   if (!root || root.thread_id || !canSee(root, email)) return null;
   const rows = await env.DB.prepare(`SELECT ${COLS} FROM chat_messages WHERE thread_id = ? AND (visible_to IS NULL OR visible_to = ?) ORDER BY id LIMIT 500`).bind(rootId, lower(email)).all<MessageRow>();

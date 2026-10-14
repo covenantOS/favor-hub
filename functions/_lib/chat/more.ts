@@ -29,7 +29,7 @@ export interface ThreadItem {
  * Every thread this person is in: one they started, replied in, or were told about (named in it, or it is in a direct message
  * of theirs), in a conversation they are still a member of. Newest activity first, with unread replies counted per thread.
  */
-export async function threadsFor(env: Env, email: string, hydrate?: (a: store.Attachment[]) => Promise<store.Attachment[]>): Promise<{ threads: ThreadItem[]; unread: number }> {
+export async function threadsFor(env: Env, email: string, hydrate?: (a: store.Attachment[], channelId?: string) => Promise<store.Attachment[]>): Promise<{ threads: ThreadItem[]; unread: number }> {
   const me = lower(email);
   const roots = await env.DB.prepare(
     `SELECT ${COLS.split(', ').map((c) => 'r.' + c).join(', ')} FROM chat_messages r JOIN chat_channels c ON c.id = r.channel_id AND c.archived = 0
@@ -162,7 +162,7 @@ export async function barsFor(env: Env, channelIds: string[]): Promise<{ ready: 
   }
 }
 
-export async function pinsOf(env: Env, email: string, channelId: string, hydrate?: (a: store.Attachment[]) => Promise<store.Attachment[]>): Promise<{ pins: Array<store.MessageOut & { pinned_by: string; pinned_at: string }>; bookmarks: Bookmark[] }> {
+export async function pinsOf(env: Env, email: string, channelId: string, hydrate?: (a: store.Attachment[], channelId?: string) => Promise<store.Attachment[]>): Promise<{ pins: Array<store.MessageOut & { pinned_by: string; pinned_at: string }>; bookmarks: Bookmark[] }> {
   await store.readableChannel(env, channelId, email);
   try {
     const p = await env.DB.prepare(

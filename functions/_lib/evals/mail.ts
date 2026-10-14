@@ -4,6 +4,7 @@
 import type { Env } from '../http';
 import { nowIso } from '../http';
 import { noticeGate } from '../requests/tasks';
+import { isBlocked } from '../blocked';
 
 const LOGO = 'https://dash.favorintl.org/images/favor-icon.png';
 const C = { bg: '#f4efe0', card: '#fffdf8', ink: '#1d211b', ink2: '#57534a', ink3: '#8a8578', line: '#e7e0cf', green: '#2b4d24' };
@@ -49,6 +50,7 @@ export async function tell(env: Env, to: string, subject: string, m: MailInput):
   if (!email) return false;
   const gate = await noticeGate(env).catch(() => (() => false) as (e: string) => boolean);
   if (!gate(email)) return false;
+  if (await isBlocked(env, email)) return false; // a departed employee or reviewer gets no reminders
   return resend(env, email, subject, mailHtml(m)).catch(() => false);
 }
 

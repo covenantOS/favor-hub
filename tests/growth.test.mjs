@@ -195,7 +195,8 @@ test('evidence counts the year of finished tasks, Work Center actions and course
   assert.deepEqual(windowFor('2027-01-04', '2026-09-01'), { from: '2026-09-01', to: '2027-01-04', startedWithinYear: true });
   assert.equal(windowFor('2027-01-04', '').startedWithinYear, false);
   const run = (sql, ...a) => w.d1.db.prepare(sql).run(...a);
-  const task = (id, who, done, due, at) => run("INSERT INTO hub_tasks (id, title, status, owner_email, due_date, done_at, done_by, created_by, created_at, updated_at) VALUES (?, ?, 'done', ?, ?, ?, ?, 'x', ?, ?)", id, 'Task ' + id, who, due, at, who, at, at);
+  run("INSERT INTO hub_projects (id, key, name, lead_email, visibility, created_by, created_at, updated_at) VALUES ('pstaff', 'PSTAFF', 'Staff project', ?, 'staff', ?, ?, ?)", BOSS.email, BOSS.email, NOW, NOW);
+  const task = (id, who, done, due, at) => run("INSERT INTO hub_tasks (id, project_id, title, status, owner_email, due_date, done_at, done_by, created_by, created_at, updated_at) VALUES (?, 'pstaff', ?, 'done', ?, ?, ?, ?, 'x', ?, ?)", id, 'Task ' + id, who, due, at, who, at, at);
   task('t1', NEW.email, '2026-10-01', '2026-10-02', '2026-10-01T15:00:00.000Z');
   task('t2', NEW.email, null, '2026-10-01', '2026-10-05T15:00:00.000Z'); // after the due date
   task('t3', NEW.email, null, null, '2026-11-01T15:00:00.000Z');
@@ -221,6 +222,11 @@ test('evidence counts the year of finished tasks, Work Center actions and course
   assert.equal(e.partners.contacted, 2, 'C1 and C2; the failed row and the other person do not count');
   assert.equal(e.partners.actions, 3);
   assert.equal(e.courses.done, 1);
+  // A personal task counts as finished work but its title is never listed.
+  run("INSERT INTO hub_tasks (id, title, status, owner_email, done_at, done_by, created_by, created_at, updated_at) VALUES ('t6', 'Personal errand', 'done', ?, '2026-09-05T15:00:00.000Z', ?, 'x', ?, ?)", NEW.email, NEW.email, NOW, NOW);
+  const withPersonal = await evidenceFor(w.env, NEW.email, '2027-01-04', '2020-01-01');
+  assert.equal(withPersonal.tasks.done, 4);
+  assert.doesNotMatch(JSON.stringify(withPersonal), /Personal errand/);
   const json = JSON.stringify(e);
   assert.doesNotMatch(json, /Secret Partner|Hidden Name|C1|C2/);
   // Started inside the year: the older work is out of the window.

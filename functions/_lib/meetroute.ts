@@ -30,6 +30,7 @@ import { cleanRule } from './meetrecur';
 import { MEET_AI, afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
+import { notTesterSql } from './testuser';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, wasPresent, meetUser, sfuCall, sha,
@@ -1420,7 +1421,7 @@ async function directory(env: MeetEnv) {
        CASE s.team WHEN 'exec' THEN 'Leadership' WHEN 'rdd' THEN 'Development (RDD)' WHEN 'church' THEN 'Church Engagement' WHEN 'support' THEN 'Support Team'
          WHEN 'partner_care' THEN 'Partner Care' WHEN 'grants' THEN 'Grants' WHEN 'admin' THEN 'Operations' ELSE 'Other staff' END AS team
        FROM hub_users h LEFT JOIN act_staff s ON lower(s.email) = lower(h.email) AND s.active = 1
-       WHERE h.blocked = 0 AND lower(h.email) NOT IN ('tester@favorintl.org', 'tester2@favorintl.org') AND lower(h.email) NOT IN (SELECT lower(email) FROM meet_directory)
+       WHERE h.blocked = 0 AND ${notTesterSql('h.email')} AND lower(h.email) NOT IN (SELECT lower(email) FROM meet_directory)
      ORDER BY name`
   ).all<{ email: string; name: string; title: string; team: string }>();
   return { ok: true, people: rows.results || [] };

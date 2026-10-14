@@ -10,7 +10,7 @@
 // Only messages created after the first run count (chat_email_state since), so there is no backfill.
 import { nowIso, type Env } from '../http';
 import { effective } from '../admin/settings';
-import { isTester } from '../testuser';
+import { isHiddenAccount, isTester } from '../testuser';
 import { send } from '../requests/mail';
 import { buildChatMail, chatLink, type ChatKind, type ChatMailMessage } from './email';
 import { hold, quietNow } from '../quiet';
@@ -99,7 +99,7 @@ async function ready(env: MailEnv): Promise<boolean> {
 
 /** A real, active person with the Chat email switch on. Blocked and pending accounts, the test users and the system voices never get mail. */
 async function eligible(env: MailEnv, email: string): Promise<boolean> {
-  if (isTester(email) || SYSTEM_VOICES.has(email)) return false;
+  if (isHiddenAccount(email) || SYSTEM_VOICES.has(email)) return false;
   let u: { blocked: number } | null;
   try {
     u = await env.DB.prepare('SELECT blocked FROM hub_users WHERE lower(email) = ? AND blocked = 0 AND COALESCE(pending, 0) = 0').bind(email).first<{ blocked: number }>();
