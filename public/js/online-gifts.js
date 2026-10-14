@@ -102,8 +102,8 @@
     if (done.length) h += '<div class="h-card cr-card og-card"><div class="cr-h"><b>Approved <small>' + done.length + '</small></b></div>' + done.map(doneRow).join('') + '</div>';
     h += health(o.health || []);
     if (o.admin) {
-      h += '<div class="h-card cr-card og-card"><div class="cr-h"><b>Writes to Blackbaud</b><span class="ls-st ls-st--' + (o.apply ? 'applied' : 'rejected') + '">' + (o.apply ? 'On' : 'Off') + '</span></div>' +
-        '<div class="og-sum"><span>' + esc(o.testLimit ? 'Only record ' + o.testLimit : 'Every record') + '</span><button type="button" class="ls-quiet" id="og-flip">Turn ' + (o.apply ? 'off' : 'on') + '</button></div></div>';
+      // The switch lives in Admin > Settings > Gifts since 2026-10-14; the page says where it stands.
+      h += '<p class="og-adminline">Writes to Blackbaud are ' + (o.apply ? 'on' : 'off') + (o.testLimit ? ' (record ' + esc(o.testLimit) + ' only)' : '') + '. <a class="ls-link" href="/admin/gifts/">Change in Admin settings</a></p>';
     }
     h += '</div>';
     root.innerHTML = h;

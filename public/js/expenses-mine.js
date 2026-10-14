@@ -44,7 +44,7 @@
 
   function paint(rows) {
     if (!rows.length) {
-      host.innerHTML = '<p class="exp-empty">You have not filed an expense request yet. <a href="/expenses/new">Start one</a>.</p>';
+      host.innerHTML = '<p class="exp-empty">You have not filed an expense request yet. <a href="/expenses/new/">Start one</a>.</p>';
       return;
     }
     host.innerHTML = rows.map(function (r, i) {

@@ -13,7 +13,7 @@ Use an expense request **before** a purchase or a trip. Card expenses you alread
 
 ## Steps
 
-1. Open **Expense request** in the menu. Your name and email are filled in from your sign-in.
+1. Open **Staff > Expenses** in the menu and press **New expense request**, or type New expense request in search (Ctrl K). Your name and email are filled in from your sign-in.
 2. **You and the trip**: add the trip dates and the city if it's travel.
 3. **What it costs**: add a line for each expense with an estimated amount. Press **+ Add another expense** for more lines.
 4. Driving? Press **+ Calculate mileage**, enter the miles, and press **Add to expenses**. FavorOS uses Favor's current mileage rate.

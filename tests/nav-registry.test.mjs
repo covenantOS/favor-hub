@@ -58,14 +58,16 @@ test('admin pages are all admin-only; the expense log and onboarding moved to St
   const admin = AREAS.find((a) => a.id === 'admin');
   assert.ok(admin.pages.every((p) => p.need === 'admin'));
   const staff = AREAS.find((a) => a.id === 'staff');
-  assert.equal(staff.pages.find((p) => p.id === 'expenses').need, 'expenseLog');
+  // Expenses is everyone's page (My requests); the log on it is read only by approvers and the people they add (the API decides).
+  assert.equal(staff.pages.find((p) => p.id === 'expenses').need, undefined);
+  assert.equal(staff.pages.find((p) => p.id === 'expense').parent, 'expenses');
   assert.equal(staff.pages.find((p) => p.id === 'onboarding').need, 'hr');
   assert.equal(staff.pages.find((p) => p.id === 'evals').need, 'hr');
   assert.ok(staff.pages.filter((p) => p.group === 'Learning').every((p) => p.need === 'learn' || p.need === 'learnAdmin'), 'Learn keeps its access group');
 });
 
 test('every page that left Work, Learn or Admin says where it was', () => {
-  const moved = ['work', 'foundations', 'gift-entry', 'online-gifts', 'receipts', 'statements', 'projects', 'board', 'expense', 'expenses', 'evals', 'learn', 'onboarding'];
+  const moved = ['work', 'partners-thank', 'partners-entry', 'letters', 'declines', 'foundations', 'gift-entry', 'online-gifts', 'receipts', 'statements', 'projects', 'board', 'expense', 'expenses', 'evals', 'learn', 'onboarding'];
   for (const id of moved) assert.ok(resolveNav(id).page.was, `${id} has no was`);
 });
 

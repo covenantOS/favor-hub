@@ -77,3 +77,4 @@ a.gh-li:hover b { text-decoration: underline; }
 .gp-root { display: grid; gap: 16px; }
 
 .gh-tr > span:nth-child(5) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.og-adminline { margin: 4px 2px 0; font: 500 13px var(--h-font); color: var(--h-ink-3); }

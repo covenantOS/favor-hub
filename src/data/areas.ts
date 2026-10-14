@@ -64,6 +64,8 @@ export interface NavPage {
   was?: string;
   /** A small note beside the header title (Projects: Synced with Asana). */
   note?: string;
+  /** A page out of the tab row (menu: false) lights this page's tab while it is open (New expense request lights Expenses). */
+  parent?: string;
 }
 
 export interface NavArea {
@@ -223,8 +225,8 @@ export const AREAS: NavArea[] = [
     key: 's',
     barRank: 10,
     pages: [
-      { id: 'expense', label: 'Expenses', href: '/expenses/new/', desc: 'Expense request, signed online', keywords: 'expense expenses request travel pre-travel approval signature purchase', learn: 'expense-request', was: 'Work > Expenses', swap: true },
-      { id: 'expenses', label: 'Expense log', href: '/expenses/', desc: 'Statuses, signed PDFs, approver schedule', keywords: 'expense log approver schedule pdf admin', need: 'expenseLog', count: 'expensesWaiting', learn: 'expense-log', jobs: ['approver', 'hr'], was: 'Admin > Expense log', swap: true },
+      { id: 'expenses', label: 'Expenses', href: '/expenses/', desc: 'Your expense requests with their status and signed PDFs, a new request, and for approvers the log and the schedule', keywords: 'expense expenses request requests log approver approve sign signed pdf schedule travel purchase reimbursement', count: 'expensesWaiting', learn: 'expense-request', swap: true, was: 'Work > Expenses and Admin > Expense log' },
+      { id: 'expense', label: 'New expense request', href: '/expenses/new/', desc: 'Expense request, signed online', keywords: 'new expense request travel pre-travel approval signature purchase', learn: 'expense-request', swap: true, menu: false, parent: 'expenses', was: 'Work > Expenses' },
       { id: 'evals', label: 'Evaluations', href: '/evaluations/', need: 'hr', desc: 'Your evaluation, the feedback you owe a colleague and your team’s reviews', keywords: 'evaluation evaluations review reviews self assessment feedback 360 performance development plan goals rre supervisor hr', count: 'evals', also: ['evals-admin'], learn: 'evaluations', was: 'Work > Evaluations', swap: true },
       // learn: begin
       { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'learn', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn', group: 'Learning', was: 'Learn > My learning', swap: true },
@@ -245,7 +247,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'admin-home', label: 'Overview', href: '/admin/', desc: 'Health of the Blackbaud copy, the morning jobs, the sender and the call meter, with every setting one click away', keywords: 'admin overview health status settings jobs sync meter iwave', need: 'admin', learn: 'admin-home' },
       { id: 'admin-people', label: 'People and roles', href: '/admin/people/', desc: 'Who can sign in, their role, team, fundraiser link and Work Center access, with an act as preview', keywords: 'people users roles admin block team fundraiser work center access act as preview staff', need: 'admin', learn: 'admin-home' },
-      { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements and Projects settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat', 'admin-projects', 'admin-ai'], learn: 'admin-home' },
+      { id: 'admin-settings', label: 'Settings', href: '/admin/work-center/', desc: 'Work Center, Meetings, Favor Brain, Clips, Reports, Expenses, Thank-you receipts and Giving statements and Projects settings', keywords: 'receipts mileage substitute settings work center cap lane rollout start meetings guests recording folder reminder brain connect titles clips storage reports roles expenses approver', need: 'admin', also: ['admin-work', 'admin-gifts', 'admin-meetings', 'admin-brain', 'admin-clips', 'admin-reports', 'admin-expenses', 'admin-receipts', 'admin-statements', 'admin-chat', 'admin-projects', 'admin-ai'], learn: 'admin-home' },
       { id: 'admin-bbusers', label: 'Blackbaud users', href: '/admin/blackbaud-users/', desc: 'Everyone with a Blackbaud login, their status and what each product lets them do', keywords: 'blackbaud users logins access roles inactive admin raisers edge security', need: 'admin', learn: 'admin-home' },
       { id: 'admin-appeals', label: 'Appeal codes', href: '/admin/appeal-codes/', desc: 'Build an appeal code from the scheme and create it in Blackbaud, and keep the funds and campaigns waiting to be created', keywords: 'appeal codes campaign fund lookup newsletter letter mailing create blackbaud scheme', need: 'admin', learn: 'admin-home' },
       { id: 'admin-adoption', label: 'Adoption', href: '/admin/adoption/', desc: 'Who uses FavorOS, which areas they open, and what they do there', keywords: 'adoption usage analytics active who uses sign in signed never feedback engagement staff', need: 'admin', learn: 'admin-home' },
@@ -344,8 +346,9 @@ export const REDIRECTS: Array<[string, string]> = [
   ['/letters', '/gifts/letters/'],
   ['/hqty', '/gifts/letters/'],
   ['/declines', '/gifts/declines/'],
-  ['/staff', '/expenses/new/'],
+  ['/staff', '/expenses/'],
   ['/expense-log', '/expenses/'],
+  ['/expenses/log', '/expenses/'],
 ];
 
 /** Pages that exist but are not in the menu: the area and tab they sit under. */

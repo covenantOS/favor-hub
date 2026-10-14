@@ -136,7 +136,7 @@ function paintHome() {
   const showSum = s && s.deposits && s.deposits.length;
   root.innerHTML = `<div class="ge-home">${todayCard()}
     <div class="ge-home__grid"><div class="ge-home__main">${depCard()}</div>
-      <aside class="ge-home__side">${afterCard()}${needsCard()}${showSum ? summaryCard() : ''}${S.me && S.me.admin ? '<div class="ge-sidefoot"><button class="ge-link" data-people>Who can enter gifts</button></div>' : ''}</aside></div></div>`;
+      <aside class="ge-home__side">${afterCard()}${needsCard()}${showSum ? summaryCard() : ''}${S.me && S.me.admin ? '<div class="ge-sidefoot"><a class="ge-link" href="/admin/gifts/">Who can enter gifts, in Admin settings</a></div>' : ''}</aside></div></div>`;
   if (/[?&]start=1\b/.test(location.search)) { const t = $('#ge-tape'); if (t) t.focus(); }
 }
 function needsCard() {

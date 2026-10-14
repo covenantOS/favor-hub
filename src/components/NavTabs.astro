@@ -13,7 +13,7 @@ const { area, nav } = Astro.props;
 const pages = area.pages.filter((p) => !p.ext && p.menu !== false);
 const allGated = pages.every((p) => p.need || p.team);
 const tabBadge = (id: string) => { const b = pageBadge(id, area.id); return b === badgeFor(area.id) ? null : b; };
-const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav);
+const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav) || area.pages.some((x) => x.id === nav && x.parent === p.id);
 // The row in registry order: a group is drawn once, where its first page sits.
 type Entry = { page: NavPage } | { group: string; pages: NavPage[] };
 const entries: Entry[] = [];

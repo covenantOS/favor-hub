@@ -12,7 +12,7 @@ const isCur = curArea === area.id;
 const pages = area.pages.filter((p) => p.menu !== false);
 const first = pages[0];
 const allGated = pages.every((p) => p.need || p.team);
-const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav);
+const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav) || area.pages.some((x) => x.id === nav && x.parent === p.id);
 ---
 <div class={`h-area${isCur ? ' is-cur is-open' : ''}${area.pop ? ' h-area--pop' : ''}${area.foot ? ' h-area--foot' : ''}`} data-area={area.id} data-key={area.key} data-jobs={(area.jobs || []).join(' ') || undefined} hidden={allGated ? true : undefined}>
   <a class="h-nav__item h-area__link" href={area.pop ? '#' : first.href} data-area-link={area.id} data-default={first.href} data-astro-prefetch={area.pop ? undefined : 'hover'} aria-current={isCur ? 'true' : undefined} aria-haspopup={area.pop ? 'true' : undefined} title={area.label}>

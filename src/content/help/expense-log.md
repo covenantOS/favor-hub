@@ -12,7 +12,7 @@ updated: 2026-10-09
 
 ## When a request comes in
 
-You get an email with a link, and the request shows on Today and beside **Expense log** in the menu.
+You get an email with a link, and the request shows on Today and beside **Staff > Expenses** in the menu. The log sits on the Expenses page under your own requests.
 
 1. Open the link or press the request in the **Expense log**.
 2. Read the trip details, each expense, the total and the reason.

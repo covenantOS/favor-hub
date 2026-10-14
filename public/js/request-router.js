@@ -162,7 +162,7 @@
       );
       return;
     }
-    location.href = '/expenses/new?reason=' + encodeURIComponent(state.words);
+    location.href = '/expenses/new/?reason=' + encodeURIComponent(state.words);
   }
 
   async function ask() {

@@ -26,6 +26,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { id: 'ai', href: '/admin/ai/', label: 'AI use', desc: 'Units used today of the free 10,000, the last 7 days, paid features.', live: true, card: true, tab: true },
   { id: 'chat', href: '/admin/chat/', label: 'Chat', desc: 'Who can use Chat.', live: true, card: true, tab: true },
   { id: 'projects', href: '/admin/projects/', label: 'Projects', desc: 'Who can use Projects, the Asana import, Marketing requests.', live: true, card: true, tab: true },
+  { id: 'gifts', href: '/admin/gifts/', label: 'Gifts', desc: 'Who opens Gift entry and sends to Blackbaud, second approval, Online gifts writes.', live: true, card: true, tab: true },
   { id: 'receipts', href: '/admin/receipts/', label: 'Receipts', desc: 'Receipt window, morning email line.', live: true, card: true, tab: true },
   { id: 'statements', href: '/admin/statements/', label: 'Giving statements', desc: 'Statement wording, print file size, copy folder, email switch.', live: true, card: true, tab: true },
   { id: 'feedback', href: '/feedback/', label: 'Feedback triage', desc: 'Staff notes and answers.', count: 'feedback', live: true, card: true, tab: true },

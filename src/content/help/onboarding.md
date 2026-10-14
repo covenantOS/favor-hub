@@ -10,7 +10,7 @@ toolLabel: Open Onboarding
 updated: 2026-10-12
 ---
 
-Onboarding is in the Admin menu for FavorOS admins and for people an admin marked as HR in Admin, People and roles. A step owner or a supervisor sees the runs they are part of.
+Onboarding is in Staff (it moved from Admin in October 2026) for FavorOS admins and for people an admin marked as HR in Admin, People and roles. A step owner or a supervisor sees the runs they are part of.
 
 ## Start a new hire
 

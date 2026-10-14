@@ -194,7 +194,7 @@ function page() {
         ${g.admin ? `<span class="wc-pill" title="FavorOS reads a copy of Blackbaud that refreshes at 5 AM and 5 PM. What you do here shows at once."><i class="dot"></i><span class="copy-stamp" data-copy-stamp data-iso="${esc(DATA.synced || '')}"></span></span>
         ${meterHTML()}` : `<span class="wc-pill"><i class="dot"></i>Updated ${esc(updatedAt(DATA.synced))}</span>`}
         ${window.WCStart ? window.WCStart.pill() : ''}
-        ${g.admin ? `<button type="button" class="wc-pill wc-pill--btn" data-settings aria-label="Work Center settings">${ic('gear')}Settings</button>` : ''}
+        ${g.admin ? `<a class="wc-pill wc-pill--btn" href="/admin/work-center/" title="Work Center settings live in Admin settings">${ic('gear')}Settings</a>` : ''}
       </div>
     </div>
     ${window.WCWeek ? window.WCWeek.strip() : ''}
