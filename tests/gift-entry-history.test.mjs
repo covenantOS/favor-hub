@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { historyOf } = await import('../functions/api/gift-entry/history.ts');
+const { historyOf } = await import('../functions/_lib/gifts/history.ts');
 
 test('history counts earlier gifts, totals them in cents and finds the newest', () => {
   const h = historyOf([{ amt: 50, d: '2025-12-01' }, { amt: 5000, d: '2026-03-04' }, { amt: 12.5, d: '2024-01-09' }]);

@@ -265,7 +265,7 @@ describe('each part answers on its own', () => {
     assert.equal(out.asOf, '2026-10-14T21:11:19Z');
   });
 
-  it('with the copy down, only the hub parts answer', async () => {
+  it('with the copy down, only FavorOS parts answer', async () => {
     console.error = () => {};
     const down = async () => { throw new Error('mirror down'); };
     const out = await ov.giftsOverview(env, down, { now: NOW, hqty: noLetters });
