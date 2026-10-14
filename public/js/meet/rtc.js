@@ -122,9 +122,11 @@ export class Rtc {
   async drop(keys) {
     const list = keys.map((k) => this.subs.get(k)).filter(Boolean);
     if (!list.length) return;
+    // The subscription is forgotten even when the close call fails: a closed or vanished session answers with an error, and
+    // keeping the entry made every later pass try the same close again and never pull anything new.
     await this.mutate(async () => {
-      await this.call('tracks/close', { tracks: list.map((s) => ({ mid: s.mid })), force: true });
-      for (const k of keys) this.subs.delete(k);
+      try { await this.call('tracks/close', { tracks: list.map((s) => ({ mid: s.mid })), force: true }); }
+      finally { for (const k of keys) this.subs.delete(k); }
     });
   }
 
@@ -161,7 +163,11 @@ export class Rtc {
     // sends any media. Zero growth here means the path is dead; a quiet room does not.
     if (pairRx > this._pairRx) this.stats.pathAt = now;
     this._pairRx = pairRx;
-    Object.assign(this.stats, { rx, tx, bps, availIn: avail, loss: recv ? lost / (lost + recv) : 0, rtt, t: now, widths, state: this.pc.connectionState, ice: this.pc.iceConnectionState, local, remoteType });
+    // Loss over the last reading only. The totals run from the start of the call, so one bad minute kept the link "weak" for
+    // the rest of it. A dropped subscription takes its counts away, so a fall in the totals counts as no loss.
+    const dLost = Math.max(0, lost - (this._lost || 0)), dRecv = Math.max(0, recv - (this._recv || 0));
+    this._lost = lost; this._recv = recv;
+    Object.assign(this.stats, { rx, tx, bps, availIn: avail, loss: dRecv + dLost > 50 ? dLost / (dLost + dRecv) : 0, rtt, t: now, widths, state: this.pc.connectionState, ice: this.pc.iceConnectionState, local, remoteType });
     if (bps > 2000) this.stats.lastMediaAt = now;
     return this.stats;
   }

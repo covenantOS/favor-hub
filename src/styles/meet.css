@@ -111,7 +111,8 @@
 .rm-grid.is-spot .mt-tile.is-big { grid-column: 1; grid-row: 1 / span 4; }
 .rm-grid.is-spot .mt-tile:not(.is-big) { grid-column: 2; }
 .rm-grid.is-spot .mt-tile.is-hide { display: none; }
-.mt-tile { position: relative; border-radius: 14px; overflow: hidden; min-height: 0; display: grid; place-items: center; border: 2px solid transparent; }
+.mt-tile { position: relative; border-radius: 14px; overflow: hidden; min-height: 0; display: grid; place-items: center; border: 2px solid transparent; transition: border-color .18s ease, box-shadow .18s ease; }
+.mt-tile.is-talk { box-shadow: 0 0 0 3px rgba(159, 192, 143, .28); }
 .mt-tile.is-talk { border-color: #9fc08f; }
 .mt-tile .face { overflow: hidden; width: 34%; max-width: 120px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font: 500 26px var(--h-serif); color: #fff; background: rgba(255,255,255,.14); }
 .mt-tile.is-big .face { font-size: 40px; }
@@ -410,7 +411,7 @@ body.meet-guest .h-app.is-room .h-page { flex: 1; min-height: 0; padding: 10px 1
 .cf__card h3 { margin: 0; font: 500 20px var(--h-serif); } .cf__card p { margin: 0; font-size: 14px; color: var(--h-ink-2); }
 .cf__acts { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 6px; }
 .cf-warn { color: #8a3f24; }
-.h-app.is-room ~ .toast { bottom: 104px; }
+html.in-room body.h-body #toast.toast { bottom: calc(var(--room-ctl, 90px) + 12px) !important; }
 .lb-s { display: none; }
 @media (max-width: 430px) { .lb-f { display: none; } .lb-s { display: inline; } .rm-bar { gap: 6px; font-size: 13px; } }
 @media (max-width: 860px) {
@@ -442,7 +443,6 @@ body.meet-guest .h-app.is-room .h-page { flex: 1; min-height: 0; padding: 10px 1
   .rm-pager { padding: 0; }
   .banner { top: 44px; }
   .rm-hint { display: none; }
-  .h-app.is-room ~ .toast { bottom: 60px; }
 }
 .rm-top .rm-bar { flex-wrap: nowrap; }
 .rec-confirm .modal__body { gap: 12px; }
@@ -604,7 +604,7 @@ body.meet-guest .h-btn--primary:hover { background: #165a58; }
 }
 /* Gallery (2026-10-13): equal tiles sized by room.js (--tw, --th), last row centred, no reflow while people talk. */
 .rm-grid.is-fit { display: flex !important; flex-wrap: wrap; justify-content: center; align-content: center; }
-.rm-grid.is-fit > .mt-tile { flex: none; width: var(--tw, 320px); height: var(--th, 180px); transition: width .2s ease, height .2s ease; }
+.rm-grid.is-fit > .mt-tile { flex: none; width: var(--tw, 320px); height: var(--th, 180px); }
 @media (prefers-reduced-motion: reduce) { .rm-grid.is-fit > .mt-tile { transition: none; } }
 .ln-st { display: flex; align-items: center; gap: 8px; font: 600 13px var(--h-font); color: var(--h-ink-2); padding: 8px 10px; border-radius: 10px; background: var(--h-paper, #f4f1e8); margin-bottom: 10px; }
 .ln-st i { width: 8px; height: 8px; border-radius: 50%; background: var(--h-line-2); flex: none; }
@@ -636,3 +636,8 @@ body.meet-guest .h-btn--primary:hover { background: #165a58; }
 .rd-bg[data-v="none"] span, .rd-bg[data-v="blur"] span, .rd-up span { background: none; padding: 0; }
 .rd-tg input:disabled { opacity: .45; cursor: default; }
 .ln-st.is-held i { background: var(--h-gold); }
+
+/* Waiting room: the guest sees their own camera while the host lets them in. */
+.wait-me { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 14px; background: #1f261d; transform: scaleX(-1); animation: wait-in .35s cubic-bezier(.2,.8,.2,1); }
+@keyframes wait-in { from { opacity: 0; transform: scaleX(-1) scale(.97); } to { opacity: 1; transform: scaleX(-1) scale(1); } }
+@media (prefers-reduced-motion: reduce) { .wait-me { animation: none; } }

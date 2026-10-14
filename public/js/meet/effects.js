@@ -23,6 +23,20 @@ class Gate extends AudioWorkletProcessor {
 }
 registerProcessor('favor-gate', Gate);`;
 
+const NS = 'https://cdn.jsdelivr.net/npm/@sapphi-red/web-noise-suppressor@0.3.5/dist/';
+let rnnWasm = null;
+async function rnnoiseNode(ctx) {
+  if (ctx.sampleRate !== 48000 || !ctx.audioWorklet) return null;
+  if (!rnnWasm) rnnWasm = (async () => {
+    const simd = WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+    const r = await fetch(NS + (simd ? 'rnnoise_simd.wasm' : 'rnnoise.wasm'));
+    if (!r.ok) throw new Error('rnnoise ' + r.status);
+    return r.arrayBuffer();
+  })().catch((e) => { rnnWasm = null; throw e; });
+  const [bin] = await Promise.all([rnnWasm, ctx.audioWorklet.addModule(NS + 'rnnoise/workletProcessor.js')]);
+  return new AudioWorkletNode(ctx, '@sapphi-red/web-noise-suppressor/rnnoise', { processorOptions: { maxChannels: 1, wasmBinary: bin.slice(0) } });
+}
+
 export class VoiceFx {
   /** opts: { gate: boolean } */
   constructor(opts = {}) { this.opts = opts; this.ctx = null; this.out = null; }
@@ -30,7 +44,8 @@ export class VoiceFx {
   async start(raw) {
     this.stop();
     const C = window.AudioContext || window.webkitAudioContext;
-    const ctx = (this.ctx = new C({ latencyHint: 'interactive' }));
+    // RNNoise works on 48 kHz frames, so the engine runs at that rate when strong noise reduction is on.
+    const ctx = (this.ctx = new C(this.opts.gate ? { latencyHint: 'interactive', sampleRate: 48000 } : { latencyHint: 'interactive' }));
     if (ctx.state !== 'running') { try { await Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, 400))]); } catch {} }
     if (ctx.state !== 'running') { this.stop(); return null; }
     const src = ctx.createMediaStreamSource(new MediaStream([raw]));
@@ -40,7 +55,13 @@ export class VoiceFx {
     const gain = ctx.createGain(); gain.gain.value = 1.7;
     const dest = ctx.createMediaStreamDestination();
     let node = src; node.connect(hp); node = hp;
-    if (this.opts.gate) {
+    // Strong noise reduction: RNNoise (xiph, BSD) in an AudioWorklet, from @sapphi-red/web-noise-suppressor (MIT) on jsDelivr,
+    // loaded on first use and cached by the browser. It removes keyboards, fans and dogs that the browser's own filter lets
+    // through. When it cannot load, the simpler gate below takes its place.
+    let rnn = null;
+    if (this.opts.gate) rnn = await rnnoiseNode(ctx).catch(() => null);
+    if (rnn) { node.connect(rnn); node = rnn; this.rnn = rnn; }
+    else if (this.opts.gate) {
       try {
         const url = URL.createObjectURL(new Blob([GATE_WORKLET], { type: 'text/javascript' }));
         await ctx.audioWorklet.addModule(url); URL.revokeObjectURL(url);
@@ -51,7 +72,7 @@ export class VoiceFx {
     this.out = dest.stream.getAudioTracks()[0];
     return this.out;
   }
-  stop() { try { this.ctx && this.ctx.close(); } catch {} this.ctx = null; if (this.out) { this.out.stop(); this.out = null; } }
+  stop() { try { this.rnn && this.rnn.port.postMessage('destroy'); } catch {} this.rnn = null; try { this.ctx && this.ctx.close(); } catch {} this.ctx = null; if (this.out) { this.out.stop(); this.out = null; } }
 }
 
 // ---------------------------------------------------------------- camera

@@ -672,7 +672,19 @@ async function sfuPass(env: MeetEnv, user: { email: string }, id: string, op: st
       const ok = await env.DB.prepare('SELECT session_id, tracks FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0').bind(id).all<{ session_id: string; tracks: string }>();
       // A track can be pulled only if its owner is in this meeting and the roster lists it (a share the host did not allow never is).
       const allowed = new Map((ok.results || []).map((r) => [r.session_id, new Set(safeJson<Array<{ name: string }>>(r.tracks, []).map((t) => t.name))]));
-      for (const t of remote) { const names = allowed.get(String(t.sessionId)); if (!names || !names.has(String(t.trackName))) throw new HttpError(403, 'not_here', 'That track is not available in this meeting.'); }
+      // A track that is not available is refused on its own, in its place in the answer, so one person reconnecting does not
+      // stop everyone else in the same request from being pulled.
+      const okAt = (t: Record<string, unknown>) => t.location !== 'remote' || !!allowed.get(String(t.sessionId))?.has(String(t.trackName));
+      if (!tracks.every(okAt)) {
+        const keep = tracks.filter(okAt);
+        const refused = { errorCode: 'not_here', errorDescription: 'That track is not available in this meeting.' };
+        if (!keep.length) return { tracks: tracks.map(() => refused) };
+        const body0: Record<string, unknown> = { tracks: keep.map(trackOf) };
+        if (b.sessionDescription) body0.sessionDescription = b.sessionDescription;
+        const r0 = (await sfuCall(env, 'POST', `/sessions/${sid}/tracks/new`, body0)) as Record<string, unknown> & { tracks?: unknown[] };
+        const got = Array.isArray(r0.tracks) ? [...r0.tracks] : [];
+        return { ...r0, tracks: tracks.map((t) => (okAt(t) ? got.shift() || {} : refused)) };
+      }
     }
     if (b.sessionDescription && me.waiting) throw new HttpError(403, 'waiting', 'Wait for the host to let you in.');
     const body: Record<string, unknown> = { tracks: tracks.map(trackOf) };

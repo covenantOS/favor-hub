@@ -197,6 +197,8 @@ async function lobby() {
   $('#lb-mic').addEventListener('click', () => { S.mic = !S.mic; lobbyButtons(); });
   $('#lb-cam').addEventListener('click', () => { S.cam = !S.cam; lobbyButtons(); lobbyVideo(); });
   let denied = null;
+  // Join waits for this: a tap on Join while the devices were still opening used to enter with no microphone, and nobody heard them.
+  let ready; S.devReady = new Promise((r) => { ready = r; });
   try {
     // The saved camera and microphone, exactly; the default only when a saved one is missing.
     const r = await acquireBoth(P, !AUDIO_ONLY);
@@ -206,6 +208,7 @@ async function lobby() {
     const fb = fallbackLine(r.fellBack, { mic: preview.getAudioTracks()[0], cam: preview.getVideoTracks()[0] });
     if (fb) $('#lb-dev').textContent = fb;
   } catch (e2) { denied = e2; S.micDenied = !!permHelp(e2); preview = null; S.devices = { mic: false, cam: false }; S.mic = false; S.cam = false; $('#lb-dev').textContent = 'No camera or microphone is available. You can join to watch and listen, and chat.'; }
+  ready();
   const help = permHelp(denied); if (help) { const h = $('#lb-help'); if (h) { h.textContent = help; h.hidden = false; } }
   lobbyButtons(); lobbyVideo(); lobbyDevices(); lobbyMeter();
   watchHere();
@@ -303,6 +306,7 @@ async function enter() {
   if (GUEST) { if (name.length < 2) { toast('Type your name so the host knows who you are.'); return; } if ($('#lb-consent') && !$('#lb-consent').checked) { toast('Tick the box to accept the recording notice.'); return; } }
   if (lbTimer) { clearInterval(lbTimer); lbTimer = null; }
   $('#lb-join').disabled = true; $('#lb-join').innerHTML = '<span class="spin"></span>Connecting to the room';
+  if (S.devReady) await Promise.race([S.devReady, new Promise((r) => setTimeout(r, 10000))]);
   const slow = setTimeout(() => { const d = $('#lb-dev'); if (d) d.textContent = 'Still connecting. This can take up to 20 seconds.'; }, 6000);
   S.me.name = name;
   if (preview) {
@@ -345,7 +349,8 @@ async function joinCall(isRejoin) {
 
 // A guest stays on this screen until a host lets them in. Nothing is published or pulled before that.
 async function waitAdmit() {
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px" role="status"><h2 class="mt-h2"><span class="spin"></span>Waiting for the host</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(S.meeting.hostName || 'The host')} will let you in to ${esc(S.meeting.title)} shortly. Keep this page open.</p><div><button class="h-btn h-btn--ghost" id="wait-leave">Leave</button></div></div>`;
+  root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px" role="status"><h2 class="mt-h2"><span class="spin"></span>Waiting for the host</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(S.meeting.hostName || 'The host')} will let you in to ${esc(S.meeting.title)} shortly. Keep this page open.</p>${local.cam ? '<video id="wait-me" class="wait-me" muted playsinline autoplay></video>' : ''}<div><button class="h-btn h-btn--ghost" id="wait-leave">Leave</button></div></div>`;
+  const wv = $('#wait-me'); if (wv) { wv.srcObject = new MediaStream([local.cam]); wv.play().catch(() => {}); }
   let cancel = false;
   $('#wait-leave').addEventListener('click', () => { cancel = true; api('meetings/' + MID + '/leave', { method: 'POST', body: { pid: S.me.pid } }).catch(() => {}); });
   for (;;) {
@@ -437,7 +442,8 @@ function keepFocus(container, fn) {
   const sel = k.a ? '[data-a="' + k.a + '"]' + (k.p ? '[data-p="' + k.p + '"]' : '') + (k.pid ? '[data-pid="' + k.pid + '"]' : '') : k.id ? '#' + k.id : '';
   const n = sel && container.querySelector(sel); if (n && n !== document.activeElement) n.focus({ preventScroll: true });
 }
-function fitCtl() { const el = $('#rm-ctl'), st = $('#rm'); if (el && st) st.style.setProperty('--ctl-h', el.offsetHeight + 'px'); }
+// The control bar's height, for the stage and for toasts, which must sit above it (a toast covered the phone controls).
+function fitCtl() { const el = $('#rm-ctl'), st = $('#rm'); if (el && st) { st.style.setProperty('--ctl-h', el.offsetHeight + 'px'); document.documentElement.style.setProperty('--room-ctl', Math.max(0, innerHeight - el.getBoundingClientRect().top) + 'px'); document.documentElement.classList.toggle('in-room', !S.left); } }
 const sheetMode = () => isPhone() && !matchMedia('(max-height: 500px)').matches;
 // Drag the phone sheet down to close it (R9).
 function dragToClose(side) {
@@ -703,7 +709,8 @@ function speakerPid(everyone) {
   if (!h || h.pid !== cand.pid) S.spkHold = { pid: cand.pid, at: Date.now() };
   return cand.pid;
 }
-const perPage = () => (isPhone() ? 4 : S.level === 'weak' ? 4 : 9);
+// A weak link gets lower layers (wanted() below), never fewer people: paging someone off the screen also stopped their video.
+const perPage = () => (isPhone() ? 4 : 9);
 
 function layoutModel() {
   const { sharer, big, sorted } = order();
@@ -731,6 +738,14 @@ function paintGrid() {
   const grid = $('#rm-grid'); if (!grid) return;
   const { model, spot } = layoutModel();
   const n = model.length;
+  // Layout changes glide (FLIP): the tiles' places are read before a change of who is shown or how, and each tile slides from
+  // its old place to its new one. Only when the set or the mode changes, so talking never moves anything.
+  const keySig = (spot ? 's:' : 'g:') + model.map((x) => x.key + x.kind).join(',');
+  const flip = grid.dataset.keys !== undefined && grid.dataset.keys !== keySig && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const before = new Map();
+  if (flip) for (const [k, t] of tiles) if (t.el.parentNode === grid) before.set(k, t.el.getBoundingClientRect());
+  const fresh = [];
+  grid.dataset.keys = keySig;
   grid.className = 'rm-grid' + (spot ? ' is-spot' : ' is-fit') + (spot && n === 1 ? ' is-alone' : '');
   grid.style.gridTemplateColumns = spot ? (isPhone() && n > 1 ? `repeat(${n - 1}, minmax(0, 1fr))` : '') : '';
   if (spot && !isPhone()) grid.style.gridTemplateRows = `repeat(${Math.max(1, Math.min(4, n - 1))}, minmax(0, 1fr))`; else grid.style.gridTemplateRows = '';
@@ -748,7 +763,7 @@ function paintGrid() {
       if (grid.children[i] !== el) grid.insertBefore(el, grid.children[i] || null);
       return;
     }
-    let t = tiles.get(key) || makeTile(key, p, !!share);
+    let t = tiles.get(key); if (!t) { t = makeTile(key, p, !!share); fresh.push(t.el); }
     if (!t.el.isConnected || t.el.parentNode !== grid) grid.appendChild(t.el);
     if (grid.children[i] !== t.el) grid.insertBefore(t.el, grid.children[i] || null);
     t.pid = p.pid; t.kind = kind;
@@ -779,6 +794,16 @@ function paintGrid() {
     t.el.querySelector('.nt').textContent = share ? `${p.me ? 'You are' : p.name + ' is'} presenting` : p.me ? `You${p.role === 'host' ? ' (host)' : ''}` : p.name;
   });
   paintPager();
+  if (flip) {
+    for (const [k, r0] of before) {
+      const t = tiles.get(k); if (!t || t.el.parentNode !== grid) continue;
+      const r1 = t.el.getBoundingClientRect(); if (!r1.width || !r0.width) continue;
+      const dx = r0.left - r1.left, dy = r0.top - r1.top, sx = r0.width / r1.width, sy = r0.height / r1.height;
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < 0.01 && Math.abs(sy - 1) < 0.01) continue;
+      t.el.animate([{ transformOrigin: '0 0', transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transformOrigin: '0 0', transform: 'none' }], { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    }
+    for (const el of fresh) el.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 280, delay: 60, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+  }
 }
 
 // Gallery sizing: the column count that gives the biggest tiles for this many people in this space, every tile the same size,
@@ -1176,7 +1201,7 @@ window.addEventListener('pageshow', (e) => {
   S.left = true; clearIntervals();
   stopFx(); [local.mic, local.cam, local.screen].forEach((t) => t && t.stop());
   if (rtc) rtc.close();
-  document.getElementById('h-app').classList.remove('is-room');
+  document.getElementById('h-app').classList.remove('is-room'); document.documentElement.classList.remove('in-room');
   ended('You left the meeting');
 });
 // iPhone: hidden means the microphone stopped. Step out of the count now, stop the heartbeat, and come back on return.
@@ -1247,7 +1272,7 @@ async function stopShare() {
 async function leaveRoom(msg) {
   S.left = true; clearIntervals();
   // The person who owns the recording sees the left screen at once while the last pieces upload.
-  if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.', { noRejoin: true, saving: true }); }
+  if (recorder && recorder.mr) { document.getElementById('h-app').classList.remove('is-room'); document.documentElement.classList.remove('in-room'); ended(msg || 'You left the meeting', 'Saving the recording. Keep this page open for a few seconds.', { noRejoin: true, saving: true }); }
   try { if (recorder) await recorder.stopIfOwner(); } catch {}
   try { await api('meetings/' + MID + '/leave', { method: 'POST', body: { pid: S.me.pid } }); } catch {}
   closeDevSheet(); hideMutedHint(); resetLevel(); stopFx();
@@ -1255,7 +1280,7 @@ async function leaveRoom(msg) {
   if (rtc) rtc.close();
   for (const [, t] of tiles) t.el.remove(); tiles.clear();
   $$('audio[id^="a-"]').forEach((a) => a.remove());
-  document.getElementById('h-app').classList.remove('is-room');
+  document.getElementById('h-app').classList.remove('is-room'); document.documentElement.classList.remove('in-room');
   window.removeEventListener('keydown', onKey); window.removeEventListener('beforeunload', onUnload); document.removeEventListener('click', onDocClick); document.removeEventListener('input', onInvInput);
   // Leave pressed from a huddle or a meeting opened from another page: back to that page. The server starts the notes.
   if (!msg && BACK && !GUEST) { location.replace(BACK); return; }
@@ -1404,17 +1429,25 @@ async function reconcile() {
       else if (s.kind === 'video' && want.rid !== s.rid) retune.push([k, want.rid]);
     }
     for (const [k, want] of w) { const s = rtc.subs.get(k); if (!s || s.sessionId !== want.sessionId) add.push(want); }
-    if (drop.length) { await rtc.drop(drop); drop.forEach((k) => { const r = remote.get(k); if (r && r.el) r.el.remove(); remote.delete(k); }); }
+    // Each step stands alone: a close that fails or one batch the server refuses no longer stops the other pulls and layer changes.
+    if (drop.length) {
+      try { await rtc.drop(drop); } catch (e) { console.warn('[meet] drop', e.message); }
+      drop.forEach((k) => { const r = remote.get(k); if (r && r.el) r.el.remove(); remote.delete(k); });
+    }
+    let failed = false;
     for (let i = 0; i < add.length; i += 16) {
       const batch = add.slice(i, i + 16);
-      try { await rtc.pull(batch); } catch (e) { diag('pull', { tracks: (rtc.lastPull || batch.map((w) => ({ pid: w.pid, name: w.trackName, ok: false }))), err: String(e.message || e).slice(0, 120) }); throw e; }
+      try { await rtc.pull(batch); } catch (e) { failed = true; diag('pull', { tracks: (rtc.lastPull || batch.map((w) => ({ pid: w.pid, name: w.trackName, ok: false }))), err: String(e.message || e).slice(0, 120) }); continue; }
       // Every audio subscription is reported once, so a person who heard nobody can be read afterwards.
       const audio = (rtc.lastPull || []).filter((x) => x.name === 'a' || !x.ok);
       if (audio.length) diag('pull', { tracks: audio });
+      if ((rtc.lastPull || []).some((x) => !x.ok)) failed = true;
     }
-    for (const [k, rid] of retune) await rtc.setLayer(k, rid);
+    for (const [k, rid] of retune) await rtc.setLayer(k, rid).catch(() => {});
     // Videos whose element was rebuilt need their stream again.
     for (const [k, r] of remote) if (r.tkey) { const t = tiles.get(r.tkey); if (t && t.video.srcObject !== r.stream) { t.video.srcObject = r.stream; t.video.play().catch(() => {}); } }
+    // A track that did not come is asked for again in a second, without waiting for the roster to change.
+    if (failed && !S.left) setTimeout(scheduleReconcile, 1000);
   } catch (e) { console.warn('[meet] reconcile', e.message); }
   finally { reconciling = false; }
 }
@@ -1422,6 +1455,8 @@ async function reconcile() {
 // ---------------------------------------------------------------- link health and rejoin
 async function onStats() {
   if (!rtc || S.left || rejoining) return;
+  // A connection the browser closed under us never reports a state again: reconnect at once.
+  if (rtc.pc && rtc.pc.connectionState === 'closed' && !rtc.closed) { rejoinSoon('connection closed'); return; }
   const st = await rtc.sample();
   // The level changes only after three readings in a row agree, and not in the first ten seconds, when the estimate is still climbing.
   const lvl = Date.now() - S.started < 10000 ? 'good' : linkLevel(st);
@@ -1434,7 +1469,7 @@ async function onStats() {
   if (st.state === 'connected') { if (!S.everUp) { S.everUp = true; S.noConnect = 0; diag('connected'); } S.downSince = 0; }
   const down = st.state === 'disconnected' || st.state === 'failed';
   if (down) S.downSince = S.downSince || now; else S.downSince = 0;
-  if (down && now - S.downSince > 8000) rejoinSoon('connection down');
+  if (down && now - S.downSince > (st.state === 'failed' ? 0 : 5000)) rejoinSoon('connection down');
   else if (!S.everUp && now - (S.rtcAt || now) > 20000) { S.noConnect = (S.noConnect || 0) + 1; diag('never-connected'); rejoinSoon('never connected'); }
   else if (st.state === 'connected' && st.pathAt && now - st.pathAt > 12000) rejoinSoon('nothing on the path for 12 seconds');
   if (st.state === 'connected') audioHealth();
