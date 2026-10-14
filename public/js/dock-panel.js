@@ -395,11 +395,16 @@
   }
   function loadBrainCode() {
     if (brain.ready) return brain.ready;
-    brain.ready = new Promise(function (ok, bad) {
+    var code = new Promise(function (ok, bad) {
       if (window.BrainBlocks) { ok(); return; }
       var s = document.createElement('script'); s.src = '/js/brain-blocks.js?v=13'; s.onload = ok; s.onerror = function () { brain.ready = null; bad(new Error('Favor Brain did not load.')); }; document.head.appendChild(s);
     });
-    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/dock-brain.css?v=1'; document.head.appendChild(l);
+    // The Brain tab draws once its stylesheet is in, so its answers never show unstyled for a moment.
+    var css = new Promise(function (ok) {
+      var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '/css/dock-brain.css?v=1';
+      l.onload = ok; l.onerror = ok; setTimeout(ok, 4000); document.head.appendChild(l);
+    });
+    brain.ready = Promise.all([code, css]);
     return brain.ready;
   }
   var DAY = 864e5;

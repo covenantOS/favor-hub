@@ -46,6 +46,8 @@
     document.body.appendChild(el);
     tray = el.querySelector('.fd__tray');
     el.querySelector('.fd__btn').addEventListener('click', function () { toggle(); });
+    // Hover reads the panel ahead.
+    el.querySelector('.fd__btn').addEventListener('pointerenter', function () { loadPanel().catch(function () {}); }, { once: true });
   }
   // The menu's Chat number is the server's unread mention count. It follows the same socket events as the circle: a short wait after each
   // change, then one read of the count, written to the menu and to its group total.
@@ -150,13 +152,20 @@
   }
   function loadPanel() {
     if (loaded) return loaded;
-    var v = '3';
-    var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/css/dock-panel.css?v=' + v; document.head.appendChild(css);
-    var css2 = document.createElement('link'); css2.rel = 'stylesheet'; css2.href = '/css/chat-smart.css?v=1'; document.head.appendChild(css2);
-    loaded = new Promise(function (ok, bad) {
+    var v = '4';
+    // Drawn only once its styles are in (it flashed unstyled).
+    var sheet = function (href) {
+      return new Promise(function (ok) {
+        var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = href;
+        l.onload = ok; l.onerror = ok; setTimeout(ok, 4000);
+        document.head.appendChild(l);
+      });
+    };
+    var code = new Promise(function (ok, bad) {
       var s = document.createElement('script'); s.src = '/js/dock-panel.js?v=' + v; s.onload = ok; s.onerror = function () { loaded = 0; bad(new Error('The panel did not load.')); };
       document.head.appendChild(s);
     });
+    loaded = Promise.all([code, sheet('/css/dock-panel.css?v=' + v), sheet('/css/chat-smart.css?v=1')]);
     return loaded;
   }
   function open(where) {
