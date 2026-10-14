@@ -26,6 +26,10 @@ export interface PushPayload {
   /** A newer notice with the same tag replaces the older one. */
   tag?: string;
   channelId?: string;
+  /** A huddle ring (chat/ring.ts): the notice gets Join and Decline and stays until answered (public/sw.js). */
+  ring?: string;
+  /** The ring is over; the notice with the same tag becomes this ("missed"). */
+  ringEnd?: string;
 }
 
 const enc = new TextEncoder();

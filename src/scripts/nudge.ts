@@ -167,7 +167,9 @@ function askLink() {
 export function initNudge(): void {
   if ((window as any).__favorNudge) return;
   (window as any).__favorNudge = true;
-  refresh().then(check);
+  // In a meeting room the first read waits 20 seconds, so joining the call never shares the network or the phone's CPU with it.
+  if (/^\/meet\/(room|g)\//.test(location.pathname)) setTimeout(() => refresh().then(check), 20_000);
+  else refresh().then(check);
   setInterval(() => { refresh(true).then(check); }, REFRESH);
   setInterval(check, TICK);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh().then(check); });

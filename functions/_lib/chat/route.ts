@@ -24,6 +24,9 @@
 //   POST channels/:id/bookmarks  DELETE channels/:id/bookmarks/:bid
 //   POST messages/:id/confirm          { bi, action }  a confirm card in a Favor Brain answer
 //   POST channels/:id/request          { title, body?, surface?, from_message?, thread_id? }  a request board card made from Chat
+//   POST ring                          { to?: [email], channel?, meeting? }  ring people into a huddle (chat/ring.ts)
+//   GET  ring                          the rings ringing for me now
+//   POST ring/:id                      { action: join | decline | cancel | timeout, note? }
 import { HttpError, errorJson, handleError, json, nowIso, type Env } from '../http';
 import type { HubUser } from '../session';
 import { createMeeting, endMeeting } from '../meetroute';
@@ -36,7 +39,9 @@ import { directory, onlyKnown } from './users';
 import { hydrateAttachments } from './hydrate';
 import { presence, publish, type LiveEnv } from './live';
 import { askInThread } from './brain';
-import { huddlesOf, type HuddleState } from './huddle';
+import { huddlesOf, peopleIn, type HuddleState } from './huddle';
+import * as ring from './ring';
+import { recPrefOf } from '../meetpref';
 import { unfurl } from './unfurl';
 import { driveCardFor, driveContent, driveIdOf, driveThumb, personSeesDriveFile, sharedDriveFile } from './preview';
 import { parseRange } from '../clips';
@@ -189,6 +194,12 @@ async function route(ctx: Ctx): Promise<Response> {
       await store.readableChannel(env, b, me);
       return json({ ok: true, huddle: await liveHuddle(env, b) });
     }
+  }
+
+  if (a === 'ring') {
+    if (!b && method === 'GET') return json({ ok: true, rings: await ring.pendingFor(env, me) });
+    if (!b && method === 'POST') return json({ ok: true, ...(await callPeople(ctx, user, await body(request))) });
+    if (b && !c && method === 'POST') return json(await ring.answer(env, user, b, await body(request)));
   }
 
   if (a === 'conversations' && method === 'POST') {
@@ -606,7 +617,7 @@ async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise
   const title = ch.kind === 'public' || ch.kind === 'private' ? `Huddle in #${ch.name}` : others.length ? `Huddle with ${others.join(', ')}` : 'Huddle';
   // 2026-10-14: every huddle is invited-only (the channel's members), public channels included, so its notes never open to all staff.
   const made = (await createMeeting(env as unknown as MeetEnv, { email: me, name: user.name }, {
-    title, access: 'invited', rec: 'video', notify: false,
+    title, access: 'invited', rec: await recPrefOf(env, me), notify: false,
     invitees: members.filter((m) => m !== me && !SYSTEM_VOICES.has(m)).map((m) => ({ email: m, name: dir[m]?.name || m })),
   }, new URL(request.url).origin)) as { meeting: { id: string } };
   const mid = made.meeting.id;
@@ -615,6 +626,52 @@ async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise
   const message = await broadcast(ctx, posted.message, 'message');
   ctx.waitUntil(publish(env, members, { type: 'huddle', channel_id: ch.id, huddle: (await huddlesOf(env, ch.id)).find((h) => h.id === mid) || null }));
   return { id: mid, url: `/meet/room/?m=${mid}`, joined: false, message };
+}
+
+/**
+ * Huddle with a person (Slack's call): opens or reuses the direct message (or the group for several people), starts the huddle
+ * there or joins the one going, and rings everyone not already in it. With `meeting`, rings people into that meeting instead
+ * (the room's Ring button); they are added to its invite list so an invited-only room lets them in. A public channel never rings:
+ * its huddle shows in the channel bar and people join from there.
+ */
+async function callPeople(ctx: Ctx, user: HubUser, input: Record<string, unknown>) {
+  const { env } = ctx;
+  const me = user.email.toLowerCase();
+  const dir = await directory(env, await chatMode(env), user);
+  const wanted = onlyKnown(Array.isArray(input.to) ? (input.to as unknown[]).map(String) : [], dir).filter((e) => e !== me && !SYSTEM_VOICES.has(e));
+  let mid = '', url = '', channelId = '';
+  let targets: string[] = [];
+  if (typeof input.meeting === 'string' && input.meeting) {
+    const m = await env.DB.prepare('SELECT * FROM hub_meetings WHERE id = ?').bind(input.meeting).first<Meeting>().catch(() => null);
+    if (!m || m.status === 'ended' || m.status === 'cancelled' || !mayJoin(m, user as never)) throw new HttpError(404, 'not_found', 'That meeting is over.');
+    if (!wanted.length) throw new HttpError(400, 'nobody', 'Pick someone to ring.');
+    mid = m.id; url = `/meet/room/?m=${mid}`;
+    let inv: Array<{ email: string; name?: string }> = [];
+    try { inv = JSON.parse(m.invitees || '[]'); } catch { inv = []; }
+    const have = new Set(inv.map((i) => String(typeof i === 'string' ? i : i.email || '').toLowerCase()));
+    const add = wanted.filter((e) => !have.has(e) && e !== m.host_email.toLowerCase());
+    if (add.length) await env.DB.prepare('UPDATE hub_meetings SET invitees = ? WHERE id = ?').bind(JSON.stringify([...inv, ...add.map((e) => ({ email: e, name: dir[e]?.name || e }))]), mid).run();
+    channelId = (await env.DB.prepare('SELECT channel_id FROM chat_meetings WHERE meeting_id = ?').bind(mid).first<{ channel_id: string }>().catch(() => null))?.channel_id || '';
+    targets = wanted;
+  } else {
+    let chId = typeof input.channel === 'string' ? input.channel : '';
+    if (chId) {
+      const ch = await store.postableChannel(env, chId, me);
+      if (ch.kind !== 'dm' && ch.kind !== 'group') throw new HttpError(400, 'channel', 'Ringing works in a direct message or a group. In a channel, start a huddle and people join from the bar.');
+      targets = (await store.membersOf(env, ch.id)).filter((e) => e !== me && !!dir[e]);
+    } else {
+      if (!wanted.length) throw new HttpError(400, 'nobody', 'Pick someone to ring.');
+      const ch = await store.openConversation(env, me, wanted);
+      chId = ch.id;
+      ctx.waitUntil(publish(env, ch.members.filter((m) => m !== me), { type: 'channel', channel: { ...ch, unread: 0, mentions: 0, last_read: 0 } }));
+      targets = wanted;
+    }
+    const started = await startMeeting(ctx, user, chId);
+    mid = started.id; url = started.url; channelId = chId;
+  }
+  const inRoom = new Set((await peopleIn(env, mid)).map((p) => p.email));
+  const rings = await ring.ringPeople(env, { email: me, name: user.name || me }, mid, channelId, targets.filter((e) => !inRoom.has(e)).map((e) => ({ email: e, name: dir[e]?.name || e })));
+  return { id: mid, url, channel: channelId, rings };
 }
 
 /* ------------------------------------------------------------------ Drive, files */

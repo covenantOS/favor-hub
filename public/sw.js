@@ -150,13 +150,19 @@ self.addEventListener('push', (event) => {
         wins.forEach((w) => w.postMessage({ type: 'push', data }));
         return;
       }
+      // A huddle ring (functions/_lib/chat/ring.ts): Join and Decline on the notice, and it stays until answered. The missed notice
+      // that follows has the same tag, so it takes the ringing one's place.
+      const ring = typeof data.ring === 'string' && /^[0-9a-f]{24}$/.test(data.ring) ? data.ring : '';
       await self.registration.showNotification(title, {
         body: String(data.body || '').slice(0, 240),
         tag: data.tag || undefined,
         renotify: !!data.tag,
         icon: ICON,
         badge: ICON,
-        data: { url: typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/m/' },
+        requireInteraction: !!ring && !data.ringEnd,
+        vibrate: ring && !data.ringEnd ? [400, 200, 400, 200, 400] : undefined,
+        actions: ring && !data.ringEnd ? [{ action: 'join', title: 'Join' }, { action: 'decline', title: 'Decline' }] : undefined,
+        data: { url: typeof data.url === 'string' && data.url.startsWith('/') ? data.url : '/m/', ring: data.ringEnd ? '' : ring },
       });
     })()
   );
@@ -164,6 +170,11 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const ring = (event.notification.data && event.notification.data.ring) || '';
+  if (ring && event.action === 'decline') {
+    event.waitUntil(fetch('/api/chat/ring/' + ring, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ action: 'decline' }) }).catch(() => undefined));
+    return;
+  }
   const url = (event.notification.data && event.notification.data.url) || '/m/';
   event.waitUntil(
     (async () => {

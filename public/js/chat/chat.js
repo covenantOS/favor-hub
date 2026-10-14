@@ -143,6 +143,8 @@
     workOwners: function () { return req('GET', 'owners'); },
     onEvent: function (h) { handlers.push(h); }
   };
+  // Huddle rings (public/js/ring.js) arrive on this page's socket.
+  window.FavorChatLive = { on: api.onEvent };
 
   /* ------------------------------------------------------------------ start */
   var qs = new URLSearchParams(location.search);

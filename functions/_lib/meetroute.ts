@@ -9,6 +9,8 @@
 //   POST meetings/:id/tracks        say which tracks this person publishes
 //   POST meetings/:id/leave
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
+//   POST meetings/:id/recmode       { rec: video | notes | off }  a host changes what this meeting records, during the call too
+//   GET|POST meetings/myrec         { rec }  this person's default for the meetings and huddles they start (meetpref.ts)
 import { servedVideo } from './clipmuxjob';
 import { syncMeetingAcl } from './meetacl';
 import { sendMail } from './notify/send';
@@ -33,6 +35,8 @@ import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
 import { notTesterSql } from './testuser';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
+import { expireRings, ringsFor, ringsStop, type RingEnv } from './chat/ring';
+import { isRecMode, recPrefOf, setRecPref } from './meetpref';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, wasPresent, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence, testMeetingHidden } from './meet';
@@ -62,6 +66,8 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (parts[1] === 'ask' && m === 'POST') return json(await askMeetings(env, user, ((await request.json().catch(() => ({}))) as Record<string, unknown>).q));
     if (parts[1] === 'channels' && m === 'GET') return json(await meetChannels(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'actions' && m === 'GET') return json(await myActions(env, user));
+    if (parts[1] === 'myrec' && m === 'GET') return json({ ok: true, rec: await recPrefOf(env, user.email) });
+    if (parts[1] === 'myrec' && m === 'POST') return json({ ok: true, rec: await setRecPref(env, user.email, ((await request.json().catch(() => ({}))) as Record<string, unknown>).rec) });
     if (parts[1] === 'myphone' && m === 'POST') return json(await setMyPhone(env, user, await request.json().catch(() => ({}))));
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
     if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env), leadMin: (await meetSettings(env).catch(() => null))?.leadMin ?? 15 });
@@ -95,6 +101,9 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') {
       // The same five-minute pass sends the Mail messages whose time has come.
       const later = await import('./mail/route').then((x) => x.sendDue(env)).catch(() => ({ sent: 0, failed: 0 }));
+      await expireRings(env as unknown as RingEnv).catch((err) => console.warn('[ring] expire', err));
+      const liveRec = (await env.DB.prepare(`SELECT * FROM hub_meetings WHERE status = 'live' AND rec_mode != 'off'`).all<Meeting>().catch(() => ({ results: [] as Meeting[] }))).results || [];
+      for (const lm of liveRec) await recordingMissed(env, lm, Date.now(), 'cron').catch((err) => console.warn('[meet] rec check', err));
       return json({ ...(await remind(env, new URL(request.url).origin)), mailSent: later.sent });
     }
     if (parts.length === 1) {
@@ -131,6 +140,8 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request, waitUntil);
+    if (sub === 'recmiss' && m === 'POST') return json({ ok: true, missing: await recordingMissed(env, await getMeeting(env, id), Date.now(), 'room') });
+    if (sub === 'recmode' && m === 'POST') return json(await recMode(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
     if (sub === 'private' && m === 'POST') return json(await privateRoute(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'privacy' && m === 'POST') return json(await privacyRoute(env, user, id, await request.json().catch(() => ({}))));
@@ -182,6 +193,7 @@ export async function endMeeting(env: MeetEnv, id: string) {
   if (!m || m.status === 'ended') return;
   const had = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_chunks WHERE meeting_id = ?').bind(id).first<{ n: number }>();
   const recorded = (had?.n || 0) > 0;
+  if (!recorded && m.rec_mode !== 'off') await recordingMissed(env, await getMeeting(env, id), Date.now(), 'end').catch((err) => console.warn('[meet] rec check', err));
   await env.DB.prepare('UPDATE hub_meeting_rec SET active = 0 WHERE meeting_id = ?').bind(id).run();
   await env.DB.prepare(`UPDATE hub_meetings SET status = 'ended', ended_at = ?, rec_state = ?, notes_status = ? WHERE id = ?`)
     .bind(nowIso(), recorded ? 'uploading' : 'none', recorded && m.rec_mode !== 'off' ? 'pending' : 'none', id).run();
@@ -189,6 +201,7 @@ export async function endMeeting(env: MeetEnv, id: string) {
   if ((m as { private_on?: number }).private_on) await closePrivate(env, await getMeeting(env, id));
   // A meeting started from a Chat channel updates its card there. A failure here never changes the meeting.
   await chatMeetingEnded(env, id).catch((err) => console.warn('[chat] meeting end', err));
+  await ringsStop(env as unknown as RingEnv, id).catch((err) => console.warn('[ring] meeting end', err));
 }
 
 /**
@@ -296,7 +309,9 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   const startsAt = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) ? new Date(b.startsAt).toISOString() : null;
   if (startsAt && Date.parse(startsAt) < Date.now() - 5 * 60000) throw new HttpError(400, 'past', 'That start time has passed. Pick a later time.');
   const dur = Math.min(480, Math.max(10, Number(b.durationMin) || 60));
-  const rec = ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : 'video'; // Will, 2026-10-13: every meeting records notes and video unless the host turns it off
+  // No choice sent: the booker's own default from Settings (Record video, Transcribe only or Neither; video when never set, the
+  // rule since 2026-10-13).
+  const rec = isRecMode(b.rec) ? String(b.rec) : await recPrefOf(env, user.email);
   // 2026-10-14: no explicit choice means invited (the host, invitees and people the host lets in). Staff-wide only when the host picks it.
   const access = ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : 'invited';
   const rawInvitees = Array.isArray(b.invitees)
@@ -476,7 +491,69 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
 
 // ---------------------------------------------------------------- join and sync
 
+/**
+ * A meeting set to record that has two or more staff in it for 20 seconds and not one recorded piece (video, sound for notes, or a
+ * voice slice) missed its recording. Found by the room (the host's banner asks the server), the five-minute cron and the end of
+ * the meeting. The first time for a meeting it writes a 'rec-missing' notice and an alert row in hub_cron_runs (job meet-recording),
+ * which the morning email's jobs summary lists for 24 hours. Root cause of the first one (a staff meeting on
+ * 2026-10-14): the host never came, the acting host was a cohost, and only a 'host' started the booked recording.
+ */
+const REC_GRACE_MS = 20_000;
+async function recordingMissed(env: MeetEnv, mt: Meeting, now: number, from: 'room' | 'cron' | 'end'): Promise<boolean> {
+  if (!mt || mt.rec_mode === 'off' || (mt as { private_on?: number }).private_on) return false;
+  if (from !== 'end' && mt.status !== 'live') return false;
+  // When the second staff member arrived (still here, or for the end check, ever here).
+  const ppl = (await env.DB.prepare(`SELECT lower(email) AS email, MIN(joined_at) AS j FROM hub_meeting_presence WHERE meeting_id = ? AND role != 'guest' AND removed = 0${from === 'end' ? '' : ' AND left_at = 0 AND seen > ?'} GROUP BY lower(email) ORDER BY j`)
+    .bind(...(from === 'end' ? [mt.id] : [mt.id, now - GONE_MS])).all<{ email: string; j: number }>()).results || [];
+  if (ppl.length < 2 || now - ppl[1].j < REC_GRACE_MS) return false;
+  const pieces = await env.DB.prepare(`SELECT (SELECT COUNT(*) FROM hub_meeting_chunks WHERE meeting_id = ?1) + (SELECT COUNT(*) FROM hub_meeting_audio WHERE meeting_id = ?1) + (SELECT COUNT(*) FROM hub_meeting_voice WHERE meeting_id = ?1) AS n`).bind(mt.id).first<{ n: number }>().catch(() => ({ n: 1 }));
+  if ((pieces?.n || 0) > 0) return false;
+  // A host who pressed Stop before anything was sent chose that.
+  const stopped = await env.DB.prepare(`SELECT 1 AS x FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%"rec-stop"%' LIMIT 1`).bind(mt.id).first().catch(() => null);
+  if (stopped) return false;
+  const told = await env.DB.prepare(`SELECT 1 AS x FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%"rec-missing"%' LIMIT 1`).bind(mt.id).first().catch(() => null);
+  if (!told) {
+    await addEvent(env, mt.id, 'notice', '', '', { a: 'rec-missing' });
+    const at = new Date(now).toISOString();
+    const line = `${mt.title || 'A meeting'} (${mt.id}) was set to ${mt.rec_mode === 'video' ? 'record video' : 'take notes'} and recorded nothing (${ppl.length} staff in the room, found by ${from}).`;
+    await env.DB.prepare(`INSERT INTO hub_cron_runs (job, last_run, last_ok, last_error, error_at, detail, fails, ms) VALUES ('meet-recording', ?, NULL, ?, ?, ?, 1, 0)
+      ON CONFLICT(job) DO UPDATE SET last_run = excluded.last_run, last_error = excluded.last_error, error_at = excluded.error_at, detail = excluded.detail, fails = hub_cron_runs.fails + 1`)
+      .bind(at, line.slice(0, 400), at, line.slice(0, 400)).run().catch((err) => console.warn('[meet] rec alert', err));
+    console.warn('[meet] recording missed', line);
+  }
+  return true;
+}
+
+/**
+ * A host (or a made host, or an admin) changes what this meeting records: video, notes only or nothing. Before the call it is the
+ * meeting's setting; during the call the running recording stops and the host's room starts the new one (rec.js), as a new epoch.
+ * Everyone in the room is told who changed it, and the bar shows the state to all.
+ */
+async function recMode(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
+  if (!isRecMode(b.rec)) throw new HttpError(400, 'bad_rec', 'Pick Record video, Transcribe only or Neither.');
+  const mt = await getMeeting(env, id);
+  if (mt.status === 'ended' || mt.status === 'cancelled') throw new HttpError(400, 'over', 'This meeting is over.');
+  const me = b.pid ? await getPresence(env, id, clean(b.pid, 12), user.email).catch(() => null) : null;
+  const hostish = isHost(mt, user.email) || user.role === 'admin' || (!!me && (me.role === 'host' || me.role === 'cohost'));
+  if (!hostish) throw new HttpError(403, 'host_only', 'Only a host can change the recording.');
+  const rec = String(b.rec);
+  if (rec === mt.rec_mode) return { ok: true, rec };
+  await env.DB.prepare('UPDATE hub_meetings SET rec_mode = ? WHERE id = ?').bind(rec, id).run();
+  const r = await env.DB.prepare('SELECT active FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ active: number }>();
+  if (r?.active) {
+    await env.DB.prepare('UPDATE hub_meeting_rec SET active = 0 WHERE meeting_id = ?').bind(id).run();
+    await env.DB.prepare(`UPDATE hub_meetings SET rec_state = 'uploading' WHERE id = ?`).bind(id).run();
+  }
+  if (mt.status === 'live') await addEvent(env, id, 'notice', me?.pid || '', '', { a: 'rec-mode', mode: rec, name: me?.name || user.name || '' });
+  return { ok: true, rec };
+}
+
 async function join(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
+  // The SFU session and the relay servers are asked for first, beside the checks below: they were the slowest part of a join, one
+  // after the other. A refused join leaves an unused SFU session, which the SFU closes on its own.
+  const sessionP = sfuCall(env, 'POST', '/sessions/new') as Promise<{ sessionId?: string }>;
+  const iceP = iceServers(env);
+  sessionP.catch(() => undefined); iceP.catch(() => undefined);
   const mt = await getMeeting(env, id);
   await env.DB.prepare('UPDATE hub_meeting_mentions SET seen = 1 WHERE meeting_id = ? AND email = ? AND seen = 0').bind(id, user.email.toLowerCase()).run().catch(() => undefined);
   if (!mayJoin(mt, user as never)) throw refuseJoin(mt);
@@ -484,8 +561,11 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
   const now = Date.now();
   const hostNow = isHost(mt, user.email);
   if (mt.locked && !hostNow) throw new HttpError(403, 'locked', 'The host locked this meeting.');
-  const alive = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, now - GONE_MS).first<{ n: number }>();
-  const maxPeople = (await meetSettings(env).catch(() => null))?.maxPeople ?? MAX_PEOPLE;
+  const [alive, settings] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, now - GONE_MS).first<{ n: number }>(),
+    meetSettings(env).catch(() => null),
+  ]);
+  const maxPeople = settings?.maxPeople ?? MAX_PEOPLE;
   if ((alive?.n || 0) >= maxPeople) throw new HttpError(403, 'full', 'This meeting is full.');
 
   // The same person rejoining keeps their pid; their old SFU session is dropped by the SFU on its own.
@@ -503,7 +583,7 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
     // One person on two devices gets two pids; a refreshed tab reuses the stored one.
     pid = hex(6);
   }
-  const session = (await sfuCall(env, 'POST', '/sessions/new')) as { sessionId?: string };
+  const session = await sessionP;
   if (!session.sessionId) throw new HttpError(502, 'sfu_error', 'The meeting service did not answer. Try again.');
   const role = hostNow ? (mt.host_email.toLowerCase() === user.email.toLowerCase() ? 'host' : 'cohost') : 'staff';
   const name = clean(b.name, 80) || user.name;
@@ -518,7 +598,7 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
     ).bind(id, pid, user.email.toLowerCase(), name, role, session.sessionId, b.mic === false ? 0 : 1, b.cam === false ? 0 : 1, now, now).run();
   }
   if (mt.status !== 'live') await env.DB.prepare(`UPDATE hub_meetings SET status = 'live', started_at = COALESCE(started_at, ?), ended_at = NULL WHERE id = ?`).bind(nowIso(), id).run();
-  const [ice, last] = await Promise.all([iceServers(env), env.DB.prepare('SELECT COALESCE(MAX(seq), 0) AS s FROM hub_meeting_events WHERE meeting_id = ?').bind(id).first<{ s: number }>()]);
+  const [ice, last] = await Promise.all([iceP, env.DB.prepare('SELECT COALESCE(MAX(seq), 0) AS s FROM hub_meeting_events WHERE meeting_id = ?').bind(id).first<{ s: number }>()]);
   if (!quiet) await addEvent(env, id, 'notice', pid, '', { a: 'joined', name });
   return { ok: true, pid, role, sessionId: session.sessionId, iceServers: ice, meeting: publicMeeting(await getMeeting(env, id), user), since: last?.s || 0, guestsEnabled: guestsOn(env) };
 }
@@ -582,7 +662,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     }
   }
   const myRole = (list.find((p) => p.pid === me.pid) || me).role;
-  const mt = await getMeeting(env, id);
+  const mt = mt0;
   const isGuest = me.role === 'guest';
   const dir = await directoryByEmail(env, list.map((p) => p.email));
   const lines = tx >= 0 && !isGuest ? ((await env.DB.prepare('SELECT n, t, who, text FROM hub_meeting_lines WHERE meeting_id = ? AND n > ? ORDER BY n LIMIT 60').bind(id, tx).all<{ n: number; t: number; who: string; text: string }>()).results || []) : [];
@@ -600,6 +680,8 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     events: events.filter((e) => !isGuest || (e.kind !== 'brain' && !(e.kind === 'chat' && safeJson<{ ai?: boolean }>(e.body, {}).ai))).map((e) => ({ seq: e.seq, kind: e.kind, from: e.from_pid, to: e.to_pid, body: safeJson(e.body, {}), ts: e.ts })),
     meeting: { status: mt.status, locked: !!mt.locked, spot: mt.spot_pid, sharePolicy: mt.share_policy, rec: mt.rec_mode, title: mt.title, private: !!(mt as { private_on?: number }).private_on },
     recording: r ? { epoch: r.epoch, owner: r.owner_pid, active: !!r.active, mode: r.mode, stale: !!r.active && now - r.last_chunk > REC_STALE_MS } : null,
+    // Who is being rung into this room, who declined (and what they said) and who missed it, from the last two minutes.
+    rings: isGuest ? [] : await ringsFor(env, id, now),
   };
 }
 
@@ -684,6 +766,9 @@ async function leave(env: MeetEnv, user: { email: string }, id: string, b: Recor
   await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ?, tracks = ? WHERE meeting_id = ? AND (pid = ? OR (with_pid = ? AND left_at = 0))').bind(Date.now(), '[]', id, me.pid, me.pid).run();
   await addEvent(env, id, 'notice', me.pid, '', { a: 'left', name: me.name });
   await endIfEmpty(env, id, onEnd);
+  // The caller left before anyone answered: whoever is still ringing missed it (the meeting ending does the same for everyone).
+  const still = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND lower(email) = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, user.email.toLowerCase(), Date.now() - GONE_MS).first<{ n: number }>().catch(() => ({ n: 0 }));
+  if (!still?.n) await ringsStop(env as unknown as RingEnv, id, user.email).catch((err) => console.warn('[ring] hang up', err));
   return { ok: true };
 }
 
@@ -966,10 +1051,16 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
   if (sub[0] === 'start' && request.method === 'POST') {
     if (!hostish) throw new HttpError(403, 'host_only', 'Only a host can start the recording.');
     if (mt.rec_mode === 'off') throw new HttpError(400, 'rec_off', 'Recording is off for this meeting.');
-    await env.DB.prepare(`INSERT OR REPLACE INTO hub_meeting_rec (meeting_id, epoch, owner_pid, mode, active, last_chunk, started) VALUES (?, 1, ?, ?, 1, ?, ?)`).bind(id, pid, mt.rec_mode, now, now).run();
+    // Each start is a new epoch. A recording stopped and started again (or switched between video and notes) used to start at epoch 1
+    // again and write its pieces over the first recording's.
+    const prev = await env.DB.prepare('SELECT epoch, owner_pid, active, last_chunk FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string; active: number; last_chunk: number }>();
+    // Two hosts arriving together both try to start the booked recording: the second is told it is already running.
+    if (prev && prev.active && prev.owner_pid !== pid && now - prev.last_chunk < REC_STALE_MS * 2) return json({ ok: true, already: true, epoch: prev.epoch, mode: mt.rec_mode });
+    const epoch = (prev?.epoch || 0) + 1;
+    await env.DB.prepare(`INSERT OR REPLACE INTO hub_meeting_rec (meeting_id, epoch, owner_pid, mode, active, last_chunk, started) VALUES (?, ?, ?, ?, 1, ?, ?)`).bind(id, epoch, pid, mt.rec_mode, now, now).run();
     await env.DB.prepare(`UPDATE hub_meetings SET rec_state = 'recording' WHERE id = ?`).bind(id).run();
     await addEvent(env, id, 'notice', pid, '', { a: 'rec-start', mode: mt.rec_mode });
-    return json({ ok: true, epoch: 1, mode: mt.rec_mode });
+    return json({ ok: true, epoch, mode: mt.rec_mode });
   }
   if (sub[0] === 'stop' && request.method === 'POST') {
     if (!hostish) throw new HttpError(403, 'host_only', 'Only a host can stop the recording.');

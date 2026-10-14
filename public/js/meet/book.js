@@ -104,7 +104,9 @@ function toggleTeam(team) {
 }
 
 async function load() {
-  const [who, dir, can] = await Promise.all([whoami(), api('meetings/directory'), api('meetings/bookstatus')]);
+  const [who, dir, can, mine] = await Promise.all([whoami(), api('meetings/directory'), api('meetings/bookstatus'), api('meetings/myrec').catch(() => ({ rec: 'video' }))]);
+  // The recording choice starts at the person's own default from Settings.
+  if (['video', 'notes', 'off'].includes(mine.rec)) S.rec = mine.rec;
   S.me = who; S.dir = dir.people; S.can = can; S.guestsOn = !!can.guestsEnabled;
   api('meetings/channels').then((r) => { S.channels = r.channels || []; if (S.step === 3) draw(); }).catch(() => {});
   try { const saved = JSON.parse(sessionStorage.getItem('meet.book') || 'null'); if (saved && params.get('google') === 'meetings') { S.step = saved.step || 3; S.teams = new Set(saved.teams); S.chipAdded = new Map(saved.chipAdded || []); S.autoTitle = !!saved.autoTitle; S.people = new Map(saved.people); S.guests = saved.guests; S.dur = saved.dur; S.start = saved.start; S.title = saved.title; S.agenda = saved.agenda; S.rec = saved.rec; S.rule = ruleIn(saved.rule); S.access = saved.access || 'invited'; S.team = saved.team || ''; S.driveFolder = saved.driveFolder || ''; S.templateId = saved.templateId || ''; S.optional = new Set(saved.optional || []); S.buffer = saved.buffer || 0; S.travel = saved.travel || 0; S.holdGrp = saved.holdGrp || ''; S.remind = saved.remind; } } catch {}
@@ -394,7 +396,7 @@ function draw() {
       <div class="mt-f"><label for="ttl">Title</label><input id="ttl" value="${esc(S.title)}" placeholder="Meeting title" maxlength="140" /></div>
       <div class="mt-f"><label for="ag">Agenda</label><textarea id="ag" maxlength="2000">${esc(S.agenda)}</textarea></div>
       <div><div class="h-label" style="margin-bottom:8px">Record</div><div class="mt-opt">
-        ${[['notes', 'Transcript and notes', 'Sound only. Notes, decisions and action items land in FavorOS after the meeting.'], ['video', 'Video recording too', 'The video goes to the Meetings folder in US Team Files, with the notes beside it.'], ['off', 'Nothing', 'No recording and no notes.']].map(([k, t, d]) => `<button class="${S.rec === k ? 'is-on' : ''}" data-rec="${k}"><i class="dot"></i><div><b>${t}</b><span>${d}</span></div></button>`).join('')}</div></div>
+        ${[['video', 'Record video', 'Video, sound and notes. The video goes to the Meetings folder in US Team Files, with the notes beside it.'], ['notes', 'Transcribe only', 'Notes from the sound: decisions and action items land in FavorOS after the meeting. No video is kept.'], ['off', 'Neither', 'No recording and no notes.']].map(([k, t, d]) => `<button class="${S.rec === k ? 'is-on' : ''}" data-rec="${k}"><i class="dot"></i><div><b>${t}</b><span>${d}</span></div></button>`).join('')}</div></div>
       ${S.channels.length ? `<div class="mt-f"><label for="postch">Post the summary to</label><select id="postch"><option value="">Nowhere</option>${S.channels.map((c) => `<option value="${esc(c.id)}"${S.post === c.id ? ' selected' : ''}>#${esc(c.name)}</option>`).join('')}</select>${S.rec === 'off' ? '<span class="mt-sub">Recording is off, so there is no summary to post.</span>' : '<span class="mt-sub">When the notes are ready, the summary, decisions and action items go there and each owner is mentioned.</span>'}</div>` : ''}
       <div class="sc-two"><div class="mt-f"><label for="sc-team">Team</label><select id="sc-team"><option value="">No team</option>${teamsList().slice(1).map(([t]) => `<option value="${esc(t)}"${S.team === t ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
         <div class="mt-f"><label for="sc-drive">Drive notes folder</label><input id="sc-drive" value="${esc(S.driveFolder)}" placeholder="Folder link or ID" maxlength="200" /></div></div>

@@ -34,6 +34,9 @@ export class Recorder {
 
   async start() {
     const r = await this.api(this.url('start'), { method: 'POST', body: {} });
+    // Another host's browser started it a moment ago: that one records, this one stands by.
+    if (r.already) return;
+    this.begunAt = Date.now();
     this.begin(r.epoch, r.mode);
   }
 
@@ -275,6 +278,9 @@ export class Recorder {
 
   // ---- standby and takeover, driven by the sync
   async onSync(rec, people) {
+    // A host stopped the recording or changed what it records from another browser: this one stops sending. A sync that left
+    // before this browser's own start (its answer can arrive after) is not a stop.
+    if ((!rec || !rec.active) && this.mr && Date.now() - (this.begunAt || 0) > 4000) { await this.stopIfOwner(true); return; }
     if (!rec || !rec.active) { if (this.warm && !this.mr) this.teardown(); return; }
     const me = this.S.me.pid;
     if (this.mr && rec.owner !== me) { this.lostOwnership(); }
@@ -288,7 +294,7 @@ export class Recorder {
       await new Promise((r) => setTimeout(r, Math.max(0, rank) * 400));
       try {
         const r = await this.api(this.url('claim'), { method: 'POST', body: { epoch: rec.epoch } });
-        if (r.ok) { this.begin(r.epoch, r.mode); this.toast('You took over the recording'); }
+        if (r.ok) { this.begunAt = Date.now(); this.begin(r.epoch, r.mode); this.toast('You took over the recording'); }
       } catch { /* another person won */ }
       this.claiming = false;
     }

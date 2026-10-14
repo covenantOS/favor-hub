@@ -210,7 +210,7 @@
   function paintConv(c) {
     var o = c.kind === 'dm' ? (c.members || []).filter(function (m) { return m !== D.me; })[0] : null;
     body.innerHTML = '<div class="fp-conv"><header class="fp-head"><button type="button" class="fp-back" data-back aria-label="Back to conversations">' + ic('back') + '</button>' + (o ? avatar(o) : '') +
-      '<b class="fp-head__t">' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b>' + moreMenu() + '<a class="fp-ext" href="/chat/?c=' + encodeURIComponent(c.id) + '" title="Open in Chat" aria-label="Open in Chat">' + ic('ext') + '</a></header>' +
+      '<b class="fp-head__t">' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b>' + ((c.kind === 'dm' || c.kind === 'group') && o !== D.me && window.FavorRing ? '<button type="button" class="fp-ext" data-huddle="' + esc(c.id) + '" title="Huddle: ring ' + esc(chName(c)) + '" aria-label="Huddle: ring ' + esc(chName(c)) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg></button>' : '') + moreMenu() + '<a class="fp-ext" href="/chat/?c=' + encodeURIComponent(c.id) + '" title="Open in Chat" aria-label="Open in Chat">' + ic('ext') + '</a></header>' +
       '<div class="fp-scroll fp-msgs" data-msgs><div class="fp-wait"><i></i><i></i><i></i></div></div><div class="fp-comp" data-comp></div></div>';
     mountBox();
   }
@@ -364,6 +364,7 @@
     if (t.hasAttribute('data-more')) { var mn = $('[data-menu]', body); if (mn) { mn.hidden = !mn.hidden; t.setAttribute('aria-expanded', String(!mn.hidden)); } return; }
     if (t.hasAttribute('data-catch-go')) { var mn2 = $('[data-menu]', body); if (mn2) mn2.hidden = true; catchUp(); return; }
     if (t.hasAttribute('data-catchx')) { var cb = t.closest('[data-catch]'); if (cb) cb.remove(); return; }
+    if (t.hasAttribute('data-huddle')) { if (window.FavorRing) window.FavorRing.call({ channel: t.getAttribute('data-huddle') }); return; }
     if (t.hasAttribute('data-open')) { listQ = ''; openConv(t.getAttribute('data-open')); }
     else if (t.hasAttribute('data-back')) {
       if (S.th) { var cid = S.ch; D.save({ th: null }); thread = null; if (S.from === 'threads') { D.save({ ch: null }); S.from = null; openThreadsList(); } else openConv(cid); }

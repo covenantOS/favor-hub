@@ -52,10 +52,12 @@ interface Props {
   full?: boolean;
   /** The page lays itself out (the Favor Brain chat): no page padding, width limit or h-page rules. */
   bare?: boolean;
+  /** A meeting room: no partner tools, so joining the call waits for nothing it does not use (meetings pass 2026-10-14). */
+  lean?: boolean;
   description?: string;
 }
 
-const { title, crumb = 'FavorOS', nav = '', wide = false, full = false, bare = false, description = 'FavorOS, the Favor International staff workspace.' } = Astro.props;
+const { title, crumb = 'FavorOS', nav = '', wide = false, full = false, bare = false, lean = false, description = 'FavorOS, the Favor International staff workspace.' } = Astro.props;
 
 import { icon } from '../data/icons';
 import { badgeFor, pageBadge } from '../data/release';
@@ -127,7 +129,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/favor-ui.js?v=1" defer></script>
     <script is:inline src="/js/favor-entity.js?v=1" defer></script>
     <script is:inline src="/js/sheets.js?v=2"></script>
-    <script is:inline>
+    {!lean && <script is:inline>
       // The partner tools (partner card, drill-down, thank-you, call prep, records). In Lite mode a person without partner access
       // (no Work Center, gift entry or partner search) does not download them; the drill-down stays for anyone with Executive.
       (function () {
@@ -143,7 +145,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
         var files = (drill ? ['drill.js?v=9'] : []).concat(need ? ['thank.js?v=5', 'prep.js?v=2', 'call-mode.js?v=1', 'partner-brief.js?v=2', 'comm-picture.js?v=3', 'partner.js?v=17', 'records.js?v=2', 'add-partner.js?v=2'] : []);
         if (files.length) document.write(files.map(function (f) { return '<script src="/js/' + f + '" defer><' + '/script>'; }).join(''));
       })();
-    </script>
+    </script>}
     <script is:inline src="/js/ux-pass.js?v=2" defer></script>
     <script type="speculationrules" is:inline set:html={JSON.stringify(specRules)}></script>
     <script is:inline>
@@ -485,6 +487,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/integrations.js?v=1" defer></script>
     <script is:inline src="/js/wc-bell.js?v=10" defer></script>
     <script is:inline src="/js/dock.js?v=2" defer></script>
+    <script is:inline src="/js/ring.js?v=1" defer></script>
     <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>
     <script>

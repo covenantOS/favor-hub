@@ -14,6 +14,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const states = await jobStates(env, now);
     const rows = ((await env.DB.prepare('SELECT * FROM hub_cron_runs').all<JobRow>()).results || []) as JobRow[];
     const label = new Map(JOBS.map((j) => [j.id, j.label]));
+    // Alerts that are not scheduled jobs: a meeting set to record that recorded nothing (meetroute.ts recordingMissed).
+    label.set('meet-recording', 'Meeting recording');
     const bad = states.filter((s) => s.status === 'failed' || s.status === 'late').map((s) => ({ id: s.id, label: s.label, status: s.status, at: s.at, detail: s.detail }));
     const badIds = new Set(bad.map((b) => b.id));
     const recovered = rows

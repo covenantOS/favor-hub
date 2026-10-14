@@ -637,7 +637,7 @@
       patchHtml(h, '<button type="button" class="ch-iconbtn ch-back" data-act="back" aria-label="Back to channels">' + ic('back') + '</button>' +
         '<div class="ch-head__t"><div class="ch-head__name">' + lead + '<span style="color:var(--r-ink);font-weight:700">' + esc(name) + '</span></div>' + (c.topic ? '<div class="ch-head__topic">' + esc(c.topic) + '</div>' : '') + '</div>' +
         '<div class="ch-head__acts"><button type="button" class="ch-members" data-act="details" aria-label="Members"><span class="ch-stack">' + ms.map(function (id) { return avatar(user(id), 'sm'); }).join('') + '</span>' + (c.members || []).length + '</button>' +
-        '<button type="button" class="ch-btn ch-btn--meet' + (S.huddle && S.huddle[c.id] ? ' is-live' : '') + '" data-act="huddle" aria-label="' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '">' + ic('headset') + '<span>' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '</span></button>' +
+        '<button type="button" class="ch-btn ch-btn--meet' + (S.huddle && S.huddle[c.id] ? ' is-live' : '') + '" data-act="huddle" aria-label="' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : (c.kind === 'dm' || c.kind === 'group') ? 'Huddle: ring ' + esc(chName(c)) : 'Start a huddle') + '" title="' + (S.huddle && S.huddle[c.id] ? 'Join the huddle' : (c.kind === 'dm' || c.kind === 'group') ? 'Ring them into a huddle' : 'Start a huddle here') + '">' + ic('headset') + '<span>' + (S.huddle && S.huddle[c.id] ? 'Join huddle' : 'Huddle') + '</span></button>' +
         '<button type="button" class="ch-iconbtn" data-act="sm-catch" aria-label="Catch me up" title="Catch me up">' + ic('spark') + '</button>' +
         '<button type="button" class="ch-iconbtn' + (S.lang ? ' is-on' : '') + '" data-act="sm-lang" aria-label="Language" title="' + (S.lang ? 'Reading in ' + esc(langName(S.lang)) : 'Choose the language you read in') + '">' + ic('globe') + '</button>' +
         '<button type="button" class="ch-iconbtn ch-hide-m" data-act="search" aria-label="Search messages" title="Search messages">' + ic('search') + '</button>' +
@@ -843,7 +843,7 @@
             '<div class="ch-det__acts">' + (c.kind !== 'dm' ? '<button type="button" class="ch-btn ch-btn--danger" data-act="leave">' + ic('out') + 'Leave ' + (c.kind === 'group' ? 'conversation' : 'channel') + '</button>' : '') + '<button type="button" class="ch-btn" data-act="mute">' + ic('bell') + (c.muted ? 'Unmute' : 'Mute') + '</button></div>';
         } else if (S.tab === 'members') {
           det = (c.kind === 'dm' ? '' : '<button type="button" class="ch-btn ch-btn--sm" data-act="add-members" style="margin-bottom:8px">' + ic('plus') + 'Add people</button>') + members.map(function (u) {
-            return '<div class="ch-person">' + avatar(u, '', true) + '<span><b>' + esc(u.name) + (u.id === S.me.id ? ' (you)' : '') + '</b><small>' + esc(u.title || (u.presence === 'online' ? 'Active now' : u.presence === 'away' ? 'Away' : 'Offline')) + '</small></span>' + (c.created_by === u.id ? '<span class="ch-person__r">Created it</span>' : '') + '</div>';
+            return '<div class="ch-person">' + avatar(u, '', true) + '<span><b>' + esc(u.name) + (u.id === S.me.id ? ' (you)' : '') + '</b><small>' + esc(u.title || (u.presence === 'online' ? 'Active now' : u.presence === 'away' ? 'Away' : 'Offline')) + '</small></span>' + (c.created_by === u.id ? '<span class="ch-person__r">Created it</span>' : '') + (u.id !== S.me.id && window.FavorRing ? '<button type="button" class="ch-btn ch-btn--sm" data-act="ring-person" data-id="' + esc(u.id) + '" aria-label="Huddle with ' + esc(u.name) + '" title="Ring ' + esc(u.name) + '">' + ic('headset') + '</button>' : '') + '</div>';
           }).join('');
         } else {
           var files = []; (S.msgs[c.id] || []).forEach(function (m) { (m.attachments || []).forEach(function (a, i) { if (a.type !== 'link') files.push({ a: a, m: m, i: i }); }); });
@@ -1221,7 +1221,7 @@
     var SLASH = [
       { cmd: 'brain', args: 'question', sub: 'Ask Favor Brain', icon: 'spark' },
       { cmd: 'request', args: 'summary', sub: 'Make a request board card', icon: 'task' },
-      { cmd: 'huddle', args: '', sub: 'Start or join a huddle here', icon: 'headset' },
+      { cmd: 'huddle', args: '', sub: 'Ring this conversation into a huddle, or join the one going', icon: 'headset' },
       { cmd: 'clip', args: '', sub: 'Record a clip and post it here', icon: 'rec' }
     ];
     function runSlash(scope, raw) {
@@ -1523,7 +1523,7 @@
         it('drive-pick', 'drive', 'var(--tc-sky-tint)', 'var(--tc-sky-ink)', 'Share from Drive', 'Search the Drive library') +
         it('clip-pick', 'rec', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Share a clip', 'Pick from your clips') +
         it('clip-rec', 'play', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Record a clip', 'Posts here when you finish') +
-        it('meeting', 'video', 'var(--tc-teal-tint)', 'var(--tc-teal-ink)', 'Start a meeting', 'Posts a Join card') +
+        it('meeting', 'video', 'var(--tc-teal-tint)', 'var(--tc-teal-ink)', 'Huddle', 'Rings a direct message, or starts one here') +
         it('request-new', 'task', 'var(--tc-leaf-tint)', 'var(--tc-leaf-ink)', 'Make a request', 'Adds a card to the request board'), anchor, 'ch-pop--menu');
     }
     // Search, groups and a skin tone that is remembered (chat-emoji.js). A phone gets it as a sheet from the bottom.
@@ -1744,18 +1744,18 @@
         '<button type="button" class="ch-hud__join" data-act="huddle">Join</button>');
     }
     function hudDur(t) { var s = Math.max(0, Math.floor((Date.now() - t) / 1000)), m = Math.floor(s / 60); return (m >= 60 ? Math.floor(m / 60) + ':' + String(m % 60).padStart(2, '0') : m) + ':' + String(s % 60).padStart(2, '0'); }
+    // Huddle (meetings pass 2026-10-14): in a direct message or a group it rings the others, like a call in Slack. Joining a huddle
+    // already going, or a channel's huddle, goes straight into the room with the microphone on and the camera off. The pre-join
+    // sheet is gone: the room itself has the camera, microphone and speaker settings.
     function openHuddle(channelId) {
       var c = chan(channelId); if (!c) return;
-      if (!window.FavorPrejoin) { guard(api.startMeeting(channelId)).then(function (r) { if (r && r.url) location.href = r.url; }); return; }
-      var name = c.kind === 'public' ? '#' + c.name : c.kind === 'private' ? c.name : chName(c);
-      window.FavorPrejoin.open({
-        title: 'Huddle in ' + name,
-        me: { email: S.me.id, name: S.me.name },
-        face: function (p) { return avatar(p.email ? user(p.email) : { name: p.name }, 'sm'); },
-        load: function () { return huddleGet(channelId).then(function (h) { setHuddle(channelId, h); return h ? { live: true, startedAt: h.startedAt, people: h.people } : { live: false, people: [] }; }); },
-        emptyLine: 'No huddle going',
-        joinLabel: function (st, list) { return st.live && list.length ? 'Join huddle' : 'Start a huddle'; },
-        join: function () { return api.startMeeting(channelId).then(function (r) { return { id: r.id || (r.message && r.message.attachments && r.message.attachments[0] && r.message.attachments[0].id), url: r.url }; }); }
+      var live = S.huddle && S.huddle[channelId];
+      if ((c.kind === 'dm' || c.kind === 'group') && !live && window.FavorRing) { window.FavorRing.call({ channel: channelId }); return; }
+      guard(api.startMeeting(channelId)).then(function (r) {
+        if (!r || !r.url) return;
+        var mid = r.id || (r.message && r.message.attachments && r.message.attachments[0] && r.message.attachments[0].id);
+        try { sessionStorage.setItem('meet.prejoin', JSON.stringify({ mid: mid, at: Date.now(), mic: true, cam: false })); } catch (e) { /* the room shows its lobby */ }
+        location.href = r.url + '&pj=1&back=' + encodeURIComponent(location.pathname + location.search);
       });
     }
     setInterval(function () {
@@ -2059,6 +2059,7 @@
       else if (act === 'drive-pick') driveModal(scope);
       else if (act === 'clip-pick') clipModal(scope);
       else if (act === 'clip-rec') { closePop(); if (opts.recordClip) opts.recordClip(S.active, function (att) { S.pending[scope].push(att); renderPending(scope); }); else toast('Recording is not available here'); }
+      else if (act === 'ring-person') { e.preventDefault(); if (window.FavorRing) window.FavorRing.call({ to: [el.dataset.id] }); }
       else if (act === 'meeting' || act === 'huddle') { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); closePop(); openHuddle(S.active); }
       else if (act === 'drive-choose') { var it = modal._items[+el.dataset.i], sc = modal._scope; closeModal(); S.pending[sc].push(Object.assign({ type: 'drive' }, it)); renderPending(sc); var tt = $('[data-ta="' + sc + '"]', root); if (tt) tt.focus(); }
       else if (act === 'clip-choose') { var cl = modal._items[+el.dataset.i], sc2 = modal._scope; closeModal(); S.pending[sc2].push(Object.assign({ type: 'clip' }, cl)); renderPending(sc2); if (cl.level === 'private') toast('This clip is Private. People in this conversation cannot open it until you change who can watch in the Share window of the clip.'); else if (cl.level === 'people') toast('People in this conversation will be able to watch this clip. They count as specific people.'); }

@@ -108,7 +108,8 @@
   /* ------------------------------------------------------------------ the card */
   var cardEl = null, scrim = null, curKey = '', showT = 0, hideT = 0, ovTok = null, anchorEl = null;
   var phone = function () { return !matchMedia('(hover: hover)').matches || matchMedia('(max-width: 860px)').matches; };
-  var can = function (a) { return a === 'message' ? root.classList.contains('has-chat') : a === 'task' ? root.classList.contains('has-projects') : true; };
+  var can = function (a) { return a === 'message' || a === 'huddle' ? root.classList.contains('has-chat') : a === 'task' ? root.classList.contains('has-projects') : true; };
+  var meEmail = function () { try { var n = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); return String((n && n.user && n.user.email) || '').toLowerCase(); } catch (e) { return ''; } };
   function avatar(it) {
     if (it.kind === 'person') return it.pic ? '<span class="fe-av"><img src="' + esc(it.pic) + '" alt="" referrerpolicy="no-referrer" /></span>' : '<span class="fe-av">' + esc(UI ? UI.ini(it.title) : it.title.slice(0, 2)) + '</span>';
     return '<span class="fe-av fe-av--' + esc(it.kind) + '">' + ic(it.kind) + '</span>';
@@ -133,9 +134,13 @@
     if (it.restricted) return '<div class="fe-card__head">' + avatar({ kind: ref.kind, title: ref.label || '' }) + '<div class="fe-card__who"><b>' + esc(ref.label || LABEL[ref.kind]) + '</b><span>' + esc(LABEL[ref.kind]) + '</span></div></div><p class="fe-card__note">' + (ref.kind === 'task' ? 'Projects access shows task details.' : 'Work Center access shows these details.') + '</p>';
     var lookup = (it.facts || []).filter(function (f) { return f.k === 'Lookup ID'; })[0];
     if (lookup) it.lookup = lookup.v;
-    var acts = (it.acts || []).filter(can);
+    var acts = (it.acts || []).slice();
+    // A colleague you can message can be rung into a huddle (ring.js), from the card or from an @mention.
+    if (it.kind === 'person' && acts.indexOf('message') >= 0 && String(it.id).toLowerCase() !== meEmail()) acts.splice(acts.indexOf('message') + 1, 0, 'huddle');
+    acts = acts.filter(can);
     var btns = acts.map(function (a) {
       if (a === 'open') return it.url ? '<a class="fe-btn fe-btn--main" href="' + esc(it.url) + '" data-fe-act="open">' + ic('open') + 'Open</a>' : '';
+      if (a === 'huddle') return '<button type="button" class="fe-btn" data-fe-act="huddle" title="Ring ' + esc(it.title) + ' into a huddle"><svg class="fe-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/></svg>Huddle</button>';
       var name = { message: 'Message', task: 'Make a task', brain: 'Ask Brain', send: 'Send to' }[a];
       return name ? '<button type="button" class="fe-btn' + (a === 'message' ? ' fe-btn--main' : '') + '" data-fe-act="' + a + '">' + ic(a === 'task' ? 'task' : a) + name + (a === 'send' ? '…' : '') + '</button>' : '';
     }).join('');
@@ -197,6 +202,7 @@
     if (act === 'close') { close(); return; }
     if (act === 'brain') { close(); location.href = '/brain/?ask=' + encodeURIComponent(askText(it)); return; }
     if (act === 'message') { withShare(function (S) { close(); S.dm(it.id); }); return; }
+    if (act === 'huddle') { close(); if (window.FavorRing) window.FavorRing.call({ to: [it.id] }); else if (UI) UI.toast('Huddles need Chat. Reload the page and try again.'); return; }
     if (act === 'task') {
       close();
       if (window.PJLinks) window.PJLinks.makeTask({ title: it.kind === 'person' ? 'Follow up with ' + it.title : it.kind === 'task' ? 'Follow up on ' + it.title : it.title, owner: it.kind === 'person' ? it.id : undefined });

@@ -9,11 +9,19 @@ import '../../styles/lint-fix.css';
 import '../../styles/meet-auto.css';
 import { SPRITE } from '../brain/_icons';
 ---
-<App title="Meeting" crumb="Meetings" nav="meet" bare description="A Favor meeting room.">
+<App title="Meeting" crumb="Meetings" nav="meet" bare lean description="A Favor meeting room.">
   <div class="bc-root" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><Fragment set:html={SPRITE} /></div>
   <div class="meet-room" id="meet-root"><div class="h-card h-skel" style="min-height:360px;margin:14px"></div></div>
   <script is:inline>document.getElementById("h-app").classList.add("is-lobby");</script>
-  <script is:inline src="/js/brain-blocks.js?v=11"></script>
-  <script is:inline src="/js/meet/send.js?v=1"></script>
-  <script is:inline type="module" src="/js/meet/room.js?v=16"></script>
+  <!-- The room's modules download together with room.js instead of after it (one round trip less on a phone). Brain answers and
+       Send the link are not needed to join, so they load on the side. -->
+  <link rel="modulepreload" href="/js/meet/ui.js" />
+  <link rel="modulepreload" href="/js/meet/rtc.js" />
+  <link rel="modulepreload" href="/js/meet/devices.js" />
+  <link rel="modulepreload" href="/js/meet/effects.js" />
+  <link rel="modulepreload" href="/js/meet/rec.js" />
+  <link rel="modulepreload" href="/js/meet/stage.js" />
+  <script is:inline src="/js/brain-blocks.js?v=11" async></script>
+  <script is:inline src="/js/meet/send.js?v=1" defer></script>
+  <script is:inline type="module" src="/js/meet/room.js?v=17"></script>
 </App>

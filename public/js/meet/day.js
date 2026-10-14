@@ -510,20 +510,11 @@
     el.textContent = msg; el.classList.add('is-on'); clearTimeout(tt); tt = setTimeout(function () { el.classList.remove('is-on'); }, 3000);
   }
 
-  // Join on a Favor room opens the pre-join sheet (who is in the room, microphone, camera) instead of dropping the person in.
-  function prejoin(id, title) {
-    if (!window.FavorPrejoin) { location.href = '/meet/room/?m=' + encodeURIComponent(id); return; }
-    window.FavorPrejoin.open({
-      title: title || 'Meeting',
-      icon: 'video',
-      me: { email: '', name: '', pid: (function () { try { return sessionStorage.getItem('meet.pid.' + id) || ''; } catch (e) { return ''; } })() },
-      load: function () { return api('meetings/' + encodeURIComponent(id)).then(function (r) { var ppl = r.people || []; return { live: ppl.length > 0, startedAt: r.meeting && r.meeting.startedAt && ppl.length ? Date.parse(r.meeting.startedAt) : 0, people: ppl }; }); },
-      emptyLine: 'Nobody is in the room yet',
-      joinLabel: function () { return 'Join'; },
-      sendId: id,
-      host: (function () { var e = findEv(id); return !!(e && e.hub && e.hub.mine); })(),
-      join: function () { return Promise.resolve({ id: id, url: '/meet/room/?m=' + encodeURIComponent(id) }); }
-    });
+  // Join opens the room's own lobby (who is in the room, camera preview, microphone, Join now): the one join screen, the same one a
+  // link in an email or a calendar opens. The pre-join sheet that used to open here first was a second copy of it (meetings pass
+  // 2026-10-14).
+  function prejoin(id) {
+    location.href = '/meet/room/?m=' + encodeURIComponent(id) + '&back=' + encodeURIComponent(location.pathname + location.search);
   }
   // ---------------------------------------------------------------- the meeting panel
   var layer = document.createElement('div');
@@ -1100,19 +1091,18 @@
     return ('Meeting, ' + day + ', ' + tm).replace(/[  ]/g, ' ');
   }
 
-  // Start now opens the same pre-join sheet; the room is made when the person presses Start.
+  // Start now makes the room and goes straight in (one press). It is invited only and records the way the person chose in Settings;
+  // inside, Ring or Send the link brings people in and the recording button changes what it records.
+  var starting = false;
   function startNow() {
-    var create = function () { return api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'video', access: 'invited' } }).then(function (r) { return { id: r.meeting.id, url: '/meet/room/?m=' + r.meeting.id }; }); };
-    if (!window.FavorPrejoin) { create().then(function (r) { location.href = r.url; }).catch(function (err) { toast(err.message); }); return; }
-    window.FavorPrejoin.open({
-      title: 'New meeting',
-      icon: 'video',
-      me: { email: '', name: '' },
-      load: function () { return Promise.resolve({ live: false, people: [] }); },
-      emptyLine: 'Open to all staff, notes on',
-      joinLabel: function () { return 'Start'; },
-      join: create
-    });
+    if (starting) return;
+    starting = true;
+    if (nowBtn) nowBtn.setAttribute('aria-busy', 'true');
+    api('meetings', { method: 'POST', body: { title: nowTitle(), access: 'invited' } }).then(function (r) {
+      var id = r.meeting.id;
+      try { sessionStorage.setItem('meet.prejoin', JSON.stringify({ mid: id, at: Date.now(), mic: true, cam: true })); } catch (e) { /* the lobby shows */ }
+      location.href = '/meet/room/?m=' + id + '&pj=1&back=' + encodeURIComponent(location.pathname + location.search);
+    }).catch(function (err) { starting = false; if (nowBtn) nowBtn.removeAttribute('aria-busy'); toast(err.message); });
   }
   nowBtn = document.getElementById('mt-now');
   if (nowBtn) nowBtn.addEventListener('click', startNow);

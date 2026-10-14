@@ -26,6 +26,7 @@ const BACK = (() => { const b = params.get('back') || ''; return /^\/(?!\/)[^\s]
 const backLabel = () => (BACK.startsWith('/chat') ? 'Back to Chat' : BACK.startsWith('/meet') ? 'Back to Meetings' : 'Go back');
 // Choices from the pre-join sheet (public/js/meet/prejoin.js): used once, within two minutes, for this meeting only.
 const PRE = (() => {
+  if (!GUEST && /^[0-9a-f]{24}$/.test(params.get('ring') || '')) return { mid: MID, at: Date.now(), mic: true, cam: false };
   if (GUEST || params.get('pj') !== '1') return null;
   try {
     const p = JSON.parse(sessionStorage.getItem('meet.prejoin') || 'null');
@@ -55,8 +56,17 @@ async function setMic(raw) {
   local.micRaw = raw; if (raw) watchMic(raw);
   let out = raw;
   if (raw && P.voice !== false) {
-    const v = new VoiceFx({ gate: !!P.gate }); const t = await v.start(raw).catch(() => null);
-    if (t) { vfx = v; out = t; } else voiceOnTap();
+    // The clean-up gets a quarter second. On a slow phone it can take longer to load: the raw microphone goes out at once and the
+    // clean sound replaces it on the same sender when it is ready, so joining never waits for it.
+    const v = new VoiceFx({ gate: !!P.gate }); const ready = v.start(raw).catch(() => null);
+    const t = await Promise.race([ready, new Promise((r) => setTimeout(() => r(undefined), 250))]);
+    if (t === undefined) {
+      ready.then(async (t2) => {
+        if (!t2 || vfx || local.micRaw !== raw || S.left) { v.stop(); if (!t2 && local.micRaw === raw) voiceOnTap(); return; }
+        vfx = v; t2.enabled = S.mic; local.mic = t2; resetLevel();
+        if (rtc) await rtc.replace('a', t2).catch(() => {});
+      });
+    } else if (t) { vfx = v; out = t; } else voiceOnTap();
   }
   if (out) out.enabled = S.mic;
   local.mic = out; resetLevel();
@@ -116,6 +126,7 @@ async function staffInstead() {
 async function boot() {
   if (GUEST && (await staffInstead())) return;
   try {
+    const whoP = GUEST ? null : whoami();
     const r = GUEST ? await api('meetings/' + MID + '/guestinfo?k=' + encodeURIComponent(GKEY)) : await api('meetings/' + MID);
     S.meeting = GUEST ? { id: MID, title: r.title, hostName: r.host, rec: r.rec, status: r.status, startsAt: r.startsAt, backupLink: '', notesStatus: 'none', locked: r.locked } : r.meeting;
     S.guestsEnabled = !!r.guestsEnabled;
@@ -123,7 +134,7 @@ async function boot() {
     S.here = r.people || null;
     document.title = S.meeting.title + ' - FavorOS';
     const t = $('.h-top__title'); if (t) t.textContent = S.meeting.title;
-    if (!GUEST) { WHO = String((await whoami()).email || 'me').toLowerCase(); P = loadPrefs(WHO); }
+    if (!GUEST) { WHO = String((await whoP).email || 'me').toLowerCase(); P = loadPrefs(WHO); S.myEmail = WHO; }
     S.micId = P.micId; S.camId = P.camId; S.spkId = P.spkId;
     if (GUEST && S.meeting.status === 'ended' && !r.reopen && !(S.meeting.startsAt && Date.parse(S.meeting.startsAt) > Date.now())) return ended('This meeting has ended');
     if (S.meeting.status === 'ended' && S.meeting.endedAt && Date.now() - Date.parse(S.meeting.endedAt) > 6 * 3600_000) return ended();
@@ -244,7 +255,12 @@ async function quickEnter(pre) {
   // The sheet's picks become this person's saved devices.
   const pick = {}; if (pre.micId) pick.micId = pre.micId; if (pre.camId) pick.camId = pre.camId; if (Object.keys(pick).length) remember(pick);
   const name = (await whoami()).name || '';
-  root.innerHTML = `<div class="h-card mt-card" style="max-width:520px;margin:12vh auto 20px;display:grid;gap:10px;justify-items:start" role="status"><h2 class="mt-h2"><span class="spin"></span>Joining ${esc(S.meeting.title)}</h2><p class="mt-sub" id="lb-dev" style="margin:0;font-size:14px">Connecting to the room.</p><input type="hidden" id="lb-name" value="${esc(name)}" /><button class="h-btn h-btn--primary" id="lb-join" hidden>Join now</button></div>`;
+  // Drawn in the room's own layout, so the page does not jump when the room appears.
+  document.getElementById('h-app').classList.add('is-room');
+  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage rm-joining" aria-label="Meeting" role="status"><div class="rm-joining__in"><span class="spin"></span><b>Joining ${esc(S.meeting.title)}</b><span id="lb-dev">Connecting to the room.</span></div><input type="hidden" id="lb-name" value="${esc(name)}" /><button class="h-btn h-btn--primary" id="lb-join" hidden>Join now</button></section>${isPhone() ? '' : '<aside class="rm-side" aria-hidden="true"></aside>'}</div>`;
+  // The join (a seat, an SFU session and the relay servers) runs while the camera and microphone open.
+  S.me.name = name;
+  S.joinP = joinCall(false); S.joinP.catch(() => {});
   try {
     const r = await acquireBoth(P, S.cam);
     preview = r.stream; if (r.camError) S.cam = false;
@@ -323,13 +339,15 @@ async function enter() {
   if (local.mic) local.mic.enabled = S.mic;
   S.micIssue = local.mic ? '' : S.micDenied ? 'denied' : 'nodev'; watchMic(local.mic);
   try {
-    const j = await withTimeout(joinCall(false), 20000);
+    const early = S.joinP; S.joinP = null;
+    const j = await withTimeout(early || joinCall(false), 20000);
     if (j.waiting) await waitAdmit();
     await withTimeout(openRtc(j, false), 20000);
     clearTimeout(slow);
   } catch (e) {
     clearTimeout(slow);
     if (e.leftWait) { ended('You left the waiting room'); return; }
+    document.getElementById('h-app').classList.remove('is-room');
     if (e.status === 403 || e.status === 404 || e.status === 410 || e.status === 429 || e.status === 400) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px;margin:20px auto;display:grid;gap:12px"><h2 class="mt-h2">You cannot join this meeting</h2><p class="mt-sub" style="font-size:14px;margin:0">${esc(e.message)}</p>${GUEST ? '' : '<a class="h-btn h-btn--primary" href="/meet/">Back to meetings</a>'}</div>`; return; }
     failScreen(e); return;
   }
@@ -404,7 +422,9 @@ async function openRtc(j, isRejoin) {
     ],
   });
   const pub = await rtc.publish(items);
-  await api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: pub } });
+  // The room's first sync and pulls start now; telling the server what this person sends runs beside them (one retry).
+  const say = () => api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: pub } });
+  say().catch(() => new Promise((r) => setTimeout(r, 1000)).then(say)).catch((e) => diag('tracks-fail ' + (e && e.message)));
   if (isRejoin && S.sharing && local.screen) { /* the share restarts below */ }
 }
 
@@ -682,7 +702,11 @@ function paintBar() {
   const el = $('#rm-bar'); if (!el) return;
   const mins = Math.floor((Date.now() - S.started) / 60000);
   const secs = Math.floor(((Date.now() - S.started) / 1000) % 60);
-  const rec = r && r.active ? (r.mode === 'video' ? `<span class="rm-rec"><i></i>Recording</span>` : `<span class="rm-rec is-notes"><i></i>Notes on</span>`) : (m.rec !== 'off' ? `<span class="rm-rec is-notes"><i></i>${!r && Date.now() - S.started < 10000 ? 'Starting' : m.rec === 'video' ? 'Recording off' : 'Notes off'}</span>` : '');
+  const recLab = r && r.active ? (r.mode === 'video' ? 'Recording' : 'Transcribing') : m.rec === 'off' ? 'Not recorded' : !r && Date.now() - S.started < 10000 ? 'Starting' : m.rec === 'video' ? 'Recording off' : 'Notes off';
+  const recCls = r && r.active ? (r.mode === 'video' ? '' : ' is-notes') : m.rec === 'off' ? ' is-none' : ' is-notes';
+  const rec = hostish() && !GUEST
+    ? `<button type="button" class="rm-rec rm-rec--btn${recCls}" data-a="recmenu" aria-haspopup="menu" aria-expanded="${!!S.recMenu}" title="Change what this meeting records"><i></i>${recLab}${ic('chev')}</button>`
+    : `<span class="rm-rec${recCls}" role="status"><i></i>${recLab}</span>`;
   const lv = S.level === 'good' ? 'Connection good' : S.level === 'fair' ? 'Connection fair' : 'Connection weak';
   // Pause recording (it was called Private moment): everyone sees Recording paused; a host or cohost pauses and resumes from here.
   const paused = !!S.private && m.rec !== 'off';
@@ -696,7 +720,59 @@ function paintBar() {
   const ck = el.querySelector('#rm-clock'); if (ck) ck.textContent = clockText;
   const nt = el.querySelector('.rm-net'); if (nt) nt.title = netDetail();
   const b = $('#rm-banner');
-  if (b) b.innerHTML = (S.soundBlocked ? `<div class="banner warn">${ic('speaker')}<span>The browser paused the sound of this call.</span><button class="h-btn h-btn--primary h-btn--sm" data-a="sound-on">Turn on sound</button></div>` : '') + micIssueHTML() + (S.conn === 'drop' ? `<div class="banner">${ic('wifi')}Your connection dropped. Reconnecting.${S.recording && S.recording.active ? ' The recording keeps going.' : ''}</div>` : S.conn === 'back' ? `<div class="banner ok">${ic('check')}You are back.${S.missedSec > 3 ? ` You missed ${Math.round(S.missedSec)} seconds.` : ''}</div>` : '');
+  // Drawn only when it changed, so a press on Retry or Ring again is never lost to the once a second repaint.
+  const bh = (S.soundBlocked ? `<div class="banner warn">${ic('speaker')}<span>The browser paused the sound of this call.</span><button class="h-btn h-btn--primary h-btn--sm" data-a="sound-on">Turn on sound</button></div>` : '') + micIssueHTML() + (S.conn === 'drop' ? `<div class="banner">${ic('wifi')}Your connection dropped. Reconnecting.${S.recording && S.recording.active ? ' The recording keeps going.' : ''}</div>` : S.conn === 'back' ? `<div class="banner ok">${ic('check')}You are back.${S.missedSec > 3 ? ` You missed ${Math.round(S.missedSec)} seconds.` : ''}</div>` : '') + recMissHTML() + ringsHTML();
+  if (b && b._html !== bh) { b.innerHTML = bh; b._html = bh; }
+  paintRecMenu();
+}
+function recMissHTML() {
+  if (!S.recMiss) return '';
+  return hostish() ? `<div class="banner warn" role="alert">${ic('rec')}<span>Recording did not start. Nothing is being recorded or written down.</span><button class="h-btn h-btn--primary h-btn--sm" data-a="rec-retry">Retry</button></div>`
+    : `<div class="banner warn" role="status">${ic('rec')}<span>Recording did not start. A host can retry from the recording button.</span></div>`;
+}
+// Who this room is ringing (a huddle call or Ring in People): ringing, declined with their message, or missed.
+function ringsHTML() {
+  const now = Date.now();
+  return (S.rings || []).filter((x) => x.state === 'ringing' || ((x.state === 'declined' || x.state === 'missed') && now - (x.seenAt || now) < 25000)).map((x) => {
+    const first = esc(String(x.name || x.to).split(' ')[0]);
+    if (x.state === 'ringing') return `<div class="banner rm-ring" role="status"><span class="rm-ring__dot" aria-hidden="true"></span><span>Ringing ${esc(x.name || x.to)}</span>${x.from === S.myEmail ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-cancel" data-id="${esc(x.id)}">Stop ringing</button>` : ''}</div>`;
+    const why = x.state === 'declined' ? (x.note ? `${first} cannot join: "${esc(x.note)}"` : `${first} declined`) : x.why === 'quiet' ? `${first} is in quiet hours. FavorOS left a missed huddle note in Chat.` : `${first} did not answer. FavorOS left a missed huddle note in Chat.`;
+    return `<div class="banner" role="status">${ic('users')}<span>${why}</span>${x.state === 'missed' && x.why !== 'quiet' ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-again" data-v="${esc(x.to)}">Ring again</button>` : ''}</div>`;
+  }).join('');
+}
+function paintRecMenu() {
+  const top = $('.rm-top'); if (!top) return;
+  let el = $('#rm-recmenu');
+  if (!S.recMenu || !hostish()) { if (el) el.remove(); return; }
+  const cur = S.meeting.rec;
+  const opt = (v, t, sub) => `<button type="button" role="menuitemradio" aria-checked="${cur === v}" data-a="recmode" data-p="${v}"><span><b>${t}</b><small>${sub}</small></span>${cur === v ? ic('check') : ''}</button>`;
+  const html = `${opt('video', 'Record video', 'Video, sound and notes')}${opt('notes', 'Transcribe only', 'Notes from the sound. No video is kept.')}${opt('off', 'Neither', 'Nothing is recorded or written down')}<p>Everyone in the meeting sees what is recorded.</p>`;
+  if (!el) { el = document.createElement('div'); el.id = 'rm-recmenu'; el.className = 'rm-recmenu'; el.setAttribute('role', 'menu'); el.setAttribute('aria-label', 'What this meeting records'); top.appendChild(el); }
+  if (el._html !== html) { el.innerHTML = html; el._html = html; }
+}
+async function setRecMode(mode) {
+  S.recMenu = false; paintBar();
+  if (mode === S.meeting.rec) return;
+  const before = S.meeting.rec;
+  if (mode === 'off' && S.recording && S.recording.active && !(await confirmStopRecording(S.recording.mode))) return;
+  try {
+    await api('meetings/' + MID + '/recmode', { method: 'POST', body: { rec: mode, pid: S.me.pid } });
+    S.meeting.rec = mode; S.recStopped = mode === 'off'; S.autoRec = true; S.ctlSig = null;
+    if (!recorder) maybeStartRecording();
+    await recorder.stopIfOwner(true);
+    if (mode !== 'off') await recorder.start();
+    paintBar(); paintCtl();
+  } catch (e) { S.meeting.rec = before; toast(e.message); paintBar(); }
+}
+async function ringPeople(emails) {
+  try {
+    const r = await fetch('/api/chat/ring', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ to: emails, meeting: MID }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok || d.ok === false) throw new Error(d.message || 'Ringing did not work.');
+    S.rings = (S.rings || []).concat((d.rings || []).map((x) => ({ ...x, from: S.myEmail, left: 30000, seenAt: Date.now(), note: '' })));
+    paintBar();
+    return d;
+  } catch (e) { toast(e.message); return null; }
 }
 
 function netDetail() {
@@ -1413,11 +1489,12 @@ const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" tar
 
 const invRow = (r) => `<div class="rm-inv__r is-${r.status}"><span>${esc(r.to)}</span><b>${r.status === 'failed' ? 'Failed' : r.status === 'dry' ? 'Checked' : 'Sent'}</b>${r.detail && r.status !== 'sent' ? `<i>${esc(r.detail)}</i>` : ''}</div>`;
 // The box and its input are drawn once; only the suggestions and results under it change, so typing is never interrupted.
-const invShell = () => (!hostish() ? '' : `<div class="rm-inv"><div class="rm-inv__t">Invite</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name, email or phone" maxlength="200" autocomplete="off" autocapitalize="off" enterkeyhint="send" /><button class="icb send" id="invgo" data-a="invite" aria-label="Send invitation">${ic('send')}</button></div><div id="inv-extra"></div></div>
+const invShell = () => (!hostish() ? '' : `<div class="rm-inv"><div class="rm-inv__t">Add people</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name to ring, or an email or phone to invite" maxlength="200" autocomplete="off" autocapitalize="off" enterkeyhint="send" /><button class="icb send" id="invgo" data-a="invite" aria-label="Send invitation">${ic('send')}</button></div><div id="inv-extra"></div></div>
     <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-favor-send="${MID}">${ic('send')}Send the link</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}${S.meeting.rec !== 'off' ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">${ic(S.private ? 'rec' : 'pause')}${S.private ? 'Resume recording' : 'Pause recording'}</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`);
 const invExtra = () => {
   const v = S.inv; const pick = v.matches.length ? v.matches : v.sugg;
-  return (pick.length ? `<div class="rm-inv__s">${pick.map((p) => `<button data-a="invite-pick" data-v="${esc(p.email)}">${esc(p.name)}</button>`).join('')}</div>` : '') + v.rows.slice(0, 6).map(invRow).join('');
+  const chat = document.documentElement.classList.contains('has-chat');
+  return (pick.length ? `<div class="rm-inv__s">${pick.map((p) => `<button data-a="${chat ? 'ring-pick' : 'invite-pick'}" data-v="${esc(p.email)}" title="${chat ? 'Ring ' + esc(p.name) + ' into this meeting' : 'Invite ' + esc(p.name)}">${chat ? ic('users') : ''}${esc(p.name)}</button>`).join('')}</div>` : '') + v.rows.slice(0, 6).map(invRow).join('');
 };
 function paintFoot() {
   const inp = $('#rm-input'); if (!inp || S.panel !== 'people') return;
@@ -1586,6 +1663,7 @@ async function faceTick() {
 
 // ---------------------------------------------------------------- actions
 function onDocClick(e) {
+  if (S.recMenu && !e.target.closest('#rm-recmenu') && !e.target.closest('[data-a="recmenu"]')) { S.recMenu = false; paintBar(); }
   if (S.pop && !e.target.closest('.rm-pop') && !e.target.closest('[data-a="pop"]')) { S.pop = ''; paintTools(); paintPop(); }
   if (R.menu && !e.target.closest('#rm-tmenu') && !e.target.closest('[data-a="tmenu"]')) closeTmenu();
   const a = e.target.closest('[data-a]');
@@ -1608,6 +1686,12 @@ function onDocClick(e) {
     case 'play-mute': { S.playMuted = !S.playMuted; if (PL) PL.mute(S.playMuted); duck(S.play && S.play.st === 'play' && !S.playMuted); paintPlay(); break; }
     case 'cc': S.cc = !S.cc; paintCtl(); paintCap(); break;
     case 'rec': toggleRecording(); break;
+    case 'recmenu': S.recMenu = !S.recMenu; paintBar(); break;
+    case 'recmode': setRecMode(a.dataset.p); break;
+    case 'rec-retry': retryRecording(); break;
+    case 'ring-cancel': fetch('/api/chat/ring/' + encodeURIComponent(a.dataset.id), { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ action: 'cancel' }) }).catch(() => {}); break;
+    case 'ring-again': ringPeople([a.dataset.v]); break;
+    case 'ring-pick': ringPeople([a.dataset.v]).then((d) => { if (d) { S.inv.text = ''; S.inv.sugg = []; const i = $('#invin'); if (i) i.value = ''; paintFoot(); } }); break;
     case 'hand': S.hand = !S.hand; if (!S.handAt) S.handAt = new Map(); if (S.hand) S.handAt.set(S.me.pid, Date.now()); else S.handAt.delete(S.me.pid); paintCtl(); paintGrid(); if (S.panel === 'people') paintSideBody(false); syncNow(); break;
     case 'panel': S.more = false; S.moreDev = false; S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') { S.unread = 0; S.mentioned = false; } paintCtl(); paintSide(); paintMore(); break;
     case 'more': S.more = !S.more; S.moreDev = false; if (S.more && S.panel && sheetMode()) { S.panel = ''; paintSide(); } paintCtl(); paintMore(); break;
@@ -1987,8 +2071,38 @@ function applySync(r) {
   paintBar();
   scheduleReconcile();
   if (recorder) recorder.onSync(r.recording, S.people);
-  // The host's browser starts the recording the meeting was booked with, once, when no recording exists yet.
-  if (hostish() && recorder && !S.autoRec && !r.recording && S.meeting.rec !== 'off' && S.me.role === 'host') { S.autoRec = true; recorder.start().catch((e) => toast(e.message)); }
+  // Ring times come from the server's clock; each is kept as a time on this one.
+  S.rings = (r.rings || []).map((x) => ({ ...x, seenAt: Date.now() - Math.max(0, (r.now || Date.now()) - (x.at || 0)) }));
+  if (r.meeting && r.meeting.rec && r.meeting.rec !== S.meeting.rec) { S.meeting.rec = r.meeting.rec; S.ctlSig = null; paintCtl(); }
+  // The booked recording starts once, when none exists yet, from one browser: the host's, or when the host is not in the room the
+  // longest-present made or acting host. Until 2026-10-14 only the host started it, so a meeting the host missed recorded nothing.
+  if (recorder && !S.autoRec && !r.recording && S.meeting.rec !== 'off' && !S.private && leadPid() === S.me.pid) {
+    S.autoRec = true;
+    recorder.start().catch((e) => { toast(e.message); setTimeout(() => { S.autoRec = false; }, 5000); });
+  }
+  watchRecording(r);
+}
+// The person who starts the recording: the host if present, else the made or acting host who has been here longest.
+function leadPid() {
+  const all = [mePerson(), ...others()].filter((p) => p.role === 'host' || p.role === 'cohost');
+  all.sort((a, b) => (a.role === 'host' ? 0 : 1) - (b.role === 'host' ? 0 : 1) || (a.joinedAt || 0) - (b.joinedAt || 0));
+  return all.length ? all[0].pid : '';
+}
+// The guard: a meeting set to record, two or more people here for 20 seconds, and no recording running. The hosts see
+// "Recording did not start" with Retry, and the server is asked to check, which writes the morning email's alert.
+function watchRecording(r) {
+  const want = S.meeting.rec !== 'off' && !S.private && !S.recStopped;
+  const n = others().filter((p) => p.role !== 'guest').length + 1;
+  if (!want || n < 2 || (r.recording && r.recording.active && !r.recording.stale)) { S.pairAt = n >= 2 ? S.pairAt || Date.now() : 0; if (S.recMiss) { S.recMiss = false; paintBar(); } return; }
+  if (!S.pairAt) S.pairAt = Date.now();
+  if (Date.now() - S.pairAt < 20000 || S.recMiss) return;
+  S.recMiss = true; paintBar();
+  if (!S.recMissSent) { S.recMissSent = true; api('meetings/' + MID + '/recmiss', { method: 'POST', body: {} }).catch(() => {}); }
+}
+async function retryRecording() {
+  if (!recorder) maybeStartRecording();
+  S.recMiss = false; S.pairAt = Date.now(); paintBar();
+  try { await recorder.start(); toast('Recording started'); } catch (e) { toast(e.message); }
 }
 
 function handleEvent(e) {
@@ -2022,7 +2136,8 @@ function handleEvent(e) {
   } else if (e.kind === 'notice') {
     const b = e.body;
     if (b.a === 'rec-start') { toast(b.mode === 'video' ? 'Video recording started' : 'Recording for notes started'); }
-    else if (b.a === 'rec-stop') toast('Recording stopped');
+    else if (b.a === 'rec-stop') { toast('Recording stopped'); S.recStopped = true; }
+    else if (b.a === 'rec-mode') { S.meeting.rec = b.mode; S.recStopped = b.mode === 'off'; S.ctlSig = null; paintCtl(); paintBar(); toast((b.name ? b.name + ': ' : '') + (b.mode === 'video' ? 'this meeting now records video and notes' : b.mode === 'notes' ? 'this meeting is now transcribed for notes, no video' : 'recording and notes are off')); }
     else if (b.a === 'rec-takeover') toast(b.name + ' took over the recording');
     else if (b.a === 'joined' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' joined');
     else if (b.a === 'with' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' is with ' + b.host);
@@ -2034,7 +2149,8 @@ function handleEvent(e) {
 }
 
 // ---------------------------------------------------------------- subscriptions
-function scheduleReconcile() { clearTimeout(reconcileTimer); reconcileTimer = setTimeout(reconcile, 250); }
+// Changes are gathered for a quarter second, except the first pulls after joining, which go at once.
+function scheduleReconcile() { clearTimeout(reconcileTimer); reconcileTimer = setTimeout(reconcile, rtc && rtc.subs && rtc.subs.size ? 250 : 0); }
 
 function wanted() {
   const w = new Map();

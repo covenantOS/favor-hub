@@ -806,3 +806,26 @@ html.is-vdrag, html.is-vdrag * { user-select: none; -webkit-user-select: none; }
 @keyframes vw-up { from { transform: translateY(24px); opacity: .4; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .rm-tmenu, .rm-hid, .rm-pop.rm-view { animation: none; } .vw-tog i::after, .rm-dots button { transition: none; } }
 .mt-tile--share.is-float, .mt-tile--share.is-float video.is-contain { background: #111 !important; }
+
+/* The room while it joins (a huddle or Start now goes straight in): the stage itself with one line, so nothing moves when the
+   faces arrive. Meetings pass 2026-10-14. */
+.rm-joining { min-height: 100%; align-items: center; justify-content: center; color: #f4efe0; }
+.rm-joining__in { display: grid; justify-items: center; gap: 10px; text-align: center; padding: 24px; font: 400 14px/1.4 var(--h-font); }
+.rm-joining__in b { font: 400 22px/1.25 var(--h-serif, Georgia, serif); }
+.rm-joining__in span:last-child { opacity: .75; }
+.rm-joining .spin { width: 22px; height: 22px; }
+
+/* The recording control (hosts) and its menu, and the ringing line. Meetings pass 2026-10-14. */
+.rm-rec.is-none { background: rgba(255,255,255,.12); color: #e8eadf; } .rm-rec.is-none i { background: #b9bcb0; animation: none; }
+.rm-rec--btn { border: 0; cursor: pointer; }
+.rm-rec--btn .h-i { width: 12px; height: 12px; transform: rotate(90deg); margin-left: 2px; }
+.rm-rec--btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.rm-top { position: relative; }
+.rm-recmenu { position: absolute; top: calc(100% - 4px); left: 14px; z-index: 30; width: min(320px, calc(100vw - 28px)); display: grid; gap: 2px; padding: 6px; border-radius: 14px; background: #fffdf8; color: #1d211b; box-shadow: 0 14px 40px rgba(0,0,0,.35); }
+.rm-recmenu button { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 8px 10px; border: 0; border-radius: 10px; background: transparent; text-align: left; cursor: pointer; font: 400 14px/1.3 var(--h-font); color: inherit; }
+.rm-recmenu button:hover, .rm-recmenu button:focus-visible { background: #f1ebdc; outline: none; }
+.rm-recmenu button[aria-checked="true"] { background: #ece4d0; }
+.rm-recmenu b { display: block; font-weight: 600; } .rm-recmenu small { display: block; color: #57534a; font-size: 12.5px; }
+.rm-recmenu .h-i { width: 16px; height: 16px; flex: none; }
+.rm-recmenu p { margin: 4px 10px 6px; font-size: 12.5px; color: #57534a; }
+.rm-ring__dot { width: 9px; height: 9px; border-radius: 50%; background: #5fb27a; flex: none; animation: pulse 1.2s infinite; }
