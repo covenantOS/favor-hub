@@ -14,9 +14,10 @@ import { DEFAULT_EXTRA_DOMAINS, parseDomains } from '../session';
 import { aiSettings, saveAiSettings } from '../ai/admin';
 import { monthOf, utcDay } from '../ai/guard';
 import { hubSettings, noteHubWrite } from './hubcache';
+import { cleanAccess } from '../access';
 
 export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects' | 'people' | 'ai';
-export type Kind = 'enum' | 'int' | 'text' | 'date';
+export type Kind = 'enum' | 'int' | 'text' | 'date' | 'access';
 
 export interface Opt {
   value: string;
@@ -306,12 +307,15 @@ export const DEFS: Def[] = [
   hubDef({ id: 'clips.max_min', area: 'clips', label: 'Longest recording', hint: 'The recorder stops a clip at this length.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '45' }),
   hubDef({ id: 'clips.share_default', area: 'clips', label: 'Sharing link on a new clip', hint: 'A person can still switch the link on or off for each clip.', kind: 'enum', options: ON_OFF, def: 'off' }),
   // -------------------------------------------------------------------------------------------------------- Chat
-  hubDef({ id: 'chat.enabled', area: 'chat', label: 'Who can use Chat', hint: 'Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
-  hubDef({ id: 'learn.enabled', area: 'chat', group: 'Learn', label: 'Who can use Learn', hint: 'Admins and HR only, every signed-in staff member, or nobody. Courses and assignments are built by admins and HR either way.', kind: 'enum', options: [{ value: 'admins', label: 'Admins and HR only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'chat.enabled', area: 'chat', label: 'Who can use Chat', hint: 'Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'group', label: 'Chosen people and teams' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'chat.access', area: 'chat', label: 'Who is in Chat', hint: 'Used when Who can use Chat is set to Chosen people and teams. Admins always have it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":[],"teams":[]}' }),
+  hubDef({ id: 'learn.enabled', area: 'chat', group: 'Learn', label: 'Who can use Learn', hint: 'Admins and HR only, every signed-in staff member, or nobody. Courses and assignments are built by admins and HR either way.', kind: 'enum', options: [{ value: 'admins', label: 'Admins and HR only' }, { value: 'staff', label: 'All staff' }, { value: 'group', label: 'Chosen people and teams' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'learn.access', area: 'chat', group: 'Learn', label: 'Who is in Learn', hint: 'Used when Who can use Learn is set to Chosen people and teams. Admins always have it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":[],"teams":[]}' }),
   hubDef({ id: 'requests.notify', area: 'chat', group: 'Request board', label: 'Request notices', hint: 'Send to, @mentions, comments and Waiting on reach Today, the bell and a Chat card. Off records them on the request only.', kind: 'enum', options: ON_OFF, def: 'off' }),
   hubDef({ id: 'requests.email', area: 'chat', group: 'Request board', label: 'Request email', hint: 'Each notice also goes by email, unless the person chose a daily summary or none. Only when request notices are on.', kind: 'enum', options: ON_OFF, def: 'on' }),
   hubDef({ id: 'requests.notify.only', area: 'chat', group: 'Request board', label: 'Notices while off', hint: 'Email addresses, separated by commas, that still get request notices while the setting above is off.', kind: 'text', def: '' }),
-  hubDef({ id: 'mail.enabled', area: 'chat', group: 'Mail', label: 'Who can use Mail', hint: 'Each person sees only their own Gmail. Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'mail.enabled', area: 'chat', group: 'Mail', label: 'Who can use Mail', hint: 'Each person sees only their own Gmail. Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'group', label: 'Chosen people and teams' }, { value: 'off', label: 'Off' }], def: 'admins' }),
+  hubDef({ id: 'mail.access', area: 'chat', group: 'Mail', label: 'Who is in Mail', hint: 'Used when Who can use Mail is set to Chosen people and teams. Admins always have it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":[],"teams":[]}' }),
   hubDef({ id: 'mail.write', area: 'chat', group: 'Mail', label: 'Change and send from Mail', hint: 'Off keeps Mail read only. Reply, archive and the rest open Gmail.', kind: 'enum', options: ON_OFF, def: 'on' }),
   // ---------------------------------------------------------------------------------------------------- People
   hubDef({
@@ -393,6 +397,11 @@ export function normalize(d: Def, raw: unknown): string {
     if (v === '') return '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v + 'T12:00:00Z'))) throw new HttpError(400, 'bad_value', `${d.label} is a date, YYYY-MM-DD.`);
     return v;
+  }
+  if (d.kind === 'access') {
+    const c = cleanAccess(typeof raw === 'string' ? raw : JSON.stringify(raw ?? {}));
+    if (!c.ok) throw new HttpError(400, 'bad_value', `${d.label}: ${c.error}`);
+    return c.value;
   }
   const t = v.slice(0, WORDING.find((w) => w.id === d.id)?.max ?? 400);
   if (d.id === 'expenses.approver_name' && !t) throw new HttpError(400, 'bad_value', 'The approver needs a name.');

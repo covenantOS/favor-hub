@@ -1,5 +1,6 @@
 // Favor Chat's data layer. Every function takes the D1 binding and the signed-in person's email; access rules live here
 // (private channels, direct messages and groups answer only their members), so a route cannot forget them.
+import { keepAllowed } from '../access';
 import { HttpError, nowIso, type Env } from '../http';
 import { TESTER_REFUSAL, isHiddenAccount, isTester, notTesterSql } from '../testuser';
 import { isAdminEmail } from '../session';
@@ -459,7 +460,9 @@ export async function post(env: ChatEnv, input: PostInput): Promise<Posted> {
   want.delete(email);
   const muted = await env.DB.prepare('SELECT email FROM chat_members WHERE channel_id = ? AND muted = 1').bind(channel.id).all<{ email: string }>();
   const mutedSet = new Set((muted.results || []).map((m) => m.email));
-  const notify = [...want.entries()].filter(([e, k]) => (k === 'mention' && mm.people.includes(e)) || !mutedSet.has(e)).map(([e, k]) => ({ email: e, kind: k }));
+  // Only people who may use Chat are told: someone outside the chat.access group keeps the stored message but gets no bell, push or email.
+  const inChat = new Set(await keepAllowed(env as never, 'chat', [...want.keys()]));
+  const notify = [...want.entries()].filter(([e, k]) => inChat.has(e) && ((k === 'mention' && mm.people.includes(e)) || !mutedSet.has(e))).map(([e, k]) => ({ email: e, kind: k }));
   if (notify.length) {
     await env.DB.batch(notify.map((n) => env.DB.prepare('INSERT OR IGNORE INTO chat_mentions (message_id, channel_id, email, kind, created_at) VALUES (?, ?, ?, ?, ?)').bind(id, channel.id, n.email, n.kind, now)));
   }

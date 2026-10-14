@@ -2,6 +2,7 @@
 // who may open Learn and whom notices may reach (the request board's gate), so a switched-off notice setting shows nothing.
 import type { Env } from '../http';
 import type { HubUser } from '../session';
+import { groupMembers } from '../access';
 import { mayHear } from '../requests/tasks';
 import { isHrOrAdmin } from '../people-dev';
 import { hasAssignment, learnMode, learnReady, lower } from './db';
@@ -24,6 +25,11 @@ export async function learnAccess(env: Env, user: HubUser): Promise<{ learn: boo
   try {
     const [mode, ready] = await Promise.all([learnMode(env), learnReady(env)]);
     if (!ready || mode === 'off') return { learn: false, learnAdmin: false };
+    if (mode === 'group') {
+      // learn.access: admins and the named people and teams. Assigned courses do not open Learn for anyone else.
+      const inGroup = user.role === 'admin' || (await groupMembers(env, 'learn')).has(lower(user.email));
+      return { learn: inGroup, learnAdmin: inGroup && (await isHrOrAdmin(env, user)) };
+    }
     const author = await isHrOrAdmin(env, user);
     return { learn: mode === 'staff' || author || (await hasAssignment(env, user.email)), learnAdmin: author };
   } catch {

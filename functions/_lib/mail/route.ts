@@ -20,6 +20,7 @@
 //
 // Who may use it: hub setting mail.enabled (admins by default, staff, off). Changes and sending also need mail.write on (the
 // default) and the person's gmail.modify grant; without it every change answers 403 mail_scope and the page asks for it.
+import { allowedBy, featureMode, groupMembers, refusal, type AccessMode } from '../access';
 import { effective } from '../admin/settings';
 import { isTester } from '../testuser';
 import { SAMPLE_TOKEN, sampleFetcher, samplePartners } from './sample';
@@ -40,16 +41,16 @@ import { freshText } from './smart';
 import { assist, cardOf, classify, customsOf, decorate, forgetScan, isCat, isCustom, overview, saveSummary, savedSummary, smartView, tidy, TEXT_MODEL, waitingOn, type SmartCtx } from './smart';
 import { aiFor } from '../ai/guard';
 
-export type MailMode = 'admins' | 'staff' | 'off';
+export type MailMode = AccessMode;
 
 export async function mailMode(env: Env): Promise<MailMode> {
-  const v = (await effective(env, 'mail.enabled', undefined, 'admins').catch(() => 'admins')).toLowerCase();
-  return v === 'staff' || v === 'off' ? v : 'admins';
+  return featureMode(env, 'mail');
 }
 
-export function mayUseMail(mode: MailMode, user: Pick<HubUser, 'role' | 'via'> | null): boolean {
-  if (!user || mode === 'off' || user.via !== 'google') return false;
-  return mode === 'staff' || user.role === 'admin';
+/** `members` is the group (mail.access); it only matters in group mode. */
+export function mayUseMail(mode: MailMode, user: Pick<HubUser, 'role' | 'via' | 'email'> | null, members: Set<string> | null = null): boolean {
+  if (!user || user.via !== 'google') return false;
+  return allowedBy(mode, members, user);
 }
 
 export interface MailCtx {
@@ -134,7 +135,7 @@ async function route(ctx: MailCtx): Promise<Response> {
   const url = new URL(request.url);
   if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
   const mode = await mailMode(env);
-  if (!mayUseMail(mode, user)) return errorJson('forbidden', mode === 'off' ? 'Mail is switched off.' : user.via !== 'google' ? 'Mail needs a Google sign-in.' : 'Mail is open to admins for now.', 403);
+  if (!mayUseMail(mode, user, mode === 'group' ? await groupMembers(env, 'mail') : null)) return errorJson('forbidden', user.via !== 'google' && mode !== 'off' ? 'Mail needs a Google sign-in.' : refusal(mode, 'Mail'), 403);
   if (!sameSite(request)) return errorJson('cross_site', 'That change did not come from FavorOS. Reload the page and try again.', 403);
   useRowStore(env.DB as any);
   void pruneRows();

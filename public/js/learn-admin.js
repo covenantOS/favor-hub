@@ -158,7 +158,7 @@
   function drawCourses(body) {
     const order = { published: 0, draft: 1, archived: 2 };
     const list = A.overview.courses.slice().sort((a, b) => order[a.status] - order[b.status] || a.title.localeCompare(b.title));
-    const settings = me.admin ? '<section class="ln-card la-form" id="la-set" aria-label="Who can use Learn"><h2>Who can use Learn</h2><p class="ln-sum" style="margin:0">Admins and HR build and assign courses either way.</p><div class="la-f" style="max-width:320px"><select id="la-mode" aria-label="Who can use Learn"><option value="admins">Admins and HR only</option><option value="staff">All staff</option><option value="off">Off</option></select></div></section>' : '';
+    const settings = me.admin ? '<section class="ln-card la-form" id="la-set" aria-label="Who can use Learn"><h2>Who can use Learn</h2><p class="ln-sum" style="margin:0">Admins and HR build and assign courses either way.</p><div class="la-f" style="max-width:320px"><select id="la-mode" aria-label="Who can use Learn"><option value="admins">Admins and HR only</option><option value="staff">All staff</option><option value="group">Chosen people and teams (pick them in Admin, Chat)</option><option value="off">Off</option></select></div></section>' : '';
     body.innerHTML = `<div class="ln-list">${list.length ? list.map((c) => `<div class="ln-card la-row ln-c--${esc(c.color)}">
         ${colorTile(c.color, 'course')}
         <div class="la-row__t"><b>${link('/learn/admin/course/?c=' + encodeURIComponent(c.id), esc(c.title))}</b><span>${statusChip(c.status)} ${c.audience ? esc(c.audience) + ' · ' : ''}${plural(c.lessons, 'lesson')}${c.minutes ? ' · ' + mins(c.minutes) : ''}</span></div>

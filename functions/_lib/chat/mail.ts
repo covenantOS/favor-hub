@@ -8,6 +8,7 @@
 // Nobody is emailed for a muted conversation, when they turned Chat email off, when they read or wrote in the conversation in the
 // last ten minutes, or twice for one message (chat_email_sent holds a once-only row per person and message, taken before the send).
 // Only messages created after the first run count (chat_email_state since), so there is no backfill.
+import { keepAllowed } from '../access';
 import { nowIso, type Env } from '../http';
 import { effective } from '../admin/settings';
 import { isHiddenAccount, isTester } from '../testuser';
@@ -107,6 +108,8 @@ async function eligible(env: MailEnv, email: string): Promise<boolean> {
     u = await env.DB.prepare('SELECT blocked FROM hub_users WHERE lower(email) = ? AND blocked = 0').bind(email).first<{ blocked: number }>();
   }
   if (!u) return false;
+  // Someone outside the chat.access group gets no Chat email; their stored messages stay.
+  if ((await keepAllowed(env as never, 'chat', [email])).length === 0) return false;
   return chatEmailOn(env, email);
 }
 

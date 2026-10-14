@@ -4,6 +4,7 @@
 //
 // The VAPID key pair lives in the Pages secret VAPID_JWK (a private P-256 JWK). The public key is derived from it, never stored apart.
 // iPhone delivers web push only to an app added to the Home Screen (iOS 16.4 and later).
+import { keepAllowed } from './access';
 import { nowIso, type Env } from './http';
 import { hold, quietNow } from './quiet';
 import { blockedSet } from './blocked';
@@ -135,6 +136,12 @@ export async function sendPush(env: PushEnv, sub: PushSub, payload: PushPayload,
 export async function pushToPeople(env: PushEnv, emails: string[], payload: PushPayload, fetcher: typeof fetch = fetch, opts: { loud?: boolean; messageId?: number | null; now?: Date } = {}): Promise<number> {
   let list = [...new Set(emails.map((e) => e.toLowerCase()))].slice(0, 40);
   if (!list.length || !env.VAPID_JWK) return 0;
+  // A push that opens Chat, Mail or Learn goes only to people who may use that feature (access groups, functions/_lib/access.ts).
+  const feature = /^\/chat(\/|\?|$)/.test(payload.url || '') ? 'chat' : /^\/mail(\/|\?|$)/.test(payload.url || '') ? 'mail' : /^\/learn(\/|\?|$)/.test(payload.url || '') ? 'learn' : null;
+  if (feature) {
+    list = await keepAllowed(env, feature, list);
+    if (!list.length) return 0;
+  }
   // A blocked or offboarded person gets no push, even from a phone that is still subscribed.
   const blocked = await blockedSet(env, list);
   if (blocked.size) list = list.filter((e) => !blocked.has(e));

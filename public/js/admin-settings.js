@@ -8,8 +8,63 @@
   var area = root.dataset.adArea;
   var S = [];
 
+  /* Access groups (chat.access, mail.access, learn.access): chips for the people and teams, and a picker over the staff directory. */
+  var DIR = { people: [], teams: [] };
+  function accParse(v) {
+    try { var o = JSON.parse(v || '{}'); return { emails: (o.emails || []).slice(), teams: (o.teams || []).slice() }; } catch (e) { return { emails: [], teams: [] }; }
+  }
+  function accJson(a) {
+    return JSON.stringify({ emails: a.emails.slice().sort(), teams: a.teams.slice().sort(function (x, y) { return x.localeCompare(y); }) });
+  }
+  function accName(email) {
+    var p = DIR.people.filter(function (x) { return x.email === email; })[0];
+    return p ? p.name : email;
+  }
+  function accChips(a) {
+    var out = a.teams.map(function (t) { return '<span class="ad-chip ad-chip--team">' + E(t) + ' team<button type="button" class="ad-chip__x" data-acc-rm="t|' + E(t) + '" aria-label="Remove the ' + E(t) + ' team">x</button></span>'; });
+    a.emails.forEach(function (m) { out.push('<span class="ad-chip">' + E(accName(m)) + '<button type="button" class="ad-chip__x" data-acc-rm="p|' + E(m) + '" aria-label="Remove ' + E(accName(m)) + '">x</button></span>'); });
+    return out.length ? out.join('') : '<span class="ad-set__who">Nobody yet. Admins always have access.</span>';
+  }
+  function accControl(s, id) {
+    var a = accParse(s.value);
+    return '<div class="ad-acc" data-acc="' + E(s.id) + '"><input type="hidden" id="' + id + '" data-id="' + E(s.id) + '" value="' + E(accJson(a)) + '"><div class="ad-acc__chips">' + accChips(a) + '</div>' +
+      '<input class="ad-field" type="search" autocomplete="off" placeholder="Add a person or a team" aria-label="Add a person or a team" data-acc-q="' + E(s.id) + '"><div class="ad-acc__list" data-acc-list="' + E(s.id) + '" hidden></div></div>';
+  }
+  function accRefresh(id, a) {
+    var box = root.querySelector('[data-acc="' + id + '"]');
+    var hid = box.querySelector('[data-id]');
+    hid.value = accJson(a);
+    box.querySelector('.ad-acc__chips').innerHTML = accChips(a);
+    hid.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  function accSearch(id, q) {
+    var list = root.querySelector('[data-acc-list="' + id + '"]');
+    var a = accParse(valueOf(id));
+    q = q.trim().toLowerCase();
+    if (!q) { list.hidden = true; list.innerHTML = ''; return; }
+    var teams = DIR.teams.filter(function (t) { return a.teams.indexOf(t) < 0 && t.toLowerCase().indexOf(q) >= 0; }).slice(0, 4).map(function (t) { return '<button type="button" class="ad-acc__opt" data-acc-pick="t|' + E(t) + '"><b>' + E(t) + '</b> <span class="ad-set__who">the whole team</span></button>'; });
+    var people = DIR.people.filter(function (p) { return a.emails.indexOf(p.email) < 0 && (p.name + ' ' + p.email + ' ' + p.team + ' ' + p.title).toLowerCase().indexOf(q) >= 0; }).slice(0, 8).map(function (p) { return '<button type="button" class="ad-acc__opt" data-acc-pick="p|' + E(p.email) + '"><b>' + E(p.name) + '</b> <span class="ad-set__who">' + E([p.title, p.team].filter(Boolean).join(', ')) + ' · ' + E(p.email) + '</span></button>'; });
+    var all = teams.concat(people);
+    list.innerHTML = all.length ? all.join('') : '<span class="ad-set__who">No match.</span>';
+    list.hidden = false;
+  }
+  root.addEventListener('input', function (e) { var q = e.target.dataset && e.target.dataset.accQ; if (q) accSearch(q, e.target.value); });
+  root.addEventListener('click', function (e) {
+    var pk = e.target.closest('[data-acc-pick]'), rm = e.target.closest('[data-acc-rm]');
+    var t = pk || rm;
+    if (!t) return;
+    var box = t.closest('[data-acc]'), id = box.dataset.acc, a = accParse(valueOf(id));
+    var parts = (pk ? pk.dataset.accPick : rm.dataset.accRm).split('|'), kind = parts[0], val = parts.slice(1).join('|');
+    var key = kind === 't' ? 'teams' : 'emails';
+    if (pk) { if (a[key].indexOf(val) < 0) a[key].push(val); } else a[key] = a[key].filter(function (x) { return x !== val; });
+    box.querySelector('[data-acc-q]').value = '';
+    box.querySelector('[data-acc-list]').hidden = true;
+    accRefresh(id, a);
+  });
+
   function control(s) {
     var id = 'f-' + s.id.replace(/\W/g, '-');
+    if (s.kind === 'access') return accControl(s, id);
     if (s.kind === 'enum') return '<select class="ad-field" id="' + id + '" data-id="' + E(s.id) + '">' + s.options.map(function (o) { return '<option value="' + E(o.value) + '"' + (o.value === s.value ? ' selected' : '') + '>' + E(o.label) + '</option>'; }).join('') + '</select>';
     if (s.kind === 'int') return '<span style="display:flex;gap:8px;align-items:center"><input class="ad-field ad-field--num" id="' + id + '" data-id="' + E(s.id) + '" type="number" inputmode="numeric" min="' + s.min + '" max="' + s.max + '" value="' + E(s.value) + '"><span class="ad-set__who">' + E(s.unit) + '</span></span>';
     if (s.kind === 'date') return '<input class="ad-field" id="' + id + '" data-id="' + E(s.id) + '" type="date" value="' + E(s.value) + '">';
@@ -172,6 +227,7 @@
 
   A.api('/api/admin/settings?area=' + area).then(function (d) {
     S = d.settings;
+    DIR = (d.extras && d.extras.directory) || DIR;
     subs = (d.extras && d.extras.overrides) || [];
     root.innerHTML = area === 'ai' ? extras(d.extras || {}) + groups() : groups() + extras(d.extras || {});
     drawSubs();

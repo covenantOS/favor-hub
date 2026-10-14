@@ -90,7 +90,7 @@ async function route(ctx: Ctx): Promise<Response> {
   const st = await standing(env, actor);
   if (!st.may) {
     const mode = await learnMode(env);
-    return errorJson('forbidden', mode === 'off' ? 'Learn is switched off.' : 'Learn is open to FavorOS admins and HR for now.', 403);
+    return errorJson('forbidden', mode === 'off' ? 'Learn is switched off.' : mode === 'group' ? 'Learn is open to a chosen group for now.' : 'Learn is open to FavorOS admins and HR for now.', 403);
   }
   await ensureSeed(env).catch((err) => console.error('[learn] seed', err));
   const url = new URL(request.url);

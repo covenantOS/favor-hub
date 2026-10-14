@@ -2,6 +2,7 @@
 // the person through Projects' own task code (createTask, patchTask, deleteTask), so it shows on their Today and in My tasks, with a
 // link back to the course. Finishing or removing the assignment closes the task. Without Projects nothing here does anything.
 import type { Env } from '../http';
+import { keepAllowed } from '../access';
 import { effective } from '../admin/settings';
 import type { Actor } from '../requests/tasks';
 
@@ -30,6 +31,8 @@ const system = (email: string): Actor => ({ email: email || 'learn', name: 'Lear
 /** Makes the person's task and returns its id, or null when Projects is off or refuses. */
 export async function makeTask(env: Env, t: TaskInput): Promise<string | null> {
   if (!(await projectsOn(env))) return null;
+  // No Projects task (and so nothing on Today) for a person outside the learn.access group; the assignment stays on file.
+  if (!(await keepAllowed(env, 'learn', [t.email])).length) return null;
   try {
     const { createTask, addFile } = await import('../projects/tasks');
     const actor = system(t.by);

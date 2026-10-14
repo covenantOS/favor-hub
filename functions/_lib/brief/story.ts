@@ -1,6 +1,7 @@
 // One partner's whole history in one list (gifts, calls, emails, meetings, chat mentions, notes, events, clips), the next best action for
 // them, and "What's the story with this partner?" written from those facts. Read only. Partner data goes only to people the Work Center
 // gate lets in; the routes that call this are wrapped in work().
+import { keepAllowed } from '../access';
 import type { Env } from '../http';
 import { giftsForPartner } from '../work/gifts-svc';
 import { GIVEN } from '../work/gifts';
@@ -68,6 +69,7 @@ async function hubEvents(env: Env, me: string, name: string, cid: string, emails
   const phrase = words.length >= 2 && name.trim().length >= 8 ? `%${name.trim().toLowerCase()}%` : '';
   const link = `%/work/partner/${cid}%`;
   try {
+    if (!(await keepAllowed(env, 'chat', [me])).length) throw new Error('no chat access');
     const rows = await env.DB.prepare(
       `SELECT m.id, m.channel_id, m.thread_id, m.email, m.body, m.created_at, c.kind, c.name,
               COALESCE((SELECT name FROM meet_directory d WHERE lower(d.email) = lower(m.email) LIMIT 1), m.email) AS who

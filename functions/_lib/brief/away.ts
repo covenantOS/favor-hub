@@ -1,5 +1,6 @@
 // "Since you were away": what changed for one person while they were off for a day or more. The visit table (db/briefing.sql) records
 // when Today was last opened; a visit more than four hours after the last one starts a new session and remembers where the old one ended.
+import { keepAllowed } from '../access';
 import type { Env } from '../http';
 import { cacheGet, plural, sig } from './text';
 
@@ -106,7 +107,9 @@ export async function awayFor(i: AwayInput): Promise<Away> {
     });
   }
 
-  const [mentions, messages] = await Promise.all([
+  // Chat lines appear only for a person who may use Chat (access groups); their stored messages stay hidden.
+  const chatOpen = (await keepAllowed(env, 'chat', [me])).length > 0;
+  const [mentions, messages] = chatOpen ? await Promise.all([
     one(env, 'SELECT COUNT(*) AS n FROM chat_mentions WHERE email = ? AND created_at > ?', me, from),
     one(
       env,
@@ -115,7 +118,7 @@ export async function awayFor(i: AwayInput): Promise<Away> {
       me,
       from
     ),
-  ]);
+  ]) : [0, 0];
   if (messages || mentions) {
     parts.push({ key: 'chat', label: 'Chat', count: messages, line: [messages ? `${plural(messages, 'new message')} in your channels` : '', mentions ? `${plural(mentions, 'mention')} of you` : ''].filter(Boolean).join(', '), href: '/chat/' });
   }

@@ -12,6 +12,7 @@ import { badgeRows, ownerIds } from '../work/mine';
 import { giftsResponse, mayGifts } from '../work/gifts-svc';
 import { effective, mayRecordClips } from '../admin/settings';
 import { chatMode, mayUse } from '../chat/gate';
+import { groupMembers } from '../access';
 import { unreadMentionCount } from '../chat/db';
 import { mayHear, noticesFor } from '../requests/tasks';
 // learn: begin
@@ -80,6 +81,8 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     mayOpenGiftEntry(env, user),
     mailMode(env),
   ]);
+  // The access groups (functions/_lib/access.ts): read only when a feature is in group mode.
+  const [chatMembers, mailMembers] = await Promise.all([chatM === 'group' ? groupMembers(env, 'chat') : null, mailM === 'group' ? groupMembers(env, 'mail') : null]);
   const approver = user.via === 'google' && approverSet.has(email);
   return {
     admin,
@@ -90,7 +93,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     clips: true,
     meetings: admin || String(meetRelease).toLowerCase() === 'staff',
     clipsRecord,
-    chat: mayUse(chatM, user),
+    chat: mayUse(chatM, user, chatMembers),
     projects,
     tasks: anyRequest,
     bell: true,
@@ -98,7 +101,7 @@ export async function accessOf(env: Env, request: Request, user: HubUser): Promi
     learnAdmin: learn.learnAdmin,
     hr,
     giftEntry,
-    mail: mayUseMail(mailM, user),
+    mail: mayUseMail(mailM, user, mailMembers),
   };
 }
 

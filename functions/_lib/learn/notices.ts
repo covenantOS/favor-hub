@@ -6,6 +6,7 @@
 //   due_today   on the due date
 //   overdue     the day after, then once a week, four times at most
 // The weekday morning pass (functions/api/work/digest.ts) writes the due reminders and emails whatever is waiting, one email per person.
+import { keepAllowed } from '../access';
 import { nowIso, type Env } from '../http';
 import { staffDirectory } from '../people';
 import { emailOn, mailMode, send } from '../requests/mail';
@@ -44,7 +45,8 @@ const itemOf = (kind: LearnKind, a: AssignmentFacts, actor: string, at: string):
 export async function tell(env: TaskEnv, kind: LearnKind, a: AssignmentFacts, actor: Actor | null): Promise<number> {
   const gate = await noticeGate(env);
   const to = lower(a.email);
-  if (!gate(to) || (actor && lower(actor.email) === to)) return 0;
+  // A person outside the learn.access group is told nothing; the assignment stays on file.
+  if (!gate(to) || (actor && lower(actor.email) === to) || !(await keepAllowed(env, 'learn', [to])).length) return 0;
   const now = env.CLOCK ? env.CLOCK.toISOString() : nowIso();
   const r = await env.DB.prepare(
     'INSERT INTO learn_notices (email, kind, assignment_id, title, note, href, actor_email, actor_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
@@ -198,7 +200,7 @@ export async function learnDailyPass(base: TaskEnv, now = new Date()): Promise<L
   const byPerson = new Map<string, typeof unmailed>();
   for (const n of unmailed) byPerson.set(n.email, [...(byPerson.get(n.email) || []), n]);
   for (const [email, list] of byPerson) {
-    if (!gate(email) || (await mailMode(env, email)) === 'off') continue;
+    if (!gate(email) || (await mailMode(env, email)) === 'off' || !(await keepAllowed(env, 'learn', [email])).length) continue;
     // Claim every row first so a second run in the same morning sends nothing.
     const mine: typeof list = [];
     for (const n of list) {

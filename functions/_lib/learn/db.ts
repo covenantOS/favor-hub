@@ -5,12 +5,12 @@
 // Learn is switched by the hub setting learn.enabled (admins, staff or off). Until db/learn.sql is applied every route answers
 // not_ready and the menu entry stays hidden.
 import { HttpError, newId, type Env } from '../http';
-import { effective } from '../admin/settings';
+import { featureMode, groupMembers, type AccessMode } from '../access';
 import { isHr } from '../people-dev';
 import type { Actor } from '../requests/tasks';
 import videos from '../../../src/data/videos.json' with { type: 'json' };
 
-export type LearnMode = 'admins' | 'staff' | 'off';
+export type LearnMode = AccessMode;
 export type LessonKind = 'video' | 'article' | 'doc' | 'page' | 'clip' | 'link' | 'quiz';
 export const LESSON_KINDS: LessonKind[] = ['video', 'article', 'doc', 'page', 'clip', 'link', 'quiz'];
 export const COLORS = ['leaf', 'teal', 'sky', 'sun', 'dusk', 'terra', 'slate'];
@@ -83,8 +83,7 @@ export const addDays = (ymd: string, n: number) => new Date(Date.parse(ymd + 'T1
 export const bad = (message: string, code = 'bad_request', status = 400) => new HttpError(status, code, message);
 
 export async function learnMode(env: Env): Promise<LearnMode> {
-  const v = lower(await effective(env, 'learn.enabled', undefined, 'admins').catch(() => 'admins'));
-  return v === 'staff' || v === 'off' ? v : 'admins';
+  return featureMode(env, 'learn');
 }
 
 /** False until db/learn.sql is applied. */
@@ -119,8 +118,10 @@ export async function standing(env: Env, actor: Actor): Promise<Standing> {
   const [mode, author] = await Promise.all([learnMode(env), isAuthor(env, actor)]);
   // A person who was given a course reaches it from Today even while the menu entry is for admins and HR only.
   const given = mode === 'admins' && !author ? await hasAssignment(env, actor.email) : false;
-  const may = mode === 'off' ? false : mode === 'staff' ? true : author || given;
-  return { author, mode, may };
+  // Group mode (learn.access): admins and the named people and teams. Everyone else has no Learn, assigned courses included.
+  const inGroup = mode === 'group' ? actor.admin || (await groupMembers(env, 'learn')).has(lower(actor.email)) : false;
+  const may = mode === 'off' ? false : mode === 'staff' ? true : mode === 'group' ? inGroup : author || given;
+  return { author: mode === 'group' && !inGroup ? false : author, mode, may };
 }
 
 export function slugify(s: string): string {

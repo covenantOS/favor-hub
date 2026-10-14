@@ -91,6 +91,15 @@ export async function areaExtras(env: Env, area: Area) {
   if (area === 'clips') return clipsExtras(env);
   if (area === 'expenses') return expenseExtras(env);
   if (area === 'receipts') return {};
+  if (area === 'chat') return { directory: await accessDirectory(env) };
   if (area === 'ai') return aiExtras(env);
   return {};
+}
+
+/** The staff directory the access-group picker searches: active people and the teams they sit on. */
+async function accessDirectory(env: Env) {
+  const r = await env.DB.prepare(`SELECT lower(email) AS email, name, title, team FROM meet_directory WHERE active = 1 ORDER BY name`).all<{ email: string; name: string; title: string; team: string }>().catch(() => ({ results: [] as Array<{ email: string; name: string; title: string; team: string }> }));
+  const people = (r.results || []).filter((p) => !/^tester/.test(p.email));
+  const teams = [...new Set(people.map((p) => p.team).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  return { people, teams };
 }
