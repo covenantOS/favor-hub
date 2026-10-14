@@ -38,7 +38,7 @@ describe("defaults keep today's behavior", () => {
     assert.equal(work['wc.thank_mode'].value, 'one');
     assert.equal(work['wc.thank_days'].value, '21');
     assert.equal(work['wc.start.director'].value, 'gifts');
-    assert.equal(work['wc.start.support'].value, 'hqty');
+    assert.equal(work['wc.start.support'].value, 'intake');
     assert.equal(work['wc.start.partner_care'].value, 'cadence');
     assert.equal(work['wc.rollout.rdd'].value, '2026-10-12');
     assert.equal(work['wc.rollout.support'].value, '2026-10-19');

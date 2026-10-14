@@ -245,6 +245,7 @@
   function settle(main) {
     if (settling) settling.finish();
     main.classList.add('is-settling');
+    const t0 = performance.now();
     const of = window.fetch;
     let pending = 0, done = false, quietT = 0;
     const finish = () => {
@@ -261,7 +262,8 @@
       let ours = false;
       try { const u = new URL(typeof input === 'string' ? input : (input && input.url) || '', location.href); ours = !done && u.origin === location.origin && u.pathname.indexOf('/api/') === 0; } catch (e) { ours = false; }
       const p = of.apply(this, arguments);
-      if (ours) { pending++; clearTimeout(quietT); const end = () => { pending = Math.max(0, pending - 1); quiet(); }; p.then(end, end); }
+      // Only the reads a page starts in its first moments hold it, each for at most 900 ms: a long poll or a presence read (Chat) never does.
+      if (ours && performance.now() - t0 < 600) { pending++; clearTimeout(quietT); let ended = false; const end = () => { if (ended) return; ended = true; pending = Math.max(0, pending - 1); quiet(); }; p.then(end, end); setTimeout(end, 900); }
       return p;
     };
     window.fetch = wrapped;
@@ -272,7 +274,7 @@
       body[k] = RP[k];
       RP[k] = function () {
         const q = body[k].apply(this, arguments);
-        if (!done) { pending++; clearTimeout(quietT); const end = () => { pending = Math.max(0, pending - 1); quiet(); }; q.then(end, end); }
+        if (!done && performance.now() - t0 < 1200) { pending++; clearTimeout(quietT); let ended = false; const end = () => { if (ended) return; ended = true; pending = Math.max(0, pending - 1); quiet(); }; q.then(end, end); setTimeout(end, 900); }
         return q;
       };
     });

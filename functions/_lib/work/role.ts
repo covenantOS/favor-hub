@@ -102,6 +102,6 @@ export function mayAssignTo(s: Scope | undefined, fid: string, teamOf: (fid: str
 }
 
 /** The tab the Work Center opens on before a person picks their own (Group 0, 2026-10-10). The ids are the ones tabs register with. */
-export const DEFAULT_TAB: Record<Role, string> = { admin: 'open', director: 'gifts', support: 'hqty', partner_care: 'cadence', grants: 'open' };
+export const DEFAULT_TAB: Record<Role, string> = { admin: 'open', director: 'gifts', support: 'intake', partner_care: 'cadence', grants: 'open' };
 export const START_SCOPES = ['mine', 'partners', 'all'] as const;
 export type StartScope = (typeof START_SCOPES)[number];

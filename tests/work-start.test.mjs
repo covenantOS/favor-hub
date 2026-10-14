@@ -22,7 +22,7 @@ describe('start view', () => {
   it('has a default tab for each role and no saved choice at first', async () => {
     const e = env();
     assert.equal((await start.getStart(e, 'pat@example.org', dir)).defaultTab, 'gifts');
-    assert.equal(role.DEFAULT_TAB.support, 'hqty');
+    assert.equal(role.DEFAULT_TAB.support, 'intake');
     assert.equal(role.DEFAULT_TAB.partner_care, 'cadence');
     assert.equal((await start.getStart(e, 'pat@example.org', dir)).pref, null);
   });

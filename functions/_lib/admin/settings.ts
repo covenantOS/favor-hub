@@ -162,15 +162,13 @@ export const START_TABS: Opt[] = [
   { value: 'gifts', label: 'Gifts to thank' },
   { value: 'asks', label: 'Asks' },
   { value: 'cadence', label: 'Cadence' },
-  { value: 'hqty', label: 'HQTY letters' },
-  { value: 'declines', label: 'Declines' },
   { value: 'grants', label: 'Grants' },
   { value: 'giftimages', label: 'Gift images' },
 ];
 export const START_ROLES: Array<{ role: string; label: string; def: string }> = [
   { role: 'admin', label: 'Admin', def: 'open' },
   { role: 'director', label: 'Directors', def: 'gifts' },
-  { role: 'support', label: 'Support Team', def: 'hqty' },
+  { role: 'support', label: 'Support Team', def: 'intake' },
   { role: 'partner_care', label: 'Partner Care', def: 'cadence' },
   { role: 'grants', label: 'Grants writers', def: 'open' },
 ];

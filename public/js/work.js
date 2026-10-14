@@ -9,6 +9,8 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 const root = document.getElementById('wc-root');
 if (!root) return;
 const QS = new URLSearchParams(location.search);
+// Thank-you letters and Declines live in Gifts since 2026-10-14; an old link to their Work Center tab lands on the new page.
+{ const mv = { hqty: '/gifts/letters/', declines: '/gifts/declines/' }[QS.get('view') || QS.get('tab') || '']; if (mv) { location.replace(mv); return; } }
 const AS = QS.get('as') || '';
 
 // ------------------------------------------------------------ talking to the hub

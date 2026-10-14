@@ -349,5 +349,6 @@ document.addEventListener('click', (ev) => { const t = ev.target.closest && ev.t
 document.addEventListener('favor:thanked-undone', () => { if (H.data) reload(); });
 
 window.WCHqty = { H, view, count };
-window.WCTabs.registerTab({ id: 'hqty', label: 'HQTY letters', roles: ['support'], after: 'open', count: () => count(), mount: () => view(), warm: () => start() });
+// Thank-you letters moved to Gifts > Thank-you letters (2026-10-14): the tab registers only on that page (gifts-wc-shim.js).
+if (window.WCTabs && window.WCTabs.standIn) window.WCTabs.registerTab({ id: 'hqty', label: 'HQTY letters', roles: ['support'], after: 'open', count: () => count(), mount: () => view(), warm: () => start() });
 })();

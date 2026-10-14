@@ -202,7 +202,8 @@ document.addEventListener('input', (e) => {
 // An undo of a follow-up (the toast's Undo is shared with the other tabs) puts the row back.
 document.addEventListener('favor:thanked-undone', async () => { if (!D.started) return; await load(); W().render(); });
 
-if (window.WCTabs) {
+// Declines moved to Gifts > Declines (2026-10-14): the tab registers only on that page (gifts-wc-shim.js).
+if (window.WCTabs && window.WCTabs.standIn) {
   window.WCTabs.registerTab({ id: 'declines', label: 'Declines', roles: ['partner_care', 'support'], after: 'open', count: () => count(), mount: () => view(), warm: () => start() });
 }
 window.WCDeclines = { start, view, count, D };
