@@ -154,7 +154,7 @@ export class CamFx {
       if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(frame); else setTimeout(frame, 40);
     };
     frame();
-    this.out = canvas.captureStream(24).getVideoTracks()[0];
+    this.out = canvas.captureStream(30).getVideoTracks()[0];
     this.out._raw = raw;
     return this.out;
   }

@@ -387,9 +387,10 @@ async function openRtc(j, isRejoin) {
   items.push({
     name: 'v', kind: 'video', track: S.cam ? local.cam : null,
     simulcast: [
-      { rid: 'f', maxBitrate: 900000, maxFramerate: 24 },
-      { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 350000, maxFramerate: 24 },
-      { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 120000, maxFramerate: 24 },
+      // 720p30 on top (Will, 2026-10-14). A weak link still steps down to h or q on the receiving side.
+      { rid: 'f', maxBitrate: 2500000, maxFramerate: 30 },
+      { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 600000, maxFramerate: 30 },
+      { rid: 'q', scaleResolutionDownBy: 4, maxBitrate: 150000, maxFramerate: 30 },
     ],
   });
   const pub = await rtc.publish(items);
@@ -905,7 +906,7 @@ function paintCtl() {
     el.innerHTML = `
     <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
     <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
-    ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
+    ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>${S.sharing && local.screen ? `<button class="cb${local.screen.contentHint === 'motion' ? ' is-on' : ''}" data-a="sharemotion" aria-pressed="${local.screen.contentHint === 'motion'}" title="Smooth motion for a video you are sharing"><span class="k">${ic('video')}</span>${lab('Video mode', 'Video')}</button>` : ''}` : ''}
     ${canShare ? `<button class="cb cb-play${S.play ? ' is-on' : ''}" data-a="playclip"><span class="k">${ic('screen')}</span>${lab('Play a clip', 'Clip')}</button>` : ''}
     ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc" aria-pressed="${S.cc}"><span class="k">${ic('cc')}</span>${lab('Captions', 'CC')}</button>` : ''}
     ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? lab('Stop rec', 'Stop') : lab('Record', 'Rec')}</button>` : ''}
@@ -1071,6 +1072,7 @@ function onDocClick(e) {
     case 'mic': toggleMic(); break;
     case 'cam': toggleCam(); break;
     case 'share': toggleShare(); break;
+    case 'sharemotion': shareMotion(); break;
     case 'at-pick': atPick(Number(a.dataset.n)); break;
     case 'playclip': closeMore(); pickClip(); break;
     case 'play-yt': { const id = ytId(($('#rm-yt') || {}).value || ''); if (!id) { toast('Paste a YouTube link.'); break; } closePick(); sendPlay({ st: 'play', yt: id, title: 'YouTube video', pos: 0 }); break; }
@@ -1296,14 +1298,24 @@ async function toggleCam() {
   }
   paintCtl(); paintGrid(); paintDevSheet(); syncNow();
 }
+// A screen share: one layer, up to 1080p30 at about 2.8 Mbps. Slides keep their sharpness ('detail'); the presenter switches
+// to smooth motion when they show a video.
+const SHARE_ENC = [{ maxBitrate: 2800000, maxFramerate: 30 }];
+function shareMotion() {
+  if (!local.screen) return;
+  local.screen.contentHint = local.screen.contentHint === 'motion' ? 'detail' : 'motion';
+  const sn = rtc && rtc.pc && rtc.pc.getSenders().find((x) => x.track === local.screen);
+  if (sn) { const ps = sn.getParameters(); if (ps.encodings && ps.encodings[0]) { ps.degradationPreference = local.screen.contentHint === 'motion' ? 'maintain-framerate' : 'maintain-resolution'; sn.setParameters(ps).catch(() => {}); } }
+  toast(local.screen.contentHint === 'motion' ? 'Sharing tuned for video' : 'Sharing tuned for slides and text'); paintCtl();
+}
 async function toggleShare() {
   if (S.sharing) return stopShare();
   try {
-    const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 15 }, audio: true });
+    const s = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 30 }, width: { max: 1920 }, height: { max: 1080 } }, audio: true });
     local.screen = s.getVideoTracks()[0]; local.screenAudio = s.getAudioTracks()[0] || null;
     local.screen.contentHint = 'detail';
     local.screen.addEventListener('ended', stopShare);
-    const items = [{ name: 's', kind: 'video', track: local.screen }];
+    const items = [{ name: 's', kind: 'video', track: local.screen, simulcast: SHARE_ENC }];
     const pub = await rtc.publish(items);
     S.sharing = true;
     const all = [...rtc.out.entries()].map(([name, o]) => ({ name, kind: o.kind, mid: o.mid }));
@@ -1563,7 +1575,7 @@ async function rejoin(why) {
     try {
       remote.clear(); $$('audio[id^="a-"]').forEach((a) => a.remove()); S.ah.clear();
       await connect(true);
-      if (S.sharing && local.screen) { await rtc.publish([{ name: 's', kind: 'video', track: local.screen }]); const all = [...rtc.out.entries()].map(([name, o]) => ({ name, kind: o.kind, mid: o.mid })); await api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: all } }); }
+      if (S.sharing && local.screen) { await rtc.publish([{ name: 's', kind: 'video', track: local.screen, simulcast: SHARE_ENC }]); const all = [...rtc.out.entries()].map(([name, o]) => ({ name, kind: o.kind, mid: o.mid })); await api('meetings/' + MID + '/tracks', { method: 'POST', body: { pid: S.me.pid, tracks: all } }); }
       rejoining = false; S.conn = 'back'; S.backAt = Date.now(); S.missedSec = (Date.now() - S.dropAt) / 1000; paintBar(); scheduleReconcile();
       return;
     } catch (e) {

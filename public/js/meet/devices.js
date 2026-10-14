@@ -24,7 +24,7 @@ export function audioConstraints(p, exact = true) {
 }
 
 export function videoConstraints(p, exact = true) {
-  const c = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 24 } };
+  const c = { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
   if (exact && p.camId) c.deviceId = { exact: p.camId };
   return c;
 }
