@@ -153,10 +153,6 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
     if (d.kind === 'app') return serveApp(env, url);
   }
 
-  // Lite mode's single sync (public/js/lite.js): the reads a page polls for (bell, reminders, notices, chat inbox, meetings) in one
-  // request. Each part runs through the same functions with the same person, as if the page had asked for it.
-  if (user && path === '/api/hub/sync' && request.method === 'GET') return syncParts(ctx, url, forwarded, user.role === 'field');
-
   if (user || open || !enforce) {
     // Adoption tracker: one cheap write per person, day and area, after the page has gone out (functions/_lib/hub/usage.ts).
     if (user && !open && enforce) noteUse(ctx, user, request.method, path);
@@ -176,30 +172,3 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   if (next !== '/') login.searchParams.set('next', next);
   return Response.redirect(login.toString(), 302);
 };
-
-const SYNC_PATHS = new Set(['/api/work/reminders', '/api/tasks/links/bell', '/api/hub/notifications', '/api/chat/inbox', '/api/requests/notices', '/api/meet/meetings', '/api/meet/meetings/calendar', '/api/meet/meetings/directory', '/api/hub/nav', '/api/work/gate']);
-
-async function syncParts(ctx: Parameters<PagesFunction<Env>>[0], url: URL, forwarded: Request, field: boolean): Promise<Response> {
-  const asked = url.searchParams.getAll('p').slice(0, 12);
-  const parts: Record<string, { status: number; body: unknown }> = {};
-  for (const p of asked) {
-    let u: URL;
-    try { u = new URL(p, url); } catch { continue; }
-    if (u.origin !== url.origin || !SYNC_PATHS.has(u.pathname) || (field && !fieldMayOpen(u.pathname))) { parts[p] = { status: 404, body: null }; continue; }
-    try {
-      const res = await ctx.next(new Request(u.toString(), { method: 'GET', headers: forwarded.headers }));
-      const text = await res.text();
-      let body: unknown = text;
-      try { body = JSON.parse(text); } catch { /* not JSON */ }
-      parts[p] = { status: res.status, body };
-    } catch (err) {
-      parts[p] = { status: 502, body: null };
-    }
-  }
-  const text = JSON.stringify({ ok: true, at: Date.now(), parts });
-  // An answer identical to the one the phone already has comes back as 304 with no body.
-  const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(JSON.stringify(parts)));
-  const etag = '"' + Array.from(new Uint8Array(digest)).slice(0, 10).map((b) => b.toString(16).padStart(2, '0')).join('') + '"';
-  if (ctx.request.headers.get('If-None-Match') === etag) return new Response(null, { status: 304, headers: { ETag: etag, 'Cache-Control': 'no-store' } });
-  return new Response(text, { status: 200, headers: { 'Content-Type': 'application/json', ETag: etag, 'Cache-Control': 'no-store' } });
-}

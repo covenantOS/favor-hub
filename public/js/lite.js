@@ -224,7 +224,7 @@
 
   /* ---------------------------------------------------------------- one sync for the polls */
   // In Lite, the reads FavorOS polls for (bell, reminders, notices, chat inbox, meetings) come from one request every five minutes
-  // (/api/hub/sync, functions/_middleware.ts). A poll between syncs is answered from the last one; an answer that has not changed
+  // (/api/hub/sync, functions/api/hub/sync.ts). A poll between syncs is answered from the last one; an answer that has not changed
   // comes back as 304 with no body. Any change the person makes (a POST, PATCH or DELETE) makes the next read fetch fresh.
   var SYNCED = /^\/api\/(work\/reminders|work\/gate|tasks\/links\/bell|hub\/notifications|hub\/nav|chat\/inbox|requests\/notices|meet\/meetings(\/calendar|\/directory)?)$/;
   var SY = { seen: {}, last: null, at: 0, etag: '', run: null, every: 300000 };
