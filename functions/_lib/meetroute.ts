@@ -877,7 +877,7 @@ async function askAboutMeeting(env: MeetEnv, user: { email: string; role: string
   const rows = (await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n LIMIT 1500').bind(id).all<{ t: number; who: string; text: string }>()).results || [];
   if (!rows.length) return { ok: true, answer: 'This meeting has no transcript to read.', points: [] };
   const text = rows.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n').slice(-24000);
-  const out = await chatJson<{ answer?: unknown; points?: unknown }>(env as never, 'You answer a question about one staff meeting from its transcript only. Return keys: answer (one to three plain sentences; say so when the transcript does not cover it) and points (array of at most 4 objects {t: seconds, text} citing where it was said). Do not invent names, numbers or dollar amounts. No em dashes.', `Meeting: ${m.title}\nQuestion: ${q}\n\nTranscript:\n${text}`, 700, TEXT_MODELS, MEET_AI);
+  const out = await chatJson<{ answer?: unknown; points?: unknown }>(env as never, 'You answer a question about one staff meeting from its transcript only. Return keys: answer (one to three plain sentences; say so when the transcript does not cover it) and points (array of at most 4 objects {t: seconds, text} citing where it was said). Do not invent names, numbers or dollar amounts. No em dashes.', `Meeting: ${m.title}\nQuestion: ${q}\n\nTranscript:\n${text}`, 700, TEXT_MODELS, BRAIN_MEET_AI);
   const points = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 4).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 240) })).filter((p) => p.text);
   return { ok: true, answer: plain(out.answer, 600), points };
 }
@@ -1204,6 +1204,9 @@ async function remind(env: MeetEnv, origin: string) {
 // ---------------------------------------------------------------- Favor Brain in the call: what the meeting itself can answer
 
 /** "What did I miss?" and "What have we agreed?" come from the live transcript. Anything else goes to the Favor Brain page route from the browser. */
+/** Brain asks about a meeting book under brain-meet, inside the Brain's own daily ceiling. */
+const BRAIN_MEET_AI = { ...MEET_AI, feature: 'brain-meet' };
+
 async function brainInMeeting(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email);
   if (me.role === 'guest') throw new HttpError(403, 'staff_only', 'Favor Brain is for staff.');
@@ -1226,7 +1229,7 @@ async function brainInMeeting(env: MeetEnv, user: { email: string }, id: string,
     open: 'You list what a staff meeting has left open so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each: questions raised with no answer yet, and items with no decision). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
     owners: 'You list who owns each task a staff meeting has named so far. Return keys: lead (one short sentence) and points (array of at most 10 objects {t: seconds, text}, one plain sentence each in the form "Name: task", using only names the transcript says). Use only what the transcript says. Do not invent names, numbers or dollar amounts. No em dashes.',
   };
-  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, PROMPTS[kind], `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900, TEXT_MODELS, MEET_AI);
+  const out = await chatJson<{ lead?: unknown; points?: unknown }>(env as never, PROMPTS[kind], `Meeting: ${mt.title}\n\nTranscript (times in minutes and seconds):\n${text}`, 900, TEXT_MODELS, BRAIN_MEET_AI);
   const pts = (Array.isArray(out.points) ? (out.points as Array<Record<string, unknown>>) : []).slice(0, 10).map((p) => ({ t: Math.max(0, Math.round(Number(p.t) || 0)), text: plain(p.text, 300) })).filter((p) => p.text);
   const lead = plain(out.lead, 200);
   const heading = kind === 'missed'
