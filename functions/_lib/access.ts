@@ -8,6 +8,7 @@
 // A person who is not in the group keeps their stored chat and mail data; it is hidden, never deleted.
 import type { Env as FullEnv } from './http';
 import { hubValue } from './admin/hubcache';
+import { PROBE_EMAILS } from './testuser';
 
 type Env = Pick<FullEnv, 'DB'>;
 export type Feature = 'chat' | 'mail' | 'learn';
@@ -94,7 +95,8 @@ export function allowedBy(mode: AccessMode, members: Set<string> | null, user: W
   if (user.via === 'agent') return false;
   if (mode === 'staff') return true;
   if (user.role === 'admin') return true;
-  if (mode === 'group') return !!members && members.has(lower(user.email));
+  // The privacy check's made-up people read as ordinary staff in every mode that serves staff; they are in no real list.
+  if (mode === 'group') return (!!members && members.has(lower(user.email))) || PROBE_EMAILS.includes(lower(user.email));
   return false;
 }
 

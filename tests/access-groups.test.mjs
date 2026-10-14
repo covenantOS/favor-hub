@@ -42,6 +42,7 @@ test('the old values still work: admins, staff and off', () => {
   assert.equal(access.allowedBy('group', new Set([STAFF.email]), STAFF), true);
   assert.equal(access.allowedBy('group', new Set(), STAFF), false);
   assert.equal(access.allowedBy('group', new Set([STAFF.email]), { ...STAFF, via: 'agent' }), false);
+  assert.equal(access.allowedBy('group', new Set(), { ...STAFF, email: 'privacy-probe@favorintl.org' }), true, 'the privacy check personas');
 });
 
 test('Chat in group mode: a named person and a named team get in, everyone else gets a 403', async () => {
