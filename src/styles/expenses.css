@@ -172,7 +172,7 @@
 .exp-pdf-btn { margin: 4px 0 12px; min-height: 40px; line-height: 28px; }
 
 /* My requests */
-.exp-mine { margin-bottom: 22px; }
+.exp-mine { margin-bottom: 22px; clear: both; }
 .exp-mine__h { font: 600 22px/1.2 var(--display); margin: 0 0 14px; }
 .exp-logh { margin-top: 30px; }
 .exp-mine__dim { opacity: .6; }
