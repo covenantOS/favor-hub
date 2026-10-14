@@ -336,6 +336,7 @@ async function mountProject(root, key) {
 
 /* ---------------------------------------------------------------- start */
 // Connect Asana: on a synced project, a person who has not connected gets a link, so their edits reach Asana as them.
+const ASANA_LOGO = (n) => `<svg class="pj-alogo" width="${n}" height="${n}" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><circle cx="16" cy="9" r="6" fill="#F06A6A"/><circle cx="8" cy="22" r="6" fill="#F06A6A"/><circle cx="24" cy="22" r="6" fill="#F06A6A"/></svg>`;
 let asanaMe = null; // the /api/asana/oauth/me answer, read once per page
 async function asanaConnect(el) {
   if (!asanaMe) asanaMe = fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
@@ -345,13 +346,13 @@ async function asanaConnect(el) {
   const box = document.createElement('span');
   box.className = 'pj-asana-connect';
   if (me.connected) {
-    box.innerHTML = `<span class="pj-tag pj-tag--asana">Asana connected${me.asana_name ? ' as ' + esc(me.asana_name) : ''}</span><button type="button" class="pj-asana-off">Disconnect</button>`;
+    box.innerHTML = `<span class="pj-tag pj-tag--asana pj-achip">${ASANA_LOGO(14)}Connected${me.asana_name ? ' as ' + esc(me.asana_name) : ''}</span><button type="button" class="pj-asana-off">Disconnect</button>`;
     box.querySelector('button').addEventListener('click', async () => {
       await fetch('/api/asana/oauth/me', { method: 'DELETE', credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).catch(() => null);
       location.reload();
     });
   } else {
-    box.innerHTML = `<a class="pj-tag pj-asana-link" href="/api/asana/oauth/connect?back=${encodeURIComponent(location.pathname + location.search)}">Connect Asana</a>`;
+    box.innerHTML = `<a class="pj-tag pj-asana-link pj-achip" href="/api/asana/oauth/connect?back=${encodeURIComponent(location.pathname + location.search)}">${ASANA_LOGO(14)}Connect Asana</a>`;
   }
   el.appendChild(box);
 }
@@ -386,7 +387,7 @@ async function start() {
     const me = await asanaMe;
     if (me && me.required && !me.connected) {
       const back = location.pathname + location.search;
-      root.innerHTML = `<section class="pj-connect"><h1>Connect Asana to use Projects</h1><p>Your edits in Projects sync to Asana under your name.</p><a class="pj-connect__btn" href="/api/asana/oauth/connect?back=${encodeURIComponent(back)}">Connect Asana</a><p class="pj-connect__t">This takes 10 seconds.</p></section>`;
+      root.innerHTML = `<section class="pj-connect"><div class="pj-connect__marks"><span class="pj-fmark" aria-hidden="true">F</span><span class="pj-connect__plus">+</span>${ASANA_LOGO(44)}</div><h1>Connect your Asana account</h1><p>Favor uses Asana for projects right now. Connect your Asana account so your changes here sync to Asana under your name. We may move fully into FavorOS later.</p><a class="pj-connect__btn" href="/api/asana/oauth/connect?back=${encodeURIComponent(back)}">${ASANA_LOGO(22)}Connect Asana</a></section>`;
       root.setAttribute('data-ready', '1');
       return;
     }

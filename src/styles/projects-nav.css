@@ -104,11 +104,16 @@
 .pj-asana-connect { display: inline-flex; align-items: center; gap: 6px; }
 .pj-asana-link { color: var(--a-ink); font-weight: 600; text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
 .pj-asana-off { min-height: 32px; padding: 0 10px; border: 1px solid var(--r-line, #ddd); border-radius: 8px; background: transparent; font-size: 12px; color: var(--r-ink-2, #555); cursor: pointer; }
-.pj-connect { max-width: 440px; margin: 12vh auto 0; padding: 32px 24px; text-align: center; }
-.pj-connect h1 { margin: 0 0 10px; font-size: 24px; }
-.pj-connect p { margin: 0 0 20px; font-size: 15px; color: var(--r-ink-2, #555); }
-.pj-connect__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 12px; background: var(--a-ink, #1d5c3a); color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; }
-.pj-connect .pj-connect__t { margin: 14px 0 0; font-size: 13px; color: var(--r-ink-3, #777); }
+.pj-connect { max-width: 460px; margin: 10vh auto 0; padding: 36px 28px 32px; text-align: center; background: #fff; border: 1px solid var(--r-line, #e3e3e0); border-radius: 20px; box-shadow: 0 8px 30px rgba(20, 20, 20, 0.07); }
+.pj-connect__marks { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 22px; }
+.pj-fmark { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 12px; background: var(--a-ink, #1d5c3a); color: #fff; font-weight: 700; font-size: 22px; }
+.pj-connect__plus { color: var(--r-ink-3, #888); font-size: 20px; }
+.pj-connect h1 { margin: 0 0 12px; font-size: 24px; }
+.pj-connect p { margin: 0 0 24px; font-size: 15px; line-height: 1.5; color: var(--r-ink-2, #555); }
+.pj-connect__btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 24px 0 18px; border-radius: 12px; background: #fff; border: 1.5px solid #F06A6A; color: #1e1f21; font-weight: 600; font-size: 16px; text-decoration: none; }
+.pj-connect__btn:hover { background: #fff5f5; }
+.pj-achip { display: inline-flex; align-items: center; gap: 6px; }
+.pj-alogo { flex: none; }
 .pj-del__t { margin: 0 0 14px; font-size: 14px; }
 .pj-del__chk { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
 .pj-del__lab { display: grid; gap: 6px; font-size: 13px; margin: 8px 0 16px; }
