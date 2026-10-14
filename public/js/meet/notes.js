@@ -8,6 +8,10 @@ const stamp = (t) => { const s = Math.max(0, Math.floor(Number(t) || 0)), h = Ma
 let data = null, q = '';
 const ask = { q: '', busy: false, answer: null };
 const pt = { busy: '', find: '', hits: [], err: '' };
+// Privacy: remove part of a finished meeting, or delete its recording (host or admin).
+const pv = { open: false, from: '', to: '', delRec: true, busy: false, err: '' };
+const secs = (v) => { const p = String(v || '').trim().split(':').map((x) => Number(x)); if (!p.length || p.some((x) => !Number.isFinite(x) || x < 0)) return NaN; return p.reduce((a, x) => a * 60 + x, 0); };
+const span = (from, to) => `${stamp(from)} to ${to == null ? 'the end' : stamp(to)}`;
 
 // ---- the recording player. One media element per file, kept between redraws so typing in the search box never stops playback.
 const players = new Map();
@@ -110,12 +114,66 @@ async function partnerClick(b) {
   pt.busy = ''; draw();
 }
 
+function privacyCard() {
+  const p = data.privacy; if (!p) return '';
+  const files = data.files || [];
+  const show = p.canEdit || (p.paused || []).length || (p.cuts || []).length;
+  if (!show) return '';
+  const hist = [
+    ...(p.paused || []).map((r) => ({ t: r.from, text: `Paused for a private moment, ${span(r.from, r.to)}. Nothing was recorded.` })),
+    ...(p.cuts || []).map((c) => ({ t: c.kind === 'cut' ? c.from : 1e9, text: c.kind === 'cut' ? `Removed ${span(c.from, c.to)} on ${fmtDay(c.at)}.` : `Recording deleted on ${fmtDay(c.at)}.` })),
+  ].sort((a, b) => a.t - b.t);
+  const sug = p.canEdit && p.suggestion && !pv.open ? `<div class="pv-sug"><div><b>${esc(p.suggestion.label)} start at ${stamp(p.suggestion.from)}.</b><span>Remove that part from the transcript, notes and Doc?</span></div><button class="h-btn h-btn--ghost h-btn--sm" data-pv="sug">Remove ${esc(span(p.suggestion.from, p.suggestion.to))}</button></div>` : '';
+  const form = pv.open ? `<div class="pv-form">
+      <div class="pv-row"><label>From<input id="pv-from" inputmode="numeric" placeholder="53:37" value="${esc(pv.from)}" aria-label="From, minutes and seconds" /></label><label>To<input id="pv-to" inputmode="numeric" placeholder="The end" value="${esc(pv.to)}" aria-label="To, minutes and seconds, empty for the end" /></label></div>
+      <p class="mt-sub">Tap a time in the transcript to fill these in. Leave To empty to remove everything to the end.</p>
+      ${files.length ? `<label class="pv-chk"><input type="checkbox" id="pv-rec" ${pv.delRec ? 'checked' : ''} /> Also delete the recording</label>${pv.delRec ? '' : '<p class="mt-sub pv-warn">A recording cannot be trimmed. Keeping it keeps every word of this part.</p>'}` : ''}
+      ${pv.err ? `<p class="mt-sub pv-warn">${esc(pv.err)}</p>` : ''}
+      <div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pv="cancel" ${pv.busy ? 'disabled' : ''}>Cancel</button><button class="h-btn h-btn--danger h-btn--sm" data-pv="cut" ${pv.busy ? 'disabled' : ''}>${pv.busy ? 'Removing' : 'Remove this part'}</button></div></div>` : '';
+  const acts = p.canEdit && !pv.open ? `<div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pv="open">${ic('x')}Remove part of the meeting</button>${files.length ? `<button class="h-btn h-btn--ghost h-btn--sm" data-pv="delrec" ${pv.busy ? 'disabled' : ''}>Delete the recording</button>` : ''}</div>` : '';
+  const trash = (p.toTrash || []).length ? `<div class="pv-trash"><b>Emptied in Drive, waiting for the trash</b><span>The hub cannot trash files in US Team Files. A content manager opens each one and moves it to the trash.</span>${p.toTrash.map((f) => `<a href="${esc(f.url)}" target="_blank" rel="noopener">${f.kind === 'notes' ? 'Old notes Doc' : 'Old recording'}</a>`).join('')}</div>` : '';
+  return `<section class="h-card mt-card" id="privacy"><div class="h-label" style="margin-bottom:6px">Privacy</div>
+    ${hist.length ? `<ul class="pv-hist">${hist.map((x) => `<li>${esc(x.text)}</li>`).join('')}</ul>` : p.canEdit ? '<p class="mt-sub" style="margin:0 0 8px">Remove a private part, such as prayer requests. The transcript, summary, action items, their tasks, the Chat post, the Google Doc and Favor Brain all follow.</p>' : ''}
+    ${sug}${form}${acts}${trash}</section>`;
+}
+
+async function privacyClick(b) {
+  const act = b.dataset.pv;
+  const p = data.privacy || {};
+  pv.err = '';
+  if (act === 'open') { pv.open = true; pv.from = ''; pv.to = ''; draw(); const f = $('#pv-from'); if (f) f.focus(); return; }
+  if (act === 'cancel') { pv.open = false; draw(); return; }
+  if (act === 'sug') { pv.open = true; pv.from = stamp(p.suggestion.from); pv.to = p.suggestion.to == null ? '' : stamp(p.suggestion.to); draw(); return; }
+  if (act === 'delrec') {
+    if (!(await confirmCard({ title: 'Delete the recording?', body: 'The recording leaves FavorOS and Google Drive. The transcript and notes stay. This cannot be undone.', ok: 'Delete the recording', danger: true }))) return;
+    pv.busy = true; draw();
+    try { await api('meetings/' + MID + '/privacy', { method: 'POST', body: { op: 'delete-recording' } }); players.clear(); data = await api('meetings/' + MID + '/notes'); toast('Recording deleted'); } catch (e) { toast(e.message); }
+    pv.busy = false; draw(); return;
+  }
+  if (act === 'cut') {
+    pv.from = ($('#pv-from') || {}).value || pv.from; pv.to = ($('#pv-to') || {}).value || '';
+    const from = secs(pv.from), to = pv.to.trim() ? secs(pv.to) : null;
+    if (!Number.isFinite(from)) { pv.err = 'Type the start as minutes and seconds, like 53:37.'; draw(); return; }
+    if (to != null && (!Number.isFinite(to) || to <= from)) { pv.err = 'The end has to come after the start.'; draw(); return; }
+    const rec = (data.files || []).length && pv.delRec;
+    if (!(await confirmCard({ title: `Remove ${span(from, to)}?`, body: `What was said and typed in that part leaves the transcript, the action items from it and their tasks go, the summary and Chat post are written again, and the Google Doc is replaced.${rec ? ' The recording is deleted.' : ''} This cannot be undone.`, ok: 'Remove', danger: true }))) return;
+    pv.busy = true; draw();
+    try {
+      await api('meetings/' + MID + '/privacy', { method: 'POST', body: { op: 'cut', from, to, recording: rec ? 'delete' : 'keep' } });
+      if (rec) players.clear();
+      data = await api('meetings/' + MID + '/notes'); pv.open = false; toast('Removed');
+    } catch (e) { pv.err = e.message; }
+    pv.busy = false; draw();
+  }
+}
+
 function draw() {
   const m = data.meeting; const n = data.notes || {};
   document.title = m.title + ' - FavorOS';
   const crumb = document.querySelector('.h-top__crumb'); if (crumb) crumb.textContent = m.title;
   const keepFocus = document.activeElement && document.activeElement.id;
-  const lines = (data.transcript || []).filter((l) => !q || ((l.who || '') + ' ' + l.text).toLowerCase().includes(q.toLowerCase()));
+  const marks = q ? [] : [...((data.privacy || {}).paused || []).map((r) => ({ t: r.from, mark: `Private moment, not recorded (${span(r.from, r.to)})` })), ...((data.privacy || {}).cuts || []).filter((c) => c.kind === 'cut').map((c) => ({ t: c.from, mark: `Part removed (${span(c.from, c.to)})` }))];
+  const lines = [...(data.transcript || []).filter((l) => !q || ((l.who || '') + ' ' + l.text).toLowerCase().includes(q.toLowerCase())), ...marks].sort((a, b) => a.t - b.t || (a.mark ? -1 : 1));
   const pending = m.notesStatus === 'pending' || m.recState === 'uploading' || m.status === 'live';
   const failed = m.notesStatus === 'failed';
   const ppl = data.people || [];
@@ -132,12 +190,13 @@ function draw() {
       ${(n.decisions || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Decisions</div><ul class="nt-list">${n.decisions.map((d) => `<li><span class="b">${ic('check')}</span><span>${esc(d.text)} ${ts(d.t)}</span></li>`).join('')}</ul></section>` : ''}
       ${(data.actions || []).length ? `<section class="h-card mt-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px"><div class="h-label">Action items</div><span class="mt-sub">${data.actions.filter((a) => a.done).length} of ${data.actions.length} done</span></div>${data.actions.map((a) => `<label class="act${a.done ? ' is-done' : ''}"><input type="checkbox" data-idx="${a.idx}" ${a.done ? 'checked' : ''} /><div><b>${esc(a.text)}</b><span>${String(a.owner_name || '').trim() ? `<span data-entity="person:${esc(String(a.owner_name).trim())}" data-label="${esc(String(a.owner_name).trim())}">${esc(String(a.owner_name).trim())}</span>` : 'No owner named'}${a.due ? ' · due ' + esc(a.due) : ''}${a.t ? ' · ' + ts(a.t) : ''}</span></div><span class="mt-pill ${a.done ? 'mt-pill--ok' : ''}">${a.done ? 'Done' : 'Open'}</span></label>`).join('')}<p class="mt-sub" style="margin:8px 0 0">Each person sees their items on Today in FavorOS.</p></section>` : ''}
       <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Transcript</div><div class="nt-search">${ic('search')}<input id="trq" aria-label="Search the transcript" placeholder="Search what was said" value="${esc(q)}" /></div>
-        <div class="nt-tr">${lines.length ? lines.map((l) => `<div class="nt-l" id="t${l.t}"><time>${stamp(l.t)}</time><div>${l.who ? `<b>${hi(l.who)}</b> ` : ''}${hi(l.text)}</div></div>`).join('') : `<p class="mt-sub">${hasTr ? 'Nothing matches.' : pending ? 'The transcript is on its way.' : 'No transcript. Nobody spoke, or this meeting was not recorded.'}</p>`}</div></section>
+        <div class="nt-tr">${lines.length ? lines.map((l) => l.mark ? `<div class="nt-l nt-mark"><time>${stamp(l.t)}</time><div>${esc(l.mark)}</div></div>` : `<div class="nt-l" id="t${l.t}"><time${pv.open ? ` class="pv-pick" data-pick="${l.t}" role="button" tabindex="0" title="Use this time"` : ''}>${stamp(l.t)}</time><div>${l.who ? `<b>${hi(l.who)}</b> ` : ''}${hi(l.text)}</div></div>`).join('') : `<p class="mt-sub">${hasTr ? 'Nothing matches.' : pending ? 'The transcript is on its way.' : 'No transcript. Nobody spoke, or this meeting was not recorded.'}</p>`}</div></section>
     </div><div class="mt-stack">
       ${files.length || data.doc ? `<section class="h-card mt-card" style="display:grid;gap:12px">${files.map((f, i) => `<div class="nt-slot" data-slot="${i}"></div>`).join('')}
         ${files.map((f) => `<div class="drive">${ic('drive')}<div><b>${files.length > 1 ? esc(f.name) : 'Saved in Google Drive'}</b><span>${esc(files.length > 1 ? 'Google Drive' : f.name)}</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(f.url)}" target="_blank" rel="noopener">Open</a></div>`).join('')}
         ${data.doc ? `<div class="drive">${ic('doc')}<div><b>Notes in Google Docs</b><span>Google Docs</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(data.doc.url)}" target="_blank" rel="noopener">Open</a></div>` : ''}
         ${files.length ? `<p class="mt-sub" style="margin:0">Meetings in US Team Files${files.length > 1 ? ', ' + files.length + ' parts' : ''}</p>` : ''}</section>` : ''}
+      ${privacyCard()}
       ${(data.partners || []).length || (data.meeting.mine && data.meeting.status === 'ended') ? partnersCard() : ''}
       ${(n.chapters || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:6px">Chapters</div>${n.chapters.map((c) => `<a class="chap" href="#t=${c.t}" data-t="${c.t}" style="text-decoration:none;color:inherit"><em>${stamp(c.t)}</em><span>${esc(c.title)}</span></a>`).join('')}</section>` : ''}
       ${(data.asked || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Asked during the meeting</div><div class="ans"><ul>${data.asked.map((a) => `<li>${ts(a.t)}<span>${a.by ? esc(a.by) + ' asked ' : ''}"${esc(a.q)}"</span></li>`).join('')}</ul></div></section>` : ''}
@@ -146,6 +205,10 @@ function draw() {
     </div></div>`;
   $('#nt-copy').addEventListener('click', () => copy(location.href));
   root.querySelectorAll('[data-pt]').forEach((b) => b.addEventListener('click', () => partnerClick(b)));
+  root.querySelectorAll('[data-pv]').forEach((b) => b.addEventListener('click', () => privacyClick(b)));
+  const rc = $('#pv-rec'); if (rc) rc.addEventListener('change', () => { pv.from = ($('#pv-from') || {}).value || ''; pv.to = ($('#pv-to') || {}).value || ''; pv.delRec = rc.checked; draw(); });
+  for (const id2 of ['pv-from', 'pv-to']) { const el = $('#' + id2); if (el) el.addEventListener('input', () => { if (id2 === 'pv-from') pv.from = el.value; else pv.to = el.value; }); }
+  root.querySelectorAll('[data-pick]').forEach((el) => { const pick = () => { const v = stamp(Number(el.dataset.pick)); if (!pv.from || pv.to) { pv.from = v; pv.to = ''; } else pv.to = v; draw(); const pf = $('#privacy'); if (pf) pf.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; el.addEventListener('click', pick); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }); });
   $('#nt-dl').addEventListener('click', download);
   const retry = $('#nt-retry');
   if (retry) retry.addEventListener('click', async () => {

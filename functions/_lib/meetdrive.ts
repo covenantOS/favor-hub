@@ -5,7 +5,7 @@
 import { saToken } from './work/sheetsa';
 import { aiFor } from './ai/guard';
 import type { MeetEnv, Meeting } from './meet';
-import { chatJson, plain, stamp, TEXT_MODELS, VERBATIM_PROMPT, WHISPER } from './clipai';
+import { CHAPTER_MODELS, chatJson, plain, stamp, VERBATIM_PROMPT, WHISPER } from './clipai';
 
 export const PART = 8 * 1024 * 1024;
 const FILES = 'https://www.googleapis.com/drive/v3/files';
@@ -30,15 +30,41 @@ async function gjson(env: DriveEnv, url: string, init: RequestInit = {}): Promis
 
 const q = (s: string) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-/** The folder for this month under Meetings, made when missing. */
-export async function monthFolder(env: DriveEnv, iso: string): Promise<string> {
+/** A folder by name under a parent, made when missing. */
+async function subFolder(env: DriveEnv, parent: string, name: string): Promise<string> {
+  const found = await gjson(env, `${FILES}?q=${encodeURIComponent(`'${parent}' in parents and name = '${q(name)}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id)`);
+  if (found.files?.[0]?.id) return found.files[0].id as string;
+  const made = await gjson(env, `${FILES}?supportsAllDrives=true&fields=id`, { method: 'POST', body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }) });
+  return made.id as string;
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** "Marketing/Recordings/2026/10 October": the team folder name, the kind, the year and the month, in Eastern time. */
+export function folderPath(team: string, kind: 'Recordings' | 'Notes', iso: string): string[] {
+  const [y, mo] = etDate(iso).split('-');
+  const name = team.replace(/[\\/]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'Other';
+  return [name, kind, y, `${mo} ${MONTHS[Number(mo) - 1]}`];
+}
+
+/** The host's team from the meeting directory, "Other" when the host is not listed. */
+export async function hostTeam(env: MeetEnv, m: Pick<Meeting, 'host_email'>): Promise<string> {
+  const r = await env.DB.prepare('SELECT team FROM meet_directory WHERE lower(email) = lower(?)').bind(m.host_email || '').first<{ team: string }>().catch(() => null);
+  return (r?.team || '').trim() || 'Other';
+}
+
+/** Meetings/<team>/<Recordings or Notes>/<year>/<month>, made when missing (Will, 2026-10-14). */
+export async function meetFolder(env: DriveEnv, m: Pick<Meeting, 'host_email' | 'started_at' | 'created_at'>, kind: 'Recordings' | 'Notes'): Promise<string> {
   const root = env.MEET_DRIVE_FOLDER;
   if (!root) throw new Error('MEET_DRIVE_FOLDER is not set');
-  const name = iso.slice(0, 7);
-  const found = await gjson(env, `${FILES}?q=${encodeURIComponent(`'${root}' in parents and name = '${q(name)}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id)`);
-  if (found.files?.[0]?.id) return found.files[0].id as string;
-  const made = await gjson(env, `${FILES}?supportsAllDrives=true&fields=id`, { method: 'POST', body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [root] }) });
-  return made.id as string;
+  let id = root;
+  for (const name of folderPath(await hostTeam(env, m), kind, m.started_at || m.created_at)) id = await subFolder(env, id, name);
+  return id;
+}
+
+/** Kept for callers that only know a date: the month folder under Other. */
+export async function monthFolder(env: DriveEnv, iso: string): Promise<string> {
+  return meetFolder(env, { host_email: '', started_at: iso, created_at: iso }, 'Recordings');
 }
 
 export interface EpochRow { epoch: number; chunks: Array<{ seq: number; bytes: number }>; total: number }
@@ -98,7 +124,7 @@ export async function pumpDrive(env: DriveEnv, m: Meeting): Promise<{ done: bool
     let row = await env.DB.prepare('SELECT * FROM hub_meeting_drive WHERE meeting_id = ? AND epoch = ?').bind(m.id, e.epoch).first<Record<string, any>>();
     if (row?.state === 'done') continue;
     if (!row) {
-      const folder = m.drive_folder || (await monthFolder(env, m.started_at || m.created_at));
+      const folder = m.drive_folder || (await meetFolder(env, m, 'Recordings'));
       const name = fname(m, e.epoch, eps.length, 'webm', m.rec_mode === 'video' ? 'video' : 'audio');
       const t = await gtoken(env);
       const r = await fetch(`${UPLOAD}?uploadType=resumable&supportsAllDrives=true&fields=id,size`, {
@@ -223,32 +249,100 @@ export async function pumpTranscript(env: MeetEnv, m: Meeting): Promise<{ done: 
 
 export interface NotesOut { title: string; summary: string; decisions: Array<{ t: number; text: string }>; actions: Array<{ text: string; owner: string; due: string; t: number }>; chapters: Array<{ t: number; title: string }> }
 
+const NOTE_VOICE = 'You work for Favor International, a Christian nonprofit, and write the notes of a staff meeting from its transcript. Name the staff member who owns each action item when the transcript names them. Leave out partner addresses, phone numbers, emails and gift amounts. Never invent facts, names, dates or numbers. Do not use em dashes. Do not mention artificial intelligence.';
+
+/** Words of a quote that also appear in the lines around where the model says it was said: a check that the item was really said. */
+export function quoteHolds(quote: string, near: string): boolean {
+  const w = norm(quote).split(' ').filter((x) => x.length > 2);
+  if (w.length < 2) return false;
+  const hay = new Set(norm(near).split(' '));
+  return w.filter((x) => hay.has(x)).length / w.length >= 0.6;
+}
+
+/** Action items that name no concrete thing ("Develop the dashboard further", "Continue the discussion") are dropped. */
+export function vagueAction(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  const n = t.split(/\s+/).length;
+  if (n < 4) return true;
+  if (/\b(further|more|going forward|as needed)$/.test(t) && n < 9) return true;
+  return /^(continue|keep|discuss|work on|look into|think about|explore|consider)\b/.test(t) && n < 8;
+}
+
+type RawPart = { summary?: unknown; decisions?: unknown; actions?: unknown; topics?: unknown };
+
+/** Favor says partners, never donors, in anything staff read (the model slips when the talk itself says donors). */
+export const partnersWord = (s: string): string => s.replace(/\b([Dd])onor(s?)\b/g, (_m, d: string, pl: string) => (d === 'D' ? 'Partner' : 'partner') + pl);
+
+/**
+ * The notes of a meeting. Every transcript line carries a number, and the model cites line numbers instead of times, so each
+ * decision, action item and chapter takes the real time of the line it came from (the old notes put chapters at 0, 10, 20 and 30).
+ * A long meeting is read in parts and joined, so the middle is never dropped. Each action item must quote the words said; an item
+ * whose quote is not in the transcript around that line, or that names nothing concrete, is left out.
+ */
 export async function makeNotes(env: MeetEnv, m: Meeting, names: string[]): Promise<NotesOut | null> {
-  const lines = JSON.parse(m.transcript || '[]') as Line[];
+  const lines = (JSON.parse(m.transcript || '[]') as Line[]).filter((l) => l && l.text);
   if (!lines.length) return null;
-  const text = lines.map((l) => `[${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`).join('\n');
-  const body = text.length > 28000 ? `${text.slice(0, 19000)}\n[...]\n${text.slice(-9000)}` : text;
-  const ask = () => chatJson<{ title?: unknown; summary?: unknown; decisions?: unknown; actions?: unknown; chapters?: unknown }>(
-    env as never,
-    `You write the notes of a staff meeting at a nonprofit. Each transcript line has a time in minutes and seconds and, when the system could tell, the name of the person who was talking for most of that stretch (the label can be wrong when people talk over each other). People who were invited: ${names.slice(0, 30).join(', ') || 'unknown'}.
-Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period); summary (3 to 5 sentences of what was covered and decided); decisions (array of up to 8 objects {t: seconds from the start, text}, only things the group agreed); actions (array of up to 12 objects {text, owner, due, t}, where owner is a person named in the talk or empty, due is a date or phrase said aloud or empty, t is seconds); chapters (array of 4 to 10 objects {t: seconds, title of at most 6 words}). Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details, address or phone number into the notes. No em dashes.`,
-    `Meeting title: ${m.title}\n\nTranscript:\n${body}`,
-    1800,
-    TEXT_MODELS,
-    // Meeting notes keep people's names and owners; the Clips voice (a screen recording, names stripped) does not fit a call.
-    { feature: 'meet-notes', voice: 'You work for Favor International, a Christian nonprofit, and write the notes of a staff meeting from its transcript. Name the staff member who owns each action item when the transcript names them. Leave out partner addresses, phone numbers, emails and gift amounts. Never invent facts, names, dates or numbers. Do not use em dashes. Do not mention artificial intelligence.' }
-  );
-  let out = await ask();
-  // A reply with a title and no summary is a miss; one more try before the notes go out empty.
-  if (!plain(out.summary, 1600)) out = await ask().catch(() => out);
-  const num = (x: unknown) => Math.max(0, Math.round(Number(x) || 0));
+  const all = lines.map((l, i) => `L${i + 1} [${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`);
+  // Parts of about 16,000 characters, so a 70 minute meeting is three or four reads.
+  const parts: string[] = [];
+  for (let i = 0; i < all.length;) {
+    let len = 0, j = i;
+    while (j < all.length && (j === i || len + all[j].length < 16000)) len += all[j++].length + 1;
+    parts.push(all.slice(i, j).join('\n'));
+    i = j;
+  }
+  const who = names.slice(0, 30).join(', ') || 'unknown';
+  const rules = `Each transcript line starts with its line number (L12), its time, and when the system could tell, the person who was talking for most of that stretch (the label can be wrong when people talk over each other). People in the meeting: ${who}.
+Return keys:
+summary: 2 to 4 sentences on what this stretch covered, with the specific projects, numbers and names said.
+decisions: up to 6 objects {line, text}, only things the group agreed or settled, written as a plain statement.
+actions: up to 10 objects {line, owner, text, due, quote}. An action item is a specific task a person took on or was asked to do. text starts with a verb and names the concrete thing and its detail, for example "Send Megan the final print file for the November letter". Never write a vague item such as "Develop the dashboard further" or "Continue working on the project". owner is the person named or the person who said they would do it, else empty. due is a date or phrase said aloud, else empty. quote is the exact words from the transcript, at most 20 words, where the task was said.
+topics: 1 to 5 objects {line, title}: where a new subject starts, title at most 6 words.
+Leave out small talk, greetings and getting the call working (audio, browsers, who can hear whom). Spell people's names as they appear in the list of people. Say partners, never donors.
+line is the number after L. Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details into the notes. Leave out prayer requests and personal matters people shared. No em dashes.`;
+  const read = (text: string, n: number) => chatJson<RawPart>(env as never, `You read part ${n} of ${parts.length} of a staff meeting transcript at a nonprofit and pull out its notes.\n${rules}`, `Meeting title: ${m.title}\n\nTranscript:\n${text}`, 1600, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE });
+  // The parts are read at the same time, so a long meeting's notes take about as long as one read (the step runs in the
+  // background after the room empties, where time is short).
+  const outs: RawPart[] = await Promise.all(parts.map(async (text, k) => {
+    let o = await read(text, k + 1).catch(() => ({}) as RawPart);
+    if (!plain(o.summary, 1600) && !Array.isArray(o.actions)) o = await read(text, k + 1).catch(() => ({}) as RawPart);
+    return o;
+  }));
   const arr = (x: unknown) => (Array.isArray(x) ? (x as Array<Record<string, unknown>>) : []);
+  const at = (x: unknown): number | null => { const n = Number(String(x ?? '').replace(/^L/i, '')); return Number.isInteger(n) && n >= 1 && n <= lines.length ? n - 1 : null; };
+  const near = (i: number) => lines.slice(Math.max(0, i - 3), i + 4).map((l) => l.text).join(' ');
+  const decisions: NotesOut['decisions'] = [];
+  const actions: NotesOut['actions'] = [];
+  const chapters: NotesOut['chapters'] = [];
+  for (const o of outs) {
+    for (const d of arr(o.decisions)) { const i = at(d.line); const text = plain(d.text, 300); if (i != null && text) decisions.push({ t: lines[i].t, text }); }
+    for (const a of arr(o.actions)) {
+      const i = at(a.line); const text = plain(a.text, 300).replace(/\.$/, '');
+      if (i == null || !text || vagueAction(text) || !quoteHolds(String(a.quote ?? ''), near(i))) continue;
+      actions.push({ text, owner: plain(a.owner, 80), due: plain(a.due, 60), t: lines[i].t });
+    }
+    for (const c of arr(o.topics)) { const i = at(c.line); const title = plain(c.title, 80).replace(/\.$/, ''); if (i != null && title) chapters.push({ t: lines[i].t, title }); }
+  }
+  // One item said twice across a part boundary is kept once.
+  const key = (x: { text?: string; title?: string }) => norm(String(x.text ?? x.title ?? ''));
+  const uniq = <T extends { text?: string; title?: string }>(xs: T[]) => xs.filter((x, i) => xs.findIndex((y) => key(y) === key(x)) === i);
+  const chap = uniq(chapters.sort((x, y) => x.t - y.t)).filter((c, i, xs) => i === 0 || c.t - xs[i - 1].t >= 60);
+  if (chap.length && chap[0].t > 90) chap.unshift({ t: lines[0].t, title: 'Opening' });
+  const dec = uniq(decisions).sort((x, y) => x.t - y.t).slice(0, 10);
+  const act = uniq(actions).sort((x, y) => x.t - y.t).slice(0, 15);
+  // The title and the summary are written from the parts' summaries, so the whole meeting is covered.
+  const partSums = outs.map((o, k) => `Part ${k + 1}: ${plain(o.summary, 1200)}`).join('\n');
+  const head = await chatJson<{ title?: unknown; summary?: unknown }>(env as never,
+    'You write the title and summary of a staff meeting from summaries of its parts, in order. Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period) and summary (3 to 6 sentences: what was covered, what was decided, who is doing what next; name the specific projects and people). Leave out prayer requests, personal matters and getting the call working. Spell the names as the People line spells them. Say partners, never donors. Do not invent anything. No em dashes.',
+    `Meeting title: ${m.title}\nPeople: ${who}\n\n${partSums}\n\nDecisions:\n${dec.map((d) => '- ' + d.text).join('\n') || 'none'}\n\nAction items:\n${act.map((a) => `- ${a.owner ? a.owner + ': ' : ''}${a.text}`).join('\n') || 'none'}`,
+    700, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE }).catch(() => ({}) as { title?: unknown; summary?: unknown });
+  const w = partnersWord;
   return {
-    title: plain(out.title, 120).replace(/\.$/, ''),
-    summary: plain(out.summary, 1600),
-    decisions: arr(out.decisions).slice(0, 8).map((d) => ({ t: num(d.t), text: plain(d.text, 300) })).filter((d) => d.text),
-    actions: arr(out.actions).slice(0, 12).map((a) => ({ text: plain(a.text, 300), owner: plain(a.owner, 80), due: plain(a.due, 60), t: num(a.t) })).filter((a) => a.text),
-    chapters: arr(out.chapters).slice(0, 10).map((c) => ({ t: num(c.t), title: plain(c.title, 80) })).filter((c) => c.title),
+    title: w(plain(head.title, 120).replace(/\.$/, '')),
+    summary: w(plain(head.summary, 1600) || outs.map((o) => plain(o.summary, 600)).filter(Boolean).join(' ').slice(0, 1600)),
+    decisions: dec.map((d) => ({ ...d, text: w(d.text) })),
+    actions: act.map((a) => ({ ...a, text: w(a.text) })),
+    chapters: chap.slice(0, 12).map((c) => ({ ...c, title: w(c.title) })),
   };
 }
 
@@ -299,7 +393,7 @@ ${d.chapters.length ? `<h2>Chapters</h2>${list(d.chapters.map((c) => `${stamp(c.
 
 /** A Google Doc of the notes next to the recording. Returns the doc id. */
 export async function makeNotesDoc(env: DriveEnv, m: Meeting, title: string, input: DocInput): Promise<string> {
-  const folder = m.drive_folder || (await monthFolder(env, m.started_at || m.created_at));
+  const folder = await meetFolder(env, m, 'Notes');
   const name = `${etDate(m.started_at || m.created_at)} ${cleanTitle(title) || 'Meeting'} notes`;
   const boundary = `b${crypto.randomUUID().replace(/-/g, '')}`;
   const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, mimeType: 'application/vnd.google-apps.document', parents: [folder] })}\r\n--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${notesDocHtml(input)}\r\n--${boundary}--`;
@@ -320,4 +414,28 @@ export async function streamFile(env: DriveEnv, fileId: string, range: string | 
   if (!out.has('accept-ranges')) out.set('accept-ranges', 'bytes');
   out.set('cache-control', 'private, max-age=300');
   return new Response(r.body, { status: r.status === 206 || r.status === 200 ? r.status : r.status, headers: out });
+}
+
+// ---------------------------------------------------------------- taking a file out of Drive
+
+/**
+ * Takes a recording or notes Doc out of Drive. Trash works when the service account manages the folder. As a Contributor on US Team
+ * Files it may not trash (checked 2026-10-14), so the file is emptied and renamed instead, and the caller lists it for a person who
+ * can trash it. Drive keeps an emptied file's older versions until the file is trashed.
+ */
+export async function removeDriveFile(env: DriveEnv, fileId: string, kind: 'recording' | 'notes', note = ''): Promise<'trashed' | 'emptied' | 'gone'> {
+  const t = await gtoken(env);
+  const url = `${FILES}/${encodeURIComponent(fileId)}?supportsAllDrives=true&fields=id`;
+  const tr = await fetch(url, { method: 'PATCH', headers: { Authorization: `Bearer ${t}`, 'content-type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+  if (tr.ok) return 'trashed';
+  if (tr.status === 404) return 'gone';
+  const doc = kind === 'notes';
+  const body = doc
+    ? `<html><body><p>These notes were replaced${note ? ' on ' + h(note) : ''}. The current notes are in FavorOS.</p></body></html>`
+    : 'removed';
+  const up = await fetch(`${UPLOAD}/${encodeURIComponent(fileId)}?uploadType=media&supportsAllDrives=true&fields=id`, { method: 'PATCH', headers: { Authorization: `Bearer ${t}`, 'content-type': doc ? 'text/html; charset=UTF-8' : 'application/octet-stream' }, body });
+  if (up.status === 404) return 'gone';
+  if (!up.ok) throw new Error(`drive empty ${up.status}`);
+  await gjson(env, url, { method: 'PATCH', body: JSON.stringify({ name: doc ? 'Replaced notes, trash this file' : 'Removed recording, trash this file', description: 'Removed in FavorOS. Trash this file.' }) });
+  return 'emptied';
 }

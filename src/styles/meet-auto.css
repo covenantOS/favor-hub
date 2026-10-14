@@ -48,3 +48,26 @@
 .dv-ev.is-past { opacity: 1; }
 .dv-ev.is-past > * { opacity: .62; }
 .dv-ev.is-past:hover > * { opacity: 1; }
+
+/* Privacy card on the notes page: remove part of a meeting, delete the recording, private moments (2026-10-14). */
+#privacy .pv-hist { margin: 0 0 10px; padding-left: 18px; font-size: 13.5px; color: var(--h-ink-2, #4a4a44); display: grid; gap: 4px; }
+#privacy .pv-sug { display: grid; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--h-gold-soft, #f6efd9); margin-bottom: 10px; }
+#privacy .pv-sug b { display: block; font-size: 14px; } #privacy .pv-sug span { font-size: 13px; color: var(--h-ink-2, #4a4a44); }
+#privacy .pv-sug .h-btn { justify-self: start; }
+#privacy .pv-form { display: grid; gap: 8px; margin-bottom: 8px; }
+#privacy .pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#privacy .pv-row label { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--h-ink-2, #4a4a44); }
+#privacy .pv-row input { min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--h-line, #e2ddd0); border-radius: 10px; font: inherit; font-size: 16px; font-variant-numeric: tabular-nums; }
+#privacy .pv-chk { display: flex; gap: 8px; align-items: center; font-size: 14px; min-height: 32px; }
+#privacy .mt-sub { margin: 0; font-size: 12.5px; }
+#privacy .pv-warn { color: #8a3f24; }
+#privacy .pv-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+#privacy .pv-trash { display: grid; gap: 4px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--h-line, #e2ddd0); font-size: 13px; }
+#privacy .pv-trash span { color: var(--h-ink-2, #4a4a44); } #privacy .pv-trash a { color: var(--h-brand-ink); }
+.nt-l.nt-mark { background: #f3f1ea; color: var(--h-ink-2, #4a4a44); font-style: italic; font-size: 13px; }
+.nt-l time.pv-pick { cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+.cf .h-btn--danger, #privacy .h-btn--danger { background: #8a3b22; border-color: #8a3b22; color: #fff; }
+/* The room's private moment banner. */
+.rm-priv { position: relative; z-index: 3; display: flex; align-items: center; gap: 10px; margin: 8px auto 0; width: fit-content; max-width: calc(100% - 24px); padding: 8px 10px 8px 14px; border-radius: 999px; background: #2d2a24; color: #fff; font-size: 13.5px; box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+.rm-priv .h-i { width: 16px; height: 16px; flex: none; }
+.rm-priv .h-btn { color: #fff; border-color: rgba(255,255,255,.35); background: transparent; min-height: 30px; }

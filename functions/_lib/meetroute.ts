@@ -11,6 +11,7 @@
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
+import { closePrivate, cutSection, deleteRecording, privacyOf, setPrivate } from './meetprivacy';
 import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { sendLink, sendState, setMyPhone, textSoon, type SendDeps } from './meetsend';
@@ -104,6 +105,8 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request, waitUntil);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
+    if (sub === 'private' && m === 'POST') return json(await privateRoute(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'privacy' && m === 'POST') return json(await privacyRoute(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'media' && m === 'GET') return await mediaOf(env, user, id, parts[3] || '', request.headers.get('Range'));
     if (sub === 'send' && m === 'GET') return json(await sendState(env, user, id));
     if (sub === 'send' && m === 'POST') return json(await sendLink(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin, sendDeps(env, new URL(request.url).origin)));
@@ -146,7 +149,7 @@ const aheadOf = (m: { ends_at?: string | null; starts_at?: string | null }): boo
 };
 
 export async function endMeeting(env: MeetEnv, id: string) {
-  const m = await env.DB.prepare('SELECT status, rec_mode FROM hub_meetings WHERE id = ?').bind(id).first<{ status: string; rec_mode: string }>();
+  const m = await env.DB.prepare('SELECT status, rec_mode, private_on FROM hub_meetings WHERE id = ?').bind(id).first<{ status: string; rec_mode: string; private_on?: number }>().catch(() => env.DB.prepare('SELECT status, rec_mode FROM hub_meetings WHERE id = ?').bind(id).first<{ status: string; rec_mode: string; private_on?: number }>());
   if (!m || m.status === 'ended') return;
   const had = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_chunks WHERE meeting_id = ?').bind(id).first<{ n: number }>();
   const recorded = (had?.n || 0) > 0;
@@ -154,6 +157,7 @@ export async function endMeeting(env: MeetEnv, id: string) {
   await env.DB.prepare(`UPDATE hub_meetings SET status = 'ended', ended_at = ?, rec_state = ?, notes_status = ? WHERE id = ?`)
     .bind(nowIso(), recorded ? 'uploading' : 'none', recorded && m.rec_mode !== 'off' ? 'pending' : 'none', id).run();
   await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ? WHERE meeting_id = ? AND left_at = 0').bind(Date.now(), id).run();
+  if ((m as { private_on?: number }).private_on) await closePrivate(env, await getMeeting(env, id));
   // A meeting started from a Chat channel updates its card there. A failure here never changes the meeting.
   await chatMeetingEnded(env, id).catch((err) => console.warn('[chat] meeting end', err));
 }
@@ -511,7 +515,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     lines,
     me: { waiting: !!me.waiting },
     events: events.filter((e) => !isGuest || (e.kind !== 'brain' && !(e.kind === 'chat' && safeJson<{ ai?: boolean }>(e.body, {}).ai))).map((e) => ({ seq: e.seq, kind: e.kind, from: e.from_pid, to: e.to_pid, body: safeJson(e.body, {}), ts: e.ts })),
-    meeting: { status: mt.status, locked: !!mt.locked, spot: mt.spot_pid, sharePolicy: mt.share_policy, rec: mt.rec_mode, title: mt.title },
+    meeting: { status: mt.status, locked: !!mt.locked, spot: mt.spot_pid, sharePolicy: mt.share_policy, rec: mt.rec_mode, title: mt.title, private: !!(mt as { private_on?: number }).private_on },
     recording: r ? { epoch: r.epoch, owner: r.owner_pid, active: !!r.active, mode: r.mode, stale: !!r.active && now - r.last_chunk > REC_STALE_MS } : null,
   };
 }
@@ -738,6 +742,8 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     if (!Number.isInteger(epoch) || !Number.isInteger(n) || epoch < 1 || n < 0 || n > 400) throw new HttpError(400, 'bad_chunk', 'Bad piece.');
     const r = await env.DB.prepare('SELECT epoch FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number }>();
     if (!r || r.epoch < epoch) throw new HttpError(403, 'not_owner', 'Another person is recording.');
+    // A private moment: the slice is thrown away unread, so nothing said now reaches the transcript or the notes.
+    if ((mt as { private_on?: number }).private_on) return json({ ok: true, lines: 0, private: true });
     const data = await request.arrayBuffer();
     if (data.byteLength > 20 * 1024 * 1024) throw new HttpError(413, 'too_big', 'Piece too large.');
     const ext = (request.headers.get('x-ext') || 'webm') === 'mp4' ? 'mp4' : 'webm';
@@ -771,6 +777,11 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     if (!Number.isInteger(epoch) || !Number.isInteger(seq) || epoch < 1 || seq < 0 || seq > 100000) throw new HttpError(400, 'bad_chunk', 'Bad chunk.');
     const r = await env.DB.prepare('SELECT epoch, owner_pid FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string }>();
     if (!r || r.epoch < epoch || (r.epoch === epoch && r.owner_pid !== pid)) throw new HttpError(403, 'not_owner', 'Another person is recording.');
+    // A private moment: the piece is not kept (the first piece of a recording holds its header and is kept). The heartbeat still counts.
+    if ((mt as { private_on?: number }).private_on && seq > 0) {
+      if (r.epoch === epoch) await env.DB.prepare('UPDATE hub_meeting_rec SET last_chunk = ? WHERE meeting_id = ?').bind(now, id).run();
+      return json({ ok: true, private: true });
+    }
     const data = await request.arrayBuffer();
     if (data.byteLength > 6 * 1024 * 1024) throw new HttpError(413, 'too_big', 'Chunk too large.');
     await env.CLIPS.put(`meet/${id}/${epoch}/${String(seq).padStart(6, '0')}.webm`, data);
@@ -807,7 +818,29 @@ async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: 
     asked: await askedDuring(env, m),
     partners: await partnersOf(env, user as never, id),
     live: m.status === 'live' ? await liveList(env, user as never, id).then((r) => r.items).catch(() => []) : [],
+    privacy: await privacyOf(env as never, user, m, safeJson<Array<{ t: number; text: string }>>(m.transcript, [])).catch(() => null),
   };
+}
+
+/** A host turns a private moment on or off in the room. */
+async function privateRoute(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
+  const mt = await getMeeting(env, id);
+  const me = await getPresence(env, id, clean(b.pid, 12), user.email);
+  return setPrivate(env, user, mt, b.on !== false, me.role === 'host' || me.role === 'cohost', me.name);
+}
+
+/** Cut a stretch of a finished meeting, or delete its recording. Host of the meeting or a hub admin. */
+async function privacyRoute(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
+  const mt = await notesMeeting(env, user, id);
+  const denv = env as MeetEnv & { MEET_DRIVE_FOLDER?: string };
+  const doc = (x: Meeting) => docFor(denv, x, x.title);
+  if (b.op === 'delete-recording') return deleteRecording(env as never, user, mt, { doc });
+  if (b.op === 'cut') {
+    const invitees = safeJson<Array<{ name?: string; email?: string }>>(mt.invitees, []).map((i) => i.name || i.email || '');
+    const people = (await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string }>()).results || [];
+    return cutSection(env as never, user, mt, b, { doc, names: [...new Set([...people.map((p) => p.name), ...invitees].filter(Boolean))] });
+  }
+  throw new HttpError(400, 'bad_op', 'Unknown request.');
 }
 
 /** What people asked Favor Brain during the meeting and showed or posted, in time order. */

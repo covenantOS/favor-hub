@@ -212,14 +212,16 @@ describe('live notes', () => {
 });
 
 describe('after the call', () => {
-  const notesAI = (extra = {}) => ['You write the notes', () => ({
-    title: 'Banquet planning', summary: 'The team set the banquet for November 14 and split the follow-ups.',
-    decisions: [{ t: 40, text: 'The banquet moves to November 14.' }],
-    actions: [{ text: 'Bob sends the banquet invitations by Friday.', owner: 'Bob', due: 'Friday', t: 20 }, { text: 'Find a caterer', owner: '', due: '', t: 90 }],
-    chapters: [{ t: 0, title: 'Date' }], ...extra,
+  // The notes are read in parts with line numbers (L1, L2), then the title and summary are written from the parts.
+  const notesAI = (extra = {}) => ['pull out its notes', () => ({
+    summary: 'The team set the banquet for November 14 and split the follow-ups.',
+    decisions: [{ line: 2, text: 'The banquet moves to November 14.' }],
+    actions: [{ line: 2, text: 'Bob sends the banquet invitations by Friday.', owner: 'Bob', due: 'Friday', quote: 'I will send the invitations by Friday' }, { line: 1, text: 'Find a caterer', owner: '', due: '', quote: 'Welcome' }],
+    topics: [{ line: 1, title: 'Date' }], ...extra,
   })];
+  const headAI = ['You write the title and summary', () => ({ title: 'Banquet planning', summary: 'The team set the banquet for November 14 and split the follow-ups.' })];
   async function ended(n, over = {}) {
-    const env = await world(fakeAI([notesAI(), ['listen to a staff meeting', () => ({ items: [] })]]));
+    const env = await world(fakeAI([notesAI(), headAI, ['listen to a staff meeting', () => ({ items: [] })]]));
     meeting(env, n, { status: 'ended', notes: 'pending', summary: '', ...over });
     lines(env, n, [[5, 'Ann Example', 'Welcome.'], [20, 'Bob Sample', 'I will send the invitations by Friday.']]);
     env.d1.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').run(JSON.stringify([{ t: 5, who: 'Ann Example', text: 'Welcome.' }, { t: 20, who: 'Bob Sample', text: 'I will send the invitations by Friday.' }]), id(n));

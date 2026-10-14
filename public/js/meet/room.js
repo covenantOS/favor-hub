@@ -400,7 +400,7 @@ function failScreen(err) {
 // ---------------------------------------------------------------- the room
 function buildRoom() {
   document.getElementById('h-app').classList.add('is-room');
-  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage" aria-label="Meeting"><div class="rm-top"><div class="rm-bar" id="rm-bar"></div><div class="rm-tools" id="rm-tools"></div></div><div id="rm-banner"></div><div id="rm-wait"></div><div class="rm-grid" id="rm-grid"></div><div class="rm-hint" id="rm-hint" hidden></div><div class="rm-cap" id="rm-cap" hidden aria-live="off"></div><div id="rm-pop-wrap"></div><div class="rm-ctl" id="rm-ctl" role="toolbar" aria-label="Meeting controls"></div></section><aside class="rm-side" id="rm-side" aria-label="Meeting panel"></aside><div id="rm-more-wrap"></div></div>`;
+  root.innerHTML = `<div class="rm" id="rm"><section class="rm-stage" aria-label="Meeting"><div class="rm-top"><div class="rm-bar" id="rm-bar"></div><div class="rm-tools" id="rm-tools"></div></div><div id="rm-banner"></div><div id="rm-priv"></div><div id="rm-wait"></div><div class="rm-grid" id="rm-grid"></div><div class="rm-hint" id="rm-hint" hidden></div><div class="rm-cap" id="rm-cap" hidden aria-live="off"></div><div id="rm-pop-wrap"></div><div class="rm-ctl" id="rm-ctl" role="toolbar" aria-label="Meeting controls"></div></section><aside class="rm-side" id="rm-side" aria-label="Meeting panel"></aside><div id="rm-more-wrap"></div></div>`;
   S.panel = isPhone() ? '' : 'people';
   paintAll();
   dragToClose($('#rm-side'));
@@ -910,6 +910,7 @@ async function paintMore() {
     row('layout', S.layout === 'grid' ? 'speaker' : 'grid', S.layout === 'grid' ? 'Speaker view' : 'Gallery view', ''),
     document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
+    h ? row('private', 'lock', S.private ? 'End private moment' : 'Private moment', S.private ? 'On' : '') : '',
     row('devmenu', 'gear', 'Camera, microphone and speaker', ''),
   ].join('');
   wrap.innerHTML = `<div class="mr-scrim" data-a="more-close"></div><div class="mr-sheet" id="rm-more" role="dialog" aria-label="More"><div class="rm-grab" aria-hidden="true"></div><div class="mr-emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div><div class="mr-list">${rows}</div></div>`;
@@ -946,7 +947,7 @@ const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" tar
 const invRow = (r) => `<div class="rm-inv__r is-${r.status}"><span>${esc(r.to)}</span><b>${r.status === 'failed' ? 'Failed' : r.status === 'dry' ? 'Checked' : 'Sent'}</b>${r.detail && r.status !== 'sent' ? `<i>${esc(r.detail)}</i>` : ''}</div>`;
 // The box and its input are drawn once; only the suggestions and results under it change, so typing is never interrupted.
 const invShell = () => (!hostish() ? '' : `<div class="rm-inv"><div class="rm-inv__t">Invite</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name, email or phone" maxlength="200" autocomplete="off" autocapitalize="off" enterkeyhint="send" /><button class="icb send" id="invgo" data-a="invite" aria-label="Send invitation">${ic('send')}</button></div><div id="inv-extra"></div></div>
-    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-favor-send="${MID}">${ic('send')}Send the link</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`);
+    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-favor-send="${MID}">${ic('send')}Send the link</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">${ic('lock')}${S.private ? 'End private moment' : 'Private moment'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`);
 const invExtra = () => {
   const v = S.inv; const pick = v.matches.length ? v.matches : v.sugg;
   return (pick.length ? `<div class="rm-inv__s">${pick.map((p) => `<button data-a="invite-pick" data-v="${esc(p.email)}">${esc(p.name)}</button>`).join('')}</div>` : '') + v.rows.slice(0, 6).map(invRow).join('');
@@ -1071,6 +1072,7 @@ function onDocClick(e) {
     }
     case 'sharepolicy': send('cmd', { a: 'sharepolicy', v: S.sharePolicy === 'hosts' ? 'all' : 'hosts' }); break;
     case 'copylink': copy(roomLink(MID)); break;
+    case 'private': togglePrivate(); break;
     case 'invite': sendInvite(); break;
     case 'invite-pick': sendInvite(a.dataset.v); break;
     case 'guestlink': api('meetings/' + MID + '/guestlink', { method: 'POST', body: {} }).then((r) => copy(r.url)).catch((e) => toast(e.message)); break;
@@ -1293,6 +1295,7 @@ function applySync(r) {
   S.people = r.people; S.me.role = r.role;
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
+  if (!!r.meeting.private !== !!S.private) { S.private = !!r.meeting.private; paintPriv(); if (S.more) paintMore(); paintFoot(); }
   S.recording = r.recording;
   // Lines are stamped when they arrive. The first sync brings the transcript so far, which is history, not a caption.
   for (const l of r.lines || []) { l.at = S.capPrimed ? Date.now() : 0; S.lines.push(l); S.tx = l.n; if (S.capPrimed) S.notesHeldAt = 0; }
@@ -1360,6 +1363,8 @@ function handleEvent(e) {
     else if (b.a === 'rec-takeover') toast(b.name + ' took over the recording');
     else if (b.a === 'joined' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' joined');
     else if (b.a === 'acting' && b.pid === S.me.pid) toast('You are now a host because no host is in the room');
+    else if (b.a === 'private-on') { S.private = true; paintPriv(); toast('Private moment. Nothing is recorded or written down.'); }
+    else if (b.a === 'private-off') { S.private = false; paintPriv(); toast('Notes and recording are back on'); }
     else if (b.a === 'notes-held') { S.notesHeldAt = e.ts || Date.now(); paintCap(); if (S.panel === 'notes') paintSideBody(false); }
   }
 }
@@ -1597,6 +1602,21 @@ async function toggleRecording() {
 window.__meet = { S, tiles, get rtc() { return rtc; }, get fx() { return cfx; }, get vfx() { return vfx; }, reconcile, rejoin };
 
 // ---------------------------------------------------------------- captions
+// ---- private moment: a host pauses the notes and the recording, for prayer or anything personal. The server keeps nothing said
+// while it is on; this banner tells everyone in the room.
+function paintPriv() {
+  const el = $('#rm-priv'); if (!el) return;
+  if (!S.private) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="rm-priv" role="status">${ic('lock')}<span><b>Private moment.</b> Nothing is recorded or written down.</span>${hostish() ? '<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">End</button>' : ''}</div>`;
+}
+async function togglePrivate() {
+  const on = !S.private;
+  try {
+    await api('meetings/' + MID + '/private', { method: 'POST', body: { pid: S.me.pid, on } });
+    S.private = on; paintPriv(); if (S.more) paintMore(); paintFoot();
+  } catch (e) { toast(e.message || 'That did not go through'); }
+}
+
 function paintCap() {
   const el = $('#rm-cap'); if (!el) return;
   if (!S.cc) { el.hidden = true; return; }

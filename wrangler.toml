@@ -73,3 +73,8 @@ id = "3510f9c623df4bd3a06d420b5d1e9160"
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
 script_name = "favor-chat"
+
+# Favor Brain's Drive vectors (same account). Meetings take a removed notes Doc or recording out of the index (functions/_lib/meetprivacy.ts).
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "favor-drive"
