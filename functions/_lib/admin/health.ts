@@ -201,7 +201,12 @@ async function jobsProbe(env: Env, now: number): Promise<Item> {
   const rest = jobs.filter((j) => j.id !== 'smoke');
   const parts: Part[] = rest.map((j) => ({ label: j.label, at: j.at, status: j.status }));
   const bad = rest.filter((j) => j.status === 'failed' || j.status === 'late');
-  const detail = bad.length ? bad.map((j) => `${j.label}: ${j.detail}`).join('; ') : 'Every job ran on time';
+  const none = rest.filter((j) => j.status === 'unknown').length;
+  const detail = bad.length
+    ? bad.map((j) => `${j.label}: ${j.detail}`).join('; ')
+    : none
+      ? `${none} of ${rest.length} jobs have no run recorded yet`
+      : 'Every job ran on time';
   return { id: 'jobs', label: 'Scheduled jobs', status: worst(rest.map((j) => j.status === 'unknown' ? 'late' : j.status)), at: rest.map((j) => j.at).filter((x): x is string => !!x).sort().slice(-1)[0] || null, detail, parts };
 }
 
