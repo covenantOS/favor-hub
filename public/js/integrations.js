@@ -380,7 +380,154 @@
     }, 'ix-find');
   }
 
-  window.FavorIx = { api, toast, open, close, esc, ic, when, timeOnly, person, avatar, phone, accept, focus, findTime, me };
+  /* ------------------------------------------------------------------ 3. Clip replies */
+
+  // Records with the usual recorder (the camera button in the header) and hears back on the recorder's channel when it is saved.
+  function recordClip() {
+    return new Promise((resolve) => {
+      const cam = document.getElementById('clip-cam');
+      if (!cam) { toast('The clip recorder is not on this page.'); resolve(null); return; }
+      let done = false;
+      const ch = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('favor-clips') : null;
+      const finish = (id) => {
+        if (done) return;
+        done = true;
+        if (ch) ch.close();
+        window.removeEventListener('clips:changed', onChanged);
+        clearTimeout(timer);
+        resolve(id);
+      };
+      const onChanged = (e) => { if (e && e.detail && e.detail.id) finish(e.detail.id); };
+      if (ch) ch.onmessage = (e) => { const m = e.data || {}; if (m.t === 'saved' && m.id) finish(m.id); else if (m.t === 'closed' || m.t === 'gone') finish(null); };
+      window.addEventListener('clips:changed', onChanged);
+      const timer = setTimeout(() => finish(null), 30 * 60000);
+      cam.click();
+      toast('Record your clip. It is sent here when you press Stop.', 4200);
+    });
+  }
+
+  const LEVELS = [
+    ['people', 'Only the people here'],
+    ['staff', 'Anyone at Favor with the link'],
+    ['public', 'Everybody with the link'],
+  ];
+
+  /**
+   * ctx: { kind: 'chat'|'mail'|'task'|'request'|'partner', ref, thread?, title?, people?: [{email, name}], partnerId? }
+   * Records a clip in place, then sends it where the reply goes, at the sharing level the person picks.
+   */
+  async function clipReply(ctx, clipIdIn) {
+    const id = clipIdIn || (await recordClip());
+    if (!id) return null;
+    let info = null;
+    try { info = await api(`/api/clips/${id}/info`); } catch (_) { info = null; }
+    const clip = (info && info.clip) || { id, title: 'Your clip' };
+    let people = (ctx.people || []).filter((p) => p && p.email);
+    if (!people.length && (ctx.kind === 'task' || ctx.kind === 'request' || ctx.kind === 'chat')) {
+      try { people = (await api(`/api/integrations/context?kind=${encodeURIComponent(ctx.kind)}&ref=${encodeURIComponent(ctx.ref)}`)).people || []; } catch (_) { people = []; }
+    }
+    const outside = people.filter((p) => !/@favorintl\.org$/i.test(p.email));
+    const was = (info && (info.clip.access || (info.clip.share ? 'public' : info.clip.staffLink ? 'staff' : ''))) || '';
+    const st = { level: outside.length || ctx.kind === 'partner' ? 'public' : was === 'staff' || was === 'public' ? was : 'people', suggest: false };
+    return open('Send your clip', (el, done) => {
+      const draw = () => {
+        const needPublic = (outside.length || ctx.kind === 'partner') && st.level !== 'public';
+        el.innerHTML = `${head('Send your clip', clip.title || 'Your clip')}
+          <div class="ix-body">
+            <div class="ix-field"><span class="ix-label">Who can watch</span>
+              <div class="ix-seg" role="radiogroup" aria-label="Who can watch">${LEVELS.map(([v, l]) => `<button type="button" class="ix-seg__b${st.level === v ? ' is-on' : ''}" role="radio" aria-checked="${st.level === v}" data-ix-level="${v}">${esc(l)}</button>`).join('')}</div>
+              <p class="ix-quiet">${needPublic ? 'People outside Favor can only watch when it is set to Everybody.' : st.level === 'people' ? (ctx.kind === 'chat' ? 'Everyone in this conversation can watch it.' : people.length ? `${esc(people.map((p) => first(p.name) || p.email).slice(0, 4).join(', '))}${people.length > 4 ? ' and others' : ''} can watch it.` : 'Only you, until you add people.') : st.level === 'staff' ? 'Anyone signed in at Favor with the link can watch it.' : 'Anyone with the link can watch it, signed in or not.'}</p>
+            </div>
+            ${ctx.kind === 'partner' ? `<label class="ix-check"><input type="checkbox" data-ix-suggest ${st.suggest ? 'checked' : ''} /> <span>Suggest it for the contact log. Nothing is logged until you press Log it on the partner's page.</span></label>` : ''}
+            <p class="ix-quiet">${ctx.kind === 'chat' ? 'It goes in the thread, and comments on the clip show there too.' : ctx.kind === 'task' || ctx.kind === 'request' ? 'It goes in the comments, and comments on the clip show there too.' : ctx.kind === 'mail' ? 'It goes into your reply, ready for you to send.' : ctx.kind === 'partner' ? 'It opens in an email to the partner, ready for you to send.' : ''}</p>
+          </div>
+          <div class="rt-sheet__foot"><button type="button" class="rt-btn" data-ix-close>Keep it in My clips</button><button type="button" class="rt-btn rt-btn--primary" data-ix-send>${ic('check')}Send</button></div>`;
+      };
+      draw();
+      el.addEventListener('change', (e) => { if (e.target.matches('[data-ix-suggest]')) st.suggest = e.target.checked; });
+      el.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-ix-close]')) { done(null); return; }
+        const lv = e.target.closest('[data-ix-level]');
+        if (lv) { st.level = lv.dataset.ixLevel; draw(); return; }
+        const go = e.target.closest('[data-ix-send]');
+        if (!go) return;
+        busy(go, true, 'Sending');
+        try {
+          const add = people.filter((p) => /@favorintl\.org$/i.test(p.email)).map((p) => p.email);
+          await api(`/api/clips/${id}`, { method: 'PATCH', json: Object.assign({ access: st.level }, add.length && st.level === 'people' ? { addPeople: add } : {}) });
+          const item = { kind: 'clip', title: clip.title || 'Clip', url: location.origin + '/c/' + id, sub: clip.duration ? Math.round(clip.duration) + ' sec' : '' };
+          const place = { clip_id: id, kind: ctx.kind, ref: ctx.ref };
+          if (ctx.kind === 'chat') {
+            const m = await api(`/api/chat/channels/${encodeURIComponent(ctx.ref)}/messages`, { method: 'POST', json: { body: '', thread_id: ctx.thread || null, attachments: [{ type: 'clip', id }] } });
+            place.message_id = (m.message && m.message.id) || 0;
+          }
+          if (ctx.kind === 'partner') place.suggest_log = !!st.suggest;
+          await api('/api/integrations/clip-place', { method: 'POST', json: place });
+          if (ctx.kind === 'mail') {
+            window.dispatchEvent(new CustomEvent('favor-mail:reply', { detail: { threadId: ctx.ref, items: [item] } }));
+          } else if (ctx.kind === 'partner') {
+            if (window.FavorCompose && window.FavorCompose.open) {
+              const me1 = first((person(me()) || {}).name);
+              await window.FavorCompose.open({ mode: 'float', to: people.map((p) => ({ email: p.email, name: p.name || '' })), subject: `A short video${me1 ? ' from ' + me1 : ''}`, body: '' });
+              if (window.FavorCompose.add) window.FavorCompose.add(item);
+            } else {
+              try { await navigator.clipboard.writeText(item.url); toast('Link copied. Paste it into your email.'); } catch (_) { toast(item.url, 8000); }
+            }
+          }
+          toast(ctx.kind === 'chat' ? 'Your clip is in the thread.' : ctx.kind === 'task' || ctx.kind === 'request' ? 'Your clip is in the comments.' : st.suggest ? 'Suggested for the contact log on the partner page.' : 'Your clip is ready to send.', 4200);
+          done({ id, level: st.level });
+        } catch (err) {
+          busy(go, false);
+          toast(err.message, 5200);
+        }
+      });
+    }, 'ix-clip');
+  }
+
+  /* ------------------------------------------------------------------ the contact log suggestion on a partner page */
+
+  const seenPartner = new Set();
+  async function partnerSuggestions(acts) {
+    const link = acts.querySelector('[data-pp-link]');
+    const pid = link && link.dataset.ppLink;
+    if (!pid || acts.dataset.ixLog === pid) return;
+    acts.dataset.ixLog = pid;
+    let r;
+    try { r = await api(`/api/integrations/clip-log?partner=${encodeURIComponent(pid)}`); } catch (_) { return; }
+    const list = (r.suggestions || []).slice(0, 3);
+    acts.parentElement && acts.parentElement.querySelectorAll('.ix-logs').forEach((x) => x.remove());
+    if (!list.length) return;
+    const box = document.createElement('div');
+    box.className = 'ix-logs';
+    box.innerHTML = list.map((s) => `<div class="ix-log" data-clip="${esc(s.clip_id)}"><span>${ic('cam')}<b>${esc(s.title)}</b><small>${s.state === 'failed' ? 'Did not log last time. Try again.' : 'You suggested this clip for the contact log.'}</small></span><button type="button" class="rt-btn rt-btn--sm rt-btn--primary" data-ix-log="log">Log it</button><button type="button" class="rt-btn rt-btn--sm" data-ix-log="dismiss">Dismiss</button></div>`).join('');
+    acts.insertAdjacentElement('afterend', box);
+    box.addEventListener('click', async (e) => {
+      const b = e.target.closest('[data-ix-log]');
+      if (!b) return;
+      const row = b.closest('[data-clip]');
+      busy(b, true, b.dataset.ixLog === 'log' ? 'Logging' : 'Dismissing');
+      try {
+        const res = await api('/api/integrations/clip-log/act', { method: 'POST', json: { clip_id: row.dataset.clip, partner_id: pid, action: b.dataset.ixLog, confirm: b.dataset.ixLog === 'log' } });
+        row.remove();
+        if (!box.children.length) box.remove();
+        toast(b.dataset.ixLog === 'log' ? res.detail || 'Logged on the record.' : 'Dismissed.');
+      } catch (err) {
+        busy(b, false);
+        toast(err.message, 5200);
+      }
+    });
+  }
+  // The partner page draws its action row in place; a suggestion shows under it the first time it appears for a partner.
+  let ppTimer = 0;
+  new MutationObserver(() => {
+    if (ppTimer) return;
+    ppTimer = setTimeout(() => {
+      ppTimer = 0;
+      document.querySelectorAll('.pp-acts').forEach((acts) => { seenPartner.add(acts); partnerSuggestions(acts); });
+    }, 400);
+  }).observe(document.documentElement, { childList: true, subtree: true });
+
+  window.FavorIx = { api, toast, open, close, esc, ic, when, timeOnly, person, avatar, phone, accept, focus, findTime, me, clipReply, recordClip };
   /* ------------------------------------------------------------------ entry points on other pages */
 
   // Any button with data-ix-ft='{"kind":..., "ref":..., "people":[...], "title":...}' opens Find a time (request panel, partner page).
@@ -391,6 +538,15 @@
     let ctx = null;
     try { ctx = JSON.parse(b.dataset.ixFt); } catch (_) { ctx = null; }
     if (ctx) findTime(ctx);
+  });
+  // data-ix-clip='{"kind":..., "ref":..., "people":[...]}' records a clip in place and sends it there (partner page).
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-ix-clip]');
+    if (!b) return;
+    e.preventDefault();
+    let ctx = null;
+    try { ctx = JSON.parse(b.dataset.ixClip); } catch (_) { ctx = null; }
+    if (ctx) clipReply(ctx);
   });
 
   // Mail draws an empty slot in each conversation's toolbar and tells us (favor-mail:thread). Two buttons go in it:

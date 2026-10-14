@@ -85,3 +85,13 @@
   .ix-slot { transition: none; }
 }
 .ix-slot.is-static { cursor: default; }
+
+/* Clip replies: the contact log suggestion on a partner page, and the opt-in tick */
+.ix-check { display: flex; gap: 10px; align-items: flex-start; font: 500 13.5px/1.4 var(--h-font, Inter, sans-serif); color: var(--r-ink); cursor: pointer; }
+.ix-check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: #2b4d24; flex: none; }
+.ix-logs { display: grid; gap: 8px; margin: 10px 0 0; }
+.ix-log { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; border: 1px solid #ecd29a; background: #fdf6e7; }
+.ix-log > span { flex: 1; min-width: 180px; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; font: 600 13.5px/1.3 var(--h-font, Inter, sans-serif); }
+.ix-log > span svg { width: 18px; height: 18px; grid-row: span 2; fill: none; stroke: #7a5410; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.ix-log small { font-weight: 500; color: var(--r-ink-2); font-size: 12.5px; }
+.ix-seg[role='radiogroup'] .ix-seg__b { font-size: 12.5px; padding: 0 6px; line-height: 1.15; }

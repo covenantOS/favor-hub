@@ -245,6 +245,7 @@ function view(p, o = {}) {
       ${window.FavorHandoff ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-handoff-kind="partner" data-handoff-id="${esc(p.id)}" data-handoff-title="${esc(String(p.name || '').trim())}">Hand off</button>` : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-link="${esc(p.id)}">${ic('link')}Copy link</button>
       ${window.FavorIx ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ix-ft="${esc(JSON.stringify({ kind: 'partner', ref: String(p.id), title: 'Meeting with ' + p.name, people: email ? [{ email: email.address, name: p.name }] : [] }))}">Find a time</button>` : ''}
+      ${window.FavorIx && email ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ix-clip="${esc(JSON.stringify({ kind: 'partner', ref: String(p.id), people: [{ email: email.address, name: p.name }] }))}">Send a clip</button>` : ''}
     </div>`;
   const giving = `<div class="pp-giving">
       ${figure('Lifetime', money(Math.round(g.total)), g.count ? g.count.toLocaleString('en-US') + (g.count === 1 ? ' gift' : ' gifts') : 'No gifts')}

@@ -1372,6 +1372,7 @@
       out.push(['mark-unread', 'mark', 'Mark unread from here']);
       out.push(['make-request', 'task', 'Create a request from this message']);
       out.push(['sm-turn', 'bell', 'Turn into a task, reminder or action']);
+      if (window.FavorIx && window.FavorIx.clipReply) out.push(['clip-reply', 'play', 'Reply with a clip']);
       if (S.lang && !mine && (m.body || (m.attachments || []).some(function (a) { return a.voice; }))) out.push(['sm-orig', 'globe', S.trOrig[m.id] ? 'Show translation' : 'Show original']);
       if (m.body) out.push(['sm-ask', 'spark', 'Ask Favor Brain about this']);
       if (mine) out.push(['del', 'trash', 'Delete', true]);
@@ -1972,6 +1973,13 @@
         return;
       }
       if (act === 'make-request') { closePop(); requestDialog({ from: id }); return; }
+      if (act === 'clip-reply') {
+        // Recorded in place, posted in this message's thread (integrations.js); a root message starts the thread.
+        closePop();
+        var inList = (S.msgs[S.active] || []).some(function (x) { return String(x.id) === String(id); });
+        if (window.FavorIx && window.FavorIx.clipReply) window.FavorIx.clipReply({ kind: 'chat', ref: S.active, thread: inList ? Number(id) : S.threadRoot });
+        return;
+      }
       if (act === 'request-new') { closePop(); requestDialog({ thread: scope === 'thread' ? S.threadRoot : null }); return; }
       if (act === 'rq-create') {
         var rq = modal._rq || {}, rt = $('[data-rq-title]', modal).value.trim();

@@ -29,6 +29,7 @@ export function msgActions(e: ChatEngine, m: J): [string, string, string, boolea
   out.push(['mark-unread', 'mark', 'Mark unread from here']);
   out.push(['make-request', 'task', 'Create a request from this message']);
   out.push(['sm-turn', 'bell', 'Turn into a task, reminder or action']);
+  if ((window as unknown as { FavorIx?: { clipReply?: unknown } }).FavorIx?.clipReply) out.push(['clip-reply', 'play', 'Reply with a clip']);
   if (S.lang && !mine && (m.body || (m.attachments || []).some((a: J) => a.voice))) out.push(['sm-orig', 'globe', S.trOrig[m.id] ? 'Show translation' : 'Show original']);
   if (m.body) out.push(['sm-ask', 'spark', 'Ask Favor Brain about this']);
   if (mine) out.push(['del', 'trash', 'Delete', true]);
@@ -43,6 +44,11 @@ export function runAction(e: ChatEngine, act: string, m: J, on?: boolean) {
   else if (act === 'mark-unread') e.markUnread(m.id);
   else if (act === 'make-request') e.setModal({ kind: 'request', from: m.id });
   else if (act === 'sm-turn') e.setModal({ kind: 'turn', id: m.id });
+  else if (act === 'clip-reply') {
+    // Recorded in place and posted in this message's thread (public/js/integrations.js).
+    const ix = (window as unknown as { FavorIx?: { clipReply?: (c: unknown) => void } }).FavorIx;
+    if (ix && ix.clipReply) ix.clipReply({ kind: 'chat', ref: e.S.active, thread: m.thread_id || m.id });
+  }
   else if (act === 'sm-orig') e.toggleOrig(m.id);
   else if (act === 'sm-ask') {
     e.setModal(null);

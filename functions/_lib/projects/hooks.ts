@@ -72,4 +72,7 @@ onProjectEvent((env, ev) => asanaSync(env, ev));
 // A ticked task made from an accepted request closes the request and sends its done email (functions/_lib/integrations/accept.ts).
 import { onTaskEvent as requestFromTask } from '../integrations/accept';
 onProjectEvent((env, ev) => requestFromTask(env, ev));
+// A comment on a task a clip was sent to lands on the clip (functions/_lib/integrations/cliplinks.ts).
+import { fromTaskComment as clipFromTask } from '../integrations/cliplinks';
+onProjectEvent((env, ev) => clipFromTask(env, ev));
 // --- links end

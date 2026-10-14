@@ -83,6 +83,7 @@ async function load(first) {
     S.user = d.user;
     S.can = d.can || { edit: false };
     S.comments = d.comments || [];
+    if (d.user) loadMarks();
     S.reactions = d.reactions || [];
     S.viewers = d.viewers || [];
     S.people = d.people || [];
@@ -1327,10 +1328,53 @@ document.addEventListener('click', async (e) => {
 
 /* ---- comments tab ---- */
 
+// A comment can become a task or be marked as an adjustment (functions/_lib/integrations/cliplinks.ts). Both link back here.
+S.marks = {};
+async function loadMarks() {
+  try {
+    const r = await api(`/api/integrations/clip-marks?clip=${ID}`);
+    S.marks = Object.fromEntries((r.marks || []).map((m) => [m.comment_id, m]));
+    if (S.tab === 'comments') paintPanel();
+  } catch (_) { /* marks are extra */ }
+}
+const mayMark = (c) => !!S.user && (isAdmin() || canDelete() || c.author_email === S.user.email);
+function marksHtml(c) {
+  const m = S.marks[c.id] || {};
+  const chips = [];
+  if (m.task) chips.push(`<a class="cw-mark${m.task.status === 'done' ? ' is-done' : ''}" href="${esc(m.task.url)}" target="_top">Task ${esc(m.task.code || '')}${m.task.status === 'done' ? ', done' : ''}</a>`);
+  if (m.adjustment) chips.push(`<button type="button" class="cw-mark cw-mark--adj${m.adjustment_done ? ' is-done' : ''}" data-cadj-done="${c.id}" aria-pressed="${m.adjustment_done ? 'true' : 'false'}" ${mayMark(c) ? '' : 'disabled'}>${m.adjustment_done ? 'Adjustment made' : 'Adjustment to make'}</button>`);
+  const acts = mayMark(c)
+    ? `${m.task ? '' : `<button type="button" class="cw-mlink" data-ctask="${c.id}">Make this a task</button>`}<button type="button" class="cw-mlink" data-cadj="${c.id}">${m.adjustment ? 'Not an adjustment' : 'Mark as adjustment'}</button>`
+    : '';
+  return chips.length || acts ? `<p class="cw-marks">${chips.join('')}${acts}</p>` : '';
+}
+document.addEventListener('click', async (e) => {
+  const t = e.target.closest('[data-ctask], [data-cadj], [data-cadj-done]');
+  if (!t) return;
+  try {
+    if (t.dataset.ctask) {
+      t.disabled = true;
+      const r = await api(`/api/integrations/clip-comments/${t.dataset.ctask}/task`, { method: 'POST', json: {} });
+      toast(`Task ${r.task.code || 'made'}. It opens the clip at this moment.`);
+    } else if (t.dataset.cadj) {
+      const m = S.marks[t.dataset.cadj] || {};
+      await api(`/api/integrations/clip-comments/${t.dataset.cadj}/adjust`, { method: 'POST', json: { on: !m.adjustment } });
+    } else if (t.dataset.cadjDone) {
+      const m = S.marks[t.dataset.cadjDone] || {};
+      await api(`/api/integrations/clip-comments/${t.dataset.cadjDone}/adjust`, { method: 'POST', json: { on: true, done: !m.adjustment_done } });
+    }
+    await loadMarks();
+    paintPanel();
+  } catch (err) {
+    t.disabled = false;
+    toast(err.message, 'bad');
+  }
+});
+
 function paintComments(box) {
   const list = [...S.comments].sort((a, b) => a.at_seconds - b.at_seconds || a.created_at.localeCompare(b.created_at));
   box.innerHTML = list.length
-    ? `<ul class="cw-comments">${list.map((c) => `<li data-c="${c.id}"><span class="cw-av">${esc(initials(c.author_name))}</span><div><p class="cw-cmeta"><b>${esc(firstName(c.author_name))}</b> · ${esc(ago(c.created_at))} <button type="button" class="cw-t" data-seek="${c.at_seconds}" aria-label="Jump to ${fmtTime(edited(c.at_seconds))}">${fmtTime(edited(c.at_seconds))}</button></p><p class="cw-cbody">${esc(c.body)}</p></div>${c.author_email === S.user.email || (S.user && S.user.admin) ? `<button type="button" class="cw-ib2" data-cdel="${c.id}" aria-label="Delete comment">${icon('x')}</button>` : ''}</li>`).join('')}</ul>`
+    ? `<ul class="cw-comments">${list.map((c) => `<li data-c="${c.id}"><span class="cw-av">${esc(initials(c.author_name))}</span><div><p class="cw-cmeta"><b>${esc(firstName(c.author_name))}</b> · ${esc(ago(c.created_at))} <button type="button" class="cw-t" data-seek="${c.at_seconds}" aria-label="Jump to ${fmtTime(edited(c.at_seconds))}">${fmtTime(edited(c.at_seconds))}</button></p><p class="cw-cbody">${esc(c.body)}</p>${marksHtml(c)}</div>${c.author_email === S.user.email || (S.user && S.user.admin) ? `<button type="button" class="cw-ib2" data-cdel="${c.id}" aria-label="Delete comment">${icon('x')}</button>` : ''}</li>`).join('')}</ul>`
     : '<p class="cw-empty cw-empty--pad">No comments yet.</p>';
 }
 document.addEventListener('click', async (e) => {

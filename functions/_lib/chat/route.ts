@@ -501,6 +501,8 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   if (threadId) ctx.waitUntil(taskReply(env, posted.message, user));
   // projects hook: a reply under a task's card is also a comment on the task (projects/links/chat.ts).
   if (threadId) ctx.waitUntil(ptaskReply(env, posted.message, user));
+  // A reply under a clip sent as a reply lands on the clip as a comment (integrations/cliplinks.ts).
+  if (threadId) ctx.waitUntil(import('../integrations/cliplinks').then((m) => m.fromChatReply(env, posted.message, user)).catch(() => false));
   const fresh = urls.find((u) => !classifyUrl(u, hosts) && !attachments.some((x) => x.type === 'drive' && x.url === u));
   if (fresh && !attachments.some((x) => x.type === 'link')) {
     ctx.waitUntil((async () => {

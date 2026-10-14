@@ -9,7 +9,7 @@ async function loadClip(env: ClipsEnv, id: string, user: HubUser): Promise<Clip 
   return c && isWatchable(c) && (await mayWatch(env, user, c)) ? c : null;
 }
 
-export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
+export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
     const who = staffOrError(request);
     if ('res' in who) return who.res;
@@ -23,7 +23,11 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     const createdAt = nowIso();
     await env.DB.prepare('INSERT INTO hub_clip_comments (id, clip_id, at_seconds, author_email, author_name, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(id, clip.id, at, who.user.email, who.user.name, text, createdAt).run();
-    return json({ ok: true, comment: { id, at_seconds: at, author_email: who.user.email, author_name: who.user.name, body: text, created_at: createdAt } });
+    const comment = { id, at_seconds: at, author_email: who.user.email, author_name: who.user.name, body: text, created_at: createdAt };
+    // The comment also lands in the Chat thread and on the task the clip was sent to (functions/_lib/integrations/cliplinks.ts).
+    const later = typeof waitUntil === 'function' ? waitUntil : (p: Promise<unknown>) => void p;
+    later(import('../../../_lib/integrations/cliplinks').then((m) => m.fromClipComment(env, clip.id, comment, who.user)).catch((err) => console.warn('[clips] mirror', err)));
+    return json({ ok: true, comment });
   } catch (err) {
     return handleError(err);
   }

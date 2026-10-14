@@ -245,3 +245,15 @@ body { margin: 0; min-height: 100vh; font: 15px/1.55 Inter, system-ui, sans-seri
 /* Who can watch: share with a person by email (2026-10-14). */
 .cw-ppform { display: flex; gap: 8px; margin: 8px 0 18px; }
 .cw-ppform input { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--line, #d6d3cc); border-radius: 8px; font: inherit; background: transparent; color: inherit; }
+
+/* A comment made into a task or marked as an adjustment (integrations/cliplinks.ts) */
+.cw-marks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 6px 0 0; }
+.cw-mark { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid #c9dcc2; background: #eef4ea; color: #1f3a1a; font: 600 12.5px/1 Inter, system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+.cw-mark.is-done { background: #f3f1ea; border-color: #e2ddd0; color: #57534a; }
+.cw-mark--adj { background: #fbe9c6; border-color: #ecd29a; color: #7a5410; }
+.cw-mark--adj.is-done { background: #eef4ea; border-color: #c9dcc2; color: #1f3a1a; }
+.cw-mark:disabled { cursor: default; }
+.cw-mlink { border: 0; background: none; padding: 4px 0; min-height: 28px; color: #2b4d24; font: 600 12.5px/1 Inter, system-ui, sans-serif; cursor: pointer; }
+.cw-mlink:hover { text-decoration: underline; }
+.cw-mlink:focus-visible, .cw-mark:focus-visible { outline: 2px solid #2b4d24; outline-offset: 2px; }
+@media (max-width: 720px) { .cw-mlink, .cw-mark { min-height: 36px; } }
