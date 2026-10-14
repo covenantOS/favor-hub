@@ -37,8 +37,9 @@
   .fd-open .fd-p:not([hidden]) { display: flex; }
   .fd-p.is-big { --fd-w: 760px; --fd-h: 900px; }
   .fd-p.is-sizing { animation: none; user-select: none; }
-  .fd-p__grip { position: absolute; left: 0; top: 0; width: 22px; height: 22px; cursor: nwse-resize; z-index: 3; }
-  .fd-p__grip::after { content: ''; position: absolute; left: 6px; top: 6px; width: 8px; height: 8px; border-left: 2px solid var(--h-line); border-top: 2px solid var(--h-line); border-radius: 3px 0 0 0; }
+  .fd-p__grip { position: absolute; left: 0; top: 0; width: 18px; height: 18px; cursor: nwse-resize; z-index: 3; touch-action: none; opacity: .55; transition: opacity .12s; }
+  .fd-p__grip:hover { opacity: 1; }
+  .fd-p__grip::after { content: ''; position: absolute; left: 5px; top: 5px; width: 7px; height: 7px; border-left: 1.5px solid #c9c3b3; border-top: 1.5px solid #c9c3b3; border-radius: 6px 0 0 0; }
   .fd-p__h { display: flex; align-items: center; gap: 4px; padding: 8px 8px 8px 14px; border-bottom: 1px solid var(--h-line); background: #fff; flex: none; }
   .fd-p__tabs { display: flex; gap: 2px; flex: 1; }
   .fd-p__tabs button { border: 0; background: none; padding: 7px 12px; border-radius: 999px; font: 600 14px var(--h-font); color: var(--h-ink-3); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }

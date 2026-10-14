@@ -55,7 +55,7 @@
   }
 
   function ic(n) {
-    var p = { back: 'M15 5l-7 7 7 7', send: 'M4 12l16-8-6 16-2-7z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', plus: 'M12 5v14M5 12h14', thread: 'M5 6h14v9H9l-4 4z', hash: 'M9 4 7 20M17 4l-2 16M4 9h16M3 15h16' };
+    var p = { back: 'M15 5l-7 7 7 7', list: 'M4 6h16M4 12h16M4 18h10', newchat: 'M12 20h8M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z', send: 'M4 12l16-8-6 16-2-7z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', plus: 'M12 5v14M5 12h14', thread: 'M5 6h14v9H9l-4 4z', hash: 'M9 4 7 20M17 4l-2 16M4 9h16M3 15h16' };
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + p[n] + '"/></svg>';
   }
   function when(iso) {
@@ -400,7 +400,7 @@
       body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head"><button type="button" class="fp-back" data-bback aria-label="Back">' + ic('back') + '</button><b class="fp-head__t">Your chats</b><button type="button" class="fp-new" data-bnew>' + ic('plus') + 'New chat</button></header><div class="fp-scroll" data-bconvs><div class="fp-wait"><i></i><i></i><i></i></div></div></div>';
       if (brain.convs) paintConvs(); loadConvs(); return;
     }
-    body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head"><button type="button" class="fp-new fp-new--ghost" data-blist>Chats</button><b class="fp-head__t fp-head__t--c">' + esc(cur ? cur.title : 'New chat') + '</b>' + (cur && cur.turns.length ? '<button type="button" class="fp-new" data-bnew>' + ic('plus') + 'New</button><a class="fp-ext" href="/brain/?c=' + encodeURIComponent(cur.id) + '" title="Open on the Brain page" aria-label="Open on the Brain page">' + ic('ext') + '</a>' : '') + '</header>' +
+    body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head fp-head--brain"><button type="button" class="fp-all" data-blist aria-label="All chats" title="All chats">' + ic('list') + '<span>All chats</span></button><b class="fp-head__t">' + esc(cur ? cur.title : 'New chat') + '</b><button type="button" class="fp-back" data-bnew aria-label="New chat" title="New chat"' + (cur && cur.turns.length ? '' : ' disabled') + '>' + ic('newchat') + '</button></header>' +
       '<div class="fp-scroll fp-bthread" data-bthread></div>' +
       '<form class="fp-comp" data-bask><div class="fp-comp__in"><textarea rows="1" maxlength="600" placeholder="Ask Favor Brain" aria-label="Ask Favor Brain"></textarea><button type="submit" class="fp-send" aria-label="Ask" disabled>' + ic('send') + '</button></div></form></div>';
     var ta = $('textarea', body), sb = $('.fp-send', body);

@@ -251,8 +251,8 @@ class DockStore {
   }
   loadPanel(): Promise<void> {
     if (this.loaded) return this.loaded;
-    loadStyle('/css/dock-panel.css?v=1');
-    this.loaded = loadScript('/js/dock-panel.js?v=2').catch((e) => {
+    loadStyle('/css/dock-panel.css?v=2');
+    this.loaded = loadScript('/js/dock-panel.js?v=3').catch((e) => {
       this.loaded = 0;
       throw e;
     });
@@ -267,6 +267,14 @@ class DockStore {
   toggle() {
     if (this.st.open) this.close(true);
     else this.open();
+  }
+  /** The full page for the open tab, on the same conversation. */
+  expand() {
+    const st = this.st as { ch?: string | null; th?: string | number | null; bc?: string | null };
+    let url: string;
+    if (this.st.tab === 'brain') url = '/brain/' + (st.bc ? '?c=' + encodeURIComponent(st.bc) : '');
+    else url = '/chat/' + (st.ch ? '?c=' + encodeURIComponent(st.ch) + (st.th ? '&t=' + encodeURIComponent(String(st.th)) : '') : '');
+    location.assign(url);
   }
   bigger() {
     const s = this.size();

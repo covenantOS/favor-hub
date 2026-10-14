@@ -194,7 +194,7 @@ function Panel({ s }: { s: ReturnType<typeof dock.getSnapshot> }) {
             </button>
           ))}
         </div>
-        <button type="button" className="fd-p__ib" data-big aria-label={s.big ? 'Make the panel smaller' : 'Make the panel larger'} title="Larger" onClick={() => dock.bigger()}>
+        <button type="button" className="fd-p__ib" data-big aria-label={s.tab === 'brain' ? 'Open Favor Brain as a full page' : 'Open Chat as a full page'} title="Open as a full page" onClick={() => dock.expand()}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7" />
           </svg>

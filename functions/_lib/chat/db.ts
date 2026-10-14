@@ -1,7 +1,7 @@
 // Favor Chat's data layer. Every function takes the D1 binding and the signed-in person's email; access rules live here
 // (private channels, direct messages and groups answer only their members), so a route cannot forget them.
 import { HttpError, nowIso, type Env } from '../http';
-import { TESTER_REFUSAL, isTester } from '../testuser';
+import { TESTER_REFUSAL, isHiddenAccount, isTester, notTesterSql } from '../testuser';
 import { isAdminEmail } from '../session';
 import { BRAIN_ID, MEETINGS_ID, SYSTEM_VOICES, channelSlug, cleanBody, dmKey, likePattern, parseMentions } from './text';
 
@@ -168,7 +168,12 @@ export async function listChannels(env: ChatEnv, email: string): Promise<Channel
   const mem = await env.DB.prepare(`SELECT channel_id, email FROM chat_members WHERE channel_id IN (${list.map(() => '?').join(',')}) ORDER BY joined_at, email`).bind(...list.map((c) => c.id)).all<{ channel_id: string; email: string }>();
   const by = new Map<string, string[]>();
   for (const m of mem.results || []) (by.get(m.channel_id) || by.set(m.channel_id, []).get(m.channel_id)!).push(m.email);
-  return list.map((c) => ({ ...c, members: by.get(c.id) || [], muted: !!c.muted, joined: true }));
+  const out = list.map((c) => ({ ...c, members: by.get(c.id) || [], muted: !!c.muted, joined: true }));
+  // Test accounts are in no real person's list: a direct message with one is hidden, and so is the name in a shared member list.
+  if (isTester(me)) return out;
+  return out
+    .filter((c) => !((c.kind === 'dm' || c.kind === 'group') && c.members.some((m) => isHiddenAccount(m))))
+    .map((c) => ({ ...c, members: c.members.filter((m) => !isHiddenAccount(m)) }));
 }
 
 const RESERVED_NAMES = new Set(['leadership-gifts', 'field-staff']);
@@ -615,6 +620,7 @@ export async function search(env: ChatEnv, email: string, q: string, opts: { fil
   const args: unknown[] = [me, me];
   if (opts.filter === 'here' && opts.channel) { where.push('m.channel_id = ?'); args.push(opts.channel); }
   if (opts.filter === 'files') where.push(`m.attachments != '[]'`);
+  if (!isTester(me)) where.push(notTesterSql('m.email'));
   if (opts.from) { where.push('m.email = ?'); args.push(lower(opts.from)); }
   if (opts.filter === 'mine') { where.push('m.id IN (SELECT message_id FROM chat_mentions WHERE email = ?)'); args.push(me); }
   where.push(`(LOWER(m.body) LIKE ? ESCAPE '\\' OR LOWER(m.attachments) LIKE ? ESCAPE '\\')`);

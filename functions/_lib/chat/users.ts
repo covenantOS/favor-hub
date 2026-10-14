@@ -3,7 +3,7 @@ import type { Env } from '../http';
 import type { HubUser } from '../session';
 import type { ChatMode } from './gate';
 import { BRAIN_ID, MEETINGS_ID } from './text';
-import { isTester } from '../testuser';
+import { isHiddenAccount, isTester } from '../testuser';
 
 export interface PersonOut {
   id: string;
@@ -25,6 +25,7 @@ export async function directory(env: Env, mode: ChatMode, me: HubUser): Promise<
     if (id === BRAIN_ID || id === MEETINGS_ID || id === 'gifts') continue;
     // The test users are in no real person's list and see only each other, so they cannot message staff.
     if (isTester(id) !== isTester(me.email)) continue;
+    if (isHiddenAccount(id) && !isTester(me.email)) continue;
     out[id] = { id, name: u.name || id.split('@')[0], picture: u.picture || '', title: u.title || '' };
   }
   const mine = me.email.toLowerCase();
