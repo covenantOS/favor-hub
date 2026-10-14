@@ -187,6 +187,7 @@ function crumbHtml() {
   else parts.push('<span class="pj-crumb__t">Personal task</span>');
   if (t.parent_id && st.parentRef) parts.push(`<button type="button" class="pj-crumb__up" data-a="parent">${icon('up')}${esc(st.parentRef.code || 'Parent task')}</button>`);
   if (t.code) parts.push(`<button type="button" class="pj-code-id pj-code-id--btn" data-a="copy" title="Copy a link to this task">${esc(t.code)}${icon('copy')}</button>`);
+  if (typeof t.asana_url === 'string' && /^https?:[/][/]/i.test(t.asana_url)) parts.push(`<span class="pj-asana">Synced with Asana<a href="${esc(t.asana_url)}" target="_blank" rel="noopener noreferrer">Open in Asana</a></span>`);
   return parts.join('');
 }
 function paintBar() {
