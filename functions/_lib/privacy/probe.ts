@@ -24,6 +24,7 @@ import { onRequestGet as brainHistoryApi } from '../../api/brain/history';
 import { onRequestGet as brainThreadApi } from '../../api/brain/thread/[id]';
 import { onRequest as bookApi } from '../../api/book/[[path]]';
 import { onRequest as meetGuestApi } from '../../api/meet-guest/[[path]]';
+import { onRequest as todayApi } from '../../api/today/[[path]]';
 
 export type Who = 'staff' | 'field' | 'out';
 
@@ -101,6 +102,11 @@ export function probes(): Probe[] {
     // Favor Brain conversations.
     { name: 'Brain history', path: '/api/brain/history?q=prvcnry', who: ['staff'] },
     { name: "Another person's Brain thread", path: `/api/brain/thread/${M.brainThread}`, who: ['staff'] },
+    // Today's cross-app lists and hand-offs (2026-10-14): your own items only; a hand-off opens for its giver and receiver alone.
+    { name: 'Today inbox', path: '/api/today/inbox?part=fast', who: both },
+    { name: 'Today waiting on', path: '/api/today/waiting?part=fast', who: both },
+    { name: "Another person's hand-off", path: `/api/today/handoff/${M.handoff}`, who: ['staff', 'field', 'out'] },
+    { name: 'Hand-offs given', path: '/api/today/handoffs', who: ['staff'] },
     // Signed out: nothing at all.
     ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry'].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
   ];
@@ -130,6 +136,7 @@ function handlerFor(path: string): { fn: Handler; params: Record<string, string 
   if (bt) return { fn: brainThreadApi as unknown as Handler, params: { id: bt[1] } };
   if (p.startsWith('/api/integrations/')) return { fn: integrationsApi as unknown as Handler, params: { path: rest('/api/integrations/') } };
   if (p.startsWith('/api/book/')) return { fn: bookApi as unknown as Handler, params: { path: rest('/api/book/') } };
+  if (p.startsWith('/api/today/')) return { fn: todayApi as unknown as Handler, params: { path: rest('/api/today/') } };
   return null;
 }
 

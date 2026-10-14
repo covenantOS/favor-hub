@@ -89,7 +89,9 @@
     const me = RT.me();
     const told = r.told || {};
     const owner = k.owner ? personChip(k.owner) : '<span class="rq-none">No owner</span>';
-    const send = can.send ? `<button type="button" class="rt-btn ${k.owner ? '' : 'rt-btn--primary '}rt-btn--sm" data-send-to>${k.owner ? 'Send on...' : 'Send to...'}</button>` : '';
+    // The owner hands it on through Hand off (window.FavorHandoff, handoff.js): the same move, plus "picked up" on their Today.
+    const handing = k.owner && k.owner === me && window.FavorHandoff;
+    const send = can.send ? `<button type="button" class="rt-btn ${k.owner ? '' : 'rt-btn--primary '}rt-btn--sm" data-send-to>${handing ? 'Hand off' : k.owner ? 'Send on...' : 'Send to...'}</button>` : '';
     const due = can.edit
       ? `<input type="date" class="rq-date" data-due value="${esc(k.due_date || '')}" aria-label="Due date" />${k.due_date ? `<button type="button" class="rt-btn rt-btn--ghost rt-btn--sm" data-due-clear>Clear</button>` : ''}`
       : k.due_date ? `<span>${esc(RT.dayWord(k.due_date))}</span>` : '<span class="rq-none">None</span>';
@@ -428,6 +430,11 @@
       }
       if (t.closest('[data-send-to]')) {
         const owner = r.task && r.task.owner;
+        if (owner && owner === RT.me() && window.FavorHandoff) {
+          const id = r.id;
+          window.FavorHandoff.open({ kind: 'request', id, title: r.title, done: async () => { try { const d = await api(`/api/requests/${encodeURIComponent(id)}`); if (openId === id && d.request) { paint(d.request, {}); changed(d.request); } } catch (_) { /* the panel refreshes on its next open */ } } });
+          return;
+        }
         const p = await RT.pick({ title: owner ? 'Send on to' : 'Send to', note: true, noteLabel: 'Context', action: 'Send', exclude: owner ? [owner] : [] });
         if (p && p.email) {
           const next = await act('send', { to: p.email, note: p.note || '' }, 'POST', { toEnd: true });

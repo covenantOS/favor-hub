@@ -23,5 +23,6 @@ import '../../../src/styles/dock.css';
 import '../../../src/styles/entity.css';
 import '../../../src/styles/design-pass.css';
 import '../../../src/styles/release.css';
+import '../../../src/styles/integrations-today.css';
 import './cmdk.css';
 import './learn-panel.css';

@@ -40,6 +40,7 @@ export const IDS = {
   clipPrivate: 'c0ffee00c0ffee00c0ffee00c0ffee02', // level Private: only the tester and admins
   clipPublic: 'c0ffee00c0ffee00c0ffee00c0ffee03', // level Public: everybody reads it, signed in or not (PRVOPEN)
   brainThread: 'bt_prvcnry_1',
+  handoff: 'ho_prvcnry01', // a hand-off between the two testers
 } as const;
 
 /** Message ids are numbers the table hands out; the check finds them by body. */
@@ -123,6 +124,9 @@ export function canaryStatements(now = Date.now()): Stmt[] {
     // A Favor Brain conversation.
     [`INSERT OR IGNORE INTO brain_threads (id, email, title, pinned, made_at, changed_at) VALUES (?, ?, ?, 0, ?, ?)`, [IDS.brainThread, TESTER_EMAIL, `${CANARY} brain thread`, at, at]],
     [`INSERT INTO brain_turns (thread_id, n, question, answer_json, at) SELECT ?, 1, ?, '{}', ? WHERE NOT EXISTS (SELECT 1 FROM brain_turns WHERE thread_id = ?)`, [IDS.brainThread, `${CANARY} brain question`, at, IDS.brainThread]],
+    // A hand-off from the tester to Tester Two, with its note and context (db/integrations-today.sql).
+    [`INSERT OR IGNORE INTO hub_handoffs (id, kind, ref_id, title, href, from_email, from_name, to_email, to_name, note, context, channel, moved, created_at) VALUES (?, 'task', ?, ?, ?, ?, ?, 'tester2@favorintl.org', 'FavorOS Tester Two', ?, ?, 'none', 'owner', ?)`,
+      [IDS.handoff, IDS.taskLoose, `${CANARY} hand-off`, `/projects/?t=${IDS.taskLoose}`, TESTER_EMAIL, TESTER_NAME, `${CANARY} hand-off note`, `${CANARY} hand-off context`, at]],
   ];
   return s;
 }

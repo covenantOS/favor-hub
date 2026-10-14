@@ -36,6 +36,11 @@ import '../styles/brief.css';
       <div class="h-welcome__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-tour-start>Show me</button></div>
     </div>
 
+    <div class="fx-pair">
+      <section class="h-card" data-today-slot="inbox" data-keep-h="fx-inbox" aria-label="Inbox"></section>
+      <section class="h-card" data-today-slot="waiting" data-keep-h="fx-waiting" aria-label="Waiting on"></section>
+    </div>
+
     <div id="fw-root"></div>
 
     <div id="br-root" aria-live="polite"></div>
@@ -91,4 +96,5 @@ import '../styles/brief.css';
   <script is:inline src="/js/today.js?v=22" defer></script>
   <script is:inline src="/js/brief.js?v=8" defer></script>
   <script is:inline src="/js/today-firstweek.js?v=1" defer></script>
+  <script is:inline src="/js/today-inbox.js?v=1" defer></script>
 </App>

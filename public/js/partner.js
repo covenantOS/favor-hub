@@ -242,6 +242,7 @@ function view(p, o = {}) {
       ${window.FavorCall && callable ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-callmode="${esc(p.id)}">${ic('phone')}Call mode</button>` : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="task">Task</button>
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-compose="note">Note</button>
+      ${window.FavorHandoff ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-handoff-kind="partner" data-handoff-id="${esc(p.id)}" data-handoff-title="${esc(String(p.name || '').trim())}">Hand off</button>` : ''}
       <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-pp-link="${esc(p.id)}">${ic('link')}Copy link</button>
       ${window.FavorIx ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-ix-ft="${esc(JSON.stringify({ kind: 'partner', ref: String(p.id), title: 'Meeting with ' + p.name, people: email ? [{ email: email.address, name: p.name }] : [] }))}">Find a time</button>` : ''}
     </div>`;

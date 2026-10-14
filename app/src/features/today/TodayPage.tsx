@@ -88,6 +88,12 @@ export function TodayPage() {
       leavePage();
     };
   }, []);
+  // The cross-app Inbox and Waiting on cards: the same script the classic Today runs, mounted on the two slots above.
+  useEffect(() => {
+    void loadScript('/js/today-inbox.js?v=1')
+      .then(() => (window as unknown as { FavorTodayInbox?: { mount: (r: ParentNode) => void } }).FavorTodayInbox?.mount(document))
+      .catch(() => undefined);
+  }, []);
   useEffect(() => {
     if (!day.data) return;
     (window as unknown as { __hubDay?: unknown }).__hubDay = day.data;
@@ -121,6 +127,12 @@ export function TodayPage() {
             Show me
           </button>
         </div>
+      </div>
+
+      {/* Inbox and Waiting on (public/js/today-inbox.js draws them; React leaves their insides alone). */}
+      <div className="fx-pair">
+        <section className="h-card" data-today-slot="inbox" data-keep-h="fx-inbox" aria-label="Inbox" />
+        <section className="h-card" data-today-slot="waiting" data-keep-h="fx-waiting" aria-label="Waiting on" />
       </div>
 
       <div id="br-root" aria-live="polite" />
