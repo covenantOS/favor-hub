@@ -393,3 +393,21 @@ describe('Move to FavorOS for a whole series', () => {
     assert.equal(gcalls.filter((c) => c.method === 'PATCH').length, 0);
   });
 });
+
+describe('stopping a repeat', () => {
+  beforeEach(fakeFetch);
+  it('recur none with scope following ends the series at this meeting', async () => {
+    const env = await world();
+    const sid = await book(env, { freq: 'weekly', interval: 1, byDay: [], end: { kind: 'never' } });
+    const rs = await rows(env, sid);
+    const r = await call(env, 'POST', `meetings/${rs[2].id}/update`, { scope: 'following', recur: 'none' });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const after = await rows(env, sid);
+    assert.equal(after.filter((x) => x.status === 'scheduled').length, 3);
+    const s = await series(env, sid);
+    assert.equal(JSON.parse(s.rule).end.kind, 'until');
+    await seriesMod.seriesPass(env);
+    assert.equal((await rows(env, sid)).filter((x) => x.status === 'scheduled').length, 3, 'nothing new is made after the end');
+    assert.match(calls.find((c) => c.method === 'PATCH').body.recurrence[0], /UNTIL=/);
+  });
+});

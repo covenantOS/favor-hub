@@ -40,7 +40,7 @@ export interface CalMeeting {
 export const PROVIDER_LABEL: Record<Provider, string> = { favor: 'Favor Meetings', meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', webex: 'Webex' };
 
 const PATTERNS: Array<[Provider, RegExp]> = [
-  ['favor', /https?:\/\/dash\.favorintl\.org\/meet\/(?:room|g)\/\?[^\s"'<>)]*/i],
+  ['favor', /https?:\/\/dash\.favorintl\.org\/meet\/(?:room|g|s)\/\?[^\s"'<>)]*/i],
   ['zoom', /https?:\/\/[\w.-]*\.?zoom\.(?:us|com)\/(?:j|my|wc|s)\/[^\s"'<>)]*/i],
   ['teams', /https:\/\/teams\.(?:microsoft|live)\.com\/[^\s"'<>)]*/i],
   ['meet', /https:\/\/meet\.google\.com\/[a-z0-9-]+(?:\?[^\s"'<>)]*)?/i],

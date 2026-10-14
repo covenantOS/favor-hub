@@ -88,6 +88,8 @@ export const dayEvent = z.object({
   source: z.string().default(''),
   people: z.array(z.string()).default([]),
   hub: z.string().default(''),
+  series: z.string().optional(),
+  recurring: z.boolean().optional(),
   organizer: z.boolean().default(false),
   canEdit: z.boolean().default(false),
   declined: z.boolean().default(false),
@@ -155,6 +157,7 @@ export const dayMoveResponse = z.object({
   created: z.boolean().optional(),
   invited: z.number().optional(),
   series: z.boolean().optional(),
+  seriesId: z.string().optional(),
   organizer: z.object({ email: z.string(), name: z.string() }).nullable().optional(),
 });
 export type DayMoveResponse = z.infer<typeof dayMoveResponse>;

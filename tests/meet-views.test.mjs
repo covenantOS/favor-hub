@@ -115,7 +115,10 @@ test('Move to FavorOS posts the same route and fields as Today', () => {
   assert.ok(day.includes("api('../hub/day-move', { method: 'POST', body: body })"));
   assert.ok(day.includes('var body = { eventId: e.cal.eventId, emailInvitees: invited(e).length > 0 && state.moveMail }'));
   const today = readFileSync(new URL('../app/src/features/today/day.tsx', import.meta.url), 'utf8');
-  assert.ok(today.includes("send('/api/hub/day-move', { eventId: e.id, emailInvitees: n > 0 && mail })"));
+  assert.ok(today.includes("send('/api/hub/day-move', { eventId: e.id, emailInvitees: n > 0 && mail"));
+  // Both offer the whole series for a repeating event.
+  assert.ok(day.includes('Move every meeting in this series') && today.includes('Move every meeting in this series'));
+  assert.ok(day.includes('series = true') || day.includes('series: true'));
   for (const line of ['FavorOS sends no email.', 'FavorOS emails them the link.', 'Emailed the link to', 'Share the room link with them.', 'Email the ', 'It is not recorded. The host can change that in the meeting.', 'A new event with the FavorOS link goes on your calendar, and Google invites the same people to it.', 'No calendar has this meeting yet.', 'about the move', 'The organizer can delete it.']) {
     assert.ok(day.includes(line) && today.includes(line), line);
   }

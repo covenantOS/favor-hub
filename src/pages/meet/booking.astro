@@ -1,0 +1,10 @@
+---
+// Meetings: the owner's booking page setup. Drawn by /js/meet/booking.js.
+import App from '../../layouts/App.astro';
+import '../../styles/meet.css';
+import '../../styles/meet-booking.css';
+---
+<App title="Booking page" crumb="Meetings" nav="meet-booking" description="Set up the page where partners book time with you.">
+  <div id="bk-root" class="bk-wrap--app" aria-busy="true"><div class="h-card h-skel" style="min-height:260px"></div></div>
+  <script is:inline type="module" src="/js/meet/booking.js?v=1"></script>
+</App>

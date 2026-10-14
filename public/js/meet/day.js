@@ -9,7 +9,7 @@
   var PXH = 80, KEY = 'meet.day.v3', TTL = 20000, VIEW_KEY = 'meet.view.v1';
   var PROV = { favor: 'Favor', zoom: 'Zoom', meet: 'Google Meet', teams: 'Microsoft Teams', webex: 'Webex' };
   var savedView = (function () { try { var v = localStorage.getItem(VIEW_KEY); return v === 'week' || v === 'month' ? v : 'day'; } catch (e) { return 'day'; } })();
-  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveBusy: false, moveErr: '', rev: 0, calMap: {}, calInfo: null, covered: [], calBusy: false, ov: {}, pend: {}, draft: null, t0: 0 };
+  var state = { day: MV.etKey(Date.now()), view: savedView, winStart: null, sel: null, confirm: null, data: null, people: {}, now: new Date(), open: '', panel: 'detail', pick: '', extra: [], info: {}, prep: {}, move: null, moveWrite: false, moveMail: true, moveSeries: false, moveBusy: false, moveErr: '', rev: 0, calMap: {}, calInfo: null, covered: [], calBusy: false, ov: {}, pend: {}, draft: null, t0: 0 };
   var memo = { k: '', all: null, by: null };
   var timers = [], stopped = false, nowBtn = null, tt = 0, scrollTop = null, resetScroll = false, pumping = false;
 
@@ -554,7 +554,7 @@
     }
   }
   function openEv(id) {
-    state.open = id; state.panel = 'detail'; state.confirm = null; state.move = null; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; state.moveBusy = false; focusOnce = true;
+    state.open = id; state.panel = 'detail'; state.confirm = null; state.move = null; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; state.moveSeries = false; state.moveBusy = false; focusOnce = true;
     var u = '/meet/?m=' + encodeURIComponent(urlId(id));
     try { history.pushState({ mp: 1 }, '', u); } catch (e) { /* sandboxed frame */ }
     syncSel(); renderPanel(); wantInfo(id);
@@ -629,11 +629,13 @@
       rows += row('Held on', esc(provName(e.p)) + (over ? ', ended' : ''));
       if (c.organizerName) rows += row('Organizer', esc(c.organizerName));
     } else {
-      var m = e.hub, rep = m.repeat && m.repeat !== 'none', scheduled = m.mine && m.startsAt && m.status === 'scheduled';
+      var m = e.hub, rep = m.repeat && m.repeat !== 'none', sid = m.seriesId || '', scheduled = m.mine && m.startsAt && m.status === 'scheduled';
       if (m.status === 'ended') { if (e.noteId) acts += '<a class="dv-btn dv-btn--primary mp-first" href="/meet/notes/?m=' + esc(m.id) + '">' + ic('doc') + 'Notes</a>'; }
       else acts += '<a class="dv-btn dv-btn--primary mp-first" href="/meet/room/?m=' + esc(m.id) + '">' + ic('video') + (e.live || e.open ? 'Join' : 'Open') + '</a>';
       if (m.status !== 'ended') acts += '<a class="dv-btn dv-btn--line" href="/meet/prep/?m=' + esc(m.id) + '">' + ic('doc') + 'Prep</a>';
+      if (sid) acts += '<a class="dv-btn dv-btn--line" href="/meet/series/?id=' + esc(sid) + '">Series</a>';
       rows += row('Held on', 'FavorOS');
+      if (sid || rep) rows += row('Repeats', sid ? '<a href="/meet/series/?id=' + esc(sid) + '">Part of a series</a>' : 'Yes');
       rows += row('Organizer', esc(m.hostName || nameOf({ email: m.hostEmail })));
       if (m.status !== 'ended') {
         if (m.mine) {
@@ -643,9 +645,9 @@
       if (m.status !== 'ended' && window.FavorSend) foot += '<button type="button" class="dv-btn dv-btn--line" data-mp="send">' + (m.mine ? 'Send the link' : 'Send me the link') + '</button>';
       foot += '<button type="button" class="dv-btn dv-btn--ghost" data-mp="copy">Copy link</button>';
       if (m.mine && state.info[m.id] && state.info[m.id].guests && m.status !== 'ended') foot += '<button type="button" class="dv-btn dv-btn--ghost" data-mp="guest">Copy guest link</button>';
-      if (scheduled && !rep) foot += '<a class="dv-btn dv-btn--ghost" href="/meet/book/?edit=' + esc(m.id) + '">Edit</a>';
+      if (scheduled) foot += '<a class="dv-btn dv-btn--ghost" href="/meet/book/?edit=' + esc(m.id) + '">' + (rep ? 'Move' : 'Edit') + '</a>';
       if (scheduled) {
-        if (state.confirm === m.id) foot += '<span class="mp-ask">' + (rep ? 'Cancel every meeting in this series?' : 'Cancel this meeting?') + ' Invitees get a cancellation.</span><button type="button" class="dv-btn dv-btn--danger" data-yes="' + esc(m.id) + '">' + (rep ? 'Cancel series' : 'Yes, cancel') + '</button><button type="button" class="dv-btn dv-btn--ghost" data-no="1">Keep it</button>';
+        if (state.confirm === m.id) foot += '<span class="mp-ask">' + (rep ? 'Cancel which meetings?' : 'Cancel this meeting?') + ' Invitees get a cancellation.</span>' + (rep ? [['this', 'This meeting'], ['following', 'This and following meetings'], ['all', 'All meetings']].map(function (o) { return '<button type="button" class="dv-btn dv-btn--danger" data-yes="' + esc(m.id) + '" data-scope="' + o[0] + '">' + o[1] + '</button>'; }).join('') : '<button type="button" class="dv-btn dv-btn--danger" data-yes="' + esc(m.id) + '">Yes, cancel</button>') + '<button type="button" class="dv-btn dv-btn--ghost" data-no="1">Keep it</button>';
         else foot += '<button type="button" class="dv-btn dv-btn--danger" data-cancel="' + esc(m.id) + '">Cancel meeting</button>';
       }
     }
@@ -680,13 +682,13 @@
     var s = state.move || e, n = invited(s).length, c = s.cal, may = !!(state.data.cal && state.data.cal.canWrite), write = state.moveWrite;
     var held = 'Zoom';
     held = provName(s.p);
-    var body = '<ul class="mp-list"><li>Makes a FavorOS meeting on ' + esc(whenLine(s)) + '.</li>' +
+    var all = !!(c.recurring && state.moveSeries);
+    var body = '<ul class="mp-list"><li>' + (all ? 'Moves the whole series to FavorOS, starting with ' + esc(whenLine(s)) + '. Every meeting keeps its time.' : 'Makes a FavorOS meeting on ' + esc(whenLine(s)) + '.') + '</li>' +
       '<li>' + (n ? 'Invites the same ' + n + (n === 1 ? ' person' : ' people') + ' in FavorOS. ' + (state.moveMail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.') : 'Only you are on it.') + '</li>' +
       '<li>It is not recorded. The host can change that in the meeting.</li>' +
-      '<li id="mp-stays">' + (c.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the ' + esc(held) + ' link comes off.' : 'A new event with the FavorOS link goes on your calendar, and Google invites the same people to it.') + '</li></ul>';
+      '<li id="mp-stays">' + (all ? (c.canEdit ? 'The series on your calendar gets the FavorOS link in place of the ' + esc(held) + ' link, for every meeting.' : 'A new repeating event with the FavorOS link goes on your calendar from this meeting on, and Google invites the same people to it.') : c.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the ' + esc(held) + ' link comes off.' : 'A new event with the FavorOS link goes on your calendar, and Google invites the same people to it.') + '</li></ul>';
     if (!c.canEdit) body += '<p class="mp-note">' + esc(c.organizerName || 'Someone else') + ' organizes the original event, so Google does not let you change it. It stays on calendars with its ' + esc(held) + ' link until the organizer deletes it. After the move you can email the organizer.</p>';
-    if (!c.canEdit && c.recurring) body += '<p class="mp-note">This is one meeting in a series. Only this one moves.</p>';
-    else if (c.canEdit && c.recurring) body += '<p class="mp-note">This is one meeting in a series. Only this one moves; the others keep their ' + esc(held) + ' link.</p>';
+    if (c.recurring) body += '<label class="mp-check"><input type="checkbox" data-mp="series"' + (state.moveSeries ? ' checked' : '') + '><span>Move every meeting in this series</span></label>';
     if (!may) body += '<p class="mp-note">To put the FavorOS link on the calendar event, FavorOS needs your permission to edit your calendar events.</p><a class="dv-btn dv-btn--line" href="/api/google/connect?add=meetings&amp;next=%2Fmeet%2F">Allow calendar edits</a>';
     if (n > 0) body += '<label class="mp-check"><input type="checkbox" data-mp="mail"' + (state.moveMail ? ' checked' : '') + '><span>' + (n === 1 ? 'Email ' + esc(firstOf(invited(s)[0].email)) + ' the FavorOS link' : 'Email the ' + n + ' people the FavorOS link') + '</span></label>';
     if (state.moveErr) body += '<p class="mp-err" role="alert">' + esc(state.moveErr) + '</p>';
@@ -701,7 +703,7 @@
       (s.emailFailed ? '<li>' + s.emailFailed + (s.emailFailed === 1 ? ' email' : ' emails') + ' did not go out. Share the room link with them.</li>' : '') + '</ul>' +
       (s.linkError ? '<p class="mp-err" role="alert">' + esc(s.linkError) + '</p>' : '') +
       (s.created && s.organizer && s.organizer.email ? '<p class="mp-note" aria-live="polite">' + (s.told ? esc(s.told) : '<button type="button" class="dv-btn dv-btn--line" data-mp="tellorg"' + (s.telling ? ' disabled' : '') + '>Email ' + esc(s.organizer.name || s.organizer.email) + ' about the move</button>') + '</p>' : '') +
-      '<div class="mp-acts mp-acts--end"><a class="dv-btn dv-btn--primary mp-first" href="' + esc(s.room) + '">Open the meeting</a><button type="button" class="dv-btn dv-btn--ghost" data-mp="close">Done</button></div></div>';
+      '<div class="mp-acts mp-acts--end">' + (s.series && s.seriesId ? '<a class="dv-btn dv-btn--line" href="/meet/series/?id=' + esc(s.seriesId) + '">Open the series</a>' : '') + '<a class="dv-btn dv-btn--primary mp-first" href="' + esc(s.room) + '">Open the meeting</a><button type="button" class="dv-btn dv-btn--ghost" data-mp="close">Done</button></div></div>';
   }
 
   function renderPanel() {
@@ -726,8 +728,9 @@
     state.move = e; state.moveBusy = true; state.moveErr = ''; renderPanel();
     // Same route and fields as Today.
     var body = { eventId: e.cal.eventId, emailInvitees: invited(e).length > 0 && state.moveMail };
+    if (e.cal.recurring && state.moveSeries) body.series = true;
     api('../hub/day-move', { method: 'POST', body: body }).then(function (r) {
-      state.moved = { id: r.id, title: e.title, when: whenLine(e), room: r.room || '/meet/room/?m=' + r.id, linked: !!r.linked, created: !!r.created, invited: r.invited || 0, organizer: r.organizer || null, linkError: r.linkError || '', emailed: r.emailed || 0, emailFailed: r.emailFailed || 0 };
+      state.moved = { id: r.id, title: e.title, when: whenLine(e), room: r.room || '/meet/room/?m=' + r.id, linked: !!r.linked, created: !!r.created, invited: r.invited || 0, organizer: r.organizer || null, linkError: r.linkError || '', emailed: r.emailed || 0, emailFailed: r.emailFailed || 0, series: !!r.series, seriesId: r.seriesId || '' };
       state.panel = 'moved'; state.moveBusy = false; renderPanel(); load(true);
     }).catch(function (x) {
       state.moveBusy = false;
@@ -744,7 +747,7 @@
     if (jm && !ev.metaKey && !ev.ctrlKey && !ev.shiftKey) { ev.preventDefault(); return prejoin(jm[1], titleOf(jm[1])); }
     var a = t.dataset.mp, id = state.open, e = findEv(id);
     if (a === 'close') return closePanel();
-    if (a === 'move' && e) { state.panel = 'move'; state.move = e; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; focusOnce = true; return renderPanel(); }
+    if (a === 'move' && e) { state.panel = 'move'; state.move = e; state.moveErr = ''; state.moveWrite = false; state.moveMail = true; state.moveSeries = false; focusOnce = true; return renderPanel(); }
     if (a === 'back') { state.panel = 'detail'; state.moveErr = ''; return renderPanel(); }
     if (a === 'domove') return moveNow();
     if (a === 'tellorg' && state.moved) {
@@ -765,7 +768,9 @@
     if (t.dataset.no) { state.confirm = null; return renderPanel(); }
     if (t.dataset.yes) {
       t.disabled = true;
-      api('meetings/' + t.dataset.yes + '/update', { method: 'POST', body: { status: 'cancelled' } }).then(function () { toast('Cancelled'); state.confirm = null; closePanel(); load(true); }).catch(function (x) { t.disabled = false; toast(x.message); });
+      var cb = { status: 'cancelled' };
+      if (t.dataset.scope) cb.scope = t.dataset.scope;
+      api('meetings/' + t.dataset.yes + '/update', { method: 'POST', body: cb }).then(function () { toast('Cancelled'); state.confirm = null; closePanel(); load(true); }).catch(function (x) { t.disabled = false; toast(x.message); });
     }
   }
   layer.addEventListener('click', onPanelClick);
@@ -773,6 +778,7 @@
     var a = ev.target && ev.target.dataset && ev.target.dataset.mp;
     if (a === 'write') { state.moveWrite = ev.target.checked; renderPanel(); }
     if (a === 'mail') { state.moveMail = ev.target.checked; renderPanel(); }
+    if (a === 'series') { state.moveSeries = ev.target.checked; renderPanel(); }
   });
   function onKey(ev) { if (ev.key === 'Escape' && state.open) { ev.preventDefault(); if (state.panel === 'move') { state.panel = 'detail'; renderPanel(); } else closePanel(); } }
   document.addEventListener('keydown', onKey);

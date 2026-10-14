@@ -18,18 +18,27 @@ async function withRooms(env: Env, email: string, events: DayEvent[] | null): Pr
       const by = new Map((rows.results || []).map((r) => [r.calendar_event_id.replace(/^ext:/, ''), r.id]));
       for (const e of out) if (!e.hub && by.has(e.id)) e.hub = by.get(e.id) as string;
     }
+    // A FavorOS series is one Google event: each occurrence carries the series link, and the room is the row at that start.
+    for (const e of out) {
+      if (e.hub || !e.series) continue;
+      const r = await env.DB.prepare(`SELECT id FROM hub_meetings WHERE series_id = ? AND status != 'cancelled' AND (starts_at = ? OR orig_start = ?) LIMIT 1`)
+        .bind(e.series, new Date(e.start).toISOString(), new Date(e.start).toISOString()).first<{ id: string }>().catch(() => null);
+      if (r) e.hub = r.id;
+    }
     // Rooms for today that are not on the calendar at all (booked without a calendar event, or a huddle) still belong in the day.
     const d = easternDay();
     const rows = await env.DB.prepare(
-      `SELECT id, title, starts_at, ends_at, invitees, host_email FROM hub_meetings WHERE status IN ('scheduled', 'live') AND starts_at >= ?1 AND starts_at <= ?2
+      `SELECT id, title, starts_at, ends_at, invitees, host_email, series_id FROM hub_meetings WHERE status IN ('scheduled', 'live') AND starts_at >= ?1 AND starts_at <= ?2
           AND (lower(host_email) = ?3 OR instr(lower(invitees), '"' || ?3 || '"') > 0)`
-    ).bind(new Date(d.start).toISOString(), new Date(d.end).toISOString(), email).all<{ id: string; title: string; starts_at: string; ends_at: string | null; invitees: string }>();
+    ).bind(new Date(d.start).toISOString(), new Date(d.end).toISOString(), email).all<{ id: string; title: string; starts_at: string; ends_at: string | null; invitees: string; series_id: string }>();
+    const seriesOf = new Map((rows.results || []).map((r) => [r.id, r.series_id || '']));
+    for (const e of out) if (e.hub && !e.series && seriesOf.get(e.hub)) e.series = seriesOf.get(e.hub);
     const have = new Set(out.map((e) => e.hub).filter(Boolean));
     for (const r of rows.results || []) {
       if (have.has(r.id)) continue;
       let people: string[] = [];
       try { people = (JSON.parse(r.invitees || '[]') as Array<{ email?: string }>).map((i) => String(i.email || '').toLowerCase()).filter((x) => x && x !== email); } catch { people = []; }
-      out.push({ id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id, organizer: true, canEdit: false, declined: false });
+      out.push({ id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id, series: r.series_id || '', organizer: true, canEdit: false, declined: false });
     }
   } catch {
     // The hub's own list could not be read; the calendar still shows.
@@ -41,13 +50,13 @@ async function withRooms(env: Env, email: string, events: DayEvent[] | null): Pr
 /** Rooms booked in the hub for today and the next two days, as calendar-shaped events (the test users have no calendar to read). */
 async function upcomingRooms(env: Env, email: string): Promise<DayEvent[]> {
   const rows = await env.DB.prepare(
-    `SELECT id, title, starts_at, ends_at, invitees FROM hub_meetings WHERE status IN ('scheduled', 'live') AND starts_at >= ?1 AND starts_at <= ?2
+    `SELECT id, title, starts_at, ends_at, invitees, series_id FROM hub_meetings WHERE status IN ('scheduled', 'live') AND starts_at >= ?1 AND starts_at <= ?2
         AND (lower(host_email) = ?3 OR instr(lower(invitees), '"' || ?3 || '"') > 0) ORDER BY starts_at LIMIT 8`
-  ).bind(new Date(Date.now() - 36e5).toISOString(), new Date(Date.now() + 3 * 864e5).toISOString(), email).all<{ id: string; title: string; starts_at: string; ends_at: string | null; invitees: string }>().catch(() => ({ results: [] as any[] }));
+  ).bind(new Date(Date.now() - 36e5).toISOString(), new Date(Date.now() + 3 * 864e5).toISOString(), email).all<{ id: string; title: string; starts_at: string; ends_at: string | null; invitees: string; series_id: string }>().catch(() => ({ results: [] as any[] }));
   return (rows.results || []).map((r) => {
     let people: string[] = [];
     try { people = (JSON.parse(r.invitees || '[]') as Array<{ email?: string }>).map((i) => String(i.email || '').toLowerCase()).filter((x) => x && x !== email); } catch { people = []; }
-    return { id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id } as unknown as DayEvent;
+    return { id: '', start: r.starts_at, end: r.ends_at || r.starts_at, allDay: false, title: r.title || 'Meeting', link: '', meet: '', phone: '', provider: 'favor', source: 'Favor Meetings', people, hub: r.id, series: r.series_id || '' } as unknown as DayEvent;
   });
 }
 

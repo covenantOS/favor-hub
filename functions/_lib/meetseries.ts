@@ -12,7 +12,7 @@ import { HttpError, nowIso } from './http';
 import { emailsOf, hex, isHost, mayReadNotes, ledPeople, wasPresent, type Meeting, type MeetEnv } from './meet';
 import { calFetch, createEvent, sendReminder, TZ } from './meetcal';
 import { buildIcs } from './meetics';
-import { cleanRule, dayBefore, describe, expand, exdateLine, instanceId, restAfter, toRRule, wallOf, instantOf, type Rule } from './meetrecur';
+import { cleanRule, dayBefore, dayOf, describe, expand, exdateLine, instanceId, restAfter, toRRule, wallOf, instantOf, type Rule } from './meetrecur';
 
 export type Scope = 'this' | 'following' | 'all';
 export const SCOPES: Scope[] = ['this', 'following', 'all'];
@@ -251,6 +251,8 @@ export interface SeriesPatch {
   invitees?: SeriesInput['invitees'];
   remind?: number;
   rule?: Rule;
+  /** Stop repeating: this meeting is the last one (scope following or all). */
+  stop?: boolean;
 }
 
 function mayEdit(s: Series, m: Meeting, user: { email: string; role: string }) {
@@ -267,6 +269,17 @@ export async function editOccurrence(env: MeetEnv, user: { email: string; role: 
   if (scope === 'following' && isFirst) scope = 'all';
   const dur = p.durationMin ? Math.min(480, Math.max(5, Math.round(p.durationMin))) : 0;
 
+  if (p.stop && scope !== 'this') {
+    // The series ends with this meeting: later ones are cancelled, Google's series gets UNTIL this day.
+    s.rule = JSON.stringify({ ...ruleOf(s), end: { kind: 'until', until: dayOf(orig, s.tz) } });
+    s.exdates = JSON.stringify(exOf(s).filter((x) => x <= orig));
+    if (s.calendar_event_id) await gPatch(env, s, s.calendar_event_id, { recurrence: recurrenceOf(s) });
+    await saveSeries(env, s);
+    await env.DB.prepare(`UPDATE hub_meetings SET status = 'cancelled' WHERE series_id = ? AND status = 'scheduled' AND orig_start > ?`).bind(s.id, orig).run();
+    const { stop: _s, rule: _r, ...rest } = p;
+    if (Object.values(rest).some((v) => v !== undefined)) await editOccurrence(env, user, m, 'this', rest, origin);
+    return { ok: true, seriesId: s.id, scope };
+  }
   if (scope === 'this') {
     if (p.rule) throw new HttpError(400, 'scope', 'A repeat changes for this and following meetings, or for all of them.');
     const start = p.startsAt ? new Date(p.startsAt).toISOString() : m.starts_at!;

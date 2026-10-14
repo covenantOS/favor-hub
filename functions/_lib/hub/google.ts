@@ -169,6 +169,10 @@ export interface DayEvent {
   people: string[];
   /** The FavorOS meeting id when this event already has a room; set by the Today route. */
   hub: string;
+  /** The FavorOS series this meeting belongs to, when it repeats in FavorOS (meetseries.ts). */
+  series?: string;
+  /** One meeting of a repeating Google Calendar series. */
+  recurring?: boolean;
   organizer: boolean;
   /** Whether this person's calendar lets them add text to the event (they organize it, or guests may edit it). */
   canEdit: boolean;
@@ -218,6 +222,8 @@ export async function todaysEvents(token: string): Promise<DayEvent[]> {
         source: p.provider ? PROVIDER_LABEL[p.provider] : phone ? 'Phone call' : 'No link',
         people: (e.attendees || []).filter((a: any) => !a.self && !a.resource).map((a: any) => String(a.email || '').toLowerCase()),
         hub: p.provider === 'favor' ? p.url.match(/[?&]m=([A-Za-z0-9]+)/)?.[1] || '' : '',
+        series: p.provider === 'favor' ? p.url.match(/\/meet\/s\/\?id=([0-9a-f]{24})/)?.[1] || '' : '',
+        recurring: !!e.recurringEventId,
         organizer,
         canEdit: organizer || e.guestsCanModify === true,
         declined: me?.responseStatus === 'declined',

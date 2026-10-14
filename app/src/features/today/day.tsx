@@ -90,7 +90,7 @@ export function LivePill({ events }: { events: DayEvent[] | null | undefined }) 
 
 /* ------------------------------------------------------------------ a sheet: one at a time, over the page */
 
-type Sheet = { type: 'event'; id: string } | { type: 'move'; id: string } | ({ type: 'moved'; id: string } & { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }) | null;
+type Sheet = { type: 'event'; id: string } | { type: 'move'; id: string } | ({ type: 'moved'; id: string } & { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string; seriesId?: string }) | null;
 
 function SheetLayer({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const [on, setOn] = useState(false);
@@ -199,6 +199,11 @@ function EventSheet({ e, partners, onClose, onMove }: { e: DayEvent; partners: P
           </button>
         )}
       </div>
+      {e.series ? (
+        <a className="t2-sec" href={'/meet/series/?id=' + e.series}>
+          Open the series
+        </a>
+      ) : null}
       {e.link && (
         <a className="t2-sec" href={e.link} target="_blank" rel="noopener">
           Open in Google Calendar
@@ -214,8 +219,9 @@ const firstOf = (email: string) => {
   return /^[a-z]{3,}$/i.test(w) ? w[0]!.toUpperCase() + w.slice(1).toLowerCase() : 'them';
 };
 
-function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; already?: boolean } & { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }) => void }) {
+function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; already?: boolean; seriesId?: string } & { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }) => void }) {
   const [mail, setMail] = useState(true);
+  const [all, setAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const n = e.people.length;
@@ -223,9 +229,9 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
     setBusy(true);
     setErr('');
     try {
-      const res = await send('/api/hub/day-move', { eventId: e.id, emailInvitees: n > 0 && mail });
+      const res = await send('/api/hub/day-move', { eventId: e.id, emailInvitees: n > 0 && mail, ...(all ? { series: true } : {}) });
       const d = dayMoveResponse.parse(res);
-      onDone({ id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError, emailed: d.emailed, emailFailed: d.emailFailed, created: !!d.created, invited: d.invited, organizer: d.organizer, meetingId: d.id });
+      onDone({ seriesId: d.seriesId, id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError, emailed: d.emailed, emailFailed: d.emailFailed, created: !!d.created, invited: d.invited, organizer: d.organizer, meetingId: d.id });
     } catch (x) {
       const er = x as Error & { status?: number; code?: string };
       if (er.status === 409 && er.code === 'already') {
@@ -246,11 +252,17 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
         <CloseBtn onClose={onClose} />
       </div>
       <ul className="t2-list">
-        <li>Makes a FavorOS meeting on {whenLine(e)}.</li>
+        <li>{all ? 'Makes a repeating FavorOS series with the same repeat, from this meeting on.' : `Makes a FavorOS meeting on ${whenLine(e)}.`}</li>
         <li>{n ? `Invites the same ${n} ${n === 1 ? 'person' : 'people'} in FavorOS. ${mail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.'}` : 'Only you are on it.'}</li>
         <li>It is not recorded. The host can change that in the meeting.</li>
         <li id="t2-stays">{e.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the old video link comes off.' : 'A new event with the FavorOS link goes on your calendar, and Google invites the same people to it.'}</li>
       </ul>
+      {e.recurring ? (
+        <label className="t2-check">
+          <input type="checkbox" checked={all} onChange={(ev) => setAll(ev.target.checked)} />
+          <span>Move every meeting in this series</span>
+        </label>
+      ) : null}
       {n > 0 && (
         <label className="t2-check">
           <input type="checkbox" checked={mail} onChange={(ev) => setMail(ev.target.checked)} />
@@ -285,7 +297,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
   );
 }
 
-function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }; onClose: () => void }) {
+function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string; seriesId?: string }; onClose: () => void }) {
   const [told, setTold] = useState('');
   const [telling, setTelling] = useState(false);
   const org = s.created && s.organizer && s.organizer.email ? s.organizer : null;
@@ -309,7 +321,7 @@ function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked:
         <CloseBtn onClose={onClose} />
       </div>
       <ul className="t2-list">
-        <li>{whenLine(e)}.</li>
+        <li>{s.seriesId ? 'Every meeting in the series, each with its own room.' : `${whenLine(e)}.`}</li>
         <li>
           {s.linked
             ? 'The FavorOS link is on your calendar event.'
@@ -321,6 +333,11 @@ function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked:
         {!!s.emailed && <li>{`Emailed the link to ${s.emailed} ${s.emailed === 1 ? 'person' : 'people'}.`}</li>}
         {!!s.emailFailed && <li>{`${s.emailFailed} ${s.emailFailed === 1 ? 'email' : 'emails'} did not go out. Share the room link with them.`}</li>}
       </ul>
+      {s.seriesId ? (
+        <a className="t2-sec" href={'/meet/series/?id=' + s.seriesId}>
+          Open the series
+        </a>
+      ) : null}
       {s.linkError && (
         <p className="t2-err" role="alert">
           {s.linkError}
@@ -380,6 +397,7 @@ function MeetingsCard({ events, partners, onOpen, onMove }: { events: DayEvent[]
                   <b>{e.title}</b>
                   <span>
                     {e.source || 'Meeting'}
+                    {e.series || e.recurring ? ' · Repeats' : ''}
                     {e.declined ? ' · Declined' : ''}
                   </span>
                 </span>
@@ -632,7 +650,7 @@ export function DayGrid({ day }: { day: Day }) {
               return;
             }
             patchEvent(sheetEvent.id, { hub: r.id, source: 'FavorOS', provider: 'favor' });
-            setSheet({ type: 'moved', id: sheetEvent.id, room: r.room, linked: r.linked, linkError: r.linkError, emailed: r.emailed, emailFailed: r.emailFailed, created: r.created, invited: r.invited, organizer: r.organizer, meetingId: r.meetingId });
+            setSheet({ type: 'moved', id: sheetEvent.id, room: r.room, linked: r.linked, linkError: r.linkError, emailed: r.emailed, emailFailed: r.emailFailed, created: r.created, invited: r.invited, organizer: r.organizer, meetingId: r.meetingId, seriesId: r.seriesId });
           }}
         />
       )}

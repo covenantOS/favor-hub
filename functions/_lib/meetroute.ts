@@ -308,7 +308,8 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   const gkey = withGuests ? hex(16) : '';
   const endsAt = startsAt ? new Date(Date.parse(startsAt) + dur * 60000).toISOString() : null;
   if (rule && startsAt) {
-    const sTz = typeof b.tz === 'string' && /^[A-Za-z_]+\/[A-Za-z_\/+-]+$/.test(b.tz) ? b.tz : TZ;
+    // The rule repeats on Eastern dates, the way the booking page shows it; the booker's own zone is for display only.
+    const sTz = TZ;
     const made = await createSeries(env, user, {
       title, agenda: clean(b.agenda, 2000), durationMin: dur, rec, access: withGuests ? 'guests' : access, invitees, remind: b.remind === false ? 0 : 1, rule, startsAt, tz: sTz,
       calendar: b.calendar !== false, templateId: clean(b.templateId, 20), team: clean(b.team, 80), driveFolder: clean(b.driveFolder, 80), postChannel: typeof b.postChannel === 'string' ? clean(b.postChannel, 60) : '',
@@ -408,7 +409,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
   if (mt.series_id && mt.status === 'scheduled') {
     const scope: Scope = SCOPES.includes(b.scope as Scope) ? (b.scope as Scope) : 'this';
     if (b.status === 'cancelled') return await cancelOccurrence(env, user, mt, scope, origin);
-    const touches = ['startsAt', 'endsAt', 'title', 'agenda', 'rec', 'access', 'invitees', 'recur', 'durationMin'].some((k) => b[k] !== undefined);
+    const touches = ['startsAt', 'endsAt', 'title', 'agenda', 'rec', 'access', 'invitees', 'recur', 'durationMin'].some((k) => b[k] !== undefined && b[k] !== null);
     if (touches) {
       const start = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) ? new Date(b.startsAt).toISOString() : undefined;
       const s0 = start || mt.starts_at;
@@ -418,7 +419,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
       const r = await editOccurrence(env, user, mt, scope, {
         title: typeof b.title === 'string' ? clean(b.title, 140) || undefined : undefined, agenda: typeof b.agenda === 'string' ? clean(b.agenda, 2000) : undefined, startsAt: start, durationMin,
         rec: ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : undefined, access: ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : undefined, invitees,
-        rule: b.recur ? cleanRule(b.recur) || undefined : undefined,
+        rule: b.recur && b.recur !== 'none' ? cleanRule(b.recur) || undefined : undefined, stop: b.recur === 'none' && scope !== 'this',
       }, origin);
       if (typeof b.postChannel === 'string') await setPostChannel(env, user as never, id, clean(b.postChannel, 60));
       return r;

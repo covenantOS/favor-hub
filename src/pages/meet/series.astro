@@ -1,0 +1,16 @@
+---
+// Meetings: one repeating series, its upcoming and past meetings. Drawn by /js/meet/series.js.
+import App from '../../layouts/App.astro';
+import '../../styles/meet.css';
+import '../../styles/qa2-meet.css';
+import '../../styles/crit-meet.css';
+import '../../styles/q3-desk.css';
+import '../../styles/lint-fix.css';
+import '../../styles/meet-auto.css';
+import '../../styles/break-ui.css';
+import '../../styles/meet-series.css';
+---
+<App title="Series" crumb="Series" nav="meet-series" description="A repeating meeting series.">
+  <div id="sr-root" aria-busy="true"><div class="h-card h-skel" style="min-height:260px"></div></div>
+  <script is:inline type="module" src="/js/meet/series.js?v=1"></script>
+</App>

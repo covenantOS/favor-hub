@@ -1,0 +1,20 @@
+---
+// Meetings: the public booking page a partner opens from a link. Outside the hub's sign-in, no menu, no hub scripts.
+import '../../styles/meet-booking.css';
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="no-referrer" />
+    <link rel="icon" type="image/png" href="/images/favor-icon.png" />
+    <title>Book a time - Favor International</title>
+  </head>
+  <body class="bk-pub">
+    <header class="bk-top"><a href="https://www.favorintl.org"><img src="/images/favor-logo-color.png" alt="Favor International" /></a></header>
+    <main class="bk-wrap" id="bk-root" aria-live="polite"><p class="bk-muted">Loading.</p></main>
+    <script is:inline type="module" src="/js/meet/with.js?v=1"></script>
+  </body>
+</html>

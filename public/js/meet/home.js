@@ -56,7 +56,7 @@ const sub = (m) => {
 };
 const repeats = (m) => Boolean(m.repeat && m.repeat !== 'none');
 const guestBtn = (m) => (m.mine && m.status !== 'ended' && m.status !== 'cancelled' && (m.access === 'guests' || GUESTS_ON) ? `<button class="h-btn h-btn--ghost h-btn--sm" data-glink="${m.id}">${ic('link')}Guest link</button>` : '');
-const mine = (m) => guestBtn(m) + (m.mine && m.startsAt && m.status === 'scheduled' ? `${repeats(m) ? '' : `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/book/?edit=${m.id}">Move</a>`}<button class="h-btn h-btn--ghost h-btn--sm" data-cancel="${m.id}" data-series="${repeats(m) ? 1 : 0}">Cancel</button>` : '');
+const mine = (m) => guestBtn(m) + (repeats(m) && m.seriesId ? `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/series/?id=${esc(m.seriesId)}">Series</a>` : '') + (m.mine && m.startsAt && m.status === 'scheduled' ? `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/book/?edit=${m.id}">Move</a><button class="h-btn h-btn--ghost h-btn--sm" data-cancel="${m.id}" data-series="${repeats(m) ? 1 : 0}">Cancel</button>` : '');
 const row = (m) => {
   const when = m.startsAt || m.createdAt;
   const live = m.status === 'live';
@@ -113,19 +113,22 @@ function draw(up, notes, me, cal) {
   }));
 }
 
-// Cancel asks in the page: the button becomes one line with Yes and Keep it.
+// Cancel asks in the page: the button becomes one line with Yes and Keep it. A repeating meeting asks which meetings first.
 function askCancel(b) {
   const wrap = document.createElement('span');
   wrap.className = 'mt-confirm';
   wrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;align-items:center;justify-content:flex-end';
   const series = b.dataset.series === '1';
-  wrap.innerHTML = `<span class="mt-sub" style="margin:0">${series ? 'Cancel every meeting in this series?' : 'Cancel this meeting?'} Invitees get a cancellation.</span><button class="h-btn h-btn--primary h-btn--sm" data-yes="1">${series ? 'Cancel series' : 'Yes, cancel'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-no="1">Keep it</button>`;
+  const btn = (scope, label) => `<button class="h-btn h-btn--primary h-btn--sm" data-yes="${scope}">${label}</button>`;
+  wrap.innerHTML = `<span class="mt-sub" style="margin:0">${series ? 'Cancel which meetings?' : 'Cancel this meeting?'} Invitees get a cancellation.</span>${series ? btn('this', 'This meeting') + btn('following', 'This and following') + btn('all', 'All meetings') : btn('this', 'Yes, cancel')}<button class="h-btn h-btn--ghost h-btn--sm" data-no="1">Keep it</button>`;
   b.replaceWith(wrap);
   wrap.querySelector('[data-no]').addEventListener('click', () => wrap.replaceWith(b));
-  wrap.querySelector('[data-yes]').addEventListener('click', async (e) => {
-    e.currentTarget.disabled = true;
-    try { await api('meetings/' + b.dataset.cancel + '/update', { method: 'POST', body: { status: 'cancelled' } }); toast('Cancelled'); load(true); } catch (err) { toast(err.message); wrap.replaceWith(b); }
-  });
+  wrap.querySelectorAll('[data-yes]').forEach((y) => y.addEventListener('click', async () => {
+    wrap.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+    const body = { status: 'cancelled' };
+    if (series) body.scope = y.dataset.yes;
+    try { await api('meetings/' + b.dataset.cancel + '/update', { method: 'POST', body }); toast('Cancelled'); load(true); } catch (err) { toast(err.message); wrap.replaceWith(b); }
+  }));
 }
 
 function nowTitle() {
