@@ -34,8 +34,7 @@ import { notTesterSql } from './testuser';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
   GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, wasPresent, meetUser, sfuCall, sha,
-  type Meeting, type MeetEnv, type Presence,
-} from './meet';
+  type Meeting, type MeetEnv, type Presence, testMeetingHidden } from './meet';
 
 const COMMANDS = new Set(['mute', 'camoff', 'remove', 'spot', 'unspot', 'lock', 'unlock', 'makehost', 'unhost', 'muteall', 'sharepolicy', 'letin', 'end', 'lowerhand', 'allowshare', 'play']);
 
@@ -264,7 +263,7 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
     `SELECT meeting_id, COUNT(DISTINCT lower(email)) AS n FROM hub_meeting_presence WHERE left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? GROUP BY meeting_id`
   ).bind(Date.now() - GONE_MS).all<{ meeting_id: string; n: number }>();
   const inRoom = new Map((counts.results || []).map((c) => [c.meeting_id, c.n]));
-  const found = scope === 'recent' || scope === 'notes' ? await withLedMeetings(env, user, scope, rows.results || [], scope === 'notes' ? q : '') : rows.results || [];
+  const found = (scope === 'recent' || scope === 'notes' ? await withLedMeetings(env, user, scope, rows.results || [], scope === 'notes' ? q : '') : rows.results || []).filter((r) => !testMeetingHidden(r, user.email));
   // Action items per meeting, for the notes library.
   const actN = new Map<string, number>();
   if (scope === 'notes' && found.length) {

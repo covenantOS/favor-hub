@@ -3,6 +3,7 @@
 // and keeps the roster, chat and host commands in D1. Admin only until the release switch says otherwise.
 import { HttpError, type Env } from './http';
 import { hubUserOf, type HubUser } from './session';
+import { isHiddenAccount, isTester } from './testuser';
 
 export interface MeetEnv extends Env {
   SFU_APP_ID?: string;
@@ -132,8 +133,14 @@ export function refuseJoin(m: Meeting): HttpError {
   return new HttpError(403, 'not_invited', `You're not on the invite list for this meeting. Ask ${m.host_name || m.host_email} to add you.`);
 }
 
+/** A meeting a FavorOS Tester hosts is for the test accounts and the privacy probes alone, admins included in the "alone". */
+export function testMeetingHidden(m: Pick<Meeting, 'host_email'>, viewer: string): boolean {
+  return isTester(m.host_email) && !isHiddenAccount(viewer);
+}
+
 export function mayJoin(m: Meeting, user: Pick<HubUser, 'email' | 'role'>): boolean {
   if (m.status === 'cancelled') return false;
+  if (testMeetingHidden(m, user.email)) return false;
   if (user.role === 'admin') return true;
   if (isHost(m, user.email)) return true;
   if (user.role === 'field') return emailsOf(m.invitees).includes(user.email.toLowerCase());
@@ -170,6 +177,7 @@ export async function ledPeople(env: MeetEnv, email: string): Promise<Set<string
  */
 export function mayReadNotes(m: Meeting, user: Pick<HubUser, 'email' | 'role'>, led: ReadonlySet<string>, present = false): boolean {
   if (m.status === 'cancelled') return false;
+  if (testMeetingHidden(m, user.email)) return false;
   const e = user.email.toLowerCase();
   if (e.startsWith('guest:')) return false;
   if (user.role === 'admin' || isHost(m, e) || emailsOf(m.invitees).includes(e) || present) return true;
