@@ -176,7 +176,7 @@
 
 @media (max-width: 960px) {
   .wh-col { display: contents; }
-  #wh-due { order: 1; } #wh-gifts { order: 2; } #wh-week { order: 3; } #wh-req { order: 4; } #wh-quick { order: 5; } #wh-changes { order: 6; } #wh-feed { order: 7; }
+  #wh-due { order: 1; } #wh-gifts { order: 2; } #wh-week { order: 3; } #wh-req { order: 4; } #wh-quick { order: 5; } #wh-feed { order: 6; }
 }
 @media (max-width: 860px) {
   .wh-tool { position: relative; }
