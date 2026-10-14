@@ -159,7 +159,9 @@ export async function manageClip(env: ClipsEnv, user: HubUser, id: string, opts:
  * the clip must still have access to the hub (a blocked person's links stop working for people outside the hub).
  */
 export async function canWatch(env: ClipsEnv, request: Request, clip: Pick<Clip, 'share' | 'owner_email'>): Promise<boolean> {
-  if (hubUserOf(request)) return true;
+  const user = hubUserOf(request);
+  // Clips are not part of the field staff app: a field account watches a clip only when its share switch is on, like anyone outside.
+  if (user && user.role !== 'field') return true;
   if (clip.share !== 1) return false;
   const row = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(clip.owner_email).first<{ blocked: number }>().catch(() => null);
   return !(row && row.blocked);

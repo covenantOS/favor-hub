@@ -2,7 +2,7 @@
 // first and an API call without a user gets 401. Whoever is signed in reaches the functions as
 // X-Hub-* headers (see _lib/session.ts).
 import { json, type Env } from './_lib/http';
-import { resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
+import { crossSiteWrite, resolveUser, signinEnforced, withUserHeaders } from './_lib/session';
 import { REDIRECTS } from '../src/data/areas';
 import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
@@ -108,6 +108,12 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   if (enforce && user && user.role === 'field' && !open && !fieldMayOpen(path)) {
     if (path.startsWith('/api/')) return json({ ok: false, error: 'forbidden', message: 'That is not part of the field staff app.' }, 403);
     return Response.redirect(new URL('/chat/', url).toString(), 302);
+  }
+
+  // A change made with the browser's sign-in cookie must come from a FavorOS page. Every *.favorintl.org site shares the cookie's
+  // SameSite scope, so a page on another Favor site could otherwise post here as the person signed in. Scripts with a key are exempt.
+  if (user && !open && crossSiteWrite(request, url, user.via)) {
+    return json({ ok: false, error: 'cross_site', message: 'That change did not come from a FavorOS page. Reload the page and try again.' }, 403);
   }
 
   // The FavorOS Tester never writes to Blackbaud, sends email or notifies a person (functions/_lib/testuser.ts).

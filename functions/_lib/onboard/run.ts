@@ -75,6 +75,12 @@ const STEP_COLS = 'id, run_id, key, grp, sort, title, detail, kind, duty, owner_
 
 /* ------------------------------------------------------------------------------------------------ access */
 
+/** The stored hub_users role and block flag for an address, or staff and open when there is no row. */
+export async function storedRole(env: Env, email: string): Promise<{ role: string; blocked: boolean; note: string }> {
+  const row = await env.DB.prepare('SELECT role, blocked, note FROM hub_users WHERE lower(email) = ?').bind(String(email).toLowerCase()).first<{ role: string; blocked: number; note: string }>();
+  return { role: row?.role || 'staff', blocked: !!row?.blocked, note: row?.note || '' };
+}
+
 export async function mayManage(env: Env, actor: Actor): Promise<boolean> {
   return actor.admin || (await isHr(env, actor.email));
 }
@@ -619,6 +625,9 @@ export async function hubAdd(env: Env, actor: Actor, runId: string, opts: { emai
   if (run.kind !== 'onboard') throw bad('This is an offboarding.');
   if (run.status !== 'active') throw bad('This onboarding is closed.');
   if (!FAVOR.test(run.email)) throw bad('The run has no Favor address.');
+  // An account an admin blocked stays blocked unless an admin opens it again. A block from an earlier offboarding may be lifted by HR.
+  const was = await storedRole(env, run.email);
+  if (!actor.admin && was.blocked && !/^Left Favor/.test(was.note)) throw new HttpError(403, 'forbidden', 'An admin blocked this account. Ask an admin to open it again.');
   const now = nowIso();
   const items: DoneItem[] = [];
   const step = async (what: string, fn: () => Promise<DoneItem | void>) => {
@@ -702,6 +711,8 @@ export async function hubClose(env: Env, actor: Actor, runId: string, isEnvAdmin
   if (run.stays) throw bad('This person stays on as a volunteer, so their accounts stay open.');
   if (run.email === actor.email) throw bad('You cannot close your own access.');
   if (isEnvAdmin(run.email)) throw bad('This person is listed as a FavorOS admin in the site settings. Remove them from that list first.');
+  // HR may close a staff account. Closing an admin's account is an admin's call.
+  if (!actor.admin && (await storedRole(env, run.email)).role === 'admin') throw new HttpError(403, 'forbidden', 'This person is a FavorOS admin. Ask an admin to close their access.');
   const now = nowIso();
   const items: DoneItem[] = [];
   const step = async (what: string, fn: () => Promise<DoneItem | void>) => {

@@ -9,7 +9,7 @@ const read = (p) => readFileSync(new URL('../../' + p, import.meta.url), 'utf8')
 export const HOST = 'https://dash.favorintl.org';
 export const WEB_CLIENT = 'web-client.apps.googleusercontent.com';
 export const BRAIN = 'https://brain.test';
-export const PUSH = 'https://push.test';
+export const PUSH = 'https://fcm.googleapis.com';
 
 const ROUTES = [
   ['/api/auth/google', 'functions/api/auth/google.ts'],

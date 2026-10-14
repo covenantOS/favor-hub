@@ -457,6 +457,12 @@ async function join(env: MeetEnv, user: { email: string; name: string; role: str
   return { ok: true, pid, role, sessionId: session.sessionId, iceServers: ice, meeting: publicMeeting(await getMeeting(env, id), user), since: last?.s || 0, guestsEnabled: guestsOn(env) };
 }
 
+/** A file shared in meeting chat links to Google Drive or Docs and nowhere else. */
+export function driveUrl(v: unknown): string {
+  const u = clean(v, 600);
+  return /^https:\/\/(drive|docs)\.google\.com\//.test(u) ? u : '';
+}
+
 async function addEvent(env: MeetEnv, id: string, kind: string, from: string, to: string, body: unknown) {
   await env.DB.prepare('INSERT INTO hub_meeting_events (meeting_id, kind, from_pid, to_pid, body, ts) VALUES (?, ?, ?, ?, ?, ?)').bind(id, kind, from, to, JSON.stringify(body), Date.now()).run();
 }
@@ -477,6 +483,10 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
   if (changed || now - me.seen > 3500) {
     await env.DB.prepare('UPDATE hub_meeting_presence SET mic = ?, cam = ?, hand = ?, sharing = ?, lvl = ?, speak_at = ?, seen = ?, left_at = 0 WHERE meeting_id = ? AND pid = ?')
       .bind(mic, cam, hand, sharing, lvl, speaking ? now : me.speak_at, now, id, me.pid).run();
+  }
+  // A guest still in the waiting room learns only whether they are in yet: no chat, people or captions before a host admits them.
+  if (me.waiting && me.role === 'guest') {
+    return { ok: true, now, role: me.role, people: [], lines: [], me: { waiting: true }, events: [], meeting: { status: mt0.status, locked: !!mt0.locked, title: mt0.title }, recording: null };
   }
   const tx = Number.isFinite(Number(b.tx)) ? Number(b.tx) : -1;
   const since = Number(b.since);
@@ -535,6 +545,7 @@ async function directoryByEmail(env: MeetEnv, emails: string[]) {
 
 async function setTracks(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email);
+  if (me.waiting) throw new HttpError(403, 'waiting', 'Wait for the host to let you in.');
   const tracks = (Array.isArray(b.tracks) ? b.tracks : []).slice(0, 8).map((t) => {
     const o = t as Record<string, unknown>;
     return { name: clean(o.name, 60), kind: o.kind === 'audio' ? 'audio' : 'video', mid: clean(o.mid, 8), label: clean(o.label, 20) };
@@ -578,12 +589,13 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
     await addEvent(env, id, 'diag', me.pid, me.pid, { ...body, name: me.name });
     return { ok: true };
   }
+  if (me.waiting) throw new HttpError(403, 'waiting', 'Wait for the host to let you in.');
   if (kind === 'chat') {
     const body = (b.body || {}) as Record<string, unknown>;
     const text = clean(body.text, 2000);
     const file = body.file as Record<string, unknown> | undefined;
     if (!text && !file) throw new HttpError(400, 'empty', 'Write something first.');
-    const f = file ? { name: clean(file.name, 160), url: clean(file.url, 600), type: clean(file.type, 20), by: clean(file.by, 80) } : undefined;
+    const f = file ? { name: clean(file.name, 160), url: driveUrl(file.url), type: clean(file.type, 20), by: clean(file.by, 80) } : undefined;
     await addEvent(env, id, 'chat', me.pid, to, { text, name: me.name, file: f, ai: !!body.ai });
     return { ok: true };
   }

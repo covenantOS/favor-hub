@@ -25,6 +25,7 @@ export interface Recip {
 
 const COOLDOWN_MS = 60_000;
 const DAY_CAP = 300;
+export const SENDER_DAY_CAP = 500;
 
 export const textsOn = async (env: MeetEnv): Promise<boolean> => (await effective(env, 'meet.texts', undefined, 'off').catch(() => 'off')).toLowerCase() === 'on';
 export const maskPhone = (p: string): string => (p ? `(***) ***-${p.slice(-4)}` : '');
@@ -163,6 +164,9 @@ export async function sendLink(env: MeetEnv, user: User, id: string, b: Record<s
   if (!picked.length) throw new HttpError(400, 'nobody', all ? 'Pick at least one person.' : 'You can send the link only to yourself.');
   const used = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_sends WHERE meeting_id = ? AND at > ?').bind(id, Date.now() - 86400_000).first<{ n: number }>().catch(() => ({ n: 0 }));
   if (!dry && (used?.n || 0) + picked.length * via.size > DAY_CAP) throw new HttpError(429, 'too_many', `This meeting has sent ${used?.n || 0} links today. The limit is ${DAY_CAP} a day.`);
+  // One person's links across every meeting, so new meetings cannot be used to send without end.
+  const mine = dry ? { n: 0 } : await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_sends WHERE by_email = ? AND at > ?').bind(user.email.toLowerCase(), Date.now() - 86400_000).first<{ n: number }>().catch(() => ({ n: 0 }));
+  if (!dry && (mine?.n || 0) + picked.length * via.size > SENDER_DAY_CAP) throw new HttpError(429, 'too_many', `You have sent ${mine?.n || 0} meeting links today. The limit is ${SENDER_DAY_CAP} a day.`);
 
   const note = clean(b.note, 200).replace(/\s+/g, ' ');
   const sender = user.name || user.email;

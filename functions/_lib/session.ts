@@ -435,3 +435,13 @@ export function hubUserOf(request: Request): HubUser | null {
     kpi: request.headers.get('X-Hub-Kpi') === '1',
   };
 }
+
+/** A cookie-signed-in write whose Origin is another site. A request with no Origin header (scripts, older clients) passes. */
+export function crossSiteWrite(request: Request, url: URL, via: string): boolean {
+  const m = request.method.toUpperCase();
+  if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return false;
+  if (via !== 'google' && via !== 'password') return false;
+  const origin = request.headers.get('Origin');
+  if (!origin) return false;
+  return origin !== url.origin;
+}

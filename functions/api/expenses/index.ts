@@ -53,7 +53,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (asTrimmed(data.company, 'company', 80, false)) return json({ ok: true, ignored: true });
 
     const name = asTrimmed(data.name, 'name', 80);
-    const email = asTrimmed(data.email, 'email', 120);
+    // A signed-in person files as themselves: the email on the request is their own Favor address.
+    const user = hubUserOf(request);
+    const email = user && user.via === 'google' ? user.email : asTrimmed(data.email, 'email', 120);
     if (!isEmail(email)) throw new HttpError(400, 'bad_email', 'A real email is required.');
     const travel_dates = asTrimmed(data.travel_dates, 'travel_dates', 120, false);
     const travel_city = asTrimmed(data.travel_city, 'travel_city', 120, false);
@@ -76,11 +78,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       approver,
       review_token_hash: await sha256Hex(token),
     });
-    await addExpenseEvent(env, row.id, 'submitted', name, { total_cents: row.total_cents, ip });
+    await addExpenseEvent(env, row.id, 'submitted', name, { total_cents: row.total_cents, ip, by: user ? user.email : '' });
     await addExpenseEvent(env, row.id, 'approver_resolved', 'system', approver);
 
     const reviewUrl = `${new URL(request.url).origin}/expenses/review/?token=${token}`;
-    if (!env.RESEND_API_KEY) console.log('[expenses] review link (no RESEND_API_KEY):', reviewUrl);
+    if (!env.RESEND_API_KEY) console.log('[expenses] no RESEND_API_KEY, approver not emailed for', row.doc_number);
     const saved = await itemsFor(env, row.id);
     waitUntil(
       emailApprover(env, row, saved, reviewUrl)

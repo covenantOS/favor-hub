@@ -20,7 +20,7 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
     clip.chapters = JSON.stringify(chapters);
     const out: Record<string, unknown> = { ok: true, clip: clipView(clip), user: user ? { email: user.email, name: user.name, admin: user.role === 'admin' } : null };
     out.highlights = clipHighlights(J<ClipSegment[]>(clip.transcript, []), chapters, clip.duration_ms / 1000);
-    if (user) {
+    if (user && user.role !== 'field') {
       const [comments, reactions, views] = await Promise.all([
         env.DB.prepare('SELECT id, at_seconds, author_email, author_name, body, created_at FROM hub_clip_comments WHERE clip_id = ? ORDER BY at_seconds, created_at LIMIT 500').bind(id).all(),
         env.DB.prepare('SELECT id, emoji, at_seconds, person_email, person_name, created_at FROM hub_clip_reactions WHERE clip_id = ? ORDER BY at_seconds LIMIT 500').bind(id).all(),

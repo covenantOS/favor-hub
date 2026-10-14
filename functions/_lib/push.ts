@@ -100,11 +100,14 @@ async function vapidHeader(env: PushEnv, endpoint: string): Promise<string> {
   return `vapid t=${head}.${claims}.${b64u(sig)}, k=${vapidPublicKey(env)}`;
 }
 
-/** Only https push services, never an address inside Favor's network. */
+/** The browser push services: Chrome and Edge (FCM), Safari (Apple), Firefox (Mozilla), Windows (WNS). */
+const PUSH_HOSTS = /^(fcm\.googleapis\.com|android\.googleapis\.com|([a-z0-9-]+\.)*push\.apple\.com|([a-z0-9-]+\.)*push\.services\.mozilla\.com|([a-z0-9-]+\.)*notify\.windows\.com)$/;
+
+/** Only https browser push services, never another host. */
 export function validEndpoint(endpoint: string): boolean {
   try {
     const u = new URL(endpoint);
-    return u.protocol === 'https:' && !/^(localhost|127\.|10\.|192\.168\.|169\.254\.)/.test(u.hostname) && endpoint.length < 1200;
+    return u.protocol === 'https:' && !u.port && PUSH_HOSTS.test(u.hostname) && endpoint.length < 1200;
   } catch {
     return false;
   }

@@ -134,7 +134,7 @@ describe('subscription routes', () => {
     const cookie = await cookieFor(w, 'will@favorintl.org');
     const k = await browserKeys();
     const good = { p256dh: k.p256dh, auth: k.authB64 };
-    for (const endpoint of ['http://push.test/x', 'https://localhost/x', 'https://127.0.0.1/x', 'https://192.168.1.5/x', 'https://169.254.169.254/x', 'not a url', 'https://push.test/' + 'a'.repeat(1300)]) {
+    for (const endpoint of ['http://push.test/x', 'https://localhost/x', 'https://127.0.0.1/x', 'https://192.168.1.5/x', 'https://169.254.169.254/x', 'not a url', 'https://push.test/x', 'https://push.test/' + 'a'.repeat(1300)]) {
       assert.equal((await call(w, 'POST', '/api/push/subscribe', { cookie, body: { endpoint, keys: good } })).status, 400, endpoint.slice(0, 40));
     }
     assert.equal((await call(w, 'POST', '/api/push/subscribe', { cookie, body: { endpoint: PUSH + '/x', keys: { p256dh: 'AAAA', auth: k.authB64 } } })).status, 400);
