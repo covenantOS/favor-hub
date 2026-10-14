@@ -191,9 +191,14 @@ const items = buildPaletteItems(
   }
   const when = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); };
 
+  // The saved menu (favor.hub.nav.v1) knows what this person may open; a search skips the reads the server would refuse.
+  function navDenies(key) {
+    try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); return !!(nv && nv.access && nv.access[key] === false); } catch (e) { return false; }
+  }
+
   // Partners: the Work Center's partner search (name, email, phone, address, lookup id).
   async function partnerHits(text) {
-    if (partnerDenied) return [];
+    if (partnerDenied || navDenies('workCenter')) return [];
     const r = await getJson('/api/work/partners?wide=1&q=' + encodeURIComponent(text));
     if (r.denied) partnerDenied = true;
     const rows = r.data && Array.isArray(r.data.rows) ? r.data.rows : [];
@@ -238,7 +243,7 @@ const items = buildPaletteItems(
   // Meetings: ended meetings whose notes, summary or transcript match, ended meetings and upcoming meetings whose title matches.
   async function meetingHits(text) {
     // Meetings is not open to everyone yet; without it the three reads below are refused on every keystroke.
-    try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nv && nv.access && nv.access.meetings === false) return []; } catch (e) { /* no saved menu */ }
+    if (navDenies('meetings')) return [];
     const lq = norm(text);
     const [notes, recent, upcoming] = await Promise.all([
       getJson('/api/meet/meetings?scope=notes&q=' + encodeURIComponent(text)),
