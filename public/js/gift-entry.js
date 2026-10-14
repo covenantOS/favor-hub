@@ -48,10 +48,10 @@ function pill(s) { const [t, c] = STATUS[s] || [s, '']; return `<span class="ge-
 
 async function home() {
   stopPoll(); S.view = null; S.cur = '';
-  const d = await api('/api/gift-entry');
+  // The three reads go out together: one after another they held the page on its skeleton for over two seconds.
+  const [d, , n] = await Promise.all([api('/api/gift-entry'), loadSummary(S.sumDate || ''), api('/api/gift-entry/needs-coding').catch(() => ({ items: [] }))]);
   S.list = d.deposits; S.me = d.me; S.second = d.second || 0; S.today = d.today;
-  await loadSummary(S.sumDate || '');
-  S.needs = (await api('/api/gift-entry/needs-coding').catch(() => ({ items: [] }))).items;
+  S.needs = n.items;
   paintHome();
 }
 async function loadSummary(date) {

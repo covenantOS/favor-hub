@@ -304,7 +304,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           if (more) more.classList.toggle('is-on', !!cur && !bar.some(function (b) { return !b.hidden && b.dataset.bar === cur.dataset.area; }));
         };
         // The tab row (src/components/NavTabs.astro): this person's job pages first, at most six in the row, the rest under More;
-        // the open page always in the row. The same rule as arrangeTabs in src/data/areas.ts (tests/nav-areas.test.mjs runs both).
+        // an open page under More lights the More button. The same rule as arrangeTabs in src/data/areas.ts (tests/nav-areas.test.mjs runs both).
         window.hubTabsLayout = function () {
           var nav = document.getElementById('h-tabs');
           if (!nav) return;
@@ -315,21 +315,31 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           if (!row || !moreBtn || !moreMenu) return;
           var mine = window.__hubJobs || null;
           var CAP = 6;
+          // Writes only what changes: observers on the row (Reporting remembers its open tab) see no churn from a pass that changes nothing.
+          var cls = function (e, c, on) { if (e.classList.contains(c) !== !!on) e.classList.toggle(c, !!on); };
+          var role = function (e, v) { if (v) { if (e.getAttribute('role') !== v) e.setAttribute('role', v); } else if (e.hasAttribute('role')) e.removeAttribute('role'); };
+          var put = function (e, parent, before) { if (e.parentNode !== parent || e.nextSibling !== before) parent.insertBefore(e, before); };
+          var add = function (e, parent) { if (e.parentNode !== parent || e.nextSibling) parent.appendChild(e); };
           // Groups: members back in their menu; a group with one page this person may open shows that page as a plain tab.
           q('.h-tabgrp', row).forEach(function (g) {
             var menu = nav.querySelector('[data-menu="grp:' + g.dataset.grp + '"]');
             var btn = g.querySelector('.h-tab--menu');
             if (!menu || !btn) return;
-            q('a.h-tab[data-group]', g).forEach(function (a) { a.setAttribute('role', 'menuitem'); menu.appendChild(a); });
-            var members = q('a.h-tab[data-group]:not([hidden])', menu);
-            g.hidden = !members.length;
-            if (members.length === 1) { btn.hidden = true; members[0].removeAttribute('role'); g.appendChild(members[0]); }
-            else {
-              btn.hidden = false;
+            var members = q('a.h-tab[data-group]:not([hidden])', g).concat(q('a.h-tab[data-group]:not([hidden])', menu));
+            var all = q('a.h-tab[data-group]', g).concat(q('a.h-tab[data-group]', menu));
+            if (g.hidden !== !members.length) g.hidden = !members.length;
+            if (members.length === 1) {
+              if (!btn.hidden) btn.hidden = true;
+              all.forEach(function (a) { if (a !== members[0]) { role(a, 'menuitem'); if (a.parentNode !== menu) menu.appendChild(a); } });
+              role(members[0], ''); if (members[0].parentNode !== g) g.appendChild(members[0]);
+            } else {
+              all.forEach(function (a) { role(a, 'menuitem'); if (a.parentNode !== menu) menu.appendChild(a); });
+              if (btn.hidden) btn.hidden = false;
               var on = members.filter(function (m) { return m.classList.contains('is-on'); })[0];
-              btn.classList.toggle('is-on', !!on);
+              cls(btn, 'is-on', !!on);
               var sub = btn.querySelector('.h-tab__sub');
-              if (sub) sub.textContent = on ? ' · ' + (on.querySelector('.h-tab__t') || on).textContent.trim() : '';
+              var st = on ? ' · ' + (on.querySelector('.h-tab__t') || on).textContent.trim() : '';
+              if (sub && sub.textContent !== st) sub.textContent = st;
             }
           });
           var plain = q('a.h-tab[data-ord]', nav);
@@ -342,20 +352,21 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           var rest = anyJob ? shown.filter(function (e) { return !window.hubJobMatch(jobsOf(e), mine); }) : [];
           var inRow = first.slice(0, CAP);
           var inMore = first.slice(CAP).concat(rest);
-          var onE = inMore.filter(isOn)[0];
-          if (onE) { inMore.splice(inMore.indexOf(onE), 1); inRow.push(onE); }
           // Groups never go under More: a menu inside a menu is one tap too many.
           inMore = inMore.filter(function (e) { if (e.classList.contains('h-tabgrp')) { inRow.push(e); return false; } return true; });
-          inRow.forEach(function (e) { e.classList.add('is-job'); if (e.tagName === 'A') e.removeAttribute('role'); row.insertBefore(e, moreBtn); });
-          entries.filter(function (e) { return e.hidden; }).forEach(function (e) { row.insertBefore(e, moreBtn); });
-          inMore.forEach(function (e) { e.classList.toggle('is-job', !!(jobsOf(e) && window.hubJobMatch(jobsOf(e), mine))); e.setAttribute('role', 'menuitem'); moreMenu.appendChild(e); });
-          moreBtn.hidden = !inMore.length;
+          var placed = inRow.concat(entries.filter(function (e) { return e.hidden; }));
+          for (var i = placed.length - 1, nx = moreBtn; i >= 0; i--) { put(placed[i], row, nx); nx = placed[i]; }
+          inRow.forEach(function (e) { cls(e, 'is-job', true); if (e.tagName === 'A') role(e, ''); });
+          inMore.forEach(function (e) { cls(e, 'is-job', !!(jobsOf(e) && window.hubJobMatch(jobsOf(e), mine))); role(e, 'menuitem'); add(e, moreMenu); });
+          if (moreBtn.hidden !== !inMore.length) moreBtn.hidden = !inMore.length;
+          // The open page under More lights the More button; the row keeps its shape from page to page.
+          cls(moreBtn, 'is-on', inMore.some(isOn));
           var c = 0;
           inMore.forEach(function (e) { var n = e.querySelector('.h-nav__count:not([hidden])'); if (n) c += Number(String(n.textContent).replace(/,/g, '')) || 0; });
           var mc = moreBtn.querySelector('.h-nav__count');
           if (!mc) { mc = document.createElement('span'); mc.className = 'h-nav__count'; moreBtn.insertBefore(mc, moreBtn.lastElementChild); }
-          mc.hidden = !c;
-          mc.textContent = c.toLocaleString('en-US');
+          if (mc.hidden !== !c) mc.hidden = !c;
+          if (mc.textContent !== c.toLocaleString('en-US')) mc.textContent = c.toLocaleString('en-US');
         };
         window.hubApplyNav = function (d) {
           var $ = function (id) { return document.getElementById(id); };

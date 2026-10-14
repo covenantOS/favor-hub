@@ -96,3 +96,9 @@ html.nav-wide body.h-body .h-area--more .h-pg--area .h-pg__a, body.h-body .h-app
 body.h-body .h-tabmenu .h-tab .h-rel--tab.h-rel--alpha { background: var(--tc-dusk-tint, #e9e5f4); color: var(--tc-dusk-ink, #4a3f7d); }
 body.h-body .h-tabmenu .h-tab .h-rel--tab.h-rel--beta { background: var(--tc-sun-tint, #f7ecd2); color: var(--tc-sun-ink, #6b4a0c); }
 body.h-body .h-tabmenu .h-tab .h-rel--tab.h-rel--new { background: var(--tc-leaf-tint, #e1efdc); color: var(--tc-leaf-ink, #1f5a2a); }
+
+/* Admin pages wait behind one skeleton until their first reads have drawn (public/js/admin.js settle), so no card pushes another. */
+body.h-body #ad-root.ad-settling { position: relative; min-height: 420px; }
+body.h-body #ad-root.ad-settling > :not(h1):not(.ad-tabs):not(.h-lede):not(script) { visibility: hidden; }
+body.h-body #ad-root.ad-settling::after { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 380px; border-radius: 14px; border: 1px solid var(--r-line, #e6e0d2); background: linear-gradient(90deg, #fff 0%, #f4f5f7 50%, #fff 100%); background-size: 200% 100%; animation: h-shimmer 1.2s ease-in-out infinite; }
+body.h-body #ad-root.ad-settling:has(> .ad-tabs)::after { top: 56px; }

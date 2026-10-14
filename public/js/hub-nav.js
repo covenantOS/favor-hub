@@ -110,6 +110,7 @@
   // ---- last tab of each area
   function remember(areaId, pageId) {
     if (!areaId || !pageId) return;
+    if ((prefs().last || {})[areaId] === pageId) return;
     save((p) => { p.last = p.last || {}; p.last[areaId] = pageId; });
     if (window.hubNavLayout) window.hubNavLayout();
   }
@@ -159,7 +160,10 @@
     // the dashboard swaps tabs inside the page: follow its marks
     if (cur && cur.dataset.area === 'kpi' && !window.__hubKpiWatch) {
       window.__hubKpiWatch = true;
-      new MutationObserver(() => { const a = $('.h-tab.is-on[data-nav-id]'); if (a) remember('kpi', a.dataset.navId); }).observe($('#h-tabs') || document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+      // Only a change of the open tab is remembered: remember() lays the menu out again, which touches classes in the tab row, and
+      // reacting to every class change looped forever on Reporting.
+      let lastKpi = '';
+      new MutationObserver(() => { const a = $('.h-tab.is-on[data-nav-id]'); if (a && a.dataset.navId !== lastKpi) { lastKpi = a.dataset.navId; remember('kpi', lastKpi); } }).observe($('#h-tabs') || document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
     }
   }
 

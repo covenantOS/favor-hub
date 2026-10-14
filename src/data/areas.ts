@@ -286,11 +286,14 @@ export interface TabSlot<T> {
   row: T[];
   /** Tabs under the row's More menu, in order. */
   more: T[];
+  /** The open page sits under More: the More button is drawn as the open tab, and the row never changes shape. */
+  moreOn: boolean;
 }
 
 /**
  * One area's tab row for one person: the pages of their job first (registry order), at most TAB_CAP in the row, the rest under More.
- * A person with no job in the area gets the registry order. The open page always shows in the row. `mine` null means the jobs are
+ * A person with no job in the area gets the registry order. When the open page sits under More, More is drawn as the open tab, so the
+ * row keeps its shape from page to page (a tab promoted into the row moved More along). `mine` null means the jobs are
  * not known yet (the menu has not answered), which reads as every job.
  */
 export function arrangeTabs<T extends { jobs?: readonly string[]; on?: boolean }>(tabs: T[], mine: readonly string[] | null, cap = TAB_CAP): TabSlot<T> {
@@ -300,12 +303,7 @@ export function arrangeTabs<T extends { jobs?: readonly string[]; on?: boolean }
   const rest = anyJob ? tabs.filter((t) => !jobMatch(t.jobs, mine)) : [];
   const row = first.slice(0, cap);
   const more = first.slice(cap).concat(rest);
-  const on = more.find((t) => t.on);
-  if (on) {
-    more.splice(more.indexOf(on), 1);
-    row.push(on);
-  }
-  return { row, more };
+  return { row, more, moreOn: more.some((t) => t.on) };
 }
 
 /** Areas in the rail for a person, and the areas under the rail's More. `mine` null shows every area in the rail. */

@@ -35,7 +35,7 @@ test('jobs never gate: a job match is only an order', () => {
 });
 
 const tab = (id, jobs, on) => ({ id, jobs, on: !!on });
-test('the tab row: your job pages first, at most six, the rest under More, the open page always in the row', () => {
+test('the tab row: your job pages first, at most six, the rest under More; an open page under More lights More', () => {
   const tabs = [tab('ov', ['giftdesk', 'support', 'partner_care']), tab('ge', ['giftdesk', 'support']), tab('og', ['partner_care']), tab('rc', ['giftdesk', 'partner_care']), tab('ty', ['support']), tab('st', ['giftdesk', 'partner_care']), tab('dc', ['giftdesk', 'support', 'partner_care'])];
   const morgan = arrangeTabs(tabs, ['giftdesk', 'hr']);
   assert.deepEqual(morgan.row.map((t) => t.id), ['ov', 'ge', 'rc', 'st', 'dc']);
@@ -46,8 +46,9 @@ test('the tab row: your job pages first, at most six, the rest under More, the o
   const danny = arrangeTabs(tabs, []);
   assert.deepEqual(danny.row.map((t) => t.id), ['ov', 'ge', 'og', 'rc', 'ty', 'st'], 'no job in the area: registry order');
   const onMore = arrangeTabs(tabs.map((t) => ({ ...t, on: t.id === 'og' })), ['giftdesk']);
-  assert.ok(onMore.row.some((t) => t.id === 'og'));
-  assert.ok(!onMore.more.some((t) => t.id === 'og'));
+  assert.deepEqual(onMore.row.map((t) => t.id), morgan.row.map((t) => t.id), 'the row keeps its shape');
+  assert.equal(onMore.moreOn, true);
+  assert.equal(morgan.moreOn, false);
 });
 
 // The layout's inline copy of the rule (src/layouts/App.astro hubTabsLayout) must agree with arrangeTabs.
