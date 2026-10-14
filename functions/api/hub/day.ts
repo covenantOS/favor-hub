@@ -96,7 +96,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // Who among meeting guests and mail senders is a partner in Blackbaud.
       const emails = [...new Set([...(events || []).flatMap((e) => e.people), ...(mail || []).map((m) => m.fromEmail)])].filter((e) => e && !e.endsWith('@favorintl.org')).slice(0, 60);
       let partners: Record<string, { name: string; id: string }> = {};
-      if (emails.length) {
+      // Partner names are Work Center data (privacy pass 2026-10-14).
+      const wc = emails.length ? await import('../../_lib/work/gate').then((g) => g.workAccessFor(env as never, email, user.role === 'admin')).catch(() => ({ ok: false })) : { ok: false };
+      if (emails.length && wc.ok) {
         const rows = await mirror<any>(
           env,
           `SELECT lower(e.email_address) AS email, e.constituent_record_id AS id,

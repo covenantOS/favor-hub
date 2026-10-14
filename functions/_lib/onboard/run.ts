@@ -431,8 +431,10 @@ export async function runDetail(env: Env, actor: Actor, id: string): Promise<Det
     const p = dir.get(e);
     people[e] = { name: p?.name || (e === run.email ? run.name : e.split('@')[0]), picture: p?.picture || '', title: p?.title || '' };
   }
-  const docs = (await env.DB.prepare('SELECT key, label, got, got_at FROM onb_docs WHERE run_id = ? ORDER BY sort').bind(id).all<{ key: string; label: string; got: number; got_at: string | null }>()).results || [];
-  const events = (await env.DB.prepare('SELECT actor, event, detail, at FROM onb_log WHERE run_id = ? ORDER BY id DESC LIMIT 40').bind(id).all<{ actor: string; event: string; detail: string; at: string }>()).results || [];
+  // The HR file checklist and the history are for HR, admins and the supervisor. A person who owns one step sees the steps only (privacy pass 2026-10-14).
+  const full = manage || run.supervisor_email === actor.email;
+  const docs = full ? (await env.DB.prepare('SELECT key, label, got, got_at FROM onb_docs WHERE run_id = ? ORDER BY sort').bind(id).all<{ key: string; label: string; got: number; got_at: string | null }>()).results || [] : [];
+  const events = full ? (await env.DB.prepare('SELECT actor, event, detail, at FROM onb_log WHERE run_id = ? ORDER BY id DESC LIMIT 40').bind(id).all<{ actor: string; event: string; detail: string; at: string }>()).results || [] : [];
   const out = steps.map((s) => ({
     ...s,
     owner_name: who(s.owner_email),

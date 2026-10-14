@@ -145,6 +145,13 @@ async function route(ctx: MailCtx): Promise<Response> {
   const tester = isTester(owner);
   if (tester && !ctx.fetcher) ctx.fetcher = sampleFetcher(env, owner);
   if (tester && !ctx.partners) ctx.partners = (emails) => samplePartners(env, emails);
+  // Partner names, the major-partner mark and giving totals are Work Center data: a person without the Work Center reads their mail
+  // with no partner matches at all (privacy pass 2026-10-14).
+  if (!tester && !ctx.partners) {
+    const { workAccessFor } = await import('../work/gate');
+    const wc = await workAccessFor(env as never, owner, user.role === 'admin').catch(() => ({ ok: false }));
+    if (!wc.ok) ctx.partners = async () => ({});
+  }
   // The test users have no Google Calendar: their busy times are their own FavorOS meetings.
   if (tester && !ctx.freeBusy) {
     ctx.freeBusy = async (emails, from, to) => {

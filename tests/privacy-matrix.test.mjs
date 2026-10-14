@@ -197,3 +197,19 @@ describe('privacy rules fixed on 2026-10-14', () => {
     for (const v of Object.values(MESSAGE_MARKS)) if (v === MESSAGE_MARKS.meetingLink || v === MESSAGE_MARKS.taskLink) assert.ok(!v.includes(CANARY));
   });
 });
+
+describe('partner data stays with the Work Center', () => {
+  it('Mail and the day panel match partners only for people with the Work Center', () => {
+    assert.match(src('functions/_lib/mail/route.ts'), /if \(!wc\.ok\) ctx\.partners = async \(\) => \(\{\}\);/);
+    assert.match(src('functions/api/hub/day.ts'), /if \(emails\.length && wc\.ok\) \{/);
+  });
+});
+
+describe('HR records', () => {
+  it("an onboarding step owner sees the steps, not the HR file checklist or the history", () => {
+    const s = src('functions/_lib/onboard/run.ts');
+    assert.match(s, /const full = manage \|\| run\.supervisor_email === actor\.email;/);
+    assert.match(s, /const docs = full \?/);
+    assert.match(s, /const events = full \?/);
+  });
+});
