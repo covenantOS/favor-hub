@@ -2,7 +2,7 @@
    phone, a centred dialog on a desktop. Round 2 tokens only. */
 
 html.pj-open { overflow: hidden; }
-.pj { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; }
+.pj { position: fixed; inset: 0; z-index: 2000; /* above the meeting panel (.mp, 1950) it opens from */ display: flex; align-items: center; justify-content: center; }
 .pj-scrim { position: absolute; inset: 0; background: rgba(21, 35, 26, .42); opacity: 0; transition: opacity .2s var(--r-ease, ease); }
 .pj.is-in .pj-scrim { opacity: 1; }
 .pj-sheet {
