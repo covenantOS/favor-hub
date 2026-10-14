@@ -119,7 +119,7 @@
     const can = r.can || {};
     if (!can.triage) {
       if (can.done) return `<div class="rq-actions"><button type="button" class="rt-btn rt-btn--primary" data-mine="done">Mark done</button>${focusBtn(r)}</div>`;
-      if (can.comment && r.status === 'done') return `<div class="rq-actions"><button type="button" class="rt-btn" data-mine="reopen">Reopen</button></div>`;
+      if (can.comment && r.status === 'done') return `<div class="rq-actions"><button type="button" class="rt-btn" data-mine="reopen">Reopen</button>${focusBtn(r)}</div>`;
       return '';
     }
     const b = [];
@@ -137,7 +137,10 @@
   /** The owner of an open request can hold focus time for it on their own calendar. */
   function focusBtn(r) {
     const open = r.status === 'approved' || r.status === 'in_progress';
-    return window.FavorIx && open && r.task && r.task.owner === RT.me() ? `<button type="button" class="rt-btn" data-focus>${window.FavorIx.ic('clock')}Hold focus time</button>` : '';
+    const focus = window.FavorIx && open && r.task && r.task.owner === RT.me() ? `<button type="button" class="rt-btn" data-focus>${window.FavorIx.ic('clock')}Hold focus time</button>` : '';
+    // Find a time with the people on the request (integrations.js reads them from the server).
+    const meet = window.FavorIx && r.can && r.can.comment && r.status !== 'declined' ? `<button type="button" class="rt-btn" data-ix-ft="${esc(JSON.stringify({ kind: 'request', ref: r.id }))}">${window.FavorIx.ic('cal')}Find a time</button>` : '';
+    return focus + meet;
   }
 
   /** The Projects task made when the request was accepted. */

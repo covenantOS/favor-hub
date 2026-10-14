@@ -61,7 +61,7 @@ export async function hydrateAttachments(env: Env, list: Attachment[], channelId
     for (const c of r.results || []) clips.set(c.id, c);
   }
   if (meetIds.length) {
-    const cols = 'id, title, status, started_at, ended_at, notes_status, summary, created_at, host_email, cohosts, invitees, access';
+    const cols = 'id, title, status, started_at, ended_at, notes_status, summary, created_at, host_email, cohosts, invitees, access, starts_at';
     const inList = meetIds.map(() => '?').join(',');
     // post_channel came with the notes post; an older table without it reads as no chosen channel.
     const r = await env.DB.prepare(`SELECT ${cols}, post_channel FROM hub_meetings WHERE id IN (${inList})`).bind(...meetIds).all<MeetRow>()
@@ -95,7 +95,14 @@ export async function hydrateAttachments(env: Env, list: Attachment[], channelId
       // Live while someone is in the room (a heartbeat in the last 20 seconds), or in the first minute after Start a huddle
       // before anyone has joined. A room everyone left reads as ended at once, even before the meeting row is closed.
       const inRoom = live.get(m.id) || 0;
-      const ended = !isLive(m, inRoom);
+      // Booked for later (Find a time): scheduled until someone is in the room, up to an hour past its start.
+      const at = (m as MeetRow & { starts_at?: string | null }).starts_at || null;
+      const later = m.status === 'scheduled' && !inRoom && !m.started_at && !!at && Date.parse(at) > Date.now() - 60 * 60000;
+      const ended = !later && !isLive(m, inRoom);
+      if (later) {
+        if (!named.has(m.id)) return { type: 'meeting', id: m.id, title: 'Private meeting', private: true, status: 'scheduled', starts_at: at, count: 0, url: `/meet/?m=${m.id}`, notes: false, notes_url: '', duration: '' };
+        return { type: 'meeting', id: m.id, title: m.title || 'Meeting', status: 'scheduled', starts_at: at, count: 0, url: `/meet/?m=${m.id}`, room_url: `/meet/room/?m=${m.id}`, notes: false, notes_url: '', duration: '' };
+      }
       // Someone in the conversation is not on this meeting: no title, no count of people, no notes flag.
       if (!named.has(m.id)) return { type: 'meeting', id: m.id, title: 'Private meeting', private: true, status: ended ? 'ended' : 'live', count: 0, url: `/meet/room/?m=${m.id}`, notes: false, notes_url: '', duration: '' };
       return {

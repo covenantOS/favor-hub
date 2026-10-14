@@ -533,7 +533,15 @@ document.addEventListener('submit', async (e) => {
 
 async function more(anchor) {
   const t = st.task;
-  const v = await choose({ anchor, title: 'Task', items: [{ value: 'copy', label: 'Copy link', icon: 'copy' }, { value: 'del', label: 'Remove task', icon: 'trash' }] });
+  // Find a time and a clip reply come from integrations.js (window.FavorIx) when it is on the page.
+  const ix = window.FavorIx;
+  const items = [{ value: 'copy', label: 'Copy link', icon: 'copy' }]
+    .concat(ix ? [{ value: 'meet', label: 'Find a time', icon: 'clock' }] : [])
+    .concat(ix && ix.clipReply ? [{ value: 'clip', label: 'Reply with a clip', icon: 'send' }] : [])
+    .concat([{ value: 'del', label: 'Remove task', icon: 'trash' }]);
+  const v = await choose({ anchor, title: 'Task', items });
+  if (v === 'meet' && ix) ix.findTime({ kind: 'task', ref: t.id });
+  if (v === 'clip' && ix && ix.clipReply) ix.clipReply({ kind: 'task', ref: t.id, title: t.title });
   if (v === 'copy') copyLink();
   if (v === 'del') { const c = ctxFor(t.id); close(false); if (c === main) await main.remove([t.id]); else { try { await api.deleteTask(t.id); toast('Task removed'); } catch (err) { toast(err.message, { error: true }); } } }
 }

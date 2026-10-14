@@ -88,6 +88,14 @@ export function cardHtml(e: ChatEngine, a: J, m: J | null, i: number): string {
       '<a class="ch-prev__ext" href="' + esc(a.url) + '" target="_blank" rel="noopener" aria-label="Open in Google Drive" title="Open in Google Drive">' + icHtml('ext') + '</a></div>'
     );
   }
+  if (a.type === 'meeting' && a.status === 'scheduled') {
+    // Booked for later with Find a time: the day and time, and Join from ten minutes before it starts.
+    const soon = a.starts_at && Date.parse(a.starts_at) - Date.now() < 10 * 60000;
+    const whenTxt = a.starts_at ? new Date(a.starts_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+    return (
+      '<a class="ch-card ch-meet ch-meet--later" href="' + esc(soon && a.room_url ? a.room_url : a.url) + '" target="_blank" rel="noopener"><span class="ch-meet__ic">' + icHtml('video') + '</span><span class="ch-meet__t"><span class="ch-kicker">' + icHtml('video') + 'Meeting</span><span class="ch-card__t">' + esc(a.title) + '</span><span class="ch-card__m">' + esc(whenTxt) + '</span></span><span class="ch-btn">' + (soon && a.room_url ? 'Join' : 'Open') + '</span></a>'
+    );
+  }
   if (a.type === 'meeting') {
     const S = e.S;
     const hs = S.active && Object.prototype.hasOwnProperty.call(S.huddle, S.active) ? (S.huddle[S.active] && S.huddle[S.active].id === a.id ? S.huddle[S.active] : null) : undefined;

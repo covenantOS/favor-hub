@@ -84,3 +84,4 @@
   .ix-skel i { animation: none; }
   .ix-slot { transition: none; }
 }
+.ix-slot.is-static { cursor: default; }

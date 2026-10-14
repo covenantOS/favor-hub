@@ -145,6 +145,10 @@ export function PopLayer({ e, root }: { e: ChatEngine; root: React.RefObject<HTM
         {it('clip-pick', 'rec', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Share a clip', 'Pick from your clips', () => e.setModal({ kind: 'clips', scope: sc }))}
         {it('clip-rec', 'play', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Record a clip', 'Posts here when you finish', () => e.recordClip())}
         {it('meeting', 'video', 'var(--tc-teal-tint)', 'var(--tc-teal-ink)', 'Start a meeting', 'Posts a Join card', () => e.openHuddle(e.S.active))}
+        {(window as unknown as { FavorIx?: { findTime: (c: unknown) => void } }).FavorIx
+          ? it('find-time', 'clock', 'var(--tc-sky-tint)', 'var(--tc-sky-ink)', 'Find a time', 'Book a meeting with everyone here', () =>
+              (window as unknown as { FavorIx: { findTime: (c: unknown) => void } }).FavorIx.findTime({ kind: 'chat', ref: e.S.active, thread: sc === 'thread' ? e.S.threadRoot : null }))
+          : null}
         {it('request-new', 'task', 'var(--tc-leaf-tint)', 'var(--tc-leaf-ink)', 'Make a request', 'Adds a card to the request board', () => e.setModal({ kind: 'request', thread: sc === 'thread' ? e.S.threadRoot : null }))}
       </div>
     );

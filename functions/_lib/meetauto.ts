@@ -668,6 +668,8 @@ export async function postSummary(env: MeetEnv, id: string): Promise<boolean> {
 export async function afterNotes(env: MeetEnv, id: string): Promise<void> {
   try { await proposePartners(env, id); } catch (err) { console.warn('[meet] partners', id, err); }
   try { await postSummary(env, id); } catch (err) { console.warn('[meet] summary post', id, err); }
+  // Booked with Find a time from a conversation, task or request: the notes go back there (integrations/findtime.ts).
+  try { const { originNotes } = await import('./integrations/findtime'); await originNotes(env, id); } catch (err) { console.warn('[meet] origin notes', id, err); }
 }
 
 // ---------------------------------------------------------------- always: ask across every meeting

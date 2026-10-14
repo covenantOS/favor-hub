@@ -14,6 +14,7 @@ import { route as meetRoute } from '../meetroute';
 import { onRequest as chatApi } from '../../api/chat/[[path]]';
 import { onRequest as projectsApi } from '../../api/projects/[[path]]';
 import { onRequest as tasksApi } from '../../api/tasks/[[path]]';
+import { onRequest as integrationsApi } from '../../api/integrations/[[path]]';
 import { onRequest as entityApi } from '../../api/hub/entity';
 import { onRequestGet as findApi } from '../../api/hub/find';
 import { onRequestGet as clipsApi } from '../../api/clips/index';
@@ -93,6 +94,10 @@ export function probes(): Probe[] {
     { name: 'Unshared clip video', path: `/api/clips/${M.clip}/media`, who: ['staff', 'field', 'out'] },
     { name: 'Public clip (everybody reads it)', path: `/api/clips/${M.clipPublic}/info`, who: ['staff', 'out'], must: OPEN_MARK },
     { name: 'Public clip video without its token', path: `/api/clips/${M.clipPublic}/media`, who: ['out'] },
+    // Find a time reads the people of a place only for someone who can see it (integrations/findtime.ts).
+    { name: 'Find a time: private channel', path: `/api/integrations/context?kind=chat&ref=${M.chPrivate}`, who: both },
+    { name: 'Find a time: direct message', path: `/api/integrations/context?kind=chat&ref=${M.chDm}`, who: both },
+    { name: 'Find a time: members-only task', path: `/api/integrations/context?kind=task&ref=${M.task}`, who: ['staff'] },
     // Favor Brain conversations.
     { name: 'Brain history', path: '/api/brain/history?q=prvcnry', who: ['staff'] },
     { name: "Another person's Brain thread", path: `/api/brain/thread/${M.brainThread}`, who: ['staff'] },
@@ -123,6 +128,7 @@ function handlerFor(path: string): { fn: Handler; params: Record<string, string 
   if (p === '/api/brain/history') return { fn: brainHistoryApi as unknown as Handler, params: {} };
   const bt = /^\/api\/brain\/thread\/([^/]+)$/.exec(p);
   if (bt) return { fn: brainThreadApi as unknown as Handler, params: { id: bt[1] } };
+  if (p.startsWith('/api/integrations/')) return { fn: integrationsApi as unknown as Handler, params: { path: rest('/api/integrations/') } };
   if (p.startsWith('/api/book/')) return { fn: bookApi as unknown as Handler, params: { path: rest('/api/book/') } };
   return null;
 }

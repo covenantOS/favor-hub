@@ -235,5 +235,186 @@
     }, 'ix-focus');
   }
 
-  window.FavorIx = { api, toast, open, close, esc, ic, when, timeOnly, person, avatar, phone, accept, focus };
+  /* ------------------------------------------------------------------ 2. Find a time */
+
+  const me = () => {
+    try { return (window.ReqTasks && window.ReqTasks.me && window.ReqTasks.me()) || (JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null') || {}).user.email || ''; } catch (_) { return ''; }
+  };
+  const EMAIL = /^[^@\s,;<>]+@[^@\s,;<>]+\.[^@\s,;<>]+$/;
+
+  /**
+   * ctx: { kind: 'chat'|'mail'|'task'|'partner'|'request', ref, thread?, people?: [{email, name}], title? }
+   * Books a FavorOS meeting (Google sends the invites) and puts its card back where it came from.
+   */
+  async function findTime(ctx) {
+    const st = { title: ctx.title || '', people: [], minutes: 30, slots: null, err: '', consent: false, pick: null, step: 'times', loading: true };
+    const self = String(me()).toLowerCase();
+    const addPerson = (p) => {
+      const e = String(p.email || '').trim().toLowerCase();
+      if (!EMAIL.test(e) || e === self || st.people.some((x) => x.email === e)) return;
+      st.people.push({ email: e, name: p.name || '', guest: !/@favorintl\.org$/.test(e), on: true });
+    };
+    (ctx.people || []).forEach(addPerson);
+    return open('Find a time', (el, done) => {
+      const label = (p) => p.name || (person(p.email).name !== p.email.split('@')[0] ? person(p.email).name : p.email);
+      const draw = () => {
+        const on = st.people.filter((p) => p.on);
+        if (st.step === 'confirm' && st.pick) {
+          const where = ctx.kind === 'chat' ? 'The meeting card goes in this conversation, and the notes come back here after.'
+            : ctx.kind === 'task' || ctx.kind === 'request' ? 'The meeting goes in the comments here, and the notes link comes back after.'
+              : ctx.kind === 'mail' ? 'The meeting goes into your reply, ready for you to send.' : '';
+          el.innerHTML = `${head('Book this time', st.title || 'Meeting')}
+            <div class="ix-body">
+              <div class="ix-slot is-static">${ic('clock')}<span><b>${esc(when(st.pick.start))}</b><small>${st.minutes} minutes, to ${esc(timeOnly(st.pick.end))}</small></span></div>
+              <p class="ix-quiet">${on.length ? `Google sends ${on.length === 1 ? esc(label(on[0])) : on.length + ' people'} an invite from your calendar.` : 'Nobody else is invited.'}${on.some((p) => p.guest) ? ' People outside Favor get a guest link to join.' : ''} ${where}</p>
+              <div class="ix-people">${on.map((p) => `<span class="ix-chip">${avatar(p.email)}<span>${esc(label(p))}${p.guest ? ' (guest)' : ''}</span></span>`).join('')}</div>
+            </div>
+            <div class="rt-sheet__foot"><button type="button" class="rt-btn" data-ix-back>Back</button><button type="button" class="rt-btn rt-btn--primary" data-ix-book>${ic('cal')}Book and invite</button></div>`;
+          return;
+        }
+        let slotsHtml;
+        if (st.consent) slotsHtml = `<p class="ix-quiet">${esc(st.err)}</p><a class="rt-btn rt-btn--primary" href="/api/google/connect?add=meetings&next=${encodeURIComponent(location.pathname + location.search)}">${ic('cal')}Connect Google Calendar</a>`;
+        else if (st.err) slotsHtml = `<p class="ix-quiet">${esc(st.err)}</p>`;
+        else if (st.loading || !st.slots) slotsHtml = '<div class="ix-skel" aria-hidden="true"><i></i><i></i><i></i></div><p class="ix-quiet" role="status">Reading calendars</p>';
+        else if (st.slots.length) {
+          const unread = (st.unread || []).map((e) => first(label({ email: e })) || e);
+          slotsHtml = `${unread.length ? `<p class="ix-quiet">${esc(unread.join(', '))}: calendar not shared with you, so only their FavorOS meetings count.</p>` : ''}<div class="ix-slots">${st.slots.map((x, i) => {
+            const miss = (x.busy || []).concat(x.outside || []).filter((e) => e !== self);
+            return `<button type="button" class="ix-slot" data-ix-slot="${i}">${ic('clock')}<span><b>${esc(when(x.start))}</b><small>${miss.length ? esc('Not free: ' + miss.map((e) => first(label({ email: e })) || e).join(', ')) : 'Everyone is free'}</small></span></button>`;
+          }).join('')}</div>`;
+        } else slotsHtml = '<p class="ix-quiet">No time in the next two weeks works for everyone. Try fewer people or a shorter meeting.</p>';
+        const sub = { mail: 'From this email', chat: 'With this conversation', task: 'For this task', partner: 'With this partner', request: 'For this request' }[ctx.kind] || '';
+        el.innerHTML = `${head('Find a time', sub)}
+          <div class="ix-body">
+            <label class="ix-field"><span class="ix-label">Title</span><input class="ix-input" data-ix-title maxlength="140" value="${esc(st.title)}" placeholder="Meeting" /></label>
+            <div class="ix-field"><span class="ix-label">People</span>
+              <div class="ix-people">${st.people.map((p, i) => `<span class="ix-chip${p.on ? '' : ' is-off'}">${avatar(p.email)}<span>${esc(label(p))}${p.guest ? ' (guest)' : ''}</span><button type="button" data-ix-toggle="${i}" aria-label="${p.on ? 'Leave out' : 'Add back'} ${esc(label(p))}" title="${p.on ? 'Leave out' : 'Add back'}">${p.on ? ic('x') : ic('check')}</button></span>`).join('')}
+                <button type="button" class="rt-btn rt-btn--sm" data-ix-add>${ic('people')}Add</button></div>
+              <input class="ix-input" data-ix-email type="email" placeholder="Or type an email address and press Enter" autocomplete="off" />
+            </div>
+            <div class="ix-seg" role="group" aria-label="How long">${[15, 30, 45, 60].map((m) => `<button type="button" class="ix-seg__b${m === st.minutes ? ' is-on' : ''}" data-ix-min="${m}" aria-pressed="${m === st.minutes}">${m} min</button>`).join('')}</div>
+            <div class="ix-field"><span class="ix-label">Suggested times</span>${slotsHtml}</div>
+          </div>
+          <div class="rt-sheet__foot"><a class="rt-btn rt-btn--ghost" href="/meet/book/">More options</a><button type="button" class="rt-btn" data-ix-close>Close</button></div>`;
+      };
+      let seq = 0;
+      const load = async () => {
+        const n = ++seq;
+        st.loading = true; st.err = ''; st.consent = false;
+        draw();
+        try {
+          const from = new Date(Date.now() + 30 * 60000).toISOString();
+          const to = new Date(Date.now() + 14 * 86400000).toISOString();
+          const r = await api('/api/meet/meetings/assist', { method: 'POST', json: { emails: st.people.filter((p) => p.on).map((p) => p.email), durationMin: st.minutes, from, to, limit: 8 } });
+          if (n !== seq) return;
+          st.slots = (r.slots || []).slice(0, 8);
+          st.unread = (r.people || []).filter((x) => x.source === 'none' && x.email !== self).map((x) => x.email);
+        } catch (err) {
+          if (n !== seq) return;
+          st.err = err.message; st.consent = err.code === 'consent';
+        }
+        st.loading = false;
+        draw();
+      };
+      (async () => {
+        if (ctx.kind === 'chat' || ctx.kind === 'task' || ctx.kind === 'request') {
+          try {
+            const c = await api(`/api/integrations/context?kind=${encodeURIComponent(ctx.kind)}&ref=${encodeURIComponent(ctx.ref)}${ctx.thread ? '&thread=' + encodeURIComponent(ctx.thread) : ''}`);
+            if (!st.title) st.title = c.title || '';
+            c.people.forEach(addPerson);
+          } catch (err) { st.err = err.message; }
+        }
+        load();
+      })();
+      el.addEventListener('input', (e) => {
+        if (e.target.matches('[data-ix-title]')) st.title = e.target.value;
+      });
+      el.addEventListener('keydown', (e) => {
+        if (e.target.matches('[data-ix-email]') && e.key === 'Enter') {
+          e.preventDefault();
+          const v = e.target.value.trim();
+          if (!EMAIL.test(v)) { toast('That is not an email address.'); return; }
+          addPerson({ email: v });
+          load();
+        }
+      });
+      el.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-ix-close]')) { done(null); return; }
+        const tg = e.target.closest('[data-ix-toggle]');
+        if (tg) { const p = st.people[+tg.dataset.ixToggle]; p.on = !p.on; load(); return; }
+        if (e.target.closest('[data-ix-add]') && window.ReqTasks) {
+          const pk = await window.ReqTasks.pick({ title: 'Add someone', exclude: [self].concat(st.people.map((p) => p.email)) });
+          if (pk && pk.email) { addPerson({ email: pk.email, name: person(pk.email).name }); load(); }
+          return;
+        }
+        const m = e.target.closest('[data-ix-min]');
+        if (m) { st.minutes = Number(m.dataset.ixMin); load(); return; }
+        const sl = e.target.closest('[data-ix-slot]');
+        if (sl) { st.pick = st.slots[+sl.dataset.ixSlot]; st.step = 'confirm'; draw(); return; }
+        if (e.target.closest('[data-ix-back]')) { st.step = 'times'; draw(); return; }
+        const bk = e.target.closest('[data-ix-book]');
+        if (!bk) return;
+        const on = st.people.filter((p) => p.on);
+        busy(bk, true, 'Booking');
+        try {
+          const made = await api('/api/meet/meetings', { method: 'POST', json: { title: st.title || 'Meeting', startsAt: st.pick.start, durationMin: st.minutes, access: 'invited', invitees: on.map((p) => ({ email: p.email, name: label(p), guest: p.guest })) } });
+          const mt = made.meeting || {};
+          let posted = 'none';
+          try {
+            const o = await api('/api/integrations/origin', { method: 'POST', json: { meeting_id: mt.id, kind: ctx.kind, ref: ctx.ref, thread_id: ctx.thread || null } });
+            posted = o.posted;
+          } catch (_) { /* the meeting stands even if the card could not go back */ }
+          const item = { kind: 'meeting', title: mt.title || st.title || 'Meeting', url: location.origin + '/meet/room/?m=' + mt.id, sub: when(st.pick.start) + ' ET, ' + st.minutes + ' min' };
+          if (ctx.kind === 'mail') {
+            try { window.dispatchEvent(new CustomEvent('favor-mail:reply', { detail: { threadId: ctx.ref, items: [item] } })); } catch (_) { /* older Mail */ }
+          }
+          const told = posted === 'chat' ? ' The card is in the conversation.' : posted === 'task' || posted === 'request' ? ' It is in the comments.' : '';
+          toast(`Booked for ${when(st.pick.start)}.${on.length ? ' Google sent the invites.' : ''}${told}`, 5200);
+          document.dispatchEvent(new CustomEvent('favor-ix:booked', { detail: { meeting: mt, ctx } }));
+          done(mt);
+        } catch (err) {
+          busy(bk, false);
+          toast(err.code === 'consent' ? 'Connect your Google Calendar first, then book again.' : err.message, 5200);
+        }
+      });
+    }, 'ix-find');
+  }
+
+  window.FavorIx = { api, toast, open, close, esc, ic, when, timeOnly, person, avatar, phone, accept, focus, findTime, me };
+  /* ------------------------------------------------------------------ entry points on other pages */
+
+  // Any button with data-ix-ft='{"kind":..., "ref":..., "people":[...], "title":...}' opens Find a time (request panel, partner page).
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-ix-ft]');
+    if (!b) return;
+    e.preventDefault();
+    let ctx = null;
+    try { ctx = JSON.parse(b.dataset.ixFt); } catch (_) { ctx = null; }
+    if (ctx) findTime(ctx);
+  });
+
+  // Mail draws an empty slot in each conversation's toolbar and tells us (favor-mail:thread). Two buttons go in it:
+  // Find a time with the people on the thread, and a clip reply when clips are ready (clipReply).
+  const MAIL_ICON = { cal: ICON.cal, cam: ICON.cam };
+  window.addEventListener('favor-mail:thread', (e) => {
+    const d = (e && e.detail) || {};
+    const slot = d.el;
+    if (!slot || !d.threadId) return;
+    slot.querySelectorAll('[data-ix-mail]').forEach((x) => x.remove());
+    const mk = (kind, label, icon) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ml-iconbtn';
+      b.dataset.ixMail = kind;
+      b.setAttribute('aria-label', label);
+      b.title = label;
+      b.innerHTML = `<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${MAIL_ICON[icon]}</svg>`;
+      slot.appendChild(b);
+      return b;
+    };
+    const people = (d.participants || []).filter((p) => p && p.email);
+    mk('time', 'Find a time', 'cal').addEventListener('click', () => findTime({ kind: 'mail', ref: String(d.threadId), title: String(d.subject || '').replace(/^\s*(re|fwd?):\s*/i, ''), people }));
+    if (window.FavorIx.clipReply) mk('clip', 'Reply with a clip', 'cam').addEventListener('click', () => window.FavorIx.clipReply({ kind: 'mail', ref: String(d.threadId), title: d.subject || '', people, mb: d.mb }));
+  });
+
 })();

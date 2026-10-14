@@ -370,6 +370,12 @@
       if (a.type === 'meeting') {
         // A huddle card reads who is in the room from the channel's live huddle state when the page has it, so it changes the
         // moment people join or leave instead of keeping the count from when the message loaded.
+        if (a.status === 'scheduled') {
+          // Booked for later with Find a time: the day and time, and Join from ten minutes before it starts.
+          var soon = a.starts_at && Date.parse(a.starts_at) - Date.now() < 10 * 60000;
+          var whenTxt = a.starts_at ? new Date(a.starts_at).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+          return '<a class="ch-card ch-meet ch-meet--later" href="' + esc(soon && a.room_url ? a.room_url : a.url) + '" target="_blank" rel="noopener"><span class="ch-meet__ic">' + ic('video') + '</span><span class="ch-meet__t"><span class="ch-kicker">' + ic('video') + 'Meeting</span><span class="ch-card__t">' + esc(a.title) + '</span><span class="ch-card__m">' + esc(whenTxt) + '</span></span><span class="ch-btn">' + (soon && a.room_url ? 'Join' : 'Open') + '</span></a>';
+        }
         var hs = huddleFor(a.id);
         if (hs !== undefined) a = Object.assign({}, a, hs ? { status: 'live', count: hs.people.length } : a.status === 'ended' ? {} : { status: 'ended', count: 0 });
         var live = a.status !== 'ended';
@@ -1524,6 +1530,7 @@
         it('clip-pick', 'rec', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Share a clip', 'Pick from your clips') +
         it('clip-rec', 'play', 'var(--tc-terra-tint)', 'var(--tc-terra-ink)', 'Record a clip', 'Posts here when you finish') +
         it('meeting', 'video', 'var(--tc-teal-tint)', 'var(--tc-teal-ink)', 'Huddle', 'Rings a direct message, or starts one here') +
+        (window.FavorIx ? it('find-time', 'video', 'var(--tc-sky-tint)', 'var(--tc-sky-ink)', 'Find a time', 'Book a meeting with everyone here') : '') +
         it('request-new', 'task', 'var(--tc-leaf-tint)', 'var(--tc-leaf-ink)', 'Make a request', 'Adds a card to the request board'), anchor, 'ch-pop--menu');
     }
     // Search, groups and a skin tone that is remembered (chat-emoji.js). A phone gets it as a sheet from the bottom.
@@ -2060,6 +2067,7 @@
       else if (act === 'clip-pick') clipModal(scope);
       else if (act === 'clip-rec') { closePop(); if (opts.recordClip) opts.recordClip(S.active, function (att) { S.pending[scope].push(att); renderPending(scope); }); else toast('Recording is not available here'); }
       else if (act === 'ring-person') { e.preventDefault(); if (window.FavorRing) window.FavorRing.call({ to: [el.dataset.id] }); }
+      else if (act === 'find-time') { closePop(); if (window.FavorIx) window.FavorIx.findTime({ kind: 'chat', ref: S.active, thread: scope === 'thread' ? S.threadRoot : null }); }
       else if (act === 'meeting' || act === 'huddle') { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); closePop(); openHuddle(S.active); }
       else if (act === 'drive-choose') { var it = modal._items[+el.dataset.i], sc = modal._scope; closeModal(); S.pending[sc].push(Object.assign({ type: 'drive' }, it)); renderPending(sc); var tt = $('[data-ta="' + sc + '"]', root); if (tt) tt.focus(); }
       else if (act === 'clip-choose') { var cl = modal._items[+el.dataset.i], sc2 = modal._scope; closeModal(); S.pending[sc2].push(Object.assign({ type: 'clip' }, cl)); renderPending(sc2); if (cl.level === 'private') toast('This clip is Private. People in this conversation cannot open it until you change who can watch in the Share window of the clip.'); else if (cl.level === 'people') toast('People in this conversation will be able to watch this clip. They count as specific people.'); }
