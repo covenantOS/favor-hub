@@ -191,11 +191,11 @@ function noteHtml(a: J): string {
     const rows = items.length
       ? items.map((x) => '<li class="ch-note__li"><span><b>' + esc(x.at_label) + '</b> · ' + esc(x.where) + '<br>' + esc(x.text) + '</span><button type="button" class="ch-btn ch-btn--sm" data-act="sch-cancel" data-sid="' + esc(x.sid) + '">Cancel</button></li>').join('')
       : '<li class="ch-note__li">Nothing is waiting to post.</li>';
-    return '<div class="ch-card ch-note"><span class="ch-note__ic">' + icHtml('clock') + '</span><div class="ch-note__t"><span class="ch-card__m">Only you can see this</span><b>Scheduled messages</b><ul class="ch-note__l">' + rows + '</ul></div></div>';
+    return '<div class="ch-card ch-note"><span class="ch-note__ic">' + icHtml('clock') + '</span><div class="ch-note__t"><b>Scheduled messages</b><ul class="ch-note__l">' + rows + '</ul></div></div>';
   }
   const ic = a.kind === 'away' ? 'out' : a.kind === 'tip' ? 'info' : a.kind === 'reminder' ? 'bell' : 'clock';
   const cancel = (a.kind === 'scheduled' || a.kind === 'remind') && a.status === 'waiting' && a.sid ? '<button type="button" class="ch-btn ch-btn--sm" data-act="sch-cancel" data-sid="' + esc(a.sid) + '">Cancel</button>' : '';
-  return '<div class="ch-card ch-note' + (a.status === 'canceled' ? ' is-off' : '') + '"><span class="ch-note__ic">' + icHtml(ic) + '</span><div class="ch-note__t"><span class="ch-card__m">Only you can see this</span><span>' + esc(noteLine(a)) + '</span></div>' + cancel + '</div>';
+  return '<div class="ch-card ch-note' + (a.status === 'canceled' ? ' is-off' : '') + '"><span class="ch-note__ic">' + icHtml(ic) + '</span><div class="ch-note__t"><span>' + esc(noteLine(a)) + '</span></div>' + cancel + '</div>';
 }
 
 /* ------------------------------------------------------------------ playing and previewing in place */

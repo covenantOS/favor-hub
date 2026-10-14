@@ -24,7 +24,9 @@
 .ch-cl__i { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid var(--r-line); }
 .ch-cl__i:first-child { border-top: 0; }
 .ch-cl__box { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--r-line-2); background: #fff; display: inline-grid; place-items: center; color: transparent; cursor: pointer; margin-top: 1px; }
-.ch-cl__box svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+.ch-cl__box svg { width: 16px; height: 16px; fill: none; stroke: transparent; stroke-width: 2.4; }
+.ch-cl__box:hover svg { stroke: var(--r-line-2); }
+.ch-cl__i.is-done .ch-cl__box svg { stroke: #fff; }
 .ch-cl__i.is-done .ch-cl__box { background: var(--tc-teal, #0f766e); border-color: var(--tc-teal, #0f766e); color: #fff; }
 .ch-cl__txt { display: flex; flex-direction: column; min-width: 0; }
 .ch-cl__t { font-size: 15px; color: var(--r-ink); text-decoration: none; overflow-wrap: anywhere; }
