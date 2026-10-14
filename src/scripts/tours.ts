@@ -318,7 +318,7 @@ export const RELEASES: Release[] = [
             via: 'gifts-home',
             at: '#gh-steps',
             title: 'The gift day on one screen',
-            body: 'Gifts opens on the day: deposits started, online gifts to approve, gifts waiting for a second look, this month in Blackbaud, receipts and thank-you letters. {Tap} a number to open its page. Gift entry lists every deposit of the month, even the batches typed straight into Blackbaud.',
+            body: 'Gifts opens on the day: deposits started, online gifts to approve, gifts waiting for a second look, this month in Blackbaud, receipts printed, and the gifts of $5,000 and up. {Tap} a number to open its page. Gift entry lists every deposit of the month, even the batches typed straight into Blackbaud.',
             for: (w) => w.admin || team('pc')(w) || team('support')(w),
             added: '2026-10-14',
             side: 'bottom',
