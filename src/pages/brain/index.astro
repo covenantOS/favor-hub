@@ -36,6 +36,8 @@ import '../../styles/break-ui.css';
       </aside>
 
       <section class="bc-pane" aria-label="Chat">
+        <!-- The banner's place is held at the height it had last time (public/js/hub-motion.js), so the chat does not drop when it shows. -->
+        <div class="bc-connect-slot" data-keep-h="connect" style="flex:none">
         <div class="bc-connect" id="bc-connect" hidden>
           <div class="bc-connect__t"><b>Favor Brain works inside Claude.</b> <span>Ask the technology team for a seat.</span></div>
           <div class="bc-connect__a">
@@ -43,6 +45,7 @@ import '../../styles/break-ui.css';
             <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="connect-later">Not now</button>
             <button type="button" class="bc-connect__gpt" data-act="connect-gpt">ChatGPT instead</button>
           </div>
+        </div>
         </div>
         <div class="bc-bar">
           <button type="button" class="bc-pn" id="bc-hubmenu" aria-label="FavorOS menu" aria-controls="h-side"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 8h10"/><path d="M5 16h14"/></svg></button>

@@ -33,8 +33,19 @@ import '../../styles/lint-fix.css';
         });
       };
 
+      // The cover stays over the frame until the dashboard says its numbers are in (its freshness message), then fades. Lifted on
+      // the frame's load alone, it showed a blank frame, then "Retrieving data", then the page: three screens for one tap.
+      const wait = document.getElementById('kpi-wait');
+      let coverT = 0;
+      const cover = (on) => {
+        clearTimeout(coverT);
+        if (on) { wait.hidden = false; wait.classList.remove('is-done'); return; }
+        wait.classList.add('is-done');
+        coverT = setTimeout(() => { wait.hidden = true; }, 220);
+      };
       const open = (page) => {
         mark(page);
+        if (entered) cover(true);
         if (!entered) {
           // First load: the hub signs the person in to the dashboard, then opens the page.
           frame.src = '/api/kpi/enter?next=' + encodeURIComponent(withEmbed(page));
@@ -45,7 +56,10 @@ import '../../styles/lint-fix.css';
       };
 
       frame.addEventListener('load', () => {
-        if (frame.src !== 'about:blank') document.getElementById('kpi-wait').hidden = true;
+        if (frame.src === 'about:blank') return;
+        // A dashboard that never says it is ready still shows, a few seconds after it loaded.
+        clearTimeout(coverT);
+        coverT = setTimeout(() => cover(false), 5000);
       });
 
       // The dashboard says which page is showing; the title, the sidebar and the address follow.
@@ -58,6 +72,7 @@ import '../../styles/lint-fix.css';
           const want = e.data.path === '/' ? '/dashboard/' : '/dashboard/?page=' + encodeURIComponent(e.data.path);
           if (location.pathname + location.search !== want) history.replaceState(null, '', want);
         }
+        if (e.data.type === 'freshness') cover(false);
         if (e.data.type === 'freshness' && e.data.lastUpdated) {
           const at = new Date(e.data.lastUpdated).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
           fresh.textContent = (e.data.stale ? 'Not updated since ' : 'Updated ') + at;

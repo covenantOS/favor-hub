@@ -19,10 +19,10 @@ import '../../styles/lint-fix.css';
         Paycom card expenses still go through Paycom.
       </p>
 
-      <form class="make-sheet" id="exp-form" novalidate>
-        <div class="exp-progress" id="exp-progress" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-        <p class="exp-stepname" id="exp-stepname"></p>
-        <div class="exp-step" data-step="1" data-title="You and the trip">
+      <form class="make-sheet is-stepped" id="exp-form" novalidate>
+        <div class="exp-progress" id="exp-progress" aria-hidden="true"><span class="is-on"></span><span></span><span></span><span></span></div>
+        <p class="exp-stepname" id="exp-stepname">Step 1 of 4 · You and the trip</p>
+        <div class="exp-step is-on" data-step="1" data-title="You and the trip">
         <span class="exp-legend">Who you are</span>
         <div class="exp-grid2">
           <label class="req-field"><span>Name</span><input id="exp-name" required maxlength="80" autocomplete="name" autocapitalize="words" enterkeyhint="next" /></label>
@@ -82,9 +82,9 @@ import '../../styles/lint-fix.css';
           <p class="exp-note">Goes to your approver to sign. You get the decision by email.</p>
         </div>
         <p class="req-msg" id="exp-msg" aria-live="polite"></p>
-        <div class="exp-nav" id="exp-nav"><button type="button" class="h-btn h-btn--ghost" id="exp-back">Back</button><button type="button" class="h-btn h-btn--primary" id="exp-next">Next</button></div>
+        <div class="exp-nav" id="exp-nav"><button type="button" class="h-btn h-btn--ghost" id="exp-back" hidden>Back</button><button type="button" class="h-btn h-btn--primary" id="exp-next">Next</button></div>
       </form>
-      <script is:inline src="/js/expense-steps.js?v=2" defer></script>
+      <script is:inline src="/js/expense-steps.js?v=3" defer></script>
 
       <div class="make-done" id="exp-done" hidden>
         <p class="make-kicker">Sent for approval</p>

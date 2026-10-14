@@ -35,3 +35,10 @@
   .cl-sel { flex: 1 1 140px; }
   .cl-fig { max-width: 100%; }
 }
+
+/* The day's first picture per area is in the page from the start at its final size (smooth pass, 2026-10-14). In Lite mode it
+   stays a button and loads on a tap. */
+.cl-shot--auto { display: none; }
+html.is-lite .cl-fig--auto { display: none; }
+html.is-lite .cl-shot--auto { display: inline-block; }
+.cl-fig picture, .cl-fig img { display: block; width: 100%; height: auto; }

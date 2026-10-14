@@ -42,7 +42,7 @@ const first = days.length ? days[days.length - 1].date : '';
       <p class="cl-count" id="cl-count" aria-live="polite">{total.toLocaleString('en-US')} changes</p>
     </header>
 
-    {days.map((d) => (
+    {days.map((d) => { const seenArea = new Set(); return (
       <section class="cl-day" data-day={d.date}>
         <h2>{dayLabel(d.date)}</h2>
         {d.entries.length > 0 && (
@@ -50,14 +50,27 @@ const first = days.length ? days[days.length - 1].date : '';
             {d.entries.map((e) => {
               const shot = e.image ? { desk: e.image, phone: e.phone } : AREA_SHOT[e.area];
               const now = !e.image || !!e.now;
+              // One picture per area per day shows by itself (the rest wait for a tap). It is drawn at its final size from the start
+              // and read lazily, so nothing below it moves when it arrives. Desktop shots are 1200 by 736, phone shots 600 by 1200.
+              const auto = !!shot && !seenArea.has(e.area);
+              if (shot) seenArea.add(e.area);
               return (
                 <li class="cl-e" data-area={e.area} data-type={e.type} data-stamp={`${d.date}T${e.time}`}>
                   <time datetime={`${d.date}T${e.time}`}>{timeLabel(e.time)}</time>
                   <div class="cl-e__body">
                     <div class="cl-e__tags"><span class={`cl-t cl-t--${e.type}`}>{TYPE_LABEL[e.type]}</span><span class="cl-a">{AREA_LABEL[e.area]}</span></div>
                     <p>{e.text}</p>
+                    {auto && (
+                      <figure class="cl-fig cl-fig--auto">
+                        <picture>
+                          {shot.phone && <source media="(max-width: 720px)" srcset={shot.phone} width="600" height="1200" />}
+                          <img src={shot.desk} width="1200" height="736" alt="" loading="lazy" decoding="async" />
+                        </picture>
+                        {now && <figcaption>{"Today's view"}</figcaption>}
+                      </figure>
+                    )}
                     {shot && (
-                      <button type="button" class="cl-shot" data-src={shot.desk} data-phone={shot.phone || undefined} data-now={now ? '1' : undefined}>
+                      <button type="button" class={`cl-shot${auto ? ' cl-shot--auto' : ''}`} data-src={shot.desk} data-phone={shot.phone || undefined} data-now={now ? '1' : undefined}>
                         Show picture{now ? " (today's view)" : ''}
                       </button>
                     )}
@@ -74,8 +87,8 @@ const first = days.length ? days[days.length - 1].date : '';
           </details>
         )}
       </section>
-    ))}
+    ); })}
     <p class="cl-none" id="cl-none" hidden>No changes match.</p>
   </div>
-  <script is:inline src="/js/changelog.js?v=3" defer></script>
+  <script is:inline src="/js/changelog.js?v=4" defer></script>
 </App>

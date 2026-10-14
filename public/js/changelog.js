@@ -58,12 +58,7 @@
     b.replaceWith(fig);
   }
   root.addEventListener('click', function (e) { var b = e.target.closest('.cl-shot'); if (b) show(b); });
-  if (!lite && 'IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function (es) { es.forEach(function (x) { if (x.isIntersecting) { io.unobserve(x.target); show(x.target); } }); }, { rootMargin: '300px' });
-    // One picture per area per day loads by itself; the rest wait for a tap, so a busy day is not a wall of the same screen.
-    root.querySelectorAll('.cl-day').forEach(function (d) {
-      var seenArea = {};
-      d.querySelectorAll('.cl-e').forEach(function (r) { var b = r.querySelector('.cl-shot'); if (!b || seenArea[r.dataset.area]) return; seenArea[r.dataset.area] = 1; io.observe(b); });
-    });
-  }
+  // One picture per area per day is in the page already (drawn at its size, read lazily); the rest wait for a tap, so a busy day
+  // is not a wall of the same screen. In Lite mode the page's pictures stay buttons too (changelog.css).
+  if (lite) root.querySelectorAll('.cl-fig--auto').forEach(function (f) { f.remove(); });
 })();

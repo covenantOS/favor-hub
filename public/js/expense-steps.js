@@ -10,7 +10,8 @@
   const bars = [...document.querySelectorAll('#exp-progress span')];
   const phone = window.matchMedia('(max-width: 860px)');
   let at = 0;
-  const show = (i) => {
+  // The page arrives drawn at step 1 (expenses/new.astro), so the first call changes nothing and does not scroll.
+  const show = (i, first) => {
     at = Math.max(0, Math.min(steps.length - 1, i));
     steps.forEach((s, k) => s.classList.toggle('is-on', k === at));
     bars.forEach((b, k) => b.classList.toggle('is-on', k <= at));
@@ -18,7 +19,7 @@
     back.hidden = at === 0;
     next.hidden = at === steps.length - 1;
     form.classList.toggle('is-last', at === steps.length - 1);
-    if (phone.matches) form.scrollIntoView({ block: 'start' });
+    if (phone.matches && !first) form.scrollIntoView({ block: 'start' });
   };
   const ok = () => {
     if (at === 0) {
@@ -46,5 +47,5 @@
     if (at < steps.length - 1 && ok()) show(at + 1);
   });
   form.classList.add('is-stepped');
-  show(0);
+  show(0, true);
 })();

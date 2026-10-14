@@ -257,7 +257,7 @@
     '<aside class="ml-side" aria-label="Mailboxes"><button type="button" class="ml-compose" data-act="compose">' + ic('pen') + '<span>Compose</span></button><div class="ml-boxes" data-boxes></div><nav class="ml-labels" data-labels></nav></aside>' +
     '<section class="ml-list" aria-label="Conversations">' +
       '<form class="ml-search" role="search" data-search><label class="ml-search__box">' + ic('search') + '<input type="search" name="q" placeholder="Search mail, or start with ? to ask" aria-label="Search mail" autocomplete="off" enterkeyhint="search" /><kbd>/</kbd></label></form>' +
-      '<div class="ml-tabs" data-tabs role="navigation" aria-label="Views" hidden></div>' +
+      '<div class="ml-tabs" data-tabs data-keep-h="tabs" role="navigation" aria-label="Views" hidden></div>' +
       '<div class="ml-list__head"><button type="button" class="ml-iconbtn ml-pickall" data-act="pick-all" aria-label="Select all">' + ic('box') + '</button><b data-list-title>Inbox</b><span data-list-note></span><button type="button" class="ml-fon" data-act="flags-clear" data-fstate hidden></button><button type="button" class="ml-iconbtn" data-act="filter-menu" data-filterbtn aria-label="Filter" aria-haspopup="dialog">' + ic('filter') + '</button><button type="button" class="ml-iconbtn" data-act="sort-menu" aria-label="Sort" aria-haspopup="dialog">' + ic('sort') + '</button><button type="button" class="ml-iconbtn" data-act="refresh" aria-label="Refresh" title="Refresh">' + '<svg class="ml-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>' + '</button></div>' +
       '<div class="ml-selbar" data-selbar hidden></div><div class="ml-allow" data-allow hidden><span>Senders and subjects only. Allow Mail adds the full message, files and search.</span><a class="ml-btn ml-btn--primary" data-allow-link href="#">Allow Mail</a></div>' +
       '<div class="ml-rows" data-rows></div>' +
@@ -618,11 +618,25 @@
     return '<div class="ml-clean">' + ic('broom') + '<div class="ml-clean__t"><b>' + c.total + ' unread from ' + c.senders.length + ' senders you never open</b><span>Newsletters and notices, including ' + esc(names) + '.</span></div>' +
       '<button type="button" class="ml-btn" data-act="clean-review">Archive all</button><button type="button" class="ml-iconbtn" data-act="clean-dismiss" aria-label="Not now">' + ic('x') + '</button></div>';
   }
+  // The briefing and the notices sit in one box at the top of the inbox. The box opens at the height it had last time and says it
+  // is busy until the overview and the briefing have answered (public/js/hub-motion.js holds it), so the rows below it do not
+  // drop when a notice arrives.
+  function notesWait() { return inboxPlain() && !S.v && S.threads.length > 0 && (!S.ov || briefHtml().indexOf('ml-brief--wait') >= 0); }
+  function notesHtml() {
+    var h = briefHtml() + nudgeHtml() + cleanHtml();
+    var wait = notesWait();
+    if (!h && !wait) return '';
+    return '<div class="ml-notes" data-keep-h="notes"' + (wait ? ' aria-busy="true"' : '') + '>' + h + '</div>';
+  }
   function renderCleanup() {
     var rows = $('[data-rows]'); if (!rows) return;
-    rows.querySelectorAll('.ml-clean, .ml-brief').forEach(function (x) { x.remove(); });
-    var h = briefHtml() + nudgeHtml() + cleanHtml();
-    if (h && S.threads.length) rows.insertAdjacentHTML('afterbegin', h);
+    var box = rows.querySelector('.ml-notes');
+    var h = S.threads.length ? briefHtml() + nudgeHtml() + cleanHtml() : '';
+    var wait = notesWait();
+    if (!h && !wait) { if (box) box.remove(); return; }
+    if (!box) { rows.insertAdjacentHTML('afterbegin', '<div class="ml-notes" data-keep-h="notes"></div>'); box = rows.firstElementChild; }
+    box.innerHTML = h;
+    if (wait) box.setAttribute('aria-busy', 'true'); else box.removeAttribute('aria-busy');
   }
   function cleanReview() {
     var c = S.ov && S.ov.cleanup; if (!c || !c.total) return;
@@ -950,7 +964,7 @@
       rows.innerHTML = '<div class="ml-empty"><b>' + none + '</b>' + (S.q ? '<span>Gmail search words work here, like from:, has:attachment and before:2026/10/01.</span>' : activeFlags().length ? '<button type="button" class="ml-btn" data-act="flags-clear">Clear filters</button>' : '') + '</div>';
       return;
     }
-    rows.innerHTML = briefHtml() + nudgeHtml() + cleanHtml() + S.threads.map(rowHtml).join('') + (S.next ? '<div class="ml-more"><button type="button" class="ml-btn" data-act="more">Show more</button></div>' : '');
+    rows.innerHTML = notesHtml() + S.threads.map(rowHtml).join('') + (S.next ? '<div class="ml-more"><button type="button" class="ml-btn" data-act="more">Show more</button></div>' : '');
   }
   function patchRow(t) {
     var i = S.threads.indexOf(t);
