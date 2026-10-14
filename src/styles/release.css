@@ -1,0 +1,35 @@
+/* Release badges (src/data/release.ts, Rel.astro, RelBadge.tsx). Alpha dusk, Beta sun, New leaf. */
+body.h-body .h-rel {
+  display: inline-block; flex: none; margin-left: 6px; padding: 1px 6px; border-radius: 999px; border: 0;
+  font: 700 11px/1.45 var(--h-font, 'Inter', sans-serif); letter-spacing: 0.04em; text-transform: uppercase; font-style: normal;
+  vertical-align: 2px; white-space: nowrap;
+}
+body.h-body .h-rel[hidden] { display: none; }
+body.h-body .h-rel--alpha { background: var(--tc-dusk-tint, #e9e5f4); color: var(--tc-dusk-ink, #4a3f7d); }
+body.h-body .h-rel--beta { background: var(--tc-sun-tint, #f7ecd2); color: var(--tc-sun-ink, #6b4a0c); }
+body.h-body .h-rel--new { background: var(--tc-leaf-tint, #e1efdc); color: var(--tc-leaf-ink, #1f5a2a); }
+body.h-body .h-rel--head { margin-left: 8px; vertical-align: 3px; }
+/* The slim rail has no room for a word: a small dot in the badge color at the icon's corner. */
+body.h-body .h-area__link .h-rel { position: absolute; top: 8px; left: calc(50% + 8px); width: 7px; height: 7px; padding: 0; margin: 0; font-size: 0; line-height: 0; overflow: hidden; }
+body.h-body .h-area__link .h-rel--alpha { background: var(--tc-dusk, #5b4f93); }
+body.h-body .h-area__link .h-rel--beta { background: var(--tc-sun, #d9a43a); }
+body.h-body .h-area__link .h-rel--new { background: var(--tc-leaf, #4f8a3c); }
+html.nav-wide body.h-body .h-area__link .h-rel, body.h-body .h-app.is-peek .h-area__link .h-rel, body.h-body .h-app.is-nav .h-area__link .h-rel, body.h-body.is-nav .h-area__link .h-rel {
+  position: static; width: auto; height: auto; padding: 1px 6px; margin-left: 6px; font-size: 11px; line-height: 1.45; overflow: visible;
+}
+html.nav-wide body.h-body .h-area__link .h-rel--alpha, body.h-body .h-app.is-peek .h-area__link .h-rel--alpha, body.h-body .h-app.is-nav .h-area__link .h-rel--alpha { background: var(--tc-dusk-tint, #e9e5f4); }
+html.nav-wide body.h-body .h-area__link .h-rel--beta, body.h-body .h-app.is-peek .h-area__link .h-rel--beta, body.h-body .h-app.is-nav .h-area__link .h-rel--beta { background: var(--tc-sun-tint, #f7ecd2); }
+html.nav-wide body.h-body .h-area__link .h-rel--new, body.h-body .h-app.is-peek .h-area__link .h-rel--new, body.h-body .h-app.is-nav .h-area__link .h-rel--new { background: var(--tc-leaf-tint, #e1efdc); }
+/* Phone header: the title keeps one line; the badge shrinks before the title does. */
+@media (max-width: 720px) {
+  body.h-body .h-rel--head { margin-left: 6px; padding: 0 5px; font-size: 10px; vertical-align: 2px; }
+}
+/* Help article title. */
+body.h-body .hd-art h1 .h-rel, body.h-body h1 .h-rel { font-size: 12px; vertical-align: 6px; margin-left: 10px; }
+body.h-body .h-top__note { margin-left: 8px; font: 500 13px var(--h-font, 'Inter', sans-serif); color: var(--h-ink-3); white-space: nowrap; }
+@media (max-width: 720px) { body.h-body .h-top__note { display: none; } }
+/* What's new dot (public/js/changelog-dot.js sets html.has-cl-new). */
+html.has-cl-new body.h-body .h-pg[data-pg='changelog'] .h-pg__a::after,
+html.has-cl-new body.h-body .cl-link::after { content: ''; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--tc-leaf, #3d7a35); vertical-align: 1px; }
+html.has-cl-new body.h-body .h-area[data-area='help'] .h-area__link::after { content: ''; position: absolute; top: 8px; right: 14px; width: 7px; height: 7px; border-radius: 50%; background: var(--tc-leaf, #3d7a35); }
+body.h-body .wm-foot .cl-link { font: 600 13px var(--h-font, 'Inter', sans-serif); color: var(--h-ink-2); text-decoration: none; }

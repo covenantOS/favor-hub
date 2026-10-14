@@ -187,7 +187,8 @@
       const nav = doc.body.dataset.nav || '';
       document.body.dataset.nav = nav;
       const t = (sel) => { const a = $(sel, doc); const b = $(sel); if (a && b) b.textContent = a.textContent; };
-      t('.h-top__crumb'); t('.h-top__title');
+      t('.h-top__crumb');
+      { const a = $('.h-top__title', doc); const b = $('.h-top__title'); if (a && b) { b.innerHTML = a.innerHTML; if (window.hubRelApply) window.hubRelApply(); } }
       const newArea = $('.h-area.is-cur', doc);
       document.body.dataset.area = doc.body.dataset.area || '';
       const tile = document.getElementById('h-tile'); const ntile = $('#h-tile', doc);

@@ -36,6 +36,7 @@ import '../styles/night-phone.css';
 import '../styles/dock.css';
 import '../styles/entity.css';
 import '../styles/design-pass.css';
+import '../styles/release.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
 import liteJs from '../../public/js/lite.js?raw';
@@ -55,6 +56,8 @@ interface Props {
 const { title, crumb = 'FavorOS', nav = '', wide = false, full = false, bare = false, description = 'FavorOS, the Favor International staff workspace.' } = Astro.props;
 
 import { icon } from '../data/icons';
+import { badgeFor, pageBadge } from '../data/release';
+import Rel from '../components/Rel.astro';
 import { BUILD } from '../data/build';
 import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
@@ -133,6 +136,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
   </head>
   <body class="h-body" data-nav={nav} data-area={curArea || undefined}>
     <script is:inline>if (window.FavorLite) window.FavorLite.fontsLast();</script>
+    <script is:inline src="/js/changelog-dot.js?v=1" defer></script>
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="FavorOS">
@@ -158,7 +162,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
               <button type="button" role="menuitem" data-feedback="hub"><Fragment set:html={icon('chat')} />Feedback</button>
               <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
-              <button type="button" role="menuitem" data-lite-open><Fragment set:html={icon('signal')} />Data saver</button>
+              <button type="button" role="menuitem" data-lite-open><Fragment set:html={icon('signal')} />Data saver<Rel k="lite" b={badgeFor('lite')} /></button>
               <button type="button" role="menuitem" class="h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>
               <button type="button" role="menuitem" id="h-out"><Fragment set:html={icon('out')} />Sign out</button>
             </div>
@@ -253,6 +257,22 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
             }
             $('h-foot').hidden = false;
           }
+          // Release badges: the admin's saved changes arrive with the menu answer (src/data/release.ts).
+          if (d.release) {
+            window.FAVOR_REL = d.release;
+            window.hubRelApply = function () {
+              var rel = window.FAVOR_REL || {}, L = { alpha: 'Alpha', beta: 'Beta', new: 'New' };
+              document.querySelectorAll('[data-rel]').forEach(function (el) {
+                var k = el.dataset.rel, b = rel[k] || null;
+                // A page link shows its badge only where it differs from its area's.
+                if (b && k.indexOf('page:') === 0 && el.closest('.h-pg')) { var ar = el.closest('.h-area'); if (ar && rel[ar.dataset.area] === b) b = null; }
+                el.hidden = !b;
+                el.className = 'h-rel' + (b ? ' h-rel--' + b : '') + (el.dataset.relCls ? ' ' + el.dataset.relCls : '');
+                el.textContent = b ? L[b] : '';
+              });
+            };
+            window.hubRelApply();
+          }
           var access = d.access || {};
           document.documentElement.classList.toggle('is-field', !!access.field);
           document.documentElement.classList.toggle('has-brain', !!access.brain);
@@ -296,7 +316,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           {found && <span class="h-tile" id="h-tile" aria-hidden="true"><Fragment set:html={icon(found.area.icon)} /></span>}
           <div class="h-top__head">
             <div class="h-top__crumb">{crumbText}</div>
-            <div class="h-top__title">{found ? found.area.label : title}</div>
+            <div class="h-top__title">{found ? found.area.label : title}{found && <Rel k={`page:${found.page.id}`} b={pageBadge(found.page.id, found.area.id)} cls="h-rel--head" />}{found && found.page.id === 'projects' && <span class="h-top__note">Synced with Asana</span>}</div>
           </div>
           <div class="h-top__tabs" id="h-tabs-slot">{found && <NavTabs area={found.area} nav={nav} />}</div>
           <div class="h-top__right" data-ui-actions>

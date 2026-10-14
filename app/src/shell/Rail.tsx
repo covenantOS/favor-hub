@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { HubUser } from '@shared/schemas';
 import { Icon } from './Icon';
 import { NavLink } from './NavLink';
+import { RelBadge } from './RelBadge';
 import { railCount, type AreaView, type NavView } from './model';
 import type { useRail } from './useRail';
 
@@ -51,7 +52,7 @@ function Area({ v, rail, tours }: { v: AreaView; rail: Rail; tours: number }) {
       >
         <Icon name={area.icon} />
         <span className="h-area__label">{area.short || area.label}</span>
-        {area.beta && <em className="h-beta">Beta</em>}
+        <RelBadge k={area.id} />
         <span className={'h-nav__count h-area__sum' + (v.warn ? ' h-nav__count--warn' : '')} data-sum={area.id} hidden={!v.sum}>
           {railCount(v.sum)}
         </span>
@@ -83,6 +84,7 @@ function Area({ v, rail, tours }: { v: AreaView; rail: Rail; tours: number }) {
                   }}
                 >
                   <span>{p.label}</span>
+                  <RelBadge k={'page:' + p.id} areaId={area.id} skipSameAsArea />
                   {p.count && <Count n={count} warn={warn} keyName={p.count} />}
                 </NavLink>
                 <button

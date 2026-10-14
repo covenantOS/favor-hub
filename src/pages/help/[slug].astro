@@ -24,13 +24,15 @@ import '../../styles/lint-fix.css';
 // An article that is also a page in another area's tab row (Connect an AI app under Favor Brain) keeps that area's header and tabs.
 const slugNav: Record<string, string> = Object.fromEntries(AREAS.filter((a) => a.id !== 'help').flatMap((a) => a.pages).filter((pg) => /^\/help\/[^/]+\/?$/.test(pg.href)).map((pg) => [pg.href.replace(/^\/help\/|\/$/g, ''), pg.id]));
 const navId = slugNav[doc.id] || 'docs';
+import Rel from '../../components/Rel.astro';
+import { helpBadge } from '../../data/release';
 ---
 <App title={doc.data.title} crumb="Help docs" nav={navId} description={doc.data.summary}>
   <div class="hd-wrap" data-for={doc.data.for.join(' ')}>
     <HelpSide current={doc.id} />
     <article class="hd-article">
       <div class="hd-kicker"><a href="/help/">Help</a><span aria-hidden="true">/</span>{topic?.label}</div>
-      <h1>{doc.data.title}</h1>
+      <h1>{doc.data.title}<Rel k={`help:${doc.id}`} b={helpBadge(doc.id, AREAS)} /></h1>
       <p class="hd-lede">{doc.data.summary}</p>
       {doc.data.tool && (
         <a class="h-btn h-btn--ghost h-btn--sm hd-tool" href={doc.data.tool}>{doc.data.toolLabel || 'Open it'}

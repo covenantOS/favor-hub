@@ -193,6 +193,7 @@ export const AREAS: NavArea[] = [
     foot: true,
     pages: [
       { id: 'docs', label: 'Docs', href: '/help/', desc: 'How every tool works, with search', keywords: 'help guide how docs documentation article manual faq', learn: 'getting-started', swap: true },
+      { id: 'changelog', label: "What's new", href: '/changelog/', desc: 'Every change to FavorOS, newest first, by day', keywords: 'whats new what changed changelog changes updates release notes new features fixed improved' },
       { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
       { id: 'welcome', label: 'Welcome', href: '/welcome/', desc: 'Your first week: who to meet, what is due, the FavorOS tour', keywords: 'welcome first day first week new hire onboarding orientation meet team', learn: 'welcome' },
       { id: 'feedback', label: 'Feedback', href: '/feedback/', desc: "Your notes and Will's answers", keywords: 'feedback note bug wrong idea suggestion problem report', count: 'feedback', learn: 'feedback', swap: true },

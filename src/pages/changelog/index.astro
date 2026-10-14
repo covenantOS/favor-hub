@@ -1,0 +1,81 @@
+---
+// What's new: every change to FavorOS, newest first, grouped by day, from src/content/changelog (one file per day).
+// Internal-only work shows as one collapsed "Behind the scenes" line per day. Search and the filters run in the page.
+import { getCollection } from 'astro:content';
+import App from '../../layouts/App.astro';
+import { AREA_LABEL, AREA_SHOT, TYPE_LABEL, dayLabel, timeLabel } from '../../data/changelog';
+import '../../styles/changelog.css';
+
+const days = (await getCollection('changelog'))
+  .map((d) => ({ ...d.data, entries: [...d.data.entries].sort((a, b) => b.time.localeCompare(a.time)) }))
+  .filter((d) => d.entries.length || d.behind)
+  .sort((a, b) => b.date.localeCompare(a.date));
+const used = new Set(days.flatMap((d) => d.entries.map((e) => e.area)));
+const areas = Object.entries(AREA_LABEL).filter(([k]) => used.has(k)).sort((a, b) => a[1].localeCompare(b[1]));
+const total = days.reduce((n, d) => n + d.entries.length, 0);
+const top = days.find((d) => d.entries.length);
+const latest = top ? `${top.date}T${top.entries[0].time}` : '';
+const first = days.length ? days[days.length - 1].date : '';
+---
+<App title="What's new" crumb="Help" nav="changelog" description="Every change to FavorOS, newest first.">
+  <div class="cl" data-latest={latest}>
+    <header class="cl-head">
+      <h1>What's new</h1>
+      <p>Every change to FavorOS since {first ? dayLabel(first) : 'the start'}, newest first. Times are Eastern.</p>
+      <div class="cl-tools">
+        <label class="cl-find"><span class="sr-only">Search changes</span><input type="search" id="cl-q" placeholder="Search changes" autocomplete="off" /></label>
+        <label class="cl-sel"><span class="sr-only">Area</span>
+          <select id="cl-area">
+            <option value="">All areas</option>
+            {areas.map(([k, v]) => <option value={k}>{v}</option>)}
+          </select>
+        </label>
+        <label class="cl-sel"><span class="sr-only">Kind of change</span>
+          <select id="cl-type">
+            <option value="">Every kind</option>
+            <option value="new">New</option>
+            <option value="improved">Improved</option>
+            <option value="fixed">Fixed</option>
+          </select>
+        </label>
+      </div>
+      <p class="cl-count" id="cl-count" aria-live="polite">{total.toLocaleString('en-US')} changes</p>
+    </header>
+
+    {days.map((d) => (
+      <section class="cl-day" data-day={d.date}>
+        <h2>{dayLabel(d.date)}</h2>
+        {d.entries.length > 0 && (
+          <ol class="cl-list">
+            {d.entries.map((e) => {
+              const shot = e.image ? { desk: e.image, phone: e.phone } : AREA_SHOT[e.area];
+              const now = !e.image || !!e.now;
+              return (
+                <li class="cl-e" data-area={e.area} data-type={e.type} data-stamp={`${d.date}T${e.time}`}>
+                  <time datetime={`${d.date}T${e.time}`}>{timeLabel(e.time)}</time>
+                  <div class="cl-e__body">
+                    <div class="cl-e__tags"><span class={`cl-t cl-t--${e.type}`}>{TYPE_LABEL[e.type]}</span><span class="cl-a">{AREA_LABEL[e.area]}</span></div>
+                    <p>{e.text}</p>
+                    {shot && (
+                      <button type="button" class="cl-shot" data-src={shot.desk} data-phone={shot.phone || undefined} data-now={now ? '1' : undefined}>
+                        Show picture{now ? " (today's view)" : ''}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        )}
+        {d.behind > 0 && (
+          <details class="cl-behind">
+            <summary>Behind the scenes: {d.behind} {d.behind === 1 ? 'update' : 'updates'}</summary>
+            <p>Tests, speed and upkeep work with nothing new to see.</p>
+          </details>
+        )}
+      </section>
+    ))}
+    <p class="cl-none" id="cl-none" hidden>No changes match.</p>
+  </div>
+  <script is:inline src="/js/changelog.js?v=1" defer></script>
+</App>

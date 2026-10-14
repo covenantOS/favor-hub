@@ -1,0 +1,98 @@
+{
+  "meetings": {
+    "desk": "/changelog/now/meetings-desk.webp",
+    "phone": "/changelog/now/meetings-phone.webp"
+  },
+  "reporting": {
+    "desk": "/changelog/now/reporting-desk.webp",
+    "phone": "/changelog/now/reporting-phone.webp"
+  },
+  "chat": {
+    "desk": "/changelog/now/chat-desk.webp",
+    "phone": "/changelog/now/chat-phone.webp"
+  },
+  "today": {
+    "desk": "/changelog/now/today-desk.webp",
+    "phone": "/changelog/now/today-phone.webp"
+  },
+  "partners": {
+    "desk": "/changelog/now/partners-desk.webp",
+    "phone": "/changelog/now/partners-phone.webp"
+  },
+  "work-center": {
+    "desk": "/changelog/now/work-center-desk.webp",
+    "phone": "/changelog/now/work-center-phone.webp"
+  },
+  "requests": {
+    "desk": "/changelog/now/requests-desk.webp",
+    "phone": "/changelog/now/requests-phone.webp"
+  },
+  "projects": {
+    "desk": "/changelog/now/projects-desk.webp",
+    "phone": "/changelog/now/projects-phone.webp"
+  },
+  "expenses": {
+    "desk": "/changelog/now/expenses-desk.webp",
+    "phone": "/changelog/now/expenses-phone.webp"
+  },
+  "receipts": {
+    "desk": "/changelog/now/receipts-desk.webp",
+    "phone": "/changelog/now/receipts-phone.webp"
+  },
+  "gifts": {
+    "desk": "/changelog/now/gifts-desk.webp",
+    "phone": "/changelog/now/gifts-phone.webp"
+  },
+  "statements": {
+    "desk": "/changelog/now/statements-desk.webp",
+    "phone": "/changelog/now/statements-phone.webp"
+  },
+  "evaluations": {
+    "desk": "/changelog/now/evaluations-desk.webp",
+    "phone": "/changelog/now/evaluations-phone.webp"
+  },
+  "learn": {
+    "desk": "/changelog/now/learn-desk.webp",
+    "phone": "/changelog/now/learn-phone.webp"
+  },
+  "onboarding": {
+    "desk": "/changelog/now/onboarding-desk.webp",
+    "phone": "/changelog/now/onboarding-phone.webp"
+  },
+  "foundations": {
+    "desk": "/changelog/now/foundations-desk.webp",
+    "phone": "/changelog/now/foundations-phone.webp"
+  },
+  "clips": {
+    "desk": "/changelog/now/clips-desk.webp",
+    "phone": "/changelog/now/clips-phone.webp"
+  },
+  "mail": {
+    "desk": "/changelog/now/mail-desk.webp",
+    "phone": "/changelog/now/mail-phone.webp"
+  },
+  "brain": {
+    "desk": "/changelog/now/brain-desk.webp",
+    "phone": "/changelog/now/brain-phone.webp"
+  },
+  "lists": {
+    "desk": "/changelog/now/lists-desk.webp",
+    "phone": "/changelog/now/lists-phone.webp"
+  },
+  "admin": {
+    "desk": "/changelog/now/admin-desk.webp",
+    "phone": "/changelog/now/admin-phone.webp"
+  },
+  "help": {
+    "desk": "/changelog/now/help-desk.webp",
+    "phone": "/changelog/now/help-phone.webp"
+  },
+  "phone": {
+    "desk": "/changelog/now/phone-desk.webp",
+    "phone": "/changelog/now/phone-phone.webp"
+  },
+  "everywhere": {
+    "desk": "/changelog/now/everywhere-desk.webp",
+    "phone": "/changelog/now/everywhere-phone.webp"
+  }
+}

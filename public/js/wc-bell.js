@@ -238,7 +238,7 @@ function bellHTML() {
   BN.rows.clear();
   if (BN.view === 'settings') return settingsHTML();
   const { fresh, earlier } = bellRows();
-  const head = `<header class="bn-head"><h4>Notifications</h4><span class="bn-tools">${fresh.length ? '<button type="button" class="bn-all" data-wm-readall>Mark all read</button>' : ''}<button type="button" class="bn-btn" data-wm-settings aria-label="Notification settings" title="Notification settings">${ic('gear')}</button><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header>`;
+  const head = `<header class="bn-head"><h4>Notifications</h4><span class="bn-tools"><a class="bn-all cl-link" href="/changelog/">What's new</a>${fresh.length ? '<button type="button" class="bn-all" data-wm-readall>Mark all read</button>' : ''}<button type="button" class="bn-btn" data-wm-settings aria-label="Notification settings" title="Notification settings">${ic('gear')}</button><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header>`;
   const all = fresh.concat(earlier), secs = [];
   BN_ORDER.forEach(([key, name]) => { const rows = all.filter((r) => grpOf(r) === key); if (rows.length) secs.push([key, name, rows]); });
   const section = ([key, name, rows]) => {

@@ -7,7 +7,7 @@ related: [guided-tour, feedback]
 updated: 2026-10-13
 ---
 
-The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **What's new and tour**, plays any of them again. Every change is listed here.
+[What's new](/changelog/) lists every change to FavorOS by day, with the time it went live, a search and an area filter. The biggest changes have a walkthrough. FavorOS opens **New in FavorOS** for you when one ships, and **Help**, then **What's new and tour**, plays any of them again. Every change is listed here.
 
 ## October 13, 2026
 

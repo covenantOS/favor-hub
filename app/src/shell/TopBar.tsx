@@ -3,6 +3,7 @@ import { Bell } from './Bell';
 import { HelpPanel } from './HelpPanel';
 import { Icon } from './Icon';
 import { NavLink } from './NavLink';
+import { RelBadge } from './RelBadge';
 import type { NavView } from './model';
 import { pageVisible } from './model';
 import { resolveNav } from '@hub/data/areas';
@@ -47,7 +48,11 @@ export function TopBar({ actions = '', view, navId, title, crumb = 'FavorOS', ac
       )}
       <div className="h-top__head">
         <div className="h-top__crumb">{area ? area.label : crumb}</div>
-        <div className="h-top__title">{area ? area.label : title}</div>
+        <div className="h-top__title">
+          {area ? area.label : title}
+          {found && <RelBadge k={'page:' + found.page.id} areaId={found.area.id} className="h-rel--head" />}
+          {found?.page.id === 'projects' && <span className="h-top__note">Synced with Asana</span>}
+        </div>
       </div>
       <div className="h-top__tabs" id="h-tabs-slot">
         {area && (

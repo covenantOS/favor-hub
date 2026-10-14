@@ -228,6 +228,9 @@ export function Bell({ access }: { access: A }) {
               ) : (
                 <span />
               )}
+              <a className="cl-link" href="/changelog/" onClick={() => setOpen(false)}>
+                What&apos;s new
+              </a>
               <button type="button" aria-expanded={quiet} onClick={() => setQuiet((v) => !v)}>
                 Quiet hours
               </button>

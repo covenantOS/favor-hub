@@ -22,4 +22,29 @@ const help = defineCollection({
   }),
 });
 
-export const collections = { help };
+// The changelog: one file per day in src/content/changelog (YYYY-MM-DD.md, frontmatter only). Entries newest first,
+// written for staff. `behind` counts internal-only commits that day. scripts/changelog-draft.mjs drafts a new day.
+export const CHANGE_AREAS = ['today', 'partners', 'work-center', 'requests', 'projects', 'expenses', 'receipts', 'gifts', 'statements', 'evaluations', 'learn', 'onboarding', 'foundations', 'meetings', 'clips', 'chat', 'mail', 'brain', 'reporting', 'lists', 'admin', 'help', 'phone', 'everywhere'] as const;
+const changelog = defineCollection({
+  loader: glob({ pattern: ['**/*.md', '!**/*.draft.md'], base: './src/content/changelog' }),
+  schema: z.object({
+    date: z.union([z.string(), z.date()]).transform((d) => (typeof d === 'string' ? d : d.toISOString().slice(0, 10))),
+    entries: z
+      .array(
+        z.object({
+          time: z.string().regex(/^\d{2}:\d{2}$/),
+          area: z.enum(CHANGE_AREAS),
+          type: z.enum(['new', 'improved', 'fixed']),
+          text: z.string().min(8),
+          /** A picture under public/changelog/ (WebP). `now: true` marks a current screenshot of an older change. */
+          image: z.string().optional(),
+          phone: z.string().optional(),
+          now: z.boolean().optional(),
+        }),
+      )
+      .default([]),
+    behind: z.number().int().min(0).default(0),
+  }),
+});
+
+export const collections = { help, changelog };

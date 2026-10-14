@@ -8,5 +8,7 @@ export const navResponse = z.object({
   access,
   counts,
   kpiTeams: z.array(z.string()).default([]),
+  /** Release badge for each area, page, help article and Data saver key (src/data/release.ts with the admin's saved changes). */
+  release: z.record(z.string(), z.enum(['alpha', 'beta', 'new'])).optional(),
 });
 export type NavResponse = z.infer<typeof navResponse>;

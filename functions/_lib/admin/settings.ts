@@ -324,6 +324,20 @@ export const DEFS: Def[] = [
     hint: 'Approved field staff may ask about the manuals and the programs. Partner records, giving and the dashboards stay closed to them.',
     kind: 'enum', options: ON_OFF, def: 'off',
   }),
+  hubDef({
+    id: 'release.badges', area: 'people', group: 'Release badges', label: 'Badge changes',
+    hint: 'Changes to the Alpha, Beta and New badges in the menu, page headers and help. A JSON object of key and badge, for example {"projects":"beta","ask":"none"}. Keys are area ids (meet, chat, mail, learn, ask, kpi, today), page ids (projects, receipts, work-center for the Work Center), help:<article> or lite. Empty keeps the built-in list.',
+    kind: 'text', def: '',
+    async check(_env, value) {
+      if (!value.trim()) return;
+      let o: unknown;
+      try { o = JSON.parse(value); } catch { throw new HttpError(400, 'bad', 'Badge changes must be a JSON object, like {"projects":"beta"}.'); }
+      if (!o || typeof o !== 'object' || Array.isArray(o)) throw new HttpError(400, 'bad', 'Badge changes must be a JSON object, like {"projects":"beta"}.');
+      for (const [k, v] of Object.entries(o as Record<string, unknown>)) {
+        if (!['alpha', 'beta', 'new', 'none'].includes(String(v))) throw new HttpError(400, 'bad', `The badge for ${k} must be alpha, beta, new or none.`);
+      }
+    },
+  }),
   // ---------------------------------------------------------------------------------------------------- Projects
   hubDef({ id: 'projects.enabled', area: 'projects', label: 'Who can use Projects', hint: 'Admins only, every signed-in staff member, or nobody. Task notices follow the Request notices setting in Admin > Chat.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'projects.marketing_key', area: 'projects', label: 'Project for Marketing requests', hint: 'The key of the project where a Marketing request lands as a task, for example MKT. Empty leaves requests going to the form they use now.', kind: 'text', def: '' }),

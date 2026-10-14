@@ -1,0 +1,8 @@
+---
+// A release badge (Alpha, Beta, New). The build draws the default from src/data/release.ts; the menu script swaps it
+// for the admin's saved change from /api/hub/nav (key in data-rel), so a badge can change without a deploy.
+import { BADGE_LABEL, BADGE_TITLE, type Badge } from '../data/release';
+interface Props { k: string; b: Badge | null; cls?: string; }
+const { k, b, cls = '' } = Astro.props;
+---
+<em class={`h-rel${b ? ' h-rel--' + b : ''}${cls ? ' ' + cls : ''}`} data-rel={k} data-rel-cls={cls || undefined} title={b ? BADGE_TITLE[b] : undefined} hidden={b ? undefined : true}>{b ? BADGE_LABEL[b] : ''}</em>
