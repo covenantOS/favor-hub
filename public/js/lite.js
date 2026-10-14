@@ -235,7 +235,8 @@
   // In Lite, the reads FavorOS polls for (bell, reminders, notices, chat inbox, meetings) come from one request every five minutes
   // (/api/hub/sync, functions/api/hub/sync.ts). A poll between syncs is answered from the last one; an answer that has not changed
   // comes back as 304 with no body. Any change the person makes (a POST, PATCH or DELETE) makes the next read fetch fresh.
-  var SYNCED = /^\/api\/(work\/reminders|work\/gate|tasks\/links\/bell|hub\/notifications|hub\/nav|chat\/inbox|requests\/notices)$/; // the shell's polls; a page's own large lists stay direct
+  var SYNCED = /^\/api\/(work\/reminders|work\/gate|tasks\/links\/bell|hub\/notifications|hub\/nav|chat\/inbox|requests\/notices|meet\/meetings(\/calendar)?)$/;
+
   var SY = { seen: {}, last: null, at: 0, etag: '', run: null, every: 300000 };
   // With notices on, a direct message or a mention arrives as a push, so the sync can wait three times longer.
   try { if (window.Notification && Notification.permission === 'granted' && localStorage.getItem('favor.push.on') === '1') SY.every = 900000; } catch (e) { /* ignore */ }
@@ -263,6 +264,7 @@
         var u = new URL(typeof input === 'string' ? input : input.url, location.href);
         if (u.origin === location.origin && u.pathname.indexOf('/api/') === 0) {
           if (method !== 'GET' && method !== 'HEAD') { if (u.pathname !== '/api/hub/sync') { SY.at = 0; SY.etag = ''; } }
+          else if (/^\/meet\//.test(location.pathname) && u.pathname.indexOf('/api/meet/') === 0) { /* a Meetings page's own lists go straight to the server */ }
           else if (SYNCED.test(u.pathname)) {
             var key = u.pathname + u.search, fresh = SY.last && Date.now() - SY.at < SY.every + 60000;
             var had = !!SY.seen[key];
