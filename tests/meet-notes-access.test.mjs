@@ -59,7 +59,10 @@ async function world({ withLeadColumn = true } = {}) {
     meeting(6, { cohosts: ['cat@favorintl.org'] }),
     meeting(7, { invitees: [{ email: 'ann@favorintl.org', name: 'Ann' }, { email: 'visitor@example.org', name: 'Visitor', guest: true }] }),
     meeting(8, { invitees: ['joann@favorintl.org'] }),
+    // 9 a guest link was sent: the room is open (access = guests), the notes are not. bob was in the room.
+    meeting(9, { host: 'nolead@favorintl.org', invitees: ['cat@favorintl.org'], access: 'guests' }),
   ]);
+  d1.prepare(`INSERT INTO hub_meeting_presence (meeting_id, pid, email, name, role, joined_at, seen) VALUES (?, 'p1', 'bob@favorintl.org', 'bob', 'staff', 1, 1), (?, 'p2', 'guest:visitor@example.org', 'Visitor', 'guest', 1, 1)`).bind(id(9), id(9)).run();
   return { DB: d1, MEET_RELEASE: 'staff', MEET_FAKE_SFU: '1' };
 }
 
@@ -130,10 +133,10 @@ describe('the notes library', () => {
     const env = await world();
     assert.deepEqual(await library(env, 'ann@favorintl.org'), [1, 2, 3, 7], 'hosting 1, invited to 2 and 7, and 3 is open (5 is cancelled, 8 invited joann@)');
     assert.deepEqual(await library(env, 'lead@favorintl.org'), [1, 2, 3, 7], 'Marketing leader: every meeting with a Marketing person on the roster, plus the open one');
-    assert.deepEqual(await library(env, 'sup@favorintl.org'), [2, 3, 6], 'Support leader');
-    assert.deepEqual(await library(env, 'cat@favorintl.org'), [2, 3, 6], 'hosting 2, made host on 6');
+    assert.deepEqual(await library(env, 'sup@favorintl.org'), [2, 3, 6, 9], 'Support leader (cat is invited to 9)');
+    assert.deepEqual(await library(env, 'cat@favorintl.org'), [2, 3, 6, 9], 'hosting 2, made host on 6, invited to 9');
     assert.deepEqual(await library(env, 'solo@favorintl.org'), [3], 'a leader of a team with nobody on any meeting');
-    assert.deepEqual(await library(env, 'nolead@favorintl.org'), [3]);
+    assert.deepEqual(await library(env, 'nolead@favorintl.org'), [3, 9], 'hosting 9');
     assert.deepEqual(await library(env, 'zed@favorintl.org'), [3, 4, 6, 7, 8], 'the host of five');
   });
 
@@ -192,5 +195,15 @@ describe('ledPeople and mayReadNotes', () => {
     assert.ok(!mayReadNotes(m({ status: 'cancelled' }), u('lead@favorintl.org'), led));
     assert.ok(mayReadNotes(m({ host_email: 'ann@favorintl.org', invitees: '[]' }), u('lead@favorintl.org'), led), 'the host counts');
     assert.ok(mayReadNotes(m({ access: 'staff' }), u('anyone@favorintl.org'), new Set()), 'open to all staff');
+  });
+
+  it('a guest link opens the room and never the notes: host, invitee, staff who were present and admins only', async () => {
+    const env = await world();
+    for (const who of ['nolead@favorintl.org', 'cat@favorintl.org', 'bob@favorintl.org', ADMIN]) assert.equal((await notes(env, who, 9)).status, 200, JSON.stringify(who));
+    for (const who of ['zed@favorintl.org', 'ann@favorintl.org', 'someone-new@favorintl.org']) assert.equal((await notes(env, who, 9)).status, 404, who);
+    assert.ok(!(await library(env, 'zed@favorintl.org')).includes(9), 'not in the library of a stranger');
+    assert.ok((await library(env, 'bob@favorintl.org')).includes(9), 'in the library of a person who was there');
+    const m = { id: id(9), status: 'ended', access: 'guests', host_email: 'nolead@favorintl.org', cohosts: '[]', invitees: '[]' };
+    assert.ok(!mayReadNotes(m, { email: 'guest:visitor@example.org', role: 'staff' }, new Set(), true), 'a guest never reads notes');
   });
 });

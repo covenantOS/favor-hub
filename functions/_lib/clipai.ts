@@ -130,7 +130,7 @@ export async function transcribeAll(env: ClipsEnv, clip: Clip): Promise<{ segmen
 /** One JSON answer from the small model, falling back to the larger one. */
 /** opts.feature: the budget line the call is charged to (default clip-text). opts.voice: the standing instructions in place of
  *  the Clips voice, for callers that are not describing a recording (Meetings reads a live call and needs people's names). */
-export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900, models: string[] = TEXT_MODELS, opts: { feature?: string; voice?: string } = {}): Promise<T> {
+export async function chatJson<T>(env: ClipsEnv, system: string, user: string, maxTokens = 900, models: string[] = TEXT_MODELS, opts: { feature?: string; voice?: string; json?: boolean } = {}): Promise<T> {
   const ai = aiFor(env.AI, opts.feature || 'clip-text') as Run | undefined;
   if (!ai) throw new Error('no ai binding');
   let last: unknown = null;
@@ -143,6 +143,8 @@ export async function chatJson<T>(env: ClipsEnv, system: string, user: string, m
         ],
         max_tokens: maxTokens,
         temperature: 0.2,
+        // JSON mode: the model must return valid JSON (the 70B model otherwise leaves a long string unquoted now and then).
+        ...(opts.json ? { response_format: { type: 'json_object' } } : {}),
       })) as { response?: unknown };
       const raw = res.response;
       if (raw && typeof raw === 'object') return raw as T;

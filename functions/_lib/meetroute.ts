@@ -23,7 +23,7 @@ import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import {
-  GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, meetUser, sfuCall, sha,
+  GONE_MS, ID_RE, MAX_PEOPLE, REC_STALE_MS, clean, emailsOf, getMeeting, getPresence, guestEmail, guestsOn, hex, iceServers, isHost, ledPeople, mayJoin, refuseJoin, mayReadNotes, wasPresent, meetUser, sfuCall, sha,
   type Meeting, type MeetEnv, type Presence,
 } from './meet';
 
@@ -214,7 +214,9 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
   await endStaleMeetings(env);
   const me = user.email.toLowerCase();
   // An address matches only as a whole quoted address in the JSON, so ann@ never finds a meeting that invited joann@.
-  const open = user.role === 'field' ? '' : `access IN ('staff','guests') OR `;
+  // Notes lists (recent, notes) follow the notes rule: a guest link (access = guests) opens the room, never the notes.
+  const notesScope = scope === 'recent' || scope === 'notes';
+  const open = user.role === 'field' ? '' : notesScope ? `access = 'staff' OR id IN (SELECT meeting_id FROM hub_meeting_presence WHERE lower(email) = ?1 AND role != 'guest') OR ` : `access IN ('staff','guests') OR `;
   const mine = `(lower(host_email) = ?1 OR ${open}instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
   let sql: string;
   if (scope === 'recent') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 60`;
@@ -811,7 +813,7 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
 async function notesMeeting(env: MeetEnv, user: { email: string; role: string }, id: string): Promise<Meeting> {
   const m = await getMeeting(env, id);
   // The server decides who reads the notes: the people who may join, and the leader of a team with someone on the roster. Anyone else gets a 404.
-  if (!mayJoin(m, user as never) && !mayReadNotes(m, user as never, await ledPeople(env, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  if (!mayReadNotes(m, user as never, await ledPeople(env, user.email), await wasPresent(env, id, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
   return m;
 }
 
@@ -869,7 +871,7 @@ async function askedDuring(env: MeetEnv, m: Meeting) {
 /** A question about one finished meeting, answered from its transcript. */
 async function askAboutMeeting(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {
   const m = await getMeeting(env, id);
-  if (!mayJoin(m, user as never) && !mayReadNotes(m, user, await ledPeople(env, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
+  if (!mayReadNotes(m, user, await ledPeople(env, user.email), await wasPresent(env, id, user.email))) throw new HttpError(404, 'not_found', 'That meeting does not exist.');
   const q = clean(b.q, 300);
   if (!q) throw new HttpError(400, 'bad_question', 'Type a question first.');
   const rows = (await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n LIMIT 1500').bind(id).all<{ t: number; who: string; text: string }>()).results || [];

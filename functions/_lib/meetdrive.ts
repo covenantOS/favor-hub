@@ -300,7 +300,7 @@ actions: up to 10 objects {line, owner, text, due, quote}. An action item is a s
 topics: 1 to 5 objects {line, title}: where a new subject starts, title at most 6 words.
 Leave out small talk, greetings and getting the call working (audio, browsers, who can hear whom). Spell people's names as they appear in the list of people. Say partners, never donors.
 line is the number after L. Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details into the notes. Leave out prayer requests and personal matters people shared. No em dashes.`;
-  const read = (text: string, n: number) => chatJson<RawPart>(env as never, `You read part ${n} of ${parts.length} of a staff meeting transcript at a nonprofit and pull out its notes.\n${rules}`, `Meeting title: ${m.title}\n\nTranscript:\n${text}`, 1600, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE });
+  const read = (text: string, n: number) => chatJson<RawPart>(env as never, `You read part ${n} of ${parts.length} of a staff meeting transcript at a nonprofit and pull out its notes.\n${rules}`, `Meeting title: ${m.title}\n\nTranscript:\n${text}`, 1600, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE, json: true });
   // The parts are read at the same time, so a long meeting's notes take about as long as one read (the step runs in the
   // background after the room empties, where time is short).
   const outs: RawPart[] = await Promise.all(parts.map(async (text, k) => {
@@ -335,7 +335,7 @@ line is the number after L. Use only what the transcript says. Do not invent nam
   const head = await chatJson<{ title?: unknown; summary?: unknown }>(env as never,
     'You write the title and summary of a staff meeting from summaries of its parts, in order. Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period) and summary (3 to 6 sentences: what was covered, what was decided, who is doing what next; name the specific projects and people). Leave out prayer requests, personal matters and getting the call working. Spell the names as the People line spells them. Say partners, never donors. Do not invent anything. No em dashes.',
     `Meeting title: ${m.title}\nPeople: ${who}\n\n${partSums}\n\nDecisions:\n${dec.map((d) => '- ' + d.text).join('\n') || 'none'}\n\nAction items:\n${act.map((a) => `- ${a.owner ? a.owner + ': ' : ''}${a.text}`).join('\n') || 'none'}`,
-    700, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE }).catch(() => ({}) as { title?: unknown; summary?: unknown });
+    700, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE, json: true }).catch(() => ({}) as { title?: unknown; summary?: unknown });
   const w = partnersWord;
   return {
     title: w(plain(head.title, 120).replace(/\.$/, '')),

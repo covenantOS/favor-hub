@@ -157,10 +157,26 @@ export async function ledPeople(env: MeetEnv, email: string): Promise<Set<string
  * anyone on staff when the meeting was open to all staff), and the leader of a team that has someone on the meeting's
  * roster (the host, a made host or an invited person). led is what ledPeople returns for the person asking.
  */
-export function mayReadNotes(m: Meeting, user: Pick<HubUser, 'email' | 'role'>, led: ReadonlySet<string>): boolean {
-  if (mayJoin(m, user)) return true;
-  if (m.status === 'cancelled' || !led.size) return false;
-  return [m.host_email, ...emailsOf(m.cohosts), ...emailsOf(m.invitees)].some((e) => led.has(e.toLowerCase()));
+/**
+ * Who reads a meeting's notes, transcript and recording. Kept apart from who may enter the room (2026-10-14): sending a guest link
+ * opens the room (access = guests) and must never open the notes. Readers: hub admins, the host and made hosts, invitees, staff who
+ * were in the room, every staff member when the meeting was booked open to all staff (Will, 2026-10-10), and the leader of a team
+ * with someone on the roster. Guests never read notes.
+ */
+export function mayReadNotes(m: Meeting, user: Pick<HubUser, 'email' | 'role'>, led: ReadonlySet<string>, present = false): boolean {
+  if (m.status === 'cancelled') return false;
+  const e = user.email.toLowerCase();
+  if (e.startsWith('guest:')) return false;
+  if (user.role === 'admin' || isHost(m, e) || emailsOf(m.invitees).includes(e) || present) return true;
+  if (m.access === 'staff' && user.role !== 'field') return true;
+  if (!led.size) return false;
+  return [m.host_email, ...emailsOf(m.cohosts), ...emailsOf(m.invitees)].some((x) => led.has(x.toLowerCase()));
+}
+
+/** True when this person was in the room as staff (not as a guest). */
+export async function wasPresent(env: MeetEnv, id: string, email: string): Promise<boolean> {
+  const r = await env.DB.prepare(`SELECT 1 AS x FROM hub_meeting_presence WHERE meeting_id = ? AND lower(email) = ? AND role != 'guest' LIMIT 1`).bind(id, email.toLowerCase()).first().catch(() => null);
+  return !!r;
 }
 
 export async function getMeeting(env: MeetEnv, id: string): Promise<Meeting> {

@@ -103,7 +103,7 @@ test('gallery order does not follow speech', () => {
 test('final notes use the meeting voice; a redo rewrites the notes without posting to Chat or making tasks again', () => {
   const drive = readFileSync(new URL('../functions/_lib/meetdrive.ts', import.meta.url), 'utf8');
   assert.match(drive, /const NOTE_VOICE = 'You work for Favor International, a Christian nonprofit, and write the notes of a staff meeting/);
-  assert.match(drive, /feature: 'meet-notes', voice: NOTE_VOICE/);
+  assert.match(drive, /feature: 'meet-notes', voice: NOTE_VOICE, json: true/);
   const route = readFileSync(new URL('../functions/_lib/meetroute.ts', import.meta.url), 'utf8');
   assert.match(route, /if \(b\.redo && m\.status === 'ended' && \(isHost\(m, user\.email\) \|\| user\.role === 'admin'\)/);
   assert.match(route, /if \(!redo\) await chatNotesReady/);
