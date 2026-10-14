@@ -36,10 +36,10 @@ import { assign, assigned, defaultChat, defaultRequest, finishAssigned, mention,
 import { applyLabels, bootstrap, catchUp, inboxFromCache, stateOf, FRESH_MS } from './sync';
 import { idsFor, pruneRows, rowsFor, useRowStore } from './rows';
 import { sanitizeHtml, textToHtml } from './sanitize';
-import { amountsIn, askThread, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
+import { amountsIn, askThread, ASK_FEATURE, ASK_PAUSED, closeBriefing, freeSlots, briefing, commitments, entityCard, fileKind, fillTemplate, fundNames, giftMention, NEXT_STEP, readSearch, senderProfile, writingCheck } from './know';
 import { freshText } from './smart';
 import { assist, cardOf, classify, customsOf, decorate, forgetScan, isCat, isCustom, overview, saveSummary, savedSummary, smartView, tidy, TEXT_MODEL, waitingOn, type SmartCtx } from './smart';
-import { aiFor } from '../ai/guard';
+import { aiFor, isAiPaused } from '../ai/guard';
 
 export type MailMode = AccessMode;
 
@@ -257,10 +257,10 @@ async function route(ctx: MailCtx): Promise<Response> {
   const needWrite = () => (!writeOn ? errorJson('mail_readonly', 'Changing and sending mail from FavorOS is switched off. Open the message in Gmail.', 403) : level.write ? null : scopeError('write'));
 
   const smartCtx: SmartCtx = { env, me, name: user.name || me, ai: ctx.ai || (env.AI as any), partners: ctx.partners, giving: ctx.giving };
-  const runModel = async (system: string, userText: string, max: number): Promise<string> => {
+  const runModel = async (system: string, userText: string, max: number, feature = 'mail-draft'): Promise<string> => {
     const ai = smartCtx.ai;
     if (!ai) return '';
-    const out: any = await aiFor(ai, 'mail-draft').run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
+    const out: any = await aiFor(ai, feature).run(TEXT_MODEL, { messages: [{ role: 'system', content: system }, { role: 'user', content: userText }], max_tokens: max, temperature: 0.3 });
     return String(out?.response ?? out?.result?.response ?? '').trim();
   };
   const mq = async (sql: string, params: unknown[] = []): Promise<any[]> => {
@@ -353,7 +353,7 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (r) return r;
     const e = lower(url.searchParams.get('email'));
     if (!/^[^@\s]+@[^@\s]+$/.test(e)) throw new HttpError(400, 'bad_email', 'That is not an email address.');
-    return json({ ok: true, profile: await senderProfile(smartCtx, gm, e, String(url.searchParams.get('name') || '').slice(0, 120)) });
+    return json({ ok: true, profile: await senderProfile(smartCtx, gm, e, String(url.searchParams.get('name') || '').slice(0, 120), { admin: user.role === 'admin' }) });
   }
 
   if (a === 'smart' && b === 'briefing' && method === 'GET') {
@@ -361,6 +361,12 @@ async function route(ctx: MailCtx): Promise<Response> {
     if (r) return r;
     const w = await waitingOn(smartCtx, gm, 3).catch(() => []);
     return json({ ok: true, briefing: await briefing(smartCtx, gm, runModel, w.length, url.searchParams.get('fresh') === '1') });
+  }
+
+  if (a === 'smart' && b === 'briefing' && c === 'close' && method === 'POST') {
+    const body = await readBody(request);
+    await closeBriefing(env, me, String(body.key || '')).catch(() => undefined);
+    return json({ ok: true });
   }
 
   if (a === 'smart' && b === 'categories') {
@@ -692,8 +698,14 @@ async function route(ctx: MailCtx): Promise<Response> {
     const q = String((await readBody(request)).q || '');
     const t = await gm.get('/threads/' + id, { format: 'full' });
     const text = (t.messages || []).map((m: any) => shapeMessage(m)).filter((m: any) => !m.draft).slice(-8).map((m: any) => `From ${m.from.name || m.from.email}, ${m.date.slice(0, 10)}:\n${freshText(m).slice(0, 1800)}`).join('\n\n---\n\n');
-    const answer = await askThread(runModel, text, q).catch(() => '');
-    return json({ ok: true, answer: answer || 'The model did not answer. Try again.' });
+    // Ask counts against the same daily spending ceiling as Favor Brain (feature mail-ask in ai/guard.ts). Past it, the guard refuses the call.
+    try {
+      const answer = await askThread((system, userText, max) => runModel(system, userText, max, ASK_FEATURE), text, q);
+      return json({ ok: true, answer: answer || 'The model did not answer. Try again.' });
+    } catch (err) {
+      if (isAiPaused(err)) return json({ ok: true, answer: ASK_PAUSED, paused: true });
+      return json({ ok: true, answer: 'The model did not answer. Try again.' });
+    }
   }
 
   if (a === 'threads' && b && c === 'assist' && method === 'GET') {

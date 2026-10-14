@@ -1150,6 +1150,34 @@ export function MailPage() {
     }
     set({ briefGone: Date.now() });
   };
+  // Closing the briefing keeps the date of the newest important message (people, partners, staff) in this browser and, through the
+  // server, for the person on every device. The card comes back only when something newer and important arrives.
+  const briefClosedKey = (): string | null => {
+    try {
+      return localStorage.getItem('favor.mail.briefoff:' + (S.current.me || ''));
+    } catch {
+      return null;
+    }
+  };
+  const briefHidden = (b: any): boolean => {
+    const k = briefClosedKey();
+    if (!b) return k !== null;
+    return !!b.off || (k !== null && String(b.key || '') <= k);
+  };
+  const closeBrief = () => {
+    const b = S.current.brief;
+    const key = (b && b.key) || '';
+    try {
+      localStorage.setItem('favor.mail.briefoff:' + (S.current.me || ''), key);
+    } catch {
+      // private mode
+    }
+    if (b) S.current.brief = { ...b, off: true };
+    api()
+      .briefClose(key, accts()[0] || '')
+      .catch(() => undefined);
+    set({ briefGone: Date.now() });
+  };
   const archiveMany = (ids: string[]) => {
     set({ sheet: null });
     const x = S.current;
@@ -1606,12 +1634,12 @@ export function MailPage() {
                 b={s.brief}
                 wait={!s.briefFailed}
                 ov={s.ov}
-                showBrief={inboxPlain() && !s.v && !!rows.length && !s.briefFailed && s.level.read && !hiddenToday('favor.mail.brief')}
+                showBrief={inboxPlain() && !s.v && !!rows.length && !s.briefFailed && s.level.read && !briefHidden(s.brief)}
                 showNudge={inboxPlain() && !s.v && (() => { try { return localStorage.getItem('favor.mail.nudge') !== nudgeKey(); } catch { return true; } })()}
                 showClean={inboxPlain() && !s.v && !hiddenToday('favor.mail.clean')}
                 onOpen={(id: string) => go(s.label, s.q, id)}
                 onFresh={() => { set({ brief: null }); loadBrief(true); }}
-                onHide={() => hideToday('favor.mail.brief')}
+                onHide={closeBrief}
                 onNudgeHide={() => { try { localStorage.setItem('favor.mail.nudge', nudgeKey()); } catch { /* private mode */ } set({ briefGone: Date.now() }); }}
                 onCleanReview={() => (!s.level.write || !canWrite() ? askWrite('archive') : openSmart('clean'))}
                 onCleanDismiss={() => hideToday('favor.mail.clean')}

@@ -41,6 +41,13 @@ const people: P[] = [
   { name: 'Calendar', email: 'calendar@example.com' },
   { name: 'Lena Brooks', email: 'lena.brooks@example.net' },
 ];
+// Automatic senders, kept apart from `people` so the filler conversations below keep their senders.
+const automatic: P[] = [
+  { name: 'Favor Projects', email: 'noreply@favorintl.org' },
+  { name: 'FavorOS', email: 'notifications@favorintl.org' },
+  { name: 'Suno', email: 'receipts@suno.example' },
+  { name: 'Hume AI', email: 'billing@hume.example' },
+];
 export const SAMPLE_PARTNER_EMAILS = [people[0].email, people[1].email, people[4].email];
 
 const tinyPdf = 'JVBERi0xLjQKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgMjAwIDIwMF0+PmVuZG9iagp0cmFpbGVyPDwvUm9vdCAxIDAgUj4+CiUlRU9GCg==';
@@ -120,6 +127,12 @@ function base(): ThreadDef[] {
         { from: people[6], to: [ME], hours: 2, html: LONG_REPORT + SIG_PRIYA + q('Tester', 'Priya, can you check the school and church numbers before the report goes out?'), unread: true },
       ],
     },
+    // Automatic mail that arrived after everything else: the Mail briefing must not lead with it (2026-10-14).
+    { id: 'smpA01', subject: 'Finished: H2 made in FavorOS', msgs: [{ from: automatic[0], to: [ME], hours: 0.2, html: '<p>Your video H2 finished rendering in FavorOS. Open it from Clips.</p>', unread: true }] },
+    { id: 'smpA02', subject: 'Task assigned to you in FavorOS: Review the spring newsletter', msgs: [{ from: automatic[1], to: [ME], hours: 0.3, html: '<p>Priya Nair assigned you a task in FavorOS.</p>', unread: true }] },
+    { id: 'smpA03', subject: 'Your receipt from Suno #4471', msgs: [{ from: automatic[2], to: [ME], hours: 0.4, html: '<p>Payment received. Amount: $10.00. Thank you for your subscription.</p>', unread: true }] },
+    { id: 'smpA04', subject: 'Invoice 8820 for Hume AI', msgs: [{ from: automatic[3], to: [ME], hours: 0.5, html: '<p>Your invoice for October is attached. Amount due: $20.00.</p>', unread: true }] },
+    { id: 'smpA05', subject: 'Project plan: spring trip', msgs: [{ from: people[6], to: [ME], hours: 2.5, html: '<p>Can you look over the spring trip plan and tell me which dates you can cover?</p><p>Priya</p>', unread: true }] },
     { id: 'smp090', subject: 'Itinerary sent', labels: ['SENT'], msgs: [{ from: ME, to: [people[1]], hours: 40, html: '<p>The itinerary is attached.</p>', labels: ['SENT'], files: ['pdf'] }] },
   ];
   const subjects = ['Volunteer schedule', 'Prayer request', 'Board packet', 'Trip deposit', 'Sponsor a student', 'Chapel visit', 'Year-end letter'];

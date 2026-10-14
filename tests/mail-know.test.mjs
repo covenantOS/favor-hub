@@ -151,6 +151,9 @@ beforeEach(async () => {
   d1.exec(read('db/mail.sql'));
   d1.exec(read('db/mail-smart.sql'));
   d1.exec(read('db/mail-cache.sql'));
+  d1.exec(read('db/projects.sql'));
+  d1.exec("CREATE TABLE meet_directory (email TEXT PRIMARY KEY, name TEXT, title TEXT, team TEXT, active INTEGER); CREATE TABLE act_staff (email TEXT, name TEXT, team TEXT, active INTEGER); CREATE TABLE IF NOT EXISTS hub_users (email TEXT PRIMARY KEY, name TEXT, picture TEXT, blocked INTEGER DEFAULT 0);");
+  d1.exec("INSERT INTO meet_directory (email, name, title, team, active) VALUES ('bo@favorintl.org', 'Bo Builder', 'Builder', 'Operations', 1), ('cy@favorintl.org', 'Cy Carpenter', '', 'Operations', 1)");
   env = { UPLOADS: memoryR2(), DB: d1, GOOGLE_TOKEN_KEY: 'ab'.repeat(32), GOOGLE_CLIENT_SECRET: 'x', GOOGLE_TOKEN_URL: 'https://oauth.test/token' };
   calls = [];
   box = mailbox();
@@ -187,8 +190,36 @@ describe('who a sender is to Favor', () => {
     assert.equal(p.kind, 'partner');
     assert.equal(p.partner.id, '27202');
     assert.match(p.role, /Partner in Blackbaud/);
-    assert.ok(p.history.n >= 1);
+    assert.match(p.facts[0], /^Last contact /);
+    assert.ok(!('n' in p.history), 'no conversation count');
     assert.equal(p.canProspect, false);
+  });
+  it('shows the last contact, shared projects and open tasks between two staff, and no conversation count', async () => {
+    const now = '2026-10-10T12:00:00.000Z';
+    const sql = (q, ...a) => d1.prepare(q).bind(...a).run();
+    await sql("INSERT INTO hub_projects (id, key, name, lead_email, visibility, status, created_by, created_at, updated_at) VALUES ('p1', 'SPR', 'Spring trip', 'ada@favorintl.org', 'staff', 'active', 'ada@favorintl.org', ?, ?)", now, now);
+    await sql("INSERT INTO hub_projects (id, key, name, lead_email, visibility, status, created_by, created_at, updated_at) VALUES ('p2', 'PRV', 'Private plans', 'cy@favorintl.org', 'private', 'active', 'cy@favorintl.org', ?, ?)", now, now);
+    await sql("INSERT INTO hub_projects (id, key, name, lead_email, visibility, status, created_by, created_at, updated_at) VALUES ('p3', 'OLD', 'Old project', 'ada@favorintl.org', 'staff', 'archived', 'ada@favorintl.org', ?, ?)", now, now);
+    await sql('INSERT INTO hub_project_members (project_id, email, added_at) VALUES (?, ?, ?)', 'p1', 'bo@favorintl.org', now);
+    await sql('INSERT INTO hub_project_members (project_id, email, added_at) VALUES (?, ?, ?)', 'p1', 'ada@favorintl.org', now);
+    await sql('INSERT INTO hub_project_members (project_id, email, added_at) VALUES (?, ?, ?)', 'p2', 'bo@favorintl.org', now);
+    await sql('INSERT INTO hub_project_members (project_id, email, added_at) VALUES (?, ?, ?)', 'p3', 'bo@favorintl.org', now);
+    await sql("INSERT INTO hub_tasks (id, project_id, code, title, status, owner_email, created_by, created_at, updated_at) VALUES ('t1', 'p1', 'SPR-0001', 'Book the bus', 'open', 'bo@favorintl.org', 'ada@favorintl.org', ?, ?)", now, now);
+    await sql("INSERT INTO hub_tasks (id, project_id, code, title, status, owner_email, created_by, created_at, updated_at) VALUES ('t2', NULL, NULL, 'Send me the list', 'open', 'ada@favorintl.org', 'bo@favorintl.org', ?, ?)", now, now);
+    await sql("INSERT INTO hub_tasks (id, project_id, code, title, status, owner_email, created_by, created_at, updated_at) VALUES ('t3', NULL, NULL, 'Done already', 'done', 'bo@favorintl.org', 'ada@favorintl.org', ?, ?)", now, now);
+    await sql("INSERT INTO hub_tasks (id, project_id, code, title, status, owner_email, created_by, created_at, updated_at) VALUES ('t4', NULL, NULL, 'Not between us', 'open', 'bo@favorintl.org', 'cy@favorintl.org', ?, ?)", now, now);
+    const p = (await run('smart/sender?email=bo%40favorintl.org')).data.profile;
+    assert.equal(p.kind, 'staff');
+    assert.ok(!('n' in p.history), 'no conversation count');
+    assert.ok(!('more' in p.history));
+    assert.match(p.facts[0], /^Last contact /);
+    assert.ok(p.facts.includes('Shared project: Spring trip'), 'Ada is not in the private or the archived project: ' + p.facts.join('|'));
+    assert.ok(p.facts.includes('2 open tasks between you'), p.facts.join('|'));
+    // a staff member who is not an admin sees nothing of Projects while it is open to admins only
+    assert.deepEqual(await know.sharedWork(env, ADMIN.email, 'bo@favorintl.org', { admin: false }), { projects: [], projectCount: 0, tasks: 0 });
+    assert.equal((await know.sharedWork(env, ADMIN.email, 'bo@favorintl.org', { admin: true })).tasks, 2);
+    // a partner keeps the giving facts and gets no shared work
+    assert.equal((await run('smart/sender?email=maya%40example.org')).data.profile.facts.filter((f) => /project|task/.test(f)).length, 0);
   });
   it('says an outside address is not in Blackbaud and offers to add it as a prospect', async () => {
     const p = (await run('smart/sender?email=tom%40whitfield.example')).data.profile;
@@ -260,8 +291,7 @@ describe('the morning briefing', () => {
     const b = (await run('smart/briefing')).data.briefing;
     assert.ok(b.items.length >= 1);
     assert.ok(b.items[0].why.length > 0);
-    assert.match(b.text, /^\d+ unread/);
-    assert.match(b.text, /Start with /);
+    assert.match(b.text, /^Maya Okafor \(major partner\) is waiting on you about "Visiting in March"\./);
     assert.ok(!/[—–]/.test(b.text) && !/executive|empty/i.test(b.text));
     assert.equal(aiCalls.filter((c) => !/clef/.test(c.model)).length, n, 'no text model is used');
     assert.equal((await run('smart/briefing')).data.briefing.at, b.at, 'kept for the day');
@@ -270,7 +300,45 @@ describe('the morning briefing', () => {
     assert.equal(know.briefLine({ needs: 0, major: 0, waiting: 0, unread: 0 }, [], 0), '');
     const t = know.briefLine({ needs: 0, major: 0, waiting: 0, unread: 0 }, [], 12);
     assert.ok(!/empty|nothing|none/i.test(t));
-    assert.equal(know.briefLine({ needs: 3, major: 1, waiting: 14, unread: 1300 }, [{ from: 'Maya Okafor', subject: 'Visiting in March' }], 20), '1,300 unread, 3 waiting on you, 1 from major partner, 14 sent with no reply. Start with Maya Okafor: Visiting in March.');
+    assert.equal(know.briefLine({ needs: 3, major: 1, waiting: 14, unread: 1300, quiet: { notifications: 6, receipts: 2 } }, [{ from: 'Maya Okafor', subject: 'Visiting in March', why: 'major partner, waits on you' }], 20), 'Maya Okafor (major partner) is waiting on you about "Visiting in March". 3 waiting on you, 1 from a major partner, 14 sent with no reply. Plus 6 notifications and 2 receipts.');
+  });
+  it('leads with the most important conversation and folds notifications, receipts and newsletters into one closing line', async () => {
+    const sys = (id, from, subject, extra = {}) => thread(id, { from, subject, snippet: subject, labels: ['INBOX', 'UNREAD', 'CATEGORY_UPDATES'], ago: 0.1, ...extra });
+    box.threads.tfos00001 = sys('tfos00001', 'Favor Projects <noreply@favorintl.org>', 'Finished: H2 made in FavorOS');
+    box.threads.tfos00002 = sys('tfos00002', 'FavorOS <hub@favorintl.org>', 'Your clip is ready in FavorOS');
+    box.threads.tsuno0001 = sys('tsuno0001', 'Suno <receipts@suno.example>', 'Your receipt from Suno #4471');
+    box.threads.thume0001 = sys('thume0001', 'Hume AI <billing@hume.example>', 'Invoice 8820 for Hume AI');
+    const b = (await run('smart/briefing')).data.briefing;
+    assert.equal(b.items[0].from, 'Maya Okafor');
+    for (const i of b.items) assert.ok(!/FavorOS|Suno|Hume|Weekly Digest|Payments|Daily health/.test(i.from + i.subject), 'automatic mail is never a featured row: ' + i.from);
+    assert.ok(b.stats.quiet.notifications >= 2, 'both FavorOS notices are counted as notifications');
+    assert.ok(b.stats.quiet.receipts >= 2);
+    assert.match(b.text, /Plus \d+ notifications?/);
+    assert.ok(b.text.indexOf('Maya Okafor') < b.text.indexOf('Plus'), 'the summary leads with the person');
+  });
+  it('ranks people waiting on you first, then partners, then staff, then everyone else', () => {
+    const r = (o) => ({ id: 'x', date: '', ...o });
+    const order = [r({ ask: true, major: true, partner: { id: '1' } }), r({ ask: true, partner: { id: '1' } }), r({ ask: true, cat: 'staff' }), r({ ask: true, cat: 'people' }), r({ major: true, partner: { id: '1' } }), r({ partner: { id: '1' } }), r({ cat: 'staff' }), r({ cat: 'people' })].map((x) => know.importance(x));
+    assert.deepEqual(order, [...order].sort((a, b) => a - b));
+    assert.equal(new Set(order).size, order.length);
+    assert.equal(know.quietKind({ cat: 'people', from: { name: 'Favor Projects', email: 'x@favorintl.org' }, subject: 'Hi', partner: undefined }), 'notifications');
+    assert.equal(know.quietKind({ cat: 'notifications', from: { name: 'Maya', email: 'maya@example.org' }, subject: 'Hi', partner: { id: '1' } }), '', 'a partner is never quiet');
+  });
+  it('keeps a closed briefing closed until newer important mail arrives, for the person and not the browser', async () => {
+    const b1 = (await run('smart/briefing')).data.briefing;
+    assert.equal(b1.off, false);
+    assert.ok(b1.key, 'the card carries the date of the newest important message');
+    assert.equal((await run('smart/briefing/close', 'POST', { key: b1.key })).status, 200);
+    assert.equal((await run('smart/briefing?fresh=1')).data.briefing.off, true, 'still closed on a reload');
+    assert.equal((await run('smart/briefing')).data.briefing.off, true);
+    // an automatic notice does not bring it back
+    box.threads.tfos00003 = thread('tfos00003', { from: 'Favor Projects <noreply@favorintl.org>', subject: 'Finished: H3 made in FavorOS', snippet: 'Done', labels: ['INBOX', 'UNREAD', 'CATEGORY_UPDATES'], ago: 0.01 });
+    assert.equal((await run('smart/briefing?fresh=1')).data.briefing.off, true);
+    // a new message from a partner does
+    box.threads.tpartner2 = thread('tpartner2', { from: 'Maya Okafor <maya@example.org>', subject: 'One more thing', snippet: 'Can you call me?', labels: ['INBOX', 'UNREAD', 'CATEGORY_PERSONAL'], ago: 0.005 });
+    forgetRows();
+    (await import('../functions/_lib/mail/smart.ts')).forgetScan(ADMIN.email);
+    assert.equal((await run('smart/briefing?fresh=1')).data.briefing.off, false);
   });
 });
 
@@ -303,6 +371,20 @@ describe('questions and files', () => {
     const r = (await run('threads/tlong00001/ask', 'POST', { q: 'What does Maya want?' })).data;
     assert.match(r.answer, /By Friday/);
     assert.ok(!/[—–]/.test(r.answer));
+  });
+  it('books Ask under the Favor Brain ceiling and refuses politely past it', async () => {
+    const seen = [];
+    ai.runFor = async (feature) => { seen.push(feature); return { response: 'By Friday.' }; };
+    ai.run = async () => ({ response: 'unused' });
+    const ok = (await run('threads/tlong00001/ask', 'POST', { q: 'What does Maya want?' })).data;
+    assert.equal(ok.answer, 'By Friday.');
+    assert.deepEqual(seen, ['mail-ask']);
+    ai.runFor = async () => { const e = new Error('Model call held: budget (mail-ask)'); e.code = 'ai_paused'; e.why = 'budget'; throw e; };
+    const r = (await run('threads/tlong00001/ask', 'POST', { q: 'What does Maya want?' })).data;
+    assert.equal(r.paused, true);
+    assert.match(r.answer, /^Ask is resting for today/);
+    const G = await import('../functions/_lib/ai/guard.ts');
+    assert.equal(G.FEATURES['mail-ask'].cap, G.BRAIN_CEILING);
   });
   it('says what a file is and what to do next', async () => {
     ai.run = async () => ({ answers: { kind: { choice: 'check', probabilities: { check: 0.95 } } } });

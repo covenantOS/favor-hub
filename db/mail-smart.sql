@@ -78,3 +78,11 @@ CREATE TABLE IF NOT EXISTS hub_mail_tpl (
   body TEXT NOT NULL,
   PRIMARY KEY (email, id)
 );
+
+-- Briefing close (2026-10-14): the date of the newest important message (people, partners, staff) when the person closed the
+-- "This morning" card. The card stays closed until something newer and important arrives. Per person, on every device.
+CREATE TABLE IF NOT EXISTS hub_mail_brief_off (
+  email TEXT PRIMARY KEY,
+  key TEXT NOT NULL DEFAULT '',
+  at TEXT NOT NULL
+);

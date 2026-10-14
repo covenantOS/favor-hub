@@ -167,6 +167,7 @@
     },
     sender: function (email, name, mb) { return req('GET', pathMb('smart/sender?email=' + encodeURIComponent(email) + '&name=' + encodeURIComponent(name || ''), mb)); },
     briefing: function (fresh, mb) { return req('GET', pathMb('smart/briefing' + (fresh ? '?fresh=1' : ''), mb)); },
+    briefClose: function (key, mb) { return req('POST', pathMb('smart/briefing/close', mb), { key: key || '' }); },
     categories: function () { return req('GET', 'smart/categories'); },
     newCategory: function (name, description) { return req('POST', 'smart/categories', { name: name, description: description }); },
     dropCategory: function (id) { return req('DELETE', 'smart/categories/' + encodeURIComponent(id)); },
@@ -589,14 +590,18 @@
     });
   }
   var ovSeq = 0;
+  // Closing the briefing keeps the date of the newest important message (people, partners, staff) in this browser and, through the
+  // server, for the person on every device. The card comes back only when something newer and important arrives.
+  function briefClosedKey() { try { return localStorage.getItem('favor.mail.briefoff:' + (S.me || '')); } catch (e) { return null; } }
   function briefHtml() {
     var b = S.brief;
     if (!inboxPlain() || S.v || !S.threads.length || S.briefFailed || !S.level.read) return '';
-    try { if (sessionStorage.getItem('favor.mail.brief') === ET()) return ''; } catch (e) { /* private mode */ }
-    // While the briefing loads its place is held open, so the list below does not jump when it arrives.
-    if (!b) return '<div class="ml-brief ml-brief--wait" aria-hidden="true"><i></i><i></i><i></i></div>';
+    var closed = briefClosedKey();
+    // While the briefing loads its place is held open, so the list below does not jump when it arrives. A closed card holds nothing.
+    if (!b) return closed !== null ? '' : '<div class="ml-brief ml-brief--wait" aria-hidden="true"><i></i><i></i><i></i></div>';
+    if (b.off || (closed !== null && String(b.key || '') <= closed)) return '';
     var items = (b.items || []).map(function (i) { return '<button type="button" class="ml-brief__i" data-act="brief-open" data-id="' + esc(i.id) + '"><b>' + esc(i.from) + '</b><span>' + esc(i.subject) + '</span><em>' + esc(i.why) + '</em></button>'; }).join('');
-    return '<div class="ml-brief"><div class="ml-brief__h">' + ic('bolt') + '<b>This morning</b><button type="button" class="ml-iconbtn" data-act="brief-fresh" aria-label="Refresh the briefing">' + ic('refresh') + '</button><button type="button" class="ml-iconbtn" data-act="brief-hide" aria-label="Hide until tomorrow">' + ic('x') + '</button></div><p>' + esc(b.text) + '</p>' + (items ? '<div class="ml-brief__l">' + items + '</div>' : '') + '</div>';
+    return '<div class="ml-brief"><div class="ml-brief__h">' + ic('bolt') + '<b>This morning</b><button type="button" class="ml-iconbtn" data-act="brief-fresh" aria-label="Refresh the briefing">' + ic('refresh') + '</button><button type="button" class="ml-iconbtn" data-act="brief-hide" aria-label="Close the briefing">' + ic('x') + '</button></div><p>' + esc(b.text) + '</p>' + (items ? '<div class="ml-brief__l">' + items + '</div>' : '') + '</div>';
   }
   function nudgeHtml() {
     var n = S.ov && S.ov.unlogged;
@@ -1130,8 +1135,8 @@
   }
   function profileHtml(p, hasCard) {
     if (!p || (hasCard && p.kind === 'partner')) return '';
-    var hist = p.history && p.history.n ? p.history.n + (p.history.more ? '+' : '') + ' conversation' + (p.history.n === 1 ? '' : 's') + (p.history.lastDate ? ', last ' + esc(shortDay(p.history.lastDate)) : '') : 'First email';
-    return '<div class="ml-prof"><span class="ml-prof__t"><b>' + esc(p.name || p.email) + '</b><span>' + esc(p.role) + '. ' + hist + '.</span></span>' +
+    var facts = (p.facts || []).map(esc).join('. ');
+    return '<div class="ml-prof"><span class="ml-prof__t"><b>' + esc(p.name || p.email) + '</b><span>' + esc(p.role) + '</span>' + (facts ? '<span>' + facts + '.</span>' : '') + '</span>' +
       (p.partner ? '<a class="ml-btn" href="/work/partner/' + encodeURIComponent(p.partner.id) + '">Open partner</a>' : '') +
       (p.canProspect ? '<button type="button" class="ml-btn" data-act="prospect">Add as prospect</button>' : '') + '</div>';
   }
@@ -1163,7 +1168,7 @@
     if (a.ask || a.summary) html += '<div class="ml-sum">' + (a.ask ? '<em class="ml-chip ml-chip--sun">' + ic('bolt') + 'Waiting on you</em>' : '') + (a.summary ? '<p><b>In short</b> ' + esc(a.summary) + '</p>' : '') + '</div>';
     if (a.card && p) html += partnerCardHtml(a.card, p);
     html += profileHtml(a.profile, !!(a.card && p)) + giftHtml(a, p) + commitHtml(a);
-    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button><button type="button" class="ml-btn" data-act="ask-brain">' + ic('q') + 'Ask Favor Brain</button></div>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
+    html += '<div class="ml-askrow"><label class="ml-askbox">' + ic('q') + '<input data-ask placeholder="Ask about this email" aria-label="Ask about this email" autocomplete="off" maxlength="300" /></label><button type="button" class="ml-btn" data-act="ask-go">Ask</button><button type="button" class="ml-btn" data-act="find-time">' + ic('cal') + 'Find a time</button><button type="button" class="ml-btn" data-act="ask-brain">' + ic('q') + 'Ask Favor Brain</button></div><p class="ml-askcap">Answered by Favor Brain from this email</p>' + (a.answer ? '<div class="ml-answer">' + esc(a.answer) + '</div>' : '');
     var keep = box.querySelector('[data-ask]') ? box.querySelector('[data-ask]').value : '';
     box.innerHTML = html; box.hidden = !html;
     var ai2 = box.querySelector('[data-ask]'); if (ai2 && keep) ai2.value = keep;
@@ -2349,7 +2354,13 @@
     else if (k === 'clean-review') cleanReview();
     else if (k === 'brief-open') go('INBOX', '', id);
     else if (k === 'brief-fresh') loadBrief(true);
-    else if (k === 'brief-hide') { try { sessionStorage.setItem('favor.mail.brief', ET()); } catch (e2) { /* private mode */ } var bh = $('.ml-brief'); if (bh) bh.remove(); }
+    else if (k === 'brief-hide') {
+      var bk = (S.brief && S.brief.key) || '';
+      try { localStorage.setItem('favor.mail.briefoff:' + (S.me || ''), bk); } catch (e2) { /* private mode */ }
+      if (S.brief) S.brief.off = true;
+      api.briefClose(bk, accts()[0] || '').catch(function () { /* this browser still remembers */ });
+      var bh = $('.ml-brief'); if (bh) bh.remove();
+    }
     else if (k === 'nudge-hide') { try { localStorage.setItem('favor.mail.nudge', ET().slice(0, 8) + Math.floor(Number(ET().slice(8, 10)) / 7)); } catch (e3) { /* private mode */ } var nh = $('.ml-clean--nudge'); if (nh) nh.remove(); }
     else if (k === 'cats') categoriesSheet();
     else if (k === 'prospect') addProspect();

@@ -532,6 +532,7 @@ textarea.ml-input { resize: vertical; }
 .ml-askbox:focus-within { background: #fff; box-shadow: 0 0 0 1px var(--tc-sky); }
 .ml-askbox input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: 400 14px var(--h-font, Inter, sans-serif); color: var(--r-ink); }
 .ml-askrow .ml-btn { min-height: 36px; }
+.ml-askcap { margin: -4px 2px 0; font-size: 12px; line-height: 1.3; color: var(--r-ink-3); }
 .ml-answer { padding: 10px 14px; border-radius: 12px; background: var(--r-canvas); font-size: 14px; line-height: 1.5; }
 .ml-tl { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--r-line); padding-top: 8px; }
 .ml-tl__i { display: grid; grid-template-columns: 76px 64px 1fr; gap: 8px; font-size: 13px; color: var(--r-ink-2); }

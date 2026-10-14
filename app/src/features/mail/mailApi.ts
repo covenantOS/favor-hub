@@ -126,6 +126,7 @@ const real = {
   smartSearch: (q: string, mb?: string) => req('POST', pathMb('smart/search', mb), { q }),
   overview: (mb?: string) => req('GET', pathMb('smart/overview', mb)),
   briefing: (fresh: boolean, mb?: string) => req('GET', pathMb('smart/briefing' + (fresh ? '?fresh=1' : ''), mb)),
+  briefClose: (key: string, mb?: string) => req('POST', pathMb('smart/briefing/close', mb), { key: key || '' }),
   assist: (id: string) => req('GET', pathMb('threads/' + encodeURIComponent(id) + '/assist', boxOf(id))),
   partner: (id: string) => req('GET', 'partner/' + encodeURIComponent(id)),
   bulk: (b: any, mb?: string) => {

@@ -61,6 +61,9 @@ const CALENDAR = /^(updated invitation|invitation|accepted|declined|tentatively 
 const RECEIPT = /\b(receipt|invoice|payment|payout|paid|statement|your order|order confirmation|purchase|donation|gift (received|from|notification)|charge|refund|billing|renewal|subscription|check (is )?available|tax document|remittance)\b/i;
 const NOREPLY = /^(no-?reply|do-?not-?reply|donotreply|notifications?|notify|alerts?|mailer-daemon|postmaster|bounce|system|support|billing|receipts?|invoice|team|hello|news|updates?|info)([+._-].*)?@|@(mail|email|notify|notifications|e|em|send|bounce)\./i;
 
+/** FavorOS and the other Favor systems send mail under these names. It is automatic, whatever the address looks like. */
+const SYSTEM_NAME = /^favor(os| projects| hub| brain| health)\b/i;
+
 /** The category a conversation falls in by rules alone. `sure` is false for a conversation that looks like a person writing. */
 export function ruleCat(r: ThreadRow, partner: boolean, staff: boolean, ai: string): { cat: Cat; sure: boolean } {
   const from = lower(r.from?.email);
@@ -68,7 +71,7 @@ export function ruleCat(r: ThreadRow, partner: boolean, staff: boolean, ai: stri
   const tab = (c: string) => labels.includes('CATEGORY_' + c);
   const subject = String(r.subject || '');
   if (CALENDAR.test(subject) || /calendar-notification@google\.com|@calendar\.google\.com/.test(from)) return { cat: 'calendar', sure: true };
-  const automatic = r.bulk || NOREPLY.test(from) || /noreply|no-reply/.test(from);
+  const automatic = r.bulk || NOREPLY.test(from) || /noreply|no-reply/.test(from) || SYSTEM_NAME.test(String(r.from?.name || '').trim());
   if (partner && !r.bulk && !/noreply|no-reply/.test(from)) return { cat: 'partners', sure: true };
   if (staff && !automatic) return { cat: 'staff', sure: true };
   const text = subject + ' ' + (r.snippet || '');

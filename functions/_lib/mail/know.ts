@@ -24,12 +24,47 @@ export interface Profile {
   kind: 'staff' | 'partner' | 'outside';
   partner: { id: string; name: string } | null;
   staff: { title: string; team: string } | null;
-  history: { n: number; more: boolean; lastDate: string; recent: Array<{ id: string; subject: string; date: string }> };
+  history: { lastDate: string; recent: Array<{ id: string; subject: string; date: string }> };
+  /** The short facts the card shows after the role, already worded: last contact, shared projects, open tasks between the two. */
+  facts: string[];
   canProspect: boolean;
 }
 
-/** Who this address is to Favor: staff, a partner in Blackbaud, or someone outside, with the mail history between them and the person. */
-export async function senderProfile(ctx: SmartCtx, gm: Gmail, email: string, name = ''): Promise<Profile> {
+const etDay = (iso: string) => (iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' }) : '');
+
+/**
+ * What a staff member and the viewer share in FavorOS Projects: the active projects both belong to, and the open tasks one of
+ * them holds that the other made or follows. Only what the viewer may see (the Projects access rule and visibleProject and
+ * visibleTask), and nothing at all when Projects is not open to the viewer or its tables are not there.
+ */
+export async function sharedWork(env: Env, me: string, other: string, viewer: { admin: boolean; name?: string }): Promise<{ projects: string[]; projectCount: number; tasks: number }> {
+  const none = { projects: [] as string[], projectCount: 0, tasks: 0 };
+  try {
+    const { projectsMode, modeAllows, visibleProject, visibleTask } = await import('../projects/access');
+    if (!modeAllows(await projectsMode(env), { admin: viewer.admin })) return none;
+    const actor = { email: me, name: viewer.name || me, admin: viewer.admin };
+    const vp = visibleProject(actor, 'p');
+    const inProject = (who: string) => `(lower(p.lead_email) = ${who} OR EXISTS (SELECT 1 FROM hub_project_members m WHERE m.project_id = p.id AND lower(m.email) = ${who}))`;
+    const projects = await env.DB.prepare(`SELECT p.name FROM hub_projects p WHERE p.status = 'active' AND ${vp.sql} AND ${inProject('?')} AND ${inProject('?')} ORDER BY p.name COLLATE NOCASE LIMIT 20`)
+      .bind(...vp.args, me, me, other, other)
+      .all<{ name: string }>();
+    const vt = visibleTask(actor, 't');
+    const onIt = (who: string) => `(lower(COALESCE(t.created_by, '')) = ${who} OR EXISTS (SELECT 1 FROM hub_task_people tp WHERE tp.task_id = t.id AND lower(tp.email) = ${who}))`;
+    const tasks = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM hub_tasks t WHERE t.status NOT IN ('done', 'dropped') AND ${vt.sql}
+         AND ((lower(COALESCE(t.owner_email, '')) = ? AND ${onIt('?')}) OR (lower(COALESCE(t.owner_email, '')) = ? AND ${onIt('?')}))`
+    )
+      .bind(...vt.args, other, me, me, me, other, other)
+      .first<{ n: number }>();
+    const names = (projects.results || []).map((r) => String(r.name));
+    return { projects: names.slice(0, 3), projectCount: names.length, tasks: Number(tasks?.n) || 0 };
+  } catch {
+    return none;
+  }
+}
+
+/** Who this address is to Favor: staff, a partner in Blackbaud, or someone outside, with the last contact and, for staff, what the two share. */
+export async function senderProfile(ctx: SmartCtx, gm: Gmail, email: string, name = '', viewer: { admin: boolean } = { admin: false }): Promise<Profile> {
   const e = lower(email);
   const [dir, pm, hist] = await Promise.all([
     staffDirectory(ctx.env).catch(() => []),
@@ -41,6 +76,13 @@ export async function senderProfile(ctx: SmartCtx, gm: Gmail, email: string, nam
   const rows = await rowsFor(gm, ctx.me, hist.threads.slice(0, 5), 5).catch(() => []);
   const kind: Profile['kind'] = person ? 'staff' : partner ? 'partner' : 'outside';
   const role = person ? `Staff${person.title ? ', ' + person.title : person.team ? ', ' + person.team : ''}` : partner ? `Partner in Blackbaud, ${partner.name}` : 'Not in Blackbaud';
+  const lastDate = rows[0]?.date || '';
+  const facts: string[] = [lastDate ? `Last contact ${etDay(lastDate)}` : 'First email'];
+  if (person && e !== ctx.me) {
+    const w = await sharedWork(ctx.env, ctx.me, e, { admin: viewer.admin, name: ctx.name });
+    if (w.projects.length) facts.push(`Shared ${w.projectCount === 1 ? 'project' : 'projects'}: ${w.projects.join(', ')}${w.projectCount > w.projects.length ? ` and ${w.projectCount - w.projects.length} more` : ''}`);
+    if (w.tasks) facts.push(`${w.tasks} open ${w.tasks === 1 ? 'task' : 'tasks'} between you`);
+  }
   return {
     email: e,
     name: name || person?.name || partner?.name || e,
@@ -48,7 +90,8 @@ export async function senderProfile(ctx: SmartCtx, gm: Gmail, email: string, nam
     kind,
     partner,
     staff: person ? { title: person.title || '', team: person.team || '' } : null,
-    history: { n: hist.threads.length, more: hist.more, lastDate: rows[0]?.date || '', recent: rows.map((r) => ({ id: r.id, subject: r.subject, date: r.date })) },
+    history: { lastDate, recent: rows.map((r) => ({ id: r.id, subject: r.subject, date: r.date })) },
+    facts,
     canProspect: kind === 'outside' && !/noreply|no-reply|notifications?@|mailer-daemon/i.test(e),
   };
 }
@@ -152,60 +195,169 @@ export function commitments(text: string, sentAt: string): Array<{ text: string;
 
 /* ------------------------------------------------------------------ the morning briefing */
 
+export interface Quiet {
+  notifications: number;
+  receipts: number;
+  newsletters: number;
+  calendar: number;
+}
+
 export interface Briefing {
   text: string;
   items: Array<{ id: string; mb: string; from: string; subject: string; why: string }>;
-  stats: { needs: number; major: number; waiting: number; unlogged: number; unread: number };
+  stats: { needs: number; major: number; waiting: number; unlogged: number; unread: number; quiet: Quiet };
+  /** The date of the newest message that matters (people, partners, staff). The close button keeps this; newer important mail brings the card back. */
+  key: string;
   at: string;
+  /** True when the person closed the card and nothing important has come in since. Set on each read, never stored with the briefing. */
+  off?: boolean;
+}
+
+const QUIET_CATS = new Set(['notifications', 'receipts', 'newsletters', 'calendar']);
+// Mail FavorOS and other systems send. A person with one of these names is rare enough that the briefing treats the sender as a system.
+const SYSTEM_SENDER = /\bfavoros\b|^favor (projects|hub|brain|health)\b|\b(no-?reply|do-?not-?reply|mailer-daemon|notifications?)\b/i;
+const SYSTEM_SUBJECT = /\b(in|from|on) favoros\b/i;
+
+/** Which automatic kind a conversation is (notifications, receipts, newsletters, calendar), or '' for mail from a person. Partners are never quiet. */
+export function quietKind(r: Pick<SmartRow, 'cat' | 'partner' | 'bulk' | 'from' | 'subject'>): keyof Quiet | '' {
+  if (r.partner) return '';
+  if (r.cat && QUIET_CATS.has(r.cat)) return r.cat as keyof Quiet;
+  if (SYSTEM_SENDER.test(`${r.from?.name || ''} ${r.from?.email || ''}`) || SYSTEM_SUBJECT.test(String(r.subject || ''))) return 'notifications';
+  if (r.bulk) return 'newsletters';
+  return '';
+}
+
+/** How much a conversation matters to the person, lowest first: waiting on you (major partners, partners, then the rest), then partners, staff, everyone else. */
+export function importance(r: SmartRow): number {
+  if (r.ask) return r.major ? 0 : r.partner ? 1 : r.cat === 'staff' ? 2 : 3;
+  if (r.major) return 4;
+  if (r.partner) return 5;
+  if (r.cat === 'staff') return 6;
+  return r.starred ? 6 : 7;
 }
 
 const why = (r: SmartRow): string => {
   const bits: string[] = [];
   if (r.major) bits.push('major partner');
   else if (r.partner) bits.push('partner');
+  else if (r.cat === 'staff') bits.push('staff');
   if (r.ask) bits.push('waits on you');
   if (r.starred) bits.push('starred');
   return bits.join(', ') || 'unread';
 };
 
-/** The few conversations to start with, in order, and two plain sentences about the morning. Kept for three hours. */
-/** The two lines at the top of the inbox, from counts only: what is unread, what waits, and where to start. Says nothing is there only when nothing is. */
-export function briefLine(stats: { needs: number; major: number; waiting: number; unread: number }, items: Array<{ from: string; subject: string }>, shown: number): string {
+const plural = (n: number, one: string, many = one + 's') => `${n.toLocaleString('en-US')} ${n === 1 ? one : many}`;
+
+/**
+ * The lines at the top of the inbox, from counts only. The first sentence is the most important conversation, the second the totals,
+ * and the automatic mail (notifications, receipts, newsletters, calendar) is one closing line. Says nothing only when no messages show.
+ */
+export function briefLine(stats: { needs: number; major: number; waiting: number; unread: number; quiet?: Partial<Quiet> }, items: Array<{ from: string; subject: string; why?: string }>, shown: number): string {
   if (!shown) return '';
   const n = (x: number) => x.toLocaleString('en-US');
+  const top = items[0];
+  let lead = 'No unread mail from people or partners.';
+  if (top) {
+    const w = top.why || '';
+    const from = top.from || 'Someone';
+    const who = /major partner/.test(w) ? `${from} (major partner)` : /partner/.test(w) ? `${from} (partner)` : from;
+    lead = /waits on you/.test(w) ? `${who} is waiting on you about "${top.subject}".` : `${who} wrote "${top.subject}".`;
+  }
   const parts: string[] = [];
-  if (stats.unread) parts.push(`${n(stats.unread)} unread`);
   if (stats.needs) parts.push(`${n(stats.needs)} waiting on you`);
-  if (stats.major) parts.push(`${n(stats.major)} from major ${stats.major === 1 ? 'partner' : 'partners'}`);
+  if (stats.major) parts.push(`${n(stats.major)} from ${stats.major === 1 ? 'a major partner' : 'major partners'}`);
   if (stats.waiting) parts.push(`${n(stats.waiting)} sent with no reply`);
-  const first = items[0] ? `Start with ${items[0].from || 'the first one'}: ${items[0].subject}.` : '';
-  return [parts.length ? parts.join(', ') + '.' : '', first].filter(Boolean).join(' ');
+  const q = stats.quiet || {};
+  const quiet = [
+    q.notifications ? plural(q.notifications, 'notification') : '',
+    q.receipts ? plural(q.receipts, 'receipt') : '',
+    q.newsletters ? plural(q.newsletters, 'newsletter') : '',
+    q.calendar ? plural(q.calendar, 'calendar notice') : '',
+  ].filter(Boolean);
+  const tail = quiet.length ? `Plus ${quiet.length > 1 ? quiet.slice(0, -1).join(', ') + ' and ' + quiet[quiet.length - 1] : quiet[0]}.` : '';
+  return [lead, parts.length ? parts.join(', ') + '.' : '', tail].filter(Boolean).join(' ');
 }
 
-export async function briefing(ctx: SmartCtx, gm: Gmail, runModel: (system: string, user: string, max: number) => Promise<string>, waiting: number, force = false): Promise<Briefing> {
+/**
+ * The newest-important-mail marker the person last closed the briefing at (hub_mail_brief_off, db/mail-smart.sql). A read or write
+ * that finds the table missing makes it and tries once more, so the page works before the migration has run.
+ */
+const BRIEF_OFF_DDL = "CREATE TABLE IF NOT EXISTS hub_mail_brief_off (email TEXT PRIMARY KEY, key TEXT NOT NULL DEFAULT '', at TEXT NOT NULL)";
+async function withBriefOff<T>(env: Env, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch {
+    await env.DB.prepare(BRIEF_OFF_DDL).run();
+    return fn();
+  }
+}
+async function briefClosedAt(env: Env, me: string): Promise<string | null> {
+  try {
+    const r = await withBriefOff(env, () => env.DB.prepare('SELECT key FROM hub_mail_brief_off WHERE email = ?').bind(me).first<{ key: string }>());
+    return r ? String(r.key || '') : null;
+  } catch {
+    return null;
+  }
+}
+/** Records that the person closed the briefing while the newest important mail was dated `key`. Only moves forward. */
+export async function closeBriefing(env: Env, me: string, key: string): Promise<void> {
+  const k = String(key || '').slice(0, 40);
+  await withBriefOff(env, () => env.DB.prepare('INSERT INTO hub_mail_brief_off (email, key, at) VALUES (?, ?, ?) ON CONFLICT(email) DO UPDATE SET key = CASE WHEN excluded.key > hub_mail_brief_off.key THEN excluded.key ELSE hub_mail_brief_off.key END, at = excluded.at').bind(me, k, nowIso()).run());
+}
+
+/** Kept this long. Short enough that new important mail brings a closed card back the same morning. */
+const BRIEF_KEEP_MS = 10 * 60 * 1000;
+const BRIEF_SHAPE = 2;
+
+async function buildBriefing(ctx: SmartCtx, gm: Gmail, waiting: number): Promise<Briefing> {
+  const scan = await scanInbox(ctx, gm, '', true);
+  const quiet: Quiet = { notifications: 0, receipts: 0, newsletters: 0, calendar: 0 };
+  const real: SmartRow[] = [];
+  for (const r of scan.rows) {
+    if (r.fromMe || r.draft) continue;
+    const k = quietKind(r);
+    if (k) {
+      if (r.unread) quiet[k]++;
+      continue;
+    }
+    if (r.unread || r.ask) real.push(r);
+  }
+  const ranked = [...real].sort((a, b) => importance(a) - importance(b) || b.date.localeCompare(a.date));
+  const items = ranked.slice(0, 5).map((r) => ({ id: r.id, mb: '', from: r.partner?.name || r.from?.name || r.from?.email || '', subject: r.subject || '(no subject)', why: why(r) }));
+  const stats = { needs: scan.rows.filter((r) => r.ask).length, major: scan.rows.filter((r) => r.major && r.unread).length, waiting, unlogged: 0, unread: real.filter((r) => r.unread).length, quiet };
+  const key = real.reduce((m, r) => (r.date > m ? r.date : m), '');
+  return { text: briefLine(stats, items, scan.rows.length), items, stats, key, at: nowIso() };
+}
+
+/** The conversations to start with, in order, and a few plain sentences about the morning. No model is asked. */
+export async function briefing(ctx: SmartCtx, gm: Gmail, _runModel: (system: string, user: string, max: number) => Promise<string>, waiting: number, force = false): Promise<Briefing> {
   const day = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const closed = briefClosedAt(ctx.env, ctx.me);
   const saved = await ctx.env.DB.prepare('SELECT body, at FROM hub_mail_brief WHERE email = ? AND day = ?').bind(ctx.me, day).first<{ body: string; at: string }>().catch(() => null);
-  if (!force && saved && Date.now() - Date.parse(saved.at) < 3 * 3600000) {
+  let out: Briefing | null = null;
+  if (!force && saved && Date.now() - Date.parse(saved.at) < BRIEF_KEEP_MS) {
     try {
-      return JSON.parse(saved.body) as Briefing;
+      const b = JSON.parse(saved.body) as Briefing & { shape?: number };
+      if (b.shape === BRIEF_SHAPE) out = b;
     } catch {
       /* rebuilt below */
     }
   }
-  const scan = await scanInbox(ctx, gm, '', true);
-  const unread = scan.rows.filter((r) => r.unread);
-  const human = scan.rows.filter((r) => r.unread && (r.ask || r.partner || r.starred) && r.cat !== 'newsletters' && r.cat !== 'notifications');
-  const ranked = [...human].sort((a, b) => (b.prio || 0) - (a.prio || 0) || a.date.localeCompare(b.date));
-  const items = (ranked.length ? ranked : unread).slice(0, 5).map((r) => ({ id: r.id, mb: '', from: r.partner?.name || r.from?.name || r.from?.email || '', subject: r.subject || '(no subject)', why: why(r) }));
-  const stats = { needs: scan.rows.filter((r) => r.ask).length, major: scan.rows.filter((r) => r.major && r.unread).length, waiting, unlogged: 0, unread: unread.length };
-  const text = briefLine(stats, items, scan.rows.length);
-  const out: Briefing = { text, items, stats, at: nowIso() };
-  await ctx.env.DB.prepare('INSERT INTO hub_mail_brief (email, day, body, at) VALUES (?, ?, ?, ?) ON CONFLICT(email, day) DO UPDATE SET body = excluded.body, at = excluded.at').bind(ctx.me, day, JSON.stringify(out), out.at).run().catch(() => undefined);
-  return out;
+  if (!out) {
+    out = await buildBriefing(ctx, gm, waiting);
+    await ctx.env.DB.prepare('INSERT INTO hub_mail_brief (email, day, body, at) VALUES (?, ?, ?, ?) ON CONFLICT(email, day) DO UPDATE SET body = excluded.body, at = excluded.at').bind(ctx.me, day, JSON.stringify({ ...out, shape: BRIEF_SHAPE }), out.at).run().catch(() => undefined);
+  }
+  const at = await closed;
+  return { ...out, off: at !== null && out.key <= at };
 }
 
 /* ------------------------------------------------------------------ questions about one conversation */
 
+/** The budget name Ask is booked under (functions/_lib/ai/guard.ts): the same daily ceiling as Favor Brain. */
+export const ASK_FEATURE = 'mail-ask';
+export const ASK_PAUSED = 'Ask is resting for today. It opens again tomorrow, and Ask Favor Brain still works.';
+
+/** One question about one conversation, answered from the text of the last eight messages. Throws AiPaused past the daily ceiling. */
 export async function askThread(runModel: (system: string, user: string, max: number) => Promise<string>, thread: string, question: string): Promise<string> {
   const q = String(question || '').trim().slice(0, 400);
   if (q.length < 3) return '';

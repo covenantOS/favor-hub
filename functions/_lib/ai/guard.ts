@@ -61,6 +61,8 @@ export const FEATURES: Record<string, Feature> = {
   'check-reading': { tier: 3, label: 'Gift entry: reading checks', offByDefault: true },
   'online-gift-reading': { tier: 3, label: 'Online gifts: reading a comment the rules could not place' },
   'mail-draft': { tier: 3, label: 'Mail: drafts and summaries' },
+  // "Ask about this email" (2026-10-14). Counts against the same $10 a day ceiling as Favor Brain, and refuses past it.
+  'mail-ask': { tier: 3, label: 'Mail: ask about one email', cap: BRAIN_CEILING },
   'request-route': { tier: 3, label: 'Requests: sorting new requests' },
   'chat-voice': { tier: 3, label: 'Chat: voice notes to text' },
   'chat-catchup': { tier: 3, label: 'Chat: catch-up summaries' },
