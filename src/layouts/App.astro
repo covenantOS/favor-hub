@@ -56,7 +56,7 @@ interface Props {
 const { title, crumb = 'FavorOS', nav = '', wide = false, full = false, bare = false, description = 'FavorOS, the Favor International staff workspace.' } = Astro.props;
 
 import { icon } from '../data/icons';
-import { badgeFor, pageBadge } from '../data/release';
+import { badgeFor } from '../data/release';
 import Rel from '../components/Rel.astro';
 import { BUILD } from '../data/build';
 import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, resolveNav } from '../data/areas';
@@ -272,8 +272,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               var rel = window.FAVOR_REL || {}, L = { alpha: 'Alpha', beta: 'Beta', new: 'New' };
               document.querySelectorAll('[data-rel]').forEach(function (el) {
                 var k = el.dataset.rel, b = rel[k] || null;
-                // A page link shows its badge only where it differs from its area's.
-                if (b && k.indexOf('page:') === 0 && el.closest('.h-pg')) { var ar = el.closest('.h-area'); if (ar && rel[ar.dataset.area] === b) b = null; }
+                // A page link (menu or tab row) shows its badge only where it differs from its area's.
+                if (b && k.indexOf('page:') === 0) { var ar = el.closest('.h-pg') ? el.closest('.h-area') : el.closest('.h-tabs'); if (ar && rel[ar.dataset.area] === b) b = null; }
                 el.hidden = !b;
                 el.className = 'h-rel' + (b ? ' h-rel--' + b : '') + (el.dataset.relCls ? ' ' + el.dataset.relCls : '');
                 el.textContent = b ? L[b] : '';
@@ -324,7 +324,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           {found && <span class="h-tile" id="h-tile" aria-hidden="true"><Fragment set:html={icon(found.area.icon)} /></span>}
           <div class="h-top__head">
             <div class="h-top__crumb">{crumbText}</div>
-            <div class="h-top__title">{found ? found.area.label : title}{found && <Rel k={`page:${found.page.id}`} b={pageBadge(found.page.id, found.area.id)} cls="h-rel--head" />}{found && found.page.id === 'projects' && <span class="h-top__note">Synced with Asana</span>}</div>
+            <div class="h-top__title">{found ? found.area.label : title}{found && <Rel k={found.area.id} b={badgeFor(found.area.id)} cls="h-rel--head" />}{found && found.page.id === 'projects' && <span class="h-top__note">Synced with Asana</span>}</div>
           </div>
           <div class="h-top__tabs" id="h-tabs-slot">{found && <NavTabs area={found.area} nav={nav} />}</div>
           <div class="h-top__right" data-ui-actions>
@@ -356,13 +356,13 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/hub-shell.js?v=12" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=7" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=21" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=22" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
     <script is:inline src="/js/request-tasks.js?v=2" defer></script>
     <script is:inline src="/js/request-drawer.js?v=1" defer></script>
     <script is:inline src="/js/wc-bell.js?v=10" defer></script>
-    <script is:inline src="/js/tab-org.js?v=1" defer></script>
+    <script is:inline src="/js/tab-org.js?v=2" defer></script>
     <script is:inline src="/js/dock.js?v=2" defer></script>
     <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>

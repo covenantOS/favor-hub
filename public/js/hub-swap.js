@@ -202,6 +202,8 @@
         oldTabs.querySelectorAll('.h-tab').forEach((a) => { const on = a.dataset.navId === onId; a.classList.toggle('is-on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
       } else if (slot && nslot) {
         slot.innerHTML = nslot.innerHTML;
+        // The new tab row is the build's copy: apply the admin's saved badges to it too.
+        if (window.hubRelApply) window.hubRelApply();
       }
       const onPg = $('.h-pg__a.is-on', doc);
       const onId = onPg ? onPg.dataset.navId : null;

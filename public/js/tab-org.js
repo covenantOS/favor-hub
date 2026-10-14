@@ -41,8 +41,10 @@
     return Array.prototype.slice.call(row.querySelectorAll('a.h-tab:not([hidden])')).map(function (a) {
       var c = a.querySelector('.h-nav__count:not([hidden])');
       var clone = a.cloneNode(true);
-      Array.prototype.forEach.call(clone.querySelectorAll('.h-nav__count'), function (n) { n.remove(); });
-      return { id: a.getAttribute('data-nav-id') || '', el: a, label: clone.textContent.trim(), on: a.classList.contains('is-on'), count: c ? c.textContent.trim() : '', warn: !!(c && c.classList.contains('h-nav__count--warn')) };
+      Array.prototype.forEach.call(clone.querySelectorAll('.h-nav__count, .h-rel'), function (n) { n.remove(); });
+      // The tab's release badge (NavTabs.astro) is carried over as markup, so the rebuilt row keeps its dot and the open tab's word.
+      var rb = a.querySelector('.h-rel:not([hidden])');
+      return { id: a.getAttribute('data-nav-id') || '', el: a, label: clone.textContent.trim(), rel: rb ? rb.outerHTML : '', on: a.classList.contains('is-on'), count: c ? c.textContent.trim() : '', warn: !!(c && c.classList.contains('h-nav__count--warn')) };
     });
   }
 
@@ -69,7 +71,7 @@
       a.href = it.tab.el.getAttribute('href') || '#';
       a.setAttribute('data-org-id', it.tab.id);
       if (it.tab.on) a.setAttribute('aria-current', 'page');
-      a.innerHTML = esc(it.tab.label) + (it.tab.count ? '<span class="h-nav__count' + (it.tab.warn ? ' h-nav__count--warn' : '') + '">' + esc(it.tab.count) + '</span>' : '');
+      a.innerHTML = esc(it.tab.label) + it.tab.rel + (it.tab.count ? '<span class="h-nav__count' + (it.tab.warn ? ' h-nav__count--warn' : '') + '">' + esc(it.tab.count) + '</span>' : '');
       a.addEventListener('click', function (e) { forward(e, it.tab.el); });
       return a;
     }
@@ -116,7 +118,7 @@
         a.href = m.el.getAttribute('href') || '#';
         a.className = m.on ? 'is-on' : '';
         a.setAttribute('role', 'menuitem');
-        a.innerHTML = '<span>' + esc(m.label) + '</span>' + (m.count ? '<span class="h-nav__count">' + esc(m.count) + '</span>' : '');
+        a.innerHTML = '<span>' + esc(m.label) + m.rel + '</span>' + (m.count ? '<span class="h-nav__count">' + esc(m.count) + '</span>' : '');
         a.addEventListener('click', function (e) { forward(e, m.el); });
         menu.appendChild(a);
       });

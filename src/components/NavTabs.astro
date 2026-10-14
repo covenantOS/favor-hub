@@ -1,10 +1,15 @@
 ---
-// The tab row under the header: the pages of the area this page belongs to.
+// The tab row under the header: the pages of the area this page belongs to. The header title is the area's name and wears
+// the area's badge, so it stays put while someone moves between tabs; a page's own badge sits on its tab (a dot, the word
+// on the open tab), shown only where it differs from the area's.
 import type { NavArea } from '../data/areas';
+import { badgeFor, pageBadge } from '../data/release';
+import Rel from './Rel.astro';
 interface Props { area: NavArea; nav: string; }
 const { area, nav } = Astro.props;
 const pages = area.pages.filter((p) => !p.ext);
 const allGated = pages.every((p) => p.need || p.team);
+const tabBadge = (id: string) => { const b = pageBadge(id, area.id); return b === badgeFor(area.id) ? null : b; };
 const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav);
 ---
 {pages.length > 1 && (
@@ -23,6 +28,7 @@ const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also
           aria-current={activeId(p) ? 'page' : undefined}
         >
           {p.label}
+          <Rel k={`page:${p.id}`} b={tabBadge(p.id)} cls="h-rel--tab" />
           {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
         </a>
       ))}
