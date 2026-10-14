@@ -31,6 +31,7 @@ import '../styles/today-work.css';
         <h1 id="t-hello">Good day</h1>
         <script is:inline>(function(){try{var h=+new Date().toLocaleString('en-US',{timeZone:'America/New_York',hour:'numeric',hour12:false})%24,p=h<12?'Good morning':h<17?'Good afternoon':'Good evening',n=localStorage.getItem('favor.hub.first.v1')||'';document.getElementById('t-hello').textContent=n?p+', '+n:p;}catch(e){}})();</script>
         <p id="t-date"></p>
+        <script is:inline>(function(){try{document.getElementById('t-date').textContent=new Date().toLocaleDateString('en-US',{timeZone:'America/New_York',weekday:'long',month:'long',day:'numeric'});}catch(e){}})();</script>
       </section>
       <div class="r2t-hello__r" id="t-now"></div>
     </div>
@@ -50,13 +51,13 @@ import '../styles/today-work.css';
       </div>
     </div>
 
-    <div id="br-root" aria-live="polite"></div>
+    <div id="br-root" aria-live="polite" data-keep-h="brief"></div>
 
     <div id="fw-root"></div>
 
     <section>
       <div class="r2t-sec"><h2>Needs you</h2><span id="t-needs-meta"></span></div>
-      <div class="r2t-needs" id="t-cards" aria-busy="true"><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div></div>
+      <div class="r2t-needs" id="t-cards" aria-busy="true" data-keep-h="needs"><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div><div class="r2t-skel"></div></div>
       <p class="r2t-msg" id="d-sub" hidden></p>
     </section>
 
@@ -95,7 +96,7 @@ import '../styles/today-work.css';
       </section>
     </section>
 
-    <div class="r2t-row3" id="d-grid" aria-busy="true"><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div></div>
+    <div class="r2t-row3" id="d-grid" aria-busy="true" data-keep-h="grid"><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div></div>
 
     <section id="t-year-wrap" hidden>
       <div class="r2t-sec"><h2>Where the year stands</h2><span id="t-fresh"></span></div>

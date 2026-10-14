@@ -226,16 +226,24 @@ async function load(fresh) {
     const q = [S.owner ? 'owner=' + encodeURIComponent(S.owner) : '', fresh ? 'fresh=1' : ''].filter(Boolean).join('&');
     const d = await get('/api/brief/today' + (q ? '?' + q : ''));
     if (!d.briefing) { root.hidden = true; return; }
+    // A saved briefing more than five minutes old is not drawn: the current one is read and drawn once, in its place. Drawing the old
+    // one first and then the new one changed the card's height a moment after the page settled. The old one shows only if the read fails.
+    if (d.stale && !fresh) {
+      const ok = await load(true);
+      if (ok) return true;
+    }
     S.data = d.briefing;
     if (d.away) S.away = d.away;
     if (!S.owner && d.briefing.owner) S.owner = '';
     draw();
     wantPrep();
-    // A saved briefing more than five minutes old drew at once; read the current one behind it and redraw.
-    if (d.stale && !fresh) load(true);
+    return true;
   } catch (e) {
+    // A failed fresh read keeps what is on screen.
+    if (fresh) return false;
     S.error = e.message;
     root.innerHTML = '';
+    return false;
   }
 }
 
