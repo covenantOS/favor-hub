@@ -39,6 +39,14 @@ function wrap(text: string, font: PDFFont, size: number, maxWidth: number): stri
   return lines;
 }
 
+/** The banner at the top of a PDF that is not a finished decision. Approved requests carry none. */
+export function pdfStatusLabel(status: string): string {
+  if (status === 'approved') return '';
+  if (status === 'declined') return 'Declined';
+  if (status === 'draft') return 'Draft';
+  return 'Pending approval';
+}
+
 export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseItemRow[], origin: string): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
   doc.setTitle(`${row.doc_number} Expense Request`);
@@ -85,6 +93,12 @@ export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseI
   y -= 26;
 
   text('Expense Request', MARGIN, 18, bold);
+  const label = pdfStatusLabel(row.status);
+  if (label) {
+    const lw = bold.widthOfTextAtSize(label.toUpperCase(), 11) + 20;
+    page.drawRectangle({ x: PAGE_W - MARGIN - lw, y: y - 5, width: lw, height: 22, color: CREAM, borderColor: INK, borderWidth: 1 });
+    page.drawText(label.toUpperCase(), { x: PAGE_W - MARGIN - lw + 10, y: y + 1, size: 11, font: bold, color: INK });
+  }
   y -= 26;
 
   const metaRow = (label: string, value: string) => {
@@ -167,11 +181,11 @@ export async function buildExpensePdf(env: Env, row: ExpenseRow, items: ExpenseI
       }
     }
     page.drawLine({ start: { x, y: sigTop - 6 }, end: { x: x + colW, y: sigTop - 6 }, thickness: 0.8, color: INK });
-    page.drawText(`${who} · ${role}`, { x, y: sigTop - 18, size: 9, font: bold, color: INK });
+    page.drawText(who ? `${who} · ${role}` : role, { x, y: sigTop - 18, size: 9, font: bold, color: INK });
     if (when) page.drawText(`Signed ${when}`, { x, y: sigTop - 30, size: 7.5, font: mono, color: SOFT });
   };
   await drawSig(MARGIN, row.requester_signature, row.requester_name, 'Requester', fmtEt(row.submitted_at));
-  await drawSig(MARGIN + colW + 24, row.approver_signature, row.approver_name, 'Approver', row.decided_at ? fmtEt(row.decided_at) : null);
+  await drawSig(MARGIN + colW + 24, row.approver_signature, row.approver_signature ? row.approver_name : '', 'Approver', row.decided_at ? fmtEt(row.decided_at) : null);
   y = sigTop - 52;
 
   // Audit trail.

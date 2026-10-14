@@ -78,6 +78,7 @@
       .join("");
     return (
       '<div class="exp-detail">' +
+      (r.pdf ? '<a class="exp-pdf-link exp-pdf-btn" href="' + esc(r.pdf) + '" download>Download PDF</a>' : "") +
       '<div class="exp-rows">' +
       "<b>Dates</b><span>" + (esc(r.travel_dates) || "&mdash;") + "</span>" +
       "<b>City / state</b><span>" + (esc(r.travel_city) || "&mdash;") + "</span>" +
@@ -214,7 +215,7 @@
         '<td><span class="exp-pill ' + esc(r.status) + '">' + esc(({ pending: "Waiting", approved: "Approved", declined: "Declined" })[r.status] || r.status) + "</span>" +
         (r.decline_note ? '<br/><span style="opacity:.6">' + esc(r.decline_note) + "</span>" : "") + "</td>" +
         '<td class="r">' + money(r.total_cents) + "</td>" +
-        "<td>" + (r.pdf ? '<a href="' + esc(r.pdf) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">PDF</a>' : "") +
+        "<td>" + (r.pdf ? '<a class="exp-pdf-link" href="' + esc(r.pdf) + '" download onclick="event.stopPropagation()">Download PDF</a>' : "") +
         (r.can_review ? '<a class="exp-review-link" href="/expenses/review/?id=' + encodeURIComponent(r.id) + '" onclick="event.stopPropagation()">Review and sign</a>' : "") + "</td>";
       var detailRow = document.createElement("tr");
       detailRow.className = "exp-admin-detail";

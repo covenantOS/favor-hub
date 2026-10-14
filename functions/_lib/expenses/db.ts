@@ -355,7 +355,7 @@ export function expenseShape(row: ExpenseRow, items: ExpenseItemRow[], opts: { s
     decided_at: row.decided_at,
     requester_signature: opts.signatures ? row.requester_signature : undefined,
     approver_signature: opts.signatures ? row.approver_signature : undefined,
-    pdf: opts.admin && row.pdf_r2_key ? `/api/expenses/${row.id}/pdf` : undefined,
+    pdf: opts.admin ? `/api/expenses/${row.id}/pdf` : undefined,
     items: items.map((it) => ({ description: it.description, item: it.item, amount_cents: it.amount_cents })),
   };
 }
