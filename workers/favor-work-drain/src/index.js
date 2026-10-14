@@ -11,6 +11,7 @@
 //   */10 * * * *    POST /api/receipts/warm  reads the Receipts waiting list from Blackbaud so the page never waits on it (10:00 to 02:00 UTC)
 //   */5 * * * *     POST /api/ai/reconcile  on every tenth minute: Cloudflare's own AI neuron totals over the budget guard's estimate
 //   */5 * * * *     on minutes 0 and 30: the production smoke check (GET /login/, /version.json, a script, then POST /api/hub/smoke)
+//   */5 * * * *     POST /api/asana/run  the two-way Asana sync for Projects: queued changes both ways, then what Asana changed since the last pass
 //   10 * * * *      POST /api/work/fresh   asks Blackbaud which actions changed and has them re-read into the mirror
 // Every job writes its outcome to the hub database (hub_cron_runs, through the DB binding): last_ok on success, last_error and a fails
 // count on a failure. Admin > Overview reads it as "Scheduled jobs" and "Smoke check", so a job that stops or fails shows the same day.
@@ -183,6 +184,7 @@ export default {
       ctx.waitUntil(warm(env, event.scheduledTime));
       const min = new Date(event.scheduledTime).getUTCMinutes();
       if (min % 10 === 0) ctx.waitUntil(logged('ai-reconcile', '/api/ai/reconcile'));
+      ctx.waitUntil(logged('asana-sync', '/api/asana/run'));
       if (min % 30 === 0) ctx.waitUntil(job(env, 'smoke', () => smoke(env)));
     } else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(logged('digest', '/api/work/digest'));
     else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(logged('gift-entry', '/api/gift-entry/drain'));

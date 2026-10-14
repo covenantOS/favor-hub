@@ -31,6 +31,7 @@ export const JOBS: JobDef[] = [
   { id: 'fresh', label: 'Blackbaud changes', okMin: 3 * 60 },
   { id: 'drain', label: 'Overnight sender', okMin: 50, hours: [0, 8] },
   { id: 'smoke', label: 'Production smoke check', okMin: 90 },
+  { id: 'asana-sync', label: 'Asana sync', okMin: 20 },
 ];
 
 export interface JobRow {

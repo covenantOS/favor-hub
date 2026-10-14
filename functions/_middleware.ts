@@ -25,7 +25,7 @@ const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-fr
 // is the key), the agent queue (it checks the agent key itself), and the admin password sign-in
 // that scripts use (it checks the password itself), and the service doors the Favor Brain calls with
 // the shared key (each checks the key itself).
-const OPEN_PREFIXES = ['/api/auth/', '/api/agent/', '/api/service/', '/api/meet-guest/', '/api/book/'];
+const OPEN_PREFIXES = ['/api/auth/', '/api/agent/', '/api/service/', '/api/meet-guest/', '/api/book/', '/api/asana/hook/'];
 const OPEN_PATHS = new Set([
   '/login',
   '/login/',
@@ -33,6 +33,8 @@ const OPEN_PATHS = new Set([
   // the page they asked for (functions/api/google/*.ts). Without this, a lost session returned raw JSON.
   '/api/google/connect',
   '/api/google/callback',
+  // Asana sends a person back here after Connect Asana; the signed state names them (functions/_lib/projects/sync-oauth.ts).
+  '/api/asana/oauth/callback',
   '/meet/g',
   '/meet/g/',
   // Booking pages for partners (meetbook.ts) and a repeating meeting's one link, which forwards to the room or the guest door.

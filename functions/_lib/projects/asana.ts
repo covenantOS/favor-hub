@@ -162,7 +162,7 @@ export interface ApiOpts {
   workspace?: string;
 }
 
-const TASK_FIELDS = [
+export const TASK_FIELDS = [
   'name', 'notes', 'completed', 'completed_at', 'completed_by.name', 'completed_by.email', 'created_at', 'created_by.name', 'created_by.email',
   'modified_at', 'assignee.name', 'assignee.email', 'start_on', 'start_at', 'due_on', 'due_at', 'parent.gid', 'num_subtasks',
   'followers.name', 'followers.email', 'tags.name', 'custom_fields.name', 'custom_fields.type', 'custom_fields.display_value',

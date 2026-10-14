@@ -11,6 +11,7 @@
 //   POST tasks/:id/comments               PATCH/DELETE tasks/:id/comments/:cid
 //   POST tasks/:id/files                  POST tasks/:id/upload                    DELETE tasks/:id/files/:fid   GET tasks/:id/files/:fid/download
 //   PUT  tasks/:id/people                 PUT tasks/:id/deps
+import { asanaUrlFor, syncedProject } from './sync';
 import { HttpError, errorJson, handleError, json, type Env } from '../http';
 import type { HubUser } from '../session';
 import { staffDirectory } from '../people';
@@ -102,7 +103,8 @@ async function projectRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Re
   if (!a) {
     if (method === 'GET') {
       const d = await projectDetail(env, actor, id);
-      return json({ ok: true, project: d.project, sections: d.sections, members: d.members, counts: d.counts, can: { manage: d.standing.manage, edit: d.standing.edit } });
+      const asanaSync = !!(await syncedProject(env, d.project.id).catch(() => null));
+      return json({ ok: true, project: { ...d.project, asana_sync: asanaSync }, sections: d.sections, members: d.members, counts: d.counts, can: { manage: d.standing.manage, edit: d.standing.edit } });
     }
     if (method === 'PATCH') {
       const r = await patchProject(env, actor, id, await body(request));
@@ -198,7 +200,9 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
         const t = (d as { task?: { id?: string } }).task;
         if (t?.id) ctx.waitUntil(env.DB.prepare('INSERT INTO hub_task_seen (email, task_id, at) VALUES (?, ?, ?) ON CONFLICT(email, task_id) DO UPDATE SET at = excluded.at').bind(actor.email, t.id, new Date().toISOString()).run().catch(() => null));
       }
-      return json({ ok: true, ...d });
+      const tk = (d as { task?: { id?: string } }).task;
+      const asanaUrl = tk?.id ? await asanaUrlFor(env, tk.id).catch(() => null) : null;
+      return json({ ok: true, ...d, task: { ...(d as any).task, asana_url: asanaUrl } });
     }
     if (method === 'PATCH') {
       const r = await patchTask(env, actor, id, await body(request));
