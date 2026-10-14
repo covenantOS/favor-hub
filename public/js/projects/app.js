@@ -263,24 +263,12 @@ async function mountProject(root, key) {
     writeFilters(ctx);
   });
 
-  // Connect Asana: on a synced project, a person who has not connected gets a link, so their edits reach Asana as them.
-  let asanaMe = null;
-  async function asanaConnect(el) {
-    if (!asanaMe) asanaMe = fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
-    const me = await asanaMe;
-    if (!me || me.ok === false || me.connected || !el || el.querySelector('.pj-asana-connect')) return;
-    const a = document.createElement('a');
-    a.className = 'pj-tag pj-asana-connect';
-    a.href = '/api/asana/oauth/connect?back=' + encodeURIComponent(location.pathname + location.search);
-    a.textContent = 'Connect Asana';
-    el.appendChild(a);
-  }
   function paintHeader() {
     const p = ctx.project;
     if (!p) return;
     document.title = p.name + ' - FavorOS';
     root.querySelector('[data-title]').innerHTML = `<i class="pj-dot pj-dot--lg" data-c="${esc(p.color)}"></i><h1>${esc(p.name)}</h1><span class="pj-pkey">${esc(p.key)}</span>${p.team ? `<span class="pj-pcard__team">${esc(p.team)}</span>` : ''}${p.status !== 'active' ? `<span class="pj-tag">${esc(p.status)}</span>` : ''}${p.asana_sync === true ? '<span class="pj-tag pj-tag--asana">Synced with Asana</span>' : ''}${p.visibility === 'members' ? `<span class="pj-pcard__lock" title="Members only">${icon('lock')}</span>` : ''}`;
-    if (p.asana_sync === true) asanaConnect(root.querySelector('[data-title]'));
+    asanaConnect(root.querySelector('[data-title]'));
     const ms = ctx.members.slice(0, 5);
     root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-btn pj-pa-status" data-pa="status" aria-label="Friday update">${icon('clock')}<span>Friday update</span></button><button type="button" class="pj-ib" data-pa="details" aria-label="Project details">${icon('more')}</button>`;
   }
@@ -315,6 +303,26 @@ async function mountProject(root, key) {
 }
 
 /* ---------------------------------------------------------------- start */
+// Connect Asana: on a synced project, a person who has not connected gets a link, so their edits reach Asana as them.
+let asanaMe = null; // the /api/asana/oauth/me answer, read once per page
+async function asanaConnect(el) {
+  if (!asanaMe) asanaMe = fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
+  const me = await asanaMe;
+  if (!me || me.ok === false || !el || el.querySelector('.pj-asana-connect')) return;
+  if (!me.connected && !me.asana_user) return;
+  const box = document.createElement('span');
+  box.className = 'pj-asana-connect';
+  if (me.connected) {
+    box.innerHTML = `<span class="pj-tag pj-tag--asana">Asana connected${me.asana_name ? ' as ' + esc(me.asana_name) : ''}</span><button type="button" class="pj-asana-off">Disconnect</button>`;
+    box.querySelector('button').addEventListener('click', async () => {
+      await fetch('/api/asana/oauth/me', { method: 'DELETE', credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).catch(() => null);
+      location.reload();
+    });
+  } else {
+    box.innerHTML = `<a class="pj-tag pj-asana-link" href="/api/asana/oauth/connect?back=${encodeURIComponent(location.pathname + location.search)}">Connect Asana</a>`;
+  }
+  el.appendChild(box);
+}
 async function start() {
   // ?mock=1 uses lane CORE's fixture. ?mock=2 uses this UI's own (ui-mock.js: ?n=2000 tasks, ?lag=600 ms, ?fail=PATCH to test rollbacks).
   if (qs.get('mock') === '2') { const m = await import('./ui-mock.js'); m.installMock(); }
@@ -342,7 +350,8 @@ async function start() {
   if (!root) return;
   // Asana users connect Asana before Projects opens, so their edits reach Asana under their own name. The link brings them back here.
   if (!qs.get('mock')) {
-    const me = await fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
+    asanaMe = fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
+    const me = await asanaMe;
     if (me && me.required && !me.connected) {
       const back = location.pathname + location.search;
       root.innerHTML = `<section class="pj-connect"><h1>Connect Asana to use Projects</h1><p>Your edits in Projects sync to Asana under your name.</p><a class="pj-connect__btn" href="/api/asana/oauth/connect?back=${encodeURIComponent(back)}">Connect Asana</a><p class="pj-connect__t">This takes 10 seconds.</p></section>`;
@@ -363,6 +372,8 @@ async function start() {
   } else {
     const h = await mountHome(root, shell);
     PJ.homeCtx = h.ctx;
+    const ph = root.querySelector('.pj-ph h1');
+    if (ph) asanaConnect(ph.parentElement);
     const t = qs.get('t');
     if (t) h.ctx.load().then(() => openDrawer(h.ctx, t));
   }

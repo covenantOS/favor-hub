@@ -1099,13 +1099,25 @@ export async function requiredPeople(env: Env): Promise<{ on: boolean; mode: str
   const mk = ((await env.DB.prepare("SELECT email FROM meet_directory WHERE team = 'Marketing' AND active = 1").all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }))).results || []).map((r) => lower(r.email));
   const all = new Set<string>([...asana, ...mk].filter((e) => !TESTER.test(e)));
   for (const e of extra) all.add(e);
-  const emails = mode === 'test' ? extra : [...all].filter((e) => !skip.has(e)).sort();
+  // Real, active staff only: an Asana account that is a shared mailbox, a typo or a person who left is not on the staff directory.
+  const staff = new Set(((await env.DB.prepare(
+    `SELECT lower(d.email) AS email FROM meet_directory d LEFT JOIN hub_users u ON lower(u.email) = lower(d.email)
+      WHERE d.active = 1 AND COALESCE(u.blocked, 0) = 0`
+  ).all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }))).results || []).map((r) => r.email));
+  const real = (e: string) => staff.has(e) || extra.includes(e);
+  const emails = mode === 'test' ? extra : [...all].filter((e) => real(e) && !skip.has(e)).sort();
   return { on, mode, emails, extra, skip: [...skip], asana_at: at };
 }
 
 export async function mustConnect(env: Env, email: string): Promise<boolean> {
   const r = await requiredPeople(env);
   return r.on && r.emails.includes(lower(email));
+}
+
+/** On the list (whether or not the requirement is switched on): Projects shows this person the Connect Asana button. */
+export async function asanaUser(env: Env, email: string): Promise<boolean> {
+  const r = await requiredPeople(env);
+  return r.emails.includes(lower(email));
 }
 
 export async function setRequire(env: Env, actor: string, b: { require?: unknown; extra?: unknown; skip?: unknown }): Promise<void> {

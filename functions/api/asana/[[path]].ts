@@ -8,7 +8,7 @@
 import { HttpError, errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { projectsActor } from '../../_lib/projects/access';
-import { AsanaError, mustConnect, setRequire, adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
+import { AsanaError, asanaUser, mustConnect, setRequire, adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
 import { connection, connectUrl, disconnect, finishConnect, tokenFor } from '../../_lib/projects/sync-oauth';
 
 export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
@@ -38,7 +38,7 @@ export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
       return Response.redirect(to, 302);
     }
     if (a === 'oauth' && b === 'me') {
-      if (method === 'GET') return json({ ok: true, ...(await connection(env, actor.email)), required: await mustConnect(env, actor.email).catch(() => false) });
+      if (method === 'GET') return json({ ok: true, ...(await connection(env, actor.email)), required: await mustConnect(env, actor.email).catch(() => false), asana_user: await asanaUser(env, actor.email).catch(() => false) });
       if (method === 'DELETE') {
         await disconnect(env, actor.email);
         return json({ ok: true, connected: false });
