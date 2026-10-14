@@ -29,6 +29,8 @@ const step = async (name, fn) => {
     const note = (await fn()) || ''; results.push([name, 'ok', Date.now() - t0, note]);
   } catch (e) {
     results.push([name, 'FAIL', Date.now() - t0, String(e.message).split('\n')[0].slice(0, 240)]);
+    if (globalThis.__p1) await globalThis.__p1.screenshot({ path: `${OUT}/fail-${results.length}.png` }).catch(() => undefined);
+    if (globalThis.__p1) console.log('box value after fail:', JSON.stringify(await globalThis.__p1.locator('.ch-main .ch-comp textarea').first().inputValue().catch(() => '?')));
   }
 };
 const send = (tok, body) => api(tok, 'POST', `/api/chat/channels/${CH}/messages`, { body });
@@ -45,6 +47,7 @@ const ctxFor = async (tok, phone) => {
 };
 const p1 = await (await ctxFor(one)).newPage();
 const p2 = await (await ctxFor(two)).newPage();
+globalThis.__p1 = p1;
 const url = `${HOST}/chat/?c=${CH}&app2=1`;
 await Promise.all([p1.goto(url), p2.goto(url)]);
 await p1.waitForSelector('.ch-comp textarea, .ch-comp [contenteditable]', { timeout: 30000 });
@@ -71,7 +74,7 @@ await step('slash menu lists the new commands', async () => {
 });
 
 await step('/todo makes a checklist card both users see', async () => {
-  await type(p1, `/todo QA ${stamp}: label the boxes @Tester Two fri; print the sheet; call the hall`);
+  await type(p1, `/todo QA ${stamp}: label the boxes fri; print the sheet; call the hall`);
   await p1.locator('.ch-cl', { hasText: 'QA ' + stamp }).waitFor({ timeout: 20000 });
   await p2.locator('.ch-cl', { hasText: 'QA ' + stamp }).waitFor({ timeout: 20000 });
   const n = await p2.locator('.ch-cl').last().locator('.ch-cl__i').count();

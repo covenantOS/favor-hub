@@ -731,7 +731,17 @@ export class ChatEngine {
   send(scope: Scope, raw: string, also = false): boolean {
     const S = this.S;
     const c = this.chan(S.active);
-    if (!c) return false;
+    if (!c) {
+      // Sent while Chat is still loading: it goes out as soon as the conversation is open; if none opens, the words come back.
+      if (!this.bootP || raw.trim() === '') return false;
+      void this.bootP.then(() => {
+        if (!this.chan(this.S.active) || !this.send(scope, raw, also)) {
+          this.S.restore = { scope, text: raw, n: Date.now() };
+          this.notify();
+        }
+      });
+      return true;
+    }
     if (S.pending[scope].some((a: J) => a.uploading)) {
       this.toast('Wait for the upload to finish');
       return false;

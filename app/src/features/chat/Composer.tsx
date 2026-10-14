@@ -135,9 +135,12 @@ export function Composer({ e, scope, placeholder, slim, latest, alsoLabel }: Pro
     if (!t) return;
     if (keyRef.current !== key) {
       clearTimeout(draftT.current);
+      const first = !keyRef.current;
       if (keyRef.current) e.saveDraft(scope, t.value, keyRef.current);
       keyRef.current = key;
-      t.value = e.draftOf(scope);
+      // The first conversation to open after Chat loads keeps whatever was typed while it was loading (it used to be wiped).
+      const saved = e.draftOf(scope);
+      if (!(first && t.value.trim())) t.value = saved;
       grow(t);
       sync();
     }
