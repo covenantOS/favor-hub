@@ -9,6 +9,7 @@
 //   GET  /api/today/handoff/<id>               one hand-off with its context (giver or receiver only)
 //   POST /api/today/handoff/<id>/pick          the receiver picked it up
 //   GET  /api/today/handoffs                   hand-offs this person gave in the last 30 days
+//   GET  /api/today/gifts                      new gifts on this person's partners with the thank-you each needs
 //   GET  /api/today/partner-mail?cid=          the partner page: this person's own email with the partner and emails naming them
 //   POST /api/today/mention-logged { cid, source }  a prefilled contact from the partner timeline was saved
 // Signed in staff only; field accounts are turned away by the middleware's field list.
@@ -20,6 +21,7 @@ import { fastWaiting, mailWaiting, nudge, stopWaiting } from '../../_lib/integra
 import { givenBy, handOff, handoffFor, pickUp, syncPickups } from '../../_lib/integrations/handoff';
 import { peopleFor } from '../../_lib/integrations/ping';
 import { mailEvents, noteLogged } from '../../_lib/integrations/mentions';
+import { newGifts } from '../../_lib/integrations/gifts';
 
 const body = async (request: Request): Promise<Record<string, unknown>> => ((await request.json().catch(() => ({}))) || {}) as Record<string, unknown>;
 const NO_STORE = { 'Cache-Control': 'private, no-store' };
@@ -84,6 +86,11 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       return json({ ok: true, picked_at: row.picked_at, href: row.href });
     }
     if (a === 'handoffs' && method === 'GET') return json({ ok: true, handoffs: await givenBy(env, user.email) }, 200, NO_STORE);
+    // New gifts on this person's partners, with the thank-you each needs (Today's gifts slot).
+    if (a === 'gifts' && method === 'GET') {
+      const r = await capped(newGifts(env, request), 8000, { gifts: [], owed: 0, slow: true } as { gifts: never[]; owed: number; slow?: boolean });
+      return json({ ok: true, ...r }, 200, NO_STORE);
+    }
     // The partner page's timeline: this person's own email with the partner (contacts to offer for the log) and emails naming them.
     if (a === 'partner-mail' && method === 'GET') {
       const { requireWork } = await import('../../_lib/work/gate');

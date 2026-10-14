@@ -267,19 +267,92 @@
     else { var s = document.createElement('script'); s.src = '/js/handoff.js?v=1'; s.onload = go; document.head.appendChild(s); }
   }
 
+
+  /* ================================================================ new gifts (the gifts slot) */
+  // A gift that landed in the last three days for one of this person's partners: the thank-you it needs and the partner's history.
+  // Receipts are the printed receipts Support sends everyone; they never show here.
+  var money = function (n) { var v = Number(n) || 0; return '$' + (Math.round(v) === v ? v.toLocaleString('en-US') : v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })); };
+  var day = function (iso) { if (!iso) return ''; var plain = /^\d{4}-\d{2}-\d{2}$/.test(iso); var d = new Date(plain ? iso + 'T12:00:00Z' : iso); return d.toLocaleDateString('en-US', { timeZone: plain ? 'UTC' : ET, month: 'short', day: 'numeric' }); };
+  var LETTER = { none: 'Handwritten letter not started', printed: 'Handwritten letter printed', signed: 'Handwritten letter signed', mailed: 'Handwritten letter mailed', cannot: 'Handwritten letter cannot go out' };
+  function dueWords(g) {
+    var t = Date.parse(g.thank.due); if (!t) return 'Thank-you owed';
+    var mins = Math.round((t - Date.now()) / 60000);
+    if (mins < 0) return 'Thank-you overdue by ' + (mins > -120 ? -mins + ' min' : Math.round(-mins / 60) + 'h');
+    return 'Thank-you due in ' + (mins < 120 ? mins + ' min' : Math.round(mins / 60) + 'h');
+  }
+  function giftRow(g, i) {
+    var th = g.thank, act = '', state;
+    if (th.state === 'done') state = '<span class="fx-chip">Thanked' + (th.by ? ' by ' + esc(th.by.split(' ')[0]) : '') + (th.on ? ', ' + esc(day(th.on)) : '') + '</span>';
+    else if (th.state === 'task') { state = '<span class="fx-chip fx-chip--due">Thank-you task open</span>'; act = '<a class="fx-btn" href="/work/?tab=open&amp;action=' + encodeURIComponent(g.taskIds[0]) + '">Open task</a>'; }
+    else {
+      state = '<span class="fx-chip ' + (th.late ? 'fx-chip--late' : 'fx-chip--due') + '">' + esc(th.state === 'left' ? 'Left a message ' + day(th.on) : dueWords(g)) + '</span>';
+      act = '<button type="button" class="fx-btn fx-btn--primary" data-fx-thank="' + i + '">Thank</button>';
+    }
+    var letter = g.letter ? '<span class="fx-chip fx-chip--plain">' + esc(LETTER[g.letter.state] || LETTER.none) + '</span>' : '';
+    var hist = [g.history.count > 1 ? 'Lifetime ' + money(g.history.lifetime) + ' over ' + g.history.count + ' gifts' : 'First gift', g.history.lastContact ? 'last contact ' + day(g.history.lastContact) : 'no contact on record'].join(' · ');
+    var badges = (g.badges || []).slice(0, 2).map(function (b) { return '<em class="fx-badge">' + esc(b) + '</em>'; }).join(' ');
+    return '<li class="fx-row fx-gift" data-fx-id="gift:' + esc(g.giftId) + '"><a class="fx-row__open" href="/work/partner/' + encodeURIComponent(g.cid) + '" data-partner-id="' + esc(g.cid) + '" aria-label="' + esc(g.name) + '"></a>' +
+      '<span class="fx-amt">' + esc(money(g.amount)) + '<small>' + esc(day(g.date)) + '</small></span>' +
+      '<span class="fx-t"><b>' + esc(g.name || 'Partner ' + g.cid) + (badges ? ' ' + badges : '') + '</b><span>' + esc(g.fund || 'No fund on file') + ' · ' + esc(hist) + '</span><span class="fx-gift__st">' + state + letter + '</span></span>' +
+      '<span class="fx-acts">' + act + '</span></li>';
+  }
+  function Gifts(slot) {
+    this.slot = slot;
+    this.data = read('favor.today.gifts.v1');
+    slot.classList.add('fx-card');
+    if (!slot.classList.contains('h-card')) slot.classList.add('h-card');
+    slot.setAttribute('aria-label', 'New gifts');
+    // Shown only when there is a gift: a person whose job has no gifts to thank never sees the card. When this browser saw gifts last
+    // time (a count, no names), the card opens with placeholder rows so the page below does not move when they land.
+    var lastN = 0;
+    try { lastN = Number(localStorage.getItem('favor.today.gifts.n') || 0); } catch (e) { lastN = 0; }
+    if (this.data && this.data.gifts && this.data.gifts.length) this.paint();
+    else if (lastN > 0) { slot.hidden = false; slot.setAttribute('aria-busy', 'true'); slot.innerHTML = '<div class="fx-head"><h2>New gifts</h2></div><div class="fx-list" aria-hidden="true">' + new Array(Math.min(lastN, 4) + 1).join('<div class="fx-skel" style="min-height:76px"><i></i><i></i></div>') + '</div>'; }
+    else slot.hidden = true;
+  }
+  Gifts.prototype.paint = function () {
+    var d = this.data || { gifts: [] };
+    if (!d.gifts || !d.gifts.length) { this.slot.hidden = true; this.slot.innerHTML = ''; return; }
+    this.slot.hidden = false;
+    this.slot.innerHTML = '<div class="fx-head"><h2>New gifts <span class="fx-n">' + d.gifts.length + '</span></h2><a class="fx-link" href="/work/?view=gifts">All gifts to thank' + (d.owed ? ' (' + d.owed + ')' : '') + '</a></div><ul class="fx-list">' + d.gifts.map(giftRow).join('') + '</ul>';
+  };
+  Gifts.prototype.load = function () {
+    var self = this;
+    return api('GET', '/api/today/gifts').then(function (d) {
+      if (d.slow && self.data) return;
+      self.data = { gifts: d.gifts || [], owed: d.owed || 0 };
+      write('favor.today.gifts.v1', self.data);
+      try { localStorage.setItem('favor.today.gifts.n', String(self.data.gifts.length)); } catch (e) { /* storage refused */ }
+      self.slot.removeAttribute('aria-busy');
+      self.paint();
+    }).catch(function () { self.data = { gifts: [] }; self.paint(); });
+  };
+  function thank(i, btn) {
+    var c = cards.gifts; if (!c || !c.data) return;
+    var g = c.data.gifts[+i]; if (!g) return;
+    if (!window.FavorWG || !window.FavorWG.pop) { location.href = '/work/?view=gifts'; return; }
+    window.FavorWG.pop(btn, { giftId: g.giftId, cid: g.cid, name: g.name, amount: g.amount, date: g.date, fund: g.fund, phone: g.phone, left: g.thank.state === 'left' ? { date: g.thank.on, by: g.thank.by, how: g.thank.how } : null, tasks: g.taskIds.length, team: g.team }, { done: function () { setTimeout(function () { c.load(); }, 1500); } });
+  }
+
   /* ================================================================ mount */
   var bound = false, timer = 0;
   function mount(root) {
     root = root || document;
-    var slots = { inbox: root.querySelector('[data-today-slot="inbox"]'), waiting: root.querySelector('[data-today-slot="waiting"]') };
-    if (!slots.inbox && !slots.waiting) return;
+    var slots = { inbox: root.querySelector('[data-today-slot="inbox"]'), waiting: root.querySelector('[data-today-slot="waiting"]'), gifts: root.querySelector('[data-today-slot="gifts"]') };
+    if (!slots.inbox && !slots.waiting && !slots.gifts) return;
     // Mounted on these same slots already (the app calls mount after the script mounted itself): nothing to do.
-    if ((!slots.inbox || (cards.inbox && cards.inbox.slot === slots.inbox)) && (!slots.waiting || (cards.waiting && cards.waiting.slot === slots.waiting))) return;
+    if ((!slots.inbox || (cards.inbox && cards.inbox.slot === slots.inbox)) && (!slots.waiting || (cards.waiting && cards.waiting.slot === slots.waiting)) && (!slots.gifts || (cards.gifts && cards.gifts.slot === slots.gifts))) return;
     cards = {};
     ['inbox', 'waiting'].forEach(function (n) { if (slots[n]) { cards[n] = new Card(slots[n], n); cards[n].load(); } });
+    if (slots.gifts) { cards.gifts = new Gifts(slots.gifts); cards.gifts.load(); }
     if (!bound) {
       bound = true;
-      document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('[data-today-slot="inbox"], [data-today-slot="waiting"]')) onClick(e); });
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest) return;
+        var th = e.target.closest('[data-fx-thank]');
+        if (th) { e.preventDefault(); thank(th.getAttribute('data-fx-thank'), th); return; }
+        if (e.target.closest('[data-today-slot="inbox"], [data-today-slot="waiting"]')) onClick(e);
+      });
       document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
     }
     clearInterval(timer);

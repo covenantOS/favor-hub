@@ -63,6 +63,7 @@ import '../styles/today-work.css';
             <header class="r2t-ch"><h3 id="wh-due-h">Today's work</h3><span class="wh-chips" id="wh-due-chips"></span><a class="h-link" id="wh-due-all" href="/work/?view=open">Open all</a></header>
             <ul class="wh-list" id="wh-due-list"></ul>
           </section>
+          <section class="h-card fx-gifts" data-today-slot="gifts" aria-label="New gifts" hidden></section>
           <section class="h-card wh-card" id="wh-gifts" aria-labelledby="wh-gifts-h" hidden>
             <header class="r2t-ch"><h3 id="wh-gifts-h">Gifts to thank</h3><span class="wh-chips" id="wh-gifts-chips"></span><a class="h-link" id="wh-gifts-all" href="/work/?view=gifts">Open all</a></header>
             <ul class="wh-list" id="wh-gifts-list"></ul>
@@ -139,7 +140,7 @@ import '../styles/today-work.css';
   <script is:inline src="/js/today.js?v=22" defer></script>
   <script is:inline src="/js/brief.js?v=8" defer></script>
   <script is:inline src="/js/today-firstweek.js?v=1" defer></script>
-  <script is:inline src="/js/today-inbox.js?v=1" defer></script>
+  <script is:inline src="/js/today-inbox.js?v=2" defer></script>
   <script is:inline>
     // Your work (the Work Overview's cards) starts reading now, while the page's scripts download.
     (function () {
