@@ -50,9 +50,16 @@ Signed-in staff can react with an emoji and write comments tied to a moment in t
 
 ## Share it
 
-Share turns on the link and copies it. By default only people signed in with a Favor account can open a clip. Anyone with the link adds people outside Favor. Someone outside Favor sees the video, the summary, the chapters and the transcript, and nothing else. Turn the switch off in the menu and the link stops working for them at once.
+Share opens a window where you choose who can watch the clip. There are four levels.
 
-A clip can show partner details on screen. Check what is showing before you turn on Anyone with the link.
+- **Private.** Only you and FavorOS admins.
+- **Specific people.** You, admins, the people you add by name, and the members of any Chat conversation where you post the clip. This is where a new clip starts.
+- **Anyone at Favor.** Any Favor staff member who is signed in and has the link.
+- **Everybody.** Anyone with the link, including people outside Favor, with no sign-in. A Public mark shows on the clip for everyone who opens it.
+
+Type a name or email under People to add a Favor staff member. To share with someone outside Favor, choose Everybody. A change takes effect the moment you make it. Copy link in the same window copies the link. A person outside Favor sees the video, the summary, the chapters and the transcript, and nothing else.
+
+A clip can show partner details on screen. Check what is showing before you choose Everybody.
 
 ## Edit a clip
 

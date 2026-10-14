@@ -357,7 +357,7 @@
       var at = m ? ' data-cm="' + m.id + '" data-ai="' + i + '"' : '';
       if (a.type === 'clip') {
         return '<div class="ch-card ch-clip"' + at + '>' + vidHtml('/api/clips/' + esc(a.id) + '/media', a.thumb, a.title, a.duration, '16 / 9') +
-          '<span class="ch-clip__info"><span class="ch-kicker">' + ic('rec') + 'Clip</span><span class="ch-card__t">' + esc(a.title) + '</span><span class="ch-card__m">' + esc(a.by || '') + (a.when ? ' · ' + esc(a.when) : '') + '</span>' + (a.summary ? '<span class="ch-card__s">' + esc(a.summary) + '</span>' : '') +
+          '<span class="ch-clip__info"><span class="ch-kicker">' + ic('rec') + 'Clip</span><span class="ch-card__t">' + esc(a.title) + '</span><span class="ch-card__m">' + esc(a.by || '') + (a.when ? ' · ' + esc(a.when) : '') + '</span>' + (a.summary ? '<span class="ch-card__s">' + esc(a.summary) + '</span>' : '') + (a.level === 'private' ? '<span class="ch-card__s">Private. Only the person who shared it can open it.</span>' : '') +
           '<a class="ch-clip__open" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open in Clips' + ic('ext') + '</a></span></div>';
       }
       if (a.type === 'drive') {
@@ -2061,7 +2061,7 @@
       else if (act === 'clip-rec') { closePop(); if (opts.recordClip) opts.recordClip(S.active, function (att) { S.pending[scope].push(att); renderPending(scope); }); else toast('Recording is not available here'); }
       else if (act === 'meeting' || act === 'huddle') { if (e.metaKey || e.ctrlKey || e.shiftKey) return; e.preventDefault(); closePop(); openHuddle(S.active); }
       else if (act === 'drive-choose') { var it = modal._items[+el.dataset.i], sc = modal._scope; closeModal(); S.pending[sc].push(Object.assign({ type: 'drive' }, it)); renderPending(sc); var tt = $('[data-ta="' + sc + '"]', root); if (tt) tt.focus(); }
-      else if (act === 'clip-choose') { var cl = modal._items[+el.dataset.i], sc2 = modal._scope; closeModal(); S.pending[sc2].push(Object.assign({ type: 'clip' }, cl)); renderPending(sc2); }
+      else if (act === 'clip-choose') { var cl = modal._items[+el.dataset.i], sc2 = modal._scope; closeModal(); S.pending[sc2].push(Object.assign({ type: 'clip' }, cl)); renderPending(sc2); if (cl.level === 'private') toast('This clip is Private. People in this conversation cannot open it until you change who can watch in the Share window of the clip.'); else if (cl.level === 'people') toast('People in this conversation will be able to watch this clip. They count as specific people.'); }
       else if (act === 'unpend') { S.pending[scope].splice(+el.dataset.i, 1); renderPending(scope); }
       else if (act === 'mention-pick') pickMention(+el.dataset.i);
       else if (act === 'chip' || act === 'ask') { var ta4 = $('[data-ta="' + (S.right === 'thread' ? 'thread' : 'main') + '"]', root); S.mentionMap[S.right === 'thread' ? 'thread' : 'main']['@Favor Brain'] = '<@brain>'; ta4.value = '@Favor Brain ' + el.dataset.q; grow(ta4); syncSend(S.right === 'thread' ? 'thread' : 'main'); ta4.focus(); }

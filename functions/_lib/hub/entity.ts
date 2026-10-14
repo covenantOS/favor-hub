@@ -180,7 +180,7 @@ async function meeting(env: Env, user: HubUser, id: string): Promise<EntityOut |
 
 async function clip(env: Env, id: string, user: HubUser): Promise<EntityOut | null> {
   if (!/^[0-9a-f]{32}$/.test(id)) return null;
-  const c = await env.DB.prepare("SELECT id, title, owner_name, owner_email, share, staff_link, duration_ms, created_at FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')").bind(id).first<any>().catch(() => null);
+  const c = await env.DB.prepare("SELECT id, title, owner_name, owner_email, share, staff_link, access, duration_ms, created_at FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')").bind(id).first<any>().catch(() => null);
   // The card names the clip only for someone who may watch it (Clips sharing, 2026-10-14).
   if (!c || !(await mayWatch(env as any, user, c))) return null;
   const facts: Fact[] = [{ k: 'By', v: c.owner_name }];

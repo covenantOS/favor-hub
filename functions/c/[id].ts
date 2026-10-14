@@ -2,7 +2,7 @@
 // and reactions. Signed-in hub users watch any saved clip. A signed-out viewer needs the clip's "Anyone with the link"
 // switch on, and otherwise goes to sign-in and comes back here. The page itself is a shell; /js/clips/watch.js fills it from
 // /api/clips/<id>/info, which decides again what this viewer may see.
-import { ID_RE, PRIVATE, isWatchable, canWatch, type Clip, type ClipsEnv } from '../_lib/clips';
+import { ID_RE, PRIVATE, isWatchable, canWatch, levelOf, publicToken, type Clip, type ClipsEnv } from '../_lib/clips';
 import { hubUserOf } from '../_lib/session';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string);
@@ -37,7 +37,7 @@ const frame = (inner: string, signedIn: boolean) =>
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   const id = String(params.id);
   const user = hubUserOf(request);
-  const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT id, title, summary, status, share, staff_link, owner_email, owner_name, has_poster, duration_ms, mime FROM hub_clips WHERE id = ?').bind(id).first<Pick<Clip, 'id' | 'title' | 'summary' | 'status' | 'share' | 'staff_link' | 'owner_email' | 'owner_name' | 'has_poster' | 'duration_ms' | 'mime'>>() : null;
+  const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT id, title, summary, status, share, staff_link, access, owner_email, owner_name, has_poster, duration_ms, mime FROM hub_clips WHERE id = ?').bind(id).first<Pick<Clip, 'id' | 'title' | 'summary' | 'status' | 'share' | 'staff_link' | 'owner_email' | 'owner_name' | 'has_poster' | 'duration_ms' | 'mime'>>() : null;
 
   if (!clip || !isWatchable(clip) || !(await canWatch(env, request, clip))) {
     // A signed-out viewer cannot tell a missing clip from a private one. They sign in and come back.
@@ -61,15 +61,16 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
   );
   const origin = new URL(request.url).origin;
   const media = `${origin}/api/clips/${id}/media`;
-  const open = clip.share === 1;
+  // Only an Everybody clip previews with its title and poster. The poster link carries its own token (a week, poster only).
+  const open = levelOf(clip) === 'public';
+  const pk = open ? await publicToken(env, id, 'p', 7 * 86_400_000) : null;
   const title = open ? clip.title || 'Clip' : 'FavorOS clip';
   const desc = open
     ? ((clip.summary || '').replace(/\s+/g, ' ').trim().slice(0, 200) || `${mins(clip.duration_ms)} clip${clip.owner_name ? ' from ' + clip.owner_name : ''}`)
     : 'Sign in with your Favor Google account to watch.';
   const head = ogTags({
     title, desc, url: `${origin}/c/${id}`,
-    image: open && clip.has_poster === 1 ? `${media}?poster=1` : origin + '/images/favor-logo-color.png',
-    ...(open ? { video: media, videoType: clip.mime || 'video/webm' } : {}),
+    image: open && pk && clip.has_poster === 1 ? `${media}?poster=1&k=${pk}` : origin + '/images/favor-logo-color.png',
   });
-  return page(200, clip.title || 'Clip', body, `<script type="module" src="/js/clips/watch.js?v=7"></script>${user ? '<script src="/js/clips-launch.js?v=5" defer></script>' : ''}`, head);
+  return page(200, clip.title || 'Clip', body, `<script type="module" src="/js/clips/watch.js?v=8"></script>${user ? '<script src="/js/clips-launch.js?v=5" defer></script>' : ''}`, head);
 };

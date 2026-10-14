@@ -1,5 +1,6 @@
 // Clips: the library page (/clips/). A quiet grid of clips with search over titles, summaries and what was said.
 import { api, ask, copyText, esc, et, fmtTime, toast } from './core.js';
+import { openShare, levelLabel, levelOfClip, publicBadge } from './sharesheet.js';
 
 const $ = (id) => document.getElementById(id);
 const linkFor = (id) => `${location.origin}/c/${id}`;
@@ -38,7 +39,7 @@ const SORTS = {
   person: (a, b) => String(a.owner_name || '').localeCompare(String(b.owner_name || ''), 'en', { sensitivity: 'base' }) || String(b.created_at).localeCompare(String(a.created_at)),
 };
 /** The rows on screen: the search result, narrowed by the Shared / Private chip, in the chosen order. */
-const shown = () => rows.filter((c) => (filter === 'shared' ? c.share : filter === 'private' ? !c.share : true)).sort(SORTS[sort] || SORTS.new);
+const shown = () => rows.filter((c) => (filter === 'shared' ? levelOfClip(c) !== 'private' : filter === 'private' ? levelOfClip(c) === 'private' : true)).sort(SORTS[sort] || SORTS.new);
 
 function cardHtml(c) {
   const when = et(c.created_at, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -51,14 +52,14 @@ function cardHtml(c) {
   const on = picked.has(c.id);
   return `<article class="h-card cl-card${picking ? ' is-picking' : ''}${on ? ' is-picked' : ''}" data-id="${c.id}">
     ${picking ? `<button type="button" class="cl-pick" data-act="pick" role="checkbox" aria-checked="${on}" aria-label="Select ${esc(c.title || 'clip')}"><i></i></button>` : ''}
-    <a class="cl-thumb" href="/c/${c.id}" aria-label="Open ${esc(c.title || 'clip')}" data-thumb>${thumb}${dur}${naming}</a>
+    <a class="cl-thumb" href="/c/${c.id}" aria-label="Open ${esc(c.title || 'clip')}" data-thumb>${thumb}${dur}${naming}${levelOfClip(c) === 'public' ? `<span class="cl-pubmark">${publicBadge('public')}</span>` : ''}</a>
     <div class="cl-body">
       <div class="cl-name"><a href="/c/${c.id}">${esc(c.title || 'Untitled clip')}</a></div>
       <div class="cl-meta">${ADMIN_VIEW ? `<span><b>${esc(c.owner_name)}</b>${c.owner_team ? ` (${esc(c.owner_team)})` : ''}</span>` : ''}<span>${esc(when)}</span><span>${views}</span>${c.size_bytes ? `<span>${esc(fmtBytes(c.size_bytes))}</span>` : ''}</div>
       ${sum}${hit}
     </div>
     <div class="cl-acts">
-      ${c.mine ? `<label class="cl-switch"><input type="checkbox" data-act="share" ${c.share ? 'checked' : ''} /><i></i><span>Anyone with the link</span></label>` : ''}
+      ${c.mine ? `<button type="button" class="cl-lvl cl-lvl--${levelOfClip(c)}" data-act="share" aria-label="Who can watch: ${esc(levelLabel(levelOfClip(c)))}. Change" title="Change who can watch">${esc(levelLabel(levelOfClip(c)))}</button>` : `<span class="cl-lvl cl-lvl--${levelOfClip(c)}">${esc(levelLabel(levelOfClip(c)))}</span>`}
       <span class="cl-btns">
         ${c.mine ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="copy">Copy link</button>
         <button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="rename">Rename</button>
@@ -144,19 +145,19 @@ async function bulk(kind) {
   for (const id of ids) {
     try {
       if (kind === 'delete') await api(`/api/clips/${id}`, { method: 'DELETE' });
-      else await api(`/api/clips/${id}`, { method: 'PATCH', json: { share: kind === 'on' } });
+      else await api(`/api/clips/${id}`, { method: 'PATCH', json: { access: kind } });
       const c = rows.find((x) => x.id === id);
       if (kind === 'delete') {
         rows = rows.filter((x) => x.id !== id);
         picked.delete(id);
-      } else if (c) c.share = kind === 'on' ? 1 : 0;
+      } else if (c) { c.level = kind; c.share = 0; c.staff_link = kind === 'staff' ? 1 : 0; }
     } catch (e) {
       failed += 1;
     }
   }
   if (kind === 'delete' && !picked.size) picking = false;
   paint();
-  toast(failed ? `${failed} could not be changed` : kind === 'delete' ? (ids.length === 1 ? 'Clip deleted' : `${ids.length} clips deleted`) : kind === 'on' ? 'Anyone with the link can watch' : 'Only signed-in Favor staff can watch', failed ? 'bad' : undefined);
+  toast(failed ? `${failed} could not be changed` : kind === 'delete' ? (ids.length === 1 ? 'Clip deleted' : `${ids.length} clips deleted`) : `Who can watch is now ${levelLabel(kind)}`, failed ? 'bad' : undefined);
   if (kind === 'delete') load(true);
 }
 
@@ -293,6 +294,7 @@ function wire() {
     if (!card) return;
     const clip = rows.find((c) => c.id === card.dataset.id);
     if (!clip) return;
+    if (btn.dataset.act === 'share') return openShare(clip.id, { onChange: ({ level }) => { clip.level = level; clip.share = level === 'public' ? 1 : 0; clip.staff_link = level === 'staff' ? 1 : 0; paint(); } });
     if (btn.dataset.act === 'copy') toast((await copyText(linkFor(clip.id))) ? 'Link copied' : 'Could not copy the link');
     if (btn.dataset.act === 'lesson') {
       btn.disabled = true;
@@ -339,20 +341,6 @@ function wire() {
       } catch (e) {
         toast(e.message, 'bad');
       }
-    }
-  });
-  box.addEventListener('change', async (ev) => {
-    const sw = ev.target.closest('[data-act=share]');
-    if (!sw) return;
-    const clip = rows.find((c) => c.id === sw.closest('.cl-card').dataset.id);
-    const on = sw.checked;
-    try {
-      await api(`/api/clips/${clip.id}`, { method: 'PATCH', json: { share: on } });
-      clip.share = on ? 1 : 0;
-      toast(on ? 'Anyone with the link can watch' : 'Only signed-in Favor staff can watch');
-    } catch (e) {
-      sw.checked = !on;
-      toast(e.message, 'bad');
     }
   });
   $('cl-q').addEventListener('input', () => {

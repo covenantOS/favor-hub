@@ -4,6 +4,7 @@
 // Edge, Document Picture-in-Picture) and a pill on hub pages (see pill.js). All three drive the same recording.
 // Everything is built here (no framework); styles are in launcher.css, the controls in controls.js.
 import { api, copyText, esc, toast } from './core.js';
+import { LEVELS, levelLabel, levelOfClip, openShare } from './sharesheet.js';
 import { BUBBLE_FRACTION, ClipRecorder, canRecordCamera, canRecordScreen, setMaxSeconds } from './recorder.js';
 import { MAX_UPLOAD_BYTES, uploadVideoFile } from './upload.js';
 import { controlsHtml, makeDraggable, wireControls, wireShortcuts } from './controls.js';
@@ -1448,25 +1449,24 @@ async function afterSave(id, label) {
   const title = clip && clip.title ? clip.title : 'Your clip';
   const sum = clip && clip.summary ? clip.summary : '';
   body.innerHTML = `<p class="cr-saved__title">${esc(title)}</p>${sum ? `<p class="cr-saved__sum">${esc(sum)}</p>` : ''}
-    <label class="cr-check cr-check--share"><input type="checkbox" data-act="share"/><span>Anyone with the link can watch</span></label>
-    <p class="cr-note" data-note>Signed-in Favor staff can open the link.</p>`;
-  btns.innerHTML = `<a class="cr-pill" href="/c/${id}"${hubTarget}>Open the clip</a><button type="button" class="cr-pill is-ghost" data-act="copy">${svg('link')}Copy link</button>${STANDALONE ? '<button type="button" class="cr-pill is-ghost" data-act="again">Record another</button>' : ''}`;
+    <p class="cr-note" data-note></p>`;
+  const lineOf = (lv) => (LEVELS.find((l) => l.id === lv) || LEVELS[1]).line;
+  let lvl = levelOfClip(clip || {});
+  const showLevel = () => {
+    const b = el.querySelector('[data-act=share]');
+    if (b) b.textContent = `Who can watch: ${levelLabel(lvl)}`;
+    el.querySelector('[data-note]').textContent = lineOf(lvl);
+  };
+  btns.innerHTML = `<button type="button" class="cr-pill is-ghost" data-act="share"></button><a class="cr-pill" href="/c/${id}"${hubTarget}>Open the clip</a><button type="button" class="cr-pill is-ghost" data-act="copy">${svg('link')}Copy link</button>${STANDALONE ? '<button type="button" class="cr-pill is-ghost" data-act="again">Record another</button>' : ''}`;
   el.addEventListener('click', async (ev) => {
     if (ev.target.closest('[data-act=copy]')) {
       toast((await copyText(linkFor(id))) ? 'Link copied' : 'Could not copy the link', 'ok');
     }
   });
-  el.addEventListener('change', async (ev) => {
-    if (ev.target.dataset.act !== 'share') return;
-    const on = ev.target.checked;
-    try {
-      await api(`/api/clips/${id}`, { method: 'PATCH', json: { share: on } });
-      el.querySelector('[data-note]').textContent = on ? 'Anyone with the link can watch, signed in or not.' : 'Signed-in Favor staff can open the link.';
-    } catch (e) {
-      ev.target.checked = !on;
-      toast(e.message, 'bad');
-    }
+  el.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-act=share]')) openShare(id, { onChange: ({ level }) => { lvl = level; showLevel(); } });
   });
+  showLevel();
   window.dispatchEvent(new CustomEvent('clips:changed', { detail: { id } }));
 }
 

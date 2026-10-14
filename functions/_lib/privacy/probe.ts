@@ -18,6 +18,7 @@ import { onRequest as entityApi } from '../../api/hub/entity';
 import { onRequestGet as findApi } from '../../api/hub/find';
 import { onRequestGet as clipsApi } from '../../api/clips/index';
 import { onRequestGet as clipInfoApi } from '../../api/clips/[id]/info';
+import { onRequestGet as clipMediaApi } from '../../api/clips/[id]/media';
 import { onRequestGet as brainHistoryApi } from '../../api/brain/history';
 import { onRequestGet as brainThreadApi } from '../../api/brain/thread/[id]';
 import { onRequest as bookApi } from '../../api/book/[[path]]';
@@ -87,6 +88,11 @@ export function probes(): Probe[] {
     // Clips: the library is your own; an unshared clip opens for nobody but its owner and admins (2026-10-14).
     { name: 'Clips library', path: '/api/clips', who: ['staff'] },
     { name: 'Unshared clip', path: `/api/clips/${M.clip}/info`, who: ['staff', 'field', 'out'] },
+    { name: 'Private clip', path: `/api/clips/${M.clipPrivate}/info`, who: ['staff', 'field', 'out'] },
+    { name: 'Private clip video', path: `/api/clips/${M.clipPrivate}/media`, who: ['staff', 'field', 'out'] },
+    { name: 'Unshared clip video', path: `/api/clips/${M.clip}/media`, who: ['staff', 'field', 'out'] },
+    { name: 'Public clip (everybody reads it)', path: `/api/clips/${M.clipPublic}/info`, who: ['staff', 'out'], must: OPEN_MARK },
+    { name: 'Public clip video without its token', path: `/api/clips/${M.clipPublic}/media`, who: ['out'] },
     // Favor Brain conversations.
     { name: 'Brain history', path: '/api/brain/history?q=prvcnry', who: ['staff'] },
     { name: "Another person's Brain thread", path: `/api/brain/thread/${M.brainThread}`, who: ['staff'] },
@@ -112,6 +118,8 @@ function handlerFor(path: string): { fn: Handler; params: Record<string, string 
   if (p === '/api/clips') return { fn: clipsApi as unknown as Handler, params: {} };
   const clip = /^\/api\/clips\/([0-9a-f]{32})\/info$/.exec(p);
   if (clip) return { fn: clipInfoApi as unknown as Handler, params: { id: clip[1] } };
+  const media = new RegExp('^/api/clips/([0-9a-f]{32})/media$').exec(p);
+  if (media) return { fn: clipMediaApi as unknown as Handler, params: { id: media[1] } };
   if (p === '/api/brain/history') return { fn: brainHistoryApi as unknown as Handler, params: {} };
   const bt = /^\/api\/brain\/thread\/([^/]+)$/.exec(p);
   if (bt) return { fn: brainThreadApi as unknown as Handler, params: { id: bt[1] } };

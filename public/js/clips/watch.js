@@ -7,6 +7,7 @@ import {
   toast, transcriptFile, wordKept, wordsOf, fillerIndexes,
 } from './core.js';
 import { renderEdited } from './render.js';
+import { openShare, levelOfClip, levelLabel, publicBadge } from './sharesheet.js';
 
 const root = document.getElementById('cw-main');
 const ID = root.dataset.id;
@@ -66,7 +67,10 @@ const canDelete = () => !!(S.can && S.can.delete);
 const signedIn = () => !!S.user;
 const firstName = (n) => String(n || '').split(/\s+/)[0] || 'Someone';
 const initials = (n) => { const w = String(n || '').replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter((x) => x && !/^(mr|mrs|ms|dr|rev|and)$/i.test(x)); const p = w.length > 1 ? [w[0], w[w.length - 1]] : w; return p.map((x) => Array.from(x)[0]).join('').toUpperCase() || '?'; };
-const mediaUrl = () => `/api/clips/${ID}/media`;
+// Outside the hub the video comes through a signed link that expires, handed out by /info.
+const mediaUrl = () => (S.info && S.info.media && S.info.media.video) || `/api/clips/${ID}/media`;
+const posterUrl = () => (S.info && S.info.media && S.info.media.poster) || `/api/clips/${ID}/media?poster=1`;
+const downloadUrl = () => { const u = new URL(mediaUrl(), location.origin); u.searchParams.set('dl', '1'); return u.pathname + u.search; };
 const shareUrl = () => `${location.origin}/c/${ID}`;
 
 /* ------------------------------------------------------------------ load */
@@ -124,7 +128,7 @@ function build() {
       </div>
       <p class="cw-sub" id="cw-meta"></p>
       <div class="cw-player" id="cw-player" tabindex="-1">
-        <video id="cw-video" playsinline preload="metadata" ${c.hasPoster ? `poster="/api/clips/${ID}/media?poster=1"` : ''} src="${mediaUrl()}"></video>
+        <video id="cw-video" playsinline preload="metadata" ${c.hasPoster ? `poster="${posterUrl()}"` : ''} src="${mediaUrl()}"></video>
         <div class="cw-cc" id="cw-cc" hidden></div>
         <button type="button" class="cw-bigplay" id="cw-big" aria-label="Play" data-kind="play">${icon('play')}</button>
         <div class="cw-buf" id="cw-buf" hidden><i></i>Loading</div>
@@ -172,7 +176,10 @@ function refresh() {
   const title = $('#cw-title');
   if (title && !title.querySelector('input')) title.textContent = c.title || (c.status === 'processing' ? 'Writing a title' : 'Untitled clip');
   const views = S.info && typeof S.info.views === 'number' && signedIn() ? ` · ${Number(S.info.views).toLocaleString('en-US')} ${S.info.views === 1 ? 'view' : 'views'}` : '';
-  $('#cw-meta').innerHTML = `${esc(c.ownerName)} · ${esc(et(c.createdAt, { month: 'long', day: 'numeric', year: 'numeric' }))}${views}${c.status === 'processing' ? ' · <span class="cw-proc"><i></i>Writing the transcript and a title</span>' : ''}`;
+  const lvl = levelOfClip(c);
+  // A public clip says so to everyone who opens it. The person who made it also sees every other level.
+  const lvlTag = lvl === 'public' ? ` · ${publicBadge(lvl)}` : isAdmin() ? ` · ${esc(levelLabel(lvl))}` : '';
+  $('#cw-meta').innerHTML = `${esc(c.ownerName)} · ${esc(et(c.createdAt, { month: 'long', day: 'numeric', year: 'numeric' }))}${views}${lvlTag}${c.status === 'processing' ? ' · <span class="cw-proc"><i></i>Writing the transcript and a title</span>' : ''}`;
   S.ranges = keepRanges(S.edits, duration());
   paintActs();
   paintEdLen();
@@ -205,12 +212,9 @@ function paintActs() {
     box.innerHTML = `<button type="button" class="cw-btn" id="cw-share">${icon('link')}<span>Share</span></button>
       <span class="cw-menuwrap"><button type="button" class="cw-btn cw-btn--ghost cw-btn--ic" id="cw-more" aria-haspopup="menu" aria-expanded="false" aria-label="More">${icon('more')}</button>
       <ul class="cw-menu cw-menu--r" id="cw-morem" role="menu" hidden>
-        <li role="none"><label class="cw-mi cw-mi--sw"><input type="checkbox" id="cw-sw-staff" ${S.clip.staffLink ? 'checked' : ''}><i></i><span>Anyone at Favor with the link</span></label></li>
-        <li role="none"><label class="cw-mi cw-mi--sw"><input type="checkbox" id="cw-sw" ${S.clip.share ? 'checked' : ''}><i></i><span>Anyone with the link</span></label></li>
-        <li role="none"><button type="button" class="cw-mi" role="menuitem" data-m="people">${icon('link')}Share with people</button></li>
         <li role="none"><a class="cw-mi" role="menuitem" href="/clips/edit/?id=${ID}">${icon('scissors')}Edit the clip</a></li>
         <li role="none"><button type="button" class="cw-mi" role="menuitem" data-m="copy">${icon('copy')}Copy link</button></li>
-        <li role="none"><a class="cw-mi" role="menuitem" href="${mediaUrl()}?dl=1" download>${icon('dl')}Download original</a></li>
+        <li role="none"><a class="cw-mi" role="menuitem" href="${downloadUrl()}" download>${icon('dl')}Download original</a></li>
         <li role="none" ${hasEdits(S.edits) ? '' : 'hidden'}><button type="button" class="cw-mi" role="menuitem" data-m="edited">${icon('dl')}Download edited version</button></li>
         <li role="none"><button type="button" class="cw-mi" role="menuitem" data-m="title">${icon('wand')}Write the title again</button></li>
         <li role="none"><button type="button" class="cw-mi" role="menuitem" data-m="again">${icon('wand')}Redo the transcript</button></li>
@@ -220,7 +224,7 @@ function paintActs() {
     box.innerHTML = `<button type="button" class="cw-btn" id="cw-copy">${icon('link')}<span>Copy link</span></button>
       <span class="cw-menuwrap"><button type="button" class="cw-btn cw-btn--ghost cw-btn--ic" id="cw-more" aria-haspopup="menu" aria-expanded="false" aria-label="More">${icon('more')}</button>
       <ul class="cw-menu cw-menu--r" id="cw-morem" role="menu" hidden>
-        <li role="none"><a class="cw-mi" role="menuitem" href="${mediaUrl()}?dl=1" download>${icon('dl')}Download</a></li>
+        <li role="none"><a class="cw-mi" role="menuitem" href="${downloadUrl()}" download>${icon('dl')}Download</a></li>
         ${canDelete() ? `<li role="none"><button type="button" class="cw-mi cw-mi--danger" role="menuitem" data-m="delete">${icon('trash')}Delete</button></li>` : ''}
       </ul></span>`;
   }
@@ -236,7 +240,7 @@ async function shareAndCopy() {
       label.textContent = ok ? 'Link copied' : 'Copy failed';
       setTimeout(() => (label.textContent = isAdmin() ? 'Share' : 'Copy link'), 1800);
     }
-    toast(ok ? (isAdmin() ? (S.clip.share ? 'Link copied. Anyone with the link can watch.' : S.clip.staffLink ? 'Link copied. Anyone at Favor with the link can watch.' : 'Link copied. It opens for people you share it with and people in a Chat you post it in.') : 'Link copied') : 'Could not copy the link', ok ? 'ok' : 'bad');
+    toast(ok ? (isAdmin() ? `Link copied. Who can watch: ${levelLabel(levelOfClip(S.clip))}.` : 'Link copied') : 'Could not copy the link', ok ? 'ok' : 'bad');
   } catch (e) {
     toast(e.message, 'bad');
   }
@@ -266,7 +270,8 @@ function wireTop() {
   box.addEventListener('click', async (e) => {
     const t = e.target.closest('button, a');
     if (!t) return;
-    if (t.id === 'cw-share' || t.id === 'cw-copy') return shareAndCopy();
+    if (t.id === 'cw-share') return openShare(ID, { onChange: () => load(false) });
+    if (t.id === 'cw-copy') return shareAndCopy();
     if (t.id === 'cw-more') {
       const m = $('#cw-morem');
       const open = m.hidden;
@@ -279,13 +284,6 @@ function wireTop() {
     if (!act) return;
     closeMenus();
     if (act === 'copy') toast((await copyText(shareUrl())) ? 'Link copied' : 'Could not copy the link');
-    if (act === 'people') {
-      S.tab = 'activity';
-      paintTabs();
-      paintPanel();
-      const f = $('#cw-pp-add');
-      if (f) f.focus();
-    }
     if (act === 'edited') downloadEdited();
     if (act === 'title') {
       try {
@@ -319,30 +317,6 @@ function wireTop() {
       } catch (err) {
         toast(err.message, 'bad');
       }
-    }
-  });
-  box.addEventListener('change', async (e) => {
-    if (e.target.id === 'cw-sw-staff') {
-      const on = e.target.checked;
-      try {
-        await api(`/api/clips/${ID}`, { method: 'PATCH', json: { staffLink: on } });
-        S.clip.staffLink = on;
-        toast(on ? 'Anyone at Favor with the link can watch' : 'Only people you share it with can watch');
-      } catch (err) {
-        e.target.checked = !on;
-        toast(err.message, 'bad');
-      }
-      return;
-    }
-    if (e.target.id !== 'cw-sw') return;
-    const on = e.target.checked;
-    try {
-      await api(`/api/clips/${ID}`, { method: 'PATCH', json: { share: on } });
-      S.clip.share = on;
-      toast(on ? 'Anyone with the link can watch' : 'Only people you share it with can watch');
-    } catch (err) {
-      e.target.checked = !on;
-      toast(err.message, 'bad');
     }
   });
   const title = $('#cw-title');
@@ -521,7 +495,22 @@ function wirePlayer() {
     paintClock();
   });
   v.addEventListener('emptied', paintBig);
-  v.addEventListener('error', () => {
+  v.addEventListener('error', async () => {
+    // A signed link outside the hub runs out after two hours. Ask for a fresh one and carry on from the same spot.
+    if (S.info && S.info.media && !v._refreshed) {
+      v._refreshed = true;
+      try {
+        const at = v.currentTime;
+        const was = !v.paused;
+        const d = await api(`/api/clips/${ID}/info`);
+        S.info = d;
+        v.src = mediaUrl();
+        v.currentTime = at;
+        if (was) v.play().catch(() => undefined);
+        setTimeout(() => { v._refreshed = false; }, 60000);
+        return;
+      } catch (err) { /* fall through to the message */ }
+    }
     buffering(false);
     paintBig();
     const m = $('#cw-pmsg');
@@ -1366,10 +1355,10 @@ function paintActivity(box) {
   const viewers = S.viewers;
   const reacts = [...S.reactions].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const people = S.people || [];
+  const lvl = levelOfClip(S.clip);
   const who = S.can && S.can.share ? `<h3>Who can watch</h3>
-    <p class="cw-empty">${S.clip.share ? 'Anyone with the link.' : S.clip.staffLink ? 'Anyone at Favor with the link.' : 'You, admins, the people below, people in a Chat you post it in, and anyone who watched it before October 14.'}</p>
-    ${people.length ? `<ul class="cw-vlist">${people.map((p) => `<li><span class="cw-av">${esc(initials(p.name))}</span><div><b>${esc(p.name)}</b><p>${esc(p.email)}</p></div><button type="button" class="cw-t" data-pp-remove="${esc(p.email)}" aria-label="Stop sharing with ${esc(p.name)}">Remove</button></li>`).join('')}</ul>` : ''}
-    <form class="cw-ppform" id="cw-pp-form"><input id="cw-pp-add" type="email" placeholder="name@favorintl.org" aria-label="Share with a Favor staff member by email" autocomplete="off"><button type="submit" class="cw-btn">Share</button></form>` : '';
+    <p class="cw-empty"><b>${esc(levelLabel(lvl))}.</b> ${lvl === 'people' && people.length ? `${people.length === 1 ? '1 person is' : `${people.length} people are`} named, plus members of any Chat conversation where you post it.` : esc(({ private: 'Only you and admins.', people: 'You, admins, people you name and members of a Chat conversation where you post it.', staff: 'Any signed-in Favor staff member with the link.', public: 'Anyone with the link, signed in or not.' })[lvl] || '')}</p>
+    <div class="cw-editb"><button type="button" class="cw-btn cw-btn--ghost" data-open-share>Change who can watch</button></div>` : '';
   box.innerHTML = `<div class="cw-act">
     ${who}
     <h3>Who watched</h3>
@@ -1466,31 +1455,7 @@ load(true).then(() => {
   if (new URLSearchParams(location.search).get('make') === 'article' && isAdmin()) $('[data-make="article"]')?.click();
 });
 
-/* ---- who can watch: people by name ---- */
-document.addEventListener('submit', async (e) => {
-  if (e.target.id !== 'cw-pp-form') return;
-  e.preventDefault();
-  const f = $('#cw-pp-add');
-  const email = String((f && f.value) || '').trim().toLowerCase();
-  if (!email) return;
-  try {
-    const r = await api(`/api/clips/${ID}`, { method: 'PATCH', json: { addPeople: [email] } });
-    S.people = r.people || S.people;
-    paintPanel();
-    toast('Shared');
-  } catch (err) {
-    toast(err.message, 'bad');
-  }
-});
-document.addEventListener('click', async (e) => {
-  const b = e.target.closest('[data-pp-remove]');
-  if (!b) return;
-  try {
-    const r = await api(`/api/clips/${ID}`, { method: 'PATCH', json: { removePeople: [b.dataset.ppRemove] } });
-    S.people = r.people || [];
-    paintPanel();
-    toast('Removed');
-  } catch (err) {
-    toast(err.message, 'bad');
-  }
+/* ---- who can watch: the Share window ---- */
+document.addEventListener('click', (e) => {
+  if (e.target.closest('[data-open-share]')) openShare(ID, { onChange: () => load(false) });
 });

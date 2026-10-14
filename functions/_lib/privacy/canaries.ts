@@ -37,6 +37,8 @@ export const IDS = {
   task: 'tsk_prvcnry_1',
   taskLoose: 'tsk_prvcnry_2',
   clip: 'c0ffee00c0ffee00c0ffee00c0ffee01',
+  clipPrivate: 'c0ffee00c0ffee00c0ffee00c0ffee02', // level Private: only the tester and admins
+  clipPublic: 'c0ffee00c0ffee00c0ffee00c0ffee03', // level Public: everybody reads it, signed in or not (PRVOPEN)
   brainThread: 'bt_prvcnry_1',
 } as const;
 
@@ -113,6 +115,11 @@ export function canaryStatements(now = Date.now()): Stmt[] {
     // A clip the tester has not shared.
     [`INSERT OR IGNORE INTO hub_clips (id, owner_email, owner_name, title, status, share, mime, size_bytes, duration_ms, created_at, updated_at, summary) VALUES (?, ?, ?, ?, 'ready', 0, 'video/webm', 0, 1000, ?, ?, ?)`,
       [IDS.clip, TESTER_EMAIL, TESTER_NAME, `${CANARY} clip`, at, at, `${CANARY} clip summary`]],
+    // A clip set to Private, and one set to Everybody (PRVOPEN: staff, field and signed-out callers must read it).
+    [`INSERT OR IGNORE INTO hub_clips (id, owner_email, owner_name, title, status, share, staff_link, access, mime, size_bytes, duration_ms, created_at, updated_at, summary) VALUES (?, ?, ?, ?, 'ready', 0, 0, 'private', 'video/webm', 0, 1000, ?, ?, ?)`,
+      [IDS.clipPrivate, TESTER_EMAIL, TESTER_NAME, `${CANARY} private clip`, at, at, `${CANARY} private clip summary`]],
+    [`INSERT OR IGNORE INTO hub_clips (id, owner_email, owner_name, title, status, share, staff_link, access, mime, size_bytes, duration_ms, created_at, updated_at, summary) VALUES (?, ?, ?, ?, 'ready', 1, 1, 'public', 'video/webm', 0, 1000, ?, ?, ?)`,
+      [IDS.clipPublic, TESTER_EMAIL, TESTER_NAME, `${OPEN_MARK} public clip`, at, at, `${OPEN_MARK} public clip summary`]],
     // A Favor Brain conversation.
     [`INSERT OR IGNORE INTO brain_threads (id, email, title, pinned, made_at, changed_at) VALUES (?, ?, ?, 0, ?, ?)`, [IDS.brainThread, TESTER_EMAIL, `${CANARY} brain thread`, at, at]],
     [`INSERT INTO brain_turns (thread_id, n, question, answer_json, at) SELECT ?, 1, ?, '{}', ? WHERE NOT EXISTS (SELECT 1 FROM brain_turns WHERE thread_id = ?)`, [IDS.brainThread, `${CANARY} brain question`, at, IDS.brainThread]],

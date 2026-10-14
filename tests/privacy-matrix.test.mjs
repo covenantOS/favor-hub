@@ -393,3 +393,234 @@ describe('privacy follow-ups 2026-10-14: Brain packages from FavorOS rules, and 
     }
   });
 });
+
+describe('clip sharing levels (2026-10-14): private, specific people, anyone at Favor, everybody', () => {
+  const CID = 'ef34'.repeat(8);
+  const OTHER = 'ef35'.repeat(8);
+  const SECRET = 'levels-test-secret';
+  const R2 = {
+    head: async () => ({ size: 100, httpEtag: '"x"' }),
+    get: async (_k, o) => ({ body: o && o.range ? 'x'.repeat(o.range.length) : 'x'.repeat(100) }),
+  };
+  async function levelWorld(access = 'people') {
+    const w = await world();
+    const at = new Date(NOW).toISOString();
+    for (const [email, role] of [['owner@favorintl.org', 'staff'], ['bob@favorintl.org', 'staff'], ['cat@favorintl.org', 'staff'], ['dan@favorintl.org', 'staff'], ['field@favourafrica.org', 'field']]) {
+      await w.d1.prepare(`INSERT OR IGNORE INTO hub_users (email, name, picture, role, blocked, note, sign_ins, created_at, updated_at) VALUES (?, ?, '', ?, 0, '', 1, ?, ?)`).bind(email, email.split('@')[0], role, at, at).run();
+    }
+    const share = access === 'public' ? 1 : 0;
+    const link = access === 'staff' || access === 'public' ? 1 : 0;
+    await w.d1.prepare(`INSERT INTO hub_clips (id, owner_email, owner_name, title, status, share, staff_link, access, mime, size_bytes, duration_ms, created_at, updated_at, summary) VALUES (?, 'owner@favorintl.org', 'Owner', 'A clip', 'ready', ?, ?, ?, 'video/webm', 100, 1000, ?, ?, '')`).bind(CID, share, link, access, at, at).run();
+    // bob is named, cat is in a direct message with the owner where the clip was posted, dan watched it before levels existed.
+    await w.d1.prepare(`INSERT INTO hub_clip_people (clip_id, email, added_by, created_at) VALUES (?, 'bob@favorintl.org', 'owner@favorintl.org', ?)`).bind(CID, at).run();
+    await w.d1.prepare(`INSERT INTO chat_channels (id, kind, name, created_by, created_at) VALUES ('ch_lv_dm', 'dm', '', 'owner@favorintl.org', ?)`).bind(at).run();
+    for (const e of ['owner@favorintl.org', 'cat@favorintl.org']) await w.d1.prepare(`INSERT INTO chat_members (channel_id, email, joined_at) VALUES ('ch_lv_dm', ?, ?)`).bind(e, at).run();
+    await w.d1.prepare(`INSERT INTO chat_messages (channel_id, email, body, attachments, created_at) VALUES ('ch_lv_dm', 'owner@favorintl.org', '', ?, ?)`).bind(JSON.stringify([{ type: 'clip', id: CID }]), at).run();
+    await w.d1.prepare(`INSERT INTO hub_clip_views (id, clip_id, person_email, person_name, at, seconds) VALUES ('v_lv', ?, 'dan@favorintl.org', 'Dan', ?, 5)`).bind(CID, at).run();
+    return { ...w, env: { ...w.env, CLIPS: R2, SFU_APP_SECRET: SECRET } };
+  }
+  const as = (email, role = 'staff') => (email ? { 'X-Hub-Email': email, 'X-Hub-Role': role, 'X-Hub-Name': email.split('@')[0] } : {});
+  const WHO = {
+    owner: as('owner@favorintl.org'),
+    admin: as('tester@favorintl.org', 'admin'),
+    named: as('bob@favorintl.org'),
+    chat: as('cat@favorintl.org'),
+    earlier: as('dan@favorintl.org'),
+    stranger: as('ann@favorintl.org'),
+    field: as('field@favourafrica.org', 'field'),
+    out: as(''),
+  };
+  const base = 'https://dash.favorintl.org';
+  const route = async (file, name, w, who, path = '', init = {}, id = CID) => {
+    const mod = await import(`../functions/api/clips/[id]/${file}.ts`);
+    return mod[name]({ request: new Request(`${base}/api/clips/${id}/${file}${path}`, { ...init, headers: { ...WHO[who], ...(init.headers || {}) } }), env: w.env, params: { id }, waitUntil: () => undefined });
+  };
+  const info = async (w, who) => (await route('info', 'onRequestGet', w, who)).status;
+  const grid = async (w) => {
+    const out = {};
+    for (const who of Object.keys(WHO)) out[who] = await info(w, who);
+    return out;
+  };
+
+  it('Private opens for the owner and admins only, even for a named person, a chat member and an earlier viewer', async () => {
+    const g = await grid(await levelWorld('private'));
+    assert.deepEqual(g, { owner: 200, admin: 200, named: 404, chat: 404, earlier: 404, stranger: 404, field: 404, out: 401 });
+  });
+  it('Specific people opens for the owner, admins, named people and members of a chat it was posted in, not earlier viewers', async () => {
+    const g = await grid(await levelWorld('people'));
+    assert.deepEqual(g, { owner: 200, admin: 200, named: 200, chat: 200, earlier: 404, stranger: 404, field: 404, out: 401 });
+  });
+  it('Anyone at Favor opens for every signed-in staff member and still refuses field accounts and signed-out callers', async () => {
+    const g = await grid(await levelWorld('staff'));
+    assert.deepEqual(g, { owner: 200, admin: 200, named: 200, chat: 200, earlier: 200, stranger: 200, field: 404, out: 401 });
+  });
+  it('Everybody opens for every signed-in staff member, field accounts and signed-out callers', async () => {
+    const g = await grid(await levelWorld('public'));
+    assert.deepEqual(g, { owner: 200, admin: 200, named: 200, chat: 200, earlier: 200, stranger: 200, field: 200, out: 200 });
+  });
+  it('a clip whose level was never set keeps the old rules: earlier viewers keep it, others need to be named or in the chat', async () => {
+    const w = await levelWorld('people');
+    await w.d1.prepare('UPDATE hub_clips SET access = NULL WHERE id = ?').bind(CID).run();
+    assert.deepEqual(await grid(w), { owner: 200, admin: 200, named: 200, chat: 200, earlier: 200, stranger: 404, field: 404, out: 401 });
+    await w.d1.prepare('UPDATE hub_clips SET access = NULL, share = 1 WHERE id = ?').bind(CID).run();
+    assert.equal(await info(w, 'out'), 200, 'the old public switch still means Everybody');
+  });
+  it('the video, thumbnail and download follow the level on every request, for each person', async () => {
+    for (const [level, staffOk, outOk] of [['private', false, false], ['people', false, false], ['staff', true, false], ['public', true, false]]) {
+      const w = await levelWorld(level);
+      const stranger = await route('media', 'onRequestGet', w, 'stranger');
+      assert.equal(stranger.status === 200, staffOk, `${level}: a stranger streaming`);
+      assert.equal((await route('media', 'onRequestGet', w, 'stranger', '?dl=1')).status === 200, staffOk, `${level}: a stranger downloading`);
+      assert.equal((await route('media', 'onRequestGet', w, 'stranger', '?poster=1')).status === 200 || (await route('poster', 'onRequestGet', w, 'stranger')).status === 404, true);
+      assert.equal((await route('media', 'onRequestGet', w, 'out')).status === 200, outOk, `${level}: signed out with no token`);
+      assert.equal((await route('media', 'onRequestGet', w, 'owner')).status, 200, `${level}: the owner`);
+    }
+  });
+  it('Everybody streams to a signed-out viewer only with the short-lived token the page was given', async () => {
+    const w = await levelWorld('public');
+    const body = await (await route('info', 'onRequestGet', w, 'out')).json();
+    assert.ok(body.clip.share && body.clip.access === 'public');
+    const video = body.media.video;
+    assert.match(video, new RegExp('^/api/clips/' + CID + '/media[?]k=v[0-9]{13}[.][0-9a-f]{40}$'));
+    const k = new URL(base + video).searchParams.get('k');
+    const ok = await route('media', 'onRequestGet', w, 'out', '?k=' + k, { headers: { Range: 'bytes=0-9' } });
+    assert.equal(ok.status, 206);
+    assert.match(ok.headers.get('Cache-Control'), /no-store/);
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?dl=1&k=' + k)).status, 200, 'download works with the token');
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + k.slice(0, -1) + '0')).status, 401, 'a changed token');
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + k, {}, OTHER)).status, 401, 'a token for another clip finds nothing');
+    const lib = await import('../functions/_lib/clips.ts');
+    const expired = await lib.publicToken(w.env, CID, 'v', -1000);
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + expired)).status, 401, 'an expired token');
+    const posterOnly = await lib.publicToken(w.env, CID, 'p');
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?poster=1&k=' + posterOnly)).status, 200, 'a poster token opens the poster');
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + posterOnly)).status, 401, 'and never the video');
+    // The owner turns it off: the token in hand stops working on the next request.
+    await w.d1.prepare(`UPDATE hub_clips SET access = 'staff', share = 0 WHERE id = ?`).bind(CID).run();
+    assert.equal((await route('media', 'onRequestGet', w, 'out', '?k=' + k)).status, 401);
+    assert.equal(await info(w, 'out'), 401);
+  });
+  it('a public clip of a blocked owner stops for outsiders but signed-in staff keep it', async () => {
+    const w = await levelWorld('public');
+    await w.d1.prepare(`UPDATE hub_users SET blocked = 1 WHERE email = 'owner@favorintl.org'`).run();
+    assert.equal(await info(w, 'out'), 401);
+    assert.equal(await info(w, 'stranger'), 200);
+  });
+  it('comments, reactions and view counts follow the level', async () => {
+    const post = (w, who, file, body) => route(file, 'onRequestPost', w, who, '', { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+    for (const [level, strangerOk] of [['private', false], ['people', false], ['staff', true], ['public', true]]) {
+      const w = await levelWorld(level);
+      assert.equal((await post(w, 'stranger', 'comments', { text: 'hi', at: 1 })).status === 200, strangerOk, `${level}: a stranger commenting`);
+      assert.equal((await post(w, 'stranger', 'reactions', { emoji: '\u{1F44D}', at: 1 })).status === 200, strangerOk, `${level}: a stranger reacting`);
+      assert.equal((await post(w, 'stranger', 'views', { seconds: 1 })).status === 200, strangerOk, `${level}: a stranger counted as a view`);
+      assert.equal((await post(w, 'out', 'views', { seconds: 1 })).status === 200, level === 'public', `${level}: a signed-out view`);
+    }
+  });
+  it('the viewers list and the transcript, notes and sharing detail go to the owner and admins, never to other staff or outsiders', async () => {
+    const w = await levelWorld('public');
+    const owner = await (await route('info', 'onRequestGet', w, 'owner')).json();
+    const stranger = await (await route('info', 'onRequestGet', w, 'stranger')).json();
+    const out = await (await route('info', 'onRequestGet', w, 'out')).json();
+    assert.ok(Array.isArray(owner.viewers) && owner.people && owner.postedIn && owner.level === 'public');
+    for (const body of [stranger, out]) {
+      assert.equal(body.viewers, undefined);
+      assert.equal(body.people, undefined);
+      assert.equal(body.postedIn, undefined);
+      assert.equal(body.helpDraft, undefined);
+    }
+    assert.equal(out.comments, undefined, 'a signed-out viewer gets no comments');
+    assert.equal(stranger.can.share, false);
+  });
+  it('only the owner changes the level, it takes effect at once, and an unknown level is refused', async () => {
+    const w = await levelWorld('private');
+    const patch = (who, json) => route('index', 'onRequestPatch', w, who, '', { method: 'PATCH', body: JSON.stringify(json), headers: { 'Content-Type': 'application/json' } });
+    assert.equal(await info(w, 'stranger'), 404);
+    assert.equal((await patch('stranger', { access: 'public' })).status, 404, 'another staff member cannot');
+    assert.equal((await patch('admin', { access: 'public' })).status, 404, 'an admin cannot edit another person\'s clip');
+    assert.equal((await patch('owner', { access: 'everyone' })).status, 400);
+    for (const [level, strangerStatus, outStatus] of [['staff', 200, 401], ['public', 200, 200], ['people', 404, 401], ['private', 404, 401]]) {
+      const r = await patch('owner', { access: level });
+      assert.equal(r.status, 200);
+      assert.equal((await r.json()).access, level);
+      assert.equal(await info(w, 'stranger'), strangerStatus, `${level}: stranger right after the change`);
+      assert.equal(await info(w, 'out'), outStatus, `${level}: signed out right after the change`);
+    }
+    const row = await w.d1.prepare('SELECT access, share, staff_link FROM hub_clips WHERE id = ?').bind(CID).first();
+    assert.deepEqual({ ...row }, { access: 'private', share: 0, staff_link: 0 });
+  });
+  it('the older share and staffLink switches still map onto a level', async () => {
+    const w = await levelWorld('people');
+    const patch = (json) => route('index', 'onRequestPatch', w, 'owner', '', { method: 'PATCH', body: JSON.stringify(json), headers: { 'Content-Type': 'application/json' } });
+    assert.equal((await (await patch({ staffLink: true })).json()).access, 'staff');
+    assert.equal((await (await patch({ share: true })).json()).access, 'public');
+    assert.equal((await (await patch({ share: false })).json()).access, 'people');
+  });
+  it('people are staff only: an outside email is refused and a blocked person cannot be added', async () => {
+    const w = await levelWorld('people');
+    await w.d1.prepare(`UPDATE hub_users SET blocked = 1 WHERE email = 'cat@favorintl.org'`).run();
+    const patch = (json) => route('index', 'onRequestPatch', w, 'owner', '', { method: 'PATCH', body: JSON.stringify(json), headers: { 'Content-Type': 'application/json' } });
+    const out = await patch({ addPeople: ['someone@gmail.com'] });
+    assert.equal(out.status, 400);
+    assert.match((await out.json()).message || '', /outside Favor, choose Everybody/);
+    assert.equal((await patch({ addPeople: ['cat@favorintl.org'] })).status, 400);
+    assert.equal((await patch({ addPeople: ['ann@favorintl.org'] })).status, 200);
+    assert.equal(await info(w, 'stranger'), 200, 'the person just named opens it');
+    assert.equal((await patch({ removePeople: ['ann@favorintl.org'] })).status, 200);
+    assert.equal(await info(w, 'stranger'), 404, 'and loses it when removed');
+  });
+  it('the staff picker finds staff by name, never a blocked or field account', async () => {
+    const w = await levelWorld('people');
+    await w.d1.prepare(`UPDATE hub_users SET blocked = 1 WHERE email = 'cat@favorintl.org'`).run();
+    const { onRequestGet } = await import('../functions/api/clips/people.ts');
+    const find = async (q, who = WHO.owner) => (await (await onRequestGet({ request: new Request(`${base}/api/clips/people?q=${q}`, { headers: who }), env: w.env, params: {} })).json());
+    assert.deepEqual((await find('bob')).people.map((p) => p.email), ['bob@favorintl.org']);
+    assert.deepEqual((await find('cat')).people, []);
+    assert.deepEqual((await find('field')).people, []);
+    assert.deepEqual((await find('b')).people, [], 'one letter returns nothing');
+    const signedOut = await onRequestGet({ request: new Request(`${base}/api/clips/people?q=bob`), env: w.env, params: {} });
+    assert.equal(signedOut.status, 401);
+  });
+  it('a new clip starts as Specific people unless an admin changed the default, and Everybody is never a default', async () => {
+    const w = await levelWorld('people');
+    const create = async (headers) => {
+      const { onRequestPost } = await import('../functions/api/clips/index.ts');
+      const env = { ...w.env, CLIPS: { createMultipartUpload: async () => ({ uploadId: 'u1' }) } };
+      const res = await onRequestPost({ request: new Request(`${base}/api/clips`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ mime: 'video/webm' }) }), env, params: {}, waitUntil: () => undefined });
+      assert.equal(res.status, 200);
+      return (await res.json()).id;
+    };
+    const a = await create(WHO.owner);
+    assert.deepEqual({ ...(await w.d1.prepare('SELECT access, share, staff_link FROM hub_clips WHERE id = ?').bind(a).first()) }, { access: 'people', share: 0, staff_link: 0 });
+    await w.d1.prepare(`INSERT OR REPLACE INTO hub_settings (key, value, updated_by, updated_at) VALUES ('clips.share_default', 'public', 'test', ?)`).bind(new Date(NOW).toISOString()).run();
+    const b = await create(WHO.owner);
+    assert.equal((await w.d1.prepare('SELECT access FROM hub_clips WHERE id = ?').bind(b).first()).access, 'people', 'public is not a default');
+    await w.d1.prepare(`UPDATE hub_settings SET value = 'staff' WHERE key = 'clips.share_default'`).run();
+    const c = await create(WHO.owner);
+    assert.deepEqual({ ...(await w.d1.prepare('SELECT access, staff_link FROM hub_clips WHERE id = ?').bind(c).first()) }, { access: 'staff', staff_link: 1 });
+  });
+  it('the Brain and search card for a clip follow the level', async () => {
+    const w = await levelWorld('private');
+    const E = await import('../functions/_lib/hub/entity.ts');
+    const user = (email, role = 'staff') => ({ email, name: email, role, picture: '', via: 'google', kpi: true });
+    const acc = { admin: false, work: false };
+    const card = (u) => E.resolveEntity(w.env, new Request(base + '/x'), u, acc, 'clip', CID).catch(() => 'error');
+    assert.equal(await card(user('ann@favorintl.org')), null);
+    await w.d1.prepare(`UPDATE hub_clips SET access = 'staff', staff_link = 1 WHERE id = ?`).bind(CID).run();
+    const open = await card(user('ann@favorintl.org'));
+    assert.ok(open && open.title === 'A clip');
+  });
+  it('every clip route that shows or streams a clip checks the level on the server', () => {
+    for (const f of ['info', 'media', 'views']) assert.match(src(`functions/api/clips/[id]/${f}.ts`), /canWatch\(env, request, clip\)/, f);
+    for (const f of ['comments', 'reactions']) assert.match(src(`functions/api/clips/[id]/${f}.ts`), /mayWatch\(env, (who\.)?user, c(lip)?\)/, f);
+    assert.match(src('functions/api/clips/[id]/lesson.ts'), /readableClip/);
+    assert.match(src('functions/api/clips/[id]/article.ts'), /readableClip/);
+    assert.match(src('functions/api/clips/[id]/poster.ts'), /mediaGet/, 'the thumbnail goes through the media route');
+    assert.match(src('functions/api/clips/[id]/media.ts'), /publicTokenOk/);
+    assert.match(src('db/clip-share.sql'), /ADD COLUMN access TEXT/);
+  });
+  it('the production probe covers a Private clip, an unshared clip and an Everybody clip', async () => {
+    const names = probes().map((p) => p.name);
+    for (const n of ['Private clip', 'Private clip video', 'Unshared clip video', 'Public clip (everybody reads it)', 'Public clip video without its token']) assert.ok(names.includes(n), n);
+    assert.ok(canaryStatements(NOW).some(([sql, args]) => args.includes(IDS.clipPublic)));
+  });
+});

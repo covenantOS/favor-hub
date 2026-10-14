@@ -18,6 +18,7 @@ export function world({ mode } = {}) {
   d1.exec(read('db/clips.sql'));
   d1.exec(read('db/clips-v2.sql'));
   d1.exec(read('db/clip-access.sql'));
+  d1.exec(read('db/clip-share.sql'));
   d1.exec(read('db/meetings.sql'));
   d1.exec(read('db/favor-chat.sql'));
   d1.exec(read('db/favor-chat-private.sql'));

@@ -4,6 +4,7 @@ import type { Env } from '../http';
 import type { Attachment } from './db';
 import { GONE_MS } from '../meet';
 import { isLive } from './huddle';
+import { levelOf } from '../clips';
 import { hydrateTaskCards } from './tasks';
 import { hydratePTaskCards } from '../projects/links/chat'; // projects hook
 import { hydratePlusCards } from './plus-cards';
@@ -24,7 +25,7 @@ function whenLabel(iso: string): string {
   return d.toLocaleDateString('en-US', { timeZone: ET, month: 'short', day: 'numeric' });
 }
 
-interface ClipRow { id: string; title: string; summary: string; status: string; owner_name: string; duration_ms: number; has_poster: number; created_at: string }
+interface ClipRow { id: string; title: string; summary: string; status: string; owner_name: string; duration_ms: number; has_poster: number; created_at: string; share?: number; staff_link?: number; access?: string | null }
 interface MeetRow { id: string; title: string; status: string; started_at: string | null; ended_at: string | null; notes_status: string; summary: string; created_at: string; host_email: string; cohosts: string; invitees: string; access: string; post_channel: string }
 
 /** channelId is the conversation the message sits in: a meeting or task card names its subject only where every member may open it (cardaccess.ts). */
@@ -56,7 +57,7 @@ export async function hydrateAttachments(env: Env, list: Attachment[], channelId
   const linked = new Set<string>();
   const named = new Set<string>();
   if (clipIds.length) {
-    const r = await env.DB.prepare(`SELECT id, title, summary, status, owner_name, duration_ms, has_poster, created_at FROM hub_clips WHERE id IN (${clipIds.map(() => '?').join(',')})`).bind(...clipIds).all<ClipRow>().catch(() => ({ results: [] as ClipRow[] }));
+    const r = await env.DB.prepare(`SELECT id, title, summary, status, owner_name, duration_ms, has_poster, created_at, share, staff_link, access FROM hub_clips WHERE id IN (${clipIds.map(() => '?').join(',')})`).bind(...clipIds).all<ClipRow>().catch(() => ({ results: [] as ClipRow[] }));
     for (const c of r.results || []) clips.set(c.id, c);
   }
   if (meetIds.length) {
@@ -84,6 +85,8 @@ export async function hydrateAttachments(env: Env, list: Attachment[], channelId
       return {
         type: 'clip', id: c.id, title: c.title || 'Untitled clip', summary: c.summary || '', duration: c.duration_ms ? mins(c.duration_ms) : '', by: c.owner_name, when: whenLabel(c.created_at),
         thumb: c.has_poster ? `/api/clips/${c.id}/poster` : '', url: `/c/${c.id}`,
+        // Who can watch it, so the sender sees a note when the people in the conversation cannot open it (Clips sharing, 2026-10-14).
+        level: levelOf(c),
       };
     }
     if (a.type === 'meeting') {

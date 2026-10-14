@@ -1,7 +1,7 @@
-// Rename, change the summary, turn sharing on or off (anyone with the link, anyone at Favor with the link, people by name), save edits or chapters or corrected transcript lines, or delete a
+// Rename, change the summary, set who can watch (private, specific people, anyone at Favor, everybody), save edits or chapters or corrected transcript lines, or delete a
 // clip. The person who made a clip manages it; a hub admin may also delete any clip. Delete removes the video, poster, sound and every note from R2 and D1.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, clipPeople, staffOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
+import { J, LEVELS, clipPeople, isLevel, levelOf, staffOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
 import { cleanEdits, respread } from '../../../_lib/clipEdits';
 import { cleanChapters, type ClipSegment, type ClipWord } from '../../../_lib/clipChapters';
 import { fastKey, muxInfo } from '../../../_lib/clipmuxjob';
@@ -25,8 +25,24 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
       put('title_auto', 0);
     }
     if (typeof body.summary === 'string') put('summary', body.summary.replace(/\s+/g, ' ').trim().slice(0, 1500));
-    if (body.share !== undefined) put('share', body.share === true ? 1 : 0);
-    if (body.staffLink !== undefined) put('staff_link', body.staffLink === true ? 1 : 0);
+    // The sharing level. The older two switches (share, staffLink) still work and map onto it. Changes take effect on the next request.
+    let level = levelOf(clip);
+    let levelSet = false;
+    if (body.access !== undefined) {
+      if (!isLevel(body.access)) return errorJson('bad_access', `Who can watch must be one of: ${LEVELS.join(', ')}.`, 400);
+      level = body.access;
+      levelSet = true;
+    } else {
+      if (body.share === true) { level = 'public'; levelSet = true; }
+      else if (body.share === false && level === 'public') { level = 'people'; levelSet = true; }
+      if (body.staffLink === true && level !== 'public') { level = 'staff'; levelSet = true; }
+      else if (body.staffLink === false && level === 'staff') { level = 'people'; levelSet = true; }
+    }
+    if (levelSet) {
+      put('access', level);
+      put('share', level === 'public' ? 1 : 0);
+      put('staff_link', level === 'staff' || level === 'public' ? 1 : 0);
+    }
     // People the clip is shared with by name: Favor staff in the directory or signed in to FavorOS, never a blocked account.
     const addPeople = Array.isArray(body.addPeople) ? (body.addPeople as unknown[]).map((x) => String(x || '').trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+$/.test(x)).slice(0, 50) : [];
     const removePeople = Array.isArray(body.removePeople) ? (body.removePeople as unknown[]).map((x) => String(x || '').trim().toLowerCase()).slice(0, 50) : [];
@@ -39,7 +55,7 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
       ).bind(JSON.stringify(addPeople)).all<{ email: string }>();
       const ok = (known.results || []).map((r) => r.email);
       const missing = addPeople.filter((e) => !ok.includes(e));
-      if (missing.length) return errorJson('unknown_person', `${missing.join(', ')} is not a Favor staff member in FavorOS.`, 400);
+      if (missing.length) return errorJson('unknown_person', `${missing.join(', ')} is not a Favor staff member in FavorOS. To share outside Favor, choose Everybody.`, 400);
       const at = nowIso();
       await env.DB.batch(ok.map((e) => env.DB.prepare('INSERT OR IGNORE INTO hub_clip_people (clip_id, email, added_by, created_at) VALUES (?, ?, ?, ?)').bind(clip.id, e, who.user.email, at)));
     }
@@ -60,13 +76,14 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
     sets.push('updated_at = ?');
     args.push(nowIso());
     await env.DB.prepare(`UPDATE hub_clips SET ${sets.join(', ')} WHERE id = ?`).bind(...args, clip.id).run();
-    const fresh = await env.DB.prepare('SELECT title, summary, share, staff_link, edits, chapters, transcript, words FROM hub_clips WHERE id = ?').bind(clip.id).first<Record<string, unknown>>();
+    const fresh = await env.DB.prepare('SELECT title, summary, share, staff_link, access, edits, chapters, transcript, words FROM hub_clips WHERE id = ?').bind(clip.id).first<Record<string, unknown>>();
     return json({
       ok: true,
       title: fresh?.title,
       summary: fresh?.summary,
       share: fresh?.share,
       staffLink: Number(fresh?.staff_link) === 1,
+      access: levelOf({ share: Number(fresh?.share), staff_link: Number(fresh?.staff_link), access: fresh?.access as string | null }),
       people: addPeople.length || removePeople.length ? await clipPeople(env, clip.id) : undefined,
       edits: J(fresh?.edits, {}),
       chapters: J(fresh?.chapters, []),

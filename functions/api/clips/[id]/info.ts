@@ -1,7 +1,7 @@
 // Everything the watch page needs. A signed-out viewer through the share link gets the video's words and nothing
 // else: no comments, reactions or viewers. Signed-in staff also get those; an admin also gets the manage controls.
 import { errorJson, handleError, json } from '../../../_lib/http';
-import { ID_RE, J, PRIVATE, clipPeople, clipView, isWatchable, canWatch, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import { ID_RE, J, PRIVATE, clipPeople, clipView, isWatchable, canWatch, levelOf, postedIn, publicToken, type Clip, type ClipsEnv } from '../../../_lib/clips';
 import { hubUserOf } from '../../../_lib/session';
 import { ensureChapters } from '../../../_lib/clipMake';
 import { clipHighlights } from '../../../_lib/clipHighlights';
@@ -20,6 +20,11 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
     clip.chapters = JSON.stringify(chapters);
     const out: Record<string, unknown> = { ok: true, clip: clipView(clip), user: user ? { email: user.email, name: user.name, admin: user.role === 'admin' } : null };
     out.highlights = clipHighlights(J<ClipSegment[]>(clip.transcript, []), chapters, clip.duration_ms / 1000);
+    // Outside the hub the video and its poster come through signed links that expire.
+    if (!user || user.role === 'field') {
+      const k = await publicToken(env, clip.id, 'v');
+      out.media = k ? { video: `/api/clips/${clip.id}/media?k=${k}`, poster: `/api/clips/${clip.id}/media?poster=1&k=${k}` } : null;
+    }
     if (user && user.role !== 'field') {
       const [comments, reactions, views] = await Promise.all([
         env.DB.prepare('SELECT id, at_seconds, author_email, author_name, body, created_at FROM hub_clip_comments WHERE clip_id = ? ORDER BY at_seconds, created_at LIMIT 500').bind(id).all(),
@@ -48,7 +53,10 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
         out.viewers = [...seen.values()];
         out.people = await clipPeople(env, clip.id);
       }
+      // The conversations the clip was posted in, for the person who made it (who is in them is their own business).
+      if (mine) out.postedIn = await postedIn(env, clip.id);
       out.can = { edit: mine, delete: mine || admin, share: mine };
+      out.level = levelOf(clip);
       out.mine = mine;
       if (mine) {
         out.helpDraft = clip.help_draft;

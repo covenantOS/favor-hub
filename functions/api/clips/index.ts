@@ -1,7 +1,7 @@
 // Clips: list the library (with a search that reads titles, summaries and what was said), start a new upload.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../_lib/http';
 import { clipsCapBytes, clipsShareDefault, mayRecordClips } from '../../_lib/admin/settings';
-import { PART_BYTES, STALE_UPLOAD_MS, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
+import { PART_BYTES, STALE_UPLOAD_MS, levelOf, staffOrError, teamOf, usageOf, purgeClip, cleanKind, cleanMime, clipId, extFor, videoKey, J, type Clip, type ClipsEnv } from '../../_lib/clips';
 import type { ClipSegment } from '../../_lib/clipChapters';
 import { muxTidy } from '../../_lib/clipmuxjob';
 import { ensureChapters } from '../../_lib/clipMake';
@@ -40,7 +40,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, wait
       }
     }
     const rows = await env.DB.prepare(
-      `SELECT id, owner_email, owner_name, owner_team, title, summary, status, share, kind, size_bytes, duration_ms, has_poster, views, created_at${q && !all ? ', transcript' : ''} FROM hub_clips WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 300`
+      `SELECT id, owner_email, owner_name, owner_team, title, summary, status, share, staff_link, access, kind, size_bytes, duration_ms, has_poster, views, created_at${q && !all ? ', transcript' : ''} FROM hub_clips WHERE ${where.join(' AND ')} ORDER BY created_at DESC LIMIT 300`
     ).bind(...args).all<Clip>();
     const hits = new Map<string, { at: number; text: string }>();
     if (q && !all) {
@@ -56,7 +56,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env, wait
     const clips = (rows.results || []).map((c) => {
       const { transcript, owner_email, ...rest } = c;
       const word = q && !all ? snippet(transcript || '', q) : null;
-      return { ...rest, ...(all ? { owner_email } : {}), mine: owner_email === who.user.email, match: word || hits.get(c.id) || null };
+      return { ...rest, level: levelOf(rest), ...(all ? { owner_email } : {}), mine: owner_email === who.user.email, match: word || hits.get(c.id) || null };
     });
     // Recordings that never finished and were never picked up: tidy them away on the way past.
     void tidy(env).catch(() => undefined);
@@ -112,12 +112,14 @@ export const onRequestPost: PagesFunction<ClipsEnv> = async ({ request, env }) =
     if (use.full) return errorJson('storage_full', `Your clips use all ${Math.round(use.cap / 1024 ** 3)} GB. Delete clips you no longer need in My clips, then record again.`, 409);
     const given = asTrimmed(body.title, 'title', 120, false);
     const mime = cleanMime(body.mime);
+    // A new clip starts at the level set in Admin > Clips (Specific people unless an admin changed it). The owner changes it in the Share window.
+    const level = await clipsShareDefault(env).catch(() => 'people' as const);
     const id = clipId();
     const upload = await env.CLIPS.createMultipartUpload(videoKey(id), { httpMetadata: { contentType: mime } });
     const now = nowIso();
     await env.DB.prepare(
-      'INSERT INTO hub_clips (id, owner_email, owner_name, owner_team, title, title_auto, status, share, mime, kind, upload_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(id, who.user.email, who.user.name, await teamOf(env, who.user.email), given, given ? 0 : 1, 'uploading', (await clipsShareDefault(env).catch(() => false)) ? 1 : 0, mime, cleanKind(body.kind), upload.uploadId, now, now).run();
+      'INSERT INTO hub_clips (id, owner_email, owner_name, owner_team, title, title_auto, status, share, staff_link, access, mime, kind, upload_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(id, who.user.email, who.user.name, await teamOf(env, who.user.email), given, given ? 0 : 1, 'uploading', level === 'staff' ? 1 : 0, level, mime, cleanKind(body.kind), upload.uploadId, now, now).run();
     return json({ ok: true, id, ext: extFor(mime), partBytes: PART_BYTES }, 200, { 'Cache-Control': 'private, no-store' });
   } catch (err) {
     return handleError(err);

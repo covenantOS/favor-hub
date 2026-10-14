@@ -169,9 +169,12 @@ describe('the new settings reach the code that obeys them', () => {
     assert.equal(await S.clipsMaxMs(env), 45 * 60000);
     await S.changeSetting(env, 'a', 'clips.max_min', '30');
     assert.equal(await S.clipsMaxMs(env), 30 * 60000);
-    assert.equal(await S.clipsShareDefault(env), false);
-    await S.changeSetting(env, 'a', 'clips.share_default', 'on');
-    assert.equal(await S.clipsShareDefault(env), true);
+    assert.equal(await S.clipsShareDefault(env), 'people');
+    await S.changeSetting(env, 'a', 'clips.share_default', 'staff');
+    assert.equal(await S.clipsShareDefault(env), 'staff');
+    await S.changeSetting(env, 'a', 'clips.share_default', 'private');
+    assert.equal(await S.clipsShareDefault(env), 'private');
+    await assert.rejects(() => S.changeSetting(env, 'a', 'clips.share_default', 'public'));
     assert.equal(await S.receiptsDays(env), 90);
     await S.changeSetting(env, 'a', 'receipts.days', '60');
     assert.equal(await S.receiptsDays(env), 60);

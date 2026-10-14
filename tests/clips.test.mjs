@@ -77,14 +77,19 @@ describe('media route', () => {
       get: async (_k, o) => ({ body: o && o.range ? 'x'.repeat(o.range.length) : 'x'.repeat(100) }),
     },
   });
-  const call = (share, headers = {}) => media({ request: new Request('https://hub.test/api/clips/' + id + '/media', { headers }), env: env(share), params: { id } });
+  const call = (share, headers = {}, query = '') => media({ request: new Request('https://hub.test/api/clips/' + id + '/media' + query, { headers }), env: { ...env(share), SFU_APP_SECRET: 'test-secret' }, params: { id } });
   it('refuses signed-out viewers when sharing is off, with no caching', async () => {
     const res = await call(0);
     assert.equal(res.status, 401);
     assert.match(res.headers.get('Cache-Control'), /no-store/);
   });
-  it('streams a range to a signed-out viewer when sharing is on', async () => {
-    const res = await call(1, { Range: 'bytes=10-19' });
+  it('refuses a signed-out viewer with no token or a wrong one even when sharing is on', async () => {
+    assert.equal((await call(1, {})).status, 401);
+    assert.equal((await call(1, {}, '?k=v1999999999999.' + '0'.repeat(40))).status, 401);
+  });
+  it('streams a range to a signed-out viewer when sharing is on and the token is good', async () => {
+    const k = await lib.publicToken({ SFU_APP_SECRET: 'test-secret' }, id, 'v');
+    const res = await call(1, { Range: 'bytes=10-19' }, '?k=' + k);
     assert.equal(res.status, 206);
     assert.equal(res.headers.get('Content-Range'), 'bytes 10-19/100');
     assert.equal(res.headers.get('Cache-Control'), 'private, no-store');

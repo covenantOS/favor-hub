@@ -305,7 +305,7 @@ export const DEFS: Def[] = [
   hubDef({ id: 'clips.who', area: 'clips', label: 'Who can record', kind: 'enum', options: [{ value: 'all', label: 'Every staff member' }, { value: 'admins', label: 'Admins only' }, { value: 'list', label: 'Admins and the people listed' }], def: 'all' }),
   hubDef({ id: 'clips.list', area: 'clips', label: 'People who can record', hint: 'Email addresses, separated by commas. Used when the setting above is the list.', kind: 'text', def: '' }),
   hubDef({ id: 'clips.max_min', area: 'clips', label: 'Longest recording', hint: 'The recorder stops a clip at this length.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '45' }),
-  hubDef({ id: 'clips.share_default', area: 'clips', label: 'Sharing link on a new clip', hint: 'A person can still switch the link on or off for each clip.', kind: 'enum', options: ON_OFF, def: 'off' }),
+  hubDef({ id: 'clips.share_default', area: 'clips', label: 'Who can watch a new clip', hint: 'Specific people means the person who made it, people they name, and members of a Chat conversation they post it in. A person changes this for each clip in its Share window. Everybody (public) is never a default.', kind: 'enum', options: [{ value: 'private', label: 'Private (only the person who made it)' }, { value: 'people', label: 'Specific people' }, { value: 'staff', label: 'Anyone at Favor with the link' }], def: 'people' }),
   // -------------------------------------------------------------------------------------------------------- Chat
   hubDef({ id: 'chat.enabled', area: 'chat', label: 'Who can use Chat', hint: 'Admins only, every signed-in staff member, or nobody.', kind: 'enum', options: [{ value: 'admins', label: 'Admins only' }, { value: 'staff', label: 'All staff' }, { value: 'group', label: 'Chosen people and teams' }, { value: 'off', label: 'Off' }], def: 'admins' }),
   hubDef({ id: 'chat.access', area: 'chat', label: 'Who is in Chat', hint: 'Used when Who can use Chat is set to Chosen people and teams. Admins always have it. A team means everyone active on that team in the staff directory.', kind: 'access', def: '{"emails":[],"teams":[]}' }),
@@ -561,8 +561,10 @@ export async function clipsMaxMs(env: Env): Promise<number> {
 }
 
 /** Does a new clip start with its sharing link on? */
-export async function clipsShareDefault(env: Env): Promise<boolean> {
-  return (await effective(env, 'clips.share_default', undefined, 'off')) === 'on';
+export async function clipsShareDefault(env: Env): Promise<'private' | 'people' | 'staff'> {
+  const v = await effective(env, 'clips.share_default', undefined, 'people');
+  // 'off' and 'on' are the old two-way setting: off was no link at all, on was the old link switch (now Anyone at Favor).
+  return v === 'private' ? 'private' : v === 'staff' || v === 'on' ? 'staff' : 'people';
 }
 
 export async function receiptsDays(env: Env): Promise<number> {

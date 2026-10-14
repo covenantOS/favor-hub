@@ -1,4 +1,6 @@
-// Clips: shared helpers. Every signed-in hub user records clips and manages their own; an admin can also see every clip
+// Clips: shared helpers. Each clip has one sharing level (hub_clips.access): private (owner and admins), people (named people and
+// members of a Chat conversation it was posted in), staff (any signed-in staff member with the link) or public (anyone with the
+// link, no sign-in, video streamed with a short-lived signed token). A clip whose level was never set keeps the older rules below. Every signed-in hub user records clips and manages their own; an admin can also see every clip
 // and delete any of them. Since 2026-10-14 a clip opens only for the people it is shared with: the person who made it,
 // admins, people added to it (hub_clip_people), members of a Chat conversation it was posted in (any public channel counts),
 // and anyone who watched it before that day (hub_clip_views). "Anyone at Favor with the link" (staff_link) opens it to every
@@ -30,8 +32,10 @@ export interface Clip {
   summary: string;
   status: ClipStatus;
   share: number;
-  /** 1 = anyone at Favor signed in with the link. Off for new clips. */
+  /** 1 = anyone at Favor signed in with the link. Kept in step with `access`. */
   staff_link?: number;
+  /** The sharing level. Null until the owner (or the new-clip default) sets it; then the older share and staff_link columns decide. */
+  access?: string | null;
   mime: string;
   kind: string;
   upload_id: string | null;
@@ -120,37 +124,96 @@ export async function readableClip(env: ClipsEnv, user: HubUser, id: string): Pr
   return isWatchable(clip) && (await mayWatch(env, user, clip)) ? clip : null;
 }
 
-export type ClipAccess = Pick<Clip, 'id' | 'share' | 'owner_email'> & { staff_link?: number | null };
+export type ClipLevel = 'private' | 'people' | 'staff' | 'public';
+export const LEVELS: readonly ClipLevel[] = ['private', 'people', 'staff', 'public'];
+export const isLevel = (x: unknown): x is ClipLevel => typeof x === 'string' && (LEVELS as readonly string[]).includes(x);
+
+export type ClipAccess = Pick<Clip, 'id' | 'share' | 'owner_email'> & { staff_link?: number | null; access?: string | null };
+
+/** The level a clip is at. A clip nobody set a level on reads its two older switches; with both off it is "people" (plus its grandfathered viewers). */
+export function levelOf(c: { share?: number | null; staff_link?: number | null; access?: string | null }): ClipLevel {
+  if (isLevel(c.access)) return c.access;
+  if (Number(c.share) === 1) return 'public';
+  if (Number(c.staff_link) === 1) return 'staff';
+  return 'people';
+}
+/** True once the owner or the new-clip default set a level. Earlier viewers keep access only while this is false. */
+export const levelIsSet = (c: { access?: string | null }) => isLevel(c.access);
+
+/** The access columns of a clip row that did not select them. */
+async function withAccess<T extends ClipAccess>(env: ClipsEnv, clip: T): Promise<T> {
+  if (clip.access !== undefined && clip.staff_link != null) return clip;
+  const r = await env.DB.prepare('SELECT access, staff_link FROM hub_clips WHERE id = ?').bind(clip.id).first<{ access: string | null; staff_link: number }>().catch(() => null);
+  return { ...clip, access: clip.access !== undefined ? clip.access : r && r.access != null ? r.access : null, staff_link: clip.staff_link != null ? clip.staff_link : r ? Number(r.staff_link) || 0 : 0 };
+}
 
 /**
- * May this signed-in person watch this clip? The person who made it and admins always; then the two link switches; then
- * people added to the clip, members of a Chat conversation it was posted in (or anyone, for a public channel), and people
- * who watched it before sharing became per person (2026-10-14), so links already sent keep working for them.
+ * May this signed-in person watch this clip? The person who made it and admins always. Then by level: private nobody else;
+ * staff and public every signed-in staff member; people the owner added by name and members of a Chat conversation it was
+ * posted in (or anyone, for a public channel). A clip whose level was never set also opens for people who watched it before
+ * sharing became per person (2026-10-14), so links already sent keep working for them.
  */
-export async function mayWatch(env: ClipsEnv, user: HubUser, clip: ClipAccess): Promise<boolean> {
+export async function mayWatch(env: ClipsEnv, user: HubUser, clip0: ClipAccess): Promise<boolean> {
   if (user.role === 'field') return false;
   const me = String(user.email || '').toLowerCase();
   if (!me) return false;
-  if (String(clip.owner_email || '').toLowerCase() === me || user.role === 'admin') return true;
-  if (clip.share === 1) return true;
-  let staffLink = clip.staff_link;
-  if (staffLink == null) {
-    const r = await env.DB.prepare('SELECT staff_link FROM hub_clips WHERE id = ?').bind(clip.id).first<{ staff_link: number }>().catch(() => null);
-    staffLink = r ? Number(r.staff_link) || 0 : 0;
-  }
-  if (Number(staffLink) === 1) return true;
+  if (String(clip0.owner_email || '').toLowerCase() === me || user.role === 'admin') return true;
+  const clip = await withAccess(env, clip0);
+  const level = levelOf(clip);
+  if (level === 'public' || level === 'staff') return true;
+  if (level === 'private') return false;
+  const grand = levelIsSet(clip) ? 0 : 1;
   const row = await env.DB.prepare(
     `SELECT (EXISTS (SELECT 1 FROM hub_clip_people WHERE clip_id = ?1 AND email = ?2)
-          OR EXISTS (SELECT 1 FROM hub_clip_views WHERE clip_id = ?1 AND lower(person_email) = ?2)
+          OR (?4 = 1 AND EXISTS (SELECT 1 FROM hub_clip_views WHERE clip_id = ?1 AND lower(person_email) = ?2))
           OR EXISTS (SELECT 1 FROM chat_messages m JOIN chat_channels ch ON ch.id = m.channel_id
                      WHERE m.deleted_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?2)
                        AND (m.attachments LIKE ?3 OR m.body LIKE ?3)
                        AND (ch.kind = 'public' OR EXISTS (SELECT 1 FROM chat_members cm WHERE cm.channel_id = m.channel_id AND lower(cm.email) = ?2)))) AS ok`
-  ).bind(clip.id, me, `%${clip.id}%`).first<{ ok: number }>().catch((err) => {
+  ).bind(clip.id, me, `%${clip.id}%`, grand).first<{ ok: number }>().catch((err) => {
     console.warn('[clips] access check', String((err && err.message) || err).slice(0, 200));
     return null;
   });
   return !!(row && Number(row.ok));
+}
+
+/** Conversations a clip was posted in, for the owner's share sheet. */
+export async function postedIn(env: ClipsEnv, id: string): Promise<{ kind: string; name: string }[]> {
+  const r = await env.DB.prepare(
+    `SELECT DISTINCT ch.id AS id, ch.kind AS kind, ch.name AS name FROM chat_messages m JOIN chat_channels ch ON ch.id = m.channel_id
+      WHERE m.deleted_at IS NULL AND (m.attachments LIKE ?1 OR m.body LIKE ?1) LIMIT 12`
+  ).bind(`%${id}%`).all<{ id: string; kind: string; name: string }>().catch(() => ({ results: [] as { id: string; kind: string; name: string }[] }));
+  return (r.results || []).map((c) => ({ kind: c.kind, name: c.name || '' }));
+}
+
+/* ---- public links: a signed token on the video, valid for a short time ---- */
+export const PUBLIC_TOKEN_MS = 2 * 3_600_000;
+const secretOf = (env: ClipsEnv): string => {
+  const e = env as unknown as Record<string, unknown>;
+  return String(e.CLIP_PUBLIC_SECRET || e.SFU_APP_SECRET || e.GOOGLE_TOKEN_KEY || '');
+};
+async function tokenSig(env: ClipsEnv, id: string, scope: string, exp: number): Promise<string | null> {
+  const secret = secretOf(env);
+  if (!secret) return null;
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('clip-public:' + secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${id}|${scope}|${exp}`));
+  return Array.from(new Uint8Array(sig), (x) => x.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+/** A token for the video ('v', which also opens the poster) or for the poster alone ('p'). Null when the site has no secret to sign with. */
+export async function publicToken(env: ClipsEnv, id: string, scope: 'v' | 'p' = 'v', ttlMs = PUBLIC_TOKEN_MS): Promise<string | null> {
+  const exp = Date.now() + ttlMs;
+  const sig = await tokenSig(env, id, scope, exp);
+  return sig ? `${scope}${exp}.${sig}` : null;
+}
+export async function publicTokenOk(env: ClipsEnv, id: string, token: string | null, wantPoster: boolean): Promise<boolean> {
+  const m = /^([vp])(\d{10,14})\.([0-9a-f]{40})$/.exec(String(token || ''));
+  if (!m || Number(m[2]) < Date.now()) return false;
+  if (m[1] === 'p' && !wantPoster) return false;
+  const want = await tokenSig(env, id, m[1], Number(m[2]));
+  if (!want) return false;
+  let diff = 0;
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ m[3].charCodeAt(i);
+  return diff === 0;
 }
 
 async function ownerActive(env: ClipsEnv, owner: string): Promise<boolean> {
@@ -218,7 +281,7 @@ export async function canWatch(env: ClipsEnv, request: Request, clip: ClipAccess
   // Signed-in staff: mayWatch. Clips are not part of the field staff app: a field account watches a clip only when its public
   // share switch is on, like anyone outside.
   if (user && user.role !== 'field') return mayWatch(env, user, clip);
-  if (clip.share !== 1) return false;
+  if (levelOf(await withAccess(env, clip)) !== 'public') return false;
   return ownerActive(env, clip.owner_email);
 }
 
@@ -260,8 +323,9 @@ export function clipView(c: Clip) {
     duration,
     size: c.size_bytes,
     hasPoster: c.has_poster === 1,
-    share: c.share === 1,
-    staffLink: Number(c.staff_link) === 1,
+    access: levelOf(c),
+    share: levelOf(c) === 'public',
+    staffLink: levelOf(c) === 'staff',
     ownerName: c.owner_name,
     createdAt: c.created_at,
     chapters: J<unknown[]>(c.chapters, []),
