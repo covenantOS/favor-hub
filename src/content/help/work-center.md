@@ -13,21 +13,21 @@ updated: 2026-10-14
 
 Partners is the area for partner relationship work. Its Actions page (the Work Center) lists every open action in Blackbaud, the week's contacts to enter and the thank-yous still owed. Blackbaud finishes one action at a time. The Work Center finishes as many as you pick in one pass. Foundations sits beside it. Partners is in the menu for regional directors, Partner Care, Church Engagement, Grants, the Support Team and leadership; everyone else finds it under More.
 
-## Work Overview
+## Your work on Today
 
-The Work Overview page (search for Work overview) is moving onto Today. Today's work lists your actions due today and overdue, oldest first. Press the circle to complete one, Snooze to move it to tomorrow, in three days, next week or a date you pick, or the partner name to open the partner. Each change is saved, sent to Blackbaud and undone from the message at the bottom for 24 hours.
+The Work Overview moved onto Today in October 2026; /work-home/ opens Today. Under Needs you, **Your work** lists your actions due today and overdue, oldest first. Press the circle to complete one, Snooze to move it to tomorrow, in three days, next week or a date you pick, or the partner name to open the partner. Each change is saved, sent to Blackbaud and undone from the message at the bottom for 24 hours, and Your recent changes lists your own changes with Undo.
 
-Gifts to thank lists five gifts waiting for your role, the soonest due on the 24-hour clock first. Thank opens the same form as the Gifts to thank tab. Your week shows a director's goals, the Support Team's entry backlog, or Partner Care's cadence counts. Quick actions starts a task or logs a contact on any partner you find. Admins also see a team table with open and overdue actions per person. Every number opens the Work Center page it comes from.
+Gifts to thank lists five gifts waiting for your role, the soonest due on the 24-hour clock first. Thank opens the same form as the Gifts to thank tab. Your week shows a director's goals, the Support Team's entry backlog, or Partner Care's cadence counts. The Gift day card gives the gift day's six numbers to the people who work it. Log a contact and New task in Start something work on any partner you find. Admins also see a team table with open and overdue actions per person. Every number opens the Work Center page it comes from.
 
 ## What each number counts
 
 Open actions lists every open Blackbaud action you may see: all of them for an admin, your own and your partners' for a director. The tile and the Open actions tab count that whole list. The badge on Partners in the left rail and the Work Center tile on the Overview count only your own work (see below).
 
-On the Overview, Today's work counts your own open actions due today or earlier. Overdue counts those due before today and Due today counts those due today. Open all shows the open actions the link opens, filtered to your name. An admin or a Support Team member with none of their own sees an empty card; the Everyone chip on Open actions lists the whole board.
+On Today, Today's work counts your own open actions due today or earlier. Overdue counts those due before today and Due today counts those due today. Open all shows the open actions the link opens, filtered to your name. An admin or a Support Team member with none of their own sees an empty card; the Everyone chip on Open actions lists the whole board.
 
-Mine is the open actions that list you as a fundraiser. The Mine chip on Open actions and Mine on the Overview show the same number.
+Mine is the open actions that list you as a fundraiser. The Mine chip on Open actions and Mine on Today show the same number.
 
-Press the number on the Overview counts, the Open actions tiles or the Gifts to thank tiles to open a side panel with that number's Favor definition and the actions or gifts it counts. The panel says whether the rows add up to the number on the page, and exports them to Google Sheets or CSV. On the tiles, the label under the number still filters the list.
+Press the number on Today's work counts, the Open actions tiles or the Gifts to thank tiles to open a side panel with that number's Favor definition and the actions or gifts it counts. The panel says whether the rows add up to the number on the page, and exports them to Google Sheets or CSV. On the tiles, the label under the number still filters the list.
 
 The badge on Partners in the left rail counts the open actions that list you as a fundraiser, plus the gifts waiting for your thank-you on your own partners. Partner Care counts the gifts on its team's partners. The Support Team also counts actions that have no owner. Being an admin adds nothing to it, so it can read 0 even though the board holds hundreds of open actions. The other badges follow the same rule: Receipts counts for the person who made the print file, Expenses for the approvers named on the request, and Meetings for the live rooms you host or are invited to. Requests keeps its own badge on its own tab. The Entry tab counts the week's contacts still waiting to go into Blackbaud, a separate list.
 

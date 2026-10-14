@@ -97,8 +97,7 @@ export const AREAS: NavArea[] = [
     key: 't',
     barRank: 1,
     pages: [
-      { id: 'home', label: 'Today', href: '/', desc: 'What is waiting on you', keywords: 'home start due waiting', learn: 'today', swap: true },
-      { id: 'work-home', label: 'Work overview', href: '/work-home/', desc: 'Every work tool and what is waiting in each', keywords: 'work home overview tools', learn: 'work-center', swap: true, menu: false, was: 'Work > Overview' },
+      { id: 'home', label: 'Today', href: '/', desc: 'What is waiting on you, with your work: due today, gifts to thank and your week', keywords: 'home start due waiting work overview todays work gifts to thank week team', learn: 'today', swap: true },
     ],
   },
   {
@@ -319,7 +318,8 @@ export function railAreas(areas: NavArea[], mine: readonly string[] | null): { r
 export const REDIRECTS: Array<[string, string]> = [
   ['/today', '/'],
   ['/kpi', '/dashboard/'],
-  ['/work/home', '/work-home/'],
+  ['/work/home', '/'],
+  ['/work-home', '/'],
   ['/dashboards', '/dashboard/'],
   ['/ask', '/brain/'],
   ['/meetings', '/meet/'],

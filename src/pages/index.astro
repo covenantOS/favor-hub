@@ -9,7 +9,7 @@ const I = (d: string) => `<svg class="h-i" viewBox="0 0 24 24" aria-hidden="true
 const starts = [
   ['Make a request', 'Website, Blackbaud, design, print and more', '/requests/new', I('<path d="M12 5v14"/><path d="M5 12h14"/>')],
   ['Expense request', 'Purchases, travel and reimbursements', '/expenses/new/', I('<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6"/><path d="M9 11h6"/><path d="M9 15h4"/>')],
-  ['Receipts', 'Print the receipts waiting to go out', '/receipts/', I('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>')],
+  ['Start a deposit', 'Count the mail, run the tape, photograph each check', '/gift-entry/?start=1', I('<path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>'), 'giftEntry'],
   ['Foundation prospects', 'Check a foundation before you call', '/foundations/', I('<path d="M3 21h18"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m2 10 10-6 10 6z"/>')],
 ];
 import '../styles/q3-desk.css';
@@ -19,6 +19,10 @@ import '../styles/today2.css';
 // Worst-case data fixes (scripts/break-ui).
 import '../styles/break-ui.css';
 import '../styles/brief.css';
+// The Work Overview's cards (Today's work, Gifts to thank, Your week, Team, your recent changes) live on Today since 2026-10-14.
+import '../styles/work-home.css';
+import '../styles/qa2-workhome.css';
+import '../styles/today-work.css';
 ---
 <App title="Today" nav="home" description="What is waiting on you across FavorOS.">
   <div class="r2t">
@@ -51,6 +55,40 @@ import '../styles/brief.css';
       <p class="r2t-msg" id="d-sub" hidden></p>
     </section>
 
+    <section class="wh tw" id="wh" data-keep-h="tw-work" aria-labelledby="tw-h" hidden>
+      <div class="r2t-sec"><h2 id="tw-h">Your work</h2><span class="tw-meta"><span class="wh-meta" id="wh-meta"></span></span></div>
+      <div class="tw-grid">
+        <div class="tw-col">
+          <section class="h-card wh-card" id="wh-due" aria-labelledby="wh-due-h" hidden>
+            <header class="r2t-ch"><h3 id="wh-due-h">Today's work</h3><span class="wh-chips" id="wh-due-chips"></span><a class="h-link" id="wh-due-all" href="/work/?view=open">Open all</a></header>
+            <ul class="wh-list" id="wh-due-list"></ul>
+          </section>
+          <section class="h-card wh-card" id="wh-gifts" aria-labelledby="wh-gifts-h" hidden>
+            <header class="r2t-ch"><h3 id="wh-gifts-h">Gifts to thank</h3><span class="wh-chips" id="wh-gifts-chips"></span><a class="h-link" id="wh-gifts-all" href="/work/?view=gifts">Open all</a></header>
+            <ul class="wh-list" id="wh-gifts-list"></ul>
+          </section>
+        </div>
+        <div class="tw-col">
+          <section class="h-card wh-card" id="wh-week" aria-labelledby="wh-week-h" hidden>
+            <header class="r2t-ch"><h3 id="wh-week-h">Your week</h3><span id="wh-week-sub"></span></header>
+            <div class="wh-body" id="wh-week-body"></div>
+          </section>
+          <section class="h-card wh-card" id="tw-giftday" aria-labelledby="tw-giftday-h" data-need="giftEntry" hidden>
+            <header class="r2t-ch"><h3 id="tw-giftday-h">Gift day</h3><span id="tw-giftday-sub"></span><a class="h-link" href="/gifts/">Gifts</a></header>
+            <div class="tw-gd" id="tw-giftday-body"></div>
+          </section>
+          <section class="h-card wh-card" id="wh-changes" aria-labelledby="wh-changes-h" hidden>
+            <header class="r2t-ch"><h3 id="wh-changes-h">Your recent changes</h3><span>Undo for 24 hours</span></header>
+            <ul class="wh-list wh-list--changes" id="wh-changes-list"></ul>
+          </section>
+        </div>
+      </div>
+      <section class="h-card wh-card" id="wh-team" aria-labelledby="wh-team-h" hidden>
+        <header class="r2t-ch"><h3 id="wh-team-h">Team</h3><span class="wh-chips" id="wh-team-chips"></span><a class="h-link" href="/work/?view=open">Open all</a></header>
+        <div class="wh-tw"><table class="wh-table sc-table" id="wh-team-table"></table></div>
+      </section>
+    </section>
+
     <div class="r2t-row3" id="d-grid" aria-busy="true"><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div><div class="r2t-skel r2t-skel--tall"></div></div>
 
     <section id="t-year-wrap" hidden>
@@ -79,12 +117,17 @@ import '../styles/brief.css';
         <div class="h-card">
           <div class="r2t-ch"><h3>Start something</h3></div>
           <div class="r2t-starts">
-            {starts.map(([t, sub, href, ic]) => (
-              <a class="r2t-start" href={href}>
+            {starts.map(([t, sub, href, ic, need]) => (
+              <a class="r2t-start" href={href} data-need={need || undefined} hidden={need ? true : undefined}>
                 <span class="r2t-ico"><Fragment set:html={ic} /></span>
                 <span><b>{t}</b><small>{sub}</small></span>
               </a>
             ))}
+          </div>
+          <div class="tw-quick" data-need="workCenter" hidden>
+            <button type="button" class="r2t-start" data-q="contact"><span class="r2t-ico"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></span><span><b>Log a contact</b><small>A call, meeting or note on any partner</small></span></button>
+            <button type="button" class="r2t-start" data-q="task"><span class="r2t-ico"><svg class="h-i" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg></span><span><b>New task</b><small>A Blackbaud action for you or someone else</small></span></button>
+            <div class="wh-pick" id="wh-pick" hidden></div>
           </div>
         </div>
       </div>
@@ -97,4 +140,15 @@ import '../styles/brief.css';
   <script is:inline src="/js/brief.js?v=8" defer></script>
   <script is:inline src="/js/today-firstweek.js?v=1" defer></script>
   <script is:inline src="/js/today-inbox.js?v=1" defer></script>
+  <script is:inline>
+    // Your work (the Work Overview's cards) starts reading now, while the page's scripts download.
+    (function () {
+      if (/[?&]as=/.test(location.search)) return;
+      window.__whEarly = fetch('/api/hub/home', { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).then(function (r) { return r.json().then(function (j) { if (!r.ok || j.ok === false) { var e = new Error(j.message || 'Something went wrong. Try again.'); e.data = j; throw e; } return j; }); });
+      window.__whEarly.catch(function () {});
+    })();
+  </script>
+  <script is:inline src="/js/wc-snap.js?v=2" defer></script>
+  <script is:inline src="/js/work-home.js?v=16" defer></script>
+  <script is:inline src="/js/today-giftday.js?v=1" defer></script>
 </App>

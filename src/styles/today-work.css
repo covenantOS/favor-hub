@@ -1,0 +1,32 @@
+/* Today's Your work section: the Work Overview's cards (src/pages/index.astro, public/js/work-home.js) and the Gift day card
+   (public/js/today-giftday.js). Two columns on a desktop, one on a phone. */
+.tw { display: grid; gap: 12px; }
+.tw[hidden] { display: none; }
+.tw .r2t-sec { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tw-meta { font: 500 13px var(--h-font); color: var(--h-ink-3); }
+.tw-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.tw-col { display: grid; gap: 16px; min-width: 0; }
+.tw .wh-card[hidden] { display: none; }
+.tw-gd { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 -16px -12px; border-top: 1px solid var(--h-line); }
+.tw-gd__c { display: grid; gap: 2px; padding: 12px 16px; border-right: 1px solid var(--h-line); border-bottom: 1px solid var(--h-line); color: inherit; text-decoration: none; min-width: 0; }
+.tw-gd__c:nth-child(3n) { border-right: 0; }
+.tw-gd__c:nth-last-child(-n + 3) { border-bottom: 0; }
+.tw-gd__c:hover { background: var(--h-surface-2); }
+.tw-gd__c b { font: 500 24px/1.15 var(--h-serif); color: var(--h-ink); font-variant-numeric: lining-nums tabular-nums; }
+.tw-gd__c span { font: 500 12px var(--h-font); color: var(--h-ink-3); }
+.tw-quick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.tw-quick[hidden] { display: none; }
+.tw-quick .r2t-start { border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.tw-quick .wh-pick { grid-column: 1 / -1; }
+/* With Today's work above, the day row drops its Blackbaud actions card (the same actions, without Complete and Snooze). */
+html.has-wc body.h-body .r2t-row3 > [data-tcard='bb'] { display: none; }
+html.has-wc body.h-body .r2t-row3 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+@media (max-width: 1100px) { .tw-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) {
+  .tw-gd { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tw-gd__c:nth-child(3n) { border-right: 1px solid var(--h-line); }
+  .tw-gd__c:nth-child(2n) { border-right: 0; }
+  .tw-gd__c:nth-last-child(-n + 3) { border-bottom: 1px solid var(--h-line); }
+  .tw-gd__c:nth-last-child(-n + 2) { border-bottom: 0; }
+  .tw-quick { grid-template-columns: minmax(0, 1fr); }
+}

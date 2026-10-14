@@ -65,7 +65,7 @@ test('admin pages are all admin-only; the expense log and onboarding moved to St
 });
 
 test('every page that left Work, Learn or Admin says where it was', () => {
-  const moved = ['work', 'foundations', 'gift-entry', 'online-gifts', 'receipts', 'statements', 'projects', 'board', 'expense', 'expenses', 'evals', 'learn', 'onboarding', 'work-home'];
+  const moved = ['work', 'foundations', 'gift-entry', 'online-gifts', 'receipts', 'statements', 'projects', 'board', 'expense', 'expenses', 'evals', 'learn', 'onboarding'];
   for (const id of moved) assert.ok(resolveNav(id).page.was, `${id} has no was`);
 });
 

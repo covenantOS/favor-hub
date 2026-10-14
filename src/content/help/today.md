@@ -6,7 +6,7 @@ order: 3
 related: [getting-started, signing-in, kpi-dashboard]
 tool: /
 toolLabel: Open Today
-updated: 2026-10-12
+updated: 2026-10-14
 ---
 
 Today opens every time you sign in. It greets you and lays out your day.
@@ -33,6 +33,19 @@ The cards on the left are things waiting on you in FavorOS. Each card has a numb
 - **Feedback**: an answer to a note you sent.
 
 When nothing is waiting, the card says so.
+
+## Your work
+
+Your work sits under What needs you. It is the Work Overview, which moved onto Today in October 2026.
+
+- **Today's work** lists your own Blackbaud actions due today and overdue, oldest first. Press the circle to complete one, Snooze to move it, or the partner name to open the partner. With this card on the page, the Blackbaud actions card in Your day steps aside.
+- **Gifts to thank** lists the gifts waiting for your thank-you, with a Thank button on each.
+- **Your week** shows a director's goals, the Support Team's entry backlog or Partner Care's cadence.
+- **Gift day** shows the admin desk, Partner Care, the Support Team and admins the six numbers from Gifts > Overview.
+- **Your recent changes** lists the changes you made in the last 24 hours, each with Undo. Changes other people made are not listed here.
+- **Team** (admins) lists open and overdue actions for each person.
+
+Start something at the foot of the page also has **Log a contact** and **New task** for people with the Work Center, and **Start a deposit** for the gift desk.
 
 ## Snooze
 

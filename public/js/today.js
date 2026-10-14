@@ -488,6 +488,8 @@
     const bb = d.blackbaud || {};
     const g = d.google || {};
     livePill(g.events);
+    // Marked so Today's work (Your work, above) can stand in for it for people with the Work Center (today-work.css).
+    const markBb = (h) => h.replace('class="h-card', 'data-tcard="bb" class="h-card');
 
     let actions;
     if (!bb.linked) actions = card('Blackbaud actions', '', empty('Your account is not linked to a fundraiser record in Blackbaud.'));
@@ -504,6 +506,7 @@
         bb.overdue ? `<span class="r2t-chip r2t-chip--late">${bb.overdue} overdue</span>` : ''
       );
 
+    actions = markBb(actions);
     if (!g.connected) {
       grid.innerHTML =
         actions +

@@ -4,6 +4,8 @@
   'use strict';
   const root = document.getElementById('wh');
   if (!root) return;
+  // Today holds these cards since 2026-10-14 (the Work Overview page redirects there); /work-home/ is the old page.
+  const onToday = root.classList.contains('tw');
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const F = () => window.FavorWG;
@@ -114,12 +116,18 @@
       const old = Date.now() - at.getTime() > 26 * 60 * 60 * 1000;
       stamp = `Blackbaud data <span class="copy-stamp${old ? ' is-old' : ''}" title="${old ? 'The Blackbaud copy has not finished a full sync in over 26 hours, so these numbers may be behind.' : 'Numbers from the Blackbaud copy, as of its last complete sync.'}">as of ${esc(when)}</span>`;
     }
+    // On Today (the Work Overview's home since 2026-10-14) the stamp sits in the Your work heading.
+    if (!$('wh-meta')) return paintTopRest(d);
     $('wh-meta').innerHTML = [esc(who), stamp].filter(Boolean).join(' · ');
     // The columns draw together once the data is in (night-desk.css shows placeholders until then).
     const whRoot = document.getElementById('wh'); if (whRoot) whRoot.classList.add('is-in');
     // With nothing to say the row would leave an empty band above the tools.
     $('wh-meta').parentElement.hidden = !$('wh-meta').innerHTML;
     if (window.copyStamps) { try { window.copyStamps(); } catch (_) { /* optional */ } }
+    paintTopRest(d);
+  }
+  function paintTopRest(d) {
+    const w = d.work;
     // Admins have the shorter left column, so the activity feed goes under the right one; everyone else keeps it beside their gifts.
     const feed = $('wh-feed');
     const dest = document.querySelector(w && w.role === 'admin' ? '.wh-col--side' : '.wh-col--main');
@@ -235,6 +243,7 @@
     return list.map((r) => `<a href="${esc(r.href)}"><span class="r2t-ico r2t-ico--sm" data-tool="${KIND[r.kind] || 'slate'}">${arrow}</span><span class="wh-t"><b>${esc(r.title)}</b><span>${esc(r.sub || r.status || '')}</span></span>${chip(r)}</a>`).join('');
   }
   function paintReq(d) {
+    if (!$('wh-req-body')) return; // Today has its own requests card
     const wt = d.waiting || { rows: [], totals: {} };
     const t = wt.totals || {};
     const chips = [];
@@ -253,6 +262,7 @@
   /* ------------------------------------------------------------------ recent activity */
   const APPS = { Requests: '/requests/', Expenses: '/expenses/', Receipts: '/receipts/', Foundations: '/foundations/' };
   function paintFeed(d) {
+    if (!$('wh-feed-list')) return; // Today has its own What changed feed
     const w = d.work;
     const items = [];
     if (w && w.recent) for (const b of w.recent) items.push({ at: b.at, text: `${b.mine ? 'You' : (b.actor || 'Someone')}: ${b.label}${b.failed ? ` (${n0(b.failed)} not sent)` : ''}`, href: '/work/?view=recent', tool: 'leaf' });
@@ -306,6 +316,8 @@
     paintFeed(d);
     paintTeam(d.work);
     root.removeAttribute('aria-busy');
+    // On Today the section shows only when one of its cards has something for this person.
+    if (onToday) root.hidden = !Array.prototype.some.call(root.querySelectorAll('.wh-card'), (c) => !c.hidden);
   }
   /* ------------------------------------------------------------------ loading: last copy first, then fresh */
   async function load(fresh) {
@@ -320,7 +332,7 @@
     } catch (e) {
       if (!D) { const whRoot = document.getElementById('wh'); if (whRoot) whRoot.classList.add('is-in'); }
       root.removeAttribute('aria-busy');
-      if (!D) $('wh-req-body').innerHTML = `<div class="wh-empty" style="padding:0">${esc(e.message)} <button type="button" class="wh-do" data-reload>Try again</button></div>`;
+      if (!D && $('wh-req-body')) $('wh-req-body').innerHTML = `<div class="wh-empty" style="padding:0">${esc(e.message)} <button type="button" class="wh-do" data-reload>Try again</button></div>`;
     }
     loading = false;
   }
@@ -342,7 +354,7 @@
       const shape = JSON.parse(localStorage.getItem(SHAPE) || 'null');
       // With no saved shape yet, a person who has the Work Center gets the Due card too (has-wc is set before the first paint).
       const wc = shape ? shape.due : document.documentElement.classList.contains('has-wc');
-      if (wc) { $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel wh-skel--row"></li>'.repeat(8); $('wh-due-h').textContent = "Today's work"; }
+      if (wc) { if (onToday) root.hidden = false; $('wh-due').hidden = false; $('wh-due-list').innerHTML = '<li class="wh-skel wh-skel--row"></li>'.repeat(8); $('wh-due-h').textContent = "Today's work"; }
     } catch (_) { /* nothing held */ }
   }
   load();
@@ -424,9 +436,9 @@
       if (r) F().pop(th, { giftId: r.giftId, cid: r.cid, name: r.name, amount: r.amount, date: r.date, fund: r.fund, phone: r.phone, left: null, tasks: r.tasks, team: r.team });
       return;
     }
-    const q = e.target.closest('[data-q]');
-    if (q) openPick(q.dataset.q);
   });
+  // Log a contact and New task sit in Today's Start something card, outside this section.
+  document.addEventListener('click', (e) => { const q = e.target instanceof Element && e.target.closest('[data-q]'); if (q) openPick(q.dataset.q); });
 
   // A thank-you saved here or in the drawer takes its row off at once and refreshes the list.
   document.addEventListener('favor:thanked', (e) => {
@@ -457,4 +469,6 @@
     const find = $('wh-find');
     if (find && !find.firstChild) window.FavorPartner.search(find, { placeholder: 'Find a partner' });
   });
+  // Ctrl K's Log a contact opens Today with ?quick=contact.
+  { const qk = new URLSearchParams(location.search).get('quick'); if ((qk === 'contact' || qk === 'task') && $('wh-pick')) { openPick(qk); const p = $('wh-pick'); if (p && p.scrollIntoView) setTimeout(() => p.scrollIntoView({ block: 'center' }), 400); } }
 })();
