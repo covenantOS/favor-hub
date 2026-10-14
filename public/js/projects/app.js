@@ -239,7 +239,11 @@ async function mountProject(root, key) {
     if (VIEWS[i]) { setView(VIEWS[i][0]); root.querySelector(`[data-view="${VIEWS[i][0]}"]`).focus(); }
   });
 
+  // Back and Forward between views, filters and sections of this project are answered here. The hub's page swap leaves them
+  // alone while the address still names this project; any other address is a page change and goes through the swap.
+  window.__hubPopOwn = () => !!document.querySelector('.pj-proj') && location.pathname.indexOf('/projects/p') === 0 && (new URLSearchParams(location.search).get('p') || '').toUpperCase() === String(key).toUpperCase();
   addEventListener('popstate', () => {
+    if (!document.querySelector('.pj-proj')) return;
     const sp = new URLSearchParams(location.search);
     const v = sp.get('view') || 'list';
     if (VIEWS.some((x) => x[0] === v) && v !== view) setView(v, true);
@@ -267,8 +271,8 @@ async function mountProject(root, key) {
     const ms = ctx.members.slice(0, 5);
     root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-btn pj-pa-status" data-pa="status" aria-label="Friday update">${icon('clock')}<span>Friday update</span></button><button type="button" class="pj-ib" data-pa="details" aria-label="Project details">${icon('more')}</button>`;
   }
+  root.querySelector('.pj-sidebtn').addEventListener('click', () => side.toggle());
   root.querySelector('[data-pact]').addEventListener('click', async (e) => {
-    if (e.target.closest('[data-pa="side"]')) { side.toggle(); return; }
     if (!e.target.closest('[data-pa]') || !ctx.project) return;
     if (e.target.closest('[data-pa]').dataset.pa === 'status') { openStatus(ctx.project); return; }
     const p = await openProjectForm({ project: ctx.project, members: ctx.members });

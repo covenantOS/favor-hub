@@ -9,7 +9,7 @@ export function openSwitcher(o = {}) {
   if (current) { current.close(); return; }
   const s = openSheet({
     hideHead: true, cls: 'pj-sheet--switch', label: 'Jump to a project or task',
-    html: `<label class="pj-sw__in">${icon('search')}<input type="search" data-sw placeholder="Jump to a project or task" aria-label="Jump to a project or task" autocomplete="off" /></label><div class="pj-sw__list" data-list role="listbox"></div>`,
+    html: `<label class="pj-sw__in">${icon('search')}<input type="text" data-sw placeholder="Jump to a project or task" aria-label="Jump to a project or task" autocomplete="off" /></label><div class="pj-sw__list" data-list role="listbox"></div>`,
     onClose: () => { current = null; },
   });
   current = s;
@@ -39,7 +39,7 @@ export function openSwitcher(o = {}) {
     hi = Math.min(hi, Math.max(0, entries.length - 1));
     const row = (en, i) => `<button type="button" class="pj-sw__r${i === hi ? ' is-hi' : ''}" role="option" data-i="${i}">${en.dot ? `<i class="pj-dot" data-c="${esc(en.dot)}"></i>` : icon(en.ic || (en.kind === 'task' ? 'list' : 'board'))}<span class="pj-sw__t${en.done ? ' is-done' : ''}">${esc(en.label)}</span><span class="pj-sw__s">${esc(en.sub)}</span></button>`;
     const firstTask = entries.findIndex((x) => x.kind === 'task');
-    list.innerHTML = entries.length ? entries.map((en, i) => (i === 0 ? '<div class="pj-sw__h">Projects</div>' : '') + (i === firstTask ? '<div class="pj-sw__h">Tasks</div>' : '') + row(en, i)).join('') : `<p class="pj-none">${words.length ? 'Nothing matches' : 'Loading'}</p>`;
+    list.innerHTML = entries.length ? entries.map((en, i) => (i === 0 && en.kind === 'project' ? '<div class="pj-sw__h">Projects</div>' : '') + (i === firstTask ? '<div class="pj-sw__h">Tasks</div>' : '') + row(en, i)).join('') : `<p class="pj-none">${words.length ? 'Nothing matches' : 'Loading'}</p>`;
   }
   const search = debounce(async () => {
     const v = input.value.trim();

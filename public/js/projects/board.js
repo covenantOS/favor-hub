@@ -67,7 +67,7 @@ export function mountBoard(root, ctx, o) {
       const z = zones[i];
       const n = z.querySelector('[data-n]');
       const sc = mode() === 'section' && ctx.counts && !ctx.showDone && !ctx.filter.q ? (ctx.counts.by_section[c.id || ''] || {}).done : 0;
-      n.textContent = c.tasks.length + (sc ? ' · ' + sc + ' completed' : '');
+      n.textContent = c.tasks.length + (sc ? ' · ' + sc + ' done' : '');
       const box = z.querySelector('[data-cards]');
       const lim = limitOf(c.id);
       const left = Math.max(0, c.tasks.length - lim);

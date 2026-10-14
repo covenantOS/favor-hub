@@ -73,8 +73,14 @@ export function mountSidebar(host, ctx, o) {
   host.addEventListener('input', (e) => { if (e.target.dataset.s === 'find') { q = e.target.value; paint(); } });
 
   let scrim = null;
-  function close() { host.classList.remove('is-open'); document.documentElement.classList.remove('pj-side-open'); if (scrim) { scrim.remove(); scrim = null; } }
+  const home = { parent: host.parentNode, next: host.nextSibling };
+  function close() {
+    host.classList.remove('is-open'); document.documentElement.classList.remove('pj-side-open');
+    if (scrim) { scrim.remove(); scrim = null; }
+    if (host.parentNode === document.body && home.parent) home.parent.insertBefore(host, home.next && home.next.parentNode === home.parent ? home.next : null);
+  }
   function open() {
+    document.body.appendChild(host);
     host.classList.add('is-open'); document.documentElement.classList.add('pj-side-open');
     scrim = document.createElement('div'); scrim.className = 'pj-side__scrim'; scrim.addEventListener('click', close); document.body.appendChild(scrim);
   }
