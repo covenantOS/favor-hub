@@ -1,0 +1,24 @@
+---
+// Gifts > Declines: declined monthly payments and zeroed gifts with the card processor's reason, and the follow-up. The same list the
+// Work Center had under Gifts, on its own page in the gift flow. public/js/gifts-wc-shim.js stands in for the Work Center around it.
+import App from '../../layouts/App.astro';
+import '../../styles/work.css';
+import '../../styles/work-edit.css';
+import '../../styles/work-letters.css';
+import '../../styles/qa-work.css';
+import '../../styles/fix-work.css';
+import '../../styles/crit-work.css';
+import '../../styles/crit-work2.css';
+import '../../styles/wc-fix.css';
+import '../../styles/break-ui.css';
+import '../../styles/gifts-pages.css';
+---
+<App full title="Declines" crumb="Gifts" nav="declines" description="Declined monthly payments and zeroed gifts with the reason, and the follow-up.">
+  <div class="wc-root gp-root" id="wc-root" aria-live="polite">
+    <div id="view" data-wc-tab="declines"><section class="h-card wc-sheet wc-skelrows" aria-busy="true"><div class="wc-skelbar"><i></i><i></i><i></i></div><div class="wc-skelrow"><i class="a"></i><i class="b"></i><i class="c"></i></div><div class="wc-skelrow"><i class="a"></i><i class="b"></i><i class="c"></i></div><div class="wc-skelrow"><i class="a"></i><i class="b"></i><i class="c"></i></div></section></div>
+  </div>
+  <div class="wc-toast" id="toast" role="status" aria-live="polite"></div>
+  <div id="layer"></div>
+  <script is:inline src="/js/gifts-wc-shim.js?v=1" defer></script>
+  <script is:inline src="/js/work-declines.js?v=2" defer></script>
+</App>

@@ -1,0 +1,21 @@
+---
+// Gifts > Overview: the gift day on one screen (public/js/gifts-home.js). For the admin desk, Partner Care, the Support Team and admins.
+import App from '../../layouts/App.astro';
+import '../../styles/gifts-pages.css';
+---
+<App full title="Overview" crumb="Gifts" nav="gifts-home" description="The gift day on one screen: the mail, online gifts, review, Blackbaud, receipts and thank-you letters.">
+  <div class="gh" id="gh-root" aria-busy="true">
+    <section class="h-card gh-steps" id="gh-steps" aria-label="The gift day"><div class="gh-step is-wait"></div><div class="gh-step is-wait"></div><div class="gh-step is-wait"></div><div class="gh-step is-wait"></div><div class="gh-step is-wait"></div><div class="gh-step is-wait"></div></section>
+    <div class="gh-grid">
+      <div class="gh-main">
+        <section class="h-card gh-card gh-card--chart"><header class="gh-hd"><h2>Gifts added to Blackbaud</h2><span id="gh-chart-sub"></span></header><div id="gh-chart" class="gh-chartbox"></div></section>
+        <section class="h-card gh-card gh-card--deps"><header class="gh-hd"><h2>Mail deposits</h2><span id="gh-deps-sub">this month</span><a class="gh-link" href="/gift-entry/">Gift entry</a></header><div id="gh-deps" class="gh-depsbox"></div></section>
+      </div>
+      <aside class="gh-side">
+        <section class="h-card gh-card"><header class="gh-hd"><h2>Online gifts to approve</h2><span id="gh-online-n"></span><a class="gh-link" href="/online-gifts/">Approve</a></header><div id="gh-online" class="gh-listbox"></div></section>
+        <section class="h-card gh-card"><header class="gh-hd"><h2>Thank-you letters</h2><span>$5,000 and up</span><a class="gh-link" href="/gifts/letters/">Letters desk</a></header><div id="gh-letters" class="gh-listbox"></div></section>
+      </aside>
+    </div>
+  </div>
+  <script is:inline src="/js/gifts-home.js?v=1" defer></script>
+</App>

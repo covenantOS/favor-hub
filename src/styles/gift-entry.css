@@ -186,3 +186,148 @@
 @media (min-width: 861px) {
   .ge-card { padding: 20px; }
 }
+
+/* ---------------------------------------------------------------- the front page (Gifts > Gift entry), October 2026
+   Today's deposit across the top, the month's deposits beside what waits after entry. */
+.ge-home { display: grid; gap: 16px; }
+.ge-home__grid { display: grid; grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+.ge-home__main, .ge-home__side { display: grid; gap: 16px; min-width: 0; align-content: start; }
+.ge-today { padding: 0; }
+.ge-today__top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px 28px; flex-wrap: wrap; padding: 18px 20px 16px; }
+.ge-today__t { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ge-today__t h2 { margin: 0; font: 500 24px/1.15 var(--h-serif); color: var(--h-ink); }
+.ge-today__h p { margin: 6px 0 0; font: 500 14px var(--h-font); color: var(--h-ink-3); }
+.ge-today__form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.ge-f { display: grid; gap: 6px; font: 600 13px var(--h-font); color: var(--h-ink-2); }
+.ge-f input { height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--h-line-2); background: #fff; font: 500 15px var(--h-font); color: var(--h-ink); width: 128px; box-sizing: border-box; font-variant-numeric: tabular-nums; }
+.ge-f--n input { width: 76px; }
+.ge-f--date input { width: 150px; }
+.ge-f input:focus { outline: 2px solid var(--h-leaf); outline-offset: 1px; }
+.ge-today__form .ge-btn--primary { height: 40px; }
+.ge-today .ge-err { margin: 0 20px 12px; }
+.ge-steps { list-style: none; display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 20px; border-top: 1px solid var(--h-line); flex-wrap: wrap; font: 600 14px var(--h-font); color: var(--h-ink-3); }
+.ge-steps li { display: flex; align-items: center; gap: 8px; }
+.ge-steps li + li::before { content: ''; width: 28px; height: 1px; background: var(--h-line-2); margin-right: 2px; }
+.ge-steps i { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--h-line-2); font: 600 12px var(--h-font); font-style: normal; color: var(--h-ink-3); }
+.ge-steps li.is-now { color: var(--h-ink); }
+.ge-steps li.is-now i { background: var(--a, #8a5d0c); border-color: var(--a, #8a5d0c); color: #fff; }
+.ge-openlist { padding: 0 20px 8px; border-top: 1px solid var(--h-line); }
+
+.ge-seg--sm button { height: 28px; padding: 0 12px; }
+.ge-tbl { margin: 4px -16px -16px; }
+.ge-tr { display: grid; grid-template-columns: minmax(180px, 2.2fr) minmax(70px, 0.8fr) minmax(70px, 0.8fr) minmax(96px, 1fr) minmax(160px, 1.6fr) minmax(110px, 1fr); gap: 12px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--h-line); font: 500 14px var(--h-font); color: var(--h-ink); text-decoration: none; min-height: 48px; box-sizing: border-box; }
+.ge-tr.ge-th { font: 600 12px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--h-ink-3); min-height: 40px; padding-top: 8px; padding-bottom: 8px; }
+a.ge-tr:hover { background: var(--h-surface-2); }
+.ge-tr .r { text-align: right; }
+.ge-tr b { font-weight: 600; }
+.ge-tr small { color: var(--h-ink-3); font-size: 13px; }
+.ge-batch { color: var(--h-ink-3); font-size: 13px; font-variant-numeric: tabular-nums; }
+.ge-tr .c-amt { font-weight: 600; }
+.ge-tag { display: inline-block; padding: 1px 8px; border-radius: 6px; background: var(--h-surface-2); font: 600 12px var(--h-font); color: var(--h-ink-2); white-space: nowrap; }
+.ge-tag--fos { background: var(--h-leaf-soft); color: var(--h-brand-ink); }
+.ge-asof { margin: 12px 0 0; padding-top: 10px; font: 500 12px var(--h-font); color: var(--h-ink-3); }
+.ge-after { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--h-line); }
+.ge-after:first-of-type { border-top: 0; }
+.ge-after b { display: block; font: 600 14px var(--h-font); color: var(--h-ink); }
+.ge-after span { display: block; font: 500 13px var(--h-font); color: var(--h-ink-3); margin-top: 2px; }
+.ge-btn--sm { height: 32px; padding: 0 14px; font-size: 13px; text-decoration: none; }
+.ge-sidefoot { text-align: right; }
+@media (max-width: 1100px) { .ge-home__grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 760px) {
+  .ge-today__top { padding: 16px; }
+  .ge-today__form { width: 100%; }
+  .ge-today__form .ge-f:first-child { flex: 1 0 100%; }
+  .ge-f input { width: 100%; }
+  .ge-f, .ge-f--n, .ge-f--date { flex: 1 1 30%; }
+  .ge-today__form .ge-btn--primary { flex: 1 0 100%; justify-content: center; height: 46px; }
+  .ge-steps { padding: 12px 16px; gap: 8px 10px; font-size: 13px; }
+  .ge-steps li + li::before { width: 10px; }
+  .ge-tbl { margin: 4px -16px -16px; }
+  .ge-th { display: none !important; }
+  .ge-tr { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'dep amt' 'meta st'; gap: 4px 12px; }
+  .ge-tr .c-dep { grid-area: dep; } .ge-tr .c-amt { grid-area: amt; }
+  .ge-tr .c-date, .ge-tr .c-n { display: none; }
+  .ge-tr .c-ent { grid-area: meta; font-size: 13px; color: var(--h-ink-3); }
+  .ge-tr .c-st { grid-area: st; justify-self: end; }
+}
+.ge-ph { display: none; }
+@media (max-width: 760px) { .ge-ph { display: inline; } .ge-tr .c-ent .ge-tag { background: none; padding: 0; font-weight: 500; font-size: 13px; color: var(--h-ink-3); } }
+
+/* ---------------------------------------------------------------- an open deposit (October 2026): the tie-out band, then the gift list,
+   the photo with the partner's history, and the fields, side by side. On a phone the current gift comes first and the list follows. */
+.ge-dep2 { display: grid; gap: 16px; }
+.ge-band { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(280px, 1.5fr); padding: 0; overflow: hidden; }
+.ge-band__c { display: grid; align-content: start; gap: 2px; padding: 16px 18px; border-right: 1px solid var(--h-line); min-width: 0; }
+.ge-band__c .l { font: 500 13px var(--h-font); color: var(--h-ink-3); }
+.ge-band__c .n { font: 500 26px/1.15 var(--h-serif); color: var(--h-ink); font-variant-numeric: lining-nums tabular-nums; }
+.ge-band__c .s { font: 500 13px var(--h-font); color: var(--h-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ge-band__c.is-ok .n { color: var(--h-brand-ink); }
+.ge-band__c.is-bad .n { color: var(--h-red); }
+.ge-band__c.is-warn .n { color: #8a5d0c; }
+.ge-band__send { display: grid; gap: 8px; align-content: center; padding: 14px 18px; background: var(--h-surface-2); min-width: 0; }
+.ge-band__send .s { font: 500 13px var(--h-font); color: var(--h-ink-3); }
+.ge-band__row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ge-band__discard { justify-self: start; min-height: 24px; font-size: 12px; }
+.ge-prog { display: flex; height: 6px; border-radius: 999px; overflow: hidden; background: #e8e2d4; }
+.ge-prog i { display: block; height: 100%; }
+.ge-prog .a { background: var(--tc-leaf, #3d7a35); }
+.ge-prog .h { background: #d9a43a; }
+.ge-prog .x { background: var(--h-red, #b23a2a); }
+.ge-capcard { padding: 12px 16px; }
+.ge-rev { padding: 0; overflow: hidden; }
+.ge-rev__grid { display: grid; grid-template-columns: minmax(250px, 300px) minmax(0, 1.05fr) minmax(0, 1fr); min-height: 560px; }
+.ge-rev__list { border-right: 1px solid var(--h-line); min-width: 0; display: flex; flex-direction: column; max-height: 78vh; }
+.ge-rev__photo { padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; border-right: 1px solid var(--h-line); }
+.ge-rev__pane { padding: 16px; min-width: 0; }
+.ge-rev__nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.ge-lchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px; border-bottom: 1px solid var(--h-line); }
+.ge-lchips button { height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 13px var(--h-font); color: var(--h-ink-2); cursor: pointer; }
+.ge-lchips button b { font-weight: 600; margin-left: 2px; }
+.ge-lchips button.is-on { background: var(--h-ink); border-color: var(--h-ink); color: #fff; }
+.ge-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.ge-li { display: grid; grid-template-columns: 22px 10px minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; min-height: 56px; padding: 8px 14px 8px 10px; border: 0; border-bottom: 1px solid var(--h-line); border-left: 3px solid transparent; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--h-ink); }
+.ge-li:hover { background: var(--h-surface-2); }
+.ge-li.is-cur { background: var(--h-surface-2); border-left-color: var(--a, #8a5d0c); }
+.ge-li .i { font: 500 12px var(--h-font); color: var(--h-ink-3); text-align: right; }
+.ge-li .dot { width: 8px; height: 8px; border-radius: 50%; background: #d9a43a; }
+.ge-li.is-ok .dot { background: var(--tc-leaf, #3d7a35); }
+.ge-li.is-bad .dot { background: var(--h-red, #b23a2a); }
+.ge-li.is-hold .dot { background: #8a857c; }
+.ge-li .t { display: grid; min-width: 0; }
+.ge-li .t b { font: 600 14px var(--h-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ge-li .t small { font: 500 12px var(--h-font); color: var(--h-ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ge-li .a { font: 600 14px var(--h-font); font-variant-numeric: tabular-nums; }
+.ge-hist { border: 1px solid var(--h-line); border-radius: 12px; padding: 12px 14px; background: #fff; }
+.ge-hist__hd { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.ge-hist__hd b { font: 600 14px var(--h-font); }
+.ge-hist__hd a { font: 600 13px var(--h-font); color: var(--h-brand-ink); text-decoration: none; }
+.ge-hist__row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ge-hist__row > div { display: grid; gap: 2px; padding: 0 10px; border-left: 1px solid var(--h-line); min-width: 0; }
+.ge-hist__row > div:first-child { border-left: 0; padding-left: 0; }
+.ge-hist__row .n { font: 500 22px/1.2 var(--h-serif); font-variant-numeric: lining-nums tabular-nums; }
+.ge-hist__row span { font: 500 12px var(--h-font); color: var(--h-ink-3); }
+.ge-flags { display: grid; gap: 8px; margin-top: 12px; }
+.ge-flags:empty { display: none; }
+.ge-flag { padding: 10px 12px; border-radius: 10px; background: var(--h-gold-soft, #f7ecd2); font: 500 13px/1.45 var(--h-font); color: var(--h-ink); }
+.ge-flag b { font-weight: 700; }
+.ge-flag--who { background: #f2ece0; }
+.ge-flag--new { background: var(--h-leaf-soft, #e1efdc); }
+@media (max-width: 1280px) {
+  .ge-band { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ge-band__send { grid-column: 1 / -1; }
+  .ge-rev__grid { grid-template-columns: minmax(230px, 260px) minmax(0, 1fr); }
+  .ge-rev__photo { border-right: 0; }
+  .ge-rev__pane { grid-column: 2; border-top: 1px solid var(--h-line); }
+  .ge-rev__list { grid-row: 1 / span 2; max-height: none; }
+}
+@media (max-width: 760px) {
+  .ge-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ge-band__c { padding: 12px 14px; border-bottom: 1px solid var(--h-line); }
+  .ge-band__c:nth-child(2n) { border-right: 0; }
+  .ge-band__c .n { font-size: 22px; }
+  .ge-rev__grid { grid-template-columns: minmax(0, 1fr); min-height: 0; }
+  .ge-rev__photo { order: 1; border-right: 0; padding: 14px; }
+  .ge-rev__pane { order: 2; grid-column: auto; padding: 14px; }
+  .ge-rev__list { order: 3; grid-row: auto; border-right: 0; border-top: 1px solid var(--h-line); max-height: none; }
+  .ge-keys { display: none; }
+}

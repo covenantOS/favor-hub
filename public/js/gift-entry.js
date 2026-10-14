@@ -47,30 +47,102 @@ const STATUS = { open: ['Taking photos', 'warn'], sending: ['Sending', 'warn'], 
 function pill(s) { const [t, c] = STATUS[s] || [s, '']; return `<span class="ge-pill${c ? ' ge-pill--' + c : ''}">${esc(t)}</span>`; }
 
 async function home() {
-  stopPoll(); S.view = null; S.cur = '';
-  // The three reads go out together: one after another they held the page on its skeleton for over two seconds.
-  const [d, , n] = await Promise.all([api('/api/gift-entry'), loadSummary(S.sumDate || ''), api('/api/gift-entry/needs-coding').catch(() => ({ items: [] }))]);
+  stopPoll(); S.view = null; S.cur = ''; crumb('');
+  // Every read goes out together. The month of deposits comes from the Blackbaud copy, so batches the desk typed straight into
+  // Blackbaud show beside the ones sent from here.
+  const [d, , n, m, ov] = await Promise.all([
+    api('/api/gift-entry'),
+    loadSummary(S.sumDate || ''),
+    api('/api/gift-entry/needs-coding').catch(() => ({ items: [] })),
+    api('/api/gift-entry/month').catch(() => null),
+    api('/api/gifts/overview').catch(() => null),
+  ]);
   S.list = d.deposits; S.me = d.me; S.second = d.second || 0; S.today = d.today;
-  S.needs = n.items;
+  S.needs = n.items; S.month = m; S.ov = ov;
   paintHome();
 }
 async function loadSummary(date) {
   const d = await api('/api/gift-entry/summary' + (date ? '?date=' + encodeURIComponent(date) : ''));
   S.summary = d.summary; S.dates = d.dates || []; S.sumDate = d.summary.date;
 }
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const short = (ymd) => { if (!ymd) return ''; const [, mm, dd] = String(ymd).slice(0, 10).split('-').map(Number); return MON[mm - 1] + ' ' + dd; };
+const KIND = { Regular: 'Regular Mail', Acquisition: 'Acquisition Mail', Grant: 'Grant Mail', regular: 'Regular Mail', acquisition: 'Acquisition Mail', grant: 'Grant Mail' };
+const STEPS = ['Count and tape', 'Photograph', 'Review', 'Send to Blackbaud', 'Approved in Blackbaud'];
+function pickupPill() {
+  const t = S.today || '';
+  if (!t) return '';
+  const wd = new Date(t + 'T12:00:00Z').getUTCDay();
+  return [1, 3, 5].includes(wd) ? `<span class="ge-pill ge-pill--warn">${DOW[wd]} is a pickup day</span>` : '';
+}
+function depStatus(x) {
+  if (x.source === 'blackbaud' || x.status === 'committed') return '<span class="ge-pill ge-pill--ok">In Blackbaud</span>';
+  return pill(x.status || 'open');
+}
+function depRows() {
+  const m = S.month;
+  if (!m) return '<div class="ge-empty">The deposits from Blackbaud did not load. Reload the page to try again.</div>';
+  const f = S.depFilter || 'all';
+  const list = m.deposits.filter((x) => f === 'all' || (f === 'bb' ? x.source === 'blackbaud' || x.status === 'committed' : x.source === 'favoros' && x.status !== 'committed'));
+  if (!list.length) return `<div class="ge-empty">${f === 'open' ? 'No deposit is open.' : 'No deposits this month yet.'}</div>`;
+  return `<div class="ge-tbl" role="table" aria-label="Deposits this month"><div class="ge-tr ge-th" role="row"><span role="columnheader">Deposit</span><span role="columnheader">Gift date</span><span role="columnheader" class="r">Items</span><span role="columnheader" class="r">Total</span><span role="columnheader">Entered</span><span role="columnheader">Status</span></div>
+    ${list.map((x) => {
+      const tag = x.favorosId ? 'a' : 'div';
+      const href = x.favorosId ? ` href="/gift-entry/?d=${esc(x.favorosId)}" data-open="${esc(x.favorosId)}"` : '';
+      const entered = x.source === 'blackbaud' ? '<span class="ge-tag">Typed in Blackbaud</span>' : `<span class="ge-tag ge-tag--fos">FavorOS${x.enteredBy ? ' · ' + esc(nameOf(x.enteredBy)) : ''}</span>`;
+      return `<${tag} class="ge-tr" role="row"${href}><span class="c-dep" role="cell"><b>${esc(KIND[x.kind] || 'Regular Mail')}</b> <span class="ge-batch">${esc(x.batch || 'Not sent yet')}</span></span>
+        <span class="c-date" role="cell">${esc(short(x.giftDate))}</span>
+        <span class="c-n r" role="cell">${x.items}${x.cash ? ` <small>(${x.cash} cash)</small>` : ''}</span>
+        <span class="c-amt r ge-money" role="cell">${money(x.totalCents)}</span>
+        <span class="c-ent" role="cell"><span class="ge-ph">${esc(short(x.giftDate))} · ${x.items} ${x.items === 1 ? 'item' : 'items'}${x.cash ? ' (' + x.cash + ' cash)' : ''} · </span>${entered} <small>${esc(short(x.addedDate))}</small></span>
+        <span class="c-st" role="cell">${depStatus(x)}</span></${tag}>`;
+    }).join('')}</div>`;
+}
+function depCard() {
+  const m = S.month, f = S.depFilter || 'all';
+  const sub = m ? `${m.totals.deposits} this month · ${m.totals.items} gifts · ${money(m.totals.totalCents)}` : '';
+  const seg = `<div class="ge-seg ge-seg--sm" role="group" aria-label="Show">${[['all', 'All'], ['open', 'Open'], ['bb', 'In Blackbaud']].map(([k, l]) => `<button type="button" data-depf="${k}" class="${f === k ? 'is-on' : ''}" aria-pressed="${f === k}">${l}</button>`).join('')}</div>`;
+  return `<section class="h-card ge-card ge-deps"><div class="ge-hd"><h2>Deposits</h2><span class="ge-muted">${esc(sub)}</span><span class="sp"></span>${seg}</div>
+    <div id="ge-deprows">${depRows()}</div>${m && m.asOf ? `<p class="ge-asof">Blackbaud copy as of ${esc(ET_TIME(m.asOf))}. A batch typed today shows after the next copy.</p>` : ''}</section>`;
+}
+function afterCard() {
+  const ov = S.ov || {};
+  const r = ov.receipts, l = ov.letters;
+  const row = (t, s, href) => `<div class="ge-after"><div><b>${t}</b><span>${s}</span></div><a class="ge-btn ge-btn--sm" href="${href}">Open</a></div>`;
+  const rs = r && r.lastFile ? `Last print file ${esc(ET_TIME(r.lastFile.at))}, ${r.lastFile.marked} gifts marked thanked` : r && r.left ? `${r.left} receipts waiting` : 'Gifts join the receipts list once their batch is approved';
+  const ls = l ? `${l.month} ${l.month === 1 ? 'gift' : 'gifts'} of $5,000 and up this month` : 'Handwritten letters for gifts of $5,000 and up';
+  return `<section class="h-card ge-card"><div class="ge-hd"><h2>Waiting after entry</h2></div>
+    ${row('Receipts', rs, '/receipts/')}${row('Thank-you letters', ls, '/gifts/letters/')}${row('Missing images', 'Gifts that need a check or letter image', '/work/?view=giftimages')}</section>`;
+}
+function todayCard() {
+  const f = S.form;
+  const open = S.list.filter((x) => x.status === 'open' || x.status === 'needs_person');
+  const steps = `<ol class="ge-steps">${STEPS.map((s, i) => `<li class="${i === 0 ? 'is-now' : ''}"><i>${i + 1}</i>${s}</li>`).join('')}</ol>`;
+  const openRows = open.length ? `<div class="ge-openlist">${open.map((x) => `<a class="ge-dep" href="/gift-entry/?d=${esc(x.id)}" data-open="${esc(x.id)}"><b>${esc(x.name)}</b><span class="f">${x.gifts} of ${x.tape_count} photographed · ${esc(money(x.tape_cents))} on the tape · ${esc(x.created_by)}</span><span class="r">${pill(x.status)}<span class="a ge-money">${money(x.cents)}</span></span></a>`).join('')}</div>` : '';
+  return `<section class="h-card ge-card ge-today"><div class="ge-today__top">
+      <div class="ge-today__h"><div class="ge-today__t"><h2>Today's deposit</h2>${pickupPill()}</div><p>Count the checks and cash, run the tape, then photograph each item.</p></div>
+      <form class="ge-today__form" id="ge-setup" novalidate>
+        <div class="ge-f"><span>Type</span><div class="ge-seg" role="group" aria-label="Kind of mail">${[['regular', 'Regular'], ['acquisition', 'Acquisition'], ['grant', 'Grant']].map(([k, l]) => `<button type="button" data-kind="${k}" class="${f.kind === k ? 'is-on' : ''}">${l}</button>`).join('')}</div></div>
+        <label class="ge-f ge-f--date"><span>Date</span><input type="date" name="date" value="${esc(f.date || S.today)}" max="${esc(S.today)}" required></label>
+        <label class="ge-f"><span>Tape total</span><input name="tapeTotal" id="ge-tape" inputmode="decimal" placeholder="$0.00" value="${esc(f.tapeTotal || '')}" required></label>
+        <label class="ge-f ge-f--n"><span>Items</span><input name="tapeCount" inputmode="numeric" placeholder="0" value="${esc(f.tapeCount || '')}" required></label>
+        <button class="ge-btn ge-btn--primary" type="submit">${ic(I.cam)}Start photographing</button>
+      </form></div>
+    <div id="ge-err" class="ge-err" hidden></div>${steps}${openRows}</section>`;
+}
 function paintHome() {
-  const rows = S.list.map((x) => `<a class="ge-dep" href="/gift-entry/?d=${esc(x.id)}" data-open="${esc(x.id)}">
-      <b>${esc(x.name)}</b><span class="f">${x.gifts} of ${x.tape_count} photographed · ${esc(money(x.tape_cents))} on the tape · ${esc(x.created_by)}</span>
-      <span class="r">${pill(x.status)}<span class="a ge-money">${money(x.cents)}</span></span></a>`).join('');
-  root.innerHTML = `<section class="h-card ge-card"><div class="ge-hd"><h2>Mail deposits</h2><span class="sp"></span>
-      ${S.me && S.me.admin ? '<button class="ge-link" data-people>People</button>' : ''}<button class="ge-btn ge-btn--primary" data-new>${ic(I.plus)}New deposit</button></div>
-      <div>${rows || '<div class="ge-empty">No deposits yet.</div>'}</div></section>
-    ${needsCard()}${summaryCard()}`;
+  const s = S.summary;
+  const showSum = s && s.deposits && s.deposits.length;
+  root.innerHTML = `<div class="ge-home">${todayCard()}
+    <div class="ge-home__grid"><div class="ge-home__main">${depCard()}</div>
+      <aside class="ge-home__side">${afterCard()}${needsCard()}${showSum ? summaryCard() : ''}${S.me && S.me.admin ? '<div class="ge-sidefoot"><button class="ge-link" data-people>Who can enter gifts</button></div>' : ''}</aside></div></div>`;
+  if (/[?&]start=1\b/.test(location.search)) { const t = $('#ge-tape'); if (t) t.focus(); }
 }
 function needsCard() {
   const n = S.needs || [];
   if (!n.length) return '';
-  return `<section class="h-card ge-card"><div class="ge-hd"><h2>Needs coding</h2><span class="sp"></span><span class="ge-muted">${n.length} coded White Mail</span></div>
+  return `<section class="h-card ge-card"><div class="ge-hd"><h2>Needs coding</h2><span class="ge-muted">${n.length} White Mail</span></div>
     ${n.slice(0, 20).map((x) => `<div class="ge-sumrow"><b>${esc(x.partner || 'Gift ' + x.seq)}</b><span class="f">${esc(x.deposit.name)} · ${esc(x.reason)}${x.suggestions.length ? ' · ' + esc(x.suggestions.map((y) => y.code + ' (' + y.reason + ')').join('; ')) : ''}</span><span class="a ge-money">${money(x.amountCents)}</span></div>`).join('')}</section>`;
 }
 function summaryCard() {
@@ -120,30 +192,115 @@ function stateOf(r) {
 }
 const needsLook = (r) => stateOf(r) !== 'ok';
 
-function tapeStrip(v) {
+/* The tie-out band across the top of an open deposit: the tape, what is entered, what is approved, what needs a look, and Send to
+   Blackbaud, which opens once every gift is approved. */
+function band(v) {
   const t = v.tape, ties = t.matches;
+  const rowsAll = v.rows;
+  const appr = rowsAll.filter((r) => stateOf(r) === 'ok').length;
+  const held = rowsAll.filter((r) => r.status === 'held').length;
+  const look = rowsAll.length - appr - held;
   const off = t.diffCount !== 0 ? Math.abs(t.diffCount) + (t.diffCount < 0 ? ' short' : ' over') : moneyS(t.diffCents);
-  return `<section class="h-card ge-card"><div class="ge-tape"><div class="ge-tile"><span class="n ge-money">${money(t.tapeCents)}</span><span class="l">Tape, ${t.tapeCount} items</span></div>
-    <div class="ge-tile ${ties ? 'is-ok' : t.count ? 'is-bad' : ''}"><span class="n ge-money">${money(t.cents)}</span><span class="l">Photographed, ${t.count} items</span></div>
-    <div class="ge-tile ${ties ? 'is-ok' : ''}"><span class="n">${ties ? 'Matches' : esc(off)}</span><span class="l">${ties ? 'Total and count' : 'Against the tape'}</span></div>
-    <span class="sp"></span><div class="acts">${open() ? `<button class="ge-link ge-link--red" data-discard>Throw away</button>` : ''}</div></div></section>`;
+  const pct = (n) => (rowsAll.length ? (n / rowsAll.length * 100).toFixed(1) : 0) + '%';
+  const canPost = S.me && S.me.canPost;
+  const ok = v.canSend.ok;
+  const why = !canPost ? 'Posting is not switched on for you' : ok ? '' : rowsAll.length && appr < rowsAll.length ? `Opens when all ${rowsAll.length} are approved` : v.canSend.why.slice(0, 1).join(' ');
+  const d = v.deposit;
+  return `<section class="h-card ge-band" id="ge-band">
+    <div class="ge-band__c"><span class="l">Tape</span><b class="n ge-money">${money(t.tapeCents)}</b><span class="s">${t.tapeCount} items</span></div>
+    <div class="ge-band__c ${ties ? 'is-ok' : t.count ? 'is-bad' : ''}"><span class="l">Entered</span><b class="n ge-money">${money(t.cents)}</b><span class="s">${t.count} gifts · ${ties ? 'ties to the tape' : esc(off)}</span></div>
+    <div class="ge-band__c"><span class="l">Approved</span><b class="n">${appr} of ${rowsAll.length}</b><span class="s">${look} to review</span></div>
+    <div class="ge-band__c ${look + held ? 'is-warn' : ''}"><span class="l">Needs a look</span><b class="n">${look + held}</b><span class="s">${held} held</span></div>
+    <div class="ge-band__send"><span class="s">Started by ${esc(nameOf(d.createdBy || ''))}${d.createdAt ? ', ' + esc(ET_TIME(d.createdAt)) : ''}</span>
+      <div class="ge-prog" aria-label="${appr} of ${rowsAll.length} approved"><i class="a" style="width:${pct(appr)}"></i><i class="h" style="width:${pct(look)}"></i><i class="x" style="width:${pct(held)}"></i></div>
+      <div class="ge-band__row"><span class="s">${esc(why)}</span><button class="ge-btn ge-btn--primary" data-send ${ok && canPost ? '' : 'disabled'}>${ic(I.send)}Send to Blackbaud</button></div>
+      ${open() ? '<button class="ge-link ge-link--red ge-band__discard" data-discard>Throw away this deposit</button>' : ''}</div></section>`;
 }
 function captureCard() {
   const q = S.queue.filter((x) => x.state !== 'done');
-  return `<section class="h-card ge-card" id="ge-drop"><div class="ge-cap"><button class="ge-btn ge-btn--primary" data-cam>${ic(I.cam)}Take photos</button>
+  return `<section class="h-card ge-card ge-capcard" id="ge-drop"><div class="ge-cap"><button class="ge-btn ge-btn--primary" data-cam>${ic(I.cam)}Take photos</button>
       <label class="ge-btn" style="cursor:pointer">${ic(I.img)}Choose photos<input type="file" accept="image/*" multiple hidden data-pick></label>
       <button class="ge-btn" data-addcash>${ic(I.plus)}Cash row</button><span class="sp"></span><span class="ge-muted">Drop scans here</span></div>
     <div class="ge-queue" id="ge-queue">${queueHtml(q)}</div></section>`;
 }
 const queueHtml = (q) => q.map((x, i) => `<span class="${x.state === 'error' ? 'err' : ''}" data-retryq="${i}">${esc(x.label)}: ${x.state === 'error' ? esc(x.err) + ' (tap to retry)' : x.state === 'sending' ? 'reading' : 'waiting'}</span>`).join('');
 
-function rail(v) {
-  if (!v.rows.length) return '';
-  return `<div class="ge-rail" role="tablist" aria-label="Gifts in this deposit">${v.rows.map((r, i) => `<button class="ge-chip is-${stateOf(r)}${r.id === S.cur ? ' is-cur' : ''}" data-row="${esc(r.id)}" role="tab" aria-selected="${r.id === S.cur}" title="${esc((r.payer || 'Gift ' + r.seq) + (r.amountCents != null ? ' ' + money(r.amountCents) : ''))}"><i></i>${i + 1}</button>`).join('')}</div>`;
+/* The gift list: every gift in the deposit with its state dot, the name, check or cash and the city, and the amount. Chips filter it. */
+const LISTF = [['all', 'All'], ['look', 'To review'], ['hold', 'Held'], ['ok', 'Approved']];
+function giftList(v) {
+  const f = S.listF || 'all';
+  const n = (k) => (k === 'all' ? v.rows.length : v.rows.filter((r) => stateOf(r) === k || (k === 'look' && stateOf(r) === 'bad')).length);
+  const chips = `<div class="ge-lchips" role="group" aria-label="Show">${LISTF.map(([k, l]) => `<button type="button" data-listf="${k}" class="${f === k ? 'is-on' : ''}" aria-pressed="${f === k}">${l} <b>${n(k)}</b></button>`).join('')}</div>`;
+  const items = v.rows.map((r, i) => ({ r, i })).filter(({ r }) => f === 'all' || stateOf(r) === f || (f === 'look' && stateOf(r) === 'bad'));
+  return `${chips}<ol class="ge-list">${items.map(({ r, i }) => {
+    const nm = r.partner ? r.partner.name : r.payer || 'Gift ' + r.seq;
+    const place = r.partner && r.partner.place ? r.partner.place : '';
+    return `<li><button type="button" class="ge-li is-${stateOf(r)}${r.id === S.cur ? ' is-cur' : ''}" data-row="${esc(r.id)}" aria-current="${r.id === S.cur}"><span class="i">${i + 1}</span><i class="dot" aria-hidden="true"></i><span class="t"><b>${esc(nm)}</b><small>${r.kind === 'cash' ? 'Cash' : 'Check'}${place ? ' · ' + esc(place) : ''}</small></span><span class="a ge-money">${r.amountCents != null ? money(r.amountCents) : ''}</span></button></li>`;
+  }).join('') || '<li class="ge-empty">Nothing here.</li>'}</ol>`;
 }
-function counts(v) {
-  const a = v.rows.filter((r) => stateOf(r) === 'ok').length, h = v.rows.filter((r) => r.status === 'held').length, l = v.rows.length - a - h;
-  return `<span class="ge-muted">${a} approved · ${l} to review${h ? ' · ' + h + ' on hold' : ''}</span>`;
+
+/* The partner's giving before this gift (from the Blackbaud copy), read once per partner. */
+const HIST = {};
+function historyHtml(r) {
+  if (!r || !r.partner || !r.partner.id) return '';
+  const k = r.partner.id + '|' + (r.giftDate || '');
+  const h = HIST[k];
+  const box = (inner) => `<section class="ge-hist" aria-label="Giving history"><div class="ge-hist__hd"><b>Giving history</b><a href="/work/partner/${esc(r.partner.id)}" data-partner-id="${esc(r.partner.id)}">Open the record</a></div>${inner}</section>`;
+  if (!h) {
+    HIST[k] = 'loading';
+    api('/api/gift-entry/history?cid=' + encodeURIComponent(r.partner.id) + (r.giftDate ? '&before=' + encodeURIComponent(r.giftDate) : '')).then((d) => { HIST[k] = d.history; const c = cur(); if (c && c.id === r.id) { const el = $('#ge-histbox'); if (el) el.innerHTML = historyHtml(c); const fl = $('#ge-flags'); if (fl) fl.innerHTML = flagsHtml(c); } }).catch(() => { HIST[k] = 'error'; });
+    return box('<div class="ge-hist__row"><div><b class="n">&nbsp;</b><span>gifts before this one</span></div><div><b class="n">&nbsp;</b><span>lifetime</span></div><div><b class="n">&nbsp;</b><span>last gift</span></div></div>');
+  }
+  if (h === 'loading') return box('<div class="ge-hist__row"><div><b class="n">&nbsp;</b><span>gifts before this one</span></div><div><b class="n">&nbsp;</b><span>lifetime</span></div><div><b class="n">&nbsp;</b><span>last gift</span></div></div>');
+  if (h === 'error') return box('<p class="ge-muted">The history did not load.</p>');
+  return box(`<div class="ge-hist__row"><div><b class="n">${h.count}</b><span>gifts before this one</span></div><div><b class="n ge-money">${money(h.lifetimeCents)}</b><span>lifetime</span></div><div><b class="n ge-money">${h.last ? money(h.last.cents) : 'None'}</b><span>${h.last ? 'last gift, ' + esc(new Date(h.last.date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })) : 'last gift'}</span></div></div>`);
+}
+/* What this gift sets off: the letters list, a personal contact appeal, a first gift. */
+function flagsHtml(r) {
+  if (!r) return '';
+  const out = [];
+  if ((r.amountCents || 0) >= 500000) out.push(`<div class="ge-flag"><b>$5,000 and up.</b> Goes to the thank-you letters list after approval. The check photo copies to the gift in Blackbaud.</div>`);
+  const ap = (r.appeal && r.appeal.name) || '';
+  if (/personal contact/i.test(ap)) out.push(`<div class="ge-flag ge-flag--who"><b>Personal contact appeal.</b> ${esc(ap)}, from the gift's fundraiser.</div>`);
+  const k = r.partner && r.partner.id ? r.partner.id + '|' + (r.giftDate || '') : '';
+  const h = k ? HIST[k] : null;
+  if (h && typeof h === 'object' && h.first) out.push(`<div class="ge-flag ge-flag--new"><b>First gift.</b> Nothing from this partner in Blackbaud before this one.</div>`);
+  return out.join('');
+}
+
+async function deposit() {
+  const v = S.view;
+  if (!v) return;
+  if (v.deposit.status !== 'open') return status();
+  stopPoll();
+  if (!S.catalog) catalog().then(() => { if (S.view === v && cur()) paintReview(); }).catch(() => {});
+  if (!cur()) S.cur = (v.rows.find(needsLook) || v.rows[0] || {}).id || '';
+  crumb(v.deposit.name || 'Deposit');
+  root.innerHTML = `<div class="ge-dep2">${band(v)}${captureCard()}
+    <section class="h-card ge-card ge-rev" id="ge-review"></section><div id="ge-rejected">${rejectedLine(v)}</div></div>`;
+  paintReview();
+}
+function paintReview() {
+  const el = $('#ge-review'); if (!el) return;
+  const v = S.view, r = cur();
+  if (!v.rows.length) { el.innerHTML = '<div class="ge-hd"><h2>Gifts</h2></div><div class="ge-empty">No photos yet. Take photos of each check, or add a cash row.</div>'; return; }
+  const img = r && r.images[0];
+  const thumbs = r && r.images.length > 1 ? `<div class="ge-thumbs">${r.images.map((m, i) => `<img src="/api/gift-entry/images/${esc(m.id)}" alt="Photo ${i + 1}" data-ph="${i}" class="${i === S.photo ? 'is-cur' : ''}">`).join('')}</div>` : '';
+  const shown = r && r.images[S.photo] ? r.images[S.photo] : img;
+  const idx = v.rows.findIndex((x) => x.id === S.cur) + 1;
+  el.innerHTML = `<div class="ge-rev__grid">
+      <div class="ge-rev__list">${giftList(v)}</div>
+      <div class="ge-rev__photo">${r ? `${shown ? `<img class="ge-photo" data-zoom src="/api/gift-entry/images/${esc(shown.id)}" alt="Photo of the item">` : '<div class="ge-photo-empty">No photo for this row</div>'}${thumbs}<div id="ge-histbox">${historyHtml(r)}</div>` : ''}</div>
+      <div class="ge-rev__pane">${r ? `<div class="ge-rev__nav"><span class="ge-muted">${idx} of ${v.rows.length}</span><span class="ge-keys"><kbd>A</kbd> approve <kbd>H</kbd> hold <kbd>R</kbd> reject <kbd>J</kbd> <kbd>K</kbd> move</span></div>${pane(r, v)}<div id="ge-flags" class="ge-flags">${flagsHtml(r)}</div>` : ''}</div>
+    </div>`;
+  const rc = $('.ge-li.is-cur', el); if (rc && rc.scrollIntoView) rc.scrollIntoView({ block: 'nearest' });
+  if (S.ask) { const ri = $('#ge-reason'); if (ri) ri.focus(); }
+}
+/* The header's breadcrumb names the open deposit: Gifts / Gift entry / Regular Mail, Oct 9. */
+function crumb(text) {
+  const c2 = document.getElementById('h-crumb2');
+  if (!c2) return;
+  c2.textContent = text ? 'Gift entry / ' + text : '';
 }
 
 function dotFor(r, key) {
@@ -225,45 +382,12 @@ function actionBar(r, second) {
   return `<div class="ge-acts">${primary}<button class="ge-btn" data-ask="hold">Hold</button><button class="ge-btn ge-btn--red" data-ask="reject">Reject</button>${blocks.length ? `<span class="ge-why">${esc(blocks[0])}</span>` : ''}</div>`;
 }
 
-function postCard(v) {
-  const canPost = S.me && S.me.canPost;
-  const ok = v.canSend.ok;
-  const why = ok ? '' : v.canSend.why.slice(0, 3).join(' ');
-  return `<section class="h-card ge-card"><div class="ge-hd"><h2>Send to Blackbaud</h2><span class="sp"></span><span class="ge-muted">${v.tape.count} gifts · ${money(v.tape.cents)}</span></div>
-    <div class="ge-post"><button class="ge-btn ge-btn--primary" data-send ${ok && canPost ? '' : 'disabled'}>${ic(I.send)}Send ${v.tape.count} gifts</button>
-      ${!canPost ? '<span class="ge-muted">Posting is not switched on</span>' : !ok ? `<span class="ge-muted">${esc(why)}</span>` : ''}</div></section>`;
-}
-
 function rejectedLine(v) {
   if (!v.rejected || !v.rejected.length) return '';
   return `<section class="h-card ge-card"><div class="ge-hd"><h2>Rejected</h2><span class="sp"></span><span class="ge-muted">${v.rejected.length} · ${money(v.rejected.reduce((s, x) => s + (x.amountCents || 0), 0))}</span></div>
     ${v.rejected.map((x) => `<div class="ge-sumrow"><b>${esc(x.payer || 'Gift ' + x.seq)}</b><span class="f">${esc(x.reason)} · ${esc(nameOf(x.by || ''))}</span><span class="a ge-money">${x.amountCents != null ? money(x.amountCents) : ''}</span></div>`).join('')}</section>`;
 }
 
-async function deposit() {
-  const v = S.view;
-  if (!v) return;
-  if (v.deposit.status !== 'open') return status();
-  stopPoll();
-  if (!S.catalog) catalog().then(() => { if (S.view === v && cur()) paintReview(); }).catch(() => {});
-  if (!cur()) S.cur = (v.rows.find(needsLook) || v.rows[0] || {}).id || '';
-  root.innerHTML = `<div><button class="ge-link" data-home>${ic(I.back)}Gift entry</button></div>${tapeStrip(v)}${captureCard()}
-    <section class="h-card ge-card" id="ge-review"></section><div id="ge-postcard">${postCard(v)}</div><div id="ge-rejected">${rejectedLine(v)}</div>`;
-  paintReview();
-}
-function paintReview() {
-  const el = $('#ge-review'); if (!el) return;
-  const v = S.view, r = cur();
-  if (!v.rows.length) { el.innerHTML = '<div class="ge-hd"><h2>Review</h2></div><div class="ge-empty">No photos yet.</div>'; return; }
-  const idx = v.rows.findIndex((x) => x.id === S.cur) + 1;
-  const img = r && r.images[0];
-  const thumbs = r && r.images.length > 1 ? `<div class="ge-thumbs">${r.images.map((m, i) => `<img src="/api/gift-entry/images/${esc(m.id)}" alt="Photo ${i + 1}" data-ph="${i}" class="${i === S.photo ? 'is-cur' : ''}">`).join('')}</div>` : '';
-  const shown = r && r.images[S.photo] ? r.images[S.photo] : img;
-  el.innerHTML = `<div class="ge-hd"><h2>Review ${idx} of ${v.rows.length}</h2>${counts(v)}<span class="sp"></span><span class="ge-keys"><kbd>A</kbd> approve <kbd>H</kbd> hold <kbd>R</kbd> reject <kbd>J</kbd> <kbd>K</kbd> move</span></div>${rail(v)}
-    ${r ? `<div class="ge-review"><div>${shown ? `<img class="ge-photo" data-zoom src="/api/gift-entry/images/${esc(shown.id)}" alt="Photo of the item">` : '<div class="ge-photo-empty">No photo for this row</div>'}${thumbs}</div>${pane(r, v)}</div>` : ''}`;
-  const rc = $('.ge-chip.is-cur', el); if (rc && rc.scrollIntoView) rc.scrollIntoView({ block: 'nearest', inline: 'center' });
-  if (S.ask) { const ri = $('#ge-reason'); if (ri) ri.focus(); }
-}
 function move(delta) {
   const list = rows(); if (!list.length) return;
   let i = list.findIndex((x) => x.id === S.cur); i = Math.max(0, Math.min(list.length - 1, (i < 0 ? 0 : i) + delta));
@@ -290,7 +414,7 @@ async function act(id, action, extra) {
   if (wasCur && (action === 'approve' || action === 'approve2' || action === 'hold' || action === 'reject')) { const n = nextLook(id); if (n) { S.cur = n; S.photo = 0; } else if (action === 'reject') S.cur = (rows()[0] || {}).id || ''; }
   repaint();
 }
-function repaint() { if (!open()) return status(); const t = $('.ge-tape', root); const card = t && t.closest('section'); if (card) card.outerHTML = tapeStrip(S.view); paintReview(); const pc = $('#ge-postcard'); if (pc) pc.innerHTML = postCard(S.view); const rj = $('#ge-rejected'); if (rj) rj.innerHTML = rejectedLine(S.view); }
+function repaint() { if (!open()) return status(); const b = $('#ge-band'); if (b) b.outerHTML = band(S.view); paintReview(); const rj = $('#ge-rejected'); if (rj) rj.innerHTML = rejectedLine(S.view); }
 
 // ---------------------------------------------------------------- the batch
 function stopPoll() { clearInterval(S.poll); S.poll = 0; }
@@ -467,9 +591,11 @@ root.addEventListener('click', async (e) => {
   if (!t) return;
   if (t.matches('[data-home]')) { e.preventDefault(); setUrl(''); await home(); return; }
   if (t.matches('[data-open]')) { e.preventDefault(); setUrl(t.dataset.open); await openDeposit(); return; }
-  if (t.matches('[data-new]')) { setUrl(''); setup(); return; }
+  if (t.matches('[data-new]')) { setUrl(''); await home(); const tp = $('#ge-tape'); if (tp) tp.focus(); return; }
   if (t.matches('#ge-setup [data-kind]')) { S.form.kind = t.dataset.kind; $$('#ge-setup [data-kind]').forEach((b) => b.classList.toggle('is-on', b === t)); return; }
   if (t.matches('[data-people]')) { people(); return; }
+  if (t.matches('[data-listf]')) { S.listF = t.dataset.listf; paintReview(); return; }
+  if (t.matches('[data-depf]')) { S.depFilter = t.dataset.depf; $$('[data-depf]').forEach((b) => { const on = b === t; b.classList.toggle('is-on', on); b.setAttribute('aria-pressed', String(on)); }); const el = $('#ge-deprows'); if (el) el.innerHTML = depRows(); return; }
   if (t.matches('[data-row]')) { S.cur = t.dataset.row; S.ask = ''; S.photo = 0; paintReview(); return; }
   if (t.matches('[data-ph]')) { S.photo = Number(t.dataset.ph); paintReview(); return; }
   if (t.matches('[data-zoom]')) { t.classList.toggle('is-big'); return; }
