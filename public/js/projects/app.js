@@ -270,15 +270,47 @@ async function mountProject(root, key) {
     root.querySelector('[data-title]').innerHTML = `<i class="pj-dot pj-dot--lg" data-c="${esc(p.color)}"></i><h1>${esc(p.name)}</h1><span class="pj-pkey">${esc(p.key)}</span>${p.team ? `<span class="pj-pcard__team">${esc(p.team)}</span>` : ''}${p.status !== 'active' ? `<span class="pj-tag">${esc(p.status)}</span>` : ''}${p.asana_sync === true ? '<span class="pj-tag pj-tag--asana">Synced with Asana</span>' : ''}${p.visibility === 'members' ? `<span class="pj-pcard__lock" title="Members only">${icon('lock')}</span>` : ''}`;
     asanaConnect(root.querySelector('[data-title]'));
     const ms = ctx.members.slice(0, 5);
-    root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-btn pj-pa-status" data-pa="status" aria-label="Friday update">${icon('clock')}<span>Friday update</span></button><button type="button" class="pj-ib" data-pa="details" aria-label="Project details">${icon('more')}</button>`;
+    root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-btn pj-pa-status" data-pa="status" aria-label="Friday update">${icon('clock')}<span>Friday update</span></button><button type="button" class="pj-ib" data-pa="more" aria-label="Project menu">${icon('more')}</button>`;
   }
   root.querySelector('.pj-sidebtn').addEventListener('click', () => side.toggle());
   root.querySelector('[data-pact]').addEventListener('click', async (e) => {
     if (!e.target.closest('[data-pa]') || !ctx.project) return;
-    if (e.target.closest('[data-pa]').dataset.pa === 'status') { openStatus(ctx.project); return; }
+    const pa = e.target.closest('[data-pa]').dataset.pa;
+    if (pa === 'status') { openStatus(ctx.project); return; }
+    if (pa === 'more') {
+      const archived = ctx.project.status === 'archived';
+      const items = [{ value: 'edit', label: 'Edit details' }];
+      if (ctx.canManage !== false) items.push({ value: archived ? 'restore' : 'archive', label: archived ? 'Restore' : 'Archive', hint: archived ? 'Back on the project lists' : 'Off the project lists until restored' }, { value: 'delete', label: 'Delete project', hint: 'Removes it and its tasks from FavorOS' });
+      const v = await choose({ anchor: e.target.closest('[data-pa]'), title: 'Project', items });
+      if (!v) return;
+      if (v === 'archive' || v === 'restore') {
+        const r = await api.patchProject(ctx.project.id, { status: v === 'archive' ? 'archived' : 'active' }).catch((err) => { toast(err.message || 'That did not save.'); return null; });
+        if (r && r.project) { Object.assign(ctx.project, r.project); paintHeader(); ctx.emit('project'); toast(v === 'archive' ? 'Archived. Find it under Archived on the Projects page.' : 'Restored.'); }
+        return;
+      }
+      if (v === 'delete') { confirmDelete(); return; }
+    }
     const p = await openProjectForm({ project: ctx.project, members: ctx.members });
     if (p) { Object.assign(ctx.project, p); const d = await api.project(ctx.project.id).catch(() => null); if (d) { ctx.members = d.members || ctx.members; } paintHeader(); ctx.emit('project'); }
   });
+
+  function confirmDelete() {
+    const p = ctx.project;
+    const sh = openSheet({ title: 'Delete ' + p.name, html: `<p class="pj-del__t">This removes the project, its ${esc(String(p.open ?? ''))} open tasks, their comments and files from FavorOS. It cannot be undone. Archive keeps it instead.</p>${p.asana_sync === true ? '<label class="pj-del__chk"><input type="checkbox" data-del-asana /> Also archive it in Asana</label>' : ''}<label class="pj-del__lab">Type the project key, ${esc(p.key)}, to confirm<input class="pj-in" data-del-key autocomplete="off" spellcheck="false" /></label><div class="pj-del__acts"><button type="button" class="pj-btn" data-del-no>Cancel</button><button type="button" class="pj-btn pj-btn--danger" data-del-yes disabled>Delete project</button></div>` });
+    const keyIn = sh.el.querySelector('[data-del-key]');
+    const yes = sh.el.querySelector('[data-del-yes]');
+    keyIn.addEventListener('input', () => { yes.disabled = keyIn.value.trim().toUpperCase() !== p.key; });
+    sh.el.querySelector('[data-del-no]').addEventListener('click', () => sh.close());
+    yes.addEventListener('click', async () => {
+      yes.disabled = true;
+      const box = sh.el.querySelector('[data-del-asana]');
+      const res = await fetch(`/api/projects/${encodeURIComponent(p.id)}${box && box.checked ? '?asana=archive' : ''}`, { method: 'DELETE', credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).then((r) => r.json()).catch(() => null);
+      if (!res || res.ok === false) { yes.disabled = false; toast((res && res.message) || 'That did not delete.'); return; }
+      sh.close();
+      location.href = '/projects/';
+    });
+    setTimeout(() => keyIn.focus(), 50);
+  }
 
   ctx.on((w) => { if (w === 'load') { if (ctx.project) paintHeader(); } });
   await loadStaff();

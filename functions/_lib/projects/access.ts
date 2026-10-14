@@ -8,6 +8,7 @@ import type { HubUser } from '../session';
 import { effective } from '../admin/settings';
 import { actorOf, noticeGate, type Actor } from '../requests/tasks';
 import { lower, type ProjectRow, type TaskRow } from './db';
+import { isTester, TESTERS } from '../testuser';
 
 export { actorOf, noticeGate };
 export type { Actor };
@@ -43,20 +44,35 @@ export async function projectsActor(env: Env, request: Request, user: HubUser | 
  * Admins see all of them.
  */
 export function visibleProject(actor: Actor, p = 'p'): { sql: string; args: unknown[] } {
-  if (actor.admin) return { sql: '1 = 1', args: [] };
+  const tester = isTester(actor.email);
+  // A test project (its lead is a FavorOS Tester) is seen by the testers alone, admins included in the "alone".
+  const notTest = tester ? '' : ` AND lower(${p}.lead_email) NOT IN (${TEST_LIST})`;
+  if (actor.admin) return { sql: `(1 = 1${notTest})`, args: [] };
   return {
-    sql: `(${p}.visibility = 'staff' OR ${p}.lead_email = ? OR EXISTS (SELECT 1 FROM hub_project_members m WHERE m.project_id = ${p}.id AND m.email = ?))`,
+    sql: `((${p}.visibility = 'staff' OR ${p}.lead_email = ? OR EXISTS (SELECT 1 FROM hub_project_members m WHERE m.project_id = ${p}.id AND m.email = ?))${notTest})`,
     args: [actor.email, actor.email],
   };
 }
 
+const TEST_LIST = TESTERS.map((e) => `'${e}'`).join(', ');
+
+/** A test project: its lead is a FavorOS Tester (the privacy canaries, the Asana sync test). */
+export function isTestProject(p: { lead_email?: string | null } | null | undefined): boolean {
+  return !!p && isTester(p.lead_email);
+}
+
 /** A condition for tasks on hub_tasks aliased t: in a project the person can open, or one they are on. */
 export function visibleTask(actor: Actor, t = 't'): { sql: string; args: unknown[] } {
-  if (actor.admin) return { sql: '1 = 1', args: [] };
+  // Test tasks (in a test project, or made by or given to a tester) are seen by the testers alone.
+  const notTest = isTester(actor.email)
+    ? ''
+    : ` AND lower(COALESCE(${t}.created_by, '')) NOT IN (${TEST_LIST}) AND lower(COALESCE(${t}.owner_email, '')) NOT IN (${TEST_LIST})
+        AND NOT EXISTS (SELECT 1 FROM hub_projects xp WHERE xp.id = ${t}.project_id AND lower(xp.lead_email) IN (${TEST_LIST}))`;
+  if (actor.admin) return { sql: `(1 = 1${notTest})`, args: [] };
   const vp = visibleProject(actor, 'p');
   return {
-    sql: `(${t}.owner_email = ? OR ${t}.created_by = ? OR EXISTS (SELECT 1 FROM hub_task_people tp WHERE tp.task_id = ${t}.id AND tp.email = ?)
-      OR (${t}.project_id IS NOT NULL AND EXISTS (SELECT 1 FROM hub_projects p WHERE p.id = ${t}.project_id AND ${vp.sql})))`,
+    sql: `((${t}.owner_email = ? OR ${t}.created_by = ? OR EXISTS (SELECT 1 FROM hub_task_people tp WHERE tp.task_id = ${t}.id AND tp.email = ?)
+      OR (${t}.project_id IS NOT NULL AND EXISTS (SELECT 1 FROM hub_projects p WHERE p.id = ${t}.project_id AND ${vp.sql})))${notTest})`,
     args: [actor.email, actor.email, actor.email, ...vp.args],
   };
 }
@@ -72,6 +88,7 @@ export interface ProjectStanding {
 }
 
 export async function projectStanding(env: Env, actor: Actor, p: ProjectRow): Promise<ProjectStanding> {
+  if (isTestProject(p) && !isTester(actor.email)) return { see: false, member: false, lead: false, manage: false, edit: false };
   const lead = lower(p.lead_email) === actor.email;
   const member = lead || !!(await env.DB.prepare('SELECT 1 AS ok FROM hub_project_members WHERE project_id = ? AND email = ?').bind(p.id, actor.email).first());
   return {
@@ -100,6 +117,7 @@ export async function taskStanding(env: Env, actor: Actor, t: TaskRow, project: 
   const collab = mine.includes('collab');
   const on = owner || collab || mine.length > 0 || lower(t.created_by) === actor.email;
   const proj = project ? await projectStanding(env, actor, project) : null;
+  if (!isTester(actor.email) && (isTester(t.created_by) || isTester(t.owner_email) || isTestProject(project))) return { see: false, edit: false, remove: false, project, proj };
   if (!proj) {
     return { see: actor.admin || on, edit: actor.admin || owner || collab || lower(t.created_by) === actor.email, remove: actor.admin || lower(t.created_by) === actor.email, project: null, proj: null };
   }

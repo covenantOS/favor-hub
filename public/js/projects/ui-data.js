@@ -117,7 +117,7 @@ export class Ctx {
       await loadStaff();
       if (this.kind === 'project') {
         const [d] = await Promise.all([api.project(key), this.loadTasks({ project: key, status: this.showDone ? 'all' : 'open' })]);
-        this.project = d.project; this.sections = d.sections || []; this.members = d.members || []; this.projectCounts = d.counts || {};
+        this.project = d.project; this.sections = d.sections || []; this.members = d.members || []; this.projectCounts = d.counts || {}; this.canManage = !!(d.can && d.can.manage);
         this.doneLoaded = this.showDone;
       } else {
         await this.loadTasks({ owner: 'me', status: this.showDone ? 'all' : 'open' });

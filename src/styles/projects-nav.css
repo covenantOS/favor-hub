@@ -109,3 +109,9 @@
 .pj-connect p { margin: 0 0 20px; font-size: 15px; color: var(--r-ink-2, #555); }
 .pj-connect__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 12px; background: var(--a-ink, #1d5c3a); color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; }
 .pj-connect .pj-connect__t { margin: 14px 0 0; font-size: 13px; color: var(--r-ink-3, #777); }
+.pj-del__t { margin: 0 0 14px; font-size: 14px; }
+.pj-del__chk { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
+.pj-del__lab { display: grid; gap: 6px; font-size: 13px; margin: 8px 0 16px; }
+.pj-del__acts { display: flex; justify-content: flex-end; gap: 8px; }
+.pj-btn--danger { background: #9b2c1f; color: #fff; border-color: #9b2c1f; }
+.pj-btn--danger[disabled] { opacity: .45; }

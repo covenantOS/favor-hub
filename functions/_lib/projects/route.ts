@@ -12,7 +12,7 @@
 //   POST tasks/:id/comments               PATCH/DELETE tasks/:id/comments/:cid
 //   POST tasks/:id/files                  POST tasks/:id/upload                    DELETE tasks/:id/files/:fid   GET tasks/:id/files/:fid/download
 //   PUT  tasks/:id/people                 PUT tasks/:id/deps
-import { asanaUrlFor, syncedProject } from './sync';
+import { asanaUrlFor, deleteHubProject, syncedProject } from './sync';
 import { HttpError, errorJson, handleError, json, type Env } from '../http';
 import type { HubUser } from '../session';
 import { staffDirectory } from '../people';
@@ -108,6 +108,13 @@ async function projectRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Re
       const d = await projectDetail(env, actor, id);
       const asanaSync = !!(await syncedProject(env, d.project.id).catch(() => null));
       return json({ ok: true, project: { ...d.project, asana_sync: asanaSync }, sections: d.sections, members: d.members, counts: d.counts, can: { manage: d.standing.manage, edit: d.standing.edit } });
+    }
+    if (method === 'DELETE') {
+      // The project lead or an admin. ?asana=archive also archives the Asana project it syncs with.
+      const d = await projectDetail(env, actor, id);
+      if (!d.standing.manage) throw new HttpError(403, 'forbidden', 'Only the project lead or an admin deletes a project.');
+      const r = await deleteHubProject(env, actor.email, d.project.id, new URL(request.url).searchParams.get('asana') === 'archive');
+      return json({ ok: true, deleted: d.project.key, ...r });
     }
     if (method === 'PATCH') {
       const r = await patchProject(env, actor, id, await body(request));

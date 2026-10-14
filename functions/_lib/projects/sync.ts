@@ -1130,3 +1130,44 @@ export async function setRequire(env: Env, actor: string, b: { require?: unknown
   if (b.extra !== undefined) await hubPut(env, EXTRA_KEY, clean(b.extra), actor);
   if (b.skip !== undefined) await hubPut(env, SKIP_KEY, clean(b.skip), actor);
 }
+
+/* ------------------------------------------------------------------------------------------ deleting a project */
+
+/**
+ * Removes a FavorOS project and everything in it. A synced project stops syncing first; with archiveInAsana the Asana project is
+ * archived too (never deleted there). Returns what it removed.
+ */
+export async function deleteHubProject(env: Env, actor: string, projectId: string, archiveInAsana: boolean): Promise<{ tasks: number; asana: string }> {
+  const sp = await env.DB.prepare('SELECT * FROM hub_asana_sync_projects WHERE hub_project_id = ?').bind(projectId).first<SyncProject>().catch(() => null);
+  let asana = 'not synced';
+  if (sp) {
+    if (sp.enabled) await setProjectSync(env, actor, sp.project_gid, false).catch(() => null);
+    asana = 'sync stopped';
+    if (archiveInAsana) {
+      const c = await patClient(env);
+      await c.req('PUT', `/projects/${sp.project_gid}`, { archived: true });
+      asana = 'archived in Asana';
+    }
+  }
+  const n = (await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_tasks WHERE project_id = ?').bind(projectId).first<{ n: number }>())?.n || 0;
+  const inP = 'SELECT id FROM hub_tasks WHERE project_id = ?';
+  const stmts = [
+    ...['hub_task_comments', 'hub_task_files', 'hub_task_people', 'hub_task_notices', 'hub_task_events', 'hub_task_fields'].map((tb) => env.DB.prepare(`DELETE FROM ${tb} WHERE task_id IN (${inP})`).bind(projectId)),
+    env.DB.prepare(`DELETE FROM hub_task_deps WHERE task_id IN (${inP}) OR depends_on IN (${inP})`).bind(projectId, projectId),
+    env.DB.prepare(`DELETE FROM hub_asana_snap WHERE hub_id IN (${inP})`).bind(projectId),
+    env.DB.prepare('DELETE FROM hub_task_events WHERE project_id = ?').bind(projectId),
+    env.DB.prepare('DELETE FROM hub_tasks WHERE project_id = ?').bind(projectId),
+    env.DB.prepare('DELETE FROM hub_project_sections WHERE project_id = ?').bind(projectId),
+    env.DB.prepare('DELETE FROM hub_project_members WHERE project_id = ?').bind(projectId),
+    env.DB.prepare('DELETE FROM hub_projects WHERE id = ?').bind(projectId),
+  ];
+  if (sp) {
+    stmts.push(env.DB.prepare('DELETE FROM hub_asana_map WHERE project_gid = ?').bind(sp.project_gid));
+    stmts.push(env.DB.prepare('DELETE FROM hub_asana_sync_projects WHERE project_gid = ?').bind(sp.project_gid));
+  } else stmts.push(env.DB.prepare("DELETE FROM hub_asana_map WHERE kind = 'project' AND hub_id = ?").bind(projectId));
+  // hub_task_nudges exists once db/notify.sql is applied
+  await env.DB.prepare(`DELETE FROM hub_task_nudges WHERE task_id IN (${inP})`).bind(projectId).run().catch(() => null);
+  await env.DB.batch(stmts);
+  await audit(env, { actor, area: 'projects', key: `project.${projectId}`, label: 'Project deleted', before: `${n} tasks`, after: asana });
+  return { tasks: n, asana };
+}
