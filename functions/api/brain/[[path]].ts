@@ -11,7 +11,7 @@ import { dropScratch, finishTurn, newConvId, recentHistory, startTurn, validConv
 import { retitle } from '../../_lib/hub/chat-title';
 
 const BRAIN_URL = 'https://mcp.favorintl.org';
-const ROUTES = new Set(['GET me', 'GET connector','GET text/status', 'POST text/register', 'POST text/confirm', 'POST text/remove','POST request', 'POST ask', 'POST confirm', 'POST list/read', 'POST drive/search','GET admin/iwave', 'POST admin/iwave/decide', 'GET admin/names', 'POST admin/name-search', 'POST admin/alias', 'POST admin/alias-delete', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
+const ROUTES = new Set(['GET me', 'GET connector','GET text/status', 'POST text/register', 'POST text/confirm', 'POST text/remove','POST request', 'POST ask', 'POST confirm', 'POST list/read', 'POST drive/search', 'GET drive/thumb','GET admin/iwave', 'POST admin/iwave/decide', 'GET admin/names', 'POST admin/name-search', 'POST admin/alias', 'POST admin/alias-delete', 'GET admin/overview', 'POST admin/decide', 'POST admin/grant', 'POST admin/reset']);
 type BrainEnv = Env & { BRAIN_HUB_KEY?: string; BRAIN_URL?: string };
 
 const headersFor = (env: BrainEnv, user: { email: string; name?: string; role?: string }) => ({
@@ -103,6 +103,12 @@ export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params,
     if (user.role === 'field' && !(await fieldBrainOn(env))) return errorJson('not_ready', 'Favor Brain is not open to field staff yet.', 403);
     if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to FavorOS yet.', 503);
     if (request.method === 'POST' && path === 'ask') return await ask(request, env, user, waitUntil);
+    // A photo card's picture comes through as bytes. The Brain checks the person's own Google access to the file first.
+    if (request.method === 'GET' && path === 'drive/thumb') {
+      const q = new URL(request.url).searchParams;
+      const res = await fetch(`${base(env)}/hub/drive/thumb?id=${encodeURIComponent(q.get('id') || '')}&s=${q.get('s') === '1600' ? 1600 : 400}`, { headers: headersFor(env, user) });
+      return new Response(res.ok ? res.body : null, { status: res.status, headers: { 'Content-Type': res.ok ? res.headers.get('Content-Type') || 'image/jpeg' : 'text/plain', 'Cache-Control': res.ok ? 'private, max-age=3600' : 'no-store' } });
+    }
     const res = await fetch(`${base(env)}/hub/${path}`, {
       method: request.method,
       headers: headersFor(env, user),

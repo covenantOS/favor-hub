@@ -495,9 +495,103 @@
       <div class="frow__side"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(f.link))}" target="_blank" rel="noopener" aria-label="Open ${esc(f.title)} in Drive">${ic('ext')}Open in Drive</a>${idx ? `<span class="fidx">Indexed <time datetime="${esc(String(f.indexed).slice(0, 10))}">${esc(idx)}</time></span>` : ''}</div>
       ${ps || hint ? `<div class="frow__b">${ps}${hint}</div>` : ''}</div>`;
   }
+  // ---- Photo cards: the picture itself (through /api/brain/drive/thumb, which checks the person's own Google access),
+  // its size and grade, the stored description, and Open, Download and More like this. A press on the picture opens it large.
+  const THUMB = (id, s) => `/api/brain/drive/thumb?id=${encodeURIComponent(id)}&s=${s}`;
+  const mb = (b) => (b >= 10485760 ? Math.round(b / 1048576) + ' MB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+  const GRADE = { high: 'High quality', medium: 'Medium quality', low: 'Low quality' };
+  B.photoDetail = (im) => {
+    if (!im) return '';
+    const parts = [];
+    if (im.width && im.height) parts.push(`${im.width} \u00d7 ${im.height}`);
+    if (im.bytes) parts.push(mb(im.bytes));
+    return parts.join(', ');
+  };
+  const dlUrl = (id) => `https://drive.google.com/uc?export=download&id=${encodeURIComponent(id)}`;
+  function photoHTML(f) {
+    const im = f.image || null;
+    const det = B.photoDetail(im);
+    const g = im && im.grade ? `<span class="pg pg--${esc(im.grade)}">${esc(GRADE[im.grade])}</span>` : '';
+    const data = `data-pid="${esc(f.id)}" data-ptitle="${esc(f.title)}" data-plink="${esc(f.link)}" data-pdet="${esc(det)}" data-pgrade="${esc(im && im.grade ? GRADE[im.grade] : '')}" data-pdesc="${esc(f.description || '')}" data-pfolder="${esc(f.folder || '')}" data-plike="${esc(f.like || '')}"`;
+    return `<div class="ph" role="listitem">
+      <button type="button" class="ph__img" data-act="photo" ${data} aria-label="Show ${esc(f.title)} larger"><span class="ph__ph">${ic('fimage')}</span><img class="ph__thumb" src="${esc(THUMB(f.id, 400))}" alt="" loading="lazy" decoding="async"></button>
+      <div class="ph__b"><b class="ph__n">${esc(f.title)}</b>
+        <div class="ph__m">${g}${det ? `<span>${esc(det)}</span>` : ''}</div>
+        ${f.folder ? `<div class="ph__f">${esc(f.folder)}</div>` : ''}
+        ${f.description ? `<p class="ph__d">${esc(f.description)}</p>` : '<p class="ph__d ph__d--none">No description yet</p>'}
+        <div class="ph__a"><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(href(f.link))}" target="_blank" rel="noopener">${ic('ext')}Open in Drive</a><a class="h-btn h-btn--ghost h-btn--xs" href="${esc(dlUrl(f.id))}" target="_blank" rel="noopener">Download original</a>${f.like ? `<button type="button" class="h-btn h-btn--ghost h-btn--xs" data-act="ask" data-q="${esc(f.like)}" data-intent="find_file">More like this</button>` : ''}</div>
+      </div></div>`;
+  }
+  // A picture that will not load shows the photo icon in its place.
+  document.addEventListener('error', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('ph__thumb')) t.closest('.ph__img').classList.add('is-broken'); }, true);
+  document.addEventListener('load', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('ph__thumb')) t.closest('.ph__img').classList.add('is-ready'); }, true);
+
+  // ---- The large view: one photo over the page, arrows for the others in the same answer, Esc closes ----
+  let LB = null;
+  function lbClose() { if (!LB) return; LB.classList.remove('is-open'); document.documentElement.classList.remove('plb-on'); if (LB._from) LB._from.focus(); }
+  function lbShow(i) {
+    const list = LB._all;
+    if (!list.length) return;
+    LB._k = (i + list.length) % list.length;
+    const d = list[LB._k].dataset;
+    const pic = LB.querySelector('.plb__pic');
+    const img = pic.querySelector('img');
+    pic.classList.remove('is-ready');
+    img.onload = () => pic.classList.add('is-ready');
+    img.src = THUMB(d.pid, 1600);
+    img.alt = d.pdesc || d.ptitle;
+    LB.querySelector('.plb__t').textContent = d.ptitle;
+    LB.querySelector('.plb__m').textContent = [d.pgrade, d.pdet].filter(Boolean).join(' \u00b7 ');
+    LB.querySelector('.plb__f').textContent = d.pfolder;
+    LB.querySelector('.plb__d').textContent = d.pdesc || 'No description yet';
+    LB.querySelector('.plb__a').innerHTML = `<a class="h-btn h-btn--primary h-btn--sm" href="${esc(dlUrl(d.pid))}" target="_blank" rel="noopener">Download original</a><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(href(d.plink))}" target="_blank" rel="noopener">${ic('ext')}Open in Drive</a>${d.plike ? `<button type="button" class="h-btn h-btn--ghost h-btn--sm" data-lb="like" data-q="${esc(d.plike)}">More like this</button>` : ''}`;
+    LB.querySelectorAll('.plb__nav').forEach((n) => (n.hidden = list.length < 2));
+  }
+  function lightbox(btn, host) {
+    const grid = btn.closest('.fcards');
+    const all = grid ? [...grid.querySelectorAll('[data-act="photo"]')] : [btn];
+    if (!LB) {
+      LB = document.createElement('div');
+      LB.className = 'plb';
+      LB.setAttribute('role', 'dialog');
+      LB.setAttribute('aria-modal', 'true');
+      LB.setAttribute('aria-label', 'Photo');
+      LB.innerHTML = `<div class="plb__bg" data-lb="close"></div><div class="plb__box"><div class="plb__pic"><span class="spin"></span><img alt=""></div><div class="plb__side"><button type="button" class="plb__x" data-lb="close" aria-label="Close">\u00d7</button><b class="plb__t"></b><div class="plb__m"></div><div class="plb__f"></div><p class="plb__d"></p><div class="plb__a"></div></div><button type="button" class="plb__nav plb__nav--p" data-lb="prev" aria-label="Previous photo">\u2039</button><button type="button" class="plb__nav plb__nav--n" data-lb="next" aria-label="Next photo">\u203a</button></div>`;
+      document.body.appendChild(LB);
+      LB.addEventListener('click', (e) => {
+        const a = e.target.closest('[data-lb]');
+        if (!a) return;
+        const w = a.dataset.lb;
+        if (w === 'close') lbClose();
+        else if (w === 'prev') lbShow(LB._k - 1);
+        else if (w === 'next') lbShow(LB._k + 1);
+        else if (w === 'like') { const q = a.dataset.q; const h = LB._host; lbClose(); if (h && q) h.ask(q, { intent: 'find_file' }); }
+      });
+      document.addEventListener('keydown', (e) => {
+        if (!LB || !LB.classList.contains('is-open')) return;
+        if (e.key === 'Escape') lbClose();
+        else if (e.key === 'ArrowLeft') lbShow(LB._k - 1);
+        else if (e.key === 'ArrowRight') lbShow(LB._k + 1);
+      });
+    }
+    LB._all = all;
+    LB._host = host;
+    LB._from = btn;
+    lbShow(Math.max(0, all.indexOf(btn)));
+    LB.classList.add('is-open');
+    document.documentElement.classList.add('plb-on');
+    LB.querySelector('.plb__x').focus();
+  }
+  B.lightbox = lightbox;
+
   // The weaker matches wait behind a quiet "N more matches" line. A native disclosure opens them in place, with no script.
   function filesHTML(b) {
     const more = b.more || [];
+    const pics = (b.files || []).length && (b.files || []).concat(more).every((f) => f.kind === 'image');
+    if (pics) {
+      const moreP = more.length ? `<details class="fmore"><summary>${more.length} more ${more.length === 1 ? 'photo' : 'photos'}${ic('caret')}</summary><div class="pgrid" role="list">${more.map(photoHTML).join('')}</div></details>` : '';
+      return `<div class="card fcards fcards--photos"><div class="card__h"><div><div class="card__t">${esc(b.title)}</div><div class="card__s">${ic('lock')} Only files your Google account can open</div></div></div><div class="pgrid" role="list">${b.files.map(photoHTML).join('')}</div>${moreP}</div>`;
+    }
     const moreHTML = more.length
       ? `<details class="fmore"><summary>${more.length} more ${more.length === 1 ? 'match' : 'matches'}${ic('caret')}</summary><div class="frows" role="list">${more.map(fileRowHTML).join('')}</div></details>`
       : '';
@@ -761,6 +855,7 @@
   const blockOf = (turn, el) => (turn && turn.blocks ? turn.blocks[+el.dataset.bi] : null);
   const ACTIONS = {
     ask: (el, host) => host.ask(el.dataset.q, { intent: el.dataset.intent || undefined, el }),
+    photo: (el, host) => lightbox(el, host),
     'ask-again': (el, host) => { const t = host.turn(el); if (t) host.ask(t.asked_as || t.q, { again: true, el }); },
     choose: (el, host) => {
       const t = host.turn(el), b = blockOf(t, el);

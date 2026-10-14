@@ -81,10 +81,15 @@ describe('Drive file cards', () => {
     for (const v of ['12 pastors', 'Q4', 'n/a']) assert.doesNotMatch(cell(v), /class="fnum"/, v);
   });
 
-  it('marks a photo matched by its description with a short label and quotes nothing', () => {
-    const html = render({ title: 't', files: [file({ kind: 'image', kind_label: 'Image', hint: true, passages: [] })] });
-    assert.match(html, /<span class="tag">Matched by picture description<\/span>/);
-    assert.doesNotMatch(html, /fq|fnum/);
+  it('shows a photo answer as pictures with size, grade, description, Download original and More like this', () => {
+    const html = render({ title: 't', files: [file({ id: 'abcdefghij12', kind: 'image', kind_label: 'Photo', hint: true, passages: [], description: 'A man at a radio microphone.', like: 'More photos like x [like:abcdefghij12]', image: { width: 4628, height: 6934, bytes: 22020096, grade: 'high' } })] });
+    assert.match(html, /<img class="ph__thumb" src="\/api\/brain\/drive\/thumb\?id=abcdefghij12&amp;s=400"/);
+    assert.match(html, /4628 \u00d7 6934, 21 MB/);
+    assert.match(html, /High quality/);
+    assert.match(html, /<p class="ph__d">A man at a radio microphone\.<\/p>/);
+    assert.match(html, /uc\?export=download&amp;id=abcdefghij12/);
+    assert.match(html, /data-act="ask" data-q="More photos like x \[like:abcdefghij12\]" data-intent="find_file">More like this/);
+    assert.doesNotMatch(html, /\$\d/);
   });
 
   it('takes the type color from a fixed list, so an odd type cannot reach a class name', () => {
