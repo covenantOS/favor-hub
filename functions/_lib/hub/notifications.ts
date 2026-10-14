@@ -61,6 +61,12 @@ export async function notificationsFor(env: Env, user: HubUser, access: Access):
     if (!source) continue;
     items.push({ id: 'card:' + c.id, source, head: `${c.n.toLocaleString('en-US')} ${c.what}`, txt: c.note, href: c.href, n: c.n, warn: c.warn });
   }
+  // Mentions in a meeting's chat while the person was not in it. They clear when the person opens that meeting.
+  if (access.meetings) {
+    const rows = ((await env.DB.prepare(`SELECT x.meeting_id, x.by_name, x.text, m.title FROM hub_meeting_mentions x JOIN hub_meetings m ON m.id = x.meeting_id WHERE x.email = ? AND x.seen = 0 AND x.ts > ? ORDER BY x.ts DESC LIMIT 10`)
+      .bind(user.email.toLowerCase(), Date.now() - 3 * 86_400_000).all<{ meeting_id: string; by_name: string; text: string; title: string }>().catch(() => ({ results: [] }))).results) || [];
+    for (const r of rows) items.push({ id: 'mention:' + r.meeting_id + ':' + items.length, source: 'Meetings', head: `${r.by_name} mentioned you in ${r.title || 'a meeting'}`, txt: r.text.slice(0, 110), href: `/meet/room/?m=${r.meeting_id}`, n: 1, warn: false });
+  }
   if (mailUnread) items.push({ id: 'mail', source: 'Mail', head: `${mailUnread.toLocaleString('en-US')} unread in your Inbox`, txt: '', href: '/mail/', n: mailUnread, warn: false });
   const sum: Record<string, number> = {};
   for (const i of items) sum[i.source] = (sum[i.source] || 0) + i.n;

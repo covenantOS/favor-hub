@@ -9,6 +9,9 @@
 //   POST meetings/:id/tracks        say which tracks this person publishes
 //   POST meetings/:id/leave
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
+import { servedVideo } from './clipmuxjob';
+import { sendMail } from './notify/send';
+import { parseRange, type Clip, type ClipsEnv } from './clips';
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
 import { closePrivate, cutSection, deleteRecording, privacyOf, setPrivate } from './meetprivacy';
@@ -46,7 +49,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (user.role === 'field' && parts[1] === 'pump' && !parts[2] && m === 'POST') return json({ ok: true, done: true, state: 'idle' });
     if (user.role === 'field' && !fieldMeetRoute(m, parts)) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
     const sub0 = parts[2] || '';
-    if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
+    if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu', 'playing', 'playmedia'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
 
     if (parts[1] === 'pump' && m === 'POST') return json(await pumpNext(env, user));
     if (parts[1] === 'ask' && m === 'POST') return json(await askMeetings(env, user, ((await request.json().catch(() => ({}))) as Record<string, unknown>).q));
@@ -98,7 +101,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'join' && m === 'POST' && guestMode) return json(await joinGuest(env, id, await request.json().catch(() => ({})), clientIpOf(request), request.headers.get('X-Guest-Token') || ''));
     if (sub === 'join' && m === 'POST') { const r = await join(env, user, id, await request.json().catch(() => ({}))); huddleNews(id); return json(r); }
     if (sub === 'sync' && m === 'POST') return json(await sync(env, user, id, await request.json().catch(() => ({}))));
-    if (sub === 'event' && m === 'POST') return json(await postEvent(env, user, id, await request.json().catch(() => ({})), onEnd));
+    if (sub === 'event' && m === 'POST') return json(await postEvent(env, user, id, await request.json().catch(() => ({})), onEnd, new URL(request.url).origin, waitUntil));
     if (sub === 'leave' && m === 'POST') { const r = await leave(env, user, id, await request.json().catch(() => ({})), onEnd); huddleNews(id); return json(r); }
     if (sub === 'tracks' && m === 'POST') return json(await setTracks(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
@@ -120,6 +123,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'ask' && m === 'POST') return json(await askAboutMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'action' && m === 'POST') return json(await markAction(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'playing' && m === 'GET') return json(await playing(env, user, id));
+    if (sub === 'playmedia' && m === 'GET') return await playMedia(env, id, new URL(request.url).searchParams, request.headers.get('Range'));
     if (sub === 'brain' && m === 'POST') return json(await brainInMeeting(env, user, id, await request.json().catch(() => ({}))));
     return errorJson('not_found', 'Not found.', 404);
   } catch (err) {
@@ -414,6 +418,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
 
 async function join(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
   const mt = await getMeeting(env, id);
+  await env.DB.prepare('UPDATE hub_meeting_mentions SET seen = 1 WHERE meeting_id = ? AND email = ? AND seen = 0').bind(id, user.email.toLowerCase()).run().catch(() => undefined);
   if (!mayJoin(mt, user as never)) throw refuseJoin(mt);
   if (mt.status === 'ended' && !aheadOf(mt) && mt.ended_at && Date.now() - Date.parse(mt.ended_at) > 6 * 3600_000) throw new HttpError(410, 'ended', 'This meeting has ended.');
   const now = Date.now();
@@ -577,7 +582,7 @@ async function leave(env: MeetEnv, user: { email: string }, id: string, b: Recor
 
 // ---------------------------------------------------------------- events and host commands
 
-async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>, onEnd?: (id: string) => void) {
+async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>, onEnd?: (id: string) => void, origin = '', waitUntil?: (p: Promise<unknown>) => void) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email);
   const kind = String(b.kind);
   const to = clean(b.to, 12);
@@ -597,8 +602,13 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
     const file = body.file as Record<string, unknown> | undefined;
     if (!text && !file) throw new HttpError(400, 'empty', 'Write something first.');
     const f = file ? { name: clean(file.name, 160), url: driveUrl(file.url), type: clean(file.type, 20), by: clean(file.by, 80) } : undefined;
-    await addEvent(env, id, 'chat', me.pid, to, { text, name: me.name, file: f, ai: !!body.ai });
-    return { ok: true };
+    const mentions = to ? null : await mentionsOf(env, id, me, body.mentions);
+    await addEvent(env, id, 'chat', me.pid, to, { text, name: me.name, file: f, ai: !!body.ai, ...(mentions && mentions.pids.length ? { mentions: mentions.pids } : {}) });
+    if (mentions && mentions.away.length) {
+      const job = mentionAway(env, id, me, text, mentions.away, origin || 'https://dash.favorintl.org').catch((err) => console.warn('[meet] mention', err));
+      if (waitUntil) waitUntil(job); else await job;
+    }
+    return { ok: true, away: mentions ? mentions.away.map((x) => x.name || x.email) : [] };
   }
   if (kind === 'brain') {
     // Staff put a Favor Brain answer on everyone's screen, or take it down. Only staff can post; the answer is the asker's to share.
@@ -608,6 +618,11 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
     const packed = JSON.stringify({ q: clean(body.q, 200), md: clean(body.md, 6000), blocks: Array.isArray(body.blocks) ? body.blocks.slice(0, 6) : [], by: me.name });
     if (packed.length > 60000) throw new HttpError(413, 'too_big', 'That answer is too large to put on screen.');
     await env.DB.prepare('INSERT INTO hub_meeting_events (meeting_id, kind, from_pid, to_pid, body, ts) VALUES (?, ?, ?, ?, ?, ?)').bind(id, 'brain', me.pid, '', packed, Date.now()).run();
+    return { ok: true };
+  }
+  if (kind === 'ack') {
+    // A browser that started the clip being played says so to the person playing it, who sees who still needs to reload.
+    await addEvent(env, id, 'ack', me.pid, to, { at: Number((b.body as Record<string, unknown>)?.at) || 0 });
     return { ok: true };
   }
   if (kind === 'react') {
@@ -624,7 +639,9 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
       await env.DB.prepare('UPDATE hub_meeting_presence SET hand = 0 WHERE meeting_id = ? AND pid = ?').bind(id, me.pid).run();
       return { ok: true };
     }
-    if (me.role !== 'host' && me.role !== 'cohost') throw new HttpError(403, 'host_only', 'Only a host can do that.');
+    // Playing a clip for everyone is for hosts and for anyone the host lets share.
+    const mayPlay = a === 'play' && !me.waiting && mt.share_policy === 'all' && !!me.can_share;
+    if (me.role !== 'host' && me.role !== 'cohost' && !mayPlay) throw new HttpError(403, 'host_only', 'Only a host can do that.');
     const target = to ? await env.DB.prepare('SELECT * FROM hub_meeting_presence WHERE meeting_id = ? AND pid = ?').bind(id, to).first<Presence>() : null;
     if (to && !target) throw new HttpError(404, 'gone', 'That person already left.');
     if (target && target.role === 'host' && ['remove', 'mute', 'camoff', 'unhost'].includes(a) && me.role !== 'host') throw new HttpError(403, 'host_only', 'Only the host can do that to the host.');
@@ -670,8 +687,9 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
         const v = (body.v || {}) as Record<string, unknown>;
         const st = ['play', 'pause', 'stop'].includes(String(v.st)) ? String(v.st) : 'stop';
         const clip = /^[0-9a-f]{32}$/.test(String(v.clip)) ? String(v.clip) : '';
-        if (st !== 'stop' && !clip) throw new HttpError(400, 'bad_clip', 'Pick a clip.');
-        body.v = { st, clip, title: clean(v.title, 160), pos: Math.max(0, Number(v.pos) || 0), at: Date.now(), by: me.name };
+        const yt = clip ? '' : /^[\w-]{11}$/.test(String(v.yt)) ? String(v.yt) : '';
+        if (st !== 'stop' && !clip && !yt) throw new HttpError(400, 'bad_clip', 'Pick a clip or a YouTube link.');
+        body.v = { st, clip, yt, title: clean(v.title, 160), pos: Math.max(0, Number(v.pos) || 0), at: Date.now(), by: me.name, pid: me.pid };
         break;
       }
       default: break;
@@ -688,7 +706,90 @@ async function playing(env: MeetEnv, user: { email: string }, id: string) {
   if (!here) return { ok: true, now: Date.now(), play: null };
   const row = await env.DB.prepare(`SELECT body FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'cmd' AND body LIKE '{"a":"play"%' ORDER BY seq DESC LIMIT 1`).bind(id).first<{ body: string }>();
   const v = row ? safeJson<{ v?: Record<string, unknown> }>(row.body, {}).v : null;
-  return { ok: true, now: Date.now(), play: v && v.st !== 'stop' ? v : null };
+  const play = v && v.st !== 'stop' ? v : null;
+  let media = '';
+  if (play && play.clip) {
+    const c = await env.DB.prepare(`SELECT duration_ms FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')`).bind(String(play.clip)).first<{ duration_ms: number }>();
+    if (c) {
+      const e = Date.now() + Math.min(4 * 3_600_000, (c.duration_ms || 0) + 30 * 60_000);
+      media = `playmedia?c=${play.clip}&e=${e}&s=${await playSig(env, id, String(play.clip), e)}`;
+    }
+  }
+  return { ok: true, now: Date.now(), play, media };
+}
+
+async function playSig(env: MeetEnv, id: string, clip: string, e: number): Promise<string> {
+  if (!env.SFU_APP_SECRET) throw new HttpError(503, 'sfu_missing', 'Meetings are not set up yet.');
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode('meet-play:' + env.SFU_APP_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${id}|${clip}|${e}`));
+  return [...new Uint8Array(sig)].map((x) => x.toString(16).padStart(2, '0')).join('').slice(0, 40);
+}
+
+/** The clip playing in this meeting, for anyone holding the link /playing signed: a guest gets that one clip and only until the link runs out. */
+async function playMedia(env: MeetEnv, id: string, q: URLSearchParams, range: string | null): Promise<Response> {
+  const clipId = q.get('c') || '', e = Number(q.get('e')), s = q.get('s') || '';
+  const no = () => new Response('Not found', { status: 404, headers: { 'Cache-Control': 'private, no-store' } });
+  if (!/^[0-9a-f]{32}$/.test(clipId) || !(e > Date.now()) || !sameKey(await playSig(env, id, clipId, e), s)) return no();
+  const row = await env.DB.prepare(`SELECT body FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'cmd' AND body LIKE '{"a":"play"%' ORDER BY seq DESC LIMIT 1`).bind(id).first<{ body: string }>();
+  const v = row ? safeJson<{ v?: { clip?: string; st?: string } }>(row.body, {}).v : null;
+  if (!v || v.clip !== clipId || v.st === 'stop') return no();
+  const clip = await env.DB.prepare(`SELECT * FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')`).bind(clipId).first<Clip>();
+  const file = clip ? await servedVideo(env as unknown as ClipsEnv, clip) : null;
+  if (!clip || !file) return no();
+  const base: Record<string, string> = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Type': clip.mime, 'Accept-Ranges': 'bytes', ETag: file.etag };
+  const r = parseRange(range, file.size);
+  if (r === 'bad') return new Response('Range not satisfiable', { status: 416, headers: { ...base, 'Content-Range': `bytes */${file.size}` } });
+  const start = r ? r.start : 0, end = r ? r.end : file.size - 1;
+  const body = await file.read(start, end - start + 1);
+  if (!body) return no();
+  return new Response(body, { status: r ? 206 : 200, headers: { ...base, 'Content-Length': String(end - start + 1), ...(r ? { 'Content-Range': `bytes ${start}-${end}/${file.size}` } : {}) } });
+}
+
+/**
+ * The @mentions in a chat message. People in the room are named by pid; invitees who are not in the room by email, and only
+ * an email on the meeting's own invite list (or a staff member when the sender is staff) counts. At most eight per message.
+ */
+async function mentionsOf(env: MeetEnv, id: string, me: Presence, raw: unknown): Promise<{ pids: string[]; away: Array<{ email: string; name: string }> } | null> {
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const list = (raw as Array<Record<string, unknown>>).slice(0, 8);
+  const now = Date.now();
+  const here = ((await env.DB.prepare('SELECT pid, email, name FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, now - GONE_MS).all<{ pid: string; email: string; name: string }>()).results) || [];
+  const pids = new Set<string>();
+  const hereEmails = new Set(here.map((p) => (p.email || '').toLowerCase()));
+  for (const m of list) { const pid = clean(m.pid, 12); if (pid && here.some((p) => p.pid === pid)) pids.add(pid); }
+  const away: Array<{ email: string; name: string }> = [];
+  if (me.role !== 'guest') {
+    const mt = await getMeeting(env, id);
+    const inv = safeJson<Array<{ email?: string; name?: string }>>(mt.invitees, []);
+    for (const m of list) {
+      const email = clean(m.email, 200).toLowerCase();
+      if (!email || email.startsWith('guest:')) continue;
+      const p = here.find((x) => (x.email || '').toLowerCase() === email);
+      if (p) { pids.add(p.pid); continue; }
+      const i = inv.find((x) => String(x.email || '').toLowerCase() === email) || (email === mt.host_email.toLowerCase() ? { email, name: mt.host_name } : null);
+      if (i && !hereEmails.has(email) && !away.some((a) => a.email === email)) away.push({ email, name: clean(i.name, 120) });
+    }
+  }
+  return { pids: [...pids], away };
+}
+
+/** Someone mentioned while not in the meeting: a notice in their hub bell, and an email when they are on the staff. */
+async function mentionAway(env: MeetEnv, id: string, me: Presence, text: string, away: Array<{ email: string; name: string }>, origin: string) {
+  const mt = await getMeeting(env, id);
+  const url = `${origin}/meet/room/?m=${id}`;
+  for (const a of away) {
+    await env.DB.prepare('INSERT INTO hub_meeting_mentions (meeting_id, email, by_name, text, ts) VALUES (?, ?, ?, ?, ?)').bind(id, a.email, me.name, text.slice(0, 300), Date.now()).run().catch(() => undefined);
+    const staff = await env.DB.prepare('SELECT 1 AS y FROM hub_users WHERE lower(email) = ? AND COALESCE(blocked, 0) = 0').bind(a.email).first().catch(() => null);
+    if (!staff) continue;
+    const esc = (v: string) => v.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] as string);
+    await sendMail(env, {
+      to: a.email,
+      fromName: me.name || 'FavorOS',
+      subject: `${me.name} mentioned you in ${mt.title || 'a meeting'}`,
+      text: `${me.name} mentioned you in the meeting ${mt.title || ''}:\n\n${text}\n\nJoin: ${url}`,
+      html: `<p>${esc(me.name)} mentioned you in the meeting <b>${esc(mt.title || '')}</b>:</p><blockquote style="margin:0 0 16px;padding:8px 12px;border-left:3px solid #ccc">${esc(text)}</blockquote><p><a href="${url}">Join the meeting</a></p>`,
+    }).catch(() => false);
+  }
 }
 
 // ---------------------------------------------------------------- SFU pass-through
@@ -1310,7 +1411,7 @@ export async function guestUser(request: Request, env: MeetEnv, params: Record<s
   if (!guestsOn(env)) throw new HttpError(404, 'not_found', 'Not found.');
   const sub = ((params.path as string[]) || [])[2] || '';
   const token = request.headers.get('X-Guest-Token') || '';
-  if (sub === 'join' || sub === 'guestinfo') return { email: 'guest:new', name: 'Guest', picture: '', role: 'staff' as const, via: 'guest' as never, kpi: false };
+  if (sub === 'join' || sub === 'guestinfo' || sub === 'playmedia') return { email: 'guest:new', name: 'Guest', picture: '', role: 'staff' as const, via: 'guest' as never, kpi: false };
   if (!/^[0-9a-f]{32,64}$/.test(token)) throw new HttpError(401, 'signin', 'Rejoin the meeting from your link.');
   return { email: await guestEmail(token), name: 'Guest', picture: '', role: 'staff' as const, via: 'guest' as never, kpi: false };
 }

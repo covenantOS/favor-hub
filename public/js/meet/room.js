@@ -331,7 +331,7 @@ async function enter() {
   S.joined = true; S.started = Date.now(); S.joinedAt = Date.now();
   buildRoom();
   startLoops();
-  api('meetings/' + MID + '/playing').then((r) => { if (r.now) S.skew = r.now - Date.now(); if (r.play) onPlay(r.play); }).catch(() => {});
+  api('meetings/' + MID + '/playing').then((r) => { if (r.now) S.skew = r.now - Date.now(); if (r.play) onPlay(r.play, r.media); }).catch(() => {});
 }
 
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('The room did not load in time.')), ms))]);
@@ -894,7 +894,7 @@ function paintCtl() {
       el.innerHTML = `
       <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
       <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
-      <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
+      <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc${S.mentioned ? ' is-at' : ''}">${S.mentioned ? '@' : S.unread}</span>` : ''}</span>Chat</button>
       <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : handCount() ? `<span class="dotc dotc--hand" aria-label="${handCount()} raised">${handCount()}</span>` : ''}</span>People</button>
       <button class="cb${S.more ? ' is-on' : ''}" data-a="more" aria-expanded="${S.more}" aria-haspopup="dialog"><span class="k badge">${ic('more')}${S.hand || S.cc ? '<span class="dotc dotc--s"></span>' : ''}</span>More</button>`;
     });
@@ -906,12 +906,12 @@ function paintCtl() {
     <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
     <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
     ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
-    ${h && !MODE.guest ? `<button class="cb${S.play ? ' is-on' : ''}" data-a="playclip"><span class="k">${ic('screen')}</span>${lab('Play a clip', 'Clip')}</button>` : ''}
+    ${canShare ? `<button class="cb cb-play${S.play ? ' is-on' : ''}" data-a="playclip"><span class="k">${ic('screen')}</span>${lab('Play a clip', 'Clip')}</button>` : ''}
     ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc" aria-pressed="${S.cc}"><span class="k">${ic('cc')}</span>${lab('Captions', 'CC')}</button>` : ''}
     ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? lab('Stop rec', 'Stop') : lab('Record', 'Rec')}</button>` : ''}
     <button class="cb${S.hand ? ' is-on' : ''}" data-a="hand"><span class="k">${ic('hand')}</span><span class="l-full">${S.hand ? 'Lower hand' : 'Raise hand'}</span><span class="l-short">${S.hand ? 'Lower' : 'Hand'}</span></button>
     <span class="rm-sep"></span>
-    <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc">${S.unread}</span>` : ''}</span>Chat</button>
+    <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc${S.mentioned ? ' is-at' : ''}">${S.mentioned ? '@' : S.unread}</span>` : ''}</span>Chat</button>
     <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : handCount() ? `<span class="dotc dotc--hand" aria-label="${handCount()} raised">${handCount()}</span>` : ''}</span>People</button>
     ${FEATURES.brain ? `<button class="cb${S.panel === 'brain' ? ' is-on' : ''}" data-a="panel" data-p="brain" aria-pressed="${S.panel === 'brain'}"><span class="k">${ic('brain')}</span>Brain</button>` : ''}
     ${FEATURES.notes ? `<button class="cb${S.panel === 'notes' ? ' is-on' : ''}" data-a="panel" data-p="notes" aria-pressed="${S.panel === 'notes'}"><span class="k badge">${ic('notes')}${liveCount() ? `<span class="dotc">${liveCount()}</span>` : ''}</span>Notes</button>` : ''}
@@ -937,6 +937,7 @@ async function paintMore() {
     row('layout', S.layout === 'grid' ? 'speaker' : 'grid', S.layout === 'grid' ? 'Speaker view' : 'Gallery view', ''),
     document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
+    mayPlay() ? row('playclip', 'screen', 'Play a video for everyone', S.play ? 'On' : '') : '',
     h ? row('private', 'lock', S.private ? 'End private moment' : 'Private moment', S.private ? 'On' : '') : '',
     row('devmenu', 'gear', 'Camera, microphone and speaker', ''),
   ].join('');
@@ -967,7 +968,8 @@ function paintSide() {
 function chatHTML(m) {
   const f = m.file;
   const you = m.from === S.me.pid;
-  return `<div class="msg">${m.ai ? `<span class="mt-av" style="background:var(--h-brand)">${ic('brain')}</span>` : av(m.name)}<div><b>${m.ai ? 'Favor Brain, posted by ' + esc(you ? 'you' : m.name) : esc(you ? 'You' : m.name)}${m.to ? ' <i class="mt-sub">(private)</i>' : ''}</b><time>${new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</time>${m.text ? `<p>${linkify(m.text)}</p>` : ''}${f ? `<div class="file"><span class="fi ${esc(f.type || 'doc')}">${esc((f.type || 'doc').slice(0, 3).toUpperCase())}</span><div style="min-width:0"><b>${esc(f.name)}</b><span>${esc(f.by || '')}</span></div><div class="acts"><a class="h-btn h-btn--ghost h-btn--sm" href="${/^https:\/\/(drive|docs)\.google\.com\//.test(f.url || '') ? esc(f.url) : '#'}" target="_blank" rel="noopener">${ic('drive')}Open in Drive</a></div></div>` : ''}</div></div>`;
+  const at = (m.mentions || []).includes(S.me.pid) && !you;
+  return `<div class="msg${at ? ' is-mention' : ''}">${m.ai ? `<span class="mt-av" style="background:var(--h-brand)">${ic('brain')}</span>` : av(m.name)}<div><b>${m.ai ? 'Favor Brain, posted by ' + esc(you ? 'you' : m.name) : esc(you ? 'You' : m.name)}${m.to ? ' <i class="mt-sub">(private)</i>' : ''}</b><time>${new Date(m.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</time>${m.text ? `<p>${linkify(m.text)}</p>` : ''}${f ? `<div class="file"><span class="fi ${esc(f.type || 'doc')}">${esc((f.type || 'doc').slice(0, 3).toUpperCase())}</span><div style="min-width:0"><b>${esc(f.name)}</b><span>${esc(f.by || '')}</span></div><div class="acts"><a class="h-btn h-btn--ghost h-btn--sm" href="${/^https:\/\/(drive|docs)\.google\.com\//.test(f.url || '') ? esc(f.url) : '#'}" target="_blank" rel="noopener">${ic('drive')}Open in Drive</a></div></div>` : ''}</div></div>`;
 }
 const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" style="color:var(--h-brand-ink)">$1</a>');
 
@@ -1017,7 +1019,7 @@ function paintSideBody(full) {
     const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
     body.innerHTML = S.chat.length ? S.chat.map(chatHTML).join('') : `<p class="mt-sub" style="margin:0">No messages yet. Messages go to everyone in the meeting.</p>`;
     if (full) $('#rm-input').dataset.k = 'chat';
-    if (full) $('#rm-input').innerHTML = `<div class="rm-input"><input id="chatin" placeholder="Message everyone" maxlength="2000" autocomplete="off" /><button class="icb send" data-a="chat-send" aria-label="Send">${ic('send')}</button></div>`;
+    if (full) $('#rm-input').innerHTML = `<div class="rm-input"><div class="rm-at" id="rm-at" role="listbox" aria-label="People to mention" hidden></div><input id="chatin" placeholder="Message everyone. Type @ to mention someone" maxlength="2000" autocomplete="off" aria-autocomplete="list" aria-controls="rm-at" /><button class="icb send" data-a="chat-send" aria-label="Send">${ic('send')}</button></div>`;
     if (full || stick) body.scrollTop = body.scrollHeight;
   } else if (S.panel === 'brain') {
     const stick = body.scrollTop + body.clientHeight >= body.scrollHeight - 40;
@@ -1069,16 +1071,20 @@ function onDocClick(e) {
     case 'mic': toggleMic(); break;
     case 'cam': toggleCam(); break;
     case 'share': toggleShare(); break;
-    case 'playclip': pickClip(); break;
+    case 'at-pick': atPick(Number(a.dataset.n)); break;
+    case 'playclip': closeMore(); pickClip(); break;
+    case 'play-yt': { const id = ytId(($('#rm-yt') || {}).value || ''); if (!id) { toast('Paste a YouTube link.'); break; } closePick(); sendPlay({ st: 'play', yt: id, title: 'YouTube video', pos: 0 }); break; }
     case 'play-pick': closePick(); sendPlay({ st: 'play', clip: a.dataset.id, title: a.dataset.t, pos: 0 }); break;
     case 'play-close': closePick(); break;
-    case 'play-toggle': { const v = playVideo(); if (S.play && v) sendPlay({ st: S.play.st === 'play' ? 'pause' : 'play', clip: S.play.clip, title: S.play.title, pos: v.currentTime }); break; }
+    case 'play-toggle': if (S.play && PL) sendPlay({ ...playBase(), st: S.play.st === 'play' ? 'pause' : 'play', pos: PL.time() }); break;
+    case 'play-back': if (S.play && PL) sendPlay({ ...playBase(), st: S.play.st, pos: Math.max(0, PL.time() - 10) }); break;
+    case 'play-fwd': if (S.play && PL) sendPlay({ ...playBase(), st: S.play.st, pos: PL.time() + 10 }); break;
     case 'play-stop': if (S.play) sendPlay({ st: 'stop' }); break;
-    case 'play-mute': { S.playMuted = !S.playMuted; const v = playVideo(); if (v) v.muted = S.playMuted; paintPlay(); break; }
+    case 'play-mute': { S.playMuted = !S.playMuted; if (PL) PL.mute(S.playMuted); duck(S.play && S.play.st === 'play' && !S.playMuted); paintPlay(); break; }
     case 'cc': S.cc = !S.cc; paintCtl(); paintCap(); break;
     case 'rec': toggleRecording(); break;
     case 'hand': S.hand = !S.hand; if (!S.handAt) S.handAt = new Map(); if (S.hand) S.handAt.set(S.me.pid, Date.now()); else S.handAt.delete(S.me.pid); paintCtl(); paintGrid(); if (S.panel === 'people') paintSideBody(false); syncNow(); break;
-    case 'panel': S.more = false; S.moreDev = false; S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') S.unread = 0; paintCtl(); paintSide(); paintMore(); break;
+    case 'panel': S.more = false; S.moreDev = false; S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') { S.unread = 0; S.mentioned = false; } paintCtl(); paintSide(); paintMore(); break;
     case 'more': S.more = !S.more; S.moreDev = false; if (S.more && S.panel && sheetMode()) { S.panel = ''; paintSide(); } paintCtl(); paintMore(); break;
     case 'devmenu': openDevSheet(a.dataset.p || ''); return;
     case 'sound-on': soundOn(); return;
@@ -1135,6 +1141,7 @@ function onKey(e) {
     return;
   }
   if (e.target.id === 'invin' && e.key === 'Enter') { e.preventDefault(); sendInvite(); return; }
+  if (e.target.id === 'chatin' && atKey(e)) return;
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
   if (e.target.id === 'livein' && e.key === 'Enter') { e.preventDefault(); addLive(); return; }
   if (e.target.id === 'brainin' && e.key === 'Enter') { e.preventDefault(); const i = e.target; const q = i.value.trim(); if (q) { i.value = ''; askBrain(q, brainKindOf(q)); } return; }
@@ -1179,7 +1186,7 @@ async function changeLive(body) {
   } catch (e) { toast(e.message); }
 }
 document.addEventListener('change', (e) => { const sel = e.target.closest && e.target.closest('select[data-a="live-owner"]'); if (sel) changeLive({ idx: Number(sel.dataset.idx), owner: sel.value }); });
-document.addEventListener('input', (e) => { if (e.target && e.target.id === 'livein') S.liveText = e.target.value; });
+document.addEventListener('input', (e) => { if (e.target && e.target.id === 'livein') S.liveText = e.target.value; if (e.target && e.target.id === 'chatin') atSuggest(); });
 setInterval(loadLive, 10000);
 
 async function leaveClick() {
@@ -1223,9 +1230,49 @@ async function send(kind, body, to) {
   try { await api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind, body, to: to || '' } }); syncNow(); }
   catch (e) { toast(e.message); }
 }
+async function sendChatWith(body) {
+  try {
+    const r = await api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind: 'chat', body, to: '' } });
+    if (r.away && r.away.length) toast(r.away.join(', ') + (r.away.length === 1 ? ' is' : ' are') + ' not in the meeting. They got a notice.');
+    syncNow();
+  } catch (e) { toast(e.message || 'That did not send.'); }
+}
+// @mentions: typing @ lists the people in the room and, for staff, the invitees who are not here yet.
+function atCands() {
+  const here = S.people.filter((p) => p.pid !== S.me.pid && !p.waiting).map((p) => ({ pid: p.pid, name: p.name, sub: 'In the meeting' }));
+  const names = new Set(here.map((x) => x.name.toLowerCase())); names.add(String(S.me.name || '').toLowerCase());
+  const inv = GUEST ? [] : ((S.meeting && S.meeting.invitees) || []).filter((i) => i.email && !String(i.email).startsWith('guest:') && !names.has(String(i.name || '').toLowerCase()))
+    .map((i) => ({ email: String(i.email).toLowerCase(), name: i.name || String(i.email).split('@')[0], sub: 'Invited, not here' }));
+  return [...here, ...inv];
+}
+function atQuery() { const i = $('#chatin'); if (!i) return null; const m = /(?:^|\s)@([^@\s]{0,30})$/.exec(i.value.slice(0, i.selectionStart)); return m ? m[1].toLowerCase() : null; }
+function atClose() { const el = $('#rm-at'); if (el) { el.hidden = true; el.innerHTML = ''; } S.atList = []; }
+function atSuggest() {
+  const q = atQuery(), el = $('#rm-at'); if (!el) return;
+  if (q === null) return atClose();
+  S.atList = atCands().filter((c) => c.name.toLowerCase().split(/\s+/).some((w) => w.startsWith(q)) || c.name.toLowerCase().startsWith(q)).slice(0, 8); S.atIdx = 0;
+  if (!S.atList.length) return atClose();
+  el.hidden = false;
+  el.innerHTML = S.atList.map((c, n) => `<button type="button" role="option" class="rm-at-i${n === S.atIdx ? ' is-on' : ''}" aria-selected="${n === S.atIdx}" data-a="at-pick" data-n="${n}">${av(c.name)}<span><b>${esc(c.name)}</b><small>${esc(c.sub)}</small></span></button>`).join('');
+}
+function atPick(n) {
+  const c = S.atList[n], i = $('#chatin'); if (!c || !i) return;
+  const pos = i.selectionStart, before = i.value.slice(0, pos).replace(/@([^@\s]{0,30})$/, '@' + c.name + ' ');
+  i.value = before + i.value.slice(pos); i.focus(); i.setSelectionRange(before.length, before.length);
+  S.atPicked = [...(S.atPicked || []).filter((m) => m.name !== c.name), c]; atClose();
+}
+function atKey(e) {
+  const el = $('#rm-at'); if (!el || el.hidden || !S.atList.length) return false;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); S.atIdx = (S.atIdx + (e.key === 'ArrowDown' ? 1 : S.atList.length - 1)) % S.atList.length; $$('.rm-at-i', el).forEach((b, n) => { b.classList.toggle('is-on', n === S.atIdx); b.setAttribute('aria-selected', String(n === S.atIdx)); }); return true; }
+  if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); atPick(S.atIdx); return true; }
+  if (e.key === 'Escape') { e.preventDefault(); atClose(); return true; }
+  return false;
+}
 function sendChat() {
   const i = $('#chatin'); if (!i) return; const text = i.value.trim(); if (!text) return; i.value = '';
-  send('chat', { text });
+  const mentions = (S.atPicked || []).filter((m) => text.includes('@' + m.name)).map((m) => (m.pid ? { pid: m.pid } : { email: m.email }));
+  S.atPicked = []; atClose();
+  sendChatWith({ text, ...(mentions.length ? { mentions } : {}) });
 }
 
 function toggleMic() {
@@ -1373,6 +1420,10 @@ function handleEvent(e) {
   if (e.kind === 'chat') {
     if (e.body.ai && e.from !== S.me.pid && false) return;
     S.chat.push({ ...e.body, from: e.from, to: e.to, ts: e.ts });
+    if ((e.body.mentions || []).includes(S.me.pid) && e.from !== S.me.pid && Date.now() - (S.joinedAt || 0) > 4000) {
+      chime(); toast((e.body.name || nameOf(e.from)) + ' mentioned you: ' + String(e.body.text || '').slice(0, 80));
+      if (S.panel !== 'chat') { S.mentioned = true; paintCtl(); }
+    }
     if (S.panel !== 'chat' && e.from !== S.me.pid) { S.unread++; paintCtl(); if (e.body.text && Date.now() - (S.joinedAt || 0) > 4000) toast((e.body.name || nameOf(e.from)) + ': ' + String(e.body.text).slice(0, 80)); }
     if (S.panel === 'chat') paintSideBody(false);
   } else if (e.kind === 'cmd') {
@@ -1385,6 +1436,8 @@ function handleEvent(e) {
     else if (b.a === 'makehost' && e.to === S.me.pid) { toast('You are now a host'); }
     else if (b.a === 'play') { onPlay(b.v && b.v.st !== 'stop' ? b.v : null); }
     else if (b.a === 'end') { /* the sync's meeting.status ends the room */ }
+  } else if (e.kind === 'ack') {
+    if (e.to === S.me.pid) { const set = S.acks.get(e.body.at) || new Set(); set.add(e.from); S.acks.set(e.body.at, set); paintPlay(); }
   } else if (e.kind === 'brain') {
     S.show = e.body.stop ? null : { ...e.body, from: e.from };
     if (S.show && e.from !== S.me.pid) toast(S.show.by + ' put a Favor Brain answer on screen');
@@ -1785,50 +1838,100 @@ document.addEventListener('touchend', revive, { passive: true });
 document.addEventListener('click', revive);
 setInterval(revive, 3000);
 
-// ---- a clip played for everyone. Each browser streams the clip itself; the host's play, pause, seek and stop come as
-// cmd events stamped with the server's time, so everyone (and anyone who joins late) lands on the same spot.
-const playVideo = () => document.querySelector('#rm-play video');
+// ---- a video played for everyone (a clip from Clips or a YouTube link). Each browser plays it itself; the play, pause, seek
+// and stop of whoever started it come as cmd events stamped with the server's time, so everyone (and anyone who joins late)
+// lands on the same spot. Each browser tells the person playing it that it started, so they see who is on an old page.
+let PL = null; // the player: { ready, time, dur, seek, paused, play, pause, mute, kill }
+S.acks = new Map();
+const mayPlay = () => hostish() || (S.sharePolicy === 'all' && (S.people.find((p) => p.pid === S.me.pid) || {}).canShare !== false);
+const playBase = () => ({ clip: S.play.clip || '', yt: S.play.yt || '', title: S.play.title });
+function ytId(u) { const m = /(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/.exec(u) || /^([\w-]{11})$/.exec(u.trim()); return m ? m[1] : ''; }
 function playPos(p) { return p.st === 'play' ? p.pos + Math.max(0, (Date.now() + (S.skew || 0) - p.at) / 1000) : p.pos; }
 async function sendPlay(v) { try { await api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind: 'cmd', body: { a: 'play', v } } }); syncNow(); } catch (e) { toast(e.message || 'That did not work.'); } }
-function onPlay(p) {
+// Voices drop to 30% while the video plays with sound, and come back when it pauses, stops or is muted here.
+function duck(on) { S.ducked = !!on; $$('audio[id^="a-"]').forEach((a) => { a.volume = on ? 0.3 : 1; }); }
+function stopPlay() { if (PL) PL.kill(); PL = null; const el = $('#rm-play'); if (el) el.remove(); clearInterval(S.playTimer); S.playTimer = null; duck(false); }
+let ytApi = null;
+function loadYt() {
+  if (!ytApi) ytApi = new Promise((ok) => { if (window.YT && window.YT.Player) return ok(window.YT); window.onYouTubeIframeAPIReady = () => ok(window.YT); const sc = document.createElement('script'); sc.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(sc); });
+  return ytApi;
+}
+async function onPlay(p, media) {
   const was = S.play; S.play = p;
-  if (!p) { const el = $('#rm-play'); if (el) el.remove(); clearInterval(S.playTimer); S.playTimer = null; paintCtl(); return; }
-  let el = $('#rm-play');
-  if (!el || !was || was.clip !== p.clip) {
-    if (el) el.remove();
-    el = document.createElement('div'); el.id = 'rm-play'; el.className = 'rm-play';
-    el.innerHTML = `<video playsinline preload="auto" src="/api/clips/${p.clip}/media"></video><div class="rm-play-bar"><span class="rm-play-l"></span><span class="rm-play-c"></span></div>`;
+  if (!p) { stopPlay(); paintCtl(); paintMore(); return; }
+  if (p.pid && p.pid !== S.me.pid && S.ackAt !== p.at) { S.ackAt = p.at; api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind: 'ack', body: { at: p.at }, to: p.pid } }).catch(() => {}); }
+  const same = was && $('#rm-play') && (was.clip || '') === (p.clip || '') && (was.yt || '') === (p.yt || '');
+  if (!same) {
+    stopPlay();
+    const el = document.createElement('div'); el.id = 'rm-play'; el.className = 'rm-play';
+    el.innerHTML = '<div class="rm-play-v"></div><div class="rm-play-bar"><span class="rm-play-l"></span><span class="rm-play-n"></span><span class="rm-play-c"></span></div>';
     (($('#rm-grid') || {}).parentNode || document.body).appendChild(el);
-    const v = playVideo(); v.muted = !!S.playMuted;
-    v.addEventListener('loadedmetadata', () => playAlign(true));
+    const box = el.querySelector('.rm-play-v');
+    if (p.clip) {
+      if (media === undefined) { try { const r = await api('meetings/' + MID + '/playing'); media = r.media; if (r.now) S.skew = r.now - Date.now(); } catch { media = ''; } }
+      if (S.play !== p && !(S.play && S.play.clip === p.clip)) return;
+      if (!media) box.innerHTML = '<p class="rm-play-x">This video could not be loaded.</p>';
+      else {
+        box.innerHTML = `<video playsinline preload="auto" src="${(GUEST ? '/api/meet-guest/' : '/api/meet/') + 'meetings/' + MID + '/' + media}"></video>`;
+        const v = box.querySelector('video'); v.muted = !!S.playMuted;
+        PL = {
+          ready: () => v.readyState >= 1, time: () => v.currentTime, dur: () => v.duration || 1e9, seek: (t) => { v.currentTime = t; }, paused: () => v.paused, pause: () => v.pause(), mute: (m) => { v.muted = m; },
+          play: () => v.play().catch(() => { v.muted = true; S.playMuted = true; paintPlay(); toast('Tap Unmute video to hear it.'); v.play().catch(() => {}); }),
+          kill: () => { v.pause(); v.removeAttribute('src'); v.load(); },
+        };
+        v.addEventListener('loadedmetadata', () => playAlign(true));
+      }
+    } else if (p.yt) {
+      box.innerHTML = '<div id="rm-yt-p"></div>';
+      const YT = await loadYt(); if (!$('#rm-yt-p') || !S.play || S.play.yt !== p.yt) return;
+      let ok = false;
+      const yp = new YT.Player('rm-yt-p', { videoId: p.yt, width: '100%', height: '100%', playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0 }, events: { onReady: () => { ok = true; if (S.playMuted) yp.mute(); playAlign(true); }, onAutoplayBlocked: () => { yp.mute(); S.playMuted = true; paintPlay(); toast('Tap Unmute video to hear it.'); yp.playVideo(); } } });
+      PL = {
+        ready: () => ok, time: () => yp.getCurrentTime() || 0, dur: () => yp.getDuration() || 1e9, seek: (t) => yp.seekTo(t, true),
+        paused: () => { const st = yp.getPlayerState(); return st !== 1 && st !== 3; }, pause: () => yp.pauseVideo(), play: () => yp.playVideo(),
+        mute: (m) => (m ? yp.mute() : yp.unMute()), kill: () => { try { yp.destroy(); } catch {} },
+      };
+    }
   }
   if (!S.playTimer) S.playTimer = setInterval(() => playAlign(false), 1000);
-  playAlign(true); paintPlay(); paintCtl();
+  playAlign(true); paintPlay(); paintCtl(); paintMore();
 }
 function playAlign(force) {
-  const v = playVideo(), p = S.play; if (!v || !p || !(v.readyState >= 1)) return;
-  const want = Math.min(playPos(p), (v.duration || 1e9) - 0.05);
-  if (force || Math.abs(v.currentTime - want) > 0.35) v.currentTime = want;
-  if (p.st === 'play' && v.paused && want < (v.duration || 1e9) - 0.1) v.play().catch(() => { v.muted = true; S.playMuted = true; paintPlay(); v.play().catch(() => {}); });
-  if (p.st !== 'play' && !v.paused) v.pause();
+  const p = S.play; if (!p) return;
+  if (p.pid === S.me.pid || hostish()) paintPlay();
+  if (!PL || !PL.ready()) return;
+  const want = Math.min(playPos(p), PL.dur() - 0.05);
+  if (force || Math.abs(PL.time() - want) > 0.35) PL.seek(want);
+  if (p.st === 'play' && PL.paused() && want < PL.dur() - 0.1) PL.play();
+  if (p.st !== 'play' && !PL.paused()) PL.pause();
+  duck(p.st === 'play' && !S.playMuted);
 }
 function paintPlay() {
   const el = $('#rm-play'); if (!el || !S.play) return;
-  el.querySelector('.rm-play-l').textContent = 'Playing for everyone: ' + (S.play.title || 'Clip') + (S.play.by ? ' (' + S.play.by + ')' : '');
-  el.querySelector('.rm-play-c').innerHTML = `${hostish() ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="play-toggle">${S.play.st === 'play' ? 'Pause' : 'Play'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-stop">Stop</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="play-mute">${S.playMuted ? 'Unmute clip' : 'Mute clip'}</button>`;
+  const p = S.play, mine = p.pid === S.me.pid, ctl = mine || hostish();
+  const l = 'Playing for everyone: ' + (p.title || 'Video') + (p.by ? ' (' + p.by + ')' : '');
+  if (el.querySelector('.rm-play-l').textContent !== l) el.querySelector('.rm-play-l').textContent = l;
+  // Six seconds after it was played, anyone here before it started who has not said they started it is on an older page.
+  let n = 0;
+  if (mine && Date.now() + (S.skew || 0) - p.at > 6000) { const got = S.acks.get(p.at) || new Set(); n = S.people.filter((x) => x.pid !== S.me.pid && !x.waiting && x.joinedAt < p.at && !got.has(x.pid)).length; }
+  const nt = n ? `${n} ${n === 1 ? 'person needs' : 'people need'} to reload to see this` : '';
+  const ne = el.querySelector('.rm-play-n'); if (ne.textContent !== nt) ne.textContent = nt;
+  const c = `${ctl ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="play-back" aria-label="Back 10 seconds">-10 s</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-toggle">${p.st === 'play' ? 'Pause' : 'Play'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-fwd" aria-label="Forward 10 seconds">+10 s</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-stop">Stop</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="play-mute">${S.playMuted ? 'Unmute video' : 'Mute video'}</button>`;
+  const cc = el.querySelector('.rm-play-c'); if (cc.dataset.sig !== c) { cc.dataset.sig = c; cc.innerHTML = c; }
 }
 function closePick() { const el = $('#rm-pick'); if (el) el.remove(); }
 async function pickClip() {
   closePick();
   const el = document.createElement('div'); el.id = 'rm-pick'; el.className = 'rm-pick';
-  el.innerHTML = '<div class="rm-pick-in"><div class="rm-pick-h"><b>Play a clip for everyone</b><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-close">Close</button></div><div class="rm-pick-l">Loading your clips</div></div>';
+  el.innerHTML = `<div class="rm-pick-in" role="dialog" aria-label="Play a video for everyone"><div class="rm-pick-h"><b>Play a video for everyone</b><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-close">Close</button></div><div class="rm-pick-yt"><input id="rm-yt" placeholder="Paste a YouTube link" autocomplete="off" /><button class="h-btn h-btn--primary h-btn--sm" data-a="play-yt">Play</button></div>${GUEST ? '' : '<div class="rm-pick-l">Loading clips</div>'}</div>`;
   document.body.appendChild(el);
+  if (GUEST) return;
   try {
     // An admin picks from every clip in FavorOS, everyone else from their own.
     let res = await fetch('/api/clips?scope=all', { credentials: 'same-origin' });
     if (!res.ok) res = await fetch('/api/clips', { credentials: 'same-origin' });
     const r = await res.json();
-    const list = (r.clips || r.items || []).filter((c) => c.status === 'ready' || c.status === 'processing');
-    el.querySelector('.rm-pick-l').innerHTML = list.length ? list.slice(0, 60).map((c) => `<button class="rm-pick-i" data-a="play-pick" data-id="${esc(c.id)}" data-t="${esc(c.title || 'Clip')}">${c.has_poster ? `<img src="/api/clips/${esc(c.id)}/media?poster=1" alt="">` : ''}<span>${esc(c.title || 'Clip')}</span><small>${Math.round((c.duration_ms || 0) / 1000)} s</small></button>`).join('') : 'You have no clips yet.';
+    const list = (r.clips || []).filter((c) => c.status === 'ready' || c.status === 'processing');
+    el.querySelector('.rm-pick-l').innerHTML = list.length ? list.slice(0, 80).map((c) => `<button class="rm-pick-i" data-a="play-pick" data-id="${esc(c.id)}" data-t="${esc(c.title || 'Clip')}">${c.has_poster ? `<img src="/api/clips/${esc(c.id)}/media?poster=1" alt="">` : ''}<span>${esc(c.title || 'Clip')}</span><small>${Math.round((c.duration_ms || 0) / 1000)} s</small></button>`).join('') : 'You have no clips yet.';
   } catch { el.querySelector('.rm-pick-l').textContent = 'Clips did not load.'; }
 }
