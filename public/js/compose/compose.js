@@ -38,9 +38,11 @@
   function addr(a) {
     if (!a) return null;
     var raw = typeof a === 'string' ? a : String(a.email || '');
-    var m = raw.match(/^\s*"?([^"<]*?)"?\s*<([^>]+)>\s*$/);
-    var email = (m ? m[2] : raw).trim().toLowerCase();
-    var name = (typeof a === 'object' && a.name ? String(a.name) : m ? m[1] : '').replace(/<[^>]*>/g, '').replace(/"/g, '').trim();
+    // The first address found wins, so a mangled header ('x" <a@b.org> <"x" <a@b.org>>') still gives a@b.org.
+    var found = raw.match(/[^\s<>"',;()]+@[^\s<>"',;()]+\.[^\s<>"',;()]+/);
+    var email = (found ? found[0] : raw).trim().toLowerCase();
+    var given = typeof a === 'object' && a.name ? String(a.name) : raw.indexOf('<') > 0 ? raw.slice(0, raw.indexOf('<')) : '';
+    var name = given.replace(/<[^>]*>/g, '').replace(/"/g, '').trim();
     if (name.indexOf('@') >= 0 || name.toLowerCase() === email) name = '';
     return email ? { email: email, name: name } : null;
   }
@@ -482,7 +484,6 @@
   function open(o) {
     o = Object.assign({}, o || {});
     if (o.ctx) { var keepSig = CTX && CTX.signature; CTX = Object.assign({}, CTX || {}, o.ctx); if (!CTX.signature && keepSig) CTX.signature = keepSig; }
-    ['to', 'cc', 'bcc'].forEach(function (k) { if (o[k]) o[k] = o[k].map(addr).filter(Boolean); });
     if (!o.ctx && !mayMail() && !CTX) { toast('Mail is not open for you yet.'); return Promise.resolve(null); }
     // A reply to a conversation that already has a window goes to that window.
     if (o.threadId && !o.draftId) {
@@ -502,6 +503,7 @@
     });
   }
   function make(o, restoreSnap) {
+    ['to', 'cc', 'bcc'].forEach(function (k) { if (o[k]) o[k] = o[k].map(addr).filter(Boolean); });
     var w = {
       id: o.id || uid(), o: o, mode: 'float', host: null, free: o.free || null, files: [], forward: (o.forward || []).slice(),
       draftId: o.draftId || '', mb: o.mb != null ? o.mb : (CTX && CTX.box && CTX.box !== CTX.me ? CTX.box : ''), from: o.from || '',
