@@ -670,6 +670,8 @@ export async function afterNotes(env: MeetEnv, id: string): Promise<void> {
   try { await postSummary(env, id); } catch (err) { console.warn('[meet] summary post', id, err); }
   // Booked with Find a time from a conversation, task or request: the notes go back there (integrations/findtime.ts).
   try { const { originNotes } = await import('./integrations/findtime'); await originNotes(env, id); } catch (err) { console.warn('[meet] origin notes', id, err); }
+  // The follow-up email draft for hosts who turned it on, or the one-time suggestion (integrations/followup.ts). Never sent here.
+  try { const { followupAfterNotes } = await import('./integrations/followup'); await followupAfterNotes(env, id); } catch (err) { console.warn('[meet] follow-up', id, err); }
 }
 
 // ---------------------------------------------------------------- always: ask across every meeting

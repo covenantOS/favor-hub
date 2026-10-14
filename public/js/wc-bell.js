@@ -268,6 +268,8 @@ function settingsHTML() {
     const o = (v, l) => `<option value="${v}" ${BN.rec === v ? 'selected' : ''}>${l}</option>`;
     rows.push(row('video', 'Meeting recording', BN.rec === 'video' ? 'Video, sound and notes' : BN.rec === 'notes' ? 'Notes from the sound, no video' : 'Nothing recorded, no notes', '', `<label class="bn-side"><select data-wm-rec aria-label="Meeting recording default">${o('video', 'Record video')}${o('notes', 'Transcribe only')}${o('off', 'Neither')}</select></label>`));
   }
+  // Meeting prep cards and follow-up drafts: their own sheet (public/js/integrations.js).
+  if (window.FavorIx && window.FavorIx.meetSettings) rows.push(row('video', 'Meeting prep and follow-up', 'Prep cards before meetings, drafts after', 'data-ix-meetset'));
   return `<header class="bn-head"><span class="bn-tools bn-tools--l"><button type="button" class="bn-btn" data-wm-back aria-label="Back">${ic('back')}</button></span><h4>Settings</h4><span class="bn-tools"><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header><div class="bn-list">${rows.join('') || '<p class="bn-empty">Nothing to set.</p>'}</div>`;
 }
 function paintBell() {

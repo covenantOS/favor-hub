@@ -101,6 +101,10 @@ export function probes(): Probe[] {
     { name: 'Find a time: members-only task', path: `/api/integrations/context?kind=task&ref=${M.task}`, who: ['staff'] },
     { name: 'Clip comment marks on a private clip', path: `/api/integrations/clip-marks?clip=${M.clipPrivate}`, who: ['staff', 'field', 'out'] },
     { name: 'Clip comment marks on an unshared clip', path: `/api/integrations/clip-marks?clip=${M.clip}`, who: ['staff', 'field', 'out'] },
+    { name: 'Prep pack for a private meeting', path: `/api/integrations/prep/meeting?m=${M.meetPrivate}`, who: both },
+    { name: 'Prep pack for a finished private meeting', path: `/api/integrations/prep/meeting?m=${M.meetEnded}`, who: both },
+    { name: 'Prep packs coming up', path: '/api/integrations/prep/upcoming', who: both },
+    { name: 'Follow-up drafts', path: '/api/integrations/followups', who: both },
     // Favor Brain conversations.
     { name: 'Brain history', path: '/api/brain/history?q=prvcnry', who: ['staff'] },
     { name: "Another person's Brain thread", path: `/api/brain/thread/${M.brainThread}`, who: ['staff'] },

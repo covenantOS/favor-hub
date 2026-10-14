@@ -527,7 +527,181 @@
     }, 400);
   }).observe(document.documentElement, { childList: true, subtree: true });
 
-  window.FavorIx = { api, toast, open, close, esc, ic, when, timeOnly, person, avatar, phone, accept, focus, findTime, me, clipReply, recordClip };
+  /* ------------------------------------------------------------------ 4. Meeting prep packs and 5. the follow-up email */
+
+  const money = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
+  const dayShort = (d) => (d ? new Date(String(d).length <= 10 ? d + 'T12:00:00Z' : d).toLocaleDateString('en-US', { timeZone: String(d).length <= 10 ? 'UTC' : ET, month: 'short', day: 'numeric' }) : '');
+  function cardHtml(c) {
+    const sec = (title, items) => (items ? `<div class="ix-pcard__sec"><h4>${esc(title)}</h4>${items}</div>` : '');
+    const list = (arr, fn) => (arr && arr.length ? `<ul>${arr.map(fn).join('')}</ul>` : '');
+    const giving = c.giving
+      ? `<div class="ix-pcard__giving"><span>${money(c.giving.lifetime)}<small>Lifetime</small></span><span>${money(c.giving.last12)}<small>Last 12 months</small></span>${c.giving.last ? `<span>${money(c.giving.last.amount)}<small>Last gift, ${esc(dayShort(c.giving.last.date))}</small></span>` : ''}</div>`
+      : '';
+    return `<article class="ix-pcard">
+      <div class="ix-pcard__h">${c.kind === 'staff' ? avatar(c.email) : `<span class="rq-av rq-av--sm" data-c="${c.kind === 'partner' ? 'sun' : 'slate'}">${esc((c.name || '?').slice(0, 1).toUpperCase())}</span>`}<span><b>${c.partnerUrl ? `<a href="${esc(c.partnerUrl)}">${esc(c.name)}</a>` : esc(c.name)}</b><small>${esc(c.sub)}</small></span></div>
+      ${giving}
+      ${sec('Last contact', c.lastContact ? `<ul><li>${esc(dayShort(c.lastContact.date))}: ${esc(c.lastContact.what)}</li></ul>` : '')}
+      ${sec('Open on the record', list(c.open, (o) => `<li>${esc(o.text)}${o.due ? `, due ${esc(dayShort(o.due))}` : ''}</li>`))}
+      ${sec('Asked of you', list(c.asked, (a) => `<li><a href="${esc(a.url)}">${esc(a.title)}</a></li>`))}
+      ${sec('Open tasks between you', list(c.tasks, (t) => `<li><a href="${esc(t.url)}">${esc(t.title)}</a>${t.due ? `, due ${esc(dayShort(t.due))}` : ''}${t.mine ? '' : ' (theirs)'}</li>`))}
+      ${sec('Recent emails', list(c.emails, (m) => `<li><a href="${esc(m.url)}">${esc(m.subject)}</a>${m.at ? `, ${esc(dayShort(m.at))}` : ''}</li>`))}
+      ${sec('Recent chats', list(c.chats, (m) => `<li><a href="${esc(m.url)}">${esc(m.who)}: ${esc(m.text)}</a></li>`))}
+      ${c.lastMeeting ? sec(`Last meeting, ${dayShort(c.lastMeeting.date)}`, `<ul><li><a href="${esc(c.lastMeeting.url)}">${esc(c.lastMeeting.title)}</a>${c.lastMeeting.summary ? `: ${esc(c.lastMeeting.summary)}` : ''}</li>${c.lastMeeting.actions.map((a) => `<li>${a.owner ? esc(a.owner) + ': ' : ''}${esc(a.text)}</li>`).join('')}</ul>`) : ''}
+    </article>`;
+  }
+  const packHtml = (p) => (p.cards.length ? `<div class="ix-pack">${p.cards.map(cardHtml).join('')}</div>` : '<p class="ix-quiet">Nothing on file with these people yet.</p>');
+
+  function openPack(p) {
+    api('/api/integrations/prep/seen', { method: 'POST', json: { key: p.key } }).catch(() => {});
+    return open('Meeting prep', (el, done) => {
+      el.innerHTML = `${head(p.meeting.title, `${when(p.meeting.start)} ET, ${p.cards.length} ${p.cards.length === 1 ? 'person' : 'people'}`)}
+        <div class="ix-body">${packHtml(p)}</div>
+        <div class="rt-sheet__foot"><button type="button" class="rt-btn rt-btn--ghost" data-ix-settings>Settings</button>${p.meeting.prepUrl ? `<a class="rt-btn" href="${esc(p.meeting.prepUrl)}">Prep page</a>` : ''}${p.meeting.url ? `<a class="rt-btn rt-btn--primary" href="${esc(p.meeting.url)}"${p.meeting.source === 'google' ? ' target="_blank" rel="noopener"' : ''}>${p.meeting.source === 'google' ? 'Open the event' : 'Join'}</a>` : ''}</div>`;
+      el.addEventListener('click', (e) => {
+        if (e.target.closest('[data-ix-close]')) done(null);
+        if (e.target.closest('[data-ix-settings]')) { done(null); setTimeout(meetSettings, 160); }
+      });
+    }, 'ix-prep');
+  }
+
+  /** The person's own switches: prep packs, internal repeating meetings too, and the follow-up email. */
+  async function meetSettings() {
+    let prefs = null;
+    try { prefs = (await api('/api/integrations/prefs')).prefs; } catch (err) { toast(err.message); return null; }
+    return open('Meeting prep and follow-up', (el, done) => {
+      const draw = () => {
+        el.innerHTML = `${head('Meeting prep and follow-up', 'Your own settings')}
+          <div class="ix-body">
+            <label class="ix-check"><input type="checkbox" data-ix-pref="prep_on" ${prefs.prep_on ? 'checked' : ''} /><span><b>Prep before meetings</b><br />Fifteen minutes before a meeting with partners or staff, a card by the Chat bubble shows each person: giving, last contact, open tasks, recent emails and chats, what they asked you for, and the last meeting's notes.</span></label>
+            <label class="ix-check"><input type="checkbox" data-ix-pref="prep_recurring" ${prefs.prep_recurring ? 'checked' : ''} ${prefs.prep_on ? '' : 'disabled'} /><span>Also for repeating meetings with staff only</span></label>
+            <label class="ix-check"><input type="checkbox" data-ix-pref="followup_on" ${prefs.followup_on ? 'checked' : ''} /><span><b>Follow-up email drafts</b><br />After a meeting with people outside Favor, a draft to them from the notes and action items opens for you to edit. It never sends by itself.</span></label>
+          </div>
+          <div class="rt-sheet__foot"><button type="button" class="rt-btn rt-btn--primary" data-ix-close>Done</button></div>`;
+      };
+      draw();
+      el.addEventListener('change', async (e) => {
+        const k = e.target.dataset && e.target.dataset.ixPref;
+        if (!k) return;
+        try {
+          prefs = (await api('/api/integrations/prefs', { method: 'POST', json: { [k]: e.target.checked } })).prefs;
+          draw();
+          toast('Saved.');
+          if (k === 'prep_on') checkDock(true);
+        } catch (err) { toast(err.message); draw(); }
+      });
+      el.addEventListener('click', (e) => { if (e.target.closest('[data-ix-close]')) done(prefs); });
+    }, 'ix-settings');
+  }
+
+  // The card by the Chat bubble: the next meeting's prep, and follow-up drafts. Checked every two minutes while the tab is open.
+  let dockEl = null;
+  function dockBox() {
+    if (dockEl && document.body.contains(dockEl)) return dockEl;
+    dockEl = document.createElement('div');
+    dockEl.className = 'ix-dock';
+    dockEl.setAttribute('role', 'region');
+    dockEl.setAttribute('aria-label', 'Meeting prep');
+    document.body.appendChild(dockEl);
+    dockEl.addEventListener('click', onDockClick);
+    return dockEl;
+  }
+  const DS = { packs: [], follow: [], hidden: new Set((() => { try { return JSON.parse(sessionStorage.getItem('favor.ix.hidden') || '[]'); } catch (_) { return []; } })()) };
+  function hide(key) { DS.hidden.add(key); try { sessionStorage.setItem('favor.ix.hidden', JSON.stringify([...DS.hidden].slice(-40))); } catch (_) { /* private mode */ } paintDock(); }
+  function paintDock() {
+    const packs = DS.packs.filter((p) => !DS.hidden.has('p:' + p.key));
+    const follow = DS.follow.filter((f) => !DS.hidden.has('f:' + f.meeting_id));
+    if (!packs.length && !follow.length) { if (dockEl) dockEl.remove(); dockEl = null; return; }
+    const box = dockBox();
+    box.innerHTML = packs.map((p) => {
+      const mins = Math.round((Date.parse(p.meeting.start) - Date.now()) / 60000);
+      const soon = mins <= 0 ? 'Starting now' : `In ${mins} min`;
+      return `<div class="ix-dc" data-key="${esc(p.key)}"><span class="ix-dc__k">${ic('people')}Prep · ${esc(soon)}</span><b>${esc(p.meeting.title)}</b><small>${esc(p.cards.slice(0, 3).map((c) => c.name.split(' ')[0]).join(', '))}${p.cards.length > 3 ? ' and ' + (p.cards.length - 3) + ' more' : ''}</small><span class="ix-dc__a"><button type="button" class="rt-btn rt-btn--sm rt-btn--primary" data-ix-dock="open">Open</button><button type="button" class="rt-btn rt-btn--sm" data-ix-dock="hide">Hide</button></span></div>`;
+    }).join('') + follow.map((f) => f.state === 'offer'
+      ? `<div class="ix-dc ix-dc--offer" data-mid="${esc(f.meeting_id)}"><span class="ix-dc__k">${ic('mail')}Follow-up email</span><b>Want a follow-up draft after meetings like ${esc(f.title)}?</b><small>How it works: after a meeting with people outside Favor, FavorOS writes a short email to them from the notes and action items. It opens for you to edit and send. Nothing sends by itself.</small><span class="ix-dc__a"><button type="button" class="rt-btn rt-btn--sm rt-btn--primary" data-ix-dock="turnon">Turn on</button><button type="button" class="rt-btn rt-btn--sm" data-ix-dock="nothanks">No thanks</button></span></div>`
+      : `<div class="ix-dc" data-mid="${esc(f.meeting_id)}"><span class="ix-dc__k">${ic('mail')}Follow-up ready</span><b>${esc(f.subject || f.title)}</b><small>To ${esc((f.to || []).join(', '))}</small><span class="ix-dc__a"><button type="button" class="rt-btn rt-btn--sm rt-btn--primary" data-ix-dock="compose">Open draft</button><button type="button" class="rt-btn rt-btn--sm" data-ix-dock="dismiss">Dismiss</button></span></div>`).join('');
+  }
+  async function onDockClick(e) {
+    const b = e.target.closest('[data-ix-dock]');
+    if (!b) return;
+    const card = b.closest('.ix-dc');
+    const act = b.dataset.ixDock;
+    if (act === 'open' || act === 'hide') {
+      const p = DS.packs.find((x) => x.key === card.dataset.key);
+      if (act === 'open' && p) openPack(p);
+      else if (p) api('/api/integrations/prep/seen', { method: 'POST', json: { key: p.key } }).catch(() => {});
+      hide('p:' + card.dataset.key);
+      return;
+    }
+    const mid = card.dataset.mid;
+    const f = DS.follow.find((x) => x.meeting_id === mid);
+    try {
+      if (act === 'turnon') {
+        busy(b, true, 'Turning on');
+        await api('/api/integrations/prefs', { method: 'POST', json: { followup_on: true } });
+        const r = await api(`/api/integrations/followups/${encodeURIComponent(mid)}`, { method: 'POST', json: { action: 'draft' } });
+        Object.assign(f, { state: 'ready', to: r.draft.to, subject: r.draft.subject, body: r.draft.body });
+        toast('On. Your draft is ready. Turn it off any time in Meeting prep settings.', 5200);
+        paintDock();
+      } else if (act === 'nothanks') {
+        await api('/api/integrations/prefs', { method: 'POST', json: { followup_offer_closed: true } });
+        await api(`/api/integrations/followups/${encodeURIComponent(mid)}`, { method: 'POST', json: { action: 'dismiss' } });
+        hide('f:' + mid);
+      } else if (act === 'dismiss') {
+        await api(`/api/integrations/followups/${encodeURIComponent(mid)}`, { method: 'POST', json: { action: 'dismiss' } });
+        hide('f:' + mid);
+      } else if (act === 'compose') {
+        const html = String(f.body || '').split(/\n{2,}/).map((para) => '<p>' + esc(para).replace(/\n/g, '<br>') + '</p>').join('');
+        if (window.FavorCompose && window.FavorCompose.open) {
+          await window.FavorCompose.open({ mode: 'float', to: (f.to || []).map((x) => ({ email: x, name: '' })), subject: f.subject, body: html });
+        } else {
+          location.href = `mailto:${encodeURIComponent((f.to || []).join(','))}?subject=${encodeURIComponent(f.subject)}&body=${encodeURIComponent(f.body)}`;
+        }
+        await api(`/api/integrations/followups/${encodeURIComponent(mid)}`, { method: 'POST', json: { action: 'opened' } });
+        hide('f:' + mid);
+      }
+    } catch (err) {
+      busy(b, false);
+      toast(err.message, 5200);
+    }
+  }
+  let lastCheck = 0;
+  async function checkDock(force) {
+    if (document.hidden || (!force && Date.now() - lastCheck < 100000)) return;
+    if (/^\/(meet\/(room|g)|login|c)\//.test(location.pathname)) return;
+    lastCheck = Date.now();
+    try {
+      const [pk, fu] = await Promise.all([api('/api/integrations/prep/upcoming').catch(() => ({ packs: [] })), api('/api/integrations/followups').catch(() => ({ items: [] }))]);
+      DS.packs = (pk.packs || []).filter((p) => !p.seen);
+      DS.follow = fu.items || [];
+      paintDock();
+    } catch (_) { /* quiet */ }
+  }
+  setTimeout(() => checkDock(true), 2500);
+  setInterval(() => checkDock(false), 120000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDock(false); });
+
+  // The meeting prep page gets the same cards under its own sheet.
+  async function prepPage() {
+    if (!/^\/meet\/prep\/?$/.test(location.pathname)) return;
+    const id = new URLSearchParams(location.search).get('m');
+    const root = document.getElementById('mt-prep');
+    if (!id || !root || document.getElementById('ix-prep-people')) return;
+    const sec = document.createElement('section');
+    sec.id = 'ix-prep-people';
+    sec.className = 'h-card ix-prep-sec';
+    sec.innerHTML = '<div class="ix-prep-sec__h"><h3>People</h3><button type="button" class="rt-btn rt-btn--sm rt-btn--ghost" data-ix-settings>Settings</button></div><div class="ix-skel" aria-hidden="true"><i></i><i></i></div>';
+    root.insertAdjacentElement('afterend', sec);
+    sec.addEventListener('click', (e) => { if (e.target.closest('[data-ix-settings]')) meetSettings(); });
+    try {
+      const r = await api(`/api/integrations/prep/meeting?m=${encodeURIComponent(id)}`);
+      sec.innerHTML = `<div class="ix-prep-sec__h"><h3>People</h3><button type="button" class="rt-btn rt-btn--sm rt-btn--ghost" data-ix-settings>Settings</button></div>${packHtml(r.pack)}`;
+    } catch (_) { sec.remove(); }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', prepPage); else prepPage();
+  document.addEventListener('hub-swapped', prepPage);
+  document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('[data-ix-meetset]')) { e.preventDefault(); meetSettings(); } });
+
+  window.FavorIx = { api, toast, open, close, esc, ic, when, timeOnly, person, avatar, phone, accept, focus, findTime, me, clipReply, recordClip, meetSettings, openPack, checkDock };
   /* ------------------------------------------------------------------ entry points on other pages */
 
   // Any button with data-ix-ft='{"kind":..., "ref":..., "people":[...], "title":...}' opens Find a time (request panel, partner page).

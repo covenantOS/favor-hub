@@ -77,6 +77,7 @@ test('a requester outside the Chat group gets one email; a closed gate tells nob
   assert.equal(g.mail.length, 0);
   assert.equal(rows(g, 'SELECT owner_email FROM hub_tasks WHERE request_id = ?', id2)[0].owner_email, WILL.email, 'the person accepting owns it by default');
 
+  assert.equal((await call(w, VIDEO, 'GET', `${addRequest(w)}/accept`)).status, 403, 'staff cannot read the Accept options');
   const s = await call(w, VIDEO, 'POST', `${addRequest(w)}/accept`, {});
   assert.equal(s.status, 403);
 });
