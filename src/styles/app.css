@@ -471,7 +471,7 @@ body.h-body::before { display: none; }
 /* the expense log below laptop width: one card per request */
 @media (max-width: 1180px) {
     .h-page #exp-log .exp-admin-table, .h-page #exp-log .exp-admin-table tbody, .h-page #exp-log .exp-admin-table td { display: block; width: 100%; }
-  .h-page #exp-log .exp-admin-table tr:has(th) { display: none; }
+  .h-page #exp-log .exp-admin-table tr:has(> th) { display: none; }
   .h-page #exp-log .exp-admin-table tr.exp-admin-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; border-top: 1px solid var(--h-line); padding: 10px 0; }
   .h-page #exp-log .exp-admin-table tr.exp-admin-row td { border: 0; padding: 0; white-space: normal; width: auto; min-width: 0; }
   .h-page #exp-log .exp-admin-table tr.exp-admin-row td:nth-child(1) { font-weight: 700; }
