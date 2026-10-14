@@ -676,6 +676,8 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     people: list.filter((p) => myRole === 'host' || myRole === 'cohost' || !p.waiting).map((p) => ({
       pid: p.pid, name: p.name, role: p.role, sessionId: p.session_id, tracks: safeJson(p.tracks, []), mic: !!p.mic, cam: !!p.cam, hand: !!p.hand, sharing: !!p.sharing,
       canShare: !!p.can_share, team: (dir.get((p.email || '').toLowerCase()) || { team: '' }).team, title: (dir.get((p.email || '').toLowerCase()) || { title: '' }).title, lvl: p.lvl, speaking: p.speak_at > now - 1500, speakAt: p.speak_at, waiting: !!p.waiting, joinedAt: p.joined_at, with: withOf(p.pid),
+      // How long since this person's last heartbeat. A browser that crashed keeps its row for 20 seconds; pages skip pulling from it.
+      seenAgo: Math.max(0, now - p.seen),
     })),
     lines,
     me: { waiting: !!me.waiting },

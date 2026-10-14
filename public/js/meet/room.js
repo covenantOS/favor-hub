@@ -352,6 +352,9 @@ async function enter() {
     failScreen(e); return;
   }
   S.joined = true; S.started = Date.now(); S.joinedAt = Date.now();
+  // The people already in the room get their tiles at once (from the meeting read before joining), so the grid is drawn at its
+  // final size and nothing jumps when the first sync and their video arrive. The first sync replaces these with the real rows.
+  if (!S.people.length && Array.isArray(S.here) && !GUEST) S.people = S.here.filter((p) => p.pid && p.pid !== S.me.pid).map((p) => ({ pid: p.pid, name: p.name, role: 'staff', tracks: [], cam: true, mic: true, hand: false, sharing: false, joinedAt: 0, with: [], seed: true }));
   buildRoom();
   startLoops();
   api('meetings/' + MID + '/playing').then((r) => { if (r.now) S.skew = r.now - Date.now(); if (r.play) onPlay(r.play, r.media); }).catch(() => {});
@@ -733,7 +736,7 @@ function recMissHTML() {
 // Who this room is ringing (a huddle call or Ring in People): ringing, declined with their message, or missed.
 function ringsHTML() {
   const now = Date.now();
-  return (S.rings || []).filter((x) => x.state === 'ringing' || ((x.state === 'declined' || x.state === 'missed') && now - (x.seenAt || now) < 25000)).map((x) => {
+  return (S.rings || []).filter((x) => x.state === 'ringing' || ((x.state === 'declined' || x.state === 'missed') && now - (x.seenAt || now) < 60000)).map((x) => {
     const first = esc(String(x.name || x.to).split(' ')[0]);
     if (x.state === 'ringing') return `<div class="banner rm-ring" role="status"><span class="rm-ring__dot" aria-hidden="true"></span><span>Ringing ${esc(x.name || x.to)}</span>${x.from === S.myEmail ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-cancel" data-id="${esc(x.id)}">Stop ringing</button>` : ''}</div>`;
     const why = x.state === 'declined' ? (x.note ? `${first} cannot join: "${esc(x.note)}"` : `${first} declined`) : x.why === 'quiet' ? `${first} is in quiet hours. FavorOS left a missed huddle note in Chat.` : `${first} did not answer. FavorOS left a missed huddle note in Chat.`;
@@ -2160,8 +2163,12 @@ function wanted() {
   const level = S.level;
   // A wide strip (dragged wider, or faces below at a tall size) gets the middle layer instead of the smallest.
   const bigStrip = !isPhone() && (V.strip === 'bottom' ? V.bottom > 170 : V.side > 300);
+  // Someone with no heartbeat for 7 seconds has most likely closed or crashed: pulling from their dead session made the SFU hold the
+  // whole request for about 8 seconds, so a person joining then heard nobody until it gave up. They are pulled again when they
+  // come back. A pull already running is kept through a short gap.
+  const live = (p, name) => !(p.seenAgo > 7000) || !!(rtc && rtc.subs && rtc.subs.has(p.pid + '|' + (name || 'a')));
   model.forEach(({ key, p, kind, share, play, brain }) => {
-    if (!p || play || brain || kind === 'more' || p.me || AUDIO_ONLY) return;
+    if (!p || play || brain || kind === 'more' || p.me || AUDIO_ONLY || !live(p, share ? 's' : 'v')) return;
     const tr = (p.tracks || []).find((t) => (share ? t.name === 's' : t.name === 'v'));
     if (!tr) return;
     if (!share && !p.cam) return;
@@ -2178,7 +2185,7 @@ function wanted() {
     if (tr && !w.has(pid + '|' + name)) w.set(pid + '|' + name, { pid, sessionId: p.sessionId, trackName: name, kind: 'video', rid: 'h' });
   }
   // Sound: everyone while the link is good (a muted person sends almost nothing); only the last few speakers on a weak link.
-  const audible = others().filter((p) => (p.tracks || []).some((t) => t.name === 'a'));
+  const audible = others().filter((p) => live(p) && (p.tracks || []).some((t) => t.name === 'a'));
   const picked = level === 'weak' ? audible.slice().sort((a, b) => (b.speakAt || 0) - (a.speakAt || 0)).slice(0, 4) : audible.slice(0, 40);
   picked.forEach((p) => w.set(p.pid + '|a', { pid: p.pid, sessionId: p.sessionId, trackName: 'a', kind: 'audio' }));
   return w;
