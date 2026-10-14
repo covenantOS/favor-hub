@@ -19,3 +19,6 @@
   .ao-sort, .ao-who { min-height: 44px; display: inline-flex; align-items: center; }
   .ao-num { text-align: left; }
 }
+.ao-root .ad-table th, .ao-root .ad-table td { white-space: nowrap; }
+.ao-root .ad-table td.ao-quote { white-space: normal; min-width: 240px; }
+.ao-root .ad-table td.ao-areas { white-space: normal; min-width: 170px; }
