@@ -160,9 +160,32 @@ export interface ListQuery {
   limit?: string | number;
   offset?: string | number;
   sort?: string;
+  /** overdue | today | week | none */
+  due?: string;
+  /** a section id, or none */
+  section?: string;
+  priority?: string;
+  /** matches any of the appeal, source, fund and campaign codes */
+  code?: string;
 }
 
-export async function listTasks(env: Env, actor: Actor, q: ListQuery): Promise<{ tasks: TaskOut[]; total: number }> {
+export interface ListCounts {
+  open: number;
+  done: number;
+  by_section: Record<string, { open: number; done: number }>;
+}
+
+export interface ListResult {
+  tasks: TaskOut[];
+  total: number;
+  limit: number;
+  offset: number;
+  has_more: boolean;
+  next_offset: number | null;
+  counts?: ListCounts;
+}
+
+export async function listTasks(env: Env, actor: Actor, q: ListQuery): Promise<ListResult> {
   const where: string[] = [];
   const args: unknown[] = [];
   let scope: ProjectRow | null = null;
@@ -178,13 +201,19 @@ export async function listTasks(env: Env, actor: Actor, q: ListQuery): Promise<{
     where.push(v.sql);
     args.push(...v.args);
   }
-  if (q.owner) {
+  const ownerNone = lower(q.owner) === 'none';
+  if (ownerNone) where.push('t.owner_email IS NULL');
+  else if (q.owner) {
     where.push('t.owner_email = ?');
     args.push(ownerMe ? actor.email : lower(q.owner));
   }
 
   const status = lower(q.status || 'open');
   if (status === 'open') where.push(`t.${OPEN_SQL}`);
+  else if (status === 'doing' || status === 'waiting') {
+    where.push('t.status = ?');
+    args.push(status);
+  }
   else if (status === 'done') where.push(`t.status = 'done'`);
   else if (status === 'dropped') where.push(`t.status = 'dropped'`);
   else where.push(`t.status <> 'dropped'`);
@@ -195,7 +224,7 @@ export async function listTasks(env: Env, actor: Actor, q: ListQuery): Promise<{
     need(ps.see, 'You do not have access to that task.');
     where.push('t.parent_id = ?');
     args.push(parent.id);
-  } else if (!q.parent && !q.owner) {
+  } else if (!q.parent && (!q.owner || ownerNone)) {
     where.push('t.parent_id IS NULL');
   }
 
@@ -212,6 +241,35 @@ export async function listTasks(env: Env, actor: Actor, q: ListQuery): Promise<{
     args.push(like, like, like);
   }
 
+  const today = todayEastern();
+  const due = lower(q.due);
+  if (due === 'overdue') {
+    where.push(`t.due_date IS NOT NULL AND t.due_date < ? AND t.status NOT IN ('done', 'dropped')`);
+    args.push(today);
+  } else if (due === 'today') {
+    where.push('t.due_date = ?');
+    args.push(today);
+  } else if (due === 'week') {
+    where.push('t.due_date >= ? AND t.due_date <= ?');
+    args.push(today, addDaysIso(today, 7));
+  } else if (due === 'none') where.push('t.due_date IS NULL');
+  if (q.section) {
+    if (lower(q.section) === 'none') where.push('t.section_id IS NULL');
+    else {
+      where.push('t.section_id = ?');
+      args.push(String(q.section));
+    }
+  }
+  if (q.priority && (PRIORITIES as readonly string[]).includes(lower(q.priority))) {
+    where.push('t.priority = ?');
+    args.push(lower(q.priority));
+  }
+  const code = String(q.code || '').trim().toUpperCase().slice(0, 40);
+  if (code) {
+    where.push('(t.appeal_code = ? OR t.source_code = ? OR t.fund_code = ? OR t.campaign_code = ?)');
+    args.push(code, code, code, code);
+  }
+
   const cap = scope ? MAX_PROJECT : MAX_UNSCOPED;
   const limit = Math.max(1, Math.min(cap, Number(q.limit) || (scope ? 2500 : 200)));
   const offset = Math.max(0, Number(q.offset) || 0);
@@ -222,7 +280,30 @@ export async function listTasks(env: Env, actor: Actor, q: ListQuery): Promise<{
     env.DB.prepare(`SELECT COUNT(*) AS n FROM hub_tasks t ${w}`).bind(...args).first<{ n: number }>(),
     directory(env),
   ]);
-  return { tasks: await decorate(env, rows.results || [], dir, scope ? scope.id : null), total: Number(count?.n) || 0 };
+  const total = Number(count?.n) || 0;
+  const got = rows.results || [];
+  const more = offset + got.length < total && got.length > 0;
+  const out: ListResult = { tasks: await decorate(env, got, dir, scope ? scope.id : null), total, limit, offset, has_more: more, next_offset: more ? offset + got.length : null };
+  if (scope && offset === 0 && !q.parent) {
+    // Open and done counts per section, so a section header can show its size while its completed tasks stay hidden.
+    const c = await env.DB.prepare(`SELECT section_id AS sid, SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done, SUM(CASE WHEN status NOT IN ('done', 'dropped') THEN 1 ELSE 0 END) AS open FROM hub_tasks WHERE project_id = ? AND parent_id IS NULL GROUP BY section_id`)
+      .bind(scope.id)
+      .all<{ sid: string | null; done: number; open: number }>();
+    const counts: ListCounts = { open: 0, done: 0, by_section: {} };
+    for (const r of c.results || []) {
+      counts.open += Number(r.open) || 0;
+      counts.done += Number(r.done) || 0;
+      counts.by_section[r.sid || ''] = { open: Number(r.open) || 0, done: Number(r.done) || 0 };
+    }
+    out.counts = counts;
+  }
+  return out;
+}
+
+function addDaysIso(day: string, n: number): string {
+  const d = new Date(day + 'T12:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
 }
 
 /** Tasks on my plate for the project list header. Uses the owner index. */

@@ -4,8 +4,9 @@
 //   POST projects/:id/sections            PATCH/DELETE projects/:id/sections/:sid
 //   PUT  projects/:id/members             { add, remove, role }
 //   plan, workload and the Friday update: projects/plan/*, projects/workload, projects/:id/status (see plan/route.ts)
-//   GET  tasks                            ?project= &owner=me|email &status=open|done|all &from= &to= &q= &parent= &limit= &offset=
+//   GET  tasks                            ?project= &owner=me|email &status=open|done|all &from= &to= &q= &parent= &limit= &offset= &due=overdue|today|week|none &section=id|none &priority= &code=  (also returns limit, offset, has_more, next_offset, and counts on a project page one)
 //   POST tasks                            make one                                 GET tasks/codes ?kind= &q=
+//   GET  tasks/views ?project=            POST tasks/views { name, project_id, query }   DELETE tasks/views/:id   (saved views, per person)
 //   GET  tasks/notices                    POST tasks/notices/read { ids | all }
 //   GET/PATCH/DELETE tasks/:id            (id or code)   DELETE ?hard=1 for an admin
 //   POST tasks/:id/comments               PATCH/DELETE tasks/:id/comments/:cid
@@ -21,6 +22,7 @@ import { directory, projectOf, projectsReady, type ProjectRow, type TaskRow } fr
 import { fire, taskRoute } from './hooks';
 import { isPlanPath, planRoutes } from './plan/route';
 import { noticesFor, readNotices } from './notices';
+import { deleteView, listViews, saveView } from './views';
 import { addSection, changeMembers, createProject, deleteSection, listProjects, patchProject, patchSection, projectDetail, shapeProject, countsFor } from './projects';
 import {
   addComment,
@@ -178,6 +180,16 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
     if (!(KINDS as readonly string[]).includes(kind)) throw new HttpError(400, 'bad_kind', 'kind must be appeal, source, fund or campaign.');
     const r = await codesFor(env, kind as CodeKind, String(url.searchParams.get('q') || ''), Number(url.searchParams.get('limit')) || 50);
     return json({ ok: true, ...r });
+  }
+
+  if (id === 'views') {
+    if (!a && method === 'GET') return json({ ok: true, views: await listViews(env, actor, url.searchParams.get('project') || undefined) });
+    if (!a && method === 'POST') return json({ ok: true, view: await saveView(env, actor, await body(request)) }, 201);
+    if (a && method === 'DELETE') {
+      await deleteView(env, actor, a);
+      return json({ ok: true });
+    }
+    return notAllowed();
   }
 
   if (id === 'notices') {
