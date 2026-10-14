@@ -1001,6 +1001,7 @@
     // Quietly loads the messages of the channels a person is most likely to open next (unread first, then the most recent), one at a time,
     // so tapping a channel shows its messages in the same frame as the slide instead of a skeleton.
     function readAhead() {
+      if (liteOn()) return; // Lite mode: a channel loads when it is opened.
       var ids = Object.keys(S.channels).map(function (k) { return S.channels[k]; }).filter(function (c) { return c.joined !== false && (c.id !== S.active || S.view === 'list') && !S.msgs[c.id]; })
         .sort(function (a, b) { return (b.unread > 0) - (a.unread > 0) || String(b.last_at || '').localeCompare(String(a.last_at || '')); }).slice(0, 6).map(function (c) { return c.id; });
       var next = function () {
@@ -1015,6 +1016,7 @@
     }
     // The newest pictures and clip posters of a channel read ahead are fetched too, so they are in place when the channel slides in.
     function warmPictures(list) {
+      if (liteOn()) return;
       var urls = [];
       (list || []).slice(-15).forEach(function (m) { (m.attachments || []).forEach(function (a) { if (a.type === 'clip' && a.thumb) urls.push(a.thumb); else if (a.type === 'file' && /^image\//.test(a.mime || '')) urls.push(a.url); }); });
       urls.slice(-6).forEach(function (u) { var im = new Image(); im.decoding = 'async'; im.src = u; });
