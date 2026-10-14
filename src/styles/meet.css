@@ -674,3 +674,43 @@ body.meet-guest .h-btn--primary:hover { background: #165a58; }
 .rm-at-i.is-on, .rm-at-i:hover { background: rgba(0,0,0,.07); }
 .msg.is-mention { background: rgba(212,160,23,.14); border-radius: 10px; box-shadow: inset 3px 0 0 #d4a017; }
 .dotc.is-at { background: #d4a017; color: #1a1a1a; }
+/* Someone's with me: the People header button, the chips of people on this device, and the picker sheet. */
+.rm-pphead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0 2px; }
+.rm-pphead .h-btn { flex: none; width: auto; }
+.rm-pphead .h-label { margin: 0; }
+.rm-pphead .h-btn--sm { height: 28px; }
+.pp-with { display: flex !important; flex-wrap: wrap; gap: 4px; margin: 3px 0 2px; }
+.pp-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 6px 0 10px; border-radius: 999px; border: 1px solid var(--h-line-2); background: #fff; font: 600 12px var(--h-font); color: var(--h-ink); cursor: pointer; max-width: 100%; }
+.pp-chip .h-i { width: 12px; height: 12px; color: var(--h-ink-3); flex: none; }
+.pp-chip:hover, .pp-chip:focus-visible { border-color: var(--h-brand); }
+.rd.rw { width: min(460px, calc(100vw - 32px)); }
+.rw-b { display: grid; gap: 10px; padding: 0 20px 4px; min-height: 0; overflow: auto; }
+.rw-sub { margin: 0; font-size: 14px; color: var(--h-ink-2); }
+.rw-cur { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.rw-cur:empty { display: none; }
+.rw-lab { width: 100%; font: 600 13px var(--h-font); color: var(--h-ink-2); }
+.rw-in input { font-size: 16px; }
+.rw-list { display: grid; gap: 2px; }
+.rw-r { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; min-height: 44px; padding: 4px 8px; border: 0; border-radius: 10px; background: none; text-align: left; cursor: pointer; color: var(--h-ink); }
+.rw-r:hover, .rw-r:focus-visible { background: rgba(47, 74, 42, .08); }
+.rw-r b { display: block; font: 600 14px var(--h-font); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rw-r i { font-style: normal; font-size: 13px; color: var(--h-ink-3); }
+.rw-r .h-i { width: 16px; height: 16px; color: var(--h-brand); }
+.rw-r .mt-av { font-size: 12px !important; }
+.rw-foot { gap: 8px; flex-wrap: wrap; }
+@media (max-width: 860px) {
+  .rd.rw { width: auto; }
+  .rw-b { padding: 0 16px 4px; }
+  .rw-foot .h-btn { flex: 1 1 auto; }
+}
+/* Notes page: fixing who spoke. */
+.nt-trh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.nt-trh .h-btn--sm { height: 30px; }
+.sp-bar { position: sticky; top: 8px; z-index: 2; display: grid; gap: 8px; padding: 12px; margin-bottom: 10px; border-radius: 12px; background: #fff; border: 1px solid var(--h-line-2); box-shadow: 0 2px 8px rgba(0, 0, 0, .06); }
+.sp-bar p { margin: 0; font-size: 14px; color: var(--h-ink); }
+.sp-who { display: grid; gap: 4px; font: 600 13px var(--h-font); color: var(--h-ink-2); }
+.sp-who input { height: 38px; border-radius: 10px; border: 1px solid var(--h-line-2); padding: 0 10px; font: 500 15px var(--h-font); min-width: 0; }
+.nt-l.sp-on { cursor: pointer; border-radius: 8px; }
+.nt-l.sp-on:hover, .nt-l.sp-on:focus-visible { background: rgba(47, 74, 42, .06); outline: none; }
+.nt-l.is-sel { background: var(--h-leaf-soft, #e6eedf); }
+@media (max-width: 860px) { .sp-who input { height: 44px; font-size: 16px; } .sp-bar .pv-acts .h-btn { flex: 1 1 auto; } }

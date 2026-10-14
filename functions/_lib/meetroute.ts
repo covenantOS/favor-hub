@@ -14,8 +14,8 @@ import { sendMail } from './notify/send';
 import { parseRange, type Clip, type ClipsEnv } from './clips';
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
-import { closePrivate, cutSection, deleteRecording, privacyOf, setPrivate } from './meetprivacy';
-import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
+import { closePrivate, cutSection, deleteRecording, fixSpeaker, privacyOf, setPrivate } from './meetprivacy';
+import { HUB, sharedDevices, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { sendLink, sendState, setMyPhone, textSoon, type SendDeps } from './meetsend';
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
@@ -49,7 +49,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (user.role === 'field' && parts[1] === 'pump' && !parts[2] && m === 'POST') return json({ ok: true, done: true, state: 'idle' });
     if (user.role === 'field' && !fieldMeetRoute(m, parts)) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
     const sub0 = parts[2] || '';
-    if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'sfu', 'playing', 'playmedia'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
+    if (guestMode && !(parts.length >= 3 && ID_RE.test(parts[1]) && ['guestinfo', 'join', 'sync', 'event', 'leave', 'tracks', 'with', 'sfu', 'playing', 'playmedia'].includes(sub0))) return errorJson('not_found', 'Not found.', 404);
 
     if (parts[1] === 'pump' && m === 'POST') return json(await pumpNext(env, user));
     if (parts[1] === 'ask' && m === 'POST') return json(await askMeetings(env, user, ((await request.json().catch(() => ({}))) as Record<string, unknown>).q));
@@ -91,7 +91,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
       if (!mayJoin(mt, user)) throw refuseJoin(mt);
       // Who is in the room now (a heartbeat in the last 20 seconds), for the lobby and the pre-join sheet. The pid lets a page
       // leave out its own earlier visit.
-      const here = await env.DB.prepare('SELECT pid, name, lower(email) AS email FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? ORDER BY joined_at LIMIT 24').bind(id, Date.now() - GONE_MS).all<{ pid: string; name: string; email: string }>();
+      const here = await env.DB.prepare(`SELECT pid, name, lower(email) AS email FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND with_pid = '' AND seen > ? ORDER BY joined_at LIMIT 24`).bind(id, Date.now() - GONE_MS).all<{ pid: string; name: string; email: string }>();
       const rows = here.results || [];
       return json({ ok: true, meeting: publicMeeting(mt, user), guestsEnabled: guestsOn(env), present: rows.map((r) => r.name), people: rows.map((r) => ({ pid: r.pid, name: r.name, email: r.email })) });
     }
@@ -103,6 +103,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'sync' && m === 'POST') return json(await sync(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'event' && m === 'POST') return json(await postEvent(env, user, id, await request.json().catch(() => ({})), onEnd, new URL(request.url).origin, waitUntil));
     if (sub === 'leave' && m === 'POST') { const r = await leave(env, user, id, await request.json().catch(() => ({})), onEnd); huddleNews(id); return json(r); }
+    if (sub === 'with' && m === 'POST') return json(await withMe(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'tracks' && m === 'POST') return json(await setTracks(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
     if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
@@ -489,6 +490,8 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
   if (changed || now - me.seen > 3500) {
     await env.DB.prepare('UPDATE hub_meeting_presence SET mic = ?, cam = ?, hand = ?, sharing = ?, lvl = ?, speak_at = ?, seen = ?, left_at = 0 WHERE meeting_id = ? AND pid = ?')
       .bind(mic, cam, hand, sharing, lvl, speaking ? now : me.speak_at, now, id, me.pid).run();
+    // The people sharing this device are here as long as the device is.
+    if (now - me.seen > 3500) await env.DB.prepare('UPDATE hub_meeting_presence SET seen = ? WHERE meeting_id = ? AND with_pid = ? AND left_at = 0 AND removed = 0').bind(now, id, me.pid).run();
   }
   // A guest still in the waiting room learns only whether they are in yet: no chat, people or captions before a host admits them.
   if (me.waiting && me.role === 'guest') {
@@ -502,10 +505,13 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
   let events = (recent.results || []) as Array<{ seq: number; kind: string; from_pid: string; to_pid: string; body: string; ts: number }>;
   if (!(Number.isFinite(since) && since >= 0)) events = events.reverse();
   const people = await env.DB.prepare(
-    `SELECT pid, email, name, role, session_id, tracks, mic, cam, hand, sharing, can_share, lvl, speak_at, waiting, joined_at, seen FROM hub_meeting_presence
+    `SELECT pid, email, name, role, session_id, tracks, mic, cam, hand, sharing, can_share, lvl, speak_at, waiting, joined_at, seen, with_pid FROM hub_meeting_presence
       WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ? ORDER BY joined_at`
-  ).bind(id, now - GONE_MS).all<Presence>();
-  let list = people.results || [];
+  ).bind(id, now - GONE_MS).all<Presence & { with_pid: string }>();
+  // People added on someone else's device ride along on that device's entry as "with"; a page from before this ignores them.
+  const rows0 = people.results || [];
+  const withOf = (pid: string) => rows0.filter((c) => c.with_pid === pid).map((c) => ({ pid: c.pid, name: c.name, staff: !c.email.startsWith('guest:') }));
+  let list = rows0.filter((p) => !p.with_pid);
   // Hostless for a while: the person who has been here longest takes over the host controls.
   const hosts = list.filter((p) => p.role === 'host' || p.role === 'cohost');
   if (!hosts.length && list.length && mt0.status === 'live') {
@@ -528,7 +534,7 @@ async function sync(env: MeetEnv, user: { email: string; name: string; role: str
     role: myRole,
     people: list.filter((p) => myRole === 'host' || myRole === 'cohost' || !p.waiting).map((p) => ({
       pid: p.pid, name: p.name, role: p.role, sessionId: p.session_id, tracks: safeJson(p.tracks, []), mic: !!p.mic, cam: !!p.cam, hand: !!p.hand, sharing: !!p.sharing,
-      canShare: !!p.can_share, team: (dir.get((p.email || '').toLowerCase()) || { team: '' }).team, title: (dir.get((p.email || '').toLowerCase()) || { title: '' }).title, lvl: p.lvl, speaking: p.speak_at > now - 1500, speakAt: p.speak_at, waiting: !!p.waiting, joinedAt: p.joined_at,
+      canShare: !!p.can_share, team: (dir.get((p.email || '').toLowerCase()) || { team: '' }).team, title: (dir.get((p.email || '').toLowerCase()) || { title: '' }).title, lvl: p.lvl, speaking: p.speak_at > now - 1500, speakAt: p.speak_at, waiting: !!p.waiting, joinedAt: p.joined_at, with: withOf(p.pid),
     })),
     lines,
     me: { waiting: !!me.waiting },
@@ -564,6 +570,48 @@ async function setTracks(env: MeetEnv, user: { email: string }, id: string, b: R
   return { ok: true, shared: mayShare };
 }
 
+/**
+ * "Someone's with me": people sharing this device. Each one gets a presence row of their own tied to this device's pid, so they
+ * count as present, show on the device's tile and in People, and the notes know the device's voice may be any of them.
+ *   { pid, op: 'add', name, email? }   email when picked from the invitees or the staff list; a typed name gets none
+ *   { pid, op: 'remove', who }         who is the added person's pid
+ */
+export async function withMe(env: MeetEnv, user: { email: string; name: string; role: string }, id: string, b: Record<string, unknown>) {
+  const me = await getPresence(env, id, clean(b.pid, 12), user.email);
+  if (me.left_at || me.waiting || (me as Presence & { with_pid?: string }).with_pid) throw new HttpError(400, 'not_here', 'Join the meeting first.');
+  const now = Date.now();
+  const listOf = async () => ((await env.DB.prepare(`SELECT pid, name, email FROM hub_meeting_presence WHERE meeting_id = ? AND with_pid = ? AND left_at = 0 AND removed = 0 ORDER BY joined_at`).bind(id, me.pid).all<{ pid: string; name: string; email: string }>()).results || []).map((r) => ({ pid: r.pid, name: r.name, staff: !r.email.startsWith('guest:') }));
+  if (b.op === 'remove') {
+    await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ? WHERE meeting_id = ? AND with_pid = ? AND pid = ? AND left_at = 0').bind(now, id, me.pid, clean(b.who, 12)).run();
+    return { ok: true, with: await listOf() };
+  }
+  if (b.op !== 'add') throw new HttpError(400, 'bad_op', 'Unknown request.');
+  const mt = await getMeeting(env, id);
+  if (mt.status !== 'live') throw new HttpError(400, 'not_live', 'The meeting is not running.');
+  let name = clean(b.name, 80).replace(/\s+/g, ' ').trim();
+  let email = clean(b.email, 200).toLowerCase();
+  if (email) {
+    // Only someone on the invite or the staff list keeps their email; anything else is treated as a typed name.
+    const inv = safeJson<Array<{ name?: string; email?: string }>>(mt.invitees, []).find((i) => (i.email || '').toLowerCase() === email);
+    const dir = await env.DB.prepare('SELECT name FROM meet_directory WHERE lower(email) = ? AND active = 1').bind(email).first<{ name: string }>().catch(() => null);
+    if (dir || inv) name = name || dir?.name || inv?.name || '';
+    else email = '';
+  }
+  if (!name) throw new HttpError(400, 'name', 'Type a name.');
+  const cur = await listOf();
+  if (cur.length >= 8) throw new HttpError(400, 'too_many', 'Eight people at most on one device.');
+  if (name.toLowerCase() === me.name.toLowerCase() || cur.some((c) => c.name.toLowerCase() === name.toLowerCase())) return { ok: true, with: cur };
+  if (email) {
+    const dup = await env.DB.prepare(`SELECT 1 AS x FROM hub_meeting_presence WHERE meeting_id = ? AND lower(email) = ? AND with_pid != '' AND left_at = 0 AND removed = 0`).bind(id, email).first();
+    if (dup) throw new HttpError(409, 'elsewhere', `${name} is already with someone in this meeting.`);
+  }
+  const pid = hex(6);
+  await env.DB.prepare(`INSERT INTO hub_meeting_presence (meeting_id, pid, email, name, role, session_id, tracks, mic, cam, can_share, joined_at, seen, with_pid) VALUES (?, ?, ?, ?, ?, '', '[]', 0, 0, 0, ?, ?, ?)`)
+    .bind(id, pid, email || 'guest:with-' + pid, name, email ? 'staff' : 'guest', now, now, me.pid).run();
+  await addEvent(env, id, 'notice', me.pid, '', { a: 'with', name, host: me.name });
+  return { ok: true, with: await listOf() };
+}
+
 async function leave(env: MeetEnv, user: { email: string }, id: string, b: Record<string, unknown>, onEnd?: (id: string) => void) {
   const me = await getPresence(env, id, clean(b.pid, 12), user.email).catch(() => null);
   if (!me) return { ok: true };
@@ -574,7 +622,7 @@ async function leave(env: MeetEnv, user: { email: string }, id: string, b: Recor
     return { ok: true };
   }
   if (me.left_at) return { ok: true };
-  await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ?, tracks = ? WHERE meeting_id = ? AND pid = ?').bind(Date.now(), '[]', id, me.pid).run();
+  await env.DB.prepare('UPDATE hub_meeting_presence SET left_at = ?, tracks = ? WHERE meeting_id = ? AND (pid = ? OR (with_pid = ? AND left_at = 0))').bind(Date.now(), '[]', id, me.pid, me.pid).run();
   await addEvent(env, id, 'notice', me.pid, '', { a: 'left', name: me.name });
   await endIfEmpty(env, id, onEnd);
   return { ok: true };
@@ -672,7 +720,7 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
         break;
       case 'remove':
         if (target) {
-          await env.DB.prepare('UPDATE hub_meeting_presence SET removed = 1, tracks = ? WHERE meeting_id = ? AND pid = ?').bind('[]', id, to).run();
+          await env.DB.prepare('UPDATE hub_meeting_presence SET removed = 1, tracks = ? WHERE meeting_id = ? AND (pid = ? OR with_pid = ?)').bind('[]', id, to, to).run();
           // Cut their media at the SFU as well: close every track they publish.
           try {
             const mids = safeJson<Array<{ mid: string }>>(target.tracks, []).map((t) => ({ mid: t.mid })).filter((t) => t.mid);
@@ -753,7 +801,7 @@ async function mentionsOf(env: MeetEnv, id: string, me: Presence, raw: unknown):
   if (!Array.isArray(raw) || !raw.length) return null;
   const list = (raw as Array<Record<string, unknown>>).slice(0, 8);
   const now = Date.now();
-  const here = ((await env.DB.prepare('SELECT pid, email, name FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND seen > ?').bind(id, now - GONE_MS).all<{ pid: string; email: string; name: string }>()).results) || [];
+  const here = ((await env.DB.prepare(`SELECT pid, email, name FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND with_pid = '' AND seen > ?`).bind(id, now - GONE_MS).all<{ pid: string; email: string; name: string }>()).results) || [];
   const pids = new Set<string>();
   const hereEmails = new Set(here.map((p) => (p.email || '').toLowerCase()));
   for (const m of list) { const pid = clean(m.pid, 12); if (pid && here.some((p) => p.pid === pid)) pids.add(pid); }
@@ -984,7 +1032,16 @@ async function privacyRoute(env: MeetEnv, user: { email: string; name: string; r
   if (b.op === 'cut') {
     const invitees = safeJson<Array<{ name?: string; email?: string }>>(mt.invitees, []).map((i) => i.name || i.email || '');
     const people = (await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string }>()).results || [];
-    return cutSection(env as never, user, mt, b, { doc, names: [...new Set([...people.map((p) => p.name), ...invitees].filter(Boolean))] });
+    return cutSection(env as never, user, mt, b, { doc, names: [...new Set([...people.map((p) => p.name), ...invitees].filter(Boolean))], shared: await sharedDevices(env, mt) });
+  }
+  if (b.op === 'speaker') {
+    const invitees = safeJson<Array<{ name?: string; email?: string }>>(mt.invitees, []).map((i) => i.name || i.email || '');
+    const people = (await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string }>()).results || [];
+    const roster = await rosterOf(env, mt);
+    return fixSpeaker(env as never, user, mt, b, {
+      doc, names: [...new Set([...people.map((p) => p.name), ...invitees].filter(Boolean))], shared: await sharedDevices(env, mt),
+      pick: (who: string) => pickPerson(roster, who), tasks: (mid: string) => meetActionsToTasks(env, mid),
+    });
   }
   throw new HttpError(400, 'bad_op', 'Unknown request.');
 }
@@ -1088,7 +1145,8 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
       const invitees = safeJson<Array<{ name?: string; email?: string }>>(m.invitees, []).map((i) => i.name || i.email || '');
       const people = (await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ?').bind(id).all<{ name: string }>()).results || [];
       const names = [...new Set([...people.map((p) => p.name), ...invitees].filter(Boolean))];
-      const notes = await timed(env, id, 'summary', () => makeNotes(env, m, names));
+      const shared = await sharedDevices(env, m);
+      const notes = await timed(env, id, 'summary', () => makeNotes(env, m, names, shared));
       if (notes) {
         const retitle = !!notes.title && isDefaultTitle(m.title);
         // What the call already caught is folded into the final lists before anything reads them.

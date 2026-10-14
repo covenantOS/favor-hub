@@ -178,7 +178,29 @@ function b64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-export interface Line { t: number; text: string; who?: string }
+export interface Line { t: number; text: string; who?: string; fixed?: boolean }
+
+/** A person added on someone else's device ("Someone's with me"), with the stretch of the meeting they were there, in seconds. */
+export interface Shared { host: string; name: string; from: number; to: number | null }
+
+/** Everyone who shared a device in a meeting. The device's voice is labelled with its owner's name, so the owner is the host. */
+export async function sharedDevices(env: MeetEnv, m: Pick<Meeting, 'id' | 'started_at' | 'created_at'>): Promise<Shared[]> {
+  const t0 = Date.parse(m.started_at || m.created_at) || 0;
+  const rows = (await env.DB.prepare(`SELECT c.name AS name, c.joined_at AS joined_at, c.left_at AS left_at, h.name AS host FROM hub_meeting_presence c JOIN hub_meeting_presence h ON h.meeting_id = c.meeting_id AND h.pid = c.with_pid WHERE c.meeting_id = ? AND c.with_pid != '' ORDER BY c.joined_at`).bind(m.id).all<{ name: string; joined_at: number; left_at: number; host: string }>().catch(() => ({ results: [] as Array<{ name: string; joined_at: number; left_at: number; host: string }> }))).results || [];
+  return rows.map((r) => ({ host: r.host, name: r.name, from: Math.max(0, Math.round((r.joined_at - t0) / 1000)), to: r.left_at ? Math.round((r.left_at - t0) / 1000) : null }));
+}
+
+/**
+ * Who a transcript line is from, as the notes read it. A line from a shared device reads "Ann Example or Bob Sample (one device)",
+ * since the device cannot tell them apart. A line a host fixed by hand keeps the name they gave it.
+ */
+export function speakerLabel(l: Line, shared: Shared[]): string {
+  const who = l.who || '';
+  if (!who || l.fixed || !shared.length) return who;
+  const names = shared.filter((s) => s.host === who && l.t >= s.from - 5 && (s.to == null || l.t <= s.to + 5)).map((s) => s.name);
+  const all = [...new Set([who, ...names])];
+  return all.length > 1 ? `${all.join(' or ')} (one device)` : who;
+}
 
 const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/ +/g, ' ').trim();
 
@@ -195,7 +217,7 @@ export function dedupeLines<T extends { t: number; text: string }>(lines: T[], w
 
 /** The one person in the room during a slice, when the recorder could not tell who spoke and only one person was there. */
 async function soleSpeaker(env: MeetEnv, id: string, from: number, to: number): Promise<string> {
-  const rows = (await env.DB.prepare('SELECT DISTINCT name FROM hub_meeting_presence WHERE meeting_id = ? AND removed = 0 AND waiting = 0 AND joined_at <= ? AND (left_at = 0 OR left_at >= ?)').bind(id, to, from).all<{ name: string }>()).results || [];
+  const rows = (await env.DB.prepare(`SELECT DISTINCT name FROM hub_meeting_presence WHERE meeting_id = ? AND removed = 0 AND waiting = 0 AND with_pid = '' AND joined_at <= ? AND (left_at = 0 OR left_at >= ?)`).bind(id, to, from).all<{ name: string }>()).results || [];
   return rows.length === 1 ? rows[0].name : '';
 }
 
@@ -268,6 +290,10 @@ export function vagueAction(text: string): boolean {
   return /^(continue|keep|discuss|work on|look into|think about|explore|consider)\b/.test(t) && n < 8;
 }
 
+/** The rule for lines from a shared device: the owner of an item comes from the words, and when the words do not say, both names. */
+export const SHARED_RULE = (on: boolean): string => on ? `Some people shared one device, so a line labelled "A or B (one device)" was said by one of them and the system cannot tell which. Name the one who spoke only when the words make it plain: someone speaks to them by name ("Michael, can you send the file?" makes Michael the owner of that item), or they say who they are. When the words do not make it plain, write both first names joined by "or" (for example "Crystal or Michael") in the owner and the text. Never guess.
+` : '';
+
 type RawPart = { summary?: unknown; decisions?: unknown; actions?: unknown; topics?: unknown };
 
 /** Favor says partners, never donors, in anything staff read (the model slips when the talk itself says donors). */
@@ -279,10 +305,10 @@ export const partnersWord = (s: string): string => s.replace(/\b([Dd])onor(s?)\b
  * A long meeting is read in parts and joined, so the middle is never dropped. Each action item must quote the words said; an item
  * whose quote is not in the transcript around that line, or that names nothing concrete, is left out.
  */
-export async function makeNotes(env: MeetEnv, m: Meeting, names: string[]): Promise<NotesOut | null> {
+export async function makeNotes(env: MeetEnv, m: Meeting, names: string[], shared: Shared[] = []): Promise<NotesOut | null> {
   const lines = (JSON.parse(m.transcript || '[]') as Line[]).filter((l) => l && l.text);
   if (!lines.length) return null;
-  const all = lines.map((l, i) => `L${i + 1} [${stamp(l.t)}] ${l.who ? l.who + ': ' : ''}${l.text}`);
+  const all = lines.map((l, i) => { const who = speakerLabel(l, shared); return `L${i + 1} [${stamp(l.t)}] ${who ? who + ': ' : ''}${l.text}`; });
   // Parts of about 16,000 characters, so a 70 minute meeting is three or four reads.
   const parts: string[] = [];
   for (let i = 0; i < all.length;) {
@@ -298,7 +324,7 @@ summary: 2 to 4 sentences on what this stretch covered, with the specific projec
 decisions: up to 6 objects {line, text}, only things the group agreed or settled, written as a plain statement.
 actions: up to 10 objects {line, owner, text, due, quote}. An action item is a specific task a person took on or was asked to do. text starts with a verb and names the concrete thing and its detail, for example "Send Megan the final print file for the November letter". Never write a vague item such as "Develop the dashboard further" or "Continue working on the project". owner is the person named or the person who said they would do it, else empty. due is a date or phrase said aloud, else empty. quote is the exact words from the transcript, at most 20 words, where the task was said.
 topics: 1 to 5 objects {line, title}: where a new subject starts, title at most 6 words.
-Leave out small talk, greetings and getting the call working (audio, browsers, who can hear whom). Spell people's names as they appear in the list of people. Say partners, never donors.
+${SHARED_RULE(lines.some((l) => / \(one device\)$/.test(speakerLabel(l, shared))))}Leave out small talk, greetings and getting the call working (audio, browsers, who can hear whom). Spell people's names as they appear in the list of people. Say partners, never donors.
 line is the number after L. Use only what the transcript says. Do not invent names, dates, numbers or dollar amounts. Never copy a partner's personal details into the notes. Leave out prayer requests and personal matters people shared. No em dashes.`;
   const read = (text: string, n: number) => chatJson<RawPart>(env as never, `You read part ${n} of ${parts.length} of a staff meeting transcript at a nonprofit and pull out its notes.\n${rules}`, `Meeting title: ${m.title}\n\nTranscript:\n${text}`, 1600, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE, json: true });
   // The parts are read at the same time, so a long meeting's notes take about as long as one read (the step runs in the
@@ -333,7 +359,7 @@ line is the number after L. Use only what the transcript says. Do not invent nam
   // The title and the summary are written from the parts' summaries, so the whole meeting is covered.
   const partSums = outs.map((o, k) => `Part ${k + 1}: ${plain(o.summary, 1200)}`).join('\n');
   const head = await chatJson<{ title?: unknown; summary?: unknown }>(env as never,
-    'You write the title and summary of a staff meeting from summaries of its parts, in order. Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period) and summary (3 to 6 sentences: what was covered, what was decided, who is doing what next; name the specific projects and people). Leave out prayer requests, personal matters and getting the call working. Spell the names as the People line spells them. Say partners, never donors. Do not invent anything. No em dashes.',
+    'You write the title and summary of a staff meeting from summaries of its parts, in order. Return keys: title (at most 8 words, plain, says what the meeting was about, no trailing period) and summary (3 to 6 sentences: what was covered, what was decided, who is doing what next; name the specific projects and people). Leave out prayer requests, personal matters and getting the call working. Spell the names as the People line spells them. An owner written as two names joined by or stays that way. Say partners, never donors. Do not invent anything. No em dashes.',
     `Meeting title: ${m.title}\nPeople: ${who}\n\n${partSums}\n\nDecisions:\n${dec.map((d) => '- ' + d.text).join('\n') || 'none'}\n\nAction items:\n${act.map((a) => `- ${a.owner ? a.owner + ': ' : ''}${a.text}`).join('\n') || 'none'}`,
     700, CHAPTER_MODELS, { feature: 'meet-notes', voice: NOTE_VOICE, json: true }).catch(() => ({}) as { title?: unknown; summary?: unknown });
   const w = partnersWord;

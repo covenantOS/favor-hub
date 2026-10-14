@@ -207,3 +207,48 @@ describe('plain words', () => {
     assert.equal(drive.partnersWord('Invite first-time donors; a Donor card'), 'Invite first-time partners; a Partner card');
   });
 });
+
+describe('fixing who spoke', () => {
+  // The stand-in model gives the send item to whoever the transcript says spoke it.
+  const byLabel = ['pull out its notes', (u) => {
+    const m = /L(\d+) \[[^\]]+\] ([^:]+): I will send the banquet invitations/.exec(u);
+    return { summary: 'The team set the banquet for November 14.', decisions: [], actions: m ? [{ line: Number(m[1]), owner: m[2].includes(' or ') ? 'Ann or Cy' : m[2], text: 'Send the banquet invitations to the partner list', due: 'Friday', quote: 'I will send the banquet invitations by Friday' }] : [], topics: [{ line: 1, title: 'Banquet date' }] };
+  }];
+  it('a host moves a line to the right person and the notes, items and tasks follow; others are refused', async () => {
+    const ai = fakeAI([byLabel, head]);
+    const env = await world(ai);
+    finished(env, 11);
+    const tr = (await call(env, HOST, ['meetings', id(11), 'notes'])).body.transcript;
+    assert.equal(tr[1].who, 'Bob Sample');
+    assert.equal((await call(env, 'bob@favorintl.org', ['meetings', id(11), 'privacy'], { method: 'POST', body: { op: 'speaker', i0: 1, i1: 1, who: 'Ann Example' } })).status, 403);
+    assert.equal((await call(env, HOST, ['meetings', id(11), 'privacy'], { method: 'POST', body: { op: 'speaker', i0: 1, i1: 1, t0: 41, who: 'Ann Example' } })).status, 409, 'an older page changes nothing');
+    const r = await call(env, HOST, ['meetings', id(11), 'privacy'], { method: 'POST', body: { op: 'speaker', i0: 1, i1: 1, t0: 40, t1: 40, who: 'Ann Example' } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.rewritten, true);
+    const after = (await call(env, HOST, ['meetings', id(11), 'notes'])).body;
+    assert.equal(after.transcript[1].who, 'Ann Example');
+    assert.equal(after.transcript[1].fixed, true);
+    assert.equal(env.d1.db.prepare('SELECT who FROM hub_meeting_lines WHERE meeting_id = ? AND t = 40').get(id(11)).who, 'Ann Example');
+    assert.deepEqual(after.actions.map((a) => [a.owner_name, a.owner_email]), [['Ann Example', HOST]]);
+    assert.equal(env.d1.db.prepare('SELECT summary FROM hub_meetings WHERE id = ?').get(id(11)).summary, 'The team set the banquet for November 14, and Bob sends the invitations by Friday.');
+    const tasks = env.d1.db.prepare('SELECT id, status FROM hub_tasks WHERE meeting_id = ? ORDER BY id').all(id(11));
+    assert.deepEqual(tasks.filter((t) => t.id.startsWith('t11_')).map((t) => t.status), ['dropped', 'dropped'], 'the old items changed, so their tasks go');
+    assert.ok(env.d1.db.prepare(`SELECT body FROM chat_messages WHERE body LIKE 'Notes from %'`).get().body.length > 0);
+  });
+  it('a shared device reads as either person to the model, and an unclear owner gets no task owner', async () => {
+    const ai = fakeAI([byLabel, head]);
+    const env = await world(ai);
+    finished(env, 12);
+    const t0 = Date.parse('2026-10-09T15:00:00.000Z');
+    env.d1.prepare(`INSERT INTO hub_meeting_presence (meeting_id, pid, email, name, role, joined_at, seen, left_at) VALUES (?, 'bbbbbbbbbbbb', 'bob@favorintl.org', 'Bob Sample', 'staff', ?, ?, ?)`).bind(id(12), t0, t0, t0 + 240000).run();
+    env.d1.prepare(`INSERT INTO hub_meeting_presence (meeting_id, pid, email, name, role, joined_at, seen, left_at, with_pid) VALUES (?, 'cccccccccccc', 'guest:with-c', 'Cy Visitor', 'guest', ?, ?, ?, 'bbbbbbbbbbbb')`).bind(id(12), t0, t0, t0 + 240000).run();
+    // Fix an unrelated line, so the notes are read again with the shared device in place.
+    const r = await call(env, HOST, ['meetings', id(12), 'privacy'], { method: 'POST', body: { op: 'speaker', i0: 0, i1: 0, who: 'Ann Example' } });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const asked = ai.asked.filter((a) => a.sys.includes('pull out its notes')).at(-1);
+    assert.match(asked.user, /Bob Sample or Cy Visitor \(one device\): I will send/);
+    assert.match(asked.sys, /Never guess/);
+    const acts = env.d1.db.prepare('SELECT owner_name, owner_email FROM hub_meeting_actions WHERE meeting_id = ?').all(id(12));
+    assert.deepEqual(acts.map((a) => [a.owner_name, a.owner_email]), [['Ann or Cy', '']]);
+  });
+});

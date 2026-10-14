@@ -10,7 +10,7 @@
 // person working by hand in D1, Drive and the Brain index. These are the tools for that.
 import { HttpError, nowIso } from './http';
 import { getMeeting, isHost, type Meeting, type MeetEnv } from './meet';
-import { dedupeLines, makeNotes, removeDriveFile, type NotesOut } from './meetdrive';
+import { dedupeLines, makeNotes, removeDriveFile, type NotesOut, type Shared } from './meetdrive';
 import { MEETINGS_ID } from './chat/text';
 import { summaryBody } from './meetauto';
 
@@ -142,7 +142,7 @@ export function chatBody(title: string, summary: string, actions: Array<{ owner_
   return lines.join('\n').trim();
 }
 
-export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<string, unknown>, opts: { doc?: (m: Meeting) => Promise<void>; names?: string[] } = {}) {
+export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<string, unknown>, opts: { doc?: (m: Meeting) => Promise<void>; names?: string[]; shared?: Shared[] } = {}) {
   if (!mayEdit(m, user)) throw new HttpError(403, 'host_only', 'Only a host or an admin can cut part of the notes.');
   if (m.status !== 'ended') throw new HttpError(400, 'live', 'End the meeting first.');
   if (String(m.notes_status) === 'pending' || String(m.notes_status) === 'redo') throw new HttpError(409, 'busy', 'The notes are still being made. Try again in a minute.');
@@ -185,7 +185,7 @@ export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<st
   let summary = m.summary;
   let rewritten = false;
   try {
-    const fresh = kept.length ? await makeNotes(env, { ...m, transcript: JSON.stringify(dedupeLines(kept)) } as Meeting, opts.names || []) : null;
+    const fresh = kept.length ? await makeNotes(env, { ...m, transcript: JSON.stringify(dedupeLines(kept)) } as Meeting, opts.names || [], opts.shared || []) : null;
     if (fresh) {
       summary = fresh.summary || summary;
       kept2.decisions = fresh.decisions.length ? fresh.decisions : kept2.decisions;
@@ -218,6 +218,78 @@ export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<st
   // 6. The Google Doc: the old one is taken out of Drive and Favor Brain, and a new one is made from the notes as they are now.
   const doc = await redoDoc(env, user, await getMeeting(env, id), opts.doc);
   return { ok: true, ...detail, recording: rec ? 'deleted' : 'kept', doc };
+}
+
+// ---------------------------------------------------------------- fix who spoke
+
+const normText = (t: string) => t.toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/ +/g, ' ').trim();
+
+/**
+ * A host or hub admin says who really spoke a line or a stretch of lines. The lines take the name (and keep it: a fixed line is
+ * never relabelled as a shared device again), then the notes are written again from the whole transcript: summary, decisions,
+ * chapters and action items with their owners. A task made from an item that is still there, with the same owner, stays; a task
+ * whose item changed is dropped (a finished one only loses its link) and the new owners get new tasks. The Chat posts and the
+ * Google Doc follow, as after a cut.
+ *   { op: 'speaker', i0, i1, who }   i0 and i1 are the first and last line, as numbered in the notes page's transcript
+ *   t0 and t1 (the times of those lines) are checked, so a page showing an older transcript changes nothing.
+ */
+export async function fixSpeaker(env: PEnv, user: User, m: Meeting, b: Record<string, unknown>, opts: { doc?: (m: Meeting) => Promise<void>; names?: string[]; shared?: Shared[]; pick?: (who: string) => { name: string; email: string } | null; tasks?: (id: string) => Promise<unknown> } = {}) {
+  if (!mayEdit(m, user)) throw new HttpError(403, 'host_only', 'Only a host or an admin can change who spoke.');
+  if (m.status !== 'ended') throw new HttpError(400, 'live', 'End the meeting first.');
+  if (String(m.notes_status) === 'pending' || String(m.notes_status) === 'redo') throw new HttpError(409, 'busy', 'The notes are still being made. Try again in a minute.');
+  const who = String(b.who ?? '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  if (!who) throw new HttpError(400, 'who', 'Pick who was speaking.');
+  const lines = dedupeLines(safeJson<Line[]>(m.transcript, []));
+  const i0 = Math.round(Number(b.i0)), i1 = Math.round(Number(b.i1));
+  if (!Number.isInteger(i0) || !Number.isInteger(i1) || i0 < 0 || i1 < i0 || i1 >= lines.length) throw new HttpError(400, 'bad_range', 'Pick the lines again.');
+  if ((b.t0 !== undefined && Number(b.t0) !== lines[i0].t) || (b.t1 !== undefined && Number(b.t1) !== lines[i1].t)) throw new HttpError(409, 'stale', 'The transcript changed. Reload the page and pick the lines again.');
+  const id = m.id;
+  const was = [...new Set(lines.slice(i0, i1 + 1).map((l) => l.who || ''))];
+  const next = lines.map((l, i) => (i >= i0 && i <= i1 ? { ...l, who, fixed: true } : l));
+  const from = lines[i0].t, to = lines[i1].t;
+  await env.DB.batch([
+    env.DB.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').bind(JSON.stringify(next), id),
+    env.DB.prepare('UPDATE hub_meeting_lines SET who = ? WHERE meeting_id = ? AND t >= ? AND t <= ?').bind(who, id, from, to),
+  ]);
+
+  // The notes again, from the whole transcript.
+  const names = [...new Set([...(opts.names || []), who])];
+  const fresh = await makeNotes(env, { ...m, transcript: JSON.stringify(next) } as Meeting, names, opts.shared || []).catch((err) => { console.warn('[meet] speaker notes', id, err); return null; });
+  if (!fresh || !fresh.summary) {
+    await notice(env, id, { a: 'speaker', who, from, to, rewritten: false });
+    return { ok: true, lines: i1 - i0 + 1, rewritten: false };
+  }
+  const notes = { decisions: fresh.decisions, actions: fresh.actions, chapters: fresh.chapters };
+  await env.DB.prepare('UPDATE hub_meetings SET summary = ?, notes_json = ? WHERE id = ?').bind(fresh.summary, JSON.stringify(notes), id).run();
+
+  // Action items, with a done mark kept where the same item is still there.
+  const old = (await env.DB.prepare('SELECT idx, text, owner_email, done FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).all<{ idx: number; text: string; owner_email: string; done: number }>()).results || [];
+  const rows = fresh.actions.map((a, idx) => { const o = opts.pick ? opts.pick(a.owner) : null; return { idx, text: a.text, owner_name: o ? o.name : a.owner, owner_email: o ? o.email.toLowerCase() : '', due: a.due, t: a.t }; });
+  const same = (o: { text: string; owner_email: string }) => rows.find((r) => normText(r.text) === normText(o.text) && r.owner_email === (o.owner_email || '').toLowerCase());
+  await env.DB.prepare('DELETE FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).run();
+  if (rows.length) await env.DB.batch(rows.map((r) => { const o = old.find((x) => same(x) === r); return env.DB.prepare('INSERT INTO hub_meeting_actions (meeting_id, idx, text, owner_name, owner_email, due, t, done) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, r.idx, r.text, r.owner_name, r.owner_email, r.due, r.t, o ? o.done : 0); }));
+
+  // Tasks made from the old items.
+  let dropped = 0, kept = 0;
+  const tasks = (await env.DB.prepare(`SELECT id, status, meeting_action_idx FROM hub_tasks WHERE meeting_id = ? AND status <> 'dropped' AND meeting_action_idx IS NOT NULL`).bind(id).all<{ id: string; status: string; meeting_action_idx: number }>().catch(() => ({ results: [] as Array<{ id: string; status: string; meeting_action_idx: number }> }))).results || [];
+  const stmts: D1PreparedStatement[] = [];
+  for (const t of tasks) {
+    const o = old.find((x) => x.idx === t.meeting_action_idx);
+    const r = o ? same(o) : undefined;
+    if (r) { kept++; stmts.push(env.DB.prepare('UPDATE hub_tasks SET meeting_action_idx = ?, updated_at = ? WHERE id = ?').bind(r.idx, nowIso(), t.id)); }
+    else if (t.status === 'done') stmts.push(env.DB.prepare('UPDATE hub_tasks SET meeting_action_idx = NULL, updated_at = ? WHERE id = ?').bind(nowIso(), t.id));
+    else { dropped++; stmts.push(env.DB.prepare(`UPDATE hub_tasks SET status = 'dropped', updated_at = ? WHERE id = ?`).bind(nowIso(), t.id)); }
+  }
+  if (stmts.length) await env.DB.batch(stmts);
+  const made = opts.tasks ? Number(await opts.tasks(id).catch(() => 0)) || 0 : 0;
+
+  // The Chat posts and the Google Doc.
+  const left = (await env.DB.prepare('SELECT text, owner_name, owner_email, due FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all<{ text: string; owner_name: string; owner_email: string; due: string }>()).results || [];
+  await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes are ready%'`).bind(chatBody(m.title, fresh.summary, left), nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
+  await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes from %'`).bind(summaryBody({ ...m, summary: fresh.summary }, notes, left), nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
+  await notice(env, id, { a: 'speaker', who, was, from, to, by: user.email.toLowerCase(), rewritten: true });
+  const doc = await redoDoc(env, user, await getMeeting(env, id), opts.doc);
+  return { ok: true, lines: i1 - i0 + 1, rewritten: true, actions: rows.length, tasks: { kept, dropped, made }, doc };
 }
 
 // ---------------------------------------------------------------- what the notes page shows

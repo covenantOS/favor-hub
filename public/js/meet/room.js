@@ -4,7 +4,7 @@ import { $, $$, esc, ic, av, hashColor, initials, toast, api, copy, roomLink, wh
 import { Rtc, linkLevel } from './rtc.js';
 import { Recorder, confirmStopRecording } from './rec.js';
 import { loadPrefs, savePrefs, acquire, acquireBoth, trackDevice } from './devices.js';
-import { VoiceFx, CamFx, BACKGROUNDS } from './effects.js';
+import { VoiceFx, CamFx, BACKGROUNDS, FaceCount, lowEnd } from './effects.js';
 
 const params = new URLSearchParams(location.search);
 // ?audio=1: an audio-only call for a weak or expensive connection. No camera is asked for or sent, and no one's video or screen share is pulled.
@@ -38,6 +38,7 @@ const S = {
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: !AUDIO_ONLY }, removed: false, level: 'good', speakers: new Map(),
   ah: new Map(), soundBlocked: false, micIssue: '', noConnect: 0,
   inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, live: [], liveSig: '', liveKind: 'action', liveText: '', layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
+  myWith: [], withPick: null, faceAsk: { off: false, until: 0, streak: 0 },
 };
 let rtc = null, local = { mic: null, cam: null, screen: null, screenAudio: null }, joinInfo = null, syncTimer = null, statTimer = null, reconcileTimer = null, levelTimer = null, rejoining = false, silentSince = 0, wantRid = new Map();
 let recorder = null, barTimer = null, capTimer = null;
@@ -420,7 +421,7 @@ function buildRoom() {
   if (!GUEST && S.me.role !== 'guest') maybeStartRecording();
 }
 
-const mePerson = () => ({ joinedAt: (S.people.find((p) => p.pid === S.me.pid) || {}).joinedAt || S.joinedAt || 0, pid: S.me.pid, name: S.me.name, role: S.me.role, mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, speaking: S.lvl > 12 && S.mic, me: true });
+const mePerson = () => ({ joinedAt: (S.people.find((p) => p.pid === S.me.pid) || {}).joinedAt || S.joinedAt || 0, pid: S.me.pid, name: S.me.name, role: S.me.role, mic: S.mic, cam: S.cam && !!local.cam, hand: S.hand, sharing: S.sharing, speaking: S.lvl > 12 && S.mic, me: true, with: S.myWith });
 const hostish = () => S.me.role === 'host' || S.me.role === 'cohost';
 const others = () => S.people.filter((p) => p.pid !== S.me.pid && !p.waiting);
 const nameOf = (pid) => (pid === S.me.pid ? S.me.name : (S.people.find((p) => p.pid === pid) || {}).name || 'Someone');
@@ -563,7 +564,7 @@ async function paintDevSheet() {
   const html = `${AUDIO_ONLY ? '' : `<div class="rd-s"><label for="rd-cam">Camera</label>${sel('rd-cam', 'cam', cams, curCam, 'Camera')}</div>`}
     <div class="rd-s"><label for="rd-mic">Microphone</label>${sel('rd-mic', 'mic', mics, curMic, 'Microphone')}<div class="rd-meter" aria-hidden="true"><i id="rd-lvl"></i></div></div>
     <div class="rd-s"><label for="rd-spk">Speaker</label><div class="rd-row">${canSink && spks.length ? sel('rd-spk', 'spk', spks, spkCur, 'Speaker') : '<span class="rd-sys">System speaker</span>'}<button class="h-btn h-btn--ghost h-btn--sm" data-a="dev-test">${ic('play')}Test</button></div></div>
-    ${AUDIO_ONLY ? '' : `<div class="rd-s"><span class="rd-lab">Background</span><div class="rd-bgs" role="group" aria-label="Background">${bgChips()}</div><label class="rd-tg"><span>Brighten a dark room</span><input type="checkbox" role="switch" data-pref="light" ${P.light ? 'checked' : ''} /></label></div>`}
+    ${AUDIO_ONLY ? '' : `<div class="rd-s"><span class="rd-lab">Background</span><div class="rd-bgs" role="group" aria-label="Background">${bgChips()}</div><label class="rd-tg"><span>Brighten a dark room</span><input type="checkbox" role="switch" data-pref="light" ${P.light ? 'checked' : ''} /></label><label class="rd-tg"><span>Ask who is with me when the camera sees two faces</span><input type="checkbox" role="switch" data-pref="faces" ${P.faces !== false ? 'checked' : ''} /></label></div>`}
     <div class="rd-s rd-tgs"><label class="rd-tg"><span>Voice clarity</span><input type="checkbox" role="switch" data-pref="voice" ${P.voice !== false ? 'checked' : ''} /></label><label class="rd-tg"><span>Strong noise reduction</span><input type="checkbox" role="switch" data-pref="gate" ${P.gate ? 'checked' : ''} ${P.voice === false ? 'disabled' : ''} /></label><label class="rd-tg"><span>Noise suppression</span><input type="checkbox" role="switch" data-pref="ns" ${P.ns !== false ? 'checked' : ''} /></label><label class="rd-tg"><span>Echo cancellation</span><input type="checkbox" role="switch" data-pref="ec" ${P.ec !== false ? 'checked' : ''} /></label></div>`;
   if (box.dataset.h !== html) {
     const ae = document.activeElement, keep = ae && box.contains(ae) ? ae.id || (ae.dataset && ae.dataset.pref) : '';
@@ -580,6 +581,7 @@ async function onDevChange(e) {
     remember({ [t.dataset.pref]: t.checked });
     // Noise suppression and echo cancellation are set when the microphone opens: open it again on the same device.
     if (t.dataset.pref === 'light') { await reapplyCam(); return; }
+    if (t.dataset.pref === 'faces') { S.faceAsk.streak = 0; return; }
     if (t.dataset.pref === 'voice' || t.dataset.pref === 'gate') { if (local.micRaw) { const out = await setMic(local.micRaw); if (rtc && out) await rtc.replace('a', out); } paintDevSheet(); return; }
     if (local.micRaw) await switchDevice('mic', trackDevice(local.micRaw) || P.micId);
   }
@@ -793,7 +795,7 @@ function paintGrid() {
     pin.hidden = share || !!p.me;
     pin.innerHTML = ic('pin'); pin.setAttribute('aria-label', hostish() ? 'Spotlight for everyone' : 'Pin');
     t.el.querySelector('.mi').innerHTML = share ? ic('screen') : p.mic ? '' : `<span class="off">${ic('micOff')}</span>`;
-    t.el.querySelector('.nt').textContent = share ? `${p.me ? 'You are' : p.name + ' is'} presenting` : p.me ? `You${p.role === 'host' ? ' (host)' : ''}` : p.name;
+    t.el.querySelector('.nt').textContent = share ? `${p.me ? 'You are' : p.name + ' is'} presenting` : p.me ? 'You' + paren([p.role === 'host' ? 'host' : '', withWords(p.with)]) : p.name + paren([withWords(p.with)]);
   });
   paintPager();
   if (flip) {
@@ -940,6 +942,7 @@ async function paintMore() {
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
     mayPlay() ? row('playclip', 'screen', 'Play a video for everyone', S.play ? 'On' : '') : '',
     h ? row('private', 'lock', S.private ? 'End private moment' : 'Private moment', S.private ? 'On' : '') : '',
+    row('withme', 'users', "Someone's with me", S.myWith.length ? String(S.myWith.length) : ''),
     row('devmenu', 'gear', 'Camera, microphone and speaker', ''),
   ].join('');
   wrap.innerHTML = `<div class="mr-scrim" data-a="more-close"></div><div class="mr-sheet" id="rm-more" role="dialog" aria-label="More"><div class="rm-grab" aria-hidden="true"></div><div class="mr-emo">${EMOJI.map((e) => `<button data-a="emoji" data-e="${e}" aria-label="React ${e}">${e}</button>`).join('')}</div><div class="mr-list">${rows}</div></div>`;
@@ -1055,11 +1058,96 @@ function paintSideBody(full) {
     paintFoot();
     body.innerHTML = `${wait.map((p) => `<div class="wait"><b>Waiting to join</b><div class="pp" style="padding:0">${av(p.name)}<div><b>${esc(p.name)}</b><span>Guest</span></div><div class="ctl"><button class="h-btn h-btn--primary h-btn--sm" data-a="cmd" data-c="letin" data-pid="${p.pid}">Let in</button></div></div></div>`).join('')}
       ${h ? `<div class="hostbar"><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="muteall">${ic('micOff')}Mute everyone</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="${S.locked ? 'unlock' : 'lock'}">${ic('lock')}${S.locked ? 'Unlock room' : 'Lock room'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="sharepolicy">${ic('screen')}${S.sharePolicy === 'hosts' ? 'Anyone can share' : 'Only hosts share'}</button></div>` : ''}
-      <div class="h-label">In the meeting, ${all.length}</div>
-      ${all.map((p) => `<div class="pp${handNo(p.pid) ? ' is-hand' : ''}" style="position:relative">${av(p.name)}<div><b>${esc(p.name)}${p.me ? ' (you)' : ''}</b><span>${p.role === 'host' || p.role === 'cohost' ? 'Host' + (p.title || p.team ? ' · ' : '') : ''}${p.role === 'guest' ? 'Guest' : esc(p.title || p.team || (p.role === 'host' || p.role === 'cohost' ? '' : 'Staff'))}${p.sharing ? ' · sharing' : ''}${!p.me && soundState(p.pid) === 'nosound' ? ' · <b class="pp-warn">no sound arriving</b>' : ''}</span></div>
+      <div class="rm-pphead"><div class="h-label">In the meeting, ${all.length + all.reduce((n, p) => n + (p.with || []).length, 0)}</div><button class="h-btn h-btn--ghost h-btn--sm" data-a="withme">${ic('users')}Someone's with me</button></div>
+      ${all.map((p) => `<div class="pp${handNo(p.pid) ? ' is-hand' : ''}" style="position:relative">${av(p.name)}<div><b>${esc(p.name + paren([p.me ? 'you' : '', withWords(p.with)]))}</b>${p.me && S.myWith.length ? `<span class="pp-with">${S.myWith.map((w) => `<button class="pp-chip" data-a="with-remove" data-pid="${esc(w.pid)}" aria-label="Take ${esc(w.name)} off this device">${esc(w.name)}${ic('x')}</button>`).join('')}</span>` : ''}<span>${p.role === 'host' || p.role === 'cohost' ? 'Host' + (p.title || p.team ? ' · ' : '') : ''}${p.role === 'guest' ? 'Guest' : esc(p.title || p.team || (p.role === 'host' || p.role === 'cohost' ? '' : 'Staff'))}${p.sharing ? ' · sharing' : ''}${!p.me && soundState(p.pid) === 'nosound' ? ' · <b class="pp-warn">no sound arriving</b>' : ''}</span></div>
         <div class="ctl">${handNo(p.pid) ? `<span class="pp-hand">${ic('hand')}${handNo(p.pid)}</span>${h && !p.me ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">Lower</button>` : ''}` : ''}<span class="icon-b ${p.mic ? 'is-on' : 'is-off'}" title="${p.mic ? 'Mic on' : 'Muted'}">${ic(p.mic ? 'mic' : 'micOff')}</span>${h && !p.me ? `<button class="icon-b" data-a="pmenu" data-pid="${p.pid}" aria-label="Host controls for ${esc(p.name)}" aria-haspopup="menu" aria-expanded="${S.menu === p.pid}">${ic('more')}</button>` : ''}</div>
         ${S.menu === p.pid ? `<div class="menu" role="menu"><button role="menuitem" data-a="cmd" data-c="mute" data-pid="${p.pid}">${ic('micOff')}Mute</button><button role="menuitem" data-a="cmd" data-c="${S.spot === p.pid ? 'unspot' : 'spot'}" data-pid="${p.pid}">${ic('pin')}${S.spot === p.pid ? 'End spotlight' : 'Spotlight for everyone'}</button><button role="menuitem" data-a="cmd" data-c="camoff" data-pid="${p.pid}">${ic('videoOff')}Turn camera off</button>${p.hand ? `<button role="menuitem" data-a="cmd" data-c="lowerhand" data-pid="${p.pid}">${ic('hand')}Lower hand</button>` : ''}<button role="menuitem" data-a="cmd" data-c="allowshare" data-v="${p.canShare === false ? 'true' : 'false'}" data-pid="${p.pid}">${ic('screen')}${p.canShare === false ? 'Allow screen sharing' : 'Block screen sharing'}</button>${p.role === 'cohost' ? `<button role="menuitem" data-a="cmd" data-c="unhost" data-pid="${p.pid}">${ic('users')}Remove host rights</button>` : `<button role="menuitem" data-a="cmd" data-c="makehost" data-pid="${p.pid}">${ic('users')}Make a host</button>`}<button role="menuitem" class="danger" data-a="cmd" data-c="remove" data-pid="${p.pid}">${ic('remove')}Remove from meeting</button></div>` : ''}</div>`).join('')}`;
   }
+}
+
+// ---------------------------------------------------------------- someone's with me
+// People sharing this device. Each counts as present (the server gives them a presence row tied to this pid), shows on this
+// device's tile and in People as "Ann Example (with Bob)", and the notes read this device's voice as any of them.
+const firstName = (n) => String(n || '').trim().split(/\s+/)[0];
+const andList = (xs) => (xs.length < 2 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]);
+function withWords(list) { return list && list.length ? 'with ' + andList(list.map((w) => firstName(w.name))) : ''; }
+const paren = (xs) => { const v = xs.filter(Boolean); return v.length ? ' (' + v.join(', ') + ')' : ''; };
+// Choices: the invitees who are not here, then the staff list, matched on every word typed. Nobody already in the room.
+function withChoices(q) {
+  const here = new Set([S.me.name, ...S.people.map((p) => p.name), ...S.people.flatMap((p) => (p.with || []).map((w) => w.name)), ...S.myWith.map((w) => w.name)].map((n) => String(n).toLowerCase()));
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hit = (p) => !here.has(String(p.name).toLowerCase()) && words.every((w) => (p.name + ' ' + (p.email || '')).toLowerCase().includes(w));
+  const inv = ((S.meeting && S.meeting.invitees) || []).filter((i) => i.name && !String(i.email || '').startsWith('guest:')).map((i) => ({ name: i.name, email: i.email || '', invited: true }));
+  const out = [], seen = new Set();
+  for (const p of [...inv, ...(words.length ? S.inv.dir || [] : [])]) { const k = String(p.name).toLowerCase(); if (!seen.has(k) && hit(p)) { seen.add(k); out.push(p); } }
+  return out.slice(0, 6);
+}
+function openWith(mode) {
+  if (!GUEST) loadDirectory().then(() => { if (S.withPick) paintWithList(); });
+  S.withPick = { mode, q: '', busy: false };
+  let wrap = $('#rm-with-wrap');
+  if (!wrap) { wrap = document.createElement('div'); wrap.id = 'rm-with-wrap'; ($('#rm') || document.body).appendChild(wrap); wrap.addEventListener('input', (e) => { if (e.target.id === 'within' && S.withPick) { S.withPick.q = e.target.value; paintWithList(); } }); }
+  paintWith();
+  const i = $('#within'); if (i) i.focus({ preventScroll: true });
+}
+function paintWith() {
+  const wrap = $('#rm-with-wrap'); if (!wrap || !S.withPick) return;
+  const prompt = S.withPick.mode === 'prompt';
+  const title = prompt ? "Looks like someone's with you. Who's there?" : "Who's with you?";
+  const keepQ = S.withPick.q;
+  wrap.innerHTML = `<div class="rd-scrim" data-a="with-close"></div><section class="rd rw" role="dialog" aria-modal="true" aria-labelledby="rw-t" tabindex="-1">
+    <div class="rm-grab" aria-hidden="true"></div>
+    <header class="rd-h"><h2 id="rw-t">${title}</h2><button class="icon-b" data-a="with-close" aria-label="Close">${ic('x')}</button></header>
+    <div class="rw-b"><p class="rw-sub">They count as here, and the notes know this device's voice may be any of you.</p>
+      <div class="rw-cur" id="rw-cur"></div>
+      <div class="rm-input rw-in"><input id="within" placeholder="${GUEST ? 'Type a name' : 'Name of someone invited, on staff, or a guest'}" maxlength="80" autocomplete="off" enterkeyhint="done" /></div>
+      <div class="rw-list" id="rw-list" role="list"></div></div>
+    <footer class="rd-foot rw-foot">${prompt ? `<button class="h-btn h-btn--ghost" data-a="with-never">Don't ask again this meeting</button><button class="h-btn h-btn--ghost" data-a="with-justme">Just me</button>` : ''}<button class="h-btn h-btn--primary" data-a="with-close">Done</button></footer></section>`;
+  const i = $('#within'); if (i) i.value = keepQ;
+  paintWithList();
+}
+function paintWithList() {
+  const cur = $('#rw-cur'), list = $('#rw-list'); if (!cur || !list || !S.withPick) return;
+  cur.innerHTML = S.myWith.length ? `<span class="rw-lab">On this device with you</span>${S.myWith.map((w) => `<button class="pp-chip" data-a="with-remove" data-pid="${esc(w.pid)}" aria-label="Take ${esc(w.name)} off this device">${esc(w.name)}${ic('x')}</button>`).join('')}` : '';
+  const q = S.withPick.q.trim();
+  const hits = withChoices(q);
+  const exact = hits.some((h) => h.name.toLowerCase() === q.toLowerCase());
+  list.innerHTML = hits.map((p) => `<button class="rw-r" role="listitem" data-a="with-pick" data-name="${esc(p.name)}" data-email="${esc(p.email || '')}" ${S.withPick.busy ? 'disabled' : ''}>${av(p.name)}<span><b>${esc(p.name)}</b><i>${p.invited ? 'Invited' : 'Staff'}</i></span>${ic('plus')}</button>`).join('')
+    + (q && !exact ? `<button class="rw-r" role="listitem" data-a="with-typed" ${S.withPick.busy ? 'disabled' : ''}>${av(q)}<span><b>Add ${esc(q)}</b><i>Guest</i></span>${ic('plus')}</button>` : '')
+    + (!hits.length && !q ? `<p class="mt-sub" style="margin:4px 0 0">Type a name.</p>` : '');
+}
+function closeWith() { if (!S.withPick) return; S.withPick = null; const w = $('#rm-with-wrap'); if (w) w.remove(); }
+async function withCall(body) {
+  const r = await api('meetings/' + MID + '/with', { method: 'POST', body: { pid: S.me.pid, ...body } });
+  S.myWith = r.with || [];
+  paintGrid(); if (S.panel === 'people') paintSideBody(false); if (S.more) paintMore();
+}
+async function addWith(p) {
+  const name = String(p.name || '').trim();
+  if (!name || !S.withPick || S.withPick.busy) return;
+  S.withPick.busy = true; paintWithList();
+  try { await withCall({ op: 'add', name, email: p.email || '' }); if (S.withPick) { S.withPick.q = ''; const i = $('#within'); if (i) { i.value = ''; i.focus({ preventScroll: true }); } } }
+  catch (e) { toast(e.message); }
+  if (S.withPick) { S.withPick.busy = false; paintWithList(); }
+}
+async function removeWith(pid) { try { await withCall({ op: 'remove', who: pid }); if (S.withPick) paintWithList(); } catch (e) { toast(e.message); } }
+
+// The face count: every 30 seconds this browser counts the faces its own camera sees (effects.js, on this device, frames never
+// sent). Two looks in a row with two or more faces, on a device with nobody added, ask who is there. A setting, on by default.
+const FACE_MS = Math.max(2000, Number(localStorage.getItem('meet.faceMs')) || 30_000);
+const faces = new FaceCount();
+let faceTimer = null, faceBusy = false;
+async function faceTick() {
+  const F = S.faceAsk;
+  if (P.faces === false || AUDIO_ONLY || S.left || F.off || S.withPick || S.myWith.length || !S.cam || !local.camRaw || document.hidden || lowEnd()) { F.streak = 0; window.__meetFaces = null; return; }
+  if (Date.now() < F.until || faceBusy) return;
+  faceBusy = true;
+  let n = -1;
+  try { n = await faces.count(local.camRaw); } catch { n = -1; }
+  faceBusy = false;
+  window.__meetFaces = n;
+  F.streak = n >= 2 ? F.streak + 1 : 0;
+  if (F.streak >= 2 && !S.withPick && !S.myWith.length && !S.left) { F.streak = 0; diag('faces-ask'); openWith('prompt'); }
 }
 
 // ---------------------------------------------------------------- actions
@@ -1089,6 +1177,13 @@ function onDocClick(e) {
     case 'panel': S.more = false; S.moreDev = false; S.panel = S.panel === a.dataset.p && isPhone() ? '' : a.dataset.p; if (S.panel === 'chat') { S.unread = 0; S.mentioned = false; } paintCtl(); paintSide(); paintMore(); break;
     case 'more': S.more = !S.more; S.moreDev = false; if (S.more && S.panel && sheetMode()) { S.panel = ''; paintSide(); } paintCtl(); paintMore(); break;
     case 'devmenu': openDevSheet(a.dataset.p || ''); return;
+    case 'withme': closeMore(); openWith('add'); return;
+    case 'with-pick': addWith({ name: a.dataset.name, email: a.dataset.email || '' }); return;
+    case 'with-typed': addWith({ name: (S.withPick && S.withPick.q) || '' }); return;
+    case 'with-remove': removeWith(a.dataset.pid); return;
+    case 'with-close': closeWith(); return;
+    case 'with-justme': S.faceAsk.until = Date.now() + 10 * 60_000; closeWith(); return;
+    case 'with-never': S.faceAsk.off = true; closeWith(); return;
     case 'sound-on': soundOn(); return;
     case 'mic-help': confirmCard({ title: 'Allow the microphone', body: permHelp({ name: 'NotAllowedError' }), ok: 'OK' }); return;
     case 'dev-close': closeDevSheet(); return;
@@ -1131,6 +1226,7 @@ function onDocClick(e) {
 function onKey(e) {
   if (document.querySelector('.cf')) return;
   if (e.key === 'Escape') {
+    if (S.withPick) { closeWith(); e.preventDefault(); return; }
     if (devOpen) { closeDevSheet(); e.preventDefault(); return; }
     if (S.more) { closeMore(); const o = $('#rm-ctl [data-a="more"]'); o && o.focus(); e.preventDefault(); return; }
     if (S.pop) { const p = S.pop; S.pop = ''; paintTools(); paintPop(); const o = $('[data-a="pop"][data-p="' + p + '"]'); o && o.focus(); e.preventDefault(); return; }
@@ -1143,6 +1239,7 @@ function onKey(e) {
     return;
   }
   if (e.target.id === 'invin' && e.key === 'Enter') { e.preventDefault(); sendInvite(); return; }
+  if (e.target.id === 'within' && e.key === 'Enter') { e.preventDefault(); const q = e.target.value.trim(); const hit = withChoices(q)[0]; if (hit && hit.name.toLowerCase() === q.toLowerCase()) addWith(hit); else addWith({ name: q }); return; }
   if (e.target.id === 'chatin' && atKey(e)) return;
   if (e.target.id === 'chatin' && e.key === 'Enter') { e.preventDefault(); sendChat(); return; }
   if (e.target.id === 'livein' && e.key === 'Enter') { e.preventDefault(); addLive(); return; }
@@ -1357,7 +1454,7 @@ async function leaveRoom(msg) {
 }
 
 // ---------------------------------------------------------------- loops
-function clearIntervals() { [syncTimer, statTimer, reconcileTimer, levelTimer, barTimer].forEach((t) => t && clearInterval(t)); }
+function clearIntervals() { [syncTimer, statTimer, reconcileTimer, levelTimer, barTimer, faceTimer].forEach((t) => t && clearInterval(t)); faces.stop(); closeWith(); }
 function startLoops() {
   // One sync per person every two seconds (three above 15 people, four in a hidden tab) so a big room stays light on the database.
   const tick = async () => { if (!S.away) await syncNow(); if (!S.left) syncTimer = setTimeout(tick, document.hidden ? 4000 : S.people.length > 15 ? 3000 : 2000); };
@@ -1365,6 +1462,7 @@ function startLoops() {
   statTimer = setInterval(onStats, 1500);
   levelTimer = setInterval(measureLevel, 250);
   barTimer = setInterval(paintBar, 1000);
+  faceTimer = setInterval(faceTick, FACE_MS);
 }
 
 let syncing = false;
@@ -1386,6 +1484,7 @@ async function syncNow() {
 function applySync(r) {
   if (r.now) S.skew = r.now - Date.now();
   S.people = r.people; S.me.role = r.role;
+  { const mine = r.people.find((p) => p.pid === S.me.pid); if (mine && Array.isArray(mine.with) && JSON.stringify(mine.with) !== JSON.stringify(S.myWith)) { S.myWith = mine.with; if (S.withPick) paintWith(); if (S.more) paintMore(); } }
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
   if (!!r.meeting.private !== !!S.private) { S.private = !!r.meeting.private; paintPriv(); if (S.more) paintMore(); paintFoot(); }
@@ -1462,6 +1561,7 @@ function handleEvent(e) {
     else if (b.a === 'rec-stop') toast('Recording stopped');
     else if (b.a === 'rec-takeover') toast(b.name + ' took over the recording');
     else if (b.a === 'joined' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' joined');
+    else if (b.a === 'with' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' is with ' + b.host);
     else if (b.a === 'acting' && b.pid === S.me.pid) toast('You are now a host because no host is in the room');
     else if (b.a === 'private-on') { S.private = true; paintPriv(); toast('Private moment. Nothing is recorded or written down.'); }
     else if (b.a === 'private-off') { S.private = false; paintPriv(); toast('Notes and recording are back on'); }

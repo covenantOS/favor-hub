@@ -11,6 +11,8 @@ const pt = { busy: '', find: '', hits: [], err: '' };
 // Privacy: remove part of a finished meeting, or delete its recording (host or admin).
 const pv = { open: false, from: '', to: '', delRec: true, busy: false, err: '' };
 const secs = (v) => { const p = String(v || '').trim().split(':').map((x) => Number(x)); if (!p.length || p.some((x) => !Number.isFinite(x) || x < 0)) return NaN; return p.reduce((a, x) => a * 60 + x, 0); };
+// Fix who spoke (host or admin): pick a line, or a first and last line, then the person. The notes are written again.
+const sp = { open: false, a: -1, b: -1, who: '', busy: false, err: '' };
 const span = (from, to) => `${stamp(from)} to ${to == null ? 'the end' : stamp(to)}`;
 
 // ---- the recording player. One media element per file, kept between redraws so typing in the search box never stops playback.
@@ -167,13 +169,52 @@ async function privacyClick(b) {
   }
 }
 
+// The names offered: everyone who was there, the names already in the transcript, and the action item owners.
+function speakerNames() {
+  const out = new Map();
+  const add = (n) => { const v = String(n || '').trim(); if (v && !/ or /.test(v) && !out.has(v.toLowerCase())) out.set(v.toLowerCase(), v); };
+  (data.people || []).forEach((p) => add(p.name)); (data.transcript || []).forEach((l) => add(l.who)); (data.actions || []).forEach((a) => add(a.owner_name));
+  return [...out.values()].sort((a, b) => a.localeCompare(b));
+}
+function speakerBar() {
+  const tr = data.transcript || [];
+  const has = sp.a >= 0;
+  const i0 = Math.min(sp.a, sp.b), i1 = Math.max(sp.a, sp.b);
+  const what = !has ? 'Tap the line that has the wrong name. Tap a second line to take every line between them.' : i0 === i1 ? `One line at ${stamp(tr[i0].t)}${tr[i0].who ? ', now ' + esc(tr[i0].who) : ''}.` : `${i1 - i0 + 1} lines, ${stamp(tr[i0].t)} to ${stamp(tr[i1].t)}.`;
+  return `<div class="sp-bar" id="sp-bar"><p>${what}</p>
+    ${has ? `<label class="sp-who"><span>Who was speaking</span><input id="sp-who" list="sp-names" autocomplete="off" maxlength="80" placeholder="Type or pick a name" value="${esc(sp.who)}" /></label><datalist id="sp-names">${speakerNames().map((n) => `<option value="${esc(n)}"></option>`).join('')}</datalist>` : ''}
+    ${sp.err ? `<p class="mt-sub pv-warn">${esc(sp.err)}</p>` : ''}
+    <div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-sp="cancel" ${sp.busy ? 'disabled' : ''}>Cancel</button>${has ? `<button class="h-btn h-btn--primary h-btn--sm" data-sp="save" ${sp.busy ? 'disabled' : ''}>${sp.busy ? 'Writing the notes again' : 'Change the speaker'}</button>` : ''}</div>
+    ${has ? '<p class="mt-sub" style="margin:0">The summary, action items and their tasks are written again with the right names.</p>' : ''}</div>`;
+}
+async function speakerClick(act) {
+  if (act === 'open') { Object.assign(sp, { open: true, a: -1, b: -1, who: '', err: '' }); draw(); const b = $('#sp-bar'); if (b) b.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+  if (act === 'cancel') { sp.open = false; draw(); return; }
+  if (act !== 'save' || sp.busy) return;
+  sp.who = (($('#sp-who') || {}).value || sp.who).trim();
+  if (!sp.who) { sp.err = 'Type or pick who was speaking.'; draw(); return; }
+  const tr = data.transcript || [];
+  const i0 = Math.min(sp.a, sp.b), i1 = Math.max(sp.a, sp.b);
+  sp.busy = true; sp.err = ''; draw();
+  try {
+    const r = await api('meetings/' + MID + '/privacy', { method: 'POST', body: { op: 'speaker', i0, i1, t0: tr[i0].t, t1: tr[i1].t, who: sp.who } });
+    data = await api('meetings/' + MID + '/notes');
+    sp.open = false;
+    toast(r.rewritten ? 'Speaker changed. The notes were written again.' : 'Speaker changed. The notes could not be written again yet.');
+  } catch (e) { sp.err = e.message; }
+  sp.busy = false; draw();
+}
+
 function draw() {
   const m = data.meeting; const n = data.notes || {};
   document.title = m.title + ' - FavorOS';
   const crumb = document.querySelector('.h-top__crumb'); if (crumb) crumb.textContent = m.title;
   const keepFocus = document.activeElement && document.activeElement.id;
   const marks = q ? [] : [...((data.privacy || {}).paused || []).map((r) => ({ t: r.from, mark: `Private moment, not recorded (${span(r.from, r.to)})` })), ...((data.privacy || {}).cuts || []).filter((c) => c.kind === 'cut').map((c) => ({ t: c.from, mark: `Part removed (${span(c.from, c.to)})` }))];
-  const lines = [...(data.transcript || []).filter((l) => !q || ((l.who || '') + ' ' + l.text).toLowerCase().includes(q.toLowerCase())), ...marks].sort((a, b) => a.t - b.t || (a.mark ? -1 : 1));
+  const qq = sp.open ? '' : q;
+  const lines = [...(data.transcript || []).map((l, i) => ({ ...l, i })).filter((l) => !qq || ((l.who || '') + ' ' + l.text).toLowerCase().includes(qq.toLowerCase())), ...(sp.open ? [] : marks)].sort((a, b) => a.t - b.t || (a.mark ? -1 : 1) || (a.i || 0) - (b.i || 0));
+  const canFix = !!(data.privacy && data.privacy.canEdit) && (data.transcript || []).length > 0;
+  const sel = (i) => sp.open && sp.a >= 0 && i >= Math.min(sp.a, sp.b) && i <= Math.max(sp.a, sp.b);
   const pending = m.notesStatus === 'pending' || m.recState === 'uploading' || m.status === 'live';
   const failed = m.notesStatus === 'failed';
   const ppl = data.people || [];
@@ -189,8 +230,8 @@ function draw() {
       <section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Summary</div>${!m.summary && pending && m.status !== 'live' ? `<p class="nt-sum nt-wait" role="status"><span class="nt-spin" aria-hidden="true"></span>Writing the summary</p>` : `<p class="nt-sum">${esc(m.summary || (pending ? 'The meeting is still going.' : failed ? 'No summary yet.' : 'No summary.'))}</p>`}</section>
       ${(n.decisions || []).length ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Decisions</div><ul class="nt-list">${n.decisions.map((d) => `<li><span class="b">${ic('check')}</span><span>${esc(d.text)} ${ts(d.t)}</span></li>`).join('')}</ul></section>` : ''}
       ${(data.actions || []).length ? `<section class="h-card mt-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px"><div class="h-label">Action items</div><span class="mt-sub">${data.actions.filter((a) => a.done).length} of ${data.actions.length} done</span></div>${data.actions.map((a) => `<label class="act${a.done ? ' is-done' : ''}"><input type="checkbox" data-idx="${a.idx}" ${a.done ? 'checked' : ''} /><div><b>${esc(a.text)}</b><span>${String(a.owner_name || '').trim() ? `<span data-entity="person:${esc(String(a.owner_name).trim())}" data-label="${esc(String(a.owner_name).trim())}">${esc(String(a.owner_name).trim())}</span>` : 'No owner named'}${a.due ? ' · due ' + esc(a.due) : ''}${a.t ? ' · ' + ts(a.t) : ''}</span></div><span class="mt-pill ${a.done ? 'mt-pill--ok' : ''}">${a.done ? 'Done' : 'Open'}</span></label>`).join('')}<p class="mt-sub" style="margin:8px 0 0">Each person sees their items on Today in FavorOS.</p></section>` : ''}
-      <section class="h-card mt-card"><div class="h-label" style="margin-bottom:10px">Transcript</div><div class="nt-search">${ic('search')}<input id="trq" aria-label="Search the transcript" placeholder="Search what was said" value="${esc(q)}" /></div>
-        <div class="nt-tr">${lines.length ? lines.map((l) => l.mark ? `<div class="nt-l nt-mark"><time>${stamp(l.t)}</time><div>${esc(l.mark)}</div></div>` : `<div class="nt-l" id="t${l.t}"><time${pv.open ? ` class="pv-pick" data-pick="${l.t}" role="button" tabindex="0" title="Use this time"` : ''}>${stamp(l.t)}</time><div>${l.who ? `<b>${hi(l.who)}</b> ` : ''}${hi(l.text)}</div></div>`).join('') : `<p class="mt-sub">${hasTr ? 'Nothing matches.' : pending ? 'The transcript is on its way.' : 'No transcript. Nobody spoke, or this meeting was not recorded.'}</p>`}</div></section>
+      <section class="h-card mt-card"><div class="nt-trh"><div class="h-label">Transcript</div>${canFix && !sp.open ? `<button class="h-btn h-btn--ghost h-btn--sm" data-sp="open">${ic('users')}Fix who spoke</button>` : ''}</div>${sp.open ? speakerBar() : `<div class="nt-search">${ic('search')}<input id="trq" aria-label="Search the transcript" placeholder="Search what was said" value="${esc(q)}" /></div>`}
+        <div class="nt-tr">${lines.length ? lines.map((l) => l.mark ? `<div class="nt-l nt-mark"><time>${stamp(l.t)}</time><div>${esc(l.mark)}</div></div>` : `<div class="nt-l${sp.open ? ' sp-on' : ''}${sel(l.i) ? ' is-sel' : ''}" id="t${l.t}"${sp.open ? ` data-li="${l.i}" role="button" tabindex="0" aria-pressed="${sel(l.i)}"` : ''}><time${pv.open ? ` class="pv-pick" data-pick="${l.t}" role="button" tabindex="0" title="Use this time"` : ''}>${stamp(l.t)}</time><div>${l.who ? `<b>${hi(l.who)}</b> ` : ''}${hi(l.text)}</div></div>`).join('') : `<p class="mt-sub">${hasTr ? 'Nothing matches.' : pending ? 'The transcript is on its way.' : 'No transcript. Nobody spoke, or this meeting was not recorded.'}</p>`}</div></section>
     </div><div class="mt-stack">
       ${files.length || data.doc ? `<section class="h-card mt-card" style="display:grid;gap:12px">${files.map((f, i) => `<div class="nt-slot" data-slot="${i}"></div>`).join('')}
         ${files.map((f) => `<div class="drive">${ic('drive')}<div><b>${files.length > 1 ? esc(f.name) : 'Saved in Google Drive'}</b><span>${esc(files.length > 1 ? 'Google Drive' : f.name)}</span></div><a class="h-btn h-btn--ghost h-btn--sm" href="${esc(f.url)}" target="_blank" rel="noopener">Open</a></div>`).join('')}
@@ -206,6 +247,9 @@ function draw() {
   $('#nt-copy').addEventListener('click', () => copy(location.href));
   root.querySelectorAll('[data-pt]').forEach((b) => b.addEventListener('click', () => partnerClick(b)));
   root.querySelectorAll('[data-pv]').forEach((b) => b.addEventListener('click', () => privacyClick(b)));
+  root.querySelectorAll('[data-sp]').forEach((b) => b.addEventListener('click', () => speakerClick(b.dataset.sp)));
+  root.querySelectorAll('[data-li]').forEach((el) => { const pick = () => { const i = Number(el.dataset.li); if (sp.a < 0 || sp.a !== sp.b) { sp.a = i; sp.b = i; } else sp.b = i; sp.err = ''; draw(); }; el.addEventListener('click', pick); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }); });
+  const sw = $('#sp-who'); if (sw) { sw.addEventListener('input', () => { sp.who = sw.value; }); sw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); speakerClick('save'); } }); if (keepFocus === 'sp-who') { sw.focus(); sw.setSelectionRange(sw.value.length, sw.value.length); } }
   const rc = $('#pv-rec'); if (rc) rc.addEventListener('change', () => { pv.from = ($('#pv-from') || {}).value || ''; pv.to = ($('#pv-to') || {}).value || ''; pv.delRec = rc.checked; draw(); });
   for (const id2 of ['pv-from', 'pv-to']) { const el = $('#' + id2); if (el) el.addEventListener('input', () => { if (id2 === 'pv-from') pv.from = el.value; else pv.to = el.value; }); }
   root.querySelectorAll('[data-pick]').forEach((el) => { const pick = () => { const v = stamp(Number(el.dataset.pick)); if (!pv.from || pv.to) { pv.from = v; pv.to = ''; } else pv.to = v; draw(); const pf = $('#privacy'); if (pf) pf.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; el.addEventListener('click', pick); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }); });
@@ -228,8 +272,8 @@ function draw() {
     } catch (e) { c.checked = !c.checked; toast(e.message); }
   }));
   const inp = $('#trq');
-  inp.addEventListener('input', () => { q = inp.value.trim(); draw(); const i2 = $('#trq'); i2.focus(); i2.setSelectionRange(q.length, q.length); });
-  if (keepFocus === 'trq') { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+  if (inp) inp.addEventListener('input', () => { q = inp.value.trim(); draw(); const i2 = $('#trq'); i2.focus(); i2.setSelectionRange(q.length, q.length); });
+  if (inp && keepFocus === 'trq') { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
   const ai = $('#nt-ask');
   if (ai) {
     const go = async () => {

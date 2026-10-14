@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS hub_meeting_presence (
   joined_at INTEGER NOT NULL,
   seen INTEGER NOT NULL,
   left_at INTEGER NOT NULL DEFAULT 0,
+  with_pid TEXT NOT NULL DEFAULT '',     -- set on a person added to someone else's device (meetings-withme.sql)
   PRIMARY KEY (meeting_id, pid)
 );
 CREATE INDEX IF NOT EXISTS idx_hub_meeting_presence_sess ON hub_meeting_presence(session_id);

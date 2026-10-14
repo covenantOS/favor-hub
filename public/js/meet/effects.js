@@ -150,7 +150,7 @@ export class CamFx {
       // The first two seconds are the model warming up (shader compile, first inference) and are not counted.
       this.n = (this.n || 0) + 1;
       if (this.n > 48) { this.ms.push(performance.now() - t0); if (this.ms.length > 72) this.ms.shift(); }
-      if (this.ms.length >= 72 && this.ms.reduce((a, b) => a + b, 0) / this.ms.length > 45 && this.opts.onSlow) { const cb = this.opts.onSlow; this.opts.onSlow = null; cb(); return; }
+      if (this.ms.length >= 72 && this.ms.reduce((a, b) => a + b, 0) / this.ms.length > 45 && this.opts.onSlow) { fxGuard.slow = true; const cb = this.opts.onSlow; this.opts.onSlow = null; cb(); return; }
       if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(frame); else setTimeout(frame, 40);
     };
     frame();
@@ -160,4 +160,49 @@ export class CamFx {
   }
   avgMs() { return this.ms.length ? this.ms.reduce((a, b) => a + b, 0) / this.ms.length : 0; }
   stop() { this.run = false; if (this.out) { this.out.stop(); this.out = null; } if (this.video) { this.video.srcObject = null; this.video = null; } }
+}
+
+// ---------------------------------------------------------------- the device guard and the face count
+// A device that could not keep up with the background effects (CamFx onSlow) or is small to begin with runs no face count either.
+export const fxGuard = { slow: false };
+export function lowEnd() {
+  const n = navigator.hardwareConcurrency || 0, mem = navigator.deviceMemory || 0;
+  return fxGuard.slow || (n && n <= 2) || (mem && mem <= 2);
+}
+
+// "Someone's with me" prompt: how many faces the local camera sees, from Google's MediaPipe face detector (Apache 2.0, BlazeFace
+// short range) on jsDelivr, run in this browser. Frames never leave the device; only the count is kept, and nobody is recognised.
+const FACE_MODEL = 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite';
+let faceP = null;
+function faceDetector() {
+  if (!faceP) faceP = (async () => {
+    const v = await import(/* @vite-ignore */ MP + '/vision_bundle.mjs');
+    const files = await v.FilesetResolver.forVisionTasks(MP + '/wasm');
+    const make = (delegate) => v.FaceDetector.createFromOptions(files, { baseOptions: { modelAssetPath: FACE_MODEL, delegate }, runningMode: 'IMAGE', minDetectionConfidence: 0.6 });
+    try { return await make('GPU'); } catch { return await make('CPU'); }
+  })().catch((e) => { faceP = null; throw e; });
+  return faceP;
+}
+
+export class FaceCount {
+  constructor() { this.video = null; this.track = null; }
+  /** Faces in one frame of the camera track, or -1 when it could not look. A look that takes over 400 ms marks the device slow. */
+  async count(track) {
+    if (!track || track.readyState !== 'live' || lowEnd()) return -1;
+    const det = await faceDetector();
+    if (this.track !== track) {
+      this.stop();
+      const v = (this.video = document.createElement('video')); v.muted = true; v.playsInline = true; v.srcObject = new MediaStream([track]); this.track = track;
+      await v.play().catch(() => {});
+    }
+    const v = this.video;
+    if (!v.videoWidth) await new Promise((r) => setTimeout(r, 300));
+    if (!v.videoWidth) return -1;
+    const t0 = performance.now();
+    const res = det.detect(v);
+    // The first look warms the model up and is not timed.
+    if ((this.n = (this.n || 0) + 1) > 1 && performance.now() - t0 > 400) fxGuard.slow = true;
+    return (res.detections || []).length;
+  }
+  stop() { if (this.video) { this.video.srcObject = null; this.video = null; } this.track = null; }
 }

@@ -66,7 +66,8 @@ export interface Person { name: string; email: string }
 /** The person a spoken name means: a full name, else a first name that only one person in the room carries. Empty when unsure. */
 export function pickPerson(list: Person[], who: string, strict = false): Person | null {
   const w = lower(who);
-  if (!w) return null;
+  // "Crystal or Michael": the notes could not tell who on a shared device, so nobody is picked.
+  if (!w || / or /.test(w)) return null;
   const full = list.filter((p) => lower(p.name) === w);
   if (full.length === 1) return full[0];
   if (strict) return null;
