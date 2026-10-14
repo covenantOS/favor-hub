@@ -221,6 +221,7 @@
       if (window.FavorDrill) window.FavorDrill.close();
       viaSwap = true;
       // The new page's frame paints first; its scripts run right after, so the tap is answered before they are read and run.
+      settle(oldMain);
       requestAnimationFrame(() => setTimeout(() => { if (my === seq) runScripts(oldMain, ready); }, 0));
       if (push) history.pushState({ hubSwap: 1 }, '', u);
       window.scrollTo(0, 0);
@@ -235,6 +236,40 @@
     };
     // One frame, no cross-fade: a view transition waits a frame for its snapshot (130 ms on a slow phone) and its aborts threw on quick taps.
     apply();
+  }
+
+  // A swapped page draws its parts as its reads answer, and each part used to push the ones under it down (layout shift on a tab).
+  // The new body stays hidden behind one skeleton until the reads it starts in its first moments have answered and the page has stopped
+  // drawing for a beat, then shows at its final size in one frame. Never longer than 1.5 seconds.
+  let settling = null;
+  function settle(main) {
+    if (settling) settling.finish();
+    main.classList.add('is-settling');
+    const of = window.fetch;
+    let pending = 0, done = false, quietT = 0;
+    const finish = () => {
+      if (done) return;
+      done = true; clearTimeout(quietT); clearTimeout(capT); mo.disconnect();
+      if (window.fetch === wrapped) window.fetch = of;
+      main.classList.remove('is-settling');
+      settling = null;
+      document.dispatchEvent(new CustomEvent('hub-settled'));
+    };
+    const quiet = () => { clearTimeout(quietT); if (!pending) quietT = setTimeout(finish, 120); };
+    const wrapped = function (input, init) {
+      let ours = false;
+      try { const u = new URL(typeof input === 'string' ? input : (input && input.url) || '', location.href); ours = !done && u.origin === location.origin && u.pathname.indexOf('/api/') === 0; } catch (e) { ours = false; }
+      const p = of.apply(this, arguments);
+      if (ours) { pending++; clearTimeout(quietT); const end = () => { pending = Math.max(0, pending - 1); quiet(); }; p.then(end, end); }
+      return p;
+    };
+    window.fetch = wrapped;
+    const mo = new MutationObserver(() => { if (!pending) quiet(); });
+    mo.observe(main, { childList: true, subtree: true, attributes: true, characterData: true });
+    const capT = setTimeout(finish, 1500);
+    // A page with no reads shows as soon as its script has drawn.
+    setTimeout(quiet, 60);
+    settling = { finish };
   }
 
   // The press is answered at once, before the next page arrives: the tab or menu entry lights up and the old page steps back.

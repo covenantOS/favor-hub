@@ -337,9 +337,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               if (btn.hidden) btn.hidden = false;
               var on = members.filter(function (m) { return m.classList.contains('is-on'); })[0];
               cls(btn, 'is-on', !!on);
-              var sub = btn.querySelector('.h-tab__sub');
-              var st = on ? ' · ' + (on.querySelector('.h-tab__t') || on).textContent.trim() : '';
-              if (sub && sub.textContent !== st) sub.textContent = st;
+              // The button keeps its word ("Reports"), so its width never changes; the open page's name is in the header.
             }
           });
           var plain = q('a.h-tab[data-ord]', nav);
@@ -478,8 +476,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=13" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=8" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=23" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=9" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=24" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
     <script is:inline src="/js/request-tasks.js?v=2" defer></script>
