@@ -10,6 +10,7 @@
 //   POST meetings/:id/leave
 //   PUT  meetings/:id/rec/chunk/:epoch/:seq, POST rec/start|stop|claim, GET rec/status   (recording, Phase 2)
 import { servedVideo } from './clipmuxjob';
+import { syncMeetingAcl } from './meetacl';
 import { sendMail } from './notify/send';
 import { parseRange, type Clip, type ClipsEnv } from './clips';
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
@@ -765,14 +766,14 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
         if (target) {
           const list = emailsOf(mt.cohosts);
           if (!list.includes(target.email.toLowerCase())) list.push(target.email.toLowerCase());
-          await env.DB.prepare('UPDATE hub_meetings SET cohosts = ? WHERE id = ?').bind(JSON.stringify(list), id).run();
+          await env.DB.prepare('UPDATE hub_meetings SET cohosts = ? WHERE id = ?').bind(JSON.stringify(list), id).run(); await syncMeetingAcl(env, id);
           await env.DB.prepare(`UPDATE hub_meeting_presence SET role = 'cohost' WHERE meeting_id = ? AND pid = ?`).bind(id, to).run();
         }
         break;
       case 'unhost':
         if (target && target.role === 'cohost') {
           const list = emailsOf(mt.cohosts).filter((e) => e !== target.email.toLowerCase());
-          await env.DB.prepare('UPDATE hub_meetings SET cohosts = ? WHERE id = ?').bind(JSON.stringify(list), id).run();
+          await env.DB.prepare('UPDATE hub_meetings SET cohosts = ? WHERE id = ?').bind(JSON.stringify(list), id).run(); await syncMeetingAcl(env, id);
           await env.DB.prepare(`UPDATE hub_meeting_presence SET role = 'staff' WHERE meeting_id = ? AND pid = ?`).bind(id, to).run();
         }
         break;
@@ -1388,6 +1389,7 @@ async function inviteTo(env: MeetEnv, user: { email: string; name: string; role:
       if (!list.some((i) => String(i.email).toLowerCase() === email) && email !== m.host_email.toLowerCase()) {
         list.push({ email, name, team: '', guest: !staff });
         await env.DB.prepare('UPDATE hub_meetings SET invitees = ? WHERE id = ?').bind(JSON.stringify(list), id).run();
+        await syncMeetingAcl(env, id);
       }
       const ok = await sendReminder(env, [email], { title: m.title, startsAt: nowIso(), roomUrl: link, backup: '', rec: m.rec_mode, kind: 'now', host });
       result.status = ok ? 'sent' : 'failed';

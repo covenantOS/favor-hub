@@ -7,6 +7,7 @@
 // No copy of the recording is kept anywhere else: the job reads Drive and writes Drive, holding at most one window in memory and up
 // to 256 KB between windows in R2 (meet/<id>/trim/<epoch>.carry), deleted when the job ends.
 import { saToken } from './work/sheetsa';
+import { syncMeetingAcl } from './meetacl';
 import { nowIso } from './http';
 import type { MeetEnv, Meeting } from './meet';
 import { newState, throughTrims, trimWindow, type Cut, type TrimState } from './webmtrim';
@@ -158,6 +159,8 @@ async function replaceWithCopy(env: TEnv, m: Meeting, epoch: number, fileId: str
   await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_removed (file_id, meeting_id, kind, name, state, by_email, at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(fileId, m.id, 'recording', meta.name || '', tr.ok ? 'trashed' : 'kept', 'trim', nowIso()).run().catch(() => undefined);
   await env.DB.prepare('UPDATE hub_meeting_drive SET file_id = ? WHERE meeting_id = ? AND epoch = ?').bind(cj.id, m.id, epoch).run();
   await env.DB.prepare('UPDATE hub_meetings SET drive_file_id = ? WHERE id = ? AND drive_file_id = ?').bind(cj.id, m.id, fileId).run();
+  // A copy keeps none of the old file's grants: share it again with the meeting's people.
+  await syncMeetingAcl(env as never, m.id);
   return cj.id;
 }
 

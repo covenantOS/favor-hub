@@ -4,6 +4,7 @@
 // only while Admin > Meetings > Meeting texts is on (each text is billed by GoHighLevel); it is off until Will turns it on.
 
 import { clean, emailsOf, getMeeting, guestsOn, isHost, mayJoin, refuseJoin, GONE_MS, type Meeting, type MeetEnv } from './meet';
+import { syncMeetingAcl } from './meetacl';
 import { HttpError, nowIso } from './http';
 import { addAttendees, sendReminder, TZ } from './meetcal';
 import { matchPeople, normPhone, parseTarget, textInvite } from './meetinvite';
@@ -109,6 +110,7 @@ async function addPerson(env: MeetEnv, m: Meeting, user: User, b: Record<string,
     list.push({ email, name, team, guest });
     await env.DB.prepare('UPDATE hub_meetings SET invitees = ? WHERE id = ?').bind(JSON.stringify(list), m.id).run();
     m.invitees = JSON.stringify(list);
+    await syncMeetingAcl(env, m.id);
     if (m.calendar_event_id && !m.series_id && m.status === 'scheduled') await addAttendees(env, m.host_email, m.calendar_event_id, [email]);
   };
   if (t.kind === 'phone') {

@@ -5,6 +5,7 @@
 import { saToken } from './work/sheetsa';
 import { aiFor } from './ai/guard';
 import type { MeetEnv, Meeting } from './meet';
+import { closeLinks, syncMeetingAcl } from './meetacl';
 import { CHAPTER_MODELS, chatJson, plain, stamp, VERBATIM_PROMPT, WHISPER } from './clipai';
 
 export const PART = 8 * 1024 * 1024;
@@ -35,6 +36,8 @@ async function subFolder(env: DriveEnv, parent: string, name: string): Promise<s
   const found = await gjson(env, `${FILES}?q=${encodeURIComponent(`'${parent}' in parents and name = '${q(name)}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`)}&supportsAllDrives=true&includeItemsFromAllDrives=true&fields=files(id)`);
   if (found.files?.[0]?.id) return found.files[0].id as string;
   const made = await gjson(env, `${FILES}?supportsAllDrives=true&fields=id`, { method: 'POST', body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }) });
+  // The workspace may put an "anyone at Favor with the link" grant on a new folder; the Meetings tree is private (meetacl.ts).
+  await closeLinks(await gtoken(env), made.id as string).catch((err) => console.warn('[meet] folder links', err));
   return made.id as string;
 }
 
@@ -159,6 +162,7 @@ export async function pumpDrive(env: DriveEnv, m: Meeting): Promise<{ done: bool
       const keys = e.chunks.map((c) => chunkKey(m.id, e.epoch, c.seq));
       for (let i = 0; i < keys.length; i += 500) await env.CLIPS.delete(keys.slice(i, i + 500));
       await env.DB.prepare('UPDATE hub_meetings SET drive_file_id = CASE WHEN drive_file_id = \'\' THEN ? ELSE drive_file_id END WHERE id = ?').bind(j.id || '', m.id).run();
+      await syncMeetingAcl(env, m.id);
       continue;
     }
     if (r.status === 404 || r.status === 410) {
@@ -514,6 +518,8 @@ export async function makeNotesDoc(env: DriveEnv, m: Meeting, title: string, inp
   const j = (await r.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
   if (!r.ok || !j.id) throw new Error(`drive doc ${r.status} ${j.error?.message || ''}`.trim());
   await env.DB.prepare('UPDATE hub_meetings SET notes_doc_id = ? WHERE id = ?').bind(j.id, m.id).run();
+  // Shared by name with the meeting's people: the Meetings folder is limited access, so no one else opens it in Drive.
+  await syncMeetingAcl(env, m.id);
   return j.id;
 }
 
