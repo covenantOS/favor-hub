@@ -11,3 +11,5 @@
 .nudge-ask button { background: none; border: 0; padding: 0; min-height: 24px; text-align: left; color: var(--h-brand); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .nudge { animation: none; } }
 @media (pointer: coarse) { .nudge-ask button { min-height: 44px; } .nudge__x { min-height: 44px; min-width: 44px; } .nudge__join { display: inline-flex; align-items: center; min-height: 44px; } }
+/* In a meeting room the nudge sits above the room's control bar, so it never covers More or Leave on a phone. */
+html.in-room .nudge { bottom: calc(var(--room-ctl, 90px) + 12px); }
