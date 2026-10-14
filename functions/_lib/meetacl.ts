@@ -7,6 +7,7 @@
 // FavorOS's own player streams through the service account and keeps its own rule (mayReadNotes).
 import { saToken } from './work/sheetsa';
 import { emailsOf, type Meeting, type MeetEnv } from './meet';
+import { blockedSet } from './blocked';
 import { isHiddenAccount, isTester } from './testuser';
 
 const FILES = 'https://www.googleapis.com/drive/v3/files';
@@ -16,8 +17,10 @@ const STAFF_RE = /^[^@\s]+@favorintl\.org$/i;
 export interface Audience { writers: string[]; readers: string[] }
 
 /** Who gets each file, from the meeting row, the staff who were present, the team leaders and the admins. Pure, for tests. */
-export function audienceOf(m: Pick<Meeting, 'host_email' | 'cohosts' | 'invitees'>, present: string[], leaders: string[], admins: string[]): Audience {
-  const ok = (e: string) => STAFF_RE.test(e) && !isHiddenAccount(e);
+export function audienceOf(m: Pick<Meeting, 'host_email' | 'cohosts' | 'invitees'>, present: string[], leaders: string[], admins: string[], barred: string[] = []): Audience {
+  // Blocked hub users and people marked inactive in meet_directory never get a grant, and syncFile removes the ones they already hold.
+  const out = new Set(barred.map((x) => String(x || '').trim().toLowerCase()));
+  const ok = (e: string) => STAFF_RE.test(e) && !isHiddenAccount(e) && !out.has(e);
   const norm = (xs: string[]) => [...new Set(xs.map((x) => String(x || '').trim().toLowerCase()).filter(ok))];
   const adminList = norm(admins);
   if (isTester(m.host_email)) return { writers: adminList, readers: [] };
@@ -46,7 +49,14 @@ export async function audienceFor(env: MeetEnv, m: Meeting): Promise<Audience> {
       ).bind(...roster).all<{ email: string }>()).results || []
     : [];
   const admins = (await env.DB.prepare(`SELECT lower(email) AS email FROM hub_users WHERE role = 'admin'`).all<{ email: string }>()).results || [];
-  return audienceOf(m, present.map((r) => r.email), leaders.map((r) => r.email), admins.map((r) => r.email));
+  const everyone = [...new Set([m.host_email.toLowerCase(), ...roster, ...present.map((r) => r.email), ...leaders.map((r) => r.email), ...admins.map((r) => r.email)])];
+  const blocked = await blockedSet(env, everyone);
+  const inactive = (await env.DB.prepare(`SELECT lower(email) AS email FROM meet_directory WHERE active = 0`).all<{ email: string }>().catch(() => ({ results: [] as Array<{ email: string }> }))).results || [];
+  // An address with an active directory row stays eligible even if an old inactive row shares it.
+  const activeRows = (await env.DB.prepare(`SELECT lower(email) AS email FROM meet_directory WHERE active = 1`).all<{ email: string }>().catch(() => ({ results: [] as Array<{ email: string }> }))).results || [];
+  const live = new Set(activeRows.map((r) => r.email));
+  const barred = [...blocked, ...inactive.map((r) => r.email).filter((e) => !live.has(e))];
+  return audienceOf(m, present.map((r) => r.email), leaders.map((r) => r.email), admins.map((r) => r.email), barred);
 }
 
 interface Perm { id: string; type: string; role: string; emailAddress?: string; inheritedPermissionsDisabled?: boolean; permissionDetails?: Array<{ inherited?: boolean }> }

@@ -25,6 +25,11 @@ describe('meeting file audience', () => {
     assert.deepEqual(a.writers.sort(), ['admin@favorintl.org', 'host@favorintl.org']);
     assert.deepEqual(a.readers.sort(), ['co@favorintl.org', 'inv@favorintl.org', 'lead@favorintl.org', 'was@favorintl.org']);
   });
+  it('blocked and inactive people get no grant in any role', () => {
+    const a = audienceOf(m(), ['gone@favorintl.org', 'was@favorintl.org'], ['lead@favorintl.org'], ['admin@favorintl.org', 'oldadmin@favorintl.org'], ['Gone@favorintl.org', 'inv@favorintl.org', 'oldadmin@favorintl.org']);
+    assert.deepEqual(a.writers.sort(), ['admin@favorintl.org', 'host@favorintl.org']);
+    assert.deepEqual(a.readers.sort(), ['co@favorintl.org', 'lead@favorintl.org', 'was@favorintl.org']);
+  });
   it('a test meeting goes to the admins only', () => {
     const a = audienceOf(m({ host_email: 'tester@favorintl.org' }), ['was@favorintl.org'], ['lead@favorintl.org'], ['admin@favorintl.org']);
     assert.deepEqual(a, { writers: ['admin@favorintl.org'], readers: [] });
@@ -52,5 +57,20 @@ describe('syncFile', () => {
     assert.match(post[1], /sendNotificationEmail=false/);
     assert.deepEqual(JSON.parse(post[2]), { type: 'user', role: 'reader', emailAddress: 'inv@favorintl.org' });
     assert.ok(!calls.some((c) => c[1].includes('/m1') || c[1].includes('/s1')));
+  });
+});
+
+describe('syncFile removes people no longer allowed', () => {
+  it('deletes a direct grant held by someone barred from the audience', async () => {
+    const calls = [];
+    const perms = [{ id: 'u9', type: 'user', role: 'reader', emailAddress: 'gone@favorintl.org', permissionDetails: [{ inherited: false }] }];
+    const fetchFn = async (url, init = {}) => {
+      calls.push([init.method || 'GET', url]);
+      return new Response(JSON.stringify({ permissions: perms }));
+    };
+    const aud = audienceOf(m(), ['gone@favorintl.org'], [], [], ['gone@favorintl.org']);
+    const r = await syncFile('t', 'F', aud, 'sa@x.iam.gserviceaccount.com', fetchFn);
+    assert.equal(r.removed, 1);
+    assert.ok(calls.some((c) => c[0] === 'DELETE' && c[1].includes('/u9')));
   });
 });
