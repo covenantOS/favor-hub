@@ -331,6 +331,7 @@ async function enter() {
   S.joined = true; S.started = Date.now(); S.joinedAt = Date.now();
   buildRoom();
   startLoops();
+  api('meetings/' + MID + '/playing').then((r) => { if (r.now) S.skew = r.now - Date.now(); if (r.play) onPlay(r.play); }).catch(() => {});
 }
 
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('The room did not load in time.')), ms))]);
@@ -905,6 +906,7 @@ function paintCtl() {
     <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
     <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
     ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>` : ''}
+    ${h && !MODE.guest ? `<button class="cb${S.play ? ' is-on' : ''}" data-a="playclip"><span class="k">${ic('screen')}</span>${lab('Play a clip', 'Clip')}</button>` : ''}
     ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc" aria-pressed="${S.cc}"><span class="k">${ic('cc')}</span>${lab('Captions', 'CC')}</button>` : ''}
     ${h && S.meeting.rec !== 'off' ? `<button class="cb${recOn ? ' is-off' : ''}" data-a="rec"><span class="k">${ic('rec')}</span>${recOn ? lab('Stop rec', 'Stop') : lab('Record', 'Rec')}</button>` : ''}
     <button class="cb${S.hand ? ' is-on' : ''}" data-a="hand"><span class="k">${ic('hand')}</span><span class="l-full">${S.hand ? 'Lower hand' : 'Raise hand'}</span><span class="l-short">${S.hand ? 'Lower' : 'Hand'}</span></button>
@@ -1067,6 +1069,12 @@ function onDocClick(e) {
     case 'mic': toggleMic(); break;
     case 'cam': toggleCam(); break;
     case 'share': toggleShare(); break;
+    case 'playclip': pickClip(); break;
+    case 'play-pick': closePick(); sendPlay({ st: 'play', clip: a.dataset.id, title: a.dataset.t, pos: 0 }); break;
+    case 'play-close': closePick(); break;
+    case 'play-toggle': { const v = playVideo(); if (S.play && v) sendPlay({ st: S.play.st === 'play' ? 'pause' : 'play', clip: S.play.clip, title: S.play.title, pos: v.currentTime }); break; }
+    case 'play-stop': if (S.play) sendPlay({ st: 'stop' }); break;
+    case 'play-mute': { S.playMuted = !S.playMuted; const v = playVideo(); if (v) v.muted = S.playMuted; paintPlay(); break; }
     case 'cc': S.cc = !S.cc; paintCtl(); paintCap(); break;
     case 'rec': toggleRecording(); break;
     case 'hand': S.hand = !S.hand; if (!S.handAt) S.handAt = new Map(); if (S.hand) S.handAt.set(S.me.pid, Date.now()); else S.handAt.delete(S.me.pid); paintCtl(); paintGrid(); if (S.panel === 'people') paintSideBody(false); syncNow(); break;
@@ -1317,6 +1325,7 @@ async function syncNow() {
 }
 
 function applySync(r) {
+  if (r.now) S.skew = r.now - Date.now();
   S.people = r.people; S.me.role = r.role;
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
@@ -1374,6 +1383,7 @@ function handleEvent(e) {
     else if (b.a === 'remove' && e.to === S.me.pid) { S.removed = true; leaveRoom('The host removed you from this meeting'); }
     else if (b.a === 'lowerhand' && e.to === S.me.pid) { S.hand = false; paintCtl(); }
     else if (b.a === 'makehost' && e.to === S.me.pid) { toast('You are now a host'); }
+    else if (b.a === 'play') { onPlay(b.v && b.v.st !== 'stop' ? b.v : null); }
     else if (b.a === 'end') { /* the sync's meeting.status ends the room */ }
   } else if (e.kind === 'brain') {
     S.show = e.body.stop ? null : { ...e.body, from: e.from };
@@ -1774,3 +1784,48 @@ window.addEventListener('focus', revive);
 document.addEventListener('touchend', revive, { passive: true });
 document.addEventListener('click', revive);
 setInterval(revive, 3000);
+
+// ---- a clip played for everyone. Each browser streams the clip itself; the host's play, pause, seek and stop come as
+// cmd events stamped with the server's time, so everyone (and anyone who joins late) lands on the same spot.
+const playVideo = () => document.querySelector('#rm-play video');
+function playPos(p) { return p.st === 'play' ? p.pos + Math.max(0, (Date.now() + (S.skew || 0) - p.at) / 1000) : p.pos; }
+async function sendPlay(v) { try { await api('meetings/' + MID + '/event', { method: 'POST', body: { pid: S.me.pid, kind: 'cmd', body: { a: 'play', v } } }); syncNow(); } catch (e) { toast(e.message || 'That did not work.'); } }
+function onPlay(p) {
+  const was = S.play; S.play = p;
+  if (!p) { const el = $('#rm-play'); if (el) el.remove(); clearInterval(S.playTimer); S.playTimer = null; paintCtl(); return; }
+  let el = $('#rm-play');
+  if (!el || !was || was.clip !== p.clip) {
+    if (el) el.remove();
+    el = document.createElement('div'); el.id = 'rm-play'; el.className = 'rm-play';
+    el.innerHTML = `<video playsinline preload="auto" src="/api/clips/${p.clip}/media"></video><div class="rm-play-bar"><span class="rm-play-l"></span><span class="rm-play-c"></span></div>`;
+    (($('#rm-grid') || {}).parentNode || document.body).appendChild(el);
+    const v = playVideo(); v.muted = !!S.playMuted;
+    v.addEventListener('loadedmetadata', () => playAlign(true));
+  }
+  if (!S.playTimer) S.playTimer = setInterval(() => playAlign(false), 1000);
+  playAlign(true); paintPlay(); paintCtl();
+}
+function playAlign(force) {
+  const v = playVideo(), p = S.play; if (!v || !p || !(v.readyState >= 1)) return;
+  const want = Math.min(playPos(p), (v.duration || 1e9) - 0.05);
+  if (force || Math.abs(v.currentTime - want) > 0.35) v.currentTime = want;
+  if (p.st === 'play' && v.paused && want < (v.duration || 1e9) - 0.1) v.play().catch(() => { v.muted = true; S.playMuted = true; paintPlay(); v.play().catch(() => {}); });
+  if (p.st !== 'play' && !v.paused) v.pause();
+}
+function paintPlay() {
+  const el = $('#rm-play'); if (!el || !S.play) return;
+  el.querySelector('.rm-play-l').textContent = 'Playing for everyone: ' + (S.play.title || 'Clip') + (S.play.by ? ' (' + S.play.by + ')' : '');
+  el.querySelector('.rm-play-c').innerHTML = `${hostish() ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="play-toggle">${S.play.st === 'play' ? 'Pause' : 'Play'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-stop">Stop</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="play-mute">${S.playMuted ? 'Unmute clip' : 'Mute clip'}</button>`;
+}
+function closePick() { const el = $('#rm-pick'); if (el) el.remove(); }
+async function pickClip() {
+  closePick();
+  const el = document.createElement('div'); el.id = 'rm-pick'; el.className = 'rm-pick';
+  el.innerHTML = '<div class="rm-pick-in"><div class="rm-pick-h"><b>Play a clip for everyone</b><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-close">Close</button></div><div class="rm-pick-l">Loading your clips</div></div>';
+  document.body.appendChild(el);
+  try {
+    const r = await (await fetch('/api/clips', { credentials: 'same-origin' })).json();
+    const list = (r.clips || r.items || []).filter((c) => c.status === 'ready' || c.status === 'processing');
+    el.querySelector('.rm-pick-l').innerHTML = list.length ? list.slice(0, 60).map((c) => `<button class="rm-pick-i" data-a="play-pick" data-id="${esc(c.id)}" data-t="${esc(c.title || 'Clip')}">${c.has_poster ? `<img src="/api/clips/${esc(c.id)}/media?poster=1" alt="">` : ''}<span>${esc(c.title || 'Clip')}</span><small>${Math.round((c.duration_ms || 0) / 1000)} s</small></button>`).join('') : 'You have no clips yet.';
+  } catch { el.querySelector('.rm-pick-l').textContent = 'Clips did not load.'; }
+}

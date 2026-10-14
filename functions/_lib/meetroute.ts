@@ -27,7 +27,7 @@ import {
   type Meeting, type MeetEnv, type Presence,
 } from './meet';
 
-const COMMANDS = new Set(['mute', 'camoff', 'remove', 'spot', 'unspot', 'lock', 'unlock', 'makehost', 'unhost', 'muteall', 'sharepolicy', 'letin', 'end', 'lowerhand', 'allowshare']);
+const COMMANDS = new Set(['mute', 'camoff', 'remove', 'spot', 'unspot', 'lock', 'unlock', 'makehost', 'unhost', 'muteall', 'sharepolicy', 'letin', 'end', 'lowerhand', 'allowshare', 'play']);
 
 export async function route({ request, env: rawEnv, params, waitUntil }: { request: Request; env: MeetEnv; params: Record<string, string | string[]>; waitUntil?: (p: Promise<unknown>) => void }, guestMode = false): Promise<Response> {
   try {
@@ -119,6 +119,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'partners' && m === 'POST') return json(await partnerAct(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'ask' && m === 'POST') return json(await askAboutMeeting(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'action' && m === 'POST') return json(await markAction(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'playing' && m === 'GET') return json(await playing(env, user, id));
     if (sub === 'brain' && m === 'POST') return json(await brainInMeeting(env, user, id, await request.json().catch(() => ({}))));
     return errorJson('not_found', 'Not found.', 404);
   } catch (err) {
@@ -664,12 +665,30 @@ async function postEvent(env: MeetEnv, user: { email: string }, id: string, b: R
           }
         }
         break;
+      case 'play': {
+        // A clip played for everyone: each browser streams it itself and follows these play, pause and stop messages.
+        const v = (body.v || {}) as Record<string, unknown>;
+        const st = ['play', 'pause', 'stop'].includes(String(v.st)) ? String(v.st) : 'stop';
+        const clip = /^[0-9a-f]{32}$/.test(String(v.clip)) ? String(v.clip) : '';
+        if (st !== 'stop' && !clip) throw new HttpError(400, 'bad_clip', 'Pick a clip.');
+        body.v = { st, clip, title: clean(v.title, 160), pos: Math.max(0, Number(v.pos) || 0), at: Date.now(), by: me.name };
+        break;
+      }
       default: break;
     }
-    await addEvent(env, id, 'cmd', me.pid, a === 'spot' || a === 'unspot' || a === 'lock' || a === 'unlock' || a === 'sharepolicy' || a === 'end' || a === 'muteall' ? '' : to, { a, v: body.v, by: me.name, target: target?.name });
+    await addEvent(env, id, 'cmd', me.pid, a === 'play' || a === 'spot' || a === 'unspot' || a === 'lock' || a === 'unlock' || a === 'sharepolicy' || a === 'end' || a === 'muteall' ? '' : to, { a, v: body.v, by: me.name, target: target?.name });
     return { ok: true };
   }
   throw new HttpError(400, 'bad_event', 'Unknown event.');
+}
+
+/** The clip playing for everyone right now, for someone who joins or reloads partway through. */
+async function playing(env: MeetEnv, user: { email: string }, id: string) {
+  const here = await env.DB.prepare('SELECT 1 AS y FROM hub_meeting_presence WHERE meeting_id = ? AND lower(email) = ? AND removed = 0 AND waiting = 0 LIMIT 1').bind(id, user.email.toLowerCase()).first();
+  if (!here) return { ok: true, now: Date.now(), play: null };
+  const row = await env.DB.prepare(`SELECT body FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'cmd' AND body LIKE '{"a":"play"%' ORDER BY seq DESC LIMIT 1`).bind(id).first<{ body: string }>();
+  const v = row ? safeJson<{ v?: Record<string, unknown> }>(row.body, {}).v : null;
+  return { ok: true, now: Date.now(), play: v && v.st !== 'stop' ? v : null };
 }
 
 // ---------------------------------------------------------------- SFU pass-through
