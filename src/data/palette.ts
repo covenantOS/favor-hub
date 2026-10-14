@@ -10,7 +10,15 @@ export function buildPaletteItems(docs: PaletteHelp[], videos: PaletteVideo[]) {
     ...docs.map((d) => ({ title: d.title, desc: d.summary, href: `/help/${d.id}/`, tags: `help how ${d.topic} ${(d.body || '').match(/^##+ .+$/gm)?.join(' ') || ''}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
     ...videos.map((v) => ({ title: `Video: ${v.title}`, desc: v.summary, href: `/help/videos/${v.slug}/`, tags: `video training ${v.topic} ${v.summary}`.toLowerCase(), external: false, group: 'Help', searchOnly: true })),
   ];
-  const hubHrefs = new Set(AREAS.flatMap((a) => a.pages.filter((x) => !x.ext).map((x) => x.href)));
+  const slash = (h: string) => h.replace(/\/$/, '') || '/';
+  const hubHrefs = new Set(AREAS.flatMap((a) => a.pages.filter((x) => !x.ext).map((x) => slash(x.href))));
+  // Things to do, not pages to read: Ctrl K lists them right after Your pages.
+  const actions = [
+    { title: 'Start a deposit', desc: 'Gifts › Gift entry · Count and tape the mail, then photograph each check', href: '/gift-entry/?start=1', tags: 'start deposit gift entry mail check checks tape photograph new deposit', external: false, group: 'Actions', need: 'giftEntry', team: '' },
+    { title: 'Make a request', desc: 'Anything you need: goes to the request board or the Marketing team', href: '/requests/new', tags: 'make request new website portal dashboard app submit comment recommendation marketing design flyer social video newsletter asana project', external: false, group: 'Actions', need: '', team: '' },
+    { title: 'New expense request', desc: 'Staff › Expenses · Expenses and purchases, signed online', href: '/expenses/new/', tags: 'new expense request travel pre-travel approval signature purchase reimbursement', external: false, group: 'Actions', need: '', team: '' },
+    { title: 'Find a partner', desc: 'Partners · Contact details, giving, actions and notes for any partner', href: '/work/partner/', tags: 'partner partners find lookup constituent giving history contact record search log a contact call', external: false, group: 'Actions', need: 'workCenter', team: '' },
+  ];
   const more = [
     { title: 'Expand or collapse the menu', desc: 'Menu · Switch between the slim rail and the full sidebar (press the backslash key)', href: '#nav-toggle', tags: 'menu sidebar expand collapse rail wide narrow nav navigation', external: false, group: 'Menu', need: '', team: '' },
   ];
@@ -20,11 +28,8 @@ export function buildPaletteItems(docs: PaletteHelp[], videos: PaletteVideo[]) {
     { title: 'Training videos', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', href: '/help/videos/', tags: 'video videos training tutorial learn blackbaud raisers edge', external: false, group: 'Tools' },
     { title: 'Feedback', desc: "Your notes and Will's answers", href: '/feedback/', tags: 'feedback note bug wrong idea suggestion problem report', external: false, group: 'Tools' },
     { title: 'Favor Brain (beta)', desc: 'Ask about partners, giving and the manuals, or connect Claude or ChatGPT', href: '/brain/', tags: 'brain ask favor ai claude chatgpt mcp connector question query beta', external: false, group: 'Tools' },
-    { title: 'Make a request', desc: "Anything you need: goes to the request board or the Marketing team", href: '/requests/new', tags: 'website portal dashboard app request submit comment recommendation marketing design flyer social video newsletter asana project', external: false, group: 'Tools' },
     { title: 'Request board', desc: 'Inbox, approved, in motion, done', href: '/requests', tags: 'website portal dashboard app request kanban board review approve', external: false, group: 'Tools' },
     { title: 'Blackbaud', desc: 'Partner records', href: 'https://app.blackbaud.com/signin/?redirectUrl=https://app.blackbaud.com/', tags: 'crm donors blackbaud raisers edge', external: true, group: 'Tools' },
-    { title: 'Work Center', desc: 'Select many actions and finish them together, enter the week’s contacts, thank-yous', href: '/work/', tags: 'work center bulk select mark complete actions thank you entry tracking sheet stale reassign reschedule support', external: false, group: 'Tools', searchOnly: true },
-    { title: 'Find a partner', desc: 'Contact details, giving, actions and notes for any partner', href: '/work/partner/', tags: 'partner partners find lookup constituent donor giving history contact record search iwave', external: false, group: 'Tools', searchOnly: true },
     { title: 'Clips', desc: 'Your recorded clips, searchable by what was said', href: '/clips/', tags: 'clips clip loom screen record recording video walkthrough share link transcript', external: false, group: 'Tools', searchOnly: true },
     { title: 'Foundation prospects', desc: 'Check a foundation, log a contact', href: '/foundations/', tags: 'foundation foundations prospect grant rdd blackbaud unsolicited contact call', external: false, group: 'Tools' },
     { title: 'Thank-you receipts', desc: 'Print the receipts Blackbaud has waiting', href: '/receipts/', tags: 'thank you receipt receipts ty acknowledgement acknowledge print mail indesign partner', external: false, group: 'Tools' },
@@ -39,7 +44,6 @@ export function buildPaletteItems(docs: PaletteHelp[], videos: PaletteVideo[]) {
     { title: 'Time off', desc: 'Submit PTO via Paycom', href: 'https://phx.us-west.paycomonline.net/v4/ee/web.php/accruals/time-off', tags: 'pto vacation time off accruals paycom', external: true, group: 'Tools' },
     { title: 'Time sheet', desc: 'Paycom punch in and out', href: 'https://www.paycomonline.net/v4/ee/web.php/app/login', tags: 'paycom timesheet punch clock in out', external: true, group: 'Tools' },
     { title: 'Paycom expenses', desc: 'Cards and expense reports in Paycom', href: 'https://www.paycomonline.net/v4/ee/web.php/app/login', tags: 'paycom expenses cards reimbursement', external: true, group: 'Tools' },
-    { title: 'Expense request', desc: 'Expenses and purchases, signed online. Not Paycom', href: '/expenses/new', tags: 'expense request travel pre-travel approval signature', group: 'Tools' },
     { title: 'Expense log', desc: 'Statuses, signed PDFs, approver schedule', href: '/expenses', tags: 'expense log approver schedule pdf admin', group: 'Tools' },
 
 
@@ -54,6 +58,6 @@ export function buildPaletteItems(docs: PaletteHelp[], videos: PaletteVideo[]) {
     { title: 'LinkedIn', desc: 'Favor International', href: 'https://www.linkedin.com/company/favor-international/', tags: 'linkedin social', external: true, group: 'External' },
     ...helpItems,
   ];
-  const items = [...paletteItems(), ...more, ...manual.filter((i) => i.external || !hubHrefs.has(i.href)).map((i) => ({ need: '', team: '', ...i }))];
+  const items = [...paletteItems(), ...actions, ...more, ...manual.filter((i) => i.external || !hubHrefs.has(slash(i.href))).map((i) => ({ need: '', team: '', ...i }))];
   return items;
 }

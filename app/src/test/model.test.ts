@@ -9,8 +9,8 @@ describe('the menu for one person', () => {
     const a = view();
     const s = view(staffNav);
     const pages = (v: ReturnType<typeof view>, area: string) => v.areas.find((x) => x.area.id === area)!.pages.map((p) => p.page.id);
-    expect(pages(a, 'work')).toContain('work');
-    expect(pages(s, 'work')).not.toContain('work');
+    expect(pages(a, 'partners')).toContain('work');
+    expect(pages(s, 'partners')).not.toContain('work');
     expect(s.areas.find((x) => x.area.id === 'chat')!.visible).toBe(false);
     expect(a.areas.find((x) => x.area.id === 'chat')!.visible).toBe(true);
   });
@@ -23,15 +23,17 @@ describe('the menu for one person', () => {
   });
 
   it('an area shows the sum of its pages and the receipts count is a warning', () => {
-    const work = view().areas.find((x) => x.area.id === 'work')!;
-    expect(work.sum).toBe(3 + 12 + 4 + 1);
-    expect(work.warn).toBe(true);
+    const gifts = view().areas.find((x) => x.area.id === 'gifts')!;
+    expect(gifts.sum).toBe(4);
+    expect(gifts.warn).toBe(true);
+    const projects = view().areas.find((x) => x.area.id === 'projects')!;
+    expect(projects.sum).toBe(1 + 3);
   });
 
   it('marks the current area and page', () => {
     const v = view(nav, 'work');
-    expect(v.curArea).toBe('work');
-    expect(v.areas.find((x) => x.area.id === 'work')!.pages.find((p) => p.page.id === 'work')!.on).toBe(true);
+    expect(v.curArea).toBe('partners');
+    expect(v.areas.find((x) => x.area.id === 'partners')!.pages.find((p) => p.page.id === 'work')!.on).toBe(true);
   });
 
   it('the phone bar holds four areas, lowest rank first, and More adds up the rest', () => {

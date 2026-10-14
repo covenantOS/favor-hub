@@ -162,7 +162,7 @@ test('the agent key acts as an admin; with X-Act-As it acts as that staff member
 
 test('the nav entry, the gate flag, the settings and the page shells are in place', async () => {
   const { AREAS } = await import('../src/data/areas.ts');
-  const entry = AREAS.find((a) => a.id === 'work').pages.find((p) => p.id === 'projects');
+  const entry = AREAS.find((a) => a.id === 'projects').pages.find((p) => p.id === 'projects');
   assert.equal(entry.href, '/projects/');
   assert.equal(entry.need, 'projects');
   assert.equal(entry.label, 'Projects');

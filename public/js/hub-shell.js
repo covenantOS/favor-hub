@@ -126,7 +126,7 @@
     document.dispatchEvent(new CustomEvent('favor-hub', { detail: d }));
     if (window.hubApplyNav) window.hubApplyNav(d);
     try {
-      localStorage.setItem('favor.hub.nav.v1', JSON.stringify({ user: d.user, access: d.access, kpiTeams: d.kpiTeams, counts: d.counts }));
+      localStorage.setItem('favor.hub.nav.v1', JSON.stringify({ user: d.user, access: d.access, kpiTeams: d.kpiTeams, counts: d.counts, jobs: d.jobs }));
     } catch {
       // storage refused; the menu still fills in from this answer
     }

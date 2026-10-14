@@ -280,11 +280,11 @@ describe('people and roles', () => {
     kim = (await P.listPeople(env)).find((x) => x.email === 'kim@favorintl.org');
     assert.equal(kim.sees.workCenter, true);
     const pv = await P.previewFor(env, 'kim@favorintl.org');
-    assert.ok(pv.pages.some((x) => x.label === 'Work Center'));
+    assert.ok(pv.pages.some((x) => x.area === 'Partners' && x.label === 'Actions'));
     assert.ok(!pv.pages.some((x) => x.area === 'Admin' && x.label === 'Overview'));
     assert.ok(pv.reports.length > 0);
     await S.changeSetting(env, 'a', 'wc.release', 'admins', { confirm: true });
-    assert.ok(!(await P.previewFor(env, 'kim@favorintl.org')).pages.some((x) => x.label === 'Work Center'));
+    assert.ok(!(await P.previewFor(env, 'kim@favorintl.org')).pages.some((x) => x.area === 'Partners' && x.label === 'Actions'));
     const w = await P.previewFor(env, 'will@favorintl.org');
     assert.ok(w.pages.some((x) => x.area === 'Admin'));
     await assert.rejects(() => P.previewFor(env, 'nobody@favorintl.org'), /not in the list/);

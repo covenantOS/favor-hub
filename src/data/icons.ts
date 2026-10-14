@@ -36,6 +36,9 @@ export const ICONS: Record<string, string> = {
   shield: '<path d="M12 3 5 6v5c0 4.5 3 8.2 7 10 4-1.8 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/>',
   tools: '<path d="M14.5 6.5a4 4 0 0 0 4.9 4.9L21 13l-3 3-1.6-1.6a4 4 0 0 0-4.9-4.9L9 8 6 11l2 2"/><path d="m4 20 6-6"/>',
   more: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
+  users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5"/><path d="M15.5 4.8a3.5 3.5 0 0 1 0 6.4"/><path d="M18 14.8c2 .7 3.2 2.4 3.5 5.2"/>',
+  board: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/>',
+  badge: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2.2"/><path d="M5.8 16.5c.5-1.6 1.7-2.5 3.2-2.5s2.7.9 3.2 2.5"/><path d="M14.5 10h4"/><path d="M14.5 13.5h3"/>',
   reports: '<path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M8 17v-4"/><path d="M12 17V10"/><path d="M16 17v-2"/>',
 };
 

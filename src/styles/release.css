@@ -9,17 +9,14 @@ body.h-body .h-rel--alpha { background: var(--tc-dusk-tint, #e9e5f4); color: var
 body.h-body .h-rel--beta { background: var(--tc-sun-tint, #f7ecd2); color: var(--tc-sun-ink, #6b4a0c); }
 body.h-body .h-rel--new { background: var(--tc-leaf-tint, #e1efdc); color: var(--tc-leaf-ink, #1f5a2a); }
 body.h-body .h-rel--head { margin-left: 8px; vertical-align: 3px; }
-/* Tab row: a page's badge is a dot on its tab and the word on the open tab, so moving between tabs never changes the header. */
-body.h-body .h-tab .h-rel--tab { width: 7px; height: 7px; padding: 0; margin: 0 0 0 -2px; font-size: 0; line-height: 0; overflow: hidden; vertical-align: middle; }
+/* Tab row: a page's badge is a fixed 7 px dot on its tab, the same on every state (open, hover, pressed), so a tap never changes a tab's
+   width. The word sits beside the page's name in the header. */
+body.h-body .h-tab .h-rel--tab, body.h-body .h-tab.is-on .h-rel--tab { width: 7px; height: 7px; min-width: 7px; padding: 0; margin: 0 0 0 -2px; border-radius: 50%; font-size: 0; line-height: 0; overflow: hidden; vertical-align: middle; flex: none; }
 body.h-body .h-tab .h-rel--tab.h-rel--alpha { background: var(--tc-dusk, #5b4f93); }
 body.h-body .h-tab .h-rel--tab.h-rel--beta { background: var(--tc-sun, #d9a43a); }
 body.h-body .h-tab .h-rel--tab.h-rel--new { background: var(--tc-leaf, #4f8a3c); }
-body.h-body .h-tab.is-on .h-rel--tab { width: auto; height: auto; padding: 1px 6px; margin: 0; font-size: 10.5px; line-height: 1.45; }
-body.h-body .h-tab.is-on .h-rel--tab.h-rel--alpha { background: var(--tc-dusk-tint, #e9e5f4); }
-body.h-body .h-tab.is-on .h-rel--tab.h-rel--beta { background: var(--tc-sun-tint, #f7ecd2); }
-body.h-body .h-tab.is-on .h-rel--tab.h-rel--new { background: var(--tc-leaf-tint, #e1efdc); }
-/* The More menu (tab-org.js) lists the word beside each page. */
-body.h-body .h-tabmenu .h-rel--tab { width: auto; height: auto; padding: 1px 6px; margin-left: 8px; font-size: 10.5px; line-height: 1.45; vertical-align: 1px; }
+/* The tab row's menus list the word beside each page (a menu item's width is the menu's, so it never moves the row). */
+body.h-body .h-tabmenu .h-rel--tab, body.h-body .h-tabmenu .h-tab.is-on .h-rel--tab { width: auto; height: auto; padding: 1px 6px; margin-left: 8px; font-size: 10.5px; line-height: 1.45; vertical-align: 1px; }
 /* The slim rail has no room for a word: a small dot in the badge color at the icon's corner. */
 body.h-body .h-area__link .h-rel { position: absolute; top: 8px; left: calc(50% + 8px); width: 7px; height: 7px; padding: 0; margin: 0; font-size: 0; line-height: 0; overflow: hidden; }
 body.h-body .h-area__link .h-rel--alpha { background: var(--tc-dusk, #5b4f93); }

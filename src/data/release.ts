@@ -16,32 +16,27 @@ export const BADGE_TITLE: Record<Badge, string> = {
 };
 
 export const RELEASE: Record<string, Badge | 'none'> = {
-  // Alpha: built in the last week.
+  // Areas. The Work area split on 2026-10-14: Partners and Gifts in daily use (Beta), Projects and Staff new (Alpha).
+  partners: 'beta',
+  gifts: 'beta',
+  projects: 'alpha', // Synced with Asana
+  staff: 'alpha',
   meet: 'alpha', // Meetings: calendar, scheduling, booking pages, series, notes
   chat: 'alpha',
   mail: 'alpha',
-  learn: 'alpha',
-  projects: 'alpha',
+  ask: 'beta', // Favor Brain
+  today: 'beta',
+  kpi: 'none', // Reporting carries no badge (Will, 2026-10-14)
+  // Pages whose stage differs from their area's: a dot on the tab, the word beside the page's title.
   clips: 'none', // fully released (Will, 2026-10-14), so it does not take the Meetings badge
-  expense: 'alpha',
-  evals: 'alpha',
-  onboarding: 'alpha',
-  welcome: 'alpha',
-  statements: 'alpha',
+  board: 'none', // Requests: in use since the spring, so it does not take the Projects badge
   'online-gifts': 'alpha',
+  statements: 'alpha',
   lists: 'alpha',
   'list-reports': 'alpha',
   'list-credit': 'alpha',
+  welcome: 'alpha',
   lite: 'alpha',
-  // Beta: in use longer, still changing.
-  ask: 'beta', // Favor Brain
-  today: 'beta',
-  kpi: 'beta', // Reporting
-  'work-home': 'beta',
-  'work-center': 'beta', // the Work Center page (its page id is work, the same as its area's)
-  receipts: 'beta',
-  'gift-entry': 'beta',
-  foundations: 'beta',
 };
 
 const VALID = new Set(['alpha', 'beta', 'new', 'none']);
@@ -76,7 +71,7 @@ export function badgeFor(key: string, ov: BadgeOverrides = {}): Badge | null {
 }
 
 /** Page ids that are also area ids get their own key, so a page badge never lands on the whole area. */
-const PAGE_KEY: Record<string, string> = { work: 'work-center', meet: 'meet-calendar', chat: 'chat-page', mail: 'mail-page', learn: 'learn-mine', kpi: 'kpi-executive' };
+const PAGE_KEY: Record<string, string> = { work: 'work-center', meet: 'meet-calendar', chat: 'chat-page', mail: 'mail-page', learn: 'learn-mine', kpi: 'kpi-executive', projects: 'projects-page' };
 export const pageKey = (pageId: string) => PAGE_KEY[pageId] || pageId;
 
 /** A page's badge: its own, else its area's. */

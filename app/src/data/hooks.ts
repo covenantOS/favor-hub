@@ -27,7 +27,7 @@ export function useNav() {
     if (!fresh) return;
     const w = window as unknown as { FAVOR_HUB?: unknown };
     w.FAVOR_HUB = fresh;
-    writeJson('local', KEYS.nav, { user: fresh.user, access: fresh.access, kpiTeams: fresh.kpiTeams, counts: fresh.counts });
+    writeJson('local', KEYS.nav, { user: fresh.user, access: fresh.access, kpiTeams: fresh.kpiTeams, counts: fresh.counts, jobs: fresh.jobs });
     document.dispatchEvent(new CustomEvent('favor-hub', { detail: fresh }));
   }, [fresh]);
   return q;

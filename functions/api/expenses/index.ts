@@ -16,6 +16,7 @@ import {
   splitEmails,
   eitherApprover,
   getExpense,
+  linesAndEvents,
 } from '../../_lib/expenses/db';
 import { emailApprover } from '../../_lib/expenses/email';
 import { HttpError, asTrimmed, clientIp, errorJson, handleError, json, type Env } from '../../_lib/http';
@@ -136,18 +137,16 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       return json({ ok: true, requests: await myRequests(env, request) });
     }
     await requireExpenseAdmin(env, request);
-    const rows = await listExpenses(env);
-    const settings = await getSettings(env);
     // An approver signed in with Google signs waiting requests from the log.
     const user = hubUserOf(request);
     const me = user && user.via === 'google' ? user.email.toLowerCase() : '';
-    const approvers = me ? await approverEmails(env) : new Set<string>();
+    const [rows, settings, approvers, all] = await Promise.all([listExpenses(env), getSettings(env), me ? approverEmails(env) : Promise.resolve(new Set<string>()), linesAndEvents(env)]);
     const shaped = [];
     for (const row of rows) {
-      const shape = expenseShape(row, await itemsFor(env, row.id), { admin: true, signatures: true });
+      const shape = expenseShape(row, all.items.get(String(row.id)) || [], { admin: true, signatures: true });
       const mine = Boolean(me) && (approvers.has(me) || splitEmails(row.approver_email).some((e) => e.toLowerCase() === me));
       // Event payloads can hold approver emails and decline notes. The log gets kind, actor, time and who a mail went to.
-      const events = (await listEventsFor(env, row.id)).map((ev) => {
+      const events = (all.events.get(String(row.id)) || []).map((ev) => {
         const to = eventTo(ev.payload);
         return { kind: ev.kind, actor: ev.actor, created_at: ev.created_at, ...(to ? { payload: JSON.stringify({ to }) } : {}) };
       });

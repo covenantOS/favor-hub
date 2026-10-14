@@ -38,6 +38,7 @@ import '../styles/entity.css';
 import '../styles/design-pass.css';
 import '../styles/release.css';
 import '../styles/integrations.css';
+import '../styles/nav-areas.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
 import liteJs from '../../public/js/lite.js?raw';
@@ -57,10 +58,10 @@ interface Props {
 const { title, crumb = 'FavorOS', nav = '', wide = false, full = false, bare = false, description = 'FavorOS, the Favor International staff workspace.' } = Astro.props;
 
 import { icon } from '../data/icons';
-import { badgeFor } from '../data/release';
+import { badgeFor, pageBadge } from '../data/release';
 import Rel from '../components/Rel.astro';
 import { BUILD } from '../data/build';
-import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, resolveNav } from '../data/areas';
+import { AREAS, SWAP_PATHS, FULL_LOAD_PATHS, TAB_CAP, TOOL_LINKS, jobWho, resolveNav } from '../data/areas';
 import NavArea from '../components/NavArea.astro';
 import NavTabs from '../components/NavTabs.astro';
 import NavBar from '../components/NavBar.astro';
@@ -68,9 +69,18 @@ import LearnPanel from '../components/LearnPanel.astro';
 
 const found = resolveNav(nav);
 const curArea = found ? found.area.id : '';
+// The header: the area as a breadcrumb over the page's name, and the page's own badge beside the name. An area with one page
+// (Chat, Mail) or a page named for its area shows the area's name alone.
+const sameAsArea = !!found && (found.page.label === found.area.label || found.page.label === found.area.short);
+const headTitle = found ? (sameAsArea ? found.area.label : found.page.label) : title;
+const headKey = found ? (sameAsArea ? found.area.id : `page:${found.page.id}`) : '';
+const headBadge = found ? (sameAsArea ? badgeFor(found.area.id) : pageBadge(found.page.id, found.area.id)) : null;
+const crumbHref = found ? (found.area.pages.find((p) => p.menu !== false) || found.area.pages[0]).href : '';
 const crumbText = found ? found.area.label : crumb;
-const mainAreas = AREAS.filter((a) => !a.foot);
+const mainAreas = AREAS.filter((a) => !a.foot).sort((x, y) => x.barRank - y.barRank);
 const footAreas = AREAS.filter((a) => a.foot);
+// Areas that are some people's job (Partners, Gifts) sit under the rail's More for everyone else. Nothing in More is locked.
+const moreAreas = mainAreas.filter((a) => a.jobs && a.jobs.length);
 // Links to pages that swap in place need nothing fetched ahead by the browser (hub-swap.js reads them itself). Links to pages that load whole
 // are fetched ahead, as HTML only: a prerendered page would run its scripts (reads, presence, polling) before anyone opened it.
 const lightPaths = SWAP_PATHS.filter((p) => !FULL_LOAD_PATHS.includes(p));
@@ -156,6 +166,25 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           <div class="h-pins" id="h-pins" hidden><div class="h-nav__label">Pinned</div><div class="h-pins__list" id="h-pins-list"></div></div>
           <nav class="h-areas" aria-label="Areas">
             {mainAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
+            <div class="h-area h-area--pop h-area--more" data-area="more" hidden>
+              <a class="h-nav__item h-area__link" href="#" data-area-link="more" aria-haspopup="true" title="More areas">
+                <Fragment set:html={icon('more')} />
+                <span class="h-area__label">More</span>
+                <span class="h-nav__count h-area__sum" data-sum="railmore" hidden></span>
+              </a>
+              <button type="button" class="h-area__tog" aria-expanded="false" aria-label="Show more areas"><Fragment set:html={icon('chev')} /></button>
+              <div class="h-area__pages" role="group" aria-label="More areas">
+                {moreAreas.map((a) => (
+                  <div class="h-pg h-pg--area" data-more-area={a.id} hidden>
+                    <a class="h-nav__item h-pg__a" href={(a.pages.find((p) => p.menu !== false) || a.pages[0]).href} data-astro-prefetch="hover" data-more-link={a.id} aria-current={a.id === curArea ? 'true' : undefined}>
+                      <Fragment set:html={icon(a.icon)} />
+                      <span class="h-pg__t">{a.label}<small>{jobWho(a.jobs)}</small></span>
+                      <span class="h-nav__count" data-sum={a.id} hidden></span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
           </nav>
           <div class="h-areas h-areas--foot">
             {footAreas.map((a) => <NavArea area={a} nav={nav} curArea={curArea} />)}
@@ -171,6 +200,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
               <button type="button" role="menuitem" data-feedback="hub"><Fragment set:html={icon('chat')} />Feedback</button>
               <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
+              {TOOL_LINKS.map((t) => <a role="menuitem" href={t.href} target="_blank" rel="noopener noreferrer"><Fragment set:html={icon('ext')} />{t.label}</a>)}
               <button type="button" role="menuitem" data-lite-open><Fragment set:html={icon('signal')} />Data saver<Rel k="lite" b={badgeFor('lite')} /></button>
               <button type="button" role="menuitem" class="h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>
               <button type="button" role="menuitem" id="h-out"><Fragment set:html={icon('out')} />Sign out</button>
@@ -192,8 +222,6 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               })();
             </script>
           </div>
-          <!-- Search sits at the foot of the rail (round2.css order: 9); it comes last in the markup too, so Tab reaches it where it is drawn. -->
-          <button type="button" class="h-search" data-cmdk-open><Fragment set:html={icon('search')} /><span class="h-search__t">Search</span><kbd>Ctrl K</kbd></button>
         </div>
       </aside>
       <div class="h-scrim" id="h-scrim" aria-hidden="true"></div>
@@ -207,16 +235,25 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           return window.__hubGateP;
         };
         // Areas with nothing this person may open disappear; the rail, the tab row and the phone bar follow.
+        // Areas that are other people's job (src/data/areas.ts `jobs`) leave the rail for its More menu. Nothing there is locked.
+        window.hubJobMatch = function (jobs, mine) {
+          if (!jobs || !jobs.length || !mine) return true;
+          if (mine.indexOf('admin') >= 0) return true;
+          for (var i = 0; i < jobs.length; i++) if (mine.indexOf(jobs[i]) >= 0) return true;
+          return false;
+        };
         window.hubNavLayout = function () {
           var q = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
-          var prefs = {};
-          try { var np = JSON.parse(localStorage.getItem('favor.hub.nav.prefs.v1') || '{}'); var nu = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); prefs = np[(nu && nu.user && nu.user.email) || '_'] || np._ || {}; } catch (e) {}
-          var last = prefs.last || {};
+          var mine = window.__hubJobs || null;
+          var jobsOf = function (el) { var j = el.getAttribute('data-jobs'); return j ? j.split(' ') : null; };
           var sums = {};
           q('.h-area').forEach(function (a) {
             var id = a.dataset.area;
+            if (id === 'more') return;
             var pages = q('.h-pg:not([hidden])', a);
-            a.hidden = !pages.length;
+            var outside = !a.classList.contains('h-area--foot') && !window.hubJobMatch(jobsOf(a), mine);
+            a.classList.toggle('is-more', outside && pages.length > 0);
+            a.hidden = !pages.length || outside;
             a.classList.toggle('is-single', pages.length === 1);
             var n = 0, warn = false;
             // An area shows the sum of the numbers beside its pages, so the area and its pages always read the same.
@@ -227,10 +264,28 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
             sums[id] = { n: n, warn: warn };
             var target = pages[0] ? pages[0].querySelector('a') : null;
             var href = target ? target.getAttribute('href') : a.querySelector('.h-area__link').dataset.default;
-            q('[data-area-link="' + id + '"]').forEach(function (l) { if (!l.closest('.h-area--pop')) l.setAttribute('href', href); });
+            q('[data-area-link="' + id + '"], [data-more-link="' + id + '"]').forEach(function (l) { if (!l.closest('.h-area--pop') || l.dataset.moreLink) l.setAttribute('href', href); });
           });
+          // The rail's More: the areas outside this person's job that they may open.
+          var moreArea = document.querySelector('.h-area--more');
+          var railMore = { n: 0, warn: false };
+          if (moreArea) {
+            var any = false;
+            q('[data-more-area]', moreArea).forEach(function (pg) {
+              var src = document.querySelector('.h-area[data-area="' + pg.dataset.moreArea + '"]');
+              var on = !!src && src.classList.contains('is-more');
+              pg.hidden = !on;
+              if (on) { any = true; var t = sums[pg.dataset.moreArea]; if (t) { railMore.n += t.n; railMore.warn = railMore.warn || t.warn; } }
+            });
+            moreArea.hidden = !any;
+            var curMore = document.querySelector('.h-area.is-more.is-cur');
+            moreArea.classList.toggle('is-cur', !!curMore);
+          }
+          sums.railmore = railMore;
           var tabs = document.getElementById('h-tabs');
-          if (tabs) tabs.hidden = q('.h-tab:not([hidden])', tabs).length < 2;
+          if (tabs) tabs.hidden = q('a.h-tab[data-nav-id]:not([hidden])', tabs).length < 2;
+          if (window.hubTabsLayout) window.hubTabsLayout();
+          // The phone bar: Today and this person's next three areas, in rail order. More holds every other area.
           var bar = q('#h-bar [data-bar]');
           var vis = bar.filter(function (b) { var a = document.querySelector('.h-area[data-area="' + b.dataset.bar + '"]'); return a && !a.hidden; });
           vis.sort(function (x, y) { return Number(x.dataset.rank) - Number(y.dataset.rank); });
@@ -247,6 +302,60 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           var cur = document.querySelector('.h-area.is-cur');
           var more = document.getElementById('h-bar-more');
           if (more) more.classList.toggle('is-on', !!cur && !bar.some(function (b) { return !b.hidden && b.dataset.bar === cur.dataset.area; }));
+        };
+        // The tab row (src/components/NavTabs.astro): this person's job pages first, at most six in the row, the rest under More;
+        // the open page always in the row. The same rule as arrangeTabs in src/data/areas.ts (tests/nav-areas.test.mjs runs both).
+        window.hubTabsLayout = function () {
+          var nav = document.getElementById('h-tabs');
+          if (!nav) return;
+          var q = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+          var row = nav.querySelector('.h-tabs__row');
+          var moreBtn = row && row.querySelector('.h-tab--more');
+          var moreMenu = nav.querySelector('[data-menu="more"]');
+          if (!row || !moreBtn || !moreMenu) return;
+          var mine = window.__hubJobs || null;
+          var CAP = 6;
+          // Groups: members back in their menu; a group with one page this person may open shows that page as a plain tab.
+          q('.h-tabgrp', row).forEach(function (g) {
+            var menu = nav.querySelector('[data-menu="grp:' + g.dataset.grp + '"]');
+            var btn = g.querySelector('.h-tab--menu');
+            if (!menu || !btn) return;
+            q('a.h-tab[data-group]', g).forEach(function (a) { a.setAttribute('role', 'menuitem'); menu.appendChild(a); });
+            var members = q('a.h-tab[data-group]:not([hidden])', menu);
+            g.hidden = !members.length;
+            if (members.length === 1) { btn.hidden = true; members[0].removeAttribute('role'); g.appendChild(members[0]); }
+            else {
+              btn.hidden = false;
+              var on = members.filter(function (m) { return m.classList.contains('is-on'); })[0];
+              btn.classList.toggle('is-on', !!on);
+              var sub = btn.querySelector('.h-tab__sub');
+              if (sub) sub.textContent = on ? ' · ' + (on.querySelector('.h-tab__t') || on).textContent.trim() : '';
+            }
+          });
+          var plain = q('a.h-tab[data-ord]', nav);
+          var entries = plain.concat(q('.h-tabgrp', row)).sort(function (x, y) { return Number(x.dataset.ord) - Number(y.dataset.ord); });
+          var shown = entries.filter(function (e) { return !e.hidden; });
+          var jobsOf = function (e) { var j = e.getAttribute('data-jobs'); return j ? j.split(' ') : null; };
+          var isOn = function (e) { return e.classList.contains('is-on') || !!e.querySelector('.h-tab.is-on'); };
+          var anyJob = shown.some(function (e) { return jobsOf(e) && window.hubJobMatch(jobsOf(e), mine); });
+          var first = anyJob ? shown.filter(function (e) { return window.hubJobMatch(jobsOf(e), mine); }) : shown.slice();
+          var rest = anyJob ? shown.filter(function (e) { return !window.hubJobMatch(jobsOf(e), mine); }) : [];
+          var inRow = first.slice(0, CAP);
+          var inMore = first.slice(CAP).concat(rest);
+          var onE = inMore.filter(isOn)[0];
+          if (onE) { inMore.splice(inMore.indexOf(onE), 1); inRow.push(onE); }
+          // Groups never go under More: a menu inside a menu is one tap too many.
+          inMore = inMore.filter(function (e) { if (e.classList.contains('h-tabgrp')) { inRow.push(e); return false; } return true; });
+          inRow.forEach(function (e) { e.classList.add('is-job'); if (e.tagName === 'A') e.removeAttribute('role'); row.insertBefore(e, moreBtn); });
+          entries.filter(function (e) { return e.hidden; }).forEach(function (e) { row.insertBefore(e, moreBtn); });
+          inMore.forEach(function (e) { e.classList.toggle('is-job', !!(jobsOf(e) && window.hubJobMatch(jobsOf(e), mine))); e.setAttribute('role', 'menuitem'); moreMenu.appendChild(e); });
+          moreBtn.hidden = !inMore.length;
+          var c = 0;
+          inMore.forEach(function (e) { var n = e.querySelector('.h-nav__count:not([hidden])'); if (n) c += Number(String(n.textContent).replace(/,/g, '')) || 0; });
+          var mc = moreBtn.querySelector('.h-nav__count');
+          if (!mc) { mc = document.createElement('span'); mc.className = 'h-nav__count'; moreBtn.insertBefore(mc, moreBtn.lastElementChild); }
+          mc.hidden = !c;
+          mc.textContent = c.toLocaleString('en-US');
         };
         window.hubApplyNav = function (d) {
           var $ = function (id) { return document.getElementById(id); };
@@ -283,6 +392,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
             window.hubRelApply();
           }
           var access = d.access || {};
+          // Whose work this person does (functions/_lib/hub/jobs.ts): the rail and the tab rows order by it. Unknown until the menu answers.
+          if (Array.isArray(d.jobs)) window.__hubJobs = d.jobs;
           document.documentElement.classList.toggle('is-field', !!access.field);
           document.documentElement.classList.toggle('has-brain', !!access.brain);
           document.documentElement.classList.toggle('has-kpi', !!access.kpi);
@@ -324,8 +435,8 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           <button type="button" class="h-top__menu" id="h-menu" aria-label="Open the menu" aria-controls="h-side" aria-expanded="false"><Fragment set:html={icon('menu')} /></button>
           {found && <span class="h-tile" id="h-tile" aria-hidden="true"><Fragment set:html={icon(found.area.icon)} /></span>}
           <div class="h-top__head">
-            <div class="h-top__crumb">{crumbText}</div>
-            <div class="h-top__title">{found ? found.area.label : title}{found && <Rel k={found.area.id} b={badgeFor(found.area.id)} cls="h-rel--head" />}{found && found.page.id === 'projects' && <span class="h-top__note">Synced with Asana</span>}</div>
+            <div class="h-top__crumb" hidden={found && !sameAsArea ? undefined : true}>{found && !sameAsArea ? <a href={crumbHref} data-astro-prefetch="hover">{crumbText}</a> : crumbText}<span class="h-top__crumb2" id="h-crumb2"></span></div>
+            <div class="h-top__title">{headTitle}{found && <Rel k={headKey} b={headBadge} cls="h-rel--head" />}{found && found.page.note && <span class="h-top__note">{found.page.note}</span>}</div>
           </div>
           <div class="h-top__tabs" id="h-tabs-slot">{found && <NavTabs area={found.area} nav={nav} />}</div>
           <div class="h-top__right" data-ui-actions>
@@ -354,17 +465,16 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     </div>
     <script is:inline>try { var s3 = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (s3) window.hubApplyNav(s3); } catch (e) {}</script>
     <CommandPalette />
-    <script is:inline src="/js/hub-shell.js?v=12" defer></script>
+    <script is:inline src="/js/hub-shell.js?v=13" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=7" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=22" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=8" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=23" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
     <script is:inline src="/js/request-tasks.js?v=2" defer></script>
     <script is:inline src="/js/request-drawer.js?v=2" defer></script>
     <script is:inline src="/js/integrations.js?v=1" defer></script>
     <script is:inline src="/js/wc-bell.js?v=10" defer></script>
-    <script is:inline src="/js/tab-org.js?v=2" defer></script>
     <script is:inline src="/js/dock.js?v=2" defer></script>
     <script is:inline src="/js/projects/links.js?v=1" defer></script>
     <script is:inline src="/js/sticky-col.js?v=1" defer></script>

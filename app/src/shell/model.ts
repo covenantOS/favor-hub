@@ -58,7 +58,7 @@ export function buildNav(input: NavInput): NavView {
   const curArea = found ? found.area.id : '';
   const areas: AreaView[] = AREAS.map((area) => {
     const pages: PageView[] = area.pages
-      .filter((p) => pageVisible(p, access, kpiTeams))
+      .filter((p) => p.menu !== false && pageVisible(p, access, kpiTeams))
       .map((page) => {
         const count = page.count ? Number(counts[page.count]) || 0 : 0;
         return { page, count, warn: page.count === 'receiptsLeft' && count > 0, on: isOn(page, navId) };

@@ -1,0 +1,98 @@
+/* The October 2026 split of Work into Partners, Gifts, Projects and Staff: area colors, the header breadcrumb, the tab row's menus
+   (groups and More), the rail's More, and the phone's chip row. Loaded last by the App layout. */
+
+/* ------------------------------------------------------------ area colors */
+body.h-body[data-area='partners'] { --a: var(--tc-leaf); --a-ink: var(--tc-leaf-ink); --a-tint: var(--tc-leaf-tint); --a-soft: var(--soft-leaf); --a-tile: var(--tc-leaf); }
+body.h-body[data-area='gifts'] { --a: #8a5d0c; --a-ink: var(--tc-sun-ink); --a-tint: var(--tc-sun-tint); --a-soft: var(--soft-sun); --a-tile: var(--tc-sun); }
+body.h-body[data-area='projects'] { --a: #3f4f8f; --a-ink: #2c3870; --a-tint: #e6e9f6; --a-soft: #a9b5ec; --a-tile: #3f4f8f; }
+body.h-body[data-area='staff'] { --a: #84466a; --a-ink: #6a3454; --a-tint: #f4e6ee; --a-soft: #e2a6c4; --a-tile: #84466a; }
+.h-area[data-area='partners'] { --soft: var(--soft-leaf); --solid: var(--tc-leaf); --ic: var(--tc-leaf); }
+.h-area[data-area='gifts'] { --soft: var(--soft-sun); --solid: var(--tc-sun); --ic: var(--tc-sun); }
+.h-area[data-area='projects'] { --soft: #a9b5ec; --solid: #3f4f8f; --ic: #3f4f8f; }
+.h-area[data-area='staff'] { --soft: #e2a6c4; --solid: #84466a; --ic: #84466a; }
+.h-area[data-area='more'] { --soft: var(--soft-slate); --solid: var(--tc-slate); }
+@media (max-width: 860px) {
+  .h-bar__a[data-bar='partners'] { --solid: var(--tc-leaf); } .h-bar__a[data-bar='partners'] .h-i { color: var(--soft-leaf); }
+  .h-bar__a[data-bar='gifts'] { --solid: var(--tc-sun); } .h-bar__a[data-bar='gifts'] .h-i { color: var(--soft-sun); }
+  .h-bar__a[data-bar='projects'] { --solid: #3f4f8f; } .h-bar__a[data-bar='projects'] .h-i { color: #a9b5ec; }
+  .h-bar__a[data-bar='staff'] { --solid: #84466a; } .h-bar__a[data-bar='staff'] .h-i { color: #e2a6c4; }
+}
+
+/* ------------------------------------------------------------ header: the area over the page's name */
+body.h-body .h-top .h-top__head { display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; }
+body.h-body .h-top .h-top__crumb { display: block; font: 600 12px/1.2 var(--h-font); letter-spacing: 0; text-transform: none; color: var(--r-ink-3, #7d7a72); white-space: nowrap; }
+body.h-body .h-top .h-top__crumb[hidden] { display: none; }
+body.h-body .h-top .h-top__crumb a { color: inherit; text-decoration: none; }
+body.h-body .h-top .h-top__crumb a:hover { color: var(--r-ink); text-decoration: underline; text-underline-offset: 2px; }
+body.h-body .h-top .h-top__crumb2:not(:empty)::before { content: ' / '; color: var(--r-line-2, #c9c4b8); }
+body.h-body .h-top .h-top__title { font: 500 22px/1.15 var(--h-serif); }
+@media (max-width: 860px) {
+  body.h-body .h-top .h-top__crumb { font-size: 11px; }
+  body.h-body .h-top .h-top__title { font-size: 20px !important; }
+}
+
+/* ------------------------------------------------------------ the tab row */
+body.h-body .h-tabs__row { display: flex; align-items: center; gap: 2px; min-width: 0; }
+body.h-body .h-tab { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
+body.h-body .h-tab .h-tab__who { display: none; }
+body.h-body .h-tab--menu { cursor: pointer; background: none; font: 600 13px var(--h-font); }
+body.h-body .h-tab--menu[hidden], body.h-body .h-tabgrp[hidden] { display: none; }
+body.h-body .h-tabgrp { display: inline-flex; flex: none; }
+body.h-body .h-tab__caret { width: 12px; height: 12px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+body.h-body .h-tab__sub { font-weight: 600; }
+body.h-body .h-tab__sub:empty { display: none; }
+body.h-body .h-tab--menu[aria-expanded='true'] { background: rgba(29, 33, 27, 0.06); color: var(--r-ink); }
+body.h-body .h-tab--menu[aria-expanded='true'] .h-tab__caret { transform: rotate(180deg); }
+
+/* menus: a group's pages and More, under their button */
+body.h-body .h-tabmenu { position: fixed; z-index: 200; min-width: 220px; max-width: 320px; max-height: min(70vh, 520px); overflow: auto; padding: 6px; background: #fff; border: 1px solid var(--r-line, #e6e0d2); border-radius: 12px; box-shadow: 0 14px 34px -14px rgba(42, 39, 34, 0.35); }
+body.h-body .h-tabmenu[hidden] { display: none; }
+body.h-body .h-tabmenu .h-tab { display: flex; width: 100%; min-height: 40px; height: auto; padding: 6px 12px; margin: 0; border-radius: 8px; gap: 8px; background: none; color: var(--r-ink-2); justify-content: flex-start; flex-wrap: wrap; row-gap: 0; }
+body.h-body .h-tabmenu .h-tab[hidden] { display: none; }
+body.h-body .h-tabmenu .h-tab:hover, body.h-body .h-tabmenu .h-tab:focus-visible { background: var(--r-hover, #f3efe6); color: var(--r-ink); }
+body.h-body .h-tabmenu .h-tab.is-on { background: var(--a-tint); color: var(--a-ink); }
+body.h-body .h-tabmenu .h-tab .h-tab__t { flex: 1 1 auto; }
+body.h-body .h-tabmenu .h-tab .h-tab__who { display: block; flex: 1 0 100%; order: 9; font: 500 12px/1.3 var(--h-font); color: var(--r-ink-3); }
+body.h-body .h-tabmenu .h-tab.is-job .h-tab__who { display: none; }
+body.h-body .h-tabmenu .h-tab .h-nav__count { margin-left: auto; }
+body.h-body .h-tabmenu .h-rel--tab { width: auto; height: auto; padding: 0 5px; font-size: 10px; border-radius: 4px; }
+
+/* ------------------------------------------------------------ the rail's More: areas outside this person's job */
+.h-area--more .h-area__pages .h-pg--area .h-pg__a { gap: 10px; }
+.h-area--more .h-pg--area .h-i { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; }
+.h-area--more .h-pg--area .h-pg__t { display: flex; flex-direction: column; line-height: 1.25; text-align: left; }
+.h-area--more .h-pg--area .h-pg__t small { font: 500 11px/1.3 var(--h-font); color: var(--r-ink-3, #7d7a72); white-space: normal; }
+html.nav-wide .h-area--more .h-pg--area .h-pg__t small, .h-app.is-peek .h-area--more .h-pg--area .h-pg__t small, .h-app.is-nav .h-area--more .h-pg--area .h-pg__t small { color: rgba(255, 255, 255, 0.55); }
+.h-area--more .h-pg--area[hidden] { display: none; }
+body.h-body .h-area--more .h-area__pages { top: var(--more-top, auto); bottom: auto; }
+html.nav-wide body.h-body .h-area--more .h-pg--area .h-pg__a, body.h-body .h-app.is-peek .h-area--more .h-pg--area .h-pg__a, body.h-body .h-app.is-nav .h-area--more .h-pg--area .h-pg__a { padding-left: 14px; }
+.h-area--more.is-cur > .h-area__link { color: #fff; }
+
+/* ------------------------------------------------------------ phone: the tab row is a chip row under the title */
+@media (max-width: 860px) {
+  body.h-body .h-tabs__row { gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  body.h-body .h-tabs__row::-webkit-scrollbar { display: none; }
+  body.h-body .h-tabs__row > .h-tab, body.h-body .h-tabs__row > .h-tabgrp > .h-tab { min-height: 36px; padding: 0 14px; border: 1px solid var(--r-line-2, #ddd6c6); background: #fff; border-radius: 999px; }
+  body.h-body .h-tabs__row > .h-tab.is-on, body.h-body .h-tabs__row > .h-tabgrp > .h-tab.is-on { background: var(--r-ink); border-color: var(--r-ink); color: #fff; }
+  body.h-body .h-tabs__row > .h-tab.is-on .h-nav__count, body.h-body .h-tabs__row > .h-tabgrp > .h-tab.is-on .h-nav__count { background: rgba(255, 255, 255, 0.2); color: #fff; }
+  body.h-body .h-tabmenu { max-width: calc(100vw - 16px); }
+  body.h-body .h-tabmenu .h-tab { min-height: 44px; }
+}
+
+/* ------------------------------------------------------------ desktop header: the title row, then the tab row under it
+   The tabs sit on their own row, so a longer or shorter page name never moves them (they used to follow the title). */
+@media (min-width: 861px) {
+  body.h-body .h-top { height: auto; min-height: 64px; flex-wrap: wrap; align-content: flex-start; align-items: center; row-gap: 0; padding: 10px 28px 10px; }
+  body.h-body .h-top > .h-tile, body.h-body .h-top > .h-top__head, body.h-body .h-top > .h-top__right { min-height: 44px; }
+  body.h-body .h-top:has(#h-tabs:not([hidden])) { padding-bottom: 0; }
+  body.h-body .h-top .h-top__tabs { order: 5; flex: 1 0 100%; margin: 4px 0 0 -12px; min-width: 0; }
+  body.h-body .h-top .h-top__tabs:has(> #h-tabs[hidden]), body.h-body .h-top .h-top__tabs:empty { display: none; }
+  body.h-body .h-tabs__row { min-height: 44px; padding-bottom: 6px; overflow: visible; }
+  html.nav-wide body.h-body .h-top .h-top__tabs { display: none; }
+  html.nav-wide body.h-body .h-top { padding-bottom: 10px; }
+  body.h-body:has(#h-tabs:not([hidden])) .h-frame { height: calc(100vh - 108px); }
+  html.nav-wide body.h-body .h-frame { height: calc(100vh - 64px); }
+}
+body.h-body .h-tabmenu .h-tab .h-rel--tab.h-rel--alpha { background: var(--tc-dusk-tint, #e9e5f4); color: var(--tc-dusk-ink, #4a3f7d); }
+body.h-body .h-tabmenu .h-tab .h-rel--tab.h-rel--beta { background: var(--tc-sun-tint, #f7ecd2); color: var(--tc-sun-ink, #6b4a0c); }
+body.h-body .h-tabmenu .h-tab .h-rel--tab.h-rel--new { background: var(--tc-leaf-tint, #e1efdc); color: var(--tc-leaf-ink, #1f5a2a); }

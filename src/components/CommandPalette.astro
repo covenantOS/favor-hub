@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import videos from '../data/videos.json';
 import { buildPaletteItems } from '../data/palette';
+import { MOVED_UNTIL as WAS_UNTIL } from '../data/areas';
 
 // Help articles and videos only show once someone types, so the opening list stays short.
 const docs = (await getCollection('help')).sort((a, b) => a.data.order - b.data.order);
@@ -41,7 +42,7 @@ const items = buildPaletteItems(
   </div>
 </div>
 
-<script is:inline define:vars={{ items }}>
+<script is:inline define:vars={{ items, WAS_UNTIL }}>
   const cmdk = document.getElementById('cmdk');
   const input = document.getElementById('cmdk-input');
   const list = document.getElementById('cmdk-list');
@@ -73,10 +74,26 @@ const items = buildPaletteItems(
     if (i.team && !((d && d.kpiTeams) || []).includes(i.team)) return false;
     return true;
   }
+  // Your pages are the ones in your rail and your tab rows (your job's pages and everyone's); the pages of other people's jobs follow
+  // under Other pages. A page that moved in the October split shows where it was ("Was Work > Statements") for a month.
+  function myJobs() {
+    let d = window.FAVOR_HUB;
+    if (!d) { try { d = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); } catch (e) { d = null; } }
+    return d && Array.isArray(d.jobs) ? d.jobs : null;
+  }
+  const jobOk = (jobs, mine) => (window.hubJobMatch ? window.hubJobMatch(jobs, mine) : true);
+  const wasOn = new Date().toISOString().slice(0, 10) < WAS_UNTIL;
+  function shaped(i, mine) {
+    if (!i.page || i.area === 'tools') return i;
+    const own = jobOk(i.jobs ? String(i.jobs).split(' ') : null, mine);
+    const path = i.desc.split(' · ')[0];
+    return Object.assign({}, i, { group: own ? 'Your pages' : 'Other pages', desc: wasOn && i.was ? path + ' · Was ' + i.was : i.desc });
+  }
   function filter(q) {
     const lq = norm(q.trim());
-    const pool = items.filter(allowed);
-    if (!lq) return pool.filter((i) => !i.searchOnly);
+    const mine = myJobs();
+    const pool = items.filter(allowed).map((i) => shaped(i, mine));
+    if (!lq) return pool.filter((i) => !i.searchOnly && !(i.menu === false));
     return pool
       .map((i) => ({ i, s: score(i, lq) }))
       .filter((x) => x.s > 0)
@@ -123,7 +140,8 @@ const items = buildPaletteItems(
   function open() {
     cmdk.hidden = false;
     input.value = '';
-    render(filter(''));
+    for (const k of Object.keys(remote)) remote[k] = [];
+    render(merged(filter('')));
     requestAnimationFrame(() => input.focus());
     document.body.style.overflow = 'hidden';
   }
@@ -172,7 +190,7 @@ const items = buildPaletteItems(
   // sources such as Drive and runs after tier 2 settles. Every server call applies the signed-in person's access, so a
   // row this person cannot open never comes back. A denied or failed source shows no rows and the rest keep working.
   const escHtml = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const KIND_ORDER = ['Partners', 'Requests', 'Projects', 'Menu', 'Tools', 'Reports', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive'];
+  const KIND_ORDER = ['Your pages', 'Actions', 'Partners', 'Requests', 'Projects', 'Menu', 'Tools', 'Reports', 'Other pages', 'Meetings', 'Chat', 'Clips', 'Learn', 'Favor Brain', 'Help', 'External', 'Drive'];
   const kindRank = (g) => KIND_ORDER.indexOf(g);
   const remote = { partners: [], requests: [], projects: [], reports: [], chats: [], meetings: [], messages: [], clips: [], learn: [], drive: [] };
   let seq = 0;

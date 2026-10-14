@@ -5,8 +5,9 @@
 (() => {
   'use strict';
   const root = document.getElementById('ln');
-  if (!root || window.__learnApp) return;
-  window.__learnApp = true;
+  // Once per page body: a page swapped in place (hub-swap.js) brings a fresh #ln and runs this again; its old listeners were removed.
+  if (!root || root.dataset.lnOn) return;
+  root.dataset.lnOn = '1';
 
   const $ = (s, el) => (el || document).querySelector(s);
   const $$ = (s, el) => Array.from((el || document).querySelectorAll(s));

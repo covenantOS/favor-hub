@@ -130,7 +130,7 @@
     }
     if (e.key === '\\') { e.preventDefault(); toggleWide(); return; }
     if (e.key === '[' || e.key === ']') {
-      const tabs = $$('#h-tabs .h-tab:not([hidden])');
+      const tabs = $$('#h-tabs .h-tabs__row a.h-tab[data-nav-id]:not([hidden])');
       const i = tabs.findIndex((t) => t.classList.contains('is-on'));
       if (tabs.length > 1 && i >= 0) { e.preventDefault(); tabs[(i + (e.key === ']' ? 1 : tabs.length - 1)) % tabs.length].click(); }
       return;
@@ -138,7 +138,8 @@
     const k = e.key.toLowerCase();
     if (gAt && Date.now() - gAt < 1200) {
       gAt = 0;
-      const a = $(`.h-area[data-key="${k}"]:not([hidden]):not(.h-area--pop)`);
+      // An area under the rail's More is hidden in the rail and still jumps (nothing there is locked).
+      const a = $(`.h-area[data-key="${k}"]:not([hidden]):not(.h-area--pop)`) || $(`.h-area.is-more[data-key="${k}"]`);
       if (a) { e.preventDefault(); const l = $('.h-area__link', a); location.href = l.getAttribute('href'); }
       return;
     }
@@ -183,7 +184,14 @@
     const tog = t.closest('.h-area__tog');
     if (tog) { e.preventDefault(); toggleGroup(tog.closest('.h-area')); return; }
     const pop = t.closest('.h-area--pop .h-area__link');
-    if (pop) { e.preventDefault(); e.stopPropagation(); const a = pop.closest('.h-area'); const on = !a.classList.contains('is-pop'); a.classList.toggle('is-pop', on); if (isFull() || phoneMq.matches) a.classList.toggle('is-open', on); return; }
+    if (pop) {
+      e.preventDefault(); e.stopPropagation();
+      const a = pop.closest('.h-area'); const on = !a.classList.contains('is-pop');
+      // The rail's More opens beside its own button, wherever the rail put it.
+      if (on && a.classList.contains('h-area--more')) { const r = pop.getBoundingClientRect(); a.style.setProperty('--more-top', Math.max(8, Math.min(r.top, window.innerHeight - 220)) + 'px'); }
+      $$('.h-area--pop.is-pop').forEach((x) => { if (x !== a) x.classList.remove('is-pop'); });
+      a.classList.toggle('is-pop', on); if (isFull() || phoneMq.matches) a.classList.toggle('is-open', on); return;
+    }
     if (!t.closest('.h-area--pop')) $$('.h-area--pop.is-pop').forEach((a) => a.classList.remove('is-pop'));
     const more = t.closest('#h-bar-more');
     if (more) {
@@ -203,6 +211,52 @@
     const al = t.closest('.h-area__link');
     if (al && peek()) setPeek(false);
   }, true);
+
+  // ---- tab row menus (src/components/NavTabs.astro): a group (Reports, Teams, Learning) and More open under their button.
+  let tabMenu = null;
+  function closeTabMenu() {
+    if (!tabMenu) return;
+    tabMenu.menu.hidden = true;
+    tabMenu.btn.setAttribute('aria-expanded', 'false');
+    tabMenu = null;
+  }
+  function openTabMenu(btn) {
+    const nav = btn.closest('#h-tabs');
+    const menu = nav && nav.querySelector(`[data-menu="${btn.dataset.menuFor}"]`);
+    if (!menu) return;
+    if (tabMenu && tabMenu.btn === btn) { closeTabMenu(); return; }
+    closeTabMenu();
+    menu.hidden = false;
+    const r = btn.getBoundingClientRect();
+    const w = menu.offsetWidth;
+    menu.style.top = Math.round(r.bottom + 4) + 'px';
+    menu.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + 'px';
+    btn.setAttribute('aria-expanded', 'true');
+    tabMenu = { btn, menu };
+    const first = menu.querySelector('a:not([hidden])');
+    if (first && root.classList.contains('kbd')) first.focus();
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target instanceof Element ? e.target : null;
+    const btn = t && t.closest('#h-tabs .h-tab--menu');
+    if (btn) { e.preventDefault(); openTabMenu(btn); return; }
+    if (tabMenu && !(t && t.closest('.h-tabmenu'))) closeTabMenu();
+    else if (tabMenu && t && t.closest('.h-tabmenu a')) closeTabMenu();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!tabMenu) return;
+    if (e.key === 'Escape') { const b = tabMenu.btn; closeTabMenu(); b.focus(); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const items = $$('a:not([hidden])', tabMenu.menu);
+      if (!items.length) return;
+      e.preventDefault();
+      const i = items.indexOf(document.activeElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1) + (i < 0 && e.key === 'ArrowUp' ? 1 : 0)) % items.length].focus();
+    }
+  }, true);
+  window.addEventListener('resize', closeTabMenu);
+  window.addEventListener('scroll', (e) => { if (tabMenu && !(e.target instanceof Element && e.target.closest && e.target.closest('.h-tabmenu'))) closeTabMenu(); }, true);
+  document.addEventListener('hub-swapped', closeTabMenu);
 
   document.addEventListener('keydown', onKey);
   const onMq = () => { if (!app) return; if (wideMq.matches) app.classList.remove('is-peek'); root.classList.toggle('nav-wide', wideMq.matches && !!prefs().wide); sync(); };

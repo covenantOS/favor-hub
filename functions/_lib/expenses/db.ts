@@ -284,6 +284,19 @@ export async function listExpenses(env: Env): Promise<ExpenseRow[]> {
   return results;
 }
 
+/** Every request's lines and events in two reads (the log used to read them one request at a time: 100 round trips for 50 requests). */
+export async function linesAndEvents(env: Env): Promise<{ items: Map<string, ExpenseItemRow[]>; events: Map<string, ExpenseEventRow[]> }> {
+  const [it, ev] = await Promise.all([
+    env.DB.prepare('SELECT id, request_id, position, description, item, amount_cents FROM expense_items ORDER BY request_id, position ASC').all<ExpenseItemRow>(),
+    env.DB.prepare('SELECT id, request_id, kind, actor, payload, created_at FROM expense_events ORDER BY request_id, created_at ASC').all<ExpenseEventRow>(),
+  ]);
+  const items = new Map<string, ExpenseItemRow[]>();
+  for (const r of it.results) { const k = String(r.request_id); if (!items.has(k)) items.set(k, []); items.get(k)!.push(r); }
+  const events = new Map<string, ExpenseEventRow[]>();
+  for (const r of ev.results) { const k = String(r.request_id); if (!events.has(k)) events.set(k, []); events.get(k)!.push(r); }
+  return { items, events };
+}
+
 export async function itemsFor(env: Env, requestId: string): Promise<ExpenseItemRow[]> {
   const { results } = await env.DB.prepare(
     'SELECT id, request_id, position, description, item, amount_cents FROM expense_items WHERE request_id = ? ORDER BY position ASC'

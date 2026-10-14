@@ -1,37 +1,71 @@
 ---
-// The tab row under the header: the pages of the area this page belongs to. The header title is the area's name and wears
-// the area's badge, so it stays put while someone moves between tabs; a page's own badge sits on its tab (a dot, the word
-// on the open tab), shown only where it differs from the area's.
-import type { NavArea } from '../data/areas';
+// The tab row under the header: the pages of the area this page belongs to. The header title is the page's name and wears the
+// page's badge; a tab whose badge differs from its area's shows a dot (the word on the open tab).
+// The build draws every page of the area. Pages that sit together (Reporting's Reports and Teams, Staff's Learning) go under one
+// menu. Before the first paint the layout's hubTabsLayout puts this person's job pages first, keeps at most six in the row and moves
+// the rest under More (src/data/areas.ts arrangeTabs, the same rule), so the row never shifts after load.
+import type { NavArea, NavPage } from '../data/areas';
+import { jobWho } from '../data/areas';
 import { badgeFor, pageBadge } from '../data/release';
 import Rel from './Rel.astro';
 interface Props { area: NavArea; nav: string; }
 const { area, nav } = Astro.props;
-const pages = area.pages.filter((p) => !p.ext);
+const pages = area.pages.filter((p) => !p.ext && p.menu !== false);
 const allGated = pages.every((p) => p.need || p.team);
 const tabBadge = (id: string) => { const b = pageBadge(id, area.id); return b === badgeFor(area.id) ? null : b; };
 const activeId = (p: { id: string; also?: string[] }) => p.id === nav || (p.also || []).includes(nav);
+// The row in registry order: a group is drawn once, where its first page sits.
+type Entry = { page: NavPage } | { group: string; pages: NavPage[] };
+const entries: Entry[] = [];
+for (const p of pages) {
+  if (p.group) {
+    const g = entries.find((e) => 'group' in e && e.group === p.group) as { group: string; pages: NavPage[] } | undefined;
+    if (g) g.pages.push(p); else entries.push({ group: p.group, pages: [p] });
+  } else entries.push({ page: p });
+}
+const jobsOf = (p: NavPage) => (p.jobs || []).join(' ') || undefined;
+const CARET = '<svg class="h-tab__caret" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
 ---
 {pages.length > 1 && (
   <nav class="h-tabs" id="h-tabs" data-area={area.id} aria-label={`${area.label} sections`} hidden={allGated ? true : undefined}>
     <div class="h-tabs__row">
-      {pages.map((p) => (
+      {entries.map((e, i) => 'group' in e ? (
+        <span class="h-tabgrp" data-grp={e.group} data-ord={i}>
+          <button type="button" class={`h-tab h-tab--menu${e.pages.some(activeId) ? ' is-on' : ''}`} aria-haspopup="menu" aria-expanded="false" data-menu-for={`grp:${e.group}`}><span class="h-tab__t">{e.group}</span><span class="h-tab__sub"></span><Fragment set:html={CARET} /></button>
+        </span>
+      ) : (
         <a
-          class={`h-tab${activeId(p) ? ' is-on' : ''}`}
-          href={p.href}
+          class={`h-tab${activeId(e.page) ? ' is-on' : ''}`}
+          href={e.page.href}
           data-astro-prefetch="hover"
-          data-nav-id={p.id}
-          data-need={p.need || undefined}
-          data-kpi-team={p.team || undefined}
-          data-kpi-page={p.kpiPage}
-          hidden={p.need || p.team ? true : undefined}
-          aria-current={activeId(p) ? 'page' : undefined}
+          data-nav-id={e.page.id}
+          data-ord={i}
+          data-need={e.page.need || undefined}
+          data-kpi-team={e.page.team || undefined}
+          data-kpi-page={e.page.kpiPage}
+          data-jobs={jobsOf(e.page)}
+          hidden={e.page.need || e.page.team ? true : undefined}
+          aria-current={activeId(e.page) ? 'page' : undefined}
         >
-          {p.label}
-          <Rel k={`page:${p.id}`} b={tabBadge(p.id)} cls="h-rel--tab" />
-          {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
+          <span class="h-tab__t">{e.page.label}</span>
+          {e.page.jobs && <span class="h-tab__who">{jobWho(e.page.jobs)}</span>}
+          <Rel k={`page:${e.page.id}`} b={tabBadge(e.page.id)} cls="h-rel--tab" />
+          {e.page.count && <span class="h-nav__count" data-count={e.page.count} hidden></span>}
         </a>
       ))}
+      <button type="button" class="h-tab h-tab--menu h-tab--more" aria-haspopup="menu" aria-expanded="false" data-menu-for="more" hidden><span class="h-tab__t">More</span><Fragment set:html={CARET} /></button>
     </div>
+    {entries.map((e) => 'group' in e && (
+      <div class="h-tabmenu" role="menu" data-menu={`grp:${e.group}`} aria-label={e.group} hidden>
+            {e.pages.map((p) => (
+              <a class={`h-tab${activeId(p) ? ' is-on' : ''}`} role="menuitem" href={p.href} data-astro-prefetch="hover" data-nav-id={p.id} data-group={e.group} data-need={p.need || undefined} data-kpi-team={p.team || undefined} data-kpi-page={p.kpiPage} data-jobs={jobsOf(p)} hidden={p.need || p.team ? true : undefined} aria-current={activeId(p) ? 'page' : undefined}>
+                <span class="h-tab__t">{p.label}</span>
+                <Rel k={`page:${p.id}`} b={tabBadge(p.id)} cls="h-rel--tab" />
+                {p.count && <span class="h-nav__count" data-count={p.count} hidden></span>}
+              </a>
+            ))}
+      </div>
+    ))}
+    <div class="h-tabmenu" role="menu" data-menu="more" aria-label={`More ${area.label} pages`} hidden></div>
   </nav>
 )}

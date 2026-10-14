@@ -54,20 +54,24 @@ test('/changelog builds with every entry', { skip: !fs.existsSync(path.join(ROOT
   assert.match(latest.latest, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 });
 
-test('release badges: Brain is Beta, Projects Alpha, Clips none, overrides win', async () => {
+test('release badges: Brain is Beta, Projects Alpha, Requests and Clips none, Reporting none, overrides win', async () => {
   const r = await import('../src/data/release.ts');
   const { AREAS: NAV } = await import('../src/data/areas.ts');
   assert.equal(r.badgeFor('ask'), 'beta');
-  assert.equal(r.pageBadge('projects', 'work'), 'alpha');
+  assert.equal(r.pageBadge('projects', 'projects'), 'alpha');
   assert.equal(r.pageBadge('clips', 'meet'), null);
   assert.equal(r.pageBadge('meet-book', 'meet'), 'alpha');
-  assert.equal(r.pageBadge('board', 'work'), null);
+  assert.equal(r.pageBadge('board', 'projects'), null);
+  assert.equal(r.badgeFor('kpi'), null);
+  assert.equal(r.badgeFor('partners'), 'beta');
+  assert.equal(r.badgeFor('gifts'), 'beta');
+  assert.equal(r.badgeFor('staff'), 'alpha');
   assert.equal(r.helpBadge('ask-favor', NAV), 'beta');
   assert.equal(r.helpBadge('clips', NAV), null);
   assert.equal(r.helpBadge('meetings', NAV), 'alpha');
   const ov = r.parseOverrides('{"projects":"beta","ask":"none","x":"bogus"}');
   assert.deepEqual(ov, { projects: 'beta', ask: 'none' });
-  assert.equal(r.pageBadge('projects', 'work', ov), 'beta');
+  assert.equal(r.pageBadge('projects', 'projects', ov), 'beta');
   assert.equal(r.badgeFor('ask', ov), null);
   assert.deepEqual(r.parseOverrides('not json'), {});
 });

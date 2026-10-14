@@ -53,23 +53,24 @@ test('a release has at most 8 walkthroughs of 1 to 4 steps, each with a help art
     assert.ok(!ids.has(s.id), `step id used twice: ${s.id}`);
     ids.add(s.id);
   }
-  assert.equal(T.RELEASES[0].id, '2026-10-12');
-  assert.equal(T.RELEASES[1].id, '2026-10-11');
-  assert.equal(T.RELEASES[1].features.length, 8);
+  assert.equal(T.RELEASES[0].id, '2026-10-14');
+  assert.equal(T.RELEASES[1].id, '2026-10-12');
+  assert.equal(T.RELEASES[2].id, '2026-10-11');
+  assert.equal(T.RELEASES[2].features.length, 8);
 });
 const ICONS = fs.readFileSync('src/data/icons.ts', 'utf8');
 
 test('each walkthrough shows only to the people who can open the feature', () => {
   const titles = (who) => T.offersFor(who).map((o) => o.feature.id);
-  assert.deepEqual(titles(roles.staff), ['one-app', 'reporting-pace', 'request-fill', 'clips-ops', 'requests', 'today-meetings', 'clips']);
-  assert.deepEqual(titles({ ...roles.staff, clips: false }), ['one-app', 'reporting-pace', 'request-fill', 'requests', 'today-meetings']);
+  assert.deepEqual(titles(roles.staff), ['work-split', 'one-app', 'reporting-pace', 'request-fill', 'clips-ops', 'requests', 'today-meetings', 'clips']);
+  assert.deepEqual(titles({ ...roles.staff, clips: false }), ['work-split', 'one-app', 'reporting-pace', 'request-fill', 'requests', 'today-meetings']);
   assert.ok(titles({ ...roles.staff, chat: true }).includes('chat'));
   assert.ok(titles({ ...roles.staff, chat: true }).includes('chat-brain'));
   assert.ok(titles({ ...roles.staff, projects: true }).includes('projects'));
   assert.ok(titles(roles.rdd).includes('wc-groups'));
   assert.ok(!titles(roles.rdd).includes('receipts-statements'));
   assert.ok(titles(roles.marketing).includes('receipts-statements'));
-  assert.equal(titles(ADMIN).length, 16);
+  assert.equal(titles(ADMIN).length, 17);
   assert.ok(titles({ ...roles.staff, chat: true }).includes('dock'));
   assert.ok(!titles(roles.staff).includes('dock'));
 });
@@ -174,7 +175,7 @@ test('before the table exists the server says not ready and stores nothing', asy
   assert.deepEqual(await hubCall(w, GRANTS, 'POST', { items: { core: { s: 'done', n: 0, at: AT } } }), { ok: true, ready: false, items: {} });
   const a = await adminCall(w, WILL, 'GET');
   assert.equal(a.data.ready, false);
-  assert.equal(a.data.releases[0].title, 'October 12');
+  assert.equal(a.data.releases[0].title, 'October 14');
   assert.equal((await adminCall(w, WILL, 'POST', { what: 'core', emails: [GRANTS.email] })).status, 409);
 });
 

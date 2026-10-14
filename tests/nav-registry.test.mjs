@@ -13,9 +13,16 @@ test('page ids are unique', () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test('there are eight working areas (Chat, Mail and Learn among them) plus Admin, Help and Tools at the foot', () => {
-  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'work', 'meet', 'chat', 'mail', 'ask', 'learn', 'kpi']);
-  assert.deepEqual(AREAS.filter((a) => a.foot).map((a) => a.id), ['admin', 'help', 'tools']);
+test('Work is split: ten working areas in rail order, Admin and Help at the foot', () => {
+  assert.deepEqual(AREAS.filter((a) => !a.foot).map((a) => a.id), ['today', 'partners', 'gifts', 'projects', 'meet', 'chat', 'mail', 'ask', 'kpi', 'staff']);
+  assert.deepEqual(AREAS.filter((a) => a.foot).map((a) => a.id), ['admin', 'help']);
+  assert.ok(!AREAS.some((a) => a.id === 'work' || a.id === 'learn' || a.id === 'tools'));
+});
+
+test('the rail and the phone bar read the areas in the same order', () => {
+  const main = AREAS.filter((a) => !a.foot);
+  const ranks = main.map((a) => a.barRank);
+  assert.deepEqual(ranks, ranks.slice().sort((x, y) => x - y));
 });
 
 test('the phone bar fits five areas plus More', () => {
@@ -47,10 +54,33 @@ test('gated pages carry a flag the nav answer returns', () => {
   for (const { p } of pages) if (p.need) assert.ok(flags.has(p.need), `${p.id} needs ${p.need}`);
 });
 
-test('admin pages are gated; an expense approver reaches only the log in Admin', () => {
+test('admin pages are all admin-only; the expense log and onboarding moved to Staff with their own gates', () => {
   const admin = AREAS.find((a) => a.id === 'admin');
-  assert.ok(admin.pages.every((p) => p.need));
-  assert.deepEqual(admin.pages.filter((p) => p.need === 'expenseLog').map((p) => p.id), ['expenses']);
+  assert.ok(admin.pages.every((p) => p.need === 'admin'));
+  const staff = AREAS.find((a) => a.id === 'staff');
+  assert.equal(staff.pages.find((p) => p.id === 'expenses').need, 'expenseLog');
+  assert.equal(staff.pages.find((p) => p.id === 'onboarding').need, 'hr');
+  assert.equal(staff.pages.find((p) => p.id === 'evals').need, 'hr');
+  assert.ok(staff.pages.filter((p) => p.group === 'Learning').every((p) => p.need === 'learn' || p.need === 'learnAdmin'), 'Learn keeps its access group');
+});
+
+test('every page that left Work, Learn or Admin says where it was', () => {
+  const moved = ['work', 'foundations', 'gift-entry', 'online-gifts', 'receipts', 'statements', 'projects', 'board', 'expense', 'expenses', 'evals', 'learn', 'onboarding', 'work-home'];
+  for (const id of moved) assert.ok(resolveNav(id).page.was, `${id} has no was`);
+});
+
+test('no area draws more than six tabs before its More menu', async () => {
+  const { arrangeTabs } = await import('../src/data/areas.ts');
+  for (const a of AREAS) {
+    const entries = [];
+    for (const p of a.pages.filter((x) => !x.ext && x.menu !== false)) {
+      if (p.group) { if (!entries.some((e) => e.group === p.group)) entries.push({ group: p.group }); } else entries.push(p);
+    }
+    for (const mine of [null, ['admin'], [], ['giftdesk'], ['rdd']]) {
+      const { row } = arrangeTabs(entries, mine);
+      assert.ok(row.length <= 6, `${a.id} draws ${row.length} tabs for ${JSON.stringify(mine)}`);
+    }
+  }
 });
 
 test('team tabs map to the KPI teams', () => {
@@ -76,7 +106,7 @@ test('the middleware applies the registry redirects', () => {
 
 test('the palette lists every internal page once, with its area', () => {
   const items = paletteItems();
-  assert.equal(items.length, pages.length);
+  assert.equal(items.filter((i) => i.area !== 'tools').length, pages.length);
   assert.ok(items.every((i) => i.desc.includes(' \u00b7 ')));
 });
 

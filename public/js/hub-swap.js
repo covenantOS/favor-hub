@@ -10,7 +10,8 @@
   const pathOf = (u) => { const x = new URL(u, location.href); return x.origin === location.origin ? x.pathname.replace(/\/?$/, '/') : null; };
   const swappable = (u) => { const p = pathOf(u); return !!p && allow.has(p) && !new URL(u, location.href).search; };
   // A page that was loaded whole and keeps global state (the Work Center, the dashboard) is left by a full load too.
-  const here = () => swappable(location.href) && !HEAVY.has(pathOf(location.href));
+  // The page you are on may carry a query (a Projects tab, an open deposit); leaving it can still swap. Only the destination must be a plain address.
+  const here = () => { const p = pathOf(location.href); return !!p && allow.has(p) && !HEAVY.has(p); };
   // Page HTML is the same for everyone and changes only with a new build, so a copy read once is kept for the browser session
   // (keyed by the build) and a tap finds it already here. Anything the person's data fills in arrives from the API afterwards.
   const BUILD = (document.querySelector('meta[name="hub-build"]') || {}).content || '';
@@ -187,7 +188,8 @@
       const nav = doc.body.dataset.nav || '';
       document.body.dataset.nav = nav;
       const t = (sel) => { const a = $(sel, doc); const b = $(sel); if (a && b) b.textContent = a.textContent; };
-      t('.h-top__crumb');
+      // The breadcrumb is a link to the area; a page named for its area has none.
+      { const a = $('.h-top__crumb', doc); const b = $('.h-top__crumb'); if (a && b) { b.innerHTML = a.innerHTML; b.hidden = a.hidden; } }
       { const a = $('.h-top__title', doc); const b = $('.h-top__title'); if (a && b) { b.innerHTML = a.innerHTML; if (window.hubRelApply) window.hubRelApply(); } }
       const newArea = $('.h-area.is-cur', doc);
       document.body.dataset.area = doc.body.dataset.area || '';
@@ -199,7 +201,7 @@
       const oldTabs = document.getElementById('h-tabs'); const newTabs = doc.getElementById('h-tabs');
       if (slot && oldTabs && newTabs && oldTabs.dataset.area === newTabs.dataset.area) {
         const onId = (newTabs.querySelector('.h-tab.is-on') || { dataset: {} }).dataset.navId;
-        oldTabs.querySelectorAll('.h-tab').forEach((a) => { const on = a.dataset.navId === onId; a.classList.toggle('is-on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+        oldTabs.querySelectorAll('a.h-tab[data-nav-id]').forEach((a) => { const on = a.dataset.navId === onId; a.classList.toggle('is-on', on); if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
       } else if (slot && nslot) {
         slot.innerHTML = nslot.innerHTML;
         // The new tab row is the build's copy: apply the admin's saved badges to it too.
@@ -238,7 +240,7 @@
   // The press is answered at once, before the next page arrives: the tab or menu entry lights up and the old page steps back.
   function answer(a) {
     const tab = a.closest('.h-tab');
-    if (tab) { tab.parentElement.querySelectorAll('.h-tab').forEach((x) => x.classList.toggle('is-on', x === tab)); }
+    if (tab && tab.matches('a[data-nav-id]')) { (tab.closest('#h-tabs') || tab.parentElement).querySelectorAll('.h-tab').forEach((x) => x.classList.toggle('is-on', x === tab)); }
     const m = document.getElementById('h-content');
     if (m) m.classList.add('is-leaving');
   }
