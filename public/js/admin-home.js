@@ -21,14 +21,17 @@
     return h + '</article>';
   }
 
+  // A person who is not an admin sees the not-an-admin card once; nothing on this page asks the server again after that.
+  var denied = false;
   function load() {
+    if (denied) return Promise.resolve();
     $('ad-stamp').textContent = 'Checking';
     return A.api('/api/admin/health').then(function (d) {
       strip.innerHTML = d.items.map(tile).join('');
       strip.removeAttribute('aria-busy');
       var bad = d.items.filter(function (i) { return i.status === 'failed'; }).length, late = d.items.filter(function (i) { return i.status === 'late'; }).length;
       $('ad-stamp').textContent = (bad ? bad + ' failed' : late ? late + ' late' : 'All clear') + ' as of ' + A.when(d.at).replace('Today ', '');
-    }).catch(function (e) { A.fail($('ad-root'), e); });
+    }).catch(function (e) { if (e && (e.status === 401 || e.status === 403)) denied = true; A.fail($('ad-root'), e); });
   }
 
   function counts() {
@@ -52,6 +55,7 @@
   }
 
   $('ad-refresh').addEventListener('click', load);
-  load(); counts(); recent();
+  // The settings counts and the recent changes wait for the health answer, so a staff member makes one refused call, not three.
+  load().then(function () { if (!denied) { counts(); recent(); } });
   setInterval(function () { if (!document.hidden) load(); }, 120000);
 })();

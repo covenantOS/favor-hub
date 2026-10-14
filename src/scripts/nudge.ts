@@ -31,7 +31,8 @@ async function getJSON(path: string): Promise<{ ok: boolean; status: number; bod
   return { ok: r.ok, status: r.status, body };
 }
 
-/** Reads the two lists. Anyone without Meetings access gets one refused call per session and nothing after. */
+/** Reads the two lists. Anyone without Meetings access gets one refused call per session and nothing after (the server answers 404
+ *  while Meetings is not released to staff, so that counts as refused too). */
 async function refresh(force = false): Promise<void> {
   if (loading || sessionStorage.getItem(OFF)) return;
   if (!force) {
@@ -43,7 +44,7 @@ async function refresh(force = false): Promise<void> {
   loading = true;
   try {
     const up = await getJSON('/api/meet/meetings?scope=upcoming');
-    if (!up.ok) { if (up.status === 401 || up.status === 403) store(() => sessionStorage.setItem(OFF, '1')); return; }
+    if (!up.ok) { if (up.status === 401 || up.status === 403 || up.status === 404) store(() => sessionStorage.setItem(OFF, '1')); return; }
     const cal = await getJSON('/api/meet/meetings/calendar').catch(() => null);
     const calList = cal && cal.ok && cal.body && cal.body.connected ? cal.body.meetings || [] : [];
     list = toNudgeList(up.body.meetings || [], calList);

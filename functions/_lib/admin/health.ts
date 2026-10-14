@@ -1,4 +1,4 @@
-// The health strip on Admin > Overview. Eight checks, each answering with a last run time and ok, late or failed ("unknown" when the
+// The health strip on Admin > Overview. Eleven checks, each answering with a last run time and ok, late or failed ("unknown" when the
 // place that holds the answer did not reply). Every probe reads only. The Blackbaud mirror answers the first four and iWave, the hub's
 // own database answers the sender, the two extra D1 bindings answer the Drive job and the unsubscribe write-back, and the upkeep
 // route's KV counter answers the call meter.
@@ -6,6 +6,7 @@ import type { Env } from '../http';
 import { mirror } from '../foundations/blackbaud';
 import { getSetting } from '../work/db';
 import type { EnvPlus } from './settings';
+import { jobStates } from './cronruns';
 
 export type Status = 'ok' | 'late' | 'failed' | 'unknown';
 
@@ -194,6 +195,22 @@ async function unsubProbe(env: Ext, now: number): Promise<Item> {
 }
 
 /** Runs every probe, each on its own, so one dead source never blanks the strip. */
+/** Every job the favor-work-drain Worker runs, and the production smoke check, from the row each run writes (db/cron-runs.sql). */
+async function jobsProbe(env: Env, now: number): Promise<Item> {
+  const jobs = await jobStates(env, now);
+  const rest = jobs.filter((j) => j.id !== 'smoke');
+  const parts: Part[] = rest.map((j) => ({ label: j.label, at: j.at, status: j.status }));
+  const bad = rest.filter((j) => j.status === 'failed' || j.status === 'late');
+  const detail = bad.length ? bad.map((j) => `${j.label}: ${j.detail}`).join('; ') : 'Every job ran on time';
+  return { id: 'jobs', label: 'Scheduled jobs', status: worst(rest.map((j) => j.status === 'unknown' ? 'late' : j.status)), at: rest.map((j) => j.at).filter((x): x is string => !!x).sort().slice(-1)[0] || null, detail, parts };
+}
+
+/** The production smoke check: sign-in page, key APIs, Favor Brain and the meeting connection, every 30 minutes. */
+async function smokeProbe(env: Env, now: number): Promise<Item> {
+  const s = (await jobStates(env, now)).find((j) => j.id === 'smoke')!;
+  return { id: 'smoke', label: 'Smoke check', status: s.status, at: s.at, detail: s.detail || 'Every check passed' };
+}
+
 export async function healthStrip(env: Env, nowMs = Date.now()): Promise<Item[]> {
   const probes: Array<[string, string, () => Promise<Item>]> = [
     ['copy', 'Blackbaud copy', () => copyProbe(env, nowMs)],
@@ -205,6 +222,8 @@ export async function healthStrip(env: Env, nowMs = Date.now()): Promise<Item[]>
     ['iwave', 'iWave credits', () => iwaveProbe(env, nowMs)],
     ['ai', 'Workers AI', () => aiProbe(env, nowMs)],
     ['unsub', 'Unsubscribe write-back', () => unsubProbe(env as Ext, nowMs)],
+    ['jobs', 'Scheduled jobs', () => jobsProbe(env, nowMs)],
+    ['smoke', 'Smoke check', () => smokeProbe(env, nowMs)],
   ];
   return Promise.all(
     probes.map(async ([id, label, run]) => {

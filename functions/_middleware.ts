@@ -9,6 +9,7 @@ import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
+import { withAssetCache } from './_lib/assetcache';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -16,7 +17,7 @@ const REDIRECT_HOSTS = new Set(['hub.favorintl.org', 'favor-hub-d4n.pages.dev'])
 
 // Files the sign-in page itself needs, and files with nothing private in them.
 // /_app/ holds the React app's built files (app/, served by functions/_lib/app2.ts for people who opted in).
-const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/images/', '/js/', '/fonts/', '/receipts/fonts/'];
+const STATIC_PREFIXES = ['/_astro/', '/_app/assets/', '/images/', '/js/', '/css/', '/fonts/', '/receipts/fonts/'];
 const STATIC_FILES = new Set(['/robots.txt', '/favicon.ico', '/receipts/paper-front.jpg', '/manifest.webmanifest', '/apple-touch-icon.png', '/version.json', '/sw.js', '/m/manifest.webmanifest']);
 
 // Open without sign-in: the sign-in page and its API, the approver's emailed review link (its token
@@ -85,7 +86,10 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   const moved = NAV_MOVED.get(path.length > 1 ? path.replace(/\/$/, '') : path);
   if (moved) return Response.redirect(new URL(moved + (moved.includes('?') ? '' : url.search), url).toString(), 301);
 
-  if (STATIC_FILES.has(path) || STATIC_PREFIXES.some((p) => path.startsWith(p))) return ctx.next();
+  if (STATIC_FILES.has(path) || STATIC_PREFIXES.some((p) => path.startsWith(p))) {
+    const res = await ctx.next();
+    return res.ok ? withAssetCache(res, path, url) : res;
+  }
 
   let user = null;
   try {

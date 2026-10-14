@@ -142,6 +142,8 @@ function nextMeetRow() {
   return `<div class="br-item"><a class="br-tog br-tog--link" href="/meet/prep/?m=${encodeURIComponent(m.id)}"><span class="br-ico br-ico--meet">${ic('meet')}</span><span class="br-lab">Next meeting</span><span class="br-n br-n--sm">${esc(m.startsAt ? whenShort(m.startsAt) : 'Open room')}</span>${CHEV}</a><div class="br-sub">${esc(m.title)} · <a href="/meet/prep/?m=${encodeURIComponent(m.id)}">Prep sheet</a></div></div>`;
 }
 function loadNext() {
+  // Without Meetings the server refuses this read; the saved menu says so before asking.
+  try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nv && nv.access && nv.access.meetings === false) return; } catch (e) { /* no saved menu */ }
   fetch('/api/meet/meetings?scope=upcoming', { credentials: 'same-origin' }).then((r) => (r.ok ? r.json() : null)).then((d) => {
     const now = Date.now();
     const list = ((d && d.meetings) || []).filter((m) => m.status !== 'cancelled' && m.status !== 'ended' && m.startsAt && Date.parse(m.endsAt || m.startsAt) > now && Date.parse(m.startsAt) - now < 8 * 864e5);

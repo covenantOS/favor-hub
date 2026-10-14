@@ -237,6 +237,8 @@ const items = buildPaletteItems(
 
   // Meetings: ended meetings whose notes, summary or transcript match, ended meetings and upcoming meetings whose title matches.
   async function meetingHits(text) {
+    // Meetings is not open to everyone yet; without it the three reads below are refused on every keystroke.
+    try { const nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); if (nv && nv.access && nv.access.meetings === false) return []; } catch (e) { /* no saved menu */ }
     const lq = norm(text);
     const [notes, recent, upcoming] = await Promise.all([
       getJson('/api/meet/meetings?scope=notes&q=' + encodeURIComponent(text)),

@@ -63,28 +63,42 @@ async function onAnyRequest(env: Env, email: string): Promise<boolean> {
 
 export async function accessOf(env: Env, request: Request, user: HubUser): Promise<Access> {
   const email = user.email.toLowerCase();
-  const approver = user.via === 'google' && (await approverEmails(env)).has(email);
-  const work = await workAccessFor(env, email, user.role === 'admin').catch(() => null);
-  const tasks = user.role === 'admin' || (await onAnyRequest(env, email));
-  const learn = await learnAccess(env, user);
+  const admin = user.role === 'admin';
+  // Every check reads on its own, all at once: the menu and the bell call this on every page, and one after another it was about a dozen
+  // D1 round trips before either could start its own reads.
+  const [approverSet, work, anyRequest, learn, expenseAdmin, meetRelease, clipsRecord, chatM, projects, hr, giftEntry, mailM] = await Promise.all([
+    user.via === 'google' ? approverEmails(env) : Promise.resolve(new Set<string>()),
+    workAccessFor(env, email, admin).catch(() => null),
+    admin ? Promise.resolve(true) : onAnyRequest(env, email),
+    learnAccess(env, user),
+    isExpenseAdmin(env, request),
+    admin ? Promise.resolve('staff') : effective(env, 'meet.release', 'MEET_RELEASE', 'admin'),
+    mayRecordClips(env, email, admin).catch(() => true),
+    chatMode(env),
+    projectsFlag(env, user).catch(() => false),
+    admin ? Promise.resolve(true) : isHr(env, email),
+    mayOpenGiftEntry(env, user),
+    mailMode(env),
+  ]);
+  const approver = user.via === 'google' && approverSet.has(email);
   return {
-    admin: user.role === 'admin',
+    admin,
     kpi: user.kpi,
     approver,
-    expenseLog: approver || (await isExpenseAdmin(env, request)),
+    expenseLog: approver || expenseAdmin,
     workCenter: !!work && work.ok,
     clips: true,
-    meetings: user.role === 'admin' || (await effective(env, 'meet.release', 'MEET_RELEASE', 'admin')).toLowerCase() === 'staff',
-    clipsRecord: await mayRecordClips(env, email, user.role === 'admin').catch(() => true),
-    chat: mayUse(await chatMode(env), user),
-    projects: await projectsFlag(env, user).catch(() => false),
-    tasks,
+    meetings: admin || String(meetRelease).toLowerCase() === 'staff',
+    clipsRecord,
+    chat: mayUse(chatM, user),
+    projects,
+    tasks: anyRequest,
     bell: true,
     learn: learn.learn,
     learnAdmin: learn.learnAdmin,
-    hr: user.role === 'admin' || (await isHr(env, email)),
-    giftEntry: await mayOpenGiftEntry(env, user),
-    mail: mayUseMail(await mailMode(env), user),
+    hr,
+    giftEntry,
+    mail: mayUseMail(mailM, user),
   };
 }
 
@@ -412,9 +426,15 @@ export async function evalCards(env: Env, user: HubUser): Promise<Card[]> {
   ];
 }
 
+// Each section reads on its own, all at once (they were read one after another, about 15 D1 round trips in a row on every page's bell
+// and on Today). The cards keep their order, and a section that fails drops only its own card.
 export async function waitingCards(env: Env, user: HubUser, access: Access): Promise<Card[]> {
-  const cards: Card[] = [];
-  if (access.admin) {
+  const section = (fn: (cards: Card[]) => Promise<void>): Promise<Card[]> => {
+    const cards: Card[] = [];
+    return fn(cards).then(() => cards, (err) => { console.error('[today] card', err); return cards.length ? cards : []; });
+  };
+  const parts = await Promise.all([
+  section(async (cards) => { if (access.admin) {
     const inbox = await env.DB.prepare(
       "SELECT COUNT(*) AS n, MIN(created_at) AS oldest FROM requests WHERE status = 'inbox'"
     ).first<{ n: number; oldest: string | null }>();
@@ -434,16 +454,14 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         cta: 'Review the board',
       });
     }
-  }
-  if (access.tasks) {
-    cards.push(...(await taskCards(env, user.email).catch(() => [] as Card[])));
-  }
+  } }),
+  access.tasks ? taskCards(env, user.email).catch(() => [] as Card[]) : Promise.resolve([] as Card[]),
   // learn: begin
-  cards.push(...(await learnCards(env, user, access).catch(() => [] as Card[])));
+  learnCards(env, user, access).catch(() => [] as Card[]),
   // learn: end
   // projects hook: tasks due, given to you and with news.
-  cards.push(...(await projectCards(env, user).catch(() => [] as Card[])));
-  if (access.admin) {
+  projectCards(env, user).catch(() => [] as Card[]),
+  section(async (cards) => { if (access.admin) {
     const brain = await brainPending(env);
     const n = Number(brain?.n) || 0;
     if (n) {
@@ -461,8 +479,8 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         cta: 'Decide',
       });
     }
-  }
-  if (access.meetings) {
+  } }),
+  section(async (cards) => { if (access.meetings) {
     // projects hook: items that already became tasks are counted in the task cards, not here.
     const mine = (await openActionsWithoutTask(env, user.email)) || (await env.DB.prepare(
       `SELECT COUNT(*) AS n, (SELECT text FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0 ORDER BY meeting_id DESC, idx LIMIT 1) AS first FROM hub_meeting_actions WHERE owner_email = ?1 AND done = 0`
@@ -480,7 +498,8 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         cta: 'Open your items',
       });
     }
-  }
+  } }),
+  section(async (cards) => {
   const notes = await feedbackWaiting(env, user, access);
   const nn = Number(notes?.n) || 0;
   if (nn && access.admin) {
@@ -512,7 +531,8 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       cta: 'Read the answer',
     });
   }
-  if (access.approver) {
+  }),
+  section(async (cards) => { if (access.approver) {
     const exp = await expensesWaitingFor(env, user.email);
     const n = Number(exp?.n) || 0;
     if (n) {
@@ -529,8 +549,9 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
         cta: 'Open the expense log',
       });
     }
-  }
-  cards.push(...(await evalCards(env, user)));
+  } }),
+  evalCards(env, user).catch((err) => { console.error('[today] evals', err); return [] as Card[]; }),
+  section(async (cards) => {
   const file = await openPrintFile(env);
   if (file && fileIsMine(file, user, access)) {
     const left = Math.max(0, file.gifts - file.marked);
@@ -546,7 +567,9 @@ export async function waitingCards(env: Env, user: HubUser, access: Access): Pro
       cta: marking ? 'Finish marking' : 'Open the print file',
     });
   }
-  return cards;
+  }),
+  ]);
+  return parts.flat();
 }
 
 export async function mineFor(env: Env, user: HubUser): Promise<Mine[]> {

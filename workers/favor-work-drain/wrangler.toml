@@ -1,5 +1,5 @@
 # The Work Center's overnight sender and hourly freshness pass (Marketing account, same as the hub).
-# It holds no data. It calls two hub routes with the agent key, which is a Worker secret (wrangler secret put AGENT_API_KEY).
+# It holds no data of its own. It calls hub routes with the agent key, which is a Worker secret (wrangler secret put AGENT_API_KEY).
 # Deploy: wrangler deploy (from this folder, with the Marketing account credentials).
 name = "favor-work-drain"
 main = "src/index.js"
@@ -18,3 +18,13 @@ HUB_URL = "https://dash.favorintl.org"
 # Hourly at :35: rebuild the Lists snapshot when the mirror has synced since the last copy (the hub skips it otherwise).
 # Every 5 minutes: meeting reminder emails (a day before and 15 minutes before), repeating meetings kept four ahead, and any finished meeting whose recording or notes are still waiting.
 crons = ["*/15 0-7 * * *", "10 * * * *", "35 * * * *", "*/10 10-18 * * *", "*/10 11-14 * * 1-5", "*/5 * * * *"]
+
+# The run record for every job (hub_cron_runs, db/cron-runs.sql). This is the hub database; the Worker writes only that one table.
+[[d1_databases]]
+binding = "DB"
+database_name = "favor-requests"
+database_id = "56466fae-d166-4010-9f7f-b8f2d8b50c8b"
+
+# Logs and errors kept in Workers observability, so a failed run can be read back later.
+[observability]
+enabled = true

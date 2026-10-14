@@ -9,9 +9,11 @@
 //   */5 * * * *     POST /api/work/snapshots  re-reads the Blackbaud answers the Work lists keep (6 AM to 9 PM Eastern)
 //   */10 * * * *    POST /api/receipts/warm  reads the Receipts waiting list from Blackbaud so the page never waits on it (10:00 to 02:00 UTC)
 //   */5 * * * *     POST /api/ai/reconcile  on every tenth minute: Cloudflare's own AI neuron totals over the budget guard's estimate
+//   */5 * * * *     on minutes 0 and 30: the production smoke check (GET /login/, /version.json, a script, then POST /api/hub/smoke)
 //   10 * * * *      POST /api/work/fresh   asks Blackbaud which actions changed and has them re-read into the mirror
-// The hub records what each pass did (act_settings drain:last and fresh:last, shown on /api/work/health). A failed call throws, so a
-// stopped job shows as a failed run in Cloudflare and, a day later, as a stale line in health.
+// Every job writes its outcome to the hub database (hub_cron_runs, through the DB binding): last_ok on success, last_error and a fails
+// count on a failure. Admin > Overview reads it as "Scheduled jobs" and "Smoke check", so a job that stops or fails shows the same day.
+// The hub also records what some passes did (act_settings drain:last and fresh:last, shown on /api/work/health).
 
 async function call(env, path) {
   const res = await fetch(env.HUB_URL + path, {
@@ -30,6 +32,55 @@ async function call(env, path) {
   return data;
 }
 
+/** Runs one job and writes how it went. A failure is recorded and logged, never thrown past here, so one job cannot stop the others. */
+export async function job(env, id, run) {
+  const t0 = Date.now();
+  const at = new Date().toISOString();
+  let ok = true;
+  let detail = '';
+  try {
+    const out = await run();
+    detail = typeof out === 'string' ? out : '';
+  } catch (err) {
+    ok = false;
+    detail = String((err && err.message) || err).slice(0, 300);
+    console.error(`${id} failed:`, detail);
+  }
+  const ms = Date.now() - t0;
+  if (!env.DB) return ok;
+  const sql = ok
+    ? `INSERT INTO hub_cron_runs (job, last_run, last_ok, detail, fails, ms) VALUES (?1, ?2, ?2, ?3, 0, ?4)
+       ON CONFLICT(job) DO UPDATE SET last_run = ?2, last_ok = ?2, detail = ?3, fails = 0, ms = ?4`
+    : `INSERT INTO hub_cron_runs (job, last_run, last_error, error_at, fails, ms) VALUES (?1, ?2, ?3, ?2, 1, ?4)
+       ON CONFLICT(job) DO UPDATE SET last_run = ?2, last_error = ?3, error_at = ?2, fails = fails + 1, ms = ?4`;
+  await env.DB.prepare(sql).bind(id, at, detail.slice(0, 300), ms).run().catch((err) => console.error('cron record failed:', String(err)));
+  return ok;
+}
+
+/** The production smoke check: what a person opening FavorOS needs, from outside, then the hub's own checks of its key reads. */
+async function smoke(env) {
+  const bad = [];
+  const get = async (path, test) => {
+    try {
+      const res = await fetch(env.HUB_URL + path, { redirect: 'manual', headers: { 'User-Agent': 'favor-work-drain smoke' } });
+      const text = await res.text();
+      if (res.status !== 200 || (test && !test(text))) bad.push(`${path} answered ${res.status}`);
+    } catch (err) {
+      bad.push(`${path}: ${String(err).slice(0, 80)}`);
+    }
+  };
+  await Promise.all([get('/login/', (t) => /Sign in/.test(t)), get('/version.json', (t) => /"build"/.test(t)), get('/js/hub-nav.js', (t) => t.length > 1000)]);
+  const r = await call(env, '/api/hub/smoke').catch((err) => {
+    // A failed check answers 200 with ok false; call() throws then, with the body in the message.
+    const m = String((err && err.message) || err);
+    const body = m.slice(m.indexOf(': ') + 2);
+    try { return JSON.parse(body); } catch { return { ok: false, failed: m.slice(0, 200) }; }
+  });
+  if (!r.ok) bad.push(r.failed || 'the FavorOS smoke check failed');
+  if (bad.length) throw new Error(bad.join('; '));
+  return (r.checks || []).map((c) => `${c.name} ${c.ms} ms`).join(', ');
+}
+
 async function drainAll(env) {
   let sent = 0;
   let left = 0;
@@ -42,54 +93,94 @@ async function drainAll(env) {
     held = r.held || '';
     if (!left || !r.ran || held) break;
   }
-  console.log(`drain: ${sent} sent, ${left} left${held ? ', held: ' + held : ''}`);
+  const line = `${sent} sent, ${left} left${held ? ', held: ' + held : ''}`;
+  console.log('drain: ' + line);
+  return line;
 }
 
-// Meetings: reminders and repeats, then up to a few units of saving and note-making for finished meetings.
+// Work list answers every five minutes, and the Receipts waiting list every ten through the working day.
 async function warm(env, at) {
-  const out = await call(env, '/api/work/snapshots').catch((err) => ({ error: String(err).slice(0, 160) }));
-  if (out.refreshed || out.error) console.log('snapshots:', JSON.stringify(out));
+  await job(env, 'snapshots', async () => {
+    const out = await call(env, '/api/work/snapshots');
+    if (out.refreshed) console.log('snapshots:', JSON.stringify(out));
+    return out.refreshed ? `${out.refreshed} refreshed` : '';
+  });
   const d = new Date(at);
   const hour = d.getUTCHours();
   if (d.getUTCMinutes() % 10 === 0 && (hour >= 10 || hour < 2)) {
-    const r = await call(env, '/api/receipts/warm').catch((err) => ({ error: String(err).slice(0, 160) }));
-    console.log('receipts warm:', JSON.stringify(r));
+    await job(env, 'receipts-warm', async () => {
+      const r = await call(env, '/api/receipts/warm');
+      console.log('receipts warm:', JSON.stringify(r));
+      return `${r.letters ?? 0} letters, ${r.ms ?? 0} ms`;
+    });
   }
 }
 
+// Meetings: reminders and repeats, then up to a few units of saving and note-making for finished meetings.
 async function meetings(env) {
-  const r = await call(env, '/api/meet/meetings/remind');
-  let work = 0;
-  for (let i = 0; i < 6; i++) {
-    const p = await call(env, '/api/meet/meetings/pump').catch(() => null);
-    if (!p || p.done) break;
-    work++;
-  }
-  console.log('meetings: sent ' + r.sent + ', made ' + r.made + ', work ' + work);
+  await job(env, 'meetings', async () => {
+    const r = await call(env, '/api/meet/meetings/remind');
+    let work = 0;
+    let pumpErr = '';
+    for (let i = 0; i < 6; i++) {
+      const p = await call(env, '/api/meet/meetings/pump').catch((err) => {
+        pumpErr = String((err && err.message) || err).slice(0, 160);
+        return null;
+      });
+      if (!p || p.done) break;
+      work++;
+    }
+    console.log('meetings: sent ' + r.sent + ', made ' + r.made + ', work ' + work);
+    if (pumpErr) throw new Error('notes and recordings: ' + pumpErr);
+    return `sent ${r.sent}, made ${r.made}, work ${work}`;
+  });
   // Chat email: the welcome, the first-message email and the unread follow-up. The hub records chatmail:last itself.
-  const mailed = await call(env, '/api/work/chat-email').catch((err) => ({ error: String(err).slice(0, 160) }));
-  if (mailed.sent || mailed.failed || mailed.error) console.log('chat email:', JSON.stringify(mailed));
+  await job(env, 'chat-email', async () => {
+    const mailed = await call(env, '/api/work/chat-email');
+    if (mailed.sent || mailed.failed) console.log('chat email:', JSON.stringify(mailed));
+    if (mailed.failed) throw new Error(`${mailed.failed} chat emails failed`);
+    return `${mailed.sent || 0} sent`;
+  });
   // Notifications: the hub records notify:last itself.
-  const n = await call(env, '/api/work/notify').catch((err) => ({ error: String(err).slice(0, 160) }));
-  if (n.error || (n.errors && n.errors.length) || n.tasks || (n.feedback && n.feedback.sent) || (n.nudges && n.nudges.emails)) console.log('notify:', JSON.stringify(n));
+  await job(env, 'notify', async () => {
+    const n = await call(env, '/api/work/notify');
+    if ((n.errors && n.errors.length) || n.tasks || (n.feedback && n.feedback.sent) || (n.nudges && n.nudges.emails)) console.log('notify:', JSON.stringify(n));
+    if (n.errors && n.errors.length) throw new Error(`notify errors: ${JSON.stringify(n.errors).slice(0, 200)}`);
+    return JSON.stringify(n).slice(0, 200);
+  });
   // Friday project updates: the hub answers at once unless it is Friday after 3 PM Eastern and a project has the update on.
-  const u = await call(env, '/api/projects/status/run').catch((err) => ({ error: String(err).slice(0, 160) }));
-  if ((u.posted && u.posted.length) || (u.failed && u.failed.length) || (u.error && !/ 403: /.test(u.error))) console.log('project updates:', JSON.stringify(u));
+  await job(env, 'project-status', async () => {
+    const u = await call(env, '/api/projects/status/run').catch((err) => {
+      // A 403 means Projects is switched off, a quiet answer and not a failure.
+      if (/ 403: /.test(String(err && err.message))) return { off: true };
+      throw err;
+    });
+    if ((u.posted && u.posted.length) || (u.failed && u.failed.length)) console.log('project updates:', JSON.stringify(u));
+    if (u.failed && u.failed.length) throw new Error(`${u.failed.length} project updates failed`);
+    return u.off ? 'Projects is off' : `${(u.posted && u.posted.length) || 0} posted`;
+  });
 }
 
 export default {
   async scheduled(event, env, ctx) {
     if (!env.AGENT_API_KEY) throw new Error('AGENT_API_KEY is not set');
+    const logged = (id, path) =>
+      job(env, id, async () => {
+        const r = await call(env, path);
+        console.log(id + ':', JSON.stringify(r));
+        return JSON.stringify(r).slice(0, 200);
+      });
     if (event.cron === '*/5 * * * *') {
       ctx.waitUntil(meetings(env));
       ctx.waitUntil(warm(env, event.scheduledTime));
-      if (new Date(event.scheduledTime).getUTCMinutes() % 10 === 0) ctx.waitUntil(call(env, '/api/ai/reconcile').then((r) => console.log('ai budget:', JSON.stringify(r))));
-    }
-    else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(call(env, '/api/work/digest').then((r) => console.log('digest:', JSON.stringify(r))));
-    else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(call(env, '/api/gift-entry/drain').then((r) => console.log('gift-entry:', JSON.stringify(r))));
-    else if (event.cron === '35 * * * *') ctx.waitUntil(call(env, '/api/lists/refresh?ifnewer=1').then((r) => console.log('lists:', JSON.stringify(r))));
-    else if (event.cron === '10 * * * *') ctx.waitUntil(call(env, '/api/work/fresh').then((r) => console.log('fresh:', JSON.stringify(r))));
-    else ctx.waitUntil(drainAll(env));
+      const min = new Date(event.scheduledTime).getUTCMinutes();
+      if (min % 10 === 0) ctx.waitUntil(logged('ai-reconcile', '/api/ai/reconcile'));
+      if (min % 30 === 0) ctx.waitUntil(job(env, 'smoke', () => smoke(env)));
+    } else if (event.cron === '*/10 11-14 * * 1-5') ctx.waitUntil(logged('digest', '/api/work/digest'));
+    else if (event.cron === '*/10 10-18 * * *') ctx.waitUntil(logged('gift-entry', '/api/gift-entry/drain'));
+    else if (event.cron === '35 * * * *') ctx.waitUntil(logged('lists', '/api/lists/refresh?ifnewer=1'));
+    else if (event.cron === '10 * * * *') ctx.waitUntil(logged('fresh', '/api/work/fresh'));
+    else ctx.waitUntil(job(env, 'drain', () => drainAll(env)));
   },
   async fetch() {
     return new Response('Not found', { status: 404 });

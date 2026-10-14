@@ -126,7 +126,8 @@ function take(d) {
   if (popEl && popFor === bellBtn()) paintBell();
 }
 async function refresh() {
-  if (wcOn()) { try { take(await api('/api/work/reminders')); } catch (_) { /* the bell keeps what it had */ } }
+  // A refused read (403: no Work Center access, the saved menu was older than the change) stops asking until the next page.
+  if (wcOn() && !R.refused) { try { take(await api('/api/work/reminders')); } catch (err) { if (err && err.status === 403) R.refused = true; /* the bell keeps what it had */ } }
   if (tasksOn()) { try { const d = await api('/api/requests/notices'); TK.count = d.count || 0; TK.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no request notices */ } }
   if (projectsOn()) { try { const d = await api('/api/tasks/links/bell'); PJ.count = d.count || 0; PJ.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); } catch (_) { /* no project notices */ } }
   if (window.FavorData && !XN.watching) { XN.watching = true; window.FavorData.watch('notifications', '/api/hub/notifications', { stale: 30000, persist: false, poll: 90000 }, (d, meta) => { if (meta.error || !d) return; XN.count = d.count || 0; XN.items = d.items || []; paintBadge(); if (popEl && popFor === bellBtn()) paintBell(); }); }
