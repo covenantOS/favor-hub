@@ -149,7 +149,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="FavorOS">
         <button type="button" class="h-side__x" id="h-side-x" aria-label="Close the menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-        <button type="button" class="h-side__tog" id="h-wide" aria-pressed="false" aria-label="Expand the menu" title="Expand the menu (press the backslash key)"><Fragment set:html={icon('chev')} /></button>
+        <button type="button" class="h-side__tog" id="h-wide" aria-pressed="false" aria-label="Expand the menu" data-tip="Expand the menu (press the backslash key)"><Fragment set:html={icon('chev')} /></button>
         <div class="h-side__in">
           <a class="h-brand" href="/" data-astro-prefetch="hover" aria-label="FavorOS home"><img class="h-brand__full" src="/images/favor-logo-color.png" alt="Favor International" /><img class="h-brand__mark" src="/images/favor-icon.png" alt="Favor International" /><span>OS</span></a>
           <div class="h-pins" id="h-pins" hidden><div class="h-nav__label">Pinned</div><div class="h-pins__list" id="h-pins-list"></div></div>
@@ -355,7 +355,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <CommandPalette />
     <script is:inline src="/js/hub-shell.js?v=12" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
-    <script is:inline src="/js/hub-nav.js?v=6" defer></script>
+    <script is:inline src="/js/hub-nav.js?v=7" defer></script>
     <script is:inline src="/js/hub-swap.js?v=21" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>

@@ -5,5 +5,5 @@ import { recentBatches, resumeStuck, settleWaitingUndos } from '../../_lib/work/
 export const onRequestGet = work(async ({ ctx, waitUntil }) => {
   await settleWaitingUndos(ctx).catch(() => 0);
   waitUntil(resumeStuck(ctx).catch(() => undefined));
-  return { batches: await recentBatches(ctx.env, 36, ctx.scope && !ctx.scope.all ? ctx.email : undefined) };
+  return { batches: await recentBatches(ctx.env, 36, ctx.scope && !ctx.scope.all ? ctx.email : undefined, ctx.email) };
 });

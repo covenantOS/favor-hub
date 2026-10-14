@@ -37,7 +37,7 @@
     wideBtn.setAttribute('aria-pressed', full ? 'true' : 'false');
     const label = full ? 'Collapse the menu' : 'Expand the menu';
     wideBtn.setAttribute('aria-label', label);
-    wideBtn.title = label + ' (press the backslash key)';
+    wideBtn.setAttribute('data-tip', label + ' (press the backslash key)');
     app.classList.toggle('is-open-full', full);
   }
 
@@ -162,6 +162,13 @@
     }
   }
 
+  // The rail toggle's tip shows on hover and keyboard focus only. It hides on mouseleave and blur, and after a press until the pointer leaves.
+  const tipOn = (e) => { const b = e.target instanceof Element && e.target.closest('#h-wide'); if (b && e.type === 'mouseover' && !b.contains(e.relatedTarget)) b.classList.remove('is-tipoff'); };
+  const tipOff = (e) => { const b = e.target instanceof Element && e.target.closest('#h-wide'); if (b && (e.type === 'focusout' || !b.contains(e.relatedTarget))) b.classList.remove('is-tipoff'); };
+  document.addEventListener('mouseover', tipOn);
+  document.addEventListener('mouseout', tipOff);
+  document.addEventListener('focusout', tipOff);
+
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof Element)) return;
@@ -169,7 +176,7 @@
     const bb = t.closest('#h-bar a.h-bar__a[data-bar]');
     if (bb && !e.metaKey && !e.ctrlKey && !e.shiftKey) $$('#h-bar .h-bar__a').forEach((x) => { const on = x === bb; x.classList.toggle('is-on', on); if (on) x.setAttribute('aria-current', 'true'); else x.removeAttribute('aria-current'); });
     const wb = t.closest('#h-wide');
-    if (wb) { e.preventDefault(); toggleWide(); return; }
+    if (wb) { e.preventDefault(); wb.classList.add('is-tipoff'); toggleWide(); return; }
     if (t.closest('#h-scrim')) { setPeek(false); return; }
     const pin = t.closest('.h-pin');
     if (pin) { e.preventDefault(); e.stopPropagation(); togglePin(pin.dataset.pin); return; }
