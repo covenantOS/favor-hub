@@ -155,3 +155,8 @@
 .fx-bout .fx-drag svg { fill: currentColor; stroke: none; }
 @media (pointer: coarse) { .fx-bout .fx-drag { display: none; } }
 .bc-askctx { margin: 0 0 8px; max-width: 760px; width: 100%; box-sizing: border-box; }
+
+/* The partner page: a mention or a meeting offered for the contact log, and the form it opens. */
+.pp-logit { margin-top: 6px; }
+.pp-logged { color: var(--tc-leaf-ink) !important; font-weight: 600; }
+.pp-from { margin: 0 0 10px; font: 400 13px/1.45 var(--h-font); color: var(--r-ink-3); }

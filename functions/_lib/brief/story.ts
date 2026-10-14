@@ -8,10 +8,11 @@ import { GIVEN } from '../work/gifts';
 import { loadPartner, mirrorQ, type PartnerView, type Q } from '../work/partner';
 import { readOnly, FUNDS_SQL } from '../work/repo';
 import { todayEt, type Ctx } from '../work/service';
+import { markLogged, mentionEvents, prefill, type LogPrefill } from '../integrations/mentions';
 import { cacheGet, cachePut, dayDiff, HOUSE, longDay, money, plural, shortDay, sig, writeText } from './text';
 import { type Health, type Nba, healthOf, nextAction, rhythmOf, type GiftPt, type Rhythm } from './signals';
 
-export type Kind = 'gift' | 'call' | 'email' | 'meeting' | 'mail' | 'chat' | 'note' | 'event' | 'clip' | 'task';
+export type Kind = 'gift' | 'call' | 'email' | 'meeting' | 'mail' | 'chat' | 'note' | 'event' | 'clip' | 'task' | 'mention';
 
 export interface TimelineEvent {
   id: string;
@@ -27,6 +28,10 @@ export interface TimelineEvent {
   href?: string;
   /** The event is still open (a task not done). */
   open?: boolean;
+  /** A mention or a meeting the person may add to the contact log: the composer's starting date, type and summary. */
+  log?: LogPrefill;
+  /** Already added to the contact log from this page. */
+  logged?: boolean;
 }
 
 const KIND_OF: Record<string, Kind> = { 'Phone call': 'call', Email: 'email', Meeting: 'meeting', Mailing: 'mail' };
@@ -75,21 +80,24 @@ async function hubEvents(env: Env, me: string, name: string, cid: string, emails
               COALESCE((SELECT name FROM meet_directory d WHERE lower(d.email) = lower(m.email) LIMIT 1), m.email) AS who
          FROM chat_messages m JOIN chat_channels c ON c.id = m.channel_id AND c.archived = 0
          JOIN chat_members cm ON cm.channel_id = m.channel_id AND cm.email = ?1
-        WHERE m.deleted_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?1) AND (m.body LIKE ?2 OR (?3 <> '' AND lower(m.body) LIKE ?3))
+        WHERE m.deleted_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?1) AND (m.body LIKE ?2 OR m.body LIKE ?4 OR (?3 <> '' AND lower(m.body) LIKE ?3))
         ORDER BY m.id DESC LIMIT 12`
     )
-      .bind(me, link, phrase)
+      .bind(me, link, phrase, `%<~p:${cid}|%`)
       .all<{ id: number; channel_id: string; thread_id: number | null; email: string; body: string; created_at: string; kind: string; name: string; who: string }>();
     for (const r of rows.results || []) {
       const where = r.kind === 'public' || r.kind === 'private' ? '#' + r.name : 'Direct message';
+      const said = clip(oneLine(r.body).replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(/<@([^>|]+)(\|[^>]*)?>/g, '@$1').replace(/<#[^>]+>/g, '#channel'), 220);
       out.push({
         id: `chat:${r.id}`,
         kind: 'chat',
         at: r.created_at,
         title: `Mentioned in ${where}`,
-        text: clip(oneLine(r.body).replace(/<@([^>|]+)(\|[^>]*)?>/g, '@$1').replace(/<#[^>]+>/g, '#channel'), 220),
+        text: said,
         by: r.who || r.email,
         href: `/chat/?c=${encodeURIComponent(r.channel_id)}&m=${r.id}${r.thread_id ? '&t=' + r.thread_id : ''}`,
+        // A mention is not a contact: the person may add it to the contact log, prefilled (integrations/mentions.ts). Gift notices are not offered.
+        log: r.email === 'gifts' ? undefined : prefill(`chat:${r.id}`, r.created_at, said, where),
       });
     }
   } catch {
@@ -98,15 +106,17 @@ async function hubEvents(env: Env, me: string, name: string, cid: string, emails
   try {
     const likes = emails.slice(0, 4).map((e) => `%${e}%`);
     const rows = await env.DB.prepare(
-      `SELECT id, title, starts_at, status, summary, host_name FROM hub_meetings
+      `SELECT id, title, starts_at, status, summary, host_name, invitees FROM hub_meetings
         WHERE status IN ('scheduled', 'live', 'ended') AND (lower(host_email) = ?1 OR instr(lower(invitees), '"' || ?1 || '"') > 0)
           AND (?2 <> '' AND lower(title) LIKE ?2 OR ?2 <> '' AND lower(summary) LIKE ?2${likes.map((_, i) => ` OR lower(invitees) LIKE ?${i + 3}`).join('')})
         ORDER BY COALESCE(starts_at, created_at) DESC LIMIT 8`
     )
       .bind(me, phrase, ...likes)
-      .all<{ id: string; title: string; starts_at: string; status: string; summary: string; host_name: string }>();
+      .all<{ id: string; title: string; starts_at: string; status: string; summary: string; host_name: string; invitees: string }>();
     for (const r of rows.results || []) {
-      out.push({ id: `meet:${r.id}`, kind: 'meeting', at: r.starts_at || '', title: r.title || 'Meeting', text: clip(oneLine(r.summary), 220), by: r.host_name || '', href: r.status === 'ended' ? '/meet/library/' : `/meet/room/?m=${r.id}` });
+      // A finished meeting the partner was invited to is a real contact: offered for the log, never logged without the person saving it.
+      const withThem = emails.some((e) => String(r.invitees || '').toLowerCase().includes(e));
+      out.push({ id: `meet:${r.id}`, kind: 'meeting', at: r.starts_at || '', title: r.title || 'Meeting', text: clip(oneLine(r.summary), 220), by: r.host_name || '', href: r.status === 'ended' ? '/meet/library/' : `/meet/room/?m=${r.id}`, log: r.status === 'ended' && r.starts_at ? { ...prefill(`meet:${r.id}`, r.starts_at, withThem ? `Meeting: ${r.title || 'Meeting'}` : oneLine(r.summary) || r.title, 'Meeting'), type: 'Meeting' } : undefined });
     }
   } catch {
     // Meetings tables not there yet.
@@ -160,8 +170,13 @@ export async function timelineFor(ctx: Ctx, cid: string, partner?: PartnerView |
     const title = oneLine(a.summary) || oneLine(a.type) || category || 'Action';
     events.push({ id: `act:${a.id}`, kind, at, title: clip(title, 140), text: clip(desc, 260), by: by + (a.outcome ? (by ? ' · ' : '') + oneLine(a.outcome) : ''), open, href: `/work/?action=${encodeURIComponent(String(a.id))}` });
   }
-  const extra = await hubEvents(ctx.env, ctx.email.toLowerCase(), p.name, cid, mails.map((m: any) => String(m.e)));
-  events.push(...extra);
+  const [extra, said] = await Promise.all([
+    hubEvents(ctx.env, ctx.email.toLowerCase(), p.name, cid, mails.map((m: any) => String(m.e))),
+    // Tasks, requests and meeting notes that mention the partner, for this person only (integrations/mentions.ts).
+    mentionEvents(ctx.env, ctx.email, cid, p.name).catch(() => []),
+  ]);
+  events.push(...extra, ...(said as TimelineEvent[]));
+  await markLogged(ctx.env, cid, events).catch(() => undefined);
   events.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   const counts: Record<string, number> = {};
   for (const e of events) counts[e.kind] = (counts[e.kind] || 0) + 1;

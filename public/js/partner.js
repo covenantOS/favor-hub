@@ -216,7 +216,9 @@ function view(p, o = {}) {
     const when = `<span class="when">${fd(e.d)}</span>`;
     if (e.t === 'gift') return head + `<li class="pp-ev pp-ev--gift${e.fresh ? ' pp-ev--new' : ''}${e.gid && e.gid === FOCUS_GIFT ? ' is-focus' : ''}"${e.gid ? ` data-gift="${esc(e.gid)}"` : ''}><span class="pp-ev__dot">${ic('gift')}</span><div><span class="pp-amt">${money(e.a)}</span> <b>to ${esc(e.what)}</b>${e.how ? `<p class="by">${esc(e.how)}</p>` : ''}</div>${when}</li>`;
     if (e.t === 'note') return head + `<li class="pp-ev pp-ev--note${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic('note')}</span><div><b>${esc(e.what)}</b>${e.text ? `<p>${esc(e.text)}</p>` : ''}<p class="by">Note${e.by ? ' · ' + esc(e.by) : ''}</p></div>${when}</li>`;
-    return head + `<li class="pp-ev${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic(e.icon || 'task')}</span><div><b>${e.href ? `<a href="${esc(e.href)}">${esc(e.what)}</a>` : esc(e.what)}</b>${e.text ? `<p>${esc(String(e.text).slice(0, 400))}</p>` : ''}${e.by ? `<p class="by">${esc(e.by)}</p>` : ''}</div>${when}</li>`;
+    // A mention or a meeting: one press adds it to the contact log, prefilled. It is never logged by itself.
+    const logBtn = e.log && !o.compact ? (e.logged ? '<p class="by pp-logged">In the contact log</p>' : `<button type="button" class="pp-edit pp-logit" data-pp-logit="${esc(e.src || '')}">Add to contact log</button>`) : '';
+    return head + `<li class="pp-ev${e.fresh ? ' pp-ev--new' : ''}"><span class="pp-ev__dot">${ic(e.icon || 'task')}</span><div><b>${e.href ? `<a href="${esc(e.href)}">${esc(e.what)}</a>` : esc(e.what)}</b>${e.text ? `<p>${esc(String(e.text).slice(0, 400))}</p>` : ''}${e.by ? `<p class="by">${esc(e.by)}</p>` : ''}${logBtn}</div>${when}</li>`;
   }).join('');
   const years = (g.years || []).slice(0, 8).reverse();
   const max = Math.max(1, ...years.map((y) => y.total));
@@ -255,7 +257,7 @@ function view(p, o = {}) {
     </div>`;
   const due = o.compact ? `<section class="pp-sec"><h3>Due and open</h3><div class="pp-due">${tasks.length ? tasks.map((t) => `<div class="pp-task pp-task--ro"><span></span><div class="pp-task__what"><b>${esc(t.what)}</b><span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}</span></div><span class="pp-datechip${dayn(t.due) < 0 ? ' is-late' : ''}">${dayn(t.due) < 0 ? lateText(-dayn(t.due)) : 'Due ' + fd(t.due)}</span></div>`).join('') : '<p class="pp-empty">Nothing due.</p>'}</div></section>` : `<section class="pp-sec"><h3>Due and open <button type="button" data-pp-compose="task">Add a task</button></h3>
       <div class="pp-due">${tasks.length ? tasks.map((t) => { const n = dayn(t.due); return `<div class="pp-task${t.done ? ' is-done' : ''}"><button type="button" class="pp-check" data-pp-done="${esc(t.id)}" aria-label="Complete ${esc(t.what)}" ${t.local ? 'disabled' : ''}>${ic('check')}</button><div class="pp-task__what">${t.local ? `<b>${esc(t.what)}</b>` : `<button type="button" class="pp-taskopen" data-pp-task="${esc(t.id)}">${esc(t.what)}</button>`}<span>${esc(t.kind || '')}${t.by ? ' · ' + esc(t.by) : ''}${t.local ? ' · Saving' : ''}</span></div><button type="button" class="pp-datechip${n < 0 && !t.done ? ' is-late' : ''}" data-pp-move="${esc(t.id)}" ${t.local || t.done ? 'disabled' : ''}>${t.done ? 'Done today' : n < 0 ? lateText(-n) : n === 0 ? 'Today' : 'Due ' + fd(t.due)}</button></div>`; }).join('') : '<p class="pp-empty">Nothing due.</p>'}</div>${p.actions.openCount > (p.actions.open || []).length ? `<p class="pp-empty pp-openmore">Showing ${(p.actions.open || []).length} of ${Number(p.actions.openCount).toLocaleString('en-US')} open. The rest are in Blackbaud.</p>` : ''}</section>`;
-  const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].concat(V.tl && V.tl.events.some((x) => x.kind === 'chat' || x.kind === 'clip' || (x.kind === 'meeting' && x.id.startsWith('meet:'))) ? [['more', 'Chat and meetings']] : []).map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
+  const timeline = `<section class="pp-sec"><h3>Timeline <span class="pp-filter"${o.compact ? ' hidden' : ''}>${[['all', 'All'], ['gifts', 'Gifts'], ['contacts', 'Contacts']].concat(V.tl && V.tl.events.some((x) => x.kind === 'chat' || x.kind === 'clip' || x.kind === 'mention' || (x.kind === 'meeting' && x.id.startsWith('meet:'))) ? [['more', 'Mentions and meetings']] : []).map(([k, l]) => `<button type="button" class="${V.filter === k ? 'is-on' : ''}" data-pp-filter="${k}">${l}</button>`).join('')}</span></h3>
       <ul class="pp-tl">${tl || '<li class="pp-empty" style="padding-left:34px">Nothing here yet.</li>'}</ul>
       ${evs.length > shown && !o.compact ? `<button type="button" class="pp-more" data-pp-more>Show ${Math.min(30, evs.length - shown)} older</button>` : ''}</section>`;
   if (o.compact) return `<div class="pp pp--compact">${head}${oweCards(p)}${giving}${commSec()}${due}${timeline}<p class="pp-compactfoot"><a class="h-btn h-btn--ghost h-btn--sm" href="${href(p.id)}">${ic('expand')}Full partner page</a></p></div>`;
@@ -315,16 +317,18 @@ function noteComposer() {
 }
 function composer(k, p) {
   if (k === 'note') return noteComposer();
-  const t = { contact: 'Log a contact', task: 'Add a task', note: 'Add a note' }[k];
+  const t = k === 'contact' && V.prefill ? 'Add to contact log' : { contact: 'Log a contact', task: 'Add a task', note: 'Add a note' }[k];
   const kinds = [['Phone call', 'Call', 'phone'], ['Email', 'Email', 'mail'], ['Meeting', 'Meeting', 'meet'], ['Mailing', 'Mailing', 'letter'], ['Task/Other', 'Task', 'task']];
-  const pick = k === 'task' ? 'Task/Other' : 'Phone call';
+  // Add to contact log from the timeline opens this form filled in: the kind, the date and the summary (V.prefill).
+  const pf = k === 'contact' && V.prefill ? V.prefill : null;
+  const pick = k === 'task' ? 'Task/Other' : pf && kinds.some(([v]) => v === pf.type) ? pf.type : 'Phone call';
   const holders = holderOf(p);
   const me = CODES && CODES.me && CODES.me.fid ? CODES.me : null;
   const who = holders[0] ? holders[0].name : me ? me.name : '';
-  return `<form class="pp-compose" data-pp-save="${k}"><div class="pp-compose__top"><b>${t}</b><button type="button" class="pp-iconbtn" data-pp-close-compose aria-label="Cancel">${ic('x')}</button></div>
+  return `<form class="pp-compose" data-pp-save="${k}"><div class="pp-compose__top"><b>${t}</b><button type="button" class="pp-iconbtn" data-pp-close-compose aria-label="Cancel">${ic('x')}</button></div>${pf ? `<p class="pp-from">From ${esc(pf.from || 'the timeline')}. It goes in the contact log when you press Save.</p>` : ''}
     ${k === 'note' ? '' : `<div class="pp-seg">${kinds.map(([v, l, i]) => `<button type="button" class="${v === pick ? 'is-on' : ''}" data-pp-kind="${v}">${ic(i)}${l}</button>`).join('')}</div>`}
-    <label class="pp-lab">${k === 'note' ? 'The note' : k === 'task' ? 'What to do' : 'What happened'}<input type="text" name="what" maxlength="255" required /></label>
-    ${k === 'note' ? '<textarea name="text" placeholder="More detail (optional)"></textarea>' : `<div class="pp-compose__row"><label class="pp-lab">${k === 'task' ? 'Due' : 'Date'}<input type="date" name="when" value="${k === 'task' ? new Date(Date.parse(TODAY + 'T12:00:00Z') + 7 * 86400000).toISOString().slice(0, 10) : TODAY}" /></label>${k === 'contact' ? '<div class="pp-seg pp-seg--tags"><button type="button" data-pp-tag="Thanked">Thanked</button><button type="button" data-pp-tag="Stewardship">Stewardship</button><button type="button" data-pp-tag="Scheduling">Scheduling</button></div>' : '<span></span>'}</div>`}
+    <label class="pp-lab">${k === 'note' ? 'The note' : k === 'task' ? 'What to do' : 'What happened'}<input type="text" name="what" maxlength="255" required${pf ? ` value="${esc(pf.summary)}"` : ''} /></label>
+    ${k === 'note' ? '<textarea name="text" placeholder="More detail (optional)"></textarea>' : `<div class="pp-compose__row"><label class="pp-lab">${k === 'task' ? 'Due' : 'Date'}<input type="date" name="when" value="${k === 'task' ? new Date(Date.parse(TODAY + 'T12:00:00Z') + 7 * 86400000).toISOString().slice(0, 10) : pf && /^\d{4}-\d{2}-\d{2}$/.test(pf.date) ? pf.date : TODAY}" /></label>${k === 'contact' ? '<div class="pp-seg pp-seg--tags"><button type="button" data-pp-tag="Thanked">Thanked</button><button type="button" data-pp-tag="Stewardship">Stewardship</button><button type="button" data-pp-tag="Scheduling">Scheduling</button></div>' : '<span></span>'}</div>`}
     <div class="pp-compose__foot"><small>${k === 'note' ? 'Note on the partner record' : who ? 'For ' + esc(who) : ''}</small><button type="submit" class="h-btn h-btn--primary h-btn--sm">Save</button></div></form>`;
 }
 
@@ -350,7 +354,15 @@ async function show(host, id, mode) {
     const p = await load(id);
     if (V.id !== id) return null;
     V.p = p; remember(p); paint();
-    if (window.FavorBrief && V.mode !== 'compact') window.FavorBrief.load(id).then((r) => { if (V.id === id) { V.story = r.story || false; V.tl = r.tl; paint(); } }).catch(() => {});
+    if (window.FavorBrief && V.mode !== 'compact') {
+      const mailP = window.FavorBrief.loadMail ? window.FavorBrief.loadMail(id) : Promise.resolve([]);
+      window.FavorBrief.load(id).then((r) => {
+        if (V.id !== id) return;
+        V.story = r.story || false; V.tl = r.tl; paint();
+        // Email with the partner arrives a moment later and joins the timeline in date order.
+        mailP.then((ev) => { if (V.id === id && V.tl && ev.length) { V.tl = Object.assign({}, V.tl, { events: V.tl.events.concat(ev).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)) }); paint(); } });
+      }).catch(() => {});
+    }
     api('/api/work/partners/' + encodeURIComponent(id) + '/notes').then((d) => { if (V.id === id) { V.notes = d.rows || []; paint(); } }).catch(() => {});
     return p;
   } catch (e) {
@@ -517,8 +529,17 @@ document.addEventListener('click', async (e) => {
   }
   if (d.ppCallmode) { if (window.FavorCall) window.FavorCall.open(d.ppCallmode); return; }
   if (d.ppTab) { if (V.tab !== d.ppTab) { V.tab = d.ppTab; V.compose = null; paint(); } return; }
-  if (d.ppCompose) { V.compose = d.ppCompose; V.editing = null; paint(); setTimeout(() => { const i = $('.pp-composer input[name="what"]', V.host); if (i) i.focus(); }, 30); return; }
-  if (b.hasAttribute('data-pp-close-compose')) { V.compose = null; paint(); return; }
+  if (d.ppLogit) {
+    // Add to contact log: the contact form opens filled in from the timeline line; saving it is the person's own step.
+    const ev = eventsOf(V.p).find((x) => x.src === d.ppLogit);
+    if (!ev || !ev.log) return;
+    V.prefill = Object.assign({}, ev.log, { source: ev.src, from: ev.what });
+    V.compose = 'contact'; V.editing = null; paint();
+    setTimeout(() => { const f = $('.pp-composer form', V.host); if (f) { f.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); const i = $('input[name="what"]', f); if (i) i.focus(); } }, 30);
+    return;
+  }
+  if (d.ppCompose) { V.prefill = null; V.compose = d.ppCompose; V.editing = null; paint(); setTimeout(() => { const i = $('.pp-composer input[name="what"]', V.host); if (i) i.focus(); }, 30); return; }
+  if (b.hasAttribute('data-pp-close-compose')) { V.compose = null; V.prefill = null; paint(); return; }
   if (d.ppKind) { $$('[data-pp-kind]', b.parentElement).forEach((x) => x.classList.toggle('is-on', x === b)); return; }
   if (d.ppTag) { b.classList.toggle('is-on'); return; }
   if (d.ppTopic) { $$('[data-pp-topic]', b.parentElement).forEach((x) => { x.classList.toggle('is-on', x === b); x.setAttribute('aria-pressed', x === b); }); return; }
@@ -619,8 +640,14 @@ document.addEventListener('submit', async (e) => {
     if (['Phone call', 'Email', 'Mailing'].includes(cat)) set.direction = 'Outbound';
     if (k === 'contact') L.events.push({ t: 'act', d: when, icon: CAT_IC[cat], what, by: 'Saving', fresh: 1 });
     else L.tasks.push({ id: 'local' + Date.now(), what, kind: cat, by: holders[0] ? holders[0].name : '', due: when, local: true });
-    V.compose = null; paint();
+    const fromLine = k === 'contact' && V.prefill ? V.prefill.source : '';
+    V.compose = null; V.prefill = null; paint();
     const ok = await run({ op: 'new', cids: [cid], set, tags: tags.length ? { add: tags } : undefined }, k === 'contact' ? 'Contact logged' : 'Task added', () => {
+      // The timeline line this contact came from shows as added from now on.
+      if (fromLine) {
+        fetch('/api/today/mention-logged', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-Hub-Request': '1' }, body: JSON.stringify({ cid, source: fromLine }) }).catch(() => {});
+        if (V.tl) for (const x of V.tl.events) if (x.id === fromLine) x.logged = true;
+      }
       for (const ev of L.events) if (ev.what === what && ev.by === 'Saving') ev.by = 'Saved just now';
       for (const t of L.tasks) if (t.what === what) t.by = (t.by ? t.by + ' · ' : '') + 'saved';
       paint();

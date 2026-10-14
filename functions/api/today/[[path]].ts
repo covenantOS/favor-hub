@@ -9,6 +9,8 @@
 //   GET  /api/today/handoff/<id>               one hand-off with its context (giver or receiver only)
 //   POST /api/today/handoff/<id>/pick          the receiver picked it up
 //   GET  /api/today/handoffs                   hand-offs this person gave in the last 30 days
+//   GET  /api/today/partner-mail?cid=          the partner page: this person's own email with the partner and emails naming them
+//   POST /api/today/mention-logged { cid, source }  a prefilled contact from the partner timeline was saved
 // Signed in staff only; field accounts are turned away by the middleware's field list.
 import { errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
@@ -17,6 +19,7 @@ import { clearItem, fastItems, mailItems, unclearItem } from '../../_lib/integra
 import { fastWaiting, mailWaiting, nudge, stopWaiting } from '../../_lib/integrations/waiting';
 import { givenBy, handOff, handoffFor, pickUp, syncPickups } from '../../_lib/integrations/handoff';
 import { peopleFor } from '../../_lib/integrations/ping';
+import { mailEvents, noteLogged } from '../../_lib/integrations/mentions';
 
 const body = async (request: Request): Promise<Record<string, unknown>> => ((await request.json().catch(() => ({}))) || {}) as Record<string, unknown>;
 const NO_STORE = { 'Cache-Control': 'private, no-store' };
@@ -81,6 +84,22 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params, wait
       return json({ ok: true, picked_at: row.picked_at, href: row.href });
     }
     if (a === 'handoffs' && method === 'GET') return json({ ok: true, handoffs: await givenBy(env, user.email) }, 200, NO_STORE);
+    // The partner page's timeline: this person's own email with the partner (contacts to offer for the log) and emails naming them.
+    if (a === 'partner-mail' && method === 'GET') {
+      const { requireWork } = await import('../../_lib/work/gate');
+      await requireWork(env, request);
+      const cid = new URL(request.url).searchParams.get('cid') || '';
+      const r = await capped(mailEvents(env, user, cid), 6000, { events: [], connected: true });
+      return json({ ok: true, ...r }, 200, NO_STORE);
+    }
+    // A prefilled contact from the timeline was saved: the line shows as added to the contact log.
+    if (a === 'mention-logged' && method === 'POST') {
+      const { requireWork } = await import('../../_lib/work/gate');
+      await requireWork(env, request);
+      const x = await body(request);
+      await noteLogged(env, user.email, String(x.cid || ''), String(x.source || ''));
+      return json({ ok: true });
+    }
     return errorJson('not_found', 'No such route.', 404);
   } catch (err) {
     return handleError(err);

@@ -261,3 +261,35 @@ describe('the /api/today route', () => {
     assert.deepEqual(p.data.people.map((x) => x.email), [T2.email]);
   });
 });
+
+const { mentionEvents, guessType, markLogged, noteLogged, patterns } = await import('../functions/_lib/integrations/mentions.ts');
+
+describe('partner mentions on the partner page', () => {
+  it('reads the kind of contact from the words, a phone call when nothing says', () => {
+    assert.equal(guessType('Met Ada for coffee'), 'Meeting');
+    assert.equal(guessType('emailed her the report'), 'Email');
+    assert.equal(guessType('Ada is thinking about the match'), 'Phone call');
+    assert.equal(patterns('12', 'Ada').phrase, '', 'a one-word name is not searched');
+  });
+  it('a task or request that names the partner shows as a mention to people who can open it, with a prefilled log line', async () => {
+    const w = world();
+    const at = ago(H);
+    run(w, "INSERT INTO hub_projects (id, key, name, lead_email, visibility, status, created_by, created_at, updated_at) VALUES ('pm', 'PM', 'Members only', ?, 'members', 'active', ?, ?, ?)", BEN.email, BEN.email, at, at);
+    run(w, "INSERT INTO hub_project_members (project_id, email, role, added_at) VALUES ('pm', ?, 'lead', ?)", BEN.email, at);
+    run(w, "INSERT INTO hub_tasks (id, project_id, title, description, status, owner_email, created_by, created_at, updated_at) VALUES ('tm', 'pm', 'Call Ada Lovelace about the match', 'She asked about the spring match', 'open', ?, ?, ?, ?)", BEN.email, BEN.email, at, at);
+    run(w, "INSERT INTO requests (id, title, body, surface, status, submitter_name, submitter_email, created_at, updated_at) VALUES ('rm', 'Thank-you video for Ada Lovelace', 'Met Ada Lovelace at the banquet', 'dashboard', 'approved', 'Cal Cook', ?, ?, ?)", CAL.email, at, at);
+    const ben = await mentionEvents(w.env, BEN.email, '77', 'Ada Lovelace');
+    assert.ok(ben.some((e) => e.id === 'task:tm' && e.kind === 'mention' && e.log && e.log.source === 'task:tm'), 'Ben sees the task mention');
+    const req = ben.find((e) => e.id === 'req:rm');
+    assert.ok(req, 'requests are open to staff');
+    assert.equal(req.log.type, 'Meeting', 'Met ... reads as a meeting');
+    const cal = await mentionEvents(w.env, CAL.email, '77', 'Ada Lovelace');
+    assert.ok(!cal.some((e) => e.id === 'task:tm'), 'Cal is not in the members-only project');
+    // Saving the prefilled contact marks the line.
+    await noteLogged(w.env, BEN.email, '77', 'task:tm');
+    const list = [{ id: 'task:tm', log: {} }, { id: 'req:rm', log: {} }];
+    await markLogged(w.env, '77', list);
+    assert.equal(list[0].logged, true);
+    assert.ok(!list[1].logged);
+  });
+});

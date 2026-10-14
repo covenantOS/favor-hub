@@ -12,14 +12,20 @@ async function load(id) {
   return { story, tl };
 }
 
-const ICON = { call: 'phone', email: 'mail', meeting: 'meet', mail: 'letter', note: 'note', task: 'task', event: 'meet', chat: 'text', clip: 'link' };
+const ICON = { call: 'phone', email: 'mail', meeting: 'meet', mail: 'letter', note: 'note', task: 'task', event: 'meet', chat: 'text', clip: 'link', mention: 'text' };
+
+/** This person's own email with the partner and emails naming them (Gmail, read apart so the timeline never waits on it). */
+function loadMail(id) {
+  return fetch('/api/today/partner-mail?cid=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).then((r) => (r.ok ? r.json() : { events: [] })).then((d) => d.events || []).catch(() => []);
+}
 
 /** The timeline answer in the shape partner.js draws: gifts, contacts (t act), notes, and things from this hub (t hub). */
 function events(tl) {
   return (tl.events || []).map((e) => {
     if (e.kind === 'gift') return { t: 'gift', d: e.at.slice(0, 10), a: e.amount, what: e.fund || 'No fund on file', how: e.text };
     if (e.kind === 'note') return { t: 'note', d: e.at.slice(0, 10), what: e.title, text: e.text, by: e.by };
-    if (e.kind === 'chat' || e.kind === 'clip' || e.id.startsWith('meet:')) return { t: 'hub', d: e.at.slice(0, 10), icon: ICON[e.kind], what: e.title, text: e.text, by: e.by, href: e.href };
+    // Mentions and meetings carry a prefilled "Add to contact log" (log) and whether it was added (logged).
+    if (e.kind === 'chat' || e.kind === 'clip' || e.kind === 'mention' || e.id.startsWith('meet:')) return { t: 'hub', src: e.id, d: e.at.slice(0, 10), icon: ICON[e.kind], what: e.title, text: e.text, by: e.by, href: e.href, log: e.log || null, logged: !!e.logged };
     return { t: 'act', id: e.id.replace(/^act:/, ''), d: e.at.slice(0, 10), icon: ICON[e.kind] || 'task', what: e.title, text: e.text, by: e.by + (e.open ? (e.by ? ' · ' : '') + 'Open' : '') };
   });
 }
@@ -53,5 +59,5 @@ function storyHTML(V) {
   </section>`;
 }
 
-window.FavorBrief = { load, storyHTML, events, HEALTH };
+window.FavorBrief = { load, loadMail, storyHTML, events, HEALTH };
 })();

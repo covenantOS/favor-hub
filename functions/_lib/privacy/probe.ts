@@ -113,6 +113,7 @@ export function probes(): Probe[] {
     { name: 'Today waiting on', path: '/api/today/waiting?part=fast', who: both },
     { name: "Another person's hand-off", path: `/api/today/handoff/${M.handoff}`, who: ['staff', 'field', 'out'] },
     { name: 'Hand-offs given', path: '/api/today/handoffs', who: ['staff'] },
+    { name: 'Partner mail on the partner page (no Work Center)', path: '/api/today/partner-mail?cid=27202', who: both },
     // Signed out: nothing at all.
     ...['/api/meet/meetings?scope=notes', `/api/meet/meetings/${M.meetEnded}/notes`, '/api/chat/boot', '/api/projects', '/api/hub/find?q=prvcnry'].map((p): Probe => ({ name: `Signed out ${p.split('?')[0]}`, path: p, who: ['out'] })),
   ];
