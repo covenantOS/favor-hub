@@ -2,12 +2,13 @@
 // year-end statement, the one-file-at-a-time lock, and a short log. Tables are in db/statements.sql.
 import { HttpError, newId, nowIso, type Env } from '../http';
 import { cleanCopy, DEFAULT_COPY, WORDING, type StatementCopy } from './copy';
+import { hubPrefix, hubValue } from '../admin/hubcache';
 
 export const DEFAULT_BATCH = 100;
 
 export async function settingValue(env: Env, id: string, fallback: string): Promise<string> {
-  const row = await env.DB.prepare('SELECT value FROM hub_settings WHERE key = ? LIMIT 1').bind(id).first<{ value: string }>().catch(() => null);
-  return row ? row.value : fallback;
+  const v = await hubValue(env, id).catch(() => null);
+  return v ?? fallback;
 }
 
 export async function emailOn(env: Env): Promise<boolean> {
@@ -25,9 +26,9 @@ export async function driveFolder(env: Env): Promise<string> {
 
 /** The wording as saved in Admin, filled in with the default wherever a field was never saved. */
 export async function getCopy(env: Env): Promise<StatementCopy> {
-  const rows = await env.DB.prepare("SELECT key, value FROM hub_settings WHERE key LIKE 'statements.w.%'").all<{ key: string; value: string }>().catch(() => ({ results: [] as { key: string; value: string }[] }));
+  const rows = await hubPrefix(env, 'statements.w.').catch(() => [] as { key: string; value: string }[]);
   const saved: Partial<Record<keyof StatementCopy, string>> = {};
-  for (const r of rows.results || []) {
+  for (const r of rows) {
     const f = WORDING.find((w) => w.id === r.key);
     if (f) saved[f.key] = r.value;
   }

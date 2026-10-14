@@ -22,6 +22,7 @@ export const JOBS: JobDef[] = [
   { id: 'notify', label: 'Task and feedback email', okMin: 20 },
   { id: 'project-status', label: 'Friday project updates', okMin: 20 },
   { id: 'snapshots', label: 'Work list answers', okMin: 20 },
+  { id: 'prewarm', label: 'Work Center prewarm', okMin: 20, hours: [10, 1] },
   { id: 'receipts-warm', label: 'Receipts waiting list', okMin: 40, hours: [10, 2] },
   { id: 'ai-reconcile', label: 'Workers AI budget', okMin: 40 },
   { id: 'digest', label: 'Morning email', okMin: 40, hours: [11, 15], weekdays: true },

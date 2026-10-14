@@ -227,6 +227,8 @@ async function load(fresh) {
     if (!S.owner && d.briefing.owner) S.owner = '';
     draw();
     wantPrep();
+    // A saved briefing more than five minutes old drew at once; read the current one behind it and redraw.
+    if (d.stale && !fresh) load(true);
   } catch (e) {
     S.error = e.message;
     root.innerHTML = '';

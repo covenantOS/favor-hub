@@ -10,6 +10,7 @@
 import { foundVia, type FoundVia } from './found-via';
 import type { Env } from '../http';
 import { readOnly } from './repo';
+import { hubValue } from '../admin/hubcache';
 import type { Q } from './partner';
 import { addDays } from '../actions/completion';
 
@@ -344,8 +345,8 @@ export async function hubContacts(env: Env, cids: string[], since: string): Prom
 /** Everything the tab needs from the mirror: the rule for every Partner Care partner who has one and is due within two weeks. */
 /** Cards a year for monthly partners: 0, 2 or 4 from hub_settings, 2 when nothing is saved. */
 export async function monthlyCards(env: Env): Promise<number> {
-  const row = env.DB ? await env.DB.prepare('SELECT value FROM hub_settings WHERE key = ? LIMIT 1').bind(CARDS_KEY).first<{ value: string }>().catch(() => null) : null;
-  const n = row ? Number(row.value) : CARDS_DEFAULT;
+  const v = env.DB ? await hubValue(env, CARDS_KEY).catch(() => null) : null;
+  const n = v != null ? Number(v) : CARDS_DEFAULT;
   return n === 0 || n === 2 || n === 4 ? n : CARDS_DEFAULT;
 }
 

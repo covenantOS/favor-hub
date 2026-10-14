@@ -28,18 +28,39 @@ async function holderNames(ctx: Ctx): Promise<Record<string, string>> {
 
 interface Cached { synced: string; today: string; at: string; rows: CadenceRow[] }
 
-/** The computed rows: from act_cache when the Blackbaud copy and the day are the same, otherwise built from the mirror. */
-export async function cadenceRows(ctx: Ctx, today: string): Promise<{ rows: CadenceRow[]; at: string; synced: string }> {
-  const synced = await ctx.repo.synced().catch(() => '');
-  const hit = await ctx.env.DB.prepare('SELECT value FROM act_cache WHERE key = ?').bind(CACHE_KEY).first<{ value: string }>().catch(() => null);
-  if (hit) {
+let building: Promise<{ rows: CadenceRow[]; at: string; synced: string }> | null = null;
+
+/**
+ * The computed rows: from act_cache when the Blackbaud copy and the day are the same, otherwise built from the mirror (4 to 6 seconds).
+ * With o.stale, a read that finds today's rows from an earlier sync answers with them and rebuilds behind (ctx.bg); the hub's own steps
+ * are laid over at read time either way, so only changes made in Blackbaud itself wait for the rebuild. The prewarm job keeps it current.
+ */
+export async function cadenceRows(ctx: Ctx, today: string, o: { stale?: boolean; force?: boolean } = {}): Promise<{ rows: CadenceRow[]; at: string; synced: string; stale?: boolean }> {
+  const [synced, hit] = await Promise.all([
+    ctx.repo.synced().catch(() => ''),
+    ctx.env.DB.prepare('SELECT value FROM act_cache WHERE key = ?').bind(CACHE_KEY).first<{ value: string }>().catch(() => null),
+  ]);
+  if (hit && !o.force) {
     try {
       const c = JSON.parse(hit.value) as Cached;
       if (c.today === today && c.synced === synced) return { rows: c.rows, at: c.at, synced };
+      if (o.stale && ctx.bg && c.today === today) {
+        if (!building) ctx.bg(buildCadence(ctx, today, synced).catch((e) => console.error('[cadence] rebuild', String(e))));
+        return { rows: c.rows, at: c.at, synced: c.synced, stale: true };
+      }
     } catch {
       /* rebuild below */
     }
   }
+  return buildCadence(ctx, today, synced);
+}
+
+function buildCadence(ctx: Ctx, today: string, synced: string): Promise<{ rows: CadenceRow[]; at: string; synced: string }> {
+  if (!building) building = buildCadenceNow(ctx, today, synced).finally(() => (building = null));
+  return building;
+}
+
+async function buildCadenceNow(ctx: Ctx, today: string, synced: string): Promise<{ rows: CadenceRow[]; at: string; synced: string }> {
   const names = await holderNames(ctx);
   const rows = await loadCadence(ctx.env, listMirrorQ(ctx.env), { today, names });
   const at = nowIso();
@@ -100,7 +121,7 @@ export interface CadenceOut {
 export async function cadenceResponse(ctx: Ctx, ownerIn: string): Promise<CadenceOut> {
   if (!mayCadence(ctx.scope)) throw new HttpError(403, 'not_yours', 'Cadence is for Partner Care.');
   const today = todayEt();
-  const built = await cadenceRows(ctx, today);
+  const built = await cadenceRows(ctx, today, { stale: true });
   const wk = weekStart(today);
   const done = await doneSince(ctx, built.at < wk ? built.at : wk);
   const flags = await noTextSet(ctx.env);

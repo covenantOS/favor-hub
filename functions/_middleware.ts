@@ -10,6 +10,7 @@ import { decide, serveApp } from './_lib/app2';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
 import { noteUse } from './_lib/hub/usage';
 import { withAssetCache } from './_lib/assetcache';
+import { honorSavedCookie, withHubWrites } from './_lib/admin/hubcache';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -63,7 +64,8 @@ function isHtml(res: Response): boolean {
 export const onRequest: PagesFunction<Env> = async (ctx) => {
   // Who is asking, for the AI budget guard: filled in once the user is known.
   const who = { tester: false, closed: false };
-  return withAiCaller(who, () => handle(ctx, who));
+  honorSavedCookie(ctx.request.headers.get('Cookie'));
+  return withAiCaller(who, () => withHubWrites(() => handle(ctx, who)));
 };
 
 const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boolean; closed: boolean }): Promise<Response> => {

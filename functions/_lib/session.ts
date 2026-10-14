@@ -9,6 +9,7 @@
 import { HttpError, clientIp, nowIso, timingSafeEqualStr, type Env } from './http';
 import { readCookie } from './auth';
 import { resolveDevice } from './mobile/device';
+import { hubValue } from './admin/hubcache';
 
 export const SESSION_COOKIE = 'favor_hub_session';
 const NONCE_COOKIE = 'favor_hub_nonce';
@@ -191,8 +192,8 @@ export function parseDomains(raw: string, main = DEFAULT_DOMAIN): string[] {
 /** The extra domains an admin allows (Admin, People, sign-in domains). A read that fails allows none. */
 export async function allowedDomains(env: Env): Promise<string[]> {
   try {
-    const row = await env.DB.prepare(`SELECT value FROM hub_settings WHERE key = 'signin.domains' LIMIT 1`).first<{ value: string }>();
-    return parseDomains(row ? row.value : DEFAULT_EXTRA_DOMAINS, hubDomain(env));
+    const v = await hubValue(env, 'signin.domains');
+    return parseDomains(v ?? DEFAULT_EXTRA_DOMAINS, hubDomain(env));
   } catch {
     return [];
   }

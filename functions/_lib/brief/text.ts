@@ -98,6 +98,17 @@ export async function cacheGet<T>(env: Pick<Env, 'DB'>, key: string, ttlMs: numb
   }
 }
 
+/** The saved copy and its age in ms, however old. Null when there is none or it does not parse. */
+export async function cacheAged<T>(env: Pick<Env, 'DB'>, key: string): Promise<{ value: T; age: number } | null> {
+  const row = await env.DB.prepare('SELECT value, at FROM act_cache WHERE key = ?').bind(key).first<{ value: string; at: string }>().catch(() => null);
+  if (!row) return null;
+  try {
+    return { value: JSON.parse(row.value) as T, age: Date.now() - Date.parse(row.at) };
+  } catch {
+    return null;
+  }
+}
+
 export async function cachePut(env: Pick<Env, 'DB'>, key: string, value: unknown): Promise<void> {
   await env.DB.prepare('INSERT INTO act_cache (key, value, at) VALUES (?1, ?2, ?3) ON CONFLICT(key) DO UPDATE SET value = excluded.value, at = excluded.at')
     .bind(key, JSON.stringify(value), new Date().toISOString())

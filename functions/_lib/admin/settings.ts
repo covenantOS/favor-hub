@@ -13,6 +13,7 @@ import { DEFAULT_COPY, WORDING } from '../statements/copy';
 import { DEFAULT_EXTRA_DOMAINS, parseDomains } from '../session';
 import { aiSettings, saveAiSettings } from '../ai/admin';
 import { monthOf, utcDay } from '../ai/guard';
+import { hubSettings, noteHubWrite } from './hubcache';
 
 export type Area = 'work' | 'meetings' | 'brain' | 'clips' | 'reports' | 'expenses' | 'receipts' | 'statements' | 'chat' | 'projects' | 'people' | 'ai';
 export type Kind = 'enum' | 'int' | 'text' | 'date';
@@ -58,24 +59,24 @@ export type EnvPlus = Env & { BB_KV?: KVNamespace };
 /* ----------------------------------------------------------------------------------------------- the three stores */
 
 export async function hubGet(env: Env, key: string): Promise<{ value: string; by: string; at: string } | null> {
-  const row = await env.DB.prepare('SELECT value, updated_by AS by, updated_at AS at FROM hub_settings WHERE key = ? LIMIT 1')
-    .bind(key)
-    .first<{ value: string; by: string; at: string }>()
-    .catch(() => null);
-  return row || null;
+  const rows = await hubSettings(env).catch(() => null);
+  return (rows && rows.get(key)) || null;
 }
 
 export async function hubPut(env: Env, key: string, value: string, by: string): Promise<void> {
+  const at = nowIso();
   await env.DB.prepare(
     `INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES (?, ?, ?, ?)
      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = excluded.updated_at`
   )
-    .bind(key, value, by, nowIso())
+    .bind(key, value, by, at)
     .run();
+  noteHubWrite(key, { value, by, at }, env.DB);
 }
 
 export async function hubDel(env: Env, key: string): Promise<void> {
   await env.DB.prepare('DELETE FROM hub_settings WHERE key = ?').bind(key).run();
+  noteHubWrite(key, null, env.DB);
 }
 
 /** What a reader gets: the saved answer, else the Pages variable, else the default. Used by the code that obeys the setting. */

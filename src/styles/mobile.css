@@ -179,3 +179,14 @@
 .h-brand span, html.nav-wide .h-brand span, .h-app.is-peek .h-brand span, .h-app.is-nav .h-brand span {
   border-left: 0; padding-left: 0; margin-left: -9px; font-size: 21px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; color: #fff;
 }
+
+/* Viewport pass 2026-10-14: the last full-height pieces that were sized with 100dvh, which runs under Safari's floating toolbar. Each is
+   pinned top and bottom instead, and inner scrollers use the small viewport (toolbar shown) less the tab bar, so their last row clears it. */
+@media (max-width: 860px) {
+  .cm.wg-dlg { top: 0; bottom: 0; height: auto; }
+  .lp.lp { top: 0; bottom: 0; height: auto; }
+  .wc-scroll, .wc-scroll--in { max-height: calc(100svh - 170px - var(--h-bar-h, 63px)); }
+  .fe-card.fe-sheet.fe-sheet { max-height: 82svh; }
+  .cr-card.is-sheet.is-sheet { max-height: 88svh; }
+  .cr-card.is-sheet.is-sheet .cr-stage { max-height: max(150px, calc(88svh - 470px)); }
+}

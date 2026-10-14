@@ -133,3 +133,11 @@ body.h-body .h-top .h-top__right { padding: 8px; }
 
 /* The walkthrough's moving mouse pointer belongs on a computer. A phone or tablet shows the highlight and the card only. */
 @media (pointer: coarse) { .tr-cursor { display: none !important; } }
+/* Network guard (public/js/net-guard.js): a save that did not land, offline, slow connection, and a button held while its save runs. */
+.ng-toast { position: fixed; left: 50%; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 131; max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 14px; background: #1d211b; color: #fbfaf6; font: 500 14px/1.35 var(--h-font); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22); opacity: 0; transform: translate(-50%, 8px); pointer-events: none; transition: opacity 0.18s, transform 0.18s; }
+.ng-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+.ng-bar { position: fixed; left: 0; right: 0; top: 0; z-index: 132; padding: calc(8px + env(safe-area-inset-top)) 16px 8px; background: #8a2f1b; color: #fff; font: 600 13px/1.3 var(--h-font); text-align: center; transform: translateY(-100%); transition: transform 0.2s; pointer-events: none; }
+.ng-bar--slow { background: #5b4a12; }
+.ng-bar.is-on { transform: none; }
+[data-ng-busy] { cursor: progress; opacity: 0.7; }
+@media (min-width: 861px) { .ng-toast { bottom: 24px; } }

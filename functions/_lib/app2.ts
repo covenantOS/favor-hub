@@ -10,6 +10,7 @@
 import { APP2_COOKIE, APP2_SETTING_AUDIENCE, APP2_SETTING_ROUTES, parseRoutes, routeServed } from '../../shared/app2';
 import type { Env } from './http';
 import type { HubUser } from './session';
+import { hubSettings } from './admin/hubcache';
 
 export type Audience = 'admin' | 'all';
 
@@ -21,11 +22,8 @@ export interface App2Settings {
 /** The two settings, read together. A missing table or row means off. */
 export async function readApp2Settings(env: Env): Promise<App2Settings> {
   try {
-    const rows = await env.DB.prepare('SELECT key, value FROM hub_settings WHERE key IN (?, ?)')
-      .bind(APP2_SETTING_ROUTES, APP2_SETTING_AUDIENCE)
-      .all<{ key: string; value: string }>();
-    const by = new Map((rows.results || []).map((r) => [r.key, r.value]));
-    return { routes: parseRoutes(by.get(APP2_SETTING_ROUTES)), audience: by.get(APP2_SETTING_AUDIENCE) === 'all' ? 'all' : 'admin' };
+    const by = await hubSettings(env);
+    return { routes: parseRoutes(by.get(APP2_SETTING_ROUTES)?.value), audience: by.get(APP2_SETTING_AUDIENCE)?.value === 'all' ? 'all' : 'admin' };
   } catch {
     return { routes: [], audience: 'admin' };
   }

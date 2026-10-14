@@ -7,6 +7,7 @@
 //   */5 * * * *     POST /api/work/notify  task tag emails (a burst goes as one), feedback reply emails, weekday morning nudges
 //   */5 * * * *     POST /api/projects/status/run  Friday 3 PM Eastern: posts each project's update where the owner turned it on
 //   */5 * * * *     POST /api/work/snapshots  re-reads the Blackbaud answers the Work lists keep (6 AM to 9 PM Eastern)
+//   */5 * * * *     POST /api/work/prewarm  cadence rows and the asks read kept current (5 AM to 9 PM Eastern), briefings built 5 to 7 AM
 //   */10 * * * *    POST /api/receipts/warm  reads the Receipts waiting list from Blackbaud so the page never waits on it (10:00 to 02:00 UTC)
 //   */5 * * * *     POST /api/ai/reconcile  on every tenth minute: Cloudflare's own AI neuron totals over the budget guard's estimate
 //   */5 * * * *     on minutes 0 and 30: the production smoke check (GET /login/, /version.json, a script, then POST /api/hub/smoke)
@@ -104,6 +105,13 @@ async function warm(env, at) {
     const out = await call(env, '/api/work/snapshots');
     if (out.refreshed) console.log('snapshots:', JSON.stringify(out));
     return out.refreshed ? `${out.refreshed} refreshed` : '';
+  });
+  // Work Center prewarm: cadence rows and the asks read kept current from 5 AM to 9 PM Eastern, and today's briefings built from 5 to 7 AM.
+  await job(env, 'prewarm', async () => {
+    const r = await call(env, '/api/work/prewarm');
+    if (r.why) return r.why;
+    const b = r.briefings ? `, briefings ${r.briefings.made} made ${r.briefings.left} left${r.briefings.failed.length ? ' ' + r.briefings.failed.length + ' failed' : ''}` : '';
+    return `cadence ${r.cadence ? r.cadence.ms : '-'} ms, asks ${r.asks && r.asks.ms != null ? r.asks.ms + ' ms' : 'current'}${b}, ${r.ms} ms`;
   });
   const d = new Date(at);
   const hour = d.getUTCHours();

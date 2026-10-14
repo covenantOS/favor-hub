@@ -131,7 +131,30 @@ async function notifyProbe(env: Env, now: number): Promise<Item> {
   const [state, at, ...rest] = raw.split('|');
   let status = grade(ago(iso(at), now), 20 * 60_000, 2 * HOUR);
   if (/^err/i.test(state || '')) status = 'failed';
-  return { id: 'notify', label: 'Notification emails', status, at: iso(at), detail: rest.join('|').slice(0, 160) || 'No run yet' };
+  return { id: 'notify', label: 'Notification emails', status, at: iso(at), detail: notifyDetail(rest.join('|')) };
+}
+
+/** The last pass in words. notify:last carries the pass's JSON counts; older rows and errors carry plain text, shown as they are. */
+export function notifyDetail(text: string): string {
+  if (!text) return 'No run yet';
+  let o: any;
+  try {
+    o = JSON.parse(text);
+  } catch {
+    return text.slice(0, 160);
+  }
+  if (!o || typeof o !== 'object') return text.slice(0, 160);
+  const n = (v: unknown) => Number(v) || 0;
+  const parts: string[] = [];
+  const tasks = n(o.tasks);
+  const fb = o.feedback || {};
+  const nu = o.nudges || {};
+  if (tasks) parts.push(`${tasks} task email${tasks === 1 ? '' : 's'}`);
+  if (n(fb.sent)) parts.push(`${n(fb.sent)} feedback repl${n(fb.sent) === 1 ? 'y' : 'ies'}`);
+  if (n(nu.emails)) parts.push(`${n(nu.emails)} nudge${n(nu.emails) === 1 ? '' : 's'}`);
+  const failed = n(fb.failed) + (Array.isArray(o.errors) ? o.errors.length : 0);
+  const line = parts.length ? `Last pass sent ${parts.join(', ')}` : 'Last pass: nothing to send';
+  return failed ? `${line}, ${failed} failed` : line;
 }
 
 async function driveProbe(env: Ext, now: number): Promise<Item> {

@@ -32,6 +32,8 @@ export interface Ctx {
   scope?: Scope;
   /** A test run by the agent key as another role: every write is refused unless it is on this one partner record. */
   testCid?: string;
+  /** Keeps work going after the answer is sent (the request's waitUntil). A read may then answer from a slightly older saved copy and rebuild it behind. */
+  bg?: (p: Promise<unknown>) => void;
 }
 
 export const todayEt = (): string => etParts(new Date()).date;

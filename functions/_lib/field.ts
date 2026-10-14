@@ -6,6 +6,7 @@
 //   3. the Brain proxy sends only a question, marked with the field scope, and only when an admin turned that on (fieldBrainOn).
 import { HttpError, type Env } from './http';
 import type { HubUser } from './session';
+import { hubValue } from './admin/hubcache';
 
 /** Pages a field person may open. Everything else sends them to Chat. */
 const PAGES = [/^\/css\//,/^\/m(\/|$)/, /^\/chat(\/|$)/, /^\/meet(\/|$)/, /^\/brain\/?$/, /^\/help(\/|$)/, /^\/login(\/|$)/, /^\/welcome\/?$/];
@@ -20,8 +21,7 @@ export function fieldMayOpen(path: string): boolean {
 
 export async function fieldBrainOn(env: Env): Promise<boolean> {
   try {
-    const row = await env.DB.prepare(`SELECT value FROM hub_settings WHERE key = 'field.brain' LIMIT 1`).first<{ value: string }>();
-    return !!row && row.value === 'on';
+    return (await hubValue(env, 'field.brain')) === 'on';
   } catch {
     return false;
   }

@@ -4,6 +4,7 @@
 import type { Env } from '../http';
 import { ALL_AUDIENCES, CATALOG } from '../reports/registry';
 import type { Audience } from '../reports/types';
+import { hubPrefix } from './hubcache';
 
 const ORIGINAL = new Map<string, Audience[]>(CATALOG.map((e) => [e.id, [...e.audience]]));
 
@@ -21,8 +22,7 @@ export const AUDIENCE_LABEL: Record<Audience, string> = {
 export async function savedReportRoles(env: Env): Promise<Record<string, Audience[]>> {
   const out: Record<string, Audience[]> = {};
   try {
-    const r = await env.DB.prepare("SELECT key, value FROM hub_settings WHERE key LIKE 'reports.roles.%'").all<{ key: string; value: string }>();
-    for (const row of r.results || []) {
+    for (const row of await hubPrefix(env, 'reports.roles.')) {
       const id = row.key.slice('reports.roles.'.length);
       try {
         const list = JSON.parse(row.value);
