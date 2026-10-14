@@ -1824,7 +1824,10 @@ async function pickClip() {
   el.innerHTML = '<div class="rm-pick-in"><div class="rm-pick-h"><b>Play a clip for everyone</b><button class="h-btn h-btn--ghost h-btn--sm" data-a="play-close">Close</button></div><div class="rm-pick-l">Loading your clips</div></div>';
   document.body.appendChild(el);
   try {
-    const r = await (await fetch('/api/clips', { credentials: 'same-origin' })).json();
+    // An admin picks from every clip in FavorOS, everyone else from their own.
+    let res = await fetch('/api/clips?scope=all', { credentials: 'same-origin' });
+    if (!res.ok) res = await fetch('/api/clips', { credentials: 'same-origin' });
+    const r = await res.json();
     const list = (r.clips || r.items || []).filter((c) => c.status === 'ready' || c.status === 'processing');
     el.querySelector('.rm-pick-l').innerHTML = list.length ? list.slice(0, 60).map((c) => `<button class="rm-pick-i" data-a="play-pick" data-id="${esc(c.id)}" data-t="${esc(c.title || 'Clip')}">${c.has_poster ? `<img src="/api/clips/${esc(c.id)}/media?poster=1" alt="">` : ''}<span>${esc(c.title || 'Clip')}</span><small>${Math.round((c.duration_ms || 0) / 1000)} s</small></button>`).join('') : 'You have no clips yet.';
   } catch { el.querySelector('.rm-pick-l').textContent = 'Clips did not load.'; }
