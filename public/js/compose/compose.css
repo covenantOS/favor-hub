@@ -1,0 +1,237 @@
+/* FavorOS composer (public/js/compose/compose.js). Mail's sky blue on every page. Motion uses the app's tokens (motion.css) when present. */
+.fc-layer, .fc-win, .fc-toast, .fc-dropstart {
+  --fc-pri: var(--tc-sky, #2f6f9f); --fc-pri-ink: var(--tc-sky-ink, #235578); --fc-tint: var(--tc-sky-tint, #e3eef6);
+  --fc-ink: var(--r-ink, #1d211b); --fc-ink2: var(--r-ink-2, #464c42); --fc-ink3: var(--r-ink-3, #666b60);
+  --fc-line: var(--r-line, #e4e0d4); --fc-line2: var(--r-line-2, #d3cdbd); --fc-sunk: var(--r-sunk, #ebe8de); --fc-hover: var(--r-hover, #f7f5ef);
+  --fc-fast: var(--m-fast, 120ms); --fc-base: var(--m-base, 180ms); --fc-slow: var(--m-slow, 260ms);
+  --fc-out: var(--m-out, cubic-bezier(0.22, 1, 0.36, 1)); --fc-in: var(--m-in, cubic-bezier(0.4, 0, 1, 1));
+  --fc-font: var(--h-font, Inter, system-ui, -apple-system, 'Segoe UI', sans-serif);
+}
+.fc-layer { position: fixed; inset: 0; z-index: 1850; pointer-events: none; }
+.fc-layer > * { pointer-events: auto; }
+.fc-dockrow { position: absolute; right: 88px; bottom: 0; display: flex; flex-direction: row-reverse; align-items: flex-end; gap: 12px; pointer-events: none; max-width: calc(100vw - 104px); }
+.fc-dockrow > * { pointer-events: auto; }
+
+/* ------------------------------------------------------------ the window */
+.fc-win { position: relative; display: flex; flex-direction: column; min-width: 0; background: #fff; color: var(--fc-ink); font: 400 14px/1.45 var(--fc-font); text-align: left;
+  transition: opacity var(--fc-base) var(--fc-out), transform var(--fc-base) var(--fc-out); }
+.fc-win * { box-sizing: border-box; }
+.fc-win button { font: inherit; color: inherit; cursor: pointer; }
+.fc-win [hidden] { display: none !important; }
+.fc-win.is-entering { opacity: 0; transform: translateY(10px); }
+.fc-win.is-leaving { opacity: 0; transform: translateY(10px); transition-timing-function: var(--fc-in); pointer-events: none; }
+.fc-win.is-moving { transition: none; }
+.fc-i { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.fc-ib { width: 34px; height: 34px; flex: none; display: inline-grid; place-items: center; border: 0; border-radius: 9px; background: none; color: var(--fc-ink2); }
+.fc-ib:hover { background: var(--fc-sunk); color: var(--fc-ink); }
+html.kbd .fc-win :is(button, a, input, select):focus-visible { outline: 2px solid var(--fc-pri); outline-offset: 1px; }
+
+/* Docked (bottom right), free (anywhere), minimized (a tab) and full screen. */
+.fc-win.is-docked, .fc-win[data-mode='min'] { border: 1px solid var(--fc-line2); border-bottom: 0; border-radius: 12px 12px 0 0; box-shadow: 0 18px 50px -14px rgba(20, 24, 18, 0.42), 0 2px 8px rgba(20, 24, 18, 0.08); overflow: hidden; }
+.fc-win.is-docked { width: 560px; height: min(620px, calc(100vh - 88px)); }
+.fc-win.is-free { position: fixed; border: 1px solid var(--fc-line2); border-radius: 12px; box-shadow: 0 24px 64px -16px rgba(20, 24, 18, 0.45), 0 2px 8px rgba(20, 24, 18, 0.08); overflow: hidden; }
+.fc-win.is-dragging { transition: none; cursor: grabbing; user-select: none; }
+.fc-win.is-dragging .fc-head { cursor: grabbing; }
+.fc-win.is-sizing { transition: none; user-select: none; }
+.fc-win[data-mode='min'] { width: 280px !important; height: 44px !important; }
+.fc-win[data-mode='min'] > :not(.fc-head) { display: none !important; }
+.fc-win[data-mode='full'] { position: fixed; inset: 5vh 8vw; z-index: 2; border-radius: 14px; box-shadow: 0 0 0 100vmax rgba(20, 24, 18, 0.32), 0 30px 80px -20px rgba(20, 24, 18, 0.5); overflow: hidden; }
+
+/* header */
+.fc-head { flex: none; display: flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 6px 0 4px; background: var(--fc-hover); border-bottom: 1px solid var(--fc-line); user-select: none; }
+.fc-win.is-docked .fc-head, .fc-win.is-free .fc-head { cursor: grab; }
+.fc-head__t { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 10px; height: 44px; padding: 0 10px; border: 0; background: none; text-align: left; cursor: inherit !important; }
+.fc-head__t b { font: 600 14px var(--fc-font); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; align-self: center; }
+.fc-saved { flex: none; font-size: 12.5px; color: var(--fc-ink3); align-self: center; }
+.fc-head__acts { display: inline-flex; gap: 2px; }
+.fc-head .fc-ib { width: 30px; height: 30px; }
+.fc-head .fc-i { width: 16px; height: 16px; }
+.fc-ph-cancel, .fc-ph-send { display: none; }
+.fc-win[data-mode='min'] .fc-head { border-bottom: 0; cursor: pointer; background: #fff; }
+.fc-win[data-mode='min'] .fc-head:hover { background: var(--fc-hover); }
+.fc-win[data-mode='min'] .fc-head__t { cursor: pointer !important; }
+.fc-win[data-mode='min'] [data-c='min'], .fc-win[data-mode='min'] [data-c='full'], .fc-win[data-mode='min'] [data-c='dock'] { display: none; }
+.fc-only-inline, .fc-only-free { display: none !important; }
+.fc-win[data-mode='inline'] .fc-only-inline { display: inline-grid !important; }
+.fc-win.is-free .fc-only-free { display: inline-grid !important; }
+.fc-win[data-mode='inline'] .fc-only-float { display: none !important; }
+
+/* body: fields, editor, signature and quote in plain block flow, so nothing can overlap (the old flex column shrank the editor) */
+.fc-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: block; }
+.fc-row { position: relative; display: flex; align-items: flex-start; gap: 8px; padding: 4px 14px; border-bottom: 1px solid var(--fc-line); }
+.fc-row > label { flex: none; width: 54px; padding-top: 8px; font-size: 13.5px; color: var(--fc-ink3); }
+.fc-chips { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 34px; cursor: text; }
+.fc-in { flex: 1; min-width: 120px; height: 34px; border: 0; outline: none; background: none; font: 400 14.5px var(--fc-font); color: var(--fc-ink); padding: 0; }
+.fc-subj { font-weight: 600; }
+.fc-from { width: 100%; }
+.fc-ccb { flex: none; height: 34px; padding: 0 8px; border: 0; border-radius: 8px; background: none; font-size: 13px !important; font-weight: 600; color: var(--fc-ink3) !important; }
+.fc-ccb:hover { background: var(--fc-sunk); }
+.fc-chip { display: inline-flex; align-items: center; gap: 2px; max-width: 100%; height: 26px; padding: 0 2px 0 10px; border-radius: 999px; background: var(--fc-tint); color: var(--fc-pri-ink); font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-chip button { width: 22px; height: 22px; display: grid; place-items: center; border: 0; background: none; border-radius: 50%; color: inherit; flex: none; }
+.fc-chip button:hover { background: rgba(35, 85, 120, 0.14); }
+.fc-chip .fc-i { width: 12px; height: 12px; }
+.fc-sug { position: absolute; left: 62px; right: 10px; top: calc(100% - 2px); z-index: 6; max-height: 300px; overflow-y: auto; background: #fff; border: 1px solid var(--fc-line2); border-radius: 12px; box-shadow: 0 16px 40px -16px rgba(20, 24, 18, 0.4); padding: 4px; }
+.fc-sug__i { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 8px; border: 0; background: none; border-radius: 8px; text-align: left; }
+.fc-sug__i.is-on, .fc-sug__i:hover { background: var(--fc-hover); }
+.fc-sug__t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fc-sug__t b { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-sug__t small { font-size: 12.5px; color: var(--fc-ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-sug__i em { font: 600 12px var(--fc-font); font-style: normal; color: var(--fc-ink3); background: var(--fc-sunk); border-radius: 999px; padding: 1px 8px; }
+.fc-av { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; overflow: hidden; background: var(--fc-sunk); color: var(--fc-ink2); font: 700 11.5px var(--fc-font); }
+.fc-av img { width: 100%; height: 100%; object-fit: cover; }
+
+/* a reply shows one line of who it goes to; a tap opens the fields */
+.fc-sum { display: none; }
+.fc-fields.is-reply .fc-sum { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 4px 14px; border: 0; border-bottom: 1px solid var(--fc-line); background: none; text-align: left; color: var(--fc-ink2); font-size: 13.5px; }
+.fc-win .fc-sum .fc-sum__t { display: block !important; visibility: visible !important; opacity: 1 !important; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-fields.is-reply .fc-sum .fc-i { width: 16px; height: 16px; color: var(--fc-ink3); }
+.fc-fields.is-reply .fc-sum:hover { background: var(--fc-hover); }
+.fc-fields.is-reply .fc-fields__all { display: none; }
+.fc-fields.is-reply.is-open .fc-sum { display: none; }
+.fc-fields.is-reply.is-open .fc-fields__all { display: block; }
+
+.fc-ed:focus, .fc-q:focus, .fc-ed:focus-visible, .fc-q:focus-visible { outline: none !important; box-shadow: none !important; }
+.fc-ed { display: block; min-height: 120px; padding: 12px 16px 6px; outline: none; font: 400 14.5px/1.55 var(--fc-font); color: var(--fc-ink); overflow-wrap: anywhere; cursor: text; }
+.fc-win.is-docked .fc-ed, .fc-win.is-free .fc-ed, .fc-win[data-mode='full'] .fc-ed { min-height: 180px; }
+.fc-ed::after, .fc-q::after { content: ''; display: table; clear: both; }
+.fc-ed :is(img, table, video), .fc-q :is(img, table, video) { max-width: 100%; }
+.fc-ed img, .fc-q img { height: auto; }
+.fc-ed a, .fc-q a { color: var(--fc-pri-ink); }
+.fc-ed ul, .fc-ed ol { margin: 4px 0; padding-left: 24px; }
+.fc-ed p { margin: 0 0 8px; }
+.fc-ed .gmail_signature { margin-top: 4px; color: var(--fc-ink2); }
+.fc-ed .gmail_signature table { width: auto !important; }
+.fc-trim { display: inline-grid; place-items: center; width: 36px; height: 20px; margin: 2px 16px 10px; border: 1px solid var(--fc-line); border-radius: 999px; background: var(--fc-hover); color: var(--fc-ink2); }
+.fc-trim:hover { background: var(--fc-sunk); }
+.fc-trim[aria-expanded='true'] { background: var(--fc-sunk); }
+.fc-trim .fc-i { width: 16px; height: 16px; }
+.fc-q { display: block; padding: 0 16px 12px; outline: none; color: var(--fc-ink2); font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.fc-q blockquote { margin: 6px 0 0 !important; padding-left: 12px !important; border-left: 3px solid var(--fc-line) !important; }
+.fc-files { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 12px; }
+.fc-files:empty { display: none; }
+.fc-file { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 32px; padding: 0 4px 0 10px; border-radius: 9px; background: var(--fc-sunk); font-size: 13.5px; }
+.fc-file > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.fc-file small { color: var(--fc-ink2); font-size: 12.5px; flex: none; }
+.fc-file button { width: 26px; height: 26px; display: grid; place-items: center; border: 0; background: none; border-radius: 8px; flex: none; }
+.fc-file button:hover { background: var(--fc-line); }
+.fc-file .fc-i { width: 14px; height: 14px; }
+
+/* tools: Send first, as in Gmail */
+.fc-tools { flex: none; display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-top: 1px solid var(--fc-line); background: #fff; }
+.fc-sendgrp { display: inline-flex; flex: none; margin-right: 4px; }
+.fc-send { height: 36px; padding: 0 18px; border: 0; background: var(--fc-pri); color: #fff !important; font: 600 14px var(--fc-font) !important; border-radius: 18px 0 0 18px; transition: background var(--fc-fast); }
+.fc-send:hover { background: var(--fc-pri-ink); }
+.fc-send[aria-busy='true'] { opacity: 0.7; }
+.fc-send__more { width: 32px; padding: 0; border-left: 1px solid rgba(255, 255, 255, 0.35); border-radius: 0 18px 18px 0; display: inline-grid; place-items: center; }
+.fc-send__more .fc-i { width: 16px; height: 16px; }
+.fc-tgrp { display: inline-flex; gap: 0; align-items: center; padding: 0 4px; border-left: 1px solid var(--fc-line); }
+.fc-grow { flex: 1; }
+
+/* inline: a card in the conversation, sized by what is written; no inner scroll */
+.fc-win[data-mode='inline'] { margin: 4px 0 8px; border: 1px solid var(--fc-line2); border-radius: 14px; box-shadow: 0 6px 20px -12px rgba(20, 24, 18, 0.3); overflow: visible; }
+.fc-win[data-mode='inline'] .fc-head { min-height: 40px; background: #fff; border-radius: 14px 14px 0 0; cursor: default; }
+.fc-win[data-mode='inline'] .fc-head__t { height: 40px; cursor: default !important; }
+.fc-win[data-mode='inline'] .fc-head__t b { font-size: 13.5px; color: var(--fc-ink2); }
+.fc-win[data-mode='inline'] .fc-scroll { overflow: visible; }
+.fc-win[data-mode='inline'] .fc-tools { position: sticky; bottom: -32px; z-index: 3; border-radius: 0 0 14px 14px; }
+.fc-win[data-mode='inline'] .fc-rz { display: none; }
+
+/* resize handles (free and docked windows) */
+.fc-rz { position: absolute; z-index: 4; display: none; }
+.fc-win.is-free .fc-rz, .fc-win.is-docked .fc-rz--n, .fc-win.is-docked .fc-rz--w, .fc-win.is-docked .fc-rz--nw { display: block; }
+.fc-rz--n { left: 10px; right: 10px; top: -3px; height: 7px; cursor: ns-resize; }
+.fc-rz--s { left: 10px; right: 10px; bottom: -3px; height: 7px; cursor: ns-resize; }
+.fc-rz--w { top: 10px; bottom: 10px; left: -3px; width: 7px; cursor: ew-resize; }
+.fc-rz--e { top: 10px; bottom: 10px; right: -3px; width: 7px; cursor: ew-resize; }
+.fc-rz--nw { left: -3px; top: -3px; width: 14px; height: 14px; cursor: nwse-resize; }
+.fc-rz--se { right: -3px; bottom: -3px; width: 14px; height: 14px; cursor: nwse-resize; }
+
+/* drop target over the window */
+.fc-drop { position: absolute; inset: 0; z-index: 8; display: grid; place-items: center; background: rgba(227, 238, 246, 0.9); border: 2px dashed var(--fc-pri); border-radius: inherit; pointer-events: none; }
+.fc-drop span { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #fff; color: var(--fc-pri-ink); font-weight: 600; box-shadow: 0 6px 18px -8px rgba(20, 24, 18, 0.35); }
+
+/* popovers inside the window: Send later, Drive, clips, templates, Send anyway */
+.fc-pop { position: absolute; left: 10px; bottom: 56px; z-index: 9; width: 340px; max-width: calc(100% - 20px); max-height: min(420px, calc(100% - 70px)); display: flex; flex-direction: column; background: #fff; border: 1px solid var(--fc-line2); border-radius: 12px; box-shadow: 0 18px 44px -14px rgba(20, 24, 18, 0.45); opacity: 0; transform: translateY(6px); transition: opacity var(--fc-base) var(--fc-out), transform var(--fc-base) var(--fc-out); }
+.fc-pop.is-in { opacity: 1; transform: none; }
+.fc-pop--warn { left: auto; right: 10px; }
+.fc-win[data-mode='inline'] .fc-pop { bottom: 58px; }
+.fc-pop__head { display: flex; align-items: center; gap: 8px; padding: 6px 6px 4px 14px; }
+.fc-pop__head b { flex: 1; font: 600 14px var(--fc-font); }
+.fc-pop__body { flex: 1; min-height: 0; overflow-y: auto; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+.fc-menu { display: flex; flex-direction: column; gap: 1px; }
+.fc-menu__i { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 8px; background: none; text-align: left; }
+.fc-menu__i:hover { background: var(--fc-hover); }
+.fc-menu__i span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.fc-menu__i small { flex: none; color: var(--fc-ink3); font-size: 12.5px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fc-menu__i .fc-i { color: var(--fc-ink3); }
+.fc-menu__pick, .fc-form { display: flex; flex-direction: column; gap: 4px; padding: 8px 8px 2px; border-top: 1px solid var(--fc-line); margin-top: 4px; font-size: 13px; color: var(--fc-ink2); }
+.fc-menu__pick > span, .fc-form > span { display: flex; gap: 6px; }
+.fc-input { flex: 1; min-width: 0; height: 36px; padding: 0 10px; border: 1px solid var(--fc-line2); border-radius: 9px; background: #fff; font: 400 14px var(--fc-font); color: var(--fc-ink); }
+.fc-input:focus { outline: none; border-color: var(--fc-pri); box-shadow: 0 0 0 2px var(--fc-tint); }
+.fc-btn { height: 36px; padding: 0 14px; border-radius: 9px; border: 1px solid var(--fc-line2); background: #fff; font: 600 13.5px var(--fc-font) !important; white-space: nowrap; }
+.fc-btn:hover { background: var(--fc-hover); }
+.fc-btn--primary { background: var(--fc-pri); border-color: var(--fc-pri); color: #fff !important; }
+.fc-btn--primary:hover { background: var(--fc-pri-ink); }
+.fc-btn:disabled { opacity: 0.55; }
+.fc-check { display: flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 8px; font-size: 13.5px; color: var(--fc-ink2); }
+.fc-empty { margin: 6px 4px; color: var(--fc-ink3); font-size: 13.5px; }
+.fc-note { margin: 4px 6px 0; color: var(--fc-ink3); font-size: 12.5px; }
+.fc-warn { margin: 0 0 4px; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
+.fc-acts { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* toast (Sending, Undo, Draft saved) */
+.fc-toast { position: absolute; left: 50%; bottom: 24px; transform: translate(-50%, 8px); display: flex; align-items: center; gap: 4px; max-width: calc(100vw - 32px); min-height: 44px; padding: 4px 4px 4px 16px; border-radius: 12px; background: #1d211b; color: #fff; font: 500 14px var(--fc-font); box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.5); opacity: 0; transition: opacity var(--fc-base) var(--fc-out), transform var(--fc-base) var(--fc-out); }
+.fc-toast.is-in { opacity: 1; transform: translate(-50%, 0); }
+.fc-toast span { padding-right: 8px; font-variant-numeric: tabular-nums; }
+.fc-toast button { height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: none; color: #9fd0f5; font: 700 14px var(--fc-font); cursor: pointer; }
+.fc-toast button:hover { background: rgba(255, 255, 255, 0.1); }
+.fc-toast .fc-toast__x { width: 36px; padding: 0; display: grid; place-items: center; color: #c9cdc4; }
+.fc-toast .fc-i { width: 14px; height: 14px; }
+
+/* "Drop here to start an email" while a FavorOS item is dragged */
+.fc-dropstart { position: absolute; right: 24px; bottom: 24px; display: flex; align-items: center; gap: 10px; padding: 18px 22px; border-radius: 14px; border: 2px dashed var(--fc-pri); background: rgba(255, 255, 255, 0.96); color: var(--fc-pri-ink); font: 600 15px var(--fc-font); box-shadow: 0 16px 40px -14px rgba(20, 24, 18, 0.4); opacity: 0; transform: translateY(8px); transition: opacity var(--fc-base) var(--fc-out), transform var(--fc-base) var(--fc-out), background var(--fc-fast); }
+.fc-dropstart.is-in { opacity: 1; transform: none; }
+.fc-dropstart.is-hot { background: var(--fc-tint); }
+
+.fc-dt { }
+@media (max-width: 1100px) { .fc-win:not([data-mode='full']) .fc-dt { display: none !important; } }
+
+/* ------------------------------------------------------------ phone: a full-screen sheet; minimized, a pill over the tab bar */
+@media (max-width: 860px) {
+  .fc-dockrow { right: 0; left: 0; bottom: 0; top: 0; display: block; max-width: none; pointer-events: none; }
+  .fc-win:not([data-mode='min']):not([data-mode='inline']) { position: fixed; inset: 0; width: auto !important; height: auto !important; border: 0; border-radius: 0; box-shadow: none; transform: none; z-index: 3;
+    transition: opacity var(--fc-base) var(--fc-out), transform var(--fc-slow) var(--fc-out); }
+  body.kb-open .fc-win:not([data-mode='min']):not([data-mode='inline']) { top: var(--vv-top, 0px); bottom: auto; height: var(--vv-h, 100%) !important; }
+  .fc-win.is-entering:not([data-mode='min']) { opacity: 1; transform: translateY(100%); }
+  .fc-win.is-leaving:not([data-mode='min']) { opacity: 1; transform: translateY(100%); }
+  .fc-win:not([data-mode='min']) .fc-head { min-height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 10px 0 4px; background: #fff; cursor: default; }
+  .fc-win:not([data-mode='min']) .fc-head__t { justify-content: center; flex-direction: column; align-items: center; gap: 0; height: 52px; }
+  .fc-win:not([data-mode='min']) .fc-head__t b { font-size: 16px; align-self: center; }
+  .fc-win:not([data-mode='min']) .fc-saved { font-size: 12px; }
+  .fc-win:not([data-mode='min']) .fc-head__acts [data-c='close'], .fc-win:not([data-mode='min']) [data-c='full'], .fc-win:not([data-mode='min']) [data-c='pop'], .fc-win:not([data-mode='min']) [data-c='dock'] { display: none !important; }
+  .fc-win:not([data-mode='min']) .fc-head__acts [data-c='min'] { display: inline-grid !important; order: -1; }
+  .fc-win:not([data-mode='min']) .fc-ph-cancel { display: inline-flex; align-items: center; order: -2; height: 44px; padding: 0 10px; border: 0; background: none; color: var(--fc-pri-ink) !important; font: 500 16px var(--fc-font) !important; }
+  .fc-win:not([data-mode='min']) .fc-ph-send { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fc-pri); color: #fff !important; }
+  .fc-win:not([data-mode='min']) .fc-ph-send .fc-i { width: 20px; height: 20px; }
+  .fc-win .fc-sendgrp, .fc-win .fc-fmt, .fc-win .fc-rz { display: none !important; }
+  .fc-tools { padding: 4px 6px calc(4px + env(safe-area-inset-bottom)); overflow-x: auto; }
+  .fc-tgrp { border-left: 0; padding: 0; }
+  .fc-tools .fc-ib { width: 44px; height: 44px; }
+  .fc-row > label { width: 60px; padding-top: 11px; font-size: 15px; }
+  .fc-chips { min-height: 44px; }
+  .fc-in, .fc-input { height: 44px; font-size: 16px; }
+  .fc-ed { font-size: 16px; min-height: 200px; }
+  .fc-fields.is-reply .fc-sum { min-height: 48px; font-size: 15px; }
+  .fc-trim { width: 52px; height: 32px; }
+  .fc-pop { left: 8px !important; right: 8px; bottom: calc(60px + env(safe-area-inset-bottom)); width: auto; max-width: none; }
+  .fc-win[data-mode='min'] { position: fixed; left: 12px; right: 12px; bottom: calc(var(--fc-pill-b, 63px) + 10px); width: auto !important; height: 48px !important; border: 1px solid var(--fc-line2); border-radius: 24px; box-shadow: 0 10px 28px -10px rgba(20, 24, 18, 0.45); }
+  .fc-win[data-mode='min'] ~ .fc-win[data-mode='min'] { display: none; }
+  .fc-win[data-mode='min'] .fc-head { min-height: 46px; border-radius: 24px; }
+  .fc-toast { bottom: calc(var(--fc-pill-b, 63px) + 12px); }
+  .fc-layer:has(.fc-win[data-mode='min']) .fc-toast { bottom: calc(var(--fc-pill-b, 63px) + 68px); }
+  html.fc-sheet-open .fc-toast { bottom: calc(70px + env(safe-area-inset-bottom)); }
+  .fc-dropstart { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-win, .fc-pop, .fc-toast, .fc-dropstart { transition: none !important; }
+}

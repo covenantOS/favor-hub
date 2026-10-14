@@ -65,6 +65,23 @@ interface ThreadDef {
 }
 
 const ME: P = { name: 'FavorOS Tester', email: 'tester@favorintl.org' };
+const SIG_IMG = 'https://dash.favorintl.org/images/favor-icon.png';
+const sigBlock = (name: string, title: string, phone: string, email: string) =>
+  `<div class="gmail_signature"><table cellpadding="0" cellspacing="0" style="font-family:Georgia,serif"><tr><td style="padding-right:14px;vertical-align:top"><img src="${SIG_IMG}" width="88" height="88" alt="Favor International" style="display:block"></td><td style="border-left:3px solid #1a9c3e;padding-left:12px;vertical-align:top"><div style="font-size:22px">${name}</div><div style="font-size:13px;margin-top:6px">Favor International | <i>${title}</i></div><div style="font-size:13px;margin-top:6px">P: ${phone}</div><div style="font-size:13px;margin-top:4px">E: <a href="mailto:${email}">${email}</a></div></td></tr></table></div>`;
+const SIG_TESTER = sigBlock('FavorOS Tester', 'Test Account', '(555) 010-0101', 'tester@favorintl.org');
+const SIG_PRIYA = sigBlock('Priya Nair', 'Program Associate', '(555) 010-0144', 'priya@favorintl.org');
+const LONG_REPORT = [
+  'I went through the church plant numbers with the field team. The 22 churches listed under the first and second levels are not in our totals because they are daughter and granddaughter churches.',
+  'Their note: "Churches Dedicated gives the right number for this quarter\'s church plants, while the total number of churches is the all-time total. Each church is asked to plant a daughter church after three years, so the first and second levels are daughter and granddaughter churches. The church plant category counts only our own plants, so the daughter and granddaughter churches are separate."',
+  'For <b>Primary Schools</b>, I added the totals for Number Boarding and Number Day School, which come to 1,090 (I first entered 1,092). That differs from the combined boys and girls total of 1,104. In <b>Secondary Schools</b> the totals match. I will follow up with the school office about the primary school difference.',
+  'For <b>Women Empowerment</b>, I will change the line to read "Women Beginning Businesses" so it matches the program name in the field report.',
+  'For <b>Water</b>, the borehole count is 14 for the quarter. Two of those were repairs, not new wells, so the new-well number is 12. I listed both in the notes column so the board can see the difference.',
+  'For <b>Health</b>, the clinic visits came in late. The number I have is 3,412 visits, but the clinic said a final count arrives Friday. I left a placeholder in the sheet and marked it in yellow.',
+  'For <b>Discipleship</b>, the seven lines from the footnote add to 2,960. That matches what we published last quarter in method, so the comparison holds.',
+  'Last item: the photos for the report are in the shared folder under Quarter Report, Photos. I picked twelve; tell me if you want a different cover.',
+  'Thanks for checking these before it goes out.',
+].map((p) => `<p>${p}</p>`).join('');
+
 const q = (who: string, text: string) => `<div class="gmail_quote"><div>On Thu, ${who} wrote:</div><blockquote class="gmail_quote">${text}</blockquote></div>`;
 
 function base(): ThreadDef[] {
@@ -95,6 +112,14 @@ function base(): ThreadDef[] {
     { id: 'smp010', subject: 'Re: Matching gift form', msgs: [{ from: people[1], to: [ME], hours: 75, html: '<p>Signed and attached. Thanks for sending it.</p>', files: ['pdf'] }] },
     { id: 'smp011', subject: 'Newsletter draft for review', msgs: [{ from: people[6], to: [ME], hours: 98, html: '<p>Draft is in the shared folder. Edits by Wednesday, please.</p>' }] },
     { id: 'smp012', subject: 'Welcome packet address', msgs: [{ from: people[9], to: [ME], hours: 120, html: '<p>We moved in August. New address is 14 Larkspur Lane.</p>' }] },
+    // A long staff thread with an image signature: the reading pane, the inline reply and the quoted text are checked against it.
+    {
+      id: 'smpQ01', subject: 'Quarter report numbers',
+      msgs: [
+        { from: ME, to: [people[6]], hours: 8, html: '<p>Priya, can you check the school and church numbers before the report goes out?</p>' + SIG_TESTER, labels: ['SENT'] },
+        { from: people[6], to: [ME], hours: 2, html: LONG_REPORT + SIG_PRIYA + q('Tester', 'Priya, can you check the school and church numbers before the report goes out?'), unread: true },
+      ],
+    },
     { id: 'smp090', subject: 'Itinerary sent', labels: ['SENT'], msgs: [{ from: ME, to: [people[1]], hours: 40, html: '<p>The itinerary is attached.</p>', labels: ['SENT'], files: ['pdf'] }] },
   ];
   const subjects = ['Volunteer schedule', 'Prayer request', 'Board packet', 'Trip deposit', 'Sponsor a student', 'Chapel visit', 'Year-end letter'];
@@ -203,7 +228,7 @@ export function sampleFetcher(env: Pick<Env, 'DB'>, owner: string): Fetcher {
     const systemLabels = ['INBOX', 'STARRED', 'IMPORTANT', 'SENT', 'DRAFT', 'SPAM', 'TRASH', 'UNREAD'];
     if (p === '/profile') return J({ emailAddress: owner, historyId: String(1000 + s.seq) });
     if (p === '/history') return J({ error: { code: 404, message: 'start over' } }, 404);
-    if (p === '/settings/sendAs') return J({ sendAs: [{ sendAsEmail: owner, displayName: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', isDefault: true, signature: '<div>FavorOS Tester<br>Favor International</div>' }] });
+    if (p === '/settings/sendAs') return J({ sendAs: [{ sendAsEmail: owner, displayName: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', isDefault: true, signature: SIG_TESTER }] });
     if (p === '/labels' && method === 'GET') return J({ labels: [...systemLabels.filter((l) => l !== 'UNREAD').map((id) => ({ id, name: id, type: 'system' })), ...s.labels.map((l) => ({ id: l.id, name: l.name, type: 'user' }))] });
     if (p === '/labels' && method === 'POST') {
       const id = 'Label_' + (s.labels.length + 4 + s.seq);

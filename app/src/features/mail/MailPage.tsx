@@ -10,6 +10,7 @@ import { SmartSheets, type SmartCtx } from './SmartSheets';
 import { BASE_VIEWS, CAT_NAMES, FLAG_NAMES, MI, SYS_ICON, hue, initials, isPhone, isPrimary, when, who } from './util';
 import { installTips } from './tips';
 import { MailError, PRE, boxOf, device, getApi, mailApi, mbOf, setMe, sigOf } from './mailApi';
+import { COMPOSE_JS, loadScript } from '@/lib/legacy';
 
 const HOLD_MS = 15000;
 const PRIMARY_DOT = '#7b8a76';
@@ -738,13 +739,25 @@ export function MailPage() {
   };
 
   /* ------------------------------------------------------------------ compose and send */
-  const openCompose = (o: ComposeInit = {}) => {
+  // Replies open inline under the conversation and new mail in a window, both in the shared composer (public/js/compose/compose.js),
+  // which stays open across routes. The older Compose window below is the fallback when that script cannot load.
+  const openCompose = (o: ComposeInit = {}, where: { inline?: boolean; kind?: string; items?: any[] } = {}) => {
     if (!S.current.level.write || !canWrite()) return askWrite('compose');
     if (S.current.fromOpts == null && S.current.boxes.length) void api().from().then((d: any) => set({ fromOpts: d.from || [] })).catch(() => undefined);
-    setCompose(o);
-    if (isPhone()) history.pushState({ mlCompose: 1 }, '');
+    const x = S.current;
+    void loadScript(COMPOSE_JS)
+      .then(() => {
+        const fc = window.FavorCompose;
+        if (!fc) throw new Error('no composer');
+        const host = where.inline && x.thread && o.threadId === x.thread.id ? document.querySelector<HTMLElement>('.ml-thread[data-thread] [data-inline-host]') : null;
+        void fc.open({ ...o, mode: host ? 'inline' : 'float', host, kind: where.kind || '', items: where.items, ctx: { me: x.me, name: x.name, signature: x.signature, fromOpts: x.fromOpts, write: !!(x.level.write && canWrite()), read: !!x.level.read, box: x.box } });
+      })
+      .catch(() => {
+        setCompose(o);
+        if (isPhone()) history.pushState({ mlCompose: 1 }, '');
+      });
   };
-  const startReply = (kind: 'reply' | 'replyall' | 'forward', mIn?: any, text?: string) => {
+  const startReply = (kind: 'reply' | 'replyall' | 'forward', mIn?: any, text?: string, pop?: boolean, items?: any[]) => {
     const x = S.current;
     if (!x.level.write || !canWrite()) return askWrite('reply');
     const t = x.thread;
@@ -761,7 +774,8 @@ export function MailPage() {
           '<br><div class="gmail_quote"><div>---------- Forwarded message ---------</div>' + line('From', escH(who(m.from)) + ' &lt;' + escH(m.from.email) + '&gt;') + line('Date', escH(when(m.date, true))) + line('Subject', escH(m.subject)) + line('To', list(m.to)) + line('Cc', list(m.cc)) + '<br>' + (m.html || escH(m.text || '')) + '</div>',
         forward: (m.attachments || []).filter((f: any) => !f.inline).map((f: any) => ({ messageId: m.id, attachmentId: f.id, name: f.name, mime: f.mime, size: f.size })),
         mb: boxOf(t.id),
-      });
+        threadId: t.id,
+      }, { inline: !pop, kind: 'fwd', items });
     }
     const all = replyAllList(m, x.me);
     let to: any[] = kind === 'replyall' ? all : [(m.replyTo && m.replyTo[0]) || (m.from.email === x.me ? (m.to || [])[0] : m.from)];
@@ -781,14 +795,14 @@ export function MailPage() {
       replyTo: m.id,
       mb: boxOf(t.id),
       body: text ? '<div>' + escH(text).split(String.fromCharCode(10)).join('<br>') + '</div><div><br></div>' + (x.signature ? '<br><div class="gmail_signature">' + x.signature + '</div>' : '') : undefined,
-    });
+    }, { inline: !pop, kind: 'reply', items });
   };
   const editDraft = (mid: string) => {
     const x = S.current;
     const m = ((x.thread && x.thread.messages) || []).find((q: any) => q.id === mid);
     if (!m) return;
     const real = x.thread.messages.filter((q: any) => !q.draft);
-    openCompose({ title: 'Draft', to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: x.drafts[m.id] || '', threadId: real.length ? x.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', mb: boxOf(x.thread.id), noSig: true });
+    openCompose({ title: real.length ? 'Reply' : 'Draft', to: m.to, cc: m.cc, bcc: m.bcc, subject: m.subject, body: m.html || '', draftId: x.drafts[m.id] || '', threadId: real.length ? x.thread.id : '', replyTo: real.length ? real[real.length - 1].id : '', mb: boxOf(x.thread.id), noSig: true }, { inline: !!real.length, kind: 'reply' });
   };
   const dropDraft = (mid: string) => {
     const x = S.current;
@@ -1281,6 +1295,30 @@ export function MailPage() {
 
   useEffect(() => installTips(), []);
 
+  // The shared composer sent something: the conversation or the Sent list shows it. Another part of FavorOS can ask for a reply here.
+  useEffect(() => {
+    const sent = (e: Event) => {
+      const d = ((e as CustomEvent).detail || {}) as { threadId?: string };
+      window.setTimeout(() => {
+        const x = S.current;
+        if (x.open && d.threadId === x.open) void openThread(x.open);
+        else if (x.label === 'SENT' || x.label === 'DRAFT') void loadList({ quiet: true });
+      }, 600);
+    };
+    const reply = (e: Event) => {
+      const d = ((e as CustomEvent).detail || {}) as { threadId?: string; kind?: 'reply' | 'replyall' | 'forward'; items?: any[] };
+      const x = S.current;
+      if (!x.thread || (d.threadId && d.threadId !== x.thread.id)) return;
+      startReply(d.kind || 'reply', undefined, undefined, false, d.items || []);
+    };
+    window.addEventListener('favor-compose:sent', sent);
+    window.addEventListener('favor-mail:reply', reply);
+    return () => {
+      window.removeEventListener('favor-compose:sent', sent);
+      window.removeEventListener('favor-mail:reply', reply);
+    };
+  });
+
   // The phone's Back closes compose and sheets before leaving the page.
   useEffect(() => {
     const pop = () => {
@@ -1363,7 +1401,8 @@ export function MailPage() {
         exp={s.exp}
         onToggle={(mid, open) => set({ exp: { ...s.exp, [mid]: open } })}
         onAct={(k, a) => act(k, undefined, a)}
-        onReply={startReply}
+        onReply={(k, m, pop) => startReply(k, m, undefined, pop)}
+        drafts={s.drafts}
         onEditDraft={editDraft}
         onDropDraft={dropDraft}
         extra={

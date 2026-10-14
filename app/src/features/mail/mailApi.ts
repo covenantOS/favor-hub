@@ -204,6 +204,16 @@ let api: MailApi = real;
 
 declare global {
   interface Window {
+    /** The shared email composer (public/js/compose/compose.js). */
+    FavorCompose?: {
+      open: (o: Record<string, unknown>) => Promise<string | null>;
+      add: (item: Record<string, unknown>) => Promise<string | null>;
+      host: (threadId: string, el: HTMLElement) => void;
+      list: () => Array<{ id: string; mode: string; threadId: string; kind: string; draftId: string }>;
+      focus: (id: string) => void;
+      close: (id: string) => void;
+    };
+    FavorHandoff?: { open: (o: { kind: string; id: string; title: string }) => void };
     FavorMailMock?: (r: unknown) => MailApi;
     __mailMock?: boolean;
   }

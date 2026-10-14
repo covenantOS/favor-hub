@@ -145,6 +145,8 @@
   const pop = () => { try { quiet++; history.back(); } catch (e) { quiet--; } };
   const hubOv = {
     depth: () => stack.length,
+    /** True while a Back step this module started is still on its way (page scripts must let that popstate reach it). */
+    busy: () => quiet > 0,
     on(close) {
       const t = { close };
       stack.push(t);
