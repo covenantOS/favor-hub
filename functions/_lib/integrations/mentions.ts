@@ -196,8 +196,12 @@ export async function mailEvents(env: Env, user: import('../session').HubUser, c
   const me = lower(user.email);
   if (emails.length) {
     const who = emails.map((e) => `"${e}"`).join(' OR ');
-    const list = await idsFor(box.gm, { q: `{from:(${who}) to:(${who})} newer_than:365d -in:chats -in:drafts` }, 12).catch(() => ({ threads: [] as Array<{ id: string; historyId?: string }>, more: false }));
-    const rows = await rowsFor(box.gm, me, list.threads, 6).catch(() => []);
+    // The test accounts' stored sample mailbox reads only simple searches, one address at a time.
+    const queries = tester ? emails.flatMap((e) => [`from:${e}`, `to:${e}`]) : [`{from:(${who}) to:(${who})} newer_than:365d -in:chats -in:drafts`];
+    const found = await Promise.all(queries.map((qq) => idsFor(box.gm, { q: qq }, 12).catch(() => ({ threads: [] as Array<{ id: string; historyId?: string }>, more: false }))));
+    const seen = new Set<string>();
+    const threads = found.flatMap((f) => f.threads).filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true))).slice(0, 12);
+    const rows = await rowsFor(box.gm, me, threads, 6).catch(() => []);
     for (const r of rows) {
       const id = `mail:${r.id}`;
       const at = new Date(r.date).toISOString();
@@ -205,7 +209,7 @@ export async function mailEvents(env: Env, user: import('../session').HubUser, c
       out.push({ id, kind: 'mention', at, title: mine ? `You emailed them: ${clip(r.subject || '(no subject)', 90)}` : `They emailed you: ${clip(r.subject || '(no subject)', 90)}`, text: clip(oneLine(r.snippet), 220), by: mine ? 'You' : name, href: `/mail/#/ALL/${encodeURIComponent(r.id)}`, log: { type: 'Email', date: etDay(at), summary: clip(`Email: ${r.subject || '(no subject)'}`, 200), source: id } });
     }
   }
-  if (name && name.split(/\s+/).length >= 2 && name.length >= 8) {
+  if (!tester && name && name.split(/\s+/).length >= 2 && name.length >= 8) {
     const not = emails.length ? ` -from:(${emails.join(' OR ')}) -to:(${emails.join(' OR ')})` : '';
     const list = await idsFor(box.gm, { q: `"${name.replace(/"/g, '')}"${not} newer_than:180d -in:chats -in:drafts` }, 8).catch(() => ({ threads: [] as Array<{ id: string; historyId?: string }>, more: false }));
     const rows = await rowsFor(box.gm, me, list.threads, 6).catch(() => []);
@@ -217,9 +221,9 @@ export async function mailEvents(env: Env, user: import('../session').HubUser, c
   }
   await markLogged(env, cid, out).catch(() => undefined);
   // Mail's own Log as an action marks the conversation; that counts as added too.
-  const threads = out.map((e) => e.id.split(':')[1]);
-  if (threads.length) {
-    const r = await env.DB.prepare('SELECT thread_id FROM hub_mail_logged WHERE email = ? AND thread_id IN (SELECT value FROM json_each(?))').bind(me, JSON.stringify(threads)).all<{ thread_id: string }>().catch(() => ({ results: [] as Array<{ thread_id: string }> }));
+  const ids = out.map((e) => e.id.split(':')[1]);
+  if (ids.length) {
+    const r = await env.DB.prepare('SELECT thread_id FROM hub_mail_logged WHERE email = ? AND thread_id IN (SELECT value FROM json_each(?))').bind(me, JSON.stringify(ids)).all<{ thread_id: string }>().catch(() => ({ results: [] as Array<{ thread_id: string }> }));
     const done = new Set((r.results || []).map((x) => x.thread_id));
     for (const e of out) if (done.has(e.id.split(':')[1])) e.logged = true;
   }
