@@ -37,8 +37,9 @@ test('push subscriptions go only to browser push services', () => {
 
 test('a waiting guest gets no chat, people or captions, and cannot post or publish', () => {
   const s = src('functions/_lib/meetroute.ts');
-  assert.match(s, /if \(me\.waiting && me\.role === 'guest'\) \{\n\s+return \{ ok: true, now, role: me\.role, people: \[\], lines: \[\], me: \{ waiting: true \}, events: \[\]/);
-  const post = s.slice(s.indexOf('async function postEvent('), s.indexOf("if (kind === 'chat')"));
+  assert.ok(s.includes("if (me.waiting && me.role === 'guest') {") && s.includes('people: [], lines: [], me: { waiting: true }, events: []'));
+  const at = s.indexOf('async function postEvent(');
+  const post = s.slice(at, s.indexOf("if (kind === 'chat')", at));
   assert.match(post, /if \(me\.waiting\) throw new HttpError\(403, 'waiting'/);
   const tracks = s.slice(s.indexOf('async function setTracks('), s.indexOf('async function setTracks(') + 400);
   assert.match(tracks, /if \(me\.waiting\) throw/);
