@@ -1815,7 +1815,7 @@ export const STEPS: Step[] = [
     page: '/chat/',
     at: '.ch-main [data-act="plus"]',
     title: 'Share a clip, a Drive file or a meeting',
-    body: '{Tap} the plus in the message box. Share from Drive searches the Drive library and posts the file as a card. Share a clip posts one of yours, and Record a clip posts the clip here when you finish. Huddle rings the people in a direct message, or starts the channel's huddle.',
+    body: '{Tap} the plus in the message box. Share from Drive searches the Drive library and posts the file as a card. Share a clip posts one of yours, and Record a clip posts the clip here when you finish. Huddle rings the people in a direct message, or starts a huddle in the channel.',
     added: '2026-10-11',
     side: 'top',
   },
