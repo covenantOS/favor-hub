@@ -5,12 +5,14 @@
 //   POST /api/feedback              { source, rating, comment, ref?, page?, question? }
 //   GET  /api/feedback/mine         the signed-in person's notes
 //   GET  /api/feedback/all?status=  every note (admin)
-//   POST /api/feedback/<id>         { status, reply } (admin)
+//   POST /api/feedback/<id>         { status, reply } (admin); fixed with a reply emails the sender once (see _lib/notify/feedback.ts)
+//   POST /api/feedback/<id>/updated { reply? } (admin or agent key): fixed, reply "Updated." unless one is given, emailed now
 //   POST /api/feedback/<id>/shot    a JPEG of the page, by the sender only (private R2, no caching)
 //   GET  /api/feedback/<id>/shot    that picture, to the sender and the hub admin
 //   DELETE /api/feedback/<id>/shot  remove the picture, by the sender only
 import { errorJson, handleError, json, nowIso, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
+import { feedbackPass, markUpdated } from '../../_lib/notify/feedback';
 
 const PRIVATE_HEADERS = { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
 const MAX_SHOT_BYTES = 1_500_000;
@@ -19,7 +21,7 @@ const SOURCES = new Set(['hub', 'brain', 'hub-brain', 'help', 'tour', 'video']);
 const RATINGS = new Set(['right', 'wrong', 'confusing', 'missing', 'idea', 'praise', 'problem', 'helpful', 'not-helpful']);
 const STATUSES = new Set(['new', 'seen', 'fixed', 'not-now']);
 
-export const onRequest: PagesFunction<Env> = async ({ request, env, params }) => {
+export const onRequest: PagesFunction<Env> = async ({ request, env, params, waitUntil }) => {
   try {
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
@@ -125,6 +127,17 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       return json({ ok: true, items: r.results || [], counts: Object.fromEntries((counts.results || []).map((c) => [c.status, c.n])) });
     }
 
+    const upd = path.match(/^(\d+)\/updated$/);
+    if (upd && request.method === 'POST') {
+      if (!admin) return errorJson('admin_only', 'Only the FavorOS admin answers notes.', 403);
+      const b = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+      const fid = Number(upd[1]);
+      const row = await env.DB.prepare('SELECT id FROM brain_feedback WHERE id = ?').bind(fid).first();
+      if (!row) return errorJson('not_found', 'That note is gone.', 404);
+      const mail = await markUpdated(env, fid, { reply: String(b.reply || ''), by: user.via === 'agent' ? 'will@favorintl.org' : user.email });
+      return json({ ok: true, mail });
+    }
+
     const id = Number(path);
     if (request.method === 'POST' && Number.isInteger(id) && id > 0) {
       if (!admin) return errorJson('admin_only', 'Only the FavorOS admin answers notes.', 403);
@@ -141,6 +154,8 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, params }) =>
       )
         .bind(status, reply === undefined ? 0 : 1, reply ?? '', reply === undefined ? 0 : 1, reply ?? '', user.email, nowIso(), id)
         .run();
+      // Fixed with a reply: the sender gets the reply by email (once per reply). The 5-minute pass retries anything missed.
+      if (status === 'fixed') waitUntil(feedbackPass(env, { id }).catch(() => null));
       return json({ ok: true });
     }
 

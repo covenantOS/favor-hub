@@ -1,5 +1,5 @@
 /* Feedback page. Staff: their own notes and Will's answers. Will (the hub admin): every note, with
-   buttons to mark it seen, fixed or not now, and a reply box whose answer the sender reads here. */
+   buttons to mark it seen, updated (fixed and emailed), fixed or not now, and a reply box whose answer the sender reads here and by email. */
 (() => {
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -87,7 +87,8 @@
             <textarea id="fb-r-${f.id}" rows="2" maxlength="2000" placeholder="Write an answer">${esc(f.reply || '')}</textarea>
             <div class="fbp-act__go">
               <button type="submit" class="h-btn h-btn--ghost h-btn--sm" data-set="seen">Mark read</button>
-              <button type="submit" class="h-btn h-btn--primary h-btn--sm" data-set="fixed">Fixed</button>
+              <button type="submit" class="h-btn h-btn--primary h-btn--sm" data-set="updated" title="Marks it fixed and emails the answer (Updated. when the box is empty)">Mark updated</button>
+              <button type="submit" class="h-btn h-btn--ghost h-btn--sm" data-set="fixed">Fixed</button>
               <button type="submit" class="h-btn h-btn--ghost h-btn--sm" data-set="not-now">Not now</button>
               <button type="submit" class="h-btn h-btn--ghost h-btn--sm" data-set="">Save the answer</button>
               <span class="fbp-msg" role="status"></span>
@@ -136,16 +137,18 @@
     form.querySelectorAll('button').forEach((b) => (b.disabled = true));
     msg.textContent = 'Saving...';
     try {
-      const res = await fetch('/api/feedback/' + form.dataset.act, {
+      const box = form.querySelector('textarea');
+      if (set === 'updated' && !box.value.trim()) box.value = 'Updated.';
+      const res = await fetch('/api/feedback/' + form.dataset.act + (set === 'updated' ? '/updated' : ''), {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: set || undefined, reply: form.querySelector('textarea').value }),
+        body: JSON.stringify(set === 'updated' ? { reply: box.value } : { status: set || undefined, reply: box.value }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok || d.ok === false) throw new Error(d.message || 'Did not save.');
-      document.dispatchEvent(new CustomEvent('favor:cue', { detail: set === 'fixed' ? 'success' : 'droplet' }));
-      msg.textContent = 'Saved.';
+      document.dispatchEvent(new CustomEvent('favor:cue', { detail: set === 'fixed' || set === 'updated' ? 'success' : 'droplet' }));
+      msg.textContent = set === 'updated' ? (d.mail && d.mail.sent ? 'Saved and emailed.' : d.mail && d.mail.failed ? 'Saved. The email did not go out; it will try again.' : 'Saved. Already emailed.') : set === 'fixed' && box.value.trim() ? 'Saved. The answer is emailed.' : 'Saved.';
       setTimeout(load, 500);
     } catch (err) {
       msg.textContent = err.message;

@@ -124,6 +124,15 @@ async function senderProbe(env: Env, now: number): Promise<Item> {
   return { id: 'sender', label: 'Overnight sender', status, at, detail };
 }
 
+// Notifications: the 5-minute pass (task tag emails, feedback replies, nudges) writes notify:last each run.
+async function notifyProbe(env: Env, now: number): Promise<Item> {
+  const raw = await getSetting(env, 'notify:last', '');
+  const [state, at, ...rest] = raw.split('|');
+  let status = grade(ago(iso(at), now), 20 * 60_000, 2 * HOUR);
+  if (/^err/i.test(state || '')) status = 'failed';
+  return { id: 'notify', label: 'Notification emails', status, at: iso(at), detail: rest.join('|').slice(0, 160) || 'No run yet' };
+}
+
 async function driveProbe(env: Ext, now: number): Promise<Item> {
   if (!env.DRIVE_DB) return { id: 'drive', label: 'Drive library job', status: 'unknown', at: null, detail: 'The library database is not connected' };
   const use = await env.DRIVE_DB.prepare('SELECT MAX(day) AS day FROM drive_usage').first<{ day: string | null }>();
@@ -190,6 +199,7 @@ export async function healthStrip(env: Env, nowMs = Date.now()): Promise<Item[]>
     ['copy', 'Blackbaud copy', () => copyProbe(env, nowMs)],
     ['morning', 'Morning jobs', () => morningProbe(env, nowMs)],
     ['sender', 'Overnight sender', () => senderProbe(env, nowMs)],
+    ['notify', 'Notification emails', () => notifyProbe(env, nowMs)],
     ['drive', 'Drive library job', () => driveProbe(env as Ext, nowMs)],
     ['sky', 'SKY calls today', () => skyProbe(env as Ext, nowMs)],
     ['iwave', 'iWave credits', () => iwaveProbe(env, nowMs)],

@@ -325,7 +325,7 @@ describe('health strip', () => {
     assert.equal(new Date(H.lastDueMorning(monLate)).toISOString(), '2026-10-12T11:00:00.000Z');
   });
 
-  it('answers all eight checks, marks a dead source as no answer, and never throws', async () => {
+  it('answers all nine checks, marks a dead source as no answer, and never throws', async () => {
     const realFetch = globalThis.fetch;
     const now = Date.parse('2026-10-10T23:30:00Z');
     globalThis.fetch = async (_u, init) => {
@@ -346,7 +346,7 @@ describe('health strip', () => {
       const marketing = { prepare: (s) => ({ bind() { return this; }, first: async () => (/COUNT/.test(s) ? { n: 0, oldest: null } : { at: '2026-10-10 03:33:35' }) }) };
       const e = { MIRROR_API_KEY: 'k', DB: db, DRIVE_DB: drive, MARKETING_DB: marketing, BB_KV: { get: async (k) => (k.includes('count') ? '812' : k.endsWith('cap') ? '3000' : null) } };
       const items = await H.healthStrip(e, now);
-      assert.deepEqual(items.map((i) => i.id), ['copy', 'morning', 'sender', 'drive', 'sky', 'iwave', 'ai', 'unsub']);
+      assert.deepEqual(items.map((i) => i.id), ['copy', 'morning', 'sender', 'notify', 'drive', 'sky', 'iwave', 'ai', 'unsub']);
       const by = Object.fromEntries(items.map((i) => [i.id, i]));
       assert.equal(by.copy.status, 'ok');
       assert.equal(by.morning.status, 'ok');
@@ -367,7 +367,7 @@ describe('health strip', () => {
       globalThis.fetch = async () => new Response('no', { status: 500 });
       const dead = await H.healthStrip(e, now);
       assert.equal(dead.find((i) => i.id === 'copy').status, 'unknown');
-      assert.equal(dead.length, 8);
+      assert.equal(dead.length, 9);
     } finally {
       globalThis.fetch = realFetch;
     }

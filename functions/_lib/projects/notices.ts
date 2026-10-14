@@ -6,7 +6,9 @@ import { chunk, lower, placeholders } from './db';
 import { modeAllows, projectsMode } from './access';
 import { isAdminEmail } from '../session';
 
-export type NoticeKind = 'assigned' | 'mentioned' | 'comment' | 'waiting' | 'due_soon' | 'done';
+export type NoticeKind = 'assigned' | 'mentioned' | 'followed' | 'comment' | 'waiting' | 'due_soon' | 'done' | 'unseen';
+const TAGS = new Set<string>(['assigned', 'mentioned', 'followed']);
+const PERSON = /^[a-z0-9._%+-]+@favorintl\.org$/;
 
 export interface Notice {
   email: string;
@@ -27,19 +29,29 @@ export async function tell(env: Env, taskId: string, actorEmail: string, list: N
   });
   if (!keep.length) return [];
   const now = nowIso();
-  await env.DB.batch(
-    keep.map((n) =>
-      env.DB.prepare('INSERT INTO hub_task_notices (id, email, task_id, kind, actor_email, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
-        newId('ntc'),
-        lower(n.email),
-        taskId,
-        n.kind,
-        lower(actorEmail),
-        String(n.body || '').slice(0, 600),
-        now
-      )
+  const inserts = keep.map((n) =>
+    env.DB.prepare('INSERT INTO hub_task_notices (id, email, task_id, kind, actor_email, body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(
+      newId('ntc'),
+      lower(n.email),
+      taskId,
+      n.kind,
+      lower(actorEmail),
+      String(n.body || '').slice(0, 600),
+      now
     )
   );
+  // A tag by a person starts (or restarts, once the last one closed) the "Did you see this?" nudges for that person on this task.
+  const tags = PERSON.test(lower(actorEmail)) ? keep.filter((n) => TAGS.has(n.kind)) : [];
+  const nudges = tags.map((n) =>
+    env.DB.prepare(
+      `INSERT INTO hub_task_nudges (email, task_id, actor_email, kind, body, tagged_at) VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(email, task_id) DO UPDATE SET actor_email = excluded.actor_email, kind = excluded.kind, body = excluded.body, tagged_at = excluded.tagged_at,
+         n1_at = NULL, n2_at = NULL, told_at = NULL, done_at = NULL, done_why = NULL
+       WHERE hub_task_nudges.done_at IS NOT NULL`
+    ).bind(lower(n.email), taskId, lower(actorEmail), n.kind, String(n.body || '').slice(0, 600), now)
+  );
+  await env.DB.batch(inserts);
+  if (nudges.length) await env.DB.batch(nudges).catch(() => null); // before db/notify.sql there is no nudge table
   return keep.map((n) => lower(n.email));
 }
 

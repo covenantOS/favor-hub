@@ -4,6 +4,7 @@
 //   */10 11-14 * * 1-5  POST /api/work/digest  the morning email: the hub sends nothing before a person's 7:30 or 8:00 Eastern, nothing after 10:30, never twice a day
 //   */5 * * * *     POST /api/meet/meetings/remind and /pump  meeting reminders, repeats, recordings to Drive, notes
 //   */5 * * * *     POST /api/work/chat-email  Chat email: welcome, first message, unread after 10 minutes
+//   */5 * * * *     POST /api/work/notify  task tag emails (a burst goes as one), feedback reply emails, weekday morning nudges
 //   */5 * * * *     POST /api/projects/status/run  Friday 3 PM Eastern: posts each project's update where the owner turned it on
 //   */5 * * * *     POST /api/work/snapshots  re-reads the Blackbaud answers the Work lists keep (6 AM to 9 PM Eastern)
 //   */10 * * * *    POST /api/receipts/warm  reads the Receipts waiting list from Blackbaud so the page never waits on it (10:00 to 02:00 UTC)
@@ -68,6 +69,9 @@ async function meetings(env) {
   // Chat email: the welcome, the first-message email and the unread follow-up. The hub records chatmail:last itself.
   const mailed = await call(env, '/api/work/chat-email').catch((err) => ({ error: String(err).slice(0, 160) }));
   if (mailed.sent || mailed.failed || mailed.error) console.log('chat email:', JSON.stringify(mailed));
+  // Notifications: the hub records notify:last itself.
+  const n = await call(env, '/api/work/notify').catch((err) => ({ error: String(err).slice(0, 160) }));
+  if (n.error || (n.errors && n.errors.length) || n.tasks || (n.feedback && n.feedback.sent) || (n.nudges && n.nudges.emails)) console.log('notify:', JSON.stringify(n));
   // Friday project updates: the hub answers at once unless it is Friday after 3 PM Eastern and a project has the update on.
   const u = await call(env, '/api/projects/status/run').catch((err) => ({ error: String(err).slice(0, 160) }));
   if ((u.posted && u.posted.length) || (u.failed && u.failed.length) || (u.error && !/ 403: /.test(u.error))) console.log('project updates:', JSON.stringify(u));

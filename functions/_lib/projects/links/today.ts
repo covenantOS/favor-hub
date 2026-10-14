@@ -119,7 +119,7 @@ export async function openActionsWithoutTask(env: Env, email: string): Promise<{
 
 /* ------------------------------------------------------------------------------------------------ the bell */
 
-const WORD: Record<string, string> = { assigned: 'gave you', mentioned: 'mentioned you on', comment: 'commented on', waiting: 'is waiting on you for', done: 'finished', due_soon: 'Due soon:' };
+const WORD: Record<string, string> = { assigned: 'gave you', mentioned: 'tagged you in', followed: 'added you to', unseen: 'Not opened yet:', comment: 'commented on', waiting: 'is waiting on you for', done: 'finished', due_soon: 'Due soon:' };
 
 export interface BellItem {
   id: string;
@@ -150,9 +150,9 @@ export async function bellFor(env: Env, user: HubUser): Promise<{ count: number;
         id: r.id,
         task_id: r.task_id,
         kind: r.kind,
-        head: r.kind === 'due_soon' ? 'Due soon:' : `${nameOf(dir, r.actor_email) || 'Someone'} ${WORD[r.kind] || 'updated'}`,
+        head: r.kind === 'due_soon' ? 'Due soon:' : r.kind === 'unseen' ? 'Not opened yet:' : `${nameOf(dir, r.actor_email) || 'Someone'} ${WORD[r.kind] || 'updated'}`,
         title: r.title,
-        txt: r.kind === 'due_soon' || r.kind === 'assigned' || r.kind === 'done' ? '' : plain(r.body, dir).slice(0, 110),
+        txt: r.kind === 'due_soon' || r.kind === 'assigned' || r.kind === 'followed' || r.kind === 'done' ? '' : plain(r.body, dir).slice(0, 110),
         code: r.code,
         created_at: r.created_at,
         url: taskUrl({ id: r.task_id, code: r.code }, r.pkey ? { key: r.pkey } : null),

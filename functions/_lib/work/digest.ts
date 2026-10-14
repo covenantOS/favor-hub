@@ -151,6 +151,8 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const days = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86400000);
 const plural = (n: number, one: string, many?: string) => `${n.toLocaleString('en-US')} ${n === 1 ? one : many || one + 's'}`;
 const dayWord = (n: number) => (n === 1 ? '1 day' : `${n} days`);
+const nameOfStaff = (email: string) => String(email || '').split('@')[0].split(/[._]/)[0].replace(/^\w/, (c) => c.toUpperCase());
+const tagDay = (iso: string) => new Date(iso).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' });
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** Build one person's email from the gathered data. Pure: no network. */
@@ -195,6 +197,10 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   const remDue = rem.rows.filter((x) => x.bucket === 'now' || x.bucket === 'today');
   const reminders: Line[] = remDue.slice(0, 4).map((x) => ({ text: x.title, link: x.cid ? `${BASE}/work/partner/${x.cid}` : `${BASE}/work/`, verb: 'Open' }));
 
+  // Tasks someone tagged this person in that they have not opened yet (Projects). Always shown; it is a short list.
+  const tagged = await import('../notify/nudges').then((m) => m.waitingFor(env, person.email)).catch(() => []);
+  const tags: Line[] = tagged.slice(0, 5).map((x) => ({ text: `${x.title} (${(nameOfStaff(x.actor_email))} tagged you ${tagDay(x.tagged_at)})`, link: x.url, verb: 'Open' }));
+
   const S = prefs.sections;
   const counts = { gifts: owed.length, due: dueToday, late: lateN, quiet: quietAll.length, reminders: remDue.length };
   const shown = {
@@ -204,13 +210,14 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
     reminders: S.reminders ? remDue.length : 0,
   };
   // Something is due when a section other than quiet partners has lines. Quiet partners are a nudge, not a due item.
-  const empty = shown.gifts + shown.due + shown.reminders === 0;
+  const empty = shown.gifts + shown.due + shown.reminders + tags.length === 0;
 
   const bits: string[] = [];
   if (shown.gifts) bits.push(`${plural(counts.gifts, 'gift')} to thank`);
   if (S.due && dueToday) bits.push(`${dueToday} due today`);
   if (S.due && lateN) bits.push(`${plural(lateN, 'task')} late`);
   if (shown.reminders) bits.push(plural(remDue.length, 'reminder'));
+  if (tags.length) bits.push(`${plural(tagged.length, 'task')} you were tagged in`);
   const subject = bits.length ? bits.join(', ') : shown.quiet ? `${plural(counts.quiet, 'quiet partner')} to call` : 'Nothing due this morning';
 
   const first = (person.name || '').split(/\s+/)[0] || 'there';
@@ -220,6 +227,7 @@ export async function buildFor(env: Env, person: StaffRow, data: DigestData, pre
   if (S.due && due.length) sections.push({ title: 'Due today and late', n: dueRows.length, lines: due, more: [dueRows.length > due.length ? `${dueRows.length - due.length} more in the Work Center` : '', olderN ? `${plural(olderN, 'older task')} on the Stale tab` : ''].filter(Boolean).join('. ') || undefined });
   if (S.quiet && quiet.length) sections.push({ title: 'Quiet the longest, by giving', n: null, lines: quiet });
   if (S.reminders && reminders.length) sections.push({ title: 'Reminders', n: remDue.length, lines: reminders });
+  if (tags.length) sections.push({ title: 'Tagged in tasks, not opened yet', n: tagged.length, lines: tags });
 
   const body = sections
     .map(

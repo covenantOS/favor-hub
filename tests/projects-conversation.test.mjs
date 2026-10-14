@@ -76,11 +76,11 @@ test('with the switch on: assigned, mentioned, comment, waiting and done notices
   assert.equal(notices(w, VIC.email).length, 0);
   // Ozzy comments, naming Flo: Flo is mentioned, Dan (owner) hears a comment, Vic is not on the task so is not told.
   await call(w, OZZY, 'POST', `tasks/${t.id}/comments`, { body: `Question for <@${FLO.email}>` });
-  assert.deepEqual(notices(w, FLO.email).map((n) => n.kind), ['mentioned'], 'a follower who is also mentioned gets the mention only');
+  assert.deepEqual(notices(w, FLO.email).map((n) => n.kind), ['followed', 'mentioned'], 'added as a follower by Vic, then the mention (no comment notice on top)');
   assert.deepEqual(notices(w, DAN.email).map((n) => n.kind), ['assigned', 'comment']);
   assert.equal(notices(w, OZZY.email).length, 0);
   await call(w, DAN, 'PATCH', `tasks/${t.id}`, { waiting_on_email: FLO.email });
-  assert.deepEqual(notices(w, FLO.email).map((n) => n.kind), ['mentioned', 'waiting']);
+  assert.deepEqual(notices(w, FLO.email).map((n) => n.kind), ['followed', 'mentioned', 'waiting']);
   await call(w, DAN, 'PATCH', `tasks/${t.id}`, { owner_email: VIC.email });
   assert.deepEqual(notices(w, VIC.email).map((n) => n.kind), ['assigned']);
   const before = w.rows('SELECT COUNT(*) AS n FROM hub_task_notices')[0].n;
@@ -172,7 +172,7 @@ test('people on a task: collaborators and followers; anyone who can see it may f
   assert.equal(add.status, 200);
   assert.deepEqual(add.data.people.map((p) => [p.email, p.role]).sort(), [[DAN.email, 'collab'], [FLO.email, 'follower']]);
   assert.deepEqual(notices(w, DAN.email).map((n) => n.kind), ['assigned'], 'a collaborator hears they were added');
-  assert.equal(notices(w, FLO.email).length, 0, 'a follower is not paged');
+  assert.deepEqual(notices(w, FLO.email).map((n) => n.kind), ['followed'], 'a follower added by someone else is told (2026-10-14)');
   assert.equal((await call(w, OZZY, 'PUT', `tasks/${t.id}/people`, { add: [{ email: FLO.email, role: 'collab' }] })).status, 403);
   const self = await call(w, OZZY, 'PUT', `tasks/${t.id}/people`, { add: [{ email: OZZY.email, role: 'follower' }] });
   assert.equal(self.status, 200, 'follow yourself');

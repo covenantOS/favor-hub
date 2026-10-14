@@ -191,7 +191,15 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
   }
 
   if (!a) {
-    if (method === 'GET') return json({ ok: true, ...(await taskDetail(env, actor, id)) });
+    if (method === 'GET') {
+      const d = await taskDetail(env, actor, id);
+      // A signed-in person opening a task: this stops its nudges. Agent reads (with or without act-as) do not count.
+      if (ctx.user && ctx.user.via !== 'agent') {
+        const t = (d as { task?: { id?: string } }).task;
+        if (t?.id) ctx.waitUntil(env.DB.prepare('INSERT INTO hub_task_seen (email, task_id, at) VALUES (?, ?, ?) ON CONFLICT(email, task_id) DO UPDATE SET at = excluded.at').bind(actor.email, t.id, new Date().toISOString()).run().catch(() => null));
+      }
+      return json({ ok: true, ...d });
+    }
     if (method === 'PATCH') {
       const r = await patchTask(env, actor, id, await body(request));
       if (r.changed.length) {

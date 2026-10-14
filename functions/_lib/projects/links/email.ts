@@ -10,6 +10,7 @@ import { effective } from '../../admin/settings';
 import { staffDirectory, type Person } from '../../people';
 import { lower } from '../db';
 import { dueSoonSweep } from '../notices';
+import { sendMail } from '../../notify/send';
 import { ORIGIN, TZ, dirMap, dueLabel, nameOf, noticeGate, plain, short, STATUS_WORD, taskUrl, todayEt, addDays } from './shared';
 
 export type MailMode = 'now' | 'daily' | 'off';
@@ -28,6 +29,15 @@ export interface Outbox {
 export async function getPrefs(env: Env, email: string): Promise<{ mail_mode: MailMode; calendar: boolean }> {
   const row = await env.DB.prepare('SELECT mail_mode, calendar FROM hub_project_prefs WHERE email = ?').bind(lower(email)).first<{ mail_mode: string; calendar: number }>().catch(() => null);
   return { mail_mode: MODES.includes(row?.mail_mode as MailMode) ? (row!.mail_mode as MailMode) : 'now', calendar: row ? !!row.calendar : true };
+}
+
+/** Each listed person's email choice (no row means now), in one read. */
+export async function getPrefsMap(env: Env, emails: string[]): Promise<Map<string, MailMode>> {
+  const out = new Map<string, MailMode>();
+  if (!emails.length) return out;
+  const r = await env.DB.prepare(`SELECT email, mail_mode FROM hub_project_prefs WHERE email IN (${emails.map(() => '?').join(',')})`).bind(...emails.map(lower)).all<{ email: string; mail_mode: string }>().catch(() => null);
+  for (const x of r?.results || []) if (MODES.includes(x.mail_mode as MailMode)) out.set(lower(x.email), x.mail_mode as MailMode);
+  return out;
 }
 
 export async function setPrefs(env: Env, email: string, b: { mail_mode?: unknown; calendar?: unknown }): Promise<{ mail_mode: MailMode; calendar: boolean }> {
@@ -56,12 +66,14 @@ export async function emailOn(env: Env): Promise<boolean> {
 /* ------------------------------------------------------------------------------------------------ the look */
 
 const LOGO = `${ORIGIN}/images/favor-icon.png`;
-const C = { bg: '#f4efe0', card: '#fffdf8', ink: '#1d211b', ink2: '#57534a', ink3: '#8a8578', line: '#e7e0cf', green: '#2b4d24', leaf: '#e6efdc', sun: '#fbe9c6', sky: '#e1edf5', red: '#b3412b' };
-const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
+export const C = { bg: '#f4efe0', card: '#fffdf8', ink: '#1d211b', ink2: '#57534a', ink3: '#8a8578', line: '#e7e0cf', green: '#2b4d24', leaf: '#e6efdc', sun: '#fbe9c6', sky: '#e1edf5', red: '#b3412b' };
+export const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] || c));
 const first = (n: string) => String(n || '').trim().split(/\s+/)[0] || 'Someone';
 const initials = (n: string) => String(n || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?';
 
-export type NoticeKind = 'assigned' | 'mentioned' | 'comment' | 'waiting' | 'due_soon' | 'done';
+export type NoticeKind = 'assigned' | 'mentioned' | 'followed' | 'comment' | 'waiting' | 'due_soon' | 'done' | 'unseen';
+/** The kinds that tag a person: these mail at once (the first one even past an email choice) and get nudges. */
+export const TAG_KINDS: NoticeKind[] = ['mentioned', 'assigned', 'followed'];
 export interface MailTask {
   id: string;
   code: string | null;
@@ -76,21 +88,23 @@ export interface MailTask {
 
 const HEAD: Record<NoticeKind, (actor: string) => { pill: string; bg: string; fg: string; line: string; subject: (t: string) => string }> = {
   assigned: (a) => ({ pill: 'Assigned to you', bg: C.leaf, fg: C.green, line: `${first(a)} gave you a task`, subject: (t) => `${first(a)} gave you a task: ${t}` }),
-  mentioned: (a) => ({ pill: 'Mentioned', bg: C.sky, fg: '#25506d', line: `${first(a)} mentioned you`, subject: (t) => `${first(a)} mentioned you on ${t}` }),
+  mentioned: (a) => ({ pill: 'Tagged', bg: C.sky, fg: '#25506d', line: `${first(a)} tagged you`, subject: (t) => `${first(a)} tagged you in ${t}` }),
+  followed: (a) => ({ pill: 'Added', bg: C.sky, fg: '#25506d', line: `${first(a)} added you to a task`, subject: (t) => `${first(a)} added you to ${t}` }),
+  unseen: () => ({ pill: 'Not opened', bg: C.sun, fg: '#7a5410', line: 'Not opened yet', subject: (t) => `Not opened yet: ${t}` }),
   comment: (a) => ({ pill: 'New comment', bg: C.sky, fg: '#25506d', line: `${first(a)} commented`, subject: (t) => `${first(a)} commented on ${t}` }),
   waiting: (a) => ({ pill: 'Waiting on you', bg: C.sun, fg: '#7a5410', line: `${first(a)} is waiting on you`, subject: (t) => `Waiting on you: ${t}` }),
   due_soon: () => ({ pill: 'Due soon', bg: C.sun, fg: '#7a5410', line: 'A task of yours is due', subject: (t) => `Due soon: ${t}` }),
   done: (a) => ({ pill: 'Finished', bg: C.leaf, fg: C.green, line: `${first(a)} finished a task`, subject: (t) => `Finished: ${t}` }),
 };
 
-const btn = (href: string, text: string, primary: boolean) =>
+export const btn = (href: string, text: string, primary: boolean) =>
   primary
     ? `<a href="${esc(href)}" style="display:block;text-align:center;padding:16px 20px;border-radius:16px;background:${C.green};color:#ffffff;font:700 16px/1 Arial,sans-serif;text-decoration:none">${esc(text)} &rarr;</a>`
     : `<a href="${esc(href)}" style="display:inline-block;white-space:nowrap;margin:0 8px 8px 0;padding:10px 14px;border:1px solid ${C.line};border-radius:12px;background:#ffffff;font:600 13px/1 Arial,sans-serif;color:${C.ink};text-decoration:none">${esc(text)}</a>`;
 
 const chip = (t: string) => `<span style="display:inline-block;white-space:nowrap;margin:0 6px 6px 0;padding:7px 11px;border-radius:999px;background:${C.bg};font:400 13px/1.2 Arial,sans-serif;color:${C.ink2}">${esc(t)}</span>`;
 
-function shell(inner: string, label: string, pill?: { t: string; bg: string; fg: string }): string {
+export function shell(inner: string, label: string, pill?: { t: string; bg: string; fg: string }): string {
   return (
     `<!doctype html><html><head><meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light"></head><body style="margin:0;padding:0;background:${C.bg}">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.bg}"><tr><td align="center" style="padding:24px 12px">` +
@@ -163,22 +177,8 @@ export function buildSummary(m: { to: { name: string; email: string }; items: Su
 
 /* ------------------------------------------------------------------------------------------------ sending */
 
-export async function send(env: Env, m: Outbox): Promise<boolean> {
-  const hook = (env as unknown as { MAIL_HOOK?: (m: Outbox) => Promise<boolean> | boolean }).MAIL_HOOK;
-  if (hook) return !!(await hook(m)); // tests collect the mail here; nothing leaves the process
-  const key = env.RESEND_API_KEY;
-  if (!key) {
-    console.warn('[projects] RESEND_API_KEY missing; project email skipped');
-    return false;
-  }
-  const from = (env.RESEND_FROM || 'Favor International <noreply@mail.favorintl.org>').replace(/^[^<]*</, 'Favor Projects <');
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [m.to], subject: m.subject, html: m.html, text: m.text }),
-  });
-  if (!res.ok) console.error('[projects] email failed', res.status, (await res.text()).slice(0, 200));
-  return res.ok;
+export async function send(env: Env, m: Outbox & { fromName?: string; replyTo?: string }): Promise<boolean> {
+  return sendMail(env, { ...m, fromName: m.fromName || 'Favor Projects' });
 }
 
 async function lock(env: Env, id: string, email: string, mode: string): Promise<boolean> {
@@ -198,7 +198,7 @@ interface NoticeRow {
   created_at: string;
 }
 
-async function taskFor(env: Env, id: string, dir: Map<string, Person>): Promise<MailTask | null> {
+export async function taskFor(env: Env, id: string, dir: Map<string, Person>): Promise<MailTask | null> {
   const r = await env.DB.prepare(
     `SELECT t.id, t.code, t.title, t.status, t.owner_email, t.due_date, t.due_time, p.key AS pkey, p.name AS pname FROM hub_tasks t LEFT JOIN hub_projects p ON p.id = t.project_id WHERE t.id = ?`
   ).bind(id).first<{ id: string; code: string | null; title: string; status: string; owner_email: string | null; due_date: string | null; due_time: string | null; pkey: string | null; pname: string | null }>().catch(() => null);
@@ -211,9 +211,32 @@ async function taskFor(env: Env, id: string, dir: Map<string, Person>): Promise<
 
 const actorName = (dir: Map<string, Person>, email: string) => (email === 'system' || !email ? 'Favor Projects' : nameOf(dir, email));
 
+const HOLD_MS = 3 * 60_000;
+const RANK: Record<string, number> = { mentioned: 0, assigned: 1, followed: 2, waiting: 3, comment: 4, unseen: 5, done: 6, due_soon: 7 };
+
+/** People who have opened a task in FavorOS, or been sent a project email, among those given. */
+async function knownPeople(env: Env, emails: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!emails.length) return out;
+  const ph = emails.map(() => '?').join(',');
+  const r = await env.DB.prepare(
+    `SELECT email FROM hub_task_seen WHERE email IN (${ph}) UNION SELECT email FROM hub_task_mail_log WHERE email IN (${ph})`
+  ).bind(...emails, ...emails).all<{ email: string }>().catch(() => null);
+  if (!r) {
+    // Before db/notify.sql: only the mail log counts.
+    const m = await env.DB.prepare(`SELECT DISTINCT email FROM hub_task_mail_log WHERE email IN (${ph})`).bind(...emails).all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }));
+    for (const x of m.results || []) out.add(lower(x.email));
+    return out;
+  }
+  for (const x of r.results || []) out.add(lower(x.email));
+  return out;
+}
+
 /**
- * Emails the people who chose one email per notice for notices made in the last 15 minutes. Called after every task change; the
- * log row makes a second call harmless. Returns how many went out.
+ * Emails notices made in the last 15 minutes. Called after every task change and by the 5-minute cron; the log row makes a second
+ * call harmless. A burst is one email: once a person has had a project email, anything newer waits until 3 minutes have passed
+ * since it and then goes out together. Tags (mentioned, assigned, added) go to people who chose one email per notice, and the
+ * first one also reaches a person who has never opened Projects, whatever their choice. Returns how many emails went out.
  */
 export async function mailFresh(env: Env, now = new Date()): Promise<number> {
   if (!(await emailOn(env))) return 0;
@@ -221,27 +244,63 @@ export async function mailFresh(env: Env, now = new Date()): Promise<number> {
     (
       await env.DB.prepare(
         `SELECT n.id, n.email, n.task_id, n.kind, n.actor_email, n.body, n.created_at FROM hub_task_notices n
-          WHERE n.read_at IS NULL AND n.created_at > ? AND NOT EXISTS (SELECT 1 FROM hub_task_mail_log l WHERE l.notice_id = n.id) ORDER BY n.created_at LIMIT 60`
+          WHERE n.read_at IS NULL AND n.created_at > ? AND NOT EXISTS (SELECT 1 FROM hub_task_mail_log l WHERE l.notice_id = n.id) ORDER BY n.created_at LIMIT 100`
       ).bind(new Date(now.getTime() - FRESH_MS).toISOString()).all<NoticeRow>().catch(() => ({ results: [] as NoticeRow[] }))
     ).results || [];
   if (!rows.length) return 0;
   const gate = await noticeGate(env);
-  const dir = await dirMap(env);
-  let sent = 0;
+  const byPerson = new Map<string, NoticeRow[]>();
   for (const n of rows) {
     const to = lower(n.email);
     if (!gate(to) || to === lower(n.actor_email)) continue;
-    if ((await getPrefs(env, to)).mail_mode !== 'now') continue;
-    if (!(await lock(env, n.id, to, 'now'))) continue;
-    const task = await taskFor(env, n.task_id, dir);
-    if (!task) { await settle(env, [n.id], false); continue; }
-    const mail = buildNotice({ kind: n.kind, to: { email: to, name: nameOf(dir, to) }, actor: { name: actorName(dir, lower(n.actor_email)) }, task, note: plain(n.body, dir) });
-    const ok = await send(env, { to, ...mail }).catch(() => false);
-    await settle(env, [n.id], ok);
+    byPerson.set(to, [...(byPerson.get(to) || []), n]);
+  }
+  if (!byPerson.size) return 0;
+  const emails = [...byPerson.keys()];
+  const ph = emails.map(() => '?').join(',');
+  const prefRows = (await env.DB.prepare(`SELECT email, mail_mode FROM hub_project_prefs WHERE email IN (${ph})`).bind(...emails).all<{ email: string; mail_mode: string }>().catch(() => ({ results: [] as { email: string; mail_mode: string }[] }))).results || [];
+  const mode = new Map(prefRows.map((r) => [lower(r.email), r.mail_mode]));
+  const recent = (await env.DB.prepare(`SELECT email, MAX(at) AS at FROM hub_task_mail_log WHERE email IN (${ph}) AND mode IN ('now', 'nudge') AND at > ? GROUP BY email`).bind(...emails, new Date(now.getTime() - HOLD_MS).toISOString()).all<{ email: string; at: string }>().catch(() => ({ results: [] as { email: string; at: string }[] }))).results || [];
+  const held = new Set(recent.map((r) => lower(r.email)));
+  const known = await knownPeople(env, emails);
+  const dir = await dirMap(env);
+  let sent = 0;
+  for (const [to, list] of byPerson) {
+    if (held.has(to)) continue; // the next pass sends these together
+    const m = (mode.get(to) as MailMode) || 'now';
+    const firstTag = !known.has(to) && list.some((n) => TAG_KINDS.includes(n.kind));
+    const mine = m === 'now' ? list : firstTag ? list.filter((n) => TAG_KINDS.includes(n.kind)) : [];
+    if (!mine.length) continue;
+    const locks = await env.DB.batch(mine.map((n) => env.DB.prepare(`INSERT OR IGNORE INTO hub_task_mail_log (notice_id, email, mode, state, at) VALUES (?, ?, 'now', 'sending', ?)`).bind(n.id, to, nowIso())));
+    const got = mine.filter((_n, i) => Number((locks[i]?.meta as { changes?: number } | undefined)?.changes) > 0);
+    if (!got.length) continue;
+    const tasks = new Map<string, MailTask>();
+    for (const id of new Set(got.map((n) => n.task_id))) {
+      const t = await taskFor(env, id, dir);
+      if (t) tasks.set(id, t);
+    }
+    const live = got.filter((n) => tasks.has(n.task_id));
+    if (!live.length) { await settle(env, got.map((n) => n.id), false); continue; }
+    live.sort((a, b) => (RANK[a.kind] ?? 9) - (RANK[b.kind] ?? 9) || a.created_at.localeCompare(b.created_at));
+    const lead = live[0];
+    const actorEmail = lower(lead.actor_email);
+    const actor = actorName(dir, actorEmail);
+    let mail: { subject: string; html: string; text: string };
+    if (tasks.size === 1) {
+      // One task: the most important notice leads; the other notes (a burst of comments) follow it in order.
+      const notes = [...new Set(live.slice().sort((a, b) => a.created_at.localeCompare(b.created_at)).map((n) => plain(n.body, dir)).filter((x) => x && x !== tasks.get(lead.task_id)!.title))];
+      mail = buildNotice({ kind: lead.kind, to: { email: to, name: nameOf(dir, to) }, actor: { name: actor }, task: tasks.get(lead.task_id)!, note: notes.join('\n\n') });
+    } else {
+      mail = buildSummary({ to: { email: to, name: nameOf(dir, to) }, items: live.map((n) => ({ kind: n.kind, actor: actorName(dir, lower(n.actor_email)), note: plain(n.body, dir), task: tasks.get(n.task_id)! })), now });
+    }
+    const person = TAG_KINDS.includes(lead.kind) && FAVOR_MAIL.test(actorEmail);
+    const ok = await send(env, { to, ...mail, ...(person ? { fromName: `${actor} via FavorOS`, replyTo: actorEmail } : {}) }).catch(() => false);
+    await settle(env, got.map((n) => n.id), ok);
     if (ok) sent++;
   }
   return sent;
 }
+const FAVOR_MAIL = /^[a-z0-9._%+-]+@favorintl\.org$/;
 
 export interface DailyResult { day: string; due: number; summaries: number; notes: string[] }
 

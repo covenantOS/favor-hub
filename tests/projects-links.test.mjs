@@ -20,7 +20,7 @@ function world({ notify = 'on' } = {}) {
   d1.exec(read('db/schema.sql'));
   d1.exec(read('db/admin-home.sql'));
   d1.exec(`CREATE TABLE hub_users (email TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', picture TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'staff', blocked INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
-  for (const f of ['meetings', 'work', 'clips', 'clips-v2', 'favor-chat', 'favor-chat-private', 'request-tasks', 'google', 'expenses', 'projects', 'projects-links']) d1.exec(read(`db/${f}.sql`));
+  for (const f of ['meetings', 'work', 'clips', 'clips-v2', 'favor-chat', 'favor-chat-private', 'request-tasks', 'google', 'expenses', 'projects', 'projects-links', 'notify']) d1.exec(read(`db/${f}.sql`));
   const ins = (sql, ...a) => d1.db.prepare(sql).run(...a);
   for (const u of [ADA, VIC, DAN, OZZ]) ins('INSERT INTO hub_users (email, name, picture, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', u.email, u.name, '', u.role, NOW, NOW);
   for (const [u, title, team] of [[ADA, 'Lead Developer', 'Marketing'], [VIC, 'Videographer', 'Marketing'], [DAN, 'Creative Director', 'Marketing'], [OZZ, 'Assistant', 'Support Team']]) {
@@ -467,6 +467,8 @@ test('email: one per notice for people who chose that, a daily summary for those
   await import('../functions/_lib/projects/hooks.ts');
   await links(w, VIC, 'PUT', 'prefs', { mail_mode: 'daily' });
   await links(w, DAN, 'PUT', 'prefs', { mail_mode: 'off' });
+  // Vic and Dan have opened Projects before, so their choice holds from the first tag.
+  for (const u of [VIC, DAN]) w.d1.db.prepare("INSERT INTO hub_task_seen (email, task_id, at) VALUES (?, 'tsk_x', ?)").run(u.email, NOW);
   await core(w, ADA, 'POST', 'tasks', { title: 'Order cards', owner_email: OZZ.email });
   assert.equal(w.mail.length, 1, 'Ozzy has the default, one email per notice');
   assert.equal(w.mail[0].to, OZZ.email);

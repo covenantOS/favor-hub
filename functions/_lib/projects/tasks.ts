@@ -497,6 +497,7 @@ export async function createTask(env: Env, actor: Actor, b: Record<string, unkno
   await addEvent(env, { task_id: t.id, project_id: t.project_id, actor: actor.email, kind: 'created', detail: { title } });
   const list: Notice[] = [];
   if (owner && owner !== actor.email) list.push({ email: owner, kind: 'assigned', body: title });
+  for (const e of followers) list.push({ email: e, kind: 'followed', body: title });
   const told = opts.quiet ? [] : await tell(env, t.id, actor.email, list);
   return { task: t, project, told, existing: false };
 }
@@ -914,7 +915,13 @@ export async function changePeople(env: Env, actor: Actor, idOrCode: string, b: 
   ];
   if (statements.length) await env.DB.batch(statements);
   if (add.length || remove.length) await addEvent(env, { task_id: task.id, project_id: task.project_id, actor: actor.email, kind: 'people', detail: { add, remove } });
-  const told = await tell(env, task.id, actor.email, add.filter((x) => x.role === 'collab').map((x) => ({ email: x.email, kind: 'assigned' as const, body: task.title })));
+  // A collaborator is assigned; a follower added by someone else is told too (adding yourself tells nobody: tell() skips the actor).
+  const told = await tell(
+    env,
+    task.id,
+    actor.email,
+    add.filter((x) => x.email !== lower(task.owner_email)).map((x) => ({ email: x.email, kind: x.role === 'collab' ? ('assigned' as const) : ('followed' as const), body: task.title }))
+  );
   const rows = await env.DB.prepare('SELECT email, role FROM hub_task_people WHERE task_id = ? ORDER BY role, email').bind(task.id).all<{ email: string; role: string }>();
   return { task, people: (rows.results || []).map((r) => ({ ...person(dir, r.email), role: r.role })), added: add, removed: remove, told };
 }
