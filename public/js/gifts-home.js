@@ -14,7 +14,14 @@
   var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   var short = function (ymd) { if (!ymd) return ''; var p = String(ymd).slice(0, 10).split('-').map(Number); return MON[p[1] - 1] + ' ' + p[2]; };
   var dow = function (ymd) { return DOW[new Date(String(ymd).slice(0, 10) + 'T12:00:00Z').getUTCDay()]; };
-  var when = function (iso) { return iso ? new Date(iso).toLocaleString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : ''; };
+  // A time today reads 9:36 AM; an earlier day adds the date, Oct 13, 8:02 AM.
+  var when = function (iso) {
+    if (!iso) return '';
+    var d = new Date(iso), et = { timeZone: 'America/New_York' };
+    var day = function (x) { return x.toLocaleDateString('en-CA', et); };
+    var t = d.toLocaleString('en-US', Object.assign({ hour: 'numeric', minute: '2-digit' }, et));
+    return day(d) === day(new Date()) ? 'today ' + t : d.toLocaleString('en-US', Object.assign({ month: 'short', day: 'numeric' }, et)) + ', ' + t;
+  };
   var KIND = { Regular: 'Regular Mail', Acquisition: 'Acquisition Mail', Grant: 'Grant Mail' };
   function api(p) {
     return fetch(p, { credentials: 'same-origin', headers: { 'X-Hub-Request': '1' } }).then(function (r) {

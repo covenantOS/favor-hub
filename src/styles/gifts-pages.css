@@ -36,7 +36,7 @@ a.gh-step:hover { background: var(--h-surface-2); }
 .gh-cap { margin-left: auto; padding: 2px 8px; border-radius: 6px; background: var(--h-surface-2); font-weight: 600; }
 .gh-depsbox { min-height: 240px; }
 .gh-tbl { margin: 0 -18px -16px; }
-.gh-tr { display: grid; grid-template-columns: minmax(160px, 2.2fr) minmax(60px, 0.8fr) minmax(60px, 0.8fr) minmax(90px, 1fr) minmax(150px, 1.6fr) minmax(100px, 1fr); gap: 12px; align-items: center; padding: 11px 18px; border-top: 1px solid var(--h-line); font: 500 14px var(--h-font); color: var(--h-ink); text-decoration: none; }
+.gh-tr { display: grid; grid-template-columns: minmax(160px, 2fr) minmax(56px, 0.7fr) minmax(60px, 0.8fr) minmax(90px, 1fr) minmax(190px, 1.8fr) minmax(100px, 1fr); gap: 12px; align-items: center; padding: 11px 18px; border-top: 1px solid var(--h-line); font: 500 14px var(--h-font); color: var(--h-ink); text-decoration: none; }
 .gh-th { font: 600 12px var(--h-font); letter-spacing: 0.04em; text-transform: uppercase; color: var(--h-ink-3); padding-top: 8px; padding-bottom: 8px; }
 a.gh-tr:hover { background: var(--h-surface-2); }
 .gh-tr .r { text-align: right; }
@@ -75,3 +75,5 @@ a.gh-li:hover b { text-decoration: underline; }
   .gh-bar span { font-size: 11px; }
 }
 .gp-root { display: grid; gap: 16px; }
+
+.gh-tr > span:nth-child(5) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
