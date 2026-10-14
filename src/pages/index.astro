@@ -40,14 +40,17 @@ import '../styles/today-work.css';
       <div class="h-welcome__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-tour-start>Show me</button></div>
     </div>
 
-    <div class="fx-pair">
+    <!-- The Inbox on the left; Waiting on, the briefing and Since you were away stack on the right, so the two columns end together
+         whether the Inbox is long or short (today-work.css .tw-top). -->
+    <div class="fx-pair tw-top">
       <section class="h-card" data-today-slot="inbox" data-keep-h="fx-inbox" aria-label="Inbox"></section>
-      <section class="h-card" data-today-slot="waiting" data-keep-h="fx-waiting" aria-label="Waiting on"></section>
+      <div class="tw-top__side">
+        <section class="h-card" data-today-slot="waiting" data-keep-h="fx-waiting" aria-label="Waiting on"></section>
+        <div id="br-root" aria-live="polite"></div>
+      </div>
     </div>
 
     <div id="fw-root"></div>
-
-    <div id="br-root" aria-live="polite"></div>
 
     <section>
       <div class="r2t-sec"><h2>Needs you</h2><span id="t-needs-meta"></span></div>
