@@ -81,16 +81,16 @@ describe('the cap', () => {
   });
   it('never passes 8,000 for any feature', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 7995)`);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-understand', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(5000) }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(5000) }), (e) => e.why === 'budget');
     assert.equal(calls.length, 0);
   });
   it('counts Cloudflare\'s total when it is above the estimate', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est, truth) VALUES ('${DAY}', 10, 7999)`);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-pick', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'budget');
   });
   it('reads the KV total as a floor', async () => {
     kv.m.set(`ai:budget:${DAY}`, '7999');
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-pick', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(100) }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(100) }), (e) => e.why === 'budget');
   });
   it('fails closed when the database is down', async () => {
     const broken = { db: { prepare: () => ({ bind: () => ({ run: async () => { throw new Error('down'); }, first: async () => { throw new Error('down'); }, all: async () => ({ results: [] }) }) }) }, kv };
@@ -115,7 +115,7 @@ describe('switches', () => {
   });
   it('stops every call on the kill flag and on the tester\'s closed switch', async () => {
     kv.m.set(`ai:off:${DAY}`, '1');
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-understand', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'kill');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => e.why === 'kill');
     kv.m.delete(`ai:off:${DAY}`);
     G.resetGuardCache();
     const ai = G.guardBinding(store(), model(), { closedFor: () => true, day: DAY });
@@ -135,12 +135,12 @@ describe('switches', () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 7999)`);
     kv.m.set('ai:settings', JSON.stringify({ allow: {}, extra: { '2026-10': 500 } }));
     G.resetGuardCache();
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-pick', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
-    await G.guardedRun(store(), model({ answers: {} }).run, { feature: 'clef-pick', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) });
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
+    await G.guardedRun(store(), model({ answers: {} }).run, { feature: 'translate', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) });
     const row = await dayRow();
     assert.ok(row.test_over > 0 && row.test_over <= 500, `test_over ${row.test_over}`);
     d1.exec(`UPDATE ai_budget_day SET test_over = 500 WHERE day = '${DAY}'`);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-pick', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY, test: true }, '@cf/cloudflare/clef-flash', { state: 'x'.repeat(200) }), (e) => e.why === 'budget');
   });
 });
 
@@ -164,7 +164,7 @@ describe('the reconciler', () => {
     assert.equal(r.off, true);
     assert.equal(kv.m.get(`ai:off:${DAY}`), '1');
     assert.equal((await dayRow()).off, 1);
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-understand', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => G.isAiPaused(e));
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, '@cf/cloudflare/clef-flash', { state: 'x' }), (e) => G.isAiPaused(e));
   });
 });
 
@@ -250,13 +250,37 @@ describe('the meeting notes ceiling (2026-10-14)', () => {
   });
   it('still holds every other tier once the total passes its cap, and the kill flag still stops them', async () => {
     d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 9500)`);
-    for (const feature of ['brief', 'translate', 'drive-index', 'clef-understand']) {
+    for (const feature of ['brief', 'translate', 'drive-index', 'clip-text']) {
       await assert.rejects(G.guardedRun(store(), model().run, { feature, day: DAY, now: new Date('2026-10-14T03:00:00Z') }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget', feature);
     }
     d1.exec(`UPDATE ai_budget_day SET est = 50000, off = 1 WHERE day = '${DAY}'`);
     kv.m.set(`ai:off:${DAY}`, '1');
     G.resetGuardCache();
-    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-understand', day: DAY }, M, small), (e) => e.why === 'kill');
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'translate', day: DAY }, M, small), (e) => e.why === 'kill');
     assert.equal(calls.length, 0);
+  });
+});
+
+describe('the Favor Brain ceiling (2026-10-14)', () => {
+  const small = { messages: [{ role: 'user', content: 'x' }], max_tokens: 10 };
+  const M = '@cf/meta/llama-3.1-8b-instruct-fast';
+  const brain = ['clef-understand', 'clef-pick', 'brain-understand', 'brain-search', 'brain-howto', 'brain-writer', 'brain-title', 'brain-drive-answer'];
+  it('derives 919,000 from $10 a day at $0.011 per 1,000 neurons and leaves meeting notes at 100,000', () => {
+    assert.equal(G.BRAIN_PAID_NEURONS, 909_090);
+    assert.equal(G.BRAIN_CEILING, 919_000);
+    assert.equal(G.MEET_CEILING, 100_000);
+  });
+  it('runs every Brain feature at 500,000, past the kill flag, and refuses above the ceiling', async () => {
+    d1.exec(`INSERT INTO ai_budget_day (day, est, off) VALUES ('${DAY}', 500000, 1)`);
+    kv.m.set(`ai:off:${DAY}`, '1');
+    G.resetGuardCache();
+    for (const feature of brain) await G.guardedRun(store(), model().run, { feature, day: DAY }, M, small).catch((e) => { if (!(G.isAiPaused(e) && e.why === 'off')) throw e; });
+    d1.exec(`UPDATE ai_budget_day SET est = 919000 WHERE day = '${DAY}'`);
+    G.resetGuardCache();
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'brain-howto', day: DAY }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget');
+  });
+  it('still refuses a non-Brain tier 3 feature at 9,500', async () => {
+    d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 9500)`);
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clip-text', day: DAY }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget');
   });
 });

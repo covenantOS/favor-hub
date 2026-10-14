@@ -25,6 +25,13 @@ export const NEURON_USD_PER_1K = 0.011;
 export const MEET_PAID_NEURONS = Math.floor((MEET_PAID_CEILING_USD / NEURON_USD_PER_1K) * 1_000);
 export const MEET_CEILING = Math.floor((FREE_UNITS + MEET_PAID_NEURONS) / 1_000) * 1_000;
 
+// Every Favor Brain feature (the ones that answer staff) may also spend past the free allowance, to a runaway ceiling of $10 a day
+// (Will, 2026-10-14: "We need people to be able to do it. We're going to get the budget approved pretty soon."). $10 buys 909,090
+// neurons above the free units; the ceiling is 919,000. It stops a loop, and sits above KILL_AT so the kill flag does not block it.
+export const BRAIN_PAID_CEILING_USD = 10;
+export const BRAIN_PAID_NEURONS = Math.floor((BRAIN_PAID_CEILING_USD / NEURON_USD_PER_1K) * 1_000);
+export const BRAIN_CEILING = Math.floor((FREE_UNITS + BRAIN_PAID_NEURONS) / 1_000) * 1_000;
+
 /** How far into the day's units each tier may go. Tier 1 keeps the last 1,500 to itself, tier 2 the next 1,500, and so on. */
 export const TIER_CAP: Record<number, number> = { 1: 8_000, 2: 6_500, 3: 5_000, 4: 2_500 };
 
@@ -41,15 +48,15 @@ export interface Feature {
 
 /** Every feature that calls a model. A call with a name not listed here runs as tier 3 under "other". */
 export const FEATURES: Record<string, Feature> = {
-  'clef-understand': { tier: 1, label: 'Favor Brain: reading the question' },
-  'clef-pick': { tier: 1, label: 'Favor Brain: picking the answer' },
+  'clef-understand': { tier: 1, label: 'Favor Brain: reading the question', cap: BRAIN_CEILING },
+  'clef-pick': { tier: 1, label: 'Favor Brain: picking the answer', cap: BRAIN_CEILING },
   translate: { tier: 2, label: 'Chat translation' },
   'mail-sort': { tier: 2, label: 'Mail sorting' },
-  'brain-understand': { tier: 3, label: 'Favor Brain: question reader (larger model)' },
-  'brain-search': { tier: 3, label: 'Favor Brain: file search' },
-  'brain-howto': { tier: 3, label: 'Favor Brain: how-to answers' },
-  'brain-writer': { tier: 3, label: 'Favor Brain: query writer', offByDefault: true },
-  'brain-title': { tier: 3, label: 'Favor Brain: chat titles' },
+  'brain-understand': { tier: 3, label: 'Favor Brain: question reader (larger model)', cap: BRAIN_CEILING },
+  'brain-search': { tier: 3, label: 'Favor Brain: file search', cap: BRAIN_CEILING },
+  'brain-howto': { tier: 3, label: 'Favor Brain: how-to answers', cap: BRAIN_CEILING },
+  'brain-writer': { tier: 3, label: 'Favor Brain: query writer', offByDefault: true, cap: BRAIN_CEILING },
+  'brain-title': { tier: 3, label: 'Favor Brain: chat titles', cap: BRAIN_CEILING },
   'check-triage': { tier: 3, label: 'Gift entry: sorting photos' },
   'check-reading': { tier: 3, label: 'Gift entry: reading checks', offByDefault: true },
   'online-gift-reading': { tier: 3, label: 'Online gifts: reading a comment the rules could not place' },
@@ -64,11 +71,16 @@ export const FEATURES: Record<string, Feature> = {
   'clip-vision': { tier: 3, label: 'Clips: reading the screen' },
   // Tier 1: captions, live action items and the notes of a call that is going on now (2026-10-13, after a meeting lost its notes to the tier 3 cap).
   'meet-notes': { tier: 1, label: 'Meetings: captions and notes', cap: MEET_CEILING },
+  // Any other name starting brain- or clef- (drive answers, photo matching, in-meeting asks) runs under this entry.
+  'brain-other': { tier: 3, label: 'Favor Brain: other', cap: BRAIN_CEILING },
   other: { tier: 3, label: 'Other' },
   'drive-index': { tier: 4, label: 'Drive index (overnight)', nightOnly: true },
 };
 
-export const featureOf = (name: string): Feature => FEATURES[name] || FEATURES.other;
+/** The name a call is booked under: itself when listed, brain-other for an unlisted brain- or clef- name, else other. */
+export const featureName = (name: string): string => (name in FEATURES ? name : /^(brain|clef)-/.test(name) ? 'brain-other' : 'other');
+
+export const featureOf = (name: string): Feature => FEATURES[featureName(name)];
 
 /** True from 9 PM to 6 AM Eastern. */
 export function nightNow(now = new Date()): boolean {
@@ -307,7 +319,7 @@ async function bump(store: GuardStore, day: string, feature: string, model: stri
  */
 export async function reserve(store: GuardStore, opts: GuardOpts, model: string, input: unknown): Promise<{ day: string; est: number; test: boolean }> {
   const day = opts.day || utcDay();
-  const feature = opts.feature in FEATURES ? opts.feature : 'other';
+  const feature = featureName(opts.feature);
   const f = featureOf(feature);
   if (opts.closed) {
     await bump(store, day, feature, model, 0, true);
@@ -376,7 +388,7 @@ export async function settle(store: GuardStore, r: { day: string; est: number },
     } else {
       total = await store.db.prepare('SELECT est, truth FROM ai_budget_day WHERE day = ?').bind(r.day).first();
     }
-    await bump(store, r.day, feature in FEATURES ? feature : 'other', model, used, false);
+    await bump(store, r.day, featureName(feature), model, used, false);
     if (store.kv && total) {
       const v = Math.ceil(Math.max(Number(total.est) || 0, Number(total.truth) || 0));
       // KV takes one write a second per key; a lost write is made good by the next call or the reconciler.
