@@ -143,7 +143,7 @@ async function startNow(e) {
   const btn = e && e.currentTarget;
   if (btn) btn.disabled = true;
   try {
-    const r = await api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'video', access: 'staff' } });
+    const r = await api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'video', access: 'invited' } });
     location.href = '/meet/room/?m=' + r.meeting.id;
   } catch (err) { if (btn) btn.disabled = false; toast(err.message); }
 }

@@ -61,7 +61,7 @@ export const unsubscribe: Handler = async ({ request, env }) => {
 export const testSelf: Handler = async ({ request, env }) => {
   try {
     const user = who(request);
-    const n = await pushToPeople(env, [user.email], { title: 'FavorOS', body: 'Notifications are on for this device.', url: '/chat/', tag: 'test' });
+    const n = await pushToPeople(env, [user.email], { title: 'FavorOS', body: 'Notifications are on for this device.', url: '/chat/', tag: 'test' }, fetch, { loud: true });
     return json({ ok: true, sent: n });
   } catch (err) {
     return handleError(err);

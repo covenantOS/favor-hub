@@ -137,7 +137,8 @@ export function mayJoin(m: Meeting, user: Pick<HubUser, 'email' | 'role'>): bool
   if (user.role === 'admin') return true;
   if (isHost(m, user.email)) return true;
   if (user.role === 'field') return emailsOf(m.invitees).includes(user.email.toLowerCase());
-  if (m.access === 'staff' || m.access === 'guests') return true;
+  // A guest link (access = guests) lets outside guests in with the key; it never opens the room to staff who were not invited (2026-10-14).
+  if (m.access === 'staff') return true;
   return emailsOf(m.invitees).includes(user.email.toLowerCase());
 }
 

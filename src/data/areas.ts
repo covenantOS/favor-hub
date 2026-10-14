@@ -6,7 +6,7 @@
 // `team` is a KPI dashboard team. `count` is a key of the counts that answer returns.
 // `also` lists other nav ids (the `nav` prop a page passes to the App layout) that belong to the page.
 
-export type Need = 'admin' | 'giftEntry' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail';
+export type Need = 'admin' | 'giftEntry' | 'kpi' | 'expenseLog' | 'workCenter' | 'clips' | 'meetings' | 'chat' | 'projects' | 'hr' | 'mail' | 'learn' | 'learnAdmin';
 
 export interface NavPage {
   id: string;
@@ -134,10 +134,10 @@ export const AREAS: NavArea[] = [
     key: 'l',
     barRank: 6,
     pages: [
-      { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'hr', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn' },
-      { id: 'learn-catalog', label: 'Catalog', href: '/learn/catalog/', desc: 'Every course and learning path', keywords: 'learn catalog courses paths training all', need: 'hr', learn: 'learn' },
-      { id: 'practice', label: 'Practice', href: '/learn/practice/', desc: 'A pretend partner record for practicing gift entry and logging a call', keywords: 'practice pretend sample training gift entry log call new hire first week sandbox', need: 'hr', learn: 'learn' },
-      { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn manage admin author build course path assign report overdue scores hr', need: 'hr', learn: 'learn' },
+      { id: 'learn', label: 'My learning', href: '/learn/', desc: 'Courses and paths assigned to you, and where you left off', keywords: 'learn learning course courses lms training lesson quiz certificate path onboarding assigned due', need: 'learn', count: 'learn', also: ['learn-course', 'learn-path', 'learn-cert'], learn: 'learn' },
+      { id: 'learn-catalog', label: 'Catalog', href: '/learn/catalog/', desc: 'Every course and learning path', keywords: 'learn catalog courses paths training all', need: 'learn', learn: 'learn' },
+      { id: 'practice', label: 'Practice', href: '/learn/practice/', desc: 'A pretend partner record for practicing gift entry and logging a call', keywords: 'practice pretend sample training gift entry log call new hire first week sandbox', need: 'learn', learn: 'learn' },
+      { id: 'learn-admin', label: 'Manage', href: '/learn/admin/', desc: 'Build courses and paths, assign them, and see who has finished', keywords: 'learn manage admin author build course path assign report overdue scores hr', need: 'learnAdmin', learn: 'learn' },
     ],
   },
   // learn: end
@@ -194,7 +194,7 @@ export const AREAS: NavArea[] = [
     pages: [
       { id: 'docs', label: 'Docs', href: '/help/', desc: 'How every tool works, with search', keywords: 'help guide how docs documentation article manual faq', learn: 'getting-started', swap: true },
       { id: 'videos', label: 'Videos', href: '/help/videos/', desc: 'FavorOS, Favor Brain and Blackbaud on video, with captions', keywords: 'video videos training tutorial learn blackbaud raisers edge', swap: true },
-      { id: 'welcome', label: 'Welcome', href: '/welcome/', need: 'hr', desc: 'Your first week: who to meet, what is due, the FavorOS tour', keywords: 'welcome first day first week new hire onboarding orientation meet team', learn: 'welcome' },
+      { id: 'welcome', label: 'Welcome', href: '/welcome/', desc: 'Your first week: who to meet, what is due, the FavorOS tour', keywords: 'welcome first day first week new hire onboarding orientation meet team', learn: 'welcome' },
       { id: 'feedback', label: 'Feedback', href: '/feedback/', desc: "Your notes and Will's answers", keywords: 'feedback note bug wrong idea suggestion problem report', count: 'feedback', learn: 'feedback', swap: true },
     ],
   },

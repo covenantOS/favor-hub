@@ -130,6 +130,7 @@ export class ChatEngine {
   user = (id: string): J => {
     if (id === 'brain') return { id: 'brain', name: 'Favor Brain', brain: true };
     if (id === 'meetings') return { id: 'meetings', name: 'Favor Meetings', sys: 'video' };
+    if (id === 'gifts') return { id: 'gifts', name: 'Favor Gifts', sys: 'spark' };
     return this.S.users[id] || { id, name: String(id || '').split('@')[0] || 'Someone' };
   };
   chan = (id: string | null | undefined): J | undefined => (id ? this.S.channels[id] : undefined);
@@ -1434,7 +1435,7 @@ export class ChatEngine {
       const pool: J[] = (S.page === 'channel' ? (S.msgs[S.active] || []).slice(-60) : []).concat(S.right === 'thread' && S.threadRoot && S.threads[S.threadRoot] ? [S.threads[S.threadRoot].root].concat(S.threads[S.threadRoot].replies || []) : []);
       const ids: number[] = [];
       pool.forEach((m) => {
-        if (!m || m.deleted || m.user_id === S.me.id || m.user_id === 'brain' || m.user_id === 'meetings') return;
+        if (!m || m.deleted || m.user_id === S.me.id || m.user_id === 'brain' || m.user_id === 'meetings' || m.user_id === 'gifts') return;
         const voice = (m.attachments || []).filter((a: J) => a.voice && a.transcript_status === 'ready' && a.transcript).length;
         if (!m.body && !voice) return;
         const key = S.lang + '|' + m.id + '|' + m.body + '|' + voice;

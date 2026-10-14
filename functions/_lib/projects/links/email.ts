@@ -5,6 +5,7 @@
 //   3. the person's own choice in hub_project_prefs: now (one email per notice), daily (a summary each weekday morning) or off.
 // hub_task_mail_log takes a row per notice before the send, so one notice is never emailed twice. Only notices made in the last
 // 15 minutes go out as "now" mail and only the last day's go into a summary: nothing older than the change that made it is mailed.
+import { holdIfQuiet } from '../../quiet';
 import { nowIso, type Env } from '../../http';
 import { effective } from '../../admin/settings';
 import { staffDirectory, type Person } from '../../people';
@@ -294,6 +295,11 @@ export async function mailFresh(env: Env, now = new Date()): Promise<number> {
       mail = buildSummary({ to: { email: to, name: nameOf(dir, to) }, items: live.map((n) => ({ kind: n.kind, actor: actorName(dir, lower(n.actor_email)), note: plain(n.body, dir), task: tasks.get(n.task_id)! })), now });
     }
     const person = TAG_KINDS.includes(lead.kind) && FAVOR_MAIL.test(actorEmail);
+    // Quiet hours (quiet.ts): held for the morning summary instead.
+    if (await holdIfQuiet(env, to, { kind: 'project', title: `${actor}: ${tasks.get(lead.task_id)!.title}`, body: plain(lead.body, dir).slice(0, 200), url: tasks.get(lead.task_id)!.url }, now).catch(() => false)) {
+      await env.DB.prepare(`UPDATE hub_task_mail_log SET state = 'held' WHERE notice_id IN (${got.map(() => '?').join(',')})`).bind(...got.map((n) => n.id)).run();
+      continue;
+    }
     const ok = await send(env, { to, ...mail, ...(person ? { fromName: `${actor} via FavorOS`, replyTo: actorEmail } : {}) }).catch(() => false);
     await settle(env, got.map((n) => n.id), ok);
     if (ok) sent++;

@@ -8,6 +8,7 @@ import { count as fmtCount } from '@/lib/format';
 import { hubNotifications, chatInboxResponse, projectNoticesResponse, remindersResponse, requestNoticesResponse, type Access } from '@shared/schemas';
 import { Icon } from './Icon';
 import { NavLink } from './NavLink';
+import { QuietHours } from './QuietHours';
 import { badge, fromChat, fromHub, fromProjects, fromReminders, fromRequests, grouped, type NoticeRow } from './notices';
 
 type A = Partial<Access> & Record<string, unknown>;
@@ -52,6 +53,7 @@ export function Bell({ access }: { access: A }) {
   const [open, setOpen] = useState(false);
   const [later, setLater] = useState('');
   const [err, setErr] = useState('');
+  const [quiet, setQuiet] = useState(false);
   const btn = useRef<HTMLButtonElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number }>({ left: 12, top: 56 });
@@ -217,6 +219,7 @@ export function Bell({ access }: { access: A }) {
               ))}
             </div>
             {err && <p className="wm-note" role="alert">{err}</p>}
+            {quiet && <QuietHours />}
             <div className="wm-foot">
               {readable.length ? (
                 <button type="button" onClick={readAll}>
@@ -225,6 +228,9 @@ export function Bell({ access }: { access: A }) {
               ) : (
                 <span />
               )}
+              <button type="button" aria-expanded={quiet} onClick={() => setQuiet((v) => !v)}>
+                Quiet hours
+              </button>
             </div>
           </div>,
           document.body

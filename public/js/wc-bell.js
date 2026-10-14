@@ -256,6 +256,13 @@ function settingsHTML() {
   if (tasksOn()) rows.push(row('request', 'Request email', 'Updates on your requests', 'data-wm-reqmail'));
   if (chatOn()) rows.push(row('chat', 'Chat email', 'Unread messages and mentions', '', `<label class="bn-side"><input type="checkbox" class="wm-switch" data-wm-chatemail ${BN.chatOn === false ? '' : 'checked'} aria-label="Chat email" /></label>`));
   if (projectsOn()) rows.push(row('task', 'Project notices', 'Tasks given to you and due soon', 'data-wm-pjprefs'));
+  // Quiet hours (functions/_lib/quiet.ts): pushes and notice emails wait until morning and arrive as one summary.
+  const Q = BN.quiet;
+  if (Q) {
+    const hm = (n) => String(Math.floor(n / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0');
+    rows.push(row('bell', 'Quiet hours', Q.on ? 'Pushes and emails wait, then arrive as one summary' : 'Off', '', `<label class="bn-side"><input type="checkbox" class="wm-switch" data-wm-quiet ${Q.on ? 'checked' : ''} aria-label="Quiet hours" /></label>`));
+    if (Q.on) rows.push(`<div class="bn-row bn-row--set bn-quiet" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding-left:52px"><label>From <input type="time" data-wm-qstart value="${hm(Q.start)}" /></label><label>to <input type="time" data-wm-qend value="${hm(Q.end)}" /></label><label><input type="checkbox" data-wm-qwknd ${Q.weekends ? 'checked' : ''} /> All weekend</label><small style="flex-basis:100%;opacity:.7">${esc(Q.tz)} time</small></div>`);
+  }
   return `<header class="bn-head"><span class="bn-tools bn-tools--l"><button type="button" class="bn-btn" data-wm-back aria-label="Back">${ic('back')}</button></span><h4>Settings</h4><span class="bn-tools"><button type="button" class="bn-btn bn-x" data-wm-closepop aria-label="Close">${ic('x')}</button></span></header><div class="bn-list">${rows.join('') || '<p class="bn-empty">Nothing to set.</p>'}</div>`;
 }
 function paintBell() {
@@ -432,7 +439,7 @@ document.addEventListener('click', async (e) => {
   }
   const d = t.dataset;
   if (t.dataset.wmRow) { noteRead(t.dataset.wmRow); closePop(); setTimeout(paintBadge, 0); }
-  if (t.hasAttribute('data-wm-settings')) { BN.view = 'settings'; paintBell(); if (chatOn() && BN.chatOn == null) api('/api/chat/email-pref').then((v) => { BN.chatOn = v.on; paintBell(); }).catch(() => {}); if (wcOn() && !M.v) api('/api/work/mail').then((v) => { M.v = v; paintBell(); }).catch(() => {}); return; }
+  if (t.hasAttribute('data-wm-settings')) { BN.view = 'settings'; paintBell(); if (!BN.quiet) api('/api/hub/quiet').then((v) => { BN.quiet = v; paintBell(); }).catch(() => {}); if (chatOn() && BN.chatOn == null) api('/api/chat/email-pref').then((v) => { BN.chatOn = v.on; paintBell(); }).catch(() => {}); if (wcOn() && !M.v) api('/api/work/mail').then((v) => { M.v = v; paintBell(); }).catch(() => {}); return; }
   if (t.hasAttribute('data-wm-more')) { const k = d.wmMore; if (BN.open.has(k)) BN.open.delete(k); else BN.open.add(k); paintBell(); return; }
   if (t.hasAttribute('data-wm-back')) { BN.view = 'list'; paintBell(); return; }
   if (t.hasAttribute('data-wm-closepop')) { const f = popFor; closePop(); if (f && f.focus) f.focus(); return; }
@@ -470,6 +477,11 @@ document.addEventListener('click', async (e) => {
 });
 document.addEventListener('change', (e) => {
   const t = e.target;
+  if (t.dataset && (t.dataset.wmQuiet !== undefined || t.dataset.wmQstart !== undefined || t.dataset.wmQend !== undefined || t.dataset.wmQwknd !== undefined)) {
+    const b = t.dataset.wmQuiet !== undefined ? { on: t.checked } : t.dataset.wmQwknd !== undefined ? { weekends: t.checked } : t.dataset.wmQstart !== undefined ? { start: t.value } : { end: t.value };
+    send('POST', '/api/hub/quiet', b).then((v) => { BN.quiet = v; paintBell(); }).catch((err) => { toast(err.message); });
+    return;
+  }
   if (t.dataset && t.dataset.wmChatemail !== undefined) { BN.chatOn = t.checked; send('POST', '/api/chat/email-pref', { on: t.checked }).catch((err) => { toast(err.message); }); return; }
   if (t.dataset && t.dataset.wmSec) savePrefs({ sections: { [t.dataset.wmSec]: t.checked } });
   if (t.id === 'wm-skip') savePrefs({ skip_empty: t.checked });

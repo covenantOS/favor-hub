@@ -95,6 +95,7 @@ function mentionCandidates(e: ChatEngine, q: string, c: J): J[] {
   const ids = (c.kind === 'public' ? Object.keys(S.users) : c.members || []).filter((id: string) => id !== S.me.id);
   const out: J[] = [{ id: 'brain', name: 'Favor Brain', sub: 'Ask a question about Favor records', brain: true }];
   if (c.kind === 'public' || c.kind === 'private' || c.kind === 'group') out.push({ id: 'channel', name: 'channel', sub: 'Notify everyone here', special: true });
+  if ((c.kind === 'public' || c.kind === 'private' || c.kind === 'group') && S.me?.admin) out.push({ id: 'here', name: 'here', sub: 'Urgent: everyone, even in quiet hours', special: true });
   ids.forEach((id: string) => {
     const u = e.user(id);
     out.push({ id, name: u.name, sub: u.title || '', u });

@@ -331,7 +331,7 @@ test('a meeting started from a channel posts a Join card; ending it and its note
   assert.equal(card.status, 'live');
   assert.match(card.url, /^\/meet\/room\/\?m=[0-9a-f]{24}$/);
   const row = w.d1.db.prepare('SELECT * FROM hub_meetings WHERE id = ?').get(card.id);
-  assert.equal(row.access, 'staff', 'a public channel opens its meeting to staff');
+  assert.equal(row.access, 'invited', 'a huddle is invited-only, public channels included (2026-10-14)');
   assert.equal(w.d1.db.prepare('SELECT COUNT(*) AS n FROM chat_meetings').get().n, 1);
   // The meeting ends: the card refreshes.
   const { chatMeetingEnded, chatNotesReady } = await import('../functions/_lib/chat/meet.ts');

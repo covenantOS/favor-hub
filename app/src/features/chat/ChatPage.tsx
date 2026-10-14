@@ -1027,7 +1027,7 @@ function Details({ e, c, cname, back, close, root }: { e: ChatEngine; c: J; cnam
         {canEdit && (
           <>
             <h4>Visibility</h4>
-            <p>{c.kind === 'private' ? 'Private. Only the members below can read it.' : 'Public. Any admin can find and join it.'}</p>
+            <p>{c.kind === 'private' ? 'Private. Only the members below can read it.' : 'Public. Anyone on staff can find and join it.'}</p>
           </>
         )}
         <div className="ch-det__acts">

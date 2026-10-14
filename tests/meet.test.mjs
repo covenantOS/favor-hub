@@ -45,11 +45,12 @@ test('a person not on the list is refused with not_invited, never "does not exis
   assert.equal(refuseJoin({ status: 'cancelled', host_name: '', host_email: 'x@favorintl.org' }).status, 404);
 });
 
-test('a moved meeting is open to signed-in staff and has a guest key', async () => {
+test('a moved meeting has a guest key and stays closed to staff who were not invited (2026-10-14)', async () => {
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../functions/api/hub/day-move.ts', import.meta.url), 'utf8');
   assert.match(src, /'video', 'guests', \?, 'scheduled'/);
   assert.match(src, /ensureGuestUrl\(env as any, await getMeeting\(env as any, id\)/);
   const { mayJoin } = await import('../functions/_lib/meet.ts');
-  assert.ok(mayJoin({ status: 'scheduled', access: 'guests', host_email: 'h@favorintl.org', invitees: '[]', cohosts: '[]' }, { email: 'zed@favorintl.org', role: 'staff' }));
+  assert.ok(!mayJoin({ status: 'scheduled', access: 'guests', host_email: 'h@favorintl.org', invitees: '[]', cohosts: '[]' }, { email: 'zed@favorintl.org', role: 'staff' }));
+  assert.ok(mayJoin({ status: 'scheduled', access: 'guests', host_email: 'h@favorintl.org', invitees: '["zed@favorintl.org"]', cohosts: '[]' }, { email: 'zed@favorintl.org', role: 'staff' }));
 });

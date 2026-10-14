@@ -146,6 +146,7 @@ export function fmtBody(body: string, N: Names): string {
   t = t.replace(/&lt;@([^&\s]+?)&gt;/g, (_m, id: string) => {
     if (id === 'brain') return '<span class="ch-at ch-at--brain">@Favor Brain</span>';
     if (id === 'all' || id === 'channel') return '<span class="ch-at ch-at--me">@channel</span>';
+    if (id === 'here') return '<span class="ch-at ch-at--me">@here</span>';
     return '<span class="ch-at' + (id === N.me ? ' ch-at--me' : '') + '" data-entity="person:' + esc(id) + '" data-label="' + esc(N.user(id).name) + '" tabindex="0">@' + esc(N.user(id).name) + '</span>';
   });
   t = t.replace(/&lt;~([pf]):(\d{1,12})\|(.{1,160}?)&gt;/g, (_m, k: string, id: string, name: string) => {
@@ -188,7 +189,7 @@ export function fmtBody(body: string, N: Names): string {
 export function plain(body: string, N: Names): string {
   return String(body || '')
     .replace(/<~[pf]:\d+\|([^>]+)>/g, '$1')
-    .replace(/<@([^>]+)>/g, (_m, id: string) => '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : N.user(id).name))
+    .replace(/<@([^>]+)>/g, (_m, id: string) => '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : id === 'here' ? 'here' : N.user(id).name))
     .replace(/<#([^>]+)>/g, (_m, id: string) => {
       const c = N.chan(id);
       return '#' + (c ? c.name : 'channel');

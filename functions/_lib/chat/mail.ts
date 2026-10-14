@@ -12,8 +12,10 @@ import { nowIso, type Env } from '../http';
 import { effective } from '../admin/settings';
 import { isTester } from '../testuser';
 import { send } from '../requests/mail';
-import { buildChatMail, type ChatKind, type ChatMailMessage } from './email';
-import { SYSTEM_VOICES, plainBody } from './text';
+import { buildChatMail, chatLink, type ChatKind, type ChatMailMessage } from './email';
+import { hold, quietNow } from '../quiet';
+import { isAdminEmail } from '../session';
+import { SYSTEM_VOICES, parseMentions, plainBody } from './text';
 
 const ORIGIN = 'https://dash.favorintl.org';
 const WINDOW_MS = 10 * 60 * 1000;
@@ -157,7 +159,7 @@ export async function whoGetsEmail(env: MailEnv, since: string, now: Date): Prom
     (
       await env.DB.prepare(
         `SELECT n.email, n.channel_id, n.message_id, n.kind FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id
-          WHERE n.created_at > ? AND m.deleted_at IS NULL AND c.archived = 0 AND m.email NOT IN ('brain', 'meetings') AND m.email <> n.email AND m.visible_to IS NULL
+          WHERE n.created_at > ? AND m.deleted_at IS NULL AND c.archived = 0 AND m.email NOT IN ('brain', 'meetings', 'gifts') AND m.email <> n.email AND m.visible_to IS NULL
             AND NOT EXISTS (SELECT 1 FROM chat_email_welcome w WHERE w.email = n.email)
           ORDER BY n.message_id`
       )
@@ -177,7 +179,7 @@ export async function whoGetsEmail(env: MailEnv, since: string, now: Date): Prom
     ).results || [];
   for (const j of added) {
     const m = await env.DB.prepare(
-      `SELECT id FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL AND visible_to IS NULL AND email <> ? AND email NOT IN ('brain', 'meetings') AND created_at >= ? AND created_at > ? ORDER BY id LIMIT 1`
+      `SELECT id FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL AND visible_to IS NULL AND email <> ? AND email NOT IN ('brain', 'meetings', 'gifts') AND created_at >= ? AND created_at > ? ORDER BY id LIMIT 1`
     )
       .bind(j.channel_id, lower(j.email), j.joined_at, since)
       .first<{ id: number }>();
@@ -205,7 +207,7 @@ export async function whoGetsEmail(env: MailEnv, since: string, now: Date): Prom
     const email = lower(j.email);
     if (welcomed.has(email)) continue;
     const first = await env.DB.prepare(
-      `SELECT id FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL AND visible_to IS NULL AND email <> ? AND email NOT IN ('brain', 'meetings') AND created_at >= ? AND created_at > ? ORDER BY id LIMIT 1`
+      `SELECT id FROM chat_messages WHERE channel_id = ? AND thread_id IS NULL AND deleted_at IS NULL AND visible_to IS NULL AND email <> ? AND email NOT IN ('brain', 'meetings', 'gifts') AND created_at >= ? AND created_at > ? ORDER BY id LIMIT 1`
     )
       .bind(j.channel_id, email, j.joined_at, since)
       .first<{ id: number }>();
@@ -224,7 +226,7 @@ export async function whoGetsEmail(env: MailEnv, since: string, now: Date): Prom
     (
       await env.DB.prepare(
         `SELECT n.email, n.channel_id, n.message_id, n.created_at FROM chat_mentions n JOIN chat_messages m ON m.id = n.message_id JOIN chat_channels c ON c.id = n.channel_id
-          WHERE n.read_at IS NULL AND n.created_at > ? AND m.deleted_at IS NULL AND c.archived = 0 AND m.email NOT IN ('brain', 'meetings') AND m.email <> n.email
+          WHERE n.read_at IS NULL AND n.created_at > ? AND m.deleted_at IS NULL AND c.archived = 0 AND m.email NOT IN ('brain', 'meetings', 'gifts') AND m.email <> n.email
             AND (m.visible_to IS NULL OR m.visible_to = n.email)
             AND (c.kind = 'public' OR n.email IN (SELECT email FROM chat_members WHERE channel_id = n.channel_id))
             AND n.message_id NOT IN (SELECT message_id FROM chat_email_sent s WHERE s.email = n.email)
@@ -310,7 +312,17 @@ export async function run(env: MailEnv, now = new Date()): Promise<RunResult> {
   }
 }
 
+/** An admin's @here: the one message that goes through quiet hours. */
+async function urgentIds(env: MailEnv, ids: number[]): Promise<boolean> {
+  if (!ids.length) return false;
+  const rows = (await env.DB.prepare(`SELECT m.email, m.body, COALESCE(u.role, '') AS role FROM chat_messages m LEFT JOIN hub_users u ON lower(u.email) = m.email WHERE m.id IN (${ids.map(() => '?').join(',')})`).bind(...ids).all<{ email: string; body: string; role: string }>()).results || [];
+  return rows.some((r) => parseMentions(r.body).here && (r.role === 'admin' || isAdminEmail(env as Env, r.email)));
+}
+
 async function sendOne(env: MailEnv, c: Candidate, now: Date): Promise<'sent' | 'failed' | 'skipped'> {
+  // Quiet hours (quiet.ts): the welcome waits until they end; any other email is held for the morning summary.
+  const quiet = (await quietNow(env, [c.email], now).catch(() => new Set<string>())).has(c.email) && !(await urgentIds(env, c.ids).catch(() => false));
+  if (quiet && c.kind === 'welcome') return 'skipped';
   if (c.kind === 'welcome') {
     // Each person is welcomed exactly once, ever: the row is taken before the send.
     const w = await env.DB.prepare('INSERT OR IGNORE INTO chat_email_welcome (email, sent_at, message_id) VALUES (?, ?, ?)').bind(c.email, now.toISOString(), c.ids[0]).run();
@@ -365,6 +377,12 @@ async function sendOne(env: MailEnv, c: Candidate, now: Date): Promise<'sent' | 
     now,
     off: await offLinkFor(env, c.email),
   });
+  if (quiet) {
+    const where = ch.kind === 'public' || ch.kind === 'private' ? ` in #${ch.name}` : '';
+    for (const m of messages) await hold(env, c.email, { kind: 'chat', title: `${m.who.name}${where}`, body: m.body.replace(/\s+/g, ' ').slice(0, 200), url: chatLink('', ch.id, m.id), messageId: m.id }, now);
+    await drop('held');
+    return 'skipped';
+  }
   const ok = await send(env as Env, { to: c.email, ...mail, fromName: 'FavorOS Chat' }).catch(() => false);
   if (ok) {
     await drop('sent');

@@ -5,6 +5,7 @@
 // The VAPID key pair lives in the Pages secret VAPID_JWK (a private P-256 JWK). The public key is derived from it, never stored apart.
 // iPhone delivers web push only to an app added to the Home Screen (iOS 16.4 and later).
 import { nowIso, type Env } from './http';
+import { hold, quietNow } from './quiet';
 
 export type PushEnv = Env & { VAPID_JWK?: string; VAPID_SUBJECT?: string };
 
@@ -129,9 +130,18 @@ export async function sendPush(env: PushEnv, sub: PushSub, payload: PushPayload,
 }
 
 /** Sends to every device the people turned on. A dead subscription is removed; a few failures in a row remove it too. */
-export async function pushToPeople(env: PushEnv, emails: string[], payload: PushPayload, fetcher: typeof fetch = fetch): Promise<number> {
-  const list = [...new Set(emails.map((e) => e.toLowerCase()))].slice(0, 40);
+/** opts.now: quiet hours are checked at this time. opts.loud: sends during quiet hours (an admin's @here, the morning summary, a device test). */
+export async function pushToPeople(env: PushEnv, emails: string[], payload: PushPayload, fetcher: typeof fetch = fetch, opts: { loud?: boolean; messageId?: number | null; now?: Date } = {}): Promise<number> {
+  let list = [...new Set(emails.map((e) => e.toLowerCase()))].slice(0, 40);
   if (!list.length || !env.VAPID_JWK) return 0;
+  if (!opts.loud) {
+    // Quiet hours (quiet.ts): the push waits for the morning summary instead.
+    const now = opts.now || new Date();
+    const quiet = await quietNow(env, list, now).catch(() => new Set<string>());
+    for (const e of quiet) await hold(env, e, { kind: 'push', title: payload.title, body: payload.body, url: payload.url, messageId: opts.messageId ?? null }, now).catch(() => undefined);
+    list = list.filter((e) => !quiet.has(e));
+    if (!list.length) return 0;
+  }
   let sent = 0;
   try {
     const rows = await env.DB.prepare(`SELECT endpoint, email, p256dh, auth FROM push_subs WHERE email IN (${list.map(() => '?').join(',')}) LIMIT 120`).bind(...list).all<PushSub>();
@@ -167,9 +177,10 @@ export interface Notice {
 /** A direct message or a mention becomes a push for the people it names. Replies and muted conversations do not (Chat already left them out of `notify`). */
 export async function pushForPost(
   env: PushEnv,
-  input: { notify: Notice[]; channel: { id: string; kind: string; name: string }; senderName: string; text: string; messageId: number; threadId: number | null },
+  input: { notify: Notice[]; channel: { id: string; kind: string; name: string }; senderName: string; text: string; messageId: number; threadId: number | null; urgent?: boolean },
   fetcher: typeof fetch = fetch
 ): Promise<number> {
+  const opts = { loud: !!input.urgent, messageId: input.messageId };
   const dm = input.notify.filter((n) => n.kind === 'dm').map((n) => n.email);
   const mention = input.notify.filter((n) => n.kind === 'mention').map((n) => n.email);
   const where = input.channel.kind === 'public' || input.channel.kind === 'private' ? ` in #${input.channel.name}` : '';
@@ -177,7 +188,7 @@ export async function pushForPost(
   const url = `/chat/?c=${encodeURIComponent(input.channel.id)}${input.threadId ? `&t=${input.threadId}` : ''}&m=${input.messageId}`;
   const base = { url, channelId: input.channel.id, tag: `chat-${input.channel.id}` };
   let sent = 0;
-  if (dm.length) sent += await pushToPeople(env, dm, { ...base, title: input.senderName, body: snippet }, fetcher);
-  if (mention.length) sent += await pushToPeople(env, mention, { ...base, title: `${input.senderName} mentioned you${where}`, body: snippet }, fetcher);
+  if (dm.length) sent += await pushToPeople(env, dm, { ...base, title: input.senderName, body: snippet }, fetcher, opts);
+  if (mention.length) sent += await pushToPeople(env, mention, { ...base, title: `${input.senderName} mentioned you${where}`, body: snippet }, fetcher, opts);
   return sent;
 }

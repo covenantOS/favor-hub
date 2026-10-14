@@ -4,10 +4,11 @@
 export const MAX_BODY = 4000;
 export const BRAIN_ID = 'brain';
 export const MEETINGS_ID = 'meetings';
-export const SYSTEM_VOICES = new Set([BRAIN_ID, MEETINGS_ID]);
+export const GIFTS_ID = 'gifts';
+export const SYSTEM_VOICES = new Set([BRAIN_ID, MEETINGS_ID, GIFTS_ID]);
 
 const EMAIL = '[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}';
-const TOKEN = new RegExp(`<@(${EMAIL}|channel|all|brain)>`, 'gi');
+const TOKEN = new RegExp(`<@(${EMAIL}|channel|all|here|brain)>`, 'gi');
 /** A partner or a fund named in a message: <~p:12345|Name> or <~f:77|Name>. The name is what the sender saw when they picked it. */
 export const ENTITY = /<~([pf]):(\d{1,12})\|([^<>|\n]{1,80})>/g;
 /** The name a person typed is cleaned so it can sit inside a token. */
@@ -23,8 +24,10 @@ export function cleanBody(raw: unknown): string {
 export interface Mentions {
   /** Lowercase emails named with <@email>. */
   people: string[];
-  /** <@channel> or <@all>: everyone in the channel. */
+  /** <@channel>, <@all> or <@here>: everyone in the channel. */
   everyone: boolean;
+  /** <@here>: everyone, and through quiet hours when an admin wrote it (quiet.ts). */
+  here: boolean;
   /** <@brain> or the words @Favor Brain. */
   brain: boolean;
 }
@@ -32,15 +35,17 @@ export interface Mentions {
 export function parseMentions(body: string): Mentions {
   const people = new Set<string>();
   let everyone = false;
+  let here = false;
   let brain = false;
   for (const m of String(body || '').matchAll(TOKEN)) {
     const v = m[1].toLowerCase();
     if (v === 'channel' || v === 'all') everyone = true;
+    else if (v === 'here') everyone = here = true;
     else if (v === 'brain') brain = true;
     else people.add(v);
   }
   if (!brain && detectBrain(body)) brain = true;
-  return { people: [...people], everyone, brain };
+  return { people: [...people], everyone, here, brain };
 }
 
 /** True when the message addresses the Favor Brain: the token the composer inserts, or the words typed by hand. */
@@ -111,7 +116,7 @@ export const EMOJI_OK = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u{1F1E6}
 /** A short plain-text line for the bell and notices: tokens turned into names, cut at a length. */
 export function plainLine(body: string, names: (id: string) => string, max = 140): string {
   const t = String(body || '')
-    .replace(TOKEN, (_a, v: string) => '@' + (v.toLowerCase() === 'brain' ? 'Favor Brain' : v.toLowerCase() === 'channel' || v.toLowerCase() === 'all' ? 'channel' : names(v.toLowerCase())))
+    .replace(TOKEN, (_a, v: string) => '@' + (v.toLowerCase() === 'brain' ? 'Favor Brain' : v.toLowerCase() === 'channel' || v.toLowerCase() === 'all' ? 'channel' : v.toLowerCase() === 'here' ? 'here' : names(v.toLowerCase())))
     .replace(ENTITY, (_a, _k: string, _id: string, name: string) => name)
     .replace(/<#[^>]+>/g, '')
     .replace(/\s+/g, ' ')
@@ -122,7 +127,7 @@ export function plainLine(body: string, names: (id: string) => string, max = 140
 /** The message as plain text for an email: tokens turned into names, line breaks kept. */
 export function plainBody(body: string, names: (id: string) => string): string {
   return String(body || '')
-    .replace(TOKEN, (_a, v: string) => '@' + (v.toLowerCase() === 'brain' ? 'Favor Brain' : v.toLowerCase() === 'channel' || v.toLowerCase() === 'all' ? 'channel' : names(v.toLowerCase())))
+    .replace(TOKEN, (_a, v: string) => '@' + (v.toLowerCase() === 'brain' ? 'Favor Brain' : v.toLowerCase() === 'channel' || v.toLowerCase() === 'all' ? 'channel' : v.toLowerCase() === 'here' ? 'here' : names(v.toLowerCase())))
     .replace(ENTITY, (_a, _k: string, _id: string, name: string) => name)
     .replace(/<#[^>]+>/g, '')
     .replace(/[ \t]+/g, ' ')

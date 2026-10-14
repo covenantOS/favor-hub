@@ -1102,7 +1102,7 @@
 
   // Start now opens the same pre-join sheet; the room is made when the person presses Start.
   function startNow() {
-    var create = function () { return api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'video', access: 'staff' } }).then(function (r) { return { id: r.meeting.id, url: '/meet/room/?m=' + r.meeting.id }; }); };
+    var create = function () { return api('meetings', { method: 'POST', body: { title: nowTitle(), rec: 'video', access: 'invited' } }).then(function (r) { return { id: r.meeting.id, url: '/meet/room/?m=' + r.meeting.id }; }); };
     if (!window.FavorPrejoin) { create().then(function (r) { location.href = r.url; }).catch(function (err) { toast(err.message); }); return; }
     window.FavorPrejoin.open({
       title: 'New meeting',

@@ -54,7 +54,7 @@
       var ids = [];
       root.querySelectorAll('.ch-msg[data-mid]').forEach(function (el) {
         var id = el.getAttribute('data-mid'), m = app.find(id);
-        if (!m || m.deleted || m.user_id === S.me.id || m.user_id === 'brain' || m.user_id === 'meetings') return;
+        if (!m || m.deleted || m.user_id === S.me.id || m.user_id === 'brain' || m.user_id === 'meetings' || m.user_id === 'gifts') return;
         var voice = (m.attachments || []).filter(function (a) { return a.voice && a.transcript_status === 'ready' && a.transcript; }).length;
         if (!m.body && !voice) return;
         var key = S.lang + '|' + id + '|' + m.body + '|' + voice;
@@ -140,7 +140,7 @@
   }
 
   /* ------------------------------------------------------------------ turn a message into something */
-  function plainOf(m) { return String(m.body || '').replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : app.user(id).name); }).replace(/\*\*|~~/g, '').replace(/\s+/g, ' ').trim(); }
+  function plainOf(m) { return String(m.body || '').replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : id === 'here' ? 'here' : app.user(id).name); }).replace(/\*\*|~~/g, '').replace(/\s+/g, ' ').trim(); }
   function turnMenu(id) {
     var m = app.find(id); if (!m) return;
     var first = (plainOf(m).split(/(?<=[.!?])\s/)[0] || plainOf(m)).slice(0, 140);

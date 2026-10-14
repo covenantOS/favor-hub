@@ -295,7 +295,8 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   if (startsAt && Date.parse(startsAt) < Date.now() - 5 * 60000) throw new HttpError(400, 'past', 'That start time has passed. Pick a later time.');
   const dur = Math.min(480, Math.max(10, Number(b.durationMin) || 60));
   const rec = ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : 'video'; // Will, 2026-10-13: every meeting records notes and video unless the host turns it off
-  const access = ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : startsAt ? 'invited' : 'staff';
+  // 2026-10-14: no explicit choice means invited (the host, invitees and people the host lets in). Staff-wide only when the host picks it.
+  const access = ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : 'invited';
   const rawInvitees = Array.isArray(b.invitees)
     ? (b.invitees as Array<Record<string, unknown>>).slice(0, 200).map((i) => ({ email: clean(i.email, 200).toLowerCase(), name: clean(i.name, 120), team: clean(i.team, 80), guest: !!i.guest })).filter((i) => i.email)
     : [];
@@ -1286,7 +1287,7 @@ async function pumpNext(env: MeetEnv, user: { email: string; role: string }) {
   const me = user.email.toLowerCase();
   const row = await env.DB.prepare(
     `SELECT id FROM hub_meetings WHERE status = 'ended' AND (rec_state = 'uploading' OR notes_status = 'pending')
-       AND (lower(host_email) = ? OR ? = 'admin' OR lower(invitees) LIKE '%' || ? || '%' OR access IN ('staff','guests'))
+       AND (lower(host_email) = ? OR ? = 'admin' OR lower(invitees) LIKE '%' || ? || '%' OR access = 'staff')
      ORDER BY ended_at LIMIT 1`
   ).bind(me, user.role, me).first<{ id: string }>();
   if (!row) return { ok: true, done: true, state: 'idle', progress: '' };

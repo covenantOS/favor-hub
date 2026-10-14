@@ -234,6 +234,7 @@
     function user(id) {
       if (id === 'brain') return { id: 'brain', name: 'Favor Brain', brain: true };
       if (id === 'meetings') return { id: 'meetings', name: 'Favor Meetings', sys: 'video' };
+      if (id === 'gifts') return { id: 'gifts', name: 'Favor Gifts', sys: 'spark' };
       return S.users[id] || { id: id, name: String(id || '').split('@')[0] || 'Someone', color: COLORS[hash(String(id)) % 7] };
     }
     function avatar(u, size, dot) {
@@ -291,6 +292,7 @@
       t = t.replace(/&lt;@([^&\s]+?)&gt;/g, function (_, id) {
         if (id === 'brain') return '<span class="ch-at ch-at--brain">@Favor Brain</span>';
         if (id === 'all' || id === 'channel') return '<span class="ch-at ch-at--me">@channel</span>';
+    if (id === 'here') return '<span class="ch-at ch-at--me">@here</span>';
         return '<span class="ch-at' + (id === S.me.id ? ' ch-at--me' : '') + '" data-entity="person:' + esc(id) + '" data-label="' + esc(user(id).name) + '" tabindex="0">@' + esc(user(id).name) + '</span>';
       });
       t = t.replace(/&lt;~([pf]):(\d{1,12})\|(.{1,160}?)&gt;/g, function (_, k, id, name) {
@@ -652,7 +654,7 @@
         '<button type="button" class="ch-pinbar__add" data-act="bm-add" aria-label="Add a bookmark" title="Add a bookmark">' + ic('plus') + '</button>');
     }
     function plain(body) {
-      return String(body || '').replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : user(id).name); }).replace(/<#([^>]+)>/g, function (_, id) { var c = chan(id); return '#' + (c ? c.name : 'channel'); });
+      return String(body || '').replace(/<~[pf]:\d+\|([^>]+)>/g, '$1').replace(/<@([^>]+)>/g, function (_, id) { return '@' + (id === 'brain' ? 'Favor Brain' : id === 'channel' || id === 'all' ? 'channel' : id === 'here' ? 'here' : user(id).name); }).replace(/<#([^>]+)>/g, function (_, id) { var c = chan(id); return '#' + (c ? c.name : 'channel'); });
     }
     function excerptOf(m) {
       var t = plain(m.body).trim();
@@ -833,7 +835,7 @@
         if (S.tab === 'about') {
           det = '<h4>Topic</h4>' + (canEdit ? '<input class="ch-input" data-topic value="' + esc(c.topic || '') + '" placeholder="Add a topic" maxlength="200" aria-label="Topic" />' : '<p>' + esc(c.topic || 'None') + '</p>') +
             '<h4>Created</h4><p>' + esc(fmtShort.format(new Date(c.created_at || Date.now()))) + (c.created_by ? ' by ' + esc(user(c.created_by).name) : '') + '</p>' +
-            (canEdit ? '<h4>Visibility</h4><p>' + (c.kind === 'private' ? 'Private. Only the members below can read it.' : 'Public. Any admin can find and join it.') + '</p>' : '') +
+            (canEdit ? '<h4>Visibility</h4><p>' + (c.kind === 'private' ? 'Private. Only the members below can read it.' : 'Public. Anyone on staff can find and join it.') + '</p>' : '') +
             '<div class="ch-det__acts">' + (c.kind !== 'dm' ? '<button type="button" class="ch-btn ch-btn--danger" data-act="leave">' + ic('out') + 'Leave ' + (c.kind === 'group' ? 'conversation' : 'channel') + '</button>' : '') + '<button type="button" class="ch-btn" data-act="mute">' + ic('bell') + (c.muted ? 'Unmute' : 'Mute') + '</button></div>';
         } else if (S.tab === 'members') {
           det = (c.kind === 'dm' ? '' : '<button type="button" class="ch-btn ch-btn--sm" data-act="add-members" style="margin-bottom:8px">' + ic('plus') + 'Add people</button>') + members.map(function (u) {
@@ -1529,6 +1531,7 @@
       var ids = (c.kind === 'public' ? Object.keys(S.users) : (c.members || [])).filter(function (id) { return id !== S.me.id; });
       var out = [{ id: 'brain', name: 'Favor Brain', sub: 'Ask a question about Favor records', brain: true }];
       if (c.kind === 'public' || c.kind === 'private' || c.kind === 'group') out.push({ id: 'channel', name: 'channel', sub: 'Notify everyone here', special: true });
+      if ((c.kind === 'public' || c.kind === 'private' || c.kind === 'group') && S.me && S.me.admin) out.push({ id: 'here', name: 'here', sub: 'Urgent: everyone, even in quiet hours', special: true });
       ids.forEach(function (id) { var u = user(id); out.push({ id: id, name: u.name, sub: u.title || '', u: u }); });
       var people = out.filter(function (o) { return !q || o.name.toLowerCase().indexOf(q) >= 0; }).slice(0, 7);
       return people.concat((window.FavorChatSmart && window.FavorChatSmart.hits(q)) || []);

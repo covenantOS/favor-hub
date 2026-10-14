@@ -330,7 +330,7 @@ async function boot(env: ChatRouteEnv, user: HubUser) {
   const [bars, threads] = await Promise.all([more.barsFor(env, channels.map((c) => c.id)), more.threadUnreadTotal(env, me)]);
   const withBars = channels.map((c) => ({ ...c, pins: bars.pins.get(c.id) || 0, bookmarks: bars.bookmarks.get(c.id) || [] }));
   return {
-    ok: true, me: people[me] || { id: me, name: user.name, picture: user.picture, title: '', presence: 'online' }, users: people, channels: withBars, mode, live: !!env.CHAT_ROOM,
+    ok: true, me: { ...(people[me] || { id: me, name: user.name, picture: user.picture, title: '', presence: 'online' }), admin: user.role === 'admin' }, users: people, channels: withBars, mode, live: !!env.CHAT_ROOM,
     threads_unread: threads, features: { pins: bars.ready, plus: await plus.plusReady(env) }, lang: await getLang(env, me), langs: LANGS, status: await plus.statusMap(env),
   };
 }
@@ -461,7 +461,7 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   // A direct message to someone out of office: the writer sees a private note saying so.
   if (!hidden) ctx.waitUntil(plus.awayNote(env, posted.message, posted.channel, posted.members).then((n) => (n ? publish(env, [me], { type: 'message', message: n }) : undefined)));
   // A direct message or a mention reaches a locked phone (web push). Muted conversations were left out of notify already.
-  ctx.waitUntil(pushForPost(env, { notify: posted.notify, channel: posted.channel, senderName: user.name || me, text: text, messageId: posted.message.id, threadId }, ctx.fetcher || fetch).catch((err) => console.warn('[chat] push', err)));
+  ctx.waitUntil(pushForPost(env, { notify: posted.notify, channel: posted.channel, senderName: user.name || me, text: text, messageId: posted.message.id, threadId, urgent: user.role === 'admin' && parseMentions(text).here }, ctx.fetcher || fetch).catch((err) => console.warn('[chat] push', err)));
   // "Also send to the channel": the reply shows in the channel too, with a line naming the thread it answers.
   if (threadId && input.also === true && !hidden) {
     const dir = await directory(env, await chatMode(env), user);
@@ -589,10 +589,10 @@ async function startMeeting(ctx: Ctx, user: HubUser, channelId: string): Promise
   const dir = await directory(env, await chatMode(env), user);
   const others = members.filter((m) => m !== me).map((m) => (dir[m]?.name || m).split(' ')[0]);
   const title = ch.kind === 'public' || ch.kind === 'private' ? `Huddle in #${ch.name}` : others.length ? `Huddle with ${others.join(', ')}` : 'Huddle';
-  const isOpen = ch.kind === 'public';
+  // 2026-10-14: every huddle is invited-only (the channel's members), public channels included, so its notes never open to all staff.
   const made = (await createMeeting(env as unknown as MeetEnv, { email: me, name: user.name }, {
-    title, access: isOpen ? 'staff' : 'invited', rec: 'video', notify: false,
-    invitees: isOpen ? [] : members.filter((m) => m !== me).map((m) => ({ email: m, name: dir[m]?.name || m })),
+    title, access: 'invited', rec: 'video', notify: false,
+    invitees: members.filter((m) => m !== me && !SYSTEM_VOICES.has(m)).map((m) => ({ email: m, name: dir[m]?.name || m })),
   }, new URL(request.url).origin)) as { meeting: { id: string } };
   const mid = made.meeting.id;
   const posted = await store.post(env, { channel_id: ch.id, email: me, body: '', attachments: [{ type: 'meeting', id: mid }] });

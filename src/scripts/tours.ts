@@ -629,6 +629,15 @@ export const RELEASES: Release[] = [
             phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]' },
           },
           {
+            id: 'n-chat-slash',
+            page: '/chat/',
+            at: '.ch-main .ch-comp__box',
+            title: 'Slash commands',
+            body: 'Start with / for /remind, /schedule, /scheduled, /todo, /poll, /meet, /status, /away and /back. Help > Chat lists what each one does.',
+            side: 'top',
+            phone: { press: '.ch-sec[data-sec="channels"] .ch-row[data-act="open"]' },
+          },
+          {
             id: 'n-chat-huddle',
             page: '/chat/',
             at: '.ch-head .ch-btn--meet',

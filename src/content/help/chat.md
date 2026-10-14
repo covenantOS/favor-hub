@@ -6,7 +6,7 @@ order: 7
 related: [meetings, clips, ask-favor, whats-new]
 tool: /chat/
 toolLabel: Open Chat
-updated: 2026-10-13
+updated: 2026-10-14
 ---
 
 Chat is where the team talks inside FavorOS. Admin > Chat sets who can use it.
@@ -78,6 +78,22 @@ Press **Ctrl K** in Chat, or **Jump to or search** at the top of the list, to ju
 ## Slash commands and requests
 
 Start a message with **/** for FavorOS's own commands: **/brain** and a question, **/request** and a summary for a request board card, **/huddle**, and **/clip** to record a clip. **Make a request** in the plus menu and **Create a request from this message** in a message's menu do the same. The card posts in the conversation, a reply under it is a comment on the request, and pressing the card opens the request on top of the chat with its comments.
+
+## Reminders, scheduled messages, checklists and polls
+
+Type these at the start of a message. Times are Eastern.
+
+- **/remind** me tomorrow 9am to call Grace. The reminder comes to your bell. **/remind #channel friday 3pm send the photos** or **/remind @person** posts it there instead.
+- **/schedule** monday 8am and the message. It posts then, as you. Only you see the note that it is waiting.
+- **/scheduled** lists what you have waiting, with Cancel on each.
+- **/todo** Event prep: book the venue @Grace fri; print programs; call the church. Each line becomes a Projects task, and anyone in the conversation can tick it off.
+- **/poll** Which day for the staff lunch? | Tuesday | Wednesday | Thursday. Put **multi** after /poll to allow more than one pick.
+- **/meet** tomorrow 10am Budget review. Everyone in the conversation is invited and the notes come back to it. For a call right now, use **/huddle**.
+- **/status** In Uganda until friday sets the line under your name. **/away** until monday marks you out of office, and a direct message to you gets a note saying so. **/back** clears both.
+
+## Quiet hours
+
+From 8 PM to 7 AM in your own time zone, FavorOS holds phone notices and email about chat, requests and project tasks. The bell still lists everything as it comes in. When your quiet hours end you get one email and one phone notice that sum up what came in. To change the hours, add whole weekends, or turn quiet hours off, open the bell and use **Quiet hours** (on the older pages, the bell's **Settings**). An admin can type **@here** for something urgent, and that message reaches everyone in the channel at once, quiet hours or not.
 
 ## Notices
 

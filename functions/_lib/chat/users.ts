@@ -22,7 +22,7 @@ export async function directory(env: Env, mode: ChatMode, me: HubUser): Promise<
   const out: Record<string, PersonOut> = {};
   for (const u of r.results || []) {
     const id = u.email.toLowerCase();
-    if (id === BRAIN_ID || id === MEETINGS_ID) continue;
+    if (id === BRAIN_ID || id === MEETINGS_ID || id === 'gifts') continue;
     // The test users are in no real person's list and see only each other, so they cannot message staff.
     if (isTester(id) !== isTester(me.email)) continue;
     out[id] = { id, name: u.name || id.split('@')[0], picture: u.picture || '', title: u.title || '' };

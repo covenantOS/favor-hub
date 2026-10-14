@@ -5,6 +5,7 @@
 //   3. the person's own choice in request_email_prefs: now (one email per event), daily (a summary each weekday morning) or off.
 // request_email_log takes a row per notice before the send, so one notice is never emailed twice. The person who acted gets no
 // notice, so they get no email. Before db/request-email.sql is applied nothing is sent.
+import { holdIfQuiet } from '../quiet';
 import { nowIso, type Env } from '../http';
 import { effective } from '../admin/settings';
 import { getRequest } from '../db';
@@ -114,6 +115,11 @@ export async function mailNotices(env: TaskEnv, requestId: string, actor: Actor,
     if (!gate(n.email) || n.email === actor.email) continue;
     if ((await mailMode(env, n.email)) !== 'now') continue;
     if (!(await lock(env, n.id, n.email, 'now'))) continue;
+    // Quiet hours (quiet.ts): held for the morning summary instead.
+    if (await holdIfQuiet(env, n.email, { kind: 'request', title: `${personOf(dir, actor.email, actor.name).name}: ${request.title}`, body: (n.kind === 'due' ? '' : plainMentions(n.note, dir)).slice(0, 200), url: `/requests/?r=${encodeURIComponent(requestId)}` }, env.CLOCK || new Date()).catch(() => false)) {
+      await env.DB.prepare(`UPDATE request_email_log SET state = 'held' WHERE notice_id = ?`).bind(n.id).run();
+      continue;
+    }
     // The thread before this entry: every comment but the one this notice is about.
     const noteText = n.kind === 'due' ? '' : plainMentions(n.note, dir);
     const earlier: MailEntry[] = comments
