@@ -8,6 +8,7 @@ import '../styles/feel.css';
 import '../styles/elevate.css';
 import '../styles/phone.css';
 import '../styles/settle.css';
+import '../styles/motion.css';
 import '../styles/clipbtn.css';
 import '../styles/partner.css';
 import '../styles/comm-picture.css';
@@ -43,6 +44,7 @@ import '../styles/nav-areas.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
 import liteJs from '../../public/js/lite.js?raw';
+import motionJs from '../../public/js/hub-motion.js?raw';
 
 interface Props {
   title: string;
@@ -105,6 +107,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <meta name="hub-build" content={BUILD} />
     <script is:inline set:html={hubOwn}></script>
     <script is:inline set:html={liteJs}></script>
+    <script is:inline set:html={motionJs}></script>
     <script is:inline src="/js/net-guard.js?v=2"></script>
     <script is:inline src="/js/app-update.js?v=3" defer></script>
     <script is:inline>
@@ -487,7 +490,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/request-drawer.js?v=3" defer></script>
     <script is:inline src="/js/integrations.js?v=2" defer></script>
     <script is:inline src="/js/wc-bell.js?v=11" defer></script>
-    <script is:inline src="/js/dock.js?v=2" defer></script>
+    <script is:inline src="/js/dock.js?v=3" defer></script>
     <script is:inline src="/js/ring.js?v=1" defer></script>
     <script is:inline src="/js/handoff.js?v=1" defer></script>
     <script is:inline src="/js/ask-brain.js?v=1" defer></script>

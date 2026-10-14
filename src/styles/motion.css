@@ -1,0 +1,98 @@
+/* ====================================================================
+   How FavorOS moves (2026-10-14). Will: "It's okay if things take a few seconds to load. The feel needs to be smooth."
+   One small set of motion tokens, and the rules that keep a page still while it fills in:
+   - pages change with a short fade, the rail, header and phone bar held still (view transitions for a full load, hub-swap.js
+     for a swap);
+   - content that replaces a skeleton fades in where the skeleton was, never rises or slides (hub-motion.js adds .m-in);
+   - skeletons pulse on opacity, which the compositor draws without repainting;
+   - fallback fonts carry Inter's and Playfair's measurements, so text does not reflow when the web font lands;
+   - nothing moves when the computer asks for less motion.
+   Use the tokens in new CSS: transition: opacity var(--m-base) var(--m-out).
+   ==================================================================== */
+
+:root {
+  --m-fast: 120ms;   /* presses, hovers, a menu closing */
+  --m-base: 180ms;   /* content arriving, a menu or popover opening */
+  --m-slow: 260ms;   /* sheets and panels sliding in */
+  --m-out: cubic-bezier(0.22, 1, 0.36, 1);  /* things arriving: quick start, soft landing */
+  --m-in: cubic-bezier(0.4, 0, 1, 1);       /* things leaving */
+  --m-std: cubic-bezier(0.2, 0, 0, 1);      /* things moving from one place to another */
+}
+
+/* ------------------------------------------------------------ fonts */
+/* Local fonts sized to the web fonts' measurements (computed from the woff2 files against Arial, Georgia and Times New Roman).
+   Text drawn before the web font arrives takes the same room, so swapping it in moves nothing. */
+@font-face { font-family: 'Inter Fallback'; src: local('Arial'), local('ArialMT'), local('Helvetica'); size-adjust: 108.09%; ascent-override: 89.63%; descent-override: 22.32%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback'; src: local('Georgia'); size-adjust: 101.5%; ascent-override: 106.6%; descent-override: 24.73%; line-gap-override: 0%; }
+@font-face { font-family: 'Playfair Fallback Times'; src: local('Times New Roman'), local('TimesNewRomanPSMT'); size-adjust: 110.15%; ascent-override: 98.23%; descent-override: 22.79%; line-gap-override: 0%; }
+:root {
+  --h-font: 'Inter', 'Inter Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --h-serif: 'Playfair Display', 'Playfair Fallback', 'Playfair Fallback Times', ui-serif, Georgia, serif;
+}
+
+/* ------------------------------------------------------------ page changes */
+/* A full page load: the old page fades out fast, the new one fades in, and the rail, header and phone bar stay where they are.
+   The two never show at once at any strength (the cross-fade that showed Today under Chat read as the wrong screen first). */
+@view-transition { navigation: auto; }
+.h-side { view-transition-name: hub-side; }
+.h-top { view-transition-name: hub-top; }
+#h-bar { view-transition-name: hub-bar; }
+::view-transition-group(*) { animation-duration: 0s; }
+::view-transition-old(root) { animation: m-out 90ms var(--m-in) both; }
+::view-transition-new(root) { animation: m-in var(--m-base) var(--m-out) 60ms both; }
+/* The phone menu is a drawer over the page: when it is open it is not a fixed part of the frame. */
+.h-app.is-nav .h-side { view-transition-name: none; }
+
+@keyframes m-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes m-arrive { from { opacity: 0.4; } to { opacity: 1; } }
+@keyframes m-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* A swapped page: the old body steps back at once, the new one fades up from there (hub-swap.js). */
+body.h-body #h-content.is-leaving { opacity: 0.4; transition: opacity var(--m-fast) var(--m-in); }
+body.h-body .h-page > :not([role='status'], [role='alert'], [aria-live], dialog, script, style),
+body.h-body .h-bare > :not([role='status'], [role='alert'], [aria-live], dialog, script, style) { animation: m-arrive var(--m-base) var(--m-out); }
+
+/* Cards that arrive with data fade in place. They used to rise 14 px one after another over half a second, which read as the
+   page shaking after it had loaded. */
+@keyframes h-rise { from { opacity: 0; } to { opacity: 1; } }
+body.h-body :is(.h-todo, .h-day__card, .hd-vid, .hd-topic, .hd-card, .fbp-item) { animation: h-rise var(--m-base) var(--m-out) both; animation-delay: 0ms !important; }
+
+/* Content a script put in place of a skeleton (hub-motion.js). */
+.m-in { animation: m-in var(--m-base) var(--m-out) both; }
+
+/* ------------------------------------------------------------ skeletons */
+/* One pulse for every skeleton, on opacity only. The old shimmers moved a background gradient, which repaints every frame and
+   stutters on a slow phone. */
+.h-skel, .r2t-skel, .ob-skel, .ch-skel, .rq-skel, .pj-skel, .cf-skel, .req-skel, .wh-skel, .wg-skel, .hq-skel, .rcp-skel, .pp-skel,
+.wc-skelrow, .wc-skelbar, .req-skel-card, .rc-skel, .pr-skel, .pj-skel-line, .lp__skel i, .dr-skel, .m-skel {
+  animation: m-pulse 1.4s ease-in-out infinite !important;
+  background-position: 0 0 !important;
+}
+/* The single placeholder a swapped page waits behind (hub-swap.js settle, nav-areas.css) pulses like the rest. */
+html body.h-body #h-content.is-settling::before { background: color-mix(in srgb, var(--h-line, #e8e4dc) 45%, transparent); animation: m-pulse 1.4s ease-in-out infinite; }
+
+/* The placeholder in a container hub-motion.js holds open at its last height, while nothing else is in it. */
+[data-kh]:empty, [data-kh][hidden] { display: block !important; }
+[data-kh]:empty::before, .m-skel { content: ''; display: block; width: 100%; min-height: inherit; border-radius: var(--h-radius, 16px); background: color-mix(in srgb, var(--h-line, #e8e4dc) 55%, transparent); animation: m-pulse 1.4s ease-in-out infinite; }
+
+/* A held container that was empty last time stays collapsed while it holds only its skeleton (hub-motion.js). */
+[data-kh-zero]:not(:has(> :not([class*="skel"]))) { display: none !important; }
+
+/* The phone's More sheet closing (hub-motion.js): the real sheet hides at once while a still copy slides away. */
+body.h-body .h-side.m-nav-gone { visibility: hidden !important; transition: none !important; }
+body.h-body .m-ghost .h-side { transform: none; visibility: visible; }
+
+/* The KPI dashboard's cover: the page's own colour (it was a white box on the cream page), and it fades away when the
+   dashboard's numbers are in (dashboard/index.astro). */
+body.h-body .h-frame-wait { background: var(--h-bg, #faf8f4); opacity: 1; transition: opacity var(--m-base) var(--m-out); }
+body.h-body .h-frame-wait.is-done { opacity: 0; }
+
+/* ------------------------------------------------------------ less motion */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+  body.h-body #h-content.is-leaving { transition: none; }
+  body.h-body :is(.h-page > *, .h-bare > *, .m-in, .h-todo, .h-day__card, .hd-vid, .hd-topic, .hd-card, .fbp-item) { animation: none !important; }
+  .h-skel, .r2t-skel, .ob-skel, .ch-skel, .rq-skel, .pj-skel, .cf-skel, .req-skel, .wh-skel, .wg-skel, .hq-skel, .rcp-skel, .pp-skel,
+  .wc-skelrow, .wc-skelbar, .req-skel-card, .rc-skel, .pr-skel, .pj-skel-line, .lp__skel i, .dr-skel, .m-skel, [data-kh]:empty::before, html body.h-body #h-content.is-settling::before { animation: none !important; }
+}
