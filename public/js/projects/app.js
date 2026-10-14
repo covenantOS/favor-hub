@@ -340,6 +340,16 @@ async function start() {
   installTips();
   const root = document.getElementById('pj-root');
   if (!root) return;
+  // Asana users connect Asana before Projects opens, so their edits reach Asana under their own name. The link brings them back here.
+  if (!qs.get('mock')) {
+    const me = await fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
+    if (me && me.required && !me.connected) {
+      const back = location.pathname + location.search;
+      root.innerHTML = `<section class="pj-connect"><h1>Connect Asana to use Projects</h1><p>Your edits in Projects sync to Asana under your name.</p><a class="pj-connect__btn" href="/api/asana/oauth/connect?back=${encodeURIComponent(back)}">Connect Asana</a><p class="pj-connect__t">This takes 10 seconds.</p></section>`;
+      root.setAttribute('data-ready', '1');
+      return;
+    }
+  }
   root.innerHTML = '';
   root.setAttribute('data-ready', '1');
   PJ.openTask = (ref) => (PJ.ctx ? openDrawer(PJ.ctx, ref) : openDrawer(PJ.homeCtx, ref));

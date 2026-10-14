@@ -4,11 +4,11 @@
 //   GET  oauth/callback         Asana sends the person back here (open at the middleware; the signed state names the person)
 //   GET  oauth/me, DELETE oauth/me   this person's connection
 //   POST run                    the scheduled pass (agent key only)
-//   GET  admin, POST admin {sync: on|off}, POST admin/project {gid, enabled}   Admin > Projects (admins)
+//   GET  admin, POST admin {sync: on|off, require: on|off, extra: [emails], skip: [emails]}, POST admin/project {gid, enabled}   Admin > Projects (admins)
 import { HttpError, errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { projectsActor } from '../../_lib/projects/access';
-import { AsanaError, adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
+import { AsanaError, mustConnect, setRequire, adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
 import { connection, connectUrl, disconnect, finishConnect, tokenFor } from '../../_lib/projects/sync-oauth';
 
 export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
@@ -38,7 +38,7 @@ export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
       return Response.redirect(to, 302);
     }
     if (a === 'oauth' && b === 'me') {
-      if (method === 'GET') return json({ ok: true, ...(await connection(env, actor.email)) });
+      if (method === 'GET') return json({ ok: true, ...(await connection(env, actor.email)), required: await mustConnect(env, actor.email).catch(() => false) });
       if (method === 'DELETE') {
         await disconnect(env, actor.email);
         return json({ ok: true, connected: false });
@@ -54,8 +54,11 @@ export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
       if (!b && method === 'GET') return json({ ok: true, ...(await adminState(env)) });
       const body: any = await request.json().catch(() => ({}));
       if (!b && method === 'POST') {
-        if (body.sync !== 'on' && body.sync !== 'off') throw new HttpError(400, 'bad_sync', 'sync is on or off.');
-        await setSync(env, actor.email, body.sync === 'on');
+        if (body.sync !== undefined) {
+          if (body.sync !== 'on' && body.sync !== 'off') throw new HttpError(400, 'bad_sync', 'sync is on or off.');
+          await setSync(env, actor.email, body.sync === 'on');
+        }
+        if (body.require !== undefined || body.extra !== undefined || body.skip !== undefined) await setRequire(env, actor.email, body);
         return json({ ok: true, ...(await adminState(env)) });
       }
       if (b === 'project' && method === 'POST') {

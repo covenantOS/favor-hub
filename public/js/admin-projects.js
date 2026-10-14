@@ -43,7 +43,7 @@
       '<div class="ad-acts ap-left"><button type="button" class="ad-btn ad-btn--primary" data-act="save-token">Save token</button>' +
       '<button type="button" class="ad-btn" data-act="test"' + (t.saved ? '' : ' disabled') + '>Connect and test</button>' +
       (t.saved ? '<button type="button" class="ad-btn" data-act="remove-token">Remove token</button>' : '') + '<p class="ad-msg" data-msg="token" role="status"></p></div>' +
-      '<p class="ad-card__meta">FavorOS only reads from Asana. It never creates, changes or comments on anything there.</p></section>';
+      '<p class="ad-card__meta">The import only reads from Asana. The Asana sync below writes to the projects it syncs.</p></section>';
   }
 
   /* ----------------------------------------------------------------------------------------------------- the picker */

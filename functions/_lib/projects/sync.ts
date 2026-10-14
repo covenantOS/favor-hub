@@ -615,7 +615,7 @@ export async function pumpOutbox(env: Env, max = 40, ctxIn?: SyncCtx): Promise<{
     } catch (err) {
       const msg = String((err as Error).message || err).slice(0, 300);
       const give = r.tries >= 6 || (err instanceof AsanaError && err.status >= 400 && err.status < 500 && err.status !== 429 && err.status !== 404);
-      const next = new Date(Date.now() + (err instanceof RateLimited ? err.waitSec * 1000 : Math.min(3600, 30 * 2 ** r.tries) * 1000)).toISOString();
+      const next = new Date(Date.now() + (err instanceof RateLimited ? err.waitSec * 1000 : /^retry:/.test(msg) ? 8000 : Math.min(3600, 30 * 2 ** r.tries) * 1000)).toISOString();
       await env.DB.prepare('UPDATE hub_asana_outbox SET status = ?, next_at = ?, error = ? WHERE id = ?').bind(give ? 'failed' : 'queued', next, msg, r.id).run();
       if (give) c.log.push({ dir: 'error', hub: r.hub_id, text: `${r.kind}: ${msg}` });
       failed++;
@@ -833,6 +833,7 @@ export async function runPass(env: Env): Promise<Record<string, unknown>> {
   const c = await newCtx(env);
   const out: Record<string, unknown> = {};
   try {
+    out.asana_users = await refreshAsanaUsers(env, c).catch((err) => `failed: ${String((err as Error).message).slice(0, 120)}`);
     out.outbox = await pumpOutbox(env, 40, c);
     out.inbox = await pumpInbox(env, 40, c);
     const sps = (await syncRows(env)).filter((s) => s.enabled);
@@ -975,6 +976,11 @@ export async function adminState(env: Env) {
       inbox: await q("SELECT COUNT(*) AS n FROM hub_asana_inbox WHERE status IN ('queued','working')"),
     },
     connected: await q('SELECT COUNT(*) AS n FROM hub_asana_oauth'),
+    require: await (async () => {
+      const r = await requiredPeople(env);
+      const con = new Set(((await env.DB.prepare('SELECT email FROM hub_asana_oauth').all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }))).results || []).map((x) => lower(x.email)));
+      return { ...r, people: r.emails.map((e) => ({ email: e, connected: con.has(e) })) };
+    })(),
     log: ((await env.DB.prepare('SELECT at, dir, gid, hub_id, text FROM hub_asana_sync_log ORDER BY id DESC LIMIT 60').all().catch(() => ({ results: [] }))).results || []),
   };
 }
@@ -1029,4 +1035,86 @@ export async function setProjectSync(env: Env, actor: string, gid: string, on: b
   await audit(env, { actor, area: 'projects', key: `projects.asana.sync.${gid}`, label: `Asana sync: ${row?.name || gid}`, before: null, after: on ? 'on' : 'off' });
   await writeLog(env, [{ dir: 'info', gid, text: `sync ${on ? 'on' : 'off'} by ${actor}` }]);
   return (await env.DB.prepare('SELECT * FROM hub_asana_sync_projects WHERE project_gid = ?').bind(gid).first<SyncProject>())!;
+}
+
+/* ------------------------------------------------------------------------------- who must connect Asana first */
+
+export const REQUIRE_KEY = 'projects.asana.require_connect';
+const USERS_KEY = 'projects.asana.users';
+const EXTRA_KEY = 'projects.asana.require_extra';
+const SKIP_KEY = 'projects.asana.require_skip';
+const TESTER = /^tester2?@favorintl\.org$/;
+
+async function listSetting(env: Env, key: string): Promise<string[]> {
+  try {
+    const v = JSON.parse((await hubGet(env, key).catch(() => null))?.value || '[]');
+    return Array.isArray(v) ? v.map(lower).filter(Boolean) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Everyone in Will's Asana workspace and on the synced projects, by email. Read again every 12 hours by the pass. */
+async function refreshAsanaUsers(env: Env, c: SyncCtx): Promise<number | string> {
+  const have = (await hubGet(env, USERS_KEY).catch(() => null))?.value;
+  try {
+    if (have && Date.now() - Date.parse(JSON.parse(have).at) < 12 * 3600000) return 'fresh';
+  } catch {
+    // read again
+  }
+  const emails = new Set<string>();
+  const me = await c.pat.req('GET', '/users/me?opt_fields=workspaces.name');
+  for (const w of me.workspaces || []) {
+    let offset: string | null = null;
+    do {
+      const r: any = await c.pat.req('GET', `/users?workspace=${w.gid}&limit=100&opt_fields=email${offset ? `&offset=${offset}` : ''}`);
+      for (const u of r.data || []) if (u.email) emails.add(lower(u.email));
+      offset = r.next;
+    } while (offset);
+  }
+  for (const sp of (await syncRows(env)).filter((s) => s.enabled)) {
+    const p = await c.pat.req('GET', `/projects/${sp.project_gid}?opt_fields=members.email`);
+    for (const m of p.members || []) if (m.email) emails.add(lower(m.email));
+  }
+  await hubPut(env, USERS_KEY, JSON.stringify({ at: nowIso(), emails: [...emails].filter((e) => /@favorintl\.org$/.test(e)).sort() }), 'system');
+  return emails.size;
+}
+
+/** Who must connect Asana before Projects opens: Asana users and the Marketing team, plus the extra list, less the skip list. */
+export async function requiredPeople(env: Env): Promise<{ on: boolean; mode: string; emails: string[]; extra: string[]; skip: string[]; asana_at: string }> {
+  // on: everyone below. test: only the added list, to try the screen without touching real staff.
+  const mode = (await hubGet(env, REQUIRE_KEY).catch(() => null))?.value || 'off';
+  const on = mode === 'on' || mode === 'test';
+  const extra = await listSetting(env, EXTRA_KEY);
+  const skip = new Set(await listSetting(env, SKIP_KEY));
+  let asana: string[] = [];
+  let at = '';
+  try {
+    const j = JSON.parse((await hubGet(env, USERS_KEY).catch(() => null))?.value || '{}');
+    asana = Array.isArray(j.emails) ? j.emails : [];
+    at = j.at || '';
+  } catch {
+    asana = [];
+  }
+  const mk = ((await env.DB.prepare("SELECT email FROM meet_directory WHERE team = 'Marketing' AND active = 1").all<{ email: string }>().catch(() => ({ results: [] as { email: string }[] }))).results || []).map((r) => lower(r.email));
+  const all = new Set<string>([...asana, ...mk].filter((e) => !TESTER.test(e)));
+  for (const e of extra) all.add(e);
+  const emails = mode === 'test' ? extra : [...all].filter((e) => !skip.has(e)).sort();
+  return { on, mode, emails, extra, skip: [...skip], asana_at: at };
+}
+
+export async function mustConnect(env: Env, email: string): Promise<boolean> {
+  const r = await requiredPeople(env);
+  return r.on && r.emails.includes(lower(email));
+}
+
+export async function setRequire(env: Env, actor: string, b: { require?: unknown; extra?: unknown; skip?: unknown }): Promise<void> {
+  const clean = (v: unknown) => JSON.stringify([...new Set((Array.isArray(v) ? v : String(v || '').split(/[\s,]+/)).map(lower).filter((e) => /^[^@\s]+@[^@\s]+$/.test(e)))]);
+  if (b.require === 'on' || b.require === 'off' || b.require === 'test') {
+    const before = (await hubGet(env, REQUIRE_KEY).catch(() => null))?.value || 'off';
+    await hubPut(env, REQUIRE_KEY, b.require, actor);
+    await audit(env, { actor, area: 'projects', key: REQUIRE_KEY, label: 'Connect Asana before Projects', before, after: b.require });
+  }
+  if (b.extra !== undefined) await hubPut(env, EXTRA_KEY, clean(b.extra), actor);
+  if (b.skip !== undefined) await hubPut(env, SKIP_KEY, clean(b.skip), actor);
 }

@@ -102,3 +102,8 @@
 }
 .pj-col__h .pj-sec__n { white-space: nowrap; flex: none; }
 .pj-asana-connect { color: var(--a-ink); font-weight: 600; text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
+.pj-connect { max-width: 440px; margin: 12vh auto 0; padding: 32px 24px; text-align: center; }
+.pj-connect h1 { margin: 0 0 10px; font-size: 24px; }
+.pj-connect p { margin: 0 0 20px; font-size: 15px; color: var(--r-ink-2, #555); }
+.pj-connect__btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 24px; border-radius: 12px; background: var(--a-ink, #1d5c3a); color: #fff; font-weight: 600; font-size: 16px; text-decoration: none; }
+.pj-connect .pj-connect__t { margin: 14px 0 0; font-size: 13px; color: var(--r-ink-3, #777); }
