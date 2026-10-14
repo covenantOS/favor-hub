@@ -2212,8 +2212,15 @@ async function reconcile() {
       drop.forEach((k) => { const r = remote.get(k); if (r && r.el) r.el.remove(); remote.delete(k); });
     }
     let failed = false;
-    for (let i = 0; i < add.length; i += 16) {
-      const batch = add.slice(i, i + 16);
+    // Sound first, and people with a fresh heartbeat in their own requests ahead of anyone gone quiet for a few seconds: a pull
+    // that names a closed browser's session makes the SFU hold that whole request for about 8 seconds.
+    const ageOf = (pid) => { const p = S.people.find((x) => x.pid === pid); return p && p.seenAgo != null ? p.seenAgo : 0; };
+    const first = (a) => a.slice().sort((x, y) => (x.kind === 'audio' ? 0 : 1) - (y.kind === 'audio' ? 0 : 1));
+    const batches = [];
+    const fresh = first(add.filter((x) => ageOf(x.pid) < 4500)), late = first(add.filter((x) => ageOf(x.pid) >= 4500));
+    for (let i = 0; i < fresh.length; i += 16) batches.push(fresh.slice(i, i + 16));
+    for (let i = 0; i < late.length; i += 16) batches.push(late.slice(i, i + 16));
+    for (const batch of batches) {
       try { await rtc.pull(batch); } catch (e) { failed = true; diag('pull', { tracks: (rtc.lastPull || batch.map((w) => ({ pid: w.pid, name: w.trackName, ok: false }))), err: String(e.message || e).slice(0, 120) }); continue; }
       // Every audio subscription is reported once, so a person who heard nobody can be read afterwards.
       const audio = (rtc.lastPull || []).filter((x) => x.name === 'a' || !x.ok);
