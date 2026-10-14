@@ -291,7 +291,7 @@
     var letter = g.letter ? '<span class="fx-chip fx-chip--plain">' + esc(LETTER[g.letter.state] || LETTER.none) + '</span>' : '';
     var hist = [g.history.count > 1 ? 'Lifetime ' + money(g.history.lifetime) + ' over ' + g.history.count + ' gifts' : 'First gift', g.history.lastContact ? 'last contact ' + day(g.history.lastContact) : 'no contact on record'].join(' · ');
     var badges = (g.badges || []).slice(0, 2).map(function (b) { return '<em class="fx-badge">' + esc(b) + '</em>'; }).join(' ');
-    return '<li class="fx-row fx-gift" data-fx-id="gift:' + esc(g.giftId) + '"><a class="fx-row__open" href="/work/partner/' + encodeURIComponent(g.cid) + '" data-partner-id="' + esc(g.cid) + '" aria-label="' + esc(g.name) + '"></a>' +
+    return '<li class="fx-row fx-gift" data-fx-id="gift:' + esc(g.giftId) + '" data-gift="' + esc(g.giftId) + '"><a class="fx-row__open" href="/work/partner/' + encodeURIComponent(g.cid) + '" data-partner-id="' + esc(g.cid) + '" aria-label="' + esc(g.name) + '"></a>' +
       '<span class="fx-amt">' + esc(money(g.amount)) + '<small>' + esc(day(g.date)) + '</small></span>' +
       '<span class="fx-t"><b>' + esc(g.name || 'Partner ' + g.cid) + (badges ? ' ' + badges : '') + '</b><span>' + esc(g.fund || 'No fund on file') + ' · ' + esc(hist) + '</span><span class="fx-gift__st">' + state + letter + '</span></span>' +
       '<span class="fx-acts">' + act + '</span></li>';
@@ -310,11 +310,14 @@
     else if (lastN > 0) { slot.hidden = false; slot.setAttribute('aria-busy', 'true'); slot.innerHTML = '<div class="fx-head"><h2>New gifts</h2></div><div class="fx-list" aria-hidden="true">' + new Array(Math.min(lastN, 4) + 1).join('<div class="fx-skel" style="min-height:76px"><i></i><i></i></div>') + '</div>'; }
     else slot.hidden = true;
   }
+  // Gifts to thank (work-home.js) leaves out the gifts this card shows; it repaints on this event.
+  var giftsReady = function () { document.dispatchEvent(new CustomEvent('fx-gifts-ready')); };
   Gifts.prototype.paint = function () {
     var d = this.data || { gifts: [] };
-    if (!d.gifts || !d.gifts.length) { this.slot.hidden = true; this.slot.innerHTML = ''; return; }
+    if (!d.gifts || !d.gifts.length) { this.slot.hidden = true; this.slot.innerHTML = ''; giftsReady(); return; }
     this.slot.hidden = false;
     this.slot.innerHTML = '<div class="fx-head"><h2>New gifts <span class="fx-n">' + d.gifts.length + '</span></h2><a class="fx-link" href="/work/?view=gifts">All gifts to thank' + (d.owed ? ' (' + d.owed + ')' : '') + '</a></div><ul class="fx-list">' + d.gifts.map(giftRow).join('') + '</ul>';
+    giftsReady();
   };
   Gifts.prototype.load = function () {
     var self = this;

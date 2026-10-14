@@ -90,7 +90,7 @@ export function TodayPage() {
   }, []);
   // The cross-app Inbox and Waiting on cards: the same script the classic Today runs, mounted on the two slots above.
   useEffect(() => {
-    void loadScript('/js/today-inbox.js?v=2')
+    void loadScript('/js/today-inbox.js?v=3')
       .then(() => (window as unknown as { FavorTodayInbox?: { mount: (r: ParentNode) => void } }).FavorTodayInbox?.mount(document))
       .catch(() => undefined);
   }, []);
