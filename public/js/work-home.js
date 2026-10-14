@@ -212,7 +212,7 @@
         + (gv && gv.goal ? `<a class="wh-goal${gv.ytd >= gv.goal ? ' is-met' : ''}" href="/work/?view=week"><b>Giving this year</b><span>${money(gv.ytd)} of ${money(gv.goal)}</span><div class="r2t-bar" role="presentation"><i style="width:${Math.min(100, Math.round(gv.pct || (gv.ytd / gv.goal) * 100))}%"></i></div></a>` : '');
     } else if (k.kind === 'support' || k.kind === 'admin') {
       $('wh-week-h').textContent = k.kind === 'admin' ? 'Entry queue' : 'Your week';
-      sub.innerHTML = k.kind === 'admin' ? '<span class="wh-qnote">The support team's queue</span> <a class="h-link" href="/work/?view=intake">Open entry</a>' : '';
+      sub.innerHTML = k.kind === 'admin' ? '<span class="wh-qnote">Queue for the support team</span> <a class="h-link" href="/work/?view=intake">Open entry</a>' : '';
       const e = k.entry;
       const owners = e && e.owners ? e.owners.filter((o) => o.wait) : [];
       const top = Math.max(1, ...owners.map((o) => o.wait));
