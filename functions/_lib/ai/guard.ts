@@ -17,6 +17,14 @@ export const FREE_UNITS = 10_000;
 export const DAILY_CAP = 8_000;
 export const KILL_AT = 9_000;
 
+// Meeting notes (the meet-notes feature) alone may spend past the free allowance, to a hard ceiling of $1 a day (Will, 2026-10-14).
+// Cloudflare bills $0.011 per 1,000 neurons above FREE_UNITS, so $1 buys 90,909 neurons. The ceiling is the free units plus that,
+// rounded down to the thousand: 100,000. Every other feature and tier keeps its own cap and the KILL_AT stop.
+export const MEET_PAID_CEILING_USD = 1;
+export const NEURON_USD_PER_1K = 0.011;
+export const MEET_PAID_NEURONS = Math.floor((MEET_PAID_CEILING_USD / NEURON_USD_PER_1K) * 1_000);
+export const MEET_CEILING = Math.floor((FREE_UNITS + MEET_PAID_NEURONS) / 1_000) * 1_000;
+
 /** How far into the day's units each tier may go. Tier 1 keeps the last 1,500 to itself, tier 2 the next 1,500, and so on. */
 export const TIER_CAP: Record<number, number> = { 1: 8_000, 2: 6_500, 3: 5_000, 4: 2_500 };
 
@@ -27,6 +35,8 @@ export interface Feature {
   offByDefault?: boolean;
   /** Runs only overnight, 9 PM to 6 AM Eastern, so a daytime run never takes the units meetings and Brain need. */
   nightOnly?: boolean;
+  /** A cap of its own in place of the tier's. Such a feature also runs past the KILL_AT stop, up to this cap. */
+  cap?: number;
 }
 
 /** Every feature that calls a model. A call with a name not listed here runs as tier 3 under "other". */
@@ -53,7 +63,7 @@ export const FEATURES: Record<string, Feature> = {
   'clip-text': { tier: 3, label: 'Clips: titles, summaries, chapters' },
   'clip-vision': { tier: 3, label: 'Clips: reading the screen' },
   // Tier 1: captions, live action items and the notes of a call that is going on now (2026-10-13, after a meeting lost its notes to the tier 3 cap).
-  'meet-notes': { tier: 1, label: 'Meetings: captions and notes' },
+  'meet-notes': { tier: 1, label: 'Meetings: captions and notes', cap: MEET_CEILING },
   other: { tier: 3, label: 'Other' },
   'drive-index': { tier: 4, label: 'Drive index (overnight)', nightOnly: true },
 };
@@ -313,7 +323,7 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
     await bump(store, day, feature, model, 0, true);
     throw new AiPaused('off', feature);
   }
-  if (state.off[day]) {
+  if (state.off[day] && f.cap == null) {
     await bump(store, day, feature, model, 0, true);
     throw new AiPaused('kill', feature);
   }
@@ -322,12 +332,12 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
     throw new AiPaused('off', feature);
   }
   const est = estimateNeurons(model, input, { audioSec: opts.audioSec });
-  let cap = TIER_CAP[f.tier] ?? TIER_CAP[3];
+  let cap = f.cap ?? TIER_CAP[f.tier] ?? TIER_CAP[3];
   let test = false;
   if (opts.test) {
     const left = await extraLeft(store, state.settings, day).catch(() => 0);
     if (left > 0) {
-      cap = DAILY_CAP + left;
+      cap = Math.max(cap, DAILY_CAP + left);
       test = true;
     }
   }
@@ -339,9 +349,9 @@ export async function reserve(store: GuardStore, opts: GuardOpts, model: string,
     row = await store.db
       .prepare(
         'UPDATE ai_budget_day SET est = est + ?2, test_over = test_over + CASE WHEN ?5 = 1 THEN MAX(0, MIN(?2, MAX(est, truth, ?4) + ?2 - ?6)) ELSE 0 END ' +
-          'WHERE day = ?1 AND off = 0 AND MAX(est, truth, ?4) + ?2 <= ?3 RETURNING est',
+          'WHERE day = ?1 AND (off = 0 OR ?7 = 1) AND MAX(est, truth, ?4) + ?2 <= ?3 RETURNING est',
       )
-      .bind(day, est, cap, floor, test ? 1 : 0, DAILY_CAP)
+      .bind(day, est, cap, floor, test ? 1 : 0, DAILY_CAP, f.cap != null ? 1 : 0)
       .first<{ est: number }>();
   } catch {
     throw new AiPaused('unavailable', feature);

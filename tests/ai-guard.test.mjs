@@ -229,3 +229,34 @@ describe('speech is charged by its length (2026-10-13)', () => {
     assert.ok(est - 1500 < 6_000, `the meeting alone ${est - 1500}`);
   });
 });
+
+describe('the meeting notes ceiling (2026-10-14)', () => {
+  const small = { messages: [{ role: 'user', content: 'x' }], max_tokens: 10 };
+  const M = '@cf/meta/llama-3.1-8b-instruct-fast';
+  it('derives 100,000 from $1 a day at $0.011 per 1,000 neurons', () => {
+    assert.equal(G.MEET_PAID_NEURONS, 90_909);
+    assert.equal(G.MEET_CEILING, 100_000);
+    assert.equal(G.TIER_CAP[1], 8_000);
+  });
+  it('lets meeting notes run at 50,000 and past the kill flag, and holds them at 100,001', async () => {
+    d1.exec(`INSERT INTO ai_budget_day (day, est, off) VALUES ('${DAY}', 50000, 1)`);
+    kv.m.set(`ai:off:${DAY}`, '1');
+    await G.guardedRun(store(), model().run, { feature: 'meet-notes', day: DAY }, M, small);
+    assert.deepEqual(calls, [M]);
+    d1.exec(`UPDATE ai_budget_day SET est = 100000 WHERE day = '${DAY}'`);
+    G.resetGuardCache();
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'meet-notes', day: DAY }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget');
+    assert.equal(calls.length, 1);
+  });
+  it('still holds every other tier once the total passes its cap, and the kill flag still stops them', async () => {
+    d1.exec(`INSERT INTO ai_budget_day (day, est) VALUES ('${DAY}', 9500)`);
+    for (const feature of ['brief', 'translate', 'drive-index', 'clef-understand']) {
+      await assert.rejects(G.guardedRun(store(), model().run, { feature, day: DAY, now: new Date('2026-10-14T03:00:00Z') }, M, small), (e) => G.isAiPaused(e) && e.why === 'budget', feature);
+    }
+    d1.exec(`UPDATE ai_budget_day SET est = 50000, off = 1 WHERE day = '${DAY}'`);
+    kv.m.set(`ai:off:${DAY}`, '1');
+    G.resetGuardCache();
+    await assert.rejects(G.guardedRun(store(), model().run, { feature: 'clef-understand', day: DAY }, M, small), (e) => e.why === 'kill');
+    assert.equal(calls.length, 0);
+  });
+});
