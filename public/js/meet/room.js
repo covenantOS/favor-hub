@@ -736,7 +736,9 @@ function recMissHTML() {
 // Who this room is ringing (a huddle call or Ring in People): ringing, declined with their message, or missed.
 function ringsHTML() {
   const now = Date.now();
-  return (S.rings || []).filter((x) => x.state === 'ringing' || ((x.state === 'declined' || x.state === 'missed') && now - (x.seenAt || now) < 60000)).map((x) => {
+  // Never your own ring, and nothing about someone who is in the room now.
+  const here = new Set(others().map((p) => p.name));
+  return (S.rings || []).filter((x) => x.to !== S.myEmail && !(x.state !== 'ringing' && here.has(x.name))).filter((x) => x.state === 'ringing' || ((x.state === 'declined' || x.state === 'missed') && now - (x.seenAt || now) < 60000)).map((x) => {
     const first = esc(String(x.name || x.to).split(' ')[0]);
     if (x.state === 'ringing') return `<div class="banner rm-ring" role="status"><span class="rm-ring__dot" aria-hidden="true"></span><span>Ringing ${esc(x.name || x.to)}</span>${x.from === S.myEmail ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-cancel" data-id="${esc(x.id)}">Stop ringing</button>` : ''}</div>`;
     const why = x.state === 'declined' ? (x.note ? `${first} cannot join: "${esc(x.note)}"` : `${first} declined`) : x.why === 'quiet' ? `${first} is in quiet hours. FavorOS left a missed huddle note in Chat.` : `${first} did not answer. FavorOS left a missed huddle note in Chat.`;
