@@ -178,8 +178,16 @@
   }
 
   /* ------------------------------------------------------------------ gifts to thank */
-  function paintGifts(w) {
+  // Today's New gifts card (data-today-slot="gifts", today-inbox.js) shows the newest gifts on your partners; those stay off this list.
+  const shownElsewhere = () => {
+    const slot = document.querySelector('[data-today-slot="gifts"]:not([hidden])');
+    return new Set(slot ? Array.from(slot.querySelectorAll('[data-gift]'), (el) => String(el.getAttribute('data-gift'))) : []);
+  };
+  document.addEventListener('fx-gifts-ready', () => { if (D) paintGifts(D.work); });
+  function paintGifts(w0) {
     const card = $('wh-gifts');
+    const skip = onToday ? shownElsewhere() : new Set();
+    const w = w0 && w0.gifts && skip.size ? Object.assign({}, w0, { gifts: Object.assign({}, w0.gifts, { rows: w0.gifts.rows.filter((r) => !skip.has(String(r.giftId))) }) }) : w0;
     const g = w && w.gifts;
     card.hidden = !g;
     if (!g) return;
