@@ -214,7 +214,11 @@ function draw() {
     ${b.headline ? `<p class="br-line">${esc(b.headline)}</p>` : ''}
     <div class="br-rows">${rows.join('')}</div>
   </section>` : '';
-  root.innerHTML = away() + card + moments(b);
+  // On Today, Since you were away sits beside the Inbox (#br-away-root) and the briefing under it, full width.
+  const awayHost = document.getElementById('br-away-root');
+  // With nothing new since the last visit, the briefing itself takes that place, so the right column is never one short card.
+  if (awayHost) { const aw = away(); if (aw) { awayHost.innerHTML = aw; root.innerHTML = card + moments(b); } else { awayHost.innerHTML = card + moments(b); root.innerHTML = ''; } awayHost.hidden = !awayHost.innerHTML; }
+  else root.innerHTML = away() + card + moments(b);
 }
 
 async function load(fresh) {
@@ -235,7 +239,8 @@ async function load(fresh) {
   }
 }
 
-root.addEventListener('click', (e) => {
+// The briefing can sit in Today's right column (#br-away-root), so its presses are heard there too.
+const onBrClick = (e) => {
   const call = e.target.closest('[data-br-call]');
   if (call && window.FavorCall && !e.metaKey && !e.ctrlKey) { e.preventDefault(); window.FavorCall.open(call.dataset.brCall); return; }
   const t = e.target.closest('button');
@@ -257,11 +262,15 @@ root.addEventListener('click', (e) => {
     const g = (S.data.thanks[t.dataset.brList === 'older' ? 'older' : 'rows'] || [])[Number(t.dataset.brThank)];
     if (g && window.FavorWG) window.FavorWG.pop(t, { giftId: g.giftId, cid: g.cid, name: g.name, amount: g.amount, date: g.date, fund: g.fund, phone: g.phone, left: g.left, tasks: g.tasks, team: g.team }, { owner: g.owner, done: () => load(true) });
   }
-});
-root.addEventListener('change', (e) => {
+};
+root.addEventListener('click', onBrClick);
+{ const ah = document.getElementById('br-away-root'); if (ah) ah.addEventListener('click', onBrClick); }
+const onBrChange = (e) => {
   if (!e.target.matches('[data-br-owner]')) return;
   S.owner = e.target.value; store.set(OWNER_KEY, S.owner); S.data = null; draw(); load(false);
-});
+};
+root.addEventListener('change', onBrChange);
+{ const ah = document.getElementById('br-away-root'); if (ah) ah.addEventListener('change', onBrChange); }
 document.addEventListener('hub:day', (e) => { S.day = e.detail; if (S.data) { draw(); wantPrep(); } });
 document.addEventListener('hub:cards', (e) => { S.cards = e.detail; if (S.data && S.focus) draw(); });
 if (window.__hubDay) S.day = window.__hubDay;

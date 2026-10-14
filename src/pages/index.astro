@@ -40,15 +40,17 @@ import '../styles/today-work.css';
       <div class="h-welcome__acts"><button type="button" class="h-btn h-btn--primary h-btn--sm" data-tour-start>Show me</button></div>
     </div>
 
-    <!-- The Inbox on the left; Waiting on, the briefing and Since you were away stack on the right, so the two columns end together
+    <!-- The Inbox on the left; Waiting on and Since you were away stack on the right, so the two columns end together
          whether the Inbox is long or short (today-work.css .tw-top). -->
     <div class="fx-pair tw-top">
       <section class="h-card" data-today-slot="inbox" data-keep-h="fx-inbox" aria-label="Inbox"></section>
       <div class="tw-top__side">
         <section class="h-card" data-today-slot="waiting" data-keep-h="fx-waiting" aria-label="Waiting on"></section>
-        <div id="br-root" aria-live="polite"></div>
+        <div id="br-away-root" hidden></div>
       </div>
     </div>
+
+    <div id="br-root" aria-live="polite"></div>
 
     <div id="fw-root"></div>
 
@@ -141,7 +143,7 @@ import '../styles/today-work.css';
   <script is:inline src="/js/today-snooze.js?v=2" defer></script>
   <script is:inline src="/js/chat/chat-view.js?v=2" defer></script>
   <script is:inline src="/js/today.js?v=22" defer></script>
-  <script is:inline src="/js/brief.js?v=8" defer></script>
+  <script is:inline src="/js/brief.js?v=9" defer></script>
   <script is:inline src="/js/today-firstweek.js?v=1" defer></script>
   <script is:inline src="/js/today-inbox.js?v=3" defer></script>
   <script is:inline>
