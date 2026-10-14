@@ -46,6 +46,13 @@ try {
   const m = /src="(\/js\/brief\.js[^"]*)"/.exec(home);
   if (m) out.brief = m[1].replace(/[?&]b=\d+/, '');
 } catch { /* no home page in this build */ }
+// The Projects task drawer opens on other pages (Chat, bell, Today, meeting notes); its stylesheets are the Projects page's own.
+try {
+  const pj = readFileSync(join(dist, 'projects', 'index.html'), 'utf8');
+  const sheets = [...new Set(pj.match(/<link[^>]+rel="stylesheet"[^>]*>/g) || [])].map((m) => /href="([^"]+)"/.exec(m)?.[1]).filter((h) => h && h.startsWith('/_astro/'));
+  mkdirSync(join(dist, '_app'), { recursive: true });
+  writeFileSync(join(dist, '_app', 'projects-assets.json'), JSON.stringify({ css: sheets }));
+} catch { /* no projects page in this build */ }
 mkdirSync(join(dist, '_app'), { recursive: true });
 writeFileSync(join(dist, '_app', 'layout-assets.json'), JSON.stringify(out));
 console.log(`layout-assets: ${out.css.length} shared sheets, ${out.js.length} shared scripts across ${hub.length} hub pages`);

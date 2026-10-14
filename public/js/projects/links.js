@@ -99,7 +99,26 @@
     if (!ref) return;
     if (window.PJ && typeof window.PJ.openTask === 'function' && (window.PJ.ctx || window.PJ.homeCtx)) { window.PJ.openTask(ref); return; }
     if (window.PJDrawer && typeof window.PJDrawer.open === 'function') { window.PJDrawer.open(ref, opts || {}); return; }
-    quickSheet(ref);
+    sharedDrawer(ref).catch(function () { quickSheet(ref); });
+  }
+
+  /* Every other page opens the Projects drawer itself: its stylesheets (listed in /_app/projects-assets.json at build) and drawer.js load on the first press. */
+  var drawerP = null;
+  function sharedDrawer(ref) {
+    if (!drawerP) {
+      drawerP = fetch('/_app/projects-assets.json', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : { css: [] }; }).catch(function () { return { css: [] }; }).then(function (a) {
+        (a.css || []).forEach(function (href) {
+          if (document.querySelector('link[href="' + href + '"]')) return;
+          var l = document.createElement('link');
+          l.rel = 'stylesheet';
+          l.href = href;
+          document.head.appendChild(l);
+        });
+        return import('/js/projects/drawer.js');
+      });
+      drawerP.catch(function () { drawerP = null; });
+    }
+    return drawerP.then(function (m) { return m.openDrawer(null, ref); });
   }
 
   function quickSheet(ref) {

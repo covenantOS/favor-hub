@@ -30,7 +30,7 @@ function build() {
   el.innerHTML = `<div class="pj-dr__scrim" data-close></div>
   <aside class="pj-dr" role="dialog" aria-modal="true" aria-label="Task" tabindex="-1">
     <header class="pj-dr__bar">
-      <button type="button" class="pj-dr__done" data-a="done"></button>
+      <a class="pj-dr__open" data-open-pj href="/projects/">Open in Projects</a>
       <span class="pj-dr__sp"></span>
       <button type="button" class="pj-dr__ib pj-dr__nav" data-a="prev" aria-label="Previous task">${icon('up')}</button>
       <button type="button" class="pj-dr__ib pj-dr__nav" data-a="next" aria-label="Next task">${icon('down')}</button>
@@ -39,9 +39,10 @@ function build() {
     </header>
     <div class="pj-dr__scroll" data-scroll>
       <div class="pj-dr__crumb" data-crumb></div>
-      <div class="pj-dr__title" data-title role="textbox" aria-label="Task title" aria-multiline="false" contenteditable="plaintext-only" spellcheck="true"></div>
+      <div class="pj-dr__trow"><button type="button" class="pj-check pj-dr__done" data-a="done"></button>
+      <div class="pj-dr__title" data-title role="textbox" aria-label="Task title" aria-multiline="false" contenteditable="plaintext-only" spellcheck="true"></div></div>
       <div data-fields></div>
-      <section class="pj-dr__sec"><h3 class="rt-h">Description</h3><textarea class="pj-dr__desc" data-desc rows="3" placeholder="Add details" aria-label="Description"></textarea></section>
+      <section class="pj-dr__sec"><h3 class="rt-h">Description</h3><div class="pj-dr__descview" data-descview tabindex="0" role="button" aria-label="Edit description"></div><textarea class="pj-dr__desc" data-desc rows="3" placeholder="Add details" aria-label="Description" hidden></textarea></section>
       <section class="pj-dr__sec" data-subs></section>
       <section class="pj-dr__sec" data-deps></section>
       <section class="pj-dr__sec" data-files></section>
@@ -61,7 +62,11 @@ function build() {
   const desc = el.querySelector('[data-desc]');
   const saveDesc = debounce(commitDesc, 900);
   desc.addEventListener('input', () => { autosize(desc); saveDesc(); });
-  desc.addEventListener('blur', () => { saveDesc.cancel(); commitDesc(); });
+  desc.addEventListener('blur', () => { saveDesc.cancel(); commitDesc(); desc.hidden = true; paintDesc(); });
+  const view = el.querySelector('[data-descview]');
+  const edit = () => { if (!st || !st.task) return; desc.value = st.task.description || ''; desc.hidden = false; autosize(desc); desc.focus(); };
+  view.addEventListener('click', (e) => { if (!e.target.closest('a')) edit(); });
+  view.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === view) { e.preventDefault(); edit(); } });
   desc.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { /* closes the drawer; blur saves */ } });
   el._saveDesc = saveDesc;
   if (window.visualViewport && !kbBound) {
@@ -151,10 +156,11 @@ function paintLoading() {
   el.querySelector('[data-comp]').innerHTML = '';
   el.querySelector('[data-crumb]').innerHTML = '';
   el.querySelector('[data-desc]').value = '';
+  el.querySelector('[data-descview]').innerHTML = '';
   paintBar();
 }
 function paintError(e) {
-  el.querySelector('[data-fields]').innerHTML = `<div class="pj-empty pj-empty--err"><p>${esc(e.message || 'This task did not load.')}</p><button type="button" class="pj-btn" data-a="retry">Try again</button></div>`;
+  el.querySelector('[data-fields]').innerHTML = `<div class="pj-empty pj-empty--err"><p>${esc(e.status === 403 || e.status === 404 ? 'Not available to you.' : e.message || 'This task did not load.')}</p>${e.status === 403 || e.status === 404 ? '' : '<button type="button" class="pj-btn" data-a="retry">Try again</button>'}</div>`;
 }
 function paintAll() {
   if (!st || !st.task) return;
@@ -162,7 +168,8 @@ function paintAll() {
   const title = el.querySelector('[data-title]');
   if (document.activeElement !== title) title.textContent = t.title;
   const desc = el.querySelector('[data-desc]');
-  if (document.activeElement !== desc) { desc.value = t.description || ''; autosize(desc); }
+  if (document.activeElement !== desc) { desc.value = t.description || ''; desc.hidden = true; }
+  paintDesc();
   el.querySelector('[data-crumb]').innerHTML = crumbHtml();
   paintBar();
   paintFields();
@@ -180,24 +187,43 @@ function refresh() {
   if (document.activeElement !== title && title.textContent !== t.title) title.textContent = t.title;
   paintBar(); paintFields(); paintSubs(); paintDeps();
 }
+const projectUrl = (t) => (t.project && t.code ? '/projects/p/?p=' + encodeURIComponent(t.project.key) + '&t=' + encodeURIComponent(t.code) : '/projects/?t=' + encodeURIComponent(t.id));
+const SRC_SENTENCE = /^From the meeting [^\n]*?:[ \t]*https?:\/\/\S+[ \t]*\n?/i;
+function shortLink(u) {
+  try { const x = new URL(u); const h = x.hostname.replace(/^www\./, ''); return x.pathname.length > 1 ? h + '/…' : h; } catch (_) { return u; }
+}
+function linkify(text) {
+  return esc(text).replace(/https?:\/\/[^\s<]+[^\s<.,;:!?)]/g, (u) => { const raw = u.replace(/&amp;/g, '&'); return '<a href="' + u + '" target="_blank" rel="noopener noreferrer" title="' + u + '">' + esc(shortLink(raw)) + '</a>'; });
+}
+function paintDesc() {
+  const view = el.querySelector('[data-descview]');
+  const t = st && st.task;
+  if (!view || !t) return;
+  const raw = t.description || '';
+  const shown = (t.source ? raw.replace(SRC_SENTENCE, '') : raw).trim();
+  view.innerHTML = shown ? linkify(shown) : '<span class="pj-quiet">Add details</span>';
+}
 function crumbHtml() {
   const t = st.task;
   const parts = [];
-  if (t.project) parts.push(`<span class="pj-pchip" data-c="${esc(t.project.color)}"><i class="pj-dot" data-c="${esc(t.project.color)}"></i>${esc(t.project.name)}</span>`);
-  else parts.push('<span class="pj-crumb__t">Personal task</span>');
   if (t.parent_id && st.parentRef) parts.push(`<button type="button" class="pj-crumb__up" data-a="parent">${icon('up')}${esc(st.parentRef.code || 'Parent task')}</button>`);
   if (t.code) parts.push(`<button type="button" class="pj-code-id pj-code-id--btn" data-a="copy" title="Copy a link to this task">${esc(t.code)}${icon('copy')}</button>`);
-  if (typeof t.asana_url === 'string' && /^https?:[/][/]/i.test(t.asana_url)) parts.push(`<span class="pj-asana">Synced with Asana<a href="${esc(t.asana_url)}" target="_blank" rel="noopener noreferrer">Open in Asana</a></span>`);
+  if (t.source && typeof t.source.url === 'string' && t.source.url.charAt(0) === '/') parts.push(`<a class="pj-src" href="${esc(t.source.url)}">${icon('link')}<span>${esc(t.source.label)}</span></a>`);
   return parts.join('');
 }
 function paintBar() {
   const t = st && st.task;
   const b = el.querySelector('[data-a="done"]');
-  if (!t) { b.innerHTML = ''; return; }
+  const open = el.querySelector('[data-open-pj]');
+  if (!t) { b.innerHTML = ''; open.hidden = true; return; }
   const done = t.status === 'done';
-  b.className = 'pj-dr__done' + (done ? ' is-on' : '');
-  b.innerHTML = `${icon('check')}<span>${done ? 'Completed' : 'Mark complete'}</span>`;
-  b.setAttribute('aria-pressed', String(done));
+  b.className = 'pj-check pj-dr__done' + (done ? ' is-on' : '');
+  b.innerHTML = icon('check');
+  b.setAttribute('role', 'checkbox');
+  b.setAttribute('aria-checked', String(done));
+  b.setAttribute('aria-label', done ? 'Mark not done' : 'Mark complete');
+  open.href = projectUrl(t);
+  open.hidden = location.pathname.indexOf('/projects') === 0;
   const ids = orderIds();
   const i = ids.indexOf(t.id);
   el.querySelector('[data-a="prev"]').disabled = i <= 0;
@@ -221,19 +247,29 @@ function paintFields() {
   const follow = st.people.filter((p) => p.email !== t.owner_email);
   const sec = st.sections ? (st.sections.find((s) => s.id === t.section_id) || {}).name : t.section;
   const codes = CODE_KINDS.map((k) => `<button type="button" class="pj-codebtn${t[k.field] ? ' is-set' : ''}" data-f="code" data-kind="${k.kind}" data-field="${k.field}"><small>${esc(k.label)}</small><b>${t[k.field] ? esc(t[k.field]) : 'Add'}</b></button>`).join('');
-  const h = `<dl class="rt-fields pj-fields">
-    <div class="rt-field"><dt>Owner</dt><dd>${owner}</dd></div>
-    <div class="rt-field"><dt>Due</dt><dd>${dateBtn('due', 'Due date', t.due_date)}${t.due_date ? (t.due_time ? `<input type="time" class="rt-date pj-time" data-f="time" value="${esc(t.due_time)}" aria-label="Due time (Eastern)" /><button type="button" class="pj-fclear" data-f="time-clear" aria-label="Clear the time">${icon('x')}</button>` : `<button type="button" class="rt-pchip pj-fbtn is-empty" data-f="time-add">${icon('clock')}<span>Add time</span></button>`) : ''}${late ? '<span class="pj-late">Overdue</span>' : ''}</dd></div>
-    <div class="rt-field"><dt>Start</dt><dd>${dateBtn('start', 'Start date', t.start_date)}</dd></div>
-    <div class="rt-field"><dt>Status</dt><dd><button type="button" class="rt-pchip pj-fbtn" data-f="status"><i class="pj-sdot" data-s="${esc(t.status)}"></i><span>${esc(STATUS[t.status] || t.status)}</span></button></dd></div>
-    <div class="rt-field"><dt>Priority</dt><dd><button type="button" class="rt-pchip pj-fbtn" data-f="priority">${t.priority === 'normal' ? icon('flag') : '<span class="pj-pri pj-pri--' + t.priority + '">' + icon('flag') + '</span>'}<span>${esc(PRIORITY[t.priority] || 'Normal')}</span></button></dd></div>
-    ${t.project_id ? `<div class="rt-field"><dt>Section</dt><dd><button type="button" class="rt-pchip pj-fbtn${sec ? '' : ' is-empty'}" data-f="section">${icon('list')}<span>${esc(sec || 'No section')}</span></button></dd></div>` : ''}
-    <div class="rt-field"><dt>Waiting on</dt><dd>${t.waiting_on_email ? `<button type="button" class="rt-pchip" data-f="waiting">${avatar(personOf(t.waiting_on_email))}<span class="rt-pchip__t"><b>${esc(waitName)}</b></span></button><button type="button" class="pj-fclear" data-f="waiting-clear" aria-label="Clear waiting on">${icon('x')}</button>` : `<button type="button" class="rt-pchip pj-fbtn is-empty" data-f="waiting">${icon('hourglass')}<span>Nobody</span></button>`}</dd></div>
-    <div class="rt-field"><dt>Following</dt><dd class="pj-follow">${follow.map((p) => `<span class="pj-fchip" title="${esc(p.name)}">${avatar(p)}<span>${esc(p.name.split(' ')[0])}</span><button type="button" data-f="unfollow" data-email="${esc(p.email)}" aria-label="Stop ${esc(p.name)} following">${icon('x')}</button></span>`).join('')}<button type="button" class="rt-pchip pj-fbtn is-empty" data-f="follow">${icon('plus')}<span>Add</span></button></dd></div>
-    <div class="rt-field rt-field--codes"><dt>Codes</dt><dd class="pj-codegrid">${codes}</dd></div>
-  </dl>`;
+  const proj = t.project ? '<span class="rt-pstatic"><i class="pj-dot" data-c="' + esc(t.project.color) + '"></i><span>' + esc(t.project.name) + '</span></span>' : '<span class="rt-pstatic"><span>Personal task</span></span>';
+  const asana = typeof t.asana_url === 'string' && /^https?:[/][/]/i.test(t.asana_url) ? '<div class="rt-field"><dt>Asana</dt><dd><span class="pj-asana">Synced with Asana<a href="' + esc(t.asana_url) + '" target="_blank" rel="noopener noreferrer">Open in Asana</a></span></dd></div>' : '';
+  const timeBits = t.due_date ? (t.due_time ? '<input type="time" class="rt-date pj-time" data-f="time" value="' + esc(t.due_time) + '" aria-label="Due time (Eastern)" /><button type="button" class="pj-fclear" data-f="time-clear" aria-label="Clear the time">' + icon('x') + '</button>' : '<button type="button" class="rt-pchip pj-fbtn is-empty" data-f="time-add">' + icon('clock') + '<span>Add time</span></button>') : '';
+  const waiting = t.waiting_on_email ? '<button type="button" class="rt-pchip" data-f="waiting">' + avatar(personOf(t.waiting_on_email)) + '<span class="rt-pchip__t"><b>' + esc(waitName) + '</b></span></button><button type="button" class="pj-fclear" data-f="waiting-clear" aria-label="Clear waiting on">' + icon('x') + '</button>' : '<button type="button" class="rt-pchip pj-fbtn is-empty" data-f="waiting">' + icon('hourglass') + '<span>Nobody</span></button>';
+  const follows = follow.map((p) => '<span class="pj-fchip" title="' + esc(p.name) + '">' + avatar(p) + '<span>' + esc(p.name.split(' ')[0]) + '</span><button type="button" data-f="unfollow" data-email="' + esc(p.email) + '" aria-label="Stop ' + esc(p.name) + ' following">' + icon('x') + '</button></span>').join('');
+  const pri = (t.priority === 'normal' ? icon('flag') : '<span class="pj-pri pj-pri--' + t.priority + '">' + icon('flag') + '</span>') + '<span>' + esc(PRIORITY[t.priority] || 'Normal') + '</span>';
+  const h = '<dl class="rt-fields pj-fields">' +
+    '<div class="rt-field"><dt>Assignee</dt><dd>' + owner + '</dd></div>' +
+    '<div class="rt-field"><dt>Due</dt><dd>' + dateBtn('due', 'Due date', t.due_date) + timeBits + (late ? '<span class="pj-late">Overdue</span>' : '') + '</dd></div>' +
+    '<div class="rt-field"><dt>Project</dt><dd>' + proj + '</dd></div>' +
+    (t.project_id ? '<div class="rt-field"><dt>Section</dt><dd><button type="button" class="rt-pchip pj-fbtn' + (sec ? '' : ' is-empty') + '" data-f="section">' + icon('list') + '<span>' + esc(sec || 'No section') + '</span></button></dd></div>' : '') +
+    '<div class="rt-field"><dt>Priority</dt><dd><button type="button" class="rt-pchip pj-fbtn" data-f="priority">' + pri + '</button></dd></div>' +
+    '<div class="rt-field"><dt>Status</dt><dd><button type="button" class="rt-pchip pj-fbtn" data-f="status"><i class="pj-sdot" data-s="' + esc(t.status) + '"></i><span>' + esc(STATUS[t.status] || t.status) + '</span></button></dd></div>' +
+    asana + '</dl>' +
+    '<details class="pj-more"><summary>More fields</summary><dl class="rt-fields pj-fields">' +
+    '<div class="rt-field"><dt>Start</dt><dd>' + dateBtn('start', 'Start date', t.start_date) + '</dd></div>' +
+    '<div class="rt-field"><dt>Waiting on</dt><dd>' + waiting + '</dd></div>' +
+    '<div class="rt-field"><dt>Following</dt><dd class="pj-follow">' + follows + '<button type="button" class="rt-pchip pj-fbtn is-empty" data-f="follow">' + icon('plus') + '<span>Add</span></button></dd></div>' +
+    '<div class="rt-field rt-field--codes"><dt>Codes</dt><dd class="pj-codegrid">' + codes + '</dd></div>' +
+    '</dl></details>';
   const box = el.querySelector('[data-fields]');
-  if (box._h !== h) { box.innerHTML = h; box._h = h; }
+  const open = box.querySelector('.pj-more') && box.querySelector('.pj-more').open;
+  if (box._h !== h) { box.innerHTML = h; box._h = h; if (open) box.querySelector('.pj-more').open = true; }
 }
 
 function subRow(s) {

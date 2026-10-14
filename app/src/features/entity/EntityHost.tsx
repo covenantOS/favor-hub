@@ -9,6 +9,7 @@ import { initials } from '@/lib/format';
 import { entityResponse, type EntityOut } from '@shared/schemas';
 import { NavLink } from '@/shell/NavLink';
 import { EntityIcon } from './EntityChip';
+import { installTaskLinks } from './taskPanel';
 import { askText, entityStore, KIND_LABEL, normId } from './store';
 
 const phone = () => !matchMedia('(hover: hover)').matches || matchMedia('(max-width: 860px)').matches;
@@ -75,6 +76,7 @@ async function run(act: string, it: EntityOut, anchor: HTMLElement | null | unde
 /** The hover card (computer) or sheet (phone) for whatever chip or search row opened it. Mounted once in the shell. */
 export function EntityHost() {
   const ref = useSyncExternalStore(entityStore.subscribe, entityStore.getSnapshot);
+  useEffect(() => installTaskLinks(), []);
   if (!ref) return null;
   return createPortal(<Card key={ref.kind + ':' + ref.id} />, document.body);
 }

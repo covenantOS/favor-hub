@@ -14,6 +14,7 @@
 //   PUT  tasks/:id/people                 PUT tasks/:id/deps
 import { asanaUrlFor, deleteHubProject, syncedProject } from './sync';
 import { HttpError, errorJson, handleError, json, type Env } from '../http';
+import { meetingOfTask } from './links/meet';
 import type { HubUser } from '../session';
 import { staffDirectory } from '../people';
 import { ledPeople, mayJoin, mayReadNotes, wasPresent, type Meeting } from '../meet';
@@ -222,7 +223,8 @@ async function taskRoutes(ctx: Ctx, path: string[], actor: Actor): Promise<Respo
       }
       const tk = (d as { task?: { id?: string } }).task;
       const asanaUrl = tk?.id ? await asanaUrlFor(env, tk.id).catch(() => null) : null;
-      return json({ ok: true, ...d, task: { ...(d as any).task, asana_url: asanaUrl } });
+      const source = tk?.id ? await taskSource(env, (d as any).task).catch(() => null) : null;
+      return json({ ok: true, ...d, task: { ...(d as any).task, asana_url: asanaUrl, source } });
     }
     if (method === 'PATCH') {
       const r = await patchTask(env, actor, id, await linksChecked(env, actor, await body(request)));
@@ -316,4 +318,11 @@ async function linksChecked(env: Env, actor: { email: string; admin: boolean }, 
     if (!e || String(e.requester_email || '').trim().toLowerCase() !== me) throw new HttpError(404, 'not_found', 'That expense request is not yours.');
   }
   return b;
+}
+
+/** Where a task came from, as a small chip: a meeting and the moment in its transcript. Null when there is nothing the panel can link to. */
+async function taskSource(env: Env, t: { meeting_id?: string | null; meeting_action_idx?: number | null }): Promise<{ kind: 'meeting'; label: string; url: string } | null> {
+  const m = await meetingOfTask(env, { meeting_id: t.meeting_id ?? null, meeting_action_idx: t.meeting_action_idx ?? null });
+  if (!m) return null;
+  return { kind: 'meeting', label: `From ${m.title}${m.stamp ? ', ' + m.stamp : ''}`, url: m.url };
 }
