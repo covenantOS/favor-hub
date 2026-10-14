@@ -120,3 +120,16 @@ body.h-body #h-content.is-settling::before { content: ''; position: absolute; z-
 /* Full sidebar: an area's name never gives way to its badge and count ("Proje..." beside Alpha and 11). */
 html.nav-wide body.h-body .h-area__link .h-area__label, body.h-body .h-app.is-peek .h-area__link .h-area__label, body.h-body .h-app.is-nav .h-area__link .h-area__label { flex: 0 0 auto; overflow: visible; }
 html.nav-wide body.h-body .h-area__link .h-rel, body.h-body .h-app.is-peek .h-area__link .h-rel { padding: 0 5px; font-size: 10px; margin-left: 4px; }
+
+/* ------------------------------------------------------------ one page width per area (2026-10-14)
+   Gifts runs full width on every page (tables and boards). Staff pages share one 1,280 px column, centered, so moving between
+   Expenses, Evaluations, Learning and Onboarding never changes the column. Welcome takes the same column as the rest of Help. */
+body.h-body[data-area='gifts'] .og-wrap { max-width: none; }
+body.h-body[data-area='staff'] .ev-page .container,
+body.h-body[data-area='staff'] .ob,
+body.h-body[data-area='staff'] .ln,
+body.h-body[data-area='staff'] .ln[data-view='player'],
+body.h-body[data-area='staff'] .exp-page .container,
+body.h-body[data-area='staff'] #pr { max-width: 1280px; width: 100%; margin-inline: auto; }
+body.h-body[data-area='staff'] .exp-page .container { padding-inline: 0; }
+body.h-body[data-area='help'] .wl { max-width: 1280px; margin-inline: auto; }
