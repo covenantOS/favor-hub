@@ -8,6 +8,7 @@ import { getMeeting, guestsOn } from '../../_lib/meet';
 import { withMeetSettings } from '../../_lib/admin/settings';
 import { sendReminder } from '../../_lib/meetcal';
 import { isTester } from '../../_lib/testuser';
+import { moveSeries } from '../../_lib/moveseries';
 
 // Move to FavorOS, from Today. An outside meeting on the person's calendar (Zoom, Google Meet, Teams, a phone call or no link at all)
 // becomes a FavorOS meeting at the same time with the same people. The calendar event is left as it is, except when the person
@@ -23,7 +24,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const user = hubUserOf(request);
     if (!user || user.via !== 'google') return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const me = user.email.toLowerCase();
-    const b = (await request.json().catch(() => ({}))) as { eventId?: string; writeLink?: boolean; emailInvitees?: boolean; tellOrganizer?: string };
+    const b = (await request.json().catch(() => ({}))) as { eventId?: string; writeLink?: boolean; emailInvitees?: boolean; tellOrganizer?: string; series?: boolean };
     if (b.tellOrganizer) return json(await tellOrganizer(env, user, clean(b.tellOrganizer, 30), new URL(request.url).origin));
     const eventId = clean(b.eventId, 200);
     if (!eventId) return errorJson('event', 'Pick a meeting to move.', 400);
@@ -36,6 +37,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (ev.status === 'cancelled') return errorJson('calendar', 'That event is no longer on your calendar.', 404);
     if (!ev.start?.dateTime || !ev.end?.dateTime) return errorJson('all_day', 'An all-day event has no time to move.', 400);
 
+    // The whole series: one change to the Google series event (organizer) or one new repeating event (anyone else). See moveseries.ts.
+    if (b.series === true && ev.recurringEventId) {
+      if (!hasScopes(t.scopes, [CAL_EVENTS])) return errorJson('consent', 'Allow FavorOS to add to your calendar events. Google asks once.', 409);
+      const r = await moveSeries(env as any, { email: me, name: user.name }, ev, { emailInvitees: b.emailInvitees === true, origin: new URL(request.url).origin });
+      return json({ ...r, released: String((await withMeetSettings(env as any)).MEET_RELEASE || 'admin').toLowerCase() === 'staff', emailed: 0, emailFailed: 0, linkError: '' });
+    }
     const startsAt = new Date(ev.start.dateTime).toISOString();
     const endsAt = new Date(ev.end.dateTime).toISOString();
     if (Date.parse(endsAt) < Date.now()) return errorJson('past', 'That meeting has already ended.', 400);

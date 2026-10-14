@@ -5,6 +5,7 @@ import { accessToken, CAL_EVENTS, CAL_FREEBUSY, hasScopes } from './hub/google';
 import { HttpError } from './http';
 import { providerOf, summarize, type CalEvent, type CalMeeting } from './meetprovider';
 import type { MeetEnv } from './meet';
+import { icsBase64 } from './meetics';
 
 const CAL_DEFAULT = 'https://www.googleapis.com/calendar/v3';
 const cal = (env: MeetEnv) => env.MEET_CAL_URL || CAL_DEFAULT;
@@ -12,7 +13,7 @@ export const TZ = 'America/New_York';
 
 export interface Busy { start: string; end: string }
 
-async function token(env: MeetEnv, email: string, want: string[]): Promise<string> {
+export async function token(env: MeetEnv, email: string, want: string[]): Promise<string> {
   const t = await accessToken(env, email).catch(() => null);
   if (!t) throw new HttpError(409, 'consent', 'Connect your Google Calendar to book meetings.');
   if (!hasScopes(t.scopes, want) && !hasScopes(t.scopes, ['https://www.googleapis.com/auth/calendar.readonly'])) {
@@ -59,6 +60,10 @@ export interface EventInput {
   attendees: string[];
   recording: string;
   repeat: string;
+  /** RRULE and EXDATE lines for a series (meetseries.ts). Wins over repeat. */
+  recurrence?: string[];
+  /** The time zone the series repeats in; Google needs it on a repeating event. */
+  tz?: string;
 }
 
 const RRULE: Record<string, string> = { weekly: 'RRULE:FREQ=WEEKLY', biweekly: 'RRULE:FREQ=WEEKLY;INTERVAL=2', monthly: 'RRULE:FREQ=MONTHLY' };
@@ -75,13 +80,23 @@ export function eventBody(ev: EventInput, requestTz = TZ): Record<string, unknow
     reminders: { useDefault: true },
     location: ev.roomUrl,
     guestsCanModify: false,
-    ...(RRULE[ev.repeat] ? { recurrence: [RRULE[ev.repeat]] } : {}),
+    ...(ev.recurrence?.length ? { recurrence: ev.recurrence } : RRULE[ev.repeat] ? { recurrence: [RRULE[ev.repeat]] } : {}),
   };
+}
+
+/** A call to the Calendar API on this person's primary calendar. path starts after /calendars/primary (for example /events/abc). */
+export async function calFetch(env: MeetEnv, owner: string, path: string, init: { method?: string; body?: unknown } = {}): Promise<Response> {
+  const tok = await token(env, owner, [CAL_EVENTS]);
+  return fetch(`${cal(env)}/calendars/primary${path}`, {
+    method: init.method || 'GET',
+    headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  });
 }
 
 export async function createEvent(env: MeetEnv, booker: string, ev: EventInput): Promise<{ id: string; meetLink: string }> {
   const tok = await token(env, booker, [CAL_EVENTS]);
-  const body = eventBody(ev);
+  const body = eventBody(ev, ev.tz || TZ);
   const r = await fetch(`${cal(env)}/calendars/primary/events?sendUpdates=all`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
@@ -165,6 +180,10 @@ export interface ReminderInput {
   durationMin?: number;
   agenda?: string;
   people?: string[];
+  /** A calendar file to attach (meetics.ts), for people without a Google invite. */
+  ics?: string;
+  /** Times shown in this zone first (the partner's own), before the team zones. */
+  tz?: string;
 }
 
 const ZONES: Array<[string, string]> = [['Eastern', TZ], ['Kampala', 'Africa/Kampala'], ['Juba', 'Africa/Juba']];
@@ -201,7 +220,8 @@ export function buildReminder(m: ReminderInput): { subject: string; html: string
   const noteBy = m.sender || m.host;
   const rec = m.rec === 'video' ? 'Recorded on video, with notes written up in FavorOS.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
   const when = `${fmt(m.startsAt, TZ, { weekday: 'long', month: 'long', day: 'numeric' })}, ${timeOf(m.startsAt)} to ${timeOf(endIso)} Eastern`;
-  const zones = ZONES.map(([label, z]) => ({ label, t: `${fmt(m.startsAt, z, { weekday: 'short' })} ${timeOf(m.startsAt, z)}` }));
+  const zoneList: Array<[string, string]> = m.tz && !ZONES.some(([, z]) => z === m.tz) ? [['Your time', m.tz], ...ZONES] : ZONES;
+  const zones = zoneList.map(([label, z]) => ({ label, t: `${fmt(m.startsAt, z, { weekday: 'short' })} ${timeOf(m.startsAt, z)}` }));
   const people = (m.people || []).filter(Boolean);
   const gcal = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(m.title)}&dates=${gcalDate(m.startsAt)}/${gcalDate(endIso)}&details=${encodeURIComponent(`Join: ${m.roomUrl}${m.agenda ? `\n\n${m.agenda}` : ''}`)}&location=${encodeURIComponent(m.roomUrl)}`;
   const outlook = `https://outlook.office.com/calendar/0/deeplink/compose?subject=${encodeURIComponent(m.title)}&startdt=${encodeURIComponent(m.startsAt)}&enddt=${encodeURIComponent(endIso)}&body=${encodeURIComponent(`Join: ${m.roomUrl}`)}&location=${encodeURIComponent(m.roomUrl)}`;
@@ -277,7 +297,7 @@ export async function sendReminder(env: MeetEnv, to: string[], m: ReminderInput)
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: to.slice(i, i + 40), subject, html, text }),
+      body: JSON.stringify({ from, to: to.slice(i, i + 40), subject, html, text, ...(m.ics ? { attachments: [{ filename: 'invite.ics', content: icsBase64(m.ics), content_type: 'text/calendar' }] } : {}) }),
     });
     if (!r.ok) {
       all = false;

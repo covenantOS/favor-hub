@@ -60,6 +60,10 @@ export interface Meeting {
   share_policy: 'all' | 'hosts';
   repeat: string;
   series_id: string;
+  /** The occurrence's start before any one-off move, and whether it was changed alone (meetseries.ts). */
+  orig_start?: string;
+  detached?: number;
+  tz?: string;
   calendar_event_id: string;
   backup_link: string;
   remind: number;

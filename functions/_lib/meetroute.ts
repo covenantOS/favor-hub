@@ -21,6 +21,11 @@ import { sendLink, sendState, setMyPhone, textSoon, type SendDeps } from './meet
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchCalendarEvent, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
+import { buildIcs } from './meetics';
+import { SCOPES, cancelOccurrence, createSeries, editOccurrence, seriesPage, seriesPass, seriesUrl, type Scope } from './meetseries';
+import { assistant, conflicts, deleteTemplate, googleState, listHolds, listTemplates, makeHolds, prefsOf, releaseHolds, savePrefs, saveTemplate } from './meetsched';
+import { bookingFollows, deleteType, myTypes, ownerCancel, saveType } from './meetbook';
+import { cleanRule } from './meetrecur';
 import { MEET_AI, afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
@@ -68,6 +73,22 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
       await patchCalendarEvent(env, user.email, eid, { startsAt: str(b.startsAt), endsAt: str(b.endsAt), title: str(b.title), description: str(b.description) });
       return json({ ok: true });
     }
+    // Scheduling (meetsched.ts, meetseries.ts, meetbook.ts).
+    if (parts[1] === 'series' && ID_RE.test(parts[2] || '') && m === 'GET') return json(await seriesPage(env, user, parts[2]));
+    if (parts[1] === 'assist' && m === 'POST') return json(await assistant(env, user.email.toLowerCase(), await request.json().catch(() => ({}))));
+    if (parts[1] === 'conflicts' && m === 'POST') return json(await conflicts(env, user.email.toLowerCase(), await request.json().catch(() => ({}))));
+    if (parts[1] === 'prefs' && m === 'GET') return json({ ok: true, prefs: (await prefsOf(env, [user.email.toLowerCase()])).get(user.email.toLowerCase()), google: await googleState(env, user.email) });
+    if (parts[1] === 'prefs' && m === 'POST') return json({ ok: true, prefs: await savePrefs(env, user.email, await request.json().catch(() => ({}))) });
+    if (parts[1] === 'holds' && !parts[2] && m === 'GET') return json(await listHolds(env, user.email));
+    if (parts[1] === 'holds' && !parts[2] && m === 'POST') return json(await makeHolds(env, user.email, await request.json().catch(() => ({}))));
+    if (parts[1] === 'holds' && parts[2] === 'release' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, released: await releaseHolds(env, user.email, clean(b.grp, 20), clean(b.keep, 40)) }); }
+    if (parts[1] === 'templates' && !parts[2] && m === 'GET') return json(await listTemplates(env, user.email));
+    if (parts[1] === 'templates' && !parts[2] && m === 'POST') return json(await saveTemplate(env, user.email, await request.json().catch(() => ({}))));
+    if (parts[1] === 'templates' && parts[2] && parts[3] === 'delete' && m === 'POST') return json(await deleteTemplate(env, user.email, parts[2]));
+    if (parts[1] === 'booking' && !parts[2] && m === 'GET') return json(await myTypes(env, user.email));
+    if (parts[1] === 'booking' && parts[2] === 'types' && m === 'POST') return json(await saveType(env, user, await request.json().catch(() => ({}))));
+    if (parts[1] === 'booking' && parts[2] === 'off' && parts[3] && m === 'POST') return json(await deleteType(env, user.email, parts[3]));
+    if (parts[1] === 'booking' && parts[2] === 'cancel' && parts[3] && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json(await ownerCancel(env, user.email, parts[3], new URL(request.url).origin, clean(b.note, 300))); }
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'switch' && m === 'POST') return json(await switchToFavor(env, user, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (parts[0] === 'meetings' && parts[1] === 'remind' && m === 'POST') {
       // The same five-minute pass sends the Mail messages whose time has come.
@@ -106,7 +127,7 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'with' && m === 'POST') return json(await withMe(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'tracks' && m === 'POST') return json(await setTracks(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'sfu' && m === 'POST') return json(await sfuPass(env, user, id, parts.slice(3).join('/'), await request.json().catch(() => ({}))));
-    if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({}))));
+    if (sub === 'update' && m === 'POST') return json(await updateMeeting(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request, waitUntil);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
     if (sub === 'private' && m === 'POST') return json(await privateRoute(env, user, id, await request.json().catch(() => ({}))));
@@ -280,10 +301,23 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
   if (badEmail) throw new HttpError(400, 'bad_invitee', `${badEmail.email} is not an email address.`);
   const seenInv = new Set<string>([user.email.toLowerCase()]);
   const invitees = rawInvitees.filter((i) => (seenInv.has(i.email) ? false : (seenInv.add(i.email), true)));
-  const repeat = ['weekly', 'biweekly', 'monthly'].includes(String(b.repeat)) ? String(b.repeat) : 'none';
+  // A repeat comes as a full rule (recur) or, from older pages, as one word (repeat). Either way a series row holds it (meetseries.ts).
+  const rule = startsAt ? cleanRule(b.recur, String(b.repeat || '')) : null;
+  const repeat = rule ? rule.freq : 'none';
   const withGuests = guestsOn(env) && (invitees.some((i) => i.guest) || (!!startsAt && b.access == null));
   const gkey = withGuests ? hex(16) : '';
   const endsAt = startsAt ? new Date(Date.parse(startsAt) + dur * 60000).toISOString() : null;
+  if (rule && startsAt) {
+    const sTz = typeof b.tz === 'string' && /^[A-Za-z_]+\/[A-Za-z_\/+-]+$/.test(b.tz) ? b.tz : TZ;
+    const made = await createSeries(env, user, {
+      title, agenda: clean(b.agenda, 2000), durationMin: dur, rec, access: withGuests ? 'guests' : access, invitees, remind: b.remind === false ? 0 : 1, rule, startsAt, tz: sTz,
+      calendar: b.calendar !== false, templateId: clean(b.templateId, 20), team: clean(b.team, 80), driveFolder: clean(b.driveFolder, 80), postChannel: typeof b.postChannel === 'string' ? clean(b.postChannel, 60) : '',
+      gkey: gkey || undefined, roomUrl: seriesUrl(origin, id), guestUrl: withGuests ? `${seriesUrl(origin, id)}&k=${gkey}` : '',
+    }, id);
+    if (typeof b.postChannel === 'string' && b.postChannel) await setPostChannel(env, user as never, id, clean(b.postChannel, 60)).catch(() => undefined);
+    if (typeof b.holdGroup === 'string' && b.holdGroup) await releaseHolds(env, user.email, clean(b.holdGroup, 20), startsAt).catch(() => 0);
+    return { ok: true, meeting: publicMeeting(await getMeeting(env, id), user), calendar: made.calendar, seriesId: id };
+  }
   // A booked meeting goes on the booker's Google Calendar first, so a refusal from Google leaves nothing half made.
   let eventId = '';
   let backup = '';
@@ -302,10 +336,8 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?)`
     ).bind(rid, title, clean(b.agenda, 2000), user.email.toLowerCase(), user.name, at, until, dur, rec, access, JSON.stringify(invitees), nowIso(), repeat, repeat === 'none' ? '' : id, eventId, backup, remind);
   const rows = [insert(id, startsAt, endsAt)];
-  if (startsAt && repeat !== 'none') {
-    // The next few occurrences get their own rooms now; the reminder pass adds more as they come close.
-    for (const at of occurrences(startsAt, repeat, 9).slice(1)) rows.push(insert(hex(12), at, new Date(Date.parse(at) + dur * 60000).toISOString()));
-  }
+  if (typeof b.tz === 'string' && b.tz.length < 60) rows.push(env.DB.prepare('UPDATE hub_meetings SET tz = ? WHERE id = ?').bind(b.tz, id));
+  if (typeof b.driveFolder === 'string' && /^[A-Za-z0-9_-]{10,80}$/.test(b.driveFolder)) rows.push(env.DB.prepare('UPDATE hub_meetings SET drive_folder = ? WHERE id = ?').bind(b.driveFolder, id));
   if (withGuests) rows.push(env.DB.prepare(`UPDATE hub_meetings SET access = 'guests' WHERE id = ?`).bind(id), env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_guest (meeting_id, gkey) VALUES (?, ?)').bind(id, gkey));
   await env.DB.batch(rows);
   if (typeof b.postChannel === 'string' && b.postChannel) {
@@ -319,6 +351,7 @@ export async function createMeeting(env: MeetEnv, user: { email: string; name: s
       await sendReminder(env, [i.email], { title, startsAt: nowIso(), roomUrl: url, backup: '', rec, kind: 'now', host }).catch(() => undefined);
     }
   }
+  if (startsAt && typeof b.holdGroup === 'string' && b.holdGroup) await releaseHolds(env, user.email, clean(b.holdGroup, 20), startsAt).catch(() => 0);
   return { ok: true, meeting: publicMeeting(await getMeeting(env, id), user), calendar: !!eventId };
 }
 
@@ -368,9 +401,29 @@ async function switchToFavor(env: MeetEnv, user: { email: string; name: string }
   return { ok: true, id };
 }
 
-async function updateMeeting(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>) {
+async function updateMeeting(env: MeetEnv, user: { email: string; role: string }, id: string, b: Record<string, unknown>, origin = HUB) {
   const mt = await getMeeting(env, id);
   if (!isHost(mt, user.email) && user.role !== 'admin') throw new HttpError(403, 'host_only', 'Only the host can change this meeting.');
+  // One meeting of a repeating series: "this one", "this and following" or "all" (meetseries.ts). With no scope a change is to this one.
+  if (mt.series_id && mt.status === 'scheduled') {
+    const scope: Scope = SCOPES.includes(b.scope as Scope) ? (b.scope as Scope) : 'this';
+    if (b.status === 'cancelled') return await cancelOccurrence(env, user, mt, scope, origin);
+    const touches = ['startsAt', 'endsAt', 'title', 'agenda', 'rec', 'access', 'invitees', 'recur', 'durationMin'].some((k) => b[k] !== undefined);
+    if (touches) {
+      const start = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt)) ? new Date(b.startsAt).toISOString() : undefined;
+      const s0 = start || mt.starts_at;
+      const durationMin = typeof b.endsAt === 'string' && !Number.isNaN(Date.parse(b.endsAt)) && s0 ? Math.round((Date.parse(b.endsAt) - Date.parse(s0)) / 60000) : Number(b.durationMin) || undefined;
+      if (durationMin !== undefined && (durationMin < 5 || durationMin > 480)) throw new HttpError(400, 'bad_time', 'A meeting runs from 5 minutes to 8 hours.');
+      const invitees = Array.isArray(b.invitees) ? (b.invitees as Array<Record<string, unknown>>).slice(0, 200).map((i) => ({ email: clean(i.email, 200).toLowerCase(), name: clean(i.name, 120), team: clean(i.team, 80), guest: !!i.guest })).filter((i) => i.email.includes('@')) : undefined;
+      const r = await editOccurrence(env, user, mt, scope, {
+        title: typeof b.title === 'string' ? clean(b.title, 140) || undefined : undefined, agenda: typeof b.agenda === 'string' ? clean(b.agenda, 2000) : undefined, startsAt: start, durationMin,
+        rec: ['off', 'notes', 'video'].includes(String(b.rec)) ? String(b.rec) : undefined, access: ['invited', 'staff', 'guests'].includes(String(b.access)) ? String(b.access) : undefined, invitees,
+        rule: b.recur ? cleanRule(b.recur) || undefined : undefined,
+      }, origin);
+      if (typeof b.postChannel === 'string') await setPostChannel(env, user as never, id, clean(b.postChannel, 60));
+      return r;
+    }
+  }
   const sets: string[] = [];
   const vals: unknown[] = [];
   if (typeof b.title === 'string') { sets.push('title = ?'); vals.push(clean(b.title, 140) || mt.title); }
@@ -410,8 +463,8 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
   }
   if (!sets.length) return { ok: true };
   await env.DB.prepare(`UPDATE hub_meetings SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, id).run();
-  if (movedTo && mt.status === 'scheduled') await noticeNoCalendar(env, mt, 'moved', movedTo.s0, movedTo.e0);
-  if (b.status === 'cancelled' && mt.status === 'scheduled' && mt.starts_at) await noticeNoCalendar(env, mt, 'cancelled', mt.starts_at, mt.ends_at);
+  if (movedTo && mt.status === 'scheduled') { await noticeNoCalendar(env, mt, 'moved', movedTo.s0, movedTo.e0); await bookingFollows(env, id, { startsAt: movedTo.s0, endsAt: movedTo.e0 }); }
+  if (b.status === 'cancelled' && mt.status === 'scheduled' && mt.starts_at) { await noticeNoCalendar(env, mt, 'cancelled', mt.starts_at, mt.ends_at); await bookingFollows(env, id, { status: 'cancelled' }); }
   return { ok: true };
 }
 
@@ -1335,7 +1388,10 @@ const sendDeps = (env: MeetEnv, origin: string): SendDeps => ({ guestUrl: (m) =>
 async function noticeNoCalendar(env: MeetEnv, mt: Meeting, kind: 'moved' | 'cancelled', startsAt: string, endsAt: string | null) {
   if (mt.calendar_event_id || !startsAt) return;
   const to = emailsOf(mt.invitees).filter((e) => e !== mt.host_email.toLowerCase() && !e.startsWith('guest:'));
-  for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt, endsAt, durationMin: mt.duration_min, roomUrl: `${HUB}/meet/room/?m=${mt.id}`, backup: '', rec: mt.rec_mode, kind, host: mt.host_name || mt.host_email, hostEmail: mt.host_email }).catch(() => false);
+  const end = endsAt || new Date(Date.parse(startsAt) + mt.duration_min * 60000).toISOString();
+  // A calendar file goes with it, so the change lands in the guest's own calendar (same UID as before, a higher sequence).
+  const ics = buildIcs({ uid: `${mt.id}@favoros`, method: kind === 'cancelled' ? 'CANCEL' : 'REQUEST', sequence: Math.floor(Date.now() / 1000), startsAt, endsAt: end, title: mt.title, url: `${HUB}/meet/room/?m=${mt.id}`, organizer: { name: mt.host_name || mt.host_email, email: mt.host_email } });
+  for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt, endsAt, durationMin: mt.duration_min, roomUrl: `${HUB}/meet/room/?m=${mt.id}`, backup: '', rec: mt.rec_mode, kind, host: mt.host_name || mt.host_email, hostEmail: mt.host_email, ics }).catch(() => false);
 }
 
 async function directory(env: MeetEnv) {
@@ -1350,33 +1406,6 @@ async function directory(env: MeetEnv) {
      ORDER BY name`
   ).all<{ email: string; name: string; title: string; team: string }>();
   return { ok: true, people: rows.results || [] };
-}
-
-/** Start times of a repeating meeting, Eastern wall clock kept the same across daylight saving. */
-function occurrences(first: string, repeat: string, n: number): string[] {
-  const parts = (iso: string) => {
-    const f = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso));
-    const g = (t: string) => Number(f.find((x) => x.type === t)?.value);
-    return { y: g('year'), mo: g('month'), d: g('day'), h: g('hour'), mi: g('minute') };
-  };
-  const base = parts(first);
-  const out: string[] = [];
-  for (let i = 0; i < n; i++) {
-    const d = new Date(Date.UTC(base.y, base.mo - 1, base.d, 12));
-    if (repeat === 'monthly') d.setUTCMonth(d.getUTCMonth() + i);
-    else d.setUTCDate(d.getUTCDate() + i * (repeat === 'biweekly' ? 14 : 7));
-    // Find the instant whose Eastern wall clock is that date and time.
-    const guess = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), base.h, base.mi);
-    let t = guess;
-    for (let k = 0; k < 3; k++) {
-      const p = parts(new Date(t).toISOString());
-      const want = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), base.h, base.mi);
-      const got = Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi);
-      t += want - got;
-    }
-    out.push(new Date(t).toISOString());
-  }
-  return out;
 }
 
 /** Called every few minutes by the cron worker: reminder emails a day before and 15 minutes before, and more occurrences of repeating meetings. */
@@ -1406,24 +1435,9 @@ async function remind(env: MeetEnv, origin: string) {
       if (w.kind === 'soon') sent += await textSoon(env, mt, origin, sendDeps(env, origin)).catch(() => 0);
     }
   }
-  // Repeating meetings keep four occurrences ahead.
-  const series = await env.DB.prepare(
-    `SELECT series_id, MAX(starts_at) AS last, SUM(CASE WHEN starts_at > ? THEN 1 ELSE 0 END) AS ahead FROM hub_meetings WHERE series_id != '' AND status = 'scheduled' GROUP BY series_id HAVING ahead < 4`
-  ).bind(new Date(now).toISOString()).all<{ series_id: string; last: string; ahead: number }>();
-  let made = 0;
-  for (const sr of series.results || []) {
-    const t = await env.DB.prepare('SELECT * FROM hub_meetings WHERE id = ?').bind(sr.series_id).first<Meeting>();
-    if (!t || !sr.last) continue;
-    const next = occurrences(sr.last, t.repeat, 5).slice(1, 5 - Number(sr.ahead));
-    for (const at of next) {
-      await env.DB.prepare(
-        `INSERT INTO hub_meetings (id, title, agenda, host_email, host_name, starts_at, ends_at, duration_min, rec_mode, access, invitees, status, created_at, repeat, series_id, calendar_event_id, backup_link, remind, post_channel)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, ?, ?, ?, ?, ?)`
-      ).bind(hex(12), t.title, t.agenda, t.host_email, t.host_name, at, new Date(Date.parse(at) + t.duration_min * 60000).toISOString(), t.duration_min, t.rec_mode, t.access, t.invitees, nowIso(), t.repeat, t.series_id, t.calendar_event_id, t.backup_link, t.remind, (t as Meeting & { post_channel?: string }).post_channel || '').run();
-      made++;
-    }
-  }
-  return { ok: true, sent, made };
+  // Repeating meetings keep their occurrences made ahead, and the next agenda gets the last meeting's open action items (meetseries.ts).
+  const { made, carried } = await seriesPass(env);
+  return { ok: true, sent, made, carried };
 }
 
 // ---------------------------------------------------------------- Favor Brain in the call: what the meeting itself can answer
