@@ -44,6 +44,7 @@ export class Rtc {
       for (const it of items) {
         const init = { direction: 'sendonly' };
         if (it.simulcast) init.sendEncodings = it.simulcast;
+        else if (it.enc) init.sendEncodings = it.enc;
         const tr = it.track ? this.pc.addTransceiver(it.track, init) : this.pc.addTransceiver(it.kind, init);
         added.push({ it, tr });
       }

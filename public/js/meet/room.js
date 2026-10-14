@@ -9,7 +9,10 @@ import './stage.js';
 
 const params = new URLSearchParams(location.search);
 // ?audio=1: an audio-only call for a weak or expensive connection. No camera is asked for or sent, and no one's video or screen share is pulled.
-const AUDIO_ONLY = params.get('audio') === '1';
+// Lite mode (public/js/lite.js, the Data saver setting): the room opens as an audio call unless the link says ?audio=0 (the
+// Video button below), sound goes out at 16 kbit/s, a camera sends small pictures, and everyone else's video comes at the smallest layer.
+const LITE = !!(window.FavorLite && window.FavorLite.on);
+const AUDIO_ONLY = params.get('audio') === '1' || (LITE && params.get('audio') !== '0');
 const MID = params.get('m') || '';
 const root = $('#meet-root');
 const isPhone = () => matchMedia('(max-width: 860px)').matches;
@@ -35,7 +38,7 @@ const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform 
 
 const S = {
   meeting: null, me: { pid: sessionStorage.getItem('meet.pid.' + MID) || '', name: '', role: 'staff' }, people: [], events: 0, chat: [], panel: 'people',
-  mic: true, cam: !AUDIO_ONLY, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
+  mic: true, cam: !AUDIO_ONLY && !LITE, hand: false, sharing: false, cc: false, conn: 'ok', page: 0, pin: '', spot: '', locked: false, sharePolicy: 'all', menu: null,
   recording: null, lines: [], tx: 0, brainQ: [], show: null, dropRel: null, joined: false, left: false, started: 0, lvl: 0, lastSync: 0, unread: 0, devices: { mic: true, cam: !AUDIO_ONLY }, removed: false, level: 'good', speakers: new Map(),
   ah: new Map(), soundBlocked: false, micIssue: '', noConnect: 0,
   inv: { text: '', busy: false, rows: [], sugg: [], dir: null, matches: [] }, live: [], liveSig: '', liveKind: 'action', liveText: '', layout: 'grid', pop: '', more: false, moreDev: false, syncFails: 0, camId: '', micId: '', spkId: '', seenWait: new Set(), present: [], rtcDown: false,
@@ -385,10 +388,14 @@ async function openRtc(j, isRejoin) {
   S.rtcAt = Date.now(); S.everUp = false; rtc.stats.pathAt = Date.now();
   if (!(j.iceServers || []).some((x) => [].concat(x.urls || []).some((u) => /^turns?:/.test(u)))) diag('no-turn');
   const items = [];
-  if (S.devices.mic || local.mic) items.push({ name: 'a', kind: 'audio', track: local.mic });
+  if (S.devices.mic || local.mic) items.push({ name: 'a', kind: 'audio', track: local.mic, enc: LITE ? [{ maxBitrate: 16000 }] : null });
   items.push({
     name: 'v', kind: 'video', track: S.cam ? local.cam : null,
-    simulcast: [
+    simulcast: LITE ? [
+      { rid: 'f', scaleResolutionDownBy: 3, maxBitrate: 200000, maxFramerate: 15 },
+      { rid: 'h', scaleResolutionDownBy: 4, maxBitrate: 120000, maxFramerate: 15 },
+      { rid: 'q', scaleResolutionDownBy: 6, maxBitrate: 60000, maxFramerate: 10 },
+    ] : [
       // 720p30 on top (Will, 2026-10-14). A weak link still steps down to h or q on the receiving side.
       { rid: 'f', maxBitrate: 2500000, maxFramerate: 30 },
       { rid: 'h', scaleResolutionDownBy: 2, maxBitrate: 600000, maxFramerate: 30 },
@@ -1322,7 +1329,7 @@ function paintCtl() {
     keepFocus(el, () => {
       el.innerHTML = `
       <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
-      <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
+      <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>${AUDIO_ONLY ? 'Video' : 'Camera'}</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
       <button class="cb${S.panel === 'chat' ? ' is-on' : ''}" data-a="panel" data-p="chat" aria-pressed="${S.panel === 'chat'}"><span class="k badge">${ic('chat')}${S.unread ? `<span class="dotc${S.mentioned ? ' is-at' : ''}">${S.mentioned ? '@' : S.unread}</span>` : ''}</span>Chat</button>
       <button class="cb${S.panel === 'people' ? ' is-on' : ''}" data-a="panel" data-p="people" aria-pressed="${S.panel === 'people'}"><span class="k badge">${ic('users')}${waiting ? `<span class="dotc">${waiting}</span>` : handCount() ? `<span class="dotc dotc--hand" aria-label="${handCount()} raised">${handCount()}</span>` : ''}</span>People</button>
       <button class="cb${S.more ? ' is-on' : ''}" data-a="more" aria-expanded="${S.more}" aria-haspopup="dialog"><span class="k badge">${ic('more')}${S.hand || S.cc ? '<span class="dotc dotc--s"></span>' : ''}</span>More</button>`;
@@ -1333,7 +1340,7 @@ function paintCtl() {
   keepFocus(el, () => {
     el.innerHTML = `
     <span class="cb-g"><button class="cb${S.mic ? '' : ' is-off'}" data-a="mic" aria-pressed="${!S.mic}"><span class="k">${ic(S.mic ? 'mic' : 'micOff')}</span>${S.mic ? 'Mute' : 'Unmute'}</button><button class="cb-chev" data-a="devmenu" data-p="mic" aria-label="Microphone and speaker" title="Microphone and speaker">${ic('chevu')}</button></span>
-    <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>Camera</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
+    <span class="cb-g"><button class="cb${S.cam ? '' : ' is-off'}" data-a="cam" aria-pressed="${S.cam}"><span class="k">${ic(S.cam ? 'video' : 'videoOff')}</span>${AUDIO_ONLY ? 'Video' : 'Camera'}</button><button class="cb-chev" data-a="devmenu" data-p="cam" aria-label="Camera settings" title="Camera settings">${ic('chevu')}</button></span>
     ${canDisplay ? `<button class="cb${S.sharing ? ' is-on' : ''}" data-a="share" aria-pressed="${S.sharing}" ${canShare ? '' : 'disabled title="The host limited sharing"'}><span class="k">${ic('screen')}</span>${S.sharing ? 'Stop share' : 'Share'}</button>${S.sharing && local.screen ? `<button class="cb${local.screen.contentHint === 'motion' ? ' is-on' : ''}" data-a="sharemotion" aria-pressed="${local.screen.contentHint === 'motion'}" title="Smooth motion for a video you are sharing"><span class="k">${ic('video')}</span>${lab('Video mode', 'Video')}</button>` : ''}` : ''}
     ${canShare ? `<button class="cb cb-play${S.play ? ' is-on' : ''}" data-a="playclip"><span class="k">${ic('screen')}</span>${lab('Play a clip', 'Clip')}</button>` : ''}
     ${FEATURES.captions ? `<button class="cb${S.cc ? ' is-on' : ''}" data-a="cc" aria-pressed="${S.cc}"><span class="k">${ic('cc')}</span>${lab('Captions', 'CC')}</button>` : ''}
@@ -1814,7 +1821,11 @@ function toggleMic() {
   S.mic = !S.mic; local.mic.enabled = S.mic; paintCtl(); paintGrid(); syncNow();
 }
 async function toggleCam() {
-  if (AUDIO_ONLY) { toast('This is an audio call. Leave and join again for video.'); return; }
+  if (AUDIO_ONLY) {
+    // Video is one tap away: the room opens again with video, through the lobby.
+    if (LITE || params.get('audio') === '1') { const u = new URL(location.href); u.searchParams.set('audio', '0'); toast('Opening the room with video'); setTimeout(() => location.replace(u.toString()), 300); return; }
+    toast('This is an audio call. Leave and join again for video.'); return;
+  }
   if (S.cam) {
     S.cam = false;
     if (local.cam) { try { await rtc.replace('v', null); } catch {} stopCam(); }
@@ -2018,7 +2029,7 @@ function wanted() {
     const tr = (p.tracks || []).find((t) => (share ? t.name === 's' : t.name === 'v'));
     if (!tr) return;
     if (!share && !p.cam) return;
-    let rid = share ? (level === 'weak' || kind === 'strip' || kind === 'float' ? 'h' : 'f') : kind === 'big' ? (level === 'weak' ? 'h' : 'f') : kind === 'strip' ? (bigStrip && level !== 'weak' ? 'h' : 'q') : level === 'weak' ? 'q' : level === 'fair' ? (model.length > 4 ? 'q' : 'h') : model.length <= 2 ? 'f' : 'h';
+    let rid = LITE ? (share ? 'h' : 'q') : share ? (level === 'weak' || kind === 'strip' || kind === 'float' ? 'h' : 'f') : kind === 'big' ? (level === 'weak' ? 'h' : 'f') : kind === 'strip' ? (bigStrip && level !== 'weak' ? 'h' : 'q') : level === 'weak' ? 'q' : level === 'fair' ? (model.length > 4 ? 'q' : 'h') : model.length <= 2 ? 'f' : 'h';
     w.set(p.pid + '|' + tr.name, { pid: p.pid, sessionId: p.sessionId, trackName: tr.name, kind: 'video', rid });
   });
   // Picture in picture: the person or share in the window is pulled even when it is not on screen.

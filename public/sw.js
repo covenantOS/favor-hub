@@ -17,7 +17,7 @@ self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([STATIC, SHELL]);
+      const keep = new Set([STATIC, SHELL, 'favoros-flags']);
       for (const k of await caches.keys()) if (!keep.has(k)) await caches.delete(k);
       await self.clients.claim();
     })()
@@ -63,6 +63,35 @@ async function shellFirstFromNetwork(request) {
   }
 }
 
+// Lite mode (public/js/lite.js) sets /__lite in the favoros-flags cache. While it is set, a versioned script or style (?v=N, the
+// address changes when the file does) is answered from the kept copy, and asked of the server again at most every six hours.
+let liteAt = 0, liteOn = false;
+async function lite() {
+  if (Date.now() - liteAt < 30000) return liteOn;
+  liteAt = Date.now();
+  try { liteOn = !!(await (await caches.open('favoros-flags')).match('/__lite')); } catch { liteOn = false; }
+  return liteOn;
+}
+async function keptFirst(request) {
+  const cache = await caches.open(STATIC);
+  const hit = await cache.match(request);
+  const age = hit ? Date.now() - Number(hit.headers.get('x-kept-at') || 0) : Infinity;
+  const refresh = async () => {
+    const res = await fetch(request);
+    if (res.ok && res.type === 'basic') {
+      const body = await res.clone().blob();
+      const h = new Headers(res.headers); h.set('x-kept-at', String(Date.now()));
+      await cache.put(request, new Response(body, { status: res.status, statusText: res.statusText, headers: h }));
+    }
+    return res;
+  };
+  if (hit) {
+    if (age > 6 * 3600 * 1000) refresh().catch(() => undefined);
+    return hit;
+  }
+  return refresh();
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
@@ -74,7 +103,8 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   if (url.pathname.startsWith('/api/')) return;
   if (STATIC_PREFIXES.some((p) => url.pathname.startsWith(p)) && !url.pathname.endsWith('/version.json')) {
-    event.respondWith(url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/') ? networkFirst(req) : cacheFirst(req));
+    const code = url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/');
+    event.respondWith(code ? (url.searchParams.has('v') ? lite().then((on) => (on ? keptFirst(req) : networkFirst(req))) : networkFirst(req)) : cacheFirst(req));
     return;
   }
   if (req.mode === 'navigate' && SHELL_PATHS.includes(url.pathname)) event.respondWith(shellFirstFromNetwork(req));

@@ -29,6 +29,8 @@
   function owned() { return st.sync || pageFrame(caller()); }
 
   window.setInterval = function (f, t) {
+    // Lite mode (lite.js) stretches slow polls on a weak or costly connection.
+    if (window.__liteIv && typeof t === 'number') arguments[1] = window.__liteIv(t);
     var id = oSI.apply(this, arguments);
     if (owned()) own.iv.push(id);
     return id;

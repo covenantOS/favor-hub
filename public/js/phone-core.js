@@ -176,8 +176,10 @@
         });
       });
       return step.then(function () {
-        var payload = { body: item.body || '', attachments: uploaded.filter(Boolean) };
+        // Files already uploaded before the message was queued (FavorOS chat in Lite mode) go first, then the ones sent from here.
+        var payload = { body: item.body || '', attachments: (item.attachments || []).concat(uploaded.filter(Boolean)) };
         if (item.thread_id) payload.thread_id = item.thread_id;
+        if (item.also) payload.also = true;
         return transport.send(item.channel, payload, item.id);
       });
     }
@@ -210,10 +212,31 @@
       return running;
     }
 
+    function record(item) {
+      return { id: newId(), channel: item.channel, thread_id: item.thread_id || null, body: item.body || '', files: item.files || [], attachments: item.attachments || [], also: !!item.also, created: Date.now() };
+    }
+
     return {
       queue: function (item) {
-        var rec = { id: newId(), channel: item.channel, thread_id: item.thread_id || null, body: item.body || '', files: item.files || [], created: Date.now() };
+        var rec = record(item);
         return store.put(rec).then(function () { changed(); return flush().then(function () { return rec.id; }); });
+      },
+      /** Queues and tries at once. Resolves { id, message } when it went, { id, queued: true } when it waits for a connection;
+          rejects when the server refused it (the message is dropped from the queue, so the page can put the text back). */
+      send: function (item) {
+        var rec = record(item);
+        function look(out) {
+          var s = out.sent.filter(function (x) { return x.id === rec.id; })[0];
+          if (s) return { id: rec.id, message: s.message };
+          var f = out.failed.filter(function (x) { return x.id === rec.id; })[0];
+          if (f) return store.remove(rec.id).then(function () { changed(); var e = new Error(f.error); e.status = 400; throw e; });
+          return null;
+        }
+        return store.put(rec).then(function () { changed(); return flush(); }).then(function (out) {
+          var r = look(out);
+          // A send already under way did not include this message: one more pass picks it up.
+          return r || flush().then(function (o2) { return look(o2) || { id: rec.id, queued: true }; });
+        });
       },
       flush: flush,
       list: function () { return store.all(); },

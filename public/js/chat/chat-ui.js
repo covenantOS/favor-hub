@@ -328,7 +328,10 @@
     /* ------------------------------------------------------------------ cards */
     // Every card plays or previews where it was posted. A clip or a video plays in the message; a picture, a PDF, a Word or Excel
     // file and a Drive file open in the viewer on top of the chat (chat-view.js). Opening the file's own page is a small link.
+    // Lite mode (public/js/lite.js): pictures wait for a tap, posters and link pictures are left out, photos shrink before upload.
+    function liteOn() { return !!(window.FavorLite && window.FavorLite.on); }
     function vidHtml(src, poster, label, dur, ratio) {
+      if (liteOn()) poster = '';
       var box = ratio ? ' style="aspect-ratio:' + ratio + '"' : '';
       return '<span class="ch-vid"' + box + ' data-vsrc="' + esc(src) + '">' + (poster && !broken[poster] ? '<img class="ch-vid__poster" src="' + esc(poster) + '" alt="" loading="lazy" decoding="async" />' : '<span class="ch-clip__scr"><i></i><i></i><i></i><i></i></span>') +
         '<button type="button" class="ch-vid__play" data-act="play" aria-label="Play ' + esc(label) + '">' + ic('play') + '</button>' + (dur ? '<span class="ch-vid__dur">' + esc(dur) + '</span>' : '') + '</span>';
@@ -382,7 +385,8 @@
           var w = Number(a.w) || 0, h = Number(a.h) || 0;
           var ratio = w && h ? Math.max(1 / 3, Math.min(3, w / h)) : 0;
           var shape = ratio ? ' style="aspect-ratio:' + ratio.toFixed(4) + ';width:min(100%,' + Math.round(Math.min(360, 280 * ratio)) + 'px)"' : '';
-          return '<button type="button" class="ch-media ch-photo" data-act="view"' + at + shape + ' aria-label="View ' + esc(a.name || 'picture') + '"><img class="ch-img" src="' + esc(a.url) + '" alt="' + esc(a.name || 'Picture') + '"' + (w && h ? ' width="' + w + '" height="' + h + '"' : '') + ' loading="lazy" decoding="async" /></button>';
+          var hold = liteOn() && !window.FavorLite.shown[a.url];
+          return '<button type="button" class="ch-media ch-photo" data-act="view"' + at + shape + (hold ? ' data-lite-box="Photo' + (a.size ? ', ' + esc(window.FavorLite.kb(a.size)) : '') + '. Tap to load"' : '') + ' aria-label="View ' + esc(a.name || 'picture') + '"><img class="ch-img" ' + (hold ? 'data-lite-src' : 'src') + '="' + esc(a.url) + '" alt="' + esc(a.name || 'Picture') + '"' + (w && h ? ' width="' + w + '" height="' + h + '"' : '') + ' loading="lazy" decoding="async" /></button>';
         }
         if (fk === 'video') return '<div class="ch-card ch-clip ch-clip--file"' + at + '>' + vidHtml(a.url + '#t=0.1', '', a.name, '', '16 / 9') + '<span class="ch-clip__info"><span class="ch-card__t">' + esc(a.name) + '</span><span class="ch-card__m">' + esc(sizeOf(a.size)) + '</span><a class="ch-clip__open" href="' + esc(a.url) + '" download>Download' + ic('dl') + '</a></span></div>';
         if (fk === 'audio' && a.voice) return voiceHtml(a, m);
@@ -401,7 +405,7 @@
       // projects hook: a project task card is drawn by projects/links (public/js/chat/project-card.js).
       if (a.type === 'ptask') return window.FavorProjectCard ? window.FavorProjectCard.html(a, { esc: esc, ic: ic }) : '';
       if (a.type === 'link') {
-        var pic = a.image && !broken[a.image] ? '<span class="ch-link__pic"><img src="' + esc(a.image) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" /></span>' : '';
+        var pic = a.image && !broken[a.image] && !liteOn() ? '<span class="ch-link__pic"><img src="' + esc(a.image) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" /></span>' : '';
         return '<a class="ch-card ch-link' + (pic ? ' ch-link--pic' : '') + '" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-link__t"><span class="ch-card__m">' + esc(a.site || a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</span>' + pic + '</a>';
       }
       return '';
@@ -1273,9 +1277,15 @@
       var thread = scope === 'thread' ? S.threadRoot : null;
       var alsoBox = thread ? $('[data-also]', root) : null, also = !!(alsoBox && alsoBox.checked);
       ta.value = ''; grow(ta); S.pending[scope] = []; S.mentionMap[scope] = {}; renderPending(scope); closePop(); clearTimeout(draftT); clearDraft(scope);
-      guard(api.send(S.active, { body: body, thread_id: thread, attachments: att, also: also || undefined })).then(function (m) {
+      var payload = { body: body, thread_id: thread, attachments: att, also: also || undefined };
+      // Lite mode sends through the phone's outbox: a message written without signal waits there and goes when the signal returns.
+      var sending = liteOn() ? guard(window.FavorLite.chatSend(S.active, payload)).then(function (r) {
+        if (r.queued) { toast('No signal. Your message is saved and sends when the phone is back online.'); return null; }
+        return r.message;
+      }) : guard(api.send(S.active, payload));
+      sending.then(function (m) {
         if (alsoBox) alsoBox.checked = false;
-        S.toBottom = true; addMessage(m, true);
+        if (m) { S.toBottom = true; addMessage(m, true); }
       }).catch(function () { if (!ta.value) { ta.value = raw; S.mentionMap[scope] = map; grow(ta); syncSend(scope); saveDraft(scope); } });
     }
     function addMessage(m, mine) {
@@ -1870,7 +1880,8 @@
           var im = new Image(); im.onload = function () { item.w = im.naturalWidth; item.h = im.naturalHeight; }; im.src = item.preview;
         }
         S.pending[scope].push(item); renderPending(scope);
-        guard(api.upload(f)).then(function (r) { Object.assign(item, r, { uploading: false }); renderPending(scope); }).catch(function () { S.pending[scope] = S.pending[scope].filter(function (x) { return x !== item; }); renderPending(scope); });
+        var ready = liteOn() && /^image\//.test(f.type || '') ? window.FavorLite.compressPhoto(f) : Promise.resolve(f);
+        guard(ready.then(function (g) { item.size = g.size; return api.upload(g); })).then(function (r) { Object.assign(item, r, { uploading: false }); renderPending(scope); }).catch(function () { S.pending[scope] = S.pending[scope].filter(function (x) { return x !== item; }); renderPending(scope); });
       });
     }
 

@@ -258,7 +258,7 @@
   // Soon after a page is up, the phone bar's pages and this area's other tabs are read ahead (page and scripts), bar first,
   // so a tap finds them here. Skipped when the person asked their phone to save data.
   function warmArea() {
-    if (navigator.connection && navigator.connection.saveData) return;
+    if ((navigator.connection && navigator.connection.saveData) || (window.FavorLite && window.FavorLite.on)) return;
     const seen = new Set();
     const links = Array.from(document.querySelectorAll('#h-bar a[data-bar], #h-tabs a.h-tab:not([hidden]), .h-side a.h-area__link[data-area-link]')).filter((a) => {
       const k = pathOf(a.href);

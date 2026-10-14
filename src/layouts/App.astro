@@ -38,6 +38,7 @@ import '../styles/entity.css';
 import '../styles/design-pass.css';
 import CommandPalette from '../components/CommandPalette.astro';
 import hubOwn from '../../public/js/hub-own.js?raw';
+import liteJs from '../../public/js/lite.js?raw';
 
 interface Props {
   title: string;
@@ -86,10 +87,13 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="hub-build" content={BUILD} />
     <script is:inline set:html={hubOwn}></script>
+    <script is:inline set:html={liteJs}></script>
     <script is:inline src="/js/net-guard.js?v=1"></script>
     <script is:inline src="/js/app-update.js?v=3" defer></script>
-    <link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin />
+    <script is:inline>
+      // Lite mode draws with the phone's own fonts, so the web fonts are read ahead only when Lite is off.
+      if (!(window.FavorLite && window.FavorLite.on)) ['/fonts/inter-var.woff2', '/fonts/playfair-500.woff2'].forEach(function (h) { var l = document.createElement('link'); l.rel = 'preload'; l.href = h; l.as = 'font'; l.type = 'font/woff2'; l.crossOrigin = ''; document.head.appendChild(l); });
+    </script>
     <meta name="theme-color" content="#f4efe0" />
     <style is:inline>html,body{background:#f4efe0}</style>
     <script is:inline>
@@ -128,6 +132,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <meta name="description" content={description} />
   </head>
   <body class="h-body" data-nav={nav} data-area={curArea || undefined}>
+    <script is:inline>if (window.FavorLite) window.FavorLite.fontsLast();</script>
     <a class="h-skip" href="#h-content">Skip to the page</a>
     <div class="h-app" id="h-app">
       <aside class="h-side" id="h-side" aria-label="FavorOS">
@@ -153,6 +158,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
               <button type="button" role="menuitem" data-clip-record><Fragment set:html={icon('camera')} />Record a clip</button>
               <button type="button" role="menuitem" data-feedback="hub"><Fragment set:html={icon('chat')} />Feedback</button>
               <a role="menuitem" href="/brain/?connect=1" data-connect-item hidden><Fragment set:html={icon('clips')} />Connect Favor Brain to Claude</a>
+              <button type="button" role="menuitem" data-lite-open><Fragment set:html={icon('signal')} />Data saver</button>
               <button type="button" role="menuitem" class="h-sound" data-sound-switch aria-pressed="true"><Fragment set:html={icon('sound', 'h-i h-sound__on')} /><Fragment set:html={icon('mute', 'h-i h-sound__off')} />Sounds</button>
               <button type="button" role="menuitem" id="h-out"><Fragment set:html={icon('out')} />Sign out</button>
             </div>
@@ -322,7 +328,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/hub-shell.js?v=12" defer></script>
     <script is:inline set:html={"window.__hubSwapPaths=" + JSON.stringify(SWAP_PATHS) + ";window.__hubFullLoad=" + JSON.stringify(FULL_LOAD_PATHS) + ";"}></script>
     <script is:inline src="/js/hub-nav.js?v=6" defer></script>
-    <script is:inline src="/js/hub-swap.js?v=20" defer></script>
+    <script is:inline src="/js/hub-swap.js?v=21" defer></script>
     <script is:inline src="/js/clips-launch.js?v=5" defer></script>
     <script is:inline src="/js/chat/mention-input.js?v=1" defer></script>
     <script is:inline src="/js/request-tasks.js?v=2" defer></script>
