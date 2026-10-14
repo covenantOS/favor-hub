@@ -4,6 +4,7 @@ import type { J } from './fmt';
 
 export class ChatError extends Error {
   status = 0;
+  code = '';
 }
 
 export function req(method: string, path: string, body?: unknown, raw?: { body: BodyInit; headers: Record<string, string> }): Promise<J> {
@@ -18,6 +19,7 @@ export function req(method: string, path: string, body?: unknown, raw?: { body: 
         if (!res.ok || d.ok === false) {
           const e = new ChatError(d.message || 'That did not work. Try again.');
           e.status = res.status;
+          e.code = String(d.error || '');
           throw e;
         }
         return d;
@@ -54,7 +56,7 @@ export const chatApi = {
   setTopic: (id: string, topic: string) => req('PATCH', 'channels/' + e(id), { topic }),
   addMembers: (id: string, emails: string[]) => req('POST', 'channels/' + e(id) + '/members', { emails }).then((d) => d.channel as J),
   driveSearch: (q: string) => req('GET', 'drive?q=' + e(q)),
-  shareAnswer: (id: number) => req('POST', 'messages/' + id + '/share', {}),
+  shareAnswer: (id: number, summary = false) => req('POST', 'messages/' + id + '/share', summary ? { summary: true } : {}),
   dismissAnswer: (id: number) => req('POST', 'messages/' + id + '/dismiss', {}),
   clips: () => req('GET', 'clips'),
   startMeeting: (ch: string) => req('POST', 'channels/' + e(ch) + '/meeting', {}),

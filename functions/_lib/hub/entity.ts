@@ -12,6 +12,7 @@ import { dueLabel, STATUS_WORD, taskUrl } from '../projects/links/shared';
 import { requestHit } from '../requests/views';
 import { hrefFor } from '../learn/assign';
 import type { Access } from './today';
+import { mayWatch } from '../clips';
 import { emailsOf, isHost, ledPeople, mayJoin, mayReadNotes, wasPresent } from '../meet';
 
 export const KINDS = ['person', 'partner', 'fund', 'appeal', 'task', 'request', 'meeting', 'clip', 'file', 'course'] as const;
@@ -177,10 +178,11 @@ async function meeting(env: Env, user: HubUser, id: string): Promise<EntityOut |
   return { kind: 'meeting', id: m.id, title: m.title || 'Meeting', sub: 'Meeting', url: ended && notes ? `/meet/notes/?m=${m.id}` : `/meet/room/?m=${m.id}`, facts, acts: ['open', 'task', 'brain', 'send'] };
 }
 
-async function clip(env: Env, id: string): Promise<EntityOut | null> {
+async function clip(env: Env, id: string, user: HubUser): Promise<EntityOut | null> {
   if (!/^[0-9a-f]{32}$/.test(id)) return null;
-  const c = await env.DB.prepare("SELECT id, title, owner_name, duration_ms, created_at FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')").bind(id).first<any>().catch(() => null);
-  if (!c) return null;
+  const c = await env.DB.prepare("SELECT id, title, owner_name, owner_email, share, staff_link, duration_ms, created_at FROM hub_clips WHERE id = ? AND status IN ('ready', 'processing')").bind(id).first<any>().catch(() => null);
+  // The card names the clip only for someone who may watch it (Clips sharing, 2026-10-14).
+  if (!c || !(await mayWatch(env as any, user, c))) return null;
   const facts: Fact[] = [{ k: 'By', v: c.owner_name }];
   if (c.duration_ms) facts.push({ k: 'Length', v: `${Math.floor(c.duration_ms / 60000)}:${String(Math.round((c.duration_ms % 60000) / 1000)).padStart(2, '0')}` });
   facts.push({ k: 'Made', v: day(ymd(c.created_at)) });
@@ -214,7 +216,7 @@ export async function resolveEntity(env: Env, request: Request, user: HubUser, a
     case 'meeting':
       return meeting(env, user, id);
     case 'clip':
-      return clip(env, id);
+      return clip(env, id, user);
     case 'course':
       return course(env, id);
     case 'file':

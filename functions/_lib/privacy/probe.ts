@@ -84,9 +84,9 @@ export function probes(): Probe[] {
     { name: 'Task entity card', path: `/api/hub/entity?kind=task&id=${M.taskLoose}`, who: ['staff'] },
     { name: 'Project entity card', path: `/api/hub/entity?kind=project&id=${M.project}`, who: ['staff'] },
     { name: 'Search box', path: '/api/hub/find?q=prvcnry', who: ['staff'] },
-    // Clips: the library is your own; field never opens an unshared clip.
+    // Clips: the library is your own; an unshared clip opens for nobody but its owner and admins (2026-10-14).
     { name: 'Clips library', path: '/api/clips', who: ['staff'] },
-    { name: 'Unshared clip (field)', path: `/api/clips/${M.clip}/info`, who: ['field', 'out'] },
+    { name: 'Unshared clip', path: `/api/clips/${M.clip}/info`, who: ['staff', 'field', 'out'] },
     // Favor Brain conversations.
     { name: 'Brain history', path: '/api/brain/history?q=prvcnry', who: ['staff'] },
     { name: "Another person's Brain thread", path: `/api/brain/thread/${M.brainThread}`, who: ['staff'] },

@@ -1,0 +1,26 @@
+-- db/brain-access-seed.sql (2026-10-14) The rules that give every current person the same Brain packages the favor-mcp code
+-- map gave them that day (before/after table in favor-mcp tests/privacy.test.ts). Run once after db/brain-access.sql.
+INSERT OR IGNORE INTO brain_access_rules (kind, key, package, created_by, created_at) VALUES
+  ('everyone', '', 'sheets', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Leadership', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Leadership', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Leadership', 'all_teams', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Development (RDD)', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Development (RDD)', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Grants', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Church Engagement', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Partner Care', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('team', 'Support Team', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'grace@favorintl.org', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'ellie@favorintl.org', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'rachel@favorintl.org', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'rachel@favorintl.org', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'rachel@favorintl.org', 'all_teams', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'michael@favorintl.org', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'michael@favorintl.org', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'michael@favorintl.org', 'all_teams', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'will@favorintl.org', 'partners', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'will@favorintl.org', 'iwave', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'will@favorintl.org', 'all_teams', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'will@favorintl.org', 'contacts', 'will@favorintl.org', '2026-10-14T21:00:00Z'),
+  ('person', 'will@favorintl.org', 'admin', 'will@favorintl.org', '2026-10-14T21:00:00Z');

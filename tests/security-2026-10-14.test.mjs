@@ -69,7 +69,8 @@ test('a signed-in person files an expense under their own address, and the revie
 });
 
 test('field accounts watch a clip only when it is shared, and see no comments or viewers', () => {
-  assert.match(src('functions/_lib/clips.ts'), /if \(user && user\.role !== 'field'\) return true;/);
+  assert.match(src('functions/_lib/clips.ts'), /if \(user && user\.role !== 'field'\) return mayWatch\(env, user, clip\);/);
+  assert.match(src('functions/_lib/clips.ts'), /if \(user\.role === 'field'\) return false;/);
   assert.match(src('functions/api/clips/[id]/info.ts'), /if \(user && user\.role !== 'field'\) \{/);
 });
 

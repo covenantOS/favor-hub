@@ -1,7 +1,7 @@
-// Rename, change the summary, turn sharing on or off, save edits or chapters or corrected transcript lines, or delete a
+// Rename, change the summary, turn sharing on or off (anyone with the link, anyone at Favor with the link, people by name), save edits or chapters or corrected transcript lines, or delete a
 // clip. The person who made a clip manages it; a hub admin may also delete any clip. Delete removes the video, poster, sound and every note from R2 and D1.
 import { asTrimmed, errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { J, staffOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
+import { J, clipPeople, staffOrError, manageClip, purgeClip, videoKey, type ClipsEnv } from '../../../_lib/clips';
 import { cleanEdits, respread } from '../../../_lib/clipEdits';
 import { cleanChapters, type ClipSegment, type ClipWord } from '../../../_lib/clipChapters';
 import { fastKey, muxInfo } from '../../../_lib/clipmuxjob';
@@ -26,6 +26,25 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
     }
     if (typeof body.summary === 'string') put('summary', body.summary.replace(/\s+/g, ' ').trim().slice(0, 1500));
     if (body.share !== undefined) put('share', body.share === true ? 1 : 0);
+    if (body.staffLink !== undefined) put('staff_link', body.staffLink === true ? 1 : 0);
+    // People the clip is shared with by name: Favor staff in the directory or signed in to FavorOS, never a blocked account.
+    const addPeople = Array.isArray(body.addPeople) ? (body.addPeople as unknown[]).map((x) => String(x || '').trim().toLowerCase()).filter((x) => /^[^@\s]+@[^@\s]+$/.test(x)).slice(0, 50) : [];
+    const removePeople = Array.isArray(body.removePeople) ? (body.removePeople as unknown[]).map((x) => String(x || '').trim().toLowerCase()).slice(0, 50) : [];
+    if (addPeople.length) {
+      const known = await env.DB.prepare(
+        `SELECT e.value AS email FROM json_each(?) e
+          WHERE (EXISTS (SELECT 1 FROM hub_users u WHERE lower(u.email) = e.value AND u.blocked = 0 AND u.role <> 'field')
+             OR EXISTS (SELECT 1 FROM meet_directory d WHERE lower(d.email) = e.value AND d.active = 1))
+            AND NOT EXISTS (SELECT 1 FROM hub_users b WHERE lower(b.email) = e.value AND b.blocked = 1)`
+      ).bind(JSON.stringify(addPeople)).all<{ email: string }>();
+      const ok = (known.results || []).map((r) => r.email);
+      const missing = addPeople.filter((e) => !ok.includes(e));
+      if (missing.length) return errorJson('unknown_person', `${missing.join(', ')} is not a Favor staff member in FavorOS.`, 400);
+      const at = nowIso();
+      await env.DB.batch(ok.map((e) => env.DB.prepare('INSERT OR IGNORE INTO hub_clip_people (clip_id, email, added_by, created_at) VALUES (?, ?, ?, ?)').bind(clip.id, e, who.user.email, at)));
+    }
+    if (removePeople.length) await env.DB.batch(removePeople.map((e) => env.DB.prepare('DELETE FROM hub_clip_people WHERE clip_id = ? AND email = ?').bind(clip.id, e)));
+    if (!sets.length && (addPeople.length || removePeople.length)) return json({ ok: true, people: await clipPeople(env, clip.id) });
     if (body.edits !== undefined) put('edits', JSON.stringify(cleanEdits(body.edits, duration)));
     if (body.chapters !== undefined) put('chapters', JSON.stringify(cleanChapters(body.chapters, duration, 1)));
     if (Array.isArray(body.lines)) {
@@ -41,12 +60,14 @@ export const onRequestPatch: PagesFunction<ClipsEnv, 'id'> = async ({ request, e
     sets.push('updated_at = ?');
     args.push(nowIso());
     await env.DB.prepare(`UPDATE hub_clips SET ${sets.join(', ')} WHERE id = ?`).bind(...args, clip.id).run();
-    const fresh = await env.DB.prepare('SELECT title, summary, share, edits, chapters, transcript, words FROM hub_clips WHERE id = ?').bind(clip.id).first<Record<string, unknown>>();
+    const fresh = await env.DB.prepare('SELECT title, summary, share, staff_link, edits, chapters, transcript, words FROM hub_clips WHERE id = ?').bind(clip.id).first<Record<string, unknown>>();
     return json({
       ok: true,
       title: fresh?.title,
       summary: fresh?.summary,
       share: fresh?.share,
+      staffLink: Number(fresh?.staff_link) === 1,
+      people: addPeople.length || removePeople.length ? await clipPeople(env, clip.id) : undefined,
       edits: J(fresh?.edits, {}),
       chapters: J(fresh?.chapters, []),
       transcript: body.lines ? J(fresh?.transcript, []) : undefined,

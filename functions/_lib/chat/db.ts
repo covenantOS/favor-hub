@@ -4,6 +4,7 @@ import { keepAllowed } from '../access';
 import { HttpError, nowIso, type Env } from '../http';
 import { TESTER_REFUSAL, isHiddenAccount, isTester, notTesterSql } from '../testuser';
 import { isAdminEmail } from '../session';
+import { answerHasPartnerData, brainPackagesFor, partnerFreeSummary } from '../brain-access';
 import { BRAIN_ID, MEETINGS_ID, SYSTEM_VOICES, channelSlug, cleanBody, dmKey, likePattern, parseMentions } from './text';
 
 export type ChatEnv = Pick<Env, 'DB'>;
@@ -663,12 +664,47 @@ export async function dismissAnswer(env: ChatEnv, email: string, id: number): Pr
   return m;
 }
 
-/** Share: the answer is posted to the channel (or the same thread) as a normal Brain message labelled with who shared it, and the private copy is removed. */
-export async function shareAnswer(env: ChatEnv, email: string, id: number): Promise<{ posted: Posted; removed: MessageRow }> {
+/**
+ * Who would read a shared answer: the members of the conversation, or every staff member for a public channel. The Brain and
+ * the meetings voice are not people.
+ */
+async function shareReaders(env: ChatEnv, channelId: string): Promise<string[]> {
+  const ch = await getChannel(env, channelId);
+  if (ch && ch.kind === 'public') {
+    const r = await env.DB.prepare("SELECT lower(email) AS email FROM hub_users WHERE blocked = 0 AND role <> 'field'").all<{ email: string }>();
+    return (r.results || []).map((x) => x.email);
+  }
+  return (await membersOf(env, channelId)).map(lower).filter((e) => e !== BRAIN_ID && e !== MEETINGS_ID);
+}
+
+/**
+ * Share: the answer is posted to the channel (or the same thread) as a normal Brain message labelled with who shared it, and the
+ * private copy is removed. An answer with partner data goes only where every reader holds the Brain partner package; anywhere
+ * else the share is refused (409 partner_audience) unless the person asks for the summary without partner data.
+ */
+export async function shareAnswer(env: ChatEnv, email: string, id: number, opts: { summary?: boolean } = {}): Promise<{ posted: Posted; removed: MessageRow }> {
   const m = await privateAnswer(env, email, id);
   const brain = parseJson<Record<string, unknown> | null>(m.brain, null);
   if (!brain || brain.status !== 'done') throw new HttpError(400, 'not_ready', 'The answer is not ready to share.');
-  const posted = await post(env, { channel_id: m.channel_id, email: BRAIN_ID, body: '', thread_id: m.thread_id, brain: { ...brain, shared_by: lower(email) } });
+  let shared: Record<string, unknown> = brain;
+  if (answerHasPartnerData(brain)) {
+    const readers = await shareReaders(env, m.channel_id);
+    const pk = await brainPackagesFor(env as any, readers);
+    const lacking = readers.filter((e) => !(pk.get(e) || new Set()).has('partners'));
+    if (lacking.length) {
+      const summary = partnerFreeSummary(brain);
+      const n = lacking.length;
+      if (!opts.summary || !summary) {
+        throw new HttpError(
+          409,
+          summary ? 'partner_audience' : 'partner_audience_no_summary',
+          `This answer has partner records, and ${n === 1 ? '1 person' : `${n} people`} in this conversation ${n === 1 ? 'does' : 'do'} not have partner access in the Brain. ${summary ? 'Share the summary without partner details, or share it in a conversation with people who have partner access.' : 'Share it in a conversation with people who have partner access.'}`
+        );
+      }
+      shared = { ...summary, q: brain.q };
+    }
+  }
+  const posted = await post(env, { channel_id: m.channel_id, email: BRAIN_ID, body: '', thread_id: m.thread_id, brain: { ...shared, shared_by: lower(email) } });
   await dismissAnswer(env, email, id);
   return { posted, removed: m };
 }

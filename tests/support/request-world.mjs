@@ -22,6 +22,7 @@ export function world({ notify = 'on', tables = true, email = true } = {}) {
   d1.exec(read('db/work.sql'));
   d1.exec(read('db/clips.sql'));
   d1.exec(read('db/clips-v2.sql'));
+  d1.exec(read('db/clip-access.sql'));
   d1.exec(read('db/favor-chat.sql'));
   d1.exec(read('db/favor-chat-private.sql'));
   if (tables) d1.exec(read('db/request-tasks.sql'));

@@ -254,7 +254,7 @@ async function route(ctx: Ctx): Promise<Response> {
     }
     if (c === 'confirm' && method === 'POST') return json({ ok: true, ...(await confirm(ctx, user, id)) });
     if (c === 'share' && method === 'POST') {
-      const { posted, removed } = await store.shareAnswer(env, me, id);
+      const { posted, removed } = await store.shareAnswer(env, me, id, { summary: (await body(request).catch(() => ({}) as any)).summary === true });
       const msg = await broadcast(ctx, posted.message, 'message');
       ctx.waitUntil(publish(env, [me], { type: 'delete', id, channel_id: removed.channel_id, purge: true }));
       return json({ ok: true, message: msg, removed: id });

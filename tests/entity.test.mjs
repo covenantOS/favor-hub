@@ -108,6 +108,8 @@ describe('entity cards apply the reader\'s access', () => {
     assert.equal(await E.resolveEntity(w.env, req('/x', OUTSIDER), OUTSIDER, access(), 'meeting', mid), null, 'a meeting the person was not invited to');
     const cid = 'cd'.repeat(16);
     run(w, "INSERT INTO hub_clips (id, owner_email, owner_name, title, status, mime, created_at, updated_at, duration_ms) VALUES (?, ?, 'Ada Admin', 'How to enter a gift', 'ready', 'video/webm', ?, ?, 95000)", cid, WILL.email, NOW, NOW);
+    assert.equal(await E.resolveEntity(w.env, req('/x', OUTSIDER), OUTSIDER, access(), 'clip', cid), null, 'a clip not shared with the person (2026-10-14)');
+    run(w, "INSERT INTO hub_clip_people (clip_id, email, added_by, created_at) VALUES (?, ?, ?, ?)", cid, OUTSIDER.email, WILL.email, NOW);
     const c = await E.resolveEntity(w.env, req('/x', OUTSIDER), OUTSIDER, access(), 'clip', cid);
     assert.equal(c.title, 'How to enter a gift');
     assert.ok(c.facts.some((f) => f.k === 'Length' && f.v === '1:35'));

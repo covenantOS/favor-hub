@@ -1069,12 +1069,21 @@ export class ChatEngine {
         () => this.toast('Copy did not work')
       );
   }
-  shareAnswer(id: number) {
-    return this.guard(chatApi.shareAnswer(id)).then((r) => {
-      this.purgeMessage(id);
-      if (r && r.message) this.addMessage(r.message, true);
-      this.toast('Shared to the channel');
-    });
+  shareAnswer(id: number, summary = false): Promise<void> {
+    // An answer with partner records goes only where everyone has partner access in the Brain. Elsewhere the server refuses, and
+    // the person may share the summary without partner details instead.
+    return chatApi
+      .shareAnswer(id, summary)
+      .then((r) => {
+        this.purgeMessage(id);
+        if (r && r.message) this.addMessage(r.message, true);
+        this.toast(summary ? 'Shared the summary' : 'Shared to the channel');
+      })
+      .catch((e: any) => {
+        if (!summary && e && e.code === 'partner_audience' && window.confirm(`${e.message}\n\nShare the summary only?`)) return this.shareAnswer(id, true);
+        this.toast((e && e.message) || 'That did not work. Try again.');
+        throw e;
+      });
   }
   dismissAnswer(id: number) {
     return this.guard(chatApi.dismissAnswer(id)).then(() => this.purgeMessage(id));

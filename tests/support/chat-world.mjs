@@ -17,6 +17,7 @@ export function world({ mode } = {}) {
   d1.exec(`CREATE TABLE hub_users (email TEXT PRIMARY KEY, name TEXT NOT NULL DEFAULT '', picture TEXT NOT NULL DEFAULT '', role TEXT NOT NULL DEFAULT 'staff', blocked INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
   d1.exec(read('db/clips.sql'));
   d1.exec(read('db/clips-v2.sql'));
+  d1.exec(read('db/clip-access.sql'));
   d1.exec(read('db/meetings.sql'));
   d1.exec(read('db/favor-chat.sql'));
   d1.exec(read('db/favor-chat-private.sql'));

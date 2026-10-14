@@ -1,18 +1,19 @@
 // Timestamped comments. Any signed-in staff member may comment on a clip they can watch; the author or an admin may remove one.
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { ID_RE, isWatchable, rowId, staffOrError, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import { ID_RE, isWatchable, mayWatch, rowId, staffOrError, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import type { HubUser } from '../../../_lib/session';
 
-async function loadClip(env: ClipsEnv, id: string): Promise<Clip | null> {
+async function loadClip(env: ClipsEnv, id: string, user: HubUser): Promise<Clip | null> {
   if (!ID_RE.test(id)) return null;
   const c = await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
-  return c && isWatchable(c) ? c : null;
+  return c && isWatchable(c) && (await mayWatch(env, user, c)) ? c : null;
 }
 
 export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   try {
     const who = staffOrError(request);
     if ('res' in who) return who.res;
-    const clip = await loadClip(env, String(params.id));
+    const clip = await loadClip(env, String(params.id), who.user);
     if (!clip) return errorJson('not_found', 'That clip does not exist.', 404);
     const b = (await request.json().catch(() => ({}))) as { at?: number; text?: string };
     const text = String(b.text ?? '').trim().slice(0, 2000);

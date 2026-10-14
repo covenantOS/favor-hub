@@ -2033,7 +2033,23 @@
           if (r && r.also) { var tw = findMsg(r.also); if (tw) patchMessage(Object.assign({}, tw, { deleted: true, body: '', attachments: [], pinned: false })); }
         });
       }
-      else if (act === 'share-answer') { el.disabled = true; guard(api.shareAnswer(id)).then(function (r) { purgeMessage(id); if (r && r.message) addMessage(r.message, true); toast('Shared to the channel'); }).catch(function () { el.disabled = false; }); }
+      else if (act === 'share-answer' || act === 'share-summary') {
+        // An answer with partner records goes only where everyone has partner access in the Brain; elsewhere the server refuses
+        // and the person may share the summary without partner details instead.
+        el.disabled = true;
+        var summary = act === 'share-summary';
+        api.shareAnswer(id, { summary: summary }).then(function (r) { purgeMessage(id); if (r && r.message) addMessage(r.message, true); toast(summary ? 'Shared the summary' : 'Shared to the channel'); }).catch(function (e) {
+          el.disabled = false;
+          var code = (e && e.code) || '';
+          if (code === 'partner_audience' || code === 'partner_audience_no_summary') {
+            var box = el.closest('.ch-private');
+            var old = box && box.querySelector('.ch-private__warn');
+            if (old) old.remove();
+            if (box) box.insertAdjacentHTML('beforeend', '<div class="ch-private__warn" role="status">' + esc(e.message) + (code === 'partner_audience' ? ' <button type="button" class="ch-btn ch-btn--sm" data-act="share-summary" data-id="' + id + '">Share the summary only</button>' : '') + '</div>');
+            if (!box) toast(e.message);
+          } else toast((e && e.message) || 'That did not work. Try again.');
+        });
+      }
       else if (act === 'dismiss-answer') { el.disabled = true; guard(api.dismissAnswer(id)).then(function () { purgeMessage(id); }).catch(function () { el.disabled = false; }); }
       else if (act === 'plus') plusMenu(scope, el);
       else if (act === 'at') { insertAtCaret(scope, '@'); updateMention($('[data-ta="' + scope + '"]', root)); }

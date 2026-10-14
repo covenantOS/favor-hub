@@ -24,6 +24,12 @@ const headersFor = (env: BrainEnv, user: { email: string; name?: string; role?: 
   'User-Agent': 'favor-hub',
 });
 const base = (env: BrainEnv) => (env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '');
+/**
+ * A Brain list link (https://mcp.favorintl.org/csv/<token>/<name>) becomes this hub's own /api/brain/csv/<token>/<name>, which
+ * downloads with the signed-in person's FavorOS session. The Brain hands the file only to the person who asked, or an admin.
+ */
+export const hubCsvLinks = (text: string, env: BrainEnv) => text.split(`${base(env)}/csv/`).join('/api/brain/csv/').split(`${BRAIN_URL}/csv/`).join('/api/brain/csv/');
+const CSV_PATH = /^csv\/([a-z0-9]{20,40})(?:\/[A-Za-z0-9._-]{0,80})?$/;
 const reply = (status: number, text: string) => new Response(text, { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' } });
 
 /** The stored form of an answer: the rows behind a list are not kept, the preview stays. */
@@ -50,7 +56,7 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
   if (!turn) {
     // The tables are not there yet, or the chat is someone else's: answer the old way, nothing is saved here.
     const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: headersFor(env, user), body: JSON.stringify({ ...body, history: [] }) });
-    return reply(res.status, await res.text());
+    return reply(res.status, hubCsvLinks(await res.text(), env));
   }
   const scratch = newConvId();
   // The Brain files its copy of this chat under a scratch id, so the last turns travel with the question: a follow-up like
@@ -62,7 +68,7 @@ async function ask(request: Request, env: BrainEnv, user: { email: string; name?
     try {
       const res = await fetch(`${base(env)}/hub/ask`, { method: 'POST', headers: headersFor(env, user), body: JSON.stringify({ ...body, conv: scratch, history }) });
       status = res.status;
-      text = await res.text();
+      text = hubCsvLinks(await res.text(), env);
     } catch {
       text = JSON.stringify({ ok: false, error: 'ask', message: 'The Brain did not answer. Ask again.' });
     }
@@ -97,6 +103,17 @@ export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params,
     const user = hubUserOf(request);
     if (!user) return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const path = ([] as string[]).concat((params.path as string[] | string) || []).join('/');
+    // A list download: only for the person who asked (or a Brain admin). The Brain checks the owner against this email.
+    const csv = request.method === 'GET' ? CSV_PATH.exec(path) : null;
+    if (csv) {
+      if (user.role === 'field') return errorJson('forbidden', 'That is not part of the field staff app.', 403);
+      if (!env.BRAIN_HUB_KEY) return errorJson('not_set_up', 'The Brain is not connected to FavorOS yet.', 503);
+      const res = await fetch(`${base(env)}/hub/csv/${csv[1]}`, { headers: headersFor(env, user) });
+      const h = new Headers({ 'Cache-Control': 'private, no-store', 'X-Robots-Tag': 'noindex', 'Content-Type': res.headers.get('Content-Type') || 'text/plain; charset=utf-8' });
+      const cd = res.headers.get('Content-Disposition');
+      if (cd && res.ok) h.set('Content-Disposition', cd);
+      return new Response(res.body, { status: res.status === 401 ? 403 : res.status, headers: h });
+    }
     if (!ROUTES.has(`${request.method} ${path}`)) return errorJson('not_found', 'No such brain route.', 404);
     // Field staff may only ask a question, and only after an admin turned the field Brain on (the Brain must honor the field scope first).
     if (user.role === 'field' && (request.method !== 'POST' || path !== 'ask')) return errorJson('forbidden', 'That is not part of the field staff app.', 403);
@@ -116,7 +133,7 @@ export const onRequest: PagesFunction<BrainEnv> = async ({ request, env, params,
       headers: headersFor(env, user),
       body: request.method === 'POST' ? await request.text() : undefined,
     });
-    return reply(res.status, await res.text());
+    return reply(res.status, hubCsvLinks(await res.text(), env));
   } catch (err) {
     return handleError(err);
   }

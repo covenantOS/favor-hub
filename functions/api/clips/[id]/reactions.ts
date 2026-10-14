@@ -1,6 +1,6 @@
 // Emoji reactions. One per person per emoji: the same tap again takes it back. Each keeps the moment it was left at.
 import { errorJson, handleError, json, nowIso } from '../../../_lib/http';
-import { ID_RE, isWatchable, rowId, staffOrError, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import { ID_RE, isWatchable, mayWatch, rowId, staffOrError, type Clip, type ClipsEnv } from '../../../_lib/clips';
 
 const REACTIONS = ['❤️', '👍', '🔥', '👏', '🙌', '👀'];
 
@@ -10,7 +10,7 @@ export const onRequestPost: PagesFunction<ClipsEnv, 'id'> = async ({ request, en
     if ('res' in who) return who.res;
     const id = String(params.id);
     const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>() : null;
-    if (!clip || !isWatchable(clip)) return errorJson('not_found', 'That clip does not exist.', 404);
+    if (!clip || !isWatchable(clip) || !(await mayWatch(env, who.user, clip))) return errorJson('not_found', 'That clip does not exist.', 404);
     const b = (await request.json().catch(() => ({}))) as { emoji?: string; at?: number };
     const emoji = String(b.emoji ?? '');
     if (!REACTIONS.includes(emoji)) return errorJson('bad_emoji', 'Pick one of the reactions.', 400);

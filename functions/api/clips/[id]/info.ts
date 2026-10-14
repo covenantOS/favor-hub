@@ -1,7 +1,7 @@
 // Everything the watch page needs. A signed-out viewer through the share link gets the video's words and nothing
 // else: no comments, reactions or viewers. Signed-in staff also get those; an admin also gets the manage controls.
 import { errorJson, handleError, json } from '../../../_lib/http';
-import { ID_RE, J, PRIVATE, clipView, isWatchable, canWatch, type Clip, type ClipsEnv } from '../../../_lib/clips';
+import { ID_RE, J, PRIVATE, clipPeople, clipView, isWatchable, canWatch, type Clip, type ClipsEnv } from '../../../_lib/clips';
 import { hubUserOf } from '../../../_lib/session';
 import { ensureChapters } from '../../../_lib/clipMake';
 import { clipHighlights } from '../../../_lib/clipHighlights';
@@ -44,7 +44,10 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
       const mine = clip.owner_email === user.email;
       const admin = user.role === 'admin';
       // Who watched, and for how long, goes to the owner and admins. Other staff with the link do not see it.
-      if (mine || admin) out.viewers = [...seen.values()];
+      if (mine || admin) {
+        out.viewers = [...seen.values()];
+        out.people = await clipPeople(env, clip.id);
+      }
       out.can = { edit: mine, delete: mine || admin, share: mine };
       out.mine = mine;
       if (mine) {

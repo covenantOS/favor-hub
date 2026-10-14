@@ -1,6 +1,9 @@
 // Clips: shared helpers. Every signed-in hub user records clips and manages their own; an admin can also see every clip
-// and delete any of them. Watching is for any signed-in staff member with the link, or anyone with the link when the clip's
-// share switch is on (not when the person who made it has been blocked from the hub).
+// and delete any of them. Since 2026-10-14 a clip opens only for the people it is shared with: the person who made it,
+// admins, people added to it (hub_clip_people), members of a Chat conversation it was posted in (any public channel counts),
+// and anyone who watched it before that day (hub_clip_views). "Anyone at Favor with the link" (staff_link) opens it to every
+// signed-in staff member, and "Anyone with the link" (share) to everyone, signed in or not, while the person who made it
+// still has access to the hub.
 import { clipsCapBytes, clipsMaxMs } from './admin/settings';
 import { errorJson, type Env } from './http';
 import { hubUserOf, type HubUser } from './session';
@@ -27,6 +30,8 @@ export interface Clip {
   summary: string;
   status: ClipStatus;
   share: number;
+  /** 1 = anyone at Favor signed in with the link. Off for new clips. */
+  staff_link?: number;
   mime: string;
   kind: string;
   upload_id: string | null;
@@ -106,11 +111,61 @@ export function J<T>(text: unknown, fallback: T): T {
   }
 }
 
-/** A saved clip any signed-in person may watch, for steps that read it and change nothing of the clip. */
+/** A saved clip the signed-in person may watch, for steps that read it and change nothing of the clip. */
 export async function readableClip(env: ClipsEnv, user: HubUser, id: string): Promise<Clip | null> {
   if (!ID_RE.test(id)) return null;
   const clip = await env.DB.prepare('SELECT * FROM hub_clips WHERE id = ?').bind(id).first<Clip>();
-  return clip && (clip.owner_email === user.email || isWatchable(clip)) ? clip : null;
+  if (!clip) return null;
+  if (clip.owner_email === user.email) return clip;
+  return isWatchable(clip) && (await mayWatch(env, user, clip)) ? clip : null;
+}
+
+export type ClipAccess = Pick<Clip, 'id' | 'share' | 'owner_email'> & { staff_link?: number | null };
+
+/**
+ * May this signed-in person watch this clip? The person who made it and admins always; then the two link switches; then
+ * people added to the clip, members of a Chat conversation it was posted in (or anyone, for a public channel), and people
+ * who watched it before sharing became per person (2026-10-14), so links already sent keep working for them.
+ */
+export async function mayWatch(env: ClipsEnv, user: HubUser, clip: ClipAccess): Promise<boolean> {
+  if (user.role === 'field') return false;
+  const me = String(user.email || '').toLowerCase();
+  if (!me) return false;
+  if (String(clip.owner_email || '').toLowerCase() === me || user.role === 'admin') return true;
+  if (clip.share === 1) return true;
+  let staffLink = clip.staff_link;
+  if (staffLink == null) {
+    const r = await env.DB.prepare('SELECT staff_link FROM hub_clips WHERE id = ?').bind(clip.id).first<{ staff_link: number }>().catch(() => null);
+    staffLink = r ? Number(r.staff_link) || 0 : 0;
+  }
+  if (Number(staffLink) === 1) return true;
+  const row = await env.DB.prepare(
+    `SELECT (EXISTS (SELECT 1 FROM hub_clip_people WHERE clip_id = ?1 AND email = ?2)
+          OR EXISTS (SELECT 1 FROM hub_clip_views WHERE clip_id = ?1 AND lower(person_email) = ?2)
+          OR EXISTS (SELECT 1 FROM chat_messages m JOIN chat_channels ch ON ch.id = m.channel_id
+                     WHERE m.deleted_at IS NULL AND (m.visible_to IS NULL OR m.visible_to = ?2)
+                       AND (m.attachments LIKE ?3 OR m.body LIKE ?3)
+                       AND (ch.kind = 'public' OR EXISTS (SELECT 1 FROM chat_members cm WHERE cm.channel_id = m.channel_id AND lower(cm.email) = ?2)))) AS ok`
+  ).bind(clip.id, me, `%${clip.id}%`).first<{ ok: number }>().catch((err) => {
+    console.warn('[clips] access check', String((err && err.message) || err).slice(0, 200));
+    return null;
+  });
+  return !!(row && Number(row.ok));
+}
+
+async function ownerActive(env: ClipsEnv, owner: string): Promise<boolean> {
+  const row = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(owner).first<{ blocked: number }>().catch(() => null);
+  return !(row && row.blocked);
+}
+
+/** People added to a clip by name. Shown to the person who made it and admins. */
+export async function clipPeople(env: ClipsEnv, id: string): Promise<{ email: string; name: string }[]> {
+  const r = await env.DB.prepare(
+    `SELECT p.email AS email, COALESCE(NULLIF(u.name, ''), d.name, p.email) AS name FROM hub_clip_people p
+       LEFT JOIN hub_users u ON u.email = p.email LEFT JOIN meet_directory d ON lower(d.email) = p.email
+      WHERE p.clip_id = ? ORDER BY name`
+  ).bind(id).all<{ email: string; name: string }>().catch(() => ({ results: [] as { email: string; name: string }[] }));
+  return r.results || [];
 }
 
 /** The signed-in admin, or the response that says why not. */
@@ -155,16 +210,16 @@ export async function manageClip(env: ClipsEnv, user: HubUser, id: string, opts:
 }
 
 /**
- * May this request watch this clip? A signed-in hub user may. Anyone else needs the share switch on, and the person who made
- * the clip must still have access to the hub (a blocked person's links stop working for people outside the hub).
+ * May this request watch this clip? A signed-in staff member by mayWatch. Anyone else needs the public share switch on, and the
+ * person who made the clip must still have access to the hub (a blocked person's links stop working for people outside the hub).
  */
-export async function canWatch(env: ClipsEnv, request: Request, clip: Pick<Clip, 'share' | 'owner_email'>): Promise<boolean> {
+export async function canWatch(env: ClipsEnv, request: Request, clip: ClipAccess): Promise<boolean> {
   const user = hubUserOf(request);
-  // Clips are not part of the field staff app: a field account watches a clip only when its share switch is on, like anyone outside.
-  if (user && user.role !== 'field') return true;
+  // Signed-in staff: mayWatch. Clips are not part of the field staff app: a field account watches a clip only when its public
+  // share switch is on, like anyone outside.
+  if (user && user.role !== 'field') return mayWatch(env, user, clip);
   if (clip.share !== 1) return false;
-  const row = await env.DB.prepare('SELECT blocked FROM hub_users WHERE email = ?').bind(clip.owner_email).first<{ blocked: number }>().catch(() => null);
-  return !(row && row.blocked);
+  return ownerActive(env, clip.owner_email);
 }
 
 export const isWatchable = (c: Pick<Clip, 'status'>) => c.status === 'ready' || c.status === 'processing';
@@ -206,6 +261,7 @@ export function clipView(c: Clip) {
     size: c.size_bytes,
     hasPoster: c.has_poster === 1,
     share: c.share === 1,
+    staffLink: Number(c.staff_link) === 1,
     ownerName: c.owner_name,
     createdAt: c.created_at,
     chapters: J<unknown[]>(c.chapters, []),

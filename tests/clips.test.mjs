@@ -31,19 +31,24 @@ describe('ids and watching', () => {
     assert.notEqual(a, lib.clipId());
   });
   const envWith = (blocked) => ({ DB: { prepare: () => ({ bind: () => ({ first: async () => (blocked === null ? null : { blocked }) }) }) } });
-  it('lets a signed-in user watch and a signed-out one watch only when shared', async () => {
+  it('lets signed-in staff watch only a clip shared with them (2026-10-14); a signed-out one only when shared publicly', async () => {
     const signedIn = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org' } });
+    const ownerReq = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'owner@favorintl.org' } });
+    const adminReq = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'will@favorintl.org', 'X-Hub-Role': 'admin' } });
     const out = new Request('https://hub.test/');
-    const mine = { owner_email: 'owner@favorintl.org' };
-    assert.equal(await lib.canWatch(envWith(0), signedIn, { ...mine, share: 0 }), true);
-    assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 0 }), false);
+    const mine = { id: 'a'.repeat(32), owner_email: 'owner@favorintl.org' };
+    assert.equal(await lib.canWatch(envWith(0), signedIn, { ...mine, share: 0, staff_link: 0 }), false);
+    assert.equal(await lib.canWatch(envWith(0), signedIn, { ...mine, share: 0, staff_link: 1 }), true);
+    assert.equal(await lib.canWatch(envWith(0), ownerReq, { ...mine, share: 0, staff_link: 0 }), true);
+    assert.equal(await lib.canWatch(envWith(0), adminReq, { ...mine, share: 0, staff_link: 0 }), true);
+    assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 0, staff_link: 1 }), false);
     assert.equal(await lib.canWatch(envWith(0), out, { ...mine, share: 1 }), true);
   });
   it('stops a shared link for outsiders when the person who made the clip is blocked from FavorOS', async () => {
     const out = new Request('https://hub.test/');
     const signedIn = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org' } });
-    assert.equal(await lib.canWatch(envWith(1), out, { owner_email: 'gone@favorintl.org', share: 1 }), false);
-    assert.equal(await lib.canWatch(envWith(1), signedIn, { owner_email: 'gone@favorintl.org', share: 1 }), true);
+    assert.equal(await lib.canWatch(envWith(1), out, { id: 'a'.repeat(32), owner_email: 'gone@favorintl.org', share: 1 }), false);
+    assert.equal(await lib.canWatch(envWith(1), signedIn, { id: 'a'.repeat(32), owner_email: 'gone@favorintl.org', share: 1 }), true);
   });
   it('every signed-in person records, a signed-out one does not', () => {
     const staff = new Request('https://hub.test/', { headers: { 'X-Hub-Email': 'ada@favorintl.org', 'X-Hub-Role': 'staff' } });
@@ -94,7 +99,8 @@ describe('watch data for each kind of viewer', () => {
     comments = (await import('../functions/api/clips/[id]/comments.ts')).onRequestPost;
   });
   const id = 'b'.repeat(32);
-  const row = (share, status = 'ready') => ({ id, title: 'T', summary: 'S', status, share, mime: 'video/webm', kind: 'screen', owner_email: 'owner@favorintl.org', owner_name: 'Owner', duration_ms: 12000, size_bytes: 1, has_poster: 0, views: 3, created_at: '2026-10-10T12:00:00Z', chapters: '[{"at":0,"title":"Start"}]', transcript: '[{"s":0,"e":2,"t":"Hello"}]', words: '[]', edits: '{}', help_draft: 'draft', error: null });
+  // share 2 stands for the Anyone at Favor with the link switch.
+  const row = (share, status = 'ready') => ({ id, title: 'T', summary: 'S', status, share: share === 1 ? 1 : 0, staff_link: share === 2 ? 1 : 0, mime: 'video/webm', kind: 'screen', owner_email: 'owner@favorintl.org', owner_name: 'Owner', duration_ms: 12000, size_bytes: 1, has_poster: 0, views: 3, created_at: '2026-10-10T12:00:00Z', chapters: '[{"at":0,"title":"Start"}]', transcript: '[{"s":0,"e":2,"t":"Hello"}]', words: '[]', edits: '{}', help_draft: 'draft', error: null });
   const env = (share, status) => ({
     DB: {
       prepare: (sql) => ({
@@ -127,7 +133,8 @@ describe('watch data for each kind of viewer', () => {
     assert.equal(d.helpDraft, undefined);
   });
   it('gives staff comments and reactions but no viewer list and no manage rights', async () => {
-    const d = await (await call(0, staff)).json();
+    assert.equal((await call(0, staff)).status, 404, 'a clip not shared with this person');
+    const d = await (await call(2, staff)).json();
     assert.ok(Array.isArray(d.comments));
     assert.equal(d.viewers, undefined);
     assert.equal(d.can.edit, false);
@@ -149,7 +156,7 @@ describe('watch data for each kind of viewer', () => {
     assert.equal(d.helpDraft, undefined);
   });
   it('shows a clip that is still being named', async () => {
-    const res = await call(0, staff, 'processing');
+    const res = await call(2, staff, 'processing');
     assert.equal(res.status, 200);
     assert.equal((await res.json()).clip.status, 'processing');
   });

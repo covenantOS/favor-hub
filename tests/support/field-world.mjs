@@ -38,7 +38,7 @@ export async function world({ vapid = true } = {}) {
   d1.exec('ALTER TABLE hub_users ADD COLUMN kpi INTEGER NOT NULL DEFAULT 0;');
   d1.exec(read('db/field-staff.sql'));
   d1.exec('CREATE TABLE IF NOT EXISTS rate_limits (key TEXT PRIMARY KEY, count INTEGER NOT NULL, window_start TEXT NOT NULL);');
-  for (const f of ['clips.sql', 'clips-v2.sql', 'meetings.sql', 'favor-chat.sql', 'favor-chat-private.sql']) d1.exec(read('db/' + f));
+  for (const f of ['clips.sql', 'clips-v2.sql', 'meetings.sql', 'favor-chat.sql', 'favor-chat-private.sql', 'clip-access.sql']) d1.exec(read('db/' + f));
   const now = new Date().toISOString();
   d1.db.prepare(`INSERT OR IGNORE INTO hub_users (email, name, role, blocked, kpi, created_at, updated_at) VALUES ('will@favorintl.org', 'Will Hamilton', 'admin', 0, 1, ?, ?)`).run(now, now);
   d1.db.prepare(`INSERT INTO hub_settings (key, value, updated_by, updated_at) VALUES ('chat.enabled', 'staff', 'test', ?)`).run(now);

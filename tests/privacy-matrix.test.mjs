@@ -213,3 +213,183 @@ describe('HR records', () => {
     assert.match(s, /const events = full \?/);
   });
 });
+
+describe('privacy follow-ups 2026-10-14: clips open only for the people they are shared with', () => {
+  const CID = 'ab12'.repeat(8);
+  async function clipWorld() {
+    const w = await world();
+    const at = new Date(NOW).toISOString();
+    for (const [email, role] of [['owner@favorintl.org', 'staff'], ['bob@favorintl.org', 'staff'], ['cat@favorintl.org', 'staff'], ['field@favourafrica.org', 'field']]) {
+      await w.d1.prepare(`INSERT OR IGNORE INTO hub_users (email, name, picture, role, blocked, note, sign_ins, created_at, updated_at) VALUES (?, ?, '', ?, 0, '', 1, ?, ?)`).bind(email, email.split('@')[0], role, at, at).run();
+    }
+    await w.d1.prepare(`INSERT INTO hub_clips (id, owner_email, owner_name, title, status, share, mime, size_bytes, duration_ms, created_at, updated_at, summary) VALUES (?, 'owner@favorintl.org', 'Owner', 'Quiet clip', 'ready', 0, 'video/webm', 0, 1000, ?, ?, '')`).bind(CID, at, at).run();
+    return w;
+  }
+  const info = async (w, email, role = 'staff') => {
+    const { onRequestGet } = await import('../functions/api/clips/[id]/info.ts');
+    const headers = email ? { 'X-Hub-Email': email, 'X-Hub-Role': role, 'X-Hub-Name': email.split('@')[0] } : {};
+    const res = await onRequestGet({ request: new Request(`https://dash.favorintl.org/api/clips/${CID}/info`, { headers }), env: w.env, params: { id: CID } });
+    return res.status;
+  };
+
+  it('a new clip opens for its owner and admins only', async () => {
+    const w = await clipWorld();
+    assert.equal(await info(w, 'owner@favorintl.org'), 200);
+    assert.equal(await info(w, 'tester@favorintl.org', 'admin'), 200);
+    assert.equal(await info(w, 'bob@favorintl.org'), 404);
+    assert.equal(await info(w, 'field@favourafrica.org', 'field'), 404);
+    assert.equal(await info(w, ''), 401);
+  });
+  it('a person the owner adds can watch; nobody else gains anything', async () => {
+    const w = await clipWorld();
+    await w.d1.prepare(`INSERT INTO hub_clip_people (clip_id, email, added_by, created_at) VALUES (?, 'bob@favorintl.org', 'owner@favorintl.org', ?)`).bind(CID, new Date(NOW).toISOString()).run();
+    assert.equal(await info(w, 'bob@favorintl.org'), 200);
+    assert.equal(await info(w, 'cat@favorintl.org'), 404);
+  });
+  it('posting the clip in a Chat conversation opens it to its members, a public channel to every staff member', async () => {
+    const w = await clipWorld();
+    const at = new Date(NOW).toISOString();
+    await w.d1.prepare(`INSERT INTO chat_channels (id, kind, name, created_by, created_at) VALUES ('ch_dm_clip', 'dm', '', 'owner@favorintl.org', ?)`).bind(at).run();
+    for (const e of ['owner@favorintl.org', 'bob@favorintl.org']) await w.d1.prepare(`INSERT INTO chat_members (channel_id, email, joined_at) VALUES ('ch_dm_clip', ?, ?)`).bind(e, at).run();
+    await w.d1.prepare(`INSERT INTO chat_messages (channel_id, email, body, attachments, created_at) VALUES ('ch_dm_clip', 'owner@favorintl.org', '', ?, ?)`).bind(JSON.stringify([{ type: 'clip', id: CID }]), at).run();
+    assert.equal(await info(w, 'bob@favorintl.org'), 200, 'a member of the conversation');
+    assert.equal(await info(w, 'cat@favorintl.org'), 404, 'not in the conversation');
+    await w.d1.prepare(`INSERT INTO chat_channels (id, kind, name, created_by, created_at) VALUES ('ch_pub_clip', 'public', 'general-clip', 'owner@favorintl.org', ?)`).bind(at).run();
+    await w.d1.prepare(`INSERT INTO chat_messages (channel_id, email, body, attachments, created_at) VALUES ('ch_pub_clip', 'owner@favorintl.org', ?, '[]', ?)`).bind(`Watch https://dash.favorintl.org/c/${CID}`, at).run();
+    assert.equal(await info(w, 'cat@favorintl.org'), 200, 'a public channel is open to all staff');
+    assert.equal(await info(w, 'field@favourafrica.org', 'field'), 404, 'field never by a staff channel');
+  });
+  it('someone who watched before the change keeps the link (grandfathered by hub_clip_views)', async () => {
+    const w = await clipWorld();
+    await w.d1.prepare(`INSERT INTO hub_clip_views (id, clip_id, person_email, person_name, at, seconds) VALUES ('v_old', ?, 'cat@favorintl.org', 'Cat', ?, 10)`).bind(CID, new Date(NOW).toISOString()).run().catch(async () => {
+      await w.d1.prepare(`INSERT INTO hub_clip_views (clip_id, person_email, person_name, at, seconds) VALUES (?, 'cat@favorintl.org', 'Cat', ?, 10)`).bind(CID, new Date(NOW).toISOString()).run();
+    });
+    assert.equal(await info(w, 'cat@favorintl.org'), 200);
+    assert.equal(await info(w, 'bob@favorintl.org'), 404);
+  });
+  it('"Anyone at Favor with the link" opens it to signed-in staff only; "Anyone with the link" to everyone', async () => {
+    const w = await clipWorld();
+    await w.d1.prepare('UPDATE hub_clips SET staff_link = 1 WHERE id = ?').bind(CID).run();
+    assert.equal(await info(w, 'bob@favorintl.org'), 200);
+    assert.equal(await info(w, ''), 401);
+    assert.equal(await info(w, 'field@favourafrica.org', 'field'), 404);
+    await w.d1.prepare('UPDATE hub_clips SET staff_link = 0, share = 1 WHERE id = ?').bind(CID).run();
+    assert.equal(await info(w, ''), 200);
+  });
+  it('comments, reactions and the search card follow the same rule', async () => {
+    const w = await clipWorld();
+    const { onRequestPost } = await import('../functions/api/clips/[id]/comments.ts');
+    const post = (email) => onRequestPost({ request: new Request(`https://dash.favorintl.org/api/clips/${CID}/comments`, { method: 'POST', headers: { 'X-Hub-Email': email, 'X-Hub-Role': 'staff', 'X-Hub-Name': 'x', 'Content-Type': 'application/json' }, body: JSON.stringify({ at: 0, text: 'hi' }) }), env: w.env, params: { id: CID } });
+    assert.equal((await post('bob@favorintl.org')).status, 404);
+    assert.match(src('functions/api/clips/[id]/reactions.ts'), /mayWatch\(env, who\.user, clip\)/);
+    assert.match(src('functions/_lib/hub/entity.ts'), /if \(!c \|\| !\(await mayWatch\(env as any, user, c\)\)\) return null;/);
+  });
+  it('the new switch is off for every clip, and copying the link turns nothing on', () => {
+    assert.match(src('db/clip-access.sql'), /ADD COLUMN staff_link INTEGER NOT NULL DEFAULT 0/);
+    assert.doesNotMatch(src('public/js/clips/watch.js'), /json: \{ share: true \}/);
+  });
+});
+
+describe('privacy follow-ups 2026-10-14: a Brain answer with partner data is shared only where everyone may read it', () => {
+  async function shareWorld({ bobHasPartners }) {
+    const w = await world();
+    const at = new Date(NOW).toISOString();
+    for (const [email, team] of [['rdd@favorintl.org', 'Development (RDD)'], ['bob@favorintl.org', bobHasPartners ? 'Development (RDD)' : 'Marketing']]) {
+      await w.d1.prepare(`INSERT OR IGNORE INTO hub_users (email, name, picture, role, blocked, note, sign_ins, created_at, updated_at) VALUES (?, ?, '', 'staff', 0, '', 1, ?, ?)`).bind(email, email.split('@')[0], at, at).run();
+      await w.d1.prepare(`INSERT OR REPLACE INTO meet_directory (email, name, team, active) VALUES (?, ?, ?, 1)`).bind(email, email.split('@')[0], team).run();
+    }
+    for (const [kind, key, pkg] of [['everyone', '', 'sheets'], ['team', 'Development (RDD)', 'partners']]) await w.d1.prepare(`INSERT INTO brain_access_rules (kind, key, package, created_by, created_at) VALUES (?, ?, ?, 'test', ?)`).bind(kind, key, pkg, at).run();
+    await w.d1.prepare(`INSERT INTO chat_channels (id, kind, name, created_by, created_at) VALUES ('ch_grp_share', 'group', '', 'rdd@favorintl.org', ?)`).bind(at).run();
+    for (const e of ['rdd@favorintl.org', 'bob@favorintl.org']) await w.d1.prepare(`INSERT INTO chat_members (channel_id, email, joined_at) VALUES ('ch_grp_share', ?, ?)`).bind(e, at).run();
+    const brain = { status: 'done', blocks: [{ type: 'tiles', tiles: [{ label: 'Households', value: '12' }] }, { type: 'table', title: 'Lapsed partners', token: 'abcdefabcdefabcdefabcdef', keys: ['name', 'lookup_id', 'lifetime'], rows: [{ name: 'Pat Example', lookup_id: '123', lifetime: 500 }] }], follow: [], asked_as: 'lapsed partners', lists: [{ token: 'abcdefabcdefabcdefabcdef', title: 'Lapsed partners' }] };
+    const r = await w.d1.prepare(`INSERT INTO chat_messages (channel_id, email, body, attachments, brain, created_at, visible_to) VALUES ('ch_grp_share', 'brain', '', '[]', ?, ?, 'rdd@favorintl.org')`).bind(JSON.stringify(brain), at).run();
+    const id = Number(r.meta?.last_row_id ?? (await w.d1.prepare(`SELECT MAX(id) AS id FROM chat_messages`).first()).id);
+    return { w, id };
+  }
+  const shareAnswer = async () => (await import('../functions/_lib/chat/db.ts')).shareAnswer;
+
+  it('refused with a plain message when someone in the conversation lacks partner access', async () => {
+    const { w, id } = await shareWorld({ bobHasPartners: false });
+    await assert.rejects((await shareAnswer())(w.env, 'rdd@favorintl.org', id), (e) => e.status === 409 && e.code === 'partner_audience' && /1 person in this conversation does not have partner access/.test(e.message));
+    const still = await w.d1.prepare('SELECT visible_to FROM chat_messages WHERE id = ?').bind(id).first();
+    assert.equal(still.visible_to, 'rdd@favorintl.org', 'the private answer stays private');
+  });
+  it('the summary without partner details can be shared instead', async () => {
+    const { w, id } = await shareWorld({ bobHasPartners: false });
+    const { posted } = await (await shareAnswer())(w.env, 'rdd@favorintl.org', id, { summary: true });
+    const row = await w.d1.prepare('SELECT brain, visible_to FROM chat_messages WHERE id = ?').bind(posted.message.id).first();
+    const b = JSON.parse(row.brain);
+    assert.equal(row.visible_to, null);
+    assert.deepEqual(b.blocks.map((x) => x.type), ['tiles']);
+    assert.ok(!row.brain.includes('Pat Example') && !row.brain.includes('abcdefabcdef'), 'no partner name and no list token');
+  });
+  it('shared in full when every member holds the Brain partner package', async () => {
+    const { w, id } = await shareWorld({ bobHasPartners: true });
+    const { posted } = await (await shareAnswer())(w.env, 'rdd@favorintl.org', id);
+    const row = await w.d1.prepare('SELECT brain FROM chat_messages WHERE id = ?').bind(posted.message.id).first();
+    assert.ok(row.brain.includes('Pat Example'));
+  });
+  it('an answer with no partner data shares anywhere', async () => {
+    const { answerHasPartnerData } = await import('../functions/_lib/brain-access.ts');
+    assert.equal(answerHasPartnerData({ blocks: [{ type: 'text', md: 'CTG means Change the Game.' }, { type: 'team', rows: [] }] }), false);
+    assert.equal(answerHasPartnerData({ blocks: [{ type: 'partner', name: 'Pat' }] }), true);
+  });
+});
+
+describe('privacy follow-ups 2026-10-14: Brain packages from FavorOS rules, and list downloads through FavorOS', () => {
+  it('FavorOS matches rules the way the Brain does (team, role, lead, person; admin only by person; inactive gives nothing)', async () => {
+    const { rulePackages } = await import('../functions/_lib/brain-access.ts');
+    const rules = [{ kind: 'team', key: 'Grants', package: 'partners' }, { kind: 'team', key: 'Grants', package: 'admin' }, { kind: 'role', key: 'admin', package: 'contacts' }, { kind: 'lead', key: '', package: 'all_teams' }, { kind: 'person', key: 'ann@favorintl.org', package: 'iwave' }];
+    const p = (who) => [...rulePackages(rules, who)].filter((x) => x !== 'basics').sort().join(',');
+    assert.equal(p({ email: 'g@favorintl.org', team: 'Grants' }), 'partners');
+    assert.equal(p({ email: 'g@favorintl.org', team: 'grants', lead: 1 }), 'all_teams,partners');
+    assert.equal(p({ email: 'a@favorintl.org', role: 'admin' }), 'contacts');
+    assert.equal(p({ email: 'ann@favorintl.org' }), 'iwave');
+    assert.equal(p({ email: 'x@favorintl.org', team: '' }), '');
+  });
+  it('a blocked person and anyone when no rules exist get Basics only', async () => {
+    const { brainPackagesFor } = await import('../functions/_lib/brain-access.ts');
+    const { env, d1 } = await world();
+    const at = new Date(NOW).toISOString();
+    assert.deepEqual([...(await brainPackagesFor(env, ['ann@favorintl.org'])).get('ann@favorintl.org')], ['basics']);
+    await d1.prepare(`INSERT INTO brain_access_rules (kind, key, package, created_by, created_at) VALUES ('everyone', '', 'partners', 't', ?)`).bind(at).run();
+    assert.ok((await brainPackagesFor(env, ['ann@favorintl.org'])).get('ann@favorintl.org').has('partners'));
+    await d1.prepare(`UPDATE hub_users SET blocked = 1 WHERE email = 'ann@favorintl.org'`).run();
+    assert.deepEqual([...(await brainPackagesFor(env, ['ann@favorintl.org'])).get('ann@favorintl.org')], ['basics']);
+  });
+  it('Admin > People changes a rule; staff cannot', async () => {
+    const { onRequestPost, onRequestGet } = await import('../functions/api/admin/brain-access.ts');
+    const { env } = await world();
+    const req = (email, role, body) => new Request('https://dash.favorintl.org/api/admin/brain-access', { method: body ? 'POST' : 'GET', headers: { 'X-Hub-Email': email, 'X-Hub-Role': role, 'X-Hub-Name': 'x', Origin: 'https://dash.favorintl.org', 'Sec-Fetch-Site': 'same-origin', 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const add = { op: 'add', kind: 'team', key: 'Grants', package: 'partners' };
+    assert.equal((await onRequestPost({ request: req('ann@favorintl.org', 'staff', add), env, waitUntil: () => {} })).status, 403);
+    const ok = await onRequestPost({ request: req('tester@favorintl.org', 'admin', add), env, waitUntil: () => {} });
+    assert.equal(ok.status, 200, await ok.clone().text());
+    assert.equal((await onRequestPost({ request: req('tester@favorintl.org', 'admin', { op: 'add', kind: 'team', key: 'Grants', package: 'admin' }), env, waitUntil: () => {} })).status, 400, 'Brain admin goes to one person');
+    const got = await (await onRequestGet({ request: req('tester@favorintl.org', 'admin'), env, waitUntil: () => {} })).json();
+    assert.ok(got.rules.some((r) => r.kind === 'team' && r.key === 'Grants' && r.package === 'partners'));
+  });
+  it('FavorOS rewrites Brain list links to its own route and forwards only the signed-in person', async () => {
+    const { onRequest, hubCsvLinks } = await import('../functions/api/brain/[[path]].ts');
+    assert.equal(hubCsvLinks('see https://mcp.favorintl.org/csv/abcdefabcdefabcdefabcdef/x.csv', {}), 'see /api/brain/csv/abcdefabcdefabcdefabcdef/x.csv');
+    const seen = [];
+    const realFetch = globalThis.fetch;
+    globalThis.fetch = async (url, init) => {
+      seen.push({ url: String(url), who: init.headers['X-Acting-Email'] });
+      return new Response('name\nPat', { status: 200, headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename="x.csv"' } });
+    };
+    try {
+      const { env } = await world();
+      const call = (email, role, path = 'csv/abcdefabcdefabcdefabcdef/x.csv') => onRequest({ request: new Request('https://dash.favorintl.org/api/brain/' + path, { headers: email ? { 'X-Hub-Email': email, 'X-Hub-Role': role, 'X-Hub-Name': 'x' } : {} }), env: { ...env, BRAIN_HUB_KEY: 'k' }, params: { path: path.split('/') }, waitUntil: () => {} });
+      const res = await call('ann@favorintl.org', 'staff');
+      assert.equal(res.status, 200);
+      assert.equal(res.headers.get('Cache-Control'), 'private, no-store');
+      assert.deepEqual(seen.pop(), { url: 'https://mcp.favorintl.org/hub/csv/abcdefabcdefabcdefabcdef', who: 'ann@favorintl.org' });
+      assert.equal((await call('', '')).status, 401, 'signed out');
+      assert.equal((await call('f@favourafrica.org', 'field')).status, 403, 'field');
+      assert.equal(seen.length, 0, 'signed out and field never reach the Brain');
+    } finally {
+      globalThis.fetch = realFetch;
+    }
+  });
+});

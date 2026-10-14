@@ -33,7 +33,7 @@
     var headers = { 'X-Hub-Request': '1' };
     if (body && !raw) headers['Content-Type'] = 'application/json';
     return fetch('/api/chat/' + path, { method: method, credentials: 'same-origin', headers: Object.assign(headers, raw ? raw.headers : {}), body: raw ? raw.body : body ? JSON.stringify(body) : undefined })
-      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok || d.ok === false) { var e = new Error(d.message || 'That did not work. Try again.'); e.status = res.status; throw e; } return d; }); });
+      .then(function (res) { return res.json().catch(function () { return {}; }).then(function (d) { if (!res.ok || d.ok === false) { var e = new Error(d.message || 'That did not work. Try again.'); e.status = res.status; e.code = d.error || ''; throw e; } return d; }); });
   }
 
   /* ------------------------------------------------------------------ the socket */
@@ -126,7 +126,7 @@
     setTopic: function (id, topic) { return req('PATCH', 'channels/' + encodeURIComponent(id), { topic: topic }); },
     addMembers: function (id, emails) { return req('POST', 'channels/' + encodeURIComponent(id) + '/members', { emails: emails }).then(function (d) { return d.channel; }); },
     driveSearch: function (q) { return req('GET', 'drive?q=' + encodeURIComponent(q)); },
-    shareAnswer: function (id) { return req('POST', 'messages/' + id + '/share', {}); },
+    shareAnswer: function (id, opts) { return req('POST', 'messages/' + id + '/share', opts && opts.summary ? { summary: true } : {}); },
     dismissAnswer: function (id) { return req('POST', 'messages/' + id + '/dismiss', {}); },
     clips: function () { return req('GET', 'clips'); },
     startMeeting: function (ch) { return req('POST', 'channels/' + encodeURIComponent(ch) + '/meeting', {}); },

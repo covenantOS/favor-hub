@@ -459,6 +459,8 @@ body.h-body .ch .ch-comp textarea:focus, body.h-body .ch .ch-comp textarea:focus
 .ch-private__tag svg { width: 13px; height: 13px; }
 .ch-private__acts { display: inline-flex; gap: 8px; }
 .ch-private__acts .ch-btn { min-height: 32px; }
+.ch-private__warn { flex-basis: 100%; margin-top: 6px; font-size: 13px; line-height: 1.45; color: var(--ch-ink-2, inherit); }
+.ch-private__warn .ch-btn { margin-left: 6px; }
 .ch-msg--brain:has(.ch-private) .ch-ans { border-left: 0; }
 .ch-shared { font: 500 13px/1 var(--h-font, Inter, sans-serif); color: var(--tc-ink-3, #6b7280); align-self: center; }
 @media (max-width: 760px) { .ch-private__acts .ch-btn { min-height: 44px; } }

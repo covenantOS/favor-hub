@@ -10,7 +10,7 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 function page(status: number, title: string, body: string, scripts = '', head = ''): Response {
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer"><title>${esc(title)} - FavorOS</title>${head}
 <script>addEventListener('pagereveal',function(e){var t=e.viewTransition;if(t){t.skipTransition();t.finished.catch(function(){});t.ready.catch(function(){});t.updateCallbackDone.catch(function(){})}})</script><link rel="icon" type="image/png" href="/images/favor-icon.png"><link rel="preload" href="/fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin><link rel="preload" href="/fonts/playfair-500.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/js/clips/watch.css?v=7"><link rel="stylesheet" href="/js/clips/crit-watch.css?v=3"><link rel="stylesheet" href="/js/clips/launcher.css?v=8">
+<link rel="stylesheet" href="/js/clips/watch.css?v=8"><link rel="stylesheet" href="/js/clips/crit-watch.css?v=3"><link rel="stylesheet" href="/js/clips/launcher.css?v=8">
 </head><body>${body}${scripts}</body></html>`;
   return new Response(html, { status, headers: { ...PRIVATE, 'Content-Type': 'text/html; charset=utf-8', 'Referrer-Policy': 'no-referrer' } });
 }
@@ -37,7 +37,7 @@ const frame = (inner: string, signedIn: boolean) =>
 export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env, params }) => {
   const id = String(params.id);
   const user = hubUserOf(request);
-  const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT id, title, summary, status, share, owner_email, owner_name, has_poster, duration_ms, mime FROM hub_clips WHERE id = ?').bind(id).first<Pick<Clip, 'id' | 'title' | 'summary' | 'status' | 'share' | 'owner_email' | 'owner_name' | 'has_poster' | 'duration_ms' | 'mime'>>() : null;
+  const clip = ID_RE.test(id) ? await env.DB.prepare('SELECT id, title, summary, status, share, staff_link, owner_email, owner_name, has_poster, duration_ms, mime FROM hub_clips WHERE id = ?').bind(id).first<Pick<Clip, 'id' | 'title' | 'summary' | 'status' | 'share' | 'staff_link' | 'owner_email' | 'owner_name' | 'has_poster' | 'duration_ms' | 'mime'>>() : null;
 
   if (!clip || !isWatchable(clip) || !(await canWatch(env, request, clip))) {
     // A signed-out viewer cannot tell a missing clip from a private one. They sign in and come back.
@@ -71,5 +71,5 @@ export const onRequestGet: PagesFunction<ClipsEnv, 'id'> = async ({ request, env
     image: open && clip.has_poster === 1 ? `${media}?poster=1` : origin + '/images/favor-logo-color.png',
     ...(open ? { video: media, videoType: clip.mime || 'video/webm' } : {}),
   });
-  return page(200, clip.title || 'Clip', body, `<script type="module" src="/js/clips/watch.js?v=6"></script>${user ? '<script src="/js/clips-launch.js?v=5" defer></script>' : ''}`, head);
+  return page(200, clip.title || 'Clip', body, `<script type="module" src="/js/clips/watch.js?v=7"></script>${user ? '<script src="/js/clips-launch.js?v=5" defer></script>' : ''}`, head);
 };

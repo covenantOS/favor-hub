@@ -95,7 +95,15 @@ ${input.context}
 Question from ${input.asker.name || 'the asker'}: ${question}` : question, v: 2, conv: 'chat_' + crypto.randomUUID().replace(/-/g, '').slice(0, 20), ...(input.intent ? { intent: input.intent } : {}) }),
           signal: AbortSignal.timeout(90000),
         });
-        answer = readAnswer(await res.json().catch(() => null));
+        // List links download through FavorOS (/api/brain/csv/...), which hands the file only to the person who asked.
+        const raw = (await res.text().catch(() => '')).split(`${(env.BRAIN_URL || BRAIN_URL).replace(/\/$/, '')}/csv/`).join('/api/brain/csv/');
+        let parsed: unknown = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = null;
+        }
+        answer = readAnswer(parsed);
         if (!('error' in answer && answer.error)) (answer as BrainAnswer).q = question;
       } catch {
         answer = { error: 'The Brain did not answer. Ask again.' };

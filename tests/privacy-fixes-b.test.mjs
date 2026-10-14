@@ -144,8 +144,10 @@ describe('clips', () => {
     assert.deepEqual(admin.data.viewers.map((v) => v.email), ['bob@favorintl.org']);
   });
 
-  it('another staff member with the link gets the clip and its comments but no viewer list', async () => {
+  it('another staff member with the link gets the clip and its comments but no viewer list, once it is shared with them', async () => {
     const { w, id } = await clipWorld();
+    assert.equal((await info(w, id, 'pat@favorintl.org', 'staff')).status, 404, 'a clip not shared with this person');
+    w.db.prepare("INSERT INTO hub_clip_people (clip_id, email, added_by, created_at) VALUES (?, 'pat@favorintl.org', 'ann@favorintl.org', ?)").run(id, NOW);
     const out = await info(w, id, 'pat@favorintl.org', 'staff');
     assert.equal(out.status, 200);
     assert.equal(out.data.viewers, undefined);
