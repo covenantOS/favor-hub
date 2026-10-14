@@ -207,8 +207,8 @@ function band(v) {
   const why = !canPost ? 'Posting is not switched on for you' : ok ? '' : rowsAll.length && appr < rowsAll.length ? `Opens when all ${rowsAll.length} are approved` : v.canSend.why.slice(0, 1).join(' ');
   const d = v.deposit;
   return `<section class="h-card ge-band" id="ge-band">
-    <div class="ge-band__c"><span class="l">Tape</span><b class="n ge-money">${money(t.tapeCents)}</b><span class="s">${t.tapeCount} items</span></div>
-    <div class="ge-band__c ${ties ? 'is-ok' : t.count ? 'is-bad' : ''}"><span class="l">Entered</span><b class="n ge-money">${money(t.cents)}</b><span class="s">${t.count} gifts · ${ties ? 'ties to the tape' : esc(off)}</span></div>
+    <div class="ge-band__c"><span class="l">Tape</span><b class="n ge-money">${money(t.tapeCents)}</b><span class="s">${t.tapeCount} ${t.tapeCount === 1 ? 'item' : 'items'}</span></div>
+    <div class="ge-band__c ${ties ? 'is-ok' : t.count ? 'is-bad' : ''}"><span class="l">Entered</span><b class="n ge-money">${money(t.cents)}</b><span class="s">${t.count} ${t.count === 1 ? 'gift' : 'gifts'} · ${ties ? 'ties to the tape' : esc(off)}</span></div>
     <div class="ge-band__c"><span class="l">Approved</span><b class="n">${appr} of ${rowsAll.length}</b><span class="s">${look} to review</span></div>
     <div class="ge-band__c ${look + held ? 'is-warn' : ''}"><span class="l">Needs a look</span><b class="n">${look + held}</b><span class="s">${held} held</span></div>
     <div class="ge-band__send"><span class="s">Started by ${esc(nameOf(d.createdBy || ''))}${d.createdAt ? ', ' + esc(ET_TIME(d.createdAt)) : ''}</span>
@@ -275,7 +275,8 @@ async function deposit() {
   stopPoll();
   if (!S.catalog) catalog().then(() => { if (S.view === v && cur()) paintReview(); }).catch(() => {});
   if (!cur()) S.cur = (v.rows.find(needsLook) || v.rows[0] || {}).id || '';
-  crumb(v.deposit.name || 'Deposit');
+  // "Regular Mail 2026-10-09" reads as "Regular Mail, Oct 9".
+  crumb(String(v.deposit.name || 'Deposit').replace(/\s*(\d{4})-(\d{2})-(\d{2})$/, (m0, y, mo, d) => ', ' + MON[Number(mo) - 1] + ' ' + Number(d)));
   root.innerHTML = `<div class="ge-dep2">${band(v)}${captureCard()}
     <section class="h-card ge-card ge-rev" id="ge-review"></section><div id="ge-rejected">${rejectedLine(v)}</div></div>`;
   paintReview();
