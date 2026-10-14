@@ -14,7 +14,7 @@ import { sendMail } from './notify/send';
 import { parseRange, type Clip, type ClipsEnv } from './clips';
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
-import { closePrivate, cutSection, deleteRecording, fixSpeaker, forgetFiles, overlapsPause, privacyOf, setPrivate } from './meetprivacy';
+import { closePrivate, cutSection, deleteRecording, fixSpeaker, forgetFiles, overlapsPause, privacyOf, redoDoc, setPrivate } from './meetprivacy';
 import { pumpTrim } from './meettrim';
 import { HUB, sharedDevices, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, transcribeVoice, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
@@ -1237,6 +1237,11 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
       // A host cut a stretch: the Drive files are written again without it (meettrim.ts).
       const r = await timed(env, id, 'trim', () => pumpTrim(denv, m, { forget: (ids) => forgetFiles(denv as never, ids) }));
       if (r.done) await env.DB.prepare(`INSERT INTO hub_meeting_events (meeting_id, kind, body, ts) VALUES (?, 'notice', ?, ?)`).bind(id, JSON.stringify({ a: 'trimmed', files: (r.finished || []).length }), Date.now()).run();
+      // Drive would not drop the old version, so the cut file is a copy with a new id: the Doc is made again to link to it.
+      if ((r.finished || []).some((f) => f.history === 'copied')) {
+        const by = await env.DB.prepare(`SELECT by_email FROM hub_meeting_trim WHERE meeting_id = ? ORDER BY at DESC LIMIT 1`).bind(id).first<{ by_email: string }>();
+        await redoDoc(denv as never, { email: by?.by_email || m.host_email, role: 'admin' }, await getMeeting(env, id), (x: Meeting) => docFor(denv, x, x.title)).catch((err) => console.warn('[meet] trim doc', id, err));
+      }
       return { ok: true, done: r.done, state: r.done ? 'stored' : 'trimming', progress: r.progress };
     }
     if (m.notes_status === 'pending' || (m.notes_status as string) === 'redo') {

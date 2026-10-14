@@ -152,7 +152,10 @@ async function replaceWithCopy(env: TEnv, m: Meeting, epoch: number, fileId: str
   const c = await fetch(`${FILES}/${encodeURIComponent(fileId)}/copy?supportsAllDrives=true&fields=id`, { method: 'POST', headers: { Authorization: `Bearer ${t}`, 'content-type': 'application/json' }, body: JSON.stringify({ name: meta.name, parents: meta.parents }) });
   const cj = (await c.json().catch(() => ({}))) as { id?: string };
   if (!c.ok || !cj.id) throw new Error(`drive copy ${c.status}`);
-  await fetch(`${FILES}/${encodeURIComponent(fileId)}?supportsAllDrives=true`, { method: 'PATCH', headers: { Authorization: `Bearer ${t}`, 'content-type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+  // The old file (which still holds the earlier version) is trashed and listed with the files removed in FavorOS. Drive empties a
+  // shared drive's trash after 30 days; a manager of the drive can empty it sooner.
+  const tr = await fetch(`${FILES}/${encodeURIComponent(fileId)}?supportsAllDrives=true`, { method: 'PATCH', headers: { Authorization: `Bearer ${t}`, 'content-type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+  await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_removed (file_id, meeting_id, kind, name, state, by_email, at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(fileId, m.id, 'recording', meta.name || '', tr.ok ? 'trashed' : 'kept', 'trim', nowIso()).run().catch(() => undefined);
   await env.DB.prepare('UPDATE hub_meeting_drive SET file_id = ? WHERE meeting_id = ? AND epoch = ?').bind(cj.id, m.id, epoch).run();
   await env.DB.prepare('UPDATE hub_meetings SET drive_file_id = ? WHERE id = ? AND drive_file_id = ?').bind(cj.id, m.id, fileId).run();
   return cj.id;

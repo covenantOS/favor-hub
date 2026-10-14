@@ -132,7 +132,7 @@ export async function deleteRecording(env: PEnv, user: User, m: Meeting, opts: {
   return { ok: true, files: files.length, drive: out, doc: docState };
 }
 
-async function redoDoc(env: PEnv, user: User, m: Meeting, make?: (m: Meeting) => Promise<void>): Promise<string> {
+export async function redoDoc(env: PEnv, user: User, m: Meeting, make?: (m: Meeting) => Promise<void>): Promise<string> {
   if (m.notes_doc_id) {
     await takeOut(env, m, user, m.notes_doc_id, 'notes', `${m.title} notes`);
     await env.DB.prepare(`UPDATE hub_meetings SET notes_doc_id = '' WHERE id = ?`).bind(m.id).run();
