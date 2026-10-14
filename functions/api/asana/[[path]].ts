@@ -8,6 +8,7 @@
 import { HttpError, errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { projectsActor } from '../../_lib/projects/access';
+import { sweepDoneTasks } from '../../_lib/integrations/accept';
 import { AsanaError, asanaUser, mustConnect, setRequire, adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
 import { connection, connectUrl, disconnect, finishConnect, tokenFor } from '../../_lib/projects/sync-oauth';
 
@@ -29,7 +30,10 @@ export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
     if (a === 'run') {
       if (method !== 'POST') return errorJson('method', 'Not allowed.', 405);
       if (user?.via !== 'agent') throw new HttpError(403, 'forbidden', 'Only the scheduler runs this.');
-      return json({ ok: true, ...(await runPass(env)) });
+      const pass = await runPass(env);
+      // A task ticked in Asana changes the table with no event, so the request it came from is closed here (integrations/accept.ts).
+      const requestsClosed = await sweepDoneTasks(env).catch(() => 0);
+      return json({ ok: true, ...pass, requestsClosed });
     }
     const actor = await projectsActor(env, request, user);
     if (a === 'oauth' && b === 'connect') {

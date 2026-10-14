@@ -13,7 +13,7 @@ import { staffDirectory } from '../people';
 import { getRequest } from '../db';
 import { addComment } from '../requests/tasks';
 
-export type CardKind = 'sent' | 'mention' | 'made';
+export type CardKind = 'sent' | 'mention' | 'made' | 'accepted';
 type ChatTaskEnv = Env & Partial<LiveEnv>;
 
 const lower = (s: unknown) => String(s || '').trim().toLowerCase();

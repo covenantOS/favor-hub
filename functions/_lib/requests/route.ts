@@ -12,6 +12,8 @@
 //   POST   :id/tell                   { email }               tell the owner or the person waited on now (the gate decides)
 //   GET    search?q=                                          requests by title, text or person, for the search palette
 //   GET    prefs   PUT prefs          { mode }                my request email: now | daily | off
+//   GET    :id/accept   POST :id/accept { project_id?, owner_email?, due_date?, note? }   Accept: task, Chat card or email, focus offer
+//   GET    :id/focus?minutes=   POST :id/focus { start, minutes }   DELETE :id/focus/:hold   focus time on the owner's calendar
 import { HttpError, errorJson, handleError, json, type Env } from '../http';
 import type { HubUser } from '../session';
 import { attachmentsFor, eventsFor, getRequest, publicShape } from '../db';
@@ -39,6 +41,7 @@ import { emailOn, mailMode, setMailMode } from './mail';
 import { chatEmailOn, setChatEmail } from '../chat/mail';
 import { searchRequests } from './views';
 import { suggestionFor } from './suggest';
+import { acceptOptions, acceptRequest, dropFocus, focusSlots, holdFocus, linkedTask, requestDoneToTask } from '../integrations/accept';
 
 export interface Ctx {
   request: Request;
@@ -69,7 +72,10 @@ export async function fullRequest(env: Env, id: string, actor: Actor | null) {
   const [atts, events, detail] = await Promise.all([attachmentsFor(env, [id]), eventsFor(env, id), detailFor(env, row, actor)]);
   // A hub admin sees the owner and due date the form suggested, with one button to use them.
   const suggest = admin ? await suggestionFor(env, id) : null;
-  return { ...publicShape(row, atts.get(id) || [], events, admin), ...(detail || {}), ...(suggest ? { suggest } : {}) };
+  // The Projects task made when it was accepted, for the people who can see the request in full.
+  const t = actor ? await linkedTask(env, id) : null;
+  const project_task = t ? { id: t.id, code: t.code, title: t.title, status: t.status, url: `/projects/?t=${encodeURIComponent(t.id)}` } : null;
+  return { ...publicShape(row, atts.get(id) || [], events, admin), ...(detail || {}), ...(suggest ? { suggest } : {}), project_task };
 }
 
 async function route(ctx: Ctx): Promise<Response> {
@@ -122,6 +128,18 @@ async function route(ctx: Ctx): Promise<Response> {
   const row = await readable(env, a, actor);
   const done = async () => json({ ok: true, request: await fullRequest(env, row.id, actor) });
 
+  if (b === 'accept' && !c) {
+    if (method === 'GET') return json(await acceptOptions(env, row, actor));
+    if (method === 'POST') {
+      const r = await acceptRequest(env, row, actor, await body(request));
+      return json({ ...r, request: await fullRequest(env, row.id, actor) });
+    }
+  }
+  if (b === 'focus') {
+    if (method === 'GET' && !c) return json(await focusSlots(env, actor, new URL(request.url).searchParams.get('minutes')));
+    if (method === 'POST' && !c) return json(await holdFocus(env, row, actor, await body(request)));
+    if (method === 'DELETE' && c) return json(await dropFocus(env, row, actor, c));
+  }
   if (b === 'send' && method === 'POST') {
     const input = await body(request);
     await sendTo(env, row, actor, input.to, input.note);
@@ -145,6 +163,8 @@ async function route(ctx: Ctx): Promise<Response> {
     const next = await participantStatus(env, row, actor, b === 'done' ? 'done' : 'in_progress');
     // Completing a request emails the person who asked, as the board always has.
     if (b === 'done' && prev !== 'done') ctx.waitUntil(notifyRequestDone(env, next, { pageUrl: next.page_url }).catch((err) => console.error('[requests] done notify', err)));
+    // The task made when it was accepted is ticked with it.
+    if (b === 'done' && prev !== 'done') ctx.waitUntil(requestDoneToTask(env, row.id, actor).catch((err) => console.error('[requests] done task', err)));
     return done();
   }
   if (b === 'follow' && method === 'POST') {

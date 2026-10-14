@@ -69,4 +69,7 @@ registerTaskRoute('brain', (ctx) => agentDoor(ctx.env, ctx.request));
 // Two-way Asana sync: a change on a synced project goes to Asana (functions/_lib/projects/sync.ts).
 import { onEvent as asanaSync } from './sync';
 onProjectEvent((env, ev) => asanaSync(env, ev));
+// A ticked task made from an accepted request closes the request and sends its done email (functions/_lib/integrations/accept.ts).
+import { onTaskEvent as requestFromTask } from '../integrations/accept';
+onProjectEvent((env, ev) => requestFromTask(env, ev));
 // --- links end

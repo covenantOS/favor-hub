@@ -2,6 +2,7 @@ import { requireAgent } from '../../_lib/auth';
 import { addEvent, attachmentsFor, eventsFor, getRequest, publicShape, setPageUrl, setStatus } from '../../_lib/db';
 import { HttpError, asTrimmed, handleError, json, type Env } from '../../_lib/http';
 import { firstHttpUrl, notifyRequestDone } from '../../_lib/notify';
+import { requestDoneToTask } from '../../_lib/integrations/accept';
 
 export const onRequestPatch: PagesFunction<Env, 'id'> = async ({ request, env, params, waitUntil }) => {
   try {
@@ -38,6 +39,7 @@ export const onRequestPatch: PagesFunction<Env, 'id'> = async ({ request, env, p
             console.error('[requests] done notify', err)
           )
         );
+        waitUntil(requestDoneToTask(env, id, { email: 'agent', name: 'Agent', admin: true }).catch((err) => console.error('[requests] done task', err)));
       }
       const [atts, events] = await Promise.all([attachmentsFor(env, [id]), eventsFor(env, id)]);
       return json({ ok: true, request: publicShape(next, atts.get(id) || [], events, true) });

@@ -5,6 +5,7 @@ import { notifyRequestDone } from '../../../_lib/notify';
 import { hubUserOf } from '../../../_lib/session';
 import { actorOf, readable, toldDone } from '../../../_lib/requests/tasks';
 import { fullRequest } from '../../../_lib/requests/route';
+import { requestDoneToTask } from '../../../_lib/integrations/accept';
 
 export const onRequestGet: PagesFunction<Env, 'id'> = async ({ request, env, params }) => {
   try {
@@ -45,6 +46,7 @@ export const onRequestPatch: PagesFunction<Env, 'id'> = async ({ request, env, p
           )
         );
         waitUntil(toldDone(env, id, me).catch((err) => console.error('[requests] done notices', err)));
+        waitUntil(requestDoneToTask(env, id, me).catch((err) => console.error('[requests] done task', err)));
       }
       return json({ ok: true, request: await fullRequest(env, id, me) });
     }

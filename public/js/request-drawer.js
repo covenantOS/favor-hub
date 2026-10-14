@@ -118,17 +118,34 @@
   function actionsHtml(r) {
     const can = r.can || {};
     if (!can.triage) {
-      if (can.done) return `<div class="rq-actions"><button type="button" class="rt-btn rt-btn--primary" data-mine="done">Mark done</button></div>`;
+      if (can.done) return `<div class="rq-actions"><button type="button" class="rt-btn rt-btn--primary" data-mine="done">Mark done</button>${focusBtn(r)}</div>`;
       if (can.comment && r.status === 'done') return `<div class="rq-actions"><button type="button" class="rt-btn" data-mine="reopen">Reopen</button></div>`;
       return '';
     }
     const b = [];
-    if (r.status === 'inbox') b.push(['approved', 'Approve'], ['declined', 'Decline']);
+    // Accept (FavorIx in integrations.js) approves it and makes the task, the Chat card and the focus time offer in one step.
+    const ix = !!window.FavorIx;
+    if (r.status === 'inbox') b.push(ix ? ['accept', 'Accept'] : ['approved', 'Approve'], ['declined', 'Decline']);
     if (r.status === 'approved') b.push(['in_progress', 'Start'], ['inbox', 'Back to inbox'], ['declined', 'Decline']);
     if (r.status === 'in_progress') b.push(['done', 'Mark done'], ['approved', 'Back to approved']);
     if (r.status === 'done') b.push(['in_progress', 'Reopen']);
     if (r.status === 'declined') b.push(['inbox', 'Restore']);
-    return `<div class="rq-actions">${b.map(([s, l], i) => `<button type="button" class="rt-btn${i === 0 ? ' rt-btn--primary' : ''}" data-status="${s}">${l}</button>`).join('')}</div>`;
+    if (ix && !r.project_task && (r.status === 'approved' || r.status === 'in_progress')) b.push(['accept', 'Make the task']);
+    return `<div class="rq-actions">${b.map(([s, l], i) => `<button type="button" class="rt-btn${i === 0 ? ' rt-btn--primary' : ''}" ${s === 'accept' ? 'data-accept' : `data-status="${s}"`}>${l}</button>`).join('')}${focusBtn(r)}</div>`;
+  }
+
+  /** The owner of an open request can hold focus time for it on their own calendar. */
+  function focusBtn(r) {
+    const open = r.status === 'approved' || r.status === 'in_progress';
+    return window.FavorIx && open && r.task && r.task.owner === RT.me() ? `<button type="button" class="rt-btn" data-focus>${window.FavorIx.ic('clock')}Hold focus time</button>` : '';
+  }
+
+  /** The Projects task made when the request was accepted. */
+  function projectTaskHtml(r) {
+    const t = r.project_task;
+    if (!t) return '';
+    const done = t.status === 'done';
+    return `<a class="rq-ptask${done ? ' is-done' : ''}" href="${esc(t.url)}" data-ptask="${esc(t.id)}"><span class="rq-ptask__k">Task</span><b>${esc(t.code || 'Open')}</b><span class="rq-ptask__s">${done ? 'Done' : t.status === 'doing' ? 'In progress' : t.status === 'waiting' ? 'Waiting' : 'Open'}</span></a>`;
   }
 
   /** One line of history in words. Lines written by the hub's own jobs name no one; a line that says nothing is left out. */
@@ -184,6 +201,7 @@
     const banner = ask === 'done' && r.can && r.can.done ? `<div class="rq-ask" role="alert"><span>Mark this request done? The person who asked gets an email.</span><span class="rq-ask__b"><button type="button" class="rt-btn rt-btn--primary rt-btn--sm" data-ask-done>Mark done</button><button type="button" class="rt-btn rt-btn--sm" data-ask-no>Not now</button></span></div>` : '';
     return `${banner}<h2 id="rq-title">${esc(r.title)}</h2>
       ${fieldsHtml(r)}
+      ${projectTaskHtml(r)}
       ${r.page_url ? locHtml(r.page_url) : ''}
       <div class="rq-text">${esc(r.body)}</div>
       ${atts ? `<div class="rq-gallery">${atts}</div>` : ''}
@@ -383,6 +401,12 @@
     if (!openId || !cur) return;
     const r = cur;
     try {
+      if (t.closest('[data-accept]') && window.FavorIx) {
+        const done = await window.FavorIx.accept(r.id);
+        if (done && done.request && openId === r.id) { paint(done.request); changed(done.request); }
+        return;
+      }
+      if (t.closest('[data-focus]') && window.FavorIx) { await window.FavorIx.focus(r.id, r.title); return; }
       const st = t.closest('[data-status]');
       if (st) { await act('', { status: st.dataset.status }, 'PATCH'); return; }
       const mine = t.closest('[data-mine]');

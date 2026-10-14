@@ -233,7 +233,7 @@ export async function readNotices(env: TaskEnv, email: string, opts: { id?: numb
 
 /* ------------------------------------------------------------------------------------------------ writes */
 
-async function upsertTask(env: TaskEnv, id: string, fields: Partial<Omit<TaskRow, 'request_id' | 'updated_at'>>): Promise<TaskRow> {
+export async function upsertTask(env: TaskEnv, id: string, fields: Partial<Omit<TaskRow, 'request_id' | 'updated_at'>>): Promise<TaskRow> {
   const prev = await taskOf(env, id);
   const next: TaskRow = {
     request_id: id,
