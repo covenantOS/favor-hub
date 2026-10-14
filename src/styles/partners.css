@@ -1,0 +1,9 @@
+/* Partners > Actions (the Work Center): one row of view chips over the table, in place of the old group and tab rows. */
+.wc-vchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+.wc-vchip { height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--r-line-2, #ddd6c6); background: #fff; font: 600 13px var(--h-font); color: var(--r-ink-2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.wc-vchip span { font-weight: 600; color: var(--r-ink-3); font-variant-numeric: tabular-nums; }
+.wc-vchip:hover { border-color: var(--r-ink-3); color: var(--r-ink); }
+.wc-vchip.is-on { background: var(--r-ink); border-color: var(--r-ink); color: #fff; }
+.wc-vchip.is-on span { color: rgba(255, 255, 255, 0.75); }
+.wc-nav:empty { display: none; }
+@media (max-width: 860px) { .wc-vchips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: -14px; padding-right: 14px; } .wc-vchip { flex: none; min-height: 36px; } }

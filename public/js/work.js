@@ -188,7 +188,6 @@ function page() {
   hideBar();
   main.innerHTML = `
     <div class="wc-intro">
-      <p>Every open action in Blackbaud, the week's contacts to enter, and the thank-yous still owed, in one place. Pick as many as you need and finish them together.</p>
       <div class="wc-chips">
         <button type="button" class="wc-pill wc-chipsmore" data-chipsmore aria-expanded="false" aria-label="Show or hide Work Center details">Details</button>
         ${g.admin && g.release === 'admins' ? '<span class="wc-pill wc-pill--gold" title="Only admins see this page.">' + ic('lock') + 'Admins only</span>' : ''}
@@ -199,10 +198,11 @@ function page() {
       </div>
     </div>
     ${window.WCWeek ? window.WCWeek.strip() : ''}
-    ${navHTML()}
+    <div class="wc-nav" id="wc-nav">${actionChips()}</div>
     <div id="view"></div>`;
   if (window.WCGifts) window.WCGifts.hideBulk();
   (window.WCTabs.get(S.view) || window.WCTabs.get('open')).mount();
+  syncHead();
 }
 // Tabs come from the registry (public/js/work-tabs.js). The built-in ones register here; later tabs register from their own files.
 function tabsNow() { return window.WCTabs.list(DATA.me).map((t) => [t.id, t.label, t.count ? t.count() : '']); }
@@ -1241,6 +1241,8 @@ function navParts() {
 function navHTML() { const p = navParts(); return `<div class="wc-nav" id="wc-nav" data-sig="${esc(p.sig)}">${p.html}</div>`; }
 function patchTabs() {
   const nav = $('#wc-nav'); if (!nav) return;
+  // The view chips on Actions replace the old group and tab rows (the header's tab row is the page's tabs).
+  const html = actionChips(); if (nav.innerHTML !== html) nav.innerHTML = html; return;
   const p = navParts();
   if (nav.dataset.sig !== p.sig) { nav.innerHTML = p.html; nav.dataset.sig = p.sig; return; }
   $$('.wc-tab', nav).forEach((b) => {
@@ -1263,6 +1265,7 @@ async function goTab(k) {
   if (k === 'intake') readSheet(S.in.rdd);
   if (k === 'recent') await loadRecent();
   drawBody(from);
+  syncHead();
 }
 function refresh(tab) {
   pendingTabs.add(tab || '*');
@@ -1402,6 +1405,62 @@ window.WC = {
   entryReload: async () => { await loadEntry(); render(); },
   get ACTS() { return ACTS; }, get BYID() { return BYID; }, get DATA() { return DATA; }, mayAssign, get TODAY() { return TODAY; }, AS,
 };
+
+
+// ------------------------------------------------------------ Partners: the header's tab row drives the Work Center (2026-10-14)
+// Partners > Actions, Gifts to thank, My partners, Asks, Cadence, My week, Entry and Grants are this one page. A tab in the header
+// switches the view in place (no reload) and the address keeps ?view= so a link or a refresh lands on the same tab. The Work Center's
+// own group row is gone: Actions keeps a row of view chips (Open actions, Thank-yous, Opportunities, Stale, Recent changes).
+const HEAD_OF = { open: 'work', ty: 'work', opps: 'work', stale: 'work', recent: 'work', giftimages: 'work', gifts: 'partners-thank', mine: 'partners-mine', asks: 'partners-asks', cadence: 'partners-cadence', week: 'partners-week', intake: 'partners-entry', grants: 'partners-grants' };
+const ACTION_VIEWS = [['open', 'Open actions'], ['ty', 'Thank-yous'], ['opps', 'Opportunities'], ['stale', 'Stale'], ['recent', 'Recent changes'], ['giftimages', 'Gift images']];
+function viewOfHref(href) {
+  try { const u = new URL(href, location.href); if (u.pathname.replace(/\/?$/, '/') !== '/work/') return null; return u.searchParams.get('view') || 'open'; } catch (_) { return null; }
+}
+function syncHead() {
+  const nav = document.getElementById('h-tabs');
+  if (!nav || !DATA || !DATA.me) return;
+  const want = HEAD_OF[S.view] || 'work';
+  nav.querySelectorAll('a.h-tab[data-nav-id]').forEach((a) => {
+    const v = viewOfHref(a.getAttribute('href') || '');
+    // A Work Center tab this person's role does not have stays out of the row (Foundations is its own page and always shows).
+    if (v && v !== 'open' && !window.WCTabs.has(v, DATA.me)) a.hidden = true;
+    const on = a.dataset.navId === want;
+    if (a.classList.contains('is-on') !== on) a.classList.toggle('is-on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  const tab = nav.querySelector(`a.h-tab[data-nav-id="${want}"]`);
+  const title = document.querySelector('.h-top__title');
+  const label = tab ? (tab.querySelector('.h-tab__t') || tab).textContent.trim() : 'Actions';
+  if (title && title.firstChild && title.firstChild.nodeType === 3 && title.firstChild.nodeValue !== label) { title.firstChild.nodeValue = label; document.title = label + ' - FavorOS'; }
+  if (window.hubTabsLayout) window.hubTabsLayout();
+}
+function actionChips() {
+  if (!ACTION_VIEWS.some(([k]) => k === S.view)) return '';
+  const T = window.WCTabs;
+  return `<div class="wc-vchips" role="tablist" aria-label="Actions views">${ACTION_VIEWS.filter(([k]) => T.has(k, DATA.me)).map(([k, l]) => {
+    const t = T.get(k); const n = t && t.count ? t.count() : '';
+    return `<button type="button" role="tab" class="wc-vchip${S.view === k ? ' is-on' : ''}" data-vchip="${k}" aria-selected="${S.view === k}">${esc(l)}${n !== '' && n !== 0 ? `<span>${typeof n === 'number' ? n.toLocaleString('en-US') : esc(String(n))}</span>` : ''}</button>`;
+  }).join('')}</div>`;
+}
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const t = e.target instanceof Element ? e.target : null;
+  const chip = t && t.closest('[data-vchip]');
+  if (chip) { e.preventDefault(); switchView(chip.dataset.vchip); return; }
+  const a = t && t.closest('#h-tabs a.h-tab[href]');
+  if (!a || !S.loaded) return;
+  const v = viewOfHref(a.getAttribute('href'));
+  if (!v || !window.WCTabs.has(v, DATA.me)) return;
+  e.preventDefault(); e.stopPropagation();
+  switchView(v);
+}, true);
+async function switchView(v) {
+  const u = new URL(location.href);
+  if (v === 'open') u.searchParams.delete('view'); else u.searchParams.set('view', v);
+  u.searchParams.delete('tab');
+  history.replaceState(history.state, '', u.pathname + u.search);
+  if (S.view !== v) await goTab(v); else syncHead();
+}
 
 // ------------------------------------------------------------ start
 // Each tab reads its own data the first time it opens. Reading it now, right after the first paint, means a tab opens on rows.
