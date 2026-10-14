@@ -61,7 +61,7 @@ export class AsanaError extends Error {
 /** Reads and writes with one token. Counts calls; a 429 records the wait in hub settings so every pass holds off until then. */
 export class Asana {
   calls = 0;
-  constructor(private env: Env, public token: string, public via: 'pat' | 'oauth' = 'pat', private f: typeof fetch = fetch) {}
+  constructor(private env: Env, public token: string, public via: 'pat' | 'oauth' = 'pat', private f: typeof fetch = (i, init) => fetch(i, init)) {}
   async req(method: string, path: string, body?: unknown, form?: FormData): Promise<any> {
     this.calls++;
     const headers: Record<string, string> = { Authorization: `Bearer ${this.token}`, Accept: 'application/json' };

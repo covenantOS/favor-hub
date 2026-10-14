@@ -8,7 +8,7 @@
 import { HttpError, errorJson, handleError, json, type Env } from '../../_lib/http';
 import { hubUserOf } from '../../_lib/session';
 import { projectsActor } from '../../_lib/projects/access';
-import { adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
+import { AsanaError, adminState, runPass, setProjectSync, setSync, webhook } from '../../_lib/projects/sync';
 import { connection, connectUrl, disconnect, finishConnect, tokenFor } from '../../_lib/projects/sync-oauth';
 
 export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
@@ -65,6 +65,7 @@ export const onRequest: PagesFunction<Env, 'path'> = async (ctx) => {
     }
     return errorJson('not_found', 'No such route.', 404);
   } catch (err) {
+    if (err instanceof AsanaError) return errorJson('asana', err.message, 502);
     return handleError(err);
   }
 };
