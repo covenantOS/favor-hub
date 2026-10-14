@@ -120,6 +120,8 @@
     if (latest && t.follow && t.follow.length && !t.error) h += `<div class="blk-follow" aria-label="Follow-up questions">${t.follow.map((q) => `<button type="button" class="fu" data-act="ask" data-q="${esc(q)}">${ic('arrow')}${esc(q)}</button>`).join('')}</div>`;
     if (t.connectCard && connected === false && promptsOn()) h += `<div class="bc-cardline">${ic('link')}<span>Ask this in Claude next time.</span><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-act="connect">Connect</button><button type="button" class="ib ib--sm ib--bare x" data-act="card-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
     if (t.hint) h += `<div class="hintline">${ic('spark')}<span>You can ask the same questions from another app you already use.</span><button type="button" class="lnk" data-act="connect">Show me how</button><button type="button" class="ib ib--sm ib--bare x" data-act="hint-x" data-turn="${ti}" aria-label="Hide this">${ic('close')}</button></div>`;
+    // Drag the answer into what you are writing, or send it to an email (ask-brain.js).
+    if (!t.error && !t.stopped && window.FavorAskBrain && ((t.blocks && t.blocks.length) || t.markdown)) h += window.FavorAskBrain.footer();
     const r = t.rated;
     // An answer with figures in it says when the Blackbaud copy it read was last synced.
     const nums = !t.error && !t.stopped && (t.blocks || []).some((b) => ['tiles', 'money', 'int', 'pct', 'score', 'chart', 'team', 'table'].includes(b.type));
@@ -777,9 +779,19 @@
   inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
   $('bc-compose').addEventListener('submit', (e) => { e.preventDefault(); if (busy) stop(); else send(); });
   $('bc-send').addEventListener('mousedown', (e) => e.preventDefault());
+  // Ask Favor Brain from a selection elsewhere lands here as /brain/?ctx=<text>&from=<where> (phones, or where the dock is not shown):
+  // the selection shows above the box and goes with the next question.
+  let askCtx = null;
+  function showCtx() {
+    const old = document.querySelector('.bc-askctx');
+    if (old) old.remove();
+    if (!askCtx || !window.FavorAskBrain) return;
+    $('bc-compose').insertAdjacentHTML('beforebegin', window.FavorAskBrain.card(askCtx).replace('class="fx-askctx"', 'class="fx-askctx bc-askctx"'));
+  }
   function send() {
-    const q = inp.value.trim();
-    if (q.length < 2 || busy) return;
+    let q = inp.value.trim();
+    if (q.length < 2 && !(askCtx && q.length === 0 && askCtx.text.length > 1) || busy) return;
+    if (askCtx && window.FavorAskBrain) { q = window.FavorAskBrain.compose(q, askCtx); askCtx = null; showCtx(); }
     inp.value = '';
     grow();
     setSend();
@@ -892,6 +904,19 @@
     await Promise.all([loadMe(), loadHistory(), loadConnector()]);
     loadSheets();
     if (new URLSearchParams(location.search).get('connect') === '1') openPanel('connect');
+    const ctxText = (new URLSearchParams(location.search).get('ctx') || '').slice(0, 2000);
+    if (ctxText.trim().length > 1) {
+      askCtx = { text: ctxText.trim(), source: (new URLSearchParams(location.search).get('from') || 'another page').slice(0, 60) };
+      history.replaceState(null, '', '/brain/');
+      cur = null;
+      showCtx();
+      inp.value = window.FavorAskBrain ? window.FavorAskBrain.suggestion(askCtx.text) : '';
+      inp.placeholder = 'Ask about this';
+      grow();
+      setSend();
+      inp.focus({ preventScroll: true });
+      return;
+    }
     const asked = (new URLSearchParams(location.search).get('ask') || '').slice(0, 600);
     if (asked && !new URLSearchParams(location.search).get('c')) { history.replaceState(null, '', '/brain/'); ask(asked); return; }
     const c = new URLSearchParams(location.search).get('c') || new URLSearchParams(location.search).get('t'); // ?t= is the link a text message carries

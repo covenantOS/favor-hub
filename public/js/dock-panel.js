@@ -10,7 +10,7 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var S = D.state();
   var panel = null, body = null, msgs = {}, hasMore = {}, thread = null, box = null, threadsList = null, listQ = '';
-  var brain = { convs: null, cur: null, busy: null, view: 'chat', loading: null, ready: null };
+  var brain = { convs: null, cur: null, busy: null, view: 'chat', loading: null, ready: null, ctx: null }; // ctx: selected text Ask Favor Brain brought (ask-brain.js)
   var bodyHost = null;
   // Translation, voice transcripts and Catch me up (chat-smart.css styles them; every rule is in /api/chat).
   var TR = {}, trOrig = {}, trAsked = {}, trT = 0;
@@ -379,7 +379,12 @@
   }
   function onSubmit(e) {
     if (e.target.matches('[data-plain]')) { e.preventDefault(); var i = $('input', e.target); send(i.value.trim()); i.value = ''; }
-    else if (e.target.matches('[data-bask]')) { e.preventDefault(); var inp = $('textarea', e.target); var q = inp.value.trim(); if (q) { inp.value = ''; inp.style.height = ''; brainAsk(q); } }
+    else if (e.target.matches('[data-bask]')) {
+      e.preventDefault(); var inp = $('textarea', e.target); var q = inp.value.trim();
+      // A question typed about selected text carries the selection with it (ask-brain.js), once.
+      if (brain.ctx && window.FavorAskBrain && (q || brain.ctx.text)) { q = window.FavorAskBrain.compose(q, brain.ctx); brain.ctx = null; }
+      if (q) { inp.value = ''; inp.style.height = ''; brainAsk(q); }
+    }
   }
 
   /* ================================================================ Favor Brain */
@@ -428,8 +433,9 @@
     }
     body.innerHTML = '<div class="fp-conv" data-brain><header class="fp-head fp-head--brain"><button type="button" class="fp-all" data-blist aria-label="All chats" title="All chats">' + ic('list') + '<span>All chats</span></button><b class="fp-head__t">' + esc(cur ? cur.title : 'New chat') + '</b><button type="button" class="fp-back" data-bnew aria-label="New chat" title="New chat"' + (cur && cur.turns.length ? '' : ' disabled') + '>' + ic('newchat') + '</button></header>' +
       '<div class="fp-scroll fp-bthread" data-bthread></div>' +
-      '<form class="fp-comp" data-bask><div class="fp-comp__in"><textarea rows="1" maxlength="600" placeholder="Ask Favor Brain" aria-label="Ask Favor Brain"></textarea><button type="submit" class="fp-send" aria-label="Ask" disabled>' + ic('send') + '</button></div></form></div>';
+      '<form class="fp-comp" data-bask>' + (brain.ctx && window.FavorAskBrain ? window.FavorAskBrain.card(brain.ctx) : '') + '<div class="fp-comp__in"><textarea rows="1" maxlength="600" placeholder="' + (brain.ctx ? 'Ask about this' : 'Ask Favor Brain') + '" aria-label="Ask Favor Brain"></textarea><button type="submit" class="fp-send" aria-label="Ask" disabled>' + ic('send') + '</button></div></form></div>';
     var ta = $('textarea', body), sb = $('.fp-send', body);
+    if (brain.ctx && brain.ctx.fill) { ta.value = brain.ctx.fill; brain.ctx.fill = ''; sb.disabled = false; setTimeout(function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; }, 0); }
     ta.addEventListener('input', function () { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight, 120) + 'px'; sb.disabled = !ta.value.trim() || !!brain.busy; });
     ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); $('[data-bask]', body).requestSubmit(); } });
     brainThread();
@@ -446,6 +452,7 @@
     var cur = brain.cur;
     if (!cur || !cur.turns.length) {
       var n = (window.FAVOR_HUB && window.FAVOR_HUB.user && window.FAVOR_HUB.user.name || '').split(/\s+/)[0];
+      if (brain.ctx && !brain.busy) { host.innerHTML = '<div class="fp-bempty"><span class="fbr" data-state="idle" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span><h3>Ask about what you selected</h3><p class="fp-none">Your question goes to Favor Brain with the selected text.</p></div>'; return; }
       host.innerHTML = '<div class="fp-bempty"><span class="fbr" data-state="idle" aria-hidden="true"><i class="fbr__halo"></i><i class="fbr__in"><i class="fbr__lit"></i><i class="fbr__rg"></i><i class="fbr__cm"></i></i></span><h3>' + (n ? 'Hello, ' + esc(n) : 'Hello') + '</h3>' +
         STARTERS.map(function (s) { return '<button type="button" class="fp-start" data-bq="' + esc(s[0]) + '"><b>' + esc(s[0]) + '</b><span>' + esc(s[1]) + '</span></button>'; }).join('') + '</div>';
       if (brain.busy) host.innerHTML = thinking(brain.busy.status);
@@ -468,6 +475,8 @@
     (t.extras || []).forEach(function (x) { h += B.render(x, { ti: ti, bi: -1, canSheets: false }); });
     h += B.reading(t.reading, ti);
     if (last && t.follow && t.follow.length && !t.error) h += '<div class="blk-follow" aria-label="Follow-up questions">' + t.follow.map(function (q) { return '<button type="button" class="fu" data-act="ask" data-q="' + esc(q) + '">' + B.ic('arrow') + esc(q) + '</button>'; }).join('') + '</div>';
+    // Drag the answer into what you are writing, or send it to an email (ask-brain.js).
+    if (!t.error && !t.stopped && window.FavorAskBrain && ((t.blocks && t.blocks.length) || t.markdown)) h += window.FavorAskBrain.footer();
     return h;
   }
   var host = {
@@ -529,6 +538,7 @@
     var t2 = setTimeout(function () { mine.status = 'Putting the answer together'; var s = $('#fp-think-st'); if (s && brain.busy === mine) s.textContent = mine.status; }, 5000);
     var scroll = function () { var h = $('[data-bthread]', body); if (h) { var qs = h.querySelectorAll('.fp-q'), l = qs[qs.length - 1]; if (l) h.scrollTop += l.getBoundingClientRect().top - h.getBoundingClientRect().top - 8; } };
     scroll();
+    brain.ctx = null; // a starter or a follow-up leaves the selection behind
     var req = { question: q, v: 2, conv: conv.id };
     var prev = ''; for (var i = (replacing ? opt.at : conv.turns.length - 1) - 1; i >= 0; i--) { var x = conv.turns[i]; if (x.blocks && x.outcome === 'ok') { prev = x.asked_as || x.q; break; } }
     if (prev) req.previous = prev;
@@ -546,4 +556,13 @@
   }
 
   var P = window.FavorDockPanel = { show: show, wired: false, last: null };
+  // Ask Favor Brain from a selection: a new chat with the selection as its context and, for a short selection, its words in the box.
+  P.askWith = function (ctx) {
+    if (!ctx || !ctx.text) return;
+    D.save({ tab: 'brain', bc: null });
+    brain.cur = null; brain.view = 'chat';
+    brain.ctx = { text: String(ctx.text), source: ctx.source || 'this page', fill: window.FavorAskBrain ? window.FavorAskBrain.suggestion(ctx.text) : '' };
+    if (S.tab === 'brain') brainRender(); else { S.tab = 'brain'; show(); }
+  };
+  P.brainTurn = function (i) { return brain.cur ? brain.cur.turns[i] || null : null; };
 })();
