@@ -51,6 +51,9 @@ export const ICON: Record<string, string> = {
   globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  list: '<path d="M4 6h16M4 12h10M4 18h13"/>',
+  poll: '<path d="M5 20V10M12 20V4M19 20v-7"/>',
 };
 
 export function icHtml(n: string, cls?: string): string {

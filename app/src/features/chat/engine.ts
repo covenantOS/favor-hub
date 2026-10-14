@@ -296,6 +296,7 @@ export class ChatEngine {
         this.names.me = b.me.id;
         S.users = b.users || {};
         S.users[S.me.id] = Object.assign({}, S.users[S.me.id] || {}, S.me);
+        Object.entries((b.status || {}) as Record<string, J>).forEach(([id, st]) => S.users[id] && (S.users[id] = { ...S.users[id], status: st }));
         S.features = b.features || { pins: false };
         S.threadsUnread = b.threads_unread || 0;
         S.lang = b.lang || '';
@@ -788,13 +789,25 @@ export class ChatEngine {
     { cmd: 'request', args: 'summary', sub: 'Make a request board card', icon: 'task' },
     { cmd: 'huddle', args: '', sub: 'Start or join a huddle here', icon: 'headset' },
     { cmd: 'clip', args: '', sub: 'Record a clip and post it here', icon: 'rec' },
+    { cmd: 'remind', args: 'me tomorrow 9am to ...', sub: 'Remind me, #channel or @person later', icon: 'bell' },
+    { cmd: 'schedule', args: 'monday 8am message', sub: 'Post a message later', icon: 'clock' },
+    { cmd: 'todo', args: 'Title: item @person fri; item', sub: 'Checklist; each line is a task in Projects', icon: 'task' },
+    { cmd: 'task', args: 'what needs doing @person due fri', sub: 'Make a task in Projects', icon: 'task' },
+    { cmd: 'poll', args: 'Question? | choice | choice', sub: 'Ask everyone to pick', icon: 'list' },
+    { cmd: 'meet', args: 'tomorrow 10am title', sub: 'Book a meeting with everyone here', icon: 'video' },
+    { cmd: 'status', args: 'In Uganda until friday', sub: 'Set a status beside your name', icon: 'spark' },
+    { cmd: 'away', args: 'until monday', sub: 'Out of office; direct messages get a note', icon: 'spark' },
+    { cmd: 'back', args: '', sub: 'Clear your status', icon: 'spark' },
+    { cmd: 'scheduled', args: '', sub: 'What you have waiting to post', icon: 'clock' },
   ];
+  /** Commands the server runs (chat/plus.ts and /task): the text is sent as typed. */
+  static SERVER_SLASH = new Set(['remind', 'schedule', 'todo', 'checklist', 'task', 'poll', 'meet', 'status', 'away', 'back', 'scheduled']);
   runSlash(scope: Scope, raw: string): boolean {
     const m = String(raw || '').match(/^\/([a-z]+)(?:\s+([\s\S]*))?$/i);
     if (!m) return false;
     const cmd = m[1].toLowerCase();
     const rest = (m[2] || '').trim();
-    if (!ChatEngine.SLASH.some((c) => c.cmd === cmd)) return false;
+    if (!ChatEngine.SLASH.some((c) => c.cmd === cmd) || ChatEngine.SERVER_SLASH.has(cmd)) return false;
     const thread = scope === 'thread' ? this.S.threadRoot : null;
     this.clearDraft(scope);
     if (cmd === 'brain') {
@@ -1295,6 +1308,11 @@ export class ChatEngine {
       // Added back to a conversation (or removed from it) by someone else.
       if (mine) S.channels[ev.channel.id].joined = mine.indexOf(S.me.id) >= 0;
       this.notify();
+    } else if (ev.type === 'status') {
+      if (S.users[ev.user_id]) {
+        S.users[ev.user_id] = { ...S.users[ev.user_id], status: ev.status || null };
+        this.notify();
+      }
     } else if (ev.type === 'users') {
       Object.assign(S.users, ev.users);
       this.notify();

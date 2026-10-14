@@ -8,6 +8,7 @@ import { hubOv } from '@/lib/hubOv';
 import type { ChatEngine } from './engine';
 import { initValue, ago, COLORS, dayKey, dayLabel, driveId, esc, fileKind, fmtBody, hash, initials, LAB, mentionsMe, plural, sizeOf, threadIdOf, threadRef, timeOf, type J } from './fmt';
 import { Ic, icHtml, Ring } from './icons';
+import { chatApi } from './api';
 
 const W = window as any;
 const broken: Record<string, 1> = {};
@@ -121,12 +122,80 @@ export function cardHtml(e: ChatEngine, a: J, m: J | null, i: number): string {
   }
   if (a.type === 'task') return W.FavorTaskCard ? W.FavorTaskCard.html(a, { esc, ic: icHtml }) : '';
   if (a.type === 'entity') return W.FavorEntity && W.FavorEntity.cardHtml ? W.FavorEntity.cardHtml(a, { esc }) : '<a class="ch-card ch-link" href="' + esc(a.url || '#') + '"><span class="ch-link__t"><span class="ch-card__m">' + esc(a.kind || '') + '</span><span class="ch-card__t">' + esc(a.title || a.name || '') + '</span></span></a>';
+  if (a.type === 'checklist') return checklistHtml(a, m);
+  if (a.type === 'poll') return pollHtml(e, a, m);
+  if (a.type === 'note') return noteHtml(a);
   if (a.type === 'ptask') return W.FavorProjectCard ? W.FavorProjectCard.html(a, { esc, ic: icHtml }) : '';
   if (a.type === 'link') {
     const pic = a.image && !broken[a.image] ? '<span class="ch-link__pic"><img src="' + esc(a.image) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" /></span>' : '';
     return '<a class="ch-card ch-link' + (pic ? ' ch-link--pic' : '') + '" href="' + esc(a.url) + '" target="_blank" rel="noopener"><span class="ch-link__t"><span class="ch-card__m">' + esc(a.site || a.host || '') + '</span><span class="ch-card__t">' + esc(a.title || a.url) + '</span>' + (a.desc ? '<span class="ch-card__s">' + esc(a.desc) + '</span>' : '') + '</span>' + pic + '</a>';
   }
   return '';
+}
+
+/* ------------------------------------------------------------------ checklists, polls, private notes (chat/plus.ts) */
+function checklistHtml(a: J, m: J | null): string {
+  const mid = m ? m.id : 0;
+  const items: J[] = a.items || [];
+  const pct = a.total ? Math.round((100 * a.done) / a.total) : 0;
+  const rows = items
+    .map((it) => {
+      const meta = [it.owner, it.due].filter(Boolean).join(' · ');
+      return (
+        '<li class="ch-cl__i' + (it.done ? ' is-done' : '') + (it.late ? ' is-late' : '') + '">' +
+        '<button type="button" class="ch-cl__box" data-act="ck" data-mid="' + mid + '" data-tid="' + esc(it.id) + '" aria-pressed="' + (it.done ? 'true' : 'false') + '" aria-label="' + (it.done ? 'Mark not done: ' : 'Mark done: ') + esc(it.title) + '">' + icHtml('check') + '</button>' +
+        '<span class="ch-cl__txt"><a class="ch-cl__t" href="' + esc(it.url || '#') + '">' + esc(it.title) + '</a>' + (meta ? '<span class="ch-cl__m">' + esc(meta) + '</span>' : '') + '</span></li>'
+      );
+    })
+    .join('');
+  return (
+    '<div class="ch-card ch-cl"><div class="ch-cl__h"><span class="ch-kicker">' + icHtml('task') + 'Checklist</span><span class="ch-card__t">' + esc(a.title || 'Checklist') + '</span>' +
+    '<span class="ch-cl__n">' + esc(a.done + ' of ' + a.total + ' done') + '</span><span class="ch-cl__bar" aria-hidden="true"><i style="width:' + pct + '%"></i></span></div>' +
+    '<ul class="ch-cl__l">' + rows + '</ul>' +
+    (mid ? '<button type="button" class="ch-cl__add" data-act="ck-add" data-mid="' + mid + '">' + icHtml('plus') + 'Add a line</button>' : '') + '</div>'
+  );
+}
+function pollHtml(e: ChatEngine, a: J, m: J | null): string {
+  const mid = m ? m.id : a.mid;
+  const me = e.S.me ? e.S.me.id : '';
+  const total = (a.opts || []).reduce((s: number, o: J) => s + (o.n || 0), 0);
+  const opts = (a.opts || [])
+    .map((o: J, i: number) => {
+      const mine = (o.who || []).indexOf(me) >= 0;
+      const pct = total ? Math.round((100 * o.n) / total) : 0;
+      return (
+        '<button type="button" class="ch-poll__o' + (mine ? ' is-mine' : '') + '" data-act="vote" data-mid="' + mid + '" data-ch="' + i + '" aria-pressed="' + (mine ? 'true' : 'false') + '"' + (a.closed ? ' disabled' : '') + (o.names && o.names.length ? ' title="' + esc(o.names.join(', ')) + '"' : '') + '>' +
+        '<span class="ch-poll__bar" style="width:' + pct + '%"></span><span class="ch-poll__l">' + (mine ? icHtml('check') : '') + esc(o.label) + '</span><span class="ch-poll__n">' + (o.n || 0) + '</span></button>'
+      );
+    })
+    .join('');
+  const foot = plural(a.voters || 0, 'person', 'people') + ' voted' + (a.closed ? ' · Closed' : a.multi ? ' · Pick any' : ' · Pick one');
+  const close = !a.closed && m && m.user_id === me ? '<button type="button" class="ch-poll__close" data-act="poll-close" data-mid="' + mid + '">Close poll</button>' : '';
+  return '<div class="ch-card ch-poll"><span class="ch-kicker">' + icHtml('poll') + 'Poll</span><span class="ch-card__t">' + esc(a.q) + '</span><div class="ch-poll__os">' + opts + '</div><div class="ch-poll__f"><span>' + esc(foot) + '</span>' + close + '</div></div>';
+}
+function noteLine(a: J): string {
+  const st = a.status;
+  if (a.kind === 'reminder') return 'Reminder set for ' + a.at_label + ': ' + a.text + '. It shows in your bell then.';
+  if (a.kind === 'scheduled' || a.kind === 'remind') {
+    const what = a.kind === 'remind' ? 'Reminder for ' + a.where : 'Message for ' + a.where;
+    if (st === 'sent') return what + ' went out ' + a.at_label + ': ' + a.text;
+    if (st === 'canceled') return what + ' canceled: ' + a.text;
+    if (st === 'failed') return what + ' could not post: ' + a.text;
+    return what + ' posts ' + a.at_label + ': ' + a.text;
+  }
+  return a.text || '';
+}
+function noteHtml(a: J): string {
+  if (a.kind === 'list') {
+    const items: J[] = a.items || [];
+    const rows = items.length
+      ? items.map((x) => '<li class="ch-note__li"><span><b>' + esc(x.at_label) + '</b> · ' + esc(x.where) + '<br>' + esc(x.text) + '</span><button type="button" class="ch-btn ch-btn--sm" data-act="sch-cancel" data-sid="' + esc(x.sid) + '">Cancel</button></li>').join('')
+      : '<li class="ch-note__li">Nothing is waiting to post.</li>';
+    return '<div class="ch-card ch-note"><span class="ch-note__ic">' + icHtml('clock') + '</span><div class="ch-note__t"><span class="ch-card__m">Only you can see this</span><b>Scheduled messages</b><ul class="ch-note__l">' + rows + '</ul></div></div>';
+  }
+  const ic = a.kind === 'away' ? 'out' : a.kind === 'tip' ? 'info' : a.kind === 'reminder' ? 'bell' : 'clock';
+  const cancel = (a.kind === 'scheduled' || a.kind === 'remind') && a.status === 'waiting' && a.sid ? '<button type="button" class="ch-btn ch-btn--sm" data-act="sch-cancel" data-sid="' + esc(a.sid) + '">Cancel</button>' : '';
+  return '<div class="ch-card ch-note' + (a.status === 'canceled' ? ' is-off' : '') + '"><span class="ch-note__ic">' + icHtml(ic) + '</span><div class="ch-note__t"><span class="ch-card__m">Only you can see this</span><span>' + esc(noteLine(a)) + '</span></div>' + cancel + '</div>';
 }
 
 /* ------------------------------------------------------------------ playing and previewing in place */
@@ -249,6 +318,72 @@ export function listClick(e: ChatEngine, ev: React.MouseEvent<HTMLElement>, root
   }
   if (act === 'sm-orig') {
     e.toggleOrig(Number(el.dataset.id));
+    return true;
+  }
+  if (act === 'ck') {
+    const on = el.getAttribute('aria-pressed') !== 'true';
+    const row = el.closest('.ch-cl__i');
+    el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (row) row.classList.toggle('is-done', on);
+    chatApi.check(Number(el.dataset.mid), el.dataset.tid || '', on).then(
+      (m) => e.patchMessage(m),
+      (err) => {
+        e.toast(err.message);
+        el.setAttribute('aria-pressed', on ? 'false' : 'true');
+        if (row) row.classList.toggle('is-done', !on);
+      }
+    );
+    return true;
+  }
+  if (act === 'ck-add') {
+    const inp = document.createElement('input');
+    inp.className = 'ch-cl__in';
+    inp.placeholder = 'Add a line, then Enter';
+    inp.setAttribute('aria-label', 'Add a line to the checklist');
+    el.replaceWith(inp);
+    inp.focus();
+    inp.addEventListener('keydown', (k) => {
+      if (k.key === 'Escape') inp.replaceWith(el);
+      if (k.key !== 'Enter' || !inp.value.trim()) return;
+      k.preventDefault();
+      inp.disabled = true;
+      chatApi.checkAdd(Number(el.dataset.mid), inp.value.trim()).then(
+        (m) => e.patchMessage(m),
+        (err) => {
+          e.toast(err.message);
+          inp.disabled = false;
+        }
+      );
+    });
+    return true;
+  }
+  if (act === 'vote' || act === 'poll-close') {
+    const b = el as HTMLButtonElement;
+    b.disabled = true;
+    chatApi.vote(Number(el.dataset.mid), act === 'vote' ? { choice: Number(el.dataset.ch) } : { close: true }).then(
+      (m) => e.patchMessage(m),
+      (err) => {
+        e.toast(err.message);
+        b.disabled = false;
+      }
+    );
+    return true;
+  }
+  if (act === 'sch-cancel') {
+    const b = el as HTMLButtonElement;
+    b.disabled = true;
+    chatApi.cancelScheduled(el.dataset.sid || '').then(
+      () => {
+        const li = el.closest('.ch-note__li');
+        if (li) li.remove();
+        else el.remove();
+        e.toast('Canceled');
+      },
+      (err) => {
+        e.toast(err.message);
+        b.disabled = false;
+      }
+    );
     return true;
   }
   return false;

@@ -503,7 +503,7 @@ function Head({ e }: { e: ChatEngine }) {
           {c.kind === 'public' ? <span>#</span> : c.kind === 'private' ? <Ic n="lock" /> : null}
           <span style={{ color: 'var(--r-ink)', fontWeight: 700 }}>{e.chName(c)}</span>
         </div>
-        {c.topic && <div className="ch-head__topic">{c.topic}</div>}
+        {c.topic ? <div className="ch-head__topic">{c.topic}</div> : dmStatus(e, c)}
       </div>
       <div className="ch-head__acts">
         <button type="button" className="ch-members" data-act="details" aria-label="Members" onClick={() => e.openDetails('members')}>
@@ -1061,7 +1061,7 @@ function Details({ e, c, cname, back, close, root }: { e: ChatEngine; c: J; cnam
                 {u.name}
                 {u.id === S.me.id ? ' (you)' : ''}
               </b>
-              <small>{u.title || (u.presence === 'online' ? 'Active now' : u.presence === 'away' ? 'Away' : 'Offline')}</small>
+              <small>{u.status && u.status.text ? u.status.text : u.title || (u.presence === 'online' ? 'Active now' : u.presence === 'away' ? 'Away' : 'Offline')}</small>
             </span>
             {c.created_by === u.id && <span className="ch-person__r">Created it</span>}
           </div>
@@ -1208,3 +1208,13 @@ function ThreadPanel({ e, c, cname }: { e: ChatEngine; c: J; cname: string }) {
   );
 }
 
+/** A direct message's header line: the other person's status (Out of office until Monday, In Uganda). */
+function dmStatus(e: ChatEngine, c: J): React.ReactNode {
+  if (c.kind !== 'dm') return null;
+  const other = (c.members || []).find((m: string) => m !== e.S.me?.id);
+  const st = other ? e.user(other).status : null;
+  if (!st || (!st.text && !st.away)) return null;
+  const until = st.until ? ' until ' + new Date(st.until).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '';
+  const text = st.away ? 'Out of office' + until + (st.text && st.text !== 'Out of office' ? ' · ' + st.text : '') : st.text + until;
+  return <div className={'ch-head__topic' + (st.away ? ' ch-head__away' : '')}>{text}</div>;
+}

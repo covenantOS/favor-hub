@@ -264,7 +264,11 @@ export async function onEvent(env: ChatEnv, ev: { kind: string; actor: string; t
       for (const e of named) await postDirectCard(env, { taskId: t.id, from: actor, to: e, kind: 'mention', note: c.body }).catch((err) => console.error('[projects] card', err));
     }
   }
-  if (['task.updated', 'task.done', 'task.reopened', 'task.assigned', 'task.waiting', 'task.moved'].includes(ev.kind)) await refreshCards(env, t.id);
+  if (['task.updated', 'task.done', 'task.reopened', 'task.assigned', 'task.waiting', 'task.moved'].includes(ev.kind)) {
+    await refreshCards(env, t.id);
+    // A Chat checklist holding this task redraws too (chat/plus.ts), so done in Projects reads done in Chat.
+    await (await import('../../chat/plus')).refreshChecklists(env, t.id).catch(() => undefined);
+  }
 }
 
 /* ------------------------------------------------------------------------------------------------ making tasks from Chat */

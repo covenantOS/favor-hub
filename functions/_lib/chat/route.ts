@@ -53,6 +53,7 @@ import { asSurface } from '../http';
 import { resolveEntity, type EntityOut } from '../hub/entity';
 import { accessOf, type Access } from '../hub/today';
 import { slashTask, taskDeleted as ptaskDeleted, taskReply as ptaskReply } from '../projects/links/chat'; // projects hook
+import * as plus from './plus'; // 2026-10-14: reminders, scheduled sends, checklists, polls, /meet, status
 import { BRAIN_ID, EMOJI_OK, SYSTEM_VOICES, classifyUrl, cleanBody, channelSlug, parseMentions, plainLine, urlsIn } from './text';
 
 export type ChatRouteEnv = LiveEnv & PushEnv & { UPLOADS: R2Bucket; BRAIN_HUB_KEY?: string; BRAIN_URL?: string; GOOGLE_SA_JSON?: string };
@@ -98,9 +99,19 @@ async function route(ctx: Ctx): Promise<Response> {
   const [a, b, c] = path;
   await fieldChatGuard(env, user, method, path);
 
+  // Any Chat or dock load posts scheduled messages that are due, so they land on time between the drain Worker's 5 minute passes.
+  if ((a === 'boot' || a === 'dock') && method === 'GET') ctx.waitUntil(plus.anyDue(env).then((d) => (d ? plus.runScheduled(env, new Date(), ctx.fetcher || fetch) : null)).catch(() => undefined));
   if (a === 'boot' && method === 'GET') return json(await boot(env, user));
   // The floating dock on every other page: the conversations with their unread numbers and the names, no joining and no presence.
   if (a === 'dock' && method === 'GET') return json(await dockState(env, user));
+  // 2026-10-14 additions (chat/plus.ts).
+  if (a === 'scheduled' && !b && method === 'GET') return json({ ok: true, items: await plus.listScheduled(env, user) });
+  if (a === 'scheduled' && b && c === 'cancel' && method === 'POST') return json(await plus.cancelScheduled(env, user, b));
+  if (a === 'channels' && b && c === 'schedule' && method === 'POST') return json({ ok: true, message: await plus.scheduleFromBox(env, user, b, await body(request), url.origin) });
+  if (a === 'messages' && b && c === 'vote' && method === 'POST') return json({ ok: true, message: await plus.vote(env, user, num(b), await body(request)) });
+  if (a === 'messages' && b && c === 'check' && method === 'POST') return json({ ok: true, message: await plus.checkItem(env, user, num(b), await body(request)) });
+  if (a === 'messages' && b && c === 'check-add' && method === 'POST') return json({ ok: true, message: await plus.addItem(env, user, num(b), await body(request)) });
+  if (a === 'status' && method === 'GET') return json({ ok: true, status: await plus.statusMap(env) });
   // Translation, Catch me up, reminders, partner and fund chips: chat/smart-route.ts.
   const smart = await smartRoute(ctx, user, method, url);
   if (smart) return smart;
@@ -320,7 +331,7 @@ async function boot(env: ChatRouteEnv, user: HubUser) {
   const withBars = channels.map((c) => ({ ...c, pins: bars.pins.get(c.id) || 0, bookmarks: bars.bookmarks.get(c.id) || [] }));
   return {
     ok: true, me: people[me] || { id: me, name: user.name, picture: user.picture, title: '', presence: 'online' }, users: people, channels: withBars, mode, live: !!env.CHAT_ROOM,
-    threads_unread: threads, features: { pins: bars.ready }, lang: await getLang(env, me), langs: LANGS,
+    threads_unread: threads, features: { pins: bars.ready, plus: await plus.plusReady(env) }, lang: await getLang(env, me), langs: LANGS, status: await plus.statusMap(env),
   };
 }
 
@@ -436,6 +447,9 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
     const under = await store.getMessage(env, threadId);
     if (under && under.channel_id === channelId) threadId = more.threadRootOf(under);
   }
+  // /remind, /schedule, /todo, /poll, /meet, /status, /away, /back, /scheduled (chat/plus.ts).
+  const plused = user.role === 'field' ? null : await plus.plusSlash({ env, user, channelId, text, threadId, origin: new URL(request.url).origin });
+  if (plused) return plused;
   // projects hook: /task makes a task and posts its card instead of the typed text.
   const slashed = user.role === 'field' ? null : await slashTask(env, user, channelId, text, threadId);
   if (slashed) return slashed;
@@ -444,6 +458,8 @@ async function send(ctx: Ctx, user: HubUser, channelId: string): Promise<store.M
   const hidden = input.private === true && asksBrain && (await store.brainIsPrivate(env, channelId, me));
   const posted = await store.post(env, { channel_id: channelId, email: me, body: text, thread_id: threadId, attachments, visible_to: hidden ? me : null });
   let msg = await broadcast(ctx, posted.message, 'message');
+  // A direct message to someone out of office: the writer sees a private note saying so.
+  if (!hidden) ctx.waitUntil(plus.awayNote(env, posted.message, posted.channel, posted.members).then((n) => (n ? publish(env, [me], { type: 'message', message: n }) : undefined)));
   // A direct message or a mention reaches a locked phone (web push). Muted conversations were left out of notify already.
   ctx.waitUntil(pushForPost(env, { notify: posted.notify, channel: posted.channel, senderName: user.name || me, text: text, messageId: posted.message.id, threadId }, ctx.fetcher || fetch).catch((err) => console.warn('[chat] push', err)));
   // "Also send to the channel": the reply shows in the channel too, with a line naming the thread it answers.

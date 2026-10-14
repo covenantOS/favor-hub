@@ -67,5 +67,9 @@ export const chatApi = {
   remind: (id: number, when: J) => req('POST', 'messages/' + id + '/remind', { when }),
   entities: (q: string) => req('GET', 'entities?q=' + e(q)),
   owners: () => req('GET', 'owners'),
+  vote: (id: number, p: J) => req('POST', 'messages/' + id + '/vote', p).then((d) => d.message as J),
+  check: (id: number, taskId: string, done: boolean) => req('POST', 'messages/' + id + '/check', { task_id: taskId, done }).then((d) => d.message as J),
+  checkAdd: (id: number, text: string) => req('POST', 'messages/' + id + '/check-add', { text }).then((d) => d.message as J),
+  cancelScheduled: (id: string) => req('POST', 'scheduled/' + e(id) + '/cancel', {}),
 };
 export type ChatApi = typeof chatApi;

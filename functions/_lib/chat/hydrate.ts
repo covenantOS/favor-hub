@@ -6,6 +6,7 @@ import { GONE_MS } from '../meet';
 import { isLive } from './huddle';
 import { hydrateTaskCards } from './tasks';
 import { hydratePTaskCards } from '../projects/links/chat'; // projects hook
+import { hydratePlusCards } from './plus-cards';
 
 const mins = (ms: number) => {
   const s = Math.round((ms || 0) / 1000);
@@ -30,6 +31,8 @@ export async function hydrateAttachments(env: Env, list: Attachment[]): Promise<
   if (list.some((a) => a.type === 'task')) list = await hydrateTaskCards(env, list);
   // projects hook: project task cards ({type: 'ptask'}) are filled in by projects/links/chat.ts.
   if (list.some((a) => a.type === 'ptask')) list = await hydratePTaskCards(env, list);
+  // Checklists, polls and the private scheduled and reminder notes (chat/plus-cards.ts).
+  if (list.some((a) => a.type === 'checklist' || a.type === 'poll' || a.type === 'note')) list = await hydratePlusCards(env, list);
   // Voice notes carry their transcript: working while Whisper reads it, then the words (or none heard).
   const voiceIds = list.filter((a) => a.type === 'file' && a.voice === true && typeof a.id === 'string').map((a) => String(a.id));
   if (voiceIds.length) {

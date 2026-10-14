@@ -12,3 +12,51 @@
 .ch--dock .ch-latest { right: 16px; }
 .ch--dock .ch-sec__t { cursor: default; }
 .ch--dock .ch-pop--emo { width: min(352px, calc(100% - 16px)); }
+
+/* Checklists, polls and private notes (chat/plus.ts, 2026-10-14). */
+.ch-cl, .ch-poll, .ch-note { flex-direction: column; padding: 12px 14px; gap: 8px; max-width: 520px; }
+.ch-cl__h { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; align-items: baseline; }
+.ch-cl__h .ch-kicker, .ch-cl__h .ch-card__t { grid-column: 1; }
+.ch-cl__n { grid-column: 2; grid-row: 2; font-size: 13px; color: var(--r-ink-3); white-space: nowrap; }
+.ch-cl__bar { grid-column: 1 / -1; height: 4px; border-radius: 4px; background: var(--r-line); overflow: hidden; margin-top: 6px; }
+.ch-cl__bar i { display: block; height: 100%; background: var(--tc-teal, #0f766e); transition: width .25s ease; }
+.ch-cl__l { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.ch-cl__i { display: flex; align-items: flex-start; gap: 10px; padding: 6px 0; border-top: 1px solid var(--r-line); }
+.ch-cl__i:first-child { border-top: 0; }
+.ch-cl__box { flex: none; width: 24px; height: 24px; border-radius: 7px; border: 1.5px solid var(--r-line-2); background: #fff; display: inline-grid; place-items: center; color: transparent; cursor: pointer; margin-top: 1px; }
+.ch-cl__box svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.4; }
+.ch-cl__i.is-done .ch-cl__box { background: var(--tc-teal, #0f766e); border-color: var(--tc-teal, #0f766e); color: #fff; }
+.ch-cl__txt { display: flex; flex-direction: column; min-width: 0; }
+.ch-cl__t { font-size: 15px; color: var(--r-ink); text-decoration: none; overflow-wrap: anywhere; }
+.ch-cl__t:hover { text-decoration: underline; }
+.ch-cl__i.is-done .ch-cl__t { color: var(--r-ink-3); text-decoration: line-through; }
+.ch-cl__m { font-size: 13px; color: var(--r-ink-3); }
+.ch-cl__i.is-late .ch-cl__m { color: #b42318; }
+.ch-cl__add { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; color: var(--r-ink-2); font-size: 13px; font-weight: 600; padding: 4px 0; cursor: pointer; }
+.ch-cl__add svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+.ch-cl__in { width: 100%; height: 36px; border: 1px solid var(--r-line-2); border-radius: 8px; padding: 0 10px; font-size: 15px; }
+.ch-poll__os { display: flex; flex-direction: column; gap: 6px; }
+.ch-poll__o { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--r-line-2); border-radius: 10px; background: #fff; overflow: hidden; cursor: pointer; text-align: left; font-size: 15px; color: var(--r-ink); }
+.ch-poll__o:disabled { cursor: default; }
+.ch-poll__o.is-mine { border-color: var(--tc-teal, #0f766e); }
+.ch-poll__bar { position: absolute; inset: 0 auto 0 0; background: rgba(15, 118, 110, .10); transition: width .25s ease; }
+.ch-poll__l, .ch-poll__n { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.ch-poll__l svg { width: 16px; height: 16px; fill: none; stroke: var(--tc-teal, #0f766e); stroke-width: 2.4; }
+.ch-poll__n { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ch-poll__f { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: var(--r-ink-3); }
+.ch-poll__close { border: 0; background: none; font-size: 13px; font-weight: 600; color: var(--r-ink-2); cursor: pointer; padding: 4px 0; }
+.ch-note { flex-direction: row; align-items: flex-start; background: var(--r-bg-2, #f7f7f5); border-style: dashed; }
+.ch-note.is-off { opacity: .7; }
+.ch-note__ic { flex: none; width: 28px; height: 28px; border-radius: 8px; display: inline-grid; place-items: center; background: #fff; color: var(--r-ink-2); }
+.ch-note__ic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+.ch-note__t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 15px; overflow-wrap: anywhere; }
+.ch-note__l { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.ch-note__li { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 14px; }
+.ch-head__away { color: #b54708; }
+@media (max-width: 1023px) {
+  .ch-cl__box { width: 32px; height: 32px; }
+  .ch-cl__i { padding: 8px 0; align-items: center; }
+  .ch-poll__o { min-height: 44px; }
+  .ch-cl__add, .ch-poll__close { min-height: 44px; }
+  .ch-note .ch-btn--sm { min-height: 44px; }
+}
