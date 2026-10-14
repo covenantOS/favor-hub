@@ -219,6 +219,9 @@
     owners: function () { return req('GET', 'log-owners'); },
     task: function (b) { return req('POST', '/api/tasks', b); },
     chatBoot: function () { return req('GET', '/api/chat/boot'); },
+    moveToChat: function (id, note) { delete PRE[id]; DEV.drop(id); return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat', boxOf(id)), { note: !!note }); },
+    chatNote: function (id) { return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat/note', boxOf(id)), {}); },
+    chatDismiss: function (id) { delete PRE[id]; DEV.drop(id); return req('POST', pathMb('threads/' + encodeURIComponent(id) + '/to-chat/dismiss', boxOf(id)), {}); },
     chatSend: function (ch, body) { return req('POST', '/api/chat/channels/' + encodeURIComponent(ch) + '/messages', { body: body }); },
     logAction: function (b) { return req('POST', '/api/work/entry/many', b); },
     fileUrl: function (mid, f, dl) { return '/api/mail/messages/' + encodeURIComponent(mid) + '/attachments/' + encodeURIComponent(f.id) + '?name=' + encodeURIComponent(f.name) + '&mime=' + encodeURIComponent(f.mime) + (dl ? '&dl=1' : '') + (S.threadBox ? '&mb=' + encodeURIComponent(S.threadBox) : ''); }
@@ -239,7 +242,7 @@
     open: '', thread: null, partners: {}, drafts: {}, view: 'list', ro: false, nav: {}, exp: {},
     v: '', flags: {}, sort: '', picked: {}, anchor: '', ov: null, ovTry: 0,
     boxes: [], box: '', counts: {}, mbOf: {}, nexts: {}, threadBox: '', fromOpts: null,
-    brief: null, customs: [], names: null, assist: null, profile: null, later: []
+    brief: null, customs: [], names: null, assist: null, profile: null, later: [], team: null
   };
   try { S.ro = localStorage.getItem('favor.mail.ro') === '1'; } catch (e) { /* private mode */ }
   try { var nv = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'); S.nav = (nv && nv.access) || {}; } catch (e) { /* none */ }
@@ -905,7 +908,7 @@
     var groups = {}; want.forEach(function (id) { var a = boxOf(id); (groups[a] = groups[a] || []).push(id); });
     var jobs = Object.keys(groups).map(function (a) {
       return api.batch(groups[a].slice(0, 5), a).then(function (d) {
-        (d.threads || []).forEach(function (t) { var data = { thread: t.thread, partners: t.partners, drafts: t.drafts }; PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) }; DEV.put(t.id, data); });
+        (d.threads || []).forEach(function (t) { var data = { thread: t.thread, partners: t.partners, drafts: t.drafts, teamChat: t.teamChat }; PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) }; DEV.put(t.id, data); });
       }).catch(function () { /* opened the ordinary way */ });
     });
     Promise.all(jobs).then(function () { batching = false; });
@@ -1019,14 +1022,14 @@
     if (!(PRE[id] && Date.now() - PRE[id].at < 90000)) DEV.get(id).then(function (c) {
       if (!c || seq !== threadSeq || shown) return;
       var d0 = c.data; shown = sigOf(d0);
-      S.thread = d0.thread; S.partners = d0.partners || {}; S.drafts = d0.drafts || {}; S.headersOnly = false;
+      S.thread = d0.thread; S.partners = d0.partners || {}; S.drafts = d0.drafts || {}; S.headersOnly = false; S.team = null;
       read.innerHTML = threadFrame(d0.thread, false);
       drawBodies();
     });
     neighbors(id);
     return api.thread(id).then(function (d) {
       if (seq !== threadSeq) return;
-      S.thread = d.thread; S.partners = d.partners || {}; S.drafts = d.drafts || {}; S.headersOnly = !!d.headersOnly;
+      S.thread = d.thread; S.partners = d.partners || {}; S.drafts = d.drafts || {}; S.headersOnly = !!d.headersOnly; S.team = d.teamChat && d.teamChat.ok ? d.teamChat : null;
       // Nothing changed since the device copy: leave what is on screen alone.
       if (!shown || shown !== sigOf(d) || S.headersOnly) { read.innerHTML = threadFrame(d.thread, false); drawBodies(); }
       if (S.headersOnly) renderConnect('read');
@@ -1160,11 +1163,47 @@
       cell('Open actions', c.openActions ? String(c.openActions) : '') + '</dl>' +
       '<div class="ml-pcard__acts"><a class="ml-btn" href="/work/partner/' + encodeURIComponent(c.id) + '">Open partner</a><button type="button" class="ml-btn" data-act="log-one">' + ic('log') + (S.assist && S.assist.logged ? 'Logged' : 'Log as an action') + '</button><button type="button" class="ml-btn" data-act="timeline">Timeline</button></div><div class="ml-tl" data-tl hidden></div></div>';
   }
+  // Move to Chat: a quiet line when every person on the conversation is FavorOS staff with Chat (the server decides, GET threads/:id teamChat).
+  function teamHtml() {
+    var t = S.team; if (!t || !t.ok || t.state === 'dismissed') return '';
+    if (t.state === 'moved') return '<div class="ml-team"><span class="ml-team__t">' + ic('chat') + '<span>This conversation moved to Chat.</span></span><a class="ml-btn" href="' + esc(t.link) + '">Open in Chat</a></div>';
+    return '<div class="ml-team"><span class="ml-team__t">' + ic('chat') + '<span>This is a team conversation. Continue in Chat?</span></span><button type="button" class="ml-btn" data-act="team-move">Move to Chat</button><button type="button" class="ml-iconbtn" data-act="team-dismiss" aria-label="Hide this suggestion" title="Hide this suggestion">' + ic('x') + '</button></div>';
+  }
+  function teamMove(btn) {
+    var t = S.thread, tm = S.team; if (!t || !tm || btn.disabled) return;
+    var id = t.id; btn.disabled = true; btn.textContent = 'Moving';
+    api.moveToChat(id, false).then(function (d) {
+      if (S.team) { S.team.state = 'moved'; S.team.link = d.link; S.team.channel = d.channel; }
+      if (S.thread && S.thread.id === id) drawAssist();
+      var others = (tm.people || []).filter(function (x) { return x.email !== S.me; }).map(function (x) { return x.name || x.email; });
+      var el = openSheet('Moved to Chat', '<p class="ml-p">The email history is posted and pinned in Chat with ' + esc(others.join(', ')) + '.</p>' +
+        '<label class="ml-menu__i ml-check ml-check--wrap"><input type="checkbox" data-team-note /><span>Post a note in the email thread that this moved to Chat</span></label>' +
+        '<div class="ml-sheet__acts"><button type="button" class="ml-btn" data-team-done>Done</button><a class="ml-btn ml-btn--primary" data-team-open href="' + esc(d.link) + '">Open in Chat</a></div>');
+      var sent = false;
+      var finish = function (then) {
+        var want = el.querySelector('[data-team-note]').checked;
+        if (!want || sent) return then();
+        sent = true;
+        api.chatNote(id).then(function () { toast('Note posted in the email thread'); then(); }).catch(function (er) { sent = false; failed(er, 'send'); then(); });
+      };
+      el.querySelector('[data-team-done]').addEventListener('click', function () { finish(function () { closeSheet(); }); });
+      el.querySelector('[data-team-open]').addEventListener('click', function (e) { e.preventDefault(); var href = this.getAttribute('href'); finish(function () { location.href = href; }); });
+    }).catch(function (e) {
+      btn.disabled = false; btn.textContent = 'Move to Chat';
+      if (e && e.code === 'not_team') { S.team = null; drawAssist(); }
+      toast(e && e.message ? e.message : 'That did not work. Try again.');
+    });
+  }
+  function teamDismiss() {
+    var t = S.thread; if (!t || !S.team) return;
+    S.team.state = 'dismissed'; drawAssist();
+    api.chatDismiss(t.id).catch(function () { /* hidden for now */ });
+  }
   function drawAssist() {
     var a = S.assist, box = $('[data-assist]'), sg = $('[data-sugg]');
     if (!a || !box) return;
     var p = partnerOf(S.thread);
-    var html = '';
+    var html = teamHtml();
     if (a.ask || a.summary) html += '<div class="ml-sum">' + (a.ask ? '<em class="ml-chip ml-chip--sun">' + ic('bolt') + 'Waiting on you</em>' : '') + (a.summary ? '<p><b>In short</b> ' + esc(a.summary) + '</p>' : '') + '</div>';
     if (a.card && p) html += partnerCardHtml(a.card, p);
     html += profileHtml(a.profile, !!(a.card && p)) + giftHtml(a, p) + commitHtml(a);
@@ -2370,6 +2409,8 @@
     else if (k === 'gift-note') giftNote();
     else if (k === 'gift-chat') giftChat();
     else if (k === 'ask-go') askAbout();
+    else if (k === 'team-move') teamMove(a);
+    else if (k === 'team-dismiss') teamDismiss();
     else if (k === 'commit-task') commitTask(+a.dataset.i);
     else if (k === 'read-file') readFileKind(a);
     else if (k === 'later-list') laterList();

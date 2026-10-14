@@ -89,6 +89,7 @@ const LONG_REPORT = [
   'Thanks for checking these before it goes out.',
 ].map((p) => `<p>${p}</p>`).join('');
 
+const TWO: P = { name: 'FavorOS Tester Two', email: 'tester2@favorintl.org' };
 const q = (who: string, text: string) => `<div class="gmail_quote"><div>On Thu, ${who} wrote:</div><blockquote class="gmail_quote">${text}</blockquote></div>`;
 
 function base(): ThreadDef[] {
@@ -133,6 +134,15 @@ function base(): ThreadDef[] {
     { id: 'smpA03', subject: 'Your receipt from Suno #4471', msgs: [{ from: automatic[2], to: [ME], hours: 0.4, html: '<p>Payment received. Amount: $10.00. Thank you for your subscription.</p>', unread: true }] },
     { id: 'smpA04', subject: 'Invoice 8820 for Hume AI', msgs: [{ from: automatic[3], to: [ME], hours: 0.5, html: '<p>Your invoice for October is attached. Amount due: $20.00.</p>', unread: true }] },
     { id: 'smpA05', subject: 'Project plan: spring trip', msgs: [{ from: people[6], to: [ME], hours: 2.5, html: '<p>Can you look over the spring trip plan and tell me which dates you can cover?</p><p>Priya</p>', unread: true }] },
+    // A conversation between the two test users only: Mail offers to move it to Chat (functions/_lib/mail/tochat.ts).
+    {
+      id: 'smp013', subject: 'October newsletter story order',
+      msgs: [
+        { from: TWO, to: [ME], hours: 5, html: '<p>Tester, I put the story order for the October newsletter in the planning folder. The well update leads, then the trip recap.</p><p>Can you check the headline for the lead story?</p><div>-- <br>FavorOS Tester Two<br>Favor International</div>', unread: true },
+        { from: ME, to: [TWO], hours: 4, html: '<p>The order works. I would shorten the headline to "Clean water in Larkspur".</p><p>I will send the trip photos tomorrow.</p><div>-- <br>FavorOS Tester<br>Favor International</div>' + q('FavorOS Tester Two', 'Can you check the headline for the lead story?') },
+        { from: TWO, to: [ME], hours: 2, html: '<p>Good, I changed it. Photos tomorrow is fine.</p>' + q('FavorOS Tester', 'I would shorten the headline.'), unread: true },
+      ],
+    },
     { id: 'smp090', subject: 'Itinerary sent', labels: ['SENT'], msgs: [{ from: ME, to: [people[1]], hours: 40, html: '<p>The itinerary is attached.</p>', labels: ['SENT'], files: ['pdf'] }] },
   ];
   const subjects = ['Volunteer schedule', 'Prayer request', 'Board packet', 'Trip deposit', 'Sponsor a student', 'Chapel visit', 'Year-end letter'];
@@ -171,7 +181,8 @@ const addr = (p: P) => `${p.name} <${p.email}>`;
 
 function build(owner: string, s: SampleState): any[] {
   const now = Date.now();
-  const defs = [...base(), ...s.extra];
+  const baseDefs = base();
+  const defs = [...baseDefs.map((d) => ({ ...d, msgs: [...d.msgs, ...s.extra.filter((x) => x.id === d.id).flatMap((x) => x.msgs)] })), ...s.extra.filter((x) => !baseDefs.some((d) => d.id === x.id))];
   return defs.map((d) => {
     const mod = s.mods[d.id] || { add: [], remove: [] };
     const messages = d.msgs.map((m, i) => {
@@ -302,10 +313,13 @@ export function sampleFetcher(env: Pick<Env, 'DB'>, owner: string): Fetcher {
     if (p === '/messages/send' && method === 'POST') {
       const raw = fromB64u(String(body?.raw || ''));
       const head = (n: string) => new RegExp('^' + n + ':\\s*(.*)$', 'im').exec(raw)?.[1]?.trim() || '';
-      const text = raw.split(/\r?\n\r?\n/).slice(1).join('\n\n');
+      const parts = raw.split(/\r?\n--[^\r\n]+/).map((x) => x.split(/\r?\n\r?\n/).slice(1).join('\n\n'));
+      const enc = /Content-Transfer-Encoding:\s*base64/i.test(raw);
+      const text = enc ? fromB64u((parts.find((x) => /^[A-Za-z0-9+/=\s]+$/.test(x.trim()) && x.trim()) || '').replace(/\s+/g, '').replace(/\+/g, '-').replace(/\//g, '_')) : raw.split(/\r?\n\r?\n/).slice(1).join('\n\n');
+      const toList = head('To').split(',').map((x) => x.trim()).filter(Boolean).map((x) => ({ name: x.replace(/<.*$/, '').replace(/"/g, '').trim(), email: (x.match(/<([^>]+)>/)?.[1] || x).trim().toLowerCase() }));
       s.seq++;
       const tid = body?.threadId && by.has(body.threadId) ? String(body.threadId) : 'smpS' + String(s.seq).padStart(3, '0');
-      const msg: MsgDef = { from: { name: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', email: owner }, to: [{ name: head('To'), email: head('To') }], hours: 0, html: '<p>' + text.replace(/<[^>]+>/g, '').slice(0, 2000).replace(/\n/g, '<br>') + '</p>', labels: ['SENT'] };
+      const msg: MsgDef = { from: { name: owner === 'tester2@favorintl.org' ? 'FavorOS Tester Two' : 'FavorOS Tester', email: owner }, to: toList, hours: 0, html: '<p>' + text.replace(/<[^>]+>/g, '').slice(0, 2000).replace(/\n/g, '<br>') + '</p>', labels: ['SENT'] };
       const existing = s.extra.find((x) => x.id === tid);
       if (existing) existing.msgs.push(msg);
       else if (by.has(tid)) s.extra.push({ id: tid, subject: head('Subject'), msgs: [msg] });

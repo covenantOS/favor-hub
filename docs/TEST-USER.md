@@ -9,7 +9,7 @@ Two hub accounts for agents and scripts: tester@favorintl.org ("FavorOS Tester")
 ## What it can do
 
 - Admin and HR. Work Center scope is every fundraiser (admins see all). Chat, Projects, Learn, Meetings, Clips, Reporting and Brain open as for any admin.
-- Mail runs for real against a stored sample mailbox on the server (`functions/_lib/mail/sample.ts`, table `hub_sample_mail`, one mailbox per tester). Every Mail route works: list, search, open, labels, archive, trash, snooze, drafts, send (into the sample Sent folder), partner cards, Ask, Find a time. A change survives the next request. Gmail is never called. Seeding resets the mailbox.
+- Mail runs for real against a stored sample mailbox on the server (`functions/_lib/mail/sample.ts`, table `hub_sample_mail`, one mailbox per tester). Every Mail route works: list, search, open, labels, archive, trash, snooze, drafts, send (into the sample Sent folder), partner cards, Ask, Find a time. A change survives the next request. Thread smp013 ("October newsletter story order") is between the two testers, so Move to Chat shows on it; testers qualify only with each other. Gmail is never called. Seeding resets the mailbox.
 - Chat: both join a private `qa-scratch-tester` channel (Will's own qa-scratch is his alone). They see only each other in the directory, can DM each other, and can post only where no real person is a member.
 
 ## Sample data

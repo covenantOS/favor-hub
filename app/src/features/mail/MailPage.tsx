@@ -6,6 +6,7 @@ import { Compose, type ComposeInit, type Outgoing } from './Compose';
 import { Reader, replyAllList, toolsOf } from './Reader';
 import { Sheet, Toast, type ToastState } from './Sheet';
 import { AssistPanel, BriefCards, SuggestedReplies, shortDay, type AssistState } from './Assist';
+import { TeamChatLine, teamOf, type TeamState } from './TeamChat';
 import { SmartSheets, type SmartCtx } from './SmartSheets';
 import { BASE_VIEWS, CAT_NAMES, FLAG_NAMES, MI, SYS_ICON, hue, initials, isPhone, isPrimary, when, who } from './util';
 import { installTips } from './tips';
@@ -53,6 +54,7 @@ interface State {
   scanned: number;
   loadError: string;
   assist: AssistState | null;
+  team: TeamState | null;
   tl: null | { open: boolean; items?: any[]; error?: string };
   brief: any;
   briefFailed: boolean;
@@ -64,7 +66,7 @@ interface State {
 const initial = (): State => ({
   me: '', name: '', level: { read: false, write: false, headers: false, contacts: false }, write: true, connected: false, signature: '', ready: false, error: '',
   label: 'INBOX', q: '', v: '', threads: [], nexts: {}, loading: false, labels: [], sel: -1, open: '', thread: null, threadLoading: false, partners: {}, drafts: {}, headersOnly: false,
-  exp: {}, flags: {}, sort: '', picked: {}, anchor: '', boxes: [], box: '', counts: {}, customs: [], ov: null, fromOpts: null, view: 'list', scanned: 0, loadError: '', assist: null, tl: null, brief: null, briefFailed: false, briefGone: 0, names: null, sheet: null,
+  exp: {}, flags: {}, sort: '', picked: {}, anchor: '', boxes: [], box: '', counts: {}, customs: [], ov: null, fromOpts: null, view: 'list', scanned: 0, loadError: '', assist: null, team: null, tl: null, brief: null, briefFailed: false, briefGone: 0, names: null, sheet: null,
 });
 
 /* ------------------------------------------------------------------ routing (#/LABEL[/thread], #/search/words[/thread]) */
@@ -302,7 +304,7 @@ export function MailPage() {
           .batch(groups[a].slice(0, 5), a)
           .then((d: any) =>
             (d.threads || []).forEach((t: any) => {
-              const data = { thread: t.thread, partners: t.partners, drafts: t.drafts };
+              const data = { thread: t.thread, partners: t.partners, drafts: t.drafts, teamChat: t.teamChat };
               PRE[t.id] = { at: Date.now(), p: Promise.resolve(data) };
               void device.put(t.id, data);
             })
@@ -428,13 +430,13 @@ export function MailPage() {
     x.open = id;
     const t = findThread(id);
     const sel = t ? x.threads.indexOf(t) : x.sel;
-    set({ open: id, sel, view: 'thread', thread: { id, subject: t ? t.subject : '', messages: [] }, threadLoading: true, partners: {}, drafts: {}, headersOnly: false });
+    set({ open: id, sel, view: 'thread', thread: { id, subject: t ? t.subject : '', messages: [] }, threadLoading: true, partners: {}, drafts: {}, headersOnly: false, team: null });
     let shown = '';
     if (!(PRE[id] && Date.now() - PRE[id].at < 90000))
       void device.get(id).then((c) => {
         if (!c || seq !== threadSeq.current || shown) return;
         shown = sigOf(c.data);
-        set({ thread: c.data.thread, partners: c.data.partners || {}, drafts: c.data.drafts || {}, headersOnly: false, threadLoading: false });
+        set({ thread: c.data.thread, partners: c.data.partners || {}, drafts: c.data.drafts || {}, headersOnly: false, threadLoading: false, team: null });
       });
     setTimeout(() => {
       const i = S.current.threads.findIndex((r) => r.id === id);
@@ -444,8 +446,8 @@ export function MailPage() {
       .thread(id)
       .then((d: any) => {
         if (seq !== threadSeq.current) return;
-        if (!shown || shown !== sigOf(d) || d.headersOnly) set({ thread: d.thread, partners: d.partners || {}, drafts: d.drafts || {}, headersOnly: !!d.headersOnly, threadLoading: false });
-        else set({ threadLoading: false, headersOnly: !!d.headersOnly });
+        if (!shown || shown !== sigOf(d) || d.headersOnly) set({ thread: d.thread, partners: d.partners || {}, drafts: d.drafts || {}, headersOnly: !!d.headersOnly, threadLoading: false, team: teamOf(d) });
+        else set({ threadLoading: false, headersOnly: !!d.headersOnly, team: teamOf(d) });
         if (focus) document.querySelector<HTMLElement>('.ml-thread__h')?.focus({ preventScroll: true });
         const lt = findThread(id);
         const msgs: any[] = d.thread.messages || [];
@@ -1450,6 +1452,7 @@ export function MailPage() {
               onAsk={askAbout}
               onFindTime={() => openSmart('find-time')}
               onAskBrain={(q) => askBrain(q)}
+              top={<TeamChatLine key={s.assist.id} team={s.team} threadId={s.assist.id} me={s.me} api={api} say={say} failed={failed} onChange={(t) => set({ team: t })} />}
             />
           ) : null
         }

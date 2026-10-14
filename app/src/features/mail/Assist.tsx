@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { MI, when } from './util';
 
 const money = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US');
@@ -178,6 +178,8 @@ export interface AssistProps {
   onAsk: (q: string) => void;
   onFindTime: () => void;
   onAskBrain: (q: string) => void;
+  /** Move to Chat line (TeamChat.tsx), drawn first in the assist area. */
+  top?: ReactNode;
 }
 
 export function AssistPanel(p: AssistProps) {
@@ -188,6 +190,7 @@ export function AssistPanel(p: AssistProps) {
   const pr = a.profile;
   return (
     <div className="ml-assist">
+      {p.top}
       {(a.ask || a.summary) && (
         <div className="ml-sum">
           {a.ask ? (
