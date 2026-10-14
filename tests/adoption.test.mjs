@@ -65,6 +65,10 @@ describe('page logging', () => {
 });
 
 describe('admin numbers', () => {
+  it('keeps each compound SELECT within what D1 allows', () => {
+    for (const q of A.traceDaysSql('-4 hours')) assert.ok(q.split(' UNION ').length <= 4);
+  });
+
   it('counts people, leaves out testers, blocked accounts and the admin, and lists who never signed in', async () => {
     const now = new Date();
     db.exec('DELETE FROM hub_usage');

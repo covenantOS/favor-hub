@@ -39,9 +39,9 @@ export function weekStart(day: string): string {
 }
 
 /** One (email, day) row for every sign-in, Brain question or rating, task, task event, meeting join and Work Center event since `from`. */
-function traceDaysSql(shift: string): string {
+export function traceDaysSql(shift: string): string[] {
   const d = (col: string) => `date(${col}, '${shift}')`;
-  return [
+  const all = [
     `SELECT lower(email) AS email, ${d('at')} AS day FROM hub_auth_log WHERE event = 'signed_in' AND email <> '' AND ${d('at')} >= ?`,
     `SELECT lower(email), ${d('at')} FROM mcp_audit WHERE email <> '' AND ${d('at')} >= ?`,
     `SELECT lower(email), ${d('at')} FROM brain_feedback WHERE email <> '' AND ${d('at')} >= ?`,
@@ -49,7 +49,9 @@ function traceDaysSql(shift: string): string {
     `SELECT lower(actor_email), ${d('created_at')} FROM hub_task_events WHERE actor_email <> '' AND ${d('created_at')} >= ?`,
     `SELECT lower(actor_email), ${d('at')} FROM act_events WHERE actor_email <> '' AND ${ACT_KINDS} AND ${d('at')} >= ?`,
     `SELECT lower(email), date(joined_at / 1000, 'unixepoch', '${shift}') FROM hub_meeting_presence WHERE email <> '' AND role <> 'guest' AND date(joined_at / 1000, 'unixepoch', '${shift}') >= ?`,
-  ].join(' UNION ');
+  ];
+  // D1 allows only a few terms in one compound SELECT, so the seven sources go in two queries.
+  return [all.slice(0, 3).join(' UNION '), all.slice(3).join(' UNION ')];
 }
 
 export interface PersonRow {
@@ -82,9 +84,8 @@ export async function overview(env: Db, adminEmail: string, now = new Date()) {
   const from = firstWeek < d30 ? firstWeek : d30;
   const me = lower(adminEmail);
   const traceSql = traceDaysSql(shift);
-  const traceBind = Array.from({ length: 7 }, () => from);
 
-  const [dir, users, sessions, authFirst, usage, brainQ, fb, tasks, meets, work, gifts, feed, traceDays] = await Promise.all([
+  const [dir, users, sessions, authFirst, usage, brainQ, fb, tasks, meets, work, gifts, feed, traceA, traceB] = await Promise.all([
     staffDirectory(env),
     rows<{ email: string; blocked: number; sign_ins: number; first_seen: string | null; last_seen: string | null }>(env, `SELECT lower(email) AS email, blocked, sign_ins, first_seen, last_seen FROM hub_users WHERE ${notTester('email')}`),
     rows<{ email: string; first_at: string; last_at: string }>(env, `SELECT lower(email) AS email, min(created_at) AS first_at, max(last_seen) AS last_at FROM hub_sessions WHERE ${notTester('email')} GROUP BY lower(email)`),
@@ -97,7 +98,8 @@ export async function overview(env: Db, adminEmail: string, now = new Date()) {
     rows<{ email: string; n: number }>(env, `SELECT lower(actor_email) AS email, count(*) AS n FROM act_events WHERE actor_email <> '' AND ${ACT_KINDS} GROUP BY lower(actor_email)`),
     rows<{ actor: string; n: number }>(env, `SELECT lower(actor) AS actor, count(*) AS n FROM ge_event GROUP BY lower(actor)`),
     rows<Record<string, unknown>>(env, `SELECT id, at, email, name, source, rating, comment, question, page, status FROM brain_feedback WHERE ${notTester('email')} ORDER BY id DESC LIMIT 60`),
-    rows<{ email: string; day: string }>(env, traceSql, ...traceBind),
+    rows<{ email: string; day: string }>(env, traceSql[0], from, from, from),
+    rows<{ email: string; day: string }>(env, traceSql[1], from, from, from, from),
   ]);
 
   const userBy = new Map(users.map((u) => [u.email, u]));
@@ -119,7 +121,7 @@ export async function overview(env: Db, adminEmail: string, now = new Date()) {
     if (!s) days.set(email, (s = new Set()));
     s.add(day);
   };
-  for (const r of traceDays) addDay(r.email, r.day);
+  for (const r of [...traceA, ...traceB]) addDay(r.email, r.day);
   const areasBy = new Map<string, Map<string, number>>();
   const lastUse = new Map<string, string>();
   for (const u of usage) {
