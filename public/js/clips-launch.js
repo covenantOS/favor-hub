@@ -169,7 +169,8 @@
       if (Date.now() - last < 600000) return;
       localStorage.setItem('favor.clips.unfinished.at', String(Date.now()));
     } catch (e) { /* storage refused; check as before */ }
-    setTimeout(function () { load().then(function (m) { m.resumeUnfinished(); }); }, 4000);
+    // In a meeting room it waits a minute, so the recorder code never loads while the call is joining.
+    setTimeout(function () { load().then(function (m) { m.resumeUnfinished(); }); }, /^\/meet\/(room|g)\//.test(location.pathname) ? 60000 : 4000);
   }
   new MutationObserver(whenShown).observe(btn, { attributes: true, attributeFilter: ['hidden'] });
   whenShown();

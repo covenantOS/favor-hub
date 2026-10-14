@@ -257,7 +257,9 @@
     else if (!here) { c.unread = (c.unread || 0) + 1; if (care) c.mentions = (c.mentions || 0) + 1; }
     emit({ type: 'message', message: m });
     paint();
-    if (!here && care && !c.muted && !m.visible_to) toast(m, c);
+    // A huddle's own card (a meeting card with no words) shows no toast: the ring card or the huddle bar already says it.
+    var huddleCard = !m.body && (m.attachments || []).length === 1 && m.attachments[0].type === 'meeting';
+    if (!here && care && !c.muted && !m.visible_to && !huddleCard) toast(m, c);
   }
   function onEvent(ev) {
     if (ev.type === 'message') onMessage(ev.message);

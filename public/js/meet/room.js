@@ -205,9 +205,9 @@ async function lobby() {
     <div style="display:grid;gap:12px"><div class="h-label">Ready to join?</div><h2 class="mt-h2" style="font-size:28px">${esc(m.title)}</h2>
       <p class="lb-line"><span>${esc(m.hostName ? 'Host: ' + m.hostName : '')}</span>${when ? `<span>${esc(when)}</span>` : ''}</p>${inRoom}
       <p class="mt-sub" style="font-size:14px;margin:0" id="lb-who">${esc(recLine)}</p>
-      <div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" ${GUEST ? 'placeholder="First and last name"' : ''} /></div>${consent}
+      ${GUEST ? `<div class="mt-f"><label for="lb-name">Your name in the room</label><input id="lb-name" value="${esc(name)}" maxlength="60" placeholder="First and last name" /></div>` : `<input type="hidden" id="lb-name" value="${esc(name)}" />`}${consent}
       <div class="lb-dev" id="lb-devs" hidden></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? `<a class="h-btn h-btn--ghost" href="/login/?next=${encodeURIComponent('/meet/room/?m=' + MID)}">Sign in to join as yourself</a>` : '<a class="h-btn h-btn--ghost" href="/meet/">Not yet</a><a class="h-btn h-btn--ghost" href="/meet/prep/?m=' + encodeURIComponent(MID) + '" target="_blank" rel="noopener">Prep sheet</a>'}</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="h-btn h-btn--primary" id="lb-join">${ic('video')}Join now</button>${GUEST ? `<a class="h-btn h-btn--ghost" href="/login/?next=${encodeURIComponent('/meet/room/?m=' + MID)}">Sign in to join as yourself</a>` : '<a class="h-btn h-btn--ghost" href="/meet/prep/?m=' + encodeURIComponent(MID) + '" target="_blank" rel="noopener">Prep sheet</a>'}</div>
       <p class="mt-sub" style="margin:0" id="lb-dev">Checking your camera and microphone.</p><p class="lb-help" id="lb-help" hidden></p></div></div>`;
   $('#lb-join').addEventListener('click', enter);
   $('#lb-mic').addEventListener('click', () => { S.mic = !S.mic; lobbyButtons(); });
@@ -737,7 +737,7 @@ function ringsHTML() {
     const first = esc(String(x.name || x.to).split(' ')[0]);
     if (x.state === 'ringing') return `<div class="banner rm-ring" role="status"><span class="rm-ring__dot" aria-hidden="true"></span><span>Ringing ${esc(x.name || x.to)}</span>${x.from === S.myEmail ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-cancel" data-id="${esc(x.id)}">Stop ringing</button>` : ''}</div>`;
     const why = x.state === 'declined' ? (x.note ? `${first} cannot join: "${esc(x.note)}"` : `${first} declined`) : x.why === 'quiet' ? `${first} is in quiet hours. FavorOS left a missed huddle note in Chat.` : `${first} did not answer. FavorOS left a missed huddle note in Chat.`;
-    return `<div class="banner" role="status">${ic('users')}<span>${why}</span>${x.state === 'missed' && x.why !== 'quiet' ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-again" data-v="${esc(x.to)}">Ring again</button>` : ''}</div>`;
+    return `<div class="banner" role="status">${ic('users')}<span>${why}</span>${x.why !== 'quiet' && x.from === S.myEmail ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="ring-again" data-v="${esc(x.to)}">Ring again</button>` : ''}</div>`;
   }).join('');
 }
 function paintRecMenu() {
@@ -2082,11 +2082,13 @@ function applySync(r) {
   }
   watchRecording(r);
 }
-// The person who starts the recording: the host if present, else the made or acting host who has been here longest.
+// The person who starts the recording: the host if present, else the made or acting host who has been here longest, else the
+// staff member who has been here longest (the server allows that only while no host is in the room).
 function leadPid() {
-  const all = [mePerson(), ...others()].filter((p) => p.role === 'host' || p.role === 'cohost');
-  all.sort((a, b) => (a.role === 'host' ? 0 : 1) - (b.role === 'host' ? 0 : 1) || (a.joinedAt || 0) - (b.joinedAt || 0));
-  return all.length ? all[0].pid : '';
+  const here = [mePerson(), ...others()].filter((p) => p.role !== 'guest' && !p.waiting);
+  const rank = (p) => (p.role === 'host' ? 0 : p.role === 'cohost' ? 1 : 2);
+  here.sort((a, b) => rank(a) - rank(b) || (a.joinedAt || 0) - (b.joinedAt || 0));
+  return here.length ? here[0].pid : '';
 }
 // The guard: a meeting set to record, two or more people here for 20 seconds, and no recording running. The hosts see
 // "Recording did not start" with Retry, and the server is asked to check, which writes the morning email's alert.

@@ -159,3 +159,19 @@ test('a meeting set to record that records nothing raises the alert for the morn
   assert.equal(w.d1.db.prepare(`SELECT COUNT(*) AS n FROM hub_meeting_events WHERE meeting_id = ? AND body LIKE '%rec-missing%'`).get(id).n, 1);
   assert.ok(a.data.pid);
 });
+
+test('with no host in the room, the staff member there longest starts the booked recording; a guest never does', async () => {
+  const w = ringWorld();
+  for (const u of [ADMIN, ADMIN2]) await call(w, u, 'GET', 'boot');
+  const id = (await meet(w, ADMIN, 'POST', 'meetings', { title: 'Weekly', calendar: false, notify: false, rec: 'video', invitees: [{ email: ADMIN2.email, name: 'Bo' }] })).data.meeting.id;
+  const b = await meet(w, ADMIN2, 'POST', `meetings/${id}/join`, { name: 'Bo Builder' });
+  assert.equal(b.data.role, 'staff');
+  const s = await meet(w, ADMIN2, 'POST', `meetings/${id}/rec/start?pid=${b.data.pid}`, {});
+  assert.equal(s.status, 200, JSON.stringify(s.data));
+  assert.equal(s.data.epoch, 1);
+  // Once the host is in the room, starting is the hosts' again.
+  await meet(w, ADMIN2, 'POST', `meetings/${id}/rec/stop?pid=${b.data.pid}`, {}).catch(() => null);
+  await meet(w, ADMIN, 'POST', `meetings/${id}/join`, { name: 'Ada Admin' });
+  w.d1.db.prepare('UPDATE hub_meeting_rec SET active = 0 WHERE meeting_id = ?').run(id);
+  assert.equal((await meet(w, ADMIN2, 'POST', `meetings/${id}/rec/start?pid=${b.data.pid}`, {})).status, 403);
+});

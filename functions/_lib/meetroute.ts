@@ -33,7 +33,7 @@ import { cleanRule } from './meetrecur';
 import { MEET_AI, afterNotes, askMeetings, extractLive, foldLive, liveList, livePost, meetChannels, partnerAct, partnerSearch, partnersOf, pendingPartners, pickPerson, prepSheet, rosterOf, setPostChannel } from './meetauto';
 import { meetSettings, withMeetSettings } from './admin/settings';
 import { fieldMeetRoute } from './field';
-import { notTesterSql } from './testuser';
+import { isHiddenAccount, notTesterSql } from './testuser';
 import { chatHuddleChanged, chatMeetingEnded, chatNotesReady } from './chat/meet';
 import { expireRings, ringsFor, ringsStop, type RingEnv } from './chat/ring';
 import { isRecMode, recPrefOf, setRecPref } from './meetpref';
@@ -514,6 +514,8 @@ async function recordingMissed(env: MeetEnv, mt: Meeting, now: number, from: 'ro
   const told = await env.DB.prepare(`SELECT 1 AS x FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%"rec-missing"%' LIMIT 1`).bind(mt.id).first().catch(() => null);
   if (!told) {
     await addEvent(env, mt.id, 'notice', '', '', { a: 'rec-missing' });
+    // A test account's meeting never reaches the morning email.
+    if (isHiddenAccount(mt.host_email)) return true;
     const at = new Date(now).toISOString();
     const line = `${mt.title || 'A meeting'} (${mt.id}) was set to ${mt.rec_mode === 'video' ? 'record video' : 'take notes'} and recorded nothing (${ppl.length} staff in the room, found by ${from}).`;
     await env.DB.prepare(`INSERT INTO hub_cron_runs (job, last_run, last_ok, last_error, error_at, detail, fails, ms) VALUES ('meet-recording', ?, NULL, ?, ?, ?, 1, 0)
@@ -1049,7 +1051,12 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     return json({ ok: true, rec: r ? { ...r, now, stale: !!r.active && now - r.last_chunk > REC_STALE_MS } : null });
   }
   if (sub[0] === 'start' && request.method === 'POST') {
-    if (!hostish) throw new HttpError(403, 'host_only', 'Only a host can start the recording.');
+    // A host starts it. With no host or made host in the room, the staff member who has been here longest starts the booked
+    // recording, so a meeting whose host is away still records (2026-10-14).
+    if (!hostish) {
+      const hosts = await env.DB.prepare(`SELECT COUNT(*) AS n FROM hub_meeting_presence WHERE meeting_id = ? AND left_at = 0 AND removed = 0 AND waiting = 0 AND seen > ? AND role IN ('host', 'cohost')`).bind(id, now - GONE_MS).first<{ n: number }>();
+      if (me.role === 'guest' || (hosts?.n || 0) > 0) throw new HttpError(403, 'host_only', 'Only a host can start the recording.');
+    }
     if (mt.rec_mode === 'off') throw new HttpError(400, 'rec_off', 'Recording is off for this meeting.');
     // Each start is a new epoch. A recording stopped and started again (or switched between video and notes) used to start at epoch 1
     // again and write its pieces over the first recording's.
