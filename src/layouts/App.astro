@@ -116,15 +116,23 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     <script is:inline src="/js/favor-ui.js?v=1" defer></script>
     <script is:inline src="/js/favor-entity.js?v=1" defer></script>
     <script is:inline src="/js/sheets.js?v=2"></script>
-    <script is:inline src="/js/drill.js?v=9" defer></script>
-    <script is:inline src="/js/thank.js?v=5" defer></script>
-    <script is:inline src="/js/prep.js?v=2" defer></script>
-    <script is:inline src="/js/call-mode.js?v=1" defer></script>
-    <script is:inline src="/js/partner-brief.js?v=2" defer></script>
-    <script is:inline src="/js/comm-picture.js?v=3" defer></script>
-    <script is:inline src="/js/partner.js?v=17" defer></script>
-    <script is:inline src="/js/records.js?v=2" defer></script>
-    <script is:inline src="/js/add-partner.js?v=2" defer></script>
+    <script is:inline>
+      // The partner tools (partner card, drill-down, thank-you, call prep, records). In Lite mode a person without partner access
+      // (no Work Center, gift entry or partner search) does not download them; the drill-down stays for anyone with Executive.
+      (function () {
+        var need = true, drill = true;
+        try {
+          var n = JSON.parse(localStorage.getItem('favor.hub.nav.v1') || 'null'), a = (n && n.access) || null;
+          if (window.FavorLite && window.FavorLite.on && a) {
+            need = !!(a.workCenter || a.admin || a.giftEntry || localStorage.getItem('favor.hub.gate.v1') === '1');
+            drill = need || !!a.kpi;
+          }
+        } catch (e) { need = true; drill = true; }
+        window.__hubPartnerTools = need;
+        var files = (drill ? ['drill.js?v=9'] : []).concat(need ? ['thank.js?v=5', 'prep.js?v=2', 'call-mode.js?v=1', 'partner-brief.js?v=2', 'comm-picture.js?v=3', 'partner.js?v=17', 'records.js?v=2', 'add-partner.js?v=2'] : []);
+        if (files.length) document.write(files.map(function (f) { return '<script src="/js/' + f + '" defer><' + '/script>'; }).join(''));
+      })();
+    </script>
     <script is:inline src="/js/ux-pass.js?v=2" defer></script>
     <script type="speculationrules" is:inline set:html={JSON.stringify(specRules)}></script>
     <script is:inline>

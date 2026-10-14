@@ -381,6 +381,7 @@ async function openRtc(j, isRejoin) {
   // After two connections that never came up, the next one goes through Cloudflare's TURN relay only (TCP and TLS on 443 get
   // through networks that block the direct UDP path).
   const relay = new URLSearchParams(location.search).get('relay') === '1' || S.noConnect >= 2;
+  fieldCap = LITE; // a Lite phone publishes its sound already capped
   rtc = new Rtc({ call: (op, body) => api('meetings/' + MID + '/sfu/' + op, { method: 'POST', body: { pid: S.me.pid, ...body } }), iceServers: j.iceServers, relay });
   rtc.onTrack = onTrack;
   rtc.onState = onRtcState;
@@ -388,7 +389,7 @@ async function openRtc(j, isRejoin) {
   S.rtcAt = Date.now(); S.everUp = false; rtc.stats.pathAt = Date.now();
   if (!(j.iceServers || []).some((x) => [].concat(x.urls || []).some((u) => /^turns?:/.test(u)))) diag('no-turn');
   const items = [];
-  if (S.devices.mic || local.mic) items.push({ name: 'a', kind: 'audio', track: local.mic, enc: LITE ? [{ maxBitrate: 16000 }] : null });
+  if (S.devices.mic || local.mic) items.push({ name: 'a', kind: 'audio', track: local.mic, enc: LITE ? [{ maxBitrate: 16000 }] : null, label: LITE ? 'lite' : '' });
   items.push({
     name: 'v', kind: 'video', track: S.cam ? local.cam : null,
     simulcast: LITE ? [
@@ -1912,6 +1913,23 @@ function startLoops() {
 }
 
 let syncing = false;
+// A field room: while anyone in the meeting is in Lite mode (their sound track is labeled 'lite'), everyone sends sound at 16 kbit/s,
+// so the phone on the weak link also receives less. The cap lifts when the last Lite person leaves.
+let fieldCap = false;
+function fieldRoom() {
+  const on = LITE || (S.people || []).some((p) => !p.me && p.pid !== (S.me && S.me.pid) && (p.tracks || []).some((t) => t.name === 'a' && t.label === 'lite'));
+  // Nothing is touched in a room with no Lite person in it.
+  if (on === fieldCap || !rtc || !rtc.out) return;
+  const o = rtc.out.get('a'); const sender = o && o.transceiver && o.transceiver.sender;
+  if (!sender || !sender.getParameters) return;
+  fieldCap = on;
+  try {
+    const prm = sender.getParameters();
+    if (!prm.encodings || !prm.encodings.length) prm.encodings = [{}];
+    if (on) prm.encodings[0].maxBitrate = 16000; else delete prm.encodings[0].maxBitrate;
+    sender.setParameters(prm).catch(() => { fieldCap = !on; });
+  } catch { fieldCap = !on; }
+}
 async function syncNow() {
   if (syncing || S.left || rejoining || S.away) return;
   syncing = true;
@@ -1929,7 +1947,7 @@ async function syncNow() {
 
 function applySync(r) {
   if (r.now) S.skew = r.now - Date.now();
-  S.people = r.people; S.me.role = r.role;
+  S.people = r.people; S.me.role = r.role; fieldRoom();
   { const mine = r.people.find((p) => p.pid === S.me.pid); if (mine && Array.isArray(mine.with) && JSON.stringify(mine.with) !== JSON.stringify(S.myWith)) { S.myWith = mine.with; if (S.withPick) paintWith(); if (S.more) paintMore(); } }
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;

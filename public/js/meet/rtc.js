@@ -57,7 +57,7 @@ export class Rtc {
       for (const t of r.tracks || []) if (t.errorCode) throw new Error(t.errorDescription || 'track failed');
       await this.pc.setRemoteDescription(r.sessionDescription);
       for (const { it, tr } of added) this.out.set(it.name, { transceiver: tr, mid: tr.mid, kind: it.kind });
-      return added.map(({ it, tr }) => ({ name: it.name, kind: it.kind, mid: tr.mid }));
+      return added.map(({ it, tr }) => ({ name: it.name, kind: it.kind, mid: tr.mid, ...(it.label ? { label: it.label } : {}) }));
     });
   }
 

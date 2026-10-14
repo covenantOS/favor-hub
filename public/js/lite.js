@@ -18,6 +18,13 @@
   function get(k) { try { return ls ? ls.getItem(k) : null; } catch (e) { return null; } }
   function put(k, v) { try { if (ls) ls.setItem(k, v); } catch (e) { /* private mode or full */ } }
 
+  // The monthly limit set in Data saver: how much of it this month has used. Read straight from the stored count.
+  function limitState() {
+    var cap = Number(get(CAP)) || 0, used = 0;
+    try { var u = JSON.parse(get(USE) || '{}') || {}; var d = new Date(), m = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); if (u.month === m) Object.keys(u.days || {}).forEach(function (k) { used += u.days[k]; }); } catch (e) { /* none */ }
+    var capB = cap * 1048576;
+    return { cap: capB, used: used, near: !!capB && used >= capB * 0.8, over: !!capB && used >= capB };
+  }
   function setting() { var v = get(KEY); return v === 'on' || v === 'off' ? v : 'auto'; }
 
   /** Why this phone counts as a weak one. Empty when nothing points that way. */
@@ -30,6 +37,8 @@
     }
     if (n.deviceMemory && n.deviceMemory <= 1) out.push('the phone has little memory');
     if (n.hardwareConcurrency && n.hardwareConcurrency <= 2 && n.deviceMemory && n.deviceMemory <= 2) out.push('the phone is an older model');
+    var lim = limitState();
+    if (lim.over) out.push('the data limit for this month is used up');
     var r = Number(get(RTT));
     if (r >= 900) out.push('pages took long to answer');
     return out;
@@ -226,7 +235,7 @@
   // In Lite, the reads FavorOS polls for (bell, reminders, notices, chat inbox, meetings) come from one request every five minutes
   // (/api/hub/sync, functions/api/hub/sync.ts). A poll between syncs is answered from the last one; an answer that has not changed
   // comes back as 304 with no body. Any change the person makes (a POST, PATCH or DELETE) makes the next read fetch fresh.
-  var SYNCED = /^\/api\/(work\/reminders|work\/gate|tasks\/links\/bell|hub\/notifications|hub\/nav|chat\/inbox|requests\/notices|meet\/meetings(\/calendar|\/directory)?)$/;
+  var SYNCED = /^\/api\/(work\/reminders|work\/gate|tasks\/links\/bell|hub\/notifications|hub\/nav|chat\/inbox|requests\/notices)$/; // the shell's polls; a page's own large lists stay direct
   var SY = { seen: {}, last: null, at: 0, etag: '', run: null, every: 300000 };
   // With notices on, a direct message or a mention arrives as a push, so the sync can wait three times longer.
   try { if (window.Notification && Notification.permission === 'granted' && localStorage.getItem('favor.push.on') === '1') SY.every = 900000; } catch (e) { /* ignore */ }
@@ -285,6 +294,20 @@
   }
   function openPanel() { loadScript('/js/lite-panel.js?v=2').then(function () { if (window.FavorLitePanel) window.FavorLitePanel.open(); }).catch(function () {}); }
   document.addEventListener('click', function (e) { var t = e.target && e.target.closest && e.target.closest('[data-lite-open]'); if (t) { e.preventDefault(); openPanel(); } });
+
+  // Once a day, a short notice when this month's data passes 80% of the limit (Lite turns itself on at 100% while on Auto).
+  document.addEventListener('DOMContentLoaded', function () {
+    var lim = limitState(), day = today();
+    if (!lim.near || get('favor.lite.warned') === day) return;
+    put('favor.lite.warned', day);
+    var n = document.createElement('div');
+    n.setAttribute('role', 'status');
+    n.style.cssText = 'position:fixed;left:12px;right:12px;bottom:84px;z-index:8000;background:#1f3a2e;color:#fff;border-radius:12px;padding:12px 14px;font:500 14px/1.35 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25);max-width:460px;margin:0 auto';
+    n.textContent = (lim.over ? 'The data limit for this month is used up. Lite mode is on.' : 'FavorOS has used ' + Math.round(lim.used / lim.cap * 100) + '% of the data limit for this month.') + ' Tap to see Data saver.';
+    n.addEventListener('click', function () { n.remove(); openPanel(); });
+    document.body.appendChild(n);
+    setTimeout(function () { n.remove(); }, 9000);
+  });
 
   window.FavorLite = { on: on, mode: mode, why: why, set: set, reasons: reasons, add: add, summary: summary, compressPhoto: compressPhoto, PHOTO: PHOTO, shown: shown, kb: kbText, chatSend: chatSend, outbox: outbox, fontsLast: fontsLast, flushOutbox: flushOutbox, open: openPanel };
   swFlag();
