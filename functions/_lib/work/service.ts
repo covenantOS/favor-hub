@@ -783,11 +783,18 @@ async function currentBoardAll(ctx: Ctx): Promise<Board> {
 }
 
 /** A batch belongs to the person who made it, unless they are an admin. */
-export async function assertOwnBatch(ctx: Ctx, batchId: string): Promise<void> {
+/**
+ * Only the person who made a change can run, retry or undo it. An admin may undo someone else's change, but only deliberately:
+ * the undo route passes adminConfirmed, and the request must carry confirm: true (the change's own page asks first).
+ */
+export async function assertOwnBatch(ctx: Ctx, batchId: string, adminConfirmed?: boolean): Promise<void> {
   const s = ctx.scope;
-  if (!s || s.all) return;
+  if (!s) return;
   const b = await ctx.env.DB.prepare('SELECT actor_email FROM act_batches WHERE id = ? LIMIT 1').bind(batchId).first<{ actor_email: string }>();
-  if (!b || b.actor_email.toLowerCase() !== ctx.email.toLowerCase()) throw new HttpError(403, 'not_yours', 'That change was made by someone else.');
+  if (b && b.actor_email.toLowerCase() === ctx.email.toLowerCase()) return;
+  if (s.all && (adminConfirmed === undefined || adminConfirmed === true)) return;
+  if (s.all) throw new HttpError(403, 'confirm_needed', 'That change was made by someone else. Open it in Recent and confirm to undo it.');
+  throw new HttpError(403, 'not_yours', 'That change was made by someone else.');
 }
 
 export async function createBatch(ctx: Ctx, input: BatchInput & { req?: string }) {
@@ -1419,7 +1426,7 @@ export async function retryBatch(ctx: Ctx, batchId: string) {
   return { ok: true, requeued: r.meta?.changes ?? 0 };
 }
 
-export async function recentBatches(env: Env, hours = 36, email?: string) {
+export async function recentBatches(env: Env, hours = 36, email?: string, viewer?: string) {
   const since = new Date(Date.now() - hours * 3600000).toISOString();
   const bs = (
     email
@@ -1449,7 +1456,7 @@ export async function recentBatches(env: Env, hours = 36, email?: string) {
     const items = [...byItem.values()];
     const count = (s: string) => items.filter((i) => i.state === s).length;
     out.push({
-      id: b.id, op: b.op, label: batchLabel(b, items.length), actor: b.actor, at: b.created_at, n: b.n,
+      id: b.id, op: b.op, label: batchLabel(b, items.length), actor: b.actor, mine: !!viewer && String(b.actor_email || '').toLowerCase() === viewer.toLowerCase(), at: b.created_at, n: b.n,
       posted: count('posted'), failed: count('failed'), queued: count('tonight') + count('saving'), tonight: count('tonight'), calls: b.calls_used || b.calls_planned,
       planned: b.calls_planned, undo_until: b.undo_until, undone: b.state === 'undone', undoing: undoing.has(b.id), state: b.state, run_when: b.run_when, items,
     });

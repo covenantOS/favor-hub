@@ -240,7 +240,7 @@ export function Rail({ view, user, rail, tours, onSignOut }: Props) {
         id="h-wide"
         aria-pressed={rail.full}
         aria-label={rail.full ? 'Collapse the menu' : 'Expand the menu'}
-        title={(rail.full ? 'Collapse the menu' : 'Expand the menu') + ' (press the backslash key)'}
+        data-tip={(rail.full ? 'Collapse the menu' : 'Expand the menu') + ' (press the backslash key)'}
         onClick={(e) => {
           e.preventDefault();
           rail.toggleWide();

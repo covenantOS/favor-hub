@@ -6,6 +6,7 @@ import { byClock } from './thank-clock';
 import { dayDiff, isLive, mineRows, type BoardRow } from '../actions/board';
 import type { Env } from '../http';
 import { cadenceResponse, mayCadence } from './cadence-svc';
+import { blockedSet } from '../blocked';
 import { listStaff } from './db';
 import { giftsResponse, mayGifts } from './gifts-svc';
 import { weekStart } from './gifts';
@@ -94,8 +95,12 @@ async function giftsBlock(ctx: Ctx) {
 async function entryBlock(ctx: Ctx) {
   const s = ctx.scope;
   if (!can(s, 'entry')) return null;
-  const staff = (await listStaff(ctx.env)).filter((x) => x.active === 1 && x.entry_owner === 1 && x.bb_fundraiser_id && (!s || s.all || s.fids.has(String(x.bb_fundraiser_id))));
-  if (!staff.length) return { owners: [], wait: 0, late: 0 };
+  const all = (await listStaff(ctx.env)).filter((x) => x.active === 1 && x.entry_owner === 1 && x.bb_fundraiser_id && (!s || s.all || s.fids.has(String(x.bb_fundraiser_id))));
+  // Offboarded people (blocked in the hub) are left out of the per-person rows.
+  const gone = await blockedSet(ctx.env as any, all.map((x) => x.email)).catch(() => new Set<string>());
+  const staff = all.filter((x) => !gone.has(String(x.email).toLowerCase()));
+  const wk0 = weekStart(todayEt());
+  if (!staff.length) return { owners: [], wait: 0, late: 0, before: wk0 };
   const since = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
   const wk = weekStart(todayEt());
   const rs = await ctx.env.DB.prepare(
@@ -106,7 +111,7 @@ async function entryBlock(ctx: Ctx) {
   const owners = staff
     .map((x) => ({ fid: String(x.bb_fundraiser_id), name: x.name, wait: Number(by.get(String(x.bb_fundraiser_id))?.n) || 0, late: Number(by.get(String(x.bb_fundraiser_id))?.late) || 0 }))
     .sort((a, b) => b.wait - a.wait || a.name.localeCompare(b.name));
-  return { owners, wait: owners.reduce((n, o) => n + o.wait, 0), late: owners.reduce((n, o) => n + o.late, 0) };
+  return { owners, wait: owners.reduce((n, o) => n + o.wait, 0), late: owners.reduce((n, o) => n + o.late, 0), before: wk };
 }
 
 /** Changes saved but not yet sent to Blackbaud (held for tonight, or still going). */
@@ -182,11 +187,11 @@ function teamBlock(ctx: Ctx, board: Awaited<ReturnType<typeof currentBoard>>) {
 async function recentBlock(ctx: Ctx) {
   const s = ctx.scope;
   // A person sees their own changes. A team lead sees the team's: Support the directors', an admin everyone's.
-  const all = await recentBatches(ctx.env, 24 * 7, s && !s.all && s.role !== 'support' ? ctx.email : undefined);
+  const all = await recentBatches(ctx.env, 24 * 7, s && !s.all && s.role !== 'support' ? ctx.email : undefined, ctx.email);
   return all
     .filter((b) => !b.undone)
     .slice(0, 8)
-    .map((b) => ({ id: b.id, label: b.label, actor: b.actor, at: b.at, n: b.n, posted: b.posted, failed: b.failed, queued: b.queued, undo_until: b.undo_until, undoing: b.undoing }));
+    .map((b) => ({ id: b.id, label: b.label, actor: b.actor, mine: b.mine, at: b.at, n: b.n, posted: b.posted, failed: b.failed, queued: b.queued, undo_until: b.undo_until, undoing: b.undoing }));
 }
 
 /** Every Work Center part of the page. Any part that fails is null. */

@@ -160,7 +160,7 @@
     $('wh-due-chips').innerHTML = chips.join('');
     $('wh-due-all').innerHTML = `Open all ${dn('open', n0(d.open), d.open)}`;
     const list = $('wh-due-list');
-    if (!d.rows.length) { list.innerHTML = `<li class="wh-empty">Nothing due or overdue. ${plural(d.open, 'open action')} in the Work Center.</li>`; return; }
+    if (!d.rows.length) { list.innerHTML = `<li class="wh-empty">None of your own actions are due or overdue (${plural(d.open, 'open action')} of yours). This card shows only your own actions.</li>`; return; }
     list.innerHTML = d.rows.map((r) => `<li class="wh-row" data-id="${esc(r.id)}" data-cid="${esc(r.cid)}" data-name="${esc(r.partner)}">
       <button type="button" class="wh-chk" data-do="complete" aria-label="Complete: ${esc(whatOf(r))} for ${esc(r.partner)}">${tick}</button>
       <div class="wh-t"><a href="/work/partner/${esc(r.cid)}" data-partner-id="${esc(r.cid)}">${esc(r.partner)}</a><span>${esc(whatOf(r))}${r.place ? ' · ' + esc(r.place) : ''}</span></div>
@@ -211,13 +211,13 @@
       body.innerHTML = goal('Connections', c.conn, gl.conn, '/work/?view=week') + goal('Meetings', c.mtg, gl.mtg, '/work/?view=week') + goal('One-on-ones', c.oo, gl.oo, '/work/?view=week') + goal('Event scheduled', c.ev, gl.ev, '/work/?view=week')
         + (gv && gv.goal ? `<a class="wh-goal${gv.ytd >= gv.goal ? ' is-met' : ''}" href="/work/?view=week"><b>Giving this year</b><span>${money(gv.ytd)} of ${money(gv.goal)}</span><div class="r2t-bar" role="presentation"><i style="width:${Math.min(100, Math.round(gv.pct || (gv.ytd / gv.goal) * 100))}%"></i></div></a>` : '');
     } else if (k.kind === 'support' || k.kind === 'admin') {
-      $('wh-week-h').textContent = k.kind === 'admin' ? 'Entry' : 'Your week';
-      sub.innerHTML = k.kind === 'admin' ? '<a class="h-link" href="/work/?view=intake">Open entry</a>' : '';
+      $('wh-week-h').textContent = k.kind === 'admin' ? 'Entry queue' : 'Your week';
+      sub.innerHTML = k.kind === 'admin' ? '<span class="wh-qnote">The support team's queue</span> <a class="h-link" href="/work/?view=intake">Open entry</a>' : '';
       const e = k.entry;
       const owners = e && e.owners ? e.owners.filter((o) => o.wait) : [];
       const top = Math.max(1, ...owners.map((o) => o.wait));
-      body.innerHTML = `<div data-tool="leaf"><a class="wh-big" href="/work/?view=intake"><b>${n0(e ? e.wait : 0)}</b><span>to enter${e && e.late ? `, ${n0(e.late)} older` : ''}</span></a></div>`
-        + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span title="${esc(o.name)}">${esc(o.name)}</span><span class="wh-mini" role="presentation"><i style="width:${Math.max(4, Math.round((o.wait / top) * 100))}%"></i></span><span class="wh-lc">${o.late ? `<span class="r2t-chip r2t-chip--late">${n0(o.late)} late</span>` : ''}</span><b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
+      body.innerHTML = `<div data-tool="leaf"><a class="wh-big" href="/work/?view=intake"><b>${n0(e ? e.wait : 0)}</b><span>${e && e.wait === 1 ? 'action' : 'actions'} waiting to be entered${e && e.late ? (e.late === e.wait ? ', all dated before this week' : `, ${n0(e.late)} dated before this week`) : ''}</span></a></div>`
+        + (owners.length ? `<div class="wh-owners">${owners.slice(0, 7).map((o) => `<a href="/work/?view=intake"><span title="${esc(o.name)}">${esc(o.name)}</span><span class="wh-mini" role="presentation"><i style="width:${Math.max(4, Math.round((o.wait / top) * 100))}%"></i></span><span class="wh-lc">${o.late ? `<span class="r2t-chip r2t-chip--late" title="${n0(o.late)} dated before this week">${n0(o.late)} older</span>` : ''}</span><b>${n0(o.wait)}</b></a>`).join('')}</div>` : '')
         + (k.sending > 0 ? `<div class="wh-send"><span>${n0(k.sending)} ${k.sending === 1 ? 'change' : 'changes'} waiting to send</span><a class="h-btn h-btn--sm" href="/work/?view=recent">View</a></div>` : '');
     } else if (k.kind === 'pc') {
       $('wh-week-h').textContent = 'Cadence';
@@ -255,7 +255,7 @@
   function paintFeed(d) {
     const w = d.work;
     const items = [];
-    if (w && w.recent) for (const b of w.recent) items.push({ at: b.at, text: `${b.actor ? b.actor + ': ' : ''}${b.label}${b.failed ? ` (${n0(b.failed)} not sent)` : ''}`, href: '/work/?view=recent', tool: 'leaf' });
+    if (w && w.recent) for (const b of w.recent) items.push({ at: b.at, text: `${b.mine ? 'You' : (b.actor || 'Someone')}: ${b.label}${b.failed ? ` (${n0(b.failed)} not sent)` : ''}`, href: '/work/?view=recent', tool: 'leaf' });
     for (const a of d.activity || []) items.push({ at: a.at, text: a.text, href: APPS[a.app] || '/', tool: { Requests: 'sky', Expenses: 'terra', Receipts: 'sun', Foundations: 'slate' }[a.app] || 'slate' });
     items.sort((a, b) => (a.at < b.at ? 1 : -1));
     const top = items.slice(0, 9);
@@ -267,7 +267,7 @@
   /* ------------------------------------------------------------------ recent changes, each with Undo */
   function paintChanges(w) {
     const card = $('wh-changes');
-    const list = ((w && w.recent) || []).filter((b) => Date.parse(b.undo_until) > Date.now());
+    const list = ((w && w.recent) || []).filter((b) => b.mine && Date.parse(b.undo_until) > Date.now());
     card.hidden = !list.length;
     if (card.hidden) return;
     const off = (b) => b.undoing || (window.favorUndoing && window.favorUndoing.has(b.id));

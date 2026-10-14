@@ -789,11 +789,13 @@ const undoButtons = (bid, off) => $$(`[data-undo="${CSS.escape(bid)}"]`).forEach
 function settleUndo(bid) { const b = S.batches.find((x) => x.id === bid); if (!b || (!b.undone && !b.undoing)) UNDOING.delete(bid); }
 async function undoBatch(bid) {
   if (UNDOING.has(bid)) return;
+  const other = S.batches.find((x) => x.id === bid && x.mine === false);
+  if (other && !confirm('This change was made by ' + (other.actor || 'someone else') + '. Undo it for them?')) return;
   UNDOING.add(bid); undoButtons(bid, true);
   if (window.WCSnap) window.WCSnap.forgetBatch(bid);
   $('#toast').classList.remove('is-on');
   let out;
-  try { out = await post(`/api/work/batches/${bid}/undo`); } catch (e) {
+  try { out = await post(`/api/work/batches/${bid}/undo`, other ? { confirm: true } : undefined); } catch (e) {
     // Already undone, or being undone: the button stays off. Any other failure puts it back.
     const again = e.data && (e.data.error === 'already_undone' || e.data.error === 'undo_of_undo');
     if (!again) { UNDOING.delete(bid); undoButtons(bid, false); }

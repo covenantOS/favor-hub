@@ -230,3 +230,11 @@ body.h-body[data-nav='brain'] .h-app .h-side > * { min-width: 0; }
   .h-area__tog .h-i, .h-tab, .h-pin, .h-side__tog { transition: none; }
   .h-area.is-open > .h-area__pages, .h-app.is-peek .h-scrim { animation: none; }
 }
+
+/* The rail toggle's tip: CSS only, so it cannot outlive the pointer or the focus. */
+.h-side__tog[data-tip]::after {
+  content: attr(data-tip); position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); white-space: nowrap;
+  padding: 5px 9px; border-radius: 6px; background: var(--h-ink, #2a2722); color: #fff; font: 500 12px var(--h-font, sans-serif);
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.12s ease; z-index: 60;
+}
+.h-side__tog[data-tip]:hover:not(.is-tipoff)::after, .h-side__tog[data-tip]:focus-visible:not(.is-tipoff)::after { opacity: 1; visibility: visible; }

@@ -176,7 +176,7 @@
 
 @media (max-width: 960px) {
   .wh-col { display: contents; }
-  #wh-due { order: 1; } #wh-gifts { order: 2; } #wh-week { order: 3; } #wh-req { order: 4; } #wh-quick { order: 5; } #wh-feed { order: 6; }
+  #wh-due { order: 1; } #wh-gifts { order: 2; } #wh-week { order: 3; } #wh-req { order: 4; } #wh-quick { order: 5; } #wh-changes { order: 6; } #wh-feed { order: 7; }
 }
 @media (max-width: 860px) {
   .wh-tool { position: relative; }
@@ -205,3 +205,5 @@
 .wh-chg p { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wh-chg time { color: var(--r-mute, #6b6f66); font-size: 12px; white-space: nowrap; }
 .wh-chg .h-btn { min-height: 36px; }
+
+.wh-qnote { font: 500 12px var(--h-font); color: var(--r-ink-2); }
