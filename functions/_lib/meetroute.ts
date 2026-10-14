@@ -15,7 +15,7 @@ import { parseRange, type Clip, type ClipsEnv } from './clips';
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
 import { closePrivate, cutSection, deleteRecording, fixSpeaker, privacyOf, setPrivate } from './meetprivacy';
-import { HUB, sharedDevices, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
+import { HUB, sharedDevices, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, transcribeVoice, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { sendLink, sendState, setMyPhone, textSoon, type SendDeps } from './meetsend';
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
@@ -959,6 +959,41 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
       }
     }
     // The decisions and action items in what was just said, noted while the call goes on.
+    if (lines > 0 && mt.status === 'live') {
+      const read = extractLive(env, mt).catch((err) => console.warn('[meet] live notes', id, err));
+      if (waitUntil) waitUntil(read); else await read;
+    }
+    return json({ ok: true, lines });
+  }
+  if (sub[0] === 'voice' && request.method === 'PUT') {
+    // One person's own sound: the recorder cuts each participant's track at pauses in their speech and sends only the
+    // stretches with a voice in them, tagged with that person's pid. The words go into the transcript under that person's name.
+    const epoch = Number(sub[1]);
+    const n = Number(sub[2]);
+    if (!Number.isInteger(epoch) || !Number.isInteger(n) || epoch < 1 || n < 0 || n > 200000) throw new HttpError(400, 'bad_chunk', 'Bad piece.');
+    const r = await env.DB.prepare('SELECT epoch, owner_pid FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string }>();
+    if (!r || r.epoch < epoch || (r.epoch === epoch && r.owner_pid !== pid)) throw new HttpError(403, 'not_owner', 'Another person is recording.');
+    if ((mt as { private_on?: number }).private_on) return json({ ok: true, lines: 0, private: true });
+    const data = await request.arrayBuffer();
+    if (data.byteLength > 20 * 1024 * 1024) throw new HttpError(413, 'too_big', 'Piece too large.');
+    const spk = clean(request.headers.get('x-spk') || '', 64);
+    const who = spk ? (await env.DB.prepare('SELECT name FROM hub_meeting_presence WHERE meeting_id = ? AND pid = ?').bind(id, spk).first<{ name: string }>())?.name || '' : '';
+    const ext = (request.headers.get('x-ext') || 'webm') === 'mp4' ? 'mp4' : 'webm';
+    const start = Number(request.headers.get('x-start')) || now;
+    const end = Number(request.headers.get('x-end')) || now;
+    const lvl = Math.min(1, Math.max(0, Number(request.headers.get('x-lvl')) || 0));
+    await env.CLIPS.put(`meet/${id}/voice/${epoch}-${n}.${ext}`, data);
+    await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_voice (meeting_id, epoch, n, spk_pid, who, lvl, start_ms, end_ms, bytes, ext) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').bind(id, epoch, n, spk, who, lvl, start, end, data.byteLength, ext).run();
+    let lines = 0;
+    try {
+      lines = await transcribeVoice(env, mt, { epoch, n, spk_pid: spk, who, lvl, start_ms: start, end_ms: end, ext, bytes: data.byteLength });
+    } catch (err) {
+      console.warn('[meet] live voice read', id, err);
+      if ((err as { code?: string })?.code === 'ai_paused') {
+        const last = await env.DB.prepare(`SELECT MAX(ts) AS t FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'notice' AND body LIKE '%notes-held%'`).bind(id).first<{ t: number }>();
+        if (!last?.t || now - last.t > 60_000) await addEvent(env, id, 'notice', '', '', { a: 'notes-held' });
+      }
+    }
     if (lines > 0 && mt.status === 'live') {
       const read = extractLive(env, mt).catch((err) => console.warn('[meet] live notes', id, err));
       if (waitUntil) waitUntil(read); else await read;

@@ -113,3 +113,18 @@ test('the notes document escapes text and carries the people, links and speaker 
   assert.ok(html.includes('Eastern'));
   assert.ok(!html.includes('—'));
 });
+
+test('per-person lines: the same short words from two people both stay, bleed keeps the louder copy', async () => {
+  const { dropBleed, sameWords } = await import('../functions/_lib/meetdrive.ts');
+  const l = (t, who, text, lvl = 0.05) => ({ t, who, text, lvl });
+  assert.equal(dedupeLines([l(10, 'Will Hamilton', 'Yes.'), l(12, 'Crystal Example', 'Yes.')]).length, 2);
+  assert.ok(sameWords('We need the final print file by Friday.', 'we need the final print files by friday'));
+  assert.ok(!sameWords('We need the final print file by Friday.', 'I can send it Thursday.'));
+  // Crystal's microphone picked up Will at a low level: Will keeps the line, whichever copy was stored first.
+  const out = dropBleed([l(40, 'Crystal Example', 'We need the final print file by Friday.', 0.004), l(41, 'Will Hamilton', 'We need the final print file by Friday.', 0.06)]);
+  assert.deepEqual(out.map((x) => x.who), ['Will Hamilton']);
+  // Outside the window, or different words, or a line from an old mixed slice (no level): nothing dropped.
+  assert.equal(dropBleed([l(40, 'A', 'Hello there everyone.', 0.01), l(45, 'B', 'Hello there everyone.', 0.05)]).length, 2);
+  assert.equal(dropBleed([l(40, 'A', 'Hello there everyone.', 0.01), l(41, 'B', 'I can send it Thursday.', 0.05)]).length, 2);
+  assert.equal(dropBleed([l(40, 'A', 'Hello there everyone.', 0), l(41, 'B', 'Hello there everyone.', 0.05)]).length, 2);
+});

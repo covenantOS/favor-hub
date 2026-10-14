@@ -1,10 +1,12 @@
 // Meetings: recording in a participant's browser. The host's browser mixes the meeting (a picture of the gallery and the sound of
-// everyone) into a MediaRecorder and sends it up in one second pieces as it goes. If that browser closes, another person in the
+// everyone) into a MediaRecorder and sends it up in one second pieces as it goes. The transcript is read from each person's own track (see startPieces). If that browser closes, another person in the
 // room takes over: a standby watches the recording's heartbeat and claims it when the last piece is more than three seconds old.
 // Sound-only meetings record no picture at all. Phase 0 measured the takeover gap at 3.1 to 4.1 seconds.
 import { initials, hashColor } from './ui.js';
 
 const W = 960, H = 540, FPS = 10;
+// A person's track counts as talking above this level; a piece needs 0.4 s of it to be sent; 0.7 s of quiet ends a piece.
+const VOICE_ON = 0.012, VOICE_MIN = 4, PAUSE_MS = 700, PIECE_MAX_MS = 20000, IDLE_MS = 3000;
 
 export class Recorder {
   constructor({ MID, S, api, getInput, toast, hostish }) {
@@ -23,7 +25,7 @@ export class Recorder {
     this.claiming = false;
     this.warm = false;
     this.stats = { chunks: 0, bytes: 0, failed: 0 };
-    this.ar = null; this.arN = 0; this.arTimer = null; this.aq = Promise.resolve(); this.tally = new Map();
+    this.voices = null; this.vN = 0; this.vEpoch = 0; this.vMime = ''; this.aq = Promise.resolve();
   }
 
   get mode() { return (this.S.recording && this.S.recording.mode) || this.S.meeting.rec; }
@@ -73,7 +75,7 @@ export class Recorder {
     if (video) {
       this.canvas = document.createElement('canvas'); this.canvas.width = W; this.canvas.height = H; this.ctx2d = this.canvas.getContext('2d');
     }
-    this.timer = setInterval(() => { this.mixAudio(); if (video) this.draw(); }, 100);
+    this.timer = setInterval(() => { this.mixAudio(); this.voiceTick(); if (video) this.draw(); }, 100);
   }
 
   mixAudio() {
@@ -147,51 +149,98 @@ export class Recorder {
     this.S.recording = { ...(this.S.recording || {}), active: true, owner: this.S.me.pid, mode, epoch };
   }
 
-  // Sound pieces for the transcript: the meeting sound cut into slices of about ten seconds, each one a file that plays on its own.
+  // Sound pieces for the transcript, one stream per person. Each participant's microphone arrives here as its own track (and the
+  // recorder's own microphone is local), so every track gets its own recorder and a level meter. A piece is cut when that person
+  // pauses, or after 20 seconds of talk, and only pieces with a voice in them are sent, tagged with the person's pid and the time
+  // the piece started. Silence is thrown away on this computer. The mixed recording above stays for the video file only.
   startPieces(epoch) {
     this.stopPieces();
-    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
-    if (!mime) return;
-    this.arN = 0;
-    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-    const cycle = () => {
-      if (!this.mr || this.epoch !== epoch) return;
-      const stream = new MediaStream(this.dest.stream.getAudioTracks());
-      const rec = new MediaRecorder(stream, { mimeType: mime, audioBitsPerSecond: 48000 });
-      const parts = [];
-      const t0 = Date.now(); const n = this.arN++; this.tally = new Map();
-      rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
-      rec.onstop = () => {
-        const blob = new Blob(parts, { type: mime }); const t1 = Date.now();
-        if (blob.size < 1500) return;
-        const who = rec._who || '';
-        const put = async () => {
-          for (let i = 0; i < 6; i++) {
-            try { const r = await fetch(`/api/meet/meetings/${this.MID}/rec/audio/${epoch}/${n}?pid=${this.S.me.pid}`, { method: 'PUT', headers: { 'x-start': String(t0), 'x-end': String(t1), 'x-ext': ext, 'x-who': encodeURIComponent(who) }, body: blob, credentials: 'same-origin' }); if (r.ok || r.status === 403) return; } catch { /* retry */ }
-            await new Promise((res) => setTimeout(res, 800 * (i + 1)));
-          }
-        };
-        this.aq = this.aq.then(put);
-      };
-      rec.start(2000);
-      this.ar = rec;
-      this.arTimer = setTimeout(() => { rec._who = this.dominant(); try { rec.stop(); } catch {} cycle(); }, 10000);
-    };
-    cycle();
+    this.vMime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+    this.vEpoch = epoch; this.vN = 0;
+    this.voices = new Map();
   }
 
-  // Who was speaking for most of the slice, from the speaking flags in the sync. Empty when no one stood out.
-  dominant() {
-    let total = 0; let best = ''; let bestN = 0;
-    for (const [name, n] of this.tally) { total += n; if (n > bestN) { best = name; bestN = n; } }
-    return total && bestN / total >= 0.4 ? best : '';
+  // Called every 100 ms while this browser records.
+  voiceTick() {
+    if (!this.mr || !this.vMime || !this.voices || !this.actx) return;
+    const { remote, local } = this.getInput();
+    const want = new Map();
+    for (const [key, r] of remote) {
+      const [pid, name] = key.split('|');
+      const tr = name === 'a' && r.stream && r.stream.getAudioTracks()[0];
+      if (tr && tr.readyState === 'live') want.set('r:' + pid, { pid, track: tr });
+    }
+    if (local.mic && local.mic.readyState === 'live') want.set('me', { pid: this.S.me.pid, track: local.mic });
+    for (const [k, v] of this.voices) if (!want.has(k) || want.get(k).track !== v.track) { this.closeVoice(v, true); this.voices.delete(k); }
+    for (const [k, w] of want) if (!this.voices.has(k)) { const v = this.openVoice(w.pid, w.track); if (v) this.voices.set(k, v); }
+    const now = Date.now();
+    for (const v of this.voices.values()) {
+      v.an.getFloatTimeDomainData(v.buf);
+      let sq = 0; for (let i = 0; i < v.buf.length; i++) sq += v.buf[i] * v.buf[i];
+      const rms = Math.sqrt(sq / v.buf.length);
+      if (rms > VOICE_ON) { v.voiced++; v.lvl += rms; v.lastVoice = now; }
+      const talked = v.voiced >= VOICE_MIN;
+      if ((talked && now - v.lastVoice > PAUSE_MS) || now - v.t0 > PIECE_MAX_MS || (!talked && now - v.t0 > IDLE_MS && now - v.lastVoice > PAUSE_MS)) this.cutVoice(v);
+    }
+  }
+
+  openVoice(pid, track) {
+    try {
+      const src = this.actx.createMediaStreamSource(new MediaStream([track]));
+      const an = this.actx.createAnalyser(); an.fftSize = 2048;
+      const mute = this.actx.createGain(); mute.gain.value = 0;
+      src.connect(an); an.connect(mute); mute.connect(this.actx.destination);
+      const v = { pid, track, src, an, mute, buf: new Float32Array(an.fftSize), rec: null };
+      this.startVoice(v);
+      return v;
+    } catch { return null; }
+  }
+
+  startVoice(v) {
+    const rec = new MediaRecorder(new MediaStream([v.track]), { mimeType: this.vMime, audioBitsPerSecond: 32000 });
+    const parts = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) parts.push(e.data); };
+    rec._parts = parts;
+    v.rec = rec; v.t0 = Date.now(); v.voiced = 0; v.lvl = 0; v.lastVoice = 0;
+    rec.start();
+  }
+
+  // Stops the piece; sends it when the person spoke in it; starts the next piece unless the track is closing.
+  cutVoice(v, last) {
+    const rec = v.rec; if (!rec) return;
+    const send = v.voiced >= VOICE_MIN;
+    const meta = { pid: v.pid, t0: v.t0, t1: Date.now(), lvl: v.voiced ? v.lvl / v.voiced : 0, n: send ? this.vN++ : -1, epoch: this.vEpoch };
+    rec.onstop = () => { if (send) this.sendVoice(new Blob(rec._parts, { type: this.vMime }), meta); };
+    try { rec.stop(); } catch {}
+    v.rec = null;
+    if (!last && this.mr) { try { this.startVoice(v); } catch {} }
+  }
+
+  closeVoice(v, flush) {
+    if (flush) this.cutVoice(v, true);
+    else if (v.rec) { v.rec.onstop = null; try { v.rec.stop(); } catch {} v.rec = null; }
+    try { v.src.disconnect(); v.an.disconnect(); v.mute.disconnect(); } catch {}
+  }
+
+  sendVoice(blob, m) {
+    if (blob.size < 800) return;
+    const ext = this.vMime.includes('mp4') ? 'mp4' : 'webm';
+    this.stats.voice = (this.stats.voice || 0) + 1;
+    const put = async () => {
+      for (let i = 0; i < 6; i++) {
+        try {
+          const r = await fetch(`/api/meet/meetings/${this.MID}/rec/voice/${m.epoch}/${m.n}?pid=${this.S.me.pid}`, { method: 'PUT', headers: { 'x-spk': m.pid, 'x-start': String(m.t0), 'x-end': String(m.t1), 'x-ext': ext, 'x-lvl': m.lvl.toFixed(5) }, body: blob, credentials: 'same-origin' });
+          if (r.ok || r.status === 403) return;
+        } catch { /* retry */ }
+        await new Promise((res) => setTimeout(res, 800 * (i + 1)));
+      }
+    };
+    this.aq = this.aq.then(put);
   }
 
   stopPieces() {
-    if (this.arTimer) clearTimeout(this.arTimer);
-    this.arTimer = null;
-    const r = this.ar; this.ar = null;
-    if (r && r.state !== 'inactive') { r._who = r._who || this.dominant(); try { r.stop(); } catch {} }
+    const vs = this.voices; this.voices = null;
+    if (vs) for (const v of vs.values()) this.closeVoice(v, true);
   }
 
   piece(e) {
@@ -222,10 +271,6 @@ export class Recorder {
 
   // ---- standby and takeover, driven by the sync
   async onSync(rec, people) {
-    // A tick where someone else was flagged as speaking counts for them; the recorder's own microphone also picks up their sound from the speakers, so it only counts when nobody else was flagged.
-    let remote = false;
-    if (this.mr) for (const p of people) if (p.speaking) { remote = true; this.tally.set(p.name, (this.tally.get(p.name) || 0) + 1); }
-    if (this.mr && !remote && this.S.lvl > 12 && this.S.mic) this.tally.set(this.S.me.name, (this.tally.get(this.S.me.name) || 0) + 1);
     if (!rec || !rec.active) { if (this.warm && !this.mr) this.teardown(); return; }
     const me = this.S.me.pid;
     if (this.mr && rec.owner !== me) { this.lostOwnership(); }

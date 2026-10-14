@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS hub_meeting_lines (
   t INTEGER NOT NULL,                     -- seconds from the start of the meeting
   who TEXT NOT NULL DEFAULT '',
   text TEXT NOT NULL,
+  lvl REAL NOT NULL DEFAULT 0,            -- speech level of a per-person piece (db/meetings-voice.sql); 0 for mixed slices
   PRIMARY KEY (meeting_id, n)
 );
 
@@ -177,4 +178,19 @@ CREATE TABLE IF NOT EXISTS hub_meeting_guest_rate (
   minute INTEGER NOT NULL,
   n INTEGER NOT NULL,
   PRIMARY KEY (ip, minute)
+);
+
+CREATE TABLE IF NOT EXISTS hub_meeting_voice (
+  meeting_id TEXT NOT NULL,
+  epoch INTEGER NOT NULL,
+  n INTEGER NOT NULL,
+  spk_pid TEXT NOT NULL DEFAULT '',
+  who TEXT NOT NULL DEFAULT '',
+  lvl REAL NOT NULL DEFAULT 0,
+  start_ms INTEGER NOT NULL,
+  end_ms INTEGER NOT NULL DEFAULT 0,
+  bytes INTEGER NOT NULL,
+  ext TEXT NOT NULL DEFAULT 'webm',
+  status TEXT NOT NULL DEFAULT 'new',
+  PRIMARY KEY (meeting_id, epoch, n)
 );

@@ -209,10 +209,44 @@ export function dedupeLines<T extends { t: number; text: string }>(lines: T[], w
   const out: T[] = [];
   for (const l of [...lines].sort((a, b) => a.t - b.t)) {
     const n = norm(l.text);
-    if (n && out.some((k) => l.t - k.t <= window && l.t - k.t >= 0 && norm(k.text) === n)) continue;
+    // Two people can say the same short thing ("Yes.") in one stretch: lines already named for different people both stay.
+    const who = (l as { who?: string }).who || '';
+    if (n && out.some((k) => l.t - k.t <= window && l.t - k.t >= 0 && norm(k.text) === n && !(who && (k as { who?: string }).who && (k as { who?: string }).who !== who))) continue;
     out.push(l);
   }
   return out;
+}
+
+const words = (t: string) => new Set(norm(t).split(' ').filter(Boolean));
+
+/** True when two lines carry the same words, allowing Whisper to hear a word or two differently on each copy. */
+export function sameWords(a: string, b: string): boolean {
+  const A = words(a), B = words(b);
+  if (!A.size || !B.size) return false;
+  let both = 0;
+  for (const w of A) if (B.has(w)) both++;
+  return both / Math.min(A.size, B.size) >= 0.7 && both / Math.max(A.size, B.size) >= 0.5;
+}
+
+export const BLEED_SEC = 2.5;
+export interface VoiceLine { t: number; text: string; who: string; lvl: number }
+
+/**
+ * Speaker bleed: one person's voice picked up by another person's microphone shows up as the same words, at the same moment,
+ * under a second name. Of two such lines within BLEED_SEC the louder one is the person who spoke; the quieter copy is dropped.
+ * Lines without a level (from the old mixed slices) are never dropped by this rule.
+ */
+export function dropBleed<T extends VoiceLine>(lines: T[]): T[] {
+  const sorted = [...lines].sort((a, b) => a.t - b.t);
+  const gone = new Set<number>();
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length && sorted[j].t - sorted[i].t <= BLEED_SEC; j++) {
+      const a = sorted[i], b = sorted[j];
+      if (gone.has(i) || gone.has(j) || !a.lvl || !b.lvl || !a.who || !b.who || a.who === b.who || !sameWords(a.text, b.text)) continue;
+      gone.add(a.lvl >= b.lvl ? j : i);
+    }
+  }
+  return sorted.filter((_, i) => !gone.has(i));
 }
 
 /** The one person in the room during a slice, when the recorder could not tell who spoke and only one person was there. */
@@ -255,6 +289,52 @@ export async function transcribeRow(env: MeetEnv, m: Pick<Meeting, 'id' | 'start
   return lines.length;
 }
 
+export interface VoiceRow { epoch: number; n: number; spk_pid: string; who: string; lvl: number; start_ms: number; end_ms: number; ext: string; bytes: number }
+
+/**
+ * One person's own sound, cut by the recorder at pauses in their speech, through Whisper into lines under that person's name.
+ * The recorder gets each person's microphone as a separate track, so the name comes from the track and not from a guess.
+ */
+export async function transcribeVoice(env: MeetEnv, m: Pick<Meeting, 'id' | 'started_at' | 'created_at'>, v: VoiceRow): Promise<number> {
+  const key = `meet/${m.id}/voice/${v.epoch}-${v.n}.${v.ext}`;
+  const obj = await env.CLIPS.get(key);
+  const lines: Line[] = [];
+  if (obj && v.bytes < 24 * 1024 * 1024) {
+    const ai = aiFor(env.AI, 'meet-notes') as { run(model: string, input: unknown, meta?: { audioSec?: number }): Promise<unknown> } | undefined;
+    if (!ai) throw new Error('no ai binding');
+    const res = (await ai.run(WHISPER, { audio: b64(new Uint8Array(await obj.arrayBuffer())), initial_prompt: VERBATIM_PROMPT, condition_on_previous_text: false }, { audioSec: Math.max(1, ((v.end_ms || v.start_ms + 5000) - v.start_ms) / 1000) })) as { text?: string; segments?: Array<{ start?: number; text?: string; no_speech_prob?: number }> };
+    const base = (v.start_ms - Date.parse(m.started_at || m.created_at)) / 1000;
+    const ghost = /^(thanks for watching|thank you for watching|thank you\.?|you\.?|bye\.?|\.+)$/i;
+    const segs = (res.segments || []).filter((s) => (s.text || '').trim() && !(typeof s.no_speech_prob === 'number' && s.no_speech_prob > 0.9) && !ghost.test(String(s.text).trim()));
+    for (const s of segs) lines.push({ t: Math.max(0, Math.round(base + (Number(s.start) || 0))), text: plain(s.text, 600) });
+    if (!lines.length && res.text && !ghost.test(res.text.trim())) lines.push({ t: Math.max(0, Math.round(base)), text: plain(res.text, 2000) });
+  }
+  let kept: VoiceLine[] = [];
+  if (lines.length) {
+    const who = plain(v.who, 80);
+    const lvl = Math.max(0.0001, Number(v.lvl) || 0.0001);
+    const lo = Math.min(...lines.map((l) => l.t)) - 10;
+    type Prior = VoiceLine & { n: number; old: boolean };
+    const prior: Prior[] = ((await env.DB.prepare('SELECT n, t, who, text, lvl FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ?').bind(m.id, lo).all<VoiceLine & { n: number }>()).results || []).map((p) => ({ ...p, who: p.who || '', lvl: Number(p.lvl) || 0, old: true }));
+    const mine: Prior[] = lines.map((l) => ({ ...l, who, lvl, n: 0, old: false }));
+    // The same words from this person a moment ago (a pause cut inside a sentence) are read once.
+    const fresh = dedupeLines([...prior, ...mine]).filter((l) => !l.old);
+    // Bleed: a stored line under another name with these words, within a couple of seconds. The louder copy keeps the words.
+    const survive = dropBleed([...prior, ...fresh]);
+    const lost = prior.filter((p) => p.lvl && !survive.some((x) => x.old && x.n === p.n));
+    kept = survive.filter((l) => !l.old);
+    if (lost.length) await env.DB.batch(lost.map((p) => env.DB.prepare('DELETE FROM hub_meeting_lines WHERE meeting_id = ? AND n = ?').bind(m.id, p.n)));
+    if (kept.length) {
+      const last = await env.DB.prepare('SELECT COALESCE(MAX(n), 0) AS n FROM hub_meeting_lines WHERE meeting_id = ?').bind(m.id).first<{ n: number }>();
+      let n = (last?.n || 0) + 1;
+      await env.DB.batch(kept.map((l) => env.DB.prepare('INSERT INTO hub_meeting_lines (meeting_id, n, t, who, text, lvl) VALUES (?, ?, ?, ?, ?, ?)').bind(m.id, n++, l.t, l.who, l.text, l.lvl)));
+    }
+  }
+  await env.DB.prepare(`UPDATE hub_meeting_voice SET status = 'done' WHERE meeting_id = ? AND epoch = ? AND n = ?`).bind(m.id, v.epoch, v.n).run();
+  await env.CLIPS.delete(key);
+  return kept.length;
+}
+
 /** Slices still waiting at the end of a meeting. When none are left the lines are joined into the meeting's transcript. */
 export async function pumpTranscript(env: MeetEnv, m: Meeting): Promise<{ done: boolean; progress: string }> {
   const next = await env.DB.prepare(`SELECT * FROM hub_meeting_audio WHERE meeting_id = ? AND status = 'new' ORDER BY epoch, n LIMIT 1`).bind(m.id).first<{ epoch: number; n: number; start_ms: number; ext: string; bytes: number }>();
@@ -262,8 +342,14 @@ export async function pumpTranscript(env: MeetEnv, m: Meeting): Promise<{ done: 
     await transcribeRow(env, m, next);
     return { done: false, progress: `piece ${next.epoch}.${next.n}` };
   }
-  const all = await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(m.id).all<Line>();
-  const lines = dedupeLines(all.results || []);
+  const voice = await env.DB.prepare(`SELECT * FROM hub_meeting_voice WHERE meeting_id = ? AND status = 'new' ORDER BY start_ms LIMIT 1`).bind(m.id).first<VoiceRow>();
+  if (voice) {
+    await transcribeVoice(env, m, voice);
+    return { done: false, progress: `voice ${voice.epoch}.${voice.n}` };
+  }
+  const all = await env.DB.prepare('SELECT t, who, text, lvl FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(m.id).all<Line & { lvl: number }>();
+  // Each person's lines merged by time; bleed copies that two live reads stored at once are settled here.
+  const lines: Line[] = dedupeLines(dropBleed((all.results || []).map((l) => ({ ...l, who: l.who || '', lvl: Number(l.lvl) || 0 })))).map(({ t, who, text }) => (who ? { t, who, text } : { t, text }));
   await env.DB.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').bind(JSON.stringify(lines), m.id).run();
   m.transcript = JSON.stringify(lines);
   return { done: true, progress: 'read' };
