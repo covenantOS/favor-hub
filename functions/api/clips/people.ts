@@ -2,6 +2,7 @@
 // never a blocked account or a field account.
 import { handleError, json } from '../../_lib/http';
 import { staffOrError, type ClipsEnv } from '../../_lib/clips';
+import { notTesterSql } from '../../_lib/testuser';
 
 export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) => {
   try {
@@ -15,7 +16,7 @@ export const onRequestGet: PagesFunction<ClipsEnv> = async ({ request, env }) =>
          SELECT lower(u.email) AS email, COALESCE(NULLIF(u.name, ''), u.email) AS name FROM hub_users u WHERE u.blocked = 0 AND u.role <> 'field' AND (lower(u.email) LIKE ?1 OR lower(u.name) LIKE ?1)
          UNION ALL
          SELECT lower(d.email), COALESCE(NULLIF(d.name, ''), d.email) FROM meet_directory d WHERE d.active = 1 AND (lower(d.email) LIKE ?1 OR lower(d.name) LIKE ?1)
-       ) WHERE email <> ?2 AND email NOT IN (SELECT lower(email) FROM hub_users WHERE blocked = 1) GROUP BY email ORDER BY name LIMIT 8`
+       ) WHERE email <> ?2 AND ${notTesterSql('email')} AND email NOT IN (SELECT lower(email) FROM hub_users WHERE blocked = 1) GROUP BY email ORDER BY name LIMIT 8`
     ).bind(pat, who.user.email.toLowerCase()).all<{ email: string; name: string }>();
     return json({ ok: true, people: r.results || [] }, 200, { 'Cache-Control': 'private, no-store' });
   } catch (err) {
