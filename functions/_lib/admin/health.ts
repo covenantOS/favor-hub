@@ -207,7 +207,7 @@ async function jobsProbe(env: Env, now: number): Promise<Item> {
     : none
       ? `${none} of ${rest.length} jobs have no run recorded yet`
       : 'Every job ran on time';
-  return { id: 'jobs', label: 'Scheduled jobs', status: worst(rest.map((j) => j.status === 'unknown' ? 'late' : j.status)), at: rest.map((j) => j.at).filter((x): x is string => !!x).sort().slice(-1)[0] || null, detail, parts };
+  return { id: 'jobs', label: 'Scheduled jobs', status: rest.some((j) => j.status === 'failed') ? 'failed' : rest.some((j) => j.status === 'late') ? 'late' : 'ok', at: rest.map((j) => j.at).filter((x): x is string => !!x).sort().slice(-1)[0] || null, detail, parts };
 }
 
 /** The production smoke check: sign-in page, key APIs, Favor Brain and the meeting connection, every 30 minutes. */
