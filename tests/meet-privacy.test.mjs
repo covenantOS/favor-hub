@@ -28,6 +28,7 @@ async function world(ai) {
   d1.exec(read('db/meetings.sql'));
   d1.exec(read('db/meetings-auto.sql'));
   d1.exec(read('db/meetings-privacy.sql'));
+  d1.exec(read('db/meetings-trim.sql'));
   d1.exec(read('db/projects.sql'));
   d1.exec(read('db/favor-chat.sql'));
   d1.exec(read('db/favor-chat-private.sql'));

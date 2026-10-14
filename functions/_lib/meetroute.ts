@@ -14,7 +14,8 @@ import { sendMail } from './notify/send';
 import { parseRange, type Clip, type ClipsEnv } from './clips';
 import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
-import { closePrivate, cutSection, deleteRecording, fixSpeaker, privacyOf, setPrivate } from './meetprivacy';
+import { closePrivate, cutSection, deleteRecording, fixSpeaker, forgetFiles, overlapsPause, privacyOf, setPrivate } from './meetprivacy';
+import { pumpTrim } from './meettrim';
 import { HUB, sharedDevices, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, transcribeVoice, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
 import { sendLink, sendState, setMyPhone, textSoon, type SendDeps } from './meetsend';
@@ -994,13 +995,13 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     const r = await env.DB.prepare('SELECT epoch FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number }>();
     if (!r || r.epoch < epoch) throw new HttpError(403, 'not_owner', 'Another person is recording.');
     // A private moment: the slice is thrown away unread, so nothing said now reaches the transcript or the notes.
-    if ((mt as { private_on?: number }).private_on) return json({ ok: true, lines: 0, private: true });
+    const start = Number(request.headers.get('x-start')) || now;
+    const end = Number(request.headers.get('x-end')) || now;
+    if ((mt as { private_on?: number }).private_on || (await overlapsPause(env, mt, start, end))) return json({ ok: true, lines: 0, private: true });
     const data = await request.arrayBuffer();
     if (data.byteLength > 20 * 1024 * 1024) throw new HttpError(413, 'too_big', 'Piece too large.');
     const ext = (request.headers.get('x-ext') || 'webm') === 'mp4' ? 'mp4' : 'webm';
     await env.CLIPS.put(`meet/${id}/audio/${epoch}-${n}.${ext}`, data);
-    const start = Number(request.headers.get('x-start')) || now;
-    const end = Number(request.headers.get('x-end')) || now;
     await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_audio (meeting_id, epoch, n, start_ms, end_ms, bytes, ext) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(id, epoch, n, start, end, data.byteLength, ext).run();
     // Read the slice now, so captions and "what did I miss" are only seconds behind. A failure leaves the slice for the end-of-meeting pass.
     let lines = 0;
@@ -1030,7 +1031,8 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     if (!Number.isInteger(epoch) || !Number.isInteger(n) || epoch < 1 || n < 0 || n > 200000) throw new HttpError(400, 'bad_chunk', 'Bad piece.');
     const r = await env.DB.prepare('SELECT epoch, owner_pid FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string }>();
     if (!r || r.epoch < epoch || (r.epoch === epoch && r.owner_pid !== pid)) throw new HttpError(403, 'not_owner', 'Another person is recording.');
-    if ((mt as { private_on?: number }).private_on) return json({ ok: true, lines: 0, private: true });
+    // A pause: the piece is thrown away unread, including a piece that began before Pause and arrived after Resume.
+    if ((mt as { private_on?: number }).private_on || (await overlapsPause(env, mt, Number(request.headers.get('x-start')) || now, Number(request.headers.get('x-end')) || now))) return json({ ok: true, lines: 0, private: true });
     const data = await request.arrayBuffer();
     if (data.byteLength > 20 * 1024 * 1024) throw new HttpError(413, 'too_big', 'Piece too large.');
     const spk = clean(request.headers.get('x-spk') || '', 64);
@@ -1064,15 +1066,15 @@ async function rec(env: MeetEnv, user: { email: string }, id: string, sub: strin
     const r = await env.DB.prepare('SELECT epoch, owner_pid FROM hub_meeting_rec WHERE meeting_id = ?').bind(id).first<{ epoch: number; owner_pid: string }>();
     if (!r || r.epoch < epoch || (r.epoch === epoch && r.owner_pid !== pid)) throw new HttpError(403, 'not_owner', 'Another person is recording.');
     // A private moment: the piece is not kept (the first piece of a recording holds its header and is kept). The heartbeat still counts.
-    if ((mt as { private_on?: number }).private_on && seq > 0) {
+    const t0 = Number(request.headers.get('x-t0')) || now;
+    const t1 = Number(request.headers.get('x-t1')) || now;
+    if (seq > 0 && ((mt as { private_on?: number }).private_on || (await overlapsPause(env, mt, t0, t1)))) {
       if (r.epoch === epoch) await env.DB.prepare('UPDATE hub_meeting_rec SET last_chunk = ? WHERE meeting_id = ?').bind(now, id).run();
       return json({ ok: true, private: true });
     }
     const data = await request.arrayBuffer();
     if (data.byteLength > 6 * 1024 * 1024) throw new HttpError(413, 'too_big', 'Chunk too large.');
     await env.CLIPS.put(`meet/${id}/${epoch}/${String(seq).padStart(6, '0')}.webm`, data);
-    const t0 = Number(request.headers.get('x-t0')) || now;
-    const t1 = Number(request.headers.get('x-t1')) || now;
     await env.DB.prepare('INSERT OR REPLACE INTO hub_meeting_chunks (meeting_id, epoch, seq, t0, t1, bytes) VALUES (?, ?, ?, ?, ?, ?)').bind(id, epoch, seq, t0, t1, data.byteLength).run();
     if (r.epoch === epoch) await env.DB.prepare('UPDATE hub_meeting_rec SET last_chunk = ? WHERE meeting_id = ?').bind(now, id).run();
     return json({ ok: true });
@@ -1091,13 +1093,14 @@ async function notesMeeting(env: MeetEnv, user: { email: string; role: string },
 
 async function notesOf(env: MeetEnv, user: { email: string; role: string }, id: string) {
   const m = await notesMeeting(env, user, id);
-  const files = await env.DB.prepare(`SELECT epoch, file_id, file_name FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch`).bind(id).all<{ epoch: number; file_id: string; file_name: string }>();
+  const files = await env.DB.prepare(`SELECT epoch, file_id, file_name, trims FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch`).bind(id).all<{ epoch: number; file_id: string; file_name: string; trims?: string }>()
+    .catch(() => env.DB.prepare(`SELECT epoch, file_id, file_name FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch`).bind(id).all<{ epoch: number; file_id: string; file_name: string; trims?: string }>());
   return {
     ok: true,
     meeting: publicMeeting(m, user),
     notes: safeJson(m.notes_json, {}),
     transcript: dedupeLines(m.status === 'ended' && m.transcript && m.transcript !== '[]' ? safeJson<Array<{ t: number; who?: string; text: string }>>(m.transcript, []) : (((await env.DB.prepare('SELECT t, who, text FROM hub_meeting_lines WHERE meeting_id = ? ORDER BY t, n').bind(id).all<{ t: number; who: string; text: string }>()).results || []))),
-    files: (files.results || []).map((f) => ({ id: f.file_id, name: f.file_name, kind: m.rec_mode === 'video' ? 'video' : 'audio', src: `/api/meet/meetings/${id}/media/${f.epoch}`, url: `https://drive.google.com/file/d/${f.file_id}/view` })),
+    files: (files.results || []).map((f) => ({ id: f.file_id, name: f.file_name, kind: m.rec_mode === 'video' ? 'video' : 'audio', src: `/api/meet/meetings/${id}/media/${f.epoch}${f.trims && f.trims !== '[]' ? '?v=' + safeJson<unknown[]>(f.trims, []).length : ''}`, url: `https://drive.google.com/file/d/${f.file_id}/view` })),
     doc: m.notes_doc_id ? { id: m.notes_doc_id, url: `https://docs.google.com/document/d/${m.notes_doc_id}/edit` } : null,
     actions: (await env.DB.prepare('SELECT idx, text, owner_name, owner_email, due, t, done FROM hub_meeting_actions WHERE meeting_id = ? ORDER BY idx').bind(id).all()).results || [],
     people: (await env.DB.prepare('SELECT lower(email) AS email, MIN(name) AS name FROM hub_meeting_presence WHERE meeting_id = ? GROUP BY lower(email) ORDER BY MIN(joined_at)').bind(id).all<{ email: string; name: string }>()).results || [],
@@ -1230,6 +1233,12 @@ async function pumpStep(env: MeetEnv, m: Meeting) {
       if (r.done) await env.DB.prepare(`UPDATE hub_meetings SET rec_state = 'stored' WHERE id = ?`).bind(id).run();
       return { ok: true, done: false, state: 'uploading', progress: r.progress };
     }
+    if (m.rec_state === 'trimming') {
+      // A host cut a stretch: the Drive files are written again without it (meettrim.ts).
+      const r = await timed(env, id, 'trim', () => pumpTrim(denv, m, { forget: (ids) => forgetFiles(denv as never, ids) }));
+      if (r.done) await env.DB.prepare(`INSERT INTO hub_meeting_events (meeting_id, kind, body, ts) VALUES (?, 'notice', ?, ?)`).bind(id, JSON.stringify({ a: 'trimmed', files: (r.finished || []).length }), Date.now()).run();
+      return { ok: true, done: r.done, state: r.done ? 'stored' : 'trimming', progress: r.progress };
+    }
     if (m.notes_status === 'pending' || (m.notes_status as string) === 'redo') {
       const redo = (m.notes_status as string) === 'redo';
       const t = await timed(env, id, 'whisper', () => pumpTranscript(env, m));
@@ -1286,7 +1295,7 @@ async function pumpNext(env: MeetEnv, user: { email: string; role: string }) {
   await endStaleMeetings(env);
   const me = user.email.toLowerCase();
   const row = await env.DB.prepare(
-    `SELECT id FROM hub_meetings WHERE status = 'ended' AND (rec_state = 'uploading' OR notes_status = 'pending')
+    `SELECT id FROM hub_meetings WHERE status = 'ended' AND (rec_state IN ('uploading', 'trimming') OR notes_status = 'pending')
        AND (lower(host_email) = ? OR ? = 'admin' OR lower(invitees) LIKE '%' || ? || '%' OR access = 'staff')
      ORDER BY ended_at LIMIT 1`
   ).bind(me, user.role, me).first<{ id: string }>();

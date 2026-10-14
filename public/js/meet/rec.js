@@ -142,7 +142,8 @@ export class Recorder {
     } else mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
     if (!mime) { this.toast('This browser cannot record. Ask another host to record.'); return; }
     this.epoch = epoch; this.seq = 0; this.lastAt = Date.now();
-    this.mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 900000, audioBitsPerSecond: 64000 });
+    // A keyframe every 2 seconds where the browser allows it, so a stretch cut from the video later ends within 2 seconds of where the host asked.
+    this.mr = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 900000, audioBitsPerSecond: 64000, videoKeyFrameIntervalDuration: 2000 });
     this.mr.ondataavailable = (e) => this.piece(e);
     this.mr.start(1000);
     this.startPieces(epoch);
@@ -163,6 +164,8 @@ export class Recorder {
   // Called every 100 ms while this browser records.
   voiceTick() {
     if (!this.mr || !this.vMime || !this.voices || !this.actx) return;
+    // Recording paused: each person's piece so far is sent (the server drops it if it reaches into the pause) and no new piece starts.
+    if (this.S.private) { for (const v of this.voices.values()) if (v.rec) this.cutVoice(v, true); return; }
     const { remote, local } = this.getInput();
     const want = new Map();
     for (const [key, r] of remote) {
@@ -175,6 +178,7 @@ export class Recorder {
     for (const [k, w] of want) if (!this.voices.has(k)) { const v = this.openVoice(w.pid, w.track); if (v) this.voices.set(k, v); }
     const now = Date.now();
     for (const v of this.voices.values()) {
+      if (!v.rec) { try { this.startVoice(v); } catch { continue; } } // after Resume
       v.an.getFloatTimeDomainData(v.buf);
       let sq = 0; for (let i = 0; i < v.buf.length; i++) sq += v.buf[i] * v.buf[i];
       const rms = Math.sqrt(sq / v.buf.length);

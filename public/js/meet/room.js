@@ -676,7 +676,17 @@ function paintBar() {
   const secs = Math.floor(((Date.now() - S.started) / 1000) % 60);
   const rec = r && r.active ? (r.mode === 'video' ? `<span class="rm-rec"><i></i>Recording</span>` : `<span class="rm-rec is-notes"><i></i>Notes on</span>`) : (m.rec !== 'off' ? `<span class="rm-rec is-notes"><i></i>${!r && Date.now() - S.started < 10000 ? 'Starting' : m.rec === 'video' ? 'Recording off' : 'Notes off'}</span>` : '');
   const lv = S.level === 'good' ? 'Connection good' : S.level === 'fair' ? 'Connection fair' : 'Connection weak';
-  el.innerHTML = `<b>${esc(m.title)}</b>${rec}<span id="rm-clock">${mins}:${String(secs).padStart(2, '0')}</span>${S.locked ? `<span class="mt-pill mt-pill--gold" style="height:22px">${ic('lock')}Locked</span>` : ''}<span class="rm-net is-${S.level}" style="margin-left:auto" title="${esc(netDetail())}">${ic('wifi')}${lv}${rtc && rtc.stats.relay ? ' (relay)' : ''}</span>`;
+  // Pause recording (it was called Private moment): everyone sees Recording paused; a host or cohost pauses and resumes from here.
+  const paused = !!S.private && m.rec !== 'off';
+  const pill = paused ? `<span class="rm-rec is-paused" role="status">${ic('pause')}Recording paused</span>` : rec;
+  const pauseBtn = hostish() && m.rec !== 'off' && (paused || (r && r.active)) ? `<button class="rm-pause" data-a="private" aria-pressed="${paused}">${ic(paused ? 'rec' : 'pause')}${paused ? 'Resume recording' : 'Pause recording'}</button>` : '';
+  // The bar is drawn again only when something other than the clock changed, so a tap on Pause recording is never lost to the
+  // once a second repaint.
+  const clockText = `${mins}:${String(secs).padStart(2, '0')}`;
+  const html = `<b>${esc(m.title)}</b>${pill}${pauseBtn}<span id="rm-clock"></span>${S.locked ? `<span class="mt-pill mt-pill--gold" style="height:22px">${ic('lock')}Locked</span>` : ''}<span class="rm-net is-${S.level}" style="margin-left:auto">${ic('wifi')}${lv}${rtc && rtc.stats.relay ? ' (relay)' : ''}</span>`;
+  if (el._html !== html) { el.innerHTML = html; el._html = html; }
+  const ck = el.querySelector('#rm-clock'); if (ck) ck.textContent = clockText;
+  const nt = el.querySelector('.rm-net'); if (nt) nt.title = netDetail();
   const b = $('#rm-banner');
   if (b) b.innerHTML = (S.soundBlocked ? `<div class="banner warn">${ic('speaker')}<span>The browser paused the sound of this call.</span><button class="h-btn h-btn--primary h-btn--sm" data-a="sound-on">Turn on sound</button></div>` : '') + micIssueHTML() + (S.conn === 'drop' ? `<div class="banner">${ic('wifi')}Your connection dropped. Reconnecting.${S.recording && S.recording.active ? ' The recording keeps going.' : ''}</div>` : S.conn === 'back' ? `<div class="banner ok">${ic('check')}You are back.${S.missedSec > 3 ? ` You missed ${Math.round(S.missedSec)} seconds.` : ''}</div>` : '');
 }
@@ -1357,7 +1367,7 @@ async function paintMore() {
     document.fullscreenEnabled ? row('fullscreen', 'expand', 'Full screen', '') : '',
     GUEST ? '' : row('copylink', 'link', 'Copy meeting link', ''),
     mayPlay() ? row('playclip', 'screen', 'Play a video for everyone', S.play ? 'On' : '') : '',
-    h ? row('private', 'lock', S.private ? 'End private moment' : 'Private moment', S.private ? 'On' : '') : '',
+    h && S.meeting.rec !== 'off' ? row('private', S.private ? 'rec' : 'pause', S.private ? 'Resume recording' : 'Pause recording', S.private ? 'Paused' : '') : '',
     row('withme', 'users', "Someone's with me", S.myWith.length ? String(S.myWith.length) : ''),
     row('devmenu', 'gear', 'Camera, microphone and speaker', ''),
   ].join('');
@@ -1396,7 +1406,7 @@ const linkify = (t) => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" tar
 const invRow = (r) => `<div class="rm-inv__r is-${r.status}"><span>${esc(r.to)}</span><b>${r.status === 'failed' ? 'Failed' : r.status === 'dry' ? 'Checked' : 'Sent'}</b>${r.detail && r.status !== 'sent' ? `<i>${esc(r.detail)}</i>` : ''}</div>`;
 // The box and its input are drawn once; only the suggestions and results under it change, so typing is never interrupted.
 const invShell = () => (!hostish() ? '' : `<div class="rm-inv"><div class="rm-inv__t">Invite</div><div class="rm-input rm-inv__row"><input id="invin" placeholder="Name, email or phone" maxlength="200" autocomplete="off" autocapitalize="off" enterkeyhint="send" /><button class="icb send" id="invgo" data-a="invite" aria-label="Send invitation">${ic('send')}</button></div><div id="inv-extra"></div></div>
-    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-favor-send="${MID}">${ic('send')}Send the link</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">${ic('lock')}${S.private ? 'End private moment' : 'Private moment'}</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`);
+    <div class="rm-foot"><button class="h-btn h-btn--ghost h-btn--sm" data-favor-send="${MID}">${ic('send')}Send the link</button><button class="h-btn h-btn--ghost h-btn--sm" data-a="copylink">${ic('link')}Copy meeting link</button>${S.guestsEnabled ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="guestlink">${ic('link')}Copy guest link</button>` : ''}${S.meeting.rec !== 'off' ? `<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">${ic(S.private ? 'rec' : 'pause')}${S.private ? 'Resume recording' : 'Pause recording'}</button>` : ''}<button class="h-btn h-btn--ghost h-btn--sm" data-a="endall" style="color:#8a3f24">End for everyone</button></div>`);
 const invExtra = () => {
   const v = S.inv; const pick = v.matches.length ? v.matches : v.sugg;
   return (pick.length ? `<div class="rm-inv__s">${pick.map((p) => `<button data-a="invite-pick" data-v="${esc(p.email)}">${esc(p.name)}</button>`).join('')}</div>` : '') + v.rows.slice(0, 6).map(invRow).join('');
@@ -1912,7 +1922,7 @@ function applySync(r) {
   { const mine = r.people.find((p) => p.pid === S.me.pid); if (mine && Array.isArray(mine.with) && JSON.stringify(mine.with) !== JSON.stringify(S.myWith)) { S.myWith = mine.with; if (S.withPick) paintWith(); if (S.more) paintMore(); } }
   S.spot = r.meeting.spot; S.locked = r.meeting.locked; S.sharePolicy = r.meeting.sharePolicy;
   S.meeting.status = r.meeting.status;
-  if (!!r.meeting.private !== !!S.private) { S.private = !!r.meeting.private; paintPriv(); if (S.more) paintMore(); paintFoot(); }
+  if (!!r.meeting.private !== !!S.private) { S.private = !!r.meeting.private; paintPriv(); paintBar(); if (S.more) paintMore(); paintFoot(); }
   S.recording = r.recording;
   // Lines are stamped when they arrive. The first sync brings the transcript so far, which is history, not a caption.
   for (const l of r.lines || []) { l.at = S.capPrimed ? Date.now() : 0; S.lines.push(l); S.tx = l.n; if (S.capPrimed) S.notesHeldAt = 0; }
@@ -1988,8 +1998,8 @@ function handleEvent(e) {
     else if (b.a === 'joined' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' joined');
     else if (b.a === 'with' && e.from !== S.me.pid && S.people.length < 12) toast(b.name + ' is with ' + b.host);
     else if (b.a === 'acting' && b.pid === S.me.pid) toast('You are now a host because no host is in the room');
-    else if (b.a === 'private-on') { S.private = true; paintPriv(); toast('Private moment. Nothing is recorded or written down.'); }
-    else if (b.a === 'private-off') { S.private = false; paintPriv(); toast('Notes and recording are back on'); }
+    else if (b.a === 'private-on') { S.private = true; paintPriv(); paintBar(); if (S.more) paintMore(); toast('Recording paused. Nothing is recorded, transcribed or written down.'); }
+    else if (b.a === 'private-off') { S.private = false; paintPriv(); paintBar(); if (S.more) paintMore(); toast('Recording resumed'); }
     else if (b.a === 'notes-held') { S.notesHeldAt = e.ts || Date.now(); paintCap(); if (S.panel === 'notes') paintSideBody(false); }
   }
 }
@@ -2248,18 +2258,18 @@ async function toggleRecording() {
 window.__meet = { S, tiles, get view() { return { V, R, L: lastLayout }; }, get rtc() { return rtc; }, get fx() { return cfx; }, get vfx() { return vfx; }, reconcile, rejoin };
 
 // ---------------------------------------------------------------- captions
-// ---- private moment: a host pauses the notes and the recording, for prayer or anything personal. The server keeps nothing said
-// while it is on; this banner tells everyone in the room.
+// ---- pause recording (first called private moment): a host or cohost pauses the recording, transcript, captions and notes, for
+// prayer or anything personal. The server keeps nothing said while it is on; this banner tells everyone in the room.
 function paintPriv() {
   const el = $('#rm-priv'); if (!el) return;
   if (!S.private) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="rm-priv" role="status">${ic('lock')}<span><b>Private moment.</b> Nothing is recorded or written down.</span>${hostish() ? '<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">End</button>' : ''}</div>`;
+  el.innerHTML = `<div class="rm-priv" role="status">${ic('pause')}<span><b>Recording paused.</b> Nothing is recorded, transcribed or written down.</span>${hostish() ? '<button class="h-btn h-btn--ghost h-btn--sm" data-a="private">Resume recording</button>' : ''}</div>`;
 }
 async function togglePrivate() {
   const on = !S.private;
   try {
     await api('meetings/' + MID + '/private', { method: 'POST', body: { pid: S.me.pid, on } });
-    S.private = on; paintPriv(); if (S.more) paintMore(); paintFoot();
+    S.private = on; paintPriv(); paintBar(); if (S.more) paintMore(); paintFoot();
   } catch (e) { toast(e.message || 'That did not go through'); }
 }
 

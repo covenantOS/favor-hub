@@ -1,10 +1,12 @@
 // Meetings: keeping private moments out of the record, and taking things out after the call.
-//   Pause      A host turns on "Private moment" in the room. Until it is turned off the hub stores no sound slice and no recording piece,
-//              so nothing said then reaches the transcript, the notes, the recording, the Google Doc or Favor Brain.
+//   Pause      A host or cohost taps Pause recording in the room (first called Private moment). Until Resume the hub stores no sound
+//              slice and no recording piece, and drops any piece that overlaps the pause even when it arrives after Resume, so nothing
+//              said then reaches the transcript, the captions, the notes, the recording, the Google Doc or Favor Brain.
 //   Cut        A host or hub admin removes a stretch of a finished meeting (from one time to another, or to the end). The transcript
 //              lines, live notes, room chat and Brain questions in that stretch go, the action items said there go with the tasks made
 //              from them, the summary and chapters are written again from what is left, the Chat posts are rewritten, the old Google
 //              Doc is taken out of Drive and Favor Brain's index, and a new Doc is made.
+//              The same stretches are cut from the recording in Drive (meettrim.ts), unless the host deletes it or keeps it whole.
 //   Delete     A host or hub admin deletes the recording: every Drive part, any piece still in R2, and the player.
 // History: on 2026-10-14 Danny Avila asked to remove the recording and the prayer requests of the Weekly Marketing Meeting. It took a
 // person working by hand in D1, Drive and the Brain index. These are the tools for that.
@@ -13,6 +15,7 @@ import { getMeeting, isHost, type Meeting, type MeetEnv } from './meet';
 import { dedupeLines, makeNotes, removeDriveFile, type NotesOut, type Shared } from './meetdrive';
 import { MEETINGS_ID } from './chat/text';
 import { summaryBody } from './meetauto';
+import { mergeRanges, queueTrim, trimStatus } from './meettrim';
 
 type User = { email: string; name?: string; role: string };
 type Vec = { deleteByIds(ids: string[]): Promise<unknown> };
@@ -42,7 +45,7 @@ export async function privateNow(env: MeetEnv, id: string): Promise<boolean> {
 
 /** Turns a private moment on or off. hostish is the caller's role in the room (host or made host), checked by the route. */
 export async function setPrivate(env: MeetEnv, user: User, m: Meeting, on: boolean, hostish: boolean, name = '') {
-  if (!hostish && !mayEdit(m, user)) throw new HttpError(403, 'host_only', 'Only a host can pause the notes.');
+  if (!hostish && !mayEdit(m, user)) throw new HttpError(403, 'host_only', 'Only a host can pause the recording.');
   if (m.status !== 'live') throw new HttpError(400, 'not_live', 'The meeting is not running.');
   const t = Math.max(0, Math.round((Date.now() - startOf(m)) / 1000));
   const open = await privateNow(env, m.id);
@@ -57,6 +60,17 @@ export async function setPrivate(env: MeetEnv, user: User, m: Meeting, on: boole
     await notice(env, m.id, { a: 'private-off', name });
   }
   return { ok: true, private: on, t };
+}
+
+/**
+ * True when a piece recorded from startMs to endMs (the recorder's clock) touches a pause, open or closed. A piece that began before
+ * Pause and reached the server after Resume is dropped whole. The recorder's clock may differ from the server's, so a second either
+ * side counts.
+ */
+export async function overlapsPause(env: MeetEnv, m: Pick<Meeting, 'id' | 'started_at' | 'created_at'>, startMs: number, endMs: number): Promise<boolean> {
+  const s = (startMs - startOf(m)) / 1000 - 1, e = (endMs - startOf(m)) / 1000 + 1;
+  const r = await env.DB.prepare('SELECT 1 AS x FROM hub_meeting_private WHERE meeting_id = ? AND from_t < ? AND (to_t IS NULL OR to_t > ?) LIMIT 1').bind(m.id, e, s).first().catch(() => null);
+  return !!r;
 }
 
 /** A meeting that ends during a private moment closes it at the end time. */
@@ -146,27 +160,40 @@ export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<st
   if (!mayEdit(m, user)) throw new HttpError(403, 'host_only', 'Only a host or an admin can cut part of the notes.');
   if (m.status !== 'ended') throw new HttpError(400, 'live', 'End the meeting first.');
   if (String(m.notes_status) === 'pending' || String(m.notes_status) === 'redo') throw new HttpError(409, 'busy', 'The notes are still being made. Try again in a minute.');
-  const from = Math.max(0, Math.round(Number(b.from)));
-  const to = b.to === null || b.to === undefined || b.to === '' ? null : Math.round(Number(b.to));
-  if (!Number.isFinite(from) || (to != null && (!Number.isFinite(to) || to <= from))) throw new HttpError(400, 'bad_range', 'The end has to come after the start.');
+  // One stretch ({ from, to }) or several ({ ranges: [{ from, to }] }, as Keep only sends). Seconds; to null runs to the end.
+  const asked = Array.isArray(b.ranges) ? (b.ranges as Array<Record<string, unknown>>) : [{ from: b.from, to: b.to }];
+  const parsed = asked.map((r) => ({ from: Math.max(0, Math.round(Number(r.from))), to: r.to === null || r.to === undefined || r.to === '' ? null : Math.round(Number(r.to)) }));
+  if (!parsed.length || parsed.length > 20 || parsed.some((r) => !Number.isFinite(r.from) || (r.to != null && (!Number.isFinite(r.to) || r.to <= r.from)))) throw new HttpError(400, 'bad_range', 'The end has to come after the start.');
+  const ranges = mergeRanges(parsed);
+  const recMode = b.recording === 'delete' ? 'delete' : b.recording === 'keep' ? 'keep' : 'trim';
   const id = m.id;
   const t0 = startOf(m);
+  if (recMode === 'trim' && (await trimStatus(env, id)).running) throw new HttpError(409, 'busy', 'The recording is still being cut. Try again when it is done.');
+  const cutAt = (t: number) => ranges.some((r) => inRange(t, r.from, r.to));
+  const from = ranges[0].from;
+  const to = ranges[ranges.length - 1].to;
 
-  // 1. What was said and typed in the stretch.
+  // 1. What was said and typed in the stretches.
   const before = safeJson<Line[]>(m.transcript, []);
-  const kept = before.filter((l) => !inRange(Number(l.t) || 0, from, to));
-  const live = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ? AND (? IS NULL OR t < ?)').bind(id, from, to, to).first<{ n: number }>();
-  const msFrom = t0 + from * 1000, msTo = to == null ? 8.64e15 : t0 + to * 1000;
-  await env.DB.batch([
-    env.DB.prepare('DELETE FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ? AND (? IS NULL OR t < ?)').bind(id, from, to, to),
-    env.DB.prepare('DELETE FROM hub_meeting_live WHERE meeting_id = ? AND t >= ? AND (? IS NULL OR t < ?)').bind(id, from, to, to),
-    env.DB.prepare(`DELETE FROM hub_meeting_events WHERE meeting_id = ? AND kind IN ('brain', 'chat') AND ts >= ? AND ts < ?`).bind(id, msFrom, msTo),
-    env.DB.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').bind(JSON.stringify(kept), id),
-  ]);
+  const kept = before.filter((l) => !cutAt(Number(l.t) || 0));
+  let liveN = 0;
+  const stmts: D1PreparedStatement[] = [];
+  for (const r of ranges) {
+    const live = await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ? AND (? IS NULL OR t < ?)').bind(id, r.from, r.to, r.to).first<{ n: number }>();
+    liveN += live?.n || 0;
+    const msFrom = t0 + r.from * 1000, msTo = r.to == null ? 8.64e15 : t0 + r.to * 1000;
+    stmts.push(
+      env.DB.prepare('DELETE FROM hub_meeting_lines WHERE meeting_id = ? AND t >= ? AND (? IS NULL OR t < ?)').bind(id, r.from, r.to, r.to),
+      env.DB.prepare('DELETE FROM hub_meeting_live WHERE meeting_id = ? AND t >= ? AND (? IS NULL OR t < ?)').bind(id, r.from, r.to, r.to),
+      env.DB.prepare(`DELETE FROM hub_meeting_events WHERE meeting_id = ? AND kind IN ('brain', 'chat') AND ts >= ? AND ts < ?`).bind(id, msFrom, msTo),
+    );
+  }
+  stmts.push(env.DB.prepare('UPDATE hub_meetings SET transcript = ? WHERE id = ?').bind(JSON.stringify(kept), id));
+  await env.DB.batch(stmts);
 
   // 2. Action items said in the stretch, and the tasks made from them. The other items keep their numbers, so their tasks stay linked.
   const acts = (await env.DB.prepare('SELECT idx, t FROM hub_meeting_actions WHERE meeting_id = ?').bind(id).all<{ idx: number; t: number }>()).results || [];
-  const gone = acts.filter((a) => inRange(a.t, from, to)).map((a) => a.idx);
+  const gone = acts.filter((a) => cutAt(a.t)).map((a) => a.idx);
   let tasks = 0;
   if (gone.length) {
     const list = JSON.stringify(gone);
@@ -178,9 +205,9 @@ export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<st
   // 3. The summary, decisions and chapters are written again from what is left; the action items left keep their wording.
   const n0 = safeJson<Partial<NotesOut>>(m.notes_json, {});
   const kept2 = {
-    decisions: (n0.decisions || []).filter((d) => !inRange(d.t, from, to)),
-    actions: (n0.actions || []).filter((a) => !inRange(a.t, from, to)),
-    chapters: (n0.chapters || []).filter((c) => !inRange(c.t, from, to)),
+    decisions: (n0.decisions || []).filter((d) => !cutAt(d.t)),
+    actions: (n0.actions || []).filter((a) => !cutAt(a.t)),
+    chapters: (n0.chapters || []).filter((c) => !cutAt(c.t)),
   };
   let summary = m.summary;
   let rewritten = false;
@@ -204,20 +231,27 @@ export async function cutSection(env: PEnv, user: User, m: Meeting, b: Record<st
   const body2 = summaryBody({ ...m, summary }, kept2, left);
   const posts2 = await env.DB.prepare(`UPDATE chat_messages SET body = ?, edited_at = ? WHERE email = ? AND deleted_at IS NULL AND attachments LIKE ? AND body LIKE 'Notes from %'`).bind(body2, nowIso(), MEETINGS_ID, `%"${id}"%`).run().catch(() => null);
 
-  // 5. The recording, when asked: a recording cannot be trimmed, so it goes whole.
-  let rec: unknown = null;
-  if (b.recording === 'delete') {
-    const fresh = await getMeeting(env, id);
-    if ((await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_drive WHERE meeting_id = ?').bind(id).first<{ n: number }>())?.n || (await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_chunks WHERE meeting_id = ?').bind(id).first<{ n: number }>())?.n) {
-      rec = await deleteRecording(env, user, fresh, {});
+  // 5. The recording. Trim (the default): the same stretches are cut from each Drive file, in place, by the trim job (meettrim.ts),
+  // and a file the stretches cover whole is taken out. Delete: the recording goes whole. Keep: the recording stays as it is.
+  let rec = 'kept';
+  const recRows = async () => ((await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_drive WHERE meeting_id = ?').bind(id).first<{ n: number }>())?.n || 0) + ((await env.DB.prepare('SELECT COUNT(*) AS n FROM hub_meeting_chunks WHERE meeting_id = ?').bind(id).first<{ n: number }>())?.n || 0);
+  if (recMode === 'delete' && (await recRows())) { await deleteRecording(env, user, await getMeeting(env, id), {}); rec = 'deleted'; }
+  if (recMode === 'trim') {
+    const q = await queueTrim(env, await getMeeting(env, id), ranges, user.email);
+    for (const f of q.whole) {
+      const row = await env.DB.prepare('SELECT file_name FROM hub_meeting_drive WHERE meeting_id = ? AND file_id = ?').bind(id, f).first<{ file_name: string }>();
+      await takeOut(env, m, user, f, 'recording', row?.file_name || 'recording');
+      await env.DB.prepare('DELETE FROM hub_meeting_drive WHERE meeting_id = ? AND file_id = ?').bind(id, f).run();
+      await env.DB.prepare(`UPDATE hub_meetings SET drive_file_id = COALESCE((SELECT file_id FROM hub_meeting_drive WHERE meeting_id = ? AND state = 'done' ORDER BY epoch LIMIT 1), '') WHERE id = ? AND drive_file_id = ?`).bind(id, id, f).run();
     }
+    rec = q.queued ? 'trimming' : q.whole.length ? 'deleted' : 'kept';
   }
 
-  const detail = { lines: before.length - kept.length || live?.n || 0, actions: gone.length, tasks, posts: (posts?.meta?.changes || 0) + (posts2?.meta?.changes || 0), rewritten };
-  await logCut(env, id, user, 'cut', from, to, detail);
+  const detail = { lines: before.length - kept.length || liveN, actions: gone.length, tasks, posts: (posts?.meta?.changes || 0) + (posts2?.meta?.changes || 0), rewritten, recording: rec };
+  for (const r of ranges) await logCut(env, id, user, 'cut', r.from, r.to, detail);
   // 6. The Google Doc: the old one is taken out of Drive and Favor Brain, and a new one is made from the notes as they are now.
   const doc = await redoDoc(env, user, await getMeeting(env, id), opts.doc);
-  return { ok: true, ...detail, recording: rec ? 'deleted' : 'kept', doc };
+  return { ok: true, ...detail, ranges, from, to, doc };
 }
 
 // ---------------------------------------------------------------- fix who spoke
@@ -322,6 +356,7 @@ export async function privacyOf(env: PEnv, user: User, m: Meeting, lines: Line[]
     paused: ranges.map((r) => ({ from: r.from_t, to: r.to_t })),
     cuts: cuts.map((c) => ({ kind: c.kind, from: c.from_t, to: c.to_t, by: c.by_email, at: c.at })),
     suggestion: sug && !cutAlready(sug) ? sug : null,
+    trim: await trimStatus(env, m.id),
     toTrash: files.map((f) => ({ id: f.file_id, kind: f.kind, url: f.kind === 'notes' ? `https://docs.google.com/document/d/${f.file_id}/edit` : `https://drive.google.com/file/d/${f.file_id}/view` })),
   };
 }

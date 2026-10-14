@@ -8,8 +8,9 @@ const stamp = (t) => { const s = Math.max(0, Math.floor(Number(t) || 0)), h = Ma
 let data = null, q = '';
 const ask = { q: '', busy: false, answer: null };
 const pt = { busy: '', find: '', hits: [], err: '' };
-// Privacy: remove part of a finished meeting, or delete its recording (host or admin).
-const pv = { open: false, from: '', to: '', delRec: true, busy: false, err: '' };
+// Privacy: remove parts of a finished meeting (or keep only one part), from the notes and the recording, or delete the recording.
+// rows are the parts, as typed (minutes and seconds); cur is the row a tapped transcript time fills.
+const pv = { open: false, mode: 'remove', rows: [{ from: '', to: '' }], cur: 0, rec: 'trim', busy: false, err: '' };
 const secs = (v) => { const p = String(v || '').trim().split(':').map((x) => Number(x)); if (!p.length || p.some((x) => !Number.isFinite(x) || x < 0)) return NaN; return p.reduce((a, x) => a * 60 + x, 0); };
 // Fix who spoke (host or admin): pick a line, or a first and last line, then the person. The notes are written again.
 const sp = { open: false, a: -1, b: -1, who: '', busy: false, err: '' };
@@ -59,7 +60,7 @@ async function load() {
     data = await api('meetings/' + MID + '/notes');
     draw();
     const m = data.meeting;
-    if (m.status === 'ended' && (m.notesStatus === 'pending' || m.recState === 'uploading')) { await pump(MID, (st) => { const p = $('#nt-prog'); if (p) p.textContent = st; }); data = await api('meetings/' + MID + '/notes'); draw(); }
+    if (m.status === 'ended' && (m.notesStatus === 'pending' || m.recState === 'uploading' || m.recState === 'trimming')) { await pump(MID, (st) => { const p = $('#nt-prog'); if (p) p.textContent = st; }); data = await api('meetings/' + MID + '/notes'); draw(); }
   } catch (e) { root.innerHTML = `<div class="h-card mt-card" style="max-width:560px"><h2 class="mt-h2">Notes not available</h2><p class="mt-sub" style="font-size:14px">${esc(e.message)}</p><a class="h-btn h-btn--primary" href="/meet/library/">All meeting notes</a></div>`; }
   root.removeAttribute('aria-busy');
 }
@@ -122,30 +123,39 @@ function privacyCard() {
   const show = p.canEdit || (p.paused || []).length || (p.cuts || []).length;
   if (!show) return '';
   const hist = [
-    ...(p.paused || []).map((r) => ({ t: r.from, text: `Paused for a private moment, ${span(r.from, r.to)}. Nothing was recorded.` })),
+    ...(p.paused || []).map((r) => ({ t: r.from, text: `Recording paused ${span(r.from, r.to)}. Nothing was recorded.` })),
     ...(p.cuts || []).map((c) => ({ t: c.kind === 'cut' ? c.from : 1e9, text: c.kind === 'cut' ? `Removed ${span(c.from, c.to)} on ${fmtDay(c.at)}.` : `Recording deleted on ${fmtDay(c.at)}.` })),
   ].sort((a, b) => a.t - b.t);
-  const sug = p.canEdit && p.suggestion && !pv.open ? `<div class="pv-sug"><div><b>${esc(p.suggestion.label)} start at ${stamp(p.suggestion.from)}.</b><span>Remove that part from the transcript, notes and Doc?</span></div><button class="h-btn h-btn--ghost h-btn--sm" data-pv="sug">Remove ${esc(span(p.suggestion.from, p.suggestion.to))}</button></div>` : '';
+  const sug = p.canEdit && p.suggestion && !pv.open ? `<div class="pv-sug"><div><b>${esc(p.suggestion.label)} start at ${stamp(p.suggestion.from)}.</b><span>Remove that part from the recording, transcript, notes and Doc?</span></div><button class="h-btn h-btn--ghost h-btn--sm" data-pv="sug">Remove ${esc(span(p.suggestion.from, p.suggestion.to))}</button></div>` : '';
+  const trimming = p.trim && p.trim.running;
+  const keep = pv.mode === 'keep';
+  const rowHtml = (r, i) => `<div class="pv-row${pv.cur === i ? ' is-cur' : ''}" data-row="${i}"><label>${keep ? 'Keep from' : 'From'}<input class="pv-from" data-i="${i}" inputmode="numeric" placeholder="53:37" value="${esc(r.from)}" aria-label="${keep ? 'Keep from' : 'From'}, minutes and seconds" /></label><label>To<input class="pv-to" data-i="${i}" inputmode="numeric" placeholder="The end" value="${esc(r.to)}" aria-label="To, minutes and seconds, empty for the end" /></label>${!keep && pv.rows.length > 1 ? `<button class="icb" data-pv="droprow" data-i="${i}" aria-label="Take this part off the list">${ic('x')}</button>` : ''}</div>`;
   const form = pv.open ? `<div class="pv-form">
-      <div class="pv-row"><label>From<input id="pv-from" inputmode="numeric" placeholder="53:37" value="${esc(pv.from)}" aria-label="From, minutes and seconds" /></label><label>To<input id="pv-to" inputmode="numeric" placeholder="The end" value="${esc(pv.to)}" aria-label="To, minutes and seconds, empty for the end" /></label></div>
-      <p class="mt-sub">Tap a time in the transcript to fill these in. Leave To empty to remove everything to the end.</p>
-      ${files.length ? `<label class="pv-chk"><input type="checkbox" id="pv-rec" ${pv.delRec ? 'checked' : ''} /> Also delete the recording</label>${pv.delRec ? '' : '<p class="mt-sub pv-warn">A recording cannot be trimmed. Keeping it keeps every word of this part.</p>'}` : ''}
+      <div class="pv-mode" role="radiogroup" aria-label="What to do"><label><input type="radio" name="pv-mode" value="remove" ${keep ? '' : 'checked'} /> Remove parts</label><label><input type="radio" name="pv-mode" value="keep" ${keep ? 'checked' : ''} /> Keep only one part</label></div>
+      ${(keep ? pv.rows.slice(0, 1) : pv.rows).map(rowHtml).join('')}
+      ${keep ? '' : `<button class="h-btn h-btn--ghost h-btn--sm" data-pv="addrow" ${pv.rows.length >= 10 ? 'disabled' : ''}>Add another part</button>`}
+      <p class="mt-sub">${keep ? 'Everything before and after this part is removed.' : 'Tap a time in the transcript to fill these in. Leave To empty to remove everything to the end.'}</p>
+      ${files.length ? `<div class="pv-mode" role="radiogroup" aria-label="The recording"><label><input type="radio" name="pv-rec" value="trim" ${pv.rec === 'trim' ? 'checked' : ''} /> Cut ${keep ? 'the rest' : 'these parts'} from the recording too</label><label><input type="radio" name="pv-rec" value="delete" ${pv.rec === 'delete' ? 'checked' : ''} /> Delete the whole recording</label></div>${pv.rec === 'trim' ? '<p class="mt-sub">The video file in Drive is made again without them, with the same link. A video cut ends on the next full picture, so up to two more seconds can go.</p>' : ''}` : ''}
       ${pv.err ? `<p class="mt-sub pv-warn">${esc(pv.err)}</p>` : ''}
-      <div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pv="cancel" ${pv.busy ? 'disabled' : ''}>Cancel</button><button class="h-btn h-btn--danger h-btn--sm" data-pv="cut" ${pv.busy ? 'disabled' : ''}>${pv.busy ? 'Removing' : 'Remove this part'}</button></div></div>` : '';
-  const acts = p.canEdit && !pv.open ? `<div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pv="open">${ic('x')}Remove part of the meeting</button>${files.length ? `<button class="h-btn h-btn--ghost h-btn--sm" data-pv="delrec" ${pv.busy ? 'disabled' : ''}>Delete the recording</button>` : ''}</div>` : '';
+      <div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pv="cancel" ${pv.busy ? 'disabled' : ''}>Cancel</button><button class="h-btn h-btn--danger h-btn--sm" data-pv="cut" ${pv.busy || trimming ? 'disabled' : ''}>${pv.busy ? 'Removing' : keep ? 'Keep only this part' : pv.rows.length > 1 ? 'Remove these parts' : 'Remove this part'}</button></div></div>` : '';
+  const status = trimming ? `<p class="mt-sub pv-status" role="status">Cutting the recording in Drive. It plays as it was until the new file is ready.</p>` : p.trim && p.trim.failed ? '<p class="mt-sub pv-warn">The recording could not be cut. The notes are cut. Remove the same part again to try the recording again, or delete the recording.</p>' : '';
+  const acts = p.canEdit && !pv.open ? `<div class="pv-acts"><button class="h-btn h-btn--ghost h-btn--sm" data-pv="open" ${trimming ? 'disabled' : ''}>${ic('x')}Edit the recording and notes</button>${files.length ? `<button class="h-btn h-btn--ghost h-btn--sm" data-pv="delrec" ${pv.busy ? 'disabled' : ''}>Delete the recording</button>` : ''}</div>` : '';
   const trash = (p.toTrash || []).length ? `<div class="pv-trash"><b>Emptied in Drive, waiting for the trash</b><span>FavorOS cannot trash files in US Team Files. A content manager opens each one and moves it to the trash.</span>${p.toTrash.map((f) => `<a href="${esc(f.url)}" target="_blank" rel="noopener">${f.kind === 'notes' ? 'Old notes Doc' : 'Old recording'}</a>`).join('')}</div>` : '';
   return `<section class="h-card mt-card" id="privacy"><div class="h-label" style="margin-bottom:6px">Privacy</div>
-    ${hist.length ? `<ul class="pv-hist">${hist.map((x) => `<li>${esc(x.text)}</li>`).join('')}</ul>` : p.canEdit ? '<p class="mt-sub" style="margin:0 0 8px">Remove a private part, such as prayer requests. The transcript, summary, action items, their tasks, the Chat post, the Google Doc and Favor Brain all follow.</p>' : ''}
-    ${sug}${form}${acts}${trash}</section>`;
+    ${hist.length ? `<ul class="pv-hist">${hist.map((x) => `<li>${esc(x.text)}</li>`).join('')}</ul>` : p.canEdit ? '<p class="mt-sub" style="margin:0 0 8px">Remove a private part, such as prayer requests, or keep only the part you need. The recording, transcript, summary, action items, their tasks, the Chat post, the Google Doc and Favor Brain all follow.</p>' : ''}
+    ${status}${sug}${form}${acts}${trash}</section>`;
 }
 
 async function privacyClick(b) {
   const act = b.dataset.pv;
   const p = data.privacy || {};
   pv.err = '';
-  if (act === 'open') { pv.open = true; pv.from = ''; pv.to = ''; draw(); const f = $('#pv-from'); if (f) f.focus(); return; }
+  readRows();
+  if (act === 'open') { Object.assign(pv, { open: true, mode: 'remove', rows: [{ from: '', to: '' }], cur: 0, rec: 'trim' }); draw(); const f = $('.pv-from'); if (f) f.focus(); return; }
   if (act === 'cancel') { pv.open = false; draw(); return; }
-  if (act === 'sug') { pv.open = true; pv.from = stamp(p.suggestion.from); pv.to = p.suggestion.to == null ? '' : stamp(p.suggestion.to); draw(); return; }
+  if (act === 'sug') { Object.assign(pv, { open: true, mode: 'remove', rows: [{ from: stamp(p.suggestion.from), to: p.suggestion.to == null ? '' : stamp(p.suggestion.to) }], cur: 0, rec: 'trim' }); draw(); return; }
+  if (act === 'addrow') { pv.rows.push({ from: '', to: '' }); pv.cur = pv.rows.length - 1; draw(); const f = document.querySelectorAll('.pv-from')[pv.cur]; if (f) f.focus(); return; }
+  if (act === 'droprow') { pv.rows.splice(Number(b.dataset.i), 1); pv.cur = Math.min(pv.cur, pv.rows.length - 1); draw(); return; }
   if (act === 'delrec') {
     if (!(await confirmCard({ title: 'Delete the recording?', body: 'The recording leaves FavorOS and Google Drive. The transcript and notes stay. This cannot be undone.', ok: 'Delete the recording', danger: true }))) return;
     pv.busy = true; draw();
@@ -153,20 +163,41 @@ async function privacyClick(b) {
     pv.busy = false; draw(); return;
   }
   if (act === 'cut') {
-    pv.from = ($('#pv-from') || {}).value || pv.from; pv.to = ($('#pv-to') || {}).value || '';
-    const from = secs(pv.from), to = pv.to.trim() ? secs(pv.to) : null;
-    if (!Number.isFinite(from)) { pv.err = 'Type the start as minutes and seconds, like 53:37.'; draw(); return; }
-    if (to != null && (!Number.isFinite(to) || to <= from)) { pv.err = 'The end has to come after the start.'; draw(); return; }
-    const rec = (data.files || []).length && pv.delRec;
-    if (!(await confirmCard({ title: `Remove ${span(from, to)}?`, body: `What was said and typed in that part leaves the transcript, the action items from it and their tasks go, the summary and Chat post are written again, and the Google Doc is replaced.${rec ? ' The recording is deleted.' : ''} This cannot be undone.`, ok: 'Remove', danger: true }))) return;
+    const keep = pv.mode === 'keep';
+    const typed = (keep ? pv.rows.slice(0, 1) : pv.rows).map((r) => ({ from: secs(r.from), to: String(r.to).trim() ? secs(r.to) : null })).filter((r, i) => i === 0 || Number.isFinite(r.from));
+    for (const r of typed) {
+      if (!Number.isFinite(r.from)) { pv.err = 'Type the start as minutes and seconds, like 53:37.'; draw(); return; }
+      if (r.to != null && (!Number.isFinite(r.to) || r.to <= r.from)) { pv.err = 'The end has to come after the start.'; draw(); return; }
+    }
+    // Keep only one part: what comes before it and after it are the parts removed.
+    const ranges = keep ? [...(typed[0].from > 0 ? [{ from: 0, to: typed[0].from }] : []), ...(typed[0].to != null ? [{ from: typed[0].to, to: null }] : [])] : typed;
+    if (!ranges.length) { pv.err = 'That keeps the whole meeting. Pick where the part starts or ends.'; draw(); return; }
+    const rec = (data.files || []).length ? pv.rec : 'keep';
+    const what = keep ? `Keep only ${span(typed[0].from, typed[0].to)}?` : ranges.length > 1 ? `Remove ${ranges.length} parts?` : `Remove ${span(ranges[0].from, ranges[0].to)}?`;
+    const recText = rec === 'trim' ? ' The recording in Drive is made again without it, with the same link.' : rec === 'delete' ? ' The recording is deleted.' : '';
+    if (!(await confirmCard({ title: what, body: `What was said and typed ${keep ? 'outside that part' : 'in ' + (ranges.length > 1 ? 'those parts' : 'that part')} leaves the transcript, the action items from it and their tasks go, the summary and Chat post are written again, and the Google Doc is replaced.${recText} This cannot be undone.`, ok: keep ? 'Keep only this part' : 'Remove', danger: true }))) return;
     pv.busy = true; draw();
     try {
-      await api('meetings/' + MID + '/privacy', { method: 'POST', body: { op: 'cut', from, to, recording: rec ? 'delete' : 'keep' } });
-      if (rec) players.clear();
-      data = await api('meetings/' + MID + '/notes'); pv.open = false; toast('Removed');
+      const r = await api('meetings/' + MID + '/privacy', { method: 'POST', body: { op: 'cut', ranges, recording: rec } });
+      if (rec === 'delete') players.clear();
+      data = await api('meetings/' + MID + '/notes'); pv.open = false; pv.busy = false; draw();
+      if (r.recording === 'trimming') {
+        toast('Removed from the notes. Cutting the recording now.');
+        await pump(MID, (st) => { const el = $('.pv-status'); if (el && st) el.textContent = st; });
+        players.clear();
+        data = await api('meetings/' + MID + '/notes'); draw();
+        toast(data.privacy && data.privacy.trim && data.privacy.trim.failed ? 'The recording could not be cut' : 'The recording is cut');
+      } else toast('Removed');
+      return;
     } catch (e) { pv.err = e.message; }
     pv.busy = false; draw();
   }
+}
+
+/** The times typed in the form, kept across redraws. */
+function readRows() {
+  document.querySelectorAll('.pv-from').forEach((el) => { const r = pv.rows[Number(el.dataset.i)]; if (r) r.from = el.value; });
+  document.querySelectorAll('.pv-to').forEach((el) => { const r = pv.rows[Number(el.dataset.i)]; if (r) r.to = el.value; });
 }
 
 // The names offered: everyone who was there, the names already in the transcript, and the action item owners.
@@ -210,7 +241,7 @@ function draw() {
   document.title = m.title + ' - FavorOS';
   const crumb = document.querySelector('.h-top__crumb'); if (crumb) crumb.textContent = m.title;
   const keepFocus = document.activeElement && document.activeElement.id;
-  const marks = q ? [] : [...((data.privacy || {}).paused || []).map((r) => ({ t: r.from, mark: `Private moment, not recorded (${span(r.from, r.to)})` })), ...((data.privacy || {}).cuts || []).filter((c) => c.kind === 'cut').map((c) => ({ t: c.from, mark: `Part removed (${span(c.from, c.to)})` }))];
+  const marks = q ? [] : [...((data.privacy || {}).paused || []).map((r) => ({ t: r.from, mark: `Recording paused, nothing recorded (${span(r.from, r.to)})` })), ...((data.privacy || {}).cuts || []).filter((c) => c.kind === 'cut').map((c) => ({ t: c.from, mark: `Part removed (${span(c.from, c.to)})` }))];
   const qq = sp.open ? '' : q;
   const lines = [...(data.transcript || []).map((l, i) => ({ ...l, i })).filter((l) => !qq || ((l.who || '') + ' ' + l.text).toLowerCase().includes(qq.toLowerCase())), ...(sp.open ? [] : marks)].sort((a, b) => a.t - b.t || (a.mark ? -1 : 1) || (a.i || 0) - (b.i || 0));
   const canFix = !!(data.privacy && data.privacy.canEdit) && (data.transcript || []).length > 0;
@@ -250,9 +281,9 @@ function draw() {
   root.querySelectorAll('[data-sp]').forEach((b) => b.addEventListener('click', () => speakerClick(b.dataset.sp)));
   root.querySelectorAll('[data-li]').forEach((el) => { const pick = () => { const i = Number(el.dataset.li); if (sp.a < 0 || sp.a !== sp.b) { sp.a = i; sp.b = i; } else sp.b = i; sp.err = ''; draw(); }; el.addEventListener('click', pick); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }); });
   const sw = $('#sp-who'); if (sw) { sw.addEventListener('input', () => { sp.who = sw.value; }); sw.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); speakerClick('save'); } }); if (keepFocus === 'sp-who') { sw.focus(); sw.setSelectionRange(sw.value.length, sw.value.length); } }
-  const rc = $('#pv-rec'); if (rc) rc.addEventListener('change', () => { pv.from = ($('#pv-from') || {}).value || ''; pv.to = ($('#pv-to') || {}).value || ''; pv.delRec = rc.checked; draw(); });
-  for (const id2 of ['pv-from', 'pv-to']) { const el = $('#' + id2); if (el) el.addEventListener('input', () => { if (id2 === 'pv-from') pv.from = el.value; else pv.to = el.value; }); }
-  root.querySelectorAll('[data-pick]').forEach((el) => { const pick = () => { const v = stamp(Number(el.dataset.pick)); if (!pv.from || pv.to) { pv.from = v; pv.to = ''; } else pv.to = v; draw(); const pf = $('#privacy'); if (pf) pf.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; el.addEventListener('click', pick); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }); });
+  root.querySelectorAll('input[name="pv-mode"], input[name="pv-rec"]').forEach((el) => el.addEventListener('change', () => { readRows(); if (el.name === 'pv-mode') { pv.mode = el.value; pv.cur = 0; } else pv.rec = el.value; draw(); }));
+  root.querySelectorAll('.pv-from, .pv-to').forEach((el) => { el.addEventListener('input', readRows); el.addEventListener('focus', () => { pv.cur = Number(el.dataset.i); }); });
+  root.querySelectorAll('[data-pick]').forEach((el) => { const pick = () => { if (!pv.open) return; readRows(); const r = pv.rows[pv.cur] || pv.rows[0]; const v = stamp(Number(el.dataset.pick)); if (!r.from || r.to) { r.from = v; r.to = ''; } else r.to = v; draw(); const pf = $('#privacy'); if (pf) pf.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }; el.addEventListener('click', pick); el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } }); });
   $('#nt-dl').addEventListener('click', download);
   const retry = $('#nt-retry');
   if (retry) retry.addEventListener('click', async () => {

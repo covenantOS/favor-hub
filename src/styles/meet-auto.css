@@ -59,6 +59,13 @@
 #privacy .pv-row label { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--h-ink-2, #4a4a44); }
 #privacy .pv-row input { min-width: 0; height: 40px; padding: 0 10px; border: 1px solid var(--h-line, #e2ddd0); border-radius: 10px; font: inherit; font-size: 16px; font-variant-numeric: tabular-nums; }
 #privacy .pv-chk { display: flex; gap: 8px; align-items: center; font-size: 14px; min-height: 32px; }
+#privacy .pv-row:has(.icb) { grid-template-columns: 1fr 1fr 40px; align-items: end; }
+#privacy .pv-row .icb { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--h-line, #e2ddd0); border-radius: 10px; background: transparent; }
+#privacy .pv-row.is-cur input { border-color: var(--h-brand, #a8573a); }
+#privacy .pv-mode { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 14px; }
+#privacy .pv-mode label { display: flex; gap: 8px; align-items: center; min-height: 36px; }
+#privacy .pv-status { color: var(--h-ink-2, #4a4a44); margin: 0 0 8px; }
+#privacy > .h-btn, #privacy .pv-form > .h-btn { justify-self: start; }
 #privacy .mt-sub { margin: 0; font-size: 12.5px; }
 #privacy .pv-warn { color: #8a3f24; }
 #privacy .pv-acts { display: flex; gap: 8px; flex-wrap: wrap; }
