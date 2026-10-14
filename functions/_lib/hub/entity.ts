@@ -127,7 +127,7 @@ async function task(env: Env, request: Request, user: HubUser, id: string): Prom
   const vis = visibleTask(actor, 't');
   const t = await env.DB.prepare(
     `SELECT t.id, t.code, t.title, t.status, t.owner_email, t.due_date, t.due_time, p.key AS pkey, p.name AS pname
-       FROM hub_tasks t LEFT JOIN hub_projects p ON p.id = t.project_id WHERE (t.id = ? OR t.code = ?) AND ${vis.sql} LIMIT 1`
+       FROM hub_tasks t LEFT JOIN hub_projects p ON p.id = t.project_id WHERE (lower(t.id) = lower(?) OR t.code = ?) AND ${vis.sql} LIMIT 1`
   )
     .bind(id, id.toUpperCase(), ...vis.args)
     .first<any>()

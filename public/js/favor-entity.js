@@ -46,7 +46,7 @@
 
   /* ------------------------------------------------------------------ data */
   var cache = {}, inflight = {};
-  var norm = function (kind, id) { id = String(id || '').trim(); return kind === 'person' ? id.toLowerCase() : kind === 'task' || kind === 'appeal' ? id.toUpperCase() : id; };
+  var norm = function (kind, id) { id = String(id || '').trim(); return kind === 'person' ? id.toLowerCase() : kind === 'appeal' ? id.toUpperCase() : kind === 'task' ? (/^[A-Za-z][A-Za-z0-9]*-d+$/.test(id) ? id.toUpperCase() : id) : id; };
   var keyOf = function (kind, id) { return kind + ':' + norm(kind, id); };
   function load(kind, id) {
     var k = keyOf(kind, id), c = cache[k];
@@ -69,6 +69,8 @@
   }
 
   /* ------------------------------------------------------------------ finding the entity behind an element */
+  // Rich cards (task, meeting, clip, entity cards) already show everything; only plain links and mentions get a hover card.
+  var CARD = '.fp-card, .ch-card, .pjl-tcard, .fe-ecard, [data-pjl-open]';
   var SKIP = '.fe-card, .fe-sheet, .h-side, .h-tabs, #h-bar, .cmdk, #wm-bell, .wm-pop, .mi';
   function fromHref(h) {
     var u;
@@ -85,7 +87,7 @@
     return null;
   }
   function refOf(el) {
-    if (!el || !el.closest || el.closest(SKIP)) return null;
+    if (!el || !el.closest || el.closest(SKIP) || el.closest(CARD)) return null;
     var d = el.closest('[data-entity]');
     if (d && !d.closest(SKIP)) {
       var v = d.getAttribute('data-entity') || '', i = v.indexOf(':');
@@ -94,12 +96,12 @@
     var pid = el.closest('[data-partner-id], [data-partner-lookup]');
     if (pid && !pid.closest(SKIP)) {
       var v2 = pid.getAttribute('data-partner-id') || ('L' + pid.getAttribute('data-partner-lookup'));
-      return { kind: 'partner', id: v2, el: pid, label: pid.textContent.trim().slice(0, 80), link: true };
+      return { kind: 'partner', id: v2, el: pid, label: '', link: true };
     }
     var mi = el.closest('.mi-chip[data-mi-id], .ch-at[data-mi-id]');
     if (mi) { var id = mi.getAttribute('data-mi-id'); if (id && id.indexOf('@') > 0) return { kind: 'person', id: id, el: mi, label: mi.textContent.replace(/^@/, '') }; }
     var a = el.closest('a[href], a[data-href]');
-    if (a && !a.hasAttribute('data-fe-off')) { var r = fromHref(a.getAttribute('href') || a.getAttribute('data-href')); if (r) return { kind: r.kind, id: r.id, el: a, label: a.textContent.trim().slice(0, 80), link: true }; }
+    if (a && !a.hasAttribute('data-fe-off')) { var r = fromHref(a.getAttribute('href') || a.getAttribute('data-href')); if (r) return { kind: r.kind, id: r.id, el: a, label: '', link: true }; }
     return null;
   }
 
