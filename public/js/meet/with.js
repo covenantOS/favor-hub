@@ -151,7 +151,7 @@ function doneView(r, email, kind) {
 root.addEventListener('click', (e) => {
   if (S.manage) return manageClick(e);
   const b = e.target.closest('button'); if (!b) return;
-  if (b.classList.contains('bk-type')) { S.type = S.types[+b.dataset.i]; history.replaceState(null, '', '?u=' + encodeURIComponent(S.u) + '&t=' + encodeURIComponent(S.type.slug)); startPicker().then(() => {}); return; }
+  if (b.classList.contains('bk-type')) { S.type = S.types[+b.dataset.i]; S.view = pickView; history.replaceState(null, '', '?u=' + encodeURIComponent(S.u) + '&t=' + encodeURIComponent(S.type.slug)); startPicker().then(() => {}); return; }
   if (b.dataset.act === 'types') { history.replaceState(null, '', '?u=' + encodeURIComponent(S.u)); chooseView(); return; }
   if (b.dataset.act === 'times') { S.time = ''; pickView(); return; }
   onPickerClick(e);
@@ -220,6 +220,6 @@ async function manageClick(e) {
     S.owner = r.owner.name; S.types = r.types || [];
     document.title = 'Book a time with ' + S.owner + ' - Favor International';
     const want = q.get('t') ? S.types.find((t) => t.slug === q.get('t')) : S.types.length === 1 ? S.types[0] : null;
-    if (want) { S.type = want; await startPicker(); } else chooseView();
+    if (want) { S.type = want; S.view = pickView; await startPicker(); } else chooseView();
   } catch (e) { fail(e.message); }
 })();

@@ -15,7 +15,7 @@
 .bk-type { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: #fffdf8; border: 1px solid #e7e0cf; border-radius: 14px; padding: 14px 16px; cursor: pointer; min-height: 56px; }
 .bk-type:hover { border-color: #2b4d24; }
 .bk-type b { display: block; font-size: 1.05rem; }
-.bk-meta { color: #57534a; font-size: .9rem; margin-top: 2px; }
+.bk-meta { display: block; color: #57534a; font-size: .9rem; margin-top: 2px; }
 .bk-btn { font: inherit; font-weight: 600; min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #2b4d24; background: #2b4d24; color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .bk-btn:disabled { opacity: .5; cursor: default; }
 .bk-btn--ghost { background: #fffdf8; color: #2b4d24; }
