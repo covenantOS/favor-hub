@@ -1,0 +1,46 @@
+---
+// Adoption: who uses FavorOS and how. Sign-ins, the areas people open, and what they do in them. Admins only.
+import App from '../../../layouts/App.astro';
+import AdminHead from '../../../components/AdminHead.astro';
+import '../../../styles/admin.css';
+import '../../../styles/crit-reportadmin.css';
+import '../../../styles/q3-desk.css';
+import '../../../styles/lint-fix.css';
+import '../../../styles/admin-tours.css';
+import '../../../styles/admin-adoption.css';
+---
+<App title="Adoption" crumb="Admin" nav="admin-adoption" description="Who uses FavorOS and how.">
+  <div class="ad" id="ad-root">
+    <AdminHead on="adoption" title="Adoption" />
+    <div class="tu-tiles" id="ao-tiles" aria-live="polite"></div>
+    <section class="ad-card">
+      <h2>Active people each week</h2>
+      <div class="ao-weeks" id="ao-weeks" role="img" aria-label="Active people each week"></div>
+    </section>
+    <section class="ad-card">
+      <div class="ad-sub">
+        <input id="ao-find" class="ad-field ad-find" type="search" placeholder="Find a person" aria-label="Find a person" />
+        <span class="tu-selw"><select id="ao-team" class="ad-field tu-sel" aria-label="Team"><option value="">Every team</option></select></span>
+        <span class="ad-stamp" id="ao-count" role="status"></span>
+      </div>
+      <div class="ad-scroll"><table class="ad-table sc-table" id="ao-table"><thead id="ao-head"></thead><tbody id="ao-body"><tr><td class="mute">Loading</td></tr></tbody></table></div>
+      <p class="tu-note" id="ao-since"></p>
+    </section>
+    <section class="ad-card" id="ao-person" hidden>
+      <div class="ad-sub"><h2 id="ao-person-name"></h2><button type="button" class="ad-btn" id="ao-person-close">Close</button></div>
+      <div class="ad-scroll"><table class="ad-table sc-table"><thead><tr><th>Day</th><th>Areas opened</th><th>Sign-ins</th><th>Brain questions</th><th>Feedback</th><th>Tasks made</th><th>Meetings</th><th>Work Center</th></tr></thead><tbody id="ao-person-body"></tbody></table></div>
+      <div id="ao-person-fb"></div>
+    </section>
+    <section class="ad-card">
+      <h2>Never signed in</h2>
+      <p class="tu-note" id="ao-never-note"></p>
+      <div class="ad-scroll"><table class="ad-table sc-table"><thead><tr><th>Person</th><th>Team</th></tr></thead><tbody id="ao-never"></tbody></table></div>
+    </section>
+    <section class="ad-card">
+      <h2>Feedback</h2>
+      <div class="ad-scroll"><table class="ad-table sc-table"><thead><tr><th>When</th><th>Person</th><th>Question</th><th>Rating</th><th>Comment</th><th>Status</th></tr></thead><tbody id="ao-fb"></tbody></table></div>
+    </section>
+  </div>
+  <script is:inline src="/js/admin.js?v=1" defer></script>
+  <script is:inline src="/js/admin-adoption.js?v=1" defer></script>
+</App>

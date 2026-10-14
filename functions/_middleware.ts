@@ -8,6 +8,7 @@ import { countAiCalls, withAiCaller } from './_lib/admin/aiuse';
 import { fieldMayOpen } from './_lib/field';
 import { decide, serveApp } from './_lib/app2';
 import { TESTER_REFUSAL, isTester, testerWriteBlocked } from './_lib/testuser';
+import { noteUse } from './_lib/hub/usage';
 
 const CANONICAL_HOST = 'dash.favorintl.org';
 // The alias and the bare Pages address send people to the one address Google sign-in accepts.
@@ -134,6 +135,8 @@ const handle = async (ctx: Parameters<PagesFunction<Env>>[0], who: { tester: boo
   }
 
   if (user || open || !enforce) {
+    // Adoption tracker: one cheap write per person, day and area, after the page has gone out (functions/_lib/hub/usage.ts).
+    if (user && !open && enforce) noteUse(ctx, user, request.method, path);
     const res = await ctx.next(forwarded);
     if (!enforce || open || !isHtml(res)) return res;
     // A signed-in page must not sit in a shared cache.

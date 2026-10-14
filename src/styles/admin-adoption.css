@@ -1,0 +1,21 @@
+/* Admin > Adoption. Tiles reuse admin-tours.css (.tu-tiles, .tu-selw, .tu-note). */
+.ao-weeks { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 10px; align-items: end; min-height: 150px; }
+.ao-wk { display: grid; grid-template-rows: 1fr auto auto; gap: 4px; justify-items: center; height: 150px; }
+.ao-wk__bar { align-self: end; width: 100%; max-width: 56px; border-radius: 8px 8px 2px 2px; background: var(--tc-leaf, #4c7a3d); min-height: 3px; }
+.ao-wk b { font: 600 15px/1.2 var(--h-font); color: var(--r-ink); }
+.ao-wk span { font: 400 12px/1.2 var(--h-font); color: var(--r-ink-3); text-align: center; }
+.ao-sort { all: unset; cursor: pointer; font: inherit; font-weight: 600; display: inline-flex; gap: 4px; align-items: center; }
+.ao-sort:focus-visible { outline: 2px solid var(--r-ink); outline-offset: 2px; }
+.ao-who { all: unset; cursor: pointer; font-weight: 600; color: var(--r-ink); text-decoration: underline; text-decoration-color: var(--r-line); text-underline-offset: 3px; }
+.ao-who:focus-visible { outline: 2px solid var(--r-ink); outline-offset: 2px; }
+.ao-you { display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: var(--tc-sky-tint); color: #17405c; font: 600 12px/1.3 var(--h-font); }
+.ao-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ao-areas span { display: inline-block; margin: 0 4px 2px 0; padding: 2px 8px; border-radius: 999px; background: var(--tc-sun-tint); color: #5b3d06; font: 500 12px/1.3 var(--h-font); white-space: nowrap; }
+.ao-quote { max-width: 360px; white-space: normal; }
+#ao-person h2 { margin: 0; }
+@media (max-width: 860px) {
+  .ao-weeks { gap: 4px; }
+  .ao-wk span { font-size: 11px; }
+  .ao-sort, .ao-who { min-height: 44px; display: inline-flex; align-items: center; }
+  .ao-num { text-align: left; }
+}
