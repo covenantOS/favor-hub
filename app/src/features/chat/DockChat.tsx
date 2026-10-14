@@ -11,7 +11,7 @@ import { ChatEngine } from './engine';
 import { type J } from './fmt';
 import { Ic } from './icons';
 import { ModalLayer, PopLayer, ToastLayer } from './overlays';
-import { TypingLine } from './parts';
+import { Avatar, TypingLine } from './parts';
 import './styles';
 
 let eng: ChatEngine | null = null;
@@ -39,6 +39,7 @@ export default function DockChat({ open }: { open: boolean }) {
   const [q, setQ] = useState('');
   const [far, setFar] = useState(false);
   const [farT, setFarT] = useState(false);
+  const [menu, setMenu] = useState(false);
   const st = dock.D.state();
 
   useEffect(() => {
@@ -173,16 +174,28 @@ export default function DockChat({ open }: { open: boolean }) {
           <button type="button" className="ch-iconbtn" data-act="back" aria-label="Back to conversations" onClick={() => e.back()}>
             <Ic n="back" />
           </button>
+          {c.kind === 'dm' ? <Avatar u={e.user((c.members || []).filter((m: string) => m !== S.me.id)[0] || S.me.id)} size="xs" /> : null}
           <b className="ch-dock__t">
             {c.kind === 'public' ? '# ' : ''}
             {e.chName(c)}
           </b>
-          <button type="button" className="ch-iconbtn" data-act="sm-catch" aria-label="Catch me up" title="Catch me up" onClick={() => e.catchGo(true)}>
-            <Ic n="spark" />
-          </button>
-          <button type="button" className={'ch-iconbtn' + (S.lang ? ' is-on' : '')} data-act="sm-lang" aria-label="Language" title={S.lang ? 'Reading in ' + e.langName(S.lang) : 'Choose the language you read in'} onClick={(ev) => e.setPop({ kind: 'lang', below: true, anchor: ev.currentTarget.getBoundingClientRect() })}>
-            <Ic n="globe" />
-          </button>
+          <span className="ch-dock__more">
+            <button type="button" className={'ch-iconbtn' + (S.lang ? ' is-on' : '')} aria-haspopup="menu" aria-expanded={menu} aria-label="More" title="More" onClick={() => setMenu(!menu)}>
+              <Ic n="more" />
+            </button>
+            {menu && (
+              <div className="ch-dock__menu" role="menu">
+                <button type="button" role="menuitem" data-act="sm-catch" onClick={() => { setMenu(false); e.catchGo(true); }}>
+                  <Ic n="spark" />
+                  Catch me up
+                </button>
+                <button type="button" role="menuitem" data-act="sm-lang" onClick={(ev) => { const r = ev.currentTarget.getBoundingClientRect(); setMenu(false); e.setPop({ kind: 'lang', below: true, anchor: r }); }}>
+                  <Ic n="globe" />
+                  {S.lang ? 'Reading in ' + e.langName(S.lang) : 'Translate'}
+                </button>
+              </div>
+            )}
+          </span>
           <a className="ch-iconbtn" href={'/chat/?c=' + encodeURIComponent(c.id)} title="Open in Chat" aria-label="Open in Chat">
             <Ic n="ext" />
           </a>

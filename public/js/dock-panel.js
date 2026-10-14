@@ -39,6 +39,34 @@
   function langSelect() {
     return '<select class="fp-lang" data-langsel aria-label="Language I read Chat in" title="Language I read Chat in"><option value="">Original</option>' + (D.langs || []).map(function (l) { return '<option value="' + l.code + '"' + (D.lang === l.code ? ' selected' : '') + '>' + esc(l.native) + '</option>'; }).join('') + '</select>';
   }
+  function moreMenu() {
+    return '<span class="fp-more-w"><button type="button" class="fp-ext" data-more aria-haspopup="menu" aria-expanded="false" aria-label="More" title="More">' + ic('more') + '</button>' +
+      '<div class="fp-menu" data-menu role="menu" hidden><button type="button" role="menuitem" data-catch-go>Catch me up</button><label>Read in<select data-langsel aria-label="Language I read Chat in"><option value="">Original</option>' +
+      (D.langs || []).map(function (l) { return '<option value="' + l.code + '"' + (D.lang === l.code ? ' selected' : '') + '>' + esc(l.native) + '</option>'; }).join('') + '</select></label></div></span>';
+  }
+  function cardLink(href, kick, title, meta, ext) {
+    return '<a class="fp-card" href="' + esc(href || '#') + '"' + (ext ? ' target="_blank" rel="noopener"' : '') + '><span class="fp-card__k">' + esc(kick) + '</span><span class="fp-card__t">' + esc(title || kick) + '</span>' + (meta ? '<span class="fp-card__m">' + esc(meta) + '</span>' : '') + '</a>';
+  }
+  /* Every attachment type draws as something readable. The full cards live on the Chat page; the link on each opens there. */
+  function cardHtml(x, m) {
+    var href = '/chat/?c=' + encodeURIComponent(m.channel_id) + '&m=' + m.id;
+    var t = x.type;
+    if (t === 'meeting') {
+      var live = x.status !== 'ended';
+      var meta = x.private ? (live ? 'Live now' : 'Ended') : live ? 'Live now' + (x.count ? ', ' + x.count + (x.count === 1 ? ' person' : ' people') + ' in the room' : '') : 'Ended' + (x.duration ? ', ' + x.duration : '') + (x.notes ? ', notes ready' : '');
+      return cardLink(x.private ? href : live ? x.url : (x.notes_url || x.url), 'Meeting', x.private ? 'Private meeting' : x.title, meta, false);
+    }
+    if (t === 'task') return cardLink(x.url || href, x.kind === 'mention' ? 'Named on a request' : x.kind === 'made' ? 'Made a request' : 'Request', x.private ? 'Private task' : x.title, [x.status_label, x.owner ? 'Owner ' + x.owner : '', x.due_date ? 'Due ' + x.due_date : ''].filter(Boolean).join(', '), false);
+    if (t === 'ptask') return cardLink(x.url || href, x.kick || 'Task', x.private ? 'Private task' : x.title, [x.code, x.status_label, x.owner ? 'Owner ' + x.owner : '', x.due ? 'Due ' + x.due : ''].filter(Boolean).join(', '), false);
+    if (t === 'clip') return cardLink(x.url || href, 'Clip', x.title, [x.by, x.when].filter(Boolean).join(', '), true);
+    if (t === 'drive') return cardLink(x.url, 'Drive', x.name, x.path, true);
+    if (t === 'entity') return cardLink(x.url || href, x.kind || 'Record', x.title || x.name, '', false);
+    if (t === 'checklist') return cardLink(href, 'Checklist', x.title || 'Checklist', (x.done || 0) + ' of ' + (x.total || 0) + ' done', false);
+    if (t === 'poll') return cardLink(href, 'Poll', x.q, (x.voters || 0) + (x.voters === 1 ? ' person' : ' people') + ' voted' + (x.closed ? ', closed' : ''), false);
+    if (t === 'note') return cardLink(href, x.kind === 'list' ? 'Scheduled messages' : 'Note for you', x.text || x.title || (x.kind === 'list' ? 'Messages waiting to post' : 'Only you see this'), '', false);
+    if (t === 'link' && x.url) return cardLink(x.url, x.site || 'Link', x.title || x.url, '', true);
+    return cardLink(href, String(t || 'Attachment').replace(/^./, function (c) { return c.toUpperCase(); }), x.title || x.name || x.text || 'Attachment', 'Open in Chat to see it all', false);
+  }
   function catchUp() {
     var host = $('[data-msgs]', body); if (!host || S.th) return;
     var list = (msgs[S.ch] || []).filter(function (m) { return m.user_id !== D.me && !m.deleted && m.user_id !== 'brain'; }).slice(-30);
@@ -55,7 +83,7 @@
   }
 
   function ic(n) {
-    var p = { back: 'M15 5l-7 7 7 7', list: 'M4 6h16M4 12h16M4 18h10', newchat: 'M12 20h8M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z', send: 'M4 12l16-8-6 16-2-7z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', plus: 'M12 5v14M5 12h14', thread: 'M5 6h14v9H9l-4 4z', hash: 'M9 4 7 20M17 4l-2 16M4 9h16M3 15h16' };
+    var p = { back: 'M15 5l-7 7 7 7', more: 'M5 12h.01M12 12h.01M19 12h.01', list: 'M4 6h16M4 12h16M4 18h10', newchat: 'M12 20h8M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z', send: 'M4 12l16-8-6 16-2-7z', lock: 'M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6z', ext: 'M14 4h6v6M20 4l-9 9M18 14v6H4V6h6', plus: 'M12 5v14M5 12h14', thread: 'M5 6h14v9H9l-4 4z', hash: 'M9 4 7 20M17 4l-2 16M4 9h16M3 15h16' };
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="' + p[n] + '"/></svg>';
   }
   function when(iso) {
@@ -182,7 +210,7 @@
   function paintConv(c) {
     var o = c.kind === 'dm' ? (c.members || []).filter(function (m) { return m !== D.me; })[0] : null;
     body.innerHTML = '<div class="fp-conv"><header class="fp-head"><button type="button" class="fp-back" data-back aria-label="Back to conversations">' + ic('back') + '</button>' + (o ? avatar(o) : '') +
-      '<b class="fp-head__t">' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b>' + langSelect() + '<button type="button" class="fp-catch" data-catch-go title="Catch me up">Catch up</button><a class="fp-ext" href="/chat/?c=' + encodeURIComponent(c.id) + '" title="Open in Chat" aria-label="Open in Chat">' + ic('ext') + '</a></header>' +
+      '<b class="fp-head__t">' + (c.kind === 'public' ? '# ' : '') + esc(chName(c)) + '</b>' + moreMenu() + '<a class="fp-ext" href="/chat/?c=' + encodeURIComponent(c.id) + '" title="Open in Chat" aria-label="Open in Chat">' + ic('ext') + '</a></header>' +
       '<div class="fp-scroll fp-msgs" data-msgs><div class="fp-wait"><i></i><i></i><i></i></div></div><div class="fp-comp" data-comp></div></div>';
     mountBox();
   }
@@ -199,11 +227,7 @@
         return '<div class="ch-card ch-voice"><div class="ch-voice__row"><audio controls preload="none" src="' + esc(x.url) + '"></audio></div>' + words + '</div>';
       }
       if (x.type === 'file') return /^image\//.test(x.mime || '') ? '<a class="fp-img" href="' + esc(x.url) + '" target="_blank" rel="noopener"><img alt="' + esc(x.name) + '" src="' + esc(x.url) + '" loading="lazy"></a>' : '<a class="fp-att" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name || 'File') + '</a>';
-      if (x.type === 'clip') return '<a class="fp-att" href="' + href + '">Clip</a>';
-      if (x.type === 'meeting') return '<a class="fp-att" href="' + href + '">Meeting</a>';
-      if (x.type === 'drive') return '<a class="fp-att" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.name || 'Drive file') + '</a>';
-      if (x.type === 'link' && x.url) return '<a class="fp-att" href="' + esc(x.url) + '" target="_blank" rel="noopener">' + esc(x.title || x.url) + '</a>';
-      return '<a class="fp-att" href="' + href + '">Open in Chat</a>';
+      return cardHtml(x, m);
     }).join('');
     if (m.brain) a += '<a class="fp-att fp-att--brain" href="/chat/?c=' + encodeURIComponent(m.channel_id) + '&m=' + m.id + (m.thread_id ? '&t=' + m.thread_id : '') + '">Favor Brain answer. Open in Chat</a>';
     return (t ? '<div class="fp-txt">' + t + '</div>' + trLine : '') + a + (m.edited_at ? ' <span class="fp-ed">edited</span>' : '');
@@ -337,7 +361,8 @@
   function onClick(e) {
     var t = e.target.closest('button, a'); if (!t || !body.contains(t)) return;
     if (t.hasAttribute('data-orig')) { var oid = Number(t.getAttribute('data-orig')); trOrig[oid] = !trOrig[oid]; var kp = nearEnd(); if (S.th) drawThread(); else drawMsgs(); if (kp) scrollEnd(); return; }
-    if (t.hasAttribute('data-catch-go')) { catchUp(); return; }
+    if (t.hasAttribute('data-more')) { var mn = $('[data-menu]', body); if (mn) { mn.hidden = !mn.hidden; t.setAttribute('aria-expanded', String(!mn.hidden)); } return; }
+    if (t.hasAttribute('data-catch-go')) { var mn2 = $('[data-menu]', body); if (mn2) mn2.hidden = true; catchUp(); return; }
     if (t.hasAttribute('data-catchx')) { var cb = t.closest('[data-catch]'); if (cb) cb.remove(); return; }
     if (t.hasAttribute('data-open')) { listQ = ''; openConv(t.getAttribute('data-open')); }
     else if (t.hasAttribute('data-back')) {

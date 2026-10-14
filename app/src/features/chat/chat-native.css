@@ -62,3 +62,9 @@
   .ch-cl__add, .ch-poll__close { min-height: 44px; }
   .ch-note .ch-btn--sm { min-height: 44px; }
 }
+
+.ch--dock .ch-dock__more { position: relative; flex: none; }
+.ch--dock .ch-dock__menu { position: absolute; right: 0; top: 36px; z-index: 6; min-width: 180px; background: #fff; border: 1px solid var(--r-line); border-radius: 12px; box-shadow: 0 12px 30px -10px rgba(17, 24, 39, .35); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.ch--dock .ch-dock__menu button { display: flex; align-items: center; gap: 8px; border: 0; background: none; border-radius: 8px; padding: 8px 10px; font: 600 13px var(--h-font, Inter, sans-serif); color: inherit; cursor: pointer; text-align: left; }
+.ch--dock .ch-dock__menu button:hover { background: #f1eee7; }
+.ch--dock .ch-dock__menu svg { width: 16px; height: 16px; }

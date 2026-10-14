@@ -103,7 +103,7 @@
     if (s.x) panelEl.classList.add('is-big');
     panelEl.innerHTML = '<div class="fd-p__grip" data-grip title="Drag to resize"></div>' +
       '<header class="fd-p__h"><div class="fd-p__tabs" role="tablist"><button type="button" role="tab" data-tab="chat" aria-selected="false">Chat<b class="fd-p__n" hidden></b></button><button type="button" role="tab" data-tab="brain" aria-selected="false">Favor Brain</button></div>' +
-      '<button type="button" class="fd-p__ib" data-big aria-label="Make the panel larger" title="Larger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>' +
+      '<button type="button" class="fd-p__ib" data-big aria-label="Open as a full page" title="Open as a full page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></svg></button>' +
       '<button type="button" class="fd-p__ib" data-x aria-label="Close the panel" title="Close (Esc)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></header>' +
       '<div class="fd-p__body" data-body><div class="fd-p__wait"><i></i><i></i><i></i></div></div>';
     document.body.appendChild(panelEl);
@@ -119,10 +119,9 @@
     return panelEl;
   }
   function bigger() {
-    var s = size(); s.x = !s.x; size(s);
-    panelEl.classList.toggle('is-big', !!s.x);
-    var b = panelEl.querySelector('[data-big]'); b.setAttribute('aria-label', s.x ? 'Make the panel smaller' : 'Make the panel larger');
-    emit({ type: 'dock:size' });
+    // The full page for the open tab, on the same conversation.
+    var url = st.tab === 'brain' ? '/brain/' + (st.bc ? '?c=' + encodeURIComponent(st.bc) : '') : '/chat/' + (st.ch ? '?c=' + encodeURIComponent(st.ch) + (st.th ? '&t=' + encodeURIComponent(st.th) : '') : '');
+    location.assign(url);
   }
   function grip(g) {
     g.addEventListener('pointerdown', function (e) {
@@ -151,7 +150,7 @@
   }
   function loadPanel() {
     if (loaded) return loaded;
-    var v = '2';
+    var v = '3';
     var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = '/css/dock-panel.css?v=' + v; document.head.appendChild(css);
     var css2 = document.createElement('link'); css2.rel = 'stylesheet'; css2.href = '/css/chat-smart.css?v=1'; document.head.appendChild(css2);
     loaded = new Promise(function (ok, bad) {

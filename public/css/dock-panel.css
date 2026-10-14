@@ -105,3 +105,15 @@
 .fp-lang { max-width: 104px; min-height: 32px; border: 1px solid var(--r-line-2, #d3cdbd); border-radius: 8px; background: #fff; font: inherit; font-size: 13px; color: inherit; padding: 0 4px; }
 .fp-catch { min-height: 32px; padding: 0 10px; border: 1px solid var(--r-line-2, #d3cdbd); border-radius: 8px; background: #fff; font: inherit; font-size: 13px; cursor: pointer; }
 .fp-catch:hover { background: var(--r-hover, #f7f5ef); }
+
+.fp-more-w { position: relative; flex: none; }
+.fp-menu { position: absolute; right: 0; top: 36px; z-index: 5; min-width: 190px; background: #fff; border: 1px solid var(--h-line); border-radius: 12px; box-shadow: 0 12px 30px -10px rgba(17, 24, 39, .35); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+.fp-menu[hidden] { display: none; }
+.fp-menu button, .fp-menu label { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 0; background: none; border-radius: 8px; padding: 8px 10px; font: 600 13px var(--h-font); color: var(--h-ink); cursor: pointer; text-align: left; }
+.fp-menu button:hover, .fp-menu label:hover { background: #f1eee7; }
+.fp-menu select { border: 1px solid var(--h-line); border-radius: 8px; font: 500 12.5px var(--h-font); padding: 3px 6px; background: #fff; max-width: 110px; }
+.fp-card { display: flex; flex-direction: column; gap: 1px; margin: 4px 0 0; padding: 8px 11px; border: 1px solid var(--h-line); border-left: 3px solid var(--h-brand); border-radius: 10px; background: #fff; text-decoration: none; color: var(--h-ink); max-width: 100%; min-width: 0; }
+.fp-card:hover { background: #f6f3ec; }
+.fp-card__k { font: 700 10.5px var(--h-font); letter-spacing: .04em; text-transform: uppercase; color: var(--h-brand-ink); }
+.fp-card__t { font: 600 13.5px/1.35 var(--h-font); overflow-wrap: anywhere; }
+.fp-card__m { font: 400 12px var(--h-font); color: var(--h-ink-3); }
