@@ -291,6 +291,7 @@ export const DEFS: Def[] = [
   hubDef({ id: 'meet.guests', area: 'meetings', label: 'Guests from outside Favor', hint: 'Guests join a meeting from an invitation link without a sign-in.', kind: 'enum', options: ON_OFF, def: 'off', envVar: 'MEET_GUESTS' }),
   hubDef({ id: 'meet.drive_folder', area: 'meetings', label: 'Recording folder', hint: 'The Google Drive folder id of the Meetings folder in US Team Files.', kind: 'text', def: '', envVar: 'MEET_DRIVE_FOLDER' }),
   hubDef({ id: 'meet.lead_min', area: 'meetings', label: 'Reminder lead time', hint: 'Minutes before the start that the second reminder email goes out. The first goes a day ahead.', kind: 'int', min: 5, max: 120, unit: 'minutes', def: '15' }),
+  hubDef({ id: 'meet.texts', area: 'meetings', label: 'Meeting texts', hint: 'Sends meeting links and the 15 minute reminder by text through the GoHighLevel number. Each text is billed by GoHighLevel.', kind: 'enum', options: ON_OFF, def: 'off' }),
   hubDef({ id: 'meet.max_people', area: 'meetings', label: 'People in one meeting', hint: 'The next person to join a full meeting is turned away.', kind: 'int', min: 2, max: 100, unit: 'people', def: '60' }),
   // ---------------------------------------------------------------------------------------------------- Reports
   hubDef({ id: 'reports.mail_folder', area: 'reports', label: 'Mail files folder', hint: 'The Google Drive folder id where the Mail file sheets go, inside US Team Files. Empty means the folder called Hub mail files.', kind: 'text', def: '' }),

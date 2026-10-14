@@ -152,5 +152,9 @@ export const dayMoveResponse = z.object({
   linkError: z.string().optional(),
   emailed: z.number().optional(),
   emailFailed: z.number().optional(),
+  created: z.boolean().optional(),
+  invited: z.number().optional(),
+  series: z.boolean().optional(),
+  organizer: z.object({ email: z.string(), name: z.string() }).nullable().optional(),
 });
 export type DayMoveResponse = z.infer<typeof dayMoveResponse>;

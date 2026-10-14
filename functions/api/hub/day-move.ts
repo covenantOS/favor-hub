@@ -6,6 +6,8 @@ import { sendMoveInvites, sourceLabel } from '../../_lib/moveinvite';
 import { ensureGuestUrl } from '../../_lib/meetroute';
 import { getMeeting, guestsOn } from '../../_lib/meet';
 import { withMeetSettings } from '../../_lib/admin/settings';
+import { sendReminder } from '../../_lib/meetcal';
+import { isTester } from '../../_lib/testuser';
 
 // Move to FavorOS, from Today. An outside meeting on the person's calendar (Zoom, Google Meet, Teams, a phone call or no link at all)
 // becomes a FavorOS meeting at the same time with the same people. The calendar event is left as it is, except when the person
@@ -21,7 +23,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const user = hubUserOf(request);
     if (!user || user.via !== 'google') return errorJson('signin', 'Sign in with your Favor Google account first.', 401);
     const me = user.email.toLowerCase();
-    const b = (await request.json().catch(() => ({}))) as { eventId?: string; writeLink?: boolean; emailInvitees?: boolean };
+    const b = (await request.json().catch(() => ({}))) as { eventId?: string; writeLink?: boolean; emailInvitees?: boolean; tellOrganizer?: string };
+    if (b.tellOrganizer) return json(await tellOrganizer(env, user, clean(b.tellOrganizer, 30), new URL(request.url).origin));
     const eventId = clean(b.eventId, 200);
     if (!eventId) return errorJson('event', 'Pick a meeting to move.', 400);
 
@@ -44,7 +47,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // The organizer's calendar event always gets the FavorOS link and loses the old video link. Someone else's event cannot be edited.
     const organizer = !!ev.organizer?.self || String(ev.organizer?.email || '').toLowerCase() === me;
     const writeLink = organizer;
-    if (writeLink && !hasScopes(t.scopes, [CAL_EVENTS])) return errorJson('consent', 'Allow FavorOS to add to your calendar events. Google asks once.', 409);
+    // Organizer or not, the FavorOS meeting goes on a calendar: the organizer's event is changed, anyone else gets a new event of
+    // their own with the same people. Both need the calendar events permission.
+    if (!hasScopes(t.scopes, [CAL_EVENTS])) return errorJson('consent', 'Allow FavorOS to add to your calendar events. Google asks once.', 409);
 
     const id = hex(12);
     const dur = Math.max(10, Math.round((Date.parse(endsAt) - Date.parse(startsAt)) / 60000));
@@ -86,7 +91,37 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     let emailFailed = 0;
     // Until Meetings is released to staff, only admins can open a room. Say so instead of emailing a link that answers not found.
     const released = String((await withMeetSettings(env as any)).MEET_RELEASE || 'admin').toLowerCase() === 'staff';
-    if (b.emailInvitees === true && invitees.length && released) {
+    // Not the organizer, or Google refused the change: a new event on the mover's calendar, same time, same people (a group address
+    // stays a group address; Google sends it to the members). Google invites them, so FavorOS sends no second email.
+    let created = false;
+    if (!linked) {
+      const people = ((ev.attendees || []) as any[]).filter((a) => !a.self && !a.resource && a.email && String(a.email).toLowerCase() !== me).map((a) => ({ email: String(a.email) }));
+      const org = String(ev.organizer?.email || '').toLowerCase();
+      if (org && org !== me && !org.endsWith('calendar.google.com') && !people.some((p) => p.email.toLowerCase() === org)) people.push({ email: org });
+      const body = {
+        summary: clean(ev.summary, 140) || 'Meeting',
+        description: `Join in FavorOS: ${room}${ev.description ? '\n\n' + String(ev.description).slice(0, 3000) : ''}`,
+        location: room,
+        start: { dateTime: startsAt, timeZone: ev.start.timeZone || 'America/New_York' },
+        end: { dateTime: endsAt, timeZone: ev.end.timeZone || 'America/New_York' },
+        attendees: people.slice(0, 200),
+        guestsCanModify: false,
+        reminders: { useDefault: true },
+      };
+      const cr = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=${b.emailInvitees === false ? 'none' : 'all'}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${t.token}`, 'content-type': 'application/json' }, body: JSON.stringify(body),
+      });
+      const cj = (await cr.json().catch(() => ({}))) as { id?: string; error?: { message?: string } };
+      if (cr.ok && cj.id) {
+        created = true;
+        linkError = '';
+        if (org && org !== me) await env.DB.prepare('INSERT INTO hub_meeting_events (meeting_id, kind, from_pid, to_pid, body, ts) VALUES (?, ?, ?, ?, ?, ?)').bind(id, 'moved_from', '', '', JSON.stringify({ org, ext: ev.id }), Date.now()).run().catch(() => undefined);
+        await env.DB.prepare('UPDATE hub_meetings SET calendar_event_id = ? WHERE id = ?').bind(cj.id, id).run();
+      } else {
+        linkError = `Google Calendar did not take the new event${cj.error?.message ? ` (${clean(cj.error.message, 120)})` : ''}. The FavorOS meeting is made, but it is on no calendar. Copy the link and send it.`;
+      }
+    }
+    if (b.emailInvitees === true && invitees.length && released && !created) {
       const origin = new URL(request.url).origin;
       const nice = (i: { email: string; name: string }) => i.name || i.email.split('@')[0].replace(/[._]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       const r = await sendMoveInvites(env, {
@@ -104,8 +139,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       emailed = r.sent.length;
       emailFailed = r.failed.length + r.skipped.length;
     }
-    return json({ ok: true, released, id, room: `/meet/room/?m=${id}`, linked, linkError, emailed, emailFailed });
+    return json({
+      ok: true, released, id, room: `/meet/room/?m=${id}`, linked, created, linkError, emailed, emailFailed,
+      invited: created ? invitees.length : 0, series: !!ev.recurringEventId,
+      organizer: organizer ? null : { email: String(ev.organizer?.email || '').toLowerCase(), name: clean(ev.organizer?.displayName, 120) },
+    });
   } catch (err) {
     return handleError(err);
   }
 };
+
+/** The mover asks FavorOS to tell the organizer of the original event that the meeting moved, so they can delete their event. */
+async function tellOrganizer(env: Env, user: { email: string; name: string }, id: string, origin: string) {
+  if (!/^[0-9a-f]{24}$/.test(id)) return { ok: false, message: 'That meeting does not exist.' };
+  const m = await getMeeting(env as any, id);
+  if (m.host_email.toLowerCase() !== user.email.toLowerCase()) return { ok: false, message: 'Only the person who moved it can send this.' };
+  // The organizer of the original event, recorded when the meeting was moved.
+  const row = await env.DB.prepare(`SELECT body FROM hub_meeting_events WHERE meeting_id = ? AND kind = 'moved_from' ORDER BY seq DESC LIMIT 1`).bind(id).first<{ body: string }>().catch(() => null);
+  let to = '';
+  try { to = String(JSON.parse(row?.body || '{}').org || '').toLowerCase(); } catch { to = ''; }
+  if (!to) return { ok: false, message: 'FavorOS does not know who organizes the original event.' };
+  if (isTester(user.email) && !(isTester(to) || to === 'will@favorintl.org')) return { ok: false, message: 'The test user sends only to test accounts.' };
+  const ok = await sendReminder(env as any, [to], {
+    title: m.title, startsAt: m.starts_at as string, endsAt: m.ends_at, durationMin: m.duration_min, roomUrl: `${origin}/meet/room/?m=${id}`, backup: '', rec: m.rec_mode,
+    kind: 'link', host: m.host_name || m.host_email, sender: user.name || user.email,
+    note: 'I moved this meeting to FavorOS and put it on our calendars with this link. Your original calendar event still exists, so you can delete it.',
+  });
+  return { ok, message: ok ? 'Email sent.' : 'The email did not go.' };
+}

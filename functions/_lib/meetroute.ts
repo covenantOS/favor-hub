@@ -13,6 +13,7 @@ import { errorJson, handleError, json, nowIso, HttpError } from './http';
 import { chatJson, plain, stamp, TEXT_MODELS } from './clipai';
 import { HUB, dedupeLines, isDefaultTitle, makeNotes, makeNotesDoc, pumpDrive, pumpTranscript, renameRecordings, streamFile, transcribeRow, type DocInput, type NotesOut } from './meetdrive';
 import { matchPeople, parseTarget, smsText, textInvite } from './meetinvite';
+import { sendLink, sendState, setMyPhone, textSoon, type SendDeps } from './meetsend';
 import { actionTicked, meetActionsToTasks } from './projects/links/meet'; // projects hook
 import { calendarMeetings, createEvent, deleteEvent, freeBusy, getEvent, mayBook, patchCalendarEvent, patchEvent, sendReminder, swapConferencing, TZ } from './meetcal';
 import { mayMove } from './meetprovider';
@@ -50,8 +51,9 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (parts[1] === 'ask' && m === 'POST') return json(await askMeetings(env, user, ((await request.json().catch(() => ({}))) as Record<string, unknown>).q));
     if (parts[1] === 'channels' && m === 'GET') return json(await meetChannels(env, user));
     if (parts[0] === 'meetings' && parts[1] === 'actions' && m === 'GET') return json(await myActions(env, user));
+    if (parts[1] === 'myphone' && m === 'POST') return json(await setMyPhone(env, user, await request.json().catch(() => ({}))));
     if (parts[0] === 'meetings' && parts[1] === 'directory' && m === 'GET') return json(await directory(env));
-    if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env) });
+    if (parts[0] === 'meetings' && parts[1] === 'bookstatus' && m === 'GET') return json({ ok: true, ...(await mayBook(env, user.email)), guestsEnabled: guestsOn(env), leadMin: (await meetSettings(env).catch(() => null))?.leadMin ?? 15 });
     if (parts[0] === 'meetings' && parts[1] === 'freebusy' && m === 'POST') { const b = (await request.json().catch(() => ({}))) as Record<string, unknown>; return json({ ok: true, calendars: await freeBusy(env, user.email, ((b.emails as string[]) || []).map(String), String(b.from), String(b.to)) }); }
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && !parts[2] && m === 'GET') return json({ ok: true, ...(await calendarMeetings(env, user.email, (ids) => hubEventIds(env, ids), calWindow(new URL(request.url).searchParams))) });
     if (parts[0] === 'meetings' && parts[1] === 'calendar' && parts[2] === 'update' && m === 'POST') {
@@ -103,6 +105,8 @@ export async function route({ request, env: rawEnv, params, waitUntil }: { reque
     if (sub === 'rec') return await rec(env, user, id, parts.slice(3), request, waitUntil);
     if (sub === 'notes' && m === 'GET') return json(await notesOf(env, user, id));
     if (sub === 'media' && m === 'GET') return await mediaOf(env, user, id, parts[3] || '', request.headers.get('Range'));
+    if (sub === 'send' && m === 'GET') return json(await sendState(env, user, id));
+    if (sub === 'send' && m === 'POST') return json(await sendLink(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin, sendDeps(env, new URL(request.url).origin)));
     if (sub === 'invite' && m === 'POST') return json(await inviteTo(env, user, id, await request.json().catch(() => ({})), new URL(request.url).origin));
     if (sub === 'pump' && m === 'POST') return json(await pump(env, user, id, await request.json().catch(() => ({}))));
     if (sub === 'prep' && m === 'GET') return json(await prepSheet(env, user, id, new URL(request.url).origin));
@@ -373,6 +377,7 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
       } catch (e) { if (user.email.toLowerCase() === mt.host_email.toLowerCase()) throw e; }
     }
   }
+  let movedTo: { s0: string; e0: string } | null = null;
   const wantStart = typeof b.startsAt === 'string' && !Number.isNaN(Date.parse(b.startsAt));
   const wantEnd = typeof b.endsAt === 'string' && !Number.isNaN(Date.parse(b.endsAt));
   const newTitle = typeof b.title === 'string' ? clean(b.title, 140) : '';
@@ -386,11 +391,15 @@ async function updateMeeting(env: MeetEnv, user: { email: string; role: string }
     if (mt.calendar_event_id) await patchEvent(env, mt.host_email, mt.calendar_event_id, { startsAt: s0, endsAt: e0, title: newTitle || undefined });
     sets.push('starts_at = ?', 'ends_at = ?', 'duration_min = ?');
     vals.push(s0, e0, dur);
+    // The reminders already sent were for the old time; the new time gets its own.
+    if (s0 !== mt.starts_at) { await env.DB.prepare('DELETE FROM hub_meeting_reminders WHERE meeting_id = ?').bind(id).run(); movedTo = { s0, e0 }; }
   } else if (newTitle && mt.calendar_event_id && !mt.series_id) {
     await patchEvent(env, mt.host_email, mt.calendar_event_id, { title: newTitle });
   }
   if (!sets.length) return { ok: true };
   await env.DB.prepare(`UPDATE hub_meetings SET ${sets.join(', ')} WHERE id = ?`).bind(...vals, id).run();
+  if (movedTo && mt.status === 'scheduled') await noticeNoCalendar(env, mt, 'moved', movedTo.s0, movedTo.e0);
+  if (b.status === 'cancelled' && mt.status === 'scheduled' && mt.starts_at) await noticeNoCalendar(env, mt, 'cancelled', mt.starts_at, mt.ends_at);
   return { ok: true };
 }
 
@@ -1048,6 +1057,15 @@ async function inviteTo(env: MeetEnv, user: { email: string; name: string; role:
 
 // ---------------------------------------------------------------- directory, repeats and reminders
 
+const sendDeps = (env: MeetEnv, origin: string): SendDeps => ({ guestUrl: (m) => ensureGuestUrl(env, m, origin), people: async () => (await directory(env)).people });
+
+/** A move or a cancellation for a meeting with no Google Calendar event: FavorOS tells the invitees itself (Google tells them otherwise). */
+async function noticeNoCalendar(env: MeetEnv, mt: Meeting, kind: 'moved' | 'cancelled', startsAt: string, endsAt: string | null) {
+  if (mt.calendar_event_id || !startsAt) return;
+  const to = emailsOf(mt.invitees).filter((e) => e !== mt.host_email.toLowerCase() && !e.startsWith('guest:'));
+  for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt, endsAt, durationMin: mt.duration_min, roomUrl: `${HUB}/meet/room/?m=${mt.id}`, backup: '', rec: mt.rec_mode, kind, host: mt.host_name || mt.host_email, hostEmail: mt.host_email }).catch(() => false);
+}
+
 async function directory(env: MeetEnv) {
   const rows = await env.DB.prepare(
     `SELECT email, name, title, team FROM meet_directory WHERE active = 1
@@ -1111,8 +1129,9 @@ async function remind(env: MeetEnv, origin: string) {
       const guestSet = new Set(safeJson<Array<{ email?: string; guest?: boolean }>>(mt.invitees, []).filter((i) => i.guest).map((i) => String(i.email).toLowerCase()));
       // Who is coming, by name, for the reminder's faces: everyone invited but the host.
       const people = safeJson<Array<{ email?: string; name?: string }>>(mt.invitees, []).filter((i) => i.email && String(i.email).toLowerCase() !== mt.host_email.toLowerCase()).map((i) => String(i.name || i.email));
-      for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt: mt.starts_at as string, endsAt: mt.ends_at, durationMin: mt.duration_min, agenda: mt.agenda, people, hostEmail: mt.host_email, roomUrl: guestSet.has(e) && gk ? `${origin}/meet/g/?m=${mt.id}&k=${gk}` : `${origin}/meet/room/?m=${mt.id}`, backup: mt.backup_link, rec: mt.rec_mode, kind: w.kind, host: mt.host_name || mt.host_email });
+      for (const e of to) await sendReminder(env, [e], { title: mt.title, startsAt: mt.starts_at as string, endsAt: mt.ends_at, durationMin: mt.duration_min, agenda: mt.agenda, people, hostEmail: mt.host_email, roomUrl: guestSet.has(e) && gk ? `${origin}/meet/g/?m=${mt.id}&k=${gk}` : `${origin}/meet/room/?m=${mt.id}`, backup: mt.backup_link, rec: mt.rec_mode, kind: w.kind, host: mt.host_name || mt.host_email, leadMin: lead });
       sent += to.length;
+      if (w.kind === 'soon') sent += await textSoon(env, mt, origin, sendDeps(env, origin)).catch(() => 0);
     }
   }
   // Repeating meetings keep four occurrences ahead.

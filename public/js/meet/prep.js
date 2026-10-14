@@ -32,7 +32,7 @@ function draw(d) {
   document.title = 'Prep, ' + m.title + ' - FavorOS';
   const when = m.startsAt ? `${fmtDay(m.startsAt)}, ${fmtTime(m.startsAt)}${m.endsAt ? ' to ' + fmtTime(m.endsAt) : ''}` : 'Open room';
   root.innerHTML = `<div class="nt-head"><div><div class="h-label" style="margin-bottom:6px">Prep</div><h2>${esc(m.title)}</h2><div class="nt-meta"><span>${ic('cal')}${esc(when)}</span><span>${ic('users')}${d.attendees.length} ${d.attendees.length === 1 ? 'person' : 'people'}</span></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${m.status === 'ended' ? `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/notes/?m=${esc(m.id)}">Notes</a>` : `<a class="h-btn h-btn--primary h-btn--sm" href="/meet/room/?m=${esc(m.id)}">${ic('video')}Open the room</a>`}</div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${m.status === 'ended' ? `<a class="h-btn h-btn--ghost h-btn--sm" href="/meet/notes/?m=${esc(m.id)}">Notes</a>` : `<a class="h-btn h-btn--primary h-btn--sm" href="/meet/room/?m=${esc(m.id)}">${ic('video')}Open the room</a><button type="button" class="h-btn h-btn--ghost h-btn--sm" data-favor-send="${esc(m.id)}">Send the link</button>`}</div></div>
     <p class="pr-line">${esc(d.line)}</p>
     <div class="mt-grid"><div class="mt-stack">
       ${m.agenda ? `<section class="h-card mt-card"><div class="h-label" style="margin-bottom:8px">Agenda</div><p class="nt-sum" style="white-space:pre-wrap">${esc(m.agenda)}</p></section>` : ''}

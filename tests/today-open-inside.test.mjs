@@ -135,7 +135,7 @@ describe('Move to FavorOS', () => {
     const d = await (await post({ eventId: 'ev1', writeLink: true })).json();
     assert.equal(d.ok, true);
     assert.equal(d.linked, false);
-    assert.match(d.linkError, /untouched/);
+    assert.match(d.linkError, /on no calendar/);
     assert.equal(d1.db.prepare('SELECT calendar_event_id AS c FROM hub_meetings WHERE id = ?').get(d.id).c, 'ext:ev1');
   });
 

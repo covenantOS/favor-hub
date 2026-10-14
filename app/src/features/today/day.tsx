@@ -90,7 +90,7 @@ export function LivePill({ events }: { events: DayEvent[] | null | undefined }) 
 
 /* ------------------------------------------------------------------ a sheet: one at a time, over the page */
 
-type Sheet = { type: 'event'; id: string } | { type: 'move'; id: string } | { type: 'moved'; id: string; room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number } | null;
+type Sheet = { type: 'event'; id: string } | { type: 'move'; id: string } | ({ type: 'moved'; id: string } & { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }) | null;
 
 function SheetLayer({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
   const [on, setOn] = useState(false);
@@ -214,7 +214,7 @@ const firstOf = (email: string) => {
   return /^[a-z]{3,}$/i.test(w) ? w[0]!.toUpperCase() + w.slice(1).toLowerCase() : 'them';
 };
 
-function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; room: string; linked: boolean; linkError?: string; already?: boolean; emailed?: number; emailFailed?: number }) => void }) {
+function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayWrite: boolean; onClose: () => void; onBack: () => void; onDone: (r: { id: string; already?: boolean } & { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }) => void }) {
   const [mail, setMail] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -225,7 +225,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
     try {
       const res = await send('/api/hub/day-move', { eventId: e.id, emailInvitees: n > 0 && mail });
       const d = dayMoveResponse.parse(res);
-      onDone({ id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError, emailed: d.emailed, emailFailed: d.emailFailed });
+      onDone({ id: d.id, room: d.room, linked: !!d.linked, linkError: d.linkError, emailed: d.emailed, emailFailed: d.emailFailed, created: !!d.created, invited: d.invited, organizer: d.organizer, meetingId: d.id });
     } catch (x) {
       const er = x as Error & { status?: number; code?: string };
       if (er.status === 409 && er.code === 'already') {
@@ -249,7 +249,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
         <li>Makes a FavorOS meeting on {whenLine(e)}.</li>
         <li>{n ? `Invites the same ${n} ${n === 1 ? 'person' : 'people'} in FavorOS. ${mail ? 'FavorOS emails them the link.' : 'FavorOS sends no email.'}` : 'Only you are on it.'}</li>
         <li>It is not recorded. The host can change that in the meeting.</li>
-        <li id="t2-stays">{e.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the old video link comes off.' : 'Your calendar event is not changed.'}</li>
+        <li id="t2-stays">{e.canEdit ? 'Your calendar event gets the FavorOS link in its location and at the top of its notes, and the old video link comes off.' : 'A new event with the FavorOS link goes on your calendar, and Google invites the same people to it.'}</li>
       </ul>
       {n > 0 && (
         <label className="t2-check">
@@ -257,11 +257,12 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
           <span>{n === 1 ? `Email ${firstOf(e.people[0] || '')} the FavorOS link` : `Email the ${n} people the FavorOS link`}</span>
         </label>
       )}
-      {!e.canEdit ? (
-        <p className="t2-note">Someone else organizes this event, so Google does not let you change it. The FavorOS meeting is made and the calendar event keeps its video link. The organizer has to add the FavorOS link.</p>
-      ) : !mayWrite ? (
+      {!e.canEdit && (
+        <p className="t2-note">Someone else organizes the original event, so Google does not let you change it. It stays on calendars with its video link until the organizer deletes it. After the move you can email the organizer.</p>
+      )}
+      {!mayWrite ? (
         <>
-          <p className="t2-note">To put the FavorOS link on the calendar event, FavorOS needs your permission to edit your calendar events.</p>
+          <p className="t2-note">To put the FavorOS meeting on your calendar, FavorOS needs your permission to edit your calendar events.</p>
           <a className="h-btn h-btn--ghost h-btn--sm" href="/api/google/connect?add=meetings&next=%2F">
             Allow calendar edits
           </a>
@@ -273,7 +274,7 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
         </p>
       )}
       <div className="t2-acts">
-        <button type="button" className="h-btn h-btn--primary" data-t2-first disabled={busy} onClick={() => void go()}>
+        <button type="button" className="h-btn h-btn--primary" data-t2-first disabled={busy || !mayWrite} onClick={() => void go()}>
           {busy ? 'Moving' : 'Move to FavorOS'}
         </button>
         <button type="button" className="h-btn h-btn--ghost" onClick={onBack}>
@@ -284,7 +285,20 @@ function MoveSheet({ e, mayWrite, onClose, onBack, onDone }: { e: DayEvent; mayW
   );
 }
 
-function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number }; onClose: () => void }) {
+function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked: boolean; linkError?: string; emailed?: number; emailFailed?: number; created?: boolean; invited?: number; organizer?: { email: string; name: string } | null; meetingId?: string }; onClose: () => void }) {
+  const [told, setTold] = useState('');
+  const [telling, setTelling] = useState(false);
+  const org = s.created && s.organizer && s.organizer.email ? s.organizer : null;
+  const tell = async () => {
+    setTelling(true);
+    try {
+      const r = (await send('/api/hub/day-move', { tellOrganizer: s.meetingId })) as { ok?: boolean; message?: string };
+      setTold(r.ok ? `Emailed ${org?.name || org?.email}.` : r.message || 'The email did not go.');
+    } catch (x) {
+      setTold((x as Error).message || 'The email did not go.');
+    }
+    setTelling(false);
+  };
   return (
     <SheetLayer label="Moved to FavorOS" onClose={onClose}>
       <div className="t2-h">
@@ -296,11 +310,31 @@ function MovedSheet({ e, s, onClose }: { e: DayEvent; s: { room: string; linked:
       </div>
       <ul className="t2-list">
         <li>{whenLine(e)}.</li>
-        <li>{s.linked ? 'The FavorOS link is on your calendar event.' : 'Your calendar event is not changed.'}</li>
+        <li>
+          {s.linked
+            ? 'The FavorOS link is on your calendar event.'
+            : s.created
+              ? `A new event with the FavorOS link is on your calendar${s.invited ? `, and Google invited ${s.invited} ${s.invited === 1 ? 'person' : 'people'} to it` : ''}.`
+              : 'No calendar has this meeting yet.'}
+        </li>
+        {org && <li>{`The original event from ${org.name || org.email} is still on calendars. The organizer can delete it.`}</li>}
         {!!s.emailed && <li>{`Emailed the link to ${s.emailed} ${s.emailed === 1 ? 'person' : 'people'}.`}</li>}
         {!!s.emailFailed && <li>{`${s.emailFailed} ${s.emailFailed === 1 ? 'email' : 'emails'} did not go out. Share the room link with them.`}</li>}
       </ul>
-      {s.linkError && <p className="t2-note">{s.linkError}</p>}
+      {s.linkError && (
+        <p className="t2-err" role="alert">
+          {s.linkError}
+        </p>
+      )}
+      {org && (
+        <p className="t2-note" aria-live="polite">
+          {told || (
+            <button type="button" className="h-btn h-btn--ghost h-btn--sm" disabled={telling} onClick={() => void tell()}>
+              {`Email ${org.name || org.email} about the move`}
+            </button>
+          )}
+        </p>
+      )}
       <div className="t2-acts">
         <NavLink className="h-btn h-btn--primary" data-t2-first href={s.room} onClick={onClose}>
           Open the meeting
@@ -598,7 +632,7 @@ export function DayGrid({ day }: { day: Day }) {
               return;
             }
             patchEvent(sheetEvent.id, { hub: r.id, source: 'FavorOS', provider: 'favor' });
-            setSheet({ type: 'moved', id: sheetEvent.id, room: r.room, linked: r.linked, linkError: r.linkError, emailed: r.emailed, emailFailed: r.emailFailed });
+            setSheet({ type: 'moved', id: sheetEvent.id, room: r.room, linked: r.linked, linkError: r.linkError, emailed: r.emailed, emailFailed: r.emailFailed, created: r.created, invited: r.invited, organizer: r.organizer, meetingId: r.meetingId });
           }}
         />
       )}

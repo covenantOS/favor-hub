@@ -33,6 +33,8 @@ export interface CalMeeting {
   organizerName: string;
   description: string;
   canEdit: boolean;
+  /** One meeting of a repeating series. */
+  recurring: boolean;
 }
 
 export const PROVIDER_LABEL: Record<Provider, string> = { favor: 'Favor Meetings', meet: 'Google Meet', zoom: 'Zoom', teams: 'Microsoft Teams', webex: 'Webex' };
@@ -110,6 +112,7 @@ export function summarize(ev: CalEvent, self: string, canWrite: boolean): CalMee
     organizerName: organizer ? 'You' : ev.organizer?.email ? nameOf(ev.organizer as { email?: string }) : '',
     description: plain(ev.description || '').slice(0, 1500),
     canEdit: organizer,
+    recurring: !!ev.recurringEventId,
     canSwitch: switchable && canWrite,
     needsConsent: switchable && !canWrite,
   };

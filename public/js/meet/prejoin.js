@@ -72,6 +72,9 @@
       '<div class="pj-prev" id="pj-prev"><video id="pj-video" muted playsinline autoplay></video><span class="pj-me" id="pj-me"></span><span class="pj-camoff" id="pj-camoff">Camera off</span></div>' +
       '<div class="pj-lvl" aria-hidden="true"><span>' + ic('mic') + '</span><i><b id="pj-lvl"></b></i></div>' +
       '<p class="pj-note" id="pj-note" hidden></p>' +
+      (o.sendId && window.FavorSend ? '<p class="pj-send" style="margin:0;display:flex;flex-wrap:wrap;gap:4px 14px;justify-content:center;font:500 13px var(--h-font,inherit)">' +
+        (o.host ? '<button type="button" data-pj="send" style="border:0;background:none;color:var(--h-brand,#2b4d24);font:inherit;font-weight:650;cursor:pointer;padding:6px 2px;text-decoration:underline;text-underline-offset:3px">Send everyone the link</button>' : '') +
+        '<button type="button" data-pj="sendme" style="border:0;background:none;color:var(--h-brand,#2b4d24);font:inherit;font-weight:650;cursor:pointer;padding:6px 2px;text-decoration:underline;text-underline-offset:3px">Join from my phone</button></p>' : '') +
       '<div class="pj-ctl"><button type="button" class="pj-tg" id="pj-mic" data-pj="mic"></button><button type="button" class="pj-tg" id="pj-cam" data-pj="cam"></button><button type="button" class="pj-tg pj-tg--dev" data-pj="devs" aria-expanded="false" aria-controls="pj-devs">' + ic('gear') + '<span>Devices</span></button></div>' +
       '<div class="pj-devs" id="pj-devs" hidden></div>' +
       '<div class="pj-acts"><button type="button" class="pj-cancel" data-pj="close">Cancel</button><button type="button" class="pj-go" id="pj-go" data-pj="join" disabled>Join</button></div>' +
@@ -262,6 +265,8 @@
     else if (a === 'cam') { S.cam = !S.cam; paintToggles(); media(); }
     else if (a === 'devs') { S.devs = !S.devs; t.setAttribute('aria-expanded', String(S.devs)); $('pj-devs').hidden = !S.devs; if (S.devs) devices(); }
     else if (a === 'join') join();
+    else if (a === 'send' && window.FavorSend) window.FavorSend.open({ id: S.o.sendId });
+    else if (a === 'sendme' && window.FavorSend) window.FavorSend.open({ id: S.o.sendId, self: true });
   }
   function onChange(e) {
     var S = cur, a = e.target.getAttribute('data-pj'); if (!S) return;

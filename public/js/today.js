@@ -434,7 +434,7 @@
         draw();
         const done =
           `<div class="t2-h"><div><h3>Moved to FavorOS</h3><p>${esc(e.title)}</p></div>${closeBtn}</div>` +
-          `<ul class="t2-list"><li>${esc(whenLine(e))}.</li><li>${d.linked ? 'The FavorOS link is on your calendar event.' : 'Your calendar event is not changed.'}</li></ul>` +
+          `<ul class="t2-list"><li>${esc(whenLine(e))}.</li><li>${d.linked ? 'The FavorOS link is on your calendar event.' : d.created ? `A new event with the FavorOS link is on your calendar${d.invited ? `, and Google invited ${d.invited} ${d.invited === 1 ? 'person' : 'people'} to it` : ''}.` : 'No calendar has this meeting yet.'}</li>${d.created && d.organizer && d.organizer.email ? `<li>The original event from ${esc(d.organizer.name || d.organizer.email)} is still on calendars. The organizer can delete it.</li>` : ''}</ul>` +
           (d.linkError ? `<p class="t2-note">${esc(d.linkError)}</p>` : '') +
           `<div class="t2-acts"><a class="h-btn h-btn--primary" data-t2-first href="${esc(d.room)}">Open the meeting</a><button type="button" class="h-btn h-btn--ghost" data-t2-close>Done</button></div>`;
         openLayer('Moved to FavorOS', done);

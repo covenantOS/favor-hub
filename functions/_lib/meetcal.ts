@@ -106,6 +106,28 @@ export async function patchEvent(env: MeetEnv, booker: string, eventId: string, 
   if (!r.ok) throw new HttpError(502, 'calendar', 'Google Calendar did not accept the change.');
 }
 
+/** Add people to the booker's event without a Google email (FavorOS sends its own). A failure is reported, never thrown. */
+export async function addAttendees(env: MeetEnv, booker: string, eventId: string, emails: string[]): Promise<boolean> {
+  if (!emails.length) return true;
+  try {
+    const tok = await token(env, booker, [CAL_EVENTS]);
+    const url = `${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId.replace(/^ext:/, ''))}`;
+    const g = await fetch(url, { headers: { Authorization: `Bearer ${tok}` } });
+    if (!g.ok) return false;
+    const ev = (await g.json()) as { attendees?: Array<{ email?: string }> };
+    const have = new Set((ev.attendees || []).map((a) => String(a.email || '').toLowerCase()));
+    const add = emails.filter((e) => !have.has(e.toLowerCase()));
+    if (!add.length) return true;
+    const r = await fetch(`${url}?sendUpdates=none`, {
+      method: 'PATCH', headers: { Authorization: `Bearer ${tok}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ attendees: [...(ev.attendees || []), ...add.map((email) => ({ email }))] }),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteEvent(env: MeetEnv, booker: string, eventId: string): Promise<void> {
   const tok = await token(env, booker, [CAL_EVENTS]);
   const r = await fetch(`${cal(env)}/calendars/primary/events/${encodeURIComponent(eventId.replace(/^ext:/, ''))}?sendUpdates=all`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok}` } });
@@ -128,8 +150,16 @@ export interface ReminderInput {
   roomUrl: string;
   backup: string;
   rec: string;
-  kind: 'day' | 'soon' | 'now';
+  /** day and soon are the timed reminders, now an invitation to a meeting that is running, link the link sent again by hand,
+   * moved and cancelled the notices for a meeting that has no Google Calendar event to carry them. */
+  kind: 'day' | 'soon' | 'now' | 'link' | 'moved' | 'cancelled';
   host: string;
+  /** Minutes ahead the soon reminder goes (Admin > Meetings). 15 when not given. */
+  leadMin?: number;
+  /** A short line from the person who sent the link, shown above the Join button. */
+  note?: string;
+  /** Who sent the link again, when that is not the host. */
+  sender?: string;
   hostEmail?: string;
   endsAt?: string | null;
   durationMin?: number;
@@ -150,8 +180,25 @@ export function buildReminder(m: ReminderInput): { subject: string; html: string
   const endIso = m.endsAt || new Date(Date.parse(m.startsAt) + (m.durationMin || 30) * 60_000).toISOString();
   const mins = Math.max(5, Math.round((Date.parse(endIso) - Date.parse(m.startsAt)) / 60_000));
   const day = fmt(m.startsAt, TZ, { weekday: 'short', month: 'short', day: 'numeric' });
-  const subject = m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}` : m.kind === 'now' ? `Join now: ${m.title}` : `Starting in 15 minutes: ${m.title}`;
-  const pill = m.kind === 'day' ? { t: 'Tomorrow', bg: C.sun, fg: '#7a5410' } : m.kind === 'now' ? { t: 'Live now', bg: '#f7dcd5', fg: C.red } : { t: 'In 15 minutes', bg: C.leaf, fg: C.green };
+  const lead = m.leadMin && m.leadMin > 0 ? m.leadMin : 15;
+  const soonT = lead >= 60 && lead % 60 === 0 ? `${lead / 60} hour${lead === 60 ? '' : 's'}` : `${lead} minutes`;
+  const subject =
+    m.kind === 'day' ? `Tomorrow, ${day}: ${m.title}`
+    : m.kind === 'now' ? `Join now: ${m.title}`
+    : m.kind === 'link' ? `Meeting link: ${m.title}, ${day} at ${timeOf(m.startsAt)} Eastern`
+    : m.kind === 'moved' ? `New time: ${m.title}, ${day} at ${timeOf(m.startsAt)} Eastern`
+    : m.kind === 'cancelled' ? `Cancelled: ${m.title}, ${day}`
+    : `Starting in ${soonT}: ${m.title}`;
+  const pill =
+    m.kind === 'day' ? { t: 'Tomorrow', bg: C.sun, fg: '#7a5410' }
+    : m.kind === 'now' ? { t: 'Live now', bg: '#f7dcd5', fg: C.red }
+    : m.kind === 'link' ? { t: 'Meeting link', bg: C.leaf, fg: C.green }
+    : m.kind === 'moved' ? { t: 'New time', bg: C.sun, fg: '#7a5410' }
+    : m.kind === 'cancelled' ? { t: 'Cancelled', bg: '#f7dcd5', fg: C.red }
+    : { t: `In ${soonT}`, bg: C.leaf, fg: C.green };
+  const off = m.kind === 'cancelled';
+  const noteLine = (m.note || '').trim().slice(0, 300);
+  const noteBy = m.sender || m.host;
   const rec = m.rec === 'video' ? 'Recorded on video, with notes written up in FavorOS.' : m.rec === 'notes' ? 'The sound is recorded to make notes.' : '';
   const when = `${fmt(m.startsAt, TZ, { weekday: 'long', month: 'long', day: 'numeric' })}, ${timeOf(m.startsAt)} to ${timeOf(endIso)} Eastern`;
   const zones = ZONES.map(([label, z]) => ({ label, t: `${fmt(m.startsAt, z, { weekday: 'short' })} ${timeOf(m.startsAt, z)}` }));
@@ -161,7 +208,7 @@ export function buildReminder(m: ReminderInput): { subject: string; html: string
   const decline = m.hostEmail
     ? `mailto:${m.hostEmail}?subject=${encodeURIComponent(`Can't make it: ${m.title}`)}&body=${encodeURIComponent(`I can't make ${m.title} on ${day} at ${timeOf(m.startsAt)} Eastern.`)}`
     : '';
-  const join = m.kind === 'day' ? 'Join the meeting' : 'Join now';
+  const join = m.kind === 'day' || m.kind === 'link' || m.kind === 'moved' ? 'Join the meeting' : 'Join now';
 
   const label = (t: string) => `<div style="font:700 11px/1 Arial,sans-serif;letter-spacing:1.4px;color:${C.ink3};text-transform:uppercase;padding-bottom:10px">${t}</div>`;
   const tile =
@@ -194,25 +241,28 @@ export function buildReminder(m: ReminderInput): { subject: string; html: string
     `<tr><td style="padding:22px 28px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>${tile}<td valign="middle"><div style="font:400 24px/1.25 Georgia,'Times New Roman',serif;color:${C.ink}">${esc(m.title)}</div>` +
     `<div style="padding-top:6px;font:400 14px/1.45 Arial,sans-serif;color:${C.ink2}">${esc(when)} &middot; ${mins} min</div></td></tr></table></td></tr>` +
     `<tr><td style="padding:16px 28px 0;font-size:0">${zones.map((z, i) => chip(z.label, z.t, i === 0)).join('')}</td></tr>` +
-    `<tr><td style="padding:16px 28px 0"><a href="${esc(m.roomUrl)}" style="display:block;text-align:center;padding:16px 20px;border-radius:16px;background:${C.green};color:#ffffff;font:700 16px/1 Arial,sans-serif;text-decoration:none">${join} &rarr;</a></td></tr>` +
-    `<tr><td style="padding:12px 28px 0;font-size:0">${smallBtn(gcal, 'Google Calendar')}${smallBtn(outlook, 'Outlook')}${decline ? smallBtn(decline, "Can't make it") : ''}</td></tr>` +
+    (noteLine ? `<tr><td style="padding:16px 28px 0"><div style="border-left:3px solid ${C.green};padding:4px 0 4px 12px;font:400 15px/1.5 Arial,sans-serif;color:${C.ink}"><b>${esc(noteBy)}:</b> ${esc(noteLine)}</div></td></tr>` : '') +
+    (off
+      ? `<tr><td style="padding:16px 28px 0;font:400 14px/1.5 Arial,sans-serif;color:${C.ink2}">${esc(m.host)} cancelled this meeting. Nothing to join.</td></tr>`
+      : `<tr><td style="padding:16px 28px 0"><a href="${esc(m.roomUrl)}" style="display:block;text-align:center;padding:16px 20px;border-radius:16px;background:${C.green};color:#ffffff;font:700 16px/1 Arial,sans-serif;text-decoration:none">${join} &rarr;</a></td></tr>` +
+        `<tr><td style="padding:12px 28px 0;font-size:0">${smallBtn(gcal, 'Google Calendar')}${smallBtn(outlook, 'Outlook')}${decline ? smallBtn(decline, "Can't make it") : ''}</td></tr>`) +
     who +
     agenda +
     `<tr><td style="padding:20px 28px 24px"><div style="border-top:1px solid ${C.line};padding-top:14px;font:400 12.5px/1.6 Arial,sans-serif;color:${C.ink3}">${rec ? `${esc(rec)}<br/>` : ''}` +
-    `${m.backup ? `Room not loading? Use the backup: <a href="${esc(m.backup)}" style="color:${C.green}">${esc(m.backup.replace(/^https?:\/\//, ''))}</a>` : ''}</div></td></tr>` +
+    `${m.backup && !off ? `Room not loading? Use the backup: <a href="${esc(m.backup)}" style="color:${C.green}">${esc(m.backup.replace(/^https?:\/\//, ''))}</a>` : ''}</div></td></tr>` +
     `</table></td></tr></table></body></html>`;
   const text = [
     `${pill.t}: ${m.title}`,
+    ...(noteLine ? [`${noteBy}: ${noteLine}`] : []),
     when,
     zones.map((z) => `${z.label} ${z.t}`).join(' · '),
     `Host: ${m.host}`,
     ...(people.length ? [`Who is coming: ${people.join(', ')}`] : []),
     '',
-    `${join}: ${m.roomUrl}`,
-    `Add to Google Calendar: ${gcal}`,
+    ...(off ? [`${m.host} cancelled this meeting.`] : [`${join}: ${m.roomUrl}`, `Add to Google Calendar: ${gcal}`]),
     ...(m.agenda ? ['', 'Agenda', m.agenda.trim()] : []),
     ...(rec ? ['', rec] : []),
-    ...(m.backup ? ['', `Backup: ${m.backup}`] : []),
+    ...(m.backup && !off ? ['', `Backup: ${m.backup}`] : []),
   ].join('\n');
   return { subject, html, text };
 }
