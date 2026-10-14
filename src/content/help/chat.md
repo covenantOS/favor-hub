@@ -59,11 +59,17 @@ Press the **plus** in the message box.
 - **Share from Drive** searches the Drive library. It lists only files your own Google account can open, and posts the pick as a card with an Open button.
 - **Share a clip** lists your clips. A pasted clip link becomes a clip card too.
 - **Record a clip** opens the recorder. The clip posts to the channel when you finish it.
-- **Start a meeting** opens the huddle sheet, the same as the **Huddle** button.
+- **Huddle** works like the **Huddle** button at the top.
 
 ## Huddles
 
-Press **Huddle** at the top of a channel or a conversation. A sheet opens with who is in the huddle now, a preview of your camera, a bar that moves when your microphone hears you, and buttons for the microphone, the camera and your devices. Nothing starts until you press **Join huddle** or, when nobody is in one, **Start a huddle**. The room then opens with the choices you made.
+In a direct message or a group, press **Huddle** at the top to call the others. You go straight into the room with your microphone on and your camera off, and they hear a ring on every FavorOS tab they have open, plus a notice on their phone. They press **Join**, **Decline**, or **Message** to decline with a quick reply such as "I'll call you back in a few minutes", which lands in your conversation. A ring lasts 30 seconds. If nobody answers, or the person is in quiet hours, they get a **Missed huddle** note in your direct message instead, and the room shows who missed it with **Ring again**.
+
+You can also call someone from their card: hover a name or an @mention and press **Huddle**, or press the headset next to a person in a conversation's member list or in the dock. Inside a meeting, type a colleague's name under **Add people** in the People panel to ring them in.
+
+In a channel, **Huddle** starts the channel's huddle, or joins it when one is going, and nobody is rung. Your camera, microphone and speaker settings are inside the room under the arrow next to Mute and Camera.
+
+What a huddle records follows your setting in the Notifications gear under **Meeting recording**: Record video, Transcribe only or Neither. The host can change it during the call from the recording button at the top of the room, and everyone in the room sees what is recorded.
 
 A channel has one huddle at a time. While one is going, a green bar under the channel name shows the faces, how long it has run and a **Join** button, and the Huddle button turns green. A new huddle posts a card in the channel. The bar and the card count only people who are in the room now: a person who closes the tab, locks their phone or loses the connection drops off within about 20 seconds, and a huddle everyone has left reads Ended. **Leave** takes you back to the channel. When the notes are ready they post in the card's thread with the action items.
 
