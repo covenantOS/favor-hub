@@ -30,3 +30,4 @@ html.has-wc body.h-body .r2t-row3 { grid-template-columns: repeat(auto-fit, minm
   .tw-gd__c:nth-last-child(-n + 2) { border-bottom: 0; }
   .tw-quick { grid-template-columns: minmax(0, 1fr); }
 }
+@media (max-width: 1100px) { .tw #wh-due, .tw #wh-gifts, .tw #tw-giftday, .tw #wh-week, .tw #wh-changes { order: 0; } }
