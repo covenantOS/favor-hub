@@ -263,11 +263,24 @@ async function mountProject(root, key) {
     writeFilters(ctx);
   });
 
+  // Connect Asana: on a synced project, a person who has not connected gets a link, so their edits reach Asana as them.
+  let asanaMe = null;
+  async function asanaConnect(el) {
+    if (!asanaMe) asanaMe = fetch('/api/asana/oauth/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => null);
+    const me = await asanaMe;
+    if (!me || me.ok === false || me.connected || !el || el.querySelector('.pj-asana-connect')) return;
+    const a = document.createElement('a');
+    a.className = 'pj-tag pj-asana-connect';
+    a.href = '/api/asana/oauth/connect?back=' + encodeURIComponent(location.pathname + location.search);
+    a.textContent = 'Connect Asana';
+    el.appendChild(a);
+  }
   function paintHeader() {
     const p = ctx.project;
     if (!p) return;
     document.title = p.name + ' - FavorOS';
     root.querySelector('[data-title]').innerHTML = `<i class="pj-dot pj-dot--lg" data-c="${esc(p.color)}"></i><h1>${esc(p.name)}</h1><span class="pj-pkey">${esc(p.key)}</span>${p.team ? `<span class="pj-pcard__team">${esc(p.team)}</span>` : ''}${p.status !== 'active' ? `<span class="pj-tag">${esc(p.status)}</span>` : ''}${p.asana_sync === true ? '<span class="pj-tag pj-tag--asana">Synced with Asana</span>' : ''}${p.visibility === 'members' ? `<span class="pj-pcard__lock" title="Members only">${icon('lock')}</span>` : ''}`;
+    if (p.asana_sync === true) asanaConnect(root.querySelector('[data-title]'));
     const ms = ctx.members.slice(0, 5);
     root.querySelector('[data-pact]').innerHTML = `<button type="button" class="pj-members-btn" data-pa="details" aria-label="Members"><span class="pj-stack">${ms.map((m) => avatar(m)).join('')}</span>${ctx.members.length > 5 ? `<span class="pj-more">+${ctx.members.length - 5}</span>` : ''}</button><button type="button" class="pj-btn pj-pa-status" data-pa="status" aria-label="Friday update">${icon('clock')}<span>Friday update</span></button><button type="button" class="pj-ib" data-pa="details" aria-label="Project details">${icon('more')}</button>`;
   }

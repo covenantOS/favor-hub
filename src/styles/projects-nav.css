@@ -101,3 +101,4 @@
   .pj-pheader h1 { min-width: 0; flex: 0 1 auto; }
 }
 .pj-col__h .pj-sec__n { white-space: nowrap; flex: none; }
+.pj-asana-connect { color: var(--a-ink); font-weight: 600; text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }

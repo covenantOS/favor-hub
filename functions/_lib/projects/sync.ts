@@ -411,6 +411,11 @@ export async function syncTask(
     const hv = h[k];
     const avk = av[k];
     if (hv === avk) continue;
+    // A FavorOS task with no section takes Asana's (Asana always has one).
+    if (k === 'section' && !hv) {
+      if (avk) (toHub as any)[k] = avk;
+      continue;
+    }
     // An Asana assignee with no FavorOS account reads as nobody here, so it is never pushed over or cleared.
     if (k === 'assignee' && !avk && a.assignee) continue;
     let hCh: boolean;
