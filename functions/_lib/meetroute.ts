@@ -243,7 +243,9 @@ async function listMeetings(env: MeetEnv, user: { email: string; role: string },
   // An address matches only as a whole quoted address in the JSON, so ann@ never finds a meeting that invited joann@.
   // Notes lists (recent, notes) follow the notes rule: a guest link (access = guests) opens the room, never the notes.
   const notesScope = scope === 'recent' || scope === 'notes';
-  const open = user.role === 'field' ? '' : notesScope ? `access = 'staff' OR id IN (SELECT meeting_id FROM hub_meeting_presence WHERE lower(email) = ?1 AND role != 'guest') OR ` : `access IN ('staff','guests') OR `;
+  const open = user.role === 'field' ? '' : notesScope ? `access = 'staff' OR id IN (SELECT meeting_id FROM hub_meeting_presence WHERE lower(email) = ?1 AND role != 'guest') OR ` : `id IN (SELECT meeting_id FROM hub_meeting_presence WHERE lower(email) = ?1 AND role != 'guest' AND left_at = 0) OR `;
+  // 2026-10-14: the upcoming list showed every staff-open or guest-link meeting to all staff, so private meetings with a
+  // guest link appeared on everyone's list. Upcoming now lists only meetings you host, are invited to, or are in right now.
   const mine = `(lower(host_email) = ?1 OR ${open}instr(lower(invitees), '"' || ?1 || '"') > 0 OR instr(lower(cohosts), '"' || ?1 || '"') > 0)`;
   let sql: string;
   if (scope === 'recent') sql = `SELECT * FROM hub_meetings WHERE ${mine} AND status = 'ended' ORDER BY COALESCE(ended_at, created_at) DESC LIMIT 60`;
