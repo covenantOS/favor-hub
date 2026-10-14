@@ -132,7 +132,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
     </script>
     <script is:inline src="/js/favor-data.js?v=1"></script>
     <script is:inline src="/js/favor-ui.js?v=1" defer></script>
-    <script is:inline src="/js/favor-entity.js?v=1" defer></script>
+    <script is:inline src="/js/favor-entity.js?v=2" defer></script>
     <script is:inline src="/js/sheets.js?v=2"></script>
     {!lean && <script is:inline>
       // The partner tools (partner card, drill-down, thank-you, call prep, records). In Lite mode a person without partner access
@@ -417,6 +417,7 @@ const specRules = { prefetch: [{ where: { and: [{ selector_matches: '.h-side nav
           document.documentElement.classList.toggle('has-wc', !!access.workCenter);
           document.documentElement.classList.toggle('has-clips', !!access.clips);
           document.documentElement.classList.toggle('has-chat', !!access.chat);
+          document.documentElement.classList.toggle('has-mail', !!access.mail);
           document.documentElement.classList.toggle('has-tasks', !!access.tasks);
           document.documentElement.classList.toggle('has-projects', !!access.projects); // projects hook
           document.documentElement.classList.toggle('has-clip-rec', access.clips && access.clipsRecord !== false);

@@ -50,7 +50,7 @@ html.kbd .fc-win :is(button, a, input, select):focus-visible { outline: 2px soli
 .fc-win[data-mode='min'] .fc-head { border-bottom: 0; cursor: pointer; background: #fff; }
 .fc-win[data-mode='min'] .fc-head:hover { background: var(--fc-hover); }
 .fc-win[data-mode='min'] .fc-head__t { cursor: pointer !important; }
-.fc-win[data-mode='min'] [data-c='min'], .fc-win[data-mode='min'] [data-c='full'], .fc-win[data-mode='min'] [data-c='dock'] { display: none; }
+.fc-win[data-mode='min'] [data-fc-c='min'], .fc-win[data-mode='min'] [data-fc-c='full'], .fc-win[data-mode='min'] [data-fc-c='dock'] { display: none; }
 .fc-only-inline, .fc-only-free { display: none !important; }
 .fc-win[data-mode='inline'] .fc-only-inline { display: inline-grid !important; }
 .fc-win.is-free .fc-only-free { display: inline-grid !important; }
@@ -208,8 +208,8 @@ html.kbd .fc-win :is(button, a, input, select):focus-visible { outline: 2px soli
   .fc-win:not([data-mode='min']) .fc-head__t { justify-content: center; flex-direction: column; align-items: center; gap: 0; height: 52px; }
   .fc-win:not([data-mode='min']) .fc-head__t b { font-size: 16px; align-self: center; }
   .fc-win:not([data-mode='min']) .fc-saved { font-size: 12px; }
-  .fc-win:not([data-mode='min']) .fc-head__acts [data-c='close'], .fc-win:not([data-mode='min']) [data-c='full'], .fc-win:not([data-mode='min']) [data-c='pop'], .fc-win:not([data-mode='min']) [data-c='dock'] { display: none !important; }
-  .fc-win:not([data-mode='min']) .fc-head__acts [data-c='min'] { display: inline-grid !important; order: -1; }
+  .fc-win:not([data-mode='min']) .fc-head__acts [data-fc-c='close'], .fc-win:not([data-mode='min']) [data-fc-c='full'], .fc-win:not([data-mode='min']) [data-fc-c='pop'], .fc-win:not([data-mode='min']) [data-fc-c='dock'] { display: none !important; }
+  .fc-win:not([data-mode='min']) .fc-head__acts [data-fc-c='min'] { display: inline-grid !important; order: -1; }
   .fc-win:not([data-mode='min']) .fc-ph-cancel { display: inline-flex; align-items: center; order: -2; height: 44px; padding: 0 10px; border: 0; background: none; color: var(--fc-pri-ink) !important; font: 500 16px var(--fc-font) !important; }
   .fc-win:not([data-mode='min']) .fc-ph-send { display: inline-grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; background: var(--fc-pri); color: #fff !important; }
   .fc-win:not([data-mode='min']) .fc-ph-send .fc-i { width: 20px; height: 20px; }

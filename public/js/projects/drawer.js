@@ -207,7 +207,7 @@ function crumbHtml() {
   const t = st.task;
   const parts = [];
   if (t.parent_id && st.parentRef) parts.push(`<button type="button" class="pj-crumb__up" data-a="parent">${icon('up')}${esc(st.parentRef.code || 'Parent task')}</button>`);
-  if (t.code) parts.push(`<button type="button" class="pj-code-id pj-code-id--btn" data-a="copy" title="Copy a link to this task">${esc(t.code)}${icon('copy')}</button>`);
+  if (t.code) parts.push(`<button type="button" class="pj-code-id pj-code-id--btn" data-a="copy" draggable="true" data-task-drag title="Copy a link to this task, or drag it into an email">${esc(t.code)}${icon('copy')}</button>`);
   if (t.source && typeof t.source.url === 'string' && t.source.url.charAt(0) === '/') parts.push(`<a class="pj-src" href="${esc(t.source.url)}">${icon('link')}<span>${esc(t.source.label)}</span></a>`);
   return parts.join('');
 }
@@ -533,17 +533,42 @@ document.addEventListener('submit', async (e) => {
 
 async function more(anchor) {
   const t = st.task;
-  // Find a time and a clip reply come from integrations.js (window.FavorIx) when it is on the page.
+  // Find a time and a clip reply come from integrations.js (window.FavorIx) when it is on the page; Send to email from the composer.
   const ix = window.FavorIx;
   const items = [{ value: 'copy', label: 'Copy link', icon: 'copy' }]
     .concat(ix ? [{ value: 'meet', label: 'Find a time', icon: 'clock' }] : [])
     .concat(ix && ix.clipReply ? [{ value: 'clip', label: 'Reply with a clip', icon: 'send' }] : [])
+    .concat(window.FavorCompose && document.documentElement.classList.contains('has-mail') ? [{ value: 'email', label: 'Send to email', icon: 'send' }] : [])
+    .concat(window.FavorHandoff ? [{ value: 'handoff', label: 'Hand off', icon: 'user' }] : [])
     .concat([{ value: 'del', label: 'Remove task', icon: 'trash' }]);
   const v = await choose({ anchor, title: 'Task', items });
   if (v === 'meet' && ix) ix.findTime({ kind: 'task', ref: t.id });
   if (v === 'clip' && ix && ix.clipReply) ix.clipReply({ kind: 'task', ref: t.id, title: t.title });
   if (v === 'copy') copyLink();
+  if (v === 'email') window.FavorCompose.add(taskItem(t));
+  if (v === 'handoff') window.FavorHandoff.open({ kind: 'task', id: t.id, title: t.title || '' });
   if (v === 'del') { const c = ctxFor(t.id); close(false); if (c === main) await main.remove([t.id]); else { try { await api.deleteTask(t.id); toast('Task removed'); } catch (err) { toast(err.message, { error: true }); } } }
+}
+// Dragging the task code into an email draft adds the task as a link.
+document.addEventListener('dragstart', (e) => {
+  const chip = e.target.closest && e.target.closest('[data-task-drag]');
+  if (!chip || !e.dataTransfer || !st || !st.task) return;
+  const it = taskItem(st.task);
+  e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(it));
+  e.dataTransfer.setData('text/uri-list', it.url);
+  e.dataTransfer.setData('text/plain', it.url);
+  e.dataTransfer.effectAllowed = 'copy';
+});
+// A task as an item for the email composer (public/js/compose/compose.js).
+function taskItem(t) {
+  const sub = [t.status ? String(t.status).replace(/_/g, ' ') : '', t.due_date ? 'due ' + t.due_date : ''].filter(Boolean).join(', ');
+  return { kind: 'task', title: (t.code ? t.code + ' ' : '') + (t.title || 'Task'), url: taskUrl(t), sub };
+}
+function taskUrl(t) {
+  const u = new URL(location.origin + '/projects/');
+  if (t.project) { u.pathname = '/projects/p/'; u.search = '?p=' + encodeURIComponent(t.project.key) + '&t=' + encodeURIComponent(t.code || t.id); }
+  else u.search = '?t=' + encodeURIComponent(t.id);
+  return u.toString();
 }
 function copyLink() {
   const t = st.task;

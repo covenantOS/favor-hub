@@ -54,6 +54,7 @@
     var rows = [];
     if (root.classList.contains('has-chat')) rows.push(['chat', 'message', 'Chat', 'A direct message or a channel, with a note']);
     if (root.classList.contains('has-projects')) rows.push(['task', 'task', 'A Projects task', 'Starts a task you can assign']);
+    if (root.classList.contains('has-mail') && window.FavorCompose) rows.push(['email', 'send', 'Email', 'Adds it to the email you are writing, or starts one']);
     if (ref.kind !== 'person') rows.push(['request', 'request', 'A request', 'Links it in a comment on a request']);
     rows.push(['brain', 'brain', 'Ask Favor Brain', 'Opens a new chat about it']);
     if (abs(ref)) rows.push(['copy', 'copy', 'Copy the link', abs(ref).replace(/^https?:\/\//, '')]);
@@ -153,6 +154,7 @@
       if (window.PJLinks) window.PJLinks.makeTask({ title: ref.kind === 'page' ? 'Follow up: ' + title(ref) : title(ref) });
       return;
     }
+    if (step === 'email') { close(); window.FavorCompose.add({ kind: ref.kind === 'clip' || ref.kind === 'task' || ref.kind === 'meeting' ? ref.kind : 'link', title: title(ref), url: abs(ref), sub: ref.sub || '' }); return; }
     if (step === 'brain') { close(); location.href = '/brain/?ask=' + encodeURIComponent(E.askText({ kind: ref.kind, id: ref.id, title: title(ref), lookup: ref.lookup })); return; }
     if (step === 'copy') {
       var link = abs(ref);

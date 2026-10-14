@@ -1,12 +1,12 @@
 /* Page ownership. Inlined in the head of every hub page by src/layouts/App.astro, before any other script runs.
    A page's scripts leave timers, listeners, observers and nodes on the body behind. When hub-swap.js changes pages in place, that
    debris used to pile up (about 280 detached nodes and 5 listeners per page change). This file notes what page code created, so
-   hub-swap.js can remove it before the next page arrives. FavorOS's own scripts (the shell list below) are never touched.
+   hub-swap.js can remove it before the next page arrives. FavorOS's own scripts (the shell list below, the email composer among them) are never touched.
    The creator is read from the call stack: the nearest frame is a page script when its file is under /js/ and not in the shell
    list, or when it comes from code hub-swap.js evaluated (named hub-page-N.js). */
 (function () {
   if (window.__hubOwn) return;
-  var SHELL = /\/js\/(?:[a-z]+\/)?(app-update|sheets|drill|thank|prep|partner|records|add-partner|ux-pass|hub-own|hub-shell|hub-nav|hub-swap|clips-launch|wc-bell|sticky-col|mention-input|request-tasks|request-drawer|favor-data|favor-ui|favor-entity|favor-share|dock|dock-panel|links)\.js|\/_astro\/|\/_app\/assets\//;
+  var SHELL = /\/js\/(?:[a-z]+\/)?(app-update|sheets|drill|thank|prep|partner|records|add-partner|ux-pass|hub-own|hub-shell|hub-nav|hub-swap|clips-launch|wc-bell|sticky-col|mention-input|request-tasks|request-drawer|favor-data|favor-ui|favor-entity|favor-share|dock|dock-panel|links|compose)\.js|\/_astro\/|\/_app\/assets\//;
   var own = { iv: [], to: [], ls: [], ob: [], ws: [] };
   var st = { sync: false, held: [] };
   var oSI = window.setInterval, oCI = window.clearInterval, oST = window.setTimeout, oCT = window.clearTimeout;

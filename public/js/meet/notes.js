@@ -236,6 +236,18 @@ async function speakerClick(act) {
   sp.busy = false; draw();
 }
 
+// The notes as an item for the email composer (public/js/compose/compose.js): summary, decisions and action items, and the
+// meeting's people on the To line when it starts a new email.
+function emailItem() {
+  const m = data.meeting; const n = data.notes || {};
+  const li = (t) => `<li>${esc(t)}</li>`;
+  const html = (m.summary ? `<p>${esc(m.summary)}</p>` : '') +
+    ((n.decisions || []).length ? `<p><b>Decisions</b></p><ul>${n.decisions.map((d) => li(d.text)).join('')}</ul>` : '') +
+    ((data.actions || []).length ? `<p><b>Action items</b></p><ul>${data.actions.map((a) => li(a.text + (String(a.owner_name || '').trim() ? ' (' + String(a.owner_name).trim() + (a.due ? ', due ' + a.due : '') + ')' : a.due ? ' (due ' + a.due + ')' : ''))).join('')}</ul>` : '');
+  const to = (data.people || []).filter((p) => p.email && !p.me).map((p) => ({ email: p.email, name: p.name || '' }));
+  return { kind: 'meeting', title: (String(m.title || '').trim() || 'Meeting') + (m.startedAt ? ', ' + fmtDay(m.startedAt) : ''), html, url: location.origin + '/meet/notes/?m=' + encodeURIComponent(MID), to, subject: 'Notes: ' + (String(m.title || '').trim() || 'Meeting') };
+}
+
 function draw() {
   const m = data.meeting; const n = data.notes || {};
   document.title = m.title + ' - FavorOS';
@@ -254,7 +266,7 @@ function draw() {
   const hasTr = (data.transcript || []).length > 0;
   root.innerHTML = `<div class="nt-head"><div><div class="h-label" style="margin-bottom:6px">Meeting notes</div><h2>${esc(String(m.title || '').trim() || 'Meeting')}</h2>
     <div class="nt-meta"><span>${ic('cal')}${m.startedAt ? fmtDay(m.startedAt) : ''}</span>${m.startedAt && m.endedAt ? `<span>${ic('clock')}${fmtTime(m.startedAt)} to ${fmtTime(m.endedAt)}${mins ? ' (' + mins + ' min)' : ''}</span>` : ''}<span>${ic('users')}${ppl.length} ${ppl.length === 1 ? 'person' : 'people'}</span><span class="mt-avs">${ppl.slice(0, 6).map((p) => av(p.name)).join('')}${ppl.length > 6 ? `<span class="mt-av mt-av--more" title="${esc(ppl.slice(6).map((p) => p.name || p.email).join(', '))}">+${(ppl.length - 6).toLocaleString('en-US')}</span>` : ''}</span></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="h-btn h-btn--ghost h-btn--sm" id="nt-dl">${ic('download')}Transcript</button><button class="h-btn h-btn--ghost h-btn--sm" id="nt-copy">${ic('share')}Share</button><a class="h-btn h-btn--primary h-btn--sm" href="/meet/book/?follow=${encodeURIComponent(MID)}">${ic('plus')}Book the follow-up</a></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="h-btn h-btn--ghost h-btn--sm" id="nt-dl">${ic('download')}Transcript</button><button class="h-btn h-btn--ghost h-btn--sm" id="nt-copy">${ic('share')}Share</button>${window.FavorCompose && document.documentElement.classList.contains('has-mail') && !pending ? `<button class="h-btn h-btn--ghost h-btn--sm" id="nt-email" draggable="true" title="Email the summary, decisions and action items (or drag this into an email)">${ic('send')}Send to email</button>` : ''}<a class="h-btn h-btn--primary h-btn--sm" href="/meet/book/?follow=${encodeURIComponent(MID)}">${ic('plus')}Book the follow-up</a></div></div>
     ${pending ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px"><b>${m.status === 'live' ? 'The meeting is still going.' : 'The notes are being made.'}</b> <span id="nt-prog">${m.recState === 'uploading' ? 'Saving the recording to Google Drive.' : 'Reading the recording.'}</span></div>` : ''}
     ${failed ? `<div class="mt-note mt-note--gold" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap"><span><b>The notes failed.</b> The recording is safe in Google Drive.</span><button class="h-btn h-btn--primary h-btn--sm" id="nt-retry">Try again</button></div>` : ''}
     <div class="mt-grid"><div class="mt-stack">
@@ -276,6 +288,17 @@ function draw() {
         ${ask.busy ? '<p class="mt-sub" style="margin:8px 0 0">Reading the transcript.</p>' : ask.answer ? `<div class="ans" style="margin-top:8px"><p style="margin:0 0 6px;font-size:14px">${esc(ask.answer.answer)}</p>${ask.answer.points.length ? `<ul>${ask.answer.points.map((p) => `<li>${ts(p.t)}<span>${esc(p.text)}</span></li>`).join('')}</ul>` : ''}</div>` : ''}</section>` : ''}
     </div></div>`;
   $('#nt-copy').addEventListener('click', () => copy(location.href));
+  const em = $('#nt-email');
+  if (em) {
+    em.addEventListener('click', () => window.FavorCompose.add(emailItem()));
+    em.addEventListener('dragstart', (e) => {
+      const it = emailItem();
+      e.dataTransfer.setData('application/x-favoros-item', JSON.stringify(it));
+      e.dataTransfer.setData('text/uri-list', it.url);
+      e.dataTransfer.setData('text/plain', it.url);
+      e.dataTransfer.effectAllowed = 'copy';
+    });
+  }
   root.querySelectorAll('[data-pt]').forEach((b) => b.addEventListener('click', () => partnerClick(b)));
   root.querySelectorAll('[data-pv]').forEach((b) => b.addEventListener('click', () => privacyClick(b)));
   root.querySelectorAll('[data-sp]').forEach((b) => b.addEventListener('click', () => speakerClick(b.dataset.sp)));
